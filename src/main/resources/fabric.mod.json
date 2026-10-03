@@ -4,7 +4,9 @@
 	"version": "${version}",
 	"name": "The Shooting Star",
 	"description": "SS-03 Gungnir: a mass driver ringing Jupiter. Kinetic-lock a target with the uplink, watch the round lap the ring seven times, cross the belt at 0.96c and plane the zone.",
-	"authors": ["Kortev"],
+	"authors": [
+		"Kortev"
+	],
 	"contact": {
 		"sources": "https://github.com/Kortev/loft"
 	},
@@ -12,13 +14,23 @@
 	"icon": "assets/shootingstar/icon.png",
 	"environment": "*",
 	"entrypoints": {
-		"main": ["io.github.kortev.shootingstar.ShootingStar"],
-		"client": ["io.github.kortev.shootingstar.client.ShootingStarClient"]
+		"main": [
+			"io.github.kortev.shootingstar.ShootingStar"
+		],
+		"client": [
+			"io.github.kortev.shootingstar.client.ShootingStarClient"
+		]
 	},
 	"depends": {
 		"fabricloader": ">=0.16.0",
 		"minecraft": "~1.21.1",
 		"java": ">=21",
 		"fabric-api": "*"
-	}
+	},
+	"mixins": [
+		{
+			"config": "shootingstar.client.mixins.json",
+			"environment": "client"
+		}
+	]
 }

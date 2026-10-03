@@ -145,7 +145,7 @@ public final class StrikeManager {
 				strike.impact = impact;
 				impact.start();
 				ModNetworking.broadcast(world, new StrikeImpactPayload(strike.id, strike.target, impact.radius(),
-						impact.zoneDiameter(), impact.spireHeight()));
+						impact.terrain() ? impact.zoneDiameter() : 0, impact.spireHeight()));
 				ShootingStar.LOGGER.info("Strike #{} impact at {}", strike.id, strike.target.toShortString());
 			} else if (strike.impact != null && !strike.carved) {
 				strike.carved = strike.impact.step();
