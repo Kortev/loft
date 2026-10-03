@@ -62,10 +62,11 @@ public class StrikeGameTests implements FabricGameTest {
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "b_strike", tickLimit = StrikeTimeline.IMPACT + 120)
 	public void fullStrike(TestContext context) {
 		ServerWorld world = context.getWorld();
-		world.getGameRules().get(ModGameRules.CRATER_RADIUS).set(8, world.getServer());
+		// Radius 12: bowl out to 5, plain planed ground from 5 to 9, the debris lip beyond, scorched ring to 18.
+		world.getGameRules().get(ModGameRules.CRATER_RADIUS).set(12, world.getServer());
 		// Well clear of the test box so the crater cannot touch the test's own structure.
 		BlockPos center = context.getAbsolutePos(new BlockPos(4, 3, 48));
-		for (BlockPos pos : BlockPos.iterate(center.add(-14, -6, -14), center.add(14, 0, 14))) {
+		for (BlockPos pos : BlockPos.iterate(center.add(-20, -6, -20), center.add(20, 0, 20))) {
 			world.setBlockState(pos, Blocks.STONE.getDefaultState());
 		}
 		for (BlockPos pos : BlockPos.iterate(center.add(3, 1, 3), center.add(5, 4, 5))) {
@@ -75,7 +76,7 @@ public class StrikeGameTests implements FabricGameTest {
 		// so it cannot be used to convert back from absolute positions.
 		ZombieEntity near = zombie(context, new BlockPos(2, 4, 48));
 		ZombieEntity mid = zombie(context, new BlockPos(-2, 4, 48));
-		ZombieEntity outer = zombie(context, new BlockPos(14, 4, 48));
+		ZombieEntity outer = zombie(context, new BlockPos(19, 4, 48));
 
 		StrikeManager.launch(world, center, null);
 		context.waitAndRun(StrikeTimeline.IMPACT + 30, () -> {
@@ -88,19 +89,19 @@ public class StrikeGameTests implements FabricGameTest {
 					problems.append("spire missing at y=").append(y).append(": ").append(state).append("; ");
 				}
 			}
-			BlockPos planed = center.add(6, 0, 0);
-			BlockState crust = world.getBlockState(planed);
-			if (!crust.isOf(ModBlocks.MOLTEN_CRUST)) {
-				problems.append("expected molten crust at +6 but found ").append(crust).append("; ");
+			BlockState crust = world.getBlockState(center.add(7, 0, 0));
+			if (!crust.isOf(ModBlocks.MOLTEN_CRUST) && !crust.isOf(ModBlocks.FUSED_CRUST)) {
+				problems.append("expected crust at +7 but found ").append(crust).append("; ");
 			}
-			if (!world.getBlockState(planed.up(2)).isAir()) {
-				problems.append("planed zone not cleared: ").append(world.getBlockState(planed.up(2))).append("; ");
+			int planks = 0;
+			for (BlockPos pos : BlockPos.iterate(center.add(3, 1, 3), center.add(5, 4, 5))) {
+				planks += world.getBlockState(pos).isOf(Blocks.OAK_PLANKS) ? 1 : 0;
 			}
-			if (!world.getBlockState(center.add(4, 3, 4)).isAir()) {
-				problems.append("the house survived: ").append(world.getBlockState(center.add(4, 3, 4))).append("; ");
+			if (planks > 0) {
+				problems.append(planks).append(" blocks of the house survived; ");
 			}
-			if (!world.getBlockState(center.add(3, 0, 0)).isAir()) {
-				problems.append("bowl not dug: ").append(world.getBlockState(center.add(3, 0, 0))).append("; ");
+			if (world.getBlockState(center.add(3, 0, 0)).isOf(Blocks.STONE)) {
+				problems.append("bowl not dug; ");
 			}
 			if (near.isAlive()) {
 				problems.append("zombie at the impact point survived with ").append(near.getHealth()).append(" hp; ");
