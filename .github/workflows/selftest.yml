@@ -72,6 +72,9 @@ jobs:
     needs: selftest
     if: always()
     runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        part: [0, 1, 2, 3]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/download-artifact@v4
@@ -79,4 +82,4 @@ jobs:
           name: selftest-video
           path: video
       - name: Video
-        run: python3 .github/scripts/print-file.py video/strike.mp4
+        run: python3 .github/scripts/print-file.py --part ${{ matrix.part }} --parts 4 video/strike.mp4
