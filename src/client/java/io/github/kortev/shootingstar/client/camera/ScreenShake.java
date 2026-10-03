@@ -41,7 +41,7 @@ public final class ScreenShake {
 			}
 			ImpactScene scene = strike.scene;
 			if (strike.impacted && scene != null) {
-				double e = scene.age + tickDelta;
+				double e = scene.time(tickDelta);
 				double felt = strike.cinematic() ? 1.0 : near;
 				double hit = felt * 2.4 * Math.exp(-Math.max(0.0, e) / 5.0);
 				double late = e - scene.arrival(distance);

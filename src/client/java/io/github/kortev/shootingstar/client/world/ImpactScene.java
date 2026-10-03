@@ -123,6 +123,11 @@ public final class ImpactScene {
 		sampleSprites(client, world);
 	}
 
+	/** Ticks since the hit, with the partial tick. */
+	public double time(float tickDelta) {
+		return age + tickDelta;
+	}
+
 	public boolean done() {
 		return age > LIFETIME || age > 400 && chunks.isEmpty() && puffs.isEmpty() && sparks.isEmpty();
 	}
@@ -148,7 +153,7 @@ public final class ImpactScene {
 	}
 
 	/** When the shock reaches {@code distance}; past the dust wave it travels at the speed of sound. */
-	double arrival(double distance) {
+	public double arrival(double distance) {
 		if (distance <= 0) {
 			return 0;
 		}

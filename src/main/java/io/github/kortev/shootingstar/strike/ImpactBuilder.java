@@ -224,6 +224,18 @@ public final class ImpactBuilder {
 	private void scorch(int x, int z, double dist, int surface) {
 		double heat = 1.0 - (dist - radius) / (double) (scorchRadius - radius);
 		int y = surface;
+		// Hills just outside the zone are sheared into a rubble slope rising from the rim, not left as a sheer wall.
+		int slope = (int) Math.round(center.getY() + 2.0 + (dist - radius) * 1.3 + noise(x * 2, z * 2) * 2.5);
+		if (surface > slope) {
+			int ceiling = Math.min(surface, center.getY() + MAX_CUT);
+			for (int cut = ceiling; cut > slope; cut--) {
+				vaporize(x, cut, z);
+			}
+			if (!world.getBlockState(cursorPos.set(x, slope, z)).isAir()) {
+				set(x, slope, z, heat > 0.45 && random.nextFloat() < heat ? debris() : Blocks.COBBLED_DEEPSLATE.getDefaultState());
+			}
+			y = slope;
+		}
 		int bottom = world.getBottomY();
 		// Strip leaves, plants, snow and glass from the top of the column.
 		for (int guard = 0; guard < 28 && y > bottom; guard++) {
