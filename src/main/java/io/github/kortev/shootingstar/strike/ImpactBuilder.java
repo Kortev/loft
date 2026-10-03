@@ -19,8 +19,8 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.ExperienceOrbEntity;
 import net.minecraft.entity.FallingBlockEntity;
 import net.minecraft.entity.ItemEntity;
-import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
+import net.minecraft.predicate.entity.EntityPredicates;
 import net.minecraft.registry.tag.BlockTags;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.BlockPos;
@@ -358,8 +358,9 @@ public final class ImpactBuilder {
 		double cx = center.getX() + 0.5;
 		double cy = center.getY() + 1.0;
 		double cz = center.getZ() + 0.5;
-		Box box = new Box(cx - outer, cy - outer - 24, cz - outer, cx + outer, cy + outer + 48, cz + outer);
-		for (Entity entity : world.getOtherEntities(null, box, Entity::isAlive)) {
+		// The round planes everything up to MAX_CUT above the impact, so reach that high.
+		Box box = new Box(cx - outer, cy - 24, cz - outer, cx + outer, cy + MAX_CUT, cz + outer);
+		for (Entity entity : world.getOtherEntities(null, box, EntityPredicates.EXCEPT_SPECTATOR.and(Entity::isAlive))) {
 			double dx = entity.getX() - cx;
 			double dz = entity.getZ() - cz;
 			double dist = Math.sqrt(dx * dx + dz * dz);
@@ -371,21 +372,19 @@ public final class ImpactBuilder {
 	}
 
 	private void hit(Entity entity, double dx, double dz, double dist) {
-		double severity = 1.0 - dist / scorchRadius;
 		if (entity instanceof ItemEntity || entity instanceof ExperienceOrbEntity || entity instanceof FallingBlockEntity) {
 			if (dist <= radius) {
 				entity.discard();
 			}
 			return;
 		}
-		if (entity instanceof LivingEntity living) {
-			float amount = dist <= bowlRadius ? 1000.0F : (float) (6.0 + 60.0 * severity * severity);
-			living.damage(damage, amount);
-			living.setOnFireFor((float) (3.0 + 9.0 * severity));
-		}
+		// Nothing in the planed zone survives. Out in the scorched ring the blast weakens with distance.
+		double ring = dist <= radius ? 1.0 : 1.0 - (dist - radius) / Math.max(1.0, scorchRadius - radius);
+		entity.damage(damage, dist <= radius ? 1000.0F : (float) (3.0 + 15.0 * ring * ring));
+		entity.setOnFireFor((float) (3.0 + 7.0 * ring));
 		double len = Math.max(dist, 0.001);
-		double push = 0.6 + 2.6 * severity;
-		entity.addVelocity(dx / len * push, 0.35 + 1.1 * severity, dz / len * push);
+		double push = 0.6 + 2.0 * ring;
+		entity.addVelocity(dx / len * push, 0.35 + 0.9 * ring, dz / len * push);
 		entity.velocityModified = true;
 	}
 

@@ -6,11 +6,13 @@ import io.github.kortev.shootingstar.client.ClientStrikes;
 import io.github.kortev.shootingstar.registry.ModItems;
 import io.github.kortev.shootingstar.strike.StrikeManager;
 import io.github.kortev.shootingstar.strike.StrikeTimeline;
+import io.github.kortev.shootingstar.strike.Targeting;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.util.ScreenshotRecorder;
 import net.minecraft.item.ItemStack;
 import net.minecraft.server.integrated.IntegratedServer;
@@ -19,12 +21,13 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.GameMode;
 import net.minecraft.world.GameRules;
 import net.minecraft.world.Heightmap;
 
 /**
- * With -Dshootingstar.selftest=true: joins the quick-play world, fires the uplink at a point 64
+ * With -Dshootingstar.selftest=true: joins the quick-play world, fires the uplink at a point 70
  * blocks away and saves a screenshot at every phase of the strike, then quits.
  */
 public class ClientSelfTest implements ClientModInitializer {
@@ -87,6 +90,13 @@ public class ClientSelfTest implements ClientModInitializer {
 	private static void tick(MinecraftClient client) {
 		ticks++;
 		IntegratedServer server = client.getServer();
+		ClientPlayerEntity self = client.player;
+		if (self != null && stage.ordinal() >= Stage.SETTLE.ordinal() && self.getAbilities().allowFlying
+				&& !self.getAbilities().flying) {
+			// Vanilla stops creative flight whenever the player touches the ground. Keep hovering where the test puts us.
+			self.getAbilities().flying = true;
+			self.sendAbilitiesUpdate();
+		}
 		switch (stage) {
 			case WAIT_WORLD -> {
 				if (client.world != null && client.player != null && server != null) {
@@ -150,15 +160,15 @@ public class ClientSelfTest implements ClientModInitializer {
 			}
 			case AFTER -> {
 				if (ticks == 20) {
-					server.execute(() -> lookFromAbove(server, target.getX(), target.getZ() - 40, 45, target));
+					server.execute(() -> lookFromAbove(server, target.getX(), target.getZ() - 40, 45, Vec3d.ofCenter(target)));
 				}
 				if (ticks == 140) {
 					shot(client, "90_crater_above.png");
-					server.execute(() -> lookFromAbove(server, target.getX() - 52, target.getZ() + 8, 14, target.up(30)));
+					server.execute(() -> lookFromAbove(server, target.getX() - 52, target.getZ() + 8, 14, Vec3d.ofCenter(target.up(30))));
 				}
 				if (ticks == 260) {
 					shot(client, "91_crater_side.png");
-					server.execute(() -> lookFromAbove(server, target.getX() + 12, target.getZ() + 10, 7, target.up(2)));
+					server.execute(() -> lookFromAbove(server, target.getX() + 12, target.getZ() + 10, 7, Vec3d.ofCenter(target.up(2))));
 				}
 				if (ticks == 380) {
 					shot(client, "92_crater_close.png");
@@ -203,17 +213,38 @@ public class ClientSelfTest implements ClientModInitializer {
 				target = new BlockPos(x, top(world, x, z) - 1, z);
 			}
 		}
-		int eye = clearHeight(world, spawn.getX() + 0.5, spawn.getZ() + 0.5, target);
-		BlockPos stand = new BlockPos(spawn.getX(), eye - 1, spawn.getZ());
-		look(server, stand, target);
-		ShootingStar.LOGGER.info("[selftest] standing at {} aiming at {}", stand, target);
+		// Climb until the uplink's own raycast reaches the target, so the first shot is a clean firing solution.
+		double x = spawn.getX() + 0.5;
+		double z = spawn.getZ() + 0.5;
+		double eye = Math.max(top(world, spawn.getX(), spawn.getZ()) + 2.0, target.getY() + 6.0);
+		for (int i = 0; i < 100 && !uplinkReaches(world, new Vec3d(x, eye, z), target); i++) {
+			eye += 2.0;
+		}
+		look(server, x, eye - player.getStandingEyeHeight(), z, Vec3d.ofCenter(target));
+		ShootingStar.LOGGER.info("[selftest] eye at {} {} {} aiming at {}", x, eye, z, target);
 	}
 
-	/** Teleports the player at least {@code height} blocks above the ground at x/z with a clear view of a point. */
-	private static void lookFromAbove(IntegratedServer server, int x, int z, int height, BlockPos at) {
-		ServerWorld world = server.getPlayerManager().getPlayerList().get(0).getServerWorld();
-		int y = Math.max(top(world, x, z) + height, clearHeight(world, x + 0.5, z + 0.5, at) - 1);
-		look(server, new BlockPos(x, y, z), at);
+	private static boolean uplinkReaches(ServerWorld world, Vec3d eye, BlockPos target) {
+		BlockPos hit = Targeting.findTarget(world, eye, Vec3d.ofCenter(target).subtract(eye).normalize(), Targeting.MAX_RANGE);
+		return hit != null && hit.getManhattanDistance(target) <= 2;
+	}
+
+	/** Moves the player at least {@code height} blocks above the ground at x/z, high enough to see {@code at}. */
+	private static void lookFromAbove(IntegratedServer server, int x, int z, int height, Vec3d at) {
+		ServerPlayerEntity player = server.getPlayerManager().getPlayerList().get(0);
+		ServerWorld world = player.getServerWorld();
+		Vec3d from = new Vec3d(x + 0.5, top(world, x, z) + height, z + 0.5);
+		for (int i = 0; i < 100 && !canSee(world, from, at); i++) {
+			from = from.add(0, 2, 0);
+		}
+		look(server, from.x, from.y - player.getStandingEyeHeight(), from.z, at);
+	}
+
+	/** True when the line of sight from {@code eye} reaches {@code at} or stops within a few blocks of it. */
+	private static boolean canSee(ServerWorld world, Vec3d eye, Vec3d at) {
+		Vec3d delta = at.subtract(eye);
+		BlockPos hit = Targeting.findTarget(world, eye, delta.normalize(), delta.length() + 4.0);
+		return hit == null || Vec3d.ofCenter(hit).distanceTo(at) <= 6.0;
 	}
 
 	private static int top(ServerWorld world, int x, int z) {
@@ -240,30 +271,13 @@ public class ClientSelfTest implements ClientModInitializer {
 		return variance + (water ? 400 : 0);
 	}
 
-	/** Eye height needed at x/z so the line of sight to {@code at} clears the terrain in between. */
-	private static int clearHeight(ServerWorld world, double fx, double fz, BlockPos at) {
-		double tx = at.getX() + 0.5;
-		double tz = at.getZ() + 0.5;
-		double ty = at.getY() + 1.0;
-		double distance = Math.hypot(tx - fx, tz - fz);
-		double needed = ty + 6;
-		for (double s = 0; s < distance - 8; s += 1.5) {
-			double k = s / distance;
-			int x = MathHelper.floor(MathHelper.lerp(k, fx, tx));
-			int z = MathHelper.floor(MathHelper.lerp(k, fz, tz));
-			int h = top(world, x, z) + 2;
-			needed = Math.max(needed, (h - ty * k) / (1 - k));
-		}
-		return MathHelper.ceil(needed);
-	}
-
-	private static void look(IntegratedServer server, BlockPos from, BlockPos at) {
+	private static void look(IntegratedServer server, double x, double feet, double z, Vec3d at) {
 		ServerPlayerEntity player = server.getPlayerManager().getPlayerList().get(0);
-		double dx = at.getX() + 0.5 - (from.getX() + 0.5);
-		double dy = at.getY() + 0.5 - (from.getY() + player.getStandingEyeHeight());
-		double dz = at.getZ() + 0.5 - (from.getZ() + 0.5);
+		double dx = at.x - x;
+		double dy = at.y - (feet + player.getStandingEyeHeight());
+		double dz = at.z - z;
 		float yaw = (float) (MathHelper.atan2(dz, dx) * MathHelper.DEGREES_PER_RADIAN) - 90.0F;
 		float pitch = (float) -(MathHelper.atan2(dy, Math.sqrt(dx * dx + dz * dz)) * MathHelper.DEGREES_PER_RADIAN);
-		player.networkHandler.requestTeleport(from.getX() + 0.5, from.getY(), from.getZ() + 0.5, yaw, pitch);
+		player.networkHandler.requestTeleport(x, feet, z, yaw, pitch);
 	}
 }

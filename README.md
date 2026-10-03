@@ -39,9 +39,9 @@ fired gets the feed and the camera shots. Press **Backspace** (rebindable) to sk
   glass, snow melts and fires start.
 - **Spire:** a round, 5-block-wide column of Gungnir Hull with glowing coil bands. It runs from
   the bottom of the world to the build limit and has tail fins at the top.
-- **Entities:** anything in the bowl is killed. Anything farther out takes less damage the farther
-  it is, catches fire and gets thrown outward. Unbreakable blocks (bedrock, command blocks,
-  barriers) are never touched.
+- **Entities:** anything inside the planed zone is killed. In the scorched ring beyond it,
+  entities take less damage the farther out they are, catch fire and get thrown outward.
+  Unbreakable blocks (bedrock, command blocks, barriers) are never touched.
 
 ## Getting it
 

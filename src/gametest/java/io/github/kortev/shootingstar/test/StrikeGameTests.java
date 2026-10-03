@@ -11,15 +11,12 @@ import io.github.kortev.shootingstar.strike.Targeting;
 import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
-import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
-import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.mob.ZombieEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.test.GameTest;
 import net.minecraft.test.TestContext;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
 
 public class StrikeGameTests implements FabricGameTest {
@@ -74,21 +71,13 @@ public class StrikeGameTests implements FabricGameTest {
 		for (BlockPos pos : BlockPos.iterate(center.add(3, 1, 3), center.add(5, 4, 5))) {
 			world.setBlockState(pos, Blocks.OAK_PLANKS.getDefaultState());
 		}
-		ZombieEntity near = context.spawnEntity(EntityType.ZOMBIE, context.getRelativePos(center.add(-2, 1, 0)));
-		ZombieEntity mid = context.spawnEntity(EntityType.ZOMBIE, context.getRelativePos(center.add(-6, 1, 0)));
-		near.setAiDisabled(true);
-		mid.setAiDisabled(true);
+		// Relative positions (center is relative (4, 3, 48)). TestContext.getRelativePos mirrors unrotated tests,
+		// so it cannot be used to convert back from absolute positions.
+		ZombieEntity near = zombie(context, new BlockPos(2, 4, 48));
+		ZombieEntity mid = zombie(context, new BlockPos(-2, 4, 48));
+		ZombieEntity outer = zombie(context, new BlockPos(14, 4, 48));
 
 		StrikeManager.launch(world, center, null);
-		context.waitAndRun(StrikeTimeline.IMPACT - 2, () -> {
-			Box around = new Box(center).expand(14, 30, 14);
-			for (Entity entity : world.getOtherEntities(null, around)) {
-				ShootingStar.LOGGER.info("[gametest] before impact: {} at {} hp={} alive={}", entity.getType(), entity.getPos(),
-						entity instanceof LivingEntity living ? living.getHealth() : -1, entity.isAlive());
-			}
-			ShootingStar.LOGGER.info("[gametest] tracked zombies: near at {} alive={}, mid at {} alive={}", near.getPos(),
-					near.isAlive(), mid.getPos(), mid.isAlive());
-		});
 		context.waitAndRun(StrikeTimeline.IMPACT + 30, () -> {
 			// Collect every problem so one run reports all of them.
 			StringBuilder problems = new StringBuilder();
@@ -119,9 +108,19 @@ public class StrikeGameTests implements FabricGameTest {
 			if (mid.isAlive()) {
 				problems.append("zombie in the planed zone survived with ").append(mid.getHealth()).append(" hp; ");
 			}
+			if (!outer.isAlive() || outer.getHealth() >= outer.getMaxHealth() || !outer.isOnFire()) {
+				problems.append("zombie in the scorched ring should be hurt and burning but has ").append(outer.getHealth())
+						.append(" hp, alive=").append(outer.isAlive()).append(", burning=").append(outer.isOnFire()).append("; ");
+			}
 			ShootingStar.LOGGER.info("[gametest] fullStrike: {}", problems.length() == 0 ? "ok" : problems);
 			context.assertTrue(problems.length() == 0, problems.toString());
 			context.complete();
 		});
+	}
+
+	private static ZombieEntity zombie(TestContext context, BlockPos relative) {
+		ZombieEntity zombie = context.spawnEntity(EntityType.ZOMBIE, relative);
+		zombie.setAiDisabled(true);
+		return zombie;
 	}
 }
