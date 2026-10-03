@@ -182,6 +182,10 @@ public final class Capture {
 		}
 		recordFrame = false;
 		frames++;
+		if (frames % 150 == 0) {
+			ShootingStar.LOGGER.info("[capture] {} frames ({} s of video), {} stalls", frames,
+					String.format(Locale.ROOT, "%.1f", frames / 30.0), stalls);
+		}
 		if (encoder == null) {
 			return;
 		}
