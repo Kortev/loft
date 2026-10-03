@@ -11,7 +11,6 @@ uniform float Softness;
 
 in vec2 corner;
 in vec4 vertexColor;
-in float viewDepth;
 in float seed;
 in float glow;
 
@@ -46,9 +45,11 @@ void main() {
     if (shape <= 0.002) {
         discard;
     }
+    // Both distances from depth values, so they agree even while the camera shakes.
     float z = texture(Sampler1, gl_FragCoord.xy / ScreenSize).r * 2.0 - 1.0;
     float scene = ProjB / (z + ProjA);
-    float soft = clamp((scene - viewDepth) / Softness, 0.0, 1.0);
+    float puff = ProjB / ((gl_FragCoord.z * 2.0 - 1.0) + ProjA);
+    float soft = clamp((scene - puff) / Softness, 0.0, 1.0);
     float detail = fbm(p * 3.0);
     float shade = 0.7 + 0.45 * detail;
     float a = shape * vertexColor.a * soft;

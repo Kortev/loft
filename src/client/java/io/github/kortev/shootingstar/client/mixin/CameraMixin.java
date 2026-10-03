@@ -29,7 +29,12 @@ public abstract class CameraMixin {
 		if (shot != null) {
 			setRotation(shot.yaw(), shot.pitch());
 			setPos(shot.x(), shot.y(), shot.z());
-			this.thirdPerson = true;
+			// Show the shooter's body once the camera has left it: at the start and end of a shot the
+			// camera is still inside their head, which would fill the screen.
+			if (focusedEntity != null
+					&& focusedEntity.getCameraPosVec(tickDelta).squaredDistanceTo(shot.x(), shot.y(), shot.z()) > 6.0) {
+				this.thirdPerson = true;
+			}
 		}
 	}
 }

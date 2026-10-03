@@ -31,7 +31,10 @@ public abstract class CaptureCameraMixin {
 			Capture.Pose pose = camera.apply(Capture.time());
 			setRotation(pose.yaw(), pose.pitch());
 			setPos(pose.x(), pose.y(), pose.z());
-			this.thirdPerson = true;
+			if (focusedEntity != null
+					&& focusedEntity.getCameraPosVec(tickDelta).squaredDistanceTo(pose.x(), pose.y(), pose.z()) > 6.0) {
+				this.thirdPerson = true;
+			}
 		}
 	}
 }

@@ -166,12 +166,17 @@ public class ClientSelfTest implements ClientModInitializer {
 				while (!STILLS.isEmpty() && age >= STILLS.peek().age()) {
 					shot(client, STILLS.poll().name());
 				}
-				if (STILLS.isEmpty() || strike == null && ticks > 700) {
+				// Into the fly-over a moment after the camera is back with the shooter.
+				if (age >= StrikeTimeline.CAMERA_END + 30 && age != Integer.MAX_VALUE || strike == null && ticks > 700) {
 					stage = Stage.FLYOVER;
 					ticks = 0;
 				}
 			}
 			case FLYOVER -> {
+				ClientStrike strike = ClientStrikes.mine();
+				while (strike != null && !STILLS.isEmpty() && strike.age >= STILLS.peek().age()) {
+					shot(client, STILLS.poll().name());
+				}
 				if (ticks == 1) {
 					client.options.hudHidden = true;
 					Capture.camera = flyover(client, target);

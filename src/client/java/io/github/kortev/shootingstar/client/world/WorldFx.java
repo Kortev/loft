@@ -113,7 +113,7 @@ public final class WorldFx {
 		int h = main.textureHeight;
 		Vector3f right = new Vector3f(view.m00(), view.m10(), view.m20());
 		Vector3f up = new Vector3f(view.m01(), view.m11(), view.m21());
-		float far = proj.m32() / (proj.m22() + 1.0F);
+		float far = proj.m32() / (projA(proj) + 1.0F);
 		RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
 
 		if (!SCENES.isEmpty() || !inbound.isEmpty()) {
@@ -190,7 +190,7 @@ public final class WorldFx {
 			Shaders.set(Shaders.impact, "Center", g.cx(), g.cy());
 			Shaders.set(Shaders.impact, "ScreenSize", w, h);
 			Shaders.set(Shaders.impact, "Time", time);
-			Shaders.set(Shaders.impact, "ProjA", proj.m22());
+			Shaders.set(Shaders.impact, "ProjA", projA(proj));
 			Shaders.set(Shaders.impact, "ProjB", proj.m32());
 			Shaders.set(Shaders.impact, "Zoom", g.zoom());
 			Shaders.set(Shaders.impact, "Warp", g.warp());
@@ -207,22 +207,43 @@ public final class WorldFx {
 	// --- the falling star ------------------------------------------------------------------
 
 	/** Distance of the round from the target along its path: slow at first, then a streak at the end. */
-	public static double range(double p) {
+	public static double range(double length, double p) {
 		p = MathHelper.clamp(p, 0.0, 1.0);
-		return 3600.0 * (1.0 - p * p);
+		return length * (1.0 - p * p);
 	}
 
 	/**
-	 * The round comes in at about 45 degrees from beyond and to the side of the target as seen by this
-	 * viewer (the shooter's camera, or the player): the whole fall crosses the sky in front of them as
-	 * a diagonal streak, with the trail drawn out behind it rather than hidden end-on.
+	 * The round's path, chosen once. On the shooter's camera it starts high in the upper right of the
+	 * witness shot, a few hundred blocks out, and comes down on the target: the whole fall crosses the
+	 * frame as a diagonal streak, still travelling right to left as it did in the feed's last shot.
+	 * Anyone else sees it come in at about 37 degrees from beyond and to the side of the target as seen
+	 * from where they stand. Null while the shooter's feed still covers the screen.
 	 */
-	private static Vec3d approach(MinecraftClient client, ClientStrike strike) {
-		if (strike.approach == null) {
-			Vec3d viewer = strike.cinematic() && strike.witness != null ? strike.witness : client.player.getPos();
-			Vec3d away = new Vec3d(strike.center.x - viewer.x, 0, strike.center.z - viewer.z);
+	@Nullable
+	private static Vec3d approach(MinecraftClient client, ClientStrike strike, double t, Vec3d cam, Matrix4f view, Matrix4f proj) {
+		if (strike.approach != null) {
+			return strike.approach;
+		}
+		Vec3d c = strike.center;
+		if (strike.cinematic() && ClientStrikes.shotActive(strike, t)) {
+			if (strike.witness == null) {
+				return null;
+			}
+			Vector3f forward = new Vector3f(-view.m02(), -view.m12(), -view.m22());
+			Vector3f across = right(view).mul(0.55F / proj.m00());
+			Vector3f high = new Vector3f(view.m01(), view.m11(), view.m21()).mul(0.8F / proj.m11());
+			Vector3f ray = forward.add(across).add(high).normalize();
+			Vec3d path = cam.add(ray.x * 560.0, ray.y * 560.0, ray.z * 560.0).subtract(c);
+			strike.approachLength = path.length();
+			strike.approach = path.normalize();
+		} else if (strike.cinematic() && t < StrikeTimeline.INBOUND) {
+			return null;
+		} else {
+			Vec3d viewer = client.player.getPos();
+			Vec3d away = new Vec3d(c.x - viewer.x, 0, c.z - viewer.z);
 			away = away.lengthSquared() < 1.0E-4 ? new Vec3d(1, 0, 0) : away.normalize();
 			Vec3d side = new Vec3d(away.z, 0, -away.x);
+			strike.approachLength = 3600.0;
 			strike.approach = away.multiply(0.6).add(side.multiply(0.4)).add(0, 0.55, 0).normalize();
 		}
 		return strike.approach;
@@ -232,8 +253,11 @@ public final class WorldFx {
 			Vector3f right, Vector3f up, float far) {
 		double p = MathHelper.clamp((t - StrikeTimeline.INBOUND) / (StrikeTimeline.IMPACT - StrikeTimeline.INBOUND), 0.0, 1.0);
 		Vec3d c = strike.center;
-		Vec3d dir = approach(client, strike);
-		double range = range(p);
+		Vec3d dir = approach(client, strike, t, cam, view, proj);
+		if (dir == null) {
+			return;
+		}
+		double range = range(strike.approachLength, p);
 		Vector3f head = rel(c.x + dir.x * range, c.y + dir.y * range, c.z + dir.z * range, cam);
 		float trail = (float) (500.0 + 1400.0 * p * p);
 		Vector3f tail = new Vector3f(head).add((float) dir.x * trail, (float) dir.y * trail, (float) dir.z * trail);
@@ -413,7 +437,7 @@ public final class WorldFx {
 				GlStateManager.SrcFactor.ONE, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA);
 		RenderSystem.setShaderTexture(1, DEPTH.depth());
 		Shaders.set(Shaders.smoke, "ScreenSize", w, h);
-		Shaders.set(Shaders.smoke, "ProjA", proj.m22());
+		Shaders.set(Shaders.smoke, "ProjA", projA(proj));
 		Shaders.set(Shaders.smoke, "ProjB", proj.m32());
 		Shaders.set(Shaders.smoke, "Softness", 4.0F);
 		Post.draw(b, Shaders.smoke, view, proj);
@@ -571,6 +595,15 @@ public final class WorldFx {
 	}
 
 	// --- helpers ---------------------------------------------------------------------------
+
+	/**
+	 * The depth term of the projection, for turning depth-buffer values back into distances. Camera shake
+	 * and view bobbing are multiplied into the projection, and their tilt scales m22 by the cosine of the
+	 * angle: enough to throw the sky's depth to infinity and beyond. The length of the third row undoes it.
+	 */
+	private static float projA(Matrix4f proj) {
+		return -(float) Math.sqrt(proj.m02() * proj.m02() + proj.m12() * proj.m12() + proj.m22() * proj.m22());
+	}
 
 	private static Vector3f rel(double x, double y, double z, Vec3d cam) {
 		return new Vector3f((float) (x - cam.x), (float) (y - cam.y), (float) (z - cam.z));

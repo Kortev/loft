@@ -420,6 +420,8 @@ final class Shots {
 		breechScene(travel(t), 0, 0.45F + 0.3F * velocity, velocity);
 		// The sky crowds forward and turns blue as the round nears c.
 		o.zoomBlur = 0.04F + velocity * (lap >= 5 ? 0.42F : 0.24F);
+		// The coils race past several to a frame; without blur they strobe.
+		o.shutter = 1.0F;
 		o.aberration = velocity * 0.012F;
 		if (lap == StrikeTimeline.LAP_COUNT) {
 			double end = StrikeTimeline.DEBRIS - lapStart(lap);

@@ -13,14 +13,12 @@ uniform mat4 ProjMat;
 
 out vec2 corner;
 out vec4 vertexColor;
-out float viewDepth;
 out float seed;
 out float glow;
 
 void main() {
     vec4 pos = ModelViewMat * vec4(Position, 1.0);
     gl_Position = ProjMat * pos;
-    viewDepth = -pos.z;
     float a = Normal.y * 3.14159265;
     corner = mat2(cos(a), -sin(a), sin(a), cos(a)) * UV0;
     vertexColor = Color;

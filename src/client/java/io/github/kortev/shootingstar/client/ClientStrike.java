@@ -37,6 +37,8 @@ public final class ClientStrike {
 	/** Unit vector from the target back along the round's path, chosen once so the fall stays in view. */
 	@Nullable
 	public Vec3d approach;
+	/** How far back along {@link #approach} the round is first seen. */
+	public double approachLength;
 
 	public ClientStrike(int id, BlockPos target, UUID shooter, boolean mine, int age) {
 		this.id = id;

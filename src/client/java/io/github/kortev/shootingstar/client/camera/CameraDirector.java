@@ -52,11 +52,14 @@ public final class CameraDirector {
 				(float) MathHelper.lerp(k, watch.pitch(), player.getPitch(tickDelta)));
 	}
 
-	/** From the shooter's eyes up into a top-down view of the reticle. */
+	/**
+	 * From the shooter's eyes up into a top-down view of the reticle, ending high enough to pass up
+	 * through the clouds into the feed but low enough that the fog has not swallowed the ground.
+	 */
 	private static Shot rise(ClientPlayerEntity player, Vec3d target, float tickDelta, double p) {
 		double e = ease(p);
 		Vec3d start = player.getCameraPosVec(tickDelta);
-		Vec3d end = target.add(0, 60 + 140 * p * p, 0);
+		Vec3d end = target.add(0, 60 + 90 * p * p, 0);
 		double x = MathHelper.lerp(e, start.x, end.x);
 		double z = MathHelper.lerp(e, start.z, end.z);
 		double y = MathHelper.lerp(e, start.y, end.y) + Math.sin(Math.PI * e) * 12.0;

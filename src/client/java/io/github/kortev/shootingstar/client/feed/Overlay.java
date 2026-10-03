@@ -56,6 +56,11 @@ final class Overlay {
 	/** Scales the light before tone mapping; above 1 reads as a burst of light. */
 	float exposure = 1.0F;
 	float zoomBlur;
+	/**
+	 * Motion blur: how much of the time between frames the shutter stays open (0 = off), for motion
+	 * too fast for the frame rate to follow.
+	 */
+	float shutter;
 	float aberration;
 	float bloom = 0.85F;
 	float wideBloom = 0.65F;

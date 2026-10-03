@@ -1,5 +1,6 @@
 package io.github.kortev.shootingstar.client.feed;
 
+import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import io.github.kortev.shootingstar.client.ClientStrike;
 import io.github.kortev.shootingstar.client.ShootingStarClient;
@@ -33,6 +34,8 @@ public final class Feed {
 
 	private static final Shots SHOTS = new Shots();
 	private static final Target SCENE = new Target(true, true);
+	private static final Target SHUTTER = new Target(false, true);
+	private static final int SHUTTER_SAMPLES = 6;
 
 	private Feed() {
 	}
@@ -75,11 +78,16 @@ public final class Feed {
 
 		SCENE.begin(fw, fh, 0.0F, 0.0F, 0.0F, 1.0F);
 		Overlay overlay = SHOTS.render(t, fw, fh, guiW, guiH);
+		int picture = SCENE.color();
+		if (overlay.shutter > 0.0F) {
+			float frame = MathHelper.clamp(client.getRenderTickCounter().getLastFrameDuration(), 0.05F, 1.0F);
+			picture = shutter(t, overlay.shutter * frame, fw, fh, guiW, guiH);
+		}
 
 		Post.begin();
-		int[] bloom = Post.bloom(SCENE.color(), fw, fh, overlay.threshold);
+		int[] bloom = Post.bloom(picture, fw, fh, overlay.threshold);
 		main.beginWrite(true);
-		RenderSystem.setShaderTexture(0, SCENE.color());
+		RenderSystem.setShaderTexture(0, picture);
 		RenderSystem.setShaderTexture(1, bloom[0]);
 		RenderSystem.setShaderTexture(2, bloom[1]);
 		Shaders.set(Shaders.composite, "BloomStrength", overlay.bloom);
@@ -111,6 +119,35 @@ public final class Feed {
 		RenderSystem.enableBlend();
 		RenderSystem.defaultBlendFunc();
 		return overlay;
+	}
+
+	/**
+	 * Motion blur: the shot is drawn at several moments over the last {@code open} ticks and averaged,
+	 * so what moves faster than the frame rate streaks instead of strobing. The picture for {@code t}
+	 * is already in {@link #SCENE}.
+	 */
+	private static int shutter(double t, float open, int fw, int fh, float guiW, float guiH) {
+		SHUTTER.begin(fw, fh, 0.0F, 0.0F, 0.0F, 1.0F);
+		float weight = 1.0F / SHUTTER_SAMPLES;
+		accumulate(weight);
+		for (int i = 1; i < SHUTTER_SAMPLES; i++) {
+			SCENE.begin(fw, fh, 0.0F, 0.0F, 0.0F, 1.0F);
+			SHOTS.render(t - open * i / (SHUTTER_SAMPLES - 1.0), fw, fh, guiW, guiH);
+			accumulate(weight);
+		}
+		return SHUTTER.color();
+	}
+
+	private static void accumulate(float weight) {
+		SHUTTER.bind();
+		Post.begin();
+		RenderSystem.enableBlend();
+		RenderSystem.blendFuncSeparate(GlStateManager.SrcFactor.ONE, GlStateManager.DstFactor.ONE, GlStateManager.SrcFactor.ZERO,
+				GlStateManager.DstFactor.ONE);
+		RenderSystem.setShaderTexture(0, SCENE.color());
+		Shaders.set(Shaders.blit, "Weight", weight);
+		Post.quad(Shaders.blit);
+		RenderSystem.disableBlend();
 	}
 
 	/** A short white pop where the feed cuts between scenes that have no flash of their own. */
