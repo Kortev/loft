@@ -12,11 +12,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        asset: [jupiter, stars_exr]
+        asset: [stars_exr]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install -q pillow numpy opencv-python-headless
+      - run: pip install -q pillow numpy opencv-python-headless OpenEXR
       - run: python3 .github/dev/fetch.py ${{ matrix.asset }}

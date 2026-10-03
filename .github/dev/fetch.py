@@ -1,4 +1,8 @@
 """Dev helper: downloads public-domain NASA maps, resizes them and prints them into the log as base64 JPEG."""
+import os
+
+os.environ['OPENCV_IO_ENABLE_OPENEXR'] = '1'
+
 import base64
 import hashlib
 import io
@@ -45,14 +49,30 @@ def emit(filename, data):
 
 def stars():
     """Milky Way background tone-mapped to JPEG, plus a point catalogue of the brightest stars."""
-    import os
-    os.environ['OPENCV_IO_ENABLE_OPENEXR'] = '1'
     import cv2
     import numpy as np
     import struct
-    for f in ['milkyway_2020_4k_gal.exr', 'hiptyc_2020_8k_gal.exr']:
-        open('/tmp/' + f, 'wb').write(get(SVS + f))
-    mw = cv2.imread('/tmp/milkyway_2020_4k_gal.exr', cv2.IMREAD_UNCHANGED)[:, :, :3][:, :, ::-1].astype(np.float64)
+
+    def read_exr(path):
+        img = cv2.imread(path, cv2.IMREAD_UNCHANGED)
+        if img is not None:
+            return img[:, :, :3][:, :, ::-1].astype(np.float64)
+        print('cv2 could not read', path, '- trying OpenEXR')
+        import OpenEXR
+        with OpenEXR.File(path) as f:
+            ch = f.channels()
+            print('channels', list(ch))
+            if 'RGB' in ch:
+                return np.asarray(ch['RGB'].pixels, dtype=np.float64)
+            if 'RGBA' in ch:
+                return np.asarray(ch['RGBA'].pixels, dtype=np.float64)[:, :, :3]
+            return np.stack([np.asarray(ch[c].pixels, dtype=np.float64) for c in 'RGB'], axis=-1)
+
+    for f in ['milkyway_2020_4k_gal.exr', 'hiptyc_2020_4k_gal.exr']:
+        data = get(SVS + f)
+        print('downloaded', f, len(data), 'bytes, starts with', data[:8])
+        open('/tmp/' + f, 'wb').write(data)
+    mw = read_exr('/tmp/milkyway_2020_4k_gal.exr')
     lum = mw.mean(axis=2)
     print('milky way', mw.shape, 'percentiles', [float(np.percentile(lum, q)) for q in (50, 90, 99, 99.9, 100)])
     k = -np.log(0.08) / np.percentile(lum, 99.9)
@@ -63,7 +83,7 @@ def stars():
     img.save(buf, 'JPEG', quality=92, optimize=True)
     emit('milkyway.jpg', buf.getvalue())
 
-    st = cv2.imread('/tmp/hiptyc_2020_8k_gal.exr', cv2.IMREAD_UNCHANGED)[:, :, :3][:, :, ::-1].astype(np.float64)
+    st = read_exr('/tmp/hiptyc_2020_4k_gal.exr')
     h, w = st.shape[:2]
     l = st.sum(axis=2)
     peaks = (l == cv2.dilate(l.astype(np.float32), np.ones((3, 3), np.uint8)).astype(np.float64)) & (l > 0)
