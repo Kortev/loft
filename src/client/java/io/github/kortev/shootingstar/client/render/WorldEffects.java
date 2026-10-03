@@ -90,7 +90,7 @@ public final class WorldEffects {
 		float flicker = 0.85F + 0.15F * MathHelper.sin((float) t * 1.7F) * MathHelper.sin((float) t * 0.63F);
 		double len = Math.sqrt(x * x + z * z);
 		// Fade the beam out when the camera is right beside it (the sky shot looks up along it).
-		float near = (float) MathHelper.clamp((len - 3.0) / 10.0, 0.12, 1.0);
+		float near = (float) MathHelper.clamp((len - 4.0) / 16.0, 0.06, 1.0);
 		float k = (float) (fadeOut * flicker) * near;
 
 		float px = len < 1.0E-3 ? 1.0F : (float) (-z / len);

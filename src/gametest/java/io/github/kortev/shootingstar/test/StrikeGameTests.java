@@ -3,6 +3,7 @@ package io.github.kortev.shootingstar.test;
 import io.github.kortev.shootingstar.ShootingStar;
 import io.github.kortev.shootingstar.block.MoltenCrustBlock;
 import io.github.kortev.shootingstar.registry.ModBlocks;
+import io.github.kortev.shootingstar.registry.ModDamageTypes;
 import io.github.kortev.shootingstar.registry.ModGameRules;
 import io.github.kortev.shootingstar.strike.StrikeManager;
 import io.github.kortev.shootingstar.strike.StrikeTimeline;
@@ -10,12 +11,15 @@ import io.github.kortev.shootingstar.strike.Targeting;
 import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.mob.ZombieEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.test.GameTest;
 import net.minecraft.test.TestContext;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
 
 public class StrikeGameTests implements FabricGameTest {
@@ -46,6 +50,17 @@ public class StrikeGameTests implements FabricGameTest {
 		context.complete();
 	}
 
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "a_blocks", tickLimit = 40)
+	public void kineticDamageKills(TestContext context) {
+		ServerWorld world = context.getWorld();
+		ZombieEntity zombie = context.spawnEntity(EntityType.ZOMBIE, new BlockPos(2, 1, 2));
+		zombie.setAiDisabled(true);
+		boolean applied = zombie.damage(ModDamageTypes.kineticStrike(world), 1000.0F);
+		context.assertTrue(applied, "kinetic strike damage was refused");
+		context.assertTrue(!zombie.isAlive(), "zombie survived 1000 kinetic damage with " + zombie.getHealth() + " hp");
+		context.complete();
+	}
+
 	/** Runs a whole strike through the real timeline on flat stone and checks what is left. */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "b_strike", tickLimit = StrikeTimeline.IMPACT + 120)
 	public void fullStrike(TestContext context) {
@@ -65,6 +80,15 @@ public class StrikeGameTests implements FabricGameTest {
 		mid.setAiDisabled(true);
 
 		StrikeManager.launch(world, center, null);
+		context.waitAndRun(StrikeTimeline.IMPACT - 2, () -> {
+			Box around = new Box(center).expand(14, 30, 14);
+			for (Entity entity : world.getOtherEntities(null, around)) {
+				ShootingStar.LOGGER.info("[gametest] before impact: {} at {} hp={} alive={}", entity.getType(), entity.getPos(),
+						entity instanceof LivingEntity living ? living.getHealth() : -1, entity.isAlive());
+			}
+			ShootingStar.LOGGER.info("[gametest] tracked zombies: near at {} alive={}, mid at {} alive={}", near.getPos(),
+					near.isAlive(), mid.getPos(), mid.isAlive());
+		});
 		context.waitAndRun(StrikeTimeline.IMPACT + 30, () -> {
 			// Collect every problem so one run reports all of them.
 			StringBuilder problems = new StringBuilder();

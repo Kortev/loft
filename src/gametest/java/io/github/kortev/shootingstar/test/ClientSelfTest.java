@@ -191,29 +191,70 @@ public class ClientSelfTest implements ClientModInitializer {
 		player.getInventory().setStack(0, new ItemStack(ModItems.GUNGNIR_UPLINK));
 
 		BlockPos spawn = world.getSpawnPos();
-		for (int x = spawn.getX() - 16; x <= spawn.getX() + 96; x += 16) {
-			world.getChunk(x >> 4, spawn.getZ() >> 4);
-		}
-		int ground = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, spawn.getX() + 70, spawn.getZ()) - 1;
-		target = new BlockPos(spawn.getX() + 70, ground, spawn.getZ());
-		// Stand well above everything between us and the target so the uplink has a clear line.
-		int highest = ground;
-		for (int x = spawn.getX(); x <= target.getX(); x += 2) {
-			for (int dz = -2; dz <= 2; dz++) {
-				highest = Math.max(highest, world.getTopY(Heightmap.Type.MOTION_BLOCKING, x, spawn.getZ() + dz));
+		// Aim at the flattest spot 70 blocks out so the crater and the camera shots are not hidden by hills.
+		double bestScore = Double.MAX_VALUE;
+		for (int i = 0; i < 8; i++) {
+			double angle = Math.PI * 2 * i / 8;
+			int x = spawn.getX() + (int) Math.round(Math.cos(angle) * 70);
+			int z = spawn.getZ() + (int) Math.round(Math.sin(angle) * 70);
+			double score = roughness(world, x, z);
+			if (score < bestScore) {
+				bestScore = score;
+				target = new BlockPos(x, top(world, x, z) - 1, z);
 			}
 		}
-		BlockPos stand = new BlockPos(spawn.getX(), highest + 22, spawn.getZ());
+		int eye = clearHeight(world, spawn.getX() + 0.5, spawn.getZ() + 0.5, target);
+		BlockPos stand = new BlockPos(spawn.getX(), eye - 1, spawn.getZ());
 		look(server, stand, target);
 		ShootingStar.LOGGER.info("[selftest] standing at {} aiming at {}", stand, target);
 	}
 
-	/** Teleports the player to {@code height} blocks above the ground at x/z, looking at a point. */
+	/** Teleports the player at least {@code height} blocks above the ground at x/z with a clear view of a point. */
 	private static void lookFromAbove(IntegratedServer server, int x, int z, int height, BlockPos at) {
 		ServerWorld world = server.getPlayerManager().getPlayerList().get(0).getServerWorld();
+		int y = Math.max(top(world, x, z) + height, clearHeight(world, x + 0.5, z + 0.5, at) - 1);
+		look(server, new BlockPos(x, y, z), at);
+	}
+
+	private static int top(ServerWorld world, int x, int z) {
 		world.getChunk(x >> 4, z >> 4);
-		int ground = world.getTopY(Heightmap.Type.MOTION_BLOCKING, x, z);
-		look(server, new BlockPos(x, ground + height, z), at);
+		return world.getTopY(Heightmap.Type.MOTION_BLOCKING, x, z);
+	}
+
+	/** Spread of ground heights within 20 blocks, with water counted as rough. */
+	private static double roughness(ServerWorld world, int cx, int cz) {
+		double sum = 0;
+		double sumSq = 0;
+		int n = 0;
+		for (int dx = -20; dx <= 20; dx += 5) {
+			for (int dz = -20; dz <= 20; dz += 5) {
+				int h = top(world, cx + dx, cz + dz);
+				sum += h;
+				sumSq += (double) h * h;
+				n++;
+			}
+		}
+		double mean = sum / n;
+		double variance = sumSq / n - mean * mean;
+		boolean water = !world.getFluidState(new BlockPos(cx, top(world, cx, cz) - 1, cz)).isEmpty();
+		return variance + (water ? 400 : 0);
+	}
+
+	/** Eye height needed at x/z so the line of sight to {@code at} clears the terrain in between. */
+	private static int clearHeight(ServerWorld world, double fx, double fz, BlockPos at) {
+		double tx = at.getX() + 0.5;
+		double tz = at.getZ() + 0.5;
+		double ty = at.getY() + 1.0;
+		double distance = Math.hypot(tx - fx, tz - fz);
+		double needed = ty + 6;
+		for (double s = 0; s < distance - 8; s += 1.5) {
+			double k = s / distance;
+			int x = MathHelper.floor(MathHelper.lerp(k, fx, tx));
+			int z = MathHelper.floor(MathHelper.lerp(k, fz, tz));
+			int h = top(world, x, z) + 2;
+			needed = Math.max(needed, (h - ty * k) / (1 - k));
+		}
+		return MathHelper.ceil(needed);
 	}
 
 	private static void look(IntegratedServer server, BlockPos from, BlockPos at) {

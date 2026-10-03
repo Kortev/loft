@@ -78,7 +78,7 @@ public final class Feed {
 			drawLabel(ctx, font, label);
 		}
 		if (overlay.header != null) {
-			centered(ctx, font, overlay.header, w / 2, 14, overlay.headerColor, 1.0F);
+			centered(ctx, font, overlay.header, w / 2, 14, overlay.headerColor, 1.0F, true);
 		}
 		if (overlay.title != null && overlay.titleAlpha > 0.02F) {
 			int color = Gfx.fade(RED, overlay.titleAlpha);
@@ -164,10 +164,15 @@ public final class Feed {
 	}
 
 	static void centered(DrawContext ctx, TextRenderer font, String text, float x, float y, int color, float scale) {
+		centered(ctx, font, text, x, y, color, scale, false);
+	}
+
+	static void centered(DrawContext ctx, TextRenderer font, String text, float x, float y, int color, float scale,
+			boolean shadow) {
 		ctx.getMatrices().push();
 		ctx.getMatrices().translate(x, y, 0);
 		ctx.getMatrices().scale(scale, scale, 1.0F);
-		ctx.drawText(font, text, -font.getWidth(text) / 2, 0, color, false);
+		ctx.drawText(font, text, -font.getWidth(text) / 2, 0, color, shadow);
 		ctx.getMatrices().pop();
 	}
 

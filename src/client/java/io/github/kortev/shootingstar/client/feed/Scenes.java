@@ -223,7 +223,7 @@ final class Scenes {
 		if (view.project(tmp[0], tmp[1], tmp[2], out)) {
 			float x = (float) out[0], y = (float) out[1];
 			Gfx.brackets(b, m, x, y, 4, 2.5F, 1, Feed.RED);
-			overlay.labels.add(new Label(x + 7, y - 4, "BREECH", Feed.RED, "SS-03", Feed.GREY));
+			overlay.labels.add(new Label(x + 7, y + 4, "BREECH", Feed.RED, "SS-03", Feed.GREY));
 		}
 		if (view.project(0, 0, 0, out)) {
 			float x = (float) out[0] + w * 0.06F, y = (float) out[1] + h * 0.09F;
