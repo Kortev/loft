@@ -13,7 +13,7 @@ public final class Targeting {
 	/** Danger-close floor for tiny craters; normally the limit is 1.5x the crater radius. */
 	public static final double MIN_RANGE = 16.0;
 	/** Crater radius the client assumes for its aim hint; the server checks the real game rule. */
-	public static final int DEFAULT_RADIUS = 28;
+	public static final int DEFAULT_RADIUS = 64;
 
 	private Targeting() {
 	}

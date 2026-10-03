@@ -90,9 +90,10 @@ public final class StrikeManager {
 		Strike strike = new Strike(nextId++, world.getRegistryKey(), target, shooter != null ? shooter.getUuid() : Util.NIL_UUID);
 		STRIKES.add(strike);
 
+		// Load everything out to the edge of the scorched ring, so no part of the crater is cut off by unloaded chunks.
 		int scorch = Math.round(world.getGameRules().getInt(ModGameRules.CRATER_RADIUS) * 1.5F);
 		ChunkPos chunk = new ChunkPos(target);
-		world.getChunkManager().addTicket(TICKET, chunk, MathHelper.clamp(MathHelper.ceil(scorch / 16.0), 1, 8), chunk);
+		world.getChunkManager().addTicket(TICKET, chunk, MathHelper.clamp(MathHelper.ceil(scorch / 16.0), 1, 16), chunk);
 
 		ModNetworking.broadcast(world, new StrikeLockPayload(strike.id, target, strike.shooter, 0));
 		ShootingStar.LOGGER.info("Kinetic lock #{} on {} in {}", strike.id, target.toShortString(), world.getRegistryKey().getValue());

@@ -11,7 +11,7 @@ public final class ModGameRules {
 
 	/** Radius in blocks of the planed zone around the impact point. */
 	public static final GameRules.Key<GameRules.IntRule> CRATER_RADIUS = GameRuleRegistry.register(
-			"gungnirCraterRadius", GameRules.Category.MISC, GameRuleFactory.createIntRule(28, 8, 64));
+			"gungnirCraterRadius", GameRules.Category.MISC, GameRuleFactory.createIntRule(64, 8, 160));
 
 	/** Whether the spent round is left standing as a spire through the whole world height. */
 	public static final GameRules.Key<GameRules.BooleanRule> SPIRE = GameRuleRegistry.register(

@@ -62,11 +62,12 @@ public class StrikeGameTests implements FabricGameTest {
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "b_strike", tickLimit = StrikeTimeline.IMPACT + 120)
 	public void fullStrike(TestContext context) {
 		ServerWorld world = context.getWorld();
-		// Radius 12: bowl out to 5, plain planed ground from 5 to 9, the debris lip beyond, scorched ring to 18.
-		world.getGameRules().get(ModGameRules.CRATER_RADIUS).set(12, world.getServer());
+		// Radius 20: bowl out to 11 and 7 deep, plain planed ground from 11 to ~16, the debris lip beyond,
+		// scorched ring to 30.
+		world.getGameRules().get(ModGameRules.CRATER_RADIUS).set(20, world.getServer());
 		// Well clear of the test box so the crater cannot touch the test's own structure.
 		BlockPos center = context.getAbsolutePos(new BlockPos(4, 3, 48));
-		for (BlockPos pos : BlockPos.iterate(center.add(-20, -6, -20), center.add(20, 0, 20))) {
+		for (BlockPos pos : BlockPos.iterate(center.add(-31, -9, -31), center.add(31, 0, 31))) {
 			world.setBlockState(pos, Blocks.STONE.getDefaultState());
 		}
 		for (BlockPos pos : BlockPos.iterate(center.add(3, 1, 3), center.add(5, 4, 5))) {
@@ -76,7 +77,7 @@ public class StrikeGameTests implements FabricGameTest {
 		// so it cannot be used to convert back from absolute positions.
 		ZombieEntity near = zombie(context, new BlockPos(2, 4, 48));
 		ZombieEntity mid = zombie(context, new BlockPos(-2, 4, 48));
-		ZombieEntity outer = zombie(context, new BlockPos(19, 4, 48));
+		ZombieEntity outer = zombie(context, new BlockPos(29, 4, 48));
 
 		StrikeManager.launch(world, center, null);
 		context.waitAndRun(StrikeTimeline.IMPACT + 30, () -> {
@@ -89,9 +90,14 @@ public class StrikeGameTests implements FabricGameTest {
 					problems.append("spire missing at y=").append(y).append(": ").append(state).append("; ");
 				}
 			}
-			BlockState crust = world.getBlockState(center.add(7, 0, 0));
+			BlockState crust = world.getBlockState(center.add(13, 0, 0));
 			if (!crust.isOf(ModBlocks.MOLTEN_CRUST) && !crust.isOf(ModBlocks.FUSED_CRUST)) {
-				problems.append("expected crust at +7 but found ").append(crust).append("; ");
+				problems.append("expected crust at +13 but found ").append(crust).append("; ");
+			}
+			// The bowl floor at 5 out is 6 down, so everything above it is gone.
+			BlockState bowl = world.getBlockState(center.add(0, -5, 5));
+			if (!bowl.isAir() && !bowl.isOf(Blocks.LAVA)) {
+				problems.append("bowl not dug 5 deep at +5: ").append(bowl).append("; ");
 			}
 			int planks = 0;
 			for (BlockPos pos : BlockPos.iterate(center.add(3, 1, 3), center.add(5, 4, 5))) {

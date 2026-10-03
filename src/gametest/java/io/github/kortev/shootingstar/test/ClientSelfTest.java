@@ -27,8 +27,8 @@ import net.minecraft.world.GameRules;
 import net.minecraft.world.Heightmap;
 
 /**
- * With -Dshootingstar.selftest=true: joins the quick-play world, fires the uplink at a point 70
- * blocks away and saves a screenshot at every phase of the strike, then quits.
+ * With -Dshootingstar.selftest=true: joins the quick-play world, fires the uplink at a point just
+ * outside danger-close range and saves a screenshot at every phase of the strike, then quits.
  */
 public class ClientSelfTest implements ClientModInitializer {
 	private enum Stage { WAIT_WORLD, SETUP, SETTLE, FIRE, WATCH, AFTER, DONE, FINISHED }
@@ -115,10 +115,10 @@ public class ClientSelfTest implements ClientModInitializer {
 				ticks = 0;
 			}
 			case SETTLE -> {
-				if (ticks == 260) {
+				if (ticks == 460) {
 					client.player.getInventory().selectedSlot = 0;
 				}
-				if (ticks >= 300) {
+				if (ticks >= 500) {
 					shot(client, "00_holding_uplink.png");
 					stage = Stage.FIRE;
 					ticks = 0;
@@ -160,16 +160,20 @@ public class ClientSelfTest implements ClientModInitializer {
 				}
 			}
 			case AFTER -> {
+				int r = Targeting.DEFAULT_RADIUS;
 				if (ticks == 20) {
-					server.execute(() -> lookFromAbove(server, target.getX(), target.getZ() - 40, 45, Vec3d.ofCenter(target)));
+					server.execute(() -> lookFromAbove(server, target.getX(), target.getZ() - r * 13 / 10, r * 9 / 10,
+							Vec3d.ofCenter(target)));
 				}
 				if (ticks == 140) {
 					shot(client, "90_crater_above.png");
-					server.execute(() -> lookFromAbove(server, target.getX() - 52, target.getZ() + 8, 14, Vec3d.ofCenter(target.up(30))));
+					server.execute(() -> lookFromAbove(server, target.getX() - r * 17 / 10, target.getZ() + 10, 16,
+							Vec3d.ofCenter(target.up(r / 2))));
 				}
 				if (ticks == 260) {
 					shot(client, "91_crater_side.png");
-					server.execute(() -> lookFromAbove(server, target.getX() + 12, target.getZ() + 10, 7, Vec3d.ofCenter(target.up(2))));
+					server.execute(() -> lookFromAbove(server, target.getX() + r / 3, target.getZ() + r / 4, 8,
+							Vec3d.ofCenter(target.up(2))));
 				}
 				if (ticks == 380) {
 					shot(client, "92_crater_close.png");
@@ -202,12 +206,14 @@ public class ClientSelfTest implements ClientModInitializer {
 		player.getInventory().setStack(0, new ItemStack(ModItems.GUNGNIR_UPLINK));
 
 		BlockPos spawn = world.getSpawnPos();
-		// Aim at the flattest spot 70 blocks out so the crater and the camera shots are not hidden by hills.
+		// Aim at the flattest spot just outside danger-close range so the crater and the camera shots are not
+		// hidden by hills.
+		double range = Targeting.minRange(Targeting.DEFAULT_RADIUS) + 8.0;
 		double bestScore = Double.MAX_VALUE;
 		for (int i = 0; i < 8; i++) {
 			double angle = Math.PI * 2 * i / 8;
-			int x = spawn.getX() + (int) Math.round(Math.cos(angle) * 70);
-			int z = spawn.getZ() + (int) Math.round(Math.sin(angle) * 70);
+			int x = spawn.getX() + (int) Math.round(Math.cos(angle) * range);
+			int z = spawn.getZ() + (int) Math.round(Math.sin(angle) * range);
 			double score = roughness(world, x, z);
 			if (score < bestScore) {
 				bestScore = score;
@@ -253,13 +259,14 @@ public class ClientSelfTest implements ClientModInitializer {
 		return world.getTopY(Heightmap.Type.MOTION_BLOCKING, x, z);
 	}
 
-	/** Spread of ground heights within 20 blocks, with water counted as rough. */
+	/** Spread of ground heights over the middle of the crater, with water counted as rough. */
 	private static double roughness(ServerWorld world, int cx, int cz) {
 		double sum = 0;
 		double sumSq = 0;
 		int n = 0;
-		for (int dx = -20; dx <= 20; dx += 5) {
-			for (int dz = -20; dz <= 20; dz += 5) {
+		int reach = Targeting.DEFAULT_RADIUS / 2;
+		for (int dx = -reach; dx <= reach; dx += 8) {
+			for (int dz = -reach; dz <= reach; dz += 8) {
 				int h = top(world, cx + dx, cz + dz);
 				sum += h;
 				sumSq += (double) h * h;

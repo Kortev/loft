@@ -1,7 +1,7 @@
 version:3955
 onboardAccessibility:false
 pauseOnLostFocus:false
-renderDistance:8
+renderDistance:12
 simulationDistance:8
 guiScale:0
 fov:0.0

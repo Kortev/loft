@@ -2,7 +2,7 @@
 
 A Fabric mod for Minecraft Java **1.21.1** based on the "SS-03 Gungnir" orbital-strike reel.
 
-Use the **Gungnir Uplink** on any block 42–640 blocks away to get a kinetic lock on it. The
+Use the **Gungnir Uplink** on any block 96–640 blocks away to get a kinetic lock on it. The
 minimum is 1.5× the crater radius, so the shooter is never caught in their own blast. A mass driver
 ringing Jupiter spins a round up over seven laps to 0.96c and fires it across the asteroid belt.
 About 17 seconds later the round lands on the target: it planes a crater into glowing molten crust
@@ -23,18 +23,20 @@ and leaves a spire of hull plating standing through the full height of the world
 | 14.6 s | `[ TERMINAL · SOL-3 ]`: re-entry.                                                             |
 | 15.8 s | The round becomes a falling star above the target.                                           |
 | 17 s   | **Impact**: a halftone impact frame, a shockwave, then a wide shot of the spire.             |
-| 18 s   | `[ IMPACT CONFIRMED ]` · `ZONE 0056 PLANED · SPIRE STANDING · 384 M`                         |
+| 18 s   | `[ IMPACT CONFIRMED ]` · `ZONE 0128 PLANED · SPIRE STANDING · 384 M`                         |
 
 Everyone nearby sees the beam, the reticle, the falling star and the impact. Only the player who
 fired gets the feed and the camera shots. Press **Backspace** (rebindable) to skip the feed.
 
 ## What the strike does to the world
 
-- **Bowl:** a white-hot bowl around the spire with a ring of lava at its base.
-- **Planed zone:** everything above the impact level inside the crater radius (28 blocks by
-  default) is vaporised. The ground is resurfaced with **Molten Crust**, which cools over several
+- **Bowl:** a white-hot bowl around the spire, about 70 blocks across and 22 deep at the default
+  size, with lava pooled at its base.
+- **Planed zone:** everything above the impact level (up to 140 blocks of hillside) inside the
+  crater radius (64 blocks by default, a zone 128 blocks across) is vaporised. The ground is resurfaced with **Molten Crust**, which cools over several
   minutes into **Fused Crust**. Water quenches it instantly.
-- **Rim:** a lip of blackstone, basalt and magma, plus debris thrown out by the impact.
+- **Rim:** a raised lip of blackstone, basalt and magma, plus a rain of debris thrown out by the
+  impact.
 - **Scorched ring:** out to 1.5× the radius, leaves are stripped, glass shatters, sand fuses to
   glass, snow melts and fires start.
 - **Spire:** a round, 5-block-wide column of Gungnir Hull with glowing coil bands. It runs from
@@ -62,7 +64,7 @@ fired gets the feed and the camera shots. Press **Backspace** (rebindable) to sk
 | Game rule              | Default | Meaning                                                  |
 |------------------------|---------|----------------------------------------------------------|
 | `gungnirTerrainDamage` | `true`  | `false` keeps terrain intact (entities are still hit).   |
-| `gungnirCraterRadius`  | `28`    | Radius of the planed zone, 8–64.                         |
+| `gungnirCraterRadius`  | `64`    | Radius of the planed zone, 8–160.                        |
 | `gungnirSpire`         | `true`  | Whether the spent round is left standing as a spire.     |
 
 ## Client options

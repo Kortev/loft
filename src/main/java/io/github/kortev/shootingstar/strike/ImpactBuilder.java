@@ -31,17 +31,17 @@ import net.minecraft.world.Heightmap;
 
 /**
  * Plans and carves one impact: the spire goes up on the impact tick, then a shockwave front walks
- * outward over {@link #WAVE_TICKS} ticks, carving the bowl, planing the zone flat into molten
- * crust, scorching the ring beyond it and blasting entities as it passes them.
+ * outward (about three quarters of a tick per block of radius), blasting a deep bowl around the
+ * spire, planing the zone flat into molten crust, throwing up a rim, scorching the ring beyond it
+ * and blasting entities as it passes them.
  */
 public final class ImpactBuilder {
-	public static final int WAVE_TICKS = 18;
 	/** Squared radius of the spire's round cross-section (21 blocks per layer). */
 	public static final int SPIRE_R2 = 6;
 	private static final int FIN_HEIGHT = 30;
 	private static final int FIN_SPAN = 8;
 	private static final int BAND_SPACING = 24;
-	private static final int MAX_CUT = 96;
+	private static final int MAX_CUT = 140;
 	private static final int BLOCK_BUDGET = 60_000;
 	private static final int FLAGS = Block.NOTIFY_LISTENERS | Block.FORCE_STATE;
 
@@ -54,6 +54,7 @@ public final class ImpactBuilder {
 	private final int bowlRadius;
 	private final int bowlDepth;
 	private final int scorchRadius;
+	private final int waveTicks;
 	private final boolean terrain;
 	private final boolean spire;
 	private final DamageSource damage;
@@ -71,9 +72,10 @@ public final class ImpactBuilder {
 		this.world = world;
 		this.center = center;
 		this.radius = world.getGameRules().getInt(ModGameRules.CRATER_RADIUS);
-		this.bowlRadius = Math.max(4, Math.round(radius * 0.42F));
-		this.bowlDepth = Math.max(3, Math.round(bowlRadius * 0.6F));
+		this.bowlRadius = Math.max(4, Math.round(radius * 0.55F));
+		this.bowlDepth = Math.max(3, Math.round(bowlRadius * 0.62F));
 		this.scorchRadius = Math.round(radius * 1.5F);
+		this.waveTicks = Math.max(18, Math.round(radius * 0.75F));
 		this.terrain = world.getGameRules().getBoolean(ModGameRules.TERRAIN_DAMAGE);
 		this.spire = terrain && world.getGameRules().getBoolean(ModGameRules.SPIRE);
 		this.damage = ModDamageTypes.kineticStrike(world);
@@ -124,7 +126,8 @@ public final class ImpactBuilder {
 	public boolean step() {
 		tick++;
 		budget = BLOCK_BUDGET;
-		double front = Math.min(scorchRadius, scorchRadius * (double) tick / WAVE_TICKS);
+		// The front races out and decelerates as it spreads, like a blast wave (radius ~ t^0.45).
+		double front = scorchRadius * Math.pow(Math.min(1.0, (double) tick / waveTicks), 0.45);
 		if (terrain) {
 			while (cursor < columns.size() && columns.get(cursor).dist() <= front && budget > 0) {
 				carve(columns.get(cursor++));
@@ -137,7 +140,7 @@ public final class ImpactBuilder {
 		if (tick == 3 && terrain) {
 			spawnEjecta();
 		}
-		return tick >= WAVE_TICKS && (!terrain || cursor >= columns.size());
+		return tick >= waveTicks && (!terrain || cursor >= columns.size());
 	}
 
 	// --- terrain -----------------------------------------------------------------------------
@@ -208,9 +211,10 @@ public final class ImpactBuilder {
 		}
 
 		// A lip of thrown debris around the edge of the planed zone.
-		if (dist > radius - 3) {
-			double lip = (1.0 - Math.abs(dist - (radius - 1)) / 2.5) * (0.6 + 0.8 * noise(x * 3, z * 3));
-			int height = (int) Math.round(lip * 2.2);
+		double lipWidth = 2.5 + radius * 0.08;
+		if (dist > radius - lipWidth) {
+			double lip = (1.0 - Math.abs(dist - (radius - 1)) / lipWidth) * (0.6 + 0.8 * noise(x * 3, z * 3));
+			int height = (int) Math.round(lip * (2.2 + radius * 0.06));
 			for (int k = 1; k <= height; k++) {
 				set(x, y + k, z, debris());
 			}
@@ -390,7 +394,8 @@ public final class ImpactBuilder {
 
 	private void spawnEjecta() {
 		int floor = floorY(0) + 2;
-		for (int i = 0; i < 40; i++) {
+		int count = MathHelper.clamp(radius * 3, 40, 260);
+		for (int i = 0; i < count; i++) {
 			double angle = random.nextDouble() * Math.PI * 2.0;
 			double offset = 3.5 + random.nextDouble() * (bowlRadius - 3.5);
 			BlockPos pos = BlockPos.ofFloored(center.getX() + 0.5 + Math.cos(angle) * offset, floor + random.nextInt(3),
@@ -401,8 +406,9 @@ public final class ImpactBuilder {
 			FallingBlockEntity block = FallingBlockEntity.spawnFromBlock(world, pos, debris());
 			block.dropItem = false;
 			block.setHurtEntities(2.0F, 20);
-			double speed = 0.5 + random.nextDouble() * 0.6;
-			block.setVelocity(Math.cos(angle) * speed, 0.85 + random.nextDouble() * 0.5, Math.sin(angle) * speed);
+			double reach = Math.sqrt(radius / 28.0);
+			double speed = (0.5 + random.nextDouble() * 0.9) * reach;
+			block.setVelocity(Math.cos(angle) * speed, (0.9 + random.nextDouble() * 0.7) * reach, Math.sin(angle) * speed);
 			block.velocityModified = true;
 			ejecta.add(block.getUuid());
 		}

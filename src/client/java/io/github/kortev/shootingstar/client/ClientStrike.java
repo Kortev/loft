@@ -14,8 +14,8 @@ public final class ClientStrike {
 	public int age;
 	public boolean impacted;
 	public int impactAge = -1;
-	public int radius = 28;
-	public int zoneDiameter = 56;
+	public int radius = 64;
+	public int zoneDiameter = 128;
 	public int spireHeight;
 	/** The shooter pressed skip, or the feed is off: no feed and no camera shots. */
 	public boolean feedSkipped;
