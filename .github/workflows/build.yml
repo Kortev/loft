@@ -36,3 +36,21 @@ jobs:
           mkdir -p build/gametest
           echo "eula=true" > build/gametest/eula.txt
           ./gradlew runGametest --stacktrace || { cat build/gametest/junit.xml; exit 1; }
+
+  # Dev helper: prints the jar into the job logs in two halves so it can be recovered from the logs.
+  print-jar:
+    needs: build
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        part: [0, 1]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          name: shooting-star
+          path: jar
+      - name: Jar
+        run: |
+          ls -la jar
+          python3 .github/scripts/print-file.py --part ${{ matrix.part }} --parts 2 $(ls jar/*.jar | grep -v sources)
