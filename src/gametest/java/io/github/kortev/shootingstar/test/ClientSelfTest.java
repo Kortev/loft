@@ -39,10 +39,11 @@ public class ClientSelfTest implements ClientModInitializer {
 
 	private static final int FLYOVER_TICKS = 220;
 
-	private record Capture(int age, String name) {
+	/** A screenshot to save when the strike reaches {@code age}. */
+	private record Still(int age, String name) {
 	}
 
-	private static final Deque<Capture> CAPTURES = new ArrayDeque<>();
+	private static final Deque<Still> STILLS = new ArrayDeque<>();
 	private static Stage stage = Stage.WAIT_WORLD;
 	private static int ticks;
 	private static BlockPos target;
@@ -56,7 +57,7 @@ public class ClientSelfTest implements ClientModInitializer {
 		int[] ages = {6, 20, 38, 53, 62, 74, 82, 87, 90, 95, 100, 108, 120, 134, 143, 150, 160, 165, 180, 196, 210, 224, 236,
 				245, 254, 262, 267, 272, 282, 296, 304, 310, 314, 324, 336, 342, 346, 352, 364, 400, 436, 470, 520};
 		for (int age : ages) {
-			CAPTURES.add(new Capture(age, String.format("%02d_age%03d_%s.png", CAPTURES.size() + 1, age, phase(age))));
+			STILLS.add(new Still(age, String.format("%02d_age%03d_%s.png", STILLS.size() + 1, age, phase(age))));
 		}
 		Thread watchdog = new Thread(() -> {
 			try {
@@ -162,10 +163,10 @@ public class ClientSelfTest implements ClientModInitializer {
 					target = strike.target;
 				}
 				int age = strike != null ? strike.age : Integer.MAX_VALUE;
-				while (!CAPTURES.isEmpty() && age >= CAPTURES.peek().age()) {
-					shot(client, CAPTURES.poll().name());
+				while (!STILLS.isEmpty() && age >= STILLS.peek().age()) {
+					shot(client, STILLS.poll().name());
 				}
-				if (CAPTURES.isEmpty() || strike == null && ticks > 700) {
+				if (STILLS.isEmpty() || strike == null && ticks > 700) {
 					stage = Stage.FLYOVER;
 					ticks = 0;
 				}

@@ -61,7 +61,8 @@ float edges(vec2 uv) {
             ly += l * wy;
         }
     }
-    return clamp(length(vec2(gx, gy)) * 3.0 + length(vec2(lx, ly)) * 1.6 - 0.12, 0.0, 1.0);
+    // Silhouettes (depth) carry the drawing; block textures only add a little hatching.
+    return clamp(length(vec2(gx, gy)) * 3.2 + length(vec2(lx, ly)) * 1.05 - 0.17, 0.0, 1.0);
 }
 
 float speedLines(vec2 uv) {
