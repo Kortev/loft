@@ -244,7 +244,7 @@ public final class ImpactScene {
 			c.size = (float) (roll < 0.15 ? 1.2 + random.nextDouble() * 1.4 : roll < 0.7 ? 0.5 + random.nextDouble() * 0.7
 					: 0.2 + random.nextDouble() * 0.3);
 			c.heat = (float) (1.0 - 0.6 * r / bowl);
-			c.trail = c.size > 1.0F && random.nextDouble() < 0.75;
+			c.trail = c.size > 1.3F && random.nextDouble() < 0.8;
 			float ax = (float) random.nextGaussian();
 			float ay = (float) random.nextGaussian();
 			float az = (float) random.nextGaussian();
@@ -278,13 +278,15 @@ public final class ImpactScene {
 		c.z += c.vz;
 		c.angle += c.spin;
 		c.heat *= 0.985F;
-		if (c.trail && age % 2 == 0 && c.heat > 0.12F) {
-			Puff p = puff(c.x, c.y, c.z, 0.6 * c.size, 0.16F, 0.14F, 0.13F, 0.55F, 50 + random.nextInt(30));
-			p.glow = c.heat * 1.6F;
-			p.glowDecay = 0.88F;
-			p.growth = 0.05F;
+		if (c.trail && c.heat > 0.1F) {
+			// Overlapping puffs every tick, so the trail reads as one smoky arc rather than a string of beads.
+			Puff p = puff(c.x - c.vx * 0.5, c.y - c.vy * 0.5, c.z - c.vz * 0.5, 0.85 * c.size, 0.2F, 0.18F, 0.17F, 0.45F,
+					45 + random.nextInt(30));
+			p.glow = c.heat * 1.4F;
+			p.glowDecay = 0.86F;
+			p.growth = 0.09F;
 			p.drag = 0.9F;
-			p.buoyancy = 0.004F;
+			p.buoyancy = 0.006F;
 		}
 		int ground = world.getTopY(Heightmap.Type.MOTION_BLOCKING, MathHelper.floor(c.x), MathHelper.floor(c.z));
 		if (c.vy < 0 && c.y - c.size * 0.5 < ground) {

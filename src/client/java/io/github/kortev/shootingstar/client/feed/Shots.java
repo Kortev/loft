@@ -162,7 +162,8 @@ final class Shots {
 		float d1 = fromRelay1.length();
 		Vector3f dir = slerp(fromRelay0.normalize(), fromRelay1.normalize(), k);
 		Vector3f eye = new Vector3f(dir).mul((float) (d0 * Math.pow(d1 / d0, k))).add(RELAY_POS);
-		Vector3f at = new Vector3f(start.at()).lerp(nearAt, k);
+		// Turn onto the satellite early, so it is the subject of the shot while the camera closes in.
+		Vector3f at = new Vector3f(start.at()).lerp(nearAt, smooth(s / 3.5));
 		float fov = 50.0F;
 		// Whip round to look down the beam, then accelerate along it.
 		float whip = smoother((s - 8) / 4.0);
@@ -507,7 +508,7 @@ final class Shots {
 		Vector3f eye = new Vector3f(0.95F, 0.62F, -3.5F).rotateZ(orbitCam);
 		localCamera(eye, new Vector3f(0, 0, 2.5F), orbitCam * 0.4F, 60.0F);
 		float beta = 0.9612F + 0.0112F * (float) (s / 26.0);
-		space.sky(cam, LOCAL_SKY, 1.0F, beta * 0.6F, new Vector3f(0, 0, 1), 0.12F, 0, 0, time);
+		space.sky(cam, LOCAL_SKY, 0.55F, beta * 0.6F, new Vector3f(0, 0, 1), 0.08F, 0, 0, time);
 
 		// Earth: a bright blue point dead ahead.
 		Fx earth = space.glow(cam, Fx.SPIKES, 0);
