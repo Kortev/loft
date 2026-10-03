@@ -590,7 +590,7 @@ final class Shots {
 		if (heat > 0.01F) {
 			Matrix4f sheath = new Matrix4f().translation(roundPos).rotateTowards(down, new Vector3f(NORTH))
 					.translate(0, 0, unit * 5.25F * ROUND_SCALE).scale(unit * 1.4F, unit * 1.4F, unit * 6.0F);
-			space.plasma(space.cone, cam, sheath, time * 0.05F, heat * 1.6F, 0.4F + heat * 0.6F, new Vector3f(0, 0, -6.0F), 1.0F);
+			space.plasma(space.cone, cam, sheath, time * 0.05F, heat * 1.1F, 0.4F + heat * 0.6F, new Vector3f(0, 0, -6.0F), 1.0F);
 			Fx glow = space.glow(cam, Fx.BLOB, 1.0F);
 			glow.sprite(new Vector3f(roundPos).add(new Vector3f(down).mul(unit * 5.5F * ROUND_SCALE)), unit * (1.5F + heat * 3.0F), 0,
 					Fx.argb(1.0F, 0.8F, 0.55F, heat));
@@ -602,7 +602,7 @@ final class Shots {
 		o.footer = "RANGE " + Feed.commas(range) + " KM";
 		o.footerSmall = "VELOCITY 0.9724 c";
 		o.flashColor = s > 19 ? 0xFFFFFF : 0xFF9050;
-		o.flash = s > 19 ? smooth((s - 19) / 5.0) : heat * 0.22F;
+		o.flash = s > 19 ? smooth((s - 19) / 5.0) : heat * 0.1F;
 		o.aberration = heat * 0.01F;
 		o.saturation = 1.0F + heat * 0.25F;
 	}
