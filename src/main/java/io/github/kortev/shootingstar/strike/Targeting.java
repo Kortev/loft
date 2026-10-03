@@ -10,8 +10,10 @@ import org.jetbrains.annotations.Nullable;
 
 public final class Targeting {
 	public static final double MAX_RANGE = 640.0;
-	/** Anything closer than this is refused as danger close. */
+	/** Danger-close floor for tiny craters; normally the limit is 1.5x the crater radius. */
 	public static final double MIN_RANGE = 16.0;
+	/** Crater radius the client assumes for its aim hint; the server checks the real game rule. */
+	public static final int DEFAULT_RADIUS = 28;
 
 	private Targeting() {
 	}
@@ -81,6 +83,11 @@ public final class Targeting {
 			}
 		}
 		return null;
+	}
+
+	/** Closest a target may be to the shooter: just outside the scorched ring. */
+	public static double minRange(int craterRadius) {
+		return Math.max(MIN_RANGE, Math.ceil(craterRadius * 1.5));
 	}
 
 	/** Drops a hit on a tree canopy or plant down to the ground underneath it. */

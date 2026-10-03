@@ -2,6 +2,7 @@ package io.github.kortev.shootingstar.client;
 
 import io.github.kortev.shootingstar.item.UplinkItem;
 import io.github.kortev.shootingstar.registry.ModItems;
+import io.github.kortev.shootingstar.strike.Targeting;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.util.math.BlockPos;
@@ -32,7 +33,7 @@ public final class Aim {
 		target = UplinkItem.aim(player);
 		if (target != null) {
 			distance = Math.sqrt(Vec3d.ofCenter(target).squaredDistanceTo(player.getEyePos()));
-			dangerClose = UplinkItem.dangerClose(player, target);
+			dangerClose = UplinkItem.dangerClose(player, target, Targeting.minRange(Targeting.DEFAULT_RADIUS));
 		}
 	}
 }

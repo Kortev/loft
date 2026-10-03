@@ -2,7 +2,8 @@
 
 A Fabric mod for Minecraft Java **1.21.1** based on the "SS-03 Gungnir" orbital-strike reel.
 
-Use the **Gungnir Uplink** on any block 16–640 blocks away to get a kinetic lock on it. A mass driver
+Use the **Gungnir Uplink** on any block 42–640 blocks away to get a kinetic lock on it. The
+minimum is 1.5× the crater radius, so the shooter is never caught in their own blast. A mass driver
 ringing Jupiter spins a round up over seven laps to 0.96c and fires it across the asteroid belt.
 About 17 seconds later the round lands on the target: it planes a crater into glowing molten crust
 and leaves a spire of hull plating standing through the full height of the world.

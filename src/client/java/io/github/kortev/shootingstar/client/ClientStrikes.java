@@ -13,6 +13,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.sound.PositionedSoundInstance;
+import net.minecraft.client.world.ClientWorld;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvent;
 import net.minecraft.sound.SoundEvents;
@@ -26,6 +27,8 @@ public final class ClientStrikes {
 	private static final Map<Integer, ClientStrike> STRIKES = new LinkedHashMap<>();
 	private static boolean hudOverride;
 	private static boolean savedHudHidden;
+	@Nullable
+	private static ClientWorld lastWorld;
 
 	private ClientStrikes() {
 	}
@@ -122,6 +125,11 @@ public final class ClientStrikes {
 				clear(client);
 			}
 			return;
+		}
+		if (client.world != lastWorld) {
+			// New dimension or server: strikes from the old world no longer apply.
+			lastWorld = client.world;
+			clear(client);
 		}
 		if (client.isPaused()) {
 			return;

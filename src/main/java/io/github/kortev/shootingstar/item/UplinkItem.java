@@ -1,5 +1,6 @@
 package io.github.kortev.shootingstar.item;
 
+import io.github.kortev.shootingstar.registry.ModGameRules;
 import io.github.kortev.shootingstar.registry.ModSounds;
 import io.github.kortev.shootingstar.strike.StrikeManager;
 import io.github.kortev.shootingstar.strike.StrikeTimeline;
@@ -36,18 +37,26 @@ public class UplinkItem extends Item {
 		return Targeting.findTarget(player.getWorld(), player.getEyePos(), player.getRotationVec(1.0F), Targeting.MAX_RANGE);
 	}
 
-	public static boolean dangerClose(PlayerEntity player, BlockPos target) {
-		return Vec3d.ofCenter(target).squaredDistanceTo(player.getEyePos()) < Targeting.MIN_RANGE * Targeting.MIN_RANGE;
+	public static boolean dangerClose(PlayerEntity player, BlockPos target, double minRange) {
+		return Vec3d.ofCenter(target).squaredDistanceTo(player.getEyePos()) < minRange * minRange;
+	}
+
+	private static double minRange(World world) {
+		int radius = world instanceof ServerWorld server ? server.getGameRules().getInt(ModGameRules.CRATER_RADIUS)
+				: Targeting.DEFAULT_RADIUS;
+		return Targeting.minRange(radius);
 	}
 
 	@Override
 	public TypedActionResult<ItemStack> use(World world, PlayerEntity user, Hand hand) {
 		ItemStack stack = user.getStackInHand(hand);
 		BlockPos target = aim(user);
-		if (target == null || dangerClose(user, target)) {
+		double minRange = minRange(world);
+		if (target == null || dangerClose(user, target, minRange)) {
 			if (!world.isClient()) {
-				String key = target == null ? "message.shootingstar.no_solution" : "message.shootingstar.danger_close";
-				user.sendMessage(Text.translatable(key).formatted(Formatting.RED), true);
+				Text message = target == null ? Text.translatable("message.shootingstar.no_solution")
+						: Text.translatable("message.shootingstar.danger_close", (int) minRange);
+				user.sendMessage(message.copy().formatted(Formatting.RED), true);
 				world.playSound(null, user.getX(), user.getY(), user.getZ(), ModSounds.UPLINK_DENIED, SoundCategory.PLAYERS, 0.7F, 1.0F);
 			}
 			return TypedActionResult.fail(stack);

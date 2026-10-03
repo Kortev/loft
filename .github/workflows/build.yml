@@ -35,4 +35,4 @@ jobs:
         run: |
           mkdir -p build/gametest
           echo "eula=true" > build/gametest/eula.txt
-          ./gradlew runGametest --stacktrace
+          ./gradlew runGametest --stacktrace || { cat build/gametest/junit.xml; exit 1; }

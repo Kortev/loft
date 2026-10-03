@@ -1,5 +1,6 @@
 package io.github.kortev.shootingstar.test;
 
+import io.github.kortev.shootingstar.ShootingStar;
 import io.github.kortev.shootingstar.block.MoltenCrustBlock;
 import io.github.kortev.shootingstar.registry.ModBlocks;
 import io.github.kortev.shootingstar.registry.ModGameRules;
@@ -65,20 +66,37 @@ public class StrikeGameTests implements FabricGameTest {
 
 		StrikeManager.launch(world, center, null);
 		context.waitAndRun(StrikeTimeline.IMPACT + 30, () -> {
+			// Collect every problem so one run reports all of them.
+			StringBuilder problems = new StringBuilder();
 			int top = world.getTopY() - 1;
 			for (int y : new int[] {world.getBottomY() + 2, center.getY(), center.getY() + 100, top}) {
 				BlockState state = world.getBlockState(new BlockPos(center.getX(), y, center.getZ()));
-				context.assertTrue(state.isOf(ModBlocks.GUNGNIR_HULL) || state.isOf(ModBlocks.GUNGNIR_COIL)
-						|| state.isOf(Blocks.BEDROCK), "spire missing at y=" + y + ": " + state);
+				if (!state.isOf(ModBlocks.GUNGNIR_HULL) && !state.isOf(ModBlocks.GUNGNIR_COIL) && !state.isOf(Blocks.BEDROCK)) {
+					problems.append("spire missing at y=").append(y).append(": ").append(state).append("; ");
+				}
 			}
 			BlockPos planed = center.add(6, 0, 0);
 			BlockState crust = world.getBlockState(planed);
-			context.assertTrue(crust.isOf(ModBlocks.MOLTEN_CRUST), "expected molten crust at " + planed + ", found " + crust);
-			context.assertTrue(world.getBlockState(planed.up()).isAir(), "planed zone was not cleared");
-			context.assertTrue(world.getBlockState(center.add(4, 2, 4)).isAir(), "the house survived the impact");
-			context.assertTrue(world.getBlockState(center.add(3, 0, 0)).isAir(), "the bowl was not dug");
-			context.assertTrue(!near.isAlive(), "a zombie at the impact point survived");
-			context.assertTrue(!mid.isAlive(), "a zombie in the planed zone survived");
+			if (!crust.isOf(ModBlocks.MOLTEN_CRUST)) {
+				problems.append("expected molten crust at +6 but found ").append(crust).append("; ");
+			}
+			if (!world.getBlockState(planed.up(2)).isAir()) {
+				problems.append("planed zone not cleared: ").append(world.getBlockState(planed.up(2))).append("; ");
+			}
+			if (!world.getBlockState(center.add(4, 3, 4)).isAir()) {
+				problems.append("the house survived: ").append(world.getBlockState(center.add(4, 3, 4))).append("; ");
+			}
+			if (!world.getBlockState(center.add(3, 0, 0)).isAir()) {
+				problems.append("bowl not dug: ").append(world.getBlockState(center.add(3, 0, 0))).append("; ");
+			}
+			if (near.isAlive()) {
+				problems.append("zombie at the impact point survived with ").append(near.getHealth()).append(" hp; ");
+			}
+			if (mid.isAlive()) {
+				problems.append("zombie in the planed zone survived with ").append(mid.getHealth()).append(" hp; ");
+			}
+			ShootingStar.LOGGER.info("[gametest] fullStrike: {}", problems.length() == 0 ? "ok" : problems);
+			context.assertTrue(problems.length() == 0, problems.toString());
 			context.complete();
 		});
 	}
