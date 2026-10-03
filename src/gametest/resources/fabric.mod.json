@@ -1,0 +1,17 @@
+{
+	"schemaVersion": 1,
+	"id": "shootingstar-gametest",
+	"version": "1.0.0",
+	"name": "The Shooting Star test harness",
+	"description": "Development only: game tests and a client self test for The Shooting Star.",
+	"environment": "*",
+	"entrypoints": {
+		"main": ["io.github.kortev.shootingstar.test.WorldGenHelper"],
+		"fabric-gametest": ["io.github.kortev.shootingstar.test.StrikeGameTests"],
+		"client": ["io.github.kortev.shootingstar.test.ClientSelfTest"]
+	},
+	"depends": {
+		"shootingstar": "*",
+		"fabric-gametest-api-v1": "*"
+	}
+}

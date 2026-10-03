@@ -1,0 +1,46 @@
+name: selftest
+
+# Plays a full strike in a real client under a virtual display and screenshots every phase.
+on:
+  workflow_dispatch:
+  push:
+    branches: ['claude/**']
+
+jobs:
+  selftest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Install virtual display
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q xvfb libgl1-mesa-dri mesa-utils
+          sudo apt-get install -y -q python3-pil
+      - name: Generate world
+        run: |
+          mkdir -p build/selftest-server
+          echo "eula=true" > build/selftest-server/eula.txt
+          printf "level-name=selftest\nlevel-seed=shootingstar\nonline-mode=false\nspawn-protection=0\n" > build/selftest-server/server.properties
+          timeout 900 ./gradlew runGenworld --stacktrace
+      - name: Run client self test
+        run: |
+          mkdir -p build/selftest/saves
+          cp -r build/selftest-server/selftest build/selftest/saves/selftest
+          cp .github/selftest/options.txt build/selftest/options.txt
+          timeout 1500 xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew runSelftest --stacktrace
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: selftest-screenshots
+          path: |
+            build/selftest/screenshots/
+            build/selftest/logs/
+      - name: Screenshots
+        if: always()
+        run: python3 .github/scripts/print-screens.py build/selftest/screenshots

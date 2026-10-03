@@ -1,0 +1,101 @@
+{
+  "uplink.lock": {
+    "subtitle": "subtitles.shootingstar.uplink.lock",
+    "sounds": [
+      {
+        "name": "shootingstar:uplink_lock"
+      }
+    ]
+  },
+  "uplink.denied": {
+    "subtitle": "subtitles.shootingstar.uplink.denied",
+    "sounds": [
+      {
+        "name": "shootingstar:uplink_denied"
+      }
+    ]
+  },
+  "feed.zoom": {
+    "subtitle": "subtitles.shootingstar.feed.zoom",
+    "sounds": [
+      {
+        "name": "shootingstar:feed_zoom"
+      }
+    ]
+  },
+  "feed.relay": {
+    "subtitle": "subtitles.shootingstar.feed.relay",
+    "sounds": [
+      {
+        "name": "shootingstar:feed_relay"
+      }
+    ]
+  },
+  "feed.wake": {
+    "subtitle": "subtitles.shootingstar.feed.wake",
+    "sounds": [
+      {
+        "name": "shootingstar:feed_wake"
+      }
+    ]
+  },
+  "feed.load": {
+    "subtitle": "subtitles.shootingstar.feed.load",
+    "sounds": [
+      {
+        "name": "shootingstar:feed_load"
+      }
+    ]
+  },
+  "feed.lap": {
+    "subtitle": "subtitles.shootingstar.feed.lap",
+    "sounds": [
+      {
+        "name": "shootingstar:feed_lap"
+      }
+    ]
+  },
+  "feed.release": {
+    "subtitle": "subtitles.shootingstar.feed.release",
+    "sounds": [
+      {
+        "name": "shootingstar:feed_release"
+      }
+    ]
+  },
+  "feed.reentry": {
+    "subtitle": "subtitles.shootingstar.feed.reentry",
+    "sounds": [
+      {
+        "name": "shootingstar:feed_reentry"
+      }
+    ]
+  },
+  "strike.inbound": {
+    "subtitle": "subtitles.shootingstar.strike.inbound",
+    "sounds": [
+      {
+        "name": "shootingstar:strike_inbound",
+        "attenuation_distance": 160
+      }
+    ]
+  },
+  "strike.impact": {
+    "subtitle": "subtitles.shootingstar.strike.impact",
+    "sounds": [
+      {
+        "name": "shootingstar:strike_impact",
+        "attenuation_distance": 320
+      }
+    ]
+  },
+  "strike.rumble": {
+    "subtitle": "subtitles.shootingstar.strike.rumble",
+    "sounds": [
+      {
+        "name": "shootingstar:strike_rumble",
+        "attenuation_distance": 640
+      }
+    ]
+  }
+}

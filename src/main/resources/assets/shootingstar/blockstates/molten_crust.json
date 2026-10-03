@@ -1,0 +1,13 @@
+{
+  "variants": {
+    "heat=1": {
+      "model": "shootingstar:block/molten_crust_1"
+    },
+    "heat=2": {
+      "model": "shootingstar:block/molten_crust_2"
+    },
+    "heat=3": {
+      "model": "shootingstar:block/molten_crust_3"
+    }
+  }
+}
