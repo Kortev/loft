@@ -1,0 +1,17 @@
+assets/minecraft/shaders/core/position_tex.json
+assets/minecraft/shaders/core/position_tex.vsh
+assets/minecraft/shaders/core/position_tex.fsh
+assets/minecraft/shaders/core/position_tex_color.json
+assets/minecraft/shaders/core/rendertype_lightning.json
+assets/minecraft/shaders/core/rendertype_lightning.fsh
+assets/minecraft/shaders/core/rendertype_beacon_beam.vsh
+assets/minecraft/shaders/core/rendertype_beacon_beam.fsh
+assets/minecraft/shaders/core/particle.vsh
+assets/minecraft/shaders/core/rendertype_clouds.json
+assets/minecraft/shaders/include/fog.glsl
+assets/minecraft/shaders/post/blur.json
+assets/minecraft/shaders/program/blur.json
+assets/minecraft/shaders/program/blur.fsh
+assets/minecraft/shaders/program/blit.json
+assets/minecraft/shaders/program/blit.vsh
+assets/minecraft/shaders/program/sobel.vsh

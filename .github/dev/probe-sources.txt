@@ -1,0 +1,35 @@
+# path [:: regex [:: context lines]]  (no regex = whole file)
+net/minecraft/client/gl/ShaderProgram.java
+net/minecraft/client/gl/GlUniform.java :: (public|protected) .*\( :: 0
+net/minecraft/client/gl/Framebuffer.java
+net/minecraft/client/gl/SimpleFramebuffer.java
+net/minecraft/client/gl/VertexBuffer.java
+net/minecraft/client/render/RenderTickCounter.java
+net/minecraft/client/render/BufferRenderer.java
+net/minecraft/client/render/VertexFormats.java
+net/minecraft/client/render/Tessellator.java
+net/minecraft/client/render/BuiltBuffer.java :: (public|class|record) .* :: 0
+net/minecraft/client/render/BufferBuilder.java :: public .*\( :: 0
+net/minecraft/client/render/VertexConsumer.java :: (default|public)? *VertexConsumer .*\( :: 0
+net/minecraft/client/util/ScreenshotRecorder.java
+net/minecraft/client/texture/NativeImage.java :: (public|private) (static )?.*\(|PNG|stbi_ :: 0
+net/minecraft/client/texture/NativeImageBackedTexture.java
+net/minecraft/client/texture/AbstractTexture.java
+net/minecraft/client/texture/TextureManager.java :: public .*\( :: 0
+net/minecraft/server/ServerTickManager.java
+net/minecraft/world/tick/TickManager.java
+net/minecraft/client/render/GameRenderer.java :: public .*\(|private .*\(|loadPrograms|ShaderProgram (get|load)|renderWorld|tiltViewWhenHurt|getBasicProjectionMatrix|RenderSystem.setProjectionMatrix|HudRenderCallback|drawContext|renderHand :: 1
+net/minecraft/client/MinecraftClient.java :: private void render\(|renderTickCounter|swapBuffers|framebuffer.draw|gameRenderer.render|beginRenderTick|this.tick\(\)|isPaused|public RenderTickCounter :: 3
+com/mojang/blaze3d/systems/RenderSystem.java :: public static .*\( :: 0
+com/mojang/blaze3d/platform/GlStateManager.java :: public static .*\( :: 0
+net/minecraft/client/render/WorldRenderer.java :: public .*\(|isTerrainRenderComplete|renderSky\(|renderClouds\( :: 0
+net/minecraft/client/gl/PostEffectProcessor.java
+net/minecraft/client/gl/PostEffectPass.java
+net/minecraft/client/render/Camera.java :: (public|protected|private) .*\( :: 0
+net/minecraft/client/gui/DrawContext.java :: public .*\( :: 0
+net/minecraft/client/render/VertexFormat.java :: public .*\( :: 0
+net/minecraft/client/render/BackgroundRenderer.java :: public static .*\( :: 0
+net/minecraft/client/util/Window.java :: public .*\( :: 0
+net/minecraft/client/render/RenderLayer.java :: public static RenderLayer get(Lightning|BeaconBeam|EntityTranslucentEmissive|Lines)|Lightning|BEACON :: 2
+net/minecraft/client/gl/ShaderStage.java :: public .*\(|#version|moj_import|ShaderLoader|loadImport :: 1
+net/minecraft/client/gl/GlImportProcessor.java
