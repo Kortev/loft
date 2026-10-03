@@ -1,10 +1,9 @@
 name: selftest
 
 # Plays a full strike in a real client under a virtual display and screenshots every phase.
+# Run it by hand from the Actions tab; the screenshots are uploaded as the selftest-screenshots artifact.
 on:
   workflow_dispatch:
-  push:
-    branches: ['claude/**']
 
 jobs:
   selftest:
@@ -21,7 +20,6 @@ jobs:
         run: |
           sudo apt-get update -q
           sudo apt-get install -y -q xvfb libgl1-mesa-dri mesa-utils
-          sudo apt-get install -y -q python3-pil
       - name: Generate world
         run: |
           mkdir -p build/selftest-server
@@ -41,6 +39,3 @@ jobs:
           path: |
             build/selftest/screenshots/
             build/selftest/logs/
-      - name: Screenshots
-        if: always()
-        run: python3 .github/scripts/print-screens.py build/selftest/screenshots
