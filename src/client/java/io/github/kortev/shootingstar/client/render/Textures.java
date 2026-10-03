@@ -9,17 +9,13 @@ import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
 
 /**
- * Textures generated at runtime (soft glows, cloud puffs, the halftone screen) plus the shipped
- * planet maps.
+ * Textures generated at runtime (soft glows, cloud puffs, the halftone screen) plus the status card.
  */
 public final class Textures {
 	public static final Identifier GLOW = ShootingStar.id("dynamic/glow");
 	public static final Identifier CLOUD = ShootingStar.id("dynamic/cloud");
 	public static final Identifier HALFTONE = ShootingStar.id("dynamic/halftone");
 
-	public static final Identifier EARTH = ShootingStar.id("textures/feed/earth.png");
-	public static final Identifier EARTH_CLOUDS = ShootingStar.id("textures/feed/earth_clouds.png");
-	public static final Identifier JUPITER = ShootingStar.id("textures/feed/jupiter.png");
 	public static final Identifier CARD = ShootingStar.id("textures/gui/gungnir_card.png");
 
 	public static final int HALFTONE_SIZE = 512;

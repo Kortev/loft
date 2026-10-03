@@ -1,0 +1,131 @@
+#version 150
+
+// Impact frames: the rendered world turned into stylised comic frames, as in the reel.
+// Mode 0 shock distortion only, 1 red edge lines on black, 2 inverted cyan, 3 posterised orange,
+// 4 orange halftone, 5 white with black ink outlines.
+
+uniform sampler2D Sampler0;
+uniform sampler2D Sampler1;
+uniform int Mode;
+uniform float Mix;
+uniform vec2 Center;
+uniform vec2 ScreenSize;
+uniform float Time;
+uniform float ProjA;
+uniform float ProjB;
+uniform float Zoom;
+uniform float Warp;
+uniform float WarpRadius;
+uniform float Chroma;
+uniform float Darken;
+
+in vec2 texCoord;
+
+out vec4 fragColor;
+
+const float PI = 3.14159265;
+
+float hash(float n) {
+    return fract(sin(n * 12.9898) * 43758.5453);
+}
+
+float depthAt(vec2 uv) {
+    float z = texture(Sampler1, uv).r * 2.0 - 1.0;
+    return log(max(ProjB / (z + ProjA), 0.05));
+}
+
+float lumAt(vec2 uv) {
+    return dot(texture(Sampler0, uv).rgb, vec3(0.299, 0.587, 0.114));
+}
+
+float edges(vec2 uv) {
+    vec2 px = 1.0 / ScreenSize;
+    float gx = 0.0;
+    float gy = 0.0;
+    float lx = 0.0;
+    float ly = 0.0;
+    for (int i = -1; i <= 1; i++) {
+        for (int j = -1; j <= 1; j++) {
+            vec2 o = vec2(float(i), float(j)) * px * 1.5;
+            float wx = float(i) * (j == 0 ? 2.0 : 1.0);
+            float wy = float(j) * (i == 0 ? 2.0 : 1.0);
+            float d = depthAt(uv + o);
+            float l = lumAt(uv + o);
+            gx += d * wx;
+            gy += d * wy;
+            lx += l * wx;
+            ly += l * wy;
+        }
+    }
+    return clamp(length(vec2(gx, gy)) * 3.0 + length(vec2(lx, ly)) * 1.6 - 0.12, 0.0, 1.0);
+}
+
+float speedLines(vec2 uv) {
+    vec2 p = (uv - Center) * vec2(ScreenSize.x / ScreenSize.y, 1.0);
+    float ang = atan(p.y, p.x) / PI;
+    float r = length(p);
+    float slot = floor(ang * 64.0);
+    float on = step(0.72, hash(slot + floor(Time * 6.0) * 7.0));
+    float taper = smoothstep(0.12, 0.7, r);
+    float thin = 1.0 - smoothstep(0.0, 0.35, abs(fract(ang * 64.0) - 0.5) * 2.0 - 0.3);
+    return on * taper * thin;
+}
+
+float halftone(vec2 uv, float value) {
+    vec2 p = uv * ScreenSize / 6.0;
+    p = mat2(0.7071, -0.7071, 0.7071, 0.7071) * p;
+    vec2 cell = fract(p) - 0.5;
+    float r = sqrt(clamp(value, 0.0, 1.0)) * 0.64;
+    return smoothstep(r + 0.08, r - 0.08, length(cell));
+}
+
+void main() {
+    vec2 uv = (texCoord - Center) / Zoom + Center;
+    if (Warp > 0.0) {
+        // Refraction ring of the shock front, in screen space around the impact.
+        vec2 p = (uv - Center) * vec2(ScreenSize.x / ScreenSize.y, 1.0);
+        float r = length(p);
+        float k = exp(-pow((r - WarpRadius) * 18.0, 2.0));
+        uv -= normalize(p + 1.0e-5) * k * Warp / vec2(ScreenSize.x / ScreenSize.y, 1.0);
+    }
+    vec3 src;
+    if (Chroma > 0.0) {
+        vec2 off = (uv - Center) * Chroma;
+        src = vec3(texture(Sampler0, uv - off).r, texture(Sampler0, uv).g, texture(Sampler0, uv + off).b);
+    } else {
+        src = texture(Sampler0, uv).rgb;
+    }
+    src *= 1.0 - Darken;
+    vec3 outColor = src;
+    float lum = dot(src, vec3(0.299, 0.587, 0.114));
+    if (Mode == 1) {
+        float e = edges(uv);
+        vec3 red = vec3(1.0, 0.16, 0.08);
+        outColor = red * e + red * speedLines(texCoord) * 0.8 + vec3(1.0, 0.85, 0.7) * smoothstep(0.92, 1.0, lum);
+    } else if (Mode == 2) {
+        float e = edges(uv);
+        float inv = 1.0 - lum;
+        vec3 ink = mix(vec3(0.02, 0.1, 0.16), vec3(0.75, 0.97, 1.0), smoothstep(0.25, 0.75, inv));
+        outColor = mix(ink, vec3(0.0, 0.05, 0.08), e * 0.9) + vec3(0.6, 0.95, 1.0) * speedLines(texCoord) * 0.35;
+    } else if (Mode == 3) {
+        float level = floor(clamp(lum * 1.15, 0.0, 0.999) * 4.0);
+        vec3 c0 = vec3(0.06, 0.01, 0.0);
+        vec3 c1 = vec3(0.55, 0.08, 0.02);
+        vec3 c2 = vec3(1.0, 0.36, 0.06);
+        vec3 c3 = vec3(1.0, 0.86, 0.6);
+        outColor = level < 0.5 ? c0 : level < 1.5 ? c1 : level < 2.5 ? c2 : c3;
+        outColor = mix(outColor, c0, edges(uv) * 0.8);
+    } else if (Mode == 4) {
+        float ink = halftone(texCoord, 1.0 - lum);
+        vec3 paper = vec3(1.0, 0.93, 0.8);
+        vec3 orange = vec3(0.95, 0.3, 0.05);
+        outColor = mix(paper, orange, ink);
+        outColor = mix(outColor, vec3(0.15, 0.02, 0.0), edges(uv) * 0.85);
+        outColor += vec3(1.0, 0.95, 0.85) * speedLines(texCoord) * 0.3;
+    } else if (Mode == 5) {
+        float e = edges(uv);
+        outColor = mix(vec3(1.0, 0.98, 0.95), vec3(0.05, 0.04, 0.05), e) + vec3(0.0, 0.0, 0.0) * speedLines(texCoord);
+        outColor = mix(outColor, vec3(0.1, 0.03, 0.02), speedLines(texCoord) * 0.7);
+    }
+    fragColor = vec4(mix(src, outColor, Mix), 1.0);
+}

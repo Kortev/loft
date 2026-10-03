@@ -1,0 +1,89 @@
+{
+  "vertex": "shootingstar:ss_planet",
+  "fragment": "shootingstar:ss_atmo",
+  "samplers": [],
+  "uniforms": [
+    {
+      "name": "ModelViewMat",
+      "type": "matrix4x4",
+      "count": 16,
+      "values": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ]
+    },
+    {
+      "name": "ProjMat",
+      "type": "matrix4x4",
+      "count": 16,
+      "values": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ]
+    },
+    {
+      "name": "LightDir",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        0,
+        1.0
+      ]
+    },
+    {
+      "name": "GlowColor",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.3,
+        0.55,
+        1.0
+      ]
+    },
+    {
+      "name": "Intensity",
+      "type": "float",
+      "count": 1,
+      "values": [
+        1.0
+      ]
+    },
+    {
+      "name": "Falloff",
+      "type": "float",
+      "count": 1,
+      "values": [
+        3.0
+      ]
+    }
+  ]
+}

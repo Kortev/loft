@@ -1,0 +1,45 @@
+#version 150
+
+// Additive light shapes. UV0 spans -1..1 across the sprite (beams: x across, y along 0..1).
+
+uniform int Mode;
+uniform float Param;
+uniform float Progress;
+uniform vec3 Tint;
+
+in vec2 uv;
+in vec4 vertexColor;
+
+out vec4 fragColor;
+
+void main() {
+    float a;
+    if (Mode == 0) {
+        // Soft light with an optional wide halo.
+        float r2 = dot(uv, uv);
+        a = exp(-r2 * 9.0) + exp(-r2 * 2.2) * 0.35 * Param;
+        a *= 1.0 - smoothstep(0.85, 1.0, sqrt(r2));
+    } else if (Mode == 1) {
+        // Beam: gaussian across, fading at both ends.
+        a = exp(-uv.x * uv.x * 6.0) * smoothstep(0.0, 0.08, uv.y) * smoothstep(1.0, 0.85, uv.y);
+    } else if (Mode == 2) {
+        // Thin ring of radius 1 and width Param.
+        float r = length(uv);
+        a = exp(-pow((r - 1.0 + Param) / Param, 2.0));
+    } else if (Mode == 3) {
+        // Anamorphic streak.
+        a = exp(-uv.y * uv.y * 30.0) * (1.0 - abs(uv.x)) * (1.0 - abs(uv.x));
+    } else if (Mode == 4) {
+        // Ring ribbon that lights up as Progress sweeps round (x = 0..1 around, y = -1..1 across).
+        float on = smoothstep(Progress, Progress - 0.012, uv.x);
+        float head = exp(-pow((uv.x - Progress) * 70.0, 2.0)) * step(0.001, Progress) * step(Progress, 0.999);
+        a = exp(-uv.y * uv.y * 5.0) * (Param + on + head * 3.0);
+    } else {
+        // Star with four diffraction spikes.
+        float r2 = dot(uv, uv);
+        float core = exp(-r2 * 60.0) * 2.0 + exp(-r2 * 9.0) * 0.6;
+        float spikes = exp(-abs(uv.y) * 90.0) * (1.0 - abs(uv.x)) + exp(-abs(uv.x) * 90.0) * (1.0 - abs(uv.y));
+        a = core + spikes * 0.8;
+    }
+    fragColor = vec4(vertexColor.rgb * Tint * vertexColor.a * a, 1.0);
+}

@@ -1,0 +1,26 @@
+#version 150
+
+// Billboarded puffs of dust and smoke. Normal carries per-puff data: x = seed, y = spin, z = unused.
+
+in vec3 Position;
+in vec2 UV0;
+in vec4 Color;
+in vec3 Normal;
+
+uniform mat4 ModelViewMat;
+uniform mat4 ProjMat;
+
+out vec2 corner;
+out vec4 vertexColor;
+out float viewDepth;
+out float seed;
+
+void main() {
+    vec4 pos = ModelViewMat * vec4(Position, 1.0);
+    gl_Position = ProjMat * pos;
+    viewDepth = -pos.z;
+    float a = Normal.y * 3.14159265;
+    corner = mat2(cos(a), -sin(a), sin(a), cos(a)) * UV0;
+    vertexColor = Color;
+    seed = Normal.x;
+}

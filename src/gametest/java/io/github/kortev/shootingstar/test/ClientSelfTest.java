@@ -47,7 +47,8 @@ public class ClientSelfTest implements ClientModInitializer {
 		if (!Boolean.getBoolean("shootingstar.selftest")) {
 			return;
 		}
-		int[] ages = {6, 20, 38, 62, 88, 112, 136, 158, 178, 222, 258, 278, 300, 312, 324, 336, 342, 348, 364, 400, 436, 470, 520};
+		int[] ages = {6, 20, 38, 53, 62, 74, 82, 87, 90, 95, 100, 108, 120, 134, 143, 150, 160, 165, 180, 196, 210, 224, 236,
+				245, 254, 262, 267, 272, 282, 296, 304, 310, 314, 324, 336, 342, 346, 352, 364, 400, 436, 470, 520};
 		for (int age : ages) {
 			CAPTURES.add(new Capture(age, String.format("%02d_age%03d_%s.png", CAPTURES.size() + 1, age, phase(age))));
 		}

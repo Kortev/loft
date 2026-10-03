@@ -1,5 +1,6 @@
 package io.github.kortev.shootingstar.client;
 
+import io.github.kortev.shootingstar.client.gfx.Shaders;
 import io.github.kortev.shootingstar.client.render.HudEffects;
 import io.github.kortev.shootingstar.client.render.WorldEffects;
 import io.github.kortev.shootingstar.client.render.WorldProjector;
@@ -23,6 +24,7 @@ public class ShootingStarClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
 		ClientConfig.load();
+		Shaders.register();
 		SKIP_FEED = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.shootingstar.skip_feed",
 				InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_BACKSPACE, "key.categories.shootingstar"));
 

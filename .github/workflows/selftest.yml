@@ -4,6 +4,8 @@ name: selftest
 # Run it by hand from the Actions tab; the screenshots are uploaded as the selftest-screenshots artifact.
 on:
   workflow_dispatch:
+  push:
+    branches: ['claude/**']
 
 jobs:
   selftest:
@@ -19,7 +21,7 @@ jobs:
       - name: Install virtual display
         run: |
           sudo apt-get update -q
-          sudo apt-get install -y -q xvfb libgl1-mesa-dri mesa-utils
+          sudo apt-get install -y -q xvfb libgl1-mesa-dri mesa-utils python3-pil
       - name: Generate world
         run: |
           mkdir -p build/selftest-server
@@ -39,3 +41,6 @@ jobs:
           path: |
             build/selftest/screenshots/
             build/selftest/logs/
+      - name: Screenshots
+        if: always()
+        run: python3 .github/scripts/print-screens.py build/selftest/screenshots
