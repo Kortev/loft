@@ -1,0 +1,22 @@
+name: dev-probe
+
+# Development-only: prints decompiled Minecraft sources into the log. Removed before merging.
+on:
+  push:
+    branches: ['claude/**']
+    paths: ['.github/dev/probe*', '.github/workflows/dev-probe.yml']
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Decompile
+        run: ./gradlew genSources --stacktrace -q
+      - name: Print sources
+        run: python3 .github/dev/probe.py
