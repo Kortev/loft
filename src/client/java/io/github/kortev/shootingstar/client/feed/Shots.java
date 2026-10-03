@@ -192,10 +192,10 @@ final class Shots {
 			Vector3f head = new Vector3f(emitter).add(new Vector3f(TO_JUPITER).mul((float) reach));
 			Fx beam = space.glow(cam, Fx.BEAM, 0);
 			beam.beam(emitter, head, cam.pos, 0.0035F, Fx.argb(1.0F, 0.75F, 0.5F, 1.0F), Fx.argb(1.0F, 0.9F, 0.75F, 1.0F));
-			beam.end(true);
+			beam.end(true, 3.0F);
 			Fx pulse = space.glow(cam, Fx.SPIKES, 0);
 			pulse.sprite(head, 0.03F + (float) reach * 0.01F, 0, Fx.argb(1.0F, 0.9F, 0.8F, 1.0F));
-			pulse.end(true);
+			pulse.end(true, 4.0F);
 		}
 		if (s < 7) {
 			label(o, RELAY_POS, 12, 6, "RELAY", Feed.RED, "SS-03 UPLINK", Feed.GREY, smooth((s - 2) / 3.0) * (1 - smooth((s - 5) / 2.0)));

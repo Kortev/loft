@@ -69,7 +69,7 @@ final class Space {
 		Shaders.set(Shaders.sky, "InvViewProj", invViewProj);
 		Shaders.set(Shaders.sky, "SkyRot", skyRot);
 		// The Milky Way map is bright; keep it a backdrop so the planets and the round carry the frame.
-		Shaders.set(Shaders.sky, "Brightness", brightness * 0.42F * (1.0F - Math.min(0.85F, streak)));
+		Shaders.set(Shaders.sky, "Brightness", brightness * 0.42F * (1.0F - 0.55F * Math.min(1.0F, streak)));
 		Shaders.set(Shaders.sky, "Beta", beta);
 		Shaders.set(Shaders.sky, "Forward", forward);
 		Post.quad(Shaders.sky);
