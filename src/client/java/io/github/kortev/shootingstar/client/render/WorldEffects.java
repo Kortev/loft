@@ -88,16 +88,18 @@ public final class WorldEffects {
 		double inbound = MathHelper.clamp((t - StrikeTimeline.INBOUND) / (StrikeTimeline.IMPACT - StrikeTimeline.INBOUND), 0.0, 1.0);
 		double fadeOut = MathHelper.clamp((StrikeTimeline.IMPACT + 2 - t) / 2.0, 0.0, 1.0);
 		float flicker = 0.85F + 0.15F * MathHelper.sin((float) t * 1.7F) * MathHelper.sin((float) t * 0.63F);
-		float k = (float) (fadeOut * flicker);
-
 		double len = Math.sqrt(x * x + z * z);
+		// Fade the beam out when the camera is right beside it (the sky shot looks up along it).
+		float near = (float) MathHelper.clamp((len - 3.0) / 10.0, 0.12, 1.0);
+		float k = (float) (fadeOut * flicker) * near;
+
 		float px = len < 1.0E-3 ? 1.0F : (float) (-z / len);
 		float pz = len < 1.0E-3 ? 0.0F : (float) (x / len);
 
 		float core = (float) (0.12 + inbound * 0.35);
 		layer(b, x, bottom, top, z, px, pz, core, Gfx.fade(0xFFFFF4FF, 0.95F * k), Gfx.fade(0xFFE8D8FF, 0.0F));
 		layer(b, x, bottom, top, z, px, pz, core * 4.0F, Gfx.fade(0xFFB89CFF, 0.35F * k), Gfx.fade(0xFFB89CFF, 0.0F));
-		layer(b, x, bottom, top, z, px, pz, core * 14.0F, Gfx.fade(0xFFFF7A2A, (0.08F + (float) inbound * 0.12F) * k),
+		layer(b, x, bottom, top, z, px, pz, core * 8.0F, Gfx.fade(0xFFFF7A2A, (0.08F + (float) inbound * 0.12F) * k),
 				Gfx.fade(0xFFFF7A2A, 0.0F));
 
 		// Glow pooled where the beam meets the ground.
@@ -133,13 +135,15 @@ public final class WorldEffects {
 		int color = Gfx.fade(RETICLE, 0.9F * pulse);
 		int dim = Gfx.fade(RETICLE, 0.55F * pulse);
 		double spin = t * 0.012;
+		// Thicken the lines with distance so the reticle still reads from far away or from above.
+		double w = MathHelper.clamp(strike.center.distanceTo(cam) / 35.0, 1.0, 3.5);
 
-		arc(b, cam, strike, 7.0, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * appear, 0.16, color);
+		arc(b, cam, strike, 7.0, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * appear, 0.16 * w, color);
 		for (int k = 0; k < 24; k += 2) {
 			double a0 = Math.PI * 2 * k / 24 - spin;
 			double a1 = Math.PI * 2 * (k + 1) / 24 - spin;
 			if (k / 24.0 < appear) {
-				arc(b, cam, strike, 11.5, a0, a1, 0.11, dim);
+				arc(b, cam, strike, 11.5, a0, a1, 0.11 * w, dim);
 			}
 		}
 		for (int k = 0; k < 6; k++) {
@@ -148,17 +152,17 @@ public final class WorldEffects {
 			}
 			double a0 = spin + Math.PI / 3 * k;
 			double a1 = spin + Math.PI / 3 * (k + 1);
-			segment(b, cam, strike, Math.cos(a0) * 9.0, Math.sin(a0) * 9.0, Math.cos(a1) * 9.0, Math.sin(a1) * 9.0, 0.12, color);
+			segment(b, cam, strike, Math.cos(a0) * 9.0, Math.sin(a0) * 9.0, Math.cos(a1) * 9.0, Math.sin(a1) * 9.0, 0.12 * w, color);
 		}
 		for (int k = 0; k < 4; k++) {
 			double a = Math.PI / 2 * k + Math.PI / 4 - spin * 0.5;
-			segment(b, cam, strike, Math.cos(a) * 2.5, Math.sin(a) * 2.5, Math.cos(a) * 5.5, Math.sin(a) * 5.5, 0.14, color);
+			segment(b, cam, strike, Math.cos(a) * 2.5, Math.sin(a) * 2.5, Math.cos(a) * 5.5, Math.sin(a) * 5.5, 0.14 * w, color);
 		}
 		for (int k = 0; k < 12; k++) {
 			double a = Math.PI / 6 * k;
-			segment(b, cam, strike, Math.cos(a) * 12.6, Math.sin(a) * 12.6, Math.cos(a) * 14.2, Math.sin(a) * 14.2, 0.1, dim);
+			segment(b, cam, strike, Math.cos(a) * 12.6, Math.sin(a) * 12.6, Math.cos(a) * 14.2, Math.sin(a) * 14.2, 0.1 * w, dim);
 		}
-		arc(b, cam, strike, 1.1, 0, Math.PI * 2, 0.12, color);
+		arc(b, cam, strike, 1.1, 0, Math.PI * 2, 0.12 * w, color);
 	}
 
 	private static void arc(BufferBuilder b, Vec3d cam, ClientStrike strike, double radius, double from, double to,

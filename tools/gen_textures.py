@@ -50,9 +50,11 @@ def crust(heat):
     n = noise2(16, 16, 6, seed=60 + heat)
     fleck = noise2(16, 16, 16, seed=70 + heat)
     if heat == 3:
-        plate = np.array([246, 150, 44]) * (0.85 + 0.25 * n)[..., None]
-        plate = plate * (1 - 0.35 * (fleck > 0.62))[..., None]
-        glow = np.array([255, 246, 196])
+        line = np.clip(1.1 - edge, 0, 1)
+        halo = np.clip(2.2 - edge, 0, 1) * (1 - line)
+        plate = np.array([238, 104, 26]) * (0.8 + 0.35 * n)[..., None]
+        plate = plate * (1 - 0.3 * (fleck > 0.64))[..., None]
+        glow = np.array([255, 238, 150])
     elif heat == 2:
         plate = np.array([88, 30, 16]) * (0.8 + 0.5 * n)[..., None]
         glow = np.array([255, 138, 36])

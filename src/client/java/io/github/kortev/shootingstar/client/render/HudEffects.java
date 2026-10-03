@@ -161,12 +161,13 @@ public final class HudEffects {
 		double distance = to.length();
 		double near = MathHelper.clamp(1.0 - distance / 900.0, 0.0, 1.0);
 		double looking = 0.35 + 0.65 * Math.max(0.0, client.player.getRotationVec(1.0F).dotProduct(to.normalize()));
-		if (strike.cinematic()) {
-			looking = 1.0;
-			near = 1.0;
-		}
 		float white = (float) (near * looking * Math.exp(-e / 3.0));
 		float orange = (float) (near * looking * 0.55 * Math.exp(-e / 16.0));
+		if (strike.cinematic()) {
+			// The shooter gets a short pop of white so the halftone frame stays readable.
+			white = (float) (0.85 * Math.exp(-e / 1.2));
+			orange = (float) (0.3 * Math.exp(-e / 10.0));
+		}
 		BufferBuilder b = Gfx.quads();
 		Gfx.rect(b, m, 0, 0, w, h, Gfx.fade(0xFFFF8A3A, orange));
 		Gfx.rect(b, m, 0, 0, w, h, Gfx.fade(0xFFFFFFFF, white));
@@ -185,7 +186,7 @@ public final class HudEffects {
 		float hy = hit != null ? hit.y : h / 2;
 
 		BufferBuilder tint = Gfx.quads();
-		Gfx.rect(tint, m, 0, 0, w, h, Gfx.fade(0xFFFF5A1E, 0.74F * fade));
+		Gfx.rect(tint, m, 0, 0, w, h, Gfx.fade(0xFFFF5A1E, 0.62F * fade));
 		Gfx.draw(tint);
 
 		// The halftone screen is centred on the hit and always reaches the far corners.
@@ -281,7 +282,7 @@ public final class HudEffects {
 	private static void statusCard(DrawContext ctx, TextRenderer font, float w, float h) {
 		int cardW = 64;
 		int cardH = 36;
-		int x = (int) w - cardW - 6;
+		int x = 6;
 		int y = (int) h - cardH - 8;
 		ctx.fill(x - 2, y - 2, x + cardW + 2, y + cardH + 2, 0xCC120A08);
 		ctx.drawBorder(x - 2, y - 2, cardW + 4, cardH + 4, 0xFFC8321E);

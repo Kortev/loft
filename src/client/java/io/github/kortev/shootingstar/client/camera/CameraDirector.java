@@ -66,7 +66,7 @@ public final class CameraDirector {
 
 	/** On the ground beside the target, looking straight up the beam. */
 	private static Shot sky(ClientWorld world, Vec3d target, double p) {
-		BlockPos base = BlockPos.ofFloored(target.add(4, 0, 3));
+		BlockPos base = BlockPos.ofFloored(target.add(7, 0, 5));
 		double y = Math.max(target.y, world.getTopY(Heightmap.Type.MOTION_BLOCKING, base.getX(), base.getZ())) + 2.5;
 		Vec3d eye = new Vec3d(base.getX() + 0.5, y + p * 1.5, base.getZ() + 0.5);
 		Vec3d up = target.add(0, 400, 0);
@@ -80,11 +80,11 @@ public final class CameraDirector {
 		Vec3d away = player.getPos().subtract(target);
 		Vec3d dir = new Vec3d(away.x, 0, away.z);
 		dir = dir.lengthSquared() < 1.0E-4 ? new Vec3d(1, 0, 0) : dir.normalize();
-		double distance = strike.radius * MathHelper.lerp(ease(p), 1.9, 1.55);
+		double distance = strike.radius * MathHelper.lerp(ease(p), 2.0, 1.6);
 		Vec3d foot = target.add(dir.multiply(distance));
 		int ground = world.getTopY(Heightmap.Type.MOTION_BLOCKING, MathHelper.floor(foot.x), MathHelper.floor(foot.z));
-		Vec3d eye = new Vec3d(foot.x, Math.max(ground, target.y) + 4.0, foot.z);
-		return look(eye, target.add(0, strike.radius * 1.4, 0));
+		Vec3d eye = new Vec3d(foot.x, Math.max(ground, target.y) + 4.0 + strike.radius * 0.5, foot.z);
+		return look(eye, target.add(0, strike.radius * 0.45, 0));
 	}
 
 	private static Shot look(Vec3d eye, Vec3d at) {

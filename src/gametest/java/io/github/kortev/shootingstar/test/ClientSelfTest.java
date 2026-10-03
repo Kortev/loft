@@ -136,6 +136,9 @@ public class ClientSelfTest implements ClientModInitializer {
 			}
 			case WATCH -> {
 				ClientStrike strike = ClientStrikes.mine();
+				if (strike != null) {
+					target = strike.target;
+				}
 				int age = strike != null ? strike.age : Integer.MAX_VALUE;
 				while (!CAPTURES.isEmpty() && age >= CAPTURES.peek().age()) {
 					shot(client, CAPTURES.poll().name());
@@ -147,15 +150,15 @@ public class ClientSelfTest implements ClientModInitializer {
 			}
 			case AFTER -> {
 				if (ticks == 20) {
-					server.execute(() -> look(server, target.add(0, 60, -40), target));
+					server.execute(() -> lookFromAbove(server, target.getX(), target.getZ() - 40, 45, target));
 				}
 				if (ticks == 140) {
 					shot(client, "90_crater_above.png");
-					server.execute(() -> look(server, target.add(-50, 18, 8), target.add(0, 30, 0)));
+					server.execute(() -> lookFromAbove(server, target.getX() - 52, target.getZ() + 8, 14, target.up(30)));
 				}
 				if (ticks == 260) {
 					shot(client, "91_crater_side.png");
-					server.execute(() -> look(server, target.add(12, 6, 10), target.add(0, 2, 0)));
+					server.execute(() -> lookFromAbove(server, target.getX() + 12, target.getZ() + 10, 7, target.up(2)));
 				}
 				if (ticks == 380) {
 					shot(client, "92_crater_close.png");
@@ -188,11 +191,29 @@ public class ClientSelfTest implements ClientModInitializer {
 		player.getInventory().setStack(0, new ItemStack(ModItems.GUNGNIR_UPLINK));
 
 		BlockPos spawn = world.getSpawnPos();
-		int ground = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, spawn.getX() + 64, spawn.getZ()) - 1;
-		target = new BlockPos(spawn.getX() + 64, ground, spawn.getZ());
-		int standY = Math.max(ground, world.getTopY(Heightmap.Type.MOTION_BLOCKING, spawn.getX(), spawn.getZ())) + 26;
-		look(server, new BlockPos(spawn.getX(), standY, spawn.getZ()), target);
-		ShootingStar.LOGGER.info("[selftest] standing at {} aiming at {}", spawn.withY(standY), target);
+		for (int x = spawn.getX() - 16; x <= spawn.getX() + 96; x += 16) {
+			world.getChunk(x >> 4, spawn.getZ() >> 4);
+		}
+		int ground = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, spawn.getX() + 70, spawn.getZ()) - 1;
+		target = new BlockPos(spawn.getX() + 70, ground, spawn.getZ());
+		// Stand well above everything between us and the target so the uplink has a clear line.
+		int highest = ground;
+		for (int x = spawn.getX(); x <= target.getX(); x += 2) {
+			for (int dz = -2; dz <= 2; dz++) {
+				highest = Math.max(highest, world.getTopY(Heightmap.Type.MOTION_BLOCKING, x, spawn.getZ() + dz));
+			}
+		}
+		BlockPos stand = new BlockPos(spawn.getX(), highest + 22, spawn.getZ());
+		look(server, stand, target);
+		ShootingStar.LOGGER.info("[selftest] standing at {} aiming at {}", stand, target);
+	}
+
+	/** Teleports the player to {@code height} blocks above the ground at x/z, looking at a point. */
+	private static void lookFromAbove(IntegratedServer server, int x, int z, int height, BlockPos at) {
+		ServerWorld world = server.getPlayerManager().getPlayerList().get(0).getServerWorld();
+		world.getChunk(x >> 4, z >> 4);
+		int ground = world.getTopY(Heightmap.Type.MOTION_BLOCKING, x, z);
+		look(server, new BlockPos(x, ground + height, z), at);
 	}
 
 	private static void look(IntegratedServer server, BlockPos from, BlockPos at) {

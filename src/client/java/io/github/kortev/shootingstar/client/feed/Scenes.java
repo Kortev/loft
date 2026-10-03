@@ -106,7 +106,7 @@ final class Scenes {
 		view.viewport(w, h, 34);
 		Shapes.Planet earth = new Shapes.Planet(0, 0, 0, 1).tilt(-0.30, 0.08);
 		earth.spin = local * 0.0035;
-		double distance = MathHelper.lerp(1.0 - Math.pow(1.0 - p, 2.2), 1.45, 3.2);
+		double distance = MathHelper.lerp(1.0 - Math.pow(1.0 - p, 2.2), 1.5, 3.7);
 		double[] facing = new double[3];
 		earth.dir(Math.toRadians(30), Math.toRadians(-98 + 180), facing);
 		view.lookAt(facing[0] * distance, facing[1] * distance, facing[2] * distance, 0, 0, 0, earth.nx, earth.ny, earth.nz);
@@ -133,7 +133,7 @@ final class Scenes {
 			overlay.labels.add(new Label(x + 8, y - 4, "TARGET", Feed.RED, "KINETIC LOCK", Feed.GREY));
 		}
 		if (view.project(0, 0, 0, out)) {
-			float x = (float) out[0] + w * 0.06F, y = (float) out[1] - h * 0.04F;
+			float x = (float) out[0] + w * 0.13F, y = (float) out[1] - h * 0.17F;
 			Gfx.brackets(b, m, x, y, 4, 2.5F, 1, Feed.CYAN);
 			overlay.labels.add(new Label(x + 7, y - 4, "EARTH", Feed.CYAN, "6,371 KM", Feed.GREY));
 		}
@@ -197,7 +197,7 @@ final class Scenes {
 		view.viewport(w, h, 30);
 		Shapes.Planet jupiter = new Shapes.Planet(0, 0, 0, 1).tilt(0.0, 0.05);
 		jupiter.spin = 1.3 + local * 0.006;
-		double distance = MathHelper.lerp(Feed.ease(p), 4.3, 3.7);
+		double distance = MathHelper.lerp(Feed.ease(p), 6.2, 5.6);
 		double elevation = 0.12;
 		double azimuth = -0.4 + p * 0.14;
 		view.lookAt(distance * Math.cos(elevation) * Math.sin(azimuth), distance * Math.sin(elevation),
@@ -226,7 +226,7 @@ final class Scenes {
 			overlay.labels.add(new Label(x + 7, y - 4, "BREECH", Feed.RED, "SS-03", Feed.GREY));
 		}
 		if (view.project(0, 0, 0, out)) {
-			float x = (float) out[0] + w * 0.03F, y = (float) out[1] - h * 0.03F;
+			float x = (float) out[0] + w * 0.06F, y = (float) out[1] + h * 0.09F;
 			Gfx.brackets(b, m, x, y, 4, 2.5F, 1, Feed.CYAN);
 			overlay.labels.add(new Label(x + 7, y - 4, "JUPITER", Feed.CYAN, "71,492 KM · 318 M⊕", Feed.GREY));
 		}
@@ -289,7 +289,7 @@ final class Scenes {
 		double shake = velocity * velocity * 0.05;
 		double jx = Math.sin(age * 3.1) * shake;
 		double jy = Math.cos(age * 2.3) * shake;
-		view.lookAt(0.95 + jx, 0.8 + jy, travel - 3.4, 0, 0.05, travel + 9.0, 0, 1, 0);
+		view.lookAt(0.42 + jx, 0.48 + jy, travel - 3.4, 0, 0.02, travel + 9.0, 0, 1, 0);
 		view.roll(Math.sin(age * 0.05) * 0.04);
 
 		stars.draw(m, view, 1.0F);
@@ -491,7 +491,7 @@ final class Scenes {
 		BufferBuilder cloudBuf = Gfx.texQuads();
 		for (int i = 0; i < CLOUDS; i++) {
 			float speed = clouds[i * 5 + 3];
-			float fx = (clouds[i * 5] + (float) local * 0.045F * speed) % 1.4F - 0.2F;
+			float fx = ((clouds[i * 5] - (float) local * 0.045F * speed) % 1.4F + 1.4F) % 1.4F - 0.2F;
 			float fy = (clouds[i * 5 + 1] - (float) local * 0.025F * speed) % 1.4F;
 			if (fy < -0.2F) {
 				fy += 1.4F;

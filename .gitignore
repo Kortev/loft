@@ -32,3 +32,6 @@ replay_*.log
 
 # ci
 ci-out/
+
+# python
+__pycache__/

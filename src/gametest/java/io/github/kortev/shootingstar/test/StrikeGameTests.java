@@ -23,12 +23,13 @@ public class StrikeGameTests implements FabricGameTest {
 		ServerWorld world = context.getWorld();
 		BlockPos base = context.getAbsolutePos(new BlockPos(1, 1, 1));
 
-		BlockPos wall = base.add(10, 2, 0);
-		world.setBlockState(wall, Blocks.STONE.getDefaultState());
-		Vec3d eye = Vec3d.ofCenter(base.add(0, 2, 0));
-		BlockPos hit = Targeting.findTarget(world, eye, new Vec3d(1, 0, 0), 64);
-		context.assertTrue(wall.equals(hit), "raycast hit " + hit + " instead of " + wall);
-		context.assertTrue(Targeting.findTarget(world, eye, new Vec3d(0, 1, 0), 64) == null, "a ray into the sky hit something");
+		// Stay inside the 8x8x8 test box: cast straight down onto a marker block.
+		BlockPos marker = base.add(1, 1, 1);
+		world.setBlockState(marker, Blocks.STONE.getDefaultState());
+		Vec3d eye = Vec3d.ofCenter(base.add(1, 5, 1));
+		BlockPos hit = Targeting.findTarget(world, eye, new Vec3d(0, -1, 0), 64);
+		context.assertTrue(marker.equals(hit), "raycast hit " + hit + " instead of " + marker);
+		context.assertTrue(Targeting.findTarget(world, eye, new Vec3d(0, 1, 0), 1) == null, "a short ray upward hit something");
 
 		BlockPos cooling = base.add(0, 0, 3);
 		world.setBlockState(cooling, ModBlocks.MOLTEN_CRUST.getDefaultState().with(MoltenCrustBlock.HEAT, 1));
@@ -49,7 +50,8 @@ public class StrikeGameTests implements FabricGameTest {
 	public void fullStrike(TestContext context) {
 		ServerWorld world = context.getWorld();
 		world.getGameRules().get(ModGameRules.CRATER_RADIUS).set(8, world.getServer());
-		BlockPos center = context.getAbsolutePos(new BlockPos(4, 3, 4));
+		// Well clear of the test box so the crater cannot touch the test's own structure.
+		BlockPos center = context.getAbsolutePos(new BlockPos(4, 3, 48));
 		for (BlockPos pos : BlockPos.iterate(center.add(-14, -6, -14), center.add(14, 0, 14))) {
 			world.setBlockState(pos, Blocks.STONE.getDefaultState());
 		}
