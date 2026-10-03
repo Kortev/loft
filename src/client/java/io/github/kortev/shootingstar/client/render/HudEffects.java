@@ -62,7 +62,7 @@ public final class HudEffects {
 				readout(words, w, h, strike, t);
 			}
 		}
-		if (Aim.holding && !shot) {
+		if (Aim.holding && !shot && !client.options.hudHidden) {
 			aimInfo(m, w, h, words, client);
 		}
 		Gfx.end2d();
