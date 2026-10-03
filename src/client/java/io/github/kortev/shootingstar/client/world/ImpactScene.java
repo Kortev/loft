@@ -180,7 +180,7 @@ public final class ImpactScene {
 		if (e < 0) {
 			return 0;
 		}
-		return e < 5 ? 3.2 : 3.2 * Math.exp(-(e - 5) / 26.0);
+		return e < 5 ? 1.8 : 1.8 * Math.exp(-(e - 5) / 14.0);
 	}
 
 	// --- simulation ------------------------------------------------------------------------
@@ -341,9 +341,9 @@ public final class ImpactScene {
 			double r = (fireball ? 0.3 : 0.12) * radius * Math.sqrt(random.nextDouble());
 			double a = random.nextDouble() * Math.PI * 2;
 			double y = center.y + random.nextDouble() * (fireball ? 0.3 : 0.15) * radius;
-			float grey = 0.09F + random.nextFloat() * 0.07F;
+			float grey = 0.13F + random.nextFloat() * 0.09F;
 			int life = age > 60 ? 220 + random.nextInt(80) : 300 + random.nextInt(120);
-			Puff p = puff(center.x + Math.cos(a) * r, y, center.z + Math.sin(a) * r, (fireball ? 0.13 : 0.1) * radius
+			Puff p = puff(center.x + Math.cos(a) * r, y, center.z + Math.sin(a) * r, (fireball ? 0.13 : 0.075) * radius
 					* (0.8 + random.nextDouble() * 0.4), grey, grey * 0.92F, grey * 0.85F, 0.85F, life);
 			double out = fireball ? 0.25 + random.nextDouble() * 0.5 : 0.05;
 			p.vx = Math.cos(a) * out * k;
@@ -365,7 +365,7 @@ public final class ImpactScene {
 		}
 		double front = front(age);
 		double speed = frontSpeed(age);
-		int n = (int) Math.max(8, 16 * Math.sqrt(scale));
+		int n = (int) Math.max(6, 10 * Math.sqrt(scale));
 		for (int i = 0; i < n; i++) {
 			double a = random.nextDouble() * Math.PI * 2;
 			double r = front + (random.nextDouble() - 0.5) * 4.0;
@@ -374,13 +374,13 @@ public final class ImpactScene {
 			int ground = world.getTopY(Heightmap.Type.MOTION_BLOCKING, MathHelper.floor(x), MathHelper.floor(z));
 			double y = Math.max(ground, center.y - radius * 0.2) + random.nextDouble() * 3.0;
 			float tone = 0.4F + random.nextFloat() * 0.12F;
-			Puff p = puff(x, y, z, (0.06 + random.nextDouble() * 0.06) * radius, tone, tone * 0.86F, tone * 0.72F, 0.6F,
-					160 + random.nextInt(160));
+			Puff p = puff(x, y, z, (0.06 + random.nextDouble() * 0.06) * radius, tone, tone * 0.86F, tone * 0.72F, 0.38F,
+					120 + random.nextInt(120));
 			p.vx = Math.cos(a) * speed * 0.6;
 			p.vz = Math.sin(a) * speed * 0.6;
-			p.vy = 0.05 + random.nextDouble() * 0.15;
+			p.vy = 0.05 + random.nextDouble() * 0.12;
 			p.drag = 0.92F;
-			p.buoyancy = 0.004F;
+			p.buoyancy = 0.002F;
 			p.growth = (float) (0.0019 * radius);
 			p.glow = age < 12 ? 1.2F : 0.0F;
 			p.glowDecay = 0.9F;
@@ -416,8 +416,8 @@ public final class ImpactScene {
 			double dx = p.x - center.x;
 			double dz = p.z - center.z;
 			double len = Math.sqrt(dx * dx + dz * dz) + 1.0E-3;
-			p.vx += dx / len * 0.03 * Math.sqrt(scale);
-			p.vz += dz / len * 0.03 * Math.sqrt(scale);
+			p.vx += dx / len * 0.06 * Math.sqrt(scale);
+			p.vz += dz / len * 0.06 * Math.sqrt(scale);
 			p.vy *= 0.85;
 			p.buoyancy = 0;
 		}

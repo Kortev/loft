@@ -48,11 +48,18 @@ public final class ImpactEffects {
 			return;
 		}
 		double distance = client.player.getPos().distanceTo(strike.center);
-		int delay = strike.cinematic() ? 0 : (int) (distance / SOUND_SPEED);
-		ClientStrikes.at(client, strike.center, ModSounds.STRIKE_IMPACT, SoundCategory.WEATHER, 4.0F + strike.radius / 16.0F,
-				1.0F, delay);
-		ClientStrikes.at(client, strike.center, ModSounds.STRIKE_RUMBLE, SoundCategory.WEATHER, 6.0F + strike.radius / 10.0F,
-				0.9F, delay + 4);
+		if (strike.cinematic()) {
+			// The shooter's camera is right there: the hit at once, the rumble when the shock wave reaches the camera.
+			double from = strike.witness != null ? strike.witness.distanceTo(strike.center) : strike.radius * 1.3;
+			int arrival = strike.scene != null ? (int) strike.scene.arrival(from) : 30;
+			ClientStrikes.master(ModSounds.STRIKE_IMPACT, 1.0F, 1.0F);
+			ClientStrikes.master(ModSounds.STRIKE_RUMBLE, 0.9F, 1.0F, arrival);
+		} else {
+			// Loud enough to carry about 640 blocks; it reaches you at the speed of sound.
+			int delay = (int) (distance / SOUND_SPEED);
+			ClientStrikes.at(client, strike.center, ModSounds.STRIKE_IMPACT, SoundCategory.WEATHER, 40.0F, 1.0F, delay);
+			ClientStrikes.at(client, strike.center, ModSounds.STRIKE_RUMBLE, SoundCategory.WEATHER, 48.0F, 0.9F, delay + 4);
+		}
 		if (distance < PARTICLE_RANGE) {
 			AFTERMATHS.add(new Aftermath(strike.center, strike.radius));
 		}

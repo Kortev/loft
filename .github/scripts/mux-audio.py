@@ -32,7 +32,7 @@ def encode(crf):
                      % len(sounds))
         cmd += ['-filter_complex', ';'.join(graph), '-map', '0:v', '-map', '[aout]', '-c:a', 'aac', '-b:a', '160k',
                 '-shortest']
-    cmd += ['-c:v', 'libx264', '-preset', 'slow', '-crf', str(crf), '-pix_fmt', 'yuv420p', '-movflags', '+faststart',
+    cmd += ['-c:v', 'libx264', '-preset', 'medium', '-crf', str(crf), '-pix_fmt', 'yuv420p', '-movflags', '+faststart',
             output]
     subprocess.run(cmd, check=True)
     return os.path.getsize(output)

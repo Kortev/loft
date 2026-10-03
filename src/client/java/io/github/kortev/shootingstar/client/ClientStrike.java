@@ -34,6 +34,9 @@ public final class ClientStrike {
 	/** Where the shooter's camera watches the impact from, chosen once when the round comes in. */
 	@Nullable
 	public Vec3d witness;
+	/** Unit vector from the target back along the round's path, chosen once so the fall stays in view. */
+	@Nullable
+	public Vec3d approach;
 
 	public ClientStrike(int id, BlockPos target, UUID shooter, boolean mine, int age) {
 		this.id = id;

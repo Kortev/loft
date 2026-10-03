@@ -219,7 +219,8 @@ public final class ClientStrikes {
 			if (strike.cinematic()) {
 				master(ModSounds.STRIKE_INBOUND, 1.0F, 1.0F);
 			} else {
-				at(client, strike.center.add(0, 40, 0), ModSounds.STRIKE_INBOUND, SoundCategory.WEATHER, 1.5F, 1.0F, 0);
+				// Positional sounds fade out over 16 blocks per unit of volume; carry this one a few hundred blocks.
+				at(client, strike.center.add(0, 40, 0), ModSounds.STRIKE_INBOUND, SoundCategory.WEATHER, 24.0F, 1.0F, 0);
 			}
 		}
 	}
@@ -228,6 +229,11 @@ public final class ClientStrikes {
 
 	public static void master(SoundEvent sound, float pitch, float volume) {
 		MinecraftClient.getInstance().getSoundManager().play(PositionedSoundInstance.master(sound, pitch, volume));
+	}
+
+	/** A non-positional sound {@code delay} ticks from now. */
+	public static void master(SoundEvent sound, float pitch, float volume, int delay) {
+		MinecraftClient.getInstance().getSoundManager().play(PositionedSoundInstance.master(sound, pitch, volume), delay);
 	}
 
 	public static void at(MinecraftClient client, Vec3d pos, SoundEvent sound, SoundCategory category, float volume,

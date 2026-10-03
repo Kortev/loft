@@ -133,7 +133,7 @@ public final class WorldFx {
 			RenderSystem.clear(GL11.GL_COLOR_BUFFER_BIT, MinecraftClient.IS_SYSTEM_MAC);
 
 			for (ClientStrike strike : inbound) {
-				drawStar(strike, strike.time(tickDelta), cam, view, proj, right, up, far);
+				drawStar(client, strike, strike.time(tickDelta), cam, view, proj, right, up, far);
 			}
 			for (ImpactScene scene : SCENES) {
 				drawBlast(scene, scene.age + tickDelta, cam, view, proj, right, up);
@@ -206,20 +206,37 @@ public final class WorldFx {
 
 	// --- the falling star ------------------------------------------------------------------
 
-	/** Height of the round above the target: slow at first, then a streak at the end. */
-	public static double altitude(double p) {
+	/** Distance of the round from the target along its path: slow at first, then a streak at the end. */
+	public static double range(double p) {
 		p = MathHelper.clamp(p, 0.0, 1.0);
-		return 3000.0 * (1.0 - p * p);
+		return 3600.0 * (1.0 - p * p);
 	}
 
-	private static void drawStar(ClientStrike strike, double t, Vec3d cam, Matrix4f view, Matrix4f proj, Vector3f right,
-			Vector3f up, float far) {
+	/**
+	 * The round comes in at about 45 degrees from beyond and to the side of the target as seen by this
+	 * viewer (the shooter's camera, or the player): the whole fall crosses the sky in front of them as
+	 * a diagonal streak, with the trail drawn out behind it rather than hidden end-on.
+	 */
+	private static Vec3d approach(MinecraftClient client, ClientStrike strike) {
+		if (strike.approach == null) {
+			Vec3d viewer = strike.cinematic() && strike.witness != null ? strike.witness : client.player.getPos();
+			Vec3d away = new Vec3d(strike.center.x - viewer.x, 0, strike.center.z - viewer.z);
+			away = away.lengthSquared() < 1.0E-4 ? new Vec3d(1, 0, 0) : away.normalize();
+			Vec3d side = new Vec3d(away.z, 0, -away.x);
+			strike.approach = away.multiply(0.6).add(side.multiply(0.4)).add(0, 0.55, 0).normalize();
+		}
+		return strike.approach;
+	}
+
+	private static void drawStar(MinecraftClient client, ClientStrike strike, double t, Vec3d cam, Matrix4f view, Matrix4f proj,
+			Vector3f right, Vector3f up, float far) {
 		double p = MathHelper.clamp((t - StrikeTimeline.INBOUND) / (StrikeTimeline.IMPACT - StrikeTimeline.INBOUND), 0.0, 1.0);
 		Vec3d c = strike.center;
-		double alt = altitude(p);
-		Vector3f head = rel(c.x, c.y + alt, c.z, cam);
-		float trail = (float) (160.0 + 1100.0 * p * p);
-		Vector3f tail = new Vector3f(head).add(0, trail, 0);
+		Vec3d dir = approach(client, strike);
+		double range = range(p);
+		Vector3f head = rel(c.x + dir.x * range, c.y + dir.y * range, c.z + dir.z * range, cam);
+		float trail = (float) (500.0 + 1400.0 * p * p);
+		Vector3f tail = new Vector3f(head).add((float) dir.x * trail, (float) dir.y * trail, (float) dir.z * trail);
 		// Keep everything inside the far plane: pulling points towards the eye leaves them where they are on screen.
 		float reach = Math.max(head.length(), tail.length());
 		float pull = Math.min(1.0F, far * 0.85F / Math.max(reach, 1.0F));
@@ -231,8 +248,8 @@ public final class WorldFx {
 		Vector3f eye = new Vector3f();
 
 		Fx halo = BATCH.begin(Fx.BLOB, 1.0F, view, proj, right, up);
-		halo.sprite(head, core * 16.0F, 0, Fx.argb(1.0F, 0.55F, 0.28F, 0.55F * fadeIn));
-		halo.end(true, 1.0F + 2.0F * (float) p);
+		halo.sprite(head, core * 10.0F, 0, Fx.argb(1.0F, 0.5F, 0.22F, 0.3F * fadeIn));
+		halo.end(true, 1.0F + 1.5F * (float) p);
 
 		Fx glow = BATCH.begin(Fx.BEAM, 0, view, proj, right, up);
 		glow.beam(head, tail, eye, core * 3.2F, Fx.argb(1.0F, 0.5F, 0.2F, 0.7F * fadeIn), Fx.argb(1.0F, 0.3F, 0.1F, 0.0F));
@@ -260,11 +277,11 @@ public final class WorldFx {
 		int r = scene.radius;
 		Vector3f c = rel(scene.center.x, scene.center.y, scene.center.z, cam);
 
-		// The flash at the moment of impact.
-		if (e < 12) {
+		// The flash at the moment of impact: a searing point; the whole picture flashing is the grading's job.
+		if (e < 10) {
 			Fx flash = BATCH.begin(Fx.BLOB, 1.0F, view, proj, right, up);
-			flash.sprite(new Vector3f(c).add(0, r * 0.12F, 0), (float) (r * (1.1 + e * 0.12)), 0, Fx.argb(1.0F, 0.92F, 0.8F, 1.0F));
-			flash.end(true, (float) (24.0 * Math.exp(-e / 1.6)));
+			flash.sprite(new Vector3f(c).add(0, r * 0.1F, 0), (float) (r * (0.45 + e * 0.06)), 0, Fx.argb(1.0F, 0.92F, 0.8F, 1.0F));
+			flash.end(true, (float) (14.0 * Math.exp(-e / 1.3)));
 		}
 
 		// Condensation shell racing out ahead of the fireball.
@@ -291,7 +308,7 @@ public final class WorldFx {
 			additive();
 			Shaders.set(Shaders.plasma, "Time", (float) (e * 0.04));
 			Shaders.set(Shaders.plasma, "Intensity", (float) intensity);
-			Shaders.set(Shaders.plasma, "Heat", (float) MathHelper.clamp(1.15 - e / 90.0, 0.25, 1.0));
+			Shaders.set(Shaders.plasma, "Heat", (float) MathHelper.clamp(0.9 - e / 110.0, 0.25, 0.9));
 			Shaders.set(Shaders.plasma, "Flow", 0.0F, -1.6F, 0.0F);
 			Shaders.set(Shaders.plasma, "Scale", 1.7F);
 			sphere.draw(Shaders.plasma, new Matrix4f(view).mul(model), proj);
@@ -362,7 +379,10 @@ public final class WorldFx {
 			float age = p.age + tickDelta;
 			float fadeIn = MathHelper.clamp(age / 4.0F, 0.0F, 1.0F);
 			float fadeOut = MathHelper.clamp((p.life - age) / (p.life * 0.35F), 0.0F, 1.0F);
-			float a = p.alpha * fadeIn * fadeOut;
+			// A puff right on top of the camera would fill the screen; thin it out instead.
+			float distance = (float) Math.sqrt(ref.distance());
+			float nearFade = MathHelper.clamp((distance - size * 0.3F) / (size * 1.2F), 0.0F, 1.0F);
+			float a = p.alpha * fadeIn * fadeOut * nearFade;
 			if (a < 0.01F) {
 				continue;
 			}
