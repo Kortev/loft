@@ -107,26 +107,30 @@ public final class Mesh {
 	}
 
 	/**
-	 * A flat ribbon around the Y axis at radius 1, {@code width} wide, for {@code ss_glow} mode 4:
+	 * A ribbon around the Y axis at radius 1, {@code width} wide, for {@code ss_glow} mode 4: a flat
+	 * band in the XZ plane crossed with an upright one, so it reads from any angle including edge-on.
 	 * u runs 0..1 around from +X towards -Z, v runs -1..1 across.
 	 */
 	public static Mesh ribbon(int segments, float width) {
 		BufferBuilder b = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
-		for (int i = 0; i < segments; i++) {
-			float u0 = (float) i / segments;
-			float u1 = (float) (i + 1) / segments;
-			ribbonVertex(b, u0, -1, width);
-			ribbonVertex(b, u0, 1, width);
-			ribbonVertex(b, u1, 1, width);
-			ribbonVertex(b, u1, -1, width);
+		for (int upright = 0; upright < 2; upright++) {
+			for (int i = 0; i < segments; i++) {
+				float u0 = (float) i / segments;
+				float u1 = (float) (i + 1) / segments;
+				ribbonVertex(b, u0, -1, width, upright == 1);
+				ribbonVertex(b, u0, 1, width, upright == 1);
+				ribbonVertex(b, u1, 1, width, upright == 1);
+				ribbonVertex(b, u1, -1, width, upright == 1);
+			}
 		}
 		return upload(b);
 	}
 
-	private static void ribbonVertex(BufferBuilder b, float u, float v, float width) {
+	private static void ribbonVertex(BufferBuilder b, float u, float v, float width, boolean upright) {
 		double a = u * Math.PI * 2;
-		float r = 1.0F + v * width * 0.5F;
-		b.vertex((float) (Math.cos(a) * r), 0.0F, (float) (-Math.sin(a) * r)).texture(u, v).color(255, 255, 255, 255);
+		float r = upright ? 1.0F : 1.0F + v * width * 0.5F;
+		float y = upright ? v * width * 0.5F : 0.0F;
+		b.vertex((float) (Math.cos(a) * r), y, (float) (-Math.sin(a) * r)).texture(u, v).color(255, 255, 255, 255);
 	}
 
 	/** The star catalogue (assets/shootingstar/textures/feed/stars.bin) as one quad per star. */

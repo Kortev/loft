@@ -28,7 +28,9 @@ final class Shots {
 			.add(new Vector3f(TARGET).mul(0.12F)).normalize();
 	private static final Vector3f RELAY_POS = new Vector3f(TARGET).mul(0.86F).add(new Vector3f(EAST).mul(-0.42F))
 			.add(new Vector3f(NORTH).mul(0.3F)).normalize().mul(1.32F);
-	private static final Matrix4f EARTH_SKY = new Matrix4f().rotateXYZ(0.9F, 0.4F, -0.6F);
+	/** The galactic centre sits behind the climbing camera, so only the faint anticentre lies behind Earth. */
+	private static final Matrix4f EARTH_SKY = skyFrame(slerp(TARGET, new Vector3f(TARGET).mul(0.8F)
+			.add(new Vector3f(EAST).mul(-0.5F)).add(new Vector3f(NORTH).mul(-0.14F)).normalize(), 0.9F), NORTH);
 
 	// --- Jupiter scene: radius 1 at the origin, ring in the equatorial plane --------------------
 	static final float RING = 1.22F;
@@ -40,6 +42,8 @@ final class Shots {
 	private static final Vector3f LOCAL_SUN = new Vector3f(0.55F, 0.62F, 0.55F).normalize();
 	private static final Matrix4f LOCAL_SKY = new Matrix4f().rotateXYZ(0.2F, -0.7F, 1.25F);
 	private static final Matrix4f LOCAL_JUPITER = new Matrix4f().translation(0, -1586, 0).rotateZ((float) (Math.PI / 2)).scale(1300);
+	/** Out in the belt the sun is behind the camera, so the rocks and the round show their lit faces. */
+	private static final Vector3f DEBRIS_SUN = new Vector3f(-0.35F, 0.55F, -0.75F).normalize();
 
 	private static final int ORANGE = 0xFF7A1E;
 	private static final int HOT = 0xFFB070;
@@ -312,11 +316,14 @@ final class Shots {
 		Space.clearDepth();
 
 		double offset = travel - Math.floor(travel);
+		// Each coil fires as the round reaches it: a sharp front just ahead, a long cooling trail behind.
+		float fireGain = speed > 0 ? 1.2F + 3.5F * speed : 0.0F;
 		for (int k = -12; k <= 70; k++) {
 			float z = (float) (k - offset);
-			float near = (float) Math.exp(-(z - roundZ) * (z - roundZ) * 0.35);
+			float rel = z - roundZ;
+			float fire = rel >= 0 ? (float) Math.exp(-rel * rel * 3.0) : (float) Math.exp(rel / (1.5F + 10.0F * speed));
 			Matrix4f coil = new Matrix4f().translation(0, 0, z);
-			space.mesh(space.coil, cam, coil, LOCAL_SUN, 1.0F, ORANGE, glow + near * speed * 2.5F, 0);
+			space.mesh(space.coil, cam, coil, LOCAL_SUN, 1.0F, ORANGE, glow + fire * fireGain, 0);
 		}
 		Matrix4f model = new Matrix4f().translation(0, 0, roundZ).scale(ROUND_SCALE);
 		space.mesh(space.round, cam, model, LOCAL_SUN, 1.1F, ORANGE, 1.4F + speed, speed * 0.6F);
@@ -351,8 +358,10 @@ final class Shots {
 		} else {
 			exterior(t, lap, covered, v, sinceLap, o);
 		}
-		if (sinceLap < 4) {
-			o.flash = Math.max(o.flash, (float) (0.7 * (1.0 - sinceLap / 4.0)));
+		// Each lap opens with a burst of light; after the first, a quick white cut hides the change of shot.
+		o.exposure = 1.0F + 2.2F * (float) Math.exp(-sinceLap / 1.3);
+		if (lap > 1 && sinceLap < 1.5) {
+			o.flash = Math.max(o.flash, (float) (0.55 * (1.0 - sinceLap / 1.5)));
 		}
 		o.header = "[ LAP " + lap + " / " + StrikeTimeline.LAP_COUNT + " ]";
 		o.headerColor = lap == StrikeTimeline.LAP_COUNT ? Feed.WHITE : Feed.RED;
@@ -407,7 +416,7 @@ final class Shots {
 		float shake = velocity * 0.012F;
 		eye.add(noise(t * 3.1) * shake, noise(t * 2.7 + 9) * shake, 0);
 		localCamera(eye, at, roll, 62.0F + velocity * 8.0F);
-		breechScene(travel(t), 0, 1.2F + velocity, velocity);
+		breechScene(travel(t), 0, 0.45F + 0.3F * velocity, velocity);
 		// The sky crowds forward and turns blue as the round nears c.
 		o.zoomBlur = 0.04F + velocity * (lap >= 5 ? 0.42F : 0.24F);
 		o.aberration = velocity * 0.012F;
@@ -498,7 +507,7 @@ final class Shots {
 		Vector3f eye = new Vector3f(0.95F, 0.62F, -3.5F).rotateZ(orbitCam);
 		localCamera(eye, new Vector3f(0, 0, 2.5F), orbitCam * 0.4F, 60.0F);
 		float beta = 0.9612F + 0.0112F * (float) (s / 26.0);
-		space.sky(cam, LOCAL_SKY, 1.0F, beta * 0.85F, new Vector3f(0, 0, 1), 0.28F, 0, 0, time);
+		space.sky(cam, LOCAL_SKY, 1.0F, beta * 0.6F, new Vector3f(0, 0, 1), 0.12F, 0, 0, time);
 
 		// Earth: a bright blue point dead ahead.
 		Fx earth = space.glow(cam, Fx.SPIKES, 0);
@@ -521,7 +530,7 @@ final class Shots {
 			float z = (float) (((z0 - travel) % 420.0 + 420.0) % 420.0) - 40.0F;
 			Vector3f pos = new Vector3f((float) (Math.cos(angle) * radius), (float) (Math.sin(angle) * radius), z);
 			Matrix4f rock = new Matrix4f().translation(pos).rotate((float) (s * spin + i), axis).scale(size);
-			space.mesh(space.rocks[variant], cam, rock, LOCAL_SUN, 1.25F, 0, 0, 0);
+			space.mesh(space.rocks[variant], cam, rock, DEBRIS_SUN, 1.6F, 0, 0, 0);
 			if (radius < 4.0 && Math.abs(z) < 3.0) {
 				if (sparks == null) {
 					sparks = space.glow(cam, Fx.BLOB, 1.0F);
@@ -532,7 +541,7 @@ final class Shots {
 		if (sparks != null) {
 			sparks.end(true);
 		}
-		space.mesh(space.round, cam, new Matrix4f().scale(ROUND_SCALE), LOCAL_SUN, 1.1F, ORANGE, 1.6F, 0.35F);
+		space.mesh(space.round, cam, new Matrix4f().scale(ROUND_SCALE), DEBRIS_SUN, 1.3F, ORANGE, 1.6F, 0.35F);
 		Fx bow = space.glow(cam, Fx.BLOB, 1.0F);
 		bow.sprite(new Vector3f(0, 0, 5.1F * ROUND_SCALE), 0.25F, 0, Fx.argb(1.0F, 0.75F, 0.5F, 0.6F));
 		bow.end(true);
@@ -543,8 +552,8 @@ final class Shots {
 		long range = (long) (843_406_388.0 * Math.pow(1.0 - s / 26.0, 3.0) + 604_785.0 * (s / 26.0));
 		o.footer = "RANGE " + Feed.commas(range) + " KM";
 		o.footerSmall = String.format(Locale.ROOT, "VELOCITY %.4f c", beta);
-		o.zoomBlur = 0.12F;
-		o.aberration = 0.008F;
+		o.zoomBlur = 0.08F;
+		o.aberration = 0.006F;
 		// The release: a white frame with the word on it.
 		o.flash = Math.max(o.flash, s < 2 ? 1.0F : (float) Math.max(0, 1.0 - (s - 2) / 3.0));
 		o.banner = "[ RELEASE ]";
@@ -632,6 +641,15 @@ final class Shots {
 		label.markerY = p.y;
 		o.labels.add(label);
 		return label;
+	}
+
+	/** World-to-map rotation for the sky with the galactic centre towards {@code center}, north towards {@code pole}. */
+	private static Matrix4f skyFrame(Vector3f center, Vector3f pole) {
+		Vector3f x = new Vector3f(center).normalize();
+		Vector3f y = new Vector3f(pole).sub(new Vector3f(x).mul(pole.dot(x))).normalize();
+		Vector3f z = new Vector3f(x).cross(y);
+		// Columns are the galactic axes in world space; the transpose takes world directions into the map.
+		return new Matrix4f(x.x, x.y, x.z, 0, y.x, y.y, y.z, 0, z.x, z.y, z.z, 0, 0, 0, 0, 1).transpose();
 	}
 
 	private static Vector3f slerp(Vector3f a, Vector3f b, float t) {

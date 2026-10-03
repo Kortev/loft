@@ -68,10 +68,10 @@ public final class ImpactBuilder {
 	private double lastFront;
 	private int budget;
 
-	public ImpactBuilder(ServerWorld world, BlockPos center) {
+	public ImpactBuilder(ServerWorld world, BlockPos center, int radius) {
 		this.world = world;
 		this.center = center;
-		this.radius = world.getGameRules().getInt(ModGameRules.CRATER_RADIUS);
+		this.radius = radius;
 		this.bowlRadius = Math.max(4, Math.round(radius * 0.55F));
 		this.bowlDepth = Math.max(3, Math.round(bowlRadius * 0.62F));
 		this.scorchRadius = Math.round(radius * 1.5F);

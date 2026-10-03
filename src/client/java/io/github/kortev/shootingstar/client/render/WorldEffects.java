@@ -16,10 +16,11 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.Heightmap;
 import org.joml.Matrix4fStack;
 
-/** The lock beam and the reticle draped over the terrain around the target. */
+/**
+ * The lock beam and the reticle draped over the terrain around the target, sized to the crater:
+ * the zone ring at the crater radius, the scorched ring beyond it and the bowl inside.
+ */
 public final class WorldEffects {
-	private static final int GROUND_RADIUS = 16;
-	private static final int GROUND_SIZE = GROUND_RADIUS * 2 + 1;
 	private static final int RETICLE = 0xFFFF8A2A;
 
 	private WorldEffects() {
@@ -57,7 +58,7 @@ public final class WorldEffects {
 				continue;
 			}
 			if (strike.ground == null) {
-				strike.ground = sampleGround(world, strike.target);
+				sampleGround(world, strike);
 			}
 			beam(b, cam, strike, t);
 			reticle(b, cam, strike, t);
@@ -134,35 +135,45 @@ public final class WorldEffects {
 		float pulse = 0.75F + 0.25F * MathHelper.sin((float) t * (0.25F + (float) inbound * 1.2F));
 		int color = Gfx.fade(RETICLE, 0.9F * pulse);
 		int dim = Gfx.fade(RETICLE, 0.55F * pulse);
-		double spin = t * 0.012;
-		// Thicken the lines with distance so the reticle still reads from far away or from above.
-		double w = MathHelper.clamp(strike.center.distanceTo(cam) / 35.0, 1.0, 3.5);
+		double spin = t * 0.006;
+		double r = strike.radius;
+		// Thicken the lines with distance and size so the reticle still reads from far away or from above.
+		double w = MathHelper.clamp(strike.center.distanceTo(cam) / 35.0, 1.0, 4.5) * (0.7 + 0.3 * Math.sqrt(r / 28.0));
 
-		arc(b, cam, strike, 7.0, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * appear, 0.16 * w, color);
-		for (int k = 0; k < 24; k += 2) {
-			double a0 = Math.PI * 2 * k / 24 - spin;
-			double a1 = Math.PI * 2 * (k + 1) / 24 - spin;
-			if (k / 24.0 < appear) {
-				arc(b, cam, strike, 11.5, a0, a1, 0.11 * w, dim);
+		// The zone ring: everything inside is planed.
+		arc(b, cam, strike, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * appear, 0.18 * w, color);
+		// The scorched ring, dashed and turning slowly.
+		for (int k = 0; k < 48; k += 2) {
+			double a0 = Math.PI * 2 * k / 48 - spin;
+			double a1 = Math.PI * 2 * (k + 1) / 48 - spin;
+			if (k / 48.0 < appear) {
+				arc(b, cam, strike, r * 1.5, a0, a1, 0.12 * w, dim);
 			}
 		}
+		// The bowl as a hexagon.
+		double bowl = r * 0.55;
 		for (int k = 0; k < 6; k++) {
 			if (k / 6.0 >= appear) {
 				break;
 			}
 			double a0 = spin + Math.PI / 3 * k;
 			double a1 = spin + Math.PI / 3 * (k + 1);
-			segment(b, cam, strike, Math.cos(a0) * 9.0, Math.sin(a0) * 9.0, Math.cos(a1) * 9.0, Math.sin(a1) * 9.0, 0.12 * w, color);
+			segment(b, cam, strike, Math.cos(a0) * bowl, Math.sin(a0) * bowl, Math.cos(a1) * bowl, Math.sin(a1) * bowl, 0.14 * w, color);
 		}
+		// Crosshair in the middle and range ticks round the zone edge.
+		double inner = Math.max(2.5, r * 0.05);
+		double outer = Math.max(5.5, r * 0.14);
 		for (int k = 0; k < 4; k++) {
 			double a = Math.PI / 2 * k + Math.PI / 4 - spin * 0.5;
-			segment(b, cam, strike, Math.cos(a) * 2.5, Math.sin(a) * 2.5, Math.cos(a) * 5.5, Math.sin(a) * 5.5, 0.14 * w, color);
+			segment(b, cam, strike, Math.cos(a) * inner, Math.sin(a) * inner, Math.cos(a) * outer, Math.sin(a) * outer, 0.16 * w, color);
 		}
-		for (int k = 0; k < 12; k++) {
-			double a = Math.PI / 6 * k;
-			segment(b, cam, strike, Math.cos(a) * 12.6, Math.sin(a) * 12.6, Math.cos(a) * 14.2, Math.sin(a) * 14.2, 0.1 * w, dim);
+		for (int k = 0; k < 24; k++) {
+			double a = Math.PI / 12 * k;
+			double len = k % 2 == 0 ? r * 0.08 : r * 0.04;
+			segment(b, cam, strike, Math.cos(a) * (r + 1), Math.sin(a) * (r + 1), Math.cos(a) * (r + 1 + len),
+					Math.sin(a) * (r + 1 + len), 0.11 * w, dim);
 		}
-		arc(b, cam, strike, 1.1, 0, Math.PI * 2, 0.12 * w, color);
+		arc(b, cam, strike, Math.max(1.1, r * 0.025), 0, Math.PI * 2, 0.12 * w, color);
 	}
 
 	private static void arc(BufferBuilder b, Vec3d cam, ClientStrike strike, double radius, double from, double to,
@@ -209,23 +220,44 @@ public final class WorldEffects {
 		b.vertex((float) (ox + x1 + nx), (float) y1, (float) (oz + z1 + nz)).color(color);
 	}
 
+	/** Ground height under an offset from the target centre, interpolated between samples. */
 	private static double groundAt(ClientStrike strike, double dx, double dz) {
-		int ix = MathHelper.floor(strike.center.x + dx) - strike.target.getX() + GROUND_RADIUS;
-		int iz = MathHelper.floor(strike.center.z + dz) - strike.target.getZ() + GROUND_RADIUS;
-		if (strike.ground == null || ix < 0 || iz < 0 || ix >= GROUND_SIZE || iz >= GROUND_SIZE) {
+		if (strike.ground == null) {
 			return strike.target.getY() + 1.0;
 		}
-		return strike.ground[ix * GROUND_SIZE + iz];
+		int size = strike.groundRadius * 2 + 1;
+		double gx = (strike.center.x + dx - strike.target.getX()) / strike.groundStep + strike.groundRadius;
+		double gz = (strike.center.z + dz - strike.target.getZ()) / strike.groundStep + strike.groundRadius;
+		int ix = MathHelper.floor(gx);
+		int iz = MathHelper.floor(gz);
+		if (ix < 0 || iz < 0 || ix + 1 >= size || iz + 1 >= size) {
+			return strike.target.getY() + 1.0;
+		}
+		double fx = gx - ix;
+		double fz = gz - iz;
+		float[] g = strike.ground;
+		// Take the higher of the bilinear blend and the nearest sample so lines never sink into steps.
+		double blend = MathHelper.lerp(fz, MathHelper.lerp(fx, g[ix * size + iz], g[(ix + 1) * size + iz]),
+				MathHelper.lerp(fx, g[ix * size + iz + 1], g[(ix + 1) * size + iz + 1]));
+		double nearest = g[(int) Math.round(gx) * size + (int) Math.round(gz)];
+		return Math.max(blend, nearest);
 	}
 
-	/** Top surface height of every column around the target, ignoring grass, flowers and snow layers. */
-	private static float[] sampleGround(ClientWorld world, BlockPos target) {
-		float[] ground = new float[GROUND_SIZE * GROUND_SIZE];
+	/**
+	 * Top surface height around the target out past the scorched ring, ignoring grass, flowers and snow
+	 * layers. Big craters are sampled on a coarser grid.
+	 */
+	private static void sampleGround(ClientWorld world, ClientStrike strike) {
+		BlockPos target = strike.target;
+		int step = Math.max(1, Math.round(strike.radius / 32.0F));
+		int radius = (int) Math.ceil((strike.radius * 1.5 + strike.radius * 0.2 + 4) / step);
+		int size = radius * 2 + 1;
+		float[] ground = new float[size * size];
 		BlockPos.Mutable pos = new BlockPos.Mutable();
-		for (int ix = 0; ix < GROUND_SIZE; ix++) {
-			for (int iz = 0; iz < GROUND_SIZE; iz++) {
-				int x = target.getX() + ix - GROUND_RADIUS;
-				int z = target.getZ() + iz - GROUND_RADIUS;
+		for (int ix = 0; ix < size; ix++) {
+			for (int iz = 0; iz < size; iz++) {
+				int x = target.getX() + (ix - radius) * step;
+				int z = target.getZ() + (iz - radius) * step;
 				int top = world.getTopY(Heightmap.Type.WORLD_SURFACE, x, z) - 1;
 				float height = target.getY() + 1.0F;
 				if (top > world.getBottomY()) {
@@ -241,10 +273,12 @@ public final class WorldEffects {
 						}
 					}
 				}
-				ground[ix * GROUND_SIZE + iz] = height;
+				ground[ix * size + iz] = height;
 			}
 		}
-		return ground;
+		strike.groundStep = step;
+		strike.groundRadius = radius;
+		strike.ground = ground;
 	}
 
 	// --- aim preview -----------------------------------------------------------------------

@@ -9,14 +9,18 @@ import net.minecraft.network.packet.CustomPayload;
 import net.minecraft.util.Uuids;
 import net.minecraft.util.math.BlockPos;
 
-/** A strike got its kinetic lock. {@code age} is non-zero when syncing a strike already in flight. */
-public record StrikeLockPayload(int strikeId, BlockPos target, UUID shooter, int age) implements CustomPayload {
+/**
+ * A strike got its kinetic lock. {@code age} is non-zero when syncing a strike already in flight;
+ * {@code radius} is the crater radius it will plane, so clients can size the reticle and the effects.
+ */
+public record StrikeLockPayload(int strikeId, BlockPos target, UUID shooter, int age, int radius) implements CustomPayload {
 	public static final CustomPayload.Id<StrikeLockPayload> ID = new CustomPayload.Id<>(ShootingStar.id("strike_lock"));
 	public static final PacketCodec<RegistryByteBuf, StrikeLockPayload> CODEC = PacketCodec.tuple(
 			PacketCodecs.VAR_INT, StrikeLockPayload::strikeId,
 			BlockPos.PACKET_CODEC, StrikeLockPayload::target,
 			Uuids.PACKET_CODEC, StrikeLockPayload::shooter,
 			PacketCodecs.VAR_INT, StrikeLockPayload::age,
+			PacketCodecs.VAR_INT, StrikeLockPayload::radius,
 			StrikeLockPayload::new);
 
 	@Override

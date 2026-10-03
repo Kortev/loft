@@ -4,6 +4,7 @@ import io.github.kortev.shootingstar.client.gfx.Shaders;
 import io.github.kortev.shootingstar.client.render.HudEffects;
 import io.github.kortev.shootingstar.client.render.WorldEffects;
 import io.github.kortev.shootingstar.client.render.WorldProjector;
+import io.github.kortev.shootingstar.client.world.WorldFx;
 import io.github.kortev.shootingstar.network.StrikeCancelPayload;
 import io.github.kortev.shootingstar.network.StrikeImpactPayload;
 import io.github.kortev.shootingstar.network.StrikeLockPayload;
@@ -46,6 +47,7 @@ public class ShootingStarClient implements ClientModInitializer {
 
 		WorldRenderEvents.AFTER_TRANSLUCENT.register(WorldEffects::render);
 		WorldRenderEvents.LAST.register(WorldProjector::capture);
+		WorldRenderEvents.LAST.register(WorldFx::render);
 		HudRenderCallback.EVENT.register(HudEffects::render);
 	}
 }

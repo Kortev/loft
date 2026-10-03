@@ -1,7 +1,7 @@
 name: selftest
 
-# Plays a full strike in a real client under a virtual display and screenshots every phase.
-# Run it by hand from the Actions tab; the screenshots are uploaded as the selftest-screenshots artifact.
+# Plays a full strike in a real client under a virtual display, records it as a video with the mod's
+# sounds mixed in, and screenshots every phase. The video and screenshots are uploaded as artifacts.
 on:
   workflow_dispatch:
   push:
@@ -10,7 +10,7 @@ on:
 jobs:
   selftest:
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-java@v5
@@ -18,10 +18,10 @@ jobs:
           distribution: temurin
           java-version: 21
       - uses: gradle/actions/setup-gradle@v4
-      - name: Install virtual display
+      - name: Install virtual display and ffmpeg
         run: |
           sudo apt-get update -q
-          sudo apt-get install -y -q xvfb libgl1-mesa-dri mesa-utils python3-pil
+          sudo apt-get install -y -q xvfb libgl1-mesa-dri mesa-utils python3-pil ffmpeg
       - name: Generate world
         run: |
           mkdir -p build/selftest-server
@@ -33,7 +33,13 @@ jobs:
           mkdir -p build/selftest/saves
           cp -r build/selftest-server/selftest build/selftest/saves/selftest
           cp .github/selftest/options.txt build/selftest/options.txt
-          timeout 1500 xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew runSelftest --stacktrace
+          timeout 4200 xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew runSelftest --stacktrace
+      - name: Mix the soundtrack
+        if: always()
+        run: |
+          cat build/selftest/capture/ffmpeg.log || true
+          head -c 3000 build/selftest/capture/sounds.json || true
+          python3 .github/scripts/mux-audio.py build/selftest/capture build/selftest/strike.mp4
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -41,6 +47,36 @@ jobs:
           path: |
             build/selftest/screenshots/
             build/selftest/logs/
-      - name: Screenshots
+      - uses: actions/upload-artifact@v4
         if: always()
-        run: python3 .github/scripts/print-screens.py build/selftest/screenshots
+        with:
+          name: selftest-video
+          path: build/selftest/strike.mp4
+
+  print-screens:
+    needs: selftest
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          name: selftest-screenshots
+          path: shots
+      - name: Screenshots
+        run: |
+          pip install -q pillow
+          python3 .github/scripts/print-screens.py shots/screenshots
+
+  print-video:
+    needs: selftest
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          name: selftest-video
+          path: video
+      - name: Video
+        run: python3 .github/scripts/print-file.py video/strike.mp4

@@ -32,7 +32,7 @@ public final class Feed {
 	static final int CYAN = 0xFF7FD8FF;
 
 	private static final Shots SHOTS = new Shots();
-	private static final Target SCENE = new Target(true);
+	private static final Target SCENE = new Target(true, true);
 
 	private Feed() {
 	}
@@ -73,19 +73,20 @@ public final class Feed {
 		RenderSystem.applyModelViewMatrix();
 		RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
 
-		Framebuffer scene = SCENE.begin(fw, fh, 0.0F, 0.0F, 0.0F, 1.0F);
+		SCENE.begin(fw, fh, 0.0F, 0.0F, 0.0F, 1.0F);
 		Overlay overlay = SHOTS.render(t, fw, fh, guiW, guiH);
 
 		Post.begin();
-		int[] bloom = Post.bloom(scene.getColorAttachment(), fw, fh, overlay.threshold);
+		int[] bloom = Post.bloom(SCENE.color(), fw, fh, overlay.threshold);
 		main.beginWrite(true);
-		RenderSystem.setShaderTexture(0, scene.getColorAttachment());
+		RenderSystem.setShaderTexture(0, SCENE.color());
 		RenderSystem.setShaderTexture(1, bloom[0]);
 		RenderSystem.setShaderTexture(2, bloom[1]);
 		Shaders.set(Shaders.composite, "BloomStrength", overlay.bloom);
 		Shaders.set(Shaders.composite, "WideStrength", overlay.wideBloom);
+		Shaders.set(Shaders.composite, "Exposure", overlay.exposure);
 		Shaders.set(Shaders.composite, "Vignette", overlay.vignette);
-		Shaders.set(Shaders.composite, "Grain", 0.035F);
+		Shaders.set(Shaders.composite, "Grain", 0.025F);
 		Shaders.set(Shaders.composite, "Time", (float) t);
 		Shaders.set(Shaders.composite, "Aberration", overlay.aberration + 0.0015F);
 		Shaders.set(Shaders.composite, "Flash", Math.max(overlay.flash, cutFlash(t)));

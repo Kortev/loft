@@ -2,6 +2,8 @@ package io.github.kortev.shootingstar.client;
 
 import io.github.kortev.shootingstar.client.feed.Feed;
 import io.github.kortev.shootingstar.client.render.ImpactEffects;
+import io.github.kortev.shootingstar.client.world.ImpactScene;
+import io.github.kortev.shootingstar.client.world.WorldFx;
 import io.github.kortev.shootingstar.network.StrikeCancelPayload;
 import io.github.kortev.shootingstar.network.StrikeImpactPayload;
 import io.github.kortev.shootingstar.network.StrikeLockPayload;
@@ -41,7 +43,7 @@ public final class ClientStrikes {
 	@Nullable
 	public static ClientStrike cinematic() {
 		for (ClientStrike strike : STRIKES.values()) {
-			if (strike.cinematic() && strike.age < StrikeTimeline.WIDE_END) {
+			if (strike.cinematic() && strike.age < StrikeTimeline.CAMERA_END) {
 				return strike;
 			}
 		}
@@ -54,7 +56,7 @@ public final class ClientStrikes {
 
 	public static boolean shotActive(@Nullable ClientStrike strike, double t) {
 		return strike != null && strike.cinematic() && ClientConfig.cameraShots
-				&& (t >= StrikeTimeline.RISE && t < StrikeTimeline.ORBIT || t >= StrikeTimeline.INBOUND && t < StrikeTimeline.WIDE_END);
+				&& (t >= StrikeTimeline.RISE && t < StrikeTimeline.ORBIT || t >= StrikeTimeline.INBOUND && t < StrikeTimeline.CAMERA_END);
 	}
 
 	/** True while the local player has a strike in flight (for the uplink's status card). */
@@ -74,6 +76,8 @@ public final class ClientStrikes {
 		boolean mine = client.player != null && client.player.getUuid().equals(payload.shooter());
 		ClientStrike strike = new ClientStrike(payload.strikeId(), payload.target(), payload.shooter(), mine, payload.age());
 		strike.feedSkipped = !ClientConfig.feed || payload.age() > StrikeTimeline.RISE;
+		strike.radius = payload.radius();
+		strike.zoneDiameter = payload.radius() * 2;
 		STRIKES.put(strike.id, strike);
 		if (payload.age() == 0) {
 			if (mine) {
@@ -91,11 +95,17 @@ public final class ClientStrikes {
 			STRIKES.put(strike.id, strike);
 		}
 		strike.impacted = true;
-		strike.age = Math.max(strike.age, StrikeTimeline.IMPACT);
-		strike.impactAge = strike.age;
+		// This tick's update moves the strike on to the impact itself, so the first frame shows the moment of the hit.
+		strike.age = Math.max(strike.age, StrikeTimeline.IMPACT - 1);
+		strike.impactAge = strike.age + 1;
 		strike.radius = payload.radius();
 		strike.zoneDiameter = payload.zoneDiameter();
 		strike.spireHeight = payload.spireHeight();
+		if (client.world != null && client.player != null
+				&& client.player.getPos().squaredDistanceTo(strike.center) < 1200.0 * 1200.0) {
+			strike.scene = new ImpactScene(client, client.world, strike.center, payload.radius(), payload.zoneDiameter() > 0);
+			WorldFx.add(strike.scene);
+		}
 		ImpactEffects.trigger(client, strike);
 	}
 
@@ -114,6 +124,7 @@ public final class ClientStrikes {
 	public static void clear(MinecraftClient client) {
 		STRIKES.clear();
 		ImpactEffects.clear();
+		WorldFx.clear();
 		restoreHud(client);
 	}
 
@@ -151,6 +162,7 @@ public final class ClientStrikes {
 			}
 		}
 		ImpactEffects.tick(client);
+		WorldFx.tick(client.world);
 
 		ClientStrike cinematic = cinematic();
 		boolean takeOver = cinematic != null && (feedActive(cinematic, cinematic.age) || shotActive(cinematic, cinematic.age));

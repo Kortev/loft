@@ -28,7 +28,7 @@ void main() {
         vec3 pd = pl > 1.0e-5 ? perp / pl : vec3(0.0);
         float gamma = 1.0 / sqrt(1.0 - Beta * Beta);
         float doppler = gamma * (1.0 + Beta * c0);
-        boost = clamp(doppler * doppler, 0.05, 12.0);
+        boost = clamp(doppler * doppler, 0.05, 3.0);
         d = Forward * c0 + pd * sqrt(max(0.0, 1.0 - c0 * c0));
     }
     vec3 g = (SkyRot * vec4(d, 0.0)).xyz;
@@ -45,6 +45,7 @@ void main() {
         dx = dx2;
         dy = dy2;
     }
-    vec3 color = textureGrad(Sampler0, uv, dx, dy).rgb * Brightness * boost;
+    vec3 color = textureGrad(Sampler0, uv, dx, dy).rgb;
+    color = mix(vec3(dot(color, vec3(0.299, 0.587, 0.114))), color, 0.7) * Brightness * boost;
     fragColor = vec4(color, 1.0);
 }

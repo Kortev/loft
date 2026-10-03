@@ -53,22 +53,13 @@ public final class HudEffects {
 
 		ctx.draw();
 		Gfx.begin2d();
+		// The falling star, the flash and the impact frames are drawn in the world (WorldFx).
 		for (ClientStrike strike : ClientStrikes.all()) {
 			double t = strike.time(tickDelta);
-			if (t < StrikeTimeline.IMPACT) {
-				if (t < StrikeTimeline.INBOUND) {
-					lockMarker(m, w, h, strike, t, words, client);
-				} else {
-					inboundStar(m, w, h, strike, t);
-				}
-			} else {
-				if (shot && strike == cinematic && t < StrikeTimeline.IMPACT_FRAME_END) {
-					impactFrame(m, w, h, strike, t);
-				}
-				flash(m, w, h, strike, t, client);
-				if (strike.mine && t >= StrikeTimeline.IMPACT + 18) {
-					readout(words, w, h, strike, t);
-				}
+			if (t < StrikeTimeline.INBOUND) {
+				lockMarker(m, w, h, strike, t, words, client);
+			} else if (strike.mine && t >= StrikeTimeline.IMPACT + 18) {
+				readout(words, w, h, strike, t);
 			}
 		}
 		if (Aim.holding && !shot) {
@@ -113,126 +104,7 @@ public final class HudEffects {
 				(StrikeTimeline.IMPACT - t) / 20.0), GREY, 0.6F, false));
 	}
 
-	/** The round as a star above the target, swelling as it falls. */
-	private static void inboundStar(Matrix4f m, float w, float h, ClientStrike strike, double t) {
-		double p = (t - StrikeTimeline.INBOUND) / (StrikeTimeline.IMPACT - StrikeTimeline.INBOUND);
-		double height = 2400.0 * Math.pow(1.0 - p, 3.0) + 30.0;
-		Vec3d c = strike.center;
-		Vector3f star = WorldProjector.project(c.x, c.y + height, c.z, w, h);
-		if (star == null) {
-			return;
-		}
-		Vector3f trail = WorldProjector.project(c.x, c.y + height + 600.0, c.z, w, h);
-		float size = (float) (5.0 + 30.0 * p * p);
-		float alpha = (float) MathHelper.clamp(p * 4.0, 0.0, 1.0);
-
-		BufferBuilder lines = Gfx.quads();
-		if (trail != null) {
-			Gfx.line(lines, m, star.x, star.y, trail.x, trail.y, 1.4F, Gfx.fade(0xFFFFE6C8, 0.8F * alpha), 0x00FFE6C8);
-		}
-		float reach = (float) (w * (0.18 + 0.4 * p));
-		Gfx.line(lines, m, star.x - reach, star.y, star.x + reach, star.y, 0.8F, 0x00FFD8B0, Gfx.fade(0xFFFFD8B0, 0.0F));
-		Gfx.line(lines, m, star.x - reach, star.y, star.x, star.y, 0.8F, 0x00FFD8B0, Gfx.fade(0xFFFFD8B0, 0.8F * alpha));
-		Gfx.line(lines, m, star.x, star.y, star.x + reach, star.y, 0.8F, Gfx.fade(0xFFFFD8B0, 0.8F * alpha), 0x00FFD8B0);
-		Gfx.line(lines, m, star.x, star.y - reach * 0.7F, star.x, star.y, 0.8F, 0x00FFD8B0, Gfx.fade(0xFFFFD8B0, 0.8F * alpha));
-		Gfx.line(lines, m, star.x, star.y, star.x, star.y + reach * 0.7F, 0.8F, Gfx.fade(0xFFFFD8B0, 0.8F * alpha), 0x00FFD8B0);
-		Gfx.circle(lines, m, star.x, star.y, size * 0.8F, 0.6F, Gfx.fade(0xFFFFC890, 0.7F * alpha), 48);
-		Gfx.circle(lines, m, star.x, star.y, size * 1.25F, 0.5F, Gfx.fade(0xFFFFC890, 0.4F * alpha), 48);
-		Gfx.additive();
-		Gfx.draw(lines);
-
-		BufferBuilder glow = Gfx.texQuads();
-		Gfx.sprite(glow, m, star.x, star.y, size * 2.5F, size * 2.5F, 0, Gfx.fade(0xFFFF9A50, 0.45F * alpha));
-		Gfx.sprite(glow, m, star.x, star.y, size, size, 0, Gfx.fade(0xFFFFFFFF, alpha));
-		Gfx.drawTex(glow, Textures.GLOW);
-		Gfx.alpha();
-	}
-
 	// --- impact ----------------------------------------------------------------------------
-
-	/** White flash then an orange afterglow, scaled by distance and whether you were looking. */
-	private static void flash(Matrix4f m, float w, float h, ClientStrike strike, double t, MinecraftClient client) {
-		double e = t - strike.impactAge;
-		if (e > 60 || e < 0) {
-			return;
-		}
-		Vec3d eye = client.player.getEyePos();
-		Vec3d to = strike.center.subtract(eye);
-		double distance = to.length();
-		double near = MathHelper.clamp(1.0 - distance / 900.0, 0.0, 1.0);
-		double looking = 0.35 + 0.65 * Math.max(0.0, client.player.getRotationVec(1.0F).dotProduct(to.normalize()));
-		float white = (float) (near * looking * Math.exp(-e / 3.0));
-		float orange = (float) (near * looking * 0.55 * Math.exp(-e / 16.0));
-		if (strike.cinematic()) {
-			// The shooter gets a short pop of white so the halftone frame stays readable.
-			white = (float) (0.85 * Math.exp(-e / 1.2));
-			orange = (float) (0.3 * Math.exp(-e / 10.0));
-		}
-		BufferBuilder b = Gfx.quads();
-		Gfx.rect(b, m, 0, 0, w, h, Gfx.fade(0xFFFF8A3A, orange));
-		Gfx.rect(b, m, 0, 0, w, h, Gfx.fade(0xFFFFFFFF, white));
-		Gfx.additive();
-		Gfx.draw(b);
-		Gfx.alpha();
-	}
-
-	/** The comic-book halftone frame on the shooter's aerial shot of the hit. */
-	private static void impactFrame(Matrix4f m, float w, float h, ClientStrike strike, double t) {
-		double e = t - StrikeTimeline.IMPACT;
-		float fade = (float) MathHelper.clamp((StrikeTimeline.IMPACT_FRAME_END - t) / 3.0, 0.0, 1.0);
-		Vec3d c = strike.center;
-		Vector3f hit = WorldProjector.project(c.x, c.y, c.z, w, h);
-		float hx = hit != null ? hit.x : w / 2;
-		float hy = hit != null ? hit.y : h / 2;
-
-		BufferBuilder tint = Gfx.quads();
-		Gfx.rect(tint, m, 0, 0, w, h, Gfx.fade(0xFFFF5A1E, 0.62F * fade));
-		Gfx.draw(tint);
-
-		// The halftone screen is centred on the hit and always reaches the far corners.
-		BufferBuilder dots = Gfx.texQuads();
-		float size = (float) Math.max(Math.max(Math.hypot(hx, hy), Math.hypot(w - hx, hy)),
-				Math.max(Math.hypot(hx, h - hy), Math.hypot(w - hx, h - hy)));
-		Gfx.texRect(dots, m, hx - size, hy - size, hx + size, hy + size, 0, 0, 1, 1, Gfx.fade(0xFFFFFFFF, 0.9F * fade));
-		Gfx.drawTex(dots, Textures.HALFTONE);
-
-		// Wireframe shock rings and speed lines in white.
-		BufferBuilder lines = Gfx.quads();
-		double grow = 1.0 + e * 0.35;
-		for (int ring = 0; ring < 4; ring++) {
-			double radius = strike.radius * (0.25 + ring * 0.28) * grow;
-			double y = c.y + 2 + ring * 9;
-			worldCircle(lines, m, w, h, c.x, y, c.z, radius, Gfx.fade(0xFFFFFFFF, 0.85F * fade), 0.9F);
-		}
-		for (int i = 0; i < 28; i++) {
-			double a = Math.PI * 2 * i / 28 + 0.1;
-			float inner = (float) (Math.min(w, h) * 0.12);
-			float outer = (float) (Math.max(w, h) * 0.9);
-			Gfx.line(lines, m, hx + (float) Math.cos(a) * inner, hy + (float) Math.sin(a) * inner,
-					hx + (float) Math.cos(a) * outer, hy + (float) Math.sin(a) * outer, 0.7F, Gfx.fade(0xFFFFFFFF, 0.6F * fade), 0x00FFFFFF);
-		}
-		Gfx.draw(lines);
-
-		BufferBuilder core = Gfx.texQuads();
-		float coreSize = (float) (Math.min(w, h) * (0.12 + 0.02 * e));
-		Gfx.sprite(core, m, hx, hy, coreSize, coreSize, 0, Gfx.fade(0xFFFFFFFF, fade));
-		Gfx.additive();
-		Gfx.drawTex(core, Textures.GLOW);
-		Gfx.alpha();
-	}
-
-	private static void worldCircle(BufferBuilder b, Matrix4f m, float w, float h, double cx, double cy, double cz,
-			double radius, int color, float width) {
-		Vector3f prev = null;
-		for (int i = 0; i <= 64; i++) {
-			double a = Math.PI * 2 * i / 64;
-			Vector3f p = WorldProjector.project(cx + Math.cos(a) * radius, cy, cz + Math.sin(a) * radius, w, h);
-			if (p != null && prev != null) {
-				Gfx.line(b, m, prev.x, prev.y, p.x, p.y, width, color);
-			}
-			prev = p;
-		}
-	}
 
 	private static void readout(List<Words> words, float w, float h, ClientStrike strike, double t) {
 		float alpha = (float) MathHelper.clamp((StrikeTimeline.END - t) / 30.0, 0.0, 1.0);

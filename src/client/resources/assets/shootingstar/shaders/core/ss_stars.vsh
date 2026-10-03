@@ -33,7 +33,7 @@ void main() {
         d = Forward * cp + pd * sqrt(max(0.0, 1.0 - cp * cp));
         float gamma = 1.0 / sqrt(1.0 - Beta * Beta);
         float doppler = 1.0 / (gamma * (1.0 - Beta * cp));
-        boost = clamp(doppler * doppler * doppler, 0.0, 40.0);
+        boost = clamp(doppler * doppler * doppler, 0.0, 8.0);
         tint = doppler > 1.0
             ? mix(vec3(1.0), vec3(0.55, 0.72, 1.0), clamp((doppler - 1.0) * 0.5, 0.0, 1.0))
             : mix(vec3(1.0), vec3(1.0, 0.42, 0.22), clamp((1.0 - doppler) * 1.6, 0.0, 1.0));

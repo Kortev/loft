@@ -9,10 +9,13 @@ import io.github.kortev.shootingstar.strike.StrikeTimeline;
 import io.github.kortev.shootingstar.strike.Targeting;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.function.DoubleFunction;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.render.Camera;
 import net.minecraft.client.util.ScreenshotRecorder;
 import net.minecraft.item.ItemStack;
 import net.minecraft.server.integrated.IntegratedServer;
@@ -28,10 +31,13 @@ import net.minecraft.world.Heightmap;
 
 /**
  * With -Dshootingstar.selftest=true: joins the quick-play world, fires the uplink at a point just
- * outside danger-close range and saves a screenshot at every phase of the strike, then quits.
+ * outside danger-close range, records the whole strike as a video (see {@link Capture}) and saves a
+ * screenshot at every phase, then flies over the crater and quits.
  */
 public class ClientSelfTest implements ClientModInitializer {
-	private enum Stage { WAIT_WORLD, SETUP, SETTLE, FIRE, WATCH, AFTER, DONE, FINISHED }
+	private enum Stage { WAIT_WORLD, SETUP, SETTLE, FIRE, WATCH, FLYOVER, AFTER, DONE, FINISHED }
+
+	private static final int FLYOVER_TICKS = 220;
 
 	private record Capture(int age, String name) {
 	}
@@ -54,7 +60,7 @@ public class ClientSelfTest implements ClientModInitializer {
 		}
 		Thread watchdog = new Thread(() -> {
 			try {
-				Thread.sleep(15 * 60 * 1000L);
+				Thread.sleep(55 * 60 * 1000L);
 			} catch (InterruptedException e) {
 				return;
 			}
@@ -63,6 +69,8 @@ public class ClientSelfTest implements ClientModInitializer {
 		}, "shootingstar-selftest-watchdog");
 		watchdog.setDaemon(true);
 		watchdog.start();
+		ServerTickEvents.START_SERVER_TICK.register(server -> Capture.serverTickStart());
+		ServerTickEvents.END_SERVER_TICK.register(server -> Capture.serverTickEnd());
 		ClientTickEvents.END_CLIENT_TICK.register(ClientSelfTest::tick);
 	}
 
@@ -125,7 +133,10 @@ public class ClientSelfTest implements ClientModInitializer {
 				}
 			}
 			case FIRE -> {
-				if (ticks == 5) {
+				if (ticks == 1) {
+					Capture.start(client, client.runDirectory.toPath().resolve("capture"));
+				}
+				if (ticks == 30) {
 					ShootingStar.LOGGER.info("[selftest] using the uplink");
 					client.interactionManager.interactItem(client.player, Hand.MAIN_HAND);
 				}
@@ -133,7 +144,7 @@ public class ClientSelfTest implements ClientModInitializer {
 					ShootingStar.LOGGER.info("[selftest] strike locked");
 					stage = Stage.WATCH;
 					ticks = 0;
-				} else if (ticks == 60 && !fallbackFired) {
+				} else if (ticks == 90 && !fallbackFired) {
 					ShootingStar.LOGGER.warn("[selftest] the uplink found no target, calling the strike in directly");
 					fallbackFired = true;
 					server.execute(() -> {
@@ -155,6 +166,18 @@ public class ClientSelfTest implements ClientModInitializer {
 					shot(client, CAPTURES.poll().name());
 				}
 				if (CAPTURES.isEmpty() || strike == null && ticks > 700) {
+					stage = Stage.FLYOVER;
+					ticks = 0;
+				}
+			}
+			case FLYOVER -> {
+				if (ticks == 1) {
+					client.options.hudHidden = true;
+					Capture.camera = flyover(client, target);
+				}
+				if (ticks >= FLYOVER_TICKS) {
+					Capture.stop();
+					client.options.hudHidden = false;
 					stage = Stage.AFTER;
 					ticks = 0;
 				}
@@ -190,6 +213,53 @@ public class ClientSelfTest implements ClientModInitializer {
 			case FINISHED -> {
 			}
 		}
+	}
+
+	/**
+	 * A slow crane round the crater on the shooter's side (where the chunks are loaded), easing in from
+	 * wherever the camera is when it starts.
+	 */
+	private static DoubleFunction<Capture.Pose> flyover(MinecraftClient client, BlockPos target) {
+		Camera camera = client.gameRenderer.getCamera();
+		Vec3d startPos = camera.getPos();
+		float startYaw = camera.getYaw();
+		float startPitch = camera.getPitch();
+		double t0 = Capture.time();
+		Vec3d center = Vec3d.ofBottomCenter(target.up());
+		Vec3d away = startPos.subtract(center);
+		double bearing = Math.atan2(away.z, away.x);
+		int r = Targeting.DEFAULT_RADIUS;
+		// Keep the whole arc clear of the hills it passes over.
+		double floor = center.y;
+		for (int i = 0; i <= 48; i++) {
+			double a = bearing + Math.toRadians(-60 + 120 * i / 48.0);
+			for (double dist = 1.2 * r; dist <= 2.0 * r; dist += 8) {
+				int x = MathHelper.floor(center.x + Math.cos(a) * dist);
+				int z = MathHelper.floor(center.z + Math.sin(a) * dist);
+				floor = Math.max(floor, client.world.getTopY(Heightmap.Type.MOTION_BLOCKING, x, z) + 10.0);
+			}
+		}
+		double safe = floor;
+		return time -> {
+			double p = MathHelper.clamp((time - t0) / FLYOVER_TICKS, 0.0, 1.0);
+			double e = p * p * (3 - 2 * p);
+			double a = bearing + Math.toRadians(-55 + 110 * e);
+			double dist = MathHelper.lerp(e, 1.9 * r, 1.35 * r);
+			double y = Math.max(center.y + MathHelper.lerp(e, 0.85 * r, 0.4 * r), safe);
+			Vec3d eye = new Vec3d(center.x + Math.cos(a) * dist, y, center.z + Math.sin(a) * dist);
+			Vec3d at = center.add(0, 0.25 * r, 0);
+			double dx = at.x - eye.x;
+			double dy = at.y - eye.y;
+			double dz = at.z - eye.z;
+			float yaw = (float) (MathHelper.atan2(dz, dx) * MathHelper.DEGREES_PER_RADIAN) - 90.0F;
+			float pitch = (float) -(MathHelper.atan2(dy, Math.sqrt(dx * dx + dz * dz)) * MathHelper.DEGREES_PER_RADIAN);
+			// Ease in from the starting view over the first two seconds.
+			double b = MathHelper.clamp((time - t0) / 40.0, 0.0, 1.0);
+			b = b * b * (3 - 2 * b);
+			return new Capture.Pose(MathHelper.lerp(b, startPos.x, eye.x), MathHelper.lerp(b, startPos.y, eye.y),
+					MathHelper.lerp(b, startPos.z, eye.z), MathHelper.lerpAngleDegrees((float) b, startYaw, yaw),
+					(float) MathHelper.lerp(b, startPitch, pitch));
+		};
 	}
 
 	private static void setUpPlayer(IntegratedServer server) {

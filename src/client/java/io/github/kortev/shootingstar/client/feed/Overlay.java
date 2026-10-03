@@ -49,14 +49,18 @@ final class Overlay {
 	Bars bars;
 	final List<Label> labels = new ArrayList<>();
 
-	// Post-processing requested by the shot.
+	// Post-processing requested by the shot. The scene is HDR: light past 1.0 rolls off and blooms.
+	/** Cross-fade of the finished picture to {@link #flashColor} (whiteouts and cuts). */
 	float flash;
 	int flashColor = 0xFFFFFF;
+	/** Scales the light before tone mapping; above 1 reads as a burst of light. */
+	float exposure = 1.0F;
 	float zoomBlur;
 	float aberration;
-	float bloom = 0.9F;
-	float wideBloom = 0.7F;
-	float threshold = 0.62F;
+	float bloom = 0.85F;
+	float wideBloom = 0.65F;
+	/** Light above this level blooms. */
+	float threshold = 0.9F;
 	float vignette = 0.55F;
 	float saturation = 1.0F;
 	float fade = 1.0F;

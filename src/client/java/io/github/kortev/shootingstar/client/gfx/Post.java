@@ -1,7 +1,6 @@
 package io.github.kortev.shootingstar.client.gfx;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import net.minecraft.client.gl.Framebuffer;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.gl.VertexBuffer;
 import net.minecraft.client.render.BufferBuilder;
@@ -14,10 +13,10 @@ import org.joml.Matrix4f;
 /** Full-screen passes: bloom at half and quarter resolution and the helpers the passes share. */
 public final class Post {
 	private static final Matrix4f IDENTITY = new Matrix4f();
-	private static final Target HALF_A = new Target(false);
-	private static final Target HALF_B = new Target(false);
-	private static final Target QUARTER_A = new Target(false);
-	private static final Target QUARTER_B = new Target(false);
+	private static final Target HALF_A = new Target(false, true);
+	private static final Target HALF_B = new Target(false, true);
+	private static final Target QUARTER_A = new Target(false, true);
+	private static final Target QUARTER_B = new Target(false, true);
 
 	private Post() {
 	}
@@ -53,42 +52,45 @@ public final class Post {
 		VertexBuffer.unbind();
 	}
 
-	/** Bright pass and blur of {@code source}; returns the half and quarter resolution glow textures. */
+	/**
+	 * Bright pass (light above {@code threshold}) and blur of the HDR texture {@code source}; returns
+	 * the half and quarter resolution glow textures.
+	 */
 	public static int[] bloom(int source, int width, int height, float threshold) {
 		int hw = Math.max(1, width / 2);
 		int hh = Math.max(1, height / 2);
 		int qw = Math.max(1, width / 4);
 		int qh = Math.max(1, height / 4);
-		Framebuffer halfA = HALF_A.get(hw, hh);
-		Framebuffer halfB = HALF_B.get(hw, hh);
-		Framebuffer quarterA = QUARTER_A.get(qw, qh);
-		Framebuffer quarterB = QUARTER_B.get(qw, qh);
+		Target halfA = HALF_A.ensure(hw, hh);
+		Target halfB = HALF_B.ensure(hw, hh);
+		Target quarterA = QUARTER_A.ensure(qw, qh);
+		Target quarterB = QUARTER_B.ensure(qw, qh);
 
-		halfA.beginWrite(true);
+		halfA.bind();
 		RenderSystem.setShaderTexture(0, source);
 		Shaders.set(Shaders.bright, "Threshold", threshold);
 		Shaders.set(Shaders.bright, "TexelSize", 1.0F / width, 1.0F / height);
 		quad(Shaders.bright);
 		blur(halfA, halfB, hw, hh);
 
-		quarterA.beginWrite(true);
-		RenderSystem.setShaderTexture(0, halfA.getColorAttachment());
+		quarterA.bind();
+		RenderSystem.setShaderTexture(0, halfA.color());
 		Shaders.set(Shaders.bright, "Threshold", 0.0F);
 		Shaders.set(Shaders.bright, "TexelSize", 1.0F / hw, 1.0F / hh);
 		quad(Shaders.bright);
 		blur(quarterA, quarterB, qw, qh);
 		blur(quarterA, quarterB, qw, qh);
-		return new int[] {halfA.getColorAttachment(), quarterA.getColorAttachment()};
+		return new int[] {halfA.color(), quarterA.color()};
 	}
 
 	/** Separable blur of {@code a} using {@code b} as scratch; the result ends up back in {@code a}. */
-	private static void blur(Framebuffer a, Framebuffer b, int width, int height) {
-		b.beginWrite(true);
-		RenderSystem.setShaderTexture(0, a.getColorAttachment());
+	private static void blur(Target a, Target b, int width, int height) {
+		b.bind();
+		RenderSystem.setShaderTexture(0, a.color());
 		Shaders.set(Shaders.blur, "Direction", 1.0F / width, 0.0F);
 		quad(Shaders.blur);
-		a.beginWrite(true);
-		RenderSystem.setShaderTexture(0, b.getColorAttachment());
+		a.bind();
+		RenderSystem.setShaderTexture(0, b.color());
 		Shaders.set(Shaders.blur, "Direction", 0.0F, 1.0F / height);
 		quad(Shaders.blur);
 	}

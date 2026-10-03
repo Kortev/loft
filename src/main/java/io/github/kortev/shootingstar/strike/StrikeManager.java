@@ -42,16 +42,19 @@ public final class StrikeManager {
 		final RegistryKey<World> dimension;
 		final BlockPos target;
 		final UUID shooter;
+		/** Crater radius, fixed when the lock is made so a game rule change mid-flight cannot desync clients. */
+		final int radius;
 		int age;
 		@Nullable
 		ImpactBuilder impact;
 		boolean carved;
 
-		Strike(int id, RegistryKey<World> dimension, BlockPos target, UUID shooter) {
+		Strike(int id, RegistryKey<World> dimension, BlockPos target, UUID shooter, int radius) {
 			this.id = id;
 			this.dimension = dimension;
 			this.target = target;
 			this.shooter = shooter;
+			this.radius = radius;
 		}
 
 		public int id() {
@@ -78,7 +81,8 @@ public final class StrikeManager {
 			ServerPlayerEntity player = handler.getPlayer();
 			for (Strike strike : STRIKES) {
 				if (strike.dimension == player.getWorld().getRegistryKey() && strike.age < StrikeTimeline.IMPACT) {
-					ModNetworking.send(player, new StrikeLockPayload(strike.id, strike.target, strike.shooter, strike.age));
+					ModNetworking.send(player, new StrikeLockPayload(strike.id, strike.target, strike.shooter, strike.age,
+							strike.radius));
 				}
 			}
 		});
@@ -87,15 +91,17 @@ public final class StrikeManager {
 	/** Locks a strike onto {@code hit}. The shooter may be null for strikes called in by command. */
 	public static Strike launch(ServerWorld world, BlockPos hit, @Nullable ServerPlayerEntity shooter) {
 		BlockPos target = Targeting.settle(world, hit);
-		Strike strike = new Strike(nextId++, world.getRegistryKey(), target, shooter != null ? shooter.getUuid() : Util.NIL_UUID);
+		int radius = world.getGameRules().getInt(ModGameRules.CRATER_RADIUS);
+		Strike strike = new Strike(nextId++, world.getRegistryKey(), target, shooter != null ? shooter.getUuid() : Util.NIL_UUID,
+				radius);
 		STRIKES.add(strike);
 
 		// Load everything out to the edge of the scorched ring, so no part of the crater is cut off by unloaded chunks.
-		int scorch = Math.round(world.getGameRules().getInt(ModGameRules.CRATER_RADIUS) * 1.5F);
+		int scorch = Math.round(radius * 1.5F);
 		ChunkPos chunk = new ChunkPos(target);
 		world.getChunkManager().addTicket(TICKET, chunk, MathHelper.clamp(MathHelper.ceil(scorch / 16.0), 1, 16), chunk);
 
-		ModNetworking.broadcast(world, new StrikeLockPayload(strike.id, target, strike.shooter, 0));
+		ModNetworking.broadcast(world, new StrikeLockPayload(strike.id, target, strike.shooter, 0, radius));
 		ShootingStar.LOGGER.info("Kinetic lock #{} on {} in {}", strike.id, target.toShortString(), world.getRegistryKey().getValue());
 		return strike;
 	}
@@ -142,7 +148,7 @@ public final class StrikeManager {
 			}
 			strike.age++;
 			if (strike.age == StrikeTimeline.IMPACT) {
-				ImpactBuilder impact = new ImpactBuilder(world, strike.target);
+				ImpactBuilder impact = new ImpactBuilder(world, strike.target, strike.radius);
 				strike.impact = impact;
 				impact.start();
 				ModNetworking.broadcast(world, new StrikeImpactPayload(strike.id, strike.target, impact.radius(),

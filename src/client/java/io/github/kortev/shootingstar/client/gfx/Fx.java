@@ -103,6 +103,11 @@ public final class Fx {
 
 	/** Draws the batch additively; depth-tested against what is already drawn but never writing depth. */
 	public void end(boolean depthTest) {
+		end(depthTest, 1.0F);
+	}
+
+	/** As {@link #end(boolean)}, with every colour scaled by {@code intensity} (HDR targets go past white). */
+	public void end(boolean depthTest, float intensity) {
 		if (depthTest) {
 			RenderSystem.enableDepthTest();
 		} else {
@@ -115,8 +120,9 @@ public final class Fx {
 				GlStateManager.DstFactor.ONE);
 		Shaders.setInt(Shaders.glow, "Mode", mode);
 		Shaders.set(Shaders.glow, "Param", param);
-		Shaders.set(Shaders.glow, "Tint", 1.0F, 1.0F, 1.0F);
+		Shaders.set(Shaders.glow, "Tint", intensity, intensity, intensity);
 		Post.draw(builder, Shaders.glow, modelView, projection);
+		Shaders.set(Shaders.glow, "Tint", 1.0F, 1.0F, 1.0F);
 		builder = null;
 	}
 

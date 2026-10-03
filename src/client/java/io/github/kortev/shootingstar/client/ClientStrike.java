@@ -1,8 +1,10 @@
 package io.github.kortev.shootingstar.client;
 
+import io.github.kortev.shootingstar.client.world.ImpactScene;
 import java.util.UUID;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
+import org.jetbrains.annotations.Nullable;
 
 /** What the client knows about one strike. Ages on client ticks, in step with the server. */
 public final class ClientStrike {
@@ -24,6 +26,14 @@ public final class ClientStrike {
 	public int lastLap;
 	/** Ground heights around the target for draping the reticle, sampled once. */
 	public float[] ground;
+	public int groundRadius;
+	public int groundStep;
+	/** The blast as this client sees it, once the round has hit. */
+	@Nullable
+	public ImpactScene scene;
+	/** Where the shooter's camera watches the impact from, chosen once when the round comes in. */
+	@Nullable
+	public Vec3d witness;
 
 	public ClientStrike(int id, BlockPos target, UUID shooter, boolean mine, int age) {
 		this.id = id;

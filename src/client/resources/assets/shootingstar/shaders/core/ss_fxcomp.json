@@ -1,0 +1,33 @@
+{
+  "vertex": "shootingstar:ss_screen",
+  "fragment": "shootingstar:ss_fxcomp",
+  "samplers": [
+    {
+      "name": "Sampler0"
+    },
+    {
+      "name": "Sampler1"
+    },
+    {
+      "name": "Sampler2"
+    }
+  ],
+  "uniforms": [
+    {
+      "name": "BloomStrength",
+      "type": "float",
+      "count": 1,
+      "values": [
+        1.0
+      ]
+    },
+    {
+      "name": "WideStrength",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0.6
+      ]
+    }
+  ]
+}

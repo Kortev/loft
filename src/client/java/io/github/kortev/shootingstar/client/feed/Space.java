@@ -17,6 +17,7 @@ final class Space {
 	Mesh sphere;
 	Mesh stars;
 	Mesh ring;
+	Mesh ringHalo;
 	Mesh round;
 	Mesh coil;
 	Mesh relay;
@@ -38,6 +39,7 @@ final class Space {
 		sphere = Mesh.sphere(160, 80);
 		stars = Mesh.stars();
 		ring = Mesh.ribbon(1440, 0.012F);
+		ringHalo = Mesh.ribbon(1440, 0.07F);
 		round = Mesh.load("round");
 		coil = Mesh.load("coil");
 		relay = Mesh.load("relay");
@@ -66,7 +68,8 @@ final class Space {
 		RenderSystem.setShaderTexture(0, milkyWay);
 		Shaders.set(Shaders.sky, "InvViewProj", invViewProj);
 		Shaders.set(Shaders.sky, "SkyRot", skyRot);
-		Shaders.set(Shaders.sky, "Brightness", brightness * (1.0F - Math.min(0.85F, streak)));
+		// The Milky Way map is bright; keep it a backdrop so the planets and the round carry the frame.
+		Shaders.set(Shaders.sky, "Brightness", brightness * 0.42F * (1.0F - Math.min(0.85F, streak)));
 		Shaders.set(Shaders.sky, "Beta", beta);
 		Shaders.set(Shaders.sky, "Forward", forward);
 		Post.quad(Shaders.sky);
@@ -75,7 +78,7 @@ final class Space {
 		RenderSystem.disableDepthTest();
 		Matrix4f galacticToView = new Matrix4f(cam.viewRot).mul(new Matrix4f(skyRot).transpose());
 		Vector3f forwardGalactic = skyRot.transformDirection(new Vector3f(forward));
-		Shaders.set(Shaders.stars, "Brightness", brightness * 1.4F);
+		Shaders.set(Shaders.stars, "Brightness", brightness * 1.4F * (1.0F + streak * 2.5F));
 		Shaders.set(Shaders.stars, "Beta", beta);
 		Shaders.set(Shaders.stars, "Forward", forwardGalactic);
 		Shaders.set(Shaders.stars, "Time", time);
@@ -147,15 +150,20 @@ final class Space {
 		mesh.draw(Shaders.plasma, cam.modelView(model), cam.proj);
 	}
 
-	/** The accelerator ring as a ribbon that lights up as {@code progress} sweeps round from angle 0. */
+	/**
+	 * The accelerator ring as a ribbon that lights up as {@code progress} sweeps round from angle 0, with
+	 * a wide faint halo so it still reads from far away.
+	 */
 	void ring(Cam cam, Matrix4f model, float progress, float base, float r, float g, float b) {
 		additive();
 		RenderSystem.enableDepthTest();
 		Shaders.setInt(Shaders.glow, "Mode", Fx.PROGRESS);
 		Shaders.set(Shaders.glow, "Param", base);
 		Shaders.set(Shaders.glow, "Progress", progress);
-		Shaders.set(Shaders.glow, "Tint", r, g, b);
+		Shaders.set(Shaders.glow, "Tint", r * 3.0F, g * 3.0F, b * 3.0F);
 		ring.draw(Shaders.glow, cam.modelView(model), cam.proj);
+		Shaders.set(Shaders.glow, "Tint", r * 0.35F, g * 0.35F, b * 0.35F);
+		ringHalo.draw(Shaders.glow, cam.modelView(model), cam.proj);
 		Shaders.set(Shaders.glow, "Tint", 1.0F, 1.0F, 1.0F);
 	}
 

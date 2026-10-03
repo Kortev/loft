@@ -18,6 +18,10 @@ uniform float Warp;
 uniform float WarpRadius;
 uniform float Chroma;
 uniform float Darken;
+uniform float Exposure;
+uniform vec3 Tint;
+uniform float Flash;
+uniform vec3 FlashColor;
 
 in vec2 texCoord;
 
@@ -127,5 +131,6 @@ void main() {
         outColor = mix(vec3(1.0, 0.98, 0.95), vec3(0.05, 0.04, 0.05), e) + vec3(0.0, 0.0, 0.0) * speedLines(texCoord);
         outColor = mix(outColor, vec3(0.1, 0.03, 0.02), speedLines(texCoord) * 0.7);
     }
-    fragColor = vec4(mix(src, outColor, Mix), 1.0);
+    vec3 color = mix(src, outColor, Mix) * Exposure + Tint;
+    fragColor = vec4(mix(color, FlashColor, clamp(Flash, 0.0, 1.0)), 1.0);
 }
