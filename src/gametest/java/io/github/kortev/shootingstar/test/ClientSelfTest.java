@@ -200,10 +200,11 @@ public class ClientSelfTest implements ClientModInitializer {
 					client.options.hudHidden = true;
 					Capture.camera = flyover(client, target);
 					// Chunks load round the player, not the camera: park the player high over the crater so
-					// all of it, far rim included, is loaded for the fly-over (and out of shot).
+					// all of it, far rim included, is loaded for the fly-over (and out of shot). Off to one side
+					// of the spire: parked inside it, the game draws its in-a-block overlay over the whole screen.
 					server.execute(() -> {
 						ServerPlayerEntity player = server.getPlayerManager().getPlayerList().get(0);
-						player.teleport(player.getServerWorld(), target.getX() + 0.5, Math.min(target.getY() + 200, 300),
+						player.teleport(player.getServerWorld(), target.getX() + 20.5, Math.min(target.getY() + 200, 300),
 								target.getZ() + 0.5, player.getYaw(), 90.0F);
 					});
 				}
