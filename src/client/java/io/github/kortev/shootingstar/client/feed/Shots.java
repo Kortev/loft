@@ -344,7 +344,8 @@ final class Shots {
 		float round = -7.0F + 7.0F * smoother(s / 10.0);
 		boolean locked = s >= 11;
 		float lockFlash = locked ? (float) Math.exp(-(s - 11) / 3.0) : 0;
-		breechScene(0.0, round, 1.0F + lockFlash * 2.5F, 0.0F, lockFlash * 4.0F);
+		// The coils wait on a dim standby glow until the breech takes hold.
+		breechScene(0.0, round, 0.35F + lockFlash * 2.8F, 0.0F, lockFlash * 4.0F);
 		if (lockFlash > 0.05F) {
 			// The breech coil takes hold of the sabot: a pulse through it and arcs to the copper bands.
 			arcs(round, lockFlash, 2);
@@ -862,7 +863,7 @@ final class Shots {
 		double sinceHit = scene - beltTime(ROCK_HIT);
 		boolean slow = beltRate(s) < 0.5;
 		float orbitCam = (float) (s * 0.012);
-		float aside = (float) Math.exp(-Math.pow((s - ROCK_HIT) / 3.5, 2.0));
+		float aside = (float) Math.exp(-Math.pow((s - ROCK_HIT) / 5.5, 2.0));
 		Vector3f eye = new Vector3f(0.95F, 0.62F, -3.5F).rotateZ(orbitCam).lerp(new Vector3f(1.55F, 0.5F, 1.4F), aside);
 		float strike = (float) Math.exp(-Math.pow(sinceHit / 0.6, 2.0));
 		float jolt = sinceHit > 0 ? (float) Math.exp(-sinceHit / 2.0) * 0.06F : 0.0F;
@@ -907,7 +908,7 @@ final class Shots {
 
 		// The bare spear now, the blade warm from the muzzle.
 		space.pointPos.set(0, 0, 5.0F * ROUND_SCALE + 1.0F);
-		space.pointColor.set(1.0F, 0.8F, 0.6F).mul(30.0F * strike);
+		space.pointColor.set(1.0F, 0.8F, 0.6F).mul(12.0F * strike);
 		drawRound(new Matrix4f().scale(ROUND_SCALE), DEBRIS_SUN, 1.3F, 1.2F, 0.3F + 0.6F * strike, 0, false);
 		space.pointColor.zero();
 		Fx bow = space.glow(cam, Fx.BLOB, 1.0F);
@@ -924,9 +925,9 @@ final class Shots {
 		o.shutter = slow ? 0.0F : 0.6F;
 		o.zoomBlur = 0.08F;
 		o.aberration = 0.006F + strike * 0.02F;
-		o.exposure = 1.0F + 2.5F * strike;
+		o.exposure = 1.0F + 0.6F * strike;
 		// A quick white cut in from the muzzle shot.
-		o.flash = Math.max(strike * 0.25F, s < 2 ? (float) (0.9 * (1.0 - s / 2.0)) : 0.0F);
+		o.flash = Math.max(strike * 0.1F, s < 2 ? (float) (0.9 * (1.0 - s / 2.0)) : 0.0F);
 	}
 
 	/** Ticks into the belt at which a rock sits squarely in the round's path. */
@@ -934,7 +935,7 @@ final class Shots {
 
 	/** How fast scene time runs in the belt, ticks of scene time per tick: nearly stopped at the rock. */
 	private static double beltRate(double s) {
-		return 1.0 - 0.93 * Math.exp(-Math.pow((s - ROCK_HIT) / 2.2, 2.0));
+		return 1.0 - 0.95 * Math.exp(-Math.pow((s - ROCK_HIT) / 4.5, 2.0));
 	}
 
 	/** Scene time {@code s} ticks into the belt (the integral of {@link #beltRate}). */
@@ -949,8 +950,9 @@ final class Shots {
 	}
 
 	/**
-	 * A boulder dead ahead, and what is left of it after the round goes through: a flash, a ball of vaporised rock
-	 * glowing and spreading, and shards thrown out and streaming back past the camera.
+	 * A boulder dead ahead, and what is left of it after the round goes through: a flash, the rock bursting into
+	 * tumbling pieces lit from inside by a ball of vaporised rock, and glowing shards thrown out, all streaming back
+	 * past the camera.
 	 */
 	private void rockStrike(double s, double since) {
 		double travel = 13.0;
@@ -965,13 +967,33 @@ final class Shots {
 		// Everything the rock was keeps its own speed, so in the round's frame it streams back past the camera.
 		float back = (float) (since * travel);
 		float fade = (float) Math.exp(-since / 3.0);
+		// The rock in pieces: a few big ones and a spray of small ones tumbling apart from the hole, their broken
+		// faces lit orange by the vaporised rock between them.
+		Vector3f core = new Vector3f(0, 0.05F, nose - back);
+		space.pointPos.set(core);
+		space.pointColor.set(1.0F, 0.45F, 0.15F).mul(6.0F * (float) Math.exp(-since / 1.5));
+		random.setSeed(91L);
+		for (int i = 0; i < 18; i++) {
+			Vector3f dir = new Vector3f((float) random.nextGaussian(), (float) random.nextGaussian(), (float) random.nextGaussian() * 0.6F)
+					.normalize();
+			boolean big = i < 4;
+			float speed = (big ? 0.5F : 1.0F) + random.nextFloat() * (big ? 0.6F : 2.2F);
+			float size = big ? 0.3F + random.nextFloat() * 0.14F : 0.05F + random.nextFloat() * 0.13F;
+			Vector3f axis = new Vector3f((float) random.nextGaussian(), (float) random.nextGaussian(), (float) random.nextGaussian())
+					.normalize();
+			float tumble = (float) (since * (1.0 + random.nextFloat() * (big ? 1.5 : 4.0))) + i;
+			Vector3f p = new Vector3f(dir).mul((float) since * speed + (big ? 0.3F : 0.12F)).add(core);
+			Matrix4f piece = new Matrix4f().translation(p).rotate(tumble, axis).scale(size);
+			space.mesh(space.rocks[i % space.rocks.length], cam, piece, DEBRIS_SUN, 1.6F, 0, 0, 0);
+		}
+		space.pointColor.zero();
 		Fx gas = space.glow(cam, Fx.BLOB, 1.0F);
 		for (int i = 0; i < 6; i++) {
 			float z = nose - back + i * 0.8F;
-			gas.sprite(new Vector3f(0, 0, z), (float) (0.6 + since * (0.9 + i * 0.25)), 0,
-					Fx.argb(1.0F, 0.55F + 0.3F * fade, 0.25F + 0.4F * fade, 0.55F * fade * (1.0F - i / 7.0F)));
+			gas.sprite(new Vector3f(0, 0, z), (float) (0.4 + since * (0.9 + i * 0.25)), 0,
+					Fx.argb(1.0F, 0.55F + 0.3F * fade, 0.25F + 0.4F * fade, 0.5F * fade * (1.0F - i / 7.0F)));
 		}
-		gas.end(true, 2.5F);
+		gas.end(true, 1.6F);
 		Fx shards = space.glow(cam, Fx.STREAK, 0);
 		random.setSeed(77L);
 		for (int i = 0; i < 70; i++) {
@@ -985,10 +1007,11 @@ final class Shots {
 		}
 		shards.end(true, 2.0F);
 		if (since < 2.5) {
-			float pop = (float) Math.exp(-since / 0.5);
+			// A sharp flash at the point of impact, not a whiteout: the rock has to stay visible as it bursts.
+			float pop = (float) Math.exp(-since / 0.35);
 			Fx flash = space.glow(cam, Fx.SPIKES, 0);
-			flash.sprite(new Vector3f(0, 0, nose - back * 0.3F), 1.5F + 4.0F * pop, 0, Fx.argb(1.0F, 0.95F, 0.85F, pop));
-			flash.end(true, 4.0F);
+			flash.sprite(new Vector3f(0, 0, nose - back * 0.3F), 0.5F + 1.6F * pop, 0, Fx.argb(1.0F, 0.95F, 0.85F, pop));
+			flash.end(true, 2.5F);
 		}
 	}
 
@@ -1010,8 +1033,10 @@ final class Shots {
 		// shows; back behind it to punch through the clouds.
 		float beside = smooth((s - 10.0) / 6.0) * (1.0F - smooth((s - 25.0) / 5.0));
 		Vector3f backward = new Vector3f(EAST).mul(0.35F).add(TARGET).normalize();
-		Vector3f eyeBehind = new Vector3f(roundPos).add(new Vector3f(backward).mul(behind));
-		Vector3f atBehind = new Vector3f(roundPos).add(new Vector3f(down).mul(behind * 3.0F));
+		// Over the round's shoulder: far enough back that the whole spear is in frame, pointing at Earth.
+		Vector3f eyeBehind = new Vector3f(roundPos).add(new Vector3f(backward).mul(behind * 1.8F))
+				.add(new Vector3f(NORTH).mul(behind * 0.2F));
+		Vector3f atBehind = new Vector3f(roundPos).add(new Vector3f(down).mul(behind * 4.0F));
 		Vector3f eyeSide = new Vector3f(roundPos).add(new Vector3f(side).mul(behind * 0.95F)).add(new Vector3f(TARGET).mul(behind * 0.25F));
 		Vector3f atSide = new Vector3f(roundPos).add(new Vector3f(down).mul(behind * 0.7F));
 		Vector3f eye = new Vector3f(eyeBehind).lerp(eyeSide, beside);

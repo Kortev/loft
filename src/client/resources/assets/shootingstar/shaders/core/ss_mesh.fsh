@@ -131,9 +131,10 @@ void main() {
         float tip = smoothstep(3.0, 5.0, objPos.z);
         emit += mix(vec3(1.0, 0.32, 0.06), vec3(1.0, 0.92, 0.82), tip) * Heat * (0.2 + tip * 2.2);
     } else if (mat == 3) {
-        base = vec3(0.13, 0.13, 0.14);
-        metal = 0.6;
-        rough = 0.36;
+        // Structural frames and housings: dark anodised metal, rough enough to show its shape in the sun.
+        base = vec3(0.17, 0.17, 0.18);
+        metal = 0.55;
+        rough = 0.42;
     } else if (mat == 4) {
         base = vec3(0.1, 0.05, 0.025);
         rough = 0.6;
