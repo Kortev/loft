@@ -24,12 +24,83 @@ uniform float Seed;
 uniform float Glitch;
 uniform float Flash;
 uniform float Black;
+uniform vec3 ShatterFrom;
+uniform float Shatter;
+uniform float CosmosTime;
 
 in vec2 texCoord;
 
 out vec4 fragColor;
 
 const float PI = 3.14159265;
+
+// ---- the other universe: nebulae, stars and a few galaxies, by view direction ----
+
+float c_hash(vec3 p) {
+    p = fract(p * 0.1031);
+    p += dot(p, p.zyx + 31.32);
+    return fract((p.x + p.y) * p.z);
+}
+
+float c_noise(vec3 p) {
+    vec3 i = floor(p);
+    vec3 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    float a = mix(mix(c_hash(i), c_hash(i + vec3(1, 0, 0)), f.x), mix(c_hash(i + vec3(0, 1, 0)), c_hash(i + vec3(1, 1, 0)), f.x), f.y);
+    float b = mix(mix(c_hash(i + vec3(0, 0, 1)), c_hash(i + vec3(1, 0, 1)), f.x), mix(c_hash(i + vec3(0, 1, 1)), c_hash(i + vec3(1, 1, 1)), f.x), f.y);
+    return mix(a, b, f.z);
+}
+
+float c_fbm(vec3 p) {
+    float s = 0.0;
+    float a = 0.5;
+    for (int i = 0; i < 5; i++) {
+        s += a * c_noise(p);
+        p = p * 2.03 + vec3(1.7, 9.2, 3.1);
+        a *= 0.5;
+    }
+    return s;
+}
+
+vec3 c_galaxy(vec3 d, vec3 centre, vec3 tint, float size, float spin) {
+    float cd = dot(d, centre);
+    if (cd < 0.85) {
+        return vec3(0.0);
+    }
+    vec3 u = normalize(cross(centre, vec3(0.31, 0.12, 0.94)));
+    vec3 v = cross(centre, u);
+    vec2 p = vec2(dot(d, u), dot(d, v) * 1.8) / size;
+    float r = length(p);
+    float a = atan(p.y, p.x);
+    float arms = pow(0.5 + 0.5 * cos(2.0 * (a - log(r + 0.04) * 2.6 - spin)), 4.0);
+    float core = exp(-r * r * 60.0);
+    float disk = exp(-r * 2.6) * smoothstep(1.0, 0.15, r);
+    return tint * (core * 4.0 + disk * arms * 1.6 + disk * 0.15);
+}
+
+vec3 cosmos(vec3 d, float t) {
+    vec3 q = d * 2.1 + vec3(0.0, t * 0.004, t * 0.002);
+    float warp = c_fbm(q * 1.6 + 4.0);
+    float n1 = c_fbm(q + warp * 1.4);
+    float n2 = c_fbm(q * 2.2 + warp * 0.8 + 7.1);
+    vec3 col = vec3(0.015, 0.0, 0.04);
+    col += vec3(0.85, 0.1, 0.9) * pow(n1, 3.0) * 3.0;
+    col += vec3(0.05, 0.55, 1.0) * pow(n2, 3.2) * 2.8;
+    col += vec3(1.0, 0.55, 0.15) * pow(n1 * n2 * 1.6, 4.0) * 7.0;
+    col *= 0.45 + 0.55 * smoothstep(0.32, 0.62, c_fbm(q * 3.4 + 3.3));
+    vec3 sp = d * 260.0;
+    vec3 cell = floor(sp);
+    float h = c_hash(cell);
+    if (h > 0.982) {
+        vec3 f = fract(sp) - 0.5;
+        col += vec3(1.0, 0.95, 0.9) * smoothstep(0.42, 0.0, length(f)) * (h - 0.982) * 90.0;
+    }
+    col += c_galaxy(d, normalize(vec3(0.6, 0.65, 0.3)), vec3(1.0, 0.82, 0.62), 0.22, t * 0.01);
+    col += c_galaxy(d, normalize(vec3(-0.7, 0.45, 0.5)), vec3(0.65, 0.8, 1.0), 0.16, t * 0.013);
+    col += c_galaxy(d, normalize(vec3(0.1, 0.85, -0.5)), vec3(1.0, 0.6, 0.95), 0.12, t * 0.017);
+    col += c_galaxy(d, normalize(vec3(-0.2, 0.3, -0.9)), vec3(0.8, 1.0, 0.85), 0.1, t * 0.011);
+    return col;
+}
 
 float hash(float n) {
     return fract(sin(n * 12.9898 + 4.1414) * 43758.5453);
@@ -59,11 +130,11 @@ bool isSky(vec2 uv) {
     return rawDepth(uv) >= 0.99999;
 }
 
-// The mirror universe is drawn in cyans; nothing in ours is quite that colour.
+// The other universe: anything cold and saturated, blue through magenta. Ours runs warm.
 bool isOther(vec3 c) {
     float hi = max(c.r, max(c.g, c.b));
     float lo = min(c.r, min(c.g, c.b));
-    return c.b > c.r + 0.12 && c.g > c.r + 0.08 && hi - lo > 0.18;
+    return hi - lo > 0.2 && c.b > c.g && c.b > c.r * 0.8;
 }
 
 float edgeAt(vec2 uv) {
@@ -200,6 +271,50 @@ vec3 panels(vec2 uv) {
     return mix(c, inkColor(style), speedLines(local) * float(index == 1));
 }
 
+vec3 viewDir(vec2 uv) {
+    vec4 far = InvViewProj * vec4(uv * 2.0 - 1.0, 1.0, 1.0);
+    return normalize(far.xyz / far.w);
+}
+
+// The sky breaks into shards that fall away from where it first cracked, showing the other universe behind.
+vec3 shatter(vec2 uv, vec3 c) {
+    if (Shatter <= 0.0 || !isSky(uv)) {
+        return c;
+    }
+    vec3 d = viewDir(uv);
+    vec3 p = d * 5.5;
+    vec3 cell = floor(p);
+    float best = 9.0;
+    float second = 9.0;
+    vec3 owner = vec3(0.0);
+    for (int z = -1; z <= 1; z++) {
+        for (int y = -1; y <= 1; y++) {
+            for (int x = -1; x <= 1; x++) {
+                vec3 g = cell + vec3(float(x), float(y), float(z));
+                vec3 o = g + vec3(c_hash(g), c_hash(g + 13.7), c_hash(g + 29.1));
+                float dist = length(p - o);
+                if (dist < best) {
+                    second = best;
+                    best = dist;
+                    owner = o;
+                } else if (dist < second) {
+                    second = dist;
+                }
+            }
+        }
+    }
+    float from = acos(clamp(dot(normalize(owner), ShatterFrom), -1.0, 1.0));
+    float delay = c_hash(floor(owner * 3.0)) * 0.35;
+    float open = smoothstep(0.0, 0.08, Shatter - from - delay);
+    float edge = 1.0 - smoothstep(0.0, 0.035, second - best);
+    float cracked = smoothstep(0.0, 0.25, Shatter + 0.45 - from - delay);
+    vec3 behind = cosmos(d, CosmosTime);
+    vec3 outC = mix(c, behind, open);
+    // Cracks run ahead of the opening, white hot, and the freshly broken edges burn.
+    float burn = edge * cracked * (1.0 - 0.7 * open);
+    return outC + vec3(0.85, 1.0, 1.0) * burn * 1.6;
+}
+
 vec3 erase(vec2 uv, vec3 c) {
     if (Front < 0.0) {
         return c;
@@ -254,6 +369,7 @@ void main() {
         } else {
             c = scene(uv);
         }
+        c = shatter(uv, c);
         c = erase(uv, c);
     }
     c = mix(c, vec3(1.0), clamp(Flash, 0.0, 1.0));

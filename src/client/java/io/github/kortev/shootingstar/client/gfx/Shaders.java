@@ -29,8 +29,7 @@ public final class Shaders {
 	public static ShaderProgram shell;
 	public static ShaderProgram light;
 	public static ShaderProgram bore;
-	public static ShaderProgram mirror;
-	public static ShaderProgram portal;
+	public static ShaderProgram shard;
 	public static ShaderProgram gap;
 
 	private Shaders() {
@@ -57,8 +56,7 @@ public final class Shaders {
 			context.register(ShootingStar.id("ss_shell"), VertexFormats.POSITION_TEXTURE_COLOR_NORMAL, p -> shell = p);
 			context.register(ShootingStar.id("ss_light"), VertexFormats.BLIT_SCREEN, p -> light = p);
 			context.register(ShootingStar.id("ss_bore"), VertexFormats.POSITION_TEXTURE_COLOR_NORMAL, p -> bore = p);
-			context.register(ShootingStar.id("ss_mirror"), VertexFormats.POSITION_TEXTURE_COLOR_NORMAL, p -> mirror = p);
-			context.register(ShootingStar.id("ss_portal"), VertexFormats.POSITION, p -> portal = p);
+			context.register(ShootingStar.id("ss_shard"), VertexFormats.POSITION_TEXTURE_COLOR_NORMAL, p -> shard = p);
 			context.register(ShootingStar.id("ss_gap"), VertexFormats.BLIT_SCREEN, p -> gap = p);
 		});
 	}
@@ -68,7 +66,7 @@ public final class Shaders {
 		return mesh != null && planet != null && gas != null && atmo != null && sky != null && stars != null && glow != null
 				&& plasma != null && bright != null && blur != null && composite != null && blit != null && impact != null
 				&& debris != null && smoke != null && fxcomp != null && shell != null && light != null && bore != null
-				&& mirror != null && portal != null && gap != null;
+				&& shard != null && gap != null;
 	}
 
 	public static void set(ShaderProgram program, String name, float value) {

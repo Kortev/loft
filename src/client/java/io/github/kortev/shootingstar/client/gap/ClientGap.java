@@ -32,9 +32,6 @@ public final class ClientGap {
 	public final Vec3d shooterPos;
 	public int age;
 	public boolean ended;
-	@Nullable
-	public MirrorWorld mirror;
-	public boolean mirrorBuilt;
 	/** Where the wide shot stands, found once so it can see the target over the hills. */
 	@Nullable
 	public Vec3d wideEye;
@@ -63,18 +60,14 @@ public final class ClientGap {
 		return age + tickDelta;
 	}
 
-	/** Height of the mirror universe's plane of reflection lift above ours (see {@link GapTimeline#lift}). */
-	public double lift(double t) {
-		return GapTimeline.lift(t);
+	/** Where the falling shard's tip is. */
+	public Vec3d shardTip(double t) {
+		return contact.add(0, GapTimeline.shardTip(t), 0);
 	}
 
-	/** World height of the bottom of the mirror of the block at {@code y}. */
-	public double mirrorY(int y, double t) {
-		return 2.0 * surface + lift(t) - y - 1.0;
-	}
-
-	public double tearY() {
-		return surface + GapTimeline.TEAR_HEIGHT;
+	/** Where a block swapped out of our universe goes: up into the broken sky. */
+	public Vec3d swappedTo(BlockPos pos) {
+		return Vec3d.ofCenter(pos).add(0, 90, 0);
 	}
 
 	/** The shooter's own camera shots and black screen play only for them. */

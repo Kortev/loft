@@ -11,7 +11,6 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.Framebuffer;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexConsumerProvider;
@@ -29,17 +28,14 @@ import org.joml.Vector4f;
 import org.lwjgl.opengl.GL11;
 
 /**
- * Draws Ginnungagap events into the world: the tear and the universe seen through it, the part of that universe
- * that has come through, the lock, the blocks trading places, the contact, then one full-screen pass for the
- * glitch, the impact frames, the erasure and the black, and finally the shooter again, the one thing left.
+ * Draws Ginnungagap events into the world: the lock, the shard of the other universe falling out of the broken
+ * sky, the blocks trading places, the contact, then one full-screen pass for the glitch, the sky shattering, the
+ * impact frames, the erasure and the black, and finally the shooter again, the one thing left.
  */
 public final class GapRender {
 	private static final Target DEPTH = new Target(true, false);
 	private static final Target COPY = new Target(false, false);
-	private static final Target PORTAL = new Target(true, false);
 	private static final Fx BATCH = new Fx();
-	private static final int TEAR_POINTS = 48;
-	private static final float[] OTHER_SKY = {0x15 / 255.0F, 0x0A / 255.0F, 0x26 / 255.0F};
 	private static final int WHITE = 0xFFFFFF;
 	private static final int CYAN = 0xA8F8FF;
 	private static final int PURPLE = 0xC77DFF;
@@ -68,13 +64,10 @@ public final class GapRender {
 		ClientGap mine = ClientGaps.mine();
 		for (ClientGap gap : ClientGaps.all()) {
 			double t = gap.time(tickDelta);
-			boolean shown = t >= GapTimeline.TEAR && (gap.mine ? t < GapTimeline.NOTHING : t < GapTimeline.NOTHING + 20);
-			if (shown && gap.mirror != null) {
-				drawTear(gap, t, cam, view, proj, main, w, h, right, up);
-				main.beginWrite(true);
-				drawMirror(gap, t, cam, view, proj, 1);
-			}
 			main.beginWrite(true);
+			if (shown(gap, t)) {
+				drawShard(gap, t, cam, view, proj, (float) (world.getTime() + tickDelta));
+			}
 			drawMarks(world, gap, t, tickDelta, cam, view, proj, right, up);
 		}
 
@@ -97,6 +90,14 @@ public final class GapRender {
 				redrawShooter(client, client.player, cam, view, tickDelta);
 			}
 		}
+		// The ridges glow out over the broken sky, so they go on after it (until the impact frames take over).
+		for (ClientGap gap : ClientGaps.all()) {
+			double t = gap.time(tickDelta);
+			if (shown(gap, t) && t < GapTimeline.FRAMES) {
+				main.beginWrite(true);
+				drawRidges(gap, t, cam, view, proj, right, up);
+			}
+		}
 
 		RenderSystem.disableBlend();
 		RenderSystem.defaultBlendFunc();
@@ -107,139 +108,108 @@ public final class GapRender {
 		main.beginWrite(true);
 	}
 
-	// --- the mirror universe -------------------------------------------------------------
+	private static boolean shown(ClientGap gap, double t) {
+		return t >= GapTimeline.TEAR && (gap.mine ? t < GapTimeline.NOTHING : t < GapTimeline.NOTHING + 20);
+	}
 
-	private static boolean loggedContact;
+	// --- the shard: a piece of the other universe, falling out of the broken sky -------------
 
-	private static void drawMirror(ClientGap gap, double t, Vec3d cam, Matrix4f view, Matrix4f proj, int clip) {
-		MirrorWorld m = gap.mirror;
-		if (clip == 1 && !loggedContact && t >= GapTimeline.CONTACT) {
-			loggedContact = true;
-			io.github.kortev.shootingstar.ShootingStar.LOGGER.info("Ginnungagap #{} at contact: camera {}, lift {}, mirror placed at y {}, came through below {}",
-					gap.id, cam, gap.lift(t), m.surface + gap.lift(t), gap.surface + GapTimeline.through(t));
+	private static final double[] RING_H = {0, 7, 20, 40, 64, 88, 106, 118, 126};
+	private static final double[] RING_R = {0, 3.4, 9, 14.5, 17.5, 15, 9.5, 2.5, 0};
+	private static final int SIDES = 7;
+	/** Smaller pieces breaking off round the big one: angle, distance out, height over the big one's tip, size. */
+	private static final double[][] CHIPS = {
+		{0.4, 46, 70, 0.32}, {1.5, 62, 120, 0.22}, {2.6, 38, 160, 0.18}, {3.3, 70, 40, 0.26}, {4.2, 52, 200, 0.2},
+		{5.1, 80, 95, 0.28}, {5.8, 34, 230, 0.15}
+	};
+
+	private static void drawShard(ClientGap gap, double t, Vec3d cam, Matrix4f view, Matrix4f proj, float time) {
+		Vec3d axis = new Vec3d(0, 1, 0).add(gap.along.multiply(0.16)).add(gap.across.multiply(-0.07)).normalize();
+		BufferBuilder b = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_TEXTURE_COLOR_NORMAL);
+		shard(b, gap.shardTip(t), axis, 1.0, gap.id * 31, t * 0.004, cam);
+		for (int i = 0; i < CHIPS.length; i++) {
+			double[] c = CHIPS[i];
+			// They fall behind the big one, slower, and never quite land.
+			double fall = Math.max(c[2] * 0.35, GapTimeline.shardTip(t) + c[2]);
+			Vec3d at = gap.contact.add(Math.cos(c[0]) * c[1], fall, Math.sin(c[0]) * c[1]);
+			Vec3d lean = new Vec3d(Math.cos(c[0] * 3.1), 2.2, Math.sin(c[0] * 2.3)).normalize();
+			shard(b, at, lean, c[3], gap.id * 31 + i + 1, t * (0.01 + 0.004 * i), cam);
 		}
-		float ox = (float) (m.originX - cam.x);
-		float oy = (float) (m.surface + gap.lift(t) - cam.y);
-		float oz = (float) (m.originZ - cam.z);
-		Shaders.set(Shaders.mirror, "Offset", ox, oy, oz);
-		Shaders.set(Shaders.mirror, "ClipY", (float) (gap.surface + GapTimeline.through(t) - cam.y));
-		Shaders.setInt(Shaders.mirror, "ClipMode", clip);
-		Shaders.set(Shaders.mirror, "Radius", (float) MirrorWorld.RADIUS);
-		Shaders.set(Shaders.mirror, "Glow", (float) (0.12 + 0.3 * GapCamera.ease((t - GapTimeline.CLOSING) / 110.0)));
-		Shaders.set(Shaders.mirror, "Fade", 1.0F);
+		Shaders.set(Shaders.shard, "Time", time);
+		Shaders.set(Shaders.shard, "Spin", (float) Math.sin(gap.id * 1.7) * 0.2F, 0.0F, (float) Math.cos(gap.id * 1.7) * 0.2F);
 		RenderSystem.enableDepthTest();
 		RenderSystem.depthFunc(GL11.GL_LEQUAL);
 		RenderSystem.depthMask(true);
 		RenderSystem.disableCull();
 		RenderSystem.disableBlend();
-		m.draw(Shaders.mirror, view, proj);
-		// What traded places: our blocks, still in our colours, hanging in theirs.
-		BufferBuilder b = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR_NORMAL);
-		int n = 0;
-		for (ClientGap.Swap s : gap.swaps) {
-			if (t < s.age()) {
-				continue;
+		Post.draw(b, Shaders.shard, view, proj);
+	}
+
+	/** One faceted, slightly twisted crystal, tip first; every triangle its own flat facet. */
+	private static void shard(BufferBuilder b, Vec3d tip, Vec3d axis, double scale, int seed, double spin, Vec3d cam) {
+		Vec3d u = axis.crossProduct(new Vec3d(0.31, 0.12, 0.94)).normalize();
+		Vec3d v = axis.crossProduct(u);
+		Vec3d[][] ring = new Vec3d[RING_H.length][SIDES];
+		for (int i = 0; i < RING_H.length; i++) {
+			for (int j = 0; j < SIDES; j++) {
+				double a = Math.PI * 2 * j / SIDES + i * 0.21 + spin + (noise(seed, i * 16 + j) - 0.5) * 0.5;
+				double r = RING_R[i] * scale * (0.78 + 0.44 * noise(seed + 7, i * 16 + j));
+				double h = RING_H[i] * scale + (i == 0 || i == RING_H.length - 1 ? 0.0 : (noise(seed + 3, i * 16 + j) - 0.5) * 6.0 * scale);
+				ring[i][j] = tip.add(axis.multiply(h)).add(u.multiply(Math.cos(a) * r)).add(v.multiply(Math.sin(a) * r));
 			}
-			float x = s.pos().getX() - m.originX;
-			float y = s.pos().getY() - m.surface;
-			float z = s.pos().getZ() - m.originZ;
-			for (int f = 0; f < 6; f++) {
-				MirrorWorld.face(b, x, y, z, 1.0F, f, MirrorWorld.shade(s.color(), f == 0 ? 1.0F : f == 1 ? 0.5F : 0.78F), 0.01F);
-			}
-			n++;
 		}
-		if (n > 0) {
-			Post.draw(b, Shaders.mirror, view, proj);
-		} else {
-			b.endNullable();
+		for (int i = 0; i + 1 < RING_H.length; i++) {
+			for (int j = 0; j < SIDES; j++) {
+				int k = (j + 1) % SIDES;
+				if (i > 0) {
+					facet(b, ring[i][j], ring[i + 1][j], ring[i][k], cam);
+				}
+				if (i + 2 < RING_H.length) {
+					facet(b, ring[i][k], ring[i + 1][j], ring[i + 1][k], cam);
+				}
+			}
 		}
 	}
 
-	/** The tear in the sky over the target, and through it the other universe's sky, its black sun and its ground. */
-	private static void drawTear(ClientGap gap, double t, Vec3d cam, Matrix4f view, Matrix4f proj, Framebuffer main, int w, int h,
-			Vector3f right, Vector3f up) {
-		Vec3d[] outline = outline(gap, t, right, up);
-		Vec3d centre = new Vec3d(gap.contact.x, gap.tearY(), gap.contact.z);
+	private static void facet(BufferBuilder b, Vec3d p0, Vec3d p1, Vec3d p2, Vec3d cam) {
+		Vec3d n = p1.subtract(p0).crossProduct(p2.subtract(p0)).normalize();
+		float nx = (float) n.x;
+		float ny = (float) n.y;
+		float nz = (float) n.z;
+		// The texture coordinates are barycentric, so the shader can find the facet's edges.
+		b.vertex((float) (p0.x - cam.x), (float) (p0.y - cam.y), (float) (p0.z - cam.z)).texture(1, 0).color(-1).normal(nx, ny, nz);
+		b.vertex((float) (p1.x - cam.x), (float) (p1.y - cam.y), (float) (p1.z - cam.z)).texture(0, 1).color(-1).normal(nx, ny, nz);
+		b.vertex((float) (p2.x - cam.x), (float) (p2.y - cam.y), (float) (p2.z - cam.z)).texture(0, 0).color(-1).normal(nx, ny, nz);
+	}
 
-		PORTAL.begin(w, h, OTHER_SKY[0], OTHER_SKY[1], OTHER_SKY[2], 1.0F);
-		BATCH.begin(Fx.BLOB, 0.0F, view, proj, right, up);
-		java.util.Random r = new java.util.Random(gap.id * 977L);
-		for (int i = 0; i < 260; i++) {
-			double az = r.nextDouble() * Math.PI * 2;
-			double el = Math.asin(0.15 + 0.85 * r.nextDouble());
-			Vec3d dir = new Vec3d(Math.cos(az) * Math.cos(el), Math.sin(el), Math.sin(az) * Math.cos(el));
-			BATCH.sprite(rel(centre.add(dir.multiply(420)), cam), 0.6F + 1.6F * (float) Math.pow(r.nextDouble(), 4),
-					0.0F, Fx.fade(0xE9DDFF, 0.4F + 0.6F * r.nextFloat()));
-		}
-		BATCH.end(false);
-		// Their sun is black, with a hard white rim.
-		Vec3d sun = centre.add(gap.along.multiply(70)).add(gap.across.multiply(-30)).add(0, 230, 0);
-		BufferBuilder b = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
-		billboard(b, rel(sun, cam), right, up, 21.0F, 0xFFFFFFFF);
-		billboard(b, rel(sun, cam).add(new Vector3f(rel(sun, cam)).normalize().mul(-0.5F)), right, up, 18.5F, 0xFF000000);
-		RenderSystem.disableDepthTest();
-		RenderSystem.disableBlend();
-		RenderSystem.disableCull();
-		Post.draw(b, GameRenderer.getPositionColorProgram(), view, proj);
-		drawMirror(gap, t, cam, view, proj, 0);
-
-		// The hole itself, in our sky: a fan of triangles showing whatever the portal saw. It writes no depth, so
-		// what has already come through draws over it.
-		main.beginWrite(true);
-		RenderSystem.enableDepthTest();
-		RenderSystem.depthMask(false);
-		RenderSystem.disableCull();
-		RenderSystem.disableBlend();
-		RenderSystem.setShaderTexture(0, PORTAL.color());
-		Shaders.set(Shaders.portal, "ScreenSize", (float) w, (float) h);
-		BufferBuilder fan = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION);
-		Vector3f c = rel(centre, cam);
-		for (int i = 0; i < outline.length; i++) {
-			Vector3f a = rel(outline[i], cam);
-			Vector3f d = rel(outline[(i + 1) % outline.length], cam);
-			fan.vertex(c.x, c.y, c.z);
-			fan.vertex(a.x, a.y, a.z);
-			fan.vertex(d.x, d.y, d.z);
-		}
-		Post.draw(fan, Shaders.portal, view, proj);
-		RenderSystem.setShaderTexture(0, 0);
-		RenderSystem.depthMask(true);
-
-		// Its torn edge, white hot.
-		BATCH.begin(Fx.LINE, 0.0F, view, proj, right, up);
+	/** The big shard's ridges, glowing out past its silhouette. */
+	private static void drawRidges(ClientGap gap, double t, Vec3d cam, Matrix4f view, Matrix4f proj, Vector3f right, Vector3f up) {
+		Vec3d axis = new Vec3d(0, 1, 0).add(gap.along.multiply(0.16)).add(gap.across.multiply(-0.07)).normalize();
+		Vec3d tip = gap.shardTip(t);
+		Vec3d u = axis.crossProduct(new Vec3d(0.31, 0.12, 0.94)).normalize();
+		Vec3d v = axis.crossProduct(u);
+		int seed = gap.id * 31;
+		double spin = t * 0.004;
 		Vector3f eye = new Vector3f();
-		for (int i = 0; i < outline.length; i++) {
-			Vector3f a = rel(outline[i], cam);
-			Vector3f d = rel(outline[(i + 1) % outline.length], cam);
-			// As thick on screen however near the edge passes the camera.
-			float dist = new Vector3f(a).add(d).mul(0.5F).length();
-			BATCH.beam(a, d, eye, Math.max(0.05F, dist * 0.0035F), Fx.fade(WHITE, 1.0F), Fx.fade(WHITE, 1.0F));
-			BATCH.beam(a, d, eye, Math.max(0.15F, dist * 0.012F), Fx.fade(CYAN, 0.35F), Fx.fade(CYAN, 0.35F));
-		}
-		BATCH.end(true, 1.6F);
-	}
-
-	/**
-	 * The tear's outline: a long, ragged rift across the sky over the target, sawtoothed on both lips and pointed
-	 * at the ends. It always faces the camera, like a crack in the picture itself.
-	 */
-	static Vec3d[] outline(ClientGap gap, double t, Vector3f right, Vector3f up) {
-		double length = GapTimeline.tearLength(t);
-		double width = GapTimeline.tearWidth(t);
-		Vec3d centre = new Vec3d(gap.contact.x, gap.tearY(), gap.contact.z);
-		Vec3d across = new Vec3d(right.x, right.y, right.z).normalize();
-		Vec3d along = new Vec3d(up.x, up.y, up.z).normalize();
-		Vec3d[] pts = new Vec3d[TEAR_POINTS * 2];
-		for (int side = 0; side < 2; side++) {
-			for (int i = 0; i < TEAR_POINTS; i++) {
-				double u = side == 0 ? -1.0 + 2.0 * i / TEAR_POINTS : 1.0 - 2.0 * i / TEAR_POINTS;
-				double taper = Math.pow(Math.max(0.0, 1.0 - u * u), 0.55);
-				double jag = (i % 2 == 0 ? 1.0 : 0.7) * (0.7 + 0.45 * noise(gap.id, side * 1000 + i));
-				double v = (side == 0 ? 1.0 : -1.0) * width * taper * jag;
-				pts[side * TEAR_POINTS + i] = centre.add(across.multiply(u * length)).add(along.multiply(v));
+		BATCH.begin(Fx.LINE, 0.0F, view, proj, right, up);
+		for (int j = 0; j < SIDES; j++) {
+			Vec3d prev = null;
+			for (int i = 0; i < RING_H.length; i++) {
+				double a = Math.PI * 2 * j / SIDES + i * 0.21 + spin + (noise(seed, i * 16 + j) - 0.5) * 0.5;
+				double r = RING_R[i] * (0.78 + 0.44 * noise(seed + 7, i * 16 + j));
+				double h = RING_H[i] + (i == 0 || i == RING_H.length - 1 ? 0.0 : (noise(seed + 3, i * 16 + j) - 0.5) * 6.0);
+				Vec3d p = tip.add(axis.multiply(h)).add(u.multiply(Math.cos(a) * r)).add(v.multiply(Math.sin(a) * r));
+				if (prev != null) {
+					Vector3f pa = rel(prev, cam);
+					Vector3f pb = rel(p, cam);
+					float dist = new Vector3f(pa).add(pb).mul(0.5F).length();
+					BATCH.beam(pa, pb, eye, Math.max(0.04F, dist * 0.0025F), Fx.fade(WHITE, 0.8F), Fx.fade(WHITE, 0.8F));
+					BATCH.beam(pa, pb, eye, Math.max(0.2F, dist * 0.011F), Fx.fade(CYAN, 0.22F), Fx.fade(CYAN, 0.22F));
+				}
+				prev = p;
 			}
 		}
-		return pts;
+		BATCH.end(true, 1.4F);
 	}
 
 	// --- marks: the lock, the swaps, the contact ------------------------------------------
@@ -268,7 +238,7 @@ public final class GapRender {
 			}
 			any = true;
 		}
-		// Blocks trading places: a hard white line from each to its twin, gone in a third of a second.
+		// Blocks trading places: a hard white line from each up into the other universe, gone in a third of a second.
 		for (ClientGap.Swap s : gap.swaps) {
 			double age = t - s.age();
 			if (age < 0.0 || age > 7.0) {
@@ -279,7 +249,7 @@ public final class GapRender {
 			}
 			float k = (float) (1.0 - age / 7.0);
 			Vec3d a = Vec3d.ofCenter(s.pos());
-			Vec3d b = new Vec3d(a.x, gap.mirrorY(s.pos().getY(), t) + 0.5, a.z);
+			Vec3d b = gap.swappedTo(s.pos());
 			BATCH.beam(rel(a, cam), rel(b, cam), eye, 0.08F + 0.25F * k, Fx.fade(WHITE, k), Fx.fade(WHITE, k));
 			any = true;
 		}
@@ -294,7 +264,7 @@ public final class GapRender {
 			}
 			float k = (float) (1.0 - age / 14.0);
 			Vec3d a = Vec3d.ofCenter(s.pos());
-			Vec3d b = new Vec3d(a.x, gap.mirrorY(s.pos().getY(), t) + 0.5, a.z);
+			Vec3d b = gap.swappedTo(s.pos());
 			int seed = s.pos().hashCode();
 			for (int i = 0; i < 14; i++) {
 				double f = noise(seed, i);
@@ -366,6 +336,8 @@ public final class GapRender {
 		float front = -1.0F;
 		float clamp;
 		Vec3d offset = Vec3d.ZERO;
+		float shatter;
+		Vector3f shatterFrom = new Vector3f(0.0F, 1.0F, 0.0F);
 
 		void apply(Matrix4f proj, Matrix4f view, int w, int h, float time) {
 			Matrix4f inv = new Matrix4f(proj).mul(view).invert();
@@ -385,6 +357,9 @@ public final class GapRender {
 			Shaders.set(Shaders.gap, "Glitch", glitch);
 			Shaders.set(Shaders.gap, "Flash", flash);
 			Shaders.set(Shaders.gap, "Black", black);
+			Shaders.set(Shaders.gap, "Shatter", shatter);
+			Shaders.set(Shaders.gap, "ShatterFrom", shatterFrom);
+			Shaders.set(Shaders.gap, "CosmosTime", time);
 		}
 	}
 
@@ -393,10 +368,17 @@ public final class GapRender {
 		boolean on = false;
 		for (ClientGap gap : ClientGaps.all()) {
 			double t = gap.time(tickDelta);
-			if (t >= GapTimeline.ERASURE && (gap.mine ? !gap.ended : t < GapTimeline.END + 40)) {
+			boolean live = gap.mine ? !gap.ended : t < GapTimeline.END + 40;
+			if (t >= GapTimeline.ERASURE && live) {
 				g.front = (float) GapTimeline.eraseFront(t);
 				g.clamp = gap.mine ? 0.0F : gap.radius;
 				g.offset = cam.subtract(gap.target.getX(), gap.target.getY(), gap.target.getZ());
+				on = true;
+			}
+			// The sky breaks open from straight over the target, wherever it is seen from.
+			if (t >= GapTimeline.TEAR && live) {
+				g.shatter = Math.max(g.shatter, (float) GapTimeline.shatter(t));
+				g.shatterFrom = rel(gap.contact.add(0, 150, 0), cam).normalize();
 				on = true;
 			}
 		}
@@ -409,7 +391,7 @@ public final class GapRender {
 				g.seed = (float) Math.floor(t * 1.5);
 				on = true;
 			}
-			if (t >= 236 && t < 248) {
+			if (t >= 236 && t < 240) {
 				g.glitch = 0.22F;
 				g.seed = (float) Math.floor(t * 1.5);
 				on = true;
@@ -472,19 +454,6 @@ public final class GapRender {
 	}
 
 	// --- helpers --------------------------------------------------------------------------
-
-	private static void billboard(BufferBuilder b, Vector3f c, Vector3f right, Vector3f up, float size, int argb) {
-		float rx = right.x * size;
-		float ry = right.y * size;
-		float rz = right.z * size;
-		float ux = up.x * size;
-		float uy = up.y * size;
-		float uz = up.z * size;
-		b.vertex(c.x - rx - ux, c.y - ry - uy, c.z - rz - uz).color(argb);
-		b.vertex(c.x + rx - ux, c.y + ry - uy, c.z + rz - uz).color(argb);
-		b.vertex(c.x + rx + ux, c.y + ry + uy, c.z + rz + uz).color(argb);
-		b.vertex(c.x - rx + ux, c.y - ry + uy, c.z - rz + uz).color(argb);
-	}
 
 	static Vector3f rel(Vec3d p, Vec3d cam) {
 		return new Vector3f((float) (p.x - cam.x), (float) (p.y - cam.y), (float) (p.z - cam.z));

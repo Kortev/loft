@@ -13,8 +13,9 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * The shooter's shots through a Ginnungagap event: first person while the key turns; on the hill with them as
- * they aim; a long way off to the side for the tear and the universe coming through it, with cutaways up from
- * their eyes and a tilt that follows a patch of ground up into the other universe; low at the point of contact;
+ * they aim; a long way off to the side for the sky breaking and the shard of the other universe falling out of
+ * it, with a cutaway up from their eyes and a tilt that follows a patch of ground up into the broken sky; low at
+ * the point of contact;
  * a hard cut for every impact frame; the wide shot again as everything is erased; then in on them, alone, and
  * back to their eyes. No shot ever starts inside a hill.
  */
@@ -52,7 +53,7 @@ public final class GapCamera {
 		}
 		if (t < GapTimeline.CONTACT) {
 			if (t >= 236 && t < 248) {
-				return lookAt(eye, gap.contact.add(0, GapTimeline.TEAR_HEIGHT * 0.7 + 0.2 * (t - 236), 0));
+				return lookAt(eye, gap.shardTip(t).add(0, 20, 0));
 			}
 			if (t >= 248 && t < 294) {
 				return swapShot(gap, t);
@@ -94,7 +95,7 @@ public final class GapCamera {
 
 	/**
 	 * A long way off to the side and level with the middle of it all, so one frame holds our ground, the shooter,
-	 * the target, the tear and the whole upside-down universe hanging in it.
+	 * the target, the broken sky and the shard coming down out of it.
 	 */
 	static Shot wide(ClientGap gap, Vec3d feet, double t) {
 		Vec3d mid = feet.lerp(gap.contact, 0.62);
@@ -106,16 +107,16 @@ public final class GapCamera {
 		}
 		double drift = ease((t - GapTimeline.TEAR) / (GapTimeline.CONTACT - GapTimeline.TEAR));
 		Vec3d eye = gap.wideEye.lerp(new Vec3d(mid.x, gap.wideEye.y, mid.z), 0.1 * drift).add(0, 5 * drift, 0);
-		return lookAt(eye, new Vec3d(mid.x, gap.surface + 36, mid.z));
+		return lookAt(eye, new Vec3d(mid.x, gap.surface + 58, mid.z));
 	}
 
-	/** Beside the patch that trades places: on it as it goes, then tilting up after it into the other universe. */
+	/** Beside the patch that trades places: on it as it goes, then tilting up after it into the broken sky. */
 	private static Shot swapShot(ClientGap gap, double t) {
 		Vec3d spot = Vec3d.ofBottomCenter(gap.swapSpot.up());
 		Vec3d out = gap.across.multiply(-1).add(gap.along.multiply(-0.5)).normalize();
 		Vec3d low = spot.add(0, gap.tree ? 3.0 : 0.6, 0);
 		Vec3d eye = clear(spot.add(out.multiply(gap.tree ? 18 : 13)).add(0, 2.4, 0), low);
-		Vec3d twin = new Vec3d(spot.x, gap.mirrorY(gap.swapSpot.getY() + (gap.tree ? 3 : 0), t), spot.z);
+		Vec3d twin = gap.swappedTo(gap.swapSpot);
 		double tilt = ease((t - GapTimeline.TREE_SWAP - 3) / 16.0);
 		return lookAt(eye, low.lerp(twin, tilt * 0.55));
 	}

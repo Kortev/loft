@@ -9,15 +9,15 @@ public final class GapTimeline {
 	public static final int KEY = 0;
 	/** Third person on the shooter: the key is aimed, a beam runs out and the lock snaps on. */
 	public static final int AIM = 60;
-	/** A jagged tear opens in the sky over the target with the mirror universe behind it. */
+	/** The sky shatters over the target; another universe shows through where the shards fall away. */
 	public static final int TEAR = 150;
-	/** The mirror universe comes down through the tear; matter starts swapping between the two. */
+	/** A shard of the other universe drops out of the broken sky; matter starts swapping between the two. */
 	public static final int CLOSING = 200;
-	/** A whole tree trades places with its upside-down twin. */
+	/** A whole tree (or a patch of ground) is swapped into the other universe. */
 	public static final int TREE_SWAP = 272;
 	/** Single blocks stop swapping a little before contact so the moment reads clean. */
 	public static final int SWAPS_END = 296;
-	/** The tip of the inverted mountain touches the target. Every sound stops. */
+	/** The shard's tip touches the target. Every sound stops. */
 	public static final int CONTACT = 310;
 	/** The impact frames. */
 	public static final int FRAMES = 330;
@@ -27,11 +27,7 @@ public final class GapTimeline {
 	public static final int NOTHING = 620;
 	public static final int END = 800;
 
-	/** Height of the middle of the tear above the target's surface, in blocks. */
-	public static final double TEAR_HEIGHT = 62.0;
-	/** Depth of the inverted mountain that hangs from the mirror universe towards the target. */
-	public static final int PEAK = 36;
-	/** How far the mirror's tip presses into the ground through the impact frames. */
+	/** How far the falling shard's tip presses into the ground through the impact frames. */
 	public static final double PRESS = 2.0;
 	/** Closest the target may be, so the camera shots have room. */
 	public static final double MIN_RANGE = 24.0;
@@ -39,37 +35,21 @@ public final class GapTimeline {
 	private GapTimeline() {
 	}
 
-	/**
-	 * How far the mirror universe's plane of reflection is lifted: the mirror of the block at height y occupies
-	 * y' = 2·s0 + lift − y − 1, where s0 is the top of the target block. The mirror's ground sits at s0 + lift and
-	 * the mountain's tip at s0 + lift − PEAK, so at {@link #CONTACT} the lift is exactly {@link #PEAK}.
-	 */
-	public static double lift(double t) {
-		// Hanging in the tear while it opens, its mountain already poking down out of it.
-		double hover = TEAR_HEIGHT + 10.0;
+	/** How much of the sky has shattered, as an angle from the point it breaks from, in radians (pi is all of it). */
+	public static double shatter(double t) {
+		return Math.PI * 1.05 * smooth((t - TEAR - 4) / 120.0);
+	}
+
+	/** Height of the falling shard's tip over the target: it shows in the broken sky, then drops and lands at contact. */
+	public static double shardTip(double t) {
 		if (t < CLOSING) {
-			return hover + 14.0 * (1.0 - smooth((t - TEAR) / (CLOSING - TEAR)));
+			return 130.0 + 110.0 * (1.0 - smooth((t - TEAR) / (CLOSING - TEAR)));
 		}
 		if (t < CONTACT) {
 			double p = (t - CLOSING) / (CONTACT - CLOSING);
-			return hover + (PEAK - hover) * p * p * (0.35 + 0.65 * p);
+			return 130.0 * Math.pow(1.0 - p, 1.7);
 		}
-		return PEAK - PRESS * smooth((t - CONTACT) / (ERASURE - CONTACT));
-	}
-
-	/** Half the tear's length along its long axis, in blocks. */
-	public static double tearLength(double t) {
-		return 2.0 + 70.0 * smooth((t - TEAR) / 50.0) + 70.0 * smooth((t - CLOSING) / 80.0);
-	}
-
-	/** Half the tear's width across its long axis, in blocks. */
-	public static double tearWidth(double t) {
-		return 0.4 + 23.6 * smooth((t - TEAR) / 50.0) + 36.0 * smooth((t - CLOSING) / 80.0);
-	}
-
-	/** Below this height (over the target's surface) the mirror universe has come through the tear into our sky. */
-	public static double through(double t) {
-		return TEAR_HEIGHT - 0.78 * tearWidth(t);
+		return -PRESS * smooth((t - CONTACT) / (ERASURE - CONTACT));
 	}
 
 	/** Manhattan distance in blocks from the contact block that has been erased by tick {@code t}. */

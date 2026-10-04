@@ -1,6 +1,6 @@
 {
-  "vertex": "shootingstar:ss_mirror",
-  "fragment": "shootingstar:ss_mirror",
+  "vertex": "shootingstar:ss_shard",
+  "fragment": "shootingstar:ss_shard",
   "samplers": [],
   "uniforms": [
     {
@@ -50,53 +50,21 @@
       ]
     },
     {
-      "name": "Offset",
+      "name": "Time",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0.0
+      ]
+    },
+    {
+      "name": "Spin",
       "type": "float",
       "count": 3,
       "values": [
         0.0,
         0.0,
         0.0
-      ]
-    },
-    {
-      "name": "ClipY",
-      "type": "float",
-      "count": 1,
-      "values": [
-        0.0
-      ]
-    },
-    {
-      "name": "ClipMode",
-      "type": "int",
-      "count": 1,
-      "values": [
-        0.0
-      ]
-    },
-    {
-      "name": "Radius",
-      "type": "float",
-      "count": 1,
-      "values": [
-        72.0
-      ]
-    },
-    {
-      "name": "Glow",
-      "type": "float",
-      "count": 1,
-      "values": [
-        0.0
-      ]
-    },
-    {
-      "name": "Fade",
-      "type": "float",
-      "count": 1,
-      "values": [
-        1.0
       ]
     }
   ]

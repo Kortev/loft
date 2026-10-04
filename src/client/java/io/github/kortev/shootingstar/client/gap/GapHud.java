@@ -48,18 +48,19 @@ public final class GapHud {
 			footer(ctx, font, w, h, t < 126 ? String.format(Locale.ROOT, "TARGET %03d BLOCKS AWAY", blocks)
 					: "PULLING UNIVERSE 4,096,113 TOWARDS THE TARGET", t < 126 ? 1.0F : (float) ease((t - 126) / 6.0));
 		} else if (t < GapTimeline.CLOSING) {
-			header(ctx, font, w, typed("[ GAP OPENING ]", (t - GapTimeline.TEAR) / 12.0), 1.0F);
+			header(ctx, font, w, typed("[ THE SKY BREAKS ]", (t - GapTimeline.TEAR) / 12.0), 1.0F);
 			float title = (float) (ease((t - 158) / 8.0) * (1.0 - ease((t - 190) / 8.0)));
 			if (title > 0.0F) {
 				ctx.fill(0, (int) (h * 0.66F), (int) w, (int) (h * 0.94F), (int) (0x80 * title) << 24);
 				text(ctx, font, "Ω-00", w / 2, h * 0.69F, 1.2F, WHITE, title, true);
 				text(ctx, font, "GINNUNGAGAP", w / 2, h * 0.75F, 4.0F, WHITE, title, true);
-				text(ctx, font, "IT STEERS A UNIVERSE INTO OURS", w / 2, h * 0.87F, 1.2F, PALE, title, true);
+				text(ctx, font, "IT CRASHES A UNIVERSE INTO OURS", w / 2, h * 0.87F, 1.2F, PALE, title, true);
 			}
-			Vector3f p = WorldProjector.project(gap.contact.x, gap.contact.y + gap.lift(t) - GapTimeline.PEAK + 6, gap.contact.z, w, h);
+			Vec3d tip = gap.shardTip(t).add(0, 30, 0);
+			Vector3f p = WorldProjector.project(tip.x, tip.y, tip.z, w, h);
 			float label = (float) ease((t - 166) / 8.0);
 			if (p != null && label > 0.0F) {
-				leader(ctx, font, p.x, p.y, p.x + 40, p.y + 18, "UNIVERSE 4,096,113 · UPSIDE DOWN", label);
+				leader(ctx, font, p.x, p.y, p.x + 40, p.y + 18, "UNIVERSE 4,096,113", label);
 			}
 		} else if (t < GapTimeline.CONTACT) {
 			boolean eyes = t >= 236 && t < 248;
@@ -72,21 +73,15 @@ public final class GapHud {
 			if (t >= 248 && t < 294) {
 				boolean swapped = t >= GapTimeline.TREE_SWAP;
 				Vec3d ours = Vec3d.ofBottomCenter(gap.swapSpot.up()).add(0, gap.tree ? 3.0 : 0.3, 0);
-				Vec3d theirs = new Vec3d(ours.x, gap.mirrorY(gap.swapSpot.getY() + (gap.tree ? 3 : 0), t) + 0.5, ours.z);
 				float a = (float) ease((t - 252) / 6.0);
 				String noun = gap.tree ? "TREE" : "GROUND";
 				Vector3f po = WorldProjector.project(ours.x, ours.y, ours.z, w, h);
-				Vector3f pt = WorldProjector.project(theirs.x, theirs.y, theirs.z, w, h);
 				if (po != null) {
 					leader(ctx, font, po.x + 6, po.y, po.x + 46, po.y - 14, (swapped ? "THEIR " : "OUR ") + noun, a,
 							swapped ? CYAN : WHITE);
 				}
-				if (pt != null) {
-					leader(ctx, font, pt.x + 6, pt.y, pt.x + 46, pt.y + 14, (swapped ? "OUR " : "THEIR ") + noun, a,
-							swapped ? WHITE : CYAN);
-				}
 				if (swapped) {
-					caption(ctx, font, w, h, typed("CLOSE ENOUGH TO SWAP MATTER", (t - GapTimeline.TREE_SWAP) / 12.0), 1.0F);
+					caption(ctx, font, w, h, typed("MATTER SWAPPING BETWEEN UNIVERSES", (t - GapTimeline.TREE_SWAP) / 12.0), 1.0F);
 				}
 			}
 			if (t >= 294) {
@@ -101,9 +96,6 @@ public final class GapHud {
 			double front = GapTimeline.eraseFront(t);
 			int pct = (int) Math.floor(100.0 * MathHelper.clamp(front / 900.0, 0.0, 1.0));
 			footer(ctx, font, w, h, "REALITY ERASED " + pct + "%", 1.0F);
-			if (t >= 600) {
-				text(ctx, font, "[ REALITY DELETED ]", w / 2, h * 0.36F, 2.6F, WHITE, (float) ease((t - 600) / 4.0), true);
-			}
 		} else if (t >= GapTimeline.NOTHING && t < GapTimeline.END) {
 			if (t < 720) {
 				header(ctx, font, w, typed("[ GINNUNGAGAP ]", (t - 640) / 16.0), 1.0F);
