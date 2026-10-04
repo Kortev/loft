@@ -171,6 +171,7 @@ public final class WorldFx {
 			RenderSystem.setShaderTexture(2, bloom[1]);
 			RenderSystem.setShaderTexture(3, bloom[2]);
 			Shaders.set(Shaders.fxcomp, "StreakStrength", 0.9F);
+			Shaders.set(Shaders.fxcomp, "Dirt", 1.4F);
 			Shaders.set(Shaders.fxcomp, "BloomStrength", 1.0F);
 			Shaders.set(Shaders.fxcomp, "WideStrength", 0.8F);
 			Post.quad(Shaders.fxcomp);
