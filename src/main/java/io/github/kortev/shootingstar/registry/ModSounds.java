@@ -9,16 +9,25 @@ import net.minecraft.util.Identifier;
 public final class ModSounds {
 	public static final SoundEvent UPLINK_LOCK = register("uplink.lock");
 	public static final SoundEvent UPLINK_DENIED = register("uplink.denied");
+	public static final SoundEvent CAMERA_RISE = register("camera.rise");
 	public static final SoundEvent FEED_ZOOM = register("feed.zoom");
+	public static final SoundEvent FEED_AMBIENCE = register("feed.ambience");
 	public static final SoundEvent FEED_RELAY = register("feed.relay");
 	public static final SoundEvent FEED_WAKE = register("feed.wake");
 	public static final SoundEvent FEED_LOAD = register("feed.load");
 	public static final SoundEvent FEED_LAP = register("feed.lap");
+	public static final SoundEvent FEED_COILS = register("feed.coils");
 	public static final SoundEvent FEED_RELEASE = register("feed.release");
 	public static final SoundEvent FEED_REENTRY = register("feed.reentry");
+	// World sounds are mono so they can be placed; the ".near" versions are the shooter's stereo close-ups.
 	public static final SoundEvent STRIKE_INBOUND = register("strike.inbound");
+	public static final SoundEvent STRIKE_INBOUND_NEAR = register("strike.inbound.near");
 	public static final SoundEvent STRIKE_IMPACT = register("strike.impact");
+	public static final SoundEvent STRIKE_IMPACT_NEAR = register("strike.impact.near");
 	public static final SoundEvent STRIKE_RUMBLE = register("strike.rumble");
+	public static final SoundEvent STRIKE_RUMBLE_NEAR = register("strike.rumble.near");
+	public static final SoundEvent STRIKE_AFTERMATH = register("strike.aftermath");
+	public static final SoundEvent STRIKE_AFTERMATH_NEAR = register("strike.aftermath.near");
 
 	private ModSounds() {
 	}

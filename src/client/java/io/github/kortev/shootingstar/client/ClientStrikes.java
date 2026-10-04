@@ -1,6 +1,7 @@
 package io.github.kortev.shootingstar.client;
 
 import io.github.kortev.shootingstar.client.feed.Feed;
+import io.github.kortev.shootingstar.client.render.Culling;
 import io.github.kortev.shootingstar.client.render.ImpactEffects;
 import io.github.kortev.shootingstar.client.world.ImpactScene;
 import io.github.kortev.shootingstar.client.world.WorldFx;
@@ -15,6 +16,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.sound.PositionedSoundInstance;
+import net.minecraft.client.sound.SoundInstance;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvent;
@@ -114,9 +116,12 @@ public final class ClientStrikes {
 	}
 
 	public static void skipFeed() {
+		MinecraftClient client = MinecraftClient.getInstance();
 		for (ClientStrike strike : STRIKES.values()) {
 			if (strike.mine) {
 				strike.feedSkipped = true;
+				strike.feedSounds.forEach(client.getSoundManager()::stop);
+				strike.feedSounds.clear();
 			}
 		}
 	}
@@ -125,6 +130,7 @@ public final class ClientStrikes {
 		STRIKES.clear();
 		ImpactEffects.clear();
 		WorldFx.clear();
+		Culling.reset(client);
 		restoreHud(client);
 	}
 
@@ -166,6 +172,9 @@ public final class ClientStrikes {
 
 		ClientStrike cinematic = cinematic();
 		boolean takeOver = cinematic != null && (feedActive(cinematic, cinematic.age) || shotActive(cinematic, cinematic.age));
+		// The camera shots fly where the world's culling has never looked from; a tick of margin either side.
+		boolean flying = cinematic != null && (shotActive(cinematic, cinematic.age - 2) || shotActive(cinematic, cinematic.age + 2));
+		Culling.update(client, flying || ImpactEffects.rebuilding());
 		if (takeOver && !hudOverride) {
 			savedHudHidden = client.options.hudHidden;
 			client.options.hudHidden = true;
@@ -188,9 +197,13 @@ public final class ClientStrikes {
 
 	private static void cues(MinecraftClient client, ClientStrike strike, int from, int to) {
 		boolean feed = strike.cinematic() && ClientConfig.feed;
+		if (strike.cinematic() && ClientConfig.cameraShots && crossed(from, to, StrikeTimeline.RISE)) {
+			master(ModSounds.CAMERA_RISE, 1.0F, 0.8F);
+		}
 		if (feed) {
 			if (crossed(from, to, StrikeTimeline.ORBIT)) {
 				master(ModSounds.FEED_ZOOM, 1.0F, 0.9F);
+				held(strike, ModSounds.FEED_AMBIENCE, 1.0F, 0.85F);
 			}
 			if (crossed(from, to, StrikeTimeline.RELAY)) {
 				master(ModSounds.FEED_RELAY, 1.0F, 1.0F);
@@ -200,6 +213,9 @@ public final class ClientStrikes {
 			}
 			if (crossed(from, to, StrikeTimeline.LOADING + 10)) {
 				master(ModSounds.FEED_LOAD, 1.0F, 1.0F);
+			}
+			if (crossed(from, to, StrikeTimeline.LAPS)) {
+				held(strike, ModSounds.FEED_COILS, 1.0F, 0.8F);
 			}
 			if (to >= StrikeTimeline.LAPS && to < StrikeTimeline.DEBRIS) {
 				int lap = StrikeTimeline.lapNumber(StrikeTimeline.lapProgress(to));
@@ -217,7 +233,7 @@ public final class ClientStrikes {
 		}
 		if (crossed(from, to, StrikeTimeline.INBOUND)) {
 			if (strike.cinematic()) {
-				master(ModSounds.STRIKE_INBOUND, 1.0F, 1.0F);
+				master(ModSounds.STRIKE_INBOUND_NEAR, 1.0F, 1.0F);
 			} else {
 				// Positional sounds fade out over 16 blocks per unit of volume; carry this one a few hundred blocks.
 				at(client, strike.center.add(0, 40, 0), ModSounds.STRIKE_INBOUND, SoundCategory.WEATHER, 24.0F, 1.0F, 0);
@@ -226,6 +242,25 @@ public final class ClientStrikes {
 	}
 
 	// --- sound helpers ---------------------------------------------------------------------
+
+	/** A non-positional feed sound that stops if the shooter skips the feed. */
+	private static void held(ClientStrike strike, SoundEvent sound, float pitch, float volume) {
+		SoundInstance instance = PositionedSoundInstance.master(sound, pitch, volume);
+		strike.feedSounds.add(instance);
+		MinecraftClient.getInstance().getSoundManager().play(instance);
+	}
+
+	/** A sound all round the listener rather than at a point (a shock wave passing over), in a given category. */
+	public static void around(MinecraftClient client, SoundEvent sound, SoundCategory category, float volume, float pitch,
+			int delay) {
+		SoundInstance instance = new PositionedSoundInstance(sound.getId(), category, volume, pitch, Random.create(), false, 0,
+				SoundInstance.AttenuationType.NONE, 0.0, 0.0, 0.0, true);
+		if (delay > 0) {
+			client.getSoundManager().play(instance, delay);
+		} else {
+			client.getSoundManager().play(instance);
+		}
+	}
 
 	public static void master(SoundEvent sound, float pitch, float volume) {
 		MinecraftClient.getInstance().getSoundManager().play(PositionedSoundInstance.master(sound, pitch, volume));

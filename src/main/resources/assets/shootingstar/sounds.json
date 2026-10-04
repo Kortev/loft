@@ -15,11 +15,28 @@
       }
     ]
   },
+  "camera.rise": {
+    "subtitle": "subtitles.shootingstar.camera.rise",
+    "sounds": [
+      {
+        "name": "shootingstar:camera_rise"
+      }
+    ]
+  },
   "feed.zoom": {
     "subtitle": "subtitles.shootingstar.feed.zoom",
     "sounds": [
       {
         "name": "shootingstar:feed_zoom"
+      }
+    ]
+  },
+  "feed.ambience": {
+    "subtitle": "subtitles.shootingstar.feed.ambience",
+    "sounds": [
+      {
+        "name": "shootingstar:feed_ambience",
+        "stream": true
       }
     ]
   },
@@ -55,6 +72,14 @@
       }
     ]
   },
+  "feed.coils": {
+    "subtitle": "subtitles.shootingstar.feed.coils",
+    "sounds": [
+      {
+        "name": "shootingstar:feed_coils"
+      }
+    ]
+  },
   "feed.release": {
     "subtitle": "subtitles.shootingstar.feed.release",
     "sounds": [
@@ -80,12 +105,30 @@
       }
     ]
   },
+  "strike.inbound.near": {
+    "subtitle": "subtitles.shootingstar.strike.inbound",
+    "sounds": [
+      {
+        "name": "shootingstar:strike_inbound_near"
+      }
+    ]
+  },
   "strike.impact": {
     "subtitle": "subtitles.shootingstar.strike.impact",
     "sounds": [
       {
         "name": "shootingstar:strike_impact",
-        "attenuation_distance": 320
+        "attenuation_distance": 320,
+        "stream": true
+      }
+    ]
+  },
+  "strike.impact.near": {
+    "subtitle": "subtitles.shootingstar.strike.impact",
+    "sounds": [
+      {
+        "name": "shootingstar:strike_impact_near",
+        "stream": true
       }
     ]
   },
@@ -95,6 +138,32 @@
       {
         "name": "shootingstar:strike_rumble",
         "attenuation_distance": 640
+      }
+    ]
+  },
+  "strike.rumble.near": {
+    "subtitle": "subtitles.shootingstar.strike.rumble",
+    "sounds": [
+      {
+        "name": "shootingstar:strike_rumble_near"
+      }
+    ]
+  },
+  "strike.aftermath": {
+    "subtitle": "subtitles.shootingstar.strike.aftermath",
+    "sounds": [
+      {
+        "name": "shootingstar:strike_aftermath",
+        "stream": true
+      }
+    ]
+  },
+  "strike.aftermath.near": {
+    "subtitle": "subtitles.shootingstar.strike.aftermath",
+    "sounds": [
+      {
+        "name": "shootingstar:strike_aftermath_near",
+        "stream": true
       }
     ]
   }

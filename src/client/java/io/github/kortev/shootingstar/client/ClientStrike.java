@@ -1,7 +1,10 @@
 package io.github.kortev.shootingstar.client;
 
 import io.github.kortev.shootingstar.client.world.ImpactScene;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
+import net.minecraft.client.sound.SoundInstance;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import org.jetbrains.annotations.Nullable;
@@ -39,6 +42,8 @@ public final class ClientStrike {
 	public Vec3d approach;
 	/** How far back along {@link #approach} the round is first seen. */
 	public double approachLength;
+	/** The feed's long sounds, stopped if the shooter skips the feed. */
+	public final List<SoundInstance> feedSounds = new ArrayList<>();
 
 	public ClientStrike(int id, BlockPos target, UUID shooter, boolean mine, int age) {
 		this.id = id;

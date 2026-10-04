@@ -22,14 +22,18 @@
   "hud.shootingstar.skip": "[%s] SKIP FEED",
   "subtitles.shootingstar.uplink.lock": "Uplink locks on",
   "subtitles.shootingstar.uplink.denied": "Uplink refuses",
+  "subtitles.shootingstar.camera.rise": "Wind rushes past",
   "subtitles.shootingstar.feed.zoom": "Uplink feed",
+  "subtitles.shootingstar.feed.ambience": "Uplink feed hums",
   "subtitles.shootingstar.feed.relay": "Relay jump",
   "subtitles.shootingstar.feed.wake": "Accelerator wakes",
   "subtitles.shootingstar.feed.load": "Round seats in the breech",
   "subtitles.shootingstar.feed.lap": "Round laps the ring",
+  "subtitles.shootingstar.feed.coils": "Accelerator coils whine",
   "subtitles.shootingstar.feed.release": "Round released",
   "subtitles.shootingstar.feed.reentry": "Round re-enters",
   "subtitles.shootingstar.strike.inbound": "Something screams down from the sky",
   "subtitles.shootingstar.strike.impact": "Kinetic impact",
-  "subtitles.shootingstar.strike.rumble": "Distant impact"
+  "subtitles.shootingstar.strike.rumble": "Shock wave",
+  "subtitles.shootingstar.strike.aftermath": "Crater burns"
 }

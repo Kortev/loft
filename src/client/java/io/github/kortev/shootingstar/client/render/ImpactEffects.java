@@ -42,18 +42,19 @@ public final class ImpactEffects {
 
 	private static final List<Aftermath> AFTERMATHS = new ArrayList<>();
 	private static final Random RANDOM = Random.create();
-	private static boolean cullingOverride;
-	private static boolean savedCulling;
+	private static boolean rebuilding;
 
 	private ImpactEffects() {
 	}
 
 	public static void clear() {
 		AFTERMATHS.clear();
-		if (cullingOverride) {
-			MinecraftClient.getInstance().chunkCullingEnabled = savedCulling;
-			cullingOverride = false;
-		}
+		rebuilding = false;
+	}
+
+	/** True while a crater nearby is still settling and its terrain is being kept fully drawn. */
+	public static boolean rebuilding() {
+		return rebuilding;
 	}
 
 	public static void trigger(MinecraftClient client, ClientStrike strike) {
@@ -62,16 +63,25 @@ public final class ImpactEffects {
 		}
 		double distance = client.player.getPos().distanceTo(strike.center);
 		if (strike.cinematic()) {
-			// The shooter's camera is right there: the hit at once, the rumble when the shock wave reaches the camera.
+			// The shooter's camera is right there: the flash, a beat of silence while the sound covers the
+			// distance, the boom; then the shock wave when it reaches the camera, and the crater burning.
 			double from = strike.witness != null ? strike.witness.distanceTo(strike.center) : strike.radius * 1.3;
 			int arrival = strike.scene != null ? (int) strike.scene.arrival(from) : 30;
-			ClientStrikes.master(ModSounds.STRIKE_IMPACT, 1.0F, 1.0F);
-			ClientStrikes.master(ModSounds.STRIKE_RUMBLE, 0.9F, 1.0F, arrival);
+			ClientStrikes.master(ModSounds.STRIKE_IMPACT_NEAR, 1.0F, 1.0F, 3);
+			ClientStrikes.master(ModSounds.STRIKE_RUMBLE_NEAR, 1.0F, 1.0F, arrival);
+			ClientStrikes.master(ModSounds.STRIKE_AFTERMATH_NEAR, 1.0F, 0.8F, 90);
 		} else {
 			// Loud enough to carry about 640 blocks; it reaches you at the speed of sound.
 			int delay = (int) (distance / SOUND_SPEED);
 			ClientStrikes.at(client, strike.center, ModSounds.STRIKE_IMPACT, SoundCategory.WEATHER, 40.0F, 1.0F, delay);
-			ClientStrikes.at(client, strike.center, ModSounds.STRIKE_RUMBLE, SoundCategory.WEATHER, 48.0F, 0.9F, delay + 4);
+			// The shock wave rolls over you from all round, weaker the farther it has come.
+			double reach = strike.radius * 12.0 + 200.0;
+			if (distance < reach) {
+				int wave = strike.scene != null ? (int) strike.scene.arrival(distance) : delay + 4;
+				float volume = (float) MathHelper.clamp(1.0 - distance / reach, 0.15, 1.0);
+				ClientStrikes.around(client, ModSounds.STRIKE_RUMBLE, SoundCategory.WEATHER, volume, 1.0F, wave);
+			}
+			ClientStrikes.at(client, strike.center, ModSounds.STRIKE_AFTERMATH, SoundCategory.WEATHER, 6.0F, 1.0F, delay + 40);
 		}
 		if (distance < PARTICLE_RANGE) {
 			AFTERMATHS.add(new Aftermath(strike.center, strike.radius));
@@ -82,7 +92,7 @@ public final class ImpactEffects {
 		if (client.player == null) {
 			return;
 		}
-		boolean rebuilding = false;
+		rebuilding = false;
 		for (Iterator<Aftermath> it = AFTERMATHS.iterator(); it.hasNext(); ) {
 			Aftermath a = it.next();
 			if (++a.age > EMBER_TICKS) {
@@ -107,20 +117,6 @@ public final class ImpactEffects {
 				client.particleManager.addParticle(ParticleTypes.LAVA, c.x + RANDOM.nextGaussian() * spread, c.y,
 						c.z + RANDOM.nextGaussian() * spread, 0, 0, 0);
 			}
-		}
-		// Section occlusion culling decides which sections are drawn (and rebuilt) from what each one
-		// looked like when it was last built. Ground that was buried a moment ago and is now open to the
-		// sky can be judged hidden and never rebuilt, leaving holes that show the sky through the world,
-		// so culling is off while the crater settles.
-		if (rebuilding != cullingOverride) {
-			if (rebuilding) {
-				savedCulling = client.chunkCullingEnabled;
-				client.chunkCullingEnabled = false;
-			} else {
-				client.chunkCullingEnabled = savedCulling;
-			}
-			cullingOverride = rebuilding;
-			client.worldRenderer.scheduleTerrainUpdate();
 		}
 	}
 

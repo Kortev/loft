@@ -24,8 +24,9 @@ def encode(crf):
         cmd += ['-i', os.path.join(folder, 'sounds', s['file'])]
         delay = max(0, int(round(s['time'] * 1000)))
         rate = 48000 * max(0.25, min(4.0, s['pitch']))
-        graph.append('[%d:a]aresample=48000,asetrate=%.1f,aresample=48000,volume=%.3f,adelay=%d:all=1[s%d]'
-                     % (i + 1, rate, s['gain'], delay, i))
+        # Mono world sounds and stereo close-ups mix on a common stereo bus.
+        graph.append('[%d:a]aformat=channel_layouts=stereo,aresample=48000,asetrate=%.1f,aresample=48000,volume=%.3f,'
+                     'adelay=%d:all=1[s%d]' % (i + 1, rate, s['gain'], delay, i))
         labels.append('[s%d]' % i)
     if sounds:
         graph.append(''.join(labels) + 'amix=inputs=%d:normalize=0:dropout_transition=0,alimiter=limit=0.9,apad[aout]'

@@ -61,6 +61,18 @@ public final class WorldFx {
 	private record PuffRef(ImpactScene.Puff puff, ImpactScene scene, double distance) {
 	}
 
+	/**
+	 * A point light on the world: position relative to the camera, the distance at which it has fallen
+	 * to half, colour times intensity, and how far it wraps round surfaces turned away from it.
+	 */
+	private record Light(float x, float y, float z, float range, float r, float g, float b, float wrap) {
+		/** How much this light matters from the camera, for picking the strongest few. */
+		float weight() {
+			float d2 = x * x + y * y + z * z;
+			return (r + g + b) * range * range / (range * range + d2);
+		}
+	}
+
 	private WorldFx() {
 	}
 
@@ -125,12 +137,20 @@ public final class WorldFx {
 
 			DEPTH.ensure(w, h);
 			DEPTH.copyDepthFrom(main);
+			List<Light> lights = lights(inbound, tickDelta, cam);
+			if (!lights.isEmpty()) {
+				COPY.ensure(w, h);
+				COPY.copyColorFrom(main);
+			}
 			FX.ensure(w, h);
 			FX.copyDepthFrom(main);
 			FX.bind();
 			RenderSystem.colorMask(true, true, true, true);
 			RenderSystem.clearColor(0.0F, 0.0F, 0.0F, 0.0F);
 			RenderSystem.clear(GL11.GL_COLOR_BUFFER_BIT, MinecraftClient.IS_SYSTEM_MAC);
+			if (!lights.isEmpty()) {
+				drawLights(lights, view, proj, w, h, Math.max(0.3F, daylight(world, tickDelta)));
+			}
 
 			for (ClientStrike strike : inbound) {
 				drawStar(client, strike, strike.time(tickDelta), cam, view, proj, right, up, far);
@@ -286,12 +306,96 @@ public final class WorldFx {
 		star.sprite(head, core * 5.0F, (float) (t * 0.02), Fx.argb(1.0F, 0.96F, 0.88F, fadeIn));
 		star.end(true, 7.0F + 10.0F * (float) (p * p));
 
-		// The ground below lights up as it comes in.
-		float pool = (float) (strike.radius * (0.25 + 1.1 * p * p));
-		Vector3f ground = rel(c.x, c.y + 0.4, c.z, cam);
-		Fx light = BATCH.begin(Fx.BLOB, 1.0F, view, proj, right, up);
-		light.flat(ground, new Vector3f(pool, 0, 0), new Vector3f(0, 0, pool), Fx.argb(1.0F, 0.6F, 0.3F, (float) (p * p) * fadeIn));
-		light.end(true, 1.6F);
+	}
+
+	// --- light on the world ----------------------------------------------------------------
+
+	/**
+	 * The lights the strikes cast this frame, strongest first (at most four): the round as it comes
+	 * in, the flash of the hit, the fireball, and the molten bowl glowing long after.
+	 */
+	private static List<Light> lights(List<ClientStrike> inbound, float tickDelta, Vec3d cam) {
+		List<Light> lights = new ArrayList<>();
+		for (ClientStrike strike : inbound) {
+			Vec3d dir = strike.approach;
+			double t = strike.time(tickDelta);
+			if (dir == null || t < StrikeTimeline.INBOUND) {
+				continue;
+			}
+			double p = MathHelper.clamp((t - StrikeTimeline.INBOUND) / (StrikeTimeline.IMPACT - StrikeTimeline.INBOUND), 0.0, 1.0);
+			Vec3d head = strike.center.add(dir.multiply(range(strike.approachLength, p)));
+			float i = (float) (12.0 * p * p * p * p);
+			lights.add(light(head, cam, (float) (20.0 + 60.0 * p), 1.0F * i, 0.86F * i, 0.68F * i, 0.2F));
+		}
+		for (ImpactScene scene : SCENES) {
+			double e = scene.age + tickDelta;
+			if (e < 0) {
+				continue;
+			}
+			int r = scene.radius;
+			if (e < 14) {
+				float i = (float) (24.0 * Math.exp(-e / 1.4));
+				lights.add(light(scene.center.add(0, r * 0.12, 0), cam, r * 1.0F, i, 0.95F * i, 0.88F * i, 0.35F));
+			}
+			double dome = scene.domeRadius(e);
+			float fire = (float) (2.2 * scene.domeIntensity(e) * flicker(e, 0.0));
+			if (fire > 0.02F) {
+				double rise = Math.max(0.0, e - 8.0) * r * 0.004;
+				lights.add(light(scene.center.add(0, dome * 0.55 + rise, 0), cam, (float) Math.max(r * 0.35, dome * 1.6), fire,
+						0.5F * fire, 0.17F * fire, 0.3F));
+			}
+			if (e > 8) {
+				float glow = (float) (1.1 * Math.min(1.0, (e - 8) / 40.0) * Math.exp(-e / 3000.0) * flicker(e, 7.0)
+						* (1.0 - smooth((e - 700) / 200.0)));
+				if (glow > 0.01F) {
+					lights.add(light(scene.center.add(0, 3, 0), cam, (float) scene.bowl, glow, 0.32F * glow, 0.08F * glow, 0.1F));
+				}
+			}
+		}
+		lights.sort((a, b) -> Float.compare(b.weight(), a.weight()));
+		return lights.size() > 4 ? lights.subList(0, 4) : lights;
+	}
+
+	private static Light light(Vec3d pos, Vec3d cam, float range, float r, float g, float b, float wrap) {
+		return new Light((float) (pos.x - cam.x), (float) (pos.y - cam.y), (float) (pos.z - cam.z), range, r, g, b, wrap);
+	}
+
+	/** Fire light never holds still. */
+	private static double flicker(double e, double seed) {
+		return 0.86 + 0.08 * Math.sin(e * 1.7 + seed) + 0.06 * Math.sin(e * 4.3 + seed * 2.1);
+	}
+
+	private static double smooth(double x) {
+		x = MathHelper.clamp(x, 0.0, 1.0);
+		return x * x * (3.0 - 2.0 * x);
+	}
+
+	private static void drawLights(List<Light> lights, Matrix4f view, Matrix4f proj, int w, int h, float ambient) {
+		Post.begin();
+		RenderSystem.enableBlend();
+		RenderSystem.blendFuncSeparate(GlStateManager.SrcFactor.ONE, GlStateManager.DstFactor.ONE, GlStateManager.SrcFactor.ZERO,
+				GlStateManager.DstFactor.ONE);
+		RenderSystem.setShaderTexture(0, COPY.color());
+		RenderSystem.setShaderTexture(1, DEPTH.depth());
+		Shaders.set(Shaders.light, "InvViewProj", new Matrix4f(proj).mul(view).invert());
+		Shaders.set(Shaders.light, "ScreenSize", w, h);
+		Shaders.set(Shaders.light, "Ambient", ambient);
+		// The world's own fog: start fading the light a little before it, gone where the fog is solid.
+		float fogEnd = RenderSystem.getShaderFogEnd();
+		float fogStart = Math.min(RenderSystem.getShaderFogStart(), fogEnd * 0.8F);
+		Shaders.set(Shaders.light, "Fog", fogStart * 0.85F, Math.max(fogEnd, fogStart * 0.85F + 1.0F));
+		for (int i = 0; i < 4; i++) {
+			Light l = i < lights.size() ? lights.get(i) : null;
+			if (l == null) {
+				Shaders.set(Shaders.light, "Light" + i + "Pos", 0.0F, 0.0F, 0.0F, 1.0F);
+				Shaders.set(Shaders.light, "Light" + i + "Color", 0.0F, 0.0F, 0.0F, 0.0F);
+			} else {
+				Shaders.set(Shaders.light, "Light" + i + "Pos", l.x(), l.y(), l.z(), l.range());
+				Shaders.set(Shaders.light, "Light" + i + "Color", l.r(), l.g(), l.b(), l.wrap());
+			}
+		}
+		Post.quad(Shaders.light);
+		RenderSystem.disableBlend();
 	}
 
 	// --- the blast -------------------------------------------------------------------------

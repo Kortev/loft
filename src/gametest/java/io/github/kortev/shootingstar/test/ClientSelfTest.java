@@ -9,10 +9,14 @@ import io.github.kortev.shootingstar.strike.StrikeTimeline;
 import io.github.kortev.shootingstar.strike.Targeting;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.function.DoubleFunction;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.minecraft.block.Block;
+import net.minecraft.block.BlockState;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.render.Camera;
@@ -23,11 +27,14 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.ChunkSectionPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.GameMode;
 import net.minecraft.world.GameRules;
 import net.minecraft.world.Heightmap;
+import net.minecraft.world.chunk.ChunkSection;
+import net.minecraft.world.chunk.WorldChunk;
 
 /**
  * With -Dshootingstar.selftest=true: joins the quick-play world, fires the uplink at a point just
@@ -190,6 +197,9 @@ public class ClientSelfTest implements ClientModInitializer {
 			}
 			case AFTER -> {
 				int r = Targeting.DEFAULT_RADIUS;
+				if (ticks == 10) {
+					compareWorlds(client, server, target, r);
+				}
 				if (ticks == 20) {
 					server.execute(() -> lookFromAbove(server, target.getX(), target.getZ() - r * 13 / 10, r * 9 / 10,
 							Vec3d.ofCenter(target)));
@@ -266,6 +276,82 @@ public class ClientSelfTest implements ClientModInitializer {
 					MathHelper.lerp(b, startPos.z, eye.z), MathHelper.lerpAngleDegrees((float) b, startYaw, yaw),
 					(float) MathHelper.lerp(b, startPitch, pitch));
 		};
+	}
+
+	/**
+	 * Diagnostics for holes in the crater: compares the client's blocks around the crater with the
+	 * server's and logs the sections that differ, plus sections the client thinks are empty.
+	 */
+	private static void compareWorlds(MinecraftClient client, IntegratedServer server, BlockPos center, int r) {
+		int reach = r * 16 / 10;
+		int x0 = center.getX() - reach;
+		int z0 = center.getZ() - reach;
+		int size = reach * 2 + 1;
+		int y0 = center.getY() - 48;
+		int height = 112;
+		int[] serverIds;
+		try {
+			serverIds = server.submit(() -> {
+				ServerWorld world = server.getOverworld();
+				int[] ids = new int[size * size * height];
+				BlockPos.Mutable pos = new BlockPos.Mutable();
+				for (int i = 0; i < size; i++) {
+					for (int k = 0; k < size; k++) {
+						for (int j = 0; j < height; j++) {
+							ids[(i * size + k) * height + j] = Block.getRawIdFromState(world.getBlockState(pos.set(x0 + i, y0 + j, z0 + k)));
+						}
+					}
+				}
+				return ids;
+			}).get();
+		} catch (Exception e) {
+			ShootingStar.LOGGER.error("[selftest] could not read the server world", e);
+			return;
+		}
+		Map<Long, Integer> sections = new TreeMap<>();
+		Map<Long, String> examples = new TreeMap<>();
+		BlockPos.Mutable pos = new BlockPos.Mutable();
+		int mismatches = 0;
+		for (int i = 0; i < size; i++) {
+			for (int k = 0; k < size; k++) {
+				for (int j = 0; j < height; j++) {
+					pos.set(x0 + i, y0 + j, z0 + k);
+					BlockState mine = client.world.getBlockState(pos);
+					int theirs = serverIds[(i * size + k) * height + j];
+					if (Block.getRawIdFromState(mine) != theirs) {
+						mismatches++;
+						long key = ChunkSectionPos.asLong(pos.getX() >> 4, pos.getY() >> 4, pos.getZ() >> 4);
+						sections.merge(key, 1, Integer::sum);
+						examples.putIfAbsent(key, pos.toShortString() + " client=" + mine + " server=" + Block.getStateFromRawId(theirs));
+					}
+				}
+			}
+		}
+		ShootingStar.LOGGER.info("[selftest] client/server block mismatches around the crater: {} in {} sections", mismatches,
+				sections.size());
+		sections.entrySet().stream().sorted((a, b) -> b.getValue() - a.getValue()).limit(24).forEach(e -> {
+			ChunkSectionPos s = ChunkSectionPos.from(e.getKey());
+			ShootingStar.LOGGER.info("[selftest]   section {} {} {}: {} differ, e.g. {}", s.getSectionX(), s.getSectionY(),
+					s.getSectionZ(), e.getValue(), examples.get(e.getKey()));
+		});
+		int empty = 0;
+		for (int sx = x0 >> 4; sx <= (x0 + size) >> 4; sx++) {
+			for (int sz = z0 >> 4; sz <= (z0 + size) >> 4; sz++) {
+				WorldChunk chunk = client.world.getChunkManager().getWorldChunk(sx, sz);
+				if (chunk == null) {
+					ShootingStar.LOGGER.info("[selftest]   chunk {} {} is not loaded on the client", sx, sz);
+					continue;
+				}
+				for (int sy = y0 >> 4; sy <= (y0 + height) >> 4; sy++) {
+					ChunkSection section = chunk.getSection(client.world.sectionCoordToIndex(sy));
+					if (section.isEmpty() && !client.world.getBlockState(pos.set(sx * 16 + 8, sy * 16 + 8, sz * 16 + 8)).isAir()) {
+						empty++;
+						ShootingStar.LOGGER.info("[selftest]   section {} {} {} counts as empty but is not", sx, sy, sz);
+					}
+				}
+			}
+		}
+		ShootingStar.LOGGER.info("[selftest] sections wrongly empty on the client: {}", empty);
 	}
 
 	private static void setUpPlayer(IntegratedServer server) {
