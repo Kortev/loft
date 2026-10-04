@@ -684,14 +684,14 @@ def feed_coils():
     crack = hp(white(n), 2400) * np.exp(-since / 0.005)
     ring = np.sin(2 * np.pi * 1850 * since + k) * np.exp(-since / 0.03) * 0.5
     # Early hits ring out on their own; once they run together the buzz takes over and they thin.
-    alone = np.clip(1.4 - rate / 60.0, 0.25, 1.0)
-    hits = (thump * 0.9 + crack * 0.55 + ring * 0.4) * alone
-    m.add(pan(hits, 0.2 * np.sin(2 * np.pi * phase / 7.0)), 0, 0.6)
+    alone = np.clip(1.6 - rate / 50.0, 0.25, 1.3)
+    hits = (thump * 0.9 + crack * 0.6 + ring * 0.45) * alone
+    m.add(pan(hits, 0.2 * np.sin(2 * np.pi * phase / 7.0)), 0, 1.0)
     buzz = lp(saw(rate, n), 2500) * np.clip((rate - 40) / 120.0, 0, 1)
     m.add(stereo(buzz), 0, 0.12)
     roar = decorrelated(n, pink)
     roar = np.vstack([sweep_filter(c, 'lowpass', 300 + 4500 * v ** 1.5, order=2) for c in roar]) * v ** 1.5
-    m.add(roar, 0, 0.5)
+    m.add(roar, 0, 0.35)
     m.add(grains(n, lambda s: 1 + 40 * lap_velocity(s), spark_zap, spread=1.0), 0, 0.2)
     out = m.out() * curve(n, [(0, 0), (0.01, 1), (total - 0.05, 1), (total, 0)])
     _, hall, _, _ = spaces()

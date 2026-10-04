@@ -60,7 +60,7 @@ void main() {
     float s = max(outline, holes);
     float aa = fwidth(s) + 1.0e-4;
     // The ink line, a couple of pixels wide (thinner on small, far puffs): the ink pass draws the puff this much fatter.
-    float line = min(aa * 2.4, 0.08);
+    float line = min(aa * 3.2, 0.1);
     float inside = 1.0 - smoothstep(-aa, aa, s - (Pass < 0.5 ? line : 0.0));
     if (inside <= 0.003) {
         discard;
