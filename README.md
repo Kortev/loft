@@ -134,6 +134,9 @@ screenShake=1.0    # 0 turns shake off
 
 ## Building
 
+Needs a JDK 21 installed (on Windows: `winget install EclipseAdoptium.Temurin.21.JDK`). Gradle runs
+on it even when your default Java is newer.
+
 ```sh
 ./gradlew build            # jar in build/libs/
 ./gradlew runGametest      # server game tests: targeting, crust cooling, a full strike
