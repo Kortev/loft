@@ -75,7 +75,12 @@ public final class MirrorWorld implements AutoCloseable {
 					continue;
 				}
 				int g = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, cx + dx, cz + dz) - 1;
-				int t = Math.min(world.getTopY(Heightmap.Type.WORLD_SURFACE, cx + dx, cz + dz) - 1, g + MAX_ABOVE);
+				if (g <= world.getBottomY()) {
+					// Not loaded on this client, or nothing there.
+					ground[c] = Integer.MIN_VALUE;
+					continue;
+				}
+				int t =Math.min(world.getTopY(Heightmap.Type.WORLD_SURFACE, cx + dx, cz + dz) - 1, g + MAX_ABOVE);
 				int h = mountain(Math.sqrt(dx * dx + dz * dz));
 				ground[c] = g;
 				tops[c] = Math.max(t, g + h);
