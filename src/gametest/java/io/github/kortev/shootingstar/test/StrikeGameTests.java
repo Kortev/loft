@@ -80,6 +80,15 @@ public class StrikeGameTests implements FabricGameTest {
 		ZombieEntity outer = zombie(context, new BlockPos(29, 4, 48));
 
 		StrikeManager.launch(world, center, null);
+		// The blast's own effect on the zombie in the scorched ring, read just after the shock front has passed
+		// it (about 17 ticks out at this size): given time it may well burn or fall to its death, which is fine.
+		String[] outerAfterBlast = new String[1];
+		context.waitAndRun(StrikeTimeline.IMPACT + 20, () -> {
+			if (!outer.isAlive() || outer.getHealth() >= outer.getMaxHealth() || !outer.isOnFire()) {
+				outerAfterBlast[0] = "zombie in the scorched ring should be hurt and burning but has " + outer.getHealth()
+						+ " hp, alive=" + outer.isAlive() + ", burning=" + outer.isOnFire() + "; ";
+			}
+		});
 		context.waitAndRun(StrikeTimeline.IMPACT + 30, () -> {
 			// Collect every problem so one run reports all of them.
 			StringBuilder problems = new StringBuilder();
@@ -115,9 +124,8 @@ public class StrikeGameTests implements FabricGameTest {
 			if (mid.isAlive()) {
 				problems.append("zombie in the planed zone survived with ").append(mid.getHealth()).append(" hp; ");
 			}
-			if (!outer.isAlive() || outer.getHealth() >= outer.getMaxHealth() || !outer.isOnFire()) {
-				problems.append("zombie in the scorched ring should be hurt and burning but has ").append(outer.getHealth())
-						.append(" hp, alive=").append(outer.isAlive()).append(", burning=").append(outer.isOnFire()).append("; ");
+			if (outerAfterBlast[0] != null) {
+				problems.append(outerAfterBlast[0]);
 			}
 			ShootingStar.LOGGER.info("[gametest] fullStrike: {}", problems.length() == 0 ? "ok" : problems);
 			context.assertTrue(problems.length() == 0, problems.toString());

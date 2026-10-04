@@ -599,6 +599,22 @@ final class Shots {
 			glow.sprite(new Vector3f(roundPos).add(new Vector3f(down).mul(unit * 5.5F * ROUND_SCALE)), unit * (1.5F + heat * 3.0F), 0,
 					Fx.argb(1.0F, 0.8F, 0.55F, heat));
 			glow.end(true);
+			// Ionised air tearing off the sheath and streaming back past the camera.
+			Vector3f side = new Vector3f(down).cross(NORTH).normalize();
+			Vector3f side2 = new Vector3f(side).cross(down).normalize();
+			float body = unit * ROUND_SCALE;
+			Fx streaks = space.glow(cam, Fx.STREAK, 0);
+			for (int i = 0; i < 80; i++) {
+				double f = (time * (0.07 + 0.03 * heat) + (i * 0.618034) % 1.0) % 1.0;
+				double angle = i * 2.399963;
+				float r = body * (1.1F + (i % 9) * 0.32F) * (1.0F + (float) f * 0.6F);
+				Vector3f p = new Vector3f(roundPos).add(new Vector3f(down).mul(body * (9.0F - 30.0F * (float) f)))
+						.add(new Vector3f(side).mul((float) Math.cos(angle) * r)).add(new Vector3f(side2).mul((float) Math.sin(angle) * r));
+				float fade = (float) (Math.sin(Math.PI * f));
+				streaks.stretched(p, down, body * (1.5F + 5.0F * heat), body * 0.05F,
+						Fx.argb(1.0F, 0.72F + 0.2F * heat, 0.42F, heat * fade * 0.85F));
+			}
+			streaks.end(true, 3.0F);
 		}
 		o.header = "[ TERMINAL · SOL-3 ]";
 		o.headerReveal = smooth(s / 4.0);
