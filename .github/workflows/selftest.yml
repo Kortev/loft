@@ -2,10 +2,9 @@ name: selftest
 
 # Plays a full strike in a real client under a virtual display, records it as a video with the mod's
 # sounds mixed in, and screenshots every phase. The video and screenshots are uploaded as artifacts.
+# Run by hand only (Actions > selftest > Run workflow).
 on:
   workflow_dispatch:
-  push:
-    branches: ['claude/**']
 
 jobs:
   selftest:

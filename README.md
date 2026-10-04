@@ -85,16 +85,35 @@ the feed and the camera shots. Press **Backspace** (rebindable) to skip the feed
   N C N     C = Compass
   ```
 
+## Ω-00 Ginnungagap, the Genesis Key
+
+Look at a block at least 24 blocks away and use the key. The sky breaks over the target, a shard of
+another universe crashes into it, and everything within `ginnungagapRadius` is erased, leaving you
+alone in the dark. Use the key again to let reality back in.
+
+- **Try it:** `/give @s shootingstar:genesis_key`, or `/ginnungagap open <pos>` (operators).
+- **Craft it:**
+
+  ```
+    R       R = Recovery Compass   E = Echo Shard
+  E S E     S = Nether Star        H = Heavy Core
+    H
+  ```
+
 ## Commands and game rules
 
 - `/gungnir strike <pos>`: call a strike on a position (operators).
 - `/gungnir cancel`: call off every strike that has not landed yet.
+- `/ginnungagap open <pos>`: open a Ginnungagap on a position (operators).
+- `/ginnungagap release`: end every Ginnungagap and let reality back in.
 
 | Game rule              | Default | Meaning                                                  |
 |------------------------|---------|----------------------------------------------------------|
 | `gungnirTerrainDamage` | `true`  | `false` keeps terrain intact (entities are still hit).   |
 | `gungnirCraterRadius`  | `64`    | Radius of the planed zone, 8–160.                        |
 | `gungnirSpire`         | `true`  | Whether the spent round is left standing as a spire.     |
+| `ginnungagapRadius`    | `96`    | Radius erased by a Ginnungagap, 16–256.                  |
+| `ginnungagapTerrainDamage` | `true` | `false` leaves the blocks in place.                  |
 
 ## Client options
 

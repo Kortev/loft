@@ -46,8 +46,9 @@ public final class GapTimeline {
 			return 130.0 + 110.0 * (1.0 - smooth((t - TEAR) / (CLOSING - TEAR)));
 		}
 		if (t < CONTACT) {
+			// It hangs, then comes down faster and faster: it hits at full speed.
 			double p = (t - CLOSING) / (CONTACT - CLOSING);
-			return 130.0 * Math.pow(1.0 - p, 1.7);
+			return 130.0 * (1.0 - Math.pow(p, 1.6));
 		}
 		return -PRESS * smooth((t - CONTACT) / (ERASURE - CONTACT));
 	}

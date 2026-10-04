@@ -83,17 +83,22 @@ vec3 cosmos(vec3 d, float t) {
 void main() {
     vec3 view = normalize(relPos);
     vec3 n = normalize(worldNormal);
-    // Look into it a little differently from the sky behind, so it stands out from it.
-    vec3 d = normalize(reflect(view, n) * 0.35 + view + Spin);
-    vec3 c = cosmos(d, Time) * 1.3;
-    float rim = pow(1.0 - abs(dot(view, n)), 3.0);
-    c += vec3(0.75, 0.95, 1.0) * rim * 2.2;
-    // The facet edges: a hard white line a pixel or two wide with a soft glow inside it (the texture
-    // coordinates are barycentric).
+    if (dot(n, view) > 0.0) {
+        n = -n;
+    }
+    float facing = -dot(view, n);
+    // Looking into it, bent at each facet, so every facet shows its own patch of their universe, brighter than the
+    // broken sky behind it.
+    vec3 d = normalize(refract(view, n, 0.7) + Spin);
+    vec3 c = cosmos(d, Time) * 1.9;
+    // Deep violet at heart, so it never melts into the sky behind.
+    c += vec3(0.07, 0.02, 0.16) * (0.5 + facing);
+    c += vec3(0.5, 0.6, 1.0) * pow(1.0 - facing, 3.0) * 0.6;
+    // The facet edges: a hard white hairline with a little glow inside it (the texture coordinates are barycentric).
     vec3 b = vec3(texCoord0, 1.0 - texCoord0.x - texCoord0.y);
     float e = min(min(b.x, b.y), b.z);
     float px = max(fwidth(e), 1.0e-5);
-    c += vec3(0.9, 1.0, 1.0) * (1.0 - smoothstep(0.0, px * 1.6, e));
-    c += vec3(0.45, 0.85, 1.0) * exp(-e / (px * 9.0)) * 0.55;
+    c += vec3(0.9, 1.0, 1.0) * (1.0 - smoothstep(0.0, px * 1.4, e)) * 1.2;
+    c += vec3(0.5, 0.75, 1.0) * exp(-e * 16.0) * 0.3;
     fragColor = vec4(min(c, vec3(1.0)), 1.0);
 }

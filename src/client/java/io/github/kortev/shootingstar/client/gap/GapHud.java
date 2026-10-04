@@ -56,11 +56,12 @@ public final class GapHud {
 				text(ctx, font, "GINNUNGAGAP", w / 2, h * 0.75F, 4.0F, WHITE, title, true);
 				text(ctx, font, "IT CRASHES A UNIVERSE INTO OURS", w / 2, h * 0.87F, 1.2F, PALE, title, true);
 			}
-			Vec3d tip = gap.shardTip(t).add(0, 30, 0);
+			Vec3d tip = gap.shardTip(t).add(0, 24, 0);
 			Vector3f p = WorldProjector.project(tip.x, tip.y, tip.z, w, h);
 			float label = (float) ease((t - 166) / 8.0);
-			if (p != null && label > 0.0F) {
-				leader(ctx, font, p.x, p.y, p.x + 40, p.y + 18, "UNIVERSE 4,096,113", label);
+			// Kept clear of the header when the shard is high in the frame.
+			if (p != null && label > 0.0F && p.y > 40 && p.y < h * 0.62F) {
+				leader(ctx, font, p.x + 8, p.y, p.x + 48, p.y + 18, "UNIVERSE 4,096,113", label);
 			}
 		} else if (t < GapTimeline.CONTACT) {
 			boolean eyes = t >= 236 && t < 248;
@@ -84,26 +85,17 @@ public final class GapHud {
 					caption(ctx, font, w, h, typed("MATTER SWAPPING BETWEEN UNIVERSES", (t - GapTimeline.TREE_SWAP) / 12.0), 1.0F);
 				}
 			}
-			if (t >= 294) {
-				caption(ctx, font, w, h, "BLOCKS SWAPPING ALL OVER THE MAP", (float) (ease((t - 294) / 4.0) * (1.0 - ease((t - 305) / 4.0))));
-			}
 		} else if (t < GapTimeline.FRAMES) {
 			float a = (float) ease((t - GapTimeline.CONTACT) / 3.0);
 			text(ctx, font, "CONTACT", w / 2, h * 0.18F, 3.2F, WHITE, a, true);
-			footer(ctx, font, w, h, "UNIVERSE 1 × UNIVERSE 4,096,113 · ALL SOUND STOPS", (float) ease((t - GapTimeline.CONTACT - 4) / 6.0));
+			footer(ctx, font, w, h, "UNIVERSE 1 × UNIVERSE 4,096,113", (float) ease((t - GapTimeline.CONTACT - 4) / 6.0));
 		} else if (t >= GapTimeline.ERASURE && t < GapTimeline.NOTHING) {
 			header(ctx, font, w, typed("[ ERASURE ]", (t - GapTimeline.ERASURE) / 10.0), 1.0F);
 			double front = GapTimeline.eraseFront(t);
 			int pct = (int) Math.floor(100.0 * MathHelper.clamp(front / 900.0, 0.0, 1.0));
 			footer(ctx, font, w, h, "REALITY ERASED " + pct + "%", 1.0F);
-		} else if (t >= GapTimeline.NOTHING && t < GapTimeline.END) {
-			if (t < 720) {
-				header(ctx, font, w, typed("[ GINNUNGAGAP ]", (t - 640) / 16.0), 1.0F);
-				caption(ctx, font, w, h, typed("ALL OF REALITY IS GONE", (t - 650) / 18.0), 1.0F);
-			} else {
-				text(ctx, font, typed("THERE IS NOTHING LEFT BUT YOU", (t - 732) / 24.0), w / 2, h * 0.16F, 1.6F, WHITE, 1.0F, true);
-			}
 		} else if (t >= GapTimeline.END) {
+			// Nothing is said in the black. Only, after a while, how to get out of it.
 			float a = (float) ease((t - GapTimeline.END - 40) / 20.0);
 			text(ctx, font, "USE THE KEY TO LET REALITY BACK IN", w / 2, h * 0.16F, 1.0F, 0x8A8A8A, a, true);
 		}

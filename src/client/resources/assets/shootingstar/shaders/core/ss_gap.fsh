@@ -276,43 +276,81 @@ vec3 viewDir(vec2 uv) {
     return normalize(far.xyz / far.w);
 }
 
-// The sky breaks into shards that fall away from where it first cracked, showing the other universe behind.
+// The sky breaks like glass from straight over the target: long shards running out from the break, each one
+// cracking, then dropping away into the other universe behind it. Our ground takes on that universe's light.
+vec2 shardSeed(vec2 g, float n) {
+    vec2 id = vec2(g.x, mod(g.y, n));
+    return g + 0.12 + 0.76 * vec2(c_hash(vec3(id, 1.3)), c_hash(vec3(id, 7.9)));
+}
+
 vec3 shatter(vec2 uv, vec3 c) {
-    if (Shatter <= 0.0 || !isSky(uv)) {
+    if (Shatter <= 0.0) {
         return c;
     }
+    if (!isSky(uv)) {
+        float k = smoothstep(0.0, 2.4, Shatter) * 0.5;
+        float lum = dot(c, vec3(0.299, 0.587, 0.114));
+        vec3 lit = mix(vec3(lum), c, 0.75) * vec3(0.8, 0.68, 1.22);
+        return mix(c, lit, k);
+    }
     vec3 d = viewDir(uv);
-    vec3 p = d * 5.5;
-    vec3 cell = floor(p);
+    vec3 s = normalize(ShatterFrom);
+    vec3 e1 = normalize(cross(s, abs(s.y) < 0.99 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0)));
+    vec3 e2 = cross(s, e1);
+    float theta = acos(clamp(dot(d, s), -1.0, 1.0));
+    float phi = atan(dot(d, e2), dot(d, e1));
+    // Log-polar, so the shards grow with distance from the break but keep their long, thin shape.
+    const float A = 2.1;
+    const float N = 22.0;
+    vec2 p = vec2(log(theta + 0.02) * A, (phi / 6.2831853 + 0.5) * N);
+    p += (vec2(c_noise(d * 23.0), c_noise(d * 23.0 + 7.3)) - 0.5) * 0.28;
+    vec2 cell = floor(p);
     float best = 9.0;
-    float second = 9.0;
-    vec3 owner = vec3(0.0);
-    for (int z = -1; z <= 1; z++) {
-        for (int y = -1; y <= 1; y++) {
-            for (int x = -1; x <= 1; x++) {
-                vec3 g = cell + vec3(float(x), float(y), float(z));
-                vec3 o = g + vec3(c_hash(g), c_hash(g + 13.7), c_hash(g + 29.1));
-                float dist = length(p - o);
-                if (dist < best) {
-                    second = best;
-                    best = dist;
-                    owner = o;
-                } else if (dist < second) {
-                    second = dist;
-                }
+    vec2 seed = vec2(0.0);
+    for (int y = -1; y <= 1; y++) {
+        for (int x = -1; x <= 1; x++) {
+            vec2 o = shardSeed(cell + vec2(float(x), float(y)), N);
+            float dist = length(p - o);
+            if (dist < best) {
+                best = dist;
+                seed = o;
             }
         }
     }
-    float from = acos(clamp(dot(normalize(owner), ShatterFrom), -1.0, 1.0));
-    float delay = c_hash(floor(owner * 3.0)) * 0.35;
-    float open = smoothstep(0.0, 0.08, Shatter - from - delay);
-    float edge = 1.0 - smoothstep(0.0, 0.035, second - best);
-    float cracked = smoothstep(0.0, 0.25, Shatter + 0.45 - from - delay);
+    vec2 own = floor(seed);
+    vec2 id = vec2(own.x, mod(own.y, N));
+    // How far this point is from the nearest edge of its shard.
+    float edge = 9.0;
+    for (int y = -1; y <= 1; y++) {
+        for (int x = -1; x <= 1; x++) {
+            vec2 o = shardSeed(own + vec2(float(x), float(y)), N);
+            vec2 to = o - seed;
+            if (dot(to, to) > 1.0e-5) {
+                edge = min(edge, dot(0.5 * (seed + o) - p, normalize(to)));
+            }
+        }
+    }
+    // One pixel, measured in shard space, so the cracks stay hairline however big the shards get.
+    float ang = length(viewDir(uv + vec2(1.0 / ScreenSize.x, 0.0)) - d);
+    float px = ang * max(A / (theta + 0.02), N / (6.2831853 * max(sin(theta), 0.05)));
+
+    float from = exp(seed.x / A) - 0.02;
+    float local = Shatter - from - c_hash(vec3(id, 3.7)) * 0.22;
+    float crack = smoothstep(-0.32, -0.04, local);
+    float fall = smoothstep(0.0, 0.3, local);
     vec3 behind = cosmos(d, CosmosTime);
-    vec3 outC = mix(c, behind, open);
-    // Cracks run ahead of the opening, white hot, and the freshly broken edges burn.
-    float burn = edge * cracked * (1.0 - 0.7 * open);
-    return outC + vec3(0.85, 1.0, 1.0) * burn * 1.6;
+    // As it falls the shard shrinks back from its edges, darkening, with its broken rim burning white.
+    float inset = fall * 0.55;
+    if (fall >= 1.0) {
+        return behind;
+    }
+    if (edge < inset) {
+        return behind + vec3(0.6, 0.85, 1.0) * exp(-(inset - edge) / (8.0 * px)) * 0.5 * (1.0 - fall);
+    }
+    float tilt = 0.8 + 0.4 * c_hash(vec3(id, 5.1));
+    vec3 piece = c * mix(1.0, tilt, crack) * (1.0 - 0.6 * fall);
+    float rim = 1.0 - smoothstep(0.0, px * (1.3 + 2.5 * fall), edge - inset);
+    return piece + vec3(0.85, 1.0, 1.0) * rim * crack * 1.4;
 }
 
 vec3 erase(vec2 uv, vec3 c) {

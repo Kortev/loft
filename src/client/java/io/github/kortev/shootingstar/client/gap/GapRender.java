@@ -114,8 +114,8 @@ public final class GapRender {
 
 	// --- the shard: a piece of the other universe, falling out of the broken sky -------------
 
-	private static final double[] RING_H = {0, 7, 20, 40, 64, 88, 106, 118, 126};
-	private static final double[] RING_R = {0, 3.4, 9, 14.5, 17.5, 15, 9.5, 2.5, 0};
+	private static final double[] RING_H = {0, 8, 24, 48, 76, 104, 126, 140, 150};
+	private static final double[] RING_R = {0, 4.6, 12, 19, 23.5, 20, 13, 3.5, 0};
 	private static final int SIDES = 7;
 	/** Smaller pieces breaking off round the big one: angle, distance out, height over the big one's tip, size. */
 	private static final double[][] CHIPS = {
@@ -203,13 +203,25 @@ public final class GapRender {
 					Vector3f pa = rel(prev, cam);
 					Vector3f pb = rel(p, cam);
 					float dist = new Vector3f(pa).add(pb).mul(0.5F).length();
-					BATCH.beam(pa, pb, eye, Math.max(0.04F, dist * 0.0025F), Fx.fade(WHITE, 0.8F), Fx.fade(WHITE, 0.8F));
-					BATCH.beam(pa, pb, eye, Math.max(0.2F, dist * 0.011F), Fx.fade(CYAN, 0.22F), Fx.fade(CYAN, 0.22F));
+					BATCH.beam(pa, pb, eye, Math.max(0.04F, dist * 0.0022F), Fx.fade(WHITE, 0.55F), Fx.fade(WHITE, 0.55F));
+					BATCH.beam(pa, pb, eye, Math.max(0.2F, dist * 0.01F), Fx.fade(CYAN, 0.14F), Fx.fade(CYAN, 0.14F));
 				}
 				prev = p;
 			}
 		}
 		BATCH.end(true, 1.4F);
+		// Dust of their universe streaming off it as it falls, left behind above it.
+		BATCH.begin(Fx.BLOB, 0.0F, view, proj, right, up);
+		for (int i = 0; i < 110; i++) {
+			double life = (t * 0.9 + noise(seed, 800 + i) * 40.0) % 40.0;
+			double h = noise(seed, 500 + i) * 140.0 + life * 1.8;
+			double a = noise(seed, 600 + i) * Math.PI * 2;
+			double r = 5.0 + noise(seed, 700 + i) * 20.0 + life * 0.35;
+			Vec3d p = tip.add(axis.multiply(h)).add(u.multiply(Math.cos(a) * r)).add(v.multiply(Math.sin(a) * r));
+			float fade = (float) Math.sin(Math.PI * life / 40.0);
+			BATCH.sprite(rel(p, cam), 0.5F + 0.9F * (float) noise(seed, 900 + i), 0.0F, Fx.fade(i % 3 == 0 ? PURPLE : CYAN, 0.5F * fade));
+		}
+		BATCH.end(true, 1.3F);
 	}
 
 	// --- marks: the lock, the swaps, the contact ------------------------------------------

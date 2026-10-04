@@ -13,9 +13,9 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * The shooter's shots through a Ginnungagap event: first person while the key turns; on the hill with them as
- * they aim; a long way off to the side for the sky breaking and the shard of the other universe falling out of
- * it, with a cutaway up from their eyes and a tilt that follows a patch of ground up into the broken sky; low at
- * the point of contact;
+ * they aim, craning down and tilting up past them as the sky breaks; a long way off to the side for the shard
+ * of the other universe falling out of it, with a cutaway up from their eyes and a tilt that follows a patch of
+ * ground up into the broken sky; on the ground under the shard as it comes down; low at the point of contact;
  * a hard cut for every impact frame; the wide shot again as everything is erased; then in on them, alone, and
  * back to their eyes. No shot ever starts inside a hill.
  */
@@ -49,7 +49,7 @@ public final class GapCamera {
 			return aim(gap, feet, t);
 		}
 		if (t < GapTimeline.CLOSING) {
-			return wide(gap, feet, t);
+			return t < 178 ? lookUp(gap, feet, t) : wide(gap, feet, t);
 		}
 		if (t < GapTimeline.CONTACT) {
 			if (t >= 236 && t < 248) {
@@ -57,6 +57,9 @@ public final class GapCamera {
 			}
 			if (t >= 248 && t < 294) {
 				return swapShot(gap, t);
+			}
+			if (t >= 294) {
+				return under(gap, t);
 			}
 			return wide(gap, feet, t);
 		}
@@ -90,7 +93,23 @@ public final class GapCamera {
 		if (t < 126) {
 			return blend(close, shoulder, ease((t - 92) / 26.0));
 		}
-		return blend(shoulder, wide(gap, feet, t), ease((t - 126) / 24.0));
+		return blend(shoulder, lookUp(gap, feet, t), ease((t - 126) / 24.0));
+	}
+
+	/** Down low behind the shooter, tilting up past them at the sky over the target as it breaks. */
+	private static Shot lookUp(ClientGap gap, Vec3d feet, double t) {
+		double k = ease((t - 140) / 40.0);
+		Vec3d chest = feet.add(0, 1.4, 0);
+		Vec3d eye = feet.add(gap.along.multiply(-4.4 + 0.9 * k)).add(gap.across.multiply(1.4)).add(0, 0.5, 0);
+		return lookAt(clear(eye, chest), gap.contact.add(0, 46 + 22 * k, 0));
+	}
+
+	/** On the ground near the target, looking up at the shard as it comes down on top of it. */
+	private static Shot under(ClientGap gap, double t) {
+		Vec3d side = gap.across.multiply(-1).add(gap.along.multiply(-0.6)).normalize();
+		double tip = Math.max(0.0, GapTimeline.shardTip(t));
+		Vec3d eye = clear(gap.contact.add(side.multiply(17.0)).add(0, 1.2, 0), gap.contact.add(0, 2, 0));
+		return lookAt(eye, gap.contact.add(0, 3.0 + 0.8 * tip, 0));
 	}
 
 	/**
@@ -107,7 +126,9 @@ public final class GapCamera {
 		}
 		double drift = ease((t - GapTimeline.TEAR) / (GapTimeline.CONTACT - GapTimeline.TEAR));
 		Vec3d eye = gap.wideEye.lerp(new Vec3d(mid.x, gap.wideEye.y, mid.z), 0.1 * drift).add(0, 5 * drift, 0);
-		return lookAt(eye, new Vec3d(mid.x, gap.surface + 58, mid.z));
+		// Tilting down with the shard as it falls, but never so far up that the ground leaves the frame.
+		double lift = MathHelper.clamp(GapTimeline.shardTip(t) * 0.45 + 20.0, 38.0, 62.0);
+		return lookAt(eye, new Vec3d(mid.x, gap.surface + lift, mid.z));
 	}
 
 	/** Beside the patch that trades places: on it as it goes, then tilting up after it into the broken sky. */
@@ -126,7 +147,11 @@ public final class GapCamera {
 		double k = ease((t - GapTimeline.CONTACT) / (GapTimeline.FRAMES - GapTimeline.CONTACT));
 		Vec3d side = gap.across.multiply(-1).add(gap.along.multiply(-0.6)).normalize();
 		Vec3d at = gap.contact.add(0, 2.6, 0);
-		return lookAt(clear(gap.contact.add(side.multiply(9.0 - 1.5 * k)).add(0, 1.4, 0), at), at);
+		Vec3d eye = clear(gap.contact.add(side.multiply(9.0 - 1.5 * k)).add(0, 1.4, 0), at);
+		// The hit shakes it.
+		double s = Math.exp(-(t - GapTimeline.CONTACT) / 3.0) * 0.35;
+		eye = eye.add(Math.sin(t * 41.0) * s, Math.cos(t * 37.0) * s, Math.sin(t * 29.0 + 1.3) * s);
+		return lookAt(eye, at);
 	}
 
 	static Shot frameShot(ClientGap gap, int shot, Vec3d eye, Vec3d feet) {
