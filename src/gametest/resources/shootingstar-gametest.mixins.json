@@ -6,7 +6,9 @@
 		"CaptureCameraMixin",
 		"MinecraftClientCaptureMixin",
 		"RenderTickCounterMixin",
-		"SoundManagerMixin"
+		"SoundManagerMixin",
+		"WorldRendererAccessor",
+		"BuiltChunkStorageAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 1

@@ -7,8 +7,11 @@ import io.github.kortev.shootingstar.registry.ModItems;
 import io.github.kortev.shootingstar.strike.StrikeManager;
 import io.github.kortev.shootingstar.strike.StrikeTimeline;
 import io.github.kortev.shootingstar.strike.Targeting;
+import io.github.kortev.shootingstar.test.mixin.BuiltChunkStorageAccessor;
+import io.github.kortev.shootingstar.test.mixin.WorldRendererAccessor;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.function.DoubleFunction;
@@ -19,7 +22,11 @@ import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.render.BuiltChunkStorage;
 import net.minecraft.client.render.Camera;
+import net.minecraft.client.render.WorldRenderer;
+import net.minecraft.client.render.chunk.ChunkBuilder;
+import net.minecraft.client.world.ClientWorld;
 import net.minecraft.client.util.ScreenshotRecorder;
 import net.minecraft.item.ItemStack;
 import net.minecraft.server.integrated.IntegratedServer;
@@ -28,6 +35,7 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkSectionPos;
+import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.GameMode;
@@ -56,6 +64,7 @@ public class ClientSelfTest implements ClientModInitializer {
 	private static int ticks;
 	private static BlockPos target;
 	private static boolean fallbackFired;
+	private static final Map<Long, int[]> SECTION_SEEN = new HashMap<>();
 
 	@Override
 	public void onInitializeClient() {
@@ -196,6 +205,9 @@ public class ClientSelfTest implements ClientModInitializer {
 								target.getZ() + 0.5, player.getYaw(), 90.0F);
 					});
 				}
+				if (ticks % 40 == 1) {
+					renderState(client, target, "fly-over " + ticks);
+				}
 				if (ticks >= FLYOVER_TICKS) {
 					Capture.stop();
 					client.options.hudHidden = false;
@@ -207,6 +219,9 @@ public class ClientSelfTest implements ClientModInitializer {
 				int r = Targeting.DEFAULT_RADIUS;
 				if (ticks == 10) {
 					compareWorlds(client, server, target, r);
+				}
+				if (ticks == 10 || ticks == 60 || ticks == 99 || ticks == 140 || ticks == 219) {
+					renderState(client, target, "after " + ticks);
 				}
 				if (ticks == 20) {
 					server.execute(() -> lookFromAbove(server, target.getX(), target.getZ() - r * 13 / 10, r * 9 / 10,
@@ -388,6 +403,66 @@ public class ClientSelfTest implements ClientModInitializer {
 			}
 		}
 		ShootingStar.LOGGER.info("[selftest] sections wrongly empty on the client: {}", empty);
+	}
+
+	/**
+	 * Diagnostics for holes in the crater: the mesh builder's backlog, and for each section round the spire whether
+	 * its blocks changed since the last look, whether its mesh was rebuilt since then, whether it waits for a rebuild,
+	 * and how many of its opaque blocks face open air (a section with open faces and no mesh is a hole).
+	 */
+	private static void renderState(MinecraftClient client, BlockPos center, String when) {
+		WorldRenderer renderer = client.worldRenderer;
+		ClientWorld world = client.world;
+		BuiltChunkStorage storage = ((WorldRendererAccessor) renderer).shootingstarTest$getChunks();
+		StringBuilder out = new StringBuilder();
+		if (storage != null && world != null && center != null) {
+			int cx = center.getX() >> 4;
+			int cz = center.getZ() >> 4;
+			for (ChunkBuilder.BuiltChunk chunk : ((BuiltChunkStorageAccessor) storage).shootingstarTest$getChunks()) {
+				BlockPos o = chunk.getOrigin();
+				if (Math.abs((o.getX() >> 4) - cx) > 1 || Math.abs((o.getZ() >> 4) - cz) > 1 || o.getY() < center.getY() - 40
+						|| o.getY() > center.getY() + 8) {
+					continue;
+				}
+				int[] blocks = sectionBlocks(world, o);
+				ChunkBuilder.ChunkData data = chunk.getData();
+				int mesh = System.identityHashCode(data);
+				int[] seen = SECTION_SEEN.put(o.asLong(), new int[] {blocks[1], mesh});
+				out.append(String.format(java.util.Locale.ROOT, "[%d,%d,%d %s%s%s%s open=%d] ", o.getX() >> 4, o.getY() >> 4,
+						o.getZ() >> 4, data == ChunkBuilder.ChunkData.EMPTY ? "never-built" : data.isEmpty() ? "empty" : "mesh",
+						chunk.needsRebuild() ? " dirty" : "", seen != null && seen[0] != blocks[1] ? " blocks-changed" : "",
+						seen != null && seen[1] != mesh ? " rebuilt" : "", blocks[0]));
+			}
+		}
+		ShootingStar.LOGGER.info("[selftest] render {}: {} | {} | {}", when, renderer.getChunksDebugString(),
+				renderer.getChunkBuilder().getDebugString(), out);
+	}
+
+	/** Opaque blocks with a face open to the air, and a hash of the section's blocks. */
+	private static int[] sectionBlocks(ClientWorld world, BlockPos origin) {
+		int open = 0;
+		int hash = 1;
+		BlockPos.Mutable p = new BlockPos.Mutable();
+		BlockPos.Mutable q = new BlockPos.Mutable();
+		for (int x = 0; x < 16; x++) {
+			for (int y = 0; y < 16; y++) {
+				for (int z = 0; z < 16; z++) {
+					p.set(origin.getX() + x, origin.getY() + y, origin.getZ() + z);
+					BlockState state = world.getBlockState(p);
+					hash = hash * 31 + Block.getRawIdFromState(state);
+					if (state.isAir() || !state.isOpaqueFullCube(world, p)) {
+						continue;
+					}
+					for (Direction d : Direction.values()) {
+						if (world.getBlockState(q.set(p, d)).isAir()) {
+							open++;
+							break;
+						}
+					}
+				}
+			}
+		}
+		return new int[] {open, hash};
 	}
 
 	private static void setUpPlayer(IntegratedServer server) {
