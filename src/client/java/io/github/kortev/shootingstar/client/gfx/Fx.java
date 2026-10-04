@@ -19,6 +19,8 @@ public final class Fx {
 	public static final int SPIKES = 5;
 	/** A hard-edged tapered streak with a white core, drawn rather than glowing (the impact's sparks). */
 	public static final int DRAWN_STREAK = 6;
+	/** A beam with no fade at its ends, for polylines (the transfer plot's orbits and track). */
+	public static final int LINE = 7;
 
 	private final Vector3f right = new Vector3f();
 	private final Vector3f up = new Vector3f();

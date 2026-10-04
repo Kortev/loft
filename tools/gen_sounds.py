@@ -511,17 +511,19 @@ def feed_zoom():
 
 def feed_ambience():
     """The bed under the whole feed: a dark, slowly breathing drone that follows the shots (orbit,
-    relay, wake, loading, laps, release, re-entry) and quiet telemetry chatter on top."""
-    total = 14.4
+    relay, wake, loading, laps, release, the journey in, re-entry) and quiet telemetry chatter on top."""
+    total = 18.2
     n = ns(total)
     t = times(total)
     # Sections relative to the start of the feed (StrikeTimeline: ORBIT=0, RELAY=1.4, WAKE=2.6, LOADING=4.8,
-    # LAPS=5.8, RELEASE=10.0, DEBRIS=11.5, TERMINAL=12.6, INBOUND=14.3). The bed drops away for the slow-motion
-    # release, so the slowed sounds have the space to themselves.
+    # LAPS=5.8, RELEASE=10.0, DEBRIS=11.5, TRANSIT=12.7, TERMINAL=15.1, REENTRY=16.5, INBOUND=18.2). The bed drops
+    # away for the slow-motion release, so the slowed sounds have the space to themselves, and sits under the
+    # cruise once the camera chases the round down.
     level = curve(n, [(0, 0), (1.2, 0.55), (2.5, 0.6), (2.8, 0.85), (4.6, 0.8), (5.0, 0.55), (5.8, 0.6), (9.8, 1.0),
-                      (10.0, 0.08), (11.3, 0.08), (11.7, 0.5), (12.6, 0.7), (14.3, 0.0), (14.4, 0.0)])
-    bright = curve(n, [(0, 260), (2.6, 380), (4.8, 520), (5.8, 400), (9.9, 2400), (10.0, 300), (11.5, 600), (12.6, 900),
-                       (14.4, 1800)], 'log')
+                      (10.0, 0.08), (10.9, 0.08), (11.3, 0.45), (12.7, 0.5), (13.2, 0.35), (15.1, 0.45), (16.5, 0.7),
+                      (18.1, 0.0), (18.2, 0.0)])
+    bright = curve(n, [(0, 260), (2.6, 380), (4.8, 520), (5.8, 400), (9.9, 2400), (10.0, 300), (11.5, 600), (12.7, 700),
+                       (15.1, 800), (16.5, 1000), (18.2, 1800)], 'log')
     m = Mix(total)
     for f, g, det in ((55.0, 1.0, 0.004), (82.41, 0.6, 0.006), (110.0, 0.35, 0.008)):
         stack = supersaw(f * (1 + 0.003 * np.sin(2 * np.pi * 0.05 * t)), n, voices=5, detune=det, spread=0.9)
@@ -534,8 +536,8 @@ def feed_ambience():
     for f, g in ((220.0, 0.5), (329.6, 0.35), (440.0, 0.18)):
         pad = supersaw(f * (1 + 0.002 * np.sin(2 * np.pi * 0.07 * t)), n, voices=5, detune=0.006, spread=1.0)
         pad = np.vstack([sweep_filter(c, 'lowpass', np.minimum(bright * 2.2, 5000), order=2) for c in pad])
-        m.add(pad * level * curve(n, [(0, 0), (2.6, 0.4), (5.8, 0.6), (9.9, 1.0), (10.0, 0.1), (11.5, 0.5), (14.4, 0.8)]),
-              0, g)
+        m.add(pad * level * curve(n, [(0, 0), (2.6, 0.4), (5.8, 0.6), (9.9, 1.0), (10.0, 0.1), (11.5, 0.5), (12.7, 0.6),
+                                      (15.1, 0.7), (18.2, 0.8)]), 0, g)
     shimmer = decorrelated(n, lambda k: sine(np.full(k, 1318.5) * (1 + 0.002 * rng.standard_normal() )))
     shimmer = shimmer * (0.5 + 0.5 * np.sin(2 * np.pi * 0.23 * t)) * level * 0.04
     m.add(shimmer, 0, 1.0)
@@ -544,7 +546,7 @@ def feed_ambience():
         k = ns(0.05)
         blip = np.sin(2 * np.pi * rng.choice([2637, 3136, 2349]) * np.arange(k) / SR) * attack_decay(k, 0.002, 0.02)
         m.add(blip, at + rng.uniform(-0.2, 0.2), 0.05, position=rng.uniform(-0.8, 0.8))
-    m.add(grains(n, lambda s: 6 + 30 * (s > 11.5), crackle_pop, spread=0.9) * 0.25, 0, 1.0)
+    m.add(grains(n, lambda s: 6 + 30 * (s > 16.5), crackle_pop, spread=0.9) * 0.25, 0, 1.0)
     _, _, _, space = spaces()
     x = reverb(m.out(), space, wet=0.35)
     # Beating voices can leave one side louder over a whole take; even it out.
@@ -793,29 +795,162 @@ def feed_release():
 
 
 def feed_strike():
-    """The spear goes through a boulder: a hard crack, a crunch of rock, a hiss of vapour and grit streaming
-    back past the camera, and the hit thudding through the spear."""
+    """The spear goes through a boulder without slowing: a whip-crack, a crunch of rock, a deep thud through the
+    spear, and the debris and grit tearing back past the camera from side to side."""
     total = 0.95
     m = Mix(total)
-    q = ns(0.03)
-    m.add(decorrelated(q, lambda k: hp(white(k), 900)) * attack_decay(q, 0.0002, 0.004), 0.0, 1.0)
+    q = ns(0.02)
+    m.add(decorrelated(q, lambda k: hp(white(k), 1500)) * attack_decay(q, 0.0002, 0.003), 0.0, 1.2)
+    q = ns(0.06)
+    zip_ = sine(curve(q, [(0, 4200), (0.06, 900)], 'log')) * attack_decay(q, 0.0005, 0.012)
+    m.add(stereo(zip_), 0.001, 0.45)
     q = ns(0.5)
     tt = np.arange(q) / SR
-    thud = np.sin(2 * np.pi * curve(q, [(0, 85), (0.5, 40)], 'log') * tt) * np.exp(-tt / 0.08)
-    m.add(sat(thud * 1.5, 1.5), 0.0, 0.8)
-    crunch = decorrelated(q, lambda k: bp(white(k), 250, 3500)) * attack_decay(q, 0.001, 0.045)
-    m.add(sat(crunch * 2.0, 1.6), 0.002, 0.7)
+    thud = np.sin(2 * np.pi * curve(q, [(0, 90), (0.5, 38)], 'log') * tt) * np.exp(-tt / 0.07)
+    m.add(sat(thud * 1.6, 1.5), 0.0, 0.85)
+    crunch = decorrelated(q, lambda k: bp(white(k), 300, 4200)) * attack_decay(q, 0.001, 0.035)
+    m.add(sat(crunch * 2.2, 1.7), 0.002, 0.7)
+    # The debris tearing past: a fast sweep down in pitch that crosses from one side to the other.
+    q = ns(0.42)
+    rush = sweep_filter(pink(q), 'bandpass', curve(q, [(0, 5200), (0.42, 500)], 'log'), order=2, width=1.8)
+    rush *= attack_decay(q, 0.006, 0.12)
+    m.add(pan(norm(rush), curve(q, [(0, -0.2), (0.12, 0.85), (0.42, 0.9)])), 0.012, 0.7)
     n = ns(total)
-    hiss = decorrelated(n, lambda k: hp(white(k), 3500)) * attack_decay(n, 0.005, 0.25)
-    m.add(hiss, 0.01, 0.35)
-    m.add(grains(n, lambda s: 380 * np.exp(-s / 0.18) + 5, lambda: rock(rng.uniform(0.15, 0.5)), end=0.7), 0.01, 0.5)
-    q = ns(0.7)
-    tt = np.arange(q) / SR
-    rush = sweep_filter(pink(q), 'bandpass', curve(q, [(0, 2600), (0.7, 300)], 'log'), order=2, width=2.0)
-    rush *= attack_decay(q, 0.01, 0.2)
-    m.add(decorrelated(q, lambda k: rush[:k] * (0.7 + 0.3 * rng.standard_normal())), 0.02, 0.5)
+    m.add(grains(n, lambda s: 420 * np.exp(-s / 0.12) + 4, lambda: rock(rng.uniform(0.12, 0.4)), end=0.55), 0.008, 0.5)
+    hiss = decorrelated(n, lambda k: hp(white(k), 3800)) * attack_decay(n, 0.004, 0.16)
+    m.add(hiss, 0.01, 0.3)
     _, _, _, space = spaces()
-    return master(reverb(m.out(), space, wet=0.3)[:, :ns(total)], peak=0.95, drive=1.4)
+    return master(reverb(m.out(), space, wet=0.25)[:, :ns(total)], peak=0.95, drive=1.5)
+
+
+def feed_cruise():
+    """The bed under the journey in, from the chase out of the muzzle to the re-entry (5.7 s): a deep rushing
+    drone and the spear's hum, the rush of the belt, muffled under the transfer plot, then a rising tension as
+    the seeker hunts for the target, handing over to the re-entry roar."""
+    total = 5.7
+    n = ns(total)
+    t = times(total)
+    # Relative to the cue (RELEASE + 24): DEBRIS 0.3, the rock 0.85, TRANSIT 1.5, TERMINAL 3.9, the Moon 4.27,
+    # the lock 4.8, REENTRY 5.3.
+    m = Mix(total)
+    swell = curve(n, [(0, 0.0), (0.25, 1.0), (1.5, 1.0), (1.8, 0.7), (3.7, 0.7), (4.0, 0.9), (5.2, 1.0), (5.7, 0.0)])
+    bright = curve(n, [(0, 900), (0.3, 2600), (1.4, 2200), (1.7, 420), (3.8, 520), (4.1, 1400), (5.3, 3200), (5.7, 2000)],
+                   'log')
+    for f, g in ((36.71, 1.0), (55.0, 0.55)):
+        drone = supersaw(f * (1 + 0.004 * np.sin(2 * np.pi * 0.37 * t)), n, voices=5, detune=0.006, spread=0.8)
+        drone = np.vstack([sweep_filter(c, 'lowpass', bright * 0.5, order=2) for c in drone])
+        m.add(drone * swell, 0, g)
+    m.add(sine(np.full(n, 36.71)) * swell, 0, 0.45)
+    # The rush: something going by unimaginably fast, fluttering.
+    flutter = 0.75 + 0.25 * np.sin(2 * np.pi * 7.3 * t) * np.sin(2 * np.pi * 0.9 * t + 1.0)
+    rush = decorrelated(n, pink)
+    rush = np.vstack([sweep_filter(c, 'bandpass', bright * (1 + 0.15 * np.sin(2 * np.pi * 0.5 * t + k)), order=2, width=2.2)
+                      for k, c in enumerate(rush)])
+    m.add(rush * swell * flutter, 0, 0.55)
+    # The spear's hum, rising with the tension as the seeker hunts.
+    rise = curve(n, [(0, 1.0), (3.9, 1.0), (5.3, 1.12), (5.7, 1.12)], 'log')
+    hum = sine(220.0 * rise * (1 + 0.003 * np.sin(2 * np.pi * 5.5 * t))) + 0.4 * sine(330.0 * rise) + 0.12 * sine(1760.0 * rise)
+    m.add(stereo(hum * swell * curve(n, [(0, 0.5), (1.5, 0.5), (1.8, 0.3), (3.9, 0.3), (5.3, 0.8), (5.7, 0.8)])), 0, 0.12)
+    # A riser under the seeker.
+    q = ns(1.5)
+    riser = saw(curve(q, [(0, 110), (1.5, 440)], 'log'), q) + 0.5 * saw(curve(q, [(0, 164.8), (1.5, 659.3)], 'log'), q)
+    riser = sweep_filter(riser, 'lowpass', curve(q, [(0, 300), (1.5, 2600)], 'log'), order=2)
+    m.add(stereo(riser * curve(q, [(0, 0), (1.1, 0.6), (1.4, 1.0), (1.5, 0.0)])), 3.85, 0.16)
+    out = m.out() * curve(n, [(0, 1), (total - 0.02, 1), (total, 0)])
+    _, _, _, space = spaces()
+    return master(reverb(out, space, wet=0.2)[:, :n], peak=0.85, squash=0.25)
+
+
+def feed_transit():
+    """The transfer plot (2.4 s): a data wipe as it comes up, a blip for every label, sonar pings, the ETA readout
+    whirring down, and a rising whoosh as the plot dives in on Earth."""
+    total = 2.6
+    n = ns(total)
+    m = Mix(total)
+    q = ns(0.35)
+    wipe = pink(q) * np.exp(-np.arange(q) / SR / 0.1)
+    wipe = sweep_filter(wipe[::-1], 'bandpass', curve(q, [(0, 300), (0.35, 6000)], 'log'), order=2, width=1.4)
+    m.add(stereo(norm(wipe)) * np.array([[1.0], [0.9]]), 0.0, 0.45)
+    q = ns(0.09)
+    chirp = sine(curve(q, [(0, 1200), (0.09, 2400)], 'log')) * attack_decay(q, 0.002, 0.04)
+    m.add(chirp, 0.06, 0.25)
+    # The labels: the round's tag, Earth, Jupiter, the Sun and Mars, the close pass, the Moon.
+    for at, f, side in ((0.1, 2093.0, 0.0), (0.25, 2637.0, 0.3), (0.35, 2349.0, -0.4), (0.45, 1976.0, 0.1),
+                        (0.48, 2637.0, -0.2), (0.82, 3136.0, 0.25), (0.88, 3136.0, 0.25), (2.05, 2349.0, 0.0)):
+        k = ns(0.06)
+        blip = (np.sin(2 * np.pi * f * np.arange(k) / SR) + 0.3 * np.sin(4 * np.pi * f * np.arange(k) / SR))
+        m.add(blip * attack_decay(k, 0.002, 0.018), at, 0.2, position=side)
+    # Sonar pings as the plot tracks the round.
+    for at in (0.15, 0.75, 1.35, 1.95):
+        k = ns(0.5)
+        ping = np.sin(2 * np.pi * 1568.0 * np.arange(k) / SR) * attack_decay(k, 0.003, 0.12)
+        m.add(ping, at, 0.12)
+    # Mars sliding by, close: a soft low swell.
+    q = ns(0.7)
+    by = sweep_filter(pink(q), 'bandpass', curve(q, [(0, 300), (0.35, 700), (0.7, 250)], 'log'), order=2, width=1.2)
+    m.add(pan(by * curve(q, [(0, 0), (0.35, 1.0), (0.7, 0)]), curve(q, [(0, -0.5), (0.7, 0.5)])), 0.8, 0.25)
+    # The ETA readout whirring down: faint clicks, faster and faster.
+    def tick():
+        k = ns(0.004)
+        return hp(white(k), 3000) * np.exp(-np.arange(k) / SR / 0.0008)
+    m.add(grains(n, lambda s: 10 + 30 * (s / total) ** 2, tick, start=0.3, end=2.3, spread=0.3), 0, 0.08)
+    # Diving in on Earth.
+    q = ns(0.7)
+    dive = sweep_filter(pink(q), 'bandpass', curve(q, [(0, 200), (0.7, 3500)], 'log'), order=2, width=1.6)
+    dive *= curve(q, [(0, 0), (0.55, 1.0), (0.7, 0.0)])
+    m.add(stereo(norm(dive)), 1.85, 0.5)
+    q = ns(0.6)
+    tone = sine(curve(q, [(0, 300), (0.6, 1200)], 'log')) * curve(q, [(0, 0), (0.5, 1.0), (0.6, 0)])
+    m.add(tone, 1.95, 0.08)
+    _, hall, _, _ = spaces()
+    return master(reverb(m.out(), hall, wet=0.22)[:, :n], peak=0.85)
+
+
+def feed_locate():
+    """The seeker (1.5 s): it comes up with a chirp; the Moon swoops past in a deep whoosh; a search growl that
+    climbs as the brackets close on the target; the lock, a hard click and a steady high tone; and a whoosh as
+    the camera pulls back out of the spear's point."""
+    total = 1.55
+    n = ns(total)
+    m = Mix(total)
+    for at, f in ((0.0, 880.0), (0.05, 1320.0)):
+        k = ns(0.05)
+        m.add(np.sin(2 * np.pi * f * np.arange(k) / SR) * attack_decay(k, 0.002, 0.02), at, 0.25)
+    q = ns(0.12)
+    gate = (rng.random(q // 200 + 1) > 0.4).repeat(200)[:q]
+    m.add(decorrelated(q, lambda k: bp(white(k), 1500, 6000)) * gate * attack_decay(q, 0.003, 0.05), 0.02, 0.18)
+    # The Moon: a deep whoosh that peaks as it sweeps out past the upper left.
+    q = ns(0.75)
+    tt = np.arange(q) / SR
+    dist = np.sqrt(((tt - 0.37) * 60) ** 2 + 4.0 ** 2)
+    moon = sweep_filter(pink(q), 'bandpass', curve(q, [(0, 260), (0.37, 900), (0.75, 180)], 'log'), order=2, width=1.6)
+    moon *= 1.0 / (0.2 + dist / 8.0)
+    low = sine(curve(q, [(0, 70), (0.37, 52), (0.75, 34)], 'log')) * np.exp(-((tt - 0.37) / 0.14) ** 2)
+    m.add(pan(norm(moon) + 0.6 * low, curve(q, [(0, 0.0), (0.37, -0.45), (0.75, -0.85)])), 0.0, 0.7)
+    # The search growl: a buzzing tone, pulsing, climbing as the brackets close.
+    q = ns(0.78)
+    tt = np.arange(q) / SR
+    f = curve(q, [(0, 420), (0.78, 760)], 'log')
+    growl = np.sign(sine(f)) * 0.5 + sine(f * 2.0) * 0.3
+    growl = lp(growl, 3000) * (0.6 + 0.4 * np.sign(np.sin(2 * np.pi * curve(q, [(0, 9), (0.78, 22)]) * tt)))
+    m.add(stereo(growl * curve(q, [(0, 0), (0.1, 0.7), (0.78, 1.0)])), 0.12, 0.13)
+    # The lock.
+    q = ns(0.02)
+    m.add(decorrelated(q, lambda k: hp(white(k), 2500)) * attack_decay(q, 0.0003, 0.004), 0.9, 0.5)
+    q = ns(0.4)
+    tt = np.arange(q) / SR
+    thump = np.sin(2 * np.pi * curve(q, [(0, 95), (0.4, 45)], 'log') * tt) * np.exp(-tt / 0.08)
+    m.add(sat(thump * 1.4, 1.4), 0.9, 0.6)
+    q = ns(0.55)
+    lock = (sine(np.full(q, 1150.0)) + 0.25 * sine(np.full(q, 2300.0))) * curve(q, [(0, 0), (0.01, 1.0), (0.35, 0.8), (0.55, 0)])
+    m.add(stereo(lock), 0.9, 0.12)
+    # Pulling back out of the point.
+    q = ns(0.6)
+    pull = sweep_filter(pink(q), 'bandpass', curve(q, [(0, 2600), (0.6, 380)], 'log'), order=2, width=1.6)
+    pull *= curve(q, [(0, 0), (0.15, 1.0), (0.6, 0)])
+    m.add(pan(norm(pull), curve(q, [(0, 0.0), (0.6, 0.6)])), 0.95, 0.4)
+    _, hall, _, _ = spaces()
+    return master(reverb(m.out(), hall, wet=0.2)[:, :n], peak=0.9)
 
 
 def feed_reentry():
@@ -988,16 +1123,17 @@ def aftermath(close=True):
 
 # Longest a sound may run (seconds): the feed's sounds must die away before the feed hands back to
 # the world at INBOUND.
-CAPS = {'uplink_lock': 2.5, 'camera_rise': 1.7, 'feed_zoom': 3.0, 'feed_ambience': 14.4, 'feed_relay': 3.4,
+CAPS = {'uplink_lock': 2.5, 'camera_rise': 1.7, 'feed_zoom': 3.0, 'feed_ambience': 18.2, 'feed_relay': 3.4,
         'feed_wake': 4.2, 'feed_load': 2.4, 'feed_coils': 4.3, 'feed_release': 1.62, 'feed_strike': 0.95,
-        'feed_reentry': 1.72}
+        'feed_cruise': 5.7, 'feed_transit': 2.6, 'feed_locate': 1.55, 'feed_reentry': 1.72}
 
 # How loud each sound is (dB, the RMS of its loudest 400 ms). The game plays them at full volume, so this is
 # the mix: the feed sits well down, the release and the re-entry come up, and the impact is far the loudest
 # thing in the sequence, the way a film saves its loudest moment for the climax.
 LEVELS = {'uplink_lock': -16, 'uplink_denied': -18, 'camera_rise': -21, 'feed_zoom': -22, 'feed_ambience': -27,
           'feed_relay': -20, 'feed_wake': -17, 'feed_load': -19, 'feed_coils': -21, 'feed_lap': -19,
-          'feed_release': -11, 'feed_strike': -15, 'feed_reentry': -13, 'strike_inbound': -14,
+          'feed_release': -11, 'feed_strike': -15, 'feed_cruise': -18, 'feed_transit': -22, 'feed_locate': -18,
+          'feed_reentry': -13, 'strike_inbound': -14,
           'strike_inbound_near': -13, 'strike_impact': -7, 'strike_impact_near': -5, 'strike_rumble': -12,
           'strike_rumble_near': -11, 'strike_aftermath': -23, 'strike_aftermath_near': -20}
 
@@ -1015,6 +1151,9 @@ SOUNDS = {
     'feed_lap': (feed_lap, True),
     'feed_release': (feed_release, True),
     'feed_strike': (feed_strike, True),
+    'feed_cruise': (feed_cruise, True),
+    'feed_transit': (feed_transit, True),
+    'feed_locate': (feed_locate, True),
     'feed_reentry': (feed_reentry, True),
     'strike_inbound': (lambda: inbound(False), False),
     'strike_inbound_near': (lambda: inbound(True), True),

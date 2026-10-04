@@ -174,5 +174,30 @@
         "name": "shootingstar:feed_strike"
       }
     ]
+  },
+  "feed.cruise": {
+    "subtitle": "subtitles.shootingstar.feed.cruise",
+    "sounds": [
+      {
+        "name": "shootingstar:feed_cruise",
+        "stream": true
+      }
+    ]
+  },
+  "feed.transit": {
+    "subtitle": "subtitles.shootingstar.feed.transit",
+    "sounds": [
+      {
+        "name": "shootingstar:feed_transit"
+      }
+    ]
+  },
+  "feed.locate": {
+    "subtitle": "subtitles.shootingstar.feed.locate",
+    "sounds": [
+      {
+        "name": "shootingstar:feed_locate"
+      }
+    ]
   }
 }

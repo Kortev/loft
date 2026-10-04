@@ -2,7 +2,7 @@
 
 // Impact frames: the rendered world turned into stylised comic frames, as in the reel.
 // Mode 0 shock distortion only, 1 red edge lines on black, 2 inverted cyan, 3 posterised orange,
-// 4 orange halftone, 5 white with black ink outlines.
+// 4 orange halftone, 5 white with black ink outlines, 6 stark inverted black and white, 7 red and black.
 
 uniform sampler2D Sampler0;
 uniform sampler2D Sampler1;
@@ -174,6 +174,21 @@ void main() {
         float e = edges(uv);
         outColor = mix(vec3(1.0, 0.98, 0.95), vec3(0.05, 0.04, 0.05), e) + vec3(0.0, 0.0, 0.0) * speedLines(texCoord);
         outColor = mix(outColor, vec3(0.1, 0.03, 0.02), speedLines(texCoord) * 0.7);
+    } else if (Mode == 6) {
+        // Stark black and white, the way a manga draws the blast: the light turns to solid black, the rest to bare
+        // paper, a ragged edge between them and the ink lines in the opposite tone.
+        float e = edges(uv);
+        float dark = smoothstep(0.4, 0.48, lum + (vnoise(uv * ScreenSize / 7.0) - 0.5) * 0.1);
+        vec3 c = mix(vec3(0.97, 0.96, 0.93), vec3(0.02), dark);
+        c = mix(c, vec3(0.99) - c, e);
+        outColor = mix(c, vec3(0.02), speedLines(texCoord) * (1.0 - dark) * 0.85);
+    } else if (Mode == 7) {
+        // Red and black: the blast a red silhouette round a white-hot core, everything else black, white speed lines.
+        float e = edges(uv);
+        vec3 c = mix(vec3(0.02, 0.0, 0.0), vec3(0.88, 0.06, 0.03), smoothstep(0.24, 0.32, lum));
+        c = mix(c, vec3(1.0, 0.95, 0.88), smoothstep(0.78, 0.86, lum));
+        c = mix(c, vec3(0.0), e * 0.85);
+        outColor = c + vec3(1.0, 0.92, 0.86) * speedLines(texCoord) * 0.55;
     }
     vec3 color = mix(src, outColor, Mix) * Exposure + Tint;
     fragColor = vec4(mix(color, FlashColor, clamp(Flash, 0.0, 1.0)), 1.0);

@@ -201,6 +201,16 @@ void main() {
         base = mix(base, vec3(0.45, 0.22, 0.1), smoothstep(0.62, 0.75, noise(q * 1.6 + 4.0)) * 0.7);
         base = mix(base, vec3(0.04, 0.03, 0.02), smoothstep(0.78, 0.86, noise(q * 4.3 + 9.0)));
         rough = 0.9;
+    } else if (mat == 16) {
+        // The Moon: pale highland regolith, dark basalt maria, and fresh craters ringed with bright ejecta.
+        vec3 q = normalize(objPos);
+        float maria = noise(q * 2.1 + 1.3) * 0.6 + noise(q * 4.6 + 7.0) * 0.4;
+        float grain = noise(q * 17.0) * 0.5 + noise(q * 43.0) * 0.5;
+        base = mix(vec3(0.42, 0.41, 0.39), vec3(0.14, 0.14, 0.15), smoothstep(0.52, 0.62, maria));
+        base *= 0.82 + 0.32 * grain;
+        float craters = noise(q * 29.0 + 3.0);
+        base += vec3(0.16) * smoothstep(0.8, 0.88, craters) - vec3(0.06) * smoothstep(0.88, 0.95, craters);
+        rough = 0.95;
     }
 
     vec3 color = light(n, v, normalize(LightDir), LightColor, base, metal, rough);

@@ -5,7 +5,7 @@ A Fabric mod for Minecraft Java **1.21.1** based on the "SS-03 Gungnir" orbital-
 Use the **Gungnir Uplink** on any block 96–640 blocks away to get a kinetic lock on it. The
 minimum is 1.5× the crater radius, so the shooter is never caught in their own blast. A mass driver
 ringing Jupiter spins a round up over seven laps to 0.96c and fires it across the asteroid belt.
-About 18 seconds later the round lands on the target. It does not explode: it is a spear. It hits
+About 22 seconds later the round lands on the target. It does not explode: it is a spear. It hits
 so hard that it blasts out a crater 128 blocks across, planes the ground into glowing molten crust
 and is left standing as a spire of hull plating through the full height of the world.
 
@@ -25,7 +25,8 @@ cools, and a mushroom cloud whose cap hangs over the crater for a minute or two.
 
 The sound is synthesised from scratch too (`tools/gen_sounds.py`): the shooter hears a stereo mix of
 wind, a drone under the feed, the coils cracking one by one as the spear passes them until they run
-together into a roar, a slowed-down release, the scream of the round coming in, a beat of silence,
+together into a roar, a slowed-down release, a rushing bed under the journey in, the seeker's growl
+and lock tone, the scream of the round coming in, a beat of silence,
 then the boom with their ears ringing, the shock wave and the crater burning; everyone else hears the
 boom and the shock wave arrive at the speed of sound.
 
@@ -40,14 +41,16 @@ boom and the shock wave arrive at the speed of sound.
 | 5.1 s   | `[ ACCELERATOR WAKING ]`: **THE SHOOTING STAR**. The ring powers up round Jupiter from the breech, Io and its shadow crossing the planet. |
 | 7.3 s   | `[ LOADING ]`: the spear in its sabot seats in the breech coil; `[ BREECH LOCKED ]`.        |
 | 8.3 s   | `[ LAP 1 / 7 ]` … `[ LAP 7 / 7 ]`: inside the barrel the coils fire one by one as the spear passes, faster and faster until they blur into light; between laps it tears past the camera and over Jupiter's cloud tops. 0.96c. |
-| 12.5 s  | `[ RELEASE ]`: out of the muzzle in slow motion, shedding the sabot.                         |
-| 14 s    | `[ DEBRIS FIELD · MAIN BELT ]`: across the asteroid belt, time all but stopping as it splits a rock. |
-| 15.1 s  | `[ TERMINAL · SOL-3 ]`: Earth rushes up; re-entry in a sheath of plasma.                     |
-| 16.8 s  | Back in the world: the round falls out of the sky as a blazing star, lighting up the land as it comes. |
-| 18 s    | **Impact**: a blinding flash, a beat of silence, stylised impact frames (red edges on black, inverted cyan, posterised orange, halftone, ink), then the boom, the cartoon fireball, a condensation ring and a shock ring racing out over the ground. |
-| 18–22 s | Debris rains out of the crater on inked smoke trails, a column of fire and smoke rises over the spire and spreads into a cap, and a wave of dust rolls out. The shooter's camera rides out the shock wave, then cranes up over the crater. |
-| 21 s on | Lightning flickers in the ash column and thunder rolls in after it; embers drift up out of the molten bowl, the round's path hangs in the sky as a trail, and the cap drifts off on the wind. |
-| 19 s    | `[ IMPACT CONFIRMED ]` · `ZONE 0128 PLANED · SPIRE STANDING · 384 M`                         |
+| 12.5 s  | `[ RELEASE ]`: out of the muzzle in slow motion, shedding the sabot; then the camera races after the spear and catches it up. |
+| 14 s    | `[ DEBRIS FIELD · MAIN BELT ]`: into the asteroid belt at full tilt; the spear punches straight through a boulder without slowing. |
+| 15.2 s  | `[ TRANSFER · JUPITER → SOL-3 ]`: the transfer plot, the round's track across the inner system past Mars, range and ETA counting down as it dives in on Earth. |
+| 17.6 s  | `[ SEEKER · LOCATING TARGET ]`: the view from the spear's point sweeps past the Moon and hunts across Earth until `TARGET LOCKED · 39.50 N · 98.50 W`. |
+| 19 s    | `[ TERMINAL · SOL-3 ]`: the camera pulls back out of the point over the spear; Earth rushes up; re-entry in a sheath of plasma. |
+| 20.7 s  | Back in the world: the round falls out of the sky as a blazing star, lighting up the land as it comes. |
+| 21.9 s  | **Impact**: a blinding flash, a beat of silence, two seconds of stylised impact frames cutting hard between drawn styles (red edges on black, inverted cyan, stark black and white, posterised orange, red and black, halftone, ink), then the boom, the cartoon fireball, a condensation ring and a shock ring racing out over the ground. |
+| 22–27 s | Debris rains out of the crater on inked smoke trails, a column of fire and smoke rises over the spire and spreads into a cap, and a wave of dust rolls out. The shooter's camera rides out the shock wave, then cranes up over the crater. |
+| 25 s on | Lightning flickers in the ash column and thunder rolls in after it; embers drift up out of the molten bowl, the round's path hangs in the sky as a trail, and the cap drifts off on the wind. |
+| 24.3 s  | `[ IMPACT CONFIRMED ]` · `ZONE 0128 PLANED · SPIRE STANDING · 384 M`                         |
 
 Everyone nearby sees the beam, the reticle, the falling star, the blast and the shock wave (the
 boom arrives at the speed of sound, so far-off players hear it late). Only the player who fired gets

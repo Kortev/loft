@@ -704,6 +704,27 @@ public final class WorldFx {
 
 	// --- grading and impact frames ---------------------------------------------------------
 
+	/**
+	 * The impact frames, in beats of ticks after the hit: the white flash, a flurry of hard cuts between drawn styles,
+	 * longer held frames while the fireball swells, a last flurry, and a white pop back to the picture at the final
+	 * beat. Each beat's style is one of {@code ss_impact}'s modes (0: the flash).
+	 */
+	private static final float[] FRAME_AT = {0.0F, 1.5F, 3.0F, 4.0F, 5.5F, 6.5F, 8.0F, 12.0F, 13.0F, 18.0F, 19.0F, 24.0F, 25.0F,
+			30.0F, 31.5F, 32.5F, 34.0F, 35.0F, 38.0F, 39.0F, 42.0F};
+	private static final int[] FRAME_MODE = {0, 1, 6, 2, 1, 6, 3, 7, 4, 6, 2, 1, 7, 5, 6, 3, 1, 4, 2, 5};
+
+	/** The impact frame showing {@code e} ticks after the hit, or -1 once they are over. */
+	private static int frameBeat(double e) {
+		if (e < 0.0 || e >= FRAME_AT[FRAME_AT.length - 1]) {
+			return -1;
+		}
+		int beat = 0;
+		while (beat + 1 < FRAME_MODE.length && e >= FRAME_AT[beat + 1]) {
+			beat++;
+		}
+		return beat;
+	}
+
 	@Nullable
 	private static Grade grade(MinecraftClient client, float tickDelta, Vec3d cam, Matrix4f view, Matrix4f proj) {
 		Grade best = null;
@@ -744,13 +765,22 @@ public final class WorldFx {
 			boolean frames = cinematic || near > 0.25 && looking > 0.55F;
 			int mode = 0;
 			float mix = 0.0F;
-			if (frames && e < 11.0) {
-				mode = e < 1.0 ? 0 : e < 2.5 ? 1 : e < 4.0 ? 2 : e < 5.0 ? 1 : e < 7.0 ? 3 : e < 9.5 ? 4 : 5;
-				mix = mode == 0 ? 0.0F : 1.0F;
-			}
-			float white = (float) (cinematic ? (e < 1.0 ? 1.0 : 0.0) : near * (0.35 + 0.65 * looking) * Math.exp(-e / 2.5));
-			flash = Math.max(flash, white);
 			float zoom = e < 14 ? (float) (1.0 + 0.05 * Math.exp(-e / 4.0)) : 1.0F;
+			int beat = frameBeat(e);
+			if (frames && beat >= 0) {
+				mode = FRAME_MODE[beat];
+				mix = mode == 0 ? 0.0F : 1.0F;
+				// Every cut punches in on the impact, and a held frame keeps creeping closer.
+				double since = e - FRAME_AT[beat];
+				zoom += (float) (0.045 * Math.exp(-since / 1.2) + Math.min(since, 6.0) * 0.006);
+			}
+			double pop = e - FRAME_AT[FRAME_AT.length - 1];
+			float white = (float) (cinematic ? (e < FRAME_AT[1] ? 1.0 : 0.0) : near * (0.35 + 0.65 * looking) * Math.exp(-e / 2.5));
+			if (frames && pop >= 0.0) {
+				// A white pop back to the picture after the last frame.
+				white = Math.max(white, (float) (0.85 * Math.exp(-pop / 0.7)) * (cinematic ? 1.0F : (float) near));
+			}
+			flash = Math.max(flash, white);
 			float chroma = (float) (0.012 * Math.exp(-e / 14.0) * (0.3 + 0.7 * near));
 			float exposure = (float) (1.0 + 0.5 * near * Math.exp(-e / 10.0));
 			float tint = (float) (near * 0.45 * Math.exp(-e / 28.0));

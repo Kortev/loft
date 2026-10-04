@@ -72,8 +72,8 @@ public class ClientSelfTest implements ClientModInitializer {
 			return;
 		}
 		int[] ages = {6, 20, 38, 53, 62, 74, 82, 87, 90, 95, 100, 108, 120, 134, 143, 150, 160, 165, 180, 196, 210, 224, 236,
-				246, 252, 258, 263, 267, 272, 277, 284, 292, 300, 308, 316, 324, 332, 344, 356, 362, 366, 372, 384, 420, 456,
-				490, 540};
+				246, 252, 258, 263, 267, 270, 273, 276, 279, 284, 290, 292, 300, 306, 312, 322, 332, 342, 350, 354, 358, 362,
+				368, 372, 376, 382, 392, 402, 410, 418, 430, 436, 440, 446, 452, 458, 466, 474, 490, 520, 560, 620};
 		for (int age : ages) {
 			STILLS.add(new Still(age, String.format("%02d_age%03d_%s.png", STILLS.size() + 1, age, phase(age))));
 		}
@@ -102,8 +102,10 @@ public class ClientSelfTest implements ClientModInitializer {
 		if (age < StrikeTimeline.LAPS) return "loading";
 		if (age < StrikeTimeline.RELEASE) return "laps";
 		if (age < StrikeTimeline.DEBRIS) return "release";
-		if (age < StrikeTimeline.TERMINAL) return "debris";
-		if (age < StrikeTimeline.INBOUND) return "terminal";
+		if (age < StrikeTimeline.TRANSIT) return "debris";
+		if (age < StrikeTimeline.TERMINAL) return "transit";
+		if (age < StrikeTimeline.REENTRY) return "seeker";
+		if (age < StrikeTimeline.INBOUND) return "reentry";
 		if (age < StrikeTimeline.IMPACT) return "inbound";
 		if (age < StrikeTimeline.IMPACT_FRAME_END) return "impact";
 		if (age < StrikeTimeline.WIDE_END) return "wide";

@@ -8,6 +8,11 @@ import io.github.kortev.shootingstar.client.gfx.Mesh;
 import io.github.kortev.shootingstar.client.gfx.Post;
 import io.github.kortev.shootingstar.client.gfx.Shaders;
 import io.github.kortev.shootingstar.client.gfx.Tex;
+import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.GameRenderer;
+import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.VertexFormat;
+import net.minecraft.client.render.VertexFormats;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.lwjgl.opengl.GL11;
@@ -27,6 +32,8 @@ final class Space {
 	Mesh tube;
 	/** Io, shaded by {@code ss_mesh}'s moon material. */
 	Mesh io;
+	/** The Moon, shaded by {@code ss_mesh}'s lunar material. */
+	Mesh moon;
 	final Mesh[] rocks = new Mesh[4];
 	final Fx fx = new Fx();
 	/** Secondary light for meshes (what a nearby planet bounces back), in the scene's world space. */
@@ -65,6 +72,7 @@ final class Space {
 		cone = Mesh.cone(64, 16);
 		tube = Mesh.tube(128, 96, -30.0F, 900.0F);
 		io = Mesh.sphere(64, 32, 15);
+		moon = Mesh.sphere(96, 48, 16);
 		for (int i = 0; i < rocks.length; i++) {
 			rocks[i] = Mesh.load("asteroid" + i);
 		}
@@ -105,6 +113,42 @@ final class Space {
 		Shaders.set(Shaders.stars, "Time", time);
 		Shaders.set(Shaders.stars, "Streak", streak, sx, sy);
 		stars.draw(Shaders.stars, galacticToView, cam.proj);
+	}
+
+	/** Only the stars, added over whatever is drawn (for the transfer plot's backdrop). */
+	void stars(Cam cam, Matrix4f skyRot, float brightness, float time) {
+		additive();
+		RenderSystem.disableDepthTest();
+		Matrix4f galacticToView = new Matrix4f(cam.viewRot).mul(new Matrix4f(skyRot).transpose());
+		Shaders.set(Shaders.stars, "Brightness", brightness);
+		Shaders.set(Shaders.stars, "Beta", 0.0F);
+		Shaders.set(Shaders.stars, "Forward", 0.0F, 0.0F, 1.0F);
+		Shaders.set(Shaders.stars, "Time", time);
+		Shaders.set(Shaders.stars, "Streak", 0.0F, 0.0F, 0.0F);
+		stars.draw(Shaders.stars, galacticToView, cam.proj);
+	}
+
+	/**
+	 * Darkens everything drawn so far by {@code amount} (0 leaves it, 1 is black): the first half of a cross-fade,
+	 * before the next shot is added over it.
+	 */
+	static void dim(float amount) {
+		if (amount <= 0.0F) {
+			return;
+		}
+		RenderSystem.disableDepthTest();
+		RenderSystem.depthMask(false);
+		RenderSystem.disableCull();
+		RenderSystem.enableBlend();
+		RenderSystem.blendFuncSeparate(GlStateManager.SrcFactor.ZERO, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA,
+				GlStateManager.SrcFactor.ZERO, GlStateManager.DstFactor.ONE);
+		int a = Math.round(Math.min(amount, 1.0F) * 255.0F);
+		BufferBuilder b = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
+		b.vertex(-1.0F, -1.0F, 0.0F).color(0, 0, 0, a);
+		b.vertex(1.0F, -1.0F, 0.0F).color(0, 0, 0, a);
+		b.vertex(1.0F, 1.0F, 0.0F).color(0, 0, 0, a);
+		b.vertex(-1.0F, 1.0F, 0.0F).color(0, 0, 0, a);
+		Post.draw(b, GameRenderer.getPositionColorProgram(), new Matrix4f(), new Matrix4f());
 	}
 
 	// --- planets ---------------------------------------------------------------------------

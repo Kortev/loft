@@ -81,7 +81,8 @@ public final class CameraDirector {
 		Vec3d base = strike.witness;
 		Vec3d out = new Vec3d(base.x - center.x, 0, base.z - center.z).normalize();
 		double push = ease((t - StrikeTimeline.INBOUND) / (StrikeTimeline.IMPACT - StrikeTimeline.INBOUND)) * 0.06 * r;
-		double crane = ease((t - StrikeTimeline.IMPACT - 38) / (StrikeTimeline.WIDE_END - StrikeTimeline.IMPACT - 38));
+		// The crane waits for the impact frames to finish.
+		double crane = ease((t - StrikeTimeline.IMPACT_FRAME_END - 6) / (StrikeTimeline.WIDE_END - StrikeTimeline.IMPACT_FRAME_END - 6));
 		Vec3d eye = base.add(out.multiply(-push + 0.65 * r * crane)).add(0, 0.8 * r * crane, 0);
 		// Tilt up with the crane to keep the column and its cap in frame.
 		Vec3d at = center.add(0, MathHelper.lerp(crane, 0.42, 1.0) * r, 0);

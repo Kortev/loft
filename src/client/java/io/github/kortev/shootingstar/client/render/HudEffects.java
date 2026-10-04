@@ -58,7 +58,7 @@ public final class HudEffects {
 			double t = strike.time(tickDelta);
 			if (t < StrikeTimeline.INBOUND) {
 				lockMarker(m, w, h, strike, t, words, client);
-			} else if (strike.mine && t >= StrikeTimeline.IMPACT + 18) {
+			} else if (strike.mine && t >= StrikeTimeline.IMPACT_FRAME_END + 4) {
 				readout(words, w, h, strike, t);
 			}
 		}
@@ -108,7 +108,7 @@ public final class HudEffects {
 
 	private static void readout(List<Words> words, float w, float h, ClientStrike strike, double t) {
 		float alpha = (float) MathHelper.clamp((StrikeTimeline.END - t) / 30.0, 0.0, 1.0);
-		float in = (float) MathHelper.clamp((t - StrikeTimeline.IMPACT - 18) / 4.0, 0.0, 1.0);
+		float in = (float) MathHelper.clamp((t - StrikeTimeline.IMPACT_FRAME_END - 4) / 4.0, 0.0, 1.0);
 		alpha *= in;
 		if (alpha <= 0.02F) {
 			return;

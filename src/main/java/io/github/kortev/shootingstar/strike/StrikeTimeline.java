@@ -19,19 +19,23 @@ public final class StrikeTimeline {
 	public static final int LOADING = 146;
 	/** Feed: seven accelerating laps of the ring. */
 	public static final int LAPS = 166;
-	/** Feed: out of the muzzle in slow motion, shedding the sabot. */
+	/** Feed: out of the muzzle in slow motion, shedding the sabot; the camera chases the round down. */
 	public static final int RELEASE = 250;
 	/** Feed: the round crosses the main belt. */
 	public static final int DEBRIS = 280;
-	/** Feed: re-entry over Sol-3. */
-	public static final int TERMINAL = 302;
+	/** Feed: the transfer plot, the round's track across the inner system to Earth. */
+	public static final int TRANSIT = 304;
+	/** Feed: the round's seeker sweeps past the Moon and locks onto the target. */
+	public static final int TERMINAL = 352;
+	/** Feed: down through the atmosphere. */
+	public static final int REENTRY = 380;
 	/** Back in the world: the round is a star over the target. */
-	public static final int INBOUND = 336;
-	public static final int IMPACT = 360;
-	/** Stylised impact frame for the shooter. */
-	public static final int IMPACT_FRAME_END = IMPACT + 14;
+	public static final int INBOUND = 414;
+	public static final int IMPACT = 438;
+	/** The stylised impact frames (client WorldFx). */
+	public static final int IMPACT_FRAME_END = IMPACT + 44;
 	/** Wide shot of the spire for the shooter. */
-	public static final int WIDE_END = IMPACT + 90;
+	public static final int WIDE_END = IMPACT + 110;
 	/** The shooter's camera eases back to their own eyes. */
 	public static final int CAMERA_END = WIDE_END + 24;
 	public static final int END = IMPACT + 200;

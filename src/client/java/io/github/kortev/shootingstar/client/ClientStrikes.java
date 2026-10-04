@@ -231,11 +231,21 @@ public final class ClientStrikes {
 			if (crossed(from, to, StrikeTimeline.RELEASE)) {
 				master(ModSounds.FEED_RELEASE, 1.0F, 1.0F);
 			}
+			// The bed under the journey in, from the chase out of the muzzle (Shots.CHASE_FROM) to the re-entry.
+			if (crossed(from, to, StrikeTimeline.RELEASE + 24)) {
+				held(strike, ModSounds.FEED_CRUISE, 1.0F, 1.0F);
+			}
 			// The rock in the belt (Shots.ROCK_HIT ticks in).
-			if (crossed(from, to, StrikeTimeline.DEBRIS + 10)) {
+			if (crossed(from, to, StrikeTimeline.DEBRIS + 11)) {
 				master(ModSounds.FEED_STRIKE, 1.0F, 1.0F);
 			}
+			if (crossed(from, to, StrikeTimeline.TRANSIT)) {
+				held(strike, ModSounds.FEED_TRANSIT, 1.0F, 1.0F);
+			}
 			if (crossed(from, to, StrikeTimeline.TERMINAL)) {
+				held(strike, ModSounds.FEED_LOCATE, 1.0F, 1.0F);
+			}
+			if (crossed(from, to, StrikeTimeline.REENTRY)) {
 				master(ModSounds.FEED_REENTRY, 1.0F, 1.0F);
 			}
 		}

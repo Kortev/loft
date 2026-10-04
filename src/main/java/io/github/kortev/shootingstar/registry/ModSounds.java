@@ -20,6 +20,9 @@ public final class ModSounds {
 	public static final SoundEvent FEED_RELEASE = register("feed.release");
 	public static final SoundEvent FEED_REENTRY = register("feed.reentry");
 	public static final SoundEvent FEED_STRIKE = register("feed.strike");
+	public static final SoundEvent FEED_CRUISE = register("feed.cruise");
+	public static final SoundEvent FEED_TRANSIT = register("feed.transit");
+	public static final SoundEvent FEED_LOCATE = register("feed.locate");
 	// World sounds are mono so they can be placed; the ".near" versions are the shooter's stereo close-ups.
 	public static final SoundEvent STRIKE_INBOUND = register("strike.inbound");
 	public static final SoundEvent STRIKE_INBOUND_NEAR = register("strike.inbound.near");
