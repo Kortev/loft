@@ -177,7 +177,7 @@ public final class ClientStrikes {
 		boolean takeOver = cinematic != null && (feedActive(cinematic, cinematic.age) || shotActive(cinematic, cinematic.age));
 		// The camera shots fly where the world's culling has never looked from; a tick of margin either side.
 		boolean flying = cinematic != null && (shotActive(cinematic, cinematic.age - 2) || shotActive(cinematic, cinematic.age + 2));
-		Culling.update(client, flying || ImpactEffects.rebuilding());
+		Culling.update(client, flying);
 		if (takeOver && !hudOverride) {
 			savedHudHidden = client.options.hudHidden;
 			client.options.hudHidden = true;

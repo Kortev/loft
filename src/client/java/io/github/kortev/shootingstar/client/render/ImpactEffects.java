@@ -102,7 +102,7 @@ public final class ImpactEffects {
 			if (a.age < REBUILD_TICKS) {
 				rebuilding = true;
 				int wave = Math.max(18, Math.round(a.radius * 0.75F));
-				if (a.age == wave + 5 || a.age == 100 || a.age == 200 || a.age == REBUILD_TICKS - 20) {
+				if (a.age == wave + 5) {
 					rebuild(client, a);
 				}
 			}
@@ -120,17 +120,21 @@ public final class ImpactEffects {
 		}
 	}
 
-	/** Marks every section the carving can have touched for a rebuild. */
+	/**
+	 * Once the shock wave has passed, marks the bowl's sections for a rebuild in case an update was missed. Only
+	 * the bowl and the ground just above it: every extra section queued here waits in line with the whole world's
+	 * mesh builds, and on a slow machine a long queue is what leaves the freshly opened ground unbuilt.
+	 */
 	private static void rebuild(MinecraftClient client, Aftermath a) {
 		if (client.world == null) {
 			return;
 		}
-		int reach = MathHelper.ceil(a.radius * 1.5) + 2;
+		int reach = MathHelper.ceil(a.radius * 1.1) + 2;
 		int cx = MathHelper.floor(a.center.x);
 		int cy = MathHelper.floor(a.center.y);
 		int cz = MathHelper.floor(a.center.z);
-		int minY = Math.max(client.world.getBottomSectionCoord(), ChunkSectionPos.getSectionCoord(cy - a.radius - 8));
-		int maxY = Math.min(client.world.getTopSectionCoord() - 1, ChunkSectionPos.getSectionCoord(cy + CUT_HEIGHT + 2));
+		int minY = Math.max(client.world.getBottomSectionCoord(), ChunkSectionPos.getSectionCoord(cy - a.radius / 2 - 8));
+		int maxY = Math.min(client.world.getTopSectionCoord() - 1, ChunkSectionPos.getSectionCoord(cy + 24));
 		int sections = MathHelper.ceil(reach / 16.0) + 1;
 		int sx0 = ChunkSectionPos.getSectionCoord(cx);
 		int sz0 = ChunkSectionPos.getSectionCoord(cz);

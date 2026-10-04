@@ -19,8 +19,8 @@ import net.minecraft.world.WorldAccess;
 import net.minecraft.world.WorldEvents;
 
 /**
- * Ground the strike melted. Heat 3 is white-hot, heat 1 is a dull red glow; each random tick may
- * cool it one stage, and below heat 1 it sets into {@link ModBlocks#FUSED_CRUST}. Water quenches
+ * Ground the strike melted. Heat 3 is white-hot, heat 1 is a dull red glow; now and then a random tick
+ * cools it one stage, and below heat 1 it sets into {@link ModBlocks#FUSED_CRUST}. Water quenches
  * it instantly.
  */
 public class MoltenCrustBlock extends Block {
@@ -47,7 +47,8 @@ public class MoltenCrustBlock extends Block {
 	@Override
 	protected void randomTick(BlockState state, ServerWorld world, BlockPos pos, Random random) {
 		int heat = state.get(HEAT);
-		if (random.nextInt(heat == 3 ? 2 : 3) != 0) {
+		// Slow: a bowl of molten rock keeps glowing for a quarter of an hour.
+		if (random.nextInt(heat == 3 ? 4 : 5) != 0) {
 			return;
 		}
 		if (heat > 1) {

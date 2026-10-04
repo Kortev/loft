@@ -3,11 +3,11 @@ package io.github.kortev.shootingstar.client.render;
 import net.minecraft.client.MinecraftClient;
 
 /**
- * Pauses the world's section occlusion culling while the strike needs it off. Culling decides which
- * sections to draw (and rebuild) from what each one looked like when it was last built, so it loses
- * track of the world when the camera flies up into sky it has never been culled from, and of ground
- * that was buried a moment ago and is suddenly open to the sky. Either way whole sections go missing
- * and the sky shows through the world.
+ * Pauses the world's section occlusion culling while the strike's camera shots fly. Culling decides which
+ * sections to draw from what each one looked like when it was last built, so it loses track of the world
+ * when the camera flies up into sky it has never been culled from, and whole sections go missing. It stays
+ * on while a crater settles: with it off every section in view becomes a candidate for a mesh build, and
+ * the queue that piles up starves the freshly opened ground of the rebuilds it needs.
  */
 public final class Culling {
 	private static boolean paused;
