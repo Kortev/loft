@@ -314,6 +314,10 @@ public class ClientSelfTest implements ClientModInitializer {
 		int mismatches = 0;
 		for (int i = 0; i < size; i++) {
 			for (int k = 0; k < size; k++) {
+				if (!client.world.getChunkManager().isChunkLoaded((x0 + i) >> 4, (z0 + k) >> 4)) {
+					// Past the client's view distance: it has no blocks there to compare.
+					continue;
+				}
 				for (int j = 0; j < height; j++) {
 					pos.set(x0 + i, y0 + j, z0 + k);
 					BlockState mine = client.world.getBlockState(pos);
@@ -329,10 +333,12 @@ public class ClientSelfTest implements ClientModInitializer {
 		}
 		ShootingStar.LOGGER.info("[selftest] client/server block mismatches around the crater: {} in {} sections", mismatches,
 				sections.size());
-		sections.entrySet().stream().sorted((a, b) -> b.getValue() - a.getValue()).limit(24).forEach(e -> {
+		sections.entrySet().stream().sorted((a, b) -> b.getValue() - a.getValue()).limit(40).forEach(e -> {
 			ChunkSectionPos s = ChunkSectionPos.from(e.getKey());
-			ShootingStar.LOGGER.info("[selftest]   section {} {} {}: {} differ, e.g. {}", s.getSectionX(), s.getSectionY(),
-					s.getSectionZ(), e.getValue(), examples.get(e.getKey()));
+			double dx = s.getSectionX() * 16 + 8 - center.getX();
+			double dz = s.getSectionZ() * 16 + 8 - center.getZ();
+			ShootingStar.LOGGER.info("[selftest]   section {} {} {} ({} blocks out): {} differ, e.g. {}", s.getSectionX(),
+					s.getSectionY(), s.getSectionZ(), (int) Math.sqrt(dx * dx + dz * dz), e.getValue(), examples.get(e.getKey()));
 		});
 		int empty = 0;
 		for (int sx = x0 >> 4; sx <= (x0 + size) >> 4; sx++) {
