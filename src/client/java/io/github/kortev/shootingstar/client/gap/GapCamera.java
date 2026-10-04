@@ -201,7 +201,10 @@ public final class GapCamera {
 		Vec3d mid = feet.lerp(gap.contact, 0.62);
 		if (gap.wideEye == null) {
 			double d = Math.hypot(gap.contact.x - feet.x, gap.contact.z - feet.z);
-			double back = Math.max(d * 1.6, 116.0);
+			// Far enough back to hold it all, but inside the loaded world, so the ground under the camera is there.
+			double loaded = MinecraftClient.getInstance().options.getClampedViewDistance() * 16.0 - 40.0;
+			double room = Math.sqrt(Math.max(0.0, loaded * loaded - 0.62 * d * 0.62 * d));
+			double back = Math.max(50.0, Math.min(Math.max(d * 1.6, 116.0), room));
 			Vec3d eye = new Vec3d(mid.x, gap.surface + 22, mid.z).add(gap.across.multiply(back));
 			gap.wideEye = above(eye, gap.contact.add(0, 3, 0));
 		}
