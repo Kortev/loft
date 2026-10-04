@@ -394,11 +394,6 @@ public final class GapRender {
 				g.flash = Math.max(g.flash, (float) (0.75 * Math.exp(-(t - GapTimeline.CONTACT) / 1.6)));
 				on = true;
 			}
-			if (t >= GapCamera.CUT_EYES && t < GapCamera.CUT_EYES + 4) {
-				g.glitch = 0.22F;
-				g.seed = (float) Math.floor(t * 1.5);
-				on = true;
-			}
 			for (ClientGap.Swap s : mine.swaps) {
 				double age = t - s.age();
 				if (age >= 0.0 && age < (s.kind() == 1 ? 5.0 : 2.0)) {

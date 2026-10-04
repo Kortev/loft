@@ -38,6 +38,8 @@ public final class ClientGap {
 	/** Where the under-the-shard shot stands, and which side of the shooter the shot behind them takes. */
 	@Nullable
 	public Vec3d underEye;
+	@Nullable
+	public Vec3d reverseEye;
 	public int side;
 	public final List<Swap> swaps = new ArrayList<>();
 

@@ -27,10 +27,10 @@ public final class GapCamera {
 	public static final int LOW = 4;
 	public static final int EYES = 5;
 
-	/** The cuts: out to the wide shot, up from the shooter's eyes and back, and down under the shard. */
+	/** The cuts: out to the wide shot, round behind the target and back, and down under the shard. */
 	public static final int CUT_WIDE = GapTimeline.TEAR + 30;
-	public static final int CUT_EYES = GapTimeline.CLOSING + 38;
-	public static final int CUT_EYES_END = CUT_EYES + 12;
+	public static final int CUT_REVERSE = GapTimeline.CLOSING + 36;
+	public static final int CUT_REVERSE_END = CUT_REVERSE + 22;
 	public static final int CUT_UNDER = GapTimeline.CONTACT - 26;
 
 	/** The places tried for a shot, nearest the one it would like first. */
@@ -57,8 +57,8 @@ public final class GapCamera {
 			if (t < CUT_WIDE) {
 				return lookUp(gap, feet, t);
 			}
-			if (t >= CUT_EYES && t < CUT_EYES_END) {
-				return lookAt(eye, gap.shardTip(t).add(0, 20, 0));
+			if (t >= CUT_REVERSE && t < CUT_REVERSE_END) {
+				return reverse(gap, t);
 			}
 			if (t >= CUT_UNDER) {
 				return under(gap, t);
@@ -72,11 +72,7 @@ public final class GapCamera {
 			return frameShot(gap, GapFrames.at(t - GapTimeline.FRAMES).shot(), eye, feet);
 		}
 		if (t < GapTimeline.NOTHING) {
-			Shot w = wide(gap, feet, GapTimeline.CONTACT);
-			double k = ease((t - GapTimeline.ERASURE) / (GapTimeline.NOTHING - GapTimeline.ERASURE));
-			Vec3d from = new Vec3d(w.x(), w.y(), w.z());
-			Vec3d away = from.subtract(gap.contact.x, from.y, gap.contact.z).normalize();
-			return lookAt(from.add(away.multiply(40 * k)).add(0, 30 * k, 0), gap.contact.lerp(feet, 0.3).add(0, 12, 0));
+			return erasure(gap, feet, t);
 		}
 		return nothing(gap, feet, t, tickDelta, player);
 	}
@@ -162,6 +158,33 @@ public final class GapCamera {
 			}
 		}
 		return room;
+	}
+
+	/**
+	 * From well beyond the target, looking back the way the shooter faces: the shard hanging huge over the target in
+	 * the top of the frame, the shooter small on their hill at the bottom. It shows how big the thing is.
+	 */
+	private static Shot reverse(ClientGap gap, double t) {
+		if (gap.reverseEye == null) {
+			gap.reverseEye = clear(gap.contact.add(gap.along.multiply(110.0)).add(gap.across.multiply(-15.0)).add(0, 40.0, 0),
+					gap.contact.add(0, 20, 0));
+		}
+		Vec3d eye = gap.reverseEye;
+		Vec3d back = new Vec3d(gap.shooterPos.x - eye.x, 0, gap.shooterPos.z - eye.z).normalize();
+		double pitch = Math.toRadians(18.0 - 4.0 * ease((t - CUT_REVERSE) / (CUT_REVERSE_END - CUT_REVERSE)));
+		return lookAt(eye, eye.add(back.multiply(Math.cos(pitch))).add(0, Math.sin(pitch), 0));
+	}
+
+	/** Rising and pulling back from the wide shot until it looks down on the point of contact, the black spreading out from it. */
+	private static Shot erasure(ClientGap gap, Vec3d feet, double t) {
+		Shot w = wide(gap, feet, GapTimeline.CONTACT);
+		double k = ease((t - GapTimeline.ERASURE) / (GapTimeline.NOTHING - GapTimeline.ERASURE - 30.0));
+		Vec3d from = new Vec3d(w.x(), w.y(), w.z());
+		Vec3d away = new Vec3d(from.x - gap.contact.x, 0, from.z - gap.contact.z);
+		double d = away.length();
+		away = away.normalize();
+		Vec3d to = gap.contact.add(away.multiply(d * 1.05)).add(0, Math.max(0.0, from.y - gap.contact.y) + 40.0, 0);
+		return lookAt(from.lerp(to, k), gap.contact.lerp(feet, 0.2 * (1.0 - k)).add(0, 10.0 * (1.0 - k), 0));
 	}
 
 	/** On the ground near the target, looking up at the shard as it comes down on top of it. */

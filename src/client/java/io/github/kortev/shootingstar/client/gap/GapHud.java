@@ -51,12 +51,7 @@ public final class GapHud {
 				leader(ctx, font, p.x + 8, p.y, p.x + 48, p.y + 18, "UNIVERSE 4,096,113", label);
 			}
 		} else if (t < GapTimeline.CONTACT) {
-			boolean eyes = t >= GapCamera.CUT_EYES && t < GapCamera.CUT_EYES_END;
-			if (eyes) {
-				text(ctx, font, gapReadout(t), w / 2, 34, 1.0F, PALE, 1.0F, true);
-			} else {
-				footer(ctx, font, w, h, gapReadout(t), 1.0F);
-			}
+			footer(ctx, font, w, h, gapReadout(t), 1.0F);
 		} else if (t >= GapTimeline.END) {
 			// Nothing is said in the black. Only, after a while, how to get out of it.
 			float a = (float) ease((t - GapTimeline.END - 40) / 20.0);
