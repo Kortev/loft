@@ -351,32 +351,82 @@ def build_asteroid(index):
 
 # --- relay satellite ---------------------------------------------------------------------------
 
+def strut(b, p0, p1, w, mat, glow=0.0):
+    """A thin square rod from p0 to p1 (Blender coordinates)."""
+    a, c = Vector(p0), Vector(p1)
+    d = (c - a).normalized()
+    side = d.cross(Vector((0, 0, 1)) if abs(d.z) < 0.9 else Vector((1, 0, 0))).normalized() * (w / 2)
+    up = d.cross(side).normalized() * (w / 2)
+    corners = [side + up, -side + up, -side - up, side - up]
+    r0 = [b.vert(*(a + k)) for k in corners]
+    r1 = [b.vert(*(c + k)) for k in corners]
+    for i in range(4):
+        j = (i + 1) % 4
+        b.face([r0[i], r0[j], r1[j], r1[i]], mat, glow)
+    b.face(r0[::-1], mat, glow)
+    b.face(r1, mat, glow)
+
+
 def build_relay():
-    """The orbital relay that bounces the uplink to Jupiter. Dish faces Blender -Y (Minecraft +Z)."""
+    """The orbital relay that bounces the uplink to Jupiter: a gold-foil bus with white radiators on top and bottom,
+    two four-panel solar wings, a laser terminal looking forward (Blender -Y, Minecraft +Z) to Jupiter with its
+    aperture 1.47 ahead of the centre, and a high-gain dish under the bus facing Earth (Blender -Z), its feed horn
+    held at the focus by a tripod. Thruster pods, star trackers and a whip antenna for scale."""
     b = Builder()
-    b.box((0, 0, 0), (0.7, 0.9, 0.7), FOIL)
-    b.box((0, 0.5, 0), (0.5, 0.12, 0.5), FRAME)
+    # Bus.
+    b.box((0, 0, 0), (0.8, 1.0, 0.8), FOIL)
+    for z in (-0.415, 0.415):
+        b.box((0, 0, z), (0.84, 1.04, 0.03), DISH)
+    for x in (-0.41, 0.41):
+        for z in (-0.41, 0.41):
+            b.box((x, 0, z), (0.05, 1.05, 0.05), FRAME)
+    # Solar wings: a yoke out of each side, a spar, four panels with frames.
     for side in (-1, 1):
-        b.box((side * 0.75, 0, 0), (0.5, 0.06, 0.06), FRAME)
-        for k in range(3):
-            b.box((side * (1.1 + k * 0.72), 0, 0), (0.68, 0.025, 0.9), SOLAR)
-    # Dish: a shallow paraboloid on a short mast.
-    b.box((0, -0.55, 0), (0.08, 0.3, 0.08), FRAME)
-    seg, rings = 32, 6
-    center = b.vert(0, -0.75, 0)
+        b.box((side * 0.66, 0, 0), (0.5, 0.06, 0.06), FRAME)
+        b.box((side * 0.93, 0, 0), (0.06, 0.1, 0.14), FRAME)
+        b.box((side * 2.45, 0, 0), (3.0, 0.035, 0.035), FRAME)
+        for k in range(4):
+            cx = side * (1.33 + k * 0.74)
+            b.box((cx, 0.0, 0), (0.7, 0.02, 1.08), SOLAR)
+            for z in (-0.545, 0.545):
+                b.box((cx, 0.0, z), (0.72, 0.03, 0.025), FRAME)
+            b.box((cx + side * 0.36, 0.0, 0), (0.025, 0.03, 1.1), FRAME)
+    # Laser terminal: a gimballed telescope on the front face, its aperture glowing when it fires.
+    b.box((0, -0.53, 0), (0.42, 0.06, 0.42), FRAME)
+    profile = [(0.55, 0.0), (0.55, 0.26), (0.66, 0.26), (0.66, 0.17), (1.3, 0.17), (1.3, 0.2), (1.47, 0.23), (1.47, 0.21),
+               (1.38, 0.15), (1.38, 0.0)]
+    lathe(b, profile, lambda zz: COPPER if zz < 0.66 else SABOT if zz < 1.29 else FRAME, lambda zz: 0.0, seg=32)
+    lathe(b, [(1.385, 0.0), (1.385, 0.15)], lambda zz: PANEL, lambda zz: 1.0, seg=32)
+    # High-gain dish under the bus, facing Earth: a paraboloid opening downwards, the horn at its focus.
+    b.box((0, 0, -0.52), (0.1, 0.1, 0.2), FRAME)
+    seg, rings, radius, depth, top = 40, 7, 0.78, 0.24, -0.62
+    centre = b.vert(0, 0, top)
     verts = []
     for k in range(1, rings + 1):
-        r = 0.62 * k / rings
-        y = -0.75 - 0.32 * (r / 0.62) ** 2
-        verts.append([b.vert(r * math.cos(2 * math.pi * i / seg), y, r * math.sin(2 * math.pi * i / seg))
-                      for i in range(seg)])
+        r = radius * k / rings
+        z = top - depth * (r / radius) ** 2
+        verts.append([b.vert(r * math.cos(2 * math.pi * i / seg), r * math.sin(2 * math.pi * i / seg), z) for i in range(seg)])
     for i in range(seg):
         j = (i + 1) % seg
-        b.face([center, verts[0][j], verts[0][i]], DISH)
+        b.face([centre, verts[0][j], verts[0][i]], DISH)
         for k in range(rings - 1):
             b.face([verts[k][i], verts[k][j], verts[k + 1][j], verts[k + 1][i]], DISH)
-    b.box((0, -1.2, 0), (0.06, 0.5, 0.06), FRAME)
-    b.box((0, -1.47, 0), (0.1, 0.06, 0.1), PANEL, 1.0)  # emitter
+    focus = top - radius * radius / (4 * depth)
+    for i in range(3):
+        a = 2 * math.pi * i / 3 + 0.5
+        rim = (radius * 0.97 * math.cos(a), radius * 0.97 * math.sin(a), top - depth * 0.94)
+        strut(b, rim, (0, 0, focus + 0.06), 0.025, FRAME)
+    b.box((0, 0, focus + 0.04), (0.1, 0.1, 0.1), FRAME)
+    b.box((0, 0, focus - 0.03), (0.07, 0.07, 0.05), CABLE)
+    # Thruster pods on the corners, star trackers and a whip antenna on top.
+    for x in (-0.43, 0.43):
+        for y in (-0.53, 0.53):
+            b.box((x, y, 0.3), (0.07, 0.07, 0.07), FRAME)
+            b.box((x * 1.12, y * 1.08, 0.3), (0.035, 0.035, 0.035), CABLE)
+    for x, y in ((-0.22, 0.25), (0.2, 0.3)):
+        b.box((x, y, 0.49), (0.12, 0.14, 0.12), DISH)
+        b.box((x, y - 0.075, 0.5), (0.08, 0.01, 0.08), CABLE)
+    b.box((0.3, -0.3, 0.75), (0.015, 0.015, 0.6), FRAME)
     obj = b.to_object('relay')
     smooth(obj, 30)
     return obj

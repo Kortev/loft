@@ -142,12 +142,13 @@ void main() {
         base = mix(vec3(0.12, 0.105, 0.09), vec3(0.3, 0.27, 0.23), grain);
         rough = 0.92;
     } else if (mat == 6) {
-        // Gold insulation foil, crinkled.
+        // Gold insulation foil, crinkled into facets that catch the light from almost any angle.
         float crinkle = noise(objPos * 23.0) * 0.6 + noise(objPos * 61.0) * 0.4;
-        n = normalize(n + (vec3(noise(objPos * 31.0), noise(objPos * 37.0 + 3.0), noise(objPos * 29.0 + 7.0)) - 0.5) * 0.5);
-        base = vec3(0.8, 0.58, 0.2) * (0.8 + 0.3 * crinkle);
-        metal = 1.0;
-        rough = 0.28;
+        n = normalize(n + (vec3(noise(objPos * 67.0), noise(objPos * 73.0 + 3.0), noise(objPos * 59.0 + 7.0)) - 0.5) * 0.8);
+        // Real MLI scatters the sun off countless tiny facets, so it reads gold from almost anywhere: part diffuse.
+        base = vec3(0.9, 0.66, 0.24) * (0.7 + 0.45 * crinkle);
+        metal = 0.5;
+        rough = 0.5;
     } else if (mat == 7) {
         vec2 cell = fract(objPos.xz * 7.0);
         float grid = step(0.9, max(cell.x, cell.y));

@@ -274,7 +274,7 @@ final class Shots {
 		float dive = (float) Math.pow(smooth((s - 37) / 7.0), 2.0);
 		Vector3f breech = new Vector3f(RING, 0, 0);
 		if (dive > 0) {
-			eye.lerp(new Vector3f(breech).add(0.06F, 0.035F, 0.1F), dive);
+			eye.lerp(new Vector3f(breech).add(0.12F, 0.08F, 0.2F), dive);
 			at.lerp(new Vector3f(breech).add(0, 0, -0.12F), dive);
 			fov -= 14.0F * dive;
 		}
@@ -544,11 +544,12 @@ final class Shots {
 				roll = 0.16F;
 			}
 			case 5 -> {
-				// Out in front, looking back at the point coming on through the firing coils, the barrel ablaze behind it.
-				eye = new Vector3f(0.2F + sway * 0.5F, 0.14F, 5.4F);
-				at = new Vector3f(0, -0.02F, 0.2F);
+				// Out in front and off to one side by the wall, looking back at the blade coming on through the firing
+				// coils, the barrel ablaze behind it.
+				eye = new Vector3f(0.42F + sway * 0.5F, 0.22F, 3.4F);
+				at = new Vector3f(0, -0.02F, 0.0F);
 				roll = (float) (-0.1 - since * 0.08);
-				fov = 58.0F;
+				fov = 64.0F;
 			}
 			default -> {
 				// Tight on the fins as it nears c, everything round it gone to light.
@@ -594,7 +595,8 @@ final class Shots {
 				Vector3f ground = ringPoint(where).normalize();
 				eye = new Vector3f(ground).mul(1.018F).add(0, -0.03F, 0);
 				Vector3f back = new Vector3f((float) Math.sin(where), 0, (float) Math.cos(where));
-				at = new Vector3f(eye).add(back).add(new Vector3f(ground).mul(0.34F));
+				// Nearly level, so the horizon sits in the lower third with the ring climbing out of it.
+				at = new Vector3f(eye).add(back).add(new Vector3f(ground).mul(0.06F));
 				up = new Vector3f(ground);
 				fov = 74.0F;
 				low = true;
