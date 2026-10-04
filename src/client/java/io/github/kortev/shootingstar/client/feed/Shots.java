@@ -1128,15 +1128,16 @@ final class Shots {
 		double range = plotRange(s);
 		Vector3f round = plotRound(range);
 		float out = smoother(s / 12.0);
-		Vector3f middle = new Vector3f(PLOT_JUPITER).lerp(PLOT_EARTH, 0.55F).mul(0.8F);
+		// The wide view looks almost straight down on the whole run from Jupiter to the Sun.
+		Vector3f middle = new Vector3f(PLOT_JUPITER).lerp(PLOT_EARTH, 0.45F).mul(0.85F);
 		Vector3f wideAt = new Vector3f(round).lerp(middle, out);
-		double wide = Math.exp(Math.log(0.035) + (Math.log(6.0) - Math.log(0.035)) * out) * (1.0 - 0.3 * smooth((s - 12.0) / 14.0));
+		double wide = Math.exp(Math.log(0.035) + (Math.log(8.0) - Math.log(0.035)) * out) * (1.0 - 0.3 * smooth((s - 12.0) / 14.0));
 		Vector3f closeAt = new Vector3f(round).lerp(PLOT_EARTH, 0.5F + 0.5F * smooth((s - 38.0) / 9.0));
 		double close = 1.7 * range + 0.0045;
 		float in = smoother((s - 24.0) / 11.0);
 		Vector3f at = wideAt.lerp(closeAt, in);
 		double distance = Math.exp(Math.log(wide) + (Math.log(close) - Math.log(wide)) * in);
-		double elevation = Math.toRadians(lerp(lerp(9.0, 52.0, out), 30.0, in));
+		double elevation = Math.toRadians(lerp(lerp(9.0, 75.0, out), 30.0, in));
 		double azimuth = Math.toRadians(8.0 + 6.0 * out - 6.0 * in);
 		// From behind the round, out towards Jupiter, and above the ecliptic, turned a little off the track.
 		Vector3f side = new Vector3f(0, 1, 0).cross(PLOT_HEADING).normalize();
@@ -1178,7 +1179,7 @@ final class Shots {
 			plotCircle(orbits, new Vector3f(), (float) r, 1.5F, orbit);
 		}
 		plotCircle(orbits, new Vector3f(), 1.0F, 2.0F, Fx.argb(0.5F, 0.85F, 1.0F, 0.9F));
-		float lunar = 1.0F - smooth((distance - 0.02) / 0.06);
+		float lunar = 1.0F - smooth((cam.pos.distance(PLOT_EARTH) - 0.02) / 0.06);
 		if (lunar > 0.0F) {
 			plotCircle(orbits, PLOT_EARTH, (float) MOON_ORBIT, 1.5F, Fx.argb(0.6F, 0.7F, 0.8F, 0.7F * lunar));
 		}
@@ -1193,10 +1194,12 @@ final class Shots {
 			belt.sprite(p, pixel(p) * 2.2F, 0, Fx.argb(0.85F, 0.72F, 0.58F, 0.25F + 0.45F * random.nextFloat()));
 		}
 		Vector3f crossing = plotRound(PLOT_RANGE);
+		// (From far off it would only read as a blot.)
+		float drift = 1.0F - smooth((distance - 0.2) / 0.8);
 		for (int i = 0; i < 500; i++) {
 			Vector3f p = new Vector3f((float) random.nextGaussian(), (float) random.nextGaussian() * 0.2F, (float) random.nextGaussian())
 					.mul(0.1F).add(crossing);
-			belt.sprite(p, pixel(p) * 2.0F, 0, Fx.argb(0.85F, 0.72F, 0.58F, 0.3F + 0.4F * random.nextFloat()));
+			belt.sprite(p, pixel(p) * 2.0F, 0, Fx.argb(0.85F, 0.72F, 0.58F, (0.3F + 0.4F * random.nextFloat()) * drift));
 		}
 		belt.end(false, 1.2F * fade);
 

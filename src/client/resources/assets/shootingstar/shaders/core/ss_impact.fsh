@@ -183,12 +183,15 @@ void main() {
         c = mix(c, vec3(0.99) - c, e);
         outColor = mix(c, vec3(0.02), speedLines(texCoord) * (1.0 - dark) * 0.85);
     } else if (Mode == 7) {
-        // Red and black: the blast a red silhouette round a white-hot core, everything else black, white speed lines.
+        // Red and black: only the blast (bright and warm, unlike the sky) stands out, a red silhouette round a
+        // white-hot core inked in black; everything else goes black, its shapes in dark red lines, white speed lines.
         float e = edges(uv);
-        vec3 c = mix(vec3(0.02, 0.0, 0.0), vec3(0.88, 0.06, 0.03), smoothstep(0.24, 0.32, lum));
-        c = mix(c, vec3(1.0, 0.95, 0.88), smoothstep(0.78, 0.86, lum));
-        c = mix(c, vec3(0.0), e * 0.85);
-        outColor = c + vec3(1.0, 0.92, 0.86) * speedLines(texCoord) * 0.55;
+        float warm = max(smoothstep(-0.05, 0.15, src.r - src.b), smoothstep(0.88, 0.95, lum));
+        float blast = smoothstep(0.38, 0.46, smoothstep(0.5, 0.62, lum) * warm);
+        vec3 c = mix(vec3(0.02, 0.0, 0.0), vec3(0.9, 0.07, 0.03), blast);
+        c = mix(c, vec3(1.0, 0.95, 0.88), smoothstep(0.86, 0.92, lum) * warm);
+        c = mix(c, mix(vec3(0.42, 0.03, 0.02), vec3(0.02, 0.0, 0.0), blast), e * 0.9);
+        outColor = c + vec3(1.0, 0.92, 0.86) * speedLines(texCoord) * 0.55 * (1.0 - blast);
     }
     vec3 color = mix(src, outColor, Mix) * Exposure + Tint;
     fragColor = vec4(mix(color, FlashColor, clamp(Flash, 0.0, 1.0)), 1.0);

@@ -907,9 +907,9 @@ def feed_transit():
 
 
 def feed_locate():
-    """The seeker (1.5 s): it comes up with a chirp; the Moon swoops past in a deep whoosh; a search growl that
-    climbs as the brackets close on the target; the lock, a hard click and a steady high tone; and a whoosh as
-    the camera pulls back out of the spear's point."""
+    """The seeker (1.5 s): it comes up with a chirp; the Moon swoops past in a deep whoosh as it leaves the frame;
+    a search growl that climbs as the brackets close on the target; the lock, a hard click and a steady high
+    tone; and a whoosh as the camera pulls back out of the spear's point."""
     total = 1.55
     n = ns(total)
     m = Mix(total)
@@ -922,11 +922,11 @@ def feed_locate():
     # The Moon: a deep whoosh that peaks as it sweeps out past the upper left.
     q = ns(0.75)
     tt = np.arange(q) / SR
-    dist = np.sqrt(((tt - 0.37) * 60) ** 2 + 4.0 ** 2)
-    moon = sweep_filter(pink(q), 'bandpass', curve(q, [(0, 260), (0.37, 900), (0.75, 180)], 'log'), order=2, width=1.6)
+    dist = np.sqrt(((tt - 0.27) * 60) ** 2 + 4.0 ** 2)
+    moon = sweep_filter(pink(q), 'bandpass', curve(q, [(0, 260), (0.27, 900), (0.75, 180)], 'log'), order=2, width=1.6)
     moon *= 1.0 / (0.2 + dist / 8.0)
-    low = sine(curve(q, [(0, 70), (0.37, 52), (0.75, 34)], 'log')) * np.exp(-((tt - 0.37) / 0.14) ** 2)
-    m.add(pan(norm(moon) + 0.6 * low, curve(q, [(0, 0.0), (0.37, -0.45), (0.75, -0.85)])), 0.0, 0.7)
+    low = sine(curve(q, [(0, 70), (0.27, 52), (0.75, 34)], 'log')) * np.exp(-((tt - 0.27) / 0.14) ** 2)
+    m.add(pan(norm(moon) + 0.6 * low, curve(q, [(0, 0.0), (0.27, -0.45), (0.75, -0.85)])), 0.0, 0.7)
     # The search growl: a buzzing tone, pulsing, climbing as the brackets close.
     q = ns(0.78)
     tt = np.arange(q) / SR
