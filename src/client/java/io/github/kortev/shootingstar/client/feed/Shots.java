@@ -36,6 +36,10 @@ final class Shots {
 	static final float RING = 1.22F;
 	private static final Vector3f JUPITER_SUN = new Vector3f(0.9F, 0.18F, 0.45F).normalize();
 	private static final Matrix4f JUPITER_SKY = new Matrix4f().rotateXYZ(-0.5F, 1.1F, 0.35F);
+	/** Io (1,821 km, so 0.0255 Jupiter radii), sunward of Jupiter so that it and its shadow cross the lit face. */
+	private static final float IO_RADIUS = 0.0255F;
+	private static final Vector3f IO_POS = new Vector3f(JUPITER_SUN).mul(2.6F)
+			.add(new Vector3f(JUPITER_SUN).cross(0, 1, 0, new Vector3f()).normalize().mul(0.38F)).add(0, -0.1F, 0);
 
 	// --- Breech scene: the beam runs along +Z, Jupiter far below ---------------------------------
 	private static final float ROUND_SCALE = 0.42F;
@@ -47,6 +51,14 @@ final class Shots {
 
 	private static final int ORANGE = 0xFF7A1E;
 	private static final int HOT = 0xFFB070;
+	/** The colour the coils and the armature flash when they fire: an electric white-blue. */
+	private static final Vector3f ARC = new Vector3f(0.75F, 0.88F, 1.0F);
+	/** Out at the muzzle the sun is ahead, where the round is going. */
+	private static final Vector3f RELEASE_SUN = new Vector3f(0.3F, 0.38F, 0.88F).normalize();
+	/** Where the round's centre is (coil spacings past the muzzle) when the sabot is clear and falls away. */
+	private static final double SABOT_FREE = 1.1;
+	/** Angle of the first sabot petal round the spear (the others follow at 120 degrees). */
+	private static final float PETAL_PHASE = 0.4F;
 
 	private final Space space = new Space();
 	private final Cam cam = new Cam();
@@ -65,6 +77,7 @@ final class Shots {
 		guiH = guiHeight;
 		time = (float) t;
 		Overlay o = new Overlay();
+		space.resetLights();
 		if (t < StrikeTimeline.RELAY) {
 			orbit(t - StrikeTimeline.ORBIT, o);
 		} else if (t < StrikeTimeline.WAKE) {
@@ -73,8 +86,10 @@ final class Shots {
 			wake(t - StrikeTimeline.WAKE, o);
 		} else if (t < StrikeTimeline.LAPS) {
 			loading(t - StrikeTimeline.LOADING, o);
-		} else if (t < StrikeTimeline.DEBRIS) {
+		} else if (t < StrikeTimeline.RELEASE) {
 			laps(t, o);
+		} else if (t < StrikeTimeline.DEBRIS) {
+			release(t - StrikeTimeline.RELEASE, o);
 		} else if (t < StrikeTimeline.TERMINAL) {
 			debris(t - StrikeTimeline.DEBRIS, o);
 		} else {
@@ -268,7 +283,15 @@ final class Shots {
 	/** Jupiter with its ring ({@code progress} lit), aurora, and the sun. */
 	private void jupiterScene(float progress, float ringBase, float aurora) {
 		Matrix4f jupiter = new Matrix4f().rotateZ((float) Math.toRadians(3.1));
+		// The ring and Io both throw shadows across the cloud tops.
+		space.ringShadow = RING;
+		space.moonPos.set(IO_POS);
+		space.moonRadius = IO_RADIUS;
 		space.jupiter(cam, jupiter, JUPITER_SUN, time, 1.0F);
+		space.fillDir.set(IO_POS).negate().normalize();
+		space.fillColor.set(0.22F, 0.15F, 0.09F);
+		space.mesh(space.io, cam, new Matrix4f().translation(IO_POS).rotateY(time * 0.002F).scale(IO_RADIUS), JUPITER_SUN, 1.5F, 0, 0, 0);
+		space.fillColor.zero();
 		space.ring(cam, new Matrix4f(jupiter).scale(RING), progress, ringBase, 1.0F, 0.42F, 0.1F);
 		Fx polar = space.glow(cam, Fx.RING, 0.35F);
 		Vector3f pole = new Vector3f(0, 1.0F, 0);
@@ -307,7 +330,7 @@ final class Shots {
 
 	/**
 	 * Coils along +Z with the round at {@code roundZ}; {@code travel} slides the tunnel (in coil spacings),
-	 * {@code glow} drives the panels and {@code speed} adds light trails.
+	 * {@code glow} is the coils' idle glow and {@code speed} (0..1) how hard they fire as the round goes through.
 	 */
 	private void breechScene(double travel, float roundZ, float glow, float speed) {
 		space.sky(cam, LOCAL_SKY, 0.9F, 0, cam.forward(), 0, 0, 0, time);
@@ -315,31 +338,76 @@ final class Shots {
 		Space.clearDepth();
 		space.jupiter(cam, LOCAL_JUPITER, LOCAL_SUN, time * 3, 1.0F);
 		Space.clearDepth();
+		// Jupiter fills the scene with orange light from below.
+		space.fillDir.set(0, -1, 0);
+		space.fillColor.set(0.3F, 0.17F, 0.08F);
 
 		double offset = travel - Math.floor(travel);
-		// Each coil fires as the round reaches it: a sharp front just ahead, a long cooling trail behind.
-		float fireGain = speed > 0 ? 1.2F + 3.5F * speed : 0.0F;
+		float light = speed > 0 ? 0.55F : 1.0F;
 		for (int k = -12; k <= 70; k++) {
 			float z = (float) (k - offset);
-			float rel = z - roundZ;
-			float fire = rel >= 0 ? (float) Math.exp(-rel * rel * 3.0) : (float) Math.exp(rel / (1.5F + 10.0F * speed));
-			Matrix4f coil = new Matrix4f().translation(0, 0, z);
-			space.mesh(space.coil, cam, coil, LOCAL_SUN, 1.0F, ORANGE, glow + fire * fireGain, 0);
+			coil(z, z - roundZ, glow, speed, light);
+		}
+		// The coil firing just ahead of the round lights it up.
+		if (speed > 0) {
+			space.pointPos.set(0, 0, roundZ + 0.6F);
+			space.pointColor.set(ARC).mul(5.0F + 9.0F * speed);
 		}
 		Matrix4f model = new Matrix4f().translation(0, 0, roundZ).scale(ROUND_SCALE);
-		space.mesh(space.round, cam, model, LOCAL_SUN, 1.1F, ORANGE, 1.4F + speed, speed * 0.6F);
+		drawRound(model, LOCAL_SUN, 1.1F, 0.6F + speed, speed * 0.4F, speed > 0 ? 0.8F + 2.5F * speed : 0.0F, true);
+		space.pointColor.zero();
 		if (speed > 0.05F) {
-			// Light trails along the panels.
+			// Light trails along the emitters.
 			Fx trails = space.glow(cam, Fx.STREAK, 0);
 			for (int i = 0; i < 40; i++) {
 				double angle = (i * 2.399963) % (Math.PI * 2);
-				float r = 0.78F;
+				float r = 0.7F;
 				float z = (float) ((i * 7.31 + travel * 0.5) % 60.0) - 6.0F;
 				float length = 0.5F + speed * 6.0F;
 				Vector3f c = new Vector3f((float) Math.cos(angle) * r, (float) Math.sin(angle) * r, z);
-				trails.stretched(c, new Vector3f(0, 0, 1), length, 0.035F, Fx.argb(1.0F, 0.6F, 0.25F, Math.min(1.0F, speed * 1.4F)));
+				trails.stretched(c, new Vector3f(0, 0, 1), length, 0.03F, Fx.argb(0.8F, 0.85F, 1.0F, Math.min(1.0F, speed * 1.2F)));
 			}
 			trails.end(true);
+		}
+	}
+
+	/**
+	 * One coil at {@code z}, {@code rel} spacings ahead of the round (negative: behind). It flashes white-blue as
+	 * the round arrives and cools through orange behind it, its radiators glowing as it cools.
+	 */
+	private void coil(float z, float rel, float glow, float speed, float light) {
+		float front = 0.0F;
+		float trail = 0.0F;
+		if (speed > 0) {
+			if (rel >= 0) {
+				front = (float) Math.exp(-rel * rel * 3.0);
+			} else {
+				front = (float) Math.exp(-rel * rel * 6.0);
+				trail = (float) Math.exp(rel / (1.5F + 10.0F * speed));
+			}
+		}
+		float flash = front * (3.0F + 5.0F * speed);
+		float warm = glow + trail * (0.8F + 1.3F * speed);
+		float strength = flash + warm;
+		float r = (ARC.x * flash + 1.0F * warm) / strength;
+		float g = (ARC.y * flash + 0.42F * warm) / strength;
+		float b = (ARC.z * flash + 0.1F * warm) / strength;
+		Matrix4f coil = new Matrix4f().translation(0, 0, z);
+		space.mesh(space.coil, cam, coil, LOCAL_SUN, light, r, g, b, strength, trail * 0.8F);
+	}
+
+	/**
+	 * The spear at {@code model} (one unit is a tenth of its length) and, when {@code sabot}, the three petals of
+	 * its sabot round it: {@code glow} lights the runes and the blade's edges, {@code heat} the blade, and
+	 * {@code armature} the sabot's copper bands (white-blue while the coils push on them).
+	 */
+	private void drawRound(Matrix4f model, Vector3f sun, float light, float glow, float heat, float armature, boolean sabot) {
+		space.mesh(space.round, cam, model, sun, light, ORANGE, glow, heat);
+		if (sabot) {
+			for (int k = 0; k < 3; k++) {
+				Matrix4f petal = new Matrix4f(model).rotateZ(k * 2.0943951F + PETAL_PHASE);
+				space.mesh(space.sabot, cam, petal, sun, light, ARC.x, ARC.y, ARC.z, armature, 0);
+			}
 		}
 	}
 
@@ -377,15 +445,15 @@ final class Shots {
 		double a = StrikeTimeline.EXIT_VELOCITY - v0;
 		double target = (lap - 1) / (double) StrikeTimeline.LAP_COUNT * (v0 + a / 2);
 		double p = (-v0 + Math.sqrt(v0 * v0 + 2 * a * target)) / a;
-		return StrikeTimeline.LAPS + p * (StrikeTimeline.DEBRIS - StrikeTimeline.LAPS);
+		return StrikeTimeline.LAPS + p * (StrikeTimeline.RELEASE - StrikeTimeline.LAPS);
 	}
 
 	/** Coil spacings covered since the launch: speed grows with velocity^1.3, integrated in closed form. */
 	private static double travel(double t) {
 		double u = Math.max(0, t - StrikeTimeline.LAPS);
 		double b0 = StrikeTimeline.ENTRY_VELOCITY;
-		double k = (StrikeTimeline.EXIT_VELOCITY - b0) / (StrikeTimeline.DEBRIS - StrikeTimeline.LAPS);
-		double beta = b0 + k * Math.min(u, StrikeTimeline.DEBRIS - StrikeTimeline.LAPS);
+		double k = (StrikeTimeline.EXIT_VELOCITY - b0) / (StrikeTimeline.RELEASE - StrikeTimeline.LAPS);
+		double beta = b0 + k * Math.min(u, StrikeTimeline.RELEASE - StrikeTimeline.LAPS);
 		return 0.6 * u + 22.0 / (k * 2.3) * (Math.pow(beta, 2.3) - Math.pow(b0, 2.3));
 	}
 
@@ -426,8 +494,9 @@ final class Shots {
 		o.streak = 0.12F;
 		o.aberration = velocity * 0.012F;
 		if (lap == StrikeTimeline.LAP_COUNT) {
-			double end = StrikeTimeline.DEBRIS - lapStart(lap);
-			o.flash = Math.max(o.flash, (float) Math.pow(smooth((since - end * 0.45) / (end * 0.55)), 2.0));
+			// The last lap burns out into the muzzle shot.
+			double end = StrikeTimeline.RELEASE - lapStart(lap);
+			o.flash = Math.max(o.flash, (float) Math.pow(smooth((since - end * 0.8) / (end * 0.2)), 2.0) * 0.8F);
 		}
 	}
 
@@ -504,12 +573,182 @@ final class Shots {
 	}
 
 	// =============================================================================================
-	// 6. Release, then across the main belt at 0.96c.
+	// 6. Release: out of the muzzle in slow motion, shedding the sabot.
+	// =============================================================================================
+
+	/**
+	 * The round's centre in coil spacings past the muzzle (the last coil, at z = 0). It races up the barrel, time
+	 * all but stops as it leaves the muzzle, and then it is gone: a sinh is fast, slow and fast again. Scene time
+	 * runs with this, so everything else in the shot is timed against it.
+	 */
+	private static double releaseZ(double s) {
+		return 0.5 * Math.sinh((s - 11.0) / 2.2);
+	}
+
+	private void release(double s, Overlay o) {
+		double z = releaseZ(s);
+		double speed = (releaseZ(s + 0.05) - releaseZ(s - 0.05)) / 0.1;
+		// Down the barrel from the muzzle as the flash races up it; beside the round as it comes out; then the
+		// camera whips round after it.
+		float toSide = smooth((s - 6.0) / 4.0);
+		float after = smoother((s - 19.0) / 6.0);
+		Vector3f eye = new Vector3f(2.3F, 1.05F, 4.6F)
+				.lerp(new Vector3f(1.35F, 0.5F, 2.6F).lerp(new Vector3f(1.05F, 0.38F, 4.4F), smooth((s - 8.0) / 12.0)), toSide)
+				.lerp(new Vector3f(0.9F, 0.45F, 3.5F), after);
+		Vector3f at = new Vector3f(0, 0, -14.0F)
+				.lerp(new Vector3f(0, 0, (float) Math.min(z, 6.0) + 0.3F), toSide)
+				.lerp(new Vector3f(0, 0, (float) Math.max(z, 40.0)), after);
+		// The blast at the muzzle shakes the camera.
+		float blast = (float) Math.exp(-Math.pow((z + 0.6) / 1.4, 2.0));
+		float shake = blast * 0.035F + (float) Math.min(1.0, Math.max(0.0, speed - 3.0) / 20.0) * 0.01F;
+		eye.add(noise(s * 7.1) * shake, noise(s * 6.3 + 5.0) * shake, 0);
+		localCamera(eye, at, 0, 52.0F - 8.0F * toSide + 16.0F * after);
+
+		space.sky(cam, LOCAL_SKY, 0.9F, 0, cam.forward(), (float) Math.min(0.5, Math.max(0.0, speed - 2.0) * 0.02), 0, 0, time);
+		Space.clearDepth();
+		space.jupiter(cam, LOCAL_JUPITER, LOCAL_SUN, time * 3, 1.0F);
+		Space.clearDepth();
+		Fx sun = space.glow(cam, Fx.SPIKES, 0);
+		sun.sprite(new Vector3f(RELEASE_SUN).mul(1800.0F), 80.0F, 0, Fx.argb(1.0F, 0.95F, 0.85F, 0.9F));
+		sun.end(true);
+		space.fillDir.set(0, -1, 0);
+		space.fillColor.set(0.3F, 0.17F, 0.08F);
+
+		// The last ninety coils of the barrel. At this speed the trail behind the round is as long as ever, however
+		// slowly the shot runs, so the coils fire at full strength.
+		for (int k = -90; k <= 0; k++) {
+			coil(k, (float) (k - z), 0.25F, 1.0F, 0.75F);
+		}
+		// The muzzle blast lights the round and the petals.
+		space.pointPos.set(0, 0, 0.4F);
+		space.pointColor.set(ARC).mul(2.0F + 26.0F * blast);
+		Matrix4f model = new Matrix4f().translation(0, 0, (float) z).scale(ROUND_SCALE);
+		boolean attached = z < SABOT_FREE;
+		drawRound(model, RELEASE_SUN, 1.2F, 1.8F, 0.12F, attached ? 3.3F : 0.0F, attached);
+		if (!attached) {
+			petals(z);
+		}
+		space.pointColor.zero();
+		muzzle(z, blast);
+
+		o.header = "[ RELEASE ]";
+		o.headerColor = Feed.WHITE;
+		o.headerReveal = smooth(s / 4.0);
+		o.footer = String.format(Locale.ROOT, "VELOCITY %.4f c", StrikeTimeline.EXIT_VELOCITY);
+		// Time all but stands still at the muzzle: the feed switches to its high-speed camera.
+		boolean slow = speed < 3.0;
+		if (slow) {
+			o.footerSmall = z < SABOT_FREE ? "HIGH-SPEED · 1/800" : "HIGH-SPEED · 1/800 · SABOT SEPARATION";
+		}
+		if (!attached && z < SABOT_FREE + 14.0) {
+			Vector3f petal = new Vector3f(0.0F, 0.0F, (float) z).add(petalOffset(z, 0));
+			label(o, petal, 10, -4, "SABOT", Feed.RED, "SHED", Feed.GREY, smooth((z - SABOT_FREE - 0.6) / 2.0)
+					* (1.0F - smooth((z - SABOT_FREE - 10.0) / 4.0)));
+		}
+		o.shutter = slow ? 0.0F : 1.0F;
+		o.streak = 0.3F;
+		o.zoomBlur = (float) Math.min(0.45, Math.max(0.0, speed - 3.0) * 0.012);
+		o.exposure = 1.0F + 1.8F * blast;
+		o.flash = Math.max(blast * 0.12F, s < 1.5 ? (float) (0.8 * (1.0 - s / 1.5)) : 0.0F);
+		o.flashColor = 0xFFFFFF;
+		o.aberration = blast * 0.01F;
+	}
+
+	/** Where petal {@code k} has drifted to, relative to the spear's centre, at scene time {@code z}. */
+	private static Vector3f petalOffset(double z, int k) {
+		double since = Math.max(0.0, z - SABOT_FREE);
+		double angle = k * 2.0943951 + PETAL_PHASE;
+		// Eddy currents in the muzzle's last coil brake the copper-banded petals as the bare spear flies on.
+		float lag = (float) (since * 0.15);
+		float out = (float) (0.03 + since * 0.07);
+		return new Vector3f((float) Math.cos(angle) * out, (float) Math.sin(angle) * out, -lag);
+	}
+
+	/** The three petals of the sabot falling away from the spear, tumbling, the pyro bolts flashing as they go. */
+	private void petals(double z) {
+		double since = z - SABOT_FREE;
+		for (int k = 0; k < 3; k++) {
+			double angle = k * 2.0943951 + PETAL_PHASE;
+			Vector3f off = petalOffset(z, k);
+			float tumble = (float) (since * (0.035 + 0.012 * k));
+			float cx = 0.3F * ROUND_SCALE;
+			float cz = -0.15F * ROUND_SCALE;
+			Matrix4f petal = new Matrix4f().translation(off.x, off.y, (float) z + off.z).rotateZ((float) angle)
+					.translate(cx, 0, cz).rotateY(tumble).rotateX((float) (since * 0.01 * (k - 1))).translate(-cx, 0, -cz)
+					.scale(ROUND_SCALE);
+			float hot = (float) Math.exp(-since / 6.0);
+			space.mesh(space.sabot, cam, petal, RELEASE_SUN, 1.2F, 1.0F, 0.45F, 0.12F, 2.0F * hot, 0);
+		}
+		if (since < 3.0) {
+			// The separation charges along the seams.
+			Fx bolts = space.glow(cam, Fx.BLOB, 1.0F);
+			float pop = (float) Math.exp(-since / 0.7);
+			for (int k = 0; k < 3; k++) {
+				double seam = k * 2.0943951 + PETAL_PHASE + 1.0471976;
+				float r = 0.44F * ROUND_SCALE + (float) since * 0.04F;
+				for (int j = 0; j < 3; j++) {
+					float along = (float) z + (0.7F - j * 0.6F) * ROUND_SCALE;
+					Vector3f p = new Vector3f((float) Math.cos(seam) * r, (float) Math.sin(seam) * r, along);
+					bolts.sprite(p, 0.06F + 0.1F * (1.0F - pop), 0, Fx.argb(1.0F, 0.85F, 0.55F, pop));
+				}
+			}
+			bolts.end(true, 4.0F);
+		}
+	}
+
+	/**
+	 * The muzzle as the round leaves it: arcs jumping from the last coil to the sabot's bands, a burst of light,
+	 * and a ring of plasma blown out across the mouth of the barrel.
+	 */
+	private void muzzle(double z, float blast) {
+		if (z > -2.5 && z < 1.6) {
+			// Arcs from the last two coils' emitters to the copper bands, re-struck every few scene frames.
+			Fx arcs = space.glow(cam, Fx.BEAM, 0);
+			random.setSeed(9001L + (long) Math.floor((z + 10.0) * 6.0));
+			for (int i = 0; i < 9; i++) {
+				double a = random.nextDouble() * Math.PI * 2;
+				float coilZ = -random.nextInt(2);
+				Vector3f from = new Vector3f((float) Math.cos(a) * 0.72F, (float) Math.sin(a) * 0.72F, coilZ);
+				float bandZ = (float) z + (0.85F - 0.7F * random.nextInt(4)) * ROUND_SCALE;
+				Vector3f to = new Vector3f((float) Math.cos(a) * 0.19F, (float) Math.sin(a) * 0.19F, bandZ);
+				Vector3f mid = new Vector3f(from).lerp(to, 0.5F).add((float) random.nextGaussian() * 0.08F,
+						(float) random.nextGaussian() * 0.08F, (float) random.nextGaussian() * 0.05F);
+				int c = Fx.argb(ARC.x, ARC.y, ARC.z, 0.9F);
+				arcs.beam(from, mid, cam.pos, 0.012F, c, c);
+				arcs.beam(mid, to, cam.pos, 0.012F, c, c);
+			}
+			arcs.end(true, 3.0F);
+		}
+		double since = z + 1.0;
+		if (since > 0) {
+			Fx ring = space.glow(cam, Fx.RING, 0.12F);
+			float radius = (float) (0.5 + since * 0.45);
+			float fade = (float) Math.exp(-since / 5.0);
+			ring.flat(new Vector3f(0, 0, 0.2F), new Vector3f(radius, 0, 0), new Vector3f(0, radius, 0),
+					Fx.argb(ARC.x, ARC.y, ARC.z, fade));
+			ring.end(true, 2.5F);
+		}
+		if (blast > 0.01F || since > 0) {
+			float glow = blast + (float) (since > 0 ? 0.35 * Math.exp(-since / 8.0) : 0.0);
+			Fx core = space.glow(cam, Fx.BLOB, 1.0F);
+			core.sprite(new Vector3f(0, 0, 0.3F), 0.4F + 1.1F * glow, 0, Fx.argb(0.85F, 0.92F, 1.0F, glow));
+			core.end(true, 3.0F);
+			Fx flare = space.glow(cam, Fx.SPIKES, 0);
+			flare.sprite(new Vector3f(0, 0, 0.3F), 0.8F + 2.5F * blast, 0, Fx.argb(1.0F, 0.95F, 0.9F, blast));
+			flare.end(true, 4.0F);
+		}
+	}
+
+	// =============================================================================================
+	// 7. Across the main belt at 0.96c.
 	// =============================================================================================
 
 	private void debris(double s, Overlay o) {
 		float orbitCam = (float) (s * 0.012);
 		Vector3f eye = new Vector3f(0.95F, 0.62F, -3.5F).rotateZ(orbitCam);
+		float strike = (float) Math.exp(-Math.pow((s - ROCK_HIT) / 0.6, 2.0));
+		float jolt = s > ROCK_HIT ? (float) Math.exp(-(s - ROCK_HIT) / 2.0) * 0.06F : 0.0F;
+		eye.add(noise(s * 9.0) * jolt, noise(s * 8.0 + 3.0) * jolt, 0);
 		localCamera(eye, new Vector3f(0, 0, 2.5F), orbitCam * 0.4F, 60.0F);
 		float beta = 0.9612F + 0.0112F * (float) (s / 26.0);
 		space.sky(cam, LOCAL_SKY, 0.55F, beta * 0.6F, new Vector3f(0, 0, 1), 0.08F, 0, 0, time);
@@ -546,85 +785,179 @@ final class Shots {
 		if (sparks != null) {
 			sparks.end(true);
 		}
-		space.mesh(space.round, cam, new Matrix4f().scale(ROUND_SCALE), DEBRIS_SUN, 1.3F, ORANGE, 1.6F, 0.35F);
+		rockStrike(s);
+
+		// The bare spear now, the blade warm from the muzzle.
+		space.pointPos.set(0, 0, 5.0F * ROUND_SCALE + 1.0F);
+		space.pointColor.set(1.0F, 0.8F, 0.6F).mul(30.0F * strike);
+		drawRound(new Matrix4f().scale(ROUND_SCALE), DEBRIS_SUN, 1.3F, 1.2F, 0.3F + 0.6F * strike, 0, false);
+		space.pointColor.zero();
 		Fx bow = space.glow(cam, Fx.BLOB, 1.0F);
 		bow.sprite(new Vector3f(0, 0, 5.1F * ROUND_SCALE), 0.25F, 0, Fx.argb(1.0F, 0.75F, 0.5F, 0.6F));
 		bow.end(true);
 
 		label(o, earthPos, 10, -6, "EARTH", Feed.CYAN, "TARGET", Feed.GREY, smooth((s - 6) / 4.0));
 		o.header = "[ DEBRIS FIELD · MAIN BELT ]";
-		o.headerReveal = smooth((s - 3) / 5.0);
+		o.headerReveal = smooth((s - 1) / 5.0);
 		long range = (long) (843_406_388.0 * Math.pow(1.0 - s / 26.0, 3.0) + 604_785.0 * (s / 26.0));
 		o.footer = "RANGE " + Feed.commas(range) + " KM";
 		o.footerSmall = String.format(Locale.ROOT, "VELOCITY %.4f c", beta);
 		o.zoomBlur = 0.08F;
-		o.aberration = 0.006F;
-		// The release: a white frame with the word on it.
-		o.flash = Math.max(o.flash, s < 2 ? 1.0F : (float) Math.max(0, 1.0 - (s - 2) / 3.0));
-		o.banner = "[ RELEASE ]";
-		o.bannerAlpha = 1.0F - smooth((s - 3) / 2.0);
+		o.aberration = 0.006F + strike * 0.02F;
+		o.exposure = 1.0F + 2.5F * strike;
+		// A quick white cut in from the muzzle shot.
+		o.flash = Math.max(strike * 0.25F, s < 2 ? (float) (0.9 * (1.0 - s / 2.0)) : 0.0F);
+	}
+
+	/** Ticks into the belt at which a rock sits squarely in the round's path. */
+	private static final double ROCK_HIT = 10.0;
+
+	/**
+	 * A boulder dead ahead, and what is left of it after the round goes through: a flash, a ball of vaporised rock
+	 * glowing and spreading, and shards thrown out and streaming back past the camera.
+	 */
+	private void rockStrike(double s) {
+		double travel = 13.0;
+		float nose = 5.0F * ROUND_SCALE;
+		if (s < ROCK_HIT) {
+			float z = nose + (float) ((ROCK_HIT - s) * travel);
+			Matrix4f rock = new Matrix4f().translation(0.0F, 0.05F, z).rotate((float) (s * 0.04), new Vector3f(0.3F, 1.0F, 0.2F).normalize())
+					.scale(0.9F);
+			space.mesh(space.rocks[2], cam, rock, DEBRIS_SUN, 1.6F, 0, 0, 0);
+			return;
+		}
+		double since = s - ROCK_HIT;
+		// Everything the rock was keeps its own speed, so in the round's frame it streams back past the camera.
+		float back = (float) (since * travel);
+		float fade = (float) Math.exp(-since / 3.0);
+		Fx gas = space.glow(cam, Fx.BLOB, 1.0F);
+		for (int i = 0; i < 6; i++) {
+			float z = nose - back + i * 0.8F;
+			gas.sprite(new Vector3f(0, 0, z), (float) (0.6 + since * (0.9 + i * 0.25)), 0,
+					Fx.argb(1.0F, 0.55F + 0.3F * fade, 0.25F + 0.4F * fade, 0.55F * fade * (1.0F - i / 7.0F)));
+		}
+		gas.end(true, 2.5F);
+		Fx shards = space.glow(cam, Fx.STREAK, 0);
+		random.setSeed(77L);
+		for (int i = 0; i < 70; i++) {
+			Vector3f dir = new Vector3f((float) random.nextGaussian(), (float) random.nextGaussian(), (float) random.nextGaussian() * 0.4F)
+					.normalize();
+			float speed = 0.3F + random.nextFloat() * 1.2F;
+			Vector3f p = new Vector3f(dir).mul((float) (since * speed)).add(0, 0, nose - back);
+			Vector3f motion = new Vector3f(dir).mul(speed).add(0, 0, (float) -travel);
+			float heat = (float) Math.exp(-since / (1.0 + random.nextFloat() * 3.0));
+			shards.stretched(p, motion, 0.4F + 2.5F * heat, 0.04F, Fx.argb(1.0F, 0.5F + 0.4F * heat, 0.15F + 0.5F * heat, heat));
+		}
+		shards.end(true, 2.0F);
+		if (since < 2.5) {
+			float pop = (float) Math.exp(-since / 0.5);
+			Fx flash = space.glow(cam, Fx.SPIKES, 0);
+			flash.sprite(new Vector3f(0, 0, nose - back * 0.3F), 1.5F + 4.0F * pop, 0, Fx.argb(1.0F, 0.95F, 0.85F, pop));
+			flash.end(true, 4.0F);
+		}
 	}
 
 	// =============================================================================================
-	// 7. Terminal: down through the atmosphere onto the target.
+	// 8. Terminal: down through the atmosphere onto the target.
 	// =============================================================================================
 
 	private void terminal(double s, Overlay o) {
-		float e = smootherIn(s / 22.0);
-		float altitude = (float) (28.0 * Math.pow(0.0015 / 28.0, e));
+		// From 28 Earth radii down to the cloud deck: most of the distance goes in the first half, then the long
+		// burn down through the air.
+		float e = smootherIn(s / 31.0);
+		float altitude = (float) (28.0 * Math.pow(0.0012 / 28.0, e));
 		Vector3f roundPos = new Vector3f(TARGET).mul(1.0F + altitude);
 		Vector3f down = new Vector3f(TARGET).negate();
-		// The camera rides behind and above the round; Earth is drawn at its own scale first.
-		Vector3f back = new Vector3f(EAST).mul(0.35F).add(new Vector3f(TARGET).mul(1.0F)).normalize();
+		Vector3f side = new Vector3f(down).cross(NORTH).normalize();
 		float behind = Math.max(altitude * 0.15F, 0.00025F);
-		Vector3f eye = new Vector3f(roundPos).add(new Vector3f(back).mul(behind));
-		float shake = (float) smooth((s - 9) / 8.0) * 0.004F;
-		Vector3f at = new Vector3f(roundPos).add(new Vector3f(down).mul(behind * 3.0F))
-				.add(noise(s * 4.1) * shake * behind * 40, noise(s * 3.3 + 4) * shake * behind * 40, 0);
-		earthCamera(new Pose(eye, at, new Vector3f(NORTH), 58.0F), Math.max(behind * 0.05F, 0.000005F), 80.0F);
+		float heat = smooth((s - 9.0) / 12.0);
+		// Behind the round on the way in; out to its side through the worst of the heat, where the shock layer
+		// shows; back behind it to punch through the clouds.
+		float beside = smooth((s - 10.0) / 6.0) * (1.0F - smooth((s - 25.0) / 5.0));
+		Vector3f backward = new Vector3f(EAST).mul(0.35F).add(TARGET).normalize();
+		Vector3f eyeBehind = new Vector3f(roundPos).add(new Vector3f(backward).mul(behind));
+		Vector3f atBehind = new Vector3f(roundPos).add(new Vector3f(down).mul(behind * 3.0F));
+		Vector3f eyeSide = new Vector3f(roundPos).add(new Vector3f(side).mul(behind * 0.95F)).add(new Vector3f(TARGET).mul(behind * 0.25F));
+		Vector3f atSide = new Vector3f(roundPos).add(new Vector3f(down).mul(behind * 0.7F));
+		Vector3f eye = new Vector3f(eyeBehind).lerp(eyeSide, beside);
+		Vector3f at = new Vector3f(atBehind).lerp(atSide, beside);
+		Vector3f up = new Vector3f(NORTH).lerp(TARGET, beside).normalize();
+		float shake = heat * 0.004F + smooth((s - 26.0) / 4.0) * 0.004F;
+		at.add(noise(s * 4.1) * shake * behind * 40, noise(s * 3.3 + 4) * shake * behind * 40, noise(s * 3.7 + 8) * shake * behind * 20);
+		earthCamera(new Pose(eye, at, up, 58.0F + 10.0F * beside), Math.max(behind * 0.05F, 0.000005F), 80.0F);
 		space.sky(cam, EARTH_SKY, 1.0F, 0, cam.forward(), 0, 0, 0, time);
 		space.earth(cam, new Matrix4f(), EARTH_SUN, time * 0.00005F, smooth((s - 10) / 8.0), 1.05F);
 
 		// The round at its own scale, framed the same way as the camera above.
 		Space.clearDepth();
 		float unit = behind / 3.2F;
-		Matrix4f roundModel = new Matrix4f().translation(roundPos).rotateTowards(down, new Vector3f(NORTH)).scale(unit * ROUND_SCALE);
-		float heat = smooth((s - 8) / 10.0);
-		space.mesh(space.round, cam, roundModel, EARTH_SUN, 1.1F, ORANGE, 1.4F, heat);
+		float body = unit * ROUND_SCALE;
+		Matrix4f roundModel = new Matrix4f().translation(roundPos).rotateTowards(down, new Vector3f(NORTH)).scale(body);
+		// The shock layer lights the spear from the front.
+		space.pointPos.set(roundPos).add(new Vector3f(down).mul(body * 6.0F));
+		// (The scene is in Earth radii, so at this scale the light does not fall off over the spear's length.)
+		space.pointColor.set(1.0F, 0.75F, 0.5F).mul(heat * 5.0F);
+		drawRound(roundModel, EARTH_SUN, 1.1F, 1.4F, heat, 0, false);
+		space.pointColor.zero();
 		if (heat > 0.01F) {
+			Vector3f tip = new Vector3f(roundPos).add(new Vector3f(down).mul(body * 5.0F));
 			Matrix4f sheath = new Matrix4f().translation(roundPos).rotateTowards(down, new Vector3f(NORTH))
-					.translate(0, 0, unit * 5.25F * ROUND_SCALE).scale(unit * 1.4F, unit * 1.4F, unit * 6.0F);
-			space.plasma(space.cone, cam, sheath, time * 0.05F, heat * 1.1F, 0.4F + heat * 0.6F, new Vector3f(0, 0, -6.0F), 1.0F);
-			Fx glow = space.glow(cam, Fx.BLOB, 1.0F);
-			glow.sprite(new Vector3f(roundPos).add(new Vector3f(down).mul(unit * 5.5F * ROUND_SCALE)), unit * (1.5F + heat * 3.0F), 0,
-					Fx.argb(1.0F, 0.8F, 0.55F, heat));
-			glow.end(true);
+					.translate(0, 0, body * 5.4F).scale(body * 3.4F, body * 3.4F, body * 14.0F);
+			space.plasma(space.cone, cam, sheath, time * 0.05F, heat * 1.15F, 0.35F + heat * 0.65F, new Vector3f(0, 0, -6.0F), 1.0F);
+			// The cap of air at the point, compressed white-hot.
+			Fx cap = space.glow(cam, Fx.BLOB, 1.0F);
+			cap.sprite(new Vector3f(tip).add(new Vector3f(down).mul(body * 0.35F)), body * (0.6F + heat * 1.6F), 0,
+					Fx.argb(1.0F, 0.95F, 0.9F, heat));
+			cap.sprite(new Vector3f(roundPos).add(new Vector3f(down).mul(body * 3.5F)), body * (1.5F + heat * 4.0F), 0,
+					Fx.argb(1.0F, 0.62F, 0.3F, heat * 0.7F));
+			cap.end(true, 2.0F);
+			// The wake: shocked air glowing for kilometres behind.
+			Fx wake = space.glow(cam, Fx.BEAM, 0);
+			Vector3f tail = new Vector3f(roundPos).sub(new Vector3f(down).mul(body * 5.0F));
+			Vector3f far = new Vector3f(tail).sub(new Vector3f(down).mul(body * (40.0F + 120.0F * heat)));
+			wake.beam(tail, far, cam.pos, body * (0.5F + 1.4F * heat), Fx.argb(1.0F, 0.6F, 0.3F, heat * 0.8F), Fx.argb(1.0F, 0.35F, 0.12F, 0.0F));
+			wake.end(true, 2.0F);
 			// Ionised air tearing off the sheath and streaming back past the camera.
-			Vector3f side = new Vector3f(down).cross(NORTH).normalize();
 			Vector3f side2 = new Vector3f(side).cross(down).normalize();
-			float body = unit * ROUND_SCALE;
 			Fx streaks = space.glow(cam, Fx.STREAK, 0);
-			for (int i = 0; i < 80; i++) {
-				double f = (time * (0.07 + 0.03 * heat) + (i * 0.618034) % 1.0) % 1.0;
+			for (int i = 0; i < 110; i++) {
+				double f = (time * (0.07 + 0.04 * heat) + (i * 0.618034) % 1.0) % 1.0;
 				double angle = i * 2.399963;
-				float r = body * (1.1F + (i % 9) * 0.32F) * (1.0F + (float) f * 0.6F);
-				Vector3f p = new Vector3f(roundPos).add(new Vector3f(down).mul(body * (9.0F - 30.0F * (float) f)))
+				float r = body * (1.1F + (i % 9) * 0.35F) * (1.0F + (float) f * 0.8F);
+				Vector3f p = new Vector3f(roundPos).add(new Vector3f(down).mul(body * (9.0F - 34.0F * (float) f)))
 						.add(new Vector3f(side).mul((float) Math.cos(angle) * r)).add(new Vector3f(side2).mul((float) Math.sin(angle) * r));
-				float fade = (float) (Math.sin(Math.PI * f));
-				streaks.stretched(p, down, body * (1.5F + 5.0F * heat), body * 0.05F,
-						Fx.argb(1.0F, 0.72F + 0.2F * heat, 0.42F, heat * fade * 0.85F));
+				float fade = (float) Math.sin(Math.PI * f);
+				streaks.stretched(p, down, body * (1.5F + 6.0F * heat), body * 0.05F,
+						Fx.argb(1.0F, 0.72F + 0.2F * heat, 0.42F + 0.2F * heat, heat * fade * 0.85F));
 			}
 			streaks.end(true, 3.0F);
+		}
+		// The cloud deck: puffs rushing up past the camera until everything is white.
+		float deck = smooth((s - 25.0) / 6.0);
+		if (deck > 0.0F) {
+			Vector3f side2 = new Vector3f(side).cross(down).normalize();
+			Fx clouds = space.glow(cam, Fx.BLOB, 1.0F);
+			random.setSeed(5150L);
+			for (int i = 0; i < 40; i++) {
+				float ahead = (float) (((random.nextDouble() * 40.0 - (s - 25.0) * 9.0) % 40.0 + 40.0) % 40.0) - 4.0F;
+				double a = random.nextDouble() * Math.PI * 2;
+				float r = behind * (0.6F + random.nextFloat() * 2.5F);
+				Vector3f p = new Vector3f(roundPos).add(new Vector3f(down).mul(behind * ahead * 0.5F))
+						.add(new Vector3f(side).mul((float) Math.cos(a) * r)).add(new Vector3f(side2).mul((float) Math.sin(a) * r));
+				clouds.sprite(p, behind * (1.0F + random.nextFloat() * 2.0F), 0, Fx.argb(0.9F, 0.92F, 0.96F, 0.35F * deck));
+			}
+			clouds.end(true, 1.4F);
 		}
 		o.header = "[ TERMINAL · SOL-3 ]";
 		o.headerReveal = smooth(s / 4.0);
 		long range = Math.max(0, (long) (altitude * 6371.0));
 		o.footer = "RANGE " + Feed.commas(range) + " KM";
-		o.footerSmall = "VELOCITY 0.9724 c";
-		o.flashColor = s > 19 ? 0xFFFFFF : 0xFF9050;
-		o.flash = s > 19 ? smooth((s - 19) / 5.0) : heat * 0.1F;
+		o.footerSmall = heat > 0.2F ? "VELOCITY 0.9724 c · HULL " + Math.round(1200 + heat * 30000) + " K" : "VELOCITY 0.9724 c";
+		o.flashColor = s > 27 ? 0xFFFFFF : 0xFF9050;
+		o.flash = s > 27 ? smooth((s - 27) / 6.5) : heat * 0.08F;
 		o.aberration = heat * 0.01F;
 		o.saturation = 1.0F + heat * 0.25F;
+		o.exposure = 1.0F + heat * 0.35F;
 	}
 
 	// =============================================================================================

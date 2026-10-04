@@ -17,7 +17,7 @@ out vec4 fragColor;
 void main() {
     vec3 n = normalize(viewNormal);
     vec3 v = normalize(-viewPos);
-    float facing = abs(dot(n, v));
+    float facing = min(abs(dot(n, v)), 1.0);
     float rim = pow(1.0 - facing, Falloff);
     // Fade towards the ground so the shell sits on the terrain instead of ending in a hard line.
     float ground = smoothstep(-0.02, 0.25, objPos.y);

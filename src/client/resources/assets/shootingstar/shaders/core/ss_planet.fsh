@@ -59,7 +59,7 @@ void main() {
     vec3 color = mix(surface, cloudColor, cloud * 0.93);
     color += night * vec3(1.0, 0.78, 0.5) * 2.4 * (1.0 - twilight) * (1.0 - cloud * 0.85);
 
-    float fres = pow(1.0 - max(dot(n, v), 0.0), 3.0);
+    float fres = pow(1.0 - clamp(dot(n, v), 0.0, 1.0), 3.0);
     color += vec3(0.22, 0.48, 1.0) * fres * (twilight * 0.85 + 0.03);
     color *= Exposure;
     fragColor = vec4(pow(max(color, 0.0), vec3(1.0 / 2.2)), 1.0);

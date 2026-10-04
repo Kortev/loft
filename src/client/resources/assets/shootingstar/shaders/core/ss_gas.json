@@ -78,6 +78,50 @@
       "values": [
         1.0
       ]
+    },
+    {
+      "name": "SunObj",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "name": "RingRadius",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0.0
+      ]
+    },
+    {
+      "name": "RingWidth",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0.01
+      ]
+    },
+    {
+      "name": "MoonPos",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "name": "MoonRadius",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0.0
+      ]
     }
   ]
 }

@@ -33,7 +33,9 @@ void main() {
         // Ring ribbon that lights up as Progress sweeps round (x = 0..1 around, y = -1..1 across).
         float on = smoothstep(Progress, Progress - 0.012, uv.x);
         float head = exp(-pow((uv.x - Progress) * 70.0, 2.0)) * step(0.001, Progress) * step(Progress, 0.999);
-        a = exp(-uv.y * uv.y * 5.0) * (Param + on + head * 3.0);
+        // Every coil station is a point of light; between them the ring is a fainter thread.
+        float node = pow(0.5 + 0.5 * cos(uv.x * 6.2831853 * 720.0), 24.0);
+        a = exp(-uv.y * uv.y * 5.0) * (Param + on * (0.55 + 2.2 * node) + head * 3.0);
     } else {
         // Star with four diffraction spikes.
         float r2 = dot(uv, uv);

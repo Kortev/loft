@@ -77,25 +77,30 @@ public final class Mesh {
 	 * and east is +X, so a place at (lat, lon) lies along {@link #direction}.
 	 */
 	public static Mesh sphere(int lonSegments, int latSegments) {
+		return sphere(lonSegments, latSegments, 0);
+	}
+
+	/** As {@link #sphere(int, int)}, tagged with an {@code ss_mesh} material id in the vertex colour's blue channel. */
+	public static Mesh sphere(int lonSegments, int latSegments, int material) {
 		BufferBuilder b = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR_NORMAL);
 		for (int j = 0; j < latSegments; j++) {
 			for (int i = 0; i < lonSegments; i++) {
-				sphereVertex(b, (float) i / lonSegments, (float) j / latSegments);
-				sphereVertex(b, (float) i / lonSegments, (float) (j + 1) / latSegments);
-				sphereVertex(b, (float) (i + 1) / lonSegments, (float) (j + 1) / latSegments);
-				sphereVertex(b, (float) (i + 1) / lonSegments, (float) j / latSegments);
+				sphereVertex(b, (float) i / lonSegments, (float) j / latSegments, material);
+				sphereVertex(b, (float) i / lonSegments, (float) (j + 1) / latSegments, material);
+				sphereVertex(b, (float) (i + 1) / lonSegments, (float) (j + 1) / latSegments, material);
+				sphereVertex(b, (float) (i + 1) / lonSegments, (float) j / latSegments, material);
 			}
 		}
 		return upload(b);
 	}
 
-	private static void sphereVertex(BufferBuilder b, float u, float v) {
+	private static void sphereVertex(BufferBuilder b, float u, float v, int material) {
 		double lon = u * Math.PI * 2 - Math.PI;
 		double lat = Math.PI / 2 - v * Math.PI;
 		float x = (float) (Math.cos(lat) * Math.sin(lon));
 		float y = (float) Math.sin(lat);
 		float z = (float) (Math.cos(lat) * Math.cos(lon));
-		b.vertex(x, y, z).texture(u, v).color(255, 0, 0, 255).normal(x, y, z);
+		b.vertex(x, y, z).texture(u, v).color(255, 0, material, 255).normal(x, y, z);
 	}
 
 	/** Direction of a place on a {@link #sphere} given in degrees. */

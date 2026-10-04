@@ -19,11 +19,25 @@ final class Space {
 	Mesh ring;
 	Mesh ringHalo;
 	Mesh round;
+	Mesh sabot;
 	Mesh coil;
 	Mesh relay;
 	Mesh cone;
+	/** Io, shaded by {@code ss_mesh}'s moon material. */
+	Mesh io;
 	final Mesh[] rocks = new Mesh[4];
 	final Fx fx = new Fx();
+	/** Secondary light for meshes (what a nearby planet bounces back), in the scene's world space. */
+	final Vector3f fillDir = new Vector3f(0, -1, 0);
+	final Vector3f fillColor = new Vector3f();
+	/** A point light for meshes (a coil firing beside the round), in world space; fades with distance squared. */
+	final Vector3f pointPos = new Vector3f();
+	final Vector3f pointColor = new Vector3f();
+	/** Shadows on Jupiter: the ring's radius and width in Jupiter radii (0 for none), and a moon in world space. */
+	float ringShadow;
+	float ringShadowWidth = 0.012F;
+	final Vector3f moonPos = new Vector3f();
+	float moonRadius;
 
 	private int earthDay;
 	private int earthNight;
@@ -41,9 +55,11 @@ final class Space {
 		ring = Mesh.ribbon(1440, 0.012F);
 		ringHalo = Mesh.ribbon(1440, 0.07F);
 		round = Mesh.load("round");
+		sabot = Mesh.load("sabot");
 		coil = Mesh.load("coil");
 		relay = Mesh.load("relay");
 		cone = Mesh.cone(64, 16);
+		io = Mesh.sphere(64, 32, 15);
 		for (int i = 0; i < rocks.length; i++) {
 			rocks[i] = Mesh.load("asteroid" + i);
 		}
@@ -107,6 +123,12 @@ final class Space {
 		Shaders.set(Shaders.gas, "LightDir", cam.viewDir(sun));
 		Shaders.set(Shaders.gas, "Time", time);
 		Shaders.set(Shaders.gas, "Exposure", exposure);
+		Matrix4f toObject = new Matrix4f(model).invert();
+		Shaders.set(Shaders.gas, "SunObj", toObject.transformDirection(new Vector3f(sun)).normalize());
+		Shaders.set(Shaders.gas, "RingRadius", ringShadow);
+		Shaders.set(Shaders.gas, "RingWidth", ringShadowWidth);
+		Shaders.set(Shaders.gas, "MoonPos", toObject.transformPosition(new Vector3f(moonPos)));
+		Shaders.set(Shaders.gas, "MoonRadius", moonRadius / model.getScale(new Vector3f()).x);
 		sphere.draw(Shaders.gas, cam.modelView(model), cam.proj);
 		atmosphere(cam, model, sun, 1.012F, 0.95F, 0.78F, 0.55F, 0.7F, 3.5F);
 	}
@@ -126,16 +148,35 @@ final class Space {
 
 	/** A Blender mesh lit by the sun; {@code glow} drives the emissive panels, {@code heat} the round's nose. */
 	void mesh(Mesh mesh, Cam cam, Matrix4f model, Vector3f sun, float light, int glowRgb, float glow, float heat) {
+		mesh(mesh, cam, model, sun, light, (glowRgb >> 16 & 255) / 255.0F, (glowRgb >> 8 & 255) / 255.0F, (glowRgb & 255) / 255.0F,
+				glow, heat);
+	}
+
+	void mesh(Mesh mesh, Cam cam, Matrix4f model, Vector3f sun, float light, float glowR, float glowG, float glowB, float glow,
+			float heat) {
 		opaque();
 		Shaders.set(Shaders.mesh, "LightDir", cam.viewDir(sun));
 		Shaders.set(Shaders.mesh, "LightColor", 1.0F * light, 0.96F * light, 0.9F * light);
 		Shaders.set(Shaders.mesh, "AmbientColor", 0.05F, 0.055F, 0.07F);
 		Shaders.set(Shaders.mesh, "RimColor", 0.25F, 0.2F, 0.18F);
-		Shaders.set(Shaders.mesh, "GlowColor", glowRgb);
+		Shaders.set(Shaders.mesh, "GlowColor", glowR, glowG, glowB);
 		Shaders.set(Shaders.mesh, "GlowStrength", glow);
 		Shaders.set(Shaders.mesh, "Heat", heat);
 		Shaders.set(Shaders.mesh, "Fade", 1.0F);
+		Shaders.set(Shaders.mesh, "FillDir", cam.viewDir(fillDir));
+		Shaders.set(Shaders.mesh, "FillColor", fillColor);
+		Shaders.set(Shaders.mesh, "PointPos", cam.view.transformPosition(new Vector3f(pointPos)));
+		Shaders.set(Shaders.mesh, "PointColor", pointColor);
 		mesh.draw(Shaders.mesh, cam.modelView(model), cam.proj);
+	}
+
+	/** Clears the fill and point lights; each shot sets the ones it wants. */
+	void resetLights() {
+		fillDir.set(0, -1, 0);
+		fillColor.zero();
+		pointColor.zero();
+		ringShadow = 0.0F;
+		moonRadius = 0.0F;
 	}
 
 	/** Turbulent additive plasma on {@code mesh} (the re-entry sheath or the impact fireball). */

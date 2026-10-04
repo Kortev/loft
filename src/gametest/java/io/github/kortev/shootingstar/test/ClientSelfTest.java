@@ -72,7 +72,8 @@ public class ClientSelfTest implements ClientModInitializer {
 			return;
 		}
 		int[] ages = {6, 20, 38, 53, 62, 74, 82, 87, 90, 95, 100, 108, 120, 134, 143, 150, 160, 165, 180, 196, 210, 224, 236,
-				245, 254, 262, 267, 272, 282, 296, 304, 310, 314, 324, 336, 342, 346, 352, 364, 400, 436, 470, 520};
+				246, 252, 258, 263, 267, 272, 277, 284, 292, 300, 308, 316, 324, 332, 344, 356, 362, 366, 372, 384, 420, 456,
+				490, 540};
 		for (int age : ages) {
 			STILLS.add(new Still(age, String.format("%02d_age%03d_%s.png", STILLS.size() + 1, age, phase(age))));
 		}
@@ -99,7 +100,8 @@ public class ClientSelfTest implements ClientModInitializer {
 		if (age < StrikeTimeline.WAKE) return "relay";
 		if (age < StrikeTimeline.LOADING) return "wake";
 		if (age < StrikeTimeline.LAPS) return "loading";
-		if (age < StrikeTimeline.DEBRIS) return "laps";
+		if (age < StrikeTimeline.RELEASE) return "laps";
+		if (age < StrikeTimeline.DEBRIS) return "release";
 		if (age < StrikeTimeline.TERMINAL) return "debris";
 		if (age < StrikeTimeline.INBOUND) return "terminal";
 		if (age < StrikeTimeline.IMPACT) return "inbound";

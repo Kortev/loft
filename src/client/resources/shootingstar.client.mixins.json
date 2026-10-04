@@ -3,6 +3,7 @@
 	"package": "io.github.kortev.shootingstar.client.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"client": [
+		"BackgroundRendererMixin",
 		"CameraMixin",
 		"GameRendererMixin"
 	],

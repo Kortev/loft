@@ -11,6 +11,7 @@ uniform mat4 ProjMat;
 out vec3 viewPos;
 out vec3 viewNormal;
 out vec2 texCoord;
+out vec3 objPos;
 
 void main() {
     vec4 pos = ModelViewMat * vec4(Position, 1.0);
@@ -18,4 +19,5 @@ void main() {
     viewPos = pos.xyz;
     viewNormal = mat3(ModelViewMat) * Normal;
     texCoord = UV0;
+    objPos = Position;
 }

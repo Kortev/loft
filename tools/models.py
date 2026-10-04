@@ -23,7 +23,7 @@ from mathutils.bvhtree import BVHTree
 OUT = 'src/client/resources/assets/shootingstar/meshes'
 
 # Material ids, read by the feed's mesh shader.
-HULL, FIN, NOSE, FRAME, PANEL, ROCK, FOIL, SOLAR, DISH = range(9)
+HULL, FIN, NOSE, FRAME, PANEL, ROCK, FOIL, SOLAR, DISH, EDGE, RUNE, COPPER, SABOT, CABLE, RADIATOR = range(15)
 
 
 def reset():
@@ -75,112 +75,242 @@ class Builder:
 
 # --- the round ---------------------------------------------------------------------------------
 
-def build_round():
-    """The Gungnir round: a slender dart, nose along Blender -Y (Minecraft +Z), four swept fins."""
-    b = Builder()
-    seg = 48
-    bands = [2.6, 1.2, -0.2, -1.6]  # glowing coil-contact rings
-    profile = [(5.0, 0.0), (4.75, 0.045), (4.45, 0.11), (4.05, 0.19), (3.6, 0.255), (3.15, 0.3), (2.8, 0.32)]
-    for band in bands:
-        profile += [(band + 0.09, 0.32), (band + 0.06, 0.296), (band - 0.06, 0.296), (band - 0.09, 0.32)]
-    profile += [(-3.9, 0.32), (-4.3, 0.3), (-4.75, 0.245), (-4.95, 0.235), (-5.0, 0.2), (-5.0, 0.12), (-4.9, 0.1),
-                (-4.9, 0.0)]
+def lathe(b, profile, mat_of, glow_of, seg=48, a0=0.0, a1=2 * math.pi, closed=True):
+    """Surface of revolution about the round's axis (Blender -Y is forward). profile: (zz, r) from front to back;
+    mat_of(zz)/glow_of(zz) pick the band's material. Returns the rings of vertices."""
+    count = seg if closed else seg + 1
     rings = []
-    for z, r in profile:
+    for zz, r in profile:
         if r == 0.0:
-            rings.append([b.vert(0, -z, 0)])
+            rings.append([b.vert(0, -zz, 0)])
             continue
-        rings.append([b.vert(r * math.cos(2 * math.pi * i / seg), -z, r * math.sin(2 * math.pi * i / seg))
-                      for i in range(seg)])
+        ring = []
+        for i in range(count):
+            a = a0 + (a1 - a0) * i / seg
+            ring.append(b.vert(r * math.cos(a), -zz, r * math.sin(a)))
+        rings.append(ring)
     for k in range(len(rings) - 1):
         a, c = rings[k], rings[k + 1]
-        za, zc = profile[k][0], profile[k + 1][0]
-        zm = (za + zc) / 2
-        glow = 0.0
-        mat = HULL
-        if zm > 3.9:
-            mat = NOSE
-        for band in bands:
-            if abs(zm - band) < 0.065:
-                glow = 1.0
-        if zm < -4.92:
-            glow = 0.85  # drive recess at the base
-        for i in range(seg):
-            j = (i + 1) % seg
+        zm = (profile[k][0] + profile[k + 1][0]) / 2
+        mat, glow = mat_of(zm), glow_of(zm)
+        n = seg
+        for i in range(n):
+            j = (i + 1) % count if closed else i + 1
             if len(a) == 1:
                 b.face([a[0], c[j], c[i]], mat, glow)
             elif len(c) == 1:
                 b.face([a[i], a[j], c[0]], mat, glow)
             else:
                 b.face([a[i], a[j], c[j], c[i]], mat, glow)
-    # Four swept fins in a cross, with glowing leading edges.
-    for k in range(4):
-        ang = k * math.pi / 2
+    return rings
+
+
+def build_round():
+    """Gungnir: a spear. A leaf-shaped tungsten-carbide blade with glowing edges, a socket ring carved with runes,
+    a slim tungsten shaft and six small swept fins round a tracer. The sabot that rides the coils is a separate
+    mesh (see build_sabot). Nose along Blender -Y (Minecraft +Z), from zz = +5 to the tail at zz = -5."""
+    b = Builder()
+    shaft = 0.17
+
+    # The blade: a flattened diamond in section, widest just ahead of the socket, a fine bevel along each edge.
+    stations = []
+    for i in range(29):
+        f = i / 28.0
+        zz = 2.55 + 2.45 * f
+        if zz < 3.2:
+            u = (zz - 2.55) / 0.65
+            w = 0.215 + (0.47 - 0.215) * math.sin(u * math.pi / 2)
+        else:
+            u = (zz - 3.2) / 1.8
+            w = 0.47 * (1.0 - u ** 1.35) ** 0.85
+        t = 0.215 * (1.0 - min(1.0, (zz - 2.55) / 0.6)) + 0.115 * min(1.0, (zz - 2.55) / 0.6)
+        t *= (1.0 - max(0.0, zz - 3.2) / 1.8) ** 0.9
+        stations.append((zz, max(w, 0.0), max(t, 0.0)))
+    section = [(1.0, 0.0), (0.93, 0.16), (0.0, 1.0), (-0.93, 0.16), (-1.0, 0.0), (-0.93, -0.16), (0.0, -1.0), (0.93, -0.16)]
+    rings = []
+    for zz, w, t in stations:
+        if w < 1e-4:
+            rings.append([b.vert(0, -zz, 0)])
+        else:
+            rings.append([b.vert(sx * w, -zz, sz * t) for sx, sz in section])
+    for k in range(len(rings) - 1):
+        a, c = rings[k], rings[k + 1]
+        for i in range(8):
+            j = (i + 1) % 8
+            # Faces touching the side points (index 0 and 4) are the bevelled cutting edges.
+            edge = i in (0, 3, 4, 7)
+            mat, glow = (EDGE, 0.6) if edge else (NOSE, 0.0)
+            if len(c) == 1:
+                b.face([a[i], a[j], c[0]], mat, glow)
+            else:
+                b.face([a[i], a[j], c[j], c[i]], mat, glow)
+    # Close the blade's back onto the socket.
+    back = b.vert(0, -2.55, 0)
+    for i in range(8):
+        b.face([rings[0][(i + 1) % 8], rings[0][i], back], NOSE)
+
+    # Socket: a collar with raised bindings and a band of runes, then the shaft, then the tail.
+    def mat_of(zz):
+        if 2.13 <= zz <= 2.42:
+            return RUNE
+        if zz > 1.9:
+            return FRAME
+        if zz < -4.1:
+            return FIN
+        return HULL
+
+    def glow_of(zz):
+        if 2.13 <= zz <= 2.42:
+            return 1.0
+        if zz < -4.97:
+            return 1.0
+        return 0.0
+
+    profile = [(2.56, 0.0), (2.56, 0.2), (2.52, 0.235), (2.46, 0.235), (2.43, 0.215), (2.42, 0.212), (2.13, 0.212),
+               (2.12, 0.215), (2.09, 0.235), (2.02, 0.235), (1.98, 0.2), (1.9, shaft)]
+    z = 1.9
+    while z > -3.9:
+        # Fine machining grooves along the shaft.
+        profile += [(z - 0.02, shaft), (z - 0.03, shaft - 0.008), (z - 0.06, shaft - 0.008), (z - 0.07, shaft)]
+        z -= 0.92
+    profile += [(-4.1, shaft), (-4.6, 0.155), (-4.9, 0.13), (-4.97, 0.125), (-4.98, 0.08), (-5.0, 0.07), (-5.0, 0.0)]
+    lathe(b, profile, mat_of, glow_of, seg=40)
+
+    # Six thin swept fins with a faintly glowing leading edge.
+    for k in range(6):
+        ang = k * math.pi / 3 + math.pi / 6
         ca, sa = math.cos(ang), math.sin(ang)
 
         def at(radius, zz, side):
-            t = 0.035 if radius < 0.6 else 0.022
+            t = 0.022 if radius < 0.3 else 0.012
             return b.vert(radius * ca - side * t * sa, -zz, radius * sa + side * t * ca)
 
-        root_front, root_back, tip_front, tip_back = -2.55, -4.78, -3.95, -4.88
-        r0, r1 = 0.29, 1.55
+        root_front, root_back, tip_front, tip_back = -3.55, -4.86, -4.3, -4.97
+        r0, r1 = shaft - 0.01, 0.6
         v = [at(r0, root_front, -1), at(r0, root_back, -1), at(r1, tip_back, -1), at(r1, tip_front, -1),
              at(r0, root_front, 1), at(r0, root_back, 1), at(r1, tip_back, 1), at(r1, tip_front, 1)]
         b.face([v[0], v[1], v[2], v[3]], FIN)
         b.face([v[7], v[6], v[5], v[4]], FIN)
-        b.face([v[0], v[3], v[7], v[4]], FIN, 1.0)   # leading edge
-        b.face([v[3], v[2], v[6], v[7]], FIN, 0.6)   # tip
-        b.face([v[2], v[1], v[5], v[6]], FIN)        # trailing edge
+        b.face([v[0], v[3], v[7], v[4]], EDGE, 0.5)   # leading edge
+        b.face([v[3], v[2], v[6], v[7]], FIN)
+        b.face([v[2], v[1], v[5], v[6]], FIN)
         b.face([v[1], v[0], v[4], v[5]], FIN)
     obj = b.to_object('round')
-    smooth(obj, 35)
+    smooth(obj, 32)
+    return obj
+
+
+def build_sabot():
+    """One of the sabot's three petals: the collar that carries the spear down the accelerator and is shed at the
+    muzzle. Wraps the shaft from zz = 1.75 back to -2.05 over 120 degrees (less a seam), with a scoop at the front
+    and four copper armature bands the coils push on."""
+    b = Builder()
+    gap = math.radians(1.2)
+    a0, a1 = -math.pi / 3 + gap, math.pi / 3 - gap
+    inner = 0.172
+    bands = [0.85, 0.15, -0.55, -1.25]
+
+    def mat_of(zz):
+        for band in bands:
+            if abs(zz - band) < 0.075:
+                return COPPER
+        return SABOT
+
+    def glow_of(zz):
+        for band in bands:
+            if abs(zz - band) < 0.075:
+                return 1.0
+        return 0.0
+
+    outer = [(1.75, 0.2), (1.62, 0.27), (1.45, 0.35), (1.25, 0.41), (1.08, 0.44)]
+    for band in bands:
+        outer += [(band + 0.09, 0.44), (band + 0.075, 0.425), (band - 0.075, 0.425), (band - 0.09, 0.44)]
+    outer += [(-1.6, 0.44), (-1.8, 0.4), (-1.95, 0.33), (-2.05, 0.3)]
+    seg = 20
+    out_rings = lathe(b, outer, mat_of, glow_of, seg=seg, a0=a0, a1=a1, closed=False)
+    in_rings = lathe(b, [(1.75, inner), (-2.05, inner)], lambda zz: SABOT, lambda zz: 0.0, seg=seg, a0=a0, a1=a1,
+                     closed=False)
+    # Front and back faces between the inner bore and the outer skin.
+    for o_ring, i_ring in ((out_rings[0], in_rings[0]), (out_rings[-1], in_rings[-1])):
+        for i in range(seg):
+            b.face([o_ring[i], o_ring[i + 1], i_ring[i + 1], i_ring[i]], SABOT)
+    # The two seam faces along the petal's long edges.
+    for idx in (0, seg):
+        for k in range(len(out_rings) - 1):
+            zz_a, zz_b = outer[k][0], outer[k + 1][0]
+            ia = b.vert(inner * math.cos(a0 if idx == 0 else a1), -zz_a, inner * math.sin(a0 if idx == 0 else a1))
+            ib = b.vert(inner * math.cos(a0 if idx == 0 else a1), -zz_b, inner * math.sin(a0 if idx == 0 else a1))
+            b.face([out_rings[k][idx], out_rings[k + 1][idx], ib, ia], SABOT)
+    obj = b.to_object('sabot')
+    smooth(obj, 30)
     return obj
 
 
 # --- the accelerator coil ----------------------------------------------------------------------
 
 def build_coil():
-    """One accelerator coil: an octagonal frame of eight segments with glowing panels, a strut and a
-    length of spine. The beam axis is Blender Y (Minecraft Z); the coil sits at the origin and the
-    spine spans one coil spacing (1.0) so that consecutive coils join up."""
+    """One accelerator coil, the beam along Blender Y (Minecraft Z), spaced 1.0 apart so the spine and cables join
+    up from coil to coil. Twelve chamfered magnet housings in a ring, each with a narrow emitter strip on its inner
+    face that fires as the round goes through; radiator fins at four places that glow after firing; a cable bundle
+    over the top, a box truss under it, and status lights."""
     b = Builder()
-    r_in, r_out, depth, gap = 0.70, 1.0, 0.22, math.radians(2.5)
-    inset, recess = 0.045, 0.02
-    for i in range(8):
-        a0 = i * math.pi / 4 - math.pi / 8 + gap / 2
-        a1 = (i + 1) * math.pi / 4 - math.pi / 8 - gap / 2
-
-        def p(r, a, y):
-            return b.vert(r * math.cos(a), y, r * math.sin(a))
-
-        fi0, fi1, fo0, fo1 = p(r_in, a0, depth / 2), p(r_in, a1, depth / 2), p(r_out, a0, depth / 2), p(r_out, a1, depth / 2)
-        bi0, bi1, bo0, bo1 = p(r_in, a0, -depth / 2), p(r_in, a1, -depth / 2), p(r_out, a0, -depth / 2), p(r_out, a1, -depth / 2)
-        b.face([fo0, fo1, bo1, bo0], FRAME)          # outer
-        b.face([fi1, fi0, bi0, bi1], PANEL, 1.0)     # inner face glows toward the beam
-        b.face([bi0, bo0, fo0, fi0], FRAME)          # side cuts at the gaps
-        b.face([fi1, fo1, bo1, bi1], FRAME)
-        # Front and back faces with a recessed glowing panel.
-        for y, sign in ((depth / 2, 1), (-depth / 2, -1)):
-            ri, ro = r_in + inset, r_out - inset
-            ai0, ai1 = a0 + inset / r_out * 1.4, a1 - inset / r_out * 1.4
-            outer = [p(r_in, a0, y), p(r_in, a1, y), p(r_out, a1, y), p(r_out, a0, y)]
-            inner = [p(ri, ai0, y), p(ri, ai1, y), p(ro, ai1, y), p(ro, ai0, y)]
-            deep = [p(ri, ai0, y - sign * recess), p(ri, ai1, y - sign * recess),
-                    p(ro, ai1, y - sign * recess), p(ro, ai0, y - sign * recess)]
-            for k in range(4):
-                n = (k + 1) % 4
-                b.face([outer[k], outer[n], inner[n], inner[k]], FRAME)
-                b.face([inner[k], inner[n], deep[n], deep[k]], FRAME)
-            b.face(deep, PANEL, 1.0)
-        # Mount blocks on four sides.
+    n = 12
+    r_in, r_out, depth, ch = 0.72, 1.0, 0.28, 0.035
+    gap = math.radians(1.8)
+    # The housing's section in the (radius, axial) plane, going round.
+    section = [(r_in + ch, -depth / 2), (r_out - ch, -depth / 2), (r_out, -depth / 2 + ch), (r_out, depth / 2 - ch),
+               (r_out - ch, depth / 2), (r_in + ch, depth / 2), (r_in, depth / 2 - ch), (r_in, -depth / 2 + ch)]
+    inner_face = 6  # the face from section[6] to section[7] looks at the beam
+    steps = 6
+    for i in range(n):
+        a0 = i * 2 * math.pi / n - math.pi / n + gap / 2
+        a1 = (i + 1) * 2 * math.pi / n - math.pi / n - gap / 2
+        rings = []
+        for k in range(steps + 1):
+            a = a0 + (a1 - a0) * k / steps
+            rings.append([b.vert(r * math.cos(a), y, r * math.sin(a)) for r, y in section])
+        for k in range(steps):
+            strip = 1 <= k <= steps - 2
+            for e in range(len(section)):
+                f = (e + 1) % len(section)
+                if e == inner_face and strip:
+                    b.face([rings[k][e], rings[k][f], rings[k + 1][f], rings[k + 1][e]], PANEL, 1.0)
+                else:
+                    b.face([rings[k][e], rings[k][f], rings[k + 1][f], rings[k + 1][e]], FRAME)
+        for ring in (rings[0], rings[-1]):
+            b.face(list(ring), FRAME)
+        mid = (a0 + a1) / 2
         if i % 2 == 0:
-            mid = (a0 + a1) / 2
-            c = Vector((math.cos(mid) * (r_out + 0.06), 0, math.sin(mid) * (r_out + 0.06)))
-            b.box(c, (0.16, 0.3, 0.12), FRAME, rot=-mid + math.pi / 2)
-    # Strut from the bottom mount down to the spine, and the spine itself.
-    b.box((0, 0, -1.33), (0.07, 0.07, 0.5), FRAME)
-    b.box((0, 0, -1.6), (0.14, 1.0, 0.12), FRAME)
-    b.box((0, 0, -1.6), (0.15, 0.08, 0.13), PANEL, 0.6)  # status light on the spine
+            # A status light on the front face.
+            c = Vector((math.cos(mid) * 0.86, depth / 2 + 0.006, math.sin(mid) * 0.86))
+            b.box(c, (0.05, 0.012, 0.05), PANEL, 0.5, rot=-mid)
+    # Radiator fins on the diagonals.
+    for k in range(4):
+        a = math.pi / 4 + k * math.pi / 2
+        for f in range(3):
+            y = -0.16 + f * 0.16
+            c = Vector((math.cos(a) * 1.3, y, math.sin(a) * 1.3))
+            b.box(c, (0.6, 0.12, 0.018), RADIATOR, 1.0, rot=-a)
+        b.box(Vector((math.cos(a) * 1.03, 0, math.sin(a) * 1.03)), (0.1, 0.36, 0.1), FRAME, rot=-a)
+    # Cable bundle running over the top from coil to coil.
+    for k, off in enumerate((-0.07, 0.0, 0.07)):
+        a = math.pi / 2 + off
+        cx, cz = math.cos(a) * 1.07, math.sin(a) * 1.07
+        seg = 10
+        ring0 = [b.vert(cx + 0.032 * math.cos(2 * math.pi * j / seg), -0.5, cz + 0.032 * math.sin(2 * math.pi * j / seg))
+                 for j in range(seg)]
+        ring1 = [b.vert(cx + 0.032 * math.cos(2 * math.pi * j / seg), 0.5, cz + 0.032 * math.sin(2 * math.pi * j / seg))
+                 for j in range(seg)]
+        for j in range(seg):
+            jn = (j + 1) % seg
+            b.face([ring0[j], ring0[jn], ring1[jn], ring1[j]], CABLE)
+    b.box(Vector((0, 0, 1.07)), (0.24, 0.08, 0.06), FRAME)  # cable clamp
+    # Truss under the ring: two rails along the beam and a strut up to the housing.
+    for side in (-0.12, 0.12):
+        b.box(Vector((side, 0, -1.32)), (0.06, 1.0, 0.06), FRAME)
+    b.box(Vector((0, 0, -1.32)), (0.3, 0.06, 0.05), FRAME)
+    b.box(Vector((0, 0, -1.14)), (0.07, 0.07, 0.32), FRAME)
+    b.box(Vector((0, 0.3, -1.32)), (0.05, 0.05, 0.05), PANEL, 0.6)  # spine light
     obj = b.to_object('coil')
     smooth(obj, 30)
     return obj
@@ -390,7 +520,7 @@ def preview(objs, directory):
 def main():
     reset()
     os.makedirs(OUT, exist_ok=True)
-    objs = [build_round(), build_coil(), build_relay()] + [build_asteroid(i) for i in range(4)]
+    objs = [build_round(), build_sabot(), build_coil(), build_relay()] + [build_asteroid(i) for i in range(4)]
     for obj in objs:
         export(obj, os.path.join(OUT, obj.name + '.ssm'))
     if '--preview' in sys.argv:

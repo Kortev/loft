@@ -19,13 +19,15 @@ public final class StrikeTimeline {
 	public static final int LOADING = 146;
 	/** Feed: seven accelerating laps of the ring. */
 	public static final int LAPS = 166;
+	/** Feed: out of the muzzle in slow motion, shedding the sabot. */
+	public static final int RELEASE = 250;
 	/** Feed: the round crosses the main belt. */
-	public static final int DEBRIS = 266;
+	public static final int DEBRIS = 280;
 	/** Feed: re-entry over Sol-3. */
-	public static final int TERMINAL = 292;
+	public static final int TERMINAL = 302;
 	/** Back in the world: the round is a star over the target. */
-	public static final int INBOUND = 316;
-	public static final int IMPACT = 340;
+	public static final int INBOUND = 336;
+	public static final int IMPACT = 360;
 	/** Stylised impact frame for the shooter. */
 	public static final int IMPACT_FRAME_END = IMPACT + 14;
 	/** Wide shot of the spire for the shooter. */
@@ -43,7 +45,7 @@ public final class StrikeTimeline {
 
 	/** Progress through the laps phase, 0..1. */
 	public static double lapProgress(double age) {
-		return clamp01((age - LAPS) / (DEBRIS - LAPS));
+		return clamp01((age - LAPS) / (RELEASE - LAPS));
 	}
 
 	/** Velocity as a fraction of c under constant acceleration through the laps. */

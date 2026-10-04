@@ -220,14 +220,14 @@ public final class ClientStrikes {
 			if (crossed(from, to, StrikeTimeline.LAPS)) {
 				held(strike, ModSounds.FEED_COILS, 1.0F, 0.45F);
 			}
-			if (to >= StrikeTimeline.LAPS && to < StrikeTimeline.DEBRIS) {
+			if (to >= StrikeTimeline.LAPS && to < StrikeTimeline.RELEASE) {
 				int lap = StrikeTimeline.lapNumber(StrikeTimeline.lapProgress(to));
 				if (lap != strike.lastLap) {
 					strike.lastLap = lap;
 					master(ModSounds.FEED_LAP, 0.7F + lap * 0.14F, 0.55F);
 				}
 			}
-			if (crossed(from, to, StrikeTimeline.DEBRIS)) {
+			if (crossed(from, to, StrikeTimeline.RELEASE)) {
 				master(ModSounds.FEED_RELEASE, 1.0F, 0.85F);
 			}
 			if (crossed(from, to, StrikeTimeline.TERMINAL)) {
