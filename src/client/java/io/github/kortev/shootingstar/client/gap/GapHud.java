@@ -36,7 +36,6 @@ public final class GapHud {
 			String line = t < 38 ? typed("SEARCHING NEIGHBOURING UNIVERSES", (t - 18) / 14.0) : typed("UNIVERSE 4,096,113 · FOUND", (t - 38) / 8.0);
 			text(ctx, font, line, w / 2, 34, 1.0F, PALE, 1.0F, true);
 		} else if (t < GapTimeline.CLOSING) {
-			header(ctx, font, w, typed("[ BREACH ]", (t - GapTimeline.TEAR) / 8.0), 1.0F);
 			float title = (float) (ease((t - GapTimeline.TEAR - 8) / 8.0) * (1.0 - ease((t - GapTimeline.TEAR - 40) / 8.0)));
 			if (title > 0.0F) {
 				ctx.fill(0, (int) (h * 0.66F), (int) w, (int) (h * 0.94F), (int) (0x80 * title) << 24);
@@ -53,21 +52,11 @@ public final class GapHud {
 			}
 		} else if (t < GapTimeline.CONTACT) {
 			boolean eyes = t >= GapCamera.CUT_EYES && t < GapCamera.CUT_EYES_END;
-			header(ctx, font, w, "[ CLOSING ]", 1.0F);
 			if (eyes) {
 				text(ctx, font, gapReadout(t), w / 2, 34, 1.0F, PALE, 1.0F, true);
 			} else {
 				footer(ctx, font, w, h, gapReadout(t), 1.0F);
 			}
-		} else if (t < GapTimeline.FRAMES) {
-			float a = (float) ease((t - GapTimeline.CONTACT) / 3.0);
-			text(ctx, font, "CONTACT", w / 2, h * 0.12F, 2.4F, WHITE, a, true);
-			footer(ctx, font, w, h, "UNIVERSE 1 × UNIVERSE 4,096,113", (float) ease((t - GapTimeline.CONTACT - 4) / 6.0));
-		} else if (t >= GapTimeline.ERASURE && t < GapTimeline.NOTHING) {
-			header(ctx, font, w, typed("[ ERASURE ]", (t - GapTimeline.ERASURE) / 10.0), 1.0F);
-			double front = GapTimeline.eraseFront(t);
-			int pct = (int) Math.floor(100.0 * MathHelper.clamp(front / 900.0, 0.0, 1.0));
-			footer(ctx, font, w, h, "REALITY ERASED " + pct + "%", 1.0F);
 		} else if (t >= GapTimeline.END) {
 			// Nothing is said in the black. Only, after a while, how to get out of it.
 			float a = (float) ease((t - GapTimeline.END - 40) / 20.0);

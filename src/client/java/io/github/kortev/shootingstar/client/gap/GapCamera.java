@@ -81,15 +81,18 @@ public final class GapCamera {
 		return nothing(gap, feet, t, tickDelta, player);
 	}
 
-	/** Down low behind the shooter, tilting up past them at the sky over the target as it breaks. */
+	/**
+	 * Over the shooter's shoulder, their head and shoulders dark against the sky over the target as it starts to
+	 * break, then tilting up off them as it opens.
+	 */
 	private static Shot lookUp(ClientGap gap, Vec3d feet, double t) {
-		double k = ease((t - GapTimeline.TEAR + 10.0) / 40.0);
-		Vec3d chest = feet.add(0, 1.4, 0);
-		return lookAt(clear(lookUpEye(gap, feet, side(gap, feet), k), chest), gap.contact.add(0, 46 + 22 * k, 0));
+		double k = ease((t - GapTimeline.TEAR - 4.0) / (CUT_WIDE - GapTimeline.TEAR - 4.0));
+		Vec3d head = feet.add(0, 1.6, 0);
+		return lookAt(clear(lookUpEye(gap, feet, side(gap, feet), k), head), gap.contact.add(0, 22 + 52 * k, 0));
 	}
 
 	private static Vec3d lookUpEye(ClientGap gap, Vec3d feet, double side, double k) {
-		return feet.add(gap.along.multiply(-4.4 + 0.9 * k)).add(gap.across.multiply(1.4 * side)).add(0, 0.5, 0);
+		return feet.add(gap.along.multiply(-3.2 + 0.6 * k)).add(gap.across.multiply(1.1 * side)).add(0, 2.0 - 0.6 * k, 0);
 	}
 
 	/** Which side of the shooter the shot behind them stands on: whichever has more open space. Chosen once. */
@@ -99,7 +102,7 @@ public final class GapCamera {
 			double best = -1.0;
 			for (int s = 1; s >= -1; s -= 2) {
 				Vec3d eye = clear(lookUpEye(gap, feet, s, 0.0), chest);
-				double score = score(eye, gap.contact.add(0, 46, 0), 4.0);
+				double score = score(eye, gap.contact.add(0, 22, 0), 3.0);
 				if (score > best + 0.25) {
 					best = score;
 					gap.side = s;
@@ -236,7 +239,7 @@ public final class GapCamera {
 		if (t < GapTimeline.NOTHING + 68) {
 			// Starting near enough that they are a figure, not a speck, and always looking straight at them.
 			Vec3d out = new Vec3d(-gap.across.x - gap.along.x * 0.4, 0, -gap.across.z - gap.along.z * 0.4).normalize();
-			Vec3d from = chest.add(out.multiply(15.0)).add(0, 4.0, 0);
+			Vec3d from = chest.add(out.multiply(11.0)).add(0, 3.0, 0);
 			Vec3d to = chest.add(right.multiply(3.4)).add(0, 0.1, 0);
 			return lookAt(from.lerp(to, ease((t - GapTimeline.NOTHING) / 50.0)), chest);
 		}

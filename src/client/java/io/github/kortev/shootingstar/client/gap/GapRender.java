@@ -389,6 +389,11 @@ public final class GapRender {
 				}
 				on = true;
 			}
+			// The hit: a white pop, gone in a few frames.
+			if (t >= GapTimeline.CONTACT && t < GapTimeline.CONTACT + 8) {
+				g.flash = Math.max(g.flash, (float) (0.75 * Math.exp(-(t - GapTimeline.CONTACT) / 1.6)));
+				on = true;
+			}
 			if (t >= GapCamera.CUT_EYES && t < GapCamera.CUT_EYES + 4) {
 				g.glitch = 0.22F;
 				g.seed = (float) Math.floor(t * 1.5);

@@ -56,7 +56,7 @@ public final class GapTimeline {
 	/** Manhattan distance in blocks from the contact block that has been erased by tick {@code t}. */
 	public static double eraseFront(double t) {
 		double e = (t - ERASURE) / 20.0;
-		return e <= 0.0 ? -1.0 : 900.0 * Math.pow(e / 7.0, 1.6);
+		return e <= 0.0 ? -1.0 : 900.0 * Math.pow(e / 7.0, 1.35);
 	}
 
 	/** Horizontal reach of the real erasure, which finishes well inside the visual wave. */
