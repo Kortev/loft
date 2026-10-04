@@ -210,9 +210,14 @@ public final class GapCamera {
 		}
 		double drift = ease((t - GapTimeline.TEAR) / (GapTimeline.CONTACT - GapTimeline.TEAR));
 		Vec3d eye = gap.wideEye.lerp(new Vec3d(mid.x, gap.wideEye.y, mid.z), 0.1 * drift).add(0, 5 * drift, 0);
-		// Tilting down with the shard as it falls, but never so far up that the ground leaves the frame.
-		double lift = MathHelper.clamp(GapTimeline.shardTip(t) * 0.45 + 20.0, 38.0, 85.0);
-		return lookAt(eye, new Vec3d(mid.x, gap.surface + lift, mid.z));
+		// Tilted up to hold the shard's tip in the upper part of the frame while it hangs high, down with it as it
+		// falls; never so far up that only sky is left, nor below the ground at the target.
+		double d = Math.hypot(mid.x - eye.x, mid.z - eye.z);
+		double tip = gap.surface + Math.max(0.0, GapTimeline.shardTip(t));
+		double lowest = Math.atan2(gap.surface + 3.0 - eye.y, d);
+		double highest = Math.max(lowest, Math.atan2(gap.surface - eye.y, d) + Math.toRadians(42.0));
+		double pitch = MathHelper.clamp(Math.atan2(tip - eye.y, d) - Math.toRadians(8.0), lowest, highest);
+		return lookAt(eye, new Vec3d(mid.x, eye.y + d * Math.tan(pitch), mid.z));
 	}
 
 	/** Beside the patch that trades places: on it as it goes, then tilting up after it into the broken sky. */

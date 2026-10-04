@@ -62,13 +62,14 @@ public final class GapRender {
 		RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
 
 		ClientGap mine = ClientGaps.mine();
+		float time = (float) (world.getTime() + tickDelta);
+		// Until the impact frames, the shard and the marks go on after the full-screen pass, so the broken sky can
+		// never paint over them. From then on they go under it, to be inked, erased and blacked out with the rest.
 		for (ClientGap gap : ClientGaps.all()) {
 			double t = gap.time(tickDelta);
-			main.beginWrite(true);
-			if (shown(gap, t)) {
-				drawShard(gap, t, cam, view, proj, (float) (world.getTime() + tickDelta));
+			if (t >= GapTimeline.FRAMES) {
+				draw(world, gap, t, tickDelta, cam, view, proj, right, up, main, time, false);
 			}
-			drawMarks(world, gap, t, tickDelta, cam, view, proj, right, up);
 		}
 
 		Grade grade = grade(mine, tickDelta, cam, view, proj, w, h);
@@ -90,12 +91,10 @@ public final class GapRender {
 				redrawShooter(client, client.player, cam, view, tickDelta);
 			}
 		}
-		// The ridges glow out over the broken sky, so they go on after it (until the impact frames take over).
 		for (ClientGap gap : ClientGaps.all()) {
 			double t = gap.time(tickDelta);
-			if (shown(gap, t) && t < GapTimeline.FRAMES) {
-				main.beginWrite(true);
-				drawRidges(gap, t, cam, view, proj, right, up);
+			if (t < GapTimeline.FRAMES) {
+				draw(world, gap, t, tickDelta, cam, view, proj, right, up, main, time, true);
 			}
 		}
 
@@ -106,6 +105,18 @@ public final class GapRender {
 		RenderSystem.depthMask(true);
 		RenderSystem.enableCull();
 		main.beginWrite(true);
+	}
+
+	private static void draw(ClientWorld world, ClientGap gap, double t, float tickDelta, Vec3d cam, Matrix4f view, Matrix4f proj,
+			Vector3f right, Vector3f up, Framebuffer main, float time, boolean ridges) {
+		main.beginWrite(true);
+		if (shown(gap, t)) {
+			drawShard(gap, t, cam, view, proj, time);
+			if (ridges) {
+				drawRidges(gap, t, cam, view, proj, right, up);
+			}
+		}
+		drawMarks(world, gap, t, tickDelta, cam, view, proj, right, up);
 	}
 
 	private static boolean shown(ClientGap gap, double t) {
