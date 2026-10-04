@@ -5,41 +5,49 @@ A Fabric mod for Minecraft Java **1.21.1** based on the "SS-03 Gungnir" orbital-
 Use the **Gungnir Uplink** on any block 96–640 blocks away to get a kinetic lock on it. The
 minimum is 1.5× the crater radius, so the shooter is never caught in their own blast. A mass driver
 ringing Jupiter spins a round up over seven laps to 0.96c and fires it across the asteroid belt.
-About 17 seconds later the round lands on the target. It does not explode: it is a spear. It hits
+About 18 seconds later the round lands on the target. It does not explode: it is a spear. It hits
 so hard that it blasts out a crater 128 blocks across, planes the ground into glowing molten crust
 and is left standing as a spire of hull plating through the full height of the world.
 
 The uplink feed you watch while the round is in flight is real-time 3D with its own GLSL shaders:
-Earth with city lights and moving clouds, Jupiter's drifting bands, a Milky Way that aberrates and
-blue-shifts as the round nears light speed, Blender-modelled coils, relay and asteroids, all
-rendered in HDR with bloom, anamorphic lens streaks and motion blur.
+Earth with city lights and moving clouds, Jupiter's drifting bands with Io and the ring's shadow
+crossing them, a Milky Way that aberrates and blue-shifts as the round nears light speed, and
+meshes built in Blender (the spear and its sabot, the coils, the relay satellite, the asteroids), all
+rendered in HDR with bloom, anamorphic lens streaks and motion blur. Inside the accelerator the coils
+are drawn with exact, analytic motion blur: the first ones go by one at a time, then they rush past
+and blur into a tunnel of light without ever strobing.
 
 Back in the world the strike is lit for real: the falling round, the flash, the fireball and the
 molten bowl throw their light across the terrain (positions and normals are rebuilt from the depth
-buffer), the air over the crater shimmers with heat and the light stays dusty orange for a while.
+buffer). The blast itself is drawn like its anime impact frames: cel-shaded fire, smoke and dust in
+flat bands with an ink line round each cloud, a fireball with a white-hot core that breaks up as it
+cools, and a mushroom cloud whose cap hangs over the crater for a minute or two.
+
 The sound is synthesised from scratch too (`tools/gen_sounds.py`): the shooter hears a stereo mix of
-wind, a drone under the feed, coil whine, the scream of the round coming in, the boom, the shock
-wave and the crater burning; everyone else hears the boom and the shock wave arrive at the speed of
-sound.
+wind, a drone under the feed, the coils cracking one by one as the spear passes them until they run
+together into a roar, a slowed-down release, the scream of the round coming in, a beat of silence,
+then the boom with their ears ringing, the shock wave and the crater burning; everyone else hears the
+boom and the shock wave arrive at the speed of sound.
 
 ## What happens when you fire
 
-| Time   | What you see                                                                                 |
-|--------|----------------------------------------------------------------------------------------------|
-| 0 s    | **Kinetic lock.** A beam drops onto the target and an orange reticle drapes over the ground. |
-| 1.3 s  | Your camera rises over the target.                                                           |
-| 2.5 s  | **Uplink feed** starts: pull back to Earth from orbit (`EARTH 6,371 KM`, `TARGET`).          |
-| 3.9 s  | `[ RELAY · JUPITER 5.2 AU ]`: a warp jump out to Jupiter.                                     |
-| 5.1 s  | `[ ACCELERATOR WAKING ]`: **THE SHOOTING STAR**. The ring powers up from the breech.           |
-| 7.3 s  | `[ LOADING ]`: the round seats in the breech coil.                                           |
-| 8.3 s  | `[ LAP 1 / 7 ]` … `[ LAP 7 / 7 ]`: the round accelerates to 0.96c through the coils.          |
-| 13.3 s | `[ DEBRIS FIELD · MAIN BELT ]`: the round crosses the asteroid belt toward Earth.             |
-| 14.6 s | `[ TERMINAL · SOL-3 ]`: re-entry.                                                             |
-| 15.8 s | Back in the world: the round falls out of the sky as a blazing star with a plasma trail, lighting up the land as it comes. |
-| 17 s   | **Impact**: a blinding flash and stylised impact frames (red edges on black, inverted cyan, posterised orange, halftone, ink), then the fireball dome, a condensation shell and a shock ring racing out over the ground. |
-| 17–21 s | Debris rains out of the crater, kicking up dust where it lands, and a column of fire and smoke rises over the spire and spreads into a cap. The shooter's camera rides out the shock wave, then cranes up over the crater. |
-| 20 s on | Lightning flickers in the ash column and thunder rolls in after it; embers drift up out of the molten bowl, the air over it shimmers, and the round's path through the sky hangs there as a smoke trail. |
-| 18 s   | `[ IMPACT CONFIRMED ]` · `ZONE 0128 PLANED · SPIRE STANDING · 384 M`                         |
+| Time    | What you see                                                                                 |
+|---------|----------------------------------------------------------------------------------------------|
+| 0 s     | **Kinetic lock.** A beam drops onto the target and an orange reticle drapes over the ground. |
+| 1.3 s   | Your camera rises over the target and up into the cloud deck.                                |
+| 2.5 s   | **Uplink feed** starts: out of the clouds and back to Earth from orbit (`EARTH 6,371 KM`, `TARGET`). |
+| 3.9 s   | `[ RELAY · JUPITER 5.2 AU ]`: low over the sunlit Earth, the relay satellite fires its laser and the feed rides it out to Jupiter. |
+| 5.1 s   | `[ ACCELERATOR WAKING ]`: **THE SHOOTING STAR**. The ring powers up round Jupiter from the breech, Io and its shadow crossing the planet. |
+| 7.3 s   | `[ LOADING ]`: the spear in its sabot seats in the breech coil; `[ BREECH LOCKED ]`.        |
+| 8.3 s   | `[ LAP 1 / 7 ]` … `[ LAP 7 / 7 ]`: inside the barrel the coils fire one by one as the spear passes, faster and faster until they blur into light; between laps it tears past the camera and over Jupiter's cloud tops. 0.96c. |
+| 12.5 s  | `[ RELEASE ]`: out of the muzzle in slow motion, shedding the sabot.                         |
+| 14 s    | `[ DEBRIS FIELD · MAIN BELT ]`: across the asteroid belt, time all but stopping as it splits a rock. |
+| 15.1 s  | `[ TERMINAL · SOL-3 ]`: Earth rushes up; re-entry in a sheath of plasma.                     |
+| 16.8 s  | Back in the world: the round falls out of the sky as a blazing star, lighting up the land as it comes. |
+| 18 s    | **Impact**: a blinding flash, a beat of silence, stylised impact frames (red edges on black, inverted cyan, posterised orange, halftone, ink), then the boom, the cartoon fireball, a condensation ring and a shock ring racing out over the ground. |
+| 18–22 s | Debris rains out of the crater on inked smoke trails, a column of fire and smoke rises over the spire and spreads into a cap, and a wave of dust rolls out. The shooter's camera rides out the shock wave, then cranes up over the crater. |
+| 21 s on | Lightning flickers in the ash column and thunder rolls in after it; embers drift up out of the molten bowl, the round's path hangs in the sky as a trail, and the cap drifts off on the wind. |
+| 19 s    | `[ IMPACT CONFIRMED ]` · `ZONE 0128 PLANED · SPIRE STANDING · 384 M`                         |
 
 Everyone nearby sees the beam, the reticle, the falling star, the blast and the shock wave (the
 boom arrives at the speed of sound, so far-off players hear it late). Only the player who fired gets
@@ -51,8 +59,8 @@ the feed and the camera shots. Press **Backspace** (rebindable) to skip the feed
   size, with lava pooled at its base.
 - **Planed zone:** everything above the impact level (up to 140 blocks of hillside) inside the
   crater radius (64 blocks by default, a zone 128 blocks across) is vaporised. The ground is
-  resurfaced with **Molten Crust**, which cools over several minutes into **Fused Crust**. Water
-  quenches it instantly.
+  resurfaced with **Molten Crust**, which cools over about a quarter of an hour into **Fused Crust**.
+  Water quenches it instantly.
 - **Rim:** a raised lip of blackstone, basalt and magma. Hills just outside the zone are sheared
   into a rubble slope rising from the rim, and debris rains down for a while after the impact.
 - **Scorched ring:** out to 1.5× the radius, leaves are stripped, glass shatters, sand fuses to
