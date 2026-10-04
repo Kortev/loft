@@ -12,12 +12,11 @@ import net.minecraft.world.RaycastContext;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * The shooter's shots through a Ginnungagap event: first person while the key turns; on the hill with them as
- * they aim, craning down and tilting up past them as the sky breaks; a long way off to the side for the shard
- * of the other universe falling out of it, with a cutaway up from their eyes and a tilt that follows a patch of
- * ground up into the broken sky; on the ground under the shard as it comes down; low at the point of contact;
- * a hard cut for every impact frame; the wide shot again as everything is erased; then in on them, alone, and
- * back to their eyes. No shot ever starts inside a hill.
+ * The shooter's shots through a Ginnungagap event: first person while the key turns; then, from the white, down low
+ * behind them tilting up at the sky over the target as it breaks; a long way off to the side for the shard of the
+ * other universe falling out of it, with a cutaway up from their eyes; on the ground under the shard as it comes
+ * down; low at the point of contact; a hard cut for every impact frame; the wide shot again as everything is
+ * erased; then in on them, alone, and back to their eyes. No shot ever starts inside a hill.
  */
 public final class GapCamera {
 	/** Impact frame shots. */
@@ -27,6 +26,12 @@ public final class GapCamera {
 	public static final int SIDE = 3;
 	public static final int LOW = 4;
 	public static final int EYES = 5;
+
+	/** The cuts: out to the wide shot, up from the shooter's eyes and back, and down under the shard. */
+	public static final int CUT_WIDE = GapTimeline.TEAR + 30;
+	public static final int CUT_EYES = GapTimeline.CLOSING + 38;
+	public static final int CUT_EYES_END = CUT_EYES + 12;
+	public static final int CUT_UNDER = GapTimeline.CONTACT - 26;
 
 	/** The places tried for a shot, nearest the one it would like first. */
 	private static final double[] TURNS = {0, 45, -45, 90, -90, 135, -135, 180};
@@ -45,23 +50,17 @@ public final class GapCamera {
 		double t = gap.time(tickDelta);
 		Vec3d eye = player.getCameraPosVec(tickDelta);
 		Vec3d feet = player.getLerpedPos(tickDelta);
-		if (t < GapTimeline.AIM || t >= GapTimeline.END) {
+		if (t < GapTimeline.TURNED || t >= GapTimeline.END) {
 			return null;
 		}
-		if (t < GapTimeline.TEAR) {
-			return aim(gap, feet, t);
-		}
-		if (t < GapTimeline.CLOSING) {
-			return t < 178 ? lookUp(gap, feet, t) : wide(gap, feet, t);
-		}
 		if (t < GapTimeline.CONTACT) {
-			if (t >= 236 && t < 248) {
+			if (t < CUT_WIDE) {
+				return lookUp(gap, feet, t);
+			}
+			if (t >= CUT_EYES && t < CUT_EYES_END) {
 				return lookAt(eye, gap.shardTip(t).add(0, 20, 0));
 			}
-			if (t >= 248 && t < 294) {
-				return swapShot(gap, t);
-			}
-			if (t >= 294) {
+			if (t >= CUT_UNDER) {
 				return under(gap, t);
 			}
 			return wide(gap, feet, t);
@@ -82,46 +81,25 @@ public final class GapCamera {
 		return nothing(gap, feet, t, tickDelta, player);
 	}
 
-	/** On the hill with the shooter: close at their side as they aim, then back over their shoulder, then out wide. */
-	private static Shot aim(ClientGap gap, Vec3d feet, double t) {
-		Vec3d chest = feet.add(0, 1.3, 0);
-		Vec3d front = chest.add(gap.along.multiply(1.4));
-		Vec3d across = gap.across.multiply(side(gap, feet));
-		Shot close = lookAt(clear(chest.add(across.multiply(3.2)).add(gap.along.multiply(1.2)).add(0, 0.2, 0), front), front);
-		Vec3d target = gap.contact.add(0, 2, 0);
-		Shot shoulder = lookAt(clear(feet.add(gap.along.multiply(-6.5)).add(across.multiply(2.4)).add(0, 5.0, 0), chest), target);
-		if (t < 92) {
-			Shot pushed = lookAt(clear(chest.add(across.multiply(2.6)).add(gap.along.multiply(1.0)).add(0, 0.25, 0), front), front);
-			return blend(close, pushed, ease((t - GapTimeline.AIM) / 32.0));
-		}
-		if (t < 126) {
-			return blend(close, shoulder, ease((t - 92) / 26.0));
-		}
-		return blend(shoulder, lookUp(gap, feet, t), ease((t - 126) / 24.0));
-	}
-
 	/** Down low behind the shooter, tilting up past them at the sky over the target as it breaks. */
 	private static Shot lookUp(ClientGap gap, Vec3d feet, double t) {
-		double k = ease((t - 140) / 40.0);
+		double k = ease((t - GapTimeline.TEAR + 10.0) / 40.0);
 		Vec3d chest = feet.add(0, 1.4, 0);
-		Vec3d eye = feet.add(gap.along.multiply(-4.4 + 0.9 * k)).add(gap.across.multiply(1.4 * side(gap, feet))).add(0, 0.5, 0);
-		return lookAt(clear(eye, chest), gap.contact.add(0, 46 + 22 * k, 0));
+		return lookAt(clear(lookUpEye(gap, feet, side(gap, feet), k), chest), gap.contact.add(0, 46 + 22 * k, 0));
 	}
 
-	/**
-	 * Which side of the shooter the close shots stand on: whichever has more open space, so a hillside never fills
-	 * half the frame. Chosen once.
-	 */
+	private static Vec3d lookUpEye(ClientGap gap, Vec3d feet, double side, double k) {
+		return feet.add(gap.along.multiply(-4.4 + 0.9 * k)).add(gap.across.multiply(1.4 * side)).add(0, 0.5, 0);
+	}
+
+	/** Which side of the shooter the shot behind them stands on: whichever has more open space. Chosen once. */
 	private static double side(ClientGap gap, Vec3d feet) {
 		if (gap.side == 0) {
-			Vec3d chest = feet.add(0, 1.3, 0);
+			Vec3d chest = feet.add(0, 1.4, 0);
 			double best = -1.0;
 			for (int s = 1; s >= -1; s -= 2) {
-				Vec3d across = gap.across.multiply(s);
-				Vec3d front = chest.add(gap.along.multiply(1.4));
-				Vec3d close = clear(chest.add(across.multiply(3.2)).add(gap.along.multiply(1.2)).add(0, 0.2, 0), front);
-				Vec3d shoulder = clear(feet.add(gap.along.multiply(-6.5)).add(across.multiply(2.4)).add(0, 5.0, 0), chest);
-				double score = Math.min(score(close, front, 3.2), score(shoulder, gap.contact.add(0, 2, 0), 7.0));
+				Vec3d eye = clear(lookUpEye(gap, feet, s, 0.0), chest);
+				double score = score(eye, gap.contact.add(0, 46, 0), 4.0);
 				if (score > best + 0.25) {
 					best = score;
 					gap.side = s;
@@ -220,20 +198,6 @@ public final class GapCamera {
 		return lookAt(eye, new Vec3d(mid.x, eye.y + d * Math.tan(pitch), mid.z));
 	}
 
-	/** Beside the patch that trades places: on it as it goes, then tilting up after it into the broken sky. */
-	private static Shot swapShot(ClientGap gap, double t) {
-		Vec3d spot = Vec3d.ofBottomCenter(gap.swapSpot.up());
-		Vec3d low = spot.add(0, gap.tree ? 3.0 : 0.6, 0);
-		if (gap.swapEye == null) {
-			Vec3d out = gap.across.multiply(-1).add(gap.along.multiply(-0.5)).normalize();
-			gap.swapEye = roomiest(spot, gap.tree ? 18 : 13, 2.4, low, out);
-		}
-		Vec3d eye = gap.swapEye;
-		Vec3d twin = gap.swappedTo(gap.swapSpot);
-		double tilt = ease((t - GapTimeline.TREE_SWAP - 3) / 16.0);
-		return lookAt(eye, low.lerp(twin, tilt * 0.55));
-	}
-
 	/** Down at the point of contact as the tip comes down and touches. */
 	private static Shot contact(ClientGap gap, double t) {
 		double k = ease((t - GapTimeline.CONTACT) / (GapTimeline.FRAMES - GapTimeline.CONTACT));
@@ -269,7 +233,7 @@ public final class GapCamera {
 		Vec3d chest = feet.add(0, 1.2, 0);
 		Vec3d facing = Vec3d.fromPolar(0, player.getYaw(tickDelta)).normalize();
 		Vec3d right = new Vec3d(-facing.z, 0, facing.x);
-		if (t < 688) {
+		if (t < GapTimeline.NOTHING + 68) {
 			// Starting near enough that they are a figure, not a speck, and always looking straight at them.
 			Vec3d out = new Vec3d(-gap.across.x - gap.along.x * 0.4, 0, -gap.across.z - gap.along.z * 0.4).normalize();
 			Vec3d from = chest.add(out.multiply(15.0)).add(0, 4.0, 0);
@@ -278,7 +242,7 @@ public final class GapCamera {
 		}
 		if (t < GapTimeline.RETURN) {
 			Vec3d face = feet.add(0, 1.55, 0);
-			double k = ease((t - 688) / (GapTimeline.RETURN - 688.0));
+			double k = ease((t - GapTimeline.NOTHING - 68.0) / (GapTimeline.RETURN - GapTimeline.NOTHING - 68.0));
 			return lookAt(face.add(facing.multiply(3.2 - 0.5 * k)).add(0, -0.15, 0), face.add(0, -0.25, 0));
 		}
 		return null;
@@ -324,11 +288,6 @@ public final class GapCamera {
 		float yaw = (float) (MathHelper.atan2(d.z, d.x) * MathHelper.DEGREES_PER_RADIAN) - 90.0F;
 		float pitch = (float) -(MathHelper.atan2(d.y, horizontal) * MathHelper.DEGREES_PER_RADIAN);
 		return new Shot(eye.x, eye.y, eye.z, yaw, pitch);
-	}
-
-	private static Shot blend(Shot a, Shot b, double k) {
-		return new Shot(MathHelper.lerp(k, a.x(), b.x()), MathHelper.lerp(k, a.y(), b.y()), MathHelper.lerp(k, a.z(), b.z()),
-				MathHelper.lerpAngleDegrees((float) k, a.yaw(), b.yaw()), (float) MathHelper.lerp(k, a.pitch(), b.pitch()));
 	}
 
 	static double ease(double x) {

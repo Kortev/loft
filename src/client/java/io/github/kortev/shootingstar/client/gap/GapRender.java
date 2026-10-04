@@ -18,7 +18,6 @@ import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import org.joml.Matrix4f;
@@ -28,8 +27,8 @@ import org.joml.Vector4f;
 import org.lwjgl.opengl.GL11;
 
 /**
- * Draws Ginnungagap events into the world: the lock, the shard of the other universe falling out of the broken
- * sky, the blocks trading places, the contact, then one full-screen pass for the glitch, the sky shattering, the
+ * Draws Ginnungagap events into the world: the shard of the other universe falling out of the broken sky, the
+ * blocks trading places, the contact, then one full-screen pass for the glitch, the sky shattering, the
  * impact frames, the erasure and the black, and finally the shooter again, the one thing left.
  */
 public final class GapRender {
@@ -39,7 +38,6 @@ public final class GapRender {
 	private static final int WHITE = 0xFFFFFF;
 	private static final int CYAN = 0xA8F8FF;
 	private static final int PURPLE = 0xC77DFF;
-	private static final int RED = 0xFF3B30;
 
 	private GapRender() {
 	}
@@ -242,25 +240,6 @@ public final class GapRender {
 		Vector3f eye = new Vector3f();
 		boolean any = false;
 		BATCH.begin(Fx.LINE, 0.0F, view, proj, right, up);
-		// The beam from the key to the target: dashes running out along it.
-		double beam = GapCamera.ease((t - 84) / 8.0) * (1.0 - GapCamera.ease((t - 134) / 8.0));
-		PlayerEntity shooter = world.getPlayerByUuid(gap.shooter);
-		if (beam > 0.0 && shooter != null) {
-			Vec3d hand = shooter.getLerpedPos(tickDelta).add(0, 1.35, 0).add(gap.along.multiply(0.55)).add(gap.across.multiply(0.4));
-			Vec3d end = gap.contact.add(0, 0.1, 0);
-			double reach = GapCamera.ease((t - 84) / 18.0);
-			double length = hand.distanceTo(end) * reach;
-			Vec3d dir = end.subtract(hand).normalize();
-			for (double s = (t * 0.6) % 2.0 - 2.0; s < length; s += 2.0) {
-				double a = Math.max(0.0, s);
-				double d = Math.min(length, s + 1.2);
-				if (d > a) {
-					BATCH.beam(rel(hand.add(dir.multiply(a)), cam), rel(hand.add(dir.multiply(d)), cam), eye, 0.07F,
-							Fx.fade(CYAN, (float) beam), Fx.fade(CYAN, (float) beam));
-				}
-			}
-			any = true;
-		}
 		// Blocks trading places: a hard white line from each up into the other universe, gone in a third of a second.
 		for (ClientGap.Swap s : gap.swaps) {
 			double age = t - s.age();
@@ -299,25 +278,6 @@ public final class GapRender {
 			any = true;
 		}
 		BATCH.end(true, 1.4F);
-
-		// The lock: red brackets on the ground round the target.
-		double lock = GapCamera.ease((t - 104) / 3.0) * (1.0 - GapCamera.ease((t - GapTimeline.CONTACT + 10) / 10.0));
-		if (lock > 0.0) {
-			BATCH.begin(Fx.LINE, 0.0F, view, proj, right, up);
-			float half = (float) (2.6 - 0.6 * GapCamera.ease((t - 104) / 6.0));
-			Vec3d c = gap.contact.add(0, 0.06, 0);
-			for (int sx = -1; sx <= 1; sx += 2) {
-				for (int sz = -1; sz <= 1; sz += 2) {
-					Vec3d corner = c.add(sx * half, 0, sz * half);
-					BATCH.beam(rel(corner, cam), rel(corner.add(-sx * 1.1, 0, 0), cam), eye, 0.09F, Fx.fade(RED, (float) lock),
-							Fx.fade(RED, (float) lock));
-					BATCH.beam(rel(corner, cam), rel(corner.add(0, 0, -sz * 1.1), cam), eye, 0.09F, Fx.fade(RED, (float) lock),
-							Fx.fade(RED, (float) lock));
-				}
-			}
-			BATCH.end(true, 1.6F);
-			any = true;
-		}
 
 		// Contact: a white seam where the two touch.
 		if (t >= GapTimeline.CONTACT - 1 && t < GapTimeline.FRAMES + 2) {
@@ -417,10 +377,10 @@ public final class GapRender {
 		}
 		if (mine != null) {
 			double t = mine.time(tickDelta);
-			if (t < GapTimeline.AIM + 3) {
+			if (t < GapTimeline.TURNED + 3) {
 				g.glitch = (float) (0.15 * GapCamera.ease((t - 30) / 6.0) + 0.85 * Math.pow(MathHelper.clamp((t - 42) / 18.0, 0.0, 1.0), 2));
-				g.flash = (float) (t < GapTimeline.AIM ? Math.pow(MathHelper.clamp((t - 54) / 6.0, 0.0, 1.0), 2)
-						: 1.0 - (t - GapTimeline.AIM) / 3.0);
+				g.flash = (float) (t < GapTimeline.TURNED ? Math.pow(MathHelper.clamp((t - 54) / 6.0, 0.0, 1.0), 2)
+						: 1.0 - (t - GapTimeline.TURNED) / 3.0);
 				g.seed = (float) Math.floor(t * 1.5);
 				// The lock's light only where the shooter is looking through their own eyes, at the key.
 				if (MinecraftClient.getInstance().options.getPerspective().isFirstPerson()) {
@@ -429,7 +389,7 @@ public final class GapRender {
 				}
 				on = true;
 			}
-			if (t >= 236 && t < 240) {
+			if (t >= GapCamera.CUT_EYES && t < GapCamera.CUT_EYES + 4) {
 				g.glitch = 0.22F;
 				g.seed = (float) Math.floor(t * 1.5);
 				on = true;

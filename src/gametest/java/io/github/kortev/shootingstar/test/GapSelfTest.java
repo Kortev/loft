@@ -53,10 +53,7 @@ public class GapSelfTest implements ClientModInitializer {
 		if (!"gap".equals(System.getProperty("shootingstar.selftest"))) {
 			return;
 		}
-		int[] ages = {10, 40, 58, 66, 80, 96, 110, 128, 140, 156, 172, 188, 205, 225, 240, 252, 262, 270, 276, 286, 296, 304,
-				312, 322, 331, 336, 346, 352, 360, 372, 380, 390, 400, 412, 418, 428, 436, 442, 448, 455, 466, 480, 500, 520,
-				540, 560, 580, 600, 612, 630, 660, 690, 705, 730, 770, 795, 830};
-		for (int age : ages) {
+		for (int age = 10; age < GapTimeline.END + 30; age += 14) {
 			STILLS.add(new Still(age, String.format("%02d_age%03d_%s.png", STILLS.size() + 1, age, phase(age))));
 		}
 		Thread watchdog = new Thread(() -> {
@@ -76,8 +73,7 @@ public class GapSelfTest implements ClientModInitializer {
 	}
 
 	private static String phase(int age) {
-		if (age < GapTimeline.AIM) return "key";
-		if (age < GapTimeline.TEAR) return "lock";
+		if (age < GapTimeline.TURNED) return "key";
 		if (age < GapTimeline.CLOSING) return "tear";
 		if (age < GapTimeline.CONTACT) return "closing";
 		if (age < GapTimeline.FRAMES) return "contact";

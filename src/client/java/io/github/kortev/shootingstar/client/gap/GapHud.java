@@ -14,9 +14,7 @@ import org.joml.Vector3f;
 /** The words over a Ginnungagap event, as the shooter sees them: headers, readouts, the title and the labels. */
 public final class GapHud {
 	private static final int WHITE = 0xFFFFFF;
-	private static final int CYAN = 0x3BE8E2;
 	private static final int PALE = 0xA8F8FF;
-	private static final int RED = 0xFF3B30;
 
 	private GapHud() {
 	}
@@ -33,23 +31,13 @@ public final class GapHud {
 		float w = ctx.getScaledWindowWidth();
 		float h = ctx.getScaledWindowHeight();
 
-		if (t < GapTimeline.AIM) {
+		if (t < GapTimeline.TURNED) {
 			header(ctx, font, w, typed("[ Ω-00 · GENESIS KEY ]", (t - 4) / 16.0), 1.0F);
 			String line = t < 38 ? typed("SEARCHING NEIGHBOURING UNIVERSES", (t - 18) / 14.0) : typed("UNIVERSE 4,096,113 · FOUND", (t - 38) / 8.0);
 			text(ctx, font, line, w / 2, 34, 1.0F, PALE, 1.0F, true);
-		} else if (t < GapTimeline.TEAR) {
-			header(ctx, font, w, typed("[ LOCK ]", (t - GapTimeline.AIM) / 8.0), 1.0F);
-			float lock = (float) (ease((t - 104) / 3.0) * (1.0 - ease((t - 134) / 6.0)));
-			Vector3f p = WorldProjector.project(gap.contact.x, gap.contact.y + 2.5, gap.contact.z, w, h);
-			if (p != null && lock > 0.0F) {
-				text(ctx, font, "TARGET LOCKED", p.x, p.y - 16, 1.0F, RED, lock, true);
-			}
-			int blocks = (int) Math.round(gap.shooterPos.distanceTo(gap.contact));
-			footer(ctx, font, w, h, t < 126 ? String.format(Locale.ROOT, "TARGET %03d BLOCKS AWAY", blocks)
-					: "PULLING UNIVERSE 4,096,113 TOWARDS THE TARGET", t < 126 ? 1.0F : (float) ease((t - 126) / 6.0));
 		} else if (t < GapTimeline.CLOSING) {
 			header(ctx, font, w, typed("[ BREACH ]", (t - GapTimeline.TEAR) / 8.0), 1.0F);
-			float title = (float) (ease((t - 158) / 8.0) * (1.0 - ease((t - 190) / 8.0)));
+			float title = (float) (ease((t - GapTimeline.TEAR - 8) / 8.0) * (1.0 - ease((t - GapTimeline.TEAR - 40) / 8.0)));
 			if (title > 0.0F) {
 				ctx.fill(0, (int) (h * 0.66F), (int) w, (int) (h * 0.94F), (int) (0x80 * title) << 24);
 				text(ctx, font, "Ω-00", w / 2, h * 0.69F, 1.2F, WHITE, title, true);
@@ -58,32 +46,18 @@ public final class GapHud {
 			}
 			Vec3d tip = gap.shardTip(t).add(0, 24, 0);
 			Vector3f p = WorldProjector.project(tip.x, tip.y, tip.z, w, h);
-			float label = (float) ease((t - 166) / 8.0);
+			float label = (float) ease((t - GapTimeline.TEAR - 16) / 8.0);
 			// Kept clear of the header when the shard is high in the frame.
 			if (p != null && label > 0.0F && p.y > 40 && p.y < h * 0.62F) {
 				leader(ctx, font, p.x + 8, p.y, p.x + 48, p.y + 18, "UNIVERSE 4,096,113", label);
 			}
 		} else if (t < GapTimeline.CONTACT) {
-			boolean eyes = t >= 236 && t < 248;
+			boolean eyes = t >= GapCamera.CUT_EYES && t < GapCamera.CUT_EYES_END;
 			header(ctx, font, w, "[ CLOSING ]", 1.0F);
 			if (eyes) {
 				text(ctx, font, gapReadout(t), w / 2, 34, 1.0F, PALE, 1.0F, true);
 			} else {
 				footer(ctx, font, w, h, gapReadout(t), 1.0F);
-			}
-			if (t >= 248 && t < 294) {
-				boolean swapped = t >= GapTimeline.TREE_SWAP;
-				Vec3d ours = Vec3d.ofBottomCenter(gap.swapSpot.up()).add(0, gap.tree ? 3.0 : 0.3, 0);
-				float a = (float) ease((t - 252) / 6.0);
-				String noun = gap.tree ? "TREE" : "GROUND";
-				Vector3f po = WorldProjector.project(ours.x, ours.y, ours.z, w, h);
-				if (po != null) {
-					leader(ctx, font, po.x + 6, po.y, po.x + 46, po.y - 14, (swapped ? "THEIR " : "OUR ") + noun, a,
-							swapped ? CYAN : WHITE);
-				}
-				if (swapped) {
-					caption(ctx, font, w, h, typed("MATTER SWAPPING BETWEEN UNIVERSES", (t - GapTimeline.TREE_SWAP) / 12.0), 1.0F);
-				}
 			}
 		} else if (t < GapTimeline.FRAMES) {
 			float a = (float) ease((t - GapTimeline.CONTACT) / 3.0);
@@ -136,10 +110,6 @@ public final class GapHud {
 
 	private static void footer(DrawContext ctx, TextRenderer font, float w, float h, String s, float a) {
 		text(ctx, font, s, w / 2, h - 22, 1.15F, WHITE, a, true);
-	}
-
-	private static void caption(DrawContext ctx, TextRenderer font, float w, float h, String s, float a) {
-		text(ctx, font, s, w / 2, h * 0.82F, 1.6F, WHITE, a, true);
 	}
 
 	private static void leader(DrawContext ctx, TextRenderer font, float x0, float y0, float x1, float y1, String s, float a) {

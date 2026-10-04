@@ -10,13 +10,10 @@ import io.github.kortev.shootingstar.registry.ModDamageTypes;
 import io.github.kortev.shootingstar.registry.ModGameRules;
 import io.github.kortev.shootingstar.registry.ModSounds;
 import io.github.kortev.shootingstar.strike.Targeting;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -38,7 +35,6 @@ import net.minecraft.util.Util;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.ChunkPos;
-import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.math.random.Random;
@@ -56,7 +52,6 @@ public final class GapManager {
 			Comparator.comparingLong(ChunkPos::toLong), GapTimeline.END + 200);
 	/** The shooter is let back out on their own after this long in the black. */
 	private static final int HOLD_LIMIT = 20 * 120;
-	private static final int TREE_LIMIT = 320;
 	private static final int FLOOR_RADIUS = 14;
 
 	private static final List<Gap> GAPS = new ArrayList<>();
@@ -72,7 +67,7 @@ public final class GapManager {
 		final UUID shooter;
 		final int radius;
 		final boolean terrain;
-		/** What trades places whole at {@link GapTimeline#TREE_SWAP}: the base of a tree, or a patch of ground. */
+		/** Halfway between the shooter and the target (kept for the network format; nothing watches it now). */
 		final BlockPos swapSpot;
 		final boolean tree;
 		final Random random;
@@ -138,16 +133,14 @@ public final class GapManager {
 		int radius = world.getGameRules().getInt(ModGameRules.GAP_RADIUS);
 		boolean terrain = world.getGameRules().getBoolean(ModGameRules.GAP_TERRAIN);
 		BlockPos from = shooter != null ? shooter.getBlockPos() : target.add(48, 0, 0);
-		BlockPos tree = findTree(world, target, from);
-		BlockPos spot = tree != null ? tree : ground(world, (target.getX() + from.getX()) / 2, (target.getZ() + from.getZ()) / 2);
+		BlockPos spot = ground(world, (target.getX() + from.getX()) / 2, (target.getZ() + from.getZ()) / 2);
 		Gap gap = new Gap(nextId++, world.getRegistryKey(), target, shooter != null ? shooter.getUuid() : Util.NIL_UUID, radius,
-				terrain, spot, tree != null);
+				terrain, spot, false);
 		GAPS.add(gap);
 		ChunkPos chunk = new ChunkPos(target);
 		world.getChunkManager().addTicket(TICKET, chunk, MathHelper.clamp(MathHelper.ceil(radius / 16.0) + 2, 1, 32), chunk);
 		ModNetworking.broadcast(world, gap.payload());
-		ShootingStar.LOGGER.info("Ginnungagap #{} on {} in {} (swap at {}, tree {})", gap.id, target.toShortString(),
-				world.getRegistryKey().getValue(), spot.toShortString(), gap.tree);
+		ShootingStar.LOGGER.info("Ginnungagap #{} on {} in {}", gap.id, target.toShortString(), world.getRegistryKey().getValue());
 		return gap;
 	}
 
@@ -240,9 +233,6 @@ public final class GapManager {
 			if (gap.age >= GapTimeline.CLOSING && gap.age < GapTimeline.SWAPS_END && gap.age % 3 == 0) {
 				swapBlock(world, gap, shooter);
 			}
-			if (gap.age == GapTimeline.TREE_SWAP) {
-				swapWhole(world, gap);
-			}
 			// The floor goes down once the black has swallowed everything round the shooter, so no one sees the
 			// ground change, and long before the real erasure gets to them.
 			if (!gap.floored && gap.age >= GapTimeline.ERASURE && shooter != null && shooter.getWorld() == world
@@ -291,51 +281,6 @@ public final class GapManager {
 			world.playSound(null, pos, ModSounds.GAP_SWAP, SoundCategory.BLOCKS, 2.0F, 0.8F + 0.4F * gap.random.nextFloat());
 			return;
 		}
-	}
-
-	/** The tree (or, with no tree about, a patch of ground) the close-up watches trades places with its twin. */
-	private static void swapWhole(ServerWorld world, Gap gap) {
-		List<BlockPos> blocks = new ArrayList<>();
-		if (gap.tree) {
-			BlockPos base = gap.swapSpot;
-			ArrayDeque<BlockPos> queue = new ArrayDeque<>();
-			Set<BlockPos> seen = new HashSet<>();
-			queue.add(base);
-			seen.add(base);
-			while (!queue.isEmpty() && blocks.size() < TREE_LIMIT) {
-				BlockPos p = queue.poll();
-				BlockState s = world.getBlockState(p);
-				if (!(s.isIn(BlockTags.LOGS) || s.isIn(BlockTags.LEAVES))) {
-					continue;
-				}
-				blocks.add(p);
-				for (Direction d : Direction.values()) {
-					BlockPos n = p.offset(d);
-					if (Math.abs(n.getX() - base.getX()) <= 7 && Math.abs(n.getZ() - base.getZ()) <= 7 && n.getY() >= base.getY()
-							&& n.getY() <= base.getY() + 24 && seen.add(n)) {
-						queue.add(n);
-					}
-				}
-			}
-		}
-		if (blocks.isEmpty()) {
-			for (int dx = -2; dx <= 2; dx++) {
-				for (int dz = -2; dz <= 2; dz++) {
-					BlockPos p = ground(world, gap.swapSpot.getX() + dx, gap.swapSpot.getZ() + dz);
-					if (mirrorOf(world, p, world.getBlockState(p)) != null) {
-						blocks.add(p);
-					}
-				}
-			}
-		}
-		ModNetworking.broadcast(world, new GapSwapPayload(gap.id, 1, blocks));
-		for (BlockPos p : blocks) {
-			BlockState mirror = mirrorOf(world, p, world.getBlockState(p));
-			if (mirror != null) {
-				world.setBlockState(p, mirror, Block.NOTIFY_LISTENERS | Block.FORCE_STATE);
-			}
-		}
-		world.playSound(null, gap.swapSpot, ModSounds.GAP_SWAP, SoundCategory.BLOCKS, 4.0F, 0.55F);
 	}
 
 	/** What a block becomes when it trades places with its twin in the mirror universe, or null if it cannot. */
@@ -412,44 +357,6 @@ public final class GapManager {
 	}
 
 	// --- helpers --------------------------------------------------------------------------
-
-	/** The tree nearest the middle of the line from the shooter to the target, as the base of its trunk. */
-	@Nullable
-	private static BlockPos findTree(ServerWorld world, BlockPos target, BlockPos from) {
-		int mx = (target.getX() + from.getX()) / 2;
-		int mz = (target.getZ() + from.getZ()) / 2;
-		BlockPos best = null;
-		double bestScore = Double.MAX_VALUE;
-		BlockPos.Mutable pos = new BlockPos.Mutable();
-		for (int dx = -30; dx <= 30; dx++) {
-			for (int dz = -30; dz <= 30; dz++) {
-				int x = mx + dx;
-				int z = mz + dz;
-				double toTarget = Math.hypot(x - target.getX(), z - target.getZ());
-				if (toTarget < 12.0 || Math.hypot(x - from.getX(), z - from.getZ()) < 10.0) {
-					continue;
-				}
-				int top = world.getTopY(Heightmap.Type.MOTION_BLOCKING, x, z) - 1;
-				if (!world.getBlockState(pos.set(x, top, z)).isIn(BlockTags.LEAVES)) {
-					continue;
-				}
-				for (int y = top - 1; y > top - 14; y--) {
-					if (world.getBlockState(pos.set(x, y, z)).isIn(BlockTags.LOGS)) {
-						while (world.getBlockState(pos.set(x, y - 1, z)).isIn(BlockTags.LOGS)) {
-							y--;
-						}
-						double score = Math.hypot(dx, dz);
-						if (score < bestScore) {
-							bestScore = score;
-							best = new BlockPos(x, y, z);
-						}
-						break;
-					}
-				}
-			}
-		}
-		return best;
-	}
 
 	private static BlockPos ground(World world, int x, int z) {
 		return new BlockPos(x, world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z) - 1, z);

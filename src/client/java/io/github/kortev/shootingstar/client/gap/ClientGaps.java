@@ -144,9 +144,6 @@ public final class ClientGaps {
 	}
 
 	private static void cues(ClientGap gap, int from, int to) {
-		if (crossed(from, to, GapTimeline.AIM + 24)) {
-			ClientStrikes.master(ModSounds.GAP_LOCK, 1.0F, 1.0F);
-		}
 		if (crossed(from, to, GapTimeline.TEAR)) {
 			ClientStrikes.master(ModSounds.GAP_TEAR, 1.0F, 1.0F);
 		}

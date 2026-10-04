@@ -7,27 +7,25 @@ package io.github.kortev.shootingstar.gap;
 public final class GapTimeline {
 	/** First person: the key turns, the world glitches and goes white. */
 	public static final int KEY = 0;
-	/** Third person on the shooter: the key is aimed, a beam runs out and the lock snaps on. */
-	public static final int AIM = 60;
-	/** The sky shatters over the target; another universe shows through where the shards fall away. */
-	public static final int TEAR = 150;
+	/** The key has turned in the air: the screen goes white. */
+	public static final int TURNED = 60;
+	/** From the white, the sky over the target shatters; another universe shows through where the shards fall away. */
+	public static final int TEAR = 60;
 	/** A shard of the other universe drops out of the broken sky; matter starts swapping between the two. */
-	public static final int CLOSING = 200;
-	/** A whole tree (or a patch of ground) is swapped into the other universe. */
-	public static final int TREE_SWAP = 272;
+	public static final int CLOSING = 110;
 	/** Single blocks stop swapping a little before contact so the moment reads clean. */
-	public static final int SWAPS_END = 296;
+	public static final int SWAPS_END = 206;
 	/** The shard's tip touches the target. Every sound stops. */
-	public static final int CONTACT = 310;
+	public static final int CONTACT = 220;
 	/** The impact frames. */
-	public static final int FRAMES = 330;
-	/** Everything is erased, outward from the point of contact. */
-	public static final int ERASURE = 460;
+	public static final int FRAMES = 240;
+	/** Everything in the zone is erased, outward from the point of contact. */
+	public static final int ERASURE = 370;
 	/** Nothing is left but the shooter. */
-	public static final int NOTHING = 620;
-	public static final int END = 800;
+	public static final int NOTHING = 530;
+	public static final int END = 710;
 	/** The camera is back in the shooter's eyes, alone in the black, and they can move again. */
-	public static final int RETURN = 720;
+	public static final int RETURN = 630;
 
 	/** How far the falling shard's tip presses into the ground through the impact frames. */
 	public static final double PRESS = 2.0;

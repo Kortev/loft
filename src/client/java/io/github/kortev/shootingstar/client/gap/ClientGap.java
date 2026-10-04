@@ -35,9 +35,7 @@ public final class ClientGap {
 	/** Where the wide shot stands, found once so it can see the target over the hills. */
 	@Nullable
 	public Vec3d wideEye;
-	/** Where the swap and under-the-shard shots stand, and which side of the shooter the close shots take. */
-	@Nullable
-	public Vec3d swapEye;
+	/** Where the under-the-shard shot stands, and which side of the shooter the shot behind them takes. */
 	@Nullable
 	public Vec3d underEye;
 	public int side;

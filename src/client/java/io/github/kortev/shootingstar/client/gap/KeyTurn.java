@@ -36,7 +36,7 @@ public final class KeyTurn {
 			return false;
 		}
 		double t = gap.time(tickDelta);
-		if (t >= GapTimeline.AIM) {
+		if (t >= GapTimeline.TURNED) {
 			return false;
 		}
 		double up = ease(t / 16.0);
@@ -63,12 +63,12 @@ public final class KeyTurn {
 
 	/** How far the lock's light has opened, 0 to 1. */
 	public static float open(double t) {
-		return (float) (ease((t - 24.0) / 5.0) * (1.0 - ease((t - GapTimeline.AIM) / 3.0)));
+		return (float) (ease((t - 24.0) / 5.0) * (1.0 - ease((t - GapTimeline.TURNED) / 3.0)));
 	}
 
 	/** How far the cracks have run out from the lock, 0 to 1. */
 	public static float cracks(double t) {
-		return (float) (t < GapTimeline.AIM ? Math.pow(MathHelper.clamp((t - 31.0) / 26.0, 0.0, 1.0), 1.5) : 0.0);
+		return (float) (t < GapTimeline.TURNED ? Math.pow(MathHelper.clamp((t - 31.0) / 26.0, 0.0, 1.0), 1.5) : 0.0);
 	}
 
 	private static double ease(double x) {
