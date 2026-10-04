@@ -49,8 +49,8 @@ final class Shots {
 	private static final Vector3f LOCAL_SUN = new Vector3f(0.55F, 0.62F, 0.55F).normalize();
 	private static final Matrix4f LOCAL_SKY = new Matrix4f().rotateXYZ(0.2F, -0.7F, 1.25F);
 	private static final Matrix4f LOCAL_JUPITER = new Matrix4f().translation(0, -1586, 0).rotateZ((float) (Math.PI / 2)).scale(1300);
-	/** Out in the belt the sun is behind the camera, so the rocks and the round show their lit faces. */
-	private static final Vector3f DEBRIS_SUN = new Vector3f(-0.35F, 0.55F, -0.75F).normalize();
+	/** Out in the belt the sun is behind the camera and to its right, so the rocks and the spear show their lit faces. */
+	private static final Vector3f DEBRIS_SUN = new Vector3f(0.5F, 0.55F, -0.67F).normalize();
 
 	private static final int ORANGE = 0xFF7A1E;
 	private static final int HOT = 0xFFB070;
@@ -74,7 +74,9 @@ final class Shots {
 	private static final double CHASE_TO = 27.0;
 	/** How fast the round is going as it reaches the belt (c), and how far the stars streak as the belt shot opens. */
 	private static final float BELT_BETA = 0.9612F;
-	private static final float BELT_STREAK = 0.3F;
+	private static final float BELT_STREAK = 0.1F;
+	/** How much of the stars' aberration the belt shows: enough to crowd them forward without a wall of light. */
+	private static final float BELT_ABERRATION = 0.35F;
 
 	// --- Transfer plot: the inner system in AU, the ecliptic in the xz plane, the Sun at the origin -------------
 	private static final double AU_KM = 149_597_871.0;
@@ -88,7 +90,7 @@ final class Shots {
 	/** Distance to Earth (AU) as the belt begins, as the plot opens, and as the plot hands over to the seeker. */
 	private static final double BELT_RANGE = 2.46;
 	private static final double PLOT_RANGE = 1.79;
-	private static final double PLOT_END_RANGE = 91.0 * 6371.0 / AU_KM;
+	private static final double PLOT_END_RANGE = 121.0 * 6371.0 / AU_KM;
 	private static final double MOON_ORBIT = 384_400.0 / AU_KM;
 	/** The Moon on the plot: on its orbit, just off the round's track. */
 	private static final Vector3f PLOT_MOON = new Vector3f(PLOT_EARTH)
@@ -741,9 +743,9 @@ final class Shots {
 
 		// As the round races away the sky turns to the belt's: the stars crowd forward and streak.
 		Vector3f sunDir = slerp(RELEASE_SUN, DEBRIS_SUN, chase);
-		float streak = lerp(Math.min(0.5, Math.max(0.0, speed - 2.0) * 0.02), BELT_STREAK, chase);
+		float streak = lerp(Math.min(0.35, Math.max(0.0, speed - 2.0) * 0.02), BELT_STREAK, chase);
 		Vector3f forward = new Vector3f(cam.forward()).lerp(new Vector3f(0, 0, 1), chase).normalize();
-		space.sky(cam, LOCAL_SKY, lerp(0.9, 0.55, chase), BELT_BETA * 0.6F * chase, forward, streak, 0, 0, time);
+		space.sky(cam, LOCAL_SKY, lerp(0.9, 0.55, chase), BELT_BETA * BELT_ABERRATION * chase, forward, streak, 0, 0, time);
 		Space.clearDepth();
 		space.jupiter(cam, LOCAL_JUPITER, LOCAL_SUN, time * 3, 1.0F);
 		Space.clearDepth();
@@ -806,11 +808,11 @@ final class Shots {
 			label(o, petal, 10, -4, "SABOT", Feed.RED, "SHED", Feed.GREY, smooth((z - SABOT_FREE - 0.6) / 2.0)
 					* (1.0F - smooth((z - SABOT_FREE - 10.0) / 4.0)));
 		}
-		o.shutter = slow ? 0.0F : lerp(1.0, 0.6, chase);
+		o.shutter = slow ? 0.0F : lerp(0.7, 0.3, chase);
 		o.streak = lerp(0.3, 0.45, chase);
-		float speedBlur = (float) Math.min(0.45, Math.max(0.0, speed - 3.0) * 0.012);
-		// The chase itself whooshes.
-		o.zoomBlur = lerp(speedBlur, 0.08, chase) + 0.15F * (float) Math.sin(Math.PI * chase);
+		float speedBlur = (float) Math.min(0.3, Math.max(0.0, speed - 3.0) * 0.01);
+		// The chase itself whooshes, but never so hard the round is lost in it.
+		o.zoomBlur = lerp(speedBlur, 0.05, chase) + 0.08F * (float) Math.sin(Math.PI * chase);
 		o.exposure = 1.0F + 0.8F * blast;
 		o.flash = Math.max(blast * 0.06F, s < 1.5 ? (float) (0.8 * (1.0 - s / 1.5)) : 0.0F);
 		o.flashColor = 0xFFFFFF;
@@ -916,22 +918,24 @@ final class Shots {
 	/** Ticks into the belt at which a rock sits squarely in the round's path. */
 	private static final double ROCK_HIT = 11.0;
 	/** How fast the belt streams past the round (model units a tick). Nothing slows down out here. */
-	private static final double BELT_SPEED = 13.0;
+	private static final double BELT_SPEED = 8.0;
 
 	private void debris(double s, Overlay o) {
 		double sinceHit = s - ROCK_HIT;
-		// Behind the round, where the chase out of the muzzle left the camera, turning slowly round it.
+		// Behind the round, where the chase out of the muzzle left the camera, turning slowly round it; out to its
+		// side as the rock comes, to see it hit, and back.
 		float orbitCam = (float) (s * 0.012);
-		Vector3f eye = new Vector3f(0.95F, 0.62F, -3.5F).rotateZ(orbitCam);
+		float aside = smooth((s - 3.0) / 6.0) * (1.0F - smooth((s - 14.0) / 7.0));
+		Vector3f eye = new Vector3f(0.95F, 0.62F, -3.5F).rotateZ(orbitCam).lerp(new Vector3f(1.5F, 0.45F, 0.6F), aside);
 		float strike = (float) Math.exp(-Math.pow(sinceHit / 0.6, 2.0));
 		float jolt = sinceHit > 0 ? (float) Math.exp(-sinceHit / 1.6) * 0.09F : 0.0F;
 		eye.add(noise(s * 9.0) * jolt, noise(s * 8.0 + 3.0) * jolt, 0);
 		// The camera leans in as the rock comes on.
 		float lean = (float) Math.exp(-Math.pow((sinceHit + 1.0) / 4.0, 2.0));
-		localCamera(eye, new Vector3f(0, 0, 2.5F), orbitCam * 0.4F, 60.0F - 7.0F * lean);
+		localCamera(eye, new Vector3f(0, 0, 2.5F + 0.8F * aside), orbitCam * 0.4F * (1.0F - aside), 60.0F - 7.0F * lean);
 		float beta = BELT_BETA + 0.0112F * (float) Math.min(s / (StrikeTimeline.TRANSIT - StrikeTimeline.DEBRIS), 1.0);
-		float streak = 0.12F + (BELT_STREAK - 0.12F) * (1.0F - smooth(s / 10.0));
-		space.sky(cam, LOCAL_SKY, 0.55F, beta * 0.6F, new Vector3f(0, 0, 1), streak, 0, 0, time);
+		float streak = 0.05F + (BELT_STREAK - 0.05F) * (1.0F - smooth(s / 10.0));
+		space.sky(cam, LOCAL_SKY, 0.55F, beta * BELT_ABERRATION, new Vector3f(0, 0, 1), streak, 0, 0, time);
 
 		// Earth: a bright blue point dead ahead.
 		Fx earth = space.glow(cam, Fx.SPIKES, 0);
@@ -987,8 +991,8 @@ final class Shots {
 		o.headerReveal = smooth((s - 1) / 5.0);
 		o.footer = "RANGE " + Feed.commas((long) (beltRange(s) * AU_KM)) + " KM";
 		o.footerSmall = String.format(Locale.ROOT, "VELOCITY %.4f c", beta);
-		o.shutter = 0.6F;
-		o.zoomBlur = 0.08F;
+		o.shutter = 0.3F;
+		o.zoomBlur = 0.05F;
 		o.aberration = 0.006F + strike * 0.02F;
 		o.exposure = 1.0F + 0.5F * strike;
 		o.flash = strike * 0.15F;
@@ -1244,11 +1248,12 @@ final class Shots {
 		label(o, PLOT_JUPITER, 10, -6, "JUPITER", Feed.WHITE, "ORIGIN", Feed.GREY, fade * smooth((s - 6.0) / 4.0));
 		// The track passes Mars a seventh of an AU off.
 		boolean passing = s > 16.0 && s < 30.0;
-		label(o, PLOT_MARS, 10, -6, "MARS", Feed.RED, passing ? "CLOSE PASS · 0.14 AU" : null, Feed.GREY,
+		// Mars is labelled on its far side from the track, clear of the round's tag.
+		label(o, PLOT_MARS, -104, 4, "MARS", Feed.RED, passing ? "CLOSE PASS · 0.14 AU" : null, Feed.GREY,
 				fade * smooth((s - 8.0) / 4.0));
 		label(o, new Vector3f(), 10, 6, "SOL", Feed.WHITE, null, Feed.GREY, fade * smooth((s - 8.0) / 4.0));
 		if (lunar > 0.02F) {
-			label(o, PLOT_MOON, 9, -6, "LUNA", Feed.WHITE, null, Feed.GREY, fade * lunar);
+			label(o, PLOT_MOON, -36, -4, "LUNA", Feed.WHITE, null, Feed.GREY, fade * lunar);
 		}
 		o.header = "[ TRANSFER · JUPITER → SOL-3 ]";
 		o.headerColor = Feed.CYAN;
@@ -1386,13 +1391,13 @@ final class Shots {
 	private static final double PULL_TO = 30.0;
 
 	/**
-	 * Height of the round over the target in Earth radii, {@code s} ticks into the terminal: from just outside the
-	 * Moon's orbit down to the cloud deck, falling ever faster, so the motion never lets up.
+	 * Height of the round over the target in Earth radii, {@code s} ticks into the terminal: from twice the Moon's
+	 * distance down to the cloud deck, falling ever faster, so the motion never lets up.
 	 */
 	private static float terminalAltitude(double s) {
 		double t = Math.min(Math.max(s, 0.0), DECK);
-		double fallen = 0.055 * t + 8.2 * Math.pow(t / DECK, 3.2);
-		return (float) (90.0 * Math.exp(-fallen));
+		double fallen = 0.055 * t + 8.488 * Math.pow(t / DECK, 3.2);
+		return (float) (120.0 * Math.exp(-fallen));
 	}
 
 	private void terminal(double s, Overlay o) {
@@ -1417,7 +1422,7 @@ final class Shots {
 		Vector3f eye = new Vector3f(eyeBehind).lerp(eyeSide, beside);
 		Vector3f at = new Vector3f(atBehind).lerp(atSide, beside);
 		Vector3f up = new Vector3f(NORTH).lerp(TARGET, beside).normalize();
-		float fov = lerp(36.0, 58.0, smooth((s - PULL_TO) / 9.0)) + 10.0F * beside;
+		float fov = lerp(30.0, 58.0, smooth((s - PULL_TO) / 9.0)) + 10.0F * beside;
 		// Before that, the seeker: the view out of the spear's point down its path, zooming in on the target as it
 		// locks on. Then the camera pulls back out of the point and over the spear into the view over its shoulder.
 		float pull = smoother((s - PULL_FROM) / (PULL_TO - PULL_FROM));
@@ -1432,7 +1437,9 @@ final class Shots {
 			Vector3f look = new Vector3f(down).add(new Vector3f(EAST).mul((float) Math.sin(s * 0.45) * hunt))
 					.add(new Vector3f(NORTH).mul((float) Math.cos(s * 0.32) * hunt));
 			at = look.mul(behind * 60.0F).add(roundPos).lerp(at, pull);
-			fov = lerp(30.0 - 22.0 * smooth((s - 6.0) / 11.0), fov, pull);
+			// Widening late and in proportion, so Earth never shrinks on screen as the camera backs off.
+			double seekerFov = 30.0 - 22.0 * smooth((s - 6.0) / 11.0);
+			fov = (float) Math.exp(Math.log(seekerFov) + (Math.log(fov) - Math.log(seekerFov)) * Math.pow(pull, 1.5));
 		}
 		float shake = heat * 0.004F + smooth((r - 26.0) / 4.0) * 0.004F;
 		at.add(noise(s * 4.1) * shake * behind * 40, noise(s * 3.3 + 4) * shake * behind * 40, noise(s * 3.7 + 8) * shake * behind * 20);
@@ -1595,7 +1602,7 @@ final class Shots {
 		tag.markerX = tag.x - 2.0F;
 		tag.markerY = tag.y + 4.0F;
 		o.labels.add(tag);
-		label(o, MOON_POS, 10, -6, "LUNA", Feed.WHITE, "384,400 KM", Feed.GREY, alpha * (1.0F - smooth((s - 3.0) / 3.0)));
+		label(o, MOON_POS, 10, -6, "LUNA", Feed.WHITE, "384,400 KM", Feed.GREY, alpha * (1.0F - smooth((s - 6.0) / 3.0)));
 	}
 
 	// =============================================================================================
