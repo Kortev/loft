@@ -80,13 +80,31 @@ public class StrikeGameTests implements FabricGameTest {
 		ZombieEntity outer = zombie(context, new BlockPos(29, 4, 48));
 
 		StrikeManager.launch(world, center, null);
-		// The blast's own effect on the zombie in the scorched ring, read just after the shock front has passed
-		// it (about 17 ticks out at this size): given time it may well burn or fall to its death, which is fine.
+		// The blast's own effect on the zombie in the scorched ring, read on the first tick it has been hit: it
+		// must survive the shock front itself and be set burning. Given time it may well burn or fall to its death,
+		// which is fine; the trace of what happened to it is logged either way.
 		String[] outerAfterBlast = new String[1];
-		context.waitAndRun(StrikeTimeline.IMPACT + 20, () -> {
-			if (!outer.isAlive() || outer.getHealth() >= outer.getMaxHealth() || !outer.isOnFire()) {
-				outerAfterBlast[0] = "zombie in the scorched ring should be hurt and burning but has " + outer.getHealth()
-						+ " hp, alive=" + outer.isAlive() + ", burning=" + outer.isOnFire() + "; ";
+		StringBuilder outerTrace = new StringBuilder();
+		float[] lastHealth = {outer.getMaxHealth()};
+		boolean[] outerChecked = {false};
+		context.runAtEveryTick(() -> {
+			long tick = context.getTick();
+			if (tick < StrikeTimeline.IMPACT || tick > StrikeTimeline.IMPACT + 30) {
+				return;
+			}
+			float health = outer.isAlive() ? outer.getHealth() : 0.0F;
+			if (health != lastHealth[0]) {
+				outerTrace.append(String.format("t+%d %.2f->%.2f by %s at (%.1f, %.1f, %.1f) fire=%b; ", tick - StrikeTimeline.IMPACT,
+						lastHealth[0], health, outer.getRecentDamageSource() == null ? "?" : outer.getRecentDamageSource().getName(),
+						outer.getX(), outer.getY(), outer.getZ(), outer.isOnFire()));
+				lastHealth[0] = health;
+			}
+			if (!outerChecked[0] && health < outer.getMaxHealth()) {
+				outerChecked[0] = true;
+				if (!outer.isAlive() || !outer.isOnFire()) {
+					outerAfterBlast[0] = "zombie in the scorched ring should survive the shock front and burn but has " + health
+							+ " hp, alive=" + outer.isAlive() + ", burning=" + outer.isOnFire() + "; ";
+				}
 			}
 		});
 		context.waitAndRun(StrikeTimeline.IMPACT + 30, () -> {
@@ -124,9 +142,12 @@ public class StrikeGameTests implements FabricGameTest {
 			if (mid.isAlive()) {
 				problems.append("zombie in the planed zone survived with ").append(mid.getHealth()).append(" hp; ");
 			}
-			if (outerAfterBlast[0] != null) {
-				problems.append(outerAfterBlast[0]);
+			if (!outerChecked[0]) {
+				problems.append("the blast never reached the zombie in the scorched ring; ");
+			} else if (outerAfterBlast[0] != null) {
+				problems.append(outerAfterBlast[0]).append(outerTrace);
 			}
+			ShootingStar.LOGGER.info("[gametest] scorched ring zombie: {}", outerTrace);
 			ShootingStar.LOGGER.info("[gametest] fullStrike: {}", problems.length() == 0 ? "ok" : problems);
 			context.assertTrue(problems.length() == 0, problems.toString());
 			context.complete();
