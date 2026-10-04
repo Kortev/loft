@@ -1648,8 +1648,8 @@ LEVELS = {'uplink_lock': -16, 'uplink_denied': -18, 'camera_rise': -21, 'feed_zo
           # Ginnungagap: the key and the lock at the feed's level, the tear and the drone building, each swap small,
           # the contact tiny in the silence, the impact frames the loudest, the erasure close behind, then almost
           # nothing.
-          'gap_key': -16, 'gap_lock': -21, 'gap_tear': -15, 'gap_drone': -13, 'gap_swap': -18, 'gap_contact': -26,
-          'gap_impact': -9, 'gap_erase': -16, 'gap_void': -38}
+          'gap_key': -17, 'gap_lock': -21, 'gap_tear': -16, 'gap_drone': -14, 'gap_swap': -18, 'gap_contact': -26,
+          'gap_impact': -10, 'gap_erase': -17, 'gap_void': -38}
 
 SOUNDS = {
     # name: (recipe, stereo?)

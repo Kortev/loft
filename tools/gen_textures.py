@@ -137,9 +137,12 @@ def uplink_atlas():
 
 # --- Ω-00 Ginnungagap ---------------------------------------------------------------------------
 
-def flat(v, colours, cuts):
-    """Quantises v to a short palette of flat colours (cuts between them), the way a hand-made texture is."""
-    return np.array(colours, dtype=np.float64)[np.digitize(v, cuts)]
+def shades(v, colours, shares):
+    """Paints v in a short palette of flat colours, darkest where v is lowest, each colour covering its share of
+    the pixels: the few shades a hand-made block texture uses."""
+    rank = np.argsort(np.argsort(v, axis=None, kind='stable'), kind='stable').reshape(v.shape) / (v.size - 1)
+    cuts = np.cumsum(shares)[:-1] / np.sum(shares)
+    return np.array(colours, dtype=np.float64)[np.digitize(rank, cuts)]
 
 
 def lattice(across, down, seed, octaves=3):
@@ -147,7 +150,7 @@ def lattice(across, down, seed, octaves=3):
     twice as fine): even blotches with no seam and no diagonal grain, or a grain on purpose, like bark's."""
     r = np.random.default_rng(seed)
     total = np.zeros((16, 16))
-    amp = norm = 0.0
+    norm = 0.0
     for o in range(octaves):
         amp = 0.5 ** o
         grid = r.random((down * 2 ** o, across * 2 ** o))
@@ -188,7 +191,7 @@ GENESIS_KEY = (
 
 
 def genesis_key():
-    """The Genesis Key's item icon, drawn from GENESIS_KEY."""
+    """The Genesis Key's item icon, drawn from GENESIS_KEY: pale cyan, white highlights, a dark teal outline."""
     palette = {'o': (11, 59, 68, 255), 'w': (255, 255, 255, 255), 'c': (168, 248, 255, 255), 's': (95, 208, 227, 255)}
     img = np.zeros((16, 16, 4), dtype=np.uint8)
     for y, row in enumerate(GENESIS_KEY):
@@ -198,28 +201,31 @@ def genesis_key():
     return Image.fromarray(img, 'RGBA')
 
 
+# The mirror universe's blocks: cyan and teal counterparts of grass, stone, logs and leaves.
+MIRROR_BARK = [(12, 64, 72), (28, 108, 119), (44, 142, 154), (88, 200, 212)]
+
+
 def mirror_grass():
     """The ground of the mirror universe: a grass top in cyan, speckled lighter and darker."""
     r = np.random.default_rng(91)
-    v = 0.55 * noise2(16, 16, 6, seed=91) + 0.45 * r.random((16, 16))
-    rgb = flat(v, [(20, 150, 150), (38, 198, 194), (59, 232, 226), (112, 244, 236), (176, 252, 246)],
-               [0.3, 0.42, 0.62, 0.74])
+    v = 0.5 * lattice(4, 4, seed=91) + 0.5 * r.random((16, 16))
+    rgb = shades(v, [(22, 152, 152), (40, 200, 196), (59, 232, 226), (112, 244, 236), (176, 252, 246)],
+                 [8, 20, 46, 18, 8])
     return Image.fromarray(rgb.astype(np.uint8), 'RGB')
 
 
 def mirror_stone():
-    """Mirror-universe stone: dark blue-teal, mottled, a few pale flecks."""
-    v = 0.6 * noise2(16, 16, 5, seed=92) + 0.4 * noise2(16, 16, 14, seed=93)
-    rgb = flat(v, [(16, 26, 38), (26, 41, 58), (34, 52, 74), (45, 67, 92), (62, 92, 116)],
-               [0.36, 0.44, 0.56, 0.64])
+    """Mirror-universe stone: dark blue-teal, mottled with soft blotches."""
+    r = np.random.default_rng(101)
+    v = 0.75 * lattice(4, 4, seed=101) + 0.25 * r.random((16, 16))
+    rgb = shades(v, [(18, 28, 41), (27, 42, 60), (34, 52, 74), (44, 66, 91), (60, 88, 113)], [6, 22, 44, 20, 8])
     return Image.fromarray(rgb.astype(np.uint8), 'RGB')
 
 
 def mirror_log():
-    """Mirror-universe bark: teal in vertical streaks, the ridges catching a lighter cyan."""
-    r = np.random.default_rng(94)
-    v = 0.8 * stretched(8, 1.5, seed=94) + 0.2 * r.random((16, 16))
-    rgb = flat(v, [(12, 64, 72), (28, 108, 119), (42, 140, 152), (84, 196, 208)], [0.4, 0.58, 0.66])
+    """Mirror-universe bark: teal in vertical streaks, dark furrows between ridges that catch a lighter cyan."""
+    v = 0.75 * lattice(8, 1, seed=94, octaves=2) + 0.25 * lattice(16, 4, seed=95, octaves=1)
+    rgb = shades(v, MIRROR_BARK, [20, 46, 22, 12])
     return Image.fromarray(rgb.astype(np.uint8), 'RGB')
 
 
@@ -227,21 +233,20 @@ def mirror_log_top():
     """The cut end of a mirror-universe log: bark round the edge, pale cyan wood inside with growth rings."""
     yy, xx = np.mgrid[0:16, 0:16].astype(np.float64) + 0.5
     d = (np.abs(xx - 8) ** 3 + np.abs(yy - 8) ** 3) ** (1 / 3)  # squarish rings, like a vanilla log end
-    d = d + 0.9 * (noise2(16, 16, 6, seed=95) - 0.5)
-    wood = flat(np.mod(d, 2.6), [(70, 178, 190), (126, 222, 230), (150, 236, 242)], [0.85, 1.9])
+    d = d + 0.9 * (lattice(4, 4, seed=96) - 0.5)
+    wood = np.array([(70, 178, 190), (126, 222, 230), (150, 236, 242)], dtype=np.float64)[np.digitize(d % 2.6, [0.85, 1.9])]
     wood[d < 1.2] = (88, 196, 206)
-    bark = flat(noise2(16, 16, 8, seed=96), [(12, 64, 72), (28, 108, 119), (42, 140, 152)], [0.45, 0.6])
+    bark = shades(lattice(8, 8, seed=97), MIRROR_BARK[:3], [30, 45, 25])
     edge = np.maximum(np.abs(xx - 8), np.abs(yy - 8)) > 7
-    rgb = np.where(edge[..., None], bark, wood)
-    return Image.fromarray(rgb.astype(np.uint8), 'RGB')
+    return Image.fromarray(np.where(edge[..., None], bark, wood).astype(np.uint8), 'RGB')
 
 
 def mirror_leaves():
     """Mirror-universe leaves: cyan clumps with darker hollows between them, fully opaque."""
-    r = np.random.default_rng(97)
-    v = 0.5 * noise2(16, 16, 5, seed=97) + 0.5 * r.random((16, 16))
-    rgb = flat(v, [(14, 82, 94), (26, 128, 144), (47, 184, 201), (92, 216, 228), (156, 240, 246)],
-               [0.3, 0.42, 0.6, 0.72])
+    r = np.random.default_rng(102)
+    v = 0.65 * lattice(4, 4, seed=102) + 0.35 * r.random((16, 16))
+    rgb = shades(v, [(14, 82, 94), (26, 128, 144), (47, 184, 201), (92, 216, 228), (156, 240, 246)],
+                 [14, 22, 38, 18, 8])
     return Image.fromarray(rgb.astype(np.uint8), 'RGB')
 
 
@@ -373,6 +378,12 @@ def main():
         save(crust(heat), 'block', 'molten_crust_%d.png' % heat)
     save(crust(0), 'block', 'fused_crust.png')
     save(uplink_atlas(), 'item', 'gungnir_uplink.png')
+    save(genesis_key(), 'item', 'genesis_key.png')
+    save(mirror_grass(), 'block', 'mirror_grass.png')
+    save(mirror_stone(), 'block', 'mirror_stone.png')
+    save(mirror_log(), 'block', 'mirror_log.png')
+    save(mirror_log_top(), 'block', 'mirror_log_top.png')
+    save(mirror_leaves(), 'block', 'mirror_leaves.png')
     jupiter_map = Image.open(os.path.join(TEX, 'feed', 'jupiter.jpg'))
     earth_map = Image.open(os.path.join(TEX, 'feed', 'earth_day.jpg'))
     save(card(jupiter_map, earth_map), 'gui', 'gungnir_card.png')

@@ -81,7 +81,7 @@ public final class GapCamera {
 		Vec3d front = chest.add(gap.along.multiply(1.4));
 		Shot close = lookAt(clear(chest.add(gap.across.multiply(3.2)).add(gap.along.multiply(1.2)).add(0, 0.2, 0), front), front);
 		Vec3d target = gap.contact.add(0, 2, 0);
-		Shot shoulder = lookAt(clear(feet.add(gap.along.multiply(-5.5)).add(gap.across.multiply(1.8)).add(0, 3.4, 0), chest), target);
+		Shot shoulder = lookAt(clear(feet.add(gap.along.multiply(-6.5)).add(gap.across.multiply(2.4)).add(0, 5.0, 0), chest), target);
 		if (t < 92) {
 			Shot pushed = lookAt(clear(chest.add(gap.across.multiply(2.6)).add(gap.along.multiply(1.0)).add(0, 0.25, 0), front), front);
 			return blend(close, pushed, ease((t - GapTimeline.AIM) / 32.0));

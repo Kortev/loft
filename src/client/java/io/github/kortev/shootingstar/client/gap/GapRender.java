@@ -125,7 +125,7 @@ public final class GapRender {
 		Shaders.set(Shaders.mirror, "ClipY", (float) (gap.surface + GapTimeline.through(t) - cam.y));
 		Shaders.setInt(Shaders.mirror, "ClipMode", clip);
 		Shaders.set(Shaders.mirror, "Radius", (float) MirrorWorld.RADIUS);
-		Shaders.set(Shaders.mirror, "Glow", (float) (0.35 + 0.65 * GapCamera.ease((t - GapTimeline.CLOSING) / 110.0)));
+		Shaders.set(Shaders.mirror, "Glow", (float) (0.12 + 0.3 * GapCamera.ease((t - GapTimeline.CLOSING) / 110.0)));
 		Shaders.set(Shaders.mirror, "Fade", 1.0F);
 		RenderSystem.enableDepthTest();
 		RenderSystem.depthFunc(GL11.GL_LEQUAL);

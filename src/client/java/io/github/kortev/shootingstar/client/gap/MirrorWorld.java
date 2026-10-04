@@ -28,10 +28,10 @@ public final class MirrorWorld implements AutoCloseable {
 	private static final int MAX_ABOVE = 40;
 	private static final int DEPTH = 6;
 	/** How far out from the target the inverted mountain reaches, in blocks. */
-	private static final double MOUNTAIN_REACH = 19.0;
+	private static final double MOUNTAIN_REACH = 26.0;
 	// Pre-mirror face directions: +y, -y, +x, -x, +z, -z.
 	private static final int[][] DIRS = {{0, 1, 0}, {0, -1, 0}, {1, 0, 0}, {-1, 0, 0}, {0, 0, 1}, {0, 0, -1}};
-	private static final float[] SHADE = {1.0F, 0.5F, 0.72F, 0.72F, 0.84F, 0.84F};
+	private static final float[] SHADE = {1.0F, 0.42F, 0.64F, 0.64F, 0.8F, 0.8F};
 
 	private final VertexBuffer buffer;
 	private final int faces;
@@ -63,7 +63,7 @@ public final class MirrorWorld implements AutoCloseable {
 		int az = Math.abs(dz);
 		double m = Math.max(ax, az) + 0.45 * Math.min(ax, az) + 2.2 * jitter(dx >> 1, dz >> 1) + 0.9 * jitter(dx, dz);
 		double k = 1.0 - m / MOUNTAIN_REACH;
-		return k <= 0.0 ? 0 : (int) Math.round((GapTimeline.PEAK - 1) * Math.pow(k, 1.6));
+		return k <= 0.0 ? 0 : (int) Math.round((GapTimeline.PEAK - 1) * Math.pow(k, 1.1));
 	}
 
 	private static double jitter(int a, int b) {
@@ -233,12 +233,15 @@ public final class MirrorWorld implements AutoCloseable {
 		}
 	}
 
-	/** Our block's colour as it is in the other universe: swung round to the cyans, a little paler. */
+	/**
+	 * Our block's colour as it is in the other universe: every hue folded into the cold quarter of the wheel, teal
+	 * through blue to indigo, keeping its lightness, so the place is recognisably the same and plainly not ours.
+	 */
 	static int other(int rgb) {
 		float[] hsv = java.awt.Color.RGBtoHSB(rgb >> 16 & 255, rgb >> 8 & 255, rgb & 255, null);
-		float hue = (180.0F + (hsv[0] * 360.0F - 120.0F) * 0.25F) / 360.0F;
-		float sat = Math.min(1.0F, hsv[1] * 0.85F + 0.18F);
-		float val = Math.max(0.18F, Math.min(0.95F, hsv[2] * 1.08F));
+		float hue = (165.0F + hsv[0] * 360.0F * 0.24F) / 360.0F;
+		float sat = Math.min(1.0F, hsv[1] * 0.8F + 0.25F);
+		float val = Math.max(0.16F, Math.min(0.95F, hsv[2] * 1.05F));
 		return java.awt.Color.HSBtoRGB(hue, sat, val) & 0xFFFFFF;
 	}
 
