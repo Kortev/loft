@@ -23,6 +23,8 @@ final class Space {
 	Mesh coil;
 	Mesh relay;
 	Mesh cone;
+	/** The accelerator's barrel seen from inside, drawn by {@code ss_bore}. */
+	Mesh tube;
 	/** Io, shaded by {@code ss_mesh}'s moon material. */
 	Mesh io;
 	final Mesh[] rocks = new Mesh[4];
@@ -61,6 +63,7 @@ final class Space {
 		coil = Mesh.load("coil");
 		relay = Mesh.load("relay");
 		cone = Mesh.cone(64, 16);
+		tube = Mesh.tube(128, 96, -30.0F, 900.0F);
 		io = Mesh.sphere(64, 32, 15);
 		for (int i = 0; i < rocks.length; i++) {
 			rocks[i] = Mesh.load("asteroid" + i);
@@ -180,6 +183,34 @@ final class Space {
 		pointColor.zero();
 		ringShadow = 0.0F;
 		moonRadius = 0.0F;
+	}
+
+	/**
+	 * The barrel round the round, along +Z: coils {@code travel} spacings on, smeared over the {@code smear} spacings
+	 * they move while the shutter is open; the round at {@code roundZ}, firing as hard as {@code speed}; the camera at
+	 * {@code cameraZ} along the barrel. Premultiplied over what is drawn, depth-tested but not writing depth.
+	 */
+	void bore(Cam cam, double travel, float smear, float roundZ, float cameraZ, float speed, float idle) {
+		RenderSystem.enableDepthTest();
+		RenderSystem.depthMask(false);
+		RenderSystem.disableCull();
+		RenderSystem.enableBlend();
+		RenderSystem.blendFuncSeparate(GlStateManager.SrcFactor.ONE, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA,
+				GlStateManager.SrcFactor.ONE, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA);
+		// The pattern repeats every 720 coils (the rifling's 90 and the stations' 12 both divide it), which keeps the
+		// travel small enough for single precision.
+		Shaders.set(Shaders.bore, "Travel", (float) (travel % 720.0));
+		Shaders.set(Shaders.bore, "Smear", smear);
+		Shaders.set(Shaders.bore, "RoundZ", roundZ);
+		Shaders.set(Shaders.bore, "CameraZ", cameraZ);
+		Shaders.set(Shaders.bore, "Speed", speed);
+		Shaders.set(Shaders.bore, "Idle", idle);
+		Shaders.set(Shaders.bore, "Light", 0.55F);
+		Shaders.set(Shaders.bore, "Twist", (float) Math.toRadians(4.0));
+		Shaders.set(Shaders.bore, "ArcColor", 0.75F, 0.88F, 1.0F);
+		Shaders.set(Shaders.bore, "HotColor", 1.0F, 0.42F, 0.1F);
+		// Radius 0.715: just inside the housings' inner faces (tools/models.py).
+		tube.draw(Shaders.bore, cam.modelView(new Matrix4f().scale(0.715F, 0.715F, 1.0F)), cam.proj);
 	}
 
 	/** Turbulent additive plasma on {@code mesh} (the re-entry sheath or the impact fireball). */

@@ -7,6 +7,7 @@ import io.github.kortev.shootingstar.client.render.Gfx;
 import io.github.kortev.shootingstar.strike.StrikeTimeline;
 import java.util.Locale;
 import java.util.Random;
+import net.minecraft.util.math.MathHelper;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
@@ -60,12 +61,19 @@ final class Shots {
 	private static final double SABOT_FREE = 1.1;
 	/** How far each coil is turned from the one before it (radians). */
 	private static final double RIFLING = Math.toRadians(4.0);
+	/**
+	 * Where round the ring the camera skims the cloud tops on lap 6: seventy degrees from the subsolar point (the sun
+	 * twenty degrees up behind the camera), looking back towards the terminator.
+	 */
+	private static final double LAP6_WHERE = 4.6;
 	/** Angle of the first sabot petal round the spear (the others follow at 120 degrees). */
 	private static final float PETAL_PHASE = 0.4F;
 
 	private final Space space = new Space();
 	private final Cam cam = new Cam();
 	private final Random random = new Random();
+	/** How long the frame being drawn lasts, in ticks: the barrel smears its coils over this much travel. */
+	float frameTicks = 0.5F;
 	private float width;
 	private float height;
 	private float guiW;
@@ -261,12 +269,13 @@ final class Shots {
 		Vector3f eye = new Vector3f(pose.eye());
 		Vector3f at = new Vector3f(pose.at());
 		float fov = pose.fov();
-		// Dive at the breech to cut into the close-up.
+		// Dive at the breech, ending outside the ring and above it, looking along the beam with the planet's limb
+		// below, and flash into the close-up.
 		float dive = (float) Math.pow(smooth((s - 37) / 7.0), 2.0);
 		Vector3f breech = new Vector3f(RING, 0, 0);
 		if (dive > 0) {
-			eye.lerp(new Vector3f(breech).add(0.05F, 0.03F, 0.08F), dive);
-			at.lerp(breech, dive);
+			eye.lerp(new Vector3f(breech).add(0.06F, 0.035F, 0.1F), dive);
+			at.lerp(new Vector3f(breech).add(0, 0, -0.12F), dive);
 			fov -= 14.0F * dive;
 		}
 		jupiterCamera(new Pose(eye, at, pose.up(), fov), 0.002F, 200.0F);
@@ -283,7 +292,9 @@ final class Shots {
 			halo.sprite(front, 0.16F, 0, Fx.argb(1.0F, 0.55F, 0.2F, 0.6F));
 			halo.end(true, 1.5F);
 		}
-		o.zoomBlur = dive * 0.55F;
+		o.zoomBlur = dive * 0.3F;
+		o.flash = (float) Math.pow(dive, 3.0) * 0.75F;
+		o.flashColor = 0xF4F7FF;
 
 		o.header = progress >= 0.999F ? "[ ACCELERATOR ONLINE ]" : "[ ACCELERATOR WAKING ]";
 		o.headerColor = progress >= 0.999F ? Feed.ORANGE : Feed.RED;
@@ -342,8 +353,10 @@ final class Shots {
 		o.header = locked ? "[ BREECH LOCKED ]" : "[ LOADING ]";
 		o.headerColor = locked ? Feed.ORANGE : Feed.RED;
 		o.headerReveal = locked ? smooth((s - 11) / 3.0) : smooth(s / 4.0);
-		o.flash = lockFlash * 0.25F;
-		o.flashColor = 0xFFB070;
+		// Out of the flash that ended the dive, then the breech's own orange pulse when it locks.
+		float pop = (float) Math.pow(Math.max(0.0, 1.0 - s / 1.2), 2.0) * 0.75F;
+		o.flash = Math.max(pop, lockFlash * 0.25F);
+		o.flashColor = pop > lockFlash * 0.25F ? 0xF4F7FF : 0xFFB070;
 		if (s < 12) {
 			label(o, new Vector3f(0, 1.05F, 0), 8, -4, "BREECH", Feed.RED, "COIL 000,001", Feed.GREY, smooth((s - 2) / 3.0));
 		}
@@ -396,6 +409,24 @@ final class Shots {
 			}
 			trails.end(true);
 		}
+	}
+
+	/**
+	 * The round riding the barrel: the sky and Jupiter beyond the coils (the stars crowding forward as it nears c),
+	 * the round lit by the coil firing round it, and the barrel itself, its coils smeared over this frame's travel.
+	 */
+	private void boreScene(double t, float speed, float cameraZ) {
+		space.sky(cam, LOCAL_SKY, 0.9F, speed * 0.9F, new Vector3f(0, 0, 1), 0, 0, 0, time);
+		Space.clearDepth();
+		space.jupiter(cam, LOCAL_JUPITER, LOCAL_SUN, time * 3, 1.0F);
+		Space.clearDepth();
+		space.fillDir.set(0, -1, 0);
+		space.fillColor.set(0.3F, 0.17F, 0.08F);
+		space.pointPos.set(0, 0, 0.6F);
+		space.pointColor.set(ARC).mul(5.0F + 9.0F * speed);
+		drawRound(new Matrix4f().scale(ROUND_SCALE), LOCAL_SUN, 1.1F, 0.6F + speed, speed * 0.4F, 0.8F + 2.5F * speed, true);
+		space.pointColor.zero();
+		space.bore(cam, boreTravel(t), (float) (boreRate(t) * frameTicks), 0.0F, cameraZ, speed, 0.05F);
 	}
 
 	/**
@@ -477,51 +508,64 @@ final class Shots {
 		return StrikeTimeline.LAPS + p * (StrikeTimeline.RELEASE - StrikeTimeline.LAPS);
 	}
 
-	/** Coil spacings covered since the launch: speed grows with velocity^1.3, integrated in closed form. */
-	private static double travel(double t) {
-		double u = Math.max(0, t - StrikeTimeline.LAPS);
-		double b0 = StrikeTimeline.ENTRY_VELOCITY;
-		double k = (StrikeTimeline.EXIT_VELOCITY - b0) / (StrikeTimeline.RELEASE - StrikeTimeline.LAPS);
-		double beta = b0 + k * Math.min(u, StrikeTimeline.RELEASE - StrikeTimeline.LAPS);
-		return 0.6 * u + 22.0 / (k * 2.3) * (Math.pow(beta, 2.3) - Math.pow(b0, 2.3));
+	/**
+	 * Coils passing per tick inside the barrel. The real figure (tens of thousands a tick near c) would only read as
+	 * an even blur from the first lap, so the picture keeps its own: the first coils go by one at a time and the
+	 * rate builds until the rings have blurred into a tube of light.
+	 */
+	private static double boreRate(double t) {
+		double p = MathHelper.clamp((t - StrikeTimeline.LAPS) / (StrikeTimeline.RELEASE - StrikeTimeline.LAPS), 0.0, 1.0);
+		return 0.25 + 9.75 * Math.pow(p, 1.6);
+	}
+
+	/** Coil spacings the barrel has slid past the round since the launch: {@link #boreRate} integrated. */
+	private static double boreTravel(double t) {
+		double span = StrikeTimeline.RELEASE - StrikeTimeline.LAPS;
+		double u = MathHelper.clamp(t - StrikeTimeline.LAPS, 0.0, span);
+		return 0.25 * u + 9.75 * span / 2.6 * Math.pow(u / span, 2.6) + boreRate(t) * Math.max(0.0, t - StrikeTimeline.RELEASE);
 	}
 
 	private void tunnel(double t, int lap, float velocity, double since, Overlay o) {
 		Vector3f eye;
 		Vector3f at;
 		float roll = 0;
+		float fov = 62.0F + velocity * 8.0F;
 		float sway = (float) Math.sin(t * 0.21) * 0.05F;
 		switch (lap) {
 			case 1 -> {
+				// Riding behind the fins as the first coils take hold.
 				eye = new Vector3f(sway, 0.42F, -2.7F);
 				at = new Vector3f(0, 0.05F, 3.0F);
 			}
 			case 3 -> {
+				// Low beside the shaft, banked.
 				eye = new Vector3f(0.36F, -0.22F + sway, -2.0F);
 				at = new Vector3f(0, 0, 3.5F);
 				roll = 0.16F;
 			}
 			case 5 -> {
-				eye = new Vector3f(sway * 0.5F, 0.06F, 2.55F);
-				at = new Vector3f(0, 0.02F, 10.0F);
+				// Out in front, looking back at the point coming on through the firing coils, the barrel ablaze behind it.
+				eye = new Vector3f(0.2F + sway * 0.5F, 0.14F, 5.4F);
+				at = new Vector3f(0, -0.02F, 0.2F);
+				roll = (float) (-0.1 - since * 0.08);
+				fov = 58.0F;
 			}
 			default -> {
-				eye = new Vector3f(0, 0.24F, -1.6F);
-				at = new Vector3f(0, 0, 6.0F);
-				roll = (float) (since * 0.01);
+				// Tight on the fins as it nears c, everything round it gone to light.
+				eye = new Vector3f(0.16F, 0.3F, -1.35F);
+				at = new Vector3f(0, -0.02F, 6.0F);
+				roll = (float) (since * 0.03);
 			}
 		}
 		float shake = velocity * 0.012F;
 		eye.add(noise(t * 3.1) * shake, noise(t * 2.7 + 9) * shake, 0);
-		localCamera(eye, at, roll, 62.0F + velocity * 8.0F);
-		breechScene(travel(t), 0, 0.45F + 0.3F * velocity, velocity);
-		// The sky crowds forward and turns blue as the round nears c.
-		o.zoomBlur = 0.04F + velocity * (lap >= 5 ? 0.42F : 0.24F);
-		// The coils race past several to a frame; without blur they strobe.
-		o.shutter = 1.0F;
-		// The whole tunnel is bright: streaks would smear every panel sideways.
-		o.streak = 0.12F;
-		o.aberration = velocity * 0.012F;
+		localCamera(eye, at, roll, fov);
+		boreScene(t, velocity, eye.z);
+		o.zoomBlur = 0.02F + velocity * 0.06F;
+		// The barrel blurs itself, exactly, so the shot needs no shutter.
+		o.shutter = 0.0F;
+		o.streak = 0.25F;
+		o.aberration = velocity * 0.01F;
 		if (lap == StrikeTimeline.LAP_COUNT) {
 			// The last lap burns out into the muzzle shot.
 			double end = StrikeTimeline.RELEASE - lapStart(lap);
@@ -543,10 +587,10 @@ final class Shots {
 				fov = 40.0F;
 			}
 			case 6 -> {
-				// Skimming the cloud tops just south of the equator, looking back along the ring as it climbs
-				// from the horizon across the sky: the round comes up over the edge of the world and screams
-				// overhead.
-				double where = Math.PI;
+				// Skimming the cloud tops just south of the equator in the late afternoon, the sun low behind the
+				// camera, looking back along the ring as it climbs from the horizon across the sky: the round comes
+				// up over the edge of the world and screams overhead.
+				double where = LAP6_WHERE;
 				Vector3f ground = ringPoint(where).normalize();
 				eye = new Vector3f(ground).mul(1.018F).add(0, -0.03F, 0);
 				Vector3f back = new Vector3f((float) Math.sin(where), 0, (float) Math.cos(where));
@@ -594,7 +638,7 @@ final class Shots {
 		head.end(true);
 		if (lap == 4 || lap == 6) {
 			// A flash as it tears past the camera.
-			double pass = Math.abs(angle - Math.PI);
+			double pass = Math.abs(angle - (lap == 6 ? LAP6_WHERE : Math.PI));
 			o.flash = Math.max(o.flash, (float) ((lap == 6 ? 0.35 : 0.6) * Math.exp(-pass * pass * 400)));
 		}
 		o.shutter = low ? 1.0F : 0.0F;

@@ -174,6 +174,39 @@ public final class Mesh {
 		}
 	}
 
+	/**
+	 * Open tube of radius 1 along +Z from {@code z0} to {@code z1}, for the accelerator's barrel ({@code ss_bore}):
+	 * rings packed close near {@code z0 + 30} where the camera rides, spreading out towards the far end.
+	 */
+	public static Mesh tube(int segments, int rings, float z0, float z1) {
+		BufferBuilder b = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR_NORMAL);
+		for (int j = 0; j < rings; j++) {
+			float za = tubeZ(j, rings, z0, z1);
+			float zb = tubeZ(j + 1, rings, z0, z1);
+			for (int i = 0; i < segments; i++) {
+				tubeVertex(b, i, segments, za);
+				tubeVertex(b, i, segments, zb);
+				tubeVertex(b, i + 1, segments, zb);
+				tubeVertex(b, i + 1, segments, za);
+			}
+		}
+		return upload(b);
+	}
+
+	private static float tubeZ(int j, int rings, float z0, float z1) {
+		// Even spacing over the first sixty, then each ring further than the last.
+		float t = (float) j / rings;
+		float near = Math.min(60.0F, (z1 - z0) * 0.5F);
+		return t < 0.5F ? z0 + near * t * 2.0F : z0 + near + (z1 - z0 - near) * (float) Math.pow((t - 0.5F) * 2.0F, 2.5);
+	}
+
+	private static void tubeVertex(BufferBuilder b, int i, int segments, float z) {
+		double a = Math.PI * 2 * i / segments;
+		float x = (float) Math.cos(a);
+		float y = (float) Math.sin(a);
+		b.vertex(x, y, z).texture((float) i / segments, z).color(255, 255, 255, 255).normal(-x, -y, 0.0F);
+	}
+
 	/** Open-ended cone shell along +Z from the tip at z = 0 to radius 1 at z = -1, for the re-entry sheath. */
 	public static Mesh cone(int segments, int rings) {
 		BufferBuilder b = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR_NORMAL);

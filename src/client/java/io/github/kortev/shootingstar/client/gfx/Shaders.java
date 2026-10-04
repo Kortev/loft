@@ -28,6 +28,7 @@ public final class Shaders {
 	public static ShaderProgram fxcomp;
 	public static ShaderProgram shell;
 	public static ShaderProgram light;
+	public static ShaderProgram bore;
 
 	private Shaders() {
 	}
@@ -52,6 +53,7 @@ public final class Shaders {
 			context.register(ShootingStar.id("ss_fxcomp"), VertexFormats.BLIT_SCREEN, p -> fxcomp = p);
 			context.register(ShootingStar.id("ss_shell"), VertexFormats.POSITION_TEXTURE_COLOR_NORMAL, p -> shell = p);
 			context.register(ShootingStar.id("ss_light"), VertexFormats.BLIT_SCREEN, p -> light = p);
+			context.register(ShootingStar.id("ss_bore"), VertexFormats.POSITION_TEXTURE_COLOR_NORMAL, p -> bore = p);
 		});
 	}
 
@@ -59,7 +61,7 @@ public final class Shaders {
 	public static boolean ready() {
 		return mesh != null && planet != null && gas != null && atmo != null && sky != null && stars != null && glow != null
 				&& plasma != null && bright != null && blur != null && composite != null && blit != null && impact != null
-				&& debris != null && smoke != null && fxcomp != null && shell != null && light != null;
+				&& debris != null && smoke != null && fxcomp != null && shell != null && light != null && bore != null;
 	}
 
 	public static void set(ShaderProgram program, String name, float value) {

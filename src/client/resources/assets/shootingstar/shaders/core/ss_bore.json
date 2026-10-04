@@ -1,0 +1,137 @@
+{
+  "vertex": "shootingstar:ss_mesh",
+  "fragment": "shootingstar:ss_bore",
+  "samplers": [],
+  "uniforms": [
+    {
+      "name": "ModelViewMat",
+      "type": "matrix4x4",
+      "count": 16,
+      "values": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ]
+    },
+    {
+      "name": "ProjMat",
+      "type": "matrix4x4",
+      "count": 16,
+      "values": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ]
+    },
+    {
+      "name": "Travel",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0.0
+      ]
+    },
+    {
+      "name": "Smear",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0.0
+      ]
+    },
+    {
+      "name": "RoundZ",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0.0
+      ]
+    },
+    {
+      "name": "CameraZ",
+      "type": "float",
+      "count": 1,
+      "values": [
+        -3.0
+      ]
+    },
+    {
+      "name": "Speed",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0.0
+      ]
+    },
+    {
+      "name": "Idle",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0.0
+      ]
+    },
+    {
+      "name": "Light",
+      "type": "float",
+      "count": 1,
+      "values": [
+        1.0
+      ]
+    },
+    {
+      "name": "Twist",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0.0698
+      ]
+    },
+    {
+      "name": "ArcColor",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.75,
+        0.88,
+        1.0
+      ]
+    },
+    {
+      "name": "HotColor",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1.0,
+        0.42,
+        0.1
+      ]
+    }
+  ]
+}

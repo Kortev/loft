@@ -77,6 +77,7 @@ public final class Feed {
 		RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
 
 		SCENE.begin(fw, fh, 0.0F, 0.0F, 0.0F, 1.0F);
+		SHOTS.frameTicks = MathHelper.clamp(client.getRenderTickCounter().getLastFrameDuration(), 0.05F, 1.0F);
 		Overlay overlay = SHOTS.render(t, fw, fh, guiW, guiH);
 		int picture = SCENE.color();
 		if (overlay.shutter > 0.0F) {
