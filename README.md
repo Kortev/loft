@@ -35,9 +35,10 @@ sound.
 | 8.3 s  | `[ LAP 1 / 7 ]` … `[ LAP 7 / 7 ]`: the round accelerates to 0.96c through the coils.          |
 | 13.3 s | `[ DEBRIS FIELD · MAIN BELT ]`: the round crosses the asteroid belt toward Earth.             |
 | 14.6 s | `[ TERMINAL · SOL-3 ]`: re-entry.                                                             |
-| 15.8 s | Back in the world: the round falls out of the sky as a blazing star with a plasma trail.      |
+| 15.8 s | Back in the world: the round falls out of the sky as a blazing star with a plasma trail, lighting up the land as it comes. |
 | 17 s   | **Impact**: a blinding flash and stylised impact frames (red edges on black, inverted cyan, posterised orange, halftone, ink), then the fireball dome, a condensation shell and a shock ring racing out over the ground. |
-| 17–21 s | Debris rains out of the crater and a column of fire and smoke rises over the spire and spreads into a cap. The shooter's camera rides out the shock wave, then cranes up over the crater. |
+| 17–21 s | Debris rains out of the crater, kicking up dust where it lands, and a column of fire and smoke rises over the spire and spreads into a cap. The shooter's camera rides out the shock wave, then cranes up over the crater. |
+| 20 s on | Lightning flickers in the ash column and thunder rolls in after it; embers drift up out of the molten bowl, the air over it shimmers, and the round's path through the sky hangs there as a smoke trail. |
 | 18 s   | `[ IMPACT CONFIRMED ]` · `ZONE 0128 PLANED · SPIRE STANDING · 384 M`                         |
 
 Everyone nearby sees the beam, the reticle, the falling star, the blast and the shock wave (the

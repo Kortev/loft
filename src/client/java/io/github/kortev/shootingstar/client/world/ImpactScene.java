@@ -391,7 +391,7 @@ public final class ImpactScene {
 		if (age < 50 || age > 560 || age < nextBolt) {
 			return;
 		}
-		nextBolt = age + 22 + random.nextInt(age < 200 ? 40 : 90);
+		nextBolt = age + 30 + random.nextInt(age < 200 ? 45 : 100);
 		double spread = radius * 0.32;
 		Vec3d from = center.add(gaussian() * spread, capBase * (0.55 + 0.4 * random.nextDouble()), gaussian() * spread);
 		Vec3d to;
@@ -417,7 +417,7 @@ public final class ImpactScene {
 		MinecraftClient client = MinecraftClient.getInstance();
 		if (client.player != null) {
 			double distance = client.gameRenderer.getCamera().getPos().distanceTo(bolt.middle);
-			ClientStrikes.at(client, bolt.middle, SoundEvents.ENTITY_LIGHTNING_BOLT_THUNDER, SoundCategory.WEATHER, 10.0F,
+			ClientStrikes.at(client, bolt.middle, SoundEvents.ENTITY_LIGHTNING_BOLT_THUNDER, SoundCategory.WEATHER, 7.0F,
 					0.65F + random.nextFloat() * 0.3F, (int) (distance / 17.0));
 		}
 	}
