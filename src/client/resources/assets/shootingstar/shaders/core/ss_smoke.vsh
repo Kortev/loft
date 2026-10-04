@@ -1,7 +1,7 @@
 #version 150
 
-// Billboarded puffs of dust, smoke and fire. Normal carries per-puff data: x = seed, y = spin,
-// z = fire glow (emitted light on top of the lit smoke).
+// Billboarded puffs of dust, smoke and fire. Normal carries per-puff data, packed into signed bytes (so each within
+// -1..1): x = seed, y = spin, z = fire glow / 4.
 
 in vec3 Position;
 in vec2 UV0;
@@ -25,5 +25,5 @@ void main() {
     local = UV0;
     vertexColor = Color;
     seed = Normal.x;
-    glow = Normal.z;
+    glow = Normal.z * 4.0;
 }

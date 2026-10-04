@@ -191,6 +191,7 @@ final class Space {
 		Shaders.set(Shaders.plasma, "Heat", heat);
 		Shaders.set(Shaders.plasma, "Flow", flow);
 		Shaders.set(Shaders.plasma, "Scale", scale);
+		Shaders.set(Shaders.plasma, "Toon", 0.0F);
 		mesh.draw(Shaders.plasma, cam.modelView(model), cam.proj);
 	}
 

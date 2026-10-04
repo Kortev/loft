@@ -186,10 +186,11 @@ public final class WorldFx {
 			RenderSystem.setShaderTexture(1, bloom[0]);
 			RenderSystem.setShaderTexture(2, bloom[1]);
 			RenderSystem.setShaderTexture(3, bloom[2]);
-			Shaders.set(Shaders.fxcomp, "StreakStrength", 0.9F);
-			Shaders.set(Shaders.fxcomp, "Dirt", 1.4F);
-			Shaders.set(Shaders.fxcomp, "BloomStrength", 1.0F);
-			Shaders.set(Shaders.fxcomp, "WideStrength", 0.8F);
+			// A crisp, drawn look: a little glow round the fire, not a photographic bloom.
+			Shaders.set(Shaders.fxcomp, "StreakStrength", 0.35F);
+			Shaders.set(Shaders.fxcomp, "Dirt", 0.4F);
+			Shaders.set(Shaders.fxcomp, "BloomStrength", 0.55F);
+			Shaders.set(Shaders.fxcomp, "WideStrength", 0.35F);
 			Post.quad(Shaders.fxcomp);
 			RenderSystem.disableBlend();
 		}
@@ -455,10 +456,12 @@ public final class WorldFx {
 			Shaders.set(Shaders.shell, "GlowColor", 0.85F, 0.9F, 1.0F);
 			Shaders.set(Shaders.shell, "Intensity", 0.9F * k);
 			Shaders.set(Shaders.shell, "Falloff", 3.5F);
+			Shaders.set(Shaders.shell, "Toon", 1.0F);
 			sphere.draw(Shaders.shell, new Matrix4f(view).mul(model), proj);
 		}
 
-		// The fireball: a dome of turbulent plasma that cools from white through orange to red.
+		// The fireball: a dome of flat bands of fire, white in the middle, drawn like the impact frames; it is eaten
+		// away as it cools. Opaque and writing depth, so the smoke behind it stays behind it.
 		double dome = scene.domeRadius(e);
 		double intensity = scene.domeIntensity(e);
 		if (intensity > 0.03 && dome > 0.5) {
@@ -466,13 +469,20 @@ public final class WorldFx {
 			Matrix4f model = new Matrix4f().translation(c.x, c.y - (float) dome * 0.12F + rise, c.z)
 					.scale((float) dome, (float) dome * 0.86F, (float) dome);
 			RenderSystem.enableDepthTest();
-			additive();
+			RenderSystem.depthMask(true);
+			RenderSystem.disableCull();
+			RenderSystem.enableBlend();
+			RenderSystem.blendFuncSeparate(GlStateManager.SrcFactor.ONE, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA,
+					GlStateManager.SrcFactor.ONE, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA);
+			Shaders.set(Shaders.plasma, "Toon", 1.0F);
 			Shaders.set(Shaders.plasma, "Time", (float) (e * 0.04));
 			Shaders.set(Shaders.plasma, "Intensity", (float) intensity);
 			Shaders.set(Shaders.plasma, "Heat", (float) MathHelper.clamp(0.9 - e / 110.0, 0.25, 0.9));
 			Shaders.set(Shaders.plasma, "Flow", 0.0F, -1.6F, 0.0F);
 			Shaders.set(Shaders.plasma, "Scale", 1.7F);
 			sphere.draw(Shaders.plasma, new Matrix4f(view).mul(model), proj);
+			Shaders.set(Shaders.plasma, "Toon", 0.0F);
+			RenderSystem.depthMask(false);
 		}
 
 		// The shock front sweeping over the ground: bright while it is still carving, then a dust edge.
@@ -492,7 +502,7 @@ public final class WorldFx {
 
 		// Sparks: white-hot streaks flung out of the bowl.
 		if (!scene.sparks.isEmpty()) {
-			Fx sparks = BATCH.begin(Fx.STREAK, 0, view, proj, right, up);
+			Fx sparks = BATCH.begin(Fx.DRAWN_STREAK, 0, view, proj, right, up);
 			Vector3f axis = new Vector3f();
 			for (ImpactScene.Spark s : scene.sparks) {
 				float life = 1.0F - (float) s.age / s.life;
@@ -579,8 +589,9 @@ public final class WorldFx {
 			// A puff right on top of the camera would fill the screen; thin it out instead.
 			float distance = (float) Math.sqrt(ref.distance());
 			float nearFade = MathHelper.clamp((distance - size * 0.3F) / (size * 1.2F), 0.0F, 1.0F);
-			float a = p.alpha * fadeIn * fadeOut * nearFade;
-			if (a < 0.01F) {
+			// How much of the puff is left: it pops in, and breaks up and shrinks away instead of going transparent.
+			float a = fadeIn * fadeOut * nearFade;
+			if (a < 0.02F) {
 				continue;
 			}
 			// Daylight from above plus the fireball's orange light on the smoke around it.
@@ -595,12 +606,14 @@ public final class WorldFx {
 			float blue = p.b * light + fire * 0.12F;
 			rx.set(right).mul(size);
 			uy.set(up).mul(size);
+			// The normal's bytes carry the seed (0..1), the spin and the fire glow (over 4), each within -1..1.
 			float spin = p.spin * age * 0.004F;
-			float glow = p.glow;
-			vertex(b, x - rx.x - uy.x, y - rx.y - uy.y, z - rx.z - uy.z, -1, -1, red, green, blue, a, p.seed, spin, glow);
-			vertex(b, x + rx.x - uy.x, y + rx.y - uy.y, z + rx.z - uy.z, 1, -1, red, green, blue, a, p.seed, spin, glow);
-			vertex(b, x + rx.x + uy.x, y + rx.y + uy.y, z + rx.z + uy.z, 1, 1, red, green, blue, a, p.seed, spin, glow);
-			vertex(b, x - rx.x + uy.x, y - rx.y + uy.y, z - rx.z + uy.z, -1, 1, red, green, blue, a, p.seed, spin, glow);
+			float glow = p.glow * 0.25F;
+			float seed = p.seed * 0.1F;
+			vertex(b, x - rx.x - uy.x, y - rx.y - uy.y, z - rx.z - uy.z, -1, -1, red, green, blue, a, seed, spin, glow);
+			vertex(b, x + rx.x - uy.x, y + rx.y - uy.y, z + rx.z - uy.z, 1, -1, red, green, blue, a, seed, spin, glow);
+			vertex(b, x + rx.x + uy.x, y + rx.y + uy.y, z + rx.z + uy.z, 1, 1, red, green, blue, a, seed, spin, glow);
+			vertex(b, x - rx.x + uy.x, y - rx.y + uy.y, z - rx.z + uy.z, -1, 1, red, green, blue, a, seed, spin, glow);
 		}
 		RenderSystem.enableDepthTest();
 		RenderSystem.depthMask(false);
@@ -612,7 +625,7 @@ public final class WorldFx {
 		Shaders.set(Shaders.smoke, "ScreenSize", w, h);
 		Shaders.set(Shaders.smoke, "ProjA", projA(proj));
 		Shaders.set(Shaders.smoke, "ProjB", proj.m32());
-		Shaders.set(Shaders.smoke, "Softness", 4.0F);
+		Shaders.set(Shaders.smoke, "Softness", 1.5F);
 		Post.draw(b, Shaders.smoke, view, proj);
 	}
 

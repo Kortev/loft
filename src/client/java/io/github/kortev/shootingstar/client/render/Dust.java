@@ -10,8 +10,8 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.math.random.Random;
 
 /**
- * What a strike leaves in the air: for a few minutes after the hit the sky round the crater fills with dust,
- * the light goes brown and hazy and the distance closes in, and ash drifts down. Drawn through the world's fog
+ * What a strike leaves in the air: for a few minutes after the hit the light round the crater takes on a warm,
+ * dusty tint, the far hills go hazy, and a little ash drifts down. Drawn through the world's fog
  * (see {@code BackgroundRendererMixin}) and vanilla ash particles.
  */
 public final class Dust {
@@ -74,7 +74,7 @@ public final class Dust {
 		Vec3d cam = client.gameRenderer.getCamera().getPos();
 		float dust = amount(cam);
 		// Ash drifting down round the camera.
-		int flakes = (int) (dust * 26.0F) + (RANDOM.nextFloat() < dust * 26.0F % 1.0F ? 1 : 0);
+		int flakes = (int) (dust * 8.0F) + (RANDOM.nextFloat() < dust * 8.0F % 1.0F ? 1 : 0);
 		for (int i = 0; i < flakes; i++) {
 			double x = cam.x + (RANDOM.nextDouble() - 0.5) * 40.0;
 			double z = cam.z + (RANDOM.nextDouble() - 0.5) * 40.0;

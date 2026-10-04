@@ -30,9 +30,9 @@ public abstract class BackgroundRendererMixin {
 			float skyDarkness, CallbackInfo ci) {
 		float dust = Dust.amount(camera.getPos());
 		if (dust > 0.0F) {
-			// Brown, dim light through the dust; the sky goes the same way.
+			// A warm, dusty tint to the light; the sky goes the same way. Kept light, to suit the drawn look of the blast.
 			float light = MathHelper.clamp(Math.max(Math.max(red, green), blue) * 1.1F, 0.08F, 1.0F);
-			float k = 0.7F * dust;
+			float k = 0.35F * dust;
 			red = MathHelper.lerp(k, red, Dust.RED * light);
 			green = MathHelper.lerp(k, green, Dust.GREEN * light);
 			blue = MathHelper.lerp(k, blue, Dust.BLUE * light);
@@ -53,14 +53,14 @@ public abstract class BackgroundRendererMixin {
 			boolean thickFog, float tickDelta, CallbackInfo ci) {
 		float dust = Dust.amount(camera.getPos());
 		if (dust > 0.0F) {
-			// The distance closes in: the dust hides everything past a hundred and some blocks.
-			float k = 0.7F * dust;
+			// The distance closes in a little: the far hills go hazy.
+			float k = 0.45F * dust;
 			if (fogType == BackgroundRenderer.FogType.FOG_TERRAIN) {
-				RenderSystem.setShaderFogStart(MathHelper.lerp(k, RenderSystem.getShaderFogStart(), 18.0F));
-				RenderSystem.setShaderFogEnd(MathHelper.lerp(k, RenderSystem.getShaderFogEnd(), Math.min(viewDistance, 150.0F)));
+				RenderSystem.setShaderFogStart(MathHelper.lerp(k, RenderSystem.getShaderFogStart(), 40.0F));
+				RenderSystem.setShaderFogEnd(MathHelper.lerp(k, RenderSystem.getShaderFogEnd(), Math.min(viewDistance, 260.0F)));
 			} else {
 				RenderSystem.setShaderFogStart(MathHelper.lerp(k, RenderSystem.getShaderFogStart(), 0.0F));
-				RenderSystem.setShaderFogEnd(MathHelper.lerp(k * 0.8F, RenderSystem.getShaderFogEnd(), 60.0F));
+				RenderSystem.setShaderFogEnd(MathHelper.lerp(k * 0.6F, RenderSystem.getShaderFogEnd(), 120.0F));
 			}
 		}
 		AerialHaze.State haze = AerialHaze.get(tickDelta);

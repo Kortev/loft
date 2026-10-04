@@ -5,6 +5,8 @@
 uniform vec3 GlowColor;
 uniform float Intensity;
 uniform float Falloff;
+// 1: a crisp drawn ring round the shell's edge, like the impact frames, instead of a soft glow.
+uniform float Toon;
 
 in vec3 viewPos;
 in vec3 viewNormal;
@@ -19,6 +21,11 @@ void main() {
     vec3 v = normalize(-viewPos);
     float facing = min(abs(dot(n, v)), 1.0);
     float rim = pow(1.0 - facing, Falloff);
+    if (Toon > 0.5) {
+        float x = 1.0 - facing;
+        float w = fwidth(x) + 1.0e-4;
+        rim = (smoothstep(0.86 - w, 0.86 + w, x) - smoothstep(0.97 - w, 0.97 + w, x)) * 1.6 + rim * 0.15;
+    }
     // Fade towards the ground so the shell sits on the terrain instead of ending in a hard line.
     float ground = smoothstep(-0.02, 0.25, objPos.y);
     fragColor = vec4(GlowColor * rim * ground * Intensity, 1.0);

@@ -17,6 +17,8 @@ public final class Fx {
 	public static final int STREAK = 3;
 	public static final int PROGRESS = 4;
 	public static final int SPIKES = 5;
+	/** A hard-edged tapered streak with a white core, drawn rather than glowing (the impact's sparks). */
+	public static final int DRAWN_STREAK = 6;
 
 	private final Vector3f right = new Vector3f();
 	private final Vector3f up = new Vector3f();

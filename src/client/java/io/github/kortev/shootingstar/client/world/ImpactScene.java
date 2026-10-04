@@ -327,7 +327,7 @@ public final class ImpactScene {
 		c.heat *= 0.985F;
 		if (c.trail && c.heat > 0.1F) {
 			// Overlapping puffs every tick, so the trail reads as one smoky arc rather than a string of beads.
-			Puff p = puff(c.x - c.vx * 0.5, c.y - c.vy * 0.5, c.z - c.vz * 0.5, 0.85 * c.size, 0.2F, 0.18F, 0.17F, 0.45F,
+			Puff p = puff(c.x - c.vx * 0.5, c.y - c.vy * 0.5, c.z - c.vz * 0.5, 0.85 * c.size, 0.34F, 0.31F, 0.29F, 0.45F,
 					45 + random.nextInt(30));
 			p.glow = c.heat * 1.4F;
 			p.glowDecay = 0.86F;
@@ -525,7 +525,7 @@ public final class ImpactScene {
 			double r = (fireball ? 0.3 : 0.12) * radius * Math.sqrt(random.nextDouble());
 			double a = random.nextDouble() * Math.PI * 2;
 			double y = center.y + random.nextDouble() * (fireball ? 0.3 : 0.15) * radius;
-			float grey = 0.13F + random.nextFloat() * 0.09F;
+			float grey = 0.27F + random.nextFloat() * 0.1F;
 			int life = age > 60 ? 220 + random.nextInt(80) : 300 + random.nextInt(120);
 			Puff p = puff(center.x + Math.cos(a) * r, y, center.z + Math.sin(a) * r, (fireball ? 0.13 : 0.075) * radius
 					* (0.8 + random.nextDouble() * 0.4), grey, grey * 0.92F, grey * 0.85F, 0.85F, life);

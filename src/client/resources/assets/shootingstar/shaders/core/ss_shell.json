@@ -74,6 +74,14 @@
       "values": [
         3.0
       ]
+    },
+    {
+      "name": "Toon",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0.0
+      ]
     }
   ]
 }
