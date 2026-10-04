@@ -49,6 +49,7 @@ public final class ImpactEffects {
 
 	public static void clear() {
 		AFTERMATHS.clear();
+		Dust.clear();
 		rebuilding = false;
 	}
 
@@ -87,9 +88,11 @@ public final class ImpactEffects {
 		if (distance < PARTICLE_RANGE) {
 			AFTERMATHS.add(new Aftermath(strike.center, strike.radius));
 		}
+		Dust.add(strike.center, strike.radius);
 	}
 
 	public static void tick(MinecraftClient client) {
+		Dust.tick(client);
 		if (client.player == null) {
 			return;
 		}

@@ -2,6 +2,7 @@ package io.github.kortev.shootingstar.client.mixin;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import io.github.kortev.shootingstar.client.camera.AerialHaze;
+import io.github.kortev.shootingstar.client.render.Dust;
 import net.minecraft.client.render.BackgroundRenderer;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.world.ClientWorld;
@@ -12,7 +13,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/** The rise's aerial haze and cloud deck (see {@link AerialHaze}). */
+/** The rise's aerial haze and cloud deck (see {@link AerialHaze}), and the dust hanging over a fresh crater ({@link Dust}). */
 @Mixin(BackgroundRenderer.class)
 public abstract class BackgroundRendererMixin {
 	@Shadow
@@ -27,6 +28,16 @@ public abstract class BackgroundRendererMixin {
 	@Inject(method = "render", at = @At("TAIL"))
 	private static void shootingstar$mistColor(Camera camera, float tickDelta, ClientWorld world, int viewDistance,
 			float skyDarkness, CallbackInfo ci) {
+		float dust = Dust.amount(camera.getPos());
+		if (dust > 0.0F) {
+			// Brown, dim light through the dust; the sky goes the same way.
+			float light = MathHelper.clamp(Math.max(Math.max(red, green), blue) * 1.1F, 0.08F, 1.0F);
+			float k = 0.7F * dust;
+			red = MathHelper.lerp(k, red, Dust.RED * light);
+			green = MathHelper.lerp(k, green, Dust.GREEN * light);
+			blue = MathHelper.lerp(k, blue, Dust.BLUE * light);
+			RenderSystem.clearColor(red, green, blue, 0.0F);
+		}
 		AerialHaze.State haze = AerialHaze.get(tickDelta);
 		if (haze == null || haze.mist() <= 0.0F) {
 			return;
@@ -40,6 +51,18 @@ public abstract class BackgroundRendererMixin {
 	@Inject(method = "applyFog", at = @At("TAIL"))
 	private static void shootingstar$haze(Camera camera, BackgroundRenderer.FogType fogType, float viewDistance,
 			boolean thickFog, float tickDelta, CallbackInfo ci) {
+		float dust = Dust.amount(camera.getPos());
+		if (dust > 0.0F) {
+			// The distance closes in: the dust hides everything past a hundred and some blocks.
+			float k = 0.7F * dust;
+			if (fogType == BackgroundRenderer.FogType.FOG_TERRAIN) {
+				RenderSystem.setShaderFogStart(MathHelper.lerp(k, RenderSystem.getShaderFogStart(), 18.0F));
+				RenderSystem.setShaderFogEnd(MathHelper.lerp(k, RenderSystem.getShaderFogEnd(), Math.min(viewDistance, 150.0F)));
+			} else {
+				RenderSystem.setShaderFogStart(MathHelper.lerp(k, RenderSystem.getShaderFogStart(), 0.0F));
+				RenderSystem.setShaderFogEnd(MathHelper.lerp(k * 0.8F, RenderSystem.getShaderFogEnd(), 60.0F));
+			}
+		}
 		AerialHaze.State haze = AerialHaze.get(tickDelta);
 		if (haze == null) {
 			return;

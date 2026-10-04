@@ -25,6 +25,10 @@ uniform vec3 FlashColor;
 uniform vec2 HazeCenter;
 uniform vec2 HazeSize;
 uniform float Haze;
+uniform vec2 TrailA;
+uniform vec2 TrailB;
+uniform float TrailWidth;
+uniform float Trail;
 
 in vec2 texCoord;
 
@@ -106,6 +110,22 @@ void main() {
         float r = length(p);
         float k = exp(-pow((r - WarpRadius) * 18.0, 2.0));
         uv -= normalize(p + 1.0e-5) * k * Warp / vec2(ScreenSize.x / ScreenSize.y, 1.0);
+    }
+    if (Trail > 0.0) {
+        // The round's shock cone: the air along its path bends the light, in a wake that widens behind the head
+        // (TrailA) and shimmers.
+        vec2 asp = vec2(ScreenSize.x / ScreenSize.y, 1.0);
+        vec2 pa = (uv - TrailA) * asp;
+        vec2 ba = (TrailB - TrailA) * asp;
+        float h = clamp(dot(pa, ba) / max(dot(ba, ba), 1.0e-6), 0.0, 1.0);
+        vec2 off = pa - ba * h;
+        float d = length(off);
+        float width = TrailWidth * (0.25 + 2.5 * h);
+        float edge = exp(-pow((d - width * 0.6) / (width * 0.5), 2.0));
+        float k = edge * (1.0 - h) * smoothstep(0.0, 0.03, h + d);
+        vec2 n = off / max(d, 1.0e-5);
+        float ripple = vnoise(uv * 70.0 + vec2(Time * 0.35, -Time * 0.27)) - 0.5;
+        uv -= (n * 0.7 + vec2(ripple, -ripple) * 0.6) * k * Trail / asp;
     }
     if (Haze > 0.0) {
         // Heat shimmer over the molten bowl: the picture wobbles in rising, flowing cells.

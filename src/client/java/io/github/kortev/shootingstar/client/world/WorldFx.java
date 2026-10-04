@@ -55,7 +55,23 @@ public final class WorldFx {
 	private static Mesh sphere;
 
 	private record Grade(int mode, float mix, float cx, float cy, float zoom, float warp, float warpRadius, float chroma,
-			float exposure, float tint, float flash, float dust, float hazeX, float hazeY, float hazeW, float hazeH, float haze) {
+			float exposure, float tint, float flash, float dust, float hazeX, float hazeY, float hazeW, float hazeH, float haze,
+			Trail trail) {
+		Grade(int mode, float mix, float cx, float cy, float zoom, float warp, float warpRadius, float chroma, float exposure,
+				float tint, float flash, float dust, float hazeX, float hazeY, float hazeW, float hazeH, float haze) {
+			this(mode, mix, cx, cy, zoom, warp, warpRadius, chroma, exposure, tint, flash, dust, hazeX, hazeY, hazeW, hazeH, haze,
+					Trail.NONE);
+		}
+
+		Grade withTrail(Trail t) {
+			return new Grade(mode, mix, cx, cy, zoom, warp, warpRadius, chroma, exposure, tint, flash, dust, hazeX, hazeY, hazeW,
+					hazeH, haze, t);
+		}
+	}
+
+	/** The inbound round's shock cone on screen: from the head (a) back along the trail (b). */
+	private record Trail(float ax, float ay, float bx, float by, float width, float strength) {
+		static final Trail NONE = new Trail(0.5F, 0.5F, 0.5F, 0.5F, 0.05F, 0.0F);
 	}
 
 	private record PuffRef(ImpactScene.Puff puff, ImpactScene scene, double distance) {
@@ -226,6 +242,10 @@ public final class WorldFx {
 			Shaders.set(Shaders.impact, "HazeCenter", g.hazeX(), g.hazeY());
 			Shaders.set(Shaders.impact, "HazeSize", g.hazeW(), g.hazeH());
 			Shaders.set(Shaders.impact, "Haze", g.haze());
+			Shaders.set(Shaders.impact, "TrailA", g.trail().ax(), g.trail().ay());
+			Shaders.set(Shaders.impact, "TrailB", g.trail().bx(), g.trail().by());
+			Shaders.set(Shaders.impact, "TrailWidth", g.trail().width());
+			Shaders.set(Shaders.impact, "Trail", g.trail().strength());
 			Shaders.set(Shaders.impact, "Flash", g.flash());
 			Shaders.set(Shaders.impact, "FlashColor", 1.0F, 0.98F, 0.94F);
 		}
@@ -676,9 +696,11 @@ public final class WorldFx {
 				flash = (float) (1.0 - k * k * (3 - 2 * k));
 			}
 			if (!strike.impacted || strike.scene == null) {
-				if (flash > 0.0F && flash > bestWeight) {
-					best = new Grade(0, 0, 0.5F, 0.5F, 1, 0, 0, 0, 1, 0, flash, 0, 0.5F, 0.5F, 0.1F, 0.1F, 0);
-					bestWeight = flash;
+				Trail trail = inboundTrail(client, strike, t, cam, view, proj);
+				if ((flash > 0.0F || trail != null) && flash >= bestWeight) {
+					Grade g = new Grade(0, 0, 0.5F, 0.5F, 1, 0, 0, 0, 1, 0, flash, 0, 0.5F, 0.5F, 0.1F, 0.1F, 0);
+					best = trail != null ? g.withTrail(trail) : g;
+					bestWeight = Math.max(flash, 0.001F);
 				}
 				continue;
 			}
@@ -752,6 +774,30 @@ public final class WorldFx {
 			}
 		}
 		return best;
+	}
+
+	/** The inbound round's shock cone on screen, growing as it comes down, or null when it is not in view. */
+	@Nullable
+	private static Trail inboundTrail(MinecraftClient client, ClientStrike strike, double t, Vec3d cam, Matrix4f view, Matrix4f proj) {
+		if (strike.impacted || t < StrikeTimeline.INBOUND || t >= StrikeTimeline.IMPACT) {
+			return null;
+		}
+		Vec3d dir = approach(client, strike, t, cam, view, proj);
+		if (dir == null) {
+			return null;
+		}
+		double p = MathHelper.clamp((t - StrikeTimeline.INBOUND) / (StrikeTimeline.IMPACT - StrikeTimeline.INBOUND), 0.0, 1.0);
+		double range = range(strike.approachLength, p);
+		Vec3d head = strike.center.add(dir.multiply(range));
+		Vec3d back = head.add(dir.multiply(Math.max(range * 0.5, 40.0)));
+		float[] a = screen(head, cam, view, proj);
+		float[] b = screen(back, cam, view, proj);
+		if (a == null || b == null) {
+			return null;
+		}
+		float strength = (float) (0.004 + 0.02 * p * p);
+		float width = (float) (0.02 + 0.06 * p);
+		return new Trail(a[0], a[1], b[0], b[1], width, strength);
 	}
 
 	/** World point to screen (0..1, y up), or null behind the camera. */

@@ -169,6 +169,40 @@
       "values": [
         0.0
       ]
+    },
+    {
+      "name": "TrailA",
+      "type": "float",
+      "count": 2,
+      "values": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "name": "TrailB",
+      "type": "float",
+      "count": 2,
+      "values": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "name": "TrailWidth",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0.05
+      ]
+    },
+    {
+      "name": "Trail",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0.0
+      ]
     }
   ]
 }
