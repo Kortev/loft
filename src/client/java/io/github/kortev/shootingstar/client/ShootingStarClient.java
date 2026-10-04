@@ -1,10 +1,16 @@
 package io.github.kortev.shootingstar.client;
 
+import io.github.kortev.shootingstar.client.gap.ClientGaps;
+import io.github.kortev.shootingstar.client.gap.GapHud;
+import io.github.kortev.shootingstar.client.gap.GapRender;
 import io.github.kortev.shootingstar.client.gfx.Shaders;
 import io.github.kortev.shootingstar.client.render.HudEffects;
 import io.github.kortev.shootingstar.client.render.WorldEffects;
 import io.github.kortev.shootingstar.client.render.WorldProjector;
 import io.github.kortev.shootingstar.client.world.WorldFx;
+import io.github.kortev.shootingstar.network.GapEndPayload;
+import io.github.kortev.shootingstar.network.GapLockPayload;
+import io.github.kortev.shootingstar.network.GapSwapPayload;
 import io.github.kortev.shootingstar.network.StrikeCancelPayload;
 import io.github.kortev.shootingstar.network.StrikeImpactPayload;
 import io.github.kortev.shootingstar.network.StrikeLockPayload;
@@ -35,7 +41,13 @@ public class ShootingStarClient implements ClientModInitializer {
 				(payload, context) -> ClientStrikes.onImpact(payload, context.client()));
 		ClientPlayNetworking.registerGlobalReceiver(StrikeCancelPayload.ID,
 				(payload, context) -> ClientStrikes.onCancel(payload));
-		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> ClientStrikes.clear(client));
+		ClientPlayNetworking.registerGlobalReceiver(GapLockPayload.ID, (payload, context) -> ClientGaps.onLock(payload, context.client()));
+		ClientPlayNetworking.registerGlobalReceiver(GapSwapPayload.ID, (payload, context) -> ClientGaps.onSwap(payload, context.client()));
+		ClientPlayNetworking.registerGlobalReceiver(GapEndPayload.ID, (payload, context) -> ClientGaps.onEnd(payload));
+		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+			ClientStrikes.clear(client);
+			ClientGaps.clear(client);
+		});
 
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
 			while (SKIP_FEED.wasPressed()) {
@@ -43,11 +55,14 @@ public class ShootingStarClient implements ClientModInitializer {
 			}
 			Aim.tick(client);
 			ClientStrikes.tick(client);
+			ClientGaps.tick(client);
 		});
 
 		WorldRenderEvents.AFTER_TRANSLUCENT.register(WorldEffects::render);
 		WorldRenderEvents.LAST.register(WorldProjector::capture);
 		WorldRenderEvents.LAST.register(WorldFx::render);
+		WorldRenderEvents.LAST.register(GapRender::render);
 		HudRenderCallback.EVENT.register(HudEffects::render);
+		HudRenderCallback.EVENT.register(GapHud::render);
 	}
 }

@@ -1,6 +1,8 @@
 package io.github.kortev.shootingstar;
 
+import io.github.kortev.shootingstar.command.GapCommand;
 import io.github.kortev.shootingstar.command.GungnirCommand;
+import io.github.kortev.shootingstar.gap.GapManager;
 import io.github.kortev.shootingstar.network.ModNetworking;
 import io.github.kortev.shootingstar.registry.ModBlocks;
 import io.github.kortev.shootingstar.registry.ModGameRules;
@@ -29,6 +31,8 @@ public class ShootingStar implements ModInitializer {
 		ModNetworking.init();
 		StrikeManager.init();
 		GungnirCommand.init();
+		GapManager.init();
+		GapCommand.init();
 		LOGGER.info("SS-03 Gungnir online");
 	}
 }

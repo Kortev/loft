@@ -11,7 +11,13 @@ public final class ModDamageTypes {
 	public static final RegistryKey<DamageType> KINETIC_STRIKE =
 			RegistryKey.of(RegistryKeys.DAMAGE_TYPE, ShootingStar.id("kinetic_strike"));
 
+	public static final RegistryKey<DamageType> ERASED = RegistryKey.of(RegistryKeys.DAMAGE_TYPE, ShootingStar.id("erased"));
+
 	private ModDamageTypes() {
+	}
+
+	public static DamageSource erased(World world) {
+		return new DamageSource(world.getRegistryManager().get(RegistryKeys.DAMAGE_TYPE).entryOf(ERASED));
 	}
 
 	public static DamageSource kineticStrike(World world) {

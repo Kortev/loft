@@ -13,7 +13,8 @@
 			"io.github.kortev.shootingstar.test.StrikeGameTests"
 		],
 		"client": [
-			"io.github.kortev.shootingstar.test.ClientSelfTest"
+			"io.github.kortev.shootingstar.test.ClientSelfTest",
+			"io.github.kortev.shootingstar.test.GapSelfTest"
 		]
 	},
 	"depends": {

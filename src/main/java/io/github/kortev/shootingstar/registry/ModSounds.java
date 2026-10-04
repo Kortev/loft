@@ -33,6 +33,17 @@ public final class ModSounds {
 	public static final SoundEvent STRIKE_AFTERMATH = register("strike.aftermath");
 	public static final SoundEvent STRIKE_AFTERMATH_NEAR = register("strike.aftermath.near");
 
+	// Ω-00 Ginnungagap. The shooter's cues are stereo; the swap is mono so it can be placed in the world.
+	public static final SoundEvent GAP_KEY = register("gap.key");
+	public static final SoundEvent GAP_LOCK = register("gap.lock");
+	public static final SoundEvent GAP_TEAR = register("gap.tear");
+	public static final SoundEvent GAP_DRONE = register("gap.drone");
+	public static final SoundEvent GAP_SWAP = register("gap.swap");
+	public static final SoundEvent GAP_CONTACT = register("gap.contact");
+	public static final SoundEvent GAP_IMPACT = register("gap.impact");
+	public static final SoundEvent GAP_ERASE = register("gap.erase");
+	public static final SoundEvent GAP_VOID = register("gap.void");
+
 	private ModSounds() {
 	}
 

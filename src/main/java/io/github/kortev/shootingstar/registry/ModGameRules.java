@@ -17,6 +17,14 @@ public final class ModGameRules {
 	public static final GameRules.Key<GameRules.BooleanRule> SPIRE = GameRuleRegistry.register(
 			"gungnirSpire", GameRules.Category.MISC, GameRuleFactory.createBooleanRule(true));
 
+	/** Radius in blocks of the zone a Ginnungagap event erases, build limit to bedrock. */
+	public static final GameRules.Key<GameRules.IntRule> GAP_RADIUS = GameRuleRegistry.register(
+			"ginnungagapRadius", GameRules.Category.MISC, GameRuleFactory.createIntRule(96, 16, 256));
+
+	/** When false, the erasure still takes entities but leaves every block where it is (and nothing trades places). */
+	public static final GameRules.Key<GameRules.BooleanRule> GAP_TERRAIN = GameRuleRegistry.register(
+			"ginnungagapTerrainDamage", GameRules.Category.MISC, GameRuleFactory.createBooleanRule(true));
+
 	private ModGameRules() {
 	}
 

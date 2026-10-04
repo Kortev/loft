@@ -1,6 +1,7 @@
 {
   "replace": false,
   "values": [
-    "shootingstar:kinetic_strike"
+    "shootingstar:kinetic_strike",
+    "shootingstar:erased"
   ]
 }

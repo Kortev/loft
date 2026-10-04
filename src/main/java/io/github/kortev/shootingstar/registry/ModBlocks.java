@@ -5,6 +5,7 @@ import io.github.kortev.shootingstar.block.MoltenCrustBlock;
 import net.minecraft.block.AbstractBlock;
 import net.minecraft.block.Block;
 import net.minecraft.block.MapColor;
+import net.minecraft.block.PillarBlock;
 import net.minecraft.block.enums.NoteBlockInstrument;
 import net.minecraft.item.BlockItem;
 import net.minecraft.item.Item;
@@ -50,6 +51,32 @@ public final class ModBlocks {
 			.strength(2.5F, 6.0F)
 			.luminance(state -> 3)
 			.sounds(BlockSoundGroup.BASALT)), true);
+
+	// Matter from the mirror universe, left behind where blocks traded places with their twins.
+	public static final Block MIRROR_GRASS = register("mirror_grass", new Block(AbstractBlock.Settings.create()
+			.mapColor(MapColor.DIAMOND_BLUE)
+			.strength(0.6F)
+			.luminance(state -> 4)
+			.sounds(BlockSoundGroup.AMETHYST_BLOCK)), true);
+
+	public static final Block MIRROR_STONE = register("mirror_stone", new Block(AbstractBlock.Settings.create()
+			.mapColor(MapColor.CYAN)
+			.requiresTool()
+			.strength(1.5F, 6.0F)
+			.luminance(state -> 2)
+			.sounds(BlockSoundGroup.AMETHYST_BLOCK)), true);
+
+	public static final Block MIRROR_LOG = register("mirror_log", new PillarBlock(AbstractBlock.Settings.create()
+			.mapColor(MapColor.CYAN)
+			.strength(2.0F)
+			.luminance(state -> 3)
+			.sounds(BlockSoundGroup.AMETHYST_BLOCK)), true);
+
+	public static final Block MIRROR_LEAVES = register("mirror_leaves", new Block(AbstractBlock.Settings.create()
+			.mapColor(MapColor.DIAMOND_BLUE)
+			.strength(0.2F)
+			.luminance(state -> 5)
+			.sounds(BlockSoundGroup.AMETHYST_CLUSTER)), true);
 
 	private ModBlocks() {
 	}
