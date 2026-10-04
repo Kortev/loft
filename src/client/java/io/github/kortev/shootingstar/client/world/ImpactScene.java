@@ -25,6 +25,8 @@ import net.minecraft.world.Heightmap;
 public final class ImpactScene {
 	static final double GRAVITY = 0.06;
 	private static final int LIFETIME = 900;
+	/** The canopy outlives everything else: it hangs over the crater for a minute or two before it thins away. */
+	private static final int CANOPY_LIFETIME = 2700;
 
 	static final class Chunk {
 		double x;
@@ -51,6 +53,10 @@ public final class ImpactScene {
 		int landedAge;
 	}
 
+	/** A light, steady wind aloft that carries the canopy off (blocks per tick, per unit of scale). */
+	private static final double WIND_X = 0.0016;
+	private static final double WIND_Z = 0.0007;
+
 	static final class Puff {
 		double x;
 		double y;
@@ -76,6 +82,8 @@ public final class ImpactScene {
 		float drag;
 		/** Height above the impact where a column puff stops rising and spreads into the cap; 0 for none. */
 		double cap;
+		/** Spreading in the cap, where it hangs for a minute or more as part of the canopy. */
+		boolean capped;
 		int age;
 		int life;
 	}
@@ -159,7 +167,7 @@ public final class ImpactScene {
 	}
 
 	public boolean done() {
-		return age > LIFETIME || age > 600 && chunks.isEmpty() && puffs.isEmpty() && sparks.isEmpty() && bolts.isEmpty();
+		return age > CANOPY_LIFETIME || age > 600 && chunks.isEmpty() && puffs.isEmpty() && sparks.isEmpty() && bolts.isEmpty();
 	}
 
 	// --- blast shapes ----------------------------------------------------------------------
@@ -588,12 +596,20 @@ public final class ImpactScene {
 		p.pz = p.z;
 		p.prevSize = p.size;
 		if (p.cap > 0 && p.y - center.y > p.cap) {
-			// Stop rising and spread out under the cap.
+			if (!p.capped) {
+				// Into the cap: from here it hangs as part of a canopy that spreads for minutes before it thins.
+				p.capped = true;
+				p.life = Math.min(p.age + CANOPY_LIFETIME - age, Math.max(p.life, p.age + 900 + random.nextInt(900)));
+				p.growth *= 0.4F;
+				p.alpha = Math.min(0.9F, p.alpha * 1.05F);
+			}
+			// Stop rising and spread out under the cap, slower and slower; the wind takes it.
 			double dx = p.x - center.x;
 			double dz = p.z - center.z;
 			double len = Math.sqrt(dx * dx + dz * dz) + 1.0E-3;
-			p.vx += dx / len * 0.06 * Math.sqrt(scale);
-			p.vz += dz / len * 0.06 * Math.sqrt(scale);
+			double push = 0.06 * Math.sqrt(scale) * Math.exp(-(p.y - center.y - p.cap) / (radius * 0.6) - len / (radius * 4.0));
+			p.vx += dx / len * push + WIND_X * Math.sqrt(scale);
+			p.vz += dz / len * push + WIND_Z * Math.sqrt(scale);
 			p.vy *= 0.85;
 			p.buoyancy = 0;
 		}
@@ -603,7 +619,7 @@ public final class ImpactScene {
 		p.x += p.vx;
 		p.y += p.vy;
 		p.z += p.vz;
-		p.size += p.growth * (1.0F - (float) p.age / p.life);
+		p.size = Math.min(p.size + p.growth * (1.0F - (float) p.age / p.life), (float) Math.max(p.size, radius * 1.1));
 		p.glow *= p.glowDecay;
 		return ++p.age > p.life;
 	}
