@@ -423,7 +423,8 @@ vec3 erase(vec2 uv, vec3 c) {
     if (Clamp > 0.0 && length(mid.xz) > Clamp) {
         return c;
     }
-    float m = abs(mid.x) + abs(mid.y) + abs(mid.z) + hash3(cell) * 7.0 * size;
+    // Up and down count for half, so the valleys go with the ground round them rather than long after.
+    float m = abs(mid.x) + 0.5 * abs(mid.y) + abs(mid.z) + hash3(cell) * 7.0 * size;
     if (m < Front - 1.6 * size) {
         return vec3(0.0);
     }

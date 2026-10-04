@@ -87,23 +87,23 @@ void main() {
         n = -n;
     }
     float facing = -dot(view, n);
-    // A dark glass full of their night: looking into it, bent at each facet, the stars and dust of their universe
-    // show deep inside, dimmer than the bright sky behind it, so the shard always stands out against that sky.
+    // Dark glass full of their night: looking into it, bent at each facet, the stars and dust of their universe
+    // show deep inside, dimmer than the sky behind it.
     vec3 d = normalize(refract(view, n, 0.7) + Spin);
-    vec3 c = vec3(0.012, 0.004, 0.03) + cosmos(d * 1.3, Time) * 0.32;
+    vec3 c = vec3(0.01, 0.003, 0.025) + cosmos(d * 1.3, Time) * 0.22;
     // Each facet catches the light of the broken sky differently, so the facets read as planes.
     vec3 r = reflect(view, n);
-    float sky = 0.5 + 0.5 * r.y;
-    c += vec3(0.35, 0.22, 0.6) * pow(sky, 3.0) * 0.35;
+    c += vec3(0.3, 0.18, 0.55) * pow(0.5 + 0.5 * r.y, 3.0) * 0.4;
     c += vec3(1.0, 0.85, 1.0) * pow(max(dot(r, normalize(vec3(0.25, 0.9, 0.35))), 0.0), 24.0) * 0.9;
-    // A cold rim where the facets turn away.
-    c += vec3(0.45, 0.8, 1.0) * pow(1.0 - facing, 4.0) * 1.1;
-    // The facet edges burn: a hard white hairline with a violet glow inside it (the texture coordinates are
-    // barycentric).
+    // A cold rim where the facets turn away, which outlines it against a dark sky.
+    c += vec3(0.5, 0.85, 1.0) * pow(1.0 - facing, 2.5) * 0.9;
+    // The facet edges burn white: a band a few percent of the facet wide, so they still show from far off, never
+    // thinner than a pixel or two (the texture coordinates are barycentric).
     vec3 b = vec3(texCoord0, 1.0 - texCoord0.x - texCoord0.y);
     float e = min(min(b.x, b.y), b.z);
     float px = max(fwidth(e), 1.0e-5);
-    c += vec3(0.9, 1.0, 1.0) * (1.0 - smoothstep(0.0, px * 1.5, e)) * 1.3;
-    c += vec3(0.75, 0.4, 1.0) * exp(-e / max(px * 10.0, 0.035)) * 0.45;
+    float line = 1.0 - smoothstep(max(px * 1.2, 0.012), max(px * 2.4, 0.03), e);
+    c = mix(c, vec3(0.92, 0.97, 1.0), line);
+    c += vec3(0.6, 0.45, 1.0) * exp(-e / 0.06) * 0.35;
     fragColor = vec4(min(c, vec3(1.0)), 1.0);
 }

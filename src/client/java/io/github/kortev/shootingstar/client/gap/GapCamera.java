@@ -211,7 +211,7 @@ public final class GapCamera {
 		double drift = ease((t - GapTimeline.TEAR) / (GapTimeline.CONTACT - GapTimeline.TEAR));
 		Vec3d eye = gap.wideEye.lerp(new Vec3d(mid.x, gap.wideEye.y, mid.z), 0.1 * drift).add(0, 5 * drift, 0);
 		// Tilting down with the shard as it falls, but never so far up that the ground leaves the frame.
-		double lift = MathHelper.clamp(GapTimeline.shardTip(t) * 0.45 + 20.0, 38.0, 62.0);
+		double lift = MathHelper.clamp(GapTimeline.shardTip(t) * 0.45 + 20.0, 38.0, 85.0);
 		return lookAt(eye, new Vec3d(mid.x, gap.surface + lift, mid.z));
 	}
 
@@ -264,12 +264,12 @@ public final class GapCamera {
 		Vec3d chest = feet.add(0, 1.2, 0);
 		Vec3d facing = Vec3d.fromPolar(0, player.getYaw(tickDelta)).normalize();
 		Vec3d right = new Vec3d(-facing.z, 0, facing.x);
-		Shot side = lookAt(chest.add(right.multiply(3.4)).add(0, 0.1, 0), chest);
 		if (t < 688) {
-			// Starting near enough that they are a figure, not a speck.
+			// Starting near enough that they are a figure, not a speck, and always looking straight at them.
 			Vec3d out = new Vec3d(-gap.across.x - gap.along.x * 0.4, 0, -gap.across.z - gap.along.z * 0.4).normalize();
-			Shot from = lookAt(chest.add(out.multiply(15.0)).add(0, 4.0, 0), chest);
-			return blend(from, side, ease((t - GapTimeline.NOTHING) / 50.0));
+			Vec3d from = chest.add(out.multiply(15.0)).add(0, 4.0, 0);
+			Vec3d to = chest.add(right.multiply(3.4)).add(0, 0.1, 0);
+			return lookAt(from.lerp(to, ease((t - GapTimeline.NOTHING) / 50.0)), chest);
 		}
 		if (t < GapTimeline.RETURN) {
 			Vec3d face = feet.add(0, 1.55, 0);

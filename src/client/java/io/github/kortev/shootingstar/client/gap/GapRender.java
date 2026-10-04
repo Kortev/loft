@@ -204,7 +204,7 @@ public final class GapRender {
 					Vector3f pb = rel(p, cam);
 					float dist = new Vector3f(pa).add(pb).mul(0.5F).length();
 					BATCH.beam(pa, pb, eye, Math.max(0.04F, dist * 0.0022F), Fx.fade(WHITE, 0.55F), Fx.fade(WHITE, 0.55F));
-					BATCH.beam(pa, pb, eye, Math.max(0.2F, dist * 0.01F), Fx.fade(CYAN, 0.14F), Fx.fade(CYAN, 0.14F));
+					BATCH.beam(pa, pb, eye, Math.max(0.25F, dist * 0.014F), Fx.fade(CYAN, 0.26F), Fx.fade(CYAN, 0.26F));
 				}
 				prev = p;
 			}
