@@ -68,8 +68,8 @@ public final class ImpactEffects {
 			double from = strike.witness != null ? strike.witness.distanceTo(strike.center) : strike.radius * 1.3;
 			int arrival = strike.scene != null ? (int) strike.scene.arrival(from) : 30;
 			ClientStrikes.master(ModSounds.STRIKE_IMPACT_NEAR, 1.0F, 1.0F, 3);
-			ClientStrikes.master(ModSounds.STRIKE_RUMBLE_NEAR, 1.0F, 1.0F, arrival);
-			ClientStrikes.master(ModSounds.STRIKE_AFTERMATH_NEAR, 1.0F, 0.8F, 90);
+			ClientStrikes.master(ModSounds.STRIKE_RUMBLE_NEAR, 1.0F, 0.85F, arrival);
+			ClientStrikes.master(ModSounds.STRIKE_AFTERMATH_NEAR, 1.0F, 0.55F, 90);
 		} else {
 			// Loud enough to carry about 640 blocks; it reaches you at the speed of sound.
 			int delay = (int) (distance / SOUND_SPEED);

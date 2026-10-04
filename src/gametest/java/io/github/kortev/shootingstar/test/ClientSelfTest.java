@@ -33,6 +33,7 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.GameMode;
 import net.minecraft.world.GameRules;
 import net.minecraft.world.Heightmap;
+import net.minecraft.world.LightType;
 import net.minecraft.world.chunk.ChunkSection;
 import net.minecraft.world.chunk.WorldChunk;
 
@@ -187,6 +188,13 @@ public class ClientSelfTest implements ClientModInitializer {
 				if (ticks == 1) {
 					client.options.hudHidden = true;
 					Capture.camera = flyover(client, target);
+					// Chunks load round the player, not the camera: park the player high over the crater so
+					// all of it, far rim included, is loaded for the fly-over (and out of shot).
+					server.execute(() -> {
+						ServerPlayerEntity player = server.getPlayerManager().getPlayerList().get(0);
+						player.teleport(player.getServerWorld(), target.getX() + 0.5, Math.min(target.getY() + 200, 300),
+								target.getZ() + 0.5, player.getYaw(), 90.0F);
+					});
 				}
 				if (ticks >= FLYOVER_TICKS) {
 					Capture.stop();
@@ -204,20 +212,25 @@ public class ClientSelfTest implements ClientModInitializer {
 					server.execute(() -> lookFromAbove(server, target.getX(), target.getZ() - r * 13 / 10, r * 9 / 10,
 							Vec3d.ofCenter(target)));
 				}
-				if (ticks == 140) {
-					shot(client, "90_crater_above.png");
-					server.execute(() -> lookFromAbove(server, target.getX() - r * 17 / 10, target.getZ() + 10, 16,
-							Vec3d.ofCenter(target.up(r / 2))));
+				if (ticks == 100) {
+					shot(client, "89_crater_above_before_reload.png");
+					// If holes vanish after a full rebuild of the world's meshes, they were stale render state.
+					client.worldRenderer.reload();
 				}
-				if (ticks == 260) {
+				if (ticks == 220) {
+					shot(client, "90_crater_above.png");
+					server.execute(() -> lookFromAbove(server, target.getX() - r * 17 / 10, target.getZ() + 10, 24,
+							Vec3d.ofCenter(target.up(4))));
+				}
+				if (ticks == 340) {
 					shot(client, "91_crater_side.png");
 					server.execute(() -> lookFromAbove(server, target.getX() + r / 3, target.getZ() + r / 4, 8,
 							Vec3d.ofCenter(target.up(2))));
 				}
-				if (ticks == 380) {
+				if (ticks == 460) {
 					shot(client, "92_crater_close.png");
 				}
-				if (ticks >= 420) {
+				if (ticks >= 500) {
 					stage = Stage.DONE;
 				}
 			}
@@ -293,12 +306,15 @@ public class ClientSelfTest implements ClientModInitializer {
 		try {
 			serverIds = server.submit(() -> {
 				ServerWorld world = server.getOverworld();
-				int[] ids = new int[size * size * height];
+				int[] ids = new int[size * size * height * 2];
 				BlockPos.Mutable pos = new BlockPos.Mutable();
 				for (int i = 0; i < size; i++) {
 					for (int k = 0; k < size; k++) {
 						for (int j = 0; j < height; j++) {
-							ids[(i * size + k) * height + j] = Block.getRawIdFromState(world.getBlockState(pos.set(x0 + i, y0 + j, z0 + k)));
+							int at = (i * size + k) * height + j;
+							pos.set(x0 + i, y0 + j, z0 + k);
+							ids[at] = Block.getRawIdFromState(world.getBlockState(pos));
+							ids[size * size * height + at] = world.getLightLevel(LightType.SKY, pos);
 						}
 					}
 				}
@@ -310,8 +326,10 @@ public class ClientSelfTest implements ClientModInitializer {
 		}
 		Map<Long, Integer> sections = new TreeMap<>();
 		Map<Long, String> examples = new TreeMap<>();
+		Map<Long, Integer> dark = new TreeMap<>();
 		BlockPos.Mutable pos = new BlockPos.Mutable();
 		int mismatches = 0;
+		int lightOff = 0;
 		for (int i = 0; i < size; i++) {
 			for (int k = 0; k < size; k++) {
 				if (!client.world.getChunkManager().isChunkLoaded((x0 + i) >> 4, (z0 + k) >> 4)) {
@@ -322,6 +340,12 @@ public class ClientSelfTest implements ClientModInitializer {
 					pos.set(x0 + i, y0 + j, z0 + k);
 					BlockState mine = client.world.getBlockState(pos);
 					int theirs = serverIds[(i * size + k) * height + j];
+					int theirSky = serverIds[size * size * height + (i * size + k) * height + j];
+					int mySky = client.world.getLightLevel(LightType.SKY, pos);
+					if (Math.abs(mySky - theirSky) > 2) {
+						lightOff++;
+						dark.merge(ChunkSectionPos.asLong(pos.getX() >> 4, pos.getY() >> 4, pos.getZ() >> 4), 1, Integer::sum);
+					}
 					if (Block.getRawIdFromState(mine) != theirs) {
 						mismatches++;
 						long key = ChunkSectionPos.asLong(pos.getX() >> 4, pos.getY() >> 4, pos.getZ() >> 4);
@@ -339,6 +363,12 @@ public class ClientSelfTest implements ClientModInitializer {
 			double dz = s.getSectionZ() * 16 + 8 - center.getZ();
 			ShootingStar.LOGGER.info("[selftest]   section {} {} {} ({} blocks out): {} differ, e.g. {}", s.getSectionX(),
 					s.getSectionY(), s.getSectionZ(), (int) Math.sqrt(dx * dx + dz * dz), e.getValue(), examples.get(e.getKey()));
+		});
+		ShootingStar.LOGGER.info("[selftest] sky light differing by more than 2: {} blocks in {} sections", lightOff, dark.size());
+		dark.entrySet().stream().sorted((a, b) -> b.getValue() - a.getValue()).limit(16).forEach(e -> {
+			ChunkSectionPos s = ChunkSectionPos.from(e.getKey());
+			ShootingStar.LOGGER.info("[selftest]   light in section {} {} {}: {} differ", s.getSectionX(), s.getSectionY(),
+					s.getSectionZ(), e.getValue());
 		});
 		int empty = 0;
 		for (int sx = x0 >> 4; sx <= (x0 + size) >> 4; sx++) {
