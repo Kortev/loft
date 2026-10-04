@@ -12,6 +12,7 @@ uniform mat4 ModelViewMat;
 uniform mat4 ProjMat;
 
 out vec2 corner;
+out vec2 local;
 out vec4 vertexColor;
 out float seed;
 out float glow;
@@ -21,6 +22,7 @@ void main() {
     gl_Position = ProjMat * pos;
     float a = Normal.y * 3.14159265;
     corner = mat2(cos(a), -sin(a), sin(a), cos(a)) * UV0;
+    local = UV0;
     vertexColor = Color;
     seed = Normal.x;
     glow = Normal.z;

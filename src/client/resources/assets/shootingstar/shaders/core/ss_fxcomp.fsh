@@ -6,8 +6,10 @@
 uniform sampler2D Sampler0;
 uniform sampler2D Sampler1;
 uniform sampler2D Sampler2;
+uniform sampler2D Sampler3;
 uniform float BloomStrength;
 uniform float WideStrength;
+uniform float StreakStrength;
 
 in vec2 texCoord;
 
@@ -20,8 +22,10 @@ float shoulder(float x) {
 
 void main() {
     vec4 fx = texture(Sampler0, texCoord);
+    // Anamorphic streaks: the brightest points smeared sideways in a cold blue, like a cinema lens.
     vec3 light = max(fx.rgb, 0.0) + texture(Sampler1, texCoord).rgb * BloomStrength
-        + texture(Sampler2, texCoord).rgb * WideStrength;
+        + texture(Sampler2, texCoord).rgb * WideStrength
+        + texture(Sampler3, texCoord).rgb * StreakStrength * vec3(0.55, 0.72, 1.0);
     float peak = max(max(light.r, light.g), light.b);
     vec3 c = light;
     if (peak > 0.0) {

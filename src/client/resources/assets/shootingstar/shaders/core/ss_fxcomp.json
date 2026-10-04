@@ -10,6 +10,9 @@
     },
     {
       "name": "Sampler2"
+    },
+    {
+      "name": "Sampler3"
     }
   ],
   "uniforms": [
@@ -27,6 +30,14 @@
       "count": 1,
       "values": [
         0.6
+      ]
+    },
+    {
+      "name": "StreakStrength",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0.0
       ]
     }
   ]

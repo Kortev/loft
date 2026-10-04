@@ -106,6 +106,9 @@ public final class ClientStrikes {
 		if (client.world != null && client.player != null
 				&& client.player.getPos().squaredDistanceTo(strike.center) < 1200.0 * 1200.0) {
 			strike.scene = new ImpactScene(client, client.world, strike.center, payload.radius(), payload.zoneDiameter() > 0);
+			if (strike.approach != null) {
+				strike.scene.trail(strike.approach, strike.approachLength);
+			}
 			WorldFx.add(strike.scene);
 		}
 		ImpactEffects.trigger(client, strike);

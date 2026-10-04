@@ -12,7 +12,15 @@ and is left standing as a spire of hull plating through the full height of the w
 The uplink feed you watch while the round is in flight is real-time 3D with its own GLSL shaders:
 Earth with city lights and moving clouds, Jupiter's drifting bands, a Milky Way that aberrates and
 blue-shifts as the round nears light speed, Blender-modelled coils, relay and asteroids, all
-rendered in HDR with bloom.
+rendered in HDR with bloom, anamorphic lens streaks and motion blur.
+
+Back in the world the strike is lit for real: the falling round, the flash, the fireball and the
+molten bowl throw their light across the terrain (positions and normals are rebuilt from the depth
+buffer), the air over the crater shimmers with heat and the light stays dusty orange for a while.
+The sound is synthesised from scratch too (`tools/gen_sounds.py`): the shooter hears a stereo mix of
+wind, a drone under the feed, coil whine, the scream of the round coming in, the boom, the shock
+wave and the crater burning; everyone else hears the boom and the shock wave arrive at the speed of
+sound.
 
 ## What happens when you fire
 

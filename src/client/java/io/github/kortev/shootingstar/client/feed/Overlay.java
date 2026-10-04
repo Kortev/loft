@@ -64,6 +64,8 @@ final class Overlay {
 	float aberration;
 	float bloom = 0.85F;
 	float wideBloom = 0.65F;
+	/** Anamorphic streaks off the brightest points. */
+	float streak = 0.45F;
 	/** Light above this level blooms. */
 	float threshold = 0.9F;
 	float vignette = 0.55F;

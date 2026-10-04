@@ -55,7 +55,7 @@ public final class WorldFx {
 	private static Mesh sphere;
 
 	private record Grade(int mode, float mix, float cx, float cy, float zoom, float warp, float warpRadius, float chroma,
-			float exposure, float tint, float flash) {
+			float exposure, float tint, float flash, float dust, float hazeX, float hazeY, float hazeW, float hazeH, float haze) {
 	}
 
 	private record PuffRef(ImpactScene.Puff puff, ImpactScene scene, double distance) {
@@ -169,6 +169,8 @@ public final class WorldFx {
 			RenderSystem.setShaderTexture(0, FX.color());
 			RenderSystem.setShaderTexture(1, bloom[0]);
 			RenderSystem.setShaderTexture(2, bloom[1]);
+			RenderSystem.setShaderTexture(3, bloom[2]);
+			Shaders.set(Shaders.fxcomp, "StreakStrength", 0.9F);
 			Shaders.set(Shaders.fxcomp, "BloomStrength", 1.0F);
 			Shaders.set(Shaders.fxcomp, "WideStrength", 0.8F);
 			Post.quad(Shaders.fxcomp);
@@ -190,7 +192,7 @@ public final class WorldFx {
 			Post.quad(Shaders.impact);
 		}
 
-		for (int i = 0; i < 3; i++) {
+		for (int i = 0; i < 4; i++) {
 			RenderSystem.setShaderTexture(i, 0);
 		}
 		RenderSystem.disableBlend();
@@ -217,8 +219,12 @@ public final class WorldFx {
 			Shaders.set(Shaders.impact, "WarpRadius", g.warpRadius());
 			Shaders.set(Shaders.impact, "Chroma", g.chroma());
 			Shaders.set(Shaders.impact, "Darken", 0.0F);
-			Shaders.set(Shaders.impact, "Exposure", g.exposure());
-			Shaders.set(Shaders.impact, "Tint", 0.55F * g.tint(), 0.22F * g.tint(), 0.06F * g.tint());
+			Shaders.set(Shaders.impact, "Exposure", g.exposure() * (1.0F - 0.12F * g.dust()));
+			Shaders.set(Shaders.impact, "Tint", 0.55F * g.tint() + 0.07F * g.dust(), 0.22F * g.tint() + 0.03F * g.dust(),
+					0.06F * g.tint());
+			Shaders.set(Shaders.impact, "HazeCenter", g.hazeX(), g.hazeY());
+			Shaders.set(Shaders.impact, "HazeSize", g.hazeW(), g.hazeH());
+			Shaders.set(Shaders.impact, "Haze", g.haze());
 			Shaders.set(Shaders.impact, "Flash", g.flash());
 			Shaders.set(Shaders.impact, "FlashColor", 1.0F, 0.98F, 0.94F);
 		}
@@ -343,6 +349,12 @@ public final class WorldFx {
 				double rise = Math.max(0.0, e - 8.0) * r * 0.004;
 				lights.add(light(scene.center.add(0, dome * 0.55 + rise, 0), cam, (float) Math.max(r * 0.35, dome * 1.6), fire,
 						0.5F * fire, 0.17F * fire, 0.3F));
+			}
+			for (ImpactScene.Bolt bolt : scene.bolts) {
+				float b = 5.0F * bolt.brightness();
+				if (b > 0.05F) {
+					lights.add(light(bolt.middle, cam, r * 0.9F, 0.75F * b, 0.8F * b, b, 0.4F));
+				}
 			}
 			if (e > 8) {
 				float glow = (float) (1.1 * Math.min(1.0, (e - 8) / 40.0) * Math.exp(-e / 3000.0) * flicker(e, 7.0)
@@ -469,9 +481,45 @@ public final class WorldFx {
 				if (speed < 1.0E-3F) {
 					continue;
 				}
-				sparks.stretched(pos, axis, speed * 1.4F + s.size, s.size, Fx.argb(1.0F, 0.7F + 0.3F * life, 0.35F + 0.4F * life, life));
+				if (s.ember) {
+					float flick = 0.55F + 0.45F * MathHelper.sin((float) (s.age + e) * 0.7F + s.seed);
+					float fadeIn = Math.min(1.0F, s.age / 6.0F);
+					sparks.stretched(pos, axis, speed * 2.0F + s.size, s.size,
+							Fx.argb(1.0F, 0.42F + 0.2F * flick, 0.1F + 0.05F * flick, life * flick * fadeIn));
+				} else {
+					sparks.stretched(pos, axis, speed * 1.4F + s.size, s.size, Fx.argb(1.0F, 0.7F + 0.3F * life, 0.35F + 0.4F * life, life));
+				}
 			}
 			sparks.end(true, 4.0F);
+		}
+
+		// Lightning in the ash cloud: a wide blue-white glow, then the white-hot channel inside it.
+		for (ImpactScene.Bolt bolt : scene.bolts) {
+			float b = bolt.brightness();
+			if (b <= 0.01F) {
+				continue;
+			}
+			Fx glow = BATCH.begin(Fx.BEAM, 0, view, proj, right, up);
+			channel(glow, bolt.channel, cam, 1.8F, Fx.argb(0.55F, 0.65F, 1.0F, 0.55F * b));
+			for (List<Vec3d> fork : bolt.forks) {
+				channel(glow, fork, cam, 1.0F, Fx.argb(0.55F, 0.65F, 1.0F, 0.35F * b));
+			}
+			glow.end(true, 3.0F);
+			Fx core = BATCH.begin(Fx.BEAM, 0, view, proj, right, up);
+			channel(core, bolt.channel, cam, 0.22F, Fx.argb(0.92F, 0.95F, 1.0F, b));
+			for (List<Vec3d> fork : bolt.forks) {
+				channel(core, fork, cam, 0.12F, Fx.argb(0.9F, 0.93F, 1.0F, 0.7F * b));
+			}
+			core.end(true, 12.0F);
+		}
+	}
+
+	private static void channel(Fx fx, List<Vec3d> points, Vec3d cam, float width, int argb) {
+		Vector3f eye = new Vector3f();
+		for (int i = 0; i + 1 < points.size(); i++) {
+			Vec3d a = points.get(i);
+			Vec3d c = points.get(i + 1);
+			fx.beam(rel(a.x, a.y, a.z, cam), rel(c.x, c.y, c.z, cam), eye, width, argb, argb);
 		}
 	}
 
@@ -628,14 +676,14 @@ public final class WorldFx {
 			}
 			if (!strike.impacted || strike.scene == null) {
 				if (flash > 0.0F && flash > bestWeight) {
-					best = new Grade(0, 0, 0.5F, 0.5F, 1, 0, 0, 0, 1, 0, flash);
+					best = new Grade(0, 0, 0.5F, 0.5F, 1, 0, 0, 0, 1, 0, flash, 0, 0.5F, 0.5F, 0.1F, 0.1F, 0);
 					bestWeight = flash;
 				}
 				continue;
 			}
 			ImpactScene scene = strike.scene;
 			double e = scene.age + tickDelta;
-			if (e > 120) {
+			if (e > 900) {
 				continue;
 			}
 			Vec3d to = scene.center.subtract(cam);
@@ -673,9 +721,32 @@ public final class WorldFx {
 					warp = (float) (0.025 * Math.exp(-e / (scene.waveTicks * 0.9)) * (0.4 + 0.6 * near));
 				}
 			}
+			// Afterwards: dust in the air warms and dims the light near the crater, and the air over the
+			// molten bowl shimmers.
+			float dust = (float) (near * 0.8 * smooth(e / 60.0) * (1.0 - smooth((e - 650.0) / 250.0)));
+			float haze = 0.0F;
+			float hazeX = 0.5F;
+			float hazeY = 0.5F;
+			float hazeW = 0.1F;
+			float hazeH = 0.1F;
+			float[] hot = screen(scene.center.add(0, scene.radius * 0.18, 0), cam, view, proj);
+			if (hot != null && e > 10) {
+				float[] side = screen(scene.center.add(0, scene.radius * 0.18, 0).add(new Vec3d(right(view).x, 0, right(view).z)
+						.normalize().multiply(scene.bowl)), cam, view, proj);
+				float[] top = screen(scene.center.add(0, scene.radius * 0.6, 0), cam, view, proj);
+				if (side != null && top != null) {
+					hazeX = hot[0];
+					hazeY = hot[1];
+					hazeW = Math.max(0.02F, Math.abs(side[0] - hot[0]));
+					hazeH = Math.max(0.02F, Math.abs(top[1] - hot[1]));
+					haze = (float) (0.006 * smooth((e - 10.0) / 50.0) * (1.0 - smooth((e - 600.0) / 300.0)) * (0.3 + 0.7 * near));
+				}
+			}
 			float weight = (float) (near + (cinematic ? 1.0 : 0.0) + flash);
-			if (weight > bestWeight && (mix > 0 || flash > 0.005F || warp > 0.0005F || tint > 0.01F || chroma > 0.0005F)) {
-				best = new Grade(mode, mix, cx, cy, zoom, warp, warpRadius, chroma, exposure, tint, flash);
+			if (weight > bestWeight && (mix > 0 || flash > 0.005F || warp > 0.0005F || tint > 0.01F || chroma > 0.0005F
+					|| dust > 0.01F || haze > 0.0002F)) {
+				best = new Grade(mode, mix, cx, cy, zoom, warp, warpRadius, chroma, exposure, tint, flash, dust, hazeX, hazeY, hazeW,
+						hazeH, haze);
 				bestWeight = weight;
 			}
 		}

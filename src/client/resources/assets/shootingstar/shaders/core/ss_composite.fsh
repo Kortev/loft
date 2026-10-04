@@ -6,7 +6,9 @@
 uniform sampler2D Sampler0;
 uniform sampler2D Sampler1;
 uniform sampler2D Sampler2;
+uniform sampler2D Sampler3;
 uniform float BloomStrength;
+uniform float StreakStrength;
 uniform float WideStrength;
 uniform float Exposure;
 uniform float Vignette;
@@ -37,7 +39,8 @@ vec3 hdr(vec2 uv) {
     } else {
         c = texture(Sampler0, uv).rgb;
     }
-    return c + texture(Sampler1, uv).rgb * BloomStrength + texture(Sampler2, uv).rgb * WideStrength;
+    return c + texture(Sampler1, uv).rgb * BloomStrength + texture(Sampler2, uv).rgb * WideStrength
+        + texture(Sampler3, uv).rgb * StreakStrength * vec3(0.55, 0.72, 1.0);
 }
 
 // Linear up to the knee, then an exponential shoulder towards 1.

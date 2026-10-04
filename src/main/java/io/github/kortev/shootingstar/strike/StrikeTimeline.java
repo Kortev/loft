@@ -31,7 +31,7 @@ public final class StrikeTimeline {
 	/** Wide shot of the spire for the shooter. */
 	public static final int WIDE_END = IMPACT + 90;
 	/** The shooter's camera eases back to their own eyes. */
-	public static final int CAMERA_END = WIDE_END + 16;
+	public static final int CAMERA_END = WIDE_END + 24;
 	public static final int END = IMPACT + 200;
 
 	public static final int LAP_COUNT = 7;

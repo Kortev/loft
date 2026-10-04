@@ -99,7 +99,10 @@ public final class StrikeManager {
 		// Load everything out to the edge of the scorched ring, so no part of the crater is cut off by unloaded chunks.
 		int scorch = Math.round(radius * 1.5F);
 		ChunkPos chunk = new ChunkPos(target);
-		world.getChunkManager().addTicket(TICKET, chunk, MathHelper.clamp(MathHelper.ceil(scorch / 16.0), 1, 16), chunk);
+		// A ticket's level falls off one step per chunk: the chunks at its edge are only loaded, and block
+		// changes in merely loaded chunks are never sent to players. Two chunks of margin keep the whole
+		// scorched zone ticking, so everyone sees all of the crater being carved.
+		world.getChunkManager().addTicket(TICKET, chunk, MathHelper.clamp(MathHelper.ceil(scorch / 16.0) + 2, 1, 18), chunk);
 
 		ModNetworking.broadcast(world, new StrikeLockPayload(strike.id, target, strike.shooter, 0, radius));
 		ShootingStar.LOGGER.info("Kinetic lock #{} on {} in {}", strike.id, target.toShortString(), world.getRegistryKey().getValue());

@@ -10,6 +10,7 @@ uniform float ProjB;
 uniform float Softness;
 
 in vec2 corner;
+in vec2 local;
 in vec4 vertexColor;
 in float seed;
 in float glow;
@@ -51,7 +52,9 @@ void main() {
     float puff = ProjB / ((gl_FragCoord.z * 2.0 - 1.0) + ProjA);
     float soft = clamp((scene - puff) / Softness, 0.0, 1.0);
     float detail = fbm(p * 3.0);
-    float shade = 0.7 + 0.45 * detail;
+    // Lit from above: each billow is brighter on top and darker underneath, which gives the column body.
+    float top = smoothstep(-1.0, 1.0, local.y + (n - 0.5) * 0.6);
+    float shade = (0.7 + 0.45 * detail) * (0.72 + 0.5 * top);
     float a = shape * vertexColor.a * soft;
     // Fire burns brightest in the dense middle of the puff.
     float heat = glow * shape * soft * (0.55 + 0.6 * n);

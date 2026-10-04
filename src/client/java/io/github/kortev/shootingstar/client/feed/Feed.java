@@ -90,6 +90,8 @@ public final class Feed {
 		RenderSystem.setShaderTexture(0, picture);
 		RenderSystem.setShaderTexture(1, bloom[0]);
 		RenderSystem.setShaderTexture(2, bloom[1]);
+		RenderSystem.setShaderTexture(3, bloom[2]);
+		Shaders.set(Shaders.composite, "StreakStrength", overlay.streak);
 		Shaders.set(Shaders.composite, "BloomStrength", overlay.bloom);
 		Shaders.set(Shaders.composite, "WideStrength", overlay.wideBloom);
 		Shaders.set(Shaders.composite, "Exposure", overlay.exposure);
@@ -106,7 +108,7 @@ public final class Feed {
 		Shaders.set(Shaders.composite, "Saturation", overlay.saturation);
 		Post.quad(Shaders.composite);
 
-		for (int i = 0; i < 3; i++) {
+		for (int i = 0; i < 4; i++) {
 			RenderSystem.setShaderTexture(i, 0);
 		}
 		modelView.popMatrix();

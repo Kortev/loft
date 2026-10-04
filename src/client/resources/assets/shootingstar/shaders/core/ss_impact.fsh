@@ -22,6 +22,9 @@ uniform float Exposure;
 uniform vec3 Tint;
 uniform float Flash;
 uniform vec3 FlashColor;
+uniform vec2 HazeCenter;
+uniform vec2 HazeSize;
+uniform float Haze;
 
 in vec2 texCoord;
 
@@ -31,6 +34,17 @@ const float PI = 3.14159265;
 
 float hash(float n) {
     return fract(sin(n * 12.9898) * 43758.5453);
+}
+
+float hash2(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+}
+
+float vnoise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(hash2(i), hash2(i + vec2(1.0, 0.0)), f.x), mix(hash2(i + vec2(0.0, 1.0)), hash2(i + vec2(1.0, 1.0)), f.x), f.y);
 }
 
 float depthAt(vec2 uv) {
@@ -92,6 +106,15 @@ void main() {
         float r = length(p);
         float k = exp(-pow((r - WarpRadius) * 18.0, 2.0));
         uv -= normalize(p + 1.0e-5) * k * Warp / vec2(ScreenSize.x / ScreenSize.y, 1.0);
+    }
+    if (Haze > 0.0) {
+        // Heat shimmer over the molten bowl: the picture wobbles in rising, flowing cells.
+        vec2 q = (uv - HazeCenter) / max(HazeSize, vec2(1.0e-4));
+        float shape = exp(-(q.x * q.x * 1.4 + q.y * q.y));
+        float t = Time * 0.05;
+        vec2 w = vec2(vnoise(uv * vec2(34.0, 20.0) + vec2(0.0, -t * 3.0)),
+                      vnoise(uv * vec2(28.0, 17.0) + vec2(5.2, -t * 3.7))) - 0.5;
+        uv += w * Haze * shape;
     }
     vec3 src;
     if (Chroma > 0.0) {

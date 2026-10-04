@@ -6,9 +6,12 @@ import java.util.List;
 import java.util.Random;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
+import io.github.kortev.shootingstar.client.ClientStrikes;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.texture.Sprite;
 import net.minecraft.client.world.ClientWorld;
+import net.minecraft.sound.SoundCategory;
+import net.minecraft.sound.SoundEvents;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
@@ -90,6 +93,31 @@ public final class ImpactScene {
 		float size;
 		int age;
 		int life;
+		/** A glowing ember drifting up out of the bowl rather than a spark flung out of it. */
+		boolean ember;
+		float seed;
+	}
+
+	/** Lightning in the ash cloud: a jagged main channel with a fork or two, flickering for a few ticks. */
+	static final class Bolt {
+		final List<Vec3d> channel;
+		final List<List<Vec3d>> forks;
+		final Vec3d middle;
+		final int life;
+		int age;
+
+		Bolt(List<Vec3d> channel, List<List<Vec3d>> forks, int life) {
+			this.channel = channel;
+			this.forks = forks;
+			this.middle = channel.get(channel.size() / 2);
+			this.life = life;
+		}
+
+		/** Return strokes flicker: on, dim, on again, fading. */
+		float brightness() {
+			float fade = 1.0F - (float) age / life;
+			return (age == 1 || age == 3 && life > 4 ? 0.35F : 1.0F) * fade;
+		}
 	}
 
 	final Vec3d center;
@@ -103,10 +131,12 @@ public final class ImpactScene {
 	final List<Chunk> chunks = new ArrayList<>();
 	final List<Puff> puffs = new ArrayList<>();
 	final List<Spark> sparks = new ArrayList<>();
+	final List<Bolt> bolts = new ArrayList<>();
 	final List<Sprite> sprites = new ArrayList<>();
 	final List<float[]> tints = new ArrayList<>();
 	private final Random random;
 	private final double capBase;
+	private int nextBolt = 55;
 	/** Ticks since the hit; the first tick after the scene is made is tick 0. */
 	int age = -1;
 
@@ -129,7 +159,7 @@ public final class ImpactScene {
 	}
 
 	public boolean done() {
-		return age > LIFETIME || age > 400 && chunks.isEmpty() && puffs.isEmpty() && sparks.isEmpty();
+		return age > LIFETIME || age > 600 && chunks.isEmpty() && puffs.isEmpty() && sparks.isEmpty() && bolts.isEmpty();
 	}
 
 	// --- blast shapes ----------------------------------------------------------------------
@@ -195,6 +225,8 @@ public final class ImpactScene {
 		}
 		spawnColumn();
 		spawnDust(world);
+		spawnEmbers();
+		lightning(world);
 
 		for (Iterator<Chunk> it = chunks.iterator(); it.hasNext(); ) {
 			Chunk c = it.next();
@@ -213,10 +245,17 @@ public final class ImpactScene {
 			s.px = s.x;
 			s.py = s.y;
 			s.pz = s.z;
-			s.vy -= GRAVITY;
-			s.vx *= 0.98;
-			s.vy *= 0.98;
-			s.vz *= 0.98;
+			if (s.ember) {
+				// Carried up by the heat, wandering on the eddies.
+				s.vx = s.vx * 0.96 + (random.nextDouble() - 0.5) * 0.03;
+				s.vz = s.vz * 0.96 + (random.nextDouble() - 0.5) * 0.03;
+				s.vy = s.vy * 0.97 + 0.006;
+			} else {
+				s.vy -= GRAVITY;
+				s.vx *= 0.98;
+				s.vy *= 0.98;
+				s.vz *= 0.98;
+			}
 			s.x += s.vx;
 			s.y += s.vy;
 			s.z += s.vz;
@@ -290,6 +329,20 @@ public final class ImpactScene {
 		}
 		int ground = world.getTopY(Heightmap.Type.MOTION_BLOCKING, MathHelper.floor(c.x), MathHelper.floor(c.z));
 		if (c.vy < 0 && c.y - c.size * 0.5 < ground) {
+			if (c.size > 0.45F && (!c.bounced || c.vy < -0.3)) {
+				// A burst of dust where it hits, glowing if the rock is still hot.
+				float tone = 0.36F + random.nextFloat() * 0.12F;
+				Puff p = puff(c.x, ground + 0.4, c.z, 0.5 + c.size * 0.9, tone, tone * 0.86F, tone * 0.72F, 0.4F,
+						35 + random.nextInt(35));
+				p.vx = c.vx * 0.2;
+				p.vz = c.vz * 0.2;
+				p.vy = 0.06;
+				p.growth = 0.04F + c.size * 0.02F;
+				p.drag = 0.88F;
+				p.buoyancy = 0.003F;
+				p.glow = c.heat > 0.4F ? c.heat * 0.9F : 0.0F;
+				p.glowDecay = 0.85F;
+			}
 			if (c.bounced || c.vy > -0.5) {
 				c.landed = true;
 				c.y = ground + c.size * 0.35;
@@ -321,6 +374,127 @@ public final class ImpactScene {
 			s.vy = Math.cos(tilt) * speed;
 			s.size = (float) (0.18 + random.nextDouble() * 0.3);
 			s.life = 14 + random.nextInt(34);
+			sparks.add(s);
+		}
+	}
+
+	/**
+	 * Volcanic lightning: the churning ash in the column builds up charge and every few seconds it
+	 * discharges, inside the cloud or now and then down to the rim. Thunder follows at the speed of
+	 * sound.
+	 */
+	private void lightning(ClientWorld world) {
+		for (Bolt bolt : bolts) {
+			bolt.age++;
+		}
+		bolts.removeIf(b -> b.age > b.life);
+		if (age < 50 || age > 560 || age < nextBolt) {
+			return;
+		}
+		nextBolt = age + 22 + random.nextInt(age < 200 ? 40 : 90);
+		double spread = radius * 0.32;
+		Vec3d from = center.add(gaussian() * spread, capBase * (0.55 + 0.4 * random.nextDouble()), gaussian() * spread);
+		Vec3d to;
+		if (random.nextDouble() < 0.3) {
+			// Down to the ground at the rim.
+			double a = random.nextDouble() * Math.PI * 2;
+			double r = radius * (0.7 + 0.5 * random.nextDouble());
+			int x = MathHelper.floor(center.x + Math.cos(a) * r);
+			int z = MathHelper.floor(center.z + Math.sin(a) * r);
+			to = new Vec3d(x + 0.5, world.getTopY(Heightmap.Type.MOTION_BLOCKING, x, z), z + 0.5);
+		} else {
+			to = from.add(gaussian() * radius * 0.5, (random.nextDouble() - 0.6) * radius * 0.5, gaussian() * radius * 0.5);
+		}
+		List<Vec3d> channel = jagged(from, to, 0.22, 6);
+		List<List<Vec3d>> forks = new ArrayList<>();
+		for (int f = 0; f < 1 + random.nextInt(3); f++) {
+			Vec3d start = channel.get(random.nextInt(channel.size() * 3 / 4));
+			Vec3d dir = to.subtract(from).normalize().add(gaussian() * 0.8, gaussian() * 0.5, gaussian() * 0.8).normalize();
+			forks.add(jagged(start, start.add(dir.multiply(from.distanceTo(to) * (0.15 + 0.25 * random.nextDouble()))), 0.3, 4));
+		}
+		Bolt bolt = new Bolt(channel, forks, 4 + random.nextInt(4));
+		bolts.add(bolt);
+		MinecraftClient client = MinecraftClient.getInstance();
+		if (client.player != null) {
+			double distance = client.gameRenderer.getCamera().getPos().distanceTo(bolt.middle);
+			ClientStrikes.at(client, bolt.middle, SoundEvents.ENTITY_LIGHTNING_BOLT_THUNDER, SoundCategory.WEATHER, 10.0F,
+					0.65F + random.nextFloat() * 0.3F, (int) (distance / 17.0));
+		}
+	}
+
+	/** A lightning channel from a to b by midpoint displacement. */
+	private List<Vec3d> jagged(Vec3d a, Vec3d b, double roughness, int depth) {
+		List<Vec3d> points = new ArrayList<>();
+		points.add(a);
+		subdivide(points, a, b, roughness, depth);
+		return points;
+	}
+
+	private void subdivide(List<Vec3d> points, Vec3d a, Vec3d b, double roughness, int depth) {
+		if (depth == 0) {
+			points.add(b);
+			return;
+		}
+		Vec3d d = b.subtract(a);
+		double len = d.length();
+		Vec3d jitter = new Vec3d(gaussian(), gaussian(), gaussian());
+		Vec3d axis = d.multiply(1.0 / Math.max(len, 1.0E-6));
+		jitter = jitter.subtract(axis.multiply(jitter.dotProduct(axis)));
+		Vec3d mid = a.add(d.multiply(0.5)).add(jitter.multiply(len * roughness * 0.5));
+		subdivide(points, a, mid, roughness * 0.75, depth - 1);
+		subdivide(points, mid, b, roughness * 0.75, depth - 1);
+	}
+
+	private double gaussian() {
+		return random.nextGaussian();
+	}
+
+	/**
+	 * The path the round tore through the sky stays behind as a trail of hot, glowing air that cools
+	 * into a long smoke line and drifts apart on the wind.
+	 */
+	public void trail(Vec3d dir, double length) {
+		double reach = Math.min(length, 620.0);
+		double windX = (random.nextDouble() - 0.5) * 0.06;
+		double windZ = (random.nextDouble() - 0.5) * 0.06;
+		for (double d = 3.0; d < reach; d += 3.0 + d * 0.012) {
+			Vec3d p = center.add(dir.multiply(d));
+			double size = 1.2 + d * 0.012;
+			float tone = 0.6F + random.nextFloat() * 0.08F;
+			Puff puff = puff(p.x + gaussian() * size * 0.3, p.y + gaussian() * size * 0.3, p.z + gaussian() * size * 0.3, size,
+					tone, tone * 0.97F, tone * 0.94F, 0.32F, 380 + random.nextInt(260));
+			puff.vx = windX * (0.5 + d / reach) + gaussian() * 0.01;
+			puff.vz = windZ * (0.5 + d / reach) + gaussian() * 0.01;
+			puff.vy = 0.0;
+			puff.drag = 0.995F;
+			puff.buoyancy = 0.0005F;
+			puff.growth = (float) (0.01 + size * 0.004);
+			puff.glow = 2.2F * (float) (1.0 - d / reach * 0.6);
+			puff.glowDecay = 0.93F;
+		}
+	}
+
+	/** Embers rising off the molten bowl for as long as it glows. */
+	private void spawnEmbers() {
+		if (age < 8 || age > 760 || !terrain) {
+			return;
+		}
+		double rate = (age < 80 ? 7.0 : 2.5) * Math.sqrt(scale) * (1.0 - Math.max(0, age - 500) / 260.0);
+		int n = (int) rate + (random.nextDouble() < rate - (int) rate ? 1 : 0);
+		for (int i = 0; i < n; i++) {
+			Spark s = new Spark();
+			double r = Math.sqrt(random.nextDouble()) * bowl * 0.85;
+			double a = random.nextDouble() * Math.PI * 2;
+			s.x = s.px = center.x + Math.cos(a) * r;
+			s.z = s.pz = center.z + Math.sin(a) * r;
+			s.y = s.py = center.y - bowl * 0.3 * (1.0 - r / bowl) + 1.0 + random.nextDouble() * 2.0;
+			s.vx = (random.nextDouble() - 0.5) * 0.08;
+			s.vz = (random.nextDouble() - 0.5) * 0.08;
+			s.vy = 0.12 + random.nextDouble() * 0.25;
+			s.size = (float) (0.07 + random.nextDouble() * 0.1);
+			s.life = 50 + random.nextInt(80);
+			s.ember = true;
+			s.seed = random.nextFloat() * 6.28F;
 			sparks.add(s);
 		}
 	}

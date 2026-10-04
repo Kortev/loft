@@ -422,6 +422,8 @@ final class Shots {
 		o.zoomBlur = 0.04F + velocity * (lap >= 5 ? 0.42F : 0.24F);
 		// The coils race past several to a frame; without blur they strobe.
 		o.shutter = 1.0F;
+		// The whole tunnel is bright: streaks would smear every panel sideways.
+		o.streak = 0.12F;
 		o.aberration = velocity * 0.012F;
 		if (lap == StrikeTimeline.LAP_COUNT) {
 			double end = StrikeTimeline.DEBRIS - lapStart(lap);
