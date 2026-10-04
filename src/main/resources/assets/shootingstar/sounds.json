@@ -166,5 +166,13 @@
         "stream": true
       }
     ]
+  },
+  "feed.strike": {
+    "subtitle": "subtitles.shootingstar.feed.strike",
+    "sounds": [
+      {
+        "name": "shootingstar:feed_strike"
+      }
+    ]
   }
 }

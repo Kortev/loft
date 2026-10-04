@@ -29,8 +29,10 @@ def encode(crf):
                      'adelay=%d:all=1[s%d]' % (i + 1, rate, s['gain'], delay, i))
         labels.append('[s%d]' % i)
     if sounds:
-        graph.append(''.join(labels) + 'amix=inputs=%d:normalize=0:dropout_transition=0,alimiter=limit=0.9,apad[aout]'
-                     % len(sounds))
+        # A plain sum, as the game mixes them, with a limiter only to catch overs: alimiter's default
+        # auto-level would turn everything up to the ceiling and flatten the mix's dynamics.
+        graph.append(''.join(labels) + 'amix=inputs=%d:normalize=0:dropout_transition=0,'
+                     'alimiter=limit=0.89:level=0:attack=2:release=60,apad[aout]' % len(sounds))
         cmd += ['-filter_complex', ';'.join(graph), '-map', '0:v', '-map', '[aout]', '-c:a', 'aac', '-b:a', '160k',
                 '-shortest']
     cmd += ['-c:v', 'libx264', '-preset', 'medium', '-crf', str(crf), '-pix_fmt', 'yuv420p', '-movflags', '+faststart',

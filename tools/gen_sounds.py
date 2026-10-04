@@ -255,6 +255,36 @@ def grains(n, rate, make, start=0.0, end=None, gain_curve=None, spread=1.0):
     return out
 
 
+def varispeed(x, rate):
+    """Plays x back at a speed that changes over time (rate[i] input samples per output sample), like a tape
+    machine slowing down or spinning up: pitch and tempo move together."""
+    phase = np.concatenate([[0.0], np.cumsum(rate)[:-1]])
+    phase = np.minimum(phase, len(x) - 1)
+    return np.interp(phase, np.arange(len(x)), x)
+
+
+def loudness(x, window=0.4):
+    """Loudest short-term level in dB: RMS over the loudest 400 ms."""
+    m = x.mean(axis=0) if x.ndim == 2 else x
+    w = ns(window)
+    if len(m) <= w:
+        return 20 * np.log10(np.sqrt(np.mean(m ** 2)) + 1e-12)
+    power = uniform_filter1d(m ** 2, size=w)
+    return 10 * np.log10(power.max() + 1e-12)
+
+
+def limit(x, ceiling=0.89, release=0.06):
+    """Look-ahead peak limiter to an absolute ceiling (-1 dBFS), channels linked: shaves the transients that
+    stick out once a sound is brought up to its level, leaving the level itself alone."""
+    det = np.abs(x).max(axis=0) if x.ndim == 2 else np.abs(x)
+    peak = maximum_filter1d(det, size=max(3, ns(0.006)))
+    g = np.minimum(1.0, ceiling / np.maximum(peak, 1e-9))
+    g = np.minimum(g, uniform_filter1d(g, size=max(3, ns(release))))
+    g = uniform_filter1d(g, size=max(3, ns(0.003)))
+    y = x * g
+    return y * min(1.0, ceiling / max(np.abs(y).max(), 1e-9))
+
+
 def rock(size=1.0):
     """One stone landing: a dull thud and a gritty click."""
     n = ns(0.12 * size + 0.03)
@@ -482,15 +512,16 @@ def feed_zoom():
 def feed_ambience():
     """The bed under the whole feed: a dark, slowly breathing drone that follows the shots (orbit,
     relay, wake, loading, laps, release, re-entry) and quiet telemetry chatter on top."""
-    total = 13.4
+    total = 14.4
     n = ns(total)
     t = times(total)
-    # Sections relative to the start of the feed (StrikeTimeline: ORBIT=0, RELAY=1.4, WAKE=2.6,
-    # LOADING=4.8, LAPS=5.8, DEBRIS=10.8, TERMINAL=12.1).
-    level = curve(n, [(0, 0), (1.2, 0.55), (2.5, 0.6), (2.8, 0.85), (4.6, 0.8), (5.0, 0.55), (5.8, 0.6), (10.6, 1.0),
-                      (10.8, 0.15), (11.4, 0.45), (12.1, 0.7), (13.4, 0.0)])
-    bright = curve(n, [(0, 260), (2.6, 380), (4.8, 520), (5.8, 400), (10.8, 2400), (10.85, 300), (12.1, 900), (13.4, 1800)],
-                   'log')
+    # Sections relative to the start of the feed (StrikeTimeline: ORBIT=0, RELAY=1.4, WAKE=2.6, LOADING=4.8,
+    # LAPS=5.8, RELEASE=10.0, DEBRIS=11.5, TERMINAL=12.6, INBOUND=14.3). The bed drops away for the slow-motion
+    # release, so the slowed sounds have the space to themselves.
+    level = curve(n, [(0, 0), (1.2, 0.55), (2.5, 0.6), (2.8, 0.85), (4.6, 0.8), (5.0, 0.55), (5.8, 0.6), (9.8, 1.0),
+                      (10.0, 0.08), (11.3, 0.08), (11.7, 0.5), (12.6, 0.7), (14.3, 0.0), (14.4, 0.0)])
+    bright = curve(n, [(0, 260), (2.6, 380), (4.8, 520), (5.8, 400), (9.9, 2400), (10.0, 300), (11.5, 600), (12.6, 900),
+                       (14.4, 1800)], 'log')
     m = Mix(total)
     for f, g, det in ((55.0, 1.0, 0.004), (82.41, 0.6, 0.006), (110.0, 0.35, 0.008)):
         stack = supersaw(f * (1 + 0.003 * np.sin(2 * np.pi * 0.05 * t)), n, voices=5, detune=det, spread=0.9)
@@ -503,7 +534,8 @@ def feed_ambience():
     for f, g in ((220.0, 0.5), (329.6, 0.35), (440.0, 0.18)):
         pad = supersaw(f * (1 + 0.002 * np.sin(2 * np.pi * 0.07 * t)), n, voices=5, detune=0.006, spread=1.0)
         pad = np.vstack([sweep_filter(c, 'lowpass', np.minimum(bright * 2.2, 5000), order=2) for c in pad])
-        m.add(pad * level * curve(n, [(0, 0), (2.6, 0.4), (5.8, 0.6), (10.8, 1.0), (10.85, 0.2), (13.4, 0.8)]), 0, g)
+        m.add(pad * level * curve(n, [(0, 0), (2.6, 0.4), (5.8, 0.6), (9.9, 1.0), (10.0, 0.1), (11.5, 0.5), (14.4, 0.8)]),
+              0, g)
     shimmer = decorrelated(n, lambda k: sine(np.full(k, 1318.5) * (1 + 0.002 * rng.standard_normal() )))
     shimmer = shimmer * (0.5 + 0.5 * np.sin(2 * np.pi * 0.23 * t)) * level * 0.04
     m.add(shimmer, 0, 1.0)
@@ -512,7 +544,7 @@ def feed_ambience():
         k = ns(0.05)
         blip = np.sin(2 * np.pi * rng.choice([2637, 3136, 2349]) * np.arange(k) / SR) * attack_decay(k, 0.002, 0.02)
         m.add(blip, at + rng.uniform(-0.2, 0.2), 0.05, position=rng.uniform(-0.8, 0.8))
-    m.add(grains(n, lambda s: 6 + 30 * (s > 10.8), crackle_pop, spread=0.9) * 0.25, 0, 1.0)
+    m.add(grains(n, lambda s: 6 + 30 * (s > 11.5), crackle_pop, spread=0.9) * 0.25, 0, 1.0)
     _, _, _, space = spaces()
     x = reverb(m.out(), space, wet=0.35)
     # Beating voices can leave one side louder over a whole take; even it out.
@@ -615,15 +647,18 @@ def feed_load():
     return master(reverb(m.out(), metal, wet=0.45), peak=0.92, squash=0.3)
 
 
+LAPS_SECONDS = 4.2
+
+
 def lap_velocity(s):
-    """Velocity as a fraction of c, s seconds into the laps (5 s long)."""
-    return 0.0183 + (0.9612 - 0.0183) * np.clip(s / 5.0, 0, 1)
+    """Velocity as a fraction of c, s seconds into the laps."""
+    return 0.0183 + (0.9612 - 0.0183) * np.clip(s / LAPS_SECONDS, 0, 1)
 
 
 def feed_coils():
-    """Five seconds of acceleration: the electromagnetic whine climbing with the round's speed and the
-    coils firing faster and faster until they blur into a roar."""
-    total = 5.1
+    """The laps: the electromagnetic whine climbing with the round's speed and the coils firing faster and
+    faster until they blur into a roar."""
+    total = LAPS_SECONDS + 0.05
     n = ns(total)
     t = times(total)
     v = lap_velocity(t)
@@ -660,50 +695,138 @@ def feed_lap():
 
 
 def feed_release():
-    """Release: an electromagnetic thunderclap, a sub drop and a long ring, then asteroids tearing past
-    as the round crosses the belt."""
-    total = 3.8
+    """The release, in step with the shot (1.5 s): the flash racing up the barrel towards the camera; time
+    slowing to a crawl, so everything sinks into a drone; the muzzle blast as a vast slowed-down boom with the
+    arcs sizzling in slow motion; the sabot's bolts and its petals ringing as they fly apart; a reverse swell;
+    and real time cracking back as the spear is gone."""
+    total = 1.62
     m = Mix(total)
-    n = ns(0.06)
-    m.add(decorrelated(n, lambda k: white(k)) * attack_decay(n, 0.0003, 0.008), 0.0, 1.0)
-    zap = sine(curve(ns(0.05), [(0, 9000), (0.05, 900)], 'log')) * attack_decay(ns(0.05), 0.0005, 0.02)
-    m.add(zap, 0.0, 0.5)
-    n = ns(2.0)
-    clap = decorrelated(n, white)
-    cutoff = curve(n, [(0, 7000), (0.3, 1500), (2.0, 200)], 'log')
-    clap = np.vstack([sweep_filter(c, 'lowpass', cutoff, order=2) for c in clap]) * attack_decay(n, 0.002, 0.35)
-    m.add(sat(clap * 2.5, 2.0), 0.0, 0.8)
-    n = ns(2.4)
-    sub = sine(curve(n, [(0, 85), (1.4, 24)], 'log')) * attack_decay(n, 0.01, 0.9)
-    m.add(sat(sub * 1.5, 1.5), 0.0, 1.0)
-    for at, side in ((1.25, -1), (1.9, 1), (2.45, -1), (2.9, 1)):
-        k = ns(0.7)
-        tt = np.arange(k) / SR
-        d = np.sqrt(((tt - 0.25) * 200) ** 2 + 6 ** 2)
-        rush = sweep_filter(pink(k), 'bandpass', curve(k, [(0, 3000), (0.25, 900), (0.7, 250)], 'log'), width=1.5)
-        rush *= 1 / (0.3 + d / 12)
-        m.add(pan(norm(rush), side * np.clip((tt - 0.25) * 5, -1, 1)), at, 0.35)
+    # 1. Up the barrel in real time, then the tape slows: whine and coil pulses sink into a growl.
+    n = ns(0.62)
+    rate = curve(n, [(0, 1.0), (0.16, 1.0), (0.34, 0.07), (0.62, 0.04)], 'log')
+    src_len = int(np.sum(rate)) + SR // 10
+    st = np.arange(src_len) / SR
+    whine_f = 700 * np.exp(st * 6.5)
+    whine = sine(np.minimum(whine_f, 4200)) + 0.35 * saw(np.minimum(whine_f, 4200) * 0.5, src_len)
+    pulse_rate = 30 * np.exp(st * 7.0)
+    pulses = np.exp(-((np.cumsum(pulse_rate) / SR) % 1.0) * 7.0)
+    thumps = lp(white(src_len) * 0.5 + saw(np.full(src_len, 110.0), src_len), 900) * pulses
+    src = whine * 0.4 + thumps
+    slowed = varispeed(src, rate)
+    slowed = sweep_filter(slowed, 'lowpass', curve(n, [(0, 9000), (0.2, 6000), (0.4, 900), (0.62, 400)], 'log'), order=2)
+    m.add(stereo(slowed * curve(n, [(0, 0.3), (0.16, 1.0), (0.3, 0.8), (0.5, 0.35), (0.62, 0.0)])) *
+          np.array([[1.0], [0.92]]), 0.0, 0.55)
+    # 2. The slow-motion bed: a deep hum and dark air.
+    n = ns(0.8)
+    t = times(0.8)
+    hum = sine(np.full(n, 46.0) * (1 + 0.01 * np.sin(2 * np.pi * 1.3 * t))) + 0.5 * sine(np.full(n, 92.5))
+    air = decorrelated(n, lambda k: lp(pink(k), 380))
+    bed = stereo(hum * 0.6) + air
+    m.add(bed * curve(n, [(0, 0), (0.12, 1.0), (0.55, 0.7), (0.8, 0.0)]), 0.2, 0.3)
+    # 3. Arcs sizzling, slowed: zaps played back at a fifth of their speed.
+    n = ns(0.4)
+    zaps = grains(int(n * 0.2) + SR // 20, lambda q: 45, spark_zap, spread=1.0)
+    zaps = np.vstack([varispeed(c, np.full(n, 0.2)) for c in zaps])
+    zaps = np.vstack([lp(c, 2200) for c in zaps])
+    m.add(zaps * curve(n, [(0, 0), (0.05, 1.0), (0.3, 1.0), (0.4, 0.0)]), 0.3, 0.6)
+    # 4. The muzzle blast: a slowed-down thunderclap, mostly sub and dark noise, ringing on.
+    n = ns(0.8)
+    sub = sine(curve(n, [(0, 42), (0.4, 22), (0.8, 16)], 'log')) * attack_decay(n, 0.025, 0.26)
+    m.add(sat(sub * 1.8, 1.6), 0.44, 1.0)
+    body = decorrelated(n, lambda k: white(k) * 0.4 + brown(k) * 0.9)
+    cutoff = curve(n, [(0, 1600), (0.15, 700), (0.8, 120)], 'log')
+    body = np.vstack([sweep_filter(c, 'lowpass', cutoff, order=2) for c in body]) * attack_decay(n, 0.02, 0.2)
+    m.add(sat(body * 2.5, 2.0), 0.44, 0.85)
+    # 5. The sabot: three deep pops of the bolts, then the petals ringing as they part.
+    for k, at in enumerate((0.715, 0.735, 0.765)):
+        q = ns(0.3)
+        tt = np.arange(q) / SR
+        pop = np.sin(2 * np.pi * (75 - 8 * k) * tt) * np.exp(-tt / 0.06) + lp(white(q), 700) * np.exp(-tt / 0.02) * 0.6
+        m.add(sat(pop * 1.3, 1.4), at, 0.55, position=(-0.5, 0.1, 0.6)[k])
+    for k, side in enumerate((-0.6, 0.2, 0.7)):
+        q = ns(1.0)
+        tt = np.arange(q) / SR
+        f0 = 150 + 23 * k
+        clang = sum(a * np.sin(2 * np.pi * f0 * r * tt + k) * np.exp(-tt / d) for r, a, d in
+                    ((1.0, 0.6, 0.5), (2.76, 0.45, 0.35), (5.4, 0.3, 0.22), (8.93, 0.18, 0.12)))
+        m.add(clang * 0.5, 0.75 + 0.02 * k, 0.45, position=side)
+    # 6. A reverse swell sucking everything back up to speed...
+    n = ns(0.26)
+    rev = pink(n) * np.exp(-np.arange(n) / SR / 0.07)
+    rev = sweep_filter(rev[::-1], 'bandpass', curve(n, [(0, 300), (0.26, 5000)], 'log'), order=2, width=1.6)
+    m.add(stereo(norm(rev)) * np.array([[0.95], [1.0]]), 0.76, 0.7)
+    # 7. ...and real time back with a crack: the spear is gone, a Doppler whoosh dropping away into the
+    # distance and the barrel's coils ringing down.
+    q = ns(0.04)
+    m.add(decorrelated(q, lambda k: hp(white(k), 1200)) * attack_decay(q, 0.0003, 0.006), 1.02, 1.6)
+    q = ns(0.25)
+    snap = sine(curve(q, [(0, 120), (0.25, 50)], 'log')) * attack_decay(q, 0.002, 0.05)
+    m.add(sat(snap * 1.5, 1.5), 1.02, 0.7)
+    q = ns(0.6)
+    tt = np.arange(q) / SR
+    dist = 3.0 + tt * 900
+    whoosh = sweep_filter(pink(q), 'bandpass', curve(q, [(0, 3200), (0.6, 260)], 'log'), order=2, width=1.6)
+    whoosh *= 1.0 / (0.2 + dist / 60)
+    m.add(pan(norm(whoosh), curve(q, [(0, 0.0), (0.6, 0.25)])), 1.02, 0.55)
+    q = ns(0.55)
+    ring = (sine(np.full(q, 880.0)) + 0.4 * sine(np.full(q, 1320.0))) * attack_decay(q, 0.005, 0.18)
+    m.add(stereo(ring), 1.03, 0.12)
     _, _, _, space = spaces()
-    return master(reverb(m.out(), space, wet=0.45), peak=0.97, drive=1.4, squash=0.25)
+    return master(reverb(m.out(), space, wet=0.28)[:, :ns(total)], peak=0.97, drive=1.3)
+
+
+def feed_strike():
+    """The spear goes through a boulder: a hard crack, a crunch of rock, a hiss of vapour and grit streaming
+    back past the camera, and the hit thudding through the spear."""
+    total = 0.95
+    m = Mix(total)
+    q = ns(0.03)
+    m.add(decorrelated(q, lambda k: hp(white(k), 900)) * attack_decay(q, 0.0002, 0.004), 0.0, 1.0)
+    q = ns(0.5)
+    tt = np.arange(q) / SR
+    thud = np.sin(2 * np.pi * curve(q, [(0, 85), (0.5, 40)], 'log') * tt) * np.exp(-tt / 0.08)
+    m.add(sat(thud * 1.5, 1.5), 0.0, 0.8)
+    crunch = decorrelated(q, lambda k: bp(white(k), 250, 3500)) * attack_decay(q, 0.001, 0.045)
+    m.add(sat(crunch * 2.0, 1.6), 0.002, 0.7)
+    n = ns(total)
+    hiss = decorrelated(n, lambda k: hp(white(k), 3500)) * attack_decay(n, 0.005, 0.25)
+    m.add(hiss, 0.01, 0.35)
+    m.add(grains(n, lambda s: 380 * np.exp(-s / 0.18) + 5, lambda: rock(rng.uniform(0.15, 0.5)), end=0.7), 0.01, 0.5)
+    q = ns(0.7)
+    tt = np.arange(q) / SR
+    rush = sweep_filter(pink(q), 'bandpass', curve(q, [(0, 2600), (0.7, 300)], 'log'), order=2, width=2.0)
+    rush *= attack_decay(q, 0.01, 0.2)
+    m.add(decorrelated(q, lambda k: rush[:k] * (0.7 + 0.3 * rng.standard_normal())), 0.02, 0.5)
+    _, _, _, space = spaces()
+    return master(reverb(m.out(), space, wet=0.3)[:, :ns(total)], peak=0.95, drive=1.4)
 
 
 def feed_reentry():
-    """Re-entry: a plasma roar and crackle building to a scream, then the whiteout."""
-    total = 1.5
+    """Re-entry (1.7 s): the thin hiss of the upper air, a roar building as the shock layer forms, buffeting,
+    crackle and a rising shriek, a thump as the spear punches into the cloud deck, then the whiteout swell."""
+    total = 1.72
     n = ns(total)
     t = times(total)
-    grow = curve(n, [(0, 0.15), (1.2, 1.0), (1.22, 1.0), (1.5, 0.0)])
-    roar = decorrelated(n, lambda k: brown(k) * 0.8 + pink(k) * 0.4)
-    roar = np.vstack([sweep_filter(c, 'lowpass', curve(n, [(0, 350), (1.2, 3200)], 'log'), order=2) for c in roar])
+    grow = curve(n, [(0, 0.06), (0.45, 0.15), (1.1, 0.85), (1.35, 1.0), (1.6, 1.0), (1.7, 0.0), (1.72, 0.0)])
     m = Mix(total)
-    m.add(roar * grow, 0, 0.9)
-    shriek = resonator(white(n), curve(n, [(0, 1100), (1.2, 2600)], 'log'), q=40) * grow ** 2
-    m.add(stereo(norm(shriek)) * np.array([[1.0], [0.85]]), 0, 0.25)
-    m.add(grains(n, lambda s: 20 + 400 * (s / 1.2) ** 2, crackle_pop, end=1.22), 0, 0.6)
-    k = ns(0.3)
-    burst = decorrelated(k, white) * attack_decay(k, 0.002, 0.08)
-    m.add(burst, 1.2, 0.6)
-    return master(m.out(), peak=0.9, drive=1.6, squash=0.35)
+    thin = decorrelated(n, lambda k: hp(white(k), 5000)) * curve(n, [(0, 0.3), (0.5, 0.5), (1.0, 0.2), (1.7, 0)])
+    m.add(thin, 0, 0.12)
+    roar = decorrelated(n, lambda k: brown(k) * 0.8 + pink(k) * 0.5)
+    roar = np.vstack([sweep_filter(c, 'lowpass', curve(n, [(0, 250), (0.45, 400), (1.35, 3600), (1.7, 5000)], 'log'),
+                                   order=2) for c in roar])
+    buffet = 1.0 + 0.35 * lp(rng.standard_normal(n), 14) / 0.12
+    m.add(roar * grow * np.clip(buffet, 0.4, 1.6), 0, 0.9)
+    shriek = resonator(white(n), curve(n, [(0, 900), (1.35, 2700)], 'log'), q=40) * grow ** 2.2
+    m.add(stereo(norm(shriek)) * np.array([[1.0], [0.85]]), 0, 0.22)
+    m.add(grains(n, lambda s: 15 + 500 * np.clip((s - 0.4) / 1.0, 0, 1) ** 2, crackle_pop, end=1.6), 0, 0.55)
+    q = ns(0.45)
+    tt = np.arange(q) / SR
+    whomp = np.sin(2 * np.pi * curve(q, [(0, 70), (0.45, 32)], 'log') * tt) * np.exp(-tt / 0.12)
+    whomp += lp(white(q), 600) * np.exp(-tt / 0.05) * 0.7
+    m.add(sat(whomp * 1.3, 1.5), 1.3, 0.8)
+    swell = decorrelated(ns(0.4), lambda k: pink(k)) * curve(ns(0.4), [(0, 0), (0.33, 1.0), (0.4, 0.0)])
+    m.add(np.vstack([lp(c, 6000) for c in swell]), 1.3, 0.5)
+    return master(m.out()[:, :n], peak=0.92, drive=1.6, squash=0.3)
 
 
 def inbound(stereo_out=True):
@@ -712,8 +835,14 @@ def inbound(stereo_out=True):
     total = 1.3
     n = ns(total)
     t = times(total)
-    near = curve(n, [(0, 0.1), (0.8, 0.45), (1.15, 1.0), (1.2, 1.0), (1.3, 0.0)]) ** 1.3
+    # It builds right up to the instant of impact (1.2 s in) and cuts dead: the moment of silence before the
+    # boom arrives is what makes the boom.
+    near = curve(n, [(0, 0.1), (0.8, 0.45), (1.15, 1.0), (1.195, 1.0), (1.205, 0.0), (1.3, 0.0)]) ** 1.3
     m = Mix(total)
+    q = ns(0.28)
+    riser = pink(q) * np.exp(-np.arange(q) / SR / 0.08)
+    riser = sweep_filter(riser[::-1], 'bandpass', curve(q, [(0, 400), (0.28, 7000)], 'log'), order=2, width=1.4)
+    m.add(stereo(norm(riser)) * np.array([[1.0], [0.95]]), 1.2 - 0.28, 0.5)
     shriek = resonator(white(n), curve(n, [(0, 2400), (1.2, 900)], 'log') * (1 + 0.02 * np.sin(2 * np.pi * 13 * t)), q=25)
     shriek2 = resonator(white(n), curve(n, [(0, 3500), (1.2, 1400)], 'log'), q=18)
     scream = norm(shriek) + 0.6 * norm(shriek2)
@@ -722,8 +851,8 @@ def inbound(stereo_out=True):
     roar = pink(n) * 0.6 + brown(n) * 0.6
     roar = sweep_filter(roar, 'lowpass', curve(n, [(0, 600), (1.2, 4000)], 'log'), order=2)
     m.add(pan(norm(roar) * near, where * 0.7), 0, 0.8)
-    m.add(grains(n, lambda s: 30 + 300 * s, crackle_pop, end=1.2, spread=0.8), 0, 0.18)
-    x = master(m.out(), peak=0.92, drive=1.5, squash=0.5)
+    m.add(grains(n, lambda s: 30 + 300 * s, crackle_pop, end=1.195, spread=0.8), 0, 0.18)
+    x = master(m.out() * curve(n, [(0, 1), (1.198, 1), (1.205, 0), (1.3, 0)]), peak=0.92, drive=1.5, squash=0.5)
     return x if stereo_out else master(mono(x), peak=0.92)
 
 
@@ -771,8 +900,17 @@ def impact(close=True):
     rumble *= 0.8 + 0.2 * np.sin(2 * np.pi * 0.4 * times(total))
     m.add(rumble, 0, 0.55)
     outdoor, _, _, _ = spaces()
-    x = reverb(m.out(), outdoor, wet=0.5 if close else 0.8)
-    x = master(x[:, :n], peak=0.98, drive=2.2, squash=0.25)
+    x = reverb(m.out(), outdoor, wet=0.5 if close else 0.8)[:, :n]
+    if close:
+        # Deafened: after the first instant the world goes dull and the ears ring, and hearing comes back over a
+        # few seconds.
+        cutoff = curve(n, [(0, 20000), (0.16, 20000), (0.24, 600), (1.2, 1400), (3.8, 15000), (total, 20000)], 'log')
+        x = np.vstack([sweep_filter(c, 'lowpass', cutoff, order=2) for c in x])
+        tt = times(total)
+        ring = np.sin(2 * np.pi * 3700 * tt) + 0.6 * np.sin(2 * np.pi * 3709 * tt)
+        ring *= curve(n, [(0, 0), (0.2, 0), (0.3, 1.0), (1.0, 0.8), (3.4, 0.0), (total, 0.0)])
+        x = x + stereo(ring) * np.array([[0.045], [0.04]])
+    x = master(x, peak=0.98, drive=2.2, squash=0.5)
     return x if close else master(mono(x), peak=0.98)
 
 
@@ -798,7 +936,12 @@ def rumble(close=True):
     low = np.vstack([lp(c, 100) for c in low]) * curve(n, [(0, 0), (0.1, 1), (3.0, 0.5), (total, 0)])
     m.add(low, 0, 0.8)
     outdoor, _, _, _ = spaces()
-    x = master(reverb(m.out(), outdoor, wet=0.35)[:, :n], peak=0.95, drive=1.8, squash=0.35)
+    x = reverb(m.out(), outdoor, wet=0.35)[:, :n]
+    if close:
+        # The shooter's ears are still recovering from the blast when the shock wave arrives.
+        x = np.vstack([sweep_filter(c, 'lowpass', curve(n, [(0, 2600), (0.8, 8000), (2.2, 19000), (total, 20000)], 'log'),
+                                    order=2) for c in x])
+    x = master(x, peak=0.95, drive=1.8, squash=0.35)
     return x if close else master(mono(x), peak=0.95)
 
 
@@ -828,8 +971,18 @@ def aftermath(close=True):
 
 # Longest a sound may run (seconds): the feed's sounds must die away before the feed hands back to
 # the world at INBOUND.
-CAPS = {'uplink_lock': 2.5, 'camera_rise': 1.7, 'feed_zoom': 3.0, 'feed_ambience': 13.4, 'feed_relay': 3.4,
-        'feed_wake': 4.2, 'feed_load': 2.4, 'feed_coils': 5.4, 'feed_release': 2.6, 'feed_reentry': 1.5}
+CAPS = {'uplink_lock': 2.5, 'camera_rise': 1.7, 'feed_zoom': 3.0, 'feed_ambience': 14.4, 'feed_relay': 3.4,
+        'feed_wake': 4.2, 'feed_load': 2.4, 'feed_coils': 4.3, 'feed_release': 1.62, 'feed_strike': 0.95,
+        'feed_reentry': 1.72}
+
+# How loud each sound is (dB, the RMS of its loudest 400 ms). The game plays them at full volume, so this is
+# the mix: the feed sits well down, the release and the re-entry come up, and the impact is far the loudest
+# thing in the sequence, the way a film saves its loudest moment for the climax.
+LEVELS = {'uplink_lock': -16, 'uplink_denied': -18, 'camera_rise': -21, 'feed_zoom': -22, 'feed_ambience': -27,
+          'feed_relay': -20, 'feed_wake': -17, 'feed_load': -19, 'feed_coils': -21, 'feed_lap': -19,
+          'feed_release': -11, 'feed_strike': -15, 'feed_reentry': -13, 'strike_inbound': -14,
+          'strike_inbound_near': -13, 'strike_impact': -7, 'strike_impact_near': -5, 'strike_rumble': -12,
+          'strike_rumble_near': -11, 'strike_aftermath': -23, 'strike_aftermath_near': -20}
 
 SOUNDS = {
     # name: (recipe, stereo?)
@@ -844,6 +997,7 @@ SOUNDS = {
     'feed_coils': (feed_coils, True),
     'feed_lap': (feed_lap, True),
     'feed_release': (feed_release, True),
+    'feed_strike': (feed_strike, True),
     'feed_reentry': (feed_reentry, True),
     'strike_inbound': (lambda: inbound(False), False),
     'strike_inbound_near': (lambda: inbound(True), True),
@@ -894,6 +1048,8 @@ def main():
         cap = CAPS.get(name)
         if cap and x.shape[-1] > ns(cap):
             x = fade(x[..., :ns(cap)], 0.0, min(0.6, cap * 0.25))
+        if name in LEVELS:
+            x = limit(x * 10 ** ((LEVELS[name] - loudness(x)) / 20))
         write(name, x, wav_dir)
 
 

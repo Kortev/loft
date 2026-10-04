@@ -83,7 +83,7 @@ public final class ClientStrikes {
 		STRIKES.put(strike.id, strike);
 		if (payload.age() == 0) {
 			if (mine) {
-				master(ModSounds.UPLINK_LOCK, 1.0F, 0.8F);
+				master(ModSounds.UPLINK_LOCK, 1.0F, 1.0F);
 			}
 			at(client, strike.center, SoundEvents.BLOCK_BEACON_ACTIVATE, SoundCategory.BLOCKS, 4.0F, 0.6F, 0);
 		}
@@ -199,39 +199,44 @@ public final class ClientStrikes {
 	}
 
 	private static void cues(MinecraftClient client, ClientStrike strike, int from, int to) {
+		// The sounds carry their own levels (tools/gen_sounds.py mixes them), so they all play at full volume.
 		boolean feed = strike.cinematic() && ClientConfig.feed;
 		if (strike.cinematic() && ClientConfig.cameraShots && crossed(from, to, StrikeTimeline.RISE)) {
-			master(ModSounds.CAMERA_RISE, 1.0F, 0.55F);
+			master(ModSounds.CAMERA_RISE, 1.0F, 1.0F);
 		}
 		if (feed) {
 			if (crossed(from, to, StrikeTimeline.ORBIT)) {
-				master(ModSounds.FEED_ZOOM, 1.0F, 0.65F);
-				held(strike, ModSounds.FEED_AMBIENCE, 1.0F, 0.4F);
+				master(ModSounds.FEED_ZOOM, 1.0F, 1.0F);
+				held(strike, ModSounds.FEED_AMBIENCE, 1.0F, 1.0F);
 			}
 			if (crossed(from, to, StrikeTimeline.RELAY)) {
-				master(ModSounds.FEED_RELAY, 1.0F, 0.7F);
+				master(ModSounds.FEED_RELAY, 1.0F, 1.0F);
 			}
 			if (crossed(from, to, StrikeTimeline.WAKE)) {
-				master(ModSounds.FEED_WAKE, 1.0F, 0.8F);
+				master(ModSounds.FEED_WAKE, 1.0F, 1.0F);
 			}
 			if (crossed(from, to, StrikeTimeline.LOADING + 10)) {
-				master(ModSounds.FEED_LOAD, 1.0F, 0.65F);
+				master(ModSounds.FEED_LOAD, 1.0F, 1.0F);
 			}
 			if (crossed(from, to, StrikeTimeline.LAPS)) {
-				held(strike, ModSounds.FEED_COILS, 1.0F, 0.45F);
+				held(strike, ModSounds.FEED_COILS, 1.0F, 1.0F);
 			}
 			if (to >= StrikeTimeline.LAPS && to < StrikeTimeline.RELEASE) {
 				int lap = StrikeTimeline.lapNumber(StrikeTimeline.lapProgress(to));
 				if (lap != strike.lastLap) {
 					strike.lastLap = lap;
-					master(ModSounds.FEED_LAP, 0.7F + lap * 0.14F, 0.55F);
+					master(ModSounds.FEED_LAP, 0.7F + lap * 0.14F, 1.0F);
 				}
 			}
 			if (crossed(from, to, StrikeTimeline.RELEASE)) {
-				master(ModSounds.FEED_RELEASE, 1.0F, 0.85F);
+				master(ModSounds.FEED_RELEASE, 1.0F, 1.0F);
+			}
+			// The rock in the belt (Shots.ROCK_HIT ticks in).
+			if (crossed(from, to, StrikeTimeline.DEBRIS + 10)) {
+				master(ModSounds.FEED_STRIKE, 1.0F, 1.0F);
 			}
 			if (crossed(from, to, StrikeTimeline.TERMINAL)) {
-				master(ModSounds.FEED_REENTRY, 1.0F, 0.75F);
+				master(ModSounds.FEED_REENTRY, 1.0F, 1.0F);
 			}
 		}
 		if (crossed(from, to, StrikeTimeline.INBOUND)) {
