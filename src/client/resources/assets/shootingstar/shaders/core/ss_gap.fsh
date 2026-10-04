@@ -27,6 +27,8 @@ uniform float Black;
 uniform vec3 ShatterFrom;
 uniform float Shatter;
 uniform float CosmosTime;
+uniform vec4 Lock;
+uniform float CloudY;
 
 in vec2 texCoord;
 
@@ -130,6 +132,21 @@ bool isSky(vec2 uv) {
     return rawDepth(uv) >= 0.99999;
 }
 
+// Clouds are part of our sky: they break and fall away with it.
+bool isCloud(vec2 uv) {
+    float d = rawDepth(uv);
+    if (d >= 0.99999 || CloudY > 1000.0) {
+        return false;
+    }
+    vec4 w = InvViewProj * vec4(uv * 2.0 - 1.0, d * 2.0 - 1.0, 1.0);
+    vec3 rel = w.xyz / w.w;
+    return rel.y > CloudY - 1.0 && rel.y < CloudY + 5.0 && dot(rel.xz, rel.xz) > 400.0;
+}
+
+bool skyLike(vec2 uv) {
+    return isSky(uv) || isCloud(uv);
+}
+
 // The other universe: anything cold and saturated, blue through magenta. Ours runs warm.
 bool isOther(vec3 c) {
     float hi = max(c.r, max(c.g, c.b));
@@ -159,10 +176,12 @@ vec3 inkColor(int style) {
 // One impact-frame look applied to the scene at uv.
 vec3 ink(int style, vec2 uv) {
     vec3 c = scene(uv);
+    bool sky = skyLike(uv);
     if (style == 4) {
-        return vec3(1.0) - c;
+        // A negative, but only in black and white: anything else turns the other universe green.
+        float lum = sky ? 0.9 : dot(c, vec3(0.299, 0.587, 0.114));
+        return vec3(1.0 - smoothstep(0.12, 0.5, lum));
     }
-    bool sky = isSky(uv);
     bool other = !sky && isOther(c);
     float edge = edgeAt(uv);
     if (style == 1) {
@@ -204,14 +223,15 @@ float cracks(vec2 uv) {
     }
     float a = atan(p.y, p.x);
     float line = 0.0;
-    for (int i = 0; i < 14; i++) {
+    for (int i = 0; i < 11; i++) {
         float fi = float(i);
-        float base = (fi + 0.6 * hash(fi + Seed)) / 14.0 * 2.0 * PI;
-        float steps = r * 7.0;
+        float base = (fi + 0.6 * hash(fi + Seed)) / 11.0 * 2.0 * PI;
+        // Short straight runs with sharp kinks between them, like a crack in glass.
+        float steps = r * 16.0;
         float seg = floor(steps);
-        float drift = mix(hash(seg + fi * 13.0 + Seed) - 0.5, hash(seg + 1.0 + fi * 13.0 + Seed) - 0.5, fract(steps)) * 0.5;
+        float drift = mix(hash(seg + fi * 13.0 + Seed) - 0.5, hash(seg + 1.0 + fi * 13.0 + Seed) - 0.5, fract(steps)) * 0.16 / max(r, 0.08);
         float da = abs(mod(a - base - drift + PI, 2.0 * PI) - PI);
-        float width = (0.0035 + 0.006 * (1.0 - min(r, 1.0))) / r;
+        float width = (0.0012 + 0.0028 * (1.0 - min(r, 1.0))) / r;
         float reach = 0.3 + 0.75 * hash(fi * 7.0 + Seed);
         line = max(line, step(da, width) * step(r, reach));
         // A branch splitting off partway out.
@@ -287,7 +307,7 @@ vec3 shatter(vec2 uv, vec3 c) {
     if (Shatter <= 0.0) {
         return c;
     }
-    if (!isSky(uv)) {
+    if (!skyLike(uv)) {
         float k = smoothstep(0.0, 2.4, Shatter) * 0.5;
         float lum = dot(c, vec3(0.299, 0.587, 0.114));
         vec3 lit = mix(vec3(lum), c, 0.75) * vec3(0.8, 0.68, 1.22);
@@ -353,6 +373,35 @@ vec3 shatter(vec2 uv, vec3 c) {
     return piece + vec3(0.85, 1.0, 1.0) * rim * crack * 1.4;
 }
 
+// The lock the key goes into, in the empty air: a slit of light that opens where its tip goes in, then cracks
+// that run out from it across the picture as it turns.
+vec3 lockLight(vec2 uv, vec3 c) {
+    if (Lock.z <= 0.0 && Lock.w <= 0.0) {
+        return c;
+    }
+    vec2 p = (uv - Lock.xy) * vec2(ScreenSize.x / ScreenSize.y, 1.0);
+    float h = 0.2 * Lock.z;
+    float w = 0.0018 + 0.006 * Lock.w;
+    float slit = (1.0 - smoothstep(w * 0.5, w, abs(p.x))) * (1.0 - smoothstep(h * 0.55, h, abs(p.y))) * Lock.z;
+    float glow = exp(-abs(p.x) / (0.012 + 0.05 * Lock.w)) * (1.0 - smoothstep(0.0, h * 1.5 + 0.001, abs(p.y))) * Lock.z;
+    float crack = 0.0;
+    if (Lock.w > 0.0) {
+        float a = atan(p.y, p.x);
+        float r = length(p);
+        const float n = 11.0;
+        for (int k = -1; k <= 1; k++) {
+            float sector = floor((a / 6.2831853 + 0.5) * n) + float(k);
+            float ca = (sector + 0.5 + (hash(sector + 3.0) - 0.5) * 0.7) / n * 6.2831853 - 3.14159265;
+            float jag = (c_noise(vec3(r * 16.0, sector * 7.1, 0.5)) - 0.5) * 0.22 + (c_noise(vec3(r * 60.0, sector * 3.3, 2.5)) - 0.5) * 0.05;
+            float d = abs(sin(a - ca - jag)) * r;
+            float reach = Lock.w * 1.5 * (0.45 + 0.55 * hash(sector + 9.0));
+            float px = 1.0 / ScreenSize.y;
+            crack = max(crack, (1.0 - smoothstep(px * 0.6, px * 1.8, d)) * (1.0 - smoothstep(reach * 0.85, reach, r)) * step(0.015, r));
+        }
+    }
+    return c + vec3(0.75, 0.95, 1.0) * (slit * 2.5 + glow * 0.7) + vec3(0.85, 1.0, 1.0) * crack * 1.6;
+}
+
 vec3 erase(vec2 uv, vec3 c) {
     if (Front < 0.0) {
         return c;
@@ -407,6 +456,7 @@ void main() {
         } else {
             c = scene(uv);
         }
+        c = lockLight(uv, c);
         c = shatter(uv, c);
         c = erase(uv, c);
     }

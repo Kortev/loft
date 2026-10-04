@@ -350,6 +350,10 @@ public final class GapRender {
 		Vec3d offset = Vec3d.ZERO;
 		float shatter;
 		Vector3f shatterFrom = new Vector3f(0.0F, 1.0F, 0.0F);
+		float lockOpen;
+		float lockCracks;
+		/** Height of the clouds over the camera, while they should break with the sky. */
+		float cloudY = 10000.0F;
 
 		void apply(Matrix4f proj, Matrix4f view, int w, int h, float time) {
 			Matrix4f inv = new Matrix4f(proj).mul(view).invert();
@@ -372,6 +376,8 @@ public final class GapRender {
 			Shaders.set(Shaders.gap, "Shatter", shatter);
 			Shaders.set(Shaders.gap, "ShatterFrom", shatterFrom);
 			Shaders.set(Shaders.gap, "CosmosTime", time);
+			Shaders.set(Shaders.gap, "Lock", KeyTurn.LOCK_X, KeyTurn.LOCK_Y, lockOpen, lockCracks);
+			Shaders.set(Shaders.gap, "CloudY", cloudY);
 		}
 	}
 
@@ -391,6 +397,10 @@ public final class GapRender {
 			if (t >= GapTimeline.TEAR && live) {
 				g.shatter = Math.max(g.shatter, (float) GapTimeline.shatter(t));
 				g.shatterFrom = rel(gap.contact.add(0, 150, 0), cam).normalize();
+				float clouds = MinecraftClient.getInstance().world.getDimensionEffects().getCloudsHeight();
+				if (!Float.isNaN(clouds)) {
+					g.cloudY = (float) (clouds - cam.y);
+				}
 				on = true;
 			}
 		}
@@ -401,6 +411,11 @@ public final class GapRender {
 				g.flash = (float) (t < GapTimeline.AIM ? Math.pow(MathHelper.clamp((t - 54) / 6.0, 0.0, 1.0), 2)
 						: 1.0 - (t - GapTimeline.AIM) / 3.0);
 				g.seed = (float) Math.floor(t * 1.5);
+				// The lock's light only where the shooter is looking through their own eyes, at the key.
+				if (MinecraftClient.getInstance().options.getPerspective().isFirstPerson()) {
+					g.lockOpen = KeyTurn.open(t);
+					g.lockCracks = KeyTurn.cracks(t);
+				}
 				on = true;
 			}
 			if (t >= 236 && t < 240) {

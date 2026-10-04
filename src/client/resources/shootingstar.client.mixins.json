@@ -5,7 +5,9 @@
 	"client": [
 		"BackgroundRendererMixin",
 		"CameraMixin",
-		"GameRendererMixin"
+		"EntityLookMixin",
+		"GameRendererMixin",
+		"HeldItemRendererMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

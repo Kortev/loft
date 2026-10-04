@@ -26,6 +26,8 @@ public final class GapTimeline {
 	/** Nothing is left but the shooter. */
 	public static final int NOTHING = 620;
 	public static final int END = 800;
+	/** The camera is back in the shooter's eyes, alone in the black, and they can move again. */
+	public static final int RETURN = 720;
 
 	/** How far the falling shard's tip presses into the ground through the impact frames. */
 	public static final double PRESS = 2.0;

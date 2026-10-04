@@ -12,6 +12,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.option.GameOptions;
+import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.math.BlockPos;
@@ -40,6 +42,26 @@ public final class ClientGaps {
 			}
 		}
 		return null;
+	}
+
+	/** The shooter can neither move, look round, swing nor use anything until the camera is back in their eyes. */
+	public static boolean locked() {
+		ClientGap gap = mine();
+		return gap != null && gap.age < GapTimeline.RETURN;
+	}
+
+	public static void holdInput(MinecraftClient client) {
+		if (!locked()) {
+			return;
+		}
+		GameOptions o = client.options;
+		for (KeyBinding key : new KeyBinding[] {o.forwardKey, o.backKey, o.leftKey, o.rightKey, o.jumpKey, o.sneakKey, o.sprintKey,
+				o.attackKey, o.useKey, o.pickItemKey, o.dropKey, o.swapHandsKey}) {
+			key.setPressed(false);
+			while (key.wasPressed()) {
+				// Swallowed.
+			}
+		}
 	}
 
 	public static void onLock(GapLockPayload payload, MinecraftClient client) {
@@ -101,7 +123,10 @@ public final class ClientGaps {
 		}
 	}
 
-	/** The vanilla HUD goes while the camera is away from the shooter's eyes, and comes back with them. */
+	/**
+	 * The vanilla HUD goes while the camera is away from the shooter's eyes, and comes back with them. (Hiding it
+	 * hides the hand too, so it stays for the key turning in first person.)
+	 */
 	public static void hud(MinecraftClient client) {
 		boolean away = mine() != null && GapCamera.current(1.0F) != null;
 		if (away && !hudOverride) {

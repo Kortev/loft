@@ -28,6 +28,9 @@ public final class GapCamera {
 	public static final int LOW = 4;
 	public static final int EYES = 5;
 
+	/** The places tried for a shot, nearest the one it would like first. */
+	private static final double[] TURNS = {0, 45, -45, 90, -90, 135, -135, 180};
+
 	private GapCamera() {
 	}
 
@@ -83,11 +86,12 @@ public final class GapCamera {
 	private static Shot aim(ClientGap gap, Vec3d feet, double t) {
 		Vec3d chest = feet.add(0, 1.3, 0);
 		Vec3d front = chest.add(gap.along.multiply(1.4));
-		Shot close = lookAt(clear(chest.add(gap.across.multiply(3.2)).add(gap.along.multiply(1.2)).add(0, 0.2, 0), front), front);
+		Vec3d across = gap.across.multiply(side(gap, feet));
+		Shot close = lookAt(clear(chest.add(across.multiply(3.2)).add(gap.along.multiply(1.2)).add(0, 0.2, 0), front), front);
 		Vec3d target = gap.contact.add(0, 2, 0);
-		Shot shoulder = lookAt(clear(feet.add(gap.along.multiply(-6.5)).add(gap.across.multiply(2.4)).add(0, 5.0, 0), chest), target);
+		Shot shoulder = lookAt(clear(feet.add(gap.along.multiply(-6.5)).add(across.multiply(2.4)).add(0, 5.0, 0), chest), target);
 		if (t < 92) {
-			Shot pushed = lookAt(clear(chest.add(gap.across.multiply(2.6)).add(gap.along.multiply(1.0)).add(0, 0.25, 0), front), front);
+			Shot pushed = lookAt(clear(chest.add(across.multiply(2.6)).add(gap.along.multiply(1.0)).add(0, 0.25, 0), front), front);
 			return blend(close, pushed, ease((t - GapTimeline.AIM) / 32.0));
 		}
 		if (t < 126) {
@@ -100,16 +104,93 @@ public final class GapCamera {
 	private static Shot lookUp(ClientGap gap, Vec3d feet, double t) {
 		double k = ease((t - 140) / 40.0);
 		Vec3d chest = feet.add(0, 1.4, 0);
-		Vec3d eye = feet.add(gap.along.multiply(-4.4 + 0.9 * k)).add(gap.across.multiply(1.4)).add(0, 0.5, 0);
+		Vec3d eye = feet.add(gap.along.multiply(-4.4 + 0.9 * k)).add(gap.across.multiply(1.4 * side(gap, feet))).add(0, 0.5, 0);
 		return lookAt(clear(eye, chest), gap.contact.add(0, 46 + 22 * k, 0));
+	}
+
+	/**
+	 * Which side of the shooter the close shots stand on: whichever has more open space, so a hillside never fills
+	 * half the frame. Chosen once.
+	 */
+	private static double side(ClientGap gap, Vec3d feet) {
+		if (gap.side == 0) {
+			Vec3d chest = feet.add(0, 1.3, 0);
+			double best = -1.0;
+			for (int s = 1; s >= -1; s -= 2) {
+				Vec3d across = gap.across.multiply(s);
+				Vec3d front = chest.add(gap.along.multiply(1.4));
+				Vec3d close = clear(chest.add(across.multiply(3.2)).add(gap.along.multiply(1.2)).add(0, 0.2, 0), front);
+				Vec3d shoulder = clear(feet.add(gap.along.multiply(-6.5)).add(across.multiply(2.4)).add(0, 5.0, 0), chest);
+				double score = Math.min(score(close, front, 3.2), score(shoulder, gap.contact.add(0, 2, 0), 7.0));
+				if (score > best + 0.25) {
+					best = score;
+					gap.side = s;
+				}
+			}
+		}
+		return gap.side;
+	}
+
+	/**
+	 * Of eight places round {@code at}, {@code distance} out and {@code height} up, the one with the most open space
+	 * in front of it while it looks at {@code look}.
+	 */
+	private static Vec3d roomiest(Vec3d at, double distance, double height, Vec3d look, Vec3d prefer) {
+		Vec3d best = null;
+		double bestScore = -1.0;
+		double base = Math.atan2(prefer.z, prefer.x);
+		for (int i = 0; i < TURNS.length; i++) {
+			double a = base + Math.toRadians(TURNS[i]);
+			Vec3d dir = new Vec3d(Math.cos(a), 0, Math.sin(a));
+			Vec3d eye = clear(at.add(dir.multiply(distance)).add(0, height, 0), look);
+			// The preferred side wins a tie.
+			double score = score(eye, look, distance * 0.7) - 0.05 * i;
+			if (score > bestScore) {
+				bestScore = score;
+				best = eye;
+			}
+		}
+		return best;
+	}
+
+	/** How good a camera at {@code eye} looking at {@code at} is: open space across its frame, and not pulled in too close. */
+	private static double score(Vec3d eye, Vec3d at, double wanted) {
+		return Math.min(room(eye, at), 12.0 * Math.min(1.0, eye.distanceTo(at) / wanted));
+	}
+
+	/** The nearest terrain across the middle and top of the frame of a camera at {@code eye} looking at {@code at}, up to 12 blocks. */
+	private static double room(Vec3d eye, Vec3d at) {
+		MinecraftClient client = MinecraftClient.getInstance();
+		ClientWorld world = client.world;
+		if (world == null || client.player == null) {
+			return 12.0;
+		}
+		Vec3d f = at.subtract(eye).normalize();
+		Vec3d r = f.crossProduct(new Vec3d(0, 1, 0));
+		r = r.lengthSquared() < 1.0E-4 ? new Vec3d(1, 0, 0) : r.normalize();
+		Vec3d u = r.crossProduct(f);
+		double room = 12.0;
+		for (int y = 0; y <= 1; y++) {
+			for (int x = -1; x <= 1; x++) {
+				Vec3d dir = f.add(r.multiply(0.6 * x)).add(u.multiply(0.35 * y)).normalize();
+				HitResult hit = world.raycast(new RaycastContext(eye, eye.add(dir.multiply(12.0)), RaycastContext.ShapeType.VISUAL,
+						RaycastContext.FluidHandling.NONE, client.player));
+				if (hit.getType() != HitResult.Type.MISS) {
+					room = Math.min(room, hit.getPos().distanceTo(eye));
+				}
+			}
+		}
+		return room;
 	}
 
 	/** On the ground near the target, looking up at the shard as it comes down on top of it. */
 	private static Shot under(ClientGap gap, double t) {
-		Vec3d side = gap.across.multiply(-1).add(gap.along.multiply(-0.6)).normalize();
+		if (gap.underEye == null) {
+			Vec3d side = gap.across.multiply(-1).add(gap.along.multiply(-0.6)).normalize();
+			gap.underEye = roomiest(gap.contact, 17.0, 1.2, gap.contact.add(0, 3, 0), side);
+		}
 		double tip = Math.max(0.0, GapTimeline.shardTip(t));
-		Vec3d eye = clear(gap.contact.add(side.multiply(17.0)).add(0, 1.2, 0), gap.contact.add(0, 2, 0));
-		return lookAt(eye, gap.contact.add(0, 3.0 + 0.8 * tip, 0));
+		return lookAt(gap.underEye, gap.contact.add(0, 3.0 + 0.8 * tip, 0));
 	}
 
 	/**
@@ -134,9 +215,12 @@ public final class GapCamera {
 	/** Beside the patch that trades places: on it as it goes, then tilting up after it into the broken sky. */
 	private static Shot swapShot(ClientGap gap, double t) {
 		Vec3d spot = Vec3d.ofBottomCenter(gap.swapSpot.up());
-		Vec3d out = gap.across.multiply(-1).add(gap.along.multiply(-0.5)).normalize();
 		Vec3d low = spot.add(0, gap.tree ? 3.0 : 0.6, 0);
-		Vec3d eye = clear(spot.add(out.multiply(gap.tree ? 18 : 13)).add(0, 2.4, 0), low);
+		if (gap.swapEye == null) {
+			Vec3d out = gap.across.multiply(-1).add(gap.along.multiply(-0.5)).normalize();
+			gap.swapEye = roomiest(spot, gap.tree ? 18 : 13, 2.4, low, out);
+		}
+		Vec3d eye = gap.swapEye;
 		Vec3d twin = gap.swappedTo(gap.swapSpot);
 		double tilt = ease((t - GapTimeline.TREE_SWAP - 3) / 16.0);
 		return lookAt(eye, low.lerp(twin, tilt * 0.55));
@@ -158,7 +242,7 @@ public final class GapCamera {
 		Vec3d side = gap.across.multiply(-1).add(gap.along.multiply(-0.6)).normalize();
 		Vec3d c = gap.contact;
 		return switch (shot) {
-			case EXTREME -> framed(c.add(side.multiply(4.5)).add(0, 1.0, 0), c.add(0, 2.0, 0));
+			case EXTREME -> framed(c.add(side.multiply(6.5)).add(0, 1.0, 0), c.add(0, 3.0, 0));
 			case CONTACT -> framed(c.add(side.multiply(15.0)).add(0, 4.0, 0), c.add(0, 9.0, 0));
 			case WIDE -> wide(gap, feet, GapTimeline.CONTACT);
 			case SIDE -> framed(c.add(gap.across.multiply(32.0)).add(gap.along.multiply(-6.0)).add(0, 3.0, 0), c.add(0, 16.0, 0));
@@ -171,7 +255,7 @@ public final class GapCamera {
 		return lookAt(clear(eye, at), at);
 	}
 
-	/** In on the shooter from the wide shot, round to the front of them, then back to their eyes. */
+	/** In on the shooter, alone in the black, round to the front of them, then back to their eyes. */
 	@Nullable
 	private static Shot nothing(ClientGap gap, Vec3d feet, double t, float tickDelta, ClientPlayerEntity player) {
 		Vec3d chest = feet.add(0, 1.2, 0);
@@ -179,13 +263,14 @@ public final class GapCamera {
 		Vec3d right = new Vec3d(-facing.z, 0, facing.x);
 		Shot side = lookAt(chest.add(right.multiply(3.4)).add(0, 0.1, 0), chest);
 		if (t < 688) {
-			Shot w = wide(gap, feet, GapTimeline.CONTACT);
-			Shot from = lookAt(new Vec3d(w.x(), w.y() + 30, w.z()), chest);
-			return blend(from, side, ease((t - GapTimeline.NOTHING) / 40.0));
+			// Starting near enough that they are a figure, not a speck.
+			Vec3d out = new Vec3d(-gap.across.x - gap.along.x * 0.4, 0, -gap.across.z - gap.along.z * 0.4).normalize();
+			Shot from = lookAt(chest.add(out.multiply(15.0)).add(0, 4.0, 0), chest);
+			return blend(from, side, ease((t - GapTimeline.NOTHING) / 50.0));
 		}
-		if (t < 720) {
+		if (t < GapTimeline.RETURN) {
 			Vec3d face = feet.add(0, 1.55, 0);
-			double k = ease((t - 688) / 32.0);
+			double k = ease((t - 688) / (GapTimeline.RETURN - 688.0));
 			return lookAt(face.add(facing.multiply(3.2 - 0.5 * k)).add(0, -0.15, 0), face.add(0, -0.25, 0));
 		}
 		return null;

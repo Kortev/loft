@@ -48,7 +48,7 @@ public final class GapHud {
 			footer(ctx, font, w, h, t < 126 ? String.format(Locale.ROOT, "TARGET %03d BLOCKS AWAY", blocks)
 					: "PULLING UNIVERSE 4,096,113 TOWARDS THE TARGET", t < 126 ? 1.0F : (float) ease((t - 126) / 6.0));
 		} else if (t < GapTimeline.CLOSING) {
-			header(ctx, font, w, typed("[ THE SKY BREAKS ]", (t - GapTimeline.TEAR) / 12.0), 1.0F);
+			header(ctx, font, w, typed("[ BREACH ]", (t - GapTimeline.TEAR) / 8.0), 1.0F);
 			float title = (float) (ease((t - 158) / 8.0) * (1.0 - ease((t - 190) / 8.0)));
 			if (title > 0.0F) {
 				ctx.fill(0, (int) (h * 0.66F), (int) w, (int) (h * 0.94F), (int) (0x80 * title) << 24);
@@ -87,7 +87,7 @@ public final class GapHud {
 			}
 		} else if (t < GapTimeline.FRAMES) {
 			float a = (float) ease((t - GapTimeline.CONTACT) / 3.0);
-			text(ctx, font, "CONTACT", w / 2, h * 0.18F, 3.2F, WHITE, a, true);
+			text(ctx, font, "CONTACT", w / 2, h * 0.12F, 2.4F, WHITE, a, true);
 			footer(ctx, font, w, h, "UNIVERSE 1 × UNIVERSE 4,096,113", (float) ease((t - GapTimeline.CONTACT - 4) / 6.0));
 		} else if (t >= GapTimeline.ERASURE && t < GapTimeline.NOTHING) {
 			header(ctx, font, w, typed("[ ERASURE ]", (t - GapTimeline.ERASURE) / 10.0), 1.0F);

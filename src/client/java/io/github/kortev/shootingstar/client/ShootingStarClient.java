@@ -49,6 +49,8 @@ public class ShootingStarClient implements ClientModInitializer {
 			ClientGaps.clear(client);
 		});
 
+		// Before anything reads the keys this tick.
+		ClientTickEvents.START_CLIENT_TICK.register(ClientGaps::holdInput);
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
 			while (SKIP_FEED.wasPressed()) {
 				ClientStrikes.skipFeed();

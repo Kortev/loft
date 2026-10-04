@@ -87,18 +87,23 @@ void main() {
         n = -n;
     }
     float facing = -dot(view, n);
-    // Looking into it, bent at each facet, so every facet shows its own patch of their universe, brighter than the
-    // broken sky behind it.
+    // A dark glass full of their night: looking into it, bent at each facet, the stars and dust of their universe
+    // show deep inside, dimmer than the bright sky behind it, so the shard always stands out against that sky.
     vec3 d = normalize(refract(view, n, 0.7) + Spin);
-    vec3 c = cosmos(d, Time) * 1.9;
-    // Deep violet at heart, so it never melts into the sky behind.
-    c += vec3(0.07, 0.02, 0.16) * (0.5 + facing);
-    c += vec3(0.5, 0.6, 1.0) * pow(1.0 - facing, 3.0) * 0.6;
-    // The facet edges: a hard white hairline with a little glow inside it (the texture coordinates are barycentric).
+    vec3 c = vec3(0.012, 0.004, 0.03) + cosmos(d * 1.3, Time) * 0.32;
+    // Each facet catches the light of the broken sky differently, so the facets read as planes.
+    vec3 r = reflect(view, n);
+    float sky = 0.5 + 0.5 * r.y;
+    c += vec3(0.35, 0.22, 0.6) * pow(sky, 3.0) * 0.35;
+    c += vec3(1.0, 0.85, 1.0) * pow(max(dot(r, normalize(vec3(0.25, 0.9, 0.35))), 0.0), 24.0) * 0.9;
+    // A cold rim where the facets turn away.
+    c += vec3(0.45, 0.8, 1.0) * pow(1.0 - facing, 4.0) * 1.1;
+    // The facet edges burn: a hard white hairline with a violet glow inside it (the texture coordinates are
+    // barycentric).
     vec3 b = vec3(texCoord0, 1.0 - texCoord0.x - texCoord0.y);
     float e = min(min(b.x, b.y), b.z);
     float px = max(fwidth(e), 1.0e-5);
-    c += vec3(0.9, 1.0, 1.0) * (1.0 - smoothstep(0.0, px * 1.4, e)) * 1.2;
-    c += vec3(0.5, 0.75, 1.0) * exp(-e * 16.0) * 0.3;
+    c += vec3(0.9, 1.0, 1.0) * (1.0 - smoothstep(0.0, px * 1.5, e)) * 1.3;
+    c += vec3(0.75, 0.4, 1.0) * exp(-e / max(px * 10.0, 0.035)) * 0.45;
     fragColor = vec4(min(c, vec3(1.0)), 1.0);
 }

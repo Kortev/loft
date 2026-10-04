@@ -15,7 +15,7 @@ import net.minecraft.world.Heightmap;
 final class Erasure {
 	private static final int BLOCK_BUDGET = 60_000;
 	private static final int READ_BUDGET = 400_000;
-	private static final int FLAGS = Block.NOTIFY_LISTENERS | Block.FORCE_STATE | Block.SKIP_DROPS;
+	static final int FLAGS = Block.NOTIFY_LISTENERS | Block.FORCE_STATE | Block.SKIP_DROPS;
 
 	private final ServerWorld world;
 	private final BlockPos center;
@@ -84,7 +84,7 @@ final class Erasure {
 		return erased;
 	}
 
-	private static boolean erasable(BlockState state) {
+	static boolean erasable(BlockState state) {
 		return !(state.isOf(Blocks.COMMAND_BLOCK) || state.isOf(Blocks.CHAIN_COMMAND_BLOCK) || state.isOf(Blocks.REPEATING_COMMAND_BLOCK)
 				|| state.isOf(Blocks.STRUCTURE_BLOCK) || state.isOf(Blocks.JIGSAW) || state.isOf(Blocks.BARRIER));
 	}

@@ -57,6 +57,7 @@ public final class GapManager {
 	/** The shooter is let back out on their own after this long in the black. */
 	private static final int HOLD_LIMIT = 20 * 120;
 	private static final int TREE_LIMIT = 320;
+	private static final int FLOOR_RADIUS = 14;
 
 	private static final List<Gap> GAPS = new ArrayList<>();
 	private static int nextId = 1;
@@ -80,8 +81,8 @@ public final class GapManager {
 		Erasure erasure;
 		boolean erased;
 		/** The barrier the shooter stands on once the ground under them is gone. */
-		@Nullable
-		BlockPos floor;
+		final List<BlockPos> floor = new ArrayList<>();
+		boolean floored;
 		boolean released;
 
 		Gap(int id, RegistryKey<World> dimension, BlockPos target, UUID shooter, int radius, boolean terrain, BlockPos swapSpot,
@@ -126,7 +127,7 @@ public final class GapManager {
 				}
 			}
 		});
-		// Nothing touches the shooter once the erasure starts: they are the one thing left.
+		// Nothing touches the shooter while their event plays: they cannot move, and they are the one thing left.
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> !(entity instanceof ServerPlayerEntity player
 				&& shielded(player)));
 	}
@@ -177,7 +178,7 @@ public final class GapManager {
 
 	private static boolean shielded(ServerPlayerEntity player) {
 		for (Gap gap : GAPS) {
-			if (!gap.released && gap.age >= GapTimeline.ERASURE - 10 && gap.shooter.equals(player.getUuid())) {
+			if (!gap.released && gap.shooter.equals(player.getUuid())) {
 				return true;
 			}
 		}
@@ -206,8 +207,10 @@ public final class GapManager {
 				shooter.teleport(world, x + 0.5, y, z + 0.5, shooter.getYaw(), shooter.getPitch());
 			}
 		}
-		if (gap.floor != null && world.getBlockState(gap.floor).isOf(Blocks.BARRIER)) {
-			world.setBlockState(gap.floor, Blocks.AIR.getDefaultState());
+		for (BlockPos p : gap.floor) {
+			if (world.getBlockState(p).isOf(Blocks.BARRIER)) {
+				world.setBlockState(p, Blocks.AIR.getDefaultState());
+			}
 		}
 		ShootingStar.LOGGER.info("Ginnungagap #{} released", gap.id);
 	}
@@ -240,7 +243,11 @@ public final class GapManager {
 			if (gap.age == GapTimeline.TREE_SWAP) {
 				swapWhole(world, gap);
 			}
-			if (gap.age == GapTimeline.ERASURE - 2 && shooter != null && shooter.getWorld() == world) {
+			// The floor goes down once the black has swallowed everything round the shooter, so no one sees the
+			// ground change, and long before the real erasure gets to them.
+			if (!gap.floored && gap.age >= GapTimeline.ERASURE && shooter != null && shooter.getWorld() == world
+					&& GapTimeline.eraseFront(gap.age) > manhattan(shooter.getPos(), gap.target) + 18.0) {
+				gap.floored = true;
 				plantFloor(world, gap, shooter);
 			}
 			if (gap.age >= GapTimeline.ERASURE) {
@@ -356,13 +363,25 @@ public final class GapManager {
 
 	// --- the erasure ---------------------------------------------------------------------
 
+	/** A wide, invisible floor under the shooter, so they can walk about in the black. */
 	private static void plantFloor(ServerWorld world, Gap gap, ServerPlayerEntity shooter) {
-		if (!gap.terrain || horizontal(shooter.getPos(), gap.target) > gap.radius + 1 || !shooter.isOnGround()) {
+		if (!gap.terrain || horizontal(shooter.getPos(), gap.target) > gap.radius + FLOOR_RADIUS) {
 			return;
 		}
 		BlockPos below = shooter.getBlockPos().down();
-		world.setBlockState(below, Blocks.BARRIER.getDefaultState());
-		gap.floor = below;
+		for (int dx = -FLOOR_RADIUS; dx <= FLOOR_RADIUS; dx++) {
+			for (int dz = -FLOOR_RADIUS; dz <= FLOOR_RADIUS; dz++) {
+				BlockPos p = below.add(dx, 0, dz);
+				if (dx * dx + dz * dz > FLOOR_RADIUS * FLOOR_RADIUS || horizontal(Vec3d.ofCenter(p), gap.target) > gap.radius) {
+					continue;
+				}
+				BlockState state = world.getBlockState(p);
+				if (!state.isOf(Blocks.BARRIER) && Erasure.erasable(state)) {
+					world.setBlockState(p, Blocks.BARRIER.getDefaultState(), Erasure.FLAGS);
+					gap.floor.add(p);
+				}
+			}
+		}
 	}
 
 	private static void erase(ServerWorld world, Gap gap) {
@@ -434,6 +453,10 @@ public final class GapManager {
 
 	private static BlockPos ground(World world, int x, int z) {
 		return new BlockPos(x, world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z) - 1, z);
+	}
+
+	private static double manhattan(Vec3d pos, BlockPos target) {
+		return Math.abs(pos.x - target.getX() - 0.5) + Math.abs(pos.y - target.getY()) + Math.abs(pos.z - target.getZ() - 0.5);
 	}
 
 	private static double horizontal(Vec3d pos, BlockPos target) {
