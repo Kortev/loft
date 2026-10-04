@@ -55,9 +55,11 @@ final class Shots {
 	/** The colour the coils and the armature flash when they fire: an electric white-blue. */
 	private static final Vector3f ARC = new Vector3f(0.75F, 0.88F, 1.0F);
 	/** Out at the muzzle the sun is ahead, where the round is going. */
-	private static final Vector3f RELEASE_SUN = new Vector3f(0.3F, 0.38F, 0.88F).normalize();
+	private static final Vector3f RELEASE_SUN = new Vector3f(0.65F, 0.45F, 0.6F).normalize();
 	/** Where the round's centre is (coil spacings past the muzzle) when the sabot is clear and falls away. */
 	private static final double SABOT_FREE = 1.1;
+	/** How far each coil is turned from the one before it (radians). */
+	private static final double RIFLING = Math.toRadians(4.0);
 	/** Angle of the first sabot petal round the spear (the others follow at 120 degrees). */
 	private static final float PETAL_PHASE = 0.4F;
 
@@ -368,9 +370,10 @@ final class Shots {
 
 		double offset = travel - Math.floor(travel);
 		float light = speed > 0 ? 0.55F : 1.0F;
+		long first = (long) Math.floor(travel);
 		for (int k = -12; k <= 70; k++) {
 			float z = (float) (k - offset);
-			coil(z, z - roundZ, glow, speed, light);
+			coil(first + k, z, z - roundZ, glow, speed, light);
 		}
 		// The coil firing just ahead of the round lights it up.
 		if (speed > 0) {
@@ -396,10 +399,10 @@ final class Shots {
 	}
 
 	/**
-	 * One coil at {@code z}, {@code rel} spacings ahead of the round (negative: behind). It flashes white-blue as
-	 * the round arrives and cools through orange behind it, its radiators glowing as it cools.
+	 * Coil number {@code index}, at {@code z}, {@code rel} spacings ahead of the round (negative: behind). It flashes
+	 * white-blue as the round arrives and cools through orange behind it, its radiators glowing as it cools.
 	 */
-	private void coil(float z, float rel, float glow, float speed, float light) {
+	private void coil(long index, float z, float rel, float glow, float speed, float light) {
 		float front = 0.0F;
 		float trail = 0.0F;
 		if (speed > 0) {
@@ -416,7 +419,9 @@ final class Shots {
 		float r = (ARC.x * flash + 1.0F * warm) / strength;
 		float g = (ARC.y * flash + 0.42F * warm) / strength;
 		float b = (ARC.z * flash + 0.1F * warm) / strength;
-		Matrix4f coil = new Matrix4f().translation(0, 0, z);
+		// Rifling: each coil is turned a little further than the one before, so the joins between its housings
+		// spiral down the barrel instead of lining up into spokes.
+		Matrix4f coil = new Matrix4f().translation(0, 0, z).rotateZ((float) ((index % 90) * RIFLING));
 		space.mesh(space.coil, cam, coil, LOCAL_SUN, light, r, g, b, strength, trail * 0.8F);
 	}
 
@@ -662,8 +667,18 @@ final class Shots {
 		// The last ninety coils of the barrel. At this speed the trail behind the round is as long as ever, however
 		// slowly the shot runs, so the coils fire at full strength.
 		for (int k = -90; k <= 0; k++) {
-			coil(k, (float) (k - z), 0.25F, 1.0F, 0.75F);
+			coil(k, k, (float) (k - z), 0.25F, 1.0F, 0.75F);
 		}
+		// From outside the barrel the wave shows as a ring of light round each coil as it fires.
+		Fx rings = space.glow(cam, Fx.RING, 0.18F);
+		for (int k = -90; k <= 0; k++) {
+			double rel = k - z;
+			float front = (float) (rel >= 0 ? Math.exp(-rel * rel * 2.0) : Math.exp(-rel * rel * 0.5));
+			if (front > 0.02F) {
+				rings.flat(new Vector3f(0, 0, k), new Vector3f(1.08F, 0, 0), new Vector3f(0, 1.08F, 0), Fx.argb(ARC.x, ARC.y, ARC.z, front));
+			}
+		}
+		rings.end(true, 2.5F);
 		// The muzzle blast lights the round and the petals.
 		space.pointPos.set(0, 0, 0.4F);
 		space.pointColor.set(ARC).mul(2.0F + 26.0F * blast);
@@ -693,8 +708,8 @@ final class Shots {
 		o.shutter = slow ? 0.0F : 1.0F;
 		o.streak = 0.3F;
 		o.zoomBlur = (float) Math.min(0.45, Math.max(0.0, speed - 3.0) * 0.012);
-		o.exposure = 1.0F + 1.8F * blast;
-		o.flash = Math.max(blast * 0.12F, s < 1.5 ? (float) (0.8 * (1.0 - s / 1.5)) : 0.0F);
+		o.exposure = 1.0F + 0.8F * blast;
+		o.flash = Math.max(blast * 0.06F, s < 1.5 ? (float) (0.8 * (1.0 - s / 1.5)) : 0.0F);
 		o.flashColor = 0xFFFFFF;
 		o.aberration = blast * 0.01F;
 	}
@@ -781,12 +796,12 @@ final class Shots {
 			ring.end(true, 2.5F);
 		}
 		if (blast > 0.01F || since > 0) {
-			float glow = blast + (float) (since > 0 ? 0.35 * Math.exp(-since / 8.0) : 0.0);
+			float glow = blast + (float) (since > 0 ? 0.15 * Math.exp(-since / 4.0) : 0.0);
 			Fx core = space.glow(cam, Fx.BLOB, 1.0F);
-			core.sprite(new Vector3f(0, 0, 0.3F), 0.4F + 1.1F * glow, 0, Fx.argb(0.85F, 0.92F, 1.0F, glow));
-			core.end(true, 3.0F);
+			core.sprite(new Vector3f(0, 0, 0.3F), 0.22F + 0.45F * glow, 0, Fx.argb(0.85F, 0.92F, 1.0F, glow));
+			core.end(true, 2.0F);
 			Fx flare = space.glow(cam, Fx.SPIKES, 0);
-			flare.sprite(new Vector3f(0, 0, 0.3F), 0.8F + 2.5F * blast, 0, Fx.argb(1.0F, 0.95F, 0.9F, blast));
+			flare.sprite(new Vector3f(0, 0, 0.3F), 0.5F + 1.3F * blast, 0, Fx.argb(1.0F, 0.95F, 0.9F, blast));
 			flare.end(true, 4.0F);
 		}
 	}
@@ -796,12 +811,17 @@ final class Shots {
 	// =============================================================================================
 
 	private void debris(double s, Overlay o) {
+		// Scene time slows almost to a stop around the rock, then picks up again.
+		double scene = beltTime(s);
+		double sinceHit = scene - beltTime(ROCK_HIT);
+		boolean slow = beltRate(s) < 0.5;
 		float orbitCam = (float) (s * 0.012);
-		Vector3f eye = new Vector3f(0.95F, 0.62F, -3.5F).rotateZ(orbitCam);
-		float strike = (float) Math.exp(-Math.pow((s - ROCK_HIT) / 0.6, 2.0));
-		float jolt = s > ROCK_HIT ? (float) Math.exp(-(s - ROCK_HIT) / 2.0) * 0.06F : 0.0F;
+		float aside = (float) Math.exp(-Math.pow((s - ROCK_HIT) / 3.5, 2.0));
+		Vector3f eye = new Vector3f(0.95F, 0.62F, -3.5F).rotateZ(orbitCam).lerp(new Vector3f(1.55F, 0.5F, 1.4F), aside);
+		float strike = (float) Math.exp(-Math.pow(sinceHit / 0.6, 2.0));
+		float jolt = sinceHit > 0 ? (float) Math.exp(-sinceHit / 2.0) * 0.06F : 0.0F;
 		eye.add(noise(s * 9.0) * jolt, noise(s * 8.0 + 3.0) * jolt, 0);
-		localCamera(eye, new Vector3f(0, 0, 2.5F), orbitCam * 0.4F, 60.0F);
+		localCamera(eye, new Vector3f(0, 0, 2.5F + 0.8F * aside), orbitCam * 0.4F * (1.0F - aside), 60.0F - 8.0F * aside);
 		float beta = 0.9612F + 0.0112F * (float) (s / 26.0);
 		space.sky(cam, LOCAL_SKY, 0.55F, beta * 0.6F, new Vector3f(0, 0, 1), 0.08F, 0, 0, time);
 
@@ -813,7 +833,7 @@ final class Shots {
 
 		Space.clearDepth();
 		random.setSeed(4404L);
-		double travel = s * 13.0;
+		double travel = scene * 13.0;
 		Fx sparks = null;
 		for (int i = 0; i < 230; i++) {
 			double radius = 1.6 + Math.pow(random.nextDouble(), 0.6) * 34.0;
@@ -837,7 +857,7 @@ final class Shots {
 		if (sparks != null) {
 			sparks.end(true);
 		}
-		rockStrike(s);
+		rockStrike(s, sinceHit);
 
 		// The bare spear now, the blade warm from the muzzle.
 		space.pointPos.set(0, 0, 5.0F * ROUND_SCALE + 1.0F);
@@ -853,7 +873,9 @@ final class Shots {
 		o.headerReveal = smooth((s - 1) / 5.0);
 		long range = (long) (843_406_388.0 * Math.pow(1.0 - s / 26.0, 3.0) + 604_785.0 * (s / 26.0));
 		o.footer = "RANGE " + Feed.commas(range) + " KM";
-		o.footerSmall = String.format(Locale.ROOT, "VELOCITY %.4f c", beta);
+		o.footerSmall = slow ? String.format(Locale.ROOT, "VELOCITY %.4f c · HIGH-SPEED · 1/400", beta)
+				: String.format(Locale.ROOT, "VELOCITY %.4f c", beta);
+		o.shutter = slow ? 0.0F : 0.6F;
 		o.zoomBlur = 0.08F;
 		o.aberration = 0.006F + strike * 0.02F;
 		o.exposure = 1.0F + 2.5F * strike;
@@ -864,21 +886,36 @@ final class Shots {
 	/** Ticks into the belt at which a rock sits squarely in the round's path. */
 	private static final double ROCK_HIT = 10.0;
 
+	/** How fast scene time runs in the belt, ticks of scene time per tick: nearly stopped at the rock. */
+	private static double beltRate(double s) {
+		return 1.0 - 0.93 * Math.exp(-Math.pow((s - ROCK_HIT) / 2.2, 2.0));
+	}
+
+	/** Scene time {@code s} ticks into the belt (the integral of {@link #beltRate}). */
+	private static double beltTime(double s) {
+		int steps = 48;
+		double h = Math.max(s, 0.0) / steps;
+		double sum = 0.0;
+		for (int i = 0; i < steps; i++) {
+			sum += beltRate((i + 0.5) * h);
+		}
+		return sum * h;
+	}
+
 	/**
 	 * A boulder dead ahead, and what is left of it after the round goes through: a flash, a ball of vaporised rock
 	 * glowing and spreading, and shards thrown out and streaming back past the camera.
 	 */
-	private void rockStrike(double s) {
+	private void rockStrike(double s, double since) {
 		double travel = 13.0;
 		float nose = 5.0F * ROUND_SCALE;
-		if (s < ROCK_HIT) {
-			float z = nose + (float) ((ROCK_HIT - s) * travel);
+		if (since < 0) {
+			float z = nose + (float) (-since * travel);
 			Matrix4f rock = new Matrix4f().translation(0.0F, 0.05F, z).rotate((float) (s * 0.04), new Vector3f(0.3F, 1.0F, 0.2F).normalize())
 					.scale(0.9F);
 			space.mesh(space.rocks[2], cam, rock, DEBRIS_SUN, 1.6F, 0, 0, 0);
 			return;
 		}
-		double since = s - ROCK_HIT;
 		// Everything the rock was keeps its own speed, so in the round's frame it streams back past the camera.
 		float back = (float) (since * travel);
 		float fade = (float) Math.exp(-since / 3.0);
@@ -954,7 +991,7 @@ final class Shots {
 		if (heat > 0.01F) {
 			Vector3f tip = new Vector3f(roundPos).add(new Vector3f(down).mul(body * 5.0F));
 			Matrix4f sheath = new Matrix4f().translation(roundPos).rotateTowards(down, new Vector3f(NORTH))
-					.translate(0, 0, body * 5.4F).scale(body * 3.4F, body * 3.4F, body * 14.0F);
+					.translate(0, 0, body * 5.4F).scale(body * 2.6F, body * 2.6F, body * 9.0F);
 			space.plasma(space.cone, cam, sheath, time * 0.05F, heat * 1.15F, 0.35F + heat * 0.65F, new Vector3f(0, 0, -6.0F), 1.0F);
 			// The cap of air at the point, compressed white-hot.
 			Fx cap = space.glow(cam, Fx.BLOB, 1.0F);

@@ -163,7 +163,7 @@ def build_round():
         if 2.13 <= zz <= 2.42:
             return 1.0
         if zz < -4.97:
-            return 1.0
+            return 0.35  # the tracer: a small ember, not a lamp
         return 0.0
 
     profile = [(2.56, 0.0), (2.56, 0.2), (2.52, 0.235), (2.46, 0.235), (2.43, 0.215), (2.42, 0.212), (2.13, 0.212),
