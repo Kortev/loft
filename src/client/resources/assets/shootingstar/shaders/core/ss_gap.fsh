@@ -124,33 +124,32 @@ float speedLines(vec2 uv) {
     return on * step(start, r) * step(across, width * smoothstep(start, start + 0.6, r));
 }
 
-// Broken glass round the point of contact: the edges of cells laid out in rings and spokes.
+// Cracks running out from the point of contact: a dozen jagged lines that wander as they go, with a few branches.
 float cracks(vec2 uv) {
     vec2 p = (uv - Focus) * vec2(ScreenSize.x / ScreenSize.y, 1.0);
     float r = length(p);
-    if (r > 0.75) {
+    if (r > 1.1 || r < 0.01) {
         return 0.0;
     }
-    vec2 q = vec2(log(r + 0.02) * 4.0, atan(p.y, p.x) / PI * 6.0) + Seed;
-    vec2 cell = floor(q);
-    vec2 f = fract(q);
-    float best = 8.0;
-    float second = 8.0;
-    for (int j = -1; j <= 1; j++) {
-        for (int i = -1; i <= 1; i++) {
-            vec2 o = vec2(float(i), float(j));
-            vec2 c = o + vec2(hash2(cell + o), hash2(cell + o + 7.3)) * 0.9;
-            float d = length(f - c);
-            if (d < best) {
-                second = best;
-                best = d;
-            } else if (d < second) {
-                second = d;
-            }
-        }
+    float a = atan(p.y, p.x);
+    float line = 0.0;
+    for (int i = 0; i < 14; i++) {
+        float fi = float(i);
+        float base = (fi + 0.6 * hash(fi + Seed)) / 14.0 * 2.0 * PI;
+        float steps = r * 7.0;
+        float seg = floor(steps);
+        float drift = mix(hash(seg + fi * 13.0 + Seed) - 0.5, hash(seg + 1.0 + fi * 13.0 + Seed) - 0.5, fract(steps)) * 0.5;
+        float da = abs(mod(a - base - drift + PI, 2.0 * PI) - PI);
+        float width = (0.0035 + 0.006 * (1.0 - min(r, 1.0))) / r;
+        float reach = 0.3 + 0.75 * hash(fi * 7.0 + Seed);
+        line = max(line, step(da, width) * step(r, reach));
+        // A branch splitting off partway out.
+        float from = 0.12 + 0.3 * hash(fi * 3.0 + Seed);
+        float turn = (hash(fi * 5.0 + Seed) - 0.5) * 0.9;
+        float bd = abs(mod(a - base - drift - turn * clamp((r - from) * 3.0, 0.0, 1.0) + PI, 2.0 * PI) - PI);
+        line = max(line, step(bd, width * 0.7) * step(from, r) * step(r, from + 0.25));
     }
-    float line = 1.0 - smoothstep(0.0, 0.06 + 0.05 * (1.0 - r), second - best);
-    return line * smoothstep(0.75, 0.25, r);
+    return line;
 }
 
 float slab(vec2 uv) {

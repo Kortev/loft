@@ -27,12 +27,10 @@ void main() {
     if (ClipMode == 2 && worldY < ClipY) {
         discard;
     }
-    // Torn off in whole blocks along a jagged, squarish outline.
+    // Torn off in whole blocks along a ragged, squarish outline: chunks of it missing, never round.
     vec2 cell = floor(localPos.xz) + 0.5;
-    float a = atan(cell.y, cell.x);
-    float reach = Radius * (0.8 + 0.1 * hash(vec2(floor(a * 7.0), 3.0)) + 0.08 * hash(vec2(floor(a * 23.0), 7.0)));
-    float metric = mix(length(cell), max(abs(cell.x), abs(cell.y)), 0.55);
-    if (metric > reach) {
+    float metric = max(abs(cell.x), abs(cell.y)) + 9.0 * hash(floor(cell / 7.0)) + 3.0 * hash(floor(cell / 2.0) + 17.0);
+    if (metric > Radius * 0.92) {
         discard;
     }
     vec3 c = vertexColor.rgb;

@@ -35,6 +35,9 @@ public final class ClientGap {
 	@Nullable
 	public MirrorWorld mirror;
 	public boolean mirrorBuilt;
+	/** Where the wide shot stands, found once so it can see the target over the hills. */
+	@Nullable
+	public Vec3d wideEye;
 	public final List<Swap> swaps = new ArrayList<>();
 
 	public ClientGap(int id, BlockPos target, UUID shooter, boolean mine, int age, int radius, boolean terrain, BlockPos swapSpot,

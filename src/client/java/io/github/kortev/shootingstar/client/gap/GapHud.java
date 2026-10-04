@@ -69,10 +69,10 @@ public final class GapHud {
 			} else {
 				footer(ctx, font, w, h, gapReadout(t), 1.0F);
 			}
-			if (t >= 248 && t < 292) {
+			if (t >= 248 && t < 294) {
 				boolean swapped = t >= GapTimeline.TREE_SWAP;
-				Vec3d ours = Vec3d.ofBottomCenter(gap.swapSpot).add(0, 4, 0);
-				Vec3d theirs = new Vec3d(ours.x, gap.mirrorY(gap.swapSpot.getY() + 4, t), ours.z);
+				Vec3d ours = Vec3d.ofBottomCenter(gap.swapSpot.up()).add(0, gap.tree ? 3.0 : 0.3, 0);
+				Vec3d theirs = new Vec3d(ours.x, gap.mirrorY(gap.swapSpot.getY() + (gap.tree ? 3 : 0), t) + 0.5, ours.z);
 				float a = (float) ease((t - 252) / 6.0);
 				String noun = gap.tree ? "TREE" : "GROUND";
 				Vector3f po = WorldProjector.project(ours.x, ours.y, ours.z, w, h);
@@ -89,8 +89,8 @@ public final class GapHud {
 					caption(ctx, font, w, h, typed("CLOSE ENOUGH TO SWAP MATTER", (t - GapTimeline.TREE_SWAP) / 12.0), 1.0F);
 				}
 			}
-			if (t >= 292) {
-				caption(ctx, font, w, h, "BLOCKS SWAPPING ALL OVER THE MAP", (float) (ease((t - 292) / 4.0) * (1.0 - ease((t - 304) / 5.0))));
+			if (t >= 294) {
+				caption(ctx, font, w, h, "BLOCKS SWAPPING ALL OVER THE MAP", (float) (ease((t - 294) / 4.0) * (1.0 - ease((t - 305) / 4.0))));
 			}
 		} else if (t < GapTimeline.FRAMES) {
 			float a = (float) ease((t - GapTimeline.CONTACT) / 3.0);

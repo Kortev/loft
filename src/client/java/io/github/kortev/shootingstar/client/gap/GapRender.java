@@ -109,13 +109,20 @@ public final class GapRender {
 
 	// --- the mirror universe -------------------------------------------------------------
 
+	private static boolean loggedContact;
+
 	private static void drawMirror(ClientGap gap, double t, Vec3d cam, Matrix4f view, Matrix4f proj, int clip) {
 		MirrorWorld m = gap.mirror;
+		if (clip == 1 && !loggedContact && t >= GapTimeline.CONTACT) {
+			loggedContact = true;
+			io.github.kortev.shootingstar.ShootingStar.LOGGER.info("Ginnungagap #{} at contact: camera {}, lift {}, mirror placed at y {}, came through below {}",
+					gap.id, cam, gap.lift(t), m.surface + gap.lift(t), gap.surface + GapTimeline.through(t));
+		}
 		float ox = (float) (m.originX - cam.x);
 		float oy = (float) (m.surface + gap.lift(t) - cam.y);
 		float oz = (float) (m.originZ - cam.z);
 		Shaders.set(Shaders.mirror, "Offset", ox, oy, oz);
-		Shaders.set(Shaders.mirror, "ClipY", (float) (gap.tearY() - cam.y));
+		Shaders.set(Shaders.mirror, "ClipY", (float) (gap.surface + GapTimeline.through(t) - cam.y));
 		Shaders.setInt(Shaders.mirror, "ClipMode", clip);
 		Shaders.set(Shaders.mirror, "Radius", (float) MirrorWorld.RADIUS);
 		Shaders.set(Shaders.mirror, "Glow", (float) (0.35 + 0.65 * GapCamera.ease((t - GapTimeline.CLOSING) / 110.0)));
@@ -151,7 +158,7 @@ public final class GapRender {
 	/** The tear in the sky over the target, and through it the other universe's sky, its black sun and its ground. */
 	private static void drawTear(ClientGap gap, double t, Vec3d cam, Matrix4f view, Matrix4f proj, Framebuffer main, int w, int h,
 			Vector3f right, Vector3f up) {
-		Vec3d[] outline = outline(gap, t);
+		Vec3d[] outline = outline(gap, t, right, up);
 		Vec3d centre = new Vec3d(gap.contact.x, gap.tearY(), gap.contact.z);
 
 		PORTAL.begin(w, h, OTHER_SKY[0], OTHER_SKY[1], OTHER_SKY[2], 1.0F);
@@ -176,10 +183,11 @@ public final class GapRender {
 		Post.draw(b, GameRenderer.getPositionColorProgram(), view, proj);
 		drawMirror(gap, t, cam, view, proj, 0);
 
-		// The hole itself, in our sky: a fan of triangles showing whatever the portal saw.
+		// The hole itself, in our sky: a fan of triangles showing whatever the portal saw. It writes no depth, so
+		// what has already come through draws over it.
 		main.beginWrite(true);
 		RenderSystem.enableDepthTest();
-		RenderSystem.depthMask(true);
+		RenderSystem.depthMask(false);
 		RenderSystem.disableCull();
 		RenderSystem.disableBlend();
 		RenderSystem.setShaderTexture(0, PORTAL.color());
@@ -195,6 +203,7 @@ public final class GapRender {
 		}
 		Post.draw(fan, Shaders.portal, view, proj);
 		RenderSystem.setShaderTexture(0, 0);
+		RenderSystem.depthMask(true);
 
 		// Its torn edge, white hot.
 		BATCH.begin(Fx.LINE, 0.0F, view, proj, right, up);
@@ -208,11 +217,16 @@ public final class GapRender {
 		BATCH.end(true, 1.6F);
 	}
 
-	/** The tear's outline: a long, ragged rift along the shooter's line, sawtoothed on both lips, pointed at the ends. */
-	static Vec3d[] outline(ClientGap gap, double t) {
+	/**
+	 * The tear's outline: a long, ragged rift across the sky over the target, sawtoothed on both lips and pointed
+	 * at the ends. It always faces the camera, like a crack in the picture itself.
+	 */
+	static Vec3d[] outline(ClientGap gap, double t, Vector3f right, Vector3f up) {
 		double length = GapTimeline.tearLength(t);
 		double width = GapTimeline.tearWidth(t);
 		Vec3d centre = new Vec3d(gap.contact.x, gap.tearY(), gap.contact.z);
+		Vec3d across = new Vec3d(right.x, right.y, right.z).normalize();
+		Vec3d along = new Vec3d(up.x, up.y, up.z).normalize();
 		Vec3d[] pts = new Vec3d[TEAR_POINTS * 2];
 		for (int side = 0; side < 2; side++) {
 			for (int i = 0; i < TEAR_POINTS; i++) {
@@ -220,7 +234,7 @@ public final class GapRender {
 				double taper = Math.pow(Math.max(0.0, 1.0 - u * u), 0.55);
 				double jag = (i % 2 == 0 ? 1.0 : 0.7) * (0.7 + 0.45 * noise(gap.id, side * 1000 + i));
 				double v = (side == 0 ? 1.0 : -1.0) * width * taper * jag;
-				pts[side * TEAR_POINTS + i] = centre.add(gap.along.multiply(u * length)).add(gap.across.multiply(v));
+				pts[side * TEAR_POINTS + i] = centre.add(across.multiply(u * length)).add(along.multiply(v));
 			}
 		}
 		return pts;

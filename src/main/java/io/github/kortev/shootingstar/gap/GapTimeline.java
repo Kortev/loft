@@ -27,8 +27,8 @@ public final class GapTimeline {
 	public static final int NOTHING = 620;
 	public static final int END = 800;
 
-	/** Height of the tear above the target's surface, in blocks. */
-	public static final double TEAR_HEIGHT = 70.0;
+	/** Height of the middle of the tear above the target's surface, in blocks. */
+	public static final double TEAR_HEIGHT = 62.0;
 	/** Depth of the inverted mountain that hangs from the mirror universe towards the target. */
 	public static final int PEAK = 36;
 	/** How far the mirror's tip presses into the ground through the impact frames. */
@@ -45,9 +45,10 @@ public final class GapTimeline {
 	 * the mountain's tip at s0 + lift − PEAK, so at {@link #CONTACT} the lift is exactly {@link #PEAK}.
 	 */
 	public static double lift(double t) {
-		double hover = TEAR_HEIGHT + PEAK + 6.0;
+		// Hanging in the middle of the tear while it opens, mountain first.
+		double hover = TEAR_HEIGHT + PEAK;
 		if (t < CLOSING) {
-			return hover + 18.0 * (1.0 - smooth((t - TEAR) / (CLOSING - TEAR)));
+			return hover + 14.0 * (1.0 - smooth((t - TEAR) / (CLOSING - TEAR)));
 		}
 		if (t < CONTACT) {
 			double p = (t - CLOSING) / (CONTACT - CLOSING);
@@ -58,12 +59,17 @@ public final class GapTimeline {
 
 	/** Half the tear's length along its long axis, in blocks. */
 	public static double tearLength(double t) {
-		return 2.0 + 58.0 * smooth((t - TEAR) / 50.0) + 60.0 * smooth((t - CLOSING) / 70.0);
+		return 2.0 + 70.0 * smooth((t - TEAR) / 50.0) + 70.0 * smooth((t - CLOSING) / 80.0);
 	}
 
 	/** Half the tear's width across its long axis, in blocks. */
 	public static double tearWidth(double t) {
-		return 0.4 + 21.6 * smooth((t - TEAR) / 50.0) + 50.0 * smooth((t - CLOSING) / 70.0);
+		return 0.4 + 23.6 * smooth((t - TEAR) / 50.0) + 36.0 * smooth((t - CLOSING) / 80.0);
+	}
+
+	/** Below this height (over the target's surface) the mirror universe has come through the tear into our sky. */
+	public static double through(double t) {
+		return TEAR_HEIGHT - 0.78 * tearWidth(t);
 	}
 
 	/** Manhattan distance in blocks from the contact block that has been erased by tick {@code t}. */

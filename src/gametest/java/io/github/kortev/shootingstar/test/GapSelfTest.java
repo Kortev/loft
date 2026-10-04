@@ -15,7 +15,9 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.util.ScreenshotRecorder;
+import net.minecraft.block.Blocks;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.server.integrated.IntegratedServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
@@ -95,11 +97,6 @@ public class GapSelfTest implements ClientModInitializer {
 		ticks++;
 		IntegratedServer server = client.getServer();
 		ClientPlayerEntity self = client.player;
-		if (self != null && stage.ordinal() >= Stage.SETTLE.ordinal() && stage.ordinal() < Stage.AFTER.ordinal()
-				&& self.getAbilities().allowFlying && !self.getAbilities().flying) {
-			self.getAbilities().flying = true;
-			self.sendAbilitiesUpdate();
-		}
 		switch (stage) {
 			case WAIT_WORLD -> {
 				if (client.world != null && client.player != null && server != null) {
@@ -168,6 +165,14 @@ public class GapSelfTest implements ClientModInitializer {
 					ShootingStar.LOGGER.info("[selftest] letting reality back in");
 					client.interactionManager.interactItem(client.player, Hand.MAIN_HAND);
 				}
+				if (ticks == 50) {
+					server.execute(() -> {
+						ServerPlayerEntity player = server.getPlayerManager().getPlayerList().get(0);
+						player.changeGameMode(GameMode.CREATIVE);
+						player.getAbilities().flying = true;
+						player.sendAbilitiesUpdate();
+					});
+				}
 				if (ticks == 60) {
 					server.execute(() -> lookFrom(server, target.getX(), target.getZ() - r * 3 / 2, 70, Vec3d.ofCenter(target)));
 				}
@@ -200,10 +205,17 @@ public class GapSelfTest implements ClientModInitializer {
 		world.getGameRules().get(GameRules.DO_MOB_SPAWNING).set(false, server);
 		world.setTimeOfDay(5000);
 		world.setWeather(12000, 0, false, false);
-		player.changeGameMode(GameMode.CREATIVE);
-		player.getAbilities().flying = true;
-		player.sendAbilitiesUpdate();
+		// On foot and in survival, so the hotbar, hearts, hunger and experience are all there at the end.
+		player.changeGameMode(GameMode.SURVIVAL);
 		player.getInventory().setStack(0, new ItemStack(ModItems.GENESIS_KEY));
+		player.getInventory().setStack(1, new ItemStack(Items.DIAMOND_SWORD));
+		player.getInventory().setStack(2, new ItemStack(Items.DIAMOND_PICKAXE));
+		player.getInventory().setStack(3, new ItemStack(Items.ENDER_PEARL, 16));
+		player.getInventory().setStack(4, new ItemStack(Items.BREAD, 12));
+		player.getInventory().setStack(5, new ItemStack(Items.GRASS_BLOCK, 64));
+		player.getInventory().setStack(6, new ItemStack(Items.TORCH, 32));
+		player.getInventory().setStack(7, new ItemStack(Items.WATER_BUCKET));
+		player.setExperienceLevel(30);
 
 		BlockPos spawn = world.getSpawnPos();
 		double bestScore = Double.MAX_VALUE;
@@ -219,11 +231,17 @@ public class GapSelfTest implements ClientModInitializer {
 		}
 		double x = spawn.getX() + 0.5;
 		double z = spawn.getZ() + 0.5;
-		double eye = Math.max(top(world, spawn.getX(), spawn.getZ()) + 2.0, target.getY() + 6.0);
-		for (int i = 0; i < 100 && !keyReaches(world, new Vec3d(x, eye, z), target); i++) {
-			eye += 2.0;
+		// Stand on the ground; if the target cannot be seen from there, stand on a pillar tall enough to see it.
+		int ground = top(world, spawn.getX(), spawn.getZ());
+		int feet = ground;
+		while (feet < ground + 60 && !keyReaches(world, new Vec3d(x, feet + player.getStandingEyeHeight(), z), target)) {
+			feet++;
 		}
-		look(server, x, eye - player.getStandingEyeHeight(), z, Vec3d.ofCenter(target));
+		for (int y = ground; y < feet; y++) {
+			world.setBlockState(new BlockPos(spawn.getX(), y, spawn.getZ()), Blocks.STONE.getDefaultState());
+		}
+		double eye = feet + player.getStandingEyeHeight();
+		look(server, x, feet, z, Vec3d.ofCenter(target));
 		ShootingStar.LOGGER.info("[selftest] eye at {} {} {} aiming at {}", x, eye, z, target);
 	}
 

@@ -1,5 +1,6 @@
 package io.github.kortev.shootingstar.client.gap;
 
+import io.github.kortev.shootingstar.ShootingStar;
 import io.github.kortev.shootingstar.gap.GapTimeline;
 import net.minecraft.block.BlockState;
 import net.minecraft.client.gl.ShaderProgram;
@@ -22,11 +23,12 @@ import org.joml.Matrix4f;
  * height −(y − s0) and the whole thing is placed by lifting it {@code s0 + lift} (see {@link ClientGap#mirrorY}).
  */
 public final class MirrorWorld implements AutoCloseable {
-	public static final int RADIUS = 72;
+	public static final int RADIUS = 88;
 	/** Trees and buildings taller than this over the ground are cut off. */
 	private static final int MAX_ABOVE = 40;
 	private static final int DEPTH = 6;
-	private static final int MOUNTAIN_SPREAD = 50;
+	/** How far out from the target the inverted mountain reaches, in blocks. */
+	private static final double MOUNTAIN_REACH = 19.0;
 	// Pre-mirror face directions: +y, -y, +x, -x, +z, -z.
 	private static final int[][] DIRS = {{0, 1, 0}, {0, -1, 0}, {1, 0, 0}, {-1, 0, 0}, {0, 0, 1}, {0, 0, -1}};
 	private static final float[] SHADE = {1.0F, 0.5F, 0.72F, 0.72F, 0.84F, 0.84F};
@@ -49,9 +51,27 @@ public final class MirrorWorld implements AutoCloseable {
 		return faces;
 	}
 
-	/** Height in blocks of the inverted mountain over a column {@code d} blocks from the target. */
-	public static int mountain(double d) {
-		return (int) Math.round(GapTimeline.PEAK * Math.exp(-d * d / MOUNTAIN_SPREAD));
+	/**
+	 * Height in blocks of the inverted mountain over the column (dx, dz) from the target: a blocky, lopsided spike
+	 * that comes to a single block at the target, squarish in plan and ragged at its edges, never a cone.
+	 */
+	public static int mountain(int dx, int dz) {
+		if (dx == 0 && dz == 0) {
+			return GapTimeline.PEAK;
+		}
+		int ax = Math.abs(dx);
+		int az = Math.abs(dz);
+		double m = Math.max(ax, az) + 0.45 * Math.min(ax, az) + 2.2 * jitter(dx >> 1, dz >> 1) + 0.9 * jitter(dx, dz);
+		double k = 1.0 - m / MOUNTAIN_REACH;
+		return k <= 0.0 ? 0 : (int) Math.round((GapTimeline.PEAK - 1) * Math.pow(k, 1.6));
+	}
+
+	private static double jitter(int a, int b) {
+		long h = a * 0x9E3779B97F4A7C15L + b * 0xC2B2AE3D27D4EB4FL;
+		h ^= h >>> 29;
+		h *= 0xBF58476D1CE4E5B9L;
+		h ^= h >>> 32;
+		return (h >>> 11) * 0x1.0p-53;
 	}
 
 	public static MirrorWorld build(ClientWorld world, ClientGap gap) {
@@ -81,10 +101,11 @@ public final class MirrorWorld implements AutoCloseable {
 					continue;
 				}
 				int t =Math.min(world.getTopY(Heightmap.Type.WORLD_SURFACE, cx + dx, cz + dz) - 1, g + MAX_ABOVE);
-				int h = mountain(Math.sqrt(dx * dx + dz * dz));
+				// The mountain is anchored to our surface at the target, so its tip lands exactly on it at contact.
+				int h = mountain(dx, dz);
 				ground[c] = g;
-				tops[c] = Math.max(t, g + h);
-				peaks[c] = h;
+				peaks[c] = h > 0 ? s0 - 1 + h : Integer.MIN_VALUE;
+				tops[c] = Math.max(t, h > 0 ? s0 - 1 + h : t);
 				ymin = Math.min(ymin, g - DEPTH);
 				ymax = Math.max(ymax, tops[c]);
 			}
@@ -103,9 +124,9 @@ public final class MirrorWorld implements AutoCloseable {
 				int g = ground[c];
 				for (int y = g - DEPTH; y <= tops[c]; y++) {
 					int idx = (c * height) + (y - ymin);
-					if (y > g && y <= g + peaks[c]) {
-						// The mountain: grown from our ground before the whole thing is turned upside down.
-						boolean tip = y == g + peaks[c];
+					if (y > g && y <= peaks[c]) {
+						// The mountain: grown up from our ground before the whole thing is turned upside down.
+						boolean tip = y == peaks[c];
 						cells[idx] = 0x1000000 | noisy(tip ? 0x3BE8E2 : 0x1C6C77, x, y, z, 0.08F);
 						continue;
 					}
@@ -160,6 +181,9 @@ public final class MirrorWorld implements AutoCloseable {
 			VertexBuffer.unbind();
 		}
 		allocator.close();
+		int centre = RADIUS * size + RADIUS;
+		ShootingStar.LOGGER.info("Ginnungagap #{}: mirror over {} {} {}: ground {} top {} peak top {}, so the tip sits at {} at contact (s0 {})",
+				gap.id, cx, s0, cz, ground[centre], tops[centre], peaks[centre], 2 * s0 + GapTimeline.PEAK - peaks[centre] - 1, s0);
 		return new MirrorWorld(vb, faces, cx, cz, s0);
 	}
 
