@@ -85,6 +85,14 @@
       "values": [
         3.0
       ]
+    },
+    {
+      "name": "Pass",
+      "type": "float",
+      "count": 1,
+      "values": [
+        1.0
+      ]
     }
   ]
 }

@@ -1,15 +1,18 @@
 #version 150
 
-// Cel-shaded puffs of fire, smoke and dust, drawn like the impact frames: a hard, lumpy cartoon-cloud outline with an
-// ink line, flat light and shadow bands, and fire in flat bands from a white-hot core out to a red rim. A dying puff
-// breaks into pieces and shrinks away instead of going transparent. Blended premultiplied over the scene and cut
-// softly where it meets the terrain.
+// Cel-shaded puffs of fire, smoke and dust, drawn like the impact frames: hard, lumpy cartoon-cloud shapes, flat light
+// and shadow bands, and fire in flat bands from a white-hot core out to a red rim. A dying puff breaks into pieces and
+// shrinks away instead of going transparent. Drawn in two passes: first every puff a little fatter in ink, then every
+// puff's fill over the top, so the ink line only shows round the outside of each cloud (a trail reads as one tube,
+// not a string of beads). Blended premultiplied over the scene and cut softly where it meets the terrain.
 
 uniform sampler2D Sampler1;
 uniform vec2 ScreenSize;
 uniform float ProjA;
 uniform float ProjB;
 uniform float Softness;
+// 0: the ink pass (the puff fattened by the line's width, all ink); 1: the fill pass.
+uniform float Pass;
 
 // corner: -1..1 across the puff, turned with its spin; local: the same, upright on screen.
 in vec2 corner;
@@ -56,7 +59,9 @@ void main() {
     float holes = (fbm(p * 1.4 + 5.0) + length(corner) * 0.35 - left * 1.5) * 0.6;
     float s = max(outline, holes);
     float aa = fwidth(s) + 1.0e-4;
-    float inside = 1.0 - smoothstep(-aa, aa, s);
+    // The ink line, a couple of pixels wide (thinner on small, far puffs): the ink pass draws the puff this much fatter.
+    float line = min(aa * 2.4, 0.08);
+    float inside = 1.0 - smoothstep(-aa, aa, s - (Pass < 0.5 ? line : 0.0));
     if (inside <= 0.003) {
         discard;
     }
@@ -65,10 +70,6 @@ void main() {
     float scene = ProjB / (z + ProjA);
     float puff = ProjB / ((gl_FragCoord.z * 2.0 - 1.0) + ProjA);
     float soft = clamp((scene - puff) / Softness, 0.0, 1.0);
-
-    // An ink line a couple of pixels wide inside every edge, the holes' too; thinner on small, far puffs.
-    float line = min(aa * 2.2, 0.08);
-    float ink = smoothstep(-line - aa, -line + aa, s);
 
     // A ball's normal, bumped by the billows, cut into flat light, mid and shadow tones.
     vec2 q = local * 0.92;
@@ -81,12 +82,15 @@ void main() {
 
     // Fire in flat bands, white in the middle of the hottest puffs, shrinking into the middle as the puff cools.
     float heat = glow * (1.25 - length(local) * 1.1) * (0.75 + 0.5 * bump);
-    float burning = band(heat, 0.35);
-    vec3 fire = mix(vec3(0.95, 0.16, 0.04), vec3(1.0, 0.45, 0.07) * 2.0, band(heat, 0.55));
+    float burning = band(heat, 0.5);
+    vec3 fire = mix(vec3(0.95, 0.16, 0.04), vec3(1.0, 0.45, 0.07) * 2.0, band(heat, 0.68));
     fire = mix(fire, vec3(1.0, 0.8, 0.25) * 2.8, band(heat, 1.0));
     fire = mix(fire, vec3(1.0, 0.97, 0.86) * 4.0, band(heat, 1.75));
     color = mix(color, fire, burning);
-    color = mix(color, mix(INK, vec3(0.42, 0.06, 0.02), burning), ink);
+    if (Pass < 0.5) {
+        // Ink: near black round smoke and dust, a dark red round fire.
+        color = mix(INK, vec3(0.42, 0.06, 0.02), band(glow, 0.9));
+    }
 
     float a = inside * soft;
     fragColor = vec4(color * a, a);

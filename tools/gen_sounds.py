@@ -655,9 +655,17 @@ def lap_velocity(s):
     return 0.0183 + (0.9612 - 0.0183) * np.clip(s / LAPS_SECONDS, 0, 1)
 
 
+def coil_rate(s):
+    """Coils the round passes per second, s seconds into the laps: the feed's own rate for the barrel
+    (Shots.boreRate), so each coil's crack lands on the coil's flash."""
+    p = np.clip(s / LAPS_SECONDS, 0, 1)
+    return 20.0 * (0.25 + 9.75 * p ** 1.6)
+
+
 def feed_coils():
-    """The laps: the electromagnetic whine climbing with the round's speed and the coils firing faster and
-    faster until they blur into a roar."""
+    """The laps: each coil the round passes fires with a crack and a thump, one at a time at first, then
+    faster and faster until the hits run together into a buzz that climbs with the electromagnetic whine and
+    the roar of the barrel."""
     total = LAPS_SECONDS + 0.05
     n = ns(total)
     t = times(total)
@@ -665,18 +673,27 @@ def feed_coils():
     f = 160 + 1500 * v ** 1.2
     m = Mix(total)
     whine = sine(f * (1 + 0.004 * np.sin(2 * np.pi * 6 * t))) + 0.35 * sine(2 * f) + 0.2 * saw(f * 0.5, n)
-    m.add(stereo(whine * (0.25 + 0.75 * v)) * np.array([[1.0], [0.97]]), 0, 0.22)
-    # The coils: a pulse train whose rate follows the speed.
-    rate = 3 + 55 * v ** 1.1
+    m.add(stereo(whine * (0.15 + 0.85 * v)) * np.array([[1.0], [0.97]]), 0, 0.2)
+    # The coils, in step with the picture: a hit every time the round passes one. Each hit decays in a fixed
+    # time, so the first ones are separate cracks and the later ones overlap into a buzz at the coil rate.
+    rate = coil_rate(t)
     phase = np.cumsum(rate) / SR
-    pulse = np.exp(-((phase % 1.0) * 6) ** 1.0)
-    thump = lp(white(n) * 0.4 + saw(np.full(n, 120.0), n), 600) * pulse
-    m.add(pan(thump, 0.25 * np.sin(2 * np.pi * phase / 2)), 0, 0.5)
+    since = (phase % 1.0) / rate
+    k = np.floor(phase)
+    thump = np.sin(2 * np.pi * (55 + 40 * np.exp(-since / 0.02)) * since) * np.exp(-since / 0.045)
+    crack = hp(white(n), 2400) * np.exp(-since / 0.005)
+    ring = np.sin(2 * np.pi * 1850 * since + k) * np.exp(-since / 0.03) * 0.5
+    # Early hits ring out on their own; once they run together the buzz takes over and they thin.
+    alone = np.clip(1.4 - rate / 60.0, 0.25, 1.0)
+    hits = (thump * 0.9 + crack * 0.55 + ring * 0.4) * alone
+    m.add(pan(hits, 0.2 * np.sin(2 * np.pi * phase / 7.0)), 0, 0.6)
+    buzz = lp(saw(rate, n), 2500) * np.clip((rate - 40) / 120.0, 0, 1)
+    m.add(stereo(buzz), 0, 0.12)
     roar = decorrelated(n, pink)
     roar = np.vstack([sweep_filter(c, 'lowpass', 300 + 4500 * v ** 1.5, order=2) for c in roar]) * v ** 1.5
     m.add(roar, 0, 0.5)
-    m.add(grains(n, lambda s: 2 + 60 * lap_velocity(s), spark_zap, spread=1.0), 0, 0.25)
-    out = m.out() * curve(n, [(0, 0), (0.15, 1), (total - 0.05, 1), (total, 0)])
+    m.add(grains(n, lambda s: 1 + 40 * lap_velocity(s), spark_zap, spread=1.0), 0, 0.2)
+    out = m.out() * curve(n, [(0, 0), (0.01, 1), (total - 0.05, 1), (total, 0)])
     _, hall, _, _ = spaces()
     return master(reverb(out, hall, wet=0.2), peak=0.8, squash=0.3)
 

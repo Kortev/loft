@@ -549,7 +549,7 @@ public final class ImpactScene {
 		}
 		double front = front(age);
 		double speed = frontSpeed(age);
-		int n = (int) Math.max(6, 10 * Math.sqrt(scale));
+		int n = (int) Math.max(4, 7 * Math.sqrt(scale));
 		for (int i = 0; i < n; i++) {
 			double a = random.nextDouble() * Math.PI * 2;
 			double r = front + (random.nextDouble() - 0.5) * 4.0;
@@ -558,14 +558,14 @@ public final class ImpactScene {
 			int ground = world.getTopY(Heightmap.Type.MOTION_BLOCKING, MathHelper.floor(x), MathHelper.floor(z));
 			double y = Math.max(ground, center.y - radius * 0.2) + random.nextDouble() * 3.0;
 			float tone = 0.4F + random.nextFloat() * 0.12F;
-			Puff p = puff(x, y, z, (0.06 + random.nextDouble() * 0.06) * radius, tone, tone * 0.86F, tone * 0.72F, 0.38F,
+			Puff p = puff(x, y, z, (0.05 + random.nextDouble() * 0.05) * radius, tone, tone * 0.86F, tone * 0.72F, 0.38F,
 					120 + random.nextInt(120));
 			p.vx = Math.cos(a) * speed * 0.6;
 			p.vz = Math.sin(a) * speed * 0.6;
 			p.vy = 0.05 + random.nextDouble() * 0.12;
 			p.drag = 0.92F;
 			p.buoyancy = 0.002F;
-			p.growth = (float) (0.0019 * radius);
+			p.growth = (float) (0.0012 * radius);
 			p.glow = age < 12 ? 1.2F : 0.0F;
 			p.glowDecay = 0.9F;
 		}

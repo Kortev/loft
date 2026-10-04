@@ -556,6 +556,9 @@ public final class WorldFx {
 
 	// --- smoke -----------------------------------------------------------------------------
 
+	/** How much bigger a puff's quad is than the puff, in its shader's units (see ss_smoke). */
+	private static final float PUFF_MARGIN = 1.25F;
+
 	private static void drawSmoke(ClientWorld world, Vec3d cam, Matrix4f view, Matrix4f proj, Vector3f right, Vector3f up,
 			float tickDelta, int w, int h) {
 		List<PuffRef> all = new ArrayList<>();
@@ -573,48 +576,6 @@ public final class WorldFx {
 		// Back to front, so nearer smoke covers farther smoke.
 		all.sort((a, b) -> Double.compare(b.distance(), a.distance()));
 		float daylight = daylight(world, tickDelta);
-		BufferBuilder b = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR_NORMAL);
-		Vector3f rx = new Vector3f();
-		Vector3f uy = new Vector3f();
-		for (PuffRef ref : all) {
-			ImpactScene.Puff p = ref.puff();
-			ImpactScene scene = ref.scene();
-			float x = (float) (MathHelper.lerp(tickDelta, p.px, p.x) - cam.x);
-			float y = (float) (MathHelper.lerp(tickDelta, p.py, p.y) - cam.y);
-			float z = (float) (MathHelper.lerp(tickDelta, p.pz, p.z) - cam.z);
-			float size = MathHelper.lerp(tickDelta, p.prevSize, p.size);
-			float age = p.age + tickDelta;
-			float fadeIn = MathHelper.clamp(age / 4.0F, 0.0F, 1.0F);
-			float fadeOut = MathHelper.clamp((p.life - age) / (p.life * 0.35F), 0.0F, 1.0F);
-			// A puff right on top of the camera would fill the screen; thin it out instead.
-			float distance = (float) Math.sqrt(ref.distance());
-			float nearFade = MathHelper.clamp((distance - size * 0.3F) / (size * 1.2F), 0.0F, 1.0F);
-			// How much of the puff is left: it pops in, and breaks up and shrinks away instead of going transparent.
-			float a = fadeIn * fadeOut * nearFade;
-			if (a < 0.02F) {
-				continue;
-			}
-			// Daylight from above plus the fireball's orange light on the smoke around it.
-			double dx = x + cam.x - scene.center.x;
-			double dy = y + cam.y - scene.center.y;
-			double dz = z + cam.z - scene.center.z;
-			double fromFire = Math.sqrt(dx * dx + dy * dy + dz * dz) / Math.max(1.0, scene.radius * 1.6);
-			float fire = (float) (scene.domeIntensity(scene.age + tickDelta) * 0.5 * Math.max(0.0, 1.0 - fromFire));
-			float light = 0.35F + 0.75F * daylight;
-			float red = p.r * light + fire * 0.9F;
-			float green = p.g * light + fire * 0.42F;
-			float blue = p.b * light + fire * 0.12F;
-			rx.set(right).mul(size);
-			uy.set(up).mul(size);
-			// The normal's bytes carry the seed (0..1), the spin and the fire glow (over 4), each within -1..1.
-			float spin = p.spin * age * 0.004F;
-			float glow = p.glow * 0.25F;
-			float seed = p.seed * 0.1F;
-			vertex(b, x - rx.x - uy.x, y - rx.y - uy.y, z - rx.z - uy.z, -1, -1, red, green, blue, a, seed, spin, glow);
-			vertex(b, x + rx.x - uy.x, y + rx.y - uy.y, z + rx.z - uy.z, 1, -1, red, green, blue, a, seed, spin, glow);
-			vertex(b, x + rx.x + uy.x, y + rx.y + uy.y, z + rx.z + uy.z, 1, 1, red, green, blue, a, seed, spin, glow);
-			vertex(b, x - rx.x + uy.x, y - rx.y + uy.y, z - rx.z + uy.z, -1, 1, red, green, blue, a, seed, spin, glow);
-		}
 		RenderSystem.enableDepthTest();
 		RenderSystem.depthMask(false);
 		RenderSystem.disableCull();
@@ -626,7 +587,56 @@ public final class WorldFx {
 		Shaders.set(Shaders.smoke, "ProjA", projA(proj));
 		Shaders.set(Shaders.smoke, "ProjB", proj.m32());
 		Shaders.set(Shaders.smoke, "Softness", 1.5F);
-		Post.draw(b, Shaders.smoke, view, proj);
+		// Every puff in ink first, a little fatter, then every puff's fill over it: the ink only shows round the
+		// outside of each cloud.
+		for (int pass = 0; pass < 2; pass++) {
+			BufferBuilder b = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR_NORMAL);
+			Vector3f rx = new Vector3f();
+			Vector3f uy = new Vector3f();
+			for (PuffRef ref : all) {
+				ImpactScene.Puff p = ref.puff();
+				ImpactScene scene = ref.scene();
+				float x = (float) (MathHelper.lerp(tickDelta, p.px, p.x) - cam.x);
+				float y = (float) (MathHelper.lerp(tickDelta, p.py, p.y) - cam.y);
+				float z = (float) (MathHelper.lerp(tickDelta, p.pz, p.z) - cam.z);
+				float size = MathHelper.lerp(tickDelta, p.prevSize, p.size);
+				float age = p.age + tickDelta;
+				float fadeIn = MathHelper.clamp(age / 4.0F, 0.0F, 1.0F);
+				float fadeOut = MathHelper.clamp((p.life - age) / (p.life * 0.35F), 0.0F, 1.0F);
+				// A puff close to the camera would bury the picture: it breaks up and clears out of the way first.
+				float distance = (float) Math.sqrt(ref.distance());
+				float nearFade = MathHelper.clamp((distance - size * 0.8F) / (size * 2.0F), 0.0F, 1.0F);
+				// How much of the puff is left: it pops in, and breaks up and shrinks away instead of going transparent.
+				float a = fadeIn * fadeOut * nearFade;
+				if (a < 0.02F) {
+					continue;
+				}
+				// Daylight from above plus the fireball's orange light on the smoke around it.
+				double dx = x + cam.x - scene.center.x;
+				double dy = y + cam.y - scene.center.y;
+				double dz = z + cam.z - scene.center.z;
+				double fromFire = Math.sqrt(dx * dx + dy * dy + dz * dz) / Math.max(1.0, scene.radius * 1.6);
+				float fire = (float) (scene.domeIntensity(scene.age + tickDelta) * 0.5 * Math.max(0.0, 1.0 - fromFire));
+				float light = 0.35F + 0.75F * daylight;
+				float red = p.r * light + fire * 0.9F;
+				float green = p.g * light + fire * 0.42F;
+				float blue = p.b * light + fire * 0.12F;
+				// The quad is a quarter bigger than the puff so its billows and ink line never touch the edge.
+				rx.set(right).mul(size * PUFF_MARGIN);
+				uy.set(up).mul(size * PUFF_MARGIN);
+				// The normal's bytes carry the seed (0..1), the spin and the fire glow (over 4), each within -1..1.
+				float spin = p.spin * age * 0.004F;
+				float glow = p.glow * 0.25F;
+				float seed = p.seed * 0.1F;
+				float m = PUFF_MARGIN;
+				vertex(b, x - rx.x - uy.x, y - rx.y - uy.y, z - rx.z - uy.z, -m, -m, red, green, blue, a, seed, spin, glow);
+				vertex(b, x + rx.x - uy.x, y + rx.y - uy.y, z + rx.z - uy.z, m, -m, red, green, blue, a, seed, spin, glow);
+				vertex(b, x + rx.x + uy.x, y + rx.y + uy.y, z + rx.z + uy.z, m, m, red, green, blue, a, seed, spin, glow);
+				vertex(b, x - rx.x + uy.x, y - rx.y + uy.y, z - rx.z + uy.z, -m, m, red, green, blue, a, seed, spin, glow);
+			}
+			Shaders.set(Shaders.smoke, "Pass", (float) pass);
+			Post.draw(b, Shaders.smoke, view, proj);
+		}
 	}
 
 	private static void vertex(BufferBuilder b, float x, float y, float z, float u, float v, float r, float g, float bl, float a,
