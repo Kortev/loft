@@ -23,11 +23,12 @@ final class Shots {
 	private static final Vector3f EAST = new Vector3f(NORTH).cross(TARGET).normalize().negate();
 	private static final Vector3f EARTH_SUN = new Vector3f(TARGET).mul(0.62F).add(new Vector3f(EAST).mul(0.72F))
 			.add(new Vector3f(NORTH).mul(0.3F)).normalize();
-	/** Where the relay beam points: along the horizon, out towards Jupiter. */
-	private static final Vector3f TO_JUPITER = new Vector3f(EAST).mul(-0.8F).add(new Vector3f(NORTH).mul(0.55F))
-			.add(new Vector3f(TARGET).mul(0.12F)).normalize();
+	/** Where the relay beam points: along the horizon, out towards Jupiter, over the sunlit side. */
+	private static final Vector3f TO_JUPITER = new Vector3f(EAST).mul(0.85F).add(new Vector3f(NORTH).mul(0.4F))
+			.add(new Vector3f(TARGET).mul(0.1F)).normalize();
+	/** The relay rides a low orbit, so Earth fills the frame below it. */
 	private static final Vector3f RELAY_POS = new Vector3f(TARGET).mul(0.86F).add(new Vector3f(EAST).mul(-0.42F))
-			.add(new Vector3f(NORTH).mul(0.3F)).normalize().mul(1.32F);
+			.add(new Vector3f(NORTH).mul(0.3F)).normalize().mul(1.08F);
 	/** The galactic centre sits behind the climbing camera, so only the faint anticentre lies behind Earth. */
 	private static final Matrix4f EARTH_SKY = skyFrame(slerp(TARGET, new Vector3f(TARGET).mul(0.8F)
 			.add(new Vector3f(EAST).mul(-0.5F)).add(new Vector3f(NORTH).mul(-0.14F)).normalize(), 0.9F), NORTH);
@@ -195,7 +196,11 @@ final class Shots {
 		space.sky(cam, EARTH_SKY, 1.0F, 0, cam.forward(), warp * 0.9F, 0, 0, time);
 		space.earth(cam, new Matrix4f(), EARTH_SUN, time * 0.00005F, 0.0F, 1.05F);
 		Matrix4f satellite = new Matrix4f().translation(RELAY_POS).rotateTowards(TO_JUPITER, relayUp).scale(0.011F);
+		// Earthshine: the bright planet below lights the satellite's underside blue-white.
+		space.fillDir.set(relayUp).negate();
+		space.fillColor.set(0.28F, 0.33F, 0.4F);
 		space.mesh(space.relay, cam, satellite, EARTH_SUN, 1.15F, 0xFFD27A, 1.0F, 0);
+		space.fillColor.zero();
 
 		Vector3f emitter = new Vector3f(RELAY_POS).add(new Vector3f(TO_JUPITER).mul(0.0165F));
 		float charge = smooth((s - 5) / 3.0);
@@ -266,6 +271,16 @@ final class Shots {
 		space.sky(cam, JUPITER_SKY, 1.0F, 0, cam.forward(), 0, 0, 0, time);
 		float progress = smoother((s - 4) / 30.0);
 		jupiterScene(progress, 0.05F, 0.6F + 0.4F * (float) Math.sin(s * 0.3));
+		if (progress > 0.001F && progress < 0.999F) {
+			// The front of the wave of coils coming online, racing round the planet.
+			Vector3f front = ringPoint(progress * Math.PI * 2);
+			Fx head = space.glow(cam, Fx.SPIKES, 0);
+			head.sprite(front, 0.07F, (float) (s * 0.05), Fx.argb(1.0F, 0.9F, 0.75F, 1.0F));
+			head.end(true, 3.0F);
+			Fx halo = space.glow(cam, Fx.BLOB, 1.0F);
+			halo.sprite(front, 0.16F, 0, Fx.argb(1.0F, 0.55F, 0.2F, 0.6F));
+			halo.end(true, 1.5F);
+		}
 		o.zoomBlur = dive * 0.55F;
 
 		o.header = progress >= 0.999F ? "[ ACCELERATOR ONLINE ]" : "[ ACCELERATOR WAKING ]";
@@ -316,7 +331,11 @@ final class Shots {
 		float round = -7.0F + 7.0F * smoother(s / 10.0);
 		boolean locked = s >= 11;
 		float lockFlash = locked ? (float) Math.exp(-(s - 11) / 3.0) : 0;
-		breechScene(0.0, round, 1.0F + lockFlash * 2.5F, 0.0F);
+		breechScene(0.0, round, 1.0F + lockFlash * 2.5F, 0.0F, lockFlash * 4.0F);
+		if (lockFlash > 0.05F) {
+			// The breech coil takes hold of the sabot: a pulse through it and arcs to the copper bands.
+			arcs(round, lockFlash, 2);
+		}
 		o.zoomBlur = 0.55F * (1.0F - smooth(s / 4.0));
 		o.header = locked ? "[ BREECH LOCKED ]" : "[ LOADING ]";
 		o.headerColor = locked ? Feed.ORANGE : Feed.RED;
@@ -333,6 +352,11 @@ final class Shots {
 	 * {@code glow} is the coils' idle glow and {@code speed} (0..1) how hard they fire as the round goes through.
 	 */
 	private void breechScene(double travel, float roundZ, float glow, float speed) {
+		breechScene(travel, roundZ, glow, speed, speed > 0 ? 0.8F + 2.5F * speed : 0.0F);
+	}
+
+	/** As above with the sabot's armature glow given ({@code armature}). */
+	private void breechScene(double travel, float roundZ, float glow, float speed, float armature) {
 		space.sky(cam, LOCAL_SKY, 0.9F, 0, cam.forward(), 0, 0, 0, time);
 		// Jupiter as a backdrop, drawn without depth so it never cuts into the coils.
 		Space.clearDepth();
@@ -354,7 +378,7 @@ final class Shots {
 			space.pointColor.set(ARC).mul(5.0F + 9.0F * speed);
 		}
 		Matrix4f model = new Matrix4f().translation(0, 0, roundZ).scale(ROUND_SCALE);
-		drawRound(model, LOCAL_SUN, 1.1F, 0.6F + speed, speed * 0.4F, speed > 0 ? 0.8F + 2.5F * speed : 0.0F, true);
+		drawRound(model, LOCAL_SUN, 1.1F, 0.6F + speed, speed * 0.4F, armature, true);
 		space.pointColor.zero();
 		if (speed > 0.05F) {
 			// Light trails along the emitters.
@@ -504,12 +528,27 @@ final class Shots {
 		double angle = (covered * StrikeTimeline.LAP_COUNT % 1.0) * Math.PI * 2;
 		Vector3f eye;
 		Vector3f at;
+		Vector3f up = new Vector3f(0, 1, 0);
 		float fov;
+		boolean low = false;
 		switch (lap) {
 			case 2 -> {
 				eye = new Vector3f(3.1F, 1.15F, 2.5F);
 				at = new Vector3f(0, -0.12F, 0);
 				fov = 40.0F;
+			}
+			case 6 -> {
+				// Skimming the cloud tops just south of the equator, looking back along the ring as it climbs
+				// from the horizon across the sky: the round comes up over the edge of the world and screams
+				// overhead.
+				double where = Math.PI;
+				Vector3f ground = ringPoint(where).normalize();
+				eye = new Vector3f(ground).mul(1.018F).add(0, -0.03F, 0);
+				Vector3f back = new Vector3f((float) Math.sin(where), 0, (float) Math.cos(where));
+				at = new Vector3f(eye).add(back).add(new Vector3f(ground).mul(0.34F));
+				up = new Vector3f(ground);
+				fov = 74.0F;
+				low = true;
 			}
 			case 4 -> {
 				// Beside the ring where the round passes mid-lap, looking back along it.
@@ -525,10 +564,15 @@ final class Shots {
 				fov = 34.0F;
 			}
 		}
-		eye.rotateY((float) (since * 0.0025));
-		jupiterCamera(new Pose(eye, at, new Vector3f(0, 1, 0), fov), 0.0008F, 200.0F);
+		if (!low) {
+			eye.rotateY((float) (since * 0.0025));
+		}
+		jupiterCamera(new Pose(eye, at, up, fov), low ? 0.0002F : 0.0008F, 200.0F);
 		space.sky(cam, JUPITER_SKY, 1.0F, 0, cam.forward(), 0, 0, 0, time);
+		// Close over the cloud tops the map's resolution runs out: let the shader stir in fine detail.
+		space.jupiterDetail = low ? 1.0F : 0.0F;
 		jupiterScene(1.0F, 0.05F, 1.0F);
+		space.jupiterDetail = 0.0F;
 		// The round: a white-hot point and a trail that lengthens with speed.
 		Vector3f round = ringPoint(angle);
 		float trailAngle = (float) Math.min(Math.PI * 1.2, 0.05 + velocity * 2.4);
@@ -543,11 +587,12 @@ final class Shots {
 		Fx head = space.glow(cam, Fx.SPIKES, 0);
 		head.sprite(round, 0.09F + velocity * 0.12F, 0, Fx.argb(1.0F, 0.95F, 0.88F, 1.0F));
 		head.end(true);
-		if (lap == 4) {
+		if (lap == 4 || lap == 6) {
 			// A flash as it tears past the camera.
 			double pass = Math.abs(angle - Math.PI);
-			o.flash = Math.max(o.flash, (float) (0.6 * Math.exp(-pass * pass * 400)));
+			o.flash = Math.max(o.flash, (float) ((lap == 6 ? 0.35 : 0.6) * Math.exp(-pass * pass * 400)));
 		}
+		o.shutter = low ? 1.0F : 0.0F;
 		o.zoomBlur = 0;
 	}
 
@@ -697,27 +742,34 @@ final class Shots {
 	}
 
 	/**
+	 * Arcs jumping from the emitters of the {@code coils} coils at and behind z = 0 to the sabot's copper bands on a
+	 * round centred at {@code roundZ}, re-struck every few frames; {@code strength} fades them.
+	 */
+	private void arcs(float roundZ, float strength, int coils) {
+		Fx arcs = space.glow(cam, Fx.BEAM, 0);
+		random.setSeed(9001L + (long) Math.floor((roundZ + 10.0) * 6.0) + (long) Math.floor(time * 0.7));
+		for (int i = 0; i < 9; i++) {
+			double a = random.nextDouble() * Math.PI * 2;
+			float coilZ = -random.nextInt(coils);
+			Vector3f from = new Vector3f((float) Math.cos(a) * 0.72F, (float) Math.sin(a) * 0.72F, coilZ);
+			float bandZ = roundZ + (0.85F - 0.7F * random.nextInt(4)) * ROUND_SCALE;
+			Vector3f to = new Vector3f((float) Math.cos(a) * 0.19F, (float) Math.sin(a) * 0.19F, bandZ);
+			Vector3f mid = new Vector3f(from).lerp(to, 0.5F).add((float) random.nextGaussian() * 0.08F,
+					(float) random.nextGaussian() * 0.08F, (float) random.nextGaussian() * 0.05F);
+			int c = Fx.argb(ARC.x, ARC.y, ARC.z, 0.9F * Math.min(1.0F, strength));
+			arcs.beam(from, mid, cam.pos, 0.012F, c, c);
+			arcs.beam(mid, to, cam.pos, 0.012F, c, c);
+		}
+		arcs.end(true, 3.0F);
+	}
+
+	/**
 	 * The muzzle as the round leaves it: arcs jumping from the last coil to the sabot's bands, a burst of light,
 	 * and a ring of plasma blown out across the mouth of the barrel.
 	 */
 	private void muzzle(double z, float blast) {
 		if (z > -2.5 && z < 1.6) {
-			// Arcs from the last two coils' emitters to the copper bands, re-struck every few scene frames.
-			Fx arcs = space.glow(cam, Fx.BEAM, 0);
-			random.setSeed(9001L + (long) Math.floor((z + 10.0) * 6.0));
-			for (int i = 0; i < 9; i++) {
-				double a = random.nextDouble() * Math.PI * 2;
-				float coilZ = -random.nextInt(2);
-				Vector3f from = new Vector3f((float) Math.cos(a) * 0.72F, (float) Math.sin(a) * 0.72F, coilZ);
-				float bandZ = (float) z + (0.85F - 0.7F * random.nextInt(4)) * ROUND_SCALE;
-				Vector3f to = new Vector3f((float) Math.cos(a) * 0.19F, (float) Math.sin(a) * 0.19F, bandZ);
-				Vector3f mid = new Vector3f(from).lerp(to, 0.5F).add((float) random.nextGaussian() * 0.08F,
-						(float) random.nextGaussian() * 0.08F, (float) random.nextGaussian() * 0.05F);
-				int c = Fx.argb(ARC.x, ARC.y, ARC.z, 0.9F);
-				arcs.beam(from, mid, cam.pos, 0.012F, c, c);
-				arcs.beam(mid, to, cam.pos, 0.012F, c, c);
-			}
-			arcs.end(true, 3.0F);
+			arcs((float) z, 1.0F, 2);
 		}
 		double since = z + 1.0;
 		if (since > 0) {

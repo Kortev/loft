@@ -35,6 +35,8 @@ final class Space {
 	final Vector3f pointColor = new Vector3f();
 	/** Shadows on Jupiter: the ring's radius and width in Jupiter radii (0 for none), and a moon in world space. */
 	float ringShadow;
+	/** How much fine cloud detail to stir into Jupiter's map, for views close over the cloud tops. */
+	float jupiterDetail;
 	float ringShadowWidth = 0.012F;
 	final Vector3f moonPos = new Vector3f();
 	float moonRadius;
@@ -129,6 +131,7 @@ final class Space {
 		Shaders.set(Shaders.gas, "RingWidth", ringShadowWidth);
 		Shaders.set(Shaders.gas, "MoonPos", toObject.transformPosition(new Vector3f(moonPos)));
 		Shaders.set(Shaders.gas, "MoonRadius", moonRadius / model.getScale(new Vector3f()).x);
+		Shaders.set(Shaders.gas, "Detail", jupiterDetail);
 		sphere.draw(Shaders.gas, cam.modelView(model), cam.proj);
 		atmosphere(cam, model, sun, 1.012F, 0.95F, 0.78F, 0.55F, 0.7F, 3.5F);
 	}
