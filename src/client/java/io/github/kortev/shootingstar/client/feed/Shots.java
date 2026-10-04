@@ -208,8 +208,8 @@ final class Shots {
 		Matrix4f satellite = new Matrix4f().translation(RELAY_POS).rotateTowards(TO_JUPITER, relayUp).scale(0.011F);
 		// Earthshine: the bright planet below lights the satellite's underside blue-white.
 		space.fillDir.set(relayUp).negate();
-		space.fillColor.set(0.28F, 0.33F, 0.4F);
-		space.mesh(space.relay, cam, satellite, EARTH_SUN, 1.15F, 0xFFD27A, 1.0F, 0);
+		space.fillColor.set(0.42F, 0.48F, 0.58F);
+		space.mesh(space.relay, cam, satellite, EARTH_SUN, 1.2F, 0xFFD27A, 1.0F, 0);
 		space.fillColor.zero();
 
 		Vector3f emitter = new Vector3f(RELAY_POS).add(new Vector3f(TO_JUPITER).mul(0.0165F));
