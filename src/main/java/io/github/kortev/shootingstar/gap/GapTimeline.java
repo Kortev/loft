@@ -45,8 +45,8 @@ public final class GapTimeline {
 	 * the mountain's tip at s0 + lift − PEAK, so at {@link #CONTACT} the lift is exactly {@link #PEAK}.
 	 */
 	public static double lift(double t) {
-		// Hanging in the middle of the tear while it opens, mountain first.
-		double hover = TEAR_HEIGHT + PEAK;
+		// Hanging in the tear while it opens, its mountain already poking down out of it.
+		double hover = TEAR_HEIGHT + 10.0;
 		if (t < CLOSING) {
 			return hover + 14.0 * (1.0 - smooth((t - TEAR) / (CLOSING - TEAR)));
 		}

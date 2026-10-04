@@ -85,6 +85,7 @@ public final class MirrorWorld implements AutoCloseable {
 		int ymin = Integer.MAX_VALUE;
 		int ymax = Integer.MIN_VALUE;
 		int reach2 = (RADIUS + 2) * (RADIUS + 2);
+		BlockPos.Mutable pos = new BlockPos.Mutable();
 		for (int i = 0; i < size; i++) {
 			for (int k = 0; k < size; k++) {
 				int dx = i - RADIUS;
@@ -94,7 +95,8 @@ public final class MirrorWorld implements AutoCloseable {
 					ground[c] = Integer.MIN_VALUE;
 					continue;
 				}
-				int g = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, cx + dx, cz + dz) - 1;
+				// Clients only keep the motion-blocking and surface heightmaps; walk down through trees to the ground.
+				int g = ground(world, pos, cx + dx, cz + dz);
 				if (g <= world.getBottomY()) {
 					// Not loaded on this client, or nothing there.
 					ground[c] = Integer.MIN_VALUE;
@@ -112,7 +114,6 @@ public final class MirrorWorld implements AutoCloseable {
 		}
 		int height = Math.max(1, ymax - ymin + 1);
 		int[] cells = new int[size * size * height];
-		BlockPos.Mutable pos = new BlockPos.Mutable();
 		for (int i = 0; i < size; i++) {
 			for (int k = 0; k < size; k++) {
 				int c = i * size + k;
@@ -185,6 +186,20 @@ public final class MirrorWorld implements AutoCloseable {
 		ShootingStar.LOGGER.info("Ginnungagap #{}: mirror over {} {} {}: ground {} top {} peak top {}, so the tip sits at {} at contact (s0 {})",
 				gap.id, cx, s0, cz, ground[centre], tops[centre], peaks[centre], 2 * s0 + GapTimeline.PEAK - peaks[centre] - 1, s0);
 		return new MirrorWorld(vb, faces, cx, cz, s0);
+	}
+
+	private static int ground(ClientWorld world, BlockPos.Mutable pos, int x, int z) {
+		int y = world.getTopY(Heightmap.Type.MOTION_BLOCKING, x, z) - 1;
+		int floor = Math.max(world.getBottomY(), y - 40);
+		while (y > floor) {
+			BlockState state = world.getBlockState(pos.set(x, y, z));
+			if (!state.isAir() && !state.isIn(BlockTags.LEAVES) && !state.isIn(BlockTags.LOGS)
+					&& (state.isFullCube(world, pos) || !state.getFluidState().isEmpty())) {
+				return y;
+			}
+			y--;
+		}
+		return y;
 	}
 
 	/** One face of the block whose pre-mirror corner is (x, y, z) relative to the target column and our surface. */

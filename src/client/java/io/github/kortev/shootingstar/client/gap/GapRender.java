@@ -211,8 +211,10 @@ public final class GapRender {
 		for (int i = 0; i < outline.length; i++) {
 			Vector3f a = rel(outline[i], cam);
 			Vector3f d = rel(outline[(i + 1) % outline.length], cam);
-			BATCH.beam(a, d, eye, 0.45F, Fx.fade(WHITE, 1.0F), Fx.fade(WHITE, 1.0F));
-			BATCH.beam(a, d, eye, 1.6F, Fx.fade(CYAN, 0.35F), Fx.fade(CYAN, 0.35F));
+			// As thick on screen however near the edge passes the camera.
+			float dist = new Vector3f(a).add(d).mul(0.5F).length();
+			BATCH.beam(a, d, eye, Math.max(0.05F, dist * 0.0035F), Fx.fade(WHITE, 1.0F), Fx.fade(WHITE, 1.0F));
+			BATCH.beam(a, d, eye, Math.max(0.15F, dist * 0.012F), Fx.fade(CYAN, 0.35F), Fx.fade(CYAN, 0.35F));
 		}
 		BATCH.end(true, 1.6F);
 	}
