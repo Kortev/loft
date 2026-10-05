@@ -591,7 +591,10 @@ public final class GapRender {
 				on = true;
 			}
 			if (t >= GapTimeline.NOTHING - 10) {
-				g.black = (float) MathHelper.clamp((t - GapTimeline.NOTHING + 10) / 10.0, 0.0, 1.0);
+				// Lifted as the rebuild begins: from then on the front alone holds the dark, so Odin and the world coming back
+				// are seen.
+				double r = mine.rebuild(tickDelta);
+				g.black = (float) (MathHelper.clamp((t - GapTimeline.NOTHING + 10) / 10.0, 0.0, 1.0) * (r < 0.0 ? 1.0 : 1.0 - GapCamera.ease(r / 20.0)));
 				on = true;
 			}
 		}

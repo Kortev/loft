@@ -1708,23 +1708,27 @@ def gap_lock():
 
 
 def gap_extract():
-    """Back outside the gate, the block drawn through (2.25 s, CUT to SEND+3): the gate's hum there at once on the hard
-    cut, the other universe faint through its window; the selection blinking; a deep groan stretching up as the block
+    """Back outside the gate, the block drawn through (2.25 s, CUT to SEND+3): the rush of the drag carried on over the
+    cut and dying away as the gate's hum swells in, the camera backing out through the window ahead of the block; the selection blinking; a deep groan stretching up as the block
     is pulled into the window, glass straining and the air sucked after it, then the break as it comes through (1.0 s),
     a thump, a pop and a ring running out across the window; the block humming once it is out; the window shutting like
     an old screen (from 1.55 s), a whine falling away and a thud as the picture folds to a bar, a tick as the point goes
     out; and a breath sucked in to the bridge, cut dead as it fires."""
     total = gap_at('SEND', 3, since='CUT')
-    pull = 12 / 20.0
+    pull = 0.0
     through = 20 / 20.0
     shut, gone = 31 / 20.0, 39 / 20.0
     span = total + 0.1
     n = ns(span)
     m = Mix(span)
-    # The gate, there at once.
-    m.add(gate_hum(n) * curve(n, [(0, 1.0), (gone, 1.0), (gone + 0.1, 0.6), (span, 0.6)]), 0, 0.16)
+    # The rush of the drag carried on over the cut, falling away as the gate's hum swells in under it.
+    q = ns(1.0)
+    rush = decorrelated(q, pink)
+    rush = np.vstack([sweep_filter(c, 'bandpass', curve(q, [(0, 5000), (1.0, 600)], 'log'), width=1.5) for c in rush])
+    m.add(rms_norm(rush, 0.2) * np.exp(-np.arange(q) / SR / 0.3), 0, 0.8)
+    m.add(gate_hum(n) * curve(n, [(0, 0.0), (0.6, 1.0), (gone, 1.0), (gone + 0.1, 0.6), (span, 0.6)]), 0, 0.16)
     low = supersaw(55.0, n, voices=5, detune=0.004, spread=0.9)
-    m.add(np.vstack([lp(c, 400) for c in low]), 0, 0.16)
+    m.add(np.vstack([lp(c, 400) for c in low]) * curve(n, [(0, 0.0), (0.6, 1.0), (span, 1.0)]), 0, 0.16)
     window = glass(((1318.51, 0.4), (1661.22, 0.3), (1975.53, 0.25), (2489.02, 0.15)), n)
     m.add(window * curve(n, [(0, 1.0), (shut, 1.0), (gone, 0.0), (span, 0.0)]) ** 1.5, 0, 0.05)
     # The selection blinking (GapShots: on, off, on, off, on, a tenth of a second each).

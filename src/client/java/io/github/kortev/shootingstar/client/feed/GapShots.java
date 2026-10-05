@@ -84,8 +84,9 @@ final class GapShots implements Feed.Sequence {
 	/** The window opening and closing. */
 	private static final double REVEAL_FROM = OPEN_S + 8.0;
 	private static final double REVEAL_TO = OPEN_S + 24.0;
-	private static final double PULL_FROM = CUT_S + 12.0;
-	private static final double PULL_TO = CUT_S + 28.0;
+	// The block keeps moving from the multiverse shot: pulled from the cut on, through the window a second in.
+	private static final double PULL_FROM = CUT_S;
+	private static final double PULL_TO = SEND_S;
 	private static final double CLOSE_FROM = CUT_S + 31.0;
 	private static final double CLOSE_TO = CUT_S + 39.0;
 	/** The bridge reaching down, and the block dropping into it. */
@@ -248,7 +249,9 @@ final class GapShots implements Feed.Sequence {
 		double spin = Math.max(0.0, s - PULL_TO + 6.0);
 		Matrix4f m = new Matrix4f().translation(blockPos(s)).mul(GATE);
 		m.rotateY((float) (spin * 0.008 + Math.max(0.0, s - DROP_S) * 0.01)).rotateX((float) (spin * 0.005));
-		return m.scale(BLOCK);
+		// Crushed down as the multiverse shot left it, springing back to its size as it comes through.
+		float size = s < CUT_S ? 1.0F : Shots.lerp(0.45, 1.0, Shots.smooth((s - CUT_S) / 14.0));
+		return m.scale(BLOCK * size);
 	}
 
 	/** The scene: the sky, Earth, the gate with its window, the block and the bridge. */
@@ -286,7 +289,8 @@ final class GapShots implements Feed.Sequence {
 			if (s >= PULL_FROM) {
 				// A flash as it breaks through the window, not all the way.
 				float out = blockOut(s) / BLOCK;
-				block(blockModel(s), 0.55F * (float) Math.exp(-out * out * 1.5F));
+				float compacted = 0.45F * (1.0F - Shots.smooth((s - CUT_S) / 14.0));
+				block(blockModel(s), Math.max(compacted, 0.55F * (float) Math.exp(-out * out * 1.5F)));
 			}
 		}
 		if (s >= BRIDGE_S) {
@@ -712,13 +716,16 @@ final class GapShots implements Feed.Sequence {
 
 	private void cut(double s, Overlay o) {
 		double r = s - CUT_S;
-		float pull = Shots.smoother((s - PULL_FROM) / (PULL_TO - PULL_FROM));
-		// Close on the window, then back away as the block comes out at the camera, keeping it and the gate in frame.
-		float distance = Shots.lerp(50.0, 40.0, Shots.smooth(r / 12.0)) + 22.0F * pull;
-		Vector3f eye = new Vector3f(FACE).mul(distance).add(new Vector3f(GATE_RIGHT).mul(6.0F + 10.0F * pull))
-				.add(new Vector3f(GATE_UP).mul(5.0F + 6.0F * pull));
-		Vector3f at = new Vector3f(FACE).mul(blockOut(s) * 0.55F).add(new Vector3f(GATE_UP).mul(-1.0F));
-		scene(s, 0.4F, 30000.0F, eye, at, new Vector3f(GATE_UP), Shots.lerp(46.0, 50.0, pull), true);
+		// Straight on from the multiverse shot: just in front of the window, so close it fills the picture and the block is
+		// still seen coming at the camera out of the void, the same size the last shot left it. Then backing away ahead of
+		// it as it comes through, faster than it, the window's frame, the gate and Earth opening out round it.
+		float back = Shots.smoother(r / (SEND_S - CUT_S));
+		float distance = Math.max(Shots.lerp(4.0, 60.0, back), blockOut(s) + 19.0F);
+		float aside = Shots.smooth((r - 8.0) / 30.0);
+		Vector3f eye = new Vector3f(FACE).mul(distance).add(new Vector3f(GATE_RIGHT).mul(14.0F * aside))
+				.add(new Vector3f(GATE_UP).mul(10.0F * aside));
+		Vector3f at = blockPos(s).lerp(new Vector3f(FACE).mul(blockOut(s) * 0.55F).add(new Vector3f(GATE_UP).mul(-1.0F)), aside);
+		scene(s, 0.4F, 30000.0F, eye, at, new Vector3f(GATE_UP), Shots.lerp(46.0, 50.0, back), true);
 
 		o.header = "[ EXTRACTION ]";
 		o.headerReveal = Shots.smooth(r / 4.0);
