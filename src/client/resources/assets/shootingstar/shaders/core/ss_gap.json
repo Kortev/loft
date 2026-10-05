@@ -160,48 +160,40 @@
       ]
     },
     {
-      "name": "ShatterFrom",
+      "name": "Burst",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "name": "BurstLight",
       "type": "float",
       "count": 3,
       "values": [
         0.0,
-        1.0,
-        0.0
-      ]
-    },
-    {
-      "name": "Shatter",
-      "type": "float",
-      "count": 1,
-      "values": [
-        0.0
-      ]
-    },
-    {
-      "name": "CosmosTime",
-      "type": "float",
-      "count": 1,
-      "values": [
-        0.0
-      ]
-    },
-    {
-      "name": "Lock",
-      "type": "float",
-      "count": 4,
-      "values": [
-        0.5,
-        0.5,
         0.0,
         0.0
       ]
     },
     {
-      "name": "CloudY",
+      "name": "Shock",
       "type": "float",
       "count": 1,
       "values": [
-        10000.0
+        -1.0
+      ]
+    },
+    {
+      "name": "SkyMix",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0.0
       ]
     }
   ]

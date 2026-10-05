@@ -14,17 +14,10 @@ import net.minecraft.util.math.RotationAxis;
 
 /**
  * The Genesis Key in first person as the event starts, in time with its sound: it comes up into the middle of
- * the view and wakes, is pushed into a lock in the empty air, turns with the click and the clunk, and shakes as
- * the picture breaks up, until the screen goes white.
+ * the view and wakes, is pushed into a lock in the empty air and turns with the click and the clunk, and the
+ * camera leaves.
  */
 public final class KeyTurn {
-	/**
-	 * Where the key's tip goes into the air, on screen (the gap pass draws the light there, behind the key). The key
-	 * is held dead centre so this holds at any aspect ratio; the hand is always drawn with a 70 degree field of view.
-	 */
-	public static final float LOCK_X = 0.5F;
-	public static final float LOCK_Y = 0.53F;
-
 	private KeyTurn() {
 	}
 
@@ -36,15 +29,15 @@ public final class KeyTurn {
 			return false;
 		}
 		double t = gap.time(tickDelta);
-		if (t >= GapTimeline.TURNED) {
+		if (t >= GapTimeline.RISE) {
 			return false;
 		}
 		double up = ease(t / 16.0);
 		double thrust = ease((t - 22.0) / 7.0);
 		double turn = ease((t - 30.0) / 7.0);
-		// The clunk at the end of the turn knocks it back a hair; then the picture starts to break up round it.
+		// The clunk at the end of the turn knocks it back a hair, and it hums.
 		double knock = Math.exp(-Math.max(0.0, t - 37.0) / 2.0) * (t >= 37.0 ? 0.02 : 0.0);
-		double shake = Math.pow(MathHelper.clamp((t - 42.0) / 18.0, 0.0, 1.0), 2.0) * 0.012;
+		double shake = MathHelper.clamp((t - 37.0) / 5.0, 0.0, 1.0) * 0.004;
 		float x = (float) (MathHelper.lerp(up, 0.42, 0.0) + Math.sin(t * 9.7) * shake);
 		float y = (float) (MathHelper.lerp(up, -0.55, -0.1) + Math.sin(t * 7.3 + 1.0) * shake);
 		float z = (float) (MathHelper.lerp(up, -0.7, -0.62) - 0.22 * thrust + knock);
@@ -59,16 +52,6 @@ public final class KeyTurn {
 				t > 10.0 ? LightmapTextureManager.MAX_LIGHT_COORDINATE : light);
 		matrices.pop();
 		return true;
-	}
-
-	/** How far the lock's light has opened, 0 to 1. */
-	public static float open(double t) {
-		return (float) (ease((t - 24.0) / 5.0) * (1.0 - ease((t - GapTimeline.TURNED) / 3.0)));
-	}
-
-	/** How far the cracks have run out from the lock, 0 to 1. */
-	public static float cracks(double t) {
-		return (float) (t < GapTimeline.TURNED ? Math.pow(MathHelper.clamp((t - 31.0) / 26.0, 0.0, 1.0), 1.5) : 0.0);
 	}
 
 	private static double ease(double x) {

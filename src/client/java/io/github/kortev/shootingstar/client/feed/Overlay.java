@@ -36,6 +36,8 @@ final class Overlay {
 
 	String header;
 	int headerColor = Feed.RED;
+	/** The colour of the title and the banner. */
+	int accent = Feed.RED;
 	/** How much of the header has typed in, 0..1. */
 	float headerReveal = 1.0F;
 	String title;

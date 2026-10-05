@@ -3,12 +3,10 @@ package io.github.kortev.shootingstar.gap;
 import io.github.kortev.shootingstar.ShootingStar;
 import io.github.kortev.shootingstar.network.GapEndPayload;
 import io.github.kortev.shootingstar.network.GapLockPayload;
-import io.github.kortev.shootingstar.network.GapSwapPayload;
 import io.github.kortev.shootingstar.network.ModNetworking;
 import io.github.kortev.shootingstar.registry.ModBlocks;
 import io.github.kortev.shootingstar.registry.ModDamageTypes;
 import io.github.kortev.shootingstar.registry.ModGameRules;
-import io.github.kortev.shootingstar.registry.ModSounds;
 import io.github.kortev.shootingstar.strike.Targeting;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -19,7 +17,6 @@ import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
-import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.entity.Entity;
@@ -29,7 +26,6 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ChunkTicketType;
 import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundCategory;
 import net.minecraft.state.property.Properties;
 import net.minecraft.util.Util;
 import net.minecraft.util.math.BlockPos;
@@ -43,9 +39,8 @@ import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Runs Ω-00 Ginnungagap events on the server: matter swapping between the worlds while they close, the
- * erasure of everything in the zone after contact, and the shooter held safe in the black until they use
- * the key again.
+ * Runs Ω-00 Ginnungagap events on the server: the erasure of everything in the zone after the block of the
+ * other universe comes down, and the shooter held safe in the black until they use the key again.
  */
 public final class GapManager {
 	private static final ChunkTicketType<ChunkPos> TICKET = ChunkTicketType.create("shootingstar_gap",
@@ -230,9 +225,6 @@ public final class GapManager {
 			}
 			gap.age++;
 			ServerPlayerEntity shooter = server.getPlayerManager().getPlayer(gap.shooter);
-			if (gap.age >= GapTimeline.CLOSING && gap.age < GapTimeline.SWAPS_END && gap.age % 3 == 0) {
-				swapBlock(world, gap, shooter);
-			}
 			// The floor goes down once the black has swallowed everything round the shooter, so no one sees the
 			// ground change, and long before the real erasure gets to them.
 			if (!gap.floored && gap.age >= GapTimeline.ERASURE && shooter != null && shooter.getWorld() == world
@@ -255,33 +247,7 @@ public final class GapManager {
 		}
 	}
 
-	// --- matter swapping ------------------------------------------------------------------
-
-	/** One block of our ground near the target trades places with its mirror. */
-	private static void swapBlock(ServerWorld world, Gap gap, @Nullable ServerPlayerEntity shooter) {
-		for (int tries = 0; tries < 16; tries++) {
-			double angle = gap.random.nextDouble() * Math.PI * 2.0;
-			double dist = 6.0 + Math.abs(gap.random.nextGaussian()) * 20.0;
-			int x = MathHelper.floor(gap.target.getX() + 0.5 + Math.cos(angle) * dist);
-			int z = MathHelper.floor(gap.target.getZ() + 0.5 + Math.sin(angle) * dist);
-			if (shooter != null && Math.abs(shooter.getX() - x) < 4.0 && Math.abs(shooter.getZ() - z) < 4.0) {
-				continue;
-			}
-			if (Math.abs(gap.swapSpot.getX() - x) < 5 && Math.abs(gap.swapSpot.getZ() - z) < 5) {
-				continue;
-			}
-			BlockPos pos = ground(world, x, z);
-			BlockState mirror = mirrorOf(world, pos, world.getBlockState(pos));
-			if (mirror == null) {
-				continue;
-			}
-			// The payload goes first so clients can still see what the block was.
-			ModNetworking.broadcast(world, new GapSwapPayload(gap.id, 0, List.of(pos)));
-			world.setBlockState(pos, mirror, Block.NOTIFY_ALL);
-			world.playSound(null, pos, ModSounds.GAP_SWAP, SoundCategory.BLOCKS, 2.0F, 0.8F + 0.4F * gap.random.nextFloat());
-			return;
-		}
-	}
+	// --- the mirror blocks ------------------------------------------------------------
 
 	/** What a block becomes when it trades places with its twin in the mirror universe, or null if it cannot. */
 	@Nullable

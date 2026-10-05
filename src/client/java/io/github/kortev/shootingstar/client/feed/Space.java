@@ -35,6 +35,10 @@ final class Space {
 	/** The Moon, shaded by {@code ss_mesh}'s lunar material. */
 	Mesh moon;
 	final Mesh[] rocks = new Mesh[4];
+	/** Bifröst, the orbital gate (tools/models.py), the blocks of another universe and the window of an open gate. */
+	Mesh gate;
+	Mesh cube;
+	Mesh quad;
 	final Fx fx = new Fx();
 	/** Secondary light for meshes (what a nearby planet bounces back), in the scene's world space. */
 	final Vector3f fillDir = new Vector3f(0, -1, 0);
@@ -76,6 +80,9 @@ final class Space {
 		for (int i = 0; i < rocks.length; i++) {
 			rocks[i] = Mesh.load("asteroid" + i);
 		}
+		gate = Mesh.load("gate");
+		cube = Mesh.cube();
+		quad = Mesh.quad();
 		earthDay = Tex.get("feed/earth_day.jpg", true);
 		earthNight = Tex.get("feed/earth_night.jpg", true);
 		earthClouds = Tex.get("feed/earth_clouds.jpg", true);
@@ -257,8 +264,36 @@ final class Space {
 		tube.draw(Shaders.bore, cam.modelView(new Matrix4f().scale(0.715F, 0.715F, 1.0F)), cam.proj);
 	}
 
+	/**
+	 * Another universe ({@code ss_universe}): a block of it marched inside ({@code mode} 0), the window of an open gate
+	 * opened {@code reveal} of the way (1), or a block that only looks through to its sky (2). The window leaves the
+	 * depth buffer alone so a block still behind it shows through it.
+	 */
+	void universe(Mesh mesh, Cam cam, Matrix4f model, int mode, float time, float seed, float edge, float heat, float reveal,
+			int steps, float fade) {
+		opaque();
+		if (mode == 1) {
+			RenderSystem.depthMask(false);
+		}
+		Shaders.setInt(Shaders.universe, "Mode", mode);
+		Shaders.set(Shaders.universe, "Time", time);
+		Shaders.set(Shaders.universe, "Seed", seed);
+		Shaders.set(Shaders.universe, "Edge", edge);
+		Shaders.set(Shaders.universe, "Heat", heat);
+		Shaders.set(Shaders.universe, "Reveal", reveal);
+		Shaders.setInt(Shaders.universe, "Steps", steps);
+		Shaders.set(Shaders.universe, "Fade", fade);
+		mesh.draw(Shaders.universe, cam.modelView(model), cam.proj);
+		RenderSystem.depthMask(true);
+	}
+
 	/** Turbulent additive plasma on {@code mesh} (the re-entry sheath or the impact fireball). */
 	void plasma(Mesh mesh, Cam cam, Matrix4f model, float time, float intensity, float heat, Vector3f flow, float scale) {
+		plasma(mesh, cam, model, time, intensity, heat, flow, scale, 0.0F);
+	}
+
+	/** As above; {@code cool} 1 turns the fire violet, for the block of another universe coming down. */
+	void plasma(Mesh mesh, Cam cam, Matrix4f model, float time, float intensity, float heat, Vector3f flow, float scale, float cool) {
 		additive();
 		RenderSystem.enableDepthTest();
 		Shaders.set(Shaders.plasma, "Time", time);
@@ -267,7 +302,9 @@ final class Space {
 		Shaders.set(Shaders.plasma, "Flow", flow);
 		Shaders.set(Shaders.plasma, "Scale", scale);
 		Shaders.set(Shaders.plasma, "Toon", 0.0F);
+		Shaders.set(Shaders.plasma, "Cool", cool);
 		mesh.draw(Shaders.plasma, cam.modelView(model), cam.proj);
+		Shaders.set(Shaders.plasma, "Cool", 0.0F);
 	}
 
 	/**

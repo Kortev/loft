@@ -1,6 +1,6 @@
 {
-  "vertex": "shootingstar:ss_shard",
-  "fragment": "shootingstar:ss_shard",
+  "vertex": "shootingstar:ss_universe",
+  "fragment": "shootingstar:ss_universe",
   "samplers": [],
   "uniforms": [
     {
@@ -58,13 +58,59 @@
       ]
     },
     {
-      "name": "Spin",
-      "type": "float",
-      "count": 3,
+      "name": "Mode",
+      "type": "int",
+      "count": 1,
       "values": [
-        0.0,
-        0.0,
+        0
+      ]
+    },
+    {
+      "name": "Seed",
+      "type": "float",
+      "count": 1,
+      "values": [
         0.0
+      ]
+    },
+    {
+      "name": "Edge",
+      "type": "float",
+      "count": 1,
+      "values": [
+        1.0
+      ]
+    },
+    {
+      "name": "Heat",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0.0
+      ]
+    },
+    {
+      "name": "Fade",
+      "type": "float",
+      "count": 1,
+      "values": [
+        1.0
+      ]
+    },
+    {
+      "name": "Reveal",
+      "type": "float",
+      "count": 1,
+      "values": [
+        1.0
+      ]
+    },
+    {
+      "name": "Steps",
+      "type": "int",
+      "count": 1,
+      "values": [
+        48
       ]
     }
   ]

@@ -10,7 +10,6 @@ import io.github.kortev.shootingstar.client.render.WorldProjector;
 import io.github.kortev.shootingstar.client.world.WorldFx;
 import io.github.kortev.shootingstar.network.GapEndPayload;
 import io.github.kortev.shootingstar.network.GapLockPayload;
-import io.github.kortev.shootingstar.network.GapSwapPayload;
 import io.github.kortev.shootingstar.network.StrikeCancelPayload;
 import io.github.kortev.shootingstar.network.StrikeImpactPayload;
 import io.github.kortev.shootingstar.network.StrikeLockPayload;
@@ -42,7 +41,6 @@ public class ShootingStarClient implements ClientModInitializer {
 		ClientPlayNetworking.registerGlobalReceiver(StrikeCancelPayload.ID,
 				(payload, context) -> ClientStrikes.onCancel(payload));
 		ClientPlayNetworking.registerGlobalReceiver(GapLockPayload.ID, (payload, context) -> ClientGaps.onLock(payload, context.client()));
-		ClientPlayNetworking.registerGlobalReceiver(GapSwapPayload.ID, (payload, context) -> ClientGaps.onSwap(payload, context.client()));
 		ClientPlayNetworking.registerGlobalReceiver(GapEndPayload.ID, (payload, context) -> ClientGaps.onEnd(payload));
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
 			ClientStrikes.clear(client);
@@ -54,6 +52,7 @@ public class ShootingStarClient implements ClientModInitializer {
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
 			while (SKIP_FEED.wasPressed()) {
 				ClientStrikes.skipFeed();
+				ClientGaps.skipFeed();
 			}
 			Aim.tick(client);
 			ClientStrikes.tick(client);

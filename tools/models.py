@@ -22,8 +22,9 @@ from mathutils.bvhtree import BVHTree
 
 OUT = 'src/client/resources/assets/shootingstar/meshes'
 
-# Material ids, read by the feed's mesh shader.
+# Material ids, read by the feed's mesh shader (15 and 16 are Io and the Moon, which are procedural spheres).
 HULL, FIN, NOSE, FRAME, PANEL, ROCK, FOIL, SOLAR, DISH, EDGE, RUNE, COPPER, SABOT, CABLE, RADIATOR = range(15)
+PLATE = 17
 
 
 def reset():
@@ -37,11 +38,15 @@ class Builder:
         self.bm = bmesh.new()
         self.mat = self.bm.faces.layers.int.new('mat')
         self.glow = self.bm.faces.layers.float.new('glow')
+        self.u = self.bm.faces.layers.float.new('u')
+        self.v = self.bm.faces.layers.float.new('v')
 
-    def face(self, verts, mat, glow=0.0):
+    def face(self, verts, mat, glow=0.0, uv=(0.0, 0.0)):
         f = self.bm.faces.new(verts)
         f[self.mat] = mat
         f[self.glow] = glow
+        f[self.u] = uv[0]
+        f[self.v] = uv[1]
         return f
 
     def vert(self, x, y, z):
@@ -432,6 +437,196 @@ def build_relay():
     return obj
 
 
+# --- the Bifröst gate --------------------------------------------------------------------------
+
+def frame_box(b, origin, along, out, depth, lo, hi, mats, glows=None, uvs=None):
+    """A box in a frame's local axes: lo/hi are (along, out, depth) extents from origin. mats/glows/uvs map the face
+    directions '+a', '-a', '+o', '-o', '+d', '-d' (anything missing takes the '*' entry)."""
+    glows = glows or {}
+    uvs = uvs or {}
+    o = Vector(origin)
+
+    def at(a, r, d):
+        return b.vert(*(o + along * a + out * r + depth * d))
+
+    (a0, r0, d0), (a1, r1, d1) = lo, hi
+    v = [at(a0, r0, d0), at(a1, r0, d0), at(a1, r1, d0), at(a0, r1, d0),
+         at(a0, r0, d1), at(a1, r0, d1), at(a1, r1, d1), at(a0, r1, d1)]
+    faces = {'-d': (0, 3, 2, 1), '+d': (4, 5, 6, 7), '-o': (0, 1, 5, 4), '+a': (1, 2, 6, 5), '+o': (2, 3, 7, 6),
+             '-a': (3, 0, 4, 7)}
+    for key, q in faces.items():
+        b.face([v[i] for i in q], mats.get(key, mats.get('*', FRAME)), glows.get(key, glows.get('*', 0.0)),
+               uvs.get(key, (0.0, 0.0)))
+
+
+def build_gate():
+    """Bifröst: the orbital gate that opens onto other universes. A square frame 20 across (its opening 17 across),
+    standing in the Blender XZ plane with its axis along Blender Y (Minecraft Z). The inner face is a channel lined
+    with eighty emitters whose glowing faces carry their place round the frame in u (0..1, starting bottom left and
+    going round anticlockwise seen from Blender -Y) and 1 in v, so the shader can light them in a sweep. Corner nodes
+    with field pylons out along the axis both ways, box trusses down the outside of the frame, radiator wings off the
+    sides, a crew hub with rows of lit windows under the bottom beam and a comms mast on top."""
+    b = Builder()
+    H = 9.25          # centreline of the beams
+    W = 1.05          # half the beam's width in the frame plane
+    D = 1.5           # half the frame's depth along the axis
+    c = 0.35          # chamfer
+    ch_r, ch_d = 0.75, 0.7    # the emitter channel: its floor (offset from the centreline) and half its depth
+    Y = Vector((0, 1, 0))
+    # Sides anticlockwise seen from -Y: bottom, right, top, left. Each: start corner, along, out.
+    sides = [(Vector((-H, 0, -H)), Vector((1, 0, 0)), Vector((0, 0, -1))),
+             (Vector((H, 0, -H)), Vector((0, 0, 1)), Vector((1, 0, 0))),
+             (Vector((H, 0, H)), Vector((-1, 0, 0)), Vector((0, 0, 1))),
+             (Vector((-H, 0, H)), Vector((0, 0, -1)), Vector((-1, 0, 0)))]
+    L = 2 * H
+    # The beam's section in (offset outwards, depth), going round; the channel is cut into the inner face.
+    section = [(-W + c, -D), (W - c, -D), (W, -D + c), (W, D - c), (W - c, D), (-W + c, D), (-W, D - c), (-W, ch_d),
+               (-ch_r, ch_d), (-ch_r, -ch_d), (-W, -ch_d), (-W, -D + c)]
+    # Mitred corners: at a corner the section's offset r lands at corner + (along_prev_out + out) * r.
+    stations = 24
+    for k, (start, along, out) in enumerate(sides):
+        prev_out = sides[k - 1][2]
+        next_out = sides[(k + 1) % 4][2]
+        rings = []
+        for i in range(stations + 1):
+            f = i / stations
+            base = start + along * (L * f)
+            ring = []
+            for r, d in section:
+                if i == 0:
+                    p = base + (out + prev_out) * r
+                elif i == stations:
+                    p = base + (out + next_out) * r
+                else:
+                    p = base + out * r
+                ring.append(b.vert(*(p + Y * d)))
+            rings.append(ring)
+        n = len(section)
+        for i in range(stations):
+            for e in range(n):
+                f2 = (e + 1) % n
+                r0, d0 = section[e]
+                r1, d1 = section[f2]
+                # The plating on the frame's faces, darker metal in the channel.
+                channel = all(r <= -ch_r + 1e-6 and abs(d) <= ch_d + 1e-6 for r, d in ((r0, d0), (r1, d1)))
+                mat = FRAME if channel else PLATE
+                b.face([rings[i][e], rings[i + 1][e], rings[i + 1][f2], rings[i][f2]], mat)
+        # Emitters in the channel: twenty raised blocks per side, their inner faces glowing.
+        count = 20
+        for j in range(count):
+            a0 = 1.6 + (L - 3.2) * j / count
+            a1 = a0 + (L - 3.2) / count * 0.78
+            u = (k + ((a0 + a1) / 2) / L) / 4.0
+            frame_box(b, start, along, out, Y, (a0, -1.08, -0.55), (a1, -ch_r, 0.55), {'*': FRAME, '-o': PANEL},
+                      {'-o': 1.0}, {'-o': (u, 1.0)})
+        # A box truss down the outside: two rails and a zigzag of struts, standing off the outer face.
+        for d in (-1.1, 1.1):
+            p0 = start + out * 1.95 + Y * d + along * 1.6
+            p1 = start + out * 1.95 + Y * d + along * (L - 1.6)
+            strut(b, p0, p1, 0.18, FRAME)
+        steps = 16
+        for j in range(steps + 1):
+            a = 1.6 + (L - 3.2) * j / steps
+            for d in (-1.1, 1.1):
+                strut(b, start + along * a + out * W + Y * d, start + along * a + out * 1.95 + Y * d, 0.11, FRAME)
+            if j < steps:
+                an = 1.6 + (L - 3.2) * (j + 1) / steps
+                sgn = 1 if j % 2 == 0 else -1
+                strut(b, start + along * a + out * 1.95 + Y * (1.1 * sgn), start + along * an + out * 1.95 + Y * (-1.1 * sgn),
+                      0.09, FRAME)
+        # Greebles on the front and back faces: service boxes and conduits, and a few lit hatches.
+        rnd = random.Random(40 + k)
+        for face_d in (-D, D):
+            sgn = 1 if face_d > 0 else -1
+            a = 2.2
+            while a < L - 2.2:
+                size = rnd.uniform(0.25, 0.9)
+                r = rnd.uniform(-W + 0.4, W - 0.35)
+                h = rnd.uniform(0.06, 0.22)
+                mat = rnd.choice((FRAME, PLATE, PLATE, FOIL)) if rnd.random() < 0.85 else DISH
+                lo = (a, r - rnd.uniform(0.08, 0.28), face_d)
+                hi = (a + size, r + rnd.uniform(0.08, 0.28), face_d + sgn * h)
+                frame_box(b, start, along, out, Y, (lo[0], min(lo[1], hi[1]), min(lo[2], hi[2])),
+                          (hi[0], max(lo[1], hi[1]), max(lo[2], hi[2])), {'*': mat})
+                if rnd.random() < 0.18:
+                    lit = (a + size * 0.3, r - 0.05, face_d + sgn * h)
+                    frame_box(b, start, along, out, Y, (lit[0], lit[1], min(lit[2], lit[2] + sgn * 0.02)),
+                              (lit[0] + 0.12, lit[1] + 0.1, max(lit[2], lit[2] + sgn * 0.02)), {'*': PANEL}, {'*': 0.7})
+                a += size + rnd.uniform(0.05, 0.5)
+    # Corner nodes, each with a pylon out along the axis on both sides and a lit tip.
+    for sx in (-1, 1):
+        for sz in (-1, 1):
+            cpos = Vector((sx * H, 0, sz * H))
+            b.box(cpos, (3.3, 3.8, 3.3), PLATE)
+            b.box(cpos + Vector((sx * 0.25, 0, sz * 0.25)), (2.9, 4.2, 2.9), FRAME)
+            for d in (-1, 1):
+                base = cpos + Y * (d * 2.1)
+                tip = cpos + Y * (d * 6.6)
+                # A tapered square spike.
+                ring0 = [b.vert(*(base + Vector((ex * 0.95, 0, ez * 0.95)))) for ex, ez in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
+                ring1 = [b.vert(*(tip + Vector((ex * 0.12, 0, ez * 0.12)))) for ex, ez in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
+                for i in range(4):
+                    j = (i + 1) % 4
+                    b.face([ring0[i], ring0[j], ring1[j], ring1[i]], PLATE)
+                b.face(ring1 if d > 0 else ring1[::-1], PANEL, 1.0)
+                b.box(tip + Y * (d * 0.12), (0.2, 0.24, 0.2), PANEL, 1.0)
+                # Bands round the spike.
+                for f in (0.3, 0.55):
+                    p = base.lerp(tip, f)
+                    w = 0.95 + (0.12 - 0.95) * f + 0.05
+                    b.box(p, (2 * w, 0.1, 2 * w), FRAME)
+            # Square lights on the node's front and back.
+            for d in (-1, 1):
+                p = cpos + Y * (d * 2.11)
+                for ex, ez, w, h in ((0, 1.15, 2.0, 0.1), (0, -1.15, 2.0, 0.1), (1.15, 0, 0.1, 2.0), (-1.15, 0, 0.1, 2.0)):
+                    b.box(p + Vector((ex, 0, ez)), (w, 0.04, h), PANEL, 0.6)
+    # Radiator wings off the left and right sides: a boom and three panels each.
+    for sx in (-1, 1):
+        root = Vector((sx * (H + 2.0), 0, 0))
+        b.box(root + Vector((sx * 4.2, 0, 0)), (8.4, 0.3, 0.3), FRAME)
+        b.box(root + Vector((sx * 0.3, 0, 0)), (0.8, 0.9, 1.2), PLATE)
+        for j in range(3):
+            cx = sx * (H + 3.6 + j * 2.4)
+            b.box(Vector((cx, 0, 0)), (2.1, 0.05, 4.6), RADIATOR, 0.0)
+            b.box(Vector((cx, 0, 2.32)), (2.15, 0.08, 0.06), FRAME)
+            b.box(Vector((cx, 0, -2.32)), (2.15, 0.08, 0.06), FRAME)
+    # The crew hub under the bottom beam: a long pressurised module in gold foil and white plate, rows of windows.
+    hub = Vector((0, 0, -(H + 2.8)))
+    b.box(hub + Vector((0, 0, 0.75)), (1.2, 1.0, 1.4), FRAME)
+    b.box(hub, (6.0, 1.7, 1.5), PLATE)
+    b.box(hub + Vector((0, 0, -0.95)), (4.6, 1.3, 0.5), FOIL)
+    for end in (-1, 1):
+        b.box(hub + Vector((end * 3.3, 0, 0)), (0.6, 1.2, 1.0), FRAME)
+        b.box(hub + Vector((end * 3.75, 0, 0)), (0.3, 0.7, 0.7), DISH)
+    for row in (-0.3, 0.25):
+        for i in range(22):
+            x = -2.75 + i * 0.26
+            for d in (-1, 1):
+                b.box(hub + Vector((x, d * 0.855, row)), (0.12, 0.012, 0.09), PANEL, 0.9)
+    # The comms mast on top, with a dish and a beacon.
+    mast = Vector((2.5, 0, H + 2.0))
+    b.box(mast + Vector((0, 0, 1.6)), (0.25, 0.25, 3.2), FRAME)
+    b.box(mast + Vector((0, 0, 0.1)), (1.0, 1.0, 0.6), PLATE)
+    b.box(mast + Vector((0, 0, 3.3)), (0.18, 0.18, 0.18), PANEL, 1.0)
+    seg, rings_n, radius, depth_d = 24, 4, 0.9, 0.25
+    top = mast + Vector((0, -0.2, 2.2))
+    centre = b.vert(*top)
+    rings = []
+    for k2 in range(1, rings_n + 1):
+        rr = radius * k2 / rings_n
+        yy = -depth_d * (rr / radius) ** 2
+        rings.append([b.vert(*(top + Vector((rr * math.cos(2 * math.pi * i / seg), yy, rr * math.sin(2 * math.pi * i / seg)))))
+                      for i in range(seg)])
+    for i in range(seg):
+        j = (i + 1) % seg
+        b.face([centre, rings[0][j], rings[0][i]], DISH)
+        for k2 in range(rings_n - 1):
+            b.face([rings[k2][i], rings[k2][j], rings[k2 + 1][j], rings[k2 + 1][i]], DISH)
+    obj = b.to_object('gate')
+    smooth(obj, 30)
+    return obj
+
+
 # --- helpers -----------------------------------------------------------------------------------
 
 def smooth(obj, angle):
@@ -483,6 +678,8 @@ def export(obj, path):
     ao = ambient_occlusion(obj)
     mat = me.attributes['mat'].data
     glow = me.attributes['glow'].data
+    fu = me.attributes['u'].data if 'u' in me.attributes else None
+    fv = me.attributes['v'].data if 'v' in me.attributes else None
     normals = me.corner_normals
     verts, index, lookup = [], [], {}
     for poly in me.polygons:
@@ -494,15 +691,16 @@ def export(obj, path):
             rec = (round(co.x, 5), round(co.z, 5), round(-co.y, 5),
                    int(round(max(0.0, min(1.0, ao[li])) * 255)), int(round(glow[poly.index].value * 255)),
                    mat[poly.index].value,
-                   int(round(n.x * 127)), int(round(n.z * 127)), int(round(-n.y * 127)))
+                   int(round(n.x * 127)), int(round(n.z * 127)), int(round(-n.y * 127)),
+                   round(fu[poly.index].value, 5) if fu else 0.0, round(fv[poly.index].value, 5) if fv else 0.0)
             if rec not in lookup:
                 lookup[rec] = len(verts)
                 verts.append(rec)
             index.append(lookup[rec])
     with open(path, 'wb') as f:
         f.write(b'SSM1' + struct.pack('<ii', len(verts), len(index)))
-        for x, y, z, a, g, m, nx, ny, nz in verts:
-            f.write(struct.pack('<fffffBBBBbbbb', x, y, z, 0.0, 0.0, a, g, m, 255, nx, ny, nz, 0))
+        for x, y, z, a, g, m, nx, ny, nz, u, v in verts:
+            f.write(struct.pack('<fffffBBBBbbbb', x, y, z, u, v, a, g, m, 255, nx, ny, nz, 0))
         f.write(struct.pack('<%dI' % len(index), *index))
     print('%-10s %6d vertices %6d triangles  %s' % (obj.name, len(verts), len(index) // 3, path))
 
@@ -570,7 +768,10 @@ def preview(objs, directory):
 def main():
     reset()
     os.makedirs(OUT, exist_ok=True)
-    objs = [build_round(), build_sabot(), build_coil(), build_relay()] + [build_asteroid(i) for i in range(4)]
+    builders = {'round': build_round, 'sabot': build_sabot, 'coil': build_coil, 'relay': build_relay, 'gate': build_gate}
+    builders.update({'asteroid%d' % i: (lambda i=i: build_asteroid(i)) for i in range(4)})
+    only = sys.argv[sys.argv.index('--only') + 1].split(',') if '--only' in sys.argv else list(builders)
+    objs = [builders[name]() for name in only]
     for obj in objs:
         export(obj, os.path.join(OUT, obj.name + '.ssm'))
     if '--preview' in sys.argv:

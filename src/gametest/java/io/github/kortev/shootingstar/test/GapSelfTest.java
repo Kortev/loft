@@ -73,11 +73,17 @@ public class GapSelfTest implements ClientModInitializer {
 	}
 
 	private static String phase(int age) {
-		if (age < GapTimeline.TURNED) return "key";
-		if (age < GapTimeline.CLOSING) return "tear";
-		if (age < GapTimeline.CONTACT) return "closing";
-		if (age < GapTimeline.FRAMES) return "contact";
-		if (age < GapTimeline.ERASURE) return "frames";
+		if (age < GapTimeline.RISE) return "key";
+		if (age < GapTimeline.FEED) return "rise";
+		if (age < GapTimeline.GATE) return "orbit";
+		if (age < GapTimeline.OPEN) return "gate";
+		if (age < GapTimeline.CUT) return "open";
+		if (age < GapTimeline.SEND) return "cut";
+		if (age < GapTimeline.FALL) return "send";
+		if (age < GapTimeline.INBOUND) return "fall";
+		if (age < GapTimeline.CONTACT) return "inbound";
+		if (age < GapTimeline.BLAST) return "frames";
+		if (age < GapTimeline.ERASURE) return "blast";
 		if (age < GapTimeline.NOTHING) return "erasure";
 		if (age < GapTimeline.END) return "nothing";
 		return "hold";

@@ -2,6 +2,7 @@ package io.github.kortev.shootingstar.client.gap;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import io.github.kortev.shootingstar.client.gfx.Fx;
+import io.github.kortev.shootingstar.client.gfx.Mesh;
 import io.github.kortev.shootingstar.client.gfx.Post;
 import io.github.kortev.shootingstar.client.gfx.Shaders;
 import io.github.kortev.shootingstar.client.gfx.Target;
@@ -10,12 +11,8 @@ import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.Framebuffer;
 import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.LightmapTextureManager;
-import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.VertexFormat;
-import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.util.math.MathHelper;
@@ -27,17 +24,27 @@ import org.joml.Vector4f;
 import org.lwjgl.opengl.GL11;
 
 /**
- * Draws Ginnungagap events into the world: the shard of the other universe falling out of the broken sky, the
- * blocks trading places, the contact, then one full-screen pass for the glitch, the sky shattering, the
- * impact frames, the erasure and the black, and finally the shooter again, the one thing left.
+ * Draws Ginnungagap events into the world: the bridge of light standing over the target and the block of another
+ * universe coming down it; the burst when it lands, the universe in it swelling out of the ground as a block, with
+ * smaller blocks of it flung out and its stars streaming away; its fall back in on itself; then one full-screen
+ * pass for the bad signal, the burst's light and shock front, the impact frames, the erasure and the black, and
+ * finally the shooter again, the one thing left.
  */
 public final class GapRender {
 	private static final Target DEPTH = new Target(true, false);
 	private static final Target COPY = new Target(false, false);
 	private static final Fx BATCH = new Fx();
 	private static final int WHITE = 0xFFFFFF;
-	private static final int CYAN = 0xA8F8FF;
-	private static final int PURPLE = 0xC77DFF;
+	private static final int VIOLET = 0xA070FF;
+	private static final int PALE = 0xD8C8FF;
+	/** How high the bridge is drawn from. */
+	private static final double BRIDGE_TOP = 600.0;
+	/** When the bridge has reached the ground (the feed shows it reaching down). */
+	private static final int BRIDGE = GapTimeline.SEND + 7;
+	/** Blocks of that universe flung out of the burst, and stars streaming out of it. */
+	private static final int FLUNG = 44;
+	private static final int STARS = 280;
+	private static Mesh cube;
 
 	private GapRender() {
 	}
@@ -47,6 +54,9 @@ public final class GapRender {
 		ClientWorld world = context.world();
 		if (!Shaders.ready() || world == null || client.player == null || ClientGaps.all().isEmpty()) {
 			return;
+		}
+		if (cube == null) {
+			cube = Mesh.cube();
 		}
 		float tickDelta = context.tickCounter().getTickDelta(false);
 		Vec3d cam = context.camera().getPos();
@@ -58,19 +68,21 @@ public final class GapRender {
 		Vector3f right = new Vector3f(view.m00(), view.m10(), view.m20());
 		Vector3f up = new Vector3f(view.m01(), view.m11(), view.m21());
 		RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+		float time = (float) (world.getTime() + tickDelta);
 
 		ClientGap mine = ClientGaps.mine();
-		float time = (float) (world.getTime() + tickDelta);
-		// Until the impact frames, the shard and the marks go on after the full-screen pass, so the broken sky can
-		// never paint over them. From then on they go under it, to be inked, erased and blacked out with the rest.
+		main.beginWrite(true);
 		for (ClientGap gap : ClientGaps.all()) {
 			double t = gap.time(tickDelta);
-			if (t >= GapTimeline.FRAMES) {
-				draw(world, gap, t, tickDelta, cam, view, proj, right, up, main, time, false);
+			if (gap.mine ? gap.ended : t > GapTimeline.END + 40) {
+				continue;
 			}
+			bridge(gap, t, cam, view, proj, right, up);
+			block(gap, t, cam, view, proj, right, up, time);
+			burst(gap, t, cam, view, proj, right, up, time);
 		}
 
-		Grade grade = grade(mine, tickDelta, cam, view, proj, w, h);
+		Grade grade = grade(mine, tickDelta, cam, view, proj);
 		if (grade != null) {
 			DEPTH.ensure(w, h);
 			DEPTH.copyDepthFrom(main);
@@ -78,13 +90,13 @@ public final class GapRender {
 			COPY.copyColorFrom(main);
 			main.beginWrite(true);
 			Post.begin();
-			// The pass writes depth back (clouds that broke away go with it), so it needs the depth test on to write.
+			// The pass writes the depth back as it found it, so it needs the depth test on to write at all.
 			RenderSystem.enableDepthTest();
 			RenderSystem.depthFunc(GL11.GL_ALWAYS);
 			RenderSystem.depthMask(true);
 			RenderSystem.setShaderTexture(0, COPY.color());
 			RenderSystem.setShaderTexture(1, DEPTH.depth());
-			grade.apply(proj, view, w, h, (float) (world.getTime() + tickDelta));
+			grade.apply(proj, view, w, h, time);
 			Post.quad(Shaders.gap);
 			RenderSystem.depthFunc(GL11.GL_LEQUAL);
 			RenderSystem.setShaderTexture(0, 0);
@@ -92,12 +104,6 @@ public final class GapRender {
 			// The one thing the erasure does not take: draw the shooter again over the black.
 			if (mine != null && (grade.front >= 0.0F || grade.black > 0.0F) && context.camera().isThirdPerson()) {
 				redrawShooter(client, client.player, cam, view, tickDelta);
-			}
-		}
-		for (ClientGap gap : ClientGaps.all()) {
-			double t = gap.time(tickDelta);
-			if (t < GapTimeline.FRAMES) {
-				draw(world, gap, t, tickDelta, cam, view, proj, right, up, main, time, true);
 			}
 		}
 
@@ -110,201 +116,189 @@ public final class GapRender {
 		main.beginWrite(true);
 	}
 
-	private static void draw(ClientWorld world, ClientGap gap, double t, float tickDelta, Vec3d cam, Matrix4f view, Matrix4f proj,
-			Vector3f right, Vector3f up, Framebuffer main, float time, boolean ridges) {
-		main.beginWrite(true);
-		if (shown(gap, t)) {
-			drawShard(gap, t, cam, view, proj, time);
-			if (ridges) {
-				drawRidges(gap, t, cam, view, proj, right, up);
+	// --- the bridge and the block coming down it ------------------------------------------
+
+	/** Height of the block's centre over the point of contact: high above the world until the inbound shot, then down. */
+	static double blockHeight(double t) {
+		if (t < GapTimeline.INBOUND) {
+			return GapCamera.blockHeight(GapTimeline.INBOUND) + (GapTimeline.INBOUND - t) * 45.0 + GapCamera.BLOCK;
+		}
+		return GapCamera.blockHeight(t) + GapCamera.BLOCK;
+	}
+
+	/** A shaft of light from the block (or the top of the sky) down to the target, a rainbow at its edges, a star at its foot. */
+	private static void bridge(ClientGap gap, double t, Vec3d cam, Matrix4f view, Matrix4f proj, Vector3f right, Vector3f up) {
+		if (t < BRIDGE - 3 || t > GapTimeline.CONTACT + 6) {
+			return;
+		}
+		double reach = GapCamera.ease((t - BRIDGE + 3) / 3.0);
+		float fade = (float) (t > GapTimeline.CONTACT ? 1.0 - (t - GapTimeline.CONTACT) / 6.0 : 1.0);
+		double top = Math.min(BRIDGE_TOP, blockHeight(t));
+		Vec3d a = gap.contact.add(0, top, 0);
+		Vec3d b = gap.contact.add(0, top * (1.0 - reach), 0);
+		Vector3f ra = rel(a, cam);
+		Vector3f rb = rel(b, cam);
+		Vector3f eye = new Vector3f();
+		float pulse = 1.0F + 0.15F * (float) Math.sin(t * 1.7);
+		float width = 2.2F * pulse * (1.0F + 0.8F * (float) Math.exp(-Math.max(0.0, t - BRIDGE) / 6.0));
+		BATCH.begin(Fx.BEAM, 0.0F, view, proj, right, up);
+		BATCH.beam(ra, rb, eye, width, Fx.fade(WHITE, fade), Fx.fade(PALE, fade));
+		BATCH.beam(ra, rb, eye, width * 3.0F, Fx.fade(VIOLET, 0.55F * fade), Fx.fade(VIOLET, 0.45F * fade));
+		BATCH.end(true, 1.6F);
+		// The colours split out either side of it.
+		Vector3f mid = new Vector3f(ra).add(rb).mul(0.5F);
+		Vector3f side = new Vector3f(rb).sub(ra).cross(mid).normalize().mul(width * 1.35F);
+		BATCH.begin(Fx.BEAM, 0.0F, view, proj, right, up);
+		BATCH.beam(new Vector3f(ra).add(side), new Vector3f(rb).add(side), eye, width * 0.4F, Fx.argb(1.0F, 0.3F, 0.55F, 0.4F * fade),
+				Fx.argb(1.0F, 0.35F, 0.45F, 0.3F * fade));
+		BATCH.beam(new Vector3f(ra).sub(side), new Vector3f(rb).sub(side), eye, width * 0.4F, Fx.argb(0.2F, 0.9F, 1.0F, 0.4F * fade),
+				Fx.argb(0.3F, 1.0F, 0.6F, 0.3F * fade));
+		BATCH.end(true, 1.2F);
+		if (reach >= 1.0) {
+			BATCH.begin(Fx.SPIKES, 0.0F, view, proj, right, up);
+			BATCH.sprite(rel(gap.contact.add(0, 0.5, 0), cam), 9.0F * pulse, (float) (t * 0.02), Fx.fade(WHITE, fade));
+			BATCH.end(true, 1.6F);
+			BATCH.begin(Fx.BLOB, 0.0F, view, proj, right, up);
+			BATCH.sprite(rel(gap.contact.add(0, 1.0, 0), cam), 16.0F * pulse, 0.0F, Fx.fade(VIOLET, 0.6F * fade));
+			BATCH.end(true, 1.3F);
+		}
+	}
+
+	/** The block of the other universe, tumbling down the bridge, a halo round it and its wake left glowing above it. */
+	private static void block(ClientGap gap, double t, Vec3d cam, Matrix4f view, Matrix4f proj, Vector3f right, Vector3f up, float time) {
+		double height = blockHeight(t);
+		if (t >= GapTimeline.CONTACT || height > BRIDGE_TOP + 40.0) {
+			return;
+		}
+		Vec3d c = gap.contact.add(0, height, 0);
+		Vector3f rc = rel(c, cam);
+		float s = (float) GapCamera.BLOCK;
+		Matrix4f model = new Matrix4f().translation(rc).rotateY((float) (t * 0.05)).rotateX((float) (t * 0.031)).rotateZ(0.3F).scale(s);
+		universe(model, view, proj, 0, time, 0.0F, 1.6F, 0.25F, 40);
+		Vector3f eye = new Vector3f();
+		BATCH.begin(Fx.BLOB, 0.0F, view, proj, right, up);
+		BATCH.sprite(rc, s * 3.2F, 0.0F, Fx.fade(VIOLET, 0.55F));
+		BATCH.sprite(rc, s * 1.6F, 0.0F, Fx.fade(WHITE, 0.4F));
+		BATCH.end(true, 1.5F);
+		// The air it tears through, glowing behind it.
+		double wake = Math.min(120.0, height);
+		BATCH.begin(Fx.BEAM, 0.0F, view, proj, right, up);
+		BATCH.beam(rc, rel(c.add(0, wake, 0), cam), eye, s * 1.1F, Fx.fade(PALE, 0.7F), Fx.fade(VIOLET, 0.0F));
+		BATCH.end(true, 1.4F);
+	}
+
+	// --- the burst ---------------------------------------------------------------------
+
+	/** Where the burst sits: the block swelling out of the point of contact, a quarter of it sunk into the ground. */
+	static Vec3d burstCenter(ClientGap gap, double t) {
+		return gap.contact.add(0, GapCamera.burstHalf(gap, t) * 0.25, 0);
+	}
+
+	private static void burst(ClientGap gap, double t, Vec3d cam, Matrix4f view, Matrix4f proj, Vector3f right, Vector3f up, float time) {
+		if (t < GapTimeline.CONTACT || t >= GapTimeline.ERASURE + 2) {
+			return;
+		}
+		double e = t - GapTimeline.CONTACT;
+		double h = GapCamera.burstHalf(gap, t);
+		Vec3d bc = burstCenter(gap, t);
+		Vector3f rc = rel(bc, cam);
+		float heat = (float) Math.pow(Math.max(0.0, 1.0 - e / 20.0), 1.5);
+		if (h > 0.3) {
+			Matrix4f model = new Matrix4f().translation(rc).scale((float) h);
+			universe(model, view, proj, 0, time, 0.0F, 2.6F, heat, 36);
+		}
+		flung(gap, t, cam, view, proj, time);
+
+		// Its light, and the stars streaming out of it (or, at the end, back into it).
+		float collapse = (float) MathHelper.clamp((t - GapTimeline.COLLAPSE) / (GapTimeline.ERASURE - GapTimeline.COLLAPSE), 0.0, 1.0);
+		BATCH.begin(Fx.BLOB, 0.0F, view, proj, right, up);
+		float glow = (float) (0.35 + 0.65 * Math.exp(-e / 8.0)) * (1.0F - collapse * 0.5F);
+		BATCH.sprite(rc, (float) (h * 2.4 + 6.0), 0.0F, Fx.fade(VIOLET, 0.5F * glow));
+		BATCH.sprite(rc, (float) (h * 1.2 + 3.0), 0.0F, Fx.fade(WHITE, 0.45F * glow + 0.5F * heat));
+		if (collapse > 0.0F) {
+			BATCH.sprite(rc, 4.0F + 30.0F * collapse * collapse, 0.0F, Fx.fade(WHITE, collapse));
+		}
+		BATCH.end(true, 1.6F);
+		BATCH.begin(Fx.STREAK, 0.0F, view, proj, right, up);
+		double full = GapCamera.blastHalf(gap);
+		for (int i = 0; i < STARS; i++) {
+			double born = noise(gap.id, i) * 70.0;
+			double age = e - born;
+			if (age < 0.0 || collapse >= 1.0F) {
+				continue;
 			}
+			double life = 14.0 + noise(gap.id, i + 900) * 16.0;
+			Vec3d dir = new Vec3d(noise(gap.id, i + 300) - 0.5, noise(gap.id, i + 600) * 0.9 - 0.15, noise(gap.id, i + 1200) - 0.5).normalize();
+			double speed = 2.5 + noise(gap.id, i + 1500) * 6.0;
+			double r;
+			float a;
+			if (collapse > 0.0F) {
+				// Drawn back in.
+				r = full * 3.0 * (1.0 - collapse) * (0.4 + noise(gap.id, i + 1800));
+				a = (float) Math.sin(Math.PI * collapse) * 0.9F;
+			} else {
+				if (age > life) {
+					continue;
+				}
+				r = h * 0.9 + speed * age;
+				a = (float) (1.0 - age / life);
+			}
+			Vector3f p = rel(bc.add(dir.multiply(r)), cam);
+			int color = switch (i % 5) {
+				case 0 -> 0xBFA0FF;
+				case 1 -> 0x9FE8FF;
+				case 2 -> 0xFFD8A0;
+				default -> 0xFFFFFF;
+			};
+			BATCH.stretched(p, new Vector3f((float) dir.x, (float) dir.y, (float) dir.z), (float) (speed * 1.6), 0.18F + 0.1F * (i % 3),
+					Fx.fade(color, a));
 		}
-		drawMarks(world, gap, t, tickDelta, cam, view, proj, right, up);
+		BATCH.end(true, 1.8F);
 	}
 
-	private static boolean shown(ClientGap gap, double t) {
-		return t >= GapTimeline.TEAR && (gap.mine ? t < GapTimeline.NOTHING : t < GapTimeline.NOTHING + 20);
+	/** Smaller blocks of the universe thrown out of the burst's faces, tumbling up and out, flaring white as they go. */
+	private static void flung(ClientGap gap, double t, Vec3d cam, Matrix4f view, Matrix4f proj, float time) {
+		for (int i = 0; i < FLUNG; i++) {
+			double born = GapTimeline.CONTACT + 3.0 + i * 1.5 + noise(gap.id, i + 40) * 6.0;
+			double age = t - born;
+			double life = 36.0 + noise(gap.id, i + 70) * 24.0;
+			if (age < 0.0 || age > life || t >= GapTimeline.COLLAPSE + 4) {
+				continue;
+			}
+			double h = GapCamera.burstHalf(gap, born);
+			Vec3d dir = new Vec3d(noise(gap.id, i + 100) - 0.5, 0.35 + noise(gap.id, i + 130) * 0.9, noise(gap.id, i + 160) - 0.5).normalize();
+			double speed = 1.0 + noise(gap.id, i + 190) * 1.6;
+			Vec3d start = burstCenter(gap, born).add(dir.multiply(h * 0.95));
+			Vec3d pos = start.add(dir.multiply(speed * age)).add(0, -0.025 * age * age, 0);
+			double fade = age / life;
+			float size = (float) ((1.2 + noise(gap.id, i + 220) * 3.2) * (1.0 - Math.pow(fade, 3.0)));
+			if (size < 0.05F) {
+				continue;
+			}
+			float flare = (float) MathHelper.clamp((fade - 0.8) / 0.2, 0.0, 1.0);
+			Vector3f axis = new Vector3f((float) noise(gap.id, i + 250) - 0.5F, (float) noise(gap.id, i + 280) - 0.5F, 0.3F).normalize();
+			Matrix4f model = new Matrix4f().translation(rel(pos, cam)).rotate((float) (age * (0.08 + 0.1 * noise(gap.id, i + 310))), axis)
+					.scale(size);
+			universe(model, view, proj, 2, time, (float) (i * 1.37 + 1.0), 1.8F, flare, 8);
+		}
 	}
 
-	// --- the shard: a piece of the other universe, falling out of the broken sky -------------
-
-	private static final double[] RING_H = {0, 8, 24, 48, 76, 104, 126, 140, 150};
-	private static final double[] RING_R = {0, 4.6, 12, 19, 23.5, 20, 13, 3.5, 0};
-	private static final int SIDES = 7;
-	/** Smaller pieces breaking off round the big one: angle, distance out, height over the big one's tip, size. */
-	private static final double[][] CHIPS = {
-		{0.4, 46, 70, 0.32}, {1.5, 62, 120, 0.22}, {2.6, 38, 160, 0.18}, {3.3, 70, 40, 0.26}, {4.2, 52, 200, 0.2},
-		{5.1, 80, 95, 0.28}, {5.8, 34, 230, 0.15}
-	};
-
-	private static void drawShard(ClientGap gap, double t, Vec3d cam, Matrix4f view, Matrix4f proj, float time) {
-		Vec3d axis = new Vec3d(0, 1, 0).add(gap.along.multiply(0.16)).add(gap.across.multiply(-0.07)).normalize();
-		BufferBuilder b = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_TEXTURE_COLOR_NORMAL);
-		shard(b, gap.shardTip(t), axis, 1.0, gap.id * 31, t * 0.004, cam);
-		for (int i = 0; i < CHIPS.length; i++) {
-			double[] c = CHIPS[i];
-			// They fall behind the big one, slower, and never quite land.
-			double fall = Math.max(c[2] * 0.35, GapTimeline.shardTip(t) + c[2]);
-			Vec3d at = gap.contact.add(Math.cos(c[0]) * c[1], fall, Math.sin(c[0]) * c[1]);
-			Vec3d lean = new Vec3d(Math.cos(c[0] * 3.1), 2.2, Math.sin(c[0] * 2.3)).normalize();
-			shard(b, at, lean, c[3], gap.id * 31 + i + 1, t * (0.01 + 0.004 * i), cam);
-		}
-		Shaders.set(Shaders.shard, "Time", time);
-		Shaders.set(Shaders.shard, "Spin", (float) Math.sin(gap.id * 1.7) * 0.2F, 0.0F, (float) Math.cos(gap.id * 1.7) * 0.2F);
+	private static void universe(Matrix4f model, Matrix4f view, Matrix4f proj, int mode, float time, float seed, float edge, float heat,
+			int steps) {
 		RenderSystem.enableDepthTest();
 		RenderSystem.depthFunc(GL11.GL_LEQUAL);
 		RenderSystem.depthMask(true);
-		RenderSystem.disableCull();
 		RenderSystem.disableBlend();
-		Post.draw(b, Shaders.shard, view, proj);
-	}
-
-	/** One faceted, slightly twisted crystal, tip first; every triangle its own flat facet. */
-	private static void shard(BufferBuilder b, Vec3d tip, Vec3d axis, double scale, int seed, double spin, Vec3d cam) {
-		Vec3d u = axis.crossProduct(new Vec3d(0.31, 0.12, 0.94)).normalize();
-		Vec3d v = axis.crossProduct(u);
-		Vec3d[][] ring = new Vec3d[RING_H.length][SIDES];
-		for (int i = 0; i < RING_H.length; i++) {
-			for (int j = 0; j < SIDES; j++) {
-				double a = Math.PI * 2 * j / SIDES + i * 0.21 + spin + (noise(seed, i * 16 + j) - 0.5) * 0.5;
-				double r = RING_R[i] * scale * (0.78 + 0.44 * noise(seed + 7, i * 16 + j));
-				double h = RING_H[i] * scale + (i == 0 || i == RING_H.length - 1 ? 0.0 : (noise(seed + 3, i * 16 + j) - 0.5) * 6.0 * scale);
-				ring[i][j] = tip.add(axis.multiply(h)).add(u.multiply(Math.cos(a) * r)).add(v.multiply(Math.sin(a) * r));
-			}
-		}
-		for (int i = 0; i + 1 < RING_H.length; i++) {
-			for (int j = 0; j < SIDES; j++) {
-				int k = (j + 1) % SIDES;
-				if (i > 0) {
-					facet(b, ring[i][j], ring[i + 1][j], ring[i][k], cam);
-				}
-				if (i + 2 < RING_H.length) {
-					facet(b, ring[i][k], ring[i + 1][j], ring[i + 1][k], cam);
-				}
-			}
-		}
-	}
-
-	private static void facet(BufferBuilder b, Vec3d p0, Vec3d p1, Vec3d p2, Vec3d cam) {
-		Vec3d n = p1.subtract(p0).crossProduct(p2.subtract(p0)).normalize();
-		float nx = (float) n.x;
-		float ny = (float) n.y;
-		float nz = (float) n.z;
-		// The texture coordinates are barycentric, so the shader can find the facet's edges.
-		b.vertex((float) (p0.x - cam.x), (float) (p0.y - cam.y), (float) (p0.z - cam.z)).texture(1, 0).color(-1).normal(nx, ny, nz);
-		b.vertex((float) (p1.x - cam.x), (float) (p1.y - cam.y), (float) (p1.z - cam.z)).texture(0, 1).color(-1).normal(nx, ny, nz);
-		b.vertex((float) (p2.x - cam.x), (float) (p2.y - cam.y), (float) (p2.z - cam.z)).texture(0, 0).color(-1).normal(nx, ny, nz);
-	}
-
-	/** The big shard's ridges, glowing out past its silhouette. */
-	private static void drawRidges(ClientGap gap, double t, Vec3d cam, Matrix4f view, Matrix4f proj, Vector3f right, Vector3f up) {
-		Vec3d axis = new Vec3d(0, 1, 0).add(gap.along.multiply(0.16)).add(gap.across.multiply(-0.07)).normalize();
-		Vec3d tip = gap.shardTip(t);
-		Vec3d u = axis.crossProduct(new Vec3d(0.31, 0.12, 0.94)).normalize();
-		Vec3d v = axis.crossProduct(u);
-		int seed = gap.id * 31;
-		double spin = t * 0.004;
-		Vector3f eye = new Vector3f();
-		BATCH.begin(Fx.LINE, 0.0F, view, proj, right, up);
-		for (int j = 0; j < SIDES; j++) {
-			Vec3d prev = null;
-			for (int i = 0; i < RING_H.length; i++) {
-				double a = Math.PI * 2 * j / SIDES + i * 0.21 + spin + (noise(seed, i * 16 + j) - 0.5) * 0.5;
-				double r = RING_R[i] * (0.78 + 0.44 * noise(seed + 7, i * 16 + j));
-				double h = RING_H[i] + (i == 0 || i == RING_H.length - 1 ? 0.0 : (noise(seed + 3, i * 16 + j) - 0.5) * 6.0);
-				Vec3d p = tip.add(axis.multiply(h)).add(u.multiply(Math.cos(a) * r)).add(v.multiply(Math.sin(a) * r));
-				if (prev != null) {
-					Vector3f pa = rel(prev, cam);
-					Vector3f pb = rel(p, cam);
-					float dist = new Vector3f(pa).add(pb).mul(0.5F).length();
-					BATCH.beam(pa, pb, eye, Math.max(0.04F, dist * 0.0022F), Fx.fade(WHITE, 0.55F), Fx.fade(WHITE, 0.55F));
-					BATCH.beam(pa, pb, eye, Math.max(0.25F, dist * 0.014F), Fx.fade(CYAN, 0.26F), Fx.fade(CYAN, 0.26F));
-				}
-				prev = p;
-			}
-		}
-		BATCH.end(true, 1.4F);
-		// Dust of their universe streaming off it as it falls, left behind above it.
-		BATCH.begin(Fx.BLOB, 0.0F, view, proj, right, up);
-		for (int i = 0; i < 110; i++) {
-			double life = (t * 0.9 + noise(seed, 800 + i) * 40.0) % 40.0;
-			double h = noise(seed, 500 + i) * 140.0 + life * 1.8;
-			double a = noise(seed, 600 + i) * Math.PI * 2;
-			double r = 5.0 + noise(seed, 700 + i) * 20.0 + life * 0.35;
-			Vec3d p = tip.add(axis.multiply(h)).add(u.multiply(Math.cos(a) * r)).add(v.multiply(Math.sin(a) * r));
-			float fade = (float) Math.sin(Math.PI * life / 40.0);
-			BATCH.sprite(rel(p, cam), 0.5F + 0.9F * (float) noise(seed, 900 + i), 0.0F, Fx.fade(i % 3 == 0 ? PURPLE : CYAN, 0.5F * fade));
-		}
-		BATCH.end(true, 1.3F);
-	}
-
-	// --- marks: the lock, the swaps, the contact ------------------------------------------
-
-	private static void drawMarks(ClientWorld world, ClientGap gap, double t, float tickDelta, Vec3d cam, Matrix4f view, Matrix4f proj,
-			Vector3f right, Vector3f up) {
-		Vector3f eye = new Vector3f();
-		boolean any = false;
-		BATCH.begin(Fx.LINE, 0.0F, view, proj, right, up);
-		// Blocks trading places: a hard white line from each up into the other universe, gone in a third of a second.
-		for (ClientGap.Swap s : gap.swaps) {
-			double age = t - s.age();
-			if (age < 0.0 || age > 7.0) {
-				continue;
-			}
-			if (s.kind() == 1 && (s.pos().hashCode() & 3) != 0) {
-				continue;
-			}
-			float k = (float) (1.0 - age / 7.0);
-			Vec3d a = Vec3d.ofCenter(s.pos());
-			Vec3d b = gap.swappedTo(s.pos());
-			BATCH.beam(rel(a, cam), rel(b, cam), eye, 0.08F + 0.25F * k, Fx.fade(WHITE, k), Fx.fade(WHITE, k));
-			any = true;
-		}
-		BATCH.end(true, 1.5F);
-
-		// Ender-purple specks along the swaps and bursting at both ends.
-		BATCH.begin(Fx.BLOB, 0.0F, view, proj, right, up);
-		for (ClientGap.Swap s : gap.swaps) {
-			double age = t - s.age();
-			if (age < 0.0 || age > 14.0 || (s.kind() == 1 && (s.pos().hashCode() & 3) != 0)) {
-				continue;
-			}
-			float k = (float) (1.0 - age / 14.0);
-			Vec3d a = Vec3d.ofCenter(s.pos());
-			Vec3d b = gap.swappedTo(s.pos());
-			int seed = s.pos().hashCode();
-			for (int i = 0; i < 14; i++) {
-				double f = noise(seed, i);
-				double spread = 0.4 + 1.6 * (age / 14.0);
-				Vec3d p = a.lerp(b, f).add((noise(seed, i + 40) - 0.5) * spread, (noise(seed, i + 80) - 0.5) * spread,
-						(noise(seed, i + 120) - 0.5) * spread);
-				BATCH.sprite(rel(p, cam), 0.12F + 0.1F * k, 0.0F, Fx.fade(PURPLE, k * 0.9F));
-			}
-			any = true;
-		}
-		BATCH.end(true, 1.4F);
-
-		// Contact: a white seam where the two touch.
-		if (t >= GapTimeline.CONTACT - 1 && t < GapTimeline.FRAMES + 2) {
-			double k = GapCamera.ease((t - GapTimeline.CONTACT) / 14.0);
-			BATCH.begin(Fx.LINE, 0.0F, view, proj, right, up);
-			Vec3d c = gap.contact.add(0, 0.04, 0);
-			double reach = 0.4 + 9.0 * k;
-			BATCH.beam(rel(c.add(gap.along.multiply(-reach)), cam), rel(c.add(gap.along.multiply(reach)), cam), eye, 0.05F, 0xFFFFFFFF,
-					0xFFFFFFFF);
-			BATCH.beam(rel(c.add(gap.across.multiply(-reach * 0.6)), cam), rel(c.add(gap.across.multiply(reach * 0.6)), cam), eye, 0.05F,
-					0xFFFFFFFF, 0xFFFFFFFF);
-			BATCH.end(true, 3.0F);
-			BATCH.begin(Fx.BLOB, 0.0F, view, proj, right, up);
-			BATCH.sprite(rel(c.add(0, 0.2, 0), cam), (float) (0.5 + 2.5 * k), 0.0F, 0xFFFFFFFF);
-			BATCH.end(true, 2.0F);
-			any = true;
-		}
-		if (any) {
-			RenderSystem.defaultBlendFunc();
-			RenderSystem.disableBlend();
-			RenderSystem.depthMask(true);
-		}
+		RenderSystem.disableCull();
+		Shaders.setInt(Shaders.universe, "Mode", mode);
+		Shaders.set(Shaders.universe, "Time", time);
+		Shaders.set(Shaders.universe, "Seed", seed);
+		Shaders.set(Shaders.universe, "Edge", edge);
+		Shaders.set(Shaders.universe, "Heat", heat);
+		Shaders.set(Shaders.universe, "Reveal", 1.0F);
+		Shaders.setInt(Shaders.universe, "Steps", steps);
+		Shaders.set(Shaders.universe, "Fade", 1.0F);
+		cube.draw(Shaders.universe, new Matrix4f(view).mul(model), proj);
 	}
 
 	// --- the full-screen pass ------------------------------------------------------------
@@ -324,12 +318,10 @@ public final class GapRender {
 		float front = -1.0F;
 		float clamp;
 		Vec3d offset = Vec3d.ZERO;
-		float shatter;
-		Vector3f shatterFrom = new Vector3f(0.0F, 1.0F, 0.0F);
-		float lockOpen;
-		float lockCracks;
-		/** Height of the clouds over the camera, while they should break with the sky. */
-		float cloudY = 10000.0F;
+		Vector4f burst = new Vector4f();
+		Vector3f burstLight = new Vector3f();
+		float shock = -1.0F;
+		float skyMix;
 
 		void apply(Matrix4f proj, Matrix4f view, int w, int h, float time) {
 			Matrix4f inv = new Matrix4f(proj).mul(view).invert();
@@ -349,65 +341,66 @@ public final class GapRender {
 			Shaders.set(Shaders.gap, "Glitch", glitch);
 			Shaders.set(Shaders.gap, "Flash", flash);
 			Shaders.set(Shaders.gap, "Black", black);
-			Shaders.set(Shaders.gap, "Shatter", shatter);
-			Shaders.set(Shaders.gap, "ShatterFrom", shatterFrom);
-			Shaders.set(Shaders.gap, "CosmosTime", time);
-			Shaders.set(Shaders.gap, "Lock", KeyTurn.LOCK_X, KeyTurn.LOCK_Y, lockOpen, lockCracks);
-			Shaders.set(Shaders.gap, "CloudY", cloudY);
+			Shaders.set(Shaders.gap, "Burst", burst.x, burst.y, burst.z, burst.w);
+			Shaders.set(Shaders.gap, "BurstLight", burstLight);
+			Shaders.set(Shaders.gap, "Shock", shock);
+			Shaders.set(Shaders.gap, "SkyMix", skyMix);
 		}
 	}
 
-	private static Grade grade(ClientGap mine, float tickDelta, Vec3d cam, Matrix4f view, Matrix4f proj, int w, int h) {
+	private static Grade grade(ClientGap mine, float tickDelta, Vec3d cam, Matrix4f view, Matrix4f proj) {
 		Grade g = new Grade();
 		boolean on = false;
 		for (ClientGap gap : ClientGaps.all()) {
 			double t = gap.time(tickDelta);
 			boolean live = gap.mine ? !gap.ended : t < GapTimeline.END + 40;
-			if (t >= GapTimeline.ERASURE && live) {
+			if (!live || t < GapTimeline.CONTACT) {
+				continue;
+			}
+			g.offset = cam.subtract(gap.target.getX(), gap.target.getY(), gap.target.getZ());
+			on = true;
+			if (t >= GapTimeline.ERASURE) {
 				g.front = (float) GapTimeline.eraseFront(t);
 				g.clamp = gap.mine ? 0.0F : gap.radius;
-				g.offset = cam.subtract(gap.target.getX(), gap.target.getY(), gap.target.getZ());
-				on = true;
 			}
-			// The sky breaks open from straight over the target, wherever it is seen from.
-			if (t >= GapTimeline.TEAR && live) {
-				g.shatter = Math.max(g.shatter, (float) GapTimeline.shatter(t));
-				g.shatterFrom = rel(gap.contact.add(0, 150, 0), cam).normalize();
-				float clouds = MinecraftClient.getInstance().world.getDimensionEffects().getCloudsHeight();
-				if (!Float.isNaN(clouds)) {
-					g.cloudY = (float) (clouds - cam.y);
+			if (t < GapTimeline.ERASURE + 4) {
+				double e = t - GapTimeline.CONTACT;
+				double h = GapCamera.burstHalf(gap, t);
+				Vec3d bc = burstCenter(gap, t).subtract(gap.target.getX(), gap.target.getY(), gap.target.getZ());
+				g.burst.set((float) bc.x, (float) bc.y, (float) bc.z, (float) Math.max(h, 4.0));
+				float collapse = (float) MathHelper.clamp((t - GapTimeline.COLLAPSE) / (GapTimeline.ERASURE - GapTimeline.COLLAPSE), 0.0, 1.0);
+				float strength = (float) (0.9 + 2.4 * Math.exp(-e / 6.0)) * (1.0F - 0.7F * collapse);
+				g.burstLight.set(0.62F, 0.42F, 1.0F).mul(strength);
+				if (t < GapTimeline.COLLAPSE) {
+					g.shock = (float) (4.0 + 2.6 * gap.radius * (1.0 - Math.exp(-e / 30.0)));
 				}
-				on = true;
+				g.skyMix = (float) (0.85 * GapCamera.ease((e - 10.0) / 50.0)) * (1.0F - collapse * 0.3F);
 			}
 		}
 		if (mine != null) {
 			double t = mine.time(tickDelta);
-			if (t < GapTimeline.TURNED + 3) {
-				g.glitch = (float) (0.15 * GapCamera.ease((t - 30) / 6.0) + 0.85 * Math.pow(MathHelper.clamp((t - 42) / 18.0, 0.0, 1.0), 2));
-				g.flash = (float) (t < GapTimeline.TURNED ? Math.pow(MathHelper.clamp((t - 54) / 6.0, 0.0, 1.0), 2)
-						: 1.0 - (t - GapTimeline.TURNED) / 3.0);
+			// The click and the clunk of the key turning, each a jolt of bad signal.
+			if (t >= 28 && t < GapTimeline.RISE + 4) {
+				g.glitch = (float) (0.45 * Math.exp(-Math.max(0.0, t - 30.0) / 2.0) * (t >= 30 ? 1 : 0)
+						+ 0.6 * Math.exp(-Math.max(0.0, t - 37.0) / 2.5) * (t >= 37 ? 1 : 0));
 				g.seed = (float) Math.floor(t * 1.5);
-				// The lock's light only where the shooter is looking through their own eyes, at the key.
-				if (MinecraftClient.getInstance().options.getPerspective().isFirstPerson()) {
-					g.lockOpen = KeyTurn.open(t);
-					g.lockCracks = KeyTurn.cracks(t);
-				}
 				on = true;
 			}
-			// The hit: a white pop, gone in a few frames.
-			if (t >= GapTimeline.CONTACT && t < GapTimeline.CONTACT + 8) {
-				g.flash = Math.max(g.flash, (float) (0.75 * Math.exp(-(t - GapTimeline.CONTACT) / 1.6)));
+			// Up into the clouds before the feed, and out of its whiteout after it.
+			if (t >= GapTimeline.FEED - 8 && t < GapTimeline.FEED) {
+				g.flash = (float) Math.pow((t - GapTimeline.FEED + 8) / 8.0, 2.0);
+				on = true;
+			} else if (t >= GapTimeline.FEED && t < GapTimeline.FEED + 8 && mine.feedSkipped) {
+				g.flash = (float) (1.0 - (t - GapTimeline.FEED) / 8.0);
+				on = true;
+			} else if (t >= GapTimeline.INBOUND && t < GapTimeline.INBOUND + 8 && !mine.feedSkipped) {
+				g.flash = (float) Math.pow(1.0 - (t - GapTimeline.INBOUND) / 8.0, 1.5);
 				on = true;
 			}
-			for (ClientGap.Swap s : mine.swaps) {
-				double age = t - s.age();
-				if (age >= 0.0 && age < (s.kind() == 1 ? 5.0 : 2.0)) {
-					g.glitch = Math.max(g.glitch, s.kind() == 1 ? (float) (0.7 * (1.0 - age / 5.0)) : 0.18F);
-					g.seed = (float) Math.floor(t * 2.0);
-					on = true;
-				}
+			if (t >= GapTimeline.CONTACT && t < GapTimeline.CONTACT + 4) {
+				g.flash = Math.max(g.flash, (float) Math.exp(-(t - GapTimeline.CONTACT) / 1.2));
 			}
-			if (t >= GapTimeline.FRAMES && t < GapTimeline.ERASURE) {
+			if (t >= GapTimeline.FRAMES && t < GapTimeline.BLAST) {
 				double e = t - GapTimeline.FRAMES;
 				int index = GapFrames.index(e);
 				GapFrames.Frame frame = GapFrames.at(e);
@@ -419,14 +412,19 @@ public final class GapRender {
 				}
 				g.seed = index * 3.7F;
 				g.punch = (float) (0.09 * (1.0 - GapCamera.ease((e - frame.start()) / 3.0)));
-				Vector4f p = new Vector4f((float) (mine.contact.x - cam.x), (float) (mine.contact.y + 1.0 - cam.y),
-						(float) (mine.contact.z - cam.z), 1.0F);
+				Vec3d focus = mine.contact.add(0, GapCamera.burstHalf(mine, t) * 0.4, 0);
+				Vector4f p = new Vector4f((float) (focus.x - cam.x), (float) (focus.y - cam.y), (float) (focus.z - cam.z), 1.0F);
 				view.transform(p);
 				proj.transform(p);
 				if (p.w > 1.0E-3F) {
 					g.focusX = MathHelper.clamp(p.x / p.w * 0.5F + 0.5F, 0.05F, 0.95F);
 					g.focusY = MathHelper.clamp(p.y / p.w * 0.5F + 0.5F, 0.05F, 0.95F);
 				}
+				on = true;
+			}
+			// It falls in on itself: a last flash as the black opens.
+			if (t >= GapTimeline.ERASURE - 2 && t < GapTimeline.ERASURE + 6) {
+				g.flash = Math.max(g.flash, (float) (0.8 * Math.exp(-Math.abs(t - GapTimeline.ERASURE) / 1.8)));
 				on = true;
 			}
 			if (t >= GapTimeline.NOTHING - 10) {

@@ -8,15 +8,16 @@ import net.minecraft.client.world.ClientWorld;
 import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.Heightmap;
 import net.minecraft.world.RaycastContext;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * The shooter's shots through a Ginnungagap event: first person while the key turns; then, from the white, down low
- * behind them tilting up at the sky over the target as it breaks; a long way off to the side for the shard of the
- * other universe falling out of it, with a cutaway up from their eyes; on the ground under the shard as it comes
- * down; low at the point of contact; a hard cut for every impact frame; the wide shot again as everything is
- * erased; then in on them, alone, and back to their eyes. No shot ever starts inside a hill.
+ * The shooter's shots through a Ginnungagap event: first person while the key turns; up out of their eyes over
+ * the target into the clouds; the feed; then from behind them, low and well back, the bridge of light standing
+ * over the target and the block coming down it; a hard cut for every impact frame; craning up and back as the
+ * universe in the block bursts out; higher still as the black spreads; then in on them, alone, and back to their
+ * eyes. No shot ever starts inside a hill.
  */
 public final class GapCamera {
 	/** Impact frame shots. */
@@ -26,15 +27,6 @@ public final class GapCamera {
 	public static final int SIDE = 3;
 	public static final int LOW = 4;
 	public static final int EYES = 5;
-
-	/** The cuts: out to the wide shot, round behind the target and back, and down under the shard. */
-	public static final int CUT_WIDE = GapTimeline.TEAR + 30;
-	public static final int CUT_REVERSE = GapTimeline.CLOSING + 36;
-	public static final int CUT_REVERSE_END = CUT_REVERSE + 22;
-	public static final int CUT_UNDER = GapTimeline.CONTACT - 26;
-
-	/** The places tried for a shot, nearest the one it would like first. */
-	private static final double[] TURNS = {0, 45, -45, 90, -90, 135, -135, 180};
 
 	private GapCamera() {
 	}
@@ -50,26 +42,24 @@ public final class GapCamera {
 		double t = gap.time(tickDelta);
 		Vec3d eye = player.getCameraPosVec(tickDelta);
 		Vec3d feet = player.getLerpedPos(tickDelta);
-		if (t < GapTimeline.TURNED || t >= GapTimeline.END) {
+		if (t < GapTimeline.RISE || t >= GapTimeline.END) {
 			return null;
 		}
-		if (t < GapTimeline.CONTACT) {
-			if (t < CUT_WIDE) {
-				return lookUp(gap, feet, t);
-			}
-			if (t >= CUT_REVERSE && t < CUT_REVERSE_END) {
-				return reverse(gap, t);
-			}
-			if (t >= CUT_UNDER) {
-				return under(gap, t);
-			}
-			return wide(gap, feet, t);
+		if (t < GapTimeline.FEED) {
+			return rise(gap, player, tickDelta, (t - GapTimeline.RISE) / (GapTimeline.FEED - GapTimeline.RISE));
 		}
-		if (t < GapTimeline.FRAMES) {
-			return contact(gap, t);
+		if (t < GapTimeline.INBOUND) {
+			// Behind the feed the world goes on from the shooter's eyes; without it, the bridge is watched coming down.
+			return gap.feedSkipped ? inbound(gap, feet, GapTimeline.INBOUND) : null;
+		}
+		if (t < GapTimeline.CONTACT) {
+			return inbound(gap, feet, t);
+		}
+		if (t < GapTimeline.BLAST) {
+			return frameShot(gap, GapFrames.at(t - GapTimeline.FRAMES).shot(), eye, feet, t);
 		}
 		if (t < GapTimeline.ERASURE) {
-			return frameShot(gap, GapFrames.at(t - GapTimeline.FRAMES).shot(), eye, feet);
+			return blast(gap, feet, t);
 		}
 		if (t < GapTimeline.NOTHING) {
 			return erasure(gap, feet, t);
@@ -78,175 +68,136 @@ public final class GapCamera {
 	}
 
 	/**
-	 * Over the shooter's shoulder, their head and shoulders dark against the sky over the target as it starts to
-	 * break, then tilting up off them as it opens.
+	 * From the shooter's eyes up into a top-down view of the target, ending high enough to pass up through the clouds
+	 * into the feed but low enough that the fog has not swallowed the ground.
 	 */
-	private static Shot lookUp(ClientGap gap, Vec3d feet, double t) {
-		double k = ease((t - GapTimeline.TEAR - 4.0) / (CUT_WIDE - GapTimeline.TEAR - 4.0));
-		Vec3d head = feet.add(0, 1.6, 0);
-		return lookAt(clear(lookUpEye(gap, feet, side(gap, feet), k), head), gap.contact.add(0, 22 + 52 * k, 0));
+	private static Shot rise(ClientGap gap, ClientPlayerEntity player, float tickDelta, double p) {
+		double e = ease(p);
+		Vec3d start = player.getCameraPosVec(tickDelta);
+		Vec3d end = gap.contact.add(0, 60 + 90 * p * p, 0);
+		double x = MathHelper.lerp(e, start.x, end.x);
+		double z = MathHelper.lerp(e, start.z, end.z);
+		double y = MathHelper.lerp(e, start.y, end.y) + Math.sin(Math.PI * e) * 12.0;
+		float pitch = (float) MathHelper.lerp(e, player.getPitch(tickDelta), 89.9);
+		return new Shot(x, y, z, player.getYaw(tickDelta), pitch);
 	}
 
-	private static Vec3d lookUpEye(ClientGap gap, Vec3d feet, double side, double k) {
-		return feet.add(gap.along.multiply(-3.2 + 0.6 * k)).add(gap.across.multiply(1.1 * side)).add(0, 2.0 - 0.6 * k, 0);
-	}
+	/** Half the size of the block of the other universe as it comes down. */
+	public static final double BLOCK = 5.0;
 
-	/** Which side of the shooter the shot behind them stands on: whichever has more open space. Chosen once. */
-	private static double side(ClientGap gap, Vec3d feet) {
-		if (gap.side == 0) {
-			Vec3d chest = feet.add(0, 1.4, 0);
-			double best = -1.0;
-			for (int s = 1; s >= -1; s -= 2) {
-				Vec3d eye = clear(lookUpEye(gap, feet, s, 0.0), chest);
-				double score = score(eye, gap.contact.add(0, 22, 0), 3.0);
-				if (score > best + 0.25) {
-					best = score;
-					gap.side = s;
-				}
-			}
-		}
-		return gap.side;
+	/** Half the size of the block of the other universe once it has burst open over the target. */
+	public static double blastHalf(ClientGap gap) {
+		return MathHelper.clamp(gap.radius * 0.4, 14.0, 70.0);
 	}
 
 	/**
-	 * Of eight places round {@code at}, {@code distance} out and {@code height} up, the one with the most open space
-	 * in front of it while it looks at {@code look}.
+	 * Low and well back on the shooter's side, beyond them, so they stand small in the foreground: far enough that the
+	 * whole of the burst fits in the frame, inside the loaded world. Found once.
 	 */
-	private static Vec3d roomiest(Vec3d at, double distance, double height, Vec3d look, Vec3d prefer) {
-		Vec3d best = null;
-		double bestScore = -1.0;
-		double base = Math.atan2(prefer.z, prefer.x);
-		for (int i = 0; i < TURNS.length; i++) {
-			double a = base + Math.toRadians(TURNS[i]);
-			Vec3d dir = new Vec3d(Math.cos(a), 0, Math.sin(a));
-			Vec3d eye = clear(at.add(dir.multiply(distance)).add(0, height, 0), look);
-			// The preferred side wins a tie.
-			double score = score(eye, look, distance * 0.7) - 0.05 * i;
-			if (score > bestScore) {
-				bestScore = score;
-				best = eye;
-			}
-		}
-		return best;
-	}
-
-	/** How good a camera at {@code eye} looking at {@code at} is: open space across its frame, and not pulled in too close. */
-	private static double score(Vec3d eye, Vec3d at, double wanted) {
-		return Math.min(room(eye, at), 12.0 * Math.min(1.0, eye.distanceTo(at) / wanted));
-	}
-
-	/** The nearest terrain across the middle and top of the frame of a camera at {@code eye} looking at {@code at}, up to 12 blocks. */
-	private static double room(Vec3d eye, Vec3d at) {
-		MinecraftClient client = MinecraftClient.getInstance();
-		ClientWorld world = client.world;
-		if (world == null || client.player == null) {
-			return 12.0;
-		}
-		Vec3d f = at.subtract(eye).normalize();
-		Vec3d r = f.crossProduct(new Vec3d(0, 1, 0));
-		r = r.lengthSquared() < 1.0E-4 ? new Vec3d(1, 0, 0) : r.normalize();
-		Vec3d u = r.crossProduct(f);
-		double room = 12.0;
-		for (int y = 0; y <= 1; y++) {
-			for (int x = -1; x <= 1; x++) {
-				Vec3d dir = f.add(r.multiply(0.6 * x)).add(u.multiply(0.35 * y)).normalize();
-				HitResult hit = world.raycast(new RaycastContext(eye, eye.add(dir.multiply(12.0)), RaycastContext.ShapeType.VISUAL,
-						RaycastContext.FluidHandling.NONE, client.player));
-				if (hit.getType() != HitResult.Type.MISS) {
-					room = Math.min(room, hit.getPos().distanceTo(eye));
-				}
-			}
-		}
-		return room;
-	}
-
-	/**
-	 * From well beyond the target, looking back the way the shooter faces: the shard hanging huge over the target in
-	 * the top of the frame, the shooter small on their hill at the bottom. It shows how big the thing is.
-	 */
-	private static Shot reverse(ClientGap gap, double t) {
-		if (gap.reverseEye == null) {
-			gap.reverseEye = clear(gap.contact.add(gap.along.multiply(110.0)).add(gap.across.multiply(-15.0)).add(0, 40.0, 0),
-					gap.contact.add(0, 20, 0));
-		}
-		Vec3d eye = gap.reverseEye;
-		Vec3d back = new Vec3d(gap.shooterPos.x - eye.x, 0, gap.shooterPos.z - eye.z).normalize();
-		double pitch = Math.toRadians(18.0 - 4.0 * ease((t - CUT_REVERSE) / (CUT_REVERSE_END - CUT_REVERSE)));
-		return lookAt(eye, eye.add(back.multiply(Math.cos(pitch))).add(0, Math.sin(pitch), 0));
-	}
-
-	/** Rising and pulling back from the wide shot until it looks down on the point of contact, the black spreading out from it. */
-	private static Shot erasure(ClientGap gap, Vec3d feet, double t) {
-		Shot w = wide(gap, feet, GapTimeline.CONTACT);
-		double k = ease((t - GapTimeline.ERASURE) / (GapTimeline.NOTHING - GapTimeline.ERASURE - 30.0));
-		Vec3d from = new Vec3d(w.x(), w.y(), w.z());
-		Vec3d away = new Vec3d(from.x - gap.contact.x, 0, from.z - gap.contact.z);
-		double d = away.length();
-		away = away.normalize();
-		Vec3d to = gap.contact.add(away.multiply(d * 1.05)).add(0, Math.max(0.0, from.y - gap.contact.y) + 40.0, 0);
-		return lookAt(from.lerp(to, k), gap.contact.lerp(feet, 0.2 * (1.0 - k)).add(0, 10.0 * (1.0 - k), 0));
-	}
-
-	/** On the ground near the target, looking up at the shard as it comes down on top of it. */
-	private static Shot under(ClientGap gap, double t) {
-		if (gap.underEye == null) {
-			Vec3d side = gap.across.multiply(-1).add(gap.along.multiply(-0.6)).normalize();
-			gap.underEye = roomiest(gap.contact, 17.0, 1.2, gap.contact.add(0, 3, 0), side);
-		}
-		double tip = Math.max(0.0, GapTimeline.shardTip(t));
-		return lookAt(gap.underEye, gap.contact.add(0, 3.0 + 0.8 * tip, 0));
-	}
-
-	/**
-	 * A long way off to the side and level with the middle of it all, so one frame holds our ground, the shooter,
-	 * the target, the broken sky and the shard coming down out of it.
-	 */
-	static Shot wide(ClientGap gap, Vec3d feet, double t) {
-		Vec3d mid = feet.lerp(gap.contact, 0.62);
+	static Vec3d witness(ClientGap gap, Vec3d feet) {
 		if (gap.wideEye == null) {
 			double d = Math.hypot(gap.contact.x - feet.x, gap.contact.z - feet.z);
-			// Far enough back to hold it all, but inside the loaded world, so the ground under the camera is there.
 			double loaded = MinecraftClient.getInstance().options.getClampedViewDistance() * 16.0 - 40.0;
-			double room = Math.sqrt(Math.max(0.0, loaded * loaded - 0.62 * d * 0.62 * d));
-			double back = Math.max(50.0, Math.min(Math.max(d * 1.6, 116.0), room));
-			Vec3d eye = new Vec3d(mid.x, gap.surface + 22, mid.z).add(gap.across.multiply(back));
-			gap.wideEye = above(eye, gap.contact.add(0, 3, 0));
+			double reach = Math.min(Math.max(d + 14.0, 2.3 * blastHalf(gap) + 24.0), Math.max(60.0, loaded));
+			Vec3d foot = gap.contact.add(gap.along.multiply(-reach)).add(gap.across.multiply(reach * 0.2));
+			ClientWorld world = MinecraftClient.getInstance().world;
+			int ground = gap.surface;
+			if (world != null) {
+				for (int dx = -2; dx <= 2; dx++) {
+					for (int dz = -2; dz <= 2; dz++) {
+						ground = Math.max(ground, world.getTopY(Heightmap.Type.MOTION_BLOCKING, MathHelper.floor(foot.x) + dx,
+								MathHelper.floor(foot.z) + dz));
+					}
+				}
+			}
+			gap.wideEye = above(new Vec3d(foot.x, ground + 3.0, foot.z), gap.contact.add(0, 4, 0));
 		}
-		double drift = ease((t - GapTimeline.TEAR) / (GapTimeline.CONTACT - GapTimeline.TEAR));
-		Vec3d eye = gap.wideEye.lerp(new Vec3d(mid.x, gap.wideEye.y, mid.z), 0.1 * drift).add(0, 5 * drift, 0);
-		// Tilted up to hold the shard's tip in the upper part of the frame while it hangs high, down with it as it
-		// falls; never so far up that only sky is left, nor below the ground at the target.
-		double d = Math.hypot(mid.x - eye.x, mid.z - eye.z);
-		double tip = gap.surface + Math.max(0.0, GapTimeline.shardTip(t));
-		double lowest = Math.atan2(gap.surface + 3.0 - eye.y, d);
-		double highest = Math.max(lowest, Math.atan2(gap.surface - eye.y, d) + Math.toRadians(42.0));
-		double pitch = MathHelper.clamp(Math.atan2(tip - eye.y, d) - Math.toRadians(8.0), lowest, highest);
-		return lookAt(eye, new Vec3d(mid.x, eye.y + d * Math.tan(pitch), mid.z));
+		return gap.wideEye;
 	}
 
-	/** Down at the point of contact as the tip comes down and touches. */
-	private static Shot contact(ClientGap gap, double t) {
-		double k = ease((t - GapTimeline.CONTACT) / (GapTimeline.FRAMES - GapTimeline.CONTACT));
-		Vec3d side = gap.across.multiply(-1).add(gap.along.multiply(-0.6)).normalize();
-		Vec3d at = gap.contact.add(0, 2.6, 0);
-		Vec3d eye = clear(gap.contact.add(side.multiply(9.0 - 1.5 * k)).add(0, 1.4, 0), at);
-		// The hit shakes it.
-		double s = Math.exp(-(t - GapTimeline.CONTACT) / 3.0) * 0.35;
-		eye = eye.add(Math.sin(t * 41.0) * s, Math.cos(t * 37.0) * s, Math.sin(t * 29.0 + 1.3) * s);
+	/** How high the block is over the point of contact as it comes down in the world. */
+	public static double blockHeight(double t) {
+		double u = MathHelper.clamp((t - GapTimeline.INBOUND) / (GapTimeline.CONTACT - GapTimeline.INBOUND), 0.0, 1.0);
+		return 300.0 * Math.pow(1.0 - u, 1.5);
+	}
+
+	/** The bridge standing over the target, the block coming down it, the shooter small in the foreground. */
+	private static Shot inbound(ClientGap gap, Vec3d feet, double t) {
+		Vec3d eye = witness(gap, feet);
+		double d = Math.hypot(gap.contact.x - eye.x, gap.contact.z - eye.z);
+		// The point of contact low in the frame, the sky over it filling the rest; tilting down after the block.
+		double k = ease((t - GapTimeline.INBOUND - 6.0) / (GapTimeline.CONTACT - GapTimeline.INBOUND - 6.0));
+		double pitch = Math.toRadians(MathHelper.lerp(k, 27.0, 14.0));
+		double drop = Math.atan2(gap.contact.y - eye.y, d);
+		Vec3d flat = new Vec3d(gap.contact.x - eye.x, 0, gap.contact.z - eye.z).normalize();
+		double a = drop + pitch;
+		Vec3d at = eye.add(flat.multiply(Math.cos(a) * d)).add(0, Math.sin(a) * d, 0);
+		// The bridge hums through everything.
+		double s = 0.05 + 0.25 * k * k;
+		at = at.add(Math.sin(t * 13.0) * s, Math.cos(t * 11.0) * s, Math.sin(t * 9.0 + 1.3) * s);
 		return lookAt(eye, at);
 	}
 
-	static Shot frameShot(ClientGap gap, int shot, Vec3d eye, Vec3d feet) {
+	/** Craning up and back from the witness as the burst grows, holding all of it. */
+	private static Shot blast(ClientGap gap, Vec3d feet, double t) {
+		Vec3d base = witness(gap, feet);
+		double k = ease((t - GapTimeline.BLAST) / (GapTimeline.ERASURE - GapTimeline.BLAST));
+		Vec3d out = new Vec3d(base.x - gap.contact.x, 0, base.z - gap.contact.z).normalize();
+		double d = Math.hypot(base.x - gap.contact.x, base.z - gap.contact.z);
+		Vec3d eye = base.add(out.multiply(0.18 * d * k)).add(0, 0.3 * d * k, 0);
+		Vec3d at = gap.contact.add(0, blastHalf(gap) * MathHelper.lerp(k, 0.75, 0.55), 0);
+		// The burst shakes the ground the camera stands on, hard at first.
+		double shake = 0.6 * Math.exp(-(t - GapTimeline.BLAST) / 10.0) + 0.08;
+		eye = eye.add(Math.sin(t * 31.0) * shake, Math.cos(t * 27.0) * shake, Math.sin(t * 23.0 + 1.3) * shake);
+		return lookAt(eye, at);
+	}
+
+	/** Higher and further back from where the burst left the camera, looking down on the black spreading out over everything. */
+	private static Shot erasure(ClientGap gap, Vec3d feet, double t) {
+		Shot b = blast(gap, feet, GapTimeline.ERASURE);
+		double k = ease((t - GapTimeline.ERASURE) / (GapTimeline.NOTHING - GapTimeline.ERASURE - 20.0));
+		Vec3d from = new Vec3d(b.x(), b.y(), b.z());
+		Vec3d away = new Vec3d(from.x - gap.contact.x, 0, from.z - gap.contact.z);
+		double d = away.length();
+		away = away.normalize();
+		Vec3d to = gap.contact.add(away.multiply(d * 1.1)).add(0, Math.max(0.0, from.y - gap.contact.y) + 50.0, 0);
+		Vec3d lookFrom = gap.contact.add(0, blastHalf(gap) * 0.55, 0);
+		return lookAt(from.lerp(to, k), lookFrom.lerp(gap.contact.lerp(feet, 0.3), k));
+	}
+
+	/** The impact frames' shots, standing off far enough that the burst growing out of the point of contact never swallows them. */
+	static Shot frameShot(ClientGap gap, int shot, Vec3d eye, Vec3d feet, double t) {
 		Vec3d side = gap.across.multiply(-1).add(gap.along.multiply(-0.6)).normalize();
 		Vec3d c = gap.contact;
+		double h = burstHalf(gap, t);
 		return switch (shot) {
-			case EXTREME -> framed(c.add(side.multiply(6.5)).add(0, 1.0, 0), c.add(0, 3.0, 0));
-			case CONTACT -> framed(c.add(side.multiply(15.0)).add(0, 4.0, 0), c.add(0, 9.0, 0));
-			case WIDE -> wide(gap, feet, GapTimeline.CONTACT);
-			case SIDE -> framed(c.add(gap.across.multiply(32.0)).add(gap.along.multiply(-6.0)).add(0, 3.0, 0), c.add(0, 16.0, 0));
-			case LOW -> framed(c.add(side.multiply(10.0)).add(0, 0.7, 0), c.add(0, 28.0, 0));
-			default -> lookAt(eye, c.add(0, 8.0, 0));
+			case EXTREME -> framed(c.add(side.multiply(1.5 * h + 5.0)).add(0, 1.0, 0), c.add(0, 0.6 * h, 0));
+			case CONTACT -> framed(c.add(side.multiply(2.1 * h + 9.0)).add(0, 4.0, 0), c.add(0, 0.8 * h, 0));
+			case WIDE -> lookAt(witness(gap, feet), c.add(0, 0.9 * h, 0));
+			case SIDE -> framed(c.add(gap.across.multiply(2.6 * h + 16.0)).add(gap.along.multiply(-6.0)).add(0, 3.0, 0), c.add(0, h, 0));
+			case LOW -> framed(c.add(side.multiply(1.7 * h + 6.0)).add(0, 0.7, 0), c.add(0, 1.4 * h, 0));
+			default -> lookAt(eye, c.add(0, 0.6 * h, 0));
 		};
+	}
+
+	/**
+	 * Half the size of the burst {@code t} ticks into the event: the block's own size when it lands, swelling fast
+	 * through the impact frames, slower through the explosion, then falling in on itself to nothing.
+	 */
+	public static double burstHalf(ClientGap gap, double t) {
+		double full = blastHalf(gap);
+		double e = t - GapTimeline.CONTACT;
+		if (e < 0.0) {
+			return 0.0;
+		}
+		double grown = BLOCK + (full * 0.62 - BLOCK) * (1.0 - Math.exp(-e / 6.0));
+		if (t >= GapTimeline.BLAST) {
+			grown = MathHelper.lerp(1.0 - Math.exp(-(t - GapTimeline.BLAST) / 22.0), grown, full);
+		}
+		if (t >= GapTimeline.COLLAPSE) {
+			grown *= 1.0 - Math.pow(MathHelper.clamp((t - GapTimeline.COLLAPSE) / (GapTimeline.ERASURE - GapTimeline.COLLAPSE), 0.0, 1.0), 2.0);
+		}
+		return grown;
 	}
 
 	private static Shot framed(Vec3d eye, Vec3d at) {

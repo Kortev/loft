@@ -18,7 +18,7 @@ import org.joml.Vector3f;
  * flash, the chase out of the muzzle, cross-fades into and out of the transfer plot and the re-entry
  * whiteout) so the sequence reads as one piece.
  */
-final class Shots {
+final class Shots implements Feed.Sequence {
 	// --- Earth scene: radius 1 at the origin ---------------------------------------------------
 	private static final Vector3f TARGET = Mesh.direction(39.5, -98.5);
 	private static final Vector3f NORTH = new Vector3f(0, 1, 0).sub(new Vector3f(TARGET).mul(TARGET.y)).normalize();
@@ -108,13 +108,19 @@ final class Shots {
 	private final Random random = new Random();
 	/** How long the frame being drawn lasts, in ticks: the barrel smears its coils over this much travel. */
 	float frameTicks = 0.5F;
+
+	@Override
+	public void frameTicks(float ticks) {
+		frameTicks = ticks;
+	}
 	private float width;
 	private float height;
 	private float guiW;
 	private float guiH;
 	private float time;
 
-	Overlay render(double t, float fbWidth, float fbHeight, float guiWidth, float guiHeight) {
+	@Override
+	public Overlay render(double t, float fbWidth, float fbHeight, float guiWidth, float guiHeight) {
 		space.ensure();
 		width = fbWidth;
 		height = fbHeight;
@@ -1643,7 +1649,7 @@ final class Shots {
 	}
 
 	/** World-to-map rotation for the sky with the galactic centre towards {@code center}, north towards {@code pole}. */
-	private static Matrix4f skyFrame(Vector3f center, Vector3f pole) {
+	static Matrix4f skyFrame(Vector3f center, Vector3f pole) {
 		Vector3f x = new Vector3f(center).normalize();
 		Vector3f y = new Vector3f(pole).sub(new Vector3f(x).mul(pole.dot(x))).normalize();
 		Vector3f z = new Vector3f(x).cross(y);
@@ -1651,7 +1657,7 @@ final class Shots {
 		return new Matrix4f(x.x, x.y, x.z, 0, y.x, y.y, y.z, 0, z.x, z.y, z.z, 0, 0, 0, 0, 1).transpose();
 	}
 
-	private static Vector3f slerp(Vector3f a, Vector3f b, float t) {
+	static Vector3f slerp(Vector3f a, Vector3f b, float t) {
 		float dot = Math.max(-1.0F, Math.min(1.0F, a.dot(b)));
 		float theta = (float) Math.acos(dot) * t;
 		Vector3f rel = new Vector3f(b).sub(new Vector3f(a).mul(dot));
@@ -1662,7 +1668,7 @@ final class Shots {
 		return new Vector3f(a).mul((float) Math.cos(theta)).add(rel.mul((float) Math.sin(theta)));
 	}
 
-	private static float noise(double x) {
+	static float noise(double x) {
 		return (float) (Math.sin(x * 1.7) * 0.5 + Math.sin(x * 3.1 + 1.3) * 0.3 + Math.sin(x * 5.9 + 2.1) * 0.2);
 	}
 
@@ -1682,7 +1688,7 @@ final class Shots {
 		return (float) (x * x * (2 - x));
 	}
 
-	private static float lerp(double a, double b, float t) {
+	static float lerp(double a, double b, float t) {
 		return (float) (a + (b - a) * t);
 	}
 }

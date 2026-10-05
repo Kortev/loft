@@ -1,9 +1,10 @@
 #version 150
 
-// Ω-00 Ginnungagap's full-screen pass: the bad signal when the key turns, the impact frames, the erasure
-// that turns everything black one block at a time, and the black that is left afterwards.
-// Style 1 white (black ground, the mirror universe drawn as white with ink lines), 2 black with white lines,
-// 3 red sky with a black world and a white mirror, 4 negative. Extras: 1 speed lines, 2 cracks,
+// Ω-00 Ginnungagap's full-screen pass: the bad signal when the key turns, the light of the burst on the world
+// with its square shock front running out over the ground and the other universe's sky spilling over ours, the
+// impact frames, the erasure that turns everything black one block at a time, and the black that is left.
+// Style 1 white (black ground, the other universe drawn white with ink lines), 2 black with white lines,
+// 3 violet sky with a black world and a white universe, 4 negative. Extras: 1 speed lines, 2 cracks,
 // 4 a double image, 8 a slab of ink across the frame.
 
 uniform sampler2D Sampler0;
@@ -24,11 +25,13 @@ uniform float Seed;
 uniform float Glitch;
 uniform float Flash;
 uniform float Black;
-uniform vec3 ShatterFrom;
-uniform float Shatter;
-uniform float CosmosTime;
-uniform vec4 Lock;
-uniform float CloudY;
+// The burst: its centre relative to the target block's corner and its half size (0 for none), the colour and
+// strength of its light, the square front running out from it over the ground (below 0 for none), and how much of
+// the sky has become the other universe's.
+uniform vec4 Burst;
+uniform vec3 BurstLight;
+uniform float Shock;
+uniform float SkyMix;
 
 in vec2 texCoord;
 
@@ -132,24 +135,6 @@ bool isSky(vec2 uv) {
     return rawDepth(uv) >= 0.99999;
 }
 
-// Set where this pass has opened the sky through to the other universe.
-bool opened = false;
-
-// Clouds are part of our sky: they break and fall away with it.
-bool isCloud(vec2 uv) {
-    float d = rawDepth(uv);
-    if (d >= 0.99999 || CloudY > 1000.0) {
-        return false;
-    }
-    vec4 w = InvViewProj * vec4(uv * 2.0 - 1.0, d * 2.0 - 1.0, 1.0);
-    vec3 rel = w.xyz / w.w;
-    return rel.y > CloudY - 1.0 && rel.y < CloudY + 5.0 && dot(rel.xz, rel.xz) > 400.0;
-}
-
-bool skyLike(vec2 uv) {
-    return isSky(uv) || isCloud(uv);
-}
-
 // The other universe: anything cold and saturated, blue through magenta. Ours runs warm.
 bool isOther(vec3 c) {
     float hi = max(c.r, max(c.g, c.b));
@@ -179,7 +164,7 @@ vec3 inkColor(int style) {
 // One impact-frame look applied to the scene at uv.
 vec3 ink(int style, vec2 uv) {
     vec3 c = scene(uv);
-    bool sky = skyLike(uv);
+    bool sky = isSky(uv);
     if (style == 4) {
         // A negative, but only in black and white: anything else turns the other universe green.
         float lum = sky ? 0.9 : dot(c, vec3(0.299, 0.587, 0.114));
@@ -196,8 +181,8 @@ vec3 ink(int style, vec2 uv) {
         // Black on black: only the edges and the brightest parts of the mirror universe show, in white.
         return mix(vec3(0.0), vec3(1.0), max(edge, other ? smoothstep(0.55, 0.8, lum) * 0.6 : 0.0));
     }
-    // 3: red
-    vec3 base = sky ? vec3(0.85, 0.06, 0.11) : other ? vec3(1.0) : vec3(0.0);
+    // 3: violet
+    vec3 base = sky ? vec3(0.42, 0.12, 0.85) : other ? vec3(1.0) : vec3(0.0);
     return mix(base, vec3(0.0), edge);
 }
 
@@ -301,126 +286,48 @@ vec3 viewDir(vec2 uv) {
 
 // The sky breaks like glass from straight over the target: long shards running out from the break, each one
 // cracking, then dropping away into the other universe behind it. Our ground takes on that universe's light.
-vec2 shardSeed(vec2 g, float n) {
-    vec2 id = vec2(g.x, mod(g.y, n));
-    return g + 0.12 + 0.76 * vec2(c_hash(vec3(id, 1.3)), c_hash(vec3(id, 7.9)));
+// Position of the pixel's surface relative to the camera; the sky is taken as 600 blocks out.
+vec3 relAt(vec2 uv) {
+    float d = rawDepth(uv);
+    vec2 ndc = uv * 2.0 - 1.0;
+    if (d >= 0.99999) {
+        vec4 far = InvViewProj * vec4(ndc, 1.0, 1.0);
+        return normalize(far.xyz / far.w) * 600.0;
+    }
+    vec4 w = InvViewProj * vec4(ndc, d * 2.0 - 1.0, 1.0);
+    return w.xyz / w.w;
 }
 
-vec3 shatter(vec2 uv, vec3 c) {
-    if (Shatter <= 0.0) {
+// The burst lights the world round it in its own colours, and its front runs out over the ground as a square.
+vec3 burst(vec2 uv, vec3 c) {
+    if (isSky(uv)) {
+        return SkyMix > 0.0 ? mix(c, cosmos(viewDir(uv), Time), SkyMix) : c;
+    }
+    if (Burst.w <= 0.0 && Shock < 0.0) {
         return c;
     }
-    if (!skyLike(uv)) {
-        float k = smoothstep(0.0, 2.4, Shatter) * 0.5;
-        float lum = dot(c, vec3(0.299, 0.587, 0.114));
-        vec3 lit = mix(vec3(lum), c, 0.75) * vec3(0.8, 0.68, 1.22);
-        return mix(c, lit, k);
+    vec3 d = relAt(uv) + CamOffset - Burst.xyz;
+    if (Burst.w > 0.0) {
+        float h = Burst.w;
+        float fall = h * h / (dot(d, d) * 0.35 + h * h);
+        c += c * BurstLight * fall * 2.2 + BurstLight * fall * 0.12;
     }
-    vec3 d = viewDir(uv);
-    vec3 s = normalize(ShatterFrom);
-    vec3 e1 = normalize(cross(s, abs(s.y) < 0.99 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0)));
-    vec3 e2 = cross(s, e1);
-    float theta = acos(clamp(dot(d, s), -1.0, 1.0));
-    float phi = atan(dot(d, e2), dot(d, e1));
-    // Log-polar, so the shards grow with distance from the break but keep their long, thin shape.
-    const float A = 2.1;
-    const float N = 22.0;
-    vec2 p = vec2(log(theta + 0.02) * A, (phi / 6.2831853 + 0.5) * N);
-    p += (vec2(c_noise(d * 23.0), c_noise(d * 23.0 + 7.3)) - 0.5) * 0.28;
-    vec2 cell = floor(p);
-    float best = 9.0;
-    vec2 seed = vec2(0.0);
-    for (int y = -1; y <= 1; y++) {
-        for (int x = -1; x <= 1; x++) {
-            vec2 o = shardSeed(cell + vec2(float(x), float(y)), N);
-            float dist = length(p - o);
-            if (dist < best) {
-                best = dist;
-                seed = o;
-            }
-        }
+    if (Shock >= 0.0) {
+        float cheb = max(abs(d.x), abs(d.z));
+        float width = 2.5 + Shock * 0.035;
+        float band = exp(-pow((cheb - Shock) / width, 2.0)) * (1.0 - smoothstep(14.0, 40.0, abs(d.y)));
+        float behind = (1.0 - smoothstep(Shock - width, Shock, cheb)) * (1.0 - smoothstep(14.0, 40.0, abs(d.y)));
+        c = mix(c, c * vec3(0.55, 0.45, 0.85), behind * 0.6);
+        c += vec3(0.85, 0.7, 1.0) * band * 1.4;
     }
-    vec2 own = floor(seed);
-    vec2 id = vec2(own.x, mod(own.y, N));
-    // How far this point is from the nearest edge of its shard.
-    float edge = 9.0;
-    for (int y = -1; y <= 1; y++) {
-        for (int x = -1; x <= 1; x++) {
-            vec2 o = shardSeed(own + vec2(float(x), float(y)), N);
-            vec2 to = o - seed;
-            if (dot(to, to) > 1.0e-5) {
-                edge = min(edge, dot(0.5 * (seed + o) - p, normalize(to)));
-            }
-        }
-    }
-    // One pixel, measured in shard space, so the cracks stay hairline however big the shards get.
-    float ang = length(viewDir(uv + vec2(1.0 / ScreenSize.x, 0.0)) - d);
-    float px = ang * max(A / (theta + 0.02), N / (6.2831853 * max(sin(theta), 0.05)));
-
-    float from = exp(seed.x / A) - 0.02;
-    float local = Shatter - from - c_hash(vec3(id, 3.7)) * 0.22;
-    float crack = smoothstep(-0.32, -0.04, local);
-    float fall = smoothstep(0.0, 0.3, local);
-    vec3 behind = cosmos(d, CosmosTime);
-    // As it falls the shard shrinks back from its edges, darkening, with its broken rim burning white.
-    float inset = fall * 0.55;
-    if (fall >= 1.0) {
-        opened = true;
-        return behind;
-    }
-    if (edge < inset) {
-        opened = true;
-        return behind + vec3(0.6, 0.85, 1.0) * exp(-(inset - edge) / (8.0 * px)) * 0.5 * (1.0 - fall);
-    }
-    float tilt = 0.8 + 0.4 * c_hash(vec3(id, 5.1));
-    vec3 piece = c * mix(1.0, tilt, crack) * (1.0 - 0.6 * fall);
-    float rim = 1.0 - smoothstep(0.0, px * (1.3 + 2.5 * fall), edge - inset);
-    return piece + vec3(0.85, 1.0, 1.0) * rim * crack * 1.4;
-}
-
-// The lock the key goes into, in the empty air: a slit of light that opens where its tip goes in, then cracks
-// that run out from it across the picture as it turns.
-vec3 lockLight(vec2 uv, vec3 c) {
-    if (Lock.z <= 0.0 && Lock.w <= 0.0) {
-        return c;
-    }
-    vec2 p = (uv - Lock.xy) * vec2(ScreenSize.x / ScreenSize.y, 1.0);
-    float h = 0.2 * Lock.z;
-    float w = 0.0018 + 0.006 * Lock.w;
-    float slit = (1.0 - smoothstep(w * 0.5, w, abs(p.x))) * (1.0 - smoothstep(h * 0.55, h, abs(p.y))) * Lock.z;
-    float glow = exp(-abs(p.x) / (0.012 + 0.05 * Lock.w)) * (1.0 - smoothstep(0.0, h * 1.5 + 0.001, abs(p.y))) * Lock.z;
-    float crack = 0.0;
-    if (Lock.w > 0.0) {
-        float a = atan(p.y, p.x);
-        float r = length(p);
-        const float n = 11.0;
-        for (int k = -1; k <= 1; k++) {
-            float sector = floor((a / 6.2831853 + 0.5) * n) + float(k);
-            float ca = (sector + 0.5 + (hash(sector + 3.0) - 0.5) * 0.7) / n * 6.2831853 - 3.14159265;
-            float jag = (c_noise(vec3(r * 16.0, sector * 7.1, 0.5)) - 0.5) * 0.22 + (c_noise(vec3(r * 60.0, sector * 3.3, 2.5)) - 0.5) * 0.05;
-            float d = abs(sin(a - ca - jag)) * r;
-            float reach = Lock.w * 1.5 * (0.45 + 0.55 * hash(sector + 9.0));
-            float px = 1.0 / ScreenSize.y;
-            crack = max(crack, (1.0 - smoothstep(px * 0.6, px * 1.8, d)) * (1.0 - smoothstep(reach * 0.85, reach, r)) * step(0.015, r));
-        }
-    }
-    return c + vec3(0.75, 0.95, 1.0) * (slit * 2.5 + glow * 0.7) + vec3(0.85, 1.0, 1.0) * crack * 1.6;
+    return c;
 }
 
 vec3 erase(vec2 uv, vec3 c) {
     if (Front < 0.0) {
         return c;
     }
-    float d = rawDepth(uv);
-    vec2 ndc = uv * 2.0 - 1.0;
-    vec3 rel;
-    if (d >= 0.99999) {
-        vec4 far = InvViewProj * vec4(ndc, 1.0, 1.0);
-        rel = normalize(far.xyz / far.w) * 600.0;
-    } else {
-        vec4 w = InvViewProj * vec4(ndc, d * 2.0 - 1.0, 1.0);
-        rel = w.xyz / w.w;
-    }
+    vec3 rel = relAt(uv);
     // Cells grow with distance so the far ones still read as blocks on screen.
     float size = exp2(floor(log2(max(1.0, length(rel) / 40.0))));
     vec3 cell = floor((rel + CamOffset) / size) * size;
@@ -462,13 +369,11 @@ void main() {
         } else {
             c = scene(uv);
         }
-        c = lockLight(uv, c);
-        c = shatter(uv, c);
+        c = burst(uv, c);
         c = erase(uv, c);
     }
     c = mix(c, vec3(1.0), clamp(Flash, 0.0, 1.0));
     c = mix(c, vec3(0.0), clamp(Black, 0.0, 1.0));
     fragColor = vec4(c, 1.0);
-    // A cloud that has fallen away is gone from the depth buffer too, so nothing drawn after this is cut by it.
-    gl_FragDepth = opened ? 1.0 : rawDepth(uv);
+    gl_FragDepth = rawDepth(uv);
 }

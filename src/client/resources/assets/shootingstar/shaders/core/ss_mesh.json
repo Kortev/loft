@@ -162,6 +162,22 @@
         0.0,
         0.0
       ]
+    },
+    {
+      "name": "Sweep",
+      "type": "float",
+      "count": 1,
+      "values": [
+        2.0
+      ]
+    },
+    {
+      "name": "Phase",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0.0
+      ]
     }
   ]
 }

@@ -98,6 +98,14 @@
       "values": [
         0.0
       ]
+    },
+    {
+      "name": "Cool",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0.0
+      ]
     }
   ]
 }

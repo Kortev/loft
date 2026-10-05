@@ -9,6 +9,8 @@ uniform vec3 Flow;
 uniform float Scale;
 // 1 for the impact fireball, drawn cel-shaded like the impact frames; 0 for the feed's re-entry sheath.
 uniform float Toon;
+// 1 for the violet sheath round the block of another universe; 0 for fire.
+uniform float Cool;
 
 in vec3 viewPos;
 in vec3 viewNormal;
@@ -48,7 +50,11 @@ float fbm(vec3 p) {
 vec3 ramp(float t) {
     vec3 c = mix(vec3(0.35, 0.03, 0.01), vec3(1.0, 0.32, 0.05), smoothstep(0.0, 0.45, t));
     c = mix(c, vec3(1.0, 0.75, 0.3), smoothstep(0.4, 0.75, t));
-    return mix(c, vec3(1.0, 0.97, 0.9), smoothstep(0.7, 1.0, t));
+    c = mix(c, vec3(1.0, 0.97, 0.9), smoothstep(0.7, 1.0, t));
+    vec3 v = mix(vec3(0.16, 0.03, 0.4), vec3(0.55, 0.2, 1.0), smoothstep(0.0, 0.45, t));
+    v = mix(v, vec3(0.95, 0.45, 1.0), smoothstep(0.4, 0.75, t));
+    v = mix(v, vec3(0.95, 0.92, 1.0), smoothstep(0.7, 1.0, t));
+    return mix(c, v, Cool);
 }
 
 void main() {

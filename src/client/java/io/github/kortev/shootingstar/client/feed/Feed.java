@@ -22,8 +22,9 @@ import org.joml.Matrix4fStack;
 import org.lwjgl.opengl.GL11;
 
 /**
- * The uplink feed: the shooter's cut of the shot from Jupiter, drawn full-screen over the HUD. The 3D
- * shots render offscreen, then bloom and grading go to the screen and the HUD text goes on top.
+ * The uplink feed: the shooter's cut of the shot from Jupiter (or of Bifröst in orbit, for the Genesis Key),
+ * drawn full-screen over the HUD. The 3D shots render offscreen, then bloom and grading go to the screen and
+ * the HUD text goes on top.
  */
 public final class Feed {
 	static final int RED = 0xFFFF4A32;
@@ -31,8 +32,19 @@ public final class Feed {
 	static final int WHITE = 0xFFEDEDED;
 	static final int GREY = 0xFFA8A8A8;
 	static final int CYAN = 0xFF7FD8FF;
+	static final int VIOLET = 0xFFB98CFF;
+
+	/** A feed's run of shots: everything it draws at a moment, and the words and grading to put over it. */
+	interface Sequence {
+		Overlay render(double t, float fbWidth, float fbHeight, float guiWidth, float guiHeight);
+
+		/** How long the frame being drawn lasts, in ticks. */
+		default void frameTicks(float ticks) {
+		}
+	}
 
 	private static final Shots SHOTS = new Shots();
+	private static final GapShots GAP_SHOTS = new GapShots();
 	private static final Target SCENE = new Target(true, true);
 	private static final Target SHUTTER = new Target(false, true);
 	private static final int SHUTTER_SAMPLES = 6;
@@ -45,8 +57,16 @@ public final class Feed {
 	}
 
 	public static void render(DrawContext ctx, ClientStrike strike, float tickDelta) {
+		draw(ctx, SHOTS, strike.time(tickDelta));
+	}
+
+	/** Ginnungagap's feed at {@code t} ticks after the key turned. */
+	public static void renderGap(DrawContext ctx, double t) {
+		draw(ctx, GAP_SHOTS, t);
+	}
+
+	private static void draw(DrawContext ctx, Sequence shots, double t) {
 		MinecraftClient client = MinecraftClient.getInstance();
-		double t = strike.time(tickDelta);
 		float w = ctx.getScaledWindowWidth();
 		float h = ctx.getScaledWindowHeight();
 		TextRenderer font = client.textRenderer;
@@ -54,7 +74,7 @@ public final class Feed {
 
 		Overlay overlay;
 		if (Shaders.ready()) {
-			overlay = renderScene(client, t, w, h);
+			overlay = renderScene(client, shots, t, w, h);
 		} else {
 			// Shaders still loading (or failed): a plain black feed so the text still reads.
 			overlay = new Overlay();
@@ -64,7 +84,7 @@ public final class Feed {
 		drawOverlay(ctx, font, overlay, w, h, t);
 	}
 
-	private static Overlay renderScene(MinecraftClient client, double t, float guiW, float guiH) {
+	private static Overlay renderScene(MinecraftClient client, Sequence shots, double t, float guiW, float guiH) {
 		int fw = client.getWindow().getFramebufferWidth();
 		int fh = client.getWindow().getFramebufferHeight();
 		Framebuffer main = client.getFramebuffer();
@@ -77,12 +97,12 @@ public final class Feed {
 		RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
 
 		SCENE.begin(fw, fh, 0.0F, 0.0F, 0.0F, 1.0F);
-		SHOTS.frameTicks = MathHelper.clamp(client.getRenderTickCounter().getLastFrameDuration(), 0.05F, 1.0F);
-		Overlay overlay = SHOTS.render(t, fw, fh, guiW, guiH);
+		shots.frameTicks(MathHelper.clamp(client.getRenderTickCounter().getLastFrameDuration(), 0.05F, 1.0F));
+		Overlay overlay = shots.render(t, fw, fh, guiW, guiH);
 		int picture = SCENE.color();
 		if (overlay.shutter > 0.0F) {
 			float frame = MathHelper.clamp(client.getRenderTickCounter().getLastFrameDuration(), 0.05F, 1.0F);
-			picture = shutter(t, overlay.shutter * frame, fw, fh, guiW, guiH);
+			picture = shutter(shots, t, overlay.shutter * frame, fw, fh, guiW, guiH);
 		}
 
 		Post.begin();
@@ -100,7 +120,7 @@ public final class Feed {
 		Shaders.set(Shaders.composite, "Grain", 0.025F);
 		Shaders.set(Shaders.composite, "Time", (float) t);
 		Shaders.set(Shaders.composite, "Aberration", overlay.aberration + 0.0015F);
-		Shaders.set(Shaders.composite, "Flash", Math.max(overlay.flash, cutFlash(t)));
+		Shaders.set(Shaders.composite, "Flash", Math.max(overlay.flash, shots == SHOTS ? cutFlash(t) : 0.0F));
 		Shaders.set(Shaders.composite, "FlashColor", overlay.flashColor);
 		Shaders.set(Shaders.composite, "Scanlines", 1.0F);
 		Shaders.set(Shaders.composite, "Fade", overlay.fade);
@@ -129,13 +149,13 @@ public final class Feed {
 	 * so what moves faster than the frame rate streaks instead of strobing. The picture for {@code t}
 	 * is already in {@link #SCENE}.
 	 */
-	private static int shutter(double t, float open, int fw, int fh, float guiW, float guiH) {
+	private static int shutter(Sequence shots, double t, float open, int fw, int fh, float guiW, float guiH) {
 		SHUTTER.begin(fw, fh, 0.0F, 0.0F, 0.0F, 1.0F);
 		float weight = 1.0F / SHUTTER_SAMPLES;
 		accumulate(weight);
 		for (int i = 1; i < SHUTTER_SAMPLES; i++) {
 			SCENE.begin(fw, fh, 0.0F, 0.0F, 0.0F, 1.0F);
-			SHOTS.render(t - open * i / (SHUTTER_SAMPLES - 1.0), fw, fh, guiW, guiH);
+			shots.render(t - open * i / (SHUTTER_SAMPLES - 1.0), fw, fh, guiW, guiH);
 			accumulate(weight);
 		}
 		return SHUTTER.color();
@@ -188,7 +208,7 @@ public final class Feed {
 			centered(ctx, font, text, w / 2, 14, overlay.headerColor, 1.0F, true);
 		}
 		if (overlay.title != null && overlay.titleAlpha > 0.02F) {
-			int color = Gfx.fade(RED, overlay.titleAlpha);
+			int color = Gfx.fade(overlay.accent, overlay.titleAlpha);
 			float scale = Math.max(2.0F, Math.min(4.0F, w / 150.0F));
 			float rise = (1.0F - overlay.titleAlpha) * 6.0F;
 			centered(ctx, font, overlay.title, w / 2, h * 0.3F + rise, color, scale, true);
@@ -198,7 +218,7 @@ public final class Feed {
 		}
 		if (overlay.banner != null && overlay.bannerAlpha > 0.02F) {
 			float scale = Math.max(2.0F, Math.min(3.0F, w / 200.0F));
-			centered(ctx, font, overlay.banner, w / 2, h / 2 - 4 * scale, Gfx.fade(RED, overlay.bannerAlpha), scale, false);
+			centered(ctx, font, overlay.banner, w / 2, h / 2 - 4 * scale, Gfx.fade(overlay.accent, overlay.bannerAlpha), scale, false);
 		}
 		if (overlay.footer != null) {
 			centered(ctx, font, overlay.footer, w / 2, h - 36, WHITE, 1.0F, true);

@@ -16,10 +16,15 @@ uniform vec3 FillDir;
 uniform vec3 FillColor;
 uniform vec3 PointPos;
 uniform vec3 PointColor;
+// Bifröst's emitters: how far round the frame they have lit (0..1 from the middle of the bottom beam both ways to the
+// middle of the top one; above 1 all of them) and the phase of the light running round them once they are lit.
+uniform float Sweep;
+uniform float Phase;
 
 in vec3 viewPos;
 in vec3 viewNormal;
 in vec3 objPos;
+in vec3 objNormal;
 in vec4 vertexColor;
 in vec2 texCoord;
 
@@ -201,6 +206,24 @@ void main() {
         base = mix(base, vec3(0.45, 0.22, 0.1), smoothstep(0.62, 0.75, noise(q * 1.6 + 4.0)) * 0.7);
         base = mix(base, vec3(0.04, 0.03, 0.02), smoothstep(0.78, 0.86, noise(q * 4.3 + 9.0)));
         rough = 0.9;
+    } else if (mat == 17) {
+        // Bifröst's hull: pale ceramic plates in staggered rows, each its own shade, a few dark service panels, dark
+        // seams that fade out where the plates get too small on screen to show them.
+        vec3 an = abs(objNormal);
+        vec2 f = an.x > an.y && an.x > an.z ? objPos.zy : an.y > an.z ? objPos.xz : objPos.xy;
+        vec2 g = f * vec2(1.1, 2.2);
+        g.x += floor(g.y) * 0.5;
+        vec2 cell = floor(g);
+        float h = hash(vec3(cell, 3.7));
+        vec2 e = 0.5 - abs(fract(g) - 0.5);
+        vec2 w = fwidth(g);
+        float seam = 1.0 - smoothstep(0.0, 1.0, min(e.x / max(w.x * 1.4, 1.0e-4), e.y / max(w.y * 1.4, 1.0e-4)) - 0.4);
+        seam *= 1.0 - smoothstep(0.12, 0.35, max(w.x, w.y));
+        base = vec3(0.6, 0.61, 0.64) * (0.82 + 0.3 * h);
+        base = mix(base, vec3(0.2, 0.21, 0.23), step(0.93, h));
+        base *= 1.0 - 0.6 * seam;
+        metal = 0.2;
+        rough = 0.4 + 0.25 * hash(vec3(cell, 8.1));
     } else if (mat == 16) {
         // The Moon: pale highland regolith, dark basalt maria, and fresh craters ringed with bright ejecta.
         vec3 q = normalize(objPos);
@@ -213,6 +236,15 @@ void main() {
         rough = 0.95;
     }
 
+    if (texCoord.y > 0.5) {
+        // One of Bifröst's emitters: dark until the sweep reaches it, brightest just as it lights.
+        float dist = abs(fract(texCoord.x - 0.125 + 0.5) - 0.5) * 2.0;
+        float ahead = Sweep - dist;
+        float lit = step(0.0, ahead);
+        float head = exp(-max(ahead, 0.0) * 18.0);
+        float chase = 0.78 + 0.22 * sin(dist * 48.0 - Phase);
+        emit *= lit * (chase + 2.2 * head);
+    }
     vec3 color = light(n, v, normalize(LightDir), LightColor, base, metal, rough);
     color += light(n, v, normalize(FillDir + vec3(0.0, 0.0, 1.0e-4)), FillColor, base, metal, rough);
     // A nearby light, such as a coil firing as the spear goes through it.

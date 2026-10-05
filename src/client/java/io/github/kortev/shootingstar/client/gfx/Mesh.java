@@ -207,6 +207,40 @@ public final class Mesh {
 		b.vertex(x, y, z).texture((float) i / segments, z).color(255, 255, 255, 255).normal(-x, -y, 0.0F);
 	}
 
+	/** Cube from -1 to 1 with flat normals, for the blocks of another universe ({@code ss_universe}). */
+	public static Mesh cube() {
+		BufferBuilder b = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR_NORMAL);
+		int[][] faces = {{1, 0, 0, 0, 1, 0}, {-1, 0, 0, 0, 1, 0}, {0, 1, 0, 0, 0, 1}, {0, -1, 0, 0, 0, 1}, {0, 0, 1, 0, 1, 0}, {0, 0, -1, 0, 1, 0}};
+		for (int[] f : faces) {
+			float nx = f[0];
+			float ny = f[1];
+			float nz = f[2];
+			// a = up within the face, c = n x a.
+			float ax = f[3];
+			float ay = f[4];
+			float az = f[5];
+			float cx = ny * az - nz * ay;
+			float cy = nz * ax - nx * az;
+			float cz = nx * ay - ny * ax;
+			float[][] corners = {{-1, -1}, {1, -1}, {1, 1}, {-1, 1}};
+			for (float[] k : corners) {
+				b.vertex(nx + cx * k[0] + ax * k[1], ny + cy * k[0] + ay * k[1], nz + cz * k[0] + az * k[1]).texture(0, 0)
+						.color(255, 255, 255, 255).normal(nx, ny, nz);
+			}
+		}
+		return upload(b);
+	}
+
+	/** Square from -1 to 1 in x and y at z = 0, facing +Z (the window of an open gate). */
+	public static Mesh quad() {
+		BufferBuilder b = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR_NORMAL);
+		b.vertex(-1, -1, 0).texture(0, 0).color(255, 255, 255, 255).normal(0, 0, 1);
+		b.vertex(1, -1, 0).texture(1, 0).color(255, 255, 255, 255).normal(0, 0, 1);
+		b.vertex(1, 1, 0).texture(1, 1).color(255, 255, 255, 255).normal(0, 0, 1);
+		b.vertex(-1, 1, 0).texture(0, 1).color(255, 255, 255, 255).normal(0, 0, 1);
+		return upload(b);
+	}
+
 	/** Open-ended cone shell along +Z from the tip at z = 0 to radius 1 at z = -1, for the re-entry sheath. */
 	public static Mesh cone(int segments, int rings) {
 		BufferBuilder b = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR_NORMAL);

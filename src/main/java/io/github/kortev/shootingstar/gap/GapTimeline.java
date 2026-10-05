@@ -5,52 +5,44 @@ package io.github.kortev.shootingstar.gap;
  * shared geometry of the event that the server and every client must agree on.
  */
 public final class GapTimeline {
-	/** First person: the key turns, the world glitches and goes white. */
+	/** First person: the key comes up, goes into the air and turns. */
 	public static final int KEY = 0;
-	/** The key has turned in the air: the screen goes white. */
-	public static final int TURNED = 60;
-	/** From the white, the sky over the target shatters; another universe shows through where the shards fall away. */
-	public static final int TEAR = 60;
-	/** A shard of the other universe drops out of the broken sky; matter starts swapping between the two. */
-	public static final int CLOSING = 110;
-	/** Single blocks stop swapping a little before contact so the moment reads clean. */
-	public static final int SWAPS_END = 206;
-	/** The shard's tip touches the target. Every sound stops. */
-	public static final int CONTACT = 220;
-	/** The impact frames. */
-	public static final int FRAMES = 240;
+	/** The camera leaves the shooter's eyes and climbs over the target into the clouds. */
+	public static final int RISE = 42;
+	/** The feed: out of the clouds and up to orbit. */
+	public static final int FEED = 66;
+	/** Bifröst, the gate in orbit over the target, wakes. */
+	public static final int GATE = FEED + 26;
+	/** The gate opens onto another universe. */
+	public static final int OPEN = FEED + 70;
+	/** A block of that universe is cut out and drawn through. */
+	public static final int CUT = FEED + 118;
+	/** The bridge reaches down to the target and the block drops into it. */
+	public static final int SEND = FEED + 160;
+	/** The chase down the bridge to the ground. */
+	public static final int FALL = FEED + 186;
+	/** Back in the world: the block comes down on the target. */
+	public static final int INBOUND = FEED + 254;
+	/** The block hits. */
+	public static final int CONTACT = INBOUND + 24;
+	/** The impact frames, from the moment of contact. */
+	public static final int FRAMES = CONTACT;
+	/** The frames end on the explosion: that universe bursting out of its block. */
+	public static final int BLAST = CONTACT + 30;
+	/** It falls back in on itself. */
+	public static final int COLLAPSE = BLAST + 60;
 	/** Everything in the zone is erased, outward from the point of contact. */
-	public static final int ERASURE = 370;
+	public static final int ERASURE = COLLAPSE + 10;
 	/** Nothing is left but the shooter. */
-	public static final int NOTHING = 530;
-	public static final int END = 710;
+	public static final int NOTHING = ERASURE + 100;
 	/** The camera is back in the shooter's eyes, alone in the black, and they can move again. */
-	public static final int RETURN = 630;
+	public static final int RETURN = NOTHING + 100;
+	public static final int END = RETURN + 80;
 
-	/** How far the falling shard's tip presses into the ground through the impact frames. */
-	public static final double PRESS = 2.0;
 	/** Closest the target may be, so the camera shots have room. */
 	public static final double MIN_RANGE = 24.0;
 
 	private GapTimeline() {
-	}
-
-	/** How much of the sky has shattered, as an angle from the point it breaks from, in radians (pi is all of it). */
-	public static double shatter(double t) {
-		return Math.PI * 1.05 * smooth((t - TEAR - 4) / 120.0);
-	}
-
-	/** Height of the falling shard's tip over the target: it shows in the broken sky, then drops and lands at contact. */
-	public static double shardTip(double t) {
-		if (t < CLOSING) {
-			return 130.0 + 110.0 * (1.0 - smooth((t - TEAR) / (CLOSING - TEAR)));
-		}
-		if (t < CONTACT) {
-			// It hangs, then comes down faster and faster: it hits at full speed.
-			double p = (t - CLOSING) / (CONTACT - CLOSING);
-			return 130.0 * (1.0 - Math.pow(p, 1.6));
-		}
-		return -PRESS * smooth((t - CONTACT) / (ERASURE - CONTACT));
 	}
 
 	/** Manhattan distance in blocks from the contact block that has been erased by tick {@code t}. */
