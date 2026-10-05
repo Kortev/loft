@@ -2233,6 +2233,24 @@ def gap_erase():
         swell = decorrelated(q, pink) * np.exp(-np.arange(q) / SR / (length / 3))
         swell = np.vstack([sweep_filter(c, 'lowpass', curve(q, [(0, 3000), (length, 150)], 'log'), order=2) for c in swell])
         m.add(rms_norm(swell[:, ::-1], 0.2), end_at - length, 0.5 * (0.15 + 0.85 * (end_at / black) ** 2))
+    # The black itself spreading: a front of noise that starts as a point in the middle and opens out to both ears as it
+    # grows, its band sinking and its weight building as it comes on over the camera...
+    front = decorrelated(n, pink)
+    opening = curve(n, [(0, 0.0), (1.2, 0.15), (black, 1.0), (span, 1.0)])
+    front = front.mean(axis=0, keepdims=True) * (1 - opening) + front * opening
+    centre = curve(n, [(0, 3500), (black, 220), (span, 220)], 'log')
+    front = np.vstack([sweep_filter(c, 'bandpass', centre, order=2, width=1.4) for c in front])
+    m.add(rms_norm(front, 0.2) * grow ** 1.5, 0, 0.55)
+    # ...and the ground deleted ring after ring, each a low thump further out to one side or the other than the last,
+    # lower and nearer together as the rings widen.
+    for i in range(14):
+        at = 0.25 + (black - 0.5) * (i / 13) ** 1.3
+        q = ns(0.5)
+        f0 = 110.0 - 70.0 * at / black
+        thump = sine(curve(q, [(0, f0), (0.5, f0 * 0.5)], 'log')) * attack_decay(q, 0.004, 0.12)
+        pan = (1 if i % 2 else -1) * min(1.0, 0.1 + at / black)
+        ring = np.vstack([thump * np.sqrt((1 - pan) / 2), thump * np.sqrt((1 + pan) / 2)])
+        m.add(ring, at, 0.18 + 0.4 * at / black)
     q = ns(total)
     m.add(sine(curve(q, [(0, 70), (total, 26)], 'log')) * curve(q, [(0, 0.1), (black, 1.0), (total, 1.0)]), 0, 0.15)
     vast = gap_spaces()[0]
