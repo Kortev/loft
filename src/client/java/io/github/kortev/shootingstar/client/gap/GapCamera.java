@@ -143,6 +143,12 @@ public final class GapCamera {
 	/** The bridge standing over the target, the block coming down it, the shooter small in the foreground. */
 	private static Shot inbound(ClientGap gap, Vec3d feet, double t) {
 		Vec3d eye = witness(gap, feet);
+		// Closing on the point of contact and drifting round it as the block comes down, so the shot is never still and
+		// the next one (the impact frames) cuts in from a different angle each time.
+		double run = ease((t - GapTimeline.INBOUND) / (double) (GapTimeline.CONTACT - GapTimeline.INBOUND));
+		eye = orbit(eye, gap.contact, Math.toRadians(-14.0) * run).add(0, 2.5 * run, 0);
+		double close = 1.0 - 0.08 * run;
+		eye = new Vec3d(gap.contact.x + (eye.x - gap.contact.x) * close, eye.y, gap.contact.z + (eye.z - gap.contact.z) * close);
 		double d = Math.hypot(gap.contact.x - eye.x, gap.contact.z - eye.z);
 		// The point of contact low in the frame, the sky over it filling the rest; tilting down after the block.
 		double k = ease((t - GapTimeline.INBOUND - 6.0) / (GapTimeline.CONTACT - GapTimeline.INBOUND - 6.0));
@@ -164,10 +170,12 @@ public final class GapCamera {
 		Vec3d toward = new Vec3d(gap.contact.x - base.x, 0, gap.contact.z - base.z).normalize();
 		double d = Math.hypot(base.x - gap.contact.x, base.z - gap.contact.z);
 		Vec3d eye = base.add(toward.multiply(0.1 * d * k));
+		// Sweeping round the burst as it swells, rising a little, the way the erasure's shot goes on from.
+		eye = orbit(eye, gap.contact, Math.toRadians(32.0) * k).add(0, 0.06 * blastHalf(gap) * k, 0);
 		Vec3d at = gap.contact.add(0, blastHalf(gap) * MathHelper.lerp(k, 0.55, 0.7), 0);
 		double shake = 0.7 * Math.exp(-(t - GapTimeline.BLAST) / 9.0) + 0.1;
 		eye = eye.add(Math.sin(t * 31.0) * shake, Math.cos(t * 27.0) * shake, Math.sin(t * 23.0 + 1.3) * shake);
-		return lookAt(eye, at);
+		return lookAt(clear(eye, at), at);
 	}
 
 	/**
@@ -179,9 +187,13 @@ public final class GapCamera {
 		double k = ease((t - GapTimeline.ERASURE) / (GapTimeline.NOTHING - GapTimeline.ERASURE - 20.0));
 		Vec3d from = new Vec3d(b.x(), b.y(), b.z());
 		Vec3d away = new Vec3d(from.x - gap.contact.x, 0, from.z - gap.contact.z).normalize();
-		Vec3d to = from.add(away.multiply(14.0)).add(0, 16.0, 0);
+		Vec3d to = from.add(away.multiply(26.0)).add(0, 26.0, 0);
 		Vec3d lookFrom = gap.contact.add(0, blastHalf(gap) * 0.7, 0);
-		return lookAt(from.lerp(to, k), lookFrom.lerp(gap.contact.add(0, 4, 0), k));
+		// On round the point of contact the way the blast's shot was going, up and back, so the black is seen sweeping out
+		// across the ground from above and to the side rather than straight on.
+		Vec3d eye = orbit(from.lerp(to, k), gap.contact, Math.toRadians(40.0) * k);
+		Vec3d at = lookFrom.lerp(gap.contact.add(0, 2, 0), k);
+		return lookAt(clear(eye, at), at);
 	}
 
 	/** The impact frames' shots, standing off far enough that the burst growing out of the point of contact never swallows them. */
@@ -248,6 +260,12 @@ public final class GapCamera {
 			return lookAt(face.add(facing.multiply(3.2 - 0.5 * k)).add(0, -0.15, 0), face.add(0, -0.25, 0));
 		}
 		return null;
+	}
+
+	/** {@code eye} turned {@code radians} round the vertical through {@code centre}, at the same height. */
+	private static Vec3d orbit(Vec3d eye, Vec3d centre, double radians) {
+		Vec3d flat = new Vec3d(eye.x - centre.x, 0.0, eye.z - centre.z).rotateY((float) radians);
+		return new Vec3d(centre.x + flat.x, eye.y, centre.z + flat.z);
 	}
 
 	/** Pulls {@code eye} in towards {@code at} until nothing stands between them. */
