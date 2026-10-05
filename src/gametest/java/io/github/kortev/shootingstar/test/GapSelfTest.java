@@ -159,7 +159,7 @@ public class GapSelfTest implements ClientModInitializer {
 				while (!STILLS.isEmpty() && age >= STILLS.peek().age()) {
 					shot(client, STILLS.poll().name());
 				}
-				if (gap != null && age >= GapTimeline.END + 12) {
+				if (gap != null && age >= GapTimeline.RETURN + 10) {
 					// Alone in the black: walk about in it for a while before letting reality back in.
 					stage = Stage.DOMAIN;
 					ticks = 0;
@@ -174,7 +174,8 @@ public class GapSelfTest implements ClientModInitializer {
 			}
 			case DOMAIN -> {
 				walk(client);
-				if (ticks == 120) {
+				// The key only lets reality back in once the event is over (GapTimeline.END).
+				if (ticks == 150) {
 					ShootingStar.LOGGER.info("[selftest] letting reality back in");
 					shot(client, "88_domain.png");
 					client.interactionManager.interactItem(client.player, Hand.MAIN_HAND);
@@ -252,14 +253,14 @@ public class GapSelfTest implements ClientModInitializer {
 		if (player == null) {
 			return;
 		}
-		boolean walking = ticks >= 4 && ticks < 78;
+		boolean walking = ticks >= 4 && ticks < 96;
 		client.options.forwardKey.setPressed(walking);
-		client.options.jumpKey.setPressed(ticks == 34 || ticks == 35);
+		client.options.jumpKey.setPressed(ticks == 34 || ticks == 35 || ticks == 70 || ticks == 71);
 		// A tight curve, so the walk stays well inside the floor laid under them.
 		if (walking && ticks >= 14) {
 			player.setYaw(player.getYaw() + 3.0F);
 		}
-		player.setPitch(MathHelper.lerp(MathHelper.clamp((ticks - 78) / 20.0F, 0.0F, 1.0F), 8.0F, 35.0F));
+		player.setPitch(MathHelper.lerp(MathHelper.clamp((ticks - 96) / 20.0F, 0.0F, 1.0F), 8.0F, 35.0F));
 	}
 
 	/** Beside the walking shooter, turning slowly round them, then craning up until they are a speck standing on nothing. */
@@ -270,7 +271,7 @@ public class GapSelfTest implements ClientModInitializer {
 			Vec3d p = player != null ? player.getLerpedPos(delta) : domainFeet;
 			double s = time - start;
 			double a = 0.9 + s * 0.012;
-			double crane = smooth((s - 80.0) / 40.0);
+			double crane = smooth((s - 100.0) / 40.0);
 			double r = MathHelper.lerp(crane, 5.5, 10.0);
 			double h = MathHelper.lerp(crane, 1.9, 16.0);
 			Vec3d eye = p.add(Math.cos(a) * r, h, Math.sin(a) * r);
@@ -279,34 +280,31 @@ public class GapSelfTest implements ClientModInitializer {
 	}
 
 	/**
-	 * From over where the shooter stood, up and out until the whole zone is in view, round it, then down to its rim to
-	 * look straight down the wall into the void where the ground used to be.
+	 * From where the shooter stood, now over nothing, straight up until the whole zone shows from above as a round hole
+	 * through the world; then round and down to the side, to see its walls drop away into the void.
 	 */
 	private static DoubleFunction<Capture.Pose> flyover(MinecraftClient client, double start) {
 		int r = 96;
 		Vec3d c = new Vec3d(target.getX() + 0.5, target.getY() + 1.0, target.getZ() + 0.5);
 		Vec3d from = domainFeet != null ? domainFeet : c.add(64, 0, 0);
 		double a0 = Math.atan2(from.z - c.z, from.x - c.x);
-		double d0 = Math.hypot(from.x - c.x, from.z - c.z);
-		double aRim = a0 + Math.toRadians(95.0);
-		int rimX = MathHelper.floor(c.x + Math.cos(aRim) * (r + 6));
-		int rimZ = MathHelper.floor(c.z + Math.sin(aRim) * (r + 6));
-		double rimY = client.world != null ? client.world.getTopY(Heightmap.Type.MOTION_BLOCKING, rimX, rimZ) : c.y;
 		return time -> {
 			double s = time - start;
-			double u = smooth(s / 160.0);
-			double a = a0 + Math.toRadians(70.0) * u;
-			double dist = MathHelper.lerp(u, d0, 1.7 * r);
-			double h = MathHelper.lerp(u, from.y - c.y + 18.0, 100.0);
-			Vec3d eye = c.add(Math.cos(a) * dist, h, Math.sin(a) * dist);
-			Vec3d at = c.add(0, -MathHelper.lerp(u, 12.0, 45.0), 0);
-			double v = smooth((s - 160.0) / 120.0);
+			Vec3d eye = from.add(0, 2.0, 0);
+			Vec3d at = c.add(0, -10.0, 0);
+			double u = smooth((s - 25.0) / 130.0);
+			if (u > 0.0) {
+				double a = a0 + Math.toRadians(15.0) * u;
+				Vec3d top = c.add(Math.cos(a) * r * 0.45, 2.4 * r, Math.sin(a) * r * 0.45);
+				eye = eye.lerp(top, u);
+				at = at.lerp(c, u);
+			}
+			double v = smooth((s - 165.0) / 120.0);
 			if (v > 0.0) {
-				double b = a + Math.toRadians(25.0) * v;
-				Vec3d rim = new Vec3d(c.x + Math.cos(b) * (r + 6), rimY + 5.0, c.z + Math.sin(b) * (r + 6));
-				Vec3d down = new Vec3d(c.x + Math.cos(b) * (r - 10), c.y - 160.0, c.z + Math.sin(b) * (r - 10));
-				eye = eye.lerp(rim, v);
-				at = at.lerp(down, v);
+				double b = a0 + Math.toRadians(15.0 + 70.0 * v);
+				Vec3d side = c.add(Math.cos(b) * 1.55 * r, 1.0 * r, Math.sin(b) * 1.55 * r);
+				eye = eye.lerp(side, v);
+				at = at.lerp(c.add(0, -70.0, 0), v);
 			}
 			return pose(eye, at);
 		};
