@@ -308,11 +308,22 @@ vec3 burst(vec2 uv, vec3 c) {
     if (Burst.w <= 0.0 && Shock < 0.0) {
         return c;
     }
-    vec3 d = relAt(uv) + CamOffset - Burst.xyz;
+    vec3 p = relAt(uv);
+    vec3 d = p + CamOffset - Burst.xyz;
     if (Burst.w > 0.0) {
         float h = Burst.w;
         float fall = h * h / (dot(d, d) * 0.35 + h * h);
-        c += c * BurstLight * fall * 2.2 + BurstLight * fall * 0.12;
+        // Which way the surface faces, from the depth of the pixels beside it: faces turned to the light take it, the
+        // far sides of hills and trees stay in their own shadow.
+        vec2 px = 1.0 / ScreenSize;
+        vec3 n = cross(relAt(uv + vec2(px.x, 0.0)) - p, relAt(uv + vec2(0.0, px.y)) - p);
+        float facing = 0.5;
+        if (dot(n, n) > 1.0e-10) {
+            n = normalize(n);
+            n = dot(n, p) > 0.0 ? -n : n;
+            facing = max(dot(n, normalize(-d)), 0.0);
+        }
+        c += c * BurstLight * fall * (0.4 + 3.2 * facing) + BurstLight * fall * 0.12;
     }
     if (Shock >= 0.0) {
         float cheb = max(abs(d.x), abs(d.z));

@@ -17,6 +17,7 @@ import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.Heightmap;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
 import org.joml.Vector3f;
@@ -44,6 +45,9 @@ public final class GapRender {
 	/** Blocks of that universe flung out of the burst, and stars streaming out of it. */
 	private static final int FLUNG = 60;
 	private static final int STARS = 520;
+	/** Specks of the world lifting off as the black runs over it, out to this far from the target. */
+	private static final int FLAKES = 1800;
+	private static final double FLAKE_REACH = 260.0;
 	private static final Vector3f WHITE_LIGHT = new Vector3f(1.0F, 1.0F, 1.0F);
 	/** The size of the picture being drawn, for the galaxies' sizes on screen. */
 	private static int screenW = 1;
@@ -103,6 +107,9 @@ public final class GapRender {
 			RenderSystem.depthFunc(GL11.GL_LEQUAL);
 			RenderSystem.setShaderTexture(0, 0);
 			RenderSystem.setShaderTexture(1, 0);
+			for (ClientGap gap : ClientGaps.all()) {
+				flakes(gap, gap.time(tickDelta), cam, view, proj, right, up);
+			}
 			// The one thing the erasure does not take: draw the shooter again over the black.
 			if (mine != null && (grade.front >= 0.0F || grade.black > 0.0F) && context.camera().isThirdPerson()) {
 				redrawShooter(client, client.player, cam, view, tickDelta);
@@ -209,6 +216,17 @@ public final class GapRender {
 		if (h > 0.3) {
 			Matrix4f model = new Matrix4f().translation(rc).scale((float) h);
 			universe(model, view, proj, Universe.FULL, 0, 1.35F, 0.8F, 3.0F, heat);
+		}
+		// The universe bursting out of its block: its galaxies flying out over the land and past the camera, ten times as
+		// far as the block is wide, then all drawn back in as it falls in on itself.
+		double outward = GapCamera.ease((t - GapTimeline.CONTACT - 6.0) / (GapTimeline.COLLAPSE - GapTimeline.CONTACT - 6.0));
+		double back = MathHelper.clamp((t - GapTimeline.COLLAPSE) / (GapTimeline.ERASURE - GapTimeline.COLLAPSE), 0.0, 1.0);
+		double reach = GapCamera.blastHalf(gap) * (1.0 + 11.0 * Math.pow(outward, 1.5)) * Math.pow(1.0 - back, 2.0);
+		if (outward > 0.0 && reach > 0.5) {
+			Matrix4f flying = new Matrix4f().translation(rc).rotateY((float) (t * 0.004)).scale((float) reach);
+			float light = (float) (1.4 * (1.0 - 0.5 * outward) * (1.0 - back) + 2.0 * back * (1.0 - back));
+			Universe.draw(new Matrix4f(view).mul(flying), proj, screenW, screenH, Universe.FULL, 0, light, 0.5F, WHITE_LIGHT, 0.0F, 0.0F,
+					0xFFFFFF, 0.0F);
 		}
 		flung(gap, t, cam, view, proj, time);
 		column(gap, t, e, h, bc, cam, view, proj, right, up);
@@ -348,6 +366,50 @@ public final class GapRender {
 		}
 	}
 
+	/**
+	 * The world flaking away as the black runs over it: specks of light lifting off the ground just behind its front
+	 * and rising, spinning, as they go out. Drawn over the black, since they are what is left of what it took.
+	 */
+	private static void flakes(ClientGap gap, double t, Vec3d cam, Matrix4f view, Matrix4f proj, Vector3f right, Vector3f up) {
+		ClientWorld world = MinecraftClient.getInstance().world;
+		if (world == null || t < GapTimeline.ERASURE || t > GapTimeline.NOTHING + 40) {
+			return;
+		}
+		// The front runs out as a diamond (it counts blocks along x and z, see eraseFront), corner to corner round it.
+		double[] cx = {1.0, 0.0, -1.0, 0.0, 1.0};
+		double[] cz = {0.0, 1.0, 0.0, -1.0, 0.0};
+		BATCH.begin(Fx.BLOB, 0.0F, view, proj, right, up);
+		for (int i = 0; i < FLAKES; i++) {
+			double r = FLAKE_REACH * Math.sqrt(noise(gap.id, i + 3000));
+			// When the front gets that far out: eraseFront turned round.
+			double born = GapTimeline.ERASURE + 140.0 * Math.pow(r / 1400.0, 2.0 / 3.0);
+			double life = 18.0 + noise(gap.id, i + 3300) * 20.0;
+			double age = t - born;
+			if (age < 0.0 || age > life || !gap.mine && r > gap.radius) {
+				continue;
+			}
+			double u = noise(gap.id, i + 3600) * 4.0;
+			int side = Math.min(3, (int) u);
+			double f = u - side;
+			double x = gap.target.getX() + 0.5 + r * (cx[side] + (cx[side + 1] - cx[side]) * f);
+			double z = gap.target.getZ() + 0.5 + r * (cz[side] + (cz[side + 1] - cz[side]) * f);
+			int top = world.getTopY(Heightmap.Type.WORLD_SURFACE, MathHelper.floor(x), MathHelper.floor(z));
+			if (top <= world.getBottomY()) {
+				continue;
+			}
+			double rise = age * (0.06 + 0.12 * noise(gap.id, i + 3900)) + 0.004 * age * age;
+			double k = age / life;
+			float alpha = (float) (Math.min(1.0, age / 2.0) * (1.0 - k * k));
+			float size = (float) ((0.25 + 0.45 * noise(gap.id, i + 4200)) * (1.0 - 0.5 * k));
+			double spin = age * 0.3 + i;
+			Vector3f a = new Vector3f((float) Math.cos(spin), (float) (0.5 * Math.sin(spin * 0.7)), (float) Math.sin(spin)).normalize().mul(size);
+			Vector3f b = new Vector3f(0.0F, 1.0F, 0.0F).cross(a).normalize().mul(size);
+			int color = i % 3 == 0 ? 0x9FE8FF : i % 3 == 1 ? PALE : WHITE;
+			BATCH.flat(rel(new Vec3d(x, top + rise, z), cam), a, b, Fx.fade(color, alpha));
+		}
+		BATCH.end(true, 2.2F);
+	}
+
 	/** A universe in its block (or a piece of one), {@code model} placing the block's cube from -1 to 1 in the world. */
 	private static void universe(Matrix4f model, Matrix4f view, Matrix4f proj, int detail, int turn, float brightness, float dark,
 			float edge, float heat) {
@@ -408,11 +470,19 @@ public final class GapRender {
 		for (ClientGap gap : ClientGaps.all()) {
 			double t = gap.time(tickDelta);
 			boolean live = gap.mine ? !gap.ended : t < GapTimeline.END + 40;
-			if (!live || t < GapTimeline.CONTACT) {
+			if (!live || t < GapTimeline.INBOUND) {
 				continue;
 			}
 			g.offset = cam.subtract(gap.target.getX(), gap.target.getY(), gap.target.getZ());
 			on = true;
+			if (t < GapTimeline.CONTACT) {
+				// The block coming down lights the ground under it, more and more as it nears.
+				double near = (t - GapTimeline.INBOUND) / (GapTimeline.CONTACT - GapTimeline.INBOUND);
+				Vec3d bc = gap.contact.add(0, blockHeight(t), 0).subtract(gap.target.getX(), gap.target.getY(), gap.target.getZ());
+				g.burst.set((float) bc.x, (float) bc.y, (float) bc.z, (float) (GapCamera.BLOCK * (4.0 + 6.0 * near)));
+				g.burstLight.set(0.62F, 0.42F, 1.0F).mul((float) (0.3 + 1.6 * near * near));
+				continue;
+			}
 			if (t >= GapTimeline.ERASURE) {
 				g.front = (float) GapTimeline.eraseFront(t);
 				g.clamp = gap.mine ? 0.0F : gap.radius;
@@ -424,6 +494,8 @@ public final class GapRender {
 				g.burst.set((float) bc.x, (float) bc.y, (float) bc.z, (float) Math.max(h, 4.0));
 				float collapse = (float) MathHelper.clamp((t - GapTimeline.COLLAPSE) / (GapTimeline.ERASURE - GapTimeline.COLLAPSE), 0.0, 1.0);
 				float strength = (float) (0.9 + 2.4 * Math.exp(-e / 6.0)) * (1.0F - 0.7F * collapse);
+				// Flickering with the universe raging inside it.
+				strength *= (float) (1.0 + 0.18 * Math.sin(t * 2.3) + 0.1 * Math.sin(t * 5.1 + 1.0));
 				g.burstLight.set(0.62F, 0.42F, 1.0F).mul(strength);
 				if (t < GapTimeline.COLLAPSE) {
 					g.shock = (float) shock(gap, e);
