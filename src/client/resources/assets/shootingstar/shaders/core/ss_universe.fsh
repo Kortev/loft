@@ -116,13 +116,15 @@ vec3 sky(vec3 d, float px) {
     c += gas(n, m) * pow(smoothstep(0.45, 0.85, n), 2.0) * 0.18;
     c += gas(m, n) * pow(ridge, 8.0) * 0.12;
     c += vec3(0.18, 0.14, 0.3) * pow(m, 4.0) * 0.12;
-    // Stars on a grid of directions, each cell at most one, sized to a pixel or so.
+    // Stars on a grid of directions, each cell at most one, sized to a pixel or so; half as many behind the map,
+    // where they would only be dust across it.
     float scale = 220.0;
     vec3 g = floor(d * scale);
     float s = hash(g + FieldSeed);
     vec3 at = (g + 0.2 + 0.6 * hash3(g)) / scale;
     float r = length(d - normalize(at)) / max(px, 0.0015);
-    float bright = step(0.9, s) * (0.4 + 3.0 * pow(max(s - 0.9, 0.0) * 10.0, 3.0));
+    float few = Mode >= 3 ? 0.95 : 0.9;
+    float bright = step(few, s) * (0.4 + 3.0 * pow(max(s - few, 0.0) / (1.0 - few), 3.0));
     c += mix(vec3(0.7, 0.8, 1.0), vec3(1.0, 0.8, 0.6), hash(g * 1.3)) * exp(-r * r * 1.4) * bright;
     return c;
 }
@@ -271,6 +273,8 @@ void main() {
             t1 = onFace;
         }
         t0 = max(t0, 0.0);
+        // Where the ray leaves this cube, before a cell of the map marches on past it.
+        float cubeExit = t1;
         if (Mode == 3) {
             // Through this cell and on through whatever of the lattice lies behind it.
             float m0;
@@ -286,7 +290,7 @@ void main() {
             c = march(ro, rd, t0, t1, Steps, vec3(0.0), px, 1.0);
         }
         vec3 front = ro + rd * t0;
-        vec3 back = ro + rd * t1;
+        vec3 back = ro + rd * cubeExit;
         c += edges(front, px, Edge);
         // The far edges show through the dark of that space, so the block reads as a block.
         c += edges(back, px, Edge * (Mode == 3 ? 0.2 : 0.45));
