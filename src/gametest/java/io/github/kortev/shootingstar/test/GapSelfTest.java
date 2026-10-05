@@ -9,6 +9,7 @@ import io.github.kortev.shootingstar.registry.ModItems;
 import io.github.kortev.shootingstar.strike.Targeting;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.function.DoubleFunction;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
@@ -37,7 +38,7 @@ import net.minecraft.world.Heightmap;
 public class GapSelfTest implements ClientModInitializer {
 	private static final double RANGE = 64.0;
 
-	private enum Stage { WAIT_WORLD, SETUP, SETTLE, FIRE, WATCH, AFTER, DONE, FINISHED }
+	private enum Stage { WAIT_WORLD, SETUP, SETTLE, FIRE, WATCH, DOMAIN, AFTER, DONE, FINISHED }
 
 	private record Still(int age, String name) {
 	}
@@ -47,6 +48,9 @@ public class GapSelfTest implements ClientModInitializer {
 	private static int ticks;
 	private static BlockPos target;
 	private static boolean fallbackFired;
+	/** Where the shooter stood in the black, and when the release was asked for. */
+	private static Vec3d domainFeet;
+	private static int releasedAt = -1;
 
 	@Override
 	public void onInitializeClient() {
@@ -155,14 +159,54 @@ public class GapSelfTest implements ClientModInitializer {
 				while (!STILLS.isEmpty() && age >= STILLS.peek().age()) {
 					shot(client, STILLS.poll().name());
 				}
-				if (age >= GapTimeline.END + 34 || gap == null && ticks > 1200) {
+				if (gap != null && age >= GapTimeline.END + 12) {
+					// Alone in the black: walk about in it for a while before letting reality back in.
+					stage = Stage.DOMAIN;
+					ticks = 0;
+					domainFeet = client.player.getPos();
+					client.options.hudHidden = true;
+					Capture.camera = domainCamera(client, Capture.time());
+				} else if (gap == null && ticks > 1200) {
 					Capture.stop();
 					stage = Stage.AFTER;
 					ticks = 0;
 				}
 			}
+			case DOMAIN -> {
+				walk(client);
+				if (ticks == 120) {
+					ShootingStar.LOGGER.info("[selftest] letting reality back in");
+					shot(client, "88_domain.png");
+					client.interactionManager.interactItem(client.player, Hand.MAIN_HAND);
+					releasedAt = ticks;
+				}
+				// As soon as the black lifts, the fly-over takes the camera up over what is left.
+				if (releasedAt >= 0 && ClientGaps.mine() == null) {
+					ShootingStar.LOGGER.info("[selftest] reality is back; flying over the zone");
+					Capture.camera = flyover(client, Capture.time());
+					stage = Stage.AFTER;
+					ticks = 0;
+				} else if (releasedAt >= 0 && ticks > releasedAt + 100) {
+					ShootingStar.LOGGER.error("[selftest] the key did not let reality back in");
+					Capture.stop();
+					stage = Stage.DONE;
+				}
+			}
 			case AFTER -> {
 				int r = 96;
+				if (Capture.active()) {
+					if (ticks == 150) {
+						shot(client, "90_zone_above.png");
+					}
+					if (ticks == 285) {
+						shot(client, "91_zone_edge.png");
+					}
+					if (ticks >= 295) {
+						Capture.stop();
+						stage = Stage.DONE;
+					}
+					return;
+				}
 				if (ticks == 10) {
 					ShootingStar.LOGGER.info("[selftest] letting reality back in");
 					client.interactionManager.interactItem(client.player, Hand.MAIN_HAND);
@@ -197,6 +241,88 @@ public class GapSelfTest implements ClientModInitializer {
 			case FINISHED -> {
 			}
 		}
+	}
+
+	/**
+	 * The shooter walks about in the black on the floor the event left them: off along a slow curve, a hop to show
+	 * there is something to stand on, then still, looking out at nothing.
+	 */
+	private static void walk(MinecraftClient client) {
+		ClientPlayerEntity player = client.player;
+		if (player == null) {
+			return;
+		}
+		boolean walking = ticks >= 4 && ticks < 78;
+		client.options.forwardKey.setPressed(walking);
+		client.options.jumpKey.setPressed(ticks == 34 || ticks == 35);
+		// A tight curve, so the walk stays well inside the floor laid under them.
+		if (walking && ticks >= 14) {
+			player.setYaw(player.getYaw() + 3.0F);
+		}
+		player.setPitch(MathHelper.lerp(MathHelper.clamp((ticks - 78) / 20.0F, 0.0F, 1.0F), 8.0F, 35.0F));
+	}
+
+	/** Beside the walking shooter, turning slowly round them, then craning up until they are a speck standing on nothing. */
+	private static DoubleFunction<Capture.Pose> domainCamera(MinecraftClient client, double start) {
+		return time -> {
+			ClientPlayerEntity player = client.player;
+			float delta = client.getRenderTickCounter().getTickDelta(true);
+			Vec3d p = player != null ? player.getLerpedPos(delta) : domainFeet;
+			double s = time - start;
+			double a = 0.9 + s * 0.012;
+			double crane = smooth((s - 80.0) / 40.0);
+			double r = MathHelper.lerp(crane, 5.5, 10.0);
+			double h = MathHelper.lerp(crane, 1.9, 16.0);
+			Vec3d eye = p.add(Math.cos(a) * r, h, Math.sin(a) * r);
+			return pose(eye, p.add(0, 1.0, 0));
+		};
+	}
+
+	/**
+	 * From over where the shooter stood, up and out until the whole zone is in view, round it, then down to its rim to
+	 * look straight down the wall into the void where the ground used to be.
+	 */
+	private static DoubleFunction<Capture.Pose> flyover(MinecraftClient client, double start) {
+		int r = 96;
+		Vec3d c = new Vec3d(target.getX() + 0.5, target.getY() + 1.0, target.getZ() + 0.5);
+		Vec3d from = domainFeet != null ? domainFeet : c.add(64, 0, 0);
+		double a0 = Math.atan2(from.z - c.z, from.x - c.x);
+		double d0 = Math.hypot(from.x - c.x, from.z - c.z);
+		double aRim = a0 + Math.toRadians(95.0);
+		int rimX = MathHelper.floor(c.x + Math.cos(aRim) * (r + 6));
+		int rimZ = MathHelper.floor(c.z + Math.sin(aRim) * (r + 6));
+		double rimY = client.world != null ? client.world.getTopY(Heightmap.Type.MOTION_BLOCKING, rimX, rimZ) : c.y;
+		return time -> {
+			double s = time - start;
+			double u = smooth(s / 160.0);
+			double a = a0 + Math.toRadians(70.0) * u;
+			double dist = MathHelper.lerp(u, d0, 1.7 * r);
+			double h = MathHelper.lerp(u, from.y - c.y + 18.0, 100.0);
+			Vec3d eye = c.add(Math.cos(a) * dist, h, Math.sin(a) * dist);
+			Vec3d at = c.add(0, -MathHelper.lerp(u, 12.0, 45.0), 0);
+			double v = smooth((s - 160.0) / 120.0);
+			if (v > 0.0) {
+				double b = a + Math.toRadians(25.0) * v;
+				Vec3d rim = new Vec3d(c.x + Math.cos(b) * (r + 6), rimY + 5.0, c.z + Math.sin(b) * (r + 6));
+				Vec3d down = new Vec3d(c.x + Math.cos(b) * (r - 10), c.y - 160.0, c.z + Math.sin(b) * (r - 10));
+				eye = eye.lerp(rim, v);
+				at = at.lerp(down, v);
+			}
+			return pose(eye, at);
+		};
+	}
+
+	private static Capture.Pose pose(Vec3d eye, Vec3d at) {
+		Vec3d d = at.subtract(eye);
+		double horizontal = Math.sqrt(d.x * d.x + d.z * d.z);
+		float yaw = (float) (MathHelper.atan2(d.z, d.x) * MathHelper.DEGREES_PER_RADIAN) - 90.0F;
+		float pitch = (float) -(MathHelper.atan2(d.y, horizontal) * MathHelper.DEGREES_PER_RADIAN);
+		return new Capture.Pose(eye.x, eye.y, eye.z, yaw, pitch);
+	}
+
+	private static double smooth(double x) {
+		x = MathHelper.clamp(x, 0.0, 1.0);
+		return x * x * (3.0 - 2.0 * x);
 	}
 
 	private static void setUpPlayer(IntegratedServer server) {
