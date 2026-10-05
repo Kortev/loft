@@ -92,25 +92,44 @@ public final class GapCamera {
 
 	/**
 	 * Low and well back on the shooter's side, beyond them, so they stand small in the foreground: far enough that the
-	 * whole of the burst fits in the frame, inside the loaded world. Found once.
+	 * whole of the burst fits in the frame, inside the loaded world. Of a spread of places round that, the one that sees
+	 * the burst from lowest down, so it looms over the camera and the camera never climbs into the sky. Found once.
 	 */
 	static Vec3d witness(ClientGap gap, Vec3d feet) {
 		if (gap.wideEye == null) {
+			MinecraftClient client = MinecraftClient.getInstance();
+			ClientWorld world = client.world;
 			double d = Math.hypot(gap.contact.x - feet.x, gap.contact.z - feet.z);
-			double loaded = MinecraftClient.getInstance().options.getClampedViewDistance() * 16.0 - 40.0;
-			double reach = Math.min(Math.max(d + 14.0, 2.3 * blastHalf(gap) + 24.0), Math.max(60.0, loaded));
-			Vec3d foot = gap.contact.add(gap.along.multiply(-reach)).add(gap.across.multiply(reach * 0.2));
-			ClientWorld world = MinecraftClient.getInstance().world;
-			int ground = gap.surface;
-			if (world != null) {
-				for (int dx = -2; dx <= 2; dx++) {
-					for (int dz = -2; dz <= 2; dz++) {
-						ground = Math.max(ground, world.getTopY(Heightmap.Type.MOTION_BLOCKING, MathHelper.floor(foot.x) + dx,
-								MathHelper.floor(foot.z) + dz));
+			double loaded = client.options.getClampedViewDistance() * 16.0 - 40.0;
+			double reach = MathHelper.clamp(Math.max(d + 12.0, 2.5 * blastHalf(gap) + 10.0), 50.0, Math.max(60.0, loaded));
+			Vec3d look = gap.contact.add(0, 10, 0);
+			Vec3d best = null;
+			double bestScore = Double.MAX_VALUE;
+			for (double turn : new double[] {0, 25, -25, 50, -50, 75, -75}) {
+				double a = Math.atan2(-gap.along.z, -gap.along.x) + Math.toRadians(turn);
+				Vec3d dir = new Vec3d(Math.cos(a), 0, Math.sin(a));
+				for (double k : new double[] {1.0, 0.85, 1.15}) {
+					Vec3d foot = gap.contact.add(dir.multiply(reach * k));
+					int ground = gap.surface;
+					if (world != null) {
+						for (int dx = -2; dx <= 2; dx++) {
+							for (int dz = -2; dz <= 2; dz++) {
+								ground = Math.max(ground, world.getTopY(Heightmap.Type.MOTION_BLOCKING, MathHelper.floor(foot.x) + dx,
+										MathHelper.floor(foot.z) + dz));
+							}
+						}
+					}
+					Vec3d start = new Vec3d(foot.x, ground + 3.0, foot.z);
+					Vec3d eye = above(start, look);
+					// Lowest over the target wins, then least climbed, then nearest the shooter's own line of sight.
+					double score = (eye.y - gap.contact.y) + 2.0 * (eye.y - start.y) + Math.abs(turn) * 0.08 + Math.abs(k - 1.0) * 8.0;
+					if (score < bestScore) {
+						bestScore = score;
+						best = eye;
 					}
 				}
 			}
-			gap.wideEye = above(new Vec3d(foot.x, ground + 3.0, foot.z), gap.contact.add(0, 4, 0));
+			gap.wideEye = best;
 		}
 		return gap.wideEye;
 	}
@@ -138,31 +157,31 @@ public final class GapCamera {
 		return lookAt(eye, at);
 	}
 
-	/** Craning up and back from the witness as the burst grows, holding all of it. */
+	/** Low under the burst as it swells, creeping in on it, the ground shaking: it towers over everything. */
 	private static Shot blast(ClientGap gap, Vec3d feet, double t) {
 		Vec3d base = witness(gap, feet);
 		double k = ease((t - GapTimeline.BLAST) / (GapTimeline.ERASURE - GapTimeline.BLAST));
-		Vec3d out = new Vec3d(base.x - gap.contact.x, 0, base.z - gap.contact.z).normalize();
+		Vec3d toward = new Vec3d(gap.contact.x - base.x, 0, gap.contact.z - base.z).normalize();
 		double d = Math.hypot(base.x - gap.contact.x, base.z - gap.contact.z);
-		Vec3d eye = base.add(out.multiply(0.18 * d * k)).add(0, 0.3 * d * k, 0);
-		Vec3d at = gap.contact.add(0, blastHalf(gap) * MathHelper.lerp(k, 0.75, 0.55), 0);
-		// The burst shakes the ground the camera stands on, hard at first.
-		double shake = 0.6 * Math.exp(-(t - GapTimeline.BLAST) / 10.0) + 0.08;
+		Vec3d eye = base.add(toward.multiply(0.1 * d * k));
+		Vec3d at = gap.contact.add(0, blastHalf(gap) * MathHelper.lerp(k, 0.55, 0.7), 0);
+		double shake = 0.7 * Math.exp(-(t - GapTimeline.BLAST) / 9.0) + 0.1;
 		eye = eye.add(Math.sin(t * 31.0) * shake, Math.cos(t * 27.0) * shake, Math.sin(t * 23.0 + 1.3) * shake);
 		return lookAt(eye, at);
 	}
 
-	/** Higher and further back from where the burst left the camera, looking down on the black spreading out over everything. */
+	/**
+	 * Backing away and up a little from where the burst left the camera, looking at the point of contact as the black
+	 * opens there and comes on over everything towards it. Never so high that it looks down on the clouds' height.
+	 */
 	private static Shot erasure(ClientGap gap, Vec3d feet, double t) {
 		Shot b = blast(gap, feet, GapTimeline.ERASURE);
 		double k = ease((t - GapTimeline.ERASURE) / (GapTimeline.NOTHING - GapTimeline.ERASURE - 20.0));
 		Vec3d from = new Vec3d(b.x(), b.y(), b.z());
-		Vec3d away = new Vec3d(from.x - gap.contact.x, 0, from.z - gap.contact.z);
-		double d = away.length();
-		away = away.normalize();
-		Vec3d to = gap.contact.add(away.multiply(d * 1.1)).add(0, Math.max(0.0, from.y - gap.contact.y) + 50.0, 0);
-		Vec3d lookFrom = gap.contact.add(0, blastHalf(gap) * 0.55, 0);
-		return lookAt(from.lerp(to, k), lookFrom.lerp(gap.contact.lerp(feet, 0.3), k));
+		Vec3d away = new Vec3d(from.x - gap.contact.x, 0, from.z - gap.contact.z).normalize();
+		Vec3d to = from.add(away.multiply(14.0)).add(0, 16.0, 0);
+		Vec3d lookFrom = gap.contact.add(0, blastHalf(gap) * 0.7, 0);
+		return lookAt(from.lerp(to, k), lookFrom.lerp(gap.contact.add(0, 4, 0), k));
 	}
 
 	/** The impact frames' shots, standing off far enough that the burst growing out of the point of contact never swallows them. */
@@ -211,11 +230,17 @@ public final class GapCamera {
 		Vec3d facing = Vec3d.fromPolar(0, player.getYaw(tickDelta)).normalize();
 		Vec3d right = new Vec3d(-facing.z, 0, facing.x);
 		if (t < GapTimeline.NOTHING + 68) {
-			// Starting near enough that they are a figure, not a speck, and always looking straight at them.
+			// Round them on an arc rather than through them, closing from a figure in the black to near beside them,
+			// always looking straight at them.
 			Vec3d out = new Vec3d(-gap.across.x - gap.along.x * 0.4, 0, -gap.across.z - gap.along.z * 0.4).normalize();
-			Vec3d from = chest.add(out.multiply(11.0)).add(0, 3.0, 0);
-			Vec3d to = chest.add(right.multiply(3.4)).add(0, 0.1, 0);
-			return lookAt(from.lerp(to, ease((t - GapTimeline.NOTHING) / 50.0)), chest);
+			double k = ease((t - GapTimeline.NOTHING) / 50.0);
+			double a0 = Math.atan2(out.z, out.x);
+			double a1 = Math.atan2(right.z, right.x);
+			double turn = MathHelper.wrapDegrees(Math.toDegrees(a1 - a0));
+			double a = a0 + Math.toRadians(turn) * k;
+			double r = MathHelper.lerp(k, 11.0, 3.4);
+			Vec3d eye = chest.add(Math.cos(a) * r, MathHelper.lerp(k, 3.0, 0.1), Math.sin(a) * r);
+			return lookAt(eye, chest);
 		}
 		if (t < GapTimeline.RETURN) {
 			Vec3d face = feet.add(0, 1.55, 0);

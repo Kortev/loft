@@ -36,6 +36,10 @@ void main() {
         // Every coil station is a point of light; between them the ring is a fainter thread.
         float node = pow(0.5 + 0.5 * cos(uv.x * 6.2831853 * 720.0), 24.0);
         a = exp(-uv.y * uv.y * 5.0) * (Param + on * 0.55 + head * 3.0) + on * 2.2 * node * exp(-uv.y * uv.y * 40.0);
+    } else if (Mode == 8) {
+        // A curtain of light standing on its lower edge (y = -1): even along it, fading upwards, soft at the ends.
+        float up = (uv.y + 1.0) * 0.5;
+        a = (1.0 - pow(abs(uv.x), 10.0)) * (exp(-up * 4.0) * 0.7 + exp(-up * 22.0) * 1.6);
     } else if (Mode == 7) {
         // Line: even along its length and soft across, so beams laid end to end draw one unbroken line.
         a = exp(-uv.x * uv.x * 5.0);

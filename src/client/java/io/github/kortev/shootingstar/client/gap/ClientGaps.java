@@ -69,6 +69,12 @@ public final class ClientGaps {
 		return t >= GapTimeline.RISE - 2 && t < GapTimeline.FEED + 2 || t >= GapTimeline.INBOUND - 2 && t < GapTimeline.ERASURE;
 	}
 
+	/** The shooter's world shots run without clouds, from the block coming down to the end. */
+	public static boolean cloudless() {
+		ClientGap gap = mine();
+		return gap != null && gap.age >= GapTimeline.INBOUND - 2;
+	}
+
 	public static void holdInput(MinecraftClient client) {
 		if (!locked()) {
 			return;

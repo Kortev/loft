@@ -42,8 +42,8 @@ public final class GapRender {
 	/** When the bridge has reached the ground (the feed shows it reaching down). */
 	private static final int BRIDGE = GapTimeline.SEND + 7;
 	/** Blocks of that universe flung out of the burst, and stars streaming out of it. */
-	private static final int FLUNG = 44;
-	private static final int STARS = 280;
+	private static final int FLUNG = 60;
+	private static final int STARS = 520;
 	private static Mesh cube;
 
 	private GapRender() {
@@ -174,7 +174,7 @@ public final class GapRender {
 		Vector3f rc = rel(c, cam);
 		float s = (float) GapCamera.BLOCK;
 		Matrix4f model = new Matrix4f().translation(rc).rotateY((float) (t * 0.05)).rotateX((float) (t * 0.031)).rotateZ(0.3F).scale(s);
-		universe(model, view, proj, 0, time, 0.0F, 1.6F, 0.25F, 40);
+		universe(model, view, proj, 0, time, 0.0F, 1.8F, 0.2F, 40, 1.3F);
 		Vector3f eye = new Vector3f();
 		BATCH.begin(Fx.BLOB, 0.0F, view, proj, right, up);
 		BATCH.sprite(rc, s * 3.2F, 0.0F, Fx.fade(VIOLET, 0.55F));
@@ -205,9 +205,11 @@ public final class GapRender {
 		float heat = (float) Math.pow(Math.max(0.0, 1.0 - e / 20.0), 1.5);
 		if (h > 0.3) {
 			Matrix4f model = new Matrix4f().translation(rc).scale((float) h);
-			universe(model, view, proj, 0, time, 0.0F, 2.6F, heat, 36);
+			universe(model, view, proj, 0, time, 0.0F, 3.0F, heat, 36, 1.35F);
 		}
 		flung(gap, t, cam, view, proj, time);
+		column(gap, t, e, h, bc, cam, view, proj, right, up);
+		shockWall(gap, t, e, cam, view, proj, right, up);
 
 		// Its light, and the stars streaming out of it (or, at the end, back into it).
 		float collapse = (float) MathHelper.clamp((t - GapTimeline.COLLAPSE) / (GapTimeline.ERASURE - GapTimeline.COLLAPSE), 0.0, 1.0);
@@ -250,10 +252,70 @@ public final class GapRender {
 				case 2 -> 0xFFD8A0;
 				default -> 0xFFFFFF;
 			};
-			BATCH.stretched(p, new Vector3f((float) dir.x, (float) dir.y, (float) dir.z), (float) (speed * 1.6), 0.18F + 0.1F * (i % 3),
+			BATCH.stretched(p, new Vector3f((float) dir.x, (float) dir.y, (float) dir.z), (float) (speed * 2.6), 0.45F + 0.25F * (i % 3),
 					Fx.fade(color, a));
 		}
+		BATCH.end(true, 2.6F);
+	}
+
+	/**
+	 * The universe in the block blasting out of its top: a shaft of its light thrown up into the sky, widest and
+	 * brightest at the start, pulsing, then drawn back down into the block as it falls in.
+	 */
+	private static void column(ClientGap gap, double t, double e, double h, Vec3d bc, Vec3d cam, Matrix4f view, Matrix4f proj,
+			Vector3f right, Vector3f up) {
+		float collapse = (float) MathHelper.clamp((t - GapTimeline.COLLAPSE) / (GapTimeline.ERASURE - GapTimeline.COLLAPSE), 0.0, 1.0);
+		float rise = (float) GapCamera.ease(e / 10.0);
+		float k = (float) (0.55 + 0.45 * Math.exp(-e / 14.0)) * (1.0F - collapse);
+		if (k <= 0.01F || rise <= 0.0F) {
+			return;
+		}
+		float pulse = 1.0F + 0.12F * (float) Math.sin(t * 2.3) + 0.06F * (float) Math.sin(t * 5.1);
+		Vec3d top = bc.add(0, h, 0);
+		Vector3f a = rel(top, cam);
+		Vector3f b = rel(top.add(0, 520.0 * rise * (1.0F - collapse), 0), cam);
+		Vector3f eye = new Vector3f();
+		float w = (float) h * 0.55F * pulse;
+		BATCH.begin(Fx.BEAM, 0.0F, view, proj, right, up);
+		BATCH.beam(a, b, eye, w * 0.45F, Fx.fade(WHITE, k), Fx.fade(PALE, k * 0.8F));
+		BATCH.beam(a, b, eye, w, Fx.fade(VIOLET, 0.7F * k), Fx.fade(VIOLET, 0.4F * k));
+		BATCH.beam(a, b, eye, w * 2.2F, Fx.argb(0.35F, 0.2F, 0.9F, 0.35F * k), Fx.argb(0.3F, 0.15F, 0.8F, 0.15F * k));
+		BATCH.end(true, 2.2F);
+		// Where it leaves the block, a blinding crown.
+		BATCH.begin(Fx.SPIKES, 0.0F, view, proj, right, up);
+		BATCH.sprite(a, (float) h * 0.9F * pulse, (float) (t * 0.01), Fx.fade(WHITE, k));
+		BATCH.end(true, 2.0F);
+	}
+
+	/** The burst's front as a square of light standing on the ground, racing out over everything. */
+	private static void shockWall(ClientGap gap, double t, double e, Vec3d cam, Matrix4f view, Matrix4f proj, Vector3f right,
+			Vector3f up) {
+		if (t >= GapTimeline.COLLAPSE) {
+			return;
+		}
+		double half = shock(gap, e);
+		float fade = (float) (Math.exp(-e / 40.0) * (1.0 - GapCamera.ease((t - GapTimeline.COLLAPSE + 20) / 20.0)));
+		if (fade <= 0.02F) {
+			return;
+		}
+		float height = (float) (6.0 + half * 0.07);
+		Vec3d c = gap.contact.add(0, height - 2.0, 0);
+		BATCH.begin(Fx.WALL, 0.0F, view, proj, right, up);
+		Vector3f vert = new Vector3f(0, height, 0);
+		for (int side = 0; side < 4; side++) {
+			double ax = side == 0 ? 1 : side == 1 ? -1 : 0;
+			double az = side == 2 ? 1 : side == 3 ? -1 : 0;
+			// Each wall a little longer than the side, so the corners meet.
+			Vec3d mid = c.add(ax * half, 0, az * half);
+			Vector3f along = new Vector3f((float) Math.abs(az), 0, (float) Math.abs(ax)).mul((float) (half * 1.04));
+			BATCH.flat(rel(mid, cam), along, vert, Fx.fade(PALE, fade));
+		}
 		BATCH.end(true, 1.8F);
+	}
+
+	/** How far the square front has run out from the point of contact, {@code e} ticks after it. */
+	static double shock(ClientGap gap, double e) {
+		return 4.0 + 2.6 * gap.radius * (1.0 - Math.exp(-e / 30.0));
 	}
 
 	/** Smaller blocks of the universe thrown out of the burst's faces, tumbling up and out, flaring white as they go. */
@@ -261,17 +323,17 @@ public final class GapRender {
 		for (int i = 0; i < FLUNG; i++) {
 			double born = GapTimeline.CONTACT + 3.0 + i * 1.5 + noise(gap.id, i + 40) * 6.0;
 			double age = t - born;
-			double life = 36.0 + noise(gap.id, i + 70) * 24.0;
+			double life = 40.0 + noise(gap.id, i + 70) * 30.0;
 			if (age < 0.0 || age > life || t >= GapTimeline.COLLAPSE + 4) {
 				continue;
 			}
 			double h = GapCamera.burstHalf(gap, born);
 			Vec3d dir = new Vec3d(noise(gap.id, i + 100) - 0.5, 0.35 + noise(gap.id, i + 130) * 0.9, noise(gap.id, i + 160) - 0.5).normalize();
-			double speed = 1.0 + noise(gap.id, i + 190) * 1.6;
+			double speed = 1.4 + noise(gap.id, i + 190) * 2.0;
 			Vec3d start = burstCenter(gap, born).add(dir.multiply(h * 0.95));
-			Vec3d pos = start.add(dir.multiply(speed * age)).add(0, -0.025 * age * age, 0);
+			Vec3d pos = start.add(dir.multiply(speed * age)).add(0, -0.018 * age * age, 0);
 			double fade = age / life;
-			float size = (float) ((1.2 + noise(gap.id, i + 220) * 3.2) * (1.0 - Math.pow(fade, 3.0)));
+			float size = (float) ((2.4 + noise(gap.id, i + 220) * 4.8) * (1.0 - Math.pow(fade, 3.0)));
 			if (size < 0.05F) {
 				continue;
 			}
@@ -279,12 +341,12 @@ public final class GapRender {
 			Vector3f axis = new Vector3f((float) noise(gap.id, i + 250) - 0.5F, (float) noise(gap.id, i + 280) - 0.5F, 0.3F).normalize();
 			Matrix4f model = new Matrix4f().translation(rel(pos, cam)).rotate((float) (age * (0.08 + 0.1 * noise(gap.id, i + 310))), axis)
 					.scale(size);
-			universe(model, view, proj, 2, time, (float) (i * 1.37 + 1.0), 1.8F, flare, 8);
+			universe(model, view, proj, 2, time, (float) (i * 1.37 + 1.0), 2.2F, flare, 8, 1.3F);
 		}
 	}
 
 	private static void universe(Matrix4f model, Matrix4f view, Matrix4f proj, int mode, float time, float seed, float edge, float heat,
-			int steps) {
+			int steps, float fade) {
 		RenderSystem.enableDepthTest();
 		RenderSystem.depthFunc(GL11.GL_LEQUAL);
 		RenderSystem.depthMask(true);
@@ -297,7 +359,7 @@ public final class GapRender {
 		Shaders.set(Shaders.universe, "Heat", heat);
 		Shaders.set(Shaders.universe, "Reveal", 1.0F);
 		Shaders.setInt(Shaders.universe, "Steps", steps);
-		Shaders.set(Shaders.universe, "Fade", 1.0F);
+		Shaders.set(Shaders.universe, "Fade", fade);
 		cube.draw(Shaders.universe, new Matrix4f(view).mul(model), proj);
 	}
 
@@ -372,10 +434,11 @@ public final class GapRender {
 				float strength = (float) (0.9 + 2.4 * Math.exp(-e / 6.0)) * (1.0F - 0.7F * collapse);
 				g.burstLight.set(0.62F, 0.42F, 1.0F).mul(strength);
 				if (t < GapTimeline.COLLAPSE) {
-					g.shock = (float) (4.0 + 2.6 * gap.radius * (1.0 - Math.exp(-e / 30.0)));
+					g.shock = (float) shock(gap, e);
 				}
-				g.skyMix = (float) (0.85 * GapCamera.ease((e - 10.0) / 50.0)) * (1.0F - collapse * 0.3F);
 			}
+			// The other universe's sky stays over ours until the black has it too.
+			g.skyMix = (float) (0.85 * GapCamera.ease((t - GapTimeline.CONTACT - 10.0) / 50.0));
 		}
 		if (mine != null) {
 			double t = mine.time(tickDelta);

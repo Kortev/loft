@@ -301,7 +301,9 @@ vec3 relAt(vec2 uv) {
 // The burst lights the world round it in its own colours, and its front runs out over the ground as a square.
 vec3 burst(vec2 uv, vec3 c) {
     if (isSky(uv)) {
-        return SkyMix > 0.0 ? mix(c, cosmos(viewDir(uv), Time), SkyMix) : c;
+        c = SkyMix > 0.0 ? mix(c, cosmos(viewDir(uv), Time), SkyMix) : c;
+        // The sky goes dark as the black spreads under it.
+        return Front >= 0.0 ? c * (1.0 - smoothstep(40.0, 360.0, Front)) : c;
     }
     if (Burst.w <= 0.0 && Shock < 0.0) {
         return c;

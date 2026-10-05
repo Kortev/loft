@@ -21,6 +21,8 @@ public final class Fx {
 	public static final int DRAWN_STREAK = 6;
 	/** A beam with no fade at its ends, for polylines (the transfer plot's orbits and track). */
 	public static final int LINE = 7;
+	/** A curtain of light standing on its lower edge, for {@link #flat} (the burst's square shock front). */
+	public static final int WALL = 8;
 
 	private final Vector3f right = new Vector3f();
 	private final Vector3f up = new Vector3f();

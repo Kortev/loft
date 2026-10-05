@@ -386,6 +386,9 @@ final class GapShots implements Feed.Sequence {
 		// Drift across the frame as the emitters light, so the scale shows against the pylons.
 		eye.add(new Vector3f(GATE_RIGHT).mul(-6.0F * k)).add(new Vector3f(0, 4.0F * k, 0));
 		Vector3f at = new Vector3f(0.0F, -1.5F, 0.0F).lerp(new Vector3f(FACE).mul(2.0F), k);
+		// While the title is up, look above the gate so it sits under the words.
+		float titled = Shots.smooth((r - 8.0) / 8.0) * (1.0F - Shots.smooth((r - 38.0) / 6.0));
+		at.add(new Vector3f(0, 1, 0).mul(distance * 0.16F * titled));
 		float fov = Shots.lerp(34.0, 46.0, Shots.smooth(r / 20.0));
 		scene(s, 0.4F, distance + EARTH_R * 2.5F, eye, at, new Vector3f(0, 1, 0), fov, false);
 
@@ -445,9 +448,9 @@ final class GapShots implements Feed.Sequence {
 		o.header = "[ EXTRACTION ]";
 		o.headerReveal = Shots.smooth(r / 4.0);
 		Vector3f block = blockPos(s);
-		Vector3f corner = new Matrix4f().translation(block).mul(GATE).scale(BLOCK).transformPosition(new Vector3f(1, 1, 0));
+		Vector3f corner = new Matrix4f().translation(block).mul(GATE).scale(BLOCK).transformPosition(new Vector3f(1, 0.6F, 0));
 		boolean through = s >= PULL_TO;
-		label(o, corner, 10, -8, through ? "1 BLOCK" : "SELECTED", Feed.VIOLET, through ? "UNIVERSE 4,096,113" : "1 BLOCK",
+		label(o, corner, 46, -20, through ? "1 BLOCK" : "SELECTED", Feed.VIOLET, through ? "UNIVERSE 4,096,113" : "1 BLOCK",
 				Feed.GREY, Shots.smooth((r - 1.0) / 3.0));
 		o.footer = through ? "EXTRACTED" : "EXTRACTING";
 		o.footerSmall = "UNIVERSE 4,096,113 · 1 BLOCK";
@@ -470,9 +473,9 @@ final class GapShots implements Feed.Sequence {
 		// block falls away from it.
 		float k = Shots.smooth(r / (FALL_S - SEND_S));
 		Vector3f eye = new Vector3f(block).add(new Vector3f(46.0F, 10.0F - 6.0F * k, -16.0F));
-		Vector3f lookBlock = blockPos(s);
-		Vector3f lookDown = new Vector3f(block).add(new Vector3f(GROUND).sub(block).mul(0.06F));
-		Vector3f at = new Vector3f(lookBlock).lerp(lookDown, Shots.smooth((s - DROP_S) / 10.0));
+		Vector3f lookBlock = blockPos(Math.min(s, DROP_S + 2.0));
+		Vector3f lookDown = new Vector3f(block).add(new Vector3f(GROUND).sub(block).mul(0.04F));
+		Vector3f at = new Vector3f(lookBlock).lerp(lookDown, Shots.smoother((s - DROP_S) / 14.0));
 		scene(s, 0.4F, 30000.0F, eye, at, new Vector3f(0, 1, 0), 44.0F, true);
 
 		o.header = "[ BRIDGE · SOL-3 ]";
@@ -489,7 +492,6 @@ final class GapShots implements Feed.Sequence {
 		o.flashColor = 0xD8C8FF;
 		o.aberration = 0.008F * bridge;
 		o.zoomBlur = 0.1F * bridge;
-		o.shutter = s > DROP_S ? 0.6F : 0.0F;
 	}
 
 	// =============================================================================================
@@ -502,11 +504,12 @@ final class GapShots implements Feed.Sequence {
 		float altitude = block.y - GROUND.y;
 		Vector3f down = new Vector3f(GROUND).sub(block).normalize();
 		Vector3f back = new Vector3f(0.42F, 0.0F, -0.9F).normalize();
-		// Above and behind it, looking down the bridge at the target, closing in as the air thickens.
+		// Above it and a little behind, looking down the bridge at the target: the block just above the middle of the
+		// frame, the bridge running away under it to the point it is aimed at. Closer as the air thickens.
 		float near = Shots.smooth((r - 30.0) / 30.0);
-		float distance = Shots.lerp(24.0, 13.0, near);
-		Vector3f eye = new Vector3f(block).add(new Vector3f(back).mul(distance)).sub(new Vector3f(down).mul(distance * 0.75F));
-		Vector3f at = new Vector3f(block).add(new Vector3f(down).mul(distance * 1.6F));
+		float distance = Shots.lerp(26.0, 15.0, near);
+		Vector3f eye = new Vector3f(block).add(new Vector3f(back).mul(distance * 0.42F)).sub(new Vector3f(down).mul(distance));
+		Vector3f at = new Vector3f(block).add(new Vector3f(down).mul(distance * 2.0F));
 		float heat = Shots.smooth((150.0F - altitude) / 110.0F) * (1.0F - Shots.smooth((r - 64.0) / 4.0));
 		float shake = heat * 0.012F + 0.004F;
 		at.add(Shots.noise(s * 4.1) * shake * distance, Shots.noise(s * 3.3 + 4) * shake * distance, Shots.noise(s * 3.7 + 8) * shake * distance);
@@ -525,7 +528,6 @@ final class GapShots implements Feed.Sequence {
 		o.headerReveal = Shots.smooth(r / 4.0);
 		o.footer = "ALTITUDE " + Feed.commas(Math.max(0, Math.round(altitude / KM))) + " KM";
 		o.footerSmall = heat > 0.2F ? "SHOCK LAYER " + Math.round(2000 + heat * 26000) + " K" : "UNIVERSE 4,096,113 · 1 BLOCK";
-		o.shutter = 0.7F;
 		o.aberration = heat * 0.01F;
 		o.exposure = 1.0F + heat * 0.3F;
 		o.saturation = 1.0F + heat * 0.2F;
