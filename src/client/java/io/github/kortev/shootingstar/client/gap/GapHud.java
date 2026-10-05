@@ -62,7 +62,7 @@ public final class GapHud {
 			status = "ALLFATHER · ODIN · KEEPER OF BIFRÖST";
 		} else if (r < GapTimeline.REBUILD_DONE) {
 			long placed = Math.round(3_912_004L * ease((r - GapTimeline.REBUILD_SWEEP) / (GapTimeline.REBUILD_DONE - GapTimeline.REBUILD_SWEEP)));
-			status = "REMAKING MIDGARD · " + Feed.commas(placed) + " BLOCKS PLACED";
+			status = "REMAKING MIDGARD · " + String.format(java.util.Locale.ROOT, "%,d", placed) + " BLOCKS PLACED";
 		} else {
 			status = "REALITY RESTORED";
 		}
