@@ -5,6 +5,8 @@ import io.github.kortev.shootingstar.client.gfx.Fx;
 import io.github.kortev.shootingstar.client.gfx.Mesh;
 import io.github.kortev.shootingstar.client.gfx.Shaders;
 import io.github.kortev.shootingstar.gap.GapTimeline;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Matrix4f;
@@ -12,9 +14,10 @@ import org.joml.Vector3f;
 
 /**
  * Ginnungagap's feed. Out of the clouds over the target and up to Bifröst, the gate that hangs in orbit
- * over it; the gate wakes, opens onto another universe, cuts a block out of it and draws it through, then
- * reaches down to the target with a bridge of light and drops the block into it, and the camera chases it
- * down into the clouds.
+ * over it; the gate wakes and opens onto another universe, and the camera dives through into it, in among its
+ * galaxies, then pulls back out until that universe is a map, a lattice of blocks, and one block is selected.
+ * The gate cuts that block out and draws it through, then reaches down to the target with a bridge of light
+ * and drops the block into it, and the camera chases it down into the clouds.
  *
  * <p>Everything is in the gate's own frame, in gate units (the frame is 20 across; one unit is 620 m): the
  * gate at the origin, straight up from the target along +Y, east along +X, north along +Z, the ground
@@ -62,6 +65,7 @@ final class GapShots implements Feed.Sequence {
 	// Beats, in ticks from the start of the feed.
 	private static final double GATE_S = GapTimeline.GATE - GapTimeline.FEED;
 	private static final double OPEN_S = GapTimeline.OPEN - GapTimeline.FEED;
+	private static final double MAP_S = GapTimeline.MAP - GapTimeline.FEED;
 	private static final double CUT_S = GapTimeline.CUT - GapTimeline.FEED;
 	private static final double SEND_S = GapTimeline.SEND - GapTimeline.FEED;
 	private static final double FALL_S = GapTimeline.FALL - GapTimeline.FEED;
@@ -85,6 +89,28 @@ final class GapShots implements Feed.Sequence {
 	private static final double DROP_S = SEND_S + 8.0;
 	/** When the block is in the cloud deck and the picture goes white. */
 	private static final double DECK_S = END_S - 4.0;
+	/** The dive through the open window into that universe. */
+	private static final double DIVE_FROM = MAP_S - 14.0;
+
+	// The map of that universe, in a frame of its own counted in cells: each cell is a block of it, 2 across, laid out
+	// in a single layer from y -1 to 1 and MAP_N cells out from the middle each way. The one in the middle is the
+	// block that is taken: its seed is 0, as the block's is later, so it is the same inside.
+	private static final int MAP_N = 9;
+	/** Ticks into the map shot: the pull back out of the middle cell, and the block being selected. */
+	private static final double MAP_PULL_FROM = 16.0;
+	private static final double MAP_PULL_TO = 60.0;
+	private static final double MAP_PICK = 56.0;
+	/** The middle cell's big galaxy (the first of ss_universe's galaxies()): where it is and which way it faces. */
+	private static final Vector3f MAP_GALAXY = new Vector3f(0.12F, 0.05F, -0.12F);
+	private static final Vector3f MAP_POLE = new Vector3f(0.45F, 1.0F, 0.55F).normalize();
+	/** Where the camera starts from the galaxy, over its face; and where it ends up, looking down across the map. */
+	private static final Vector3f MAP_START = new Vector3f(MAP_POLE).mul(0.9F)
+			.add(new Vector3f(MAP_POLE).cross(0, 0, 1).normalize().mul(0.45F)).normalize();
+	private static final Vector3f MAP_END = new Vector3f(0.32F, 0.8F, 0.5F).normalize();
+	/** How far the camera is from what it looks at: inside the cell, with the whole map out, and closing on the block. */
+	private static final float MAP_NEAR = 0.62F;
+	private static final float MAP_FAR = 16.0F;
+	private static final float MAP_CLOSE = 12.5F;
 
 	private static final int VIOLET = 0xB98CFF;
 
@@ -116,8 +142,10 @@ final class GapShots implements Feed.Sequence {
 			orbit(s, o);
 		} else if (s < OPEN_S) {
 			reveal(s, o);
-		} else if (s < CUT_S) {
+		} else if (s < MAP_S) {
 			open(s, o);
+		} else if (s < CUT_S) {
+			map(s, o);
 		} else if (s < SEND_S) {
 			cut(s, o);
 		} else if (s < FALL_S) {
@@ -411,32 +439,154 @@ final class GapShots implements Feed.Sequence {
 	}
 
 	// =============================================================================================
-	// 3. The gate opens onto another universe.
+	// 3. The gate opens onto another universe, and the camera dives through the window into it.
 	// =============================================================================================
 
 	private void open(double s, Overlay o) {
 		double r = s - OPEN_S;
-		float k = Shots.smoother(r / (CUT_S - OPEN_S));
+		float k = Shots.smoother(r / (DIVE_FROM - OPEN_S));
 		// Out in front of the open face, looking down through the gate at Earth: the window full of that universe,
-		// framed by the blue of our planet.
+		// framed by the blue of our planet. Then straight in at the window, faster and faster, and through.
+		float dive = Shots.smootherIn((s - DIVE_FROM) / (MAP_S - DIVE_FROM));
 		Vector3f sideways = new Vector3f(GATE_RIGHT).mul(Shots.lerp(16.0, 6.0, k));
 		Vector3f eye = new Vector3f(FACE).mul(Shots.lerp(78.0, 52.0, k)).add(sideways).add(new Vector3f(GATE_UP).mul(5.0F));
-		Vector3f at = new Vector3f(GATE_UP).mul(-1.0F);
-		scene(s, 0.4F, 30000.0F, eye, at, new Vector3f(GATE_UP), 46.0F, true);
+		eye.lerp(new Vector3f(FACE).mul(4.0F), dive);
+		Vector3f at = new Vector3f(GATE_UP).mul(-1.0F).lerp(new Vector3f(FACE).mul(-20.0F), dive);
+		scene(s, 0.4F, 30000.0F, eye, at, new Vector3f(GATE_UP), 46.0F + 14.0F * dive, true);
 
 		float open = reveal(s);
 		o.header = open < 0.05F ? "[ OPENING ]" : "[ UNIVERSE 4,096,113 ]";
 		o.headerReveal = open < 0.05F ? Shots.smooth(r / 4.0) : Shots.smooth((s - REVEAL_FROM) / 5.0);
 		Vector3f edge = GATE.transformPosition(new Vector3f(WINDOW * 0.75F, WINDOW * 0.4F, 0.0F));
 		label(o, edge, 70, -26, "UNIVERSE 4,096,113", Feed.VIOLET, "13.7 BILLION YEARS OLD", Feed.GREY,
-				Shots.smooth((s - REVEAL_TO) / 4.0));
+				Shots.smooth((s - REVEAL_TO) / 4.0) * (1.0F - Shots.smooth(dive * 3.0)));
 		o.flash = 0.55F * (float) Math.exp(-Math.max(0.0, s - REVEAL_FROM) / 2.5) * (s >= REVEAL_FROM ? 1.0F : 0.0F);
+		// Going through: the light of that universe fills the picture.
+		o.flash = Math.max(o.flash, 0.95F * dive * dive * dive);
 		o.flashColor = 0xE8DDFF;
-		o.zoomBlur = 0.12F * (float) Math.exp(-Math.pow((s - REVEAL_FROM - 3.0) / 3.0, 2.0));
+		o.zoomBlur = 0.12F * (float) Math.exp(-Math.pow((s - REVEAL_FROM - 3.0) / 3.0, 2.0)) + 0.2F * dive;
 	}
 
 	// =============================================================================================
-	// 4. A block of it is selected, cut out and drawn through; the window shuts behind it.
+	// 4. Inside that universe, over the face of one of its galaxies; then back out, faster and faster, until the whole
+	//    of it is a map, a lattice of blocks, and the block in the middle is selected.
+	// =============================================================================================
+
+	private void map(double s, Overlay o) {
+		double m = s - MAP_S;
+		double length = CUT_S - MAP_S;
+		float pull = Shots.smoother((m - MAP_PULL_FROM) / (MAP_PULL_TO - MAP_PULL_FROM));
+		float pick = Shots.smooth((m - MAP_PICK) / 6.0);
+		// Out of the cell at an ever faster rate, then a slow push back in on the block.
+		float distance = (float) (MAP_NEAR * Math.pow(MAP_FAR / MAP_NEAR, pull));
+		distance = Shots.lerp(distance, MAP_CLOSE, Shots.smooth((m - MAP_PICK) / (length - MAP_PICK)));
+		// Drifting round the galaxy while inside the cell; then straight up out of the top of it, so as not to pass
+		// through its neighbours, and round to the angle the map is seen from.
+		double drift = m / length * 0.35;
+		Vector3f round = new Vector3f(MAP_START).mul((float) Math.cos(drift))
+				.add(new Vector3f(MAP_POLE).cross(MAP_START).mul((float) Math.sin(drift))).normalize();
+		Vector3f dir = Shots.slerp(Shots.slerp(round, new Vector3f(0, 1, 0), Shots.smooth(pull * 4.0)), MAP_END,
+				Shots.smooth((pull - 0.15) * 1.5));
+		Vector3f at = new Vector3f(MAP_GALAXY).lerp(new Vector3f(), Shots.smooth(pull * 1.3));
+		Vector3f eye = new Vector3f(dir).mul(distance).add(at);
+		cam.perspective(Shots.lerp(62.0, 48.0, Shots.smooth(pull * 1.5)), width, height, Math.max(0.01F, distance * 0.01F), 400.0F);
+		cam.look(eye, at, new Vector3f(0, 1, 0));
+
+		space.universeSky(cam, 150.0F, time);
+		// The grid comes up as the map comes out; the other cells' galaxies light as the camera leaves the middle one.
+		float grid = 0.35F * Shots.smooth((distance - 2.5) / 7.0);
+		float rise = Shots.smooth((distance - 1.5) / 6.0);
+		int inView = 1;
+		// While the eye is still inside the middle cell, that is all there is to draw: it marches on through the rest.
+		boolean inside = Math.max(Math.abs(eye.x), Math.max(Math.abs(eye.y), Math.abs(eye.z))) < 1.0F;
+		if (!inside) {
+			inView = 0;
+			// Nearest first, so the depth test turns away most of what is behind before it is marched.
+			List<float[]> cells = new ArrayList<>();
+			for (int i = -MAP_N; i <= MAP_N; i++) {
+				for (int k = -MAP_N; k <= MAP_N; k++) {
+					float r = (float) Math.hypot(i, k);
+					if (r > MAP_N || (i == 0 && k == 0)) {
+						continue;
+					}
+					cells.add(new float[] {eye.distance(2.0F * i, 0.0F, 2.0F * k), i, k, r});
+				}
+			}
+			cells.sort((a, b) -> Float.compare(a[0], b[0]));
+			for (float[] c : cells) {
+				int i = (int) c[1];
+				int k = (int) c[2];
+				// Fading out towards the rim, so the map trails off into that universe's sky.
+				float rim = 1.0F - Shots.smooth((c[3] - (MAP_N - 3.5)) / 3.5);
+				mapCell(i, k, grid * (1.0F - 0.4F * pick) * rim, rise * rim, distance < 4.0F ? 48 : 24, 1.0F - 0.45F * pick);
+				Vector3f p = cam.screen(new Vector3f(2.0F * i, 0.0F, 2.0F * k), guiW, guiH);
+				if (p != null && p.x >= 0 && p.y >= 0 && p.x <= guiW && p.y <= guiH) {
+					inView++;
+				}
+			}
+		}
+		// The middle cell last, so it wins wherever its faces meet its neighbours'.
+		mapCell(0, 0, grid * (1.0F + 2.6F * pick), 1.0F, 48, 1.0F);
+		if (m >= MAP_PICK) {
+			inView++;
+			mapSelection(m - MAP_PICK);
+		}
+
+		boolean in = m < MAP_PULL_FROM + 6.0;
+		boolean picked = m >= MAP_PICK;
+		o.header = in ? "[ UNIVERSE 4,096,113 ]" : picked ? "[ BLOCK SELECTED ]" : "[ MAPPING · UNIVERSE 4,096,113 ]";
+		o.headerReveal = Shots.smooth((in ? m - 2.0 : picked ? m - MAP_PICK : m - MAP_PULL_FROM - 6.0) / 4.0);
+		if (!in) {
+			o.footer = picked ? "1 BLOCK SELECTED" : "BLOCKS IN VIEW " + Feed.commas(inView);
+			o.footerSmall = "UNIVERSE 4,096,113 · 13.7 BILLION YEARS OLD";
+		}
+		Overlay.Label block = label(o, new Vector3f(1.0F, 1.0F, 1.0F), 10, -6, "SELECTED", Feed.VIOLET, "BLOCK 412 · 77", Feed.GREY,
+				Shots.smooth((m - MAP_PICK - 2.0) / 3.0));
+		if (block != null) {
+			block.marker = true;
+		}
+		// The flash of going through dies away inside; the pull back blurs out from the middle; a blink as the block
+		// is picked.
+		float enter = (float) Math.exp(-m / 3.0);
+		float select = picked ? (float) Math.exp(-(m - MAP_PICK) / 2.5) : 0.0F;
+		o.flash = Math.max(0.9F * enter, 0.25F * select);
+		o.flashColor = enter > select ? 0xE8DDFF : 0xFFFFFF;
+		o.zoomBlur = 0.1F * (float) Math.sin(Math.PI * pull);
+	}
+
+	/** One cell of the map, {@code i} and {@code k} cells out from the middle. */
+	private void mapCell(int i, int k, float edge, float galaxies, int steps, float fade) {
+		boolean middle = i == 0 && k == 0;
+		// Anywhere else in that universe, any seed but 0, different from its neighbours.
+		float seed = middle ? 0.0F : 1.0F + Math.floorMod(i * 7349 + k * 1361 + 99991, 997) / 7.31F;
+		float reach = 2.0F * MAP_N + 1.0F;
+		Vector3f lo = new Vector3f(-reach - 2.0F * i, -1.0F, -reach - 2.0F * k);
+		Vector3f hi = new Vector3f(reach - 2.0F * i, 1.0F, reach - 2.0F * k);
+		space.mapCell(cam, new Matrix4f().translation(2.0F * i, 0.0F, 2.0F * k), time, seed, edge, galaxies, steps, fade,
+				new Vector3f(i, 0.0F, k), lo, hi);
+	}
+
+	/** The selection box round the middle cell, thin and white, blinking as it appears, as it does round the block later. */
+	private void mapSelection(double since) {
+		boolean blink = since < 2.0 || (since >= 4.0 && since < 6.0) || since >= 8.0;
+		if (!blink) {
+			return;
+		}
+		Vector3f[] c = new Vector3f[8];
+		for (int i = 0; i < 8; i++) {
+			c[i] = new Vector3f((i & 1) == 0 ? -1.02F : 1.02F, (i & 2) == 0 ? -1.02F : 1.02F, (i & 4) == 0 ? -1.02F : 1.02F);
+		}
+		int[][] edges = {{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2}, {1, 3}, {4, 6}, {5, 7}, {0, 4}, {1, 5}, {2, 6}, {3, 7}};
+		Fx lines = space.glow(cam, Fx.LINE, 0.0F);
+		float w = Math.max(0.004F, cam.pos.distance(c[0]) * 0.0016F);
+		for (int[] e : edges) {
+			lines.beam(c[e[0]], c[e[1]], cam.pos, w, Fx.argb(1.0F, 1.0F, 1.0F, 0.9F), Fx.argb(1.0F, 1.0F, 1.0F, 0.9F));
+		}
+		lines.end(true, 2.0F);
+	}
+
+	// =============================================================================================
+	// 5. Back outside the gate: the selected block is cut out and drawn through; the window shuts behind it.
 	// =============================================================================================
 
 	private void cut(double s, Overlay o) {
@@ -467,7 +617,7 @@ final class GapShots implements Feed.Sequence {
 	}
 
 	// =============================================================================================
-	// 5. The bridge reaches down to the target; the block drops into it and is gone down it.
+	// 6. The bridge reaches down to the target; the block drops into it and is gone down it.
 	// =============================================================================================
 
 	private void send(double s, Overlay o) {
@@ -512,7 +662,7 @@ final class GapShots implements Feed.Sequence {
 	}
 
 	// =============================================================================================
-	// 6. Down the bridge after it, into the air, through the cloud deck.
+	// 7. Down the bridge after it, into the air, through the cloud deck.
 	// =============================================================================================
 
 	private void fall(double s, Overlay o) {

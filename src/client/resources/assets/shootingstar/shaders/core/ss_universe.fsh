@@ -3,7 +3,10 @@
 // Another universe, by the block. Mode 0 marches the inside of a cube from -1 to 1: a nebula, a few galaxies and
 // stars in front of the far sky of that universe, with the cube's edges glowing. Mode 1 is the window of an open
 // gate (a quad from -1 to 1 in x and y): the same universe seen through it, marched into the space behind, opening
-// from the middle as a square. Mode 2 is a cheap cube that only looks through to that universe's sky.
+// from the middle as a square. Mode 2 is a cheap cube that only looks through to that universe's sky. Mode 3 is
+// one cell of the map of that universe, a lattice of blocks: its gas and stars run on from cell to cell (Cell is
+// where this one sits, in cells) and are marched on through the whole lattice (MapLo to MapHi, in this cell's
+// space), but each cell has galaxies of its own. Mode 4 is that universe's sky alone, on a box round the eye.
 
 uniform float Time;
 uniform int Mode;
@@ -13,6 +16,9 @@ uniform float Heat;
 uniform float Fade;
 uniform float Reveal;
 uniform int Steps;
+uniform vec3 Cell;
+uniform vec3 MapLo;
+uniform vec3 MapHi;
 
 in vec3 objPos;
 in vec3 objNormal;
@@ -22,6 +28,12 @@ in vec3 viewPos;
 out vec4 fragColor;
 
 const float PI = 3.14159265;
+
+// What the gas, the stars and the sky are seeded with: Seed, except on the map, where they are the same in every
+// cell and only the galaxies change.
+float FieldSeed;
+// How far the fragment is from the eye: what a pixel's size at the surface is measured at.
+float PxDist;
 
 float hash(vec3 p) {
     p = fract(p * 0.3183099 + vec3(0.1, 0.2, 0.3));
@@ -97,9 +109,9 @@ vec3 galaxy(vec3 ro, vec3 rd, float t0, float t1, vec3 c, vec3 pole, float size,
 
 // That universe's far sky, by direction: faint gas, a haze of stars too far to resolve, and pinpoint stars.
 vec3 sky(vec3 d, float px) {
-    float n = fbm(d * 2.2 + Seed);
-    float m = fbm(d * 4.5 - Seed * 0.7 + vec3(4.0));
-    float ridge = 1.0 - abs(2.0 * fbm(d * 3.1 + vec3(Seed * 1.3, 2.0, 0.0)) - 1.0);
+    float n = fbm(d * 2.2 + FieldSeed);
+    float m = fbm(d * 4.5 - FieldSeed * 0.7 + vec3(4.0));
+    float ridge = 1.0 - abs(2.0 * fbm(d * 3.1 + vec3(FieldSeed * 1.3, 2.0, 0.0)) - 1.0);
     vec3 c = vec3(0.012, 0.006, 0.026);
     c += gas(n, m) * pow(smoothstep(0.45, 0.85, n), 2.0) * 0.18;
     c += gas(m, n) * pow(ridge, 8.0) * 0.12;
@@ -107,7 +119,7 @@ vec3 sky(vec3 d, float px) {
     // Stars on a grid of directions, each cell at most one, sized to a pixel or so.
     float scale = 220.0;
     vec3 g = floor(d * scale);
-    float s = hash(g + Seed);
+    float s = hash(g + FieldSeed);
     vec3 at = (g + 0.2 + 0.6 * hash3(g)) / scale;
     float r = length(d - normalize(at)) / max(px, 0.0015);
     float bright = step(0.9, s) * (0.4 + 3.0 * pow(max(s - 0.9, 0.0) * 10.0, 3.0));
@@ -128,7 +140,7 @@ float hit(vec3 ro, vec3 rd, vec3 lo, vec3 hi, out float t0, out float t1) {
 
 // The three galaxies of the block, wherever Seed puts them.
 vec3 galaxies(vec3 o, vec3 rd, float t0, float t1, float turn) {
-    vec3 jitter = (hash3(vec3(Seed, 1.0, 2.0)) - 0.5) * 0.5 * step(0.001, abs(Seed));
+    vec3 jitter = (hash3(vec3(Seed, 1.0, 2.0)) - 0.5) * (Mode == 3 ? 0.8 : 0.5) * step(0.001, abs(Seed));
     vec3 g = galaxy(o, rd, t0, t1, vec3(0.12, 0.05, -0.12) + jitter, normalize(vec3(0.45, 1.0, 0.55) + jitter), 0.85, turn,
         vec3(0.55, 0.7, 1.0));
     g += galaxy(o, rd, t0, t1, vec3(-0.6, -0.5, 0.55) - jitter, normalize(vec3(-0.6, 0.5, 0.6)), 0.3, turn * 1.3 + 1.0,
@@ -138,44 +150,58 @@ vec3 galaxies(vec3 o, vec3 rd, float t0, float t1, float turn) {
     return g;
 }
 
+// The galaxies of this block. On the map every cell but the one at the middle (Seed 0, the block that will be
+// taken) mirrors them its own way, so no two neighbours look alike, and Reveal brings them up.
+vec3 cellGalaxies(vec3 o, vec3 rd, float t0, float t1, float turn) {
+    if (Mode != 3 || abs(Seed) < 0.001) {
+        return galaxies(o, rd, t0, t1, turn);
+    }
+    vec3 f = sign(hash3(vec3(Seed, 5.0, 9.0)) - 0.5 + 1.0e-3);
+    return galaxies(o * f, rd * f, t0, t1, turn) * Reveal;
+}
+
 // The light along the ray from t0 to t1 through the universe's near space, in front of its sky. {@code px} is
 // the size of a pixel at the surface, which keeps the stars to a pixel or two.
 vec3 march(vec3 ro, vec3 rd, float t0, float t1, int steps, vec3 shift, float px, float gasScale) {
     float dt = (t1 - t0) / float(steps);
-    float t = t0 + dt * hash(vec3(gl_FragCoord.xy, Seed));
+    float t = t0 + dt * hash(vec3(gl_FragCoord.xy, FieldSeed));
     vec3 light = vec3(0.0);
     float through = 1.0;
     float turn = Time * 0.004;
     float starPx = max(px, 0.0008);
+    // On the map, seen from far enough off that a star is less than a pixel, they melt into the gas.
+    float starFade = Mode == 3 ? smoothstep(0.012, 0.004, px) : 1.0;
     for (int i = 0; i < 96; i++) {
         if (i >= steps) {
             break;
         }
-        vec3 p = ro + rd * t + shift;
-        float n = fbm(p * 1.5 + vec3(Seed, 0.0, Time * 0.002));
-        float k = noise(p * 3.7 - vec3(0.0, Time * 0.003, Seed));
-        float ridge = 1.0 - abs(2.0 * fbm(p * 2.3 + vec3(2.0, Seed, 1.0)) - 1.0);
+        vec3 p = ro + rd * t + shift + Cell * 2.0;
+        float n = fbm(p * 1.5 + vec3(FieldSeed, 0.0, Time * 0.002));
+        float k = noise(p * 3.7 - vec3(0.0, Time * 0.003, FieldSeed));
+        float ridge = 1.0 - abs(2.0 * fbm(p * 2.3 + vec3(2.0, FieldSeed, 1.0)) - 1.0);
         float dens = pow(smoothstep(0.52, 0.86, n), 2.5) * 0.9 + pow(ridge, 14.0) * smoothstep(0.35, 0.6, n) * 1.4;
         float dust = smoothstep(0.55, 0.75, k) * smoothstep(0.4, 0.65, n) * 3.0;
         vec3 e = gas(n, k) * dens * gasScale;
         // Stars: one at most in each cell, counted at the step that passes closest to it.
         vec3 cell = floor(p * 10.0);
-        float h = hash(cell + Seed * 3.0);
+        float h = hash(cell + FieldSeed * 3.0);
         if (h > 0.95) {
-            vec3 sp = (cell + 0.2 + 0.6 * hash3(cell)) / 10.0 - shift;
+            vec3 sp = (cell + 0.2 + 0.6 * hash3(cell)) / 10.0 - shift - Cell * 2.0;
             float along = dot(sp - ro, rd);
             if (along >= t - dt * 0.5 && along < t + dt * 0.5) {
-                float size = starPx * max(along, 0.05) / max(t0, 0.05);
+                float size = starPx * max(along, 0.05) / max(PxDist, 0.05);
                 float miss = length(ro + rd * along - sp) / size;
                 float bright = 0.25 + 8.0 * pow(max(h - 0.95, 0.0) / 0.05, 6.0);
-                light += through * mix(vec3(0.7, 0.8, 1.0), vec3(1.0, 0.82, 0.62), hash(cell * 1.7)) * exp(-miss * miss * 1.2) * bright;
+                light += through * starFade * mix(vec3(0.7, 0.8, 1.0), vec3(1.0, 0.82, 0.62), hash(cell * 1.7)) * exp(-miss * miss * 1.2) * bright;
             }
         }
         light += through * e * dt;
         through *= exp(-dust * dt);
         t += dt;
     }
-    return light + galaxies(ro + shift, rd, t0, t1, turn) * (0.4 + 0.6 * through) + through * sky(rd, px * 0.8);
+    // Mode 3 and 4 take the sky's pixel as an angle; the others always have, close enough, at their sizes.
+    float skyPx = Mode >= 3 ? px / max(PxDist, 0.05) : px * 0.8;
+    return light + cellGalaxies(ro + shift, rd, t0, t1, turn) * (0.4 + 0.6 * through) + through * sky(rd, skyPx);
 }
 
 // How close a point on a cube face is to the face's edges (0 on an edge).
@@ -196,6 +222,10 @@ float edgeDistance(vec3 p) {
 
 vec3 edges(vec3 p, float px, float strength) {
     float e = max(edgeDistance(p), 0.0);
+    if (Mode == 3) {
+        // The map's grid: hairlines, violet, with no glow to wash over the cells.
+        return vec3(0.6, 0.48, 1.0) * (1.0 - smoothstep(px * 0.3, px * 0.9, e)) * 1.6 * strength;
+    }
     float line = 1.0 - smoothstep(px * 0.8, px * 2.0, e);
     float halo = exp(-e / max(px * 6.0, 0.02));
     return vec3(0.85, 0.8, 1.0) * (line * 2.4 + halo * 0.6) * strength;
@@ -205,7 +235,13 @@ void main() {
     vec3 ro = camObj;
     vec3 rd = normalize(objPos - camObj);
     float px = length(fwidth(objPos));
+    FieldSeed = Mode == 3 ? 0.0 : Seed;
+    PxDist = length(objPos - camObj);
     vec3 c;
+    if (Mode == 4) {
+        fragColor = vec4(sky(rd, px / max(PxDist, 0.05)) * Fade, 1.0);
+        return;
+    }
     if (Mode == 1) {
         // The window: the quad is the plane z = 0; that universe lies on the far side from the eye.
         float side = camObj.z >= 0.0 ? 1.0 : -1.0;
@@ -235,7 +271,16 @@ void main() {
             t1 = onFace;
         }
         t0 = max(t0, 0.0);
-        if (Mode == 2) {
+        if (Mode == 3) {
+            // Through this cell and on through whatever of the lattice lies behind it.
+            float m0;
+            float m1;
+            if (hit(ro, rd, MapLo, MapHi, m0, m1) > 0.5) {
+                // Not so far that the steps grow coarser than the gas.
+                t1 = max(t1, min(m1, t0 + 6.0));
+            }
+            c = march(ro, rd, t0, t1, Steps, vec3(0.0), px, 0.45);
+        } else if (Mode == 2) {
             c = sky(rd, px * 2.0) * 2.0 + gas(fbm(rd * 1.7 + Seed), 0.5) * 0.08 + galaxies(ro, rd, t0, t1, Time * 0.004);
         } else {
             c = march(ro, rd, t0, t1, Steps, vec3(0.0), px, 1.0);
@@ -244,11 +289,11 @@ void main() {
         vec3 back = ro + rd * t1;
         c += edges(front, px, Edge);
         // The far edges show through the dark of that space, so the block reads as a block.
-        c += edges(back, px, Edge * 0.45);
+        c += edges(back, px, Edge * (Mode == 3 ? 0.2 : 0.45));
         // A glassy sheen on the faces.
         vec3 n = normalize(objNormal);
         float facing = abs(dot(n, rd));
-        c += vec3(0.55, 0.5, 0.8) * pow(1.0 - facing, 4.0) * 0.35 * Edge;
+        c += vec3(0.55, 0.5, 0.8) * pow(1.0 - facing, 4.0) * 0.35 * Edge * (Mode == 3 ? 0.0 : 1.0);
     }
     c = mix(c, vec3(1.0, 0.97, 1.0) * 3.0, clamp(Heat, 0.0, 1.0));
     fragColor = vec4(c * Fade, 1.0);

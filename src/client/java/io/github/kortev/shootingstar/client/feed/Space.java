@@ -283,7 +283,42 @@ final class Space {
 		Shaders.set(Shaders.universe, "Reveal", reveal);
 		Shaders.setInt(Shaders.universe, "Steps", steps);
 		Shaders.set(Shaders.universe, "Fade", fade);
+		Shaders.set(Shaders.universe, "Cell", 0.0F, 0.0F, 0.0F);
 		mesh.draw(Shaders.universe, cam.modelView(model), cam.proj);
+		RenderSystem.depthMask(true);
+	}
+
+	/**
+	 * One cell of the map of another universe ({@code ss_universe} mode 3): cell {@code cell} (counted in cells) of
+	 * a lattice that runs from {@code lo} to {@code hi} in this cell's own space. {@code galaxies} brings its
+	 * galaxies up; the cell with seed 0 is the block that will be taken, the same inside as it is later.
+	 */
+	void mapCell(Cam cam, Matrix4f model, float time, float seed, float edge, float galaxies, int steps, float fade, Vector3f cell,
+			Vector3f lo, Vector3f hi) {
+		opaque();
+		Shaders.setInt(Shaders.universe, "Mode", 3);
+		Shaders.set(Shaders.universe, "Time", time);
+		Shaders.set(Shaders.universe, "Seed", seed);
+		Shaders.set(Shaders.universe, "Edge", edge);
+		Shaders.set(Shaders.universe, "Heat", 0.0F);
+		Shaders.set(Shaders.universe, "Reveal", galaxies);
+		Shaders.setInt(Shaders.universe, "Steps", steps);
+		Shaders.set(Shaders.universe, "Fade", fade);
+		Shaders.set(Shaders.universe, "Cell", cell);
+		Shaders.set(Shaders.universe, "MapLo", lo);
+		Shaders.set(Shaders.universe, "MapHi", hi);
+		cube.draw(Shaders.universe, cam.modelView(model), cam.proj);
+	}
+
+	/** That universe's far sky alone ({@code ss_universe} mode 4), on a box of half-size {@code size} round the eye. */
+	void universeSky(Cam cam, float size, float time) {
+		opaque();
+		RenderSystem.depthMask(false);
+		Shaders.setInt(Shaders.universe, "Mode", 4);
+		Shaders.set(Shaders.universe, "Time", time);
+		Shaders.set(Shaders.universe, "Seed", 0.0F);
+		Shaders.set(Shaders.universe, "Fade", 1.0F);
+		cube.draw(Shaders.universe, cam.modelView(new Matrix4f().translation(cam.pos).scale(size)), cam.proj);
 		RenderSystem.depthMask(true);
 	}
 

@@ -88,7 +88,9 @@ the feed and the camera shots. Press **Backspace** (rebindable) to skip the feed
 ## Ω-00 Ginnungagap, the Genesis Key
 
 Look at a block at least 24 blocks away and use the key. Bifröst, a gate in orbit over the target,
-opens onto another universe, cuts a block out of it and drops it down a bridge of light onto the target.
+opens onto another universe and the feed dives through into it, over the face of one of its galaxies, then
+pulls back out until the whole of that universe is a map, a lattice of blocks, and one block is selected.
+The gate cuts that block out and drops it down a bridge of light onto the target.
 It bursts, and everything within `ginnungagapRadius` is erased, leaving you alone in the dark. Use the
 key again to let reality back in. The feed can be skipped with the same key as Gungnir's (Backspace).
 
