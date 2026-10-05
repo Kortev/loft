@@ -96,10 +96,13 @@ final class GapShots implements Feed.Sequence {
 	// in a single layer from y -1 to 1 and MAP_N cells out from the middle each way. The one in the middle is the
 	// block that is taken: its seed is 0, as the block's is later, so it is the same inside.
 	private static final int MAP_N = 9;
-	/** Ticks into the map shot: the pull back out of the middle cell, and the block being selected. */
+	/** Ticks into the map shot: the pull back out of the middle cell, and the block being selected and rising out of the map. */
 	private static final double MAP_PULL_FROM = 16.0;
 	private static final double MAP_PULL_TO = 60.0;
 	private static final double MAP_PICK = 56.0;
+	private static final double MAP_LIFT = 62.0;
+	/** How high the selected block has risen out of the lattice by the end of the shot. */
+	private static final float MAP_LIFT_HEIGHT = 2.4F;
 	/** The middle cell's big galaxy (the first of ss_universe's galaxies()): where it is and which way it faces. */
 	private static final Vector3f MAP_GALAXY = new Vector3f(0.12F, 0.05F, -0.12F);
 	private static final Vector3f MAP_POLE = new Vector3f(0.45F, 1.0F, 0.55F).normalize();
@@ -107,7 +110,11 @@ final class GapShots implements Feed.Sequence {
 	private static final Vector3f MAP_START = new Vector3f(MAP_POLE).mul(0.9F)
 			.add(new Vector3f(MAP_POLE).cross(0, 0, 1).normalize().mul(0.45F)).normalize();
 	private static final Vector3f MAP_END = new Vector3f(0.32F, 0.8F, 0.5F).normalize();
-	/** How far the camera is from what it looks at: inside the cell, with the whole map out, and closing on the block. */
+	/**
+	 * How far the camera is from what it looks at: coming in over the galaxy, inside the cell, with the whole map out,
+	 * and closing on the block.
+	 */
+	private static final float MAP_IN = 0.8F;
 	private static final float MAP_NEAR = 0.62F;
 	private static final float MAP_FAR = 16.0F;
 	private static final float MAP_CLOSE = 12.5F;
@@ -477,17 +484,20 @@ final class GapShots implements Feed.Sequence {
 		double length = CUT_S - MAP_S;
 		float pull = Shots.smoother((m - MAP_PULL_FROM) / (MAP_PULL_TO - MAP_PULL_FROM));
 		float pick = Shots.smooth((m - MAP_PICK) / 6.0);
-		// Out of the cell at an ever faster rate, then a slow push back in on the block.
-		float distance = (float) (MAP_NEAR * Math.pow(MAP_FAR / MAP_NEAR, pull));
+		// In over the galaxy's face; out of the cell at an ever faster rate; then a slow push back in on the block.
+		float near = Shots.lerp(MAP_IN, MAP_NEAR, Shots.smooth(m / MAP_PULL_FROM));
+		float distance = (float) (near * Math.pow(MAP_FAR / near, pull));
 		distance = Shots.lerp(distance, MAP_CLOSE, Shots.smooth((m - MAP_PICK) / (length - MAP_PICK)));
 		// Drifting round the galaxy while inside the cell; then straight up out of the top of it, so as not to pass
 		// through its neighbours, and round to the angle the map is seen from.
-		double drift = m / length * 0.35;
+		double drift = m / length * 0.7;
 		Vector3f round = new Vector3f(MAP_START).mul((float) Math.cos(drift))
 				.add(new Vector3f(MAP_POLE).cross(MAP_START).mul((float) Math.sin(drift))).normalize();
 		Vector3f dir = Shots.slerp(Shots.slerp(round, new Vector3f(0, 1, 0), Shots.smooth(pull * 4.0)), MAP_END,
 				Shots.smooth((pull - 0.15) * 1.5));
-		Vector3f at = new Vector3f(MAP_GALAXY).lerp(new Vector3f(), Shots.smooth(pull * 1.3));
+		// The selected block rising up out of the lattice, faster and faster, the camera lifting a little with it.
+		float lift = MAP_LIFT_HEIGHT * (float) Math.pow(Shots.smooth((m - MAP_LIFT) / (length - MAP_LIFT)), 1.6);
+		Vector3f at = new Vector3f(MAP_GALAXY).lerp(new Vector3f(), Shots.smooth(pull * 1.3)).add(0.0F, lift * 0.5F, 0.0F);
 		Vector3f eye = new Vector3f(dir).mul(distance).add(at);
 		cam.perspective(Shots.lerp(62.0, 48.0, Shots.smooth(pull * 1.5)), width, height, Math.max(0.01F, distance * 0.01F), 400.0F);
 		cam.look(eye, at, new Vector3f(0, 1, 0));
@@ -518,7 +528,7 @@ final class GapShots implements Feed.Sequence {
 				int k = (int) c[2];
 				// Fading out towards the rim, so the map trails off into that universe's sky.
 				float rim = 1.0F - Shots.smooth((c[3] - (MAP_N - 3.5)) / 3.5);
-				mapCell(i, k, grid * (1.0F - 0.4F * pick) * rim, rise * rim, distance < 4.0F ? 48 : 24, 1.0F - 0.45F * pick);
+				mapCell(i, k, 0.0F, grid * (1.0F - 0.4F * pick) * rim, rise * rim, distance < 4.0F ? 48 : 24, 1.0F - 0.45F * pick);
 				Vector3f p = cam.screen(new Vector3f(2.0F * i, 0.0F, 2.0F * k), guiW, guiH);
 				if (p != null && p.x >= 0 && p.y >= 0 && p.x <= guiW && p.y <= guiH) {
 					inView++;
@@ -526,10 +536,10 @@ final class GapShots implements Feed.Sequence {
 			}
 		}
 		// The middle cell last, so it wins wherever its faces meet its neighbours'.
-		mapCell(0, 0, grid * (1.0F + 2.6F * pick), 1.0F, 48, 1.0F);
+		mapCell(0, 0, lift, grid * (1.0F + 2.6F * pick), 1.0F, 48, 1.0F);
 		if (m >= MAP_PICK) {
 			inView++;
-			mapSelection(m - MAP_PICK);
+			mapSelection(m - MAP_PICK, lift);
 		}
 
 		boolean in = m < MAP_PULL_FROM + 6.0;
@@ -540,7 +550,7 @@ final class GapShots implements Feed.Sequence {
 			o.footer = picked ? "1 BLOCK SELECTED" : "BLOCKS IN VIEW " + Feed.commas(inView);
 			o.footerSmall = "UNIVERSE 4,096,113 · 13.7 BILLION YEARS OLD";
 		}
-		Overlay.Label block = label(o, new Vector3f(1.0F, 1.0F, 1.0F), 10, -6, "SELECTED", Feed.VIOLET, "BLOCK 412 · 77", Feed.GREY,
+		Overlay.Label block = label(o, new Vector3f(1.0F, 1.0F + lift, 1.0F), 10, -6, "SELECTED", Feed.VIOLET, "BLOCK 412 · 77", Feed.GREY,
 				Shots.smooth((m - MAP_PICK - 2.0) / 3.0));
 		if (block != null) {
 			block.marker = true;
@@ -552,29 +562,36 @@ final class GapShots implements Feed.Sequence {
 		o.flash = Math.max(0.9F * enter, 0.25F * select);
 		o.flashColor = enter > select ? 0xE8DDFF : 0xFFFFFF;
 		o.zoomBlur = 0.1F * (float) Math.sin(Math.PI * pull);
+		// Close over the galaxy its core would burn out the picture.
+		o.exposure = 0.75F + 0.25F * Shots.smooth(pull * 2.0);
 	}
 
-	/** One cell of the map, {@code i} and {@code k} cells out from the middle. */
-	private void mapCell(int i, int k, float edge, float galaxies, int steps, float fade) {
+	/** One cell of the map, {@code i} and {@code k} cells out from the middle, raised {@code y} out of the lattice. */
+	private void mapCell(int i, int k, float y, float edge, float galaxies, int steps, float fade) {
 		boolean middle = i == 0 && k == 0;
 		// Anywhere else in that universe, any seed but 0, different from its neighbours.
 		float seed = middle ? 0.0F : 1.0F + Math.floorMod(i * 7349 + k * 1361 + 99991, 997) / 7.31F;
 		float reach = 2.0F * MAP_N + 1.0F;
 		Vector3f lo = new Vector3f(-reach - 2.0F * i, -1.0F, -reach - 2.0F * k);
 		Vector3f hi = new Vector3f(reach - 2.0F * i, 1.0F, reach - 2.0F * k);
-		space.mapCell(cam, new Matrix4f().translation(2.0F * i, 0.0F, 2.0F * k), time, seed, edge, galaxies, steps, fade,
+		if (y > 0.0F) {
+			// Out of the lattice it is only itself: nothing to march on through.
+			lo.zero();
+			hi.zero();
+		}
+		space.mapCell(cam, new Matrix4f().translation(2.0F * i, y, 2.0F * k), time, seed, edge, galaxies, steps, fade,
 				new Vector3f(i, 0.0F, k), lo, hi);
 	}
 
 	/** The selection box round the middle cell, thin and white, blinking as it appears, as it does round the block later. */
-	private void mapSelection(double since) {
+	private void mapSelection(double since, float lift) {
 		boolean blink = since < 2.0 || (since >= 4.0 && since < 6.0) || since >= 8.0;
 		if (!blink) {
 			return;
 		}
 		Vector3f[] c = new Vector3f[8];
 		for (int i = 0; i < 8; i++) {
-			c[i] = new Vector3f((i & 1) == 0 ? -1.02F : 1.02F, (i & 2) == 0 ? -1.02F : 1.02F, (i & 4) == 0 ? -1.02F : 1.02F);
+			c[i] = new Vector3f((i & 1) == 0 ? -1.02F : 1.02F, ((i & 2) == 0 ? -1.02F : 1.02F) + lift, (i & 4) == 0 ? -1.02F : 1.02F);
 		}
 		int[][] edges = {{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2}, {1, 3}, {4, 6}, {5, 7}, {0, 4}, {1, 5}, {2, 6}, {3, 7}};
 		Fx lines = space.glow(cam, Fx.LINE, 0.0F);
