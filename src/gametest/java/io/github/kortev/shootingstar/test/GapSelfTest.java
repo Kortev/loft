@@ -295,18 +295,19 @@ public class GapSelfTest implements ClientModInitializer {
 			double s = time - start;
 			Vec3d eye = from.add(0, 2.0, 0);
 			Vec3d at = c.add(0, -10.0, 0);
-			// High enough to take in the whole zone, low enough to stay under the clouds' height.
+			// High over the middle, looking nearly straight down, so the whole zone shows as one round hole (the clouds are
+			// off for this shot).
 			double u = smooth((s - 25.0) / 130.0);
 			if (u > 0.0) {
 				double a = a0 + Math.toRadians(15.0) * u;
-				Vec3d top = c.add(Math.cos(a) * r * 1.25, 0.95 * r, Math.sin(a) * r * 1.25);
+				Vec3d top = c.add(Math.cos(a) * r * 0.45, 2.2 * r, Math.sin(a) * r * 0.45);
 				eye = eye.lerp(top, u);
-				at = at.lerp(c.add(0, -20.0, 0), u);
+				at = at.lerp(c, u);
 			}
 			double v = smooth((s - 165.0) / 120.0);
 			if (v > 0.0) {
 				double b = a0 + Math.toRadians(15.0 + 70.0 * v);
-				Vec3d side = c.add(Math.cos(b) * 1.45 * r, 0.6 * r, Math.sin(b) * 1.45 * r);
+				Vec3d side = c.add(Math.cos(b) * 1.45 * r, 0.8 * r, Math.sin(b) * 1.45 * r);
 				eye = eye.lerp(side, v);
 				at = at.lerp(c.add(0, -70.0, 0), v);
 			}
