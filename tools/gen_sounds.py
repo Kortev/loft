@@ -12,6 +12,7 @@ import subprocess
 import sys
 import tempfile
 import wave
+import zlib
 
 import numpy as np
 from scipy import signal
@@ -1176,22 +1177,145 @@ def aftermath(close=True):
 
 
 # --- Ω-00 Ginnungagap ---------------------------------------------------------------------------
-# The Genesis Key's 40 s sequence (GapTimeline): the key turns, the lock, the tear in the sky, the mirror universe
-# closing in, contact, the impact frames, the erasure and the void. Each sound fills its slot exactly, and the
-# ones that end on a cut stop dead on it.
+# The Genesis Key's 40 s sequence, scored as one piece from the key turning to the song in the black: the key turns
+# and the camera rises into the feed; Bifröst wakes in orbit and its window tears open; the camera dives through into
+# the other universe and pulls back out of it until it is a map, and a block of it is selected and lifts out of it;
+# back outside the gate the block is drawn through and the window shuts like an old screen; the bridge lances down and
+# the block drops into it; the chase down into the cloud deck; the block coming down on the target; contact, the
+# impact frames, the burst and its collapse, the erasure, and nothing. Under the feed one bed hands over to the next on
+# the beats, the way Gungnir's ambience runs under its feed; each sound fills its slot to the tick, and the ones that
+# end on a cut stop dead on it.
+#
+# It is in a key of its own: A, the Genesis Key's glass chord (A, C#, E), with the other universe's lydian colour over
+# it (B, D#, G#). The tritone, A against D#, is the dread of the block coming down.
+
+# GapTimeline's beats, in ticks from the key turning. The sounds are cut to fit them, so if the timeline changes, change
+# it here too and make the Ginnungagap sounds again.
+GAP = dict(KEY=0, RISE=42, FEED=66, GATE=92, OPEN=136, MAP=184, CUT=268, SEND=310, FALL=336, INBOUND=404, CONTACT=428,
+           BLAST=458, COLLAPSE=518, ERASURE=528, NOTHING=628, RETURN=728, END=808)
+
+
+def gap_at(beat, ticks=0, since='KEY'):
+    """Seconds from the beat `since` to `ticks` after `beat`."""
+    return (GAP[beat] + ticks - GAP[since]) / 20.0
+
+
+# The other universe's chord, A major 9 sharp 11 (A, C#, E, G#, B, D#), spread from the bottom up; its stars glint in
+# the top of it.
+UNIVERSE = (110.0, 164.81, 246.94, 277.18, 311.13, 415.30, 440.0, 554.37, 659.26, 830.61, 987.77, 1244.51, 1318.51,
+            1661.22, 1975.53, 2217.46, 2489.02, 2637.02, 3322.44, 3520.0, 3951.07, 4434.92, 4978.03, 5274.04)
+STARS = UNIVERSE[13:]
+
+VAST = None
+GLASS = None
+CLOSE = None
+WORLD = None
+
+
+def gap_spaces():
+    """Ginnungagap's spaces, from a seed of their own so that a sound comes out the same whatever is made with it: the
+    vastness of orbit and of the other universe, a bright glass hall, the close metal of the key's lock, and the open
+    ground round the target."""
+    global rng, VAST, GLASS, CLOSE, WORLD
+    if VAST is None:
+        outer, rng = rng, np.random.default_rng(4096113)
+        VAST = impulse(7.0, [(0.19, 0.16, -0.7), (0.34, 0.14, 0.7), (0.62, 0.1, -0.2), (1.1, 0.07, 0.4)], damping=3200,
+                       low_extra=1.4, density=0.7)
+        GLASS = impulse(3.0, [(0.021, 0.35, -0.4), (0.037, 0.3, 0.45), (0.058, 0.22, 0.0)], damping=9000, low_extra=1.0,
+                        density=1.1)
+        CLOSE = impulse(1.6, [(0.011, 0.5, -0.5), (0.017, 0.45, 0.5), (0.026, 0.4, 0.0), (0.041, 0.3, -0.3)],
+                        damping=9000, low_extra=1.0, density=1.5)
+        WORLD = impulse(5.5, [(0.07, 0.35, -0.6), (0.16, 0.28, 0.7), (0.41, 0.22, -0.2), (0.73, 0.18, 0.8),
+                              (1.2, 0.14, -0.8), (1.9, 0.10, 0.3), (2.7, 0.07, -0.4)], damping=2500, low_extra=2.0,
+                        density=0.6)
+        rng = outer
+    return VAST, GLASS, CLOSE, WORLD
+
+
+def glass(notes, n, glide=1.0, detune=0.0015):
+    """The Genesis Key's voice: pure partials, each beating slowly against a detuned twin across on the other side.
+    notes are (Hz, gain) pairs; glide scales their pitch, sample by sample if need be."""
+    g = np.broadcast_to(np.asarray(glide, float), (n,))
+    out = np.zeros((2, n))
+    for f, gain in notes:
+        a = sine(f * (1 - detune) * g, phase=rng.uniform(0, 2 * np.pi))
+        b = sine(f * (1 + detune) * g, phase=rng.uniform(0, 2 * np.pi))
+        out += np.vstack([a * 0.75 + b * 0.25, b * 0.75 + a * 0.25]) * gain
+    return out
+
+
+# Formants of a sung vowel, (Hz, gain).
+AH = ((750.0, 1.0), (1150.0, 0.55), (2800.0, 0.25))
+OO = ((330.0, 1.0), (850.0, 0.45), (2300.0, 0.15))
+
+
+def choir(freq, n, vowel=OO, voices=6, glide=1.0):
+    """A choir far off on one note: detuned saws, each with its own slow vibrato and its own place between the two
+    sides, sung through a vowel's formants."""
+    t = np.arange(n) / SR
+    g = np.broadcast_to(np.asarray(glide, float), (n,))
+    out = np.zeros((2, n))
+    for v in range(voices):
+        k = (v - (voices - 1) / 2) / ((voices - 1) / 2)
+        vibrato = 1 + 0.0045 * np.sin(2 * np.pi * rng.uniform(4.6, 5.8) * t + rng.uniform(0, 2 * np.pi))
+        out += pan(saw(freq * g * vibrato * (1 + 0.005 * k), n), 0.8 * k)
+    out /= voices
+    return sum(np.vstack([bp(c, f / 1.18, f * 1.18) for c in out]) * a for f, a in vowel)
+
+
+def struck(freq, seconds, tau, ratios=(1.0, 2.32, 4.25, 6.63), bright=0.45):
+    """A struck crystal (chime) let ring out to the end of its time rather than stopped there with a click."""
+    y = chime(freq, ns(seconds), tau=tau, ratios=ratios, bright=bright)
+    k = max(1, len(y) // 4)
+    y[-k:] *= np.linspace(1.0, 0.0, k) ** 2
+    return y
+
+
+def twinkle():
+    """A star far off: a soft glint high in the other universe's chord, its onset rounded so it shines rather than
+    clicks."""
+    q = ns(1.2)
+    y = struck(rng.choice(STARS), 1.2, tau=rng.uniform(0.2, 0.5), ratios=(1.0, 2.76), bright=0.12)
+    return y * np.clip(np.arange(q) / ns(rng.uniform(0.004, 0.02)), 0, 1) * min(rng.lognormal(-0.8, 0.5), 1.0)
+
+
+def inhale(seconds, lo=300.0, hi=6000.0, tau=None):
+    """A swell sucked up into whatever comes next: decaying noise played backwards, its band sweeping up as it goes."""
+    q = ns(seconds)
+    y = pink(q) * np.exp(-np.arange(q) / SR / (tau or seconds / 3))
+    return norm(sweep_filter(y[::-1], 'bandpass', curve(q, [(0, lo), (seconds, hi)], 'log'), order=2, width=1.6))
+
+
+def gate_hum(n, glide=1.0):
+    """Bifröst's power: the harmonics of a hum on A, turning slowly from one side to the other."""
+    t = np.arange(n) / SR
+    g = np.broadcast_to(np.asarray(glide, float), (n,))
+    hum = sum(a * sine(55.0 * h * g, phase=h) for h, a in ((1, 0.6), (2, 1.0), (3, 0.55), (4, 0.4), (6, 0.2), (8, 0.1)))
+    turn = 2 * np.pi * 0.45 * t
+    return np.vstack([hum * (0.75 + 0.25 * np.sin(turn)), hum * (0.75 + 0.25 * np.cos(turn))])
+
+
+def block_hum(n, glide=1.0):
+    """The block of the other universe: the bottom of its chord, humming."""
+    return glass(((110.0, 0.6), (164.81, 0.4), (220.0, 0.3), (311.13, 0.12)), n, glide)
+
 
 def gap_key():
-    """The Genesis Key turns (3.0 s, first person): a soft crystalline shimmer rising as the key wakes; the lock
-    turning at 1.5 s, a click and then a deep clunk; a bright, glassy, detuned swell climbing from there, the
-    signal breaking up into digital crackle from 2.1 s; cut dead at 3.0 s, when the screen goes white."""
-    total = 3.0
+    """The Genesis Key turns (3.3 s, first person, in step with KeyTurn): a crystalline shimmer rising as the key comes
+    up and wakes; the tumblers lifting as it slides into the lock; the click as it starts to turn (1.5 s), the bolt
+    grinding round and the deep clunk as it goes home (1.85 s), each with a jolt of bad signal; then a bright, glassy,
+    detuned swell climbing out of the clunk as the camera leaves, breaking up into digital crackle in the whiteout of
+    the clouds, cut dead at 3.3 s as the feed comes up."""
+    total = gap_at('FEED')
+    turn, home = 1.5, 1.85
+    white_from = gap_at('FEED', -8)
     span = total + 0.1
     n = ns(span)
     m = Mix(span)
     # 1. The key wakes: high glassy partials beating against their detuned twins, twinkling, rising a little.
-    q = ns(1.8)
-    glide = curve(q, [(0, 1.0), (1.2, 1.06), (1.8, 1.07)], 'log')
-    wake = curve(q, [(0, 0.0), (0.5, 0.25), (1.2, 1.0), (1.5, 0.35), (1.8, 0.0)]) ** 1.3
+    q = ns(1.9)
+    glide = curve(q, [(0, 1.0), (1.2, 1.06), (1.9, 1.07)], 'log')
+    wake = curve(q, [(0, 0.0), (0.5, 0.25), (1.2, 1.0), (1.55, 0.35), (1.9, 0.0)]) ** 1.3
     shimmer = np.zeros((2, q))
     for f, g in ((1760.0, 0.5), (2637.0, 0.45), (3520.0, 0.35), (4434.9, 0.2), (5274.0, 0.18)):
         flicker = lp(rng.standard_normal(q), 7)
@@ -1201,18 +1325,18 @@ def gap_key():
     m.add(shimmer * wake, 0.0, 0.3)
     notes = (2217.5, 2637.0, 2960.0, 3520.0, 3951.1, 4434.9, 5274.0, 5919.9)
     m.add(grains(q, lambda s: 0 if s > 1.45 else 4 + 30 * (s / 1.2) ** 2,
-                 lambda: chime(rng.choice(notes), ns(0.3), tau=0.15, bright=0.3) * rng.uniform(0.2, 1.0), spread=0.9),
+                 lambda: struck(rng.choice(notes), 0.3, tau=0.15, bright=0.3) * rng.uniform(0.2, 1.0), spread=0.9),
           0.0, 0.12)
     air = decorrelated(q, pink)
-    air = np.vstack([sweep_filter(c, 'bandpass', curve(q, [(0, 2500), (1.2, 7000), (1.8, 6000)], 'log'), order=2,
+    air = np.vstack([sweep_filter(c, 'bandpass', curve(q, [(0, 2500), (1.2, 7000), (1.9, 6000)], 'log'), order=2,
                                   width=1.5) for c in air])
     m.add(air * wake, 0.0, 0.06)
     hum = sine(110.0 * glide) + 0.4 * sine(164.8 * glide)
-    m.add(stereo(hum * wake * curve(q, [(0, 0.0), (1.2, 1.0), (1.8, 0.0)])), 0.0, 0.04)
-    # 2. The lock, rung round the metal of the key: tumblers lifting, the click, the bolt grinding round, and the
-    # deep clunk as it goes home.
+    m.add(stereo(hum * wake * curve(q, [(0, 0.0), (1.2, 1.0), (1.9, 0.0)])), 0.0, 0.04)
+    # 2. The lock, rung round the metal of the key: the tumblers lifting as it slides in, the click as it starts to
+    # turn, the bolt grinding round, and the deep clunk as it goes home.
     lock = Mix(span)
-    for k, at in enumerate((1.34, 1.385, 1.425, 1.455, 1.48)):
+    for k, at in enumerate((1.26, 1.31, 1.355, 1.395, 1.43)):
         q = ns(0.03)
         tt = np.arange(q) / SR
         tick = hp(white(q), 3500) * np.exp(-tt / 0.0008)
@@ -1223,11 +1347,10 @@ def gap_key():
     click = hp(white(q), 2200) * np.exp(-tt / 0.002) + 0.6 * np.sin(2 * np.pi * 210 * tt) * np.exp(-tt / 0.012)
     click += sum(a * np.sin(2 * np.pi * f * tt) * np.exp(-tt / d) for f, a, d in
                  ((2380, 0.45, 0.035), (3870, 0.3, 0.022), (5610, 0.2, 0.012)))
-    lock.add(sat(click * 1.2, 1.3), 1.5, 0.55, position=0.12)
-    q = ns(0.12)
-    tt = np.arange(q) / SR
-    grind = bp(white(q), 350, 2600) * (0.55 + 0.45 * np.sign(np.sin(2 * np.pi * 70 * tt)))
-    lock.add(grind * curve(q, [(0, 0.15), (0.11, 1.0), (0.12, 0.0)]), 1.515, 0.16, position=0.1)
+    lock.add(sat(click * 1.2, 1.3), turn, 0.55, position=0.12)
+    q = ns(home - turn - 0.03)
+    grind = bp(white(q), 350, 2600) * (0.55 + 0.45 * np.sign(sine(curve(q, [(0, 40), (q / SR, 75)]))))
+    lock.add(grind * curve(q, [(0, 0.1), (q / SR - 0.03, 1.0), (q / SR, 0.0)]), turn + 0.015, 0.13, position=0.1)
     q = ns(1.3)
     tt = np.arange(q) / SR
     thud = sine(curve(q, [(0, 96), (0.25, 46)], 'log')) * attack_decay(q, 0.002, 0.12)
@@ -1235,29 +1358,33 @@ def gap_key():
     clack = hp(white(q), 1500) * attack_decay(q, 0.0002, 0.005)
     ring = sum(a * np.sin(2 * np.pi * f * tt) * np.exp(-tt / d) for f, a, d in
                ((231.0, 0.5, 0.45), (617.0, 0.4, 0.3), (1163.0, 0.3, 0.2), (1811.0, 0.2, 0.12), (2690.0, 0.1, 0.07)))
-    lock.add(sat(thud * 1.5 + body * 0.9 + clack * 0.5 + ring * 0.35, 1.6), 1.64, 1.0, position=0.08)
-    lock.add(sine(curve(q, [(0, 58), (1.3, 36)], 'log')) * attack_decay(q, 0.008, 0.2), 1.64, 0.25)
-    # 3. The swell: a glassy chord of detuned sines over a bright saw stack, an octave's climb to the cut, a
-    # reversed wash sucking up into it and a sub rising under it; crushed and dropping out more and more.
-    a = 1.65
+    lock.add(sat(thud * 1.5 + body * 0.9 + clack * 0.5 + ring * 0.35, 1.6), home, 1.0, position=0.08)
+    lock.add(sine(curve(q, [(0, 58), (1.3, 36)], 'log')) * attack_decay(q, 0.008, 0.2), home, 0.25)
+    # Each a jolt of bad signal, as the picture glitches with them.
+    for at, size in ((turn, 0.45), (home, 0.6)):
+        m.add(grains(ns(0.3), lambda s: 160 * np.exp(-s / 0.05), glitch, end=0.25, spread=0.8), at, 0.5 * size)
+    # 3. The swell: a glassy chord of detuned sines over a bright saw stack, an octave's climb to the cut, a reversed
+    # wash sucking up into it and a sub rising under it; crushed and dropping out more and more in the whiteout.
+    a = home + 0.01
     q = ns(span - a)
     rise = curve(q, [(0, 1.0), (0.8, 1.25), (total - a, 2.0), (span - a, 2.0)], 'log')
     env = curve(q, [(0, 0.0), (0.5, 0.2), (total - a, 1.0), (span - a, 1.0)]) ** 1.7
-    glass = np.zeros((2, q))
+    chord = np.zeros((2, q))
     for f, g in ((880.0, 0.6), (1318.5, 0.45), (1760.0, 0.35), (2217.5, 0.25)):
         pair = np.vstack([sine(f * rise * 0.996), sine(f * rise * 1.004)])
-        glass += (pair * 0.75 + pair[::-1] * 0.25) * g + stereo(sine(f * rise * 2.32)) * g * 0.15
+        chord += (pair * 0.75 + pair[::-1] * 0.25) * g + stereo(sine(f * rise * 2.32)) * g * 0.15
     saws = np.zeros((2, q))
     for f, g in ((440.0, 0.5), (659.3, 0.4), (880.0, 0.3)):
         saws += supersaw(f * rise, q, voices=7, detune=0.01, spread=1.0, mono_below=0) * g
     saws = np.vstack([sweep_filter(hp(c, 350), 'lowpass', curve(q, [(0, 1200), (total - a, 12000), (span - a, 12000)],
                                                                     'log'), order=2) for c in saws])
-    swell = rms_norm(glass, 0.2) + rms_norm(saws, 0.15)
-    crushed = crush(norm(swell), curve(q, [(0, 8.0), (total - a, 3.0)]), curve(q, [(0, 1.0), (total - a, 7.0)]))
-    wreck = curve(q, [(0, 0.0), (2.3 - a, 0.0), (total - a, 0.7)])
+    swell = rms_norm(chord, 0.2) + rms_norm(saws, 0.15)
+    crushed = crush(norm(swell), curve(q, [(0, 8.0), (total - a, 3.0), (span - a, 3.0)]),
+                    curve(q, [(0, 1.0), (total - a, 7.0), (span - a, 7.0)]))
+    wreck = curve(q, [(0, 0.0), (white_from - 0.3 - a, 0.0), (total - a, 0.7), (span - a, 0.7)])
     swell = swell * (1 - wreck) + crushed * np.max(np.abs(swell)) * wreck
     blocks = q // 441 + 1
-    drop = rng.random(blocks) < np.interp(np.arange(blocks) * 441 / SR + a, [2.4, total], [0.0, 0.3])
+    drop = rng.random(blocks) < np.interp(np.arange(blocks) * 441 / SR + a, [white_from - 0.2, total], [0.0, 0.3])
     swell *= 1.0 - uniform_filter1d(drop.repeat(441)[:q].astype(float), 30) * 0.85
     m.add(swell * env, a, 2.4)
     k = ns(total - a)
@@ -1265,121 +1392,495 @@ def gap_key():
     wash = sweep_filter(wash[::-1], 'bandpass', curve(k, [(0, 500), (total - a, 9000)], 'log'), order=2, width=1.6)
     m.add(stereo(norm(wash)) * np.array([[1.0], [0.92]]), a, 0.6)
     m.add(sine(curve(q, [(0, 40), (total - a, 75), (span - a, 75)], 'log')) * env, a, 0.1)
-    # 4. Digital crackle, from 2.1 s to the cut.
-    m.add(grains(n, lambda s: 20 + 400 * ((s - 2.1) / 0.9) ** 2, glitch, start=2.1, end=total, spread=0.9), 0, 0.7)
-    _, hall, metal, _ = spaces()
-    x = reverb(m.out(), hall, wet=0.25)[:, :n] + reverb(lock.out(), metal, wet=0.35)[:, :n]
+    # 4. Digital crackle, through the whiteout to the cut.
+    m.add(grains(n, lambda s: 20 + 400 * ((s - 2.5) / (total - 2.5)) ** 2, glitch, start=2.5, end=total, spread=0.9),
+          0, 0.7)
+    _, hall, close, _ = gap_spaces()
+    x = reverb(m.out(), hall, wet=0.25)[:, :n] + reverb(lock.out(), close, wet=0.35)[:, :n]
     return cut(master(x, peak=0.95, squash=0.15), total)
 
 
-def gap_lock():
-    """The key takes aim (1.6 s): a thin beam sweeping up as it runs out to the target and flickering as it
-    holds, then a crisp, cold two-note chime as the lock snaps on at 1.0 s, higher and glassier than the
-    uplink's."""
-    total = 1.6
-    n = ns(total)
-    m = Mix(total)
-    q = ns(0.62)
-    tq = times(0.62)
-    f = curve(q, [(0, 640), (0.6, 5600), (0.62, 5600)], 'log')
-    env = curve(q, [(0, 0.0), (0.05, 0.45), (0.52, 1.0), (0.62, 0.0)])
-    whistle = resonator(white(q), f, q=60)
-    beam = (sine(f) * 0.7 + norm(whistle) * 0.5) * env * (0.8 + 0.2 * np.sin(2 * np.pi * 45 * tq))
-    m.add(pan(beam, curve(q, [(0, -0.35), (0.62, 0.25)])), 0.0, 0.35)
-    m.add(decorrelated(q, lambda k: hp(white(k), 5000)) * env, 0.0, 0.05)
-    q = ns(0.4)
-    hold = sine(np.full(q, 5600.0)) * curve(q, [(0, 0.5), (0.35, 0.0), (0.4, 0.0)])
-    m.add(hold * (0.5 + 0.5 * np.sin(2 * np.pi * 16 * times(0.4))), 0.6, 0.2, position=0.25)
-    # The lock: E7 then B7, each a pure partial over a faint glassy one, against a detuned twin that makes it
-    # shiver; a needle of a transient and a small, soft knock under the first.
-    for at, f, side in ((1.0, 2637.0, -0.15), (1.075, 3951.1, 0.15)):
-        q = ns(0.6)
-        note = chime(f, q, tau=0.3, ratios=(1.0, 2.76, 5.4), bright=0.3) + 0.5 * chime(f * 1.002, q, tau=0.26, ratios=(1.0,))
-        note += hp(white(q), 6000) * np.exp(-np.arange(q) / SR / 0.0005) * 0.4
-        m.add(note, at, 0.5, position=side)
-    q = ns(0.25)
-    m.add(sine(curve(q, [(0, 180), (0.25, 90)], 'log')) * attack_decay(q, 0.002, 0.04), 1.0, 0.1)
-    _, hall, _, _ = spaces()
-    x = fade(reverb(m.out(), hall, wet=0.3)[:, :n], 0.0, 0.25)
-    return cut(master(x, peak=0.9), total)
-
-
-def gap_tear():
-    """The sky tears open (3.0 s): a long ripping crack racing across the sky, cloth tearing and ice splitting
-    all along it, a deep drop underneath, then the hollow roar of the wind through the gap."""
-    total = 3.0
-    n = ns(total)
-    t = times(total)
-    m = Mix(total)
-    path = curve(n, [(0, -0.7), (1.9, 0.75), (total, 0.75)])  # how far across the sky the tear has run
-    span = curve(n, [(0, 0.0), (0.02, 1.0), (0.7, 0.8), (1.35, 1.0), (1.9, 0.45), (2.3, 0.0), (total, 0.0)])
-    # The rip: noise chopped into a fast, uneven train of tiny ruptures, like cloth tearing, sweeping down as it
-    # runs; a slower, heavier train under it for the thickness of the cloth.
-    for speed, g in ((1.0, 1.4), (0.4, 1.12)):
-        wob = lp(rng.standard_normal(n), 25)
-        jitter = lp(rng.standard_normal(n), 400)
-        rate = curve(n, [(0, 420), (0.5, 240), (1.3, 360), (2.0, 150), (total, 120)], 'log') * speed
-        rate = rate * np.exp(0.3 * wob / np.std(wob) + 0.6 * jitter / np.std(jitter))
-        phase = np.cumsum(rate) / SR
-        k = phase.astype(int)
-        size = rng.lognormal(0.0, 0.7, k[-1] + 1) * (rng.random(k[-1] + 1) > 0.2)
-        train = np.exp(-(phase - k) / rate / (0.0012 / speed)) * size[k]
-        rip = decorrelated(n, white) * train
-        if speed == 1.0:
-            centre = curve(n, [(0, 4200), (0.8, 2600), (1.6, 1600), (2.3, 1100), (total, 1100)], 'log')
-            rip = np.vstack([sweep_filter(c, 'bandpass', centre, order=2, width=2.0) for c in rip])
-        else:
-            rip = np.vstack([bp(c, 150, 1400) for c in rip])
-        m.add(rms_norm(rip, 0.2) * pan(span, path) * np.sqrt(2), 0, g)
-
-    def ice():
-        """Ice splitting: a click and the falling whistle of the crack racing through the sheet."""
-        q = ns(rng.uniform(0.04, 0.14))
-        f = curve(q, [(0, rng.uniform(4500, 10000)), (q / SR, rng.uniform(500, 1500))], 'log')
-        tq = np.arange(q) / SR
-        y = sine(f) * attack_decay(q, 0.0003, q / SR / 3) + hp(white(q), 3000) * np.exp(-tq / 0.0012)
-        return y * min(rng.lognormal(-1.0, 0.6), 1.2)
-    m.add(grains(n, lambda s: 18 + 90 * np.exp(-s / 0.8), ice, end=2.3, spread=0.9), 0, 0.3)
-    # The big splits along the way, where the tear has got to; the first, as the sky gives, the biggest.
-    for at, size, ring in ((0.0, 1.8, 0.013), (0.38, 0.6, 0.003), (0.9, 0.75, 0.003), (1.45, 0.5, 0.003)):
-        q = ns(0.5)
-        tq = np.arange(q) / SR
-        snap = hp(white(q), 1500) * np.exp(-tq / ring)
-        zing = sine(curve(q, [(0, 9000), (0.25, 600), (0.5, 400)], 'log')) * attack_decay(q, 0.0005, 0.06)
-        boom = sine(curve(q, [(0, 75), (0.5, 38)], 'log')) * attack_decay(q, 0.002, 0.09)
-        m.add(sat((snap * 0.8 + zing * 0.5 + boom * 0.6) * size * 1.4, 1.5), at, 0.9, position=float(path[ns(at)]))
-    # The drop.
-    q = ns(2.6)
-    m.add(sat(sine(curve(q, [(0, 88), (0.5, 50), (2.6, 24)], 'log')) * attack_decay(q, 0.03, 0.8) * 1.6, 1.6), 0.02, 0.45)
-    low = decorrelated(n, brown)
-    m.add(np.vstack([lp(c, 110) for c in low]) * curve(n, [(0, 0), (0.1, 1.0), (1.5, 0.6), (total, 0.2)]), 0, 0.2)
-    # The wind pouring through: pink noise rung through a pipe-like comb and a howl that wanders, in gusts.
-    wind = decorrelated(n, pink)
-    wind = np.vstack([comb(c, 160.0 * (1 + 0.03 * k), 0.75) for k, c in enumerate(wind)])
-    centre = curve(n, [(0, 700), (1.4, 500), (total, 380)], 'log') * (1 + 0.25 * np.sin(2 * np.pi * 0.6 * t))
-    wind = np.vstack([sweep_filter(c, 'bandpass', centre * (1 + 0.1 * k), order=2, width=2.2) for k, c in enumerate(wind)])
-    howl = resonator(pink(n), curve(n, [(0, 320), (1.6, 480), (2.4, 420), (total, 360)], 'log') *
-                     (1 + 0.04 * np.sin(2 * np.pi * 0.9 * t)), q=14)
-    gust = 0.8 + 0.2 * np.sin(2 * np.pi * 1.7 * t) * np.sin(2 * np.pi * 0.45 * t + 1.0)
-    roar = (rms_norm(wind, 0.2) + stereo(rms_norm(howl, 0.07)) * np.array([[0.9], [1.0]])) * gust
-    m.add(roar * curve(n, [(0, 0.0), (0.8, 0.1), (1.6, 0.75), (2.1, 1.0), (2.5, 0.85), (total, 0.0)]), 0, 1.1)
-    _, _, _, space = spaces()
-    x = fade(reverb(m.out(), space, wet=0.3)[:, :n], 0.0, 0.4)
-    return cut(master(x, peak=0.95, drive=1.4, squash=0.2), total)
-
-
-def gap_drone():
-    """The mirror universe closing in (6.0 s): a vast dissonant drone, two detuned stacks a tritone apart, rising
-    and swelling as it comes down, metal groaning in it, sub pulses quickening like a racing heart; cut dead at
-    6.0 s, the instant of contact."""
-    total = 6.0
+def gap_ambience():
+    """The bed under the feed, from out of the clouds to the dive (5.9 s, FEED to MAP): orbit's dark drone on A,
+    breathing slowly, with a cold glass pad high over it and now and then a glint of telemetry; Bifröst's power
+    humming in as the camera finds it, turning from side to side and brightening as its emitters light; a breath
+    drawn in before the window tears, and the other universe's colour in the pad once it is open; and the whole of it
+    rising and sucked forward as the camera dives through the window, cut dead at the flash."""
+    total = gap_at('MAP', since='FEED')
+    gate = gap_at('GATE', since='FEED')
+    lit = gap_at('GATE', 40, since='FEED')
+    tear = gap_at('OPEN', 8, since='FEED')
+    dive = gap_at('OPEN', 34, since='FEED')
     span = total + 0.1
     n = ns(span)
     t = times(span)
     m = Mix(span)
-    rise = curve(n, [(0, 1.0), (2.5, 1.06), (4.5, 1.22), (total, 1.5), (span, 1.5)], 'log')
-    grow = curve(n, [(0, 0.0), (1.0, 0.1), (3.0, 0.28), (5.0, 0.62), (total, 1.0), (span, 1.0)])
-    bright = curve(n, [(0, 240), (3.0, 650), (5.0, 1700), (total, 4800), (span, 4800)], 'log')
+    level = curve(n, [(0, 0.0), (0.7, 0.5), (gate, 0.55), (gate + 0.6, 0.75), (lit, 0.95), (tear - 0.5, 0.9),
+                      (tear, 0.75), (tear + 0.4, 0.9), (dive, 0.85), (total, 1.3), (span, 1.3)])
+    bright = curve(n, [(0, 220), (gate, 280), (lit, 600), (tear, 520), (tear + 0.3, 900), (dive, 800), (total, 3000),
+                       (span, 3000)], 'log')
+    glide = curve(n, [(0, 1.0), (dive, 1.0), (total, 1.06), (span, 1.06)], 'log')
+    for f, g, det in ((55.0, 1.0, 0.004), (82.41, 0.55, 0.006), (110.0, 0.3, 0.008)):
+        stack = supersaw(f * glide * (1 + 0.003 * np.sin(2 * np.pi * 0.06 * t)), n, voices=5, detune=det, spread=0.9)
+        stack = np.vstack([sweep_filter(c, 'lowpass', bright * (1 + 0.2 * np.sin(2 * np.pi * 0.13 * t + k)), order=2)
+                           for k, c in enumerate(stack)])
+        m.add(stack * level, 0, g)
+    m.add(stereo(sine(55.0 * glide) * level), 0, 0.25)
+    # Bifröst's power, from the moment the camera finds the gate.
+    power = curve(n, [(0, 0.0), (gate, 0.0), (gate + 0.7, 0.45), (lit, 1.0), (span, 1.1)])
+    m.add(np.vstack([lp(c, 1200) for c in gate_hum(n, glide)]) * power * level, 0, 0.1)
+    # A cold pad high over it, the other universe's colour in it once the window is open.
+    pad = glass(((880.0, 0.3), (1318.51, 0.22), (1975.53, 0.1)), n, glide)
+    pad += glass(((1661.22, 0.16), (2489.02, 0.08)), n, glide) * curve(n, [(0, 0.0), (tear, 0.0), (tear + 0.6, 1.0),
+                                                                         (span, 1.0)])
+    m.add(pad * (0.6 + 0.4 * np.sin(2 * np.pi * 0.17 * t - 1.0)) * level *
+          curve(n, [(0, 0.0), (1.0, 0.6), (lit, 1.0), (span, 1.0)]), 0, 0.05)
+    air = decorrelated(n, pink)
+    air = np.vstack([sweep_filter(c, 'bandpass', bright * 2.5, order=2, width=2.0) for c in air])
+    m.add(air * level * (0.7 + 0.3 * np.sin(2 * np.pi * 0.23 * t)), 0, 0.05)
+    # Telemetry: now and then a glint of glass.
+    for at in np.arange(0.9, dive, 1.13):
+        q = ns(0.12)
+        m.add(struck(rng.choice((2637.02, 3322.44, 3520.0, 3951.07)), 0.12, tau=0.03, ratios=(1.0, 2.76), bright=0.2),
+              at + rng.uniform(-0.15, 0.15), 0.05, position=rng.uniform(-0.7, 0.7))
+    # The breath drawn in before the window tears.
+    m.add(stereo(inhale(0.6, 200, 3000)) * np.array([[1.0], [0.92]]), tear - 0.6, 0.12)
+    vast = gap_spaces()[0]
+    x = reverb(m.out(), vast, wet=0.3)[:, :n]
+    # Beating voices can leave one side louder over a whole take; even it out.
+    r = np.sqrt(np.mean(x ** 2, axis=1, keepdims=True))
+    x *= r.mean() / np.maximum(r, 1e-9)
+    return cut(master(x, peak=0.5, squash=0.3), total)
+
+
+def gap_wake():
+    """Bifröst wakes (2.6 s from GATE+10, in step with the feed's sweep): its 4,096 emitters lighting round the frame
+    both ways, two runs of glass ticks going round from the bottom to the top, one in each ear, quicker and higher as
+    they go, over a charge that climbs to the moment the last is lit (1.5 s) and blooms; and the title, GINNUNGAGAP,
+    landing as it fades in (0.25 s): a swell sucked up into a vast struck crystal, a deep boom and a glass choir on the
+    other universe's chord, ringing on into the tear."""
+    total = 2.6
+    hit = 0.25
+    lit = 1.5
+    n = ns(total)
+    m = Mix(total)
+    # The emitters.
+    for side in (-1.0, 1.0):
+        s = 0.0
+        while True:
+            s += rng.exponential(1.0 / (16 + 90 * (s / lit) ** 1.6))
+            if s >= lit:
+                break
+            p = s / lit
+            k = min(len(STARS) - 1, int(p * (len(STARS) - 3)) + int(rng.integers(0, 3)))
+            ping = struck(STARS[k], 0.2, tau=0.035, ratios=(1.0, 2.76), bright=0.25)
+            m.add(pan(ping, side * 0.9 * np.sin(np.pi * p)) * (0.35 + 0.65 * p), s, 0.3)
+    # The charge climbing under them, sucked up into the bloom as the last is lit.
+    q = ns(lit)
+    m.add(glass(((440.0, 1.0), (659.26, 0.5)), q, curve(q, [(0, 0.5), (lit, 1.0)], 'log')) *
+          curve(q, [(0, 0.0), (lit, 1.0)]) ** 2, 0, 0.12)
+    m.add(stereo(inhale(lit / 2, 600, 7000)), lit / 2, 0.15)
+    q = ns(total - lit)
+    bloom = glass(((880.0, 0.6), (1318.51, 0.5), (1975.53, 0.35), (2489.02, 0.25), (3322.44, 0.15)), q)
+    m.add(bloom * attack_decay(q, 0.02, 0.5), lit, 0.35)
+    m.add(sine(curve(q, [(0, 110), (0.4, 55)], 'log')) * attack_decay(q, 0.005, 0.25), lit, 0.35)
+    # The title.
+    m.add(stereo(inhale(hit, 300, 6000)), 0.0, 0.5)
+    q = ns(total - hit)
+    tq = np.arange(q) / SR
+    boom = sine(curve(q, [(0, 62), (0.9, 27.5)], 'log')) * attack_decay(q, 0.008, 0.7)
+    m.add(sat(boom * 1.6, 1.6), hit, 0.9)
+    crystal = sum(a * np.sin(2 * np.pi * 110.0 * r * tq + rng.uniform(0, 2 * np.pi)) * np.exp(-tq / (1.6 / (1 + 0.8 * k)))
+                  for k, (r, a) in enumerate(((1.0, 1.0), (2.76, 0.6), (5.4, 0.45), (8.93, 0.3), (13.34, 0.2),
+                                              (18.64, 0.12))))
+    m.add(crystal * np.clip(tq / 0.002, 0, 1), hit, 0.35)
+    m.add(decorrelated(q, lambda k: hp(white(k), 3000)) * attack_decay(q, 0.001, 0.12), hit, 0.3)
+    swell = curve(q, [(0, 0.0), (0.12, 1.0), (0.6, 0.6), (1.3, 0.45), (total - hit, 0.0)])
+    sung = sum(choir(f, q, AH) for f in (110.0, 164.81, 246.94))
+    m.add(sat(sung * swell * 2.0, 1.4), hit, 0.6)
+    m.add(glass(((440.0, 0.5), (659.26, 0.4), (987.77, 0.3), (1244.51, 0.22), (1661.22, 0.12)), q) * swell, hit, 0.3)
+    vast = gap_spaces()[0]
+    x = reverb(m.out(), vast, wet=0.35)[:, :n]
+    return master(fade(x, 0.0, 0.5), peak=0.95, drive=1.2, squash=0.2)
+
+
+def gap_tear():
+    """The window tears open and the camera dives through it (2.0 s, OPEN+8 to MAP): a crack of breaking glass and a
+    deep drop as the window splits open from the middle, a ripping that runs out to both sides as it widens; through
+    it, the other universe's breath, a high glass choir and a soft wind of starlight; and from 1.3 s, as the camera
+    dives, all of it rushing up in pitch, loudness and width, faster and faster, cut dead at the flash."""
+    total = gap_at('MAP', -8, since='OPEN')
+    opened = 16 / 20.0
+    dive = 26 / 20.0
+    span = total + 0.1
+    n = ns(span)
+    t = times(span)
+    m = Mix(span)
+    # The crack and the drop.
+    q = ns(0.6)
+    tq = np.arange(q) / SR
+    snap = hp(white(q), 1500) * np.exp(-tq / 0.013)
+    zing = sine(curve(q, [(0, 9000), (0.25, 600), (0.6, 400)], 'log')) * attack_decay(q, 0.0005, 0.06)
+    boom = sine(curve(q, [(0, 75), (0.6, 38)], 'log')) * attack_decay(q, 0.002, 0.09)
+    m.add(sat((snap * 0.8 + zing * 0.5 + boom * 0.6) * 2.2, 1.5), 0.0, 0.8)
+    q = ns(span)
+    m.add(sat(sine(curve(q, [(0, 88), (0.5, 50), (span, 26)], 'log')) * attack_decay(q, 0.03, 0.8) * 1.6, 1.6), 0.02, 0.4)
+    # The rip: a fast, uneven train of tiny ruptures, like cloth tearing, running out from the middle to both sides.
+    for side in (-1.0, 1.0):
+        wob = lp(rng.standard_normal(n), 25)
+        jitter = lp(rng.standard_normal(n), 400)
+        rate = curve(n, [(0, 420), (0.4, 260), (opened, 200), (span, 120)], 'log')
+        rate = rate * np.exp(0.3 * wob / np.std(wob) + 0.6 * jitter / np.std(jitter))
+        phase = np.cumsum(rate) / SR
+        k = phase.astype(int)
+        size = rng.lognormal(0.0, 0.7, k[-1] + 1) * (rng.random(k[-1] + 1) > 0.2)
+        rip = white(n) * np.exp(-(phase - k) / rate / 0.0012) * size[k]
+        rip = sweep_filter(rip, 'bandpass', curve(n, [(0, 4200), (opened, 1800), (span, 1400)], 'log'), order=2, width=2.0)
+        env = curve(n, [(0, 0.0), (0.02, 1.0), (0.5, 0.75), (opened, 0.4), (1.2, 0.0), (span, 0.0)])
+        m.add(pan(rms_norm(rip, 0.2) * env, side * curve(n, [(0, 0.0), (opened, 0.85), (span, 0.85)])), 0, 0.7)
+
+    def ice():
+        """Glass splitting: a click and the falling whistle of the crack racing through it."""
+        q = ns(rng.uniform(0.04, 0.14))
+        f = curve(q, [(0, rng.uniform(4500, 10000)), (q / SR, rng.uniform(500, 1500))], 'log')
+        y = sine(f) * attack_decay(q, 0.0003, q / SR / 3) + hp(white(q), 3000) * np.exp(-np.arange(q) / SR / 0.0012)
+        return y * min(rng.lognormal(-1.0, 0.6), 1.2)
+    m.add(grains(n, lambda s: 18 + 90 * np.exp(-s / 0.5), ice, end=opened, spread=0.9), 0, 0.2)
+    # Through the window: the other universe's breath, rising an octave as the camera dives, faster and faster.
+    rise = curve(n, [(0, 1.0), (dive, 1.0), (dive + 0.35, 1.15), (total, 2.0), (span, 2.0)], 'log')
+    breath = glass(((1318.51, 0.5), (1661.22, 0.4), (1975.53, 0.35), (2489.02, 0.25), (2637.02, 0.2)), n, rise)
+    breath += sum(choir(f, n, OO, voices=5, glide=rise) for f in (329.63, 493.88)) * 2.5
+    shine = curve(n, [(0, 0.0), (0.3, 0.0), (0.9, 0.6), (dive, 0.7), (total, 1.0), (span, 1.0)])
+    m.add(breath * shine * (0.85 + 0.15 * np.sin(2 * np.pi * 3.1 * t)), 0, 0.32)
+    wind = decorrelated(n, pink)
+    centre = curve(n, [(0, 700), (dive, 900), (total, 5000), (span, 5000)], 'log')
+    wind = np.vstack([sweep_filter(c, 'bandpass', centre * (1 + 0.15 * np.sin(2 * np.pi * 0.8 * t + k)), order=2,
+                                   width=1.8) for k, c in enumerate(wind)])
+    m.add(wind * curve(n, [(0, 0.0), (0.4, 0.15), (dive, 0.2), (total, 1.0), (span, 1.0)]) ** 1.5, 0, 0.4)
+    # The dive: a rush rising and widening as the camera goes in.
+    q = ns(total - dive)
+    p = np.linspace(0, 1, q)
+    left, right = pink(q), pink(q)
+    mid = (left + right) / 2
+    rush = np.vstack([mid + (c - mid) * (0.3 + 0.7 * p) for c in (left, right)])
+    rush = np.vstack([sweep_filter(c, 'bandpass', 250.0 * 28.0 ** (p ** 1.6), order=2, width=1.6) for c in rush])
+    m.add(rush * p ** 2, dive, 2.2)
+    m.add(stereo(inhale(total - dive, 300, 8000, tau=0.15)), dive, 1.2)
+    m.add(stereo(sine(curve(q, [(0, 40), (total - dive, 90)], 'log')) * p ** 2), dive, 0.4)
+    vast = gap_spaces()[0]
+    x = reverb(m.out(), vast, wet=0.15)[:, :n]
+    return cut(master(x, peak=0.95, drive=1.3, squash=0.2), total)
+
+
+def gap_map():
+    """Inside the other universe and back out of it (4.2 s, MAP to CUT): the violet flash going in, then a hush, vast
+    and still, as the camera drifts in over the face of the galaxy, the other universe's chord breathing wide over the
+    slow weight of the galaxy and stars glinting all round; from 0.8 s the long pull back, a rush rising and widening
+    and an endless climb under it, the chord opening upwards and the stars thickening as the neighbouring galaxies come
+    in, until the whole universe is a lattice and a run of glass lights across it; at 2.8 s the block in the middle is
+    selected and everything else dims to it; from 3.1 s it lifts out of the lattice, slowly and then faster, the
+    tritone coming up under its held note, a pulse quickening and all of it rising with it, into the hard cut."""
+    total = gap_at('CUT', since='MAP')
+    drift = 16 / 20.0
+    select = 56 / 20.0
+    shown = 60 / 20.0
+    lift = 62 / 20.0
+    span = total + 0.1
+    n = ns(span)
+    t = times(span)
+    vast = gap_spaces()[0]
+    # The flash going in, gone in three ticks: a soft breath of light, the pressure let go.
+    arrive = Mix(span)
+    q = ns(1.0)
+    arrive.add(decorrelated(q, lambda k: hp(pink(k), 1800)) * attack_decay(q, 0.002, 0.05), 0, 0.2)
+    arrive.add(glass(((3520.0, 0.5), (4434.92, 0.35), (5274.04, 0.3)), q) * attack_decay(q, 0.003, 0.3), 0, 0.06)
+    # The other universe: all of it dims once the block is selected.
+    sky = Mix(span)
+    voices = [(f, 0.0) for f in UNIVERSE[:6]] + list(zip(UNIVERSE[6:17], np.linspace(1.1, 2.6, 11)))
+    chord = np.zeros((2, n))
+    for f, start in voices:
+        come = curve(n, [(0, 0.0), (start, 0.0), (start + (0.6 if start == 0 else 0.4), 1.0), (span, 1.0)])
+        breathe = 0.7 + 0.3 * np.sin(2 * np.pi * rng.uniform(0.1, 0.25) * t + rng.uniform(0, 2 * np.pi))
+        chord += glass(((f, 0.35 * (110.0 / f) ** 0.35),), n) * come * breathe
+    chord += sum(choir(f, n, OO, voices=4) for f in (329.63, 415.30)) * 0.8 * \
+        curve(n, [(0, 0.0), (0.6, 0.3), (2.2, 0.6), (shown, 0.8), (span, 0.8)])
+    sky.add(chord * curve(n, [(0, 0.0), (0.3, 0.14), (drift, 0.16), (2.2, 0.6), (select, 1.0), (span, 1.0)]), 0, 0.5)
+    # The weight of the galaxy, slow, going as the camera pulls away from it.
+    weight = sine(55.0 * (1 + 0.002 * np.sin(2 * np.pi * 0.2 * t))) + 0.5 * sine(np.full(n, 82.41))
+    sky.add(stereo(weight * (0.75 + 0.25 * np.sin(2 * np.pi * 0.35 * t))) *
+            curve(n, [(0, 0.0), (0.3, 1.0), (drift, 1.0), (1.8, 0.0), (span, 0.0)]), 0, 0.08)
+    # Stars, thickening as the neighbouring galaxies come in.
+    sky.add(grains(n, lambda s: 3.0 if s < drift else 3.0 + 45.0 * ((s - drift) / (select - drift)) ** 2, twinkle,
+                   end=select, spread=1.0), 0, 0.2)
+    # The pull back: a rush rising and widening, faster and faster, over a climb that never arrives.
+    q = ns(shown - drift + 0.3)
+    p = np.clip(np.arange(q) / SR / (shown - drift), 0, 1)
+    left, right = pink(q), pink(q)
+    mid = (left + right) / 2
+    rush = np.vstack([mid + (c - mid) * (0.25 + 0.75 * p) for c in (left, right)])
+    rush = np.vstack([sweep_filter(c, 'bandpass', 160.0 * 37.5 ** (p ** 1.7), order=2, width=1.8) for c in rush])
+    sky.add(rush * p ** 1.8 * curve(q, [(0, 1.0), (shown - drift, 1.0), (q / SR, 0.0)]), drift, 0.35)
+    q = ns(select - drift)
+    octaves = 1.5 * (np.arange(q) / SR / (select - drift)) ** 1.6
+    climb = np.zeros(q)
+    for k in range(6):
+        place = (k + octaves) % 6.0
+        climb += np.exp(-((place - 3.0) / 1.4) ** 2) * sine(55.0 * 2.0 ** place)
+    sky.add(stereo(climb * curve(q, [(0, 0.0), (0.4, 0.5), (select - drift, 1.0)])), drift, 0.06)
+    # The lattice lit up across, a run of glass from one side to the other.
+    run = np.arange(2.25, select - 0.02, 0.045)
+    for i, at in enumerate(run):
+        ping = struck(UNIVERSE[min(len(UNIVERSE) - 1, 9 + i)], 0.5, tau=0.12, ratios=(1.0, 2.76), bright=0.2)
+        sky.add(pan(ping, -0.8 + 1.6 * i / max(1, len(run) - 1)), at, 0.06 * (0.5 + 0.5 * i / len(run)))
+    # Selected: the rest of it dims to the block over six ticks.
+    s = reverb(sky.out(), vast, wet=0.45)[:, :n]
+    s = s * curve(n, [(0, 1.0), (select, 1.0), (select + 0.3, 0.18), (span, 0.12)])
+    s = np.vstack([sweep_filter(c, 'lowpass', curve(n, [(0, 14000), (select, 14000), (select + 0.3, 1000), (span, 800)],
+                                                     'log'), order=2) for c in s])
+    # The block lifting out of the lattice, slowly and then faster (GapShots: its height goes as smoothstep to the
+    # power 1.6), still going at the cut: its held note, the tritone coming up under it, a pulse quickening, and all of
+    # it rising.
+    up = Mix(span)
+    q = ns(span - select)
+    tq = np.arange(q) / SR
+    u = np.clip((tq - (lift - select)) / (total - lift), 0, 1)
+    height = (u * u * (3 - 2 * u)) ** 1.6
+    pitch = 1.0 + 0.5 * height
+    up.add(glass(((1760.0, 0.6), (2637.02, 0.35)), q, pitch) * curve(q, [(0, 0.0), (0.1, 0.5), (q / SR, 1.0)]), select,
+           0.09)
+    for f, g in ((55.0, 1.0), (77.78, 0.8)):
+        stack = supersaw(f * pitch, q, voices=5, detune=0.01, spread=0.8)
+        stack = np.vstack([sweep_filter(c, 'lowpass', 180 + 2400 * height, order=2) for c in stack])
+        up.add(stack * (0.15 + 0.85 * height) * curve(q, [(0, 0.0), (0.3, 1.0), (q / SR, 1.0)]), select, 0.45 * g)
+    # Lifting: air streaming past it, rising and quickening with it.
+    left, right = pink(q), pink(q)
+    mid = (left + right) / 2
+    stream = np.vstack([mid + (c - mid) * (0.3 + 0.7 * height) for c in (left, right)])
+    stream = np.vstack([sweep_filter(c, 'bandpass', 200.0 + 3300.0 * height, order=2, width=1.6) for c in stream])
+    up.add(stream * height ** 1.2, select, 0.5)
+    q = ns(0.4)
+    tt = np.arange(q) / SR
+    loose = sine(curve(q, [(0, 120), (0.4, 60)], 'log')) * attack_decay(q, 0.002, 0.08)
+    up.add(loose + hp(white(q), 2500) * np.exp(-tt / 0.004) * 0.3, lift, 0.3)
+    up.add(struck(1244.51, 0.4, tau=0.1, ratios=(1.0, 2.76), bright=0.3), lift, 0.06, position=0.2)
+    for at in (lift + 0.35, lift + 0.7, lift + 0.92, lift + 1.04):
+        beat = np.sin(2 * np.pi * (40 + 30 * np.exp(-tt / 0.02)) * tt) * np.exp(-tt / 0.1)
+        up.add(sat(beat * 1.4, 1.4), at, 0.3)
+    up.add(stereo(inhale(total - lift, 250, 4000, tau=0.6)), lift, 0.5)
+    x = s + reverb(up.out(), vast, wet=0.2)[:, :n] + reverb(arrive.out(), vast, wet=0.15)[:, :n]
+    return cut(master(x, peak=0.9, squash=0.2), total)
+
+
+def gap_lock():
+    """The block selected (1.2 s, MAP+56): a crisp, cold two-note chime, E7 rising to A7, each a pure partial over a
+    faint glassy one against a detuned twin that makes it shiver, a needle of a transient and a small, soft knock under
+    the first; a soft blip each time the box blinks back on; and the outline humming bright and high."""
+    total = 1.2
+    n = ns(total)
+    m = Mix(total)
+    for at, f, side in ((0.0, 2637.02, -0.15), (0.07, 3520.0, 0.15)):
+        q = ns(total - at)
+        note = struck(f, total - at, tau=0.35, ratios=(1.0, 2.76, 5.4), bright=0.3) + \
+            0.5 * struck(f * 1.002, total - at, tau=0.3, ratios=(1.0,))
+        note += hp(white(q), 6000) * np.exp(-np.arange(q) / SR / 0.0005) * 0.4
+        m.add(note, at, 0.5, position=side)
+    q = ns(0.25)
+    m.add(sine(curve(q, [(0, 180), (0.25, 90)], 'log')) * attack_decay(q, 0.002, 0.04), 0.0, 0.12)
+    # The box blinking back on (GapShots: on at 56, 60 and 64).
+    for at in (0.2, 0.4):
+        m.add(struck(3520.0, 0.1, tau=0.02, ratios=(1.0, 2.76), bright=0.2), at, 0.12, position=0.1)
+    hold = glass(((3520.0, 0.5), (5274.04, 0.25)), n, detune=0.0008)
+    m.add(hold * curve(n, [(0, 0.0), (0.1, 1.0), (0.6, 0.5), (total, 0.0)]) *
+          (0.8 + 0.2 * np.sin(2 * np.pi * 9 * times(total))), 0, 0.06)
+    glass_hall = gap_spaces()[1]
+    return master(fade(reverb(m.out(), glass_hall, wet=0.3)[:, :n], 0.0, 0.3), peak=0.9)
+
+
+def gap_extract():
+    """Back outside the gate, the block drawn through (2.25 s, CUT to SEND+3): the gate's hum there at once on the hard
+    cut, the other universe faint through its window; the selection blinking; a deep groan stretching up as the block
+    is pulled into the window, glass straining and the air sucked after it, then the break as it comes through (1.0 s),
+    a thump, a pop and a ring running out across the window; the block humming once it is out; the window shutting like
+    an old screen (from 1.55 s), a whine falling away and a thud as the picture folds to a bar, a tick as the point goes
+    out; and a breath sucked in to the bridge, cut dead as it fires."""
+    total = gap_at('SEND', 3, since='CUT')
+    pull = 12 / 20.0
+    through = 20 / 20.0
+    shut, gone = 31 / 20.0, 39 / 20.0
+    span = total + 0.1
+    n = ns(span)
+    m = Mix(span)
+    # The gate, there at once.
+    m.add(gate_hum(n) * curve(n, [(0, 1.0), (gone, 1.0), (gone + 0.1, 0.6), (span, 0.6)]), 0, 0.16)
+    low = supersaw(55.0, n, voices=5, detune=0.004, spread=0.9)
+    m.add(np.vstack([lp(c, 400) for c in low]), 0, 0.16)
+    window = glass(((1318.51, 0.4), (1661.22, 0.3), (1975.53, 0.25), (2489.02, 0.15)), n)
+    m.add(window * curve(n, [(0, 1.0), (shut, 1.0), (gone, 0.0), (span, 0.0)]) ** 1.5, 0, 0.05)
+    # The selection blinking (GapShots: on, off, on, off, on, a tenth of a second each).
+    for at in (0.0, 0.2, 0.4):
+        m.add(struck(3520.0, 0.1, tau=0.02, ratios=(1.0, 2.76), bright=0.2), at, 0.08, position=0.1)
+    # The pull: a groan stretching up, glass straining, the air sucked after it.
+    q = ns(through - pull + 0.8)
+    tq = np.arange(q) / SR
+    stretch = curve(q, [(0, 62), (through - pull, 120), (q / SR, 130)], 'log')
+    groan = resonator(brown(q), stretch * (1 + 0.012 * np.sin(2 * np.pi * 6 * tq)), q=25)
+    tone = sine(stretch) + 0.4 * sine(stretch * 2.01)
+    strain = curve(q, [(0, 0.0), (through - pull - 0.05, 1.0), (through - pull + 0.05, 0.3), (q / SR, 0.0)])
+    m.add(stereo(sat((norm(groan) + 0.5 * tone) * strain * 1.5, 1.5)), pull, 0.35)
+
+    def creak():
+        k = ns(rng.uniform(0.01, 0.04))
+        return resonator(white(k), np.full(k, rng.uniform(900, 3000)), q=40) * np.exp(-np.arange(k) / SR / 0.006) * \
+            rng.uniform(0.3, 1.0)
+    m.add(grains(n, lambda s: 10 + 60 * (s - pull) / (through - pull), creak, start=pull, end=through, spread=0.6), 0,
+          0.15)
+    m.add(stereo(inhale(through - pull, 200, 4000)), pull, 0.35)
+    # The break as it comes through, and the square of light running out across the window from its edges.
+    q = ns(0.8)
+    tq = np.arange(q) / SR
+    thump = sine(curve(q, [(0, 90), (0.4, 40)], 'log')) * attack_decay(q, 0.002, 0.15)
+    m.add(sat(thump * 1.5 + hp(white(q), 2000) * np.exp(-tq / 0.003) * 0.6, 1.5), through, 0.8)
+    m.add(struck(1244.51, 0.8, tau=0.4, ratios=(1.0, 2.0, 2.76), bright=0.4), through, 0.15)
+    q = ns(0.3)
+    ripple = np.vstack([sweep_filter(white(q), 'bandpass', curve(q, [(0, 2500), (0.3, 9000)], 'log'), order=2, width=1.2)
+                        for _ in range(2)])
+    m.add(ripple * attack_decay(q, 0.01, 0.07), through - 0.05, 0.25)
+    # The block, out: the universe in it humming.
+    q = ns(span - through)
+    m.add(block_hum(q) * curve(q, [(0, 0.0), (0.3, 1.0), (span - through, 1.0)]), through, 0.25)
+    # The window shutting like an old screen: a whine falling away, a thud as the picture folds to a bar, static, and a
+    # tick and a flash as the point goes out.
+    q = ns(gone - shut + 0.05)
+    whine = sine(curve(q, [(0, 6200), (q / SR, 300)], 'log')) + 0.3 * saw(curve(q, [(0, 3100), (q / SR, 150)], 'log'), q)
+    m.add(stereo(lp(whine, 9000) * curve(q, [(0, 0.0), (0.01, 1.0), (q / SR, 0.0)]) ** 1.3), shut, 0.18)
+    q = ns(0.5)
+    tq = np.arange(q) / SR
+    fold = sine(curve(q, [(0, 75), (0.5, 34)], 'log')) * attack_decay(q, 0.003, 0.1)
+    m.add(sat(fold * 1.4 + lp(white(q), 500) * np.exp(-tq / 0.02) * 0.6, 1.4), shut + 0.02, 0.6)
+    m.add(decorrelated(q, lambda k: bp(white(k), 1500, 7000)) * attack_decay(q, 0.002, 0.05), shut, 0.2)
+    q = ns(0.3)
+    m.add(struck(4434.92, 0.3, tau=0.05, ratios=(1.0,), bright=0.2) + hp(white(q), 5000) * np.exp(-np.arange(q) / SR / 0.001),
+          gone, 0.2)
+    # A breath sucked in to the bridge.
+    m.add(stereo(inhale(total - gone, 400, 9000, tau=0.12)), gone, 0.5)
+    vast = gap_spaces()[0]
+    x = reverb(m.out(), vast, wet=0.25)[:, :n]
+    return cut(master(x, peak=0.95, drive=1.2, squash=0.2), total)
+
+
+def gap_send():
+    """The bridge (1.6 s, from SEND+3): a crack of light and a vast falling zap as Bifröst lances 1,600 km down to the
+    target in a fifth of a second, a deep boom, and the beam settling into a bright, chorused hum with its rainbow
+    shimmering at the edges; the block dropping into it with a falling whistle (0.25 s); then, as the camera pulls out
+    to the whole bridge seen from far off, all of it far away and dimmed, the block a faint whistle going down."""
+    total = 1.6
+    reach = 4 / 20.0
+    drop = 5 / 20.0
+    far0, far1 = 0.2, 0.6
+    n = ns(total)
+    t = times(total)
+    near = Mix(total)
+    # The lance.
+    q = ns(0.08)
+    near.add(decorrelated(q, lambda k: hp(white(k), 1200)) * attack_decay(q, 0.0003, 0.01), 0.0, 1.8)
+    q = ns(0.5)
+    zap_f = curve(q, [(0, 3500), (reach, 70), (0.5, 55)], 'log')
+    zap = sine(zap_f) + 0.5 * saw(zap_f, q) + norm(resonator(white(q), zap_f, q=18)) * 0.6
+    near.add(stereo(sat(zap * attack_decay(q, 0.001, 0.12) * 1.5, 1.5)), 0.0, 0.5)
+    boom = sine(curve(n, [(0, 60), (0.6, 26)], 'log')) * attack_decay(n, 0.005, 0.5)
+    near.add(sat(boom * 1.8, 1.8), 0.02, 1.2)
+    # The beam: chorused and bright, its colours shimmering at the edges.
+    beam = supersaw(np.full(n, 110.0), n, voices=7, detune=0.012, spread=0.9) * 0.6 + \
+        supersaw(np.full(n, 164.81), n, voices=7, detune=0.012, spread=0.9) * 0.4
+    beam = np.vstack([sweep_filter(hp(c, 90), 'lowpass', curve(n, [(0, 9000), (0.15, 4000), (total, 2500)], 'log'),
+                                   order=2) for c in beam])
+    fringe = glass(((2217.46, 0.5), (2637.02, 0.4), (3322.44, 0.35), (4434.92, 0.25)), n, detune=0.004)
+    near.add((beam + fringe * 0.4 * (0.7 + 0.3 * np.sin(2 * np.pi * 5.5 * t))) * attack_decay(n, 0.01, 0.6), 0.0, 0.22)
+    # The block dropping in.
+    q = ns(0.5)
+    fall = sine(curve(q, [(0, 2200), (0.5, 320)], 'log')) * attack_decay(q, 0.01, 0.15)
+    whoosh = sweep_filter(pink(q), 'bandpass', curve(q, [(0, 4000), (0.5, 400)], 'log'), order=2, width=1.6)
+    near.add(stereo(fall * 0.4 + norm(whoosh) * attack_decay(q, 0.02, 0.12) * 0.6), drop, 0.4)
+    # Far off: all of it, its echo too, dims and dulls as the camera pulls out to the whole bridge.
+    vast = gap_spaces()[0]
+    x = reverb(near.out(), vast, wet=0.25)[:, :n] * curve(n, [(0, 1.0), (far0, 1.0), (far1, 0.22), (total, 0.15)])
+    dull = curve(n, [(0, 18000), (far0, 18000), (far1, 1600), (total, 1200)], 'log')
+    m = Mix(total)
+    m.add(np.vstack([sweep_filter(c, 'lowpass', dull, order=2) for c in x]), 0, 1.0)
+    q = ns(total - far1)
+    m.add(sine(curve(q, [(0, 1800), (q / SR, 1250)], 'log')) * curve(q, [(0, 0.0), (0.2, 1.0), (q / SR, 0.0)]), far1,
+          0.03)
+    return master(fade(reverb(m.out(), vast, wet=0.04)[:, :n], 0.0, 0.3), peak=0.97, drive=1.3, squash=0.2)
+
+
+def gap_fall():
+    """The chase down the bridge (3.4 s, FALL to INBOUND): the block falling away under the camera, humming, its
+    universe turning in it, the bridge's light fading overhead and a thin rush of high air thickening; the plasma
+    lighting at 2.15 s with a thud and building fast, a roar opening up, buffeting and crackling, a violet shriek
+    climbing; cloud tearing past from 2.4 s, a punch into the cloud deck (2.85 s) and the white swelling over
+    everything, which goes soft and still for the last moments."""
+    total = gap_at('INBOUND', since='FALL')
+    heat0, heat1 = 2.15, 2.7
+    clouds = 2.4
+    deck0, deck1 = 2.85, 3.2
+    n = ns(total)
+    t = times(total)
+    m = Mix(total)
+    m.add(block_hum(n, curve(n, [(0, 1.0), (total, 1.04)], 'log')) * (0.75 + 0.25 * np.sin(2 * np.pi * 0.7 * t)) *
+          curve(n, [(0, 0.8), (heat0, 1.0), (deck0, 1.0), (deck1, 0.0), (total, 0.0)]), 0, 0.35)
+    m.add(glass(((2217.46, 0.4), (3322.44, 0.3), (4434.92, 0.2)), n, detune=0.004) *
+          curve(n, [(0, 1.0), (1.6, 0.0), (total, 0.0)]), 0, 0.05)
+    heat = curve(n, [(0, 0.0), (heat0, 0.0), (heat1, 1.0), (deck1, 1.0), (total, 0.4)]) ** 1.5
+    air = decorrelated(n, lambda k: pink(k) * 0.6 + brown(k) * 0.6)
+    cutoff = curve(n, [(0, 900), (heat0, 1300), (heat1, 3500), (deck0, 6000), (deck1, 900), (total, 700)], 'log')
+    air = np.vstack([sweep_filter(c, 'lowpass', cutoff, order=2) for c in air])
+    thick = curve(n, [(0, 0.06), (heat0 - 0.6, 0.12), (heat0, 0.2), (heat1, 1.0), (deck1, 1.0), (total, 0.35)])
+    buffet = np.clip(1.0 + 0.35 * lp(rng.standard_normal(n), 14) / 0.12 * heat, 0.4, 1.6)
+    m.add(air * thick * buffet, 0, 0.8)
+    m.add(decorrelated(n, lambda k: hp(white(k), 4000)) * curve(n, [(0, 0.4), (heat0, 1.0), (heat1, 0.3), (total, 0.0)]),
+          0, 0.1)
+    q = ns(0.8)
+    m.add(sat(sine(curve(q, [(0, 62), (0.8, 38)], 'log')) * attack_decay(q, 0.04, 0.3) * 1.4, 1.4), heat0, 0.35)
+    shriek = resonator(white(n), curve(n, [(0, 900), (heat0, 900), (deck0, 2700), (total, 2700)], 'log'), q=40)
+    m.add(stereo(norm(shriek)) * np.array([[1.0], [0.85]]) * heat ** 1.5 *
+          curve(n, [(0, 1.0), (deck1, 1.0), (total, 0.2)]), 0, 0.2)
+    m.add(grains(n, lambda s: 15 + 450 * np.clip((s - heat0) / (deck0 - heat0), 0, 1) ** 2, crackle_pop, start=heat0,
+                 end=deck1), 0, 0.5)
+    # Cloud tearing past.
+    for k, at in enumerate((clouds, clouds + 0.17, clouds + 0.3, clouds + 0.4, clouds + 0.48)):
+        q = ns(0.35)
+        puff = sweep_filter(pink(q), 'bandpass', curve(q, [(0, 1800), (0.35, 500)], 'log'), order=2, width=1.6)
+        side = (-1) ** k
+        m.add(pan(norm(puff) * attack_decay(q, 0.06, 0.08), curve(q, [(0, 0.3 * side), (0.35, 0.9 * side)])), at, 0.25)
+    # The deck, and the white.
+    q = ns(0.45)
+    tt = np.arange(q) / SR
+    whomp = np.sin(2 * np.pi * curve(q, [(0, 70), (0.45, 32)], 'log') * tt) * np.exp(-tt / 0.12)
+    whomp += lp(white(q), 600) * np.exp(-tt / 0.05) * 0.7
+    m.add(sat(whomp * 1.3, 1.5), deck0, 0.8)
+    q = ns(deck1 - deck0 + 0.05)
+    swell = decorrelated(q, pink) * curve(q, [(0, 0.0), (deck1 - deck0, 1.0), (q / SR, 0.0)])
+    m.add(np.vstack([lp(c, 6000) for c in swell]), deck0, 0.5)
+    x = m.out() * curve(n, [(0, 1.0), (deck1, 1.0), (total, 0.35)])
+    x = np.vstack([sweep_filter(c, 'lowpass', curve(n, [(0, 18000), (deck1, 18000), (total, 900)], 'log'), order=2)
+                   for c in x])
+    vast = gap_spaces()[0]
+    return master(reverb(x, vast, wet=0.15)[:, :n], peak=0.92, drive=1.5, squash=0.3)
+
+
+def gap_drone():
+    """The block coming down (5.75 s, from the bridge firing to contact): a vast dissonant drone, two detuned stacks a
+    tritone apart, A against D#, coming up out of the bridge's hum and rising and swelling as the block falls, glassy at
+    the top as it nears; sub pulses quickening like a racing heart; the air pressing down; cut dead at the instant of
+    contact. It plays whether the feed is up or not."""
+    total = gap_at('CONTACT', -3, since='SEND')
+    span = total + 0.1
+    n = ns(span)
+    t = times(span)
+    m = Mix(span)
+    rise = curve(n, [(0, 1.0), (2.4, 1.06), (4.3, 1.22), (total, 1.5), (span, 1.5)], 'log')
+    grow = curve(n, [(0, 0.0), (1.0, 0.1), (2.9, 0.28), (4.8, 0.62), (total, 1.0), (span, 1.0)])
+    bright = curve(n, [(0, 240), (2.9, 650), (4.8, 1700), (total, 4800), (span, 4800)], 'log')
     for f, g in ((55.0, 0.8), (77.78, 0.7), (110.0, 0.7), (155.56, 0.6), (220.0, 0.4), (311.13, 0.35)):
         stack = supersaw(f * rise * (1 + 0.003 * np.sin(2 * np.pi * 0.13 * t + f)), n, voices=7, detune=0.014, spread=0.9)
         stack = np.vstack([sweep_filter(c, 'lowpass', bright * (1 + 0.15 * np.sin(2 * np.pi * 0.21 * t + k)), order=2)
@@ -1394,27 +1895,55 @@ def gap_drone():
         pair = np.vstack([sine(f * rise * 0.998), sine(f * rise * 1.002)])
         m.add(pair * grow ** 3 * (0.6 + 0.4 * sine(curve(n, [(0, 4), (total, 11), (span, 11)]))), 0, 0.04)
     # The sub pulses, quickening.
-    rate = curve(n, [(0, 0.8), (2.5, 1.4), (4.5, 3.0), (total, 9.0), (span, 9.0)], 'log')
+    rate = curve(n, [(0, 0.8), (2.4, 1.4), (4.3, 3.0), (total, 9.0), (span, 9.0)], 'log')
     phase = np.cumsum(rate) / SR
     since = (phase % 1.0) / rate
     pulse = np.sin(2 * np.pi * (36 + 34 * np.exp(-since / 0.025)) * since) * np.exp(-since / np.minimum(0.22, 0.35 / rate))
     m.add(stereo(sat(pulse * 1.6, 1.5)) * (0.1 + 0.9 * grow), 0, 0.6)
-    # The weight of it: metal groaning under the strain, the ground rumbling, the air pressing down.
-    for at, f0, side in ((1.4, 180.0, -0.5), (3.6, 150.0, 0.55)):
-        q = ns(1.6)
-        bend = curve(q, [(0, f0), (1.6, f0 * 0.82)], 'log') * (1 + 0.01 * np.sin(2 * np.pi * 5 * times(1.6)))
-        groan = resonator(brown(q), bend, q=30)
-        m.add(sat(norm(groan) * 1.5, 1.5) * curve(q, [(0, 0), (0.3, 1.0), (1.6, 0)]), at, 0.12, position=side)
+    # The weight of it: the ground rumbling and the air pressing down.
     low = decorrelated(n, brown)
     m.add(np.vstack([lp(c, 140) for c in low]) * grow, 0, 0.3)
-    q = ns(3.6)
+    q = ns(span - 2.4)
     press = decorrelated(q, pink)
-    press = np.vstack([sweep_filter(c, 'bandpass', curve(q, [(0, 250), (3.5, 4500), (3.6, 4500)], 'log'), order=2, width=2.0)
-                       for c in press])
-    m.add(press * curve(q, [(0, 0), (3.5, 1.0), (3.6, 1.0)]) ** 2, 2.5, 0.35)
-    _, _, _, space = spaces()
-    x = reverb(m.out(), space, wet=0.25)[:, :n]
+    press = np.vstack([sweep_filter(c, 'bandpass', curve(q, [(0, 250), (total - 2.4, 4500), (q / SR, 4500)], 'log'),
+                                    order=2, width=2.0) for c in press])
+    m.add(press * curve(q, [(0, 0), (total - 2.4, 1.0), (q / SR, 1.0)]) ** 2, 2.4, 0.35)
+    vast = gap_spaces()[0]
+    x = reverb(m.out(), vast, wet=0.25)[:, :n]
     return cut(master(x, peak=0.95, drive=1.4, squash=0.15), total)
+
+
+def gap_inbound():
+    """The block coming down on the target (1.2 s, INBOUND to contact), heard in the world: out of the white of the
+    clouds, the bridge standing over the target and humming through everything, and the block coming down it, a roar
+    of torn air growing and a whistle falling as it nears, the air sucked up into it at the last; cut dead at
+    contact."""
+    total = gap_at('CONTACT', since='INBOUND')
+    span = total + 0.1
+    n = ns(span)
+    t = times(span)
+    m = Mix(span)
+    near = curve(n, [(0, 0.15), (0.6, 0.4), (1.1, 0.9), (total, 1.0), (span, 1.0)]) ** 1.3
+    # The bridge.
+    for f, g in ((55.0, 1.0), (77.78, 0.8), (110.0, 0.5)):
+        stack = supersaw(np.full(n, f), n, voices=7, detune=0.012, spread=0.9)
+        m.add(np.vstack([lp(c, 900) for c in stack]) * (0.5 + 0.5 * near), 0, 0.25 * g)
+    # The block: a roar growing, a whistle falling.
+    roar = decorrelated(n, lambda k: pink(k) * 0.6 + brown(k) * 0.7)
+    roar = np.vstack([sweep_filter(c, 'lowpass', curve(n, [(0, 500), (total, 4500), (span, 4500)], 'log'), order=2)
+                      for c in roar])
+    m.add(roar * near, 0, 0.8)
+    whistle = resonator(white(n), curve(n, [(0, 2600), (total, 850), (span, 850)], 'log') *
+                        (1 + 0.015 * np.sin(2 * np.pi * 11 * t)), q=25)
+    m.add(stereo(norm(whistle) * near), 0, 0.35)
+    m.add(stereo(inhale(0.3, 500, 8000, tau=0.08)), total - 0.3, 0.5)
+    m.add(grains(n, lambda s: 20 + 250 * s, crackle_pop, end=total, spread=0.8), 0, 0.2)
+    # Out of the white: the world comes up out of a muffle.
+    x = np.vstack([sweep_filter(c, 'lowpass', curve(n, [(0, 700), (0.4, 9000), (span, 12000)], 'log'), order=2)
+                   for c in m.out()])
+    world = gap_spaces()[3]
+    x = reverb(x, world, wet=0.2)[:, :n]
+    return cut(master(x, peak=0.92, drive=1.5, squash=0.5), total)
 
 
 def gap_swap():
@@ -1440,8 +1969,8 @@ def gap_swap():
 
 
 def gap_contact():
-    """Contact (1.0 s): every other sound has stopped dead, and there is one tiny, very high, pure crystalline
-    tink."""
+    """Contact (1.0 s): every other sound has stopped dead, and in the instant of white before the first frame there is
+    one tiny, very high, pure crystalline tink."""
     total = 1.0
     n = ns(total)
     m = Mix(total)
@@ -1449,134 +1978,239 @@ def gap_contact():
     tink = chime(5274.0, q, tau=0.22, ratios=(1.0, 2.32), bright=0.1)
     twin = chime(5274.0 * 1.0012, q, tau=0.18, ratios=(1.0,))
     strike = hp(white(q), 9000) * np.exp(-np.arange(q) / SR / 0.0003)
-    m.add(pan(tink + 0.1 * strike, -0.08) + pan(twin, 0.15) * 0.35, 0.05, 1.0)
-    _, hall, _, _ = spaces()
-    x = fade(reverb(m.out(), hall, wet=0.15)[:, :n], 0.0, 0.35)
+    m.add(pan(tink + 0.1 * strike, -0.08) + pan(twin, 0.15) * 0.35, 0.005, 1.0)
+    glass_hall = gap_spaces()[1]
+    x = fade(reverb(m.out(), glass_hall, wet=0.15)[:, :n], 0.0, 0.35)
     return cut(master(x, peak=0.9), total)
 
 
-# The impact frames' cuts, in seconds from the first frame; the picture cuts on the same beats.
-GAP_FRAMES = (0.22, 0.42, 0.70, 1.00, 1.25, 1.50, 2.15, 2.45, 2.65, 2.90, 3.30, 3.95, 4.20, 4.45, 4.70, 5.00, 5.60,
-              5.80, 6.00, 6.20)
+# The impact frames' cuts after the first, in seconds from contact, and what each frame is (GapFrames: ticks 3, 6, 9,
+# 13, 21, 25 and 28; the first frame comes up out of two ticks of white). The picture cuts on the same beats.
+GAP_FRAMES = ((0.15, 'crack'), (0.30, 'heavy'), (0.45, 'wide'), (0.65, 'split'), (1.05, 'heavy'), (1.25, 'double'),
+              (1.40, 'slab'))
 
 
 def gap_impact():
-    """The impact frames (6.5 s): a colossal sub slam torn with distorted crackle; then a hit on every cut of the
-    frames, light and heavy by turns, the roar between them gated and stuttering so each cut is heard; the ears
-    ringing over all of it; and a blast of white noise on the last frame, gone by 6.5 s."""
-    total = 6.5
-    n = ns(total)
-    t = times(total)
-    # The roar under every frame: distorted and dark, the drone's tritone still in it where it left off. It ducks
-    # under every hit and swells back, so the hits punch through it.
-    bed = Mix(total)
+    """The impact frames (1.5 s, contact to the burst): a tenth of a second of white and silence for the contact's
+    tink, then on the first frame a colossal slam, a sub, a crack, a blast of distorted noise and crackle crushed to a
+    couple of bits; a hit on every cut after it, each in its frame's own way (the black frame's glass shattering, a
+    heavy hit, the wide shot's deep far boom, three at once for the split screen, the low shot, a double, the slab),
+    the roar under them dropping out just before every cut so each is heard and sticking through the split screen; the
+    ears ringing; cut dead as it bursts."""
+    total = gap_at('BLAST', since='CONTACT')
+    slam = 2 / 20.0
+    span = total + 0.1
+    n = ns(span)
+    t = times(span)
+    _, _, _, world = gap_spaces()
+    # The roar under every frame: distorted and dark, the drone's tritone still in it. It ducks under every hit.
+    bed = Mix(span)
     roar = decorrelated(n, lambda q: brown(q) * 0.8 + pink(q) * 0.6)
-    roar = np.vstack([sweep_filter(c, 'lowpass', curve(n, [(0, 7000), (0.5, 1600), (total, 2400)], 'log'), order=2)
+    roar = np.vstack([sweep_filter(c, 'lowpass', curve(n, [(0, 7000), (0.6, 1800), (span, 2600)], 'log'), order=2)
                       for c in roar])
-    bed.add(sat(roar * 2.5, 2.2) * curve(n, [(0, 1.0), (4.0, 1.0), (6.2, 1.35), (total, 1.35)]), 0, 0.3)
+    bed.add(sat(roar * 2.5, 2.2), 0, 0.3)
     chest = decorrelated(n, lambda q: bp(white(q), 120, 700, 2))
-    bed.add(sat(rms_norm(chest, 0.25) * 3.0, 2.0) * curve(n, [(0, 1.0), (4.0, 1.0), (6.2, 1.35), (total, 1.35)]), 0, 0.22)
-    for f, g in ((82.5, 0.5), (116.7, 0.4)):
+    bed.add(sat(rms_norm(chest, 0.25) * 3.0, 2.0), 0, 0.22)
+    for f, g in ((55.0, 0.5), (77.78, 0.4), (110.0, 0.3)):
         stack = supersaw(np.full(n, f), n, voices=7, detune=0.016, spread=0.9)
         bed.add(sat(np.vstack([lp(c, 1500) for c in stack]) * 2.0, 1.8), 0, g * 0.45)
     bed.add(grains(n, lambda s: 30, glitch, spread=1.0), 0, 0.3)
     duck = np.ones(n)
-    for i, at in enumerate((0.0,) + GAP_FRAMES):
-        duck *= 1 - (0.85 if i == 0 else 0.5 if i % 2 == 0 else 0.35) * np.exp(-np.maximum(t - at, 0) / 0.12) * (t >= at)
-    m = Mix(total)
-    m.add(bed.out() * duck, 0, 1.0)
+    for i, at in enumerate((slam,) + tuple(at for at, _ in GAP_FRAMES)):
+        duck *= 1 - (0.85 if i == 0 else 0.5) * np.exp(-np.maximum(t - at, 0) / 0.12) * (t >= at)
+    m = Mix(span)
+    far = Mix(span)
+    m.add(bed.out() * duck * (t >= slam), 0, 1.0)
     # The slam: the ground's sub, a crack, a blast of distorted noise and crackle crushed to a couple of bits.
     q = ns(3.0)
-    m.add(sat(sine(curve(q, [(0, 64), (0.3, 34), (3.0, 21)], 'log')) * attack_decay(q, 0.003, 0.9) * 2.0, 2.0), 0.0, 1.4)
+    m.add(sat(sine(curve(q, [(0, 64), (0.3, 34), (3.0, 21)], 'log')) * attack_decay(q, 0.003, 0.9) * 2.0, 2.0), slam, 1.4)
     q = ns(1.2)
     punch = decorrelated(q, lambda k: bp(white(k), 90, 900, 2))
-    m.add(sat(rms_norm(punch, 0.3) * attack_decay(q, 0.002, 0.22) * 4.0, 2.0), 0.0, 0.9)
+    m.add(sat(rms_norm(punch, 0.3) * attack_decay(q, 0.002, 0.22) * 4.0, 2.0), slam, 0.9)
     q = ns(0.05)
-    m.add(decorrelated(q, lambda k: hp(white(k), 700)) * attack_decay(q, 0.0008, 0.007), 0.0, 1.2)
+    m.add(decorrelated(q, lambda k: hp(white(k), 700)) * attack_decay(q, 0.0008, 0.007), slam, 1.2)
     q = ns(1.5)
     burst = decorrelated(q, lambda k: white(k) * 0.6 + pink(k) * 0.8)
     burst = np.vstack([sweep_filter(c, 'lowpass', curve(q, [(0, 9000), (0.2, 2500), (1.5, 300)], 'log'), order=2)
                        for c in burst])
-    m.add(sat(burst * attack_decay(q, 0.002, 0.3) * 3.0, 2.0), 0.0, 1.4)
+    m.add(sat(burst * attack_decay(q, 0.002, 0.3) * 3.0, 2.0), slam, 1.4)
     crackle = crush(decorrelated(q, white) * 0.6, curve(q, [(0, 2.0), (1.5, 4.0)]), curve(q, [(0, 30), (1.5, 6)]))
-    m.add(np.vstack([bp(c, 300, 7000) for c in crackle]) * attack_decay(q, 0.002, 0.25), 0.0, 0.7)
-    # A hit on every cut: light (a bright slash, grit and a glint) and heavy (a sub thump, a crack, a distorted
-    # body and a shard of glass ringing) by turns, so the slam and the last frame are heavy.
-    for i, at in enumerate(GAP_FRAMES):
-        if i % 2:
-            q = ns(0.6)
-            thump = sine(curve(q, [(0, 85), (0.3, 34), (0.6, 30)], 'log')) * attack_decay(q, 0.002, 0.14)
-            body = bp(white(q), 90, 900) * attack_decay(q, 0.001, 0.08)
-            crack = hp(white(q), 1200) * attack_decay(q, 0.0002, 0.006)
-            shard = chime(rng.uniform(900, 1500), q, tau=0.25, ratios=(1.0, 2.32, 4.25, 6.63), bright=0.6)
-            m.add(sat(thump * 1.3 + body * 1.6 + crack * 0.8, 2.0) + shard * 0.15, at, 1.3, position=0.2 * (-1) ** (i // 2))
+    m.add(np.vstack([bp(c, 300, 7000) for c in crackle]) * attack_decay(q, 0.002, 0.25), slam, 0.7)
+
+    def heavy(size=1.0, low=85.0):
+        """A sub thump, a crack, a distorted body and a shard of glass ringing."""
+        q = ns(0.6)
+        thump = sine(curve(q, [(0, low), (0.3, 34), (0.6, 30)], 'log')) * attack_decay(q, 0.002, 0.14)
+        body = bp(white(q), 90, 900) * attack_decay(q, 0.001, 0.08)
+        crack = hp(white(q), 1200) * attack_decay(q, 0.0002, 0.006)
+        shard = struck(rng.uniform(900, 1500), 0.6, tau=0.25, ratios=(1.0, 2.32, 4.25, 6.63), bright=0.6)
+        return (sat(thump * 1.3 + body * 1.6 + crack * 0.8, 2.0) + shard * 0.15) * size
+
+    def light():
+        """A bright slash: a crack, grit and a tick."""
+        q = ns(0.3)
+        crack = hp(white(q), 2400) * attack_decay(q, 0.0002, 0.012)
+        grit = bp(crush(white(q) * 0.5, 2.0, 10.0), 600, 8000) * attack_decay(q, 0.0005, 0.03)
+        tick = sine(curve(q, [(0, 160), (0.1, 90), (0.3, 80)], 'log')) * attack_decay(q, 0.001, 0.03)
+        return crack * 0.8 + grit * 0.5 + tick * 0.6
+    for i, (at, kind) in enumerate(GAP_FRAMES):
+        side = 0.3 * (-1) ** i
+        if kind == 'crack':
+            m.add(light(), at, 0.9, position=side)
+            for _ in range(7):
+                m.add(struck(rng.uniform(2200, 6000), 0.3, tau=rng.uniform(0.03, 0.1), bright=0.4),
+                      at + rng.uniform(0.0, 0.03), 0.12, position=rng.uniform(-0.8, 0.8))
+        elif kind == 'heavy':
+            m.add(heavy(), at, 1.3, position=side)
+        elif kind == 'wide':
+            far.add(heavy(0.7, 60.0), at, 1.2, position=side)
+            q = ns(0.8)
+            far.add(sat(sine(curve(q, [(0, 50), (0.8, 22)], 'log')) * attack_decay(q, 0.004, 0.3) * 1.6, 1.6), at, 0.9)
+        elif kind == 'split':
+            for k, (dt, where) in enumerate(((0.0, -0.6), (0.035, 0.0), (0.07, 0.6))):
+                m.add(heavy(0.8) if k == 1 else light(), at + dt, 1.1 if k == 1 else 0.8, position=where)
+        elif kind == 'double':
+            for dt in (0.0, 0.045):
+                m.add(heavy(0.85), at + dt, 1.2, position=side)
         else:
-            q = ns(0.3)
-            crack = hp(white(q), 2400) * attack_decay(q, 0.0002, 0.012)
-            grit = bp(crush(white(q) * 0.5, 2.0, 10.0), 600, 8000) * attack_decay(q, 0.0005, 0.03)
-            tick = sine(curve(q, [(0, 160), (0.1, 90), (0.3, 80)], 'log')) * attack_decay(q, 0.001, 0.03)
-            glint = chime(rng.uniform(2600, 4200), q, tau=0.12, bright=0.4)
-            m.add(crack * 0.8 + grit * 0.5 + tick * 0.6 + glint * 0.2, at, 0.7, position=0.45 * (-1) ** (i // 2))
-    _, _, _, space = spaces()
-    x = reverb(m.out(), space, wet=0.3)[:, :n]
-    # The cuts: every frame drops out dead just before the next cut, so each cut is heard. After a heavy hit the
-    # roar runs full up to the drop; after a light one it stutters, and the long light frame sticks, its first
-    # instants repeating faster and faster. The last frame fades out under the white blast.
-    edges = (0.0,) + GAP_FRAMES + (total,)
-    gate = np.ones(n)
+            m.add(heavy(1.3, 70.0), at, 1.4)
+            q = ns(0.6)
+            m.add(sat(sine(curve(q, [(0, 48), (0.6, 24)], 'log')) * attack_decay(q, 0.003, 0.25) * 1.8, 1.8), at, 0.9)
+    x = reverb(m.out(), world, wet=0.3)[:, :n] + reverb(far.out(), world, wet=0.7)[:, :n]
+    # The cuts: nothing until the slam, and every frame drops out just before the next so each cut is heard. The split
+    # screen sticks: after its three hits its first instants repeat, faster and faster.
+    edges = (slam,) + tuple(at for at, _ in GAP_FRAMES) + (total,)
+    gate = np.zeros(n)
     for i in range(len(edges) - 1):
         a, b = ns(edges[i]), ns(edges[i + 1])
         seg = np.arange(b - a) / SR
-        if i == len(edges) - 2:
-            gate[a:b] = (1 - seg / seg[-1]) ** 1.5
-            continue
-        gate[a:b] = seg < seg[-1] - 0.035
-        if i % 2 and b - a >= ns(0.5):
-            parts = np.array_split(np.arange(a, b), 3)
-            for part, size in zip(parts, (ns(0.08), ns(0.04), ns(0.02))):
+        gate[a:b] = 1.0 if i == len(edges) - 2 else seg < seg[-1] - 0.03
+        if i >= 1 and GAP_FRAMES[i - 1][1] == 'split':
+            parts = np.array_split(np.arange(a + ns(0.13), b), 3)
+            for part, size in zip(parts, (ns(0.06), ns(0.03), ns(0.015))):
                 piece = x[:, a:a + size] * np.minimum(1.0, np.minimum(np.arange(size), np.arange(size)[::-1]) / ns(0.001))
                 x[:, part] = np.tile(piece, len(part) // size + 1)[:, :len(part)]
-        elif i % 2:
-            rate = (18, 24, 30, 21, 27)[i // 2 % 5]
-            gate[a:b] *= np.where(seg < 0.015, 1.0, (np.sin(2 * np.pi * rate * seg) > -0.1) * 0.85)
+    gate[ns(total):] = 1.0
     x = norm(x * uniform_filter1d(gate, ns(0.001)))
     ring = np.vstack([sine(np.full(n, 3520.0)), sine(np.full(n, 3527.0))])
-    x += ring * curve(n, [(0, 0.0), (0.12, 0.0), (0.4, 1.0), (6.2, 0.9), (total, 0.0)]) * 0.045
-    q = ns(0.3)
-    blast = decorrelated(q, lambda k: lp(white(k), 10000) + 0.5 * pink(k))
-    x[:, n - q:] += blast * curve(q, [(0, 0.0), (0.003, 1.0), (0.3, 0.0)]) ** 2 * 0.14
-    return cut(master(x, peak=0.98, drive=1.4, squash=0.3), total)
+    x += ring * curve(n, [(0, 0.0), (0.2, 0.0), (0.45, 1.0), (span, 1.0)]) * 0.045
+    return cut(master(x, peak=0.98, drive=2.2, squash=0.8), total)
+
+
+def gap_blast():
+    """The burst (3.5 s, BLAST to ERASURE): that universe bursting out of its block, a deep boom and a blast of noise,
+    its chord blown out wide and ringing on, its column of light roaring up and pulsing as the picture's does, its stars
+    streaming out all round in falling glints, the front racing out over the camera and the ground shaking; the ears
+    still ringing from the frames. At 3.0 s it falls back in on itself: everything sucked back in, faster and faster
+    and rising, the stars drawn in after it, cut dead at 3.5 s as the black opens."""
+    total = gap_at('ERASURE', since='BLAST')
+    collapse = gap_at('COLLAPSE', since='BLAST')
+    span = total + 0.1
+    n = ns(span)
+    t = times(span)
+    _, _, _, world = gap_spaces()
+    m = Mix(span)
+    # The burst.
+    q = ns(3.0)
+    m.add(sat(sine(curve(q, [(0, 48), (0.4, 26), (3.0, 18)], 'log')) * attack_decay(q, 0.004, 1.0) * 2.0, 2.0), 0, 1.2)
+    q = ns(1.2)
+    punch = decorrelated(q, lambda k: bp(white(k), 90, 900, 2))
+    m.add(sat(rms_norm(punch, 0.3) * attack_decay(q, 0.002, 0.25) * 4.0, 2.0), 0, 0.8)
+    q = ns(3.0)
+    blast = decorrelated(q, lambda k: white(k) * 0.5 + pink(k) * 0.8)
+    blast = np.vstack([sweep_filter(c, 'lowpass', curve(q, [(0, 9000), (0.2, 2600), (1.2, 700), (3.0, 220)], 'log'),
+                                    order=2) for c in blast])
+    m.add(sat(blast * attack_decay(q, 0.003, 0.6) * 3.0, 2.2), 0, 0.9)
+    # Its chord blown out: that universe ringing on.
+    held = curve(n, [(0, 0.0), (0.06, 1.0), (1.0, 0.75), (collapse, 0.55), (total, 0.0), (span, 0.0)])
+    chord = np.zeros((2, n))
+    for f, g in ((55.0, 1.0), (82.41, 0.7), (110.0, 0.6), (164.81, 0.45), (246.94, 0.3), (311.13, 0.25), (415.30, 0.2)):
+        stack = supersaw(np.full(n, f), n, voices=7, detune=0.012, spread=1.0)
+        chord += np.vstack([sweep_filter(c, 'lowpass', curve(n, [(0, 6000), (0.5, 2500), (span, 1400)], 'log'), order=2)
+                            for c in stack]) * g
+    m.add(sat(chord * held * 1.5, 1.6), 0, 0.35)
+    m.add(glass(((880.0, 0.4), (1318.51, 0.35), (1975.53, 0.3), (2489.02, 0.2), (3322.44, 0.15)), n) * held, 0, 0.15)
+    # Its column of light, roaring up and pulsing as the picture's does (1 + 0.12 sin 2.3t + 0.06 sin 5.1t, t in ticks).
+    tick = t * 20.0
+    pulse = 1.0 + 0.35 * np.sin(2.3 * tick) + 0.18 * np.sin(5.1 * tick)
+    column = decorrelated(n, pink)
+    column = np.vstack([sweep_filter(c, 'bandpass', curve(n, [(0, 600), (0.5, 1400), (span, 1100)], 'log'), order=2,
+                                     width=1.4) for c in column])
+    column += supersaw(np.full(n, 220.0), n, voices=7, detune=0.02, spread=1.0) * 0.5
+    m.add(column * pulse * curve(n, [(0, 0.0), (0.5, 1.0), (1.0, 0.8), (collapse, 0.6), (total, 0.0), (span, 0.0)]), 0,
+          0.25)
+
+    # Its stars streaming out all round.
+    def streak():
+        q = ns(rng.uniform(0.08, 0.25))
+        f = curve(q, [(0, rng.choice(STARS) * 1.5), (q / SR, rng.uniform(600, 1500))], 'log')
+        return sine(f) * attack_decay(q, 0.002, q / SR / 3) * min(rng.lognormal(-1.0, 0.5), 1.0)
+    m.add(grains(n, lambda s: 140 * np.exp(-s / 1.0) + 15, streak, start=0.03, end=collapse, spread=1.0), 0, 0.15)
+    # The front racing out over the camera, and the ground shaking.
+    q = ns(2.5)
+    front = decorrelated(q, pink)
+    front = np.vstack([sweep_filter(c, 'bandpass', curve(q, [(0, 1800), (0.6, 800), (2.5, 300)], 'log'), order=2,
+                                    width=2.4) for c in front])
+    m.add(front * attack_decay(q, 0.35, 0.7), 0.3, 0.6)
+    q = ns(2.0)
+    shake = np.vstack([lp(c, 110) for c in decorrelated(q, brown)])
+    m.add(shake * attack_decay(q, 0.01, 0.45) * (0.7 + 0.3 * np.sin(2 * np.pi * 9 * times(2.0))), 0, 0.7)
+    # The ears, still ringing from the frames.
+    ring = np.vstack([sine(np.full(n, 3520.0)), sine(np.full(n, 3527.0))])
+    m.add(ring * curve(n, [(0, 1.0), (1.4, 0.0), (span, 0.0)]), 0, 0.02)
+
+    # The collapse: everything sucked back in, faster and faster and rising, the stars drawn in after it.
+    def drawn():
+        q = ns(rng.uniform(0.06, 0.15))
+        f = curve(q, [(0, rng.uniform(500, 1200)), (q / SR, rng.choice(STARS))], 'log')
+        return sine(f) * curve(q, [(0, 0.0), (q / SR * 0.8, 1.0), (q / SR, 0.0)]) * min(rng.lognormal(-1.0, 0.5), 1.0)
+    m.add(grains(n, lambda s: 30 + 300 * ((s - collapse) / (total - collapse)) ** 2, drawn, start=collapse, end=total,
+                 spread=1.0), 0, 0.15)
+    q = ns(total - collapse)
+    m.add(stereo(inhale(total - collapse, 120, 6000, tau=0.18)), collapse, 1.0)
+    m.add(stereo(sine(curve(q, [(0, 60), (q / SR, 600)], 'log')) * curve(q, [(0, 0.0), (q / SR, 1.0)]) ** 2), collapse,
+          0.3)
+    x = reverb(m.out(), world, wet=0.4)[:, :n]
+    return cut(master(x, peak=0.97, drive=1.5, squash=0.3), total)
 
 
 def gap_erase():
-    """Reality deleted (8.0 s), block by block outward from the contact: a deep rushing roar of static, the
-    grinding crumble of a signal falling apart, a sucking undertone pulling it all in, growing for seven seconds;
-    then it all winds down like a stopped tape and cuts to nothing at 7.2 s."""
-    total = 8.0
-    stop = 7.2
-    span = 7.5
+    """Reality deleted (5.0 s, ERASURE to NOTHING), block by block outward from the contact: a hollow thud and a flash
+    as the black opens; a deep rushing roar of static, the grinding crumble of a signal falling apart and a sucking
+    undertone pulling it all in, growing as the black comes on over everything towards the camera; as the last of the
+    picture goes black (from 4.5 s) it all winds down like a stopped tape, and at 5.0 s it is gone."""
+    total = gap_at('NOTHING', since='ERASURE')
+    black = gap_at('NOTHING', -10, since='ERASURE')
+    wind = black + 0.2
+    span = total + 0.3
     n = ns(span)
     m = Mix(span)
-    points = [(0, 0.03), (1.0, 0.1), (3.0, 0.28), (5.0, 0.58), (6.5, 0.9), (7.0, 1.0), (span, 1.0)]
+    points = [(0, 0.02), (1.0, 0.07), (2.4, 0.25), (3.5, 0.55), (4.3, 0.9), (black, 1.0), (span, 1.0)]
     grow = curve(n, points)
 
     def level(s):
         return float(np.interp(s, *zip(*points)))
+    # The black opening: a hollow thud and a flash.
+    q = ns(0.8)
+    tq = np.arange(q) / SR
+    thud = sine(curve(q, [(0, 70), (0.8, 30)], 'log')) * attack_decay(q, 0.003, 0.25)
+    hollow = comb(white(q) * np.exp(-tq / 0.08), 110.0, 0.85)
+    m.add(sat(thud * 1.5 + lp(hollow, 2000) * 0.5, 1.5), 0, 0.45)
+    m.add(decorrelated(q, lambda k: hp(pink(k), 2500)) * attack_decay(q, 0.002, 0.06), 0, 0.15)
     # The roar of static, opening up as it grows, over a deep rush.
     static = decorrelated(n, lambda q: pink(q) * 0.8 + white(q) * 0.3)
-    static = np.vstack([sweep_filter(c, 'lowpass', curve(n, [(0, 600), (4.0, 2600), (7.0, 9000), (span, 9000)], 'log'),
+    static = np.vstack([sweep_filter(c, 'lowpass', curve(n, [(0, 600), (2.9, 2600), (black, 9000), (span, 9000)], 'log'),
                                      order=2) for c in static])
     m.add(rms_norm(static, 0.2) * grow, 0, 0.5)
-    deep = decorrelated(n, brown)
-    deep = rms_norm(np.vstack([lp(c, 160) for c in deep]), 0.2)
+    deep = rms_norm(np.vstack([lp(c, 160) for c in decorrelated(n, brown)]), 0.2)
     m.add(deep * grow, 0, 0.45)
     # Grinding: the roar itself crushed harder and harder.
-    grind = crush(norm(static + deep), curve(n, [(0, 6.0), (7.0, 2.5), (span, 2.5)]),
-                  curve(n, [(0, 2.0), (7.0, 24.0), (span, 24.0)], 'log'))
+    grind = crush(norm(static + deep), curve(n, [(0, 6.0), (black, 2.5), (span, 2.5)]),
+                  curve(n, [(0, 2.0), (black, 24.0), (span, 24.0)], 'log'))
     m.add(rms_norm(np.vstack([bp(c, 150, 7000) for c in grind]), 0.2) * grow ** 2, 0, 0.35)
 
-    # The crumble: grains of the signal coming apart, glitches crackling, and block after block deleted, each a
-    # tiny crushed blip falling in pitch, faster and faster.
+    # The crumble: grains of the signal coming apart, glitches crackling, and block after block deleted, each a tiny
+    # crushed blip falling in pitch, faster and faster.
     def crumble():
         q = ns(rng.uniform(0.008, 0.06))
         y = crush(white(q) * 0.4, rng.uniform(1.0, 3.5), rng.uniform(2.0, 30.0))
@@ -1588,43 +2222,51 @@ def gap_erase():
         f = curve(q, [(0, rng.uniform(1500, 5000)), (q / SR, rng.uniform(80, 300))], 'log')
         y = crush(np.sign(sine(f)) * 0.5 + white(q) * 0.2, rng.uniform(2.0, 4.0), rng.uniform(2.0, 10.0))
         return y * attack_decay(q, 0.0005, q / SR / 3) * min(rng.lognormal(-1.0, 0.5), 1.0)
-    m.add(grains(n, lambda s: 12 + 420 * (s / 7.0) ** 2, crumble, end=stop, gain_curve=level, spread=1.0), 0, 0.5)
-    m.add(grains(n, lambda s: 20 + 260 * (s / 7.0) ** 1.5, glitch, end=stop, gain_curve=level, spread=1.0), 0, 0.3)
-    m.add(grains(n, lambda s: 4 + 140 * (s / 7.0) ** 2, deletion, end=stop, gain_curve=level, spread=1.0), 0, 0.25)
-    # The sucking undertone: the air pulled in by swells played backwards, closer and closer together, the last
-    # and biggest ending on the collapse, and a deep tone sinking under them.
-    for end_at, length in ((1.6, 1.4), (3.0, 1.2), (4.1, 1.0), (5.0, 0.85), (5.7, 0.7), (6.25, 0.55), (6.65, 0.45),
-                           (7.0, 1.6)):
+    m.add(grains(n, lambda s: 12 + 420 * (s / black) ** 2, crumble, end=total, gain_curve=level, spread=1.0), 0, 0.5)
+    m.add(grains(n, lambda s: 20 + 260 * (s / black) ** 1.5, glitch, end=total, gain_curve=level, spread=1.0), 0, 0.3)
+    m.add(grains(n, lambda s: 4 + 140 * (s / black) ** 2, deletion, end=total, gain_curve=level, spread=1.0), 0, 0.25)
+    # The sucking undertone: the air pulled in by swells played backwards, closer and closer together, the last and
+    # biggest ending as the picture goes black, and a deep tone sinking under them.
+    for end_at, length in ((1.1, 1.0), (2.1, 0.85), (2.85, 0.7), (3.45, 0.6), (3.95, 0.5), (4.3, 0.4), (4.55, 0.3),
+                           (black, 1.1)):
         q = ns(length)
         swell = decorrelated(q, pink) * np.exp(-np.arange(q) / SR / (length / 3))
         swell = np.vstack([sweep_filter(c, 'lowpass', curve(q, [(0, 3000), (length, 150)], 'log'), order=2) for c in swell])
-        m.add(rms_norm(swell[:, ::-1], 0.2), end_at - length, 0.5 * (0.4 + 0.6 * end_at / 7.0))
-    q = ns(stop)
-    m.add(sine(curve(q, [(0, 70), (stop, 26)], 'log')) * curve(q, [(0, 0.1), (7.0, 1.0), (stop, 1.0)]), 0, 0.15)
-    _, _, _, space = spaces()
-    x = reverb(m.out(), space, wet=0.2)[:, :n]
-    # The collapse: everything winds down like a stopped tape, and at 7.2 s it is gone.
-    a = ns(7.0)
-    rate = curve(ns(0.25), [(0, 1.0), (0.2, 0.06), (0.25, 0.05)], 'log')
+        m.add(rms_norm(swell[:, ::-1], 0.2), end_at - length, 0.5 * (0.15 + 0.85 * (end_at / black) ** 2))
+    q = ns(total)
+    m.add(sine(curve(q, [(0, 70), (total, 26)], 'log')) * curve(q, [(0, 0.1), (black, 1.0), (total, 1.0)]), 0, 0.15)
+    vast = gap_spaces()[0]
+    x = reverb(m.out(), vast, wet=0.2)[:, :n]
+    # As the last of the picture goes black, everything winds down like a stopped tape; at 5.0 s it is gone.
+    a = ns(wind)
+    rate = curve(ns(0.4), [(0, 1.0), (0.25, 0.06), (0.4, 0.04)], 'log')
     x = np.concatenate([x[:, :a], np.vstack([varispeed(c[a:], rate) for c in x])], axis=1)
-    return cut(master(x, peak=0.95, squash=0.2), stop, total)
+    return cut(master(x, peak=0.95, squash=0.2), total)
 
 
 def gap_void():
-    """Nothing left (9.0 s): near silence; a faint tinnitus whine at 7.8 kHz slowly coming up, and an extremely
-    low, slow pulse, every two seconds, barely there."""
-    total = 9.0
+    """Nothing (9.0 s, NOTHING to END): after the cut, near silence; the ears ringing faintly, high and thin, dying
+    away; a heartbeat, very low and slow, barely there and slowing, one of them as the camera comes back into the
+    shooter's eyes (5.0 s) and the last under the song coming in; and the faintest air of the dark, gone by the time
+    the song is up."""
+    total = gap_at('END', since='NOTHING')
+    back = gap_at('RETURN', since='NOTHING')
+    song = back + 1.0
     n = ns(total)
     t = times(total)
     m = Mix(total)
     drift = 1 + 0.0006 * np.sin(2 * np.pi * 0.05 * t)
-    whine = np.vstack([sine(7800.0 * drift), sine(7803.0 * drift)])
-    m.add(whine * curve(n, [(0, 0.0), (1.5, 0.02), (5.5, 0.4), (8.0, 1.0), (total, 1.0)]), 0, 0.07)
-    since = (t - 0.4) % 2.0
-    env = (1 - np.exp(-since / 0.05)) * (np.exp(-since / 0.5) - np.exp(-2.0 / 0.5)) / (1 - np.exp(-2.0 / 0.5))
-    throb = (sine(np.full(n, 34.0)) + 0.3 * sine(np.full(n, 68.0))) * env
-    m.add(throb * (t >= 0.4), 0, 1.0)
-    return cut(master(fade(m.out(), 0.0, 1.2), peak=0.9), total)
+    whine = np.vstack([sine(7040.0 * drift), sine(7043.5 * drift)])
+    m.add(whine * curve(n, [(0, 0.0), (0.3, 0.0), (0.8, 1.0), (back, 0.3), (song + 0.5, 0.0), (total, 0.0)]), 0, 0.05)
+    for at, size in ((0.9, 1.0), (2.8, 0.85), (back, 0.75), (back + 2.3, 0.35)):
+        for dt, g in ((0.0, 1.0), (0.28, 0.6)):
+            q = ns(1.4)
+            tq = np.arange(q) / SR
+            beat = (sine(np.full(q, 34.0)) + 0.35 * sine(np.full(q, 68.0))) * (1 - np.exp(-tq / 0.03)) * np.exp(-tq / 0.18)
+            m.add(beat, at + dt, size * g)
+    air = decorrelated(n, lambda k: lp(brown(k), 160))
+    m.add(air * curve(n, [(0, 0.0), (1.0, 1.0), (song, 1.0), (total - 0.5, 0.0), (total, 0.0)]), 0, 0.02)
+    return cut(master(fade(m.out(), 0.0, 1.0), peak=0.9), total)
 
 
 # Longest a sound may run (seconds): the feed's sounds must die away before the feed hands back to
@@ -1633,8 +2275,13 @@ CAPS = {'uplink_lock': 2.5, 'camera_rise': 1.7, 'feed_zoom': 3.0, 'feed_ambience
         'feed_wake': 4.2, 'feed_load': 2.4, 'feed_coils': 4.3, 'feed_release': 1.62, 'feed_strike': 0.95,
         'feed_cruise': 5.7, 'feed_transit': 2.6, 'feed_locate': 1.55, 'feed_reentry': 1.72,
         # The Ginnungagap sequence's slots.
-        'gap_key': 3.0, 'gap_lock': 1.6, 'gap_tear': 3.0, 'gap_drone': 6.0, 'gap_swap': 0.5, 'gap_contact': 1.0,
-        'gap_impact': 6.5, 'gap_erase': 8.0, 'gap_void': 9.0}
+        'gap_key': gap_at('FEED'), 'gap_ambience': gap_at('MAP', since='FEED'), 'gap_wake': 2.6,
+        'gap_tear': gap_at('MAP', -8, since='OPEN'), 'gap_map': gap_at('CUT', since='MAP'), 'gap_lock': 1.2,
+        'gap_extract': gap_at('SEND', 3, since='CUT'), 'gap_send': 1.6, 'gap_fall': gap_at('INBOUND', since='FALL'),
+        'gap_drone': gap_at('CONTACT', -3, since='SEND'), 'gap_inbound': gap_at('CONTACT', since='INBOUND'),
+        'gap_swap': 0.5, 'gap_contact': 1.0, 'gap_impact': gap_at('BLAST', since='CONTACT'),
+        'gap_blast': gap_at('ERASURE', since='BLAST'), 'gap_erase': gap_at('NOTHING', since='ERASURE'),
+        'gap_void': gap_at('END', since='NOTHING')}
 
 # How loud each sound is (dB, the RMS of its loudest 400 ms). The game plays them at full volume, so this is
 # the mix: the feed sits well down, the release and the re-entry come up, and the impact is far the loudest
@@ -1645,11 +2292,13 @@ LEVELS = {'uplink_lock': -16, 'uplink_denied': -18, 'camera_rise': -21, 'feed_zo
           'feed_reentry': -13, 'strike_inbound': -14,
           'strike_inbound_near': -13, 'strike_impact': -7, 'strike_impact_near': -5, 'strike_rumble': -12,
           'strike_rumble_near': -11, 'strike_aftermath': -23, 'strike_aftermath_near': -20,
-          # Ginnungagap: the key and the lock at the feed's level, the tear and the drone building, each swap small,
-          # the contact tiny in the silence, the impact frames the loudest, the erasure close behind, then almost
-          # nothing.
-          'gap_key': -17, 'gap_lock': -21, 'gap_tear': -16, 'gap_drone': -14, 'gap_swap': -18, 'gap_contact': -26,
-          'gap_impact': -10, 'gap_erase': -17, 'gap_void': -38}
+          # Ginnungagap: the key at the feed's level and its bed well under it, building through the title and the tear;
+          # the other universe quiet, then swelling as the camera pulls back out of it; the bridge as big as Gungnir's
+          # release, the fall and the block coming down rising under the drone; the contact tiny in the silence, the
+          # impact frames far the loudest, the burst next, the erasure growing to its cut, then almost nothing.
+          'gap_key': -17, 'gap_ambience': -26, 'gap_wake': -17, 'gap_tear': -16, 'gap_map': -18, 'gap_lock': -20,
+          'gap_extract': -17, 'gap_send': -10, 'gap_fall': -14, 'gap_drone': -17, 'gap_inbound': -16, 'gap_swap': -18,
+          'gap_contact': -26, 'gap_impact': -6, 'gap_blast': -11.5, 'gap_erase': -14, 'gap_void': -38}
 
 SOUNDS = {
     # name: (recipe, stereo?)
@@ -1678,12 +2327,20 @@ SOUNDS = {
     'strike_aftermath': (lambda: aftermath(False), False),
     'strike_aftermath_near': (lambda: aftermath(True), True),
     'gap_key': (gap_key, True),
-    'gap_lock': (gap_lock, True),
+    'gap_ambience': (gap_ambience, True),
+    'gap_wake': (gap_wake, True),
     'gap_tear': (gap_tear, True),
+    'gap_map': (gap_map, True),
+    'gap_lock': (gap_lock, True),
+    'gap_extract': (gap_extract, True),
+    'gap_send': (gap_send, True),
+    'gap_fall': (gap_fall, True),
     'gap_drone': (gap_drone, True),
+    'gap_inbound': (gap_inbound, True),
     'gap_swap': (gap_swap, False),
     'gap_contact': (gap_contact, True),
     'gap_impact': (gap_impact, True),
+    'gap_blast': (gap_blast, True),
     'gap_erase': (gap_erase, True),
     'gap_void': (gap_void, True),
 }
@@ -1711,6 +2368,24 @@ def write(name, x, wav_dir=None):
     print('wrote %-22s %s %.2fs' % (name, 'stereo' if channels == 2 else 'mono  ', x.shape[-1] / SR))
 
 
+def make(name):
+    """One sound, held to its cap and brought to its level."""
+    global rng
+    recipe, is_stereo = SOUNDS[name]
+    if name.startswith('gap_'):
+        # Ginnungagap's sounds draw on seeds of their own, so each comes out the same made alone or with the rest.
+        rng = np.random.default_rng(zlib.crc32(name.encode()))
+    x = recipe()
+    if not is_stereo:
+        x = mono(x)
+    cap = CAPS.get(name)
+    if cap and x.shape[-1] > ns(cap):
+        x = fade(x[..., :ns(cap)], 0.0, min(0.6, cap * 0.25))
+    if name in LEVELS:
+        x = limit(x * 10 ** ((LEVELS[name] - loudness(x)) / 20))
+    return x
+
+
 def main():
     args = sys.argv[1:]
     wav_dir = None
@@ -1720,16 +2395,7 @@ def main():
         del args[i:i + 2]
     names = args or list(SOUNDS)
     for name in names:
-        recipe, is_stereo = SOUNDS[name]
-        x = recipe()
-        if not is_stereo:
-            x = mono(x)
-        cap = CAPS.get(name)
-        if cap and x.shape[-1] > ns(cap):
-            x = fade(x[..., :ns(cap)], 0.0, min(0.6, cap * 0.25))
-        if name in LEVELS:
-            x = limit(x * 10 ** ((LEVELS[name] - loudness(x)) / 20))
-        write(name, x, wav_dir)
+        write(name, make(name), wav_dir)
 
 
 if __name__ == '__main__':

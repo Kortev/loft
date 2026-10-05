@@ -283,5 +283,69 @@
         "stream": true
       }
     ]
+  },
+  "gap.ambience": {
+    "subtitle": "subtitles.shootingstar.gap.ambience",
+    "sounds": [
+      {
+        "name": "shootingstar:gap_ambience"
+      }
+    ]
+  },
+  "gap.wake": {
+    "subtitle": "subtitles.shootingstar.gap.wake",
+    "sounds": [
+      {
+        "name": "shootingstar:gap_wake"
+      }
+    ]
+  },
+  "gap.map": {
+    "subtitle": "subtitles.shootingstar.gap.map",
+    "sounds": [
+      {
+        "name": "shootingstar:gap_map"
+      }
+    ]
+  },
+  "gap.extract": {
+    "subtitle": "subtitles.shootingstar.gap.extract",
+    "sounds": [
+      {
+        "name": "shootingstar:gap_extract"
+      }
+    ]
+  },
+  "gap.send": {
+    "subtitle": "subtitles.shootingstar.gap.send",
+    "sounds": [
+      {
+        "name": "shootingstar:gap_send"
+      }
+    ]
+  },
+  "gap.fall": {
+    "subtitle": "subtitles.shootingstar.gap.fall",
+    "sounds": [
+      {
+        "name": "shootingstar:gap_fall"
+      }
+    ]
+  },
+  "gap.inbound": {
+    "subtitle": "subtitles.shootingstar.gap.inbound",
+    "sounds": [
+      {
+        "name": "shootingstar:gap_inbound"
+      }
+    ]
+  },
+  "gap.blast": {
+    "subtitle": "subtitles.shootingstar.gap.blast",
+    "sounds": [
+      {
+        "name": "shootingstar:gap_blast"
+      }
+    ]
   }
 }
