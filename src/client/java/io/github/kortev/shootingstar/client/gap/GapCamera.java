@@ -180,18 +180,18 @@ public final class GapCamera {
 
 	/**
 	 * Backing away and up a little from where the burst left the camera, looking at the point of contact as the black
-	 * opens there and comes on over everything towards it. Never so high that it looks down on the clouds' height.
+	 * opens there and comes on over everything towards it. Kept low, so the black is seen travelling over the ground.
 	 */
 	private static Shot erasure(ClientGap gap, Vec3d feet, double t) {
 		Shot b = blast(gap, feet, GapTimeline.ERASURE);
 		double k = ease((t - GapTimeline.ERASURE) / (GapTimeline.NOTHING - GapTimeline.ERASURE - 20.0));
 		Vec3d from = new Vec3d(b.x(), b.y(), b.z());
 		Vec3d away = new Vec3d(from.x - gap.contact.x, 0, from.z - gap.contact.z).normalize();
-		Vec3d to = from.add(away.multiply(26.0)).add(0, 26.0, 0);
+		// Low over the ground and backing away from it, drifting on round a little the way the burst's shot was going: the
+		// black is seen opening at the point of contact and racing across the ground at the camera, catching it up.
+		Vec3d to = from.add(away.multiply(18.0)).add(0, 5.0, 0);
 		Vec3d lookFrom = gap.contact.add(0, blastHalf(gap) * 0.7, 0);
-		// On round the point of contact the way the blast's shot was going, up and back, so the black is seen sweeping out
-		// across the ground from above and to the side rather than straight on.
-		Vec3d eye = orbit(from.lerp(to, k), gap.contact, Math.toRadians(40.0) * k);
+		Vec3d eye = orbit(from.lerp(to, k), gap.contact, Math.toRadians(12.0) * k);
 		Vec3d at = lookFrom.lerp(gap.contact.add(0, 2, 0), k);
 		return lookAt(clear(eye, at), at);
 	}

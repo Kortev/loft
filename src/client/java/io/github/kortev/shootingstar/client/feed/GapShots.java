@@ -171,6 +171,13 @@ final class GapShots implements Feed.Sequence {
 		} else {
 			fall(s, o);
 		}
+		// The two cuts with nothing of their own over them: a quick violet pop and a jolt of zoom across each.
+		float pop = (float) Math.max(Math.exp(-Math.abs(s - CUT_S) / 1.5), Math.exp(-Math.abs(s - FALL_S) / 1.5));
+		if (0.55F * pop > o.flash) {
+			o.flash = 0.55F * pop;
+			o.flashColor = 0xEDE4FF;
+		}
+		o.zoomBlur += 0.12F * pop;
 		return o;
 	}
 

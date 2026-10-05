@@ -2209,22 +2209,38 @@ def gap_erase():
                   curve(n, [(0, 2.0), (black, 24.0), (span, 24.0)], 'log'))
     m.add(rms_norm(np.vstack([bp(c, 150, 7000) for c in grind]), 0.2) * grow ** 2, 0, 0.35)
 
-    # The crumble: grains of the signal coming apart, glitches crackling, and block after block deleted, each a tiny
-    # crushed blip falling in pitch, faster and faster.
+    # The crumble: grains of the signal coming apart, faster and faster. Noise only, never a tone, so it reads as
+    # damage rather than as anything alive.
     def crumble():
         q = ns(rng.uniform(0.008, 0.06))
         y = crush(white(q) * 0.4, rng.uniform(1.0, 3.5), rng.uniform(2.0, 30.0))
         y = bp(y, rng.uniform(80, 400), rng.uniform(2000, 9000))
         return y * attack_decay(q, 0.001, q / SR / 2) * min(rng.lognormal(-0.8, 0.5), 1.2)
 
-    def deletion():
-        q = ns(rng.uniform(0.02, 0.06))
-        f = curve(q, [(0, rng.uniform(1500, 5000)), (q / SR, rng.uniform(80, 300))], 'log')
-        y = crush(np.sign(sine(f)) * 0.5 + white(q) * 0.2, rng.uniform(2.0, 4.0), rng.uniform(2.0, 10.0))
-        return y * attack_decay(q, 0.0005, q / SR / 3) * min(rng.lognormal(-1.0, 0.5), 1.0)
+    def fault():
+        q = ns(rng.uniform(0.004, 0.03))
+        y = bp(crush(white(q) * 0.5, rng.uniform(1.0, 2.5), rng.uniform(4.0, 40.0)), 60, rng.uniform(1500, 5000))
+        edge = np.minimum(1.0, np.minimum(np.arange(q), np.arange(q)[::-1]) / 12.0)
+        return y * edge * min(rng.lognormal(-1.0, 0.6), 1.0)
     m.add(grains(n, lambda s: 12 + 420 * (s / black) ** 2, crumble, end=total, gain_curve=level, spread=1.0), 0, 0.5)
-    m.add(grains(n, lambda s: 20 + 260 * (s / black) ** 1.5, glitch, end=total, gain_curve=level, spread=1.0), 0, 0.3)
-    m.add(grains(n, lambda s: 4 + 140 * (s / black) ** 2, deletion, end=total, gain_curve=level, spread=1.0), 0, 0.25)
+    m.add(grains(n, lambda s: 20 + 220 * (s / black) ** 1.5, fault, end=total, gain_curve=level, spread=1.0), 0, 0.3)
+    # The world's own sound being eaten: a slice of the roar stuck and repeated, crushed harder each time round, like a
+    # file being torn up while it plays; more and more of them as the black comes on.
+    body = norm(static + deep)
+    for u in np.sort(rng.uniform(0.0, 1.0, 70)):
+        at = black * u ** 0.6
+        size = ns(rng.uniform(0.012, 0.045))
+        src = ns(at)
+        if src + size >= n:
+            continue
+        piece = body[:, src:src + size]
+        repeats = int(rng.integers(3, 9))
+        stuck = np.concatenate([crush(piece, 6.0 - 4.0 * k / repeats, 1.0 + 6.0 * k / repeats) for k in range(repeats)], axis=1)
+        stuck = stuck * np.minimum(1.0, np.minimum(np.arange(stuck.shape[1]), np.arange(stuck.shape[1])[::-1]) / 30.0)
+        m.add(stuck, at, 0.25 * (0.3 + 0.7 * level(at)))
+    # Under it all, the signal shredding: a low digital buzz crushed to almost nothing, swelling with the black.
+    hum = crush(np.sign(sine(curve(n, [(0, 62.0), (black, 41.0), (span, 41.0)], 'log'))) * 0.5, 3.0, 8.0)
+    m.add(np.vstack([lp(hum, 1800), lp(hum, 1800)]) * grow ** 2, 0, 0.1)
     # The sucking undertone: the air pulled in by swells played backwards, closer and closer together, the last and
     # biggest ending as the picture goes black, and a deep tone sinking under them.
     for end_at, length in ((1.1, 1.0), (2.1, 0.85), (2.85, 0.7), (3.45, 0.6), (3.95, 0.5), (4.3, 0.4), (4.55, 0.3),
