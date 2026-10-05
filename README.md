@@ -87,9 +87,10 @@ the feed and the camera shots. Press **Backspace** (rebindable) to skip the feed
 
 ## Ω-00 Ginnungagap, the Genesis Key
 
-Look at a block at least 24 blocks away and use the key. The sky breaks over the target, a shard of
-another universe crashes into it, and everything within `ginnungagapRadius` is erased, leaving you
-alone in the dark. Use the key again to let reality back in.
+Look at a block at least 24 blocks away and use the key. Bifröst, a gate in orbit over the target,
+opens onto another universe, cuts a block out of it and drops it down a bridge of light onto the target.
+It bursts, and everything within `ginnungagapRadius` is erased, leaving you alone in the dark. Use the
+key again to let reality back in. The feed can be skipped with the same key as Gungnir's (Backspace).
 
 - **Try it:** `/give @s shootingstar:genesis_key`, or `/ginnungagap open <pos>` (operators).
 - **Craft it:**
