@@ -47,7 +47,10 @@ public final class GapRender {
 	private static final int STARS = 520;
 	/** Specks of the world lifting off as the black runs over it, out to this far from the target. */
 	private static final int FLAKES = 1800;
+	private static final int MOTES = 2400;
 	private static final double FLAKE_REACH = 260.0;
+	/** How far out the rebuild goes before the world is simply back: past the fog at any view distance it is seen at. */
+	private static final double REBUILD_REACH = 600.0;
 	private static final Vector3f WHITE_LIGHT = new Vector3f(1.0F, 1.0F, 1.0F);
 	/** The size of the picture being drawn, for the galaxies' sizes on screen. */
 	private static int screenW = 1;
@@ -90,6 +93,10 @@ public final class GapRender {
 
 		Grade grade = grade(mine, tickDelta, cam, view, proj);
 		if (grade != null) {
+			boolean odin = mine != null && OdinRender.draw(mine, mine.time(tickDelta), cam, view, proj, w, h, right, up);
+			if (!odin) {
+				grade.odinState.x = 0.0F;
+			}
 			DEPTH.ensure(w, h);
 			DEPTH.copyDepthFrom(main);
 			COPY.ensure(w, h);
@@ -102,11 +109,13 @@ public final class GapRender {
 			RenderSystem.depthMask(true);
 			RenderSystem.setShaderTexture(0, COPY.color());
 			RenderSystem.setShaderTexture(1, DEPTH.depth());
+			RenderSystem.setShaderTexture(2, odin ? OdinRender.color() : 0);
 			grade.apply(proj, view, w, h, time);
 			Post.quad(Shaders.gap);
 			RenderSystem.depthFunc(GL11.GL_LEQUAL);
 			RenderSystem.setShaderTexture(0, 0);
 			RenderSystem.setShaderTexture(1, 0);
+			RenderSystem.setShaderTexture(2, 0);
 			for (ClientGap gap : ClientGaps.all()) {
 				flakes(gap, gap.time(tickDelta), cam, view, proj, right, up);
 			}
@@ -372,6 +381,10 @@ public final class GapRender {
 	 */
 	private static void flakes(ClientGap gap, double t, Vec3d cam, Matrix4f view, Matrix4f proj, Vector3f right, Vector3f up) {
 		ClientWorld world = MinecraftClient.getInstance().world;
+		if (world != null && gap.rebuildAt >= 0) {
+			motes(gap, world, t - gap.rebuildAt, cam, view, proj, right, up);
+			return;
+		}
 		if (world == null || t < GapTimeline.ERASURE || t > GapTimeline.NOTHING + 40) {
 			return;
 		}
@@ -410,6 +423,60 @@ public final class GapRender {
 		BATCH.end(true, 2.2F);
 	}
 
+	/**
+	 * The world coming back: specks of light raining down out of the void onto the ground just ahead of the rebuild's
+	 * front, faster as they near it, each landing in a flare as its block is put back.
+	 */
+	private static void motes(ClientGap gap, ClientWorld world, double r, Vec3d cam, Matrix4f view, Matrix4f proj, Vector3f right, Vector3f up) {
+		if (r < GapTimeline.REBUILD_SWEEP - 40 || r > GapTimeline.REBUILD_DONE + 10) {
+			return;
+		}
+		double[] cx = {1.0, 0.0, -1.0, 0.0, 1.0};
+		double[] cz = {0.0, 1.0, 0.0, -1.0, 0.0};
+		BATCH.begin(Fx.BLOB, 0.0F, view, proj, right, up);
+		for (int i = 0; i < MOTES; i++) {
+			// Thick near the middle, where the camera is, and out to the edge of what can be seen.
+			double reach = REBUILD_REACH * 0.55 * Math.pow(noise(gap.id, i + 5000), 1.4);
+			double fall = 26.0 + noise(gap.id, i + 5300) * 30.0;
+			double until = rebuilt(reach) - r;
+			if (until > fall || until < -6.0) {
+				continue;
+			}
+			double u = noise(gap.id, i + 5600) * 4.0;
+			int side = Math.min(3, (int) u);
+			double f = u - side;
+			double x = gap.target.getX() + 0.5 + reach * (cx[side] + (cx[side + 1] - cx[side]) * f);
+			double z = gap.target.getZ() + 0.5 + reach * (cz[side] + (cz[side + 1] - cz[side]) * f);
+			int top = world.getTopY(Heightmap.Type.WORLD_SURFACE, MathHelper.floor(x), MathHelper.floor(z));
+			if (top <= world.getBottomY()) {
+				continue;
+			}
+			float alpha;
+			float size;
+			double y;
+			int color;
+			if (until > 0.0) {
+				// Falling, faster and faster, a streak of light.
+				double k = 1.0 - until / fall;
+				y = top + 0.5 + until * 0.4 + 0.035 * until * until;
+				alpha = (float) Math.min(1.0, k * 4.0);
+				size = (float) (0.18 + 0.2 * noise(gap.id, i + 5900));
+				color = i % 2 == 0 ? PALE : WHITE;
+			} else {
+				// Landed: a flare spreading over the new block, gone in a moment.
+				double k = -until / 6.0;
+				y = top + 0.5;
+				alpha = (float) (1.0 - k);
+				size = (float) (0.6 + 1.6 * k);
+				color = WHITE;
+			}
+			Vector3f a = new Vector3f(right).mul(size);
+			Vector3f b = new Vector3f(up).mul(size * (until > 0.0 ? 3.0F : 1.0F));
+			BATCH.flat(rel(new Vec3d(x, y, z), cam), a, b, Fx.fade(color, alpha));
+		}
+		BATCH.end(true, 2.4F);
+	}
+
 	/** A universe in its block (or a piece of one), {@code model} placing the block's cube from -1 to 1 in the world. */
 	private static void universe(Matrix4f model, Matrix4f view, Matrix4f proj, int detail, int turn, float brightness, float dark,
 			float edge, float heat) {
@@ -432,6 +499,7 @@ public final class GapRender {
 		float flash;
 		float black;
 		float front = -1.0F;
+		float remake;
 		float clamp;
 		Vec3d offset = Vec3d.ZERO;
 		Vector4f burst = new Vector4f();
@@ -441,7 +509,6 @@ public final class GapRender {
 		/** Odin's feet (relative to the target) and height; how much he is there, his eye, his arm, his hand's light. */
 		Vector4f odin = new Vector4f(0.0F, 0.0F, 0.0F, 1.0F);
 		Vector4f odinState = new Vector4f();
-		Vector3f odinFacing = new Vector3f(0.0F, 0.0F, 1.0F);
 
 		void apply(Matrix4f proj, Matrix4f view, int w, int h, float time) {
 			Matrix4f inv = new Matrix4f(proj).mul(view).invert();
@@ -450,6 +517,7 @@ public final class GapRender {
 			Shaders.set(Shaders.gap, "Time", time);
 			Shaders.set(Shaders.gap, "CamOffset", (float) offset.x, (float) offset.y, (float) offset.z);
 			Shaders.set(Shaders.gap, "Front", front);
+			Shaders.set(Shaders.gap, "Remake", remake);
 			Shaders.set(Shaders.gap, "Clamp", clamp);
 			Shaders.setInt(Shaders.gap, "Style", style);
 			Shaders.setInt(Shaders.gap, "Extras", extras);
@@ -467,7 +535,6 @@ public final class GapRender {
 			Shaders.set(Shaders.gap, "SkyMix", skyMix);
 			Shaders.set(Shaders.gap, "Odin", odin.x, odin.y, odin.z, odin.w);
 			Shaders.set(Shaders.gap, "OdinState", odinState.x, odinState.y, odinState.z, odinState.w);
-			Shaders.set(Shaders.gap, "OdinFacing", odinFacing);
 		}
 	}
 
@@ -476,23 +543,26 @@ public final class GapRender {
 	 * black running back out from the edges in until the world is all there again.
 	 */
 	private static void rebuild(Grade g, ClientGap gap, double r) {
-		double remake = GapCamera.ease((r - GapTimeline.REBUILD_SWEEP) / (GapTimeline.REBUILD_DONE - GapTimeline.REBUILD_SWEEP));
-		g.front = remake >= 1.0 ? -1.0F : (float) (4000.0 * Math.pow(1.0 - remake, 1.5));
+		double front = rebuildFront(r);
+		g.front = (float) front;
+		g.remake = front >= 0.0 ? 1.0F : 0.0F;
 		if (gap.odinFeet == null || gap.odinFacing == null) {
 			return;
 		}
-		double rise = GapCamera.ease((r - GapTimeline.REBUILD_ODIN) / 90.0);
-		Vec3d feet = gap.odinFeet.add(0.0, -GapTimeline.ODIN_HEIGHT * 0.6 * (1.0 - rise), 0.0)
-				.subtract(gap.target.getX(), gap.target.getY(), gap.target.getZ());
+		Vec3d feet = OdinRender.feet(gap, r).subtract(gap.target.getX(), gap.target.getY(), gap.target.getZ());
 		g.odin.set((float) feet.x, (float) feet.y, (float) feet.z, (float) GapTimeline.ODIN_HEIGHT);
-		g.odinFacing.set((float) gap.odinFacing.x, 0.0F, (float) gap.odinFacing.z);
-		double there = GapCamera.ease((r - GapTimeline.REBUILD_ODIN) / 60.0)
-				* (1.0 - GapCamera.ease((r - GapTimeline.REBUILD_DONE + 20.0) / 80.0));
-		double eye = GapCamera.ease((r - GapTimeline.REBUILD_EYE) / 12.0);
-		double arm = r < GapTimeline.REBUILD_SWEEP ? GapCamera.ease((r - GapTimeline.REBUILD_ARM) / (GapTimeline.REBUILD_SWEEP - GapTimeline.REBUILD_ARM))
-				: 1.0 - GapCamera.ease((r - GapTimeline.REBUILD_SWEEP) / 14.0);
-		double hand = r < GapTimeline.REBUILD_SWEEP ? 0.6 * arm : 0.6 + 1.4 * Math.exp(-(r - GapTimeline.REBUILD_SWEEP) / 20.0);
-		g.odinState.set((float) there, (float) eye, (float) arm, (float) hand);
+		g.odinState.set((float) OdinRender.there(r), 0.0F, 0.0F, 0.0F);
+	}
+
+	/** How far out the world has been built back, {@code r} ticks into the rebuild: from the sweep, out to the fog, then done (-1). */
+	static double rebuildFront(double r) {
+		double x = (r - GapTimeline.REBUILD_SWEEP) / (GapTimeline.REBUILD_DONE - GapTimeline.REBUILD_SWEEP);
+		return x >= 1.0 ? -1.0 : REBUILD_REACH * Math.pow(Math.max(0.0, x), 1.25);
+	}
+
+	/** When the rebuild's front gets out as far as {@code reach}: rebuildFront turned round. */
+	private static double rebuilt(double reach) {
+		return GapTimeline.REBUILD_SWEEP + (GapTimeline.REBUILD_DONE - GapTimeline.REBUILD_SWEEP) * Math.pow(reach / REBUILD_REACH, 0.8);
 	}
 
 	private static Grade grade(ClientGap mine, float tickDelta, Vec3d cam, Matrix4f view, Matrix4f proj) {

@@ -62,6 +62,13 @@ public final class GapCamera {
 			return frameShot(gap, GapFrames.at(t - GapTimeline.FRAMES).shot(), eye, feet, t);
 		}
 		if (t < GapTimeline.ERASURE) {
+			// Out of the last impact frame not on a cut but a swing: the frame's camera carries on and gives way to the
+			// blast's as the burst swells, so the explosion opens out of the frame that showed it hitting.
+			double into = (t - GapTimeline.BLAST) / 14.0;
+			if (into < 1.0) {
+				Shot last = frameShot(gap, GapFrames.at(GapTimeline.BLAST - GapTimeline.FRAMES - 0.01).shot(), eye, feet, t);
+				return mix(last, blast(gap, feet, t), ease(into));
+			}
 			return blast(gap, feet, t);
 		}
 		if (t < GapTimeline.NOTHING) {
@@ -289,9 +296,15 @@ public final class GapCamera {
 		double crane = ease((r - GapTimeline.REBUILD_SWEEP) / (GapTimeline.REBUILD_DONE - GapTimeline.REBUILD_SWEEP));
 		double home = ease((r - (GapTimeline.REBUILD_END - 60.0)) / 50.0);
 		double out = in * (1.0 - home);
-		Vec3d shoulder = eyes.add(facing.multiply(-3.5 - 10.0 * crane)).add(side.multiply(1.6 + 4.0 * crane)).add(0.0, -0.6 + 9.0 * crane, 0.0);
+		Vec3d shoulder = eyes.add(facing.multiply(-3.5 - 12.0 * crane)).add(side.multiply(1.6 + 6.0 * crane)).add(0.0, -0.6 + 22.0 * crane, 0.0);
 		Vec3d eye = clear(eyes.lerp(shoulder, out), eyes);
 		Vec3d at = eyes.add(player.getRotationVec(tickDelta).multiply(10.0)).lerp(chest, out);
+		// As his arm comes down, down to the ground to watch it put back block by block, running out from under the
+		// shooter towards him; then up to him again as he goes.
+		double front = Math.max(0.0, GapRender.rebuildFront(r));
+		Vec3d ground = player.getLerpedPos(tickDelta).add(facing.multiply(14.0 + 0.3 * front));
+		double down = ease((r - GapTimeline.REBUILD_SWEEP - 4.0) / 36.0) * (1.0 - ease((r - GapTimeline.REBUILD_SWEEP - 170.0) / 70.0));
+		at = at.lerp(ground, down * out);
 		if (r >= GapTimeline.REBUILD_SWEEP) {
 			double jolt = 4.0 * Math.exp(-(r - GapTimeline.REBUILD_SWEEP) / 12.0);
 			at = at.add(Math.sin(r * 2.9) * jolt, Math.cos(r * 2.3) * jolt, Math.sin(r * 3.7 + 1.0) * jolt);
@@ -345,6 +358,13 @@ public final class GapCamera {
 		float yaw = (float) (MathHelper.atan2(d.z, d.x) * MathHelper.DEGREES_PER_RADIAN) - 90.0F;
 		float pitch = (float) -(MathHelper.atan2(d.y, horizontal) * MathHelper.DEGREES_PER_RADIAN);
 		return new Shot(eye.x, eye.y, eye.z, yaw, pitch);
+	}
+
+	/** Part way from one shot to another: the eye along the line between, the look turned the short way round. */
+	static Shot mix(Shot a, Shot b, double k) {
+		float yaw = a.yaw() + (float) k * MathHelper.wrapDegrees(b.yaw() - a.yaw());
+		return new Shot(MathHelper.lerp(k, a.x(), b.x()), MathHelper.lerp(k, a.y(), b.y()), MathHelper.lerp(k, a.z(), b.z()), yaw,
+				MathHelper.lerp((float) k, a.pitch(), b.pitch()));
 	}
 
 	static double ease(double x) {

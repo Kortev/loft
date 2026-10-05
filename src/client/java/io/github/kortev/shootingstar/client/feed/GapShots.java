@@ -106,7 +106,10 @@ final class GapShots implements Feed.Sequence {
 	private static final double MAP_PICK = 56.0;
 	private static final double MAP_LIFT = 62.0;
 	/** How high the selected block has risen out of the lattice by the end of the shot. */
-	private static final float MAP_LIFT_HEIGHT = 2.4F;
+	private static final float MAP_LIFT_HEIGHT = 1.7F;
+	/** When the camera starts round to the front of the selected block, and how far off it ends: the cut's first eye. */
+	private static final double MAP_SWING = 68.0;
+	private static final float CUT_EYE = (BEHIND + 4.0F) / BLOCK;
 	/** The big spiral the shot starts beside (the first galaxy of universe.bin): where it is and which way it faces. */
 	private static final Vector3f MAP_GALAXY = new Vector3f(0.12F, 0.05F, -0.12F);
 	private static final Vector3f MAP_POLE = new Vector3f(0.45F, 1.0F, 0.55F).normalize();
@@ -157,30 +160,65 @@ final class GapShots implements Feed.Sequence {
 		o.streak = 0.5F;
 		space.resetLights();
 		double s = t - GapTimeline.FEED;
-		if (s < GATE_S) {
-			orbit(s, o);
-		} else if (s < OPEN_S) {
-			reveal(s, o);
-		} else if (s < MAP_S) {
-			open(s, o);
-		} else if (s < CUT_S) {
-			map(s, o);
-		} else if (s < SEND_S) {
-			cut(s, o);
-		} else if (s < FALL_S) {
-			send(s, o);
-		} else {
-			fall(s, o);
+		// No shot cuts hard into the next one in the same space: for a while after each change the camera is a blend of
+		// where the old shot would have carried on to and where the new one wants it, so it glides from one to the other.
+		handoff = null;
+		for (double[] h : HANDOFFS) {
+			if (s >= h[0] && s < h[0] + h[1]) {
+				handoff = pose(s, (int) h[2]);
+				handoffWeight = 1.0F - Shots.smoother((s - h[0]) / h[1]);
+			}
 		}
-		// The cut into the chase has nothing of its own over it: a quick violet pop and a jolt of zoom across it.
-		float pop = (float) Math.exp(-Math.abs(s - FALL_S) / 1.5);
-		if (0.55F * pop > o.flash) {
-			o.flash = 0.55F * pop;
-			o.flashColor = 0xEDE4FF;
-		}
-		o.zoomBlur += 0.12F * pop;
+		shot(shotAt(s), s, o);
 		return o;
 	}
+
+	/** Each change of shot that is blended: when, over how long, and the shot it blends out of. */
+	private static final double[][] HANDOFFS = {{GATE_S, 16.0, 0}, {OPEN_S, 18.0, 1}, {SEND_S, 16.0, 4}, {FALL_S, 22.0, 5}};
+
+	private static int shotAt(double s) {
+		return s < GATE_S ? 0 : s < OPEN_S ? 1 : s < MAP_S ? 2 : s < CUT_S ? 3 : s < SEND_S ? 4 : s < FALL_S ? 5 : 6;
+	}
+
+	private void shot(int shot, double s, Overlay o) {
+		switch (shot) {
+			case 0 -> orbit(s, o);
+			case 1 -> reveal(s, o);
+			case 2 -> open(s, o);
+			case 3 -> map(s, o);
+			case 4 -> cut(s, o);
+			case 5 -> send(s, o);
+			default -> fall(s, o);
+		}
+	}
+
+	/** Where a shot would put the camera at time s, found by running it up to its scene() call and no further. */
+	private float[] pose(double s, int shot) {
+		posing = true;
+		try {
+			shot(shot, s, new Overlay());
+		} catch (Posed posed) {
+			return posed.pose;
+		} finally {
+			posing = false;
+		}
+		return null;
+	}
+
+	/** Thrown by scene() while posing, carrying eye, at, up, fov, near and far, before anything is drawn. */
+	private static final class Posed extends RuntimeException {
+		final float[] pose;
+
+		Posed(float[] pose) {
+			super(null, null, false, false);
+			this.pose = pose;
+		}
+	}
+
+	private boolean posing;
+	@Nullable
+	private float[] handoff;
+	private float handoffWeight;
 
 	// =============================================================================================
 	// The gate and the block, as they are at any moment
@@ -248,7 +286,9 @@ final class GapShots implements Feed.Sequence {
 	private static Matrix4f blockModel(double s) {
 		double spin = Math.max(0.0, s - PULL_TO + 6.0);
 		Matrix4f m = new Matrix4f().translation(blockPos(s)).mul(GATE);
-		m.rotateY((float) (spin * 0.008 + Math.max(0.0, s - DROP_S) * 0.01)).rotateX((float) (spin * 0.005));
+		// Turned as far as the multiverse shot left it.
+		float turned = s >= CUT_S ? 0.6F : 0.0F;
+		m.rotateY((float) (turned + spin * 0.008 + Math.max(0.0, s - DROP_S) * 0.01)).rotateX((float) (spin * 0.005));
 		// Crushed down as the multiverse shot left it, springing back to its size as it comes through.
 		float size = s < CUT_S ? 1.0F : Shots.lerp(0.45, 1.0, Shots.smooth((s - CUT_S) / 14.0));
 		return m.scale(BLOCK * size);
@@ -256,6 +296,20 @@ final class GapShots implements Feed.Sequence {
 
 	/** The scene: the sky, Earth, the gate with its window, the block and the bridge. */
 	private void scene(double s, float near, float far, Vector3f eye, Vector3f at, Vector3f up, float fov, boolean drawBlock) {
+		if (posing) {
+			throw new Posed(new float[] {eye.x, eye.y, eye.z, at.x, at.y, at.z, up.x, up.y, up.z, fov, near, far});
+		}
+		if (handoff != null) {
+			float[] h = handoff;
+			float w = handoffWeight;
+			// The eye eases across; the way it looks swings round on the blend of where both look, so the frame never jumps.
+			eye = new Vector3f(eye).lerp(new Vector3f(h[0], h[1], h[2]), w);
+			at = new Vector3f(at).lerp(new Vector3f(h[3], h[4], h[5]), w);
+			up = new Vector3f(up).lerp(new Vector3f(h[6], h[7], h[8]), w).normalize();
+			fov = Shots.lerp(fov, h[9], w);
+			near = Math.min(near, h[10]);
+			far = Math.max(far, h[11]);
+		}
 		cam.perspective(fov, width, height, near, far);
 		cam.look(eye, at, up);
 		space.sky(cam, SKY, 0.6F, 0.0F, cam.forward(), 0.0F, 0.0F, 0.0F, time);
@@ -321,8 +375,10 @@ final class GapShots implements Feed.Sequence {
 			rect[2] = Math.max(rect[2], p.x);
 			rect[3] = Math.max(rect[3], p.y);
 		}
-		Matrix4f frame = new Matrix4f().translation(new Vector3f(FACE).mul(-BEHIND)).mul(GATE).scale(BLOCK);
-		multiverse(frame, -2, 2, -2, 2, 0, 4, 1.0F, 90.0F, rect, s < PULL_FROM ? () -> block(blockModel(s), 0.0F) : null);
+		// Once the multiverse shot has lifted it out of its row, the lattice is lower about it by as much.
+		float lifted = s >= MAP_S ? MAP_LIFT_HEIGHT * BLOCK : 0.0F;
+		Matrix4f frame = new Matrix4f().translation(new Vector3f(FACE).mul(-BEHIND).sub(new Vector3f(GATE_UP).mul(lifted))).mul(GATE).scale(BLOCK);
+		multiverse(frame, -3, 3, -2, 2, 0, 4, 1.0F, 90.0F, rect, s < PULL_FROM ? () -> block(blockModel(s), 0.0F) : null);
 	}
 
 	/**
@@ -608,33 +664,38 @@ final class GapShots implements Feed.Sequence {
 		float lift = MAP_LIFT_HEIGHT * (float) Math.pow(Shots.smooth((m - MAP_LIFT) / (length - MAP_LIFT)), 1.6);
 		Vector3f at = new Vector3f(MAP_GALAXY).lerp(new Vector3f(), Shots.smooth(pull * 1.6)).add(0.0F, lift * 0.5F, 0.0F);
 		Vector3f eye = new Vector3f(dir).mul(distance).add(at);
-		// Then it is crushed down, 2 trillion galaxies packed into less and less, and dragged out of the lattice at the
-		// camera and up, faster and faster, the camera whipping round after it, into the gate drawing it through.
+		// Then it is crushed down, 2 trillion galaxies packed into less and less, while the camera swings up over it and
+		// round in front of it, the near universes falling away from between, and settles where the next shot begins:
+		// just outside the gate's window, looking through it at the block waiting behind. That shot is seen through the
+		// window, so the two meet exactly, and the pull out through the window is one move.
 		float compact = Shots.smooth((m - 66.0) / 12.0);
 		Vector3f home = new Vector3f(0.0F, lift, 0.0F);
-		Vector3f away = new Vector3f(eye).sub(home).add(0.0F, 0.35F * eye.distance(home), 0.0F).normalize();
-		float reach = 0.85F * eye.distance(home);
-		Vector3f centre = new Vector3f(away).mul(reach * drag(m, length)).add(home);
-		Vector3f trail = new Vector3f(away).mul(reach * drag(m - 3.0, length)).add(home);
+		float swing = Shots.smoother((m - MAP_SWING) / (length - MAP_SWING));
+		float settle = Shots.smooth((m - 76.0) / (length - 76.0));
+		Vector3f from = new Vector3f(eye).sub(home);
+		Vector3f swung = Shots.slerp(new Vector3f(from).normalize(), new Vector3f(0.0F, 0.0F, -1.0F), swing);
+		float reach = (float) (from.length() * Math.pow(CUT_EYE / from.length(), swing));
+		eye = new Vector3f(swung).mul(reach).add(home);
+		at = new Vector3f(at).lerp(home, swing);
 		float size = 1.0F - 0.55F * compact;
-		Matrix4f held = new Matrix4f().translation(centre).rotateY(compact * 0.6F).scale(size);
-		cam.perspective(Shots.lerp(55.0, 46.0, Shots.smooth(pull * 1.5)), width, height, Math.max(1.0E-4F, distance * 0.01F), 200.0F);
-		cam.look(eye, new Vector3f(at).lerp(centre, Shots.smooth(drag(m, length) * 3.0)), new Vector3f(0, 1, 0));
+		Matrix4f held = new Matrix4f().translation(home).rotateY(compact * 0.6F).scale(size);
+		cam.perspective(Shots.lerp(Shots.lerp(55.0, 46.0, Shots.smooth(pull * 1.5)), 46.0, swing), width, height,
+				Math.max(1.0E-4F, Math.min(distance, reach) * 0.01F), 200.0F);
+		cam.look(eye, at, new Vector3f(0, 1, 0));
 
 		// Its glass shows once the camera is out of it; the other universes come up as it pulls away.
 		float outside = Shots.smooth((Math.max(Math.abs(eye.x), Math.max(Math.abs(eye.y - lift), Math.abs(eye.z))) - 1.0) / 0.6);
-		float others = Shots.smooth((distance - 2.6) / 4.0);
-		int universes = multiverse(new Matrix4f(), -3, 3, -1, 1, -3, 3, others * (1.0F - 0.4F * pick), 20.0F,
-				new float[] {0.0F, 0.0F, width, height}, () -> Universe.draw(cam.modelView(held), cam.proj, width, height, Universe.FULL, 0,
-						1.0F + 1.2F * pick + 1.5F * compact, 1.0F, WHITE, 0.45F * outside, (0.3F + 1.4F * pick) * outside, 0xE6DCFF, 0.45F * compact));
+		float others = Shots.smooth((distance - 2.6) / 4.0) * Shots.lerp(1.0F - 0.4F * pick, 1.0F, settle);
+		float[] screen = {0.0F, 0.0F, width, height};
+		// Ending as the window will show it: lit as the block is outside, the lattice as it is beyond the gate.
+		float bright = 1.0F + (1.2F * pick + 1.5F * compact) * (1.0F - settle);
+		float rim = Shots.lerp((0.3F + 1.4F * pick) * outside, 1.0F, settle);
+		float sampled = Shots.lerp(20.0, 90.0, settle);
+		int universes = multiverse(new Matrix4f(), -3, 3, -2, 2, -3, -1, others * (1.0F - Shots.smooth((m - MAP_SWING) / 8.0)), sampled, screen, null);
+		universes += multiverse(new Matrix4f(), -3, 3, -2, 2, 0, 4, others, sampled, screen, () -> Universe.draw(cam.modelView(held), cam.proj, width,
+				height, Universe.FULL, 0, bright, 1.0F, WHITE, 0.45F * outside, rim, 0xE6DCFF, 0.45F * compact));
 		if (m >= MAP_PICK) {
 			mapSelection(m - MAP_PICK, held);
-		}
-		if (trail.distance(centre) > 0.01F) {
-			// The light of it streaking out behind as it goes.
-			Fx streak = space.glow(cam, Fx.BEAM, 0.0F);
-			streak.beam(centre, trail, cam.pos, size * 1.4F, Fx.argb(0.95F, 0.9F, 1.0F, 0.9F), Fx.argb(0.6F, 0.4F, 1.0F, 0.0F));
-			streak.end(true, 2.5F);
 		}
 
 		// The count of galaxies in view, from the one to all two trillion by the time the whole universe is.
@@ -670,15 +731,10 @@ final class GapShots implements Feed.Sequence {
 		float select = picked ? (float) Math.exp(-(m - MAP_PICK) / 2.5) : 0.0F;
 		o.flash = Math.max(0.9F * enter, 0.25F * select);
 		o.flashColor = enter > select ? 0xE8DDFF : 0xFFFFFF;
-		o.zoomBlur = 0.1F * (float) Math.sin(Math.PI * pull) + 0.3F * drag(m, length);
-		o.aberration = 0.012F * drag(m, length);
+		o.zoomBlur = 0.1F * (float) Math.sin(Math.PI * pull) + 0.12F * (float) Math.sin(Math.PI * swing);
+		o.aberration = 0.006F * (float) Math.sin(Math.PI * swing);
 		// Close over the galaxy its core would burn out the picture.
 		o.exposure = 0.8F + 0.2F * Shots.smooth(pull * 2.0);
-	}
-
-	/** How far the selected universe has been dragged out of the lattice, 0 to 1: slowly, then faster and faster. */
-	private static float drag(double m, double length) {
-		return (float) Math.pow(Shots.smootherIn((m - 72.0) / (length - 72.0)), 2.0);
 	}
 
 	/** A count of galaxies the way the feed reads it out: in full up to a million, then in millions, billions, trillions. */

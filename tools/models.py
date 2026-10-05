@@ -25,6 +25,8 @@ OUT = 'src/client/resources/assets/shootingstar/meshes'
 # Material ids, read by the feed's mesh shader (15 and 16 are Io and the Moon, which are procedural spheres).
 HULL, FIN, NOSE, FRAME, PANEL, ROCK, FOIL, SOLAR, DISH, EDGE, RUNE, COPPER, SABOT, CABLE, RADIATOR = range(15)
 PLATE = 17
+# Odin's: read by the same shader. Built to Minecraft's own scale of pixels, sixteen to a block, blocky like a mob.
+CLOAK, SKIN, BEARD, HAT, GOLD, WOOD, FEATHER, TUNIC = range(18, 26)
 
 
 def reset():
@@ -627,6 +629,102 @@ def build_gate():
     return obj
 
 
+
+# --- Odin, for the rebuild ----------------------------------------------------------------------
+#
+# Blocky, the way everything in the world he stands over is: a figure made of boxes on Minecraft's own grid of pixels,
+# like a mob, so he sits beside the blocks being put back rather than looking pasted in from somewhere else. In
+# pixels, feet at the origin, facing -Y (the shooter), +X his left. 40 pixels to the crown of his hat.
+
+def px_box(b, x0, x1, y0, y1, z0, z1, mat, glow=0.0):
+    """A box between pixel coordinates."""
+    b.box(((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2), (x1 - x0, y1 - y0, z1 - z0), mat, glow)
+
+
+def build_odin():
+    b = Builder()
+    # Boots and legs, mostly hidden under the cloak.
+    for x0 in (-4, 0):
+        px_box(b, x0 + 0.2, x0 + 3.8, -2.6, 2, 0, 3, CLOAK)
+        px_box(b, x0 + 0.4, x0 + 3.6, -1.8, 1.8, 3, 12, TUNIC)
+    # Body: a long tunic, a gold-buckled belt.
+    px_box(b, -4, 4, -2, 2, 10, 24, TUNIC)
+    px_box(b, -4.3, 4.3, -2.3, 2.3, 13, 14.4, WOOD)
+    px_box(b, -1.2, 1.2, -2.6, -2.2, 12.6, 14.8, GOLD, 0.15)
+    # The cloak: stepping out wider and deeper towards the ground, open at the front over the tunic.
+    for i, (z0, z1) in enumerate([(19, 24), (14, 19), (9, 14), (4, 9), (0.5, 4)]):
+        w = 5.2 + i * 0.75
+        back = 2.6 + i * 0.55
+        px_box(b, -w, w, 1.6, back, z0, z1, CLOAK)
+        for side in (-1, 1):
+            px_box(b, *sorted((side * (w - 1.6), side * w)), -1.4 - i * 0.35, 1.6, z0, z1, CLOAK)
+            # The gold hem down its open edges.
+            px_box(b, *sorted((side * (w - 1.75), side * (w - 1.2))), -1.6 - i * 0.35, -1.3 - i * 0.35, z0, z1, GOLD, 0.1)
+    px_box(b, -8.3, 8.3, 1.2, 6.4, 0.4, 1.1, GOLD, 0.1)
+    # A mantle of grey fur over the shoulders.
+    px_box(b, -6.6, 6.6, -2.6, 3.0, 21.5, 25, BEARD)
+    px_box(b, -5.4, 5.4, -3.0, 3.4, 23.5, 25.6, BEARD)
+    # His left arm, down and a little forward, the hand round the spear.
+    px_box(b, 4.2, 7.8, -2, 2, 13, 24, CLOAK)
+    px_box(b, 4.4, 7.6, -4.6, -1.0, 11.4, 15, CLOAK)
+    px_box(b, 4.6, 7.4, -5.6, -2.4, 9.6, 12.4, SKIN)
+    # Gungnir, upright in it: ash shaft, gold collar, a long blade cut with runes that burn.
+    px_box(b, 5.4, 6.6, -4.6, -3.4, -1, 38, WOOD)
+    px_box(b, 5.0, 7.0, -5.0, -3.0, 37.6, 39.4, GOLD, 0.3)
+    px_box(b, 5.25, 6.75, -4.75, -3.25, 39.4, 46.5, RUNE, 1.0)
+    px_box(b, 5.6, 6.4, -4.4, -3.6, 46.5, 48.5, RUNE, 1.0)
+    px_box(b, 4.1, 7.9, -4.3, -3.7, 39.4, 40.6, GOLD, 0.3)
+    # Head.
+    px_box(b, -4, 4, -4, 4, 24, 32, SKIN)
+    # Grey hair falling behind and round the sides under the hat.
+    px_box(b, -4.4, 4.4, 1.0, 4.4, 24.5, 32, BEARD)
+    for side in (-1, 1):
+        px_box(b, *sorted((side * 4.0, side * 4.4)), -1.5, 1.0, 26, 32, BEARD)
+    # The face: his one eye burning, the patch over the other, a heavy brow, the nose.
+    px_box(b, 1.0, 3.0, -4.3, -3.9, 28, 29, SKIN, 1.0)
+    px_box(b, -3.2, -0.6, -4.5, -3.9, 27.4, 29.6, CLOAK)
+    px_box(b, -4.2, 4.2, -4.4, -3.9, 29.4, 29.9, CLOAK)
+    px_box(b, 0.8, 3.4, -4.5, -3.9, 29.4, 30.4, BEARD)
+    px_box(b, -0.8, 0.8, -5.2, -3.9, 26.6, 28.6, SKIN)
+    # The beard, long and stepped, down over the chest.
+    px_box(b, -4.3, 4.3, -4.7, -1.5, 24, 26.6, BEARD)
+    px_box(b, -2.6, 2.6, -4.9, -4.0, 26.0, 26.9, BEARD)
+    for (half, z0, z1, y) in [(3.6, 20, 24.2, -4.9), (2.6, 16.5, 20.2, -4.6), (1.6, 13.5, 16.7, -4.2), (0.7, 11.5, 13.7, -3.8)]:
+        px_box(b, -half, half, y, y + 2.6, z0, z1, BEARD)
+    # The wide-brimmed hat, the band gold.
+    px_box(b, -8.5, 8.5, -8.5, 8.5, 31.6, 32.6, HAT)
+    px_box(b, -4.4, 4.4, -4.4, 4.4, 32.6, 37.0, HAT)
+    px_box(b, -4.6, 4.6, -4.6, 4.6, 32.6, 33.8, GOLD, 0.2)
+    px_box(b, -3.4, 3.4, -3.4, 3.4, 37.0, 39.0, HAT)
+    px_box(b, -1.8, 1.8, -1.8, 1.8, 39.0, 40.0, HAT)
+    return b.to_object('odin')
+
+
+def build_odin_arm():
+    """His right arm, on its own so it can come up and sweep down: the shoulder at the origin, hanging down -Z."""
+    b = Builder()
+    px_box(b, -1.8, 1.8, -2, 2, -11, 1, CLOAK)
+    px_box(b, -2.0, 2.0, -2.2, 2.2, -1, 1.6, BEARD)
+    px_box(b, -1.9, 1.9, -2.1, 2.1, -8.4, -7.2, GOLD, 0.2)
+    # The open hand, glowing with what it is about to give back.
+    px_box(b, -1.6, 1.6, -1.8, 1.8, -14, -11, SKIN, 0.6)
+    return b.to_object('odin_arm')
+
+
+def build_raven():
+    """Huginn or Muninn: a blocky raven gliding, wings out, facing -Y. Its middle at the origin."""
+    b = Builder()
+    px_box(b, -1.2, 1.2, -2.6, 3.4, -1.0, 1.4, FEATHER)
+    px_box(b, -1.0, 1.0, -4.6, -2.4, -0.2, 1.8, FEATHER)
+    px_box(b, -0.4, 0.4, -6.0, -4.6, 0.2, 0.9, WOOD)
+    for side in (-1, 1):
+        px_box(b, -0.6 + side * 0.8, 0.6 + side * 0.8, -4.0, -3.9 + 0.4, 0.8, 1.4, SKIN, 0.9)
+        px_box(b, *sorted((side * 1.2, side * 5.2)), -1.8, 1.4, 0.0, 0.8, FEATHER)
+        px_box(b, *sorted((side * 5.2, side * 8.6)), -1.0, 1.8, 0.4, 1.0, FEATHER)
+    px_box(b, -1.6, 1.6, 3.4, 6.2, -0.6, 0.4, FEATHER)
+    return b.to_object('raven')
+
+
 # --- helpers -----------------------------------------------------------------------------------
 
 def smooth(obj, angle):
@@ -768,7 +866,8 @@ def preview(objs, directory):
 def main():
     reset()
     os.makedirs(OUT, exist_ok=True)
-    builders = {'round': build_round, 'sabot': build_sabot, 'coil': build_coil, 'relay': build_relay, 'gate': build_gate}
+    builders = {'round': build_round, 'sabot': build_sabot, 'coil': build_coil, 'relay': build_relay, 'gate': build_gate,
+                'odin': build_odin, 'odin_arm': build_odin_arm, 'raven': build_raven}
     builders.update({'asteroid%d' % i: (lambda i=i: build_asteroid(i)) for i in range(4)})
     only = sys.argv[sys.argv.index('--only') + 1].split(',') if '--only' in sys.argv else list(builders)
     objs = [builders[name]() for name in only]

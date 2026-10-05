@@ -9,11 +9,15 @@
 
 uniform sampler2D Sampler0;
 uniform sampler2D Sampler1;
+// Odin, drawn into a picture of his own (OdinRender).
+uniform sampler2D Sampler2;
 uniform mat4 InvViewProj;
 uniform vec2 ScreenSize;
 uniform float Time;
 uniform vec3 CamOffset;
 uniform float Front;
+// 1 while the world is being rebuilt: then the front runs outward, the world remade inside it and the void beyond.
+uniform float Remake;
 uniform float Clamp;
 uniform int Style;
 uniform int Extras;
@@ -31,7 +35,6 @@ uniform float Black;
 uniform vec4 Burst;
 uniform vec4 Odin;
 uniform vec4 OdinState;
-uniform vec3 OdinFacing;
 uniform vec3 BurstLight;
 uniform float Shock;
 uniform float SkyMix;
@@ -305,7 +308,10 @@ vec3 relAt(vec2 uv) {
 vec3 burst(vec2 uv, vec3 c) {
     if (isSky(uv)) {
         c = SkyMix > 0.0 ? mix(c, cosmos(viewDir(uv), Time), SkyMix) : c;
-        // The sky goes dark as the black spreads under it.
+        // The sky goes dark as the black spreads under it, and comes back as the rebuilt world spreads out again.
+        if (Remake > 0.0) {
+            return c * smoothstep(60.0, 520.0, Front);
+        }
         return Front >= 0.0 ? c * (1.0 - smoothstep(40.0, 360.0, Front)) : c;
     }
     if (Burst.w <= 0.0 && Shock < 0.0) {
@@ -353,6 +359,23 @@ vec3 erase(vec2 uv, vec3 c) {
     }
     // Up and down count for half, so the valleys go with the ground round them rather than long after.
     float m = abs(mid.x) + 0.5 * abs(mid.y) + abs(mid.z) + hash3(cell) * 7.0 * size;
+    if (Remake > 0.0) {
+        // Built back block by block out from the middle: beyond the front, nothing; at it, each block coming in as a
+        // white-hot cube outlined in light, cooling to itself over the next few blocks behind.
+        float lead = m - Front;
+        if (lead > 0.0) {
+            return vec3(0.0);
+        }
+        float band = 6.0 * size + 10.0 + Front * 0.03;
+        float k = clamp(-lead / band, 0.0, 1.0);
+        vec3 f = fract((rel + CamOffset) / size);
+        vec3 e = min(f, 1.0 - f);
+        float second = max(min(e.x, e.y), min(max(e.x, e.y), e.z));
+        float wire = 1.0 - smoothstep(0.03, 0.09, second);
+        vec3 glow = vec3(0.78, 0.68, 1.0);
+        c = mix(glow * 1.6 + c, c, smoothstep(0.0, 0.45, k));
+        return c + glow * wire * (1.0 - k) * 2.2;
+    }
     if (m < Front - 1.6 * size) {
         return vec3(0.0);
     }
@@ -361,131 +384,6 @@ vec3 erase(vec2 uv, vec3 c) {
         return mix(c, vec3(1.0), 0.92 * (1.0 - smoothstep(220.0, 420.0, Front)));
     }
     return c;
-}
-
-// Odin in the void, for the rebuild: a colossal cloaked figure in a wide-brimmed hat, his cloak full of stars, one eye
-// burning, Gungnir upright in his left hand and his right arm coming up and sweeping down. Raymarched in his own
-// frame (feet at the origin, one unit his height, facing the shooter along +z). Odin is the feet (relative to the
-// target) and height in blocks; OdinState is how much he is there, his eye, his arm (0 down, 1 raised), the light in
-// his hand; OdinFacing the way from the shooter to him.
-
-float sdSeg(vec3 p, vec3 a, vec3 b, float ra, float rb) {
-    vec3 pa = p - a;
-    vec3 ba = b - a;
-    float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
-    return length(pa - ba * h) - mix(ra, rb, h);
-}
-
-float smin(float a, float b, float k) {
-    float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
-    return mix(b, a, h) - k * h * (1.0 - h);
-}
-
-vec3 odinHand(float arm) {
-    return mix(vec3(0.25, 0.42, 0.13), vec3(0.42, 1.02, 0.24), arm);
-}
-
-float odinShape(vec3 p, float arm) {
-    // The cloak, falling heavy and wide from his shoulders to the ground, folds in it.
-    float folds = 0.012 * sin(atan(p.x, p.z) * 9.0) * smoothstep(0.75, 0.1, p.y);
-    float cloak = sdSeg(p, vec3(0.0, 0.0, -0.02), vec3(0.0, 0.76, 0.0), 0.42, 0.15) + folds;
-    float body = smin(cloak, sdSeg(p, vec3(-0.19, 0.73, 0.0), vec3(0.19, 0.73, 0.0), 0.085, 0.085), 0.08);
-    // Head, beard, and the wide-brimmed hat.
-    body = smin(body, length(p - vec3(0.0, 0.855, 0.02)) - 0.075, 0.03);
-    body = smin(body, sdSeg(p, vec3(0.0, 0.83, 0.07), vec3(0.0, 0.66, 0.1), 0.055, 0.012), 0.02);
-    float brim = max(abs(p.y - 0.915) - 0.006, length(p.xz - vec2(0.0, 0.01)) - 0.2);
-    float crown = sdSeg(p, vec3(0.0, 0.91, 0.01), vec3(0.0, 1.03, 0.0), 0.085, 0.035);
-    body = min(body, min(brim, crown));
-    // His left arm down to the spear; his right arm coming up and sweeping down.
-    body = smin(body, sdSeg(p, vec3(-0.2, 0.7, 0.02), vec3(-0.27, 0.5, 0.1), 0.06, 0.035), 0.06);
-    body = smin(body, sdSeg(p, vec3(0.2, 0.7, 0.02), odinHand(arm), 0.06, 0.03), 0.06);
-    // Gungnir.
-    float spear = min(sdSeg(p, vec3(-0.28, -0.02, 0.11), vec3(-0.28, 1.25, 0.11), 0.006, 0.006),
-                      sdSeg(p, vec3(-0.28, 1.25, 0.11), vec3(-0.28, 1.34, 0.11), 0.018, 0.0));
-    return min(body, spear);
-}
-
-float odinHash(vec3 p) {
-    p = fract(p * 0.3183099 + vec3(0.1, 0.2, 0.3));
-    p *= 17.0;
-    return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
-}
-
-// Glow round the point q seen along the ray (ro, rd), q and the ray in blocks.
-float glowAt(vec3 ro, vec3 rd, vec3 q, float size) {
-    float along = max(dot(q - ro, rd), 0.0);
-    float miss = length(ro + rd * along - q);
-    return exp(-pow(miss / size, 2.0)) + 0.15 * exp(-miss / (size * 6.0));
-}
-
-// c is what is there already; sceneDist how far its surface is (blocks), or < 0 where nothing stands in front of him.
-vec3 odin(vec3 ro, vec3 rd, vec3 c, float sceneDist) {
-    float there = OdinState.x;
-    if (there <= 0.001) {
-        return c;
-    }
-    float h = Odin.w;
-    vec3 feet = Odin.xyz;
-    vec3 fwd = -normalize(vec3(OdinFacing.x, 0.0, OdinFacing.z));
-    vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), fwd));
-    // Into his frame, in units of his height.
-    vec3 o = ro - feet;
-    vec3 lo = vec3(dot(o, right), o.y, dot(o, fwd)) / h;
-    vec3 ld = vec3(dot(rd, right), rd.y, dot(rd, fwd));
-    vec3 centre = vec3(0.0, 0.6, 0.0);
-    // Behind him, a cold gold halo, so he stands out against the black.
-    vec3 head = feet + vec3(0.0, 0.88 * h, 0.0) - fwd * 0.3 * h;
-    vec3 toHead = normalize(head - ro);
-    float ang = acos(clamp(dot(rd, toHead), -1.0, 1.0));
-    vec3 col = c;
-    bool front = sceneDist < 0.0;
-    vec3 halo = (vec3(1.0, 0.72, 0.38) * exp(-ang / 0.12) * 0.7 + vec3(0.55, 0.4, 1.0) * exp(-ang / 0.4) * 0.22) * there;
-    // March.
-    vec3 oc = lo - centre;
-    float b = dot(oc, ld);
-    float disc = b * b - (dot(oc, oc) - 0.75 * 0.75);
-    float hit = -1.0;
-    if (disc > 0.0) {
-        float t = max(-b - sqrt(disc), 0.0);
-        float t1 = -b + sqrt(disc);
-        for (int i = 0; i < 90; i++) {
-            float d = odinShape(lo + ld * t, OdinState.z);
-            if (d < 0.0008 * (1.0 + t)) {
-                hit = t;
-                break;
-            }
-            t += d * 0.9;
-            if (t > t1) {
-                break;
-            }
-        }
-    }
-    float tBlocks = hit * h;
-    bool shown = hit >= 0.0 && (front || tBlocks < sceneDist);
-    if (shown) {
-        vec3 p = lo + ld * hit;
-        vec2 e = vec2(0.0015, -0.0015);
-        vec3 n = normalize(e.xyy * odinShape(p + e.xyy, OdinState.z) + e.yyx * odinShape(p + e.yyx, OdinState.z)
-                         + e.yxy * odinShape(p + e.yxy, OdinState.z) + e.xxx * odinShape(p + e.xxx, OdinState.z));
-        // A shape cut out of the light behind him: black, edged thinly in gold where his outline turns away.
-        float rim = pow(1.0 - max(dot(n, -ld), 0.0), 5.0);
-        vec3 shade = vec3(0.006, 0.005, 0.012) + vec3(1.0, 0.72, 0.38) * rim * 0.9 + vec3(0.5, 0.42, 1.0) * rim * 0.25;
-        // His cloak is the night: stars in it.
-        float star = step(0.996, odinHash(floor(p * 420.0)));
-        shade += vec3(0.85, 0.9, 1.0) * star * 1.2 * smoothstep(0.85, 0.6, p.y);
-        col = mix(c, shade, there);
-    } else if (front || hit < 0.0) {
-        col = c + halo;
-    }
-    // His one eye, the spear's point and the light in his hand.
-    vec3 eye = feet + right * 0.03 * h + vec3(0.0, 0.868 * h, 0.0) + fwd * 0.09 * h;
-    col += vec3(1.0, 0.86, 0.5) * glowAt(ro, rd, eye, 0.006 * h) * 6.0 * OdinState.y * there;
-    vec3 tip = feet - right * 0.28 * h + vec3(0.0, 1.34 * h, 0.0) + fwd * 0.11 * h;
-    col += vec3(0.9, 0.8, 1.0) * glowAt(ro, rd, tip, 0.008 * h) * 2.5 * there;
-    vec3 hl = odinHand(OdinState.z);
-    vec3 hand = feet + right * hl.x * h + vec3(0.0, hl.y * h, 0.0) + fwd * hl.z * h;
-    col += vec3(0.95, 0.9, 1.0) * glowAt(ro, rd, hand, 0.02 * h) * 4.0 * OdinState.w * there;
-    return col;
 }
 
 void main() {
@@ -516,7 +414,11 @@ void main() {
         if (OdinState.x > 0.0) {
             // Nothing stands in front of him in the sky or where the black still is; elsewhere the world remade does.
             bool open = isSky(uv) || dot(c, c) < 1.0e-6;
-            c = odin(CamOffset, viewDir(uv), c, open ? -1.0 : length(relAt(uv)));
+            float him = length(Odin.xyz - CamOffset) - 0.4 * Odin.w;
+            if (open || length(relAt(uv)) > him) {
+                vec4 o = texture(Sampler2, uv);
+                c = c * (1.0 - o.a * OdinState.x) + o.rgb * OdinState.x;
+            }
         }
     }
     c = mix(c, vec3(1.0), clamp(Flash, 0.0, 1.0));
