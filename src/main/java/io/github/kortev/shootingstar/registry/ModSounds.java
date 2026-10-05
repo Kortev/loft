@@ -35,6 +35,14 @@ public final class ModSounds {
 
 	// Ω-00 Ginnungagap. The shooter's cues are stereo; the swap is mono so it can be placed in the world.
 	public static final SoundEvent GAP_KEY = register("gap.key");
+	public static final SoundEvent GAP_AMBIENCE = register("gap.ambience");
+	public static final SoundEvent GAP_WAKE = register("gap.wake");
+	public static final SoundEvent GAP_MAP = register("gap.map");
+	public static final SoundEvent GAP_EXTRACT = register("gap.extract");
+	public static final SoundEvent GAP_SEND = register("gap.send");
+	public static final SoundEvent GAP_FALL = register("gap.fall");
+	public static final SoundEvent GAP_INBOUND = register("gap.inbound");
+	public static final SoundEvent GAP_BLAST = register("gap.blast");
 	public static final SoundEvent GAP_LOCK = register("gap.lock");
 	public static final SoundEvent GAP_TEAR = register("gap.tear");
 	public static final SoundEvent GAP_DRONE = register("gap.drone");

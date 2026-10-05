@@ -190,44 +190,51 @@ public final class ClientGaps {
 		if (!gap.feedSkipped) {
 			if (crossed(from, to, GapTimeline.FEED)) {
 				ClientStrikes.master(ModSounds.FEED_ZOOM, 1.0F, 1.0F);
-				held(gap, ModSounds.FEED_AMBIENCE);
+				// The bed under the whole of the feed up to the dive.
+				held(gap, ModSounds.GAP_AMBIENCE);
 			}
-			// The emitters lighting round the frame.
+			// The emitters lighting round the frame, and the title landing.
 			if (crossed(from, to, GapTimeline.GATE + 10)) {
-				held(gap, ModSounds.FEED_WAKE);
+				held(gap, ModSounds.GAP_WAKE);
 			}
-			// The window tearing open, the block selected and drawn through.
+			// The window tearing open and the camera diving through it.
 			if (crossed(from, to, GapTimeline.OPEN + 8)) {
 				held(gap, ModSounds.GAP_TEAR);
 			}
-			if (crossed(from, to, GapTimeline.CUT)) {
+			// Inside that universe and back out of it, until the block in the middle is selected.
+			if (crossed(from, to, GapTimeline.MAP)) {
+				held(gap, ModSounds.GAP_MAP);
+			}
+			if (crossed(from, to, GapTimeline.MAP + 56)) {
 				held(gap, ModSounds.GAP_LOCK);
 			}
-			if (crossed(from, to, GapTimeline.CUT + 12)) {
-				held(gap, ModSounds.FEED_LOAD);
+			// Back outside the gate: the block drawn through, the window shutting.
+			if (crossed(from, to, GapTimeline.CUT)) {
+				held(gap, ModSounds.GAP_EXTRACT);
 			}
 			if (crossed(from, to, GapTimeline.SEND + 3)) {
-				held(gap, ModSounds.FEED_RELEASE);
+				held(gap, ModSounds.GAP_SEND);
 			}
-			if (crossed(from, to, GapTimeline.FALL + 40)) {
-				held(gap, ModSounds.FEED_REENTRY);
+			if (crossed(from, to, GapTimeline.FALL)) {
+				held(gap, ModSounds.GAP_FALL);
 			}
 		}
-		// Six seconds long, ending dead on contact: it carries on whether the feed is up or not.
-		if (crossed(from, to, GapTimeline.CONTACT - 120)) {
+		// Five and three quarter seconds long, from the bridge firing to dead on contact: it carries on whether the
+		// feed is up or not.
+		if (crossed(from, to, GapTimeline.SEND + 3)) {
 			ClientStrikes.master(ModSounds.GAP_DRONE, 1.0F, 1.0F);
 		}
 		if (crossed(from, to, GapTimeline.INBOUND)) {
-			ClientStrikes.master(ModSounds.STRIKE_INBOUND_NEAR, 1.0F, 1.0F);
+			ClientStrikes.master(ModSounds.GAP_INBOUND, 1.0F, 1.0F);
 		}
 		if (crossed(from, to, GapTimeline.CONTACT)) {
 			ClientStrikes.master(ModSounds.GAP_CONTACT, 1.0F, 1.0F);
 			ClientStrikes.master(ModSounds.GAP_IMPACT, 1.0F, 1.0F);
 		}
 		if (crossed(from, to, GapTimeline.BLAST)) {
-			ClientStrikes.master(ModSounds.STRIKE_RUMBLE_NEAR, 1.0F, 1.0F);
+			ClientStrikes.master(ModSounds.GAP_BLAST, 1.0F, 1.0F);
 		}
-		if (crossed(from, to, GapTimeline.COLLAPSE)) {
+		if (crossed(from, to, GapTimeline.ERASURE)) {
 			ClientStrikes.master(ModSounds.GAP_ERASE, 1.0F, 1.0F);
 		}
 		if (crossed(from, to, GapTimeline.NOTHING)) {
