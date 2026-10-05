@@ -343,7 +343,8 @@ vec3 erase(vec2 uv, vec3 c) {
         return vec3(0.0);
     }
     if (m < Front) {
-        return mix(c, vec3(1.0), 0.92);
+        // The front's white edge, gone by the time the black has the sky too.
+        return mix(c, vec3(1.0), 0.92 * (1.0 - smoothstep(220.0, 420.0, Front)));
     }
     return c;
 }

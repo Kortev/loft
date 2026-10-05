@@ -294,7 +294,7 @@ public final class GapRender {
 			return;
 		}
 		double half = shock(gap, e);
-		float fade = (float) (Math.exp(-e / 40.0) * (1.0 - GapCamera.ease((t - GapTimeline.COLLAPSE + 20) / 20.0)));
+		float fade = (float) (Math.exp(-e / 60.0) * (1.0 - GapCamera.ease((t - GapTimeline.COLLAPSE + 20) / 20.0)));
 		if (fade <= 0.02F) {
 			return;
 		}
@@ -315,7 +315,7 @@ public final class GapRender {
 
 	/** How far the square front has run out from the point of contact, {@code e} ticks after it. */
 	static double shock(ClientGap gap, double e) {
-		return 4.0 + 2.6 * gap.radius * (1.0 - Math.exp(-e / 30.0));
+		return 4.0 + 2.6 * gap.radius * (1.0 - Math.exp(-e / 45.0));
 	}
 
 	/** Smaller blocks of the universe thrown out of the burst's faces, tumbling up and out, flaring white as they go. */
@@ -460,8 +460,9 @@ public final class GapRender {
 				g.flash = (float) Math.pow(1.0 - (t - GapTimeline.INBOUND) / 8.0, 1.5);
 				on = true;
 			}
-			if (t >= GapTimeline.CONTACT && t < GapTimeline.CONTACT + 4) {
-				g.flash = Math.max(g.flash, (float) Math.exp(-(t - GapTimeline.CONTACT) / 1.2));
+			// The hit: two ticks of pure white before the first frame.
+			if (t >= GapTimeline.CONTACT && t < GapTimeline.CONTACT + 2) {
+				g.flash = 1.0F;
 			}
 			if (t >= GapTimeline.FRAMES && t < GapTimeline.BLAST) {
 				double e = t - GapTimeline.FRAMES;

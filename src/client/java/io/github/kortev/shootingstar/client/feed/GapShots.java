@@ -234,7 +234,7 @@ final class GapShots implements Feed.Sequence {
 			}
 		}
 		if (s >= BRIDGE_S) {
-			bridge(s);
+			bridge(s, s < FALL_S);
 		}
 	}
 
@@ -301,16 +301,20 @@ final class GapShots implements Feed.Sequence {
 		}
 	}
 
-	/** The bridge: a shaft of light from the block down to the target, with a rainbow at its edges. */
-	private void bridge(double s) {
+	/**
+	 * The bridge: a shaft of light from the block (or, while the whole of it is in view, from where the block set off)
+	 * down to the target, with a rainbow at its edges.
+	 */
+	private void bridge(double s, boolean whole) {
 		double since = s - BRIDGE_S;
 		Vector3f top = blockPos(Math.min(s, DROP_S));
-		Vector3f from = s < DROP_S ? top : blockPos(s);
+		Vector3f from = whole || s < DROP_S ? top : blockPos(s);
 		float reach = Shots.smootherIn(since / 4.0);
 		Vector3f bottom = new Vector3f(top).lerp(GROUND, reach);
 		float fade = 1.0F - Shots.smooth((s - (END_S - 2.0)) / 2.0);
 		float k = (float) Math.exp(-since / 6.0);
-		float width = BLOCK * (0.55F + 0.9F * k);
+		// Never thinner than a couple of pixels, however far off the camera is.
+		float width = Math.max(BLOCK * (0.55F + 0.9F * k), cam.pos.distance(from) * 0.0011F);
 		Fx beam = space.glow(cam, Fx.BEAM, 0.0F);
 		beam.beam(from, bottom, cam.pos, width, Fx.argb(0.95F, 0.92F, 1.0F, fade), Fx.argb(0.8F, 0.7F, 1.0F, fade));
 		beam.beam(from, bottom, cam.pos, width * 2.6F, Fx.argb(0.55F, 0.3F, 1.0F, 0.5F * fade), Fx.argb(0.4F, 0.2F, 0.9F, 0.4F * fade));
@@ -469,29 +473,42 @@ final class GapShots implements Feed.Sequence {
 	private void send(double s, Overlay o) {
 		double r = s - SEND_S;
 		Vector3f block = blockHang(DROP_S);
-		// Off to the east of the block, level with it, looking down the bridge at Earth; the camera stays as the
-		// block falls away from it.
-		float k = Shots.smooth(r / (FALL_S - SEND_S));
-		Vector3f eye = new Vector3f(block).add(new Vector3f(46.0F, 10.0F - 6.0F * k, -16.0F));
-		Vector3f lookBlock = blockPos(Math.min(s, DROP_S + 2.0));
-		Vector3f lookDown = new Vector3f(block).add(new Vector3f(GROUND).sub(block).mul(0.04F));
-		Vector3f at = new Vector3f(lookBlock).lerp(lookDown, Shots.smoother((s - DROP_S) / 14.0));
-		scene(s, 0.4F, 30000.0F, eye, at, new Vector3f(0, 1, 0), 44.0F, true);
+		// Beside the block as the bridge lances down from it; then, as it drops, out to the whole bridge seen from far off
+		// over the limb, the gate at its top and the target at its foot, the block a point of light racing down it.
+		float out = Shots.smoother((s - DROP_S + 1.0) / 8.0);
+		Vector3f nearEye = new Vector3f(block).add(46.0F, 6.0F, -16.0F);
+		Vector3f wideEye = new Vector3f(block).add(1300.0F, 520.0F, -900.0F);
+		float d0 = nearEye.distance(block);
+		float d1 = wideEye.distance(block);
+		Vector3f dir = Shots.slerp(new Vector3f(nearEye).sub(block).normalize(), new Vector3f(wideEye).sub(block).normalize(), out);
+		Vector3f eye = new Vector3f(dir).mul((float) (d0 * Math.pow(d1 / d0, out))).add(block);
+		Vector3f nearAt = blockPos(Math.min(s, DROP_S));
+		Vector3f wideAt = new Vector3f(block).lerp(GROUND, 0.42F);
+		Vector3f at = new Vector3f(nearAt).lerp(wideAt, out);
+		float far = eye.distance(EARTH_CENTER) + EARTH_R;
+		scene(s, Math.max(0.4F, eye.distance(block) * 0.004F), far, eye, at, new Vector3f(0, 1, 0), Shots.lerp(44.0, 54.0, out), true);
+		if (out > 0.0F) {
+			// The block far off: a point of light.
+			Fx point = space.glow(cam, Fx.SPIKES, 0.0F);
+			Vector3f p = blockPos(s);
+			point.sprite(p, cam.pos.distance(p) * 0.02F * out, 0.0F, Fx.argb(0.95F, 0.9F, 1.0F, out));
+			point.end(true, 3.0F);
+		}
 
 		o.header = "[ BRIDGE · SOL-3 ]";
 		o.headerReveal = Shots.smooth(r / 4.0);
 		float range = blockPos(s).distance(GROUND) / KM;
 		o.footer = "RANGE " + Feed.commas(Math.round(range)) + " KM";
 		Overlay.Label target = label(o, GROUND, 10, -5, "TARGET", Feed.VIOLET, "39.50 N · 98.50 W", Feed.GREY,
-				Shots.smooth((s - BRIDGE_S - 3.0) / 3.0));
+				Shots.smooth((s - DROP_S - 4.0) / 3.0));
 		if (target != null) {
 			target.marker = true;
 		}
 		float bridge = s >= BRIDGE_S ? (float) Math.exp(-(s - BRIDGE_S) / 3.0) : 0.0F;
-		o.flash = 0.45F * bridge;
+		o.flash = 0.35F * bridge;
 		o.flashColor = 0xD8C8FF;
 		o.aberration = 0.008F * bridge;
-		o.zoomBlur = 0.1F * bridge;
+		o.zoomBlur = 0.06F * bridge + 0.08F * (float) Math.sin(Math.PI * out);
 	}
 
 	// =============================================================================================
