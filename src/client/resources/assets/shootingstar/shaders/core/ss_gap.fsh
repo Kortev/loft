@@ -132,6 +132,9 @@ bool isSky(vec2 uv) {
     return rawDepth(uv) >= 0.99999;
 }
 
+// Set where this pass has opened the sky through to the other universe.
+bool opened = false;
+
 // Clouds are part of our sky: they break and fall away with it.
 bool isCloud(vec2 uv) {
     float d = rawDepth(uv);
@@ -362,9 +365,11 @@ vec3 shatter(vec2 uv, vec3 c) {
     // As it falls the shard shrinks back from its edges, darkening, with its broken rim burning white.
     float inset = fall * 0.55;
     if (fall >= 1.0) {
+        opened = true;
         return behind;
     }
     if (edge < inset) {
+        opened = true;
         return behind + vec3(0.6, 0.85, 1.0) * exp(-(inset - edge) / (8.0 * px)) * 0.5 * (1.0 - fall);
     }
     float tilt = 0.8 + 0.4 * c_hash(vec3(id, 5.1));
@@ -464,4 +469,6 @@ void main() {
     c = mix(c, vec3(1.0), clamp(Flash, 0.0, 1.0));
     c = mix(c, vec3(0.0), clamp(Black, 0.0, 1.0));
     fragColor = vec4(c, 1.0);
+    // A cloud that has fallen away is gone from the depth buffer too, so nothing drawn after this is cut by it.
+    gl_FragDepth = opened ? 1.0 : rawDepth(uv);
 }

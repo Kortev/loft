@@ -78,10 +78,15 @@ public final class GapRender {
 			COPY.copyColorFrom(main);
 			main.beginWrite(true);
 			Post.begin();
+			// The pass writes depth back (clouds that broke away go with it), so it needs the depth test on to write.
+			RenderSystem.enableDepthTest();
+			RenderSystem.depthFunc(GL11.GL_ALWAYS);
+			RenderSystem.depthMask(true);
 			RenderSystem.setShaderTexture(0, COPY.color());
 			RenderSystem.setShaderTexture(1, DEPTH.depth());
 			grade.apply(proj, view, w, h, (float) (world.getTime() + tickDelta));
 			Post.quad(Shaders.gap);
+			RenderSystem.depthFunc(GL11.GL_LEQUAL);
 			RenderSystem.setShaderTexture(0, 0);
 			RenderSystem.setShaderTexture(1, 0);
 			// The one thing the erasure does not take: draw the shooter again over the black.
