@@ -202,7 +202,7 @@ final class GapShots implements Feed.Sequence {
 	private void scene(double s, float near, float far, Vector3f eye, Vector3f at, Vector3f up, float fov, boolean drawBlock) {
 		cam.perspective(fov, width, height, near, far);
 		cam.look(eye, at, up);
-		space.sky(cam, SKY, 1.0F, 0.0F, cam.forward(), 0.0F, 0.0F, 0.0F, time);
+		space.sky(cam, SKY, 0.6F, 0.0F, cam.forward(), 0.0F, 0.0F, 0.0F, time);
 		float detail = Shots.smooth(1.0 - eye.distance(GROUND) / 400.0);
 		space.earth(cam, EARTH, SUN, time * 0.00005F, detail, 1.05F);
 
@@ -211,7 +211,8 @@ final class GapShots implements Feed.Sequence {
 		space.fillColor.set(0.22F, 0.28F, 0.4F);
 		Shaders.set(Shaders.mesh, "Sweep", sweep(s));
 		Shaders.set(Shaders.mesh, "Phase", (float) (s * 0.45));
-		space.mesh(space.gate, cam, GATE, SUN, 1.25F, VIOLET, glow(s), 0.0F);
+		// The crew's windows and the beacons burn from the start; the emitters stay dark until the sweep reaches them.
+		space.mesh(space.gate, cam, GATE, SUN, 1.25F, VIOLET, Math.max(0.8F, glow(s)), 0.0F);
 		Shaders.set(Shaders.mesh, "Sweep", 2.0F);
 		Shaders.set(Shaders.mesh, "Phase", 0.0F);
 		space.fillColor.zero();
@@ -224,7 +225,9 @@ final class GapShots implements Feed.Sequence {
 		}
 		if (drawBlock && s >= CUT_S) {
 			selection(s);
-			float heat = 0.8F * (float) Math.exp(-Math.max(0.0, s - PULL_TO) / 4.0) * (s >= PULL_FROM ? 1.0F : 0.0F);
+			// A flash as it breaks through the window, not all the way.
+			float out = blockOut(s) / BLOCK;
+			float heat = s >= PULL_FROM ? 0.55F * (float) Math.exp(-out * out * 1.5F) : 0.0F;
 			// While it is still behind the window it can only be seen through it.
 			if (s >= PULL_FROM) {
 				space.universe(space.cube, cam, blockModel(s), 0, time, 0.0F, 1.0F, heat, 1.0F, 48, 1.0F);
@@ -239,9 +242,14 @@ final class GapShots implements Feed.Sequence {
 	private void windowLight(double s, float open) {
 		float flash = (float) Math.exp(-Math.max(0.0, s - REVEAL_FROM) / 4.0) * (s >= REVEAL_FROM ? 1.0F : 0.0F);
 		float closing = s > CLOSE_FROM ? Shots.smooth((s - CLOSE_FROM) / (CLOSE_TO - CLOSE_FROM)) : 0.0F;
+		boolean shutting = closing > 0.0F && closing < 1.0F;
 		Fx fx = space.glow(cam, Fx.BLOB, 1.0F);
 		fx.sprite(new Vector3f(FACE).mul(0.5F), WINDOW * (0.6F + open * 0.9F), 0.0F, Fx.argb(0.6F, 0.45F, 1.0F, 0.18F + 0.5F * flash));
-		if (closing > 0.0F && closing < 1.0F) {
+		if (shutting) {
+			fx.sprite(new Vector3f(), 3.0F + 6.0F * closing, 0.0F, Fx.argb(1.0F, 0.95F, 1.0F, 1.0F - closing * 0.5F));
+		}
+		fx.end(true, 2.0F);
+		if (shutting) {
 			// Shutting like an old screen: a bright bar, then a point.
 			float k = 1.0F - closing;
 			Fx bar = space.glow(cam, Fx.BEAM, 0.0F);
@@ -249,9 +257,7 @@ final class GapShots implements Feed.Sequence {
 			Vector3f b = new Vector3f(GATE_RIGHT).mul(WINDOW * k);
 			bar.beam(a, b, cam.pos, 0.25F + 0.6F * k, Fx.argb(0.9F, 0.85F, 1.0F, 1.0F), Fx.argb(0.9F, 0.85F, 1.0F, 1.0F));
 			bar.end(true, 3.0F);
-			fx.sprite(new Vector3f(), 3.0F + 6.0F * closing, 0.0F, Fx.argb(1.0F, 0.95F, 1.0F, 1.0F - closing * 0.5F));
 		}
-		fx.end(true, 2.0F);
 	}
 
 	/**
@@ -414,8 +420,8 @@ final class GapShots implements Feed.Sequence {
 		float open = reveal(s);
 		o.header = open < 0.05F ? "[ OPENING ]" : "[ UNIVERSE 4,096,113 ]";
 		o.headerReveal = open < 0.05F ? Shots.smooth(r / 4.0) : Shots.smooth((s - REVEAL_FROM) / 5.0);
-		Vector3f corner = GATE.transformPosition(new Vector3f(-WINDOW, WINDOW, 0.0F));
-		label(o, corner, -96, -16, "UNIVERSE 4,096,113", Feed.VIOLET, "13.7 BILLION YEARS OLD", Feed.GREY,
+		Vector3f edge = GATE.transformPosition(new Vector3f(WINDOW * 0.75F, WINDOW * 0.4F, 0.0F));
+		label(o, edge, 70, -26, "UNIVERSE 4,096,113", Feed.VIOLET, "13.7 BILLION YEARS OLD", Feed.GREY,
 				Shots.smooth((s - REVEAL_TO) / 4.0));
 		o.flash = 0.55F * (float) Math.exp(-Math.max(0.0, s - REVEAL_FROM) / 2.5) * (s >= REVEAL_FROM ? 1.0F : 0.0F);
 		o.flashColor = 0xE8DDFF;
@@ -447,7 +453,7 @@ final class GapShots implements Feed.Sequence {
 		o.footerSmall = "UNIVERSE 4,096,113 · 1 BLOCK";
 		// The punch of it coming through, and the snap of the window shutting.
 		float burst = (float) Math.exp(-Math.pow((s - (PULL_FROM + PULL_TO) * 0.5) / 2.5, 2.0));
-		o.zoomBlur = 0.2F * burst;
+		o.zoomBlur = 0.1F * burst;
 		o.aberration = 0.006F * burst;
 		o.flash = 0.35F * (float) Math.exp(-Math.max(0.0, s - CLOSE_TO) / 2.0) * (s >= CLOSE_TO ? 1.0F : 0.0F);
 		o.flashColor = 0xFFFFFF;
@@ -532,7 +538,7 @@ final class GapShots implements Feed.Sequence {
 	/** The violet sheath of shocked air in front of the block, and the ionised streaks it sheds. */
 	private void sheath(Vector3f block, Vector3f down, float heat) {
 		Matrix4f bow = new Matrix4f().translation(new Vector3f(block).add(new Vector3f(down).mul(BLOCK * 1.25F)))
-				.rotateTowards(new Vector3f(down).negate(), new Vector3f(0, 0, 1)).scale(BLOCK * 2.6F, BLOCK * 2.6F, BLOCK * 6.5F);
+				.rotateTowards(new Vector3f(down), new Vector3f(0, 0, 1)).scale(BLOCK * 2.6F, BLOCK * 2.6F, BLOCK * 6.5F);
 		space.plasma(space.cone, cam, bow, time * 0.05F, heat * 1.1F, 0.35F + heat * 0.65F, new Vector3f(0, 0, -6.0F), 1.0F, 1.0F);
 		Fx cap = space.glow(cam, Fx.BLOB, 1.0F);
 		cap.sprite(new Vector3f(block).add(new Vector3f(down).mul(BLOCK * 1.6F)), BLOCK * (1.2F + heat * 2.5F), 0.0F,

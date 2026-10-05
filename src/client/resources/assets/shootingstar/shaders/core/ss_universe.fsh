@@ -140,7 +140,7 @@ vec3 galaxies(vec3 o, vec3 rd, float t0, float t1, float turn) {
 
 // The light along the ray from t0 to t1 through the universe's near space, in front of its sky. {@code px} is
 // the size of a pixel at the surface, which keeps the stars to a pixel or two.
-vec3 march(vec3 ro, vec3 rd, float t0, float t1, int steps, vec3 shift, float px) {
+vec3 march(vec3 ro, vec3 rd, float t0, float t1, int steps, vec3 shift, float px, float gasScale) {
     float dt = (t1 - t0) / float(steps);
     float t = t0 + dt * hash(vec3(gl_FragCoord.xy, Seed));
     vec3 light = vec3(0.0);
@@ -157,7 +157,7 @@ vec3 march(vec3 ro, vec3 rd, float t0, float t1, int steps, vec3 shift, float px
         float ridge = 1.0 - abs(2.0 * fbm(p * 2.3 + vec3(2.0, Seed, 1.0)) - 1.0);
         float dens = pow(smoothstep(0.52, 0.86, n), 2.5) * 0.9 + pow(ridge, 14.0) * smoothstep(0.35, 0.6, n) * 1.4;
         float dust = smoothstep(0.55, 0.75, k) * smoothstep(0.4, 0.65, n) * 3.0;
-        vec3 e = gas(n, k) * dens;
+        vec3 e = gas(n, k) * dens * gasScale;
         // Stars: one at most in each cell, counted at the step that passes closest to it.
         vec3 cell = floor(p * 10.0);
         float h = hash(cell + Seed * 3.0);
@@ -219,7 +219,7 @@ void main() {
         vec3 d = vec3(rd.xy, rd.z * side);
         float t0 = -o.z / d.z;
         float t1 = t0 + 3.0 / max(abs(d.z), 0.25);
-        c = march(o, d, t0, t1, Steps, vec3(0.0, 0.0, 1.0), px);
+        c = march(o, d, t0, t1, Steps, vec3(0.0, 0.0, 1.0), px, 0.5);
         // The rim of the opening burns white and crackles as it grows.
         float rim = edgeOpen - open;
         float crackle = 0.6 + 0.4 * noise(vec3(q * 18.0, Time * 0.6));
@@ -238,7 +238,7 @@ void main() {
         if (Mode == 2) {
             c = sky(rd, px * 2.0) * 2.0 + gas(fbm(rd * 1.7 + Seed), 0.5) * 0.08 + galaxies(ro, rd, t0, t1, Time * 0.004);
         } else {
-            c = march(ro, rd, t0, t1, Steps, vec3(0.0), px);
+            c = march(ro, rd, t0, t1, Steps, vec3(0.0), px, 1.0);
         }
         vec3 front = ro + rd * t0;
         vec3 back = ro + rd * t1;

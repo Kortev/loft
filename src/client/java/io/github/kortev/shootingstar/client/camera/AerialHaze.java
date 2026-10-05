@@ -2,6 +2,9 @@ package io.github.kortev.shootingstar.client.camera;
 
 import io.github.kortev.shootingstar.client.ClientStrike;
 import io.github.kortev.shootingstar.client.ClientStrikes;
+import io.github.kortev.shootingstar.client.gap.ClientGap;
+import io.github.kortev.shootingstar.client.gap.ClientGaps;
+import io.github.kortev.shootingstar.gap.GapTimeline;
 import io.github.kortev.shootingstar.strike.StrikeTimeline;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
@@ -30,19 +33,33 @@ public final class AerialHaze {
 	public static State get(float tickDelta) {
 		MinecraftClient client = MinecraftClient.getInstance();
 		ClientPlayerEntity player = client.player;
-		ClientStrike strike = ClientStrikes.cinematic();
-		if (player == null || client.world == null || strike == null) {
+		if (player == null || client.world == null) {
 			return null;
 		}
-		double t = strike.time(tickDelta);
-		if (t >= StrikeTimeline.ORBIT || !ClientStrikes.shotActive(strike, t)) {
+		// Whichever rise is playing: a strike's, or the Genesis Key's.
+		Vec3d center = null;
+		ClientStrike strike = ClientStrikes.cinematic();
+		if (strike != null) {
+			double t = strike.time(tickDelta);
+			if (t < StrikeTimeline.ORBIT && ClientStrikes.shotActive(strike, t)) {
+				center = strike.center;
+			}
+		}
+		ClientGap gap = ClientGaps.mine();
+		if (center == null && gap != null) {
+			double t = gap.time(tickDelta);
+			if (t >= GapTimeline.RISE && t < GapTimeline.FEED) {
+				center = gap.contact;
+			}
+		}
+		if (center == null) {
 			return null;
 		}
 		Vec3d cam = client.gameRenderer.getCamera().getPos();
 		Vec3d eye = player.getCameraPosVec(tickDelta);
 		float view = client.gameRenderer.getViewDistance();
 		double offset = Math.sqrt((cam.x - eye.x) * (cam.x - eye.x) + (cam.z - eye.z) * (cam.z - eye.z));
-		double altitude = cam.y - strike.center.y;
+		double altitude = cam.y - center.y;
 		// The farthest ground still loaded, seen from the camera, less a margin so the last chunks are already gone.
 		float end = (float) MathHelper.clamp(view - offset - 28.0, 40.0, view);
 		float aerial = (float) MathHelper.clamp((altitude - 10.0) / 80.0, 0.0, 1.0);
