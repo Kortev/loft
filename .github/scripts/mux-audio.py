@@ -24,9 +24,15 @@ def encode(crf):
         cmd += ['-i', os.path.join(folder, 'sounds', s['file'])]
         delay = max(0, int(round(s['time'] * 1000)))
         rate = 48000 * max(0.25, min(4.0, s['pitch']))
+        # A sound can start part way into its file and fade up (the song in the black does both).
+        trim = ''
+        if s.get('offset', 0) > 0:
+            trim += 'atrim=start=%.3f,asetpts=PTS-STARTPTS,' % s['offset']
+        if s.get('fade', 0) > 0:
+            trim += 'afade=t=in:st=0:d=%.3f:curve=qua,' % s['fade']
         # Mono world sounds and stereo close-ups mix on a common stereo bus.
-        graph.append('[%d:a]aformat=channel_layouts=stereo,aresample=48000,asetrate=%.1f,aresample=48000,volume=%.3f,'
-                     'adelay=%d:all=1[s%d]' % (i + 1, rate, s['gain'], delay, i))
+        graph.append('[%d:a]aformat=channel_layouts=stereo,aresample=48000,asetrate=%.1f,aresample=48000,%svolume=%.3f,'
+                     'adelay=%d:all=1[s%d]' % (i + 1, rate, trim, s['gain'], delay, i))
         labels.append('[s%d]' % i)
     if sounds:
         # A plain sum, as the game mixes them, with a limiter only to catch overs: alimiter's default

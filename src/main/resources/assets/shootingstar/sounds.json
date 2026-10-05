@@ -275,5 +275,13 @@
         "stream": true
       }
     ]
+  },
+  "gap.void_music": {
+    "sounds": [
+      {
+        "name": "minecraft:music/game/mice_on_venus",
+        "stream": true
+      }
+    ]
   }
 }

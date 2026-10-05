@@ -2,6 +2,7 @@ package io.github.kortev.shootingstar.test;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import io.github.kortev.shootingstar.ShootingStar;
+import io.github.kortev.shootingstar.client.gap.VoidMusic;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -53,7 +54,8 @@ public final class Capture {
 	public record Pose(double x, double y, double z, float yaw, float pitch) {
 	}
 
-	private record Played(double time, String file, float gain, float pitch) {
+	/** A sound in the log: when, which file and how loud; {@code offset} seconds into the file, rising over {@code fade} seconds. */
+	private record Played(double time, String file, float gain, float pitch, double offset, double fade) {
 	}
 
 	private static volatile boolean active;
@@ -213,8 +215,10 @@ public final class Capture {
 			return;
 		}
 		SoundCategory category = instance.getCategory();
-		if (category == SoundCategory.MUSIC || category == SoundCategory.RECORDS || category == SoundCategory.AMBIENT
-				|| category == SoundCategory.VOICE) {
+		// Minecraft's own music would differ run to run; the void's song is the mod's and goes in.
+		boolean song = instance.getId().equals(VoidMusic.ID);
+		if (!song && (category == SoundCategory.MUSIC || category == SoundCategory.RECORDS || category == SoundCategory.AMBIENT
+				|| category == SoundCategory.VOICE)) {
 			return;
 		}
 		MinecraftClient client = MinecraftClient.getInstance();
@@ -225,6 +229,11 @@ public final class Capture {
 		}
 		String file = extract(client, sound.getLocation());
 		if (file == null) {
+			return;
+		}
+		if (song) {
+			// It starts silent and fades itself up, so log it at full with its start point and fade.
+			SOUNDS.add(new Played((clock + delay) / 20.0, file, 1.0F, 1.0F, VoidMusic.FROM_SECONDS, VoidMusic.FADE_SECONDS));
 			return;
 		}
 		float volume = instance.getVolume();
@@ -238,7 +247,7 @@ public final class Capture {
 		if (gain <= 0.01F) {
 			return;
 		}
-		SOUNDS.add(new Played((clock + delay) / 20.0, file, gain, instance.getPitch()));
+		SOUNDS.add(new Played((clock + delay) / 20.0, file, gain, instance.getPitch(), 0.0, 0.0));
 	}
 
 	@Nullable
@@ -266,8 +275,9 @@ public final class Capture {
 		StringBuilder json = new StringBuilder("[\n");
 		for (int i = 0; i < SOUNDS.size(); i++) {
 			Played p = SOUNDS.get(i);
-			json.append(String.format(Locale.ROOT, "  {\"time\": %.4f, \"file\": \"%s\", \"gain\": %.4f, \"pitch\": %.4f}%s\n",
-					p.time(), p.file(), p.gain(), p.pitch(), i + 1 < SOUNDS.size() ? "," : ""));
+			json.append(String.format(Locale.ROOT,
+					"  {\"time\": %.4f, \"file\": \"%s\", \"gain\": %.4f, \"pitch\": %.4f, \"offset\": %.3f, \"fade\": %.3f}%s\n",
+					p.time(), p.file(), p.gain(), p.pitch(), p.offset(), p.fade(), i + 1 < SOUNDS.size() ? "," : ""));
 		}
 		json.append("]\n");
 		try {

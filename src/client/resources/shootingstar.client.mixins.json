@@ -8,6 +8,7 @@
 		"EntityLookMixin",
 		"GameRendererMixin",
 		"HeldItemRendererMixin",
+		"MusicTrackerMixin",
 		"WorldRendererMixin"
 	],
 	"injectors": {

@@ -24,8 +24,11 @@ import org.jetbrains.annotations.Nullable;
 /** Client side of Ginnungagap events: their state and their sound cues. */
 public final class ClientGaps {
 	private static final Map<Integer, ClientGap> GAPS = new LinkedHashMap<>();
+	/** When the song in the black comes in: a second after the camera is back in the shooter's eyes. */
+	private static final int SONG = GapTimeline.RETURN + 20;
 	private static boolean hudOverride;
 	private static boolean savedHudHidden;
+	private static boolean musicHeld;
 
 	private ClientGaps() {
 	}
@@ -67,6 +70,11 @@ public final class ClientGaps {
 		}
 		int t = gap.age;
 		return t >= GapTimeline.RISE - 2 && t < GapTimeline.FEED + 2 || t >= GapTimeline.INBOUND - 2 && t < GapTimeline.ERASURE;
+	}
+
+	/** No music of Minecraft's own from the key turning until the song in the black has played out. */
+	public static boolean holdMusic() {
+		return mine() != null || VoidMusic.playing();
 	}
 
 	/** The shooter's world shots run without clouds, from the block coming down to the end. */
@@ -125,6 +133,7 @@ public final class ClientGaps {
 
 	public static void clear(MinecraftClient client) {
 		GAPS.clear();
+		VoidMusic.stop();
 	}
 
 	public static void tick(MinecraftClient client) {
@@ -133,6 +142,12 @@ public final class ClientGaps {
 			return;
 		}
 		hud(client);
+		boolean hold = holdMusic();
+		if (hold && !musicHeld) {
+			// Whatever was playing stops as the key turns; the tracker itself is held until the hold lifts.
+			client.getMusicTracker().stop();
+		}
+		musicHeld = hold;
 		for (Iterator<ClientGap> it = GAPS.values().iterator(); it.hasNext(); ) {
 			ClientGap gap = it.next();
 			int from = gap.age;
@@ -217,6 +232,9 @@ public final class ClientGaps {
 		}
 		if (crossed(from, to, GapTimeline.NOTHING)) {
 			ClientStrikes.master(ModSounds.GAP_VOID, 1.0F, 1.0F);
+		}
+		if (crossed(from, to, SONG)) {
+			VoidMusic.start();
 		}
 	}
 
