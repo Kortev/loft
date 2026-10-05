@@ -1667,6 +1667,17 @@ def gap_map():
         beat = np.sin(2 * np.pi * (40 + 30 * np.exp(-tt / 0.02)) * tt) * np.exp(-tt / 0.1)
         up.add(sat(beat * 1.4, 1.4), at, 0.3)
     up.add(stereo(inhale(total - lift, 250, 4000, tau=0.6)), lift, 0.5)
+    # Crushed down (from 3.3 s): its two trillion galaxies packed in, a deep grinding crunch closing up on itself; then
+    # dragged out (from 3.6 s), a rush tearing up past the camera, faster and faster into the cut.
+    crunch_at, drag_at = 66 / 20.0, 72 / 20.0
+    q = ns(total - crunch_at)
+    grind = crush(brown(q) * 0.5 + white(q) * 0.2, 4.0, curve(q, [(0, 2.0), (q / SR, 18.0)], 'log'))
+    grind = sweep_filter(lp(grind, 3000), 'lowpass', curve(q, [(0, 2500), (q / SR, 300)], 'log'))
+    up.add(stereo(rms_norm(grind, 0.2) * curve(q, [(0, 0.0), (0.3, 1.0), (q / SR, 0.7)])), crunch_at, 0.5)
+    q = ns(total - drag_at)
+    rush = decorrelated(q, pink)
+    rush = np.vstack([sweep_filter(c, 'bandpass', curve(q, [(0, 300), (q / SR, 5000)], 'log'), width=1.5) for c in rush])
+    up.add(rms_norm(rush, 0.2) * curve(q, [(0, 0.0), (q / SR, 1.0)]) ** 2, drag_at, 0.9)
     x = s + reverb(up.out(), vast, wet=0.2)[:, :n] + reverb(arrive.out(), vast, wet=0.15)[:, :n]
     return cut(master(x, peak=0.9, squash=0.2), total)
 
@@ -2170,6 +2181,16 @@ def gap_blast():
     m.add(stereo(inhale(total - collapse, 120, 6000, tau=0.18)), collapse, 1.0)
     m.add(stereo(sine(curve(q, [(0, 60), (q / SR, 600)], 'log')) * curve(q, [(0, 0.0), (q / SR, 1.0)]) ** 2), collapse,
           0.3)
+    # Its galaxies flying out past the camera: a dozen swooshes going by on one side or the other, falling as they pass.
+    for i in range(12):
+        at = 0.25 + 2.6 * (i / 11) ** 1.4 + rng.uniform(-0.05, 0.05)
+        length = rng.uniform(0.35, 0.7)
+        q = ns(length)
+        f = curve(q, [(0, rng.uniform(2500, 5000)), (length, rng.uniform(250, 600))], 'log')
+        y = sweep_filter(pink(q), 'bandpass', f, width=1.2) * np.sin(np.pi * np.arange(q) / q) ** 2
+        side = 1.0 if i % 2 else -1.0
+        where = curve(q, [(0, -0.8 * side), (length, 0.9 * side)])
+        m.add(np.vstack([y * np.sqrt((1 - where) / 2), y * np.sqrt((1 + where) / 2)]), at, 0.25 * rng.uniform(0.6, 1.0))
     x = reverb(m.out(), world, wet=0.4)[:, :n]
     return cut(master(x, peak=0.97, drive=1.5, squash=0.3), total)
 
@@ -2249,6 +2270,14 @@ def gap_erase():
         swell = decorrelated(q, pink) * np.exp(-np.arange(q) / SR / (length / 3))
         swell = np.vstack([sweep_filter(c, 'lowpass', curve(q, [(0, 3000), (length, 150)], 'log'), order=2) for c in swell])
         m.add(rms_norm(swell[:, ::-1], 0.2), end_at - length, 0.5 * (0.15 + 0.85 * (end_at / black) ** 2))
+    # The world flaking off behind the front: wisps of air lifting, more and more of them, each a breath of noise whose
+    # band climbs as it rises. Wide bands and slow, so they are air and never a whistle.
+    def wisp():
+        length = rng.uniform(0.4, 0.9)
+        q = ns(length)
+        f = curve(q, [(0, rng.uniform(300, 700)), (length, rng.uniform(1500, 3000))], 'log')
+        return sweep_filter(white(q), 'bandpass', f, width=2.0) * np.sin(np.pi * np.arange(q) / q) ** 2 * 0.3
+    m.add(grains(n, lambda s: 3 + 30 * (s / black), wisp, end=total, gain_curve=level, spread=1.0), 0, 0.3)
     # The black itself spreading: a front of noise that starts as a point in the middle and opens out to both ears as it
     # grows, its band sinking and its weight building as it comes on over the camera...
     front = decorrelated(n, pink)
@@ -2303,6 +2332,68 @@ def gap_void():
     return cut(master(fade(m.out(), 0.0, 1.0), peak=0.9), total)
 
 
+def gap_rebuild():
+    """Reality remade (32 s, from the key used again): a soft loading hum and a run of glass tones as the loading
+    screen comes up; Odin appearing in the void, a vast low choir on D swelling under a deep breath, a boom and a
+    struck crystal as his one eye opens (6 s); a rising choir as his arm comes up, a breath drawn in and a huge sweep
+    of air as it comes down (11 s); then the world assembling itself from the edges in, grains of it falling into
+    place faster and faster over a D major chord building in glass, the black's own sound played backwards and
+    sucked away; resolving at 26 s into a full choir and chimes as the last of it is back; dying away by 32 s."""
+    total = 32.0
+    n = ns(total)
+    t = times(total)
+    vast, glass_hall, _, world = gap_spaces()
+    m = Mix(total)
+    # Loading: a soft hum and a run of glass tones climbing.
+    m.add(glass(((146.83, 0.6), (220.0, 0.4), (293.66, 0.3)), n) * curve(n, [(0, 0.0), (1.5, 0.5), (8.0, 0.3), (11.0, 0.0),
+                                                                              (total, 0.0)]), 0, 0.25)
+    for i, f in enumerate((587.33, 880.0, 1174.66, 1760.0)):
+        m.add(struck(f, 2.0, tau=0.5), 0.4 + 0.3 * i, 0.12, position=-0.5 + 0.33 * i)
+    # Odin: a vast low choir on D and A, swelling as he appears.
+    for f, g in ((73.42, 1.0), (110.0, 0.7), (146.83, 0.5)):
+        m.add(choir(f, n, vowel=OO, voices=6) * curve(n, [(0, 0.0), (2.0, 0.0), (7.0, 1.0), (11.0, 0.8), (14.0, 0.4),
+                                                          (26.0, 0.6), (30.0, 0.0), (total, 0.0)]), 0, 0.25 * g)
+    # His eye opening: a breath drawn in, then a boom and a struck crystal.
+    m.add(stereo(inhale(1.0, 150, 3000, tau=0.3)), 5.0, 0.5)
+    q = ns(3.0)
+    tq = np.arange(q) / SR
+    boom = sine(curve(q, [(0, 60), (3.0, 28)], 'log')) * attack_decay(q, 0.005, 0.8)
+    m.add(sat(boom * 1.6, 1.4), 6.0, 0.7)
+    m.add(struck(1174.66, 4.0, tau=1.2, bright=0.3), 6.0, 0.15)
+    # His arm: a rising choir, a breath, and the sweep.
+    m.add(choir(293.66, ns(3.0), vowel=AH, voices=6, glide=curve(ns(3.0), [(0, 0.75), (3.0, 1.0)])) *
+          curve(ns(3.0), [(0, 0.0), (2.5, 1.0), (3.0, 0.0)]), 8.0, 0.3)
+    m.add(stereo(inhale(0.8, 300, 6000, tau=0.25)), 10.2, 0.6)
+    q = ns(2.5)
+    sweep = decorrelated(q, pink)
+    sweep = np.vstack([sweep_filter(c, 'bandpass', curve(q, [(0, 6000), (2.5, 200)], 'log'), width=2.0) for c in sweep])
+    m.add(rms_norm(sweep, 0.2) * attack_decay(q, 0.02, 0.7), 11.0, 0.9)
+    q = ns(2.0)
+    m.add(sat(sine(curve(q, [(0, 50), (2.0, 25)], 'log')) * attack_decay(q, 0.004, 0.6) * 1.5, 1.4), 11.0, 0.6)
+    # The world assembling: grains of it falling into place, faster and faster, then fewer as it is done.
+    def place():
+        q = ns(rng.uniform(0.02, 0.08))
+        y = bp(white(q), rng.uniform(100, 400), rng.uniform(1500, 5000))
+        # Played backwards: each comes in out of nothing and lands with a tap.
+        return (y * attack_decay(q, 0.001, q / SR / 3))[::-1] * min(rng.lognormal(-0.8, 0.5), 1.2)
+    rate = lambda s: 0 if s < 11.5 else 10 + 380 * np.sin(np.pi * min(1.0, (s - 11.5) / 15.0)) ** 2
+    m.add(grains(n, rate, place, start=11.5, end=27.0, spread=1.0), 0, 0.4)
+    # The black's sound sucked away backwards under it.
+    erase = make('gap_erase')
+    back = erase[:, ::-1] * curve(erase.shape[1], [(0, 0.0), (1.0, 0.6), (erase.shape[1] / SR, 1.0)])
+    m.add(back, 26.0 - erase.shape[1] / SR, 0.35)
+    # A D major chord building in glass from the sweep to the resolve.
+    chord = ((146.83, 0.5), (185.0, 0.4), (220.0, 0.4), (293.66, 0.35), (369.99, 0.25), (440.0, 0.2), (587.33, 0.15))
+    m.add(glass(chord, n) * curve(n, [(0, 0.0), (11.0, 0.0), (26.0, 0.8), (29.0, 1.0), (total, 0.0)]), 0, 0.35)
+    # Resolve: the full choir and chimes as the last of it is back.
+    for f in (146.83, 185.0, 220.0, 293.66):
+        m.add(choir(f, ns(6.0), vowel=AH, voices=5) * curve(ns(6.0), [(0, 0.0), (0.8, 1.0), (6.0, 0.0)]), 26.0, 0.18)
+    for i, f in enumerate((1174.66, 1479.98, 1760.0, 2349.32)):
+        m.add(struck(f, 5.0, tau=1.5, bright=0.3), 26.0 + 0.12 * i, 0.08, position=-0.6 + 0.4 * i)
+    x = reverb(m.out(), vast, wet=0.35)[:, :n]
+    return master(fade(x, 0.0, 2.0), peak=0.92)
+
+
 # Longest a sound may run (seconds): the feed's sounds must die away before the feed hands back to
 # the world at INBOUND.
 CAPS = {'uplink_lock': 2.5, 'camera_rise': 1.7, 'feed_zoom': 3.0, 'feed_ambience': 18.2, 'feed_relay': 3.4,
@@ -2315,7 +2406,7 @@ CAPS = {'uplink_lock': 2.5, 'camera_rise': 1.7, 'feed_zoom': 3.0, 'feed_ambience
         'gap_drone': gap_at('CONTACT', -3, since='SEND'), 'gap_inbound': gap_at('CONTACT', since='INBOUND'),
         'gap_swap': 0.5, 'gap_contact': 1.0, 'gap_impact': gap_at('BLAST', since='CONTACT'),
         'gap_blast': gap_at('ERASURE', since='BLAST'), 'gap_erase': gap_at('NOTHING', since='ERASURE'),
-        'gap_void': gap_at('END', since='NOTHING')}
+        'gap_void': gap_at('END', since='NOTHING'), 'gap_rebuild': 32.0}
 
 # How loud each sound is (dB, the RMS of its loudest 400 ms). The game plays them at full volume, so this is
 # the mix: the feed sits well down, the release and the re-entry come up, and the impact is far the loudest
@@ -2332,7 +2423,7 @@ LEVELS = {'uplink_lock': -16, 'uplink_denied': -18, 'camera_rise': -21, 'feed_zo
           # impact frames far the loudest, the burst next, the erasure growing to its cut, then almost nothing.
           'gap_key': -17, 'gap_ambience': -26, 'gap_wake': -17, 'gap_tear': -16, 'gap_map': -18, 'gap_lock': -20,
           'gap_extract': -17, 'gap_send': -10, 'gap_fall': -14, 'gap_drone': -17, 'gap_inbound': -16, 'gap_swap': -18,
-          'gap_contact': -26, 'gap_impact': -6, 'gap_blast': -11.5, 'gap_erase': -14, 'gap_void': -38}
+          'gap_rebuild': -16, 'gap_contact': -26, 'gap_impact': -6, 'gap_blast': -11.5, 'gap_erase': -14, 'gap_void': -38}
 
 SOUNDS = {
     # name: (recipe, stereo?)
@@ -2377,6 +2468,7 @@ SOUNDS = {
     'gap_blast': (gap_blast, True),
     'gap_erase': (gap_erase, True),
     'gap_void': (gap_void, True),
+    'gap_rebuild': (gap_rebuild, True),
 }
 
 

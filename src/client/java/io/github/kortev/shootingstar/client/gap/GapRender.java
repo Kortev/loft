@@ -438,6 +438,10 @@ public final class GapRender {
 		Vector3f burstLight = new Vector3f();
 		float shock = -1.0F;
 		float skyMix;
+		/** Odin's feet (relative to the target) and height; how much he is there, his eye, his arm, his hand's light. */
+		Vector4f odin = new Vector4f(0.0F, 0.0F, 0.0F, 1.0F);
+		Vector4f odinState = new Vector4f();
+		Vector3f odinFacing = new Vector3f(0.0F, 0.0F, 1.0F);
 
 		void apply(Matrix4f proj, Matrix4f view, int w, int h, float time) {
 			Matrix4f inv = new Matrix4f(proj).mul(view).invert();
@@ -461,7 +465,34 @@ public final class GapRender {
 			Shaders.set(Shaders.gap, "BurstLight", burstLight);
 			Shaders.set(Shaders.gap, "Shock", shock);
 			Shaders.set(Shaders.gap, "SkyMix", skyMix);
+			Shaders.set(Shaders.gap, "Odin", odin.x, odin.y, odin.z, odin.w);
+			Shaders.set(Shaders.gap, "OdinState", odinState.x, odinState.y, odinState.z, odinState.w);
+			Shaders.set(Shaders.gap, "OdinFacing", odinFacing);
 		}
+	}
+
+	/**
+	 * The rebuild: Odin rising out of the void and looking at the shooter, his arm coming up and sweeping down, and the
+	 * black running back out from the edges in until the world is all there again.
+	 */
+	private static void rebuild(Grade g, ClientGap gap, double r) {
+		double remake = GapCamera.ease((r - GapTimeline.REBUILD_SWEEP) / (GapTimeline.REBUILD_DONE - GapTimeline.REBUILD_SWEEP));
+		g.front = remake >= 1.0 ? -1.0F : (float) (4000.0 * Math.pow(1.0 - remake, 1.5));
+		if (gap.odinFeet == null || gap.odinFacing == null) {
+			return;
+		}
+		double rise = GapCamera.ease((r - GapTimeline.REBUILD_ODIN) / 90.0);
+		Vec3d feet = gap.odinFeet.add(0.0, -GapTimeline.ODIN_HEIGHT * 0.6 * (1.0 - rise), 0.0)
+				.subtract(gap.target.getX(), gap.target.getY(), gap.target.getZ());
+		g.odin.set((float) feet.x, (float) feet.y, (float) feet.z, (float) GapTimeline.ODIN_HEIGHT);
+		g.odinFacing.set((float) gap.odinFacing.x, 0.0F, (float) gap.odinFacing.z);
+		double there = GapCamera.ease((r - GapTimeline.REBUILD_ODIN) / 60.0)
+				* (1.0 - GapCamera.ease((r - GapTimeline.REBUILD_DONE + 20.0) / 80.0));
+		double eye = GapCamera.ease((r - GapTimeline.REBUILD_EYE) / 12.0);
+		double arm = r < GapTimeline.REBUILD_SWEEP ? GapCamera.ease((r - GapTimeline.REBUILD_ARM) / (GapTimeline.REBUILD_SWEEP - GapTimeline.REBUILD_ARM))
+				: 1.0 - GapCamera.ease((r - GapTimeline.REBUILD_SWEEP) / 14.0);
+		double hand = r < GapTimeline.REBUILD_SWEEP ? 0.6 * arm : 0.6 + 1.4 * Math.exp(-(r - GapTimeline.REBUILD_SWEEP) / 20.0);
+		g.odinState.set((float) there, (float) eye, (float) arm, (float) hand);
 	}
 
 	private static Grade grade(ClientGap mine, float tickDelta, Vec3d cam, Matrix4f view, Matrix4f proj) {
@@ -486,6 +517,10 @@ public final class GapRender {
 			if (t >= GapTimeline.ERASURE) {
 				g.front = (float) GapTimeline.eraseFront(t);
 				g.clamp = gap.mine ? 0.0F : gap.radius;
+			}
+			double r = gap.rebuild(tickDelta);
+			if (r >= 0.0) {
+				rebuild(g, gap, r);
 			}
 			if (t < GapTimeline.ERASURE + 4) {
 				double e = t - GapTimeline.CONTACT;

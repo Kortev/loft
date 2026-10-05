@@ -115,7 +115,14 @@ public final class ClientGaps {
 
 	public static void onEnd(GapEndPayload payload) {
 		ClientGap gap = GAPS.get(payload.gapId());
-		if (gap != null) {
+		if (gap == null) {
+			return;
+		}
+		// The shooter's own: not at once, but the rebuild. Anyone else's simply ends.
+		if (gap.mine && !gap.ended && gap.rebuildAt < 0) {
+			gap.rebuildAt = gap.age;
+			ClientStrikes.master(ModSounds.GAP_REBUILD, 1.0F, 1.0F);
+		} else {
 			gap.ended = true;
 		}
 	}
@@ -154,6 +161,18 @@ public final class ClientGaps {
 			gap.age++;
 			if (gap.cinematic()) {
 				cues(gap, from, gap.age);
+			}
+			if (gap.rebuildAt >= 0 && client.player != null) {
+				int r = gap.age - gap.rebuildAt;
+				// Odin takes his place once the shooter has been set down out of the hole, out where they are looking.
+				if (r == 5) {
+					Vec3d facing = Vec3d.fromPolar(0.0F, client.player.getYaw()).normalize();
+					gap.odinFacing = facing;
+					gap.odinFeet = client.player.getPos().add(facing.multiply(GapTimeline.ODIN_DISTANCE)).add(0.0, -60.0, 0.0);
+				}
+				if (r >= GapTimeline.REBUILD_END) {
+					gap.ended = true;
+				}
 			}
 			boolean over = gap.ended || (!gap.mine && gap.age > GapTimeline.END + 40);
 			if (over) {

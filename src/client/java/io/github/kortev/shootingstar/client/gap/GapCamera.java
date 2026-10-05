@@ -42,6 +42,9 @@ public final class GapCamera {
 		double t = gap.time(tickDelta);
 		Vec3d eye = player.getCameraPosVec(tickDelta);
 		Vec3d feet = player.getLerpedPos(tickDelta);
+		if (gap.rebuildAt >= 0) {
+			return rebuild(gap, player, tickDelta, gap.rebuild(tickDelta));
+		}
 		if (t < GapTimeline.RISE || t >= GapTimeline.END) {
 			return null;
 		}
@@ -193,6 +196,12 @@ public final class GapCamera {
 		Vec3d lookFrom = gap.contact.add(0, blastHalf(gap) * 0.7, 0);
 		Vec3d eye = orbit(from.lerp(to, k), gap.contact, Math.toRadians(12.0) * k);
 		Vec3d at = lookFrom.lerp(gap.contact.add(0, 2, 0), k);
+		// Shaking harder and harder as the black comes on at the camera.
+		double front = GapTimeline.eraseFront(t);
+		double far = Math.abs(eye.x - gap.target.getX() - 0.5) + Math.abs(eye.z - gap.target.getZ() - 0.5);
+		double near = MathHelper.clamp(1.0 - (far - front) / 120.0, 0.0, 1.0);
+		double shake = 0.15 + 0.9 * near * near;
+		at = at.add(Math.sin(t * 29.0) * shake, Math.cos(t * 23.0) * shake, Math.sin(t * 31.0 + 0.7) * shake);
 		return lookAt(clear(eye, at), at);
 	}
 
@@ -260,6 +269,34 @@ public final class GapCamera {
 			return lookAt(face.add(facing.multiply(3.2 - 0.5 * k)).add(0, -0.15, 0), face.add(0, -0.25, 0));
 		}
 		return null;
+	}
+
+	/**
+	 * The rebuild: out of the shooter's eyes and down behind their shoulder to look up at Odin as he rises out of the
+	 * void and looks at them; jolted as his arm sweeps down; craning up and back as the world comes back round them;
+	 * then into their eyes again.
+	 */
+	@Nullable
+	private static Shot rebuild(ClientGap gap, ClientPlayerEntity player, float tickDelta, double r) {
+		if (gap.odinFeet == null || gap.odinFacing == null || r >= GapTimeline.REBUILD_END) {
+			return null;
+		}
+		Vec3d eyes = player.getCameraPosVec(tickDelta);
+		Vec3d facing = gap.odinFacing;
+		Vec3d side = new Vec3d(-facing.z, 0.0, facing.x);
+		Vec3d chest = gap.odinFeet.add(0.0, GapTimeline.ODIN_HEIGHT * 0.72, 0.0);
+		double in = ease((r - 10.0) / 50.0);
+		double crane = ease((r - GapTimeline.REBUILD_SWEEP) / (GapTimeline.REBUILD_DONE - GapTimeline.REBUILD_SWEEP));
+		double home = ease((r - (GapTimeline.REBUILD_END - 60.0)) / 50.0);
+		double out = in * (1.0 - home);
+		Vec3d shoulder = eyes.add(facing.multiply(-3.5 - 10.0 * crane)).add(side.multiply(1.6 + 4.0 * crane)).add(0.0, -0.6 + 9.0 * crane, 0.0);
+		Vec3d eye = clear(eyes.lerp(shoulder, out), eyes);
+		Vec3d at = eyes.add(player.getRotationVec(tickDelta).multiply(10.0)).lerp(chest, out);
+		if (r >= GapTimeline.REBUILD_SWEEP) {
+			double jolt = 4.0 * Math.exp(-(r - GapTimeline.REBUILD_SWEEP) / 12.0);
+			at = at.add(Math.sin(r * 2.9) * jolt, Math.cos(r * 2.3) * jolt, Math.sin(r * 3.7 + 1.0) * jolt);
+		}
+		return lookAt(eye, at);
 	}
 
 	/** {@code eye} turned {@code radians} round the vertical through {@code centre}, at the same height. */

@@ -347,5 +347,13 @@
         "name": "shootingstar:gap_blast"
       }
     ]
+  },
+  "gap.rebuild": {
+    "subtitle": "subtitles.shootingstar.gap.rebuild",
+    "sounds": [
+      {
+        "name": "shootingstar:gap_rebuild"
+      }
+    ]
   }
 }

@@ -28,6 +28,12 @@ public final class ClientGap {
 	public final Vec3d shooterPos;
 	public int age;
 	public boolean ended;
+	/** When the shooter used the key again and the rebuild began, or -1; and where Odin stands for it, and which way. */
+	public int rebuildAt = -1;
+	@Nullable
+	public Vec3d odinFeet;
+	@Nullable
+	public Vec3d odinFacing;
 	/** The shooter skipped the feed: they watch the bridge come down from the world instead. */
 	public boolean feedSkipped;
 	/** The feed's sounds, stopped if it is skipped. */
@@ -57,6 +63,11 @@ public final class ClientGap {
 
 	public double time(float tickDelta) {
 		return age + tickDelta;
+	}
+
+	/** Ticks into the rebuild, or -1 before it. */
+	public double rebuild(float tickDelta) {
+		return rebuildAt < 0 ? -1.0 : age + tickDelta - rebuildAt;
 	}
 
 	/** The shooter's own camera shots and black screen play only for them. */

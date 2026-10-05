@@ -195,6 +195,38 @@
       "values": [
         0.0
       ]
+    },
+    {
+      "name": "Odin",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "name": "OdinState",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "name": "OdinFacing",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.0,
+        0.0,
+        1.0
+      ]
     }
   ]
 }

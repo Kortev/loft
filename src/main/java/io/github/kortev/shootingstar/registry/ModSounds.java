@@ -51,6 +51,7 @@ public final class ModSounds {
 	public static final SoundEvent GAP_IMPACT = register("gap.impact");
 	public static final SoundEvent GAP_ERASE = register("gap.erase");
 	public static final SoundEvent GAP_VOID = register("gap.void");
+	public static final SoundEvent GAP_REBUILD = register("gap.rebuild");
 
 	private ModSounds() {
 	}
