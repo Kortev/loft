@@ -4,9 +4,12 @@ import io.github.kortev.shootingstar.client.gfx.Cam;
 import io.github.kortev.shootingstar.client.gfx.Fx;
 import io.github.kortev.shootingstar.client.gfx.Mesh;
 import io.github.kortev.shootingstar.client.gfx.Shaders;
+import io.github.kortev.shootingstar.client.gfx.Target;
+import io.github.kortev.shootingstar.client.gfx.Universe;
 import io.github.kortev.shootingstar.gap.GapTimeline;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Random;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Matrix4f;
@@ -14,9 +17,10 @@ import org.joml.Vector3f;
 
 /**
  * Ginnungagap's feed. Out of the clouds over the target and up to Bifröst, the gate that hangs in orbit
- * over it; the gate wakes and opens onto another universe, and the camera dives through into it, in among its
- * galaxies, then pulls back out until that universe is a map, a lattice of blocks, and one block is selected.
- * The gate cuts that block out and draws it through, then reaches down to the target with a bridge of light
+ * over it; the gate wakes and opens onto the void between universes, where they hang in a lattice, each in a
+ * block, and the camera dives through into universe 4,096,113, beside one of its galaxies. Then it pulls back
+ * out, past the web of its two trillion galaxies, until the whole of that universe is a block among the others,
+ * and it is selected. The gate draws that block through, then reaches down to the target with a bridge of light
  * and drops the block into it, and the camera chases it down into the clouds.
  *
  * <p>Everything is in the gate's own frame, in gate units (the frame is 20 across; one unit is 620 m): the
@@ -92,32 +96,39 @@ final class GapShots implements Feed.Sequence {
 	/** The dive through the open window into that universe. */
 	private static final double DIVE_FROM = MAP_S - 14.0;
 
-	// The map of that universe, in a frame of its own counted in cells: each cell is a block of it, 2 across, laid out
-	// in a single layer from y -1 to 1 and MAP_N cells out from the middle each way. The one in the middle is the
-	// block that is taken: its seed is 0, as the block's is later, so it is the same inside.
-	private static final int MAP_N = 9;
-	/** Ticks into the map shot: the pull back out of the middle cell, and the block being selected and rising out of the map. */
+	// The void between universes, in a frame of its own: universes in blocks, each 2 across, MULTI_SPACING apart
+	// in a lattice, universe 4,096,113 in the middle of it. Its own space is that of its universe (tools/gen_universe.py).
+	private static final float MULTI_SPACING = 3.4F;
+	/** Ticks into the map shot: the pull back from beside a galaxy, and the block being selected and rising out of the lattice. */
 	private static final double MAP_PULL_FROM = 16.0;
 	private static final double MAP_PULL_TO = 60.0;
 	private static final double MAP_PICK = 56.0;
 	private static final double MAP_LIFT = 62.0;
 	/** How high the selected block has risen out of the lattice by the end of the shot. */
 	private static final float MAP_LIFT_HEIGHT = 2.4F;
-	/** The middle cell's big galaxy (the first of ss_universe's galaxies()): where it is and which way it faces. */
+	/** The big spiral the shot starts beside (the first galaxy of universe.bin): where it is and which way it faces. */
 	private static final Vector3f MAP_GALAXY = new Vector3f(0.12F, 0.05F, -0.12F);
 	private static final Vector3f MAP_POLE = new Vector3f(0.45F, 1.0F, 0.55F).normalize();
-	/** Where the camera starts from the galaxy, over its face; and where it ends up, looking down across the map. */
+	/** Where the camera starts from the galaxy, over its face; and the way it looks at the lattice in the end. */
 	private static final Vector3f MAP_START = new Vector3f(MAP_POLE).mul(0.9F)
 			.add(new Vector3f(MAP_POLE).cross(0, 0, 1).normalize().mul(0.45F)).normalize();
-	private static final Vector3f MAP_END = new Vector3f(0.32F, 0.8F, 0.5F).normalize();
+	private static final Vector3f MAP_END = new Vector3f(0.30F, 0.62F, 0.72F).normalize();
 	/**
-	 * How far the camera is from what it looks at: coming in over the galaxy, inside the cell, with the whole map out,
-	 * and closing on the block.
+	 * How far the camera is from what it looks at: coming in over the galaxy, beside it, with the void and its
+	 * universes all round, and closing on the block.
 	 */
-	private static final float MAP_IN = 0.8F;
-	private static final float MAP_NEAR = 0.62F;
-	private static final float MAP_FAR = 16.0F;
-	private static final float MAP_CLOSE = 12.5F;
+	private static final float MAP_IN = 0.036F;
+	private static final float MAP_NEAR = 0.028F;
+	private static final float MAP_FAR = 24.0F;
+	private static final float MAP_CLOSE = 18.0F;
+	/** How wide the universe is: its two trillion galaxies in view at three of its widths off. */
+	private static final double GALAXIES = 2.0E12;
+	/** The other universes' light, so no two neighbours look alike. */
+	private static final Vector3f[] TINTS = {new Vector3f(1.0F, 0.75F, 1.0F), new Vector3f(0.55F, 0.8F, 1.0F), new Vector3f(1.0F, 0.78F, 0.5F),
+			new Vector3f(0.5F, 1.0F, 0.85F), new Vector3f(1.0F, 0.5F, 0.62F), new Vector3f(0.8F, 0.65F, 1.0F)};
+	private static final Vector3f WHITE = new Vector3f(1.0F, 1.0F, 1.0F);
+	/** What lies beyond the window, drawn from the same eye. */
+	private static final Target BEYOND = new Target(false, true);
 
 	private static final int VIOLET = 0xB98CFF;
 
@@ -254,23 +265,112 @@ final class GapShots implements Feed.Sequence {
 
 		float open = reveal(s);
 		if (open > 0.0F) {
+			// What lies beyond the window is drawn from this same eye into a picture of its own, which the window shows.
 			Matrix4f window = new Matrix4f(GATE).scale(WINDOW);
-			space.universe(space.quad, cam, window, 1, time, 0.0F, 0.0F, 0.0F, open, 40, 1.0F);
+			BEYOND.begin((int) width, (int) height, 0.0F, 0.0F, 0.0F, 1.0F);
+			beyond(s, window);
+			Feed.bindScene();
+			Universe.window(cam.modelView(window), cam.proj, width, height, BEYOND.color(), open, time);
 			windowLight(s, open);
 		}
 		if (drawBlock && s >= CUT_S) {
 			selection(s);
-			// A flash as it breaks through the window, not all the way.
-			float out = blockOut(s) / BLOCK;
-			float heat = s >= PULL_FROM ? 0.55F * (float) Math.exp(-out * out * 1.5F) : 0.0F;
-			// While it is still behind the window it can only be seen through it.
+			// Until it is pulled it is only beyond the window; from then on it is here, coming through it.
 			if (s >= PULL_FROM) {
-				space.universe(space.cube, cam, blockModel(s), 0, time, 0.0F, 1.0F, heat, 1.0F, 48, 1.0F);
+				// A flash as it breaks through the window, not all the way.
+				float out = blockOut(s) / BLOCK;
+				block(blockModel(s), 0.55F * (float) Math.exp(-out * out * 1.5F));
 			}
 		}
 		if (s >= BRIDGE_S) {
 			bridge(s, s < FALL_S);
 		}
+	}
+
+	/** Universe 4,096,113 in its block. */
+	private void block(Matrix4f model, float heat) {
+		Universe.draw(cam.modelView(model), cam.proj, width, height, Universe.FULL, 0, 1.0F, 1.0F, WHITE, 0.45F, 1.0F, 0xE6DCFF, heat);
+	}
+
+	/**
+	 * Beyond the window: the void, the lattice of universes going back from it, and, until it is pulled, the one
+	 * Ginnungagap takes, waiting just behind it.
+	 */
+	private void beyond(double s, Matrix4f window) {
+		// Only what shows through the window is worth drawing: the window's corners on screen.
+		float[] rect = {Float.MAX_VALUE, Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE};
+		for (int i = 0; i < 4; i++) {
+			Vector3f p = cam.screen(window.transformPosition(new Vector3f((i & 1) == 0 ? -1 : 1, (i & 2) == 0 ? -1 : 1, 0)), width, height);
+			if (p == null) {
+				rect = new float[] {-width, -height, 2.0F * width, 2.0F * height};
+				break;
+			}
+			rect[0] = Math.min(rect[0], p.x);
+			rect[1] = Math.min(rect[1], p.y);
+			rect[2] = Math.max(rect[2], p.x);
+			rect[3] = Math.max(rect[3], p.y);
+		}
+		Matrix4f frame = new Matrix4f().translation(new Vector3f(FACE).mul(-BEHIND)).mul(GATE).scale(BLOCK);
+		multiverse(frame, -2, 2, -2, 2, 0, 4, 1.0F, 90.0F, rect, s < PULL_FROM ? () -> block(blockModel(s), 0.0F) : null);
+	}
+
+	/**
+	 * Universes in their blocks, a lattice of them through the void: {@code frame} takes the lattice's space (each block 2
+	 * across, MULTI_SPACING apart, the one Ginnungagap takes at the origin) to the shot's. Those whose middle is off
+	 * {@code rect} on screen (x0, y0, x1, y1 in pixels) by more than their size are left out; the rest are drawn from the
+	 * far side in, so the nearer glass darkens what is behind it, at {@code fade} of their light, with every galaxy
+	 * sampled closer than {@code near} and fewer beyond. {@code middle} draws the one at the origin, never left out, when
+	 * its turn comes. Returns how many were drawn.
+	 */
+	private int multiverse(Matrix4f frame, int i0, int i1, int j0, int j1, int k0, int k1, float fade, float near, float[] rect,
+			@Nullable Runnable middle) {
+		float scale = frame.getScale(new Vector3f()).x;
+		List<float[]> blocks = new ArrayList<>();
+		for (int i = i0; i <= i1; i++) {
+			for (int j = j0; j <= j1; j++) {
+				for (int k = k0; k <= k1; k++) {
+					boolean origin = i == 0 && j == 0 && k == 0;
+					Vector3f p = frame.transformPosition(new Vector3f(i, j, k).mul(MULTI_SPACING));
+					if (origin) {
+						// Always there, even with the camera inside it.
+						if (middle != null) {
+							blocks.add(new float[] {cam.pos.distance(p), i, j, k});
+						}
+						continue;
+					}
+					if (fade <= 0.01F) {
+						continue;
+					}
+					Vector3f on = cam.screen(p, width, height);
+					if (on == null) {
+						continue;
+					}
+					float size = scale * 1.8F * cam.proj.m11() * height * 0.5F / Math.max(on.z, 1.0E-4F);
+					if (on.x < rect[0] - size || on.y < rect[1] - size || on.x > rect[2] + size || on.y > rect[3] + size) {
+						continue;
+					}
+					blocks.add(new float[] {cam.pos.distance(p), i, j, k});
+				}
+			}
+		}
+		blocks.sort((a, b) -> Float.compare(b[0], a[0]));
+		for (float[] b : blocks) {
+			int i = (int) b[1];
+			int j = (int) b[2];
+			int k = (int) b[3];
+			if (i == 0 && j == 0 && k == 0) {
+				middle.run();
+				continue;
+			}
+			int hash = Math.floorMod(i * 7349 + j * 3407 + k * 1361 + 99991, 65536);
+			Vector3f tint = TINTS[hash % TINTS.length];
+			Matrix4f model = new Matrix4f(frame).translate(new Vector3f(i, j, k).mul(MULTI_SPACING));
+			int edge = (int) (Math.min(1.0F, 0.5F * tint.x + 0.2F) * 255) << 16 | (int) (Math.min(1.0F, 0.5F * tint.y + 0.2F) * 255) << 8
+					| (int) (Math.min(1.0F, 0.5F * tint.z + 0.2F) * 255);
+			Universe.draw(cam.modelView(model), cam.proj, width, height, b[0] < near ? Universe.LOW : Universe.TINY, 1 + hash % 47, 1.6F * fade,
+					1.0F, tint, 0.35F * fade, 0.22F * fade, edge, 0.0F);
+		}
+		return blocks.size();
 	}
 
 	/** Light thrown out of the open window across the frame, and the white seam of its rim. */
@@ -475,8 +575,8 @@ final class GapShots implements Feed.Sequence {
 	}
 
 	// =============================================================================================
-	// 4. Inside that universe, over the face of one of its galaxies; then back out, faster and faster, until the whole
-	//    of it is a map, a lattice of blocks, and the block in the middle is selected.
+	// 4. Beside one galaxy of universe 4,096,113; then back out, faster and faster, past the web of all the rest, until
+	//    the whole of that universe is a block in the void among the others, and it is selected and lifted out.
 	// =============================================================================================
 
 	private void map(double s, Overlay o) {
@@ -484,103 +584,75 @@ final class GapShots implements Feed.Sequence {
 		double length = CUT_S - MAP_S;
 		float pull = Shots.smoother((m - MAP_PULL_FROM) / (MAP_PULL_TO - MAP_PULL_FROM));
 		float pick = Shots.smooth((m - MAP_PICK) / 6.0);
-		// In over the galaxy's face; out of the cell at an ever faster rate; then a slow push back in on the block.
+		// In over the galaxy's face; out at an ever faster rate, a thousand times as far; then a slow push back in.
 		float near = Shots.lerp(MAP_IN, MAP_NEAR, Shots.smooth(m / MAP_PULL_FROM));
 		float distance = (float) (near * Math.pow(MAP_FAR / near, pull));
 		distance = Shots.lerp(distance, MAP_CLOSE, Shots.smooth((m - MAP_PICK) / (length - MAP_PICK)));
-		// Drifting round the galaxy while inside the cell; then straight up out of the top of it, so as not to pass
-		// through its neighbours, and round to the angle the map is seen from.
+		// Drifting round the galaxy at first, then round to the angle the lattice is seen from.
 		double drift = m / length * 0.7;
 		Vector3f round = new Vector3f(MAP_START).mul((float) Math.cos(drift))
 				.add(new Vector3f(MAP_POLE).cross(MAP_START).mul((float) Math.sin(drift))).normalize();
-		Vector3f dir = Shots.slerp(Shots.slerp(round, new Vector3f(0, 1, 0), Shots.smooth(pull * 4.0)), MAP_END,
-				Shots.smooth((pull - 0.15) * 1.5));
+		Vector3f dir = Shots.slerp(round, MAP_END, Shots.smooth((pull - 0.05) * 1.25));
 		// The selected block rising up out of the lattice, faster and faster, the camera lifting a little with it.
 		float lift = MAP_LIFT_HEIGHT * (float) Math.pow(Shots.smooth((m - MAP_LIFT) / (length - MAP_LIFT)), 1.6);
-		Vector3f at = new Vector3f(MAP_GALAXY).lerp(new Vector3f(), Shots.smooth(pull * 1.3)).add(0.0F, lift * 0.5F, 0.0F);
+		Vector3f at = new Vector3f(MAP_GALAXY).lerp(new Vector3f(), Shots.smooth(pull * 1.6)).add(0.0F, lift * 0.5F, 0.0F);
 		Vector3f eye = new Vector3f(dir).mul(distance).add(at);
-		cam.perspective(Shots.lerp(62.0, 48.0, Shots.smooth(pull * 1.5)), width, height, Math.max(0.01F, distance * 0.01F), 400.0F);
+		cam.perspective(Shots.lerp(55.0, 46.0, Shots.smooth(pull * 1.5)), width, height, Math.max(1.0E-4F, distance * 0.01F), 200.0F);
 		cam.look(eye, at, new Vector3f(0, 1, 0));
 
-		space.universeSky(cam, 150.0F, time);
-		// The grid comes up as the map comes out; the other cells' galaxies light as the camera leaves the middle one.
-		float grid = 0.35F * Shots.smooth((distance - 2.5) / 7.0);
-		float rise = Shots.smooth((distance - 1.5) / 6.0);
-		int inView = 1;
-		// While the eye is still inside the middle cell, that is all there is to draw: it marches on through the rest.
-		boolean inside = Math.max(Math.abs(eye.x), Math.max(Math.abs(eye.y), Math.abs(eye.z))) < 1.0F;
-		if (!inside) {
-			inView = 0;
-			// Nearest first, so the depth test turns away most of what is behind before it is marched.
-			List<float[]> cells = new ArrayList<>();
-			for (int i = -MAP_N; i <= MAP_N; i++) {
-				for (int k = -MAP_N; k <= MAP_N; k++) {
-					float r = (float) Math.hypot(i, k);
-					if (r > MAP_N || (i == 0 && k == 0)) {
-						continue;
-					}
-					cells.add(new float[] {eye.distance(2.0F * i, 0.0F, 2.0F * k), i, k, r});
-				}
-			}
-			cells.sort((a, b) -> Float.compare(a[0], b[0]));
-			for (float[] c : cells) {
-				int i = (int) c[1];
-				int k = (int) c[2];
-				// Fading out towards the rim, so the map trails off into that universe's sky.
-				float rim = 1.0F - Shots.smooth((c[3] - (MAP_N - 3.5)) / 3.5);
-				mapCell(i, k, 0.0F, grid * (1.0F - 0.4F * pick) * rim, rise * rim, distance < 4.0F ? 48 : 24, 1.0F - 0.45F * pick);
-				Vector3f p = cam.screen(new Vector3f(2.0F * i, 0.0F, 2.0F * k), guiW, guiH);
-				if (p != null && p.x >= 0 && p.y >= 0 && p.x <= guiW && p.y <= guiH) {
-					inView++;
-				}
-			}
-		}
-		// The middle cell last, so it wins wherever its faces meet its neighbours'.
-		mapCell(0, 0, lift, grid * (1.0F + 2.6F * pick), 1.0F, 48, 1.0F);
+		// Its glass shows once the camera is out of it; the other universes come up as it pulls away.
+		float outside = Shots.smooth((Math.max(Math.abs(eye.x), Math.max(Math.abs(eye.y - lift), Math.abs(eye.z))) - 1.0) / 0.6);
+		float others = Shots.smooth((distance - 2.6) / 4.0);
+		float lifted = lift;
+		int universes = multiverse(new Matrix4f(), -3, 3, -1, 1, -3, 3, others * (1.0F - 0.4F * pick), 20.0F,
+				new float[] {0.0F, 0.0F, width, height}, () -> Universe.draw(cam.modelView(new Matrix4f().translation(0.0F, lifted, 0.0F)), cam.proj,
+						width, height, Universe.FULL, 0, 1.0F + 1.2F * pick, 1.0F, WHITE, 0.45F * outside, (0.3F + 1.4F * pick) * outside, 0xE6DCFF,
+						0.0F));
 		if (m >= MAP_PICK) {
-			inView++;
 			mapSelection(m - MAP_PICK, lift);
 		}
 
-		boolean in = m < MAP_PULL_FROM + 6.0;
+		// The count of galaxies in view, from the one to all two trillion by the time the whole universe is.
+		double seen = Math.pow(GALAXIES, Math.max(0.0, Math.min(1.0, Math.log(distance / MAP_NEAR) / Math.log(3.0 / MAP_NEAR))));
 		boolean picked = m >= MAP_PICK;
-		o.header = in ? "[ UNIVERSE 4,096,113 ]" : picked ? "[ BLOCK SELECTED ]" : "[ MAPPING · UNIVERSE 4,096,113 ]";
-		o.headerReveal = Shots.smooth((in ? m - 2.0 : picked ? m - MAP_PICK : m - MAP_PULL_FROM - 6.0) / 4.0);
-		if (!in) {
-			o.footer = picked ? "1 BLOCK SELECTED" : "BLOCKS IN VIEW " + Feed.commas(inView);
-			o.footerSmall = "UNIVERSE 4,096,113 · 13.7 BILLION YEARS OLD";
+		boolean amongOthers = others > 0.5F;
+		o.header = picked ? "[ UNIVERSE 4,096,113 · SELECTED ]" : amongOthers ? "[ THE VOID · NEIGHBOURING UNIVERSES ]" : "[ UNIVERSE 4,096,113 ]";
+		o.headerReveal = Shots.smooth((picked ? m - MAP_PICK : amongOthers ? m - 40.0 : m - 2.0) / 4.0);
+		if (picked) {
+			o.footer = "1 UNIVERSE SELECTED";
+			o.footerSmall = "UNIVERSE 4,096,113 · 2 TRILLION GALAXIES";
+		} else if (amongOthers) {
+			o.footer = "UNIVERSES IN VIEW " + Feed.commas(universes);
+			o.footerSmall = "GINNUNGAGAP · THE VOID BETWEEN UNIVERSES";
+		} else if (m > MAP_PULL_FROM) {
+			o.footer = "GALAXIES IN VIEW " + galaxies(seen);
+			o.footerSmall = outside > 0.5F ? "UNIVERSE 4,096,113 · 93 BILLION LIGHT YEARS ACROSS" : "UNIVERSE 4,096,113";
 		}
-		Overlay.Label block = label(o, new Vector3f(1.0F, 1.0F + lift, 1.0F), 10, -6, "SELECTED", Feed.VIOLET, "BLOCK 412 · 77", Feed.GREY,
+		label(o, MAP_GALAXY, 40, -24, "1 GALAXY", Feed.VIOLET, "OF 2,000,000,000,000", Feed.GREY,
+				Shots.smooth((m - 4.0) / 4.0) * (1.0F - Shots.smooth((m - MAP_PULL_FROM) / 6.0)));
+		Overlay.Label block = label(o, new Vector3f(1.0F, 1.0F + lift, 1.0F), 10, -6, "SELECTED", Feed.VIOLET, "UNIVERSE 4,096,113", Feed.GREY,
 				Shots.smooth((m - MAP_PICK - 2.0) / 3.0));
 		if (block != null) {
 			block.marker = true;
 		}
-		// The flash of going through dies away inside; the pull back blurs out from the middle; a blink as the block
-		// is picked.
+		// The flash of going through dies away; the pull back blurs out from the middle; a blink as the block is picked.
 		float enter = (float) Math.exp(-m / 3.0);
 		float select = picked ? (float) Math.exp(-(m - MAP_PICK) / 2.5) : 0.0F;
 		o.flash = Math.max(0.9F * enter, 0.25F * select);
 		o.flashColor = enter > select ? 0xE8DDFF : 0xFFFFFF;
 		o.zoomBlur = 0.1F * (float) Math.sin(Math.PI * pull);
 		// Close over the galaxy its core would burn out the picture.
-		o.exposure = 0.75F + 0.25F * Shots.smooth(pull * 2.0);
+		o.exposure = 0.8F + 0.2F * Shots.smooth(pull * 2.0);
 	}
 
-	/** One cell of the map, {@code i} and {@code k} cells out from the middle, raised {@code y} out of the lattice. */
-	private void mapCell(int i, int k, float y, float edge, float galaxies, int steps, float fade) {
-		boolean middle = i == 0 && k == 0;
-		// Anywhere else in that universe, any seed but 0, different from its neighbours.
-		float seed = middle ? 0.0F : 1.0F + Math.floorMod(i * 7349 + k * 1361 + 99991, 997) / 7.31F;
-		float reach = 2.0F * MAP_N + 1.0F;
-		Vector3f lo = new Vector3f(-reach - 2.0F * i, -1.0F, -reach - 2.0F * k);
-		Vector3f hi = new Vector3f(reach - 2.0F * i, 1.0F, reach - 2.0F * k);
-		if (y > 0.0F) {
-			// Out of the lattice it is only itself: nothing to march on through.
-			lo.zero();
-			hi.zero();
+	/** A count of galaxies the way the feed reads it out: in full up to a million, then in millions, billions, trillions. */
+	private static String galaxies(double n) {
+		if (n < 1.0E6) {
+			return Feed.commas(Math.round(n));
 		}
-		space.mapCell(cam, new Matrix4f().translation(2.0F * i, y, 2.0F * k), time, seed, edge, galaxies, steps, fade,
-				new Vector3f(i, 0.0F, k), lo, hi);
+		String[] names = {"MILLION", "BILLION", "TRILLION"};
+		int k = Math.min(2, (int) (Math.log10(n) / 3.0) - 2);
+		return String.format(Locale.ROOT, "%.1f %s", n / Math.pow(10.0, 6 + 3 * k), names[k]);
 	}
 
 	/** The selection box round the middle cell, thin and white, blinking as it appears, as it does round the block later. */
@@ -702,7 +774,7 @@ final class GapShots implements Feed.Sequence {
 		scene(s, 0.3F, altitude + EARTH_R * 0.6F, eye, at, up, fov, false);
 
 		// The block at its own scale, lit hot from below as the air piles up in front of it.
-		space.universe(space.cube, cam, blockModel(s), 0, time, 0.0F, 1.0F + heat, heat * 0.35F, 1.0F, 48, 1.0F);
+		block(blockModel(s), heat * 0.35F);
 		if (heat > 0.01F) {
 			sheath(block, down, heat);
 		}

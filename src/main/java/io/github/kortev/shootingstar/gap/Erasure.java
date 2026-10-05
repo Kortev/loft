@@ -13,8 +13,13 @@ import net.minecraft.world.Heightmap;
  * outward column by column. Technical blocks (command, structure, barrier, jigsaw) are left alone.
  */
 final class Erasure {
-	private static final int BLOCK_BUDGET = 60_000;
-	private static final int READ_BUDGET = 400_000;
+	/**
+	 * Blocks removed (and read) a tick at most. Every removal is sent to the clients, which relight and rebuild what it
+	 * touches, so it is spread thin: nobody sees it happen, in the black, and at the default radius it is still done
+	 * well before the camera is back in the shooter's eyes.
+	 */
+	private static final int BLOCK_BUDGET = 20_000;
+	private static final int READ_BUDGET = 120_000;
 	static final int FLAGS = Block.NOTIFY_LISTENERS | Block.FORCE_STATE | Block.SKIP_DROPS;
 
 	private final ServerWorld world;

@@ -11,14 +11,11 @@ uniform mat4 ProjMat;
 out vec3 objPos;
 out vec3 objNormal;
 out vec3 camObj;
-out vec3 viewPos;
 
 void main() {
-    vec4 pos = ModelViewMat * vec4(Position, 1.0);
-    gl_Position = ProjMat * pos;
-    viewPos = pos.xyz;
+    gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
     objPos = Position;
     objNormal = Normal;
-    // Where the eye is in the object's own space, so the fragment shader can march the inside.
+    // Where the eye is in the object's own space.
     camObj = (inverse(ModelViewMat) * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
 }

@@ -35,10 +35,8 @@ final class Space {
 	/** The Moon, shaded by {@code ss_mesh}'s lunar material. */
 	Mesh moon;
 	final Mesh[] rocks = new Mesh[4];
-	/** Bifröst, the orbital gate (tools/models.py), the blocks of another universe and the window of an open gate. */
+	/** Bifröst, the orbital gate (tools/models.py). */
 	Mesh gate;
-	Mesh cube;
-	Mesh quad;
 	final Fx fx = new Fx();
 	/** Secondary light for meshes (what a nearby planet bounces back), in the scene's world space. */
 	final Vector3f fillDir = new Vector3f(0, -1, 0);
@@ -81,8 +79,6 @@ final class Space {
 			rocks[i] = Mesh.load("asteroid" + i);
 		}
 		gate = Mesh.load("gate");
-		cube = Mesh.cube();
-		quad = Mesh.quad();
 		earthDay = Tex.get("feed/earth_day.jpg", true);
 		earthNight = Tex.get("feed/earth_night.jpg", true);
 		earthClouds = Tex.get("feed/earth_clouds.jpg", true);
@@ -262,64 +258,6 @@ final class Space {
 		Shaders.set(Shaders.bore, "HotColor", 1.0F, 0.42F, 0.1F);
 		// Radius 0.715: just inside the housings' inner faces (tools/models.py).
 		tube.draw(Shaders.bore, cam.modelView(new Matrix4f().scale(0.715F, 0.715F, 1.0F)), cam.proj);
-	}
-
-	/**
-	 * Another universe ({@code ss_universe}): a block of it marched inside ({@code mode} 0), the window of an open gate
-	 * opened {@code reveal} of the way (1), or a block that only looks through to its sky (2). The window leaves the
-	 * depth buffer alone so a block still behind it shows through it.
-	 */
-	void universe(Mesh mesh, Cam cam, Matrix4f model, int mode, float time, float seed, float edge, float heat, float reveal,
-			int steps, float fade) {
-		opaque();
-		if (mode == 1) {
-			RenderSystem.depthMask(false);
-		}
-		Shaders.setInt(Shaders.universe, "Mode", mode);
-		Shaders.set(Shaders.universe, "Time", time);
-		Shaders.set(Shaders.universe, "Seed", seed);
-		Shaders.set(Shaders.universe, "Edge", edge);
-		Shaders.set(Shaders.universe, "Heat", heat);
-		Shaders.set(Shaders.universe, "Reveal", reveal);
-		Shaders.setInt(Shaders.universe, "Steps", steps);
-		Shaders.set(Shaders.universe, "Fade", fade);
-		Shaders.set(Shaders.universe, "Cell", 0.0F, 0.0F, 0.0F);
-		mesh.draw(Shaders.universe, cam.modelView(model), cam.proj);
-		RenderSystem.depthMask(true);
-	}
-
-	/**
-	 * One cell of the map of another universe ({@code ss_universe} mode 3): cell {@code cell} (counted in cells) of
-	 * a lattice that runs from {@code lo} to {@code hi} in this cell's own space. {@code galaxies} brings its
-	 * galaxies up; the cell with seed 0 is the block that will be taken, the same inside as it is later.
-	 */
-	void mapCell(Cam cam, Matrix4f model, float time, float seed, float edge, float galaxies, int steps, float fade, Vector3f cell,
-			Vector3f lo, Vector3f hi) {
-		opaque();
-		Shaders.setInt(Shaders.universe, "Mode", 3);
-		Shaders.set(Shaders.universe, "Time", time);
-		Shaders.set(Shaders.universe, "Seed", seed);
-		Shaders.set(Shaders.universe, "Edge", edge);
-		Shaders.set(Shaders.universe, "Heat", 0.0F);
-		Shaders.set(Shaders.universe, "Reveal", galaxies);
-		Shaders.setInt(Shaders.universe, "Steps", steps);
-		Shaders.set(Shaders.universe, "Fade", fade);
-		Shaders.set(Shaders.universe, "Cell", cell);
-		Shaders.set(Shaders.universe, "MapLo", lo);
-		Shaders.set(Shaders.universe, "MapHi", hi);
-		cube.draw(Shaders.universe, cam.modelView(model), cam.proj);
-	}
-
-	/** That universe's far sky alone ({@code ss_universe} mode 4), on a box of half-size {@code size} round the eye. */
-	void universeSky(Cam cam, float size, float time) {
-		opaque();
-		RenderSystem.depthMask(false);
-		Shaders.setInt(Shaders.universe, "Mode", 4);
-		Shaders.set(Shaders.universe, "Time", time);
-		Shaders.set(Shaders.universe, "Seed", 0.0F);
-		Shaders.set(Shaders.universe, "Fade", 1.0F);
-		cube.draw(Shaders.universe, cam.modelView(new Matrix4f().translation(cam.pos).scale(size)), cam.proj);
-		RenderSystem.depthMask(true);
 	}
 
 	/** Turbulent additive plasma on {@code mesh} (the re-entry sheath or the impact fireball). */

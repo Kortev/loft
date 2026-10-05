@@ -175,6 +175,67 @@ public final class Mesh {
 	}
 
 	/**
+	 * The universe in Ginnungagap's block (assets/shootingstar/textures/feed/universe.bin, tools/gen_universe.py), for
+	 * {@code ss_galaxy}: a mesh of the first {@code galaxies[i]} of its galaxies for each i, then one of the first
+	 * {@code glows[i]} glows of its web for each i. The galaxies are shuffled, so the first few thousand are a fair
+	 * sample of the whole; the first of all, the big spiral the feed starts beside, is left out of every sample but the
+	 * first. Each is a quad, its four corners at its centre, spread out on screen by the shader.
+	 */
+	public static Mesh[] universe(int[] galaxies, int[] glows) {
+		Mesh[] meshes = new Mesh[galaxies.length + glows.length];
+		try {
+			Resource resource = MinecraftClient.getInstance().getResourceManager()
+					.getResource(ShootingStar.id("textures/feed/universe.bin")).orElseThrow(() -> new IOException("missing universe"));
+			byte[] bytes;
+			try (InputStream in = resource.getInputStream()) {
+				bytes = in.readAllBytes();
+			}
+			ByteBuffer data = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
+			int galaxyCount = data.getInt(0);
+			int glowCount = data.getInt(4);
+			for (int m = 0; m < galaxies.length; m++) {
+				BufferBuilder b = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_LIGHT_NORMAL);
+				for (int i = m == 0 ? 0 : 1; i < Math.min(galaxies[m], galaxyCount); i++) {
+					int at = 8 + i * 24;
+					// The radius (in 1e-5) and, above it, the type (0 spiral, 1 elliptical) and shape go in as UV2.
+					int radius = data.getShort(at + 16) & 0xFFFF;
+					int kind = (data.get(at + 15) & 255) * 256 + (data.get(at + 18) & 255);
+					galaxy(b, data.getFloat(at), data.getFloat(at + 4), data.getFloat(at + 8), data.get(at + 19) & 255, data.get(at + 20) & 255,
+							data.get(at + 21) & 255, data.get(at + 22) & 255, radius, kind, data.get(at + 12) / 127.0F, data.get(at + 13) / 127.0F,
+							data.get(at + 14) / 127.0F);
+				}
+				meshes[m] = upload(b);
+			}
+			int glowStart = 8 + galaxyCount * 24;
+			for (int m = 0; m < glows.length; m++) {
+				BufferBuilder b = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_LIGHT_NORMAL);
+				for (int i = 0; i < Math.min(glows[m], glowCount); i++) {
+					int at = glowStart + i * 20;
+					galaxy(b, data.getFloat(at), data.getFloat(at + 4), data.getFloat(at + 8), data.get(at + 14) & 255, data.get(at + 15) & 255,
+							data.get(at + 16) & 255, data.get(at + 17) & 255, data.getShort(at + 12) & 0xFFFF, 0, 0.0F, 1.0F, 0.0F);
+				}
+				meshes[galaxies.length + m] = upload(b);
+			}
+		} catch (IOException e) {
+			ShootingStar.LOGGER.error("Could not load the universe", e);
+			for (int m = 0; m < meshes.length; m++) {
+				BufferBuilder b = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_LIGHT_NORMAL);
+				galaxy(b, 0.0F, 0.0F, 0.0F, 0, 0, 0, 0, 0, 0, 0.0F, 1.0F, 0.0F);
+				meshes[m] = upload(b);
+			}
+		}
+		return meshes;
+	}
+
+	private static void galaxy(BufferBuilder b, float x, float y, float z, int r, int g, int bl, int a, int radius, int kind, float px,
+			float py, float pz) {
+		b.vertex(x, y, z).color(r, g, bl, a).texture(-1, -1).light(radius, kind).normal(px, py, pz);
+		b.vertex(x, y, z).color(r, g, bl, a).texture(1, -1).light(radius, kind).normal(px, py, pz);
+		b.vertex(x, y, z).color(r, g, bl, a).texture(1, 1).light(radius, kind).normal(px, py, pz);
+		b.vertex(x, y, z).color(r, g, bl, a).texture(-1, 1).light(radius, kind).normal(px, py, pz);
+	}
+
+	/**
 	 * Open tube of radius 1 along +Z from {@code z0} to {@code z1}, for the accelerator's barrel ({@code ss_bore}):
 	 * rings packed close near {@code z0 + 30} where the camera rides, spreading out towards the far end.
 	 */
@@ -207,7 +268,7 @@ public final class Mesh {
 		b.vertex(x, y, z).texture((float) i / segments, z).color(255, 255, 255, 255).normal(-x, -y, 0.0F);
 	}
 
-	/** Cube from -1 to 1 with flat normals, for the blocks of another universe ({@code ss_universe}). */
+	/** Cube from -1 to 1 with flat normals, for the glass of a universe's block ({@code ss_block}). */
 	public static Mesh cube() {
 		BufferBuilder b = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR_NORMAL);
 		int[][] faces = {{1, 0, 0, 0, 1, 0}, {-1, 0, 0, 0, 1, 0}, {0, 1, 0, 0, 0, 1}, {0, -1, 0, 0, 0, 1}, {0, 0, 1, 0, 1, 0}, {0, 0, -1, 0, 1, 0}};
