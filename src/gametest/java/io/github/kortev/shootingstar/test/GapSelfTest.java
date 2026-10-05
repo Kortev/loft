@@ -15,6 +15,7 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.option.CloudRenderMode;
 import net.minecraft.client.util.ScreenshotRecorder;
 import net.minecraft.block.Blocks;
 import net.minecraft.item.ItemStack;
@@ -185,6 +186,8 @@ public class GapSelfTest implements ClientModInitializer {
 				if (releasedAt >= 0 && ClientGaps.mine() == null) {
 					ShootingStar.LOGGER.info("[selftest] reality is back; flying over the zone");
 					Capture.camera = flyover(client, Capture.time());
+					// A clear look at the zone for the closing shot.
+					client.options.getCloudRenderMode().setValue(CloudRenderMode.OFF);
 					stage = Stage.AFTER;
 					ticks = 0;
 				} else if (releasedAt >= 0 && ticks > releasedAt + 100) {
@@ -292,17 +295,18 @@ public class GapSelfTest implements ClientModInitializer {
 			double s = time - start;
 			Vec3d eye = from.add(0, 2.0, 0);
 			Vec3d at = c.add(0, -10.0, 0);
+			// High enough to take in the whole zone, low enough to stay under the clouds' height.
 			double u = smooth((s - 25.0) / 130.0);
 			if (u > 0.0) {
 				double a = a0 + Math.toRadians(15.0) * u;
-				Vec3d top = c.add(Math.cos(a) * r * 0.45, 2.4 * r, Math.sin(a) * r * 0.45);
+				Vec3d top = c.add(Math.cos(a) * r * 1.25, 0.95 * r, Math.sin(a) * r * 1.25);
 				eye = eye.lerp(top, u);
-				at = at.lerp(c, u);
+				at = at.lerp(c.add(0, -20.0, 0), u);
 			}
 			double v = smooth((s - 165.0) / 120.0);
 			if (v > 0.0) {
 				double b = a0 + Math.toRadians(15.0 + 70.0 * v);
-				Vec3d side = c.add(Math.cos(b) * 1.55 * r, 1.0 * r, Math.sin(b) * 1.55 * r);
+				Vec3d side = c.add(Math.cos(b) * 1.45 * r, 0.6 * r, Math.sin(b) * 1.45 * r);
 				eye = eye.lerp(side, v);
 				at = at.lerp(c.add(0, -70.0, 0), v);
 			}
