@@ -2,10 +2,10 @@ package io.github.kortev.shootingstar.client.gap;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import io.github.kortev.shootingstar.client.gfx.Fx;
-import io.github.kortev.shootingstar.client.gfx.Mesh;
 import io.github.kortev.shootingstar.client.gfx.Post;
 import io.github.kortev.shootingstar.client.gfx.Shaders;
 import io.github.kortev.shootingstar.client.gfx.Target;
+import io.github.kortev.shootingstar.client.gfx.Universe;
 import io.github.kortev.shootingstar.gap.GapTimeline;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.MinecraftClient;
@@ -44,7 +44,10 @@ public final class GapRender {
 	/** Blocks of that universe flung out of the burst, and stars streaming out of it. */
 	private static final int FLUNG = 60;
 	private static final int STARS = 520;
-	private static Mesh cube;
+	private static final Vector3f WHITE_LIGHT = new Vector3f(1.0F, 1.0F, 1.0F);
+	/** The size of the picture being drawn, for the galaxies' sizes on screen. */
+	private static int screenW = 1;
+	private static int screenH = 1;
 
 	private GapRender() {
 	}
@@ -55,9 +58,6 @@ public final class GapRender {
 		if (!Shaders.ready() || world == null || client.player == null || ClientGaps.all().isEmpty()) {
 			return;
 		}
-		if (cube == null) {
-			cube = Mesh.cube();
-		}
 		float tickDelta = context.tickCounter().getTickDelta(false);
 		Vec3d cam = context.camera().getPos();
 		Matrix4f view = new Matrix4f(context.positionMatrix());
@@ -65,6 +65,8 @@ public final class GapRender {
 		Framebuffer main = client.getFramebuffer();
 		int w = main.textureWidth;
 		int h = main.textureHeight;
+		screenW = w;
+		screenH = h;
 		Vector3f right = new Vector3f(view.m00(), view.m10(), view.m20());
 		Vector3f up = new Vector3f(view.m01(), view.m11(), view.m21());
 		RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
@@ -174,7 +176,8 @@ public final class GapRender {
 		Vector3f rc = rel(c, cam);
 		float s = (float) GapCamera.BLOCK;
 		Matrix4f model = new Matrix4f().translation(rc).rotateY((float) (t * 0.05)).rotateX((float) (t * 0.031)).rotateZ(0.3F).scale(s);
-		universe(model, view, proj, 0, time, 0.0F, 1.8F, 0.2F, 40, 1.3F);
+		// Dark glass, so the web inside stands out against the daytime sky like a hole into space.
+		universe(model, view, proj, Universe.FULL, 0, 1.3F, 0.88F, 1.8F, 0.2F);
 		Vector3f eye = new Vector3f();
 		BATCH.begin(Fx.BLOB, 0.0F, view, proj, right, up);
 		BATCH.sprite(rc, s * 3.2F, 0.0F, Fx.fade(VIOLET, 0.55F));
@@ -205,7 +208,7 @@ public final class GapRender {
 		float heat = (float) Math.pow(Math.max(0.0, 1.0 - e / 20.0), 1.5);
 		if (h > 0.3) {
 			Matrix4f model = new Matrix4f().translation(rc).scale((float) h);
-			universe(model, view, proj, 0, time, 0.0F, 3.0F, heat, 36, 1.35F);
+			universe(model, view, proj, Universe.FULL, 0, 1.35F, 0.8F, 3.0F, heat);
 		}
 		flung(gap, t, cam, view, proj, time);
 		column(gap, t, e, h, bc, cam, view, proj, right, up);
@@ -341,26 +344,15 @@ public final class GapRender {
 			Vector3f axis = new Vector3f((float) noise(gap.id, i + 250) - 0.5F, (float) noise(gap.id, i + 280) - 0.5F, 0.3F).normalize();
 			Matrix4f model = new Matrix4f().translation(rel(pos, cam)).rotate((float) (age * (0.08 + 0.1 * noise(gap.id, i + 310))), axis)
 					.scale(size);
-			universe(model, view, proj, 2, time, (float) (i * 1.37 + 1.0), 2.2F, flare, 8, 1.3F);
+			universe(model, view, proj, Universe.TINY, 1 + i % 47, 1.3F, 0.85F, 2.2F, flare);
 		}
 	}
 
-	private static void universe(Matrix4f model, Matrix4f view, Matrix4f proj, int mode, float time, float seed, float edge, float heat,
-			int steps, float fade) {
-		RenderSystem.enableDepthTest();
-		RenderSystem.depthFunc(GL11.GL_LEQUAL);
-		RenderSystem.depthMask(true);
-		RenderSystem.disableBlend();
-		RenderSystem.disableCull();
-		Shaders.setInt(Shaders.universe, "Mode", mode);
-		Shaders.set(Shaders.universe, "Time", time);
-		Shaders.set(Shaders.universe, "Seed", seed);
-		Shaders.set(Shaders.universe, "Edge", edge);
-		Shaders.set(Shaders.universe, "Heat", heat);
-		Shaders.set(Shaders.universe, "Reveal", 1.0F);
-		Shaders.setInt(Shaders.universe, "Steps", steps);
-		Shaders.set(Shaders.universe, "Fade", fade);
-		cube.draw(Shaders.universe, new Matrix4f(view).mul(model), proj);
+	/** A universe in its block (or a piece of one), {@code model} placing the block's cube from -1 to 1 in the world. */
+	private static void universe(Matrix4f model, Matrix4f view, Matrix4f proj, int detail, int turn, float brightness, float dark,
+			float edge, float heat) {
+		Universe.draw(new Matrix4f(view).mul(model), proj, screenW, screenH, detail, turn, brightness, 1.0F, WHITE_LIGHT, dark, edge, 0xE6DCFF,
+				heat);
 	}
 
 	// --- the full-screen pass ------------------------------------------------------------

@@ -65,6 +65,11 @@ public final class Feed {
 		draw(ctx, GAP_SHOTS, t);
 	}
 
+	/** Binds the feed's picture to draw on again, after a shot has drawn something into a target of its own. */
+	static void bindScene() {
+		SCENE.bind();
+	}
+
 	private static void draw(DrawContext ctx, Sequence shots, double t) {
 		MinecraftClient client = MinecraftClient.getInstance();
 		float w = ctx.getScaledWindowWidth();

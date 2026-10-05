@@ -1,6 +1,6 @@
 {
-  "vertex": "shootingstar:ss_universe",
-  "fragment": "shootingstar:ss_universe",
+  "vertex": "shootingstar:ss_galaxy",
+  "fragment": "shootingstar:ss_galaxy",
   "samplers": [],
   "uniforms": [
     {
@@ -50,35 +50,38 @@
       ]
     },
     {
-      "name": "Time",
+      "name": "ScreenSize",
       "type": "float",
-      "count": 1,
+      "count": 2,
       "values": [
-        0.0
+        1920.0,
+        1080.0
       ]
     },
     {
-      "name": "Mode",
-      "type": "int",
-      "count": 1,
-      "values": [
-        0
-      ]
-    },
-    {
-      "name": "Seed",
-      "type": "float",
-      "count": 1,
-      "values": [
-        0.0
-      ]
-    },
-    {
-      "name": "Edge",
+      "name": "Brightness",
       "type": "float",
       "count": 1,
       "values": [
         1.0
+      ]
+    },
+    {
+      "name": "Tint",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "name": "Glow",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0.0
       ]
     },
     {
@@ -87,30 +90,6 @@
       "count": 1,
       "values": [
         0.0
-      ]
-    },
-    {
-      "name": "Fade",
-      "type": "float",
-      "count": 1,
-      "values": [
-        1.0
-      ]
-    },
-    {
-      "name": "Reveal",
-      "type": "float",
-      "count": 1,
-      "values": [
-        1.0
-      ]
-    },
-    {
-      "name": "Steps",
-      "type": "int",
-      "count": 1,
-      "values": [
-        48
       ]
     }
   ]
