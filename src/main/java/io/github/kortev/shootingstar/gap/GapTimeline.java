@@ -13,16 +13,21 @@ public final class GapTimeline {
 	public static final int FEED = 66;
 	/** Bifröst, the gate in orbit over the target, wakes. */
 	public static final int GATE = FEED + 26;
-	/** The gate opens onto another universe. */
+	/** The gate opens onto another universe, and the camera dives through the window into it. */
 	public static final int OPEN = FEED + 70;
-	/** A block of that universe is cut out and drawn through. */
-	public static final int CUT = FEED + 118;
+	/**
+	 * Inside that universe, in among its galaxies; the camera pulls back out of it until it is a map, a lattice of
+	 * blocks, and the block in the middle is selected.
+	 */
+	public static final int MAP = FEED + 118;
+	/** That block is cut out and drawn through the gate. */
+	public static final int CUT = MAP + 84;
 	/** The bridge reaches down to the target and the block drops into it. */
-	public static final int SEND = FEED + 160;
+	public static final int SEND = CUT + 42;
 	/** The chase down the bridge to the ground. */
-	public static final int FALL = FEED + 186;
+	public static final int FALL = SEND + 26;
 	/** Back in the world: the block comes down on the target. */
-	public static final int INBOUND = FEED + 254;
+	public static final int INBOUND = FALL + 68;
 	/** The block hits. */
 	public static final int CONTACT = INBOUND + 24;
 	/** The impact frames, from the moment of contact. */

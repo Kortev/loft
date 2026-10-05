@@ -82,7 +82,8 @@ public class GapSelfTest implements ClientModInitializer {
 		if (age < GapTimeline.FEED) return "rise";
 		if (age < GapTimeline.GATE) return "orbit";
 		if (age < GapTimeline.OPEN) return "gate";
-		if (age < GapTimeline.CUT) return "open";
+		if (age < GapTimeline.MAP) return "open";
+		if (age < GapTimeline.CUT) return "map";
 		if (age < GapTimeline.SEND) return "cut";
 		if (age < GapTimeline.FALL) return "send";
 		if (age < GapTimeline.INBOUND) return "fall";
