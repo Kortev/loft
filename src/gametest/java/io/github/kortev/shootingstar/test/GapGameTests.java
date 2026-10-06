@@ -185,9 +185,7 @@ public class GapGameTests implements FabricGameTest {
 			if (far.getPos().distanceTo(farHome) > 2.0) {
 				problems.append("the far player was not taken home: at ").append(far.getPos()).append("; ");
 			}
-			if (shooter.getPos().distanceTo(shooterHome) > 2.0) {
-				problems.append("the shooter was not taken home: at ").append(shooter.getPos()).append("; ");
-			}
+			problems.append(home(world, shooter, shooterHome));
 			if (netherite.getWorld() != nether || netherite.getPos().distanceTo(netherHome) > 2.0) {
 				problems.append("the player from the Nether was not taken home: in ").append(netherite.getWorld().getRegistryKey().getValue())
 						.append(" at ").append(netherite.getPos()).append("; ");
@@ -244,9 +242,7 @@ public class GapGameTests implements FabricGameTest {
 			if (GapManager.held(watcher) || GapManager.held(shooter) || GapManager.running()) {
 				problems.append("someone is still held, or the event still running; ");
 			}
-			if (watcher.getPos().distanceTo(watcherHome) > 2.0) {
-				problems.append("the watcher was not sent home: at ").append(watcher.getPos()).append("; ");
-			}
+			problems.append(home(world, watcher, watcherHome));
 			// The hole finished all the way down, and no floor of barriers left over it.
 			for (int y = world.getBottomY(); y <= center.getY() + 2; y++) {
 				BlockPos at = new BlockPos(center.getX() + 3, y, center.getZ() - 2);
@@ -264,6 +260,22 @@ public class GapGameTests implements FabricGameTest {
 			context.assertTrue(problems.length() == 0, problems.toString());
 			context.complete();
 		});
+	}
+
+	/**
+	 * What is wrong with where {@code player} was sent home to, if anything: it must be solid ground at about the height
+	 * of {@code home}, and at it or just beside it (a fissure may have opened where they were).
+	 */
+	private static String home(ServerWorld world, ServerPlayerEntity player, Vec3d home) {
+		Vec3d at = player.getPos();
+		BlockPos under = player.getBlockPos().down();
+		boolean ground = !world.getBlockState(under).getCollisionShape(world, under).isEmpty();
+		double off = Math.hypot(at.x - home.x, at.z - home.z);
+		if (player.getWorld() == world && player.isAlive() && ground && off <= 8.0 && Math.abs(at.y - home.y) <= 2.0) {
+			return "";
+		}
+		return player.getName().getString() + " was not sent home to solid ground: at " + at + ", " + String.format("%.1f", off)
+				+ " from home, over " + world.getBlockState(under) + "; ";
 	}
 
 	/** A connected survival player standing at {@code at} in {@code world}. */

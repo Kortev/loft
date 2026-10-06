@@ -765,12 +765,29 @@ public final class GapManager {
 	}
 
 	/**
-	 * The nearest place to stand round {@code at}: in its own column first, near its height, then further and further
-	 * out, a couple of hundred blocks at most. In each column, near the height asked for, then (where the sky is open)
-	 * on top of it.
+	 * The nearest place to stand round {@code at}. First at about its own height, in its own column or a few blocks
+	 * round it: beside a fissure that has opened where they were, rather than at the bottom of it. Then anywhere in its
+	 * column, near its height first, and then further and further out, a couple of hundred blocks at most; in each column,
+	 * near the height asked for, then (where the sky is open) on top of it.
 	 */
 	@Nullable
 	private static BlockPos groundNear(ServerWorld world, BlockPos at) {
+		for (int r = 0; r <= 8; r++) {
+			for (int dx = -r; dx <= r; dx++) {
+				for (int dz = -r; dz <= r; dz++) {
+					if (Math.max(Math.abs(dx), Math.abs(dz)) != r) {
+						continue;
+					}
+					world.getChunk((at.getX() + dx) >> 4, (at.getZ() + dz) >> 4);
+					for (int dy : new int[] {0, 1, -1, 2}) {
+						BlockPos p = at.add(dx, dy, dz);
+						if (standable(world, p)) {
+							return p;
+						}
+					}
+				}
+			}
+		}
 		BlockPos here = standableIn(world, at.getX(), at.getZ(), at.getY());
 		if (here != null) {
 			return here;
