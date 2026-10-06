@@ -996,11 +996,12 @@ final class GapShots implements Feed.Sequence {
 			default -> {
 				// Close in behind it, turning round it as it goes, the world rolling over under it; nearer as the air thickens.
 				float near = Shots.smooth((r - FALL_ANGLES[3]) / 14.0);
-				float distance = Shots.lerp(20.0, 13.0, near);
+				float distance = Shots.lerp(24.0, 16.0, near);
 				double turn = (r - FALL_ANGLES[3]) * 0.06;
 				Vector3f side2 = new Vector3f(side).cross(down).normalize();
 				Vector3f round = new Vector3f(side).mul((float) Math.cos(turn)).add(new Vector3f(side2).mul((float) Math.sin(turn)));
-				eye = new Vector3f(block).sub(new Vector3f(down).mul(distance)).add(new Vector3f(round).mul(distance * 0.45F));
+				// Well out to the side of the sheath of shocked air, so it is seen burning rather than looked through.
+				eye = new Vector3f(block).sub(new Vector3f(down).mul(distance * 0.7F)).add(new Vector3f(round).mul(distance * 0.9F));
 				at = new Vector3f(block).add(new Vector3f(down).mul(distance * 2.2F));
 				up = new Vector3f(round).negate();
 				fov = Shots.lerp(56.0, 64.0, near) + 6.0F * heat;

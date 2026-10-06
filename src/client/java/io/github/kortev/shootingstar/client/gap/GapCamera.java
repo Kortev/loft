@@ -324,8 +324,9 @@ public final class GapCamera {
 		double out = in * (1.0 - home);
 		// Craning back and up as far as it takes to see the whole of the tree, and the world coming back all round it.
 		double tall = TreeRender.height(gap);
-		Vec3d shoulder = eyes.add(facing.multiply(-3.5 - 0.45 * tall * crane)).add(side.multiply(1.6 + 0.1 * tall * crane))
-				.add(0.0, -0.6 + 0.16 * tall * crane, 0.0);
+		// Up more than back, so it rises over whatever hills are behind the shooter rather than backing into them.
+		Vec3d shoulder = eyes.add(facing.multiply(-3.5 - 0.18 * tall * crane)).add(side.multiply(1.6 + 0.08 * tall * crane))
+				.add(0.0, -0.6 + 0.32 * tall * crane, 0.0);
 		Vec3d eye = clear(eyes.lerp(shoulder, out), eyes);
 		Vec3d at = eyes.add(player.getRotationVec(tickDelta).multiply(10.0)).lerp(chest, out);
 		// As the light goes out through its roots, down to the ground to watch the world put back block by block, coming

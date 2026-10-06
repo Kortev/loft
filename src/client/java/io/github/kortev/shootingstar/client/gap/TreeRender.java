@@ -34,6 +34,14 @@ final class TreeRender {
 		return Math.max(120.0, Math.min(420.0, gap.radius * 2.6));
 	}
 
+	/**
+	 * How wide it is drawn, one of its units across: slender enough that the whole of its crown stands inside the hole,
+	 * so the shooter, set down at the rim, sees all of it rather than standing in among its limbs.
+	 */
+	static double width(ClientGap gap) {
+		return Math.min(height(gap), 0.8 * gap.radius / 0.62);
+	}
+
 	/** Where the foot of its axis stands (world): in the middle of the hole, its roots running out at the old ground's level. */
 	static Vec3d foot(ClientGap gap) {
 		return gap.contact.add(0.0, 1.0 + FLOOR * height(gap), 0.0);
@@ -47,7 +55,7 @@ final class TreeRender {
 
 	/** How far its long root has to run to reach the shooter, in its own units. */
 	static double reach(ClientGap gap) {
-		return Math.max(0.2, Math.hypot(gap.rebuildFrom.x - gap.contact.x, gap.rebuildFrom.z - gap.contact.z) / height(gap));
+		return Math.max(0.2, Math.hypot(gap.rebuildFrom.x - gap.contact.x, gap.rebuildFrom.z - gap.contact.z) / width(gap));
 	}
 
 	/** How much it is there: all through the rebuild, going as the world comes back. */
@@ -123,7 +131,7 @@ final class TreeRender {
 		Vec3d toward = toward(gap);
 		float yaw = (float) Math.atan2(toward.x, toward.z);
 		Vector3f foot = GapRender.rel(foot(gap), cam);
-		Matrix4f model = new Matrix4f().translation(foot).rotateY(yaw).scale((float) height(gap));
+		Matrix4f model = new Matrix4f().translation(foot).rotateY(yaw).scale((float) width(gap), (float) height(gap), (float) width(gap));
 		RenderSystem.depthMask(false);
 		RenderSystem.disableCull();
 		RenderSystem.enableBlend();

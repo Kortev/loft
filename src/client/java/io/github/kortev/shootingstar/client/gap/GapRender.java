@@ -599,7 +599,7 @@ public final class GapRender {
 			return;
 		}
 		Vec3d feet = TreeRender.foot(gap).subtract(gap.target.getX(), gap.target.getY(), gap.target.getZ());
-		g.odin.set((float) feet.x, (float) feet.y, (float) feet.z, (float) TreeRender.height(gap));
+		g.odin.set((float) feet.x, (float) feet.y, (float) feet.z, (float) TreeRender.width(gap));
 		g.odinState.set((float) TreeRender.there(r), 0.0F, 0.0F, 0.0F);
 		// Its light on the world as it comes back round it: violet and cold, flaring as the light goes out through it.
 		double height = TreeRender.height(gap);
