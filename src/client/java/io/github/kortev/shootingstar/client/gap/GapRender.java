@@ -97,9 +97,9 @@ public final class GapRender {
 
 		Grade grade = grade(mine, tickDelta, cam, view, proj);
 		if (grade != null) {
-			boolean odin = mine != null && TreeRender.draw(mine, mine.time(tickDelta), cam, view, proj, w, h);
-			if (!odin) {
-				grade.odinState.x = 0.0F;
+			boolean tree = mine != null && TreeRender.draw(mine, mine.time(tickDelta), cam, view, proj, w, h);
+			if (!tree) {
+				grade.treeState.x = 0.0F;
 			}
 			DEPTH.ensure(w, h);
 			DEPTH.copyDepthFrom(main);
@@ -113,7 +113,7 @@ public final class GapRender {
 			RenderSystem.depthMask(true);
 			RenderSystem.setShaderTexture(0, COPY.color());
 			RenderSystem.setShaderTexture(1, DEPTH.depth());
-			RenderSystem.setShaderTexture(2, odin ? TreeRender.color() : 0);
+			RenderSystem.setShaderTexture(2, tree ? TreeRender.color() : 0);
 			grade.apply(proj, view, w, h, time);
 			Post.quad(Shaders.gap);
 			RenderSystem.depthFunc(GL11.GL_LEQUAL);
@@ -386,8 +386,9 @@ public final class GapRender {
 	private static void flakes(ClientGap gap, double t, Vec3d cam, Matrix4f view, Matrix4f proj, Vector3f right, Vector3f up) {
 		ClientWorld world = MinecraftClient.getInstance().world;
 		if (world != null && gap.rebuildAt >= 0) {
-			motes(gap, world, t - gap.rebuildAt, cam, view, proj, right, up);
-			landing(gap, t - gap.rebuildAt, cam, view, proj, right, up);
+			double r = gap.rebuild((float) (t - gap.age));
+			motes(gap, world, r, cam, view, proj, right, up);
+			landing(gap, r, cam, view, proj, right, up);
 			return;
 		}
 		if (world == null || t < GapTimeline.ERASURE || t > GapTimeline.NOTHING + 40) {
@@ -556,8 +557,8 @@ public final class GapRender {
 		float shock = -1.0F;
 		float skyMix;
 		/** The foot of Yggdrasil (relative to the target) and its height; how much it is there. */
-		Vector4f odin = new Vector4f(0.0F, 0.0F, 0.0F, 1.0F);
-		Vector4f odinState = new Vector4f();
+		Vector4f tree = new Vector4f(0.0F, 0.0F, 0.0F, 1.0F);
+		Vector4f treeState = new Vector4f();
 
 		void apply(Matrix4f proj, Matrix4f view, int w, int h, float time) {
 			Matrix4f inv = new Matrix4f(proj).mul(view).invert();
@@ -582,8 +583,8 @@ public final class GapRender {
 			Shaders.set(Shaders.gap, "BurstLight", burstLight);
 			Shaders.set(Shaders.gap, "Shock", shock);
 			Shaders.set(Shaders.gap, "SkyMix", skyMix);
-			Shaders.set(Shaders.gap, "Odin", odin.x, odin.y, odin.z, odin.w);
-			Shaders.set(Shaders.gap, "OdinState", odinState.x, odinState.y, odinState.z, odinState.w);
+			Shaders.set(Shaders.gap, "Tree", tree.x, tree.y, tree.z, tree.w);
+			Shaders.set(Shaders.gap, "TreeState", treeState.x, treeState.y, treeState.z, treeState.w);
 		}
 	}
 
@@ -599,8 +600,8 @@ public final class GapRender {
 			return;
 		}
 		Vec3d feet = TreeRender.foot(gap).subtract(gap.target.getX(), gap.target.getY(), gap.target.getZ());
-		g.odin.set((float) feet.x, (float) feet.y, (float) feet.z, (float) TreeRender.width(gap));
-		g.odinState.set((float) TreeRender.there(r), 0.0F, 0.0F, 0.0F);
+		g.tree.set((float) feet.x, (float) feet.y, (float) feet.z, (float) TreeRender.width(gap));
+		g.treeState.set((float) TreeRender.there(r), 0.0F, 0.0F, 0.0F);
 		// Its light on the world as it comes back round it: violet and cold, flaring as the light goes out through it.
 		double height = TreeRender.height(gap);
 		Vec3d glow = TreeRender.foot(gap).add(0.0, height * 0.3, 0.0).subtract(gap.target.getX(), gap.target.getY(), gap.target.getZ());
@@ -694,8 +695,9 @@ public final class GapRender {
 			} else if (t >= GapTimeline.FEED && t < GapTimeline.FEED + 8 && mine.feedSkipped) {
 				g.flash = (float) (1.0 - (t - GapTimeline.FEED) / 8.0);
 				on = true;
-			} else if (t >= GapTimeline.INBOUND && t < GapTimeline.INBOUND + 8 && !mine.feedSkipped) {
-				g.flash = (float) Math.pow(1.0 - (t - GapTimeline.INBOUND) / 8.0, 1.5);
+			} else if (t >= GapTimeline.INBOUND && t < GapTimeline.INBOUND + 16 && !mine.feedSkipped) {
+				// Out of the cloud deck's white into the sky over the target, slowly enough to see it clear.
+				g.flash = (float) (1.0 - GapCamera.ease((t - GapTimeline.INBOUND) / 16.0));
 				on = true;
 			}
 			// The hit: two ticks of pure white before the first frame.

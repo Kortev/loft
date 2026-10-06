@@ -1,11 +1,13 @@
 package io.github.kortev.shootingstar.client.gap;
 
+import io.github.kortev.shootingstar.client.ShootingStarClient;
 import io.github.kortev.shootingstar.client.feed.Feed;
 import io.github.kortev.shootingstar.gap.GapTimeline;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.render.RenderTickCounter;
+import net.minecraft.text.Text;
 import net.minecraft.util.math.MathHelper;
 
 /** What goes over the shooter's screen through a Ginnungagap event: the key's readout, the feed, and the way out of the black. */
@@ -38,7 +40,17 @@ public final class GapHud {
 			String line = t < 27 ? typed("SEARCHING NEIGHBOURING UNIVERSES", (t - 12) / 12.0) : typed("UNIVERSE 4,096,113 · FOUND", (t - 27) / 7.0);
 			text(ctx, font, line, w / 2, 34, 1.0F, PALE, a, true);
 		} else if (gap.rebuildAt >= 0) {
-			loading(ctx, font, w, h, gap.rebuild(tickDelta));
+			double r = gap.rebuild(tickDelta);
+			loading(ctx, font, w, h, r);
+			if (!gap.rebuildHurried && r < GapTimeline.REBUILD_DONE) {
+				// The skip key hurries it on, in the corner where the feed shows its own.
+				Text hurry = Text.translatable("hud.shootingstar.hurry", ShootingStarClient.SKIP_FEED.getBoundKeyLocalizedText());
+				ctx.getMatrices().push();
+				ctx.getMatrices().translate(w - 6, h - 10, 0);
+				ctx.getMatrices().scale(0.6F, 0.6F, 1.0F);
+				ctx.drawText(font, hurry, -font.getWidth(hurry), 0, 0x66FFFFFF, false);
+				ctx.getMatrices().pop();
+			}
 		} else if (t >= GapTimeline.END) {
 			// Nothing is said in the black. Only, after a while, how to get out of it.
 			float a = (float) ease((t - GapTimeline.END - 40) / 20.0);

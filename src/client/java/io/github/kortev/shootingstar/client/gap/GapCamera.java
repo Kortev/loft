@@ -337,7 +337,8 @@ public final class GapCamera {
 		double across = Math.hypot(feet.x - from.x, feet.z - from.z);
 		Vec3d ground = from.lerp(feet, MathHelper.clamp(front / Math.max(1.0, across), 0.0, 0.85)).add(0.0, -2.0, 0.0);
 		double down = ease((r - GapTimeline.REBUILD_SWEEP - 4.0) / 36.0) * (1.0 - ease((r - GapTimeline.REBUILD_SWEEP - 170.0) / 70.0));
-		at = at.lerp(ground, down * out);
+		// Never all the way down: the tree stays standing over the top of the picture as the world spreads under it.
+		at = at.lerp(ground, 0.55 * down * out);
 		if (r >= GapTimeline.REBUILD_SWEEP) {
 			double jolt = 4.0 * Math.exp(-(r - GapTimeline.REBUILD_SWEEP) / 12.0);
 			at = at.add(Math.sin(r * 2.9) * jolt, Math.cos(r * 2.3) * jolt, Math.sin(r * 3.7 + 1.0) * jolt);

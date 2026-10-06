@@ -83,7 +83,7 @@ final class TreeRender {
 		if (gap.rebuildAt < 0 || gap.rebuildFrom == null) {
 			return false;
 		}
-		double r = t - gap.rebuildAt;
+		double r = gap.rebuild((float) (t - gap.age));
 		if (there(r) <= 0.0) {
 			return false;
 		}

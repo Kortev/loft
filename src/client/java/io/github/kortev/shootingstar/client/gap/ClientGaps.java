@@ -126,7 +126,8 @@ public final class ClientGaps {
 		MinecraftClient client = MinecraftClient.getInstance();
 		if (gap.mine && !gap.ended && gap.rebuildAt < 0) {
 			gap.rebuildAt = gap.age;
-			ClientStrikes.master(ModSounds.GAP_REBUILD, 1.0F, 1.0F);
+			gap.rebuildSound = new RebuildSound();
+			client.getSoundManager().play(gap.rebuildSound);
 		} else if (!gap.mine && gap.spectateAt < 0 && client.player != null
 				&& client.player.getPos().distanceTo(gap.contact) < SPECTATE_RANGE) {
 			// Anyone near enough sees the tree grow out of the hole too, its root reaching out to them.
@@ -137,9 +138,18 @@ public final class ClientGaps {
 		}
 	}
 
-	/** The skip key: the feed goes, and its sounds with it. */
+	/** The skip key: the feed goes, and its sounds with it; during the rebuild, the rest of it runs six times as fast. */
 	public static void skipFeed() {
 		ClientGap gap = mine();
+		if (gap != null && gap.rebuildAt >= 0) {
+			if (!gap.rebuildHurried) {
+				gap.rebuildHurried = true;
+				if (gap.rebuildSound != null) {
+					gap.rebuildSound.fade();
+				}
+			}
+			return;
+		}
 		if (gap == null || gap.feedSkipped) {
 			return;
 		}
@@ -173,9 +183,10 @@ public final class ClientGaps {
 				cues(gap, from, gap.age);
 			}
 			if (gap.rebuildAt >= 0 && client.player != null) {
-				int r = gap.age - gap.rebuildAt;
+				gap.rebuildClock += gap.rebuildRate();
+				double r = gap.rebuildClock;
 				// The tree knows where to send its root once the shooter has been set down out of the hole.
-				if (r == 5) {
+				if (r >= 5 && gap.rebuildFrom == null) {
 					gap.rebuildFrom = client.player.getPos();
 				}
 				if (r >= GapTimeline.REBUILD_END) {

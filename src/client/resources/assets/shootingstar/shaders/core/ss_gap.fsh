@@ -9,7 +9,7 @@
 
 uniform sampler2D Sampler0;
 uniform sampler2D Sampler1;
-// Yggdrasil, drawn into a picture of its own (TreeRender); Odin is its foot (relative to the target) and height, OdinState.x how much it is there.
+// Yggdrasil, drawn into a picture of its own (TreeRender); Tree is its foot (relative to the target) and height, TreeState.x how much it is there.
 uniform sampler2D Sampler2;
 uniform mat4 InvViewProj;
 uniform vec2 ScreenSize;
@@ -33,8 +33,8 @@ uniform float Black;
 // strength of its light, the square front running out from it over the ground (below 0 for none), and how much of
 // the sky has become the other universe's.
 uniform vec4 Burst;
-uniform vec4 Odin;
-uniform vec4 OdinState;
+uniform vec4 Tree;
+uniform vec4 TreeState;
 uniform vec3 BurstLight;
 uniform float Shock;
 uniform float SkyMix;
@@ -414,17 +414,17 @@ void main() {
         }
         c = burst(uv, c);
         c = erase(uv, c);
-        if (OdinState.x > 0.0) {
+        if (TreeState.x > 0.0) {
             // Nothing stands in front of it in the sky or where the black still is; elsewhere the world remade does.
             bool open = isSky(uv) || dot(c, c) < 1.0e-6;
             // How far along this pixel's ray it passes the tree's axis: the world nearer than that (less the
             // spread of its limbs) stands in front of it.
             vec3 d = viewDir(uv);
-            vec2 axis = Odin.xz - CamOffset.xz;
+            vec2 axis = Tree.xz - CamOffset.xz;
             float pass = max(0.0, dot(axis, d.xz) / max(dot(d.xz, d.xz), 1.0e-4));
-            if (open || length(relAt(uv)) > pass - 0.35 * Odin.w) {
+            if (open || length(relAt(uv)) > pass - 0.35 * Tree.w) {
                 vec4 o = texture(Sampler2, uv);
-                c = c * (1.0 - o.a * OdinState.x) + o.rgb * OdinState.x;
+                c = c * (1.0 - o.a * TreeState.x) + o.rgb * TreeState.x;
             }
         }
     }

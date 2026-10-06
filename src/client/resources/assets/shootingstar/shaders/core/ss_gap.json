@@ -208,7 +208,7 @@
       ]
     },
     {
-      "name": "Odin",
+      "name": "Tree",
       "type": "float",
       "count": 4,
       "values": [
@@ -219,7 +219,7 @@
       ]
     },
     {
-      "name": "OdinState",
+      "name": "TreeState",
       "type": "float",
       "count": 4,
       "values": [

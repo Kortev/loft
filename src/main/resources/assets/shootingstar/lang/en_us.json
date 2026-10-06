@@ -20,6 +20,7 @@
   "key.categories.shootingstar": "The Shooting Star",
   "key.shootingstar.skip_feed": "Skip uplink feed",
   "hud.shootingstar.skip": "[%s] SKIP FEED",
+  "hud.shootingstar.hurry": "[%s] HURRY",
   "subtitles.shootingstar.uplink.lock": "Uplink locks on",
   "subtitles.shootingstar.uplink.denied": "Uplink refuses",
   "subtitles.shootingstar.camera.rise": "Wind rushes past",

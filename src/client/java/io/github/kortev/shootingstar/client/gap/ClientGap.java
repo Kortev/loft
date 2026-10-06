@@ -32,6 +32,11 @@ public final class ClientGap {
 	public int rebuildAt = -1;
 	@Nullable
 	public Vec3d rebuildFrom;
+	/** How far the rebuild has got, in its own ticks; and whether the shooter has hurried it on with the skip key. */
+	public double rebuildClock;
+	public boolean rebuildHurried;
+	@Nullable
+	RebuildSound rebuildSound;
 	/** Someone else's, released: when this player started watching its tree grow out of the hole, or -1. */
 	public int spectateAt = -1;
 	/** The shooter skipped the feed: they watch the bridge come down from the world instead. */
@@ -65,9 +70,13 @@ public final class ClientGap {
 		return age + tickDelta;
 	}
 
-	/** Ticks into the rebuild, or -1 before it. */
+	/** Ticks into the rebuild, or -1 before it: six to a tick once the shooter has hurried it on. */
 	public double rebuild(float tickDelta) {
-		return rebuildAt < 0 ? -1.0 : age + tickDelta - rebuildAt;
+		return rebuildAt < 0 ? -1.0 : rebuildClock + tickDelta * rebuildRate();
+	}
+
+	public int rebuildRate() {
+		return rebuildHurried ? 6 : 1;
 	}
 
 	/** The shooter's own camera shots and black screen play only for them. */
