@@ -73,9 +73,10 @@ public class ChittyGameTests implements FabricGameTest {
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_chitty", tickLimit = 200)
 	public void landsSafely(TestContext context) {
 		floor(context, 0);
-		ChittyEntity car = car(context, 4.0, 7.0, 4.0);
+		// A seated zombie's head is over three blocks above the car: start low enough to keep it inside the test's box.
+		ChittyEntity car = car(context, 4.0, 5.0, 4.0);
 		car.launch(0.0F, true);
-		ZombieEntity rider = context.spawnEntity(EntityType.HUSK, new Vec3d(4.0, 7.0, 4.0));
+		ZombieEntity rider = context.spawnEntity(EntityType.HUSK, new Vec3d(4.0, 5.0, 4.0));
 		rider.setAiDisabled(true);
 		context.assertTrue(rider.startRiding(car), "the zombie could not get in");
 		float health = rider.getHealth();
@@ -88,12 +89,12 @@ public class ChittyGameTests implements FabricGameTest {
 		});
 	}
 
-	/** Dropped without her wings, she lands hard but nobody aboard takes fall damage. */
+	/** Dropped without her wings, she lands hard (four blocks: enough to hurt) but nobody aboard takes fall damage. */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_chitty", tickLimit = 120)
 	public void noFallDamage(TestContext context) {
 		floor(context, 0);
-		ChittyEntity car = car(context, 4.0, 7.5, 4.0);
-		ZombieEntity rider = context.spawnEntity(EntityType.HUSK, new Vec3d(4.0, 7.5, 4.0));
+		ChittyEntity car = car(context, 4.0, 5.0, 4.0);
+		ZombieEntity rider = context.spawnEntity(EntityType.HUSK, new Vec3d(4.0, 5.0, 4.0));
 		rider.setAiDisabled(true);
 		rider.startRiding(car);
 		WATCHED.add(rider.getUuid());
