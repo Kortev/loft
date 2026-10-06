@@ -1355,6 +1355,10 @@ def render_icon():
     bpy.ops.render.render(write_still=True)
     # Shrink with the colour premultiplied, so the transparent surround does not darken the edges.
     small = Image.open(path).convert('RGBa').resize((32, 32), Image.LANCZOS).convert('RGBA')
+    # Lifted a little so it reads among the vanilla items, which are drawn bright and flat.
+    from PIL import ImageEnhance
+    rgb = ImageEnhance.Color(ImageEnhance.Brightness(small.convert('RGB')).enhance(1.25)).enhance(1.2)
+    small = Image.merge('RGBA', (*rgb.split(), small.split()[3]))
     a = np.array(small)
     a[..., 3] = np.where(a[..., 3] > 100, 255, 0)
     Image.fromarray(a, 'RGBA').save(ITEM_ICON, optimize=True)
