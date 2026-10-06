@@ -414,8 +414,12 @@ void main() {
         if (OdinState.x > 0.0) {
             // Nothing stands in front of it in the sky or where the black still is; elsewhere the world remade does.
             bool open = isSky(uv) || dot(c, c) < 1.0e-6;
-            float him = length(Odin.xyz - CamOffset) - 0.4 * Odin.w;
-            if (open || length(relAt(uv)) > him) {
+            // How far along this pixel's ray it passes the tree's axis: the world nearer than that (less the
+            // spread of its limbs) stands in front of it.
+            vec3 d = viewDir(uv);
+            vec2 axis = Odin.xz - CamOffset.xz;
+            float pass = max(0.0, dot(axis, d.xz) / max(dot(d.xz, d.xz), 1.0e-4));
+            if (open || length(relAt(uv)) > pass - 0.35 * Odin.w) {
                 vec4 o = texture(Sampler2, uv);
                 c = c * (1.0 - o.a * OdinState.x) + o.rgb * OdinState.x;
             }

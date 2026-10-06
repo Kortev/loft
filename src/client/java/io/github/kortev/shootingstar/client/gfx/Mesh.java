@@ -247,7 +247,7 @@ public final class Mesh {
 				int size = data.getShort(at + 16) & 0xFFFF;
 				int grow = (int) ((data.getShort(at + 18) & 0xFFFF) * (30000.0 / 65535.0));
 				float along = (data.getShort(at + 20) & 0xFFFF) * 1.0E-4F / 2.5F * 2.0F - 1.0F;
-				float kind = (data.get(at + 22) & 255) / 3.0F;
+				float kind = (data.get(at + 22) & 255) / 4.0F;
 				float seed = (data.get(at + 23) & 255) / 255.0F * 2.0F - 1.0F;
 				float x = data.getFloat(at);
 				float y = data.getFloat(at + 4);

@@ -164,11 +164,9 @@ public final class ClientGaps {
 			}
 			if (gap.rebuildAt >= 0 && client.player != null) {
 				int r = gap.age - gap.rebuildAt;
-				// Odin takes his place once the shooter has been set down out of the hole, out where they are looking.
+				// The tree knows where to send its root once the shooter has been set down out of the hole.
 				if (r == 5) {
-					Vec3d facing = Vec3d.fromPolar(0.0F, client.player.getYaw()).normalize();
-					gap.odinFacing = facing;
-					gap.odinFeet = client.player.getPos().add(facing.multiply(GapTimeline.ODIN_DISTANCE)).add(0.0, -60.0, 0.0);
+					gap.rebuildFrom = client.player.getPos();
 				}
 				if (r >= GapTimeline.REBUILD_END) {
 					gap.ended = true;

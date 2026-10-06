@@ -45,17 +45,14 @@ public final class GapTimeline {
 	public static final int END = RETURN + 80;
 
 	// The rebuild, on the shooter's side only, in ticks from when they use the key again in the black: a loading screen,
-	// Odin rising out of the void, his one eye opening, his arm coming up and sweeping down, and the world remade from
-	// the edges in.
-	public static final int REBUILD_ODIN = 40;
-	public static final int REBUILD_EYE = 120;
-	public static final int REBUILD_ARM = 160;
+	// Yggdrasil growing up out of the hole, its nine worlds lighting, light gathering in it and sent out through its
+	// roots, and the world remade out from them.
+	public static final int REBUILD_TREE = 40;
+	public static final int REBUILD_WORLDS = 120;
+	public static final int REBUILD_GATHER = 160;
 	public static final int REBUILD_SWEEP = 220;
 	public static final int REBUILD_DONE = 520;
 	public static final int REBUILD_END = 640;
-	/** How tall Odin stands in the void, and how far off. */
-	public static final double ODIN_HEIGHT = 420.0;
-	public static final double ODIN_DISTANCE = 650.0;
 
 	/** Closest the target may be, so the camera shots have room. */
 	public static final double MIN_RANGE = 24.0;

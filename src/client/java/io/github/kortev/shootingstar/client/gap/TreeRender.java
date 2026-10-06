@@ -12,10 +12,9 @@ import org.joml.Vector3f;
 
 /**
  * Yggdrasil in the void, for the rebuild: not a tree so much as what one means here, the axis the nine worlds hang
- * on, all of it light (tools/gen_yggdrasil.py, drawn by ss_tree the way the galaxies are). It grows up out of the dark
- * where the shooter is looking, its long root running out over the floor of the void to their feet; then light
- * gathers at its foot and goes out through the whole of it, down that root to the shooter, and the world is put back
- * from there. Drawn into a picture of its own, with a far plane of its own, which the grade pass adds over the void.
+ * on, all of it light (tools/gen_yggdrasil.py, drawn by ss_tree the way the galaxies are). It grows up out of the hole
+ * the block left, its roots running out over where the ground was and its long root out to the shooter's feet; then
+ * light gathers at its foot and goes out through the whole of it, and the world is put back out from its roots. Drawn into a picture of its own, with a far plane of its own, which the grade pass adds over the void.
  */
 final class TreeRender {
 	private static final Target TARGET = new Target(false, true);
@@ -26,30 +25,50 @@ final class TreeRender {
 	private TreeRender() {
 	}
 
-	/** Where the foot of its axis stands (world): so that its roots run over the ground the shooter stands on. */
+	/** How tall it stands: out of all proportion to the hole it grows from. */
+	static double height(ClientGap gap) {
+		return Math.max(120.0, Math.min(420.0, gap.radius * 2.6));
+	}
+
+	/** Where the foot of its axis stands (world): in the middle of the hole, its roots running out at the old ground's level. */
 	static Vec3d foot(ClientGap gap) {
-		return gap.odinFeet.add(0.0, 60.0 - 1.5 + FLOOR * GapTimeline.ODIN_HEIGHT, 0.0);
+		return gap.contact.add(0.0, 1.0 + FLOOR * height(gap), 0.0);
+	}
+
+	/** The way out from the middle of the hole to where the shooter stands. */
+	static Vec3d toward(ClientGap gap) {
+		Vec3d d = new Vec3d(gap.rebuildFrom.x - gap.contact.x, 0.0, gap.rebuildFrom.z - gap.contact.z);
+		return d.lengthSquared() < 1.0 ? new Vec3d(1.0, 0.0, 0.0) : d.normalize();
+	}
+
+	/** How far its long root has to run to reach the shooter, in its own units. */
+	static double reach(ClientGap gap) {
+		return Math.max(0.2, Math.hypot(gap.rebuildFrom.x - gap.contact.x, gap.rebuildFrom.z - gap.contact.z) / height(gap));
 	}
 
 	/** How much it is there: all through the rebuild, going as the world comes back. */
 	static double there(double r) {
-		return GapCamera.ease((r - GapTimeline.REBUILD_ODIN + 20.0) / 40.0) * (1.0 - GapCamera.ease((r - GapTimeline.REBUILD_DONE + 20.0) / 90.0));
+		return GapCamera.ease((r - GapTimeline.REBUILD_TREE + 20.0) / 40.0) * (1.0 - GapCamera.ease((r - GapTimeline.REBUILD_DONE + 10.0) / 100.0));
 	}
 
-	/** How far it has grown: from the roots up, through the time the shooter has to look at it. */
+	/**
+	 * How far it has grown: from the roots up, through the time the shooter has to look at it; and at the end, as the
+	 * world is all back, drawing back in the way it came, down into the hole.
+	 */
 	static double grown(double r) {
-		return GapCamera.ease((r - GapTimeline.REBUILD_ODIN + 20.0) / (GapTimeline.REBUILD_ARM - GapTimeline.REBUILD_ODIN + 40.0));
+		double up = GapCamera.ease((r - GapTimeline.REBUILD_TREE + 20.0) / (GapTimeline.REBUILD_GATHER - GapTimeline.REBUILD_TREE + 40.0));
+		return up * (1.0 - 0.9 * GapCamera.ease((r - GapTimeline.REBUILD_DONE + 40.0) / 100.0));
 	}
 
 	/** Where the wave of light sent through it is, in its units along it from the foot: out to the shooter at the sweep. */
-	static double wave(double r) {
+	static double wave(ClientGap gap, double r) {
 		double gather = GapTimeline.REBUILD_SWEEP - 26.0;
-		return r < gather ? -1.0 : (r - gather) / 26.0 * (GapTimeline.ODIN_DISTANCE / GapTimeline.ODIN_HEIGHT);
+		return r < gather ? -1.0 : (r - gather) / 26.0 * reach(gap);
 	}
 
 	/** Draws it into its own picture; true if there was anything to draw. */
 	static boolean draw(ClientGap gap, double t, Vec3d cam, Matrix4f view, Matrix4f proj, int w, int h) {
-		if (gap.rebuildAt < 0 || gap.odinFeet == null || gap.odinFacing == null) {
+		if (gap.rebuildAt < 0 || gap.rebuildFrom == null) {
 			return false;
 		}
 		double r = t - gap.rebuildAt;
@@ -67,10 +86,10 @@ final class TreeRender {
 		lens.m22(-(far + near) / (far - near));
 		lens.m32(-2.0F * far * near / (far - near));
 		// Its long root runs along its +Z: turned to run to the shooter.
-		Vec3d toward = gap.odinFacing.multiply(-1.0);
+		Vec3d toward = toward(gap);
 		float yaw = (float) Math.atan2(toward.x, toward.z);
 		Vector3f foot = GapRender.rel(foot(gap), cam);
-		Matrix4f model = new Matrix4f().translation(foot).rotateY(yaw).scale((float) GapTimeline.ODIN_HEIGHT);
+		Matrix4f model = new Matrix4f().translation(foot).rotateY(yaw).scale((float) height(gap));
 
 		TARGET.begin(w, h, 0.0F, 0.0F, 0.0F, 0.0F);
 		RenderSystem.disableDepthTest();
@@ -82,9 +101,10 @@ final class TreeRender {
 		Shaders.set(Shaders.tree, "ScreenSize", (float) w, (float) h);
 		Shaders.set(Shaders.tree, "Grow", (float) grown(r));
 		Shaders.set(Shaders.tree, "Time", (float) t);
-		Shaders.set(Shaders.tree, "Wave", (float) wave(r));
+		Shaders.set(Shaders.tree, "Wave", (float) wave(gap, r));
+		Shaders.set(Shaders.tree, "Reach", (float) reach(gap));
 		// Brighter as the light gathers in it for the sweep.
-		float gather = (float) GapCamera.ease((r - GapTimeline.REBUILD_ARM) / (GapTimeline.REBUILD_SWEEP - GapTimeline.REBUILD_ARM));
+		float gather = (float) GapCamera.ease((r - GapTimeline.REBUILD_GATHER) / (GapTimeline.REBUILD_SWEEP - GapTimeline.REBUILD_GATHER));
 		float after = (float) Math.exp(-Math.max(0.0, r - GapTimeline.REBUILD_SWEEP) / 40.0);
 		Shaders.set(Shaders.tree, "Bright", there * (1.0F + 0.8F * gather * (r < GapTimeline.REBUILD_SWEEP ? 1.0F : after)));
 		tree.draw(Shaders.tree, new Matrix4f(view).mul(model), lens);

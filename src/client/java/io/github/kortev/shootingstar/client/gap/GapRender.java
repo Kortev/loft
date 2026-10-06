@@ -546,12 +546,18 @@ public final class GapRender {
 		double front = rebuildFront(r);
 		g.front = (float) front;
 		g.remake = front >= 0.0 ? 1.0F : 0.0F;
-		if (gap.odinFeet == null || gap.odinFacing == null) {
+		if (gap.rebuildFrom == null) {
 			return;
 		}
 		Vec3d feet = TreeRender.foot(gap).subtract(gap.target.getX(), gap.target.getY(), gap.target.getZ());
-		g.odin.set((float) feet.x, (float) feet.y, (float) feet.z, (float) GapTimeline.ODIN_HEIGHT);
+		g.odin.set((float) feet.x, (float) feet.y, (float) feet.z, (float) TreeRender.height(gap));
 		g.odinState.set((float) TreeRender.there(r), 0.0F, 0.0F, 0.0F);
+		// Its light on the world as it comes back round it: violet and cold, flaring as the light goes out through it.
+		double height = TreeRender.height(gap);
+		Vec3d glow = TreeRender.foot(gap).add(0.0, height * 0.3, 0.0).subtract(gap.target.getX(), gap.target.getY(), gap.target.getZ());
+		double flare = Math.exp(-Math.abs(r - GapTimeline.REBUILD_SWEEP) / 30.0);
+		g.burst.set((float) glow.x, (float) glow.y, (float) glow.z, (float) (height * 0.9));
+		g.burstLight.set(0.42F, 0.38F, 0.95F).mul((float) (TreeRender.there(r) * TreeRender.grown(r) * (0.35 + 0.9 * flare)));
 	}
 
 	/** How far out the world has been built back, {@code r} ticks into the rebuild: from the sweep, out to the fog, then done (-1). */
@@ -661,7 +667,7 @@ public final class GapRender {
 				on = true;
 			}
 			if (t >= GapTimeline.NOTHING - 10) {
-				// Lifted as the rebuild begins: from then on the front alone holds the dark, so Odin and the world coming back
+				// Lifted as the rebuild begins: from then on the front alone holds the dark, so the tree and the world coming back
 				// are seen.
 				double r = mine.rebuild(tickDelta);
 				g.black = (float) (MathHelper.clamp((t - GapTimeline.NOTHING + 10) / 10.0, 0.0, 1.0) * (r < 0.0 ? 1.0 : 1.0 - GapCamera.ease(r / 20.0)));

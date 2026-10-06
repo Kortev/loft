@@ -192,7 +192,7 @@ public class GapSelfTest implements ClientModInitializer {
 					stage = Stage.AFTER;
 					ticks = 0;
 				} else if (releasedAt >= 0 && (ticks == releasedAt + 130 || ticks == releasedAt + 250 || ticks == releasedAt + 420)) {
-					// Odin looking down, his arm coming down, the world coming back.
+					// Yggdrasil grown in the hole, the light going out through it, the world coming back.
 					shot(client, String.format("89_rebuild_%03d.png", ticks - releasedAt));
 				} else if (releasedAt >= 0 && ticks > releasedAt + GapTimeline.REBUILD_END + 100) {
 					ShootingStar.LOGGER.error("[selftest] the key did not let reality back in");

@@ -18,6 +18,8 @@ uniform float Grow;
 uniform float Time;
 uniform float Wave;
 uniform float Bright;
+// How far the long root (kind 4, laid out one unit long) runs, in the tree's units: out to the shooter.
+uniform float Reach;
 
 out vec3 light;
 out vec2 corner;
@@ -27,9 +29,14 @@ void main() {
     float size = float(UV2.x) * 1.0e-4;
     float grow = float(UV2.y) / 30000.0;
     float along = (Normal.x * 0.5 + 0.5) * 2.5;
-    kind = int(Normal.y * 3.0 + 0.5);
+    kind = int(Normal.y * 4.0 + 0.5);
     float seed = (Normal.z * 0.5 + 0.5) * 255.0;
-    vec4 centre = ModelViewMat * vec4(Position, 1.0);
+    vec3 at = Position;
+    if (kind == 4) {
+        at.z *= Reach;
+        along *= Reach;
+    }
+    vec4 centre = ModelViewMat * vec4(at, 1.0);
     float depth = max(-centre.z, 1.0e-6);
     float perUnit = ProjMat[1][1] * ScreenSize.y * 0.5 / depth;
     float rp = size * length(ModelViewMat[0].xyz) * perUnit;

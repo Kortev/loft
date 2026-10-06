@@ -54,9 +54,9 @@ public final class GapHud {
 		float a = (float) (ease(r / 20.0) * (1.0 - ease((r - GapTimeline.REBUILD_END + 40) / 30.0)));
 		header(ctx, font, w, typed("[ REBUILDING REALITY ]", r / 25.0), a);
 		String status;
-		if (r < GapTimeline.REBUILD_ODIN) {
+		if (r < GapTimeline.REBUILD_TREE) {
 			status = "SIGNAL LOST · SEARCHING FOR A WORLD";
-		} else if (r < GapTimeline.REBUILD_EYE) {
+		} else if (r < GapTimeline.REBUILD_WORLDS) {
 			status = "SOMETHING IS GROWING IN THE VOID";
 		} else if (r < GapTimeline.REBUILD_SWEEP) {
 			status = "YGGDRASIL · THE AXIS OF THE NINE WORLDS";
@@ -69,10 +69,10 @@ public final class GapHud {
 		text(ctx, font, status, w / 2, h * 0.78F, 1.0F, PALE, a, true);
 		// The bar: a few percent while the void is searched, stuck while the tree grows, then running with the remaking.
 		double p;
-		if (r < GapTimeline.REBUILD_EYE) {
-			p = 0.04 * ease(r / GapTimeline.REBUILD_EYE);
+		if (r < GapTimeline.REBUILD_WORLDS) {
+			p = 0.04 * ease(r / GapTimeline.REBUILD_WORLDS);
 		} else if (r < GapTimeline.REBUILD_SWEEP) {
-			p = 0.04 + 0.03 * ease((r - GapTimeline.REBUILD_EYE - 60) / 40.0);
+			p = 0.04 + 0.03 * ease((r - GapTimeline.REBUILD_WORLDS - 60) / 40.0);
 		} else {
 			p = 0.07 + 0.93 * ease((r - GapTimeline.REBUILD_SWEEP) / (GapTimeline.REBUILD_DONE + 20 - GapTimeline.REBUILD_SWEEP));
 		}

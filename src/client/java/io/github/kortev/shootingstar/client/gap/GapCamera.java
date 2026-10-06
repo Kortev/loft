@@ -301,24 +301,30 @@ public final class GapCamera {
 	 */
 	@Nullable
 	private static Shot rebuild(ClientGap gap, ClientPlayerEntity player, float tickDelta, double r) {
-		if (gap.odinFeet == null || gap.odinFacing == null || r >= GapTimeline.REBUILD_END) {
+		if (gap.rebuildFrom == null || r >= GapTimeline.REBUILD_END) {
 			return null;
 		}
 		Vec3d eyes = player.getCameraPosVec(tickDelta);
-		Vec3d facing = gap.odinFacing;
+		Vec3d facing = TreeRender.toward(gap).multiply(-1.0);
 		Vec3d side = new Vec3d(-facing.z, 0.0, facing.x);
-		Vec3d chest = TreeRender.foot(gap).add(0.0, GapTimeline.ODIN_HEIGHT * 0.45, 0.0);
+		Vec3d chest = TreeRender.foot(gap).add(0.0, TreeRender.height(gap) * 0.45, 0.0);
 		double in = ease((r - 10.0) / 50.0);
 		double crane = ease((r - GapTimeline.REBUILD_SWEEP) / (GapTimeline.REBUILD_DONE - GapTimeline.REBUILD_SWEEP));
 		double home = ease((r - (GapTimeline.REBUILD_END - 60.0)) / 50.0);
 		double out = in * (1.0 - home);
-		Vec3d shoulder = eyes.add(facing.multiply(-3.5 - 12.0 * crane)).add(side.multiply(1.6 + 6.0 * crane)).add(0.0, -0.6 + 22.0 * crane, 0.0);
+		// Craning back and up as far as it takes to see the whole of the tree, and the world coming back all round it.
+		double tall = TreeRender.height(gap);
+		Vec3d shoulder = eyes.add(facing.multiply(-3.5 - 0.45 * tall * crane)).add(side.multiply(1.6 + 0.1 * tall * crane))
+				.add(0.0, -0.6 + 0.16 * tall * crane, 0.0);
 		Vec3d eye = clear(eyes.lerp(shoulder, out), eyes);
 		Vec3d at = eyes.add(player.getRotationVec(tickDelta).multiply(10.0)).lerp(chest, out);
-		// As his arm comes down, down to the ground to watch it put back block by block, running out from under the
-		// shooter towards him; then up to him again as he goes.
+		// As the light goes out through its roots, down to the ground to watch the world put back block by block, coming
+		// out of the hole at the shooter; then up to the tree again as it goes.
 		double front = Math.max(0.0, GapRender.rebuildFront(r));
-		Vec3d ground = player.getLerpedPos(tickDelta).add(facing.multiply(14.0 + 0.3 * front));
+		Vec3d from = gap.contact;
+		Vec3d feet = player.getLerpedPos(tickDelta);
+		double across = Math.hypot(feet.x - from.x, feet.z - from.z);
+		Vec3d ground = from.lerp(feet, MathHelper.clamp(front / Math.max(1.0, across), 0.0, 0.85)).add(0.0, -2.0, 0.0);
 		double down = ease((r - GapTimeline.REBUILD_SWEEP - 4.0) / 36.0) * (1.0 - ease((r - GapTimeline.REBUILD_SWEEP - 170.0) / 70.0));
 		at = at.lerp(ground, down * out);
 		if (r >= GapTimeline.REBUILD_SWEEP) {

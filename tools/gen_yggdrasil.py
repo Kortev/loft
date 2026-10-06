@@ -7,10 +7,10 @@ worlds hang in it as bright orbs; and the roots run out over the floor of the vo
 the shooter stands. Every point knows when it grows (so the tree can grow from the roots up) and how far it is
 along the tree from the foot of the trunk (so light can run up and down it).
 
-The tree is one unit tall, its foot at the origin, +Y up, the long root running out along +Z.
+The tree is one unit tall, its foot at the origin, +Y up, the long root running out along +Z (one unit long).
 
 Layout (little-endian): int32 count, then per point float32 x, y, z, uint8 r, g, b, brightness, uint16 size (1e-4),
-uint16 grow (0..65535), uint16 along (1e-4 units of tree), uint8 kind (0 filament, 1 star, 2 world, 3 haze), uint8 seed
+uint16 grow (0..65535), uint16 along (1e-4 units of tree), uint8 kind (0 filament, 1 star, 2 world, 3 haze, 4 the long root, stretched by the game), uint8 seed
 (24 bytes).
 
 Usage: python3 tools/gen_yggdrasil.py
@@ -22,8 +22,6 @@ import numpy as np
 
 OUT = os.path.join(os.path.dirname(__file__), '..', 'src', 'client', 'resources', 'assets', 'shootingstar', 'textures', 'feed',
                    'yggdrasil.bin')
-# How far the long root runs out, in tree heights: to the shooter, ODIN_DISTANCE / ODIN_HEIGHT.
-REACH = 650.0 / 420.0
 rng = np.random.default_rng(9)
 
 points = []  # x, y, z, r, g, b, brightness, size, grow, along, kind
@@ -56,7 +54,7 @@ GOLD = (1.0, 0.78, 0.45)
 PINK = (1.0, 0.55, 0.85)
 
 
-def strands(path, radius, count, twist, grow0, grow1, along0, colour, bright, size, spacing=0.0016, taper=0.0):
+def strands(path, radius, count, twist, grow0, grow1, along0, colour, bright, size, spacing=0.0016, taper=0.0, kind=0):
     """Filaments braided round a centre line: path is (n, 3) points, radius (n,) the braid's radius along it."""
     seg = np.linalg.norm(np.diff(path, axis=0), axis=1)
     s = np.concatenate([[0.0], np.cumsum(seg)])
@@ -77,7 +75,7 @@ def strands(path, radius, count, twist, grow0, grow1, along0, colour, bright, si
             c = mix(colour[0], colour[1], k)
             core = 0.6 + 0.4 * np.sin(turn[i] * 3.0 + j) ** 2
             points.append((*p, *c, bright * core * (1.0 - taper * k), size * (0.7 + 0.6 * rng.random()), grow0 + (grow1 - grow0) * k,
-                           along0 + t[i], 0))
+                           along0 + t[i], kind))
     return total
 
 
@@ -209,11 +207,12 @@ def tree():
     for k in range(7):
         a = k / 7 * 2 * np.pi + 0.35
         root(np.array([0.0, -0.15, 0.0]), np.array([np.sin(a), 0.0, np.cos(a)]), rng.uniform(0.25, 0.35), 0.016, 1, 0.02, 0.0)
-    # The long root, wandering out to where the shooter stands; the world is put back from where it ends.
+    # The long root, wandering out to where the shooter stands. Laid out one unit long: the game stretches it (z and
+    # how far along it is) out to them, however far that is.
     n = 80
-    zs = np.linspace(0.0, REACH, n)
-    long_root = np.stack([0.04 * np.sin(zs * 5.0) * np.minimum(1.0, (REACH - zs) * 3), np.full(n, -0.15), zs], axis=1)
-    strands(long_root, np.linspace(0.014, 0.004, n), 5, 8.0, 0.15, 0.5, 0.0, (PALE, CYAN), 1.2, 0.0022, spacing=0.002)
+    zs = np.linspace(0.0, 1.0, n)
+    long_root = np.stack([0.03 * np.sin(zs * 9.0) * np.minimum(1.0, (1.0 - zs) * 4), np.full(n, -0.15), zs], axis=1)
+    strands(long_root, np.linspace(0.012, 0.004, n), 5, 8.0, 0.15, 0.5, 0.0, (PALE, CYAN), 1.2, 0.0022, spacing=0.0015, kind=4)
 
 
 def main():

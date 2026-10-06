@@ -89,6 +89,14 @@
       "values": [
         -1.0
       ]
+    },
+    {
+      "name": "Reach",
+      "type": "float",
+      "count": 1,
+      "values": [
+        1.0
+      ]
     }
   ]
 }

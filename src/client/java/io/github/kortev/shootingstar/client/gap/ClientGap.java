@@ -28,12 +28,10 @@ public final class ClientGap {
 	public final Vec3d shooterPos;
 	public int age;
 	public boolean ended;
-	/** When the shooter used the key again and the rebuild began, or -1; and where Yggdrasil stands for it, and which way. */
+	/** When the shooter used the key again and the rebuild began, or -1; and where they were stood for it, out of the hole. */
 	public int rebuildAt = -1;
 	@Nullable
-	public Vec3d odinFeet;
-	@Nullable
-	public Vec3d odinFacing;
+	public Vec3d rebuildFrom;
 	/** The shooter skipped the feed: they watch the bridge come down from the world instead. */
 	public boolean feedSkipped;
 	/** The feed's sounds, stopped if it is skipped. */
