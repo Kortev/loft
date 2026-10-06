@@ -13,13 +13,16 @@ import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.data.DataTracker;
 import net.minecraft.entity.data.TrackedData;
 import net.minecraft.entity.data.TrackedDataHandlerRegistry;
+import net.minecraft.component.DataComponentTypes;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.vehicle.VehicleEntity;
-import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
+import net.minecraft.network.listener.ClientPlayPacketListener;
+import net.minecraft.network.packet.Packet;
+import net.minecraft.network.packet.s2c.play.EntitySpawnS2CPacket;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.registry.tag.FluidTags;
+import net.minecraft.server.network.EntityTrackerEntry;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
@@ -29,7 +32,9 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.GameRules;
 import net.minecraft.world.World;
+import net.minecraft.world.event.GameEvent;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -41,7 +46,10 @@ import org.jetbrains.annotations.Nullable;
  * <p>Like a boat, the car is moved by whoever drives it (their client) and by the server when nobody does. Positions
  * are in blocks; local offsets are at yaw 0, x to the car's left, z forward.
  */
-public class ChittyEntity extends VehicleEntity {
+public class ChittyEntity extends Entity {
+	private static final TrackedData<Integer> WOBBLE_TICKS = DataTracker.registerData(ChittyEntity.class, TrackedDataHandlerRegistry.INTEGER);
+	private static final TrackedData<Integer> WOBBLE_SIDE = DataTracker.registerData(ChittyEntity.class, TrackedDataHandlerRegistry.INTEGER);
+	private static final TrackedData<Float> WOBBLE_STRENGTH = DataTracker.registerData(ChittyEntity.class, TrackedDataHandlerRegistry.FLOAT);
 	private static final TrackedData<Boolean> WINGS = DataTracker.registerData(ChittyEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
 	private static final TrackedData<Byte> STEER = DataTracker.registerData(ChittyEntity.class, TrackedDataHandlerRegistry.BYTE);
 	private static final TrackedData<Byte> THROTTLE = DataTracker.registerData(ChittyEntity.class, TrackedDataHandlerRegistry.BYTE);
@@ -149,7 +157,9 @@ public class ChittyEntity extends VehicleEntity {
 
 	@Override
 	protected void initDataTracker(DataTracker.Builder builder) {
-		super.initDataTracker(builder);
+		builder.add(WOBBLE_TICKS, 0);
+		builder.add(WOBBLE_SIDE, 1);
+		builder.add(WOBBLE_STRENGTH, 0.0F);
 		builder.add(WINGS, false);
 		builder.add(STEER, (byte) 0);
 		builder.add(THROTTLE, (byte) 0);
@@ -158,8 +168,8 @@ public class ChittyEntity extends VehicleEntity {
 	// --- what she is ---------------------------------------------------------------------------------
 
 	@Override
-	protected Item asItem() {
-		return Chitty.ITEM;
+	public Packet<ClientPlayPacketListener> createSpawnPacket(EntityTrackerEntry entry) {
+		return new EntitySpawnS2CPacket(this, entry);
 	}
 
 	@Override
@@ -209,10 +219,57 @@ public class ChittyEntity extends VehicleEntity {
 		return getBoundingBox().expand(3.0, 1.0, 3.0);
 	}
 
+	/** Hit, she rocks; hit hard enough (or by anyone in creative), she comes apart and drops herself, as a boat does. */
 	@Override
 	public boolean damage(DamageSource source, float amount) {
+		if (getWorld().isClient || isRemoved()) {
+			return true;
+		}
+		if (isInvulnerableTo(source)) {
+			return false;
+		}
+		setDamageWobbleSide(-getDamageWobbleSide());
+		setDamageWobbleTicks(10);
+		scheduleVelocityUpdate();
 		// A car takes more beating than a boat before it comes apart.
-		return super.damage(source, amount * 0.35F);
+		setDamageWobbleStrength(getDamageWobbleStrength() + amount * 3.5F);
+		emitGameEvent(GameEvent.ENTITY_DAMAGE, source.getAttacker());
+		boolean creative = source.getAttacker() instanceof PlayerEntity player && player.getAbilities().creativeMode;
+		if (creative || getDamageWobbleStrength() > 40.0F) {
+			if (!creative && getWorld().getGameRules().getBoolean(GameRules.DO_ENTITY_DROPS)) {
+				ItemStack stack = new ItemStack(Chitty.ITEM);
+				if (hasCustomName()) {
+					stack.set(DataComponentTypes.CUSTOM_NAME, getCustomName());
+				}
+				dropStack(stack);
+			}
+			discard();
+		}
+		return true;
+	}
+
+	public int getDamageWobbleTicks() {
+		return dataTracker.get(WOBBLE_TICKS);
+	}
+
+	public void setDamageWobbleTicks(int ticks) {
+		dataTracker.set(WOBBLE_TICKS, ticks);
+	}
+
+	public int getDamageWobbleSide() {
+		return dataTracker.get(WOBBLE_SIDE);
+	}
+
+	public void setDamageWobbleSide(int side) {
+		dataTracker.set(WOBBLE_SIDE, side);
+	}
+
+	public float getDamageWobbleStrength() {
+		return dataTracker.get(WOBBLE_STRENGTH);
+	}
+
+	public void setDamageWobbleStrength(float strength) {
+		dataTracker.set(WOBBLE_STRENGTH, strength);
 	}
 
 	public boolean isFlying() {
