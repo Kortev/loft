@@ -411,7 +411,8 @@ public class ChittyEntity extends Entity {
 		if (moving) {
 			lerpTicks = 0;
 			updateTrackedPosition(getX(), getY(), getZ());
-			if (!wasMoving) {
+			// Taking over from whoever moved her before (not a fresh car on the server, which keeps what it was saved with).
+			if (!wasMoving && (getWorld().isClient || age > 1)) {
 				adopt();
 			}
 			ChittyControls controls = getWorld().isClient && client != null ? client.controls(this) : ChittyControls.NONE;
@@ -442,6 +443,12 @@ public class ChittyEntity extends Entity {
 		speed = (float) motion.dotProduct(ahead);
 		flying = dataTracker.get(WINGS);
 		setVelocity(motion);
+	}
+
+	/** Sets her going: forward speed in blocks a tick, and whether her wings are out. For tests and commands. */
+	public void launch(float speed, boolean wings) {
+		this.speed = speed;
+		setFlying(wings);
 	}
 
 	private void setFlying(boolean value) {

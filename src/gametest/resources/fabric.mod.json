@@ -11,7 +11,8 @@
 		],
 		"fabric-gametest": [
 			"io.github.kortev.shootingstar.test.StrikeGameTests",
-			"io.github.kortev.shootingstar.test.GapGameTests"
+			"io.github.kortev.shootingstar.test.GapGameTests",
+			"io.github.kortev.shootingstar.test.ChittyGameTests"
 		],
 		"client": [
 			"io.github.kortev.shootingstar.test.ClientSelfTest",
