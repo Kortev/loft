@@ -113,21 +113,24 @@ The feed, and the rebuild, can be hurried with the same key as Gungnir's skip (B
 
 ## Chitty Chitty Bang Bang
 
-GEN 11, the car from the film, built in Blender from photographs of it: a long polished aluminium bonnet, round like a
-drum and tapering to a round brass radiator, a leather strap round it and great brass headlamps either side; an open
-boat of varnished red and white cedar behind, lined in red leather, with deep-buttoned red benches, a rounded stern and
-a wicker hamper on a rack; black wings over red artillery wheels, a red spare wheel stood against the scuttle, the
-copper exhaust coming out of the bonnet and down along the running board, and the brass serpent horn.
+GEN 11, the car from the film, built in Blender from photographs of it: a long polished aluminium bonnet, a cone
+tapering to a round brass radiator, a leather strap round it and great brass headlamps either side; a boat of varnished
+red and white cedar behind, open over the front seat and decked over to a pointed stern, the back seat sunk in an oval
+well in the deck with wood all round it, a wicker hamper on a rack under the point; black wings over red artillery
+wheels, black running boards with brass grilles, a red spare wheel stood against the scuttle, four copper pipes out of
+the bonnet into the great exhaust along the running board, and the brass serpent horn.
 
 - **Put her down:** use the item on the ground or on water; she faces the way you face. Use her to get in. She seats
   four; the first in drives, from the right-hand seat. Sneak to get out.
 - **Drive:** forward and back to accelerate, brake and reverse, left and right to steer. She climbs a block at a time
   and stops at walls rather than driving her bonnet into them.
-- **Fly:** jump at speed and her red and yellow wings swing out from under the running boards and fan open, with little
-  fans at her nose and tail; a mast stands up at the end of each wing with a propeller turning flat on top. Hold jump to
-  climb, sprint to dive, forward for more speed; slow down too far and she sinks. Drive her off a cliff and the wings
-  spring out by themselves. Land (or splash down) and she folds them away again a moment later.
-- **Float:** in the water she blows up a great pink float in a ring round herself and drives a screw under her tail.
+- **Fly:** jump at speed and her red and yellow wings swing out from under the running boards and fan open, each with
+  a mast standing up at its end and a propeller turning flat on top; a fan opens into a half circle under her nose, and
+  another straight back under her tail with a little propeller pushing on its end. Hold jump to climb, sprint to dive,
+  forward for more speed; slow down too far and she sinks. Drive her off a cliff and the wings spring out by
+  themselves. Land (or splash down) and she folds them away again a moment later.
+- **Float:** in the water she blows up a great pink raft under herself, pointed at both ends, turns her wheels flat on
+  it and drives a screw behind.
 - **Horn:** H (rebindable) squeezes the serpent's bulb.
 
 She starts with two sputters and two bangs, and backfires now and then when the throttle comes off at speed. Her

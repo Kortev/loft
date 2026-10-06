@@ -82,10 +82,9 @@ TAILFAN = dict(hinge=(0.0, -2.85, 0.56), blades=5, length=1.0, open_from=-65, sp
 TAILPROP_R = 0.28
 MAST_H = 0.85
 ROTOR_R = 0.72
-# The float: a pink ring round her, (half-width, half-length) of its middle line, its centre, tube radii.
-FLOAT_RING = (1.16, 2.85)
-FLOAT_CENTRE = (0.0, -0.20, 0.26)
-FLOAT_TUBE = (0.38, 0.20)
+# The float: a great flat pink raft she blows up under and round herself on the water, pointed at both ends, its edge
+# waved like a leaf: (half-width, half-length, centre along her), its bottom and top, and the waves round its edge.
+RAFT = dict(half_width=1.55, half_length=3.35, centre=-0.25, bottom=0.10, top=0.42, waves=0.07)
 
 
 def srgb(hex_or_rgb):
@@ -201,19 +200,21 @@ def tuft_texture(size=256, cells=6):
     return out
 
 
-def float_texture(size=1024, waves=6):
-    """The float's pink rubberised canvas with a wavy band of white edged in green running round it; u runs round the
-    ring, v round the tube (0 underneath, 0.25 outside, 0.5 on top)."""
+def raft_texture(size=1024):
+    """The raft's top: magenta rubberised canvas with a dark green band down each side next to the car and a wavy white
+    line outside it; u runs out from her middle to the raft's edge, v along her."""
     yy, xx = np.mgrid[0:size, 0:size] / size
     v = 1.0 - yy
-    pink = np.array([206, 72, 140]) / 255
-    col = pink[None, None, :] * (0.92 + 0.08 * np.sin(v * math.pi * 2))[..., None] * np.ones((size, size, 1))
-    centre = 0.40 + 0.035 * np.sin(xx * waves * 2 * math.pi)
-    d = np.abs(v - centre)
-    col[d < 0.045] = np.array([28, 92, 52]) / 255
-    col[d < 0.028] = np.array([244, 244, 238]) / 255
+    col = np.ones((size, size, 3)) * np.array([196, 48, 128]) / 255
+    col *= (0.94 + 0.06 * np.sin(xx * 9.0 + v * 4.0))[..., None]
+    green = (xx > 0.50) & (xx < 0.66)
+    col[green] = np.array([30, 86, 50]) / 255
+    line = np.abs(xx - (0.70 + 0.016 * np.sin(v * 2 * math.pi * 16))) < 0.011
+    col[line] = np.array([246, 244, 238]) / 255
+    edge = xx > 0.93
+    col[edge] *= 0.85
     out = np.ones((size, size, 4))
-    out[..., :3] = col
+    out[..., :3] = np.clip(col, 0, 1)
     return out
 
 
@@ -290,7 +291,8 @@ def make_materials():
     material('plate', (16, 16, 18), rough=0.4)
     material('letters', (236, 236, 230), rough=0.3)
     material('dial', (236, 230, 210), rough=0.4)
-    material('float', (206, 72, 140), rough=0.5, image=image('float_wave', float_texture()))
+    material('float', (196, 48, 128), rough=0.55, image=image('raft_top', raft_texture()))
+    material('float_side', (60, 14, 40), rough=0.6)
     material('bulb', (120, 26, 26), rough=0.6)
     material('wicker', (200, 152, 82), rough=0.8, image=image('wicker', wicker_texture()))
 
@@ -332,10 +334,13 @@ class Mesh:
     def vert(self, p):
         return self.bm.verts.new(p)
 
-    def obj(self, name, coll='body', location=(0, 0, 0), rotation=(0, 0, 0), smooth=None, part=None):
+    def obj(self, name, coll='body', location=(0, 0, 0), rotation=(0, 0, 0), smooth=None, part=None, recalc=True):
+        """The mesh as an object. Its faces are turned to face outward, unless recalc is off (an open cup facing in, say,
+        where Blender's idea of outward is the wrong way)."""
         me = bpy.data.meshes.new(name)
         bmesh.ops.remove_doubles(self.bm, verts=self.bm.verts, dist=1e-6)
-        bmesh.ops.recalc_face_normals(self.bm, faces=self.bm.faces)
+        if recalc:
+            bmesh.ops.recalc_face_normals(self.bm, faces=self.bm.faces)
         self.bm.normal_update()
         self.bm.to_mesh(me)
         self.bm.free()
@@ -775,6 +780,8 @@ def build_hull():
     m = Mesh()
     lip = [well_point(2 * math.pi * i / n, 0.03) for i in range(n)]
     tube(m, [Vector((x, y, deck_z(x, y) + 0.015)) for x, y in lip + lip[:1]], 0.028, 'walnut', seg=10)
+    m.obj('coaming', smooth=50)
+    m = Mesh()
     walls = []
     for k, f in enumerate(np.linspace(0.0, 1.0, 5)):
         ring = []
@@ -787,11 +794,12 @@ def build_hull():
     for k in range(len(walls) - 1):
         for i in range(n):
             j = (i + 1) % n
-            m.face([walls[k][j], walls[k][i], walls[k + 1][i], walls[k + 1][j]], 'leather',
-                   [(run[i + 1] * 7, k / 2), (run[i] * 7, k / 2), (run[i] * 7, (k + 1) / 2), (run[i + 1] * 7, (k + 1) / 2)])
-    f = m.face(list(reversed(walls[-1])), 'carpet')
+            m.face([walls[k][i], walls[k][j], walls[k + 1][j], walls[k + 1][i]], 'leather',
+                   [(run[i] * 7, k / 2), (run[i + 1] * 7, k / 2), (run[i + 1] * 7, (k + 1) / 2), (run[i] * 7, (k + 1) / 2)])
+    f = m.face(list(walls[-1]), 'carpet')
     box_uv(m, [f])
-    m.obj('well', smooth=50)
+    # The walls face in, towards the seat: left to itself Blender would face them out into the deck.
+    m.obj('well', smooth=50, recalc=False)
     # The gunwale: walnut capping from the bow to the point of the stern, and a brass rubbing strip below it.
     m = Mesh()
     for s in (-1, 1):
@@ -1339,46 +1347,43 @@ def build_screw():
         a = 2 * math.pi * k / 3
         R = Matrix.Rotation(a, 4, 'Y') @ Matrix.Rotation(math.radians(28), 4, 'Z')
         add_box(m, (0.0, 0.0, 0.10), (0.07, 0.01, 0.13), 'brass', matrix=R)
-    return m.obj('screw', coll='floats', location=(0, -2.45, 0.40), smooth=40, part='screw')
+    return m.obj('screw', coll='floats', location=(0, -3.68, 0.26), smooth=40, part='screw')
+
+
+def raft_outline(t):
+    """The raft's edge in plan at angle t (0 at her bow): pointed at both ends, full in the middle, its edge waved."""
+    w, l, yc = RAFT['half_width'], RAFT['half_length'], RAFT['centre']
+    c, sn = math.cos(t), math.sin(t)
+    x = math.copysign(w * (sn * sn) ** 0.72, sn)
+    y = yc + l * c
+    wave = RAFT['waves'] * (math.sin(17 * t) + 0.45 * math.sin(41 * t + 1.3))
+    # Push the edge in and out along its own normal (roughly away from the middle).
+    nx, ny = x / (w * w), (y - yc) / (l * l)
+    k = math.hypot(nx, ny) or 1.0
+    return x + wave * nx / k, y + wave * ny / k
 
 
 def build_float():
-    """The great pink float she blows up round herself on the water: a fat ring, rounded-square in plan, with a wavy
-    white band edged in green running round it."""
-    ax, ay = FLOAT_RING
-    rx, rz = FLOAT_TUBE
-    n = 2.6
-    count, around = 96, 20
+    """The great pink raft she blows up under and round herself on the water: flat on top, pointed at both ends, its
+    edge waved and puffed, dark underneath."""
+    yc, bottom, top = RAFT['centre'], RAFT['bottom'], RAFT['top']
+    n = 160
+    edge = [raft_outline(2 * math.pi * i / n) for i in range(n)]
+    # Rings in from the edge on top, round the puffed edge, and back in underneath.
+    profile = [(0.0, top), (0.35, top), (0.65, top), (0.85, top - 0.005), (0.95, top - 0.02), (1.0, top - 0.06),
+               (1.025, top - 0.13), (1.02, (top + bottom) / 2 - 0.02), (0.99, bottom + 0.03), (0.94, bottom), (0.0, bottom)]
     m = Mesh()
-    centre = []
-    for i in range(count):
-        t = 2 * math.pi * i / count
-        c, s = math.cos(t), math.sin(t)
-        centre.append(Vector((ax * math.copysign(abs(c) ** (2 / n), c), ay * math.copysign(abs(s) ** (2 / n), s), 0.0)))
-    run = [0.0]
-    for i in range(1, count + 1):
-        run.append(run[-1] + (centre[i % count] - centre[i - 1]).length)
     rings = []
-    for i, p in enumerate(centre):
-        t = (centre[(i + 1) % count] - centre[i - 1]).normalized()
-        out = Vector((t.y, -t.x, 0.0))
-        if out.dot(p) < 0:
-            out = -out
-        rings.append([m.vert(p + out * (rx * math.cos(-math.pi / 2 + 2 * math.pi * k / around))
-                             + Vector((0, 0, rz * math.sin(-math.pi / 2 + 2 * math.pi * k / around))))
-                      for k in range(around)])
-    reps = 4
-    for i in range(count):
-        j = (i + 1) % count
-        u0, u1 = run[i] / run[-1] * reps, run[i + 1] / run[-1] * reps
-        for k in range(around):
-            l = (k + 1) % around
-            m.face([rings[i][k], rings[i][l], rings[j][l], rings[j][k]], 'float',
-                   [(u0, k / around), (u0, (k + 1) / around), (u1, (k + 1) / around), (u1, k / around)])
-    for x in (-1, 1):
-        for y in (-1.6, 1.0):
-            tube(m, [Vector((x * (ax - 0.25), y, 0.20)), Vector((x * (ax - 0.62), y, 0.36))], 0.018, 'brass', seg=8)
-    return m.obj('float', coll='floats', location=FLOAT_CENTRE, smooth=40, part='float')
+    for f, z in profile:
+        rings.append([m.vert((x * f, yc + (y - yc) * f, z)) for x, y in edge])
+    w, l = RAFT['half_width'], RAFT['half_length']
+    for k in range(len(rings) - 1):
+        mat = 'float' if k < 5 else 'float_side'
+        for i in range(n):
+            j = (i + 1) % n
+            q = [rings[k][i], rings[k][j], rings[k + 1][j], rings[k + 1][i]]
+            m.face(q, mat, [(min(1.0, abs(v.co.x) / w), (v.co.y - (yc - l)) / (2 * l)) for v in q])
+    return m.obj('float', coll='floats', location=(0.0, 0.0, 0.0), smooth=40, part='float')
 
 
 def build():
@@ -1437,7 +1442,9 @@ def pose(mode, spin=0.0):
             o.hide_render = o.hide_viewport = not fly
             o.rotation_euler = (spin * 3.1, 0, 0)
         elif part.startswith('wheel_'):
-            o.rotation_euler = (spin, 0, 0)
+            # On the water they turn sideways and lie flat on the raft, hub caps up.
+            side = 1 if o.name.endswith('r') else -1
+            o.rotation_euler = (spin, -math.radians(90) * side if wet else 0, 0)
         elif part in ('screw', 'float'):
             o.hide_render = o.hide_viewport = not wet
 

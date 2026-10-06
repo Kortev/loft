@@ -16,10 +16,11 @@ import net.minecraft.util.math.RotationAxis;
 import org.joml.Quaternionf;
 
 /**
- * Draws Chitty from her Blender mesh and poses her parts: the wheels roll and the front ones steer; the wings swing out
- * from under the running boards and fan open, the little fans at her nose and tail with them, and the mast on the end of
- * each wing stands up with its propeller turning flat on top; the floats blow up into a ring round her and the screw
- * turns in the water; the car pitches and banks in the air and rocks when she is hit.
+ * Draws Chitty from her Blender mesh and poses her parts: the wheels roll and the front ones steer, and on the water
+ * turn sideways to lie flat on her raft; the wings swing out from under the running boards and fan open, the fan under
+ * her nose opens into a half circle and the one under her tail straight back with its little propeller pushing, and the
+ * mast on the end of each wing stands up with its propeller turning flat on top; the raft blows up round her and the
+ * screw turns in the water; the car pitches and banks in the air and rocks when she is hit.
  *
  * <p>Her texture is baked with her light in it (tools/chitty_model.py), so most of her is drawn evenly lit; only the
  * wheels, which roll, carry real normals and take the game's light.
@@ -76,9 +77,10 @@ public class ChittyRenderer extends EntityRenderer<ChittyEntity> {
 		float floats = car.getFloatOpen(tickDelta);
 		float steer = car.getSteer(tickDelta);
 		float spin = car.getWheelSpin(tickDelta);
+		float flat = smooth(MathHelper.clamp(floats * 1.4F - 0.2F, 0.0F, 1.0F));
 		for (ChittyMesh.Part part : mesh.parts.values()) {
 			String name = part.name;
-			if (name.equals("glass") || name.startsWith("mast_") || name.startsWith("rotor_")) {
+			if (name.equals("glass") || name.startsWith("mast_") || name.startsWith("rotor_") || name.equals("tailprop")) {
 				continue;
 			}
 			if (name.equals("body")) {
@@ -87,14 +89,16 @@ public class ChittyRenderer extends EntityRenderer<ChittyEntity> {
 			}
 			matrices.push();
 			boolean visible = true;
-			if (name.startsWith("wing_") || name.startsWith("canard_") || name.startsWith("tailwing_")) {
+			if (name.startsWith("wing_") || name.startsWith("nosefan_") || name.startsWith("tailfan_")) {
 				poseFan(matrices, part, wings);
 			} else {
 				matrices.translate(part.pivot.x, part.pivot.y, part.pivot.z);
 				matrices.multiply(part.rest);
 				if (name.startsWith("wheel_")) {
+					float side = name.endsWith("r") ? 1.0F : -1.0F;
+					matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(-90.0F * side * flat));
 					if (name.startsWith("wheel_f")) {
-						matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(steer * STEER_LOCK));
+						matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(steer * STEER_LOCK * (1.0F - flat)));
 					}
 					matrices.multiply(RotationAxis.POSITIVE_X.rotation(spin));
 				} else if (name.equals("steering_wheel")) {
@@ -104,10 +108,10 @@ public class ChittyRenderer extends EntityRenderer<ChittyEntity> {
 					matrices.scale(floats, floats, floats);
 					matrices.multiply(RotationAxis.POSITIVE_Z.rotation(car.getScrewSpin(tickDelta)));
 				} else if (name.startsWith("float")) {
-					// Blown up out of a flat bundle round her waist into a fat ring.
+					// Blown up out of a flat bundle under her into a great raft.
 					visible = floats > 0.01F;
 					float k = smooth(floats);
-					matrices.scale(0.6F + 0.4F * k, 0.08F + 0.92F * k, 0.88F + 0.12F * k);
+					matrices.scale(0.45F + 0.55F * k, 0.1F + 0.9F * k, 0.75F + 0.25F * k);
 				}
 			}
 			if (visible) {
@@ -139,6 +143,18 @@ public class ChittyRenderer extends EntityRenderer<ChittyEntity> {
 			}
 			matrices.pop();
 		}
+		// The propeller on the end of the tail fan, turning about the fan's middle panel.
+		ChittyMesh.Part prop = mesh.parts.get("tailprop");
+		ChittyMesh.Part host = prop != null ? mesh.parts.get("tailfan_c_" + (int) prop.a) : null;
+		if (host != null && raise > 0.02F) {
+			matrices.push();
+			poseFan(matrices, host, wings);
+			matrices.translate(prop.pivot.x, prop.pivot.y, prop.pivot.z);
+			matrices.scale(raise, raise, raise);
+			matrices.multiply(RotationAxis.POSITIVE_X.rotation(car.getPropSpin(tickDelta) * 1.7F));
+			prop.draw(matrices.peek(), out, light, overlay);
+			matrices.pop();
+		}
 	}
 
 	/**
@@ -146,7 +162,7 @@ public class ChittyRenderer extends EntityRenderer<ChittyEntity> {
 	 * with its dihedral), with a little sprung overshoot.
 	 */
 	private static void poseFan(MatrixStack matrices, ChittyMesh.Part part, float wings) {
-		float side = part.name.contains("_r_") ? 1.0F : -1.0F;
+		float side = part.name.contains("_l_") ? -1.0F : 1.0F;
 		float fan = backOut(MathHelper.clamp(wings * 1.25F - 0.25F, 0.0F, 1.0F));
 		matrices.translate(part.pivot.x, part.pivot.y, part.pivot.z);
 		matrices.multiply(part.rest);
