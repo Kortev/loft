@@ -4,6 +4,7 @@ import io.github.kortev.shootingstar.chitty.Chitty;
 import io.github.kortev.shootingstar.chitty.ChittyEntity;
 import java.util.ArrayList;
 import java.util.List;
+import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
 import net.minecraft.block.Blocks;
 import net.minecraft.entity.EntityType;
@@ -17,6 +18,20 @@ import net.minecraft.util.math.Vec3d;
 
 /** Chitty with nobody driving her: the server moves her, as it does a boat. Riders are husks, which the sun cannot hurt. */
 public class ChittyGameTests implements FabricGameTest {
+	/** Every hurt dealt to a test's riders, so a failure can say what it was and when. */
+	private static final List<String> HURTS = new ArrayList<>();
+	private static final List<java.util.UUID> WATCHED = new ArrayList<>();
+
+	static {
+		ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
+			if (WATCHED.contains(entity.getUuid())) {
+				HURTS.add(source.getName() + " " + amount + " at tick " + entity.getWorld().getTime() + " (y " + String.format("%.2f", entity.getY())
+						+ ", riding " + (entity.getVehicle() != null) + ", fall " + entity.fallDistance + ")");
+			}
+			return true;
+		});
+	}
+
 	private static void floor(TestContext context, int y) {
 		ServerWorld world = context.getWorld();
 		for (BlockPos pos : BlockPos.iterate(context.getAbsolutePos(new BlockPos(0, y, 0)), context.getAbsolutePos(new BlockPos(7, y, 7)))) {
@@ -81,12 +96,13 @@ public class ChittyGameTests implements FabricGameTest {
 		ZombieEntity rider = context.spawnEntity(EntityType.HUSK, new Vec3d(4.0, 7.5, 4.0));
 		rider.setAiDisabled(true);
 		rider.startRiding(car);
+		WATCHED.add(rider.getUuid());
 		float health = rider.getHealth();
 		context.runAtTick(80, () -> {
 			context.assertTrue(car.isOnGround(), "she never came down");
-			context.assertTrue(rider.getHealth() >= health, "the passenger was hurt (" + rider.getHealth() + " of " + health + ") by "
-					+ (rider.getRecentDamageSource() != null ? rider.getRecentDamageSource().getName() : "nothing recorded")
-					+ ", riding " + rider.getVehicle());
+			List<String> hurts = new ArrayList<>(HURTS);
+			context.assertTrue(rider.getHealth() >= health, "the passenger was hurt (" + rider.getHealth() + " of " + health + "): "
+					+ hurts + ", riding " + rider.getVehicle());
 			context.assertTrue(!car.isRemoved(), "the fall broke her");
 			context.complete();
 		});
