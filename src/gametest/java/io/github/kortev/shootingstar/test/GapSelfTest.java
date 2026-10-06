@@ -182,6 +182,8 @@ public class GapSelfTest implements ClientModInitializer {
 					shot(client, "88_domain.png");
 					client.interactionManager.interactItem(client.player, Hand.MAIN_HAND);
 					releasedAt = ticks;
+					// The rebuild has cameras of its own: the walkabout's must not stand in front of them.
+					Capture.camera = null;
 				}
 				// As soon as the black lifts, the fly-over takes the camera up over what is left.
 				if (releasedAt >= 0 && ClientGaps.mine() == null) {

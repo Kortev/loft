@@ -6,6 +6,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.util.hit.HitResult;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.Heightmap;
@@ -340,8 +341,18 @@ public final class GapCamera {
 			double jolt = 2.0 * Math.exp(-(r - GapTimeline.REBUILD_SWEEP) / 12.0);
 			at = at.add(Math.sin(r * 2.9) * jolt, Math.cos(r * 2.3) * jolt, Math.sin(r * 3.7 + 1.0) * jolt);
 		}
+		if (r < 1.0) {
+			rebuildLift = 0.0;
+		}
+		// Hills in the way: rise over them, smoothly, rather than being pulled in against them.
+		double need = above(eye, at).y - eye.y;
+		rebuildLift = need > rebuildLift ? MathHelper.lerp(0.2, rebuildLift, need) : MathHelper.lerp(0.03, rebuildLift, need);
+		eye = eye.add(0.0, rebuildLift, 0.0);
 		return lookAt(clear(eye, at), at);
 	}
+
+	/** How far the rebuild's camera is lifted over whatever stands between it and what it looks at. */
+	private static double rebuildLift;
 
 	/** One of the rebuild's shots: eye and the point it looks at. 0 and the last are the shooter's own eyes. */
 	private static Vec3d[] rebuildPose(int shot, ClientGap gap, ClientPlayerEntity player, float tickDelta, double r) {
@@ -373,13 +384,13 @@ public final class GapCamera {
 				Vec3d way = out.rotateY((float) Math.toRadians(-40.0));
 				Vec3d eye = aboveGround(centre.add(way.multiply(front - 14.0)), 3.5);
 				Vec3d at = centre.add(way.multiply(front + 26.0));
-				yield new Vec3d[] {eye, new Vec3d(at.x, eye.y - 4.0, at.z)};
+				yield new Vec3d[] {eye, aboveGround(new Vec3d(at.x, eye.y - 4.0, at.z), 1.5)};
 			}
 			case 4 -> {
 				// High over everything, the tree below and to one side, turning slowly, as the ring spreads out over the land.
 				double turn = Math.toRadians(35.0) * MathHelper.clamp((r - REBUILD_SHOTS[3]) / 140.0, 0.0, 1.0);
 				Vec3d high = centre.add(out.multiply(rim * 1.4)).add(side.multiply(rim * 0.7)).add(0.0, tall * 1.3, 0.0);
-				yield new Vec3d[] {orbit(high, centre, turn), centre.add(out.multiply(rim * 1.1))};
+				yield new Vec3d[] {aboveGround(orbit(high, centre, turn), 12.0), aboveGround(centre.add(out.multiply(rim * 1.1)), 1.5)};
 			}
 			case 5 -> {
 				// Wide on all of it as the tree draws back down into the hole.
@@ -411,6 +422,10 @@ public final class GapCamera {
 		MinecraftClient client = MinecraftClient.getInstance();
 		ClientWorld world = client.world;
 		if (world == null || client.player == null) {
+			return eye;
+		}
+		if (world.getBlockState(BlockPos.ofFloored(at)).isOpaqueFullCube(world, BlockPos.ofFloored(at))) {
+			// Looking at a point in the ground: anything at all would be "in the way".
 			return eye;
 		}
 		HitResult hit = world.raycast(new RaycastContext(at, eye, RaycastContext.ShapeType.VISUAL, RaycastContext.FluidHandling.NONE,
