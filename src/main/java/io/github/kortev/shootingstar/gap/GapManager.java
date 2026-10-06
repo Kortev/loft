@@ -63,6 +63,11 @@ public final class GapManager {
 	private static final int ABSENT_LIMIT = 20 * 60 * 5;
 
 	private static final List<Gap> GAPS = new ArrayList<>();
+	/**
+	 * Holes whose unseen floor is still down after the world has come back: it stays until everyone's rebuild has shown
+	 * the hole (GapTimeline.REBUILD_DONE), so nobody walks into it before they can see it.
+	 */
+	private static final List<Gap> LIDDED = new ArrayList<>();
 	private static int nextId = 1;
 
 	private GapManager() {
@@ -126,7 +131,22 @@ public final class GapManager {
 
 	public static void init() {
 		ServerTickEvents.END_SERVER_TICK.register(GapManager::tick);
-		ServerLifecycleEvents.SERVER_STOPPED.register(server -> GAPS.clear());
+		// Anything still floored over is opened up as the server stops, before the worlds are saved, so no barrier is left
+		// standing in a save.
+		ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
+			for (Gap gap : LIDDED) {
+				gap.erasure.unlid();
+			}
+			for (Gap gap : GAPS) {
+				if (gap.erasure != null) {
+					gap.erasure.unlid();
+				}
+			}
+		});
+		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
+			LIDDED.clear();
+			GAPS.clear();
+		});
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
 			ServerPlayerEntity player = handler.getPlayer();
 			for (Gap gap : GAPS) {
@@ -235,8 +255,9 @@ public final class GapManager {
 					toRim(world, gap, player);
 				}
 			}
-			// The ground the black was walked on goes; the hole is open.
-			gap.erasure.unlid();
+			// The ground the black was walked on stays until the rebuild has shown everyone the hole.
+			gap.age = 0;
+			LIDDED.add(gap);
 		}
 		ModNetworking.broadcast(world, new GapEndPayload(gap.id));
 		ShootingStar.LOGGER.info("Ginnungagap #{} released", gap.id);
@@ -255,6 +276,18 @@ public final class GapManager {
 	}
 
 	private static void tick(MinecraftServer server) {
+		for (Iterator<Gap> it = LIDDED.iterator(); it.hasNext(); ) {
+			Gap gap = it.next();
+			ServerWorld world = server.getWorld(gap.dimension);
+			if (world == null) {
+				it.remove();
+				continue;
+			}
+			if (++gap.age >= GapTimeline.REBUILD_DONE + 40) {
+				unlid(world, gap);
+				it.remove();
+			}
+		}
 		for (Iterator<Gap> it = GAPS.iterator(); it.hasNext(); ) {
 			Gap gap = it.next();
 			ServerWorld world = server.getWorld(gap.dimension);
@@ -351,6 +384,63 @@ public final class GapManager {
 	}
 
 	// --- helpers --------------------------------------------------------------------------
+
+	/**
+	 * Takes the unseen floor away now the hole can be seen. Anyone still standing on it is first set down on solid
+	 * ground: on the rim, if they are out over the hole; beside the crack, if they are over one of the fissures.
+	 */
+	private static void unlid(ServerWorld world, Gap gap) {
+		for (ServerPlayerEntity player : List.copyOf(world.getPlayers())) {
+			if (horizontal(player.getPos(), gap.target) <= gap.radius + 8) {
+				toRim(world, gap, player);
+				continue;
+			}
+			BlockPos feet = player.getBlockPos();
+			if (onLid(gap, feet)) {
+				BlockPos safe = besideLid(world, gap, feet);
+				if (safe != null) {
+					player.teleport(world, safe.getX() + 0.5, safe.getY(), safe.getZ() + 0.5, player.getYaw(), player.getPitch());
+					player.fallDistance = 0.0F;
+				}
+			}
+		}
+		gap.erasure.unlid();
+	}
+
+	private static boolean onLid(Gap gap, BlockPos feet) {
+		for (int dx = -1; dx <= 1; dx++) {
+			for (int dz = -1; dz <= 1; dz++) {
+				for (int dy = -2; dy <= 0; dy++) {
+					if (gap.erasure.lid(feet.add(dx, dy, dz).asLong())) {
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	}
+
+	/** The nearest ground beside the fissure the player is standing over. */
+	@Nullable
+	private static BlockPos besideLid(ServerWorld world, Gap gap, BlockPos feet) {
+		for (int r = 2; r <= 8; r++) {
+			for (int dx = -r; dx <= r; dx++) {
+				for (int dz = -r; dz <= r; dz++) {
+					if (Math.max(Math.abs(dx), Math.abs(dz)) != r) {
+						continue;
+					}
+					int x = feet.getX() + dx;
+					int z = feet.getZ() + dz;
+					int y = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z);
+					BlockPos ground = new BlockPos(x, y - 1, z);
+					if (y > world.getBottomY() && !gap.erasure.lid(ground.asLong()) && !onLid(gap, new BlockPos(x, y, z))) {
+						return new BlockPos(x, y, z);
+					}
+				}
+			}
+		}
+		return null;
+	}
 
 	/** Sets the player down outside the hole, on its rim on the side they were on. */
 	private static void toRim(ServerWorld world, Gap gap, ServerPlayerEntity player) {

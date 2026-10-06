@@ -451,9 +451,10 @@ public final class GapRender {
 		BATCH.begin(Fx.BLOB, 0.0F, view, proj, right, up);
 		for (int i = 0; i < MOTES; i++) {
 			// Thick near the middle, where the camera is, and out to the edge of what can be seen.
-			double reach = REBUILD_REACH * 0.55 * Math.pow(noise(gap.id, i + 5000), 1.4);
+			double rim = Math.min(REBUILD_REACH * 0.5, gap.radius);
+			double reach = rim + (REBUILD_REACH * 0.55 - rim) * Math.pow(noise(gap.id, i + 5000), 1.4);
 			double fall = 26.0 + noise(gap.id, i + 5300) * 30.0;
-			double until = rebuilt(reach) - r;
+			double until = rebuilt(gap, reach) - r;
 			if (until > fall || until < -6.0) {
 				continue;
 			}
@@ -654,7 +655,7 @@ public final class GapRender {
 	 * shooter stands, until it is all there again.
 	 */
 	private static void rebuild(Grade g, ClientGap gap, double r) {
-		double front = rebuildFront(r);
+		double front = rebuildFront(gap, r);
 		g.front = (float) front;
 		g.remake = front >= 0.0 ? 1.0F : 0.0F;
 		if (gap.rebuildFrom == null) {
@@ -672,23 +673,38 @@ public final class GapRender {
 	}
 
 	/**
-	 * How far out the world has been built back, {@code r} ticks into the rebuild: from the sweep, out past the fog,
-	 * slowing to a stop as it gets there (by when the grade pass has faded out the last of the dark, so nothing changes
-	 * when it is done); then done (-1).
+	 * How far out the world has been built back, {@code r} ticks into the rebuild: from the rim of the hole (there is
+	 * nothing to put back inside it), easing out, slowest near the hole where it can best be seen, out past the fog and
+	 * easing to a stop as it gets there (by when the grade pass has faded out the last of the dark, so nothing changes
+	 * when it is done); then done (-1). The middle of the hole before the sweep (0), so it is all dark.
 	 */
-	static double rebuildFront(double r) {
+	static double rebuildFront(ClientGap gap, double r) {
 		double x = (r - GapTimeline.REBUILD_SWEEP) / (GapTimeline.REBUILD_DONE - GapTimeline.REBUILD_SWEEP);
 		if (x >= 1.0) {
 			return -1.0;
 		}
-		double u = Math.pow(Math.max(0.0, x), 1.25);
-		return REBUILD_REACH * (1.0 - (1.0 - u) * (1.0 - u));
+		if (x <= 0.0) {
+			return 0.0;
+		}
+		double rim = Math.min(REBUILD_REACH * 0.5, gap.radius);
+		return rim + (REBUILD_REACH - rim) * GapCamera.ease(x);
 	}
 
 	/** When the rebuild's front gets out as far as {@code reach}: rebuildFront turned round. */
-	private static double rebuilt(double reach) {
-		double u = 1.0 - Math.sqrt(Math.max(0.0, 1.0 - reach / REBUILD_REACH));
-		return GapTimeline.REBUILD_SWEEP + (GapTimeline.REBUILD_DONE - GapTimeline.REBUILD_SWEEP) * Math.pow(u, 0.8);
+	private static double rebuilt(ClientGap gap, double reach) {
+		double rim = Math.min(REBUILD_REACH * 0.5, gap.radius);
+		double k = MathHelper.clamp((reach - rim) / (REBUILD_REACH - rim), 0.0, 1.0);
+		double lo = 0.0;
+		double hi = 1.0;
+		for (int i = 0; i < 16; i++) {
+			double mid = (lo + hi) * 0.5;
+			if (GapCamera.ease(mid) < k) {
+				lo = mid;
+			} else {
+				hi = mid;
+			}
+		}
+		return GapTimeline.REBUILD_SWEEP + (GapTimeline.REBUILD_DONE - GapTimeline.REBUILD_SWEEP) * lo;
 	}
 
 	private static Grade grade(ClientGap mine, float tickDelta, Vec3d cam, Matrix4f view, Matrix4f proj) {
@@ -771,7 +787,7 @@ public final class GapRender {
 			}
 			if (r >= 0.0) {
 				// And it goes as ours comes back, all of it gone before the rebuild is done.
-				double front = rebuildFront(r);
+				double front = rebuildFront(gap, r);
 				g.skyMix *= (float) (front < 0.0 ? 0.0 : 1.0 - GapCamera.ease(front / 520.0));
 			}
 		}

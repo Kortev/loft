@@ -29,9 +29,9 @@ final class TreeRender {
 	private TreeRender() {
 	}
 
-	/** How tall it stands: out of all proportion to the hole it grows from. */
+	/** How tall it stands: towering over the hole it grows from, but not so far that it cannot be seen whole. */
 	static double height(ClientGap gap) {
-		return Math.max(120.0, Math.min(420.0, gap.radius * 2.6));
+		return Math.max(100.0, Math.min(300.0, gap.radius * 1.8));
 	}
 
 	/**

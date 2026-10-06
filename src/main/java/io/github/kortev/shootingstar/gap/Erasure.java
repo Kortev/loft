@@ -49,7 +49,7 @@ final class Erasure {
 	 * Where the ground was, over every column taken: a barrier there, unseen, so anyone walking about in the black walks
 	 * on where the ground used to be rather than falling into the hole. Taken away when the world comes back.
 	 */
-	private final List<Long> lids = new ArrayList<>();
+	private final Set<Long> lids = new HashSet<>();
 	private int columnTop;
 	private int cursor;
 	private int crackCursor;
@@ -199,7 +199,12 @@ final class Erasure {
 		}
 	}
 
-	/** The world is back: the ground that was is taken away from under the black, quietly, and the chunks sent again. */
+	/** Whether there is a barrier standing in for the ground that was, at this block. */
+	boolean lid(long packed) {
+		return lids.contains(packed);
+	}
+
+	/** The rebuild is done: the ground that was is taken away, quietly, and the chunks sent again. */
 	void unlid() {
 		BlockPos.Mutable pos = new BlockPos.Mutable();
 		for (long packed : lids) {

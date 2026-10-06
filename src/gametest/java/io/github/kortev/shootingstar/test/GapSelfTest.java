@@ -191,7 +191,7 @@ public class GapSelfTest implements ClientModInitializer {
 					client.options.getCloudRenderMode().setValue(CloudRenderMode.OFF);
 					stage = Stage.AFTER;
 					ticks = 0;
-				} else if (releasedAt >= 0 && (ticks == releasedAt + 130 || ticks == releasedAt + 250 || ticks == releasedAt + 420)) {
+				} else if (releasedAt >= 0 && ticks > releasedAt && (ticks - releasedAt) % 30 == 0 && ticks - releasedAt <= 630) {
 					// Yggdrasil grown in the hole, the light going out through it, the world coming back.
 					shot(client, String.format("89_rebuild_%03d.png", ticks - releasedAt));
 				} else if (releasedAt >= 0 && ticks > releasedAt + GapTimeline.REBUILD_END + 100) {
