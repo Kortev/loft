@@ -57,6 +57,7 @@ public class MultiplayerTestClient implements ClientModInitializer {
 	}
 
 	private static void tick(MinecraftClient client) {
+		TestWindow.keepToItself(client);
 		if (client.player == null || client.world == null) {
 			return;
 		}

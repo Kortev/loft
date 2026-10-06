@@ -53,6 +53,7 @@ loom {
 			client()
 			name = "Client Self Test"
 			vmArg "-Dshootingstar.selftest=${project.findProperty('selftest') ?: 'gap'}"
+			vmArg "-Dshootingstar.selftest.target=${project.findProperty('target') ?: ''}"
 			runDir "build/selftest"
 			source sourceSets.gametest
 			programArgs "--quickPlaySingleplayer", "selftest", "--width", "1280", "--height", "720"

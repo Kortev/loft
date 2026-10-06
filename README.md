@@ -184,6 +184,7 @@ the `selftest` workflow, or locally:
 ```sh
 ./gradlew runGenworld      # once: the test world, in build/selftest-server (see .github/workflows/selftest.yml)
 ./gradlew runSelftest      # the video in build/selftest/capture; -Pselftest=gap-skip skips the feed and hurries the rebuild
+                           # -Ptarget=x,y,z aims the key at a given block instead of the smoothest ground 64 blocks out
 bash tools/mptest.sh       # a dedicated server and three clients play one together (build/mp)
 bash tools/crashtest.sh    # the server killed mid-event, then restarted and checked (build/crash)
 ```

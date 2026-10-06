@@ -143,6 +143,7 @@ public class GapSelfTest implements ClientModInitializer {
 
 	private static void tick(MinecraftClient client) {
 		ticks++;
+		TestWindow.keepToItself(client);
 		IntegratedServer server = client.getServer();
 		ClientPlayerEntity self = client.player;
 		switch (stage) {
@@ -176,6 +177,10 @@ public class GapSelfTest implements ClientModInitializer {
 					Capture.start(client, client.runDirectory.toPath().resolve("capture"));
 				}
 				if (ticks == 30) {
+					// Right at the target, however the view has been turned meanwhile (the key's use carries the look with it).
+					Vec3d d = Vec3d.ofCenter(target).subtract(client.player.getEyePos());
+					client.player.setYaw((float) (MathHelper.atan2(d.z, d.x) * MathHelper.DEGREES_PER_RADIAN) - 90.0F);
+					client.player.setPitch((float) -(MathHelper.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)) * MathHelper.DEGREES_PER_RADIAN));
 					ShootingStar.LOGGER.info("[selftest] turning the Genesis Key");
 					client.interactionManager.interactItem(client.player, Hand.MAIN_HAND);
 				}
@@ -449,6 +454,12 @@ public class GapSelfTest implements ClientModInitializer {
 				bestScore = score;
 				target = new BlockPos(x, top(world, x, z) - 1, z);
 			}
+		}
+		// Or one given (-Ptarget=x,y,z): to play an event again where one went before.
+		String given = System.getProperty("shootingstar.selftest.target", "");
+		if (!given.isBlank()) {
+			String[] xyz = given.split(",");
+			target = new BlockPos(Integer.parseInt(xyz[0].trim()), Integer.parseInt(xyz[1].trim()), Integer.parseInt(xyz[2].trim()));
 		}
 		double x = spawn.getX() + 0.5;
 		double z = spawn.getZ() + 0.5;
