@@ -339,6 +339,7 @@ public class ChittySelfTest implements ClientModInitializer {
 				}
 				ShootingStar.LOGGER.info("[selftest] finished");
 				stage = Stage.FINISHED;
+				watchdog();
 				client.scheduleStop();
 			}
 			case FINISHED -> {
@@ -407,6 +408,31 @@ public class ChittySelfTest implements ClientModInitializer {
 		ChittyEntity c = new ChittyEntity(Chitty.ENTITY, player.getServerWorld());
 		c.refreshPositionAndAngles(base.getX() + 0.5, ground + 1.0, base.getZ() + 0.5, 0.0F, 0.0F);
 		player.getServerWorld().spawnEntity(c);
+	}
+
+	/**
+	 * If the game has not quit two minutes after the test is done, says what every thread is doing and stops the JVM,
+	 * so a hang on the way out costs two minutes of CI rather than an hour and leaves something to go on.
+	 */
+	private static void watchdog() {
+		Thread t = new Thread(() -> {
+			try {
+				Thread.sleep(120_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			StringBuilder dump = new StringBuilder("[selftest] still running two minutes after finishing; threads:\n");
+			for (java.util.Map.Entry<Thread, StackTraceElement[]> e : Thread.getAllStackTraces().entrySet()) {
+				dump.append('\"').append(e.getKey().getName()).append("\" ").append(e.getKey().getState()).append('\n');
+				for (StackTraceElement frame : e.getValue()) {
+					dump.append("    at ").append(frame).append('\n');
+				}
+			}
+			ShootingStar.LOGGER.error(dump.toString());
+			Runtime.getRuntime().halt(3);
+		}, "selftest-watchdog");
+		t.setDaemon(true);
+		t.start();
 	}
 
 	// --- cameras ------------------------------------------------------------------------------------
