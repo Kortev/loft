@@ -58,6 +58,26 @@ loom {
 			source sourceSets.gametest
 			programArgs "--quickPlaySingleplayer", "selftest", "--width", "1280", "--height", "720"
 		}
+		// The multiplayer test: a dedicated server and three clients (MultiplayerTestServer, MultiplayerTestClient).
+		mpserver {
+			server()
+			name = "MP Test Server"
+			vmArg "-Xmx3G"
+			vmArg "-Dshootingstar.mptest=server"
+			runDir "build/mp/server"
+			source sourceSets.gametest
+		}
+		["Shooter", "Victim", "Netherling"].each { who ->
+			create("mp" + who.toLowerCase()) {
+				client()
+				name = "MP Test " + who
+				vmArg "-Xmx2G"
+				vmArg "-Dshootingstar.selftest=mp-" + who.toLowerCase()
+				runDir "build/mp/" + who.toLowerCase()
+				source sourceSets.gametest
+				programArgs "--quickPlayMultiplayer", "localhost:25565", "--username", who, "--width", "854", "--height", "480"
+			}
+		}
 	}
 }
 

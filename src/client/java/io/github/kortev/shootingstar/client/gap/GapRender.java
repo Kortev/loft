@@ -129,7 +129,8 @@ public final class GapRender {
 			if (grade.front >= 0.0F || grade.black > 0.0F) {
 				for (AbstractClientPlayerEntity player : world.getPlayers()) {
 					boolean self = player == client.player;
-					if ((self ? context.camera().isThirdPerson() : player.squaredDistanceTo(cam) < 128.0 * 128.0) && !player.isSpectator()) {
+					if ((self ? context.camera().isThirdPerson() : player.squaredDistanceTo(cam) < 128.0 * 128.0) && !player.isSpectator()
+							&& !GapCamera.atLens(player)) {
 						redrawPlayer(client, player, cam, view, tickDelta);
 					}
 				}

@@ -175,9 +175,12 @@ public final class GapManager {
 			return age;
 		}
 
-		/** Whether what was in the zone has all gone (the crater is carved), so the world can come back round it. */
+		/**
+		 * Whether what was in the zone has all gone (the hole is carved), so the world can come back round it. Its light
+		 * may still be settling: that finishes, and the hole is sent, while the rebuild starts in the dark.
+		 */
 		public boolean unmade() {
-			return !terrain || erased;
+			return !terrain || erasure != null && erasure.carved();
 		}
 
 		GapLockPayload payload() {
@@ -215,8 +218,7 @@ public final class GapManager {
 					ServerWorld world = server.getWorld(home.world());
 					if (world != null) {
 						Vec3d to = safe(world, null, home.pos());
-						player.teleport(world, to.x, to.y, to.z, home.yaw(), home.pitch());
-						player.fallDistance = 0.0F;
+						moveTo(player, world, to.x, to.y, to.z, home.yaw(), home.pitch());
 					}
 				}
 			}
@@ -688,7 +690,9 @@ public final class GapManager {
 		int row = index / PER_ROW;
 		int slot = index % PER_ROW;
 		double ring = gap.radius + GATHER_OUT + row * GATHER_BACK;
-		double along = ((slot + 1) / 2) * (slot % 2 == 1 ? 1 : -1) + (row % 2 == 1 ? 0.5 : 0.0);
+		// The shooter's own row leaves a place empty either side of them: the camera comes round to stand there.
+		int step = (slot + 1) / 2 + (row == 0 && slot > 0 ? 1 : 0);
+		double along = step * (slot % 2 == 1 ? 1 : -1) + (row % 2 == 1 ? 0.5 : 0.0);
 		double a = gap.side + along * GATHER_APART / ring;
 		int x = MathHelper.floor(gap.target.getX() + 0.5 + Math.cos(a) * ring);
 		int z = MathHelper.floor(gap.target.getZ() + 0.5 + Math.sin(a) * ring);
@@ -741,8 +745,7 @@ public final class GapManager {
 		// Their floor first, so they are on it (or off it) the moment they land, rather than for a moment on the one they
 		// left, at whatever height that was.
 		hold(warp.gap(), player, warp.floor());
-		player.teleport(world, warp.to().x, warp.to().y, warp.to().z, warp.yaw(), warp.pitch());
-		player.fallDistance = 0.0F;
+		moveTo(player, world, warp.to().x, warp.to().y, warp.to().z, warp.yaw(), warp.pitch());
 	}
 
 	/**
@@ -819,8 +822,7 @@ public final class GapManager {
 		}
 		BlockPos ground = groundNear(world, at.withY(world.getSeaLevel()));
 		if (ground != null) {
-			player.teleport(world, ground.getX() + 0.5, ground.getY(), ground.getZ() + 0.5, player.getYaw(), player.getPitch());
-			player.fallDistance = 0.0F;
+			moveTo(player, world, ground.getX() + 0.5, ground.getY(), ground.getZ() + 0.5, player.getYaw(), player.getPitch());
 		}
 	}
 
@@ -919,8 +921,7 @@ public final class GapManager {
 			ServerWorld world = home == null ? null : server.getWorld(home.world());
 			if (world != null) {
 				Vec3d to = safe(world, null, home.pos());
-				player.teleport(world, to.x, to.y, to.z, home.yaw(), home.pitch());
-				player.fallDistance = 0.0F;
+				moveTo(player, world, to.x, to.y, to.z, home.yaw(), home.pitch());
 			}
 		}
 		saved.event = null;
@@ -1052,8 +1053,7 @@ public final class GapManager {
 			if (onLid(gap, feet)) {
 				BlockPos safe = besideLid(world, gap, feet);
 				if (safe != null) {
-					player.teleport(world, safe.getX() + 0.5, safe.getY(), safe.getZ() + 0.5, player.getYaw(), player.getPitch());
-					player.fallDistance = 0.0F;
+					moveTo(player, world, safe.getX() + 0.5, safe.getY(), safe.getZ() + 0.5, player.getYaw(), player.getPitch());
 				}
 			}
 		}
@@ -1101,8 +1101,7 @@ public final class GapManager {
 		Vec3d middle = Vec3d.ofCenter(gap.target);
 		// Turned to face back across the hole, rather than at whatever hillside happens to be in front of them.
 		float yaw = (float) (MathHelper.atan2(middle.z - to.z, middle.x - to.x) * MathHelper.DEGREES_PER_RADIAN) - 90.0F;
-		player.teleport(world, to.x, to.y, to.z, yaw, 10.0F);
-		player.fallDistance = 0.0F;
+		moveTo(player, world, to.x, to.y, to.z, yaw, 10.0F);
 	}
 
 	/** The ground on the rim of the hole on the side {@code from} is on. */
@@ -1114,6 +1113,19 @@ public final class GapManager {
 		world.getChunk(x >> 4, z >> 4);
 		int y = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z);
 		return new Vec3d(x + 0.5, Math.max(y, world.getBottomY() + 1), z + 0.5);
+	}
+
+	/**
+	 * Moves {@code player} as {@link ServerPlayerEntity#teleport} does, and counts it as where they were last tick, so
+	 * the first move their client makes from there is not taken for moving too quickly from where they were before.
+	 */
+	private static void moveTo(ServerPlayerEntity player, ServerWorld world, double x, double y, double z, float yaw, float pitch) {
+		boolean same = player.getWorld() == world;
+		player.teleport(world, x, y, z, yaw, pitch);
+		if (same) {
+			player.networkHandler.syncWithPlayerPosition();
+		}
+		player.fallDistance = 0.0F;
 	}
 
 	private static BlockPos ground(World world, int x, int z) {

@@ -23,6 +23,8 @@ import io.github.kortev.shootingstar.registry.ModItems;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientWorldEvents;
+import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
+import net.minecraft.client.gui.screen.DownloadingTerrainScreen;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -83,5 +85,17 @@ public class ShootingStarClient implements ClientModInitializer {
 		WorldRenderEvents.LAST.register(VoidFx::render);
 		HudRenderCallback.EVENT.register(HudEffects::render);
 		HudRenderCallback.EVENT.register(GapHud::render);
+		// Carried into another world by the event: the loading screen the change of world brings is the white the picture
+		// goes as they are carried, rather than a portal's.
+		ScreenEvents.AFTER_INIT.register((client, screen, width, height) -> {
+			if (screen instanceof DownloadingTerrainScreen) {
+				ScreenEvents.afterRender(screen).register((s, context, mouseX, mouseY, tickDelta) -> {
+					float flash = VoidFx.flash(tickDelta);
+					if (flash > 0.01F || ClientGaps.floating()) {
+						context.fill(0, 0, s.width, s.height, (Math.min(255, (int) (Math.max(flash, 0.9F) * 255)) << 24) | 0xF4EEFF);
+					}
+				});
+			}
+		});
 	}
 }

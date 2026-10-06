@@ -7,7 +7,8 @@
 	"environment": "*",
 	"entrypoints": {
 		"main": [
-			"io.github.kortev.shootingstar.test.WorldGenHelper"
+			"io.github.kortev.shootingstar.test.WorldGenHelper",
+			"io.github.kortev.shootingstar.test.MultiplayerTestServer"
 		],
 		"fabric-gametest": [
 			"io.github.kortev.shootingstar.test.StrikeGameTests",
@@ -15,7 +16,8 @@
 		],
 		"client": [
 			"io.github.kortev.shootingstar.test.ClientSelfTest",
-			"io.github.kortev.shootingstar.test.GapSelfTest"
+			"io.github.kortev.shootingstar.test.GapSelfTest",
+			"io.github.kortev.shootingstar.test.MultiplayerTestClient"
 		]
 	},
 	"depends": {

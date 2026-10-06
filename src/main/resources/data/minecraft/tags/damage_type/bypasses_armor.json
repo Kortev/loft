@@ -3,6 +3,8 @@
   "values": [
     "shootingstar:kinetic_strike",
     "shootingstar:erased",
-    "shootingstar:swallowed"
+    "shootingstar:swallowed",
+    "shootingstar:swallowed_by",
+    "shootingstar:erased_by"
   ]
 }

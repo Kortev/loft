@@ -2,6 +2,8 @@
   "replace": false,
   "values": [
     "shootingstar:erased",
-    "shootingstar:swallowed"
+    "shootingstar:swallowed",
+    "shootingstar:swallowed_by",
+    "shootingstar:erased_by"
   ]
 }

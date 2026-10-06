@@ -67,6 +67,16 @@ public final class GapCamera {
 		return t >= GapTimeline.RISE && t < GapTimeline.FEED || t >= GapTimeline.INBOUND && t < GapTimeline.RETURN;
 	}
 
+	/** Whether {@code entity} stands right where the event's camera is, while it is away from the shooter's eyes. */
+	public static boolean atLens(net.minecraft.entity.Entity entity) {
+		MinecraftClient client = MinecraftClient.getInstance();
+		if (entity == client.player || !away(1.0F)) {
+			return false;
+		}
+		Vec3d lens = client.gameRenderer.getCamera().getPos();
+		return entity.getBoundingBox().expand(0.8).contains(lens);
+	}
+
 	@Nullable
 	public static Shot current(float tickDelta) {
 		MinecraftClient client = MinecraftClient.getInstance();

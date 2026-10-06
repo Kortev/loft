@@ -8,6 +8,7 @@
 		"EntityLookMixin",
 		"GameRendererMixin",
 		"HeldItemRendererMixin",
+		"LensMixin",
 		"MusicTrackerMixin",
 		"PlayerArmPoseMixin",
 		"VoidCameraMixin",

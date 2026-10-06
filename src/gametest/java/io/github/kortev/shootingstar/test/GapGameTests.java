@@ -119,7 +119,7 @@ public class GapGameTests implements FabricGameTest {
 		context.waitAndRun(GapTimeline.ERASURE - 2, () -> {
 			if (swallowed.isAlive()) {
 				problems.append("the player where the burst came up survived it; ");
-			} else if (DEATHS.get(swallowed.getUuid()) != ModDamageTypes.SWALLOWED) {
+			} else if (DEATHS.get(swallowed.getUuid()) != ModDamageTypes.SWALLOWED && DEATHS.get(swallowed.getUuid()) != ModDamageTypes.SWALLOWED_BY) {
 				problems.append("the player in the burst died of ").append(DEATHS.get(swallowed.getUuid())).append("; ");
 			}
 			if (!erased.isAlive()) {
@@ -129,7 +129,7 @@ public class GapGameTests implements FabricGameTest {
 		context.waitAndRun(GapTimeline.NOTHING + 30, () -> {
 			if (erased.isAlive()) {
 				problems.append("the player in the zone survived the black; ");
-			} else if (DEATHS.get(erased.getUuid()) != ModDamageTypes.ERASED) {
+			} else if (DEATHS.get(erased.getUuid()) != ModDamageTypes.ERASED && DEATHS.get(erased.getUuid()) != ModDamageTypes.ERASED_BY) {
 				problems.append("the player in the zone died of ").append(DEATHS.get(erased.getUuid())).append("; ");
 			}
 			double floor = Double.NaN;
