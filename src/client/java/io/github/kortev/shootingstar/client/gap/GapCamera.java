@@ -308,46 +308,85 @@ public final class GapCamera {
 		return null;
 	}
 
+	/** When each of the rebuild's shots takes over (ticks into the rebuild), and how long the camera takes to get there. */
+	private static final double[] REBUILD_SHOTS = {40.0, GapTimeline.REBUILD_SWEEP - 22.0, GapTimeline.REBUILD_SWEEP + 26.0, 370.0, 470.0,
+			GapTimeline.REBUILD_END - 62.0};
+	private static final double REBUILD_BLEND = 26.0;
+
 	/**
-	 * The rebuild: out of the shooter's eyes and down behind their shoulder to look up at Yggdrasil as it grows out of the
-	 * void; jolted as the light it gathers comes down its long root to them; down to watch the world put back round them,
-	 * craning up and back as it spreads; then into their eyes again.
+	 * The rebuild, in shots that each glide into the next: from the shooter's eyes to behind their shoulder, the tree's
+	 * foot and the hole it grows out of in the picture, not just the tree; down low beside them as the light comes down
+	 * the root at them; up over the hole, looking down as the ring of the world put back spreads out from it; low in
+	 * front of that ring as it comes on at the camera, the tree towering behind; out wide on all of it as the tree draws
+	 * back; and back into their eyes.
 	 */
 	@Nullable
 	private static Shot rebuild(ClientGap gap, ClientPlayerEntity player, float tickDelta, double r) {
 		if (gap.rebuildFrom == null || r >= GapTimeline.REBUILD_END) {
 			return null;
 		}
-		Vec3d eyes = player.getCameraPosVec(tickDelta);
-		Vec3d facing = TreeRender.toward(gap).multiply(-1.0);
-		Vec3d side = new Vec3d(-facing.z, 0.0, facing.x);
-		Vec3d chest = TreeRender.foot(gap).add(0.0, TreeRender.height(gap) * 0.45, 0.0);
-		double in = ease((r - 10.0) / 50.0);
-		double crane = ease((r - GapTimeline.REBUILD_SWEEP) / (GapTimeline.REBUILD_DONE - GapTimeline.REBUILD_SWEEP));
-		double home = ease((r - (GapTimeline.REBUILD_END - 60.0)) / 50.0);
-		double out = in * (1.0 - home);
-		// Craning back and up as far as it takes to see the whole of the tree, and the world coming back all round it.
-		double tall = TreeRender.height(gap);
-		// Up more than back, so it rises over whatever hills are behind the shooter rather than backing into them.
-		Vec3d shoulder = eyes.add(facing.multiply(-3.5 - 0.18 * tall * crane)).add(side.multiply(1.6 + 0.08 * tall * crane))
-				.add(0.0, -0.6 + 0.32 * tall * crane, 0.0);
-		Vec3d eye = clear(eyes.lerp(shoulder, out), eyes);
-		Vec3d at = eyes.add(player.getRotationVec(tickDelta).multiply(10.0)).lerp(chest, out);
-		// As the light goes out through its roots, down to the ground to watch the world put back block by block, coming
-		// out of the hole at the shooter; then up to the tree again as it goes.
-		double front = Math.max(0.0, GapRender.rebuildFront(r));
-		Vec3d from = gap.contact;
-		Vec3d feet = player.getLerpedPos(tickDelta);
-		double across = Math.hypot(feet.x - from.x, feet.z - from.z);
-		Vec3d ground = from.lerp(feet, MathHelper.clamp(front / Math.max(1.0, across), 0.0, 0.85)).add(0.0, -2.0, 0.0);
-		double down = ease((r - GapTimeline.REBUILD_SWEEP - 4.0) / 36.0) * (1.0 - ease((r - GapTimeline.REBUILD_SWEEP - 170.0) / 70.0));
-		// Never all the way down: the tree stays standing over the top of the picture as the world spreads under it.
-		at = at.lerp(ground, 0.55 * down * out);
+		Vec3d[] pose = rebuildPose(0, gap, player, tickDelta, r);
+		for (int i = 1; i <= REBUILD_SHOTS.length; i++) {
+			double w = ease((r - REBUILD_SHOTS[i - 1]) / REBUILD_BLEND);
+			if (w > 0.0) {
+				Vec3d[] next = rebuildPose(i, gap, player, tickDelta, r);
+				pose = new Vec3d[] {pose[0].lerp(next[0], w), pose[1].lerp(next[1], w)};
+			}
+		}
+		Vec3d eye = pose[0];
+		Vec3d at = pose[1];
 		if (r >= GapTimeline.REBUILD_SWEEP) {
-			double jolt = 4.0 * Math.exp(-(r - GapTimeline.REBUILD_SWEEP) / 12.0);
+			// The light landing at the shooter's feet jolts the picture.
+			double jolt = 3.0 * Math.exp(-(r - GapTimeline.REBUILD_SWEEP) / 12.0);
 			at = at.add(Math.sin(r * 2.9) * jolt, Math.cos(r * 2.3) * jolt, Math.sin(r * 3.7 + 1.0) * jolt);
 		}
-		return lookAt(eye, at);
+		return lookAt(clear(eye, at), at);
+	}
+
+	/** One of the rebuild's shots: eye and the point it looks at. 0 and the last are the shooter's own eyes. */
+	private static Vec3d[] rebuildPose(int shot, ClientGap gap, ClientPlayerEntity player, float tickDelta, double r) {
+		Vec3d eyes = player.getCameraPosVec(tickDelta);
+		Vec3d feet = player.getLerpedPos(tickDelta);
+		Vec3d facing = TreeRender.toward(gap).multiply(-1.0);
+		Vec3d side = new Vec3d(-facing.z, 0.0, facing.x);
+		Vec3d foot = TreeRender.foot(gap);
+		Vec3d centre = new Vec3d(gap.contact.x, feet.y, gap.contact.z);
+		double tall = TreeRender.height(gap);
+		double across = Math.max(10.0, Math.hypot(feet.x - centre.x, feet.z - centre.z));
+		return switch (shot) {
+			case 1 -> {
+				// Behind the shoulder, easing in, on the foot of the tree and the hole round it.
+				double push = Math.min(1.0, (r - REBUILD_SHOTS[0]) / 160.0) * 2.5;
+				yield new Vec3d[] {eyes.add(facing.multiply(-4.0 + push)).add(side.multiply(1.8)).add(0.0, -0.4, 0.0),
+						foot.add(0.0, tall * 0.18, 0.0)};
+			}
+			case 2 -> {
+				// Low beside the shooter, along the root, following the light down it to them.
+				double along = MathHelper.clamp((r - GapTimeline.REBUILD_SWEEP + 26.0) / 26.0, 0.0, 1.0);
+				Vec3d root = centre.lerp(feet, 0.25 + 0.7 * along).add(0.0, 1.0, 0.0);
+				yield new Vec3d[] {feet.add(side.multiply(2.6)).add(facing.multiply(-1.5)).add(0.0, 0.9, 0.0), root};
+			}
+			case 3 -> {
+				// High over the hole on the shooter's side, looking down into it as the ring spreads out, turning slowly.
+				double turn = Math.toRadians(25.0) * MathHelper.clamp((r - REBUILD_SHOTS[2]) / 150.0, 0.0, 1.0);
+				Vec3d high = centre.add(facing.multiply(-across * 0.6)).add(side.multiply(across * 0.3)).add(0.0, across * 0.55 + 25.0, 0.0);
+				yield new Vec3d[] {orbit(high, centre, turn), centre.add(facing.multiply(-across * 0.15))};
+			}
+			case 4 -> {
+				// Low, just ahead of the ring as it comes outward, looking back at it and the tree: the ground being put
+				// back runs at the camera.
+				double front = Math.max(across, GapRender.rebuildFront(r));
+				Vec3d out = facing.multiply(-1.0).rotateY((float) Math.toRadians(35.0));
+				Vec3d eye = centre.add(out.multiply(front * 0.85 + 16.0)).add(0.0, 4.0, 0.0);
+				yield new Vec3d[] {eye, centre.add(out.multiply(front * 0.85 - 30.0)).add(0.0, tall * 0.08, 0.0)};
+			}
+			case 5 -> {
+				// Out wide and up, on all of it.
+				yield new Vec3d[] {eyes.add(facing.multiply(-tall * 0.5)).add(side.multiply(tall * 0.15)).add(0.0, tall * 0.3, 0.0),
+						foot.add(0.0, tall * 0.3, 0.0)};
+			}
+			default -> new Vec3d[] {eyes, eyes.add(player.getRotationVec(tickDelta).multiply(10.0))};
+		};
 	}
 
 	/** {@code eye} turned {@code radians} round the vertical through {@code centre}, at the same height. */

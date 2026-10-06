@@ -1577,14 +1577,15 @@ def gap_map():
     and still, as the camera drifts in over the face of the galaxy, the other universe's chord breathing wide over the
     slow weight of the galaxy and stars glinting all round; from 0.8 s the long pull back, a rush rising and widening
     and an endless climb under it, the chord opening upwards and the stars thickening as the neighbouring galaxies come
-    in, until the whole universe is a lattice and a run of glass lights across it; at 2.8 s the block in the middle is
-    selected and everything else dims to it; from 3.1 s it lifts out of the lattice, slowly and then faster, the
-    tritone coming up under its held note, a pulse quickening and all of it rising with it, into the hard cut."""
+    in, until the whole universe is a lattice and a run of glass lights across it; at 2.1 s the block in the middle is
+    selected and everything else dims to it; from 2.3 s it lifts out of the lattice, the tritone coming up under its
+    held note, a pulse quickening; from 2.5 s it is crushed down, grinding, snapping home at 3.5 s with a deep
+    implosion; then the rush as the camera swings round to the gate, into the cut."""
     total = gap_at('CUT', since='MAP')
     drift = 16 / 20.0
-    select = 56 / 20.0
-    shown = 60 / 20.0
-    lift = 62 / 20.0
+    select = 42 / 20.0
+    shown = 46 / 20.0
+    lift = 46 / 20.0
     span = total + 0.1
     n = ns(span)
     t = times(span)
@@ -1603,8 +1604,8 @@ def gap_map():
         breathe = 0.7 + 0.3 * np.sin(2 * np.pi * rng.uniform(0.1, 0.25) * t + rng.uniform(0, 2 * np.pi))
         chord += glass(((f, 0.35 * (110.0 / f) ** 0.35),), n) * come * breathe
     chord += sum(choir(f, n, OO, voices=4) for f in (329.63, 415.30)) * 0.8 * \
-        curve(n, [(0, 0.0), (0.6, 0.3), (2.2, 0.6), (shown, 0.8), (span, 0.8)])
-    sky.add(chord * curve(n, [(0, 0.0), (0.3, 0.14), (drift, 0.16), (2.2, 0.6), (select, 1.0), (span, 1.0)]), 0, 0.5)
+        curve(n, [(0, 0.0), (0.6, 0.3), (select - 0.2, 0.6), (shown, 0.8), (span, 0.8)])
+    sky.add(chord * curve(n, [(0, 0.0), (0.3, 0.14), (drift, 0.16), (select - 0.2, 0.6), (select, 1.0), (span, 1.0)]), 0, 0.5)
     # The weight of the galaxy, slow, going as the camera pulls away from it.
     weight = sine(55.0 * (1 + 0.002 * np.sin(2 * np.pi * 0.2 * t))) + 0.5 * sine(np.full(n, 82.41))
     sky.add(stereo(weight * (0.75 + 0.25 * np.sin(2 * np.pi * 0.35 * t))) *
@@ -1628,7 +1629,7 @@ def gap_map():
         climb += np.exp(-((place - 3.0) / 1.4) ** 2) * sine(55.0 * 2.0 ** place)
     sky.add(stereo(climb * curve(q, [(0, 0.0), (0.4, 0.5), (select - drift, 1.0)])), drift, 0.06)
     # The lattice lit up across, a run of glass from one side to the other.
-    run = np.arange(2.25, select - 0.02, 0.045)
+    run = np.arange(select - 0.6, select - 0.02, 0.045)
     for i, at in enumerate(run):
         ping = struck(UNIVERSE[min(len(UNIVERSE) - 1, 9 + i)], 0.5, tau=0.12, ratios=(1.0, 2.76), bright=0.2)
         sky.add(pan(ping, -0.8 + 1.6 * i / max(1, len(run) - 1)), at, 0.06 * (0.5 + 0.5 * i / len(run)))
@@ -1667,9 +1668,15 @@ def gap_map():
         beat = np.sin(2 * np.pi * (40 + 30 * np.exp(-tt / 0.02)) * tt) * np.exp(-tt / 0.1)
         up.add(sat(beat * 1.4, 1.4), at, 0.3)
     up.add(stereo(inhale(total - lift, 250, 4000, tau=0.6)), lift, 0.5)
-    # Crushed down (from 3.3 s): its two trillion galaxies packed in, a deep grinding crunch closing up on itself; then
-    # dragged out (from 3.6 s), a rush tearing up past the camera, faster and faster into the cut.
-    crunch_at, drag_at = 66 / 20.0, 72 / 20.0
+    # Crushed down (2.5 to 3.5 s): its two trillion galaxies packed in, a deep grinding crunch closing up on itself,
+    # snapping home with a hard, deep implosion; then the camera swinging round (from 3.6 s), a rush tearing up past it,
+    # faster and faster into the cut.
+    crunch_at, crushed_at, drag_at = 50 / 20.0, 70 / 20.0, 72 / 20.0
+    q = ns(1.2)
+    tq = np.arange(q) / SR
+    snap = np.sin(2 * np.pi * curve(q, [(0, 70), (1.2, 26)], 'log') * tq) * np.exp(-tq / 0.25)
+    snap += hp(white(q), 2000) * np.exp(-tq / 0.01) * 0.5
+    up.add(stereo(sat(snap * 1.6, 1.5)), crushed_at, 0.6)
     q = ns(total - crunch_at)
     grind = crush(brown(q) * 0.5 + white(q) * 0.2, 4.0, curve(q, [(0, 2.0), (q / SR, 18.0)], 'log'))
     grind = sweep_filter(lp(grind, 3000), 'lowpass', curve(q, [(0, 2500), (q / SR, 300)], 'log'))
@@ -1683,7 +1690,7 @@ def gap_map():
 
 
 def gap_lock():
-    """The block selected (1.2 s, MAP+56): a crisp, cold two-note chime, E7 rising to A7, each a pure partial over a
+    """The block selected (1.2 s, MAP+42): a crisp, cold two-note chime, E7 rising to A7, each a pure partial over a
     faint glassy one against a detuned twin that makes it shiver, a needle of a transient and a small, soft knock under
     the first; a soft blip each time the box blinks back on; and the outline humming bright and high."""
     total = 1.2
@@ -1697,7 +1704,7 @@ def gap_lock():
         m.add(note, at, 0.5, position=side)
     q = ns(0.25)
     m.add(sine(curve(q, [(0, 180), (0.25, 90)], 'log')) * attack_decay(q, 0.002, 0.04), 0.0, 0.12)
-    # The box blinking back on (GapShots: on at 56, 60 and 64).
+    # The box blinking back on (GapShots: on at 42, 46 and 50).
     for at in (0.2, 0.4):
         m.add(struck(3520.0, 0.1, tau=0.02, ratios=(1.0, 2.76), bright=0.2), at, 0.12, position=0.1)
     hold = glass(((3520.0, 0.5), (5274.04, 0.25)), n, detune=0.0008)

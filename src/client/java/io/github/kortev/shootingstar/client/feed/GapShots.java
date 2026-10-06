@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
+import net.minecraft.util.math.MathHelper;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
@@ -102,13 +103,16 @@ final class GapShots implements Feed.Sequence {
 	private static final float MULTI_SPACING = 3.4F;
 	/** Ticks into the map shot: the pull back from beside a galaxy, and the block being selected and rising out of the lattice. */
 	private static final double MAP_PULL_FROM = 16.0;
-	private static final double MAP_PULL_TO = 60.0;
-	private static final double MAP_PICK = 56.0;
-	private static final double MAP_LIFT = 62.0;
+	private static final double MAP_PULL_TO = 46.0;
+	private static final double MAP_PICK = 42.0;
+	private static final double MAP_LIFT = 46.0;
 	/** How high the selected block has risen out of the lattice by the end of the shot. */
 	private static final float MAP_LIFT_HEIGHT = 1.7F;
 	/** When the camera starts round to the front of the selected block, and how far off it ends: the cut's first eye. */
-	private static final double MAP_SWING = 68.0;
+	private static final double MAP_SWING = 72.0;
+	/** The selected universe crushed down into its block, from and to (ticks into the shot), the camera holding close. */
+	private static final double MAP_CRUSH = 50.0;
+	private static final double MAP_CRUSHED = 70.0;
 	private static final float CUT_EYE = (BEHIND + 4.0F) / BLOCK;
 	/** The big spiral the shot starts beside (the first galaxy of universe.bin): where it is and which way it faces. */
 	private static final Vector3f MAP_GALAXY = new Vector3f(0.12F, 0.05F, -0.12F);
@@ -124,7 +128,7 @@ final class GapShots implements Feed.Sequence {
 	private static final float MAP_IN = 0.036F;
 	private static final float MAP_NEAR = 0.028F;
 	private static final float MAP_FAR = 24.0F;
-	private static final float MAP_CLOSE = 18.0F;
+	private static final float MAP_CLOSE = 8.0F;
 	/** How wide the universe is: its two trillion galaxies in view at three of its widths off. */
 	private static final double GALAXIES = 2.0E12;
 	/** The other universes' light, so no two neighbours look alike. */
@@ -696,7 +700,8 @@ final class GapShots implements Feed.Sequence {
 		// In over the galaxy's face; out at an ever faster rate, a thousand times as far; then a slow push back in.
 		float near = Shots.lerp(MAP_IN, MAP_NEAR, Shots.smooth(m / MAP_PULL_FROM));
 		float distance = (float) (near * Math.pow(MAP_FAR / near, pull));
-		distance = Shots.lerp(distance, MAP_CLOSE, Shots.smooth((m - MAP_PICK) / (length - MAP_PICK)));
+		// In close on it once it is picked, and held there while it is crushed.
+		distance = Shots.lerp(distance, MAP_CLOSE, Shots.smooth((m - MAP_PICK) / (MAP_CRUSH - MAP_PICK)));
 		// Drifting round the galaxy at first, then round to the angle the lattice is seen from.
 		double drift = m / length * 0.7;
 		Vector3f round = new Vector3f(MAP_START).mul((float) Math.cos(drift))
@@ -710,10 +715,11 @@ final class GapShots implements Feed.Sequence {
 		// round in front of it, the near universes falling away from between, and settles where the next shot begins:
 		// just outside the gate's window, looking through it at the block waiting behind. That shot is seen through the
 		// window, so the two meet exactly, and the pull out through the window is one move.
-		float compact = Shots.smooth((m - 66.0) / 12.0);
+		float crushing = (float) MathHelper.clamp((m - MAP_CRUSH) / (MAP_CRUSHED - MAP_CRUSH), 0.0, 1.0);
+		float compact = Shots.smooth(crushing);
 		Vector3f home = new Vector3f(0.0F, lift, 0.0F);
 		float swing = Shots.smoother((m - MAP_SWING) / (length - MAP_SWING));
-		float settle = Shots.smooth((m - 76.0) / (length - 76.0));
+		float settle = Shots.smooth((m - 78.0) / (length - 78.0));
 		Vector3f from = new Vector3f(eye).sub(home);
 		Vector3f swung = Shots.slerp(new Vector3f(from).normalize(), new Vector3f(0.0F, 0.0F, -1.0F), swing);
 		float reach = (float) (from.length() * Math.pow(CUT_EYE / from.length(), swing));
@@ -735,22 +741,25 @@ final class GapShots implements Feed.Sequence {
 		float sampled = Shots.lerp(20.0, 90.0, settle);
 		int universes = multiverse(new Matrix4f(), -3, 3, -2, 2, -3, -1, others * (1.0F - Shots.smooth((m - MAP_SWING) / 8.0)), sampled, screen, null);
 		universes += multiverse(new Matrix4f(), -3, 3, -2, 2, 0, 4, others, sampled, screen, () -> Universe.draw(cam.modelView(held), cam.proj, width,
-				height, Universe.FULL, 0, bright, 1.0F, WHITE, 0.45F * outside, rim, 0xE6DCFF, 0.45F * compact));
+				height, Universe.FULL, 0, bright, 1.0F, WHITE, 0.45F * outside, rim, 0xE6DCFF, 0.8F * compact * (1.0F - 0.45F * settle)));
 		if (m >= MAP_PICK) {
 			mapSelection(m - MAP_PICK, held);
 		}
+		crush(m, home, size, crushing);
 
 		// The count of galaxies in view, from the one to all two trillion by the time the whole universe is.
 		double seen = Math.pow(GALAXIES, Math.max(0.0, Math.min(1.0, Math.log(distance / MAP_NEAR) / Math.log(3.0 / MAP_NEAR))));
 		boolean picked = m >= MAP_PICK;
-		boolean taken = m >= 68.0;
+		boolean taken = m >= MAP_CRUSH;
 		boolean amongOthers = others > 0.5F;
-		o.header = taken ? "[ UNIVERSE 4,096,113 · EXTRACTING ]" : picked ? "[ UNIVERSE 4,096,113 · SELECTED ]"
+		o.header = taken ? (m < MAP_CRUSHED ? "[ UNIVERSE 4,096,113 · COMPACTING ]" : "[ UNIVERSE 4,096,113 · EXTRACTING ]") : picked ? "[ UNIVERSE 4,096,113 · SELECTED ]"
 				: amongOthers ? "[ THE VOID · NEIGHBOURING UNIVERSES ]" : "[ UNIVERSE 4,096,113 ]";
-		o.headerReveal = Shots.smooth((taken ? m - 68.0 : picked ? m - MAP_PICK : amongOthers ? m - 40.0 : m - 2.0) / 4.0);
+		o.headerReveal = Shots.smooth((taken ? m - (m < MAP_CRUSHED ? MAP_CRUSH : MAP_CRUSHED) : picked ? m - MAP_PICK : amongOthers ? m - 40.0 : m - 2.0) / 4.0);
 		if (taken) {
-			o.footer = "COMPACTING " + Math.round(100.0F * compact) + "%";
-			o.footerSmall = "2 TRILLION GALAXIES · 1 BLOCK";
+			// Counted down as they are packed in: two trillion galaxies to one block.
+			o.footer = m < MAP_CRUSHED ? "COMPACTING " + Math.round(100.0F * compact) + "%" : "1 BLOCK";
+			o.footerSmall = m < MAP_CRUSHED ? "GALAXIES UNCOMPACTED " + galaxies(Math.max(1.0, GALAXIES * Math.pow(1.0 - compact, 2.0)))
+					: "UNIVERSE 4,096,113 · 2 TRILLION GALAXIES";
 		} else if (picked) {
 			o.footer = "1 UNIVERSE SELECTED";
 			o.footerSmall = "UNIVERSE 4,096,113 · 2 TRILLION GALAXIES";
@@ -764,18 +773,51 @@ final class GapShots implements Feed.Sequence {
 		label(o, MAP_GALAXY, 40, -24, "1 GALAXY", Feed.VIOLET, "OF 2,000,000,000,000", Feed.GREY,
 				Shots.smooth((m - 4.0) / 4.0) * (1.0F - Shots.smooth((m - MAP_PULL_FROM) / 6.0)));
 		Overlay.Label block = label(o, held.transformPosition(new Vector3f(1.0F, 1.0F, 1.0F)), 10, -6, "SELECTED", Feed.VIOLET, "UNIVERSE 4,096,113",
-				Feed.GREY, Shots.smooth((m - MAP_PICK - 2.0) / 3.0) * (1.0F - Shots.smooth((m - 70.0) / 4.0)));
+				Feed.GREY, Shots.smooth((m - MAP_PICK - 2.0) / 3.0) * (1.0F - Shots.smooth((m - MAP_CRUSH) / 4.0)));
 		if (block != null) {
 			block.marker = true;
 		}
 		// The pull back blurs out from the middle; a blink as the block is picked.
 		float select = picked ? (float) Math.exp(-(m - MAP_PICK) / 2.5) : 0.0F;
-		o.flash = 0.25F * select;
+		// The snap as it is crushed home.
+		float snapped = m >= MAP_CRUSHED ? (float) Math.exp(-(m - MAP_CRUSHED) / 2.0) : 0.0F;
+		o.flash = Math.max(0.25F * select, 0.45F * snapped);
 		o.flashColor = 0xFFFFFF;
-		o.zoomBlur = 0.1F * (float) Math.sin(Math.PI * pull) + 0.12F * (float) Math.sin(Math.PI * swing);
-		o.aberration = 0.006F * (float) Math.sin(Math.PI * swing);
+		o.zoomBlur = 0.1F * (float) Math.sin(Math.PI * pull) + 0.12F * (float) Math.sin(Math.PI * swing) + 0.18F * compact * (1.0F - compact) * 4.0F;
+		o.aberration = 0.006F * (float) Math.sin(Math.PI * swing) + 0.01F * snapped;
 		// Close over the galaxy its core would burn out the picture.
 		o.exposure = 0.8F + 0.2F * Shots.smooth(pull * 2.0);
+	}
+
+	/**
+	 * The crush: the light of its galaxies streaming in from all round into the block as it shrinks, faster and denser
+	 * the harder it is crushed; then, as it snaps down to its last size, a ring of light blown out from it.
+	 */
+	private void crush(double m, Vector3f home, float size, float crushing) {
+		float hard = (float) Math.sin(Math.PI * crushing);
+		if (hard > 0.01F) {
+			Fx streaks = space.glow(cam, Fx.BEAM, 0.0F);
+			random.setSeed(4096113L);
+			for (int i = 0; i < 180; i++) {
+				Vector3f dir = new Vector3f((float) random.nextGaussian(), (float) random.nextGaussian(), (float) random.nextGaussian()).normalize();
+				double f = (m * (0.05 + 0.1 * crushing) + random.nextDouble()) % 1.0;
+				float r0 = (float) (size * 1.1 + 6.0 * (1.0 - f));
+				float r1 = Math.max(size * 1.0F, r0 - 0.8F - 1.6F * crushing);
+				Vector3f a = new Vector3f(dir).mul(r0).add(home);
+				Vector3f b = new Vector3f(dir).mul(r1).add(home);
+				float alpha = hard * (float) f * 0.9F;
+				streaks.beam(a, b, cam.pos, 0.012F + 0.02F * (float) f, Fx.argb(0.75F, 0.6F, 1.0F, 0.0F), Fx.argb(1.0F, 0.95F, 1.0F, alpha));
+			}
+			streaks.end(true, 2.6F);
+		}
+		double since = m - MAP_CRUSHED;
+		if (since >= 0.0 && since < 9.0) {
+			Fx ring = space.glow(cam, Fx.RING, 0.12F);
+			float fade = (float) (1.0 - since / 9.0);
+			ring.sprite(home, (float) (size * 1.4 + since * 1.1), 0.0F, Fx.argb(0.85F, 0.8F, 1.0F, fade * 0.9F));
+			ring.sprite(home, (float) (size * 1.2 + since * 0.6), 0.0F, Fx.argb(1.0F, 1.0F, 1.0F, fade * 0.6F));
+			ring.end(true, 2.4F);
+		}
 	}
 
 	/** A count of galaxies the way the feed reads it out: in full up to a million, then in millions, billions, trillions. */

@@ -92,14 +92,14 @@ opens onto the void between universes, where they hang in a lattice, each in a b
 feed dives through into universe 4,096,113, beside one of its galaxies, then pulls back out past the cosmic
 web of its two trillion galaxies until the whole of it is one block among the others, and it is selected.
 The gate draws that block through and drops it down a bridge of light onto the target.
-It bursts, the black takes the whole world, and everyone in it is taken into Ginnungagap: a flat floor in
-the void between universes, under the lattice of the others. Everything within `ginnungagapRadius` of the
-target is erased for good. The first turn cracks the key, and only the cracked key brings the world back:
-turned in the void, it shatters, everyone goes back where they were, Yggdrasil grows out of the hole, and
-the world is put back along its roots, block by block. The hole stays: a ragged shaft down through bedrock,
-its walls Unmade, black and cracked with violet light, fractures running out across the ground from its
-rim. (If whoever holds the cracked key is
-gone for five minutes, the world comes back by itself; `/ginnungagap release` brings it back at once.)
+It bursts, and the black takes the whole world: everyone in it is left in nothing, free to walk, seeing
+only each other, unable to touch anything or be touched. Everything within `ginnungagapRadius` of the target
+is erased for good: a ragged shaft down through bedrock, fissures split out across the ground from its rim.
+The first turn cracks the key, and only the cracked key brings the world back: turned in the black, it
+shatters, Yggdrasil grows out of the hole, and the world is put back along its roots, block by block, for
+everyone. (If whoever holds the cracked key is gone for five minutes, the world comes back by itself;
+`/ginnungagap release` brings it back at once.) Skipping the feed shows all of it from your own eyes, free
+to move, as any other player sees it.
 The feed, and the rebuild, can be hurried with the same key as Gungnir's skip (Backspace).
 
 - **Try it:** `/give @s shootingstar:genesis_key`, or `/ginnungagap open <pos>` (operators).
