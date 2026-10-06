@@ -17,11 +17,15 @@ public final class GapTimeline {
 	public static final int OPEN = FEED + 70;
 	/**
 	 * Inside that universe, in among its galaxies; the camera pulls back out of it until it is a map, a lattice of
-	 * blocks, and the block in the middle is selected.
+	 * blocks, holds there on the void between universes for a moment, and the block in the middle is selected.
 	 */
 	public static final int MAP = FEED + 118;
+	/** How long the camera holds on the lattice of universes, pulled all the way back, before the one is picked. */
+	public static final int MAP_HOLD = 20;
+	/** The block in the middle of the lattice is selected, and the camera goes in on it. */
+	public static final int PICK = MAP + 42 + MAP_HOLD;
 	/** That block is cut out and drawn through the gate. */
-	public static final int CUT = MAP + 84;
+	public static final int CUT = MAP + 84 + MAP_HOLD;
 	/** The bridge reaches down to the target and the block drops into it. */
 	public static final int SEND = CUT + 42;
 	/** The chase down the bridge to the ground. */

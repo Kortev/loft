@@ -401,7 +401,7 @@ public final class ClientGaps {
 			if (crossed(from, to, GapTimeline.MAP)) {
 				held(gap, ModSounds.GAP_MAP);
 			}
-			if (crossed(from, to, GapTimeline.MAP + 42)) {
+			if (crossed(from, to, GapTimeline.PICK)) {
 				held(gap, ModSounds.GAP_LOCK);
 			}
 			// Back outside the gate: the block drawn through, the window shutting.

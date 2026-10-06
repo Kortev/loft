@@ -101,18 +101,26 @@ final class GapShots implements Feed.Sequence {
 	// The void between universes, in a frame of its own: universes in blocks, each 2 across, MULTI_SPACING apart
 	// in a lattice, universe 4,096,113 in the middle of it. Its own space is that of its universe (tools/gen_universe.py).
 	private static final float MULTI_SPACING = 3.4F;
-	/** Ticks into the map shot: the pull back from beside a galaxy, and the block being selected and rising out of the lattice. */
+	/**
+	 * Ticks into the map shot: the pull back from beside a galaxy; the hold on the lattice of universes, pulled all the
+	 * way back (GapTimeline.MAP_HOLD); and the block being selected and rising out of the lattice.
+	 */
 	private static final double MAP_PULL_FROM = 16.0;
 	private static final double MAP_PULL_TO = 46.0;
-	private static final double MAP_PICK = 42.0;
-	private static final double MAP_LIFT = 46.0;
+	private static final double MAP_PICK = GapTimeline.PICK - GapTimeline.MAP;
+	private static final double MAP_LIFT = MAP_PICK + 4.0;
 	/** How high the selected block has risen out of the lattice by the end of the shot. */
 	private static final float MAP_LIFT_HEIGHT = 1.7F;
 	/** When the camera starts round to the front of the selected block, and how far off it ends: the cut's first eye. */
-	private static final double MAP_SWING = 72.0;
+	private static final double MAP_SWING = MAP_PICK + 30.0;
+	/** When the block settles to how the window will show it. */
+	private static final double MAP_SETTLE = MAP_PICK + 36.0;
 	/** The selected universe crushed down into its block, from and to (ticks into the shot), the camera holding close. */
-	private static final double MAP_CRUSH = 50.0;
-	private static final double MAP_CRUSHED = 70.0;
+	private static final double MAP_CRUSH = MAP_PICK + 8.0;
+	private static final double MAP_CRUSHED = MAP_PICK + 28.0;
+	/** How far round (radians, about the lattice's pole) and how much further out the camera drifts while it holds. */
+	private static final double MAP_HOLD_TURN = Math.toRadians(9.0);
+	private static final double MAP_HOLD_OUT = 0.08;
 	private static final float CUT_EYE = (BEHIND + 4.0F) / BLOCK;
 	/** The big spiral the shot starts beside (the first galaxy of universe.bin): where it is and which way it faces. */
 	private static final Vector3f MAP_GALAXY = new Vector3f(0.12F, 0.05F, -0.12F);
@@ -707,6 +715,11 @@ final class GapShots implements Feed.Sequence {
 		Vector3f round = new Vector3f(MAP_START).mul((float) Math.cos(drift))
 				.add(new Vector3f(MAP_POLE).cross(MAP_START).mul((float) Math.sin(drift))).normalize();
 		Vector3f dir = Shots.slerp(round, MAP_END, Shots.smooth((pull - 0.05) * 1.25));
+		// Held there on the void between universes, all of them in the picture, before the one is picked: never stopped
+		// dead, but still turning slowly the way it was going and easing a little further out, until it goes in.
+		float holding = Shots.smooth((m - 30.0) / (MAP_PICK + 10.0 - 30.0));
+		dir.rotateAxis((float) (MAP_HOLD_TURN * holding), MAP_POLE.x, MAP_POLE.y, MAP_POLE.z);
+		distance *= (float) (1.0 + MAP_HOLD_OUT * Shots.smooth((m - 36.0) / (MAP_PICK - 36.0)) * (1.0 - Shots.smooth((m - MAP_PICK) / 6.0)));
 		// The selected block rising up out of the lattice, faster and faster, the camera lifting a little with it.
 		float lift = MAP_LIFT_HEIGHT * (float) Math.pow(Shots.smooth((m - MAP_LIFT) / (length - MAP_LIFT)), 1.6);
 		Vector3f at = new Vector3f(MAP_GALAXY).lerp(new Vector3f(), Shots.smooth(pull * 1.6)).add(0.0F, lift * 0.5F, 0.0F);
@@ -719,7 +732,7 @@ final class GapShots implements Feed.Sequence {
 		float compact = Shots.smooth(crushing);
 		Vector3f home = new Vector3f(0.0F, lift, 0.0F);
 		float swing = Shots.smoother((m - MAP_SWING) / (length - MAP_SWING));
-		float settle = Shots.smooth((m - 78.0) / (length - 78.0));
+		float settle = Shots.smooth((m - MAP_SETTLE) / (length - MAP_SETTLE));
 		Vector3f from = new Vector3f(eye).sub(home);
 		Vector3f swung = Shots.slerp(new Vector3f(from).normalize(), new Vector3f(0.0F, 0.0F, -1.0F), swing);
 		float reach = (float) (from.length() * Math.pow(CUT_EYE / from.length(), swing));
@@ -754,7 +767,7 @@ final class GapShots implements Feed.Sequence {
 		boolean amongOthers = others > 0.5F;
 		o.header = taken ? (m < MAP_CRUSHED ? "[ UNIVERSE 4,096,113 · COMPACTING ]" : "[ UNIVERSE 4,096,113 · EXTRACTING ]") : picked ? "[ UNIVERSE 4,096,113 · SELECTED ]"
 				: amongOthers ? "[ THE VOID · NEIGHBOURING UNIVERSES ]" : "[ UNIVERSE 4,096,113 ]";
-		o.headerReveal = Shots.smooth((taken ? m - (m < MAP_CRUSHED ? MAP_CRUSH : MAP_CRUSHED) : picked ? m - MAP_PICK : amongOthers ? m - 40.0 : m - 2.0) / 4.0);
+		o.headerReveal = Shots.smooth((taken ? m - (m < MAP_CRUSHED ? MAP_CRUSH : MAP_CRUSHED) : picked ? m - MAP_PICK : amongOthers ? m - 35.0 : m - 2.0) / 4.0);
 		if (taken) {
 			// Counted down as they are packed in: two trillion galaxies to one block.
 			o.footer = m < MAP_CRUSHED ? "COMPACTING " + Math.round(100.0F * compact) + "%" : "1 BLOCK";
