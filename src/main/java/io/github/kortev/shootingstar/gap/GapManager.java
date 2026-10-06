@@ -643,6 +643,10 @@ public final class GapManager {
 	 * or, if they are about there already and on the ground, simply lets them go where they stand.
 	 */
 	private static void sendHome(Gap gap, ServerPlayerEntity player) {
+		// Already on their way (asked for by their client as its rebuild ended, and again as the server's did).
+		if (WARPS.stream().anyMatch(warp -> warp.player().equals(player.getUuid()))) {
+			return;
+		}
 		MinecraftServer server = player.getServer();
 		GapState saved = state(server);
 		GapState.Home home = saved.homes.remove(player.getUuid());

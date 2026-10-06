@@ -474,11 +474,12 @@ public final class GapCamera {
 				yield overHole(gap, MathHelper.lerp(k, from[0], v[0]), v[1], MathHelper.lerp(k, 28.0, 34.0), MathHelper.lerp(k, 0.04, 0.2));
 			}
 			case 5 -> {
-				// Wide on all of it from the shooter's side: the hole, the land round it, the tree drawing back down into it;
-				// from where the way back to the shooter's eyes is clear.
-				double[] v = view(gap, player, 5, new double[] {20, -20, 0, 40, -40, 60, -60}, new double[] {rim * 1.75, rim * 1.95},
-						p -> overHole(gap, p[0], p[1], 14.0, 0.25));
-				yield overHole(gap, v[0], v[1], 14.0, 0.25);
+				// Wide on all of it from the shooter's side, looking down into the hole: the hole, the land round it, the tree
+				// drawing back down into it; from somewhere the floor of the hole can be seen over the rim, and the way back to
+				// the shooter's eyes is clear.
+				double[] v = view(gap, player, 5, new double[] {20, -20, 0, 40, -40, 60, -60, 90, -90},
+						new double[] {rim * 1.55, rim * 1.3, rim * 1.8}, p -> intoHole(gap, p[0], p[1]));
+				yield intoHole(gap, v[0], v[1]);
 			}
 			default -> new Pose(eyes, eyes.add(player.getRotationVec(tickDelta).multiply(10.0)), seen);
 		};
@@ -489,6 +490,12 @@ public final class GapCamera {
 		double rim = gap.radius;
 		return view(gap, player, 3, new double[] {28, 10, 46, -10, 64, -28}, new double[] {rim * 1.6, rim * 1.45, rim * 1.8},
 				p -> overHole(gap, p[0], p[1], 28.0, 0.04));
+	}
+
+	/** As {@link #overHole}, looking down at the floor of the hole where the tree stands, under the rim on the far side. */
+	private static Pose intoHole(ClientGap gap, double degrees, double reach) {
+		Pose over = overHole(gap, degrees, reach, 14.0, 0.0);
+		return new Pose(over.eye(), gap.contact.add(0.0, 2.0, 0.0), 1.0);
 	}
 
 	/** Behind the shooter, {@code degrees} round from straight back and {@code reach} off, looking past them at the tree's foot. */
@@ -530,6 +537,10 @@ public final class GapCamera {
 				double lift = need(p);
 				Vec3d eye = p.eye().add(0.0, lift, 0.0);
 				double cost = lift * 2.0 + Math.abs(a) * 0.08 + Math.abs(d - reaches[0]) * 0.05;
+				if (world != null) {
+					// Land close in front of the lens filling much of the picture (a mountainside down one side of it).
+					cost += 60.0 * crowded(world, eye, p.at());
+				}
 				if (world != null && !sees(world, player, eye, p.at())) {
 					cost += 40.0;
 				}
@@ -539,6 +550,11 @@ public final class GapCamera {
 				if (shot == 5 && world != null && !sees(world, player, eye, home)) {
 					cost += 15.0;
 				}
+				if (Boolean.getBoolean("shootingstar.debugViews")) {
+					io.github.kortev.shootingstar.ShootingStar.LOGGER.info("[views] shot {} at {} deg {} out: eye {} lift {} crowded {} sees {} cost {}",
+							shot, a, Math.round(d), eye, String.format("%.1f", lift), world == null ? -1 : String.format("%.2f", crowded(world, eye, p.at())),
+							world != null && sees(world, player, eye, p.at()), String.format("%.1f", cost));
+				}
 				if (cost < best) {
 					best = cost;
 					chosen = new double[] {a, d};
@@ -547,6 +563,37 @@ public final class GapCamera {
 		}
 		gap.views.put(shot, chosen);
 		return chosen;
+	}
+
+	/**
+	 * How much of the top half of the picture from {@code eye} looking at {@code at} is land standing between the lens and
+	 * what it looks at, 0 to 1: a mountainside reaching up one side of the frame. (The land below the middle of the
+	 * picture is the land it is meant to be looking down on.)
+	 */
+	private static double crowded(ClientWorld world, Vec3d eye, Vec3d at) {
+		Vec3d look = at.subtract(eye);
+		double reach = Math.min(160.0, look.length());
+		look = look.normalize();
+		double yaw = Math.atan2(look.z, look.x);
+		double pitch = Math.asin(MathHelper.clamp(look.y, -1.0, 1.0));
+		int hit = 0;
+		int rays = 0;
+		for (double dy : new double[] {-0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6}) {
+			for (double dp : new double[] {0.0, 0.15, 0.3}) {
+				double a = yaw + dy;
+				double b = MathHelper.clamp(pitch + dp, -1.5, 1.5);
+				Vec3d dir = new Vec3d(Math.cos(a) * Math.cos(b), Math.sin(b), Math.sin(a) * Math.cos(b));
+				rays++;
+				for (double s = 3.0; s <= reach; s += 3.0) {
+					Vec3d p = eye.add(dir.multiply(s));
+					if (p.y < world.getTopY(Heightmap.Type.MOTION_BLOCKING, MathHelper.floor(p.x), MathHelper.floor(p.z))) {
+						hit++;
+						break;
+					}
+				}
+			}
+		}
+		return hit / (double) rays;
 	}
 
 	/** Whether nothing stands between {@code eye} and {@code at} (to within a few blocks of it). */
@@ -627,7 +674,7 @@ public final class GapCamera {
 		for (int i = 1; i <= 34; i++) {
 			double t = i / 40.0;
 			Vec3d p = eye.lerp(at, t);
-			double top = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, MathHelper.floor(p.x), MathHelper.floor(p.z)) + SIGHT_MARGIN;
+			double top = world.getTopY(Heightmap.Type.MOTION_BLOCKING, MathHelper.floor(p.x), MathHelper.floor(p.z)) + SIGHT_MARGIN;
 			// The line's height there is y + (at.y - y) * t: raise y until that clears the ground.
 			y = Math.max(y, (top - at.y * t) / (1.0 - t));
 		}
@@ -668,7 +715,7 @@ public final class GapCamera {
 		int top = Integer.MIN_VALUE;
 		for (int dx = -2; dx <= 2; dx += 2) {
 			for (int dz = -2; dz <= 2; dz += 2) {
-				top = Math.max(top, world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, MathHelper.floor(p.x) + dx, MathHelper.floor(p.z) + dz));
+				top = Math.max(top, world.getTopY(Heightmap.Type.MOTION_BLOCKING, MathHelper.floor(p.x) + dx, MathHelper.floor(p.z) + dz));
 			}
 		}
 		return new Vec3d(p.x, top <= world.getBottomY() ? p.y : top + height, p.z);

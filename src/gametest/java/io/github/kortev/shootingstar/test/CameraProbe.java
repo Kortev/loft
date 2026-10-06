@@ -27,6 +27,8 @@ final class CameraProbe {
 	/** Closer than this to a block's faces is a glitch: the near plane cuts into it, or it fills the screen. */
 	private static final double AGAINST = 0.6;
 
+	/** Frames with a camera away from the player's eyes in or touching the world: each one a failure of the test. */
+	private static int bad;
 	private static String run;
 	private static long runStart;
 	private static double runWorst;
@@ -56,6 +58,10 @@ final class CameraProbe {
 			kind = "AGAINST TERRAIN";
 		}
 		String where = String.format(Locale.ROOT, "%s cam %.1f %.1f %.1f", phase(), p.x, p.y, p.z);
+		// In the player's own head it is only standing by a wall; anywhere else it is the camera shot that is wrong.
+		if (nearest < 0.2 && p.distanceTo(client.player.getCameraPosVec(1.0F)) > 1.0) {
+			bad++;
+		}
 		if (!java.util.Objects.equals(kind, run)) {
 			if (run != null) {
 				ShootingStar.LOGGER.warn("[probe] {} from {}s to {}s (closest {} blocks) at {}", run, seconds(runStart), seconds(frame - 1),
@@ -78,6 +84,11 @@ final class CameraProbe {
 					String.format(Locale.ROOT, "%.1f", feet.x), String.format(Locale.ROOT, "%.1f", feet.y), String.format(Locale.ROOT, "%.1f", feet.z),
 					String.format(Locale.ROOT, "%.0f", p.distanceTo(feet.add(0, 1.6, 0))), loaded ? "" : " UNLOADED");
 		}
+	}
+
+	/** How many frames had a camera away from the player's eyes in or touching the world. */
+	static int bad() {
+		return bad;
 	}
 
 	/** Closes off a run still open when the capture stops. */

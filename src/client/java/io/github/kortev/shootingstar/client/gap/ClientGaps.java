@@ -287,7 +287,7 @@ public final class ClientGaps {
 			return;
 		}
 		landed = true;
-		int top = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, MathHelper.floor(feet.x), MathHelper.floor(feet.z));
+		int top = world.getTopY(Heightmap.Type.MOTION_BLOCKING, MathHelper.floor(feet.x), MathHelper.floor(feet.z));
 		if (top > world.getBottomY() && top - floor < 80.0 && floor - top < 6.0) {
 			floor += MathHelper.clamp(top - floor, -0.3, 0.6);
 		}

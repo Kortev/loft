@@ -674,7 +674,7 @@ public final class GapRender {
 		}
 		Vec3d feet = TreeRender.foot(gap).subtract(gap.target.getX(), gap.target.getY(), gap.target.getZ());
 		g.tree.set((float) feet.x, (float) feet.y, (float) feet.z, (float) TreeRender.width(gap));
-		g.treeState.set((float) TreeRender.there(r), 0.0F, 0.0F, 0.0F);
+		g.treeState.set((float) TreeRender.there(r), (float) skyBack(gap, r), 0.0F, 0.0F);
 		// Its light on the world as it comes back round it: violet and cold, flaring as the light goes out through it.
 		double height = TreeRender.height(gap);
 		Vec3d glow = TreeRender.foot(gap).add(0.0, height * 0.3, 0.0).subtract(gap.target.getX(), gap.target.getY(), gap.target.getZ());
@@ -715,17 +715,18 @@ public final class GapRender {
 	/** How much of the sky's light is back during a rebuild, 0 to 1, as the grade pass brings the sky back. */
 	public static float skyLight(float tickDelta) {
 		ClientGap gap = ClientGaps.rebuilding();
-		if (gap == null) {
-			return 1.0F;
-		}
-		double front = rebuildFront(gap, gap.rebuild(tickDelta));
+		return gap == null ? 1.0F : (float) skyBack(gap, gap.rebuild(tickDelta));
+	}
+
+	/** How much of the sky is back, {@code r} ticks into the rebuild: as the grade pass brings it back (ss_gap). */
+	static double skyBack(ClientGap gap, double r) {
+		double front = rebuildFront(gap, r);
 		if (front < 0.0) {
-			return 1.0F;
+			return r < GapTimeline.REBUILD_SWEEP ? 0.0 : 1.0;
 		}
-		// As the grade pass brings the sky back (ss_gap: from a tenth of the way out to most of it).
 		double reach = rebuildReach(gap);
 		double x = MathHelper.clamp((front - 0.1 * reach) / (0.77 * reach), 0.0, 1.0);
-		return (float) (x * x * (3.0 - 2.0 * x));
+		return x * x * (3.0 - 2.0 * x);
 	}
 
 	/** When the rebuild's front gets out as far as {@code reach}: rebuildFront turned round. */

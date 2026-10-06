@@ -280,6 +280,10 @@ public class GapSelfTest implements ClientModInitializer {
 				}
 			}
 			case DONE -> {
+				if (CameraProbe.bad() > 0) {
+					ShootingStar.LOGGER.error("[selftest] FAILED: {} frames with a camera shot in or against the world", CameraProbe.bad());
+					Runtime.getRuntime().halt(5);
+				}
 				ShootingStar.LOGGER.info("[selftest] finished");
 				stage = Stage.FINISHED;
 				client.scheduleStop();

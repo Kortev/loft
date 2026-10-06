@@ -382,7 +382,7 @@ vec3 erase(vec2 uv, vec3 c) {
         // Built back block by block in a ring running out over the land from the rim of the hole: beyond it, nothing;
         // at it, each block coming in as a white-hot cube outlined in light, cooling to itself over the next few behind.
         // What lies below the old ground (the hole's walls) comes in a little after, so the edge runs down the walls.
-        float lead = length(mid.xz) + 0.35 * max(0.0, -mid.y) + hash3(cell) * 7.0 * size * detail - Front;
+        float lead = length(mid.xz) + 0.15 * max(0.0, -mid.y) + hash3(cell) * 7.0 * size * detail - Front;
         // The last of it, out where it can hardly be seen, fades in as the front slows to its stop, the band with it,
         // so there is nothing left to change when the rebuild is done.
         float last = smoothstep(0.55 * Reach, 0.98 * Reach, Front);
@@ -451,7 +451,12 @@ void main() {
             float pass = max(0.0, dot(axis, d.xz) / max(dot(d.xz, d.xz), 1.0e-4));
             if (open || length(relAt(uv)) > pass - 0.35 * Tree.w) {
                 vec4 o = texture(Sampler2, uv);
-                c = c * (1.0 - o.a * TreeState.x) + o.rgb * TreeState.x;
+                vec3 t = o.rgb * TreeState.x;
+                // Light added over the black; as the day comes back behind it (TreeState.y), laid over it as a screen, with
+                // the sky a little shaded where it is brightest, so it stands out against the blue rather than washing it white.
+                float lit = clamp(dot(t, vec3(0.299, 0.587, 0.114)), 0.0, 1.0);
+                vec3 screened = 1.0 - (1.0 - c * (1.0 - 0.35 * lit)) * (1.0 - clamp(t, 0.0, 1.0));
+                c = mix(c + t, screened, TreeState.y);
             }
         }
     }
