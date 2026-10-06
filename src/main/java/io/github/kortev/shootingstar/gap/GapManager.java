@@ -5,7 +5,6 @@ import io.github.kortev.shootingstar.network.GapEndPayload;
 import io.github.kortev.shootingstar.network.GapLockPayload;
 import io.github.kortev.shootingstar.network.ModNetworking;
 import io.github.kortev.shootingstar.registry.ModBlocks;
-import io.github.kortev.shootingstar.registry.ModDamageTypes;
 import io.github.kortev.shootingstar.registry.ModGameRules;
 import io.github.kortev.shootingstar.strike.Targeting;
 import java.util.ArrayList;
@@ -45,11 +44,16 @@ import org.jetbrains.annotations.Nullable;
 public final class GapManager {
 	private static final ChunkTicketType<ChunkPos> TICKET = ChunkTicketType.create("shootingstar_gap",
 			Comparator.comparingLong(ChunkPos::toLong), GapTimeline.END + 200);
-	/** The shooter is let back out on their own after this long in the black. */
-	private static final int HOLD_LIMIT = 20 * 120;
+	/**
+	 * Only the key lets the world back. But if whoever has it is gone (logged off) this long, it comes back on its own,
+	 * so nobody is left in the void for good.
+	 */
+	private static final int ABSENT_LIMIT = 20 * 60 * 5;
 	private static final int FLOOR_RADIUS = 14;
 
 	private static final List<Gap> GAPS = new ArrayList<>();
+	/** The other universe growing into holes the world has come back round. */
+	private static final List<MirrorGrowth> GROWTHS = new ArrayList<>();
 	private static int nextId = 1;
 
 	private GapManager() {
@@ -74,6 +78,10 @@ public final class GapManager {
 		final List<BlockPos> floor = new ArrayList<>();
 		boolean floored;
 		boolean released;
+		/** Everyone in the world has been taken into the void. */
+		boolean taken;
+		/** How long the shooter has been gone (logged off) while everyone waits in the void. */
+		int absent;
 
 		Gap(int id, RegistryKey<World> dimension, BlockPos target, UUID shooter, int radius, boolean terrain, BlockPos swapSpot,
 				boolean tree) {
@@ -107,9 +115,16 @@ public final class GapManager {
 
 	public static void init() {
 		ServerTickEvents.END_SERVER_TICK.register(GapManager::tick);
-		ServerLifecycleEvents.SERVER_STOPPED.register(server -> GAPS.clear());
+		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
+			GAPS.clear();
+			GROWTHS.clear();
+		});
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
 			ServerPlayerEntity player = handler.getPlayer();
+			// In the void with nothing holding them there (the server stopped while they were): back home.
+			if (VoidWorld.in(player) && voidOf() == null) {
+				server.execute(() -> VoidWorld.bringBack(player, null, 0));
+			}
 			for (Gap gap : GAPS) {
 				boolean mine = gap.shooter.equals(player.getUuid());
 				if (gap.dimension == player.getWorld().getRegistryKey() && !gap.released && (gap.age < GapTimeline.END || mine)) {
@@ -118,8 +133,9 @@ public final class GapManager {
 			}
 		});
 		// Nothing touches the shooter while their event plays: they cannot move, and they are the one thing left.
+		// Nor anyone in the void.
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> !(entity instanceof ServerPlayerEntity player
-				&& shielded(player)));
+				&& (shielded(player) || VoidWorld.in(player))));
 	}
 
 	/** Turns the key on {@code hit}. The shooter may be null for events called in by command. */
@@ -149,11 +165,11 @@ public final class GapManager {
 		return false;
 	}
 
-	/** The event holding this player in the black, which their key can now end. */
+	/** The event that has taken its world into the void, which a cracked key turned in the void ends; or null. */
 	@Nullable
-	public static Gap holding(UUID shooter) {
+	public static Gap voidOf() {
 		for (Gap gap : GAPS) {
-			if (gap.shooter.equals(shooter) && !gap.released && gap.age >= GapTimeline.END) {
+			if (gap.taken && !gap.released) {
 				return gap;
 			}
 		}
@@ -173,7 +189,10 @@ public final class GapManager {
 		return false;
 	}
 
-	/** Lets reality back in for the shooter: their screen comes back and they are set down on solid ground. */
+	/**
+	 * Lets reality back in: everyone the void took goes back where they were (onto the rim, if where they stood is now
+	 * the hole), and is told, so they see it rebuilt.
+	 */
 	public static void release(Gap gap, MinecraftServer server) {
 		if (gap.released) {
 			return;
@@ -183,7 +202,12 @@ public final class GapManager {
 		if (world == null) {
 			return;
 		}
-		ModNetworking.broadcast(world, new GapEndPayload(gap.id));
+		for (ServerPlayerEntity player : List.copyOf(server.getPlayerManager().getPlayerList())) {
+			if (VoidWorld.in(player) && (VoidWorld.takenBy(player, gap.id) || voidOf() == null)) {
+				VoidWorld.bringBack(player, gap.terrain ? gap.target : null, gap.radius);
+			}
+		}
+		// Anyone who was not taken (the event was called off early) and is still in the hole is set down on its rim.
 		ServerPlayerEntity shooter = server.getPlayerManager().getPlayer(gap.shooter);
 		if (shooter != null && shooter.getWorld() == world && gap.terrain && horizontal(shooter.getPos(), gap.target) <= gap.radius + 2) {
 			Vec3d away = new Vec3d(shooter.getX() - gap.target.getX() - 0.5, 0, shooter.getZ() - gap.target.getZ() - 0.5);
@@ -200,6 +224,13 @@ public final class GapManager {
 				world.setBlockState(p, Blocks.AIR.getDefaultState());
 			}
 		}
+		if (gap.terrain && gap.erasure != null) {
+			// The hole stays; the other universe grows into it. Kept loaded while it does.
+			ChunkPos chunk = new ChunkPos(gap.target);
+			world.getChunkManager().addTicket(TICKET, chunk, MathHelper.clamp(MathHelper.ceil(gap.radius / 16.0) + 2, 1, 32), chunk);
+			GROWTHS.add(new MirrorGrowth(world, gap.target, gap.radius));
+		}
+		ModNetworking.broadcast(world, new GapEndPayload(gap.id));
 		ShootingStar.LOGGER.info("Ginnungagap #{} released", gap.id);
 	}
 
@@ -216,6 +247,7 @@ public final class GapManager {
 	}
 
 	private static void tick(MinecraftServer server) {
+		GROWTHS.removeIf(MirrorGrowth::step);
 		for (Iterator<Gap> it = GAPS.iterator(); it.hasNext(); ) {
 			Gap gap = it.next();
 			ServerWorld world = server.getWorld(gap.dimension);
@@ -235,10 +267,24 @@ public final class GapManager {
 			if (gap.age >= GapTimeline.ERASURE) {
 				erase(world, gap);
 			}
+			// Once the black has everything, the whole world goes into the void: everyone in it, and anyone who comes into
+			// it while it is gone.
+			if (gap.age >= GapTimeline.NOTHING && gap.age % 10 == 0) {
+				gap.taken = true;
+				for (ServerPlayerEntity player : List.copyOf(world.getPlayers())) {
+					VoidWorld.takeIn(player, gap.id);
+				}
+			}
 			if (gap.age >= GapTimeline.END) {
-				boolean gone = shooter == null || shooter.isRemoved() || shooter.getWorld() != world;
-				if (gone || gap.age >= GapTimeline.END + HOLD_LIMIT || gap.shooter.equals(Util.NIL_UUID)) {
+				// Called in by command, with no key to turn: it comes back by itself once it is over.
+				if (gap.shooter.equals(Util.NIL_UUID)) {
 					release(gap, server);
+				} else {
+					gap.absent = shooter == null ? gap.absent + 1 : 0;
+					if (gap.absent >= ABSENT_LIMIT) {
+						ShootingStar.LOGGER.info("Ginnungagap #{}: the key has been gone too long, letting the world back", gap.id);
+						release(gap, server);
+					}
 				}
 			}
 			if (gap.released) {
@@ -312,11 +358,8 @@ public final class GapManager {
 		Box box = new Box(gap.target).expand(reach, world.getHeight(), reach);
 		for (Entity entity : world.getOtherEntities(null, box, e -> !e.getUuid().equals(gap.shooter)
 				&& horizontal(e.getPos(), gap.target) <= reach)) {
-			if (entity instanceof ServerPlayerEntity player) {
-				if (!player.isCreative() && !player.isSpectator()) {
-					player.damage(ModDamageTypes.erased(world), Float.MAX_VALUE);
-				}
-			} else {
+			// Players are not erased: the void takes them, with everyone else, when the black has it all.
+			if (!(entity instanceof ServerPlayerEntity)) {
 				entity.discard();
 			}
 		}

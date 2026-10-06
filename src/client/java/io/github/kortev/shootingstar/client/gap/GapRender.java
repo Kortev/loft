@@ -99,7 +99,8 @@ public final class GapRender {
 
 		Grade grade = grade(mine, tickDelta, cam, view, proj);
 		if (grade != null) {
-			boolean tree = mine != null && TreeRender.draw(mine, mine.time(tickDelta), cam, view, proj, w, h);
+			ClientGap rebuilding = ClientGaps.rebuilding();
+			boolean tree = rebuilding != null && TreeRender.draw(rebuilding, rebuilding.time(tickDelta), cam, view, proj, w, h);
 			if (!tree) {
 				grade.treeState.x = 0.0F;
 			}
@@ -393,7 +394,7 @@ public final class GapRender {
 			landing(gap, r, cam, view, proj, right, up);
 			return;
 		}
-		if (world == null || t < GapTimeline.ERASURE || t > GapTimeline.NOTHING + 40) {
+		if (world == null || t < GapTimeline.ERASURE || t > GapTimeline.NOTHING + 40 || ClientGaps.inVoid()) {
 			return;
 		}
 		// The front runs out as a diamond (it counts blocks along x and z, see eraseFront), corner to corner round it.
@@ -689,7 +690,8 @@ public final class GapRender {
 		boolean on = false;
 		for (ClientGap gap : ClientGaps.all()) {
 			double t = gap.time(tickDelta);
-			boolean live = gap.mine ? !gap.ended : t < GapTimeline.END + 40;
+			// Everyone's, now the whole world goes: through the black, into the void and out again with the rebuild.
+			boolean live = gap.mine || gap.voided || gap.rebuildAt >= 0 ? !gap.ended : t < GapTimeline.END + 40;
 			if (!live || t < GapTimeline.INBOUND) {
 				continue;
 			}
@@ -705,7 +707,8 @@ public final class GapRender {
 			}
 			if (t >= GapTimeline.ERASURE) {
 				g.front = (float) GapTimeline.eraseFront(t);
-				g.clamp = gap.mine ? 0.0F : gap.radius;
+				// The whole world, for everyone in it.
+				g.clamp = 0.0F;
 			}
 			double r = gap.rebuild(tickDelta);
 			if (r >= 0.0) {
@@ -727,10 +730,24 @@ public final class GapRender {
 			}
 			// The other universe's sky stays over ours until the black has it too.
 			g.skyMix = (float) (0.85 * GapCamera.ease((t - GapTimeline.CONTACT - 10.0) / 50.0));
+			if (t >= GapTimeline.NOTHING - 10) {
+				// Black once the black has it all. Lifted as the rebuild begins: from then on the front alone holds the dark, so
+				// the tree and the world coming back are seen.
+				double black = MathHelper.clamp((t - GapTimeline.NOTHING + 10) / 10.0, 0.0, 1.0) * (r < 0.0 ? 1.0 : 1.0 - GapCamera.ease(r / 20.0));
+				if (ClientGaps.inVoid() && gap.voidAt >= 0) {
+					// And out of it into the void: the dark between the universes, lit by them, with nothing of ours left.
+					black *= 1.0 - GapCamera.ease((gap.time(tickDelta) - gap.voidAt - 4.0) / 40.0);
+					g.front = -1.0F;
+				}
+				g.black = Math.max(g.black, (float) black);
+			}
 			if (r >= 0.0) {
 				// And it goes as ours comes back, all of it gone before the rebuild is done.
 				double front = rebuildFront(r);
 				g.skyMix *= (float) (front < 0.0 ? 0.0 : 1.0 - GapCamera.ease(front / 520.0));
+			}
+			if (ClientGaps.inVoid()) {
+				g.skyMix = 0.0F;
 			}
 		}
 		if (mine != null) {
@@ -787,13 +804,6 @@ public final class GapRender {
 			// It falls in on itself: a last flash as the black opens.
 			if (t >= GapTimeline.ERASURE - 2 && t < GapTimeline.ERASURE + 6) {
 				g.flash = Math.max(g.flash, (float) (0.8 * Math.exp(-Math.abs(t - GapTimeline.ERASURE) / 1.8)));
-				on = true;
-			}
-			if (t >= GapTimeline.NOTHING - 10) {
-				// Lifted as the rebuild begins: from then on the front alone holds the dark, so the tree and the world coming back
-				// are seen.
-				double r = mine.rebuild(tickDelta);
-				g.black = (float) (MathHelper.clamp((t - GapTimeline.NOTHING + 10) / 10.0, 0.0, 1.0) * (r < 0.0 ? 1.0 : 1.0 - GapCamera.ease(r / 20.0)));
 				on = true;
 			}
 		}

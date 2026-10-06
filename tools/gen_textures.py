@@ -272,6 +272,49 @@ def genesis_key_model():
         },
     }
 
+def void_floor():
+    """The floor of Ginnungagap: near-black glass with a faint grid at its edges and a few cold specks of starlight."""
+    r = np.random.default_rng(321)
+    base = np.full((16, 16, 3), (6, 8, 14), dtype=np.float64)
+    base += (lattice(4, 4, seed=322) - 0.5)[..., None] * np.array([4, 5, 9])
+    edge = np.zeros((16, 16), dtype=bool)
+    edge[0, :] = edge[:, 0] = True
+    base[edge] = (22, 34, 52)
+    for _ in range(5):
+        x, y = r.integers(1, 15, size=2)
+        base[y, x] = r.choice([(110, 150, 210), (180, 200, 255), (90, 200, 220)])
+    return Image.fromarray(np.clip(base, 0, 255).astype(np.uint8), 'RGB')
+
+
+def yggdrasil_sapling():
+    """Yggdrasil's sapling, left in the crater: a braid of pale light rising out of nothing, forking, a gold point at
+    each tip, drawn as a cross-model plant."""
+    img = np.zeros((16, 16, 4), dtype=np.uint8)
+    pale, cyan, violet, gold = (230, 236, 255, 255), (120, 230, 255, 255), (170, 120, 255, 255), (255, 214, 140, 255)
+    for y in range(6, 16):
+        x = 7 + (1 if (y // 2) % 2 == 0 else 0)
+        img[y, x] = pale
+        img[y, 15 - x] = cyan if y % 3 else violet
+    # The fork, and its tips.
+    for (x, y) in [(6, 5), (5, 4), (4, 3), (9, 5), (10, 4), (11, 3), (8, 4), (8, 3), (8, 2)]:
+        img[y, x] = pale if x == 8 else violet
+    for (x, y) in [(3, 2), (12, 2), (8, 1)]:
+        img[y, x] = gold
+    for (x, y) in [(3, 3), (12, 3), (7, 1), (9, 1)]:
+        img[y, x] = (255, 236, 190, 150)
+    return Image.fromarray(img, 'RGBA')
+
+
+def genesis_key_cracked_atlas():
+    """The 3D key once it has been turned: the same colours, split by dark cracks, the gem's light gone faint and cold."""
+    img = np.array(genesis_key_atlas())
+    crack = (11, 59, 68, 255)
+    for (x, y) in [(4, 0), (5, 1), (5, 2), (6, 3), (8, 1), (9, 2), (10, 2), (11, 3), (12, 0), (13, 1), (4, 5), (5, 6), (6, 6)]:
+        img[y, x] = crack
+    img[4:8, 0:4, :3] = (np.array(img[4:8, 0:4, :3], dtype=np.float64) * np.array([0.45, 0.6, 0.75])).astype(np.uint8)
+    img[5, 1] = img[6, 2] = crack
+    return Image.fromarray(img, 'RGBA')
+
 # The mirror universe's blocks: cyan and teal counterparts of grass, stone, logs and leaves.
 MIRROR_BARK = [(12, 64, 72), (28, 108, 119), (44, 142, 154), (88, 200, 212)]
 
@@ -451,9 +494,18 @@ def main():
     save(uplink_atlas(), 'item', 'gungnir_uplink.png')
     save(genesis_key(), 'item', 'genesis_key.png')
     save(genesis_key_atlas(), 'item', 'genesis_key_3d.png')
-    with open(os.path.join(ROOT, 'models', 'item', 'genesis_key.json'), 'w') as f:
-        json.dump(genesis_key_model(), f, indent=2)
-        f.write('\n')
+    save(genesis_key_cracked_atlas(), 'item', 'genesis_key_cracked_3d.png')
+    save(void_floor(), 'block', 'void_floor.png')
+    save(yggdrasil_sapling(), 'block', 'yggdrasil_sapling.png')
+    key = genesis_key_model()
+    cracked = genesis_key_model()
+    cracked['textures']['key'] = 'shootingstar:item/genesis_key_cracked_3d'
+    # Once turned it is cracked: the same key, split, its gem dim. Which one shows is the shootingstar:cracked predicate.
+    key['overrides'] = [{'predicate': {'shootingstar:cracked': 1}, 'model': 'shootingstar:item/genesis_key_cracked'}]
+    for name, model in (('genesis_key', key), ('genesis_key_cracked', cracked)):
+        with open(os.path.join(ROOT, 'models', 'item', name + '.json'), 'w') as f:
+            json.dump(model, f, indent=2)
+            f.write('\n')
     save(mirror_grass(), 'block', 'mirror_grass.png')
     save(mirror_stone(), 'block', 'mirror_stone.png')
     save(mirror_log(), 'block', 'mirror_log.png')

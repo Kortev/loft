@@ -2,6 +2,7 @@ package io.github.kortev.shootingstar.registry;
 
 import io.github.kortev.shootingstar.ShootingStar;
 import io.github.kortev.shootingstar.block.MoltenCrustBlock;
+import io.github.kortev.shootingstar.block.YggdrasilSaplingBlock;
 import net.minecraft.block.AbstractBlock;
 import net.minecraft.block.Block;
 import net.minecraft.block.MapColor;
@@ -76,6 +77,24 @@ public final class ModBlocks {
 			.mapColor(MapColor.DIAMOND_BLUE)
 			.strength(0.2F)
 			.luminance(state -> 5)
+			.sounds(BlockSoundGroup.AMETHYST_CLUSTER)), true);
+
+	/** The floor of Ginnungagap, the void between universes: everyone the black takes stands on it. Unbreakable. */
+	public static final Block VOID_FLOOR = register("void_floor", new Block(AbstractBlock.Settings.create()
+			.mapColor(MapColor.BLACK)
+			.strength(-1.0F, 3600000.0F)
+			.dropsNothing()
+			.allowsSpawning((state, world, pos, type) -> false)
+			.sounds(BlockSoundGroup.GLASS)), true);
+
+	/** Left in the middle of the crater when Yggdrasil draws back down into it. */
+	public static final Block YGGDRASIL_SAPLING = register("yggdrasil_sapling", new YggdrasilSaplingBlock(AbstractBlock.Settings.create()
+			.mapColor(MapColor.DIAMOND_BLUE)
+			.noCollision()
+			.breakInstantly()
+			.nonOpaque()
+			.luminance(state -> 13)
+			.emissiveLighting((state, world, pos) -> true)
 			.sounds(BlockSoundGroup.AMETHYST_CLUSTER)), true);
 
 	private ModBlocks() {

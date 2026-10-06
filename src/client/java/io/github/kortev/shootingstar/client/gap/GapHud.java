@@ -21,7 +21,20 @@ public final class GapHud {
 	public static void render(DrawContext ctx, RenderTickCounter counter) {
 		MinecraftClient client = MinecraftClient.getInstance();
 		ClientGap gap = ClientGaps.mine();
-		if (gap == null || client.player == null) {
+		if (gap == null) {
+			// Taken into the void with everyone else: their own rebuild when it comes; until then, what has happened.
+			gap = ClientGaps.rebuilding();
+		}
+		if (client.player == null) {
+			return;
+		}
+		if (gap == null) {
+			if (ClientGaps.inVoid()) {
+				float w = ctx.getScaledWindowWidth();
+				float h = ctx.getScaledWindowHeight();
+				text(ctx, client.textRenderer, "THE WORLD IS GONE", w / 2, h * 0.12F, 1.4F, WHITE, 0.8F, true);
+				text(ctx, client.textRenderer, "ONLY THE KEY THAT TOOK IT CAN BRING IT BACK", w / 2, h * 0.12F + 16, 1.0F, 0x8A8A8A, 0.8F, true);
+			}
 			return;
 		}
 		float tickDelta = counter.getTickDelta(false);
@@ -54,7 +67,7 @@ public final class GapHud {
 		} else if (t >= GapTimeline.END) {
 			// Nothing is said in the black. Only, after a while, how to get out of it.
 			float a = (float) ease((t - GapTimeline.END - 40) / 20.0);
-			text(ctx, font, "USE THE KEY TO LET REALITY BACK IN", w / 2, h * 0.16F, 1.0F, 0x8A8A8A, a, true);
+			text(ctx, font, "TURN THE CRACKED KEY TO LET THE WORLD BACK IN", w / 2, h * 0.16F, 1.0F, 0x8A8A8A, a, true);
 		}
 	}
 

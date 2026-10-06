@@ -39,6 +39,9 @@ public final class ClientGap {
 	RebuildSound rebuildSound;
 	/** Someone else's, released: when this player started watching its tree grow out of the hole, or -1. */
 	public int spectateAt = -1;
+	/** Taken into the void with the rest of the world, and when (in ticks of this event), or -1. */
+	public boolean voided;
+	public int voidAt = -1;
 	/** When the shooter skipped the feed, or -1. */
 	public int skippedAt = -1;
 	/** The shooter skipped the feed: they watch the bridge come down from their own eyes instead. */

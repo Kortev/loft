@@ -74,5 +74,11 @@
   "subtitles.shootingstar.gap.fall": "A universe falls",
   "subtitles.shootingstar.gap.inbound": "A universe comes down",
   "subtitles.shootingstar.gap.blast": "A universe bursts",
-  "subtitles.shootingstar.gap.rebuild": "Reality is remade"
+  "subtitles.shootingstar.gap.rebuild": "Reality is remade",
+  "block.shootingstar.void_floor": "Floor of Ginnungagap",
+  "block.shootingstar.yggdrasil_sapling": "Sapling of Yggdrasil",
+  "item.shootingstar.genesis_key.tooltip.cracked": "Cracked. It will turn once more, in the void, and no more.",
+  "message.shootingstar.gap.cracked": "THE KEY IS CRACKED · it turns only in the void now",
+  "message.shootingstar.gap.void": "THERE IS NOTHING HERE TO OPEN",
+  "message.shootingstar.gap.nothing_held": "NOTHING IS HELD IN THE VOID"
 }

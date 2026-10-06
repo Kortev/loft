@@ -1,6 +1,6 @@
 {
   "textures": {
-    "key": "shootingstar:item/genesis_key_3d",
+    "key": "shootingstar:item/genesis_key_cracked_3d",
     "particle": "shootingstar:item/genesis_key"
   },
   "elements": [
@@ -1067,13 +1067,5 @@
         1.0
       ]
     }
-  },
-  "overrides": [
-    {
-      "predicate": {
-        "shootingstar:cracked": 1
-      },
-      "model": "shootingstar:item/genesis_key_cracked"
-    }
-  ]
+  }
 }

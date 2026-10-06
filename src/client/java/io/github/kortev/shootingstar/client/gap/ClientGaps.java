@@ -3,6 +3,7 @@ package io.github.kortev.shootingstar.client.gap;
 import io.github.kortev.shootingstar.client.ClientConfig;
 import io.github.kortev.shootingstar.client.ClientStrikes;
 import io.github.kortev.shootingstar.gap.GapTimeline;
+import io.github.kortev.shootingstar.gap.VoidWorld;
 import io.github.kortev.shootingstar.network.GapEndPayload;
 import io.github.kortev.shootingstar.network.GapLockPayload;
 import io.github.kortev.shootingstar.registry.ModSounds;
@@ -54,6 +55,29 @@ public final class ClientGaps {
 	/** True while the feed covers the shooter's screen. */
 	public static boolean feedShowing(@Nullable ClientGap gap, double t) {
 		return gap != null && gap.cinematic() && !gap.feedSkipped && t >= GapTimeline.FEED && t < GapTimeline.INBOUND;
+	}
+
+	/** True while this player is in Ginnungagap, the void between universes. */
+	public static boolean inVoid() {
+		ClientWorld world = MinecraftClient.getInstance().world;
+		return world != null && world.getRegistryKey() == VoidWorld.KEY;
+	}
+
+	/** The event whose rebuild this player is watching (theirs, or the one whose void they were taken into), or null. */
+	@Nullable
+	public static ClientGap rebuilding() {
+		for (ClientGap gap : GAPS.values()) {
+			if (gap.rebuildAt >= 0 && !gap.ended) {
+				return gap;
+			}
+		}
+		return null;
+	}
+
+	/** The key in the shooter's hand still looks whole: until the clunk at the end of its first turn. */
+	public static boolean keyStillWhole() {
+		ClientGap gap = mine();
+		return gap != null && gap.age < 37;
 	}
 
 	/** True while {@code player} is turning the Genesis Key, from it coming up to the camera leaving them (and a little after). */
@@ -132,9 +156,10 @@ public final class ClientGaps {
 		if (gap == null) {
 			return;
 		}
-		// The shooter's own: not at once, but the rebuild. Anyone else's simply ends.
+		// The shooter's own, and anyone's who was taken into the void with them: not at once, but the rebuild. Anyone else
+		// near enough sees the tree grow; for the rest it simply ends.
 		MinecraftClient client = MinecraftClient.getInstance();
-		if (gap.mine && !gap.ended && gap.rebuildAt < 0) {
+		if ((gap.mine || gap.voided) && !gap.ended && gap.rebuildAt < 0) {
 			gap.rebuildAt = gap.age;
 			gap.rebuildSound = new RebuildSound();
 			client.getSoundManager().play(gap.rebuildSound);
@@ -150,7 +175,8 @@ public final class ClientGaps {
 
 	/** The skip key: the feed goes, and its sounds with it; during the rebuild, the rest of it runs six times as fast. */
 	public static void skipFeed() {
-		ClientGap gap = mine();
+		ClientGap rebuilding = rebuilding();
+		ClientGap gap = rebuilding != null ? rebuilding : mine();
 		if (gap != null && gap.rebuildAt >= 0) {
 			if (!gap.rebuildHurried) {
 				gap.rebuildHurried = true;
@@ -205,8 +231,13 @@ public final class ClientGaps {
 				}
 			}
 			// Someone else's is kept (doing nothing) until it is released, for its tree; but not for ever.
+			// Taken into the void: in it for as long as it takes someone to turn the key.
+			if (!gap.ended && !gap.voided && inVoid() && gap.age >= GapTimeline.NOTHING - 20) {
+				gap.voided = true;
+				gap.voidAt = gap.age;
+			}
 			boolean over = gap.ended || (!gap.mine && (gap.spectateAt >= 0 ? gap.age - gap.spectateAt > TreeRender.SPECTATED
-					: gap.age > GapTimeline.END + KEEP));
+					: gap.age > GapTimeline.END + KEEP && !gap.voided));
 			if (over) {
 				it.remove();
 			}
