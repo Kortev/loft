@@ -389,17 +389,20 @@ public final class GapCamera {
 				yield new Vec3d[] {eye, at.lerp(centre.add(0.0, tall * 0.25, 0.0), 0.2)};
 			}
 			case 4 -> {
-				// High over everything, under the clouds, the tree to one side, turning slowly, as the ring spreads out over
-				// the land.
-				double turn = Math.toRadians(35.0) * MathHelper.clamp((r - REBUILD_SHOTS[3]) / 140.0, 0.0, 1.0);
-				Vec3d high = centre.add(out.multiply(rim * 1.9)).add(side.multiply(rim * 0.9)).add(0.0, tall * 1.3, 0.0);
-				high = new Vec3d(high.x, Math.min(high.y, underClouds()), high.z);
-				yield new Vec3d[] {aboveGround(orbit(high, centre, turn), 12.0), aboveGround(centre.add(out.multiply(rim * 0.6)), 1.5)};
+				// High over the land on the side with the least in the way, under the clouds, turning slowly, across the ring
+				// spreading out over it to the tree.
+				Vec3d way = openSide(gap);
+				Vec3d across = new Vec3d(-way.z, 0.0, way.x);
+				double turn = Math.toRadians(30.0) * MathHelper.clamp((r - REBUILD_SHOTS[3]) / 140.0, 0.0, 1.0);
+				Vec3d high = centre.add(way.multiply(rim * 2.0)).add(across.multiply(rim * 0.5));
+				high = new Vec3d(high.x, MathHelper.clamp(centre.y + tall, centre.y + 40.0, Math.max(centre.y + 40.0, underClouds())), high.z);
+				yield new Vec3d[] {aboveGround(orbit(high, centre, turn), 12.0), centre.add(0.0, tall * 0.2, 0.0)};
 			}
 			case 5 -> {
-				// Wide on all of it as the tree draws back down into the hole.
-				Vec3d eye = centre.add(out.multiply(rim * 2.6)).add(side.multiply(rim * 0.8)).add(0.0, tall * 0.55, 0.0);
-				yield new Vec3d[] {aboveGround(eye, 4.0), centre.add(0.0, tall * 0.3, 0.0)};
+				// Wide on all of it, from the same open side, as the tree draws back down into the hole.
+				Vec3d way = openSide(gap);
+				Vec3d eye = centre.add(way.multiply(rim * 2.6)).add(0.0, Math.min(tall * 0.6, Math.max(30.0, underClouds() - centre.y)), 0.0);
+				yield new Vec3d[] {aboveGround(eye, 6.0), centre.add(0.0, tall * 0.35, 0.0)};
 			}
 			default -> new Vec3d[] {eyes, eyes.add(player.getRotationVec(tickDelta).multiply(10.0))};
 		};
@@ -433,6 +436,39 @@ public final class GapCamera {
 			y = Math.max(y, (top - at.y * t) / (1.0 - t));
 		}
 		return new Vec3d(eye.x, y, eye.z);
+	}
+
+	private static int openFor = -1;
+	private static Vec3d openWay = new Vec3d(1.0, 0.0, 0.0);
+
+	/**
+	 * Which way out from the hole the land lies lowest: the way the wide shots look in from, so no hill stands between
+	 * them and the tree. Chosen once for each gap, so the camera does not swing about as it goes.
+	 */
+	private static Vec3d openSide(ClientGap gap) {
+		ClientWorld world = MinecraftClient.getInstance().world;
+		if (openFor == gap.id || world == null) {
+			return openWay;
+		}
+		Vec3d toward = TreeRender.toward(gap);
+		double best = Double.MAX_VALUE;
+		for (int i = 0; i < 16; i++) {
+			// Turned either way from the shooter's side, the shooter's side itself first, favoured a little.
+			double a = (i % 2 == 0 ? 1 : -1) * ((i + 1) / 2) * Math.PI / 8.0;
+			Vec3d way = toward.rotateY((float) a);
+			double highest = Double.NEGATIVE_INFINITY;
+			for (double d = gap.radius * 1.05; d <= gap.radius * 2.7; d += 4.0) {
+				Vec3d p = gap.contact.add(way.multiply(d));
+				highest = Math.max(highest, world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, MathHelper.floor(p.x), MathHelper.floor(p.z)));
+			}
+			double score = highest + 2.0 * (i + 1) / 2;
+			if (score < best) {
+				best = score;
+				openWay = way;
+			}
+		}
+		openFor = gap.id;
+		return openWay;
 	}
 
 	/** A little under where the clouds are, so a camera up high looks down past them rather than through them. */
