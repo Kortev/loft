@@ -713,12 +713,6 @@ public final class GapRender {
 		return MathHelper.clamp(view + gap.radius + 48.0, gap.radius + 120.0, 600.0);
 	}
 
-	/** How much of the sky's light is back during a rebuild, 0 to 1, as the grade pass brings the sky back. */
-	public static float skyLight(float tickDelta) {
-		ClientGap gap = ClientGaps.rebuilding();
-		return gap == null ? 1.0F : (float) skyBack(gap, gap.rebuild(tickDelta));
-	}
-
 	/** How much of the sky is back, {@code r} ticks into the rebuild: as the grade pass brings it back (ss_gap). */
 	static double skyBack(ClientGap gap, double r) {
 		double front = rebuildFront(gap, r);

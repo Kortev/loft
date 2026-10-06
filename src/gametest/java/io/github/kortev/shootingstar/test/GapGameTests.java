@@ -172,6 +172,21 @@ public class GapGameTests implements FabricGameTest {
 			if (far.getHealth() < before) {
 				problems.append("the far player was hurt while held; ");
 			}
+			// And hunger stands still: walking about uses nothing, and nothing is healed or starved by it.
+			int food = far.getHungerManager().getFoodLevel();
+			float saturation = far.getHungerManager().getSaturationLevel();
+			far.addExhaustion(40.0F);
+			far.setHealth(10.0F);
+			for (int i = 0; i < 200; i++) {
+				far.getHungerManager().update(far);
+			}
+			if (far.getHungerManager().getFoodLevel() != food || far.getHungerManager().getSaturationLevel() != saturation
+					|| far.getHealth() != 10.0F) {
+				problems.append("hunger moved while held: food ").append(food).append(" -> ").append(far.getHungerManager().getFoodLevel())
+						.append(", saturation ").append(saturation).append(" -> ").append(far.getHungerManager().getSaturationLevel())
+						.append(", health 10 -> ").append(far.getHealth()).append("; ");
+			}
+			far.setHealth(far.getMaxHealth());
 			// The world's spawn was in the hole: moved out to its rim.
 			double spawnOut = Math.hypot(world.getSpawnPos().getX() - center.getX(), world.getSpawnPos().getZ() - center.getZ());
 			if (spawnOut <= RADIUS + 8) {
@@ -200,6 +215,15 @@ public class GapGameTests implements FabricGameTest {
 				if (GapManager.held(player)) {
 					problems.append(player.getName().getString()).append(" is still held after going home; ");
 				}
+			}
+			// Home, hunger runs again.
+			far.getHungerManager().setSaturationLevel(0.0F);
+			int foodHome = far.getHungerManager().getFoodLevel();
+			far.addExhaustion(4.5F);
+			far.getHungerManager().update(far);
+			if (far.getHungerManager().getFoodLevel() != foodHome - 1) {
+				problems.append("hunger did not run again once home: food ").append(foodHome).append(" -> ")
+						.append(far.getHungerManager().getFoodLevel()).append("; ");
 			}
 			// Released without it: the cracked key has shattered.
 			for (int i = 0; i < shooter.getInventory().size(); i++) {

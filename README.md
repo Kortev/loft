@@ -90,17 +90,34 @@ the feed and the camera shots. Press **Backspace** (rebindable) to skip the feed
 Look at a block at least 24 blocks away and use the key. Bifröst, a gate in orbit over the target,
 opens onto the void between universes, where they hang in a lattice, each in a block of dark glass. The
 feed dives through into universe 4,096,113, beside one of its galaxies, then pulls back out past the cosmic
-web of its two trillion galaxies until the whole of it is one block among the others, and it is selected.
-The gate draws that block through and drops it down a bridge of light onto the target.
-It bursts, and the black takes the whole world: everyone in it is left in nothing, free to walk, seeing
-only each other, unable to touch anything or be touched. Everything within `ginnungagapRadius` of the target
-is erased for good: a ragged shaft down through bedrock, fissures split out across the ground from its rim.
+web of its two trillion galaxies until the whole of it is one block among the others, holds there a
+moment on the lattice, and it is selected. The gate draws that block through and drops it down a bridge
+of light onto the target.
+
+It bursts. The universe inside swells up out of the ground as a giant block, and anyone it reaches is
+swallowed by it. When it falls back in on itself, the black comes out over the zone and anyone still
+standing within `ginnungagapRadius` of the target is erased from reality, along with everything they
+carried. The shooter is spared, and so is anyone in creative or spectator mode. Everything in the zone
+is erased for good: a ragged shaft down through bedrock, fissures split out across the ground from its
+rim.
+
+Then the black takes the whole world, and everyone on the server is in it together, like a live event.
+Wherever they are, the Nether and the End included, everyone is carried to the rim of the hole in a
+group round the shooter; anyone who was killed joins them there after respawning. There they stand
+in nothing, all on one floor level with the roots of the tree to come. They are free to walk and pass
+through whatever lies unseen in the dark. Nothing can hurt them or come after them, they can't touch
+anything, the world's sounds fall silent and hunger stands still.
+
 The first turn cracks the key, and only the cracked key brings the world back: turned in the black, it
 shatters, Yggdrasil grows out of the hole, and the world is put back along its roots, block by block, for
-everyone. (If whoever holds the cracked key is gone for five minutes, the world comes back by itself;
-`/ginnungagap release` brings it back at once.) Skipping the feed shows all of it from your own eyes, free
-to move, as any other player sees it.
-The feed, and the rebuild, can be hurried with the same key as Gungnir's skip (Backspace).
+everyone. When it is all back, everyone is carried home to the solid ground nearest to where they were.
+If whoever holds the cracked key is gone for five minutes, the world comes back by itself, and
+`/ginnungagap release` brings it back at once. If the server stops or crashes partway through, the
+hole is finished when it next starts and everyone is sent home as they come back.
+Only one Genesis Key can be turning at a time.
+
+Skipping the feed shows all of it from your own eyes, free to move, as any other player sees it. The
+feed, and the rebuild, can be hurried with the same key as Gungnir's skip (Backspace).
 
 - **Try it:** `/give @s shootingstar:genesis_key`, or `/ginnungagap open <pos>` (operators).
 - **Craft it:**
@@ -115,7 +132,7 @@ The feed, and the rebuild, can be hurried with the same key as Gungnir's skip (B
 
 - `/gungnir strike <pos>`: call a strike on a position (operators).
 - `/gungnir cancel`: call off every strike that has not landed yet.
-- `/ginnungagap open <pos>`: open a Ginnungagap on a position (operators).
+- `/ginnungagap open <pos>`: open a Ginnungagap on a position (operators), unless one is already running.
   From a command block or the console there is no shooter: everyone watches from outside, and the world
   comes back by itself at the end.
 - `/ginnungagap release`: end every Ginnungagap and let reality back in.
@@ -127,6 +144,7 @@ The feed, and the rebuild, can be hurried with the same key as Gungnir's skip (B
 | `gungnirSpire`         | `true`  | Whether the spent round is left standing as a spire.     |
 | `ginnungagapRadius`    | `96`    | Radius erased by a Ginnungagap, 16–256.                  |
 | `ginnungagapTerrainDamage` | `true` | `false` leaves the blocks in place.                  |
+| `ginnungagapLethal`    | `true`  | `false` and nobody in the zone dies; everyone is still carried to the rim. |
 
 ## Client options
 
@@ -152,14 +170,23 @@ on it even when your default Java is newer.
 
 ```sh
 ./gradlew build            # jar in build/libs/
-./gradlew runGametest      # server game tests: targeting, crust cooling, a full strike
+./gradlew runGametest      # server game tests: targeting, crust cooling, a full strike, a whole
+                           # Ginnungagap with players (deaths, gathering, going home), stopping mid-event
 ./gradlew runClient        # play in a dev client
 ```
 
-The `selftest` workflow plays a full strike in a real client under a virtual display and records it
-as a video. The client and the integrated server run in lockstep and every frame is rendered at an
-exact game time, so the result is a smooth 30 fps video even on a software renderer. The mod's
-sounds are mixed in, and a screenshot of every phase is saved alongside.
+The self test plays a whole Ginnungagap in a real client and records it as a video. The client and the
+integrated server run in lockstep and every frame is rendered at an exact game time, so the result is
+a smooth 30 fps video even on a software renderer. The mod's sounds are mixed in, and a screenshot of
+every phase is saved alongside. It fails if any camera shot goes into the ground. Run it on GitHub with
+the `selftest` workflow, or locally:
+
+```sh
+./gradlew runGenworld      # once: the test world, in build/selftest-server (see .github/workflows/selftest.yml)
+./gradlew runSelftest      # the video in build/selftest/capture; -Pselftest=gap-skip skips the feed and hurries the rebuild
+bash tools/mptest.sh       # a dedicated server and three clients play one together (build/mp)
+bash tools/crashtest.sh    # the server killed mid-event, then restarted and checked (build/crash)
+```
 
 The block and GUI textures and the sounds are generated by `tools/gen_textures.py` and
 `tools/gen_sounds.py` (Python 3 with Pillow and NumPy, plus ffmpeg for the sounds). The feed's

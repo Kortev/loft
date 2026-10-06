@@ -21,8 +21,6 @@ public final class ClientGap {
 	public final boolean mine;
 	public final int radius;
 	public final boolean terrain;
-	public final BlockPos swapSpot;
-	public final boolean tree;
 	/** Horizontal unit vectors: {@code along} from the shooter towards the target, {@code across} to its right. */
 	public final Vec3d along;
 	public final Vec3d across;
@@ -53,8 +51,7 @@ public final class ClientGap {
 	/** Where each of the rebuild's shots stands round the hole, chosen once (GapCamera.view). */
 	public final Map<Integer, double[]> views = new HashMap<>();
 
-	public ClientGap(int id, BlockPos target, UUID shooter, boolean mine, int age, int radius, boolean terrain, BlockPos swapSpot,
-			boolean tree, Vec3d shooterPos) {
+	public ClientGap(int id, BlockPos target, UUID shooter, boolean mine, int age, int radius, boolean terrain, Vec3d shooterPos) {
 		this.id = id;
 		this.target = target;
 		this.surface = target.getY() + 1;
@@ -64,8 +61,6 @@ public final class ClientGap {
 		this.age = age;
 		this.radius = radius;
 		this.terrain = terrain;
-		this.swapSpot = swapSpot;
-		this.tree = tree;
 		this.shooterPos = shooterPos;
 		Vec3d d = new Vec3d(contact.x - shooterPos.x, 0, contact.z - shooterPos.z);
 		this.along = d.lengthSquared() < 1.0E-4 ? new Vec3d(0, 0, 1) : d.normalize();

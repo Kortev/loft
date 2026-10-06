@@ -560,11 +560,6 @@ public final class GapCamera {
 				if (shot == 5 && world != null && !sees(world, player, eye, home)) {
 					cost += 15.0;
 				}
-				if (Boolean.getBoolean("shootingstar.debugViews")) {
-					io.github.kortev.shootingstar.ShootingStar.LOGGER.info("[views] shot {} at {} deg {} out: eye {} lift {} crowded {} sees {} cost {}",
-							shot, a, Math.round(d), eye, String.format("%.1f", lift), world == null ? -1 : String.format("%.2f", crowded(world, eye, p.at())),
-							world != null && sees(world, player, eye, p.at()), String.format("%.1f", cost));
-				}
 				if (cost < best) {
 					best = cost;
 					chosen = new double[] {a, d};

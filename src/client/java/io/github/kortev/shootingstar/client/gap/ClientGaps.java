@@ -156,7 +156,7 @@ public final class ClientGaps {
 		PlayerEntity shooter = client.world.getPlayerByUuid(payload.shooter());
 		Vec3d from = shooter != null ? shooter.getPos() : client.player.getPos();
 		ClientGap gap = new ClientGap(payload.gapId(), payload.target(), payload.shooter(), mine, payload.age(), payload.radius(),
-				payload.terrain(), payload.swapSpot(), payload.tree(), from);
+				payload.terrain(), from);
 		gap.feedSkipped = !ClientConfig.feed || payload.age() > GapTimeline.FEED;
 		GAPS.put(gap.id, gap);
 		if (mine && payload.age() == 0) {
@@ -270,9 +270,11 @@ public final class ClientGaps {
 	}
 
 	/**
-	 * Once the world is back where this player stands, their floor settles onto it: they rise up out of any hill they
-	 * walked into in the black, or step down onto ground just under them. Out over a valley or the hole it stays where
-	 * it is, holding them up, until they are carried home.
+	 * As the world comes back where this player stands, their floor settles onto it. Out of any hill they walked into in
+	 * the black they rise while it is still dark round them, before the edge of the world being put back gets to them
+	 * (faster the deeper they are, and the faster the rebuild is going), so they are standing on top of it when it
+	 * appears rather than looking out from inside it. Onto ground just under them they step down once it is there. Out
+	 * over a valley or the hole the floor stays where it is, holding them up, until they are carried home.
 	 */
 	private static void settle(MinecraftClient client, ClientWorld world) {
 		landed = false;
@@ -283,13 +285,27 @@ public final class ClientGaps {
 		double front = GapRender.rebuildFront(back, back.rebuild(1.0F));
 		Vec3d feet = client.player.getPos();
 		double out = Math.hypot(feet.x - back.contact.x, feet.z - back.contact.z);
-		if (front < 0.0 ? back.rebuildClock < GapTimeline.REBUILD_SWEEP : out > front - 6.0) {
+		boolean coming = front < 0.0 ? back.rebuildClock >= GapTimeline.REBUILD_SWEEP : out <= front + 24.0 * back.rebuildRate();
+		if (!coming) {
 			return;
 		}
-		landed = true;
-		int top = world.getTopY(Heightmap.Type.MOTION_BLOCKING, MathHelper.floor(feet.x), MathHelper.floor(feet.z));
-		if (top > world.getBottomY() && top - floor < 80.0 && floor - top < 6.0) {
-			floor += MathHelper.clamp(top - floor, -0.3, 0.6);
+		landed = front < 0.0 || out <= front - 6.0;
+		// The highest ground under any part of them.
+		int top = world.getBottomY();
+		for (double dx : new double[] {-0.3, 0.3}) {
+			for (double dz : new double[] {-0.3, 0.3}) {
+				top = Math.max(top, world.getTopY(Heightmap.Type.MOTION_BLOCKING, MathHelper.floor(feet.x + dx), MathHelper.floor(feet.z + dz)));
+			}
+		}
+		if (top <= world.getBottomY()) {
+			return;
+		}
+		if (top > floor) {
+			// Never more than the floor carries them in a tick (VoidFloor: from more than a block and a half under it, they
+			// are left where they are).
+			floor += Math.min(top - floor, Math.min(1.4, Math.max(0.6, (top - floor) * 0.25)));
+		} else if (landed && floor - top < 6.0) {
+			floor -= Math.min(floor - top, 0.3);
 		}
 	}
 

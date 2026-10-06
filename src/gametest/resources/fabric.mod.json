@@ -8,7 +8,8 @@
 	"entrypoints": {
 		"main": [
 			"io.github.kortev.shootingstar.test.WorldGenHelper",
-			"io.github.kortev.shootingstar.test.MultiplayerTestServer"
+			"io.github.kortev.shootingstar.test.MultiplayerTestServer",
+			"io.github.kortev.shootingstar.test.CrashTestServer"
 		],
 		"fabric-gametest": [
 			"io.github.kortev.shootingstar.test.StrikeGameTests",

@@ -2,10 +2,10 @@ package io.github.kortev.shootingstar.test;
 
 import io.github.kortev.shootingstar.ShootingStar;
 import io.github.kortev.shootingstar.client.gap.ClientGap;
+import io.github.kortev.shootingstar.client.ShootingStarClient;
 import io.github.kortev.shootingstar.client.gap.ClientGaps;
 import io.github.kortev.shootingstar.gap.GapManager;
 import io.github.kortev.shootingstar.gap.GapTimeline;
-import io.github.kortev.shootingstar.registry.ModGameRules;
 import io.github.kortev.shootingstar.registry.ModItems;
 import io.github.kortev.shootingstar.strike.Targeting;
 import java.util.ArrayDeque;
@@ -13,10 +13,12 @@ import java.util.Deque;
 import java.util.function.DoubleFunction;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.option.CloudRenderMode;
+import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.ScreenshotRecorder;
 import net.minecraft.block.Blocks;
 import net.minecraft.item.ItemStack;
@@ -31,8 +33,6 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.GameMode;
 import net.minecraft.world.GameRules;
 import net.minecraft.world.Heightmap;
-import net.minecraft.world.LightType;
-import net.minecraft.world.World;
 
 /**
  * With -Dshootingstar.selftest=gap: joins the quick-play world, turns the Genesis Key on flat ground a little
@@ -55,12 +55,23 @@ public class GapSelfTest implements ClientModInitializer {
 	/** Where the shooter stood in the black, and when the release was asked for. */
 	private static Vec3d domainFeet;
 	private static int releasedAt = -1;
+	/**
+	 * With -Dshootingstar.selftest=gap-skip: the skip key is pressed early in the feed and again early in the rebuild,
+	 * and all of it is recorded from the shooter's own eyes. Any frame of the event with the camera away from their eyes
+	 * is a failure: skipped, it must look the way it does to anyone else.
+	 */
+	private static boolean skip;
+	private static boolean skippedFeed;
+	private static boolean hurried;
+	private static int forced;
 
 	@Override
 	public void onInitializeClient() {
-		if (!"gap".equals(System.getProperty("shootingstar.selftest"))) {
+		String mode = System.getProperty("shootingstar.selftest");
+		if (!"gap".equals(mode) && !"gap-skip".equals(mode)) {
 			return;
 		}
+		skip = "gap-skip".equals(mode);
 		for (int age = 10; age < GapTimeline.END + 30; age += 14) {
 			STILLS.add(new Still(age, String.format("%02d_age%03d_%s.png", STILLS.size() + 1, age, phase(age))));
 		}
@@ -76,41 +87,34 @@ public class GapSelfTest implements ClientModInitializer {
 		watchdog.setDaemon(true);
 		watchdog.start();
 		ServerTickEvents.START_SERVER_TICK.register(server -> Capture.serverTickStart());
-		ServerTickEvents.END_SERVER_TICK.register(server -> {
-			Capture.serverTickEnd();
-			lightProbe(server.getOverworld(), "server");
-		});
-		ClientTickEvents.END_CLIENT_TICK.register(client -> {
-			tick(client);
-			if (client.world != null) {
-				lightProbe(client.world, "client");
-			}
-		});
+		ServerTickEvents.END_SERVER_TICK.register(server -> Capture.serverTickEnd());
+		ClientTickEvents.END_CLIENT_TICK.register(GapSelfTest::tick);
 	}
 
-	private static int serverProbe;
-	private static int clientProbe;
+	/** Presses {@code key} the way the keyboard does. */
+	private static void press(KeyBinding key) {
+		KeyBinding.onKeyPressed(KeyBindingHelper.getBoundKeyOf(key));
+	}
 
-	/**
-	 * Every two seconds of the capture, how much sky light there is down the hole on each side (it should all be 15, the
-	 * shaft being open to the sky), so a hole whose walls come back black can be told from one whose light is late.
-	 */
-	private static void lightProbe(World world, String side) {
-		if (target == null || !Capture.active() || ((world.isClient() ? ++clientProbe : ++serverProbe) % 40) != 0) {
+	private static Vec3d lastEyes;
+
+	/** In skip mode, counts the ticks the event has the camera anywhere but in the shooter's own eyes. */
+	private static void watchEyes(MinecraftClient client) {
+		if (!skip || !skippedFeed || client.player == null || ClientGaps.mine() == null) {
 			return;
 		}
-		int r = world.getGameRules().getInt(ModGameRules.GAP_RADIUS) - 10;
-		StringBuilder s = new StringBuilder();
-		for (int[] d : new int[][] {{r, 0}, {-r, 0}, {0, r}, {0, -r}}) {
-			s.append('[');
-			for (int depth : new int[] {2, 12, 40, 100, 160}) {
-				s.append(world.getLightLevel(LightType.SKY, target.add(d[0], -depth, d[1]))).append(' ');
+		Vec3d eyes = client.player.getCameraPosVec(1.0F);
+		// Carried somewhere in a tick, the last frame drawn is still where they were: not a camera of the event's.
+		boolean carried = lastEyes != null && lastEyes.distanceTo(eyes) > 3.0;
+		lastEyes = eyes;
+		// Drawn part way through a tick, the lens trails the eyes a little when they move fast (rising out of a hill): any of
+		// the event's own shots stands well off.
+		Vec3d lens = client.gameRenderer.getCamera().getPos();
+		if (!carried && lens.distanceTo(eyes) > 2.5) {
+			if (forced++ == 0) {
+				ShootingStar.LOGGER.warn("[selftest] the camera left the shooter's eyes after the skip, at age {}", ClientGaps.mine().age);
 			}
-			s.setLength(s.length() - 1);
-			s.append("] ");
 		}
-		ShootingStar.LOGGER.info("[probe] {} light at {}s: updates pending {}, sky light down the hole {}", side,
-				String.format(java.util.Locale.ROOT, "%.1f", Capture.time() / 20.0), world.getLightingProvider().hasUpdates(), s);
 	}
 
 	private static String phase(int age) {
@@ -194,6 +198,12 @@ public class GapSelfTest implements ClientModInitializer {
 			case WATCH -> {
 				ClientGap gap = ClientGaps.mine();
 				int age = gap != null ? gap.age : Integer.MAX_VALUE;
+				if (skip && gap != null && !skippedFeed && age >= GapTimeline.FEED + 20) {
+					ShootingStar.LOGGER.info("[selftest] pressing skip in the feed");
+					press(ShootingStarClient.SKIP_FEED);
+					skippedFeed = true;
+				}
+				watchEyes(client);
 				while (!STILLS.isEmpty() && age >= STILLS.peek().age()) {
 					shot(client, STILLS.poll().name());
 				}
@@ -202,8 +212,10 @@ public class GapSelfTest implements ClientModInitializer {
 					stage = Stage.DOMAIN;
 					ticks = 0;
 					domainFeet = client.player.getPos();
-					client.options.hudHidden = true;
-					Capture.camera = domainCamera(client, Capture.time());
+					if (!skip) {
+						client.options.hudHidden = true;
+						Capture.camera = domainCamera(client, Capture.time());
+					}
 				} else if (gap == null && ticks > 1200) {
 					Capture.stop();
 					stage = Stage.AFTER;
@@ -212,6 +224,13 @@ public class GapSelfTest implements ClientModInitializer {
 			}
 			case DOMAIN -> {
 				walk(client);
+				watchEyes(client);
+				ClientGap rebuild = ClientGaps.mine();
+				if (skip && !hurried && rebuild != null && rebuild.rebuild(1.0F) >= 60.0) {
+					ShootingStar.LOGGER.info("[selftest] pressing skip in the rebuild to hurry it");
+					press(ShootingStarClient.SKIP_FEED);
+					hurried = true;
+				}
 				// The key only lets reality back in once the event is over (GapTimeline.END).
 				if (ticks == 150) {
 					ShootingStar.LOGGER.info("[selftest] letting reality back in");
@@ -280,6 +299,14 @@ public class GapSelfTest implements ClientModInitializer {
 				}
 			}
 			case DONE -> {
+				if (skip) {
+					ShootingStar.LOGGER.info("[selftest] skip mode: feed skipped {}, rebuild hurried {}, {} frames with the camera away from the eyes",
+							skippedFeed, hurried, forced);
+					if (!skippedFeed || !hurried || forced > 0) {
+						ShootingStar.LOGGER.error("[selftest] FAILED: skipping did not keep the shooter in their own eyes");
+						Runtime.getRuntime().halt(6);
+					}
+				}
 				if (CameraProbe.bad() > 0) {
 					ShootingStar.LOGGER.error("[selftest] FAILED: {} frames with a camera shot in or against the world", CameraProbe.bad());
 					Runtime.getRuntime().halt(5);

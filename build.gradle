@@ -53,10 +53,17 @@ loom {
 			client()
 			name = "Client Self Test"
 			vmArg "-Dshootingstar.selftest=${project.findProperty('selftest') ?: 'gap'}"
-			vmArg "-Dshootingstar.debugViews=${project.findProperty('debugViews') ?: 'false'}"
 			runDir "build/selftest"
 			source sourceSets.gametest
 			programArgs "--quickPlaySingleplayer", "selftest", "--width", "1280", "--height", "720"
+		}
+		// The server going down without warning mid-event, and coming back (CrashTestServer, tools/crashtest.sh).
+		crashserver {
+			server()
+			name = "Crash Test Server"
+			vmArg "-Dshootingstar.crashtest=${project.findProperty('crashtest') ?: 'crash'}"
+			runDir "build/crash/server"
+			source sourceSets.gametest
 		}
 		// The multiplayer test: a dedicated server and three clients (MultiplayerTestServer, MultiplayerTestClient).
 		mpserver {
