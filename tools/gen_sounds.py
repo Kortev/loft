@@ -1876,6 +1876,23 @@ def gap_fall():
     q = ns(deck1 - deck0 + 0.05)
     swell = decorrelated(q, pink) * curve(q, [(0, 0.0), (deck1 - deck0, 1.0), (q / SR, 0.0)])
     m.add(np.vstack([lp(c, 6000) for c in swell]), deck0, 0.5)
+    # The camera whipping round to each new angle (0.8, 1.55, 2.35 s): a short swish across, left then right.
+    for k, at in enumerate((0.8, 1.55, 2.35)):
+        q = ns(0.3)
+        swish = sweep_filter(pink(q), 'bandpass', curve(q, [(0, 700), (0.12, 3200), (0.3, 900)], 'log'), order=2, width=1.4)
+        side = 1 if k % 2 == 0 else -1
+        m.add(pan(norm(swish) * attack_decay(q, 0.09, 0.07), curve(q, [(0, -0.8 * side), (0.3, 0.8 * side)])), at - 0.12, 0.2)
+    # Tearing past the side camera (2.0 s): a Doppler roar across the picture and the crack of its shock as it goes.
+    q = ns(0.9)
+    tt = np.arange(q) / SR - 0.35
+    dist = np.sqrt((tt * 120.0) ** 2 + 8.0 ** 2)
+    roar = sweep_filter(pink(q) + brown(q) * 0.5, 'bandpass', curve(q, [(0, 1400), (0.35, 2600), (0.9, 300)], 'log'), order=2, width=2.0)
+    roar *= 1.0 / (0.3 + dist / 20.0)
+    m.add(pan(norm(roar), np.clip(tt * 3.0, -0.95, 0.95)), 2.0 - 0.35, 0.45)
+    q = ns(0.5)
+    tt = np.arange(q) / SR
+    crack = hp(white(q), 900) * np.exp(-tt / 0.02) + np.sin(2 * np.pi * 55 * tt) * np.exp(-tt / 0.15) * 0.8
+    m.add(stereo(sat(crack * 1.5, 1.6)), 2.0 + 0.03, 0.4)
     x = m.out() * curve(n, [(0, 1.0), (deck1, 1.0), (total, 0.35)])
     x = np.vstack([sweep_filter(c, 'lowpass', curve(n, [(0, 18000), (deck1, 18000), (total, 900)], 'log'), order=2)
                    for c in x])
@@ -2338,9 +2355,9 @@ def gap_void():
 
 def gap_rebuild():
     """Reality remade (32 s, from the key used again): a soft loading hum and a run of glass tones as the loading
-    screen comes up; Odin appearing in the void, a vast low choir on D swelling under a deep breath, a boom and a
-    struck crystal as his one eye opens (6 s); a rising choir as his arm comes up, a breath drawn in and a huge sweep
-    of air as it comes down (11 s); then the world assembling itself from the edges in, grains of it falling into
+    screen comes up; Yggdrasil growing in the void, a vast low choir on D swelling under a deep breath, a boom and a
+    struck crystal as its nine worlds light (6 s); a rising choir as light gathers in it, a breath drawn in and a huge
+    sweep of air as the light comes down its root (11 s); then the world assembling itself round the shooter, grains of it falling into
     place faster and faster over a D major chord building in glass, the black's own sound played backwards and
     sucked away; resolving at 26 s into a full choir and chimes as the last of it is back; dying away by 32 s."""
     total = 32.0
