@@ -209,11 +209,11 @@ public final class GapManager {
 		}
 		// Anyone who was not taken (the event was called off early) and is still in the hole is set down on its rim.
 		ServerPlayerEntity shooter = server.getPlayerManager().getPlayer(gap.shooter);
-		if (shooter != null && shooter.getWorld() == world && gap.terrain && horizontal(shooter.getPos(), gap.target) <= gap.radius + 2) {
+		if (shooter != null && shooter.getWorld() == world && gap.terrain && horizontal(shooter.getPos(), gap.target) <= gap.radius + 8) {
 			Vec3d away = new Vec3d(shooter.getX() - gap.target.getX() - 0.5, 0, shooter.getZ() - gap.target.getZ() - 0.5);
 			away = away.lengthSquared() < 1.0E-4 ? new Vec3d(1, 0, 0) : away.normalize();
-			int x = MathHelper.floor(gap.target.getX() + 0.5 + away.x * (gap.radius + 4));
-			int z = MathHelper.floor(gap.target.getZ() + 0.5 + away.z * (gap.radius + 4));
+			int x = MathHelper.floor(gap.target.getX() + 0.5 + away.x * (gap.radius + 10));
+			int z = MathHelper.floor(gap.target.getZ() + 0.5 + away.z * (gap.radius + 10));
 			int y = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z);
 			if (y > world.getBottomY()) {
 				shooter.teleport(world, x + 0.5, y, z + 0.5, shooter.getYaw(), shooter.getPitch());
@@ -225,14 +225,9 @@ public final class GapManager {
 			}
 		}
 		if (gap.terrain && gap.erasure != null) {
-			// Let back in early (by command, or the key gone too long): the crater is finished first, all at once.
+			// Let back in early (by command, or the key gone too long): the hole is finished first, all at once.
 			while (!gap.erasure.done()) {
 				gap.erasure.step(Double.MAX_VALUE);
-			}
-			// Where Yggdrasil drew back down, its sapling, in the middle of the crater's floor.
-			BlockPos sapling = new BlockPos(gap.target.getX(), gap.erasure.floor(0.0) + 1, gap.target.getZ());
-			if (world.getBlockState(sapling).isAir() && world.getBlockState(sapling.down()).isSolidBlock(world, sapling.down())) {
-				world.setBlockState(sapling, ModBlocks.YGGDRASIL_SAPLING.getDefaultState());
 			}
 		}
 		ModNetworking.broadcast(world, new GapEndPayload(gap.id));
@@ -262,7 +257,7 @@ public final class GapManager {
 			gap.age++;
 			ServerPlayerEntity shooter = server.getPlayerManager().getPlayer(gap.shooter);
 			// The black spreading is only seen; nothing is touched until everyone has been taken into the void, so no client
-			// is sent a single change and nothing lags. Then the crater is carved, and what was in it goes.
+			// is sent a single change and nothing lags. Then the hole is taken out, and what was in it goes.
 			if (gap.taken) {
 				erase(world, gap);
 			}
@@ -324,7 +319,8 @@ public final class GapManager {
 			if (gap.erasure == null) {
 				gap.erasure = new Erasure(world, gap.target, gap.radius);
 			}
-			gap.erased = gap.erasure.step(GapTimeline.eraseReach(gap.age, gap.radius));
+			// Everyone is gone by now, so it goes straight out to the edge, a budget's worth a tick.
+			gap.erased = gap.erasure.step(Double.MAX_VALUE);
 			if (gap.erased) {
 				ShootingStar.LOGGER.info("Ginnungagap #{} erased {} blocks", gap.id, gap.erasure.erased());
 			}

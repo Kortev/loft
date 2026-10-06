@@ -96,8 +96,9 @@ It bursts, the black takes the whole world, and everyone in it is taken into Gin
 the void between universes, under the lattice of the others. Everything within `ginnungagapRadius` of the
 target is erased for good. The first turn cracks the key, and only the cracked key brings the world back:
 turned in the void, it shatters, everyone goes back where they were, Yggdrasil grows out of the hole, and
-the world is put back along its roots, block by block. The hole stays, grown over with the other universe's
-ground and trees, with the Sapling of Yggdrasil glowing in the middle. (If whoever holds the cracked key is
+the world is put back along its roots, block by block. The hole stays: a ragged shaft down through bedrock,
+its walls Unmade, black and cracked with violet light, fractures running out across the ground from its
+rim. (If whoever holds the cracked key is
 gone for five minutes, the world comes back by itself; `/ginnungagap release` brings it back at once.)
 The feed, and the rebuild, can be hurried with the same key as Gungnir's skip (Backspace).
 

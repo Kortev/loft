@@ -32,7 +32,7 @@ public final class ModItems {
 			entries.add(ModBlocks.MIRROR_STONE);
 			entries.add(ModBlocks.MIRROR_LOG);
 			entries.add(ModBlocks.MIRROR_LEAVES);
-			entries.add(ModBlocks.YGGDRASIL_SAPLING);
+			entries.add(ModBlocks.UNMADE);
 			entries.add(ModBlocks.VOID_FLOOR);
 		});
 	}

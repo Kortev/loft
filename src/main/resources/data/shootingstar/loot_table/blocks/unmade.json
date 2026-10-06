@@ -11,11 +11,11 @@
       "entries": [
         {
           "type": "minecraft:item",
-          "name": "shootingstar:yggdrasil_sapling"
+          "name": "shootingstar:unmade"
         }
       ],
       "rolls": 1.0
     }
   ],
-  "random_sequence": "shootingstar:blocks/yggdrasil_sapling"
+  "random_sequence": "shootingstar:blocks/unmade"
 }

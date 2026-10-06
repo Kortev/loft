@@ -3,7 +3,7 @@ package io.github.kortev.shootingstar.registry;
 import io.github.kortev.shootingstar.ShootingStar;
 import io.github.kortev.shootingstar.block.MoltenCrustBlock;
 import io.github.kortev.shootingstar.block.VoidFloorBlock;
-import io.github.kortev.shootingstar.block.YggdrasilSaplingBlock;
+import io.github.kortev.shootingstar.block.UnmadeBlock;
 import net.minecraft.block.AbstractBlock;
 import net.minecraft.block.Block;
 import net.minecraft.block.MapColor;
@@ -88,15 +88,14 @@ public final class ModBlocks {
 			.allowsSpawning((state, world, pos, type) -> false)
 			.sounds(BlockSoundGroup.GLASS)), true);
 
-	/** Left in the middle of the crater when Yggdrasil draws back down into it. */
-	public static final Block YGGDRASIL_SAPLING = register("yggdrasil_sapling", new YggdrasilSaplingBlock(AbstractBlock.Settings.create()
-			.mapColor(MapColor.DIAMOND_BLUE)
-			.noCollision()
-			.breakInstantly()
-			.nonOpaque()
-			.luminance(state -> 13)
+	/** The walls of the hole Ginnungagap leaves, and the cracks out from it: matter taken, the other universe's light in the cracks. */
+	public static final Block UNMADE = register("unmade", new UnmadeBlock(AbstractBlock.Settings.create()
+			.mapColor(MapColor.BLACK)
+			.requiresTool()
+			.strength(50.0F, 1200.0F)
+			.luminance(state -> 3)
 			.emissiveLighting((state, world, pos) -> true)
-			.sounds(BlockSoundGroup.AMETHYST_CLUSTER)), true);
+			.sounds(BlockSoundGroup.AMETHYST_BLOCK)), true);
 
 	private ModBlocks() {
 	}

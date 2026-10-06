@@ -1,6 +1,0 @@
-{
-  "parent": "minecraft:block/cross",
-  "textures": {
-    "cross": "shootingstar:block/yggdrasil_sapling"
-  }
-}

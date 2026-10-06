@@ -1,0 +1,25 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "shootingstar:block/unmade"
+      },
+      {
+        "model": "shootingstar:block/unmade",
+        "y": 90
+      },
+      {
+        "model": "shootingstar:block/unmade",
+        "y": 180
+      },
+      {
+        "model": "shootingstar:block/unmade",
+        "y": 270
+      },
+      {
+        "model": "shootingstar:block/unmade",
+        "x": 180
+      }
+    ]
+  }
+}

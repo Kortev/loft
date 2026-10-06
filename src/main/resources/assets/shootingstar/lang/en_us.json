@@ -76,7 +76,6 @@
   "subtitles.shootingstar.gap.blast": "A universe bursts",
   "subtitles.shootingstar.gap.rebuild": "Reality is remade",
   "block.shootingstar.void_floor": "Floor of Ginnungagap",
-  "block.shootingstar.yggdrasil_sapling": "Sapling of Yggdrasil",
   "item.shootingstar.genesis_key.tooltip.cracked": "Cracked. It will turn once more, in the void, and no more.",
   "message.shootingstar.gap.cracked": "THE KEY IS CRACKED · it turns only in the void now",
   "message.shootingstar.gap.void": "THERE IS NOTHING HERE TO OPEN",
@@ -97,7 +96,6 @@
   "advancements.shootingstar.genesis_restored.description": "Turn the cracked key in the void and bring the world back",
   "advancements.shootingstar.genesis_void.title": "The Void Between",
   "advancements.shootingstar.genesis_void.description": "Be taken into Ginnungagap with the rest of the world",
-  "advancements.shootingstar.genesis_sapling.title": "Seed of the World Tree",
-  "advancements.shootingstar.genesis_sapling.description": "Take the sapling Yggdrasil left in the crater",
-  "message.shootingstar.gap.unmaking": "THE WORLD IS STILL COMING APART · wait"
+  "message.shootingstar.gap.unmaking": "THE WORLD IS STILL COMING APART · wait",
+  "block.shootingstar.unmade": "Unmade"
 }

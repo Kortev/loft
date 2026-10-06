@@ -75,7 +75,7 @@ public final class VoidWorld {
 		double x = origin.x();
 		double y = origin.y();
 		double z = origin.z();
-		if (hole != null && Math.hypot(x - hole.getX() - 0.5, z - hole.getZ() - 0.5) <= radius + 2) {
+		if (hole != null && Math.hypot(x - hole.getX() - 0.5, z - hole.getZ() - 0.5) <= radius + 8) {
 			double dx = x - hole.getX() - 0.5;
 			double dz = z - hole.getZ() - 0.5;
 			double d = Math.hypot(dx, dz);
@@ -83,8 +83,8 @@ public final class VoidWorld {
 				dx = 1.0;
 				d = 1.0;
 			}
-			x = hole.getX() + 0.5 + dx / d * (radius + 4);
-			z = hole.getZ() + 0.5 + dz / d * (radius + 4);
+			x = hole.getX() + 0.5 + dx / d * (radius + 10);
+			z = hole.getZ() + 0.5 + dz / d * (radius + 10);
 			y = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, MathHelper.floor(x), MathHelper.floor(z));
 		}
 		player.teleport(world, x, y, z, origin.yaw(), origin.pitch());

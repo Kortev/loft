@@ -16,10 +16,8 @@ import io.github.kortev.shootingstar.network.GapLockPayload;
 import io.github.kortev.shootingstar.network.StrikeCancelPayload;
 import io.github.kortev.shootingstar.network.StrikeImpactPayload;
 import io.github.kortev.shootingstar.network.StrikeLockPayload;
-import io.github.kortev.shootingstar.registry.ModBlocks;
 import io.github.kortev.shootingstar.registry.ModItems;
 import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.fabric.api.blockrenderlayer.v1.BlockRenderLayerMap;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
@@ -28,7 +26,6 @@ import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.item.ModelPredicateProviderRegistry;
 import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.util.InputUtil;
 import org.lwjgl.glfw.GLFW;
 
@@ -37,8 +34,6 @@ public class ShootingStarClient implements ClientModInitializer {
 
 	@Override
 	public void onInitializeClient() {
-		// The sapling is a cross of light with clear pixels round it.
-		BlockRenderLayerMap.INSTANCE.putBlock(ModBlocks.YGGDRASIL_SAPLING, RenderLayer.getCutout());
 		// The key cracks with the clunk of its first turn (the server marks it cracked as it starts turning).
 		ModelPredicateProviderRegistry.register(ModItems.GENESIS_KEY, ShootingStar.id("cracked"), (stack, world, entity, seed) ->
 				GenesisKeyItem.cracked(stack) && !ClientGaps.keyStillWhole() ? 1.0F : 0.0F);

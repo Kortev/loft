@@ -277,23 +277,23 @@ def void_floor():
     return Image.fromarray(np.full((16, 16, 3), (1, 1, 2), dtype=np.uint8), 'RGB')
 
 
-def yggdrasil_sapling():
-    """Yggdrasil's sapling, left in the crater: a braid of pale light rising out of nothing, forking, a gold point at
-    each tip, drawn as a cross-model plant."""
-    img = np.zeros((16, 16, 4), dtype=np.uint8)
-    pale, cyan, violet, gold = (230, 236, 255, 255), (120, 230, 255, 255), (170, 120, 255, 255), (255, 214, 140, 255)
-    for y in range(6, 16):
-        x = 7 + (1 if (y // 2) % 2 == 0 else 0)
-        img[y, x] = pale
-        img[y, 15 - x] = cyan if y % 3 else violet
-    # The fork, and its tips.
-    for (x, y) in [(6, 5), (5, 4), (4, 3), (9, 5), (10, 4), (11, 3), (8, 4), (8, 3), (8, 2)]:
-        img[y, x] = pale if x == 8 else violet
-    for (x, y) in [(3, 2), (12, 2), (8, 1)]:
-        img[y, x] = gold
-    for (x, y) in [(3, 3), (12, 3), (7, 1), (9, 1)]:
-        img[y, x] = (255, 236, 190, 150)
-    return Image.fromarray(img, 'RGBA')
+def unmade():
+    """What the hole's walls and the cracks out from it are left as: the world with its matter taken, pitch black,
+    split by jagged cracks that still glow with the other universe's violet, a few white-hot points in them."""
+    r = np.random.default_rng(666)
+    img = np.full((16, 16, 3), (7, 5, 12), dtype=np.float64)
+    img += (lattice(4, 4, seed=667) - 0.5)[..., None] * np.array([6, 4, 10])
+    violet, hot = np.array([150, 80, 255]), np.array([235, 220, 255])
+    for _ in range(5):
+        x, y = r.integers(0, 16, size=2)
+        for _ in range(r.integers(9, 15)):
+            img[y % 16, x % 16] = violet * r.uniform(0.6, 1.0)
+            dx, dy = [(1, 0), (0, 1), (1, 1), (-1, 1), (1, -1)][r.integers(5)]
+            x, y = x + dx, y + dy
+    for _ in range(3):
+        x, y = r.integers(0, 16, size=2)
+        img[y, x] = hot
+    return Image.fromarray(np.clip(img, 0, 255).astype(np.uint8), 'RGB')
 
 
 def genesis_key_cracked_atlas():
@@ -487,7 +487,7 @@ def main():
     save(genesis_key_atlas(), 'item', 'genesis_key_3d.png')
     save(genesis_key_cracked_atlas(), 'item', 'genesis_key_cracked_3d.png')
     save(void_floor(), 'block', 'void_floor.png')
-    save(yggdrasil_sapling(), 'block', 'yggdrasil_sapling.png')
+    save(unmade(), 'block', 'unmade.png')
     key = genesis_key_model()
     cracked = genesis_key_model()
     cracked['textures']['key'] = 'shootingstar:item/genesis_key_cracked_3d'
