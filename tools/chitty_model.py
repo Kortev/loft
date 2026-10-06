@@ -1238,6 +1238,11 @@ def build():
 
 # --- poses -----------------------------------------------------------------------------------------
 
+def side_of(o):
+    """1 for a part on her right, -1 on her left, from its name (its world matrix is stale until Blender updates it)."""
+    return 1 if '_r_' in o.name + '_' else -1
+
+
 def pose(mode, spin=0.0):
     """'road', 'flying' or 'water': what the game's animation does, for the renders and exports."""
     fly = mode == 'flying'
@@ -1245,7 +1250,7 @@ def pose(mode, spin=0.0):
     for o in bpy.data.objects:
         part = o.get('part', '')
         if 'open_yaw' in o:
-            side = 1 if o.matrix_world.translation.x > 0 else -1
+            side = side_of(o)
             yaw = math.radians(o['open_yaw'] if fly else o['fold_yaw'])
             o.rotation_euler = (0, -math.radians(o['dihedral']) * side if fly else 0, yaw * side)
             k = 1.0 if fly else o['tuck']
@@ -1376,7 +1381,7 @@ def neutral():
             continue
         o.hide_render = o.hide_viewport = False
         if 'open_yaw' in o:
-            side = 1 if o.matrix_world.translation.x > 0 else -1
+            side = side_of(o)
             o.rotation_euler = (0, 0, 0)
             o.scale = (side, 1, 1)
         elif part.startswith('mast_'):
@@ -1581,6 +1586,9 @@ def export_game(root):
             mw = Matrix.Translation((60.0 + 6.0 * free_i, 0, 0)) @ mw
             free_i += 1
         me.transform(mw)
+        if mw.to_3x3().determinant() < 0:
+            # Mirrored: turn the faces back the right way out, or the bake sees them from inside.
+            me.flip_normals()
         if me.uv_layers.get('bake') is None:
             me.uv_layers.new(name='bake')
         me.uv_layers.active = me.uv_layers['bake']
