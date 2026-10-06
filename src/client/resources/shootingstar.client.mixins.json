@@ -10,6 +10,7 @@
 		"HeldItemRendererMixin",
 		"MusicTrackerMixin",
 		"PlayerArmPoseMixin",
+		"TerrainScreenMixin",
 		"WorldRendererMixin"
 	],
 	"injectors": {

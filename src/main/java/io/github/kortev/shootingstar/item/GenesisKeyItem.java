@@ -67,8 +67,12 @@ public class GenesisKeyItem extends Item {
 					deny(world, user, Text.translatable("message.shootingstar.gap.nothing_held"));
 					return TypedActionResult.fail(stack);
 				}
-				// Not before whoever turned it is back in their own eyes, alone in the void.
+				// Not before whoever turned it is back in their own eyes, alone in the void; nor while the world is still coming apart.
 				if (gap.age() < GapTimeline.RETURN) {
+					return TypedActionResult.fail(stack);
+				}
+				if (!gap.unmade()) {
+					deny(world, user, Text.translatable("message.shootingstar.gap.unmaking"));
 					return TypedActionResult.fail(stack);
 				}
 				shatter(serverWorld, player, stack);

@@ -57,6 +57,16 @@ public final class ClientGaps {
 		return gap != null && gap.cinematic() && !gap.feedSkipped && t >= GapTimeline.FEED && t < GapTimeline.INBOUND;
 	}
 
+	/** True while this player is going into the void or coming back out of it, both under the black. */
+	public static boolean changingWorlds() {
+		for (ClientGap gap : GAPS.values()) {
+			if (!gap.ended && gap.age >= GapTimeline.NOTHING - 40 && (gap.rebuildAt < 0 || gap.rebuildClock < 40.0)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	/** True while this player is in Ginnungagap, the void between universes. */
 	public static boolean inVoid() {
 		ClientWorld world = MinecraftClient.getInstance().world;

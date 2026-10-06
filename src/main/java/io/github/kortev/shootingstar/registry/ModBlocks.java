@@ -2,6 +2,7 @@ package io.github.kortev.shootingstar.registry;
 
 import io.github.kortev.shootingstar.ShootingStar;
 import io.github.kortev.shootingstar.block.MoltenCrustBlock;
+import io.github.kortev.shootingstar.block.VoidFloorBlock;
 import io.github.kortev.shootingstar.block.YggdrasilSaplingBlock;
 import net.minecraft.block.AbstractBlock;
 import net.minecraft.block.Block;
@@ -79,8 +80,8 @@ public final class ModBlocks {
 			.luminance(state -> 5)
 			.sounds(BlockSoundGroup.AMETHYST_CLUSTER)), true);
 
-	/** The floor of Ginnungagap, the void between universes: everyone the black takes stands on it. Unbreakable. */
-	public static final Block VOID_FLOOR = register("void_floor", new Block(AbstractBlock.Settings.create()
+	/** The floor of the void: everyone the black takes stands on it. Black, unbreakable, never outlined. */
+	public static final Block VOID_FLOOR = register("void_floor", new VoidFloorBlock(AbstractBlock.Settings.create()
 			.mapColor(MapColor.BLACK)
 			.strength(-1.0F, 3600000.0F)
 			.dropsNothing()

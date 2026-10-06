@@ -50,11 +50,8 @@ public final class GapManager {
 	 * so nobody is left in the void for good.
 	 */
 	private static final int ABSENT_LIMIT = 20 * 60 * 5;
-	private static final int FLOOR_RADIUS = 14;
 
 	private static final List<Gap> GAPS = new ArrayList<>();
-	/** The other universe growing into holes the world has come back round. */
-	private static final List<MirrorGrowth> GROWTHS = new ArrayList<>();
 	private static int nextId = 1;
 
 	private GapManager() {
@@ -77,7 +74,6 @@ public final class GapManager {
 		boolean erased;
 		/** The barrier the shooter stands on once the ground under them is gone. */
 		final List<BlockPos> floor = new ArrayList<>();
-		boolean floored;
 		boolean released;
 		/** Everyone in the world has been taken into the void. */
 		boolean taken;
@@ -109,6 +105,11 @@ public final class GapManager {
 			return age;
 		}
 
+		/** Whether what was in the zone has all gone (the crater is carved), so the world can come back round it. */
+		public boolean unmade() {
+			return !terrain || erased;
+		}
+
 		GapLockPayload payload() {
 			return new GapLockPayload(id, target, shooter, age, radius, terrain, swapSpot, tree);
 		}
@@ -116,10 +117,7 @@ public final class GapManager {
 
 	public static void init() {
 		ServerTickEvents.END_SERVER_TICK.register(GapManager::tick);
-		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
-			GAPS.clear();
-			GROWTHS.clear();
-		});
+		ServerLifecycleEvents.SERVER_STOPPED.register(server -> GAPS.clear());
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
 			ServerPlayerEntity player = handler.getPlayer();
 			// In the void with nothing holding them there (the server stopped while they were): back home.
@@ -227,10 +225,15 @@ public final class GapManager {
 			}
 		}
 		if (gap.terrain && gap.erasure != null) {
-			// The hole stays; the other universe grows into it. Kept loaded while it does.
-			ChunkPos chunk = new ChunkPos(gap.target);
-			world.getChunkManager().addTicket(TICKET, chunk, MathHelper.clamp(MathHelper.ceil(gap.radius / 16.0) + 2, 1, 32), chunk);
-			GROWTHS.add(new MirrorGrowth(world, gap.target, gap.radius));
+			// Let back in early (by command, or the key gone too long): the crater is finished first, all at once.
+			while (!gap.erasure.done()) {
+				gap.erasure.step(Double.MAX_VALUE);
+			}
+			// Where Yggdrasil drew back down, its sapling, in the middle of the crater's floor.
+			BlockPos sapling = new BlockPos(gap.target.getX(), gap.erasure.floor(0.0) + 1, gap.target.getZ());
+			if (world.getBlockState(sapling).isAir() && world.getBlockState(sapling.down()).isSolidBlock(world, sapling.down())) {
+				world.setBlockState(sapling, ModBlocks.YGGDRASIL_SAPLING.getDefaultState());
+			}
 		}
 		ModNetworking.broadcast(world, new GapEndPayload(gap.id));
 		ShootingStar.LOGGER.info("Ginnungagap #{} released", gap.id);
@@ -249,7 +252,6 @@ public final class GapManager {
 	}
 
 	private static void tick(MinecraftServer server) {
-		GROWTHS.removeIf(MirrorGrowth::step);
 		for (Iterator<Gap> it = GAPS.iterator(); it.hasNext(); ) {
 			Gap gap = it.next();
 			ServerWorld world = server.getWorld(gap.dimension);
@@ -259,14 +261,9 @@ public final class GapManager {
 			}
 			gap.age++;
 			ServerPlayerEntity shooter = server.getPlayerManager().getPlayer(gap.shooter);
-			// The floor goes down once the black has swallowed everything round the shooter, so no one sees the
-			// ground change, and long before the real erasure gets to them.
-			if (!gap.floored && gap.age >= GapTimeline.ERASURE && shooter != null && shooter.getWorld() == world
-					&& GapTimeline.eraseFront(gap.age) > manhattan(shooter.getPos(), gap.target) + 18.0) {
-				gap.floored = true;
-				plantFloor(world, gap, shooter);
-			}
-			if (gap.age >= GapTimeline.ERASURE) {
+			// The black spreading is only seen; nothing is touched until everyone has been taken into the void, so no client
+			// is sent a single change and nothing lags. Then the crater is carved, and what was in it goes.
+			if (gap.taken) {
 				erase(world, gap);
 			}
 			// Once the black has everything, the whole world goes into the void: everyone in it, and anyone who comes into
@@ -322,27 +319,6 @@ public final class GapManager {
 
 	// --- the erasure ---------------------------------------------------------------------
 
-	/** A wide, invisible floor under the shooter, so they can walk about in the black. */
-	private static void plantFloor(ServerWorld world, Gap gap, ServerPlayerEntity shooter) {
-		if (!gap.terrain || horizontal(shooter.getPos(), gap.target) > gap.radius + FLOOR_RADIUS) {
-			return;
-		}
-		BlockPos below = shooter.getBlockPos().down();
-		for (int dx = -FLOOR_RADIUS; dx <= FLOOR_RADIUS; dx++) {
-			for (int dz = -FLOOR_RADIUS; dz <= FLOOR_RADIUS; dz++) {
-				BlockPos p = below.add(dx, 0, dz);
-				if (dx * dx + dz * dz > FLOOR_RADIUS * FLOOR_RADIUS || horizontal(Vec3d.ofCenter(p), gap.target) > gap.radius) {
-					continue;
-				}
-				BlockState state = world.getBlockState(p);
-				if (!state.isOf(Blocks.BARRIER) && Erasure.erasable(state)) {
-					world.setBlockState(p, Blocks.BARRIER.getDefaultState(), Erasure.FLAGS);
-					gap.floor.add(p);
-				}
-			}
-		}
-	}
-
 	private static void erase(ServerWorld world, Gap gap) {
 		if (gap.terrain && !gap.erased) {
 			if (gap.erasure == null) {
@@ -371,10 +347,6 @@ public final class GapManager {
 
 	private static BlockPos ground(World world, int x, int z) {
 		return new BlockPos(x, world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z) - 1, z);
-	}
-
-	private static double manhattan(Vec3d pos, BlockPos target) {
-		return Math.abs(pos.x - target.getX() - 0.5) + Math.abs(pos.y - target.getY()) + Math.abs(pos.z - target.getZ() - 0.5);
 	}
 
 	private static double horizontal(Vec3d pos, BlockPos target) {

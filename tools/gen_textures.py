@@ -273,17 +273,8 @@ def genesis_key_model():
     }
 
 def void_floor():
-    """The floor of Ginnungagap: near-black glass with a faint grid at its edges and a few cold specks of starlight."""
-    r = np.random.default_rng(321)
-    base = np.full((16, 16, 3), (6, 8, 14), dtype=np.float64)
-    base += (lattice(4, 4, seed=322) - 0.5)[..., None] * np.array([4, 5, 9])
-    edge = np.zeros((16, 16), dtype=bool)
-    edge[0, :] = edge[:, 0] = True
-    base[edge] = (22, 34, 52)
-    for _ in range(5):
-        x, y = r.integers(1, 15, size=2)
-        base[y, x] = r.choice([(110, 150, 210), (180, 200, 255), (90, 200, 220)])
-    return Image.fromarray(np.clip(base, 0, 255).astype(np.uint8), 'RGB')
+    """The floor of the void: black, as everything there is."""
+    return Image.fromarray(np.full((16, 16, 3), (1, 1, 2), dtype=np.uint8), 'RGB')
 
 
 def yggdrasil_sapling():

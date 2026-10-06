@@ -9,8 +9,10 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.Heightmap;
 
 /**
- * Removes every block in a cylinder round the target, from the build limit down through bedrock, working
- * outward column by column. Technical blocks (command, structure, barrier, jigsaw) are left alone.
+ * Carves the crater: removes every block in a bowl round the target, from the build limit down to the bowl's
+ * floor (deepest in the middle, rising to the ground at the rim), working outward column by column. Run once
+ * everyone has been taken into the void, so no client is there to be sent a single change. Technical blocks
+ * (command, structure, barrier, jigsaw) are left alone.
  */
 final class Erasure {
 	/**
@@ -18,8 +20,10 @@ final class Erasure {
 	 * touches, so it is spread thin: nobody sees it happen, in the black, and at the default radius it is still done
 	 * well before the camera is back in the shooter's eyes.
 	 */
-	private static final int BLOCK_BUDGET = 20_000;
-	private static final int READ_BUDGET = 120_000;
+	private static final int BLOCK_BUDGET = 30_000;
+	private static final int READ_BUDGET = 160_000;
+	/** How deep the crater is in the middle, as a fraction of its radius. */
+	private static final double DEPTH = 0.4;
 	static final int FLAGS = Block.NOTIFY_LISTENERS | Block.FORCE_STATE | Block.SKIP_DROPS;
 
 	private final ServerWorld world;
@@ -31,9 +35,12 @@ final class Erasure {
 	private int columnY = Integer.MIN_VALUE;
 	private int erased;
 
+	private final int radius;
+
 	Erasure(ServerWorld world, BlockPos center, int radius) {
 		this.world = world;
 		this.center = center;
+		this.radius = radius;
 		int r2 = radius * radius;
 		long[] packed = new long[(2 * radius + 1) * (2 * radius + 1)];
 		int n = 0;
@@ -58,9 +65,9 @@ final class Erasure {
 	boolean step(double reach) {
 		int budget = BLOCK_BUDGET;
 		int reads = READ_BUDGET;
-		int bottom = world.getBottomY();
 		BlockPos.Mutable pos = new BlockPos.Mutable();
 		while (cursor < columns.length && distances[cursor] <= reach && budget > 0 && reads > 0) {
+			int bottom = floor(distances[cursor]) + 1;
 			int x = center.getX() + (int) ((columns[cursor] >>> 16) & 0xFFFF) - 1024;
 			int z = center.getZ() + (int) (columns[cursor] & 0xFFFF) - 1024;
 			if (columnY == Integer.MIN_VALUE) {
@@ -82,6 +89,16 @@ final class Erasure {
 				columnY = Integer.MIN_VALUE;
 			}
 		}
+		return cursor >= columns.length;
+	}
+
+	/** The crater's floor, {@code d} blocks out from the middle: the last block left standing in that column. */
+	int floor(double d) {
+		double k = Math.min(1.0, d / Math.max(1, radius));
+		return Math.max(world.getBottomY(), center.getY() - (int) Math.round(radius * DEPTH * (1.0 - k * k)));
+	}
+
+	boolean done() {
 		return cursor >= columns.length;
 	}
 
