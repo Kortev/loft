@@ -2,6 +2,7 @@ package io.github.kortev.shootingstar.client.chitty;
 
 import io.github.kortev.shootingstar.ShootingStar;
 import io.github.kortev.shootingstar.chitty.ChittyEntity;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
@@ -12,11 +13,16 @@ import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.RotationAxis;
+import org.joml.Quaternionf;
 
 /**
- * Draws Chitty from her Blender mesh and poses her parts: the wheels roll, the front ones steer and all four turn flat to
- * fly; the wings fan out from under the running boards; the propeller comes out on the grille and spins; the floats blow
- * up and the screw turns in the water; the car pitches and banks in the air and rocks when she is hit.
+ * Draws Chitty from her Blender mesh and poses her parts: the wheels roll and the front ones steer; the wings swing out
+ * from under the running boards and fan open, the little fans at her nose and tail with them, and the mast on the end of
+ * each wing stands up with its propeller turning flat on top; the floats blow up into a ring round her and the screw
+ * turns in the water; the car pitches and banks in the air and rocks when she is hit.
+ *
+ * <p>Her texture is baked with her light in it (tools/chitty_model.py), so most of her is drawn evenly lit; only the
+ * wheels, which roll, carry real normals and take the game's light.
  *
  * <p>Blender's axes map onto the car's as (x, y, z) to (-x, z, y), so a Blender turn about its z is a turn about our y by
  * the same angle, about its y one about our z, and about its x one about our x the other way.
@@ -30,6 +36,7 @@ public class ChittyRenderer extends EntityRenderer<ChittyEntity> {
 	public ChittyRenderer(EntityRendererFactory.Context context) {
 		super(context);
 		this.shadowRadius = 1.6F;
+		MinecraftClient.getInstance().getTextureManager().registerTexture(TEXTURE, new ChittyTexture(TEXTURE));
 	}
 
 	@Override
@@ -67,12 +74,11 @@ public class ChittyRenderer extends EntityRenderer<ChittyEntity> {
 		int overlay = OverlayTexture.DEFAULT_UV;
 		float wings = car.getWingOpen(tickDelta);
 		float floats = car.getFloatOpen(tickDelta);
-		float flat = smooth(MathHelper.clamp(wings * 1.4F - 0.2F, 0.0F, 1.0F));
 		float steer = car.getSteer(tickDelta);
 		float spin = car.getWheelSpin(tickDelta);
 		for (ChittyMesh.Part part : mesh.parts.values()) {
 			String name = part.name;
-			if (name.equals("glass")) {
+			if (name.equals("glass") || name.startsWith("mast_") || name.startsWith("rotor_")) {
 				continue;
 			}
 			if (name.equals("body")) {
@@ -80,48 +86,74 @@ public class ChittyRenderer extends EntityRenderer<ChittyEntity> {
 				continue;
 			}
 			matrices.push();
-			matrices.translate(part.pivot.x, part.pivot.y, part.pivot.z);
-			matrices.multiply(part.rest);
 			boolean visible = true;
-			if (name.startsWith("wheel_")) {
-				float side = name.endsWith("r") ? 1.0F : -1.0F;
-				matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(-90.0F * side * flat));
-				if (name.startsWith("wheel_f")) {
-					matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(steer * STEER_LOCK * (1.0F - flat)));
+			if (name.startsWith("wing_") || name.startsWith("canard_") || name.startsWith("tailwing_")) {
+				poseFan(matrices, part, wings);
+			} else {
+				matrices.translate(part.pivot.x, part.pivot.y, part.pivot.z);
+				matrices.multiply(part.rest);
+				if (name.startsWith("wheel_")) {
+					if (name.startsWith("wheel_f")) {
+						matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(steer * STEER_LOCK));
+					}
+					matrices.multiply(RotationAxis.POSITIVE_X.rotation(spin));
+				} else if (name.equals("steering_wheel")) {
+					matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(steer * WHEEL_TURNS));
+				} else if (name.equals("screw")) {
+					visible = floats > 0.01F;
+					matrices.scale(floats, floats, floats);
+					matrices.multiply(RotationAxis.POSITIVE_Z.rotation(car.getScrewSpin(tickDelta)));
+				} else if (name.startsWith("float")) {
+					// Blown up out of a flat bundle round her waist into a fat ring.
+					visible = floats > 0.01F;
+					float k = smooth(floats);
+					matrices.scale(0.6F + 0.4F * k, 0.08F + 0.92F * k, 0.88F + 0.12F * k);
 				}
-				matrices.multiply(RotationAxis.POSITIVE_X.rotation(spin));
-			} else if (name.equals("steering_wheel")) {
-				matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(steer * WHEEL_TURNS));
-			} else if (name.startsWith("wing_") || name.startsWith("canard_") || name.startsWith("tailwing_")) {
-				visible = wings > 0.01F;
-				float side = name.contains("_r_") ? 1.0F : -1.0F;
-				// They grow out from under the boards first, then fan open with a little overshoot.
-				float grow = smooth(MathHelper.clamp(wings * 1.6F, 0.0F, 1.0F));
-				float fan = backOut(MathHelper.clamp(wings * 1.25F - 0.25F, 0.0F, 1.0F));
-				float open = MathHelper.lerp(fan, -90.0F, part.a);
-				matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(open * side));
-				matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(-part.b * side * fan));
-				float k = 0.12F + 0.88F * grow;
-				matrices.scale(k, 1.0F, k);
-			} else if (name.equals("propeller")) {
-				visible = wings > 0.01F;
-				float k = smooth(MathHelper.clamp(wings * 1.5F - 0.3F, 0.0F, 1.0F));
-				matrices.scale(k, k, k);
-				matrices.multiply(RotationAxis.POSITIVE_Z.rotation(car.getPropSpin(tickDelta)));
-			} else if (name.equals("screw")) {
-				visible = floats > 0.01F;
-				matrices.scale(floats, floats, floats);
-				matrices.multiply(RotationAxis.POSITIVE_Z.rotation(car.getScrewSpin(tickDelta)));
-			} else if (name.startsWith("float_")) {
-				visible = floats > 0.01F;
-				float k = smooth(floats);
-				matrices.scale(0.2F + 0.8F * k, 0.15F + 0.85F * k, 0.5F + 0.5F * k);
 			}
 			if (visible) {
 				part.draw(matrices.peek(), out, light, overlay);
 			}
 			matrices.pop();
 		}
+		// The masts on the wing tips, and the propellers on the masts.
+		float raise = smooth(MathHelper.clamp(wings * 2.0F - 1.0F, 0.0F, 1.0F));
+		for (String side : new String[] {"r", "l"}) {
+			ChittyMesh.Part wing = mesh.parts.get("wing_" + side + "_0");
+			ChittyMesh.Part mast = mesh.parts.get("mast_" + side);
+			ChittyMesh.Part rotor = mesh.parts.get("rotor_" + side);
+			if (wing == null || mast == null) {
+				continue;
+			}
+			matrices.push();
+			poseFan(matrices, wing, wings);
+			matrices.translate(mast.pivot.x, mast.pivot.y, mast.pivot.z);
+			// Folded, it lies along the spar; it stands up once the wing is out.
+			Quaternionf folded = new Quaternionf(mast.a, mast.b, mast.c, mast.d);
+			matrices.multiply(folded.slerp(new Quaternionf(), raise));
+			mast.draw(matrices.peek(), out, light, overlay);
+			if (rotor != null && raise > 0.02F) {
+				matrices.translate(rotor.pivot.x, rotor.pivot.y, rotor.pivot.z);
+				matrices.scale(raise, 1.0F, raise);
+				matrices.multiply(RotationAxis.POSITIVE_Y.rotation(car.getPropSpin(tickDelta) * (side.equals("r") ? 1.0F : -1.0F)));
+				rotor.draw(matrices.peek(), out, light, overlay);
+			}
+			matrices.pop();
+		}
+	}
+
+	/**
+	 * Moves the stack to a fan panel's hinge and swings it from folded (drawn in, under the car) to open (spread out
+	 * with its dihedral), with a little sprung overshoot.
+	 */
+	private static void poseFan(MatrixStack matrices, ChittyMesh.Part part, float wings) {
+		float side = part.name.contains("_r_") ? 1.0F : -1.0F;
+		float fan = backOut(MathHelper.clamp(wings * 1.25F - 0.25F, 0.0F, 1.0F));
+		matrices.translate(part.pivot.x, part.pivot.y, part.pivot.z);
+		matrices.multiply(part.rest);
+		matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(MathHelper.lerp(fan, part.c, part.a) * side));
+		matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(-part.b * side * MathHelper.clamp(fan, 0.0F, 1.0F)));
+		float k = MathHelper.lerp(MathHelper.clamp(fan, 0.0F, 1.0F), part.d, 1.0F);
+		matrices.scale(k, 1.0F, k);
 	}
 
 	private static float smooth(float x) {

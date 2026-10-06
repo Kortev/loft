@@ -113,24 +113,27 @@ The feed, and the rebuild, can be hurried with the same key as Gungnir's skip (B
 
 ## Chitty Chitty Bang Bang
 
-GEN 11, the car from the film, built in Blender: a long polished aluminium bonnet with leather straps and louvres
-behind a brass radiator, a planked cedar boat tail with brass rivets and a rub rail, deep-buttoned maroon benches,
-great brass headlamps, the serpent horn, the copper exhaust out of the side of the bonnet, the brake and gear levers
-outside the body, a starting handle and red artillery wheels.
+GEN 11, the car from the film, built in Blender from photographs of it: a long polished aluminium bonnet, round like a
+drum and tapering to a round brass radiator, a leather strap round it and great brass headlamps either side; an open
+boat of varnished red and white cedar behind, lined in red leather, with deep-buttoned red benches, a rounded stern and
+a wicker hamper on a rack; black wings over red artillery wheels, a red spare wheel stood against the scuttle, the
+copper exhaust coming out of the bonnet and down along the running board, and the brass serpent horn.
 
 - **Put her down:** use the item on the ground or on water; she faces the way you face. Use her to get in. She seats
   four; the first in drives, from the right-hand seat. Sneak to get out.
 - **Drive:** forward and back to accelerate, brake and reverse, left and right to steer. She climbs a block at a time
   and stops at walls rather than driving her bonnet into them.
-- **Fly:** jump at speed and she spreads her red and yellow wings, turns her wheels flat and puts out a propeller on the
-  grille. Hold jump to climb, sprint to dive, forward for more speed; slow down too far and she sinks. Drive her off a
-  cliff and the wings spring out by themselves. Land (or splash down) and she folds them again a moment later.
-- **Float:** in the water she blows up a float down each side and drives a screw under her tail.
+- **Fly:** jump at speed and her red and yellow wings swing out from under the running boards and fan open, with little
+  fans at her nose and tail; a mast stands up at the end of each wing with a propeller turning flat on top. Hold jump to
+  climb, sprint to dive, forward for more speed; slow down too far and she sinks. Drive her off a cliff and the wings
+  spring out by themselves. Land (or splash down) and she folds them away again a moment later.
+- **Float:** in the water she blows up a great pink float in a ring round herself and drives a screw under her tail.
 - **Horn:** H (rebindable) squeezes the serpent's bulb.
 
-She starts with two coughs and two bangs, and backfires now and then when the throttle comes off at speed. Nobody
-aboard takes fall damage. Hit her hard enough and she drops back into an item, as a boat does. In third person the
-camera stands twice as far back while you ride in her.
+She starts with two sputters and two bangs, and backfires now and then when the throttle comes off at speed. Her
+engine is three sounds made at different revs and crossfaded as hers rise and fall. Nobody aboard takes fall damage.
+Hit her hard enough and she drops back into an item, as a boat does. In third person the camera stands twice as far
+back while you ride in her.
 
 **Craft her** (the recipe unlocks with an elytra):
 
@@ -140,9 +143,12 @@ G M G     M = Minecart        P = Piston
 P B P     B = any Boat
 ```
 
-The model, its texture atlas and the item icon come from `tools/chitty_model.py` (Blender's Python module,
-`pip install "bpy==4.5.*"` on Python 3.11): `--game` writes the game's copy, `--out DIR --renders` writes `.blend` and
-`.glb` files and renders her on the road, flying and afloat. Her sounds come from `tools/gen_chitty_sounds.py`.
+The model, its texture and the item icon come from `tools/chitty_model.py` (Blender's Python module,
+`pip install "bpy==4.5.*"` on Python 3.11): `--game` unwraps every part into one atlas, bakes her look into it with
+Cycles (the sky, soft shadows, the reflections in the metal) and writes the game's mesh and texture; `--out DIR
+--renders` writes `.blend` and `.glb` files and renders her on the road, flying and afloat. Her sounds come from
+`tools/gen_chitty_sounds.py`, which models the engine (each firing through its own length of header into one long open
+pipe) rather than imitating it.
 
 ## Commands and game rules
 

@@ -26,7 +26,9 @@ public final class Chitty {
 	public static final Item ITEM = Registry.register(Registries.ITEM, ShootingStar.id("chitty"),
 			new ChittyItem(new Item.Settings().maxCount(1).rarity(Rarity.RARE)));
 
-	public static final SoundEvent ENGINE = sound("chitty.engine");
+	public static final SoundEvent ENGINE_IDLE = sound("chitty.engine_idle");
+	public static final SoundEvent ENGINE_LOW = sound("chitty.engine_low");
+	public static final SoundEvent ENGINE_HIGH = sound("chitty.engine_high");
 	public static final SoundEvent FLIGHT = sound("chitty.flight");
 	public static final SoundEvent START = sound("chitty.start");
 	public static final SoundEvent BANG = sound("chitty.bang");

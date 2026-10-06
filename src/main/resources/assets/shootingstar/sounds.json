@@ -356,11 +356,29 @@
       }
     ]
   },
-  "chitty.engine": {
-    "subtitle": "subtitles.shootingstar.chitty.engine",
+  "chitty.engine_idle": {
+    "subtitle": "subtitles.shootingstar.chitty.engine_idle",
     "sounds": [
       {
-        "name": "shootingstar:chitty_engine",
+        "name": "shootingstar:chitty_engine_idle",
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "chitty.engine_low": {
+    "subtitle": "subtitles.shootingstar.chitty.engine_low",
+    "sounds": [
+      {
+        "name": "shootingstar:chitty_engine_low",
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "chitty.engine_high": {
+    "subtitle": "subtitles.shootingstar.chitty.engine_high",
+    "sounds": [
+      {
+        "name": "shootingstar:chitty_engine_high",
         "attenuation_distance": 32
       }
     ]

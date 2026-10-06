@@ -71,8 +71,9 @@ public final class ChittyClient {
 			public void tick(ChittyEntity car) {
 				if (SOUNDING.add(car)) {
 					MinecraftClient client = MinecraftClient.getInstance();
-					client.getSoundManager().play(new ChittySound(car, false));
-					client.getSoundManager().play(new ChittySound(car, true));
+					for (ChittySound.Layer layer : ChittySound.Layer.values()) {
+						client.getSoundManager().play(new ChittySound(car, layer));
+					}
 				}
 			}
 		};

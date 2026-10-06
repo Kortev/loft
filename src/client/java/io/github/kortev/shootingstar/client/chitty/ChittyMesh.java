@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.resource.Resource;
@@ -24,31 +25,41 @@ import org.joml.Vector3f;
  * and fogged like everything else. Coordinates are blocks with the car at yaw 0: x to her left, y up, z forward.
  */
 public final class ChittyMesh {
-	/** A part: where it hangs and how it rests, two numbers for its animation, and its quads (four corners each). */
+	/**
+	 * A part: where it hangs and how it rests, four numbers for its animation (a fan panel's open angle, dihedral,
+	 * folded angle and how far it draws in folded; a mast's folded turn as a quaternion), and its quads (four corners
+	 * each), some of which glow.
+	 */
 	public static final class Part {
 		public final String name;
 		public final Vector3f pivot;
 		public final Quaternionf rest;
 		public final float a;
 		public final float b;
+		public final float c;
+		public final float d;
 		final float[] pos;
 		final float[] uv;
 		final int[] color;
 		final float[] normal;
+		final boolean[] glow;
 
-		Part(String name, Vector3f pivot, Quaternionf rest, float a, float b, int vertices) {
+		Part(String name, Vector3f pivot, Quaternionf rest, float a, float b, float c, float d, int vertices) {
 			this.name = name;
 			this.pivot = pivot;
 			this.rest = rest;
 			this.a = a;
 			this.b = b;
+			this.c = c;
+			this.d = d;
 			this.pos = new float[vertices * 3];
 			this.uv = new float[vertices * 2];
 			this.color = new int[vertices];
 			this.normal = new float[vertices * 3];
+			this.glow = new boolean[vertices];
 		}
 
-		/** Draws the part with the stack already moved to its pivot and posed. */
+		/** Draws the part with the stack already moved to its pivot and posed; the lamps and eyes at full light. */
 		public void draw(MatrixStack.Entry entry, VertexConsumer out, int light, int overlay) {
 			Matrix4f m = entry.getPositionMatrix();
 			Vector3f p = new Vector3f();
@@ -57,7 +68,8 @@ public final class ChittyMesh {
 			for (int i = 0; i < count; i++) {
 				m.transformPosition(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2], p);
 				entry.transformNormal(normal[i * 3], normal[i * 3 + 1], normal[i * 3 + 2], n);
-				out.vertex(p.x, p.y, p.z, color[i], uv[i * 2], uv[i * 2 + 1], overlay, light, n.x, n.y, n.z);
+				out.vertex(p.x, p.y, p.z, color[i], uv[i * 2], uv[i * 2 + 1], overlay,
+						glow[i] ? LightmapTextureManager.MAX_LIGHT_COORDINATE : light, n.x, n.y, n.z);
 			}
 		}
 	}
@@ -101,7 +113,7 @@ public final class ChittyMesh {
 			bytes = in.readAllBytes();
 		}
 		ByteBuffer data = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
-		if (data.get() != 'C' || data.get() != 'B' || data.get() != 'M' || data.get() != '1') {
+		if (data.get() != 'C' || data.get() != 'B' || data.get() != 'M' || data.get() != '2') {
 			throw new IOException("not a Chitty mesh");
 		}
 		int count = data.getInt();
@@ -112,8 +124,10 @@ public final class ChittyMesh {
 			Quaternionf rest = new Quaternionf(data.getFloat(), data.getFloat(), data.getFloat(), data.getFloat());
 			float a = data.getFloat();
 			float b = data.getFloat();
+			float c = data.getFloat();
+			float d = data.getFloat();
 			int vertices = data.getInt() * 4;
-			Part part = new Part(name, pivot, rest, a, b, vertices);
+			Part part = new Part(name, pivot, rest, a, b, c, d, vertices);
 			for (int i = 0; i < vertices; i++) {
 				part.pos[i * 3] = data.getFloat();
 				part.pos[i * 3 + 1] = data.getFloat();
@@ -128,7 +142,7 @@ public final class ChittyMesh {
 				part.normal[i * 3] = data.get() / 127.0F;
 				part.normal[i * 3 + 1] = data.get() / 127.0F;
 				part.normal[i * 3 + 2] = data.get() / 127.0F;
-				data.get();
+				part.glow[i] = (data.get() & 1) != 0;
 			}
 			parts.put(name, part);
 		}

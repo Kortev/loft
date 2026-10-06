@@ -72,8 +72,9 @@ public class ChittySelfTest implements ClientModInitializer {
 	private static Vec3d camAt;
 	/** Whether those are a fixed camera's: moving between two following cameras eases from one to the other instead of cutting. */
 	private static boolean camFixed = true;
-	private static final List<double[]> ENGINE = new ArrayList<>();
-	private static final List<double[]> FLIGHT = new ArrayList<>();
+	/** Each running sound's level and pitch as heard from the camera, tick by tick, for the soundtrack. */
+	private static final java.util.Map<ChittySound.Layer, List<double[]>> LOOPS = new java.util.EnumMap<>(ChittySound.Layer.class);
+	private static float rpm = ChittySound.IDLE_RPM;
 
 	@Override
 	public void onInitializeClient() {
@@ -491,21 +492,22 @@ public class ChittySelfTest implements ClientModInitializer {
 		double time = Capture.time() / 20.0;
 		Vec3d listener = client.gameRenderer.getCamera().getPos();
 		double distance = listener.distanceTo(car.getPos().add(0.0, 0.8, 0.0));
-		for (boolean flight : new boolean[] {false, true}) {
-			float volume = ChittySound.targetVolume(car, flight);
+		rpm = ChittySound.easeRpm(rpm, car);
+		for (ChittySound.Layer layer : ChittySound.Layer.values()) {
+			float volume = ChittySound.volumeAt(layer, rpm, car);
 			double range = 32.0 * Math.max(1.0F, volume);
 			double gain = MathHelper.clamp(volume, 0.0F, 1.0F) * MathHelper.clamp(1.0 - distance / range, 0.0, 1.0);
-			(flight ? FLIGHT : ENGINE).add(new double[] {time, gain, ChittySound.targetPitch(car, flight)});
+			LOOPS.computeIfAbsent(layer, k -> new ArrayList<>()).add(new double[] {time, gain, ChittySound.pitchAt(layer, rpm, car)});
 		}
 	}
 
 	private static void writeLoops(MinecraftClient client) {
 		Path dir = client.runDirectory.toPath().resolve("capture");
 		StringBuilder json = new StringBuilder("{\"tracks\": [\n");
-		String[][] tracks = {{"chitty_engine", "ENGINE"}, {"chitty_flight", "FLIGHT"}};
-		for (int t = 0; t < tracks.length; t++) {
-			String name = tracks[t][0];
-			List<double[]> points = t == 0 ? ENGINE : FLIGHT;
+		ChittySound.Layer[] layers = ChittySound.Layer.values();
+		for (int t = 0; t < layers.length; t++) {
+			String name = layers[t] == ChittySound.Layer.FLIGHT ? "chitty_flight" : "chitty_engine_" + layers[t].name().toLowerCase(Locale.ROOT);
+			List<double[]> points = LOOPS.getOrDefault(layers[t], List.of());
 			try {
 				Resource resource = client.getResourceManager().getResource(ShootingStar.id("sounds/" + name + ".ogg")).orElseThrow();
 				try (InputStream in = resource.getInputStream()) {
@@ -520,7 +522,7 @@ public class ChittySelfTest implements ClientModInitializer {
 				double[] p = points.get(i);
 				json.append(String.format(Locale.ROOT, "%s[%.3f, %.4f, %.4f]", i == 0 ? "" : ", ", p[0], p[1], p[2]));
 			}
-			json.append("]}").append(t + 1 < tracks.length ? ",\n" : "\n");
+			json.append("]}").append(t + 1 < layers.length ? ",\n" : "\n");
 		}
 		json.append("]}\n");
 		try {

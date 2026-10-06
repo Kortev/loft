@@ -38,10 +38,11 @@ import net.minecraft.world.event.GameEvent;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Chitty Chitty Bang Bang. Four seats, the driver's on the right. She drives on the road, floats on the water with a
- * float blown up down each side and a screw under her tail, and flies: pull the lever (jump) at speed and the wings
- * spread, the wheels turn flat and a propeller comes out on the grille; drive her off a cliff and the wings spring out
- * by themselves. She settles her wings again once she has been down a moment.
+ * Chitty Chitty Bang Bang. Four seats, the driver's on the right. She drives on the road, floats on the water in a pink
+ * float blown up round her with a screw under her tail, and flies: pull the lever (jump) at speed and the wings swing
+ * out from under the running boards and fan open, and a mast stands up at the end of each with a propeller turning
+ * flat on top; drive her off a cliff and the wings spring out by themselves. She folds her wings away again once she
+ * has been down a moment.
  *
  * <p>Like a boat, the car is moved by whoever drives it (their client) and by the server when nobody does. Positions
  * are in blocks; local offsets are at yaw 0, x to the car's left, z forward.
@@ -55,10 +56,10 @@ public class ChittyEntity extends Entity {
 	private static final TrackedData<Byte> THROTTLE = DataTracker.registerData(ChittyEntity.class, TrackedDataHandlerRegistry.BYTE);
 
 	/** Where each passenger sits (driver first, then beside them, then the back seat), from tools/chitty_model.py. */
-	private static final Vec3d[] SEATS = {new Vec3d(-0.34, 0.63, 0.20), new Vec3d(0.34, 0.63, 0.20),
-			new Vec3d(-0.32, 0.63, -0.95), new Vec3d(0.32, 0.63, -0.95)};
+	private static final Vec3d[] SEATS = {new Vec3d(-0.30, 0.75, -0.15), new Vec3d(0.30, 0.75, -0.15),
+			new Vec3d(-0.30, 0.75, -1.80), new Vec3d(0.30, 0.75, -1.80)};
 	/** The mouth of the exhaust, beside the driver's running board. */
-	public static final Vec3d EXHAUST = new Vec3d(-0.84, 0.58, -0.31);
+	public static final Vec3d EXHAUST = new Vec3d(-0.83, 0.63, -1.02);
 	/** The point the car pitches and rolls about. */
 	public static final double TILT_PIVOT = 0.8;
 
@@ -749,8 +750,8 @@ public class ChittyEntity extends Entity {
 		Vec3d ahead = new Vec3d(-MathHelper.sin(yawRad), 0.0, MathHelper.cos(yawRad));
 		double forward = motion.dotProduct(ahead);
 		prevWheelSpin = wheelSpin;
-		// On the ground the wheels roll with the road; laid flat to fly, they turn over slowly like rotors.
-		wheelSpin += fly && wingOpen > 0.5F ? 0.25F : (float) (forward / 0.46);
+		// On the ground the wheels roll with the road; in the air they turn over slowly in the wind.
+		wheelSpin += fly && wingOpen > 0.5F ? 0.06F : (float) (forward / 0.46);
 		prevPropSpin = propSpin;
 		propSpin += fly ? 0.9F + (float) motion.length() * 0.6F : 0.0F;
 		prevScrewSpin = screwSpin;
