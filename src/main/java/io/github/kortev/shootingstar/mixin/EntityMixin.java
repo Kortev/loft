@@ -1,9 +1,11 @@
 package io.github.kortev.shootingstar.mixin;
 
 import io.github.kortev.shootingstar.gap.VoidFloor;
+import net.minecraft.block.BlockState;
 import net.minecraft.entity.Entity;
 import net.minecraft.fluid.Fluid;
 import net.minecraft.registry.tag.TagKey;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -54,6 +56,14 @@ public abstract class EntityMixin {
 	private void shootingstar$notIn(TagKey<Fluid> tag, CallbackInfoReturnable<Boolean> cir) {
 		if (VoidFloor.floating((Entity) (Object) this)) {
 			cir.setReturnValue(false);
+		}
+	}
+
+	/** The unseen world under the floor of nothing makes no sound underfoot (VoidFx steps on the floor itself). */
+	@Inject(method = "playStepSounds", at = @At("HEAD"), cancellable = true)
+	private void shootingstar$silentSteps(BlockPos pos, BlockState state, CallbackInfo ci) {
+		if (VoidFloor.floating((Entity) (Object) this)) {
+			ci.cancel();
 		}
 	}
 

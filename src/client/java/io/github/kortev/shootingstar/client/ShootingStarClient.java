@@ -22,6 +22,7 @@ import io.github.kortev.shootingstar.network.StrikeLockPayload;
 import io.github.kortev.shootingstar.registry.ModItems;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientWorldEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -56,6 +57,7 @@ public class ShootingStarClient implements ClientModInitializer {
 		ClientPlayNetworking.registerGlobalReceiver(GapFloorPayload.ID, (payload, context) -> ClientGaps.onFloor(payload, context.client()));
 		ClientPlayNetworking.registerGlobalReceiver(GapWarpPayload.ID, (payload, context) -> VoidFx.onWarp(payload, context.client()));
 		VoidFloor.client = ClientGaps::floorFor;
+		ClientWorldEvents.AFTER_CLIENT_WORLD_CHANGE.register((client, world) -> ClientGaps.leftWorld());
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
 			ClientStrikes.clear(client);
 			ClientGaps.clear(client);

@@ -167,11 +167,11 @@ public final class GapCamera {
 	}
 
 	/** Half the size of the block of the other universe as it comes down. */
-	public static final double BLOCK = 5.0;
+	public static final double BLOCK = GapTimeline.BLOCK;
 
 	/** Half the size of the block of the other universe once it has burst open over the target. */
 	public static double blastHalf(ClientGap gap) {
-		return MathHelper.clamp(gap.radius * 0.4, 14.0, 70.0);
+		return GapTimeline.blastHalf(gap.radius);
 	}
 
 	/**
@@ -352,19 +352,8 @@ public final class GapCamera {
 	 * through the impact frames, slower through the explosion, then falling in on itself to nothing.
 	 */
 	public static double burstHalf(ClientGap gap, double t) {
-		double full = blastHalf(gap);
-		double e = t - GapTimeline.CONTACT;
-		if (e < 0.0) {
-			return 0.0;
-		}
-		double grown = BLOCK + (full * 0.62 - BLOCK) * (1.0 - Math.exp(-e / 6.0));
-		if (t >= GapTimeline.BLAST) {
-			grown = MathHelper.lerp(1.0 - Math.exp(-(t - GapTimeline.BLAST) / 22.0), grown, full);
-		}
-		if (t >= GapTimeline.COLLAPSE) {
-			grown *= 1.0 - Math.pow(MathHelper.clamp((t - GapTimeline.COLLAPSE) / (GapTimeline.ERASURE - GapTimeline.COLLAPSE), 0.0, 1.0), 2.0);
-		}
-		return grown;
+		// The same on the server, which kills whoever it swallows.
+		return GapTimeline.burstHalf(gap.radius, t);
 	}
 
 	/**

@@ -366,6 +366,11 @@ public final class Erasure {
 		return sent;
 	}
 
+	/** Every block taken out (the light may still be settling). */
+	boolean carved() {
+		return cursor >= hole.length && crackCursor >= cracks.size();
+	}
+
 	int erased() {
 		return erased;
 	}

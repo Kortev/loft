@@ -14,6 +14,8 @@ public final class ModDamageTypes {
 			RegistryKey.of(RegistryKeys.DAMAGE_TYPE, ShootingStar.id("kinetic_strike"));
 
 	public static final RegistryKey<DamageType> ERASED = RegistryKey.of(RegistryKeys.DAMAGE_TYPE, ShootingStar.id("erased"));
+	/** Swallowed by the universe in the block as it bursts out of the ground. */
+	public static final RegistryKey<DamageType> SWALLOWED = RegistryKey.of(RegistryKeys.DAMAGE_TYPE, ShootingStar.id("swallowed"));
 
 	private ModDamageTypes() {
 	}
@@ -25,6 +27,11 @@ public final class ModDamageTypes {
 	/** Erased by whoever turned the key ({@code by}, if they are about). */
 	public static DamageSource erased(World world, @Nullable Entity by) {
 		return new DamageSource(world.getRegistryManager().get(RegistryKeys.DAMAGE_TYPE).entryOf(ERASED), by);
+	}
+
+	/** Swallowed by the universe that {@code by} brought down (if they are about). */
+	public static DamageSource swallowed(World world, @Nullable Entity by) {
+		return new DamageSource(world.getRegistryManager().get(RegistryKeys.DAMAGE_TYPE).entryOf(SWALLOWED), by);
 	}
 
 	public static DamageSource kineticStrike(World world) {

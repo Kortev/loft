@@ -71,6 +71,37 @@ public final class GapTimeline {
 		return (radius + 2.0) * smooth((t - ERASURE) / (NOTHING - ERASURE - 20.0));
 	}
 
+	/** Half the size of the block of the other universe as it comes down. */
+	public static final double BLOCK = 5.0;
+
+	/** Half the size of the block of the other universe once it has burst open over the target, all the way out. */
+	public static double blastHalf(int radius) {
+		return Math.max(14.0, Math.min(70.0, radius * 0.4));
+	}
+
+	/**
+	 * Half the size of the burst {@code t} ticks into the event: the block's own size when it lands, swelling fast
+	 * through the impact frames, slower through the explosion, then falling in on itself to nothing. It stands on the
+	 * point of contact a quarter sunk into the ground: its middle is a quarter of this over it.
+	 */
+	public static double burstHalf(int radius, double t) {
+		double full = blastHalf(radius);
+		double e = t - CONTACT;
+		if (e < 0.0) {
+			return 0.0;
+		}
+		double grown = BLOCK + (full * 0.62 - BLOCK) * (1.0 - Math.exp(-e / 6.0));
+		if (t >= BLAST) {
+			double k = 1.0 - Math.exp(-(t - BLAST) / 22.0);
+			grown = grown + (full - grown) * k;
+		}
+		if (t >= COLLAPSE) {
+			double c = Math.max(0.0, Math.min(1.0, (t - COLLAPSE) / (double) (ERASURE - COLLAPSE)));
+			grown *= 1.0 - c * c;
+		}
+		return grown;
+	}
+
 	public static double smooth(double x) {
 		x = x < 0.0 ? 0.0 : x > 1.0 ? 1.0 : x;
 		return x * x * (3.0 - 2.0 * x);

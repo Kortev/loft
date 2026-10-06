@@ -57,6 +57,8 @@
   "message.shootingstar.gap.shattered": "The world came back without your Genesis Key: it has shattered",
   "message.shootingstar.gap.mended": "The Ginnungagap was called off before it took the world: your Genesis Key is whole again",
   "commands.shootingstar.gap.busy": "A Ginnungagap event is already running",
+  "death.attack.shootingstar.swallowed": "%1$s was swallowed by another universe",
+  "death.attack.shootingstar.swallowed.player": "%1$s was swallowed by the universe %2$s brought down",
   "death.attack.shootingstar.erased": "%1$s was erased from reality",
   "death.attack.shootingstar.erased.player": "%1$s was erased from reality by %2$s",
   "gamerule.ginnungagapRadius": "Ginnungagap erased zone radius",

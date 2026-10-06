@@ -208,6 +208,16 @@ public final class ClientGaps {
 		gap.feedSounds.clear();
 	}
 
+	/**
+	 * Into another world (carried to the rim from another, or home to one): its events are not this one's. Those of the
+	 * world arrived in are sent on arrival; the floor of nothing goes with the player (it is set before they are moved).
+	 */
+	public static void leftWorld() {
+		GAPS.clear();
+		sawRebuild = false;
+		VoidFx.leftWorld();
+	}
+
 	public static void clear(MinecraftClient client) {
 		GAPS.clear();
 		VoidMusic.stop();

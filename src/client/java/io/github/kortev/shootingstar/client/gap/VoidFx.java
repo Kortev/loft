@@ -15,6 +15,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.client.sound.PositionedSoundInstance;
 import net.minecraft.sound.SoundCategory;
+import net.minecraft.sound.SoundEvents;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import org.joml.Matrix4f;
@@ -44,18 +45,29 @@ public final class VoidFx {
 	private record Ripple(Vec3d at, long start, float size) {
 	}
 
+	/** Where someone last stepped on the floor, and whether they were on it last tick. */
+	private record Step(Vec3d at, boolean down) {
+	}
+
+	/** How far apart steps on the floor of nothing are: a long, slow stride. */
+	private static final double STRIDE = 2.6;
 	private static final List<Warp> WARPS = new ArrayList<>();
 	private static final List<Ripple> RIPPLES = new ArrayList<>();
-	private static final Map<UUID, Vec3d> STEPS = new HashMap<>();
+	private static final Map<UUID, Step> STEPS = new HashMap<>();
+	/** This player's own last warp, for the picture going white: kept through the change of world it may make. */
+	private static Warp self;
 	private static long ticks;
+	private static int stepCount;
 
 	private VoidFx() {
 	}
 
 	public static void onWarp(GapWarpPayload payload, MinecraftClient client) {
 		WARPS.removeIf(w -> w.player().equals(payload.player()));
-		WARPS.add(new Warp(payload.player(), payload.from(), payload.to(), payload.delay(), ticks));
+		Warp warp = new Warp(payload.player(), payload.from(), payload.to(), payload.delay(), ticks);
+		WARPS.add(warp);
 		if (client.player != null && payload.player().equals(client.player.getUuid())) {
+			self = warp;
 			client.getSoundManager().play(PositionedSoundInstance.master(ModSounds.GAP_SWAP, 1.25F, 0.8F));
 		} else if (client.world != null) {
 			client.world.playSound(payload.from().x, payload.from().y, payload.from().z, ModSounds.GAP_SWAP, SoundCategory.PLAYERS, 0.9F,
@@ -64,6 +76,12 @@ public final class VoidFx {
 	}
 
 	public static void clear() {
+		leftWorld();
+		self = null;
+	}
+
+	/** Into another world: what was drawn in the last one goes (but the picture going white as they were carried here). */
+	public static void leftWorld() {
 		WARPS.clear();
 		RIPPLES.clear();
 		STEPS.clear();
@@ -77,25 +95,38 @@ public final class VoidFx {
 			STEPS.clear();
 			return;
 		}
-		// Everyone here is on the floor of nothing with this player: a ripple wherever they step, or land.
+		// Everyone here is on the floor of nothing with this player: a soft step and a ripple every long stride they take
+		// on it, nothing while they are off it in a jump, and a heavier one where they come down.
 		for (AbstractClientPlayerEntity player : client.world.getPlayers()) {
 			if (player.isSpectator()) {
 				continue;
 			}
 			Vec3d feet = player.getPos();
-			Vec3d last = STEPS.get(player.getUuid());
+			boolean down = player.isOnGround();
+			Step last = STEPS.get(player.getUuid());
 			if (last == null) {
-				STEPS.put(player.getUuid(), feet);
+				STEPS.put(player.getUuid(), new Step(feet, down));
 				continue;
 			}
-			boolean stepped = Math.hypot(feet.x - last.x, feet.z - last.z) > 1.7;
-			boolean landed = player.isOnGround() && last.y - feet.y > 0.3;
-			if (stepped || landed) {
-				RIPPLES.add(new Ripple(feet, ticks, landed ? 1.6F : 1.0F));
-				STEPS.put(player.getUuid(), feet);
-			} else if (!player.isOnGround() && feet.y > last.y) {
-				STEPS.put(player.getUuid(), new Vec3d(last.x, feet.y, last.z));
+			if (down && !last.down()) {
+				step(client, feet, true);
+				STEPS.put(player.getUuid(), new Step(feet, true));
+			} else if (down && Math.hypot(feet.x - last.at().x, feet.z - last.at().z) > STRIDE) {
+				step(client, feet, false);
+				STEPS.put(player.getUuid(), new Step(feet, true));
+			} else if (down != last.down()) {
+				STEPS.put(player.getUuid(), new Step(last.at(), down));
 			}
+		}
+	}
+
+	/** A step on the floor of nothing: a ripple out over it, and a faint ring of glass. */
+	private static void step(MinecraftClient client, Vec3d feet, boolean landed) {
+		RIPPLES.add(new Ripple(feet, ticks, landed ? 1.6F : 1.0F));
+		if (client.world != null) {
+			float pitch = landed ? 0.7F : 1.1F + 0.08F * (stepCount++ % 3 - 1);
+			client.world.playSound(feet.x, feet.y, feet.z, landed ? SoundEvents.BLOCK_AMETHYST_BLOCK_FALL : SoundEvents.BLOCK_AMETHYST_BLOCK_STEP,
+					SoundCategory.PLAYERS, landed ? 0.5F : 0.28F, pitch, false);
 		}
 	}
 
@@ -105,17 +136,15 @@ public final class VoidFx {
 		if (client.player == null) {
 			return 0.0F;
 		}
-		for (Warp warp : WARPS) {
-			if (!warp.player().equals(client.player.getUuid())) {
-				continue;
-			}
-			double e = ticks + tickDelta - warp.start();
-			if (e < warp.delay()) {
-				return (float) (0.9 * Math.pow(e / warp.delay(), 2.0));
-			}
-			return (float) (0.9 * Math.max(0.0, 1.0 - (e - warp.delay()) / 16.0));
+		Warp warp = self;
+		if (warp == null || !warp.player().equals(client.player.getUuid())) {
+			return 0.0F;
 		}
-		return 0.0F;
+		double e = ticks + tickDelta - warp.start();
+		if (e < warp.delay()) {
+			return (float) (0.9 * Math.pow(e / warp.delay(), 2.0));
+		}
+		return (float) (0.9 * Math.max(0.0, 1.0 - (e - warp.delay()) / 16.0));
 	}
 
 	public static void render(WorldRenderContext context) {

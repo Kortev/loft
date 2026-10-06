@@ -139,6 +139,8 @@ public final class GapManager {
 		boolean taken;
 		/** How long the shooter has been gone (logged off) while everyone waits in the void. */
 		int absent;
+		/** The world's spawn has been seen to (moved out of the hole if it was in it). */
+		boolean spawnMoved;
 		/** Everyone walking on the floor of nothing for it. */
 		final Set<UUID> floors = new HashSet<>();
 		/** Everyone the black has erased (each only once, so whoever comes back into the zone is not erased again). */
@@ -190,7 +192,7 @@ public final class GapManager {
 	public static void init() {
 		ServerTickEvents.END_SERVER_TICK.register(GapManager::tick);
 		ServerLifecycleEvents.SERVER_STARTED.register(GapManager::recover);
-		ServerLifecycleEvents.SERVER_STOPPING.register(GapManager::stopping);
+		ServerLifecycleEvents.SERVER_STOPPING.register(GapManager::endNow);
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
 			RETURNING.clear();
 			GAPS.clear();
@@ -482,10 +484,16 @@ public final class GapManager {
 			}
 			gap.age++;
 			ServerPlayerEntity shooter = server.getPlayerManager().getPlayer(gap.shooter);
-			// As the black comes over the zone, anyone still standing in it is erased with it (but the shooter).
-			if (gap.age >= GapTimeline.ERASURE && gap.age < GapTimeline.NOTHING && gap.terrain
-					&& world.getGameRules().getBoolean(ModGameRules.GAP_LETHAL)) {
-				eraseIn(world, gap, shooter);
+			// Two deaths, for anyone but the shooter: the universe in the block bursting out of the ground swallows whoever
+			// it reaches as it swells to its full size; then, once it has fallen back in on itself, the black coming out over
+			// the zone erases whoever is left standing in it.
+			if (world.getGameRules().getBoolean(ModGameRules.GAP_LETHAL)) {
+				if (gap.age >= GapTimeline.CONTACT && gap.age <= GapTimeline.COLLAPSE) {
+					swallow(world, gap, shooter);
+				}
+				if (gap.age >= GapTimeline.ERASURE && gap.age < GapTimeline.NOTHING && gap.terrain) {
+					eraseIn(world, gap, shooter);
+				}
 			}
 			// Once the black has everything, the world is gone: everyone on the server, wherever they are, is carried to the
 			// rim of the hole, round the shooter, under the black, to be in it together until the key is turned again.
@@ -522,9 +530,10 @@ public final class GapManager {
 		state(server).markDirty();
 		Vec3d from = shooter != null && shooter.getWorld() == world ? shooter.getPos() : Vec3d.ofCenter(gap.target).add(1, 0, 0);
 		gap.side = Math.atan2(from.z - gap.target.getZ() - 0.5, from.x - gap.target.getX() - 0.5);
-		// One floor for everyone, as high as the ground where the shooter will stand.
+		// One floor for everyone: level with the roots of the tree that will grow out of the hole (its long root runs out
+		// to the shooter's feet on it), or the ground where the shooter will stand, if that is higher.
 		Vec3d front = place(world, gap, 0);
-		gap.floor = groundAround(world, MathHelper.floor(front.x), MathHelper.floor(front.z));
+		gap.floor = Math.max(gap.target.getY() + 2.0, groundAround(world, MathHelper.floor(front.x), MathHelper.floor(front.z)));
 		if (shooter != null) {
 			gather(gap, shooter);
 		}
@@ -550,14 +559,40 @@ public final class GapManager {
 	// --- the people -------------------------------------------------------------------------
 
 	/**
+	 * Everyone (but the shooter, and anyone in creative or spectator) the universe bursting out of the block reaches as it
+	 * swells is swallowed by it: the cube of it, a quarter sunk in the ground, as big as it is now; and, as it stops
+	 * swelling and starts to fall back in, as big as it ever got.
+	 */
+	private static void swallow(ServerWorld world, Gap gap, @Nullable ServerPlayerEntity shooter) {
+		double half = gap.age >= GapTimeline.COLLAPSE ? GapTimeline.blastHalf(gap.radius) : GapTimeline.burstHalf(gap.radius, gap.age);
+		Vec3d middle = new Vec3d(gap.target.getX() + 0.5, gap.target.getY() + 1.0 + half * 0.25, gap.target.getZ() + 0.5);
+		Box cube = new Box(middle.subtract(half, half, half), middle.add(half, half, half));
+		for (ServerPlayerEntity player : List.copyOf(world.getPlayers())) {
+			if (spared(gap, player) || !player.getBoundingBox().intersects(cube)) {
+				continue;
+			}
+			gap.erasedPlayers.add(player.getUuid());
+			boolean by = shooter != null && player.shouldDamagePlayer(shooter);
+			player.damage(ModDamageTypes.swallowed(world, by ? shooter : null), Float.MAX_VALUE);
+			ShootingStar.LOGGER.info("Ginnungagap #{}: {} was swallowed", gap.id, player.getName().getString());
+		}
+	}
+
+	/** Not killed by it: the shooter, anyone in creative or spectator, anyone already dead or killed by it once. */
+	private static boolean spared(Gap gap, ServerPlayerEntity player) {
+		return player.getUuid().equals(gap.shooter) || player.isCreative() || player.isSpectator() || !player.isAlive()
+				|| gap.erasedPlayers.contains(player.getUuid());
+	}
+
+	/**
 	 * Everyone (but the shooter, and anyone who cannot be hurt) still in the zone when the black reaches where they
-	 * stand is erased with it: they see it coming, and then they are gone, whatever they carried with them.
+	 * stand is erased with it: they see it coming, and then they are gone, whatever they carried with them. A further
+	 * reach than the burst's: the whole of the hole.
 	 */
 	private static void eraseIn(ServerWorld world, Gap gap, @Nullable ServerPlayerEntity shooter) {
 		double front = GapTimeline.eraseFront(gap.age);
 		for (ServerPlayerEntity player : List.copyOf(world.getPlayers())) {
-			if (player.getUuid().equals(gap.shooter) || player.isCreative() || player.isSpectator() || !player.isAlive()
-					|| gap.erasedPlayers.contains(player.getUuid()) || horizontal(player.getPos(), gap.target) > gap.radius + 2) {
+			if (spared(gap, player) || horizontal(player.getPos(), gap.target) > gap.radius + 2) {
 				continue;
 			}
 			// The same measure the black is drawn with (ss_gap): blocks along x and z, height for half.
@@ -614,7 +649,9 @@ public final class GapManager {
 		saved.markDirty();
 		ServerWorld to = home == null ? null : server.getWorld(home.world());
 		if (to == null) {
-			hold(gap, player, Double.NaN);
+			// Nowhere to go back to: the nearest safe ground to where they are.
+			to = player.getServerWorld();
+			warp(gap, player, to, safe(to, gap, player.getPos()), player.getYaw(), player.getPitch(), Double.NaN);
 			return;
 		}
 		Vec3d spot = safe(to, to.getRegistryKey() == gap.dimension ? gap : null, home.pos());
@@ -705,50 +742,62 @@ public final class GapManager {
 	}
 
 	/**
-	 * Somewhere {@code player} can stand at or near {@code pos}: where it is, if that is still ground with room over it;
-	 * else the nearest such place in its column, up or down; else the top of it. Over the hole, its rim; over nothing at
-	 * all, the nearest ground.
+	 * Somewhere {@code player} can stand at or near {@code pos}, always on solid ground with room over it and nothing
+	 * that burns or drowns: over the hole, its rim; else the nearest such place in the column, up or down; else the
+	 * nearest ground round about (an old hole, a lake of lava, the sky over the void); else the world's spawn.
 	 */
 	private static Vec3d safe(ServerWorld world, @Nullable Gap gap, Vec3d pos) {
 		if (gap != null && horizontal(pos, gap.target) <= gap.radius + 8) {
-			return rim(world, gap, pos);
+			pos = rim(world, gap, pos);
 		}
-		BlockPos at = BlockPos.ofFloored(pos);
-		world.getChunk(at.getX() >> 4, at.getZ() >> 4);
-		for (int dy = 0; dy <= 32; dy++) {
-			for (int sign : new int[] {1, -1}) {
-				BlockPos p = at.up(sign * dy);
-				if (standable(world, p)) {
-					return new Vec3d(pos.x, p.getY(), pos.z);
-				}
-				if (dy == 0) {
-					break;
-				}
-			}
+		BlockPos ground = groundNear(world, BlockPos.ofFloored(pos));
+		if (ground == null) {
+			ground = groundNear(world, world.getSpawnPos());
 		}
-		int top = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, at.getX(), at.getZ());
-		if (top <= world.getBottomY() && !world.getDimension().hasCeiling()) {
-			BlockPos ground = groundNear(world, at);
-			if (ground != null) {
-				return Vec3d.ofBottomCenter(ground);
-			}
-		}
-		return new Vec3d(pos.x, Math.max(top, world.getBottomY() + 1), pos.z);
+		return ground == null ? Vec3d.ofBottomCenter(world.getSpawnPos()) : Vec3d.ofBottomCenter(ground);
 	}
 
-	/** The nearest column round {@code at} with ground in it, out to a couple of hundred blocks: where to stand on it. */
+	/**
+	 * The nearest place to stand round {@code at}: in its own column first, near its height, then further and further
+	 * out, a couple of hundred blocks at most. In each column, near the height asked for, then (where the sky is open)
+	 * on top of it.
+	 */
 	@Nullable
 	private static BlockPos groundNear(ServerWorld world, BlockPos at) {
-		for (int r = 4; r <= 256; r += 4) {
-			for (int i = 0; i < 16; i++) {
-				double a = i * Math.PI / 8.0;
-				int x = at.getX() + MathHelper.floor(Math.cos(a) * r);
-				int z = at.getZ() + MathHelper.floor(Math.sin(a) * r);
-				world.getChunk(x >> 4, z >> 4);
-				int top = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z);
-				if (top > world.getBottomY() + 1 && standable(world, new BlockPos(x, top, z))) {
-					return new BlockPos(x, top, z);
+		BlockPos here = standableIn(world, at.getX(), at.getZ(), at.getY());
+		if (here != null) {
+			return here;
+		}
+		for (int r = 3; r <= 256; r += r < 24 ? 3 : 8) {
+			int around = Math.max(8, Math.min(48, r * 2));
+			for (int i = 0; i < around; i++) {
+				double a = i * Math.PI * 2.0 / around;
+				BlockPos found = standableIn(world, at.getX() + MathHelper.floor(Math.cos(a) * r), at.getZ() + MathHelper.floor(Math.sin(a) * r),
+						at.getY());
+				if (found != null) {
+					return found;
 				}
+			}
+		}
+		return null;
+	}
+
+	/** A place to stand in the column (x, z): within a few dozen blocks of {@code y}, nearest first; else on top of it. */
+	@Nullable
+	private static BlockPos standableIn(ServerWorld world, int x, int z, int y) {
+		world.getChunk(x >> 4, z >> 4);
+		for (int dy = 0; dy <= 32; dy++) {
+			for (int sign : dy == 0 ? new int[] {1} : new int[] {1, -1}) {
+				BlockPos p = new BlockPos(x, y + sign * dy, z);
+				if (standable(world, p)) {
+					return p;
+				}
+			}
+		}
+		if (!world.getDimension().hasCeiling()) {
+			BlockPos top = new BlockPos(x, world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z), z);
+			if (standable(world, top)) {
+				return top;
 			}
 		}
 		return null;
@@ -764,7 +813,7 @@ public final class GapManager {
 		if (world.getTopY(Heightmap.Type.MOTION_BLOCKING, at.getX(), at.getZ()) > world.getBottomY()) {
 			return;
 		}
-		BlockPos ground = groundNear(world, at);
+		BlockPos ground = groundNear(world, at.withY(world.getSeaLevel()));
 		if (ground != null) {
 			player.teleport(world, ground.getX() + 0.5, ground.getY(), ground.getZ() + 0.5, player.getYaw(), player.getPitch());
 			player.fallDistance = 0.0F;
@@ -777,10 +826,12 @@ public final class GapManager {
 			return false;
 		}
 		BlockState below = world.getBlockState(feet.down());
-		return world.getBlockState(feet).getCollisionShape(world, feet).isEmpty()
-				&& world.getBlockState(feet.up()).getCollisionShape(world, feet.up()).isEmpty()
-				&& !below.getCollisionShape(world, feet.down()).isEmpty() && !below.isIn(BlockTags.FIRE) && !below.isOf(Blocks.LAVA)
-				&& !below.isOf(Blocks.MAGMA_BLOCK) && !below.isOf(Blocks.BARRIER) && world.getFluidState(feet).isEmpty();
+		BlockState in = world.getBlockState(feet);
+		return in.getCollisionShape(world, feet).isEmpty() && world.getBlockState(feet.up()).getCollisionShape(world, feet.up()).isEmpty()
+				&& !below.getCollisionShape(world, feet.down()).isEmpty() && !below.isIn(BlockTags.FIRE) && !below.isIn(BlockTags.CAMPFIRES)
+				&& !below.isOf(Blocks.LAVA) && !below.isOf(Blocks.MAGMA_BLOCK) && !below.isOf(Blocks.CACTUS) && !below.isOf(Blocks.BARRIER)
+				&& !in.isIn(BlockTags.FIRE) && !in.isOf(Blocks.COBWEB) && !in.isOf(Blocks.SWEET_BERRY_BUSH) && !in.isOf(Blocks.POWDER_SNOW)
+				&& world.getFluidState(feet).isEmpty() && world.getFluidState(feet.up()).isEmpty();
 	}
 
 	// --- the key -------------------------------------------------------------------------
@@ -835,11 +886,11 @@ public final class GapManager {
 	// --- the server going down and coming back ---------------------------------------------
 
 	/**
-	 * The server is going down in the middle of an event: it is ended now, before anything is saved. The hole is
+	 * Ends any event now, as the server does when it goes down in the middle of one, before anything is saved. The hole is
 	 * finished (its light worked out afresh the next time it is loaded), the floor over it taken away, everyone held sent
 	 * straight home and the shooter's key put right.
 	 */
-	private static void stopping(MinecraftServer server) {
+	public static void endNow(MinecraftServer server) {
 		for (Gap gap : all()) {
 			ServerWorld world = server.getWorld(gap.dimension);
 			if (world != null && gap.taken && gap.terrain) {
@@ -954,9 +1005,13 @@ public final class GapManager {
 			}
 			// Everyone is gone by now, so it goes straight out to the edge, a budget's worth a tick.
 			gap.erased = gap.erasure.step(Double.MAX_VALUE);
+			if (!gap.spawnMoved && gap.erasure.carved()) {
+				// As soon as there is nothing under it: nobody comes back into the world over the hole.
+				gap.spawnMoved = true;
+				moveSpawn(world.getServer(), world, gap.target, gap.radius);
+			}
 			if (gap.erased) {
 				ShootingStar.LOGGER.info("Ginnungagap #{} erased {} blocks", gap.id, gap.erasure.erased());
-				moveSpawn(world.getServer(), world, gap.target, gap.radius);
 			}
 		}
 		if (gap.age % 2 != 0 || gap.age > GapTimeline.NOTHING + 40) {
@@ -1036,9 +1091,9 @@ public final class GapManager {
 		return null;
 	}
 
-	/** Sets the player down outside the hole, on its rim on the side they were on. */
+	/** Sets the player down outside the hole, on its rim on the side they were on (on ground, not over a fissure). */
 	private static void toRim(ServerWorld world, Gap gap, ServerPlayerEntity player) {
-		Vec3d to = rim(world, gap, player.getPos());
+		Vec3d to = safe(world, gap, player.getPos());
 		Vec3d middle = Vec3d.ofCenter(gap.target);
 		// Turned to face back across the hole, rather than at whatever hillside happens to be in front of them.
 		float yaw = (float) (MathHelper.atan2(middle.z - to.z, middle.x - to.x) * MathHelper.DEGREES_PER_RADIAN) - 90.0F;
