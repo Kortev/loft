@@ -5,12 +5,16 @@
 	"client": [
 		"BackgroundRendererMixin",
 		"CameraMixin",
-		"ClientWorldMixin",
 		"EntityLookMixin",
 		"GameRendererMixin",
 		"HeldItemRendererMixin",
 		"MusicTrackerMixin",
 		"PlayerArmPoseMixin",
+		"VoidCameraMixin",
+		"VoidOverlayMixin",
+		"VoidPlayerMixin",
+		"VoidSoundMixin",
+		"VoidToastMixin",
 		"WorldRendererMixin"
 	],
 	"injectors": {

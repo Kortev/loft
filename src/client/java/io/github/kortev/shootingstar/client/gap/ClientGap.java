@@ -1,6 +1,8 @@
 package io.github.kortev.shootingstar.client.gap;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.List;
 import java.util.UUID;
 import net.minecraft.client.sound.SoundInstance;
@@ -48,6 +50,8 @@ public final class ClientGap {
 	/** Where the witness shot stands, found once so it can see the target over the hills. */
 	@Nullable
 	public Vec3d wideEye;
+	/** Where each of the rebuild's shots stands round the hole, chosen once (GapCamera.view). */
+	public final Map<Integer, double[]> views = new HashMap<>();
 
 	public ClientGap(int id, BlockPos target, UUID shooter, boolean mine, int age, int radius, boolean terrain, BlockPos swapSpot,
 			boolean tree, Vec3d shooterPos) {

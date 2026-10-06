@@ -305,7 +305,14 @@ public class GapSelfTest implements ClientModInitializer {
 		if (walking && ticks >= 14) {
 			player.setYaw(player.getYaw() + 3.0F);
 		}
-		player.setPitch(MathHelper.lerp(MathHelper.clamp((ticks - 96) / 20.0F, 0.0F, 1.0F), 8.0F, 35.0F));
+		float settle = MathHelper.clamp((ticks - 96) / 20.0F, 0.0F, 1.0F);
+		player.setPitch(MathHelper.lerp(settle, 8.0F, 35.0F));
+		// Then turned back to face the hole, as anyone would be, waiting for the world.
+		if (ticks >= 96 && target != null) {
+			float face = (float) (MathHelper.atan2(target.getZ() + 0.5 - player.getZ(), target.getX() + 0.5 - player.getX())
+					* MathHelper.DEGREES_PER_RADIAN) - 90.0F;
+			player.setYaw(player.getYaw() + MathHelper.wrapDegrees(face - player.getYaw()) * 0.12F);
+		}
 	}
 
 	/** Beside the walking shooter, turning slowly round them, then craning up until they are a speck standing on nothing. */
@@ -325,37 +332,45 @@ public class GapSelfTest implements ClientModInitializer {
 	}
 
 	/**
-	 * From the shooter's eyes at the rim, straight up until the whole zone shows from above as a round hole
-	 * through the world; then round and down to the side, to see its walls drop away into the void.
+	 * From the shooter's eyes at the rim, up and out over the edge of the hole, looking down it, its walls dropping away
+	 * into the void; then round along the rim and a little lower, looking across at the far wall. Kept near the shooter,
+	 * where everything is loaded and inside the fog, and always clear of the ground.
 	 */
 	private static DoubleFunction<Capture.Pose> flyover(MinecraftClient client, double start) {
 		int r = 96;
 		Vec3d c = new Vec3d(target.getX() + 0.5, target.getY() + 1.0, target.getZ() + 0.5);
-		// From where the shooter is now: put back out at the rim when the world came back, not over the hole.
-		Vec3d from = client.player != null ? client.player.getPos() : c.add(r + 10, 0, 0);
+		// From where the shooter is now: carried home to the rim when the world came back.
+		Vec3d from = client.player != null ? client.player.getEyePos() : c.add(r + 10, 1.6, 0);
 		double a0 = Math.atan2(from.z - c.z, from.x - c.x);
+		double out0 = Math.hypot(from.x - c.x, from.z - c.z);
 		return time -> {
 			double s = time - start;
-			Vec3d eye = from.add(0, 1.62, 0);
-			Vec3d at = new Vec3d(c.x, from.y - 6.0, c.z);
-			// High over the middle, looking nearly straight down, so the whole zone shows as one round hole (the clouds are
-			// off for this shot).
-			double u = smooth((s - 25.0) / 130.0);
-			if (u > 0.0) {
-				double a = a0 + Math.toRadians(15.0) * u;
-				Vec3d top = c.add(Math.cos(a) * r * 0.45, 2.2 * r, Math.sin(a) * r * 0.45);
-				eye = eye.lerp(top, u);
-				at = at.lerp(c, u);
-			}
-			double v = smooth((s - 165.0) / 120.0);
-			if (v > 0.0) {
-				double b = a0 + Math.toRadians(15.0 + 70.0 * v);
-				Vec3d side = c.add(Math.cos(b) * 1.45 * r, 0.8 * r, Math.sin(b) * 1.45 * r);
-				eye = eye.lerp(side, v);
-				at = at.lerp(c.add(0, -70.0, 0), v);
-			}
-			return pose(eye, at);
+			double u = smooth((s - 20.0) / 120.0);
+			double v = smooth((s - 150.0) / 130.0);
+			double a = a0 - Math.toRadians(35.0) * v;
+			double out = MathHelper.lerp(u, out0, r * 0.9);
+			double up = MathHelper.lerp(u, 0.0, 40.0) - 14.0 * v;
+			Vec3d eye = new Vec3d(c.x + Math.cos(a) * out, from.y + up, c.z + Math.sin(a) * out);
+			// Down the near wall at first; then across at the far one.
+			Vec3d down = new Vec3d(c.x + Math.cos(a) * r * 0.2, c.y - 60.0, c.z + Math.sin(a) * r * 0.2);
+			Vec3d across = new Vec3d(c.x - Math.cos(a) * r * 0.55, c.y - 30.0, c.z - Math.sin(a) * r * 0.55);
+			Vec3d at = from.add(Math.cos(a0 + Math.PI) * 20.0, -4.0, Math.sin(a0 + Math.PI) * 20.0).lerp(down, u).lerp(across, v);
+			return pose(clear(client, eye), at);
 		};
+	}
+
+	/** {@code eye} raised, if need be, to stand clear of the highest ground round it. */
+	private static Vec3d clear(MinecraftClient client, Vec3d eye) {
+		if (client.world == null) {
+			return eye;
+		}
+		int top = Integer.MIN_VALUE;
+		for (int dx = -3; dx <= 3; dx += 3) {
+			for (int dz = -3; dz <= 3; dz += 3) {
+				top = Math.max(top, client.world.getTopY(Heightmap.Type.MOTION_BLOCKING, MathHelper.floor(eye.x) + dx, MathHelper.floor(eye.z) + dz));
+			}
+		}
+		return eye.y < top + 3.0 ? new Vec3d(eye.x, top + 3.0, eye.z) : eye;
 	}
 
 	private static Capture.Pose pose(Vec3d eye, Vec3d at) {
@@ -377,7 +392,8 @@ public class GapSelfTest implements ClientModInitializer {
 		world.getGameRules().get(GameRules.DO_DAYLIGHT_CYCLE).set(false, server);
 		world.getGameRules().get(GameRules.DO_WEATHER_CYCLE).set(false, server);
 		world.getGameRules().get(GameRules.DO_MOB_SPAWNING).set(false, server);
-		world.setTimeOfDay(5000);
+		// Morning: at noon the moon would be straight down, and seen through the bottom of the hole.
+		world.setTimeOfDay(2000);
 		world.setWeather(12000, 0, false, false);
 		// On foot and in survival, so the hotbar, hearts, hunger and experience are all there at the end.
 		player.changeGameMode(GameMode.SURVIVAL);

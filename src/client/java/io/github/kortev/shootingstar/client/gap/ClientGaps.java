@@ -3,7 +3,14 @@ package io.github.kortev.shootingstar.client.gap;
 import io.github.kortev.shootingstar.client.ClientConfig;
 import io.github.kortev.shootingstar.client.ClientStrikes;
 import io.github.kortev.shootingstar.gap.GapTimeline;
+import io.github.kortev.shootingstar.gap.VoidFloor;
 import io.github.kortev.shootingstar.network.GapEndPayload;
+import io.github.kortev.shootingstar.network.GapFloorPayload;
+import io.github.kortev.shootingstar.network.GapSettlePayload;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.minecraft.sound.SoundCategory;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.world.Heightmap;
 import io.github.kortev.shootingstar.network.GapLockPayload;
 import io.github.kortev.shootingstar.registry.ModSounds;
 import java.util.Collection;
@@ -204,6 +211,84 @@ public final class ClientGaps {
 	public static void clear(MinecraftClient client) {
 		GAPS.clear();
 		VoidMusic.stop();
+		floor = Double.NaN;
+		hushed = false;
+		sawRebuild = false;
+		VoidFx.clear();
+	}
+
+	/**
+	 * The floor of nothing this player walks on while their world is gone and coming back ({@link VoidFloor}), NaN
+	 * while they are on the world's own ground.
+	 */
+	private static double floor = Double.NaN;
+	/** The world is back where this player stands on their floor, so it can push them out of itself again. */
+	private static boolean landed;
+	/** The world's own sounds have been hushed for it; this player has seen a rebuild start (and so, end). */
+	private static boolean hushed;
+	private static boolean sawRebuild;
+	/** What the world makes that nobody in the void hears: its creatures, its weather, its blocks. */
+	private static final SoundCategory[] HUSHED = {SoundCategory.HOSTILE, SoundCategory.NEUTRAL, SoundCategory.AMBIENT, SoundCategory.WEATHER,
+			SoundCategory.BLOCKS, SoundCategory.RECORDS};
+
+	/** True while this player walks through the unseen world on their floor: not yet back on its ground. */
+	public static boolean passingThrough() {
+		return floating() && !landed;
+	}
+
+	/** True while this player is held on the floor of nothing, from the black until they are carried home. */
+	public static boolean floating() {
+		return !Double.isNaN(floor);
+	}
+
+	/** The local player's floor, for {@link VoidFloor}. */
+	public static double floorFor(net.minecraft.entity.Entity entity) {
+		return entity == MinecraftClient.getInstance().player ? floor : Double.NaN;
+	}
+
+	/** Whether a sound of {@code category} is one the void keeps from this player. */
+	public static boolean hushes(SoundCategory category) {
+		if (!floating()) {
+			return false;
+		}
+		for (SoundCategory hushed : HUSHED) {
+			if (hushed == category) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Once the world is back where this player stands, their floor settles onto it: they rise up out of any hill they
+	 * walked into in the black, or step down onto ground just under them. Out over a valley or the hole it stays where
+	 * it is, holding them up, until they are carried home.
+	 */
+	private static void settle(MinecraftClient client, ClientWorld world) {
+		landed = false;
+		ClientGap back = rebuilding();
+		if (!floating() || back == null || client.player == null) {
+			return;
+		}
+		double front = GapRender.rebuildFront(back, back.rebuild(1.0F));
+		Vec3d feet = client.player.getPos();
+		double out = Math.hypot(feet.x - back.contact.x, feet.z - back.contact.z);
+		if (front < 0.0 ? back.rebuildClock < GapTimeline.REBUILD_SWEEP : out > front - 6.0) {
+			return;
+		}
+		landed = true;
+		int top = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, MathHelper.floor(feet.x), MathHelper.floor(feet.z));
+		if (top > world.getBottomY() && top - floor < 80.0 && floor - top < 6.0) {
+			floor += MathHelper.clamp(top - floor, -0.3, 0.6);
+		}
+	}
+
+	public static void onFloor(GapFloorPayload payload, MinecraftClient client) {
+		floor = payload.floor();
+		if (client.player != null && floating()) {
+			client.player.fallDistance = 0.0F;
+			client.player.setVelocity(client.player.getVelocity().multiply(1.0, 0.0, 1.0));
+		}
 	}
 
 	public static void tick(MinecraftClient client) {
@@ -212,6 +297,23 @@ public final class ClientGaps {
 			return;
 		}
 		hud(client);
+		if (floating() && !hushed) {
+			// Whatever the world was making stops as the black takes it; nothing more of it is heard until it is back.
+			for (SoundCategory category : HUSHED) {
+				client.getSoundManager().stopSounds(null, category);
+			}
+		}
+		hushed = floating();
+		settle(client, world);
+		// Once this player's rebuild is over (sooner, if they hurried it), they can be sent home.
+		if (rebuilding() != null) {
+			sawRebuild = true;
+		} else if (sawRebuild) {
+			sawRebuild = false;
+			if (floating() && ClientPlayNetworking.canSend(GapSettlePayload.ID)) {
+				ClientPlayNetworking.send(new GapSettlePayload());
+			}
+		}
 		boolean hold = holdMusic();
 		if (hold && !musicHeld) {
 			// Whatever was playing stops as the key turns; the tracker itself is held until the hold lifts.

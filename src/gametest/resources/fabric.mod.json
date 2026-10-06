@@ -10,7 +10,8 @@
 			"io.github.kortev.shootingstar.test.WorldGenHelper"
 		],
 		"fabric-gametest": [
-			"io.github.kortev.shootingstar.test.StrikeGameTests"
+			"io.github.kortev.shootingstar.test.StrikeGameTests",
+			"io.github.kortev.shootingstar.test.GapGameTests"
 		],
 		"client": [
 			"io.github.kortev.shootingstar.test.ClientSelfTest",

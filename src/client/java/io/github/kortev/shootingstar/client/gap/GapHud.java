@@ -20,6 +20,11 @@ public final class GapHud {
 
 	public static void render(DrawContext ctx, RenderTickCounter counter) {
 		MinecraftClient client = MinecraftClient.getInstance();
+		// Carried off: the picture goes white as they go and clears where they land.
+		float warp = VoidFx.flash(counter.getTickDelta(false));
+		if (warp > 0.01F) {
+			ctx.fill(0, 0, ctx.getScaledWindowWidth(), ctx.getScaledWindowHeight(), (Math.min(255, (int) (warp * 255)) << 24) | 0xF4EEFF);
+		}
 		ClientGap gap = ClientGaps.mine();
 		if (gap == null) {
 			// Taken into the void with everyone else: their own rebuild when it comes; until then, what has happened.

@@ -712,10 +712,7 @@ public final class GapRender {
 		return MathHelper.clamp(view + gap.radius + 48.0, gap.radius + 120.0, 600.0);
 	}
 
-	/**
-	 * How much of the sky's light is back during a rebuild, 0 to 1: as the grade pass brings the sky back, so that
-	 * anything drawn in it (the clouds) comes back with it rather than lit white against the black.
-	 */
+	/** How much of the sky's light is back during a rebuild, 0 to 1, as the grade pass brings the sky back. */
 	public static float skyLight(float tickDelta) {
 		ClientGap gap = ClientGaps.rebuilding();
 		if (gap == null) {

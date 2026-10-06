@@ -54,7 +54,7 @@
   "commands.shootingstar.gap.open": "Ginnungagap opened on %s, %s, %s",
   "commands.shootingstar.gap.release": "Released %s Ginnungagap event(s)",
   "death.attack.shootingstar.erased": "%1$s was erased from reality",
-  "death.attack.shootingstar.erased.player": "%1$s was erased from reality while fighting %2$s",
+  "death.attack.shootingstar.erased.player": "%1$s was erased from reality by %2$s",
   "gamerule.ginnungagapRadius": "Ginnungagap erased zone radius",
   "gamerule.ginnungagapTerrainDamage": "Ginnungagap erases terrain",
   "subtitles.shootingstar.gap.key": "Genesis Key turns",

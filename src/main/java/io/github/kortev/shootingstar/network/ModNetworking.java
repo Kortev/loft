@@ -17,6 +17,9 @@ public final class ModNetworking {
 		PayloadTypeRegistry.playS2C().register(GapLockPayload.ID, GapLockPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(GapSwapPayload.ID, GapSwapPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(GapEndPayload.ID, GapEndPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(GapFloorPayload.ID, GapFloorPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(GapWarpPayload.ID, GapWarpPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(GapSettlePayload.ID, GapSettlePayload.CODEC);
 	}
 
 	public static void send(ServerPlayerEntity player, CustomPayload payload) {

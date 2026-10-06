@@ -10,7 +10,11 @@ import io.github.kortev.shootingstar.client.render.WorldEffects;
 import io.github.kortev.shootingstar.client.render.WorldProjector;
 import io.github.kortev.shootingstar.client.world.WorldFx;
 import io.github.kortev.shootingstar.item.GenesisKeyItem;
+import io.github.kortev.shootingstar.client.gap.VoidFx;
+import io.github.kortev.shootingstar.gap.VoidFloor;
 import io.github.kortev.shootingstar.network.GapEndPayload;
+import io.github.kortev.shootingstar.network.GapFloorPayload;
+import io.github.kortev.shootingstar.network.GapWarpPayload;
 import io.github.kortev.shootingstar.network.GapLockPayload;
 import io.github.kortev.shootingstar.network.StrikeCancelPayload;
 import io.github.kortev.shootingstar.network.StrikeImpactPayload;
@@ -49,6 +53,9 @@ public class ShootingStarClient implements ClientModInitializer {
 				(payload, context) -> ClientStrikes.onCancel(payload));
 		ClientPlayNetworking.registerGlobalReceiver(GapLockPayload.ID, (payload, context) -> ClientGaps.onLock(payload, context.client()));
 		ClientPlayNetworking.registerGlobalReceiver(GapEndPayload.ID, (payload, context) -> ClientGaps.onEnd(payload));
+		ClientPlayNetworking.registerGlobalReceiver(GapFloorPayload.ID, (payload, context) -> ClientGaps.onFloor(payload, context.client()));
+		ClientPlayNetworking.registerGlobalReceiver(GapWarpPayload.ID, (payload, context) -> VoidFx.onWarp(payload, context.client()));
+		VoidFloor.client = ClientGaps::floorFor;
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
 			ClientStrikes.clear(client);
 			ClientGaps.clear(client);
@@ -64,12 +71,14 @@ public class ShootingStarClient implements ClientModInitializer {
 			Aim.tick(client);
 			ClientStrikes.tick(client);
 			ClientGaps.tick(client);
+			VoidFx.tick(client);
 		});
 
 		WorldRenderEvents.AFTER_TRANSLUCENT.register(WorldEffects::render);
 		WorldRenderEvents.LAST.register(WorldProjector::capture);
 		WorldRenderEvents.LAST.register(WorldFx::render);
 		WorldRenderEvents.LAST.register(GapRender::render);
+		WorldRenderEvents.LAST.register(VoidFx::render);
 		HudRenderCallback.EVENT.register(HudEffects::render);
 		HudRenderCallback.EVENT.register(GapHud::render);
 	}

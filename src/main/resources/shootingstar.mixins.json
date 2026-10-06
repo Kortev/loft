@@ -3,6 +3,10 @@
 	"package": "io.github.kortev.shootingstar.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
+		"EntityMixin",
+		"LivingEntityMixin",
+		"PlayerEntityMixin",
+		"ServerPlayNetworkHandlerMixin",
 		"WorldChunkMixin"
 	],
 	"injectors": {

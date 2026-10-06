@@ -25,6 +25,13 @@ public final class ModGameRules {
 	public static final GameRules.Key<GameRules.BooleanRule> GAP_TERRAIN = GameRuleRegistry.register(
 			"ginnungagapTerrainDamage", GameRules.Category.MISC, GameRuleFactory.createBooleanRule(true));
 
+	/**
+	 * Whether anyone (but the shooter, or anyone in creative or spectator) still standing in the zone when the black
+	 * reaches them is erased with it. Everyone else is held safe in the void and carried home afterwards.
+	 */
+	public static final GameRules.Key<GameRules.BooleanRule> GAP_LETHAL = GameRuleRegistry.register(
+			"ginnungagapLethal", GameRules.Category.MISC, GameRuleFactory.createBooleanRule(true));
+
 	private ModGameRules() {
 	}
 
