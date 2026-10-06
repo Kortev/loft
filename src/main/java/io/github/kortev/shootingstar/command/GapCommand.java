@@ -26,6 +26,10 @@ public final class GapCommand {
 	}
 
 	private static int open(ServerCommandSource source, BlockPos pos) {
+		if (GapManager.running()) {
+			source.sendError(Text.translatable("commands.shootingstar.gap.busy"));
+			return 0;
+		}
 		GapManager.launch(source.getWorld(), pos, source.getPlayer());
 		source.sendFeedback(() -> Text.translatable("commands.shootingstar.gap.open", pos.getX(), pos.getY(), pos.getZ()), true);
 		return 1;

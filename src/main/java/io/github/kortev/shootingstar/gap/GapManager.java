@@ -1,6 +1,7 @@
 package io.github.kortev.shootingstar.gap;
 
 import io.github.kortev.shootingstar.ShootingStar;
+import io.github.kortev.shootingstar.item.GenesisKeyItem;
 import io.github.kortev.shootingstar.network.GapEndPayload;
 import io.github.kortev.shootingstar.network.GapFloorPayload;
 import io.github.kortev.shootingstar.network.GapLockPayload;
@@ -14,6 +15,7 @@ import io.github.kortev.shootingstar.registry.ModGameRules;
 import io.github.kortev.shootingstar.registry.ModItems;
 import io.github.kortev.shootingstar.strike.Targeting;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -22,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import net.fabricmc.fabric.api.entity.event.v1.ServerEntityWorldChangeEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -38,6 +41,8 @@ import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.player.PlayerInventory;
+import net.minecraft.item.ItemStack;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.tag.BlockTags;
 import net.minecraft.server.MinecraftServer;
@@ -45,7 +50,9 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ChunkTicketType;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.state.property.Properties;
+import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
+import net.minecraft.util.Formatting;
 import net.minecraft.util.Hand;
 import net.minecraft.util.TypedActionResult;
 import net.minecraft.util.Util;
@@ -61,12 +68,17 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Runs Ω-00 Ginnungagap events on the server: the erasure of everything in the zone after the block of the
- * other universe comes down, and everyone in the world held safe in the black until the shooter uses the key again.
+ * other universe comes down, and everyone held safe in the black until the shooter uses the key again.
  * <p>
- * It plays out for the whole world at once, like a live event: anyone still standing in the zone when the black
- * reaches them is erased with it; then everyone else, wherever they were, is carried to the rim of the hole, round the
- * shooter, to wait in the black together on a floor of nothing ({@link VoidFloor}), out of reach of anything left in
- * the world, and to watch it come back; and when it is all back, each is carried home again.
+ * It plays out for the whole server at once, like a live event: anyone still standing in the zone when the black
+ * reaches them is erased with it; then everyone else, in whatever world they were, is carried to the rim of the hole,
+ * in a group round the shooter, to wait in the black together on one floor of nothing ({@link VoidFloor}), out of
+ * reach of anything left in the world, and to watch it come back; and when it is all back, each is carried home.
+ * One at a time: a second key does not turn while one is running.
+ * <p>
+ * Where everyone came from is saved with the world ({@link GapState}), so whatever happens to the server, nobody is
+ * left at the rim: if it goes down in the middle of an event, the hole is finished and everyone sent home at once, or,
+ * after a crash, as soon as it is back.
  */
 public final class GapManager {
 	private static final ChunkTicketType<ChunkPos> TICKET = ChunkTicketType.create("shootingstar_gap",
@@ -78,9 +90,14 @@ public final class GapManager {
 	private static final int ABSENT_LIMIT = 20 * 60 * 5;
 	/** How long a player is held in the light before they are carried off (so everyone sees them go). */
 	private static final int WARP_DELAY = 10;
-	/** How far out from the middle of the hole everyone is gathered, past its edge, and how far apart. */
+	/**
+	 * Where everyone is gathered: the shooter at the front, past the edge of the hole on their side, and everyone else in
+	 * rows beside and behind them, a few blocks apart.
+	 */
 	private static final double GATHER_OUT = 10.0;
-	private static final double GATHER_APART = 4.0;
+	private static final double GATHER_APART = 3.0;
+	private static final double GATHER_BACK = 3.0;
+	private static final int PER_ROW = 9;
 
 	private static final List<Gap> GAPS = new ArrayList<>();
 	/**
@@ -91,16 +108,12 @@ public final class GapManager {
 	private static final List<Gap> RETURNING = new ArrayList<>();
 	/** Players about to be carried somewhere, once the light has held them for a moment. */
 	private static final List<Warp> WARPS = new ArrayList<>();
-	/** Anyone who logged off while gathered, and where they are to be sent when they come back. */
-	private static final Map<UUID, Home> AWAY = new HashMap<>();
+	@Nullable
+	private static GapState state;
 	private static int nextId = 1;
 	private static long ticks;
 
 	private GapManager() {
-	}
-
-	/** Where a gathered player came from, and which way they faced. */
-	private record Home(RegistryKey<World> world, Vec3d pos, float yaw, float pitch) {
 	}
 
 	private record Warp(Gap gap, UUID player, RegistryKey<World> world, Vec3d to, float yaw, float pitch, double floor, long at) {
@@ -126,15 +139,14 @@ public final class GapManager {
 		boolean taken;
 		/** How long the shooter has been gone (logged off) while everyone waits in the void. */
 		int absent;
-		/** Everyone gathered at the rim for it, and where each is to be sent home to. */
-		final Map<UUID, Home> homes = new HashMap<>();
-		/** Everyone walking on the floor of nothing, and how high it is for each. */
-		final Map<UUID, Double> floors = new HashMap<>();
+		/** Everyone walking on the floor of nothing for it. */
+		final Set<UUID> floors = new HashSet<>();
 		/** Everyone the black has erased (each only once, so whoever comes back into the zone is not erased again). */
 		final Set<UUID> erasedPlayers = new HashSet<>();
-		/** Which way round the hole the shooter is (radians), where the gathering starts; and how many have places. */
+		/** Which way round the hole the shooter is (radians); how high everyone's floor is; who stands where. */
 		double side;
-		int places;
+		double floor = Double.NaN;
+		final Map<UUID, Integer> places = new HashMap<>();
 
 		Gap(int id, RegistryKey<World> dimension, BlockPos target, UUID shooter, int radius, boolean terrain, BlockPos swapSpot,
 				boolean tree) {
@@ -169,81 +181,68 @@ public final class GapManager {
 		GapLockPayload payload() {
 			return new GapLockPayload(id, target, shooter, age, radius, terrain, swapSpot, tree);
 		}
+
+		GapState.Event record() {
+			return new GapState.Event(dimension, target, radius, terrain, shooter, taken);
+		}
 	}
 
 	public static void init() {
 		ServerTickEvents.END_SERVER_TICK.register(GapManager::tick);
-		// Anything still floored over is opened up as the server stops, before the worlds are saved, so no barrier is left
-		// standing in a save.
-		ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
-			for (Gap gap : RETURNING) {
-				if (gap.erasure != null) {
-					gap.erasure.unlid();
-				}
-			}
-			for (Gap gap : GAPS) {
-				if (gap.erasure != null) {
-					gap.erasure.unlid();
-				}
-			}
-		});
+		ServerLifecycleEvents.SERVER_STARTED.register(GapManager::recover);
+		ServerLifecycleEvents.SERVER_STOPPING.register(GapManager::stopping);
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
 			RETURNING.clear();
 			GAPS.clear();
 			WARPS.clear();
-			AWAY.clear();
+			state = null;
 		});
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
 			ServerPlayerEntity player = handler.getPlayer();
-			Home away = AWAY.remove(player.getUuid());
-			for (Gap gap : GAPS) {
-				boolean mine = gap.shooter.equals(player.getUuid());
-				// Anyone coming into a world that is gone is in the black with everyone else.
-				if (gap.dimension == player.getWorld().getRegistryKey() && !gap.released && (gap.age < GapTimeline.END || mine || gap.taken)) {
-					ModNetworking.send(player, gap.payload());
-				}
-			}
-			Gap gap = holding(player.getServerWorld());
+			introduce(player);
+			mendKey(player);
+			Gap gap = holding();
 			if (gap != null) {
-				// Back while it is still going on: gathered again (home is still where they first came from).
-				if (away != null) {
-					gap.homes.put(player.getUuid(), away);
-				}
-				gather(player.getServerWorld(), gap, player);
-			} else if (away != null) {
-				// Back after it is all over: home.
-				ServerWorld world = server.getWorld(away.world());
-				if (world != null) {
-					Vec3d to = safe(world, null, away.pos());
-					player.teleport(world, to.x, to.y, to.z, away.yaw(), away.pitch());
+				// In while it is still going on: gathered with everyone (home is still where they first came from).
+				gather(gap, player);
+			} else {
+				GapState.Home home = state(server).homes.remove(player.getUuid());
+				if (home != null) {
+					// Back after it is all over (or after the server went down in the middle of it): home.
+					state(server).markDirty();
+					ServerWorld world = server.getWorld(home.world());
+					if (world != null) {
+						Vec3d to = safe(world, null, home.pos());
+						player.teleport(world, to.x, to.y, to.z, home.yaw(), home.pitch());
+						player.fallDistance = 0.0F;
+					}
 				}
 			}
 		});
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
-			ServerPlayerEntity player = handler.getPlayer();
 			for (Gap gap : all()) {
-				Home home = gap.homes.remove(player.getUuid());
-				gap.floors.remove(player.getUuid());
-				if (home != null) {
-					AWAY.put(player.getUuid(), home);
-				}
+				gap.floors.remove(handler.getPlayer().getUuid());
 			}
 		});
-		// Erased, and back: straight back to the rest of them at the rim, and afterwards home to where they came back.
+		// Carried into another world (to the rim, or home): told about any event going on there.
+		ServerEntityWorldChangeEvents.AFTER_PLAYER_CHANGE_WORLD.register((player, origin, destination) -> introduce(player));
 		ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> {
-			Gap gap = holding(newPlayer.getServerWorld());
+			Gap gap = holding();
 			if (gap != null && !alive) {
-				gap.homes.remove(newPlayer.getUuid());
+				// Erased, and back: straight back to the rest of them at the rim, and afterwards home to where they came back.
 				gap.floors.remove(newPlayer.getUuid());
-				gather(newPlayer.getServerWorld(), gap, newPlayer);
+				gather(gap, newPlayer);
+			} else if (!alive) {
+				// Never over a bottomless hole, whatever spawn point was in it.
+				overGround(newPlayer);
 			}
 		});
 		// Someone whose rebuild is over sooner (they hurried it) can go home now.
 		ServerPlayNetworking.registerGlobalReceiver(GapSettlePayload.ID, (payload, context) -> {
 			ServerPlayerEntity player = context.player();
-			for (Gap gap : RETURNING) {
-				if (gap.homes.containsKey(player.getUuid())) {
-					sendHome(player.getServerWorld(), gap, player);
+			for (Gap gap : List.copyOf(RETURNING)) {
+				if (gap.floors.contains(player.getUuid())) {
+					sendHome(gap, player);
 				}
 			}
 		});
@@ -263,6 +262,13 @@ public final class GapManager {
 		PlayerBlockBreakEvents.BEFORE.register((world, player, pos, state, blockEntity) -> !cut(player, world));
 	}
 
+	private static GapState state(MinecraftServer server) {
+		if (state == null) {
+			state = GapState.get(server);
+		}
+		return state;
+	}
+
 	/** Whether {@code player} can touch nothing: their world is gone, or they are held at the rim while it comes back. */
 	private static boolean cut(PlayerEntity player, World world) {
 		return gone(world) || player instanceof ServerPlayerEntity serverPlayer && held(serverPlayer);
@@ -280,10 +286,18 @@ public final class GapManager {
 		GAPS.add(gap);
 		ChunkPos chunk = new ChunkPos(target);
 		world.getChunkManager().addTicket(TICKET, chunk, MathHelper.clamp(MathHelper.ceil(radius / 16.0) + 2, 1, 32), chunk);
+		// Remembered with the world, so a hole cut short by a crash is finished when the server comes back.
+		state(world.getServer()).event = gap.record();
+		state(world.getServer()).markDirty();
 		ModNetworking.broadcast(world, gap.payload());
 		ShootingStar.LOGGER.info("Ginnungagap #{} on {} in {}", gap.id, target.toShortString(), world.getRegistryKey().getValue());
 		ModCriteria.fire(shooter, ModCriteria.GAP_OPEN);
 		return gap;
+	}
+
+	/** True while an event is going on anywhere on the server, from the key turning until everyone is home. */
+	public static boolean running() {
+		return !GAPS.isEmpty() || !RETURNING.isEmpty();
 	}
 
 	/** True while the player's last event is still playing or holding them in the black. */
@@ -318,27 +332,26 @@ public final class GapManager {
 	 */
 	public static boolean held(ServerPlayerEntity player) {
 		for (Gap gap : GAPS) {
-			if (gap.floors.containsKey(player.getUuid())) {
+			if (gap.floors.contains(player.getUuid())) {
 				return true;
 			}
 		}
 		for (Gap gap : RETURNING) {
-			if (gap.floors.containsKey(player.getUuid())) {
+			if (gap.floors.contains(player.getUuid())) {
 				return true;
 			}
 		}
 		return false;
 	}
 
-	/** The event in this world everyone is being held for (gone, or coming back), or null. */
+	/**
+	 * The event whose world is gone, everyone on the server being held in the black for it; or null. (Anyone who comes in
+	 * once it is coming back is simply left where they are, or sent home.)
+	 */
 	@Nullable
-	private static Gap holding(ServerWorld world) {
-		Gap gone = goneWith(world);
-		if (gone != null) {
-			return gone;
-		}
-		for (Gap gap : RETURNING) {
-			if (gap.dimension == world.getRegistryKey() && gap.age < GapTimeline.REBUILD_END) {
+	private static Gap holding() {
+		for (Gap gap : GAPS) {
+			if (gap.taken && !gap.released) {
 				return gap;
 			}
 		}
@@ -368,21 +381,31 @@ public final class GapManager {
 		return false;
 	}
 
-	/** Lets reality back in: the world is there again, and everyone in it is told, so they see it rebuilt. */
+	/** Lets reality back in, by command or with the key gone too long: the shooter's cracked key is put right. */
 	public static void release(Gap gap, MinecraftServer server) {
+		release(gap, server, false);
+	}
+
+	/**
+	 * Lets reality back in: the world is there again, and everyone in it is told, so they see it rebuilt. {@code byKey}:
+	 * the cracked key was turned for it (and shatters itself); otherwise it is put right here.
+	 */
+	public static void release(Gap gap, MinecraftServer server, boolean byKey) {
 		if (gap.released) {
 			return;
 		}
 		gap.released = true;
+		if (!byKey) {
+			mendKey(server, gap.shooter, gap.taken);
+		}
 		ServerWorld world = server.getWorld(gap.dimension);
 		if (world == null) {
 			return;
 		}
 		if (gap.terrain && gap.erasure != null) {
-			// Let back in early (by command, or the key gone too long): the hole is finished first, all at once.
-			while (!gap.erasure.done()) {
-				gap.erasure.step(Double.MAX_VALUE);
-			}
+			// Let back in early (by command, or the key gone too long): the hole is finished first, all at once (the light
+			// settles over the next few ticks, and its chunks are sent then).
+			gap.erasure.finishBlocks();
 			// Anyone not held on the floor who is out over where the hole is, on the ground that was, is set down on its
 			// rim before that goes.
 			for (ServerPlayerEntity player : List.copyOf(world.getPlayers())) {
@@ -413,10 +436,9 @@ public final class GapManager {
 
 	private static void tick(MinecraftServer server) {
 		ticks++;
-		for (Iterator<Warp> it = WARPS.iterator(); it.hasNext(); ) {
-			Warp warp = it.next();
+		for (Warp warp : List.copyOf(WARPS)) {
 			if (ticks >= warp.at()) {
-				it.remove();
+				WARPS.remove(warp);
 				arrive(server, warp);
 			}
 		}
@@ -428,16 +450,26 @@ public final class GapManager {
 				continue;
 			}
 			gap.age++;
+			if (gap.erasure != null && !gap.erasure.done()) {
+				// Released early: the light still to settle and the hole to be sent.
+				gap.erasure.step(Double.MAX_VALUE);
+			}
 			if (gap.age == GapTimeline.REBUILD_DONE + 40 && gap.erasure != null) {
 				unlid(world, gap);
 			}
-			if (gap.age >= GapTimeline.REBUILD_END) {
+			if (gap.age == GapTimeline.REBUILD_END) {
 				// It is all back: everyone still at the rim is carried home.
-				for (ServerPlayerEntity player : List.copyOf(world.getPlayers())) {
-					if (gap.homes.containsKey(player.getUuid())) {
-						sendHome(world, gap, player);
+				for (ServerPlayerEntity player : List.copyOf(server.getPlayerManager().getPlayerList())) {
+					if (gap.floors.contains(player.getUuid())) {
+						sendHome(gap, player);
 					}
 				}
+			}
+			// Kept a moment longer, for the last of them to land.
+			if (gap.age >= GapTimeline.REBUILD_END + WARP_DELAY + 4) {
+				gap.floors.clear();
+				state(server).event = null;
+				state(server).markDirty();
 				it.remove();
 			}
 		}
@@ -455,21 +487,10 @@ public final class GapManager {
 					&& world.getGameRules().getBoolean(ModGameRules.GAP_LETHAL)) {
 				eraseIn(world, gap, shooter);
 			}
-			// Once the black has everything, the world is gone: everyone in it, wherever they are, is carried to the rim of
-			// the hole, round the shooter, under the black, to be in it together until the key is turned again.
+			// Once the black has everything, the world is gone: everyone on the server, wherever they are, is carried to the
+			// rim of the hole, round the shooter, under the black, to be in it together until the key is turned again.
 			if (gap.age == GapTimeline.NOTHING) {
-				gap.taken = true;
-				Vec3d from = shooter != null && shooter.getWorld() == world ? shooter.getPos() : Vec3d.ofCenter(gap.target).add(1, 0, 0);
-				gap.side = Math.atan2(from.z - gap.target.getZ() - 0.5, from.x - gap.target.getX() - 0.5);
-				if (shooter != null && shooter.getWorld() == world) {
-					gather(world, gap, shooter);
-				}
-				for (ServerPlayerEntity player : List.copyOf(world.getPlayers())) {
-					if (player.isAlive()) {
-						gather(world, gap, player);
-					}
-					ModCriteria.fire(player, ModCriteria.GAP_VOID);
-				}
+				take(server, world, gap, shooter);
 			}
 			// The black spreading is only seen; nothing is touched until then. Then the hole is taken out, without telling
 			// anyone block by block (see Erasure), and what was in it goes.
@@ -490,6 +511,38 @@ public final class GapManager {
 			}
 			if (gap.released) {
 				it.remove();
+			}
+		}
+	}
+
+	/** The black has it all: the world is gone, and everyone on the server is gathered at the rim on one floor. */
+	private static void take(MinecraftServer server, ServerWorld world, Gap gap, @Nullable ServerPlayerEntity shooter) {
+		gap.taken = true;
+		state(server).event = gap.record();
+		state(server).markDirty();
+		Vec3d from = shooter != null && shooter.getWorld() == world ? shooter.getPos() : Vec3d.ofCenter(gap.target).add(1, 0, 0);
+		gap.side = Math.atan2(from.z - gap.target.getZ() - 0.5, from.x - gap.target.getX() - 0.5);
+		// One floor for everyone, as high as the ground where the shooter will stand.
+		Vec3d front = place(world, gap, 0);
+		gap.floor = groundAround(world, MathHelper.floor(front.x), MathHelper.floor(front.z));
+		if (shooter != null) {
+			gather(gap, shooter);
+		}
+		for (ServerPlayerEntity player : List.copyOf(server.getPlayerManager().getPlayerList())) {
+			if (player.isAlive() && !player.isSpectator() && !gap.places.containsKey(player.getUuid())) {
+				gather(gap, player);
+			}
+			ModCriteria.fire(player, ModCriteria.GAP_VOID);
+		}
+	}
+
+	/** Sends {@code player} the events going on in the world they are in now (on joining, or arriving from another). */
+	private static void introduce(ServerPlayerEntity player) {
+		for (Gap gap : GAPS) {
+			boolean mine = gap.shooter.equals(player.getUuid());
+			// Anyone coming into a world that is gone is in the black with everyone else.
+			if (gap.dimension == player.getWorld().getRegistryKey() && !gap.released && (gap.age < GapTimeline.END || mine || gap.taken)) {
+				ModNetworking.send(player, gap.payload());
 			}
 		}
 	}
@@ -522,34 +575,56 @@ public final class GapManager {
 	}
 
 	/**
-	 * Takes {@code player} to the rim of the hole with everyone else: they are held where they are on a floor of
-	 * nothing, then carried in a moment to the next place round the rim from the shooter, facing the hole.
+	 * Takes {@code player}, wherever they are, to the rim of the hole with everyone else: held where they stand for a
+	 * moment, then carried to their place in the group round the shooter, facing the hole, on everyone's floor. Where they
+	 * came from is remembered, the first time, to send them back to.
 	 */
-	private static void gather(ServerWorld world, Gap gap, ServerPlayerEntity player) {
-		UUID id = player.getUuid();
-		if (gap.homes.containsKey(id)) {
+	private static void gather(Gap gap, ServerPlayerEntity player) {
+		MinecraftServer server = player.getServer();
+		ServerWorld world = server.getWorld(gap.dimension);
+		if (world == null || Double.isNaN(gap.floor)) {
 			return;
 		}
-		gap.homes.put(id, new Home(world.getRegistryKey(), player.getPos(), player.getYaw(), player.getPitch()));
+		UUID id = player.getUuid();
+		GapState saved = state(server);
+		if (!saved.homes.containsKey(id)) {
+			saved.homes.put(id, new GapState.Home(player.getWorld().getRegistryKey(), player.getPos(), player.getYaw(), player.getPitch()));
+			saved.markDirty();
+		}
+		Integer index = gap.places.get(id);
+		if (index == null) {
+			index = gap.places.size();
+			gap.places.put(id, index);
+		}
 		hold(gap, player, player.getY());
-		Vec3d place = place(world, gap, gap.places++);
+		Vec3d place = place(world, gap, index);
 		Vec3d middle = Vec3d.ofCenter(gap.target);
 		float yaw = (float) (MathHelper.atan2(middle.z - place.z, middle.x - place.x) * MathHelper.DEGREES_PER_RADIAN) - 90.0F;
-		warp(world, gap, player, place, yaw, 10.0F, place.y);
+		warp(gap, player, world, place, yaw, 10.0F, gap.floor);
 	}
 
-	/** Sends {@code player} home from the rim (to somewhere safe near where they came from), off the floor of nothing. */
-	private static void sendHome(ServerWorld world, Gap gap, ServerPlayerEntity player) {
-		Home home = gap.homes.remove(player.getUuid());
-		if (home == null) {
-			return;
-		}
-		ServerWorld to = player.getServer().getWorld(home.world());
-		if (to == null || to != world) {
+	/**
+	 * Sends {@code player} home from the rim, to somewhere safe near where they came from, in whatever world that was;
+	 * or, if they are about there already and on the ground, simply lets them go where they stand.
+	 */
+	private static void sendHome(Gap gap, ServerPlayerEntity player) {
+		MinecraftServer server = player.getServer();
+		GapState saved = state(server);
+		GapState.Home home = saved.homes.remove(player.getUuid());
+		saved.markDirty();
+		ServerWorld to = home == null ? null : server.getWorld(home.world());
+		if (to == null) {
 			hold(gap, player, Double.NaN);
 			return;
 		}
-		warp(world, gap, player, safe(world, gap, home.pos()), home.yaw(), home.pitch(), Double.NaN);
+		Vec3d spot = safe(to, to.getRegistryKey() == gap.dimension ? gap : null, home.pos());
+		Vec3d now = player.getPos();
+		if (to == player.getWorld() && Math.hypot(spot.x - now.x, spot.z - now.z) < 8.0 && Math.abs(spot.y - now.y) < 4.0
+				&& standable(to, player.getBlockPos())) {
+			hold(gap, player, Double.NaN);
+			return;
+		}
+		warp(gap, player, to, spot, home.yaw(), home.pitch(), Double.NaN);
 	}
 
 	/** Puts {@code player} on a floor of nothing {@code floor} high (NaN: off it), here and on their client. */
@@ -557,33 +632,56 @@ public final class GapManager {
 		if (Double.isNaN(floor)) {
 			gap.floors.remove(player.getUuid());
 		} else {
-			gap.floors.put(player.getUuid(), floor);
+			gap.floors.add(player.getUuid());
 		}
 		player.fallDistance = 0.0F;
 		ModNetworking.send(player, new GapFloorPayload(floor));
 	}
 
 	/**
-	 * The {@code index}th place at the rim: the shooter's own first, on their side of the hole, then out to either side
-	 * of it in turn, a few blocks apart, so everyone stands together along the edge.
+	 * The {@code index}th place in the gathering: the shooter's own first, at the front on their side of the hole; then
+	 * out to either side of them in turn, a few blocks apart, a row at a time, each row a step further back from the edge
+	 * and set between the places of the one in front. All on everyone's floor.
 	 */
 	private static Vec3d place(ServerWorld world, Gap gap, int index) {
-		double ring = gap.radius + GATHER_OUT;
-		int k = (index + 1) / 2;
-		double a = gap.side + (index % 2 == 1 ? 1 : -1) * k * GATHER_APART / ring;
+		int row = index / PER_ROW;
+		int slot = index % PER_ROW;
+		double ring = gap.radius + GATHER_OUT + row * GATHER_BACK;
+		double along = ((slot + 1) / 2) * (slot % 2 == 1 ? 1 : -1) + (row % 2 == 1 ? 0.5 : 0.0);
+		double a = gap.side + along * GATHER_APART / ring;
 		int x = MathHelper.floor(gap.target.getX() + 0.5 + Math.cos(a) * ring);
 		int z = MathHelper.floor(gap.target.getZ() + 0.5 + Math.sin(a) * ring);
 		world.getChunk(x >> 4, z >> 4);
-		int y = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z);
+		double y = Double.isNaN(gap.floor) ? world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z) : gap.floor;
 		return new Vec3d(x + 0.5, y, z + 0.5);
 	}
 
+	/** The ground round (x, z): the middle of the heights within a few blocks, so a lone spike or tree does not count. */
+	private static double groundAround(ServerWorld world, int x, int z) {
+		world.getChunk(x >> 4, z >> 4);
+		int[] heights = new int[25];
+		int n = 0;
+		for (int dx = -4; dx <= 4; dx += 2) {
+			for (int dz = -4; dz <= 4; dz += 2) {
+				heights[n++] = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x + dx, z + dz);
+			}
+		}
+		Arrays.sort(heights);
+		return Math.max(heights[12], world.getBottomY() + 1);
+	}
+
 	/**
-	 * Carries {@code player} to {@code to}: everyone is told now, so they see them held in the light where they stand,
-	 * and the move is made a moment later. Their floor of nothing is then {@code floor} high (NaN: none).
+	 * Carries {@code player} to {@code to} in {@code world}: everyone where they are is told now, so they see them held
+	 * in the light and go (over the sky, if it is in the same world), and, if they are going to another world, everyone
+	 * there sees them arrive. The move is made a moment later. Their floor of nothing is then {@code floor} high (NaN: none).
 	 */
-	private static void warp(ServerWorld world, Gap gap, ServerPlayerEntity player, Vec3d to, float yaw, float pitch, double floor) {
-		ModNetworking.broadcast(world, new GapWarpPayload(player.getUuid(), player.getPos(), to, WARP_DELAY));
+	private static void warp(Gap gap, ServerPlayerEntity player, ServerWorld world, Vec3d to, float yaw, float pitch, double floor) {
+		ServerWorld from = player.getServerWorld();
+		boolean across = from != world;
+		ModNetworking.broadcast(from, new GapWarpPayload(player.getUuid(), player.getPos(), across ? player.getPos() : to, WARP_DELAY));
+		if (across) {
+			ModNetworking.broadcast(world, new GapWarpPayload(player.getUuid(), to, to, WARP_DELAY));
+		}
 		WARPS.removeIf(w -> w.player().equals(player.getUuid()));
 		WARPS.add(new Warp(gap, player.getUuid(), world.getRegistryKey(), to, yaw, pitch, floor, ticks + WARP_DELAY));
 	}
@@ -591,7 +689,7 @@ public final class GapManager {
 	private static void arrive(MinecraftServer server, Warp warp) {
 		ServerPlayerEntity player = server.getPlayerManager().getPlayer(warp.player());
 		ServerWorld world = server.getWorld(warp.world());
-		if (player == null || world == null || player.getWorld() != world || !player.isAlive()) {
+		if (player == null || world == null || !player.isAlive()) {
 			return;
 		}
 		// Off whatever they ride, and out of bed: it is only them that is carried.
@@ -599,13 +697,17 @@ public final class GapManager {
 		if (player.isSleeping()) {
 			player.wakeUp(true, true);
 		}
-		player.teleport(world, warp.to().x, warp.to().y, warp.to().z, warp.yaw(), warp.pitch());
+		// Their floor first, so they are on it (or off it) the moment they land, rather than for a moment on the one they
+		// left, at whatever height that was.
 		hold(warp.gap(), player, warp.floor());
+		player.teleport(world, warp.to().x, warp.to().y, warp.to().z, warp.yaw(), warp.pitch());
+		player.fallDistance = 0.0F;
 	}
 
 	/**
 	 * Somewhere {@code player} can stand at or near {@code pos}: where it is, if that is still ground with room over it;
-	 * else the nearest such place in its column, up or down; else the top of it. Over the hole, its rim.
+	 * else the nearest such place in its column, up or down; else the top of it. Over the hole, its rim; over nothing at
+	 * all, the nearest ground.
 	 */
 	private static Vec3d safe(ServerWorld world, @Nullable Gap gap, Vec3d pos) {
 		if (gap != null && horizontal(pos, gap.target) <= gap.radius + 8) {
@@ -625,7 +727,48 @@ public final class GapManager {
 			}
 		}
 		int top = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, at.getX(), at.getZ());
+		if (top <= world.getBottomY() && !world.getDimension().hasCeiling()) {
+			BlockPos ground = groundNear(world, at);
+			if (ground != null) {
+				return Vec3d.ofBottomCenter(ground);
+			}
+		}
 		return new Vec3d(pos.x, Math.max(top, world.getBottomY() + 1), pos.z);
+	}
+
+	/** The nearest column round {@code at} with ground in it, out to a couple of hundred blocks: where to stand on it. */
+	@Nullable
+	private static BlockPos groundNear(ServerWorld world, BlockPos at) {
+		for (int r = 4; r <= 256; r += 4) {
+			for (int i = 0; i < 16; i++) {
+				double a = i * Math.PI / 8.0;
+				int x = at.getX() + MathHelper.floor(Math.cos(a) * r);
+				int z = at.getZ() + MathHelper.floor(Math.sin(a) * r);
+				world.getChunk(x >> 4, z >> 4);
+				int top = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z);
+				if (top > world.getBottomY() + 1 && standable(world, new BlockPos(x, top, z))) {
+					return new BlockPos(x, top, z);
+				}
+			}
+		}
+		return null;
+	}
+
+	/** Someone who has just respawned over nothing (a spawn point in a hole) is set down on the nearest ground instead. */
+	private static void overGround(ServerPlayerEntity player) {
+		ServerWorld world = player.getServerWorld();
+		if (world.getDimension().hasCeiling()) {
+			return;
+		}
+		BlockPos at = player.getBlockPos();
+		if (world.getTopY(Heightmap.Type.MOTION_BLOCKING, at.getX(), at.getZ()) > world.getBottomY()) {
+			return;
+		}
+		BlockPos ground = groundNear(world, at);
+		if (ground != null) {
+			player.teleport(world, ground.getX() + 0.5, ground.getY(), ground.getZ() + 0.5, player.getYaw(), player.getPitch());
+			player.fallDistance = 0.0F;
+		}
 	}
 
 	/** Room for a player at {@code feet}, on something solid, and nothing there that burns. */
@@ -638,6 +781,143 @@ public final class GapManager {
 				&& world.getBlockState(feet.up()).getCollisionShape(world, feet.up()).isEmpty()
 				&& !below.getCollisionShape(world, feet.down()).isEmpty() && !below.isIn(BlockTags.FIRE) && !below.isOf(Blocks.LAVA)
 				&& !below.isOf(Blocks.MAGMA_BLOCK) && !below.isOf(Blocks.BARRIER) && world.getFluidState(feet).isEmpty();
+	}
+
+	// --- the key -------------------------------------------------------------------------
+
+	/**
+	 * Puts right the cracked key of an event that did not end with it: shattered if the world was taken (it is back
+	 * without it), whole again if the world never was. Now if they are here, or when they are next seen.
+	 */
+	private static void mendKey(MinecraftServer server, UUID shooter, boolean shatter) {
+		if (shooter.equals(Util.NIL_UUID)) {
+			return;
+		}
+		ServerPlayerEntity player = server.getPlayerManager().getPlayer(shooter);
+		if (player == null) {
+			state(server).keys.put(shooter, shatter);
+			state(server).markDirty();
+			return;
+		}
+		mendKey(player, shatter);
+	}
+
+	/** Puts right this player's cracked key, if one is owed them. */
+	private static void mendKey(ServerPlayerEntity player) {
+		GapState saved = state(player.getServer());
+		Boolean shatter = saved.keys.remove(player.getUuid());
+		if (shatter != null) {
+			saved.markDirty();
+			mendKey(player, shatter);
+		}
+	}
+
+	private static void mendKey(ServerPlayerEntity player, boolean shatter) {
+		PlayerInventory inventory = player.getInventory();
+		boolean any = false;
+		for (int i = 0; i < inventory.size(); i++) {
+			ItemStack stack = inventory.getStack(i);
+			if (stack.isOf(ModItems.GENESIS_KEY) && GenesisKeyItem.cracked(stack)) {
+				any = true;
+				if (shatter) {
+					inventory.setStack(i, ItemStack.EMPTY);
+				} else {
+					GenesisKeyItem.mend(stack);
+				}
+			}
+		}
+		if (any) {
+			player.sendMessage(Text.translatable(shatter ? "message.shootingstar.gap.shattered" : "message.shootingstar.gap.mended")
+					.formatted(Formatting.AQUA), false);
+		}
+	}
+
+	// --- the server going down and coming back ---------------------------------------------
+
+	/**
+	 * The server is going down in the middle of an event: it is ended now, before anything is saved. The hole is
+	 * finished (its light worked out afresh the next time it is loaded), the floor over it taken away, everyone held sent
+	 * straight home and the shooter's key put right.
+	 */
+	private static void stopping(MinecraftServer server) {
+		for (Gap gap : all()) {
+			ServerWorld world = server.getWorld(gap.dimension);
+			if (world != null && gap.taken && gap.terrain) {
+				if (gap.erasure == null) {
+					gap.erasure = new Erasure(world, gap.target, gap.radius, false);
+				}
+				if (!gap.erasure.done()) {
+					gap.erasure.finishOffline();
+					moveSpawn(server, world, gap.target, gap.radius);
+				}
+				gap.erasure.unlid();
+			}
+			if (!gap.released) {
+				mendKey(server, gap.shooter, gap.taken);
+			}
+			gap.floors.clear();
+		}
+		WARPS.clear();
+		GapState saved = state(server);
+		for (ServerPlayerEntity player : List.copyOf(server.getPlayerManager().getPlayerList())) {
+			GapState.Home home = saved.homes.remove(player.getUuid());
+			ServerWorld world = home == null ? null : server.getWorld(home.world());
+			if (world != null) {
+				Vec3d to = safe(world, null, home.pos());
+				player.teleport(world, to.x, to.y, to.z, home.yaw(), home.pitch());
+				player.fallDistance = 0.0F;
+			}
+		}
+		saved.event = null;
+		saved.markDirty();
+		GAPS.clear();
+		RETURNING.clear();
+	}
+
+	/**
+	 * The server is back after going down without warning in the middle of an event: its hole, cut short, is finished,
+	 * the floor it laid taken out with it, and the shooter's key put right when they are next seen. Everyone it gathered
+	 * is sent home when they come back (JOIN).
+	 */
+	private static void recover(MinecraftServer server) {
+		state = GapState.get(server);
+		GapState.Event event = state.event;
+		if (event == null) {
+			return;
+		}
+		ServerWorld world = server.getWorld(event.dimension());
+		if (world != null && event.taken() && event.terrain()) {
+			Erasure erasure = new Erasure(world, event.target(), event.radius(), true);
+			erasure.finishOffline();
+			moveSpawn(server, world, event.target(), event.radius());
+			ShootingStar.LOGGER.info("A Ginnungagap event was cut short: its hole at {} is finished ({} blocks)", event.target().toShortString(),
+					erasure.erased());
+		}
+		if (!event.shooter().equals(Util.NIL_UUID)) {
+			state.keys.put(event.shooter(), event.taken());
+		}
+		state.event = null;
+		state.markDirty();
+	}
+
+	/**
+	 * If the world's spawn was in the hole, it is moved out to the rim, on its side, before anyone can come back into the
+	 * world over nothing; and anyone here whose own spawn point was in it goes back to the world's.
+	 */
+	private static void moveSpawn(MinecraftServer server, ServerWorld world, BlockPos target, int radius) {
+		Gap at = new Gap(0, world.getRegistryKey(), target, Util.NIL_UUID, radius, true, target, false);
+		if (world == server.getOverworld() && horizontal(Vec3d.ofCenter(world.getSpawnPos()), target) <= radius + 8) {
+			Vec3d rim = rim(world, at, Vec3d.ofCenter(world.getSpawnPos()));
+			world.setSpawnPos(BlockPos.ofFloored(rim), world.getSpawnAngle());
+			ShootingStar.LOGGER.info("The world's spawn was in the Ginnungagap's hole: moved to its rim at {}", BlockPos.ofFloored(rim).toShortString());
+		}
+		for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+			BlockPos spawn = player.getSpawnPointPosition();
+			if (spawn != null && player.getSpawnPointDimension() == world.getRegistryKey()
+					&& horizontal(Vec3d.ofCenter(spawn), target) <= radius + 8) {
+				player.setSpawnPoint(World.OVERWORLD, null, 0.0F, false, false);
+			}
+		}
 	}
 
 	// --- the mirror blocks ------------------------------------------------------------
@@ -670,12 +950,13 @@ public final class GapManager {
 	private static void erase(ServerWorld world, Gap gap) {
 		if (gap.terrain && !gap.erased) {
 			if (gap.erasure == null) {
-				gap.erasure = new Erasure(world, gap.target, gap.radius);
+				gap.erasure = new Erasure(world, gap.target, gap.radius, false);
 			}
 			// Everyone is gone by now, so it goes straight out to the edge, a budget's worth a tick.
 			gap.erased = gap.erasure.step(Double.MAX_VALUE);
 			if (gap.erased) {
 				ShootingStar.LOGGER.info("Ginnungagap #{} erased {} blocks", gap.id, gap.erasure.erased());
+				moveSpawn(world.getServer(), world, gap.target, gap.radius);
 			}
 		}
 		if (gap.age % 2 != 0 || gap.age > GapTimeline.NOTHING + 40) {

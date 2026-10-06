@@ -79,11 +79,17 @@ public final class Erasure {
 	/** Ticks since the light checks went in, and how many ticks running the light engine has had nothing to do. */
 	private int lighting = -1;
 	private int quiet;
+	/**
+	 * Finishing one that was cut short (the server went down in the middle of it): the floor it laid over the hole is
+	 * taken out with everything else, and no new one is laid, since there is nobody in the black to walk on it.
+	 */
+	private final boolean recovering;
 
-	Erasure(ServerWorld world, BlockPos center, int radius) {
+	Erasure(ServerWorld world, BlockPos center, int radius, boolean recovering) {
 		this.world = world;
 		this.center = center;
 		this.radius = radius;
+		this.recovering = recovering;
 		Random random = Random.create(center.asLong() ^ 0x5EEDL);
 		this.phase = new double[] {random.nextDouble() * 6.28, random.nextDouble() * 6.28, random.nextDouble() * 6.28};
 		int reach = radius + (int) Math.ceil(RAGGED) + 2;
@@ -155,17 +161,86 @@ public final class Erasure {
 
 	/** Works on, a budget's worth per call; true when the hole and the fissures are all done, lit and sent. */
 	boolean step(double reach) {
+		return carving(reach) && settle();
+	}
+
+	/** Every block taken out now, however long it takes (the light is still to settle: step goes on with that). */
+	void finishBlocks() {
+		while (!carving(Double.MAX_VALUE)) {
+			// A budget's worth at a time.
+		}
+	}
+
+	/**
+	 * Done now, with nobody to send it to (the server is going down, or has just come back up): every block taken out,
+	 * and every chunk it touched marked to have its light worked out afresh the next time it is loaded, since the light
+	 * engine will not get through it first. What is still loaded has the checks made as well.
+	 */
+	void finishOffline() {
+		finishBlocks();
+		if (lighting < 0) {
+			checkLight();
+		}
+		for (long packed : touched) {
+			ChunkPos chunkPos = new ChunkPos(packed);
+			WorldChunk chunk = world.getChunkManager().getWorldChunk(chunkPos.x, chunkPos.z);
+			if (chunk != null) {
+				chunk.setLightOn(false);
+				chunk.setNeedsSaving(true);
+			}
+		}
+		sent = true;
+	}
+
+	/** Takes blocks out, a budget's worth, with their light checks gathered; true once they are all out. */
+	private boolean carving(double reach) {
 		gathering = this;
 		gatheringOn = Thread.currentThread();
 		try {
-			return work(reach);
+			return carve(reach);
 		} finally {
 			gathering = null;
 			gatheringOn = null;
 		}
 	}
 
-	private boolean work(double reach) {
+	/** The light checks gathered while carving, all made now: one per column, from the lowest block taken out of it. */
+	private void checkLight() {
+		LightingProvider light = world.getChunkManager().getLightingProvider();
+		BlockPos.Mutable at = new BlockPos.Mutable();
+		for (Long2IntMap.Entry entry : lowest.long2IntEntrySet()) {
+			long column = entry.getLongKey();
+			light.checkBlock(at.set((int) (column >> 32), entry.getIntValue(), (int) column));
+		}
+		for (int i = 0; i < glowing.size(); i++) {
+			light.checkBlock(at.set(glowing.getLong(i)));
+		}
+		lowest.clear();
+		glowing.clear();
+		lighting = 0;
+	}
+
+	/** Once the light has settled, every chunk sent again; true when it has been. */
+	private boolean settle() {
+		if (sent) {
+			return true;
+		}
+		if (lighting < 0) {
+			checkLight();
+			return false;
+		}
+		// Sent once the light engine has had nothing to do for half a second (or, at the most, after twenty seconds).
+		lighting++;
+		quiet = world.getChunkManager().getLightingProvider().hasUpdates() ? 0 : quiet + 1;
+		if (lighting >= 20 && quiet >= 10 || lighting >= 400) {
+			sent = true;
+			send();
+			return true;
+		}
+		return false;
+	}
+
+	private boolean carve(double reach) {
 		int budget = BLOCK_BUDGET;
 		int reads = READ_BUDGET;
 		int bottom = world.getBottomY();
@@ -184,7 +259,7 @@ public final class Erasure {
 				pos.set(x, columnY, z);
 				BlockState state = world.getBlockState(pos);
 				reads--;
-				if (!state.isAir() && erasable(state)) {
+				if (!state.isAir() && canErase(state)) {
 					if (state.getLuminance() > 0) {
 						glowing.add(pos.asLong());
 					}
@@ -221,7 +296,7 @@ public final class Erasure {
 						for (int k = 0; k < depth; k++) {
 							pos.set(x, top - k, z);
 							BlockState state = world.getBlockState(pos);
-							if (!state.isAir() && state.getFluidState().isEmpty() && erasable(state) && !state.isOf(Blocks.BEDROCK)) {
+							if (!state.isAir() && state.getFluidState().isEmpty() && canErase(state) && !state.isOf(Blocks.BEDROCK)) {
 								if (state.getLuminance() > 0) {
 									glowing.add(pos.asLong());
 								}
@@ -239,39 +314,11 @@ public final class Erasure {
 			crackCursor++;
 			return false;
 		}
-		if (sent) {
-			return true;
-		}
-		if (lighting < 0) {
-			// Every column checked once, from the lowest block taken out of it, and every light that went with them.
-			gathering = null;
-			LightingProvider light = world.getChunkManager().getLightingProvider();
-			BlockPos.Mutable at = new BlockPos.Mutable();
-			for (Long2IntMap.Entry entry : lowest.long2IntEntrySet()) {
-				long column = entry.getLongKey();
-				light.checkBlock(at.set((int) (column >> 32), entry.getIntValue(), (int) column));
-			}
-			for (int i = 0; i < glowing.size(); i++) {
-				light.checkBlock(at.set(glowing.getLong(i)));
-			}
-			lowest.clear();
-			glowing.clear();
-			lighting = 0;
-			return false;
-		}
-		// Sent once the light engine has had nothing to do for half a second (or, at the most, after twenty seconds).
-		lighting++;
-		quiet = world.getChunkManager().getLightingProvider().hasUpdates() ? 0 : quiet + 1;
-		if (lighting >= 20 && quiet >= 10 || lighting >= 400) {
-			sent = true;
-			send();
-			return true;
-		}
-		return false;
+		return true;
 	}
 
 	private void lid(BlockPos pos) {
-		if (pos.getY() >= world.getBottomY() && world.getBlockState(pos).isAir()) {
+		if (!recovering && pos.getY() >= world.getBottomY() && world.getBlockState(pos).isAir()) {
 			world.setBlockState(pos, Blocks.BARRIER.getDefaultState(), QUIET);
 			lids.add(pos.asLong());
 		}
@@ -321,6 +368,11 @@ public final class Erasure {
 
 	int erased() {
 		return erased;
+	}
+
+	/** What it takes: anything but the technical blocks; in recovery, the floor of barriers it laid as well. */
+	private boolean canErase(BlockState state) {
+		return erasable(state) || recovering && state.isOf(Blocks.BARRIER);
 	}
 
 	static boolean erasable(BlockState state) {

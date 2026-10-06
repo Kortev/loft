@@ -44,6 +44,17 @@ public class GenesisKeyItem extends Item {
 		return stack.getOrDefault(DataComponentTypes.CUSTOM_DATA, NbtComponent.DEFAULT).copyNbt().getBoolean("Cracked");
 	}
 
+	/** The crack taken out of it again: the event it was turned for was called off before it took the world. */
+	public static void mend(ItemStack stack) {
+		NbtCompound nbt = stack.getOrDefault(DataComponentTypes.CUSTOM_DATA, NbtComponent.DEFAULT).copyNbt();
+		nbt.remove("Cracked");
+		if (nbt.isEmpty()) {
+			stack.remove(DataComponentTypes.CUSTOM_DATA);
+		} else {
+			stack.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(nbt));
+		}
+	}
+
 	private static void crack(ItemStack stack) {
 		NbtCompound nbt = stack.getOrDefault(DataComponentTypes.CUSTOM_DATA, NbtComponent.DEFAULT).copyNbt();
 		nbt.putBoolean("Cracked", true);
@@ -71,7 +82,7 @@ public class GenesisKeyItem extends Item {
 					return TypedActionResult.fail(stack);
 				}
 				shatter(serverWorld, player, stack);
-				GapManager.release(gap, serverWorld.getServer());
+				GapManager.release(gap, serverWorld.getServer(), true);
 				ModCriteria.fire(player, ModCriteria.GAP_RESTORED);
 				user.incrementStat(Stats.USED.getOrCreateStat(this));
 				user.setStackInHand(hand, ItemStack.EMPTY);
@@ -83,7 +94,9 @@ public class GenesisKeyItem extends Item {
 			deny(world, user, Text.translatable("message.shootingstar.gap.void"));
 			return TypedActionResult.fail(stack);
 		}
-		if (world instanceof ServerWorld && user instanceof ServerPlayerEntity player && GapManager.isBusy(player.getUuid())) {
+		// One at a time: everyone on the server is in it.
+		if (world instanceof ServerWorld && GapManager.running()) {
+			deny(world, user, Text.translatable("message.shootingstar.gap.busy"));
 			return TypedActionResult.fail(stack);
 		}
 		BlockPos target = Targeting.findTarget(world, user.getEyePos(), user.getRotationVec(1.0F), Targeting.MAX_RANGE);
