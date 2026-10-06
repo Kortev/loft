@@ -289,18 +289,19 @@ public class GapSelfTest implements ClientModInitializer {
 	}
 
 	/**
-	 * From where the shooter stood, now over nothing, straight up until the whole zone shows from above as a round hole
+	 * From the shooter's eyes at the rim, straight up until the whole zone shows from above as a round hole
 	 * through the world; then round and down to the side, to see its walls drop away into the void.
 	 */
 	private static DoubleFunction<Capture.Pose> flyover(MinecraftClient client, double start) {
 		int r = 96;
 		Vec3d c = new Vec3d(target.getX() + 0.5, target.getY() + 1.0, target.getZ() + 0.5);
-		Vec3d from = domainFeet != null ? domainFeet : c.add(64, 0, 0);
+		// From where the shooter is now: put back out at the rim when the world came back, not over the hole.
+		Vec3d from = client.player != null ? client.player.getPos() : c.add(r + 10, 0, 0);
 		double a0 = Math.atan2(from.z - c.z, from.x - c.x);
 		return time -> {
 			double s = time - start;
-			Vec3d eye = from.add(0, 2.0, 0);
-			Vec3d at = c.add(0, -10.0, 0);
+			Vec3d eye = from.add(0, 1.62, 0);
+			Vec3d at = new Vec3d(c.x, from.y - 6.0, c.z);
 			// High over the middle, looking nearly straight down, so the whole zone shows as one round hole (the clouds are
 			// off for this shot).
 			double u = smooth((s - 25.0) / 130.0);

@@ -690,6 +690,23 @@ public final class GapRender {
 		return rim + (REBUILD_REACH - rim) * GapCamera.ease(x);
 	}
 
+	/**
+	 * How much of the sky's light is back during a rebuild, 0 to 1: as the grade pass brings the sky back, so that
+	 * anything drawn in it (the clouds) comes back with it rather than lit white against the black.
+	 */
+	public static float skyLight(float tickDelta) {
+		ClientGap gap = ClientGaps.rebuilding();
+		if (gap == null) {
+			return 1.0F;
+		}
+		double front = rebuildFront(gap, gap.rebuild(tickDelta));
+		if (front < 0.0) {
+			return 1.0F;
+		}
+		double x = MathHelper.clamp((front - 60.0) / 460.0, 0.0, 1.0);
+		return (float) (x * x * (3.0 - 2.0 * x));
+	}
+
 	/** When the rebuild's front gets out as far as {@code reach}: rebuildFront turned round. */
 	private static double rebuilt(ClientGap gap, double reach) {
 		double rim = Math.min(REBUILD_REACH * 0.5, gap.radius);

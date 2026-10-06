@@ -360,6 +360,10 @@ vec3 erase(vec2 uv, vec3 c) {
     // Up and down count for half, so the valleys go with the ground round them rather than long after.
     float m = abs(mid.x) + 0.5 * abs(mid.y) + abs(mid.z) + hash3(cell) * 7.0 * size;
     if (Remake > 0.0) {
+        // The sky is not built back block by block: it comes back whole, as the world spreads out under it (burst).
+        if (isSky(uv)) {
+            return c;
+        }
         // Built back block by block out from the middle: beyond the front, nothing; at it, each block coming in as a
         // white-hot cube outlined in light, cooling to itself over the next few blocks behind.
         float lead = m - Front;

@@ -450,7 +450,9 @@ public final class GapManager {
 		int z = MathHelper.floor(gap.target.getZ() + 0.5 + away.z * (gap.radius + 10));
 		int y = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z);
 		if (y > world.getBottomY()) {
-			player.teleport(world, x + 0.5, y, z + 0.5, player.getYaw(), player.getPitch());
+			// Turned to face back across the hole, rather than at whatever hillside happens to be in front of them.
+			float yaw = (float) (MathHelper.atan2(-away.z, -away.x) * MathHelper.DEGREES_PER_RADIAN) - 90.0F;
+			player.teleport(world, x + 0.5, y, z + 0.5, yaw, 10.0F);
 			player.fallDistance = 0.0F;
 		}
 	}

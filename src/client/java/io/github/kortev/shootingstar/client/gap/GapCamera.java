@@ -376,7 +376,8 @@ public final class GapCamera {
 			case 2 -> {
 				// Low behind the shooter, looking along the root to the tree's foot as the light comes down it at them.
 				double along = MathHelper.clamp((r - GapTimeline.REBUILD_SWEEP + 26.0) / 26.0, 0.0, 1.0);
-				Vec3d eye = feet.add(out.multiply(4.0)).add(side.multiply(2.5)).add(0.0, 1.6, 0.0);
+				// Far enough off that the shooter is never right up against the lens.
+				Vec3d eye = feet.add(out.multiply(8.0)).add(side.multiply(4.5)).add(0.0, 2.4, 0.0);
 				yield new Vec3d[] {aboveGround(eye, 1.2), centre.lerp(feet, 0.15 + 0.6 * along).add(0.0, 2.0 + tall * 0.1 * (1.0 - along), 0.0)};
 			}
 			case 3 -> {
