@@ -32,6 +32,8 @@ public final class ClientGap {
 	public int rebuildAt = -1;
 	@Nullable
 	public Vec3d rebuildFrom;
+	/** Someone else's, released: when this player started watching its tree grow out of the hole, or -1. */
+	public int spectateAt = -1;
 	/** The shooter skipped the feed: they watch the bridge come down from the world instead. */
 	public boolean feedSkipped;
 	/** The feed's sounds, stopped if it is skipped. */

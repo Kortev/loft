@@ -6,9 +6,12 @@ import io.github.kortev.shootingstar.client.gfx.Mesh;
 import io.github.kortev.shootingstar.client.gfx.Shaders;
 import io.github.kortev.shootingstar.client.gfx.Target;
 import io.github.kortev.shootingstar.gap.GapTimeline;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.option.GraphicsMode;
 import net.minecraft.util.math.Vec3d;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
+import org.lwjgl.opengl.GL11;
 
 /**
  * Yggdrasil in the void, for the rebuild: not a tree so much as what one means here, the axis the nine worlds hang
@@ -21,6 +24,7 @@ final class TreeRender {
 	/** The floor of the void, in the tree's own units below the foot of its axis: where its roots run. */
 	private static final double FLOOR = 0.15;
 	private static Mesh tree;
+	private static boolean low;
 
 	private TreeRender() {
 	}
@@ -66,18 +70,14 @@ final class TreeRender {
 		return r < gather ? -1.0 : (r - gather) / 26.0 * reach(gap);
 	}
 
-	/** Draws it into its own picture; true if there was anything to draw. */
+	/** Draws it into its own picture for the shooter's rebuild; true if there was anything to draw. */
 	static boolean draw(ClientGap gap, double t, Vec3d cam, Matrix4f view, Matrix4f proj, int w, int h) {
 		if (gap.rebuildAt < 0 || gap.rebuildFrom == null) {
 			return false;
 		}
 		double r = t - gap.rebuildAt;
-		float there = (float) there(r);
-		if (there <= 0.0F) {
+		if (there(r) <= 0.0) {
 			return false;
-		}
-		if (tree == null) {
-			tree = Mesh.tree();
 		}
 		// The same lens as the world's, but seeing as far as it is.
 		Matrix4f lens = new Matrix4f(proj);
@@ -85,14 +85,45 @@ final class TreeRender {
 		float far = 8000.0F;
 		lens.m22(-(far + near) / (far - near));
 		lens.m32(-2.0F * far * near / (far - near));
+		TARGET.begin(w, h, 0.0F, 0.0F, 0.0F, 0.0F);
+		RenderSystem.disableDepthTest();
+		render(gap, r, t, cam, view, lens, w, h);
+		return true;
+	}
+
+	/** How long someone else's tree stands, seen from outside: the shooter's rebuild, played faster. */
+	static final int SPECTATED = 390;
+	private static final double SPECTATED_PACE = 1.6;
+
+	/**
+	 * Someone else's: seen from outside, in among the world, growing out of the hole their Ginnungagap left and gone
+	 * again, its long root running out to whoever is watching. Drawn straight into the world, behind what stands in front.
+	 */
+	static void drawSpectated(ClientGap gap, double t, Vec3d cam, Matrix4f view, Matrix4f proj, int w, int h) {
+		if (gap.spectateAt < 0 || gap.rebuildFrom == null) {
+			return;
+		}
+		double r = (t - gap.spectateAt) * SPECTATED_PACE;
+		if (there(r) <= 0.0) {
+			return;
+		}
+		RenderSystem.enableDepthTest();
+		RenderSystem.depthFunc(GL11.GL_LEQUAL);
+		render(gap, r, t, cam, view, proj, w, h);
+	}
+
+	private static void render(ClientGap gap, double r, double t, Vec3d cam, Matrix4f view, Matrix4f lens, int w, int h) {
+		if (tree == null) {
+			// Half the points on Fast graphics: the filaments go to dotted lines, but it is far lighter to draw.
+			low = MinecraftClient.getInstance().options.getGraphicsMode().getValue() == GraphicsMode.FAST;
+			tree = Mesh.tree(low ? 2 : 1);
+		}
+		float there = (float) there(r);
 		// Its long root runs along its +Z: turned to run to the shooter.
 		Vec3d toward = toward(gap);
 		float yaw = (float) Math.atan2(toward.x, toward.z);
 		Vector3f foot = GapRender.rel(foot(gap), cam);
 		Matrix4f model = new Matrix4f().translation(foot).rotateY(yaw).scale((float) height(gap));
-
-		TARGET.begin(w, h, 0.0F, 0.0F, 0.0F, 0.0F);
-		RenderSystem.disableDepthTest();
 		RenderSystem.depthMask(false);
 		RenderSystem.disableCull();
 		RenderSystem.enableBlend();
@@ -106,14 +137,14 @@ final class TreeRender {
 		// Brighter as the light gathers in it for the sweep.
 		float gather = (float) GapCamera.ease((r - GapTimeline.REBUILD_GATHER) / (GapTimeline.REBUILD_SWEEP - GapTimeline.REBUILD_GATHER));
 		float after = (float) Math.exp(-Math.max(0.0, r - GapTimeline.REBUILD_SWEEP) / 40.0);
-		Shaders.set(Shaders.tree, "Bright", there * (1.0F + 0.8F * gather * (r < GapTimeline.REBUILD_SWEEP ? 1.0F : after)));
+		float bright = there * (1.0F + 0.8F * gather * (r < GapTimeline.REBUILD_SWEEP ? 1.0F : after));
+		Shaders.set(Shaders.tree, "Bright", bright * (low ? 1.5F : 1.0F));
 		tree.draw(Shaders.tree, new Matrix4f(view).mul(model), lens);
 		RenderSystem.disableBlend();
 		RenderSystem.defaultBlendFunc();
 		RenderSystem.enableDepthTest();
 		RenderSystem.depthMask(true);
 		RenderSystem.enableCull();
-		return true;
 	}
 
 	static int color() {

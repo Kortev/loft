@@ -63,7 +63,17 @@ public final class GapCamera {
 			return out >= 1.0 ? wide : mix(below(gap, feet, t), wide, out);
 		}
 		if (t < GapTimeline.BLAST) {
-			return frameShot(gap, GapFrames.at(t - GapTimeline.FRAMES).shot(), eye, feet, t);
+			// Each frame a crash zoom: it opens pulled back and slams in on the impact over its few ticks, so every cut
+			// carries the motion on into the next.
+			double e = t - GapTimeline.FRAMES;
+			GapFrames.Frame frame = GapFrames.at(e);
+			Shot shot = frameShot(gap, frame.shot(), eye, feet, t);
+			double p = MathHelper.clamp((e - frame.start()) / GapFrames.length(e), 0.0, 1.0);
+			double slam = 0.2 * Math.pow(1.0 - p, 3.0);
+			Vec3d from = new Vec3d(shot.x(), shot.y(), shot.z());
+			Vec3d dir = Vec3d.fromPolar(shot.pitch(), shot.yaw());
+			Vec3d back = from.subtract(dir.multiply(from.distanceTo(gap.contact) * slam));
+			return new Shot(back.x, back.y, back.z, shot.yaw(), shot.pitch());
 		}
 		if (t < GapTimeline.ERASURE) {
 			// Out of the last impact frame not on a cut but a swing: the frame's camera carries on and gives way to the

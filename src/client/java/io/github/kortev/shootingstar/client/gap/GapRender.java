@@ -83,6 +83,10 @@ public final class GapRender {
 		main.beginWrite(true);
 		for (ClientGap gap : ClientGaps.all()) {
 			double t = gap.time(tickDelta);
+			if (!gap.mine) {
+				TreeRender.drawSpectated(gap, t, cam, view, proj, w, h);
+				main.beginWrite(true);
+			}
 			if (gap.mine ? gap.ended : t > GapTimeline.END + 40) {
 				continue;
 			}
@@ -383,6 +387,7 @@ public final class GapRender {
 		ClientWorld world = MinecraftClient.getInstance().world;
 		if (world != null && gap.rebuildAt >= 0) {
 			motes(gap, world, t - gap.rebuildAt, cam, view, proj, right, up);
+			landing(gap, t - gap.rebuildAt, cam, view, proj, right, up);
 			return;
 		}
 		if (world == null || t < GapTimeline.ERASURE || t > GapTimeline.NOTHING + 40) {
@@ -475,6 +480,50 @@ public final class GapRender {
 			BATCH.flat(rel(new Vec3d(x, y, z), cam), a, b, Fx.fade(color, alpha));
 		}
 		BATCH.end(true, 2.4F);
+	}
+
+	/**
+	 * The light the tree sends down its long root landing at the shooter's feet: a ring of it bursting out over the
+	 * ground from them, a column of glow standing up round them, and sparks lifting off, as the world starts to come back.
+	 */
+	private static void landing(ClientGap gap, double r, Vec3d cam, Matrix4f view, Matrix4f proj, Vector3f right, Vector3f up) {
+		double e = r - GapTimeline.REBUILD_SWEEP;
+		if (gap.rebuildFrom == null || e < -4.0 || e > 60.0) {
+			return;
+		}
+		Vec3d feet = gap.rebuildFrom.add(0.0, 0.1, 0.0);
+		Vector3f at = rel(feet, cam);
+		float arrive = (float) Math.exp(-Math.abs(e) / 6.0);
+		BATCH.begin(Fx.RING, 0.08F, view, proj, right, up);
+		for (int k = 0; k < 3; k++) {
+			double age = e - k * 5.0;
+			if (age < 0.0 || age > 45.0) {
+				continue;
+			}
+			float size = (float) (1.5 + age * (1.6 + 0.5 * k));
+			float alpha = (float) Math.pow(1.0 - age / 45.0, 1.5);
+			BATCH.flat(at, new Vector3f(size, 0.0F, 0.0F), new Vector3f(0.0F, 0.0F, size), Fx.fade(k == 0 ? WHITE : PALE, alpha));
+		}
+		BATCH.end(false, 2.6F);
+		BATCH.begin(Fx.BLOB, 0.0F, view, proj, right, up);
+		// The column: soft glows stacked up through them, brightest as it lands.
+		for (int i = 0; i < 6; i++) {
+			Vector3f p = rel(feet.add(0.0, 0.5 + i * 0.7, 0.0), cam);
+			BATCH.sprite(p, 1.6F + i * 0.2F, 0.0F, Fx.fade(i % 2 == 0 ? PALE : WHITE, 0.5F * arrive * (1.0F - i / 7.0F)));
+		}
+		// Sparks lifting off round them.
+		for (int i = 0; i < 60; i++) {
+			double born = noise(gap.id, i + 7000) * 20.0;
+			double age = e - born;
+			if (age < 0.0 || age > 30.0) {
+				continue;
+			}
+			double a = noise(gap.id, i + 7100) * Math.PI * 2.0;
+			double out = 0.6 + age * (0.05 + 0.08 * noise(gap.id, i + 7200));
+			Vec3d p = feet.add(Math.cos(a) * out, age * (0.08 + 0.1 * noise(gap.id, i + 7300)), Math.sin(a) * out);
+			BATCH.sprite(rel(p, cam), 0.12F, 0.0F, Fx.fade(i % 3 == 0 ? VIOLET : PALE, (float) (1.0 - age / 30.0)));
+		}
+		BATCH.end(true, 2.2F);
 	}
 
 	/** A universe in its block (or a piece of one), {@code model} placing the block's cube from -1 to 1 in the world. */

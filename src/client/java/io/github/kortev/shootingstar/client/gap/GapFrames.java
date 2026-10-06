@@ -45,6 +45,12 @@ public final class GapFrames {
 		return FRAMES[i];
 	}
 
+	/** How long the frame showing {@code e} ticks in lasts, in ticks (the last runs to the burst). */
+	public static double length(double e) {
+		int i = index(e);
+		return i + 1 < FRAMES.length ? FRAMES[i + 1].start() - FRAMES[i].start() : 4.0;
+	}
+
 	public static int index(double e) {
 		int i = 0;
 		while (i + 1 < FRAMES.length && e >= FRAMES[i + 1].start()) {

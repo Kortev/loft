@@ -2355,11 +2355,13 @@ def gap_void():
 
 def gap_rebuild():
     """Reality remade (32 s, from the key used again): a soft loading hum and a run of glass tones as the loading
-    screen comes up; Yggdrasil growing in the void, a vast low choir on D swelling under a deep breath, a boom and a
-    struck crystal as its nine worlds light (6 s); a rising choir as light gathers in it, a breath drawn in and a huge
-    sweep of air as the light comes down its root (11 s); then the world assembling itself round the shooter, grains of it falling into
-    place faster and faster over a D major chord building in glass, the black's own sound played backwards and
-    sucked away; resolving at 26 s into a full choir and chimes as the last of it is back; dying away by 32 s."""
+    screen comes up; Yggdrasil growing up out of the hole, a vast low choir on D swelling, a shimmer climbing and the
+    tick of light forming like frost; its nine worlds lighting three at a time, a bell for each (4.6 to 5.9 s); a
+    rising choir as light gathers in it, a deep pulse as it goes out of its foot and a rush down the long root to the
+    shooter, landing in a huge sweep of air (11 s); then the world assembling itself out of the hole, grains of it
+    falling into place faster and faster over a D major chord building in glass, the black's own sound played
+    backwards and sucked away; resolving at 26 s into a full choir and chimes as the last of it is back, the tree
+    drawing back down into the hole in a long falling breath; dying away by 32 s."""
     total = 32.0
     n = ns(total)
     t = times(total)
@@ -2370,20 +2372,39 @@ def gap_rebuild():
                                                                               (total, 0.0)]), 0, 0.25)
     for i, f in enumerate((587.33, 880.0, 1174.66, 1760.0)):
         m.add(struck(f, 2.0, tau=0.5), 0.4 + 0.3 * i, 0.12, position=-0.5 + 0.33 * i)
-    # Odin: a vast low choir on D and A, swelling as he appears.
+    # Yggdrasil: a vast low choir on D and A, swelling as it grows up out of the hole.
     for f, g in ((73.42, 1.0), (110.0, 0.7), (146.83, 0.5)):
         m.add(choir(f, n, vowel=OO, voices=6) * curve(n, [(0, 0.0), (2.0, 0.0), (7.0, 1.0), (11.0, 0.8), (14.0, 0.4),
                                                           (26.0, 0.6), (30.0, 0.0), (total, 0.0)]), 0, 0.25 * g)
-    # His eye opening: a breath drawn in, then a boom and a struck crystal.
-    m.add(stereo(inhale(1.0, 150, 3000, tau=0.3)), 5.0, 0.5)
-    q = ns(3.0)
-    tq = np.arange(q) / SR
-    boom = sine(curve(q, [(0, 60), (3.0, 28)], 'log')) * attack_decay(q, 0.005, 0.8)
-    m.add(sat(boom * 1.6, 1.4), 6.0, 0.7)
-    m.add(struck(1174.66, 4.0, tau=1.2, bright=0.3), 6.0, 0.15)
-    # His arm: a rising choir, a breath, and the sweep.
+    # Growing (1 to 9 s): a shimmer of high partials climbing as it rises, and the tick of light forming, like frost.
+    grow = curve(n, [(0, 0.0), (1.0, 0.0), (5.0, 1.0), (9.0, 0.6), (11.0, 0.0), (total, 0.0)])
+    climb = curve(n, [(0, 1.0), (1.0, 1.0), (9.0, 1.5), (total, 1.5)], 'log')
+    shimmer = sum(sine(f * climb) * (0.5 + 0.5 * np.sin(2 * np.pi * (3.0 + k) * t + k)) * a
+                  for k, (f, a) in enumerate(((1174.66, 0.3), (1760.0, 0.25), (2349.32, 0.2), (2637.0, 0.12))))
+    m.add(stereo(shimmer) * grow, 0, 0.06)
+    def tick():
+        q = ns(rng.uniform(0.01, 0.03))
+        return hp(white(q), rng.uniform(3000, 7000)) * attack_decay(q, 0.0005, q / SR / 4) * rng.uniform(0.3, 1.0)
+    m.add(grains(n, lambda s: 0 if s < 1.0 or s > 10.0 else 40 + 160 * np.sin(np.pi * (s - 1.0) / 9.0), tick, start=1.0, end=10.0),
+          0, 0.12)
+    # The nine worlds lighting, three at a time (4.6, 5.2, 5.9 s): a soft breath, then each a struck bell over a low swell.
+    m.add(stereo(inhale(1.0, 150, 3000, tau=0.3)), 3.7, 0.4)
+    bells = ((587.33, 739.99, 880.0), (880.0, 1108.73, 1318.51), (1174.66, 1479.98, 1760.0))
+    for level, (at, notes) in enumerate(zip((4.6, 5.2, 5.9), bells)):
+        q = ns(2.0)
+        m.add(sat(sine(curve(q, [(0, 55 + 10 * level), (2.0, 35)], 'log')) * attack_decay(q, 0.01, 0.5), 1.2), at, 0.35)
+        for i, f in enumerate(notes):
+            m.add(struck(f, 4.0, tau=1.3, bright=0.35), at + 0.07 * i, 0.11, position=-0.7 + 0.7 * i)
+    # The light gathering in it (8 s): a rising choir and a breath drawn in; a deep pulse as it goes out of its foot
+    # (9.7 s) and rushes down the long root, landing at the shooter's feet with the sweep and the boom (11 s).
     m.add(choir(293.66, ns(3.0), vowel=AH, voices=6, glide=curve(ns(3.0), [(0, 0.75), (3.0, 1.0)])) *
           curve(ns(3.0), [(0, 0.0), (2.5, 1.0), (3.0, 0.0)]), 8.0, 0.3)
+    q = ns(1.4)
+    tq = np.arange(q) / SR
+    m.add(stereo(sat(np.sin(2 * np.pi * 41.2 * tq) * attack_decay(q, 0.02, 0.5) * 1.4, 1.3)), 9.7, 0.55)
+    q = ns(1.3)
+    rush = sweep_filter(pink(q), 'bandpass', curve(q, [(0, 300), (1.3, 2500)], 'log'), order=2, width=1.6)
+    m.add(stereo(norm(rush) * curve(q, [(0, 0.0), (1.1, 1.0), (1.3, 0.0)])), 9.7, 0.25)
     m.add(stereo(inhale(0.8, 300, 6000, tau=0.25)), 10.2, 0.6)
     q = ns(2.5)
     sweep = decorrelated(q, pink)
@@ -2411,6 +2432,10 @@ def gap_rebuild():
         m.add(choir(f, ns(6.0), vowel=AH, voices=5) * curve(ns(6.0), [(0, 0.0), (0.8, 1.0), (6.0, 0.0)]), 26.0, 0.18)
     for i, f in enumerate((1174.66, 1479.98, 1760.0, 2349.32)):
         m.add(struck(f, 5.0, tau=1.5, bright=0.3), 26.0 + 0.12 * i, 0.08, position=-0.6 + 0.4 * i)
+    # The tree drawing back down into the hole (24 to 29 s): a long falling breath, the shimmer run backwards.
+    q = ns(5.0)
+    down = sweep_filter(pink(q), 'bandpass', curve(q, [(0, 3000), (5.0, 180)], 'log'), order=2, width=1.8)
+    m.add(stereo(norm(down) * curve(q, [(0, 0.0), (1.5, 1.0), (5.0, 0.0)])), 24.0, 0.12)
     x = reverb(m.out(), vast, wet=0.35)[:, :n]
     return master(fade(x, 0.0, 2.0), peak=0.92)
 

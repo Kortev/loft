@@ -57,7 +57,7 @@ public final class GapHud {
 		if (r < GapTimeline.REBUILD_TREE) {
 			status = "SIGNAL LOST · SEARCHING FOR A WORLD";
 		} else if (r < GapTimeline.REBUILD_WORLDS) {
-			status = "SOMETHING IS GROWING IN THE VOID";
+			status = TreeRender.grown(r) < 0.42 ? "SOMETHING IS GROWING IN THE VOID" : "THE NINE WORLDS ARE LIGHTING";
 		} else if (r < GapTimeline.REBUILD_SWEEP) {
 			status = "YGGDRASIL · THE AXIS OF THE NINE WORLDS";
 		} else if (r < GapTimeline.REBUILD_DONE) {
@@ -67,6 +67,23 @@ public final class GapHud {
 			status = "REALITY RESTORED";
 		}
 		text(ctx, font, status, w / 2, h * 0.78F, 1.0F, PALE, a, true);
+		// The nine worlds, one mark each, lighting as they do in the tree, three at a time.
+		if (r >= GapTimeline.REBUILD_TREE) {
+			double grown = TreeRender.grown(r);
+			int cx = (int) (w / 2);
+			int cy = (int) (h * 0.78F) - 12;
+			int glow = Math.max(4, (int) (a * 255)) << 24;
+			int dim = Math.max(4, (int) (a * 110)) << 24;
+			for (int i = 0; i < 9; i++) {
+				boolean lit = grown >= 0.42 + 0.12 * (i / 3) + 0.015 * (i % 3);
+				int x = cx - 48 + i * 11 + (i / 3) * 2;
+				ctx.fill(x - 2, cy - 2, x + 2, cy + 2, lit ? glow | WHITE : dim | 0x606078);
+				if (lit) {
+					ctx.fill(x - 1, cy - 4, x + 1, cy + 4, glow | 0xD8C8FF);
+					ctx.fill(x - 4, cy - 1, x + 4, cy + 1, glow | 0xD8C8FF);
+				}
+			}
+		}
 		// The bar: a few percent while the void is searched, stuck while the tree grows, then running with the remaking.
 		double p;
 		if (r < GapTimeline.REBUILD_WORLDS) {

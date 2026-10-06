@@ -26,6 +26,9 @@ public final class ClientGaps {
 	private static final Map<Integer, ClientGap> GAPS = new LinkedHashMap<>();
 	/** When the song in the black comes in: a second after the camera is back in the shooter's eyes. */
 	private static final int SONG = GapTimeline.RETURN + 20;
+	/** How near someone else's must be to see its tree, and how long it is kept waiting to be released (ticks). */
+	private static final double SPECTATE_RANGE = 600.0;
+	private static final int KEEP = 20 * 60 * 10;
 	private static boolean hudOverride;
 	private static boolean savedHudHidden;
 	private static boolean musicHeld;
@@ -119,9 +122,15 @@ public final class ClientGaps {
 			return;
 		}
 		// The shooter's own: not at once, but the rebuild. Anyone else's simply ends.
+		MinecraftClient client = MinecraftClient.getInstance();
 		if (gap.mine && !gap.ended && gap.rebuildAt < 0) {
 			gap.rebuildAt = gap.age;
 			ClientStrikes.master(ModSounds.GAP_REBUILD, 1.0F, 1.0F);
+		} else if (!gap.mine && gap.spectateAt < 0 && client.player != null
+				&& client.player.getPos().distanceTo(gap.contact) < SPECTATE_RANGE) {
+			// Anyone near enough sees the tree grow out of the hole too, its root reaching out to them.
+			gap.spectateAt = gap.age;
+			gap.rebuildFrom = client.player.getPos();
 		} else {
 			gap.ended = true;
 		}
@@ -172,7 +181,9 @@ public final class ClientGaps {
 					gap.ended = true;
 				}
 			}
-			boolean over = gap.ended || (!gap.mine && gap.age > GapTimeline.END + 40);
+			// Someone else's is kept (doing nothing) until it is released, for its tree; but not for ever.
+			boolean over = gap.ended || (!gap.mine && (gap.spectateAt >= 0 ? gap.age - gap.spectateAt > TreeRender.SPECTATED
+					: gap.age > GapTimeline.END + KEEP));
 			if (over) {
 				it.remove();
 			}

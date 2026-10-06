@@ -228,10 +228,10 @@ public final class Mesh {
 	}
 
 	/**
-	 * Yggdrasil's points of light (tools/gen_yggdrasil.py), a quad each for ss_tree: colour and brightness; size and when
-	 * it grows as UV2; how far along the tree it is, what it is and a seed as the normal.
+	 * Yggdrasil's points of light (tools/gen_yggdrasil.py), a quad each for ss_tree, every {@code stride}-th of them:
+	 * colour and brightness; size and when it grows as UV2; how far along the tree it is, what it is and a seed as the normal.
 	 */
-	public static Mesh tree() {
+	public static Mesh tree(int stride) {
 		BufferBuilder b = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_LIGHT_NORMAL);
 		try {
 			Resource resource = MinecraftClient.getInstance().getResourceManager()
@@ -244,6 +244,10 @@ public final class Mesh {
 			int count = data.getInt(0);
 			for (int i = 0; i < count; i++) {
 				int at = 4 + i * 24;
+				// Every stride-th point, but always the worlds.
+				if (i % stride != 0 && data.get(at + 22) != 2) {
+					continue;
+				}
 				int size = data.getShort(at + 16) & 0xFFFF;
 				int grow = (int) ((data.getShort(at + 18) & 0xFFFF) * (30000.0 / 65535.0));
 				float along = (data.getShort(at + 20) & 0xFFFF) * 1.0E-4F / 2.5F * 2.0F - 1.0F;
