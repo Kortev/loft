@@ -219,6 +219,22 @@
       ]
     },
     {
+      "name": "CloudY",
+      "type": "float",
+      "count": 1,
+      "values": [
+        10000.0
+      ]
+    },
+    {
+      "name": "Reach",
+      "type": "float",
+      "count": 1,
+      "values": [
+        600.0
+      ]
+    },
+    {
       "name": "TreeState",
       "type": "float",
       "count": 4,

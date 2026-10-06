@@ -58,7 +58,7 @@ public final class ScreenShake {
 		}
 		// Ginnungagap, felt from one's own eyes (the shooter's camera shots shake themselves): a rumble building as the
 		// block comes down, the jolt of the hit, the burst, and a shudder as the black comes over.
-		if (GapCamera.current(tickDelta) == null) {
+		if (!GapCamera.away(tickDelta)) {
 			for (ClientGap gap : ClientGaps.all()) {
 				if (gap.ended || gap.spectateAt >= 0) {
 					continue;

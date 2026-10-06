@@ -3,6 +3,7 @@ package io.github.kortev.shootingstar.test;
 import io.github.kortev.shootingstar.ShootingStar;
 import io.github.kortev.shootingstar.client.gap.ClientGap;
 import io.github.kortev.shootingstar.client.gap.ClientGaps;
+import io.github.kortev.shootingstar.client.gap.GapRender;
 import java.util.Locale;
 import net.minecraft.block.BlockRenderType;
 import net.minecraft.block.BlockState;
@@ -41,7 +42,8 @@ final class CameraProbe {
 			return;
 		}
 		Vec3d p = camera.getPos();
-		double nearest = nearestBlock(world, p);
+		// Where the world is black it cannot be seen, so there is nothing for the lens to hit.
+		double nearest = ClientGaps.voidPhase() ? 9.99 : nearestBlock(world, p);
 		int cx = MathHelper.floor(p.x) >> 4;
 		int cz = MathHelper.floor(p.z) >> 4;
 		boolean loaded = world.getChunkManager().isChunkLoaded(cx, cz);
@@ -105,6 +107,13 @@ final class CameraProbe {
 	/** How far the lens is from the nearest face of anything solid round it, up to 2 blocks; 0 inside one. */
 	private static double nearestBlock(ClientWorld world, Vec3d p) {
 		double best = 9.99;
+		// While the world is rebuilt only what the ring has reached is there to be seen.
+		ClientGap rebuilding = ClientGaps.rebuilding();
+		double front = rebuilding == null ? -1.0 : GapRender.rebuildFront(rebuilding, rebuilding.rebuild(1.0F));
+		if (rebuilding != null && front >= 0.0
+				&& Math.hypot(p.x - rebuilding.contact.x, p.z - rebuilding.contact.z) > front + 12.0) {
+			return best;
+		}
 		BlockPos.Mutable pos = new BlockPos.Mutable();
 		int x0 = MathHelper.floor(p.x);
 		int y0 = MathHelper.floor(p.y);

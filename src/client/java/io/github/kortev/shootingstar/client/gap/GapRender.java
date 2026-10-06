@@ -50,8 +50,6 @@ public final class GapRender {
 	private static final int FLAKES = 1800;
 	private static final int MOTES = 2400;
 	private static final double FLAKE_REACH = 260.0;
-	/** How far out the rebuild goes before the world is simply back: past the fog at any view distance it is seen at. */
-	private static final double REBUILD_REACH = 600.0;
 	private static final Vector3f WHITE_LIGHT = new Vector3f(1.0F, 1.0F, 1.0F);
 	/** The size of the picture being drawn, for the galaxies' sizes on screen. */
 	private static int screenW = 1;
@@ -446,23 +444,20 @@ public final class GapRender {
 		if (r < GapTimeline.REBUILD_SWEEP - 40 || r > GapTimeline.REBUILD_DONE + 10) {
 			return;
 		}
-		double[] cx = {1.0, 0.0, -1.0, 0.0, 1.0};
-		double[] cz = {0.0, 1.0, 0.0, -1.0, 0.0};
 		BATCH.begin(Fx.BLOB, 0.0F, view, proj, right, up);
 		for (int i = 0; i < MOTES; i++) {
 			// Thick near the middle, where the camera is, and out to the edge of what can be seen.
-			double rim = Math.min(REBUILD_REACH * 0.5, gap.radius);
-			double reach = rim + (REBUILD_REACH * 0.55 - rim) * Math.pow(noise(gap.id, i + 5000), 1.4);
+			double rim = Math.min(rebuildReach(gap) * 0.5, gap.radius);
+			double reach = rim + (rebuildReach(gap) * 0.9 - rim) * Math.pow(noise(gap.id, i + 5000), 1.4);
 			double fall = 26.0 + noise(gap.id, i + 5300) * 30.0;
 			double until = rebuilt(gap, reach) - r;
 			if (until > fall || until < -6.0) {
 				continue;
 			}
-			double u = noise(gap.id, i + 5600) * 4.0;
-			int side = Math.min(3, (int) u);
-			double f = u - side;
-			double x = gap.target.getX() + 0.5 + reach * (cx[side] + (cx[side + 1] - cx[side]) * f);
-			double z = gap.target.getZ() + 0.5 + reach * (cz[side] + (cz[side + 1] - cz[side]) * f);
+			// The front is a ring (the grade pass): round it.
+			double a = noise(gap.id, i + 5600) * Math.PI * 2.0;
+			double x = gap.target.getX() + 0.5 + reach * Math.cos(a);
+			double z = gap.target.getZ() + 0.5 + reach * Math.sin(a);
 			int top = world.getTopY(Heightmap.Type.WORLD_SURFACE, MathHelper.floor(x), MathHelper.floor(z));
 			if (top <= world.getBottomY()) {
 				continue;
@@ -486,9 +481,15 @@ public final class GapRender {
 				size = (float) (0.6 + 1.6 * k);
 				color = WHITE;
 			}
-			Vector3f a = new Vector3f(right).mul(size);
-			Vector3f b = new Vector3f(up).mul(size * (until > 0.0 ? 3.0F : 1.0F));
-			BATCH.flat(rel(new Vec3d(x, y, z), cam), a, b, Fx.fade(color, alpha));
+			Vec3d at = new Vec3d(x, y, z);
+			// Not up against the lens, where one would be a streak across the whole picture.
+			alpha *= (float) GapCamera.ease((at.distanceTo(cam) - 3.0) / 9.0);
+			if (alpha <= 0.01F) {
+				continue;
+			}
+			Vector3f sa = new Vector3f(right).mul(size);
+			Vector3f sb = new Vector3f(up).mul(size * (until > 0.0 ? 3.0F : 1.0F));
+			BATCH.flat(rel(at, cam), sa, sb, Fx.fade(color, alpha));
 		}
 		BATCH.end(true, 2.4F);
 	}
@@ -565,6 +566,9 @@ public final class GapRender {
 			}
 			float size = (float) (1.5 + age * (1.6 + 0.5 * k));
 			float alpha = (float) Math.pow(1.0 - age / 45.0, 1.5);
+			// Gone before it gets out as far as the lens, rather than an arc of light sweeping across the whole picture.
+			double lens = Math.hypot(cam.x - feet.x, cam.z - feet.z);
+			alpha *= (float) (1.0 - GapCamera.ease((size - lens + 6.0) / 5.0));
 			BATCH.flat(at, new Vector3f(size, 0.0F, 0.0F), new Vector3f(0.0F, 0.0F, size), Fx.fade(k == 0 ? WHITE : PALE, alpha));
 		}
 		BATCH.end(false, 2.6F);
@@ -621,6 +625,10 @@ public final class GapRender {
 		/** The foot of Yggdrasil (relative to the target) and its height; how much it is there. */
 		Vector4f tree = new Vector4f(0.0F, 0.0F, 0.0F, 1.0F);
 		Vector4f treeState = new Vector4f();
+		/** The underside of the clouds, relative to the target block. */
+		float cloudY = 10000.0F;
+		/** How far out the rebuild's ring goes. */
+		float reach = 600.0F;
 
 		void apply(Matrix4f proj, Matrix4f view, int w, int h, float time) {
 			Matrix4f inv = new Matrix4f(proj).mul(view).invert();
@@ -647,6 +655,8 @@ public final class GapRender {
 			Shaders.set(Shaders.gap, "SkyMix", skyMix);
 			Shaders.set(Shaders.gap, "Tree", tree.x, tree.y, tree.z, tree.w);
 			Shaders.set(Shaders.gap, "TreeState", treeState.x, treeState.y, treeState.z, treeState.w);
+			Shaders.set(Shaders.gap, "CloudY", cloudY);
+			Shaders.set(Shaders.gap, "Reach", reach);
 		}
 	}
 
@@ -658,6 +668,7 @@ public final class GapRender {
 		double front = rebuildFront(gap, r);
 		g.front = (float) front;
 		g.remake = front >= 0.0 ? 1.0F : 0.0F;
+		g.reach = (float) rebuildReach(gap);
 		if (gap.rebuildFrom == null) {
 			return;
 		}
@@ -678,7 +689,7 @@ public final class GapRender {
 	 * easing to a stop as it gets there (by when the grade pass has faded out the last of the dark, so nothing changes
 	 * when it is done); then done (-1). The middle of the hole before the sweep (0), so it is all dark.
 	 */
-	static double rebuildFront(ClientGap gap, double r) {
+	public static double rebuildFront(ClientGap gap, double r) {
 		double x = (r - GapTimeline.REBUILD_SWEEP) / (GapTimeline.REBUILD_DONE - GapTimeline.REBUILD_SWEEP);
 		if (x >= 1.0) {
 			return -1.0;
@@ -686,8 +697,19 @@ public final class GapRender {
 		if (x <= 0.0) {
 			return 0.0;
 		}
-		double rim = Math.min(REBUILD_REACH * 0.5, gap.radius);
-		return rim + (REBUILD_REACH - rim) * GapCamera.ease(x);
+		double reach = rebuildReach(gap);
+		double rim = Math.min(reach * 0.5, gap.radius);
+		return rim + (reach - rim) * GapCamera.ease(x);
+	}
+
+	/**
+	 * How far out from the middle of the hole the ring goes before the world is simply back: just past the edge of
+	 * what can be seen from the rim at this player's view distance, so it is in sight all the way out (rather than
+	 * gone into the fog in its first few seconds), and the rest of the world comes back with the sky.
+	 */
+	public static double rebuildReach(ClientGap gap) {
+		double view = MinecraftClient.getInstance().options.getClampedViewDistance() * 16.0;
+		return MathHelper.clamp(view + gap.radius + 48.0, gap.radius + 120.0, 600.0);
 	}
 
 	/**
@@ -703,14 +725,17 @@ public final class GapRender {
 		if (front < 0.0) {
 			return 1.0F;
 		}
-		double x = MathHelper.clamp((front - 60.0) / 460.0, 0.0, 1.0);
+		// As the grade pass brings the sky back (ss_gap: from a tenth of the way out to most of it).
+		double reach = rebuildReach(gap);
+		double x = MathHelper.clamp((front - 0.1 * reach) / (0.77 * reach), 0.0, 1.0);
 		return (float) (x * x * (3.0 - 2.0 * x));
 	}
 
 	/** When the rebuild's front gets out as far as {@code reach}: rebuildFront turned round. */
 	private static double rebuilt(ClientGap gap, double reach) {
-		double rim = Math.min(REBUILD_REACH * 0.5, gap.radius);
-		double k = MathHelper.clamp((reach - rim) / (REBUILD_REACH - rim), 0.0, 1.0);
+		double full = rebuildReach(gap);
+		double rim = Math.min(full * 0.5, gap.radius);
+		double k = MathHelper.clamp((reach - rim) / (full - rim), 0.0, 1.0);
 		double lo = 0.0;
 		double hi = 1.0;
 		for (int i = 0; i < 16; i++) {
@@ -735,6 +760,9 @@ public final class GapRender {
 				continue;
 			}
 			g.offset = cam.subtract(gap.target.getX(), gap.target.getY(), gap.target.getZ());
+			ClientWorld world = MinecraftClient.getInstance().world;
+			float clouds = world == null ? Float.NaN : world.getDimensionEffects().getCloudsHeight();
+			g.cloudY = Float.isNaN(clouds) ? 10000.0F : clouds - gap.target.getY() - 0.5F;
 			on = true;
 			if (t < GapTimeline.CONTACT) {
 				// The block coming down lights the ground under it, more and more as it nears.
@@ -805,7 +833,7 @@ public final class GapRender {
 			if (r >= 0.0) {
 				// And it goes as ours comes back, all of it gone before the rebuild is done.
 				double front = rebuildFront(gap, r);
-				g.skyMix *= (float) (front < 0.0 ? 0.0 : 1.0 - GapCamera.ease(front / 520.0));
+				g.skyMix *= (float) (front < 0.0 ? 0.0 : 1.0 - GapCamera.ease(front / (0.87 * rebuildReach(gap))));
 			}
 		}
 		if (mine != null) {

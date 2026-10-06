@@ -252,7 +252,7 @@ public final class ClientGaps {
 	 */
 	public static void hud(MinecraftClient client) {
 		ClientGap gap = mine();
-		boolean away = gap != null && (GapCamera.current(1.0F) != null || feedShowing(gap, gap.age));
+		boolean away = gap != null && (GapCamera.away(1.0F) || feedShowing(gap, gap.age));
 		if (away && !hudOverride) {
 			savedHudHidden = client.options.hudHidden;
 			client.options.hudHidden = true;

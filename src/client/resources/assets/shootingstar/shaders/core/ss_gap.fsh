@@ -38,6 +38,10 @@ uniform vec4 TreeState;
 uniform vec3 BurstLight;
 uniform float Shock;
 uniform float SkyMix;
+// The underside of the clouds, relative to the target block: clouds are part of the sky, never built back block by block.
+uniform float CloudY;
+// How far out the rebuild's ring goes before the world is all back.
+uniform float Reach;
 
 in vec2 texCoord;
 
@@ -310,7 +314,7 @@ vec3 burst(vec2 uv, vec3 c) {
         c = SkyMix > 0.0 ? mix(c, cosmos(viewDir(uv), Time), SkyMix) : c;
         // The sky goes dark as the black spreads under it, and comes back as the rebuilt world spreads out again.
         if (Remake > 0.0) {
-            return c * smoothstep(60.0, 520.0, Front);
+            return c * smoothstep(0.1 * Reach, 0.87 * Reach, Front);
         }
         return Front >= 0.0 ? c * (1.0 - smoothstep(40.0, 360.0, Front)) : c;
     }
@@ -345,45 +349,59 @@ vec3 burst(vec2 uv, vec3 c) {
     return c;
 }
 
+// Set by erase when it has taken the pixel into the black (or not yet given it back): nothing there stands in front
+// of what is drawn after the pass, the people the black does not take.
+bool blacked = false;
+
 vec3 erase(vec2 uv, vec3 c) {
     if (Front < 0.0) {
         return c;
     }
     vec3 rel = relAt(uv);
+    // How much ground one pixel covers here: where a block is only a pixel or two across, its outline and its own
+    // moment of coming in would only be noise, so they fade out (worked out up here, where every pixel gets to it).
+    float pixel = length(fwidth(rel));
     // Cells grow with distance so the far ones still read as blocks on screen.
     float size = exp2(floor(log2(max(1.0, length(rel) / 40.0))));
+    float detail = clamp((size / max(pixel, 1.0e-4) - 2.0) / 6.0, 0.0, 1.0);
     vec3 cell = floor((rel + CamOffset) / size) * size;
     vec3 mid = cell + 0.5 * size;
     if (Clamp > 0.0 && length(mid.xz) > Clamp) {
         return c;
     }
-    // Up and down count for half, so the valleys go with the ground round them rather than long after.
-    float m = abs(mid.x) + 0.5 * abs(mid.y) + abs(mid.z) + hash3(cell) * 7.0 * size;
     if (Remake > 0.0) {
         // The sky is not built back block by block: it comes back whole, as the world spreads out under it (burst).
         if (isSky(uv)) {
             return c;
         }
-        // Built back block by block out from the middle: beyond the front, nothing; at it, each block coming in as a
-        // white-hot cube outlined in light, cooling to itself over the next few blocks behind.
-        float lead = m - Front;
+        // Built back block by block in a ring running out over the land from the rim of the hole: beyond it, nothing;
+        // at it, each block coming in as a white-hot cube outlined in light, cooling to itself over the next few behind.
+        float lead = length(mid.xz) + hash3(cell) * 7.0 * size * detail - Front;
         // The last of it, out where it can hardly be seen, fades in as the front slows to its stop, the band with it,
         // so there is nothing left to change when the rebuild is done.
-        float last = smoothstep(330.0, 590.0, Front);
+        float last = smoothstep(0.55 * Reach, 0.98 * Reach, Front);
         if (lead > 0.0) {
+            blacked = last < 0.5;
             return c * last;
+        }
+        // The clouds (and anything as high) come back with the ring, but plainly: they are the sky's, not blocks.
+        if (rel.y + CamOffset.y > CloudY) {
+            return c;
         }
         float band = 6.0 * size + 10.0 + Front * 0.03;
         float k = clamp(-lead / band, 0.0, 1.0);
         vec3 f = fract((rel + CamOffset) / size);
         vec3 e = min(f, 1.0 - f);
         float second = max(min(e.x, e.y), min(max(e.x, e.y), e.z));
-        float wire = 1.0 - smoothstep(0.03, 0.09, second);
+        float wire = (1.0 - smoothstep(0.03, 0.09, second)) * detail;
         vec3 glow = vec3(0.78, 0.68, 1.0);
         c = mix(glow * 1.6 * (1.0 - last) + c, c, smoothstep(0.0, 0.45, k));
         return c + glow * wire * (1.0 - k) * 2.2 * (1.0 - last);
     }
+    // Up and down count for half, so the valleys go with the ground round them rather than long after.
+    float m = abs(mid.x) + 0.5 * abs(mid.y) + abs(mid.z) + hash3(cell) * 7.0 * size;
     if (m < Front - 1.6 * size) {
+        blacked = true;
         return vec3(0.0);
     }
     if (m < Front) {
@@ -435,5 +453,6 @@ void main() {
     c = mix(c, vec3(1.0), clamp(Flash, 0.0, 1.0));
     c = mix(c, vec3(0.0), clamp(Black, 0.0, 1.0));
     fragColor = vec4(c, 1.0);
-    gl_FragDepth = rawDepth(uv);
+    // What the black has taken is as far off as the sky: a hill or a tree there, unseen, hides nobody behind it.
+    gl_FragDepth = blacked || Black >= 0.999 ? 1.0 : rawDepth(uv);
 }

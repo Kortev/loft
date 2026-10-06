@@ -1,5 +1,8 @@
 package io.github.kortev.shootingstar.gap;
 
+import it.unimi.dsi.fastutil.longs.Long2IntMap;
+import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -16,6 +19,8 @@ import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.random.Random;
 import net.minecraft.world.Heightmap;
 import net.minecraft.world.chunk.WorldChunk;
+import net.minecraft.world.chunk.light.LightingProvider;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Takes the world out of the zone, once it has all gone black: a shaft round the target from the build limit down
@@ -25,8 +30,15 @@ import net.minecraft.world.chunk.WorldChunk;
  * Nothing is sent to anyone block by block: the blocks are changed quietly, and when it is done every chunk it touched
  * is sent again, whole, once. Changing them one at a time had every client rebuild the same chunks over and over,
  * which was the lag. Technical blocks (command, structure, barrier, jigsaw) are left alone.
+ * <p>
+ * Nor is the light worked out block by block. Each block taken out would queue a light check of its own, millions of
+ * them, which kept the light engine busy for half a minute after the black came; and the clients, who are only sent
+ * light that changes at the edge of what they can see, kept the hole pitch black until the next time its chunks came.
+ * Instead the checks are gathered, one to a column at the lowest block taken from it (the sky's light runs straight
+ * down an open column from there), and made when the hole is done; and the chunks are sent once the light has settled,
+ * while the world is still all black.
  */
-final class Erasure {
+public final class Erasure {
 	/** Blocks removed (and read) a tick at most: a budget for the server; the clients are told nothing until the end. */
 	private static final int BLOCK_BUDGET = 40_000;
 	private static final int READ_BUDGET = 200_000;
@@ -56,6 +68,17 @@ final class Erasure {
 	private int columnY = Integer.MIN_VALUE;
 	private int erased;
 	private boolean sent;
+	/** The erasure taking blocks out on this thread just now, gathering their light checks; and where they go. */
+	@Nullable
+	private static Erasure gathering;
+	@Nullable
+	private static Thread gatheringOn;
+	/** Each column changed (x and z packed), and the lowest block taken out of it; and any light source taken out. */
+	private final Long2IntOpenHashMap lowest = new Long2IntOpenHashMap();
+	private final LongArrayList glowing = new LongArrayList();
+	/** Ticks since the light checks went in, and how many ticks running the light engine has had nothing to do. */
+	private int lighting = -1;
+	private int quiet;
 
 	Erasure(ServerWorld world, BlockPos center, int radius) {
 		this.world = world;
@@ -116,8 +139,33 @@ final class Erasure {
 		cracks.add(line);
 	}
 
-	/** Works on, a budget's worth per call; true when the hole and the fissures are all done and sent. */
+	/**
+	 * Called in place of the light check for a block whose state has just changed (WorldChunkMixin): true if an erasure
+	 * on this thread is taking blocks out and has kept the check for later.
+	 */
+	public static boolean defer(BlockPos pos) {
+		Erasure erasure = gathering;
+		if (erasure == null || gatheringOn != Thread.currentThread()) {
+			return false;
+		}
+		long column = ((long) pos.getX() << 32) | (pos.getZ() & 0xFFFFFFFFL);
+		erasure.lowest.put(column, Math.min(erasure.lowest.getOrDefault(column, Integer.MAX_VALUE), pos.getY()));
+		return true;
+	}
+
+	/** Works on, a budget's worth per call; true when the hole and the fissures are all done, lit and sent. */
 	boolean step(double reach) {
+		gathering = this;
+		gatheringOn = Thread.currentThread();
+		try {
+			return work(reach);
+		} finally {
+			gathering = null;
+			gatheringOn = null;
+		}
+	}
+
+	private boolean work(double reach) {
 		int budget = BLOCK_BUDGET;
 		int reads = READ_BUDGET;
 		int bottom = world.getBottomY();
@@ -137,6 +185,9 @@ final class Erasure {
 				BlockState state = world.getBlockState(pos);
 				reads--;
 				if (!state.isAir() && erasable(state)) {
+					if (state.getLuminance() > 0) {
+						glowing.add(pos.asLong());
+					}
 					world.setBlockState(pos, air, QUIET);
 					budget--;
 					erased++;
@@ -171,6 +222,9 @@ final class Erasure {
 							pos.set(x, top - k, z);
 							BlockState state = world.getBlockState(pos);
 							if (!state.isAir() && state.getFluidState().isEmpty() && erasable(state) && !state.isOf(Blocks.BEDROCK)) {
+								if (state.getLuminance() > 0) {
+									glowing.add(pos.asLong());
+								}
 								world.setBlockState(pos, air, QUIET);
 								opened = true;
 							}
@@ -185,11 +239,35 @@ final class Erasure {
 			crackCursor++;
 			return false;
 		}
-		if (!sent) {
+		if (sent) {
+			return true;
+		}
+		if (lighting < 0) {
+			// Every column checked once, from the lowest block taken out of it, and every light that went with them.
+			gathering = null;
+			LightingProvider light = world.getChunkManager().getLightingProvider();
+			BlockPos.Mutable at = new BlockPos.Mutable();
+			for (Long2IntMap.Entry entry : lowest.long2IntEntrySet()) {
+				long column = entry.getLongKey();
+				light.checkBlock(at.set((int) (column >> 32), entry.getIntValue(), (int) column));
+			}
+			for (int i = 0; i < glowing.size(); i++) {
+				light.checkBlock(at.set(glowing.getLong(i)));
+			}
+			lowest.clear();
+			glowing.clear();
+			lighting = 0;
+			return false;
+		}
+		// Sent once the light engine has had nothing to do for half a second (or, at the most, after twenty seconds).
+		lighting++;
+		quiet = world.getChunkManager().getLightingProvider().hasUpdates() ? 0 : quiet + 1;
+		if (lighting >= 20 && quiet >= 10 || lighting >= 400) {
 			sent = true;
 			send();
+			return true;
 		}
-		return true;
+		return false;
 	}
 
 	private void lid(BlockPos pos) {

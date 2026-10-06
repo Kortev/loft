@@ -28,6 +28,7 @@
 		"fabric-api": "*"
 	},
 	"mixins": [
+		"shootingstar.mixins.json",
 		{
 			"config": "shootingstar.client.mixins.json",
 			"environment": "client"
