@@ -571,6 +571,10 @@ public class ChittyEntity extends Entity {
 	}
 
 	private static double pedal(double speed, int throttle, double top, double accel, double drag) {
+		// Faster than she can go here (down out of the air, say): she sheds the rest quickly, though not all at once.
+		if (Math.abs(speed) > top) {
+			return Math.signum(speed) * Math.max(top, Math.abs(speed) * 0.92);
+		}
 		if (throttle > 0) {
 			return speed < 0 ? Math.min(0.0, speed + BRAKE) : Math.min(top, speed + accel * (1.0 - 0.5 * speed / top));
 		}

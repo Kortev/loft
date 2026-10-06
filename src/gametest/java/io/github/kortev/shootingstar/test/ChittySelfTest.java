@@ -67,9 +67,11 @@ public class ChittySelfTest implements ClientModInitializer {
 	private static int ground;
 	private static float turnFrom;
 	private static ChittyEntity car;
-	/** The camera's last pose, eased towards each shot's target so cuts are rare and moves are smooth. */
+	/** The camera's eased offsets from the car (or, for a fixed camera, where it is looking). */
 	private static Vec3d camEye;
 	private static Vec3d camAt;
+	/** Whether those are a fixed camera's: moving between two following cameras eases from one to the other instead of cutting. */
+	private static boolean camFixed = true;
 	private static final List<double[]> ENGINE = new ArrayList<>();
 	private static final List<double[]> FLIGHT = new ArrayList<>();
 
@@ -247,11 +249,11 @@ public class ChittySelfTest implements ClientModInitializer {
 				if (ticks == 12) {
 					shot(client, "05_wings.png");
 				}
-				if (ticks == 30) {
+				if (ticks == 20) {
 					shot(client, "06_liftoff.png");
 				}
 				if (car.getY() > ground + 7 || ticks > 160) {
-					Capture.camera = chase(client, 0.0, 4.5, -12.0, 0.0, 4.0);
+					Capture.camera = chase(client, -4.5, 3.0, -9.0, 0.0, 2.0);
 					next(Stage.CLIMB);
 				}
 			}
@@ -262,7 +264,8 @@ public class ChittySelfTest implements ClientModInitializer {
 				}
 				if (car.getY() > ground + 18 || ticks > 200) {
 					turnFrom = car.getYaw();
-					Capture.camera = chase(client, 10.0, 3.0, -6.0, 0.0, 1.0);
+					// Outside the turn (she turns left, so her right), to see her bank and her wings.
+					Capture.camera = chase(client, -9.0, 2.5, -2.5, 0.0, 1.0);
 					next(Stage.TURN);
 				}
 			}
@@ -272,18 +275,18 @@ public class ChittySelfTest implements ClientModInitializer {
 					shot(client, "08_banking.png");
 				}
 				if (Math.abs(MathHelper.wrapDegrees(car.getYaw() - turnFrom)) > 170.0F || ticks > 160) {
-					Capture.camera = chase(client, -7.0, 1.5, 2.0, 0.0, 0.0);
+					Capture.camera = chase(client, -6.5, 1.2, 3.5, 0.0, 0.0);
 					next(Stage.CRUISE);
 				}
 			}
 			case CRUISE -> {
 				keys(client, true, false, false, false, false);
-				if (ticks == 20) {
+				if (ticks == 12) {
 					shot(client, "09_cruising.png");
 				}
-				if (ticks >= 30) {
-					Vec3d lake = new Vec3d(base.getX() + (LAKE_WEST + LAKE_EAST) / 2.0, ground + 1, car.getZ() - 30.0);
-					Capture.camera = beside(client, new Vec3d(lake.x + 18.0, ground + 3.0, lake.z - 6.0));
+				if (ticks >= 24) {
+					// Ahead and to her right, looking back at her as she comes down.
+					Capture.camera = chase(client, -7.0, 0.5, 7.0, 0.0, 0.0);
 					next(Stage.DIVE);
 				}
 			}
@@ -293,6 +296,8 @@ public class ChittySelfTest implements ClientModInitializer {
 					shot(client, "10_diving.png");
 				}
 				if (car.getFluidHeight(net.minecraft.registry.tag.FluidTags.WATER) > 0.05 || car.isOnGround() || ticks > 260) {
+					// Off to her right a way ahead, so she slides up and past it as she slows.
+					Capture.camera = beside(client, local(car.getPos(), car.getYaw(), -6.5, 2.2, 11.0));
 					next(Stage.SPLASH);
 				}
 			}
@@ -303,12 +308,13 @@ public class ChittySelfTest implements ClientModInitializer {
 				}
 				if (ticks == 40) {
 					shot(client, "12_floats.png");
-					Capture.camera = orbit(client, Capture.time(), 9.0, 3.0, 0.6);
+					Capture.camera = orbit(client, Capture.time(), 8.5, 2.6, 2.4);
 					next(Stage.AFLOAT);
 				}
 			}
 			case AFLOAT -> {
-				keys(client, ticks > 20, false, ticks > 40 && ticks < 90, false, false);
+				// Round in a slow circle on the lake: on the water she turns tight enough to stay well off the banks.
+				keys(client, ticks > 20 && ticks < 150, false, ticks > 30 && ticks < 150, false, false);
 				if (ticks == 70) {
 					shot(client, "13_afloat.png");
 				}
@@ -416,36 +422,61 @@ public class ChittySelfTest implements ClientModInitializer {
 
 	/** Circling her slowly, looking at the middle of the car. */
 	private static DoubleFunction<Capture.Pose> orbit(MinecraftClient client, double start, double radius, double height, double from) {
+		cut(false);
 		return time -> {
 			Vec3d c = carPos(client);
 			double a = from + (time - start) * 0.012;
-			Vec3d eye = c.add(Math.cos(a) * radius, height, Math.sin(a) * radius);
-			return ease(eye, c.add(0.0, 0.8, 0.0), 0.15);
+			return follow(c, c.add(Math.cos(a) * radius, height, Math.sin(a) * radius), c.add(0.0, 0.8, 0.0), 0.15);
 		};
 	}
 
 	/** Following her from a point in her own frame, looking at a point a little ahead of her. */
 	private static DoubleFunction<Capture.Pose> chase(MinecraftClient client, double x, double y, double z, double atY, double atZ) {
+		cut(false);
 		return time -> {
 			Vec3d c = carPos(client);
 			float yaw = carYaw(client);
-			return ease(local(c, yaw, x, y, z), local(c, yaw, 0.0, 0.8 + atY, atZ), 0.08);
+			return follow(c, local(c, yaw, x, y, z), local(c, yaw, 0.0, 0.8 + atY, atZ), 0.06);
 		};
 	}
 
 	/** Standing still at a place, turning to watch her go by. */
 	private static DoubleFunction<Capture.Pose> beside(MinecraftClient client, Vec3d at) {
-		return time -> ease(at, carPos(client).add(0.0, 0.8, 0.0), 0.12);
+		cut(true);
+		return time -> {
+			Vec3d target = carPos(client).add(0.0, 0.8, 0.0);
+			camAt = camAt == null ? target : camAt.lerp(target, 0.35);
+			return pose(at, camAt);
+		};
 	}
 
-	private static Capture.Pose ease(Vec3d eye, Vec3d at, double rate) {
-		camEye = camEye == null ? eye : camEye.lerp(eye, rate);
-		camAt = camAt == null ? at : camAt.lerp(at, Math.min(1.0, rate * 2.5));
-		Vec3d d = camAt.subtract(camEye);
+	/** Starts a new camera, cutting to it unless it follows her as the last one did. */
+	private static void cut(boolean fixed) {
+		if (fixed || camFixed) {
+			camEye = null;
+			camAt = null;
+		}
+		camFixed = fixed;
+	}
+
+	/**
+	 * Eases the camera's offsets from the car rather than its place in the world, so it keeps up with her however fast
+	 * she goes and only its framing drifts.
+	 */
+	private static Capture.Pose follow(Vec3d anchor, Vec3d eye, Vec3d at, double rate) {
+		Vec3d e = eye.subtract(anchor);
+		Vec3d a = at.subtract(anchor);
+		camEye = camEye == null ? e : camEye.lerp(e, rate);
+		camAt = camAt == null ? a : camAt.lerp(a, Math.min(1.0, rate * 2.5));
+		return pose(anchor.add(camEye), anchor.add(camAt));
+	}
+
+	private static Capture.Pose pose(Vec3d eye, Vec3d at) {
+		Vec3d d = at.subtract(eye);
 		double horizontal = Math.sqrt(d.x * d.x + d.z * d.z);
 		float yaw = (float) (MathHelper.atan2(d.z, d.x) * MathHelper.DEGREES_PER_RADIAN) - 90.0F;
 		float pitch = (float) -(MathHelper.atan2(d.y, horizontal) * MathHelper.DEGREES_PER_RADIAN);
-		return new Capture.Pose(camEye.x, camEye.y, camEye.z, yaw, pitch);
+		return new Capture.Pose(eye.x, eye.y, eye.z, yaw, pitch);
 	}
 
 	// --- the running sounds for the soundtrack ------------------------------------------------------
