@@ -609,15 +609,24 @@ public final class GapRender {
 		g.burstLight.set(0.42F, 0.38F, 0.95F).mul((float) (TreeRender.there(r) * TreeRender.grown(r) * (0.35 + 0.9 * flare)));
 	}
 
-	/** How far out the world has been built back, {@code r} ticks into the rebuild: from the sweep, out to the fog, then done (-1). */
+	/**
+	 * How far out the world has been built back, {@code r} ticks into the rebuild: from the sweep, out past the fog,
+	 * slowing to a stop as it gets there (by when the grade pass has faded out the last of the dark, so nothing changes
+	 * when it is done); then done (-1).
+	 */
 	static double rebuildFront(double r) {
 		double x = (r - GapTimeline.REBUILD_SWEEP) / (GapTimeline.REBUILD_DONE - GapTimeline.REBUILD_SWEEP);
-		return x >= 1.0 ? -1.0 : REBUILD_REACH * Math.pow(Math.max(0.0, x), 1.25);
+		if (x >= 1.0) {
+			return -1.0;
+		}
+		double u = Math.pow(Math.max(0.0, x), 1.25);
+		return REBUILD_REACH * (1.0 - (1.0 - u) * (1.0 - u));
 	}
 
 	/** When the rebuild's front gets out as far as {@code reach}: rebuildFront turned round. */
 	private static double rebuilt(double reach) {
-		return GapTimeline.REBUILD_SWEEP + (GapTimeline.REBUILD_DONE - GapTimeline.REBUILD_SWEEP) * Math.pow(reach / REBUILD_REACH, 0.8);
+		double u = 1.0 - Math.sqrt(Math.max(0.0, 1.0 - reach / REBUILD_REACH));
+		return GapTimeline.REBUILD_SWEEP + (GapTimeline.REBUILD_DONE - GapTimeline.REBUILD_SWEEP) * Math.pow(u, 0.8);
 	}
 
 	private static Grade grade(ClientGap mine, float tickDelta, Vec3d cam, Matrix4f view, Matrix4f proj) {
@@ -663,6 +672,11 @@ public final class GapRender {
 			}
 			// The other universe's sky stays over ours until the black has it too.
 			g.skyMix = (float) (0.85 * GapCamera.ease((t - GapTimeline.CONTACT - 10.0) / 50.0));
+			if (r >= 0.0) {
+				// And it goes as ours comes back, all of it gone before the rebuild is done.
+				double front = rebuildFront(r);
+				g.skyMix *= (float) (front < 0.0 ? 0.0 : 1.0 - GapCamera.ease(front / 520.0));
+			}
 		}
 		if (mine != null) {
 			double t = mine.time(tickDelta);

@@ -363,8 +363,11 @@ vec3 erase(vec2 uv, vec3 c) {
         // Built back block by block out from the middle: beyond the front, nothing; at it, each block coming in as a
         // white-hot cube outlined in light, cooling to itself over the next few blocks behind.
         float lead = m - Front;
+        // The last of it, out where it can hardly be seen, fades in as the front slows to its stop, the band with it,
+        // so there is nothing left to change when the rebuild is done.
+        float last = smoothstep(330.0, 590.0, Front);
         if (lead > 0.0) {
-            return vec3(0.0);
+            return c * last;
         }
         float band = 6.0 * size + 10.0 + Front * 0.03;
         float k = clamp(-lead / band, 0.0, 1.0);
@@ -373,8 +376,8 @@ vec3 erase(vec2 uv, vec3 c) {
         float second = max(min(e.x, e.y), min(max(e.x, e.y), e.z));
         float wire = 1.0 - smoothstep(0.03, 0.09, second);
         vec3 glow = vec3(0.78, 0.68, 1.0);
-        c = mix(glow * 1.6 + c, c, smoothstep(0.0, 0.45, k));
-        return c + glow * wire * (1.0 - k) * 2.2;
+        c = mix(glow * 1.6 * (1.0 - last) + c, c, smoothstep(0.0, 0.45, k));
+        return c + glow * wire * (1.0 - k) * 2.2 * (1.0 - last);
     }
     if (m < Front - 1.6 * size) {
         return vec3(0.0);

@@ -83,7 +83,8 @@ public final class ClientGaps {
 	/** The shooter's world shots run without clouds, from the block coming down to the end. */
 	public static boolean cloudless() {
 		ClientGap gap = mine();
-		return gap != null && gap.age >= GapTimeline.INBOUND - 2;
+		// Back with the rebuild, so they come in under the sky as it returns rather than all at once at the end.
+		return gap != null && gap.age >= GapTimeline.INBOUND - 2 && gap.rebuildAt < 0;
 	}
 
 	public static void holdInput(MinecraftClient client) {
