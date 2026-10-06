@@ -317,8 +317,8 @@ public final class GapCamera {
 	/**
 	 * The rebuild, in shots that each glide into the next: out of the shooter's eyes to far back on their side of the
 	 * hole, the whole of the tree, the hole and the ground round it in the picture as it grows; down low behind them as
-	 * the light comes down the root; skimming the ground just behind the edge of the world being put back as it runs out
-	 * from the rim; high over everything, the tree below, as that ring spreads out across the land; wide on all of it as
+	 * the light comes down the root; out ahead of the edge of the world being put back, looking back in as it comes on over
+	 * the ground; high over everything, under the clouds, the tree to one side, as that ring spreads out across the land; wide on all of it as
 	 * the tree draws back; and back into their eyes.
 	 */
 	@Nullable
@@ -345,9 +345,11 @@ public final class GapCamera {
 			rebuildLift = 0.0;
 		}
 		// Hills in the way: rise over them, smoothly, rather than being pulled in against them.
-		double need = above(eye, at).y - eye.y;
+		double need = overTerrain(eye, at, 4.0).y - eye.y;
 		rebuildLift = need > rebuildLift ? MathHelper.lerp(0.2, rebuildLift, need) : MathHelper.lerp(0.03, rebuildLift, need);
-		eye = eye.add(0.0, rebuildLift, 0.0);
+		// Only on the shots of their own: never lifting the shooter's eyes, coming out or going back in.
+		double away = ease((r - REBUILD_SHOTS[0]) / REBUILD_BLEND) * (1.0 - ease((r - REBUILD_SHOTS[REBUILD_SHOTS.length - 1]) / REBUILD_BLEND));
+		eye = eye.add(0.0, rebuildLift * away, 0.0);
 		return lookAt(clear(eye, at), at);
 	}
 
@@ -378,19 +380,21 @@ public final class GapCamera {
 				yield new Vec3d[] {aboveGround(eye, 1.2), centre.lerp(feet, 0.15 + 0.6 * along).add(0.0, 2.0 + tall * 0.1 * (1.0 - along), 0.0)};
 			}
 			case 3 -> {
-				// Skimming the ground just behind the edge of the world being put back, looking out at it coming into being
-				// ahead, a little to one side of the shooter.
+				// Out ahead of the edge of the world being put back, up a little, looking back in at it as it comes on over
+				// the ground towards the camera, the tree beyond.
 				double front = MathHelper.clamp(GapRender.rebuildFront(gap, r), rim, rim + 90.0);
 				Vec3d way = out.rotateY((float) Math.toRadians(-40.0));
-				Vec3d eye = aboveGround(centre.add(way.multiply(front - 14.0)), 3.5);
-				Vec3d at = centre.add(way.multiply(front + 26.0));
-				yield new Vec3d[] {eye, aboveGround(new Vec3d(at.x, eye.y - 4.0, at.z), 1.5)};
+				Vec3d eye = aboveGround(centre.add(way.multiply(front + 70.0)), 22.0);
+				Vec3d at = aboveGround(centre.add(way.multiply(front - 10.0)), 2.0);
+				yield new Vec3d[] {eye, at.lerp(centre.add(0.0, tall * 0.25, 0.0), 0.2)};
 			}
 			case 4 -> {
-				// High over everything, the tree below and to one side, turning slowly, as the ring spreads out over the land.
+				// High over everything, under the clouds, the tree to one side, turning slowly, as the ring spreads out over
+				// the land.
 				double turn = Math.toRadians(35.0) * MathHelper.clamp((r - REBUILD_SHOTS[3]) / 140.0, 0.0, 1.0);
-				Vec3d high = centre.add(out.multiply(rim * 1.4)).add(side.multiply(rim * 0.7)).add(0.0, tall * 1.3, 0.0);
-				yield new Vec3d[] {aboveGround(orbit(high, centre, turn), 12.0), aboveGround(centre.add(out.multiply(rim * 1.1)), 1.5)};
+				Vec3d high = centre.add(out.multiply(rim * 1.9)).add(side.multiply(rim * 0.9)).add(0.0, tall * 1.3, 0.0);
+				high = new Vec3d(high.x, Math.min(high.y, underClouds()), high.z);
+				yield new Vec3d[] {aboveGround(orbit(high, centre, turn), 12.0), aboveGround(centre.add(out.multiply(rim * 0.6)), 1.5)};
 			}
 			case 5 -> {
 				// Wide on all of it as the tree draws back down into the hole.
@@ -409,6 +413,33 @@ public final class GapCamera {
 		}
 		int top = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, MathHelper.floor(p.x), MathHelper.floor(p.z));
 		return p.y < top + clearance ? new Vec3d(p.x, top + clearance, p.z) : p;
+	}
+
+	/** {@code eye}, raised if need be so that the line from it to {@code at} passes over the ground all the way. */
+	private static Vec3d overTerrain(Vec3d eye, Vec3d at, double margin) {
+		ClientWorld world = MinecraftClient.getInstance().world;
+		if (world == null) {
+			return eye;
+		}
+		double y = eye.y;
+		for (int i = 1; i < 40; i++) {
+			double t = i / 40.0;
+			if (t > 0.9) {
+				break;
+			}
+			Vec3d p = eye.lerp(at, t);
+			double top = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, MathHelper.floor(p.x), MathHelper.floor(p.z)) + margin;
+			// The line's height there is y + (at.y - y) * t: raise y until that clears the ground.
+			y = Math.max(y, (top - at.y * t) / (1.0 - t));
+		}
+		return new Vec3d(eye.x, y, eye.z);
+	}
+
+	/** A little under where the clouds are, so a camera up high looks down past them rather than through them. */
+	private static double underClouds() {
+		ClientWorld world = MinecraftClient.getInstance().world;
+		float clouds = world == null ? Float.NaN : world.getDimensionEffects().getCloudsHeight();
+		return Float.isNaN(clouds) ? 180.0 : clouds - 12.0;
 	}
 
 	/** {@code eye} turned {@code radians} round the vertical through {@code centre}, at the same height. */
