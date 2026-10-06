@@ -1,0 +1,31 @@
+{
+  "parent": "shootingstar:chitty/root",
+  "display": {
+    "icon": {
+      "id": "shootingstar:chitty"
+    },
+    "title": {
+      "translate": "advancements.shootingstar.chitty_start.title"
+    },
+    "description": {
+      "translate": "advancements.shootingstar.chitty_start.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "start": {
+      "trigger": "shootingstar:event",
+      "conditions": {
+        "event": "chitty_start"
+      }
+    }
+  },
+  "requirements": [
+    [
+      "start"
+    ]
+  ]
+}

@@ -355,5 +355,77 @@
         "name": "shootingstar:gap_rebuild"
       }
     ]
+  },
+  "chitty.engine": {
+    "subtitle": "subtitles.shootingstar.chitty.engine",
+    "sounds": [
+      {
+        "name": "shootingstar:chitty_engine"
+      }
+    ]
+  },
+  "chitty.flight": {
+    "subtitle": "subtitles.shootingstar.chitty.flight",
+    "sounds": [
+      {
+        "name": "shootingstar:chitty_flight"
+      }
+    ]
+  },
+  "chitty.start": {
+    "subtitle": "subtitles.shootingstar.chitty.start",
+    "sounds": [
+      {
+        "name": "shootingstar:chitty_start"
+      }
+    ]
+  },
+  "chitty.bang": {
+    "subtitle": "subtitles.shootingstar.chitty.bang",
+    "sounds": [
+      {
+        "name": "shootingstar:chitty_bang"
+      }
+    ]
+  },
+  "chitty.horn": {
+    "subtitle": "subtitles.shootingstar.chitty.horn",
+    "sounds": [
+      {
+        "name": "shootingstar:chitty_horn"
+      }
+    ]
+  },
+  "chitty.wings_out": {
+    "subtitle": "subtitles.shootingstar.chitty.wings_out",
+    "sounds": [
+      {
+        "name": "shootingstar:chitty_wings_out"
+      }
+    ]
+  },
+  "chitty.wings_in": {
+    "subtitle": "subtitles.shootingstar.chitty.wings_in",
+    "sounds": [
+      {
+        "name": "shootingstar:chitty_wings_in"
+      }
+    ]
+  },
+  "chitty.floats": {
+    "subtitle": "subtitles.shootingstar.chitty.floats",
+    "sounds": [
+      {
+        "name": "shootingstar:chitty_floats"
+      }
+    ]
+  },
+  "chitty.crash": {
+    "subtitle": "subtitles.shootingstar.chitty.crash",
+    "sounds": [
+      {
+        "name": "shootingstar:chitty_crash"
+      }
+    ]
   }
 }

@@ -1,5 +1,6 @@
 package io.github.kortev.shootingstar;
 
+import io.github.kortev.shootingstar.chitty.Chitty;
 import io.github.kortev.shootingstar.command.GapCommand;
 import io.github.kortev.shootingstar.command.GungnirCommand;
 import io.github.kortev.shootingstar.gap.GapManager;
@@ -35,6 +36,7 @@ public class ShootingStar implements ModInitializer {
 		GungnirCommand.init();
 		GapManager.init();
 		GapCommand.init();
+		Chitty.init();
 		LOGGER.info("SS-03 Gungnir online");
 	}
 }
