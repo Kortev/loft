@@ -229,6 +229,14 @@ public final class GapManager {
 			while (!gap.erasure.done()) {
 				gap.erasure.step(Double.MAX_VALUE);
 			}
+			// Anyone who walked out over where the hole is, on the ground that was, is set down on its rim before that goes.
+			for (ServerPlayerEntity player : List.copyOf(world.getPlayers())) {
+				if (horizontal(player.getPos(), gap.target) <= gap.radius + 8) {
+					toRim(world, gap, player);
+				}
+			}
+			// The ground the black was walked on goes; the hole is open.
+			gap.erasure.unlid();
 		}
 		ModNetworking.broadcast(world, new GapEndPayload(gap.id));
 		ShootingStar.LOGGER.info("Ginnungagap #{} released", gap.id);

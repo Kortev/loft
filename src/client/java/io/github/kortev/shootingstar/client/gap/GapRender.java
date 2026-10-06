@@ -413,7 +413,7 @@ public final class GapRender {
 			double born = GapTimeline.ERASURE + 140.0 * Math.pow(r / 1400.0, 2.0 / 3.0);
 			double life = 18.0 + noise(gap.id, i + 3300) * 20.0;
 			double age = t - born;
-			if (age < 0.0 || age > life || !gap.mine && r > gap.radius) {
+			if (age < 0.0 || age > life) {
 				continue;
 			}
 			double u = noise(gap.id, i + 3600) * 4.0;
@@ -711,6 +711,33 @@ public final class GapRender {
 				g.burstLight.set(0.62F, 0.42F, 1.0F).mul((float) (0.3 + 1.6 * near * near));
 				continue;
 			}
+			// The hit: two ticks of pure white before the first frame.
+			if (t >= GapTimeline.CONTACT && t < GapTimeline.CONTACT + 2) {
+				g.flash = 1.0F;
+			}
+			// The impact frames, for everyone: the shooter's own cut of them (GapCamera), or anyone else's own eyes.
+			if (t >= GapTimeline.FRAMES && t < GapTimeline.BLAST) {
+				double e = t - GapTimeline.FRAMES;
+				int index = GapFrames.index(e);
+				GapFrames.Frame frame = GapFrames.at(e);
+				g.style = frame.style();
+				g.extras = frame.extras();
+				if (frame.paneled()) {
+					g.panelOn = 1;
+					g.panels = new float[] {frame.panels()[0], frame.panels()[1], frame.panels()[2]};
+				}
+				g.seed = index * 3.7F;
+				g.punch = (float) (0.09 * (1.0 - GapCamera.ease((e - frame.start()) / 3.0)));
+				Vec3d focus = gap.contact.add(0, GapCamera.burstHalf(gap, t) * 0.4, 0);
+				Vector4f p = new Vector4f((float) (focus.x - cam.x), (float) (focus.y - cam.y), (float) (focus.z - cam.z), 1.0F);
+				view.transform(p);
+				proj.transform(p);
+				if (p.w > 1.0E-3F) {
+					g.focusX = MathHelper.clamp(p.x / p.w * 0.5F + 0.5F, 0.05F, 0.95F);
+					g.focusY = MathHelper.clamp(p.y / p.w * 0.5F + 0.5F, 0.05F, 0.95F);
+				}
+				on = true;
+			}
 			if (t >= GapTimeline.ERASURE) {
 				g.front = (float) GapTimeline.eraseFront(t);
 				// The whole world, for everyone in it.
@@ -771,33 +798,6 @@ public final class GapRender {
 			} else if (t >= GapTimeline.INBOUND && t < GapTimeline.INBOUND + 16 && !mine.feedSkipped) {
 				// Out of the cloud deck's white into the sky over the target, slowly enough to see it clear.
 				g.flash = (float) (1.0 - GapCamera.ease((t - GapTimeline.INBOUND) / 16.0));
-				on = true;
-			}
-			// The hit: two ticks of pure white before the first frame.
-			if (t >= GapTimeline.CONTACT && t < GapTimeline.CONTACT + 2) {
-				g.flash = 1.0F;
-			}
-			// The impact frames are the shooter's cut; skipped, it is seen as anyone else sees it.
-			if (t >= GapTimeline.FRAMES && t < GapTimeline.BLAST && !mine.feedSkipped) {
-				double e = t - GapTimeline.FRAMES;
-				int index = GapFrames.index(e);
-				GapFrames.Frame frame = GapFrames.at(e);
-				g.style = frame.style();
-				g.extras = frame.extras();
-				if (frame.paneled()) {
-					g.panelOn = 1;
-					g.panels = new float[] {frame.panels()[0], frame.panels()[1], frame.panels()[2]};
-				}
-				g.seed = index * 3.7F;
-				g.punch = (float) (0.09 * (1.0 - GapCamera.ease((e - frame.start()) / 3.0)));
-				Vec3d focus = mine.contact.add(0, GapCamera.burstHalf(mine, t) * 0.4, 0);
-				Vector4f p = new Vector4f((float) (focus.x - cam.x), (float) (focus.y - cam.y), (float) (focus.z - cam.z), 1.0F);
-				view.transform(p);
-				proj.transform(p);
-				if (p.w > 1.0E-3F) {
-					g.focusX = MathHelper.clamp(p.x / p.w * 0.5F + 0.5F, 0.05F, 0.95F);
-					g.focusY = MathHelper.clamp(p.y / p.w * 0.5F + 0.5F, 0.05F, 0.95F);
-				}
 				on = true;
 			}
 			// It falls in on itself: a last flash as the black opens.

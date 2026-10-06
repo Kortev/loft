@@ -222,7 +222,8 @@ public final class ClientGaps {
 			ClientGap gap = it.next();
 			int from = gap.age;
 			gap.age++;
-			if (gap.cinematic()) {
+			// Everyone in the world hears it happen; the feed's own sounds are the shooter's.
+			if (!gap.ended && gap.spectateAt < 0) {
 				cues(gap, from, gap.age);
 			}
 			if (gap.rebuildAt >= 0 && client.player != null) {
@@ -267,10 +268,10 @@ public final class ClientGaps {
 	}
 
 	private static void cues(ClientGap gap, int from, int to) {
-		if (crossed(from, to, GapTimeline.RISE)) {
+		if (gap.mine && !gap.feedSkipped && crossed(from, to, GapTimeline.RISE)) {
 			ClientStrikes.master(ModSounds.CAMERA_RISE, 1.0F, 1.0F);
 		}
-		if (!gap.feedSkipped) {
+		if (gap.mine && !gap.feedSkipped) {
 			if (crossed(from, to, GapTimeline.FEED)) {
 				ClientStrikes.master(ModSounds.FEED_ZOOM, 1.0F, 1.0F);
 				// The bed under the whole of the feed up to the dive.

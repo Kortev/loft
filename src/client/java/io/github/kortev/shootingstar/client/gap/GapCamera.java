@@ -42,14 +42,14 @@ public final class GapCamera {
 		double t = gap.time(tickDelta);
 		Vec3d eye = player.getCameraPosVec(tickDelta);
 		Vec3d feet = player.getLerpedPos(tickDelta);
+		// Skipped: the shooter's own eyes for all of it, the rebuild too, free to move, as anyone else sees it.
+		if (gap.feedSkipped) {
+			return null;
+		}
 		if (gap.rebuildAt >= 0) {
 			return rebuild(gap, player, tickDelta, gap.rebuild(tickDelta));
 		}
 		if (t < GapTimeline.RISE || t >= GapTimeline.END) {
-			return null;
-		}
-		// Skipped: straight back to the shooter's own eyes for all of it, free to move, as anyone else sees it.
-		if (gap.feedSkipped) {
 			return null;
 		}
 		if (t < GapTimeline.FEED) {

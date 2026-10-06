@@ -3,7 +3,11 @@ package io.github.kortev.shootingstar.client.camera;
 import io.github.kortev.shootingstar.client.ClientConfig;
 import io.github.kortev.shootingstar.client.ClientStrike;
 import io.github.kortev.shootingstar.client.ClientStrikes;
+import io.github.kortev.shootingstar.client.gap.ClientGap;
+import io.github.kortev.shootingstar.client.gap.ClientGaps;
+import io.github.kortev.shootingstar.client.gap.GapCamera;
 import io.github.kortev.shootingstar.client.world.ImpactScene;
+import io.github.kortev.shootingstar.gap.GapTimeline;
 import io.github.kortev.shootingstar.strike.StrikeTimeline;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.util.math.MatrixStack;
@@ -51,6 +55,31 @@ public final class ScreenShake {
 				amplitude = Math.max(amplitude, Math.max(hit, Math.max(wave, rumble)));
 			}
 			time = Math.max(time, t);
+		}
+		// Ginnungagap, felt from one's own eyes (the shooter's camera shots shake themselves): a rumble building as the
+		// block comes down, the jolt of the hit, the burst, and a shudder as the black comes over.
+		if (GapCamera.current(tickDelta) == null) {
+			for (ClientGap gap : ClientGaps.all()) {
+				if (gap.ended || gap.spectateAt >= 0) {
+					continue;
+				}
+				double t = gap.time(tickDelta);
+				double distance = Math.hypot(eye.x - gap.contact.x, eye.z - gap.contact.z);
+				double near = MathHelper.clamp(1.0 - distance / (gap.radius * 12.0 + 300.0), 0.25, 1.0);
+				double a = 0.0;
+				if (t >= GapTimeline.INBOUND && t < GapTimeline.CONTACT) {
+					double p = (t - GapTimeline.INBOUND) / (GapTimeline.CONTACT - GapTimeline.INBOUND);
+					a = 0.8 * p * p;
+				} else if (t >= GapTimeline.CONTACT && t < GapTimeline.NOTHING) {
+					double hit = 2.6 * Math.exp(-(t - GapTimeline.CONTACT) / 6.0);
+					double blast = t >= GapTimeline.BLAST ? 1.4 * Math.exp(-(t - GapTimeline.BLAST) / 14.0) : 0.0;
+					double front = GapTimeline.eraseFront(t);
+					double reached = t >= GapTimeline.ERASURE ? MathHelper.clamp(1.0 - Math.abs(distance - front) / 80.0, 0.0, 1.0) : 0.0;
+					a = Math.max(hit, Math.max(blast, 1.2 * reached));
+				}
+				amplitude = Math.max(amplitude, a * near);
+				time = Math.max(time, t);
+			}
 		}
 		if (amplitude < 0.01) {
 			return;

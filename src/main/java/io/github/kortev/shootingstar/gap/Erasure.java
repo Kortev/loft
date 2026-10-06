@@ -45,6 +45,12 @@ final class Erasure {
 	private final double[] distances;
 	private final List<long[]> cracks = new ArrayList<>();
 	private final Set<Long> touched = new HashSet<>();
+	/**
+	 * Where the ground was, over every column taken: a barrier there, unseen, so anyone walking about in the black walks
+	 * on where the ground used to be rather than falling into the hole. Taken away when the world comes back.
+	 */
+	private final List<Long> lids = new ArrayList<>();
+	private int columnTop;
 	private int cursor;
 	private int crackCursor;
 	private int columnY = Integer.MIN_VALUE;
@@ -121,7 +127,9 @@ final class Erasure {
 			int x = center.getX() + (int) ((hole[cursor] >>> 16) & 0xFFFF) - 1024;
 			int z = center.getZ() + (int) (hole[cursor] & 0xFFFF) - 1024;
 			if (columnY == Integer.MIN_VALUE) {
-				columnY = world.getTopY(Heightmap.Type.WORLD_SURFACE, x, z) - 1;
+				columnY = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z) - 1;
+				columnTop = columnY;
+				columnY = Math.max(columnY, world.getTopY(Heightmap.Type.WORLD_SURFACE, x, z) - 1);
 				touched.add(ChunkPos.toLong(x >> 4, z >> 4));
 			}
 			while (columnY >= bottom && budget > 0 && reads > 0) {
@@ -136,6 +144,7 @@ final class Erasure {
 				columnY--;
 			}
 			if (columnY < bottom) {
+				lid(pos.set(x, columnTop, z));
 				cursor++;
 				columnY = Integer.MIN_VALUE;
 			}
@@ -154,15 +163,20 @@ final class Erasure {
 					for (int oz = -(width / 2); oz <= width / 2; oz++) {
 						int x = cx + ox;
 						int z = cz + oz;
-						int top = world.getTopY(Heightmap.Type.WORLD_SURFACE, x, z) - 1;
+						int top = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z) - 1;
 						// Narrower further down: a wedge, not a trench.
 						int depth = ox == 0 && oz == 0 ? split : split / 2;
+						boolean opened = false;
 						for (int k = 0; k < depth; k++) {
 							pos.set(x, top - k, z);
 							BlockState state = world.getBlockState(pos);
 							if (!state.isAir() && state.getFluidState().isEmpty() && erasable(state) && !state.isOf(Blocks.BEDROCK)) {
 								world.setBlockState(pos, air, QUIET);
+								opened = true;
 							}
+						}
+						if (opened) {
+							lid(pos.set(x, top, z));
 						}
 						touched.add(ChunkPos.toLong(x >> 4, z >> 4));
 					}
@@ -176,6 +190,26 @@ final class Erasure {
 			send();
 		}
 		return true;
+	}
+
+	private void lid(BlockPos pos) {
+		if (pos.getY() >= world.getBottomY() && world.getBlockState(pos).isAir()) {
+			world.setBlockState(pos, Blocks.BARRIER.getDefaultState(), QUIET);
+			lids.add(pos.asLong());
+		}
+	}
+
+	/** The world is back: the ground that was is taken away from under the black, quietly, and the chunks sent again. */
+	void unlid() {
+		BlockPos.Mutable pos = new BlockPos.Mutable();
+		for (long packed : lids) {
+			pos.set(packed);
+			if (world.getBlockState(pos).isOf(Blocks.BARRIER)) {
+				world.setBlockState(pos, Blocks.AIR.getDefaultState(), QUIET);
+			}
+		}
+		lids.clear();
+		send();
 	}
 
 	/** Every chunk it touched, sent again whole to everyone who can see it: each client rebuilds each one once. */
