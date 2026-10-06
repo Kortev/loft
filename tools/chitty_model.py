@@ -46,21 +46,25 @@ HULL = [
     (0.40, 0.64, 1.29, 0.53),
     (0.10, 0.71, 1.28, 0.52),
     (-0.50, 0.74, 1.28, 0.52),
-    (-1.20, 0.74, 1.30, 0.52),
-    (-1.70, 0.74, 1.35, 0.53),
-    (-2.05, 0.73, 1.42, 0.56),
-    (-2.30, 0.68, 1.48, 0.61),
-    (-2.50, 0.59, 1.53, 0.68),
-    (-2.64, 0.47, 1.56, 0.77),
-    (-2.74, 0.32, 1.58, 0.88),
-    (-2.80, 0.16, 1.59, 1.00),
-    (-2.82, 0.02, 1.59, 1.10),
+    (-1.20, 0.74, 1.29, 0.52),
+    (-1.70, 0.72, 1.30, 0.54),
+    (-2.05, 0.65, 1.31, 0.59),
+    (-2.35, 0.54, 1.32, 0.70),
+    (-2.60, 0.41, 1.33, 0.83),
+    (-2.80, 0.27, 1.34, 0.96),
+    (-2.95, 0.14, 1.35, 1.07),
+    (-3.06, 0.01, 1.36, 1.18),
 ]
 HULL_NX, HULL_NZ = 1.8, 2.4   # squareness of the sections across and down
 HULL_SKIN = 0.035
-# The back seat sits in the round of the stern, which wraps round it like a padded pouch; nothing behind it.
-POUCH_FROM = -1.50
-FRONT_SEAT_Y, REAR_SEAT_Y = -0.15, -1.80
+# Behind the front seat the hull is decked over right to the point of the stern, the deck crowned like a boat's, its
+# front edge curving forward at the sides round the back of the front seat. The back seat sits down in an oval well
+# in the deck, wood all round it.
+DECK_FRONT, DECK_SIDE = -0.50, -0.18   # where the deck's front edge crosses the middle, and meets the gunwales
+DECK_CROWN = 0.07
+WELL = (-1.40, 0.40, 0.50)             # the well's centre (y), half-width and half-length
+FLOOR_Z = 0.66
+FRONT_SEAT_Y, REAR_SEAT_Y = -0.10, -1.30
 SPARE = (0.70, 0.46, BOARD_Z + 0.01 + WHEEL_R)
 # The fans: hinge, panels, length, open angle of the first panel and spread back from it (0 is straight out, positive
 # forward), folded angle, dihedral, how far round each folded panel lies from the last, how far apart they stack, and
@@ -239,6 +243,19 @@ def honeycomb_texture(size=512, cells=26):
     return out
 
 
+def wicker_texture(size=256, cells=12):
+    """A wicker hamper's weave: over-and-under bands of cane."""
+    yy, xx = np.mgrid[0:size, 0:size] / size * cells
+    i, j = np.floor(xx).astype(int), np.floor(yy).astype(int)
+    fx, fy = xx - i, yy - j
+    over = (i + j) % 2 == 0
+    shade = np.where(over, np.sin(fx * math.pi), np.sin(fy * math.pi)) ** 0.6
+    col = np.array([200, 152, 82]) / 255 * (0.45 + 0.6 * shade)[..., None]
+    out = np.ones((size, size, 4))
+    out[..., :3] = np.clip(col, 0, 1)
+    return out
+
+
 def make_materials():
     # Polished: the bonnet is a mirror in the film.
     material('aluminium', (220, 224, 230), metal=1.0, rough=0.10)
@@ -271,6 +288,7 @@ def make_materials():
     material('dial', (236, 230, 210), rough=0.4)
     material('float', (206, 72, 140), rough=0.5, image=image('float_wave', float_texture()))
     material('bulb', (120, 26, 26), rough=0.6)
+    material('wicker', (200, 152, 82), rough=0.8, image=image('wicker', wicker_texture()))
 
 
 # --- geometry helpers --------------------------------------------------------------------------
@@ -573,7 +591,7 @@ def hull_half_width(y, z, inset=0.0):
 def build_chassis():
     m = Mesh()
     for s in (-1, 1):
-        add_box(m, (s * 0.40, 0.15, 0.44), (0.07, 4.5, 0.11), 'chassis')
+        add_box(m, (s * 0.40, 0.10, 0.44), (0.07, 4.4, 0.11), 'chassis')
         # Leaf springs, dull aluminium like the rest of the running gear.
         for y in (FRONT_AXLE, REAR_AXLE):
             add_box(m, (s * TRACK * 0.78, y, 0.50), (0.06, 0.95, 0.04), 'aluminium_dull')
@@ -662,54 +680,138 @@ def build_bonnet():
     return o
 
 
+def deck_z(x, y):
+    """The deck's height at (x, y): the gunwale at its edges, crowned in the middle."""
+    hw, zt, zb = hull_at(y)
+    return zt + DECK_CROWN * max(0.0, 1.0 - (x / max(hw, 1e-3)) ** 2)
+
+
+def deck_front(x):
+    """Where the deck's front edge is at x: furthest back in the middle, curving forward to meet the gunwales."""
+    hw = hull_at(DECK_SIDE)[0]
+    return DECK_FRONT + (DECK_SIDE - DECK_FRONT) * min(1.0, (x / hw) ** 2)
+
+
+def deck_outline(count=48):
+    """The deck's edge in plan, anticlockwise from the right end of its front edge: down the right gunwale to the point
+    of the stern, up the left one, and across the curved front edge."""
+    ys = list(np.linspace(DECK_SIDE, HULL[-1][0], count))
+    right = [(hull_at(y)[0], y) for y in ys]
+    left = [(-x, y) for x, y in reversed(right)]
+    hw = hull_at(DECK_SIDE)[0]
+    front = [(x, deck_front(x)) for x in np.linspace(-hw, hw, count)][1:-1]
+    return right + left + front
+
+
+def ray_hit(c, d, poly):
+    """Where the ray from c along d first leaves the closed polygon."""
+    best = None
+    for i in range(len(poly)):
+        (ax, ay), (bx, by) = poly[i], poly[(i + 1) % len(poly)]
+        ex, ey = bx - ax, by - ay
+        den = d[0] * ey - d[1] * ex
+        if abs(den) < 1e-12:
+            continue
+        t = ((ax - c[0]) * ey - (ay - c[1]) * ex) / den
+        u = ((ax - c[0]) * d[1] - (ay - c[1]) * d[0]) / den
+        if t > 1e-6 and -1e-9 <= u <= 1 + 1e-9 and (best is None or t < best):
+            best = t
+    return (c[0] + d[0] * best, c[1] + d[1] * best)
+
+
+def well_point(t, grow=0.0):
+    yc, a, b = WELL
+    return ((a + grow) * math.cos(t), yc + (b + grow) * math.sin(t))
+
+
 def build_hull():
-    """The boat: a planked cedar skin open at the top, lined with red leather, a walnut capping along the gunwale, a
-    brass strip down each side, a carpeted floor, and the stern decked over."""
+    """The boat: a planked cedar skin, lined with red leather round the open front cockpit, decked over in planked cedar
+    behind it to the point of the stern with the back seat's well let into the deck; a walnut capping along the
+    gunwales, a brass strip down each side and a brass cap on the point of the stern."""
     outer = [(y, hull_section(y, hw, zt, zb)) for y, hw, zt, zb in HULL]
     m = Mesh()
     loft(m, outer, 'cedar', closed=False, v_scale=0.3)
     o = m.obj('hull', smooth=55)
-    # The lining: plain red leather forward, deep-buttoned round the pouch at the back, right round to the stern.
+    # The lining of the front cockpit, back to the deck.
     m = Mesh()
-    last = HULL[-2][0]
-    fore = [y for y, *_ in HULL if y > POUCH_FROM] + [POUCH_FROM]
-    aft = [POUCH_FROM] + [y for y, *_ in HULL if POUCH_FROM > y >= last]
-    for ys, mat in ((fore, 'leather_plain'), (aft, 'leather')):
-        secs = [(y, list(reversed(hull_section(y, *hull_at(y), inset=HULL_SKIN)))) for y in ys]
-        loft(m, secs, mat, closed=False, cap_end='leather' if mat == 'leather' else None, v_scale=2.0)
+    ys = [y for y, *_ in HULL if y > DECK_SIDE] + [DECK_SIDE, (DECK_SIDE + DECK_FRONT) / 2, DECK_FRONT]
+    secs = [(y, list(reversed(hull_section(y, *hull_at(y), inset=HULL_SKIN)))) for y in ys]
+    loft(m, secs, 'leather_plain', closed=False, v_scale=2.0)
     m.obj('lining', smooth=55)
-    # The gunwale: walnut capping from the bow round to the deck, and a rounded rail on it.
+    # The deck: rings from the edge of the well out to the edge of the deck, every point on the crowned surface.
+    m = Mesh()
+    yc, a, b = WELL
+    poly = deck_outline()
+    n, rings = 96, 7
+    grid = []
+    for i in range(n):
+        t = 2 * math.pi * i / n
+        ix, iy = well_point(t, 0.03)
+        ox, oy = ray_hit((0.0, yc), (ix, iy - yc), poly)
+        row = []
+        for k in range(rings + 1):
+            f = k / rings
+            x, y = ix + (ox - ix) * f, iy + (oy - iy) * f
+            row.append(m.vert((x, y, deck_z(x, y))))
+        grid.append(row)
+    for i in range(n):
+        j = (i + 1) % n
+        for k in range(rings):
+            q = [grid[i][k], grid[j][k], grid[j][k + 1], grid[i][k + 1]]
+            m.face(q, 'cedar', [(v.co.x / 1.5 + 0.5, v.co.y * 0.3) for v in q])
+    # The deck's front edge drops into the cockpit behind the front seat.
+    hw = hull_at(DECK_SIDE)[0]
+    edge = [(x, deck_front(x)) for x in np.linspace(-hw + 0.04, hw - 0.04, 24)]
+    top = [m.vert((x, y, deck_z(x, y) - 0.004)) for x, y in edge]
+    bot = [m.vert((x, y, FLOOR_Z)) for x, y in edge]
+    for k in range(len(edge) - 1):
+        m.face([bot[k], bot[k + 1], top[k + 1], top[k]], 'walnut')
+    m.obj('deck', smooth=50)
+    # The well: a walnut coaming round its lip, buttoned red leather down its sides, carpet at the bottom.
+    m = Mesh()
+    lip = [well_point(2 * math.pi * i / n, 0.03) for i in range(n)]
+    tube(m, [Vector((x, y, deck_z(x, y) + 0.015)) for x, y in lip + lip[:1]], 0.028, 'walnut', seg=10)
+    walls = []
+    for k, f in enumerate(np.linspace(0.0, 1.0, 5)):
+        ring = []
+        for i in range(n):
+            x, y = well_point(2 * math.pi * i / n, 0.03 - 0.04 * f)
+            z = deck_z(*lip[i]) + (FLOOR_Z - deck_z(*lip[i])) * f
+            ring.append(m.vert((x, y, z)))
+        walls.append(ring)
+    run = perimeter_uv(lip)
+    for k in range(len(walls) - 1):
+        for i in range(n):
+            j = (i + 1) % n
+            m.face([walls[k][j], walls[k][i], walls[k + 1][i], walls[k + 1][j]], 'leather',
+                   [(run[i + 1] * 7, k / 2), (run[i] * 7, k / 2), (run[i] * 7, (k + 1) / 2), (run[i + 1] * 7, (k + 1) / 2)])
+    f = m.face(list(reversed(walls[-1])), 'carpet')
+    box_uv(m, [f])
+    m.obj('well', smooth=50)
+    # The gunwale: walnut capping from the bow to the point of the stern, and a brass rubbing strip below it.
     m = Mesh()
     for s in (-1, 1):
         ys = [y for y, *_ in HULL]
         path = []
         for y in ys:
             hw, zt, zb = hull_at(y)
-            path.append((s * (hw - HULL_SKIN / 2), y, zt + 0.012))
+            path.append((s * max(hw - HULL_SKIN / 2, 0.0), y, zt + 0.012))
         tube(m, catmull(path, 6), 0.022, 'walnut', seg=10)
-        # A brass rubbing strip a little below the gunwale.
         strip = []
         for y in ys[:-1]:
             hw, zt, zb = hull_at(y)
             z = zt - 0.24
             strip.append((s * (hull_half_width(y, z) + 0.006), y, z))
         tube(m, catmull(strip, 6), 0.009, 'brass', seg=8)
-    # A padded roll round the lip of the pouch.
-    for s in (-1, 1):
-        path = []
-        for y in np.linspace(POUCH_FROM + 0.1, HULL[-2][0], 10):
-            hw, zt, zb = hull_at(y)
-            path.append((s * (hw - HULL_SKIN - 0.03), y, zt - 0.02))
-        path.append((0.0, HULL[-2][0] - 0.005, hull_at(HULL[-2][0])[1] - 0.02))
-        tube(m, catmull(path, 4), 0.032, 'leather_plain', seg=10)
+    y, hw, zt, zb = HULL[-1]
+    ellipsoid(m, (0.0, y - 0.01, zt + 0.01), (0.03, 0.05, 0.04), 'brass', seg=12, rings=8)
     m.obj('gunwale', smooth=50)
-    # The floor.
+    # The cockpit floor.
     m = Mesh()
-    zf = 0.64
     secs = []
-    for y in np.linspace(0.58, -2.45, 14):
-        w = hull_half_width(y, zf, HULL_SKIN) - 0.005
-        secs.append((y, [(w, zf), (0.0, zf), (-w, zf)]))
+    for y in np.linspace(0.58, DECK_FRONT, 10):
+        w = hull_half_width(y, FLOOR_Z, HULL_SKIN) - 0.005
+        secs.append((y, [(w, FLOOR_Z), (0.0, FLOOR_Z), (-w, FLOOR_Z)]))
     loft(m, secs, 'carpet', closed=False)
     m.obj('floor', smooth=None)
     # The bow is closed by a bulkhead behind the dashboard.
@@ -731,18 +833,34 @@ def build_seats():
         o.modifiers.new('smooth', 'WEIGHTED_NORMAL')
         return o
 
-    # The front bench, its back standing above the gunwale.
-    seat('seat_front', (0, FRONT_SEAT_Y, 0.78), (1.00, 0.46, 0.16))
-    seat('seatback_front', (0, FRONT_SEAT_Y - 0.28, 1.12), (1.24, 0.12, 0.62), tilt=12)
-    # The back seat: a cushion filling the round of the stern and a thick buttoned back curling round with it.
+    # The front bench, and its buttoned back curving forward round the sides with the deck's edge.
+    seat('seat_front', (0, FRONT_SEAT_Y, 0.78), (1.00, 0.44, 0.16))
     m = Mesh()
-    zc, rows = 0.78, []
-    ys = np.linspace(POUCH_FROM - 0.02, -2.42, 9)
-    for y in ys:
-        w = hull_half_width(y, zc + 0.08, HULL_SKIN) - 0.03
+    hw = hull_at(DECK_SIDE)[0]
+    xs = np.linspace(-hw + 0.10, hw - 0.10, 25)
+    rings = []
+    for z in np.linspace(0.84, 1.40, 5):
+        rings.append([m.vert((x, deck_front(x) + 0.08, z)) for x in xs])
+    run = perimeter_uv([(x, deck_front(x)) for x in xs], closed=False)
+    for j in range(len(rings) - 1):
+        for k in range(len(xs) - 1):
+            m.face([rings[j][k], rings[j][k + 1], rings[j + 1][k + 1], rings[j + 1][k]], 'leather',
+                   [(run[k] * 6, j / 2), (run[k + 1] * 6, j / 2), (run[k + 1] * 6, (j + 1) / 2), (run[k] * 6, (j + 1) / 2)])
+    o = m.obj('seatback_front', smooth=60)
+    solidify(o, 0.10, offset=0.0)
+    m = Mesh()
+    tube(m, catmull([(x, deck_front(x) + 0.08, 1.41) for x in xs[::4]], 4), 0.05, 'leather', seg=12)
+    m.obj('seatroll_front', smooth=50)
+    # The back seat: a cushion in the front of the well; the buttoned walls of the well are its back and arms.
+    m = Mesh()
+    yc, a, b = WELL
+    zb, zt = FLOOR_Z, 0.86
+    rows = []
+    for y in np.linspace(yc + b * 0.86, yc - b * 0.30, 9):
+        w = (a - 0.03) * math.sqrt(max(0.0, 1 - ((y - yc) / (b - 0.02)) ** 2))
         rows.append([(w * math.cos(t), y) for t in np.linspace(0, math.pi, 13)])
-    tops = [[m.vert((x, y, zc + 0.08)) for x, y in r] for r in rows]
-    bots = [[m.vert((x, y, zc - 0.08)) for x, y in r] for r in rows]
+    tops = [[m.vert((x, y, zt)) for x, y in r] for r in rows]
+    bots = [[m.vert((x, y, zb)) for x, y in r] for r in rows]
     for i in range(len(rows) - 1):
         for k in range(12):
             for grid, flip in ((tops, False), (bots, True)):
@@ -757,26 +875,8 @@ def build_seats():
         m.face(list(reversed(q)) if flip else q, 'leather')
     o = m.obj('seat_rear', smooth=40)
     bevel(o, 0.03, 3)
-    # The back: following the lining round the stern, a hand's breadth in from it, from the cushion to the lip.
-    m = Mesh()
-    heights = np.linspace(zc + 0.08, 1.46, 6)
-    ring = []
-    for z in heights:
-        width = lambda y: hull_half_width(y, min(z, hull_at(y)[1] - 0.05), HULL_SKIN) - 0.15
-        # As far back as the hull is wide enough at this height, the same number of points on every ring.
-        end = next(y for y in np.linspace(HULL[-2][0], POUCH_FROM, 200) if width(y) > 0.04)
-        right = [(width(y), y) for y in np.linspace(POUCH_FROM + 0.25, end, 12)]
-        loop = right + [(0.0, end - 0.03)] + [(-x, y) for x, y in reversed(right)]
-        ring.append([m.vert((x, y, z)) for x, y in loop])
-    run = perimeter_uv([(v.co.x, v.co.y) for v in ring[0]], closed=False)
-    for j in range(len(ring) - 1):
-        for k in range(len(ring[j]) - 1):
-            m.face([ring[j][k + 1], ring[j][k], ring[j + 1][k], ring[j + 1][k + 1]], 'leather',
-                   [(run[k + 1] * 5, j / 2.5), (run[k] * 5, j / 2.5), (run[k] * 5, (j + 1) / 2.5), (run[k + 1] * 5, (j + 1) / 2.5)])
-    o = m.obj('seatback_rear', smooth=60)
-    solidify(o, 0.09, offset=0.0)
     for name, p in (('seat_driver', (0.30, FRONT_SEAT_Y, 0.86)), ('seat_front_passenger', (-0.30, FRONT_SEAT_Y, 0.86)),
-                    ('seat_rear_right', (0.30, REAR_SEAT_Y, 0.86)), ('seat_rear_left', (-0.30, REAR_SEAT_Y, 0.86))):
+                    ('seat_rear_right', (0.20, REAR_SEAT_Y, 0.86)), ('seat_rear_left', (-0.20, REAR_SEAT_Y, 0.86))):
         empty(name, p)
 
 
@@ -985,22 +1085,26 @@ def build_lamps():
 
 
 def build_exhaust():
-    """A great flexible copper pipe out of the right of the bonnet, over the front wing, down outside the spare wheel
-    and back along the running board to a brass fishtail by the rear wing."""
+    """Four copper pipes out of the right of the bonnet, sweeping down over the front wing into one great flexible pipe
+    that runs down outside the spare wheel and back along the running board to a brass fishtail by the rear wing."""
     m = Mesh()
-    r, zc = bonnet_ring(1.55)
-    a = math.radians(20)
-    start = (r * math.cos(a) - 0.02, 1.55, zc + r * math.sin(a))
-    main = catmull([start, (0.58, 1.46, 1.08), (0.72, 1.30, 0.98), (0.82, 1.10, 0.80), (0.83, 0.92, 0.66),
+    main = catmull([(0.60, 1.56, 1.10), (0.71, 1.32, 1.00), (0.80, 1.12, 0.84), (0.83, 0.94, 0.68),
                     (0.83, 0.50, 0.64), (0.83, -0.30, 0.64), (0.83, -0.82, 0.64)], 8)
-    tube(m, main, 0.045, 'copper', seg=16)
+    tube(m, main, 0.048, 'copper', seg=16)
     for i in range(3, len(main) - 2, 2):
         t = (main[i + 1] - main[i - 1]).normalized()
-        tube(m, [main[i] - t * 0.008, main[i] + t * 0.008], 0.051, 'copper', seg=16)
-    lathe(m, [(0.055, -0.015), (0.055, 0.015)], lambda k: 'brass', axis='x', seg=16,
-          origin=(start[0] - 0.01, start[1], start[2]))
+        tube(m, [main[i] - t * 0.008, main[i] + t * 0.008], 0.054, 'copper', seg=16)
+    a = math.radians(8)
+    for k, (y, to) in enumerate(((1.62, 0), (1.48, 4), (1.34, 8), (1.20, 12))):
+        r, zc = bonnet_ring(y)
+        p0 = Vector((r * math.cos(a) - 0.01, y, zc + r * math.sin(a)))
+        p1 = main[min(to, len(main) - 1)]
+        mid = Vector((p0.x + 0.10, y - 0.02, p0.z + 0.03))
+        tube(m, catmull([tuple(p0), tuple(mid), tuple((mid + p1) / 2 + Vector((0, 0, 0.04))), tuple(p1)], 6),
+             0.026, 'copper', seg=12)
+        lathe(m, [(0.034, -0.012), (0.034, 0.012)], lambda q: 'brass', axis='x', seg=12, origin=(p0.x, p0.y, p0.z))
     tip = catmull([(0.83, -0.82, 0.64), (0.83, -0.90, 0.635), (0.83, -0.98, 0.63)], 4)
-    tube(m, tip, 0.045, 'brass', seg=16, flare=lambda t: 1.0 + 0.6 * t * t)
+    tube(m, tip, 0.048, 'brass', seg=16, flare=lambda t: 1.0 + 0.6 * t * t)
     empty('exhaust', (0.83, -1.02, 0.63))
     return m.obj('exhaust', smooth=50)
 
@@ -1042,18 +1146,17 @@ def build_levers():
 
 
 def build_plates():
-    """GEN 11, under the radiator and under the stern, and the starting handle."""
+    """GEN 11, under the radiator and on the hamper rack, and the starting handle."""
     m = Mesh()
     add_box(m, (0, 2.36, 0.53), (0.50, 0.012, 0.13), 'plate')
     add_box(m, (0, 2.33, 0.53), (0.05, 0.06, 0.05), 'chassis')
-    add_box(m, (0, -2.86, 0.86), (0.50, 0.012, 0.13), 'plate')
-    tube(m, [Vector((0, -2.80, 1.05)), Vector((0, -2.85, 0.93))], 0.012, 'brass', seg=6)
+    add_box(m, (0, -3.20, 0.56), (0.50, 0.012, 0.13), 'plate')
     tube(m, [Vector((0, 2.30, 0.42)), Vector((0, 2.44, 0.42))], 0.014, 'chassis', seg=8)
     tube(m, [Vector((0, 2.44, 0.42)), Vector((0, 2.44, 0.31))], 0.012, 'chassis', seg=8)
     tube(m, [Vector((0, 2.44, 0.31)), Vector((0, 2.52, 0.31))], 0.016, 'brass', seg=8)
     m.obj('plates', smooth=None)
     text_object('GEN 11', 0.085, (0, 2.367, 0.53), (math.radians(90), 0, math.radians(180)), 'letters')
-    text_object('GEN 11', 0.085, (0, -2.867, 0.86), (math.radians(90), 0, 0), 'letters')
+    text_object('GEN 11', 0.085, (0, -3.207, 0.56), (math.radians(90), 0, 0), 'letters')
 
 
 def wedge(m, length, half_angle, mat, spar=False):
@@ -1152,6 +1255,23 @@ def build_rotor(wing0, tip, side):
     return mast, rotor
 
 
+def build_hamper():
+    """A wicker hamper, strapped on a brass rack out from the chassis under the point of the stern."""
+    m = Mesh()
+    add_box(m, (0, -2.98, 0.80), (0.62, 0.38, 0.28), 'wicker', uv_scale=1.6)
+    add_box(m, (0, -2.98, 0.95), (0.64, 0.40, 0.03), 'wicker', uv_scale=1.6)
+    for x in (-0.22, 0.22):
+        add_box(m, (x, -2.98, 0.81), (0.035, 0.39, 0.31), 'strap')
+    m.obj('hamper', smooth=None)
+    m = Mesh()
+    for x in (-0.26, 0.26):
+        tube(m, [Vector((x, -2.05, 0.46)), Vector((x, -2.60, 0.64)), Vector((x, -3.20, 0.64))], 0.014, 'brass', seg=8)
+    tube(m, [Vector((-0.26, -3.20, 0.64)), Vector((0.26, -3.20, 0.64))], 0.014, 'brass', seg=8)
+    for x in (-0.20, 0.20):
+        tube(m, [Vector((x, -3.20, 0.64)), Vector((x, -3.20, 0.62))], 0.008, 'brass', seg=6)
+    m.obj('rack', smooth=40)
+
+
 def build_wings():
     objs = []
     for s in (-1, 1):
@@ -1231,6 +1351,7 @@ def build():
     build_horn()
     build_levers()
     build_plates()
+    build_hamper()
     build_wings()
     build_screw()
     build_float()
@@ -1498,6 +1619,17 @@ def unwrap(objs):
     bpy.ops.object.mode_set(mode='OBJECT')
 
 
+def joined(objs):
+    """The objects joined into the first of them (their UVs and materials kept)."""
+    bpy.ops.object.select_all(action='DESELECT')
+    for o in objs:
+        o.select_set(True)
+    bpy.context.view_layer.objects.active = objs[0]
+    if len(objs) > 1:
+        bpy.ops.object.join()
+    return objs[0]
+
+
 def bake_pass(name, objs, world, sun, visible):
     """Bakes the objects' look into a fresh image; `visible` also cast shadows and reflect."""
     scene = bpy.context.scene
@@ -1630,9 +1762,11 @@ def export_game(root):
     wheels = [copies[o.name] for o in objs if o.name.startswith(GAME_LIT)]
     others = [c for name, c in copies.items() if c not in body and c not in wheels]
     real_wheels = [o for o in objs if o.name.startswith(GAME_LIT)]
-    passes = [bake_pass('body', body, worlds['sky'], sun, real_wheels),
-              bake_pass('parts', others, worlds['sky'], sun, []),
-              bake_pass('wheels', wheels, worlds['even'], sun, [])]
+    # Each pass bakes one object: Cycles goes over the whole image once per object baked, so forty separate parts
+    # take forty times as long as the same parts joined.
+    passes = [bake_pass('body', [joined(body)], worlds['sky'], sun, real_wheels),
+              bake_pass('parts', [joined(others)], worlds['sky'], sun, []),
+              bake_pass('wheels', [joined(wheels)], worlds['even'], sun, [])]
     rgb = np.zeros((BAKE_SIZE, BAKE_SIZE, 3), np.float32)
     valid = np.zeros((BAKE_SIZE, BAKE_SIZE), bool)
     for px in passes:
