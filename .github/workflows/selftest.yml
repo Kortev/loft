@@ -9,6 +9,10 @@ on:
       test:
         description: "Which self test: gap (Ginnungagap), true (a Gungnir strike) or chitty (Chitty Chitty Bang Bang)"
         default: gap
+      publish:
+        description: "Also force-push the screenshots, logs and video to the selftest-output branch"
+        type: boolean
+        default: false
 
 jobs:
   selftest:
@@ -87,3 +91,32 @@ jobs:
           path: video
       - name: Video
         run: python3 .github/scripts/print-file.py --part ${{ matrix.part }} --parts 4 video/strike.mp4
+
+  # Dev helper: puts what the self test made on an orphan branch (force-pushed each time), so it can be fetched with
+  # git where artifact downloads are out of reach.
+  publish:
+    needs: selftest
+    if: always() && inputs.publish
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: selftest-screenshots
+          path: out
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: selftest-video
+          path: out
+      - name: Push to selftest-output
+        run: |
+          cd out
+          ls -la . screenshots logs || true
+          git init -q -b selftest-output
+          git config user.name "github-actions[bot]"
+          git config user.email "41898729+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "selftest ${{ inputs.test }} at ${{ github.sha }} (run ${{ github.run_id }})"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" selftest-output

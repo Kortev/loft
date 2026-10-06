@@ -111,6 +111,39 @@ The feed, and the rebuild, can be hurried with the same key as Gungnir's skip (B
     H
   ```
 
+## Chitty Chitty Bang Bang
+
+GEN 11, the car from the film, built in Blender: a long polished aluminium bonnet with leather straps and louvres
+behind a brass radiator, a planked cedar boat tail with brass rivets and a rub rail, deep-buttoned maroon benches,
+great brass headlamps, the serpent horn, the copper exhaust out of the side of the bonnet, the brake and gear levers
+outside the body, a starting handle and red artillery wheels.
+
+- **Put her down:** use the item on the ground or on water; she faces the way you face. Use her to get in. She seats
+  four; the first in drives, from the right-hand seat. Sneak to get out.
+- **Drive:** forward and back to accelerate, brake and reverse, left and right to steer. She climbs a block at a time
+  and stops at walls rather than driving her bonnet into them.
+- **Fly:** jump at speed and she spreads her red and yellow wings, turns her wheels flat and puts out a propeller on the
+  grille. Hold jump to climb, sprint to dive, forward for more speed; slow down too far and she sinks. Drive her off a
+  cliff and the wings spring out by themselves. Land (or splash down) and she folds them again a moment later.
+- **Float:** in the water she blows up a float down each side and drives a screw under her tail.
+- **Horn:** H (rebindable) squeezes the serpent's bulb.
+
+She starts with two coughs and two bangs, and backfires now and then when the throttle comes off at speed. Nobody
+aboard takes fall damage. Hit her hard enough and she drops back into an item, as a boat does. In third person the
+camera stands twice as far back while you ride in her.
+
+**Craft her** (the recipe unlocks with an elytra):
+
+```
+ E        E = Elytra          G = Gold Ingot
+G M G     M = Minecart        P = Piston
+P B P     B = any Boat
+```
+
+The model, its texture atlas and the item icon come from `tools/chitty_model.py` (Blender's Python module,
+`pip install "bpy==4.5.*"` on Python 3.11): `--game` writes the game's copy, `--out DIR --renders` writes `.blend` and
+`.glb` files and renders her on the road, flying and afloat. Her sounds come from `tools/gen_chitty_sounds.py`.
+
 ## Commands and game rules
 
 - `/gungnir strike <pos>`: call a strike on a position (operators).
@@ -156,7 +189,7 @@ on it even when your default Java is newer.
 ./gradlew runClient        # play in a dev client
 ```
 
-The `selftest` workflow plays a full strike in a real client under a virtual display and records it
+The `selftest` workflow (choose `gap`, `true` for a Gungnir strike, or `chitty` for the car) plays a full strike in a real client under a virtual display and records it
 as a video. The client and the integrated server run in lockstep and every frame is rendered at an
 exact game time, so the result is a smooth 30 fps video even on a software renderer. The mod's
 sounds are mixed in, and a screenshot of every phase is saved alongside.
