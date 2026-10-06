@@ -4,7 +4,6 @@ import io.github.kortev.shootingstar.ShootingStar;
 import io.github.kortev.shootingstar.client.gap.ClientGaps;
 import io.github.kortev.shootingstar.client.gap.GapHud;
 import io.github.kortev.shootingstar.client.gap.GapRender;
-import io.github.kortev.shootingstar.client.gap.VoidSky;
 import io.github.kortev.shootingstar.client.gfx.Shaders;
 import io.github.kortev.shootingstar.client.render.HudEffects;
 import io.github.kortev.shootingstar.client.render.WorldEffects;
@@ -39,7 +38,6 @@ public class ShootingStarClient implements ClientModInitializer {
 				GenesisKeyItem.cracked(stack) && !ClientGaps.keyStillWhole() ? 1.0F : 0.0F);
 		ClientConfig.load();
 		Shaders.register();
-		VoidSky.register();
 		SKIP_FEED = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.shootingstar.skip_feed",
 				InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_BACKSPACE, "key.categories.shootingstar"));
 

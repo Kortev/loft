@@ -3,7 +3,6 @@ package io.github.kortev.shootingstar.client.gap;
 import io.github.kortev.shootingstar.client.ClientConfig;
 import io.github.kortev.shootingstar.client.ClientStrikes;
 import io.github.kortev.shootingstar.gap.GapTimeline;
-import io.github.kortev.shootingstar.gap.VoidWorld;
 import io.github.kortev.shootingstar.network.GapEndPayload;
 import io.github.kortev.shootingstar.network.GapLockPayload;
 import io.github.kortev.shootingstar.registry.ModSounds;
@@ -27,9 +26,9 @@ public final class ClientGaps {
 	private static final Map<Integer, ClientGap> GAPS = new LinkedHashMap<>();
 	/** When the song in the black comes in: a second after the camera is back in the shooter's eyes. */
 	private static final int SONG = GapTimeline.RETURN + 20;
-	/** How near someone else's must be to see its tree, and how long it is kept waiting to be released (ticks). */
+	/** How near someone else's must be to see its tree, and how long it is kept, in the black, waiting to be released (ticks). */
 	private static final double SPECTATE_RANGE = 600.0;
-	private static final int KEEP = 20 * 60 * 10;
+	private static final int KEEP = 20 * 60 * 60;
 	private static boolean hudOverride;
 	private static boolean savedHudHidden;
 	private static boolean musicHeld;
@@ -57,20 +56,14 @@ public final class ClientGaps {
 		return gap != null && gap.cinematic() && !gap.feedSkipped && t >= GapTimeline.FEED && t < GapTimeline.INBOUND;
 	}
 
-	/** True while this player is going into the void or coming back out of it, both under the black. */
-	public static boolean changingWorlds() {
+	/** True while this player's world is gone: everything black, until the key is turned again. */
+	public static boolean voidPhase() {
 		for (ClientGap gap : GAPS.values()) {
-			if (!gap.ended && gap.age >= GapTimeline.NOTHING - 40 && (gap.rebuildAt < 0 || gap.rebuildClock < 40.0)) {
+			if (!gap.ended && gap.spectateAt < 0 && gap.age >= GapTimeline.NOTHING && gap.rebuildAt < 0) {
 				return true;
 			}
 		}
 		return false;
-	}
-
-	/** True while this player is in Ginnungagap, the void between universes. */
-	public static boolean inVoid() {
-		ClientWorld world = MinecraftClient.getInstance().world;
-		return world != null && world.getRegistryKey() == VoidWorld.KEY;
 	}
 
 	/** The event whose rebuild this player is watching (theirs, or the one whose void they were taken into), or null. */
@@ -100,10 +93,13 @@ public final class ClientGaps {
 		return false;
 	}
 
-	/** The shooter can neither move, look round, swing nor use anything until the camera is back in their eyes. */
+	/**
+	 * The shooter can neither move, look round, swing nor use anything until the camera is back in their eyes. Not if
+	 * they skipped: then it is all seen from their own eyes, free to move, as anyone else sees it.
+	 */
 	public static boolean locked() {
 		ClientGap gap = mine();
-		return gap != null && gap.age < GapTimeline.RETURN;
+		return gap != null && !gap.feedSkipped && gap.age < GapTimeline.RETURN;
 	}
 
 	/**
@@ -128,7 +124,7 @@ public final class ClientGaps {
 	public static boolean cloudless() {
 		ClientGap gap = mine();
 		// Back with the rebuild, so they come in under the sky as it returns rather than all at once at the end.
-		return gap != null && gap.age >= GapTimeline.INBOUND - 2 && gap.rebuildAt < 0;
+		return gap != null && !gap.feedSkipped && gap.age >= GapTimeline.INBOUND - 2 && gap.rebuildAt < 0;
 	}
 
 	public static void holdInput(MinecraftClient client) {
@@ -169,7 +165,7 @@ public final class ClientGaps {
 		// The shooter's own, and anyone's who was taken into the void with them: not at once, but the rebuild. Anyone else
 		// near enough sees the tree grow; for the rest it simply ends.
 		MinecraftClient client = MinecraftClient.getInstance();
-		if ((gap.mine || gap.voided) && !gap.ended && gap.rebuildAt < 0) {
+		if ((gap.mine || gap.age >= GapTimeline.NOTHING) && !gap.ended && gap.rebuildAt < 0) {
 			gap.rebuildAt = gap.age;
 			gap.rebuildSound = new RebuildSound();
 			client.getSoundManager().play(gap.rebuildSound);
@@ -241,13 +237,8 @@ public final class ClientGaps {
 				}
 			}
 			// Someone else's is kept (doing nothing) until it is released, for its tree; but not for ever.
-			// Taken into the void: in it for as long as it takes someone to turn the key.
-			if (!gap.ended && !gap.voided && inVoid() && gap.age >= GapTimeline.NOTHING - 20) {
-				gap.voided = true;
-				gap.voidAt = gap.age;
-			}
 			boolean over = gap.ended || (!gap.mine && (gap.spectateAt >= 0 ? gap.age - gap.spectateAt > TreeRender.SPECTATED
-					: gap.age > GapTimeline.END + KEEP && !gap.voided));
+					: gap.age > GapTimeline.END + KEEP));
 			if (over) {
 				it.remove();
 			}

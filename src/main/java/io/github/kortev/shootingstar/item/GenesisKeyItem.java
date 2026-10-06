@@ -2,7 +2,6 @@ package io.github.kortev.shootingstar.item;
 
 import io.github.kortev.shootingstar.gap.GapManager;
 import io.github.kortev.shootingstar.gap.GapTimeline;
-import io.github.kortev.shootingstar.gap.VoidWorld;
 import io.github.kortev.shootingstar.registry.ModCriteria;
 import io.github.kortev.shootingstar.registry.ModSounds;
 import io.github.kortev.shootingstar.strike.Targeting;
@@ -54,17 +53,13 @@ public class GenesisKeyItem extends Item {
 	@Override
 	public TypedActionResult<ItemStack> use(World world, PlayerEntity user, Hand hand) {
 		ItemStack stack = user.getStackInHand(hand);
-		boolean inVoid = world.getRegistryKey() == VoidWorld.KEY;
+		GapManager.Gap gone = world.isClient() ? null : GapManager.goneWith(world);
 		if (cracked(stack)) {
-			// One turn left in it, and only in the void: it lets the world back in, and shatters.
-			if (!inVoid) {
-				deny(world, user, Text.translatable("message.shootingstar.gap.cracked"));
-				return TypedActionResult.fail(stack);
-			}
+			// One turn left in it, and only once the world is gone: it lets the world back in, and shatters.
 			if (world instanceof ServerWorld serverWorld && user instanceof ServerPlayerEntity player) {
-				GapManager.Gap gap = GapManager.voidOf();
+				GapManager.Gap gap = gone;
 				if (gap == null) {
-					deny(world, user, Text.translatable("message.shootingstar.gap.nothing_held"));
+					deny(world, user, Text.translatable("message.shootingstar.gap.cracked"));
 					return TypedActionResult.fail(stack);
 				}
 				// Not before whoever turned it is back in their own eyes, alone in the void; nor while the world is still coming apart.
@@ -84,7 +79,7 @@ public class GenesisKeyItem extends Item {
 			}
 			return TypedActionResult.success(stack, true);
 		}
-		if (inVoid) {
+		if (gone != null) {
 			deny(world, user, Text.translatable("message.shootingstar.gap.void"));
 			return TypedActionResult.fail(stack);
 		}

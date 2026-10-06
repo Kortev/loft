@@ -75,9 +75,8 @@
   "subtitles.shootingstar.gap.inbound": "A universe comes down",
   "subtitles.shootingstar.gap.blast": "A universe bursts",
   "subtitles.shootingstar.gap.rebuild": "Reality is remade",
-  "block.shootingstar.void_floor": "Floor of Ginnungagap",
   "item.shootingstar.genesis_key.tooltip.cracked": "Cracked. It will turn once more, in the void, and no more.",
-  "message.shootingstar.gap.cracked": "THE KEY IS CRACKED · it turns only in the void now",
+  "message.shootingstar.gap.cracked": "THE KEY IS CRACKED · it turns only once the world is gone",
   "message.shootingstar.gap.void": "THERE IS NOTHING HERE TO OPEN",
   "message.shootingstar.gap.nothing_held": "NOTHING IS HELD IN THE VOID",
   "advancements.shootingstar.root.title": "Shooting Star",
@@ -95,7 +94,6 @@
   "advancements.shootingstar.genesis_restored.title": "Let There Be Light",
   "advancements.shootingstar.genesis_restored.description": "Turn the cracked key in the void and bring the world back",
   "advancements.shootingstar.genesis_void.title": "The Void Between",
-  "advancements.shootingstar.genesis_void.description": "Be taken into Ginnungagap with the rest of the world",
-  "message.shootingstar.gap.unmaking": "THE WORLD IS STILL COMING APART · wait",
-  "block.shootingstar.unmade": "Unmade"
+  "advancements.shootingstar.genesis_void.description": "Be in the world when Ginnungagap takes it",
+  "message.shootingstar.gap.unmaking": "THE WORLD IS STILL COMING APART · wait"
 }

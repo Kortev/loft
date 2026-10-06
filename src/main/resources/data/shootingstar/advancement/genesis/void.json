@@ -2,7 +2,7 @@
   "parent": "shootingstar:root",
   "display": {
     "icon": {
-      "id": "shootingstar:void_floor"
+      "id": "minecraft:black_concrete"
     },
     "title": {
       "translate": "advancements.shootingstar.genesis_void.title"

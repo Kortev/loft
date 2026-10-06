@@ -29,7 +29,7 @@ public final class GapHud {
 			return;
 		}
 		if (gap == null) {
-			if (ClientGaps.inVoid()) {
+			if (ClientGaps.voidPhase()) {
 				float w = ctx.getScaledWindowWidth();
 				float h = ctx.getScaledWindowHeight();
 				text(ctx, client.textRenderer, "THE WORLD IS GONE", w / 2, h * 0.12F, 1.4F, WHITE, 0.8F, true);

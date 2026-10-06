@@ -48,8 +48,8 @@ public final class GapCamera {
 		if (t < GapTimeline.RISE || t >= GapTimeline.END) {
 			return null;
 		}
-		// Skipped: straight back to the shooter's own eyes until the block comes down, which is the point of skipping.
-		if (gap.feedSkipped && t < GapTimeline.INBOUND) {
+		// Skipped: straight back to the shooter's own eyes for all of it, free to move, as anyone else sees it.
+		if (gap.feedSkipped) {
 			return null;
 		}
 		if (t < GapTimeline.FEED) {

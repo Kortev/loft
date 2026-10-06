@@ -2,8 +2,6 @@ package io.github.kortev.shootingstar.registry;
 
 import io.github.kortev.shootingstar.ShootingStar;
 import io.github.kortev.shootingstar.block.MoltenCrustBlock;
-import io.github.kortev.shootingstar.block.VoidFloorBlock;
-import io.github.kortev.shootingstar.block.UnmadeBlock;
 import net.minecraft.block.AbstractBlock;
 import net.minecraft.block.Block;
 import net.minecraft.block.MapColor;
@@ -79,23 +77,6 @@ public final class ModBlocks {
 			.strength(0.2F)
 			.luminance(state -> 5)
 			.sounds(BlockSoundGroup.AMETHYST_CLUSTER)), true);
-
-	/** The floor of the void: everyone the black takes stands on it. Black, unbreakable, never outlined. */
-	public static final Block VOID_FLOOR = register("void_floor", new VoidFloorBlock(AbstractBlock.Settings.create()
-			.mapColor(MapColor.BLACK)
-			.strength(-1.0F, 3600000.0F)
-			.dropsNothing()
-			.allowsSpawning((state, world, pos, type) -> false)
-			.sounds(BlockSoundGroup.GLASS)), true);
-
-	/** The walls of the hole Ginnungagap leaves, and the cracks out from it: matter taken, the other universe's light in the cracks. */
-	public static final Block UNMADE = register("unmade", new UnmadeBlock(AbstractBlock.Settings.create()
-			.mapColor(MapColor.BLACK)
-			.requiresTool()
-			.strength(50.0F, 1200.0F)
-			.luminance(state -> 3)
-			.emissiveLighting((state, world, pos) -> true)
-			.sounds(BlockSoundGroup.AMETHYST_BLOCK)), true);
 
 	private ModBlocks() {
 	}

@@ -13,7 +13,7 @@
     "show_toast": true,
     "announce_to_chat": true,
     "hidden": false,
-    "background": "shootingstar:textures/block/void_floor.png"
+    "background": "minecraft:textures/block/black_concrete.png"
   },
   "criteria": {
     "uplink": {

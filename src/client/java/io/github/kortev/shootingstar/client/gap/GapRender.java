@@ -10,7 +10,7 @@ import io.github.kortev.shootingstar.gap.GapTimeline;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.Framebuffer;
-import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.util.math.MatrixStack;
@@ -126,9 +126,15 @@ public final class GapRender {
 			for (ClientGap gap : ClientGaps.all()) {
 				flakes(gap, gap.time(tickDelta), cam, view, proj, right, up);
 			}
-			// The one thing the erasure does not take: draw the shooter again over the black.
-			if (mine != null && (grade.front >= 0.0F || grade.black > 0.0F) && context.camera().isThirdPerson()) {
-				redrawShooter(client, client.player, cam, view, tickDelta);
+			// The one thing the erasure does not take: people. Everyone near is drawn again over the black (this player
+			// only when the camera is outside them), so in the nothing they can still see each other.
+			if (grade.front >= 0.0F || grade.black > 0.0F) {
+				for (AbstractClientPlayerEntity player : world.getPlayers()) {
+					boolean self = player == client.player;
+					if ((self ? context.camera().isThirdPerson() : player.squaredDistanceTo(cam) < 128.0 * 128.0) && !player.isSpectator()) {
+						redrawPlayer(client, player, cam, view, tickDelta);
+					}
+				}
 			}
 		}
 
@@ -394,7 +400,7 @@ public final class GapRender {
 			landing(gap, r, cam, view, proj, right, up);
 			return;
 		}
-		if (world == null || t < GapTimeline.ERASURE || t > GapTimeline.NOTHING + 40 || ClientGaps.inVoid()) {
+		if (world == null || t < GapTimeline.ERASURE || t > GapTimeline.NOTHING + 40) {
 			return;
 		}
 		// The front runs out as a diamond (it counts blocks along x and z, see eraseFront), corner to corner round it.
@@ -690,8 +696,8 @@ public final class GapRender {
 		boolean on = false;
 		for (ClientGap gap : ClientGaps.all()) {
 			double t = gap.time(tickDelta);
-			// Everyone's, now the whole world goes: through the black, into the void and out again with the rebuild.
-			boolean live = gap.mine || gap.voided || gap.rebuildAt >= 0 ? !gap.ended : t < GapTimeline.END + 40;
+			// Everyone's, now the whole world goes: through the black, held in it, and out again with the rebuild.
+			boolean live = !gap.ended && gap.spectateAt < 0;
 			if (!live || t < GapTimeline.INBOUND) {
 				continue;
 			}
@@ -734,20 +740,12 @@ public final class GapRender {
 				// Black once the black has it all. Lifted as the rebuild begins: from then on the front alone holds the dark, so
 				// the tree and the world coming back are seen.
 				double black = MathHelper.clamp((t - GapTimeline.NOTHING + 10) / 10.0, 0.0, 1.0) * (r < 0.0 ? 1.0 : 1.0 - GapCamera.ease(r / 20.0));
-				if (ClientGaps.inVoid() && gap.voidAt >= 0) {
-					// And out of it into the void: the dark between the universes, lit by them, with nothing of ours left.
-					black *= 1.0 - GapCamera.ease((gap.time(tickDelta) - gap.voidAt - 4.0) / 40.0);
-					g.front = -1.0F;
-				}
 				g.black = Math.max(g.black, (float) black);
 			}
 			if (r >= 0.0) {
 				// And it goes as ours comes back, all of it gone before the rebuild is done.
 				double front = rebuildFront(r);
 				g.skyMix *= (float) (front < 0.0 ? 0.0 : 1.0 - GapCamera.ease(front / 520.0));
-			}
-			if (ClientGaps.inVoid()) {
-				g.skyMix = 0.0F;
 			}
 		}
 		if (mine != null) {
@@ -767,7 +765,7 @@ public final class GapRender {
 					g.flash = (float) (1.0 - GapCamera.ease(since / 6.0));
 					on = true;
 				}
-			} else if (t >= GapTimeline.FEED - 8 && t < GapTimeline.FEED) {
+			} else if (t >= GapTimeline.FEED - 8 && t < GapTimeline.FEED && !mine.feedSkipped) {
 				g.flash = (float) Math.pow((t - GapTimeline.FEED + 8) / 8.0, 2.0);
 				on = true;
 			} else if (t >= GapTimeline.INBOUND && t < GapTimeline.INBOUND + 16 && !mine.feedSkipped) {
@@ -779,7 +777,8 @@ public final class GapRender {
 			if (t >= GapTimeline.CONTACT && t < GapTimeline.CONTACT + 2) {
 				g.flash = 1.0F;
 			}
-			if (t >= GapTimeline.FRAMES && t < GapTimeline.BLAST) {
+			// The impact frames are the shooter's cut; skipped, it is seen as anyone else sees it.
+			if (t >= GapTimeline.FRAMES && t < GapTimeline.BLAST && !mine.feedSkipped) {
 				double e = t - GapTimeline.FRAMES;
 				int index = GapFrames.index(e);
 				GapFrames.Frame frame = GapFrames.at(e);
@@ -810,8 +809,8 @@ public final class GapRender {
 		return on ? g : null;
 	}
 
-	/** Draws the local player again at full brightness, over whatever the pass did to the frame. */
-	private static void redrawShooter(MinecraftClient client, ClientPlayerEntity player, Vec3d cam, Matrix4f view, float tickDelta) {
+	/** Draws a player again at full brightness, over whatever the pass did to the frame. */
+	private static void redrawPlayer(MinecraftClient client, AbstractClientPlayerEntity player, Vec3d cam, Matrix4f view, float tickDelta) {
 		Matrix4fStack modelView = RenderSystem.getModelViewStack();
 		modelView.pushMatrix();
 		modelView.set(view);

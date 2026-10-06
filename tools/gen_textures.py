@@ -272,30 +272,6 @@ def genesis_key_model():
         },
     }
 
-def void_floor():
-    """The floor of the void: black, as everything there is."""
-    return Image.fromarray(np.full((16, 16, 3), (1, 1, 2), dtype=np.uint8), 'RGB')
-
-
-def unmade():
-    """What the hole's walls and the cracks out from it are left as: the world with its matter taken, pitch black,
-    split by jagged cracks that still glow with the other universe's violet, a few white-hot points in them."""
-    r = np.random.default_rng(666)
-    img = np.full((16, 16, 3), (7, 5, 12), dtype=np.float64)
-    img += (lattice(4, 4, seed=667) - 0.5)[..., None] * np.array([6, 4, 10])
-    violet, hot = np.array([150, 80, 255]), np.array([235, 220, 255])
-    for _ in range(5):
-        x, y = r.integers(0, 16, size=2)
-        for _ in range(r.integers(9, 15)):
-            img[y % 16, x % 16] = violet * r.uniform(0.6, 1.0)
-            dx, dy = [(1, 0), (0, 1), (1, 1), (-1, 1), (1, -1)][r.integers(5)]
-            x, y = x + dx, y + dy
-    for _ in range(3):
-        x, y = r.integers(0, 16, size=2)
-        img[y, x] = hot
-    return Image.fromarray(np.clip(img, 0, 255).astype(np.uint8), 'RGB')
-
-
 def genesis_key_cracked_atlas():
     """The 3D key once it has been turned: the same colours, split by dark cracks, the gem's light gone faint and cold."""
     img = np.array(genesis_key_atlas())
@@ -486,8 +462,6 @@ def main():
     save(genesis_key(), 'item', 'genesis_key.png')
     save(genesis_key_atlas(), 'item', 'genesis_key_3d.png')
     save(genesis_key_cracked_atlas(), 'item', 'genesis_key_cracked_3d.png')
-    save(void_floor(), 'block', 'void_floor.png')
-    save(unmade(), 'block', 'unmade.png')
     key = genesis_key_model()
     cracked = genesis_key_model()
     cracked['textures']['key'] = 'shootingstar:item/genesis_key_cracked_3d'

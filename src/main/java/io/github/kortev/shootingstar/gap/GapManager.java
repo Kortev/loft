@@ -7,6 +7,7 @@ import io.github.kortev.shootingstar.network.ModNetworking;
 import io.github.kortev.shootingstar.registry.ModBlocks;
 import io.github.kortev.shootingstar.registry.ModCriteria;
 import io.github.kortev.shootingstar.registry.ModGameRules;
+import io.github.kortev.shootingstar.registry.ModItems;
 import io.github.kortev.shootingstar.strike.Targeting;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -16,10 +17,17 @@ import java.util.UUID;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
+import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
+import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
+import net.fabricmc.fabric.api.event.player.UseBlockCallback;
+import net.fabricmc.fabric.api.event.player.UseEntityCallback;
+import net.fabricmc.fabric.api.event.player.UseItemCallback;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.tag.BlockTags;
 import net.minecraft.server.MinecraftServer;
@@ -27,6 +35,9 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ChunkTicketType;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.state.property.Properties;
+import net.minecraft.util.ActionResult;
+import net.minecraft.util.Hand;
+import net.minecraft.util.TypedActionResult;
 import net.minecraft.util.Util;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
@@ -72,8 +83,6 @@ public final class GapManager {
 		@Nullable
 		Erasure erasure;
 		boolean erased;
-		/** The barrier the shooter stands on once the ground under them is gone. */
-		final List<BlockPos> floor = new ArrayList<>();
 		boolean released;
 		/** Everyone in the world has been taken into the void. */
 		boolean taken;
@@ -120,21 +129,28 @@ public final class GapManager {
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> GAPS.clear());
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
 			ServerPlayerEntity player = handler.getPlayer();
-			// In the void with nothing holding them there (the server stopped while they were): back home.
-			if (VoidWorld.in(player) && voidOf() == null) {
-				server.execute(() -> VoidWorld.bringBack(player, null, 0));
-			}
 			for (Gap gap : GAPS) {
 				boolean mine = gap.shooter.equals(player.getUuid());
-				if (gap.dimension == player.getWorld().getRegistryKey() && !gap.released && (gap.age < GapTimeline.END || mine)) {
+				// Anyone coming into a world that is gone is in the black with everyone else.
+				if (gap.dimension == player.getWorld().getRegistryKey() && !gap.released && (gap.age < GapTimeline.END || mine || gap.taken)) {
 					ModNetworking.send(player, gap.payload());
 				}
 			}
 		});
-		// Nothing touches the shooter while their event plays: they cannot move, and they are the one thing left.
-		// Nor anyone in the void.
+		// Nothing touches the shooter while their event plays: they cannot move, and they are the one thing left. Nor
+		// anyone, once their world is gone.
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> !(entity instanceof ServerPlayerEntity player
-				&& (shielded(player) || VoidWorld.in(player))));
+				&& (shielded(player) || gone(player.getWorld()))));
+		// And nothing is there to touch: no breaking, placing, using or hitting anything in a world that is gone. Only
+		// the key, which brings it back.
+		AttackBlockCallback.EVENT.register((player, world, hand, pos, direction) -> gone(world) ? ActionResult.FAIL : ActionResult.PASS);
+		UseBlockCallback.EVENT.register((player, world, hand, hit) -> gone(world) && !holdingKey(player, hand) ? ActionResult.FAIL
+				: ActionResult.PASS);
+		UseEntityCallback.EVENT.register((player, world, hand, entity, hit) -> gone(world) ? ActionResult.FAIL : ActionResult.PASS);
+		AttackEntityCallback.EVENT.register((player, world, hand, entity, hit) -> gone(world) ? ActionResult.FAIL : ActionResult.PASS);
+		UseItemCallback.EVENT.register((player, world, hand) -> gone(world) && !holdingKey(player, hand)
+				? TypedActionResult.fail(player.getStackInHand(hand)) : TypedActionResult.pass(player.getStackInHand(hand)));
+		PlayerBlockBreakEvents.BEFORE.register((world, player, pos, state, blockEntity) -> !gone(world));
 	}
 
 	/** Turns the key on {@code hit}. The shooter may be null for events called in by command. */
@@ -165,15 +181,24 @@ public final class GapManager {
 		return false;
 	}
 
-	/** The event that has taken its world into the void, which a cracked key turned in the void ends; or null. */
+	/** The event that has taken this world, which the cracked key turned in it ends; or null. */
 	@Nullable
-	public static Gap voidOf() {
+	public static Gap goneWith(World world) {
 		for (Gap gap : GAPS) {
-			if (gap.taken && !gap.released) {
+			if (gap.taken && !gap.released && gap.dimension == world.getRegistryKey()) {
 				return gap;
 			}
 		}
 		return null;
+	}
+
+	/** True while this world is gone: everything in it black, everyone in it holding still in nothing. */
+	public static boolean gone(World world) {
+		return !world.isClient() && goneWith(world) != null;
+	}
+
+	private static boolean holdingKey(PlayerEntity player, Hand hand) {
+		return player.getStackInHand(hand).isOf(ModItems.GENESIS_KEY);
 	}
 
 	public static List<Gap> active() {
@@ -189,10 +214,7 @@ public final class GapManager {
 		return false;
 	}
 
-	/**
-	 * Lets reality back in: everyone the void took goes back where they were (onto the rim, if where they stood is now
-	 * the hole), and is told, so they see it rebuilt.
-	 */
+	/** Lets reality back in: the world is there again, and everyone in it is told, so they see it rebuilt. */
 	public static void release(Gap gap, MinecraftServer server) {
 		if (gap.released) {
 			return;
@@ -201,28 +223,6 @@ public final class GapManager {
 		ServerWorld world = server.getWorld(gap.dimension);
 		if (world == null) {
 			return;
-		}
-		for (ServerPlayerEntity player : List.copyOf(server.getPlayerManager().getPlayerList())) {
-			if (VoidWorld.in(player) && (VoidWorld.takenBy(player, gap.id) || voidOf() == null)) {
-				VoidWorld.bringBack(player, gap.terrain ? gap.target : null, gap.radius);
-			}
-		}
-		// Anyone who was not taken (the event was called off early) and is still in the hole is set down on its rim.
-		ServerPlayerEntity shooter = server.getPlayerManager().getPlayer(gap.shooter);
-		if (shooter != null && shooter.getWorld() == world && gap.terrain && horizontal(shooter.getPos(), gap.target) <= gap.radius + 8) {
-			Vec3d away = new Vec3d(shooter.getX() - gap.target.getX() - 0.5, 0, shooter.getZ() - gap.target.getZ() - 0.5);
-			away = away.lengthSquared() < 1.0E-4 ? new Vec3d(1, 0, 0) : away.normalize();
-			int x = MathHelper.floor(gap.target.getX() + 0.5 + away.x * (gap.radius + 10));
-			int z = MathHelper.floor(gap.target.getZ() + 0.5 + away.z * (gap.radius + 10));
-			int y = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z);
-			if (y > world.getBottomY()) {
-				shooter.teleport(world, x + 0.5, y, z + 0.5, shooter.getYaw(), shooter.getPitch());
-			}
-		}
-		for (BlockPos p : gap.floor) {
-			if (world.getBlockState(p).isOf(Blocks.BARRIER)) {
-				world.setBlockState(p, Blocks.AIR.getDefaultState());
-			}
 		}
 		if (gap.terrain && gap.erasure != null) {
 			// Let back in early (by command, or the key gone too long): the hole is finished first, all at once.
@@ -256,18 +256,21 @@ public final class GapManager {
 			}
 			gap.age++;
 			ServerPlayerEntity shooter = server.getPlayerManager().getPlayer(gap.shooter);
-			// The black spreading is only seen; nothing is touched until everyone has been taken into the void, so no client
-			// is sent a single change and nothing lags. Then the hole is taken out, and what was in it goes.
-			if (gap.taken) {
-				erase(world, gap);
-			}
-			// Once the black has everything, the whole world goes into the void: everyone in it, and anyone who comes into
-			// it while it is gone.
-			if (gap.age >= GapTimeline.NOTHING && gap.age % 10 == 0) {
+			// Once the black has everything, the world is gone: everyone in it is in nothing until the key is turned again.
+			// Whoever was standing where the hole will be is set down on its rim first, under the black, unseen.
+			if (gap.age == GapTimeline.NOTHING) {
 				gap.taken = true;
 				for (ServerPlayerEntity player : List.copyOf(world.getPlayers())) {
-					VoidWorld.takeIn(player, gap.id);
+					if (gap.terrain && horizontal(player.getPos(), gap.target) <= gap.radius + 8) {
+						toRim(world, gap, player);
+					}
+					ModCriteria.fire(player, ModCriteria.GAP_VOID);
 				}
+			}
+			// The black spreading is only seen; nothing is touched until then. Then the hole is taken out, without telling
+			// anyone block by block (see Erasure), and what was in it goes.
+			if (gap.taken) {
+				erase(world, gap);
 			}
 			if (gap.age >= GapTimeline.END) {
 				// Called in by command, with no key to turn: it comes back by itself once it is over.
@@ -340,6 +343,19 @@ public final class GapManager {
 	}
 
 	// --- helpers --------------------------------------------------------------------------
+
+	/** Sets the player down outside the hole, on its rim on the side they were on. */
+	private static void toRim(ServerWorld world, Gap gap, ServerPlayerEntity player) {
+		Vec3d away = new Vec3d(player.getX() - gap.target.getX() - 0.5, 0, player.getZ() - gap.target.getZ() - 0.5);
+		away = away.lengthSquared() < 1.0E-4 ? new Vec3d(1, 0, 0) : away.normalize();
+		int x = MathHelper.floor(gap.target.getX() + 0.5 + away.x * (gap.radius + 10));
+		int z = MathHelper.floor(gap.target.getZ() + 0.5 + away.z * (gap.radius + 10));
+		int y = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z);
+		if (y > world.getBottomY()) {
+			player.teleport(world, x + 0.5, y, z + 0.5, player.getYaw(), player.getPitch());
+			player.fallDistance = 0.0F;
+		}
+	}
 
 	private static BlockPos ground(World world, int x, int z) {
 		return new BlockPos(x, world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z) - 1, z);
