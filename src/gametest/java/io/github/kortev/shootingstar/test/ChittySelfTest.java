@@ -59,6 +59,8 @@ public class ChittySelfTest implements ClientModInitializer {
 	private static final int SKY = 48;
 
 	private static Stage stage = Stage.WAIT_WORLD;
+	/** Set by the server once the course is built: that takes it a good while, and the client does not wait for it. */
+	private static volatile boolean built;
 	private static int ticks;
 	private static int total;
 	private static BlockPos base;
@@ -149,7 +151,15 @@ public class ChittySelfTest implements ClientModInitializer {
 				}
 			}
 			case SETTLE -> {
-				// Let the rebuilt chunks reach the client and be meshed.
+				// Wait for the server to finish building, then let the rebuilt chunks reach the client and be meshed.
+				if (!built) {
+					ticks = 0;
+					if (total > 6000) {
+						ShootingStar.LOGGER.error("[selftest] the course was never built");
+						next(Stage.DONE);
+					}
+					return;
+				}
 				if (ticks >= 260) {
 					client.options.hudHidden = true;
 					self.getInventory().selectedSlot = 0;
@@ -377,6 +387,7 @@ public class ChittySelfTest implements ClientModInitializer {
 		// Stand behind where she will go, looking down the runway at the ground just ahead.
 		player.networkHandler.requestTeleport(base.getX() + 0.5, ground + 1.0, base.getZ() - 4.5, 0.0F, 35.0F);
 		ShootingStar.LOGGER.info("[selftest] course built at {} (ground {})", base, ground);
+		built = true;
 	}
 
 	private static void spawnCar(IntegratedServer server) {
