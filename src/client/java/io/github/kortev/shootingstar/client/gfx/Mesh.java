@@ -227,6 +227,48 @@ public final class Mesh {
 		return meshes;
 	}
 
+	/**
+	 * Yggdrasil's points of light (tools/gen_yggdrasil.py), a quad each for ss_tree: colour and brightness; size and when
+	 * it grows as UV2; how far along the tree it is, what it is and a seed as the normal.
+	 */
+	public static Mesh tree() {
+		BufferBuilder b = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_LIGHT_NORMAL);
+		try {
+			Resource resource = MinecraftClient.getInstance().getResourceManager()
+					.getResource(ShootingStar.id("textures/feed/yggdrasil.bin")).orElseThrow(() -> new IOException("missing yggdrasil"));
+			byte[] bytes;
+			try (InputStream in = resource.getInputStream()) {
+				bytes = in.readAllBytes();
+			}
+			ByteBuffer data = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
+			int count = data.getInt(0);
+			for (int i = 0; i < count; i++) {
+				int at = 4 + i * 24;
+				int size = data.getShort(at + 16) & 0xFFFF;
+				int grow = (int) ((data.getShort(at + 18) & 0xFFFF) * (30000.0 / 65535.0));
+				float along = (data.getShort(at + 20) & 0xFFFF) * 1.0E-4F / 2.5F * 2.0F - 1.0F;
+				float kind = (data.get(at + 22) & 255) / 3.0F;
+				float seed = (data.get(at + 23) & 255) / 255.0F * 2.0F - 1.0F;
+				float x = data.getFloat(at);
+				float y = data.getFloat(at + 4);
+				float z = data.getFloat(at + 8);
+				int r = data.get(at + 12) & 255;
+				int g = data.get(at + 13) & 255;
+				int bl = data.get(at + 14) & 255;
+				int a = data.get(at + 15) & 255;
+				for (int c = 0; c < 4; c++) {
+					b.vertex(x, y, z).color(r, g, bl, a).texture(c == 0 || c == 3 ? -1 : 1, c < 2 ? -1 : 1).light(size, grow).normal(along, kind, seed);
+				}
+			}
+		} catch (IOException e) {
+			ShootingStar.LOGGER.error("Could not load Yggdrasil", e);
+			for (int c = 0; c < 4; c++) {
+				b.vertex(0, 0, 0).color(0, 0, 0, 0).texture(0, 0).light(0, 0).normal(0, 1, 0);
+			}
+		}
+		return upload(b);
+	}
+
 	private static void galaxy(BufferBuilder b, float x, float y, float z, int r, int g, int bl, int a, int radius, int kind, float px,
 			float py, float pz) {
 		b.vertex(x, y, z).color(r, g, bl, a).texture(-1, -1).light(radius, kind).normal(px, py, pz);

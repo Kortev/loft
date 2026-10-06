@@ -28,7 +28,7 @@ public final class ClientGap {
 	public final Vec3d shooterPos;
 	public int age;
 	public boolean ended;
-	/** When the shooter used the key again and the rebuild began, or -1; and where Odin stands for it, and which way. */
+	/** When the shooter used the key again and the rebuild began, or -1; and where Yggdrasil stands for it, and which way. */
 	public int rebuildAt = -1;
 	@Nullable
 	public Vec3d odinFeet;

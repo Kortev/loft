@@ -9,7 +9,7 @@
 
 uniform sampler2D Sampler0;
 uniform sampler2D Sampler1;
-// Odin, drawn into a picture of his own (OdinRender).
+// Yggdrasil, drawn into a picture of its own (TreeRender); Odin is its foot (relative to the target) and height, OdinState.x how much it is there.
 uniform sampler2D Sampler2;
 uniform mat4 InvViewProj;
 uniform vec2 ScreenSize;
@@ -412,7 +412,7 @@ void main() {
         c = burst(uv, c);
         c = erase(uv, c);
         if (OdinState.x > 0.0) {
-            // Nothing stands in front of him in the sky or where the black still is; elsewhere the world remade does.
+            // Nothing stands in front of it in the sky or where the black still is; elsewhere the world remade does.
             bool open = isSky(uv) || dot(c, c) < 1.0e-6;
             float him = length(Odin.xyz - CamOffset) - 0.4 * Odin.w;
             if (open || length(relAt(uv)) > him) {

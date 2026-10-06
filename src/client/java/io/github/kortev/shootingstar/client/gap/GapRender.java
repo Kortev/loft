@@ -93,7 +93,7 @@ public final class GapRender {
 
 		Grade grade = grade(mine, tickDelta, cam, view, proj);
 		if (grade != null) {
-			boolean odin = mine != null && OdinRender.draw(mine, mine.time(tickDelta), cam, view, proj, w, h, right, up);
+			boolean odin = mine != null && TreeRender.draw(mine, mine.time(tickDelta), cam, view, proj, w, h);
 			if (!odin) {
 				grade.odinState.x = 0.0F;
 			}
@@ -109,7 +109,7 @@ public final class GapRender {
 			RenderSystem.depthMask(true);
 			RenderSystem.setShaderTexture(0, COPY.color());
 			RenderSystem.setShaderTexture(1, DEPTH.depth());
-			RenderSystem.setShaderTexture(2, odin ? OdinRender.color() : 0);
+			RenderSystem.setShaderTexture(2, odin ? TreeRender.color() : 0);
 			grade.apply(proj, view, w, h, time);
 			Post.quad(Shaders.gap);
 			RenderSystem.depthFunc(GL11.GL_LEQUAL);
@@ -506,7 +506,7 @@ public final class GapRender {
 		Vector3f burstLight = new Vector3f();
 		float shock = -1.0F;
 		float skyMix;
-		/** Odin's feet (relative to the target) and height; how much he is there, his eye, his arm, his hand's light. */
+		/** The foot of Yggdrasil (relative to the target) and its height; how much it is there. */
 		Vector4f odin = new Vector4f(0.0F, 0.0F, 0.0F, 1.0F);
 		Vector4f odinState = new Vector4f();
 
@@ -539,8 +539,8 @@ public final class GapRender {
 	}
 
 	/**
-	 * The rebuild: Odin rising out of the void and looking at the shooter, his arm coming up and sweeping down, and the
-	 * black running back out from the edges in until the world is all there again.
+	 * The rebuild: Yggdrasil growing up out of the void, and then the world put back block by block, out from where the
+	 * shooter stands, until it is all there again.
 	 */
 	private static void rebuild(Grade g, ClientGap gap, double r) {
 		double front = rebuildFront(r);
@@ -549,9 +549,9 @@ public final class GapRender {
 		if (gap.odinFeet == null || gap.odinFacing == null) {
 			return;
 		}
-		Vec3d feet = OdinRender.feet(gap, r).subtract(gap.target.getX(), gap.target.getY(), gap.target.getZ());
+		Vec3d feet = TreeRender.foot(gap).subtract(gap.target.getX(), gap.target.getY(), gap.target.getZ());
 		g.odin.set((float) feet.x, (float) feet.y, (float) feet.z, (float) GapTimeline.ODIN_HEIGHT);
-		g.odinState.set((float) OdinRender.there(r), 0.0F, 0.0F, 0.0F);
+		g.odinState.set((float) TreeRender.there(r), 0.0F, 0.0F, 0.0F);
 	}
 
 	/** How far out the world has been built back, {@code r} ticks into the rebuild: from the sweep, out to the fog, then done (-1). */

@@ -57,9 +57,9 @@ public final class GapHud {
 		if (r < GapTimeline.REBUILD_ODIN) {
 			status = "SIGNAL LOST · SEARCHING FOR A WORLD";
 		} else if (r < GapTimeline.REBUILD_EYE) {
-			status = "SOMETHING IN THE VOID IS LOOKING BACK";
+			status = "SOMETHING IS GROWING IN THE VOID";
 		} else if (r < GapTimeline.REBUILD_SWEEP) {
-			status = "ALLFATHER · ODIN · KEEPER OF BIFRÖST";
+			status = "YGGDRASIL · THE AXIS OF THE NINE WORLDS";
 		} else if (r < GapTimeline.REBUILD_DONE) {
 			long placed = Math.round(3_912_004L * ease((r - GapTimeline.REBUILD_SWEEP) / (GapTimeline.REBUILD_DONE - GapTimeline.REBUILD_SWEEP)));
 			status = "REMAKING MIDGARD · " + String.format(java.util.Locale.ROOT, "%,d", placed) + " BLOCKS PLACED";
@@ -67,7 +67,7 @@ public final class GapHud {
 			status = "REALITY RESTORED";
 		}
 		text(ctx, font, status, w / 2, h * 0.78F, 1.0F, PALE, a, true);
-		// The bar: a few percent while the void is searched, stuck while Odin looks, then running with the remaking.
+		// The bar: a few percent while the void is searched, stuck while the tree grows, then running with the remaking.
 		double p;
 		if (r < GapTimeline.REBUILD_EYE) {
 			p = 0.04 * ease(r / GapTimeline.REBUILD_EYE);

@@ -234,38 +234,6 @@ void main() {
         float craters = noise(q * 29.0 + 3.0);
         base += vec3(0.16) * smoothstep(0.8, 0.88, craters) - vec3(0.06) * smoothstep(0.88, 0.95, craters);
         rough = 0.95;
-    } else if (mat == 18) {
-        // Odin's cloak: deep blue-black wool, with the stars of the void he stands in caught in it, twinkling.
-        vec3 cell = floor(objPos * 1.5);
-        float star = step(0.93, hash(cell)) * (0.6 + 0.4 * sin(Phase * 3.0 + hash(cell + 4.1) * 40.0));
-        base = vec3(0.03, 0.035, 0.08);
-        rough = 0.85;
-        emit += vec3(0.75, 0.8, 1.0) * star * 1.4;
-    } else if (mat == 19) {
-        base = vec3(0.55, 0.4, 0.32);
-        rough = 0.7;
-    } else if (mat == 20) {
-        // Grey beard, hair and fur, a little uneven.
-        base = vec3(0.5, 0.51, 0.55) * (0.85 + 0.25 * hash(floor(objPos * 2.0)));
-        rough = 0.9;
-    } else if (mat == 21) {
-        base = vec3(0.07, 0.075, 0.1);
-        rough = 0.8;
-    } else if (mat == 22) {
-        base = vec3(0.95, 0.68, 0.25);
-        metal = 1.0;
-        rough = 0.3;
-    } else if (mat == 23) {
-        base = vec3(0.25, 0.15, 0.08);
-        rough = 0.75;
-    } else if (mat == 24) {
-        // Raven feathers: black with a blue sheen.
-        base = vec3(0.02, 0.022, 0.03);
-        metal = 0.3;
-        rough = 0.35;
-    } else if (mat == 25) {
-        base = vec3(0.16, 0.18, 0.28);
-        rough = 0.8;
     }
 
     if (texCoord.y > 0.5) {

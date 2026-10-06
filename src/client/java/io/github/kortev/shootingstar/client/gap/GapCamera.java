@@ -56,7 +56,11 @@ public final class GapCamera {
 			return gap.feedSkipped ? inbound(gap, feet, GapTimeline.INBOUND) : null;
 		}
 		if (t < GapTimeline.CONTACT) {
-			return inbound(gap, feet, t);
+			// Out of the white of the cloud deck: from the ground beside the point of contact, looking straight up the
+			// bridge at it coming down, a star getting bigger; then swinging out to the wide shot for the last of it.
+			double out = ease((t - GapTimeline.INBOUND - 9.0) / 7.0);
+			Shot wide = inbound(gap, feet, t);
+			return out >= 1.0 ? wide : mix(below(gap, feet, t), wide, out);
 		}
 		if (t < GapTimeline.BLAST) {
 			return frameShot(gap, GapFrames.at(t - GapTimeline.FRAMES).shot(), eye, feet, t);
@@ -148,6 +152,18 @@ public final class GapCamera {
 	public static double blockHeight(double t) {
 		double u = MathHelper.clamp((t - GapTimeline.INBOUND) / (GapTimeline.CONTACT - GapTimeline.INBOUND), 0.0, 1.0);
 		return 300.0 * Math.pow(1.0 - u, 1.5);
+	}
+
+	/** Low beside the point of contact, on the shooter's side, looking up the bridge at the block. */
+	private static Shot below(ClientGap gap, Vec3d feet, double t) {
+		Vec3d toShooter = new Vec3d(feet.x - gap.contact.x, 0.0, feet.z - gap.contact.z);
+		Vec3d away = toShooter.lengthSquared() < 1.0 ? gap.across : toShooter.normalize();
+		double k = (t - GapTimeline.INBOUND) / 16.0;
+		Vec3d eye = gap.contact.add(away.multiply(16.0 + 4.0 * k)).add(gap.along.multiply(5.0)).add(0.0, 2.0 + 1.5 * k, 0.0);
+		Vec3d at = gap.contact.add(0.0, GapRender.blockHeight(t) * 0.8, 0.0);
+		double shake = 0.08 + 0.25 * k * k;
+		at = at.add(Math.sin(t * 17.0) * shake, Math.cos(t * 13.0) * shake, Math.sin(t * 11.0 + 0.4) * shake);
+		return lookAt(clear(eye, at), at);
 	}
 
 	/** The bridge standing over the target, the block coming down it, the shooter small in the foreground. */
@@ -279,9 +295,9 @@ public final class GapCamera {
 	}
 
 	/**
-	 * The rebuild: out of the shooter's eyes and down behind their shoulder to look up at Odin as he rises out of the
-	 * void and looks at them; jolted as his arm sweeps down; craning up and back as the world comes back round them;
-	 * then into their eyes again.
+	 * The rebuild: out of the shooter's eyes and down behind their shoulder to look up at Yggdrasil as it grows out of the
+	 * void; jolted as the light it gathers comes down its long root to them; down to watch the world put back round them,
+	 * craning up and back as it spreads; then into their eyes again.
 	 */
 	@Nullable
 	private static Shot rebuild(ClientGap gap, ClientPlayerEntity player, float tickDelta, double r) {
@@ -291,7 +307,7 @@ public final class GapCamera {
 		Vec3d eyes = player.getCameraPosVec(tickDelta);
 		Vec3d facing = gap.odinFacing;
 		Vec3d side = new Vec3d(-facing.z, 0.0, facing.x);
-		Vec3d chest = gap.odinFeet.add(0.0, GapTimeline.ODIN_HEIGHT * 0.72, 0.0);
+		Vec3d chest = TreeRender.foot(gap).add(0.0, GapTimeline.ODIN_HEIGHT * 0.45, 0.0);
 		double in = ease((r - 10.0) / 50.0);
 		double crane = ease((r - GapTimeline.REBUILD_SWEEP) / (GapTimeline.REBUILD_DONE - GapTimeline.REBUILD_SWEEP));
 		double home = ease((r - (GapTimeline.REBUILD_END - 60.0)) / 50.0);

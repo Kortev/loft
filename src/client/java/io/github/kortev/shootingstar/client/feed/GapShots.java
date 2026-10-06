@@ -855,18 +855,39 @@ final class GapShots implements Feed.Sequence {
 		float altitude = block.y - GROUND.y;
 		Vector3f down = new Vector3f(GROUND).sub(block).normalize();
 		Vector3f back = new Vector3f(0.42F, 0.0F, -0.9F).normalize();
-		// Above it and a little behind, looking down the bridge at the target: the block just above the middle of the
-		// frame, the bridge running away under it to the point it is aimed at. Closer as the air thickens.
-		float near = Shots.smooth((r - 30.0) / 30.0);
-		float distance = Shots.lerp(26.0, 15.0, near);
-		Vector3f eye = new Vector3f(block).add(new Vector3f(back).mul(distance * 0.42F)).sub(new Vector3f(down).mul(distance));
-		Vector3f at = new Vector3f(block).add(new Vector3f(down).mul(distance * 2.0F));
 		float heat = Shots.smooth((150.0F - altitude) / 110.0F) * (1.0F - Shots.smooth((r - 64.0) / 4.0));
+		// Four angles on it, each whipping round into the next: above and behind, looking down the bridge; then below it,
+		// looking up as it comes straight at the camera; then from off to the side as it tears past; then in close, the
+		// camera corkscrewing round it down into the cloud deck.
+		float[] pose = fallPose(0, s, heat);
+		for (int i = 1; i < FALL_ANGLES.length; i++) {
+			float w = Shots.smoother((r - FALL_ANGLES[i]) / FALL_WHIP);
+			if (w > 0.0F) {
+				pose = mix(pose, fallPose(i, s, heat), w);
+			}
+		}
+		Vector3f eye = new Vector3f(pose[0], pose[1], pose[2]);
+		Vector3f at = new Vector3f(pose[3], pose[4], pose[5]);
 		float shake = heat * 0.012F + 0.004F;
+		float distance = eye.distance(block);
 		at.add(Shots.noise(s * 4.1) * shake * distance, Shots.noise(s * 3.3 + 4) * shake * distance, Shots.noise(s * 3.7 + 8) * shake * distance);
-		Vector3f up = new Vector3f(back).negate();
-		float fov = Shots.lerp(52.0, 62.0, near) + 6.0F * heat;
-		scene(s, 0.3F, altitude + EARTH_R * 0.6F, eye, at, up, fov, false);
+		Vector3f up = new Vector3f(pose[6], pose[7], pose[8]).normalize();
+		scene(s, 0.3F, altitude + EARTH_R * 0.6F, eye, at, up, pose[9], false);
+		// Where it tears past the side camera, the air round it breaks into a ring of vapour and a crack of light.
+		double past = r - (FALL_ANGLES[2] + 9.0);
+		if (past > -1.0 && past < 10.0) {
+			Fx ring = space.glow(cam, Fx.RING, 0.15F);
+			float grow = (float) Math.max(0.0, past + 1.0);
+			Vector3f u = new Vector3f(down).cross(back).normalize();
+			Vector3f v = new Vector3f(u).cross(down).normalize();
+			for (int k = 0; k < 3; k++) {
+				// Rings round the way it is going, trailing back up behind it, each wider than the one before.
+				Vector3f c = new Vector3f(block).sub(new Vector3f(down).mul(BLOCK * (1.0F + 2.6F * k + grow * 0.8F)));
+				float size = BLOCK * (2.0F + grow * (0.9F + 0.4F * k));
+				ring.flat(c, new Vector3f(u).mul(size), new Vector3f(v).mul(size), Fx.argb(0.9F, 0.88F, 1.0F, 0.7F * (1.0F - grow / 11.0F)));
+			}
+			ring.end(true, 2.2F);
+		}
 
 		// The block at its own scale, lit hot from below as the air piles up in front of it.
 		block(blockModel(s), heat * 0.35F);
@@ -886,6 +907,74 @@ final class GapShots implements Feed.Sequence {
 		float deck = Shots.smooth((s - (DECK_S - 7.0)) / 7.0);
 		o.flash = Math.max(deck, heat * 0.06F);
 		o.flashColor = deck > 0.0F ? 0xFFFFFF : 0xC090FF;
+	}
+
+	/** When each of the fall's angles takes over, ticks into it, and how fast the camera whips round into it. */
+	private static final double[] FALL_ANGLES = {0.0, 16.0, 31.0, 47.0};
+	private static final double FALL_WHIP = 5.0;
+
+	/** One of the fall's camera angles at time s: eye, at, up, fov. */
+	private static float[] fallPose(int angle, double s, float heat) {
+		double r = s - FALL_S;
+		Vector3f block = blockPos(s);
+		Vector3f down = new Vector3f(GROUND).sub(block).normalize();
+		Vector3f back = new Vector3f(0.42F, 0.0F, -0.9F).normalize();
+		Vector3f side = new Vector3f(down).cross(back).normalize();
+		Vector3f eye;
+		Vector3f at;
+		Vector3f up;
+		float fov;
+		switch (angle) {
+			case 0 -> {
+				// Above it and a little behind, looking down the bridge at the target.
+				float distance = 26.0F;
+				eye = new Vector3f(block).add(new Vector3f(back).mul(distance * 0.42F)).sub(new Vector3f(down).mul(distance));
+				at = new Vector3f(block).add(new Vector3f(down).mul(distance * 2.0F));
+				up = new Vector3f(back).negate();
+				fov = 52.0F;
+			}
+			case 1 -> {
+				// Below it, a little off the bridge, falling more slowly than it: it comes on at the camera, sheath first.
+				float k = Shots.smooth((r - FALL_ANGLES[1]) / 18.0);
+				eye = new Vector3f(block).add(new Vector3f(down).mul(Shots.lerp(70.0, 26.0, k))).add(new Vector3f(side).mul(9.0F))
+						.add(new Vector3f(back).mul(-5.0F));
+				at = new Vector3f(block).add(new Vector3f(down).mul(4.0F));
+				up = new Vector3f(back).negate();
+				fov = Shots.lerp(34.0, 44.0, k) + 4.0F * heat;
+			}
+			case 2 -> {
+				// Off to the side where it will pass, long lens, the camera still: it streaks across the frame and away.
+				Vector3f where = blockPos(FALL_S + FALL_ANGLES[2] + 9.0);
+				Vector3f d = new Vector3f(GROUND).sub(where).normalize();
+				Vector3f across = new Vector3f(d).cross(back).normalize();
+				eye = new Vector3f(where).add(new Vector3f(across).mul(48.0F)).add(new Vector3f(back).mul(10.0F)).sub(new Vector3f(d).mul(6.0F));
+				at = new Vector3f(block);
+				up = new Vector3f(d).negate();
+				fov = 30.0F;
+			}
+			default -> {
+				// Close in behind it, turning round it as it goes, the world rolling over under it; nearer as the air thickens.
+				float near = Shots.smooth((r - FALL_ANGLES[3]) / 14.0);
+				float distance = Shots.lerp(20.0, 13.0, near);
+				double turn = (r - FALL_ANGLES[3]) * 0.06;
+				Vector3f side2 = new Vector3f(side).cross(down).normalize();
+				Vector3f round = new Vector3f(side).mul((float) Math.cos(turn)).add(new Vector3f(side2).mul((float) Math.sin(turn)));
+				eye = new Vector3f(block).sub(new Vector3f(down).mul(distance)).add(new Vector3f(round).mul(distance * 0.45F));
+				at = new Vector3f(block).add(new Vector3f(down).mul(distance * 2.2F));
+				up = new Vector3f(round).negate();
+				fov = Shots.lerp(56.0, 64.0, near) + 6.0F * heat;
+			}
+		}
+		return new float[] {eye.x, eye.y, eye.z, at.x, at.y, at.z, up.x, up.y, up.z, fov};
+	}
+
+	/** Part way from one pose to another. */
+	private static float[] mix(float[] a, float[] b, float k) {
+		float[] out = new float[a.length];
+		for (int i = 0; i < a.length; i++) {
+			out[i] = a[i] + (b[i] - a[i]) * k;
+		}
+		return out;
 	}
 
 	/** The violet sheath of shocked air in front of the block, and the ionised streaks it sheds. */

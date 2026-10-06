@@ -32,6 +32,7 @@ public final class Shaders {
 	public static ShaderProgram gap;
 	public static ShaderProgram galaxy;
 	public static ShaderProgram block;
+	public static ShaderProgram tree;
 
 	private Shaders() {
 	}
@@ -60,6 +61,7 @@ public final class Shaders {
 			context.register(ShootingStar.id("ss_gap"), VertexFormats.BLIT_SCREEN, p -> gap = p);
 			context.register(ShootingStar.id("ss_galaxy"), VertexFormats.POSITION_COLOR_TEXTURE_LIGHT_NORMAL, p -> galaxy = p);
 			context.register(ShootingStar.id("ss_block"), VertexFormats.POSITION_TEXTURE_COLOR_NORMAL, p -> block = p);
+			context.register(ShootingStar.id("ss_tree"), VertexFormats.POSITION_COLOR_TEXTURE_LIGHT_NORMAL, p -> tree = p);
 		});
 	}
 
@@ -68,7 +70,7 @@ public final class Shaders {
 		return mesh != null && planet != null && gas != null && atmo != null && sky != null && stars != null && glow != null
 				&& plasma != null && bright != null && blur != null && composite != null && blit != null && impact != null
 				&& debris != null && smoke != null && fxcomp != null && shell != null && light != null && bore != null
-				&& gap != null && galaxy != null && block != null;
+				&& gap != null && galaxy != null && block != null && tree != null;
 	}
 
 	public static void set(ShaderProgram program, String name, float value) {
