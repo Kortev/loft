@@ -5,6 +5,7 @@ import io.github.kortev.shootingstar.client.gap.ClientGap;
 import io.github.kortev.shootingstar.client.gap.ClientGaps;
 import io.github.kortev.shootingstar.gap.GapManager;
 import io.github.kortev.shootingstar.gap.GapTimeline;
+import io.github.kortev.shootingstar.registry.ModGameRules;
 import io.github.kortev.shootingstar.registry.ModItems;
 import io.github.kortev.shootingstar.strike.Targeting;
 import java.util.ArrayDeque;
@@ -30,6 +31,8 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.GameMode;
 import net.minecraft.world.GameRules;
 import net.minecraft.world.Heightmap;
+import net.minecraft.world.LightType;
+import net.minecraft.world.World;
 
 /**
  * With -Dshootingstar.selftest=gap: joins the quick-play world, turns the Genesis Key on flat ground a little
@@ -73,8 +76,41 @@ public class GapSelfTest implements ClientModInitializer {
 		watchdog.setDaemon(true);
 		watchdog.start();
 		ServerTickEvents.START_SERVER_TICK.register(server -> Capture.serverTickStart());
-		ServerTickEvents.END_SERVER_TICK.register(server -> Capture.serverTickEnd());
-		ClientTickEvents.END_CLIENT_TICK.register(GapSelfTest::tick);
+		ServerTickEvents.END_SERVER_TICK.register(server -> {
+			Capture.serverTickEnd();
+			lightProbe(server.getOverworld(), "server");
+		});
+		ClientTickEvents.END_CLIENT_TICK.register(client -> {
+			tick(client);
+			if (client.world != null) {
+				lightProbe(client.world, "client");
+			}
+		});
+	}
+
+	private static int serverProbe;
+	private static int clientProbe;
+
+	/**
+	 * Every two seconds of the capture, how much sky light there is down the hole on each side (it should all be 15, the
+	 * shaft being open to the sky), so a hole whose walls come back black can be told from one whose light is late.
+	 */
+	private static void lightProbe(World world, String side) {
+		if (target == null || !Capture.active() || ((world.isClient() ? ++clientProbe : ++serverProbe) % 40) != 0) {
+			return;
+		}
+		int r = world.getGameRules().getInt(ModGameRules.GAP_RADIUS) - 10;
+		StringBuilder s = new StringBuilder();
+		for (int[] d : new int[][] {{r, 0}, {-r, 0}, {0, r}, {0, -r}}) {
+			s.append('[');
+			for (int depth : new int[] {2, 12, 40, 100, 160}) {
+				s.append(world.getLightLevel(LightType.SKY, target.add(d[0], -depth, d[1]))).append(' ');
+			}
+			s.setLength(s.length() - 1);
+			s.append("] ");
+		}
+		ShootingStar.LOGGER.info("[probe] {} light at {}s: updates pending {}, sky light down the hole {}", side,
+				String.format(java.util.Locale.ROOT, "%.1f", Capture.time() / 20.0), world.getLightingProvider().hasUpdates(), s);
 	}
 
 	private static String phase(int age) {

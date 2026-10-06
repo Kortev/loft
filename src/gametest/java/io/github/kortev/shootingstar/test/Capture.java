@@ -120,6 +120,7 @@ public final class Capture {
 		}
 		active = false;
 		camera = null;
+		CameraProbe.stop(frames);
 		if (encoder != null) {
 			encoder.finish();
 			encoder = null;
@@ -184,6 +185,7 @@ public final class Capture {
 		}
 		recordFrame = false;
 		frames++;
+		CameraProbe.frame(client, frames);
 		if (frames % 150 == 0) {
 			ShootingStar.LOGGER.info("[capture] {} frames ({} s of video), {} stalls", frames,
 					String.format(Locale.ROOT, "%.1f", frames / 30.0), stalls);
