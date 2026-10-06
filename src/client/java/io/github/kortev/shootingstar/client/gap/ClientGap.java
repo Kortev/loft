@@ -39,7 +39,9 @@ public final class ClientGap {
 	RebuildSound rebuildSound;
 	/** Someone else's, released: when this player started watching its tree grow out of the hole, or -1. */
 	public int spectateAt = -1;
-	/** The shooter skipped the feed: they watch the bridge come down from the world instead. */
+	/** When the shooter skipped the feed, or -1. */
+	public int skippedAt = -1;
+	/** The shooter skipped the feed: they watch the bridge come down from their own eyes instead. */
 	public boolean feedSkipped;
 	/** The feed's sounds, stopped if it is skipped. */
 	public final List<SoundInstance> feedSounds = new ArrayList<>();

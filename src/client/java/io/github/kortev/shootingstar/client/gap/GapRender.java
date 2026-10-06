@@ -15,6 +15,7 @@ import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.client.world.ClientWorld;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.Heightmap;
@@ -90,6 +91,7 @@ public final class GapRender {
 			if (gap.mine ? gap.ended : t > GapTimeline.END + 40) {
 				continue;
 			}
+			lock(gap, t, tickDelta, cam, view, proj, right, up);
 			bridge(gap, t, cam, view, proj, right, up);
 			block(gap, t, cam, view, proj, right, up, time);
 			burst(gap, t, cam, view, proj, right, up, time);
@@ -484,6 +486,58 @@ public final class GapRender {
 	}
 
 	/**
+	 * The lock of light the Genesis Key goes into, seen from outside: rings closing in out of nothing in front of the
+	 * shooter, flaring as the key turns home, and a column of light going up out of it into the sky, which the camera
+	 * follows up. The shooter's own first-person view draws its own (KeyTurn) until the camera leaves them.
+	 */
+	private static void lock(ClientGap gap, double t, float tickDelta, Vec3d cam, Matrix4f view, Matrix4f proj, Vector3f right,
+			Vector3f up) {
+		if (t < 6.0 || t > GapTimeline.RISE + 40 || gap.mine && t < GapTimeline.RISE) {
+			return;
+		}
+		ClientWorld world = MinecraftClient.getInstance().world;
+		PlayerEntity shooter = world == null ? null : world.getPlayerByUuid(gap.shooter);
+		if (shooter == null) {
+			return;
+		}
+		Vec3d look = shooter.getRotationVec(tickDelta);
+		Vec3d centre = shooter.getCameraPosVec(tickDelta).add(look.multiply(0.95)).add(0.0, -0.3, 0.0);
+		Vector3f c = rel(centre, cam);
+		Vector3f n = new Vector3f((float) look.x, (float) look.y, (float) look.z);
+		Vector3f u = new Vector3f(n).cross(0.0F, 1.0F, 0.0F);
+		if (u.lengthSquared() < 1.0E-4F) {
+			u.set(1.0F, 0.0F, 0.0F);
+		}
+		u.normalize();
+		Vector3f v = new Vector3f(u).cross(n).normalize();
+		double form = GapCamera.ease((t - 8.0) / 14.0);
+		double flare = t < 37.0 ? 0.0 : GapCamera.ease((t - 37.0) / 8.0);
+		float click = (float) (Math.exp(-Math.max(0.0, t - 30.0) / 2.0) * (t >= 30.0 ? 1.0 : 0.0)
+				+ Math.exp(-Math.max(0.0, t - 37.0) / 3.0) * (t >= 37.0 ? 1.5 : 0.0));
+		float alpha = (float) (form * (1.0 - flare));
+		BATCH.begin(Fx.RING, 0.1F, view, proj, right, up);
+		for (int k = 0; k < 3; k++) {
+			float size = (float) ((0.32 - 0.08 * k) * (1.0 + 2.5 * (1.0 - form)) * (1.0 + 4.0 * flare));
+			BATCH.flat(c, new Vector3f(u).mul(size), new Vector3f(v).mul(size), Fx.fade(k == 2 ? WHITE : PALE, alpha * (0.6F + 0.4F * click)));
+		}
+		BATCH.end(true, 2.4F);
+		BATCH.begin(Fx.BLOB, 0.0F, view, proj, right, up);
+		BATCH.sprite(c, 0.25F + 0.4F * click, 0.0F, Fx.fade(WHITE, (float) form * Math.min(1.0F, 0.3F + 0.5F * click)));
+		BATCH.end(true, 2.4F);
+		if (t >= 37.0) {
+			// Up out of the lock into the sky as it turns home: fast, then fading as the camera goes up after it.
+			double e = t - 37.0;
+			double reach = 400.0 * GapCamera.ease(e / 6.0);
+			float fade = (float) (1.0 - GapCamera.ease((e - 10.0) / 30.0));
+			Vec3d top = centre.add(0.0, reach, 0.0);
+			BATCH.begin(Fx.BEAM, 0.0F, view, proj, right, up);
+			BATCH.beam(c, rel(top, cam), new Vector3f(), (float) (0.18 + 0.5 * Math.exp(-e / 4.0)), Fx.fade(WHITE, fade),
+					Fx.fade(VIOLET, 0.0F));
+			BATCH.end(true, 2.6F);
+		}
+	}
+
+	/**
 	 * The light the tree sends down its long root landing at the shooter's feet: a ring of it bursting out over the
 	 * ground from them, a column of glow standing up round them, and sparks lifting off, as the world starts to come back.
 	 */
@@ -689,11 +743,15 @@ public final class GapRender {
 				on = true;
 			}
 			// Up into the clouds before the feed, and out of its whiteout after it.
-			if (t >= GapTimeline.FEED - 8 && t < GapTimeline.FEED) {
+			if (mine.skippedAt >= 0 && t < GapTimeline.INBOUND) {
+				// Skipped: a quick fade back into the shooter's own eyes from wherever the camera was.
+				double since = t - mine.skippedAt;
+				if (since < 6.0) {
+					g.flash = (float) (1.0 - GapCamera.ease(since / 6.0));
+					on = true;
+				}
+			} else if (t >= GapTimeline.FEED - 8 && t < GapTimeline.FEED) {
 				g.flash = (float) Math.pow((t - GapTimeline.FEED + 8) / 8.0, 2.0);
-				on = true;
-			} else if (t >= GapTimeline.FEED && t < GapTimeline.FEED + 8 && mine.feedSkipped) {
-				g.flash = (float) (1.0 - (t - GapTimeline.FEED) / 8.0);
 				on = true;
 			} else if (t >= GapTimeline.INBOUND && t < GapTimeline.INBOUND + 16 && !mine.feedSkipped) {
 				// Out of the cloud deck's white into the sky over the target, slowly enough to see it clear.

@@ -56,6 +56,16 @@ public final class ClientGaps {
 		return gap != null && gap.cinematic() && !gap.feedSkipped && t >= GapTimeline.FEED && t < GapTimeline.INBOUND;
 	}
 
+	/** True while {@code player} is turning the Genesis Key, from it coming up to the camera leaving them (and a little after). */
+	public static boolean turningKey(PlayerEntity player) {
+		for (ClientGap gap : GAPS.values()) {
+			if (gap.shooter.equals(player.getUuid()) && gap.age < GapTimeline.RISE + 20) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	/** The shooter can neither move, look round, swing nor use anything until the camera is back in their eyes. */
 	public static boolean locked() {
 		ClientGap gap = mine();
@@ -154,6 +164,7 @@ public final class ClientGaps {
 			return;
 		}
 		gap.feedSkipped = true;
+		gap.skippedAt = gap.age;
 		gap.feedSounds.forEach(MinecraftClient.getInstance().getSoundManager()::stop);
 		gap.feedSounds.clear();
 	}

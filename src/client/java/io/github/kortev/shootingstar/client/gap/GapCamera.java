@@ -48,12 +48,16 @@ public final class GapCamera {
 		if (t < GapTimeline.RISE || t >= GapTimeline.END) {
 			return null;
 		}
+		// Skipped: straight back to the shooter's own eyes until the block comes down, which is the point of skipping.
+		if (gap.feedSkipped && t < GapTimeline.INBOUND) {
+			return null;
+		}
 		if (t < GapTimeline.FEED) {
 			return rise(gap, player, tickDelta, (t - GapTimeline.RISE) / (GapTimeline.FEED - GapTimeline.RISE));
 		}
 		if (t < GapTimeline.INBOUND) {
-			// Behind the feed the world goes on from the shooter's eyes; without it, the bridge is watched coming down.
-			return gap.feedSkipped ? inbound(gap, feet, GapTimeline.INBOUND) : null;
+			// Behind the feed the world goes on from the shooter's eyes.
+			return null;
 		}
 		if (t < GapTimeline.CONTACT) {
 			// Out of the white of the cloud deck: from the ground beside the point of contact, looking straight up the

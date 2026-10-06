@@ -1,4 +1,5 @@
 """Generates block, item and GUI textures for The Shooting Star."""
+import json
 import os
 import sys
 
@@ -201,6 +202,70 @@ def genesis_key():
     return Image.fromarray(img, 'RGBA')
 
 
+# The Genesis Key in 3D: a model of cuboids (pixels, the key upright with its bow at the bottom and laid over on the
+# diagonal the icon is drawn on, so it sits in the hand the way the flat one did) and a little atlas of its colours.
+KEY_ATLAS = {'dark': (0, 0), 'pale': (4, 0), 'mid': (8, 0), 'white': (12, 0), 'gem': (0, 4), 'deep': (4, 4)}
+KEY_PARTS = [
+    # (from, to, face colour, side colour)
+    ((4, 0, 7), (12, 1, 9), 'pale', 'mid'),          # the bow: a square ring
+    ((4, 6, 7), (12, 7, 9), 'pale', 'mid'),
+    ((4, 1, 7), (5, 6, 9), 'pale', 'mid'),
+    ((11, 1, 7), (12, 6, 9), 'pale', 'mid'),
+    ((5, 1, 7.5), (11, 6, 8.5), 'deep', 'deep'),     # dark glass inside it
+    ((6.5, 2.5, 6.75), (9.5, 4.5, 9.25), 'gem', 'white'),  # and the gem set through it
+    ((6, 7, 6.5), (10, 8, 9.5), 'dark', 'dark'),     # the collar
+    ((7, 8, 7), (9, 15, 9), 'pale', 'mid'),          # the shaft
+    ((6.5, 10.5, 6.75), (9.5, 11.25, 9.25), 'white', 'white'),
+    ((9, 13.5, 7.25), (12, 15, 8.75), 'pale', 'mid'),  # the bit's teeth
+    ((9, 11.75, 7.25), (11, 13, 8.75), 'mid', 'mid'),
+    ((7.5, 15, 7.5), (8.5, 16.5, 8.5), 'white', 'white'),  # its point
+]
+
+
+def genesis_key_atlas():
+    """The 3D key's colours, each a 4x4 patch: the icon's teal, cyan and white, the gem with a bright heart."""
+    img = np.zeros((16, 16, 4), dtype=np.uint8)
+    colours = {'dark': (11, 59, 68), 'pale': (168, 248, 255), 'mid': (95, 208, 227), 'white': (255, 255, 255),
+               'deep': (18, 92, 106)}
+    for name, (x, y) in KEY_ATLAS.items():
+        if name in colours:
+            img[y:y + 4, x:x + 4] = (*colours[name], 255)
+    gem = np.array([[(140, 240, 255), (200, 252, 255), (200, 252, 255), (140, 240, 255)],
+                    [(200, 252, 255), (255, 255, 255), (255, 255, 255), (200, 252, 255)],
+                    [(200, 252, 255), (255, 255, 255), (255, 255, 255), (200, 252, 255)],
+                    [(140, 240, 255), (200, 252, 255), (200, 252, 255), (140, 240, 255)]])
+    img[4:8, 0:4, :3] = gem
+    img[4:8, 0:4, 3] = 255
+    return Image.fromarray(img, 'RGBA')
+
+
+def genesis_key_model():
+    """The 3D key's model JSON: every part turned 45 degrees about the middle onto the icon's diagonal."""
+    def uv(name):
+        x, y = KEY_ATLAS[name]
+        return [x + 0.5, y + 0.5, x + 3.5, y + 3.5]
+    elements = []
+    for (a, b, face, side) in KEY_PARTS:
+        # Upright with the bow at the bottom; Minecraft's y is up, the icon's diagonal runs bow low-left to point high-right.
+        faces = {}
+        for f in ('north', 'south'):
+            faces[f] = {'uv': uv(face), 'texture': '#key'}
+        for f in ('east', 'west', 'up', 'down'):
+            faces[f] = {'uv': uv(side), 'texture': '#key'}
+        elements.append({'from': list(a), 'to': list(b),
+                         'rotation': {'angle': -45, 'axis': 'z', 'origin': [8, 8, 8]}, 'faces': faces})
+    return {
+        'parent': 'minecraft:item/handheld',
+        'textures': {'key': 'shootingstar:item/genesis_key_3d', 'particle': 'shootingstar:item/genesis_key'},
+        'elements': elements,
+        'gui_light': 'front',
+        'display': {
+            'gui': {'rotation': [20, -30, 0], 'translation': [0, 0, 0], 'scale': [1.0, 1.0, 1.0]},
+            'ground': {'rotation': [0, 0, 0], 'translation': [0, 2, 0], 'scale': [0.5, 0.5, 0.5]},
+            'fixed': {'rotation': [0, 180, 0], 'translation': [0, 0, 0], 'scale': [1.0, 1.0, 1.0]},
+        },
+    }
+
 # The mirror universe's blocks: cyan and teal counterparts of grass, stone, logs and leaves.
 MIRROR_BARK = [(12, 64, 72), (28, 108, 119), (44, 142, 154), (88, 200, 212)]
 
@@ -379,6 +444,10 @@ def main():
     save(crust(0), 'block', 'fused_crust.png')
     save(uplink_atlas(), 'item', 'gungnir_uplink.png')
     save(genesis_key(), 'item', 'genesis_key.png')
+    save(genesis_key_atlas(), 'item', 'genesis_key_3d.png')
+    with open(os.path.join(ROOT, 'models', 'item', 'genesis_key.json'), 'w') as f:
+        json.dump(genesis_key_model(), f, indent=2)
+        f.write('\n')
     save(mirror_grass(), 'block', 'mirror_grass.png')
     save(mirror_stone(), 'block', 'mirror_stone.png')
     save(mirror_log(), 'block', 'mirror_log.png')
