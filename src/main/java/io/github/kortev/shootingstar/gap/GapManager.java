@@ -5,6 +5,7 @@ import io.github.kortev.shootingstar.network.GapEndPayload;
 import io.github.kortev.shootingstar.network.GapLockPayload;
 import io.github.kortev.shootingstar.network.ModNetworking;
 import io.github.kortev.shootingstar.registry.ModBlocks;
+import io.github.kortev.shootingstar.registry.ModCriteria;
 import io.github.kortev.shootingstar.registry.ModGameRules;
 import io.github.kortev.shootingstar.strike.Targeting;
 import java.util.ArrayList;
@@ -152,6 +153,7 @@ public final class GapManager {
 		world.getChunkManager().addTicket(TICKET, chunk, MathHelper.clamp(MathHelper.ceil(radius / 16.0) + 2, 1, 32), chunk);
 		ModNetworking.broadcast(world, gap.payload());
 		ShootingStar.LOGGER.info("Ginnungagap #{} on {} in {}", gap.id, target.toShortString(), world.getRegistryKey().getValue());
+		ModCriteria.fire(shooter, ModCriteria.GAP_OPEN);
 		return gap;
 	}
 

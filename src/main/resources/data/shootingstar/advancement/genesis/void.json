@@ -1,0 +1,31 @@
+{
+  "parent": "shootingstar:root",
+  "display": {
+    "icon": {
+      "id": "shootingstar:void_floor"
+    },
+    "title": {
+      "translate": "advancements.shootingstar.genesis_void.title"
+    },
+    "description": {
+      "translate": "advancements.shootingstar.genesis_void.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "void": {
+      "trigger": "shootingstar:event",
+      "conditions": {
+        "event": "gap_void"
+      }
+    }
+  },
+  "requirements": [
+    [
+      "void"
+    ]
+  ]
+}

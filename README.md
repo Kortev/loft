@@ -92,9 +92,14 @@ opens onto the void between universes, where they hang in a lattice, each in a b
 feed dives through into universe 4,096,113, beside one of its galaxies, then pulls back out past the cosmic
 web of its two trillion galaxies until the whole of it is one block among the others, and it is selected.
 The gate draws that block through and drops it down a bridge of light onto the target.
-It bursts, and everything within `ginnungagapRadius` is erased, leaving you alone in the dark. Use the
-key again to let reality back in: Yggdrasil grows out of the void, and the world is put back along its
-roots, block by block. The feed can be skipped with the same key as Gungnir's (Backspace).
+It bursts, the black takes the whole world, and everyone in it is taken into Ginnungagap: a flat floor in
+the void between universes, under the lattice of the others. Everything within `ginnungagapRadius` of the
+target is erased for good. The first turn cracks the key, and only the cracked key brings the world back:
+turned in the void, it shatters, everyone goes back where they were, Yggdrasil grows out of the hole, and
+the world is put back along its roots, block by block. The hole stays, grown over with the other universe's
+ground and trees, with the Sapling of Yggdrasil glowing in the middle. (If whoever holds the cracked key is
+gone for five minutes, the world comes back by itself; `/ginnungagap release` brings it back at once.)
+The feed, and the rebuild, can be hurried with the same key as Gungnir's skip (Backspace).
 
 - **Try it:** `/give @s shootingstar:genesis_key`, or `/ginnungagap open <pos>` (operators).
 - **Craft it:**
@@ -110,6 +115,8 @@ roots, block by block. The feed can be skipped with the same key as Gungnir's (B
 - `/gungnir strike <pos>`: call a strike on a position (operators).
 - `/gungnir cancel`: call off every strike that has not landed yet.
 - `/ginnungagap open <pos>`: open a Ginnungagap on a position (operators).
+  From a command block or the console there is no shooter: everyone watches from outside, and the world
+  comes back by itself at the end.
 - `/ginnungagap release`: end every Ginnungagap and let reality back in.
 
 | Game rule              | Default | Meaning                                                  |

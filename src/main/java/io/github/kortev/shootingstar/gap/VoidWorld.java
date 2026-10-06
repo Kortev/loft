@@ -1,6 +1,7 @@
 package io.github.kortev.shootingstar.gap;
 
 import io.github.kortev.shootingstar.ShootingStar;
+import io.github.kortev.shootingstar.registry.ModCriteria;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -51,6 +52,7 @@ public final class VoidWorld {
 				player.getY(), player.getZ(), player.getYaw(), player.getPitch(), gapId));
 		player.teleport(into, player.getX(), FLOOR, player.getZ(), player.getYaw(), player.getPitch());
 		player.fallDistance = 0.0F;
+		ModCriteria.fire(player, ModCriteria.GAP_VOID);
 	}
 
 	/**

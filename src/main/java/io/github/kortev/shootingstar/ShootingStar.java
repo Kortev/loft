@@ -5,6 +5,7 @@ import io.github.kortev.shootingstar.command.GungnirCommand;
 import io.github.kortev.shootingstar.gap.GapManager;
 import io.github.kortev.shootingstar.network.ModNetworking;
 import io.github.kortev.shootingstar.registry.ModBlocks;
+import io.github.kortev.shootingstar.registry.ModCriteria;
 import io.github.kortev.shootingstar.registry.ModGameRules;
 import io.github.kortev.shootingstar.registry.ModItems;
 import io.github.kortev.shootingstar.registry.ModSounds;
@@ -28,6 +29,7 @@ public class ShootingStar implements ModInitializer {
 		ModItems.init();
 		ModSounds.init();
 		ModGameRules.init();
+		ModCriteria.init();
 		ModNetworking.init();
 		StrikeManager.init();
 		GungnirCommand.init();

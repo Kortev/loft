@@ -1,0 +1,46 @@
+{
+  "display": {
+    "icon": {
+      "id": "shootingstar:gungnir_uplink"
+    },
+    "title": {
+      "translate": "advancements.shootingstar.root.title"
+    },
+    "description": {
+      "translate": "advancements.shootingstar.root.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false,
+    "background": "shootingstar:textures/block/void_floor.png"
+  },
+  "criteria": {
+    "uplink": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "shootingstar:gungnir_uplink"
+          }
+        ]
+      }
+    },
+    "key": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "shootingstar:genesis_key"
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "uplink",
+      "key"
+    ]
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "parent": "shootingstar:gungnir/impact",
+  "display": {
+    "icon": {
+      "id": "shootingstar:molten_crust"
+    },
+    "title": {
+      "translate": "advancements.shootingstar.gungnir_danger_close.title"
+    },
+    "description": {
+      "translate": "advancements.shootingstar.gungnir_danger_close.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "close": {
+      "trigger": "shootingstar:event",
+      "conditions": {
+        "event": "gungnir_danger_close"
+      }
+    }
+  },
+  "requirements": [
+    [
+      "close"
+    ]
+  ]
+}

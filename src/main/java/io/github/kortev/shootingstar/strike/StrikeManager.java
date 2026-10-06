@@ -5,6 +5,7 @@ import io.github.kortev.shootingstar.network.ModNetworking;
 import io.github.kortev.shootingstar.network.StrikeCancelPayload;
 import io.github.kortev.shootingstar.network.StrikeImpactPayload;
 import io.github.kortev.shootingstar.network.StrikeLockPayload;
+import io.github.kortev.shootingstar.registry.ModCriteria;
 import io.github.kortev.shootingstar.registry.ModGameRules;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -23,10 +24,13 @@ import net.minecraft.util.Util;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
 public final class StrikeManager {
+	/** Standing this close to where the round comes down when it does earns Danger Close. */
+	private static final double DANGER_CLOSE = 60.0;
 	/** Keeps the target area loaded and ticking until the crater is finished. */
 	private static final ChunkTicketType<ChunkPos> TICKET = ChunkTicketType.create("shootingstar_strike",
 			Comparator.comparingLong(ChunkPos::toLong), StrikeTimeline.END + 200);
@@ -105,6 +109,7 @@ public final class StrikeManager {
 		world.getChunkManager().addTicket(TICKET, chunk, MathHelper.clamp(MathHelper.ceil(scorch / 16.0) + 2, 1, 18), chunk);
 
 		ModNetworking.broadcast(world, new StrikeLockPayload(strike.id, target, strike.shooter, 0, radius));
+		ModCriteria.fire(shooter, ModCriteria.GUNGNIR_LOCK);
 		ShootingStar.LOGGER.info("Kinetic lock #{} on {} in {}", strike.id, target.toShortString(), world.getRegistryKey().getValue());
 		return strike;
 	}
@@ -157,6 +162,13 @@ public final class StrikeManager {
 				ModNetworking.broadcast(world, new StrikeImpactPayload(strike.id, strike.target, impact.radius(),
 						impact.terrain() ? impact.zoneDiameter() : 0, impact.spireHeight()));
 				ShootingStar.LOGGER.info("Strike #{} impact at {}", strike.id, strike.target.toShortString());
+				ServerPlayerEntity caller = server.getPlayerManager().getPlayer(strike.shooter);
+				if (caller != null) {
+					ModCriteria.fire(caller, ModCriteria.GUNGNIR_IMPACT);
+					if (caller.getWorld() == world && caller.getPos().distanceTo(Vec3d.ofCenter(strike.target)) <= DANGER_CLOSE) {
+						ModCriteria.fire(caller, ModCriteria.GUNGNIR_DANGER_CLOSE);
+					}
+				}
 			} else if (strike.impact != null && !strike.carved) {
 				strike.carved = strike.impact.step();
 			}

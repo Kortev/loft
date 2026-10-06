@@ -3,6 +3,7 @@ package io.github.kortev.shootingstar.item;
 import io.github.kortev.shootingstar.gap.GapManager;
 import io.github.kortev.shootingstar.gap.GapTimeline;
 import io.github.kortev.shootingstar.gap.VoidWorld;
+import io.github.kortev.shootingstar.registry.ModCriteria;
 import io.github.kortev.shootingstar.registry.ModSounds;
 import io.github.kortev.shootingstar.strike.Targeting;
 import java.util.List;
@@ -72,6 +73,7 @@ public class GenesisKeyItem extends Item {
 				}
 				shatter(serverWorld, player, stack);
 				GapManager.release(gap, serverWorld.getServer());
+				ModCriteria.fire(player, ModCriteria.GAP_RESTORED);
 				user.incrementStat(Stats.USED.getOrCreateStat(this));
 				user.setStackInHand(hand, ItemStack.EMPTY);
 				return TypedActionResult.success(ItemStack.EMPTY, false);

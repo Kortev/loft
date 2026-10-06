@@ -1,0 +1,31 @@
+{
+  "parent": "shootingstar:gungnir/lock",
+  "display": {
+    "icon": {
+      "id": "shootingstar:gungnir_hull"
+    },
+    "title": {
+      "translate": "advancements.shootingstar.gungnir_impact.title"
+    },
+    "description": {
+      "translate": "advancements.shootingstar.gungnir_impact.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "impact": {
+      "trigger": "shootingstar:event",
+      "conditions": {
+        "event": "gungnir_impact"
+      }
+    }
+  },
+  "requirements": [
+    [
+      "impact"
+    ]
+  ]
+}
