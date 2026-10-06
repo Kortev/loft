@@ -53,7 +53,7 @@ void main() {
     if (kind == 3) {
         // The haze: soft and wide, never less than a couple of pixels, and gone if the camera comes up close to it.
         q = max(rp, 2.0);
-        light = Color.rgb * Color.a * 4.0 * Bright * appear * (0.25 + wave * 0.1) * min(1.0, rp / q) * (1.0 - smoothstep(60.0, 300.0, rp));
+        light = Color.rgb * Color.a * 4.0 * Bright * appear * (0.45 + wave * 0.1) * min(1.0, rp / q) * (1.0 - smoothstep(60.0, 300.0, rp));
     } else if (kind == 2) {
         q = max(rp, 2.0) * 3.0;
     } else {

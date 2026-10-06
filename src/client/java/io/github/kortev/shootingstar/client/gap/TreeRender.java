@@ -146,7 +146,8 @@ final class TreeRender {
 		float gather = (float) GapCamera.ease((r - GapTimeline.REBUILD_GATHER) / (GapTimeline.REBUILD_SWEEP - GapTimeline.REBUILD_GATHER));
 		float after = (float) Math.exp(-Math.max(0.0, r - GapTimeline.REBUILD_SWEEP) / 40.0);
 		float bright = there * (1.0F + 0.8F * gather * (r < GapTimeline.REBUILD_SWEEP ? 1.0F : after));
-		Shaders.set(Shaders.tree, "Bright", bright * (low ? 1.5F : 1.0F));
+		// The game's grade is darker than the light it was drawn to look right under: brought up to match.
+		Shaders.set(Shaders.tree, "Bright", bright * 1.8F * (low ? 1.5F : 1.0F));
 		tree.draw(Shaders.tree, new Matrix4f(view).mul(model), lens);
 		RenderSystem.disableBlend();
 		RenderSystem.defaultBlendFunc();
