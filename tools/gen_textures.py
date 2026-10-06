@@ -255,11 +255,17 @@ def genesis_key_model():
         elements.append({'from': list(a), 'to': list(b),
                          'rotation': {'angle': -45, 'axis': 'z', 'origin': [8, 8, 8]}, 'faces': faces})
     return {
-        'parent': 'minecraft:item/handheld',
+        # No parent: item/handheld ends in builtin/generated, which builds the model from layer textures and ignores
+        # elements. Its display transforms, which suit a key on this diagonal, are copied here instead.
         'textures': {'key': 'shootingstar:item/genesis_key_3d', 'particle': 'shootingstar:item/genesis_key'},
         'elements': elements,
         'gui_light': 'front',
         'display': {
+            'thirdperson_righthand': {'rotation': [0, -90, 55], 'translation': [0, 4.0, 0.5], 'scale': [0.85, 0.85, 0.85]},
+            'thirdperson_lefthand': {'rotation': [0, 90, -55], 'translation': [0, 4.0, 0.5], 'scale': [0.85, 0.85, 0.85]},
+            'firstperson_righthand': {'rotation': [0, -90, 25], 'translation': [1.13, 3.2, 1.13], 'scale': [0.68, 0.68, 0.68]},
+            'firstperson_lefthand': {'rotation': [0, 90, -25], 'translation': [1.13, 3.2, 1.13], 'scale': [0.68, 0.68, 0.68]},
+            'head': {'rotation': [0, 180, 0], 'translation': [0, 13, 7], 'scale': [1.0, 1.0, 1.0]},
             'gui': {'rotation': [20, -30, 0], 'translation': [0, 0, 0], 'scale': [1.0, 1.0, 1.0]},
             'ground': {'rotation': [0, 0, 0], 'translation': [0, 2, 0], 'scale': [0.5, 0.5, 0.5]},
             'fixed': {'rotation': [0, 180, 0], 'translation': [0, 0, 0], 'scale': [1.0, 1.0, 1.0]},
