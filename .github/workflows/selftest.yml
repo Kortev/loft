@@ -5,6 +5,10 @@ name: selftest
 # Run by hand only (Actions > selftest > Run workflow).
 on:
   workflow_dispatch:
+    inputs:
+      test:
+        description: "Which self test: gap (Ginnungagap), true (a Gungnir strike) or chitty (Chitty Chitty Bang Bang)"
+        default: gap
 
 jobs:
   selftest:
@@ -20,7 +24,7 @@ jobs:
       - name: Install virtual display and ffmpeg
         run: |
           sudo apt-get update -q
-          sudo apt-get install -y -q xvfb libgl1-mesa-dri mesa-utils python3-pil ffmpeg
+          sudo apt-get install -y -q xvfb libgl1-mesa-dri mesa-utils python3-pil python3-numpy ffmpeg
       - name: Generate world
         run: |
           mkdir -p build/selftest-server
@@ -32,12 +36,13 @@ jobs:
           mkdir -p build/selftest/saves
           cp -r build/selftest-server/selftest build/selftest/saves/selftest
           cp .github/selftest/options.txt build/selftest/options.txt
-          timeout 4200 xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew runSelftest --stacktrace
+          timeout 4200 xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew runSelftest -Pselftest=${{ inputs.test || 'gap' }} --stacktrace
       - name: Mix the soundtrack
         if: always()
         run: |
           cat build/selftest/capture/ffmpeg.log || true
           head -c 3000 build/selftest/capture/sounds.json || true
+          python3 .github/scripts/render-loops.py build/selftest/capture || true
           python3 .github/scripts/mux-audio.py build/selftest/capture build/selftest/strike.mp4
       - uses: actions/upload-artifact@v4
         if: always()

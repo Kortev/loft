@@ -48,20 +48,25 @@ public class ChittySound extends MovingSoundInstance {
 		x = car.getX();
 		y = car.getY() + 0.8;
 		z = car.getZ();
+		volume = MathHelper.lerp(0.25F, volume, targetVolume(car, flight));
+		pitch = MathHelper.clamp(MathHelper.lerp(0.2F, pitch, targetPitch(car, flight)), 0.5F, 2.0F);
+	}
+
+	/** How loud this sound wants to be now (the instance eases towards it). */
+	public static float targetVolume(ChittyEntity car, boolean flight) {
 		double speed = car.getSpeed();
-		float targetVolume;
-		float targetPitch;
 		if (flight) {
-			float open = car.getWingOpen(1.0F);
-			targetVolume = open * (0.25F + 0.75F * (float) Math.min(1.0, speed / 1.1));
-			targetPitch = 0.7F + 0.6F * (float) Math.min(1.3, speed);
-		} else {
-			boolean running = car.isEngineRunning();
-			float load = car.getThrottle() > 0 ? 0.1F : 0.0F;
-			targetVolume = running ? 0.55F + 0.35F * (float) Math.min(1.0, speed / 0.75) : 0.0F;
-			targetPitch = 0.72F + 0.65F * (float) Math.min(1.2, speed / 0.75) + load;
+			return car.getWingOpen(1.0F) * (0.25F + 0.75F * (float) Math.min(1.0, speed / 1.1));
 		}
-		volume = MathHelper.lerp(0.25F, volume, targetVolume);
-		pitch = MathHelper.clamp(MathHelper.lerp(0.2F, pitch, targetPitch), 0.5F, 2.0F);
+		return car.isEngineRunning() ? 0.55F + 0.35F * (float) Math.min(1.0, speed / 0.75) : 0.0F;
+	}
+
+	/** The pitch this sound wants now. */
+	public static float targetPitch(ChittyEntity car, boolean flight) {
+		double speed = car.getSpeed();
+		if (flight) {
+			return 0.7F + 0.6F * (float) Math.min(1.3, speed);
+		}
+		return 0.72F + 0.65F * (float) Math.min(1.2, speed / 0.75) + (car.getThrottle() > 0 ? 0.1F : 0.0F);
 	}
 }

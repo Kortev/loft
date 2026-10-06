@@ -550,13 +550,8 @@ public class ChittyEntity extends Entity {
 			case WATER -> vy = vy * 0.8 + (depth - FLOAT_DEPTH) * 0.1;
 			default -> vy = (vy - GRAVITY) * 0.98;
 		}
-		Vec3d horizontal;
-		if (mode == Mode.FALL) {
-			horizontal = new Vec3d(v.x, 0.0, v.z).multiply(0.99);
-			speed = (float) horizontal.dotProduct(ahead);
-		} else {
-			horizontal = ahead.multiply(speed);
-		}
+		// Off the ground without wings she keeps going the way she was (and loses a little), as off a ramp.
+		Vec3d horizontal = ahead.multiply(speed);
 		Vec3d step = new Vec3d(horizontal.x, vy, horizontal.z);
 
 		// The box is square and shorter than the car: look ahead of the bonnet (or behind the tail) for anything she

@@ -360,7 +360,8 @@
     "subtitle": "subtitles.shootingstar.chitty.engine",
     "sounds": [
       {
-        "name": "shootingstar:chitty_engine"
+        "name": "shootingstar:chitty_engine",
+        "attenuation_distance": 32
       }
     ]
   },
@@ -368,7 +369,8 @@
     "subtitle": "subtitles.shootingstar.chitty.flight",
     "sounds": [
       {
-        "name": "shootingstar:chitty_flight"
+        "name": "shootingstar:chitty_flight",
+        "attenuation_distance": 32
       }
     ]
   },

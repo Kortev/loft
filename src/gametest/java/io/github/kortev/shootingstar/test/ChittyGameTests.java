@@ -62,12 +62,13 @@ public class ChittyGameTests implements FabricGameTest {
 		car.launch(0.0F, true);
 		ZombieEntity rider = context.spawnEntity(EntityType.HUSK, new Vec3d(4.0, 7.0, 4.0));
 		rider.setAiDisabled(true);
-		context.assertTrue(rider.startRiding(car, true), "the zombie could not get in");
+		context.assertTrue(rider.startRiding(car), "the zombie could not get in");
 		float health = rider.getHealth();
 		context.runAtTick(160, () -> {
 			context.assertTrue(car.isOnGround(), "she never landed: y " + car.getY());
 			context.assertTrue(!car.isFlying(), "her wings are still out");
-			context.assertTrue(rider.getHealth() >= health, "the passenger was hurt landing: " + rider.getHealth() + " of " + health);
+			context.assertTrue(rider.getHealth() >= health, "the passenger was hurt landing (" + rider.getHealth() + " of " + health + ") by "
+					+ (rider.getRecentDamageSource() != null ? rider.getRecentDamageSource().getName() : "nothing recorded"));
 			context.complete();
 		});
 	}
@@ -79,11 +80,13 @@ public class ChittyGameTests implements FabricGameTest {
 		ChittyEntity car = car(context, 4.0, 7.5, 4.0);
 		ZombieEntity rider = context.spawnEntity(EntityType.HUSK, new Vec3d(4.0, 7.5, 4.0));
 		rider.setAiDisabled(true);
-		rider.startRiding(car, true);
+		rider.startRiding(car);
 		float health = rider.getHealth();
 		context.runAtTick(80, () -> {
 			context.assertTrue(car.isOnGround(), "she never came down");
-			context.assertTrue(rider.getHealth() >= health, "the passenger took fall damage");
+			context.assertTrue(rider.getHealth() >= health, "the passenger was hurt (" + rider.getHealth() + " of " + health + ") by "
+					+ (rider.getRecentDamageSource() != null ? rider.getRecentDamageSource().getName() : "nothing recorded")
+					+ ", riding " + rider.getVehicle());
 			context.assertTrue(!car.isRemoved(), "the fall broke her");
 			context.complete();
 		});
@@ -122,7 +125,7 @@ public class ChittyGameTests implements FabricGameTest {
 			riders.add(zombie);
 		}
 		for (ZombieEntity zombie : riders) {
-			zombie.startRiding(car, true);
+			zombie.startRiding(car);
 		}
 		context.runAtTick(5, () -> {
 			context.assertTrue(car.getPassengerList().size() == 4, "seats " + car.getPassengerList().size());
