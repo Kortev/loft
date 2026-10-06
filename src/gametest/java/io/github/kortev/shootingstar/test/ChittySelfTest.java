@@ -291,13 +291,15 @@ public class ChittySelfTest implements ClientModInitializer {
 				}
 			}
 			case DIVE -> {
+				// Nose down and throttle back, so she comes down onto the middle of the lake instead of its far end.
 				keys(client, false, false, false, false, true);
+				client.options.backKey.setPressed(true);
 				if (ticks == 30) {
 					shot(client, "10_diving.png");
 				}
 				if (car.getFluidHeight(net.minecraft.registry.tag.FluidTags.WATER) > 0.05 || car.isOnGround() || ticks > 260) {
-					// Off to her right a way ahead, so she slides up and past it as she slows.
-					Capture.camera = beside(client, local(car.getPos(), car.getYaw(), -6.5, 2.2, 11.0));
+					// Off to her right a little ahead, so she slides up alongside it as she slows.
+					Capture.camera = beside(client, local(car.getPos(), car.getYaw(), -6.0, 2.0, 7.0));
 					next(Stage.SPLASH);
 				}
 			}
@@ -306,15 +308,18 @@ public class ChittySelfTest implements ClientModInitializer {
 				if (ticks == 6) {
 					shot(client, "11_splashdown.png");
 				}
-				if (ticks == 40) {
+				if (ticks == 58) {
 					shot(client, "12_floats.png");
+				}
+				if (ticks >= 60) {
 					Capture.camera = orbit(client, Capture.time(), 8.5, 2.6, 2.4);
 					next(Stage.AFLOAT);
 				}
 			}
 			case AFLOAT -> {
-				// Round in a slow circle on the lake: on the water she turns tight enough to stay well off the banks.
-				keys(client, ticks > 20 && ticks < 150, false, ticks > 30 && ticks < 150, false, false);
+				// Round in a slow circle on the lake (to her left, away from the near bank): on the water she turns tight
+				// enough to stay well off the banks.
+				keys(client, ticks > 20 && ticks < 150, ticks > 30 && ticks < 150, false, false, false);
 				if (ticks == 70) {
 					shot(client, "13_afloat.png");
 				}
