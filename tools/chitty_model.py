@@ -71,11 +71,15 @@ SPARE = (0.70, 0.46, BOARD_Z + 0.01 + WHEEL_R)
 # how far they draw in when folded (their ribs telescope). Folded, the wings lie under the running boards, the front
 # fans under the dumb irons and the tail fans under the hull, their striped edges showing.
 WING = dict(hinge=(0.70, 1.18, 0.47), blades=8, length=2.4, open_from=-38, spread=50, fold=-90, dihedral=6, stagger=1.0,
-            layer=0.009, tuck=0.85)
-CANARD = dict(hinge=(0.56, 2.42, 0.34), blades=3, length=0.45, open_from=55, spread=50, fold=180, dihedral=3, stagger=4.0,
-              layer=0.009, tuck=1.0)
-TAILFAN = dict(hinge=(0.40, -2.22, 0.55), blades=3, length=0.62, open_from=-20, spread=50, fold=-95, dihedral=8,
-               stagger=4.0, layer=0.009, tuck=1.0)
+            layer=0.009, tuck=0.85, scallop=0.10)
+# One fan at her nose, opening out into a half circle across the front, and one at her tail, opening straight back
+# with a little propeller pushing at its end. Folded, the nose fan lies back under the front axle and the tail fan
+# draws in under the hamper.
+NOSEFAN = dict(hinge=(0.0, 2.46, 0.30), blades=9, length=0.85, open_from=170, spread=160, fold=-90, dihedral=0,
+               stagger=1.5, layer=0.009, tuck=0.85, scallop=0.14)
+TAILFAN = dict(hinge=(0.0, -2.85, 0.56), blades=5, length=1.0, open_from=-65, spread=50, fold=-90, dihedral=0,
+               stagger=1.5, layer=0.009, tuck=0.40, scallop=0.22)
+TAILPROP_R = 0.28
 MAST_H = 0.85
 ROTOR_R = 0.72
 # The float: a pink ring round her, (half-width, half-length) of its middle line, its centre, tube radii.
@@ -277,7 +281,7 @@ def make_materials():
     # Doped canvas: matte, so it keeps its colour seen edge-on against the sky.
     material('wing_red', (172, 18, 16), rough=0.85, spec=0.08)
     material('wing_yellow', (238, 158, 18), rough=0.85, spec=0.08)
-    material('rotor', (70, 66, 62), metal=0.3, rough=0.4)
+    material('prop', (196, 150, 92), rough=0.3, coat=0.8)
     material('glass', (220, 235, 240), rough=0.02, glass=True)
     material('lens', (250, 246, 230), rough=0.02, glass=True, ior=1.05)
     material('bulb_glow', (255, 236, 190), rough=0.3, emit=((255, 220, 160), 1.5))
@@ -1023,6 +1027,11 @@ def build_guards():
         add_box(m, (s * 0.64, yc, BOARD_Z), (0.46, ln, 0.035), 'black')
         add_box(m, (s * 0.64, yc, BOARD_Z + 0.019), (0.42, ln - 0.06, 0.004), 'rubber')
         add_box(m, (s * 0.868, yc, BOARD_Z), (0.012, ln, 0.04), 'brass')
+        # Three brass vent grilles let into each board.
+        for y in np.linspace(BOARD_FRONT - 0.35, BOARD_BACK + 0.35, 3):
+            add_box(m, (s * 0.66, y, BOARD_Z + 0.022), (0.20, 0.30, 0.006), 'brass')
+            for k in range(7):
+                add_box(m, (s * 0.66, y - 0.12 + 0.04 * k, BOARD_Z + 0.026), (0.17, 0.012, 0.004), 'chassis')
         for y in (BOARD_FRONT - 0.05, BOARD_BACK + 0.05):
             add_box(m, (s * 0.50, y, (BOARD_Z + 0.42) / 2), (0.04, 0.05, BOARD_Z - 0.42), 'chassis')
     m.obj('boards', smooth=None)
@@ -1146,23 +1155,23 @@ def build_levers():
 
 
 def build_plates():
-    """GEN 11, under the radiator and on the hamper rack, and the starting handle."""
+    """GEN 11, under the radiator and on the back of the hamper, and the starting handle."""
     m = Mesh()
     add_box(m, (0, 2.36, 0.53), (0.50, 0.012, 0.13), 'plate')
     add_box(m, (0, 2.33, 0.53), (0.05, 0.06, 0.05), 'chassis')
-    add_box(m, (0, -3.20, 0.56), (0.50, 0.012, 0.13), 'plate')
+    add_box(m, (0, -3.175, 0.79), (0.50, 0.012, 0.13), 'plate')
     tube(m, [Vector((0, 2.30, 0.42)), Vector((0, 2.44, 0.42))], 0.014, 'chassis', seg=8)
     tube(m, [Vector((0, 2.44, 0.42)), Vector((0, 2.44, 0.31))], 0.012, 'chassis', seg=8)
     tube(m, [Vector((0, 2.44, 0.31)), Vector((0, 2.52, 0.31))], 0.016, 'brass', seg=8)
     m.obj('plates', smooth=None)
     text_object('GEN 11', 0.085, (0, 2.367, 0.53), (math.radians(90), 0, math.radians(180)), 'letters')
-    text_object('GEN 11', 0.085, (0, -3.207, 0.56), (math.radians(90), 0, 0), 'letters')
+    text_object('GEN 11', 0.085, (0, -3.182, 0.79), (math.radians(90), 0, 0), 'letters')
 
 
-def wedge(m, length, half_angle, mat, spar=False):
-    """One panel of a fan: a wedge out along +X from its hinge, its tip bowed out, a rib down the middle. The first
-    panel of a big wing carries a chrome spar down its leading edge. Panels overlap their neighbours, so the open fan
-    is one striped sail."""
+def wedge(m, length, half_angle, mat, spar=False, scallop=0.1):
+    """One panel of a fan: a wedge out along +X from its hinge, its tip cut in between its corners (overlapping its
+    neighbours, the open fan is one striped sail with a scalloped edge, like an umbrella's), a rib down the middle. The
+    first panel of a big wing carries the red box spar down its leading edge."""
     a = math.radians(half_angle)
     radial = [0.04 + (length - 0.04) * j / 8 for j in range(9)]
     cols = 7
@@ -1172,7 +1181,7 @@ def wedge(m, length, half_angle, mat, spar=False):
         for k in range(cols):
             t = -1 + 2 * k / (cols - 1)
             ang = a * t
-            rr = r * (1 - 0.05 * t * t * (j / 8) ** 2)
+            rr = r * (1 - scallop * (1 - t * t) * (j / 8) ** 3)
             row.append(m.vert((rr * math.cos(ang), rr * math.sin(ang), 0.0)))
         grid.append(row)
     for j in range(len(grid) - 1):
@@ -1182,14 +1191,16 @@ def wedge(m, length, half_angle, mat, spar=False):
     tube(m, [Vector((0.02, 0.0, 0.005)), Vector((length * 0.97, 0.0, 0.005))], 0.007, 'brass', seg=6)
     if spar:
         d = Vector((math.cos(a), math.sin(a), 0.0))
-        tube(m, [d * 0.05 + Vector((0, 0, 0.01)), d * length + Vector((0, 0, 0.01))], 0.022, 'chrome', seg=10)
-        return d * length
+        mid = d * (length / 2 + 0.02)
+        add_box(m, (mid.x, mid.y, 0.025), (length - 0.02, 0.075, 0.05), 'red', rot=Matrix.Rotation(a, 4, 'Z'))
+        return d * length + Vector((0, 0, 0.05))
     return None
 
 
 def fan(name, side, spec, colors, coll, spar=False):
-    """A fan of wedges on a hinge; panel i of side s is named <name>_<s>_<i>, its origin on the hinge, with its open
-    and folded angles (degrees, 0 straight out, positive forward) and dihedral as properties."""
+    """A fan of wedges on a hinge; panel i is named <name>_<s>_<i> (s: r, l, or c for one in the middle), its origin on
+    the hinge, with its open and folded angles (degrees, 0 straight out to her right or the side it is on, positive
+    forward) and dihedral as properties. A panel folds the short way round."""
     objs = []
     blades = spec['blades']
     step = spec['spread'] / max(1, blades - 1)
@@ -1197,17 +1208,23 @@ def fan(name, side, spec, colors, coll, spar=False):
     tip = None
     for i in range(blades):
         m = Mesh()
-        t = wedge(m, spec['length'], step / 2 + 1.0, colors[i % 2], spar=spar and i == 0)
+        t = wedge(m, spec['length'], step / 2 + 1.0, colors[i % 2], spar=spar and i == 0, scallop=spec['scallop'])
         if t is not None:
             tip = t
-        tag = '%s_%s_%d' % (name, 'r' if side > 0 else 'l', i)
-        o = m.obj(tag, coll=coll, location=(side * hx, hy, hz + spec['layer'] * i), smooth=None, part=tag)
+        tag = '%s_%s_%d' % (name, 'c' if side == 0 else 'r' if side > 0 else 'l', i)
+        o = m.obj(tag, coll=coll, location=((side or 1) * hx, hy, hz + spec['layer'] * i), smooth=None, part=tag)
         solidify(o, 0.008, offset=0.0)
         if side < 0:
             o.scale = (-1, 1, 1)
-        o['open_yaw'] = spec['open_from'] - step * i
-        # Folded, each panel lies a degree or two round from the one above, so the stack shows its stripes.
-        o['fold_yaw'] = spec['fold'] + math.copysign(spec['stagger'] * i, spec['open_from'] - spec['fold'])
+        o['open_yaw'] = open_yaw = spec['open_from'] - step * i
+        # Folded, each panel lies a degree or two round from the one above, so the stack shows its stripes; it folds
+        # whichever way round is shorter.
+        fold = spec['fold'] + math.copysign(spec['stagger'] * i, spec['open_from'] - spec['fold'])
+        while open_yaw - fold > 180:
+            fold += 360
+        while fold - open_yaw > 180:
+            fold -= 360
+        o['fold_yaw'] = fold
         o['tuck'] = spec['tuck']
         o['dihedral'] = spec['dihedral']
         objs.append(o)
@@ -1220,8 +1237,8 @@ def build_rotor(wing0, tip, side):
     opens, and the propeller unfolds at its head."""
     tag = 'r' if side > 0 else 'l'
     m = Mesh()
-    tube(m, [Vector((0, 0, -0.02)), Vector((0, 0, MAST_H))], 0.016, 'chrome', seg=10)
-    lathe(m, [(0.0, -0.05), (0.04, -0.05), (0.035, 0.02), (0.0, 0.03)], lambda k: 'chrome', axis='z', seg=12)
+    tube(m, [Vector((0, 0, -0.02)), Vector((0, 0, MAST_H))], 0.018, 'black', seg=10)
+    lathe(m, [(0.0, -0.05), (0.045, -0.05), (0.04, 0.02), (0.0, 0.03)], lambda k: 'black', axis='z', seg=12)
     for z in (0.3, 0.6):
         lathe(m, [(0.024, z - 0.01), (0.024, z + 0.01)], lambda k: 'brass', axis='z', seg=10)
     mast = m.obj('mast_' + tag, coll='wings', smooth=40, part='mast_' + tag)
@@ -1247,8 +1264,8 @@ def build_rotor(wing0, tip, side):
             for k in range(4):
                 j = (k + 1) % 4
                 a, b, c, d = rings[i][k], rings[i][j], rings[i + 1][j], rings[i + 1][k]
-                m.face([a, b, c, d] if sign > 0 else [d, c, b, a], 'rotor')
-        m.face(rings[-1] if sign > 0 else list(reversed(rings[-1])), 'rotor')
+                m.face([a, b, c, d] if sign > 0 else [d, c, b, a], 'black')
+        m.face(rings[-1] if sign > 0 else list(reversed(rings[-1])), 'black')
     rotor = m.obj('rotor_' + tag, coll='wings', smooth=35, part='rotor_' + tag)
     rotor.parent = mast
     rotor.location = (0, 0, MAST_H)
@@ -1267,9 +1284,38 @@ def build_hamper():
     for x in (-0.26, 0.26):
         tube(m, [Vector((x, -2.05, 0.46)), Vector((x, -2.60, 0.64)), Vector((x, -3.20, 0.64))], 0.014, 'brass', seg=8)
     tube(m, [Vector((-0.26, -3.20, 0.64)), Vector((0.26, -3.20, 0.64))], 0.014, 'brass', seg=8)
-    for x in (-0.20, 0.20):
-        tube(m, [Vector((x, -3.20, 0.64)), Vector((x, -3.20, 0.62))], 0.008, 'brass', seg=6)
     m.obj('rack', smooth=40)
+
+
+def build_tailprop(panel):
+    """The little wooden propeller pushing on the end of the tail fan, on a shaft out along the middle panel; it turns
+    about that shaft."""
+    m = Mesh()
+    tube(m, [Vector((-0.10, 0, 0.012)), Vector((0.06, 0, 0.012))], 0.010, 'brass', seg=8)
+    lathe(m, [(0.0, 0.05), (0.025, 0.05), (0.03, 0.08), (0.0, 0.12)], lambda k: 'brass', axis='x', seg=12, origin=(0, 0, 0.012))
+    for sign in (1, -1):
+        rings = []
+        for r in np.linspace(0.02, TAILPROP_R, 7):
+            t = (r - 0.02) / (TAILPROP_R - 0.02)
+            chord = 0.035 + 0.03 * math.sin(math.pi * min(1.0, t * 1.1))
+            twist = math.radians(30 - 18 * t)
+            ring = []
+            for c, th in ((-chord / 2, -0.006), (chord / 2, -0.006), (chord / 2, 0.006), (-chord / 2, 0.006)):
+                y = c * math.cos(twist) - th * math.sin(twist)
+                x = c * math.sin(twist) + th * math.cos(twist)
+                ring.append(m.vert((0.085 + x, y * sign, 0.012 + r * sign)))
+            rings.append(ring)
+        for i in range(len(rings) - 1):
+            for k in range(4):
+                j = (k + 1) % 4
+                q = [rings[i][k], rings[i][j], rings[i + 1][j], rings[i + 1][k]]
+                m.face(q if sign > 0 else list(reversed(q)), 'prop')
+        m.face(rings[-1] if sign > 0 else list(reversed(rings[-1])), 'prop')
+    o = m.obj('tailprop', coll='wings', smooth=35, part='tailprop')
+    o.parent = panel
+    o.location = (TAILFAN['length'] * (1 - TAILFAN['scallop'] * 0.5) + 0.02, 0, 0)
+    o['host'] = panel.name
+    return o
 
 
 def build_wings():
@@ -1278,8 +1324,10 @@ def build_wings():
         panels, tip = fan('wing', s, WING, ('wing_red', 'wing_yellow'), 'wings', spar=True)
         objs += panels
         build_rotor(panels[0], tip, s)
-        objs += fan('canard', s, CANARD, ('wing_yellow', 'wing_red'), 'wings')[0]
-        objs += fan('tailwing', s, TAILFAN, ('wing_yellow', 'wing_red'), 'wings')[0]
+    objs += fan('nosefan', 0, NOSEFAN, ('wing_red', 'wing_yellow'), 'wings')[0]
+    tail = fan('tailfan', 0, TAILFAN, ('wing_red', 'wing_yellow'), 'wings')[0]
+    objs += tail
+    build_tailprop(tail[len(tail) // 2])
     return objs
 
 
@@ -1361,7 +1409,7 @@ def build():
 
 def side_of(o):
     """1 for a part on her right, -1 on her left, from its name (its world matrix is stale until Blender updates it)."""
-    return 1 if '_r_' in o.name + '_' else -1
+    return -1 if '_l_' in o.name + '_' else 1
 
 
 def pose(mode, spin=0.0):
@@ -1385,6 +1433,9 @@ def pose(mode, spin=0.0):
         elif part.startswith('rotor_'):
             o.hide_render = o.hide_viewport = not fly
             o.rotation_euler = (0, 0, spin * 2.3)
+        elif part == 'tailprop':
+            o.hide_render = o.hide_viewport = not fly
+            o.rotation_euler = (spin * 3.1, 0, 0)
         elif part.startswith('wheel_'):
             o.rotation_euler = (spin, 0, 0)
         elif part in ('screw', 'float'):
@@ -1535,6 +1586,13 @@ def evaluated_mesh(o, deps):
     return me
 
 
+def mirror_of(o):
+    """-1 if the fan a part hangs off is mirrored (on her left), else 1."""
+    while o.parent is not None:
+        o = o.parent
+    return -1 if o.scale.x < 0 else 1
+
+
 def mat_name(me, poly):
     return me.materials[poly.material_index].name if me.materials else 'chassis'
 
@@ -1572,7 +1630,8 @@ def bake_worlds():
 # How much of the atlas a part gets for its size: more for what is looked at close to (the brass, the bonnet, the
 # lettering), less for big plain surfaces and what is out of sight underneath.
 TEXEL_WEIGHT = {'chassis': 0.3, 'floor': 0.4, 'bulkhead': 0.3, 'boards': 0.6, 'float': 0.45, 'screw': 0.5,
-                'wing_': 0.32, 'canard_': 0.45, 'tailwing_': 0.45, 'mast_': 0.6, 'rotor_': 0.6, 'plate_text': 1.6,
+                'wing_': 0.32, 'nosefan_': 0.45, 'tailfan_': 0.45, 'mast_': 0.6, 'rotor_': 0.6, 'tailprop': 0.8,
+                'plate_text': 1.6,
                 'plates': 1.3, 'radiator': 1.3, 'grille': 1.3, 'mascot': 1.3, 'lamps': 1.3, 'horn': 1.3, 'dashboard': 1.3,
                 'bonnet': 1.15, 'hull': 1.15}
 
@@ -1805,10 +1864,12 @@ def export_game(root):
             if merged:
                 pivot, rot = Vector((0, 0, 0)), (0.0, 0.0, 0.0, 1.0)
             elif o.parent is not None:
-                # A mast or propeller: in its parent's frame, mirrored with the wing.
-                mirror = Vector(o.parent.scale) if name.startswith('mast_') else Vector(o.parent.parent.scale)
+                # A mast or a propeller: in its parent's frame, mirrored with the fan it hangs off.
+                mirror = Vector((mirror_of(o), 1, 1))
                 pivot = Vector((o.location.x * mirror.x, o.location.y, o.location.z))
                 rot = (0.0, 0.0, 0.0, 1.0)
+                if name == 'tailprop':
+                    extra = (float(o.parent.name.rsplit('_', 1)[1]), 0.0, 0.0, 0.0)
                 if name.startswith('mast_'):
                     d = o.location.normalized()
                     axis = Vector((0, 0, 1)).cross(-d).normalized()
@@ -1836,8 +1897,7 @@ def export_game(root):
                 else:
                     sc = Vector(o.scale)
                     if o.parent is not None:
-                        w = o.parent.scale if name.startswith('mast_') else o.parent.parent.scale
-                        sc = Vector((sc.x * w.x, sc.y, sc.z))
+                        sc = Vector((sc.x * mirror_of(o), sc.y, sc.z))
                     pm = lambda co, sc=sc: Vector((co.x * sc.x, co.y * sc.y, co.z * sc.z))
                     nm = lambda n, sc=sc: Vector((n.x / sc.x, n.y / sc.y, n.z / sc.z)).normalized()
                 for poly in me.polygons:
@@ -1952,6 +2012,8 @@ def main():
             ('water', 'water', (5.6, 6.4, 2.6), (0.0, -0.2, 0.5), 38, 0.0, True),
             ('water_top', 'water', (-3.0, 0.8, 9.0), (0.0, -0.3, 0.4), 32, 0.0, True),
             ('road_left', 'road', (-5.2, 4.6, 1.8), (0.0, 0.2, 0.8), 40, 0.0, False),
+            ('rear_top', 'road', (-2.6, -5.6, 4.4), (0.0, -1.3, 1.0), 38, 0.0, False),
+            ('flying_rear', 'flying', (-4.8, -7.0, 4.4), (0.0, -0.6, 1.6), 30, 1.7, False),
         ]
         for name, mode, cam, at, lens, lift, water in shots:
             if only and name not in only:
