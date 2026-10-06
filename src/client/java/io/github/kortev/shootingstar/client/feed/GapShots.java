@@ -95,7 +95,7 @@ final class GapShots implements Feed.Sequence {
 	/** When the block is in the cloud deck and the picture goes white. */
 	private static final double DECK_S = END_S - 4.0;
 	/** The dive through the open window into that universe. */
-	private static final double DIVE_FROM = MAP_S - 14.0;
+	private static final double DIVE_FROM = MAP_S - 20.0;
 
 	// The void between universes, in a frame of its own: universes in blocks, each 2 across, MULTI_SPACING apart
 	// in a lattice, universe 4,096,113 in the middle of it. Its own space is that of its universe (tools/gen_universe.py).
@@ -618,27 +618,69 @@ final class GapShots implements Feed.Sequence {
 
 	private void open(double s, Overlay o) {
 		double r = s - OPEN_S;
-		float k = Shots.smoother(r / (DIVE_FROM - OPEN_S));
+		float k = Shots.smoother(Math.min(1.0, r / (DIVE_FROM - OPEN_S)));
 		// Out in front of the open face, looking down through the gate at Earth: the window full of that universe,
-		// framed by the blue of our planet. Then straight in at the window, faster and faster, and through.
-		float dive = Shots.smootherIn((s - DIVE_FROM) / (MAP_S - DIVE_FROM));
+		// framed by the blue of our planet.
 		Vector3f sideways = new Vector3f(GATE_RIGHT).mul(Shots.lerp(16.0, 6.0, k));
 		Vector3f eye = new Vector3f(FACE).mul(Shots.lerp(78.0, 52.0, k)).add(sideways).add(new Vector3f(GATE_UP).mul(5.0F));
-		eye.lerp(new Vector3f(FACE).mul(4.0F), dive);
-		Vector3f at = new Vector3f(GATE_UP).mul(-1.0F).lerp(new Vector3f(FACE).mul(-20.0F), dive);
-		scene(s, 0.4F, 30000.0F, eye, at, new Vector3f(GATE_UP), 46.0F + 14.0F * dive, true);
+		Vector3f at = new Vector3f(GATE_UP).mul(-1.0F);
+		float dive = s < DIVE_FROM ? 0.0F : (float) ((s - DIVE_FROM) / (MAP_S - DIVE_FROM));
+		if (dive <= 0.0F) {
+			scene(s, 0.4F, 30000.0F, eye, at, new Vector3f(GATE_UP), 46.0F, true);
+		} else {
+			dive(s, dive, eye, at);
+		}
 
 		float open = reveal(s);
 		o.header = open < 0.05F ? "[ OPENING ]" : "[ UNIVERSE 4,096,113 ]";
 		o.headerReveal = open < 0.05F ? Shots.smooth(r / 4.0) : Shots.smooth((s - REVEAL_FROM) / 5.0);
 		Vector3f edge = GATE.transformPosition(new Vector3f(WINDOW * 0.75F, WINDOW * 0.4F, 0.0F));
-		label(o, edge, 70, -26, "UNIVERSE 4,096,113", Feed.VIOLET, "13.7 BILLION YEARS OLD", Feed.GREY,
-				Shots.smooth((s - REVEAL_TO) / 4.0) * (1.0F - Shots.smooth(dive * 3.0)));
+		if (dive <= 0.0F) {
+			label(o, edge, 70, -26, "UNIVERSE 4,096,113", Feed.VIOLET, "13.7 BILLION YEARS OLD", Feed.GREY, Shots.smooth((s - REVEAL_TO) / 4.0));
+		}
 		o.flash = 0.55F * (float) Math.exp(-Math.max(0.0, s - REVEAL_FROM) / 2.5) * (s >= REVEAL_FROM ? 1.0F : 0.0F);
-		// Going through: the light of that universe fills the picture.
-		o.flash = Math.max(o.flash, 0.95F * dive * dive * dive);
 		o.flashColor = 0xE8DDFF;
-		o.zoomBlur = 0.12F * (float) Math.exp(-Math.pow((s - REVEAL_FROM - 3.0) / 3.0, 2.0)) + 0.2F * dive;
+		o.zoomBlur = 0.12F * (float) Math.exp(-Math.pow((s - REVEAL_FROM - 3.0) / 3.0, 2.0)) + 0.25F * (float) Math.sin(Math.PI * dive);
+		o.aberration = 0.006F * (float) Math.sin(Math.PI * dive);
+	}
+
+	/** The lattice of universes as the window shows it: the one Ginnungagap takes at its origin, waiting behind the window. */
+	private static final Matrix4f LATTICE = new Matrix4f().translation(new Vector3f(FACE).mul(-BEHIND)).mul(GATE).scale(BLOCK);
+	/** Where the window is in the lattice's own space: the camera has gone through it once it is past this along z. */
+	private static final float WINDOW_Z = -BEHIND / BLOCK;
+
+	/**
+	 * Through the window and on into that universe, all in one move, a thousand times closer and closer: from where the
+	 * open shot is, straight in through the window at the block behind it, through its glass and in among its galaxies,
+	 * turning as it goes, to come to rest exactly where the next shot begins, beside the one galaxy.
+	 */
+	private void dive(double s, float u, Vector3f eye0, Vector3f at0) {
+		Matrix4f toLattice = new Matrix4f(LATTICE).invert();
+		Vector3f from = toLattice.transformPosition(new Vector3f(eye0));
+		Vector3f look = toLattice.transformPosition(new Vector3f(at0));
+		float w = Shots.smoother(u);
+		float d0 = from.distance(MAP_GALAXY);
+		float distance = (float) (d0 * Math.pow(MAP_IN / d0, w));
+		// Straight in at first, so it goes through the window and not the frame; round to the galaxy's side once inside.
+		Vector3f dir = Shots.slerp(new Vector3f(from).sub(MAP_GALAXY).normalize(), MAP_START, Shots.smoother((w - 0.55) / 0.45));
+		Vector3f eye = new Vector3f(dir).mul(distance).add(MAP_GALAXY);
+		Vector3f at = new Vector3f(look).lerp(MAP_GALAXY, Shots.smoother(Math.min(1.0, u * 2.2)));
+		float fov = Shots.lerp(46.0, 55.0, w);
+		if (eye.z < WINDOW_Z) {
+			// Still this side of the window: the gate and all, the lattice through it.
+			scene(s, 0.4F, 30000.0F, LATTICE.transformPosition(new Vector3f(eye)), LATTICE.transformPosition(new Vector3f(at)),
+					new Vector3f(GATE_UP), fov, true);
+			return;
+		}
+		// Through it: only the void and the universes in it, the camera inside their lattice from here on.
+		cam.perspective(fov, width, height, Math.max(1.0E-4F, distance * 0.01F), 200.0F);
+		cam.look(eye, at, new Vector3f(0, 1, 0));
+		float outside = Shots.smooth((Math.max(Math.abs(eye.x), Math.max(Math.abs(eye.y), Math.abs(eye.z))) - 1.0) / 0.6);
+		float others = Shots.smooth((distance - 2.6) / 4.0);
+		Matrix4f origin = new Matrix4f();
+		multiverse(new Matrix4f(), -3, 3, -2, 2, 0, 4, others, 20.0F, new float[] {0.0F, 0.0F, width, height},
+				() -> Universe.draw(cam.modelView(origin), cam.proj, width, height, Universe.FULL, 0, 1.0F, 1.0F, WHITE, 0.45F * outside,
+						Shots.lerp(0.3F, 1.0F, outside) * outside, 0xE6DCFF, 0.0F));
 	}
 
 	// =============================================================================================
@@ -726,11 +768,10 @@ final class GapShots implements Feed.Sequence {
 		if (block != null) {
 			block.marker = true;
 		}
-		// The flash of going through dies away; the pull back blurs out from the middle; a blink as the block is picked.
-		float enter = (float) Math.exp(-m / 3.0);
+		// The pull back blurs out from the middle; a blink as the block is picked.
 		float select = picked ? (float) Math.exp(-(m - MAP_PICK) / 2.5) : 0.0F;
-		o.flash = Math.max(0.9F * enter, 0.25F * select);
-		o.flashColor = enter > select ? 0xE8DDFF : 0xFFFFFF;
+		o.flash = 0.25F * select;
+		o.flashColor = 0xFFFFFF;
 		o.zoomBlur = 0.1F * (float) Math.sin(Math.PI * pull) + 0.12F * (float) Math.sin(Math.PI * swing);
 		o.aberration = 0.006F * (float) Math.sin(Math.PI * swing);
 		// Close over the galaxy its core would burn out the picture.
