@@ -74,11 +74,11 @@ WING = dict(hinge=(0.70, 1.18, 0.47), blades=8, length=2.4, open_from=-38, sprea
             layer=0.009, tuck=0.85, scallop=0.10)
 # One fan at her nose, hinged under the GEN 11 plate and opening forward and out to her left, its edge cut into bat
 # points, and one at her tail, opening straight back with a little propeller pushing at its end. The nose fan opens in
-# one plane tilted down to the left and a little to the front (tilt: degrees about her length and across her), so it
-# hangs like the film's, its panels lying edge to edge. Folded, it lies back under the front axle and the tail fan
+# one plane tilted down to her left (tilt: degrees about her length and across her), so it hangs like the film's,
+# its face showing from in front and below, its panels lying edge to edge. Folded, it lies back under the front axle and the tail fan
 # draws in under the hamper.
-NOSEFAN = dict(hinge=(-0.10, 2.40, 0.45), blades=5, length=1.0, open_from=168, spread=68, fold=-90, dihedral=0,
-               stagger=1.5, layer=0.009, tuck=0.75, scallop=0.18, tilt=(-20, -10))
+NOSEFAN = dict(hinge=(-0.10, 2.40, 0.52), blades=5, length=0.95, open_from=190, spread=70, fold=-90, dihedral=0,
+               stagger=1.5, layer=0.009, tuck=0.75, scallop=0.18, tilt=(-28, 0))
 TAILFAN = dict(hinge=(0.0, -2.85, 0.56), blades=5, length=1.0, open_from=-65, spread=50, fold=-90, dihedral=0,
                stagger=1.5, layer=0.009, tuck=0.40, scallop=0.22)
 TAILPROP_R = 0.28
