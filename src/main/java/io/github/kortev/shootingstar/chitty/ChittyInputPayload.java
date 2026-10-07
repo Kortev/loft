@@ -6,12 +6,15 @@ import net.minecraft.network.codec.PacketCodec;
 import net.minecraft.network.codec.PacketCodecs;
 import net.minecraft.network.packet.CustomPayload;
 
-/** Sent by the driver's client whenever what they are doing changes: the pedals, the wheel, the lever, the wings. */
-public record ChittyInputPayload(byte controls, boolean wings) implements CustomPayload {
+/**
+ * Sent by the driver's client whenever what they are doing changes: the pedals, the wheel, the lever, and how her wings
+ * and raft are (ChittyEntity's STATE_ bits).
+ */
+public record ChittyInputPayload(byte controls, byte state) implements CustomPayload {
 	public static final CustomPayload.Id<ChittyInputPayload> ID = new CustomPayload.Id<>(ShootingStar.id("chitty_input"));
 	public static final PacketCodec<RegistryByteBuf, ChittyInputPayload> CODEC = PacketCodec.tuple(
 			PacketCodecs.BYTE, ChittyInputPayload::controls,
-			PacketCodecs.BOOL, ChittyInputPayload::wings,
+			PacketCodecs.BYTE, ChittyInputPayload::state,
 			ChittyInputPayload::new);
 
 	@Override

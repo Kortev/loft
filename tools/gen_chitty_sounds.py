@@ -4,11 +4,14 @@ All of them are mono, to be placed in the world at the car. The running sounds a
 exactly over the loop (firings wrap round its end, filters run as if the loop went on for ever), so they go round
 without a seam while the game bends their pitch.
 
-The engine is modelled rather than imitated: a big old four-cylinder whose every firing is a pressure pulse out of its
-cylinder, through that cylinder's own length of header (each a little different, which gives the beat its lope) into
-one long open pipe that booms at its own pitches, with the block ringing, the valves ticking and the carburettor
-breathing on top. It comes in three loops, ticking over, pulling at middling revs and working hard, which the game
-crossfades by revs instead of stretching one sound over the whole range.
+The engine is modelled rather than imitated: a big old four-cylinder whose every firing is a pressure pulse and a rush
+of hot gas out of its cylinder, through that cylinder's own length of header into a long flexible pipe that booms at
+its own pitches, with the valves ticking, the chassis rattling and the carburettor breathing on top, heard outdoors
+(off the ground and whatever is about). It fires unevenly, in pairs, a hard firing and a softer one hard on its heels
+and then a gap, so it runs chit-ty chit-ty chit-ty: the noise she is named for. Nothing in it is quite regular: every
+firing comes a little early or late, stronger or weaker, now and then one barely catches. It comes in three loops,
+ticking over, pulling at middling revs and working hard, which the game crossfades by revs instead of stretching one
+sound over the whole range.
 
 The car is named for the noise she makes starting: two sputtering coughs (chitty, chitty) and two backfires (bang,
 bang). The start-up is that over the whirr of the starter, and a backfire the same in miniature. Their bangs land where
@@ -32,9 +35,12 @@ from gen_sounds import (SR, attack_decay, bp, brown, curve, hp, limit, loudness,
 # Each loop is a whole number of engine cycles (two turns of the crank), so its firings repeat exactly. The game plays
 # them at these revs (ChittySound.IDLE_RPM, LOW_RPM, HIGH_RPM) and bends their pitch in between.
 CYLINDERS = 4
+# When each cylinder fires in the cycle, and how hard: in pairs, a stressed firing and a weaker one close behind it
+# (chit-ty), twice a cycle.
+FIRING = [(0.00, 1.00), (0.17, 0.58), (0.50, 0.95), (0.67, 0.55)]
 ENGINE_LOOPS = {
     # name: (samples per cycle, cycles, load)
-    'chitty_engine_idle': (10176, 12, 0.35),   # 520 rpm, off load: soft, lumpy, every firing heard
+    'chitty_engine_idle': (12027, 12, 0.35),   # 440 rpm, off load: soft, lumpy, every firing heard
     'chitty_engine_low': (4811, 26, 0.75),     # 1100 rpm, pulling
     'chitty_engine_high': (2405, 52, 1.0),     # 2200 rpm, working hard
 }
@@ -143,50 +149,110 @@ def firing(rng, strength, load):
     return (pulse - 0.45 * suck + gas * (0.18 + 0.25 * load) + knock * 0.06) * strength
 
 
+def delayed(x, seconds):
+    d = ns(seconds)
+    return np.concatenate([np.zeros(d), x[:len(x) - d]])
+
+
+def heard_outdoors(x):
+    """As a microphone a few metres off hears it: straight, off the ground just after, and fainter and duller off what
+    is about, with the air taking a little of the top."""
+    y = x + 0.45 * lp(delayed(x, 0.0035), 3500, 2)
+    for at, gain, cut in ((0.019, 0.20, 2200), (0.037, 0.13, 1600), (0.061, 0.09, 1200), (0.094, 0.06, 900)):
+        y = y + gain * lp(delayed(x, at), cut, 2)
+    return lp(y, 9000, 2)
+
+
+def puff(rng, strength, load):
+    """The hot gas behind a firing rushing down the pipe: noise, not a tone, and every one different."""
+    n = ns(0.07)
+    t = np.arange(n) / SR
+    env = (1 - np.exp(-t / 0.0015)) * np.exp(-t / (0.012 + 0.02 * load * rng.uniform(0.7, 1.3)))
+    return lp(white(n), rng.uniform(1300, 2200), 2) * env * strength
+
+
+def spit(rng, stressed, strength, load):
+    """What comes out of the end of the pipe: on a hard firing a spitting "ch" of gas, on the soft one after it a
+    crisper "t". Both carry a little of the pipe's bright ring, which reads as "i"."""
+    n = ns(0.05)
+    t = np.arange(n) / SR
+    if stressed:
+        x = bp(white(n), 2200, 7500) * (1 - np.exp(-t / 0.001)) * np.exp(-t / rng.uniform(0.010, 0.016)) * 0.55
+    else:
+        x = hp(white(n), 3200, 2) * np.exp(-t / rng.uniform(0.0015, 0.0025)) * 0.55
+    ring = bp(white(n), 2100, 2700, 2) * np.exp(-t / 0.01) * 0.35
+    return (x + ring) * strength * (0.6 + 0.4 * (1 - load))
+
+
+def rattle(rng):
+    """Something on the chassis shaken against something else: a few quick ticks."""
+    n = ns(0.03)
+    t = np.arange(n) / SR
+    x = np.zeros(n)
+    for _ in range(rng.integers(1, 4)):
+        i = rng.integers(0, n - ns(0.006))
+        k = ns(0.006)
+        x[i:i + k] += bp(white(k), rng.uniform(1200, 2000), rng.uniform(3000, 5000)) * np.exp(-np.arange(k) / SR / 0.0012)
+    return x * rng.uniform(0.3, 1.0)
+
+
 def engine(cycle, cycles, load, seed):
     """`cycles` turns of a four-cylinder engine, `cycle` samples each, at `load` (0 coasting to 1 flat out)."""
     rng = rng_for('engine:%d' % seed)
     n = cycle * cycles
     gap = cycle / CYLINDERS
-    # Each cylinder has its own strength and its own header; an old engine never fires quite evenly.
-    character = [1.0, 0.78, 0.93, 0.70]
     headers = [118, 131, 142, 156]                 # samples there and back: 0.6 to 0.8 m of pipe at 450 m/s
     pipe = int(SR * 2 * 3.3 / 450)                 # 3.3 m of flexible pipe down the side
-    wobble = 0.05 * (1 - load) + 0.012
-    out = np.zeros(n)
+    wobble = 0.05 * (1 - load) + 0.015
+    # Working hard the pairs even out a little, though the lope never goes.
+    contrast = 1.0 - 0.45 * load
     per_cyl = [np.zeros(n) for _ in range(CYLINDERS)]
+    spits = np.zeros(n)
+    shakes = np.zeros(n)
     for c in range(cycles):
-        for k in range(CYLINDERS):
-            at = int(c * cycle + k * gap + rng.normal(0, wobble * gap * 0.25))
-            strength = character[k] * rng.uniform(0.82, 1.12) * (0.55 + 0.45 * load)
+        for k, (when, hard) in enumerate(FIRING):
+            at = int(c * cycle + when * cycle + rng.normal(0, wobble * gap * 0.25))
+            strength = (1.0 - (1.0 - hard) * contrast) * rng.uniform(0.8, 1.15) * (0.55 + 0.45 * load)
             # Ticking over, a cylinder now and then barely fires.
-            if load < 0.5 and rng.random() < 0.07:
-                strength *= 0.35
+            if load < 0.5 and rng.random() < 0.06:
+                strength *= 0.3
             place(per_cyl[k], at, firing(rng, strength, load))
+            place(per_cyl[k], at, puff(rng, strength * (0.5 + 0.4 * load), load))
+            place(spits, at + pipe // 2 + headers[k] // 2, spit(rng, hard > 0.8, strength, load))
+            if rng.random() < 0.35:
+                place(shakes, at + ns(rng.uniform(0.004, 0.02)), rattle(rng) * strength)
+    out = np.zeros(n)
     for k in range(CYLINDERS):
-        out += periodic(per_cyl[k], lambda x, d=headers[k]: waveguide(x, d, -0.5, 2600.0))
-    # The long pipe, open at its end: booms at odd multiples of a quarter wave (about 34, 102, 170 Hz).
-    out = periodic(out, lambda x: waveguide(x, pipe, -0.6, 650.0))
+        out += periodic(per_cyl[k], lambda x, d=headers[k]: waveguide(x, d, -0.45, 2400.0))
+    # The long pipe, open at its end, booms at odd multiples of a quarter wave (about 34, 102, 170 Hz); being flexible
+    # and corrugated it is not one clean length, so its ring is smeared rather than a pure tone.
+    out = (periodic(out, lambda x: waveguide(x, pipe, -0.5, 600.0))
+           + 0.45 * periodic(out, lambda x: waveguide(x, int(pipe * 1.09), -0.42, 480.0))
+           + 0.25 * periodic(out, lambda x: waveguide(x, int(pipe * 0.93), -0.4, 520.0)))
     # What comes out of the end of a pipe loses its lowest lows and its fizz.
-    out = periodic(out, lambda x: lp(hp(x, 45, 1), 5200, 2))
+    out = periodic(out, lambda x: lp(hp(x, 40, 1), 4800, 2))
+    out = out / (np.abs(out).max() + 1e-9)
     # The block and the valves: a click for each valve closing, ringing in the tappet cover.
     valves = np.zeros(n)
     for c in range(cycles):
-        for k in range(CYLINDERS):
+        for k, (when, hard) in enumerate(FIRING):
             for off in (0.30, 0.62):
                 m = ns(0.01)
                 tt = np.arange(m) / SR
-                click = hp(white(m), 2500) * np.exp(-tt / 0.0009) * rng.uniform(0.5, 1.0)
-                place(valves, int(c * cycle + (k + off) * gap), click)
+                click = hp(white(m), 2500) * np.exp(-tt / 0.0009) * rng.uniform(0.4, 1.0)
+                place(valves, int(c * cycle + (when + off * 0.25) * cycle + rng.normal(0, 20)), click)
     valves = periodic(valves, lambda x: x + 0.6 * bp(x, 3100, 4200, 2))
-    # The carburettor gulping air, pulsing with the firings.
+    # The carburettor gulping air, pulsing with the firings; the whole car humming and shaking underneath.
     tt = np.arange(n) / SR
     beat = 0.5 + 0.5 * np.cos(2 * np.pi * tt * SR / gap)
     intake = loop_noise(n, white, lambda x: bp(x, 300, 1600)) * beat ** 2 * (0.05 + 0.12 * load)
     rumble = loop_noise(n, brown, lambda x: lp(x, 120)) * 0.06
-    out = out / (np.abs(out).max() + 1e-9)
-    y = out + valves * (0.06 - 0.03 * load) + intake * 0.5 + rumble * 0.3
-    return sat(y * (1.0 + 0.4 * load), 1.2 + 0.6 * load)
+    spits /= np.abs(spits).max() + 1e-9
+    shakes /= np.abs(shakes).max() + 1e-9
+    y = (out + spits * (0.22 - 0.08 * load) + shakes * 0.05 + valves * (0.05 - 0.025 * load) + intake * 0.5
+         + rumble * 0.3)
+    y = periodic(y, heard_outdoors)
+    return sat(y * (1.0 + 0.3 * load), 1.1 + 0.5 * load)
 
 
 def chitty_engine_idle():

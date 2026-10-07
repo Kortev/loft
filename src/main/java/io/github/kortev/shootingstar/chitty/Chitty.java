@@ -52,7 +52,7 @@ public final class Chitty {
 		PayloadTypeRegistry.playC2S().register(ChittyHornPayload.ID, ChittyHornPayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(ChittyInputPayload.ID, (payload, context) -> {
 			if (context.player().getVehicle() instanceof ChittyEntity car) {
-				car.applyInput(context.player(), ChittyControls.unpack(payload.controls()), payload.wings());
+				car.applyInput(context.player(), ChittyControls.unpack(payload.controls()), payload.state());
 			}
 		});
 		ServerPlayNetworking.registerGlobalReceiver(ChittyHornPayload.ID, (payload, context) -> {

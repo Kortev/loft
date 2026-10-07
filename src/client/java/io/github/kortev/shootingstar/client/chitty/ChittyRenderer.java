@@ -18,12 +18,13 @@ import org.joml.Quaternionf;
 /**
  * Draws Chitty from her Blender mesh and poses her parts: the wheels roll and the front ones steer, and on the water
  * turn sideways to lie flat on her raft; the wings swing out from under the running boards and fan open, the fan under
- * her nose opens into a half circle and the one under her tail straight back with its little propeller pushing, and the
+ * her nose opens forward and out to her left and the one under her tail straight back with its little propeller pushing, and the
  * mast on the end of each wing stands up with its propeller turning flat on top; the raft blows up round her and the
  * screw turns in the water; the car pitches and banks in the air and rocks when she is hit.
  *
  * <p>Her texture is baked with her light in it (tools/chitty_model.py), so most of her is drawn evenly lit; only the
- * wheels, which roll, carry real normals and take the game's light.
+ * wheels, which roll, carry real normals and take the game's light, and her polished metal is shone live as you look at
+ * it (ChittyShine).
  *
  * <p>Blender's axes map onto the car's as (x, y, z) to (-x, z, y), so a Blender turn about its z is a turn about our y by
  * the same angle, about its y one about our z, and about its x one about our x the other way.
@@ -33,6 +34,7 @@ public class ChittyRenderer extends EntityRenderer<ChittyEntity> {
 	/** How far the front wheels turn, and the steering wheel with them. */
 	private static final float STEER_LOCK = 28.0F;
 	private static final float WHEEL_TURNS = 110.0F;
+	private final ChittyShine shine = new ChittyShine();
 
 	public ChittyRenderer(EntityRendererFactory.Context context) {
 		super(context);
@@ -49,6 +51,7 @@ public class ChittyRenderer extends EntityRenderer<ChittyEntity> {
 	public void render(ChittyEntity car, float yaw, float tickDelta, MatrixStack matrices, VertexConsumerProvider buffers, int light) {
 		ChittyMesh mesh = ChittyMesh.get();
 		if (mesh != null) {
+			shine.setUp(car, tickDelta, light);
 			matrices.push();
 			matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-yaw));
 			float wobble = car.getDamageWobbleTicks() - tickDelta;
@@ -64,7 +67,8 @@ public class ChittyRenderer extends EntityRenderer<ChittyEntity> {
 			drawParts(car, mesh, tickDelta, matrices, buffers.getBuffer(RenderLayer.getEntityCutoutNoCull(TEXTURE)), light);
 			ChittyMesh.Part glass = mesh.parts.get("glass");
 			if (glass != null) {
-				glass.draw(matrices.peek(), buffers.getBuffer(RenderLayer.getEntityTranslucent(TEXTURE)), light, OverlayTexture.DEFAULT_UV);
+				glass.draw(matrices.peek(), buffers.getBuffer(RenderLayer.getEntityTranslucent(TEXTURE)), light, OverlayTexture.DEFAULT_UV,
+						shine);
 			}
 			matrices.pop();
 		}
@@ -84,7 +88,7 @@ public class ChittyRenderer extends EntityRenderer<ChittyEntity> {
 				continue;
 			}
 			if (name.equals("body")) {
-				part.draw(matrices.peek(), out, light, overlay);
+				part.draw(matrices.peek(), out, light, overlay, shine);
 				continue;
 			}
 			matrices.push();
@@ -115,7 +119,7 @@ public class ChittyRenderer extends EntityRenderer<ChittyEntity> {
 				}
 			}
 			if (visible) {
-				part.draw(matrices.peek(), out, light, overlay);
+				part.draw(matrices.peek(), out, light, overlay, shine);
 			}
 			matrices.pop();
 		}
@@ -134,12 +138,12 @@ public class ChittyRenderer extends EntityRenderer<ChittyEntity> {
 			// Folded, it lies along the spar; it stands up once the wing is out.
 			Quaternionf folded = new Quaternionf(mast.a, mast.b, mast.c, mast.d);
 			matrices.multiply(folded.slerp(new Quaternionf(), raise));
-			mast.draw(matrices.peek(), out, light, overlay);
+			mast.draw(matrices.peek(), out, light, overlay, shine);
 			if (rotor != null && raise > 0.02F) {
 				matrices.translate(rotor.pivot.x, rotor.pivot.y, rotor.pivot.z);
 				matrices.scale(raise, 1.0F, raise);
 				matrices.multiply(RotationAxis.POSITIVE_Y.rotation(car.getPropSpin(tickDelta) * (side.equals("r") ? 1.0F : -1.0F)));
-				rotor.draw(matrices.peek(), out, light, overlay);
+				rotor.draw(matrices.peek(), out, light, overlay, shine);
 			}
 			matrices.pop();
 		}
@@ -152,7 +156,7 @@ public class ChittyRenderer extends EntityRenderer<ChittyEntity> {
 			matrices.translate(prop.pivot.x, prop.pivot.y, prop.pivot.z);
 			matrices.scale(raise, raise, raise);
 			matrices.multiply(RotationAxis.POSITIVE_X.rotation(car.getPropSpin(tickDelta) * 1.7F));
-			prop.draw(matrices.peek(), out, light, overlay);
+			prop.draw(matrices.peek(), out, light, overlay, shine);
 			matrices.pop();
 		}
 	}

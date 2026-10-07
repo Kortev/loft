@@ -6,6 +6,7 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.tooltip.TooltipType;
+import net.minecraft.registry.tag.FluidTags;
 import net.minecraft.stat.Stats;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
@@ -38,6 +39,9 @@ public class ChittyItem extends Item {
 		if (!world.isClient) {
 			if (stack.contains(DataComponentTypes.CUSTOM_NAME)) {
 				car.setCustomName(stack.getName());
+			}
+			if (world.getFluidState(hit.getBlockPos()).isIn(FluidTags.WATER)) {
+				car.blowUpRaft();
 			}
 			world.spawnEntity(car);
 			world.emitGameEvent(user, GameEvent.ENTITY_PLACE, hit.getPos());

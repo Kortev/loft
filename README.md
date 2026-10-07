@@ -114,7 +114,8 @@ The feed, and the rebuild, can be hurried with the same key as Gungnir's skip (B
 ## Chitty Chitty Bang Bang
 
 GEN 11, the car from the film, built in Blender from photographs of it: a long polished aluminium bonnet, a cone
-tapering to a round brass radiator, a leather strap round it and great brass headlamps either side; a boat of varnished
+tapering to a brass radiator round over the top and flatter at the foot, the GEN 11 plate hung under it, a leather
+strap round the bonnet and great brass headlamps either side; a boat of varnished
 red and white cedar behind, open over the front seat and decked over to a pointed stern, the back seat sunk in an oval
 well in the deck with wood all round it, a wicker hamper on a rack under the point; black wings over red artillery
 wheels, black running boards with brass grilles, a red spare wheel stood against the scuttle, four copper pipes out of
@@ -125,16 +126,26 @@ the bonnet into the great exhaust along the running board, and the brass serpent
 - **Drive:** forward and back to accelerate, brake and reverse, left and right to steer. She climbs a block at a time
   and stops at walls rather than driving her bonnet into them.
 - **Fly:** jump at speed and her red and yellow wings swing out from under the running boards and fan open, each with
-  a mast standing up at its end and a propeller turning flat on top; a fan opens into a half circle under her nose, and
-  another straight back under her tail with a little propeller pushing on its end. Hold jump to climb, sprint to dive,
-  forward for more speed; slow down too far and she sinks. Drive her off a cliff and the wings spring out by
-  themselves. Land (or splash down) and she folds them away again a moment later.
-- **Float:** in the water she blows up a great pink raft under herself, pointed at both ends, turns her wheels flat on
-  it and drives a screw behind.
+  a mast standing up at its end and a propeller turning flat on top; a fan with bat-pointed edges opens forward and out
+  to her left under her nose, and another straight back under her tail with a little propeller pushing on its end.
+  Hold jump to climb, sprint to dive, forward for more speed; slow down too far and she sinks. Land (or splash down)
+  and she folds them away again a moment later.
+- **Off a cliff:** she falls, and only as the ground (or the sea) comes up at her do the wings spring out by
+  themselves and pull her up out of the dive, as long as someone is aboard.
+- **Float:** in the water she wades and settles at first; after a couple of seconds she blows up a great pink raft
+  under herself, pointed at both ends, rises onto it, turns her wheels flat on it and drives a screw behind. She does
+  it with nobody aboard too: get out and run as the tide comes in, and she blows it up herself. Coming down on the
+  water with her wings out, the raft comes up at once.
+- **Wings and raft by hand:** G opens the wings and propellers or folds them, B blows up the raft or lets it down
+  (both rebindable), standing still if you like: opened by hand they stay open on the ground until you put them away.
+  Let the raft down in the water and she settles to the bottom; get out and she brings it up again by herself.
 - **Horn:** H (rebindable) squeezes the serpent's bulb.
 
-She starts with two sputters and two bangs, and backfires now and then when the throttle comes off at speed. Her
-engine is three sounds made at different revs and crossfaded as hers rise and fall. Nobody aboard takes fall damage.
+She starts with two sputters and two bangs, and backfires (bang bang) every so often as she runs and when the
+throttle comes off at speed. Her engine runs chit-ty chit-ty: it fires in pairs, a hard firing and a softer one hard on
+its heels, and is three sounds made at different revs and crossfaded as hers rise and fall. Her polished aluminium
+and brass shine as you look at them, reflecting the sky, the sun and the ground she is on, rather than having
+reflections painted on. Nobody aboard takes fall damage.
 Hit her hard enough and she drops back into an item, as a boat does. In third person the camera stands twice as far
 back while you ride in her.
 
@@ -148,10 +159,11 @@ P B P     B = any Boat
 
 The model, its texture and the item icon come from `tools/chitty_model.py` (Blender's Python module,
 `pip install "bpy==4.5.*"` on Python 3.11): `--game` unwraps every part into one atlas, bakes her look into it with
-Cycles (the sky, soft shadows, the reflections in the metal) and writes the game's mesh and texture; `--out DIR
+Cycles (the sky and soft shadows; for the polished metal only how shut in it is, the game shining it live) and writes
+the game's mesh and texture; `--out DIR
 --renders` writes `.blend` and `.glb` files and renders her on the road, flying and afloat. Her sounds come from
-`tools/gen_chitty_sounds.py`, which models the engine (each firing through its own length of header into one long open
-pipe) rather than imitating it.
+`tools/gen_chitty_sounds.py`, which models the engine (each firing and its rush of gas through its own length of header
+into one long flexible pipe, heard outdoors) rather than imitating it.
 
 ## Commands and game rules
 

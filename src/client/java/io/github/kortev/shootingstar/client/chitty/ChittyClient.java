@@ -26,13 +26,15 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import org.lwjgl.glfw.GLFW;
 
-/** Chitty on the client: how she is drawn and heard, the driver's controls, the horn. */
+/** Chitty on the client: how she is drawn and heard, the driver's controls, the horn, the wings and raft keys. */
 public final class ChittyClient {
 	public static KeyBinding HORN;
+	public static KeyBinding WINGS;
+	public static KeyBinding RAFT;
 
 	private static final Set<ChittyEntity> SOUNDING = Collections.newSetFromMap(new WeakHashMap<>());
 	private static byte lastControls = -1;
-	private static boolean lastWings;
+	private static byte lastState;
 	private static int sinceSent;
 	private static int hornCooldown;
 	/** What the driver was last shown on the action bar: 0 nothing, 1 driving, 2 flying. */
@@ -45,6 +47,10 @@ public final class ChittyClient {
 		EntityRendererRegistry.register(Chitty.ENTITY, ChittyRenderer::new);
 		HORN = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.shootingstar.chitty_horn", InputUtil.Type.KEYSYM,
 				GLFW.GLFW_KEY_H, "key.categories.shootingstar"));
+		WINGS = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.shootingstar.chitty_wings", InputUtil.Type.KEYSYM,
+				GLFW.GLFW_KEY_G, "key.categories.shootingstar"));
+		RAFT = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.shootingstar.chitty_raft", InputUtil.Type.KEYSYM,
+				GLFW.GLFW_KEY_B, "key.categories.shootingstar"));
 		ResourceManagerHelper.get(ResourceType.CLIENT_RESOURCES).registerReloadListener(new SimpleSynchronousResourceReloadListener() {
 			@Override
 			public Identifier getFabricId() {
@@ -94,11 +100,11 @@ public final class ChittyClient {
 	/** Tells the server what the driver is doing whenever it changes, and once a second regardless. */
 	private static void sync(ChittyEntity car, ChittyControls controls) {
 		byte packed = controls.pack();
-		boolean wings = car.isFlying();
-		if ((packed != lastControls || wings != lastWings || ++sinceSent >= 20) && ClientPlayNetworking.canSend(ChittyInputPayload.ID)) {
-			ClientPlayNetworking.send(new ChittyInputPayload(packed, wings));
+		byte state = car.getState();
+		if ((packed != lastControls || state != lastState || ++sinceSent >= 20) && ClientPlayNetworking.canSend(ChittyInputPayload.ID)) {
+			ClientPlayNetworking.send(new ChittyInputPayload(packed, state));
 			lastControls = packed;
-			lastWings = wings;
+			lastState = state;
 			sinceSent = 0;
 		}
 	}
@@ -115,12 +121,25 @@ public final class ChittyClient {
 				hornCooldown = 12;
 			}
 		}
+		// The wings and the raft, whenever the driver likes: the driver's client moves her, so it opens them itself and
+		// tells the server with the next input.
+		boolean driving = car != null && car.getControllingPassenger() == player;
+		while (WINGS.wasPressed()) {
+			if (driving) {
+				car.toggleWings();
+			}
+		}
+		while (RAFT.wasPressed()) {
+			if (driving) {
+				car.toggleFloats();
+			}
+		}
 		// A word on the controls when someone takes the wheel, and again when she first takes to the air.
-		int now = car == null || car.getControllingPassenger() != player ? 0 : car.isFlying() ? 2 : 1;
+		int now = !driving ? 0 : car.isFlying() && !car.isOnGround() ? 2 : 1;
 		if (now != hint) {
 			if (now != 0 && player != null) {
 				player.sendMessage(Text.translatable(now == 2 ? "hud.shootingstar.chitty.air" : "hud.shootingstar.chitty.road",
-						HORN.getBoundKeyLocalizedText()), true);
+						WINGS.getBoundKeyLocalizedText(), RAFT.getBoundKeyLocalizedText(), HORN.getBoundKeyLocalizedText()), true);
 			}
 			hint = now;
 		}

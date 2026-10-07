@@ -15,7 +15,7 @@ import net.minecraft.util.math.MathHelper;
  */
 public class ChittySound extends MovingSoundInstance {
 	/** The revs each engine loop was made at (tools/gen_chitty_sounds.py). */
-	public static final float IDLE_RPM = 520.0F;
+	public static final float IDLE_RPM = 440.0F;
 	public static final float LOW_RPM = 1100.0F;
 	public static final float HIGH_RPM = 2200.0F;
 

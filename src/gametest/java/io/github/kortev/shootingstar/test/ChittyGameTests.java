@@ -46,8 +46,11 @@ public class ChittyGameTests implements FabricGameTest {
 		return car;
 	}
 
-	/** Dropped into a pool she floats, the bottom of her box about a third of a block under. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_chitty", tickLimit = 140)
+	/**
+	 * Dropped into a pool with nobody aboard she settles into the water, and after a little while blows up her raft by
+	 * herself and floats on it, the bottom of her box about a third of a block under.
+	 */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_chitty", tickLimit = 160)
 	public void floats(TestContext context) {
 		ServerWorld world = context.getWorld();
 		floor(context, 0);
@@ -59,8 +62,13 @@ public class ChittyGameTests implements FabricGameTest {
 			world.setBlockState(pos, wall ? Blocks.STONE.getDefaultState() : Blocks.WATER.getDefaultState());
 		}
 		ChittyEntity car = car(context, 4.0, 6.5, 4.0);
-		context.runAtTick(120, () -> {
+		context.runAtTick(40, () -> {
+			context.assertTrue(car.getFluidHeight(FluidTags.WATER) > 0.05, "she never reached the water");
+			context.assertTrue(!car.isFloating(), "her raft came up at once");
+		});
+		context.runAtTick(140, () -> {
 			double depth = car.getFluidHeight(FluidTags.WATER);
+			context.assertTrue(car.isFloating(), "she never blew up her raft");
 			context.assertTrue(!car.isRemoved(), "the car sank or broke");
 			context.assertTrue(depth > 0.1 && depth < 0.6, "she floats " + depth + " deep, not about 0.3");
 			context.assertTrue(Math.abs(car.getVelocity().y) < 0.05, "still bobbing at " + car.getVelocity().y);
@@ -85,6 +93,48 @@ public class ChittyGameTests implements FabricGameTest {
 			context.assertTrue(!car.isFlying(), "her wings are still out");
 			context.assertTrue(rider.getHealth() >= health, "the passenger was hurt landing (" + rider.getHealth() + " of " + health + ") by "
 					+ (rider.getRecentDamageSource() != null ? rider.getRecentDamageSource().getName() : "nothing recorded"));
+			context.complete();
+		});
+	}
+
+	/** Falling with someone aboard, she opens her wings by herself before she hits, then lands and folds them. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_chitty", tickLimit = 160)
+	public void catchesHerself(TestContext context) {
+		floor(context, 0);
+		ChittyEntity car = car(context, 4.0, 5.0, 4.0);
+		ZombieEntity rider = context.spawnEntity(EntityType.HUSK, new Vec3d(4.0, 5.0, 4.0));
+		rider.setAiDisabled(true);
+		context.assertTrue(rider.startRiding(car), "the zombie could not get in");
+		// As if she had already fallen off a cliff: the box is too small to drop her far enough.
+		car.fallDistance = 12.0F;
+		boolean[] caught = {false};
+		context.runAtEveryTick(() -> caught[0] |= car.isFlying());
+		context.runAtTick(30, () -> context.assertTrue(caught[0], "her wings never opened: y " + car.getY()));
+		context.runAtTick(140, () -> {
+			context.assertTrue(car.isOnGround(), "she never landed: y " + car.getY());
+			context.assertTrue(!car.isFlying(), "her wings are still out");
+			context.complete();
+		});
+	}
+
+	/** Her wings opened and her raft blown up by hand stay out standing on the ground, and go away when asked. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_chitty", tickLimit = 120)
+	public void heldOpen(TestContext context) {
+		floor(context, 0);
+		ChittyEntity car = car(context, 4.0, 1.0, 4.0);
+		context.runAtTick(5, () -> {
+			car.toggleWings();
+			car.toggleFloats();
+		});
+		context.runAtTick(70, () -> {
+			context.assertTrue(car.isOnGround(), "she is not standing on the ground");
+			context.assertTrue(car.isFlying(), "her wings folded by themselves");
+			context.assertTrue(car.isFloating(), "her raft went down by itself");
+			car.toggleWings();
+			car.toggleFloats();
+		});
+		context.runAtTick(80, () -> {
+			context.assertTrue(!car.isFlying() && !car.isFloating(), "they did not go away when asked");
 			context.complete();
 		});
 	}

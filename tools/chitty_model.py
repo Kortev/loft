@@ -24,7 +24,7 @@ import bpy  # must come first: it provides bmesh and mathutils
 import bmesh
 import numpy as np
 from mathutils import Matrix, Vector
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFilter
 
 # --- layout (blocks) ---------------------------------------------------------------------------
 
@@ -72,11 +72,11 @@ SPARE = (0.70, 0.46, BOARD_Z + 0.01 + WHEEL_R)
 # fans under the dumb irons and the tail fans under the hull, their striped edges showing.
 WING = dict(hinge=(0.70, 1.18, 0.47), blades=8, length=2.4, open_from=-38, spread=50, fold=-90, dihedral=6, stagger=1.0,
             layer=0.009, tuck=0.85, scallop=0.10)
-# One fan at her nose, opening out into a half circle across the front, and one at her tail, opening straight back
-# with a little propeller pushing at its end. Folded, the nose fan lies back under the front axle and the tail fan
-# draws in under the hamper.
-NOSEFAN = dict(hinge=(0.0, 2.46, 0.30), blades=9, length=0.85, open_from=170, spread=160, fold=-90, dihedral=0,
-               stagger=1.5, layer=0.009, tuck=0.85, scallop=0.14)
+# One fan at her nose, opening forward and out to her left, its edge cut into bat points, and one at her tail, opening
+# straight back with a little propeller pushing at its end. Folded, the nose fan lies back under the front axle and the
+# tail fan draws in under the hamper.
+NOSEFAN = dict(hinge=(-0.10, 2.40, 0.30), blades=5, length=1.0, open_from=168, spread=68, fold=-90, dihedral=-18,
+               stagger=1.5, layer=0.009, tuck=0.75, scallop=0.30)
 TAILFAN = dict(hinge=(0.0, -2.85, 0.56), blades=5, length=1.0, open_from=-65, spread=50, fold=-90, dihedral=0,
                stagger=1.5, layer=0.009, tuck=0.40, scallop=0.22)
 TAILPROP_R = 0.28
@@ -612,24 +612,42 @@ def build_chassis():
     return m.obj('chassis', smooth=30)
 
 
+def radiator_outline(scale=1.0, count=72):
+    """The radiator's face, (x, z) about the bonnet's axis: round over the top, its sides falling straight and its
+    bottom flatter, where the GEN 11 plate hangs."""
+    pts = []
+    for i in range(count):
+        t = math.pi / 2 - 2 * math.pi * i / count
+        c, sn = math.cos(t), math.sin(t)
+        if sn >= 0:
+            x, z = RADIATOR_R * c, RADIATOR_R * sn
+        else:
+            x = RADIATOR_R * math.copysign(abs(c) ** (2 / 4.0), c)
+            z = RADIATOR_R * 0.94 * math.copysign(abs(sn) ** (2 / 4.0), sn)
+        pts.append((x * scale, BONNET_Z1 + z * scale))
+    return pts
+
+
 def build_radiator():
-    """A round brass radiator: the shell, a rim standing proud of a honeycomb core with a brass bar across it, and a
-    filler cap and winged mascot on top."""
+    """The brass radiator: the shell, a rim standing proud of a honeycomb core with a brass bar down it, and a filler
+    cap and winged mascot on top."""
     zc = BONNET_Z1
     m = Mesh()
-    lathe(m, [(BONNET_R1 - 0.01, BONNET_FRONT - 0.005), (RADIATOR_R - 0.005, BONNET_FRONT + 0.015),
-              (RADIATOR_R, BONNET_FRONT + 0.04), (RADIATOR_R, 2.28), (RADIATOR_R - 0.012, 2.31),
-              (RADIATOR_R - 0.05, 2.31), (RADIATOR_R - 0.06, 2.295)],
-          lambda k: 'brass', axis='y', seg=64, origin=(0, 0, zc))
+    r1 = BONNET_R1 - 0.01
+    neck = [(r1 * math.cos(math.pi / 2 - 2 * math.pi * i / 72), zc + r1 * math.sin(math.pi / 2 - 2 * math.pi * i / 72))
+            for i in range(72)]
+    shell = radiator_outline()
+    rim_in = radiator_outline(0.86)
+    loft(m, [(BONNET_FRONT - 0.005, neck), (BONNET_FRONT + 0.03, radiator_outline(0.97)), (BONNET_FRONT + 0.05, shell),
+             (2.28, shell), (2.31, radiator_outline(0.97)), (2.31, rim_in), (2.295, radiator_outline(0.84))], 'brass')
     o = m.obj('radiator', smooth=50)
     m = Mesh()
-    core = RADIATOR_R - 0.06
-    ring = [m.vert((core * math.cos(2 * math.pi * i / 64), 2.295, zc + core * math.sin(2 * math.pi * i / 64)))
-            for i in range(64)]
+    core = radiator_outline(0.84)
+    ring = [m.vert((x, 2.295, z)) for x, z in core]
     f = m.face(list(reversed(ring)), 'honeycomb')
     for loop in f.loops:
         loop[m.uv].uv = (loop.vert.co.x * 2.2 + 0.5, (loop.vert.co.z - zc) * 2.2 + 0.5)
-    add_box(m, (0, 2.30, zc), (0.035, 0.02, core * 2), 'brass')
+    add_box(m, (0, 2.30, zc - 0.01), (0.035, 0.02, RADIATOR_R * 1.6), 'brass')
     lathe(m, [(0.0, 2.33), (0.05, 2.325), (0.06, 2.30)], lambda k: 'brass', axis='y', seg=24, origin=(0, 0, zc))
     m.obj('grille', smooth=40)
     m = Mesh()
@@ -1085,12 +1103,13 @@ def build_lamps():
     # Two great brass headlamps either side of the radiator on stalks from the front wings, and a coach lamp on each
     # post of the windscreen.
     for s in (-1, 1):
-        cx = s * 0.56
+        cx = s * (RADIATOR_R + 0.17)
         tube(m, [Vector((cx, 2.27, 0.60)), Vector((cx, 2.27, 0.90))], 0.02, 'brass', seg=8)
         lathe(m, [(0.0, 0.0), (0.03, 0.0), (0.03, 0.02), (0.0, 0.02)], lambda k: 'brass', axis='z', seg=12,
               origin=(cx, 2.27, 0.90))
         lamp(m, glass, (cx, 2.30, 1.04), 0.165, 0.14)
-        tube(m, [Vector((s * 0.37, 2.22, 0.98)), Vector((s * 0.41, 2.27, 1.0))], 0.012, 'brass', seg=6)
+        tube(m, [Vector((s * (RADIATOR_R - 0.01), 2.22, 0.98)), Vector((s * (RADIATOR_R + 0.03), 2.27, 1.0))], 0.012,
+             'brass', seg=6)
         cl = s * 0.635
         y = BONNET_BACK - 0.05
         lamp(m, glass, (cl, y + 0.01, 1.55), 0.05, 0.06)
@@ -1165,14 +1184,15 @@ def build_levers():
 def build_plates():
     """GEN 11, under the radiator and on the back of the hamper, and the starting handle."""
     m = Mesh()
-    add_box(m, (0, 2.36, 0.53), (0.50, 0.012, 0.13), 'plate')
-    add_box(m, (0, 2.33, 0.53), (0.05, 0.06, 0.05), 'chassis')
+    plate_z = BONNET_Z1 - RADIATOR_R * 0.94 - 0.075
+    add_box(m, (0, 2.315, plate_z), (0.46, 0.012, 0.13), 'plate')
+    add_box(m, (0, 2.30, plate_z + 0.075), (0.30, 0.03, 0.02), 'brass')
     add_box(m, (0, -3.175, 0.79), (0.50, 0.012, 0.13), 'plate')
     tube(m, [Vector((0, 2.30, 0.42)), Vector((0, 2.44, 0.42))], 0.014, 'chassis', seg=8)
     tube(m, [Vector((0, 2.44, 0.42)), Vector((0, 2.44, 0.31))], 0.012, 'chassis', seg=8)
     tube(m, [Vector((0, 2.44, 0.31)), Vector((0, 2.52, 0.31))], 0.016, 'brass', seg=8)
     m.obj('plates', smooth=None)
-    text_object('GEN 11', 0.085, (0, 2.367, 0.53), (math.radians(90), 0, math.radians(180)), 'letters')
+    text_object('GEN 11', 0.085, (0, 2.322, plate_z), (math.radians(90), 0, math.radians(180)), 'letters')
     text_object('GEN 11', 0.085, (0, -3.182, 0.79), (math.radians(90), 0, 0), 'letters')
 
 
@@ -1541,6 +1561,9 @@ GLOW = ('bulb_glow', 'eye')
 # Parts the game shades as they turn: the wheels roll, so their bake sees an even sky and the game lights them. Every
 # other part carries its light in the texture and is drawn evenly lit (its normals point up).
 GAME_LIT = ('wheel_',)
+# Polished metal the game shines itself, as you look at it (ChittyShine): its bake carries only how shut in it is (the
+# louvres' slots, the radiator's rim), and its normals stay, for the reflection.
+SHINE = {'aluminium': 1, 'brass': 2, 'chrome': 3, 'copper': 4, 'aluminium_dull': 5}
 
 
 def to_mc(v):
@@ -1726,6 +1749,34 @@ def bake_pass(name, objs, world, sun, visible):
     return out
 
 
+def bake_occlusion(groups, world, sun):
+    """How open each texel is to the sky (1) or shut in (towards 0), for the polished metal the game shines."""
+    scene = bpy.context.scene
+    img = bpy.data.images.new('bake_ao', BAKE_SIZE, BAKE_SIZE, alpha=True, float_buffer=True)
+    img.generated_color = (0, 0, 0, 0)
+    for m in MATS.values():
+        node = m.node_tree.nodes.get('bake_target')
+        node.image = img
+        m.node_tree.nodes.active = node
+    scene.world = world
+    world.light_settings.distance = 0.35
+    sun.hide_render = True
+    samples = scene.cycles.samples
+    scene.cycles.samples = 64
+    for obj, visible in groups:
+        show = {obj} | set(visible)
+        for o in scene.objects:
+            if o.type in ('MESH', 'CURVE', 'FONT'):
+                o.hide_render = o not in show
+        bpy.ops.object.select_all(action='DESELECT')
+        obj.select_set(True)
+        bpy.context.view_layer.objects.active = obj
+        bpy.ops.object.bake(type='AO', margin=0, use_clear=False)
+    scene.cycles.samples = samples
+    px = np.array(img.pixels[:], np.float32).reshape(BAKE_SIZE, BAKE_SIZE, 4)[::-1]
+    return px[..., 0]
+
+
 def dilate(rgb, valid, steps=24):
     """Spreads the colour of each island out past its edges, so filtering and mipmaps do not pull in the background."""
     rgb, valid = rgb.copy(), valid.copy()
@@ -1760,7 +1811,7 @@ def export_game(root):
     rest rotation (quaternion x, y, z, w; float32) in Minecraft's axes, four float32 for its animation (a fan panel's
     open angle, dihedral, folded angle and how far it draws in when folded; a mast's folded rotation as a quaternion;
     zero otherwise), int32 quad count and four vertices per quad: float32 x, y, z, u, v, then uint8 r, g, b, a and int8
-    nx, ny, nz, flags (1: glows). Triangles repeat their last corner. Then int32 marker count and per marker a name and
+    nx, ny, nz, flags (bit 0: glows; bits 1-3: the polished metal it is, SHINE). Triangles repeat their last corner. Then int32 marker count and per marker a name and
     a position (3 float32). Masts hang off the first panel of their wing and propellers off their mast: their pivots and
     geometry are in that frame, mirrored with it on the left."""
     import struct
@@ -1796,6 +1847,16 @@ def export_game(root):
         copies[o.name] = c
     unwrap(list(copies.values()))
     copies_uv = {name: [tuple(d.uv) for d in c.data.uv_layers['bake'].data] for name, c in copies.items()}
+    # Where the polished metal lies in the atlas: there the texture holds its occlusion, not a painted reflection.
+    metal = Image.new('L', (BAKE_SIZE, BAKE_SIZE), 0)
+    draw = ImageDraw.Draw(metal)
+    for name, c in copies.items():
+        me = c.data
+        uv = copies_uv[name]
+        for poly in me.polygons:
+            if mat_name(me, poly) in SHINE:
+                draw.polygon([(uv[li][0] * BAKE_SIZE, (1.0 - uv[li][1]) * BAKE_SIZE) for li in poly.loop_indices], fill=255)
+    metal = np.array(metal.filter(ImageFilter.MaxFilter(3))) > 127
 
     # The target image node in every material; the textures keep reading their own UVs.
     for m in MATS.values():
@@ -1831,15 +1892,20 @@ def export_game(root):
     real_wheels = [o for o in objs if o.name.startswith(GAME_LIT)]
     # Each pass bakes one object: Cycles goes over the whole image once per object baked, so forty separate parts
     # take forty times as long as the same parts joined.
-    passes = [bake_pass('body', [joined(body)], worlds['sky'], sun, real_wheels),
-              bake_pass('parts', [joined(others)], worlds['sky'], sun, []),
-              bake_pass('wheels', [joined(wheels)], worlds['even'], sun, [])]
+    body, others, wheels = joined(body), joined(others), joined(wheels)
+    passes = [bake_pass('body', [body], worlds['sky'], sun, real_wheels),
+              bake_pass('parts', [others], worlds['sky'], sun, []),
+              bake_pass('wheels', [wheels], worlds['even'], sun, [])]
     rgb = np.zeros((BAKE_SIZE, BAKE_SIZE, 3), np.float32)
     valid = np.zeros((BAKE_SIZE, BAKE_SIZE), bool)
     for px in passes:
         mine = (px[..., 3] > 0.5) & ~valid
         rgb[mine] = px[..., :3][mine]
         valid |= mine
+    ao = bake_occlusion([(body, real_wheels), (others, []), (wheels, [])], worlds['even'], sun)
+    shut = metal & valid
+    rgb[shut] = (0.3 + 0.7 * np.clip(ao[shut], 0, 1) ** 0.8)[:, None]
+    print('  polished metal %.1f%% of the atlas' % (shut.mean() * 100))
     gx, gy = free_spot(valid)
     rgb[gy - 6:gy + 6, gx - 6:gx + 6] = 1.0
     valid[gy - 6:gy + 6, gx - 6:gx + 6] = True
@@ -1911,7 +1977,8 @@ def export_game(root):
                 for poly in me.polygons:
                     mat = mat_name(me, poly)
                     tint = GLASS_TINT.get(mat)
-                    flags = 1 if mat in GLOW else 0
+                    shine = SHINE.get(mat, 0)
+                    flags = (1 if mat in GLOW else 0) | shine << 1
                     corners = []
                     for li in poly.loop_indices:
                         co = pm(me.vertices[me.loops[li].vertex_index].co)
@@ -1923,7 +1990,7 @@ def export_game(root):
                             u, v = copy_uv[li]
                             v = 1.0 - v
                             c = (255, 255, 255, 255)
-                            if not lit:
+                            if not lit and not shine:
                                 n = Vector((0, 0, 1))
                         corners.append((to_mc(co), u, v, c, to_mc(n), flags))
                     if len(corners) == 3:
@@ -2022,6 +2089,8 @@ def main():
             ('road_left', 'road', (-5.2, 4.6, 1.8), (0.0, 0.2, 0.8), 40, 0.0, False),
             ('rear_top', 'road', (-2.6, -5.6, 4.4), (0.0, -1.3, 1.0), 38, 0.0, False),
             ('flying_rear', 'flying', (-4.8, -7.0, 4.4), (0.0, -0.6, 1.6), 30, 1.7, False),
+            ('front', 'road', (0.4, 7.6, 1.3), (0.0, 0.0, 0.8), 40, 0.0, False),
+            ('flying_front', 'flying', (1.5, 9.5, 3.4), (0.0, 0.0, 1.7), 30, 1.7, False),
         ]
         for name, mode, cam, at, lens, lift, water in shots:
             if only and name not in only:

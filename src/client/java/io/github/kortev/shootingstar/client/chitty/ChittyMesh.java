@@ -28,7 +28,7 @@ public final class ChittyMesh {
 	/**
 	 * A part: where it hangs and how it rests, four numbers for its animation (a fan panel's open angle, dihedral,
 	 * folded angle and how far it draws in folded; a mast's folded turn as a quaternion), and its quads (four corners
-	 * each), some of which glow.
+	 * each), some of which glow and some polished metal, shone as it is looked at (ChittyShine).
 	 */
 	public static final class Part {
 		public final String name;
@@ -43,6 +43,7 @@ public final class ChittyMesh {
 		final int[] color;
 		final float[] normal;
 		final boolean[] glow;
+		final byte[] metal;
 
 		Part(String name, Vector3f pivot, Quaternionf rest, float a, float b, float c, float d, int vertices) {
 			this.name = name;
@@ -57,10 +58,14 @@ public final class ChittyMesh {
 			this.color = new int[vertices];
 			this.normal = new float[vertices * 3];
 			this.glow = new boolean[vertices];
+			this.metal = new byte[vertices];
 		}
 
-		/** Draws the part with the stack already moved to its pivot and posed; the lamps and eyes at full light. */
-		public void draw(MatrixStack.Entry entry, VertexConsumer out, int light, int overlay) {
+		/**
+		 * Draws the part with the stack already moved to its pivot and posed; the lamps and eyes at full light, the
+		 * polished metal in the colour it reflects from where it is seen (drawn evenly lit, as the baked parts are).
+		 */
+		public void draw(MatrixStack.Entry entry, VertexConsumer out, int light, int overlay, @Nullable ChittyShine shine) {
 			Matrix4f m = entry.getPositionMatrix();
 			Vector3f p = new Vector3f();
 			Vector3f n = new Vector3f();
@@ -68,7 +73,14 @@ public final class ChittyMesh {
 			for (int i = 0; i < count; i++) {
 				m.transformPosition(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2], p);
 				entry.transformNormal(normal[i * 3], normal[i * 3 + 1], normal[i * 3 + 2], n);
-				out.vertex(p.x, p.y, p.z, color[i], uv[i * 2], uv[i * 2 + 1], overlay,
+				int c = color[i];
+				if (metal[i] != 0) {
+					if (shine != null) {
+						c = shine.shade(metal[i], p.x, p.y, p.z, n.x, n.y, n.z);
+					}
+					n.set(0.0F, 1.0F, 0.0F);
+				}
+				out.vertex(p.x, p.y, p.z, c, uv[i * 2], uv[i * 2 + 1], overlay,
 						glow[i] ? LightmapTextureManager.MAX_LIGHT_COORDINATE : light, n.x, n.y, n.z);
 			}
 		}
@@ -142,7 +154,9 @@ public final class ChittyMesh {
 				part.normal[i * 3] = data.get() / 127.0F;
 				part.normal[i * 3 + 1] = data.get() / 127.0F;
 				part.normal[i * 3 + 2] = data.get() / 127.0F;
-				part.glow[i] = (data.get() & 1) != 0;
+				int flags = data.get();
+				part.glow[i] = (flags & 1) != 0;
+				part.metal[i] = (byte) (flags >> 1 & 7);
 			}
 			parts.put(name, part);
 		}
