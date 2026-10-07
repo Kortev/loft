@@ -385,7 +385,11 @@ public class ChittyEntity extends Entity {
 		boolean on = !hasHamper();
 		dataTracker.set(HAMPER, on);
 		if (!on) {
-			ItemScatterer.spawn(getWorld(), getX(), getY() + 0.8, getZ(), hamper);
+			// Out over the grass behind her, where the hamper was.
+			Vec3d at = getPos().add(new Vec3d(0.0, 0.8, -3.3).rotateY(-getYaw() * MathHelper.RADIANS_PER_DEGREE));
+			for (int i = 0; i < hamper.size(); i++) {
+				ItemScatterer.spawn(getWorld(), at.x, at.y, at.z, hamper.removeStack(i));
+			}
 		}
 		getWorld().playSound(null, getX(), getY(), getZ(), on ? SoundEvents.BLOCK_BARREL_CLOSE : SoundEvents.BLOCK_BARREL_OPEN,
 				SoundCategory.NEUTRAL, 1.0F, 0.8F);

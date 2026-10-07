@@ -236,7 +236,7 @@ public class ChittyGameTests implements FabricGameTest {
 		});
 	}
 
-	/** The hamper holds things; taken off, it spills them; it goes back on. */
+	/** The hamper holds things; taken off, it spills them out behind her; it goes back on. */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_chitty", tickLimit = 40)
 	public void hamper(TestContext context) {
 		floor(context, 0);
@@ -249,7 +249,7 @@ public class ChittyGameTests implements FabricGameTest {
 		car.toggleHamper();
 		context.assertTrue(car.hasHamper(), "the hamper did not go back on");
 		context.runAtTick(5, () -> {
-			context.expectItemAt(Items.BREAD, new BlockPos(4, 1, 4), 3.0);
+			context.expectItemAt(Items.BREAD, new BlockPos(4, 1, 1), 2.5);
 			context.complete();
 		});
 	}
