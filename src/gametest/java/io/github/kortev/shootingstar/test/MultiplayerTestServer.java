@@ -191,6 +191,8 @@ public class MultiplayerTestServer implements ModInitializer {
 		float yaw = (float) (MathHelper.atan2(dz, dx) * MathHelper.DEGREES_PER_RADIAN) - 90.0F;
 		float pitch = (float) -(MathHelper.atan2(dy, Math.sqrt(dx * dx + dz * dz)) * MathHelper.DEGREES_PER_RADIAN);
 		player.teleport(world, x, feet, z, yaw, pitch);
+		// As the mod's own warps do: their next move is measured from here, not from where they stood ("moved too quickly").
+		player.networkHandler.syncWithPlayerPosition();
 	}
 
 	private static boolean reaches(ServerWorld world, Vec3d eye, BlockPos target) {

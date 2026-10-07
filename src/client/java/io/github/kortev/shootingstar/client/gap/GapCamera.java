@@ -509,8 +509,8 @@ public final class GapCamera {
 
 	/** As {@link #overHole}, looking down at the floor of the hole where the tree stands, under the rim on the far side. */
 	private static Pose intoHole(ClientGap gap, double degrees, double reach) {
-		Pose over = overHole(gap, degrees, reach, 14.0, 0.0);
-		return new Pose(over.eye(), gap.contact.add(0.0, 2.0, 0.0), 1.0);
+		Vec3d eye = gap.contact.add(TreeRender.toward(gap).rotateY((float) Math.toRadians(degrees)).multiply(reach));
+		return inSight(gap, new Pose(new Vec3d(eye.x, high(eye, gap, 14.0), eye.z), gap.contact.add(0.0, 2.0, 0.0), 1.0));
 	}
 
 	/** Behind the shooter, {@code degrees} round from straight back and {@code reach} off, looking past them at the tree's foot. */
@@ -527,8 +527,29 @@ public final class GapCamera {
 	 */
 	private static Pose overHole(ClientGap gap, double degrees, double reach, double over, double up) {
 		Vec3d eye = gap.contact.add(TreeRender.toward(gap).rotateY((float) Math.toRadians(degrees)).multiply(reach));
-		return new Pose(new Vec3d(eye.x, high(eye, gap, over), eye.z), TreeRender.foot(gap).add(0.0, TreeRender.height(gap) * up, 0.0),
-				1.0);
+		return inSight(gap, new Pose(new Vec3d(eye.x, high(eye, gap, over), eye.z),
+				TreeRender.foot(gap).add(0.0, TreeRender.height(gap) * up, 0.0), 1.0));
+	}
+
+	/**
+	 * {@code p} kept within what the client can show. The rebuild's wide shots stand well out from the hole and look across
+	 * it from far off: with a short view distance the fog (which goes by the distance from the lens) would take all of it
+	 * but the tree, and the middle of the hole may not even be loaded. Then they look instead at the near rim, in front of
+	 * the shooter, where the world can be seen coming back, and come in close enough to see it clear of the fog. At the
+	 * default view distance they are as they were.
+	 */
+	private static Pose inSight(ClientGap gap, Pose p) {
+		double view = MinecraftClient.getInstance().options.getClampedViewDistance() * 16.0;
+		// Where the fog starts: terrain fog runs over the last tenth of the view distance (BackgroundRenderer).
+		double fog = view - MathHelper.clamp(view / 10.0, 4.0, 64.0);
+		Vec3d near = gap.rebuildFrom.subtract(TreeRender.toward(gap).multiply(8.0));
+		Vec3d at = p.at().lerp(near, ease((p.eye().distanceTo(p.at()) - fog) / (0.5 * fog)));
+		Vec3d eye = p.eye();
+		double d = eye.distanceTo(at);
+		if (d > fog) {
+			eye = at.add(eye.subtract(at).multiply(fog / d));
+		}
+		return new Pose(eye, at, p.guard());
 	}
 
 	/**
