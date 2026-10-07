@@ -859,6 +859,14 @@ public class ChittyEntity extends Entity {
 		if (isEngineRunning() && backfireCooldown == 0 && random.nextInt(400) == 0) {
 			bangBang();
 		}
+		// Settled so deep that the water closes over the seats: whoever is aboard is washed out of them.
+		if (!isFloating()) {
+			for (Entity passenger : List.copyOf(getPassengerList())) {
+				if (passenger instanceof LivingEntity living && living.isSubmergedIn(FluidTags.WATER)) {
+					passenger.stopRiding();
+				}
+			}
+		}
 		boolean afloat = getFluidHeight(FluidTags.WATER) > 0.05 && isFloating() && !isFlying();
 		if (afloat && !wasAfloat) {
 			award("chitty_float");

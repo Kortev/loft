@@ -39,6 +39,19 @@ public class ChittyGameTests implements FabricGameTest {
 		}
 	}
 
+	/** A stone pool four blocks deep. */
+	private static void pool(TestContext context) {
+		ServerWorld world = context.getWorld();
+		floor(context, 0);
+		for (BlockPos pos : BlockPos.iterate(context.getAbsolutePos(new BlockPos(0, 1, 0)), context.getAbsolutePos(new BlockPos(7, 4, 7)))) {
+			boolean wall = pos.getX() == context.getAbsolutePos(BlockPos.ORIGIN).getX()
+					|| pos.getZ() == context.getAbsolutePos(BlockPos.ORIGIN).getZ()
+					|| pos.getX() == context.getAbsolutePos(new BlockPos(7, 0, 0)).getX()
+					|| pos.getZ() == context.getAbsolutePos(new BlockPos(0, 0, 7)).getZ();
+			world.setBlockState(pos, wall ? Blocks.STONE.getDefaultState() : Blocks.WATER.getDefaultState());
+		}
+	}
+
 	private static ChittyEntity car(TestContext context, double x, double y, double z) {
 		ChittyEntity car = context.spawnEntity(Chitty.ENTITY, new Vec3d(x, y, z));
 		car.setYaw(0.0F);
@@ -52,15 +65,7 @@ public class ChittyGameTests implements FabricGameTest {
 	 */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_chitty", tickLimit = 160)
 	public void floats(TestContext context) {
-		ServerWorld world = context.getWorld();
-		floor(context, 0);
-		for (BlockPos pos : BlockPos.iterate(context.getAbsolutePos(new BlockPos(0, 1, 0)), context.getAbsolutePos(new BlockPos(7, 4, 7)))) {
-			boolean wall = pos.getX() == context.getAbsolutePos(BlockPos.ORIGIN).getX()
-					|| pos.getZ() == context.getAbsolutePos(BlockPos.ORIGIN).getZ()
-					|| pos.getX() == context.getAbsolutePos(new BlockPos(7, 0, 0)).getX()
-					|| pos.getZ() == context.getAbsolutePos(new BlockPos(0, 0, 7)).getZ();
-			world.setBlockState(pos, wall ? Blocks.STONE.getDefaultState() : Blocks.WATER.getDefaultState());
-		}
+		pool(context);
 		ChittyEntity car = car(context, 4.0, 6.5, 4.0);
 		context.runAtTick(40, () -> {
 			context.assertTrue(car.getFluidHeight(FluidTags.WATER) > 0.05, "she never reached the water");
@@ -93,6 +98,28 @@ public class ChittyGameTests implements FabricGameTest {
 			context.assertTrue(!car.isFlying(), "her wings are still out");
 			context.assertTrue(rider.getHealth() >= health, "the passenger was hurt landing (" + rider.getHealth() + " of " + health + ") by "
 					+ (rider.getRecentDamageSource() != null ? rider.getRecentDamageSource().getName() : "nothing recorded"));
+			context.complete();
+		});
+	}
+
+	/**
+	 * Settling into deep water with someone aboard, the water closes over them and washes them out of the seat; left to
+	 * herself, she blows up her raft and comes up.
+	 */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_chitty", tickLimit = 200)
+	public void washesOut(TestContext context) {
+		pool(context);
+		ChittyEntity car = car(context, 4.0, 6.5, 4.0);
+		ZombieEntity rider = context.spawnEntity(EntityType.HUSK, new Vec3d(4.0, 6.5, 4.0));
+		rider.setAiDisabled(true);
+		context.assertTrue(rider.startRiding(car), "the zombie could not get in");
+		boolean[] washed = {false};
+		context.runAtEveryTick(() -> washed[0] |= !car.isFloating() && rider.getVehicle() != car);
+		context.runAtTick(180, () -> {
+			context.assertTrue(washed[0], "the water never washed the rider out (riding " + (rider.getVehicle() == car) + ")");
+			context.assertTrue(car.isFloating(), "she never blew up her raft");
+			double depth = car.getFluidHeight(FluidTags.WATER);
+			context.assertTrue(depth > 0.1 && depth < 0.6, "she floats " + depth + " deep, not about 0.3");
 			context.complete();
 		});
 	}

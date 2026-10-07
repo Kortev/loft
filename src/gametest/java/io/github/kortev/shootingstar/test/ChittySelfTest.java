@@ -304,11 +304,12 @@ public class ChittySelfTest implements ClientModInitializer {
 			}
 			case CRUISE -> {
 				keys(client, true, false, false, false, false);
-				if (ticks == 12) {
+				if (ticks == 4) {
 					shot(client, "09_cruising.png");
 				}
-				if (ticks >= 24) {
+				if (ticks >= 6) {
 					// Off to her right and below, to see her drop and the wings spring out.
+					// (Soon after the turn, so that dropping, catching herself and diving she still comes down on the lake.)
 					Capture.camera = chase(client, -9.0, -2.0, 4.0, 0.0, 0.0);
 					next(Stage.DROP);
 				}
@@ -332,7 +333,7 @@ public class ChittySelfTest implements ClientModInitializer {
 				if (ticks == 6) {
 					shot(client, "09c_caught.png");
 				}
-				if (ticks >= 22) {
+				if (ticks >= 16) {
 					// Ahead and to her right, looking back at her as she comes down.
 					Capture.camera = chase(client, -7.0, 0.5, 7.0, 0.0, 0.0);
 					next(Stage.DIVE);
@@ -445,6 +446,7 @@ public class ChittySelfTest implements ClientModInitializer {
 		BlockState path = Blocks.DIRT_PATH.getDefaultState();
 		BlockState water = Blocks.WATER.getDefaultState();
 		BlockState sand = Blocks.SAND.getDefaultState();
+		BlockState stone = Blocks.STONE.getDefaultState();
 		BlockPos.Mutable pos = new BlockPos.Mutable();
 		for (int dx = WEST; dx <= EAST; dx++) {
 			for (int dz = NORTH; dz <= SOUTH; dz++) {
@@ -454,12 +456,13 @@ public class ChittySelfTest implements ClientModInitializer {
 				boolean lake = dx >= LAKE_WEST && dx <= LAKE_EAST && dz >= LAKE_NORTH && dz <= LAKE_SOUTH;
 				boolean shore = !lake && dx >= LAKE_WEST - 2 && dx <= LAKE_EAST + 2 && dz >= LAKE_NORTH - 2 && dz <= LAKE_SOUTH + 2;
 				boolean runway = Math.abs(dx) <= 2 && dz >= -8 && dz <= 60;
-				for (int y = ground - 5; y <= ground + SKY; y++) {
+				for (int y = ground - 9; y <= ground + SKY; y++) {
 					BlockState state;
 					if (y > ground) {
 						state = air;
 					} else if (lake) {
-						state = y >= ground - 4 ? water : sand;
+						// A sand bed on stone: on a single layer, the sand falls into whatever is under it.
+						state = y >= ground - 4 ? water : y == ground - 5 ? sand : stone;
 					} else if (y == ground) {
 						state = runway ? path : shore ? sand : grass;
 					} else {
