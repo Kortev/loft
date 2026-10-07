@@ -2,7 +2,6 @@ package io.github.kortev.shootingstar.chitty;
 
 import io.github.kortev.shootingstar.registry.ModCriteria;
 import java.util.List;
-import net.minecraft.block.BlockState;
 import net.minecraft.entity.Dismounting;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityDimensions;
@@ -32,7 +31,6 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.screen.GenericContainerScreenHandler;
 import net.minecraft.screen.SimpleNamedScreenHandlerFactory;
 import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.BlockSoundGroup;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
@@ -218,10 +216,8 @@ public class ChittyEntity extends Entity {
 	// the engine's revs.
 	private final float[] dials = new float[3];
 	private final float[] prevDials = new float[3];
-	// On the client: whether she was in the water last tick (for the splash going in), and how far she has rolled since
-	// the ground last sounded under her wheels.
+	// On the client: whether she was in the water last tick (for the splash going in).
 	private boolean wasWet;
-	private double rolled;
 	// Ticks since the ejector last went off, on the client: the back seat springs up and bounces back down.
 	private int ejectTicks = EJECT_SETTLED;
 
@@ -1206,21 +1202,6 @@ public class ChittyEntity extends Entity {
 			}
 		}
 		wasWet = wet;
-		// On the road, the ground under her wheels: gravel crunches, sand hisses, grass swishes, about once a block.
-		if (isOnGround() && !wet && floatOpen < 0.1F) {
-			rolled += getSpeed();
-			if (rolled > 1.2) {
-				rolled = 0.0;
-				BlockPos under = BlockPos.ofFloored(getX(), getY() - 0.2, getZ());
-				BlockState ground = world.getBlockState(under);
-				if (!ground.isAir()) {
-					BlockSoundGroup group = ground.getSoundGroup();
-					world.playSound(getX(), getY(), getZ(), group.getStepSound(), SoundCategory.NEUTRAL,
-							group.getVolume() * (float) MathHelper.clamp(getSpeed() / 0.4, 0.15, 0.6), group.getPitch() * (0.75F + random.nextFloat() * 0.2F),
-							false);
-				}
-			}
-		}
 		// While the raft blows up in the water, bubbles round its edge.
 		if (raft && wet && floatOpen < 1.0F && age % 2 == 0) {
 			Vec3d at = getPos().add(new Vec3d((random.nextDouble() - 0.5) * 3.0, 0.3, (random.nextDouble() - 0.5) * 6.0)
