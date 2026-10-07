@@ -267,7 +267,7 @@ def make_materials():
     material('aluminium_dull', (172, 174, 178), metal=1.0, rough=0.45)
     material('brass', (224, 174, 72), metal=1.0, rough=0.18)
     material('copper', (204, 118, 72), metal=1.0, rough=0.22)
-    material('cedar', (150, 70, 32), rough=0.3, image=image('cedar', plank_texture()), coat=0.7)
+    material('cedar', (150, 70, 32), rough=0.35, image=image('cedar', plank_texture()), coat=0.35)
     material('chrome', (228, 230, 234), metal=1.0, rough=0.06)
     material('walnut', (98, 52, 26), rough=0.3, coat=0.8)
     material('leather', (176, 26, 30), rough=0.5, image=image('tufted', tuft_texture()))
@@ -1609,7 +1609,7 @@ def bake_worlds():
     the parts the game lights itself."""
     worlds = {}
     for name, stops in (('sky', [(0.0, (0.20, 0.18, 0.15)), (0.47, (0.30, 0.27, 0.23)), (0.50, (1.10, 1.05, 0.98)),
-                                 (0.60, (0.95, 0.98, 1.05)), (1.0, (0.62, 0.72, 0.95))]),
+                                 (0.60, (0.85, 0.88, 0.94)), (1.0, (0.48, 0.56, 0.74))]),
                         ('even', [(0.0, (0.55, 0.55, 0.55)), (1.0, (0.62, 0.62, 0.62))])):
         w = bpy.data.worlds.new('bake_' + name)
         w.use_nodes = True
@@ -1809,7 +1809,8 @@ def export_game(root):
         node.name = 'bake_target'
     worlds = bake_worlds()
     sun = bpy.data.objects.new('bake_sun', bpy.data.lights.new('bake_sun', 'SUN'))
-    sun.data.energy = 2.2
+    # Gentle: straight overhead, a strong sun washes out everything that faces up (the deck went pale grey).
+    sun.data.energy = 0.9
     sun.data.angle = math.radians(40)
     sun.rotation_euler = (0, 0, 0)
     scene.collection.objects.link(sun)
