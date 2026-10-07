@@ -72,15 +72,16 @@ SPARE = (0.70, 0.46, BOARD_Z + 0.01 + WHEEL_R)
 # fans under the dumb irons and the tail fans under the hull, their striped edges showing.
 WING = dict(hinge=(0.70, 1.18, 0.47), blades=8, length=2.4, open_from=-38, spread=50, fold=-90, dihedral=6, stagger=1.0,
             layer=0.009, tuck=0.85, scallop=0.10)
-# The nose wing, as in the film: one fan straight out in front of her, four broad sections, yellow and red, spreading
-# from a straight line under the GEN 11 plate to a wide outer edge in shallow bat scallops, pointed where the sections
-# meet, no ribs showing: a trapezoid. Its sections turn about a point behind that line (the hinge here, under the
-# radiator; root: how far in front of it the line is), and it opens in a plane tipped down a little at the front (tilt:
-# degrees about her length and across her). Folded, it closes up and swings back under her, half each way round. And
-# one fan at her tail, opening straight back with a little propeller pushing at its end, which folds in under the
-# hamper.
-NOSEFAN = dict(hinge=(0.0, 1.92, 0.55), blades=4, length=1.31, open_from=116.25, spread=52.5, fold=-90, dihedral=0,
-               stagger=1.5, layer=0.009, tuck=0.6, scallop=0.07, tilt=(0, -12), ribs=False, root=0.457)
+# The nose wing, as in the film: one fan straight out in front of her, four sections, yellow and red, spreading from a
+# straight line under the GEN 11 plate (root: its half-width) to five points: the middle one reaching furthest, the
+# next pair less far and the outer pair least (reach: how far each is out from the line), the outer sections half as
+# wide as the inner two (points: how far out to the side the second and outer pairs are), shallow bat scallops between
+# them. The sections turn about a point behind the line, where the edges of the sections would meet (the hinge), and it
+# opens in a plane tipped down a little at the front (tilt: degrees about her length and across her). Folded, it
+# closes up and swings back under her, half each way round. And one fan at her tail, opening straight back with a
+# little propeller pushing at its end, which folds in under the hamper.
+NOSEFAN = dict(line=(0.0, 2.38, 0.55), root=0.30, points=(0.50, 0.75), reach=(0.95, 0.71, 0.59), scallop=0.18,
+               fold=-90, stagger=1.5, layer=0.009, tuck=0.6, tilt=(0, -12))
 TAILFAN = dict(hinge=(0.0, -2.85, 0.56), blades=5, length=1.0, open_from=-65, spread=50, fold=-90, dihedral=0,
                stagger=1.5, layer=0.009, tuck=0.40, scallop=0.22)
 TAILPROP_R = 0.28
@@ -1277,6 +1278,59 @@ def fan(name, side, spec, colors, coll, spar=False):
     return objs, tip
 
 
+def nose_wing(spec, colors, coll):
+    """The nose wing: four sections between five points (see NOSEFAN), each its own panel turning about the point
+    behind the line where their edges meet, named nosefan_c_<i> from her left, with the same properties as fan()'s."""
+    lx, ly, lz = spec['line']
+    w0 = spec['root']
+    second, outer = spec['points']
+    mid_r, second_r, outer_r = spec['reach']
+    # The hinge: where the outer edges, from the ends of the line through the outer points, cross.
+    d = w0 * outer_r / (outer - w0)
+    # In the wing's own frame: x straight ahead from the hinge, y to her left.
+    tips = [Vector((d + outer_r, outer)), Vector((d + second_r, second)), Vector((d + mid_r, 0.0)),
+            Vector((d + second_r, -second)), Vector((d + outer_r, -outer))]
+    roots = [Vector((d, p.y * d / p.x)) for p in tips]
+    objs = []
+    for i in range(4):
+        ta, tb, ra, rb = tips[i], tips[i + 1], roots[i], roots[i + 1]
+        mid = math.atan2(ta.y, ta.x) / 2 + math.atan2(tb.y, tb.x) / 2
+        back = Matrix.Rotation(-mid, 2)
+        chord = (tb - ta).length
+        m = Mesh()
+        grid = []
+        for j in range(9):
+            row = []
+            for k in range(7):
+                t = k / 6
+                inner = ra.lerp(rb, t)
+                edge = ta.lerp(tb, t)
+                # The bat scallop: the edge drawn in towards the hinge between the points.
+                edge = edge - edge.normalized() * spec['scallop'] * chord * 4 * t * (1 - t)
+                p = back @ inner.lerp(edge, j / 8)
+                row.append(m.vert((p.x, p.y, 0.0)))
+            grid.append(row)
+        for j in range(8):
+            for k in range(6):
+                m.face([grid[j][k], grid[j + 1][k], grid[j + 1][k + 1], grid[j][k + 1]], colors[i % 2],
+                       [(j / 8, k / 6), ((j + 1) / 8, k / 6), ((j + 1) / 8, (k + 1) / 6), (j / 8, (k + 1) / 6)])
+        tag = 'nosefan_c_%d' % i
+        o = m.obj(tag, coll=coll, location=(lx, ly - d, lz + spec['layer'] * i), smooth=None, part=tag)
+        solidify(o, 0.008, offset=0.0)
+        o['open_yaw'] = open_yaw = 90.0 + math.degrees(mid)
+        fold = spec['fold'] + math.copysign(spec['stagger'] * i, open_yaw - spec['fold'])
+        while open_yaw - fold > 180:
+            fold += 360
+        while fold - open_yaw > 180:
+            fold -= 360
+        o['fold_yaw'] = fold
+        o['tuck'] = spec['tuck']
+        o['dihedral'] = 0.0
+        o['tilt_along'], o['tilt_across'] = spec.get('tilt', (0, 0))
+        objs.append(o)
+    return objs
+
+
 def build_rotor(wing0, tip, side):
     """The mast at the end of a wing's spar and the two-bladed propeller turning flat on top of it. Both hang off the
     wing's first panel (in its own frame): the mast lies along the spar when the wing is folded and stands up as it
@@ -1370,7 +1424,7 @@ def build_wings():
         panels, tip = fan('wing', s, WING, ('wing_red', 'wing_yellow'), 'wings', spar=True)
         objs += panels
         build_rotor(panels[0], tip, s)
-    objs += fan('nosefan', 0, NOSEFAN, ('wing_yellow', 'wing_red'), 'wings')[0]
+    objs += nose_wing(NOSEFAN, ('wing_yellow', 'wing_red'), 'wings')
     tail = fan('tailfan', 0, TAILFAN, ('wing_red', 'wing_yellow'), 'wings')[0]
     objs += tail
     build_tailprop(tail[len(tail) // 2])
@@ -2125,6 +2179,7 @@ def main():
             ('flying_front', 'flying', (1.5, 9.5, 3.4), (0.0, 0.0, 1.7), 30, 1.7, False),
             ('nose_photo', 'flying', (0.9, 5.2, 0.8), (-0.3, 2.0, 2.2), 32, 1.7, False),
             ('nose_left', 'flying', (-4.2, 5.4, 2.6), (-0.2, 1.8, 2.0), 32, 1.7, False),
+            ('nose_plan', 'flying', (0.0, 2.9, 7.5), (0.0, 2.95, 2.0), 40, 1.7, False),
         ]
         for name, mode, cam, at, lens, lift, water in shots:
             if only and name not in only:
