@@ -72,13 +72,13 @@ SPARE = (0.70, 0.46, BOARD_Z + 0.01 + WHEEL_R)
 # fans under the dumb irons and the tail fans under the hull, their striped edges showing.
 WING = dict(hinge=(0.70, 1.18, 0.47), blades=8, length=2.4, open_from=-38, spread=50, fold=-90, dihedral=6, stagger=1.0,
             layer=0.009, tuck=0.85, scallop=0.10)
-# One fan at her nose, hinged under the GEN 11 plate and opening forward and out to her left, its edge cut into bat
-# points, and one at her tail, opening straight back with a little propeller pushing at its end. The nose fan opens in
-# one plane tilted down to her left (tilt: degrees about her length and across her), so it hangs like the film's,
-# its face showing from in front and below, its panels lying edge to edge. Folded, it lies back under the front axle and the tail fan
-# draws in under the hamper.
-NOSEFAN = dict(hinge=(-0.10, 2.40, 0.52), blades=5, length=0.95, open_from=190, spread=70, fold=-90, dihedral=0,
-               stagger=1.5, layer=0.009, tuck=0.75, scallop=0.18, tilt=(-28, 0))
+# One fan at her nose, hinged under the GEN 11 plate and opening out across her front to both sides, its edge cut into
+# bat points, and one at her tail, opening straight back with a little propeller pushing at its end. The nose fan opens
+# in one plane tipped down a little at the front (tilt: degrees about her length and across her), so its face shows
+# from in front, its panels lying edge to edge. Folded, each half lies back under the front axle on its own side and
+# the tail fan draws in under the hamper.
+NOSEFAN = dict(hinge=(0.0, 2.40, 0.52), blades=9, length=0.95, open_from=172, spread=164, fold=-90, dihedral=0,
+               stagger=1.5, layer=0.009, tuck=0.6, scallop=0.18, tilt=(0, -10))
 TAILFAN = dict(hinge=(0.0, -2.85, 0.56), blades=5, length=1.0, open_from=-65, spread=50, fold=-90, dihedral=0,
                stagger=1.5, layer=0.009, tuck=0.40, scallop=0.22)
 TAILPROP_R = 0.28
@@ -2114,6 +2114,8 @@ def main():
             ('flying_rear', 'flying', (-4.8, -7.0, 4.4), (0.0, -0.6, 1.6), 30, 1.7, False),
             ('front', 'road', (0.4, 7.6, 1.3), (0.0, 0.0, 0.8), 40, 0.0, False),
             ('flying_front', 'flying', (1.5, 9.5, 3.4), (0.0, 0.0, 1.7), 30, 1.7, False),
+            ('nose_photo', 'flying', (0.9, 5.2, 0.8), (-0.3, 2.0, 2.2), 32, 1.7, False),
+            ('nose_left', 'flying', (-4.2, 5.4, 2.6), (-0.2, 1.8, 2.0), 32, 1.7, False),
         ]
         for name, mode, cam, at, lens, lift, water in shots:
             if only and name not in only:
