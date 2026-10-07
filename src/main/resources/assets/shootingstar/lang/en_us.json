@@ -107,6 +107,7 @@
   "item.shootingstar.chitty.tooltip.1": "Use on the ground or water to put her down; use her to get in (into the seat you click).",
   "item.shootingstar.chitty.tooltip.2": "G: wings, then jump at speed to fly; sprint to dive. She floats by herself.",
   "entity.shootingstar.chitty": "Chitty Chitty Bang Bang",
+  "entity.shootingstar.chitty_hamper": "Chitty's Hamper",
   "key.shootingstar.chitty_horn": "Chitty: sound the horn",
   "key.shootingstar.chitty_wings": "Chitty: open or fold the wings",
   "key.shootingstar.chitty_eject": "Chitty: eject the back seat",

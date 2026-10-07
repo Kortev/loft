@@ -18,11 +18,11 @@ import org.joml.Quaternionf;
 /**
  * Draws Chitty from her Blender mesh and poses her parts: the wheels roll and the front ones steer, and on the water
  * turn sideways to lie flat on her raft; the wings unfold out from under the running boards like pleated fans, their
- * pleats flattening as they open, the nose wing draws out in front of her and opens, the tail wing behind, and the
+ * pleats flattening as they open, the nose wing in front of her and the tail wing behind the same way, and the
  * mast on the end of each wing stands up with its propeller turning flat on top while the pusher propeller unfolds on
  * the stern; the raft blows up round her and the screw turns in the water; the gear lever and handbrake move with the
- * driving, the starting handle swings as she is started, and the hamper is there or not; the car pitches and banks in
- * the air and rocks when she is hit.
+ * driving, the starting handle swings as she is started, the back seat springs up when the ejector goes off, and the
+ * hamper is there or not; the car pitches and banks in the air and rocks when she is hit.
  *
  * <p>Her texture is baked with her light in it (tools/chitty_model.py), so most of her is drawn evenly lit; only the
  * wheels, which roll, carry real normals and take the game's light, and her polished metal is shone live as you look at
@@ -36,9 +36,13 @@ public class ChittyRenderer extends EntityRenderer<ChittyEntity> {
 	/** How far the front wheels turn, and the steering wheel with them. */
 	private static final float STEER_LOCK = 28.0F;
 	private static final float WHEEL_TURNS = 110.0F;
-	/** A folded side wing: how much of its spread it keeps, and how far it hangs down (WING in tools/chitty_model.py). */
+	/**
+	 * A folded fan: how much of its spread it keeps, and how far a side wing and the tail wing hang down (closed and
+	 * drop in WING, NOSEFAN and TAILFAN in tools/chitty_model.py).
+	 */
 	private static final float PLEAT_CLOSED = 0.07F;
-	private static final float PLEAT_DROP = 0.15F;
+	private static final float WING_DROP = 0.15F;
+	private static final float TAIL_DROP = 0.04F;
 	private final ChittyShine shine = new ChittyShine();
 
 	public ChittyRenderer(EntityRendererFactory.Context context) {
@@ -103,9 +107,7 @@ public class ChittyRenderer extends EntityRenderer<ChittyEntity> {
 			}
 			matrices.push();
 			boolean visible = true;
-			if (name.startsWith("wing_")) {
-				poseWing(matrices, part, wings);
-			} else if (name.startsWith("nosefan_") || name.startsWith("tailfan_")) {
+			if (name.startsWith("wing_") || name.startsWith("nosefan_") || name.startsWith("tailfan_")) {
 				poseFan(matrices, part, wings);
 			} else {
 				matrices.translate(part.pivot.x, part.pivot.y, part.pivot.z);
@@ -136,6 +138,14 @@ public class ChittyRenderer extends EntityRenderer<ChittyEntity> {
 					matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(-26.0F * car.getBrakeLever(tickDelta)));
 				} else if (name.equals("crank")) {
 					matrices.multiply(RotationAxis.POSITIVE_Z.rotation(car.getCrankSpin(tickDelta)));
+				} else if (name.equals("seat_rear")) {
+					// The ejector: thrown up on its springs, bouncing back down.
+					matrices.translate(0.0F, car.getEjectLift(tickDelta), 0.0F);
+				} else if (name.startsWith("spring_")) {
+					// A coil a block tall, stretched from the floor of the well up to the seat.
+					float lift = car.getEjectLift(tickDelta);
+					visible = lift > 0.02F;
+					matrices.scale(1.0F, Math.max(lift, 0.001F), 1.0F);
 				}
 			}
 			if (visible) {
@@ -153,7 +163,7 @@ public class ChittyRenderer extends EntityRenderer<ChittyEntity> {
 				continue;
 			}
 			matrices.push();
-			poseWing(matrices, wing, wings);
+			poseFan(matrices, wing, wings);
 			matrices.translate(mast.pivot.x, mast.pivot.y, mast.pivot.z);
 			// Folded, it lies along the spar; it stands up once the wing is out.
 			Quaternionf folded = new Quaternionf(mast.a, mast.b, mast.c, mast.d);
@@ -182,14 +192,14 @@ public class ChittyRenderer extends EntityRenderer<ChittyEntity> {
 	}
 
 	/**
-	 * Moves the stack to a side wing panel's hinge and poses it. Each wing is one pleated cloth, a hand fan on its side:
-	 * its back edge lies along her side under the running board the whole time, and folded it is closed up onto it,
-	 * the pleats standing on edge, dropped to hang under the board. Opening, it draws out to its full length, its front
-	 * edge swings out and every pleat flattens as it goes, alternately up and down so that neighbouring panels meet
-	 * along their edges, until it lies flat, tipped up a little about her length. (tools/chitty_model.py's pose() does
-	 * the same.)
+	 * Moves the stack to a fan panel's hinge and poses it. Every fan, the side wings, the nose wing and the tail wing,
+	 * is one pleated cloth like a hand fan: folded, it is closed up (a side wing onto its back panel, along her side under
+	 * the running board; the nose and tail wings onto their middles), its pleats standing on edge, dropped clear of
+	 * what is above it and drawn in. Opening, it draws out to its full length, spreads and every pleat flattens as it
+	 * goes, alternately up and down so that neighbouring panels meet along their edges, until it lies flat (a side wing
+	 * tipped up a little about her length). (tools/chitty_model.py's pose() does the same.)
 	 */
-	private static void poseWing(MatrixStack matrices, ChittyMesh.Part part, float wings) {
+	private static void poseFan(MatrixStack matrices, ChittyMesh.Part part, float wings) {
 		float side = part.name.contains("_l_") ? -1.0F : 1.0F;
 		int index = part.name.charAt(part.name.length() - 1) - '0';
 		float open = backOut(MathHelper.clamp(wings / 0.9F, 0.0F, 1.0F));
@@ -197,31 +207,13 @@ public class ChittyRenderer extends EntityRenderer<ChittyEntity> {
 		// How much of its open width each pleat shows from above, and so how far it stands up off the flat.
 		float across = MathHelper.clamp(MathHelper.lerp(open, PLEAT_CLOSED, 1.0F), 0.0F, 1.0F);
 		float pleat = (float) Math.acos(across);
+		float drop = part.name.startsWith("wing_") ? WING_DROP : part.name.startsWith("tailfan_") ? TAIL_DROP : 0.0F;
 		float yaw = MathHelper.lerp(open, part.c, part.a);
-		matrices.translate(part.pivot.x, part.pivot.y - PLEAT_DROP * MathHelper.sin(pleat), part.pivot.z);
+		matrices.translate(part.pivot.x, part.pivot.y - drop * MathHelper.sin(pleat), part.pivot.z);
 		matrices.multiply(part.rest);
 		matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(-part.b * side * MathHelper.clamp(open, 0.0F, 1.0F)));
 		matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(yaw * side));
 		matrices.multiply(RotationAxis.POSITIVE_X.rotation(index % 2 == 0 ? pleat : -pleat));
-		float k = MathHelper.lerp(out, part.d, 1.0F);
-		matrices.scale(k, 1.0F, k);
-	}
-
-	/**
-	 * Moves the stack to a nose or tail fan section's hinge and poses it, in two stages as the fan comes out: first the
-	 * folded fan, still closed, draws out to its full length; then it opens, section after section, each to its place
-	 * with a little sprung overshoot. Going away it does the same backwards.
-	 */
-	private static void poseFan(MatrixStack matrices, ChittyMesh.Part part, float wings) {
-		float side = part.name.contains("_l_") ? -1.0F : 1.0F;
-		int index = part.name.charAt(part.name.length() - 1) - '0';
-		float out = smooth(MathHelper.clamp(wings / 0.45F, 0.0F, 1.0F));
-		float spread = backOut(MathHelper.clamp((wings - 0.4F - 0.03F * index) / 0.42F, 0.0F, 1.0F));
-		float yaw = MathHelper.lerp(spread, part.c, part.a);
-		matrices.translate(part.pivot.x, part.pivot.y, part.pivot.z);
-		matrices.multiply(part.rest);
-		matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(yaw * side));
-		matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(-part.b * side * MathHelper.clamp(spread, 0.0F, 1.0F)));
 		float k = MathHelper.lerp(out, part.d, 1.0F);
 		matrices.scale(k, 1.0F, k);
 	}

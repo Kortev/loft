@@ -20,6 +20,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.input.Input;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.option.KeyBinding;
+import net.minecraft.client.render.entity.EmptyEntityRenderer;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.resource.ResourceManager;
 import net.minecraft.resource.ResourceType;
@@ -46,6 +47,8 @@ public final class ChittyClient {
 
 	public static void init() {
 		EntityRendererRegistry.register(Chitty.ENTITY, ChittyRenderer::new);
+		// The hamper's hitbox is drawn as part of her.
+		EntityRendererRegistry.register(Chitty.HAMPER, EmptyEntityRenderer::new);
 		HORN = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.shootingstar.chitty_horn", InputUtil.Type.KEYSYM,
 				GLFW.GLFW_KEY_H, "key.categories.shootingstar"));
 		WINGS = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.shootingstar.chitty_wings", InputUtil.Type.KEYSYM,

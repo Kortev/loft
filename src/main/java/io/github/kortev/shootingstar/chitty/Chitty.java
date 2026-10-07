@@ -22,6 +22,17 @@ public final class Chitty {
 					.maxTrackingRange(10)
 					.trackingTickInterval(1)
 					.build("chitty"));
+	/** The hamper's own hitbox, which she keeps on her stern (ChittyHamperEntity). */
+	public static final EntityType<ChittyHamperEntity> HAMPER = Registry.register(Registries.ENTITY_TYPE,
+			ShootingStar.id("chitty_hamper"),
+			EntityType.Builder.<ChittyHamperEntity>create(ChittyHamperEntity::new, SpawnGroup.MISC)
+					.dimensions(0.8F, 0.5F)
+					.disableSaving()
+					.disableSummon()
+					.makeFireImmune()
+					.maxTrackingRange(10)
+					.trackingTickInterval(1)
+					.build("chitty_hamper"));
 
 	public static final Item ITEM = Registry.register(Registries.ITEM, ShootingStar.id("chitty"),
 			new ChittyItem(new Item.Settings().maxCount(1).rarity(Rarity.RARE)));

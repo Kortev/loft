@@ -85,6 +85,9 @@ public class ChittyEntity extends Entity {
 	// The order seats are filled in when nobody chose one: players from the driver's back, anyone else from the back.
 	private static final int[] FRONT_FIRST = {0, 1, 2, 3};
 	private static final int[] BACK_FIRST = {2, 3, 1, 0};
+	/** The entity status that tells clients the ejector went off. */
+	private static final byte EJECT_STATUS = 90;
+	private static final int EJECT_SETTLED = 60;
 	/** The mouth of the exhaust, beside the driver's running board. */
 	public static final Vec3d EXHAUST = new Vec3d(-0.83, 0.63, -1.02);
 	/** The point the car pitches and rolls about. */
@@ -209,10 +212,14 @@ public class ChittyEntity extends Entity {
 	private float crankSpin;
 	private float prevCrankSpin;
 	private int crankTicks;
+	// Ticks since the ejector last went off, on the client: the back seat springs up and bounces back down.
+	private int ejectTicks = EJECT_SETTLED;
 
 	// Who sits where (by seat), and the seat a player has asked for as they get in.
 	private final Entity[] seated = new Entity[SEATS.length];
 	private int wantedSeat = -1;
+	@Nullable
+	private ChittyHamperEntity hamperBox;
 	private final SimpleInventory hamper = new SimpleInventory(27) {
 		@Override
 		public boolean canPlayerUse(PlayerEntity player) {
@@ -420,7 +427,7 @@ public class ChittyEntity extends Entity {
 			toggleHamper();
 			return ActionResult.success(getWorld().isClient);
 		}
-		if (hasHamper() && local.z < -2.7 && local.y < 1.1) {
+		if (hasHamper() && local.z < -2.6 && local.y < 1.2) {
 			if (!getWorld().isClient) {
 				player.openHandledScreen(new SimpleNamedScreenHandlerFactory(
 						(syncId, inventory, who) -> GenericContainerScreenHandler.createGeneric9x3(syncId, inventory, hamper),
@@ -584,15 +591,16 @@ public class ChittyEntity extends Entity {
 			passenger.setVelocity(getVelocity().add(0.0, 1.25, 0.0));
 			passenger.velocityModified = true;
 			passenger.fallDistance = 0.0F;
-			if (passenger instanceof LivingEntity living) {
-				living.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOW_FALLING, 100, 0, false, false));
+			// Players float down; anything else (an unwanted passenger) takes its chances.
+			if (passenger instanceof PlayerEntity player) {
+				player.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOW_FALLING, 100, 0, false, false));
 			}
 			world.spawnParticles(ParticleTypes.POOF, seat.x, seat.y - 0.4, seat.z, 12, 0.2, 0.1, 0.2, 0.05);
 			any = true;
 		}
-		if (any) {
-			world.playSound(null, getX(), getY(), getZ(), Chitty.EJECT, SoundCategory.NEUTRAL, 1.4F, 1.0F);
-		}
+		// The seat springs up whether or not anyone is on it.
+		world.playSound(null, getX(), getY(), getZ(), Chitty.EJECT, SoundCategory.NEUTRAL, any ? 1.4F : 1.0F, 1.0F);
+		world.sendEntityStatus(this, EJECT_STATUS);
 	}
 
 	@Override
@@ -1056,6 +1064,11 @@ public class ChittyEntity extends Entity {
 	}
 
 	private void serverTick(ServerWorld world) {
+		// The hamper's hitbox, while she has her hamper (it goes by itself when she has not).
+		if (hasHamper() && (hamperBox == null || hamperBox.isRemoved())) {
+			hamperBox = new ChittyHamperEntity(world, this);
+			world.spawnEntity(hamperBox);
+		}
 		if (isLogicalSideForUpdatingMovement()) {
 			input = ChittyControls.NONE;
 			dataTracker.set(STATE, getState());
@@ -1186,6 +1199,9 @@ public class ChittyEntity extends Entity {
 			crankTicks--;
 			crankSpin += 0.55F;
 		}
+		if (ejectTicks < EJECT_SETTLED) {
+			ejectTicks++;
+		}
 
 		// Smoke out of the exhaust while she runs, more when she pulls.
 		if (isEngineRunning() && age % (throttle > 0 ? 2 : 4) == 0) {
@@ -1231,6 +1247,31 @@ public class ChittyEntity extends Entity {
 	/** How far round the starting handle has been swung (radians). */
 	public float getCrankSpin(float tickDelta) {
 		return MathHelper.lerp(tickDelta, prevCrankSpin, crankSpin);
+	}
+
+	/**
+	 * How far the back seat stands up on its springs (blocks): thrown up as the ejector goes off, then bouncing back
+	 * down on them, each bounce smaller, until it settles.
+	 */
+	public float getEjectLift(float tickDelta) {
+		float t = ejectTicks + tickDelta;
+		if (t >= EJECT_SETTLED) {
+			return 0.0F;
+		}
+		if (t < 2.0F) {
+			return 0.85F * t / 2.0F;
+		}
+		float after = t - 2.0F;
+		return Math.max(-0.02F, 0.85F * (float) Math.exp(-after / 7.0F) * MathHelper.cos(after * 0.55F));
+	}
+
+	@Override
+	public void handleStatus(byte status) {
+		if (status == EJECT_STATUS) {
+			ejectTicks = 0;
+		} else {
+			super.handleStatus(status);
+		}
 	}
 
 	/** -1 (full right) to 1 (full left). */

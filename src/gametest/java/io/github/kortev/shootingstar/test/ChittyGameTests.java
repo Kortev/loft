@@ -2,6 +2,7 @@ package io.github.kortev.shootingstar.test;
 
 import io.github.kortev.shootingstar.chitty.Chitty;
 import io.github.kortev.shootingstar.chitty.ChittyEntity;
+import io.github.kortev.shootingstar.chitty.ChittyHamperEntity;
 import java.util.ArrayList;
 import java.util.List;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
@@ -237,22 +238,36 @@ public class ChittyGameTests implements FabricGameTest {
 		});
 	}
 
-	/** The hamper holds things; taken off, it spills them out behind her; it goes back on. */
+	/**
+	 * The hamper has its own hitbox out on her stern (hers is too short to reach it); it holds things; taken off, it
+	 * spills them out behind her and its hitbox goes; it goes back on.
+	 */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_chitty", tickLimit = 40)
 	public void hamper(TestContext context) {
 		floor(context, 0);
 		ChittyEntity car = car(context, 4.0, 1.0, 4.0);
 		context.assertTrue(car.hasHamper(), "she came without her hamper");
 		car.getHamper().setStack(0, new ItemStack(Items.BREAD, 5));
-		car.toggleHamper();
-		context.assertTrue(!car.hasHamper(), "the hamper did not come off");
-		context.assertTrue(car.getHamper().isEmpty(), "the hamper kept its bread");
-		car.toggleHamper();
-		context.assertTrue(car.hasHamper(), "the hamper did not go back on");
-		context.runAtTick(5, () -> {
+		context.runAtTick(3, () -> {
+			List<ChittyHamperEntity> boxes = hamperBoxes(context, car);
+			context.assertTrue(boxes.size() == 1, boxes.size() + " hamper hitboxes");
+			double behind = car.getZ() - boxes.get(0).getZ();
+			context.assertTrue(behind > 2.5 && behind < 3.5, "the hamper hitbox is not on her stern: " + behind + " behind");
+			car.toggleHamper();
+			context.assertTrue(!car.hasHamper(), "the hamper did not come off");
+			context.assertTrue(car.getHamper().isEmpty(), "the hamper kept its bread");
+		});
+		context.runAtTick(8, () -> {
+			context.assertTrue(hamperBoxes(context, car).isEmpty(), "the hamper hitbox stayed without the hamper");
 			context.expectItemAt(Items.BREAD, new BlockPos(4, 1, 1), 2.5);
+			car.toggleHamper();
+			context.assertTrue(car.hasHamper(), "the hamper did not go back on");
 			context.complete();
 		});
+	}
+
+	private static List<ChittyHamperEntity> hamperBoxes(TestContext context, ChittyEntity car) {
+		return context.getWorld().getEntitiesByType(Chitty.HAMPER, car.getBoundingBox().expand(5.0), box -> box.getCar() == car);
 	}
 
 	/** Dropped without her wings, she lands hard (four blocks: enough to hurt) but nobody aboard takes fall damage. */
