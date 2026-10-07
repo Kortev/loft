@@ -47,8 +47,8 @@ public final class ChittyClient {
 
 	public static void init() {
 		EntityRendererRegistry.register(Chitty.ENTITY, ChittyRenderer::new);
-		// The hamper's hitbox is drawn as part of her.
-		EntityRendererRegistry.register(Chitty.HAMPER, EmptyEntityRenderer::new);
+		// Her hitboxes along her length are drawn as part of her.
+		EntityRendererRegistry.register(Chitty.PART, EmptyEntityRenderer::new);
 		HORN = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.shootingstar.chitty_horn", InputUtil.Type.KEYSYM,
 				GLFW.GLFW_KEY_H, "key.categories.shootingstar"));
 		WINGS = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.shootingstar.chitty_wings", InputUtil.Type.KEYSYM,

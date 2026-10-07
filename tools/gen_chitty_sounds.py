@@ -46,6 +46,7 @@ ENGINE_LOOPS = {
 }
 # The propellers on the wing masts: two, a little out of step, beating once a second over a two second loop.
 FLIGHT_LOOP = 2 * SR
+WIND_LOOP = 6 * SR
 ROTOR_PASSES = (40, 42)
 
 
@@ -289,6 +290,23 @@ def chitty_flight():
     whistle = loop_noise(n, white, lambda x: bp(x, 1500, 1700)) * (0.5 + 0.5 * np.sin(2 * np.pi * 1.0 * tt))
     y = chop * 1.0 + wind * 0.5 + whistle * 0.12
     return sat(y * 1.2, 1.3)
+
+
+def chitty_wind():
+    """The rush of air past her as she flies (or falls) fast, which the game swells with her speed: a deep roar of
+    buffeting air under a hiss, gusting slowly, a long loop so the gusts do not repeat noticeably."""
+    n = WIND_LOOP
+    tt = np.arange(n) / SR
+    roar = loop_noise(n, pink, lambda x: bp(x, 60, 500))
+    rush = loop_noise(n, pink, lambda x: bp(x, 400, 3000))
+    hiss = loop_noise(n, white, lambda x: bp(x, 3000, 8000))
+    # Gusts: slow swells at whole numbers of cycles per loop, so the loop joins up.
+    gust = (1.0 + 0.30 * np.sin(2 * np.pi * 2 * tt / (n / SR)) + 0.18 * np.sin(2 * np.pi * 5 * tt / (n / SR) + 1.3)
+            + 0.10 * np.sin(2 * np.pi * 11 * tt / (n / SR) + 0.4))
+    buffet = loop_noise(n, white, lambda x: lp(x, 6, 2))
+    buffet = np.maximum(0.3, 1.0 + 0.25 * buffet / (np.std(buffet) + 1e-12))
+    y = (roar * 1.0 * buffet + rush * 0.55 + hiss * 0.12) * gust
+    return sat(y, 1.2)
 
 
 def bang(rng, size=1.0):
@@ -582,6 +600,7 @@ SOUNDS = {
     'chitty_engine_low': chitty_engine_low,
     'chitty_engine_high': chitty_engine_high,
     'chitty_flight': chitty_flight,
+    'chitty_wind': chitty_wind,
     'chitty_start': chitty_start,
     'chitty_bang': chitty_bang,
     'chitty_horn': chitty_horn,
@@ -592,9 +611,9 @@ SOUNDS = {
     'chitty_eject': chitty_eject,
     'chitty_crash': chitty_crash,
 }
-LOOPS = ('chitty_engine_idle', 'chitty_engine_low', 'chitty_engine_high', 'chitty_flight')
+LOOPS = ('chitty_engine_idle', 'chitty_engine_low', 'chitty_engine_high', 'chitty_flight', 'chitty_wind')
 # Loudness (loudest 400 ms, dB): the bangs well above everything, the running loops under the rest.
-LEVELS = {'chitty_engine_idle': -19, 'chitty_engine_low': -17, 'chitty_engine_high': -16, 'chitty_flight': -20, 'chitty_start': -13, 'chitty_bang': -9, 'chitty_horn': -12,
+LEVELS = {'chitty_engine_idle': -19, 'chitty_engine_low': -17, 'chitty_engine_high': -16, 'chitty_flight': -20, 'chitty_wind': -18, 'chitty_start': -13, 'chitty_bang': -9, 'chitty_horn': -12,
           'chitty_wings_out': -15, 'chitty_wings_in': -17, 'chitty_floats': -16, 'chitty_floats_down': -18, 'chitty_eject': -13, 'chitty_crash': -11}
 
 

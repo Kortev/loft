@@ -11,7 +11,8 @@ import net.minecraft.util.math.MathHelper;
 /**
  * One of Chitty's running sounds, following her. The engine is three loops recorded at three speeds (ticking over,
  * pulling, working hard): each plays near its own revs and they crossfade as hers rise and fall, so none is stretched
- * far from how it was made. The fourth is the wing propellers and the wind, as the wings open and the faster she flies.
+ * far from how it was made. The fourth is the wing propellers and the wind, as the wings open and the faster she flies;
+ * the fifth the rush of air past her, swelling with her speed through the air (flying or falling).
  */
 public class ChittySound extends MovingSoundInstance {
 	/** The revs each engine loop was made at (tools/gen_chitty_sounds.py). */
@@ -20,7 +21,7 @@ public class ChittySound extends MovingSoundInstance {
 	public static final float HIGH_RPM = 2200.0F;
 
 	public enum Layer {
-		IDLE, LOW, HIGH, FLIGHT;
+		IDLE, LOW, HIGH, FLIGHT, WIND;
 
 		SoundEvent event() {
 			return switch (this) {
@@ -28,6 +29,7 @@ public class ChittySound extends MovingSoundInstance {
 				case LOW -> Chitty.ENGINE_LOW;
 				case HIGH -> Chitty.ENGINE_HIGH;
 				case FLIGHT -> Chitty.FLIGHT;
+				case WIND -> Chitty.WIND;
 			};
 		}
 	}
@@ -103,6 +105,11 @@ public class ChittySound extends MovingSoundInstance {
 			double speed = car.getSpeed();
 			return car.getWingOpen(1.0F) * (0.3F + 0.7F * (float) Math.min(1.0, speed / 1.1));
 		}
+		if (layer == Layer.WIND) {
+			// Nothing at a walk, swelling past a gallop; mostly a thing of the air, not the road.
+			float rush = MathHelper.clamp(((float) car.getAirSpeed() - 0.3F) / 1.0F, 0.0F, 1.0F);
+			return rush * (float) Math.sqrt(rush) * (car.isOnGround() || car.isFloating() ? 0.3F : 1.0F);
+		}
 		if (!car.isEngineRunning()) {
 			return 0.0F;
 		}
@@ -121,6 +128,9 @@ public class ChittySound extends MovingSoundInstance {
 	public static float pitchAt(Layer layer, float rpm, ChittyEntity car) {
 		if (layer == Layer.FLIGHT) {
 			return 0.85F + 0.3F * (float) Math.min(1.0, car.getSpeed() / 1.3);
+		}
+		if (layer == Layer.WIND) {
+			return 0.8F + 0.45F * (float) Math.min(1.0, car.getAirSpeed() / 1.6);
 		}
 		float made = layer == Layer.IDLE ? IDLE_RPM : layer == Layer.LOW ? LOW_RPM : HIGH_RPM;
 		return MathHelper.clamp(rpm / made, 0.5F, 2.0F);

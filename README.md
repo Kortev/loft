@@ -152,9 +152,15 @@ with a carrying handle on each post of the windscreen, and the gear lever and ha
 - **Hamper:** use the hamper on her stern to open it (27 stacks; it has its own hitbox, hers being too short to reach
   it); sneak and use her to take it off (it spills what it holds) or put it back on.
 - **Horn:** H (rebindable) squeezes the serpent's bulb.
+- **Riding in her:** everyone aboard turns with her, and in the air the view banks with her as she turns. The
+  dashboard's needles show her speed, her height above the sea and the engine's revs. At night (or underground, or in
+  heavy rain) her headlamps and spotlights throw soft beams ahead of her while she runs. She is solid from her
+  radiator to her stern: click anywhere on her to take the seat nearest the click.
 
 She starts with two sputters and two bangs, and backfires (bang bang) every so often as she runs and when the
-throttle comes off at speed. Her engine runs chit-ty chit-ty: it fires in pairs, a hard firing and a softer one hard on
+throttle comes off at speed, each bang a tongue of flame and a puff of dark smoke out of the exhaust. The ground
+sounds under her wheels (gravel crunches, sand hisses), she splashes into water, and the wind rushes past her as she
+flies or falls fast. Her engine runs chit-ty chit-ty: it fires in pairs, a hard firing and a softer one hard on
 its heels, and is three sounds made at different revs and crossfaded as hers rise and fall. Her polished aluminium
 and brass shine as you look at them, reflecting the sky, the sun and the ground she is on, rather than having
 reflections painted on. Nobody aboard takes fall damage.

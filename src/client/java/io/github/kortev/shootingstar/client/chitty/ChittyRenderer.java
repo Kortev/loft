@@ -21,8 +21,9 @@ import org.joml.Quaternionf;
  * pleats flattening as they open, the nose wing in front of her and the tail wing behind the same way, and the
  * mast on the end of each wing stands up with its propeller turning flat on top while the pusher propeller unfolds on
  * the stern; the raft blows up round her and the screw turns in the water; the gear lever and handbrake move with the
- * driving, the starting handle swings as she is started, the back seat springs up when the ejector goes off, and the
- * hamper is there or not; the car pitches and banks in the air and rocks when she is hit.
+ * driving, the starting handle swings as she is started, the needles on the dashboard show her speed, height and revs,
+ * the back seat springs up when the ejector goes off, the hamper is there or not, and her lamps shine ahead of her in
+ * the dark (ChittyLamps); the car pitches and banks in the air and rocks when she is hit.
  *
  * <p>Her texture is baked with her light in it (tools/chitty_model.py), so most of her is drawn evenly lit; only the
  * wheels, which roll, carry real normals and take the game's light, and her polished metal is shone live as you look at
@@ -79,6 +80,7 @@ public class ChittyRenderer extends EntityRenderer<ChittyEntity> {
 				glass.draw(matrices.peek(), buffers.getBuffer(RenderLayer.getEntityTranslucent(TEXTURE)), light, OverlayTexture.DEFAULT_UV,
 						shine);
 			}
+			ChittyLamps.draw(car, mesh, tickDelta, matrices, buffers, light);
 			matrices.pop();
 		}
 		super.render(car, yaw, tickDelta, matrices, buffers, light);
@@ -138,6 +140,10 @@ public class ChittyRenderer extends EntityRenderer<ChittyEntity> {
 					matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(-26.0F * car.getBrakeLever(tickDelta)));
 				} else if (name.equals("crank")) {
 					matrices.multiply(RotationAxis.POSITIVE_Z.rotation(car.getCrankSpin(tickDelta)));
+				} else if (name.startsWith("needle_")) {
+					// From three quarters round to the left (nothing) clockwise to the right (full).
+					int dial = name.equals("needle_speed") ? 0 : name.equals("needle_height") ? 1 : 2;
+					matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(-135.0F + 270.0F * car.getDial(dial, tickDelta)));
 				} else if (name.equals("seat_rear")) {
 					// The ejector: thrown up on its springs, bouncing back down.
 					matrices.translate(0.0F, car.getEjectLift(tickDelta), 0.0F);

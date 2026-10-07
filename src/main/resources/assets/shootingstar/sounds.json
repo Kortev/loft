@@ -392,6 +392,15 @@
       }
     ]
   },
+  "chitty.wind": {
+    "subtitle": "subtitles.shootingstar.chitty.wind",
+    "sounds": [
+      {
+        "name": "shootingstar:chitty_wind",
+        "attenuation_distance": 24
+      }
+    ]
+  },
   "chitty.start": {
     "subtitle": "subtitles.shootingstar.chitty.start",
     "sounds": [

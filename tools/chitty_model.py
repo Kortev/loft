@@ -766,12 +766,31 @@ def build_bonnet():
                  Vector((s * (r1 + 0.004) * math.cos(0.12), BONNET_FRONT - 0.02, z1 + r1 * math.sin(0.12)))],
              0.007, 'brass', seg=6)
     m.obj('bonnet_trim', smooth=40)
-    # The dashboard's dials, looking back at the driver, as out of an old aeroplane.
+    # The dashboard's dials, looking back at the driver, as out of an old aeroplane, set in the walnut board that closes
+    # the front of the cockpit (build_hull's bulkhead, just behind the bonnet's back).
+    dash = HULL[0][0] - 0.014
     m = Mesh()
     for x, z, rr in ((-0.22, 1.20, 0.045), (-0.06, 1.24, 0.038), (0.10, 1.20, 0.05), (0.34, 1.02, 0.04), (0.20, 1.06, 0.035)):
         lathe(m, [(0.0, 0.0), (rr + 0.008, 0.0), (rr + 0.008, -0.010), (rr, -0.012), (0.0, -0.008)],
-              lambda k: 'dial' if k == 3 else 'brass', axis='y', seg=20, origin=(x, BONNET_BACK - 0.005, z))
+              lambda k: 'dial' if k == 3 else 'brass', axis='y', seg=20, origin=(x, dash, z))
     m.obj('dashboard', smooth=40)
+    # Needles on three of them, each its own part turning about its dial's middle (the game turns them): her speed on
+    # the big one, her height above the sea on the left, the engine's revs in front of the driver. They point straight
+    # up here; the game turns them from three quarters round to the left (nothing) clockwise to the right (full).
+    for name, (x, z, rr) in (('needle_speed', (0.10, 1.20, 0.05)), ('needle_height', (-0.22, 1.20, 0.045)),
+                             ('needle_revs', (0.34, 1.02, 0.04))):
+        m = Mesh()
+        length, tail, w = rr * 0.85, rr * 0.25, 0.0045
+        outline = [(-w, -tail), (w, -tail), (0.0012, length), (-0.0012, length)]
+        front = [m.vert((a, -0.0015, b)) for a, b in outline]
+        back = [m.vert((a, 0.0015, b)) for a, b in outline]
+        m.face(front, 'red')
+        m.face(list(reversed(back)), 'red')
+        for k in range(4):
+            j = (k + 1) % 4
+            m.face([front[k], back[k], back[j], front[j]], 'red')
+        lathe(m, [(0.0, -0.004), (0.007, -0.004), (0.007, 0.002), (0.0, 0.002)], lambda k: 'brass', axis='y', seg=10)
+        m.obj(name, location=(x, dash - 0.017, z), smooth=None, part=name)
     return o
 
 
@@ -1237,6 +1256,10 @@ def build_lamps():
         cl = s * 0.64
         y = BONNET_BACK - 0.05
         spotlight(m, glass, (cl, y + 0.02, 1.63), 0.085, 0.16)
+        # Where the game shines their beams from at night: just inside each glass.
+        tag = 'r' if s > 0 else 'l'
+        empty('beam_lamp_' + tag, (cx, 2.42, 1.13))
+        empty('beam_spot_' + tag, (cl, y + 0.11, 1.63))
         add_box(m, ((cl + s * 0.56) / 2, y, 1.60), (0.08, 0.02, 0.025), 'brass')
     m.obj('lamps', smooth=40)
     glass.obj('lamp_glass', smooth=40, part='glass')
@@ -1704,6 +1727,9 @@ def pose(mode, spin=0.0, wings=None, lift=0.0):
             axis = Vector((0, 0, 1)).cross(-d).normalized()
             o.rotation_mode = 'QUATERNION'
             o.rotation_quaternion = Matrix.Rotation(0 if fly else math.pi / 2, 4, axis).to_quaternion()
+        elif part.startswith('needle_'):
+            reading = {'needle_speed': 0.6, 'needle_height': 0.35, 'needle_revs': 0.75}[part] if fly else 0.0
+            o.rotation_euler = (0, math.radians(-135 + 270 * reading), 0)
         elif part == 'seat_rear':
             o.location.z = lift
         elif part.startswith('spring_'):
@@ -1846,7 +1872,7 @@ def neutral():
         elif part.startswith('mast_'):
             o.rotation_mode = 'QUATERNION'
             o.rotation_quaternion = (1, 0, 0, 0)
-        elif part.startswith(('wheel_', 'rotor_', 'lever_')) or part in ('screw', 'tailprop', 'crank'):
+        elif part.startswith(('wheel_', 'rotor_', 'lever_', 'needle_')) or part in ('screw', 'tailprop', 'crank'):
             o.rotation_euler = (0, 0, 0)
         elif part == 'seat_rear':
             o.location.z = 0.0
@@ -1922,7 +1948,7 @@ def bake_worlds():
 # lettering), less for big plain surfaces and what is out of sight underneath.
 TEXEL_WEIGHT = {'chassis': 0.3, 'floor': 0.4, 'bulkhead': 0.3, 'boards': 0.6, 'float': 0.45, 'screw': 0.5,
                 'wing_': 0.32, 'nosefan_': 0.45, 'tailfan_': 0.45, 'mast_': 0.6, 'rotor_': 0.6, 'tailprop': 0.8,
-                'spring_': 0.5,
+                'spring_': 0.5, 'needle_': 1.3,
                 'plate_text': 1.6,
                 'plates': 1.3, 'radiator': 1.3, 'grille_core': 1.3, 'hamper': 1.0, 'lever_': 1.3, 'mascot': 1.3, 'lamps': 1.3, 'horn': 1.3, 'dashboard': 1.3,
                 'bonnet': 1.15, 'hull': 1.15}
@@ -2370,6 +2396,7 @@ def main():
             ('tail_folded', 'road', (-1.8, -5.0, 0.9), (0.0, -2.8, 0.6), 40, 0.0, False),
             ('tail_unfold', 'road@0.5', (-2.6, -5.6, 2.2), (0.0, -3.0, 0.6), 40, 0.0, False),
             ('eject', 'road^0.75', (-2.6, -3.8, 2.4), (0.0, -1.2, 1.1), 40, 0.0, False),
+            ('dash', 'flying', (0.05, -0.75, 1.75), (0.05, 0.62, 1.15), 30, 0.0, False),
         ]
         for name, mode, cam, at, lens, lift, water in shots:
             if only and name not in only:

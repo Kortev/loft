@@ -2,7 +2,7 @@ package io.github.kortev.shootingstar.test;
 
 import io.github.kortev.shootingstar.chitty.Chitty;
 import io.github.kortev.shootingstar.chitty.ChittyEntity;
-import io.github.kortev.shootingstar.chitty.ChittyHamperEntity;
+import io.github.kortev.shootingstar.chitty.ChittyPartEntity;
 import java.util.ArrayList;
 import java.util.List;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
@@ -18,6 +18,7 @@ import net.minecraft.test.GameTest;
 import net.minecraft.test.TestContext;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
+import org.jetbrains.annotations.Nullable;
 
 /** Chitty with nobody driving her: the server moves her, as it does a boat. Riders are husks, which the sun cannot hurt. */
 public class ChittyGameTests implements FabricGameTest {
@@ -239,6 +240,33 @@ public class ChittyGameTests implements FabricGameTest {
 	}
 
 	/**
+	 * She has hitboxes along her length beyond her own: one over her bonnet, one over her back seat and stern, and one
+	 * on the hamper while she has it, and none of them stop her driving.
+	 */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_chitty", tickLimit = 80)
+	public void hitboxes(TestContext context) {
+		floor(context, 0);
+		ChittyEntity car = car(context, 4.0, 1.0, 2.0);
+		context.runAtTick(3, () -> {
+			ChittyPartEntity front = part(context, car, ChittyPartEntity.FRONT);
+			ChittyPartEntity back = part(context, car, ChittyPartEntity.BACK);
+			context.assertTrue(front != null && back != null && part(context, car, ChittyPartEntity.HAMPER) != null,
+					"she is missing a hitbox");
+			context.assertTrue(front.getZ() > car.getZ() + 1.2, "the bonnet's hitbox is not over her bonnet");
+			context.assertTrue(back.getZ() < car.getZ() - 1.2, "the back hitbox is not behind her");
+			context.assertTrue(front.getWidth() < back.getWidth(), "the hitboxes are all one size");
+			car.launch(0.3F, false);
+		});
+		context.runAtTick(40, () -> {
+			context.assertTrue(car.getZ() > context.getAbsolute(new Vec3d(4.0, 1.0, 2.0)).z + 1.0,
+					"she could not drive away from her own hitboxes: z " + car.getZ());
+			ChittyPartEntity front = part(context, car, ChittyPartEntity.FRONT);
+			context.assertTrue(front != null && Math.abs(front.getZ() - car.getZ() - 1.72) < 0.5, "the bonnet's hitbox was left behind");
+			context.complete();
+		});
+	}
+
+	/**
 	 * The hamper has its own hitbox out on her stern (hers is too short to reach it); it holds things; taken off, it
 	 * spills them out behind her and its hitbox goes; it goes back on.
 	 */
@@ -249,16 +277,16 @@ public class ChittyGameTests implements FabricGameTest {
 		context.assertTrue(car.hasHamper(), "she came without her hamper");
 		car.getHamper().setStack(0, new ItemStack(Items.BREAD, 5));
 		context.runAtTick(3, () -> {
-			List<ChittyHamperEntity> boxes = hamperBoxes(context, car);
-			context.assertTrue(boxes.size() == 1, boxes.size() + " hamper hitboxes");
-			double behind = car.getZ() - boxes.get(0).getZ();
+			ChittyPartEntity box = part(context, car, ChittyPartEntity.HAMPER);
+			context.assertTrue(box != null, "the hamper has no hitbox");
+			double behind = car.getZ() - box.getZ();
 			context.assertTrue(behind > 2.5 && behind < 3.5, "the hamper hitbox is not on her stern: " + behind + " behind");
 			car.toggleHamper();
 			context.assertTrue(!car.hasHamper(), "the hamper did not come off");
 			context.assertTrue(car.getHamper().isEmpty(), "the hamper kept its bread");
 		});
 		context.runAtTick(8, () -> {
-			context.assertTrue(hamperBoxes(context, car).isEmpty(), "the hamper hitbox stayed without the hamper");
+			context.assertTrue(part(context, car, ChittyPartEntity.HAMPER) == null, "the hamper hitbox stayed without the hamper");
 			context.expectItemAt(Items.BREAD, new BlockPos(4, 1, 1), 2.5);
 			car.toggleHamper();
 			context.assertTrue(car.hasHamper(), "the hamper did not go back on");
@@ -266,8 +294,11 @@ public class ChittyGameTests implements FabricGameTest {
 		});
 	}
 
-	private static List<ChittyHamperEntity> hamperBoxes(TestContext context, ChittyEntity car) {
-		return context.getWorld().getEntitiesByType(Chitty.HAMPER, car.getBoundingBox().expand(5.0), box -> box.getCar() == car);
+	@Nullable
+	private static ChittyPartEntity part(TestContext context, ChittyEntity car, int which) {
+		List<ChittyPartEntity> found = context.getWorld().getEntitiesByType(Chitty.PART, car.getBoundingBox().expand(5.0),
+				box -> box.getCar() == car && box.getPart() == which);
+		return found.isEmpty() ? null : found.get(0);
 	}
 
 	/** Dropped without her wings, she lands hard (four blocks: enough to hurt) but nobody aboard takes fall damage. */

@@ -22,17 +22,17 @@ public final class Chitty {
 					.maxTrackingRange(10)
 					.trackingTickInterval(1)
 					.build("chitty"));
-	/** The hamper's own hitbox, which she keeps on her stern (ChittyHamperEntity). */
-	public static final EntityType<ChittyHamperEntity> HAMPER = Registry.register(Registries.ENTITY_TYPE,
-			ShootingStar.id("chitty_hamper"),
-			EntityType.Builder.<ChittyHamperEntity>create(ChittyHamperEntity::new, SpawnGroup.MISC)
-					.dimensions(0.8F, 0.5F)
+	/** The hitboxes she keeps along her length, beyond her own (ChittyPartEntity), each sizing itself. */
+	public static final EntityType<ChittyPartEntity> PART = Registry.register(Registries.ENTITY_TYPE,
+			ShootingStar.id("chitty_part"),
+			EntityType.Builder.<ChittyPartEntity>create(ChittyPartEntity::new, SpawnGroup.MISC)
+					.dimensions(1.6F, 1.6F)
 					.disableSaving()
 					.disableSummon()
 					.makeFireImmune()
 					.maxTrackingRange(10)
 					.trackingTickInterval(1)
-					.build("chitty_hamper"));
+					.build("chitty_part"));
 
 	public static final Item ITEM = Registry.register(Registries.ITEM, ShootingStar.id("chitty"),
 			new ChittyItem(new Item.Settings().maxCount(1).rarity(Rarity.RARE)));
@@ -41,6 +41,7 @@ public final class Chitty {
 	public static final SoundEvent ENGINE_LOW = sound("chitty.engine_low");
 	public static final SoundEvent ENGINE_HIGH = sound("chitty.engine_high");
 	public static final SoundEvent FLIGHT = sound("chitty.flight");
+	public static final SoundEvent WIND = sound("chitty.wind");
 	public static final SoundEvent START = sound("chitty.start");
 	public static final SoundEvent BANG = sound("chitty.bang");
 	public static final SoundEvent HORN = sound("chitty.horn");

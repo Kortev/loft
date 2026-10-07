@@ -2,6 +2,7 @@ package io.github.kortev.shootingstar.chitty;
 
 import io.github.kortev.shootingstar.registry.ModCriteria;
 import java.util.List;
+import net.minecraft.block.BlockState;
 import net.minecraft.entity.Dismounting;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityDimensions;
@@ -31,6 +32,7 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.screen.GenericContainerScreenHandler;
 import net.minecraft.screen.SimpleNamedScreenHandlerFactory;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.sound.BlockSoundGroup;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
@@ -212,14 +214,22 @@ public class ChittyEntity extends Entity {
 	private float crankSpin;
 	private float prevCrankSpin;
 	private int crankTicks;
+	// The needles on the dashboard, on the client (0 to 1 round each dial): her speed, her height above the sea and
+	// the engine's revs.
+	private final float[] dials = new float[3];
+	private final float[] prevDials = new float[3];
+	// On the client: whether she was in the water last tick (for the splash going in), and how far she has rolled since
+	// the ground last sounded under her wheels.
+	private boolean wasWet;
+	private double rolled;
 	// Ticks since the ejector last went off, on the client: the back seat springs up and bounces back down.
 	private int ejectTicks = EJECT_SETTLED;
 
 	// Who sits where (by seat), and the seat a player has asked for as they get in.
 	private final Entity[] seated = new Entity[SEATS.length];
 	private int wantedSeat = -1;
-	@Nullable
-	private ChittyHamperEntity hamperBox;
+	// Her hitboxes along her length (ChittyPartEntity), on the server.
+	private final ChittyPartEntity[] parts = new ChittyPartEntity[ChittyPartEntity.COUNT];
 	private final SimpleInventory hamper = new SimpleInventory(27) {
 		@Override
 		public boolean canPlayerUse(PlayerEntity player) {
@@ -279,7 +289,8 @@ public class ChittyEntity extends Entity {
 
 	@Override
 	public boolean collidesWith(Entity other) {
-		return (other.isCollidable() || other.isPushable()) && !isConnectedThroughVehicle(other);
+		return (other.isCollidable() || other.isPushable()) && !isConnectedThroughVehicle(other)
+				&& !(other instanceof ChittyPartEntity part && part.getCar() == this);
 	}
 
 	@Override
@@ -292,10 +303,10 @@ public class ChittyEntity extends Entity {
 		return !isRemoved();
 	}
 
-	/** The car is longer than her box, and her wings far wider. */
+	/** The car is longer than her box, her wings far wider, and her lamps shine further still. */
 	@Override
 	public Box getVisibilityBoundingBox() {
-		return getBoundingBox().expand(3.0, 1.0, 3.0);
+		return getBoundingBox().expand(9.0, 2.0, 9.0);
 	}
 
 	/** Hit, she rocks; hit hard enough (or by anyone in creative), she comes apart and drops herself, as a boat does. */
@@ -412,6 +423,11 @@ public class ChittyEntity extends Entity {
 	/** Forward speed in blocks per tick, as last moved (any side). */
 	public double getSpeed() {
 		return motion.horizontalLength();
+	}
+
+	/** How fast she is going through the air, any way at all (blocks a tick): her speed, falling included. */
+	public double getAirSpeed() {
+		return motion.length();
 	}
 
 	// --- passengers ------------------------------------------------------------------------------------
@@ -629,8 +645,11 @@ public class ChittyEntity extends Entity {
 	protected void updatePassengerPosition(Entity passenger, Entity.PositionUpdater positionUpdater) {
 		super.updatePassengerPosition(passenger, positionUpdater);
 		if (passenger instanceof LivingEntity) {
-			passenger.setYaw(passenger.getYaw() - yawVelocity);
-			passenger.setHeadYaw(passenger.getHeadYaw() - yawVelocity);
+			// Everyone aboard turns with her, by however far she turned this tick: on the road, on the water and in the
+			// air, and on every client, not only the driver's, which alone knows how fast she is being steered.
+			float turn = MathHelper.wrapDegrees(getYaw() - prevYaw);
+			passenger.setYaw(passenger.getYaw() + turn);
+			passenger.setHeadYaw(passenger.getHeadYaw() + turn);
 			clampPassengerYaw(passenger);
 		}
 	}
@@ -1064,10 +1083,12 @@ public class ChittyEntity extends Entity {
 	}
 
 	private void serverTick(ServerWorld world) {
-		// The hamper's hitbox, while she has her hamper (it goes by itself when she has not).
-		if (hasHamper() && (hamperBox == null || hamperBox.isRemoved())) {
-			hamperBox = new ChittyHamperEntity(world, this);
-			world.spawnEntity(hamperBox);
+		// Her hitboxes along her length (the hamper's only while she has her hamper: it goes by itself when not).
+		for (int i = 0; i < parts.length; i++) {
+			if (ChittyPartEntity.wanted(this, i) && (parts[i] == null || parts[i].isRemoved())) {
+				parts[i] = new ChittyPartEntity(world, this, i);
+				world.spawnEntity(parts[i]);
+			}
 		}
 		if (isLogicalSideForUpdatingMovement()) {
 			input = ChittyControls.NONE;
@@ -1078,14 +1099,24 @@ public class ChittyEntity extends Entity {
 		if (backfireCooldown > 0) {
 			backfireCooldown--;
 		}
-		// The start-up's (or a backfire's) two bangs, each with a puff of smoke out of the exhaust.
+		// The start-up's (or a backfire's) two bangs, each a tongue of flame shot back out of the fishtail, a spatter of
+		// sparks and a puff of dark smoke.
 		if (startTicks >= 0) {
 			startTicks++;
 			if (startTicks == START_BANG_1 || startTicks == START_BANG_2) {
 				Vec3d at = exhaust();
-				world.spawnParticles(ParticleTypes.LARGE_SMOKE, at.x, at.y, at.z, 8, 0.12, 0.08, 0.12, 0.02);
+				float yawRad = getYaw() * MathHelper.RADIANS_PER_DEGREE;
+				Vec3d back = new Vec3d(MathHelper.sin(yawRad), 0.0, -MathHelper.cos(yawRad));
+				for (int i = 0; i < 14; i++) {
+					double s = 0.10 + random.nextDouble() * 0.22;
+					world.spawnParticles(i % 3 == 0 ? ParticleTypes.SMALL_FLAME : ParticleTypes.FLAME, at.x, at.y, at.z, 0,
+							back.x * s + random.nextGaussian() * 0.02, 0.01 + random.nextGaussian() * 0.012,
+							back.z * s + random.nextGaussian() * 0.02, 1.0);
+				}
+				world.spawnParticles(ParticleTypes.LAVA, at.x, at.y, at.z, 3, 0.05, 0.02, 0.05, 0.0);
+				Vec3d puff = at.add(back.multiply(0.5));
+				world.spawnParticles(ParticleTypes.LARGE_SMOKE, puff.x, puff.y, puff.z, 14, 0.18, 0.08, 0.18, 0.03);
 				world.spawnParticles(ParticleTypes.POOF, at.x, at.y, at.z, 4, 0.05, 0.05, 0.05, 0.03);
-				world.spawnParticles(ParticleTypes.FLAME, at.x, at.y, at.z, 2, 0.02, 0.02, 0.02, 0.01);
 			}
 			if (startTicks > START_BANG_2) {
 				startTicks = -1;
@@ -1156,6 +1187,34 @@ public class ChittyEntity extends Entity {
 						getZ() + (random.nextDouble() - 0.5) * 3.0, 0.0, 0.1, 0.0);
 			}
 		}
+		// Into the water fast: a splash, as big as she is going fast, and spray all round her.
+		double through = motion.length();
+		if (wet && !wasWet && through > 0.12 && age > 5) {
+			float size = (float) MathHelper.clamp(through * 1.2, 0.3, 1.5);
+			world.playSound(getX(), getY(), getZ(), through > 0.5 ? SoundEvents.ENTITY_PLAYER_SPLASH_HIGH_SPEED : SoundEvents.ENTITY_GENERIC_SPLASH,
+					SoundCategory.NEUTRAL, size, 0.75F + random.nextFloat() * 0.2F, false);
+			for (int i = 0; i < 20 + (int) (60 * size); i++) {
+				world.addParticle(ParticleTypes.SPLASH, getX() + (random.nextDouble() - 0.5) * 3.5, getY() + 0.3,
+						getZ() + (random.nextDouble() - 0.5) * 3.5, (random.nextDouble() - 0.5) * 0.3, 0.2 + random.nextDouble() * 0.3 * size,
+						(random.nextDouble() - 0.5) * 0.3);
+			}
+		}
+		wasWet = wet;
+		// On the road, the ground under her wheels: gravel crunches, sand hisses, grass swishes, about once a block.
+		if (isOnGround() && !wet && floatOpen < 0.1F) {
+			rolled += getSpeed();
+			if (rolled > 1.2) {
+				rolled = 0.0;
+				BlockPos under = BlockPos.ofFloored(getX(), getY() - 0.2, getZ());
+				BlockState ground = world.getBlockState(under);
+				if (!ground.isAir()) {
+					BlockSoundGroup group = ground.getSoundGroup();
+					world.playSound(getX(), getY(), getZ(), group.getStepSound(), SoundCategory.NEUTRAL,
+							group.getVolume() * (float) MathHelper.clamp(getSpeed() / 0.4, 0.15, 0.6), group.getPitch() * (0.75F + random.nextFloat() * 0.2F),
+							false);
+				}
+			}
+		}
 		// While the raft blows up in the water, bubbles round its edge.
 		if (raft && wet && floatOpen < 1.0F && age % 2 == 0) {
 			Vec3d at = getPos().add(new Vec3d((random.nextDouble() - 0.5) * 3.0, 0.3, (random.nextDouble() - 0.5) * 6.0)
@@ -1202,6 +1261,18 @@ public class ChittyEntity extends Entity {
 		if (ejectTicks < EJECT_SETTLED) {
 			ejectTicks++;
 		}
+		// The dials, each needle easing round to its reading; the rev counter's trembles with the engine.
+		System.arraycopy(dials, 0, prevDials, 0, dials.length);
+		float revs = isEngineRunning()
+				? MathHelper.clamp(0.18F + 0.55F * (float) (h / ROAD_TOP) + 0.2F * Math.max(0, throttle) + (random.nextFloat() - 0.5F) * 0.04F,
+						0.0F, 1.0F)
+				: 0.0F;
+		float[] readings = {(float) MathHelper.clamp(h / AIR_TOP, 0.0, 1.0),
+				MathHelper.clamp((float) (getY() - world.getSeaLevel()) / 200.0F, 0.0F, 1.0F), revs};
+		float[] rates = {0.2F, 0.1F, 0.3F};
+		for (int i = 0; i < dials.length; i++) {
+			dials[i] += (readings[i] - dials[i]) * rates[i];
+		}
 
 		// Smoke out of the exhaust while she runs, more when she pulls.
 		if (isEngineRunning() && age % (throttle > 0 ? 2 : 4) == 0) {
@@ -1247,6 +1318,11 @@ public class ChittyEntity extends Entity {
 	/** How far round the starting handle has been swung (radians). */
 	public float getCrankSpin(float tickDelta) {
 		return MathHelper.lerp(tickDelta, prevCrankSpin, crankSpin);
+	}
+
+	/** How far round its dial a needle on the dashboard is (0 to 1): 0, her speed; 1, her height; 2, the engine's revs. */
+	public float getDial(int dial, float tickDelta) {
+		return MathHelper.lerp(tickDelta, prevDials[dial], dials[dial]);
 	}
 
 	/**
