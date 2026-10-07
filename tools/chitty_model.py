@@ -23,7 +23,7 @@ import sys
 import bpy  # must come first: it provides bmesh and mathutils
 import bmesh
 import numpy as np
-from mathutils import Matrix, Vector
+from mathutils import Euler, Matrix, Vector
 from PIL import Image, ImageDraw, ImageFilter
 
 # --- layout (blocks) ---------------------------------------------------------------------------
@@ -72,11 +72,13 @@ SPARE = (0.70, 0.46, BOARD_Z + 0.01 + WHEEL_R)
 # fans under the dumb irons and the tail fans under the hull, their striped edges showing.
 WING = dict(hinge=(0.70, 1.18, 0.47), blades=8, length=2.4, open_from=-38, spread=50, fold=-90, dihedral=6, stagger=1.0,
             layer=0.009, tuck=0.85, scallop=0.10)
-# One fan at her nose, opening forward and out to her left, its edge cut into bat points, and one at her tail, opening
-# straight back with a little propeller pushing at its end. Folded, the nose fan lies back under the front axle and the
-# tail fan draws in under the hamper.
-NOSEFAN = dict(hinge=(-0.10, 2.40, 0.30), blades=5, length=1.0, open_from=168, spread=68, fold=-90, dihedral=-18,
-               stagger=1.5, layer=0.009, tuck=0.75, scallop=0.30)
+# One fan at her nose, hinged under the GEN 11 plate and opening forward and out to her left, its edge cut into bat
+# points, and one at her tail, opening straight back with a little propeller pushing at its end. The nose fan opens in
+# one plane tilted down to the left and a little to the front (tilt: degrees about her length and across her), so it
+# hangs like the film's, its panels lying edge to edge. Folded, it lies back under the front axle and the tail fan
+# draws in under the hamper.
+NOSEFAN = dict(hinge=(-0.10, 2.40, 0.45), blades=5, length=1.0, open_from=168, spread=68, fold=-90, dihedral=0,
+               stagger=1.5, layer=0.009, tuck=0.75, scallop=0.18, tilt=(-20, -10))
 TAILFAN = dict(hinge=(0.0, -2.85, 0.56), blades=5, length=1.0, open_from=-65, spread=50, fold=-90, dihedral=0,
                stagger=1.5, layer=0.009, tuck=0.40, scallop=0.22)
 TAILPROP_R = 0.28
@@ -1261,6 +1263,7 @@ def fan(name, side, spec, colors, coll, spar=False):
         o['fold_yaw'] = fold
         o['tuck'] = spec['tuck']
         o['dihedral'] = spec['dihedral']
+        o['tilt_along'], o['tilt_across'] = spec.get('tilt', (0, 0))
         objs.append(o)
     return objs, tip
 
@@ -1438,6 +1441,17 @@ def build():
 
 # --- poses -----------------------------------------------------------------------------------------
 
+def fan_rest(o):
+    """The plane a fan panel swings in, as a rotation: tilted about her length, then across her (mirrored on her
+    left)."""
+    r = (Matrix.Rotation(math.radians(o.get('tilt_along', 0.0)), 3, 'Y')
+         @ Matrix.Rotation(math.radians(o.get('tilt_across', 0.0)), 3, 'X'))
+    if side_of(o) < 0:
+        m = Matrix.Diagonal((-1, 1, 1))
+        r = m @ r @ m
+    return r
+
+
 def side_of(o):
     """1 for a part on her right, -1 on her left, from its name (its world matrix is stale until Blender updates it)."""
     return -1 if '_l_' in o.name + '_' else 1
@@ -1452,7 +1466,9 @@ def pose(mode, spin=0.0):
         if 'open_yaw' in o:
             side = side_of(o)
             yaw = math.radians(o['open_yaw'] if fly else o['fold_yaw'])
-            o.rotation_euler = (0, -math.radians(o['dihedral']) * side if fly else 0, yaw * side)
+            swing = Euler((0, -math.radians(o['dihedral']) * side if fly else 0, yaw * side), 'XYZ').to_matrix()
+            o.rotation_mode = 'QUATERNION'
+            o.rotation_quaternion = (fan_rest(o) @ swing).to_quaternion()
             k = 1.0 if fly else o['tuck']
             o.scale = (k * side, k, 1)
         elif part.startswith('mast_'):
@@ -1590,7 +1606,8 @@ def neutral():
         o.hide_render = o.hide_viewport = False
         if 'open_yaw' in o:
             side = side_of(o)
-            o.rotation_euler = (0, 0, 0)
+            o.rotation_mode = 'QUATERNION'
+            o.rotation_quaternion = fan_rest(o).to_quaternion()
             o.scale = (side, 1, 1)
         elif part.startswith('mast_'):
             o.rotation_mode = 'QUATERNION'
@@ -1960,7 +1977,7 @@ def export_game(root):
                     extra = quat_to_mc(R.to_quaternion())
             else:
                 pivot = o.location.copy()
-                rot = quat_to_mc(o.rotation_euler.to_quaternion())
+                rot = quat_to_mc(o.rotation_quaternion if o.rotation_mode == 'QUATERNION' else o.rotation_euler.to_quaternion())
                 if 'open_yaw' in o:
                     extra = (float(o['open_yaw']), float(o['dihedral']), float(o['fold_yaw']), float(o['tuck']))
             lit = name.startswith(GAME_LIT)
