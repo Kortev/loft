@@ -641,12 +641,18 @@ def build_radiator():
     loft(m, [(BONNET_FRONT - 0.005, neck), (BONNET_FRONT + 0.03, radiator_outline(0.97)), (BONNET_FRONT + 0.05, shell),
              (2.28, shell), (2.31, radiator_outline(0.97)), (2.31, rim_in), (2.295, radiator_outline(0.84))], 'brass')
     o = m.obj('radiator', smooth=50)
+    # The core on its own, facing forward whatever Blender would make of a lone flat face (turned in, it bakes black).
     m = Mesh()
     core = radiator_outline(0.84)
     ring = [m.vert((x, 2.295, z)) for x, z in core]
     f = m.face(ring, 'honeycomb')
+    f.normal_update()
+    if f.normal.y < 0:
+        f.normal_flip()
     for loop in f.loops:
         loop[m.uv].uv = (loop.vert.co.x * 2.2 + 0.5, (loop.vert.co.z - zc) * 2.2 + 0.5)
+    m.obj('grille_core', recalc=False)
+    m = Mesh()
     add_box(m, (0, 2.30, zc - 0.01), (0.035, 0.02, RADIATOR_R * 1.6), 'brass')
     lathe(m, [(0.0, 2.33), (0.05, 2.325), (0.06, 2.30)], lambda k: 'brass', axis='y', seg=24, origin=(0, 0, zc))
     m.obj('grille', smooth=40)
@@ -1662,7 +1668,7 @@ def bake_worlds():
 TEXEL_WEIGHT = {'chassis': 0.3, 'floor': 0.4, 'bulkhead': 0.3, 'boards': 0.6, 'float': 0.45, 'screw': 0.5,
                 'wing_': 0.32, 'nosefan_': 0.45, 'tailfan_': 0.45, 'mast_': 0.6, 'rotor_': 0.6, 'tailprop': 0.8,
                 'plate_text': 1.6,
-                'plates': 1.3, 'radiator': 1.3, 'grille': 1.3, 'mascot': 1.3, 'lamps': 1.3, 'horn': 1.3, 'dashboard': 1.3,
+                'plates': 1.3, 'radiator': 1.3, 'grille': 1.3, 'grille_core': 1.3, 'mascot': 1.3, 'lamps': 1.3, 'horn': 1.3, 'dashboard': 1.3,
                 'bonnet': 1.15, 'hull': 1.15}
 
 
