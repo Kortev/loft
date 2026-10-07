@@ -72,14 +72,15 @@ SPARE = (0.70, 0.46, BOARD_Z + 0.01 + WHEEL_R)
 # fans under the dumb irons and the tail fans under the hull, their striped edges showing.
 WING = dict(hinge=(0.70, 1.18, 0.47), blades=8, length=2.4, open_from=-38, spread=50, fold=-90, dihedral=6, stagger=1.0,
             layer=0.009, tuck=0.85, scallop=0.10)
-# The nose wing, as in the film: a fan hinged under each end of the GEN 11 plate, four long broad panels each, red and
-# yellow, opening from straight ahead round to straight out at her side, their outer edge cut into deep bat scallops
-# pointed where the panels meet, no ribs showing. Each opens in a plane tipped down towards its outer side and a
-# little at the front (tilt: degrees about her length and across her), so its face shows from in front. Folded, each
-# lies back under the front axle. And one fan at her tail, opening straight back with a little propeller pushing at
-# its end, which folds in under the hamper.
-NOSEFAN = dict(hinge=(0.22, 2.38, 0.52), blades=4, length=1.1, open_from=76, spread=76, fold=-90, dihedral=0,
-               stagger=1.5, layer=0.009, tuck=0.55, scallop=0.10, tilt=(15, -8), ribs=False)
+# The nose wing, as in the film: one fan straight out in front of her, four broad sections, yellow and red, spreading
+# from a straight line under the GEN 11 plate to a wide outer edge in shallow bat scallops, pointed where the sections
+# meet, no ribs showing: a trapezoid. Its sections turn about a point behind that line (the hinge here, under the
+# radiator; root: how far in front of it the line is), and it opens in a plane tipped down a little at the front (tilt:
+# degrees about her length and across her). Folded, it closes up and swings back under her, half each way round. And
+# one fan at her tail, opening straight back with a little propeller pushing at its end, which folds in under the
+# hamper.
+NOSEFAN = dict(hinge=(0.0, 1.92, 0.55), blades=4, length=1.31, open_from=116.25, spread=52.5, fold=-90, dihedral=0,
+               stagger=1.5, layer=0.009, tuck=0.6, scallop=0.07, tilt=(0, -12), ribs=False, root=0.457)
 TAILFAN = dict(hinge=(0.0, -2.85, 0.56), blades=5, length=1.0, open_from=-65, spread=50, fold=-90, dihedral=0,
                stagger=1.5, layer=0.009, tuck=0.40, scallop=0.22)
 TAILPROP_R = 0.28
@@ -1205,19 +1206,21 @@ def build_plates():
     text_object('GEN 11', 0.085, (0, -3.182, 0.79), (math.radians(90), 0, 0), 'letters')
 
 
-def wedge(m, length, half_angle, mat, spar=False, scallop=0.1, rib=True):
+def wedge(m, length, half_angle, mat, spar=False, scallop=0.1, rib=True, inner=None):
     """One panel of a fan: a wedge out along +X from its hinge, its tip cut in between its corners (overlapping its
     neighbours, the open fan is one striped sail with a scalloped edge, like an umbrella's), a rib down the middle. The
-    first panel of a big wing carries the red box spar down its leading edge."""
+    first panel of a big wing carries the red box spar down its leading edge. inner, if given, is how far out the panel
+    starts at each angle from its middle (radians): a fan cut off along a line short of its hinge."""
     a = math.radians(half_angle)
-    radial = [0.04 + (length - 0.04) * j / 8 for j in range(9)]
     cols = 7
     grid = []
-    for j, r in enumerate(radial):
+    for j in range(9):
         row = []
         for k in range(cols):
             t = -1 + 2 * k / (cols - 1)
             ang = a * t
+            r0 = inner(ang) if inner else 0.04
+            r = r0 + (length - r0) * j / 8
             rr = r * (1 - scallop * (1 - t * t) * (j / 8) ** 3)
             row.append(m.vert((rr * math.cos(ang), rr * math.sin(ang), 0.0)))
         grid.append(row)
@@ -1246,8 +1249,11 @@ def fan(name, side, spec, colors, coll, spar=False):
     tip = None
     for i in range(blades):
         m = Mesh()
+        # A fan cut off along a straight line across it, root in front of the hinge.
+        off = math.radians(spec['open_from'] - step * i - (spec['open_from'] - spec['spread'] / 2))
+        inner = (lambda ang, off=off: spec['root'] / math.cos(off + ang)) if spec.get('root') else None
         t = wedge(m, spec['length'], step / 2 + 1.0, colors[i % 2], spar=spar and i == 0, scallop=spec['scallop'],
-                  rib=spec.get('ribs', True))
+                  rib=spec.get('ribs', True), inner=inner)
         if t is not None:
             tip = t
         tag = '%s_%s_%d' % (name, 'c' if side == 0 else 'r' if side > 0 else 'l', i)
@@ -1364,8 +1370,7 @@ def build_wings():
         panels, tip = fan('wing', s, WING, ('wing_red', 'wing_yellow'), 'wings', spar=True)
         objs += panels
         build_rotor(panels[0], tip, s)
-    for side in (1, -1):
-        objs += fan('nosefan', side, NOSEFAN, ('wing_yellow', 'wing_red'), 'wings')[0]
+    objs += fan('nosefan', 0, NOSEFAN, ('wing_yellow', 'wing_red'), 'wings')[0]
     tail = fan('tailfan', 0, TAILFAN, ('wing_red', 'wing_yellow'), 'wings')[0]
     objs += tail
     build_tailprop(tail[len(tail) // 2])
