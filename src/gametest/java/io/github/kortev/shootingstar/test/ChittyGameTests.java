@@ -198,7 +198,8 @@ public class ChittyGameTests implements FabricGameTest {
 		List<ZombieEntity> riders = new ArrayList<>();
 		for (int i = 0; i < 4; i++) {
 			ZombieEntity zombie = context.spawnEntity(EntityType.HUSK, new Vec3d(1.0 + i, 1.0, 1.0));
-			zombie.setAiDisabled(true);
+			// The back seat's riders keep their AI: a mob without it never moves, so it could not be thrown.
+			zombie.setAiDisabled(i < 2);
 			context.assertTrue(car.seat(zombie, i), "could not seat a passenger in seat " + i);
 			riders.add(zombie);
 		}
@@ -295,7 +296,7 @@ public class ChittyGameTests implements FabricGameTest {
 		});
 	}
 
-	/** Four seats, the first (the driver's) on her right; a fifth passenger is turned away. */
+	/** Four seats, mobs filling the back first and the driver's (on her right) last; a fifth passenger is turned away. */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_chitty", tickLimit = 40)
 	public void seatsFour(TestContext context) {
 		floor(context, 0);
@@ -312,11 +313,15 @@ public class ChittyGameTests implements FabricGameTest {
 		context.runAtTick(5, () -> {
 			context.assertTrue(car.getPassengerList().size() == 4, "seats " + car.getPassengerList().size());
 			context.assertTrue(!riders.get(4).hasVehicle(), "a fifth got in");
+			// Mobs fill the back seat first and the driver's seat last.
+			context.assertTrue(car.seatOf(riders.get(0)) == 2 && car.seatOf(riders.get(1)) == 3, "the back seat did not fill first: "
+					+ car.seatOf(riders.get(0)) + ", " + car.seatOf(riders.get(1)));
+			context.assertTrue(car.seatOf(riders.get(3)) == 0, "the driver's seat was not last: " + car.seatOf(riders.get(3)));
 			// At yaw 0 she faces +z, so her right is -x.
-			ZombieEntity first = (ZombieEntity) car.getPassengerList().get(0);
-			context.assertTrue(first.getX() < car.getX() - 0.2, "the first seat is not on her right: " + (first.getX() - car.getX()));
-			ZombieEntity back = (ZombieEntity) car.getPassengerList().get(2);
+			ZombieEntity back = riders.get(0);
 			context.assertTrue(back.getZ() < car.getZ() - 0.5, "the back seat is not behind: " + (back.getZ() - car.getZ()));
+			ZombieEntity driver = riders.get(3);
+			context.assertTrue(driver.getX() < car.getX() - 0.2, "the driver's seat is not on her right: " + (driver.getX() - car.getX()));
 			context.complete();
 		});
 	}

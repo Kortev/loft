@@ -113,33 +113,42 @@ The feed, and the rebuild, can be hurried with the same key as Gungnir's skip (B
 
 ## Chitty Chitty Bang Bang
 
-GEN 11, the car from the film, built in Blender from photographs of it: a long polished aluminium bonnet, a cone
-tapering to a brass radiator round over the top and flatter at the foot, the GEN 11 plate hung under it, a leather
-strap round the bonnet and great brass headlamps either side; a boat of varnished
-red and white cedar behind, open over the front seat and decked over to a pointed stern, the back seat sunk in an oval
-well in the deck with wood all round it, a wicker hamper on a rack under the point; black wings over red artillery
-wheels, black running boards with brass grilles, a red spare wheel stood against the scuttle, four copper pipes out of
-the bonnet into the great exhaust along the running board, and the brass serpent horn.
+GEN 11, the car from the film, built in Blender from photographs of it: a long polished aluminium bonnet, an
+egg-shaped radiator (a gold rim round a grey honeycomb, round over the top and wider low down) with the great brass
+headlamps set into its rim, the GEN 11 plate hung under it and a leather strap round the bonnet; a boat of varnished
+red and white cedar behind, open over the front seat (its edge cut down in a U each side to step in over) and decked
+over to a pointed stern, the back seat sunk in an oval well in the deck with wood all round it, a wicker hamper on a
+rack under the point; black wings over red artillery wheels, black running boards with brass grilles, a red spare
+wheel stood against the bonnet just behind the front wing, four copper pipes out of the bonnet into the great exhaust
+along the running board, the brass serpent horn running low along the bonnet over the front wing, a brass spotlight
+with a carrying handle on each post of the windscreen, and the gear lever and handbrake outside the driver's door.
 
-- **Put her down:** use the item on the ground or on water; she faces the way you face. Use her to get in. She seats
-  four; the first in drives, from the right-hand seat. Sneak to get out.
+- **Put her down:** use the item on the ground or on water; she faces the way you face. Use her to get in: you take
+  the seat nearest where you click (the driver's, the one beside it or either of the two in the back), and the one in
+  the driver's seat (the right-hand one) drives. Sneak to get out.
 - **Drive:** forward and back to accelerate, brake and reverse, left and right to steer. She climbs a block at a time
-  and stops at walls rather than driving her bonnet into them.
-- **Fly:** jump at speed and her red and yellow wings swing out from under the running boards and fan open, each with
-  a mast standing up at its end and a propeller turning flat on top; the nose wing opens out in front of her, four
-  sections spreading from a line under the GEN 11 plate to five bat points, the middle one furthest out; and a fan
-  opens straight back under her tail with a little propeller pushing on its end.
-  Hold jump to climb, sprint to dive, forward for more speed; slow down too far and she sinks. Land (or splash down)
-  and she folds them away again a moment later.
+  and stops at walls rather than driving her bonnet into them. The gear lever and handbrake move as she is driven and
+  the starting handle swings as she starts.
+- **Fly:** G (rebindable) opens the wings, slowly and with a great creaking. Each side wing is one pleated red and
+  yellow cloth, folded up on edge under the running board; its back edge stays along her side while the front edge
+  swings out and the pleats flatten as it unfolds, until it lies out flat with a mast standing up at its end and a
+  propeller turning flat on top. The nose wing opens out in front of her, four sections spreading from a line under
+  the GEN 11 plate to five bat points, the middle one furthest out; the tail wing, five sections, fans out behind under
+  the hamper; and the pusher propeller unfolds on its shaft on the stern. Then jump at speed to lift off.
+  Hold jump to climb, sprint to dive, forward for more speed; slow down too far and she sinks. G again folds them
+  away; opened by hand they stay open on the ground until you put them away.
 - **Off a cliff:** she falls, and only as the ground (or the sea) comes up at her do the wings spring out by
   themselves and pull her up out of the dive, as long as someone is aboard.
-- **Float:** in the water she wades and settles at first; after a couple of seconds she blows up a great pink raft
-  under herself, pointed at both ends, rises onto it, turns her wheels flat on it and drives a screw behind. She does
-  it with nobody aboard too: get out and run as the tide comes in, and she blows it up herself. Coming down on the
-  water with her wings out, the raft comes up at once.
-- **Wings and raft by hand:** G opens the wings and propellers or folds them, B blows up the raft or lets it down
-  (both rebindable), standing still if you like: opened by hand they stay open on the ground until you put them away.
-  Let the raft down in the water and she settles to the bottom; get out and she brings it up again by herself.
+- **Float:** the raft is hers alone, there is no key for it. In the water she wades and settles at first; after a
+  couple of seconds she turns her wheels flat and blows up a great pink raft under herself, pointed at both ends, and
+  drives a screw behind. Never with her wings out: come down on the water from the air and the wings fold and the raft
+  comes up at once; open the wings on the water and she lifts off it. Drive up a bank and she climbs out onto the
+  land, where the raft goes down again. She does it with nobody aboard too: get out and run as the tide comes in, and
+  she blows it up herself.
+- **Ejector:** X (rebindable), for the driver, throws whoever is in the back seat up into the air, to float down
+  under slow falling.
+- **Hamper:** use the hamper on her stern to open it (27 stacks); sneak and use her to take it off (it spills what it
+  holds) or put it back on.
 - **Horn:** H (rebindable) squeezes the serpent's bulb.
 
 She starts with two sputters and two bangs, and backfires (bang bang) every so often as she runs and when the

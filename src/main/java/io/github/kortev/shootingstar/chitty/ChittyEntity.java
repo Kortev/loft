@@ -82,6 +82,9 @@ public class ChittyEntity extends Entity {
 	/** Where each seat is (the driver's, the one beside it, then the back two), from tools/chitty_model.py. */
 	private static final Vec3d[] SEATS = {new Vec3d(-0.30, 0.75, -0.10), new Vec3d(0.30, 0.75, -0.10),
 			new Vec3d(-0.20, 0.75, -1.30), new Vec3d(0.20, 0.75, -1.30)};
+	// The order seats are filled in when nobody chose one: players from the driver's back, anyone else from the back.
+	private static final int[] FRONT_FIRST = {0, 1, 2, 3};
+	private static final int[] BACK_FIRST = {2, 3, 1, 0};
 	/** The mouth of the exhaust, beside the driver's running board. */
 	public static final Vec3d EXHAUST = new Vec3d(-0.83, 0.63, -1.02);
 	/** The point the car pitches and rolls about. */
@@ -513,9 +516,12 @@ public class ChittyEntity extends Entity {
 		super.addPassenger(passenger);
 		if (!getWorld().isClient) {
 			int seat = wantedSeat >= 0 && seated[wantedSeat] == null ? wantedSeat : -1;
-			for (int i = 0; seat < 0 && i < SEATS.length; i++) {
-				if (seated[i] == null) {
-					seat = i;
+			// Nobody chose a seat: a player takes the first free one from the driver's back, anyone else (a mob put in
+			// her, a child) the back seat first.
+			int[] order = passenger instanceof PlayerEntity ? FRONT_FIRST : BACK_FIRST;
+			for (int k = 0; seat < 0 && k < order.length; k++) {
+				if (seated[order[k]] == null) {
+					seat = order[k];
 				}
 			}
 			if (seat >= 0) {

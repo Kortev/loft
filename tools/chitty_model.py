@@ -58,8 +58,9 @@ HULL = [
     (-3.06, 0.01, 1.36, 1.18),
 ]
 HULL_NX, HULL_NZ = 1.8, 2.4   # squareness of the sections across and down
-# Beside the front seat the gunwale dips in a U, each side, to step in over: (from, to, depth).
-DOOR = (-0.15, 0.45, 0.22)
+# Beside the front seat the top of the hull is cut down in a U, each side, to step in over: (from, to, depth). The hull
+# keeps its shape; only its edge comes down.
+DOOR = (-0.15, 0.45, 0.17)
 HULL_SKIN = 0.035
 # Behind the front seat the hull is decked over right to the point of the stern, the deck crowned like a boat's, its
 # front edge curving forward at the sides round the back of the front seat. The back seat sits down in an oval well
@@ -69,13 +70,15 @@ DECK_CROWN = 0.07
 WELL = (-1.40, 0.40, 0.50)             # the well's centre (y), half-width and half-length
 FLOOR_Z = 0.66
 FRONT_SEAT_Y, REAR_SEAT_Y = -0.10, -1.30
-SPARE = (0.53, 0.78, BOARD_Z + 0.02 + WHEEL_R)
-# The fans: hinge, panels, length, open angle of the first panel and spread back from it (0 is straight out, positive
-# forward), folded angle, dihedral, how far round each folded panel lies from the last, how far apart they stack, and
-# how far they draw in when folded (their ribs telescope). Folded, the wings lie under the running boards, the front
-# fans under the dumb irons and the tail fans under the hull, their striped edges showing.
-WING = dict(hinge=(0.70, 1.18, 0.50), blades=8, length=2.4, open_from=-38, spread=50, fold=-90, dihedral=6, stagger=1.0,
-            layer=0.003, tuck=0.85, scallop=0.10, ribs='seams')
+SPARE = (0.70, 0.80, BOARD_Z + 0.02 + WHEEL_R)
+# The side wings: hinge, panels, length, open angle of the first panel and spread back from it (0 is straight out,
+# positive forward), dihedral, how far apart they stack, and how far they draw in when folded (their ribs telescope).
+# Each is one pleated cloth, a hand fan on its side: its back edge always along her side under the running board, its
+# panels pleated up and down. Folded, it is closed up to a little of its spread (closed), the pleats standing on edge,
+# and dropped (drop, at most) to hang under the running board; opening, the front edge swings out and the pleats
+# flatten as they open, all together.
+WING = dict(hinge=(0.70, 1.18, 0.50), blades=8, length=2.4, open_from=-38, spread=50, closed=0.07, drop=0.15,
+            dihedral=6, layer=0.003, tuck=0.85, scallop=0.10, ribs='seams')
 # The nose wing, as in the film: one fan straight out in front of her, four sections, yellow and red, spreading from a
 # straight line under the GEN 11 plate (root: its half-width) to five points: the middle one reaching furthest, the
 # next pair less far and the outer pair least, the outer sections half as wide as the inner two (tips: each point's
@@ -431,23 +434,24 @@ def perimeter_uv(pts, closed=True):
     return [x / d[-1] for x in d]
 
 
-def loft(m, sections, mat, closed=True, cap_start=None, cap_end=None, v_scale=1.0):
-    """Joins sections [(y, [(x, z), ...]), ...] (same point count) into a skin. u runs round each section, v along
-    the car. Caps are filled with the given materials."""
+def loft(m, sections, mat, closed=True, cap_start=None, cap_end=None, v_scale=1.0, us=None):
+    """Joins sections [(y, [(x, z), ...]), ...] (same point count) into a skin. u runs round each section (us, if
+    given, says where each point of each section is), v along the car. Caps are filled with the given materials."""
     rings = []
     for y, pts in sections:
         rings.append([m.vert((x, y, z)) for x, z in pts])
     n = len(sections[0][1])
-    us = perimeter_uv(sections[0][1], closed)
+    if us is None:
+        us = [perimeter_uv(sections[0][1], closed)] * len(sections)
     y0 = sections[0][0]
     for k in range(len(rings) - 1):
         a, b = rings[k], rings[k + 1]
+        ua, ub = us[k], us[k + 1]
         va = (sections[k][0] - y0) * v_scale
         vb = (sections[k + 1][0] - y0) * v_scale
         for i in range(n if closed else n - 1):
-            j = (i + 1) % n
-            uj = us[i + 1]
-            m.face([a[i], a[j], b[j], b[i]], mat, [(us[i], va), (uj, va), (uj, vb), (us[i], vb)])
+            j = i + 1 if i + 1 < len(ua) else 0
+            m.face([a[i], a[j % n], b[j % n], b[i]], mat, [(ua[i], va), (ua[j], va), (ub[j], vb), (ub[i], vb)])
     if cap_start:
         f = m.face(list(reversed(rings[0])) if sections[0][0] < sections[-1][0] else rings[0], cap_start)
         box_uv(m, [f])
@@ -591,21 +595,51 @@ def hull_section(y, hw, zt, zb, inset=0.0, count=72, t0=0.0, t1=math.pi):
 
 
 def door_dip(y):
-    """How far the gunwale dips at y for the door beside the front seat: a U, steep at its ends."""
+    """How far the hull's edge is cut down at y for the door beside the front seat: a flat-bottomed U whose ends ease
+    smoothly into the gunwale."""
     y0, y1, depth = DOOR
-    if not y0 < y < y1:
-        return 0.0
-    return depth * math.sin(math.pi * (y - y0) / (y1 - y0)) ** 0.45
+
+    def ease(x):
+        x = min(1.0, max(0.0, x))
+        return x * x * (3 - 2 * x)
+    return depth * ease((y - y0) / 0.16) * ease((y1 - y) / 0.16)
 
 
-def hull_at(y, door=True):
-    """The hull's (half-width, gunwale, keel) at y, between the listed sections; the gunwale dipped at the doors."""
+def hull_at(y):
+    """The hull's (half-width, gunwale, keel) at y, between the listed sections."""
     for (y0, *a), (y1, *b) in zip(HULL, HULL[1:]):
         if y1 <= y <= y0:
             k = (y0 - y) / (y0 - y1)
-            hw, zt, zb = (p + (q - p) * k for p, q in zip(a, b))
-            return hw, zt - (door_dip(y) if door else 0.0), zb
+            return tuple(p + (q - p) * k for p, q in zip(a, b))
     return tuple(HULL[0][1:]) if y > HULL[0][0] else tuple(HULL[-1][1:])
+
+
+def hull_edge(y):
+    """The height of the hull's top edge at y: the gunwale, cut down at the doors."""
+    return hull_at(y)[1] - door_dip(y)
+
+
+def edge_angle(y, inset=0.0):
+    """Where round a hull section (hull_section's t) its edge is, the section cut off at hull_edge: 0 at the
+    gunwale."""
+    hw, zt, zb = hull_at(y)
+    zb += inset
+    cut = hull_edge(y)
+    if cut >= zt - 1e-6:
+        return 0.0
+    return math.asin(min(1.0, ((zt - cut) / (zt - zb)) ** (HULL_NZ / 2)))
+
+
+def hull_cut(y, inset=0.0, count=72):
+    """A hull section cut off at hull_edge, and where round the whole section (0 to 1, from the right gunwale) each of
+    its points lies: the planks keep their places on a cut section and run on straight past the doors."""
+    t0 = edge_angle(y, inset)
+    pts = hull_section(y, *hull_at(y), inset=inset, count=count, t0=t0, t1=math.pi - t0)
+    dense = hull_section(y, *hull_at(y), inset=inset, count=2000)
+    run = perimeter_uv(dense, closed=False)
+    ts = np.linspace(0.0, math.pi, 2001)
+    us = [float(np.interp(t0 + (math.pi - 2 * t0) * i / count, ts, run)) for i in range(count + 1)]
+    return pts, us
 
 
 def hull_ys():
@@ -614,9 +648,9 @@ def hull_ys():
     return sorted(ys, reverse=True)
 
 
-def hull_half_width(y, z, inset=0.0, door=True):
+def hull_half_width(y, z, inset=0.0):
     """How far out the hull's side is at height z (0 below the keel)."""
-    hw, zt, zb = hull_at(y, door)
+    hw, zt, zb = hull_at(y)
     hw, zb = hw - inset, zb + inset
     if z <= zb:
         return 0.0
@@ -784,15 +818,23 @@ def build_hull():
     """The boat: a planked cedar skin, lined with red leather round the open front cockpit, decked over in planked cedar
     behind it to the point of the stern with the back seat's well let into the deck; a walnut capping along the
     gunwales, a brass strip down each side and a brass cap on the point of the stern."""
-    outer = [(y, hull_section(y, *hull_at(y))) for y in hull_ys()]
+    outer, us = [], []
+    for y in hull_ys():
+        pts, u = hull_cut(y)
+        outer.append((y, pts))
+        us.append(u)
     m = Mesh()
-    loft(m, outer, 'cedar', closed=False, v_scale=0.3)
+    loft(m, outer, 'cedar', closed=False, v_scale=0.3, us=us)
     o = m.obj('hull', smooth=55)
     # The lining of the front cockpit, back to the deck.
     m = Mesh()
     ys = [y for y in hull_ys() if y > DECK_SIDE] + [DECK_SIDE, (DECK_SIDE + DECK_FRONT) / 2, DECK_FRONT]
-    secs = [(y, list(reversed(hull_section(y, *hull_at(y), inset=HULL_SKIN)))) for y in ys]
-    loft(m, secs, 'leather_plain', closed=False, v_scale=2.0)
+    secs, us = [], []
+    for y in ys:
+        pts, u = hull_cut(y, HULL_SKIN)
+        secs.append((y, list(reversed(pts))))
+        us.append([1.0 - x for x in reversed(u)])
+    loft(m, secs, 'leather_plain', closed=False, v_scale=2.0, us=us)
     m.obj('lining', smooth=55)
     # The deck: rings from the edge of the well out to the edge of the deck, every point on the crowned surface.
     m = Mesh()
@@ -815,13 +857,23 @@ def build_hull():
         for k in range(rings):
             q = [grid[i][k], grid[j][k], grid[j][k + 1], grid[i][k + 1]]
             m.face(q, 'cedar', [(v.co.x / 1.5 + 0.5, v.co.y * 0.3) for v in q])
-    # The deck's front edge drops into the cockpit behind the front seat.
+    # The deck's front edge drops into the cockpit behind the front seat, a walnut bulkhead inside the lining from the
+    # deck down to the floor.
     hw = hull_at(DECK_SIDE)[0]
     edge = [(x, deck_front(x)) for x in np.linspace(-hw + 0.04, hw - 0.04, 24)]
-    top = [m.vert((x, y, deck_z(x, y) - 0.004)) for x, y in edge]
-    bot = [m.vert((x, y, FLOOR_Z)) for x, y in edge]
+    rows = 6
+    grid = []
+    for x, y in edge:
+        top = deck_z(x, y) - 0.004
+        col = []
+        for r in range(rows + 1):
+            z = top + (FLOOR_Z - top) * r / rows
+            inside = max(0.0, hull_half_width(y, z, HULL_SKIN) - 0.004)
+            col.append(m.vert((math.copysign(min(abs(x), inside), x), y, z)))
+        grid.append(col)
     for k in range(len(edge) - 1):
-        m.face([bot[k], bot[k + 1], top[k + 1], top[k]], 'walnut')
+        for r in range(rows):
+            m.face([grid[k][r + 1], grid[k + 1][r + 1], grid[k + 1][r], grid[k][r]], 'walnut')
     m.obj('deck', smooth=50)
     # The well: a walnut coaming round its lip, buttoned red leather down its sides, carpet at the bottom.
     m = Mesh()
@@ -853,14 +905,14 @@ def build_hull():
         ys = hull_ys()
         path = []
         for y in ys:
-            hw, zt, zb = hull_at(y)
-            path.append((s * max(hw - HULL_SKIN / 2, 0.0), y, zt + 0.012))
+            z = hull_edge(y)
+            path.append((s * max(hull_half_width(y, z - 1e-4) - HULL_SKIN / 2, 0.0), y, z + 0.012))
         tube(m, catmull(path, 3), 0.022, 'walnut', seg=10)
         strip = []
         for y in [y for y, *_ in HULL][:-1]:
-            hw, zt, zb = hull_at(y, door=False)
+            hw, zt, zb = hull_at(y)
             z = zt - 0.24
-            strip.append((s * (hull_half_width(y, z, door=False) + 0.006), y, z))
+            strip.append((s * (hull_half_width(y, z) + 0.006), y, z))
         tube(m, catmull(strip, 6), 0.009, 'brass', seg=8)
     y, hw, zt, zb = HULL[-1]
     ellipsoid(m, (0.0, y - 0.01, zt + 0.01), (0.03, 0.05, 0.04), 'brass', seg=12, rings=8)
@@ -892,14 +944,21 @@ def build_seats():
         o.modifiers.new('smooth', 'WEIGHTED_NORMAL')
         return o
 
-    # The front bench, and its buttoned back curving forward round the sides with the deck's edge.
-    seat('seat_front', (0, FRONT_SEAT_Y, 0.78), (1.00, 0.44, 0.16))
+    # The front bench, as wide as the hull lets it be at its foot, and its buttoned back curving forward round the
+    # sides with the deck's edge, drawn in at the bottom where the hull narrows.
+    width = 2 * (hull_half_width(FRONT_SEAT_Y - 0.22, 0.70, HULL_SKIN) - 0.02)
+    seat('seat_front', (0, FRONT_SEAT_Y, 0.78), (width, 0.44, 0.16))
     m = Mesh()
     hw = hull_at(DECK_SIDE)[0]
     xs = np.linspace(-hw + 0.10, hw - 0.10, 25)
     rings = []
     for z in np.linspace(0.84, 1.40, 5):
-        rings.append([m.vert((x, deck_front(x) + 0.08, z)) for x in xs])
+        ring = []
+        for x in xs:
+            y = deck_front(x) + 0.08
+            inside = hull_half_width(y, z, HULL_SKIN) - 0.07
+            ring.append(m.vert((math.copysign(min(abs(x), inside), x), y, z)))
+        rings.append(ring)
     run = perimeter_uv([(x, deck_front(x)) for x in xs], closed=False)
     for j in range(len(rings) - 1):
         for k in range(len(xs) - 1):
@@ -1031,8 +1090,12 @@ def build_spare():
     wheel_mesh(1).obj('spare', location=SPARE, smooth=45)
     m = Mesh()
     tube(m, [Vector((x - 0.07, y, z)), Vector((bonnet_ring(y)[0] - 0.03, y, z))], 0.022, 'brass', seg=10)
-    arc = [(0.47 * math.cos(t), z + 0.47 * math.sin(t)) for t in np.linspace(math.radians(60), math.radians(120), 10)]
-    loft(m, [(x - 0.035, [(y + a, b) for a, b in arc]), (x + 0.035, [(y + a, b) for a, b in arc])], 'strap', closed=False)
+    # The strap over the top of the tyre, round from one side of the bracket to the other.
+    arc = [(y + 0.47 * math.cos(t), z + 0.47 * math.sin(t)) for t in np.linspace(math.radians(60), math.radians(120), 10)]
+    for k in range(len(arc) - 1):
+        (y0, z0), (y1, z1) = arc[k], arc[k + 1]
+        q = [m.vert((x - 0.035, y0, z0)), m.vert((x - 0.035, y1, z1)), m.vert((x + 0.035, y1, z1)), m.vert((x + 0.035, y0, z0))]
+        m.face(q, 'strap', [(0, k / 9), (0, (k + 1) / 9), (1, (k + 1) / 9), (1, k / 9)])
     m.obj('spare_mount', smooth=40)
 
 
@@ -1160,8 +1223,8 @@ def build_lamps():
         lamp(m, glass, (cx, 2.30, 1.13), 0.165, 0.14)
         cl = s * 0.64
         y = BONNET_BACK - 0.05
-        spotlight(m, glass, (cl, y + 0.02, 1.56), 0.085, 0.16)
-        add_box(m, ((cl + s * 0.56) / 2, y, 1.53), (0.08, 0.02, 0.025), 'brass')
+        spotlight(m, glass, (cl, y + 0.02, 1.63), 0.085, 0.16)
+        add_box(m, ((cl + s * 0.56) / 2, y, 1.60), (0.08, 0.02, 0.025), 'brass')
     m.obj('lamps', smooth=40)
     glass.obj('lamp_glass', smooth=40, part='glass')
 
@@ -1177,7 +1240,7 @@ def build_exhaust():
         t = (main[i + 1] - main[i - 1]).normalized()
         tube(m, [main[i] - t * 0.008, main[i] + t * 0.008], 0.054, 'copper', seg=16)
     a = math.radians(8)
-    for k, (y, to) in enumerate(((1.62, 0), (1.50, 4), (1.38, 8), (1.27, 12))):
+    for k, (y, to) in enumerate(((1.64, 0), (1.53, 4), (1.42, 8), (1.31, 12))):
         r, zc = bonnet_ring(y)
         p0 = Vector((r * math.cos(a) - 0.01, y, zc + r * math.sin(a)))
         p1 = main[min(to, len(main) - 1)]
@@ -1193,22 +1256,25 @@ def build_exhaust():
 
 def build_horn():
     """The serpent horn: a brass snake from the rubber bulb by the driver's hand, down behind the spare wheel and along
-    the side of the bonnet low over the front wing, rearing up a little at the front with its jaws open."""
+    the side of the bonnet low over the front wing, well under the exhaust pipes, rearing up a little at the front with
+    its jaws open."""
     m = Mesh()
-    path = catmull([(0.46, 0.56, 1.30), (0.48, 0.70, 1.12), (0.50, 0.95, 0.98), (0.50, 1.20, 0.95), (0.49, 1.42, 0.96),
-                    (0.48, 1.58, 1.00), (0.47, 1.68, 1.05)], 8)
+    path = catmull([(0.43, 0.75, 1.28), (0.47, 0.90, 1.12), (0.48, 1.05, 0.95), (0.46, 1.25, 0.87), (0.45, 1.45, 0.86),
+                    (0.45, 1.62, 0.89), (0.45, 1.72, 0.95)], 8)
     tube(m, path, 0.014, 'brass', seg=12, flare=lambda t: 1.0 + 1.1 * t ** 1.5)
     lathe(m, [(0.0, -0.05), (0.03, -0.045), (0.045, -0.02), (0.045, 0.02), (0.02, 0.04), (0.012, 0.05)],
-          lambda k: 'bulb', axis='y', seg=20, origin=(0.46, 0.51, 1.30))
-    head = Vector((0.47, 1.74, 1.06))
+          lambda k: 'bulb', axis='y', seg=20, origin=(0.42, 0.70, 1.31))
+    head = Vector((0.45, 1.78, 0.97))
     ellipsoid(m, head + Vector((0, 0.0, 0.018)), (0.040, 0.075, 0.022), 'brass', rot=Matrix.Rotation(math.radians(22), 4, 'X'))
     ellipsoid(m, head + Vector((0, -0.005, -0.016)), (0.034, 0.065, 0.016), 'brass', rot=Matrix.Rotation(math.radians(-16), 4, 'X'))
     ellipsoid(m, head + Vector((0, 0.01, 0.0)), (0.026, 0.05, 0.02), 'bulb')
     for s in (-1, 1):
         ellipsoid(m, head + Vector((s * 0.03, -0.02, 0.04)), (0.010, 0.010, 0.010), 'eye', seg=8, rings=6)
-    for y in (1.30, 1.52):
+    # Two brackets holding it to the side of the bonnet.
+    for y, z in ((1.30, 0.865), (1.52, 0.862)):
         r, zc = bonnet_ring(y)
-        add_box(m, ((r + 0.49) / 2, y, 0.96), (0.49 - r + 0.03, 0.025, 0.025), 'brass')
+        side = math.sqrt(max(0.0, r * r - (z - zc) ** 2))
+        add_box(m, ((side + 0.45) / 2, y, z), (0.45 - side + 0.02, 0.025, 0.025), 'brass')
     return m.obj('horn', smooth=45)
 
 
@@ -1216,11 +1282,16 @@ def build_levers():
     """The gear lever and the handbrake outside the body by the driver's door, in a brass quadrant; each its own part,
     pivoting at its foot (the game moves them as she is driven)."""
     y = (DOOR[0] + DOOR[1]) / 2
-    x = hull_half_width(y, 0.80) + 0.03
+    x = hull_at(y)[0] + 0.06
+    zq = 0.82     # the quadrant's middle, up clear of the exhaust along the running board
     m = Mesh()
-    add_box(m, (x, y, 0.76), (0.03, 0.36, 0.13), 'brass')
+    add_box(m, (x, y, zq), (0.03, 0.36, 0.13), 'brass')
     for k in range(7):
-        add_box(m, (x + 0.017, y - 0.15 + 0.05 * k, 0.83), (0.006, 0.012, 0.02), 'chassis')
+        add_box(m, (x + 0.017, y - 0.15 + 0.05 * k, zq + 0.07), (0.006, 0.012, 0.02), 'chassis')
+    # The bracket back to the hull's side.
+    inner = hull_half_width(y, zq) - 0.02
+    for dy in (-0.12, 0.12):
+        add_box(m, ((x + inner) / 2, y + dy, zq), (x - inner, 0.03, 0.04), 'brass')
     m.obj('quadrant', smooth=None)
     for name, dy, height, grip in (('lever_gear', 0.07, 0.62, 'knob'), ('lever_brake', -0.07, 0.70, 'grip')):
         m = Mesh()
@@ -1229,7 +1300,7 @@ def build_levers():
             ellipsoid(m, (0.015, 0, height + 0.02), (0.03, 0.03, 0.03), 'black', seg=12, rings=8)
         else:
             tube(m, [Vector((0.015, 0, height - 0.10)), Vector((0.015, 0, height + 0.01))], 0.019, 'leather_plain', seg=10)
-        m.obj(name, location=(x + 0.015, y + dy, 0.72), smooth=40, part=name)
+        m.obj(name, location=(x + 0.015, y + dy, zq - 0.04), smooth=40, part=name)
 
 
 def build_plates():
@@ -1313,14 +1384,11 @@ def fan(name, side, spec, colors, coll, spar=False):
         if side < 0:
             o.scale = (-1, 1, 1)
         o['open_yaw'] = open_yaw = spec['open_from'] - step * i
-        # Folded, each panel lies a degree or two round from the one above, so the stack shows its stripes; it folds
-        # whichever way round is shorter.
-        fold = spec['fold'] + math.copysign(spec['stagger'] * i, spec['open_from'] - spec['fold'])
-        while open_yaw - fold > 180:
-            fold += 360
-        while fold - open_yaw > 180:
-            fold -= 360
-        o['fold_yaw'] = fold
+        # Folded, the fan closes up onto its back panel, keeping a little of its spread so the pleats keep their order.
+        back = spec['open_from'] - spec['spread']
+        o['fold_yaw'] = back + (open_yaw - back) * spec['closed']
+        o['pleat'] = 1 if i % 2 == 0 else -1
+        o['hinge_z'] = hz + spec['layer'] * i
         o['tuck'] = spec['tuck']
         o['dihedral'] = spec['dihedral']
         o['tilt_along'], o['tilt_across'] = spec.get('tilt', (0, 0))
@@ -1582,13 +1650,39 @@ def side_of(o):
     return -1 if '_l_' in o.name + '_' else 1
 
 
-def pose(mode, spin=0.0):
-    """'road', 'flying' or 'water': what the game's animation does, for the renders and exports."""
+def pose(mode, spin=0.0, wings=None):
+    """'road', 'flying' or 'water': what the game's animation does, for the renders and exports; wings, if given, is
+    how far the side wings are out (0 to 1, as the game's wing opening), to show them part open."""
     fly = mode == 'flying'
     wet = mode == 'water'
+    if wings is None:
+        wings = 1.0 if fly else 0.0
+
+    def clamp(x):
+        return min(1.0, max(0.0, x))
+
+    def back_out(x):
+        t = x - 1.0
+        return 1.0 + 2.6 * t ** 3 + 1.6 * t * t
+
     for o in bpy.data.objects:
         part = o.get('part', '')
-        if 'open_yaw' in o:
+        if 'pleat' in o:
+            # As ChittyRenderer.poseWing: tipped up about her length, turned out, and pleated about its own middle.
+            side = side_of(o)
+            opening = back_out(clamp(wings / 0.9))
+            out = clamp(wings / 0.6)
+            out = out * out * (3 - 2 * out)
+            pleat = math.acos(clamp(WING['closed'] + (1.0 - WING['closed']) * opening))
+            yaw = math.radians(o['fold_yaw'] + (o['open_yaw'] - o['fold_yaw']) * opening)
+            swing = (Matrix.Rotation(-math.radians(o['dihedral']) * side * clamp(opening), 3, 'Y')
+                     @ Matrix.Rotation(yaw * side, 3, 'Z') @ Matrix.Rotation(-pleat * o['pleat'], 3, 'X'))
+            o.rotation_mode = 'QUATERNION'
+            o.rotation_quaternion = swing.to_quaternion()
+            o.location.z = o['hinge_z'] - WING['drop'] * math.sin(pleat)
+            k = o['tuck'] + (1.0 - o['tuck']) * out
+            o.scale = (k * side, k, 1)
+        elif 'open_yaw' in o:
             side = side_of(o)
             yaw = math.radians(o['open_yaw'] if fly else o['fold_yaw'])
             swing = Euler((0, -math.radians(o['dihedral']) * side if fly else 0, yaw * side), 'XYZ').to_matrix()
@@ -1734,6 +1828,8 @@ def neutral():
             o.rotation_mode = 'QUATERNION'
             o.rotation_quaternion = fan_rest(o).to_quaternion()
             o.scale = (side, 1, 1)
+            if 'hinge_z' in o:
+                o.location.z = o['hinge_z']
         elif part.startswith('mast_'):
             o.rotation_mode = 'QUATERNION'
             o.rotation_quaternion = (1, 0, 0, 0)
@@ -2245,11 +2341,19 @@ def main():
             ('nose_photo', 'flying', (0.9, 5.2, 0.8), (-0.3, 2.0, 2.2), 32, 1.7, False),
             ('nose_left', 'flying', (-4.2, 5.4, 2.6), (-0.2, 1.8, 2.0), 32, 1.7, False),
             ('nose_plan', 'flying', (0.0, 2.9, 7.5), (0.0, 2.95, 2.0), 40, 1.7, False),
+            ('door_right', 'road', (3.6, 1.6, 1.9), (0.6, 0.5, 1.0), 40, 0.0, False),
+            ('door_left', 'road', (-3.8, 0.9, 2.3), (-0.4, -0.2, 1.0), 40, 0.0, False),
+            ('spare', 'road', (2.9, 2.9, 2.6), (0.6, 1.0, 1.0), 40, 0.0, False),
+            ('unfold_30', 'road@0.3', (-5.2, 4.6, 2.6), (0.0, -0.2, 0.6), 40, 0.0, False),
+            ('unfold_60', 'road@0.6', (-5.2, 4.6, 2.6), (0.0, -0.2, 0.6), 40, 0.0, False),
+            ('wing_folded', 'road', (-3.2, 2.2, 0.7), (-0.6, -0.2, 0.45), 40, 0.0, False),
         ]
         for name, mode, cam, at, lens, lift, water in shots:
             if only and name not in only:
                 continue
-            pose(mode, spin=0.4)
+            # 'road@0.4': on the road with the wings that far out.
+            mode, _, wings = mode.partition('@')
+            pose(mode, spin=0.4, wings=float(wings) if wings else None)
             render_scene(out, name, cam, at, lens, lift, water)
         pose('road')
 
