@@ -24,6 +24,8 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.option.GameOptions;
 import net.minecraft.client.util.ScreenshotRecorder;
+import net.minecraft.entity.EntityType;
+import net.minecraft.entity.passive.VillagerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.resource.Resource;
 import net.minecraft.server.integrated.IntegratedServer;
@@ -38,18 +40,19 @@ import net.minecraft.world.GameRules;
 import net.minecraft.world.Heightmap;
 
 /**
- * With -Dshootingstar.selftest=chitty: on a runway built beside a lake, puts Chitty down with the item, gets in, opens
- * her wings standing still (G) and folds them again, and drives her off: down the runway, the lever pulled at speed,
- * wings out and climbing, a banked turn, the wings folded over the lake so she drops (and catches herself before she
- * hits the water), a dive onto the lake and away on her raft; then the raft let down (B), so she settles into the lake
- * until the driver is washed out of the seat, and, left to herself, she blows the raft up again and comes up. Everything is filmed (see {@link Capture}) from chase, side and orbiting cameras with a
+ * With -Dshootingstar.selftest=chitty: on a runway built beside a lake, puts Chitty down with the item, gets in (a
+ * child climbs into the back seat), opens her wings standing still (G) and folds them again, and drives her off: down
+ * the runway, the wings opened at speed and the lever pulled, climbing, a banked turn, the wings folded over the lake so
+ * she drops (and catches herself before she hits the water), a dive onto the lake, the wings folding and the raft coming
+ * up as she splashes down, away round the lake, up the bank onto the shore, and the child fired out of the back seat by
+ * the ejector. Everything is filmed (see {@link Capture}) from chase, side and orbiting cameras with a
  * still at each stage. The running sounds are loops whose level and pitch follow the car, which the capture's sound log
  * cannot hold, so they are logged here tick by tick (loops.json) and rendered into the soundtrack by the workflow.
  */
 public class ChittySelfTest implements ClientModInitializer {
 	private enum Stage {
 		WAIT_WORLD, SETUP, SETTLE, PLACE, BOARD, INTRO, SPREAD, DRIVE, TAKEOFF, CLIMB, TURN, CRUISE, DROP, CATCH, DIVE, SPLASH, AFLOAT,
-		SINK, ALONE, DONE, FINISHED
+		BEACH, EJECT, DONE, FINISHED
 	}
 
 	/** The course, relative to where it is built: the runway runs south (+z), the lake lies east of it. */
@@ -214,6 +217,20 @@ public class ChittySelfTest implements ClientModInitializer {
 					client.interactionManager.interactEntity(self, car, Hand.MAIN_HAND);
 				}
 				if (ticks > 60 && self.getVehicle() == car) {
+					// A child climbs into the back seat.
+					server.execute(() -> {
+						ServerPlayerEntity player = server.getPlayerManager().getPlayerList().get(0);
+						ChittyEntity serverCar = (ChittyEntity) player.getServerWorld().getEntity(car.getUuid());
+						if (serverCar != null) {
+							VillagerEntity child = EntityType.VILLAGER.create(player.getServerWorld());
+							if (child != null) {
+								child.setBaby(true);
+								child.refreshPositionAndAngles(serverCar.getX(), serverCar.getY() + 1.0, serverCar.getZ() - 1.3, 0.0F, 0.0F);
+								player.getServerWorld().spawnEntity(child);
+								serverCar.seat(child, 2);
+							}
+						}
+					});
 					next(Stage.INTRO);
 				} else if (ticks > 120) {
 					ShootingStar.LOGGER.error("[selftest] could not get in; seating the player directly");
@@ -246,13 +263,16 @@ public class ChittySelfTest implements ClientModInitializer {
 				if (ticks == 1) {
 					car.toggleWings();
 				}
-				if (ticks == 50) {
+				if (ticks == 30) {
+					shot(client, "03a_wings_opening.png");
+				}
+				if (ticks == 70) {
 					shot(client, "03b_wings_parked.png");
 				}
-				if (ticks == 90) {
+				if (ticks == 110) {
 					car.toggleWings();
 				}
-				if (ticks >= 125) {
+				if (ticks >= 170) {
 					Capture.camera = chase(client, -3.2, 2.0, -8.5, 0.6, 2.5);
 					next(Stage.DRIVE);
 				}
@@ -262,7 +282,11 @@ public class ChittySelfTest implements ClientModInitializer {
 				if (ticks == 40) {
 					shot(client, "04_driving.png");
 				}
-				if (car.getSpeed() > 0.6 || ticks > 200) {
+				// The wings out (G) as she gathers speed, to be ready to lift by the time she is going fast enough.
+				if (ticks == 10) {
+					car.toggleWings();
+				}
+				if (car.getSpeed() > 0.6 && ticks > 50 || ticks > 200) {
 					Capture.camera = beside(client, car.getPos().add(9.0, 1.0, 14.0));
 					next(Stage.TAKEOFF);
 				}
@@ -377,31 +401,40 @@ public class ChittySelfTest implements ClientModInitializer {
 				}
 				if (ticks >= 160) {
 					keys(client, false, false, false, false, false);
-					Capture.camera = beside(client, local(car.getPos(), car.getYaw(), 6.0, 3.0, 5.0));
-					next(Stage.SINK);
+					// On the shore to the north of her, looking back at her as she comes up out of the water.
+					Capture.camera = beside(client, new Vec3d(car.getX() + 4.0, ground + 3.0, base.getZ() + LAKE_NORTH - 6.0));
+					next(Stage.BEACH);
 				}
 			}
-			case SINK -> {
-				// The raft let down (B): she settles into the lake until the water washes the driver out of the seat.
-				if (ticks == 1) {
-					car.toggleFloats();
+			case BEACH -> {
+				// Round to face the north shore and up the bank onto it: the raft lets down once she is out.
+				float error = MathHelper.wrapDegrees(180.0F - car.getYaw());
+				boolean wet = car.getFluidHeight(net.minecraft.registry.tag.FluidTags.WATER) > 0.05;
+				keys(client, wet || ticks < 400 && car.isFloating(), error < -6.0F, error > 6.0F, false, false);
+				if (!wet && car.isOnGround() && ticks == 0) {
+					shot(client, "15_ashore.png");
 				}
-				if (ticks == 40) {
-					shot(client, "15_sinking.png");
-				}
-				if (ticks > 1 && self.getVehicle() != car || ticks > 160) {
-					if (self.getVehicle() == car) {
-						server.execute(() -> server.getPlayerManager().getPlayerList().get(0).stopRiding());
-					}
-					next(Stage.ALONE);
+				if (!wet && car.isOnGround() && !car.isFloating() || ticks > 500) {
+					keys(client, false, false, false, false, false);
+					shot(client, "16_ashore.png");
+					Capture.camera = beside(client, local(car.getPos(), car.getYaw(), 5.0, 2.0, -5.0));
+					next(Stage.EJECT);
 				}
 			}
-			case ALONE -> {
-				// Left to herself, after a little while she blows the raft up again and comes up on it.
-				if (ticks == 100) {
-					shot(client, "16_raft_again.png");
+			case EJECT -> {
+				// The ejector (X): the child in the back seat goes up, and comes gently down.
+				if (ticks == 20) {
+					server.execute(() -> {
+						ServerPlayerEntity player = server.getPlayerManager().getPlayerList().get(0);
+						if (player.getServerWorld().getEntity(car.getUuid()) instanceof ChittyEntity serverCar) {
+							serverCar.ejectBackSeat();
+						}
+					});
 				}
-				if (ticks >= 170) {
+				if (ticks == 32) {
+					shot(client, "17_ejected.png");
+				}
+				if (ticks >= 110) {
 					next(Stage.DONE);
 				}
 			}

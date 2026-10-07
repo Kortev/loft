@@ -10,13 +10,17 @@ import net.minecraft.entity.EntityType;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.MovementType;
 import net.minecraft.entity.damage.DamageSource;
+import net.minecraft.entity.effect.StatusEffectInstance;
+import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.entity.data.DataTracker;
 import net.minecraft.entity.data.TrackedData;
 import net.minecraft.entity.data.TrackedDataHandlerRegistry;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.inventory.SimpleInventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtElement;
 import net.minecraft.network.listener.ClientPlayPacketListener;
 import net.minecraft.network.packet.Packet;
 import net.minecraft.network.packet.s2c.play.EntitySpawnS2CPacket;
@@ -24,10 +28,15 @@ import net.minecraft.particle.ParticleTypes;
 import net.minecraft.registry.tag.FluidTags;
 import net.minecraft.server.network.EntityTrackerEntry;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.screen.GenericContainerScreenHandler;
+import net.minecraft.screen.SimpleNamedScreenHandlerFactory;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
+import net.minecraft.sound.SoundEvents;
+import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
+import net.minecraft.util.ItemScatterer;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.BlockPos;
@@ -41,15 +50,19 @@ import net.minecraft.world.event.GameEvent;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Chitty Chitty Bang Bang. Four seats, the driver's on the right. She drives on the road, floats on the water on a pink
- * raft she blows up under herself, her wheels turned flat, with a screw behind, and flies: pull the lever (jump) at
- * speed and the wings swing out from under the running boards and fan open, and a mast stands up at the end of each
- * with a propeller turning flat on top. She folds her wings away again once she has been down a moment.
+ * Chitty Chitty Bang Bang. Four seats: the driver's on the right, one beside it and two (for children, really) in the
+ * well in the deck behind; you get into whichever you click nearest. She drives on the road, floats on the water on a
+ * pink raft she blows up under herself, her wheels turned flat, with a screw behind, and flies: the driver opens her
+ * wings (G), which swing out from under the running boards and fan open while a mast stands up at the end of each with
+ * a propeller turning flat on top, and at speed the lever (jump) lifts her.
  *
  * <p>As in the film she looks after her passengers herself. Driven off a cliff she falls, and only as the ground comes
- * up at her do the wings spring out and carry her up out of the dive. Driven into the sea she wades and settles, and
- * after a little while blows up her raft and rises onto it, whether or not anyone is still aboard. And the driver can
- * open the wings (G) or the raft (B) whenever they like, standing still if they want: opened by hand, they stay open.
+ * up at her do the wings spring out and carry her up out of the dive (folding again once she is down). Driven into the
+ * sea she wades and settles, and after a little while blows up her raft and rises onto it, whether or not anyone is
+ * still aboard; coming down on the water from the air, the wings fold and the raft comes up at once; and she climbs out
+ * up the bank onto land, letting the raft down again. The raft is all hers: it never comes up with the wings out. The
+ * driver can also fire the back seat's passengers out into the air (the ejector), and the hamper on the back comes off
+ * and on (sneak and use) and holds things.
  *
  * <p>Like a boat, the car is moved by whoever drives it (their client) and by the server when nobody does. Positions
  * are in blocks; local offsets are at yaw 0, x to the car's left, z forward.
@@ -60,10 +73,13 @@ public class ChittyEntity extends Entity {
 	private static final TrackedData<Float> WOBBLE_STRENGTH = DataTracker.registerData(ChittyEntity.class, TrackedDataHandlerRegistry.FLOAT);
 	/** Her wings and her raft, out or away and how (the STATE_ bits). */
 	private static final TrackedData<Byte> STATE = DataTracker.registerData(ChittyEntity.class, TrackedDataHandlerRegistry.BYTE);
+	/** Which seat each passenger, in the order they are listed, sits in: two bits each. */
+	private static final TrackedData<Byte> SEATING = DataTracker.registerData(ChittyEntity.class, TrackedDataHandlerRegistry.BYTE);
+	private static final TrackedData<Boolean> HAMPER = DataTracker.registerData(ChittyEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
 	private static final TrackedData<Byte> STEER = DataTracker.registerData(ChittyEntity.class, TrackedDataHandlerRegistry.BYTE);
 	private static final TrackedData<Byte> THROTTLE = DataTracker.registerData(ChittyEntity.class, TrackedDataHandlerRegistry.BYTE);
 
-	/** Where each passenger sits (driver first, then beside them, then the back seat), from tools/chitty_model.py. */
+	/** Where each seat is (the driver's, the one beside it, then the back two), from tools/chitty_model.py. */
 	private static final Vec3d[] SEATS = {new Vec3d(-0.30, 0.75, -0.10), new Vec3d(0.30, 0.75, -0.10),
 			new Vec3d(-0.20, 0.75, -1.30), new Vec3d(0.20, 0.75, -1.30)};
 	/** The mouth of the exhaust, beside the driver's running board. */
@@ -98,8 +114,13 @@ public class ChittyEntity extends Entity {
 	/** Ticks in the water without her raft before she blows it up: with a driver, and left to herself. */
 	static final int FLOAT_DELAY = 40;
 	static final int FLOAT_DELAY_ALONE = 60;
-	/** Ticks back on land before an unheld raft goes away again. */
-	static final int BEACHED = 30;
+	/** Ticks back on land before the raft goes away again. */
+	static final int BEACHED = 20;
+	/** Ticks for the wings to be out far enough to bear her up. */
+	static final int WINGS_BITE = 36;
+	/** The seats: the driver's, the one beside it, and the back two. */
+	public static final int DRIVER = 0;
+	static final int BACK_SEAT = 2;
 	/** How far she must have fallen before she will catch herself, and for how long she pulls out of the dive. */
 	static final double RESCUE_FALL = 5.0;
 	static final int SWOOP = 14;
@@ -108,10 +129,6 @@ public class ChittyEntity extends Entity {
 	/** The driver opened the wings by hand: they stay out on the ground. */
 	static final int STATE_WINGS_HELD = 2;
 	static final int STATE_FLOATS = 4;
-	/** The driver blew the raft up by hand: it stays up on land. */
-	static final int STATE_FLOATS_HELD = 8;
-	/** The driver put the raft away in the water: she leaves it away until she is out. */
-	static final int STATE_FLOATS_STOWED = 16;
 
 	enum Mode { ROAD, WATER, WADE, AIR, FALL }
 
@@ -135,8 +152,8 @@ public class ChittyEntity extends Entity {
 	private boolean flying;
 	private boolean wingsHeld;
 	private boolean floats;
-	private boolean floatsHeld;
-	private boolean floatsStowed;
+	private int wingTicks;
+	private boolean takeoff;
 	private int wetTicks;
 	private int dryTicks;
 	private int swoop;
@@ -182,6 +199,23 @@ public class ChittyEntity extends Entity {
 	private float prevPitch;
 	private boolean wingsShown;
 	private boolean floatsShown;
+	private float gearLever;
+	private float prevGearLever;
+	private float brakeLever;
+	private float prevBrakeLever;
+	private float crankSpin;
+	private float prevCrankSpin;
+	private int crankTicks;
+
+	// Who sits where (by seat), and the seat a player has asked for as they get in.
+	private final Entity[] seated = new Entity[SEATS.length];
+	private int wantedSeat = -1;
+	private final SimpleInventory hamper = new SimpleInventory(27) {
+		@Override
+		public boolean canPlayerUse(PlayerEntity player) {
+			return !isRemoved() && hasHamper() && player.squaredDistanceTo(ChittyEntity.this) < 64.0;
+		}
+	};
 
 	public ChittyEntity(EntityType<? extends ChittyEntity> type, World world) {
 		super(type, world);
@@ -194,6 +228,8 @@ public class ChittyEntity extends Entity {
 		builder.add(WOBBLE_SIDE, 1);
 		builder.add(WOBBLE_STRENGTH, 0.0F);
 		builder.add(STATE, (byte) 0);
+		builder.add(SEATING, (byte) 0);
+		builder.add(HAMPER, true);
 		builder.add(STEER, (byte) 0);
 		builder.add(THROTTLE, (byte) 0);
 	}
@@ -276,6 +312,7 @@ public class ChittyEntity extends Entity {
 				}
 				dropStack(stack);
 			}
+			ItemScatterer.spawn(getWorld(), this, hamper);
 			discard();
 		}
 		return true;
@@ -317,8 +354,7 @@ public class ChittyEntity extends Entity {
 
 	/** Her wings and raft as the STATE_ bits, as whoever moves her has them. */
 	public byte getState() {
-		int bits = (flying ? STATE_WINGS : 0) | (wingsHeld ? STATE_WINGS_HELD : 0) | (floats ? STATE_FLOATS : 0)
-				| (floatsHeld ? STATE_FLOATS_HELD : 0) | (floatsStowed ? STATE_FLOATS_STOWED : 0);
+		int bits = (flying ? STATE_WINGS : 0) | (wingsHeld ? STATE_WINGS_HELD : 0) | (floats ? STATE_FLOATS : 0);
 		return (byte) bits;
 	}
 
@@ -326,11 +362,33 @@ public class ChittyEntity extends Entity {
 		setFlying((bits & STATE_WINGS) != 0);
 		wingsHeld = (bits & STATE_WINGS_HELD) != 0;
 		setFloats((bits & STATE_FLOATS) != 0);
-		floatsHeld = (bits & STATE_FLOATS_HELD) != 0;
-		floatsStowed = (bits & STATE_FLOATS_STOWED) != 0;
 		if (!getWorld().isClient) {
 			dataTracker.set(STATE, getState());
 		}
+	}
+
+	/** Whether the hamper is strapped on the back. */
+	public boolean hasHamper() {
+		return dataTracker.get(HAMPER);
+	}
+
+	/** What is in the hamper. */
+	public SimpleInventory getHamper() {
+		return hamper;
+	}
+
+	/** Takes the hamper off (spilling what is in it) or straps it back on. */
+	public void toggleHamper() {
+		if (getWorld().isClient) {
+			return;
+		}
+		boolean on = !hasHamper();
+		dataTracker.set(HAMPER, on);
+		if (!on) {
+			ItemScatterer.spawn(getWorld(), getX(), getY() + 0.8, getZ(), hamper);
+		}
+		getWorld().playSound(null, getX(), getY(), getZ(), on ? SoundEvents.BLOCK_BARREL_CLOSE : SoundEvents.BLOCK_BARREL_OPEN,
+				SoundCategory.NEUTRAL, 1.0F, 0.8F);
 	}
 
 	public boolean isEngineRunning() {
@@ -344,6 +402,35 @@ public class ChittyEntity extends Entity {
 
 	// --- passengers ------------------------------------------------------------------------------------
 
+	/**
+	 * Using her: sneaking, the hamper comes off or goes back on; at the hamper, it opens; anywhere else, you get into
+	 * the free seat nearest where you clicked.
+	 */
+	@Override
+	public ActionResult interactAt(PlayerEntity player, Vec3d hitPos, Hand hand) {
+		Vec3d local = hitPos.rotateY(getYaw() * MathHelper.RADIANS_PER_DEGREE);
+		if (player.shouldCancelInteraction()) {
+			toggleHamper();
+			return ActionResult.success(getWorld().isClient);
+		}
+		if (hasHamper() && local.z < -2.7 && local.y < 1.1) {
+			if (!getWorld().isClient) {
+				player.openHandledScreen(new SimpleNamedScreenHandlerFactory(
+						(syncId, inventory, who) -> GenericContainerScreenHandler.createGeneric9x3(syncId, inventory, hamper),
+						Text.translatable("container.shootingstar.chitty_hamper")));
+			}
+			return ActionResult.success(getWorld().isClient);
+		}
+		int seat = nearestFreeSeat(local);
+		if (seat < 0) {
+			return ActionResult.PASS;
+		}
+		if (!getWorld().isClient) {
+			return seat(player, seat) ? ActionResult.CONSUME : ActionResult.PASS;
+		}
+		return ActionResult.SUCCESS;
+	}
+
 	@Override
 	public ActionResult interact(PlayerEntity player, Hand hand) {
 		if (player.shouldCancelInteraction() || !canAddPassenger(player)) {
@@ -355,21 +442,86 @@ public class ChittyEntity extends Entity {
 		return ActionResult.SUCCESS;
 	}
 
+	/** The free seat nearest a point beside or in her (local), or -1 if every seat is taken. */
+	private int nearestFreeSeat(Vec3d local) {
+		int best = -1;
+		double bestDistance = Double.MAX_VALUE;
+		for (int i = 0; i < SEATS.length; i++) {
+			if (seated[i] != null && seated[i].isAlive() && seated[i].getVehicle() == this) {
+				continue;
+			}
+			double dx = SEATS[i].x - local.x;
+			double dz = SEATS[i].z - local.z;
+			double distance = dx * dx + dz * dz;
+			if (distance < bestDistance) {
+				bestDistance = distance;
+				best = i;
+			}
+		}
+		return best;
+	}
+
+	/** Puts a passenger in a particular seat (0, the driver's, to 3), if it is free. */
+	public boolean seat(Entity passenger, int seat) {
+		if (seat < 0 || seat >= SEATS.length || seated[seat] != null && seated[seat].getVehicle() == this) {
+			return false;
+		}
+		wantedSeat = seat;
+		boolean in = passenger.startRiding(this);
+		wantedSeat = -1;
+		return in;
+	}
+
+	/** The seat a passenger is in (0, the driver's, to 3), or -1 if they are not aboard. */
+	public int seatOf(Entity passenger) {
+		if (!getWorld().isClient) {
+			for (int i = 0; i < SEATS.length; i++) {
+				if (seated[i] == passenger) {
+					return i;
+				}
+			}
+			return -1;
+		}
+		int i = getPassengerList().indexOf(passenger);
+		return i < 0 ? -1 : dataTracker.get(SEATING) >> (2 * i) & 3;
+	}
+
 	@Override
 	protected boolean canAddPassenger(Entity passenger) {
 		return getPassengerList().size() < SEATS.length;
 	}
 
+	/** The driver: whoever is in the driver's seat, if it is a player. */
 	@Override
 	@Nullable
 	public LivingEntity getControllingPassenger() {
-		return getFirstPassenger() instanceof PlayerEntity player ? player : null;
+		for (Entity passenger : getPassengerList()) {
+			if (seatOf(passenger) == DRIVER) {
+				return passenger instanceof PlayerEntity player ? player : null;
+			}
+		}
+		return null;
 	}
 
 	@Override
 	protected void addPassenger(Entity passenger) {
 		boolean starting = !hasPassengers() && passenger instanceof PlayerEntity;
 		super.addPassenger(passenger);
+		if (!getWorld().isClient) {
+			int seat = wantedSeat >= 0 && seated[wantedSeat] == null ? wantedSeat : -1;
+			for (int i = 0; seat < 0 && i < SEATS.length; i++) {
+				if (seated[i] == null) {
+					seat = i;
+				}
+			}
+			if (seat >= 0) {
+				seated[seat] = passenger;
+			}
+			publishSeating();
+		} else if (starting) {
+			// Someone climbs in and swings the starting handle.
+			crankTicks = 24;
+		}
 		if (starting && getWorld() instanceof ServerWorld world) {
 			// The crank, two coughs and the bangs she is named for.
 			world.playSound(null, getX(), getY(), getZ(), Chitty.START, SoundCategory.NEUTRAL, 1.0F, 1.0F);
@@ -378,22 +530,64 @@ public class ChittyEntity extends Entity {
 		}
 	}
 
-	/**
-	 * The driver gone (in the film, out and running as the tide comes in round her, or washed out of their seat as she
-	 * settles), she is left to herself: a raft put away by hand comes up again after all.
-	 */
 	@Override
 	protected void removePassenger(Entity passenger) {
 		super.removePassenger(passenger);
-		if (getControllingPassenger() == null && floatsStowed) {
-			floatsStowed = false;
-			publish();
+		if (!getWorld().isClient) {
+			for (int i = 0; i < SEATS.length; i++) {
+				if (seated[i] == passenger) {
+					seated[i] = null;
+				}
+			}
+			publishSeating();
+		}
+	}
+
+	/** Tells clients who sits where: each passenger's seat, in the order they are listed. */
+	private void publishSeating() {
+		int bits = 0;
+		List<Entity> passengers = getPassengerList();
+		for (int i = 0; i < passengers.size() && i < SEATS.length; i++) {
+			int seat = Math.max(0, seatOf(passengers.get(i)));
+			bits |= seat << (2 * i);
+		}
+		dataTracker.set(SEATING, (byte) bits);
+	}
+
+	/**
+	 * The ejector: whoever is in the back seat is fired straight up out of it, to come down gently under the slow
+	 * falling it gives them. For the driver (the X key).
+	 */
+	public void ejectBackSeat() {
+		if (!(getWorld() instanceof ServerWorld world)) {
+			return;
+		}
+		boolean any = false;
+		for (int i = BACK_SEAT; i < SEATS.length; i++) {
+			Entity passenger = seated[i];
+			if (passenger == null || passenger.getVehicle() != this) {
+				continue;
+			}
+			passenger.stopRiding();
+			Vec3d seat = getPos().add(SEATS[i].rotateY(-getYaw() * MathHelper.RADIANS_PER_DEGREE)).add(0.0, 0.6, 0.0);
+			passenger.requestTeleport(seat.x, seat.y, seat.z);
+			passenger.setVelocity(getVelocity().add(0.0, 1.25, 0.0));
+			passenger.velocityModified = true;
+			passenger.fallDistance = 0.0F;
+			if (passenger instanceof LivingEntity living) {
+				living.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOW_FALLING, 100, 0, false, false));
+			}
+			world.spawnParticles(ParticleTypes.POOF, seat.x, seat.y - 0.4, seat.z, 12, 0.2, 0.1, 0.2, 0.05);
+			any = true;
+		}
+		if (any) {
+			world.playSound(null, getX(), getY(), getZ(), Chitty.EJECT, SoundCategory.NEUTRAL, 1.4F, 1.0F);
 		}
 	}
 
 	@Override
 	protected Vec3d getPassengerAttachmentPos(Entity passenger, EntityDimensions dimensions, float scaleFactor) {
-		int i = getPassengerList().indexOf(passenger);
+		int i = seatOf(passenger);
 		Vec3d seat = SEATS[MathHelper.clamp(i, 0, SEATS.length - 1)];
 		if (getWorld().isClient) {
 			seat = tilt(seat, getTilt(1.0F), getBank(1.0F));
@@ -515,8 +709,6 @@ public class ChittyEntity extends Entity {
 		flying = (bits & STATE_WINGS) != 0;
 		wingsHeld = (bits & STATE_WINGS_HELD) != 0;
 		floats = (bits & STATE_FLOATS) != 0;
-		floatsHeld = (bits & STATE_FLOATS_HELD) != 0;
-		floatsStowed = (bits & STATE_FLOATS_STOWED) != 0;
 		setVelocity(motion);
 	}
 
@@ -526,23 +718,19 @@ public class ChittyEntity extends Entity {
 		setFlying(wings);
 	}
 
-	/** Opens her wings, or folds them, by hand: opened, they stay out until folded. (The driver's G key.) */
+	/**
+	 * Opens her wings, or folds them, by hand: opened, they stay out until folded. (The driver's G key.) Opened on the
+	 * water, she lets the raft down and lifts off it.
+	 */
 	public void toggleWings() {
 		setFlying(!flying);
 		wingsHeld = flying;
 		swoop = 0;
 		settled = 0;
-		publish();
-	}
-
-	/** Blows up her raft, or lets it down, by hand: blown up, it stays up until let down. (The driver's B key.) */
-	public void toggleFloats() {
-		setFloats(!floats);
-		floatsHeld = floats;
-		// Let down in the water, it stays down until she is out of it (or it is blown up again).
-		floatsStowed = !floats && getFluidHeight(FluidTags.WATER) > 0.05;
-		wetTicks = 0;
-		dryTicks = 0;
+		if (flying && floats) {
+			setFloats(false);
+			takeoff = true;
+		}
 		publish();
 	}
 
@@ -591,35 +779,40 @@ public class ChittyEntity extends Entity {
 		boolean wet = depth > 0.05 && !isInLava();
 		boolean ground = isOnGround();
 
-		// The raft: in the water she wades and settles a while, then blows it up herself (at once if she comes down
-		// on the water flying); back on land she lets it down again, unless it was blown up by hand.
-		if (!wet) {
-			wetTicks = 0;
-			floatsStowed = false;
+		// Coming down on the water from the air (not lifting off it), the wings fold and the raft comes up at once.
+		boolean splashdown = flying && wet && !takeoff && !in.up() && v.y <= 0.05;
+		if (splashdown) {
+			setFlying(false);
+			wingsHeld = false;
 		}
-		if (wet && !floats && !floatsStowed) {
-			if (++wetTicks >= (flying ? 1 : driven ? FLOAT_DELAY : FLOAT_DELAY_ALONE)) {
+		// The raft is hers alone: in the water, wings away, she wades and settles a while, then blows it up herself; out
+		// of the water (or lifting off it) she lets it down again.
+		if (!wet || flying) {
+			wetTicks = 0;
+		}
+		if (wet && !floats && !flying) {
+			if (splashdown || ++wetTicks >= (driven ? FLOAT_DELAY : FLOAT_DELAY_ALONE)) {
 				setFloats(true);
 				wetTicks = 0;
 			}
 		}
-		if (floats && !floatsHeld && ground && !wet) {
-			if (++dryTicks > BEACHED) {
+		if (floats && (flying || ground && !wet)) {
+			if (flying || ++dryTicks > BEACHED) {
 				setFloats(false);
 			}
 		} else {
 			dryTicks = 0;
 		}
 		boolean afloat = wet && floats;
+		wingTicks = flying ? wingTicks + 1 : 0;
+		if (takeoff && (!flying || wingTicks >= WINGS_BITE)) {
+			takeoff = false;
+		}
 
-		// The wings: the lever at speed; or, falling with people aboard, by themselves as the ground comes up at her;
-		// folded again once she has been down a while, unless they were opened by hand.
+		// The wings: by hand; or, falling with people aboard, by themselves as the ground comes up at her, folding
+		// again once she has been down a while.
 		if (!flying) {
-			boolean lever = driven && in.up() && Math.abs(speed) >= TAKEOFF && (ground || afloat);
-			if (lever) {
-				setFlying(true);
-				settled = 0;
-			} else if (hasPassengers() && !ground && !wet && v.y < -0.3 && fallDistance > RESCUE_FALL && aboutToHit(world, v.y)) {
+			if (hasPassengers() && !ground && !wet && v.y < -0.3 && fallDistance > RESCUE_FALL && aboutToHit(world, v.y)) {
 				setFlying(true);
 				settled = 0;
 				swoop = SWOOP;
@@ -638,7 +831,7 @@ public class ChittyEntity extends Entity {
 			swoop = 0;
 		}
 
-		if (flying && (swoop > 0 || !(ground || afloat) || in.up() && speed > AIR_MIN)) {
+		if (flying && (swoop > 0 || takeoff || !(ground || afloat) || in.up() && speed > AIR_MIN)) {
 			mode = Mode.AIR;
 		} else if (afloat) {
 			mode = Mode.WATER;
@@ -663,9 +856,9 @@ public class ChittyEntity extends Entity {
 				speed = Math.max(speed, 0.0F);
 			}
 			case WATER -> speed = (float) pedal(speed, throttle, WATER_TOP, WATER_ACCEL, 0.95);
-			// Wading, and sat on her raft on dry land, she can only creep.
+			// Wading, and up on dry land on her raft till it goes down, she can only creep.
 			case WADE -> speed = (float) pedal(speed, throttle, 0.1, 0.004, 0.85);
-			case ROAD -> speed = floats ? (float) pedal(speed, throttle, 0.05, 0.003, 0.8) : (float) pedal(speed, throttle, ROAD_TOP, ROAD_ACCEL, 0.97);
+			case ROAD -> speed = floats ? (float) pedal(speed, throttle, 0.15, 0.006, 0.9) : (float) pedal(speed, throttle, ROAD_TOP, ROAD_ACCEL, 0.97);
 			case FALL -> speed *= 0.995F;
 		}
 
@@ -688,12 +881,20 @@ public class ChittyEntity extends Entity {
 		double vy = v.y;
 		switch (mode) {
 			case AIR -> {
-				double lift = MathHelper.clamp((speed - AIR_MIN) / 0.25, 0.0, 1.0);
+				// The wings bear her up only as they come out.
+				double lift = MathHelper.clamp((speed - AIR_MIN) / 0.25, 0.0, 1.0) * MathHelper.clamp(wingTicks / (double) WINGS_BITE, 0.0, 1.0);
+				if (takeoff) {
+					// Lifting off the water: up off the raft.
+					speed = Math.max(speed, (float) TAKEOFF + 0.1F);
+					lift = 1.0;
+				}
 				double climb = !driven ? -0.15 : in.up() ? 0.32 : in.down() ? -0.5 : 0.0;
 				double target = lift * climb - (1.0 - lift) * 0.45;
 				if (swoop > 0) {
 					// Caught at the last moment: the wings bite and pull her up out of the dive.
 					vy += (0.12 - vy) * 0.35;
+				} else if (takeoff) {
+					vy = Math.max(vy, wet ? 0.3 : 0.1);
 				} else {
 					vy += (target - vy) * 0.12;
 				}
@@ -702,6 +903,10 @@ public class ChittyEntity extends Entity {
 			// Without her raft she settles slowly through the water to the bottom.
 			case WADE -> vy = ground ? -GRAVITY : vy * 0.8 - 0.008;
 			default -> vy = (vy - GRAVITY) * 0.98;
+		}
+		// Driving into the bank from the water, she climbs out up it onto the land.
+		if ((mode == Mode.WATER || mode == Mode.WADE) && speed > 0.03 && bankAhead(world, ahead)) {
+			vy = Math.max(vy, 0.42);
 		}
 		// Off the ground without wings she keeps going the way she was (and loses a little), as off a ramp.
 		Vec3d horizontal = ahead.multiply(speed);
@@ -721,6 +926,14 @@ public class ChittyEntity extends Entity {
 		if (flying || mode == Mode.WATER || mode == Mode.WADE) {
 			fallDistance = 0.0F;
 		}
+	}
+
+	/** In the water, whether there is a bank in front of her she could climb: solid at her keel, clear above it. */
+	private boolean bankAhead(World world, Vec3d ahead) {
+		Vec3d c = getPos().add(ahead.multiply(NOSE + 0.3));
+		Box low = new Box(c.x - 0.4, getY() + 0.05, c.z - 0.4, c.x + 0.4, getY() + 1.4, c.z + 0.4);
+		Box high = new Box(c.x - 0.4, getY() + 1.6, c.z - 0.4, c.x + 0.4, getY() + 3.0, c.z + 0.4);
+		return !world.isSpaceEmpty(this, low) && world.isSpaceEmpty(this, high);
 	}
 
 	/** Falling this fast, whether she will hit the ground (or the water) in the next few ticks. */
@@ -895,23 +1108,36 @@ public class ChittyEntity extends Entity {
 		boolean fly = isFlying();
 		boolean raft = isFloating();
 		boolean wet = getFluidHeight(FluidTags.WATER) > 0.05;
+		// The wings come out and go away slowly, a stage at a time (the renderer poses them from this), except when
+		// they spring out to catch her as she falls; the raft blows up as slowly.
 		prevWingOpen = wingOpen;
-		wingOpen = MathHelper.clamp(wingOpen + (fly ? 1.0F : -1.0F) / 18.0F, 0.0F, 1.0F);
+		boolean falling = fly && !isOnGround() && motion.y < -0.3;
+		wingOpen = MathHelper.clamp(wingOpen + (fly ? 1.0F : -1.0F) / (falling ? 10.0F : 48.0F), 0.0F, 1.0F);
 		prevFloatOpen = floatOpen;
-		floatOpen = MathHelper.clamp(floatOpen + (raft ? 1.0F : -1.0F) / 14.0F, 0.0F, 1.0F);
+		floatOpen = MathHelper.clamp(floatOpen + (raft ? 1.0F : -1.0F) / 40.0F, 0.0F, 1.0F);
 		if (fly != wingsShown) {
 			wingsShown = fly;
 			world.playSound(getX(), getY(), getZ(), fly ? Chitty.WINGS_OUT : Chitty.WINGS_IN, SoundCategory.NEUTRAL, 1.2F, 1.0F, false);
+			// A puff of dust off the running boards as the wings start to swing.
+			for (int i = 0; i < 12; i++) {
+				Vec3d at = getPos().add(new Vec3d((random.nextBoolean() ? 1 : -1) * 0.9, 0.5, 0.2 + random.nextDouble() * 0.8)
+						.rotateY(-getYaw() * MathHelper.RADIANS_PER_DEGREE));
+				world.addParticle(ParticleTypes.POOF, at.x, at.y, at.z, 0.0, 0.02, 0.0);
+			}
 		}
 		if (raft != floatsShown) {
 			floatsShown = raft;
-			if (raft) {
-				world.playSound(getX(), getY(), getZ(), Chitty.FLOATS, SoundCategory.NEUTRAL, 1.2F, 1.0F, false);
-				for (int i = 0; wet && i < 30; i++) {
-					world.addParticle(ParticleTypes.SPLASH, getX() + (random.nextDouble() - 0.5) * 3.0, getY() + 0.4,
-							getZ() + (random.nextDouble() - 0.5) * 3.0, 0.0, 0.1, 0.0);
-				}
+			world.playSound(getX(), getY(), getZ(), raft ? Chitty.FLOATS : Chitty.FLOATS_DOWN, SoundCategory.NEUTRAL, 1.2F, 1.0F, false);
+			for (int i = 0; raft && wet && i < 40; i++) {
+				world.addParticle(ParticleTypes.SPLASH, getX() + (random.nextDouble() - 0.5) * 3.0, getY() + 0.4,
+						getZ() + (random.nextDouble() - 0.5) * 3.0, 0.0, 0.1, 0.0);
 			}
+		}
+		// While the raft blows up in the water, bubbles round its edge.
+		if (raft && wet && floatOpen < 1.0F && age % 2 == 0) {
+			Vec3d at = getPos().add(new Vec3d((random.nextDouble() - 0.5) * 3.0, 0.3, (random.nextDouble() - 0.5) * 6.0)
+					.rotateY(-getYaw() * MathHelper.RADIANS_PER_DEGREE));
+			world.addParticle(ParticleTypes.BUBBLE_POP, at.x, at.y, at.z, 0.0, 0.05, 0.0);
 		}
 
 		float yawRad = getYaw() * MathHelper.RADIANS_PER_DEGREE;
@@ -921,7 +1147,9 @@ public class ChittyEntity extends Entity {
 		// On the ground the wheels roll with the road; in the air, or laid flat on the raft, they turn over slowly.
 		wheelSpin += fly && wingOpen > 0.5F && !isOnGround() || floatOpen > 0.5F ? 0.06F : (float) (forward / 0.46);
 		prevPropSpin = propSpin;
-		propSpin += fly ? 0.9F + (float) motion.length() * 0.6F : 0.0F;
+		// The propellers spin up as the masts come up, and run down as they go.
+		float raise = MathHelper.clamp(wingOpen * 2.0F - 1.0F, 0.0F, 1.0F);
+		propSpin += raise * raise * (0.9F + (float) motion.length() * 0.6F);
 		prevScrewSpin = screwSpin;
 		int throttle = isLogicalSideForUpdatingMovement() ? clientControls.forward() : dataTracker.get(THROTTLE);
 		screwSpin += wet && raft ? 0.15F + Math.abs(throttle) * 0.6F + (float) Math.abs(forward) : 0.0F;
@@ -935,6 +1163,19 @@ public class ChittyEntity extends Entity {
 		double h = motion.horizontalLength();
 		float climb = aloft && h > 0.05 ? (float) Math.toDegrees(Math.atan2(motion.y, h)) : 0.0F;
 		pitch += (MathHelper.clamp(climb, -18.0F, 18.0F) - pitch) * 0.2F;
+
+		// The gear lever forward or back with the pedals; the handbrake on when she stands with nobody pushing her.
+		prevGearLever = gearLever;
+		gearLever += (throttle - gearLever) * 0.25F;
+		prevBrakeLever = brakeLever;
+		float brake = throttle == 0 && Math.abs(forward) < 0.02 ? 1.0F : 0.0F;
+		brakeLever += (brake - brakeLever) * 0.2F;
+		// The starting handle, swung as she is started.
+		prevCrankSpin = crankSpin;
+		if (crankTicks > 0) {
+			crankTicks--;
+			crankSpin += 0.55F;
+		}
 
 		// Smoke out of the exhaust while she runs, more when she pulls.
 		if (isEngineRunning() && age % (throttle > 0 ? 2 : 4) == 0) {
@@ -967,6 +1208,21 @@ public class ChittyEntity extends Entity {
 		return MathHelper.lerp(tickDelta, prevScrewSpin, screwSpin);
 	}
 
+	/** The gear lever: -1 (back) to 1 (forward). */
+	public float getGearLever(float tickDelta) {
+		return MathHelper.lerp(tickDelta, prevGearLever, gearLever);
+	}
+
+	/** The handbrake: 0 (off) to 1 (on). */
+	public float getBrakeLever(float tickDelta) {
+		return MathHelper.lerp(tickDelta, prevBrakeLever, brakeLever);
+	}
+
+	/** How far round the starting handle has been swung (radians). */
+	public float getCrankSpin(float tickDelta) {
+		return MathHelper.lerp(tickDelta, prevCrankSpin, crankSpin);
+	}
+
 	/** -1 (full right) to 1 (full left). */
 	public float getSteer(float tickDelta) {
 		return MathHelper.lerp(tickDelta, prevSteer, steer);
@@ -994,8 +1250,11 @@ public class ChittyEntity extends Entity {
 		flying = nbt.getBoolean("Flying");
 		wingsHeld = nbt.getBoolean("WingsHeld");
 		floats = nbt.getBoolean("Floats");
-		floatsHeld = nbt.getBoolean("FloatsHeld");
-		floatsStowed = nbt.getBoolean("FloatsStowed");
+		dataTracker.set(HAMPER, !nbt.contains("Hamper") || nbt.getBoolean("Hamper"));
+		hamper.clear();
+		if (nbt.contains("HamperItems")) {
+			hamper.readNbtList(nbt.getList("HamperItems", NbtElement.COMPOUND_TYPE), getRegistryManager());
+		}
 		speed = nbt.getFloat("Speed");
 		dataTracker.set(STATE, getState());
 	}
@@ -1005,8 +1264,8 @@ public class ChittyEntity extends Entity {
 		nbt.putBoolean("Flying", flying);
 		nbt.putBoolean("WingsHeld", wingsHeld);
 		nbt.putBoolean("Floats", floats);
-		nbt.putBoolean("FloatsHeld", floatsHeld);
-		nbt.putBoolean("FloatsStowed", floatsStowed);
+		nbt.putBoolean("Hamper", hasHamper());
+		nbt.put("HamperItems", hamper.toNbtList(getRegistryManager()));
 		nbt.putFloat("Speed", speed);
 	}
 

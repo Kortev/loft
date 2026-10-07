@@ -38,7 +38,9 @@ BOARD_FRONT, BOARD_BACK = 1.05, -1.12
 BONNET_BACK, BONNET_FRONT = 0.64, 2.12
 BONNET_Z0, BONNET_Z1 = 0.99, 1.05   # its axis, rising a little to the front as it narrows
 BONNET_R0, BONNET_R1 = 0.47, 0.34
-RADIATOR_R = 0.38
+# The radiator: an egg, narrowing to a round top, widest low down and flat across the foot (half-width, height above
+# and depth below the bonnet's axis).
+RADIATOR_W, RADIATOR_TOP, RADIATOR_BOT = 0.37, 0.46, 0.33
 # The hull, a varnished boat: (y, half-width at the gunwale, gunwale height, keel height). Its sides flare out from a
 # narrow bottom, the keel lifting towards the round stern.
 HULL = [
@@ -56,6 +58,8 @@ HULL = [
     (-3.06, 0.01, 1.36, 1.18),
 ]
 HULL_NX, HULL_NZ = 1.8, 2.4   # squareness of the sections across and down
+# Beside the front seat the gunwale dips in a U, each side, to step in over: (from, to, depth).
+DOOR = (-0.15, 0.45, 0.22)
 HULL_SKIN = 0.035
 # Behind the front seat the hull is decked over right to the point of the stern, the deck crowned like a boat's, its
 # front edge curving forward at the sides round the back of the front seat. The back seat sits down in an oval well
@@ -65,30 +69,33 @@ DECK_CROWN = 0.07
 WELL = (-1.40, 0.40, 0.50)             # the well's centre (y), half-width and half-length
 FLOOR_Z = 0.66
 FRONT_SEAT_Y, REAR_SEAT_Y = -0.10, -1.30
-SPARE = (0.70, 0.46, BOARD_Z + 0.01 + WHEEL_R)
+SPARE = (0.53, 0.78, BOARD_Z + 0.02 + WHEEL_R)
 # The fans: hinge, panels, length, open angle of the first panel and spread back from it (0 is straight out, positive
 # forward), folded angle, dihedral, how far round each folded panel lies from the last, how far apart they stack, and
 # how far they draw in when folded (their ribs telescope). Folded, the wings lie under the running boards, the front
 # fans under the dumb irons and the tail fans under the hull, their striped edges showing.
-WING = dict(hinge=(0.70, 1.18, 0.47), blades=8, length=2.4, open_from=-38, spread=50, fold=-90, dihedral=6, stagger=1.0,
-            layer=0.009, tuck=0.85, scallop=0.10)
+WING = dict(hinge=(0.70, 1.18, 0.50), blades=8, length=2.4, open_from=-38, spread=50, fold=-90, dihedral=6, stagger=1.0,
+            layer=0.003, tuck=0.85, scallop=0.10, ribs='seams')
 # The nose wing, as in the film: one fan straight out in front of her, four sections, yellow and red, spreading from a
 # straight line under the GEN 11 plate (root: its half-width) to five points: the middle one reaching furthest, the
-# next pair less far and the outer pair least (reach: how far each is out from the line), the outer sections half as
-# wide as the inner two (points: how far out to the side the second and outer pairs are), shallow bat scallops between
-# them. The sections turn about a point behind the line, where the edges of the sections would meet (the hinge), and it
-# opens in a plane tipped down a little at the front (tilt: degrees about her length and across her). Folded, it
-# closes up and swings back under her, half each way round. And one fan at her tail, opening straight back with a
-# little propeller pushing at its end, which folds in under the hamper.
-NOSEFAN = dict(line=(0.0, 2.38, 0.55), root=0.30, points=(0.50, 0.75), reach=(0.95, 0.71, 0.59), scallop=0.18,
-               fold=-90, stagger=1.5, layer=0.009, tuck=0.6, tilt=(0, -12))
-TAILFAN = dict(hinge=(0.0, -2.85, 0.56), blades=5, length=1.0, open_from=-65, spread=50, fold=-90, dihedral=0,
-               stagger=1.5, layer=0.009, tuck=0.40, scallop=0.22)
-TAILPROP_R = 0.28
+# next pair less far and the outer pair least, the outer sections half as wide as the inner two (tips: each point's
+# (out to her left, out from the line)), shallow bat scallops between them. The sections turn about the point behind
+# the line where the edges of the sections would meet, opening in a plane tipped down a little at the front (tilt:
+# degrees about her length and across her). Folding, it closes up like a hand fan, one fan all the way, and draws
+# back in under the plate (tuck: how far).
+NOSEFAN = dict(line=(0.0, 2.38, 0.55), heading=90.0, root=0.30, scallop=0.18, tilt=(0, -12), tuck=0.25, layer=0.004,
+               tips=[(0.75, 0.59), (0.50, 0.71), (0.0, 0.95), (-0.50, 0.71), (-0.75, 0.59)], ribs=False)
+# The tail wing, from her drawing: one fan straight out behind, under the hamper, five sections, red and yellow,
+# spreading from a straight line across the stern to a wide trailing edge drawn in between its corners, which sweep
+# back to points; ribs along the seams. It closes up and draws in under the stern.
+TAILFAN = dict(line=(0.0, -2.92, 0.58), heading=-90.0, root=0.25, scallop=0.10, tilt=(0, 0), tuck=0.30, layer=0.004,
+               tips=[(-0.80, 0.84), (-0.46, 0.62), (-0.15, 0.56), (0.15, 0.56), (0.46, 0.62), (0.80, 0.84)], ribs=True)
+# The pusher propeller behind the point of the stern, up at the deck on a shaft out of the top of the stern, braced
+# down to the hull underneath.
+TAILPROP = (0.0, -3.40, 1.30)
+TAILPROP_R = 0.30
 MAST_H = 0.85
 ROTOR_R = 0.72
-# The float: a great flat pink raft she blows up under and round herself on the water, pointed at both ends, its edge
-# waved like a leaf: (half-width, half-length, centre along her), its bottom and top, and the waves round its edge.
 RAFT = dict(half_width=1.55, half_length=3.35, centre=-0.25, bottom=0.10, top=0.42, waves=0.07)
 
 
@@ -235,7 +242,7 @@ def pinstripe_texture(size=256):
 
 
 def honeycomb_texture(size=512, cells=26):
-    """The radiator core: little hexagonal cells, dark inside, brass at the walls."""
+    """The radiator core: little hexagonal cells, grey metal."""
     yy, xx = np.mgrid[0:size, 0:size] / size * cells
     # Distance to the nearest centre of a hexagonal lattice.
     best = np.full((size, size), 9.0)
@@ -246,8 +253,8 @@ def honeycomb_texture(size=512, cells=26):
         cy = np.round(gy) * math.sqrt(3) + oy
         best = np.minimum(best, np.hypot(xx - cx, yy - cy))
     wall = best > 0.40
-    col = np.ones((size, size, 3)) * np.array([30, 24, 18]) / 255 * (0.6 + 0.8 * best)[..., None]
-    col[wall] = np.array([190, 146, 62]) / 255
+    col = np.ones((size, size, 3)) * np.array([84, 86, 90]) / 255 * (0.7 + 0.6 * best)[..., None]
+    col[wall] = np.array([158, 160, 164]) / 255
     out = np.ones((size, size, 4))
     out[..., :3] = np.clip(col, 0, 1)
     return out
@@ -583,18 +590,33 @@ def hull_section(y, hw, zt, zb, inset=0.0, count=72, t0=0.0, t1=math.pi):
     return pts
 
 
-def hull_at(y):
-    """The hull's (half-width, gunwale, keel) at y, between the listed sections."""
+def door_dip(y):
+    """How far the gunwale dips at y for the door beside the front seat: a U, steep at its ends."""
+    y0, y1, depth = DOOR
+    if not y0 < y < y1:
+        return 0.0
+    return depth * math.sin(math.pi * (y - y0) / (y1 - y0)) ** 0.45
+
+
+def hull_at(y, door=True):
+    """The hull's (half-width, gunwale, keel) at y, between the listed sections; the gunwale dipped at the doors."""
     for (y0, *a), (y1, *b) in zip(HULL, HULL[1:]):
         if y1 <= y <= y0:
             k = (y0 - y) / (y0 - y1)
-            return tuple(p + (q - p) * k for p, q in zip(a, b))
+            hw, zt, zb = (p + (q - p) * k for p, q in zip(a, b))
+            return hw, zt - (door_dip(y) if door else 0.0), zb
     return tuple(HULL[0][1:]) if y > HULL[0][0] else tuple(HULL[-1][1:])
 
 
-def hull_half_width(y, z, inset=0.0):
+def hull_ys():
+    """Where the hull is sectioned, front to back: the listed sections and enough more to shape the doors."""
+    ys = {y for y, *_ in HULL} | {float(y) for y in np.linspace(DOOR[0], DOOR[1], 15)}
+    return sorted(ys, reverse=True)
+
+
+def hull_half_width(y, z, inset=0.0, door=True):
     """How far out the hull's side is at height z (0 below the keel)."""
-    hw, zt, zb = hull_at(y)
+    hw, zt, zb = hull_at(y, door)
     hw, zb = hw - inset, zb + inset
     if z <= zb:
         return 0.0
@@ -618,24 +640,24 @@ def build_chassis():
 
 
 def radiator_outline(scale=1.0, count=72):
-    """The radiator's face, (x, z) about the bonnet's axis: round over the top, its sides falling straight and its
-    bottom flatter, where the GEN 11 plate hangs."""
+    """The radiator's face, (x, z) about the bonnet's axis: an egg, narrowing to its round top, widest low down and
+    flat across its foot, where the GEN 11 plate hangs."""
     pts = []
     for i in range(count):
         t = math.pi / 2 - 2 * math.pi * i / count
         c, sn = math.cos(t), math.sin(t)
         if sn >= 0:
-            x, z = RADIATOR_R * c, RADIATOR_R * sn
+            x, z = RADIATOR_W * c * (1 - 0.16 * sn), RADIATOR_TOP * sn
         else:
-            x = RADIATOR_R * math.copysign(abs(c) ** (2 / 4.0), c)
-            z = RADIATOR_R * 0.94 * math.copysign(abs(sn) ** (2 / 4.0), sn)
+            x = RADIATOR_W * math.copysign(abs(c) ** (2 / 5.0), c)
+            z = RADIATOR_BOT * math.copysign(abs(sn) ** (2 / 5.0), sn)
         pts.append((x * scale, BONNET_Z1 + z * scale))
     return pts
 
 
 def build_radiator():
-    """The brass radiator: the shell, a rim standing proud of a honeycomb core with a brass bar down it, and a filler
-    cap and winged mascot on top."""
+    """The radiator: a brass shell whose rim stands proud round a grey honeycomb core, and a filler cap and winged
+    mascot on top."""
     zc = BONNET_Z1
     m = Mesh()
     r1 = BONNET_R1 - 0.01
@@ -658,11 +680,7 @@ def build_radiator():
         loop[m.uv].uv = (loop.vert.co.x * 2.2 + 0.5, (loop.vert.co.z - zc) * 2.2 + 0.5)
     m.obj('grille_core', recalc=False)
     m = Mesh()
-    add_box(m, (0, 2.30, zc - 0.01), (0.035, 0.02, RADIATOR_R * 1.6), 'brass')
-    lathe(m, [(0.0, 2.33), (0.05, 2.325), (0.06, 2.30)], lambda k: 'brass', axis='y', seg=24, origin=(0, 0, zc))
-    m.obj('grille', smooth=40)
-    m = Mesh()
-    top = zc + RADIATOR_R
+    top = zc + RADIATOR_TOP
     lathe(m, [(0.0, 0.0), (0.045, 0.0), (0.05, 0.02), (0.045, 0.05), (0.02, 0.06), (0.0, 0.065)], lambda k: 'brass',
           axis='z', seg=24, origin=(0, 2.21, top - 0.01))
     lathe(m, [(0.0, 0.0), (0.012, 0.0), (0.012, 0.06), (0.025, 0.08), (0.0, 0.11)], lambda k: 'brass',
@@ -766,13 +784,13 @@ def build_hull():
     """The boat: a planked cedar skin, lined with red leather round the open front cockpit, decked over in planked cedar
     behind it to the point of the stern with the back seat's well let into the deck; a walnut capping along the
     gunwales, a brass strip down each side and a brass cap on the point of the stern."""
-    outer = [(y, hull_section(y, hw, zt, zb)) for y, hw, zt, zb in HULL]
+    outer = [(y, hull_section(y, *hull_at(y))) for y in hull_ys()]
     m = Mesh()
     loft(m, outer, 'cedar', closed=False, v_scale=0.3)
     o = m.obj('hull', smooth=55)
     # The lining of the front cockpit, back to the deck.
     m = Mesh()
-    ys = [y for y, *_ in HULL if y > DECK_SIDE] + [DECK_SIDE, (DECK_SIDE + DECK_FRONT) / 2, DECK_FRONT]
+    ys = [y for y in hull_ys() if y > DECK_SIDE] + [DECK_SIDE, (DECK_SIDE + DECK_FRONT) / 2, DECK_FRONT]
     secs = [(y, list(reversed(hull_section(y, *hull_at(y), inset=HULL_SKIN)))) for y in ys]
     loft(m, secs, 'leather_plain', closed=False, v_scale=2.0)
     m.obj('lining', smooth=55)
@@ -832,17 +850,17 @@ def build_hull():
     # The gunwale: walnut capping from the bow to the point of the stern, and a brass rubbing strip below it.
     m = Mesh()
     for s in (-1, 1):
-        ys = [y for y, *_ in HULL]
+        ys = hull_ys()
         path = []
         for y in ys:
             hw, zt, zb = hull_at(y)
             path.append((s * max(hw - HULL_SKIN / 2, 0.0), y, zt + 0.012))
-        tube(m, catmull(path, 6), 0.022, 'walnut', seg=10)
+        tube(m, catmull(path, 3), 0.022, 'walnut', seg=10)
         strip = []
-        for y in ys[:-1]:
-            hw, zt, zb = hull_at(y)
+        for y in [y for y, *_ in HULL][:-1]:
+            hw, zt, zb = hull_at(y, door=False)
             z = zt - 0.24
-            strip.append((s * (hull_half_width(y, z) + 0.006), y, z))
+            strip.append((s * (hull_half_width(y, z, door=False) + 0.006), y, z))
         tube(m, catmull(strip, 6), 0.009, 'brass', seg=8)
     y, hw, zt, zb = HULL[-1]
     ellipsoid(m, (0.0, y - 0.01, zt + 0.01), (0.03, 0.05, 0.04), 'brass', seg=12, rings=8)
@@ -1007,11 +1025,12 @@ def build_wheels():
 
 
 def build_spare():
-    """The spare wheel, stood on the right-hand running board against the scuttle, strapped to a brass bracket."""
+    """The spare wheel, stood on the right-hand running board hard up against the side of the bonnet just behind the
+    front wing, strapped to a brass bracket."""
     x, y, z = SPARE
     wheel_mesh(1).obj('spare', location=SPARE, smooth=45)
     m = Mesh()
-    tube(m, [Vector((x - 0.08, y, z)), Vector((hull_half_width(y, z) - 0.02, y, z))], 0.022, 'brass', seg=10)
+    tube(m, [Vector((x - 0.07, y, z)), Vector((bonnet_ring(y)[0] - 0.03, y, z))], 0.022, 'brass', seg=10)
     arc = [(0.47 * math.cos(t), z + 0.47 * math.sin(t)) for t in np.linspace(math.radians(60), math.radians(120), 10)]
     loft(m, [(x - 0.035, [(y + a, b) for a, b in arc]), (x + 0.035, [(y + a, b) for a, b in arc])], 'strap', closed=False)
     m.obj('spare_mount', smooth=40)
@@ -1108,25 +1127,41 @@ def lamp(m, glass, center, r, depth):
           lambda k: 'lens', axis='y', seg=32, origin=center)
 
 
+def spotlight(m, glass, center, r, depth):
+    """A coach spotlight facing forward: a brass cone opening out to the front like a searchlight, a chrome reflector,
+    a bulb and its glass, and a carrying handle over the top."""
+    cx, cy, cz = center
+    body = [(0.0, -depth * 0.5), (r * 0.42, -depth * 0.5), (r * 0.48, -depth * 0.4), (r * 0.82, depth * 0.25),
+            (r, depth * 0.45), (r * 1.1, depth * 0.48), (r * 1.1, depth * 0.56), (r * 0.94, depth * 0.57)]
+    lathe(m, body, lambda k: 'brass', axis='y', seg=28, origin=center)
+    lathe(m, [(0.0, -depth * 0.3), (r * 0.4, -depth * 0.28), (r * 0.9, depth * 0.5)], lambda k: 'chrome', axis='y', seg=28,
+          origin=center)
+    ellipsoid(m, (cx, cy - depth * 0.1, cz), (r * 0.2, r * 0.24, r * 0.2), 'bulb_glow', seg=10, rings=6)
+    lathe(glass, [(r * 0.94, depth * 0.56), (r * 0.6, depth * 0.6), (0.0, depth * 0.62)], lambda k: 'lens', axis='y',
+          seg=28, origin=center)
+    # The handle: a hoop over the top, fore and aft.
+    hoop = [Vector((cx, cy - depth * 0.3 + depth * 0.6 * k, cz + r * 0.9 + 0.045 * math.sin(math.pi * k))) for k in
+            np.linspace(0.0, 1.0, 9)]
+    tube(m, hoop, 0.008, 'brass', seg=8)
+    for end in (hoop[0], hoop[-1]):
+        tube(m, [end, end - Vector((0, 0, 0.03))], 0.008, 'brass', seg=8)
+
+
 def build_lamps():
     m = Mesh()
     glass = Mesh()
-    # Two great brass headlamps either side of the radiator on stalks from the front wings, and a coach lamp on each
-    # post of the windscreen.
+    # Two great brass headlamps either side of the radiator, set into its rim, on stalks from the front wings; and a
+    # spotlight on each post of the windscreen.
     for s in (-1, 1):
-        cx = s * (RADIATOR_R + 0.17)
-        tube(m, [Vector((cx, 2.27, 0.60)), Vector((cx, 2.27, 0.90))], 0.02, 'brass', seg=8)
+        cx = s * 0.44
+        tube(m, [Vector((cx, 2.27, 0.60)), Vector((cx, 2.27, 0.97))], 0.02, 'brass', seg=8)
         lathe(m, [(0.0, 0.0), (0.03, 0.0), (0.03, 0.02), (0.0, 0.02)], lambda k: 'brass', axis='z', seg=12,
-              origin=(cx, 2.27, 0.90))
-        lamp(m, glass, (cx, 2.30, 1.04), 0.165, 0.14)
-        tube(m, [Vector((s * (RADIATOR_R - 0.01), 2.22, 0.98)), Vector((s * (RADIATOR_R + 0.03), 2.27, 1.0))], 0.012,
-             'brass', seg=6)
-        cl = s * 0.635
+              origin=(cx, 2.27, 0.95))
+        lamp(m, glass, (cx, 2.30, 1.13), 0.165, 0.14)
+        cl = s * 0.64
         y = BONNET_BACK - 0.05
-        lamp(m, glass, (cl, y + 0.01, 1.55), 0.05, 0.06)
-        lathe(m, [(0.0, 0.0), (0.012, 0.0), (0.012, 0.08), (0.025, 0.09), (0.0, 0.11)], lambda k: 'brass', axis='z',
-              seg=12, origin=(cl, y + 0.01, 1.60))
-        add_box(m, ((cl + s * 0.56) / 2, y, 1.55), (0.08, 0.02, 0.025), 'brass')
+        spotlight(m, glass, (cl, y + 0.02, 1.56), 0.085, 0.16)
+        add_box(m, ((cl + s * 0.56) / 2, y, 1.53), (0.08, 0.02, 0.025), 'brass')
     m.obj('lamps', smooth=40)
     glass.obj('lamp_glass', smooth=40, part='glass')
 
@@ -1142,7 +1177,7 @@ def build_exhaust():
         t = (main[i + 1] - main[i - 1]).normalized()
         tube(m, [main[i] - t * 0.008, main[i] + t * 0.008], 0.054, 'copper', seg=16)
     a = math.radians(8)
-    for k, (y, to) in enumerate(((1.62, 0), (1.48, 4), (1.34, 8), (1.20, 12))):
+    for k, (y, to) in enumerate(((1.62, 0), (1.50, 4), (1.38, 8), (1.27, 12))):
         r, zc = bonnet_ring(y)
         p0 = Vector((r * math.cos(a) - 0.01, y, zc + r * math.sin(a)))
         p1 = main[min(to, len(main) - 1)]
@@ -1157,52 +1192,60 @@ def build_exhaust():
 
 
 def build_horn():
-    """The serpent horn: a brass snake from the rubber bulb by the driver's hand along the bonnet, rearing up at the
-    front with its jaws open."""
+    """The serpent horn: a brass snake from the rubber bulb by the driver's hand, down behind the spare wheel and along
+    the side of the bonnet low over the front wing, rearing up a little at the front with its jaws open."""
     m = Mesh()
-    path = catmull([(0.60, 0.50, 1.36), (0.53, 0.78, 1.38), (0.48, 1.05, 1.40), (0.45, 1.30, 1.44),
-                    (0.44, 1.50, 1.52), (0.43, 1.62, 1.60), (0.43, 1.72, 1.62)], 8)
+    path = catmull([(0.46, 0.56, 1.30), (0.48, 0.70, 1.12), (0.50, 0.95, 0.98), (0.50, 1.20, 0.95), (0.49, 1.42, 0.96),
+                    (0.48, 1.58, 1.00), (0.47, 1.68, 1.05)], 8)
     tube(m, path, 0.014, 'brass', seg=12, flare=lambda t: 1.0 + 1.1 * t ** 1.5)
     lathe(m, [(0.0, -0.05), (0.03, -0.045), (0.045, -0.02), (0.045, 0.02), (0.02, 0.04), (0.012, 0.05)],
-          lambda k: 'bulb', axis='y', seg=20, origin=(0.60, 0.45, 1.36))
-    head = Vector((0.43, 1.78, 1.63))
+          lambda k: 'bulb', axis='y', seg=20, origin=(0.46, 0.51, 1.30))
+    head = Vector((0.47, 1.74, 1.06))
     ellipsoid(m, head + Vector((0, 0.0, 0.018)), (0.040, 0.075, 0.022), 'brass', rot=Matrix.Rotation(math.radians(22), 4, 'X'))
     ellipsoid(m, head + Vector((0, -0.005, -0.016)), (0.034, 0.065, 0.016), 'brass', rot=Matrix.Rotation(math.radians(-16), 4, 'X'))
     ellipsoid(m, head + Vector((0, 0.01, 0.0)), (0.026, 0.05, 0.02), 'bulb')
     for s in (-1, 1):
         ellipsoid(m, head + Vector((s * 0.03, -0.02, 0.04)), (0.010, 0.010, 0.010), 'eye', seg=8, rings=6)
-    for y in (1.05, 1.30):
+    for y in (1.30, 1.52):
         r, zc = bonnet_ring(y)
-        add_box(m, (0.38, y, 1.38 if y < 1.2 else 1.42), (0.14, 0.025, 0.025), 'brass')
+        add_box(m, ((r + 0.49) / 2, y, 0.96), (0.49 - r + 0.03, 0.025, 0.025), 'brass')
     return m.obj('horn', smooth=45)
 
 
 def build_levers():
-    """The handbrake and gear lever outside the body behind the spare wheel, in a brass quadrant."""
-    m = Mesh()
-    y = -0.12
+    """The gear lever and the handbrake outside the body by the driver's door, in a brass quadrant; each its own part,
+    pivoting at its foot (the game moves them as she is driven)."""
+    y = (DOOR[0] + DOOR[1]) / 2
     x = hull_half_width(y, 0.80) + 0.03
-    add_box(m, (x, y, 0.76), (0.03, 0.30, 0.13), 'brass')
-    for y0, y1, z1, knob in ((y - 0.05, y - 0.12, 1.40, False), (y + 0.06, y + 0.12, 1.30, True)):
-        tube(m, [Vector((x + 0.015, y0, 0.72)), Vector((x + 0.03, y1, z1))], 0.012, 'brass', seg=8)
-        if knob:
-            ellipsoid(m, (x + 0.03, y1, z1 + 0.02), (0.028, 0.028, 0.028), 'black', seg=12, rings=8)
+    m = Mesh()
+    add_box(m, (x, y, 0.76), (0.03, 0.36, 0.13), 'brass')
+    for k in range(7):
+        add_box(m, (x + 0.017, y - 0.15 + 0.05 * k, 0.83), (0.006, 0.012, 0.02), 'chassis')
+    m.obj('quadrant', smooth=None)
+    for name, dy, height, grip in (('lever_gear', 0.07, 0.62, 'knob'), ('lever_brake', -0.07, 0.70, 'grip')):
+        m = Mesh()
+        tube(m, [Vector((0, 0, 0)), Vector((0.015, 0, height))], 0.012, 'brass', seg=8)
+        if grip == 'knob':
+            ellipsoid(m, (0.015, 0, height + 0.02), (0.03, 0.03, 0.03), 'black', seg=12, rings=8)
         else:
-            tube(m, [Vector((x + 0.03, y1, z1 - 0.10)), Vector((x + 0.03, y1, z1 + 0.01))], 0.019, 'leather_plain', seg=10)
-    return m.obj('levers', smooth=40)
+            tube(m, [Vector((0.015, 0, height - 0.10)), Vector((0.015, 0, height + 0.01))], 0.019, 'leather_plain', seg=10)
+        m.obj(name, location=(x + 0.015, y + dy, 0.72), smooth=40, part=name)
 
 
 def build_plates():
     """GEN 11, under the radiator and on the back of the hamper, and the starting handle."""
     m = Mesh()
-    plate_z = BONNET_Z1 - RADIATOR_R * 0.94 - 0.075
+    plate_z = BONNET_Z1 - RADIATOR_BOT - 0.075
     add_box(m, (0, 2.315, plate_z), (0.46, 0.012, 0.13), 'plate')
     add_box(m, (0, 2.30, plate_z + 0.075), (0.30, 0.03, 0.02), 'brass')
     add_box(m, (0, -3.175, 0.79), (0.50, 0.012, 0.13), 'plate')
-    tube(m, [Vector((0, 2.30, 0.42)), Vector((0, 2.44, 0.42))], 0.014, 'chassis', seg=8)
-    tube(m, [Vector((0, 2.44, 0.42)), Vector((0, 2.44, 0.31))], 0.012, 'chassis', seg=8)
-    tube(m, [Vector((0, 2.44, 0.31)), Vector((0, 2.52, 0.31))], 0.016, 'brass', seg=8)
+    tube(m, [Vector((0, 2.30, 0.42)), Vector((0, 2.43, 0.42))], 0.014, 'chassis', seg=8)
     m.obj('plates', smooth=None)
+    # The starting handle, turning on its shaft as she is started.
+    m = Mesh()
+    tube(m, [Vector((0, 0, 0)), Vector((0, 0, -0.11))], 0.012, 'chassis', seg=8)
+    tube(m, [Vector((0, 0, -0.11)), Vector((0, 0.08, -0.11))], 0.016, 'brass', seg=8)
+    m.obj('crank', location=(0, 2.44, 0.42), smooth=None, part='crank')
     text_object('GEN 11', 0.085, (0, 2.322, plate_z), (math.radians(90), 0, math.radians(180)), 'letters')
     text_object('GEN 11', 0.085, (0, -3.182, 0.79), (math.radians(90), 0, 0), 'letters')
 
@@ -1229,8 +1272,11 @@ def wedge(m, length, half_angle, mat, spar=False, scallop=0.1, rib=True, inner=N
         for k in range(cols - 1):
             m.face([grid[j][k], grid[j + 1][k], grid[j + 1][k + 1], grid[j][k + 1]], mat,
                    [(j / 8, k / 6), ((j + 1) / 8, k / 6), ((j + 1) / 8, (k + 1) / 6), (j / 8, (k + 1) / 6)])
-    if rib:
-        tube(m, [Vector((0.02, 0.0, 0.005)), Vector((length * 0.97, 0.0, 0.005))], 0.007, 'brass', seg=6)
+    # Ribs: down the middle, or along its leading seam (and its trailing one, for the last panel of a fan), so that
+    # the fan's ribs are where its points are and the panels between them read as one sail.
+    for ang in ([0.0] if rib is True else rib or []):
+        d = Vector((math.cos(ang), math.sin(ang), 0.0))
+        tube(m, [d * 0.02 + Vector((0, 0, 0.005)), d * length * 0.97 + Vector((0, 0, 0.005))], 0.007, 'brass', seg=6)
     if spar:
         d = Vector((math.cos(a), math.sin(a), 0.0))
         mid = d * (length / 2 + 0.02)
@@ -1253,8 +1299,12 @@ def fan(name, side, spec, colors, coll, spar=False):
         # A fan cut off along a straight line across it, root in front of the hinge.
         off = math.radians(spec['open_from'] - step * i - (spec['open_from'] - spec['spread'] / 2))
         inner = (lambda ang, off=off: spec['root'] / math.cos(off + ang)) if spec.get('root') else None
-        t = wedge(m, spec['length'], step / 2 + 1.0, colors[i % 2], spar=spar and i == 0, scallop=spec['scallop'],
-                  rib=spec.get('ribs', True), inner=inner)
+        rib = spec.get('ribs', True)
+        if rib == 'seams':
+            a = math.radians(step / 2)
+            rib = ([] if spar and i == 0 else [a]) + ([-a] if i == blades - 1 else [])
+        t = wedge(m, spec['length'], step / 2 + (0.4 if spec.get('ribs') == 'seams' else 1.0), colors[i % 2],
+                  spar=spar and i == 0, scallop=spec['scallop'], rib=rib, inner=inner)
         if t is not None:
             tip = t
         tag = '%s_%s_%d' % (name, 'c' if side == 0 else 'r' if side > 0 else 'l', i)
@@ -1278,21 +1328,25 @@ def fan(name, side, spec, colors, coll, spar=False):
     return objs, tip
 
 
-def nose_wing(spec, colors, coll):
-    """The nose wing: four sections between five points (see NOSEFAN), each its own panel turning about the point
-    behind the line where their edges meet, named nosefan_c_<i> from her left, with the same properties as fan()'s."""
+def straight_fan(name, spec, colors, coll):
+    """A fan cut off along a straight root line (NOSEFAN, TAILFAN): one section between each pair of points, each its
+    own panel named <name>_c_<i> from her left, turning about the point behind the line where the sections' edges
+    meet (their hinge), with the same properties as fan()'s. Folded, every section lies on the middle one, the fan
+    closed up, and draws in."""
     lx, ly, lz = spec['line']
+    heading = spec['heading']
     w0 = spec['root']
-    second, outer = spec['points']
-    mid_r, second_r, outer_r = spec['reach']
+    tips2 = spec['tips']
     # The hinge: where the outer edges, from the ends of the line through the outer points, cross.
-    d = w0 * outer_r / (outer - w0)
-    # In the wing's own frame: x straight ahead from the hinge, y to her left.
-    tips = [Vector((d + outer_r, outer)), Vector((d + second_r, second)), Vector((d + mid_r, 0.0)),
-            Vector((d + second_r, -second)), Vector((d + outer_r, -outer))]
+    (side0, reach0) = tips2[0]
+    d = w0 * reach0 / (abs(side0) - w0)
+    # In the fan's own frame: x straight out from the hinge, y to her left (mirrored for a fan pointing back).
+    flip = 1.0 if heading > 0 else -1.0
+    tips = [Vector((d + reach, side * flip)) for side, reach in tips2]
     roots = [Vector((d, p.y * d / p.x)) for p in tips]
+    n = len(tips) - 1
     objs = []
-    for i in range(4):
+    for i in range(n):
         ta, tb, ra, rb = tips[i], tips[i + 1], roots[i], roots[i + 1]
         mid = math.atan2(ta.y, ta.x) / 2 + math.atan2(tb.y, tb.x) / 2
         back = Matrix.Rotation(-mid, 2)
@@ -1314,16 +1368,17 @@ def nose_wing(spec, colors, coll):
             for k in range(6):
                 m.face([grid[j][k], grid[j + 1][k], grid[j + 1][k + 1], grid[j][k + 1]], colors[i % 2],
                        [(j / 8, k / 6), ((j + 1) / 8, k / 6), ((j + 1) / 8, (k + 1) / 6), (j / 8, (k + 1) / 6)])
-        tag = 'nosefan_c_%d' % i
-        o = m.obj(tag, coll=coll, location=(lx, ly - d, lz + spec['layer'] * i), smooth=None, part=tag)
+        if spec.get('ribs'):
+            seams = [(ra, ta)] + ([(rb, tb)] if i == n - 1 else [])
+            for r0, r1 in seams:
+                a, b = back @ r0, back @ r1
+                tube(m, [Vector((a.x, a.y, 0.006)), Vector((b.x * 0.985, b.y * 0.985, 0.006))], 0.006, 'chassis', seg=6)
+        tag = '%s_c_%d' % (name, i)
+        hinge = (lx, ly - d * flip, lz + spec['layer'] * i)
+        o = m.obj(tag, coll=coll, location=hinge, smooth=None, part=tag)
         solidify(o, 0.008, offset=0.0)
-        o['open_yaw'] = open_yaw = 90.0 + math.degrees(mid)
-        fold = spec['fold'] + math.copysign(spec['stagger'] * i, open_yaw - spec['fold'])
-        while open_yaw - fold > 180:
-            fold += 360
-        while fold - open_yaw > 180:
-            fold -= 360
-        o['fold_yaw'] = fold
+        o['open_yaw'] = heading + math.degrees(mid)
+        o['fold_yaw'] = heading
         o['tuck'] = spec['tuck']
         o['dihedral'] = 0.0
         o['tilt_along'], o['tilt_across'] = spec.get('tilt', (0, 0))
@@ -1379,7 +1434,7 @@ def build_hamper():
     add_box(m, (0, -2.98, 0.95), (0.64, 0.40, 0.03), 'wicker', uv_scale=1.6)
     for x in (-0.22, 0.22):
         add_box(m, (x, -2.98, 0.81), (0.035, 0.39, 0.31), 'strap')
-    m.obj('hamper', smooth=None)
+    m.obj('hamper', smooth=None, part='hamper')
     m = Mesh()
     for x in (-0.26, 0.26):
         tube(m, [Vector((x, -2.05, 0.46)), Vector((x, -2.60, 0.64)), Vector((x, -3.20, 0.64))], 0.014, 'brass', seg=8)
@@ -1387,23 +1442,35 @@ def build_hamper():
     m.obj('rack', smooth=40)
 
 
-def build_tailprop(panel):
-    """The little wooden propeller pushing on the end of the tail fan, on a shaft out along the middle panel; it turns
-    about that shaft."""
+def build_tailprop():
+    """The pusher propeller behind the point of the stern: a shaft out of the top of the stern to a gearbox, braced in a
+    triangle down to the hull underneath, and the little wooden propeller on its end, which unfolds and turns in
+    flight (its own part, turning about her length)."""
+    px, py, pz = TAILPROP
     m = Mesh()
-    tube(m, [Vector((-0.10, 0, 0.012)), Vector((0.06, 0, 0.012))], 0.010, 'brass', seg=8)
-    lathe(m, [(0.0, 0.05), (0.025, 0.05), (0.03, 0.08), (0.0, 0.12)], lambda k: 'brass', axis='x', seg=12, origin=(0, 0, 0.012))
+    tube(m, [Vector((0, -3.00, pz)), Vector((0, py + 0.03, pz))], 0.018, 'brass', seg=10)
+    lathe(m, [(0.0, -2.96), (0.04, -2.97), (0.05, -3.02), (0.045, -3.08), (0.025, -3.10)], lambda k: 'chassis', axis='y',
+          seg=14, origin=(0, 0, pz))
+    lathe(m, [(0.022, py + 0.10), (0.04, py + 0.08), (0.04, py + 0.03), (0.022, py + 0.02)], lambda k: 'brass', axis='y',
+          seg=12, origin=(0, 0, pz))
+    for s in (-1, 1):
+        tube(m, [Vector((0, py + 0.06, pz - 0.01)), Vector((s * 0.09, -2.80, 1.00))], 0.010, 'chassis', seg=8)
+    tube(m, [Vector((0, py + 0.06, pz - 0.01)), Vector((0, -3.02, 1.16))], 0.010, 'chassis', seg=8)
+    tube(m, [Vector((-0.09, -2.80, 1.00)), Vector((0.09, -2.80, 1.00))], 0.010, 'chassis', seg=8)
+    m.obj('tailprop_mount', smooth=40)
+    m = Mesh()
+    lathe(m, [(0.0, 0.02), (0.03, 0.02), (0.035, -0.02), (0.02, -0.06), (0.0, -0.08)], lambda k: 'brass', axis='y', seg=14)
     for sign in (1, -1):
         rings = []
-        for r in np.linspace(0.02, TAILPROP_R, 7):
-            t = (r - 0.02) / (TAILPROP_R - 0.02)
-            chord = 0.035 + 0.03 * math.sin(math.pi * min(1.0, t * 1.1))
+        for r in np.linspace(0.025, TAILPROP_R, 8):
+            t = (r - 0.025) / (TAILPROP_R - 0.025)
+            chord = 0.04 + 0.035 * math.sin(math.pi * min(1.0, t * 1.1))
             twist = math.radians(30 - 18 * t)
             ring = []
-            for c, th in ((-chord / 2, -0.006), (chord / 2, -0.006), (chord / 2, 0.006), (-chord / 2, 0.006)):
-                y = c * math.cos(twist) - th * math.sin(twist)
-                x = c * math.sin(twist) + th * math.cos(twist)
-                ring.append(m.vert((0.085 + x, y * sign, 0.012 + r * sign)))
+            for c, th in ((-chord / 2, -0.007), (chord / 2, -0.007), (chord / 2, 0.007), (-chord / 2, 0.007)):
+                x = c * math.cos(twist) - th * math.sin(twist)
+                y = c * math.sin(twist) + th * math.cos(twist)
+                ring.append(m.vert((x * sign, y, r * sign)))
             rings.append(ring)
         for i in range(len(rings) - 1):
             for k in range(4):
@@ -1411,11 +1478,7 @@ def build_tailprop(panel):
                 q = [rings[i][k], rings[i][j], rings[i + 1][j], rings[i + 1][k]]
                 m.face(q if sign > 0 else list(reversed(q)), 'prop')
         m.face(rings[-1] if sign > 0 else list(reversed(rings[-1])), 'prop')
-    o = m.obj('tailprop', coll='wings', smooth=35, part='tailprop')
-    o.parent = panel
-    o.location = (TAILFAN['length'] * (1 - TAILFAN['scallop'] * 0.5) + 0.02, 0, 0)
-    o['host'] = panel.name
-    return o
+    return m.obj('tailprop', coll='wings', location=TAILPROP, smooth=35, part='tailprop')
 
 
 def build_wings():
@@ -1424,10 +1487,9 @@ def build_wings():
         panels, tip = fan('wing', s, WING, ('wing_red', 'wing_yellow'), 'wings', spar=True)
         objs += panels
         build_rotor(panels[0], tip, s)
-    objs += nose_wing(NOSEFAN, ('wing_yellow', 'wing_red'), 'wings')
-    tail = fan('tailfan', 0, TAILFAN, ('wing_red', 'wing_yellow'), 'wings')[0]
-    objs += tail
-    build_tailprop(tail[len(tail) // 2])
+    objs += straight_fan('nosefan', NOSEFAN, ('wing_yellow', 'wing_red'), 'wings')
+    objs += straight_fan('tailfan', TAILFAN, ('wing_red', 'wing_yellow'), 'wings')
+    build_tailprop()
     return objs
 
 
@@ -1545,7 +1607,7 @@ def pose(mode, spin=0.0):
             o.rotation_euler = (0, 0, spin * 2.3)
         elif part == 'tailprop':
             o.hide_render = o.hide_viewport = not fly
-            o.rotation_euler = (spin * 3.1, 0, 0)
+            o.rotation_euler = (0, spin * 3.1, 0)
         elif part.startswith('wheel_'):
             # On the water they turn sideways and lie flat on the raft, hub caps up.
             side = 1 if o.name.endswith('r') else -1
@@ -1675,7 +1737,7 @@ def neutral():
         elif part.startswith('mast_'):
             o.rotation_mode = 'QUATERNION'
             o.rotation_quaternion = (1, 0, 0, 0)
-        elif part.startswith(('wheel_', 'rotor_')) or part == 'screw':
+        elif part.startswith(('wheel_', 'rotor_', 'lever_')) or part in ('screw', 'tailprop', 'crank'):
             o.rotation_euler = (0, 0, 0)
     bpy.context.view_layer.update()
 
@@ -1748,7 +1810,7 @@ def bake_worlds():
 TEXEL_WEIGHT = {'chassis': 0.3, 'floor': 0.4, 'bulkhead': 0.3, 'boards': 0.6, 'float': 0.45, 'screw': 0.5,
                 'wing_': 0.32, 'nosefan_': 0.45, 'tailfan_': 0.45, 'mast_': 0.6, 'rotor_': 0.6, 'tailprop': 0.8,
                 'plate_text': 1.6,
-                'plates': 1.3, 'radiator': 1.3, 'grille': 1.3, 'grille_core': 1.3, 'mascot': 1.3, 'lamps': 1.3, 'horn': 1.3, 'dashboard': 1.3,
+                'plates': 1.3, 'radiator': 1.3, 'grille_core': 1.3, 'hamper': 1.0, 'lever_': 1.3, 'mascot': 1.3, 'lamps': 1.3, 'horn': 1.3, 'dashboard': 1.3,
                 'bonnet': 1.15, 'hull': 1.15}
 
 
@@ -2041,6 +2103,9 @@ def export_game(root):
             else:
                 pivot = o.location.copy()
                 rot = quat_to_mc(o.rotation_quaternion if o.rotation_mode == 'QUATERNION' else o.rotation_euler.to_quaternion())
+                if name == 'tailprop':
+                    # On the stern, not on a fan.
+                    extra = (-1.0, 0.0, 0.0, 0.0)
                 if 'open_yaw' in o:
                     extra = (float(o['open_yaw']), float(o['dihedral']), float(o['fold_yaw']), float(o['tuck']))
             lit = name.startswith(GAME_LIT)

@@ -417,66 +417,133 @@ def chitty_horn():
     return master(outdoors(m, 0.15), peak=0.98)
 
 
-def chitty_wings_out():
-    """The wings coming out: a ratchet winding faster, metal sliding, each panel of the fan snapping open, a clunk as
-    they lock and a spring settling."""
-    rng = rng_for('wings_out')
-    total = 1.8
-    n = ns(total)
-    m = ratchet(rng, n, 0.0, 0.5, 12, 40, 0.8)
-    k = ns(0.6)
-    slide = sweep_filter(white(k), 'bandpass', curve(k, [(0, 900), (0.6, 2600)], 'log'), width=1.0)
-    m[ns(0.1):ns(0.1) + k] += slide * attack_decay(k, 0.1, 0.25) * 0.5
-    for i in range(7):
-        s = snap(rng, 0.8 + 0.2 * (i % 2))
-        at = ns(0.5 + i * 0.055)
-        m[at:at + len(s)] += s
-    c = clunk(rng, 80.0)
-    m[ns(0.95):ns(0.95) + len(c)] += c * 1.1
-    k = ns(0.6)
+def creak(rng, dur, f0=180.0, f1=320.0):
+    """Wood and leather working against each other: a dry, stuttering squeal."""
+    k = ns(dur)
     t = np.arange(k) / SR
-    boing = np.sin(2 * np.pi * np.cumsum(260 + 60 * np.sin(2 * np.pi * 9 * t) * np.exp(-t / 0.2)) / SR) * np.exp(-t / 0.18)
-    m[ns(1.0):ns(1.0) + k] += boing * 0.2
+    f = curve(k, [(0, f0), (dur, f1)], 'log') * (1 + 0.04 * np.sin(2 * np.pi * rng.uniform(6, 11) * t))
+    phase = np.cumsum(f) / SR % 1.0
+    pulses = np.clip(np.sin(2 * np.pi * phase), 0, None) ** 8
+    stick = (0.5 + 0.5 * np.sign(np.sin(2 * np.pi * rng.uniform(13, 21) * t + rng.uniform(0, 6)))) * 0.7 + 0.3
+    return bp(pulses * stick, 600, 3800, 2) * attack_decay(k, 0.05, dur * 0.6)
+
+
+def chitty_wings_out():
+    """The wings coming out, slowly and in stages, to match the game (2.4 s): the ratchet winds and the folded wings
+    swing out from under the running boards with metal sliding and wood creaking; then the fans open, each panel's
+    canvas snapping taut in turn; a clunk as they lock; the masts winding up and a spring settling."""
+    rng = rng_for('wings_out')
+    total = 2.9
+    n = ns(total)
+    m = ratchet(rng, n, 0.0, 1.0, 9, 26, 0.75)
+    k = ns(1.0)
+    slide = sweep_filter(white(k), 'bandpass', curve(k, [(0, 700), (1.0, 2200)], 'log'), width=1.0)
+    m[ns(0.05):ns(0.05) + k] += slide * attack_decay(k, 0.2, 0.5) * 0.4
+    c = creak(rng, 0.7, 170, 260)
+    m[ns(0.3):ns(0.3) + len(c)] += c * 0.35
+    for i in range(8):
+        sn = snap(rng, 0.75 + 0.25 * (i % 2))
+        at = ns(1.45 + i * 0.075 + rng.uniform(-0.01, 0.01))
+        m[at:at + len(sn)] += sn
+    c = clunk(rng, 80.0)
+    m[ns(2.08):ns(2.08) + len(c)] += c * 1.1
+    m += ratchet(rng, n, 1.3, 2.3, 30, 18, 0.35)
+    k = ns(0.7)
+    t = np.arange(k) / SR
+    boing = np.sin(2 * np.pi * np.cumsum(260 + 60 * np.sin(2 * np.pi * 9 * t) * np.exp(-t / 0.2)) / SR) * np.exp(-t / 0.2)
+    m[ns(2.12):ns(2.12) + k] += boing * 0.2
     return master(outdoors(m, 0.2), peak=0.98)
 
 
 def chitty_wings_in():
-    """Folding away: canvas rustling shut, the ratchet, a clunk."""
+    """Folding away, the same slowly backwards (2.4 s): the masts winding down, each panel of the fans folding shut with
+    a rustle of canvas, the ratchet as the closed wings swing in under the running boards, and a clunk."""
     rng = rng_for('wings_in')
-    total = 1.4
+    total = 2.7
     n = ns(total)
-    k = ns(0.45)
-    rustle = bp(white(k), 400, 3000) * attack_decay(k, 0.05, 0.15) * (0.6 + 0.4 * np.sin(2 * np.pi * 22 * np.arange(k) / SR))
-    m = np.zeros(n)
-    m[:k] += rustle * 0.8
-    m += ratchet(rng, n, 0.3, 0.7, 36, 14, 0.7)
+    m = ratchet(rng, n, 0.0, 0.8, 20, 30, 0.3)
+    for i in range(8):
+        k = ns(0.12)
+        rustle = bp(white(k), 400, 3000) * attack_decay(k, 0.01, 0.06)
+        at = ns(0.25 + i * 0.08 + rng.uniform(-0.01, 0.01))
+        m[at:at + k] += rustle * 0.7
+    m += ratchet(rng, n, 1.1, 2.1, 26, 10, 0.75)
+    c = creak(rng, 0.6, 250, 170)
+    m[ns(1.3):ns(1.3) + len(c)] += c * 0.3
     c = clunk(rng, 90.0, 0.8)
-    m[ns(0.72):ns(0.72) + len(c)] += c
+    m[ns(2.2):ns(2.2) + len(c)] += c
     return master(outdoors(m, 0.2), peak=0.98)
 
 
 def chitty_floats():
-    """The floats blowing up: a rush of air rising in pitch, the rubber squeaking taut, a slosh as she settles."""
+    """The raft, slowly (2 s): the wheels clunking round flat, then a rush of air rising in pitch as it blows up, the
+    rubber squeaking taut, and a slosh as she settles on it."""
     rng = rng_for('floats')
-    total = 2.0
+    total = 2.6
     n = ns(total)
-    m = np.zeros(n)
-    k = ns(0.95)
-    hiss = sweep_filter(white(k), 'bandpass', curve(k, [(0, 700), (0.95, 3200)], 'log'), width=1.2)
-    m[:k] += hiss * attack_decay(k, 0.05, 2.0) * np.clip((0.95 - np.arange(k) / SR) / 0.05, 0, 1) * 0.7
-    k = ns(0.7)
+    m = ratchet(rng, n, 0.0, 0.7, 14, 22, 0.4)
+    for at in (0.35, 0.75):
+        c = clunk(rng, 110.0, 0.5)
+        m[ns(at):ns(at) + len(c)] += c * 0.5
+    k = ns(1.4)
+    hiss = sweep_filter(white(k), 'bandpass', curve(k, [(0, 600), (1.4, 3000)], 'log'), width=1.2)
+    m[ns(0.6):ns(0.6) + k] += hiss * attack_decay(k, 0.08, 3.0) * np.clip((1.4 - np.arange(k) / SR) / 0.06, 0, 1) * 0.7
+    k = ns(0.9)
     t = np.arange(k) / SR
-    squeak = np.sin(2 * np.pi * np.cumsum(curve(k, [(0, 380), (0.7, 920)], 'log')) / SR)
-    squeak *= (0.5 + 0.5 * np.sin(2 * np.pi * 31 * t)) * attack_decay(k, 0.1, 0.3) * 0.25
-    m[ns(0.25):ns(0.25) + k] += squeak
+    squeak = np.sin(2 * np.pi * np.cumsum(curve(k, [(0, 360), (0.9, 900)], 'log')) / SR)
+    squeak *= (0.5 + 0.5 * np.sin(2 * np.pi * 29 * t)) * attack_decay(k, 0.1, 0.4) * 0.22
+    m[ns(1.0):ns(1.0) + k] += squeak
     k = ns(0.2)
     t = np.arange(k) / SR
     bloop = np.sin(2 * np.pi * np.cumsum(curve(k, [(0, 240), (0.2, 90)], 'log')) / SR) * np.exp(-t / 0.05)
-    m[ns(0.97):ns(0.97) + k] += bloop * 0.8
-    k = ns(0.9)
+    m[ns(2.02):ns(2.02) + k] += bloop * 0.8
+    k = ns(0.55)
     slosh = lp(white(k), 1400) * attack_decay(k, 0.02, 0.25) * (0.7 + 0.3 * np.sin(2 * np.pi * 3 * np.arange(k) / SR))
-    m[ns(1.0):ns(1.0) + k] += slosh * 0.6
+    m[ns(2.04):ns(2.04) + k] += slosh * 0.6
     return master(outdoors(m, 0.15), peak=0.98)
+
+
+def chitty_floats_down():
+    """The raft letting down: air sighing out of it, falling in pitch, the rubber flapping as it goes slack, and the
+    wheels clunking back round."""
+    rng = rng_for('floats_down')
+    total = 2.5
+    n = ns(total)
+    m = np.zeros(n)
+    k = ns(1.2)
+    sigh = sweep_filter(white(k), 'bandpass', curve(k, [(0, 2600), (1.2, 500)], 'log'), width=1.2)
+    m[:k] += sigh * attack_decay(k, 0.05, 0.8) * 0.6
+    for at in rng.uniform(0.4, 1.1, 6):
+        kk = ns(0.05)
+        flap = lp(white(kk), 900) * attack_decay(kk, 0.003, 0.03)
+        m[ns(at):ns(at) + kk] += flap * 0.5
+    m += ratchet(rng, n, 1.2, 1.9, 22, 14, 0.4)
+    c = clunk(rng, 110.0, 0.5)
+    m[ns(1.95):ns(1.95) + len(c)] += c * 0.5
+    return master(outdoors(m, 0.15), peak=0.98)
+
+
+def chitty_eject():
+    """The ejector seat: a trip clanks, a great spring lets go (twang), the air rushes and a cork-like pop."""
+    rng = rng_for('eject')
+    total = 1.4
+    n = ns(total)
+    m = np.zeros(n)
+    c = clunk(rng, 140.0, 1.0)
+    m[:len(c)] += c * 0.6
+    k = ns(0.8)
+    t = np.arange(k) / SR
+    f = 95 * (1 + 2.5 * np.exp(-t / 0.05)) * (1 + 0.15 * np.sin(2 * np.pi * 14 * t) * np.exp(-t / 0.3))
+    twang = sum(np.sin(2 * np.pi * np.cumsum(f * h) / SR) / h for h in (1, 2, 3, 5)) * np.exp(-t / 0.25)
+    m[ns(0.04):ns(0.04) + k] += twang * 0.5
+    k = ns(0.6)
+    whoosh = sweep_filter(white(k), 'bandpass', curve(k, [(0, 400), (0.25, 2400), (0.6, 900)], 'log'), width=1.0)
+    m[ns(0.05):ns(0.05) + k] += whoosh * attack_decay(k, 0.03, 0.3) * 0.6
+    k = ns(0.08)
+    t = np.arange(k) / SR
+    pop = (np.sin(2 * np.pi * 520 * t) * 0.6 + hp(white(k), 1500) * 0.4) * np.exp(-t / 0.012)
+    m[ns(0.06):ns(0.06) + k] += pop * 0.9
+    return master(outdoors(m, 0.2), peak=0.98)
 
 
 def chitty_crash():
@@ -521,12 +588,14 @@ SOUNDS = {
     'chitty_wings_out': chitty_wings_out,
     'chitty_wings_in': chitty_wings_in,
     'chitty_floats': chitty_floats,
+    'chitty_floats_down': chitty_floats_down,
+    'chitty_eject': chitty_eject,
     'chitty_crash': chitty_crash,
 }
 LOOPS = ('chitty_engine_idle', 'chitty_engine_low', 'chitty_engine_high', 'chitty_flight')
 # Loudness (loudest 400 ms, dB): the bangs well above everything, the running loops under the rest.
 LEVELS = {'chitty_engine_idle': -19, 'chitty_engine_low': -17, 'chitty_engine_high': -16, 'chitty_flight': -20, 'chitty_start': -13, 'chitty_bang': -9, 'chitty_horn': -12,
-          'chitty_wings_out': -15, 'chitty_wings_in': -17, 'chitty_floats': -16, 'chitty_crash': -11}
+          'chitty_wings_out': -15, 'chitty_wings_in': -17, 'chitty_floats': -16, 'chitty_floats_down': -18, 'chitty_eject': -13, 'chitty_crash': -11}
 
 
 def make(name):

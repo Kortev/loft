@@ -432,6 +432,22 @@
       }
     ]
   },
+  "chitty.floats_down": {
+    "subtitle": "subtitles.shootingstar.chitty.floats_down",
+    "sounds": [
+      {
+        "name": "shootingstar:chitty_floats_down"
+      }
+    ]
+  },
+  "chitty.eject": {
+    "subtitle": "subtitles.shootingstar.chitty.eject",
+    "sounds": [
+      {
+        "name": "shootingstar:chitty_eject"
+      }
+    ]
+  },
   "chitty.floats": {
     "subtitle": "subtitles.shootingstar.chitty.floats",
     "sounds": [

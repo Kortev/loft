@@ -166,9 +166,11 @@ final class ChittyShine {
 		float toMoon = Math.max(0.0F, -(rx * sunX + ry * sunY));
 		glint += moon * (float) Math.pow(toMoon, sharp);
 
-		float r = fr * er + glint * fr;
-		float gg = fg * eg + glint * fg;
-		float b = fb * eb + glint * (0.6F + 0.4F * fb);
+		// The metal's own colour under it all, so that at night or in a dark sky it is still grey metal and gold in
+		// whatever light there is (which the game lays over it), not a black mirror.
+		float r = fr * (0.32F + 0.68F * er) + glint * fr;
+		float gg = fg * (0.32F + 0.68F * eg) + glint * fg;
+		float b = fb * (0.32F + 0.68F * eb) + glint * (0.6F + 0.4F * fb);
 		return 0xFF000000 | channel(r) << 16 | channel(gg) << 8 | channel(b);
 	}
 

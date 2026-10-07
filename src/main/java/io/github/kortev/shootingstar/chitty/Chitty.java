@@ -36,6 +36,8 @@ public final class Chitty {
 	public static final SoundEvent WINGS_OUT = sound("chitty.wings_out");
 	public static final SoundEvent WINGS_IN = sound("chitty.wings_in");
 	public static final SoundEvent FLOATS = sound("chitty.floats");
+	public static final SoundEvent FLOATS_DOWN = sound("chitty.floats_down");
+	public static final SoundEvent EJECT = sound("chitty.eject");
 	public static final SoundEvent CRASH = sound("chitty.crash");
 
 	private Chitty() {
@@ -50,9 +52,15 @@ public final class Chitty {
 		ItemGroupEvents.modifyEntriesEvent(ItemGroups.TOOLS).register(entries -> entries.add(ITEM));
 		PayloadTypeRegistry.playC2S().register(ChittyInputPayload.ID, ChittyInputPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(ChittyHornPayload.ID, ChittyHornPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(ChittyEjectPayload.ID, ChittyEjectPayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(ChittyInputPayload.ID, (payload, context) -> {
 			if (context.player().getVehicle() instanceof ChittyEntity car) {
 				car.applyInput(context.player(), ChittyControls.unpack(payload.controls()), payload.state());
+			}
+		});
+		ServerPlayNetworking.registerGlobalReceiver(ChittyEjectPayload.ID, (payload, context) -> {
+			if (context.player().getVehicle() instanceof ChittyEntity car && car.getControllingPassenger() == context.player()) {
+				car.ejectBackSeat();
 			}
 		});
 		ServerPlayNetworking.registerGlobalReceiver(ChittyHornPayload.ID, (payload, context) -> {

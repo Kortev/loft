@@ -9,6 +9,8 @@ import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
 import net.minecraft.block.Blocks;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.mob.ZombieEntity;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.registry.tag.FluidTags;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.test.GameTest;
@@ -144,24 +146,110 @@ public class ChittyGameTests implements FabricGameTest {
 		});
 	}
 
-	/** Her wings opened and her raft blown up by hand stay out standing on the ground, and go away when asked. */
+	/** Her wings opened by hand stay out standing on the ground, and go away when asked; the raft never comes up on land. */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_chitty", tickLimit = 120)
 	public void heldOpen(TestContext context) {
 		floor(context, 0);
 		ChittyEntity car = car(context, 4.0, 1.0, 4.0);
-		context.runAtTick(5, () -> {
-			car.toggleWings();
-			car.toggleFloats();
-		});
+		context.runAtTick(5, car::toggleWings);
 		context.runAtTick(70, () -> {
 			context.assertTrue(car.isOnGround(), "she is not standing on the ground");
 			context.assertTrue(car.isFlying(), "her wings folded by themselves");
-			context.assertTrue(car.isFloating(), "her raft went down by itself");
+			context.assertTrue(!car.isFloating(), "her raft came up on dry land");
 			car.toggleWings();
-			car.toggleFloats();
 		});
 		context.runAtTick(80, () -> {
-			context.assertTrue(!car.isFlying() && !car.isFloating(), "they did not go away when asked");
+			context.assertTrue(!car.isFlying(), "they did not go away when asked");
+			context.complete();
+		});
+	}
+
+	/** Afloat on her raft, running at the bank, she climbs out onto the land and lets the raft down. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_chitty", tickLimit = 160)
+	public void climbsOutOfWater(TestContext context) {
+		ServerWorld world = context.getWorld();
+		floor(context, 0);
+		// Water two deep across the near half, a bank level with the water's top across the far half.
+		for (BlockPos pos : BlockPos.iterate(context.getAbsolutePos(new BlockPos(0, 1, 0)), context.getAbsolutePos(new BlockPos(7, 2, 7)))) {
+			int z = pos.getZ() - context.getAbsolutePos(BlockPos.ORIGIN).getZ();
+			int x = pos.getX() - context.getAbsolutePos(BlockPos.ORIGIN).getX();
+			boolean wall = x == 0 || x == 7 || z == 0;
+			world.setBlockState(pos, wall || z >= 4 ? Blocks.STONE.getDefaultState() : Blocks.WATER.getDefaultState());
+		}
+		ChittyEntity car = car(context, 4.0, 2.7, 1.6);
+		car.blowUpRaft();
+		context.runAtTick(10, () -> car.launch(0.32F, false));
+		context.runAtTick(70, () -> {
+			context.assertTrue(car.getFluidHeight(FluidTags.WATER) < 0.05, "she is still in the water at " + car.getPos());
+			context.assertTrue(car.getY() >= context.getAbsolutePos(new BlockPos(0, 3, 0)).getY() - 0.05, "she never got up the bank: y "
+					+ car.getY());
+		});
+		context.runAtTick(130, () -> {
+			context.assertTrue(!car.isFloating(), "her raft stayed up on land");
+			context.complete();
+		});
+	}
+
+	/** The ejector fires the back seat's passengers up out of the car; the front seats stay put. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_chitty", tickLimit = 60)
+	public void ejects(TestContext context) {
+		floor(context, 0);
+		ChittyEntity car = car(context, 4.0, 1.0, 4.0);
+		List<ZombieEntity> riders = new ArrayList<>();
+		for (int i = 0; i < 4; i++) {
+			ZombieEntity zombie = context.spawnEntity(EntityType.HUSK, new Vec3d(1.0 + i, 1.0, 1.0));
+			zombie.setAiDisabled(true);
+			context.assertTrue(car.seat(zombie, i), "could not seat a passenger in seat " + i);
+			riders.add(zombie);
+		}
+		double start = car.getY();
+		context.runAtTick(5, car::ejectBackSeat);
+		context.runAtTick(12, () -> {
+			context.assertTrue(riders.get(0).getVehicle() == car && riders.get(1).getVehicle() == car, "a front seat went too");
+			for (int i = 2; i < 4; i++) {
+				ZombieEntity back = riders.get(i);
+				context.assertTrue(back.getVehicle() == null, "seat " + i + " was not ejected");
+				context.assertTrue(back.getY() > start + 2.0, "seat " + i + " did not go up: y " + (back.getY() - start));
+			}
+			context.complete();
+		});
+	}
+
+	/** A passenger can be put in any free seat: the back seat is behind, the passenger's beside the driver's. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_chitty", tickLimit = 40)
+	public void chooseSeat(TestContext context) {
+		floor(context, 0);
+		ChittyEntity car = car(context, 4.0, 1.0, 4.0);
+		ZombieEntity back = context.spawnEntity(EntityType.HUSK, new Vec3d(2.0, 1.0, 1.0));
+		ZombieEntity beside = context.spawnEntity(EntityType.HUSK, new Vec3d(3.0, 1.0, 1.0));
+		back.setAiDisabled(true);
+		beside.setAiDisabled(true);
+		context.assertTrue(car.seat(back, 3), "could not take the back seat");
+		context.assertTrue(car.seat(beside, 1), "could not take the seat beside the driver");
+		context.assertTrue(!car.seat(beside, 3), "two in one seat");
+		context.runAtTick(5, () -> {
+			context.assertTrue(car.seatOf(back) == 3 && car.seatOf(beside) == 1, "seats " + car.seatOf(back) + ", " + car.seatOf(beside));
+			context.assertTrue(back.getZ() < car.getZ() - 0.5, "the back seat is not behind");
+			context.assertTrue(beside.getX() > car.getX() + 0.2, "the passenger's seat is not on her left");
+			context.assertTrue(car.getControllingPassenger() == null, "a passenger is driving");
+			context.complete();
+		});
+	}
+
+	/** The hamper holds things; taken off, it spills them; it goes back on. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_chitty", tickLimit = 40)
+	public void hamper(TestContext context) {
+		floor(context, 0);
+		ChittyEntity car = car(context, 4.0, 1.0, 4.0);
+		context.assertTrue(car.hasHamper(), "she came without her hamper");
+		car.getHamper().setStack(0, new ItemStack(Items.BREAD, 5));
+		car.toggleHamper();
+		context.assertTrue(!car.hasHamper(), "the hamper did not come off");
+		context.assertTrue(car.getHamper().isEmpty(), "the hamper kept its bread");
+		car.toggleHamper();
+		context.assertTrue(car.hasHamper(), "the hamper did not go back on");
+		context.runAtTick(5, () -> {
+			context.expectItemAt(Items.BREAD, new BlockPos(4, 1, 4), 3.0);
 			context.complete();
 		});
 	}
