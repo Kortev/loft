@@ -1,10 +1,14 @@
 package io.github.kortev.shootingstar.test;
 
+import com.mojang.authlib.GameProfile;
+import io.github.kortev.shootingstar.OwnerOnly;
 import io.github.kortev.shootingstar.chitty.Chitty;
 import io.github.kortev.shootingstar.chitty.ChittyEntity;
 import io.github.kortev.shootingstar.chitty.ChittyPartEntity;
+import io.netty.channel.embedded.EmbeddedChannel;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
 import net.minecraft.block.Blocks;
@@ -12,7 +16,13 @@ import net.minecraft.entity.EntityType;
 import net.minecraft.entity.mob.ZombieEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
+import net.minecraft.network.ClientConnection;
+import net.minecraft.network.NetworkSide;
 import net.minecraft.registry.tag.FluidTags;
+import net.minecraft.screen.CraftingScreenHandler;
+import net.minecraft.screen.ScreenHandlerContext;
+import net.minecraft.server.network.ConnectedClientData;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.test.GameTest;
 import net.minecraft.test.TestContext;
@@ -299,6 +309,52 @@ public class ChittyGameTests implements FabricGameTest {
 		List<ChittyPartEntity> found = context.getWorld().getEntitiesByType(Chitty.PART, car.getBoundingBox().expand(5.0),
 				box -> box.getCar() == car && box.getPart() == which);
 		return found.isEmpty() ? null : found.get(0);
+	}
+
+	/**
+	 * Only kortev can craft this mod's things: Chitty's recipe laid out in a crafting table makes her for kortev and
+	 * nothing for anyone else, while an ordinary recipe works for both.
+	 */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "e_owner", tickLimit = 20)
+	public void onlyTheOwnerCrafts(TestContext context) {
+		ServerPlayerEntity owner = player(context, OwnerOnly.OWNER);
+		ServerPlayerEntity other = player(context, "someone_else");
+		try {
+			context.assertTrue(crafted(context, owner, true).isOf(Chitty.ITEM), "kortev could not craft Chitty");
+			context.assertTrue(crafted(context, other, true).isEmpty(), "someone else crafted Chitty");
+			context.assertTrue(crafted(context, other, false).isOf(Items.STICK), "someone else could not craft sticks");
+		} finally {
+			context.getWorld().getServer().getPlayerManager().remove(owner);
+			context.getWorld().getServer().getPlayerManager().remove(other);
+		}
+		context.complete();
+	}
+
+	/** What a crafting table makes for the player from Chitty's recipe (or, if not, two planks: sticks). */
+	private static ItemStack crafted(TestContext context, ServerPlayerEntity player, boolean chitty) {
+		CraftingScreenHandler table = new CraftingScreenHandler(1, player.getInventory(),
+				ScreenHandlerContext.create(context.getWorld(), context.getAbsolutePos(BlockPos.ORIGIN)));
+		ItemStack[] grid = chitty
+				? new ItemStack[] {ItemStack.EMPTY, new ItemStack(Items.ELYTRA), ItemStack.EMPTY, new ItemStack(Items.GOLD_INGOT),
+						new ItemStack(Items.MINECART), new ItemStack(Items.GOLD_INGOT), new ItemStack(Items.PISTON), new ItemStack(Items.OAK_BOAT),
+						new ItemStack(Items.PISTON)}
+				: new ItemStack[] {new ItemStack(Items.OAK_PLANKS), ItemStack.EMPTY, ItemStack.EMPTY, new ItemStack(Items.OAK_PLANKS),
+						ItemStack.EMPTY, ItemStack.EMPTY, ItemStack.EMPTY, ItemStack.EMPTY, ItemStack.EMPTY};
+		for (int i = 0; i < grid.length; i++) {
+			table.getSlot(1 + i).setStack(grid[i]);
+		}
+		return table.getSlot(0).getStack();
+	}
+
+	/** A player connected to the test server under the given name. */
+	private static ServerPlayerEntity player(TestContext context, String name) {
+		ServerWorld world = context.getWorld();
+		ConnectedClientData data = ConnectedClientData.createDefault(new GameProfile(UUID.randomUUID(), name), false);
+		ServerPlayerEntity player = new ServerPlayerEntity(world.getServer(), world, data.gameProfile(), data.syncedOptions());
+		ClientConnection connection = new ClientConnection(NetworkSide.SERVERBOUND);
+		new EmbeddedChannel(connection);
+		world.getServer().getPlayerManager().onPlayerConnect(connection, player, data);
+		return player;
 	}
 
 	/** Dropped without her wings, she lands hard (four blocks: enough to hurt) but nobody aboard takes fall damage. */

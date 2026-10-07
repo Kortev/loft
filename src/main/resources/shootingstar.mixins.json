@@ -3,6 +3,8 @@
 	"package": "io.github.kortev.shootingstar.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
+		"CrafterBlockMixin",
+		"CraftingScreenHandlerMixin",
 		"EntityMixin",
 		"LivingEntityMixin",
 		"PlayerEntityMixin",

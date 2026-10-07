@@ -12,8 +12,10 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Riding in Chitty, the view banks with her as she turns in the air, as from the seat of an aeroplane (a little less
- * than she does, so the world does not tip too far). It rolls the view where the game tilts it when you are hurt.
+ * Riding in Chitty, the view banks with her as she turns in the air, as from the seat of an aeroplane: exactly as far as
+ * she does, so that she stays level in front of you and the world tips instead. It rolls the view where the game tilts
+ * it when you are hurt. (Her pitch is followed by turning her passengers' heads with her, ChittyEntity, so that what
+ * they aim at stays under the crosshair.)
  */
 @Mixin(GameRenderer.class)
 public abstract class ChittyViewMixin {
@@ -23,7 +25,7 @@ public abstract class ChittyViewMixin {
 		if (viewer != null && viewer.getVehicle() instanceof ChittyEntity car) {
 			float bank = car.getBank(tickDelta);
 			if (bank != 0.0F) {
-				matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(bank * 0.8F));
+				matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(bank));
 			}
 		}
 	}

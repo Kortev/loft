@@ -651,6 +651,12 @@ public class ChittyEntity extends Entity {
 			passenger.setYaw(passenger.getYaw() + turn);
 			passenger.setHeadYaw(passenger.getHeadYaw() + turn);
 			clampPassengerYaw(passenger);
+			// And they look up and down with her as her nose rises and falls in the air (on clients, where she is
+			// tipped), so that what is ahead of her stays where it was in their view, and what they aim at with it.
+			float nod = pitch - prevPitch;
+			if (nod != 0.0F) {
+				passenger.setPitch(MathHelper.clamp(passenger.getPitch() - nod, -90.0F, 90.0F));
+			}
 		}
 	}
 
