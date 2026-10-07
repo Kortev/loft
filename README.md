@@ -126,8 +126,9 @@ the bonnet into the great exhaust along the running board, and the brass serpent
 - **Drive:** forward and back to accelerate, brake and reverse, left and right to steer. She climbs a block at a time
   and stops at walls rather than driving her bonnet into them.
 - **Fly:** jump at speed and her red and yellow wings swing out from under the running boards and fan open, each with
-  a mast standing up at its end and a propeller turning flat on top; a fan with bat-pointed edges opens forward and out
-  to her left under her nose, and another straight back under her tail with a little propeller pushing on its end.
+  a mast standing up at its end and a propeller turning flat on top; the nose wing opens out in front of her, four
+  sections spreading from a line under the GEN 11 plate to five bat points, the middle one furthest out; and a fan
+  opens straight back under her tail with a little propeller pushing on its end.
   Hold jump to climb, sprint to dive, forward for more speed; slow down too far and she sinks. Land (or splash down)
   and she folds them away again a moment later.
 - **Off a cliff:** she falls, and only as the ground (or the sea) comes up at her do the wings spring out by

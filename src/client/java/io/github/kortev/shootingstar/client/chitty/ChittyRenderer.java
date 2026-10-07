@@ -17,8 +17,8 @@ import org.joml.Quaternionf;
 
 /**
  * Draws Chitty from her Blender mesh and poses her parts: the wheels roll and the front ones steer, and on the water
- * turn sideways to lie flat on her raft; the wings swing out from under the running boards and fan open, the fan under
- * her nose opens forward and out to her left and the one under her tail straight back with its little propeller pushing, and the
+ * turn sideways to lie flat on her raft; the wings swing out from under the running boards and fan open, the nose wing
+ * opens out in front of her and the fan under her tail straight back with its little propeller pushing, and the
  * mast on the end of each wing stands up with its propeller turning flat on top; the raft blows up round her and the
  * screw turns in the water; the car pitches and banks in the air and rocks when she is hit.
  *
