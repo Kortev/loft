@@ -21,14 +21,18 @@ import net.minecraft.world.Heightmap;
  * on it; the light of the world multiplies it as it does everything else.
  */
 final class ChittyShine {
-	/** Per metal (tools/chitty_model.py SHINE): how much it reflects of red, green and blue face on, and how rough. */
+	/**
+	 * Per metal (tools/chitty_model.py SHINE): how much it reflects of red, green and blue face on, how rough it is, and
+	 * how much of the colour of what it reflects it loses (a coloured metal keeps its own: brass reflecting the blue sky
+	 * is still golden, not green).
+	 */
 	private static final float[][] METALS = {
 			null,
-			{0.93F, 0.94F, 0.96F, 0.06F}, // aluminium, polished
-			{1.00F, 0.78F, 0.42F, 0.14F}, // brass
-			{0.96F, 0.96F, 0.98F, 0.03F}, // chrome
-			{0.98F, 0.60F, 0.44F, 0.18F}, // copper
-			{0.78F, 0.79F, 0.81F, 0.45F}, // aluminium, dull
+			{0.93F, 0.94F, 0.96F, 0.06F, 0.3F}, // aluminium, polished
+			{1.00F, 0.80F, 0.45F, 0.16F, 0.75F}, // brass
+			{0.96F, 0.96F, 0.98F, 0.03F, 0.15F}, // chrome
+			{0.98F, 0.62F, 0.46F, 0.18F, 0.65F}, // copper
+			{0.78F, 0.79F, 0.81F, 0.45F, 0.5F}, // aluminium, dull
 	};
 
 	private float skyR, skyG, skyB;
@@ -140,6 +144,10 @@ final class ChittyShine {
 		er = MathHelper.lerp(blur, er, (skyR + horizonR + groundR) / 3.0F);
 		eg = MathHelper.lerp(blur, eg, (skyG + horizonG + groundG) / 3.0F);
 		eb = MathHelper.lerp(blur, eb, (skyB + horizonB + groundB) / 3.0F);
+		float grey = 0.3F * er + 0.55F * eg + 0.15F * eb;
+		er = MathHelper.lerp(m[4], er, grey);
+		eg = MathHelper.lerp(m[4], eg, grey);
+		eb = MathHelper.lerp(m[4], eb, grey);
 		er += glow;
 		eg += glow * 0.8F;
 		eb += glow * 0.55F;

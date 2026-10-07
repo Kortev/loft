@@ -644,7 +644,7 @@ def build_radiator():
     m = Mesh()
     core = radiator_outline(0.84)
     ring = [m.vert((x, 2.295, z)) for x, z in core]
-    f = m.face(list(reversed(ring)), 'honeycomb')
+    f = m.face(ring, 'honeycomb')
     for loop in f.loops:
         loop[m.uv].uv = (loop.vert.co.x * 2.2 + 0.5, (loop.vert.co.z - zc) * 2.2 + 0.5)
     add_box(m, (0, 2.30, zc - 0.01), (0.035, 0.02, RADIATOR_R * 1.6), 'brass')
