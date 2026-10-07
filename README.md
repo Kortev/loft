@@ -132,9 +132,10 @@ with a carrying handle on each post of the windscreen, and the gear lever and ha
 - **Fly:** G (rebindable) opens the wings, slowly and with a great creaking. Each side wing is one pleated red and
   yellow cloth, folded up on edge under the running board; its back edge stays along her side while the front edge
   swings out and the pleats flatten as it unfolds, until it lies out flat with a mast standing up at its end and a
-  propeller turning flat on top. The nose wing opens out in front of her, four sections spreading from a line under
-  the GEN 11 plate to five bat points, the middle one furthest out; the tail wing, five sections, fans out behind under
-  the hamper; and the pusher propeller unfolds on its shaft on the stern. Then jump at speed to lift off.
+  propeller turning flat on top. The nose wing, four sections spreading from a line under the GEN 11 plate to five bat
+  points (the middle one furthest out), and the tail wing, five sections behind under the hamper, unfold the same way,
+  pleats flattening as they spread; and the pusher propeller unfolds on its shaft on the stern. Then jump at speed to
+  lift off.
   Hold jump to climb, sprint to dive, forward for more speed; slow down too far and she sinks. G again folds them
   away; opened by hand they stay open on the ground until you put them away.
 - **Off a cliff:** she falls, and only as the ground (or the sea) comes up at her do the wings spring out by
@@ -145,10 +146,11 @@ with a carrying handle on each post of the windscreen, and the gear lever and ha
   comes up at once; open the wings on the water and she lifts off it. Drive up a bank and she climbs out onto the
   land, where the raft goes down again. She does it with nobody aboard too: get out and run as the tide comes in, and
   she blows it up herself.
-- **Ejector:** X (rebindable), for the driver, throws whoever is in the back seat up into the air, to float down
-  under slow falling.
-- **Hamper:** use the hamper on her stern to open it (27 stacks); sneak and use her to take it off (it spills what it
-  holds) or put it back on.
+- **Ejector:** X (rebindable), for the driver: the back seat springs up out of its well on two brass springs and
+  bounces back down, throwing whoever is on it high into the air. Players float down under slow falling; mobs come down
+  as they will. A mob put in her (`/ride`) takes the back seat first.
+- **Hamper:** use the hamper on her stern to open it (27 stacks; it has its own hitbox, hers being too short to reach
+  it); sneak and use her to take it off (it spills what it holds) or put it back on.
 - **Horn:** H (rebindable) squeezes the serpent's bulb.
 
 She starts with two sputters and two bangs, and backfires (bang bang) every so often as she runs and when the

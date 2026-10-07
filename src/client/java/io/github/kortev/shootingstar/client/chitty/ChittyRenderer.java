@@ -202,7 +202,8 @@ public class ChittyRenderer extends EntityRenderer<ChittyEntity> {
 	private static void poseFan(MatrixStack matrices, ChittyMesh.Part part, float wings) {
 		float side = part.name.contains("_l_") ? -1.0F : 1.0F;
 		int index = part.name.charAt(part.name.length() - 1) - '0';
-		float open = backOut(MathHelper.clamp(wings / 0.9F, 0.0F, 1.0F));
+		// Evenly, all the way, so that the pleats stay edge to edge as they spread.
+		float open = smooth(MathHelper.clamp(wings / 0.92F, 0.0F, 1.0F));
 		float out = smooth(MathHelper.clamp(wings / 0.6F, 0.0F, 1.0F));
 		// How much of its open width each pleat shows from above, and so how far it stands up off the flat.
 		float across = MathHelper.clamp(MathHelper.lerp(open, PLEAT_CLOSED, 1.0F), 0.0F, 1.0F);

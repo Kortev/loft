@@ -85,14 +85,19 @@ WING = dict(hinge=(0.70, 1.18, 0.50), blades=8, length=2.4, open_from=-38, sprea
 # (out to her left, out from the line)), shallow bat scallops between them. The sections turn about the point behind
 # the line where the edges of the sections would meet, opening in a plane tipped down a little at the front (tilt:
 # degrees about her length and across her). Folding, it closes up like a hand fan, one fan all the way, and draws
-# back in under the plate (tuck: how far).
-NOSEFAN = dict(line=(0.0, 2.38, 0.55), heading=90.0, root=0.30, scallop=0.18, tilt=(0, -12), tuck=0.25, layer=0.004,
-               tips=[(0.75, 0.59), (0.50, 0.71), (0.0, 0.95), (-0.50, 0.71), (-0.75, 0.59)], ribs=False)
+# back in under the plate (tuck: how far), behind the front cross member. It is pleated like the side wings: folded,
+# its sections stand on edge, closed up to a little of their spread (closed) and dropped (drop, at most) clear of what is
+# above them; opening, they draw out, spread and flatten together.
+NOSEFAN = dict(line=(0.0, 2.38, 0.55), heading=90.0, root=0.30, scallop=0.18, tilt=(0, -12), tuck=0.22, layer=0.004,
+               tips=[(0.75, 0.59), (0.50, 0.71), (0.0, 0.95), (-0.50, 0.71), (-0.75, 0.59)], ribs=False,
+               closed=0.07, drop=0.0)
 # The tail wing, from her drawing: one fan straight out behind, under the hamper, five sections, red and yellow,
 # spreading from a straight line across the stern to a wide trailing edge drawn in between its corners, which sweep
-# back to points; ribs along the seams. It closes up and draws in under the stern.
+# back to points; ribs along the seams. Pleated like the nose wing, it closes up and draws in under the stern, dropped
+# clear of the hamper.
 TAILFAN = dict(line=(0.0, -2.92, 0.58), heading=-90.0, root=0.25, scallop=0.10, tilt=(0, 0), tuck=0.30, layer=0.004,
-               tips=[(-0.80, 0.84), (-0.46, 0.62), (-0.15, 0.56), (0.15, 0.56), (0.46, 0.62), (0.80, 0.84)], ribs=True)
+               tips=[(-0.80, 0.84), (-0.46, 0.62), (-0.15, 0.56), (0.15, 0.56), (0.46, 0.62), (0.80, 0.84)], ribs=True,
+               closed=0.07, drop=0.04)
 # The pusher propeller behind the point of the stern, up at the deck on a shaft out of the top of the stern, braced
 # down to the hull underneath.
 TAILPROP = (0.0, -3.40, 1.30)
@@ -969,7 +974,9 @@ def build_seats():
     m = Mesh()
     tube(m, catmull([(x, deck_front(x) + 0.08, 1.41) for x in xs[::4]], 4), 0.05, 'leather', seg=12)
     m.obj('seatroll_front', smooth=50)
-    # The back seat: a cushion in the front of the well; the buttoned walls of the well are its back and arms.
+    # The back seat: a cushion in the front of the well; the buttoned walls of the well are its back and arms. It is the
+    # ejector: its own part, which the game throws up on two springs under it (each a coil a block tall, which the game
+    # stretches to the seat's height; at rest they are squashed flat under it).
     m = Mesh()
     yc, a, b = WELL
     zb, zt = FLOOR_Z, 0.86
@@ -991,8 +998,14 @@ def build_seats():
     for i, flip in ((0, True), (len(rows) - 1, False)):
         q = [bots[i][k] for k in range(13)] + [tops[i][k] for k in reversed(range(13))]
         m.face(list(reversed(q)) if flip else q, 'leather')
-    o = m.obj('seat_rear', smooth=40)
+    o = m.obj('seat_rear', smooth=40, part='seat_rear')
     bevel(o, 0.03, 3)
+    for side, x in (('r', 0.17), ('l', -0.17)):
+        m = Mesh()
+        coil = [Vector((0.07 * math.cos(t), 0.07 * math.sin(t), t / (2 * math.pi * 7))) for t in
+                np.linspace(0.0, 2 * math.pi * 7, 7 * 16 + 1)]
+        tube(m, coil, 0.012, 'brass', seg=8)
+        m.obj('spring_' + side, location=(x, REAR_SEAT_Y + 0.06, FLOOR_Z), smooth=50, part='spring_' + side)
     for name, p in (('seat_driver', (0.30, FRONT_SEAT_Y, 0.86)), ('seat_front_passenger', (-0.30, FRONT_SEAT_Y, 0.86)),
                     ('seat_rear_right', (0.20, REAR_SEAT_Y, 0.86)), ('seat_rear_left', (-0.20, REAR_SEAT_Y, 0.86))):
         empty(name, p)
@@ -1388,6 +1401,7 @@ def fan(name, side, spec, colors, coll, spar=False):
         back = spec['open_from'] - spec['spread']
         o['fold_yaw'] = back + (open_yaw - back) * spec['closed']
         o['pleat'] = 1 if i % 2 == 0 else -1
+        o['closed'], o['drop'] = spec['closed'], spec['drop']
         o['hinge_z'] = hz + spec['layer'] * i
         o['tuck'] = spec['tuck']
         o['dihedral'] = spec['dihedral']
@@ -1399,8 +1413,8 @@ def fan(name, side, spec, colors, coll, spar=False):
 def straight_fan(name, spec, colors, coll):
     """A fan cut off along a straight root line (NOSEFAN, TAILFAN): one section between each pair of points, each its
     own panel named <name>_c_<i> from her left, turning about the point behind the line where the sections' edges
-    meet (their hinge), with the same properties as fan()'s. Folded, every section lies on the middle one, the fan
-    closed up, and draws in."""
+    meet (their hinge), with the same properties as fan()'s. Folded, the fan is closed up onto its middle, pleated,
+    and drawn in."""
     lx, ly, lz = spec['line']
     heading = spec['heading']
     w0 = spec['root']
@@ -1446,7 +1460,10 @@ def straight_fan(name, spec, colors, coll):
         o = m.obj(tag, coll=coll, location=hinge, smooth=None, part=tag)
         solidify(o, 0.008, offset=0.0)
         o['open_yaw'] = heading + math.degrees(mid)
-        o['fold_yaw'] = heading
+        o['fold_yaw'] = heading + math.degrees(mid) * spec['closed']
+        o['pleat'] = 1 if i % 2 == 0 else -1
+        o['closed'], o['drop'] = spec['closed'], spec['drop']
+        o['hinge_z'] = hinge[2]
         o['tuck'] = spec['tuck']
         o['dihedral'] = 0.0
         o['tilt_along'], o['tilt_across'] = spec.get('tilt', (0, 0))
@@ -1650,9 +1667,10 @@ def side_of(o):
     return -1 if '_l_' in o.name + '_' else 1
 
 
-def pose(mode, spin=0.0, wings=None):
+def pose(mode, spin=0.0, wings=None, lift=0.0):
     """'road', 'flying' or 'water': what the game's animation does, for the renders and exports; wings, if given, is
-    how far the side wings are out (0 to 1, as the game's wing opening), to show them part open."""
+    how far the fans are out (0 to 1, as the game's wing opening), to show them part open, and lift how far the back
+    seat stands up on its springs (the ejector)."""
     fly = mode == 'flying'
     wet = mode == 'water'
     if wings is None:
@@ -1661,34 +1679,24 @@ def pose(mode, spin=0.0, wings=None):
     def clamp(x):
         return min(1.0, max(0.0, x))
 
-    def back_out(x):
-        t = x - 1.0
-        return 1.0 + 2.6 * t ** 3 + 1.6 * t * t
-
     for o in bpy.data.objects:
         part = o.get('part', '')
         if 'pleat' in o:
-            # As ChittyRenderer.poseWing: tipped up about her length, turned out, and pleated about its own middle.
+            # As ChittyRenderer.poseFan: in the fan's plane, tipped up about her length, turned out, and pleated about
+            # its own middle.
             side = side_of(o)
-            opening = back_out(clamp(wings / 0.9))
+            opening = clamp(wings / 0.92)
+            opening = opening * opening * (3 - 2 * opening)
             out = clamp(wings / 0.6)
             out = out * out * (3 - 2 * out)
-            pleat = math.acos(clamp(WING['closed'] + (1.0 - WING['closed']) * opening))
+            pleat = math.acos(clamp(o['closed'] + (1.0 - o['closed']) * opening))
             yaw = math.radians(o['fold_yaw'] + (o['open_yaw'] - o['fold_yaw']) * opening)
             swing = (Matrix.Rotation(-math.radians(o['dihedral']) * side * clamp(opening), 3, 'Y')
                      @ Matrix.Rotation(yaw * side, 3, 'Z') @ Matrix.Rotation(-pleat * o['pleat'], 3, 'X'))
             o.rotation_mode = 'QUATERNION'
-            o.rotation_quaternion = swing.to_quaternion()
-            o.location.z = o['hinge_z'] - WING['drop'] * math.sin(pleat)
-            k = o['tuck'] + (1.0 - o['tuck']) * out
-            o.scale = (k * side, k, 1)
-        elif 'open_yaw' in o:
-            side = side_of(o)
-            yaw = math.radians(o['open_yaw'] if fly else o['fold_yaw'])
-            swing = Euler((0, -math.radians(o['dihedral']) * side if fly else 0, yaw * side), 'XYZ').to_matrix()
-            o.rotation_mode = 'QUATERNION'
             o.rotation_quaternion = (fan_rest(o) @ swing).to_quaternion()
-            k = 1.0 if fly else o['tuck']
+            o.location.z = o['hinge_z'] - o['drop'] * math.sin(pleat)
+            k = o['tuck'] + (1.0 - o['tuck']) * out
             o.scale = (k * side, k, 1)
         elif part.startswith('mast_'):
             # Folded, it lies along the spar towards the hinge.
@@ -1696,6 +1704,11 @@ def pose(mode, spin=0.0, wings=None):
             axis = Vector((0, 0, 1)).cross(-d).normalized()
             o.rotation_mode = 'QUATERNION'
             o.rotation_quaternion = Matrix.Rotation(0 if fly else math.pi / 2, 4, axis).to_quaternion()
+        elif part == 'seat_rear':
+            o.location.z = lift
+        elif part.startswith('spring_'):
+            o.hide_render = o.hide_viewport = lift < 0.02
+            o.scale = (1, 1, max(lift, 0.001))
         elif part.startswith('rotor_'):
             o.hide_render = o.hide_viewport = not fly
             o.rotation_euler = (0, 0, spin * 2.3)
@@ -1835,6 +1848,10 @@ def neutral():
             o.rotation_quaternion = (1, 0, 0, 0)
         elif part.startswith(('wheel_', 'rotor_', 'lever_')) or part in ('screw', 'tailprop', 'crank'):
             o.rotation_euler = (0, 0, 0)
+        elif part == 'seat_rear':
+            o.location.z = 0.0
+        elif part.startswith('spring_'):
+            o.scale = (1, 1, 1)
     bpy.context.view_layer.update()
 
 
@@ -1905,6 +1922,7 @@ def bake_worlds():
 # lettering), less for big plain surfaces and what is out of sight underneath.
 TEXEL_WEIGHT = {'chassis': 0.3, 'floor': 0.4, 'bulkhead': 0.3, 'boards': 0.6, 'float': 0.45, 'screw': 0.5,
                 'wing_': 0.32, 'nosefan_': 0.45, 'tailfan_': 0.45, 'mast_': 0.6, 'rotor_': 0.6, 'tailprop': 0.8,
+                'spring_': 0.5,
                 'plate_text': 1.6,
                 'plates': 1.3, 'radiator': 1.3, 'grille_core': 1.3, 'hamper': 1.0, 'lever_': 1.3, 'mascot': 1.3, 'lamps': 1.3, 'horn': 1.3, 'dashboard': 1.3,
                 'bonnet': 1.15, 'hull': 1.15}
@@ -2347,13 +2365,19 @@ def main():
             ('unfold_30', 'road@0.3', (-5.2, 4.6, 2.6), (0.0, -0.2, 0.6), 40, 0.0, False),
             ('unfold_60', 'road@0.6', (-5.2, 4.6, 2.6), (0.0, -0.2, 0.6), 40, 0.0, False),
             ('wing_folded', 'road', (-3.2, 2.2, 0.7), (-0.6, -0.2, 0.45), 40, 0.0, False),
+            ('nose_folded', 'road', (-1.6, 4.4, 0.9), (0.0, 2.2, 0.55), 40, 0.0, False),
+            ('nose_unfold', 'road@0.5', (-2.4, 5.2, 2.0), (0.0, 2.6, 0.55), 40, 0.0, False),
+            ('tail_folded', 'road', (-1.8, -5.0, 0.9), (0.0, -2.8, 0.6), 40, 0.0, False),
+            ('tail_unfold', 'road@0.5', (-2.6, -5.6, 2.2), (0.0, -3.0, 0.6), 40, 0.0, False),
+            ('eject', 'road^0.75', (-2.6, -3.8, 2.4), (0.0, -1.2, 1.1), 40, 0.0, False),
         ]
         for name, mode, cam, at, lens, lift, water in shots:
             if only and name not in only:
                 continue
-            # 'road@0.4': on the road with the wings that far out.
+            # 'road@0.4': on the road with the wings that far out; 'road^0.7': with the back seat thrown that high.
+            mode, _, seat = mode.partition('^')
             mode, _, wings = mode.partition('@')
-            pose(mode, spin=0.4, wings=float(wings) if wings else None)
+            pose(mode, spin=0.4, wings=float(wings) if wings else None, lift=float(seat) if seat else 0.0)
             render_scene(out, name, cam, at, lens, lift, water)
         pose('road')
 
