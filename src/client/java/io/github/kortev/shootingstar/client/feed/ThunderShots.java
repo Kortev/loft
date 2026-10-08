@@ -255,15 +255,15 @@ final class ThunderShots implements Feed.Sequence {
 		// feels its way down; the feed follows it LEADER_HANDOFF of the way, and the world picks it up from there.
 		double reach = ThunderTimeline.LEADER_HANDOFF * leaderReach(s / (LEADER_LENGTH - 4.0));
 		float tip = LOCAL_BASE * (1.0F - (float) reach);
-		// Seven kilometres off and a little under the storm's base, the whole column in frame as a photograph of lightning
-		// would have it: the storm's ceiling across the top, the leader stepping down out of it, the ground and its towns
-		// at the bottom; drifting in and round as the leader comes down.
+		// Seven kilometres off and three up, looking up at the column as a photograph of lightning would have it: the
+		// storm's ceiling across the top, the leader stepping down out of it, the dark country and its towns along the
+		// bottom; drifting in and round as the leader comes down.
 		float fall = smoother(s / (LEADER_LENGTH - 2.0));
-		float dist = lerp(80.0, 54.0, fall);
+		float dist = lerp(78.0, 58.0, fall);
 		double round = Math.toRadians(35.0 + 12.0 * fall);
-		Vector3f eye = new Vector3f((float) (Math.cos(round) * dist), lerp(62.0, 52.0, fall), (float) (Math.sin(round) * dist));
-		Vector3f at = new Vector3f(0.0F, lerp(48.0, 42.0, fall), 0.0F);
-		cam.perspective(58.0F, width, height, 0.3F, 200000.0F);
+		Vector3f eye = new Vector3f((float) (Math.cos(round) * dist), 30.0F, (float) (Math.sin(round) * dist));
+		Vector3f at = new Vector3f(0.0F, lerp(62.0, 56.0, fall), 0.0F);
+		cam.perspective(68.0F, width, height, 0.3F, 200000.0F);
 		cam.look(eye, at, new Vector3f(0, 1, 0));
 
 		Random random = new Random(42);
@@ -278,7 +278,7 @@ final class ThunderShots implements Feed.Sequence {
 		float flash = (float) Math.exp(-(s - Math.floor(s)) * 3.0);
 		// Night under the storm: the ground (worked out at every scale, so it is sharp all the way down) lit by the leader's
 		// tip as it steps down and by the storm's flashes.
-		ground(channelAt(channel, tip), 0.5F + 0.9F * flash * (float) reach, 0.15F * flash);
+		ground(channelAt(channel, tip), 0.5F + 0.9F * flash * (float) reach, 0.12F + 0.35F * flash);
 		Space.clearDepth();
 		// The streamer reaching up off the ground at the target to meet the leader.
 		Fx streamer = space.glow(cam, Fx.BLOB, 1.0F);
@@ -342,8 +342,8 @@ final class ThunderShots implements Feed.Sequence {
 			Shaders.set(Shaders.vortex, "Spin", spin(time) * 3.0F + layer * 0.4F);
 			Shaders.set(Shaders.vortex, "Density", 1.0F);
 			Shaders.set(Shaders.vortex, "Layer", (float) layer);
-			Shaders.set(Shaders.vortex, "Daylight", 0.0F);
-			Shaders.set(Shaders.vortex, "Flash", 0.0F, 0.0F, 2.6F * flash + 0.12F);
+			Shaders.set(Shaders.vortex, "Daylight", 0.1F);
+			Shaders.set(Shaders.vortex, "Flash", 0.0F, 0.0F, 2.6F * flash + 0.3F);
 			Shaders.set(Shaders.vortex, "Stroke", 0.0F);
 			Shaders.set(Shaders.vortex, "Eye", 0.012F);
 			Shaders.set(Shaders.vortex, "FogEnd", 1.0E6F);
@@ -417,10 +417,10 @@ final class ThunderShots implements Feed.Sequence {
 		subdivide(points, mid, b, roughness * 0.72F, levels - 1, random);
 	}
 
-	/** The leader's reach down the shot, 0 to 1, in steps that come faster as it nears the ground. */
+	/** The leader's reach down the shot, 0 to 1, a step at a time from the start, quickening a little. */
 	private static double leaderReach(double p) {
 		p = Math.max(0.0, Math.min(1.0, p));
-		double steps = Math.floor(ThunderTimeline.LEADER_STEPS * 3 * (0.35 * p + 0.65 * p * p));
+		double steps = Math.floor(ThunderTimeline.LEADER_STEPS * 3 * (0.7 * p + 0.3 * p * p));
 		return Math.min(1.0, steps / (ThunderTimeline.LEADER_STEPS * 3.0));
 	}
 
