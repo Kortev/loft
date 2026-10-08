@@ -206,14 +206,16 @@ public class ThunderGameTests implements FabricGameTest {
 			}
 			if (logs > 0 || leaves > 0 || charred == 0) {
 				problems.append("tree: ").append(logs).append(" logs, ").append(leaves).append(" leaves, ").append(charred)
-						.append(" charred; ");
+						.append(" charred").append(survivors(world, center, center.add(11, 1, -1), center.add(13, 5, 1),
+								Blocks.OAK_LEAVES)).append("; ");
 			}
 			int planks = 0;
 			for (BlockPos pos : BlockPos.iterate(center.add(14, 1, -6), center.add(15, 2, -5))) {
 				planks += world.getBlockState(pos).isOf(Blocks.OAK_PLANKS) ? 1 : 0;
 			}
 			if (planks > 2) {
-				problems.append(planks).append(" planks of the shed survived; ");
+				problems.append(planks).append(" planks of the shed survived")
+						.append(survivors(world, center, center.add(14, 1, -6), center.add(15, 2, -5), Blocks.OAK_PLANKS)).append("; ");
 			}
 			if (near.isAlive()) {
 				problems.append("zombie by the strike survived with ").append(near.getHealth()).append(" hp; ");
@@ -270,6 +272,21 @@ public class ThunderGameTests implements FabricGameTest {
 			world.getGameRules().get(ModGameRules.MJOLNIR_TERRAIN).set(true, world.getServer());
 		}
 		context.complete();
+	}
+
+	/** Where each block of {@code kind} left in the box is, and what the heightmaps say about its column. */
+	private static String survivors(ServerWorld world, BlockPos center, BlockPos from, BlockPos to, net.minecraft.block.Block kind) {
+		StringBuilder out = new StringBuilder();
+		for (BlockPos pos : BlockPos.iterate(from, to)) {
+			if (world.getBlockState(pos).isOf(kind)) {
+				out.append(" [").append(pos.subtract(center).toShortString()).append(" surface ")
+						.append(world.getTopY(net.minecraft.world.Heightmap.Type.WORLD_SURFACE, pos.getX(), pos.getZ()) - center.getY())
+						.append(" blocking ")
+						.append(world.getTopY(net.minecraft.world.Heightmap.Type.MOTION_BLOCKING, pos.getX(), pos.getZ()) - center.getY())
+						.append(" below ").append(world.getBlockState(pos.down())).append("]");
+			}
+		}
+		return out.toString();
 	}
 
 	private static boolean fused(ServerWorld world, BlockPos from, BlockPos to) {
