@@ -13,7 +13,8 @@
 			"io.github.kortev.shootingstar.test.DataGameTests",
 			"io.github.kortev.shootingstar.test.StrikeGameTests",
 			"io.github.kortev.shootingstar.test.GapGameTests",
-			"io.github.kortev.shootingstar.test.ChittyGameTests"
+			"io.github.kortev.shootingstar.test.ChittyGameTests",
+			"io.github.kortev.shootingstar.test.ThunderGameTests"
 		],
 		"client": [
 			"io.github.kortev.shootingstar.test.ClientSelfTest",
