@@ -61,7 +61,8 @@ public final class AerialHaze {
 		if (center == null && thunder != null) {
 			double t = thunder.time(tickDelta);
 			if (t >= ThunderTimeline.RISE && t < ThunderTimeline.FEED && ClientThunders.shotActive(thunder, t)) {
-				center = new Vec3d(thunder.center.x, thunder.cloudBase - DECK - 12.0, thunder.center.z);
+				// The camera ends the rise just inside the storm's base, in the thick of it.
+				center = new Vec3d(thunder.center.x, thunder.cloudBase - DECK - 30.0, thunder.center.z);
 				storm = true;
 			}
 		}

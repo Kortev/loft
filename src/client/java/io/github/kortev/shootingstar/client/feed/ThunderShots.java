@@ -60,6 +60,11 @@ final class ThunderShots implements Feed.Sequence {
 	private float time;
 
 	@Override
+	public boolean ready() {
+		return Shaders.thunderReady();
+	}
+
+	@Override
 	public Overlay render(double t, float fbWidth, float fbHeight, float guiWidth, float guiHeight) {
 		space.ensure();
 		if (patch == null) {

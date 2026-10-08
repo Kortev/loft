@@ -42,6 +42,11 @@ public final class Feed {
 		/** How long the frame being drawn lasts, in ticks. */
 		default void frameTicks(float ticks) {
 		}
+
+		/** Whether every program this sequence draws with has loaded. */
+		default boolean ready() {
+			return Shaders.ready();
+		}
 	}
 
 	private static final Shots SHOTS = new Shots();
@@ -85,7 +90,7 @@ public final class Feed {
 		ctx.draw();
 
 		Overlay overlay;
-		if (Shaders.ready()) {
+		if (shots.ready()) {
 			overlay = renderScene(client, shots, t, w, h);
 		} else {
 			// Shaders still loading (or failed): a plain black feed so the text still reads.
