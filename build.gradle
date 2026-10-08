@@ -47,7 +47,7 @@ base {
 	archivesName = project.archives_base_name
 }
 
-def chitty = project(':chitty')
+def chittyProject = project(":chitty")
 
 // Test harness mod: server game tests plus client self tests that film a full strike, a Ginnungagap or a drive in
 // Chitty. It loads every mod in the build together, as a server with all of them installed would.
@@ -56,13 +56,13 @@ sourceSets {
 		compileClasspath += sourceSets.main.compileClasspath + sourceSets.main.output + sourceSets.client.compileClasspath + sourceSets.client.output
 		runtimeClasspath += sourceSets.main.runtimeClasspath + sourceSets.main.output + sourceSets.client.runtimeClasspath + sourceSets.client.output
 		// Only Chitty's own classes and resources: her classpath has this project on it again.
-		compileClasspath += chitty.sourceSets.main.output + chitty.sourceSets.client.output
-		runtimeClasspath += chitty.sourceSets.main.output + chitty.sourceSets.client.output
+		compileClasspath += chittyProject.sourceSets.main.output + chittyProject.sourceSets.client.output
+		runtimeClasspath += chittyProject.sourceSets.main.output + chittyProject.sourceSets.client.output
 	}
 	// No code of its own: what the dev client and server run, every mod in the build together.
 	allMods {
 		runtimeClasspath += sourceSets.main.runtimeClasspath + sourceSets.main.output + sourceSets.client.runtimeClasspath + sourceSets.client.output
-		runtimeClasspath += chitty.sourceSets.main.output + chitty.sourceSets.client.output
+		runtimeClasspath += chittyProject.sourceSets.main.output + chittyProject.sourceSets.client.output
 	}
 }
 
@@ -73,8 +73,8 @@ loom {
 			sourceSet sourceSets.client
 		}
 		"chitty" {
-			sourceSet "main", chitty
-			sourceSet "client", chitty
+			sourceSet "main", chittyProject
+			sourceSet "client", chittyProject
 		}
 		"shootingstar-gametest" {
 			sourceSet sourceSets.gametest
