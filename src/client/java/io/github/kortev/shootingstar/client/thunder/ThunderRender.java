@@ -66,6 +66,9 @@ public final class ThunderRender {
 	private static final float[] CORE = {0.93F, 0.96F, 1.0F};
 	private static final float[] LEADER = {0.62F, 0.5F, 1.0F};
 	private static final float[] AFTERGLOW = {1.0F, 0.42F, 0.86F};
+	/** What a flash fades the picture to: white for lightning, and the inside of the storm's cloud for the rise's end. */
+	private static final float[] WHITE_FLASH = {0.9F, 0.95F, 1.0F};
+	private static final float[] CLOUD_FLASH = {0.18F, 0.205F, 0.265F};
 
 	/** A point light on the world (relative to the camera), as in Gungnir's light pass. */
 	private record Light(float x, float y, float z, float range, float r, float g, float b, float wrap) {
@@ -75,7 +78,8 @@ public final class ThunderRender {
 		}
 	}
 
-	private record Grade(int mode, float mix, float cx, float cy, float zoom, float chroma, float exposure, float flash, float glow) {
+	private record Grade(int mode, float mix, float cx, float cy, float zoom, float chroma, float exposure, float flash, float glow,
+			float[] flashColor) {
 	}
 
 	private ThunderRender() {
@@ -364,7 +368,7 @@ public final class ThunderRender {
 			Shaders.set(Shaders.thunder, "Chroma", grade.chroma());
 			Shaders.set(Shaders.thunder, "Exposure", grade.exposure());
 			Shaders.set(Shaders.thunder, "Flash", grade.flash());
-			Shaders.set(Shaders.thunder, "FlashColor", 0.9F, 0.95F, 1.0F);
+			Shaders.set(Shaders.thunder, "FlashColor", grade.flashColor()[0], grade.flashColor()[1], grade.flashColor()[2]);
 			Shaders.set(Shaders.thunder, "Glow", grade.glow());
 			Post.quad(Shaders.thunder);
 		}
@@ -581,6 +585,13 @@ public final class ThunderRender {
 	private static void call(ClientThunder thunder, double since, Vec3d cam, Matrix4f view, Matrix4f proj, Vector3f right, Vector3f up) {
 		double b = since < 1.0 ? 1.0 : since < 2.0 ? 0.4 : since < 3.0 ? 0.9 : Math.exp(-(since - 3.0) / 2.0) * 0.8;
 		Vec3d from = thunder.callFrom;
+		MinecraftClient client = MinecraftClient.getInstance();
+		if (thunder.mine && !client.gameRenderer.getCamera().isThirdPerson()) {
+			// From the head of the hammer where the shooter sees it held up, top right, whichever way they are looking.
+			Vector3f forward = new Vector3f(right).cross(up).negate();
+			from = cam.add(forward.x * 1.1 + up.x * 0.55 + right.x * 0.35, forward.y * 1.1 + up.y * 0.55 + right.y * 0.35,
+					forward.z * 1.1 + up.z * 0.55 + right.z * 0.35);
+		}
 		Vec3d to = thunder.top().add(0, 4, 0);
 		Random random = new Random(thunder.seed * 7 + (long) (since / 2.0));
 		List<Vec3d> channel = BoltPath.jagged(from, to, 0.12, 7, random);
@@ -1062,9 +1073,15 @@ public final class ThunderRender {
 			if (thunder.mine && t >= ThunderTimeline.CALL && t < ThunderTimeline.CALL + 4) {
 				flash = (float) (0.75 * Math.exp(-(t - ThunderTimeline.CALL) / 1.2));
 			}
-			if (cinematic && t >= ThunderTimeline.INBOUND && t < ThunderTimeline.INBOUND + 8) {
-				// Out of the feed's whiteout into the world.
-				flash = Math.max(flash, (float) (1.0 - ThunderTimeline.smooth((t - ThunderTimeline.INBOUND) / 8.0)));
+			float[] flashColor = WHITE_FLASH;
+			if (cinematic && t >= ThunderTimeline.FEED - 8 && t < ThunderTimeline.FEED) {
+				// Into the storm's cloud at the top of the rise, the colour the feed opens in.
+				flash = (float) ThunderTimeline.smooth((t - (ThunderTimeline.FEED - 8)) / 7.0);
+				flashColor = CLOUD_FLASH;
+			}
+			if (cinematic && t >= ThunderTimeline.INBOUND && t < ThunderTimeline.INBOUND + 5) {
+				// Out of the feed's last flash into the world.
+				flash = Math.max(flash, (float) (0.9 * (1.0 - ThunderTimeline.smooth((t - ThunderTimeline.INBOUND) / 5.0))));
 			}
 			int mode = 0;
 			float mix = 0.0F;
@@ -1115,7 +1132,7 @@ public final class ThunderRender {
 				weight += flash;
 			}
 			if (weight > bestWeight && (mix > 0 || flash > 0.005F || chroma > 0.0005F || glow > 0.005F)) {
-				best = new Grade(mode, mix, cx, cy, zoom, chroma, exposure, flash, glow);
+				best = new Grade(mode, mix, cx, cy, zoom, chroma, exposure, flash, glow, flashColor);
 				bestWeight = weight;
 			}
 		}

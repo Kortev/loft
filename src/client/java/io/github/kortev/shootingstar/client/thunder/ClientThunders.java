@@ -87,7 +87,7 @@ public final class ClientThunders {
 
 	public static boolean shotActive(@Nullable ClientThunder thunder, double t) {
 		return thunder != null && thunder.cinematic() && ClientConfig.cameraShots
-				&& (t >= ThunderTimeline.RISE && t < ThunderTimeline.FEED || t >= ThunderTimeline.INBOUND && t < ThunderTimeline.CAMERA_END);
+				&& (t >= ThunderTimeline.CALL && t < ThunderTimeline.FEED || t >= ThunderTimeline.INBOUND && t < ThunderTimeline.CAMERA_END);
 	}
 
 	/** True while a camera shot flies where the world's culling has never looked from (a tick of margin either side). */

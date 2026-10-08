@@ -25,8 +25,8 @@ import org.joml.Vector3f;
  * Mjölnir's storm feed. Out of the cloud deck into orbit over the night side, where every thunderstorm on Earth is
  * flickering and red sprites leap above them; the global circuit's charge drawn in across the planet as a ring of light
  * closing on the target, the storms it passes going dark; down onto the storm over the target as it winds into one
- * vortex, MJÖLNIR; and down the eye after the stepped leader as it feels its way to the ground, until the ground rushes up
- * white. Each shot is one continuous move; the cuts hide in flashes.
+ * vortex, MJÖLNIR; and out of the storm's base after the stepped leader as it starts to feel its way down, until the
+ * world takes it on. Each shot is one continuous move; the cuts hide in flashes.
  */
 final class ThunderShots implements Feed.Sequence {
 	// --- Earth: radius 1 at the origin. The target is the far north of Europe, on the night side, dawn behind the limb.
@@ -116,7 +116,8 @@ final class ThunderShots implements Feed.Sequence {
 		// Out of the dark of the storm cloud the camera rose into, lit once by its lightning on the way.
 		float cloud = (float) Math.pow(Math.max(0.0, 1.0 - s / 9.0), 1.4);
 		o.flash = cloud;
-		o.flashColor = s > 2.0 && s < 3.5 ? 0xD8E4FF : 0x161A24;
+		// The same slate as the inside of the storm the rise ended in.
+		o.flashColor = s > 2.0 && s < 3.5 ? 0xD8E4FF : 0x2E3444;
 		if (s > 2.0 && s < 3.5) {
 			o.flash = Math.max(o.flash, 0.8F);
 		}
@@ -219,8 +220,12 @@ final class ThunderShots implements Feed.Sequence {
 		earthCamera(new Pose(eye, at, new Vector3f(NORTH), 50.0F - 8.0F * k), Math.max(0.00005F, altitude * 0.2F), 60.0F);
 		float wound = smooth(s / 40.0);
 		space.sky(cam, SKY, 0.8F * (1.0F - k), 0, cam.forward(), 0, 0, 0, time);
-		space.stormEarth(cam, new Matrix4f(), SUN, time * 0.00002F, smooth((k - 0.4) * 2.0) * 0.8F, 1.1F, time, TARGET, 1.0F, 0.0F,
-				1.0F, VORTEX * (0.4F + 0.6F * wound), spin(time) * (1.0F + wound), 0.7F - 0.4F * wound);
+		// Close in, the storm is dark cloud lit from inside: its lightning and the charge at its heart are turned down so they
+		// flicker in it rather than fill the frame.
+		float close = smooth((k - 0.5) * 2.0);
+		space.stormEarth(cam, new Matrix4f(), SUN, time * 0.00002F, smooth((k - 0.4) * 2.0) * 0.8F, 1.1F, time, TARGET,
+				1.0F - 0.6F * close, 0.0F, 1.0F, VORTEX * (0.4F + 0.6F * wound), spin(time) * (1.0F + wound),
+				(0.7F - 0.4F * wound) * (1.0F - 0.85F * close));
 		o.header = "[ SUPERCELL · TARGET ]";
 		o.headerReveal = smooth(s / 6.0);
 		float title = smooth((s - 8.0) / 6.0) * (1.0F - smooth((s - 46.0) / 8.0));
@@ -240,18 +245,20 @@ final class ThunderShots implements Feed.Sequence {
 	}
 
 	// =============================================================================================
-	// 4. Down the eye after the stepped leader as it feels its way to the ground.
+	// 4. Out of the storm's base after the stepped leader as it starts to feel its way down to the ground.
 	// =============================================================================================
 
 	private void leader(double s, Overlay o) {
-		// In units of a hundred metres, the ground under the target at y = 0.
-		double reach = leaderReach(s / (LEADER_LENGTH - 4.0));
+		// In units of a hundred metres, the ground under the target at y = 0. The leader comes out of the storm's base and
+		// feels its way down; the feed follows it LEADER_HANDOFF of the way, and the world picks it up from there.
+		double reach = ThunderTimeline.LEADER_HANDOFF * leaderReach(s / (LEADER_LENGTH - 4.0));
 		float tip = LOCAL_BASE * (1.0F - (float) reach);
-		// The camera falls with the tip, a little above it and off to one side, looking down past it.
+		// The camera comes down out of the cloud with the tip, a little above it and off to one side, looking down past it
+		// at the ground it is heading for.
 		float fall = smoother(s / (LEADER_LENGTH - 2.0));
-		float camY = lerp(LOCAL_BASE + 22.0, 4.0, fall);
-		Vector3f eye = new Vector3f(6.0F + 10.0F * fall, Math.max(camY, tip + 6.0F), 5.0F);
-		Vector3f at = new Vector3f(0.0F, Math.max(0.0F, tip - 25.0F), 0.0F);
+		float camY = lerp(LOCAL_BASE + 22.0, LOCAL_BASE * (1.0 - ThunderTimeline.LEADER_HANDOFF) + 10.0, fall);
+		Vector3f eye = new Vector3f(6.0F + 8.0F * fall, Math.max(camY, tip + 6.0F), 5.0F);
+		Vector3f at = new Vector3f(0.0F, Math.max(0.0F, tip - 30.0F), 0.0F);
 		cam.perspective(62.0F, width, height, 0.3F, 200000.0F);
 		cam.look(eye, at, new Vector3f(0, 0, -1));
 
@@ -265,7 +272,6 @@ final class ThunderShots implements Feed.Sequence {
 			branches.add(jagged(root, new Vector3f(root).add(dir.mul(root.y * (0.2F + 0.35F * random.nextFloat()))), 0.3F, 4, random));
 		}
 		float flash = (float) Math.exp(-(s - Math.floor(s)) * 3.0);
-		// Under the storm: the ground lit only by the leader and by the storm's own flashes.
 		// Night under the storm: the ground (worked out at every scale, so it is sharp all the way down) lit by the leader's
 		// tip as it steps down and by the storm's flashes.
 		ground(channelAt(channel, tip), 0.5F + 0.9F * flash * (float) reach, 0.15F * flash);
@@ -285,10 +291,10 @@ final class ThunderShots implements Feed.Sequence {
 		o.footerSmall = String.format(Locale.ROOT, "STEP %d · 50 M EVERY 50 µS", step);
 		// Falling: a zoom blur (one pass) rather than the shutter, which would draw the whole shot six times a frame.
 		o.zoomBlur = 0.03F + 0.09F * fall;
-		// The ground rushes up: white.
-		if (s > LEADER_LENGTH - 6) {
-			o.flash = smooth((s - (LEADER_LENGTH - 6)) / 5.0);
-			o.flashColor = 0xF4F7FF;
+		// A step brighter than any before it hands over to the world, where the leader comes on down.
+		if (s > LEADER_LENGTH - 3) {
+			o.flash = smooth((s - (LEADER_LENGTH - 3)) / 2.5) * 0.9F;
+			o.flashColor = 0xE8ECFF;
 		}
 	}
 

@@ -65,8 +65,8 @@ public final class ThunderDust {
 	/** The stroke has landed: the shockwave's ring of dust. */
 	public static void onStroke(ClientWorld world, ClientThunder thunder) {
 		double core = ThunderTimeline.coreRadius(thunder.radius);
-		int count = MathHelper.clamp(thunder.radius * 3 / 2, 32, 160);
-		float big = (float) MathHelper.clamp(thunder.radius * 0.12, 3.0, 12.0);
+		int count = MathHelper.clamp(thunder.radius, 24, 100);
+		float big = (float) MathHelper.clamp(thunder.radius * 0.14, 3.0, 14.0);
 		for (int i = 0; i < count; i++) {
 			double a = Math.PI * 2.0 * (i + RANDOM.nextDouble() * 0.6) / count;
 			double from = core * (0.75 + 0.2 * RANDOM.nextDouble());
@@ -97,7 +97,7 @@ public final class ThunderDust {
 			}
 			double core = ThunderTimeline.coreRadius(thunder.radius);
 			double depth = Math.max(3, Math.round(core * 0.5));
-			double rate = 2.5 * Math.exp(-e / 220.0) * Math.sqrt(thunder.radius / 64.0);
+			double rate = 1.6 * Math.exp(-e / 220.0) * Math.sqrt(thunder.radius / 64.0);
 			int n = (int) rate + (RANDOM.nextDouble() < rate - (int) rate ? 1 : 0);
 			for (int i = 0; i < n; i++) {
 				double a = RANDOM.nextDouble() * Math.PI * 2.0;

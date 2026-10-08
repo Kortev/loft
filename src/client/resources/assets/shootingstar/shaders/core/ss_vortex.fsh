@@ -40,7 +40,7 @@ void main() {
     vec4 big = texture(Sampler0, qw * 0.85 + seed * 2.0);
     vec4 mid = texture(Sampler0, qw * 2.4 + seed * 3.0 + 0.5);
     // Lumps too small to follow the spiral, drifting as the base churns.
-    float lumps = texture(Sampler0, uv * 3.3 + seed * 5.0 + vec2(0.0, -Time * 0.0004)).a;
+    float lumps = texture(Sampler0, uv * 1.4 + seed * 5.0 + vec2(0.0, -Time * 0.0004)).r;
     float n = big.r * 0.62 + mid.r * 0.38;
     float detail = mid.g;
     float ridge = big.b;

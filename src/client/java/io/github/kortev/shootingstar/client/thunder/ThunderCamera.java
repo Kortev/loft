@@ -13,11 +13,13 @@ import net.minecraft.world.RaycastContext;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * The shooter's camera shots for Mjölnir, applied through {@link CameraDirector}: after the call it climbs from their
- * eyes towards the target, turning to look up into the storm winding up over it, and rises into the cloud base as the
- * feed cuts in. After the feed it waits low at the edge of the zone, looking up at the vortex as the leader steps down
- * out of it and the streamers rise, and holds there through the stroke; then it cuts high over the strike, looking
- * straight down as the scar burns out across the ground, turning slowly; and at the end it eases back into their eyes.
+ * The shooter's camera shots for Mjölnir, applied through {@link CameraDirector}: at the call their eyes turn up after the
+ * bolt as it leaps into the sky; then the camera climbs from their eyes towards the target, tipping back to look up into
+ * the storm boiling out over it, and rises into its base as the feed cuts in. After the feed it waits low at the edge of
+ * the zone, looking up at the storm as the leader steps down out of it and the streamers rise, closing in on it, and
+ * holds there through the stroke (flung wide by it); then it cuts high over the strike, looking straight down as the
+ * scar burns out across the ground, and cranes down and round to a long three-quarter view; and at the end it arcs home
+ * over the ground into their eyes.
  */
 public final class ThunderCamera {
 	private ThunderCamera() {
@@ -35,6 +37,9 @@ public final class ThunderCamera {
 		if (!ClientThunders.shotActive(thunder, t)) {
 			return null;
 		}
+		if (t < ThunderTimeline.RISE) {
+			return call(player, thunder, tickDelta, t);
+		}
 		if (t < ThunderTimeline.FEED) {
 			return rise(player, thunder, tickDelta, (t - ThunderTimeline.RISE) / (ThunderTimeline.FEED - ThunderTimeline.RISE));
 		}
@@ -47,9 +52,42 @@ public final class ThunderCamera {
 		}
 		double k = ease((t - ThunderTimeline.WIDE_END) / (ThunderTimeline.CAMERA_END - ThunderTimeline.WIDE_END));
 		Vec3d eye = player.getCameraPosVec(tickDelta);
-		return new CameraDirector.Shot(MathHelper.lerp(k, above.x(), eye.x), MathHelper.lerp(k, above.y(), eye.y),
-				MathHelper.lerp(k, above.z(), eye.z), MathHelper.lerpAngleDegrees((float) k, above.yaw(), player.getYaw(tickDelta)),
+		double x = MathHelper.lerp(k, above.x(), eye.x);
+		double z = MathHelper.lerp(k, above.z(), eye.z);
+		// Home over the ground in an arc, never through a hill on the way.
+		double y = MathHelper.lerp(k, above.y(), eye.y) + Math.sin(Math.PI * k) * 14.0;
+		if (k < 0.9) {
+			y = Math.max(y, clearance(client.world, x, z));
+		}
+		return new CameraDirector.Shot(x, y, z, MathHelper.lerpAngleDegrees((float) k, above.yaw(), player.getYaw(tickDelta)),
 				(float) MathHelper.lerp(k, above.pitch(), player.getPitch(tickDelta)));
+	}
+
+	/** A few blocks over the highest ground round {@code x, z}. */
+	private static double clearance(ClientWorld world, double x, double z) {
+		int top = Integer.MIN_VALUE;
+		for (int dx = -3; dx <= 3; dx += 3) {
+			for (int dz = -3; dz <= 3; dz += 3) {
+				top = Math.max(top, world.getTopY(Heightmap.Type.MOTION_BLOCKING, MathHelper.floor(x) + dx, MathHelper.floor(z) + dz));
+			}
+		}
+		return top + 3.0;
+	}
+
+	/** Where the shooter's eyes are turned at {@code t} while the call goes up: following it up towards the storm. */
+	private static float[] callLook(ClientPlayerEntity player, ClientThunder thunder, float tickDelta, double t) {
+		Vec3d eye = player.getCameraPosVec(tickDelta);
+		CameraDirector.Shot storm = look(eye, thunder.top());
+		double k = 0.8 * ease((t - ThunderTimeline.CALL) / (ThunderTimeline.RISE - ThunderTimeline.CALL - 2.0));
+		return new float[] {MathHelper.lerpAngleDegrees((float) k, player.getYaw(tickDelta), storm.yaw()),
+				(float) MathHelper.lerp(k, player.getPitch(tickDelta), storm.pitch())};
+	}
+
+	/** Still in the shooter's eyes, the head turning up after the call as it leaps into the sky and the storm boils out. */
+	private static CameraDirector.Shot call(ClientPlayerEntity player, ClientThunder thunder, float tickDelta, double t) {
+		Vec3d eye = player.getCameraPosVec(tickDelta);
+		float[] look = callLook(player, thunder, tickDelta, t);
+		return new CameraDirector.Shot(eye.x, eye.y, eye.z, look[0], look[1]);
 	}
 
 	/**
@@ -64,8 +102,10 @@ public final class ThunderCamera {
 		double z = MathHelper.lerp(e, start.z, end.z);
 		// Up slowly at first and then fast: the pull of the storm.
 		double y = MathHelper.lerp(Math.pow(p, 2.2), start.y, end.y);
-		float yaw = player.getYaw(tickDelta) + (float) (70.0 * p * p);
-		float pitch = (float) MathHelper.lerp(ease(p * 1.6), player.getPitch(tickDelta), -88.0);
+		// On from where the call left the shooter looking.
+		float[] from = callLook(player, thunder, tickDelta, ThunderTimeline.RISE);
+		float yaw = from[0] + (float) (70.0 * p * p);
+		float pitch = (float) MathHelper.lerp(ease(p * 1.6), from[1], -88.0);
 		return new CameraDirector.Shot(x, y, z, yaw, pitch);
 	}
 

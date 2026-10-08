@@ -41,6 +41,11 @@ public final class ThunderTimeline {
 	public static final double BURN_SPEED = 6.0;
 	/** Steps the stepped leader takes from the cloud base to the ground. */
 	public static final int LEADER_STEPS = 20;
+	/**
+	 * How far down the leader has come when the feed hands back to the world: the feed follows it out of the storm and
+	 * this far down, and the world picks it up from there to the ground, so it comes down once.
+	 */
+	public static final double LEADER_HANDOFF = 0.4;
 	/** Default strike radius (the zone where nothing survives); the client's aim hint assumes it. */
 	public static final int DEFAULT_RADIUS = 64;
 	/** Danger-close floor for tiny strikes; normally the limit is the edge of the scar, 1.5x the radius. */
@@ -81,8 +86,8 @@ public final class ThunderTimeline {
 	}
 
 	/**
-	 * How far down from the cloud base the stepped leader has reached at {@code t}, 0 to 1: it jumps a step at a time,
-	 * slow at first and quickening as it nears the ground.
+	 * How far down from the cloud base the stepped leader has reached at {@code t}, 0 to 1: from where the feed left it
+	 * ({@link #LEADER_HANDOFF}) it jumps a step at a time, slow at first and quickening as it nears the ground.
 	 */
 	public static double leaderReach(double t) {
 		if (t < INBOUND) {
@@ -94,7 +99,7 @@ public final class ThunderTimeline {
 		double p = (t - INBOUND) / (STROKE - INBOUND);
 		// Steps come faster as it goes: the step count grows with p squared-ish.
 		double steps = Math.floor(LEADER_STEPS * (0.35 * p + 0.65 * p * p) + 1.0e-6);
-		return Math.min(1.0, steps / LEADER_STEPS);
+		return LEADER_HANDOFF + (1.0 - LEADER_HANDOFF) * Math.min(1.0, steps / LEADER_STEPS);
 	}
 
 	/** Path distance the scar has burned out to, {@code e} ticks after the stroke. */
