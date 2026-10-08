@@ -2447,6 +2447,412 @@ def gap_rebuild():
     return master(fade(x, 0.0, 2.0), peak=0.92)
 
 
+# --- Þ-01 Mjölnir ------------------------------------------------------------------------------------
+# The hammer raised and the call leaving it; the camera rising into the storm; the feed's bed, the planet's own radio
+# noise of lightning (sferics, tweeks, whistlers) over a drone pulsing with the Earth-ionosphere cavity's 7.83 Hz; the
+# charge drawn in; MJÖLNIR, an anvil the size of a storm; the stepped leader; out in the world the storm gathering and
+# the air buzzing with charge; the stroke and its restrikes; thunder rolling off the hills; the arcs; and the hiss of
+# fused ground shedding its charge. In D, the lowest notes the drone can hold.
+
+# ThunderTimeline's beats, in ticks from the hammer going up. The sounds are cut to fit them, so if the timeline
+# changes, change it here too and make the Mjölnir sounds again.
+THUNDER = dict(RAISE=0, CALL=16, RISE=30, FEED=54, DRAW=116, FORGE=206, LEADER=276, INBOUND=326, STROKE=366)
+# The channel strikes again this many ticks after the stroke (ThunderTimeline.RESTRIKES).
+RESTRIKES = (5, 11, 19)
+
+
+def thunder_at(beat, ticks=0, since='RAISE'):
+    """Seconds from the beat `since` to `ticks` after `beat`."""
+    return (THUNDER[beat] + ticks - THUNDER[since]) / 20.0
+
+
+def crack(width_ms=4.0, bright=1.0):
+    """The crack of a lightning channel close by: an N-wave of pressure (a sharp rise, a ramp down through zero, a sharp
+    return) a few milliseconds long, with a spray of high noise off it."""
+    n = ns(0.09)
+    t = np.arange(n) / SR
+    w = width_ms / 1000.0
+    nwave = np.where(t < w, 1.0 - 2.0 * t / w, 0.0)
+    nwave = lp(nwave, 12000, 2)
+    spray = hp(white(n), 2500) * np.exp(-t / 0.01)
+    body = lp(white(n), 900) * np.exp(-t / 0.02)
+    return nwave * 0.9 + spray * 0.45 * bright + body * 0.4
+
+
+def tear(seconds, rate, bright=1.0):
+    """Close lightning tearing: a rattle of small cracks like cloth ripping, every branch of the channel going."""
+    n = ns(seconds)
+
+    def snap():
+        k = ns(rng.uniform(0.004, 0.02))
+        tt = np.arange(k) / SR
+        return hp(white(k), rng.uniform(1200, 4000)) * np.exp(-tt / rng.uniform(0.001, 0.006)) * rng.uniform(0.3, 1.0)
+    return grains(n, rate, snap, spread=0.7) * bright
+
+
+def roll(seconds, swells, low=150.0, close=True):
+    """Thunder rolling: low noise in long swells as the sound arrives from farther and farther along the channel and
+    comes back off the hills, each swell a little later and softer."""
+    n = ns(seconds)
+    t = times(seconds)
+    body = decorrelated(n, lambda k: brown(k) * 0.8 + pink(k) * 0.25)
+    body = np.vstack([lp(c, low * (1.6 if close else 1.0), 2) for c in body])
+    env = np.zeros(n)
+    for at, gain, length in swells:
+        env += gain * np.exp(-((t - at) / length) ** 2)
+    env = np.minimum(env, 1.3)
+    rumble = sine(curve(n, [(0, 46), (seconds, 28)], 'log')) * env * 0.3
+    return body * env + stereo(rumble)
+
+
+def sferic():
+    """One sferic: the radio click of a lightning stroke a thousand kilometres off, with a little ring."""
+    k = ns(0.02)
+    tt = np.arange(k) / SR
+    return bp(white(k), 2000, 9000) * np.exp(-tt / 0.0012) * min(rng.lognormal(-0.6, 0.6), 1.5)
+
+
+def tweek():
+    """A tweek: a sferic that has bounced round the ionosphere, a ping that falls to the cut-off near 1.8 kHz."""
+    k = ns(0.12)
+    f = curve(k, [(0, rng.uniform(3500, 6000)), (0.03, 2100), (0.12, 1750)], 'log')
+    return sine(f) * attack_decay(k, 0.001, 0.035) * rng.uniform(0.3, 0.8)
+
+
+def whistler(seconds=None):
+    """A whistler: a lightning stroke's radio noise that has run out along the Earth's magnetic field to the far side of
+    the planet and back, the high frequencies first, falling for a second or two."""
+    seconds = seconds or rng.uniform(1.0, 2.2)
+    k = ns(seconds)
+    tt = np.arange(k) / SR + 0.05
+    f = 900.0 + 5200.0 * (0.05 / tt) ** 0.6
+    tone = sine(f) + 0.3 * sine(f * 1.01)
+    return tone * curve(k, [(0, 0), (0.08, 1.0), (seconds * 0.5, 0.6), (seconds, 0.0)]) * 0.5
+
+
+def corona(seconds, swell):
+    """The air buzzing with charge: corona hiss off every point and edge, a crackle, and a hum at twice the
+    mains-like rate the discharge pulses at."""
+    n = ns(seconds)
+    t = times(seconds)
+    hiss = decorrelated(n, lambda k: hp(white(k), 3000))
+    pulse = 0.55 + 0.45 * np.sign(np.sin(2 * np.pi * 120.0 * t)) * (0.7 + 0.3 * rng.standard_normal(n).clip(-1, 1))
+    hum = lp(saw(np.full(n, 120.0), n), 1800) * 0.4 + lp(saw(np.full(n, 180.0), n), 1200) * 0.2
+    m = hiss * pulse * swell * 0.5
+    m += stereo(hum * swell)
+    m += grains(n, lambda s: 40 + 400 * float(np.interp(s, t, swell)), crackle_pop, spread=0.9) * 0.9
+    return m
+
+
+def mjolnir_raise():
+    """The hammer raised to call the storm: it swings up with a heavy whoosh and a creak of its grip, the charge builds in
+    it as a climbing, crackling whine, and the call leaves it with a crack and an upward tearing roar, the sky answering
+    with a clap of thunder."""
+    total = thunder_at('RISE')
+    call = thunder_at('CALL')
+    m = Mix(total + 1.0)
+    k = ns(0.55)
+    swing = decorrelated(k, pink)
+    swing = np.vstack([sweep_filter(c, 'bandpass', curve(k, [(0, 260), (0.3, 1300), (0.55, 420)], 'log'), order=2, width=1.4)
+                       for c in swing]) * attack_decay(k, 0.12, 0.16)
+    m.add(swing, 0.0, 0.7)
+    for at in (0.04, 0.4):
+        q = ns(0.14)
+        creak = resonator(white(q) * attack_decay(q, 0.01, 0.04), curve(q, [(0, 190), (0.14, 150)], 'log'), q=10)
+        m.add(norm(creak), at, 0.12, position=0.3)
+    q = ns(call - 0.2)
+    rise = curve(q, [(0, 0.0), (call - 0.2, 1.0)]) ** 1.6
+    whine = resonator(white(q), curve(q, [(0, 520), (call - 0.2, 2900)], 'log'), q=40)
+    m.add(stereo(norm(whine) * rise), 0.2, 0.35)
+    buzz = bp(saw(curve(q, [(0, 55), (call - 0.2, 110)], 'log'), q), 80, 2400) * rise
+    m.add(stereo(norm(buzz)), 0.2, 0.25)
+    m.add(grains(q, lambda s: 20 + 600 * (s / (call - 0.2)) ** 2, crackle_pop, spread=0.6), 0.2, 0.45)
+    # The call.
+    m.add(stereo(crack(3.0)), call, 1.0)
+    m.add(tear(0.4, lambda s: 900 * np.exp(-s / 0.12)), call, 0.7)
+    q = ns(0.9)
+    up = decorrelated(q, pink)
+    up = np.vstack([sweep_filter(c, 'bandpass', curve(q, [(0, 700), (0.5, 5200), (0.9, 7000)], 'log'), order=2, width=1.6)
+                    for c in up]) * attack_decay(q, 0.005, 0.25)
+    m.add(up, call, 0.6)
+    q = ns(1.2)
+    thump = sine(curve(q, [(0, 70), (0.6, 34)], 'log')) * attack_decay(q, 0.004, 0.3)
+    m.add(sat(thump * 1.4, 1.6), call, 0.9)
+    m.add(roll(1.2, [(0.25, 1.0, 0.25), (0.6, 0.6, 0.3)], low=260), call + 0.05, 0.8)
+    outdoor, _, _, _ = spaces()
+    return master(reverb(m.out(), outdoor, wet=0.3)[:, :ns(total + 1.0)], peak=0.95, drive=1.4, squash=0.4)
+
+
+def mjolnir_call():
+    """The call heard out in the world, from the hammer: a crack, the tear of a bolt going up, and a clap of thunder
+    rolling away."""
+    total = 4.5
+    m = Mix(total)
+    m.add(stereo(crack(5.0, 0.7)), 0.0, 1.0)
+    m.add(tear(0.4, lambda s: 600 * np.exp(-s / 0.15), 0.6), 0.0, 0.6)
+    q = ns(1.4)
+    thump = sine(curve(q, [(0, 60), (0.8, 30)], 'log')) * attack_decay(q, 0.006, 0.35)
+    m.add(sat(thump * 1.4, 1.6), 0.02, 0.9)
+    m.add(roll(4.2, [(0.2, 1.0, 0.25), (0.8, 0.7, 0.5), (1.9, 0.45, 0.8), (3.0, 0.2, 0.6)], close=False), 0.05, 1.0)
+    outdoor, _, _, _ = spaces()
+    return master(mono(reverb(m.out(), outdoor, wet=0.6)[:, :ns(total)]), peak=0.95, drive=1.3)
+
+
+def mjolnir_denied():
+    """The hammer refuses: a dull iron clunk and a fizzle of charge that will not hold."""
+    total = 0.6
+    m = Mix(total)
+    q = ns(0.4)
+    clunk = chime(130.0, q, tau=0.12, ratios=(1.0, 2.76, 5.4), bright=0.35) + lp(white(q), 600) * attack_decay(q, 0.001, 0.015)
+    m.add(clunk, 0.0, 0.7)
+    q = ns(0.3)
+    m.add(grains(q, lambda s: 300 * np.exp(-s / 0.08), crackle_pop, spread=0.3), 0.04, 0.6)
+    return master(mono(m.out()), peak=0.8)
+
+
+def thunder_rise():
+    """Up into the storm: wind tearing past, the storm's dark roar closing round, thunder somewhere inside it."""
+    total = thunder_at('FEED', since='RISE')
+    n = ns(total + 0.6)
+    t = times(total + 0.6)
+    body = decorrelated(n, pink)
+    centre = curve(n, [(0, 220), (0.7, 700), (total, 1600), (total + 0.6, 600)], 'log')
+    wind = np.vstack([sweep_filter(c, 'bandpass', centre * (1 + 0.15 * np.sin(2 * np.pi * 1.1 * t + k)), order=2, width=1.8)
+                      for k, c in enumerate(body)])
+    m = Mix(total + 0.6)
+    m.add(wind * curve(n, [(0, 0.05), (total * 0.8, 0.8), (total, 1.0), (total + 0.6, 0.0)]), 0, 0.9)
+    low = decorrelated(n, brown)
+    low = np.vstack([lp(c, 120) for c in low]) * curve(n, [(0, 0), (total, 1.0), (total + 0.6, 0)])
+    m.add(low, 0, 0.7)
+    m.add(roll(1.4, [(0.3, 1.0, 0.25), (0.8, 0.5, 0.3)], low=200, close=False), total * 0.3, 0.5)
+    return master(m.out(), peak=0.8, squash=0.3)
+
+
+def thunder_feed():
+    """The bed under the storm feed: a dark drone breathing with the Earth-ionosphere cavity's own 7.83 Hz, and the radio
+    sound of the planet's lightning over it, the clicks of sferics, the pings of tweeks and the falling whistles of
+    whistlers, busier as the charge is drawn in and the storm winds up."""
+    total = thunder_at('INBOUND', since='FEED')
+    draw = thunder_at('DRAW', since='FEED')
+    forge = thunder_at('FORGE', since='FEED')
+    leader = thunder_at('LEADER', since='FEED')
+    n = ns(total)
+    t = times(total)
+    level = curve(n, [(0, 0), (1.0, 0.6), (draw, 0.7), (forge, 1.0), (forge + 0.2, 0.45), (leader, 0.6), (total - 0.05, 0.8),
+                      (total, 0.0)])
+    bright = curve(n, [(0, 240), (draw, 320), (forge, 900), (forge + 0.2, 260), (leader, 500), (total, 1400)], 'log')
+    schumann = 1.0 - 0.22 * (0.5 + 0.5 * np.sin(2 * np.pi * 7.83 * t))
+    m = Mix(total)
+    for f, g, det in ((36.71, 1.0, 0.004), (55.0, 0.55, 0.006), (73.42, 0.35, 0.008)):
+        stack = supersaw(f * (1 + 0.003 * np.sin(2 * np.pi * 0.06 * t)), n, voices=5, detune=det, spread=0.9)
+        stack = np.vstack([sweep_filter(c, 'lowpass', bright * (1 + 0.2 * np.sin(2 * np.pi * 0.13 * t + k)), order=2)
+                           for k, c in enumerate(stack)])
+        m.add(stack * level * schumann, 0, g)
+    m.add(sine(np.full(n, 36.71)) * level * schumann * 0.5, 0, 0.3)
+    busy = lambda s: float(np.interp(s, [0, draw, forge, leader, total], [25, 40, 220, 80, 140]))
+    m.add(grains(n, busy, sferic, spread=0.95), 0, 0.22)
+    m.add(grains(n, lambda s: busy(s) * 0.05, tweek, spread=0.8), 0, 0.12)
+    at = 0.6
+    while at < total - 1.0:
+        m.add(whistler(), at, 0.05, position=rng.uniform(-0.7, 0.7))
+        at += rng.uniform(1.2, 2.6)
+    _, _, _, space = spaces()
+    x = reverb(m.out(), space, wet=0.3)
+    r = np.sqrt(np.mean(x ** 2, axis=1, keepdims=True))
+    x *= r.mean() / np.maximum(r, 1e-9)
+    return master(x, peak=0.5, squash=0.3)
+
+
+def thunder_draw():
+    """The charge drawn in across the planet: the radio crackle of its storms thickening into a roar as the ring closes,
+    a whine climbing under it, and a ringing shimmer as the ring meets the target."""
+    total = thunder_at('FORGE', since='DRAW')
+    n = ns(total + 0.1)
+    t = times(total + 0.1)
+    m = Mix(total + 0.1)
+    swell = curve(n, [(0, 0.1), (total * 0.7, 0.6), (total - 0.4, 1.0), (total, 1.0)]) ** 1.5
+    crackle = grains(n, lambda s: 60 + 1400 * (s / total) ** 2.2, sferic, spread=1.0)
+    crackle = np.vstack([sweep_filter(c, 'bandpass', curve(n, [(0, 1800), (total, 5200)], 'log'), order=2, width=2.0)
+                         for c in crackle])
+    m.add(crackle * swell, 0, 0.9)
+    whine = resonator(white(n), curve(n, [(0, 260), (total, 2300)], 'log'), q=35)
+    m.add(stereo(norm(whine) * swell), 0, 0.3)
+    m.add(stereo(sine(curve(n, [(0, 30), (total, 58)], 'log')) * swell), 0, 0.5)
+    # The ring meets the target.
+    for i, f in enumerate((1174.66, 1760.0, 2349.32, 2637.0)):
+        m.add(chime(f, ns(1.0), tau=0.6, bright=0.4), total - 0.4 + 0.03 * i, 0.12, position=-0.5 + 0.33 * i)
+    _, _, _, space = spaces()
+    x = master(reverb(m.out(), space, wet=0.25)[:, :n], peak=0.9, squash=0.4)
+    return cut(x, total)
+
+
+def thunder_forge():
+    """MJÖLNIR: a hammer on an anvil the size of a storm, a long iron ring over a roll of thunder, and the vortex winding
+    up with a howl."""
+    total = thunder_at('LEADER', since='FORGE')
+    hit = 8 / 20.0
+    m = Mix(total)
+    q = ns(total - hit)
+    anvil = chime(146.83, q, tau=2.6, ratios=(1.0, 2.76, 5.4, 8.93, 13.34), bright=0.55)
+    anvil += chime(220.0, q, tau=1.8, ratios=(1.0, 2.71, 5.32), bright=0.45) * 0.6
+    clank = hp(white(ns(0.05)), 1500) * attack_decay(ns(0.05), 0.0005, 0.008)
+    m.add(stereo(norm(anvil)) * np.array([[1.0], [0.97]]), hit, 0.55)
+    m.add(stereo(clank), hit, 0.8)
+    k = ns(1.6)
+    boom = sine(curve(k, [(0, 55), (1.6, 27)], 'log')) * attack_decay(k, 0.004, 0.5)
+    m.add(sat(boom * 1.5, 1.7), hit, 1.0)
+    m.add(roll(total - hit, [(0.2, 1.0, 0.4), (1.0, 0.7, 0.6), (2.1, 0.5, 0.6)]), hit, 0.75)
+    n = ns(total)
+    howl = decorrelated(n, pink)
+    howl = np.vstack([sweep_filter(c, 'bandpass', curve(n, [(0, 300), (total, 900)], 'log') * (1 + 0.25 * np.sin(2 * np.pi * 0.7 * times(total) + k)),
+                                   order=2, width=1.0) for k, c in enumerate(howl)])
+    m.add(howl * curve(n, [(0, 0.0), (hit, 0.2), (total, 0.7)]), 0, 0.35)
+    outdoor, hall, _, _ = spaces()
+    return master(reverb(m.out(), hall, wet=0.35)[:, :n], peak=0.95, drive=1.3, squash=0.35)
+
+
+def thunder_leader():
+    """The stepped leader feeling its way down, a jolt every fifty microseconds slowed to something you can count,
+    quickening as it nears the ground; a hiss rising under it, and the rush of the ground coming up."""
+    total = thunder_at('INBOUND', since='LEADER')
+    n = ns(total)
+    m = Mix(total)
+    steps = 60
+    shot = total - 0.2
+    for k in range(1, steps + 1):
+        # ThunderShots.leaderReach: the step count grows as 0.35 p + 0.65 p^2.
+        p = (-0.35 + np.sqrt(0.35 ** 2 + 4 * 0.65 * k / steps)) / (2 * 0.65)
+        at = p * shot
+        q = ns(0.05)
+        tt = np.arange(q) / SR
+        zap = hp(white(q), 1800) * np.exp(-tt / 0.004) + np.sign(np.sin(2 * np.pi * rng.uniform(300, 900) * tt)) * np.exp(-tt / 0.01) * 0.2
+        m.add(zap * (0.4 + 0.6 * p), at, 0.4, position=rng.uniform(-0.25, 0.25))
+    hiss = decorrelated(n, lambda q: hp(white(q), 4000)) * curve(n, [(0, 0.1), (total, 1.0)]) ** 2
+    m.add(hiss, 0, 0.25)
+    q = ns(0.8)
+    rush = decorrelated(q, pink)
+    rush = np.vstack([sweep_filter(c, 'bandpass', curve(q, [(0, 400), (0.8, 6000)], 'log'), order=2, width=1.6) for c in rush])
+    m.add(rush * curve(q, [(0, 0), (0.75, 1.0), (0.8, 1.0)]), total - 0.8, 0.7)
+    _, hall, _, _ = spaces()
+    x = master(reverb(m.out(), hall, wet=0.2)[:, :n], peak=0.9, squash=0.35)
+    return cut(x, total)
+
+
+def thunder_storm():
+    """A storm gathering overhead, heard from under it: wind getting up, and thunder rolling inside the clouds, closer and
+    more often as it winds up."""
+    total = thunder_at('INBOUND', since='FEED')
+    n = ns(total)
+    t = times(total)
+    m = Mix(total)
+    wind = decorrelated(n, pink)
+    wind = np.vstack([sweep_filter(c, 'bandpass', 380 * (1 + 0.35 * np.sin(2 * np.pi * 0.11 * t + k)), order=2, width=2.0)
+                      for k, c in enumerate(wind)])
+    m.add(wind * curve(n, [(0, 0.2), (total, 1.0)]), 0, 0.4)
+    swells = []
+    at = 0.5
+    while at < total - 1.0:
+        p = at / total
+        swells.append((at, 0.35 + 0.65 * p, 0.3 + 0.5 * rng.random()))
+        at += rng.uniform(2.5, 4.5) * (1.0 - 0.6 * p)
+    m.add(roll(total, swells, low=220, close=False), 0, 1.0)
+    outdoor, _, _, _ = spaces()
+    return master(mono(reverb(m.out(), outdoor, wet=0.5)[:, :n]), peak=0.8, squash=0.3)
+
+
+def thunder_charge(close=True):
+    """The moment before the stroke: the air buzzing and crackling with charge, streamers hissing off everything, rising
+    until the stroke cuts it dead."""
+    total = thunder_at('STROKE', since='INBOUND')
+    n = ns(total + 0.05)
+    swell = curve(n, [(0, 0.1), (total * 0.6, 0.45), (total, 1.0), (total + 0.05, 1.0)]) ** 1.4
+    x = corona(total + 0.05, swell)
+    if not close:
+        x = np.vstack([lp(c, 5000) for c in x])
+    x = master(x, peak=0.9, squash=0.4)
+    x = cut(x, total)
+    return x if close else mono(x)
+
+
+def thunder_stroke(close=True):
+    """The bolt: a crack like the sky splitting, the rip of every branch going at once, the restrikes cracking again down
+    the same channel, and a blast of thunder. Close up the ears ring after it, as they do after Gungnir's impact."""
+    total = 6.0
+    n = ns(total)
+    m = Mix(total)
+    m.add(stereo(crack(2.5 if close else 6.0, 1.0 if close else 0.5)), 0.0, 1.0)
+    m.add(tear(0.45, lambda s: 2500 * np.exp(-s / 0.1), 1.0 if close else 0.5), 0.0, 0.8)
+    for i, ticks in enumerate(RESTRIKES):
+        m.add(stereo(crack(3.5, 0.7)), ticks / 20.0, 0.55 - 0.1 * i)
+        m.add(tear(0.2, lambda s: 900 * np.exp(-s / 0.06), 0.6), ticks / 20.0, 0.4)
+    k = ns(3.0)
+    blast = decorrelated(k, lambda q: white(q) * 0.5 + pink(q) * 0.8)
+    cutoff = curve(k, [(0, 9000 if close else 2500), (0.2, 2200), (1.0, 500), (3.0, 140)], 'log')
+    blast = np.vstack([sweep_filter(c, 'lowpass', cutoff, order=2) for c in blast]) * attack_decay(k, 0.002, 0.55)
+    m.add(sat(blast * 3.0, 2.4), 0.0, 0.9)
+    sub = sine(curve(k, [(0, 62), (0.3, 40), (3.0, 24)], 'log')) * attack_decay(k, 0.003, 0.8)
+    m.add(sat(sub * 1.6, 1.8), 0.0, 1.0)
+    outdoor, _, _, _ = spaces()
+    x = reverb(m.out(), outdoor, wet=0.45 if close else 0.75)[:, :n]
+    if close:
+        cutoff = curve(n, [(0, 20000), (0.12, 20000), (0.2, 700), (1.2, 1600), (3.6, 15000), (total, 20000)], 'log')
+        x = np.vstack([sweep_filter(c, 'lowpass', cutoff, order=2) for c in x])
+        tt = times(total)
+        ring = np.sin(2 * np.pi * 4100 * tt) + 0.6 * np.sin(2 * np.pi * 4111 * tt)
+        ring *= curve(n, [(0, 0), (0.15, 0), (0.25, 1.0), (1.0, 0.8), (3.2, 0.0), (total, 0.0)])
+        x = x + stereo(ring) * np.array([[0.04], [0.045]])
+    x = master(x, peak=0.98, drive=2.0, squash=0.5)
+    return x if close else master(mono(x), peak=0.98)
+
+
+def thunder_roll(close=True):
+    """Thunder rolling away off the hills for seconds after the bolt, in long swells, each one farther off."""
+    total = 9.0
+    swells = [(0.3, 1.0, 0.5), (1.3, 0.85, 0.7), (2.6, 0.6, 0.9), (4.2, 0.4, 1.1), (6.0, 0.22, 1.2)]
+    m = Mix(total)
+    m.add(roll(total, swells, low=170 if close else 130, close=close), 0, 1.0)
+    outdoor, _, _, _ = spaces()
+    x = reverb(m.out(), outdoor, wet=0.4)[:, :ns(total)]
+    x = master(fade(x, 0.0, 2.0), peak=0.95, drive=1.5, squash=0.3)
+    return x if close else master(mono(x), peak=0.95)
+
+
+def thunder_arc():
+    """An arc jumping: a sharp snap and a buzzing crackle."""
+    total = 0.5
+    m = Mix(total)
+    m.add(stereo(crack(1.5, 1.0)), 0.0, 0.8)
+    q = ns(0.25)
+    tt = np.arange(q) / SR
+    buzz = np.sign(np.sin(2 * np.pi * 240 * tt)) * 0.3 + hp(white(q), 2500)
+    m.add(buzz * attack_decay(q, 0.001, 0.06), 0.005, 0.5)
+    m.add(tear(0.2, lambda s: 600 * np.exp(-s / 0.05), 0.7), 0.0, 0.5)
+    return master(mono(m.out()), peak=0.95)
+
+
+def thunder_aftermath(close=True):
+    """After the bolt: the fused ground ticking and sizzling as it sheds its charge, fires crackling, the last of the
+    storm grumbling as it unwinds, and wind."""
+    total = 12.0
+    n = ns(total)
+    t = times(total)
+    m = Mix(total)
+    sizzle = decorrelated(n, lambda k: hp(white(k), 5000))
+    sizzle *= (0.6 + 0.4 * np.abs(lp(rng.standard_normal(n), 6) / 0.05).clip(0, 1.5))
+    m.add(sizzle * curve(n, [(0, 1.0), (total, 0.3)]), 0, 0.12)
+    m.add(grains(n, lambda s: 60 * np.exp(-s / 6.0) + 10, sferic, spread=0.9), 0, 0.35)
+    m.add(grains(n, lambda s: 22, crackle_pop, spread=0.8), 0, 0.6)
+    m.add(roll(total, [(2.0, 0.35, 0.8), (6.5, 0.25, 1.0), (10.0, 0.15, 0.8)], low=120, close=False), 0, 0.7)
+    wind = decorrelated(n, pink)
+    wind = np.vstack([sweep_filter(c, 'bandpass', 450 * (1 + 0.4 * np.sin(2 * np.pi * 0.12 * t + k)), order=2, width=2.0)
+                      for k, c in enumerate(wind)])
+    m.add(wind, 0, 0.25)
+    out = m.out() * curve(n, [(0, 0), (1.0, 1.0), (8.0, 0.7), (total, 0.0)])
+    outdoor, _, _, _ = spaces()
+    x = master(reverb(out, outdoor, wet=0.3)[:, :n], peak=0.6, squash=0.3)
+    return x if close else master(mono(x), peak=0.6)
+
+
 # Longest a sound may run (seconds): the feed's sounds must die away before the feed hands back to
 # the world at INBOUND.
 CAPS = {'uplink_lock': 2.5, 'camera_rise': 1.7, 'feed_zoom': 3.0, 'feed_ambience': 18.2, 'feed_relay': 3.4,
@@ -2459,7 +2865,13 @@ CAPS = {'uplink_lock': 2.5, 'camera_rise': 1.7, 'feed_zoom': 3.0, 'feed_ambience
         'gap_drone': gap_at('CONTACT', -3, since='SEND'), 'gap_inbound': gap_at('CONTACT', since='INBOUND'),
         'gap_swap': 0.5, 'gap_contact': 1.0, 'gap_impact': gap_at('BLAST', since='CONTACT'),
         'gap_blast': gap_at('ERASURE', since='BLAST'), 'gap_erase': gap_at('NOTHING', since='ERASURE'),
-        'gap_void': gap_at('END', since='NOTHING'), 'gap_rebuild': 32.0}
+        'gap_void': gap_at('END', since='NOTHING'), 'gap_rebuild': 32.0,
+        # Mjölnir's slots.
+        'mjolnir_raise': thunder_at('RISE'), 'thunder_rise': thunder_at('FEED', since='RISE'),
+        'thunder_feed': thunder_at('INBOUND', since='FEED'), 'thunder_draw': thunder_at('FORGE', since='DRAW'),
+        'thunder_forge': thunder_at('LEADER', since='FORGE'), 'thunder_leader': thunder_at('INBOUND', since='LEADER'),
+        'thunder_storm': thunder_at('INBOUND', since='FEED'), 'thunder_charge': thunder_at('STROKE', since='INBOUND'),
+        'thunder_charge_near': thunder_at('STROKE', since='INBOUND')}
 
 # How loud each sound is (dB, the RMS of its loudest 400 ms). The game plays them at full volume, so this is
 # the mix: the feed sits well down, the release and the re-entry come up, and the impact is far the loudest
@@ -2476,7 +2888,14 @@ LEVELS = {'uplink_lock': -16, 'uplink_denied': -18, 'camera_rise': -21, 'feed_zo
           # impact frames far the loudest, the burst next, the erasure growing to its cut, then almost nothing.
           'gap_key': -17, 'gap_ambience': -26, 'gap_wake': -17, 'gap_tear': -16, 'gap_map': -18, 'gap_lock': -20,
           'gap_extract': -17, 'gap_send': -10, 'gap_fall': -14, 'gap_drone': -17, 'gap_inbound': -16, 'gap_swap': -18,
-          'gap_rebuild': -16, 'gap_contact': -26, 'gap_impact': -6, 'gap_blast': -11.5, 'gap_erase': -14, 'gap_void': -38}
+          'gap_rebuild': -16, 'gap_contact': -26, 'gap_impact': -6, 'gap_blast': -11.5, 'gap_erase': -14, 'gap_void': -38,
+          # Mjölnir: the raise and the call loud and sudden; the feed's bed down under the radio crackle, the draw and the
+          # leader building to the forge's anvil and the white; out in the world the storm and the charge rising to the
+          # stroke, far the loudest thing, the roll after it, and the aftermath quiet.
+          'mjolnir_raise': -13, 'mjolnir_call': -12, 'mjolnir_denied': -18, 'thunder_rise': -20, 'thunder_feed': -27,
+          'thunder_draw': -17, 'thunder_forge': -11, 'thunder_leader': -15, 'thunder_storm': -18, 'thunder_charge': -16,
+          'thunder_charge_near': -15, 'thunder_stroke': -6, 'thunder_stroke_near': -4.5, 'thunder_roll': -12,
+          'thunder_roll_near': -11, 'thunder_arc': -12, 'thunder_aftermath': -23, 'thunder_aftermath_near': -20}
 
 SOUNDS = {
     # name: (recipe, stereo?)
@@ -2522,6 +2941,24 @@ SOUNDS = {
     'gap_erase': (gap_erase, True),
     'gap_void': (gap_void, True),
     'gap_rebuild': (gap_rebuild, True),
+    'mjolnir_raise': (mjolnir_raise, True),
+    'mjolnir_call': (mjolnir_call, False),
+    'mjolnir_denied': (mjolnir_denied, False),
+    'thunder_rise': (thunder_rise, True),
+    'thunder_feed': (thunder_feed, True),
+    'thunder_draw': (thunder_draw, True),
+    'thunder_forge': (thunder_forge, True),
+    'thunder_leader': (thunder_leader, True),
+    'thunder_storm': (thunder_storm, False),
+    'thunder_charge': (lambda: thunder_charge(False), False),
+    'thunder_charge_near': (lambda: thunder_charge(True), True),
+    'thunder_stroke': (lambda: thunder_stroke(False), False),
+    'thunder_stroke_near': (lambda: thunder_stroke(True), True),
+    'thunder_roll': (lambda: thunder_roll(False), False),
+    'thunder_roll_near': (lambda: thunder_roll(True), True),
+    'thunder_arc': (thunder_arc, False),
+    'thunder_aftermath': (lambda: thunder_aftermath(False), False),
+    'thunder_aftermath_near': (lambda: thunder_aftermath(True), True),
 }
 
 
@@ -2551,8 +2988,9 @@ def make(name):
     """One sound, held to its cap and brought to its level."""
     global rng
     recipe, is_stereo = SOUNDS[name]
-    if name.startswith('gap_'):
-        # Ginnungagap's sounds draw on seeds of their own, so each comes out the same made alone or with the rest.
+    if name.startswith(('gap_', 'mjolnir_', 'thunder_')):
+        # Ginnungagap's and Mjölnir's sounds draw on seeds of their own, so each comes out the same made alone or with the
+        # rest.
         rng = np.random.default_rng(zlib.crc32(name.encode()))
     x = recipe()
     if not is_stereo:

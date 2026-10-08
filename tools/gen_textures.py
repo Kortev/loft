@@ -331,6 +331,240 @@ def mirror_leaves():
     return Image.fromarray(rgb.astype(np.uint8), 'RGB')
 
 
+# --- Þ-01 Mjölnir ------------------------------------------------------------------------------------
+
+def hammered(w, h, seed, base, spread=12.0):
+    """Hammered iron: a flat colour beaten into soft dents, w x h pixels."""
+    r = np.random.default_rng(seed)
+    v = r.random((h, w))
+    v = (v + np.roll(v, 1, 0) + np.roll(v, 1, 1) + np.roll(np.roll(v, 1, 0), 1, 1)) / 4.0
+    return np.clip(np.array(base, dtype=np.float64)[None, None, :] + (v[..., None] - 0.5) * spread * 2.0, 0, 255)
+
+
+# Mjölnir's colours: dark iron, its silver edges, the leather of the haft and the strap, and the runes' light.
+IRON = (62, 66, 78)
+IRON_DARK = (36, 39, 46)
+SILVER = (186, 194, 208)
+SILVER_DARK = (122, 130, 146)
+LEATHER = (96, 60, 34)
+LEATHER_DARK = (64, 38, 20)
+STRAP = (122, 80, 44)
+RUNE = (96, 190, 255)
+RUNE_CORE = (226, 246, 255)
+
+
+def mjolnir_atlas():
+    """The 3D hammer's 32x32 atlas: the head's long faces with a band of glowing knotwork (0..22 x 0..10), its top and
+    bottom (0..22 x 10..22), its ends with the thorn rune, Þ, Thor's own letter (0..12 x 22..32), the leather-wrapped
+    haft (24..28 x 0..14), dark iron, the strap and silver (28..32)."""
+    img = np.zeros((32, 32, 4), dtype=np.float64)
+    img[..., 3] = 255
+
+    def border(x0, y0, x1, y1, colour):
+        img[y0, x0:x1, :3] = colour
+        img[y1 - 1, x0:x1, :3] = colour
+        img[y0:y1, x0, :3] = colour
+        img[y0:y1, x1 - 1, :3] = colour
+
+    # The long faces: hammered iron in a silver frame, knotwork running along the middle.
+    img[0:10, 0:22, :3] = hammered(22, 10, 31, IRON)
+    border(0, 0, 22, 10, SILVER)
+    img[1, 1:21, :3] = SILVER_DARK
+    img[8, 1:21, :3] = SILVER_DARK
+    for y in range(3, 7):
+        for x in range(2, 20):
+            a = (x + y) % 4 == 0
+            b = (x - y) % 4 == 0
+            if a and b:
+                img[y, x, :3] = RUNE_CORE
+            elif a or b:
+                img[y, x, :3] = RUNE
+    # Top and bottom: a dished panel in a silver frame.
+    img[10:22, 0:22, :3] = hammered(22, 12, 32, IRON)
+    border(0, 10, 22, 22, SILVER)
+    img[13:19, 4:18, :3] = hammered(14, 6, 33, IRON_DARK)
+    # The ends: Þ, glowing, in a silver frame.
+    img[22:32, 0:12, :3] = hammered(12, 10, 34, IRON)
+    border(0, 22, 12, 32, SILVER)
+    thorn = ['..o...',
+             '..oo..',
+             '..o.o.',
+             '..oo..',
+             '..o...',
+             '..o...']
+    for j, row in enumerate(thorn):
+        for i, ch in enumerate(row):
+            if ch == 'o':
+                img[24 + j, 3 + i, :3] = RUNE_CORE if j in (1, 2, 3) else RUNE
+    # The haft: leather wound on the slant.
+    for y in range(0, 14):
+        for x in range(24, 28):
+            img[y, x, :3] = LEATHER_DARK if (x + y) % 3 == 0 else LEATHER
+    img[0:4, 28:32, :3] = hammered(4, 4, 35, IRON_DARK, 6.0)
+    img[4:8, 28:32, :3] = STRAP
+    img[8:12, 28:32, :3] = SILVER
+    img[12:16, 28:32, :3] = RUNE
+    return Image.fromarray(np.clip(img, 0, 255).astype(np.uint8), 'RGBA')
+
+
+# The 3D hammer: (from, to, faces by name -> (u0, v0, u1, v1) on the atlas in model units, half its pixels).
+FRONT = (0, 0, 11, 5)
+TOPS = (0, 5, 11, 11)
+ENDS = (0, 11, 6, 16)
+HAFT = (12, 0, 14, 7)
+DARK = (14, 0, 16, 2)
+STRAP_UV = (14, 2, 16, 4)
+SILVER_UV = (14, 4, 16, 6)
+HAMMER_PARTS = [
+    ((2.5, 10, 5), (13.5, 15, 11), dict(north=FRONT, south=FRONT, up=TOPS, down=TOPS, east=ENDS, west=ENDS)),
+    ((2, 10.5, 5.5), (2.5, 14.5, 10.5), dict.fromkeys(('north', 'south', 'up', 'down', 'east', 'west'), SILVER_UV)),
+    ((13.5, 10.5, 5.5), (14, 14.5, 10.5), dict.fromkeys(('north', 'south', 'up', 'down', 'east', 'west'), SILVER_UV)),
+    ((6.5, 9, 6.5), (9.5, 10, 9.5), dict.fromkeys(('north', 'south', 'up', 'down', 'east', 'west'), DARK)),
+    ((7, 2.5, 7), (9, 9, 9), dict(north=HAFT, south=HAFT, east=HAFT, west=HAFT, up=DARK, down=DARK)),
+    ((6.6, 1.5, 6.6), (9.4, 2.5, 9.4), dict.fromkeys(('north', 'south', 'up', 'down', 'east', 'west'), DARK)),
+    ((7.6, -0.5, 7.85), (8.4, 1.5, 8.15), dict.fromkeys(('north', 'south', 'up', 'down', 'east', 'west'), STRAP_UV)),
+    ((7.0, -1.0, 7.85), (9.0, -0.5, 8.15), dict.fromkeys(('north', 'south', 'up', 'down', 'east', 'west'), STRAP_UV)),
+]
+
+
+def mjolnir_model():
+    """The 3D hammer's model JSON, laid over on the diagonal like the Genesis Key so it sits in the hand like a tool."""
+    elements = []
+    for a, b, faces in HAMMER_PARTS:
+        elements.append({'from': list(a), 'to': list(b), 'rotation': {'angle': -45, 'axis': 'z', 'origin': [8, 8, 8]},
+                         'faces': {f: {'uv': list(uv), 'texture': '#hammer'} for f, uv in faces.items()}})
+    return {
+        'textures': {'hammer': 'shootingstar:item/mjolnir_3d', 'particle': 'shootingstar:item/mjolnir'},
+        'elements': elements,
+        'gui_light': 'front',
+        'display': {
+            'thirdperson_righthand': {'rotation': [0, -90, 55], 'translation': [0, 4.5, 0.5], 'scale': [0.85, 0.85, 0.85]},
+            'thirdperson_lefthand': {'rotation': [0, 90, -55], 'translation': [0, 4.5, 0.5], 'scale': [0.85, 0.85, 0.85]},
+            'firstperson_righthand': {'rotation': [0, -90, 25], 'translation': [1.13, 3.6, 1.13], 'scale': [0.68, 0.68, 0.68]},
+            'firstperson_lefthand': {'rotation': [0, 90, -25], 'translation': [1.13, 3.6, 1.13], 'scale': [0.68, 0.68, 0.68]},
+            'head': {'rotation': [0, 180, 0], 'translation': [0, 13, 7], 'scale': [1.0, 1.0, 1.0]},
+            'gui': {'rotation': [20, -30, 0], 'translation': [0, 0, 0], 'scale': [0.95, 0.95, 0.95]},
+            'ground': {'rotation': [0, 0, 0], 'translation': [0, 2, 0], 'scale': [0.5, 0.5, 0.5]},
+            'fixed': {'rotation': [0, 180, 0], 'translation': [0, 0, 0], 'scale': [1.0, 1.0, 1.0]},
+        },
+    }
+
+
+def mjolnir_icon():
+    """The hammer's flat icon (and its particle): laid on the diagonal, head top right, the haft down to the bottom left,
+    drawn by covering each pixel with the shapes and outlined."""
+    along = np.array([1.0, -1.0]) / np.sqrt(2.0)
+    across = np.array([1.0, 1.0]) / np.sqrt(2.0)
+    head = np.array([10.4, 5.6])
+    img = np.zeros((16, 16, 4), dtype=np.float64)
+    inside = np.zeros((16, 16), dtype=bool)
+    for y in range(16):
+        for x in range(16):
+            hits = {}
+            for sy in (0.25, 0.75):
+                for sx in (0.25, 0.75):
+                    q = np.array([x + sx, y + sy]) - head
+                    u, v = q @ along, q @ across
+                    if abs(u) <= 2.2 and abs(v) <= 4.9:
+                        part = 'rune' if abs(u) < 0.45 and abs(v) < 3.6 else 'edge' if abs(v) > 4.0 or abs(u) > 1.6 else 'iron'
+                    elif -9.0 <= u < -2.2 and abs(v) <= 0.95:
+                        part = 'pommel' if u < -8.0 else 'haft'
+                    else:
+                        continue
+                    hits[part] = hits.get(part, 0) + 1
+            if hits:
+                part = max(hits, key=hits.get)
+                colour = {'rune': RUNE, 'edge': SILVER, 'iron': IRON, 'haft': LEATHER, 'pommel': SILVER_DARK}[part]
+                if part == 'haft' and (x + y) % 3 == 0:
+                    colour = LEATHER_DARK
+                img[y, x, :3] = colour
+                img[y, x, 3] = 255
+                inside[y, x] = True
+    outline = np.zeros_like(inside)
+    for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+        outline |= np.roll(np.roll(inside, dy, 0), dx, 1)
+    outline &= ~inside
+    img[outline] = (18, 22, 30, 255)
+    return Image.fromarray(img.astype(np.uint8), 'RGBA')
+
+
+def fulgurite_veins(seed, count=3):
+    """A few branching veins across a 16x16 face, wrapping at the edges so the texture tiles: the shape of the current
+    that fused it, written into the glass."""
+    r = np.random.default_rng(seed)
+    veins = np.zeros((16, 16))
+    for _ in range(count):
+        x, y = r.uniform(0, 16), r.uniform(0, 16)
+        heading = r.uniform(0, 2 * np.pi)
+        stack = [(x, y, heading, 1.0)]
+        steps = 0
+        while stack and steps < 120:
+            x, y, heading, strength = stack.pop()
+            for _ in range(r.integers(4, 9)):
+                veins[int(y) % 16, int(x) % 16] = max(veins[int(y) % 16, int(x) % 16], strength)
+                heading += r.normal(0, 0.5)
+                x += np.cos(heading)
+                y += np.sin(heading)
+                steps += 1
+                if r.random() < 0.25 and strength > 0.4:
+                    stack.append((x, y, heading + r.choice([-1, 1]) * r.uniform(0.5, 1.1), strength * 0.7))
+    return veins
+
+
+def fulgurite(charge):
+    """Fulgurite: sand and earth the bolt fused into dark, smoky glass, branching veins of it written through. Charge 0
+    is cold; 1 to 3 the veins glow, dim blue to white."""
+    v = 0.7 * lattice(4, 4, seed=121) + 0.3 * np.random.default_rng(122).random((16, 16))
+    rgb = shades(v, [(12, 14, 22), (20, 24, 36), (30, 36, 52), (44, 54, 76), (70, 86, 112)], [10, 30, 34, 18, 8])
+    veins = fulgurite_veins(123)
+    glow = np.zeros((16, 16))
+    for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+        glow = np.maximum(glow, np.roll(np.roll(veins, dy, 0), dx, 1) * 0.5)
+    if charge == 0:
+        core, halo = np.array((92, 120, 160)), np.array((40, 52, 76))
+    else:
+        core = np.array([(120, 170, 235), (170, 215, 255), (235, 248, 255)][charge - 1])
+        halo = np.array([(40, 70, 140), (60, 110, 210), (90, 160, 255)][charge - 1])
+    rgb = np.where(glow[..., None] > 0, rgb * (1 - glow[..., None]) + halo * glow[..., None], rgb)
+    rgb = np.where(veins[..., None] > 0, rgb * (1 - veins[..., None]) + core * veins[..., None], rgb)
+    return Image.fromarray(np.clip(rgb, 0, 255).astype(np.uint8), 'RGB')
+
+
+CHAR = [(12, 11, 11), (22, 20, 19), (34, 31, 29), (50, 45, 41)]
+
+
+def charred_log():
+    """Bark burned through to charcoal: black, split into the checked blocks charcoal cracks into, a little ember red
+    left deep in the cracks."""
+    v = 0.7 * lattice(8, 2, seed=131, octaves=2) + 0.3 * np.random.default_rng(132).random((16, 16))
+    rgb = shades(v, CHAR, [16, 40, 30, 14])
+    r = np.random.default_rng(133)
+    for y in range(16):
+        if y % 4 == 0:
+            rgb[y, :] = CHAR[0]
+    for y in range(16):
+        offset = (y // 4) * 2
+        for x in range(16):
+            if (x + offset) % 5 == 0:
+                rgb[y, x] = CHAR[0]
+                if r.random() < 0.12:
+                    rgb[y, x] = (92, 30, 10)
+    return Image.fromarray(rgb.astype(np.uint8), 'RGB')
+
+
+def charred_log_top():
+    """The end of a charred trunk: rings of charcoal, cracked from the middle out."""
+    yy, xx = np.mgrid[0:16, 0:16].astype(np.float64) + 0.5
+    d = (np.abs(xx - 8) ** 3 + np.abs(yy - 8) ** 3) ** (1 / 3)
+    d = d + 0.9 * (lattice(4, 4, seed=134) - 0.5)
+    rgb = np.array(CHAR[1:], dtype=np.float64)[np.digitize(d % 2.6, [0.85, 1.9])]
+    a = np.arctan2(yy - 8, xx - 8)
+    rgb[(np.abs(np.sin(a * 3.0)) < 0.12) & (d > 1.5)] = CHAR[0]
+    edge = np.maximum(np.abs(xx - 8), np.abs(yy - 8)) > 7
+    rgb[edge] = CHAR[0]
+    return Image.fromarray(rgb.astype(np.uint8), 'RGB')
+
+
 def sphere(size, texture, light=(-0.6, 0.45, 0.66), spin=0.0, tilt=0.15):
     tex = np.asarray(texture.convert('RGB'), dtype=np.float64)
     th, tw = tex.shape[:2]
@@ -480,6 +714,16 @@ def main():
     earth_map = Image.open(os.path.join(TEX, 'feed', 'earth_day.jpg'))
     save(card(jupiter_map, earth_map), 'gui', 'gungnir_card.png')
     icon(jupiter_map).save(os.path.join(ROOT, 'icon.png'), optimize=True)
+    save(mjolnir_icon(), 'item', 'mjolnir.png')
+    save(mjolnir_atlas(), 'item', 'mjolnir_3d.png')
+    with open(os.path.join(ROOT, 'models', 'item', 'mjolnir.json'), 'w') as f:
+        json.dump(mjolnir_model(), f, indent=2)
+        f.write('\n')
+    save(fulgurite(0), 'block', 'fulgurite.png')
+    for charge in (1, 2, 3):
+        save(fulgurite(charge), 'block', 'charged_fulgurite_%d.png' % charge)
+    save(charred_log(), 'block', 'charred_log.png')
+    save(charred_log_top(), 'block', 'charred_log_top.png')
     print('textures written')
 
 

@@ -355,5 +355,149 @@
         "name": "shootingstar:gap_rebuild"
       }
     ]
+  },
+  "mjolnir.raise": {
+    "subtitle": "subtitles.shootingstar.mjolnir.raise",
+    "sounds": [
+      {
+        "name": "shootingstar:mjolnir_raise"
+      }
+    ]
+  },
+  "mjolnir.call": {
+    "subtitle": "subtitles.shootingstar.mjolnir.call",
+    "sounds": [
+      {
+        "name": "shootingstar:mjolnir_call"
+      }
+    ]
+  },
+  "mjolnir.denied": {
+    "subtitle": "subtitles.shootingstar.mjolnir.denied",
+    "sounds": [
+      {
+        "name": "shootingstar:mjolnir_denied"
+      }
+    ]
+  },
+  "thunder.rise": {
+    "subtitle": "subtitles.shootingstar.thunder.rise",
+    "sounds": [
+      {
+        "name": "shootingstar:thunder_rise"
+      }
+    ]
+  },
+  "thunder.feed": {
+    "subtitle": "subtitles.shootingstar.thunder.feed",
+    "sounds": [
+      {
+        "name": "shootingstar:thunder_feed"
+      }
+    ]
+  },
+  "thunder.draw": {
+    "subtitle": "subtitles.shootingstar.thunder.draw",
+    "sounds": [
+      {
+        "name": "shootingstar:thunder_draw"
+      }
+    ]
+  },
+  "thunder.forge": {
+    "subtitle": "subtitles.shootingstar.thunder.forge",
+    "sounds": [
+      {
+        "name": "shootingstar:thunder_forge"
+      }
+    ]
+  },
+  "thunder.leader": {
+    "subtitle": "subtitles.shootingstar.thunder.leader",
+    "sounds": [
+      {
+        "name": "shootingstar:thunder_leader"
+      }
+    ]
+  },
+  "thunder.storm": {
+    "subtitle": "subtitles.shootingstar.thunder.storm",
+    "sounds": [
+      {
+        "name": "shootingstar:thunder_storm"
+      }
+    ]
+  },
+  "thunder.charge": {
+    "subtitle": "subtitles.shootingstar.thunder.charge",
+    "sounds": [
+      {
+        "name": "shootingstar:thunder_charge"
+      }
+    ]
+  },
+  "thunder.charge.near": {
+    "subtitle": "subtitles.shootingstar.thunder.charge",
+    "sounds": [
+      {
+        "name": "shootingstar:thunder_charge_near"
+      }
+    ]
+  },
+  "thunder.stroke": {
+    "subtitle": "subtitles.shootingstar.thunder.stroke",
+    "sounds": [
+      {
+        "name": "shootingstar:thunder_stroke"
+      }
+    ]
+  },
+  "thunder.stroke.near": {
+    "subtitle": "subtitles.shootingstar.thunder.stroke",
+    "sounds": [
+      {
+        "name": "shootingstar:thunder_stroke_near"
+      }
+    ]
+  },
+  "thunder.roll": {
+    "subtitle": "subtitles.shootingstar.thunder.roll",
+    "sounds": [
+      {
+        "name": "shootingstar:thunder_roll"
+      }
+    ]
+  },
+  "thunder.roll.near": {
+    "subtitle": "subtitles.shootingstar.thunder.roll",
+    "sounds": [
+      {
+        "name": "shootingstar:thunder_roll_near"
+      }
+    ]
+  },
+  "thunder.arc": {
+    "subtitle": "subtitles.shootingstar.thunder.arc",
+    "sounds": [
+      {
+        "name": "shootingstar:thunder_arc"
+      }
+    ]
+  },
+  "thunder.aftermath": {
+    "subtitle": "subtitles.shootingstar.thunder.aftermath",
+    "sounds": [
+      {
+        "name": "shootingstar:thunder_aftermath"
+      }
+    ]
+  },
+  "thunder.aftermath.near": {
+    "subtitle": "subtitles.shootingstar.thunder.aftermath",
+    "sounds": [
+      {
+        "name": "shootingstar:thunder_aftermath_near"
+      }
+    ]
   }
 }

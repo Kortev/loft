@@ -50,6 +50,8 @@ public final class HammerRaise {
 		matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees((float) MathHelper.lerp(up, -30.0, 12.0 + kick * 120.0)));
 		matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees((float) MathHelper.lerp(up, -10.0, 14.0)));
 		matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees((float) MathHelper.lerp(up, 20.0, -35.0)));
+		// The model lies on the diagonal, the way a tool sits in a slot: stand it up. The item renderer centres it.
+		matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(45.0F));
 		matrices.scale(0.62F, 0.62F, 0.62F);
 		renderer.renderItem(player, item, ModelTransformationMode.NONE, false, matrices, consumers,
 				t > 6.0 ? LightmapTextureManager.MAX_LIGHT_COORDINATE : light);
