@@ -15,7 +15,7 @@ uniform float Haze;
 
 in vec2 uv;
 in vec4 vertexColor;
-in float viewDist;
+in vec3 viewPos;
 
 out vec4 fragColor;
 
@@ -24,6 +24,7 @@ float hash(vec2 p) {
 }
 
 void main() {
+    float viewDist = length(viewPos);
     // Land: fields and forest in patches a few kilometres across, broken up finer and finer.
     vec4 big = texture(Sampler0, uv * 0.0021 + 0.13);
     vec4 mid = texture(Sampler0, uv * 0.017 + 0.51);
@@ -57,7 +58,10 @@ void main() {
     vec2 at = vec2(hash(cell + 3.1), hash(cell + 7.7));
     float lamp = step(0.55, hash(cell)) * smoothstep(0.22, 0.0, length(fract(g) - at));
     float near = 1.0 - smoothstep(40.0, 160.0, viewDist);
-    vec3 lights = vec3(1.0, 0.72, 0.4) * (lamp * (0.03 + town) * 3.0 * near + town * (0.06 + 0.2 * (1.0 - near)));
+    // Far off, the lamps run together into specks: the streets and estates of the town, a few hundred metres across.
+    float specks = smoothstep(0.5, 0.8, texture(Sampler0, uv * 0.012 + 0.21).a);
+    vec3 lights = vec3(1.0, 0.72, 0.4) * lamp * (0.03 + town) * 3.0 * near
+        + vec3(1.0, 0.62, 0.28) * town * (0.02 + 0.55 * specks) * (1.0 - near);
 
     // Rain haze: the farther, the more it is lost in the dark of the storm; lights carry farther through it.
     float haze = 1.0 - exp(-viewDist * Haze);

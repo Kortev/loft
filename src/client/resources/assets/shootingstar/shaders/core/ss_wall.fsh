@@ -18,11 +18,12 @@ uniform float FadeEnd;
 
 in vec2 uv;
 in vec4 vertexColor;
-in float viewDist;
+in vec3 viewPos;
 
 out vec4 fragColor;
 
 void main() {
+    float viewDist = length(viewPos);
     float around = uv.x;
     float h = uv.y;
     // Bands round the column, leaning as they go: it is turning, and its air rising.

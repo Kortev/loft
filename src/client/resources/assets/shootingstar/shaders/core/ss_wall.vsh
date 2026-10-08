@@ -9,12 +9,14 @@ uniform mat4 ProjMat;
 
 out vec2 uv;
 out vec4 vertexColor;
-out float viewDist;
+// Where the point is from the camera, for the fragment to measure: a distance worked out at the corners of a quad
+// hundreds of blocks across and blended between them is nowhere near the distance in its middle.
+out vec3 viewPos;
 
 void main() {
     vec4 pos = ModelViewMat * vec4(Position, 1.0);
     gl_Position = ProjMat * pos;
     uv = UV0;
     vertexColor = Color;
-    viewDist = length(pos.xyz);
+    viewPos = pos.xyz;
 }

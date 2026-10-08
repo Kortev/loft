@@ -25,11 +25,12 @@ uniform float FadeEnd;
 
 in vec2 uv;
 in vec4 vertexColor;
-in float viewDist;
+in vec3 viewPos;
 
 out vec4 fragColor;
 
 void main() {
+    float viewDist = length(viewPos);
     float r = length(uv);
     if (r > 1.0) {
         discard;
