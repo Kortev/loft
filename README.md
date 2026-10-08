@@ -156,21 +156,22 @@ Gungnir.
 ### What the stroke does to the world
 
 - **Crater:** where the channel lands, a bowl about 54 blocks across and 14 deep at the default size is blown out
-  (everything above it, up to 120 blocks of hillside, goes) and fused to **Charged Fulgurite**.
+  (everything above it, up to 120 blocks of hillside, goes) and fused to **Fulgurite**, still charged here and there.
 - **The petrified bolt:** the bolt is left standing in its crater as a jagged column of fulgurite, kinked the way the
   channel was, forking near the top and still charged at its heart: about 96 blocks tall by default.
 - **Burn zone:** out to the strike radius (`mjolnirRadius`, 64 by default), every leaf burns off, every trunk is left
   a black **Charred Log**, anything wooden burns to ash (chests and other containers ride it out), grass burns to bare
-  earth, sand fuses to glass, snow and ice go, and fires start.
+  earth, sand fuses to glass, snow and ice go, and a few fires are left burning.
 - **The scar:** a Lichtenberg figure burned out through the ground to 1.5× the radius, the fern of branching channels
-  the current leaves: trenches up to four deep near the middle, every one lined with Charged Fulgurite, glowing
-  brightest where the channel was widest.
-- **Charged Fulgurite** glows white-blue and spits sparks; it bleeds its charge away over about a quarter of an hour
-  into dark **Fulgurite**. Water earths it at once, and standing on it gives you a shock.
+  the current leaves: trenches up to four deep near the middle, every one lined with fulgurite, the main channels
+  still charged along stretches of them, glowing brightest where the channel was widest.
+- **Charged Fulgurite** glows white-blue, current running through its veins, and spits sparks; it bleeds its charge
+  away over about a quarter of an hour into dark **Fulgurite**. Water earths it at once, and standing on it gives you a
+  shock (a charged creeper stands on it unharmed).
 - **Creatures:** everything inside the strike radius dies. Everything in the ring beyond it, out to the edge of the
   scar, is hit by an arc off the bolt (weaker farther out), set on fire and thrown; and each arc jumps on to the
-  nearest creature it has not hit within 14 blocks, up to three times. Arcs are lightning, so they charge creepers,
-  turn pigs into zombified piglins and villagers into witches. The arcs never touch whoever raised the hammer.
+  nearest creature it has not hit within 14 blocks, up to three times. Arcs are lightning, so they turn pigs into
+  zombified piglins and villagers into witches; a creeper they charge, and leave unharmed. The arcs never touch whoever raised the hammer.
   Kills count as theirs.
 - Unbreakable blocks (bedrock, command blocks, barriers) are never touched.
 

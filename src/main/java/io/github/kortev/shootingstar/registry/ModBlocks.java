@@ -55,14 +55,14 @@ public final class ModBlocks {
 
 	/**
 	 * Petrified lightning: ground and air Mjölnir's bolt fused into dark glass. The scar's channels are lined with it,
-	 * and the bolt itself is left standing in it.
+	 * and the bolt itself is left standing in it. Cold, it gives no light: a strike leaves thousands of these, and each
+	 * one a light would keep the lighting busy long after.
 	 */
 	public static final Block FULGURITE = register("fulgurite", new Block(AbstractBlock.Settings.create()
 			.mapColor(MapColor.BLACK)
 			.instrument(NoteBlockInstrument.HAT)
 			.requiresTool()
 			.strength(2.0F, 6.0F)
-			.luminance(state -> 2)
 			.sounds(BlockSoundGroup.GLASS)), true);
 
 	/** Fulgurite still holding the bolt's charge. Bleeds it away through three stages into plain fulgurite. */

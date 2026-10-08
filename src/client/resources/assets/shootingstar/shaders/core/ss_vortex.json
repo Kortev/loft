@@ -1,7 +1,11 @@
 {
   "vertex": "shootingstar:ss_vortex",
   "fragment": "shootingstar:ss_vortex",
-  "samplers": [],
+  "samplers": [
+    {
+      "name": "Sampler0"
+    }
+  ],
   "uniforms": [
     {
       "name": "ModelViewMat",

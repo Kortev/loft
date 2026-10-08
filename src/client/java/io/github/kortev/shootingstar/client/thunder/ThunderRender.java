@@ -4,6 +4,7 @@ import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import io.github.kortev.shootingstar.client.gfx.Fx;
 import io.github.kortev.shootingstar.client.gfx.Mesh;
+import io.github.kortev.shootingstar.client.gfx.NoiseTex;
 import io.github.kortev.shootingstar.client.gfx.Post;
 import io.github.kortev.shootingstar.client.gfx.Shaders;
 import io.github.kortev.shootingstar.client.gfx.Target;
@@ -219,6 +220,21 @@ public final class ThunderRender {
 
 	// --- frame -------------------------------------------------------------------------------------
 
+	/**
+	 * Whether this strike draws anything bright enough to want the light pass and the bloom at {@code t}: the call, the
+	 * leader and the stroke with everything after it. Before and between them there are only the warning rings.
+	 */
+	private static boolean bright(ClientThunder thunder, double t) {
+		if (thunder.callFrom != null && t >= ThunderTimeline.CALL && t < ThunderTimeline.CALL + 12) {
+			return true;
+		}
+		if (t >= ThunderTimeline.INBOUND && t < ThunderTimeline.STROKE) {
+			return true;
+		}
+		double e = t - ThunderTimeline.STROKE;
+		return thunder.struck && e >= 0 && e < Math.max(90.0, thunder.figure().reach() / ThunderTimeline.SCAR_SPEED + 90.0);
+	}
+
 	public static void render(WorldRenderContext context) {
 		MinecraftClient client = MinecraftClient.getInstance();
 		ClientWorld world = context.world();
@@ -259,49 +275,65 @@ public final class ThunderRender {
 		for (ClientThunder thunder : live) {
 			drawStorm(thunder, thunder.time(tickDelta), cam, view, proj, daylight);
 		}
-
 		Timings.end();
 
-		Timings.begin("thunder.light");
+		List<Light> lights = lights(live, tickDelta, cam);
+		boolean bright = !lights.isEmpty();
+		for (ClientThunder thunder : live) {
+			bright |= bright(thunder, thunder.time(tickDelta));
+		}
+		// The depth of the world as drawn, for the grading's depth effects and the light pass.
 		DEPTH.ensure(w, h);
 		DEPTH.copyDepthFrom(main);
-		List<Light> lights = lights(live, tickDelta, cam);
-		if (!lights.isEmpty()) {
-			COPY.ensure(w, h);
-			COPY.copyColorFrom(main);
+		if (!bright) {
+			// Only the warning rings: straight onto the picture, without the light pass and the bloom, which cost more than
+			// everything else here put together and have nothing to work on.
+			Timings.begin("thunder.rings");
+			main.beginWrite(true);
+			for (ClientThunder thunder : live) {
+				drawLight(world, thunder, thunder.time(tickDelta), cam, view, proj, right, up, tickDelta);
+			}
+			Timings.end();
+		} else {
+			Timings.begin("thunder.light");
+			if (!lights.isEmpty()) {
+				COPY.ensure(w, h);
+				COPY.copyColorFrom(main);
+			}
+			FX.ensure(w, h);
+			FX.copyDepthFrom(main);
+			FX.bind();
+			RenderSystem.colorMask(true, true, true, true);
+			RenderSystem.clearColor(0.0F, 0.0F, 0.0F, 0.0F);
+			RenderSystem.clear(GL11.GL_COLOR_BUFFER_BIT, MinecraftClient.IS_SYSTEM_MAC);
+			if (!lights.isEmpty()) {
+				drawLights(lights, view, proj, w, h, Math.max(0.3F, daylight));
+			}
+			for (ClientThunder thunder : live) {
+				drawLight(world, thunder, thunder.time(tickDelta), cam, view, proj, right, up, tickDelta);
+			}
+			Timings.end();
+			Timings.begin("thunder.bloom");
+			Post.begin();
+			// No streak: lightning wants a round glow, and the streak is more than half of the bloom's passes.
+			int[] bloom = Post.bloom(FX.color(), w, h, 0.9F, false);
+			main.beginWrite(true);
+			RenderSystem.enableBlend();
+			RenderSystem.blendFuncSeparate(GlStateManager.SrcFactor.ONE, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA,
+					GlStateManager.SrcFactor.ZERO, GlStateManager.DstFactor.ONE);
+			RenderSystem.setShaderTexture(0, FX.color());
+			RenderSystem.setShaderTexture(1, bloom[0]);
+			RenderSystem.setShaderTexture(2, bloom[1]);
+			RenderSystem.setShaderTexture(3, bloom[2]);
+			// Lightning wants a wide, photographic glow round a hard white core.
+			Shaders.set(Shaders.fxcomp, "StreakStrength", 0.0F);
+			Shaders.set(Shaders.fxcomp, "Dirt", 0.25F);
+			Shaders.set(Shaders.fxcomp, "BloomStrength", 0.9F);
+			Shaders.set(Shaders.fxcomp, "WideStrength", 0.8F);
+			Post.quad(Shaders.fxcomp);
+			RenderSystem.disableBlend();
+			Timings.end();
 		}
-		FX.ensure(w, h);
-		FX.copyDepthFrom(main);
-		FX.bind();
-		RenderSystem.colorMask(true, true, true, true);
-		RenderSystem.clearColor(0.0F, 0.0F, 0.0F, 0.0F);
-		RenderSystem.clear(GL11.GL_COLOR_BUFFER_BIT, MinecraftClient.IS_SYSTEM_MAC);
-		if (!lights.isEmpty()) {
-			drawLights(lights, view, proj, w, h, Math.max(0.3F, daylight));
-		}
-		for (ClientThunder thunder : live) {
-			drawLight(world, thunder, thunder.time(tickDelta), cam, view, proj, right, up, tickDelta);
-		}
-		Timings.end();
-		Timings.begin("thunder.bloom");
-		Post.begin();
-		int[] bloom = Post.bloom(FX.color(), w, h, 0.9F);
-		main.beginWrite(true);
-		RenderSystem.enableBlend();
-		RenderSystem.blendFuncSeparate(GlStateManager.SrcFactor.ONE, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA,
-				GlStateManager.SrcFactor.ZERO, GlStateManager.DstFactor.ONE);
-		RenderSystem.setShaderTexture(0, FX.color());
-		RenderSystem.setShaderTexture(1, bloom[0]);
-		RenderSystem.setShaderTexture(2, bloom[1]);
-		RenderSystem.setShaderTexture(3, bloom[2]);
-		// Lightning wants a wide, photographic glow round a hard white core.
-		Shaders.set(Shaders.fxcomp, "StreakStrength", 0.25F);
-		Shaders.set(Shaders.fxcomp, "Dirt", 0.25F);
-		Shaders.set(Shaders.fxcomp, "BloomStrength", 0.9F);
-		Shaders.set(Shaders.fxcomp, "WideStrength", 0.8F);
-		Post.quad(Shaders.fxcomp);
-		RenderSystem.disableBlend();
-		Timings.end();
 
 		Timings.begin("thunder.grade");
 		Grade grade = grade(client, live, tickDelta, cam, view, proj);
@@ -380,6 +412,7 @@ public final class ThunderRender {
 		RenderSystem.blendFuncSeparate(GlStateManager.SrcFactor.ONE, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA,
 				GlStateManager.SrcFactor.ZERO, GlStateManager.DstFactor.ONE);
 		float fogEnd = RenderSystem.getShaderFogEnd();
+		RenderSystem.setShaderTexture(0, NoiseTex.get());
 		for (int layer = 0; layer < 3; layer++) {
 			// Top layer first: the camera is almost always under the storm.
 			double y = thunder.cloudBase + 12.0 - layer * 6.0;

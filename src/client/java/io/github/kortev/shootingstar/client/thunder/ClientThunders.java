@@ -79,6 +79,12 @@ public final class ClientThunders {
 		return thunder != null && thunder.cinematic() && ClientConfig.feed && feedShowing(t);
 	}
 
+	/** True while the shooter's feed covers their whole screen this frame, so the world behind it need not be drawn. */
+	public static boolean feedCovers(float tickDelta) {
+		ClientThunder thunder = cinematic();
+		return thunder != null && feedActive(thunder, thunder.time(tickDelta));
+	}
+
 	public static boolean shotActive(@Nullable ClientThunder thunder, double t) {
 		return thunder != null && thunder.cinematic() && ClientConfig.cameraShots
 				&& (t >= ThunderTimeline.RISE && t < ThunderTimeline.FEED || t >= ThunderTimeline.INBOUND && t < ThunderTimeline.CAMERA_END);

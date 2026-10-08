@@ -257,7 +257,10 @@ public final class ThunderBuilder {
 			y--;
 		}
 		double t = dist / core;
-		set(x, y, z, charged(t < 0.45 ? 3 : t < 0.8 ? 2 : 1));
+		// Only some of the lining keeps the charge (more of it towards the middle): enough to light the bowl, few enough
+		// that the lighting is not kept busy for minutes by thousands of glowing blocks.
+		boolean live = hash(x * 3, z * 5) < MathHelper.lerp(t, 0.28, 0.12);
+		set(x, y, z, live ? charged(t < 0.45 ? 3 : t < 0.8 ? 2 : 1) : ModBlocks.FULGURITE.getDefaultState());
 		set(x, y - 1, z, ModBlocks.FULGURITE.getDefaultState());
 		if (t > 0.86) {
 			// A lip of fused shards round the edge of the bowl.
@@ -358,7 +361,8 @@ public final class ThunderBuilder {
 			set(x, y, z, scorched);
 		}
 		BlockPos above = new BlockPos(x, y + 1, z);
-		double fire = zone ? 0.04 + 0.1 * heat : 0.06 * heat;
+		// A few fires left burning: enough to smoke, few enough not to keep the chunks rebuilding as they burn out.
+		double fire = zone ? 0.004 + 0.01 * heat : 0.006 * heat;
 		if (random.nextDouble() < fire && world.isAir(above) && !world.getBlockState(cursorPos.set(x, y, z)).isAir()) {
 			set(x, y + 1, z, AbstractFireBlock.getState(world, above));
 		}
@@ -403,8 +407,10 @@ public final class ThunderBuilder {
 			vaporize(x, y, z);
 			y--;
 		}
+		// The main channels keep some of their charge, here and there along them; the fine branches are cold at once.
 		int charge = cell.width() > 2.4F ? 3 : cell.width() > 1.2F ? 2 : 1;
-		set(x, y, z, charged(charge));
+		boolean live = cell.width() > 1.0F && hash(x * 5, z * 3) < 0.35 + 0.15 * cell.centrality();
+		set(x, y, z, live ? charged(charge) : ModBlocks.FULGURITE.getDefaultState());
 		if (depth > 0) {
 			set(x, y - 1, z, ModBlocks.FULGURITE.getDefaultState());
 		}

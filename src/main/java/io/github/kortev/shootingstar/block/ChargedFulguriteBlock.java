@@ -34,9 +34,9 @@ public class ChargedFulguriteBlock extends Block {
 
 	public static int luminance(BlockState state) {
 		return switch (state.get(CHARGE)) {
-			case 3 -> 14;
-			case 2 -> 11;
-			default -> 8;
+			case 3 -> 12;
+			case 2 -> 9;
+			default -> 6;
 		};
 	}
 

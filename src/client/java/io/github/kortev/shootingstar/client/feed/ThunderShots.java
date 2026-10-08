@@ -5,6 +5,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import io.github.kortev.shootingstar.client.gfx.Cam;
 import io.github.kortev.shootingstar.client.gfx.Fx;
 import io.github.kortev.shootingstar.client.gfx.Mesh;
+import io.github.kortev.shootingstar.client.gfx.NoiseTex;
 import io.github.kortev.shootingstar.client.gfx.Post;
 import io.github.kortev.shootingstar.client.gfx.Shaders;
 import io.github.kortev.shootingstar.thunder.ThunderTimeline;
@@ -293,7 +294,8 @@ final class ThunderShots implements Feed.Sequence {
 		o.footer = String.format(Locale.ROOT, "LEADER ALTITUDE %,d M", altitude);
 		int step = (int) Math.round(reach * ThunderTimeline.LEADER_STEPS * 3);
 		o.footerSmall = String.format(Locale.ROOT, "STEP %d · 50 M EVERY 50 µS", step);
-		o.shutter = 0.6F;
+		// Falling: a zoom blur (one pass) rather than the shutter, which would draw the whole shot six times a frame.
+		o.zoomBlur = 0.03F + 0.09F * fall;
 		// The ground rushes up: white.
 		if (s > LEADER_LENGTH - 6) {
 			o.flash = smooth((s - (LEADER_LENGTH - 6)) / 5.0);
@@ -310,6 +312,7 @@ final class ThunderShots implements Feed.Sequence {
 		RenderSystem.blendFuncSeparate(GlStateManager.SrcFactor.ONE, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA,
 				GlStateManager.SrcFactor.ZERO, GlStateManager.DstFactor.ONE);
 		float radius = 1900.0F;
+		RenderSystem.setShaderTexture(0, NoiseTex.get());
 		for (int layer = 0; layer < 3; layer++) {
 			float y = LOCAL_BASE + 14.0F - layer * 7.0F;
 			BufferBuilder b = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
