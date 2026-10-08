@@ -3,7 +3,7 @@
 	"id": "shootingstar-gametest",
 	"version": "1.0.0",
 	"name": "The Shooting Star test harness",
-	"description": "Development only: game tests and a client self test for The Shooting Star.",
+	"description": "Development only: game tests and client self tests for The Shooting Star and Chitty Chitty Bang Bang.",
 	"environment": "*",
 	"entrypoints": {
 		"main": [
@@ -23,6 +23,7 @@
 	},
 	"depends": {
 		"shootingstar": "*",
+		"chitty": "*",
 		"fabric-gametest-api-v1": "*"
 	},
 	"mixins": [

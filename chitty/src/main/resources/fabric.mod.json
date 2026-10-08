@@ -1,0 +1,37 @@
+{
+	"schemaVersion": 1,
+	"id": "chitty",
+	"version": "${version}",
+	"name": "Chitty Chitty Bang Bang",
+	"description": "GEN 11, the car from the film: drive her, fly her on her pleated wings, float her on her raft. Built beside The Shooting Star and needs it.",
+	"authors": [
+		"Kortev"
+	],
+	"contact": {
+		"sources": "https://github.com/Kortev/loft"
+	},
+	"license": "MIT",
+	"icon": "assets/shootingstar/textures/item/chitty.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"io.github.kortev.chitty.Chitty"
+		],
+		"client": [
+			"io.github.kortev.chitty.client.ChittyClient"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.16.0",
+		"minecraft": "~1.21.1",
+		"java": ">=21",
+		"fabric-api": "*",
+		"shootingstar": "*"
+	},
+	"mixins": [
+		{
+			"config": "chitty.client.mixins.json",
+			"environment": "client"
+		}
+	]
+}

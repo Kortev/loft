@@ -10,9 +10,19 @@ how-to lives in two skill books in `.claude/skills/`, which Claude Code loads by
 
 ## What this is
 
-A Fabric mod for Minecraft Java **1.21.1** (Yarn mappings), repo `Kortev/loft`. It is **kortev's own mod for an
-SMP** where every player gets a custom mod of their own, with a story and PvP. Only `kortev` can craft its things
+Fabric mods for Minecraft Java **1.21.1** (Yarn mappings), repo `Kortev/loft`. They are **kortev's own mods for an
+SMP** where every player gets a custom mod of their own, with a story and PvP. Only `kortev` can craft their things
 (`OwnerOnly`); everyone can use, ride and break them once made.
+
+One Gradle build makes two jars, so all of it is edited, built and tested together:
+
+- **The Shooting Star** (id `shootingstar`, the root project, `src/`): the weapons, plus what both mods share
+  (`ShootingStar.id`, `OwnerOnly`, `ModCriteria`) and the game-test harness for both.
+- **Chitty Chitty Bang Bang** (id `chitty`, the `chitty/` subproject): the film's vehicles. It needs The Shooting
+  Star. Its things keep the `shootingstar` namespace, so Chittys made before the split survived it.
+
+The root `build.gradle` sets up every mod at once (`allprojects`); `./gradlew build` makes both jars, and the dev
+runs (`runGametest`, `runSelftest`, `runGenworld`) load both.
 
 The bar is **cinematic and film-accurate, nothing generic**. Every sound is synthesised by a script, every model is
 built in Blender by a script, the effects are real shaders, and everything has game tests.
@@ -23,14 +33,16 @@ built in Blender by a script, the effects are real shaders, and everything has g
 |---|---|---|
 | **SS-03 Gungnir**: orbital kinetic strike with a 22 s cinematic uplink feed, a 128-block crater, molten crust and a spire | `gungnir_uplink` | Done. kortev has more edits planned (not yet specified). |
 | **Ω-00 Ginnungagap**: the Genesis Key erases the world round a target; everyone waits in the void; the cracked key rebuilds it | `genesis_key` | Done. kortev has more edits planned (not yet specified). |
-| **Chitty Chitty Bang Bang**: drivable, flying, floating car from the film | `chitty` | Done and polished (pleated wings, raft, ejector seat, hamper, dials, lamps, live metal shine, banking view). |
-| **Owner-only crafting** | all recipes | Done: `OwnerOnly.OWNER = "kortev"`; crafters never make the mod's items. |
+| **Chitty Chitty Bang Bang**: drivable, flying, floating car from the film | `chitty` | Done and polished (pleated wings, raft, ejector seat, hamper, dials, lamps, live metal shine, banking view). In her own jar. |
+| **Owner-only crafting** | all recipes | Done: `OwnerOnly.OWNER = "kortev"`; crafters never make the mods' items. It covers everything in the `shootingstar` namespace, whichever jar it is in. |
 
-The latest work is on branch **`claude/happy-brahmagupta-ueara3`**. No PR is open; ask kortev before opening one.
+The latest work is on branch **`claude/gallant-brahmagupta-qi9mw3`** (it carries everything from
+`claude/happy-brahmagupta-ueara3`). No PR is open; ask kortev before opening one.
 
 ## What to build next
 
-Two new vehicles from *Chitty Chitty Bang Bang*, built exactly like Chitty (see the `film-vehicle` skill). kortev
+Two new vehicles from *Chitty Chitty Bang Bang*, built exactly like Chitty and in her mod (`chitty/`; see the
+`film-vehicle` skill). kortev
 wants **renders for approval before baking** anything.
 
 ### 1. The Vulgarian airship (kortev's own airship)
@@ -75,8 +87,6 @@ kortev tests in game themselves and reports back. Don't spend usage on the self-
 - **Flaky game test** `gapgametests.liveevent`: it failed once ("the shooter was not taken home", at home x/z but 5
   blocks lower) and passed on re-run. Find the real cause; the player probably landed before the ground under home
   was back.
-- **Broken advancement** `gungnir/danger_close`: its icon is `shootingstar:molten_crust`, which has no item, so the
-  advancement fails to load (logged at server start). Pick an icon item that exists.
 - kortev's planned edits to Gungnir and the Genesis Key: ask what they are.
 
 ## How to work here
@@ -84,6 +94,9 @@ kortev tests in game themselves and reports back. Don't spend usage on the self-
 - **No local Gradle or Minecraft in agent sandboxes. CI is the compiler.**
   - Push, then read GitHub Actions (`build` workflow: jobs `build` and `gametest`) with the GitHub tools
     (`actions_list` → runs on the branch, `get_job_logs` with `failed_only`).
+  - The `build` job also checks both jars (`.github/scripts/check-jars.py`: each holds its own things and a refmap
+    for every mixin config) and uploads them together as the `mods` artifact. The game tests run the dev build, so
+    this is the only check of the jars kortev actually installs.
   - Before pushing, re-read your diff for Yarn 1.21.1 API names. A wrong name costs a CI round.
   - Yarn mapping files can be fetched raw from `https://raw.githubusercontent.com/FabricMC/yarn/1.21.1/mappings/<path>.mapping`
     to check a method's name.

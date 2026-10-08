@@ -1,10 +1,10 @@
 package io.github.kortev.shootingstar.test;
 
 import com.mojang.authlib.GameProfile;
+import io.github.kortev.chitty.Chitty;
+import io.github.kortev.chitty.ChittyEntity;
+import io.github.kortev.chitty.ChittyPartEntity;
 import io.github.kortev.shootingstar.OwnerOnly;
-import io.github.kortev.shootingstar.chitty.Chitty;
-import io.github.kortev.shootingstar.chitty.ChittyEntity;
-import io.github.kortev.shootingstar.chitty.ChittyPartEntity;
 import io.netty.channel.embedded.EmbeddedChannel;
 import java.util.ArrayList;
 import java.util.List;

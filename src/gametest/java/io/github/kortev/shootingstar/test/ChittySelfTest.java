@@ -1,9 +1,9 @@
 package io.github.kortev.shootingstar.test;
 
+import io.github.kortev.chitty.Chitty;
+import io.github.kortev.chitty.ChittyEntity;
+import io.github.kortev.chitty.client.ChittySound;
 import io.github.kortev.shootingstar.ShootingStar;
-import io.github.kortev.shootingstar.chitty.Chitty;
-import io.github.kortev.shootingstar.chitty.ChittyEntity;
-import io.github.kortev.shootingstar.client.chitty.ChittySound;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;

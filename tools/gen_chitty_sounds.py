@@ -32,6 +32,9 @@ import gen_sounds as g  # noqa: E402
 from gen_sounds import (SR, attack_decay, bp, brown, curve, hp, limit, loudness, lp, master, mono,  # noqa: E402
                         ns, pink, reverb, sat, spaces, sweep_filter, white)
 
+# Chitty is a mod of her own: her sounds go into her jar's assets (chitty/), not The Shooting Star's.
+g.OUT = os.path.join(os.path.dirname(__file__), '..', 'chitty', 'src', 'main', 'resources', 'assets', 'shootingstar', 'sounds')
+
 # Each loop is a whole number of engine cycles (two turns of the crank), so its firings repeat exactly. The game plays
 # them at these revs (ChittySound.IDLE_RPM, LOW_RPM, HIGH_RPM) and bends their pitch in between.
 CYLINDERS = 4

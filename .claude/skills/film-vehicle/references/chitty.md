@@ -1,34 +1,41 @@
 # Chitty Chitty Bang Bang: full map
 
 GEN 11 from the 1968 film. She drives, flies on pleated wings, floats on a pink raft, has four seats, an ejector, a
-hamper and a horn. The README's "Chitty Chitty Bang Bang" section is the agreed description of how she looks and
-behaves. Keep it in step.
+hamper and a horn. Her README (`chitty/README.md`) is the agreed description of how she looks and behaves. Keep it in
+step.
 
 ## Files
 
+She is a mod of her own (id `chitty`, jar `chitty-chitty-bang-bang`), in the `chitty/` subproject. Main code is
+`chitty/src/main/java/io/github/kortev/chitty/`, client code `chitty/src/client/java/io/github/kortev/chitty/client/`,
+and her assets and data are under `chitty/src/{main,client}/resources/`, still in the `shootingstar` namespace.
+
 | What | Where |
 |---|---|
-| Registration (entity types, item, sounds, C2S payloads) | `src/main/java/.../chitty/Chitty.java` |
-| The car (1400 lines: physics, seats, wings, raft, ejector, hamper, NBT) | `chitty/ChittyEntity.java` |
-| Extra hitboxes FRONT / BACK / HAMPER | `chitty/ChittyPartEntity.java` |
-| Driver input (forward, turn, up, down, packed in a byte) | `chitty/ChittyControls.java` |
-| Payloads | `chitty/ChittyInputPayload` (controls, state), `ChittyHornPayload`, `ChittyEjectPayload` |
-| Placing item | `chitty/ChittyItem.java` (raycast with fluids; on water she starts with her raft up) |
-| Client setup, keys, input sending, hints | `src/client/java/.../client/chitty/ChittyClient.java` |
-| Mesh loader (CBM2) | `client/chitty/ChittyMesh.java` (`meshes/chitty.cbm`) |
-| Renderer (posing every part) | `client/chitty/ChittyRenderer.java` |
-| Live metal reflections | `client/chitty/ChittyShine.java` |
-| Engine and flight loops | `client/chitty/ChittySound.java` |
-| Night lamp beams | `client/chitty/ChittyLamps.java` |
-| Smooth-filtered atlas | `client/chitty/ChittyTexture.java` |
-| Third-person distance ×2 | `client/mixin/ChittyCameraMixin.java` |
+| Registration (entity types, item, sounds, C2S payloads) and the mod's main entry point | `Chitty.java` |
+| The car (1400 lines: physics, seats, wings, raft, ejector, hamper, NBT) | `ChittyEntity.java` |
+| Extra hitboxes FRONT / BACK / HAMPER | `ChittyPartEntity.java` |
+| Driver input (forward, turn, up, down, packed in a byte) | `ChittyControls.java` |
+| Payloads | `ChittyInputPayload` (controls, state), `ChittyHornPayload`, `ChittyEjectPayload` |
+| Placing item | `ChittyItem.java` (raycast with fluids; on water she starts with her raft up) |
+| Client entry point, keys, input sending, hints | `client/ChittyClient.java` |
+| Mesh loader (CBM2) | `client/ChittyMesh.java` (`meshes/chitty.cbm`) |
+| Renderer (posing every part) | `client/ChittyRenderer.java` |
+| Live metal reflections | `client/ChittyShine.java` |
+| Engine and flight loops | `client/ChittySound.java` |
+| Night lamp beams | `client/ChittyLamps.java` |
+| Smooth-filtered atlas | `client/ChittyTexture.java` |
+| Third-person distance ×2 | `client/mixin/ChittyCameraMixin.java` (config `chitty.client.mixins.json`) |
 | First-person bank | `client/mixin/ChittyViewMixin.java` |
+| Manifest | `chitty/src/main/resources/fabric.mod.json` (depends on `shootingstar`) |
+| Lang, sounds list | her own `assets/shootingstar/lang/en_us.json` and `sounds.json` (the game merges them with The Shooting Star's) |
 | Model, bake, icon, renders | `tools/chitty_model.py` (≈2400 lines) |
 | Sounds | `tools/gen_chitty_sounds.py` |
-| Baked outputs | `src/client/resources/assets/shootingstar/meshes/chitty.cbm`, `.../textures/entity/chitty.png`, `src/main/resources/assets/shootingstar/textures/item/chitty.png` |
+| Baked outputs | `chitty/src/client/resources/assets/shootingstar/meshes/chitty.cbm`, `.../textures/entity/chitty.png`, `chitty/src/main/resources/assets/shootingstar/textures/item/chitty.png` |
 | Recipe, unlock | `data/shootingstar/recipe/chitty.json` (elytra, gold, minecart, pistons, boat); `advancement/recipes/transportation/chitty.json` |
 | Advancements | `advancement/chitty/`: `root`, `start`, then `fly` / `float`; `clouds` after `fly` |
-| Tests | `src/gametest/java/.../test/ChittyGameTests.java` (batch `c_chitty`), `ChittySelfTest.java` (filmed) |
+| Tests | in the shared harness at the root: `src/gametest/java/.../test/ChittyGameTests.java` (batch `c_chitty`), `ChittySelfTest.java` (filmed) |
+| README | `chitty/README.md` |
 
 ## Entity constants (`ChittyEntity`)
 

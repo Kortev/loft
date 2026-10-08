@@ -5,8 +5,6 @@
 	"client": [
 		"BackgroundRendererMixin",
 		"CameraMixin",
-		"ChittyCameraMixin",
-		"ChittyViewMixin",
 		"EntityLookMixin",
 		"GameRendererMixin",
 		"HeldItemRendererMixin",

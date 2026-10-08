@@ -1825,9 +1825,9 @@ def render_scene(out, name, cam_loc, look_at, lens=40, lift=0.0, water=False, si
 
 # --- the game's copy ---------------------------------------------------------------------------------
 
-GAME_MESH = 'src/client/resources/assets/shootingstar/meshes/chitty.cbm'
-GAME_TEXTURE = 'src/client/resources/assets/shootingstar/textures/entity/chitty.png'
-ITEM_ICON = 'src/main/resources/assets/shootingstar/textures/item/chitty.png'
+GAME_MESH = 'chitty/src/client/resources/assets/shootingstar/meshes/chitty.cbm'
+GAME_TEXTURE = 'chitty/src/client/resources/assets/shootingstar/textures/entity/chitty.png'
+ITEM_ICON = 'chitty/src/main/resources/assets/shootingstar/textures/item/chitty.png'
 
 # The texture: every part unwrapped into one atlas and its look baked into it with Cycles (the sky, the soft shadows
 # and the reflections in the metal), so the game draws her as she renders here.

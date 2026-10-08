@@ -1,6 +1,6 @@
 ---
 name: film-vehicle
-description: How The Shooting Star builds film-accurate rideable vehicles (Chitty Chitty Bang Bang is the template) - a Blender model built by a Python script and baked into a game mesh and texture, a boat-style client-driven entity with seats, extra hitboxes and animated parts, synthesised sounds, keys, camera tweaks, game tests. Use when building or changing any vehicle in this mod (Chitty, the Vulgarian airship, the Child Catcher's carriage, or a new one).
+description: How kortev's mods build film-accurate rideable vehicles in the Chitty Chitty Bang Bang mod (chitty/, its own jar beside The Shooting Star; Chitty is the template) - a Blender model built by a Python script and baked into a game mesh and texture, a boat-style client-driven entity with seats, extra hitboxes and animated parts, synthesised sounds, keys, camera tweaks, game tests. Use when building or changing any vehicle (Chitty, the Vulgarian airship, the Child Catcher's carriage, or a new one).
 ---
 
 # Film vehicles
@@ -15,6 +15,20 @@ A vehicle here is a **film prop you can ride**:
 
 **Chitty** is the finished template. Read `references/chitty.md` for her full map before starting. The next two
 are specced in `HANDOFF.md`: the Vulgarian airship and the Child Catcher's carriage.
+
+## Where vehicles live
+
+- The film's vehicles are one mod, **Chitty Chitty Bang Bang** (id `chitty`), in the `chitty/` Gradle subproject. It
+  builds its own jar (`chitty/build/libs/chitty-chitty-bang-bang-*.jar`) beside The Shooting Star's, from the same
+  `./gradlew build`, and needs The Shooting Star installed.
+- Code: `chitty/src/main/java/io/github/kortev/chitty/` (one subpackage per new vehicle, e.g. `chitty.airship`) and
+  `chitty/src/client/java/io/github/kortev/chitty/client/`. Mixins go in `chitty.client.mixin`, listed in
+  `chitty.client.mixins.json`, with handlers prefixed `chitty$`.
+- Assets and data: `chitty/src/{main,client}/resources/`, **in the `shootingstar` namespace** (`ShootingStar.id`):
+  that is what kept Chittys already in worlds alive through the move, and what puts every vehicle under
+  `OwnerOnly`. Her `lang/en_us.json` and `sounds.json` are her own; the game merges them with The Shooting Star's.
+- Shared with The Shooting Star (in the root project): `ShootingStar.id`, `OwnerOnly`, `ModCriteria` (the
+  `shootingstar:event` trigger), the key category `key.categories.shootingstar`, and the game-test harness.
 
 ## The order kortev expects (do not skip the renders)
 
@@ -59,9 +73,9 @@ are specced in `HANDOFF.md`: the Vulgarian airship and the Child Catcher's carri
 - **`--game` → `export_game()`:**
   - Unwraps every part into one atlas (`TEXEL_WEIGHT` gives detail to what is seen close up).
   - Bakes light with Cycles: a sky world, plus an even world for `GAME_LIT` parts.
-  - Writes `src/client/resources/assets/shootingstar/meshes/<x>.cbm`,
-    `src/client/resources/assets/shootingstar/textures/entity/<x>.png` and the 32×32 item icon
-    `src/main/resources/assets/shootingstar/textures/item/<x>.png` (`render_icon`).
+  - Writes `chitty/src/client/resources/assets/shootingstar/meshes/<x>.cbm`,
+    `chitty/src/client/resources/assets/shootingstar/textures/entity/<x>.png` and the 32×32 item icon
+    `chitty/src/main/resources/assets/shootingstar/textures/item/<x>.png` (`render_icon`).
 - **The `.cbm` (CBM2) format** is documented in `export_game`'s docstring:
   - per part: name, pivot, rest quaternion, four animation floats `a..d`, then quads of (x, y, z, u, v, rgba,
     normal, flags);
@@ -75,14 +89,15 @@ are specced in `HANDOFF.md`: the Vulgarian airship and the Child Catcher's carri
 
 ## The entity (copy the shape of `ChittyEntity`)
 
-- **Registration** (`chitty/Chitty.java`):
+- **Registration** (`Chitty.java`):
   - `EntityType` (`SpawnGroup.MISC`, `maxTrackingRange(10)`, `trackingTickInterval(1)`) plus a part type
     (`disableSaving`, `disableSummon`) if the vehicle is longer than about 2 blocks;
   - the item (`maxCount(1)`) and its creative tab;
   - its `SoundEvent`s, registered right there;
   - its C2S payloads with server receivers that check the sender is riding (and driving, where it matters).
 
-  It is called from `ShootingStar.onInitialize` (`Chitty.init()`).
+  `Chitty` is the mod's main entry point (`onInitialize`). A new vehicle's registration class gets a static `init()`
+  called from there.
 - **`extends Entity`** (not a mob):
   - `DataTracker` for what other clients must see (state bits, seating, throttle, steer, damage wobble);
   - `readCustomDataFromNbt` / `writeCustomDataToNbt` for what is saved;
@@ -114,7 +129,8 @@ are specced in `HANDOFF.md`: the Vulgarian airship and the Child Catcher's carri
 
 ## The client
 
-- **`ChittyClient.init()`** (called from `ShootingStarClient`):
+- **`ChittyClient.onInitializeClient()`** (the mod's client entry point; a new vehicle's client `init()` is called
+  from there):
   - `EntityRendererRegistry` (the parts get `EmptyEntityRenderer`);
   - keys (`KeyBindingHelper`, category `key.categories.shootingstar`);
   - a resource reload listener that reloads the mesh;
@@ -152,8 +168,9 @@ are specced in `HANDOFF.md`: the Vulgarian airship and the Child Catcher's carri
 - **Loops** must wrap exactly: a whole number of cycles, with firings and filters periodic (`periodic`,
   `loop_noise`).
 - Place one-shots' events where the entity does them (Chitty's bangs land on `START_BANG_1/2` ticks).
-- `python3 tools/gen_<x>_sounds.py [names]` writes `.ogg` into `src/main/resources/assets/shootingstar/sounds/`.
-  Add each to `sounds.json` with a `subtitle`, and add `subtitles.shootingstar.<x>.<name>` to lang.
+- `python3 tools/gen_<x>_sounds.py [names]` writes `.ogg` into `chitty/src/main/resources/assets/shootingstar/sounds/`
+  (set `g.OUT` as `gen_chitty_sounds.py` does).
+  Add each to the mod's `sounds.json` with a `subtitle`, and add `subtitles.shootingstar.<x>.<name>` to its lang.
 
 ## Lessons from Chitty (each cost a round)
 
@@ -186,6 +203,10 @@ are specced in `HANDOFF.md`: the Vulgarian airship and the Child Catcher's carri
 - **Write one test per behaviour.** Chitty has `floats`, `landsSafely`, `washesOut`, `catchesHerself`,
   `heldOpen`, `climbsOutOfWater`, `ejects`, `chooseSeat`, `hitboxes`, `hamper`, `noFallDamage`, `stopsAtWall`,
   `seatsFour`, `breaksIntoItem` and `onlyTheOwnerCrafts`.
-- New vehicles get their own class and batch, registered in `src/gametest/resources/fabric.mod.json`.
+- The tests live in the one harness at the root (`src/gametest/`), which loads every mod in the build. New
+  vehicles get their own class and batch there, registered in `src/gametest/resources/fabric.mod.json`.
+- `DataGameTests.everyAdvancementLoads` checks every advancement in the namespace, whichever jar it is in.
+- CI's `build` job also runs `.github/scripts/check-jars.py` on the built jars: add a new vehicle's key files to the
+  Chitty jar's list there.
 - **The filmed self test** (`ChittySelfTest`, selftest workflow `test=chitty`) drives a whole scripted run and
   records video. Run it only when kortev asks.
