@@ -244,7 +244,7 @@ IDE and both are there to edit together. CI's `mods` download has both jars.
 ./gradlew runClient        # play in a dev client with both mods
 ```
 
-The `selftest` workflow (choose `gap`, `true` for a Gungnir strike, or `chitty` for the car) plays a full strike in a real client under a virtual display and records it
+The `selftest` workflow (choose `gap`, `true` for a Gungnir strike, `mjolnir` for a Mjölnir strike, or `chitty` for the car) plays a full strike in a real client under a virtual display and records it
 as a video. The client and the integrated server run in lockstep and every frame is rendered at an
 exact game time, so the result is a smooth 30 fps video even on a software renderer. The mod's
 sounds are mixed in, and a screenshot of every phase is saved alongside.

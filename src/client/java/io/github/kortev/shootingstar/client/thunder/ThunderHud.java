@@ -1,6 +1,7 @@
 package io.github.kortev.shootingstar.client.thunder;
 
 import io.github.kortev.shootingstar.client.feed.Feed;
+import io.github.kortev.shootingstar.client.gfx.Timings;
 import io.github.kortev.shootingstar.client.render.Gfx;
 import io.github.kortev.shootingstar.client.render.WorldProjector;
 import io.github.kortev.shootingstar.item.MjolnirItem;
@@ -53,7 +54,9 @@ public final class ThunderHud {
 		float tickDelta = counter.getTickDelta(false);
 		ClientThunder cinematic = ClientThunders.cinematic();
 		if (cinematic != null && ClientThunders.feedActive(cinematic, cinematic.time(tickDelta))) {
+			Timings.begin("thunder.feed");
 			Feed.renderThunder(ctx, cinematic.time(tickDelta));
+			Timings.end();
 			return;
 		}
 		boolean shot = cinematic != null && ClientThunders.shotActive(cinematic, cinematic.time(tickDelta));

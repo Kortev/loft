@@ -7,6 +7,7 @@ import io.github.kortev.shootingstar.client.gfx.Mesh;
 import io.github.kortev.shootingstar.client.gfx.Post;
 import io.github.kortev.shootingstar.client.gfx.Shaders;
 import io.github.kortev.shootingstar.client.gfx.Target;
+import io.github.kortev.shootingstar.client.gfx.Timings;
 import io.github.kortev.shootingstar.thunder.Lichtenberg;
 import io.github.kortev.shootingstar.thunder.ThunderTimeline;
 import java.util.ArrayList;
@@ -249,6 +250,7 @@ public final class ThunderRender {
 		RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
 
 		// The world goes dark under the storm, then the storm itself goes over the sky.
+		Timings.begin("thunder.storm");
 		main.beginWrite(true);
 		float gloom = gloom(cam, tickDelta);
 		if (gloom > 0.01F) {
@@ -258,6 +260,9 @@ public final class ThunderRender {
 			drawStorm(thunder, thunder.time(tickDelta), cam, view, proj, daylight);
 		}
 
+		Timings.end();
+
+		Timings.begin("thunder.light");
 		DEPTH.ensure(w, h);
 		DEPTH.copyDepthFrom(main);
 		List<Light> lights = lights(live, tickDelta, cam);
@@ -277,6 +282,8 @@ public final class ThunderRender {
 		for (ClientThunder thunder : live) {
 			drawLight(world, thunder, thunder.time(tickDelta), cam, view, proj, right, up, tickDelta);
 		}
+		Timings.end();
+		Timings.begin("thunder.bloom");
 		Post.begin();
 		int[] bloom = Post.bloom(FX.color(), w, h, 0.9F);
 		main.beginWrite(true);
@@ -294,7 +301,9 @@ public final class ThunderRender {
 		Shaders.set(Shaders.fxcomp, "WideStrength", 0.8F);
 		Post.quad(Shaders.fxcomp);
 		RenderSystem.disableBlend();
+		Timings.end();
 
+		Timings.begin("thunder.grade");
 		Grade grade = grade(client, live, tickDelta, cam, view, proj);
 		if (grade != null) {
 			COPY.ensure(w, h);
@@ -318,6 +327,7 @@ public final class ThunderRender {
 			Shaders.set(Shaders.thunder, "Glow", grade.glow());
 			Post.quad(Shaders.thunder);
 		}
+		Timings.end();
 
 		for (int i = 0; i < 4; i++) {
 			RenderSystem.setShaderTexture(i, 0);

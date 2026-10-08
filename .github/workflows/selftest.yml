@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       test:
-        description: "Which self test: gap (Ginnungagap), true (a Gungnir strike) or chitty (Chitty Chitty Bang Bang)"
+        description: "Which self test: gap (Ginnungagap), true (a Gungnir strike), mjolnir (a Mjölnir strike) or chitty (Chitty Chitty Bang Bang)"
         default: gap
       publish:
         description: "Also force-push the screenshots, logs and video to the selftest-output branch"

@@ -119,7 +119,7 @@ kortev tests in game themselves and reports back. Don't spend usage on the self-
   - Long plain-English Javadoc that describes what a thing *is* and *does* in the world.
   - Constants named for what they mean.
   - Mixin handler methods prefixed `shootingstar$`.
-- **Self test (video)**: Actions → `selftest`, input `test` = `gap` | `true` (Gungnir) | `chitty`. Set `publish` to
+- **Self test (video)**: Actions → `selftest`, input `test` = `gap` | `true` (Gungnir) | `mjolnir` | `chitty`. Set `publish` to
   push screenshots and video to the `selftest-output` branch. It's slow and expensive, so only run it when kortev
   wants it.
 

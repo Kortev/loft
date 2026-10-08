@@ -19,7 +19,8 @@
 		"client": [
 			"io.github.kortev.shootingstar.test.ClientSelfTest",
 			"io.github.kortev.shootingstar.test.GapSelfTest",
-			"io.github.kortev.shootingstar.test.ChittySelfTest"
+			"io.github.kortev.shootingstar.test.ChittySelfTest",
+			"io.github.kortev.shootingstar.test.MjolnirSelfTest"
 		]
 	},
 	"depends": {
