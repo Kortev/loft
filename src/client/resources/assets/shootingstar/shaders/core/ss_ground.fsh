@@ -45,7 +45,8 @@ void main() {
     vec3 toTip = Tip - vec3(uv.x, 0.0, uv.y);
     float d2 = dot(toTip, toTip);
     float tip = TipLight * 2.5 * (Tip.y / sqrt(d2 + 1.0)) / (1.0 + d2 * 0.00015);
-    float light = 0.08 + tip + Flash * 1.4;
+    // A little light all over from the glow of the storm's base and the towns, so the country reads in the dark.
+    float light = 0.45 + tip + Flash * 1.4;
     vec3 color = land * light * vec3(0.8, 0.85, 1.15) + vec3(0.6, 0.7, 1.0) * river * (tip + Flash) * 0.35;
 
     // Towns: clusters of lights, warm, that the storm cannot put out.
@@ -58,6 +59,6 @@ void main() {
 
     // Rain haze: the farther, the more it is lost in the dark of the storm.
     float haze = 1.0 - exp(-viewDist * Haze);
-    color = mix(color, vec3(0.025, 0.03, 0.045) + vec3(0.3, 0.35, 0.5) * Flash * 0.4, haze);
+    color = mix(color, vec3(0.045, 0.05, 0.07) + vec3(0.3, 0.35, 0.5) * Flash * 0.4, haze);
     fragColor = vec4(color, 1.0) * vertexColor.a;
 }

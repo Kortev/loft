@@ -59,13 +59,21 @@ public final class ThunderCamera {
 		}
 		double k = ease((t - ThunderTimeline.WIDE_END) / (ThunderTimeline.CAMERA_END - ThunderTimeline.WIDE_END));
 		Vec3d eye = player.getCameraPosVec(tickDelta);
-		double x = MathHelper.lerp(k, above.x(), eye.x);
-		double z = MathHelper.lerp(k, above.z(), eye.z);
-		// Home over the ground in an arc, never through a hill on the way.
+		// Home over the ground in an arc, never through a hill on the way: across first, high, until it is over the
+		// shooter, then straight down into their eyes, so that a slope or a cliff beside them is never in the way.
+		double across = ease(Math.min(1.0, k / 0.72));
+		double x = MathHelper.lerp(across, above.x(), eye.x);
+		double z = MathHelper.lerp(across, above.z(), eye.z);
 		double y = MathHelper.lerp(k, above.y(), eye.y) + Math.sin(Math.PI * k) * 14.0;
-		if (k < 0.9) {
-			y = Math.max(y, clearance(client.world, x, z));
+		// Clear of the ground round about on the way, and over the shooter only of whatever is over them (a roof keeps it
+		// above until the shot ends).
+		double over = ease((across - 0.9) / 0.1);
+		double floor = clearance(client.world, x, z);
+		if (over > 0.0) {
+			floor = MathHelper.lerp(over, floor,
+					client.world.getTopY(Heightmap.Type.MOTION_BLOCKING, MathHelper.floor(x), MathHelper.floor(z)) + 0.2);
 		}
+		y = Math.max(y, floor);
 		return new CameraDirector.Shot(x, y, z, MathHelper.lerpAngleDegrees((float) k, above.yaw(), player.getYaw(tickDelta)),
 				(float) MathHelper.lerp(k, above.pitch(), player.getPitch(tickDelta)));
 	}

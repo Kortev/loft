@@ -443,6 +443,8 @@ public final class ThunderRender {
 			// The flash and the eye stay where they are over the ground, whatever the deck's size.
 			float scale = 1.0F / DECK_REACH[layer];
 			Shaders.set(Shaders.vortex, "Flash", flash[0] * scale, flash[1] * scale, flash[2] * 2.5F);
+			Shaders.set(Shaders.vortex, "FlashFalloff", 11.0F);
+			Shaders.set(Shaders.vortex, "Detail", 1.0F);
 			Shaders.set(Shaders.vortex, "Stroke", stroke * scale);
 			Shaders.set(Shaders.vortex, "Eye", 0.05F * scale);
 			Shaders.set(Shaders.vortex, "FogEnd", fogEnd);
@@ -469,6 +471,8 @@ public final class ThunderRender {
 			Shaders.set(Shaders.vortex, "Density", (float) density);
 			Shaders.set(Shaders.vortex, "Layer", (float) (11 + (thunder.seed & 7)));
 			Shaders.set(Shaders.vortex, "Flash", 0.0F, 0.0F, flash[2] * near * 1.5F);
+			Shaders.set(Shaders.vortex, "FlashFalloff", 11.0F);
+			Shaders.set(Shaders.vortex, "Detail", 1.0F);
 			Shaders.set(Shaders.vortex, "Stroke", stroke * 1.5F);
 			// The channel comes down through the middle of it.
 			Shaders.set(Shaders.vortex, "Eye", 0.09F);
@@ -604,10 +608,12 @@ public final class ThunderRender {
 					.normalize();
 			forks.add(BoltPath.jagged(root, root.add(dir.multiply(from.distanceTo(to) * (0.05 + 0.08 * random.nextDouble()))), 0.3, 4, random));
 		}
-		bolt(channel, forks, cam, view, proj, right, up, (float) b * 1.2F, 2.8F, 0.32F, ARC, 1.0F);
+		// Thinner near the camera: it leaves the hammer right in front of the shooter's eyes.
+		bolt(channel, forks, cam, view, proj, right, up, (float) b * 1.2F, 2.8F, 0.32F, ARC, 1.0F, 24.0F);
 		// Where it leaves the hammer, and where it goes into the storm.
 		Fx ends = BATCH.begin(Fx.BLOB, 1.0F, view, proj, right, up);
-		ends.sprite(rel(from.x, from.y, from.z, cam), 1.6F, 0.0F, Fx.argb(CORE[0], CORE[1], CORE[2], (float) b));
+		float head = (float) Math.min(1.6, from.distanceTo(cam) * 0.25);
+		ends.sprite(rel(from.x, from.y, from.z, cam), head, 0.0F, Fx.argb(CORE[0], CORE[1], CORE[2], (float) b));
 		ends.sprite(rel(to.x, to.y, to.z, cam), 14.0F, 0.0F, Fx.argb(ARC[0], ARC[1], ARC[2], (float) b * 0.8F));
 		ends.end(true, 6.0F);
 	}
@@ -916,24 +922,33 @@ public final class ThunderRender {
 	 */
 	private static void bolt(List<Vec3d> channel, List<List<Vec3d>> forks, Vec3d cam, Matrix4f view, Matrix4f proj, Vector3f right,
 			Vector3f up, float brightness, float glowWidth, float coreWidth, float[] color, float forkBrightness) {
+		bolt(channel, forks, cam, view, proj, right, up, brightness, glowWidth, coreWidth, color, forkBrightness, 0.0F);
+	}
+
+	/**
+	 * A bolt as above, thinner where it passes nearer the camera than {@code near} blocks (in step with the distance), so
+	 * that one leaving the shooter's own hand is a bolt there and not a glow over the whole picture.
+	 */
+	private static void bolt(List<Vec3d> channel, List<List<Vec3d>> forks, Vec3d cam, Matrix4f view, Matrix4f proj, Vector3f right,
+			Vector3f up, float brightness, float glowWidth, float coreWidth, float[] color, float forkBrightness, float near) {
 		if (brightness <= 0.01F || channel.size() < 2) {
 			return;
 		}
 		// Batches share one buffer, so the glow is drawn before the core is begun.
 		float glowA = 0.6F * brightness;
 		Fx glow = BATCH.begin(Fx.BEAM, 0.0F, view, proj, right, up);
-		chain(glow, channel, cam, glowWidth, Fx.argb(color[0], color[1], color[2], glowA));
+		chain(glow, channel, cam, glowWidth, Fx.argb(color[0], color[1], color[2], glowA), near);
 		if (forkBrightness > 0.01F) {
 			for (List<Vec3d> fork : forks) {
-				chain(glow, fork, cam, glowWidth * 0.55F, Fx.argb(color[0], color[1], color[2], glowA * forkBrightness * 0.7F));
+				chain(glow, fork, cam, glowWidth * 0.55F, Fx.argb(color[0], color[1], color[2], glowA * forkBrightness * 0.7F), near);
 			}
 		}
 		glow.end(true, 3.0F);
 		Fx core = BATCH.begin(Fx.BEAM, 0.0F, view, proj, right, up);
-		chain(core, channel, cam, coreWidth, Fx.argb(CORE[0], CORE[1], CORE[2], brightness));
+		chain(core, channel, cam, coreWidth, Fx.argb(CORE[0], CORE[1], CORE[2], brightness), near);
 		if (forkBrightness > 0.01F) {
 			for (List<Vec3d> fork : forks) {
-				chain(core, fork, cam, coreWidth * 0.5F, Fx.argb(CORE[0], CORE[1], CORE[2], brightness * forkBrightness * 0.7F));
+				chain(core, fork, cam, coreWidth * 0.5F, Fx.argb(CORE[0], CORE[1], CORE[2], brightness * forkBrightness * 0.7F), near);
 			}
 		}
 		core.end(true, 12.0F);
@@ -941,11 +956,23 @@ public final class ThunderRender {
 
 	/** Lays beams end to end along a polyline, into a batch that is open. */
 	private static void chain(Fx fx, List<Vec3d> points, Vec3d cam, float width, int argb) {
+		chain(fx, points, cam, width, argb, 0.0F);
+	}
+
+	/** As above, each beam thinner by its distance from the camera inside {@code near} blocks (none if 0). */
+	private static void chain(Fx fx, List<Vec3d> points, Vec3d cam, float width, int argb, float near) {
 		Vector3f eye = new Vector3f();
 		for (int i = 0; i + 1 < points.size(); i++) {
 			Vec3d a = points.get(i);
 			Vec3d b = points.get(i + 1);
-			fx.beam(rel(a.x, a.y, a.z, cam), rel(b.x, b.y, b.z, cam), eye, width, argb, argb);
+			Vector3f from = rel(a.x, a.y, a.z, cam);
+			Vector3f to = rel(b.x, b.y, b.z, cam);
+			float w = width;
+			if (near > 0.0F) {
+				float d = Math.min(from.length(), to.length());
+				w *= MathHelper.clamp(d / near, 0.03F, 1.0F);
+			}
+			fx.beam(from, to, eye, w, argb, argb);
 		}
 	}
 

@@ -4,7 +4,9 @@
 // edges and opening to an eye, seen from underneath. Its noise is looked up in NoiseTex (Sampler0) rather than worked
 // out per pixel: red and green billowing noise, blue ridged noise (the striations the rotation draws in it), alpha fine
 // noise (the lumps hanging from its base). Lightning inside it lights it from within at Flash (x, y across the disc, z
-// how bright), and the stroke lights its base from below. Premultiplied alpha.
+// how bright; FlashFalloff how quickly the light dies away round it), and the stroke lights its base from below. Detail
+// is how many times finer than the disc's own scale its noise is, for a disc much bigger than what is seen of it.
+// Premultiplied alpha.
 
 uniform sampler2D Sampler0;
 
@@ -14,6 +16,8 @@ uniform float Density;
 uniform float Layer;
 uniform float Daylight;
 uniform vec3 Flash;
+uniform float FlashFalloff;
+uniform float Detail;
 uniform float Stroke;
 uniform float Eye;
 uniform float FogEnd;
@@ -35,12 +39,12 @@ void main() {
     vec2 q = vec2(cos(wind), sin(wind)) * r;
     vec2 seed = vec2(Layer * 0.137, Layer * 0.291);
     // Warp the spiral a little by a slower noise, so the arms are torn rather than drawn with a ruler.
-    vec4 warp = texture(Sampler0, q * 0.45 + seed + vec2(Time * 0.00025, 0.0));
-    vec2 qw = q + (warp.gb - 0.5) * 0.24;
+    vec4 warp = texture(Sampler0, q * 0.45 * Detail + seed + vec2(Time * 0.00025, 0.0));
+    vec2 qw = q * Detail + (warp.gb - 0.5) * 0.24;
     vec4 big = texture(Sampler0, qw * 0.85 + seed * 2.0);
     vec4 mid = texture(Sampler0, qw * 2.4 + seed * 3.0 + 0.5);
     // Lumps too small to follow the spiral, drifting as the base churns.
-    float lumps = texture(Sampler0, uv * 1.4 + seed * 5.0 + vec2(0.0, -Time * 0.0004)).r;
+    float lumps = texture(Sampler0, uv * 1.4 * Detail + seed * 5.0 + vec2(0.0, -Time * 0.0004)).r;
     float n = big.r * 0.62 + mid.r * 0.38;
     float detail = mid.g;
     float ridge = big.b;
@@ -70,7 +74,7 @@ void main() {
 
     // Lightning inside the cloud, glowing through it round where it is, picking out the cloud's own structure.
     vec2 fp = uv - Flash.xy;
-    float inside = Flash.z * exp(-dot(fp, fp) * 11.0) * (0.45 + 1.1 * n * n) * (0.7 + 0.6 * ridge);
+    float inside = Flash.z * exp(-dot(fp, fp) * FlashFalloff) * (0.45 + 1.1 * n * n) * (0.7 + 0.6 * ridge);
     vec3 color = base + vec3(0.52, 0.62, 1.0) * inside;
     // The stroke lights the base of the storm from below, brightest on the lumps that hang lowest.
     color += vec3(0.8, 0.86, 1.0) * Stroke * exp(-r * r * 9.0) * (0.45 + 0.7 * detail + 0.4 * pouch);

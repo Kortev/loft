@@ -102,17 +102,23 @@ regenerate the `mjolnir_*` and `thunder_*` sounds.
 - **`ThunderDust`**: the shockwave's ring of dust (coloured by the ground it rises off) and the crater's steam, soft
   puffs in `ss_dust`, ticked from `ClientThunders.tick`.
 - **`ThunderCamera`** (through `CameraDirector`): rise, witness (1.25 r out, low, looking up), overhead (straight
-  down while the scar burns, then a crane down and round to a three-quarter view), back to the eyes. `fovScale` (through
+  down while the scar burns, then a crane down and round to a three-quarter view), back to the eyes (across first, high
+  and clear of the ground, then straight down into the shooter, so a hill beside them is never flown through). `fovScale` (through
   `GameRendererMixin.getFov`) closes in on the leader and is flung wide by the stroke.
 - **`ThunderHud`**: the feed (`Feed.renderThunder`), the lock marker over the target for everyone ("YOU ARE UNDER IT"
   inside the zone), the readout, aim info and a status card with the hammer in hand.
 - **`HammerRaise`**: the first-person raise (`HeldItemRendererMixin`). The model lies on the diagonal; it is stood up
-  with a 45° turn, as `KeyTurn` does for the key.
+  with a 45° turn, as `KeyTurn` does for the key. Its runes flare with the charge through `HammerGlow` (up to three
+  times their glow at the call). The call's bolt leaves the hammer's head in front of the shooter's eyes, so it is drawn
+  thinner within 24 blocks of the camera (`bolt(..., near)`), or its glow would cover the picture.
 - **Feed** `client/feed/ThunderShots`: `orbit`, `draw`, `forge`, `leader`. Earth with storms is `ss_storm` through
-  `Space.stormEarth` (uniforms: Target, Storms, Front, Drain, Vortex, Spin, Charge); the leader shot draws a fine
-  `Mesh.spherePatch` round the target at 100 m units with `Space.stormEarthPatch`, cloud layers with `ss_vortex`, and
-  the leader with `Fx` beams.
-- **Shaders:** `ss_vortex`, `ss_wall`, `ss_dust`, `ss_thunder`, `ss_storm` (`Shaders.thunderReady()` checks them; the
+  `Space.stormEarth` (uniforms: Target, Storms, Front, Drain, Vortex, Spin, Charge). The leader shot is local, in 100 m
+  units with the ground at y = 0: a ground plane in `ss_ground` (country, rivers, towns, lit by the leader's tip and the
+  storm's flashes, lost in rain haze), three layers of the storm's base in `ss_vortex` (`Detail` 8 so the 200 km disc
+  has kilometre-sized cloud, no eye, lit from inside by `CLOUD_FLASHES` one at a time through `Flash`/`FlashFalloff`),
+  and the leader with `Fx` beams, seen from 11 km off looking a little up. Shots hand over through flashes: the draw
+  shot ends in a white flash the forge opens out of; the forge ends in the dark the leader shot fades up from.
+- **Shaders:** `ss_vortex`, `ss_wall`, `ss_dust`, `ss_ground`, `ss_thunder`, `ss_storm` (`Shaders.thunderReady()` checks them; the
   other weapons only need `ready()`). The storm shaders read their noise from `gfx/NoiseTex` (a tiling 256x256 texture
   made once: billows in red and green, ridges in blue, fine grain in alpha) instead of working it out per pixel.
 - **Performance:** while a feed covers the screen the world is not drawn (`GameRendererMixin.renderWorld`,

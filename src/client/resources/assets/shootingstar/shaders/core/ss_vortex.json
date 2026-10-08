@@ -104,6 +104,22 @@
       ]
     },
     {
+      "name": "FlashFalloff",
+      "type": "float",
+      "count": 1,
+      "values": [
+        11.0
+      ]
+    },
+    {
+      "name": "Detail",
+      "type": "float",
+      "count": 1,
+      "values": [
+        1.0
+      ]
+    },
+    {
       "name": "Stroke",
       "type": "float",
       "count": 1,

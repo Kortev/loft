@@ -93,6 +93,9 @@ final class ThunderShots implements Feed.Sequence {
 	private record Pose(Vector3f eye, Vector3f at, Vector3f up, float fov) {
 	}
 
+	/** The flash the circuit closes with as the draw shot cuts to the dive. */
+	private static final float RING_FLASH = 0.75F;
+	private static final int RING_FLASH_COLOR = 0xE6EEFF;
 	private static final int ORBIT_LENGTH = ThunderTimeline.DRAW - ThunderTimeline.FEED;
 	private static final int DRAW_LENGTH = ThunderTimeline.FORGE - ThunderTimeline.DRAW;
 	private static final int FORGE_LENGTH = ThunderTimeline.LEADER - ThunderTimeline.FORGE;
@@ -118,10 +121,12 @@ final class ThunderShots implements Feed.Sequence {
 		// Out of the dark of the storm cloud the camera rose into, lit once by its lightning on the way.
 		float cloud = (float) Math.pow(Math.max(0.0, 1.0 - s / 9.0), 1.4);
 		o.flash = cloud;
-		// The same slate as the inside of the storm the rise ended in.
-		o.flashColor = s > 2.0 && s < 3.5 ? 0xD8E4FF : 0x2E3444;
-		if (s > 2.0 && s < 3.5) {
-			o.flash = Math.max(o.flash, 0.8F);
+		// The same slate as the inside of the storm the rise ended in, lit through by its lightning: a stroke and a second.
+		o.flashColor = 0x2E3444;
+		float lit = (float) (s < 2.0 ? 0.0 : Math.exp(-(s - 2.0) / 0.5) * 0.45 + (s < 3.4 ? 0.0 : Math.exp(-(s - 3.4) / 0.6) * 0.3));
+		if (lit > 0.01F) {
+			o.flash = Math.min(1.0F, cloud + lit);
+			o.flashColor = lerpColor(0x2E3444, 0xD8E4FF, lit / (cloud + lit));
 		}
 		o.header = "[ Þ-01 MJÖLNIR · GLOBAL CIRCUIT ]";
 		o.headerReveal = smooth(s / 8.0);
@@ -199,10 +204,10 @@ final class ThunderShots implements Feed.Sequence {
 		int drained = (int) (STORM_COUNT * smooth(k * 1.05));
 		o.footer = String.format(Locale.ROOT, "CHARGE %.2f MC · POTENTIAL %.2f GV", drawn, 0.25 + 1.95 * smoothIn(k));
 		o.footerSmall = String.format(Locale.ROOT, "STORMS DRAINED %s / %s", Feed.commas(drained), Feed.commas(STORM_COUNT));
-		// The ring closing in rings once as it meets the target.
-		if (s > DRAW_LENGTH - 6) {
-			o.flash = (float) (0.6 * smooth((s - (DRAW_LENGTH - 6)) / 4.0));
-			o.flashColor = 0xE6EEFF;
+		// The ring closing in rings once as it meets the target: a flash the cut to the dive goes through.
+		if (s > DRAW_LENGTH - 3) {
+			o.flash = RING_FLASH * smooth((s - (DRAW_LENGTH - 3)) / 3.0);
+			o.flashColor = RING_FLASH_COLOR;
 		}
 	}
 
@@ -228,6 +233,11 @@ final class ThunderShots implements Feed.Sequence {
 		space.stormEarth(cam, new Matrix4f(), SUN, time * 0.00002F, smooth((k - 0.4) * 2.0) * 0.8F, 1.1F, time, TARGET,
 				1.0F - 0.85F * close, 0.0F, 1.0F, VORTEX * (0.4F + 0.6F * wound), spin(time) * (1.0F + wound),
 				(0.7F - 0.4F * wound) * (1.0F - 0.95F * close));
+		// Out of the flash the circuit closed with.
+		if (s < 8.0) {
+			o.flash = RING_FLASH * (float) Math.exp(-s / 2.0);
+			o.flashColor = RING_FLASH_COLOR;
+		}
 		o.header = "[ SUPERCELL · TARGET ]";
 		o.headerReveal = smooth(s / 6.0);
 		float title = smooth((s - 8.0) / 6.0) * (1.0F - smooth((s - 46.0) / 8.0));
@@ -250,20 +260,30 @@ final class ThunderShots implements Feed.Sequence {
 	// 4. Out of the storm's base after the stepped leader as it starts to feel its way down to the ground.
 	// =============================================================================================
 
+	/**
+	 * Lightning in the storm's base while the leader comes down, one flash at a time: when (ticks into the shot), where
+	 * (in the shot's units, beyond the column as the camera sees it and across), and how bright.
+	 */
+	private static final float[][] CLOUD_FLASHES = {{3.0F, 60.0F, -50.0F, 1.0F}, {13.0F, 180.0F, 90.0F, 0.7F},
+			{22.0F, 20.0F, 30.0F, 1.2F}, {31.0F, 120.0F, -110.0F, 0.8F}, {39.0F, 90.0F, 40.0F, 1.0F}};
+	/** Which way the leader shot looks across the column, on average, in radians round it. */
+	private static final double LEADER_BEARING = Math.toRadians(41.0);
+
 	private void leader(double s, Overlay o) {
 		// In units of a hundred metres, the ground under the target at y = 0. The leader comes out of the storm's base and
 		// feels its way down; the feed follows it LEADER_HANDOFF of the way, and the world picks it up from there.
 		double reach = ThunderTimeline.LEADER_HANDOFF * leaderReach(s / (LEADER_LENGTH - 4.0));
 		float tip = LOCAL_BASE * (1.0F - (float) reach);
-		// Seven kilometres off and three up, looking up at the column as a photograph of lightning would have it: the
-		// storm's ceiling across the top, the leader stepping down out of it, the dark country and its towns along the
-		// bottom; drifting in and round as the leader comes down.
+		// Eleven kilometres off and under three up, looking a little up at the column as a photograph of lightning at night
+		// would have it: the storm's base a ceiling over the upper two thirds of the frame, running away to the horizon, the
+		// leader hanging out of it, the dark country and its towns below, and the ground under the target in frame for the
+		// streamer; drifting in and round as the leader comes down.
 		float fall = smoother(s / (LEADER_LENGTH - 2.0));
-		float dist = lerp(78.0, 58.0, fall);
+		float dist = lerp(110.0, 88.0, fall);
 		double round = Math.toRadians(35.0 + 12.0 * fall);
-		Vector3f eye = new Vector3f((float) (Math.cos(round) * dist), 30.0F, (float) (Math.sin(round) * dist));
-		Vector3f at = new Vector3f(0.0F, lerp(62.0, 56.0, fall), 0.0F);
-		cam.perspective(68.0F, width, height, 0.3F, 200000.0F);
+		Vector3f eye = new Vector3f((float) (Math.cos(round) * dist), 28.0F, (float) (Math.sin(round) * dist));
+		Vector3f at = new Vector3f(0.0F, lerp(48.0, 44.0, fall), 0.0F);
+		cam.perspective(62.0F, width, height, 0.3F, 200000.0F);
 		cam.look(eye, at, new Vector3f(0, 1, 0));
 
 		Random random = new Random(42);
@@ -275,31 +295,60 @@ final class ThunderShots implements Feed.Sequence {
 			Vector3f dir = new Vector3f((float) Math.cos(a), -1.1F, (float) Math.sin(a)).normalize();
 			branches.add(jagged(root, new Vector3f(root).add(dir.mul(root.y * (0.2F + 0.35F * random.nextFloat()))), 0.3F, 4, random));
 		}
-		float flash = (float) Math.exp(-(s - Math.floor(s)) * 3.0);
-		// Night under the storm: the ground (worked out at every scale, so it is sharp all the way down) lit by the leader's
-		// tip as it steps down and by the storm's flashes.
-		ground(channelAt(channel, tip), 0.5F + 0.9F * flash * (float) reach, 0.12F + 0.35F * flash);
+		// Each step of the leader flares at its tip; the storm's own lightning lights its base and the country now and then.
+		float step = (float) Math.exp(-(s - Math.floor(s)) * 3.0);
+		float[] cloud = cloudFlash(s);
+		ground(channelAt(channel, tip), 0.5F + 0.4F * step * (float) reach, 0.05F + 0.35F * cloud[2]);
 		Space.clearDepth();
 		// The streamer reaching up off the ground at the target to meet the leader.
 		Fx streamer = space.glow(cam, Fx.BLOB, 1.0F);
 		streamer.sprite(new Vector3f(0.0F, 0.5F, 0.0F), 3.0F + 6.0F * (float) reach, 0.0F, Fx.argb(0.7F, 0.65F, 1.0F, (float) reach));
 		streamer.end(true, 2.0F + 6.0F * (float) reach);
-		stormLayers(s, flash, tip);
-		leaderBolt(channel, branches, reach, flash);
+		stormLayers(cloud);
+		leaderBolt(channel, branches, reach, step);
 
 		o.header = "[ STEPPED LEADER ]";
 		o.headerReveal = smooth(s / 4.0);
 		int altitude = Math.max(0, Math.round(tip * 100.0F));
 		o.footer = String.format(Locale.ROOT, "LEADER ALTITUDE %,d M", altitude);
-		int step = (int) Math.round(reach * ThunderTimeline.LEADER_STEPS * 3);
-		o.footerSmall = String.format(Locale.ROOT, "STEP %d · 50 M EVERY 50 µS", step);
+		int steps = (int) Math.round(reach * ThunderTimeline.LEADER_STEPS * 3);
+		o.footerSmall = String.format(Locale.ROOT, "STEP %d · 50 M EVERY 50 µS", steps);
 		// A touch of zoom blur as the camera drifts in (one pass, not the shutter, which would draw the shot six times).
 		o.zoomBlur = 0.015F;
+		// Up out of the dark of the eye the dive ended in.
+		if (s < 6.0) {
+			o.flash = 1.0F - smooth(s / 6.0);
+			o.flashColor = 0x0C0E14;
+		}
 		// A step brighter than any before it hands over to the world, where the leader comes on down.
 		if (s > LEADER_LENGTH - 3) {
 			o.flash = smooth((s - (LEADER_LENGTH - 3)) / 2.5) * 0.9F;
 			o.flashColor = 0xE8ECFF;
 		}
+	}
+
+	/**
+	 * The brightest of the storm's flashes at {@code s} ticks into the leader shot: where it is across the storm's base (in
+	 * the base's UV) and how bright, flickering as lightning does: a stroke, and a second a moment later.
+	 */
+	private static float[] cloudFlash(double s) {
+		float[] best = {0.0F, 0.0F, 0.0F};
+		double c = Math.cos(LEADER_BEARING);
+		double n = Math.sin(LEADER_BEARING);
+		for (float[] f : CLOUD_FLASHES) {
+			double e = s - f[0];
+			if (e < 0.0) {
+				continue;
+			}
+			double b = (Math.exp(-e / 1.2) + (e > 2.5 ? 0.7 * Math.exp(-(e - 2.5) / 1.5) : 0.0)) * f[3];
+			if (b > best[2]) {
+				// Beyond the column is away from the camera; across is square to that.
+				best[0] = (float) ((-c * f[1] - n * f[2]) / STORM_LAYER_RADIUS);
+				best[1] = (float) ((-n * f[1] + c * f[2]) / STORM_LAYER_RADIUS);
+				best[2] = (float) b;
+			}
+		}
+		return best;
 	}
 
 	/** The ground under the storm, a plane at y = 0 out to two hundred kilometres each way, in ss_ground. */
@@ -316,20 +365,27 @@ final class ThunderShots implements Feed.Sequence {
 		Shaders.set(Shaders.ground, "Tip", tip.x, tip.y, tip.z);
 		Shaders.set(Shaders.ground, "TipLight", tipLight);
 		Shaders.set(Shaders.ground, "Flash", flash);
-		// Rain at night: a few kilometres and the ground is lost.
-		Shaders.set(Shaders.ground, "Haze", 0.008F);
+		// Rain at night: twenty kilometres or so and the ground is lost.
+		Shaders.set(Shaders.ground, "Haze", 0.004F);
 		Post.draw(b, Shaders.ground, cam.view, cam.proj);
 	}
 
-	/** Layers of the storm's base round the eye: the ceiling the leader comes down out of. */
-	private void stormLayers(double s, float flash, float tip) {
+	/** How far the leader shot's storm base runs each way: two hundred kilometres, out to the horizon. */
+	private static final float STORM_LAYER_RADIUS = 1900.0F;
+
+	/**
+	 * Layers of the storm's base: the ceiling the leader comes down out of, its lumps lit faintly from below by the glow of
+	 * the leader and the country, and brightly from inside wherever the storm's lightning ({@code flash}, as
+	 * {@link #cloudFlash}) is.
+	 */
+	private void stormLayers(float[] flash) {
 		RenderSystem.enableDepthTest();
 		RenderSystem.depthMask(false);
 		RenderSystem.disableCull();
 		RenderSystem.enableBlend();
 		RenderSystem.blendFuncSeparate(GlStateManager.SrcFactor.ONE, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA,
 				GlStateManager.SrcFactor.ZERO, GlStateManager.DstFactor.ONE);
-		float radius = 1900.0F;
+		float radius = STORM_LAYER_RADIUS;
 		RenderSystem.setShaderTexture(0, NoiseTex.get());
 		for (int layer = 0; layer < 3; layer++) {
 			float y = LOCAL_BASE + 14.0F - layer * 7.0F;
@@ -343,9 +399,14 @@ final class ThunderShots implements Feed.Sequence {
 			Shaders.set(Shaders.vortex, "Density", 1.0F);
 			Shaders.set(Shaders.vortex, "Layer", (float) layer);
 			Shaders.set(Shaders.vortex, "Daylight", 0.1F);
-			Shaders.set(Shaders.vortex, "Flash", 0.0F, 0.0F, 2.6F * flash + 0.3F);
-			Shaders.set(Shaders.vortex, "Stroke", 0.0F);
-			Shaders.set(Shaders.vortex, "Eye", 0.012F);
+			// A flash lights a few kilometres of cloud round it.
+			Shaders.set(Shaders.vortex, "Flash", flash[0], flash[1], 2.4F * flash[2]);
+			Shaders.set(Shaders.vortex, "FlashFalloff", 700.0F);
+			// The cloud a few kilometres across, where the disc is two hundred.
+			Shaders.set(Shaders.vortex, "Detail", 8.0F);
+			Shaders.set(Shaders.vortex, "Stroke", 0.16F);
+			// No eye here: the leader comes out of solid cloud.
+			Shaders.set(Shaders.vortex, "Eye", 0.002F);
 			Shaders.set(Shaders.vortex, "FogEnd", 1.0E6F);
 			Post.draw(b, Shaders.vortex, cam.view, cam.proj);
 		}
@@ -473,6 +534,13 @@ final class ThunderShots implements Feed.Sequence {
 		}
 		rel.normalize();
 		return new Vector3f(a).mul((float) Math.cos(theta)).add(rel.mul((float) Math.sin(theta)));
+	}
+
+	private static int lerpColor(int a, int b, float t) {
+		int r = Math.round(lerp(a >> 16 & 255, b >> 16 & 255, t));
+		int g = Math.round(lerp(a >> 8 & 255, b >> 8 & 255, t));
+		int bl = Math.round(lerp(a & 255, b & 255, t));
+		return r << 16 | g << 8 | bl;
 	}
 
 	private static float smooth(double x) {

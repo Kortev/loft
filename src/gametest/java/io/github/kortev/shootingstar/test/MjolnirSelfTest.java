@@ -23,6 +23,7 @@ import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.option.Perspective;
 import net.minecraft.client.util.ScreenshotRecorder;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
@@ -167,6 +168,11 @@ public class MjolnirSelfTest implements ClientModInitializer {
 			case SETTLE -> {
 				if (ticks == 460) {
 					client.player.getInventory().selectedSlot = 0;
+					client.options.setPerspective(Perspective.THIRD_PERSON_FRONT);
+				}
+				if (ticks == 480) {
+					shot(client, "00_hammer_third_person.png");
+					client.options.setPerspective(Perspective.FIRST_PERSON);
 				}
 				if (ticks >= 500) {
 					shot(client, "00_holding_mjolnir.png");
