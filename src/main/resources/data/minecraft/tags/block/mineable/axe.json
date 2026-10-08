@@ -1,6 +1,7 @@
 {
   "replace": false,
   "values": [
-    "shootingstar:mirror_log"
+    "shootingstar:mirror_log",
+    "shootingstar:charred_log"
   ]
 }

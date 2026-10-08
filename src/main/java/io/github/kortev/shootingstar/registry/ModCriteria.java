@@ -24,6 +24,11 @@ public final class ModCriteria {
 	public static final String GAP_OPEN = "gap_open";
 	public static final String GAP_VOID = "gap_void";
 	public static final String GAP_RESTORED = "gap_restored";
+	// Mjölnir.
+	public static final String MJOLNIR_RAISE = "mjolnir_raise";
+	public static final String MJOLNIR_STROKE = "mjolnir_stroke";
+	public static final String MJOLNIR_CHAIN = "mjolnir_chain";
+	public static final String MJOLNIR_CHARGED = "mjolnir_charged";
 
 	public static final EventCriterion EVENT = Registry.register(Registries.CRITERION, ShootingStar.id("event"), new EventCriterion());
 

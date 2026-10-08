@@ -22,7 +22,8 @@ import org.joml.Matrix4fStack;
 import org.lwjgl.opengl.GL11;
 
 /**
- * The uplink feed: the shooter's cut of the shot from Jupiter (or of Bifröst in orbit, for the Genesis Key),
+ * The uplink feed: the shooter's cut of the shot from Jupiter (or of Bifröst in orbit, for the Genesis Key, or of the
+ * planet's thunderstorms, for Mjölnir),
  * drawn full-screen over the HUD. The 3D shots render offscreen, then bloom and grading go to the screen and
  * the HUD text goes on top.
  */
@@ -45,6 +46,7 @@ public final class Feed {
 
 	private static final Shots SHOTS = new Shots();
 	private static final GapShots GAP_SHOTS = new GapShots();
+	private static final ThunderShots THUNDER_SHOTS = new ThunderShots();
 	private static final Target SCENE = new Target(true, true);
 	private static final Target SHUTTER = new Target(false, true);
 	private static final int SHUTTER_SAMPLES = 6;
@@ -63,6 +65,11 @@ public final class Feed {
 	/** Ginnungagap's feed at {@code t} ticks after the key turned. */
 	public static void renderGap(DrawContext ctx, double t) {
 		draw(ctx, GAP_SHOTS, t);
+	}
+
+	/** Mjölnir's storm feed at {@code t} ticks after the hammer was raised. */
+	public static void renderThunder(DrawContext ctx, double t) {
+		draw(ctx, THUNDER_SHOTS, t);
 	}
 
 	/** Binds the feed's picture to draw on again, after a shot has drawn something into a target of its own. */

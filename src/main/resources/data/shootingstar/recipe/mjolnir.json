@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "N": {
+      "item": "minecraft:netherite_ingot"
+    },
+    "H": {
+      "item": "minecraft:heavy_core"
+    },
+    "L": {
+      "item": "minecraft:lightning_rod"
+    },
+    "S": {
+      "item": "minecraft:nether_star"
+    },
+    "B": {
+      "item": "minecraft:breeze_rod"
+    }
+  },
+  "pattern": [
+    "NHN",
+    "LSL",
+    " B "
+  ],
+  "result": {
+    "count": 1,
+    "id": "shootingstar:mjolnir"
+  }
+}

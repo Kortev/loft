@@ -1,0 +1,31 @@
+{
+  "parent": "shootingstar:mjolnir/stroke",
+  "display": {
+    "icon": {
+      "id": "minecraft:creeper_head"
+    },
+    "title": {
+      "translate": "advancements.shootingstar.mjolnir_charged.title"
+    },
+    "description": {
+      "translate": "advancements.shootingstar.mjolnir_charged.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "charged": {
+      "trigger": "shootingstar:event",
+      "conditions": {
+        "event": "mjolnir_charged"
+      }
+    }
+  },
+  "requirements": [
+    [
+      "charged"
+    ]
+  ]
+}

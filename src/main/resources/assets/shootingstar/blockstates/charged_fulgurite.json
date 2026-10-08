@@ -1,0 +1,13 @@
+{
+  "variants": {
+    "charge=1": {
+      "model": "shootingstar:block/charged_fulgurite_1"
+    },
+    "charge=2": {
+      "model": "shootingstar:block/charged_fulgurite_2"
+    },
+    "charge=3": {
+      "model": "shootingstar:block/charged_fulgurite_3"
+    }
+  }
+}

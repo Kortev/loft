@@ -1,0 +1,31 @@
+{
+  "parent": "shootingstar:mjolnir/stroke",
+  "display": {
+    "icon": {
+      "id": "minecraft:lightning_rod"
+    },
+    "title": {
+      "translate": "advancements.shootingstar.mjolnir_chain.title"
+    },
+    "description": {
+      "translate": "advancements.shootingstar.mjolnir_chain.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "chain": {
+      "trigger": "shootingstar:event",
+      "conditions": {
+        "event": "mjolnir_chain"
+      }
+    }
+  },
+  "requirements": [
+    [
+      "chain"
+    ]
+  ]
+}

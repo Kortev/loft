@@ -53,6 +53,26 @@ public final class ModSounds {
 	public static final SoundEvent GAP_VOID = register("gap.void");
 	public static final SoundEvent GAP_REBUILD = register("gap.rebuild");
 
+	// Þ-01 Mjölnir. The shooter's cues are stereo; what everyone hears out in the world is mono, so it can be placed.
+	public static final SoundEvent MJOLNIR_RAISE = register("mjolnir.raise");
+	public static final SoundEvent MJOLNIR_CALL = register("mjolnir.call");
+	public static final SoundEvent MJOLNIR_DENIED = register("mjolnir.denied");
+	public static final SoundEvent THUNDER_RISE = register("thunder.rise");
+	public static final SoundEvent THUNDER_FEED = register("thunder.feed");
+	public static final SoundEvent THUNDER_DRAW = register("thunder.draw");
+	public static final SoundEvent THUNDER_FORGE = register("thunder.forge");
+	public static final SoundEvent THUNDER_LEADER = register("thunder.leader");
+	public static final SoundEvent THUNDER_STORM = register("thunder.storm");
+	public static final SoundEvent THUNDER_CHARGE = register("thunder.charge");
+	public static final SoundEvent THUNDER_CHARGE_NEAR = register("thunder.charge.near");
+	public static final SoundEvent THUNDER_STROKE = register("thunder.stroke");
+	public static final SoundEvent THUNDER_STROKE_NEAR = register("thunder.stroke.near");
+	public static final SoundEvent THUNDER_ROLL = register("thunder.roll");
+	public static final SoundEvent THUNDER_ROLL_NEAR = register("thunder.roll.near");
+	public static final SoundEvent THUNDER_ARC = register("thunder.arc");
+	public static final SoundEvent THUNDER_AFTERMATH = register("thunder.aftermath");
+	public static final SoundEvent THUNDER_AFTERMATH_NEAR = register("thunder.aftermath.near");
+
 	private ModSounds() {
 	}
 

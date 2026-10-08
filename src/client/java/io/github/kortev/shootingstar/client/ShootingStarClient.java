@@ -8,6 +8,9 @@ import io.github.kortev.shootingstar.client.gfx.Shaders;
 import io.github.kortev.shootingstar.client.render.HudEffects;
 import io.github.kortev.shootingstar.client.render.WorldEffects;
 import io.github.kortev.shootingstar.client.render.WorldProjector;
+import io.github.kortev.shootingstar.client.thunder.ClientThunders;
+import io.github.kortev.shootingstar.client.thunder.ThunderHud;
+import io.github.kortev.shootingstar.client.thunder.ThunderRender;
 import io.github.kortev.shootingstar.client.world.WorldFx;
 import io.github.kortev.shootingstar.item.GenesisKeyItem;
 import io.github.kortev.shootingstar.client.gap.VoidFx;
@@ -19,6 +22,10 @@ import io.github.kortev.shootingstar.network.GapLockPayload;
 import io.github.kortev.shootingstar.network.StrikeCancelPayload;
 import io.github.kortev.shootingstar.network.StrikeImpactPayload;
 import io.github.kortev.shootingstar.network.StrikeLockPayload;
+import io.github.kortev.shootingstar.network.ThunderArcsPayload;
+import io.github.kortev.shootingstar.network.ThunderCancelPayload;
+import io.github.kortev.shootingstar.network.ThunderLockPayload;
+import io.github.kortev.shootingstar.network.ThunderStrokePayload;
 import io.github.kortev.shootingstar.registry.ModItems;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -56,11 +63,19 @@ public class ShootingStarClient implements ClientModInitializer {
 		ClientPlayNetworking.registerGlobalReceiver(GapEndPayload.ID, (payload, context) -> ClientGaps.onEnd(payload));
 		ClientPlayNetworking.registerGlobalReceiver(GapFloorPayload.ID, (payload, context) -> ClientGaps.onFloor(payload, context.client()));
 		ClientPlayNetworking.registerGlobalReceiver(GapWarpPayload.ID, (payload, context) -> VoidFx.onWarp(payload, context.client()));
+		ClientPlayNetworking.registerGlobalReceiver(ThunderLockPayload.ID,
+				(payload, context) -> ClientThunders.onLock(payload, context.client()));
+		ClientPlayNetworking.registerGlobalReceiver(ThunderStrokePayload.ID,
+				(payload, context) -> ClientThunders.onStroke(payload, context.client()));
+		ClientPlayNetworking.registerGlobalReceiver(ThunderArcsPayload.ID,
+				(payload, context) -> ClientThunders.onArcs(payload, context.client()));
+		ClientPlayNetworking.registerGlobalReceiver(ThunderCancelPayload.ID, (payload, context) -> ClientThunders.onCancel(payload));
 		VoidFloor.client = ClientGaps::floorFor;
 		ClientWorldEvents.AFTER_CLIENT_WORLD_CHANGE.register((client, world) -> ClientGaps.leftWorld());
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
 			ClientStrikes.clear(client);
 			ClientGaps.clear(client);
+			ClientThunders.clear(client);
 		});
 
 		// Before anything reads the keys this tick.
@@ -69,10 +84,12 @@ public class ShootingStarClient implements ClientModInitializer {
 			while (SKIP_FEED.wasPressed()) {
 				ClientStrikes.skipFeed();
 				ClientGaps.skipFeed();
+				ClientThunders.skipFeed();
 			}
 			Aim.tick(client);
 			ClientStrikes.tick(client);
 			ClientGaps.tick(client);
+			ClientThunders.tick(client);
 			VoidFx.tick(client);
 		});
 
@@ -81,7 +98,9 @@ public class ShootingStarClient implements ClientModInitializer {
 		WorldRenderEvents.LAST.register(WorldFx::render);
 		WorldRenderEvents.LAST.register(GapRender::render);
 		WorldRenderEvents.LAST.register(VoidFx::render);
+		WorldRenderEvents.LAST.register(ThunderRender::render);
 		HudRenderCallback.EVENT.register(HudEffects::render);
 		HudRenderCallback.EVENT.register(GapHud::render);
+		HudRenderCallback.EVENT.register(ThunderHud::render);
 	}
 }

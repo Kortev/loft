@@ -4,8 +4,11 @@ import io.github.kortev.shootingstar.client.ClientStrike;
 import io.github.kortev.shootingstar.client.ClientStrikes;
 import io.github.kortev.shootingstar.client.gap.ClientGap;
 import io.github.kortev.shootingstar.client.gap.ClientGaps;
+import io.github.kortev.shootingstar.client.thunder.ClientThunder;
+import io.github.kortev.shootingstar.client.thunder.ClientThunders;
 import io.github.kortev.shootingstar.gap.GapTimeline;
 import io.github.kortev.shootingstar.strike.StrikeTimeline;
+import io.github.kortev.shootingstar.thunder.ThunderTimeline;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.util.math.MathHelper;
@@ -52,6 +55,16 @@ public final class AerialHaze {
 				center = gap.contact;
 			}
 		}
+		// Mjölnir's rise goes up into the storm itself: its deck is the storm's dark base.
+		boolean storm = false;
+		ClientThunder thunder = ClientThunders.cinematic();
+		if (center == null && thunder != null) {
+			double t = thunder.time(tickDelta);
+			if (t >= ThunderTimeline.RISE && t < ThunderTimeline.FEED && ClientThunders.shotActive(thunder, t)) {
+				center = new Vec3d(thunder.center.x, thunder.cloudBase - DECK - 12.0, thunder.center.z);
+				storm = true;
+			}
+		}
 		if (center == null) {
 			return null;
 		}
@@ -70,6 +83,9 @@ public final class AerialHaze {
 		start = MathHelper.lerp(mist, start, -2.0F);
 		float angle = client.world.getSkyAngle(tickDelta) * MathHelper.TAU;
 		float day = MathHelper.clamp(MathHelper.cos(angle) * 2.0F + 0.5F, 0.12F, 1.0F);
+		if (storm) {
+			return new State(start, end, mist, 0.16F * day + 0.02F, 0.18F * day + 0.025F, 0.23F * day + 0.035F);
+		}
 		return new State(start, end, mist, 0.88F * day, 0.9F * day, 0.94F * day);
 	}
 }

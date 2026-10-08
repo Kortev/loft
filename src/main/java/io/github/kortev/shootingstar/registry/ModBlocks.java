@@ -1,6 +1,7 @@
 package io.github.kortev.shootingstar.registry;
 
 import io.github.kortev.shootingstar.ShootingStar;
+import io.github.kortev.shootingstar.block.ChargedFulguriteBlock;
 import io.github.kortev.shootingstar.block.MoltenCrustBlock;
 import net.minecraft.block.AbstractBlock;
 import net.minecraft.block.Block;
@@ -51,6 +52,36 @@ public final class ModBlocks {
 			.strength(2.5F, 6.0F)
 			.luminance(state -> 3)
 			.sounds(BlockSoundGroup.BASALT)), true);
+
+	/**
+	 * Petrified lightning: ground and air Mjölnir's bolt fused into dark glass. The scar's channels are lined with it,
+	 * and the bolt itself is left standing in it.
+	 */
+	public static final Block FULGURITE = register("fulgurite", new Block(AbstractBlock.Settings.create()
+			.mapColor(MapColor.BLACK)
+			.instrument(NoteBlockInstrument.HAT)
+			.requiresTool()
+			.strength(2.0F, 6.0F)
+			.luminance(state -> 2)
+			.sounds(BlockSoundGroup.GLASS)), true);
+
+	/** Fulgurite still holding the bolt's charge. Bleeds it away through three stages into plain fulgurite. */
+	public static final Block CHARGED_FULGURITE = register("charged_fulgurite", new ChargedFulguriteBlock(AbstractBlock.Settings.create()
+			.mapColor(MapColor.LIGHT_BLUE)
+			.instrument(NoteBlockInstrument.HAT)
+			.requiresTool()
+			.strength(2.0F, 6.0F)
+			.ticksRandomly()
+			.luminance(ChargedFulguriteBlock::luminance)
+			.emissiveLighting((state, world, pos) -> true)
+			.sounds(BlockSoundGroup.GLASS)), false);
+
+	/** What is left of a tree Mjölnir's stroke passed through: a black trunk, burned through, that will not burn again. */
+	public static final Block CHARRED_LOG = register("charred_log", new PillarBlock(AbstractBlock.Settings.create()
+			.mapColor(MapColor.BLACK)
+			.instrument(NoteBlockInstrument.BASS)
+			.strength(1.5F)
+			.sounds(BlockSoundGroup.WOOD)), true);
 
 	// Matter from the mirror universe, left behind where blocks traded places with their twins.
 	public static final Block MIRROR_GRASS = register("mirror_grass", new Block(AbstractBlock.Settings.create()

@@ -32,6 +32,18 @@ public final class ModGameRules {
 	public static final GameRules.Key<GameRules.BooleanRule> GAP_LETHAL = GameRuleRegistry.register(
 			"ginnungagapLethal", GameRules.Category.MISC, GameRuleFactory.createBooleanRule(true));
 
+	/** Radius in blocks of the zone Mjölnir's stroke kills everything in; its scar and arcs reach half as far again. */
+	public static final GameRules.Key<GameRules.IntRule> MJOLNIR_RADIUS = GameRuleRegistry.register(
+			"mjolnirRadius", GameRules.Category.MISC, GameRuleFactory.createIntRule(64, 8, 160));
+
+	/** When false, Mjölnir's stroke still kills and arcs but leaves every block where it is. */
+	public static final GameRules.Key<GameRules.BooleanRule> MJOLNIR_TERRAIN = GameRuleRegistry.register(
+			"mjolnirTerrainDamage", GameRules.Category.MISC, GameRuleFactory.createBooleanRule(true));
+
+	/** Whether the bolt is left standing over its crater as a jagged column of fulgurite. */
+	public static final GameRules.Key<GameRules.BooleanRule> MJOLNIR_BOLT = GameRuleRegistry.register(
+			"mjolnirPetrifiedBolt", GameRules.Category.MISC, GameRuleFactory.createBooleanRule(true));
+
 	private ModGameRules() {
 	}
 

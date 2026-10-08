@@ -20,6 +20,10 @@ public final class ModNetworking {
 		PayloadTypeRegistry.playS2C().register(GapFloorPayload.ID, GapFloorPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(GapWarpPayload.ID, GapWarpPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(GapSettlePayload.ID, GapSettlePayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(ThunderLockPayload.ID, ThunderLockPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(ThunderStrokePayload.ID, ThunderStrokePayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(ThunderArcsPayload.ID, ThunderArcsPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(ThunderCancelPayload.ID, ThunderCancelPayload.CODEC);
 	}
 
 	public static void send(ServerPlayerEntity player, CustomPayload payload) {

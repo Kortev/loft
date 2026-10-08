@@ -1,0 +1,31 @@
+{
+  "parent": "shootingstar:root",
+  "display": {
+    "icon": {
+      "id": "shootingstar:mjolnir"
+    },
+    "title": {
+      "translate": "advancements.shootingstar.mjolnir_raise.title"
+    },
+    "description": {
+      "translate": "advancements.shootingstar.mjolnir_raise.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "raise": {
+      "trigger": "shootingstar:event",
+      "conditions": {
+        "event": "mjolnir_raise"
+      }
+    }
+  },
+  "requirements": [
+    [
+      "raise"
+    ]
+  ]
+}

@@ -33,6 +33,10 @@ public final class Shaders {
 	public static ShaderProgram galaxy;
 	public static ShaderProgram block;
 	public static ShaderProgram tree;
+	/** Mjölnir: the storm over the target, the stroke's grading, and the feed's Earth with every thunderstorm on it. */
+	public static ShaderProgram vortex;
+	public static ShaderProgram thunder;
+	public static ShaderProgram storm;
 
 	private Shaders() {
 	}
@@ -62,6 +66,9 @@ public final class Shaders {
 			context.register(ShootingStar.id("ss_galaxy"), VertexFormats.POSITION_COLOR_TEXTURE_LIGHT_NORMAL, p -> galaxy = p);
 			context.register(ShootingStar.id("ss_block"), VertexFormats.POSITION_TEXTURE_COLOR_NORMAL, p -> block = p);
 			context.register(ShootingStar.id("ss_tree"), VertexFormats.POSITION_COLOR_TEXTURE_LIGHT_NORMAL, p -> tree = p);
+			context.register(ShootingStar.id("ss_vortex"), VertexFormats.POSITION_TEXTURE_COLOR, p -> vortex = p);
+			context.register(ShootingStar.id("ss_thunder"), VertexFormats.BLIT_SCREEN, p -> thunder = p);
+			context.register(ShootingStar.id("ss_storm"), VertexFormats.POSITION_TEXTURE_COLOR_NORMAL, p -> storm = p);
 		});
 	}
 
@@ -71,6 +78,11 @@ public final class Shaders {
 				&& plasma != null && bright != null && blur != null && composite != null && blit != null && impact != null
 				&& debris != null && smoke != null && fxcomp != null && shell != null && light != null && bore != null
 				&& gap != null && galaxy != null && block != null && tree != null;
+	}
+
+	/** True once Mjölnir's programs have loaded too (it also draws with the shared ones). */
+	public static boolean thunderReady() {
+		return ready() && vortex != null && thunder != null && storm != null;
 	}
 
 	public static void set(ShaderProgram program, String name, float value) {
