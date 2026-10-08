@@ -16,8 +16,8 @@ import net.minecraft.util.math.Vec3d;
 
 /**
  * Mjölnir in first person as the storm is called, in time with its sound: the hammer swings up over the shooter's head,
- * head to the sky, and lights up; it trembles harder as the charge builds in it; the call leaves it with a kick, and it
- * hums on in the air until the camera goes up after the bolt.
+ * head to the sky, and lights up; it trembles harder and its runes burn brighter as the charge builds in it; the call
+ * leaves it with a kick, and it hums on in the air until the camera goes up after the bolt.
  */
 public final class HammerRaise {
 	private HammerRaise() {
@@ -53,8 +53,11 @@ public final class HammerRaise {
 		// The model lies on the diagonal, the way a tool sits in a slot: stand it up. The item renderer centres it.
 		matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(45.0F));
 		matrices.scale(0.62F, 0.62F, 0.62F);
+		// The runes burn brighter as the charge builds, blaze at the call and burn down as it hums on.
+		HammerGlow.boost((float) (HammerGlow.STEADY + (HammerGlow.BLAZING - HammerGlow.STEADY) * charge));
 		renderer.renderItem(player, item, ModelTransformationMode.NONE, false, matrices, consumers,
 				t > 6.0 ? LightmapTextureManager.MAX_LIGHT_COORDINATE : light);
+		HammerGlow.reset();
 		matrices.pop();
 		return true;
 	}

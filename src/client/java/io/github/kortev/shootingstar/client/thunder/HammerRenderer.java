@@ -24,9 +24,9 @@ import net.minecraft.util.Identifier;
  */
 public final class HammerRenderer implements BuiltinItemRendererRegistry.DynamicItemRenderer {
 	/** The hammer's colour, with its hammering, chamfers and shadows baked in. */
-	public static final Identifier TEXTURE = ShootingStar.id("textures/item/mjolnir_baked.png");
+	public static final Identifier TEXTURE = ShootingStar.id("textures/entity/mjolnir_baked.png");
 	/** Black but for the light in the interlace's channels and the runes. */
-	public static final Identifier GLOW = ShootingStar.id("textures/item/mjolnir_glow.png");
+	public static final Identifier GLOW = ShootingStar.id("textures/entity/mjolnir_glow.png");
 	private static final int WHITE = 0xFFFFFFFF;
 
 	@Override

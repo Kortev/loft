@@ -1121,8 +1121,8 @@ def fit_report(parts):
 # --- the game's copy ----------------------------------------------------------------------------------------------
 
 GAME_MESH = 'src/client/resources/assets/shootingstar/meshes/mjolnir.hbm'
-GAME_TEXTURE = 'src/main/resources/assets/shootingstar/textures/item/mjolnir_baked.png'
-GAME_GLOW = 'src/main/resources/assets/shootingstar/textures/item/mjolnir_glow.png'
+GAME_TEXTURE = 'src/main/resources/assets/shootingstar/textures/entity/mjolnir_baked.png'
+GAME_GLOW = 'src/main/resources/assets/shootingstar/textures/entity/mjolnir_glow.png'
 ITEM_MODEL = 'src/main/resources/assets/shootingstar/models/item/mjolnir.json'
 BAKE_SIZE = 512
 BAKE_SAMPLES = int(os.environ.get('MJOLNIR_BAKE_SAMPLES', '128'))

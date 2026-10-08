@@ -141,7 +141,7 @@ item's pixels, built upright, the item's centre at the origin):
   texture is painted with, the bake lamp `BAKE_LIGHT` already on its dents and chamfers) and `glow` (how much it glows).
 - `--out DIR --renders`: hero, side, rune end, interlace and haft renders, and a 64 px inventory render.
 - `--game` (about a minute): unwraps (`TEXEL_WEIGHT`), bakes design × ambient occlusion into
-  `textures/item/mjolnir_baked.png` (512²) and the glow into `mjolnir_glow.png`, writes `meshes/mjolnir.hbm` (format in
+  `textures/entity/mjolnir_baked.png` (512², out of the item atlas) and the glow into `mjolnir_glow.png`, writes `meshes/mjolnir.hbm` (format in
   `HammerMesh`'s Javadoc; the hammer laid on the diagonal by `UPRIGHT_TO_ITEM`, where the old cuboid model lay) and
   writes `models/item/mjolnir.json` from `DISPLAY` (parent `builtin/entity`).
 - `--out DIR --views`: the baked copy read back from its file and drawn as the game draws it (nearest texels, the
