@@ -49,16 +49,19 @@ void main() {
     float light = 0.45 + tip + Flash * 1.4;
     vec3 color = land * light * vec3(0.8, 0.85, 1.15) + vec3(0.6, 0.7, 1.0) * river * (tip + Flash) * 0.35;
 
-    // Towns: clusters of lights, warm, that the storm cannot put out.
-    float town = smoothstep(0.72, 0.82, texture(Sampler0, uv * 0.0012 + 0.67).g);
+    // Towns: clusters of lights, warm, that the storm cannot put out. Near, each lamp; far, where the lamps are smaller
+    // than a pixel, the glow of the town as a whole.
+    float town = smoothstep(0.66, 0.8, texture(Sampler0, uv * 0.004 + 0.67).g);
     vec2 g = uv * 1.6;
     vec2 cell = floor(g);
     vec2 at = vec2(hash(cell + 3.1), hash(cell + 7.7));
     float lamp = step(0.55, hash(cell)) * smoothstep(0.22, 0.0, length(fract(g) - at));
-    color += vec3(1.0, 0.72, 0.4) * lamp * (0.03 + town) * 3.0;
+    float near = 1.0 - smoothstep(40.0, 160.0, viewDist);
+    vec3 lights = vec3(1.0, 0.72, 0.4) * (lamp * (0.03 + town) * 3.0 * near + town * (0.06 + 0.2 * (1.0 - near)));
 
-    // Rain haze: the farther, the more it is lost in the dark of the storm.
+    // Rain haze: the farther, the more it is lost in the dark of the storm; lights carry farther through it.
     float haze = 1.0 - exp(-viewDist * Haze);
     color = mix(color, vec3(0.045, 0.05, 0.07) + vec3(0.3, 0.35, 0.5) * Flash * 0.4, haze);
+    color += lights * exp(-viewDist * Haze * 0.35);
     fragColor = vec4(color, 1.0) * vertexColor.a;
 }

@@ -17,9 +17,12 @@ import net.minecraft.util.math.Vec3d;
 /**
  * Mjölnir in first person as the storm is called, in time with its sound: the hammer swings up over the shooter's head,
  * head to the sky, and lights up; it trembles harder and its runes burn brighter as the charge builds in it; the call
- * leaves it with a kick, and it hums on in the air until the camera goes up after the bolt.
+ * leaves it with a kick, and it hums on in the air until the camera goes up after the bolt, leaving it below.
  */
 public final class HammerRaise {
+	/** Ticks into the rise that the hammer is still drawn, falling away out of the picture as the camera leaves. */
+	private static final int LEAVING = 3;
+
 	private HammerRaise() {
 	}
 
@@ -29,7 +32,7 @@ public final class HammerRaise {
 	 */
 	public static boolean held() {
 		ClientThunder thunder = ClientThunders.mine();
-		return thunder != null && thunder.age < ThunderTimeline.RISE && ClientThunders.hidingHud();
+		return thunder != null && thunder.age < ThunderTimeline.RISE + LEAVING && ClientThunders.hidingHud();
 	}
 
 	/** Draws the hammer itself; false leaves the hand to vanilla. */
@@ -40,7 +43,7 @@ public final class HammerRaise {
 			return false;
 		}
 		double t = thunder.time(tickDelta);
-		if (t >= ThunderTimeline.RISE) {
+		if (t >= ThunderTimeline.RISE + LEAVING) {
 			return false;
 		}
 		double up = ease(t / 10.0);
@@ -51,7 +54,9 @@ public final class HammerRaise {
 		double since = t - ThunderTimeline.CALL;
 		double kick = since >= 0 ? Math.exp(-since / 2.5) * Math.sin(Math.min(since, 6.0) * 1.3) * 0.06 : 0.0;
 		float x = (float) (MathHelper.lerp(up, 0.56, 0.18) + Math.sin(t * 11.3) * shake);
-		float y = (float) (MathHelper.lerp(up, -0.52, 0.12) + Math.sin(t * 9.1 + 1.0) * shake - kick);
+		// As the camera lifts away out of the shooter's head, the hammer they hold falls away down out of the picture.
+		double leave = ease((t - (ThunderTimeline.RISE - 2.0)) / (LEAVING + 2.0));
+		float y = (float) (MathHelper.lerp(up, -0.52, 0.12) + Math.sin(t * 9.1 + 1.0) * shake - kick - 1.4 * leave * leave);
 		float z = (float) (MathHelper.lerp(up, -0.72, -0.82) + kick * 0.6);
 		matrices.push();
 		matrices.translate(x, y, z);
