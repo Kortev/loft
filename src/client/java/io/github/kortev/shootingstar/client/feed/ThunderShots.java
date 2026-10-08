@@ -221,7 +221,8 @@ final class ThunderShots implements Feed.Sequence {
 	private void forge(double s, Overlay o) {
 		Pose start = drawPose(DRAW_LENGTH);
 		float k = smoother(s / (FORGE_LENGTH - 6.0));
-		float altitude = (float) ((start.eye().length() - 1.0) * Math.pow(0.012 / (start.eye().length() - 1.0), k));
+		// Down to about two hundred kilometres: any lower and the storm's sunlit tops fill the frame white.
+		float altitude = (float) ((start.eye().length() - 1.0) * Math.pow(0.03 / (start.eye().length() - 1.0), k));
 		Vector3f dir = slerp(new Vector3f(start.eye()).normalize(), TARGET, k);
 		Vector3f eye = new Vector3f(dir).mul(1.0F + altitude);
 		Vector3f at = new Vector3f(start.at()).lerp(TARGET, smooth(s / 20.0));
@@ -243,8 +244,8 @@ final class ThunderShots implements Feed.Sequence {
 				(int) (120 + 260 * wound));
 		o.footerSmall = String.format(Locale.ROOT, "CLOUD TOPS %,d M", (int) (11000 + 7000 * wound));
 		// Into the eye in a flash of its lightning.
-		if (s > FORGE_LENGTH - 7) {
-			o.flash = smooth((s - (FORGE_LENGTH - 7)) / 6.0);
+		if (s > FORGE_LENGTH - 4) {
+			o.flash = smooth((s - (FORGE_LENGTH - 4)) / 3.0);
 			o.flashColor = 0xDCE6FF;
 		}
 	}
@@ -279,7 +280,9 @@ final class ThunderShots implements Feed.Sequence {
 		}
 		float flash = (float) Math.exp(-(s - Math.floor(s)) * 3.0);
 		// Under the storm: the ground lit only by the leader and by the storm's own flashes.
-		space.stormEarthPatch(patch, cam, ground, localSun, 0.0F, 1.0F, 1.0F, time, TARGET, 0.4F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F);
+		// Night under the storm: the ground dark, lit only as the leader steps (and its cities' lights).
+		space.stormEarthPatch(patch, cam, ground, localSun, 0.0F, 1.0F, 0.3F + 0.5F * flash, time, TARGET, 0.0F, 0.0F, 1.0F, 0.0F,
+				0.0F, 0.0F);
 		Space.clearDepth();
 		// The streamer reaching up off the ground at the target to meet the leader.
 		Fx streamer = space.glow(cam, Fx.BLOB, 1.0F);
@@ -324,8 +327,8 @@ final class ThunderShots implements Feed.Sequence {
 			Shaders.set(Shaders.vortex, "Spin", spin(time) * 3.0F + layer * 0.4F);
 			Shaders.set(Shaders.vortex, "Density", 1.0F);
 			Shaders.set(Shaders.vortex, "Layer", (float) layer);
-			Shaders.set(Shaders.vortex, "Daylight", 0.05F);
-			Shaders.set(Shaders.vortex, "Flash", 0.0F, 0.0F, 2.0F * flash + 0.6F);
+			Shaders.set(Shaders.vortex, "Daylight", 0.0F);
+			Shaders.set(Shaders.vortex, "Flash", 0.0F, 0.0F, 2.6F * flash + 0.12F);
 			Shaders.set(Shaders.vortex, "Stroke", 0.0F);
 			Shaders.set(Shaders.vortex, "Eye", 0.012F);
 			Shaders.set(Shaders.vortex, "FogEnd", 1.0E6F);
@@ -338,13 +341,13 @@ final class ThunderShots implements Feed.Sequence {
 	private void leaderBolt(List<Vector3f> channel, List<List<Vector3f>> branches, double reach, float flash) {
 		float bottom = LOCAL_BASE * (1.0F - (float) reach);
 		Fx glow = space.glow(cam, Fx.BEAM, 0.0F);
-		polyline(glow, channel, bottom, 1.4F, Fx.argb(0.62F, 0.5F, 1.0F, 0.5F + 0.4F * flash));
+		polyline(glow, channel, bottom, 2.4F, Fx.argb(0.62F, 0.5F, 1.0F, 0.5F + 0.4F * flash));
 		for (List<Vector3f> branch : branches) {
-			polyline(glow, branch, bottom, 0.8F, Fx.argb(0.55F, 0.45F, 1.0F, 0.35F + 0.3F * flash));
+			polyline(glow, branch, bottom, 1.2F, Fx.argb(0.55F, 0.45F, 1.0F, 0.35F + 0.3F * flash));
 		}
-		glow.end(true, 3.0F);
+		glow.end(true, 3.5F);
 		Fx core = space.glow(cam, Fx.BEAM, 0.0F);
-		polyline(core, channel, bottom, 0.18F, Fx.argb(0.95F, 0.95F, 1.0F, 0.7F + 0.3F * flash));
+		polyline(core, channel, bottom, 0.3F, Fx.argb(0.95F, 0.95F, 1.0F, 0.7F + 0.3F * flash));
 		for (List<Vector3f> branch : branches) {
 			polyline(core, branch, bottom, 0.1F, Fx.argb(0.9F, 0.9F, 1.0F, 0.5F));
 		}

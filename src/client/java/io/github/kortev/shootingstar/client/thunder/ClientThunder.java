@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.UUID;
 import net.minecraft.client.sound.SoundInstance;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import org.jetbrains.annotations.Nullable;
 
@@ -91,8 +92,18 @@ public final class ClientThunder {
 		return figure;
 	}
 
-	/** Where the bolt leaves the cloud base, straight over the target. */
+	/** The storm's base straight over the target. */
 	public Vec3d top() {
 		return new Vec3d(center.x, cloudBase, center.z);
+	}
+
+	/** How far the wall cloud hangs under the storm's base: a seventh of the storm's height, 6 to 18 blocks. */
+	public double wallDrop() {
+		return MathHelper.clamp((cloudBase - center.y) * 0.15, 6.0, 18.0);
+	}
+
+	/** Where the bolt leaves the storm: the bottom of the wall cloud, straight over the target. */
+	public Vec3d wallBase() {
+		return new Vec3d(center.x, cloudBase - wallDrop(), center.z);
 	}
 }

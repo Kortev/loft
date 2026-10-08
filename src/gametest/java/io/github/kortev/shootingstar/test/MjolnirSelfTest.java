@@ -22,6 +22,7 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.util.ScreenshotRecorder;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
@@ -141,6 +142,12 @@ public class MjolnirSelfTest implements ClientModInitializer {
 		ticks++;
 		IntegratedServer server = client.getServer();
 		perf(client);
+		ClientPlayerEntity self = client.player;
+		if (self != null && stage == Stage.AFTER && self.getAbilities().allowFlying && !self.getAbilities().flying) {
+			// Vanilla stops creative flight whenever the player touches the ground: keep them where the photographs put them.
+			self.getAbilities().flying = true;
+			self.sendAbilitiesUpdate();
+		}
 		switch (stage) {
 			case WAIT_WORLD -> {
 				if (client.world != null && client.player != null && server != null) {
@@ -230,7 +237,12 @@ public class MjolnirSelfTest implements ClientModInitializer {
 				int r = 64;
 				if (ticks == 10) {
 					client.options.hudHidden = true;
-					server.execute(() -> lookFrom(server, target.getX(), target.getZ() + r * 13 / 10, r, Vec3d.ofCenter(target)));
+					server.execute(() -> {
+						ServerPlayerEntity player = server.getPlayerManager().getPlayerList().get(0);
+						player.getAbilities().flying = true;
+						player.sendAbilitiesUpdate();
+						lookFrom(server, target.getX(), target.getZ() + r * 13 / 10, r, Vec3d.ofCenter(target));
+					});
 				}
 				if (ticks == 120) {
 					shot(client, "90_crater_above.png");

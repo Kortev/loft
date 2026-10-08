@@ -15,7 +15,8 @@
 		"VoidPlayerMixin",
 		"VoidSoundMixin",
 		"VoidToastMixin",
-		"WorldRendererMixin"
+		"WorldRendererMixin",
+		"WorldWeatherMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

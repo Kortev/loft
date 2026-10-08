@@ -142,6 +142,7 @@ public final class ClientThunders {
 		thunder.terrain = payload.terrain();
 		thunder.boltHeight = payload.boltHeight();
 		ThunderRender.struck(client, thunder);
+		ThunderDust.onStroke(client.world, thunder);
 		strokeSounds(client, thunder);
 	}
 
@@ -183,6 +184,7 @@ public final class ClientThunders {
 
 	public static void clear(MinecraftClient client) {
 		THUNDERS.clear();
+		ThunderDust.clear();
 		restoreHud(client);
 	}
 
@@ -219,6 +221,7 @@ public final class ClientThunders {
 				it.remove();
 			}
 		}
+		ThunderDust.tick(client.world);
 
 		ClientThunder cinematic = cinematic();
 		boolean takeOver = cinematic != null && (feedActive(cinematic, cinematic.age) || shotActive(cinematic, cinematic.age));

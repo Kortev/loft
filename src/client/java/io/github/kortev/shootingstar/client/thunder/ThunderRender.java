@@ -3,7 +3,6 @@ package io.github.kortev.shootingstar.client.thunder;
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import io.github.kortev.shootingstar.client.gfx.Fx;
-import io.github.kortev.shootingstar.client.gfx.Mesh;
 import io.github.kortev.shootingstar.client.gfx.NoiseTex;
 import io.github.kortev.shootingstar.client.gfx.Post;
 import io.github.kortev.shootingstar.client.gfx.Shaders;
@@ -55,13 +54,18 @@ public final class ThunderRender {
 	private static final double RANGE = 1600.0;
 	/** Points round the warning rings. */
 	private static final int RING_POINTS = 160;
+	/** The storm's decks, top first: height over its base, reach (times the vortex radius) and density. */
+	private static final float[] DECK_HEIGHT = {26.0F, 18.0F, 11.0F, 5.0F, 0.0F};
+	private static final float[] DECK_REACH = {1.6F, 1.42F, 1.26F, 1.12F, 1.0F};
+	private static final float[] DECK_DENSITY = {0.55F, 0.62F, 0.72F, 0.85F, 1.0F};
+	/** The wall cloud's radius, times the vortex radius, and the segments of its curtain. */
+	private static final double WALL_REACH = 0.2;
+	private static final int CURTAIN_SEGMENTS = 48;
 	/** Colours, as linear light. */
 	private static final float[] ARC = {0.62F, 0.78F, 1.0F};
 	private static final float[] CORE = {0.93F, 0.96F, 1.0F};
 	private static final float[] LEADER = {0.62F, 0.5F, 1.0F};
 	private static final float[] AFTERGLOW = {1.0F, 0.42F, 0.86F};
-	@Nullable
-	private static Mesh sphere;
 
 	/** A point light on the world (relative to the camera), as in Gungnir's light pass. */
 	private record Light(float x, float y, float z, float range, float r, float g, float b, float wrap) {
@@ -109,7 +113,7 @@ public final class ThunderRender {
 
 	private static BoltPath path(ClientThunder thunder) {
 		if (thunder.path == null) {
-			thunder.path = BoltPath.grow(thunder.seed, thunder.top(), thunder.center, thunder.radius);
+			thunder.path = BoltPath.grow(thunder.seed, thunder.wallBase(), thunder.center, thunder.radius);
 		}
 		return thunder.path;
 	}
@@ -213,7 +217,7 @@ public final class ThunderRender {
 			}
 			double reach = ThunderTimeline.vortexRadius(t, thunder.radius) * 1.4 + 40.0;
 			double d = Math.hypot(cam.x - thunder.center.x, cam.z - thunder.center.z);
-			gloom = Math.max(gloom, (float) (density * 0.6 * (1.0 - ThunderTimeline.smooth((d - reach * 0.5) / (reach * 0.8)))));
+			gloom = Math.max(gloom, (float) (density * 0.35 * (1.0 - ThunderTimeline.smooth((d - reach * 0.5) / (reach * 0.8)))));
 		}
 		return gloom;
 	}
@@ -238,7 +242,8 @@ public final class ThunderRender {
 	public static void render(WorldRenderContext context) {
 		MinecraftClient client = MinecraftClient.getInstance();
 		ClientWorld world = context.world();
-		if (!Shaders.thunderReady() || world == null || client.player == null || ClientThunders.all().isEmpty()) {
+		if (!Shaders.thunderReady() || world == null || client.player == null
+				|| ClientThunders.all().isEmpty() && ThunderDust.isEmpty()) {
 			return;
 		}
 		float tickDelta = context.tickCounter().getTickDelta(false);
@@ -249,11 +254,8 @@ public final class ThunderRender {
 				live.add(thunder);
 			}
 		}
-		if (live.isEmpty()) {
+		if (live.isEmpty() && ThunderDust.isEmpty()) {
 			return;
-		}
-		if (sphere == null) {
-			sphere = Mesh.sphere(48, 24);
 		}
 		Matrix4f view = new Matrix4f(context.positionMatrix());
 		Matrix4f proj = new Matrix4f(context.projectionMatrix());
@@ -282,9 +284,14 @@ public final class ThunderRender {
 		for (ClientThunder thunder : live) {
 			bright |= bright(thunder, thunder.time(tickDelta));
 		}
-		// The depth of the world as drawn, for the grading's depth effects and the light pass.
+		// The depth of the world as drawn, for the grading's depth effects, the light pass and the dust.
 		DEPTH.ensure(w, h);
 		DEPTH.copyDepthFrom(main);
+		Timings.begin("thunder.dust");
+		main.beginWrite(true);
+		ThunderDust.render(cam, view, proj, right, up, tickDelta, DEPTH.depth(), w, h, projA(proj), daylight,
+				strokeFlash(live, tickDelta));
+		Timings.end();
 		if (!bright) {
 			// Only the warning rings: straight onto the picture, without the light pass and the bloom, which cost more than
 			// everything else here put together and have nothing to work on.
@@ -394,7 +401,12 @@ public final class ThunderRender {
 		RenderSystem.defaultBlendFunc();
 	}
 
-	/** The vortex over the target: three layers of cloud, turning, lit from inside and by the stroke under it. */
+	/**
+	 * The storm over the target, drawn top down: five decks of cloud, the higher ones wider and slower, so the storm
+	 * covers the sky and has depth wherever it is seen from; then the wall cloud, a turning column of cloud hanging under
+	 * its middle (a disc at its foot, a curtain round it up to the decks), which the bolt comes down out of. All of it lit
+	 * from inside by the storm's lightning and from below by the stroke.
+	 */
 	private static void drawStorm(ClientThunder thunder, double t, Vec3d cam, Matrix4f view, Matrix4f proj, float daylight) {
 		double density = stormDensity(t);
 		if (density < 0.01) {
@@ -411,34 +423,90 @@ public final class ThunderRender {
 		RenderSystem.enableBlend();
 		RenderSystem.blendFuncSeparate(GlStateManager.SrcFactor.ONE, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA,
 				GlStateManager.SrcFactor.ZERO, GlStateManager.DstFactor.ONE);
-		float fogEnd = RenderSystem.getShaderFogEnd();
+		float fogEnd = Math.max(RenderSystem.getShaderFogEnd(), 64.0F);
+		float time = (float) (t % 100000.0);
 		RenderSystem.setShaderTexture(0, NoiseTex.get());
-		for (int layer = 0; layer < 3; layer++) {
-			// Top layer first: the camera is almost always under the storm.
-			double y = thunder.cloudBase + 12.0 - layer * 6.0;
-			float x0 = (float) (thunder.center.x - radius - cam.x);
-			float x1 = (float) (thunder.center.x + radius - cam.x);
-			float z0 = (float) (thunder.center.z - radius - cam.z);
-			float z1 = (float) (thunder.center.z + radius - cam.z);
-			float yy = (float) (y - cam.y);
-			BufferBuilder b = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
-			b.vertex(x0, yy, z0).texture(-1.0F, -1.0F).color(255, 255, 255, 255);
-			b.vertex(x1, yy, z0).texture(1.0F, -1.0F).color(255, 255, 255, 255);
-			b.vertex(x1, yy, z1).texture(1.0F, 1.0F).color(255, 255, 255, 255);
-			b.vertex(x0, yy, z1).texture(-1.0F, 1.0F).color(255, 255, 255, 255);
-			Shaders.set(Shaders.vortex, "Time", (float) (t % 100000.0));
-			Shaders.set(Shaders.vortex, "Spin", (float) (spin(t) * (1.0 + 0.15 * layer) % (Math.PI * 200.0)));
-			Shaders.set(Shaders.vortex, "Density", (float) density * (layer == 2 ? 1.0F : 0.75F));
+		for (int layer = 0; layer < DECK_HEIGHT.length; layer++) {
+			double reach = radius * DECK_REACH[layer];
+			BufferBuilder deck = disc(thunder.center, thunder.cloudBase + DECK_HEIGHT[layer], reach, cam);
+			Shaders.set(Shaders.vortex, "Time", time);
+			Shaders.set(Shaders.vortex, "Spin", (float) (spin(t) * (0.7 + 0.12 * layer) % (Math.PI * 200.0)));
+			Shaders.set(Shaders.vortex, "Density", (float) density * DECK_DENSITY[layer]);
 			Shaders.set(Shaders.vortex, "Layer", (float) (layer + (thunder.seed & 7)));
 			Shaders.set(Shaders.vortex, "Daylight", daylight);
-			Shaders.set(Shaders.vortex, "Flash", flash[0], flash[1], flash[2] * 2.5F);
-			Shaders.set(Shaders.vortex, "Stroke", stroke);
-			Shaders.set(Shaders.vortex, "Eye", 0.05F);
-			Shaders.set(Shaders.vortex, "FogEnd", Math.max(fogEnd, 64.0F));
-			Post.draw(b, Shaders.vortex, view, proj);
+			// The flash and the eye stay where they are over the ground, whatever the deck's size.
+			float scale = 1.0F / DECK_REACH[layer];
+			Shaders.set(Shaders.vortex, "Flash", flash[0] * scale, flash[1] * scale, flash[2] * 2.5F);
+			Shaders.set(Shaders.vortex, "Stroke", stroke * scale);
+			Shaders.set(Shaders.vortex, "Eye", 0.05F * scale);
+			Shaders.set(Shaders.vortex, "FogEnd", fogEnd);
+			Post.draw(deck, Shaders.vortex, view, proj);
+		}
+
+		// The wall cloud: it lowers out of the storm as the storm winds up.
+		double lower = ThunderTimeline.smooth((t - ThunderTimeline.DRAW) / (ThunderTimeline.INBOUND - ThunderTimeline.DRAW));
+		double drop = thunder.wallDrop() * lower;
+		if (drop > 0.5) {
+			double wall = radius * WALL_REACH;
+			float near = (float) Math.exp(-(flash[0] * flash[0] + flash[1] * flash[1]) * 6.0);
+			Shaders.set(Shaders.wall, "Time", time);
+			Shaders.set(Shaders.wall, "Spin", (float) (spin(t) * 1.8 % (Math.PI * 200.0)));
+			Shaders.set(Shaders.wall, "Density", (float) density);
+			Shaders.set(Shaders.wall, "Daylight", daylight);
+			Shaders.set(Shaders.wall, "Flash", flash[2] * near * 2.0F);
+			Shaders.set(Shaders.wall, "Stroke", stroke);
+			Shaders.set(Shaders.wall, "FogEnd", fogEnd);
+			BufferBuilder column = curtain(thunder.center, thunder.cloudBase - drop, thunder.cloudBase + 3.0, wall, cam);
+			Post.draw(column, Shaders.wall, view, proj);
+			BufferBuilder foot = disc(thunder.center, thunder.cloudBase - drop, wall * 1.15, cam);
+			Shaders.set(Shaders.vortex, "Spin", (float) (spin(t) * 1.8 % (Math.PI * 200.0)));
+			Shaders.set(Shaders.vortex, "Density", (float) density);
+			Shaders.set(Shaders.vortex, "Layer", (float) (11 + (thunder.seed & 7)));
+			Shaders.set(Shaders.vortex, "Flash", 0.0F, 0.0F, flash[2] * near * 1.5F);
+			Shaders.set(Shaders.vortex, "Stroke", stroke * 1.5F);
+			// The channel comes down through the middle of it.
+			Shaders.set(Shaders.vortex, "Eye", 0.09F);
+			Post.draw(foot, Shaders.vortex, view, proj);
 		}
 		RenderSystem.disableBlend();
 		RenderSystem.defaultBlendFunc();
+	}
+
+	/** A horizontal square at height {@code y} round {@code center}, {@code radius} to each side, UV -1..1 across it. */
+	private static BufferBuilder disc(Vec3d center, double y, double radius, Vec3d cam) {
+		float x0 = (float) (center.x - radius - cam.x);
+		float x1 = (float) (center.x + radius - cam.x);
+		float z0 = (float) (center.z - radius - cam.z);
+		float z1 = (float) (center.z + radius - cam.z);
+		float yy = (float) (y - cam.y);
+		BufferBuilder b = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
+		b.vertex(x0, yy, z0).texture(-1.0F, -1.0F).color(255, 255, 255, 255);
+		b.vertex(x1, yy, z0).texture(1.0F, -1.0F).color(255, 255, 255, 255);
+		b.vertex(x1, yy, z1).texture(1.0F, 1.0F).color(255, 255, 255, 255);
+		b.vertex(x0, yy, z1).texture(-1.0F, 1.0F).color(255, 255, 255, 255);
+		return b;
+	}
+
+	/** An open cylinder round {@code center} from {@code y0} up to {@code y1}: UV x once round it, y 0 at its foot. */
+	private static BufferBuilder curtain(Vec3d center, double y0, double y1, double radius, Vec3d cam) {
+		BufferBuilder b = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
+		float bottom = (float) (y0 - cam.y);
+		float top = (float) (y1 - cam.y);
+		for (int i = 0; i < CURTAIN_SEGMENTS; i++) {
+			double a0 = Math.PI * 2.0 * i / CURTAIN_SEGMENTS;
+			double a1 = Math.PI * 2.0 * (i + 1) / CURTAIN_SEGMENTS;
+			float x0 = (float) (center.x + Math.cos(a0) * radius - cam.x);
+			float z0 = (float) (center.z + Math.sin(a0) * radius - cam.z);
+			float x1 = (float) (center.x + Math.cos(a1) * radius - cam.x);
+			float z1 = (float) (center.z + Math.sin(a1) * radius - cam.z);
+			float u0 = (float) i / CURTAIN_SEGMENTS;
+			float u1 = (float) (i + 1) / CURTAIN_SEGMENTS;
+			b.vertex(x0, bottom, z0).texture(u0, 0.0F).color(255, 255, 255, 255);
+			b.vertex(x1, bottom, z1).texture(u1, 0.0F).color(255, 255, 255, 255);
+			b.vertex(x1, top, z1).texture(u1, 1.0F).color(255, 255, 255, 255);
+			b.vertex(x0, top, z0).texture(u0, 1.0F).color(255, 255, 255, 255);
+		}
+		return b;
 	}
 
 	// --- light -------------------------------------------------------------------------------------
@@ -512,13 +580,18 @@ public final class ThunderRender {
 		Random random = new Random(thunder.seed * 7 + (long) (since / 2.0));
 		List<Vec3d> channel = BoltPath.jagged(from, to, 0.12, 7, random);
 		List<List<Vec3d>> forks = new ArrayList<>();
-		for (int f = 0; f < 4; f++) {
+		for (int f = 0; f < 7; f++) {
 			Vec3d root = channel.get(10 + random.nextInt(channel.size() - 20));
 			Vec3d dir = to.subtract(from).normalize().add(random.nextGaussian() * 0.5, random.nextGaussian() * 0.3, random.nextGaussian() * 0.5)
 					.normalize();
 			forks.add(BoltPath.jagged(root, root.add(dir.multiply(from.distanceTo(to) * (0.05 + 0.08 * random.nextDouble()))), 0.3, 4, random));
 		}
-		bolt(channel, forks, cam, view, proj, right, up, (float) b, 1.4F, 0.18F, ARC, 1.0F);
+		bolt(channel, forks, cam, view, proj, right, up, (float) b * 1.2F, 2.8F, 0.32F, ARC, 1.0F);
+		// Where it leaves the hammer, and where it goes into the storm.
+		Fx ends = BATCH.begin(Fx.BLOB, 1.0F, view, proj, right, up);
+		ends.sprite(rel(from.x, from.y, from.z, cam), 1.6F, 0.0F, Fx.argb(CORE[0], CORE[1], CORE[2], (float) b));
+		ends.sprite(rel(to.x, to.y, to.z, cam), 14.0F, 0.0F, Fx.argb(ARC[0], ARC[1], ARC[2], (float) b * 0.8F));
+		ends.end(true, 6.0F);
 	}
 
 	/** The stepped leader: dim and violet, a jump at a time, its branches feeling out round it. */
@@ -538,12 +611,12 @@ public final class ThunderRender {
 				forks.add(reveal(branch.points(), path, reach));
 			}
 		}
-		bolt(channel, forks, cam, view, proj, right, up, 0.45F * jump, 1.1F, 0.12F, LEADER, 0.8F);
+		bolt(channel, forks, cam, view, proj, right, up, 0.7F * jump, 2.0F, 0.22F, LEADER, 0.85F);
 		if (channel.size() > 1) {
 			Vec3d tip = channel.get(channel.size() - 1);
 			Fx glow = BATCH.begin(Fx.BLOB, 1.0F, view, proj, right, up);
-			glow.sprite(rel(tip.x, tip.y, tip.z, cam), 3.0F, 0.0F, Fx.argb(LEADER[0], LEADER[1], LEADER[2], jump));
-			glow.end(true, 4.0F);
+			glow.sprite(rel(tip.x, tip.y, tip.z, cam), 5.0F, 0.0F, Fx.argb(LEADER[0], LEADER[1], LEADER[2], jump));
+			glow.end(true, 6.0F);
 		}
 	}
 
@@ -610,8 +683,8 @@ public final class ThunderRender {
 
 	/**
 	 * The return stroke and what follows it: the channel blazing white with its branches, again with each restrike, then
-	 * glowing violet as it cools and breaking up into beads of light; a blinding glow on the ground where it landed, and
-	 * the thunderclap's shock racing out as a shell.
+	 * glowing violet as it cools and breaking up into beads of light; and a blinding glow on the ground where it landed.
+	 * The dust the thunderclap throws up is {@link ThunderDust}'s.
 	 */
 	private static void stroke(ClientThunder thunder, double e, Vec3d cam, Matrix4f view, Matrix4f proj, Vector3f right, Vector3f up) {
 		BoltPath path = path(thunder);
@@ -654,24 +727,6 @@ public final class ThunderRender {
 				}
 				beads.end(true, 3.0F);
 			}
-		}
-		// The thunderclap: a pale shock shell racing out from the foot of the channel.
-		if (e > 0.3 && e < 18.0 && sphere != null) {
-			double rs = thunder.radius * (0.15 + 1.4 * (1.0 - Math.exp(-e / 5.0)));
-			float k = (float) Math.sin(Math.PI * MathHelper.clamp((e - 0.3) / 17.7, 0.0, 1.0));
-			Vector3f c = rel(thunder.center.x, thunder.center.y, thunder.center.z, cam);
-			Matrix4f model = new Matrix4f().translation(c).scale((float) rs, (float) (rs * 0.6), (float) rs);
-			RenderSystem.enableDepthTest();
-			RenderSystem.depthMask(false);
-			RenderSystem.disableCull();
-			RenderSystem.enableBlend();
-			RenderSystem.blendFuncSeparate(GlStateManager.SrcFactor.ONE, GlStateManager.DstFactor.ONE, GlStateManager.SrcFactor.ZERO,
-					GlStateManager.DstFactor.ONE);
-			Shaders.set(Shaders.shell, "GlowColor", 0.6F, 0.75F, 1.0F);
-			Shaders.set(Shaders.shell, "Intensity", 0.7F * k);
-			Shaders.set(Shaders.shell, "Falloff", 4.0F);
-			Shaders.set(Shaders.shell, "Toon", 0.0F);
-			sphere.draw(Shaders.shell, new Matrix4f(view).mul(model), proj);
 		}
 	}
 
@@ -873,6 +928,18 @@ public final class ThunderRender {
 		}
 		lights.sort((a, b) -> Float.compare(b.weight(), a.weight()));
 		return lights.size() > 4 ? lights.subList(0, 4) : lights;
+	}
+
+	/** How brightly the strokes in sight light the dust this frame. */
+	private static float strokeFlash(List<ClientThunder> live, float tickDelta) {
+		float flash = 0.0F;
+		for (ClientThunder thunder : live) {
+			double e = thunder.sinceStroke(tickDelta);
+			if (thunder.struck && e >= 0) {
+				flash = Math.max(flash, (float) ThunderTimeline.channelFlash(e) * 1.5F);
+			}
+		}
+		return flash;
 	}
 
 	private static Light light(Vec3d pos, Vec3d cam, float range, float r, float g, float b, float wrap) {

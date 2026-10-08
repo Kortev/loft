@@ -118,15 +118,49 @@ public final class ThunderCamera {
 		return eye;
 	}
 
-	/** High over the strike looking straight down, turning slowly and sinking a little as the scar burns out. */
+	/**
+	 * High over the strike looking straight down while the scar burns out across the ground, turning slowly; then a crane
+	 * down and round to a long three-quarter view of it all, the petrified bolt standing in its crater.
+	 */
 	private static CameraDirector.Shot overhead(ClientThunder thunder, double t) {
 		double e = t - ThunderTimeline.FRAMES_END;
+		double span = ThunderTimeline.WIDE_END - ThunderTimeline.FRAMES_END;
 		// Under what is left of the storm.
 		double height = Math.min(Math.max(70.0, thunder.radius * 2.1), thunder.cloudBase - thunder.center.y - 12.0);
-		double sink = 1.0 - 0.12 * ease(e / (ThunderTimeline.WIDE_END - ThunderTimeline.FRAMES_END));
-		Vec3d eye = thunder.center.add(0.0, height * sink, 0.0);
-		float yaw = (float) (thunder.seed % 360 + e * 0.35);
-		return new CameraDirector.Shot(eye.x, eye.y, eye.z, yaw, 89.9F);
+		float spin = (float) (thunder.seed % 360 + e * 0.35);
+		double p = ease((e - span * 0.35) / (span * 0.65));
+		double bearing = Math.toRadians(spin + 90.0);
+		double out = thunder.radius * 1.3 * p;
+		Vec3d eye = thunder.center.add(Math.cos(bearing) * out, height * (1.0 - 0.5 * p), Math.sin(bearing) * out);
+		if (p <= 0.0) {
+			return new CameraDirector.Shot(eye.x, eye.y, eye.z, spin, 89.9F);
+		}
+		CameraDirector.Shot toward = look(eye, thunder.center.add(0.0, thunder.radius * 0.2 * p, 0.0));
+		return new CameraDirector.Shot(eye.x, eye.y, eye.z, MathHelper.lerpAngleDegrees((float) p, spin, toward.yaw()),
+				(float) MathHelper.lerp(p, 89.9, toward.pitch()));
+	}
+
+	/**
+	 * How much wider or narrower than the player's own the field of view is while a shot holds the camera: closing in on
+	 * the leader as it comes down, flung wide by the stroke and settling back while the impact frames run.
+	 */
+	public static float fovScale(float tickDelta) {
+		ClientThunder thunder = ClientThunders.cinematic();
+		if (thunder == null) {
+			return 1.0F;
+		}
+		double t = thunder.time(tickDelta);
+		if (!ClientThunders.shotActive(thunder, t) || t < ThunderTimeline.INBOUND) {
+			return 1.0F;
+		}
+		double in = ease((t - ThunderTimeline.INBOUND) / (ThunderTimeline.STROKE - ThunderTimeline.INBOUND));
+		if (t < ThunderTimeline.STROKE) {
+			return (float) (1.0 - 0.16 * in);
+		}
+		double e = t - ThunderTimeline.STROKE;
+		double kick = 1.0 - Math.exp(-e / 1.2);
+		double settle = ease(e / (ThunderTimeline.FRAMES_END - ThunderTimeline.STROKE));
+		return (float) MathHelper.lerp(settle, MathHelper.lerp(kick, 0.84, 1.18), 1.0);
 	}
 
 	private static CameraDirector.Shot look(Vec3d eye, Vec3d at) {

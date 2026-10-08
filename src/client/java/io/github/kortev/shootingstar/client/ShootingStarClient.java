@@ -11,6 +11,7 @@ import io.github.kortev.shootingstar.client.render.WorldProjector;
 import io.github.kortev.shootingstar.client.thunder.ClientThunders;
 import io.github.kortev.shootingstar.client.thunder.ThunderHud;
 import io.github.kortev.shootingstar.client.thunder.ThunderRender;
+import io.github.kortev.shootingstar.client.thunder.ThunderWeather;
 import io.github.kortev.shootingstar.client.world.WorldFx;
 import io.github.kortev.shootingstar.item.GenesisKeyItem;
 import io.github.kortev.shootingstar.client.gap.VoidFx;
@@ -90,6 +91,7 @@ public class ShootingStarClient implements ClientModInitializer {
 			ClientStrikes.tick(client);
 			ClientGaps.tick(client);
 			ClientThunders.tick(client);
+			ThunderWeather.tick(client);
 			VoidFx.tick(client);
 		});
 
