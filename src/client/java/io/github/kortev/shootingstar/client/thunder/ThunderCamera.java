@@ -15,13 +15,17 @@ import org.jetbrains.annotations.Nullable;
 /**
  * The shooter's camera shots for Mjölnir, applied through {@link CameraDirector}: at the call their eyes turn up after the
  * bolt as it leaps into the sky; then the camera climbs from their eyes towards the target, tipping back to look up into
- * the storm boiling out over it, and rises into its base as the feed cuts in. After the feed it waits low at the edge of
- * the zone, looking up at the storm as the leader steps down out of it and the streamers rise, closing in on it, and
+ * the storm boiling out over it, and rises into its base as the feed cuts in. After the feed it opens on the shooter,
+ * over their shoulder with the hammer held up and the storm far off; then it waits low at the edge of the zone, looking
+ * up at the storm as the leader steps down out of it and the streamers rise, closing in on it, and
  * holds there through the stroke (flung wide by it); then it cuts high over the strike, looking straight down as the
  * scar burns out across the ground, and cranes down and round to a long three-quarter view; and at the end it arcs home
  * over the ground into their eyes.
  */
 public final class ThunderCamera {
+	/** How long the inbound opens on the shooter, over their shoulder, before cutting to the edge of the zone. */
+	private static final int HERO_TICKS = 18;
+
 	private ThunderCamera() {
 	}
 
@@ -42,6 +46,9 @@ public final class ThunderCamera {
 		}
 		if (t < ThunderTimeline.FEED) {
 			return rise(player, thunder, tickDelta, (t - ThunderTimeline.RISE) / (ThunderTimeline.FEED - ThunderTimeline.RISE));
+		}
+		if (t < ThunderTimeline.INBOUND + HERO_TICKS) {
+			return hero(client.world, player, thunder, tickDelta, t);
 		}
 		if (t < ThunderTimeline.FRAMES_END) {
 			return witness(client.world, player, thunder, t);
@@ -107,6 +114,28 @@ public final class ThunderCamera {
 		float yaw = from[0] + (float) (70.0 * p * p);
 		float pitch = (float) MathHelper.lerp(ease(p * 1.6), from[1], -88.0);
 		return new CameraDirector.Shot(x, y, z, yaw, pitch);
+	}
+
+	/**
+	 * Back out of the feed onto whoever called the storm: low behind their right shoulder, the hammer held up over their
+	 * head, the storm far off over the target with the leader stepping down out of it, the long lens making it loom.
+	 */
+	private static CameraDirector.Shot hero(ClientWorld world, ClientPlayerEntity player, ClientThunder thunder, float tickDelta,
+			double t) {
+		Vec3d eye = player.getCameraPosVec(tickDelta);
+		Vec3d at = thunder.wallBase();
+		Vec3d d = new Vec3d(at.x - eye.x, 0.0, at.z - eye.z);
+		d = d.lengthSquared() < 1.0E-4 ? new Vec3d(1.0, 0.0, 0.0) : d.normalize();
+		Vec3d side = new Vec3d(-d.z, 0.0, d.x);
+		double push = ease((t - ThunderTimeline.INBOUND) / HERO_TICKS) * 0.8;
+		Vec3d cam = eye.add(d.multiply(-3.6 + push)).add(side.multiply(1.3)).add(0.0, -0.5, 0.0);
+		// Never inside a wall behind them: as far back as the way is clear.
+		HitResult hit = world.raycast(new RaycastContext(eye, cam, RaycastContext.ShapeType.COLLIDER,
+				RaycastContext.FluidHandling.NONE, player));
+		if (hit.getType() != HitResult.Type.MISS) {
+			cam = hit.getPos().add(eye.subtract(cam).normalize().multiply(0.3));
+		}
+		return look(cam, at.add(0.0, -(at.y - thunder.center.y) * 0.25, 0.0));
 	}
 
 	/**
@@ -192,6 +221,10 @@ public final class ThunderCamera {
 		double t = thunder.time(tickDelta);
 		if (!ClientThunders.shotActive(thunder, t) || t < ThunderTimeline.INBOUND) {
 			return 1.0F;
+		}
+		if (t < ThunderTimeline.INBOUND + HERO_TICKS) {
+			// A long lens over the shooter's shoulder, so the storm far off looms over them.
+			return 0.62F;
 		}
 		double in = ease((t - ThunderTimeline.INBOUND) / (ThunderTimeline.STROKE - ThunderTimeline.INBOUND));
 		if (t < ThunderTimeline.STROKE) {

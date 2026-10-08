@@ -99,7 +99,8 @@ public final class ClientThunders {
 	/** Whether {@code player} is holding Mjölnir up to call the storm, for how others see them. */
 	public static boolean raising(PlayerEntity player) {
 		for (ClientThunder thunder : THUNDERS.values()) {
-			if (thunder.shooter.equals(player.getUuid()) && thunder.age < ThunderTimeline.RISE + 10) {
+			// Held up from the raise until the stroke has come down.
+			if (thunder.shooter.equals(player.getUuid()) && thunder.age < ThunderTimeline.STROKE + 20) {
 				return true;
 			}
 		}
