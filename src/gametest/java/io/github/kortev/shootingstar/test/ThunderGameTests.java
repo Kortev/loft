@@ -150,9 +150,9 @@ public class ThunderGameTests implements FabricGameTest {
 		outer.setAiDisabled(true);
 
 		ThunderManager.launch(world, center, null);
-		// The creeper is looked at once its arc has landed (a few ticks after the stroke) and before the scar can reach
-		// it (26 blocks of path at 2.5 a tick): if an arm of the scar then runs under it, the charged fulgurite may still
-		// shock it to death, which is the scar's doing, not the arc's.
+		// The creeper is looked at once its arc has landed (a few ticks after the stroke), and again at the end: the arc
+		// charges it unharmed, and neither the fires round it nor the scar's charged fulgurite (one strike in eight runs an
+		// arm of the scar right under it) may kill it after.
 		StringBuilder arced = new StringBuilder();
 		context.waitAndRun(ThunderTimeline.STROKE + 8, () -> {
 			if (!creeper.isAlive()) {
@@ -236,6 +236,9 @@ public class ThunderGameTests implements FabricGameTest {
 			}
 			if (mid.isAlive()) {
 				problems.append("zombie in the zone survived with ").append(mid.getHealth()).append(" hp; ");
+			}
+			if (arced.isEmpty() && (!creeper.isAlive() || creeper.getHealth() < creeper.getMaxHealth() - 4.0F)) {
+				problems.append("the charged creeper was hurt after its arc: ").append(creeper.getHealth()).append(" hp; ");
 			}
 			if (outer.isAlive() && outer.getHealth() >= outer.getMaxHealth()) {
 				problems.append("the husk in the ring was never arced; ");

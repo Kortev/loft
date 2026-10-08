@@ -5,6 +5,7 @@ import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.mob.CreeperEntity;
 import net.minecraft.fluid.FluidState;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.registry.tag.FluidTags;
@@ -71,7 +72,9 @@ public class ChargedFulguriteBlock extends Block {
 
 	@Override
 	public void onSteppedOn(World world, BlockPos pos, BlockState state, Entity entity) {
-		if (!entity.bypassesSteppingEffects() && entity instanceof LivingEntity) {
+		// A charged creeper is full of the same charge, and stands on it unharmed.
+		if (!entity.bypassesSteppingEffects() && entity instanceof LivingEntity
+				&& !(entity instanceof CreeperEntity creeper && creeper.shouldRenderOverlay())) {
 			entity.damage(world.getDamageSources().lightningBolt(), state.get(CHARGE));
 		}
 		super.onSteppedOn(world, pos, state, entity);

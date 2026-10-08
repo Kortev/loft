@@ -26,6 +26,8 @@ import net.minecraft.entity.ItemEntity;
 import net.minecraft.entity.LightningEntity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
+import net.minecraft.entity.effect.StatusEffectInstance;
+import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.entity.mob.CreeperEntity;
 import net.minecraft.predicate.entity.EntityPredicates;
 import net.minecraft.registry.tag.BlockTags;
@@ -596,19 +598,14 @@ public final class ThunderBuilder {
 			return;
 		}
 		struck.add(target.getUuid());
-		target.damage(ModDamageTypes.arced(world, shooter), arc.damage());
-		target.setOnFireFor(4.0F);
-		if (target.isAlive()) {
-			// The arc is lightning, so it does what lightning does: charges creepers, turns pigs, villagers and the rest.
-			boolean wasCharged = target instanceof CreeperEntity creeper && creeper.shouldRenderOverlay();
-			LightningEntity bolt = EntityType.LIGHTNING_BOLT.create(world);
-			if (bolt != null) {
-				bolt.setCosmetic(true);
-				bolt.setPosition(target.getX(), target.getY(), target.getZ());
-				target.onStruckByLightning(world, bolt);
-			}
-			if (!wasCharged && target instanceof CreeperEntity creeper && creeper.shouldRenderOverlay()) {
-				ModCriteria.fire(shooter, ModCriteria.MJOLNIR_CHARGED);
+		if (target instanceof CreeperEntity creeper) {
+			charge(creeper);
+		} else {
+			target.damage(ModDamageTypes.arced(world, shooter), arc.damage());
+			target.setOnFireFor(4.0F);
+			if (target.isAlive()) {
+				// The arc is lightning, so it does what lightning does: turns pigs, villagers and the rest.
+				strike(target);
 			}
 		}
 		Vec3d push = arc.to().subtract(arc.from()).multiply(1.0, 0.0, 1.0);
@@ -616,6 +613,35 @@ public final class ThunderBuilder {
 			push = push.normalize().multiply(0.6);
 			target.addVelocity(push.x, 0.35, push.z);
 			target.velocityModified = true;
+		}
+	}
+
+	/**
+	 * Lightning is what a creeper feeds on: the arc charges it and leaves it none the worse, where vanilla lightning
+	 * would also burn it (and a creeper at the edge of the zone, hit hard and set alight, used to burn to death just
+	 * after it was charged). Vanilla's strike cannot hurt it, the fire it lights is put out, and it shrugs off fire for
+	 * half a minute, so the fires the stroke leaves round it do not finish it either.
+	 */
+	private void charge(CreeperEntity creeper) {
+		boolean wasCharged = creeper.shouldRenderOverlay();
+		boolean wasInvulnerable = creeper.isInvulnerable();
+		creeper.setInvulnerable(true);
+		strike(creeper);
+		creeper.setInvulnerable(wasInvulnerable);
+		creeper.extinguish();
+		creeper.addStatusEffect(new StatusEffectInstance(StatusEffects.FIRE_RESISTANCE, 20 * 30, 0, false, false));
+		if (!wasCharged && creeper.isAlive() && creeper.shouldRenderOverlay()) {
+			ModCriteria.fire(shooter, ModCriteria.MJOLNIR_CHARGED);
+		}
+	}
+
+	/** Vanilla's lightning strike on {@code target}, from a bolt that is never spawned (no fire, no sound of its own). */
+	private void strike(LivingEntity target) {
+		LightningEntity bolt = EntityType.LIGHTNING_BOLT.create(world);
+		if (bolt != null) {
+			bolt.setCosmetic(true);
+			bolt.setPosition(target.getX(), target.getY(), target.getZ());
+			target.onStruckByLightning(world, bolt);
 		}
 	}
 
