@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormat;
@@ -20,6 +21,7 @@ import net.minecraft.client.render.VertexFormats;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
+import org.lwjgl.opengl.GL11;
 
 /**
  * Mjölnir's storm feed. Out of the cloud deck into orbit over the night side, where every thunderstorm on Earth is
@@ -285,6 +287,11 @@ final class ThunderShots implements Feed.Sequence {
 		Vector3f at = new Vector3f(0.0F, lerp(48.0, 44.0, fall), 0.0F);
 		cam.perspective(62.0F, width, height, 0.3F, 200000.0F);
 		cam.look(eye, at, new Vector3f(0, 1, 0));
+
+		// The night beyond the storm's edge, low over the horizon: the dark of the rain the country is lost in, not black.
+		RenderSystem.clearColor(0.05F, 0.056F, 0.08F, 1.0F);
+		RenderSystem.clear(GL11.GL_COLOR_BUFFER_BIT, MinecraftClient.IS_SYSTEM_MAC);
+		RenderSystem.clearColor(0.0F, 0.0F, 0.0F, 0.0F);
 
 		Random random = new Random(42);
 		List<Vector3f> channel = jagged(new Vector3f(0.0F, LOCAL_BASE, 0.0F), new Vector3f(0, 0, 0), 0.16F, 6, random);
