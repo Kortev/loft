@@ -678,7 +678,8 @@ public final class ThunderBuilder {
 			BlockState shard = random.nextDouble() < 0.6 ? ModBlocks.FULGURITE.getDefaultState() : Blocks.TINTED_GLASS.getDefaultState();
 			FallingBlockEntity block = FallingBlockEntity.spawnFromBlock(world, pos, shard);
 			block.dropItem = false;
-			block.setHurtEntities(2.0F, 20);
+			// A shard stings whatever it comes down on (up to 4), but cannot kill what the stroke spared.
+			block.setHurtEntities(0.5F, 4);
 			double reachOut = Math.sqrt(radius / 28.0);
 			double speed = (0.5 + random.nextDouble() * 0.9) * reachOut;
 			block.setVelocity(Math.cos(angle) * speed, (0.8 + random.nextDouble() * 0.7) * reachOut, Math.sin(angle) * speed);

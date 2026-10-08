@@ -237,7 +237,8 @@ public class ThunderGameTests implements FabricGameTest {
 			if (mid.isAlive()) {
 				problems.append("zombie in the zone survived with ").append(mid.getHealth()).append(" hp; ");
 			}
-			if (arced.isEmpty() && (!creeper.isAlive() || creeper.getHealth() < creeper.getMaxHealth() - 4.0F)) {
+			// Up to two of the blast's falling shards may come down on it (4 each, at most).
+			if (arced.isEmpty() && (!creeper.isAlive() || creeper.getHealth() < creeper.getMaxHealth() - 8.0F)) {
 				problems.append("the charged creeper was hurt after its arc: ").append(creeper.getHealth()).append(" hp; ");
 			}
 			if (outer.isAlive() && outer.getHealth() >= outer.getMaxHealth()) {
