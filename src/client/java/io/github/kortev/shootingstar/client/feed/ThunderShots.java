@@ -19,7 +19,6 @@ import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Matrix4f;
-import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
 /**
@@ -45,15 +44,11 @@ final class ThunderShots implements Feed.Sequence {
 	/** The vortex's angular radius over the target once it has wound up: about two hundred kilometres. */
 	private static final float VORTEX = 0.03F;
 	private static final int STORM_COUNT = 1812;
-	/** Earth's radius in the leader shot's units (a hundred metres), where the ground under the target is y = 0. */
-	private static final float LOCAL_R = 63710.0F;
 	/** Height of the storm's base over the ground in the leader shot (nine kilometres). */
 	private static final float LOCAL_BASE = 90.0F;
 
 	private final Space space = new Space();
 	private final Cam cam = new Cam();
-	@Nullable
-	private Mesh patch;
 	private float width;
 	private float height;
 	private float guiW;
@@ -68,12 +63,6 @@ final class ThunderShots implements Feed.Sequence {
 	@Override
 	public Overlay render(double t, float fbWidth, float fbHeight, float guiWidth, float guiHeight) {
 		space.ensure();
-		if (patch == null) {
-			// The ground round the target, for the leader shot: about five degrees each way of the map.
-			float u = (float) ((Math.toRadians(10.75) + Math.PI) / (Math.PI * 2.0));
-			float v = (float) ((Math.PI / 2.0 - Math.toRadians(59.91)) / Math.PI);
-			patch = Mesh.spherePatch(u - 0.02F, u + 0.02F, v - 0.012F, v + 0.012F, 96);
-		}
 		width = fbWidth;
 		height = fbHeight;
 		guiW = guiWidth;
@@ -255,10 +244,7 @@ final class ThunderShots implements Feed.Sequence {
 	// =============================================================================================
 
 	private void leader(double s, Overlay o) {
-		// Earth in units of a hundred metres, turned so the target is straight up and moved so it is at the origin.
-		Matrix4f ground = new Matrix4f().translation(0.0F, -LOCAL_R, 0.0F)
-				.rotate(new Quaternionf().rotationTo(TARGET, new Vector3f(0, 1, 0))).scale(LOCAL_R);
-		Vector3f localSun = new Quaternionf().rotationTo(TARGET, new Vector3f(0, 1, 0)).transform(new Vector3f(SUN));
+		// In units of a hundred metres, the ground under the target at y = 0.
 		double reach = leaderReach(s / (LEADER_LENGTH - 4.0));
 		float tip = LOCAL_BASE * (1.0F - (float) reach);
 		// The camera falls with the tip, a little above it and off to one side, looking down past it.
@@ -280,9 +266,9 @@ final class ThunderShots implements Feed.Sequence {
 		}
 		float flash = (float) Math.exp(-(s - Math.floor(s)) * 3.0);
 		// Under the storm: the ground lit only by the leader and by the storm's own flashes.
-		// Night under the storm: the ground dark, lit only as the leader steps (and its cities' lights).
-		space.stormEarthPatch(patch, cam, ground, localSun, 0.0F, 1.0F, 0.3F + 0.5F * flash, time, TARGET, 0.0F, 0.0F, 1.0F, 0.0F,
-				0.0F, 0.0F);
+		// Night under the storm: the ground (worked out at every scale, so it is sharp all the way down) lit by the leader's
+		// tip as it steps down and by the storm's flashes.
+		ground(channelAt(channel, tip), 0.5F + 0.9F * flash * (float) reach, 0.15F * flash);
 		Space.clearDepth();
 		// The streamer reaching up off the ground at the target to meet the leader.
 		Fx streamer = space.glow(cam, Fx.BLOB, 1.0F);
@@ -304,6 +290,25 @@ final class ThunderShots implements Feed.Sequence {
 			o.flash = smooth((s - (LEADER_LENGTH - 6)) / 5.0);
 			o.flashColor = 0xF4F7FF;
 		}
+	}
+
+	/** The ground under the storm, a plane at y = 0 out to two hundred kilometres each way, in ss_ground. */
+	private void ground(Vector3f tip, float tipLight, float flash) {
+		Space.opaque();
+		float r = 2000.0F;
+		BufferBuilder b = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
+		b.vertex(-r, 0.0F, -r).texture(-r, -r).color(255, 255, 255, 255);
+		b.vertex(-r, 0.0F, r).texture(-r, r).color(255, 255, 255, 255);
+		b.vertex(r, 0.0F, r).texture(r, r).color(255, 255, 255, 255);
+		b.vertex(r, 0.0F, -r).texture(r, -r).color(255, 255, 255, 255);
+		RenderSystem.setShaderTexture(0, NoiseTex.get());
+		Shaders.set(Shaders.ground, "Time", time);
+		Shaders.set(Shaders.ground, "Tip", tip.x, tip.y, tip.z);
+		Shaders.set(Shaders.ground, "TipLight", tipLight);
+		Shaders.set(Shaders.ground, "Flash", flash);
+		// Rain at night: a few kilometres and the ground is lost.
+		Shaders.set(Shaders.ground, "Haze", 0.015F);
+		Post.draw(b, Shaders.ground, cam.view, cam.proj);
 	}
 
 	/** Layers of the storm's base round the eye, which the camera falls through. */

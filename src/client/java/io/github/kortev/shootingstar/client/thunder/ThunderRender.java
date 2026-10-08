@@ -152,7 +152,7 @@ public final class ThunderRender {
 
 	/** How thick the storm over the target is at {@code t}: it gathers from the call and is spent soon after the stroke. */
 	static double stormDensity(double t) {
-		double gather = ThunderTimeline.smooth((t - ThunderTimeline.CALL) / 50.0);
+		double gather = ThunderTimeline.smooth((t - ThunderTimeline.CALL) / 18.0);
 		double spent = ThunderTimeline.smooth((t - ThunderTimeline.STROKE - 8.0) / 70.0);
 		return gather * (1.0 - spent);
 	}

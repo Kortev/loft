@@ -70,10 +70,14 @@ public final class ThunderTimeline {
 		return Math.max(targetY + 40, Math.min(topY - 24, Math.max(targetY + 110, 196)));
 	}
 
-	/** Radius of the storm vortex over the target at {@code t}: it winds up from the call to the stroke. */
+	/**
+	 * Radius of the storm vortex over the target at {@code t}: it boils out of the sky where the call goes into it, to a
+	 * third of its size in under a second (so the camera has a storm to rise into), then winds up slowly to the stroke.
+	 */
 	public static double vortexRadius(double t, int radius) {
+		double burst = smooth((t - CALL) / 16.0);
 		double grow = smooth((t - CALL) / (double) (INBOUND - CALL));
-		return radius * 3.2 * (0.08 + 0.92 * grow);
+		return radius * 3.2 * (0.35 * burst + 0.65 * grow);
 	}
 
 	/**

@@ -94,27 +94,6 @@ public final class Mesh {
 		return upload(b);
 	}
 
-	/**
-	 * A small piece of the {@link #sphere}, {@code u0..u1} by {@code v0..v1} of its map, finely divided: close enough
-	 * to the ground that the whole sphere's facets would show, it stays round where the camera is.
-	 */
-	public static Mesh spherePatch(float u0, float u1, float v0, float v1, int divisions) {
-		BufferBuilder b = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR_NORMAL);
-		for (int j = 0; j < divisions; j++) {
-			for (int i = 0; i < divisions; i++) {
-				float ua = u0 + (u1 - u0) * i / divisions;
-				float ub = u0 + (u1 - u0) * (i + 1) / divisions;
-				float va = v0 + (v1 - v0) * j / divisions;
-				float vb = v0 + (v1 - v0) * (j + 1) / divisions;
-				sphereVertex(b, ua, va, 0);
-				sphereVertex(b, ua, vb, 0);
-				sphereVertex(b, ub, vb, 0);
-				sphereVertex(b, ub, va, 0);
-			}
-		}
-		return upload(b);
-	}
-
 	private static void sphereVertex(BufferBuilder b, float u, float v, int material) {
 		double lon = u * Math.PI * 2 - Math.PI;
 		double lat = Math.PI / 2 - v * Math.PI;

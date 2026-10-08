@@ -107,6 +107,13 @@ void main() {
         float fine = noise(texCoord * 2400.0) * 0.5 + noise(texCoord * 5200.0) * 0.5;
         cloud = clamp(cloud + (fine - 0.5) * 0.35 * Detail * smoothstep(0.05, 0.4, cloud), 0.0, 1.0);
         day *= 1.0 + (noise(texCoord * 3600.0) - 0.5) * 0.4 * Detail;
+        // City lights: the map's soft glow broken up into towns and single lights, sharp however close the camera is.
+        vec2 g = texCoord * vec2(16000.0, 8000.0);
+        vec2 cell = floor(g);
+        vec2 at = vec2(hash(cell + 3.1), hash(cell + 7.7));
+        float spark = step(0.78, hash(cell)) * smoothstep(0.3, 0.0, length(fract(g) - at));
+        float towns = smoothstep(0.5, 0.85, noise(texCoord * 6000.0));
+        night *= mix(1.0, 0.2 + 1.8 * towns + 3.5 * spark, Detail);
     }
 
     // Where this point is from the target: how far (radians) and which way round.

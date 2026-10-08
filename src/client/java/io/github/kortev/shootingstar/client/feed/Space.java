@@ -181,12 +181,6 @@ final class Space {
 		atmosphere(cam, model, sun, 1.025F, 0.3F, 0.55F, 1.0F, 1.5F, 2.6F);
 	}
 
-	/** As {@link #stormEarth}, but only {@code patch}, a piece of the sphere close up, and no atmosphere round it. */
-	void stormEarthPatch(Mesh patch, Cam cam, Matrix4f model, Vector3f sun, float cloudShift, float detail, float exposure,
-			float time, Vector3f target, float storms, float front, float drain, float vortex, float spin, float charge) {
-		stormSurface(patch, cam, model, sun, cloudShift, detail, exposure, time, target, storms, front, drain, vortex, spin, charge);
-	}
-
 	private void stormSurface(Mesh mesh, Cam cam, Matrix4f model, Vector3f sun, float cloudShift, float detail, float exposure,
 			float time, Vector3f target, float storms, float front, float drain, float vortex, float spin, float charge) {
 		opaque();

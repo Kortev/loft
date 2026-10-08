@@ -37,6 +37,7 @@ public final class Shaders {
 	public static ShaderProgram vortex;
 	public static ShaderProgram wall;
 	public static ShaderProgram dust;
+	public static ShaderProgram ground;
 	public static ShaderProgram thunder;
 	public static ShaderProgram storm;
 
@@ -71,6 +72,7 @@ public final class Shaders {
 			context.register(ShootingStar.id("ss_vortex"), VertexFormats.POSITION_TEXTURE_COLOR, p -> vortex = p);
 			context.register(ShootingStar.id("ss_wall"), VertexFormats.POSITION_TEXTURE_COLOR, p -> wall = p);
 			context.register(ShootingStar.id("ss_dust"), VertexFormats.POSITION_TEXTURE_COLOR_NORMAL, p -> dust = p);
+			context.register(ShootingStar.id("ss_ground"), VertexFormats.POSITION_TEXTURE_COLOR, p -> ground = p);
 			context.register(ShootingStar.id("ss_thunder"), VertexFormats.BLIT_SCREEN, p -> thunder = p);
 			context.register(ShootingStar.id("ss_storm"), VertexFormats.POSITION_TEXTURE_COLOR_NORMAL, p -> storm = p);
 		});
@@ -86,7 +88,7 @@ public final class Shaders {
 
 	/** True once Mjölnir's programs have loaded too (it also draws with the shared ones). */
 	public static boolean thunderReady() {
-		return ready() && vortex != null && wall != null && dust != null && thunder != null && storm != null;
+		return ready() && vortex != null && wall != null && dust != null && ground != null && thunder != null && storm != null;
 	}
 
 	public static void set(ShaderProgram program, String name, float value) {
