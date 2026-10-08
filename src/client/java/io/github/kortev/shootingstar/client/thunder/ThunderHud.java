@@ -75,7 +75,10 @@ public final class ThunderHud {
 		for (ClientThunder thunder : ClientThunders.all()) {
 			double t = thunder.time(tickDelta);
 			if (t < ThunderTimeline.STROKE) {
-				lockMarker(m, w, h, thunder, t, words, client);
+				// Not over the shooter's own camera shots: the storm is right there in them.
+				if (!(thunder == cinematic && shot)) {
+					lockMarker(m, w, h, thunder, t, words, client);
+				}
 			} else if (thunder.mine && t >= ThunderTimeline.FRAMES_END + 4) {
 				readout(words, w, h, thunder, t);
 			}
