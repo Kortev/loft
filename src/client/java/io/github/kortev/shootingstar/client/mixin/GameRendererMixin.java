@@ -1,7 +1,9 @@
 package io.github.kortev.shootingstar.client.mixin;
 
+import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import io.github.kortev.shootingstar.client.camera.ScreenShake;
 import io.github.kortev.shootingstar.client.thunder.ClientThunders;
+import io.github.kortev.shootingstar.client.thunder.HammerRaise;
 import io.github.kortev.shootingstar.client.thunder.ThunderCamera;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.GameRenderer;
@@ -29,6 +31,16 @@ public abstract class GameRendererMixin {
 		if (ClientThunders.feedCovers(tickCounter.getTickDelta(false))) {
 			ci.cancel();
 		}
+	}
+
+	/**
+	 * The shot that follows Mjölnir's call up puts the HUD away, and the hand with it: the hammer is kept in the shooter's
+	 * hand until the camera leaves their head, so it does not vanish just as the bolt leaves it.
+	 */
+	@ModifyExpressionValue(method = "renderHand",
+			at = @At(value = "FIELD", target = "Lnet/minecraft/client/option/GameOptions;hudHidden:Z"))
+	private boolean shootingstar$hammerStaysUp(boolean hudHidden) {
+		return hudHidden && !HammerRaise.held();
 	}
 
 	/** Mjölnir's camera shots zoom: in on the leader as it comes down, out with the stroke (the world only, not the hand). */

@@ -447,7 +447,7 @@ public final class ThunderRender {
 			Shaders.set(Shaders.vortex, "Detail", 1.0F);
 			Shaders.set(Shaders.vortex, "Stroke", stroke * scale);
 			Shaders.set(Shaders.vortex, "Eye", 0.05F * scale);
-			Shaders.set(Shaders.vortex, "FogEnd", fogEnd);
+			Shaders.set(Shaders.vortex, "FadeEnd", fogEnd);
 			Post.draw(deck, Shaders.vortex, view, proj);
 		}
 
@@ -463,7 +463,7 @@ public final class ThunderRender {
 			Shaders.set(Shaders.wall, "Daylight", daylight);
 			Shaders.set(Shaders.wall, "Flash", flash[2] * near * 2.0F);
 			Shaders.set(Shaders.wall, "Stroke", stroke);
-			Shaders.set(Shaders.wall, "FogEnd", fogEnd);
+			Shaders.set(Shaders.wall, "FadeEnd", fogEnd);
 			BufferBuilder column = curtain(thunder.center, thunder.cloudBase - drop, thunder.cloudBase + 3.0, wall, cam);
 			Post.draw(column, Shaders.wall, view, proj);
 			BufferBuilder foot = disc(thunder.center, thunder.cloudBase - drop, wall * 1.15, cam);
@@ -612,9 +612,10 @@ public final class ThunderRender {
 		bolt(channel, forks, cam, view, proj, right, up, (float) b * 1.2F, 2.8F, 0.32F, ARC, 1.0F, 24.0F);
 		// Where it leaves the hammer, and where it goes into the storm.
 		Fx ends = BATCH.begin(Fx.BLOB, 1.0F, view, proj, right, up);
-		float head = (float) Math.min(1.6, from.distanceTo(cam) * 0.25);
+		// A spark on the hammer's head, a few degrees across however near it is.
+		float head = (float) Math.min(1.6, from.distanceTo(cam) * 0.06);
 		ends.sprite(rel(from.x, from.y, from.z, cam), head, 0.0F, Fx.argb(CORE[0], CORE[1], CORE[2], (float) b));
-		ends.sprite(rel(to.x, to.y, to.z, cam), 14.0F, 0.0F, Fx.argb(ARC[0], ARC[1], ARC[2], (float) b * 0.8F));
+		ends.sprite(rel(to.x, to.y, to.z, cam), 9.0F, 0.0F, Fx.argb(ARC[0], ARC[1], ARC[2], (float) b * 0.6F));
 		ends.end(true, 6.0F);
 	}
 

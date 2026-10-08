@@ -407,7 +407,7 @@ final class ThunderShots implements Feed.Sequence {
 			Shaders.set(Shaders.vortex, "Stroke", 0.16F);
 			// No eye here: the leader comes out of solid cloud.
 			Shaders.set(Shaders.vortex, "Eye", 0.002F);
-			Shaders.set(Shaders.vortex, "FogEnd", 1.0E6F);
+			Shaders.set(Shaders.vortex, "FadeEnd", 1.0E6F);
 			Post.draw(b, Shaders.vortex, cam.view, cam.proj);
 		}
 		RenderSystem.disableBlend();

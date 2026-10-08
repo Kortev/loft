@@ -13,7 +13,8 @@ uniform float Density;
 uniform float Daylight;
 uniform float Flash;
 uniform float Stroke;
-uniform float FogEnd;
+// Not FogEnd: the game sets a uniform of that name to its own fog every draw, whatever was set before.
+uniform float FadeEnd;
 
 in vec2 uv;
 in vec4 vertexColor;
@@ -43,7 +44,7 @@ void main() {
     base *= (0.6 + 0.6 * bands) * (0.55 + 0.9 * n) * (0.8 + 0.4 * fine.g);
     vec3 color = base + vec3(0.5, 0.6, 1.0) * Flash * (0.2 + 0.8 * h) * n * n * 1.6;
     color += vec3(0.75, 0.82, 1.0) * Stroke * (0.4 + 0.6 * (1.0 - h)) * (0.5 + 0.7 * fine.r);
-    float fog = 1.0 - smoothstep(FogEnd * 1.5, FogEnd * 3.2, viewDist);
+    float fog = 1.0 - smoothstep(FadeEnd * 1.5, FadeEnd * 3.2, viewDist);
     float alpha = d * 0.96 * fog * vertexColor.a;
     fragColor = vec4(color * alpha, alpha);
 }

@@ -136,7 +136,7 @@
       ]
     },
     {
-      "name": "FogEnd",
+      "name": "FadeEnd",
       "type": "float",
       "count": 1,
       "values": [

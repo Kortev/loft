@@ -20,7 +20,8 @@ uniform float FlashFalloff;
 uniform float Detail;
 uniform float Stroke;
 uniform float Eye;
-uniform float FogEnd;
+// Not FogEnd: the game sets a uniform of that name to its own fog every draw, whatever was set before.
+uniform float FadeEnd;
 
 in vec2 uv;
 in vec4 vertexColor;
@@ -78,7 +79,7 @@ void main() {
     vec3 color = base + vec3(0.52, 0.62, 1.0) * inside;
     // The stroke lights the base of the storm from below, brightest on the lumps that hang lowest.
     color += vec3(0.8, 0.86, 1.0) * Stroke * exp(-r * r * 9.0) * (0.45 + 0.7 * detail + 0.4 * pouch);
-    float fog = 1.0 - smoothstep(FogEnd * 1.5, FogEnd * 3.2, viewDist);
+    float fog = 1.0 - smoothstep(FadeEnd * 1.5, FadeEnd * 3.2, viewDist);
     float alpha = d * 0.95 * fog * vertexColor.a;
     fragColor = vec4(color * alpha, alpha);
 }

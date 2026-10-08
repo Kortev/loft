@@ -23,6 +23,15 @@ public final class HammerRaise {
 	private HammerRaise() {
 	}
 
+	/**
+	 * Whether the hammer is held up in first person while a camera shot has put the HUD away (the call, followed up into
+	 * the sky), so the hand is drawn anyway.
+	 */
+	public static boolean held() {
+		ClientThunder thunder = ClientThunders.mine();
+		return thunder != null && thunder.age < ThunderTimeline.RISE && ClientThunders.hidingHud();
+	}
+
 	/** Draws the hammer itself; false leaves the hand to vanilla. */
 	public static boolean render(HeldItemRenderer renderer, AbstractClientPlayerEntity player, float tickDelta, ItemStack item,
 			MatrixStack matrices, VertexConsumerProvider consumers, int light) {
@@ -53,13 +62,29 @@ public final class HammerRaise {
 		// The model lies on the diagonal, the way a tool sits in a slot: stand it up. The item renderer centres it.
 		matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(45.0F));
 		matrices.scale(0.62F, 0.62F, 0.62F);
-		// The runes burn brighter as the charge builds, blaze at the call and burn down as it hums on.
-		HammerGlow.boost((float) (HammerGlow.STEADY + (HammerGlow.BLAZING - HammerGlow.STEADY) * charge));
+		HammerGlow.boost(glow(t));
 		renderer.renderItem(player, item, ModelTransformationMode.NONE, false, matrices, consumers,
 				t > 6.0 ? LightmapTextureManager.MAX_LIGHT_COORDINATE : light);
 		HammerGlow.reset();
 		matrices.pop();
 		return true;
+	}
+
+	/**
+	 * How brightly the runes of the hammer held up burn at {@code t} ({@link HammerGlow}'s scale): brighter as the charge
+	 * builds, blazing at the call, humming on bright and unsteady while the storm gathers, blazing again as the stroke
+	 * comes down, then burning down to their own glow.
+	 */
+	public static float glow(double t) {
+		double span = HammerGlow.BLAZING - HammerGlow.STEADY;
+		if (t < ThunderTimeline.CALL) {
+			return (float) (HammerGlow.STEADY + span * ease((t - 6.0) / 10.0));
+		}
+		if (t < ThunderTimeline.STROKE) {
+			double hum = 0.45 + 0.08 * Math.sin(t * 1.7) + 0.05 * Math.sin(t * 4.3);
+			return (float) (HammerGlow.STEADY + span * Math.max(hum, Math.exp(-(t - ThunderTimeline.CALL) / 6.0)));
+		}
+		return (float) (HammerGlow.STEADY + span * Math.exp(-(t - ThunderTimeline.STROKE) / 8.0));
 	}
 
 	/** Where the hammer's head is in the world while it is held up to call the storm: over the right shoulder. */

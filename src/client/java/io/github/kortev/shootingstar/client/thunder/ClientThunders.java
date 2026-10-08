@@ -107,6 +107,19 @@ public final class ClientThunders {
 		return false;
 	}
 
+	/**
+	 * How brightly the runes burn on the hammer {@code player} holds up to call a storm (see {@link HammerRaise#glow}), or
+	 * their own steady glow if they are not.
+	 */
+	public static float raiseGlow(PlayerEntity player, float tickDelta) {
+		for (ClientThunder thunder : THUNDERS.values()) {
+			if (thunder.shooter.equals(player.getUuid()) && thunder.age < ThunderTimeline.STROKE + 20) {
+				return HammerRaise.glow(thunder.time(tickDelta));
+			}
+		}
+		return HammerGlow.STEADY;
+	}
+
 	// --- packets ---------------------------------------------------------------------------
 
 	public static void onLock(ThunderLockPayload payload, MinecraftClient client) {
@@ -233,6 +246,11 @@ public final class ClientThunders {
 		} else if (!takeOver && hudOverride) {
 			restoreHud(client);
 		}
+	}
+
+	/** Whether a feed or a shot has put the HUD away (and the player had not already). */
+	public static boolean hidingHud() {
+		return hudOverride && !savedHudHidden;
 	}
 
 	private static void restoreHud(MinecraftClient client) {

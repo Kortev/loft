@@ -108,8 +108,9 @@ regenerate the `mjolnir_*` and `thunder_*` sounds.
 - **`ThunderHud`**: the feed (`Feed.renderThunder`), the lock marker over the target for everyone ("YOU ARE UNDER IT"
   inside the zone), the readout, aim info and a status card with the hammer in hand.
 - **`HammerRaise`**: the first-person raise (`HeldItemRendererMixin`). The model lies on the diagonal; it is stood up
-  with a 45° turn, as `KeyTurn` does for the key. Its runes flare with the charge through `HammerGlow` (up to three
-  times their glow at the call). The call's bolt leaves the hammer's head in front of the shooter's eyes, so it is drawn
+  with a 45° turn, as `KeyTurn` does for the key. Its runes flare through `HammerGlow` by `HammerRaise.glow(t)`:
+  building to three times their glow at the call, humming bright while the storm gathers, blazing again at the stroke;
+  others see the same on the hammer held over the shooter's head (`HeldItemFeatureRendererMixin`). The call's bolt leaves the hammer's head in front of the shooter's eyes, so it is drawn
   thinner within 24 blocks of the camera (`bolt(..., near)`), or its glow would cover the picture.
 - **Feed** `client/feed/ThunderShots`: `orbit`, `draw`, `forge`, `leader`. Earth with storms is `ss_storm` through
   `Space.stormEarth` (uniforms: Target, Storms, Front, Drain, Vortex, Spin, Charge). The leader shot is local, in 100 m
