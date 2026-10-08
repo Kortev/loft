@@ -93,7 +93,10 @@ regenerate the `gap_*` sounds.
   - **Players:**
     - `gather` / `place` / `hold`: the void floor sends `GapFloorPayload(floor)`.
     - `warp`: the light holds a player `WARP_DELAY` ticks, then `GapWarpPayload` and the move.
-    - `sendHome`, `safe`, `standable`, `toRim`.
+    - `sendHome`, `safe`, `standable`, `toRim`. `safe` → `groundNear` looks a few blocks round at about the same
+      height first (`CLOSE`), then up and down the column, then further out. The fissures run out to about 1.7× the
+      radius, past where people watch from (`MIN_RANGE` 24), and that order sets someone whose ground split on the
+      crack's lip instead of at its bottom.
   - **While the world is gone ("cut")**, Fabric events block attacking, using, placing and breaking. Only the key
     still works. `ALLOW_DAMAGE` protects the shooter during the sequence and everyone held.
   - **Lifecycle:**

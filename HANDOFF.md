@@ -85,9 +85,6 @@ kortev tests in game themselves and reports back. Don't spend usage on the self-
 
 ## Open items
 
-- **Flaky game test** `gapgametests.liveevent`: it failed once ("the shooter was not taken home", at home x/z but 5
-  blocks lower) and passed on re-run. Find the real cause; the player probably landed before the ground under home
-  was back.
 - kortev's planned edits to Gungnir and the Genesis Key: ask what they are.
 
 ## How to work here

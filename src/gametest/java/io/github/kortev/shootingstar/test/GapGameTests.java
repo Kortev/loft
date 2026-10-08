@@ -34,12 +34,17 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.GameMode;
 import net.minecraft.world.World;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Whole Ginnungagap events on flat stone with players all over the server: the shooter; one standing where the burst
  * comes up (swallowed by it), one further out in the zone (erased by the black); one a long way off; one in the Nether;
  * and one whose home is over a column of nothing by the time it is over. Everyone left is carried to the rim, held
  * there on one floor, out of harm's way, and carried home again to solid ground.
+ * <p>
+ * The fissures split out from the rim to well beyond it, wherever the target's seed sends them, and the game test
+ * server puts its tests somewhere new every run; so whether one splits the ground someone stood on, near the hole, is
+ * down to the run. Where one has, they are home on its lip ({@link #notHome}).
  */
 public class GapGameTests implements FabricGameTest {
 	private static final int RADIUS = 20;
@@ -182,15 +187,17 @@ public class GapGameTests implements FabricGameTest {
 		});
 		context.waitAndRun(GapTimeline.END + 2, () -> GapManager.release(gap, world.getServer()));
 		context.waitAndRun(GapTimeline.END + 2 + GapTimeline.REBUILD_END + 40, () -> {
-			if (far.getPos().distanceTo(farHome) > 2.0) {
-				problems.append("the far player was not taken home: at ").append(far.getPos()).append("; ");
+			String farAway = notHome(world, far, farHome);
+			if (farAway != null) {
+				problems.append("the far player was not taken home: ").append(farAway).append("; ");
 			}
-			if (shooter.getPos().distanceTo(shooterHome) > 2.0) {
-				problems.append("the shooter was not taken home: at ").append(shooter.getPos()).append("; ");
+			String shooterAway = notHome(world, shooter, shooterHome);
+			if (shooterAway != null) {
+				problems.append("the shooter was not taken home: ").append(shooterAway).append("; ");
 			}
-			if (netherite.getWorld() != nether || netherite.getPos().distanceTo(netherHome) > 2.0) {
-				problems.append("the player from the Nether was not taken home: in ").append(netherite.getWorld().getRegistryKey().getValue())
-						.append(" at ").append(netherite.getPos()).append("; ");
+			String netherAway = notHome(nether, netherite, netherHome);
+			if (netherAway != null) {
+				problems.append("the player from the Nether was not taken home: ").append(netherAway).append("; ");
 			}
 			BlockPos under = voided.getBlockPos().down();
 			if (!voided.isAlive() || world.getBlockState(under).getCollisionShape(world, under).isEmpty()
@@ -216,7 +223,10 @@ public class GapGameTests implements FabricGameTest {
 		});
 	}
 
-	/** The server going down in the middle of an event: the hole finished, its floor gone, everyone home, the key shattered. */
+	/**
+	 * The server going down in the middle of an event: the hole finished, its floor gone, everyone home, the key shattered.
+	 * One of them comes home to ground split open under where they stood, as a fissure leaves it: on its lip, not in it.
+	 */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "d_gapstop", tickLimit = GapTimeline.NOTHING + 200)
 	public void stopMidEvent(TestContext context) {
 		ServerWorld world = context.getWorld();
@@ -227,8 +237,12 @@ public class GapGameTests implements FabricGameTest {
 		}
 		Vec3d shooterHome = Vec3d.ofBottomCenter(center.add(-RADIUS - 6, 1, 4));
 		Vec3d watcherHome = Vec3d.ofBottomCenter(center.add(RADIUS + 9, 1, -3));
+		// On a corner of the stone, further out than any fissure goes, so the only crack under it is the test's own.
+		BlockPos splitGround = center.add(-RADIUS - 13, 0, -RADIUS - 13);
+		Vec3d splitHome = Vec3d.ofBottomCenter(splitGround.up());
 		ServerPlayerEntity shooter = player(context, world, "stopshooter", shooterHome);
 		ServerPlayerEntity watcher = player(context, world, "stopwatcher", watcherHome);
+		ServerPlayerEntity split = player(context, world, "stopsplit", splitHome);
 		ItemStack key = new ItemStack(ModItems.GENESIS_KEY);
 		NbtCompound cracked = new NbtCompound();
 		cracked.putBoolean("Cracked", true);
@@ -237,15 +251,26 @@ public class GapGameTests implements FabricGameTest {
 		GapManager.launch(world, center, shooter);
 		StringBuilder problems = new StringBuilder();
 		context.waitAndRun(GapTimeline.NOTHING + 20, () -> {
-			if (!GapManager.held(watcher)) {
-				problems.append("the watcher was not gathered; ");
+			if (!GapManager.held(watcher) || !GapManager.held(split)) {
+				problems.append("the watcher or the player whose ground splits was not gathered; ");
+			}
+			// A crack seven deep where they stood, one block wide, as a fissure splits the ground near its tip.
+			for (int down = 0; down < 7; down++) {
+				world.setBlockState(splitGround.down(down), Blocks.AIR.getDefaultState());
 			}
 			GapManager.endNow(world.getServer());
-			if (GapManager.held(watcher) || GapManager.held(shooter) || GapManager.running()) {
+			if (GapManager.held(watcher) || GapManager.held(shooter) || GapManager.held(split) || GapManager.running()) {
 				problems.append("someone is still held, or the event still running; ");
 			}
-			if (watcher.getPos().distanceTo(watcherHome) > 2.0) {
-				problems.append("the watcher was not sent home: at ").append(watcher.getPos()).append("; ");
+			String watcherAway = notHome(world, watcher, watcherHome);
+			if (watcherAway != null) {
+				problems.append("the watcher was not sent home: ").append(watcherAway).append("; ");
+			}
+			// Set down beside the crack, level with where they stood: one block over, not seven down.
+			double over = Math.hypot(split.getX() - splitHome.x, split.getZ() - splitHome.z);
+			if (Math.abs(split.getY() - splitHome.y) > 0.01 || Math.abs(over - 1.0) > 0.01) {
+				problems.append("the player whose ground split was not set down on its lip: at ").append(split.getPos()).append(", home ")
+						.append(splitHome).append("; ");
 			}
 			// The hole finished all the way down, and no floor of barriers left over it.
 			for (int y = world.getBottomY(); y <= center.getY() + 2; y++) {
@@ -264,6 +289,29 @@ public class GapGameTests implements FabricGameTest {
 			context.assertTrue(problems.length() == 0, problems.toString());
 			context.complete();
 		});
+	}
+
+	/**
+	 * What is wrong with where {@code player} has been sent home to, {@code home} in {@code world}; or null, if they are
+	 * home. Home is the spot they stood on, if the ground under it is still there. If a fissure has split it open since,
+	 * it is the crack's lip: solid ground a step or two from it, near their own height (within the few blocks round that
+	 * GapManager looks at first), rather than down in the crack.
+	 */
+	@Nullable
+	private static String notHome(ServerWorld world, ServerPlayerEntity player, Vec3d home) {
+		if (player.getWorld() != world) {
+			return "in " + player.getWorld().getRegistryKey().getValue() + " at " + player.getPos();
+		}
+		BlockPos ground = BlockPos.ofFloored(home).down();
+		if (!world.getBlockState(ground).getCollisionShape(world, ground).isEmpty()) {
+			return player.getPos().distanceTo(home) > 2.0 ? "at " + player.getPos() : null;
+		}
+		BlockPos under = player.getBlockPos().down();
+		if (world.getBlockState(under).getCollisionShape(world, under).isEmpty() || Math.abs(player.getY() - home.y) > 2.01
+				|| Math.hypot(player.getX() - home.x, player.getZ() - home.z) > 3.0 * Math.sqrt(2.0) + 0.01) {
+			return "at " + player.getPos() + ", not beside the crack that split the ground there (" + world.getBlockState(ground) + ")";
+		}
+		return null;
 	}
 
 	/** A connected survival player standing at {@code at} in {@code world}. */

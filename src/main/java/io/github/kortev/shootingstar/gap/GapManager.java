@@ -98,6 +98,14 @@ public final class GapManager {
 	private static final double GATHER_APART = 3.0;
 	private static final double GATHER_BACK = 3.0;
 	private static final int PER_ROW = 9;
+	/**
+	 * Where ground is looked for first round a spot someone is set down at, nearest first: up to three blocks to either
+	 * side and two up or down, level before up before down where they are as near. The fissures run out past the rim to
+	 * well beyond where people watch from (the shooter's own spot, often), and ground split open under where someone
+	 * stood leaves them on its lip, at their own height, rather than at the bottom of the crack, where their own column
+	 * alone would put them.
+	 */
+	private static final BlockPos[] CLOSE = close(3, 2);
 
 	private static final List<Gap> GAPS = new ArrayList<>();
 	/**
@@ -743,8 +751,9 @@ public final class GapManager {
 
 	/**
 	 * Somewhere {@code player} can stand at or near {@code pos}, always on solid ground with room over it and nothing
-	 * that burns or drowns: over the hole, its rim; else the nearest such place in the column, up or down; else the
-	 * nearest ground round about (an old hole, a lake of lava, the sky over the void); else the world's spawn.
+	 * that burns or drowns: over the hole, its rim; else the nearest such place close by, at about its height (beside a
+	 * fissure that has split the ground there, not down in it); else in the column, up or down; else the nearest ground
+	 * round about (an old hole, a lake of lava, the sky over the void); else the world's spawn.
 	 */
 	private static Vec3d safe(ServerWorld world, @Nullable Gap gap, Vec3d pos) {
 		if (gap != null && horizontal(pos, gap.target) <= gap.radius + 8) {
@@ -758,12 +767,18 @@ public final class GapManager {
 	}
 
 	/**
-	 * The nearest place to stand round {@code at}: in its own column first, near its height, then further and further
-	 * out, a couple of hundred blocks at most. In each column, near the height asked for, then (where the sky is open)
-	 * on top of it.
+	 * The nearest place to stand round {@code at}: close by first, a few blocks round at about its height ({@link #CLOSE});
+	 * then in its own column, near its height; then further and further out, a couple of hundred blocks at most. In each
+	 * column, near the height asked for, then (where the sky is open) on top of it.
 	 */
 	@Nullable
 	private static BlockPos groundNear(ServerWorld world, BlockPos at) {
+		for (BlockPos offset : CLOSE) {
+			BlockPos near = at.add(offset);
+			if (standable(world, near)) {
+				return near;
+			}
+		}
 		BlockPos here = standableIn(world, at.getX(), at.getZ(), at.getY());
 		if (here != null) {
 			return here;
@@ -780,6 +795,24 @@ public final class GapManager {
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * Every offset up to {@code round} blocks to either side and {@code up} up or down, nearest first; where two are as
+	 * near, the level one first, then the one above.
+	 */
+	private static BlockPos[] close(int round, int up) {
+		List<BlockPos> offsets = new ArrayList<>();
+		for (int dx = -round; dx <= round; dx++) {
+			for (int dy = -up; dy <= up; dy++) {
+				for (int dz = -round; dz <= round; dz++) {
+					offsets.add(new BlockPos(dx, dy, dz));
+				}
+			}
+		}
+		offsets.sort(Comparator.comparingInt((BlockPos o) -> o.getX() * o.getX() + o.getY() * o.getY() + o.getZ() * o.getZ())
+				.thenComparingInt(o -> Math.abs(o.getY())).thenComparingInt(o -> -o.getY()));
+		return offsets.toArray(BlockPos[]::new);
 	}
 
 	/** A place to stand in the column (x, z): within a few dozen blocks of {@code y}, nearest first; else on top of it. */
