@@ -1071,7 +1071,7 @@ public final class ThunderRender {
 			boolean cinematic = thunder.cinematic();
 			float flash = 0.0F;
 			if (thunder.mine && t >= ThunderTimeline.CALL && t < ThunderTimeline.CALL + 4) {
-				flash = (float) (0.75 * Math.exp(-(t - ThunderTimeline.CALL) / 1.2));
+				flash = (float) (0.6 * Math.exp(-(t - ThunderTimeline.CALL) / 0.7));
 			}
 			float[] flashColor = WHITE_FLASH;
 			if (cinematic && t >= ThunderTimeline.FEED - 8 && t < ThunderTimeline.FEED) {

@@ -226,8 +226,8 @@ final class ThunderShots implements Feed.Sequence {
 		// flicker in it rather than fill the frame.
 		float close = smooth((k - 0.5) * 2.0);
 		space.stormEarth(cam, new Matrix4f(), SUN, time * 0.00002F, smooth((k - 0.4) * 2.0) * 0.8F, 1.1F, time, TARGET,
-				1.0F - 0.6F * close, 0.0F, 1.0F, VORTEX * (0.4F + 0.6F * wound), spin(time) * (1.0F + wound),
-				(0.7F - 0.4F * wound) * (1.0F - 0.85F * close));
+				1.0F - 0.85F * close, 0.0F, 1.0F, VORTEX * (0.4F + 0.6F * wound), spin(time) * (1.0F + wound),
+				(0.7F - 0.4F * wound) * (1.0F - 0.95F * close));
 		o.header = "[ SUPERCELL · TARGET ]";
 		o.headerReveal = smooth(s / 6.0);
 		float title = smooth((s - 8.0) / 6.0) * (1.0F - smooth((s - 46.0) / 8.0));
@@ -239,10 +239,10 @@ final class ThunderShots implements Feed.Sequence {
 		o.footer = String.format(Locale.ROOT, "ROTATION %d KM/H · DIAMETER %d KM", (int) (60 + 260 * wound),
 				(int) (120 + 260 * wound));
 		o.footerSmall = String.format(Locale.ROOT, "CLOUD TOPS %,d M", (int) (11000 + 7000 * wound));
-		// Into the eye in a flash of its lightning.
-		if (s > FORGE_LENGTH - 4) {
-			o.flash = smooth((s - (FORGE_LENGTH - 4)) / 3.0);
-			o.flashColor = 0xDCE6FF;
+		// Down into the dark of the eye, where the next shot opens.
+		if (s > FORGE_LENGTH - 8) {
+			o.flash = smooth((s - (FORGE_LENGTH - 8)) / 7.0);
+			o.flashColor = 0x0C0E14;
 		}
 	}
 
@@ -255,14 +255,16 @@ final class ThunderShots implements Feed.Sequence {
 		// feels its way down; the feed follows it LEADER_HANDOFF of the way, and the world picks it up from there.
 		double reach = ThunderTimeline.LEADER_HANDOFF * leaderReach(s / (LEADER_LENGTH - 4.0));
 		float tip = LOCAL_BASE * (1.0F - (float) reach);
-		// The camera comes down out of the cloud with the tip, a little above it and off to one side, looking down past it
-		// at the ground it is heading for.
+		// Seven kilometres off and a little under the storm's base, the whole column in frame as a photograph of lightning
+		// would have it: the storm's ceiling across the top, the leader stepping down out of it, the ground and its towns
+		// at the bottom; drifting in and round as the leader comes down.
 		float fall = smoother(s / (LEADER_LENGTH - 2.0));
-		float camY = lerp(LOCAL_BASE + 22.0, LOCAL_BASE * (1.0 - ThunderTimeline.LEADER_HANDOFF) + 10.0, fall);
-		Vector3f eye = new Vector3f(6.0F + 8.0F * fall, Math.max(camY, tip + 6.0F), 5.0F);
-		Vector3f at = new Vector3f(0.0F, Math.max(0.0F, tip - 30.0F), 0.0F);
-		cam.perspective(62.0F, width, height, 0.3F, 200000.0F);
-		cam.look(eye, at, new Vector3f(0, 0, -1));
+		float dist = lerp(80.0, 54.0, fall);
+		double round = Math.toRadians(35.0 + 12.0 * fall);
+		Vector3f eye = new Vector3f((float) (Math.cos(round) * dist), lerp(62.0, 52.0, fall), (float) (Math.sin(round) * dist));
+		Vector3f at = new Vector3f(0.0F, lerp(48.0, 42.0, fall), 0.0F);
+		cam.perspective(58.0F, width, height, 0.3F, 200000.0F);
+		cam.look(eye, at, new Vector3f(0, 1, 0));
 
 		Random random = new Random(42);
 		List<Vector3f> channel = jagged(new Vector3f(0.0F, LOCAL_BASE, 0.0F), new Vector3f(0, 0, 0), 0.16F, 6, random);
@@ -291,8 +293,8 @@ final class ThunderShots implements Feed.Sequence {
 		o.footer = String.format(Locale.ROOT, "LEADER ALTITUDE %,d M", altitude);
 		int step = (int) Math.round(reach * ThunderTimeline.LEADER_STEPS * 3);
 		o.footerSmall = String.format(Locale.ROOT, "STEP %d · 50 M EVERY 50 µS", step);
-		// Falling: a zoom blur (one pass) rather than the shutter, which would draw the whole shot six times a frame.
-		o.zoomBlur = 0.03F + 0.09F * fall;
+		// A touch of zoom blur as the camera drifts in (one pass, not the shutter, which would draw the shot six times).
+		o.zoomBlur = 0.015F;
 		// A step brighter than any before it hands over to the world, where the leader comes on down.
 		if (s > LEADER_LENGTH - 3) {
 			o.flash = smooth((s - (LEADER_LENGTH - 3)) / 2.5) * 0.9F;
@@ -315,11 +317,11 @@ final class ThunderShots implements Feed.Sequence {
 		Shaders.set(Shaders.ground, "TipLight", tipLight);
 		Shaders.set(Shaders.ground, "Flash", flash);
 		// Rain at night: a few kilometres and the ground is lost.
-		Shaders.set(Shaders.ground, "Haze", 0.015F);
+		Shaders.set(Shaders.ground, "Haze", 0.008F);
 		Post.draw(b, Shaders.ground, cam.view, cam.proj);
 	}
 
-	/** Layers of the storm's base round the eye, which the camera falls through. */
+	/** Layers of the storm's base round the eye: the ceiling the leader comes down out of. */
 	private void stormLayers(double s, float flash, float tip) {
 		RenderSystem.enableDepthTest();
 		RenderSystem.depthMask(false);
