@@ -1,7 +1,78 @@
 {
   "variants": {
-    "": {
-      "model": "shootingstar:block/fulgurite"
-    }
+    "": [
+      {
+        "model": "shootingstar:block/fulgurite"
+      },
+      {
+        "model": "shootingstar:block/fulgurite",
+        "y": 90
+      },
+      {
+        "model": "shootingstar:block/fulgurite",
+        "y": 180
+      },
+      {
+        "model": "shootingstar:block/fulgurite",
+        "y": 270
+      },
+      {
+        "model": "shootingstar:block/fulgurite",
+        "x": 90
+      },
+      {
+        "model": "shootingstar:block/fulgurite",
+        "x": 90,
+        "y": 90
+      },
+      {
+        "model": "shootingstar:block/fulgurite",
+        "x": 90,
+        "y": 180
+      },
+      {
+        "model": "shootingstar:block/fulgurite",
+        "x": 90,
+        "y": 270
+      },
+      {
+        "model": "shootingstar:block/fulgurite",
+        "x": 180
+      },
+      {
+        "model": "shootingstar:block/fulgurite",
+        "x": 180,
+        "y": 90
+      },
+      {
+        "model": "shootingstar:block/fulgurite",
+        "x": 180,
+        "y": 180
+      },
+      {
+        "model": "shootingstar:block/fulgurite",
+        "x": 180,
+        "y": 270
+      },
+      {
+        "model": "shootingstar:block/fulgurite",
+        "x": 270
+      },
+      {
+        "model": "shootingstar:block/fulgurite",
+        "x": 270,
+        "y": 90
+      },
+      {
+        "model": "shootingstar:block/fulgurite",
+        "x": 270,
+        "y": 180
+      },
+      {
+        "model": "shootingstar:block/fulgurite",
+        "x": 270,
+        "y": 270
+      }
+    ]
   }
 }

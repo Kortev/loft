@@ -488,80 +488,135 @@ def mjolnir_icon():
     return Image.fromarray(img.astype(np.uint8), 'RGBA')
 
 
-def fulgurite_veins(seed, count=3):
-    """A few branching veins across a 16x16 face, wrapping at the edges so the texture tiles: the shape of the current
-    that fused it, written into the glass."""
+def fulgurite_veins(seed, roots=2, steps=64):
+    """Branching veins grown by random walks on a wrapping 16x16 face, so the texture tiles: the shape of the current
+    that fused the glass, written into it. Each pixel gets its strength (thickest near the roots, thinner down each
+    fork) and its distance along the vein from its root, so pulses of current can be run along it."""
     r = np.random.default_rng(seed)
-    veins = np.zeros((16, 16))
-    for _ in range(count):
-        x, y = r.uniform(0, 16), r.uniform(0, 16)
-        heading = r.uniform(0, 2 * np.pi)
-        stack = [(x, y, heading, 1.0)]
-        steps = 0
-        while stack and steps < 120:
-            x, y, heading, strength = stack.pop()
-            for _ in range(r.integers(4, 9)):
-                veins[int(y) % 16, int(x) % 16] = max(veins[int(y) % 16, int(x) % 16], strength)
-                heading += r.normal(0, 0.5)
-                x += np.cos(heading)
-                y += np.sin(heading)
-                steps += 1
-                if r.random() < 0.25 and strength > 0.4:
-                    stack.append((x, y, heading + r.choice([-1, 1]) * r.uniform(0.5, 1.1), strength * 0.7))
-    return veins
+    strength = np.zeros((16, 16))
+    dist = np.full((16, 16), -1.0)
+    stack = [(r.uniform(0, 16), r.uniform(0, 16), r.uniform(0, 2 * np.pi), 1.0, 0.0) for _ in range(roots)]
+    total = 0
+    while stack and total < steps:
+        x, y, heading, s, d = stack.pop(0)
+        for _ in range(r.integers(5, 11)):
+            ix, iy = int(np.floor(x)) % 16, int(np.floor(y)) % 16
+            strength[iy, ix] = max(strength[iy, ix], s)
+            if dist[iy, ix] < 0 or d < dist[iy, ix]:
+                dist[iy, ix] = d
+            heading += r.normal(0, 0.45)
+            x += np.cos(heading) * 0.9
+            y += np.sin(heading) * 0.9
+            d += 0.9
+            total += 1
+            if r.random() < 0.22 and s > 0.3:
+                stack.append((x, y, heading + r.choice([-1, 1]) * r.uniform(0.6, 1.2), s * 0.72, d))
+        s *= 0.9
+    return strength, dist
+
+
+def fulgurite_glass(seed):
+    """Dark smoky glass: broad cloudy variation, the streaks it flowed in before it set, and a few trapped bubbles."""
+    r = np.random.default_rng(seed)
+    v = 0.6 * lattice(4, 4, seed=seed) + 0.25 * lattice(8, 8, seed=seed + 1) + 0.15 * r.random((16, 16))
+    yy, xx = np.mgrid[0:16, 0:16]
+    flow = 0.5 + 0.5 * np.sin((xx * 0.55 + yy * 0.9) * 2 * np.pi / 16 * 3 + lattice(4, 4, seed=seed + 2) * 5.0)
+    v = v * 0.8 + flow * 0.2
+    palette = [(10, 11, 18), (17, 19, 30), (26, 29, 44), (37, 42, 60), (52, 58, 80), (74, 80, 104)]
+    rgb = shades(v, palette, [8, 22, 30, 22, 12, 6])
+    for _ in range(6):
+        bx, by = r.integers(0, 16), r.integers(0, 16)
+        rgb[by, bx] = (96, 104, 130)
+        rgb[(by + 1) % 16, (bx + 1) % 16] = (14, 15, 22)
+    return rgb
+
+
+# How many frames the charged fulgurite's current takes to run along its veins, and how many ticks each frame shows
+# for charge 1, 2 and 3: the more charge, the faster it runs.
+FULGURITE_FRAMES = 8
+FULGURITE_FRAME_TIME = (4, 3, 2)
 
 
 def fulgurite(charge):
-    """Fulgurite: sand and earth the bolt fused into dark, smoky glass, branching veins of it written through. Charge 0
-    is cold; 1 to 3 the veins glow, dim blue to white."""
-    v = 0.7 * lattice(4, 4, seed=121) + 0.3 * np.random.default_rng(122).random((16, 16))
-    rgb = shades(v, [(12, 14, 22), (20, 24, 36), (30, 36, 52), (44, 54, 76), (70, 86, 112)], [10, 30, 34, 18, 8])
-    veins = fulgurite_veins(123)
-    glow = np.zeros((16, 16))
+    """Fulgurite: earth the bolt fused into dark, smoky glass, with branching veins of it written through. Charge 0 is
+    cold: the veins pale glass. Charged (1 to 3) the veins glow, dim blue to white, and pulses of current run along them
+    from their roots, brighter the more charge is left (and faster: see FULGURITE_FRAME_TIME): an animation strip of
+    FULGURITE_FRAMES frames that loops."""
+    strength, dist = fulgurite_veins(321)
+    glass = fulgurite_glass(123)
+    vein = strength > 0
+    halo = np.zeros((16, 16))
     for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-        glow = np.maximum(glow, np.roll(np.roll(veins, dy, 0), dx, 1) * 0.5)
+        halo = np.maximum(halo, np.roll(np.roll(strength, dy, 0), dx, 1) * 0.45)
+    halo[vein] = 0
     if charge == 0:
-        core, halo = np.array((92, 120, 160)), np.array((40, 52, 76))
-    else:
-        core = np.array([(120, 170, 235), (170, 215, 255), (235, 248, 255)][charge - 1])
-        halo = np.array([(40, 70, 140), (60, 110, 210), (90, 160, 255)][charge - 1])
-    rgb = np.where(glow[..., None] > 0, rgb * (1 - glow[..., None]) + halo * glow[..., None], rgb)
-    rgb = np.where(veins[..., None] > 0, rgb * (1 - veins[..., None]) + core * veins[..., None], rgb)
-    return Image.fromarray(np.clip(rgb, 0, 255).astype(np.uint8), 'RGB')
+        rgb = np.where(vein[..., None], glass * 0.25 + np.array((118, 134, 164)) * (0.55 + 0.45 * strength[..., None]), glass)
+        rgb = np.where(halo[..., None] > 0, glass * (1 - 0.25 * halo[..., None]) + np.array((50, 58, 80)) * 0.25 * halo[..., None],
+                       rgb)
+        return Image.fromarray(np.clip(rgb, 0, 255).astype(np.uint8), 'RGB')
+    core = np.array([(110, 160, 235), (160, 210, 255), (225, 245, 255)][charge - 1], dtype=np.float64)
+    glow = np.array([(36, 64, 140), (52, 100, 210), (80, 150, 255)][charge - 1], dtype=np.float64)
+    pulses = [1, 1, 2][charge - 1]
+    level = [0.55, 0.7, 0.85][charge - 1]
+    span = dist.max() + 1
+    frames = []
+    for f in range(FULGURITE_FRAMES):
+        phase = (dist / span - f / FULGURITE_FRAMES) * pulses
+        pulse = np.where(vein, np.exp(-((phase % 1.0) - 0.5) ** 2 / 0.015), 0.0)
+        k = np.clip(level * (0.55 + 0.45 * strength) + 0.7 * pulse, 0, 1.0)
+        rgb = np.where(vein[..., None], glass * (1 - k[..., None]) + core * k[..., None], glass)
+        h = halo * (0.7 + 0.3 * level) * (1.0 + 0.4 * np.max(pulse))
+        rgb = np.where(h[..., None] > 0, rgb * (1 - np.minimum(h, 1)[..., None] * 0.8) + glow * h[..., None], rgb)
+        frames.append(np.clip(rgb, 0, 255))
+    return Image.fromarray(np.concatenate(frames, 0).astype(np.uint8), 'RGB')
 
 
-CHAR = [(12, 11, 11), (22, 20, 19), (34, 31, 29), (50, 45, 41)]
+CHAR = [(10, 9, 9), (24, 22, 21), (38, 35, 33), (54, 50, 48), (78, 74, 72)]
 
 
 def charred_log():
-    """Bark burned through to charcoal: black, split into the checked blocks charcoal cracks into, a little ember red
-    left deep in the cracks."""
-    v = 0.7 * lattice(8, 2, seed=131, octaves=2) + 0.3 * np.random.default_rng(132).random((16, 16))
-    rgb = shades(v, CHAR, [16, 40, 30, 14])
+    """Bark burned to charcoal: split along the grain into strips and across it into checks of uneven length (the
+    alligator pattern of charred wood), each check with charcoal's faint silvery sheen, lighter at its upper edge, deep
+    black in the cracks with grey ash and a cold ember here and there."""
     r = np.random.default_rng(133)
-    for y in range(16):
-        if y % 4 == 0:
-            rgb[y, :] = CHAR[0]
-    for y in range(16):
-        offset = (y // 4) * 2
-        for x in range(16):
-            if (x + offset) % 5 == 0:
-                rgb[y, x] = CHAR[0]
-                if r.random() < 0.12:
-                    rgb[y, x] = (92, 30, 10)
+    rgb = np.zeros((16, 16, 3)) + CHAR[0]
+    x = 0
+    while x < 16:
+        w = int(r.integers(3, 6))
+        if 16 - (x + w) < 3:
+            w = 16 - x
+        y = int(r.integers(0, 5))
+        while y < 16 + 6:
+            h = int(r.integers(2, 6))
+            for yy in range(y, y + h - 1):
+                t = (yy - y) / max(1, h - 2)
+                for xx in range(x, x + w - 1):
+                    sheen = 0.85 - 0.55 * t + r.normal(0, 0.1) - 0.15 * (xx - x) / max(1, w - 2)
+                    rgb[yy % 16, xx % 16] = CHAR[int(np.clip(1 + sheen * 3.2, 1, 4))]
+            y += h
+        x += w
+    for _ in range(6):
+        ax, ay = r.integers(0, 16), r.integers(0, 16)
+        if tuple(rgb[ay, ax]) == CHAR[0]:
+            rgb[ay, ax] = (66, 62, 58)
+    for _ in range(3):
+        ax, ay = r.integers(0, 16), r.integers(0, 16)
+        if tuple(rgb[ay, ax]) == CHAR[0]:
+            rgb[ay, ax] = (74, 26, 12)
     return Image.fromarray(rgb.astype(np.uint8), 'RGB')
 
 
 def charred_log_top():
-    """The end of a charred trunk: rings of charcoal, cracked from the middle out."""
+    """The end of a charred trunk: rings of charcoal, cracked from the heart out, an ember's last red at the heart."""
     yy, xx = np.mgrid[0:16, 0:16].astype(np.float64) + 0.5
-    d = (np.abs(xx - 8) ** 3 + np.abs(yy - 8) ** 3) ** (1 / 3)
-    d = d + 0.9 * (lattice(4, 4, seed=134) - 0.5)
-    rgb = np.array(CHAR[1:], dtype=np.float64)[np.digitize(d % 2.6, [0.85, 1.9])]
+    d = np.hypot(xx - 8, yy - 8) + 0.8 * (lattice(4, 4, seed=134) - 0.5)
+    rgb = np.array([CHAR[2], CHAR[3], CHAR[1]], dtype=np.float64)[np.digitize(d % 2.4, [0.8, 1.7])]
     a = np.arctan2(yy - 8, xx - 8)
-    rgb[(np.abs(np.sin(a * 3.0)) < 0.12) & (d > 1.5)] = CHAR[0]
-    edge = np.maximum(np.abs(xx - 8), np.abs(yy - 8)) > 7
-    rgb[edge] = CHAR[0]
+    rgb[(np.abs(np.sin(a * 2.5 + 0.4)) < 0.14) & (d > 1.2)] = CHAR[0]
+    rgb[d < 1.2] = (60, 22, 10)
+    ring = np.maximum(np.abs(xx - 8), np.abs(yy - 8))
+    rgb[ring > 6.9] = CHAR[1]
+    rgb[ring > 7.6] = CHAR[0]
     return Image.fromarray(rgb.astype(np.uint8), 'RGB')
 
 
@@ -722,6 +777,9 @@ def main():
     save(fulgurite(0), 'block', 'fulgurite.png')
     for charge in (1, 2, 3):
         save(fulgurite(charge), 'block', 'charged_fulgurite_%d.png' % charge)
+        with open(os.path.join(ROOT, 'textures', 'block', 'charged_fulgurite_%d.png.mcmeta' % charge), 'w') as f:
+            json.dump({'animation': {'frametime': FULGURITE_FRAME_TIME[charge - 1], 'interpolate': True}}, f, indent=2)
+            f.write('\n')
     save(charred_log(), 'block', 'charred_log.png')
     save(charred_log_top(), 'block', 'charred_log_top.png')
     print('textures written')
