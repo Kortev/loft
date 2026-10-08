@@ -150,8 +150,19 @@ public class ThunderGameTests implements FabricGameTest {
 		outer.setAiDisabled(true);
 
 		ThunderManager.launch(world, center, null);
+		// The creeper is looked at once its arc has landed (a few ticks after the stroke) and before the scar can reach
+		// it (26 blocks of path at 2.5 a tick): if an arm of the scar then runs under it, the charged fulgurite may still
+		// shock it to death, which is the scar's doing, not the arc's.
+		StringBuilder arced = new StringBuilder();
+		context.waitAndRun(ThunderTimeline.STROKE + 8, () -> {
+			if (!creeper.isAlive()) {
+				arced.append("the creeper in the ring died instead of being arced and charged; ");
+			} else if (!creeper.shouldRenderOverlay()) {
+				arced.append("the creeper in the ring was not charged (").append(creeper.getHealth()).append(" hp); ");
+			}
+		});
 		context.waitAndRun(ThunderTimeline.STROKE + 60, () -> {
-			StringBuilder problems = new StringBuilder();
+			StringBuilder problems = new StringBuilder(arced);
 			if (!world.getBlockState(bedrock).isOf(Blocks.BEDROCK)) {
 				problems.append("the bedrock in the crater was broken; ");
 			}
@@ -216,7 +227,7 @@ public class ThunderGameTests implements FabricGameTest {
 			for (BlockPos pos : BlockPos.iterate(center.add(14, 1, -6), center.add(15, 2, -5))) {
 				planks += world.getBlockState(pos).isOf(Blocks.OAK_PLANKS) ? 1 : 0;
 			}
-			if (planks > 2) {
+			if (planks > 0) {
 				problems.append(planks).append(" planks of the shed survived")
 						.append(survivors(world, center, center.add(14, 1, -6), center.add(15, 2, -5), Blocks.OAK_PLANKS)).append("; ");
 			}
@@ -225,11 +236,6 @@ public class ThunderGameTests implements FabricGameTest {
 			}
 			if (mid.isAlive()) {
 				problems.append("zombie in the zone survived with ").append(mid.getHealth()).append(" hp; ");
-			}
-			if (!creeper.isAlive()) {
-				problems.append("the creeper in the ring died instead of being arced and charged; ");
-			} else if (!creeper.shouldRenderOverlay()) {
-				problems.append("the creeper in the ring was not charged (").append(creeper.getHealth()).append(" hp); ");
 			}
 			if (outer.isAlive() && outer.getHealth() >= outer.getMaxHealth()) {
 				problems.append("the husk in the ring was never arced; ");

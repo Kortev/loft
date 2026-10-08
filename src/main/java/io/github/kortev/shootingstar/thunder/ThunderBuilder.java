@@ -323,8 +323,9 @@ public final class ThunderBuilder {
 				break;
 			}
 			if (state.isBurnable()) {
-				// Anything wooden: gone to ash inside the zone, here and there in the ring.
-				if (zone ? random.nextDouble() < 0.92 : random.nextDouble() < heat * 0.7) {
+				// Anything wooden: gone to ash inside the zone, here and there in the ring (where what is left shelters
+				// what is under it).
+				if (zone || random.nextDouble() < heat * 0.7) {
 					vaporize(x, y, z);
 					continue;
 				}
