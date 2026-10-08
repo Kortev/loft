@@ -69,6 +69,8 @@ final class ThunderShots implements Feed.Sequence {
 		guiH = guiHeight;
 		time = (float) t;
 		Overlay o = new Overlay();
+		// A clean picture: only a hint of the feed's video lines, which show as coarse lines at lower resolutions.
+		o.scanlines = 0.35F;
 		o.headerColor = Feed.CYAN;
 		o.accent = Feed.CYAN;
 		space.resetLights();

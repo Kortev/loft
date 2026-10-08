@@ -139,7 +139,7 @@ public final class Feed {
 		Shaders.set(Shaders.composite, "Aberration", overlay.aberration + 0.0015F);
 		Shaders.set(Shaders.composite, "Flash", Math.max(overlay.flash, shots == SHOTS ? cutFlash(t) : 0.0F));
 		Shaders.set(Shaders.composite, "FlashColor", overlay.flashColor);
-		Shaders.set(Shaders.composite, "Scanlines", 1.0F);
+		Shaders.set(Shaders.composite, "Scanlines", overlay.scanlines);
 		Shaders.set(Shaders.composite, "Fade", overlay.fade);
 		Shaders.set(Shaders.composite, "ScreenSize", fw, fh);
 		Shaders.set(Shaders.composite, "ZoomBlur", overlay.zoomBlur);
