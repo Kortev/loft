@@ -9,6 +9,8 @@ import io.github.kortev.shootingstar.client.render.HudEffects;
 import io.github.kortev.shootingstar.client.render.WorldEffects;
 import io.github.kortev.shootingstar.client.render.WorldProjector;
 import io.github.kortev.shootingstar.client.thunder.ClientThunders;
+import io.github.kortev.shootingstar.client.thunder.HammerMesh;
+import io.github.kortev.shootingstar.client.thunder.HammerRenderer;
 import io.github.kortev.shootingstar.client.thunder.ThunderHud;
 import io.github.kortev.shootingstar.client.thunder.ThunderRender;
 import io.github.kortev.shootingstar.client.thunder.ThunderWeather;
@@ -34,11 +36,17 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientWorldEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.client.rendering.v1.BuiltinItemRendererRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
+import net.fabricmc.fabric.api.resource.SimpleSynchronousResourceReloadListener;
 import net.minecraft.client.item.ModelPredicateProviderRegistry;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
+import net.minecraft.resource.ResourceManager;
+import net.minecraft.resource.ResourceType;
+import net.minecraft.util.Identifier;
 import org.lwjgl.glfw.GLFW;
 
 public class ShootingStarClient implements ClientModInitializer {
@@ -51,6 +59,20 @@ public class ShootingStarClient implements ClientModInitializer {
 				GenesisKeyItem.cracked(stack) && !ClientGaps.keyStillWhole() ? 1.0F : 0.0F);
 		ClientConfig.load();
 		Shaders.register();
+		// Mjölnir is drawn from its baked mesh (its model's parent is builtin/entity), read again on a resource reload.
+		BuiltinItemRendererRegistry.INSTANCE.register(ModItems.MJOLNIR, new HammerRenderer());
+		ResourceManagerHelper resources = ResourceManagerHelper.get(ResourceType.CLIENT_RESOURCES);
+		resources.registerReloadListener(new SimpleSynchronousResourceReloadListener() {
+			@Override
+			public Identifier getFabricId() {
+				return ShootingStar.id("mjolnir_mesh");
+			}
+
+			@Override
+			public void reload(ResourceManager manager) {
+				HammerMesh.reload();
+			}
+		});
 		SKIP_FEED = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.shootingstar.skip_feed",
 				InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_BACKSPACE, "key.categories.shootingstar"));
 

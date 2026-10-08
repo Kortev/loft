@@ -56,6 +56,9 @@ if star:
         'assets/shootingstar/lang/en_us.json',
         'assets/shootingstar/sounds.json',
         'data/shootingstar/advancement/gungnir/danger_close.json',
+        'assets/shootingstar/meshes/mjolnir.hbm',
+        'assets/shootingstar/textures/item/mjolnir_baked.png',
+        'assets/shootingstar/textures/item/mjolnir_glow.png',
     ], [
         'io/github/kortev/chitty/',
         'assets/shootingstar/meshes/chitty',

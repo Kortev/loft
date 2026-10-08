@@ -332,122 +332,17 @@ def mirror_leaves():
 
 
 # --- Þ-01 Mjölnir ------------------------------------------------------------------------------------
+#
+# The hammer itself is modelled in Blender and baked by tools/mjolnir_model.py (its mesh, textures and item model);
+# here is only its flat icon, which the item model keeps for its particles.
 
-def hammered(w, h, seed, base, spread=12.0):
-    """Hammered iron: a flat colour beaten into soft dents, w x h pixels."""
-    r = np.random.default_rng(seed)
-    v = r.random((h, w))
-    v = (v + np.roll(v, 1, 0) + np.roll(v, 1, 1) + np.roll(np.roll(v, 1, 0), 1, 1)) / 4.0
-    return np.clip(np.array(base, dtype=np.float64)[None, None, :] + (v[..., None] - 0.5) * spread * 2.0, 0, 255)
-
-
-# Mjölnir's colours: dark iron, its silver edges, the leather of the haft and the strap, and the runes' light.
+# Mjölnir's colours: dark iron, its silver edges, the leather of the haft, and the runes' light.
 IRON = (62, 66, 78)
-IRON_DARK = (36, 39, 46)
 SILVER = (186, 194, 208)
 SILVER_DARK = (122, 130, 146)
 LEATHER = (96, 60, 34)
 LEATHER_DARK = (64, 38, 20)
-STRAP = (122, 80, 44)
 RUNE = (96, 190, 255)
-RUNE_CORE = (226, 246, 255)
-
-
-def mjolnir_atlas():
-    """The 3D hammer's 32x32 atlas: the head's long faces with a band of glowing knotwork (0..22 x 0..10), its top and
-    bottom (0..22 x 10..22), its ends with the thorn rune, Þ, Thor's own letter (0..12 x 22..32), the leather-wrapped
-    haft (24..28 x 0..14), dark iron, the strap and silver (28..32)."""
-    img = np.zeros((32, 32, 4), dtype=np.float64)
-    img[..., 3] = 255
-
-    def border(x0, y0, x1, y1, colour):
-        img[y0, x0:x1, :3] = colour
-        img[y1 - 1, x0:x1, :3] = colour
-        img[y0:y1, x0, :3] = colour
-        img[y0:y1, x1 - 1, :3] = colour
-
-    # The long faces: hammered iron in a silver frame, knotwork running along the middle.
-    img[0:10, 0:22, :3] = hammered(22, 10, 31, IRON)
-    border(0, 0, 22, 10, SILVER)
-    img[1, 1:21, :3] = SILVER_DARK
-    img[8, 1:21, :3] = SILVER_DARK
-    for y in range(3, 7):
-        for x in range(2, 20):
-            a = (x + y) % 4 == 0
-            b = (x - y) % 4 == 0
-            if a and b:
-                img[y, x, :3] = RUNE_CORE
-            elif a or b:
-                img[y, x, :3] = RUNE
-    # Top and bottom: a dished panel in a silver frame.
-    img[10:22, 0:22, :3] = hammered(22, 12, 32, IRON)
-    border(0, 10, 22, 22, SILVER)
-    img[13:19, 4:18, :3] = hammered(14, 6, 33, IRON_DARK)
-    # The ends: Þ, glowing, in a silver frame.
-    img[22:32, 0:12, :3] = hammered(12, 10, 34, IRON)
-    border(0, 22, 12, 32, SILVER)
-    thorn = ['..o...',
-             '..oo..',
-             '..o.o.',
-             '..oo..',
-             '..o...',
-             '..o...']
-    for j, row in enumerate(thorn):
-        for i, ch in enumerate(row):
-            if ch == 'o':
-                img[24 + j, 3 + i, :3] = RUNE_CORE if j in (1, 2, 3) else RUNE
-    # The haft: leather wound on the slant.
-    for y in range(0, 14):
-        for x in range(24, 28):
-            img[y, x, :3] = LEATHER_DARK if (x + y) % 3 == 0 else LEATHER
-    img[0:4, 28:32, :3] = hammered(4, 4, 35, IRON_DARK, 6.0)
-    img[4:8, 28:32, :3] = STRAP
-    img[8:12, 28:32, :3] = SILVER
-    img[12:16, 28:32, :3] = RUNE
-    return Image.fromarray(np.clip(img, 0, 255).astype(np.uint8), 'RGBA')
-
-
-# The 3D hammer: (from, to, faces by name -> (u0, v0, u1, v1) on the atlas in model units, half its pixels).
-FRONT = (0, 0, 11, 5)
-TOPS = (0, 5, 11, 11)
-ENDS = (0, 11, 6, 16)
-HAFT = (12, 0, 14, 7)
-DARK = (14, 0, 16, 2)
-STRAP_UV = (14, 2, 16, 4)
-SILVER_UV = (14, 4, 16, 6)
-HAMMER_PARTS = [
-    ((2.5, 10, 5), (13.5, 15, 11), dict(north=FRONT, south=FRONT, up=TOPS, down=TOPS, east=ENDS, west=ENDS)),
-    ((2, 10.5, 5.5), (2.5, 14.5, 10.5), dict.fromkeys(('north', 'south', 'up', 'down', 'east', 'west'), SILVER_UV)),
-    ((13.5, 10.5, 5.5), (14, 14.5, 10.5), dict.fromkeys(('north', 'south', 'up', 'down', 'east', 'west'), SILVER_UV)),
-    ((6.5, 9, 6.5), (9.5, 10, 9.5), dict.fromkeys(('north', 'south', 'up', 'down', 'east', 'west'), DARK)),
-    ((7, 2.5, 7), (9, 9, 9), dict(north=HAFT, south=HAFT, east=HAFT, west=HAFT, up=DARK, down=DARK)),
-    ((6.6, 1.5, 6.6), (9.4, 2.5, 9.4), dict.fromkeys(('north', 'south', 'up', 'down', 'east', 'west'), DARK)),
-    ((7.6, -0.5, 7.85), (8.4, 1.5, 8.15), dict.fromkeys(('north', 'south', 'up', 'down', 'east', 'west'), STRAP_UV)),
-    ((7.0, -1.0, 7.85), (9.0, -0.5, 8.15), dict.fromkeys(('north', 'south', 'up', 'down', 'east', 'west'), STRAP_UV)),
-]
-
-
-def mjolnir_model():
-    """The 3D hammer's model JSON, laid over on the diagonal like the Genesis Key so it sits in the hand like a tool."""
-    elements = []
-    for a, b, faces in HAMMER_PARTS:
-        elements.append({'from': list(a), 'to': list(b), 'rotation': {'angle': -45, 'axis': 'z', 'origin': [8, 8, 8]},
-                         'faces': {f: {'uv': list(uv), 'texture': '#hammer'} for f, uv in faces.items()}})
-    return {
-        'textures': {'hammer': 'shootingstar:item/mjolnir_3d', 'particle': 'shootingstar:item/mjolnir'},
-        'elements': elements,
-        'gui_light': 'front',
-        'display': {
-            'thirdperson_righthand': {'rotation': [0, -90, 55], 'translation': [0, 4.5, 0.5], 'scale': [0.85, 0.85, 0.85]},
-            'thirdperson_lefthand': {'rotation': [0, 90, -55], 'translation': [0, 4.5, 0.5], 'scale': [0.85, 0.85, 0.85]},
-            'firstperson_righthand': {'rotation': [0, -90, 25], 'translation': [1.13, 3.6, 1.13], 'scale': [0.68, 0.68, 0.68]},
-            'firstperson_lefthand': {'rotation': [0, 90, -25], 'translation': [1.13, 3.6, 1.13], 'scale': [0.68, 0.68, 0.68]},
-            'head': {'rotation': [0, 180, 0], 'translation': [0, 13, 7], 'scale': [1.0, 1.0, 1.0]},
-            'gui': {'rotation': [20, -30, 0], 'translation': [0, 0, 0], 'scale': [0.95, 0.95, 0.95]},
-            'ground': {'rotation': [0, 0, 0], 'translation': [0, 2, 0], 'scale': [0.5, 0.5, 0.5]},
-            'fixed': {'rotation': [0, 180, 0], 'translation': [0, 0, 0], 'scale': [1.0, 1.0, 1.0]},
-        },
-    }
 
 
 def mjolnir_icon():
@@ -769,11 +664,8 @@ def main():
     earth_map = Image.open(os.path.join(TEX, 'feed', 'earth_day.jpg'))
     save(card(jupiter_map, earth_map), 'gui', 'gungnir_card.png')
     icon(jupiter_map).save(os.path.join(ROOT, 'icon.png'), optimize=True)
+    # Mjölnir's model and its baked textures come from tools/mjolnir_model.py --game.
     save(mjolnir_icon(), 'item', 'mjolnir.png')
-    save(mjolnir_atlas(), 'item', 'mjolnir_3d.png')
-    with open(os.path.join(ROOT, 'models', 'item', 'mjolnir.json'), 'w') as f:
-        json.dump(mjolnir_model(), f, indent=2)
-        f.write('\n')
     save(fulgurite(0), 'block', 'fulgurite.png')
     for charge in (1, 2, 3):
         save(fulgurite(charge), 'block', 'charged_fulgurite_%d.png' % charge)

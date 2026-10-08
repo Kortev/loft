@@ -129,7 +129,33 @@ All from `tools/gen_sounds.py`, seeded per name: `mjolnir_raise`, `mjolnir_call`
 
 ## Textures and models
 
-`tools/gen_textures.py`: `mjolnir_atlas` (32×32) + `mjolnir_model` (cuboids, laid on the diagonal), `mjolnir_icon`,
+The hammer is modelled in Blender by `tools/mjolnir_model.py` (bpy 4.5, the venv in the handoff; units are the
+item's pixels, built upright, the item's centre at the origin):
+
+- **Look**: a head of dark hammered iron about 2:1:1 with polished silver chamfers and a silver band near each end; a
+  sunken band on each long face holding a closed four-strand plait (`billiard_loops`: a 45° billiard in a box of odd
+  rows and columns, so over and under alternate), its strands raised iron with a glowing channel down each; the thorn
+  rune in a ring in a sunken panel on each end; a silver collar, the haft wound in one overlapping leather strap
+  (`build_grip`: real ridges, the step shaded sharp), an octagonal steel pommel, a ring and a short wrist loop.
+- **Materials** each hold three surfaces switched by `set_surface`: `pbr` (the renders), `design` (the colour the
+  texture is painted with, the bake lamp `BAKE_LIGHT` already on its dents and chamfers) and `glow` (how much it glows).
+- `--out DIR --renders`: hero, side, rune end, interlace and haft renders, and a 64 px inventory render.
+- `--game` (about a minute): unwraps (`TEXEL_WEIGHT`), bakes design × ambient occlusion into
+  `textures/item/mjolnir_baked.png` (512²) and the glow into `mjolnir_glow.png`, writes `meshes/mjolnir.hbm` (format in
+  `HammerMesh`'s Javadoc; the hammer laid on the diagonal by `UPRIGHT_TO_ITEM`, where the old cuboid model lay) and
+  writes `models/item/mjolnir.json` from `DISPLAY` (parent `builtin/entity`).
+- `--out DIR --views`: the baked copy read back from its file and drawn as the game draws it (nearest texels, the
+  entity shader's two lamps, the glow added), placed by the game's own transform chains (`view_matrix`): first person
+  in each hand, HammerRaise, third person on a Steve, the ground, an item frame, and slots at GUI scales 1-3. Tune the
+  display transforms here, not in the JSON. `--fit` prints how much of the slot, frame and screen it takes.
+- `--out DIR --sheet`: one contact sheet of the lot.
+
+In game, `HammerRenderer` (a Fabric `BuiltinItemRendererRegistry` renderer, registered in `ShootingStarClient`) draws the
+mesh into `getEntityCutoutNoCull(mjolnir_baked)` lit by the world, then the glowing quads again into
+`getEyes(mjolnir_glow)`, full bright and additive. `HammerGlow.boost(level)` / `reset()` brighten the runes for the
+hammers drawn in between (up to 3×, drawn over themselves).
+
+`tools/gen_textures.py` keeps only `mjolnir_icon` (the flat icon, the model's particle texture), with
 `fulgurite(charge)`, `charred_log`, `charred_log_top`. Block states and models for the three blocks are plain JSON.
 
 ## Self test
