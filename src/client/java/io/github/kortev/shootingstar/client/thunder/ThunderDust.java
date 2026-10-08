@@ -79,7 +79,7 @@ public final class ThunderDust {
 			p.vz = Math.sin(a) * speed;
 			p.vy = 0.05 + 0.1 * RANDOM.nextDouble();
 			p.drag = 0.955;
-			p.size = big * (0.5 + 0.3 * RANDOM.nextFloat());
+			p.size = big * (0.5F + 0.3F * RANDOM.nextFloat());
 			p.grow = big * 0.03F;
 			p.life = 70 + RANDOM.nextInt(40);
 			place(p, x, ground + p.size * 0.35, z);
