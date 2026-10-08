@@ -114,6 +114,77 @@ The feed, and the rebuild, can be hurried with the same key as Gungnir's skip (B
     H
   ```
 
+## Þ-01 Mjölnir
+
+The Shooting Star's own strike: as strong as Gungnir, but nothing like it. Raise the hammer at any block 96–640
+blocks away and a bolt leaps from its head into the sky over the target, and the storm comes. The feed follows the
+charge of the whole planet's thunderstorms, the global circuit, as it is drawn in to that one spot; the storm over
+the target winds up into a vortex; the stepped leader feels its way down out of it; and the bolt comes down.
+
+The feed is real-time 3D with its own shaders, like Gungnir's: the night side of Earth from orbit with every
+thunderstorm on it flickering inside its clouds and red sprites leaping above them, a ring of charge closing across
+the planet with filaments of current running in ahead of it and the storms it passes going dark, the supercell
+winding into one vortex lit by lightning that never stops, and the leader seen from inside the eye as it steps down
+to the ground. The sound under it is the planet's own radio noise of lightning (the clicks of sferics, the pings of
+tweeks and the falling whistles of whistlers) over a drone breathing with the Earth-ionosphere cavity's 7.83 Hz.
+
+In the world everyone sees the storm wind up overhead and the sky go dark under it, rings of light on the ground
+marking the zone (and, fainter, the edge of the arcs), the leader stepping down, sparks reaching up off everyone
+standing under it, and the stroke: a blinding channel with its branches, three restrikes down the same path, the
+channel breaking up into beads of violet light as it dies, spider lightning racing across the cloud base, and the
+scar burning out across the ground. Thunder reaches you at the speed of sound.
+
+### What happens when you raise it
+
+| Time    | What you see                                                                                 |
+|---------|----------------------------------------------------------------------------------------------|
+| 0 s     | **The hammer goes up** over your head and lights up, trembling as the charge builds in it.   |
+| 0.8 s   | **The call**: a bolt leaps from the hammer up into the sky over the target, with a crack and a clap of thunder. Everyone can see who called it. |
+| 1.5 s   | Your camera climbs out over the target, looking up into the storm as it starts to turn, and rises into its dark base. |
+| 2.7 s   | **The feed** comes out of the storm cloud into orbit over the night side: `[ Þ-01 MJÖLNIR · GLOBAL CIRCUIT ]`, `THUNDERSTORMS · 1,812 ACTIVE`. |
+| 5.8 s   | `[ DRAWING THE CIRCUIT ]`: a ring of charge closes across the planet on the target, `CHARGE · POTENTIAL · STORMS DRAINED` counting up. |
+| 10.3 s  | `[ SUPERCELL · TARGET ]`: down onto the storm over the target as it winds into one vortex: **MJÖLNIR**, struck like an anvil. |
+| 13.8 s  | `[ STEPPED LEADER ]`: down the eye after the leader as it steps to the ground, `LEADER ALTITUDE` counting down. |
+| 16.3 s  | Back in the world, low at the edge of the zone: the leader steps down out of the vortex, streamers rise off everything under it, the air buzzes. |
+| 18.3 s  | **The stroke**: the flash, then impact frames cut between drawn styles (a blue photographic negative, the strobe silhouette, ink on pale paper, posterised violet), cutting back to white with each restrike. |
+| 19.6 s  | Cut to high over the strike, looking straight down as the scar burns out across the ground: `[ STROKE CONFIRMED ]`. |
+| 25.5 s  | Back to your own eyes. The storm unwinds and the sky clears.                                 |
+
+Only the player who raised the hammer gets the feed and the camera shots. **Backspace** skips the feed, as for
+Gungnir.
+
+### What the stroke does to the world
+
+- **Crater:** where the channel lands, a bowl about 54 blocks across and 14 deep at the default size is blown out
+  (everything above it, up to 120 blocks of hillside, goes) and fused to **Charged Fulgurite**.
+- **The petrified bolt:** the bolt is left standing in its crater as a jagged column of fulgurite, kinked the way the
+  channel was, forking near the top and still charged at its heart: about 96 blocks tall by default.
+- **Burn zone:** out to the strike radius (`mjolnirRadius`, 64 by default), every leaf burns off, every trunk is left
+  a black **Charred Log**, anything wooden burns to ash (chests and other containers ride it out), grass burns to bare
+  earth, sand fuses to glass, snow and ice go, and fires start.
+- **The scar:** a Lichtenberg figure burned out through the ground to 1.5× the radius, the fern of branching channels
+  the current leaves: trenches up to four deep near the middle, every one lined with Charged Fulgurite, glowing
+  brightest where the channel was widest.
+- **Charged Fulgurite** glows white-blue and spits sparks; it bleeds its charge away over about a quarter of an hour
+  into dark **Fulgurite**. Water earths it at once, and standing on it gives you a shock.
+- **Creatures:** everything inside the strike radius dies. Everything in the ring beyond it, out to the edge of the
+  scar, is hit by an arc off the bolt (weaker farther out), set on fire and thrown; and each arc jumps on to the
+  nearest creature it has not hit within 14 blocks, up to three times. Arcs are lightning, so they charge creepers,
+  turn pigs into zombified piglins and villagers into witches. The arcs never touch whoever raised the hammer.
+  Kills count as theirs.
+- Unbreakable blocks (bedrock, command blocks, barriers) are never touched.
+
+### Getting it
+
+- **Creative:** the Combat tab (the hammer) and the Building Blocks tab (fulgurite, charred log).
+- **Survival:** craft it. The recipe unlocks once you have a Nether Star.
+
+  ```
+  N H N     N = Netherite Ingot   H = Heavy Core
+  L S L     L = Lightning Rod     S = Nether Star
+    B       B = Breeze Rod
+  ```
+
 ## Chitty Chitty Bang Bang
 
 GEN 11, the car from the film, is a mod of its own, built here beside this one and needing it: see
@@ -127,6 +198,8 @@ GEN 11, the car from the film, is a mod of its own, built here beside this one a
   From a command block or the console there is no shooter: everyone watches from outside, and the world
   comes back by itself at the end.
 - `/ginnungagap release`: end every Ginnungagap and let reality back in.
+- `/mjolnir strike <pos>`: raise Mjölnir at a position (operators).
+- `/mjolnir cancel`: call off every Mjölnir strike whose bolt has not come down yet.
 
 | Game rule              | Default | Meaning                                                  |
 |------------------------|---------|----------------------------------------------------------|
@@ -135,6 +208,9 @@ GEN 11, the car from the film, is a mod of its own, built here beside this one a
 | `gungnirSpire`         | `true`  | Whether the spent round is left standing as a spire.     |
 | `ginnungagapRadius`    | `96`    | Radius erased by a Ginnungagap, 16–256.                  |
 | `ginnungagapTerrainDamage` | `true` | `false` leaves the blocks in place.                  |
+| `mjolnirRadius`        | `64`    | Radius of the zone Mjölnir kills everything in, 8–160; the scar and arcs reach 1.5×. |
+| `mjolnirTerrainDamage` | `true`  | `false` keeps terrain intact (creatures are still hit).  |
+| `mjolnirPetrifiedBolt` | `true`  | Whether the bolt is left standing in its crater.         |
 
 ## Client options
 

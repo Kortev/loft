@@ -1,6 +1,6 @@
 ---
 name: weapon-mod
-description: How The Shooting Star's cinematic weapons are built (SS-03 Gungnir's orbital strike, the Ω-00 Genesis Key's Ginnungagap) and the exact recipe for editing them or adding a new weapon of the same kind - an item that triggers a server-timed event with a client cinematic (feed, camera shots, world effects, synthesised sound), world changes, game rules, advancements and game tests. Use whenever the task is to change Gungnir or the Genesis Key, or to make a new weapon, strike, event or "ultimate" item for this mod.
+description: How The Shooting Star's cinematic weapons are built (SS-03 Gungnir's orbital strike, the Ω-00 Genesis Key's Ginnungagap, Þ-01 Mjölnir's god-bolt) and the exact recipe for editing them or adding a new weapon of the same kind - an item that triggers a server-timed event with a client cinematic (feed, camera shots, world effects, synthesised sound), world changes, game rules, advancements and game tests. Use whenever the task is to change Gungnir, the Genesis Key or Mjölnir, or to make a new weapon, strike, event or "ultimate" item for this mod.
 ---
 
 # Weapons of The Shooting Star
@@ -10,16 +10,19 @@ A weapon here is not an item that does damage. It is an **event**: using the ite
 to the world and to entities. The clients turn the same timeline into a cinematic: a full-screen 3D feed, camera
 shots, effects drawn into the world, a HUD and a synthesised soundtrack.
 
-Two exist, and they are the templates:
+Three exist, and they are the templates:
 
 - **SS-03 Gungnir** (`gungnir_uplink`): a 22-second strike; a 128-block crater, molten crust and a spire.
   Read `references/gungnir.md`.
 - **Ω-00 Ginnungagap** (`genesis_key`): a world-scale event; the world round the target is erased, everyone waits
   in the void, and the cracked key rebuilds it. Read `references/genesis-key.md`.
+- **Þ-01 Mjölnir** (`mjolnir`): an 18-second strike as strong as Gungnir but its own: a storm over the target, a bolt
+  that blasts a fused crater, burns the zone, scars the ground in a Lichtenberg figure and arcs on through the ring,
+  and is left standing petrified. It shares no class with Gungnir. Read `references/mjolnir.md`.
 
-Read the reference for the weapon you are touching before editing it. For a new weapon, read both and copy the
-nearer one: Gungnir for a strike that changes terrain and is over, the Genesis Key for an event that holds players
-and must survive restarts.
+Read the reference for the weapon you are touching before editing it. For a new weapon, read them and copy the
+nearest: Mjölnir (or Gungnir) for a strike that changes terrain and is over, the Genesis Key for an event that holds
+players and must survive restarts. Mjölnir is the newest and the most self-contained strike to copy from.
 
 ## The shape every weapon has
 

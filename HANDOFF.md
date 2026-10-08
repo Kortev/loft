@@ -33,6 +33,7 @@ built in Blender by a script, the effects are real shaders, and everything has g
 |---|---|---|
 | **SS-03 Gungnir**: orbital kinetic strike with a 22 s cinematic uplink feed, a 128-block crater, molten crust and a spire | `gungnir_uplink` | Done. kortev has more edits planned (not yet specified). |
 | **Ω-00 Ginnungagap**: the Genesis Key erases the world round a target; everyone waits in the void; the cracked key rebuilds it | `genesis_key` | Done. kortev has more edits planned (not yet specified). |
+| **Þ-01 Mjölnir**: the planet's thunderstorms in one bolt; a storm over the target, a fused crater with the bolt left standing petrified, the zone burned, a Lichtenberg scar, arcs through the ring | `mjolnir` | New: made as kortev's own answer to Gungnir, which they can't keep in their mod. Shares no class with Gungnir. |
 | **Chitty Chitty Bang Bang**: drivable, flying, floating car from the film | `chitty` | Done and polished (pleated wings, raft, ejector seat, hamper, dials, lamps, live metal shine, banking view). In her own jar. |
 | **Owner-only crafting** | all recipes | Done: `OwnerOnly.OWNER = "kortev"`; crafters never make the mods' items. It covers everything in the `shootingstar` namespace, whichever jar it is in. |
 
