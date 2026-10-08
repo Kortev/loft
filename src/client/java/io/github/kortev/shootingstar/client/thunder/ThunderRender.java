@@ -560,7 +560,7 @@ public final class ThunderRender {
 		Fx glow = BATCH.begin(Fx.BLOB, 1.0F, view, proj, right, up);
 		Vector3f at = rel(thunder.center.x, thunder.center.y + 1.0, thunder.center.z, cam);
 		glow.sprite(at, (float) (3.0 + 5.0 * p), 0.0F, Fx.argb(ARC[0], ARC[1], ARC[2], (float) on * pulse));
-		glow.end(true, (float) (1.5 + 4.0 * p * p));
+		glow.end(true, (float) (1.0 + 2.5 * p * p));
 	}
 
 	private static void ring(ClientThunder thunder, float[] heights, double radius, Vec3d cam, Matrix4f view, Matrix4f proj,
@@ -578,7 +578,9 @@ public final class ThunderRender {
 			float w = width * (0.18F + 0.0035F * p0.length());
 			line.beam(p0, p1, eye, w, argb, argb);
 		}
-		line.end(true, 2.5F);
+		// Soft: drawn straight onto the picture most of the time, where anything brighter clips to white and reads as
+		// lightning running along the ground.
+		line.end(true, 1.3F);
 	}
 
 	/** The call: a bolt leaping from the raised hammer up into the heart of the storm over the target. */

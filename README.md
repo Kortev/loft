@@ -124,30 +124,34 @@ the target winds up into a vortex; the stepped leader feels its way down out of 
 The feed is real-time 3D with its own shaders, like Gungnir's: the night side of Earth from orbit with every
 thunderstorm on it flickering inside its clouds and red sprites leaping above them, a ring of charge closing across
 the planet with filaments of current running in ahead of it and the storms it passes going dark, the supercell
-winding into one vortex lit by lightning that never stops, and the leader seen from inside the eye as it steps down
-to the ground. The sound under it is the planet's own radio noise of lightning (the clicks of sferics, the pings of
+winding into one vortex lit by lightning that never stops, and the leader stepping down out of the storm's base over
+the dark country under it. The sound under it is the planet's own radio noise of lightning (the clicks of sferics, the pings of
 tweeks and the falling whistles of whistlers) over a drone breathing with the Earth-ionosphere cavity's 7.83 Hz.
 
-In the world everyone sees the storm wind up overhead and the sky go dark under it, rings of light on the ground
-marking the zone (and, fainter, the edge of the arcs), the leader stepping down, sparks reaching up off everyone
-standing under it, and the stroke: a blinding channel with its branches, three restrikes down the same path, the
-channel breaking up into beads of violet light as it dies, spider lightning racing across the cloud base, and the
-scar burning out across the ground. Thunder reaches you at the speed of sound.
+In the world everyone sees the storm boil out of the sky where the call went into it and wind up overhead: decks of
+cloud turning over the target, a wall cloud lowering out of the middle, lightning flickering through it and now and
+then a bolt down to the ground out under its edge. Under it the sky goes slate, the light goes and rain comes. Rings
+of light on the ground mark the zone (and, fainter, the edge of the arcs); whoever called it stands with the hammer
+held up; the leader steps down out of the wall cloud, sparks reach up off everyone standing under it, and the stroke
+comes: a blinding channel with its branches, three restrikes down the same path, the channel breaking up into beads
+of violet light as it dies, a ring of dust thrown up and racing out across the ground, spider lightning racing across
+the storm's base, the scar burning out across the ground and steam boiling off the crater. Thunder reaches you at the
+speed of sound.
 
 ### What happens when you raise it
 
 | Time    | What you see                                                                                 |
 |---------|----------------------------------------------------------------------------------------------|
 | 0 s     | **The hammer goes up** over your head and lights up, trembling as the charge builds in it.   |
-| 0.8 s   | **The call**: a bolt leaps from the hammer up into the sky over the target, with a crack and a clap of thunder. Everyone can see who called it. |
-| 1.5 s   | Your camera climbs out over the target, looking up into the storm as it starts to turn, and rises into its dark base. |
+| 0.8 s   | **The call**: a bolt leaps from the hammer up into the sky over the target, with a crack and a clap of thunder; your eyes follow it up as the storm boils out where it went in. Everyone can see who called it. |
+| 1.5 s   | Your camera climbs out over the target, looking up into the storm as it turns, and rises into its dark base. |
 | 2.7 s   | **The feed** comes out of the storm cloud into orbit over the night side: `[ Þ-01 MJÖLNIR · GLOBAL CIRCUIT ]`, `THUNDERSTORMS · 1,812 ACTIVE`. |
 | 5.8 s   | `[ DRAWING THE CIRCUIT ]`: a ring of charge closes across the planet on the target, `CHARGE · POTENTIAL · STORMS DRAINED` counting up. |
 | 10.3 s  | `[ SUPERCELL · TARGET ]`: down onto the storm over the target as it winds into one vortex: **MJÖLNIR**, struck like an anvil. |
-| 13.8 s  | `[ STEPPED LEADER ]`: down the eye after the leader as it steps to the ground, `LEADER ALTITUDE` counting down. |
-| 16.3 s  | Back in the world, low at the edge of the zone: the leader steps down out of the vortex, streamers rise off everything under it, the air buzzes. |
+| 13.8 s  | `[ STEPPED LEADER ]`: the leader stepping down out of the storm's base, seen from kilometres off over the dark country under it, `LEADER ALTITUDE` counting down. |
+| 16.3 s  | Back in the world on you, from over your shoulder, hammer held up, the storm looming over the target far off; then low at the edge of the zone as the leader comes on down out of the wall cloud, streamers rise off everything under it and the air buzzes. |
 | 18.3 s  | **The stroke**: the flash, then impact frames cut between drawn styles (a blue photographic negative, the strobe silhouette, ink on pale paper, posterised violet), cutting back to white with each restrike. |
-| 19.6 s  | Cut to high over the strike, looking straight down as the scar burns out across the ground: `[ STROKE CONFIRMED ]`. |
+| 19.6 s  | Cut to high over the strike, looking straight down as the dust races out and the scar burns out across the ground, then craning down and round to the crater, steaming, the bolt left standing in it: `[ STROKE CONFIRMED ]`. |
 | 25.5 s  | Back to your own eyes. The storm unwinds and the sky clears.                                 |
 
 Only the player who raised the hammer gets the feed and the camera shots. **Backspace** skips the feed, as for
