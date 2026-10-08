@@ -60,6 +60,11 @@ public final class ThunderBuilder {
 	private static final int CHAIN_DEPTH = 3;
 	/** The most creatures the bolt arcs to directly; the chains can reach more. */
 	private static final int MAX_ARCS = 32;
+	/**
+	 * How far down a column is searched for the ground: past the petrified bolt, which can reach out over the zone well
+	 * above it, and whatever stands on the ground.
+	 */
+	private static final int SCAN_DEPTH = 220;
 	/** One arc through this many creatures earns Chain Lightning. */
 	public static final int CHAIN_GOAL = 5;
 
@@ -272,10 +277,11 @@ public final class ThunderBuilder {
 		double heat = zone ? 1.0 - 0.5 * (dist - core) / Math.max(1.0, radius - core)
 				: 0.5 * (1.0 - (dist - radius) / Math.max(1.0, scar - radius));
 		int top = world.getTopY(Heightmap.Type.WORLD_SURFACE, x, z) - 1;
-		int bottom = Math.max(world.getBottomY(), top - 72);
+		int bottom = Math.max(world.getBottomY(), top - SCAN_DEPTH);
 		for (int y = top; y > bottom; y--) {
 			BlockState state = world.getBlockState(cursorPos.set(x, y, z));
-			if (state.isAir()) {
+			if (state.isAir() || fulgurite(state)) {
+				// The petrified bolt may already reach out over this column: the ground is under it.
 				continue;
 			}
 			if (state.isIn(BlockTags.LEAVES)) {
@@ -366,10 +372,11 @@ public final class ThunderBuilder {
 			return;
 		}
 		int y = world.getTopY(Heightmap.Type.WORLD_SURFACE, x, z) - 1;
-		int bottom = Math.max(world.getBottomY(), y - 72);
+		int bottom = Math.max(world.getBottomY(), y - SCAN_DEPTH);
 		for (; y > bottom; y--) {
 			BlockState state = world.getBlockState(cursorPos.set(x, y, z));
-			if (state.isAir() || state.isIn(BlockTags.LEAVES) || state.isIn(BlockTags.LOGS) || state.isOf(ModBlocks.CHARRED_LOG)) {
+			if (state.isAir() || state.isIn(BlockTags.LEAVES) || state.isIn(BlockTags.LOGS) || state.isOf(ModBlocks.CHARRED_LOG)
+					|| fulgurite(state)) {
 				continue;
 			}
 			if (!state.getFluidState().isEmpty() || state.hasBlockEntity()) {
@@ -648,6 +655,11 @@ public final class ThunderBuilder {
 	}
 
 	// --- blocks ------------------------------------------------------------------------------------
+
+	/** The bolt's own glass, which the scans look straight through. */
+	private static boolean fulgurite(BlockState state) {
+		return state.isOf(ModBlocks.FULGURITE) || state.isOf(ModBlocks.CHARGED_FULGURITE);
+	}
 
 	private static BlockState charged(int charge) {
 		return ModBlocks.CHARGED_FULGURITE.getDefaultState().with(ChargedFulguriteBlock.CHARGE, charge);

@@ -12,8 +12,10 @@ import io.github.kortev.shootingstar.thunder.ThunderManager;
 import io.github.kortev.shootingstar.thunder.ThunderTimeline;
 import java.util.List;
 import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
+import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
+import net.minecraft.block.LeavesBlock;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.mob.CreeperEntity;
 import net.minecraft.entity.mob.ZombieEntity;
@@ -25,6 +27,7 @@ import net.minecraft.text.TranslatableTextContent;
 import net.minecraft.util.Util;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.Heightmap;
 
 /** Mjölnir: the hammer's refusals, the scar's figure, the fulgurite, and whole strikes on flat ground. */
 public class ThunderGameTests implements FabricGameTest {
@@ -275,18 +278,52 @@ public class ThunderGameTests implements FabricGameTest {
 	}
 
 	/** Where each block of {@code kind} left in the box is, and what the heightmaps say about its column. */
-	private static String survivors(ServerWorld world, BlockPos center, BlockPos from, BlockPos to, net.minecraft.block.Block kind) {
+	private static String survivors(ServerWorld world, BlockPos center, BlockPos from, BlockPos to, Block kind) {
 		StringBuilder out = new StringBuilder();
 		for (BlockPos pos : BlockPos.iterate(from, to)) {
 			if (world.getBlockState(pos).isOf(kind)) {
 				out.append(" [").append(pos.subtract(center).toShortString()).append(" surface ")
-						.append(world.getTopY(net.minecraft.world.Heightmap.Type.WORLD_SURFACE, pos.getX(), pos.getZ()) - center.getY())
+						.append(world.getTopY(Heightmap.Type.WORLD_SURFACE, pos.getX(), pos.getZ()) - center.getY())
 						.append(" blocking ")
-						.append(world.getTopY(net.minecraft.world.Heightmap.Type.MOTION_BLOCKING, pos.getX(), pos.getZ()) - center.getY())
+						.append(world.getTopY(Heightmap.Type.MOTION_BLOCKING, pos.getX(), pos.getZ()) - center.getY())
 						.append(" below ").append(world.getBlockState(pos.down())).append("]");
 			}
 		}
 		return out.toString();
+	}
+
+	/**
+	 * The petrified bolt goes up as soon as the crater is open, and its forks can reach out over ground the heat has not
+	 * got to yet: what is under them must burn all the same. Fulgurite hung over a leaf and (high up) over a log stands in
+	 * for the forks.
+	 */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_thunderbolt", tickLimit = 40)
+	public void burnsUnderTheBolt(TestContext context) {
+		ServerWorld world = context.getWorld();
+		BlockPos center = context.getAbsolutePos(new BlockPos(4, 3, 40));
+		for (BlockPos pos : BlockPos.iterate(center.add(-25, -3, -25), center.add(25, 0, 25))) {
+			world.setBlockState(pos, Blocks.STONE.getDefaultState());
+		}
+		BlockPos leaf = center.add(11, 3, 0);
+		world.setBlockState(leaf, Blocks.OAK_LEAVES.getDefaultState().with(LeavesBlock.PERSISTENT, true));
+		world.setBlockState(center.add(11, 20, 0), ModBlocks.FULGURITE.getDefaultState());
+		BlockPos log = center.add(13, 1, 2);
+		world.setBlockState(log, Blocks.OAK_LOG.getDefaultState());
+		world.setBlockState(center.add(13, 150, 2), ModBlocks.CHARGED_FULGURITE.getDefaultState());
+		ThunderBuilder builder = new ThunderBuilder(world, center, 16, 7L, null, Util.NIL_UUID);
+		builder.start();
+		for (int i = 0; i < 200 && !builder.step(); i++) {
+			// Run the whole stroke at once.
+		}
+		StringBuilder problems = new StringBuilder();
+		if (world.getBlockState(leaf).isOf(Blocks.OAK_LEAVES)) {
+			problems.append("the leaf under the fulgurite did not burn; ");
+		}
+		if (!world.getBlockState(log).isOf(ModBlocks.CHARRED_LOG)) {
+			problems.append("the log under the high fulgurite is ").append(world.getBlockState(log)).append("; ");
+		}
+		context.assertTrue(problems.length() == 0, problems.toString());
+		context.complete();
 	}
 
 	private static boolean fused(ServerWorld world, BlockPos from, BlockPos to) {
