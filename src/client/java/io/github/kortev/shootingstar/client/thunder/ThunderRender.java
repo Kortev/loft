@@ -169,10 +169,11 @@ public final class ThunderRender {
 
 	/**
 	 * Lightning inside the storm: flashes at moments and places that only the seed decides, coming faster as the stroke
-	 * nears. Returns the brightest one now: its x and z across the vortex (-1..1) and how bright it is.
+	 * nears. Returns the brightest one now: its x and z across the vortex (-1..1), how bright it is, and the tick it
+	 * started on (which seeds the bolt drawn for it).
 	 */
 	static float[] stormFlash(ClientThunder thunder, double t) {
-		float[] best = {0.0F, 0.0F, 0.0F};
+		float[] best = {0.0F, 0.0F, 0.0F, 0.0F};
 		if (t < ThunderTimeline.FEED - 20) {
 			return best;
 		}
@@ -195,6 +196,7 @@ public final class ThunderRender {
 				best[0] = (float) (Math.cos(a) * r);
 				best[1] = (float) (Math.sin(a) * r);
 				best[2] = (float) b;
+				best[3] = k;
 			}
 		}
 		return best;
@@ -524,6 +526,9 @@ public final class ThunderRender {
 			leader(thunder, t, cam, view, proj, right, up);
 			streamers(world, thunder, t, cam, view, proj, right, up, tickDelta);
 		}
+		if (e < 60.0) {
+			stormBolts(world, thunder, t, cam, view, proj, right, up);
+		}
 		if (thunder.struck && e >= 0) {
 			stroke(thunder, e, cam, view, proj, right, up);
 			scar(thunder, e, cam, view, proj, right, up);
@@ -746,6 +751,8 @@ public final class ThunderRender {
 		}
 		List<Lichtenberg.Segment> segments = figure.segments();
 		Vector3f eye = new Vector3f();
+		Vector3f a = new Vector3f();
+		Vector3f b = new Vector3f();
 		for (int pass = 0; pass < 2; pass++) {
 			Fx fx = BATCH.begin(Fx.LINE, 0.0F, view, proj, right, up);
 			for (int i = 0; i < segments.size(); i++) {
@@ -756,15 +763,17 @@ public final class ThunderRender {
 				double since = (front - s.to()) / ThunderTimeline.SCAR_SPEED;
 				float hot = since < 0 ? 1.0F : (float) Math.exp(-since / 3.0);
 				float blue = (float) Math.exp(-Math.max(0.0, since) / 30.0);
-				if (blue < 0.02F) {
+				// The finest branches go out first: thousands of them, and too thin to see once cooled.
+				if (blue < 0.02F || since > 20.0 && s.width() < 0.6F) {
 					continue;
 				}
 				double t1 = Math.min(1.0, (front - s.from()) / Math.max(1.0E-3, s.to() - s.from()));
 				float x1 = (float) MathHelper.lerp(t1, s.x0(), s.x1());
 				float z1 = (float) MathHelper.lerp(t1, s.z0(), s.z1());
 				float y1 = (float) MathHelper.lerp(t1, heights[i * 2], heights[i * 2 + 1]);
-				Vector3f a = rel(thunder.center.x + s.x0(), heights[i * 2] + 0.2, thunder.center.z + s.z0(), cam);
-				Vector3f b = rel(thunder.center.x + x1, y1 + 0.2, thunder.center.z + z1, cam);
+				a.set((float) (thunder.center.x + s.x0() - cam.x), (float) (heights[i * 2] + 0.2 - cam.y),
+						(float) (thunder.center.z + s.z0() - cam.z));
+				b.set((float) (thunder.center.x + x1 - cam.x), (float) (y1 + 0.2 - cam.y), (float) (thunder.center.z + z1 - cam.z));
 				float width = 0.25F + s.width() * 0.35F;
 				if (pass == 0) {
 					int c = Fx.argb(ARC[0], ARC[1], ARC[2], blue * 0.7F);
@@ -830,6 +839,53 @@ public final class ThunderRender {
 			List<Vec3d> shown = channel.subList(0, Math.max(2, (int) (channel.size() * out)));
 			float b = (float) (since < 3.0 ? 1.0 : Math.exp(-(since - 3.0) / 2.5) * (0.6 + 0.4 * Math.sin(since * 3.1)));
 			bolt(shown, out >= 1.0 ? forks : List.of(), cam, view, proj, right, up, b, 1.6F, 0.2F, ARC, 0.6F);
+		}
+	}
+
+	/**
+	 * The bolts of the storm's own lightning, one for each flash in it: a crawler racing across its base from where the
+	 * flash is; and one flash in four a bolt down to the ground somewhere out under the storm's edge, beyond the zone.
+	 */
+	private static void stormBolts(ClientWorld world, ClientThunder thunder, double t, Vec3d cam, Matrix4f view, Matrix4f proj,
+			Vector3f right, Vector3f up) {
+		float[] flash = stormFlash(thunder, t);
+		double density = stormDensity(t);
+		if (flash[2] < 0.25F || density < 0.3) {
+			return;
+		}
+		Random random = new Random(thunder.seed * 31L + (long) flash[3]);
+		double radius = ThunderTimeline.vortexRadius(t, thunder.radius);
+		Vec3d at = thunder.top().add(flash[0] * radius, -1.5, flash[1] * radius);
+		double a = random.nextDouble() * Math.PI * 2.0;
+		double length = radius * (0.25 + 0.35 * random.nextDouble());
+		Vec3d to = at.add(Math.cos(a) * length, random.nextGaussian() * 2.0, Math.sin(a) * length);
+		List<Vec3d> channel = flatten(BoltPath.jagged(at, to, 0.3, 6, random), at.y);
+		List<List<Vec3d>> forks = new ArrayList<>();
+		for (int f = 0; f < 3; f++) {
+			Vec3d root = channel.get(6 + random.nextInt(channel.size() - 12));
+			double fa = a + random.nextGaussian() * 0.9;
+			forks.add(flatten(BoltPath.jagged(root, root.add(Math.cos(fa) * length * 0.35, 0, Math.sin(fa) * length * 0.35), 0.35, 4,
+					random), at.y));
+		}
+		float b = flash[2] * (float) density;
+		bolt(channel, forks, cam, view, proj, right, up, b, 1.3F, 0.15F, ARC, 0.6F);
+		if (random.nextInt(4) == 0) {
+			// Down to the ground, out beyond the zone where the storm's edge is.
+			double ga = random.nextDouble() * Math.PI * 2.0;
+			double out = thunder.radius * (1.2 + 0.8 * random.nextDouble());
+			double gx = thunder.center.x + Math.cos(ga) * out;
+			double gz = thunder.center.z + Math.sin(ga) * out;
+			double gy = world.isChunkLoaded(MathHelper.floor(gx) >> 4, MathHelper.floor(gz) >> 4)
+					? world.getTopY(Heightmap.Type.MOTION_BLOCKING, MathHelper.floor(gx), MathHelper.floor(gz)) : thunder.center.y;
+			Vec3d top = new Vec3d(gx + random.nextGaussian() * 12.0, thunder.cloudBase, gz + random.nextGaussian() * 12.0);
+			List<Vec3d> down = BoltPath.jagged(top, new Vec3d(gx, gy, gz), 0.16, 6, random);
+			List<List<Vec3d>> branches = new ArrayList<>();
+			for (int f = 0; f < 3; f++) {
+				Vec3d root = down.get(4 + random.nextInt(down.size() / 2));
+				Vec3d dir = new Vec3d(random.nextGaussian(), -1.0, random.nextGaussian()).normalize();
+				branches.add(BoltPath.jagged(root, root.add(dir.multiply((root.y - gy) * 0.3)), 0.3, 4, random));
+			}
+			bolt(down, branches, cam, view, proj, right, up, b, 2.0F, 0.25F, ARC, 0.6F);
 		}
 	}
 

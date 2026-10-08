@@ -66,8 +66,11 @@ regenerate the `mjolnir_*` and `thunder_*` sounds.
     damage, fire, a push, and vanilla `onStruckByLightning` (charges creepers, converts pigs and villagers). Fires
     `mjolnir_chain` (≥ 5 arcs) and `mjolnir_charged`.
   - `BLOCK_BUDGET` 60 000 writes a tick; `set` skips hardness < 0.
-- **Blocks** (`registry/ModBlocks`): `FULGURITE`, `CHARGED_FULGURITE` (`block/ChargedFulguriteBlock`: `CHARGE` 3→1 on
-  random ticks then fulgurite, water earths it, shocks what stands on it, sparks), `CHARRED_LOG` (pillar).
+- **Blocks** (`registry/ModBlocks`): `FULGURITE` (no light), `CHARGED_FULGURITE` (`block/ChargedFulguriteBlock`: light
+  12/9/6, `CHARGE` 3→1 on random ticks then fulgurite, water earths it, shocks what stands on it except a charged
+  creeper, sparks; animated texture), `CHARRED_LOG` (pillar). Only some of the crater lining and stretches of the
+  scar's main channels are charged, and few fires are lit: thousands of lights and fires kept the lighting and the
+  chunk meshes busy for minutes.
 - **`command/MjolnirCommand`**: `/mjolnir strike <pos>`, `/mjolnir cancel`.
 - **Game rules:** `mjolnirRadius` (64, 8–160), `mjolnirTerrainDamage` (true), `mjolnirPetrifiedBolt` (true).
 - **Damage:** `thunderstruck` (in every bypass tag, like Gungnir's) and `arced` (bypasses armour and shields only).
@@ -81,15 +84,26 @@ regenerate the `mjolnir_*` and `thunder_*` sounds.
   storm, charge; the stroke, roll and aftermath at the speed of sound in `strokeSounds`; arcs in `onArcs`), holding at
   `STROKE - 1` until the server's stroke, the HUD hidden during the cinematic, `flying()` for `Culling` (called from
   `ClientStrikes.tick`), `raising(player)` for the arm pose, sparks and smoke particles.
-- **`BoltPath`**: the bolt's channel and branches from the seed (the leader and the stroke draw the same path).
-- **`ThunderRender`** (WorldRenderEvents.LAST): darkens the world under the storm, draws the vortex (`ss_vortex`, three
-  layers at the cloud base, flashes inside it from `stormFlash`), then into an HDR buffer: the warning rings (ground
-  heights sampled at the lock), the call, the leader, the streamers, the stroke, afterglow and beads, the thunderclap
-  shell (`ss_shell`), the scar burning in (ground heights sampled at the stroke), the arcs and the crawlers; lights
-  through `ss_light`; bloom and `fxcomp`; then the impact frames and flashes (`ss_thunder`, `FRAME_AT`/`FRAME_MODE`).
-  `gloom()` also tints the fog (`BackgroundRendererMixin`).
+- **`BoltPath`**: the bolt's channel and branches from the seed (the leader and the stroke draw the same path), from
+  the wall cloud's foot (`ClientThunder.wallBase()`, `wallDrop()` under the storm's base `top()`) to the ground.
+- **`ThunderRender`** (WorldRenderEvents.LAST): darkens the world under the storm, draws the storm (`drawStorm`: five
+  decks of `ss_vortex`, `DECK_HEIGHT`/`DECK_REACH`/`DECK_DENSITY`, then the wall cloud lowering out of the middle from
+  `DRAW` to `INBOUND`: an `ss_wall` curtain and an `ss_vortex` disc at its foot; flashes inside from `stormFlash`), the
+  dust (`ThunderDust`), then the light: only when `bright()` (the call, the leader, the stroke and after, or a light) into
+  an HDR buffer with the light pass (`ss_light`), bloom without its streak and `fxcomp`; otherwise the warning rings go
+  straight onto the picture. In the light: the rings (ground heights sampled at the lock), the call, the leader, the
+  streamers, the storm's own bolts (`stormBolts`: a crawler for each flash, one in four down to the ground beyond the
+  zone), the stroke, afterglow and beads, the scar burning in (ground heights sampled at the stroke; fine branches
+  dropped once cooled), the arcs and the crawlers. Then the impact frames and flashes (`ss_thunder`,
+  `FRAME_AT`/`FRAME_MODE`). `gloom()` also tints the fog (`BackgroundRendererMixin`).
+- **`ThunderWeather`**: under a storm the client's world gets vanilla rain and thunder (`WorldWeatherMixin`, client world
+  only), so the sky, fog and light go dark and rain falls; lightning, the call, the stroke and the restrikes flash the
+  sky and light (`setLightningTicksLeft`); vanilla's clouds are hidden (`WorldRendererMixin`).
+- **`ThunderDust`**: the shockwave's ring of dust (coloured by the ground it rises off) and the crater's steam, soft
+  puffs in `ss_dust`, ticked from `ClientThunders.tick`.
 - **`ThunderCamera`** (through `CameraDirector`): rise, witness (1.25 r out, low, looking up), overhead (straight
-  down, under the cloud base), back to the eyes.
+  down while the scar burns, then a crane down and round to a three-quarter view), back to the eyes. `fovScale` (through
+  `GameRendererMixin.getFov`) closes in on the leader and is flung wide by the stroke.
 - **`ThunderHud`**: the feed (`Feed.renderThunder`), the lock marker over the target for everyone ("YOU ARE UNDER IT"
   inside the zone), the readout, aim info and a status card with the hammer in hand.
 - **`HammerRaise`**: the first-person raise (`HeldItemRendererMixin`). The model lies on the diagonal; it is stood up
@@ -98,8 +112,12 @@ regenerate the `mjolnir_*` and `thunder_*` sounds.
   `Space.stormEarth` (uniforms: Target, Storms, Front, Drain, Vortex, Spin, Charge); the leader shot draws a fine
   `Mesh.spherePatch` round the target at 100 m units with `Space.stormEarthPatch`, cloud layers with `ss_vortex`, and
   the leader with `Fx` beams.
-- **Shaders:** `ss_vortex`, `ss_thunder`, `ss_storm` (`Shaders.thunderReady()` checks them; the other weapons only need
-  `ready()`).
+- **Shaders:** `ss_vortex`, `ss_wall`, `ss_dust`, `ss_thunder`, `ss_storm` (`Shaders.thunderReady()` checks them; the
+  other weapons only need `ready()`). The storm shaders read their noise from `gfx/NoiseTex` (a tiling 256x256 texture
+  made once: billows in red and green, ridges in blue, fine grain in alpha) instead of working it out per pixel.
+- **Performance:** while a feed covers the screen the world is not drawn (`GameRendererMixin.renderWorld`,
+  `ClientThunders.feedCovers`); the leader feed shot uses zoom blur, not the shutter. `gfx/Timings` times the passes
+  when `-Dshootingstar.timings=true` (the self test turns it on).
 
 ## Sounds
 
@@ -113,6 +131,13 @@ All from `tools/gen_sounds.py`, seeded per name: `mjolnir_raise`, `mjolnir_call`
 
 `tools/gen_textures.py`: `mjolnir_atlas` (32×32) + `mjolnir_model` (cuboids, laid on the diagonal), `mjolnir_icon`,
 `fulgurite(charge)`, `charred_log`, `charred_log_top`. Block states and models for the three blocks are plain JSON.
+
+## Self test
+
+`selftest` workflow, input `mjolnir` (`src/gametest/.../MjolnirSelfTest.java`): raises the hammer at flat ground with
+zombies in the zone and a creeper, a pig and a villager in the ring; films it with stills at every beat; flies round
+the crater; photographs it from above, the bolt, the floor, the scar and the crater at night; logs `[perf]` lines every
+second (each pass's time, server ticks, lighting and meshing backlogs) and what became of the creatures.
 
 ## Tests
 

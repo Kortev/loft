@@ -26,6 +26,10 @@ public final class Fx {
 
 	private final Vector3f right = new Vector3f();
 	private final Vector3f up = new Vector3f();
+	/** Scratch for beams, which are drawn by the thousand a frame: no new vectors for each. */
+	private final Vector3f dir = new Vector3f();
+	private final Vector3f toEye = new Vector3f();
+	private final Vector3f side = new Vector3f();
 	private BufferBuilder builder;
 	private int mode = -1;
 	private float param;
@@ -79,10 +83,9 @@ public final class Fx {
 
 	/** Beam from {@code a} to {@code b} facing the viewer at {@code eye}; uv.x across, uv.y 0..1 along. */
 	public Fx beam(Vector3f a, Vector3f b, Vector3f eye, float width, int argbA, int argbB) {
-		Vector3f dir = new Vector3f(b).sub(a);
-		Vector3f mid = new Vector3f(a).add(b).mul(0.5F);
-		Vector3f toEye = new Vector3f(eye).sub(mid);
-		Vector3f side = dir.cross(toEye, new Vector3f());
+		dir.set(b).sub(a);
+		toEye.set(eye).sub((a.x + b.x) * 0.5F, (a.y + b.y) * 0.5F, (a.z + b.z) * 0.5F);
+		dir.cross(toEye, side);
 		if (side.lengthSquared() < 1.0E-10F) {
 			side.set(right);
 		}
