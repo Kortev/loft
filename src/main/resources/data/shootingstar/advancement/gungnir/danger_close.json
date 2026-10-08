@@ -2,7 +2,7 @@
   "parent": "shootingstar:gungnir/impact",
   "display": {
     "icon": {
-      "id": "shootingstar:molten_crust"
+      "id": "shootingstar:fused_crust"
     },
     "title": {
       "translate": "advancements.shootingstar.gungnir_danger_close.title"
