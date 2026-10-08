@@ -118,7 +118,12 @@ All from `tools/gen_sounds.py`, seeded per name: `mjolnir_raise`, `mjolnir_call`
 
 `src/gametest/.../ThunderGameTests.java`: `refusalsAndFigure`, `fulguriteDischarges` (batch `e_thunder`), `fullStroke`
 (batch `f_thunder`, the real timeline at radius 20), `terrainHeld` (batch `g_thunderheld`, the builder run directly with
-terrain off).
+terrain off), `burnsUnderTheBolt` (batch `h_thunderbolt`: fulgurite hung over a leaf and a log in the zone, which must
+still burn).
+
+The bolt goes up as soon as the crater is open, before the burn has reached the ground under its forks, so every scan
+down a column (`scorch`, `channel`) looks straight through fulgurite to the ground under it. `fullStroke` failing now and
+then with leaves or planks left in the zone is that, coming back.
 
 ## Previewing without the game
 
