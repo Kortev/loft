@@ -121,9 +121,10 @@ regenerate the `mjolnir_*` and `thunder_*` sounds.
   (`smoothMap`) and warped so no texel shows. Light comes through the air (`sunlight`, `twilight`, haze towards the
   limb); the night map's moonlit land is subtracted so only the lights are left. The draw shot's relay is geometry,
   not shader: `RELAY` is 18 chains of `Hop`s (megaflash channels and forks on the cloud tops, made once from a fixed
-  seed), each chain with its own lag so they never line up into a ring; a hop crawls out as its chain's front
-  (`relayFront`) crosses it, flickers and fades, lighting the cloud round it; the storms outside the middle chain's
-  front go dark (`Front`/`Drain`). The leader shot is local, in 100 m
+  seed), each starting out at the limb as the draw camera sees the planet and with its own start and arrival times, so
+  they never line up into a ring or reach the target all at once; a hop crawls out as its chain's front (`relayFront`)
+  crosses it, flickers and fades, lighting the cloud round it, fainter where the lines crowd together at the target;
+  the storms outside a middling chain's front go dark (`Front`/`Drain`). The leader shot is local, in 100 m
   units with the ground at y = 0: a ground plane in `ss_ground` (country, rivers, towns, lit by the leader's tip and the
   storm's flashes, lost in rain haze), three layers of the storm's base in `ss_vortex` (`Detail` 8 so the 200 km disc
   has kilometre-sized cloud, no eye, lit from inside by `CLOUD_FLASHES` one at a time through `Flash`/`FlashFalloff`),

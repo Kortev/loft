@@ -181,8 +181,11 @@ final class ThunderShots implements Feed.Sequence {
 	private record Hop(List<Vector3f> channel, List<List<Vector3f>> forks, float from, float to, float seed) {
 	}
 
-	/** One line of storms relaying the charge in, from out at the limb to the target, and how late it starts. */
-	private record Chain(List<Hop> hops, float lag) {
+	/**
+	 * One line of storms relaying the charge in: its leaps, how far out (radians) it starts, and when (0 to 1 through the
+	 * draw) it starts and reaches the target.
+	 */
+	private record Chain(List<Hop> hops, float start, float lag, float end) {
 	}
 
 	private static final int CHAINS = 18;
@@ -191,18 +194,25 @@ final class ThunderShots implements Feed.Sequence {
 	private static final List<Chain> RELAY = relay();
 
 	/**
-	 * The relay's lines of storms, the same every time: from all round the target, out at the limb, each leap four to
-	 * eight hundred kilometres and wandering a little either side of the way to the target, so the lines are crooked and
-	 * draw together only as they near it.
+	 * The relay's lines of storms, the same every time: from all round the target, each from out near the limb as the draw
+	 * shot sees the planet, each leap four to eight hundred kilometres and wandering a little either side of the way to
+	 * the target, so the lines are crooked and draw together only as they near it. They start and arrive at times of
+	 * their own, so they never close on it as a ring or all at once.
 	 */
 	private static List<Chain> relay() {
 		Random random = new Random(1234);
+		Vector3f seen = new Vector3f(TARGET).mul(0.94F).add(new Vector3f(NORTH).mul(-0.34F)).normalize();
 		List<Chain> chains = new ArrayList<>();
 		for (int c = 0; c < CHAINS; c++) {
 			double bearing = Math.PI * 2.0 * (c + random.nextDouble() * 0.7) / CHAINS;
-			double start = FRONT_START - 0.55 * random.nextDouble();
 			Vector3f across = new Vector3f(EAST).mul((float) Math.cos(bearing)).add(new Vector3f(NORTH).mul((float) Math.sin(bearing)));
-			Vector3f at = new Vector3f(TARGET).mul((float) Math.cos(start)).add(across.mul((float) Math.sin(start))).normalize();
+			// Out along this bearing until the planet turns away from the camera.
+			double limb = 0.3;
+			while (limb < FRONT_START && out(across, limb).dot(seen) > 0.3F) {
+				limb += 0.02;
+			}
+			double start = limb - 0.15 * random.nextDouble();
+			Vector3f at = out(across, start);
 			double curve = (random.nextDouble() - 0.5) * 0.5;
 			List<Hop> hops = new ArrayList<>();
 			float from = (float) start;
@@ -221,9 +231,14 @@ final class ThunderShots implements Feed.Sequence {
 				at = next;
 				from = to;
 			}
-			chains.add(new Chain(hops, (float) (random.nextDouble() * 0.22)));
+			chains.add(new Chain(hops, (float) start, (float) (random.nextDouble() * 0.15), (float) (0.72 + 0.23 * random.nextDouble())));
 		}
 		return chains;
+	}
+
+	/** The place {@code distance} radians from the target along the ground the way {@code across} (a direction there). */
+	private static Vector3f out(Vector3f across, double distance) {
+		return new Vector3f(TARGET).mul((float) Math.cos(distance)).add(new Vector3f(across).mul((float) Math.sin(distance))).normalize();
 	}
 
 	/** From {@code at}, {@code length} radians along the ground, heading for the target turned {@code turn} radians off it. */
@@ -266,9 +281,13 @@ final class ThunderShots implements Feed.Sequence {
 		return out;
 	}
 
-	/** Where the relay's front is for a chain {@code lag} late, {@code k} (0 to 1) through the draw: radians from the target. */
-	private static float relayFront(float k, float lag) {
-		return FRONT_START * (1.0F - smoother((k - lag) / (0.94F - lag)));
+	/**
+	 * Where a relay's front is {@code k} (0 to 1) through the draw, for a line that starts {@code start} radians out at
+	 * {@code lag} and reaches the target at {@code end}: radians from the target, gathering speed as it comes in.
+	 */
+	private static float relayFront(float k, float start, float lag, float end) {
+		float u = Math.max(0.0F, Math.min(1.0F, (k - lag) / (end - lag)));
+		return start * (1.0F - u * (0.6F + 0.4F * u));
 	}
 
 	/**
@@ -280,7 +299,7 @@ final class ThunderShots implements Feed.Sequence {
 		Fx glow = space.glow(cam, Fx.BEAM, 0.0F);
 		List<float[]> lit = new ArrayList<>();
 		for (Chain chain : RELAY) {
-			float front = relayFront(k, chain.lag());
+			float front = relayFront(k, chain.start(), chain.lag(), chain.end());
 			for (Hop hop : chain.hops()) {
 				if (front > hop.from() || front < hop.to() - 0.25F) {
 					continue;
@@ -288,7 +307,8 @@ final class ThunderShots implements Feed.Sequence {
 				float crawl = Math.min(1.0F, (hop.from() - front) / Math.max(hop.from() - hop.to(), 1.0E-4F));
 				float fade = front >= hop.to() ? 1.0F : (float) Math.exp(-(hop.to() - front) / 0.05F);
 				float flicker = 0.7F + 0.3F * (float) Math.sin(time * 2.1F + hop.seed());
-				float b = fade * flicker;
+				// Where the lines crowd together at the target, each is fainter, or together they burn it out.
+				float b = fade * flicker * (0.4F + 0.6F * smooth((hop.to() - 0.03F) / 0.2F));
 				if (b < 0.02F) {
 					continue;
 				}
@@ -308,13 +328,14 @@ final class ThunderShots implements Feed.Sequence {
 		glow.end(true, 3.0F);
 		Fx core = space.glow(cam, Fx.BEAM, 0.0F);
 		for (Chain chain : RELAY) {
-			float front = relayFront(k, chain.lag());
+			float front = relayFront(k, chain.start(), chain.lag(), chain.end());
 			for (Hop hop : chain.hops()) {
 				if (front > hop.from() || front < hop.to() - 0.12F) {
 					continue;
 				}
 				float crawl = Math.min(1.0F, (hop.from() - front) / Math.max(hop.from() - hop.to(), 1.0E-4F));
-				float fade = front >= hop.to() ? 1.0F : (float) Math.exp(-(hop.to() - front) / 0.03F);
+				float fade = (front >= hop.to() ? 1.0F : (float) Math.exp(-(hop.to() - front) / 0.03F))
+						* (0.4F + 0.6F * smooth((hop.to() - 0.03F) / 0.2F));
 				int shown = Math.max(1, Math.round(crawl * (hop.channel().size() - 1)));
 				segments(core, hop.channel(), shown, 0.0022F, Fx.argb(0.92F, 0.95F, 1.0F, fade));
 				if (crawl >= 1.0F) {
@@ -362,7 +383,7 @@ final class ThunderShots implements Feed.Sequence {
 		earthCamera(pose, 0.0005F, 60.0F);
 		float k = (float) Math.min(1.0, s / (DRAW_LENGTH - 4.0));
 		// The storms the relay has passed have given up their charge: as far out as the middle of its lines.
-		float front = relayFront(k, 0.11F);
+		float front = relayFront(k, 1.6F, 0.07F, 0.84F);
 		float drain = smooth(s / 20.0);
 		float charge = smooth((s - 30.0) / 60.0) * 0.7F;
 		space.sky(cam, SKY, 0.8F, 0, cam.forward(), 0, 0, 0, time);

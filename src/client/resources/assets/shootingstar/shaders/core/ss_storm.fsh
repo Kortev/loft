@@ -75,7 +75,7 @@ float storms(vec2 uv, float coslat, float drained, float boosted) {
             }
             float h2 = hash(cell + 17.3);
             float h3 = hash(cell + 41.1);
-            float rate = 0.025 + 0.06 * h2 * (0.5 + boosted);
+            float rate = 0.025 + 0.06 * h2 * (0.5 + 0.5 * boosted);
             float phase = fract(Time * rate + h3);
             if (phase > 0.14) {
                 continue;
@@ -109,7 +109,7 @@ float vortexLightning(vec2 f) {
             vec2 at = cell + 0.5 + (vec2(hash(cell + 5.7), hash(cell + 9.1)) - 0.5) * 0.8;
             vec2 d = g - at;
             float r2 = dot(d, d);
-            light += flicker(phase / 0.12) * (0.4 + 0.6 * hash(cell + 3.3)) * (exp(-r2 / 0.3) + 0.8 * exp(-r2 / 0.03));
+            light += flicker(phase / 0.12) * (0.4 + 0.6 * hash(cell + 3.3)) * (exp(-r2 / 0.12) + 0.8 * exp(-r2 / 0.015));
         }
     }
     return light;
@@ -230,7 +230,9 @@ void main() {
         float rr = ang / Vortex;
         float wind = phi - Spin + 2.3 * log(rr + 0.03);
         vec2 q = vec2(cos(wind), sin(wind)) * rr;
-        float vn = texture(Sampler3, q * 0.6 + 0.2).r * 0.7 + texture(Sampler3, TURN * q * 5.0 + 0.7).r * 0.3;
+        // (Wound so tight in the middle that it draws rings there, so the middle has the billows alone.)
+        float vn = mix(0.47, texture(Sampler3, q * 0.6 + 0.2).r * 0.7 + texture(Sampler3, TURN * q * 5.0 + 0.7).r * 0.3,
+            smoothstep(0.15, 0.5, rr));
         float inside = 1.0 - step(Vortex * 1.4, ang);
         // Bands winding out of it, and in the middle one overcast, its texture the billows of the towers.
         float arms = mix(0.75, 0.5 + 0.5 * cos(2.0 * wind + vn * 5.0), smoothstep(0.4, 0.9, rr));
@@ -303,7 +305,7 @@ void main() {
     float outside = smoothstep(Front - 0.02, Front + 0.02, ang);
     float drained = mix(1.0, mix(1.0, 0.06, Drain), outside);
     float boosted = (1.0 - outside) * Drain;
-    float flash = Storms * storms(texCoord + vec2(CloudShift, 0.0), coslat, drained, boosted) * (1.0 + 1.5 * boosted);
+    float flash = Storms * storms(texCoord + vec2(CloudShift, 0.0), coslat, drained, boosted) * (1.0 + 0.5 * boosted);
     flash += lightning * Storms;
     float within = (0.2 + 1.2 * smoothstep(0.3, 1.0, tops)) * (0.35 + 1.65 * smoothstep(-0.25, 0.2, heaps(km) * 1.4));
     color += vec3(0.68, 0.76, 1.0) * flash * within * (0.3 + cloud * 0.9);
