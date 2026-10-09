@@ -129,8 +129,8 @@ public final class ChittyMesh {
 		FAILED.clear();
 	}
 
-	private static ChittyMesh load(String name) throws IOException {
-		String path = "meshes/" + name + ".cbm";
+	private static ChittyMesh load(String file) throws IOException {
+		String path = "meshes/" + file + ".cbm";
 		Resource resource = MinecraftClient.getInstance().getResourceManager()
 				.getResource(ShootingStar.id(path)).orElseThrow(() -> new IOException("missing " + path));
 		byte[] bytes;
