@@ -75,9 +75,15 @@ wants **renders for approval before baking** anything.
     furthest aft overboard.
   - A hooked player struggles free by holding sneak for 10 s.
   - Bombs: iron, 2 gunpowder and string make 2. She carries a rack of 6, with 1.5 s between drops.
+  - Riders walk freely about the gondola and can't fall out. Walking up to the wheel takes it (then the movement keys
+    fly her); sneak lets go of it. Sneak gets anyone off: beside her near the ground, or in the air down her rope
+    ladder, which lets itself down for them.
+  - In third person the camera turns about the middle of her, far enough back to see all of her.
 - **Built and in game.** kortev OK'd the renders and asked for her baked and ported. She is in Chitty's jar, mapped
-  in `.claude/skills/film-vehicle/references/airship.md` and described in `chitty/README.md`. Next: kortev's
-  in-game test, and fixing what they report.
+  in `.claude/skills/film-vehicle/references/airship.md` and described in `chitty/README.md`.
+  - kortev's first test: boarding put them in a crew place, so she would not fly; there was no way to the wheel and no
+    clear way off; the camera was too close. Hence walking, the wheel, sneaking off and the new camera.
+  - Next: kortev's next in-game test, and fixing what they report.
 
 ### 2. The Child Catcher's carriage
 

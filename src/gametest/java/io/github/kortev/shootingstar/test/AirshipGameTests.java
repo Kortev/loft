@@ -82,15 +82,57 @@ public class AirshipGameTests implements FabricGameTest {
 		}
 		context.assertTrue(!husk(context, 4.0, 1.0, 4.0).startRiding(ship), "a ninth rider got aboard");
 		context.runAtTick(5, () -> {
-			// Each in a place of their own, standing on the floor of the gondola.
-			List<Integer> places = new ArrayList<>();
+			// Each where nobody else is, standing on the floor of the gondola.
+			List<Vec3d> stands = new ArrayList<>();
 			for (var passenger : ship.getPassengerList()) {
-				int place = ship.placeOf(passenger);
-				context.assertTrue(place >= 0 && !places.contains(place), "two riders share place " + place);
-				places.add(place);
+				Vec3d stand = ship.standOf(passenger);
+				context.assertTrue(stand != null, "a rider has nowhere to stand");
+				for (Vec3d other : stands) {
+					context.assertTrue(stand.distanceTo(other) > 0.3, "two riders stand in one place: " + stand);
+				}
+				stands.add(stand);
 				context.assertTrue(Math.abs(passenger.getY() - (ship.getY() + 0.42)) < 0.05, "a rider is not standing on the floor: "
 						+ (passenger.getY() - ship.getY()));
 			}
+			done(context, ship);
+		});
+	}
+
+	/**
+	 * Aboard, a player walks about the gondola but not out of it; walking up to the wheel takes it and sneaking lets it
+	 * go. Sneaking again high in the air lets the rope ladder down, and once it is down they get off onto it.
+	 */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_airship_walk", tickLimit = 80)
+	public void walksToTheWheel(TestContext context) {
+		floor(context, 0);
+		AirshipEntity ship = ship(context, 4.0, 8.0, 4.0);
+		ServerPlayerEntity walker = player(context, "airship_walker");
+		context.assertTrue(ship.board(walker, 3), "the player could not board");
+		context.assertTrue(ship.getControllingPassenger() == null, "the player had the wheel without walking to it");
+		Vec3d start = ship.standOf(walker);
+		ship.walk(walker, start.x - 0.1, start.z + 0.1);
+		context.assertTrue(ship.standOf(walker).distanceTo(start) > 0.05, "the player could not walk about the gondola");
+		ship.walk(walker, 3.0, start.z);
+		context.assertTrue(Math.abs(ship.standOf(walker).x) <= AirshipEntity.FLOOR_HALF_WIDTH + 1.0E-6,
+				"the player walked out through her side: " + ship.standOf(walker));
+		for (int i = 0; i < 20 && ship.getControllingPassenger() == null; i++) {
+			Vec3d at = ship.standOf(walker);
+			Vec3d way = AirshipEntity.HELM_SPOT.subtract(at);
+			Vec3d step = way.length() > 0.3 ? way.normalize().multiply(0.3) : way;
+			ship.walk(walker, at.x + step.x, at.z + step.z);
+		}
+		context.assertTrue(ship.getControllingPassenger() == walker, "walking up to the wheel did not take it: " + ship.standOf(walker));
+		context.assertTrue(!ship.letsGo(walker), "sneaking at the wheel took the pilot off her");
+		context.assertTrue(ship.getControllingPassenger() == null, "sneaking at the wheel did not let go of it");
+		context.runAtTick(3, () -> {
+			context.assertTrue(!ship.letsGo(walker), "the player got off in mid-air with no ladder down");
+			context.assertTrue(ship.isLadderDown(), "sneaking in mid-air did not let the ladder down");
+		});
+		context.runAtTick(40, () -> {
+			context.assertTrue(ship.letsGo(walker), "with the ladder down the player could not get off onto it");
+			// Off first: a player leaving the game while aboard takes the vehicle with them.
+			walker.stopRiding();
+			context.getWorld().getServer().getPlayerManager().remove(walker);
 			done(context, ship);
 		});
 	}

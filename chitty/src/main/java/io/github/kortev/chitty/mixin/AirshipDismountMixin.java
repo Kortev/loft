@@ -10,8 +10,9 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * Sneaking does not take a player off the airship where it would drop them to their death (only when she is down or
- * her ladder is let down to climb), nor off her grapple until they have struggled free (AirshipHookEntity).
+ * Sneaking aboard the airship is hers to decide (AirshipEntity.letsGo): at the wheel it lets go of the wheel; anywhere
+ * else it gets you off beside her when she is down, or in the air onto her rope ladder, never to your death. Nor does
+ * sneaking take a player off her grapple until they have struggled free (AirshipHookEntity).
  */
 @Mixin(PlayerEntity.class)
 public abstract class AirshipDismountMixin {
@@ -23,8 +24,8 @@ public abstract class AirshipDismountMixin {
 			if (!hook.freed(self)) {
 				cir.setReturnValue(false);
 			}
-		} else if (vehicle instanceof AirshipEntity ship && !ship.letsOff(self)) {
-			cir.setReturnValue(false);
+		} else if (vehicle instanceof AirshipEntity ship) {
+			cir.setReturnValue(self.isSneaking() && ship.letsGo(self));
 		}
 	}
 }

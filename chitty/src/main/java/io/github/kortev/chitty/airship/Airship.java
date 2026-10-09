@@ -82,6 +82,7 @@ public final class Airship {
 		});
 		PayloadTypeRegistry.playC2S().register(AirshipInputPayload.ID, AirshipInputPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(AirshipActionPayload.ID, AirshipActionPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(AirshipWalkPayload.ID, AirshipWalkPayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(AirshipInputPayload.ID, (payload, context) -> {
 			if (context.player().getVehicle() instanceof AirshipEntity ship) {
 				ship.applyInput(context.player(), ChittyControls.unpack(payload.controls()));
@@ -90,6 +91,12 @@ public final class Airship {
 		ServerPlayNetworking.registerGlobalReceiver(AirshipActionPayload.ID, (payload, context) -> {
 			if (context.player().getVehicle() instanceof AirshipEntity ship) {
 				ship.act(context.player(), payload.action());
+			}
+		});
+		ServerPlayNetworking.registerGlobalReceiver(AirshipWalkPayload.ID, (payload, context) -> {
+			if (context.player().getVehicle() instanceof AirshipEntity ship && Float.isFinite(payload.x())
+					&& Float.isFinite(payload.z())) {
+				ship.walk(context.player(), payload.x(), payload.z());
 			}
 		});
 	}

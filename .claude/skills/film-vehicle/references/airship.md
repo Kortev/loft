@@ -17,10 +17,10 @@ namespace.
 | The grapple's holder, which a caught thing rides; a player struggles free by holding sneak for 10 s | `airship/AirshipHookEntity.java` |
 | A falling bomb (power 2.5, TNT's 4) | `airship/AirshipBombEntity.java` |
 | Placing item | `airship/AirshipItem.java`; the bomb item is a plain `Item` |
-| Payloads | `AirshipInputPayload` (the pilot's controls, Chitty's `ChittyControls`), `AirshipActionPayload` (`ACTION_` codes) |
-| Mixins (main, `chitty.mixins.json`) | `mixin/AirshipDismountMixin` (no sneaking off in mid-air, or off the grapple), `mixin/AirshipLadderMixin` (the rope ladder is climbable) |
+| Payloads | `AirshipInputPayload` (the pilot's controls, Chitty's `ChittyControls`), `AirshipActionPayload` (`ACTION_` codes), `AirshipWalkPayload` (where a rider has walked to in the gondola) |
+| Mixins (main, `chitty.mixins.json`) | `mixin/AirshipDismountMixin` (sneaking aboard is `AirshipEntity.letsGo`'s to decide; never off the grapple until struggled free), `mixin/AirshipLadderMixin` (the rope ladder is climbable), `mixin/AirshipStrideMixin` (riders' legs go as they walk about her, not as she moves) |
 | Client: renderer, bomb renderer, keys and hints, running sounds | `client/AirshipRenderer`, `AirshipBombRenderer`, `AirshipClient` (`init()` from `ChittyClient`), `AirshipSound` |
-| Client mixin | `client/mixin/AirshipStandMixin` (riders are drawn standing); `ChittyCameraMixin` also puts the camera 3x back |
+| Client mixin | `client/mixin/AirshipStandMixin` (riders are drawn standing); `ChittyCameraMixin` turns the third-person camera about the middle of her (`VIEW_CENTRE`), `VIEW_DISTANCE` (24) back |
 | Mesh loader | `client/ChittyMesh.get("airship")` (shared with Chitty) |
 | Model, bake, icon, renders | `tools/airship_model.py` (`--game` reuses `chitty_model.export_game` with her settings: a 4096 atlas, `TEXEL_WEIGHT`, `GAME_LIT = ('helm',)`) |
 | The arms on the envelope | `tools/vulgaria_arms.py` (flat heraldry, each shape parted by a fine gap) |
@@ -35,8 +35,17 @@ namespace.
 
 - **Speeds** (blocks/tick): `TOP` 0.42, `ACCEL` 0.005, `REVERSE_TOP` 0.12, `RISE` 0.11, `SINK` 0.14, `HEAVY_SINK`
   0.035; turning `TURN` 1.6 and `TURN_STANDING` 0.7 degrees a tick.
-- **Places:** `PLACES[8]`, the pilot at the wheel (0) then two, two and three across, feet on the floor 0.42 up.
-  `LIFT` 6: with more aboard (a load on the grapple counts one) she cannot climb and sinks.
+- **Standing and walking:** people come aboard at `PLACES[8]` (the wheel, then two, two and three across, feet on the
+  floor 0.42 up), then walk where they like on the floor (`FLOOR_HALF_WIDTH` 0.6 either side, `FLOOR_AFT` -0.46 to
+  `FLOOR_FORE` 1.02) at `WALK` 0.12 a tick, keeping `ELBOW_ROOM` 0.5 from one another. Each rider's client moves them
+  (`AirshipClient.walk`, the movement keys the way they face) and tells the server (`AirshipWalkPayload`, kept to the
+  floor and a walker's pace by `AirshipEntity.walk`); the server shares where everyone stands (`STANDS`, by entity id)
+  and other clients ease them there.
+- **The wheel:** whoever walks within `HELM_REACH` (0.22) of `HELM_SPOT` (`PLACES[0]`) takes it (`HELM`, the entity id)
+  and their movement keys fly her. Sneaking lets go; to take it again they walk away and back.
+- **Getting off** (`letsGo`): sneak. Down or within 2 blocks of the ground, off beside her; in the air the ladder lets
+  itself down and, still sneaking, they get off onto it once it hangs `LADDER_OFF` (2) blocks.
+- **Lift:** `LIFT` 6: with more aboard (a load on the grapple counts one) she cannot climb and sinks.
 - **Grapple:** `LINE_OUT` (0, 0, 0.25); `HOOK_GRIP` 0.95 from its ring to its tines; `CARRY` 3.0 under her keel;
   `LINE_MAX` 32; it goes down at 0.32 and up at 0.2 a tick. States: `UP, LOWERING, DOWN, LIFTING, HOLDING, SETTING,
   RAISING`, all worked by one key (R).

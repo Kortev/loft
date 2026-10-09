@@ -4,6 +4,7 @@ import io.github.kortev.chitty.ChittyControls;
 import io.github.kortev.shootingstar.registry.ModCriteria;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -50,11 +51,13 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Baron Bomburst's airship, from the film: a gas envelope 34 blocks long over a little gilded gondola hung from it on
- * wires. Eight can stand in the gondola, the pilot at the wheel in the bow; she lifts six, and with more aboard (a load
- * on her grapple counts as one) she cannot climb and sinks slowly, as she does in the film. She hovers where she is
- * left. Her crew can let her grapple down to seize what it touches (a mob, a player, a dropped item, a boat or a car)
- * and wind it up to carry it, let down her rope ladder (anyone can climb it, and climbing off its top boards her) and
- * drop bombs from the rack in her gondola; the pilot can throw a passenger overboard.
+ * wires. Eight can stand in the gondola and walk about in it (they cannot fall out); whoever walks up to the wheel in
+ * the bow takes it and flies her, and sneaks to let it go. She lifts six, and with more aboard (a load on her grapple
+ * counts as one) she cannot climb and sinks slowly, as she does in the film. She hovers where she is left. Her crew can
+ * let her grapple down to seize what it touches (a mob, a player, a dropped item, a boat or a car) and wind it up to
+ * carry it, let down her rope ladder (anyone can climb it, and climbing off its top boards her) and drop bombs from the
+ * rack in her gondola; the pilot can throw a passenger overboard. Sneaking gets anyone else off: beside her when she is
+ * down, or onto her rope ladder in the air, which lets itself down for them.
  *
  * <p>Like Chitty she is moved by her pilot's client, and by the server when nobody pilots her. Positions are in blocks;
  * local offsets are at yaw 0, x to her left, z forward, from the middle of the bottom of her gondola (as in
@@ -64,8 +67,10 @@ public class AirshipEntity extends Entity {
 	private static final TrackedData<Integer> WOBBLE_TICKS = DataTracker.registerData(AirshipEntity.class, TrackedDataHandlerRegistry.INTEGER);
 	private static final TrackedData<Integer> WOBBLE_SIDE = DataTracker.registerData(AirshipEntity.class, TrackedDataHandlerRegistry.INTEGER);
 	private static final TrackedData<Float> WOBBLE_STRENGTH = DataTracker.registerData(AirshipEntity.class, TrackedDataHandlerRegistry.FLOAT);
-	/** Which place each passenger, in the order they are listed, stands in: three bits each. */
-	private static final TrackedData<Integer> PLACING = DataTracker.registerData(AirshipEntity.class, TrackedDataHandlerRegistry.INTEGER);
+	/** Where each passenger stands on the floor of the gondola: by entity id, x and z in thousandths packed in an int. */
+	private static final TrackedData<NbtCompound> STANDS = DataTracker.registerData(AirshipEntity.class, TrackedDataHandlerRegistry.NBT_COMPOUND);
+	/** The entity id of whoever has the wheel, or -1. */
+	private static final TrackedData<Integer> HELM = DataTracker.registerData(AirshipEntity.class, TrackedDataHandlerRegistry.INTEGER);
 	private static final TrackedData<Byte> STEER = DataTracker.registerData(AirshipEntity.class, TrackedDataHandlerRegistry.BYTE);
 	private static final TrackedData<Byte> THROTTLE = DataTracker.registerData(AirshipEntity.class, TrackedDataHandlerRegistry.BYTE);
 	private static final TrackedData<Byte> CLIMB = DataTracker.registerData(AirshipEntity.class, TrackedDataHandlerRegistry.BYTE);
@@ -74,11 +79,31 @@ public class AirshipEntity extends Entity {
 	private static final TrackedData<Float> LADDER = DataTracker.registerData(AirshipEntity.class, TrackedDataHandlerRegistry.FLOAT);
 	private static final TrackedData<Byte> BOMBS = DataTracker.registerData(AirshipEntity.class, TrackedDataHandlerRegistry.BYTE);
 
-	/** Where everyone stands (the stand_ markers): the pilot at the wheel, then two, two and three across. */
+	/**
+	 * Where people come aboard (the stand_ markers): at the wheel, then two, two and three across. From there they walk
+	 * where they like on the floor of the gondola.
+	 */
 	public static final Vec3d[] PLACES = {new Vec3d(0.0, 0.42, 1.02), new Vec3d(0.45, 0.42, 0.52), new Vec3d(-0.45, 0.42, 0.52),
 			new Vec3d(0.45, 0.42, 0.02), new Vec3d(-0.45, 0.42, 0.02), new Vec3d(0.55, 0.42, -0.46), new Vec3d(0.0, 0.42, -0.46),
 			new Vec3d(-0.55, 0.42, -0.46)};
 	public static final int PILOT = 0;
+	/** Where the pilot stands, at the wheel: walk up to it to take it. */
+	public static final Vec3d HELM_SPOT = PLACES[PILOT];
+	/** How near the wheel's place someone must come to take it. */
+	static final double HELM_REACH = 0.22;
+	/** The floor of the gondola as far as people's middles can go: across it, and from the engine section to the wheel. */
+	public static final double FLOOR_HALF_WIDTH = 0.6;
+	public static final double FLOOR_AFT = -0.46;
+	public static final double FLOOR_FORE = 1.02;
+	public static final double FLOOR_Y = 0.42;
+	/** How fast people walk about in the gondola (blocks a tick), and how close they come to one another. */
+	public static final double WALK = 0.12;
+	public static final double ELBOW_ROOM = 0.5;
+	/** How far down her ladder must hang for someone getting off in the air to climb onto it. */
+	static final double LADDER_OFF = 2.0;
+	/** What the third-person camera turns about while riding her (the middle of her), and how far back it stands. */
+	public static final Vec3d VIEW_CENTRE = new Vec3d(0.0, 5.0, -3.5);
+	public static final float VIEW_DISTANCE = 24.0F;
 	/** How many she lifts: one more and she sinks. */
 	public static final int LIFT = 6;
 	/** Where the grapple's rope comes out under her keel (the line marker). */
@@ -140,6 +165,10 @@ public class AirshipEntity extends Entity {
 		void sync(AirshipEntity ship, ChittyControls controls);
 
 		void tick(AirshipEntity ship);
+
+		/** Where this client's player stands in her as they walk about (theirs to move), or null for anyone else. */
+		@Nullable
+		Vec3d stand(AirshipEntity ship, Entity passenger);
 	}
 
 	@Nullable
@@ -193,9 +222,18 @@ public class AirshipEntity extends Entity {
 	private float tilt;
 	private float prevTilt;
 
-	// Who stands where, and the place a player has asked for as they board.
-	private final Entity[] placed = new Entity[PLACES.length];
+	// Where everyone stands on the floor of the gondola (the server's), who has the wheel, who may take it (they have
+	// been away from it since they last let go), who let go by sneaking and is sneaking still, and the place a player
+	// has asked for as they board.
+	private final Map<Entity, Vec3d> stands = new LinkedHashMap<>();
+	@Nullable
+	private Entity helm;
+	private final Set<Entity> mayTakeHelm = Collections.newSetFromMap(new WeakHashMap<>());
+	private final Set<Entity> stillSneaking = Collections.newSetFromMap(new WeakHashMap<>());
 	private int wantedPlace = -1;
+	// On clients: where everyone is shown standing, eased towards where the server has them, and how far they stepped.
+	private final Map<Entity, Vec3d> shown = new WeakHashMap<>();
+	private final Map<Entity, Float> strides = new WeakHashMap<>();
 	private final AirshipPartEntity[] parts = new AirshipPartEntity[AirshipPartEntity.COUNT];
 	// When each player last stepped off her (her age then), so that one who has just stepped onto the ladder is not
 	// taken straight back aboard.
@@ -211,7 +249,8 @@ public class AirshipEntity extends Entity {
 		builder.add(WOBBLE_TICKS, 0);
 		builder.add(WOBBLE_SIDE, 1);
 		builder.add(WOBBLE_STRENGTH, 0.0F);
-		builder.add(PLACING, 0);
+		builder.add(STANDS, new NbtCompound());
+		builder.add(HELM, -1);
 		builder.add(STEER, (byte) 0);
 		builder.add(THROTTLE, (byte) 0);
 		builder.add(CLIMB, (byte) 0);
@@ -443,8 +482,20 @@ public class AirshipEntity extends Entity {
 		return ActionResult.SUCCESS;
 	}
 
+	/** Whether someone stands at (or close by) one of her places. */
 	private boolean taken(int place) {
-		return placed[place] != null && placed[place].isAlive() && placed[place].getVehicle() == this;
+		for (Map.Entry<Entity, Vec3d> e : stands.entrySet()) {
+			if (e.getKey().getVehicle() == this && apart(e.getValue(), PLACES[place]) < ELBOW_ROOM * 0.9) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static double apart(Vec3d a, Vec3d b) {
+		double dx = a.x - b.x;
+		double dz = a.z - b.z;
+		return Math.sqrt(dx * dx + dz * dz);
 	}
 
 	/** The free place nearest a point in or beside her (local), or -1 if every place is taken. */
@@ -466,7 +517,24 @@ public class AirshipEntity extends Entity {
 		return best;
 	}
 
-	/** Puts a passenger in a particular place (0, the pilot's, to 7), if it is free. */
+	/** The place with the most room round it, for someone coming aboard when people stand about in all of them. */
+	private int roomiestPlace() {
+		int best = PLACES.length - 1;
+		double bestRoom = -1.0;
+		for (int i = 0; i < PLACES.length; i++) {
+			double room = Double.MAX_VALUE;
+			for (Vec3d at : stands.values()) {
+				room = Math.min(room, apart(at, PLACES[i]));
+			}
+			if (room > bestRoom) {
+				bestRoom = room;
+				best = i;
+			}
+		}
+		return best;
+	}
+
+	/** Puts a passenger aboard at a particular place (0, at the wheel, to 7), if it is free. */
 	public boolean board(Entity passenger, int place) {
 		if (place < 0 || place >= PLACES.length || taken(place)) {
 			return false;
@@ -477,18 +545,42 @@ public class AirshipEntity extends Entity {
 		return in;
 	}
 
-	/** The place a passenger stands in (0, the pilot's, to 7), or -1 if they are not aboard. */
-	public int placeOf(Entity passenger) {
-		if (!getWorld().isClient) {
-			for (int i = 0; i < PLACES.length; i++) {
-				if (placed[i] == passenger) {
-					return i;
-				}
-			}
-			return -1;
+	/** Where a passenger stands on the floor of the gondola (local), or null if they are not aboard. */
+	@Nullable
+	public Vec3d standOf(Entity passenger) {
+		if (!hasPassenger(passenger)) {
+			return null;
 		}
-		int i = getPassengerList().indexOf(passenger);
-		return i < 0 ? -1 : dataTracker.get(PLACING) >> (3 * i) & 7;
+		if (!getWorld().isClient) {
+			return stands.get(passenger);
+		}
+		Vec3d mine = client != null ? client.stand(this, passenger) : null;
+		if (mine != null) {
+			return mine;
+		}
+		Vec3d seen = shown.get(passenger);
+		return seen != null ? seen : syncedStandOf(passenger);
+	}
+
+	/** Where the server has a passenger standing, as it last said (null until it has). */
+	@Nullable
+	public Vec3d syncedStandOf(Entity passenger) {
+		NbtCompound all = dataTracker.get(STANDS);
+		String key = Integer.toString(passenger.getId());
+		return all.contains(key) ? unpack(all.getInt(key)) : null;
+	}
+
+	private static int pack(Vec3d stand) {
+		return (int) Math.round(stand.x * 1000.0) << 16 | (int) Math.round(stand.z * 1000.0) & 0xFFFF;
+	}
+
+	private static Vec3d unpack(int packed) {
+		return new Vec3d((short) (packed >> 16) / 1000.0, FLOOR_Y, (short) packed / 1000.0);
+	}
+
+	/** A point kept on the floor of the gondola (local), where people can stand. */
+	public static Vec3d onFloor(double x, double z) {
+		return new Vec3d(MathHelper.clamp(x, -FLOOR_HALF_WIDTH, FLOOR_HALF_WIDTH), FLOOR_Y, MathHelper.clamp(z, FLOOR_AFT, FLOOR_FORE));
 	}
 
 	@Override
@@ -496,16 +588,33 @@ public class AirshipEntity extends Entity {
 		return getPassengerList().size() < PLACES.length;
 	}
 
-	/** The pilot: whoever stands at the wheel, if it is a player. */
+	/** The pilot: whoever has the wheel, if it is a player still aboard. */
 	@Override
 	@Nullable
 	public LivingEntity getControllingPassenger() {
-		for (Entity passenger : getPassengerList()) {
-			if (placeOf(passenger) == PILOT) {
-				return passenger instanceof PlayerEntity player ? player : null;
+		if (!getWorld().isClient) {
+			return helm instanceof PlayerEntity player && player.getVehicle() == this ? player : null;
+		}
+		int id = dataTracker.get(HELM);
+		if (id >= 0) {
+			for (Entity passenger : getPassengerList()) {
+				if (passenger.getId() == id) {
+					return passenger instanceof PlayerEntity player ? player : null;
+				}
 			}
 		}
 		return null;
+	}
+
+	private void setHelm(@Nullable Entity who) {
+		helm = who;
+		dataTracker.set(HELM, who == null ? -1 : who.getId());
+	}
+
+	private void takeHelm(Entity player) {
+		setHelm(player);
+		stands.put(player, HELM_SPOT);
+		mayTakeHelm.remove(player);
 	}
 
 	@Override
@@ -516,14 +625,22 @@ public class AirshipEntity extends Entity {
 			// Nobody chose a place: a player takes the first free one from the wheel back, anything else from the back.
 			for (int k = 0; place < 0 && k < PLACES.length; k++) {
 				int i = passenger instanceof PlayerEntity ? k : PLACES.length - 1 - k;
-				if (!taken(i) || placed[i] == passenger) {
+				if (!taken(i)) {
 					place = i;
 				}
 			}
-			if (place >= 0) {
-				placed[place] = passenger;
+			if (place < 0) {
+				place = roomiestPlace();
 			}
-			publishPlacing();
+			stands.put(passenger, PLACES[place]);
+			if (passenger instanceof PlayerEntity) {
+				if (place == PILOT && getControllingPassenger() == null) {
+					takeHelm(passenger);
+				} else {
+					mayTakeHelm.add(passenger);
+				}
+			}
+			publishStands();
 			if (passenger instanceof ServerPlayerEntity player) {
 				ModCriteria.fire(player, "airship_board");
 			}
@@ -534,35 +651,68 @@ public class AirshipEntity extends Entity {
 	protected void removePassenger(Entity passenger) {
 		super.removePassenger(passenger);
 		if (!getWorld().isClient) {
-			for (int i = 0; i < PLACES.length; i++) {
-				if (placed[i] == passenger) {
-					placed[i] = null;
-				}
+			stands.remove(passenger);
+			mayTakeHelm.remove(passenger);
+			stillSneaking.remove(passenger);
+			if (helm == passenger) {
+				setHelm(null);
 			}
-			publishPlacing();
+			publishStands();
 			if (passenger instanceof PlayerEntity) {
 				steppedOff.put(passenger.getUuid(), age);
 			}
+		} else {
+			shown.remove(passenger);
+			strides.remove(passenger);
 		}
 	}
 
-	private void publishPlacing() {
-		int bits = 0;
-		List<Entity> passengers = getPassengerList();
-		for (int i = 0; i < passengers.size() && i < PLACES.length; i++) {
-			bits |= Math.max(0, placeOf(passengers.get(i))) << (3 * i);
+	private void publishStands() {
+		NbtCompound all = new NbtCompound();
+		for (Map.Entry<Entity, Vec3d> e : stands.entrySet()) {
+			all.putInt(Integer.toString(e.getKey().getId()), pack(e.getValue()));
 		}
-		dataTracker.set(PLACING, bits);
+		dataTracker.set(STANDS, all);
 	}
 
-	/** Everyone stands, their feet on the floor of the gondola at their place, and turns with her as she turns. */
+	/**
+	 * Someone aboard has walked (their client says where to, AirshipWalkPayload): kept to the floor of the gondola and
+	 * to a walker's pace. Walking up to the wheel takes it, if nobody has it and they have been away from it since they
+	 * last let go.
+	 */
+	public void walk(ServerPlayerEntity player, double x, double z) {
+		Vec3d from = stands.get(player);
+		if (from == null || player.getVehicle() != this || helm == player) {
+			return;
+		}
+		Vec3d to = onFloor(x, z);
+		Vec3d step = to.subtract(from);
+		double most = WALK * 5.0;
+		if (step.lengthSquared() > most * most) {
+			// No further than a few steps at once (a late packet), whatever the client says.
+			to = from.add(step.normalize().multiply(most));
+		}
+		stands.put(player, to);
+		double fromHelm = apart(to, HELM_SPOT);
+		if (fromHelm > HELM_REACH + 0.15) {
+			mayTakeHelm.add(player);
+		} else if (fromHelm <= HELM_REACH && mayTakeHelm.contains(player) && getControllingPassenger() == null) {
+			takeHelm(player);
+		}
+		publishStands();
+	}
+
+	/** Everyone stands, their feet on the floor of the gondola where they are in it, and turns with her as she turns. */
 	@Override
 	protected void updatePassengerPosition(Entity passenger, Entity.PositionUpdater positionUpdater) {
 		if (!hasPassenger(passenger)) {
 			return;
 		}
-		int i = placeOf(passenger);
-		Vec3d at = local(PLACES[MathHelper.clamp(i, 0, PLACES.length - 1)]);
+		Vec3d stand = standOf(passenger);
+		if (stand == null) {
+			stand = PLACES[Math.max(0, getPassengerList().indexOf(passenger)) % PLACES.length];
+		}
+		Vec3d at = local(stand);
 		positionUpdater.accept(passenger, at.x, at.y, at.z);
 		if (passenger instanceof LivingEntity) {
 			float turn = MathHelper.wrapDegrees(getYaw() - prevYaw);
@@ -571,12 +721,37 @@ public class AirshipEntity extends Entity {
 		}
 	}
 
+	/** How far a passenger stepped last tick as they walked about her, for their legs (AirshipStrideMixin). */
+	public float strideOf(Entity passenger) {
+		return strides.getOrDefault(passenger, 0.0F);
+	}
+
 	/**
-	 * Whether someone may step off her: only where they will not fall to their death, when she is down (or nearly) or
-	 * her ladder is down for them to climb. Otherwise sneaking does nothing aboard (PlayerEntity.shouldDismount).
+	 * Someone aboard is sneaking (PlayerEntity.shouldDismount): whether they get off now. At the wheel, sneaking lets go
+	 * of it instead (and sneaking again, once they have stopped, gets them off). Off they get beside her when she is down
+	 * or nearly; in the air, onto her rope ladder, which lets itself down for them if it is up, while they keep sneaking.
 	 */
-	public boolean letsOff(Entity passenger) {
-		return isOnGround() || heightAboveGround() < 2.0 || getLadder() > 1.0;
+	public boolean letsGo(PlayerEntity player) {
+		boolean down = isOnGround() || heightAboveGround() < 2.0;
+		if (getWorld().isClient) {
+			return down || getLadder() > LADDER_OFF;
+		}
+		if (stillSneaking.contains(player)) {
+			return false;
+		}
+		if (getControllingPassenger() == player) {
+			setHelm(null);
+			stillSneaking.add(player);
+			return false;
+		}
+		if (down || getLadder() > LADDER_OFF) {
+			return true;
+		}
+		if (!ladderDown) {
+			toggleLadder();
+			player.sendMessage(Text.translatable("hud.shootingstar.airship.ladder_off"), true);
+		}
+		return false;
 	}
 
 	/** Off onto the ground beside the gondola if she is down; up in the air, onto the top of her ladder. */
@@ -883,27 +1058,31 @@ public class AirshipEntity extends Entity {
 		}
 	}
 
-	/** The pilot's last resort: the passenger standing furthest aft goes over the side. */
+	/** The pilot's last resort: whoever stands furthest aft goes over the side. */
 	public void overboard() {
 		if (!(getWorld() instanceof ServerWorld world)) {
 			return;
 		}
-		for (int i = PLACES.length - 1; i > PILOT; i--) {
-			Entity passenger = placed[i];
-			if (passenger == null || passenger.getVehicle() != this) {
-				continue;
+		Entity passenger = null;
+		Vec3d stand = null;
+		for (Map.Entry<Entity, Vec3d> e : stands.entrySet()) {
+			if (e.getKey() != helm && e.getKey().getVehicle() == this && (stand == null || e.getValue().z < stand.z)) {
+				passenger = e.getKey();
+				stand = e.getValue();
 			}
-			passenger.stopRiding();
-			double side = PLACES[i].x >= 0 ? 1.0 : -1.0;
-			Vec3d out = local(new Vec3d(side * 1.6, 1.6, PLACES[i].z));
-			passenger.requestTeleport(out.x, out.y, out.z);
-			float yawRad = getYaw() * MathHelper.RADIANS_PER_DEGREE;
-			Vec3d push = new Vec3d(MathHelper.cos(yawRad), 0.0, MathHelper.sin(yawRad)).multiply(side * 0.4);
-			passenger.setVelocity(motion.add(push).add(0.0, 0.25, 0.0));
-			passenger.velocityModified = true;
-			world.playSound(null, out.x, out.y, out.z, SoundEvents.ENTITY_PLAYER_ATTACK_KNOCKBACK, SoundCategory.NEUTRAL, 1.0F, 0.8F);
+		}
+		if (passenger == null) {
 			return;
 		}
+		passenger.stopRiding();
+		double side = stand.x >= 0 ? 1.0 : -1.0;
+		Vec3d out = local(new Vec3d(side * 1.6, 1.6, stand.z));
+		passenger.requestTeleport(out.x, out.y, out.z);
+		float yawRad = getYaw() * MathHelper.RADIANS_PER_DEGREE;
+		Vec3d push = new Vec3d(MathHelper.cos(yawRad), 0.0, MathHelper.sin(yawRad)).multiply(side * 0.4);
+		passenger.setVelocity(motion.add(push).add(0.0, 0.25, 0.0));
+		passenger.velocityModified = true;
+		world.playSound(null, out.x, out.y, out.z, SoundEvents.ENTITY_PLAYER_ATTACK_KNOCKBACK, SoundCategory.NEUTRAL, 1.0F, 0.8F);
 	}
 
 	private void serverTick(ServerWorld world) {
@@ -922,6 +1101,8 @@ public class AirshipEntity extends Entity {
 		if (bombCooldown > 0) {
 			bombCooldown--;
 		}
+		// Whoever let go of the wheel by sneaking can sneak again (to get off) once they have stopped.
+		stillSneaking.removeIf(e -> !e.isSneaking() || e.getVehicle() != this);
 		tickGrapple(world);
 		tickLadder(world);
 		// Now and then the great envelope creaks and its rigging groans.
@@ -1115,6 +1296,26 @@ public class AirshipEntity extends Entity {
 
 	private void clientTick() {
 		World world = getWorld();
+		if (client != null) {
+			client.tick(this);
+		}
+		// Everyone aboard is shown walking smoothly to where the server has them (this client's player where they
+		// walk), their legs going as they step.
+		for (Entity passenger : getPassengerList()) {
+			Vec3d before = shown.get(passenger);
+			Vec3d mine = client != null ? client.stand(this, passenger) : null;
+			Vec3d target = mine != null ? mine : syncedStandOf(passenger);
+			if (target == null) {
+				continue;
+			}
+			Vec3d now = before == null || mine != null ? target : before.add(target.subtract(before).multiply(0.5));
+			shown.put(passenger, now);
+			float stride = before == null ? 0.0F : (float) apart(now, before);
+			strides.put(passenger, stride);
+			if (passenger instanceof LivingEntity living) {
+				living.limbAnimator.updateLimbs(Math.min(stride * 4.0F, 1.0F), 0.4F);
+			}
+		}
 		prevPropSpin = propSpin;
 		int throttle = getThrottle();
 		// The propellers tick over while she is piloted and race with the throttle.
@@ -1139,9 +1340,11 @@ public class AirshipEntity extends Entity {
 			Vec3d at = local(EXHAUST);
 			world.addParticle(ParticleTypes.SMOKE, at.x, at.y, at.z, 0.0, 0.03, 0.0);
 		}
-		if (client != null) {
-			client.tick(this);
-		}
+	}
+
+	/** What the third-person camera turns about while riding her: the middle of her (ChittyCameraMixin). */
+	public Vec3d viewCentre(float tickDelta) {
+		return getLerpedPos(tickDelta).add(VIEW_CENTRE.rotateY(-getYaw(tickDelta) * MathHelper.RADIANS_PER_DEGREE));
 	}
 
 	/** The pedal the pilot is on, as everyone sees it: -1, 0 or 1. */
