@@ -87,7 +87,9 @@ final class AirshipHud {
 		} else if (player.getVehicle() instanceof AirshipHookEntity head) {
 			if (head.isVoluntary()) {
 				title = ui("on_grapple");
-				rows.add(row(keys(o.forwardKey, o.leftKey, o.backKey, o.rightKey), false, ui("swing")));
+				rows.add(row(keys(o.forwardKey, o.leftKey, o.backKey, o.rightKey), o.forwardKey.isPressed() || o.leftKey.isPressed()
+						|| o.backKey.isPressed() || o.rightKey.isPressed(), ui("swing")));
+				rows.add(row(o.jumpKey, ui("climb")));
 				rows.add(row(o.sneakKey, ui("let_go")));
 			} else {
 				title = ui("caught");

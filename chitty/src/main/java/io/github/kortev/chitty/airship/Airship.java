@@ -2,12 +2,14 @@ package io.github.kortev.chitty.airship;
 
 import io.github.kortev.chitty.ChittyControls;
 import io.github.kortev.shootingstar.ShootingStar;
+import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.player.UseEntityCallback;
 import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.SpawnGroup;
+import net.minecraft.entity.damage.DamageTypes;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemGroups;
 import net.minecraft.registry.Registries;
@@ -78,6 +80,9 @@ public final class Airship {
 	}
 
 	public static void init() {
+		// Whatever hangs on a grapple is never smothered in the ground it is dragged through.
+		ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) ->
+				!(entity.getVehicle() instanceof AirshipHookEntity && source.isOf(DamageTypes.IN_WALL)));
 		ItemGroupEvents.modifyEntriesEvent(ItemGroups.TOOLS).register(entries -> {
 			entries.add(ITEM);
 			entries.add(BOMB);

@@ -2,6 +2,7 @@ package io.github.kortev.chitty.airship;
 
 import io.github.kortev.chitty.ChittyControls;
 import io.github.kortev.chitty.ChittyPartEntity;
+import io.github.kortev.chitty.mixin.AirshipJumper;
 import io.github.kortev.shootingstar.registry.ModCriteria;
 import java.util.Collections;
 import java.util.HashMap;
@@ -45,8 +46,10 @@ import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
+import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.shape.VoxelShape;
 import net.minecraft.world.GameRules;
 import net.minecraft.world.RaycastContext;
 import net.minecraft.world.World;
@@ -202,7 +205,9 @@ public class AirshipEntity extends Entity {
 	/** How much rope is left out when someone hanging on it is wound up to her keel and climbs aboard. */
 	static final double HOOK_ABOARD = 0.6;
 	/** How much someone hanging on the grapple can swing it by leaning (blocks a tick, each tick). */
-	static final double HOOK_PUMP = 0.012;
+	static final double HOOK_PUMP = 0.025;
+	/** How fast someone hanging on the grapple climbs its rope, holding jump (blocks a tick). */
+	static final double CLIMB = 0.15;
 	static final int BOMB_COOLDOWN = 30;
 
 	/**
@@ -1389,7 +1394,11 @@ public class AirshipEntity extends Entity {
 	 * stowed.
 	 */
 	private void winchRope(ServerWorld world, Vec3d out, @Nullable Entity load) {
-		double speed = winch > 0 ? load != null ? LOADED_DOWN : HOOK_DOWN : winch < 0 ? -(load != null ? LOADED_UP : HOOK_UP) : 0.0;
+		boolean byChoice = load instanceof PlayerEntity && hookEntity != null && hookEntity.isVoluntary();
+		// Someone hanging on climbs the rope, holding jump, while the winch is still.
+		boolean climbing = winch == 0 && byChoice && load instanceof AirshipJumper rider && rider.isChittyJumping();
+		double speed = winch > 0 ? load != null ? LOADED_DOWN : HOOK_DOWN : winch < 0 ? -(load != null ? LOADED_UP : HOOK_UP)
+				: climbing ? -CLIMB : 0.0;
 		winchSpeed += (speed - winchSpeed) * WINCH_EASE;
 		if (winch == 0 && Math.abs(winchSpeed) < 0.004) {
 			winchSpeed = 0.0;
@@ -1407,7 +1416,6 @@ public class AirshipEntity extends Entity {
 				winchSpeed = 0.0;
 			}
 		}
-		boolean byChoice = load instanceof PlayerEntity && hookEntity != null && hookEntity.isVoluntary();
 		if (load != null && winchSpeed > 0.0 && (hookGrounded || load.isTouchingWater() || loadDown(world, load))) {
 			// Not load.isOnGround(): a rider never moves itself, so that is still what it was when it was caught.
 			releaseLoad();
@@ -1439,6 +1447,7 @@ public class AirshipEntity extends Entity {
 	 * carries) come down on. In someone's hands it goes where their hand goes, the rope paying out after it.
 	 */
 	private void swingGrapple(ServerWorld world, Vec3d out, @Nullable Entity load) {
+		boolean resting = hookGrounded;
 		hookGrounded = false;
 		if (hook == Hook.UP) {
 			hookPos = out;
@@ -1452,8 +1461,10 @@ public class AirshipEntity extends Entity {
 			hookDrop = Math.max(hookDrop, hand.distanceTo(out));
 			return;
 		}
-		Vec3d swing = hookPos.subtract(hookPrev).multiply(load != null ? HOOK_LOADED_DAMPING : HOOK_DAMPING);
-		if (load instanceof PlayerEntity rider && hookEntity != null && hookEntity.isVoluntary()) {
+		boolean byChoice = load instanceof PlayerEntity && hookEntity != null && hookEntity.isVoluntary();
+		// A load drags on its swing; someone hanging on by choice keeps it going.
+		Vec3d swing = hookPos.subtract(hookPrev).multiply(load != null && !byChoice ? HOOK_LOADED_DAMPING : HOOK_DAMPING);
+		if (byChoice && load instanceof PlayerEntity rider && !resting) {
 			// Someone hanging on by choice swings it by leaning the way they press.
 			float yawRad = rider.getYaw() * MathHelper.RADIANS_PER_DEGREE;
 			Vec3d ahead = new Vec3d(-MathHelper.sin(yawRad), 0.0, MathHelper.cos(yawRad));
@@ -1479,15 +1490,16 @@ public class AirshipEntity extends Entity {
 			}
 			next = out.add(flat).add(0.0, -under, 0.0);
 		}
+		// From its ring down to the lowest point of it: its tines, or the feet of what it carries.
+		double hang = load != null ? AirshipHookEntity.hangBelow(load, byChoice) : 0.0;
+		Vec3d low = new Vec3d(0.0, -(HOOK_GRIP + hang), 0.0);
 		if (hookPos.distanceTo(out) > hookDrop + SNAG) {
 			// Snagged on something as she flies away from it: the rope drags it free, over whatever held it.
 			hookPrev = hookPos;
 			hookPos = next;
+			outOfTheGround(world, low);
 			return;
 		}
-		// From its ring down to the lowest point of it: its tines, or the feet of what it carries.
-		double hang = load != null ? AirshipHookEntity.hangBelow(load, hookEntity != null && hookEntity.isVoluntary()) : 0.0;
-		Vec3d low = new Vec3d(0.0, -(HOOK_GRIP + hang), 0.0);
 		BlockHitResult hit = world.raycast(new RaycastContext(hookPos.add(low), next.add(low),
 				RaycastContext.ShapeType.COLLIDER, RaycastContext.FluidHandling.ANY, this));
 		if (hit.getType() == HitResult.Type.BLOCK && !hit.isInsideBlock()) {
@@ -1513,6 +1525,28 @@ public class AirshipEntity extends Entity {
 		// Against her keel it loses the speed it came up with.
 		hookPrev = keel ? new Vec3d(hookPos.x, next.y, hookPos.z) : hookPos;
 		hookPos = next;
+		outOfTheGround(world, low);
+	}
+
+	/**
+	 * Neither the grapple nor what hangs from it ever ends up in the ground (as a mob snatched by the legs could, or a
+	 * load dragged into a hillside): if its lowest point is inside a block, it is lifted out onto the top of it, a
+	 * block a tick until it is clear.
+	 */
+	private void outOfTheGround(World world, Vec3d low) {
+		Vec3d foot = hookPos.add(low);
+		BlockPos at = BlockPos.ofFloored(foot);
+		VoxelShape shape = world.getBlockState(at).getCollisionShape(world, at);
+		if (shape.isEmpty()) {
+			return;
+		}
+		double top = at.getY() + shape.getMax(Direction.Axis.Y);
+		if (foot.y < top) {
+			Vec3d up = new Vec3d(0.0, top - foot.y + 0.01, 0.0);
+			hookPos = hookPos.add(up);
+			hookPrev = hookPrev.add(up);
+			hookGrounded = true;
+		}
 	}
 
 	/** The grapple comes down hard on the ground: a clank and a puff of what it struck. */
@@ -1594,9 +1628,17 @@ public class AirshipEntity extends Entity {
 		if (head == null) {
 			return;
 		}
+		// Taken by the back of its collar where it stands, wherever the tines met it (a thrown grapple often meets
+		// something about the legs): it is not dragged down into the ground to hang from where they struck it.
+		Vec3d before = hookPos;
+		hookPos = target.getPos().add(0.0, AirshipHookEntity.hangBelow(target, false) + HOOK_GRIP, 0.0);
+		hookPrev = hookPos;
+		hookDrop = Math.max(hookDrop, hookPos.distanceTo(lineOut()));
 		Vec3d grip = hookGrip();
 		head.refreshPositionAndAngles(grip.x, grip.y, grip.z, getYaw(), 0.0F);
 		if (!target.startRiding(head, true)) {
+			hookPos = before;
+			hookPrev = before;
 			return;
 		}
 		// The rope draws tight on it, and the winch stops: what happens to it now is the crew's to say.
@@ -1645,10 +1687,11 @@ public class AirshipEntity extends Entity {
 		letGoOfGrapple();
 		keepHead(world);
 		AirshipHookEntity head = hookEntity;
-		// The ring in their raised hands, so that they hang from it where they are.
+		// The crown in their raised hands, so that they hang from it where they are, on a rope drawn taut (no slack to
+		// leave them standing on the ground): from there they swing.
 		hookPos = player.getPos().add(0.0, AirshipHookEntity.hangBelow(player, true) + HOOK_GRIP, 0.0);
-		hookPrev = hookPos;
-		hookDrop = Math.max(hookDrop, hookPos.distanceTo(lineOut()));
+		hookPrev = hookPos.subtract(player.getVelocity());
+		hookDrop = hookPos.distanceTo(lineOut());
 		if (head == null || !player.startRiding(head, true)) {
 			return false;
 		}
@@ -1704,10 +1747,6 @@ public class AirshipEntity extends Entity {
 			return false;
 		}
 		letGoOfGrapple();
-		// The ring over the collar of what it hooks, so that it is caught where it stands.
-		hookPos = target.getPos().add(0.0, AirshipHookEntity.hangBelow(target, false) + HOOK_GRIP, 0.0);
-		hookPrev = hookPos;
-		hookDrop = Math.max(hookDrop, hookPos.distanceTo(lineOut()));
 		grab(world, target);
 		boolean hooked = target.getVehicle() == hookEntity && hookEntity != null;
 		if (hooked && player instanceof ServerPlayerEntity holder) {

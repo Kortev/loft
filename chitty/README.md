@@ -132,8 +132,9 @@ Baron Bomburst's airship from the film, built in Blender from its stills:
   their hand goes, its rope paying out after them. Then:
   - use it on someone (or something) within four blocks to hook it on, for the crew to wind up;
   - press **R** to throw it the way you look: it flies out on its rope and takes hold of the first thing it hits;
-  - jump to hang on it: you swing under her as she flies (lean with the movement keys to swing it), and sneak to drop
-    off. The crew winding it in bring you up to her keel, and you climb aboard;
+  - jump to hang on it: you hang from its crown by your hands, the rope drawn taut, and swing under her as she flies
+    (lean with the movement keys to swing it). Hold jump to climb the rope up to her keel and aboard (or the crew can
+    wind you up), and sneak to drop off;
   - sneak to let go. Her pulling further away than her rope reaches pulls it out of your hands.
 - **The rope:** slack rope sags in a curve; the drum at the bow turns as it winds; the rope creaks under a load; and
   the grapple rattles and strikes sparks when it is dragged along the ground.

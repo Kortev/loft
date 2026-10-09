@@ -302,7 +302,10 @@ public class AirshipGameTests implements FabricGameTest {
 		});
 	}
 
-	/** Someone holding her grapple on the ground throws it at a mob a few blocks off: it takes hold. */
+	/**
+	 * Someone holding her grapple on the ground throws it at a mob a few blocks off: it takes hold of it where it
+	 * stands, by its collar, not dragging it into the ground from wherever the tines met it.
+	 */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_airship_throw", tickLimit = 100)
 	public void throwsGrapple(TestContext context) {
 		floor(context, 0);
@@ -326,6 +329,8 @@ public class AirshipGameTests implements FabricGameTest {
 			context.assertTrue(husk.getVehicle() instanceof AirshipHookEntity, "the thrown grapple did not take hold of the mob: it is at "
 					+ ship.getHookOffset() + ", " + ship.getHookState());
 			context.assertTrue(thrower.getVehicle() == null, "the thrown grapple took hold of whoever threw it");
+			context.assertTrue(husk.getY() > context.getAbsolute(new Vec3d(0.0, 0.95, 0.0)).y, "the caught mob was pulled into the ground: y "
+					+ (husk.getY() - context.getAbsolute(Vec3d.ZERO).y));
 			husk.discard();
 			context.getWorld().getServer().getPlayerManager().remove(thrower);
 			done(context, ship);

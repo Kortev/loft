@@ -14,7 +14,9 @@ import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.RotationAxis;
 import net.minecraft.util.math.Vec3d;
+import org.joml.Matrix4f;
 import org.joml.Quaternionf;
+import org.joml.Vector3f;
 
 /**
  * Draws the airship from her Blender mesh (tools/airship_model.py --game) and poses her parts: the two propellers and
@@ -61,37 +63,70 @@ public class AirshipRenderer extends EntityRenderer<AirshipEntity> {
 	public void render(AirshipEntity ship, float yaw, float tickDelta, MatrixStack matrices, VertexConsumerProvider buffers, int light) {
 		ChittyMesh mesh = ChittyMesh.get("airship");
 		if (mesh != null) {
+			VertexConsumer out = buffers.getBuffer(RenderLayer.getEntityCutoutNoCull(TEXTURE));
 			matrices.push();
 			matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-yaw));
-			float wobble = ship.getDamageWobbleTicks() - tickDelta;
-			float strength = Math.max(0.0F, ship.getDamageWobbleStrength() - tickDelta);
-			matrices.translate(0.0F, PIVOT_Y, PIVOT_Z);
-			if (wobble > 0.0F) {
-				matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(
-						MathHelper.sin(wobble) * wobble * strength / 60.0F * ship.getDamageWobbleSide()));
-			}
-			matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(-ship.getTilt(tickDelta)));
-			matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(ship.getBank(tickDelta)));
-			matrices.translate(0.0F, -PIVOT_Y, -PIVOT_Z);
-			drawParts(ship, mesh, yaw, tickDelta, matrices, buffers.getBuffer(RenderLayer.getEntityCutoutNoCull(TEXTURE)), light);
+			// The grapple and its rope hang in the world, where what is on the grapple hangs, not in her tilted frame:
+			// only where the rope comes out of her keel pitches and rolls with her.
+			MatrixStack tilted = new MatrixStack();
+			sway(ship, tickDelta, tilted);
+			drawGrapple(ship, mesh, yaw, tickDelta, tilted.peek().getPositionMatrix(), matrices, out, light);
+			sway(ship, tickDelta, matrices);
+			drawParts(ship, mesh, tickDelta, matrices, out, light);
 			matrices.pop();
 		}
 		super.render(ship, yaw, tickDelta, matrices, buffers, light);
 	}
 
-	private static void drawParts(AirshipEntity ship, ChittyMesh mesh, float yaw, float tickDelta, MatrixStack matrices, VertexConsumer out,
-			int light) {
+	/** How she pitches, rolls (in turns) and rocks (when she is hit), about the floor of her gondola. */
+	private static void sway(AirshipEntity ship, float tickDelta, MatrixStack matrices) {
+		float wobble = ship.getDamageWobbleTicks() - tickDelta;
+		float strength = Math.max(0.0F, ship.getDamageWobbleStrength() - tickDelta);
+		matrices.translate(0.0F, PIVOT_Y, PIVOT_Z);
+		if (wobble > 0.0F) {
+			matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(
+					MathHelper.sin(wobble) * wobble * strength / 60.0F * ship.getDamageWobbleSide()));
+		}
+		matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(-ship.getTilt(tickDelta)));
+		matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(ship.getBank(tickDelta)));
+		matrices.translate(0.0F, -PIVOT_Y, -PIVOT_Z);
+	}
+
+	/**
+	 * The grapple's rope, from where it comes out of her keel (as she is tilted) to the grapple's ring wherever it
+	 * swings (or in the hand of whoever holds it), and the grapple turned along it.
+	 */
+	private static void drawGrapple(AirshipEntity ship, ChittyMesh mesh, float yaw, float tickDelta, Matrix4f tilt, MatrixStack matrices,
+			VertexConsumer out, int light) {
+		ChittyMesh.Part rope = mesh.parts.get("rope");
+		ChittyMesh.Part hook = mesh.parts.get("hook");
+		if (rope == null || hook == null) {
+			return;
+		}
+		Vector3f keel = tilt.transformPosition(new Vector3f(rope.pivot));
+		Vec3d from = new Vec3d(keel.x, keel.y, keel.z);
+		Vec3d ring = new Vec3d(hook.pivot.x, hook.pivot.y, hook.pivot.z)
+				.add(ship.getShownHook(tickDelta).rotateY(yaw * MathHelper.RADIANS_PER_DEGREE));
+		Vec3d line = ring.subtract(from);
+		float length = (float) line.length();
+		int overlay = OverlayTexture.DEFAULT_UV;
+		drawRope(rope, from, ring, ship.getShownDrop(tickDelta), matrices, out, light, overlay);
+		matrices.push();
+		matrices.translate(ring.x, ring.y, ring.z);
+		if (length > 0.05F) {
+			matrices.multiply(new Quaternionf().rotationTo(0.0F, -1.0F, 0.0F, (float) line.x / length, (float) line.y / length,
+					(float) line.z / length));
+		}
+		matrices.multiply(hook.rest);
+		hook.draw(matrices.peek(), out, light, overlay, null);
+		matrices.pop();
+	}
+
+	private static void drawParts(AirshipEntity ship, ChittyMesh mesh, float tickDelta, MatrixStack matrices, VertexConsumer out, int light) {
 		int overlay = OverlayTexture.DEFAULT_UV;
 		float spin = ship.getPropSpin(tickDelta);
 		float steer = ship.getSteer(tickDelta);
 		float drop = ship.getShownDrop(tickDelta);
-		// The grapple's ring from where its rope comes out, in her own frame, and the turn from hanging straight down to
-		// lying along its rope.
-		Vec3d hookAt = ship.getShownHook(tickDelta).rotateY(yaw * MathHelper.RADIANS_PER_DEGREE);
-		float rope = (float) hookAt.length();
-		Quaternionf along = rope > 0.05F
-				? new Quaternionf().rotationTo(0.0F, -1.0F, 0.0F, (float) hookAt.x / rope, (float) hookAt.y / rope, (float) hookAt.z / rope)
-				: new Quaternionf();
 		float ladder = ship.getShownLadder(tickDelta);
 		int bombs = ship.getBombs();
 		for (ChittyMesh.Part part : mesh.parts.values()) {
@@ -103,8 +138,7 @@ public class AirshipRenderer extends EntityRenderer<AirshipEntity> {
 			if (name.startsWith("bomb_") && name.charAt(name.length() - 1) - '0' >= bombs) {
 				continue;
 			}
-			if (name.equals("rope")) {
-				drawRope(part, hookAt, rope, drop, matrices, out, light, overlay);
+			if (name.equals("rope") || name.equals("hook")) {
 				continue;
 			}
 			if (name.equals("ladder")) {
@@ -140,10 +174,6 @@ public class AirshipRenderer extends EntityRenderer<AirshipEntity> {
 					matrices.multiply(RotationAxis.POSITIVE_Z.rotation(drop / DRUM_RADIUS));
 					matrices.scale(k, k, 1.0F);
 				}
-				case "hook" -> {
-					matrices.translate(hookAt.x, hookAt.y, hookAt.z);
-					matrices.multiply(along);
-				}
 				default -> {
 				}
 			}
@@ -157,8 +187,10 @@ public class AirshipRenderer extends EntityRenderer<AirshipEntity> {
 	 * with slack in it (more paid out than the distance between) sagging in a curve, drawn in pieces of the one-block
 	 * rope part.
 	 */
-	private static void drawRope(ChittyMesh.Part part, Vec3d hookAt, float distance, float paidOut, MatrixStack matrices,
+	private static void drawRope(ChittyMesh.Part part, Vec3d start, Vec3d end, float paidOut, MatrixStack matrices,
 			VertexConsumer out, int light, int overlay) {
+		Vec3d line = end.subtract(start);
+		float distance = (float) line.length();
 		if (distance < 0.05F) {
 			return;
 		}
@@ -167,12 +199,12 @@ public class AirshipRenderer extends EntityRenderer<AirshipEntity> {
 		Vec3d from = Vec3d.ZERO;
 		for (int i = 1; i <= pieces; i++) {
 			float t = (float) i / pieces;
-			Vec3d to = hookAt.multiply(t).add(0.0, -4.0F * sag * t * (1.0F - t), 0.0);
+			Vec3d to = line.multiply(t).add(0.0, -4.0F * sag * t * (1.0F - t), 0.0);
 			Vec3d piece = to.subtract(from);
 			float length = (float) piece.length();
 			if (length > 1.0E-4F) {
 				matrices.push();
-				matrices.translate(part.pivot.x + from.x, part.pivot.y + from.y, part.pivot.z + from.z);
+				matrices.translate(start.x + from.x, start.y + from.y, start.z + from.z);
 				matrices.multiply(new Quaternionf().rotationTo(0.0F, -1.0F, 0.0F, (float) piece.x / length, (float) piece.y / length,
 						(float) piece.z / length));
 				matrices.scale(1.0F, length, 1.0F);

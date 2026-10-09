@@ -27,7 +27,9 @@ import org.jetbrains.annotations.Nullable;
  * <li>Caught, a thing hangs by the back of its collar from the tines, limp, and kicks and jerks on the rope now and
  * then; a caught player cannot simply step off (PlayerEntity.shouldDismount): holding sneak, they struggle (kicking and
  * rattling the grapple, a bar filling as they go), and after ten seconds of it they wrench free and drop.</li>
- * <li>Someone who hangs on it by choice hangs from its ring by both hands, and lets go whenever they sneak.</li>
+ * <li>Someone who hangs on it by choice hangs from its crown by both hands, the grapple above them along its rope;
+ * they swing it by leaning, climb the rope by holding jump (up to her keel and aboard), and let go whenever they
+ * sneak.</li>
  * </ul>
  * Clients are told which (VOLUNTARY), and each kick (AGITATION), and draw them so (AirshipHangPoseMixin). Hanging empty,
  * someone on the ground can take hold of it (AirshipEntity.takeHoldOfGrapple). Never saved: she winds her grapple up
@@ -157,11 +159,11 @@ public class AirshipHookEntity extends Entity {
 	}
 
 	/**
-	 * How far below the tines a load's feet hang: someone hanging on by choice holds the ring above the tines with
-	 * their arms up; a caught thing hangs by the back of its collar.
+	 * How far below the tines a load's feet hang: someone hanging on by choice holds the crown, where the tines meet,
+	 * with their arms up (the grapple above them, not through them); a caught thing hangs by the back of its collar.
 	 */
 	public static double hangBelow(Entity load, boolean voluntary) {
-		return voluntary ? Math.max(0.0, load.getHeight() * 1.22 - AirshipEntity.HOOK_GRIP) : load.getHeight() * 0.85;
+		return load.getHeight() * (voluntary ? 1.22 : 0.85);
 	}
 
 	/** Whether a player riding this may get off: they hang on by choice, or have struggled long enough. */
@@ -185,7 +187,7 @@ public class AirshipHookEntity extends Entity {
 	}
 
 	/**
-	 * Whoever hangs on by choice hangs from the ring by their hands; a caught thing hangs by the back of its collar from
+	 * Whoever hangs on by choice hangs from the crown by their hands; a caught thing hangs by the back of its collar from
 	 * the tines, its body a little ahead of them.
 	 */
 	@Override

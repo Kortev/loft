@@ -75,7 +75,14 @@ namespace.
     `HOOK_REACH` 4 hooks it on (`hookOnto`, from Fabric's `UseEntityCallback` in `Airship.init`). Their grapple key
     throws it (`ACTION_THROW`, `throwGrapple`: `THROW_SPEED` 1.0 the way they look, `THROW_SLACK` 16 more rope; it
     spares the thrower, and catches along its path, `catchable`). Jumping with it
-    hangs on (`hangOn`; leaning pumps the swing, `HOOK_PUMP`). Sneaking or going beyond the rope lets go.
+    hangs on (`hangOn`: from the crown, the rope drawn taut where they are; leaning pumps the swing, `HOOK_PUMP`;
+    holding jump climbs the rope at `CLIMB`, read through the `mixin/AirshipJumper` accessor). Sneaking or going beyond
+    the rope lets go.
+  - Whatever it takes hold of is hung by its collar where it stands (`grab`), never from wherever the tines met it;
+    its lowest point is lifted out of any block it ends up in (`outOfTheGround`); and nothing on a grapple takes
+    suffocation damage (`Airship.init`).
+  - `AirshipRenderer.drawGrapple` draws the rope and grapple in her yaw frame, untilted, from where the rope leaves her
+    tilted keel: they hang where what is on them hangs, whatever her pitch, bank or rocking.
   - Rope looks: `AirshipRenderer.drawRope` sags slack rope (paid out more than the distance) in a curve; the `coil`
     drum turns by `drop / DRUM_RADIUS`; a loaded rope creaks; dragged along the ground it rattles and sparks.
   - Caught or by choice: the head syncs `VOLUNTARY` and counts kicks (`AGITATION`). A caught thing hangs by its collar
