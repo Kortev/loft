@@ -87,6 +87,10 @@ wants **renders for approval before baking** anything.
   in `.claude/skills/film-vehicle/references/airship.md` and described in `chitty/README.md`.
   - kortev's first test: boarding put them in a crew place, so she would not fly; there was no way to the wheel and no
     clear way off; the camera was too close. Hence walking, the wheel, sneaking off and the new camera.
+  - Her look: kortev asked whether she was too soft for Minecraft and chose a faceted finish from the comparison
+    renders. Her game build is faceted (a sixteen-sided envelope, square bars and wires, round parts of eight sides,
+    flat faces), her 1024 atlas holds only her colours (a little darker in nooks) drawn pixelated, and the game lights
+    each face by which way it faces. Her gondola's floor and lining show now (the old lit bake left them black).
   - Next: kortev's next in-game test, and fixing what they report.
 
 ### 2. The Child Catcher's carriage
@@ -119,7 +123,8 @@ kortev tests in game themselves and reports back. Don't spend usage on the self-
 
 - **Chitty: a polish pass like the airship's, saved for later (kortev: "maybe save that").** Improve what she has
   rather than add to it, and ask the same question about her look in Minecraft (pixel density, face shading,
-  faceting) once kortev has chosen for the airship.
+  faceting): kortev chose the faceted finish for the airship, and its bake switches (`LIT_ALL`, `PACK_ROTATE`,
+  `ChittyTexture`'s pixelated option) are in `chitty_model.py`, off for her.
 
 - **Chitty polish, kortev's go-ahead pending (do it only after the airship is finished, and not before kortev says
   so).** kortev wants her to stop feeling empty and lifeless, like the old racecar she is:

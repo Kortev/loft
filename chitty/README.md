@@ -146,8 +146,10 @@ G B G     G = Gold Ingot         B = any Boat
 Bombs (shapeless, makes 2): Iron Ingot, Gunpowder, Gunpowder, String
 ```
 
-Her model, texture and icon come from `tools/airship_model.py`. Its `--game` option bakes her look into one atlas with
-Chitty's exporter; its `--out DIR --renders` option renders her from the film's angles. Three drawing tools supply its
+Her model, texture and icon come from `tools/airship_model.py`. Its `--game` option builds her faceted, to sit among
+Minecraft's blocks, and bakes her colours into one atlas with Chitty's exporter: the game draws it pixelated and lights
+each flat face by which way it faces, as it does its own mobs. Its `--out DIR --renders` option renders her, round,
+from the film's angles. Three drawing tools supply its
 art:
 - `tools/vulgaria_arms.py` draws her arms;
 - `tools/airship_carving.py` draws the gondola's gilt carving and lights it as raised gold;

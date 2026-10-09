@@ -25,9 +25,10 @@ import org.joml.Quaternionf;
  * ladder hangs a rung at a time as far as it is let down; and the rack holds as many bombs as are left in it. She banks
  * a little in turns and rocks when she is hit.
  *
- * <p>Her texture is baked with her light in it, so she is drawn evenly lit; only the wheel, which turns, takes the
- * game's light. Blender's axes map onto hers as (x, y, z) to (-x, z, y): a Blender turn about its z is a turn about our
- * y by the same angle, about its y one about our z, and about its x one about our x the other way.
+ * <p>She is faceted, as Minecraft's things are: her texture holds her colours alone, drawn pixelated, and the game
+ * lights each of her flat faces by which way it faces, as it lights its blocks and mobs. Blender's axes map onto hers
+ * as (x, y, z) to (-x, z, y): a Blender turn about its z is a turn about our y by the same angle, about its y one about
+ * our z, and about its x one about our x the other way.
  */
 public class AirshipRenderer extends EntityRenderer<AirshipEntity> {
 	public static final Identifier TEXTURE = ShootingStar.id("textures/entity/airship.png");
@@ -48,7 +49,7 @@ public class AirshipRenderer extends EntityRenderer<AirshipEntity> {
 	public AirshipRenderer(EntityRendererFactory.Context context) {
 		super(context);
 		this.shadowRadius = 2.0F;
-		MinecraftClient.getInstance().getTextureManager().registerTexture(TEXTURE, new ChittyTexture(TEXTURE));
+		MinecraftClient.getInstance().getTextureManager().registerTexture(TEXTURE, new ChittyTexture(TEXTURE, true));
 	}
 
 	@Override

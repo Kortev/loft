@@ -22,7 +22,7 @@ namespace.
 | Client: renderer, bomb renderer, keys and hints, running sounds | `client/AirshipRenderer`, `AirshipBombRenderer`, `AirshipClient` (`init()` from `ChittyClient`), `AirshipSound` |
 | Client mixin | `client/mixin/AirshipStandMixin` (riders are drawn standing); `ChittyCameraMixin` turns the third-person camera about the middle of her (`VIEW_CENTRE`), `VIEW_DISTANCE` (24) back |
 | Mesh loader | `client/ChittyMesh.get("airship")` (shared with Chitty) |
-| Model, bake, icon, renders | `tools/airship_model.py` (`--game` reuses `chitty_model.export_game` with her settings: a 4096 atlas, `TEXEL_WEIGHT`, `GAME_LIT = ('helm',)`) |
+| Model, bake, icon, renders | `tools/airship_model.py` (`--game` builds her faceted: `tube`, `lathe`, `pipe` and `points` make square bars of at least `THINNEST` and round parts of `LATHE_SIDES`, the envelope has 16 sides, every face is flat; it reuses `chitty_model.export_game` with her settings: a 1024 atlas, `TEXEL_WEIGHT` towards the gondola, `LIT_ALL` (her colours alone, darker in nooks by `SHUT_IN`, every part's normals kept for the game's face lighting) and `PACK_ROTATE = 'AXIS_ALIGNED'`; `AirshipRenderer` draws the texture pixelated, `ChittyTexture(..., true)`) |
 | The arms on the envelope | `tools/vulgaria_arms.py` (flat heraldry, each shape parted by a fine gap) |
 | The gondola's gilt carving and its relief and gilt maps | `tools/airship_carving.py` (laid out from the film's still of her right side) |
 | Sounds | `tools/gen_airship_sounds.py` |
