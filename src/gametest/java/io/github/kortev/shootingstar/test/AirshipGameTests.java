@@ -290,7 +290,7 @@ public class AirshipGameTests implements FabricGameTest {
 		});
 	}
 
-	/** Her rope ladder lets down to the ground, and a mob at the foot of it is on it, as on a ladder. */
+	/** Her rope ladder lets down to the ground, and a mob at the foot of it is on it, as on a ladder, and climbs it. */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_airship_ladder", tickLimit = 100)
 	public void ladderClimbs(TestContext context) {
 		floor(context, 0);
@@ -300,6 +300,14 @@ public class AirshipGameTests implements FabricGameTest {
 		context.runAtTick(60, () -> {
 			context.assertTrue(ship.getLadder() > 4.0, "the ladder did not come down to the ground: " + ship.getLadder());
 			context.assertTrue(husk.isClimbing(), "a mob at the foot of the ladder is not on it");
+			// Walking into it (facing her) climbs it, as a ladder against a wall, and goes no further into it.
+			husk.setYaw(90.0F);
+			husk.setBodyYaw(90.0F);
+			husk.setMovementSpeed(0.25F);
+			double x = husk.getX();
+			Vec3d climb = husk.applyMovementInput(new Vec3d(0.0, 0.0, 1.0), 0.6F);
+			context.assertTrue(climb.y > 0.15, "walking into the ladder did not climb it: " + climb);
+			context.assertTrue(husk.getX() > x - 1.0E-3, "the mob walked on into the ladder: " + (husk.getX() - x));
 			husk.discard();
 			done(context, ship);
 		});
