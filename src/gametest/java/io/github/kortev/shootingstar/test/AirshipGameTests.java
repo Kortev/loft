@@ -105,7 +105,8 @@ public class AirshipGameTests implements FabricGameTest {
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_airship_walk", tickLimit = 80)
 	public void walksToTheWheel(TestContext context) {
 		floor(context, 0);
-		AirshipEntity ship = ship(context, 4.0, 8.0, 4.0);
+		// Under the test area's barrier roof (y 8), which her ladder would otherwise come down onto.
+		AirshipEntity ship = ship(context, 4.0, 6.0, 4.0);
 		ServerPlayerEntity walker = player(context, "airship_walker");
 		context.assertTrue(ship.board(walker, 3), "the player could not board");
 		context.assertTrue(ship.getControllingPassenger() == null, "the player had the wheel without walking to it");
