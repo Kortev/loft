@@ -60,7 +60,7 @@ float flicker(float k) {
 }
 
 // The lightning reaching this point from the storms in the nearby cells.
-float storms(vec2 uv, float coslat, float drained, float boosted) {
+float storms(vec2 uv, float coslat, float drained) {
     vec2 g = uv * CELLS;
     vec2 c = floor(g);
     float light = 0.0;
@@ -75,7 +75,8 @@ float storms(vec2 uv, float coslat, float drained, float boosted) {
             }
             float h2 = hash(cell + 17.3);
             float h3 = hash(cell + 41.1);
-            float rate = 0.025 + 0.06 * h2 * (0.5 + 0.5 * boosted);
+            // (Its rate is the storm's own: one that varied from pixel to pixel would flash it on in rings.)
+            float rate = 0.025 + 0.045 * h2;
             float phase = fract(Time * rate + h3);
             if (phase > 0.14) {
                 continue;
@@ -305,7 +306,7 @@ void main() {
     float outside = smoothstep(Front - 0.02, Front + 0.02, ang);
     float drained = mix(1.0, mix(1.0, 0.06, Drain), outside);
     float boosted = (1.0 - outside) * Drain;
-    float flash = Storms * storms(texCoord + vec2(CloudShift, 0.0), coslat, drained, boosted) * (1.0 + 0.5 * boosted);
+    float flash = Storms * storms(texCoord + vec2(CloudShift, 0.0), coslat, drained) * (1.0 + 0.5 * boosted);
     flash += lightning * Storms;
     float within = (0.2 + 1.2 * smoothstep(0.3, 1.0, tops)) * (0.35 + 1.65 * smoothstep(-0.25, 0.2, heaps(km) * 1.4));
     color += vec3(0.68, 0.76, 1.0) * flash * within * (0.3 + cloud * 0.9);
