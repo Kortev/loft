@@ -3,6 +3,7 @@ package io.github.kortev.chitty.airship;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.data.DataTracker;
 import net.minecraft.entity.data.TrackedData;
 import net.minecraft.entity.data.TrackedDataHandlerRegistry;
@@ -11,15 +12,18 @@ import net.minecraft.nbt.NbtCompound;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.text.Text;
+import net.minecraft.util.ActionResult;
+import net.minecraft.util.Hand;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * What hangs on the airship's grapple: an unseen holder at its tines, which whatever the grapple has seized rides, so
- * that it swings along under her as smoothly as a passenger does. A mob stays caught; a player cannot simply step off
- * (PlayerEntity.shouldDismount): holding sneak, they struggle, and after ten seconds of it they wrench free and drop.
- * Never saved: she lets go of her load when she is unloaded.
+ * The airship's grapple's head, out in the world at its tines whenever the grapple is let down (the grapple itself is
+ * drawn with her). Whatever the grapple has seized rides it, so that it swings along with the grapple as smoothly as a
+ * passenger does. A mob stays caught; a player cannot simply step off (PlayerEntity.shouldDismount): holding sneak,
+ * they struggle, and after ten seconds of it they wrench free and drop. Hanging empty, someone on the ground can take
+ * hold of it (AirshipEntity.takeHoldOfGrapple). Never saved: she winds her grapple up when she is unloaded.
  */
 public class AirshipHookEntity extends Entity {
 	/** Ticks of struggling (holding sneak) a player needs to get off the grapple. */
@@ -56,12 +60,13 @@ public class AirshipHookEntity extends Entity {
 	public void tick() {
 		super.tick();
 		AirshipEntity ship = getShip();
-		if (!getWorld().isClient && (ship == null || ship.getHookEntity() != this || !hasPassengers())) {
+		if (!getWorld().isClient && (ship == null || ship.getHookEntity() != this)) {
 			removeAllPassengers();
 			discard();
 			return;
 		}
 		if (ship != null) {
+			// At the tines, wherever the grapple swings (on a client, where it is drawn there).
 			Vec3d grip = ship.hookGrip();
 			setPosition(grip.x, grip.y, grip.z);
 			setVelocity(Vec3d.ZERO);
@@ -118,9 +123,42 @@ public class AirshipHookEntity extends Entity {
 		return !hasPassengers();
 	}
 
+	/** Hanging empty, it can be taken hold of; not while someone holds it, nor with something on it. */
 	@Override
 	public boolean canHit() {
+		AirshipEntity ship = getShip();
+		return !hasPassengers() && ship != null && ship.getHookState() != AirshipEntity.Hook.HELD;
+	}
+
+	@Override
+	public boolean isAttackable() {
 		return false;
+	}
+
+	@Override
+	public boolean damage(DamageSource source, float amount) {
+		return false;
+	}
+
+	/** Someone on the ground takes hold of it as it hangs empty. */
+	@Override
+	public ActionResult interact(PlayerEntity player, Hand hand) {
+		AirshipEntity ship = getShip();
+		if (ship == null || hasPassengers() || player.hasVehicle()) {
+			return ActionResult.PASS;
+		}
+		if (!getWorld().isClient) {
+			return ship.takeHoldOfGrapple(player) ? ActionResult.CONSUME : ActionResult.PASS;
+		}
+		return ActionResult.SUCCESS;
+	}
+
+	/** On a client it goes where the grapple is drawn, not where the server last put it. */
+	@Override
+	public void updateTrackedPositionAndAngles(double x, double y, double z, float yaw, float pitch, int interpolationSteps) {
+		if (getShip() == null) {
+			super.updateTrackedPositionAndAngles(x, y, z, yaw, pitch, interpolationSteps);
+		}
 	}
 
 	@Override

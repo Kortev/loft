@@ -13,13 +13,16 @@ import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.RotationAxis;
+import net.minecraft.util.math.Vec3d;
+import org.joml.Quaternionf;
 
 /**
  * Draws the airship from her Blender mesh (tools/airship_model.py --game) and poses her parts: the two propellers and
  * their pulleys turn on their shafts, the rudder and the wheel with the pilot's steering and the elevator as she climbs
- * or sinks; the grapple hangs as far down as it is let out on its rope, the drum it winds onto growing thinner as the
- * rope goes out; the rope ladder hangs a rung at a time as far as it is let down; and the rack holds as many bombs as
- * are left in it. She banks a little in turns and rocks when she is hit.
+ * or sinks; the grapple hangs on its rope wherever it swings (or in the hand of whoever holds it), its rope drawn
+ * straight to it and the grapple turned along it, the drum it winds onto growing thinner as the rope goes out; the rope
+ * ladder hangs a rung at a time as far as it is let down; and the rack holds as many bombs as are left in it. She banks
+ * a little in turns and rocks when she is hit.
  *
  * <p>Her texture is baked with her light in it, so she is drawn evenly lit; only the wheel, which turns, takes the
  * game's light. Blender's axes map onto hers as (x, y, z) to (-x, z, y): a Blender turn about its z is a turn about our
@@ -62,17 +65,25 @@ public class AirshipRenderer extends EntityRenderer<AirshipEntity> {
 			matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(-ship.getTilt(tickDelta)));
 			matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(ship.getBank(tickDelta)));
 			matrices.translate(0.0F, -PIVOT_Y, -PIVOT_Z);
-			drawParts(ship, mesh, tickDelta, matrices, buffers.getBuffer(RenderLayer.getEntityCutoutNoCull(TEXTURE)), light);
+			drawParts(ship, mesh, yaw, tickDelta, matrices, buffers.getBuffer(RenderLayer.getEntityCutoutNoCull(TEXTURE)), light);
 			matrices.pop();
 		}
 		super.render(ship, yaw, tickDelta, matrices, buffers, light);
 	}
 
-	private static void drawParts(AirshipEntity ship, ChittyMesh mesh, float tickDelta, MatrixStack matrices, VertexConsumer out, int light) {
+	private static void drawParts(AirshipEntity ship, ChittyMesh mesh, float yaw, float tickDelta, MatrixStack matrices, VertexConsumer out,
+			int light) {
 		int overlay = OverlayTexture.DEFAULT_UV;
 		float spin = ship.getPropSpin(tickDelta);
 		float steer = ship.getSteer(tickDelta);
 		float drop = ship.getShownDrop(tickDelta);
+		// The grapple's ring from where its rope comes out, in her own frame, and the turn from hanging straight down to
+		// lying along its rope.
+		Vec3d hookAt = ship.getShownHook(tickDelta).rotateY(yaw * MathHelper.RADIANS_PER_DEGREE);
+		float rope = (float) hookAt.length();
+		Quaternionf along = rope > 0.05F
+				? new Quaternionf().rotationTo(0.0F, -1.0F, 0.0F, (float) hookAt.x / rope, (float) hookAt.y / rope, (float) hookAt.z / rope)
+				: new Quaternionf();
 		float ladder = ship.getShownLadder(tickDelta);
 		int bombs = ship.getBombs();
 		for (ChittyMesh.Part part : mesh.parts.values()) {
@@ -84,7 +95,7 @@ public class AirshipRenderer extends EntityRenderer<AirshipEntity> {
 			if (name.startsWith("bomb_") && name.charAt(name.length() - 1) - '0' >= bombs) {
 				continue;
 			}
-			if (name.equals("rope") && drop < 0.05F) {
+			if (name.equals("rope") && rope < 0.05F) {
 				continue;
 			}
 			if (name.equals("ladder")) {
@@ -113,8 +124,14 @@ public class AirshipRenderer extends EntityRenderer<AirshipEntity> {
 					float k = 1.0F - 0.4F * Math.min(drop, (float) AirshipEntity.LINE_MAX) / (float) AirshipEntity.LINE_MAX;
 					matrices.scale(k, k, 1.0F);
 				}
-				case "hook" -> matrices.translate(0.0F, -drop, 0.0F);
-				case "rope" -> matrices.scale(1.0F, drop, 1.0F);
+				case "hook" -> {
+					matrices.translate(hookAt.x, hookAt.y, hookAt.z);
+					matrices.multiply(along);
+				}
+				case "rope" -> {
+					matrices.multiply(along);
+					matrices.scale(1.0F, rope, 1.0F);
+				}
 				default -> {
 				}
 			}

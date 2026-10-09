@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.WeakHashMap;
+import net.minecraft.block.BlockState;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.entity.Dismounting;
 import net.minecraft.entity.Entity;
@@ -28,6 +29,7 @@ import net.minecraft.nbt.NbtCompound;
 import net.minecraft.network.listener.ClientPlayPacketListener;
 import net.minecraft.network.packet.Packet;
 import net.minecraft.network.packet.s2c.play.EntitySpawnS2CPacket;
+import net.minecraft.particle.BlockStateParticleEffect;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.server.network.EntityTrackerEntry;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -48,16 +50,18 @@ import net.minecraft.world.RaycastContext;
 import net.minecraft.world.World;
 import net.minecraft.world.event.GameEvent;
 import org.jetbrains.annotations.Nullable;
+import org.joml.Vector3f;
 
 /**
  * Baron Bomburst's airship, from the film: a gas envelope 34 blocks long over a little gilded gondola hung from it on
  * wires. Eight can stand in the gondola and walk about in it (they cannot fall out); whoever walks up to the wheel in
  * the bow takes it and flies her, and sneaks to let it go. She lifts six, and with more aboard (a load on her grapple
  * counts as one) she cannot climb and sinks slowly, as she does in the film. She hovers where she is left. Her crew can
- * let her grapple down to seize what it touches (a mob, a player, a dropped item, a boat or a car) and wind it up to
- * carry it, let down her rope ladder (anyone can climb it, and climbing off its top boards her) and drop bombs from the
- * rack in her gondola; the pilot can throw a passenger overboard. Sneaking gets anyone else off: beside her when she is
- * down, or onto her rope ladder in the air, which lets itself down for them.
+ * let her grapple down on its rope (it swings and trails as a weight on a rope does) to seize what it touches (a mob, a
+ * player, a dropped item, a boat or a car) and wind it up to carry it; someone on the ground can take hold of it and
+ * hook it onto someone. They can let down her rope ladder (anyone can climb it, and climbing off its top boards her)
+ * and drop bombs from the rack in her gondola; the pilot can throw a passenger overboard. Sneaking gets anyone else
+ * off: beside her when she is down, or onto her rope ladder in the air, which lets itself down for them.
  *
  * <p>Like Chitty she is moved by her pilot's client, and by the server when nobody pilots her. Positions are in blocks;
  * local offsets are at yaw 0, x to her left, z forward, from the middle of the bottom of her gondola (as in
@@ -76,6 +80,10 @@ public class AirshipEntity extends Entity {
 	private static final TrackedData<Byte> CLIMB = DataTracker.registerData(AirshipEntity.class, TrackedDataHandlerRegistry.BYTE);
 	private static final TrackedData<Float> HOOK_DROP = DataTracker.registerData(AirshipEntity.class, TrackedDataHandlerRegistry.FLOAT);
 	private static final TrackedData<Byte> HOOK_STATE = DataTracker.registerData(AirshipEntity.class, TrackedDataHandlerRegistry.BYTE);
+	/** Where the grapple's ring is, from where its rope comes out under her keel (world axes). */
+	private static final TrackedData<Vector3f> HOOK_AT = DataTracker.registerData(AirshipEntity.class, TrackedDataHandlerRegistry.VECTOR3F);
+	/** Who holds the grapple on the ground (their entity id), or -1. */
+	private static final TrackedData<Integer> HOOK_HELD = DataTracker.registerData(AirshipEntity.class, TrackedDataHandlerRegistry.INTEGER);
 	private static final TrackedData<Float> LADDER = DataTracker.registerData(AirshipEntity.class, TrackedDataHandlerRegistry.FLOAT);
 	private static final TrackedData<Byte> BOMBS = DataTracker.registerData(AirshipEntity.class, TrackedDataHandlerRegistry.BYTE);
 
@@ -113,7 +121,7 @@ public class AirshipEntity extends Entity {
 	/** How far below her keel she carries a load. */
 	public static final double CARRY = 3.0;
 	/** How far the grapple's rope and the ladder let down. */
-	public static final double LINE_MAX = 32.0;
+	public static final double LINE_MAX = 64.0;
 	/** Where the rope ladder hangs from the rail on her left (ladder_top), and the line a climber hangs on, just outside it. */
 	public static final Vec3d LADDER_TOP = new Vec3d(1.05, 1.44, -0.15);
 	public static final Vec3d LADDER_LINE = new Vec3d(1.3, 1.44, -0.15);
@@ -145,12 +153,24 @@ public class AirshipEntity extends Entity {
 	/** Degrees a tick she turns at speed, and standing (her propellers turn her a little even then). */
 	static final float TURN = 1.6F;
 	static final float TURN_STANDING = 0.7F;
-	static final double HOOK_DOWN = 0.32;
+	static final double HOOK_DOWN = 0.45;
 	static final double HOOK_UP = 0.2;
+	/**
+	 * The grapple swinging on its rope: how fast it gathers speed falling (blocks a tick, each tick), and how much of
+	 * its speed it keeps each tick through the air, empty and with a load.
+	 */
+	static final double HOOK_GRAVITY = 0.05;
+	static final double HOOK_DAMPING = 0.985;
+	static final double HOOK_LOADED_DAMPING = 0.97;
+	/** How far someone holding the grapple can reach to hook it onto something. */
+	public static final double HOOK_REACH = 4.0;
 	static final int BOMB_COOLDOWN = 30;
 
-	/** The grapple: stowed, paying out, waiting down, lifting a load, holding it, setting it down, winding up empty. */
-	public enum Hook { UP, LOWERING, DOWN, LIFTING, HOLDING, SETTING, RAISING }
+	/**
+	 * The grapple: stowed, paying out, waiting down, lifting a load, holding it, setting it down, winding up empty, and
+	 * in the hands of someone on the ground.
+	 */
+	public enum Hook { UP, LOWERING, DOWN, LIFTING, HOLDING, SETTING, RAISING, HELD }
 
 	/** What a crew member can ask of her (AirshipActionPayload). */
 	public static final int ACTION_GRAPPLE = 0;
@@ -177,6 +197,9 @@ public class AirshipEntity extends Entity {
 	/** The airships with their ladders down, on each side, for climbers (LivingEntity.isClimbing). */
 	private static final Set<AirshipEntity> LADDERS_SERVER = Collections.newSetFromMap(new WeakHashMap<>());
 	private static final Set<AirshipEntity> LADDERS_CLIENT = Collections.newSetFromMap(new WeakHashMap<>());
+	/** The airships whose grapples someone on the ground holds, on each side (grappleHeldBy). */
+	private static final Set<AirshipEntity> HELD_SERVER = Collections.newSetFromMap(new WeakHashMap<>());
+	private static final Set<AirshipEntity> HELD_CLIENT = Collections.newSetFromMap(new WeakHashMap<>());
 
 	// Movement, on whichever side is moving her.
 	private float speed;
@@ -190,7 +213,15 @@ public class AirshipEntity extends Entity {
 	// The server's view of the pilot, the grapple, the ladder and the rack.
 	private ChittyControls input = ChittyControls.NONE;
 	private Hook hook = Hook.UP;
+	/** How much rope the grapple has out. */
 	private double hookDrop;
+	/** Where the grapple's ring is in the world, and was the tick before (its swing). */
+	@Nullable
+	private Vec3d hookPos;
+	private Vec3d hookPrev;
+	private boolean hookGrounded;
+	@Nullable
+	private PlayerEntity hookHolder;
 	@Nullable
 	private AirshipHookEntity hookEntity;
 	private boolean ladderDown;
@@ -215,6 +246,8 @@ public class AirshipEntity extends Entity {
 	private float prevClimbLook;
 	private float shownDrop;
 	private float prevShownDrop;
+	private Vec3d shownHook = Vec3d.ZERO;
+	private Vec3d prevShownHook = Vec3d.ZERO;
 	private float shownLadder;
 	private float prevShownLadder;
 	private float bank;
@@ -256,6 +289,8 @@ public class AirshipEntity extends Entity {
 		builder.add(CLIMB, (byte) 0);
 		builder.add(HOOK_DROP, 0.0F);
 		builder.add(HOOK_STATE, (byte) 0);
+		builder.add(HOOK_AT, new Vector3f());
+		builder.add(HOOK_HELD, -1);
 		builder.add(LADDER, 0.0F);
 		builder.add(BOMBS, (byte) 0);
 	}
@@ -344,7 +379,6 @@ public class AirshipEntity extends Entity {
 					dropStack(new ItemStack(Airship.BOMB, getBombs()));
 				}
 			}
-			releaseLoad();
 			discard();
 		}
 		return true;
@@ -352,7 +386,7 @@ public class AirshipEntity extends Entity {
 
 	@Override
 	public void remove(RemovalReason reason) {
-		releaseLoad();
+		stowHead();
 		super.remove(reason);
 	}
 
@@ -426,14 +460,40 @@ public class AirshipEntity extends Entity {
 		return getPos().add(offset.rotateY(-getYaw() * MathHelper.RADIANS_PER_DEGREE));
 	}
 
-	/** The top of the grapple's ring, where its rope ties on, in the world. */
-	public Vec3d hookTop() {
-		return local(LINE_OUT).add(0.0, -hookDrop, 0.0);
+	/** Where the grapple's rope comes out under her keel, in the world. */
+	public Vec3d lineOut() {
+		return local(LINE_OUT);
 	}
 
-	/** Where the grapple's tines take hold, in the world. */
+	/** The top of the grapple's ring, where its rope ties on, in the world (on a client, where it is drawn). */
+	public Vec3d hookTop() {
+		if (getWorld().isClient) {
+			return lineOut().add(getShownHook(1.0F));
+		}
+		return hookPos != null ? hookPos : lineOut();
+	}
+
+	/** Where the grapple's tines take hold, in the world: the length of it along its rope below its ring. */
 	public Vec3d hookGrip() {
-		return hookTop().add(0.0, -HOOK_GRIP, 0.0);
+		Vec3d out = lineOut();
+		Vec3d top = hookTop();
+		Vec3d rope = top.subtract(out);
+		double length = rope.length();
+		return top.add(length > 0.3 ? rope.multiply(HOOK_GRIP / length) : new Vec3d(0.0, -HOOK_GRIP, 0.0));
+	}
+
+	/**
+	 * Where the grapple's ring is drawn, from where its rope comes out (world axes): as the server has it, eased, or in
+	 * the hand of whoever holds it.
+	 */
+	public Vec3d getShownHook(float tickDelta) {
+		int held = dataTracker.get(HOOK_HELD);
+		Entity holder = held >= 0 ? getWorld().getEntityById(held) : null;
+		if (holder != null) {
+			Vec3d out = getLerpedPos(tickDelta).add(LINE_OUT.rotateY(-getYaw(tickDelta) * MathHelper.RADIANS_PER_DEGREE));
+			return handOf(holder, tickDelta).subtract(out);
+		}
+		return prevShownHook.lerp(shownHook, tickDelta);
 	}
 
 	// --- passengers ------------------------------------------------------------------------------------
@@ -829,6 +889,12 @@ public class AirshipEntity extends Entity {
 		} else {
 			ladders.remove(this);
 		}
+		Set<AirshipEntity> held = getWorld().isClient ? HELD_CLIENT : HELD_SERVER;
+		if (dataTracker.get(HOOK_HELD) >= 0 && !isRemoved()) {
+			held.add(this);
+		} else {
+			held.remove(this);
+		}
 		if (getWorld() instanceof ServerWorld world) {
 			serverTick(world);
 		} else {
@@ -1016,13 +1082,21 @@ public class AirshipEntity extends Entity {
 	}
 
 	/**
-	 * The grapple's one lever: stowed, it is let down; going down or waiting down, it is wound up; with a load on it, the
-	 * load is set down on the ground and let go; setting one down, it is lifted again.
+	 * The grapple's one lever: stowed, it is let down; going down or waiting down, it is wound up (out of the hands of
+	 * anyone holding it); with a load on it, the load is set down on the ground and let go; setting one down, it is lifted
+	 * again.
 	 */
 	public void workGrapple() {
+		if (hook == Hook.HELD && hookHolder instanceof ServerPlayerEntity player) {
+			player.sendMessage(Text.translatable("hud.shootingstar.airship.yanked"), true);
+		}
+		if (hook == Hook.HELD) {
+			hookHolder = null;
+			dataTracker.set(HOOK_HELD, -1);
+		}
 		Hook next = switch (hook) {
 			case UP, RAISING -> Hook.LOWERING;
-			case LOWERING, DOWN -> Hook.RAISING;
+			case LOWERING, DOWN, HELD -> Hook.RAISING;
 			case LIFTING, HOLDING -> Hook.SETTING;
 			case SETTING -> Hook.LIFTING;
 		};
@@ -1114,29 +1188,40 @@ public class AirshipEntity extends Entity {
 	}
 
 	private void tickGrapple(ServerWorld world) {
+		Vec3d out = lineOut();
+		if (hookPos == null) {
+			hookPos = out;
+			hookPrev = out;
+		}
 		Entity load = hookEntity != null && !hookEntity.isRemoved() && hookEntity.hasPassengers() ? hookEntity.getFirstPassenger() : null;
 		if ((hook == Hook.LIFTING || hook == Hook.HOLDING || hook == Hook.SETTING) && load == null) {
 			// It got away (struggled free, died or was taken off): wind the grapple back up.
 			releaseLoad();
 			setHook(Hook.RAISING);
 		}
+		if (hook == Hook.HELD && !stillHeld()) {
+			boolean pulled = hookHolder != null && hookHolder.isAlive() && hookHolder.getWorld() == getWorld()
+					&& handOf(hookHolder, 1.0F).distanceTo(out) > LINE_MAX;
+			if (pulled && hookHolder instanceof ServerPlayerEntity player) {
+				player.sendMessage(Text.translatable("hud.shootingstar.airship.yanked"), true);
+			}
+			letGoOfGrapple();
+		}
 		double before = hookDrop;
 		switch (hook) {
 			case UP -> hookDrop = 0.0;
-			case LOWERING, DOWN -> {
-				if (hook == Hook.LOWERING) {
-					hookDrop = Math.min(LINE_MAX, hookDrop + HOOK_DOWN);
-					if (hookDrop >= LINE_MAX || groundUnderHook(world)) {
-						setHook(Hook.DOWN);
-					}
-				}
-				Entity caught = catchable(world);
-				if (caught != null) {
-					grab(world, caught);
+			case LOWERING -> {
+				hookDrop = Math.min(LINE_MAX, hookDrop + HOOK_DOWN);
+				if (hookDrop >= LINE_MAX || hookGrounded) {
+					setHook(Hook.DOWN);
+					// No more rope out than it hangs on.
+					hookDrop = Math.min(hookDrop, hookPos.distanceTo(out) + 0.2);
 				}
 			}
+			case DOWN, HELD -> {
+			}
 			case RAISING -> {
-				hookDrop = Math.max(0.0, hookDrop - HOOK_UP * 1.3);
+				hookDrop = Math.max(0.0, hookDrop - HOOK_UP * 1.5);
 				if (hookDrop <= 0.0) {
 					setHook(Hook.UP);
 				}
@@ -1151,24 +1236,112 @@ public class AirshipEntity extends Entity {
 			case SETTING -> {
 				hookDrop = Math.min(LINE_MAX, hookDrop + HOOK_UP);
 				// Not load.isOnGround(): a rider never moves itself, so that is still what it was when it was caught.
-				if (load != null && (load.isTouchingWater() || hookDrop >= LINE_MAX || loadDown(world, load))) {
+				if (load != null && (hookGrounded || load.isTouchingWater() || hookDrop >= LINE_MAX
+						|| loadDown(world, load))) {
 					releaseLoad();
 					setHook(Hook.RAISING);
 				}
 			}
 		}
+		swingGrapple(world, out, load);
+		if (hook == Hook.LOWERING || hook == Hook.DOWN) {
+			Entity caught = catchable(world);
+			if (caught != null) {
+				grab(world, caught);
+			}
+		}
+		keepHead(world);
 		if (hookDrop != before && age % 8 == 0) {
 			world.playSound(null, getX(), getY(), getZ(), Airship.WINCH, SoundCategory.NEUTRAL, 0.6F, 1.0F);
 		}
 		dataTracker.set(HOOK_DROP, (float) hookDrop);
+		Vec3d at = hookPos.subtract(out);
+		dataTracker.set(HOOK_AT, new Vector3f((float) at.x, (float) at.y, (float) at.z));
 	}
 
-	/** Whether the grapple's tines have come down onto something solid (or the water). */
-	private boolean groundUnderHook(World world) {
-		Vec3d from = hookGrip();
-		BlockHitResult hit = world.raycast(new RaycastContext(from, from.add(0.0, -0.4, 0.0), RaycastContext.ShapeType.COLLIDER,
-				RaycastContext.FluidHandling.ANY, this));
-		return hit.getType() == HitResult.Type.BLOCK;
+	/**
+	 * The grapple is a weight on a rope: it falls, swings and trails behind her as she goes, never further from where
+	 * its rope comes out than the rope that is paid out, and comes to rest on whatever its tines (or the feet of what it
+	 * carries) come down on. In someone's hands it goes where their hand goes, the rope paying out after it.
+	 */
+	private void swingGrapple(ServerWorld world, Vec3d out, @Nullable Entity load) {
+		hookGrounded = false;
+		if (hook == Hook.UP) {
+			hookPos = out;
+			hookPrev = out;
+			return;
+		}
+		if (hook == Hook.HELD && hookHolder != null) {
+			Vec3d hand = handOf(hookHolder, 1.0F);
+			hookPrev = hookPos;
+			hookPos = hand;
+			hookDrop = Math.max(hookDrop, hand.distanceTo(out));
+			return;
+		}
+		Vec3d swing = hookPos.subtract(hookPrev).multiply(load != null ? HOOK_LOADED_DAMPING : HOOK_DAMPING);
+		Vec3d next = hookPos.add(swing).add(0.0, -HOOK_GRAVITY, 0.0);
+		Vec3d rope = next.subtract(out);
+		double length = rope.length();
+		if (length > hookDrop) {
+			next = out.add(rope.multiply(hookDrop / length));
+		}
+		// From its ring down to the lowest point of it: its tines, or the feet of what it carries.
+		Vec3d low = new Vec3d(0.0, -(HOOK_GRIP + (load != null ? load.getHeight() * 0.8 : 0.0)), 0.0);
+		BlockHitResult hit = world.raycast(new RaycastContext(hookPos.add(low), next.add(low),
+				RaycastContext.ShapeType.COLLIDER, RaycastContext.FluidHandling.ANY, this));
+		if (hit.getType() == HitResult.Type.BLOCK && !hit.isInsideBlock()) {
+			Vec3d normal = Vec3d.of(hit.getSide().getVector());
+			Vec3d moved = next.subtract(hookPos);
+			Vec3d stop = hit.getPos().add(normal.multiply(0.01)).subtract(low);
+			// It stops against what it struck, sliding on a little along it.
+			Vec3d slide = moved.subtract(normal.multiply(moved.dotProduct(normal))).multiply(0.5);
+			if (normal.y > 0.5 && moved.y < -0.2) {
+				thud(world, hit.getBlockPos(), stop.add(low), load != null);
+			}
+			hookGrounded = normal.y > 0.5;
+			hookPos = stop;
+			hookPrev = stop.subtract(slide);
+			return;
+		}
+		hookPrev = hookPos;
+		hookPos = next;
+	}
+
+	/** The grapple comes down hard on the ground: a clank and a puff of what it struck. */
+	private void thud(ServerWorld world, BlockPos on, Vec3d at, boolean loaded) {
+		BlockState state = world.getBlockState(on);
+		if (!state.isAir()) {
+			world.spawnParticles(new BlockStateParticleEffect(ParticleTypes.BLOCK, state), at.x, at.y, at.z, 10, 0.3, 0.05, 0.3,
+					0.15);
+		}
+		world.playSound(null, at.x, at.y, at.z, Airship.GRAB, SoundCategory.NEUTRAL, loaded ? 0.6F : 0.9F, loaded ? 0.5F : 0.7F);
+	}
+
+	/** Where someone holding the grapple holds it: in their right hand, a little ahead of them. */
+	static Vec3d handOf(Entity holder, float tickDelta) {
+		float yaw = holder instanceof LivingEntity living ? MathHelper.lerp(tickDelta, living.prevBodyYaw, living.bodyYaw)
+				: holder.getYaw(tickDelta);
+		float yawRad = yaw * MathHelper.RADIANS_PER_DEGREE;
+		Vec3d right = new Vec3d(-MathHelper.cos(yawRad), 0.0, -MathHelper.sin(yawRad));
+		Vec3d ahead = new Vec3d(-MathHelper.sin(yawRad), 0.0, MathHelper.cos(yawRad));
+		return holder.getLerpedPos(tickDelta).add(0.0, holder.getHeight() * 0.62, 0.0).add(right.multiply(0.38))
+				.add(ahead.multiply(0.25));
+	}
+
+	/**
+	 * The grapple's head (AirshipHookEntity) is in the world whenever the grapple is out of her: something to take hold
+	 * of, and what a load rides.
+	 */
+	private void keepHead(ServerWorld world) {
+		boolean out = hook != Hook.UP && hookDrop > 0.6 || hookEntity != null && hookEntity.hasPassengers();
+		if (out && (hookEntity == null || hookEntity.isRemoved())) {
+			Vec3d grip = hookGrip();
+			hookEntity = new AirshipHookEntity(world, this);
+			hookEntity.refreshPositionAndAngles(grip.x, grip.y, grip.z, getYaw(), 0.0F);
+			world.spawnEntity(hookEntity);
+		} else if (!out && hookEntity != null) {
+			stowHead();
+		}
 	}
 
 	/** Whether a load being set down has its feet on the ground. */
@@ -1190,7 +1363,7 @@ public class AirshipEntity extends Entity {
 
 	private boolean canGrab(Entity e) {
 		if (!e.isAlive() || e.isSpectator() || e.hasVehicle() || e instanceof AirshipPartEntity || e instanceof AirshipHookEntity
-				|| e instanceof AirshipBombEntity || e instanceof AirshipEntity) {
+				|| e instanceof AirshipBombEntity || e instanceof AirshipEntity || e == hookHolder) {
 			return false;
 		}
 		if (e instanceof PlayerEntity player && (player.isCreative() && player.getAbilities().flying)) {
@@ -1200,15 +1373,16 @@ public class AirshipEntity extends Entity {
 	}
 
 	private void grab(ServerWorld world, Entity target) {
-		AirshipHookEntity holder = new AirshipHookEntity(world, this);
-		Vec3d grip = hookGrip();
-		holder.refreshPositionAndAngles(grip.x, grip.y, grip.z, getYaw(), 0.0F);
-		world.spawnEntity(holder);
-		if (!target.startRiding(holder, true)) {
-			holder.discard();
+		keepHead(world);
+		AirshipHookEntity head = hookEntity;
+		if (head == null) {
 			return;
 		}
-		hookEntity = holder;
+		Vec3d grip = hookGrip();
+		head.refreshPositionAndAngles(grip.x, grip.y, grip.z, getYaw(), 0.0F);
+		if (!target.startRiding(head, true)) {
+			return;
+		}
 		setHook(Hook.LIFTING);
 		world.playSound(null, grip.x, grip.y, grip.z, Airship.GRAB, SoundCategory.NEUTRAL, 1.2F, 1.0F);
 		world.spawnParticles(ParticleTypes.CRIT, grip.x, grip.y, grip.z, 10, 0.3, 0.3, 0.3, 0.1);
@@ -1222,6 +1396,72 @@ public class AirshipEntity extends Entity {
 		}
 	}
 
+	/**
+	 * Someone on the ground uses the grapple's head as it hangs empty: they take hold of it, and it goes where their
+	 * hand goes, its rope paying out after them (AirshipHookEntity.interact).
+	 */
+	public boolean takeHoldOfGrapple(PlayerEntity player) {
+		if (player.hasVehicle() || player.isSpectator() || hook != Hook.LOWERING && hook != Hook.DOWN || hookEntity == null
+				|| hookEntity.hasPassengers() || player.squaredDistanceTo(hookGrip()) > 16.0) {
+			return false;
+		}
+		hookHolder = player;
+		dataTracker.set(HOOK_HELD, player.getId());
+		setHook(Hook.HELD);
+		Vec3d grip = hookGrip();
+		getWorld().playSound(null, grip.x, grip.y, grip.z, Airship.GRAB, SoundCategory.NEUTRAL, 0.8F, 1.3F);
+		player.sendMessage(Text.translatable("hud.shootingstar.airship.holding"), true);
+		return true;
+	}
+
+	/**
+	 * Whoever holds the grapple hooks it onto something within their reach (using the grapple on it, as on a mob): it
+	 * takes hold, and she winds it up.
+	 */
+	public boolean hookOnto(PlayerEntity player, Entity target) {
+		if (hook != Hook.HELD || hookHolder != player || target == player || !canGrab(target)
+				|| player.squaredDistanceTo(target) > HOOK_REACH * HOOK_REACH || !(getWorld() instanceof ServerWorld world)) {
+			return false;
+		}
+		letGoOfGrapple();
+		// The ring over the shoulders of what it hooks, so that it is caught where it stands.
+		hookPos = target.getPos().add(0.0, target.getHeight() * 0.8 + HOOK_GRIP, 0.0);
+		hookPrev = hookPos;
+		hookDrop = Math.max(hookDrop, hookPos.distanceTo(lineOut()));
+		grab(world, target);
+		if (hook == Hook.LIFTING && player instanceof ServerPlayerEntity holder) {
+			ModCriteria.fire(holder, "airship_grab");
+		}
+		return hook == Hook.LIFTING;
+	}
+
+	/** Whoever holds the grapple still can: alive, on foot, not sneaking (which lets go), and within reach of her rope. */
+	private boolean stillHeld() {
+		return hookHolder != null && hookHolder.isAlive() && !hookHolder.isRemoved() && !hookHolder.hasVehicle()
+				&& !hookHolder.isSneaking() && hookHolder.getWorld() == getWorld()
+				&& handOf(hookHolder, 1.0F).distanceTo(lineOut()) <= LINE_MAX;
+	}
+
+	private void letGoOfGrapple() {
+		hookHolder = null;
+		dataTracker.set(HOOK_HELD, -1);
+		if (hook == Hook.HELD) {
+			setHook(Hook.DOWN);
+		}
+	}
+
+	/** The grapple someone is holding on the ground, if they are holding one. */
+	@Nullable
+	public static AirshipEntity grappleHeldBy(PlayerEntity player) {
+		for (AirshipEntity ship : player.getWorld().isClient ? HELD_CLIENT : HELD_SERVER) {
+			if (!ship.isRemoved() && ship.getWorld() == player.getWorld()
+					&& ship.dataTracker.get(HOOK_HELD) == player.getId()) {
+				return ship;
+			}
+		}
+		return null;
+	}
+
 	/** Lets go of whatever is on the grapple (it drops from there). */
 	public void releaseLoad() {
 		if (hookEntity != null) {
@@ -1230,15 +1470,27 @@ public class AirshipEntity extends Entity {
 				load.fallDistance = 0.0F;
 				load.setVelocity(Vec3d.ZERO);
 			}
+		}
+	}
+
+	/** Lets go of any load and takes the grapple's head out of the world (it is wound up, or she is gone). */
+	private void stowHead() {
+		releaseLoad();
+		if (hookEntity != null) {
 			hookEntity.discard();
 			hookEntity = null;
 		}
 	}
 
-	/** The grapple's holder, while it holds something. */
+	/** The grapple's head, while the grapple is out. */
 	@Nullable
 	public AirshipHookEntity getHookEntity() {
 		return hookEntity;
+	}
+
+	/** For tests: where the grapple's ring is, from where its rope comes out under her keel (world axes). */
+	public Vec3d getHookOffset() {
+		return hookPos == null ? Vec3d.ZERO : hookPos.subtract(lineOut());
 	}
 
 	private void tickLadder(ServerWorld world) {
@@ -1329,6 +1581,9 @@ public class AirshipEntity extends Entity {
 		climbLook += (climb - climbLook) * 0.12F;
 		prevShownDrop = shownDrop;
 		shownDrop += ((float) getHookDrop() - shownDrop) * 0.5F;
+		prevShownHook = shownHook;
+		Vector3f hookAt = dataTracker.get(HOOK_AT);
+		shownHook = shownHook.add(new Vec3d(hookAt.x(), hookAt.y(), hookAt.z()).subtract(shownHook).multiply(0.6));
 		prevShownLadder = shownLadder;
 		shownLadder += ((float) getLadder() - shownLadder) * 0.5F;
 		prevBank = bank;
@@ -1397,6 +1652,7 @@ public class AirshipEntity extends Entity {
 		// A load on the grapple is not kept: she comes back with it wound up.
 		hook = Hook.UP;
 		hookDrop = 0.0;
+		hookPos = null;
 		dataTracker.set(HOOK_STATE, (byte) 0);
 		dataTracker.set(HOOK_DROP, 0.0F);
 	}
@@ -1416,8 +1672,16 @@ public class AirshipEntity extends Entity {
 
 	/** For tests: lets the grapple down at once to the given depth, still going down. */
 	public void lowerGrappleTo(double drop) {
-		hookDrop = drop;
+		hangGrappleAt(drop);
 		setHook(Hook.LOWERING);
+	}
+
+	/** For tests: the grapple hanging still at the given depth, waiting there. */
+	public void hangGrappleAt(double drop) {
+		hookDrop = drop;
+		hookPos = lineOut().add(0.0, -drop, 0.0);
+		hookPrev = hookPos;
+		setHook(Hook.DOWN);
 	}
 
 	/** For tests: whether the ladder is let down (or being). */

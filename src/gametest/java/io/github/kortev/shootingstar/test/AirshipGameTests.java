@@ -200,6 +200,51 @@ public class AirshipGameTests implements FabricGameTest {
 		});
 	}
 
+	/**
+	 * Someone on the ground takes hold of her grapple as it hangs there and hooks it onto a mob within reach: it takes
+	 * hold, and she winds the mob up off the ground. (She and her grapple stay under the test area's barrier roof, y 8.)
+	 */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_airship_hold", tickLimit = 160)
+	public void grappleHeldHooks(TestContext context) {
+		floor(context, 0);
+		AirshipEntity ship = ship(context, 4.0, 9.0, 4.0);
+		ServerPlayerEntity holder = player(context, "grapple_holder");
+		Vec3d stand = context.getAbsolute(new Vec3d(4.0, 1.0, 5.6));
+		holder.requestTeleport(stand.x, stand.y, stand.z);
+		ZombieEntity husk = husk(context, 6.0, 1.0, 5.6);
+		ship.lowerGrappleTo(2.0);
+		context.runAtTick(40, () -> {
+			context.assertTrue(ship.getHookState() == AirshipEntity.Hook.DOWN, "the grapple did not come down to the ground: "
+					+ ship.getHookState() + " at " + ship.getHookOffset());
+			context.assertTrue(ship.takeHoldOfGrapple(holder), "the player could not take hold of the grapple");
+			context.assertTrue(ship.getHookState() == AirshipEntity.Hook.HELD, "the grapple is not in the player's hands");
+		});
+		context.runAtTick(45, () -> context.assertTrue(ship.hookOnto(holder, husk), "the player could not hook the grapple onto the mob"));
+		context.runAtTick(130, () -> {
+			context.assertTrue(husk.getVehicle() instanceof AirshipHookEntity, "the hooked mob is not on the grapple");
+			context.assertTrue(husk.getY() > context.getAbsolute(new Vec3d(0.0, 2.5, 0.0)).y, "the hooked mob was not wound up: y "
+					+ (husk.getY() - context.getAbsolute(Vec3d.ZERO).y));
+			husk.discard();
+			context.getWorld().getServer().getPlayerManager().remove(holder);
+			done(context, ship);
+		});
+	}
+
+	/** Her grapple is a weight on a rope: hanging under her as she sets off, it swings back and trails behind her. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_airship_swing", tickLimit = 60)
+	public void grappleSwings(TestContext context) {
+		floor(context, 0);
+		AirshipEntity ship = ship(context, 4.0, 9.0, 2.0);
+		ship.hangGrappleAt(5.0);
+		context.runAtTick(2, () -> ship.launch(0.3F));
+		context.runAtTick(12, () -> {
+			Vec3d at = ship.getHookOffset();
+			context.assertTrue(at.z < -0.3, "the grapple did not trail behind her as she set off: " + at);
+			context.assertTrue(at.length() <= 5.0 + 1.0E-3, "the grapple hangs further out than its rope: " + at.length());
+			done(context, ship);
+		});
+	}
+
 	/** A bomb dropped from her falls, strikes the ground and breaks it. */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_airship_bomb", tickLimit = 120)
 	public void bombBreaksGround(TestContext context) {

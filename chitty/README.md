@@ -99,13 +99,18 @@ Baron Bomburst's airship from the film, built in Blender from its stills:
   not. Her envelope keeps out of hills and trees: she stops rather than drive it into them.
 - **She lifts six.** With more aboard, a load on her grapple counting as one, she cannot climb and sinks slowly, as
   she does in the film. The pilot's **O** (overboard, rebindable) throws whoever stands furthest aft over the side.
-- **The grapple:** **R** (rebindable, anyone aboard) works it. Stowed, it lets down on its rope, as far as 32 blocks.
-  It seizes the first thing its tines touch: a mob, a player, a dropped item, a boat, a minecart, even Chitty. It winds
-  that up to carry it three blocks under her keel. Press R again and it sets its load down on the ground and lets go;
-  going down empty, R winds it back up. A caught player cannot simply step off: holding sneak, they struggle, and after
-  ten seconds of it they wrench free and drop.
+- **The grapple:** **R** (rebindable, anyone aboard) works it. Stowed, it lets down on its rope, as far as 64 blocks.
+  It is a weight on a rope: it swings, trails behind her as she flies and comes to rest with a clank on whatever it
+  lands on, and what it carries swings with it. It seizes the first thing its tines touch: a mob, a player, a dropped
+  item, a boat, a minecart, even Chitty. It winds that up to carry it three blocks under her keel. Press R again and it
+  sets its load down on the ground and lets go; going down empty, R winds it back up. A caught player cannot simply
+  step off: holding sneak, they struggle, and after ten seconds of it they wrench free and drop.
+- **Hooking from below:** while the grapple hangs empty, anyone on the ground can use it to take hold of it. It goes
+  where their hand goes, its rope paying out after them. Using it on someone (or something) within four blocks hooks
+  it on, and she winds them up. Sneak to let go. Pressing R aboard, or her pulling further away than her rope reaches,
+  pulls it out of their hands.
 - **The rope ladder:** **K** (rebindable, anyone aboard) lets it down from the rail on her left as far as the ground
-  (32 blocks at most), or draws it up. Anyone can climb it, as a ladder: jump to go up, sneak to hold on. Climbing off
+  (64 blocks at most), or draws it up. Anyone can climb it, as a ladder: jump to go up, sneak to hold on. Climbing off
   its top takes you aboard into a free place.
 - **Bombs:** craft them (iron, two gunpowder and string make two), then use them on her to fill the rack in the
   gondola, six at most. **B** (rebindable, anyone aboard) drops the next one through the floor, one every one and a

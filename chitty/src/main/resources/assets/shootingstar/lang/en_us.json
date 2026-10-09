@@ -55,6 +55,8 @@
   "hud.shootingstar.airship.grabbed": "Caught on the grapple! Hold sneak to struggle free",
   "hud.shootingstar.airship.struggle": "Struggling free... %s",
   "hud.shootingstar.airship.free": "You wrench yourself free of the grapple!",
+  "hud.shootingstar.airship.holding": "You have the grapple · use it on someone to hook them on · sneak to let go",
+  "hud.shootingstar.airship.yanked": "The grapple is pulled out of your hands",
   "subtitles.shootingstar.airship.engine": "Airship engine putters",
   "subtitles.shootingstar.airship.wind": "Wind sings in the rigging",
   "subtitles.shootingstar.airship.creak": "Airship creaks",

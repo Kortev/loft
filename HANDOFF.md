@@ -79,6 +79,8 @@ wants **renders for approval before baking** anything.
     fly her); sneak lets go of it. Sneak gets anyone off: beside her near the ground, or in the air down her rope
     ladder, which lets itself down for them.
   - In third person the camera turns about the middle of her, far enough back to see all of her.
+  - The grapple is a weight on a rope (it swings, trails and lands) and lets down 64 blocks. Anyone on the ground can
+    take hold of it as it hangs empty and hook it onto someone within reach; she then winds them up.
 - **Built and in game.** kortev OK'd the renders and asked for her baked and ported. She is in Chitty's jar, mapped
   in `.claude/skills/film-vehicle/references/airship.md` and described in `chitty/README.md`.
   - kortev's first test: boarding put them in a crew place, so she would not fly; there was no way to the wheel and no

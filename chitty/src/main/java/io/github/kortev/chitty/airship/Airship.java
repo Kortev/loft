@@ -2,6 +2,7 @@ package io.github.kortev.chitty.airship;
 
 import io.github.kortev.chitty.ChittyControls;
 import io.github.kortev.shootingstar.ShootingStar;
+import net.fabricmc.fabric.api.event.player.UseEntityCallback;
 import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -12,6 +13,7 @@ import net.minecraft.item.ItemGroups;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
 import net.minecraft.sound.SoundEvent;
+import net.minecraft.util.ActionResult;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.Rarity;
 
@@ -37,7 +39,7 @@ public final class Airship {
 					.build("airship_part"));
 	public static final EntityType<AirshipHookEntity> HOOK = Registry.register(Registries.ENTITY_TYPE, ShootingStar.id("airship_hook"),
 			EntityType.Builder.<AirshipHookEntity>create(AirshipHookEntity::new, SpawnGroup.MISC)
-					.dimensions(0.6F, 0.6F)
+					.dimensions(0.8F, 1.2F)
 					.disableSaving()
 					.disableSummon()
 					.makeFireImmune()
@@ -92,6 +94,17 @@ public final class Airship {
 			if (context.player().getVehicle() instanceof AirshipEntity ship) {
 				ship.act(context.player(), payload.action());
 			}
+		});
+		// Holding an airship's grapple on the ground, using it on something hooks it on (and nothing else happens).
+		UseEntityCallback.EVENT.register((player, world, hand, entity, hit) -> {
+			AirshipEntity ship = AirshipEntity.grappleHeldBy(player);
+			if (ship == null || entity instanceof AirshipHookEntity) {
+				return ActionResult.PASS;
+			}
+			if (world.isClient) {
+				return ActionResult.SUCCESS;
+			}
+			return ship.hookOnto(player, entity) ? ActionResult.SUCCESS : ActionResult.FAIL;
 		});
 		ServerPlayNetworking.registerGlobalReceiver(AirshipWalkPayload.ID, (payload, context) -> {
 			if (context.player().getVehicle() instanceof AirshipEntity ship && Float.isFinite(payload.x())
