@@ -61,6 +61,9 @@ wants **renders for approval before baking** anything.
   - Two pusher propellers at the gondola's stern, each driven by a shaft, pulley and belt as in the film. There is
     no other fan.
   - The emblem and the colours follow the film. The arms must be crisp heraldry, not cartoony.
+  - Everything is copied from the film as closely as the logo was. The metal frame stops above the crew's heads.
+    The gondola and the propellers hang from it on wires; nothing rigid joins them to it.
+  - The gondola's carving follows the film's layout, with a cherub beside a black-letter B at the bow.
   - She lifts six people. In the film she starts losing height with six aboard and Grandpa's hut on the hook.
   - The hook is a **grapple hook**. It is mainly a utility for carrying things. A hooked player gets off only by
     some rule such as a timer.

@@ -15,18 +15,23 @@ and 9 blocks here). Her envelope is short and deep, pointed at both ends with th
 banded in Vulgaria's colours, purple, black and purple out to a black tip, each band parted by a white stripe, and on
 each flank are Vulgaria's arms: a black griffin with its wings raised, standing behind a gold shield.
 
-Under the envelope is a flat platform of dark lattice, and under that, about two fifths of the way back from the nose,
-hangs the gondola: small (four blocks long, standing room for eight), a black box carved and gilded with the Baron's
-B at the bow, a raked bow, a grey engine section with louvres at the stern and a heavy black rail along the top. Two
-propellers stand out behind its stern corners on shafts, each turned by a belt from the engine over a spoked pulley.
-A coil of rope hangs over the side at the bow, and a rope ladder from the middle. A narrow girder runs back from over
-the gondola to the tail, which hangs under the back of the envelope: a white tailplane with Vulgaria's stripes on
-its elevator, and dark triangular fins above and below it ending in the rudder.
+Under the envelope is a flat platform of dark lattice, and under that a frame of bronze tubes: two long bars just
+over the crew's heads, braced up to the platform in tall triangles. About two fifths of the way back from the nose
+the gondola hangs from the bars on wires, as in the film; nothing rigid joins it to the frame. It is small (four
+blocks long, standing room for eight): a black box carved and gilded, with a winged cherub and the Baron's B at the
+bow, a raked bow, a black iron engine section with a grille at the stern and a heavy black rail along the top. Two
+propellers stand out behind its stern corners on shafts, carried on outriggers of rods from the stern and hung from
+the frame by wires, each turned by a belt from the engine over a spoked pulley. Under the rail where it runs on past
+the bow hang two drums of wound rope, the right one the grapple's; a hank of rope hangs over the rail's stern end,
+slack ropes loop down from the frame fore and aft, a rope ladder hangs from the middle of the left side and a
+searchlight stands on the frame over the crew. A narrow girder runs back from the frame to the tail, which hangs
+under the back of the envelope: a white tailplane with Vulgaria's stripes on its elevator, and dark triangular fins
+above and below it ending in the rudder.
 
 Parts that move in the game are objects of their own with their origins on their pivots: the two propellers, the
-rudder and elevator, the wheel, the hook, the ladder (one rung, stacked by the game), its roll, the coil of rope and
-each of the six bombs. Empties mark the eight places to stand, where the hook's rope comes out under the gondola,
-the top of the ladder and the exhaust.
+rudder and elevator, the wheel, the grapple, the ladder (one rung, stacked by the game), its roll, the grapple's rope
+on its drum and each of the six bombs. Empties mark the eight places to stand, where the grapple's rope comes out
+under the gondola, the top of the ladder and the exhaust.
 """
 import math
 import os
@@ -70,9 +75,12 @@ GON_FLOOR = 0.18
 BEAM = 0.14                 # the heavy black rail along the top, square
 BEAM_OVER = 0.35            # how far it runs on past each end
 BAR_Z = 2.3                 # the long bars over the crew's heads, from which the gondola hangs
+FRAME_NODES = (3.0, 1.8, 0.6, -0.6, -1.8, -3.0, -4.2)    # where the frame's triangles meet the bars
+FRAME_FRONT = 3.55          # where the bars meet the platform's point
+FRAME_BACK = -5.8           # and where they meet the girder's lower chords
 
 # The narrow girder from over the gondola back to the tail, and the tail itself.
-GIRDER = dict(front=2.0, back=-15.0, half_width=0.4, depth=0.7, top=PLATFORM['z'] - 0.1, tail_top=2.35)
+GIRDER = dict(front=-5.5, back=-15.0, half_width=0.4, depth=0.7, top=PLATFORM['z'] - 0.1, tail_top=2.35)
 TAIL = dict(lead=-13.8, hinge=-18.6, trail=-19.9, z=1.85, up=2.3, down=2.1, span=2.8)
 
 # The two propellers behind the stern corners, each on a shaft run aft from its bearings, turned by a belt over a
@@ -83,10 +91,9 @@ WHEEL = Vector((0.0, 1.72, 1.05))
 LINE_OUT = Vector((0.0, 0.25, 0.0))    # where the hook's rope comes out under the keel
 LINE_MAX = 32.0             # how far the hook's rope and the rope ladder both let down
 LADDER_PITCH = 0.32         # from one rung of the ladder to the next
-ROPE_SIDE = -1              # the coil and the ladder hang over her left side, as the film shows them
+ROPE_SIDE = -1              # the rope ladder hangs over her left side
 GATE_Y = -0.15              # where the ladder hangs, from the middle of that side
 LADDER_TOP = Vector((ROPE_SIDE * (GON_HALF_WIDTH + 0.1), GATE_Y, GON_TOP + BEAM))
-COIL_Y = 1.05               # the coil of rope over that side, by the bow
 BOMB_RACK_Y = GON_ENGINE_FRONT + 0.16
 
 # Where everyone stands: the pilot at the wheel, then two, two and three across.
@@ -186,21 +193,23 @@ def gondola_art():
 
 
 def engine_texture(size=512):
-    """The engine section's sides: grey sheet metal, riveted round its edges, with two rows of four tall louvres."""
-    img = Image.new('RGB', (size, size), (128, 128, 124))
+    """The engine section's sides: black-painted iron, riveted round its edges, with a tall grille of vertical slats
+    to let the engine breathe."""
+    img = Image.new('RGB', (size, size), (30, 29, 32))
     d = ImageDraw.Draw(img)
     for y in range(size):
-        k = int(12 * math.sin(y / size * math.pi))
-        d.line([(0, y), (size, y)], fill=(122 + k, 122 + k, 118 + k))
-    for row in range(2):
-        for i in range(4):
-            x0 = size * (0.14 + 0.19 * i)
-            y0 = size * (0.12 + 0.42 * row)
-            d.rectangle([x0, y0, x0 + size * 0.09, y0 + size * 0.32], fill=(18, 18, 20))
-            d.line([(x0, y0 + size * 0.32), (x0 + size * 0.09, y0 + size * 0.32)], fill=(170, 170, 166), width=3)
+        k = int(8 * math.sin(y / size * math.pi))
+        d.line([(0, y), (size, y)], fill=(28 + k, 27 + k, 30 + k))
+    x0, x1, y0, y1 = size * 0.16, size * 0.84, size * 0.12, size * 0.86
+    d.rectangle([x0 - 8, y0 - 8, x1 + 8, y1 + 8], fill=(46, 45, 48))
+    d.rectangle([x0, y0, x1, y1], fill=(6, 6, 7))
+    for i in range(8):
+        sx = x0 + (x1 - x0) * (i + 0.5) / 8
+        d.rectangle([sx - size * 0.022, y0, sx + size * 0.022, y1], fill=(64, 63, 66))
+        d.line([(sx - size * 0.022, y0), (sx - size * 0.022, y1)], fill=(98, 97, 100), width=2)
     for t in np.linspace(0.03, 0.97, 18):
         for x, y in ((t * size, size * 0.03), (t * size, size * 0.97), (size * 0.03, t * size), (size * 0.97, t * size)):
-            d.ellipse([x - 4, y - 4, x + 4, y + 4], fill=(90, 90, 88))
+            d.ellipse([x - 4, y - 4, x + 4, y + 4], fill=(70, 69, 72))
     a = np.asarray(img, np.float32) / 255
     return np.concatenate([a, np.ones(a.shape[:2] + (1,), np.float32)], axis=2)
 
@@ -293,7 +302,7 @@ def make_materials():
     m('rope', (206, 192, 156), rough=0.95, spec=0.1)
     carved, height, gilt = gondola_carving()
     gild(m('gondola_side', (14, 13, 16), rough=0.3, coat=0.4, image=cm.image('gondola_side', carved)), height, gilt)
-    m('engine', (128, 128, 124), metal=0.6, rough=0.45, image=cm.image('engine', engine_texture()))
+    m('engine', (30, 29, 32), metal=0.4, rough=0.45, image=cm.image('engine', engine_texture()))
     m('lacquer', (14, 13, 16), rough=0.3, coat=0.4)
     m('beam', (18, 17, 18), rough=0.45, coat=0.2)
     m('lining', (70, 34, 22), rough=0.4, coat=0.3)
@@ -301,6 +310,7 @@ def make_materials():
     m('wood', (70, 40, 22), rough=0.4, coat=0.4)
     m('prop', (40, 30, 24), rough=0.35, coat=0.6)
     m('bomb', (24, 24, 26), metal=0.6, rough=0.45)
+    m('glass', (236, 232, 210), rough=0.05, glass=True, ior=1.5)
 
 
 # --- the envelope ------------------------------------------------------------------------------------------
@@ -389,32 +399,85 @@ def build_platform():
 
 # --- the frame over the gondola, the girder and the tail ---------------------------------------------------------
 
+def bar_at(y):
+    """The bars along the bottom of the frame at y: their half width apart and their height. Over the gondola they run
+    level just above the crew's heads; at the front they rise to the platform's point, and at the back they close in
+    and rise to the girder's lower chords."""
+    front, back = FRAME_NODES[0], FRAME_NODES[-1]
+    if y > front:
+        t = min((y - front) / (FRAME_FRONT - front), 1.0)
+        return GON_HALF_WIDTH + (0.25 - GON_HALF_WIDTH) * t, BAR_Z + (PLATFORM['z'] - 0.12 - BAR_Z) * t
+    if y < back:
+        t = min((back - y) / (back - FRAME_BACK), 1.0)
+        return (GON_HALF_WIDTH + (GIRDER['half_width'] - GON_HALF_WIDTH) * t,
+                BAR_Z + (GIRDER['top'] - GIRDER['depth'] - BAR_Z) * t)
+    return GON_HALF_WIDTH, BAR_Z
+
+
 def build_frame():
-    """Bronze tubes from the gondola's rail up to two long bars over the crew's heads, and from the bars up to the
-    platform, in triangles as the film shows them; and rigging from the gondola's ends out to the platform."""
+    """The frame under the platform, as the film shows it: two long bronze bars just above the crew's heads, joined
+    across at each node and braced up to the platform in tall triangles, rising at the front to the platform's point
+    and running back into the girder. Nothing rigid comes down from it: the gondola hangs below on wires (see
+    build_rigging)."""
     m = cm.Mesh()
-    y0, y1 = GON_STERN - BEAM_OVER, GON_BOW + BEAM_OVER
+    ys = np.linspace(FRAME_FRONT, FRAME_BACK, 60)
     for side in (-1, 1):
-        x = side * GON_HALF_WIDTH
-        cm.tube(m, [Vector((x, y0, BAR_Z)), Vector((x, y1, BAR_Z))], 0.05, 'bronze', seg=8)
-        rail = [GON_STERN, -0.9, 0.3, 1.5, GON_BOW]
-        bar = [-1.5, -0.3, 0.9, 2.1]
-        for i, yr in enumerate(rail):
-            for yb in (bar[i - 1] if i > 0 else None, bar[i] if i < len(bar) else None):
-                if yb is not None:
-                    cm.tube(m, [Vector((x, yr, GON_TOP + BEAM)), Vector((x, yb, BAR_Z))], 0.035, 'bronze', seg=6)
-        for yb in (-2.2, -0.6, 1.0, 2.4):
-            w = platform_half_width(yb) * 0.55
-            cm.tube(m, [Vector((x, yb, BAR_Z)), Vector((side * w, yb + 0.6, PLATFORM['z']))], 0.035, 'bronze', seg=6)
-            cm.tube(m, [Vector((x, yb, BAR_Z)), Vector((side * GIRDER['half_width'], yb, GIRDER['top']))], 0.03,
-                    'bronze', seg=6)
-        # Rigging from the ends of the rail out to the platform's rim.
-        for ye, yp in ((y1, 3.2), (y0, -6.0), (0.0, 1.5), (0.0, -3.0)):
-            cm.tube(m, [Vector((x, ye, GON_TOP + BEAM)), Vector((side * platform_half_width(yp), yp, PLATFORM['z']))],
-                    0.014, 'cable', seg=4)
-    for y in (y0 + 0.1, y1 - 0.1):
-        cm.tube(m, [Vector((-GON_HALF_WIDTH, y, BAR_Z)), Vector((GON_HALF_WIDTH, y, BAR_Z))], 0.04, 'bronze', seg=6)
+        cm.tube(m, [Vector((side * bar_at(y)[0], y, bar_at(y)[1])) for y in ys], 0.05, 'bronze', seg=8)
+        # The triangles: from each node up to the platform midway to the next, so the bars hang in a row of V's.
+        for i, y in enumerate(FRAME_NODES):
+            w, z = bar_at(y)
+            for yt in (y - 0.6, y + 0.6):
+                top = Vector((side * platform_half_width(yt) * 0.55, yt, PLATFORM['z']))
+                cm.tube(m, [Vector((side * w, y, z)), top], 0.035, 'bronze', seg=6)
+    for i, y in enumerate(FRAME_NODES):
+        w, z = bar_at(y)
+        cm.tube(m, [Vector((-w, y, z)), Vector((w, y, z))], 0.035, 'bronze', seg=6)
+        # Wires crossed between the bars in each bay, so the frame keeps square.
+        if i + 1 < len(FRAME_NODES):
+            y2 = FRAME_NODES[i + 1]
+            w2, z2 = bar_at(y2)
+            for s in (-1, 1):
+                cm.tube(m, [Vector((s * w, y, z)), Vector((-s * w2, y2, z2))], 0.009, 'cable', seg=4)
     m.obj('frame', smooth=50)
+
+
+def build_rigging():
+    """The wires the gondola hangs by, as in the film: from each node of the bars down to the rail, crossed in V's
+    along each side, and long stays from the rail's ends out to the bars fore and aft; slack ropes hang in loops from
+    the frame at each end."""
+    m = cm.Mesh()
+    rail_z = GON_TOP + BEAM
+    hangs = [y for y in FRAME_NODES if GON_STERN - 0.7 <= y <= GON_BOW + 0.7]
+    for side in (-1, 1):
+        x = side * (GON_HALF_WIDTH - BEAM / 2 + 0.03)
+        for y in hangs:
+            w, z = bar_at(y)
+            for yr in (y - 0.55, y + 0.55):
+                yr = min(max(yr, GON_STERN - BEAM_OVER + 0.05), GON_BOW + BEAM_OVER - 0.05)
+                cm.tube(m, [Vector((side * w, y, z)), Vector((x, yr, rail_z))], 0.011, 'cable', seg=4)
+        # Long stays from the rail's ends to the bars further out.
+        for ye, yb in ((GON_BOW + BEAM_OVER - 0.05, FRAME_NODES[0] + 0.5), (GON_STERN - BEAM_OVER + 0.05, -4.6),
+                       (GON_BOW, FRAME_NODES[0] - 0.2), (GON_STERN, FRAME_NODES[-1])):
+            w, z = bar_at(yb)
+            cm.tube(m, [Vector((x, ye, rail_z)), Vector((side * w, yb, z))], 0.011, 'cable', seg=4)
+    m.obj('rigging')
+    # The slack ropes, hanging in loops from the bars at each end down past the rail and up again.
+    m = cm.Mesh()
+    for side in (-1, 1):
+        for ya, yb, sag in ((FRAME_NODES[0] + 0.3, GON_BOW + 0.1, 1.3), (FRAME_NODES[0] + 0.7, GON_BOW - 0.6, 1.7),
+                            (GON_STERN - 0.2, -4.0, 1.4), (GON_STERN + 0.5, -4.8, 1.9)):
+            wa, za = bar_at(ya)
+            wb, zb = bar_at(yb)
+            a = Vector((side * wa, ya, za))
+            b = Vector((side * wb, yb, zb))
+            pts = []
+            for t in np.linspace(0, 1, 24):
+                p = a.lerp(b, t)
+                p.z -= sag * 4 * t * (1 - t)
+                p.x += side * 0.15 * 4 * t * (1 - t)
+                pts.append(p)
+            cm.tube(m, pts, 0.016, 'rope', seg=5)
+    m.obj('slack_ropes', smooth=50)
 
 
 def girder_at(y):
@@ -660,23 +723,76 @@ def rope(m, path, radius, mat, lay=5.5):
 
 
 def build_coil():
-    """The coil of rope hung over her left side at the bow, as the film has it: a long hank of cream rope draped over
-    the rail, its loops hanging down the carved side in U's, overlapping and splayed a little along her. It is the
-    hook's rope, and grows smaller as the rope goes out."""
+    """The rope, as the film has it. At the bow, under each side of the rail where it runs on past the bow, a drum of
+    rope wound round and round between iron cheeks: the right one is the grapple's (its rope winds smaller as it
+    goes out), the left one a spare. At the stern a hank of rope hangs over the end of the right-hand rail."""
+    zr = GON_TOP + BEAM / 2 - 0.2
+    y0, y1 = GON_BOW + 0.02, GON_BOW + BEAM_OVER + 0.12
+    for side in (1, -1):
+        x = side * (GON_HALF_WIDTH - BEAM / 2 + 0.03)
+        # The drum's axle, its cheeks and the hangers from the rail.
+        m = cm.Mesh()
+        cm.tube(m, [Vector((x, y0 - 0.04, zr)), Vector((x, y1 + 0.1, zr))], 0.03, 'iron', seg=8)
+        for yc in (y0, y1):
+            cm.lathe(m, [(0.0, -0.015), (0.19, -0.015), (0.19, 0.015), (0.0, 0.015)], lambda k: 'iron', axis='y',
+                     seg=20, origin=(x, yc, zr))
+            cm.add_box(m, (x, yc, zr + 0.13), (0.04, 0.03, 0.26), 'iron')
+        cm.lathe(m, [(0.0, -0.03), (0.05, -0.03), (0.06, 0.0), (0.04, 0.05), (0.0, 0.06)], lambda k: 'iron', axis='y',
+                 seg=12, origin=(x, y1 + 0.12, zr))
+        m.obj('drum_' + ('r' if side > 0 else 'l'), smooth=40)
+        # The rope wound on it: two layers, round and round, back and forth along it.
+        m = cm.Mesh()
+        r_rope = 0.017
+        for layer, rr in ((0, 0.075), (1, 0.075 + 2 * r_rope * 0.9), (2, 0.075 + 4 * r_rope * 0.9)):
+            turns = (y1 - y0 - 2 * r_rope) / (2 * r_rope)
+            pts = []
+            for t in np.linspace(0, 1, int(turns * 24)):
+                a = 2 * math.pi * turns * t
+                yy = y0 + r_rope + (y1 - y0 - 2 * r_rope) * (t if layer % 2 == 0 else 1 - t)
+                pts.append((math.cos(a) * rr, yy - (y0 + y1) / 2, math.sin(a) * rr))
+            rope(m, pts, r_rope, 'rope', lay=4.0)
+        m.obj('coil' if side > 0 else 'coil_spare', location=(x, (y0 + y1) / 2, zr),
+              part='coil' if side > 0 else None, smooth=40)
+    # The hank at the stern, over the end of the right-hand rail.
     m = cm.Mesh()
     rng = np.random.default_rng(11)
-    for k in range(18):
-        cy = -0.45 + 0.9 * k / 17 + rng.normal(0, 0.03)
-        half = 0.32 + 0.12 * rng.random()          # half the width of the loop, along her
-        drop = 0.62 + 0.14 * rng.random()          # how far it hangs below the rail
-        x = ROPE_SIDE * (0.05 + 0.012 * (k % 5))
+    x = GON_HALF_WIDTH - BEAM / 2 + 0.03
+    for k in range(7):
+        cy = GON_STERN - BEAM_OVER * 0.55 + rng.normal(0, 0.03)
+        half = 0.16 + 0.05 * rng.random()
+        drop = 0.42 + 0.12 * rng.random()
         loop = []
-        for t in np.linspace(0, math.pi, 17):
-            loop.append(Vector((x, cy + half * math.cos(t), -drop * math.sin(t) ** 0.8)))
-        # Over the top of the beam and back.
-        loop = [Vector((x - ROPE_SIDE * 0.12, cy + half, 0.06))] + loop + [Vector((x - ROPE_SIDE * 0.12, cy - half, 0.06))]
-        rope(m, cm.catmull(loop, per=3), 0.038, 'rope')
-    m.obj('coil', location=(ROPE_SIDE * GON_HALF_WIDTH, COIL_Y, GON_TOP + BEAM), part='coil', smooth=40)
+        for t in np.linspace(0, math.pi, 15):
+            loop.append(Vector((x + half * math.cos(t), cy + 0.03 * k - 0.1, -drop * math.sin(t) ** 0.8)))
+        loop = [Vector((x + half, cy + 0.03 * k - 0.1, 0.07))] + loop + [Vector((x - half, cy + 0.03 * k - 0.1, 0.07))]
+        rope(m, cm.catmull(loop, per=3), 0.022, 'rope')
+    m.obj('hank', location=(0, 0, GON_TOP + BEAM), smooth=40)
+
+
+def build_searchlight():
+    """The searchlight over the middle of the gondola, as the film has it: a black drum with a glass front and a
+    vented cap, in a yoke on a tapering pedestal that stands on the frame's crossbar above the crew."""
+    m = cm.Mesh()
+    y = FRAME_NODES[2]
+    base = BAR_Z + 0.03
+    cm.lathe(m, [(0.0, 0.0), (0.12, 0.0), (0.03, 0.2), (0.0, 0.2)], lambda k: 'beam', axis='z', seg=16,
+             origin=(0, y, base))
+    top = base + 0.2
+    for s in (-1, 1):
+        cm.add_box(m, (s * 0.22, y, top + 0.16), (0.03, 0.06, 0.32), 'iron')
+    cm.add_box(m, (0, y, top + 0.01), (0.47, 0.06, 0.03), 'iron')
+    # The lamp, tilted a little down, looking forward.
+    c = Vector((0, y, top + 0.3))
+    tilt = Matrix.Rotation(math.radians(-8), 4, 'X')
+    lamp = cm.Mesh()
+    cm.lathe(lamp, [(0.0, -0.26), (0.12, -0.26), (0.18, -0.2), (0.19, 0.18), (0.21, 0.2), (0.21, 0.25),
+                    (0.17, 0.26)], lambda k: 'beam', axis='y', seg=24)
+    cm.lathe(lamp, [(0.17, 0.255), (0.0, 0.25)], lambda k: 'glass', axis='y', seg=24)
+    cm.lathe(lamp, [(0.0, 0.22), (0.07, 0.22), (0.07, 0.3), (0.1, 0.3), (0.0, 0.34)], lambda k: 'beam', axis='z',
+             seg=12, origin=(0, -0.06, 0))
+    o = lamp.obj('searchlight', location=tuple(c), smooth=40)
+    o.matrix_world = Matrix.Translation(c) @ tilt
+    m.obj('searchlight_stand', smooth=40)
 
 
 def blade(m, length, root, tip, pitch0, pitch1, turn, thick=0.05):
@@ -710,19 +826,25 @@ def build_props():
     P = PROP
     for side, name in ((1, 'prop_r'), (-1, 'prop_l')):
         x = side * P['x']
-        # The shaft, its bearings and struts.
+        # The shaft and its two bearings, on an outrigger of rods from the gondola's stern: from the rail at the
+        # engine section's front and at the stern corner, and from the stern's foot. Wires from the frame's bars
+        # take its weight; nothing rigid joins it to the frame.
         m = cm.Mesh()
         cm.tube(m, [Vector((x, P['bearing_y'], P['z'])), Vector((x, P['y'] + 0.15, P['z']))], 0.05, 'bronze', seg=10)
-        for yb in (P['bearing_y'], P['y'] + 0.45):
+        aft = P['y'] + 0.45
+        for yb in (P['bearing_y'], aft):
             cm.lathe(m, [(0.0, -0.1), (0.1, -0.1), (0.1, 0.1), (0.0, 0.1)], lambda k: 'iron', axis='y', seg=12,
                      origin=(x, yb, P['z']))
-            cm.tube(m, [Vector((x, yb, P['z'])), Vector((side * GON_HALF_WIDTH, yb, BAR_Z))], 0.035, 'bronze', seg=6)
-        for a in ((side * GON_HALF_WIDTH, GON_ENGINE_FRONT, GON_TOP + BEAM), (side * GON_HALF_WIDTH, GON_STERN,
-                                                                              GON_TOP + BEAM)):
-            cm.tube(m, [Vector(a), Vector((x, P['y'] + 0.45 if a[1] < -1.5 else P['bearing_y'], P['z']))], 0.035,
-                    'bronze', seg=6)
-        cm.tube(m, [Vector((x, P['bearing_y'], P['z'])), Vector((side * GIRDER['half_width'], P['bearing_y'],
-                                                                 GIRDER['top'] - GIRDER['depth']))], 0.03, 'bronze', seg=6)
+        rail = GON_TOP + BEAM
+        for a, yb in (((side * GON_HALF_WIDTH, GON_ENGINE_FRONT, rail), P['bearing_y']),
+                      ((side * GON_HALF_WIDTH, GON_STERN, rail), aft),
+                      ((side * GON_HALF_WIDTH, GON_ENGINE_FRONT, rail), aft),
+                      ((side * GON_HALF_WIDTH, GON_STERN, GON_STERN_RISE + 0.05), aft),
+                      ((side * GON_HALF_WIDTH, GON_STERN, GON_STERN_RISE + 0.05), P['bearing_y'])):
+            cm.tube(m, [Vector(a), Vector((x, yb, P['z']))], 0.035, 'bronze', seg=6)
+        for yb, yn in ((P['bearing_y'], -1.8), (aft, -3.0), (aft, -4.2)):
+            w, z = bar_at(yn)
+            cm.tube(m, [Vector((x, yb, P['z'])), Vector((side * w, yn, z))], 0.011, 'cable', seg=4)
         # The belt: from a small pulley on the engine section's side up over the big one, both runs straight.
         lo = Vector((side * (GON_HALF_WIDTH + 0.06), P['pulley_y'], 0.62))
         hi = Vector((x, P['pulley_y'], P['z']))
@@ -854,6 +976,8 @@ def build():
     build_envelope()
     build_platform()
     build_frame()
+    build_rigging()
+    build_searchlight()
     build_girder()
     build_tail()
     build_gondola()
@@ -885,8 +1009,8 @@ def pose(spin=0.0, steer=0.0, climb=0.0, hook=None, ladder=0.0, bombs=6):
         elif part == 'wheel':
             o.rotation_euler = (0, math.radians(120) * steer, 0)
         elif part == 'coil':
-            k = 1.0 - 0.55 * min(drop, LINE_MAX) / LINE_MAX
-            o.scale = (1, k, k)
+            k = 1.0 - 0.4 * min(drop, LINE_MAX) / LINE_MAX
+            o.scale = (k, 1, k)
         elif part == 'hook':
             o.location = LINE_OUT + Vector((0, 0, -drop))
         elif part == 'rope':
@@ -943,6 +1067,7 @@ SHOTS = [
     ('tail', (10, -10, 12.6), (0, -17, 10.6), 30, 9.0, dict(spin=0.8, steer=-0.4, climb=0.3)),
     ('gondola', (-6.4, 0.9, 9.6), (0, -0.3, 10.2), 30, 9.0, dict(spin=0.3, ladder=1.6)),
     ('gondola_right', (6.4, 1.2, 10.2), (0, -0.1, 10.0), 30, 9.0, dict(spin=0.3)),
+    ('as_the_film', (7.2, 2.6, 9.9), (0, -0.4, 10.6), 24, 9.0, dict(spin=0.3)),
     ('props', (-4.6, -6.4, 11.8), (-1.6, -2.4, 10.8), 30, 9.0, dict(spin=0.6)),
     ('deck', (3.6, -4.6, 12.0), (0, 0.3, 9.4), 26, 9.0, dict(spin=0.6)),
     ('hook_ladder', (24, 16, 8.0), (0, 0, 11.0), 30, 20.0, dict(spin=0.4, hook=17.0, ladder=17.0, bombs=4)),
