@@ -969,7 +969,8 @@ public class AirshipEntity extends Entity {
 			case HOLDING -> hookDrop = CARRY;
 			case SETTING -> {
 				hookDrop = Math.min(LINE_MAX, hookDrop + HOOK_UP);
-				if (load != null && (load.isOnGround() || load.isTouchingWater() || hookDrop >= LINE_MAX || loadDown(world, load))) {
+				// Not load.isOnGround(): a rider never moves itself, so that is still what it was when it was caught.
+				if (load != null && (load.isTouchingWater() || hookDrop >= LINE_MAX || loadDown(world, load))) {
 					releaseLoad();
 					setHook(Hook.RAISING);
 				}
