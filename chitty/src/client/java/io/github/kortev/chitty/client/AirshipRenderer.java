@@ -114,9 +114,9 @@ public class AirshipRenderer extends EntityRenderer<AirshipEntity> {
 				float down = MathHelper.cos(lean);
 				float aft = MathHelper.sin(lean);
 				for (int i = 0; i < rungs; i++) {
-					float along = i * AirshipEntity.LADDER_PITCH;
+					float rungAt = i * AirshipEntity.LADDER_PITCH;
 					matrices.push();
-					matrices.translate(part.pivot.x, part.pivot.y - along * down, part.pivot.z - along * aft);
+					matrices.translate(part.pivot.x, part.pivot.y - rungAt * down, part.pivot.z - rungAt * aft);
 					matrices.multiply(RotationAxis.POSITIVE_X.rotation(lean));
 					matrices.multiply(part.rest);
 					part.draw(matrices.peek(), out, light, overlay, null);
