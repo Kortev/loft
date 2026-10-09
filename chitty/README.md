@@ -103,16 +103,20 @@ Baron Bomburst's airship from the film, built in Blender from its stills:
 - **Put her down:** use the item on the ground; her gondola sits on it and she faces the way you face. Use her to
   board: you come aboard at the free place nearest where you click. Eight can stand in the gondola, and walk about in
   it with the movement keys; nobody can fall out.
+- **The controls are on screen:** aboard, a panel at the right lists the keys for what you can do where you are
+  (walking about, or at the wheel), each lighting up as you press it, with a gauge for the grapple: how far down it
+  is, which way the winch is turning and what is on it. On the ground with the grapple in hand, hanging on it or
+  caught on it, a smaller panel says what you can do. F1 hides it with the rest of the HUD.
 - **Take the wheel:** walk up to the wheel in the bow and it is yours: now the movement keys fly her, and the view goes
   behind her to see all of her. Sneak to let go of it; you walk about again, in the view you had before.
-- **Fly:** forward and back for the propellers, left and right to steer (she turns slowly, even standing still), jump
-  to rise and sprint to sink. She is slow, as an airship is, and keeps her height wherever she is left, piloted or
-  not. Her envelope keeps out of hills and trees: she stops rather than drive it into them.
+- **Fly:** forward and back for the propellers, left and right to steer (she turns even standing still), jump to rise
+  and sprint to sink. She is heavy to handle, as an airship is, gathering speed and turning with a little lag, but
+  quicker than a galloping horse at full speed, and keeps her height wherever she is left, piloted or not. Her envelope keeps out of hills and trees: she stops rather than drive it into them.
 - **She lifts six.** With more aboard, a load on her grapple counting as one, she cannot climb and sinks slowly, as
   she does in the film. The pilot's **O** (overboard, rebindable) throws whoever stands furthest aft over the side.
 - **The grapple:** anyone aboard works its winch: hold **R** to let it down on its rope (as far as 64 blocks), hold
   **Y** to wind it in (both rebindable); let go and it stops where it is. It never goes up or down by itself. The
-  winch runs up to speed and slows smoothly, slower with a load, and the action bar shows how much rope is out. It is
+  winch runs up to speed and slows smoothly, slower with a load. It is
   a weight on a rope: it swings, trails behind her as she flies and comes to rest with a clank on whatever it lands
   on, and what it carries swings with it. Going, it seizes the first thing its tines meet (lying still it catches
   nothing): a mob, a player, a dropped item, a boat, a minecart, even Chitty. Then the winch stops, and the crew

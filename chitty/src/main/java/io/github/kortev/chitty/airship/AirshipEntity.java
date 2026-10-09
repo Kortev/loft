@@ -146,17 +146,18 @@ public class AirshipEntity extends Entity {
 	static final double[][] ENVELOPE = {{9.5, 6.45, 4.0, 4.3}, {4.5, 4.7, 6.4, 6.8}, {-1.0, 3.8, 7.6, 8.1},
 			{-6.5, 3.8, 7.6, 8.1}, {-12.0, 4.7, 6.4, 6.8}, {-17.0, 6.6, 3.8, 4.0}, {-17.0, 0.0, 3.0, 4.4}};
 
-	// Speeds in blocks per tick: slow, as an airship is.
-	static final double TOP = 0.42;
-	static final double ACCEL = 0.005;
-	static final double REVERSE_TOP = 0.12;
-	static final double RISE = 0.11;
-	static final double SINK = 0.14;
+	// Speeds in blocks per tick: heavy and stately to handle, as an airship is, but quick enough to be worth flying (she
+	// tops a galloping horse; Chitty in the air still outruns her).
+	static final double TOP = 0.8;
+	static final double ACCEL = 0.018;
+	static final double REVERSE_TOP = 0.25;
+	static final double RISE = 0.28;
+	static final double SINK = 0.32;
 	/** How fast she sinks overloaded. */
 	static final double HEAVY_SINK = 0.035;
 	/** Degrees a tick she turns at speed, and standing (her propellers turn her a little even then). */
-	static final float TURN = 1.6F;
-	static final float TURN_STANDING = 0.7F;
+	static final float TURN = 2.8F;
+	static final float TURN_STANDING = 1.4F;
 	/**
 	 * The grapple's winch, worked by the crew: how fast it lets the rope out and winds it in (blocks a tick), empty and
 	 * with a load; how quickly it runs up to speed and slows to a stop (the share of the difference each tick); how
@@ -556,6 +557,13 @@ public class AirshipEntity extends Entity {
 		Vec3d rope = top.subtract(lineOut());
 		double length = rope.length();
 		return top.add(length > 0.3 ? rope.multiply(HOOK_GRIP / length) : new Vec3d(0.0, -HOOK_GRIP, 0.0));
+	}
+
+	/** Whoever holds her grapple on the ground, as any side knows it. */
+	@Nullable
+	public Entity getGrappleHolder() {
+		int held = dataTracker.get(HOOK_HELD);
+		return held >= 0 ? getWorld().getEntityById(held) : null;
 	}
 
 	/**
@@ -1018,7 +1026,7 @@ public class AirshipEntity extends Entity {
 			}
 		}
 		float rate = in.turn() * (TURN_STANDING + (TURN - TURN_STANDING) * (float) MathHelper.clamp(Math.abs(speed) / TOP, 0.0, 1.0));
-		yawVelocity += (rate - yawVelocity) * 0.08F;
+		yawVelocity += (rate - yawVelocity) * 0.12F;
 		setYaw(getYaw() - yawVelocity);
 
 		double target = in.up() ? RISE : in.down() ? -SINK : 0.0;
@@ -1026,7 +1034,7 @@ public class AirshipEntity extends Entity {
 			// Too many aboard: she cannot climb, and settles slowly however hard she is flown.
 			target = Math.min(target, 0.0) - HEAVY_SINK;
 		}
-		climbSpeed += (target - climbSpeed) * 0.06;
+		climbSpeed += (target - climbSpeed) * 0.08;
 		if (isOnGround() && climbSpeed < 0.0) {
 			climbSpeed = 0.0;
 		}

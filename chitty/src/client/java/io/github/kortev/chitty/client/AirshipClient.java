@@ -4,15 +4,14 @@ import io.github.kortev.chitty.ChittyControls;
 import io.github.kortev.chitty.airship.Airship;
 import io.github.kortev.chitty.airship.AirshipActionPayload;
 import io.github.kortev.chitty.airship.AirshipEntity;
-import io.github.kortev.chitty.airship.AirshipHookEntity;
 import io.github.kortev.chitty.airship.AirshipInputPayload;
 import io.github.kortev.chitty.airship.AirshipWalkPayload;
 import java.util.Collections;
-import java.util.Locale;
 import java.util.Set;
 import java.util.WeakHashMap;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import net.minecraft.client.MinecraftClient;
@@ -23,7 +22,6 @@ import net.minecraft.client.option.Perspective;
 import net.minecraft.client.render.entity.EmptyEntityRenderer;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.entity.Entity;
-import net.minecraft.text.Text;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import org.jetbrains.annotations.Nullable;
@@ -44,10 +42,6 @@ public final class AirshipClient {
 	private static final Set<AirshipEntity> SOUNDING = Collections.newSetFromMap(new WeakHashMap<>());
 	private static byte lastControls = -1;
 	private static int sinceSent;
-	/** What the rider was last shown on the action bar: 0 nothing, 1 crew, 2 pilot, 3 overloaded. */
-	private static int hint;
-	/** What the crew was last told hangs on the grapple: its entity id, doubled, plus one if it hangs on by choice; -1. */
-	private static int onGrapple = -1;
 	/** Which way this player is working the grapple's winch (1 out, -1 in, 0 not), as last told the server. */
 	private static int winching;
 	private static int sinceWinchSent;
@@ -109,6 +103,8 @@ public final class AirshipClient {
 			}
 		};
 		ClientTickEvents.END_CLIENT_TICK.register(AirshipClient::tick);
+		// The controls, on screen.
+		HudRenderCallback.EVENT.register(AirshipHud::render);
 	}
 
 	private static KeyBinding key(String name, int code) {
@@ -235,14 +231,6 @@ public final class AirshipClient {
 			winching = way;
 			sinceWinchSent = 0;
 		}
-		if (ship != null && player != null && way != 0 && ship.age % 4 == 0) {
-			// How much rope is out, as they work it.
-			AirshipHookEntity on = ship.getShownHookEntity();
-			Entity hanging = on == null ? null : on.getFirstPassenger();
-			String drop = String.format(Locale.ROOT, "%.0f", ship.getShownDrop(1.0F));
-			player.sendMessage(hanging == null ? Text.translatable("hud.shootingstar.airship.winch", drop)
-					: Text.translatable("hud.shootingstar.airship.winch_load", drop, hanging.getDisplayName()), true);
-		}
 		while (LADDER.wasPressed()) {
 			if (ship != null) {
 				act(AirshipEntity.ACTION_LADDER);
@@ -265,30 +253,6 @@ public final class AirshipClient {
 		} else if (!piloting && viewBeforeWheel != null) {
 			client.options.setPerspective(viewBeforeWheel);
 			viewBeforeWheel = null;
-		}
-		// A word on the controls when someone comes aboard or takes the wheel, and a warning when she is overloaded.
-		int now = ship == null ? 0 : ship.isOverloaded() ? 3 : piloting ? 2 : 1;
-		if (now != hint) {
-			if (now != 0 && player != null) {
-				String key = now == 3 ? "hud.shootingstar.airship.heavy" : now == 2 ? "hud.shootingstar.airship.pilot" : "hud.shootingstar.airship.crew";
-				player.sendMessage(Text.translatable(key, GRAPPLE.getBoundKeyLocalizedText(), LADDER.getBoundKeyLocalizedText(),
-						BOMB.getBoundKeyLocalizedText(), OVERBOARD.getBoundKeyLocalizedText(), AirshipEntity.LIFT,
-						WIND.getBoundKeyLocalizedText()), true);
-			}
-			hint = now;
-		}
-		// The crew are told what hangs on the grapple, and whether it was caught or hangs on by choice.
-		AirshipHookEntity head = ship == null ? null : ship.getShownHookEntity();
-		Entity load = head == null ? null : head.getFirstPassenger();
-		boolean byChoice = load != null && head.isVoluntary();
-		int nowOn = load == null ? -1 : load.getId() * 2 + (byChoice ? 1 : 0);
-		if (nowOn != onGrapple) {
-			if (load != null && player != null && load != player) {
-				String key = byChoice ? "hud.shootingstar.airship.crew_hanging" : "hud.shootingstar.airship.crew_caught";
-				player.sendMessage(Text.translatable(key, load.getDisplayName(), WIND.getBoundKeyLocalizedText(),
-						GRAPPLE.getBoundKeyLocalizedText()), true);
-			}
-			onGrapple = nowOn;
 		}
 		if (ship == null) {
 			lastControls = -1;

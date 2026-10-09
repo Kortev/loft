@@ -19,7 +19,8 @@ namespace.
 | Placing item | `airship/AirshipItem.java`; the bomb item is a plain `Item` |
 | Payloads | `AirshipInputPayload` (the pilot's controls, Chitty's `ChittyControls`), `AirshipActionPayload` (`ACTION_` codes), `AirshipWalkPayload` (where a rider has walked to in the gondola) |
 | Mixins (main, `chitty.mixins.json`) | `mixin/AirshipDismountMixin` (sneaking aboard is `AirshipEntity.letsGo`'s to decide; never off the grapple until struggled free), `mixin/AirshipLadderMixin` (the rope ladder is climbable, and solid on its side towards her, so walking into it climbs it: `intoLadder`), `mixin/AirshipStrideMixin` (riders' legs go as they walk about her, not as she moves) |
-| Client: renderer, bomb renderer, keys and hints, running sounds | `client/AirshipRenderer`, `AirshipBombRenderer`, `AirshipClient` (`init()` from `ChittyClient`), `AirshipSound` |
+| Client: renderer, bomb renderer, keys, running sounds | `client/AirshipRenderer`, `AirshipBombRenderer`, `AirshipClient` (`init()` from `ChittyClient`), `AirshipSound` |
+| The controls on screen (kortev found the keys confusing) | `client/AirshipHud` (a `HudRenderCallback`): aboard, the keys for walking or the wheel and the crew's, lit while held, and the grapple's gauge; on the ground with the grapple, hanging on it or caught, what they can do. Words under `hud.shootingstar.airship.ui.*` |
 | Client mixin | `client/mixin/AirshipStandMixin` (riders are drawn standing); `ChittyCameraMixin` turns the third-person camera about the middle of her (`VIEW_CENTRE`), `VIEW_DISTANCE` (24) back |
 | Mesh loader | `client/ChittyMesh.get("airship")` (shared with Chitty) |
 | Model, bake, icon, renders | `tools/airship_model.py` (`--game` builds her faceted: `tube`, `lathe`, `pipe` and `points` make square bars of at least `THINNEST` and round parts of `LATHE_SIDES`, the envelope has 16 sides, every face is flat; it reuses `chitty_model.export_game` with her settings: a 1024 atlas, `TEXEL_WEIGHT` towards the gondola, `LIT_ALL` (her colours alone, darker in nooks by `SHUT_IN`, every part's normals kept for the game's face lighting) and `PACK_ROTATE = 'AXIS_ALIGNED'`; `AirshipRenderer` draws the texture pixelated, `ChittyTexture(..., true)`) |
@@ -33,8 +34,9 @@ namespace.
 
 ## Numbers (`AirshipEntity`)
 
-- **Speeds** (blocks/tick): `TOP` 0.42, `ACCEL` 0.005, `REVERSE_TOP` 0.12, `RISE` 0.11, `SINK` 0.14, `HEAVY_SINK`
-  0.035; turning `TURN` 1.6 and `TURN_STANDING` 0.7 degrees a tick.
+- **Speeds** (blocks/tick): `TOP` 0.8, `ACCEL` 0.018, `REVERSE_TOP` 0.25, `RISE` 0.28, `SINK` 0.32, `HEAVY_SINK`
+  0.035; turning `TURN` 2.8 and `TURN_STANDING` 1.4 degrees a tick (kortev found the first, realistic speeds too
+  slow to be worth flying her).
 - **Standing and walking:** people come aboard at `PLACES[8]` (the wheel, then two, two and three across, feet on the
   floor 0.42 up), then walk where they like on the floor (`FLOOR_HALF_WIDTH` 0.6 either side, `FLOOR_AFT` -0.46 to
   `FLOOR_FORE` 1.02) at `WALK` 0.15 a tick, keeping `ELBOW_ROOM` 0.5 from one another. Each rider's client moves them
