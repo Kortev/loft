@@ -18,7 +18,7 @@ namespace.
 | A falling bomb (power 2.5, TNT's 4) | `airship/AirshipBombEntity.java` |
 | Placing item | `airship/AirshipItem.java`; the bomb item is a plain `Item` |
 | Payloads | `AirshipInputPayload` (the pilot's controls, Chitty's `ChittyControls`), `AirshipActionPayload` (`ACTION_` codes), `AirshipWalkPayload` (where a rider has walked to in the gondola) |
-| Mixins (main, `chitty.mixins.json`) | `mixin/AirshipDismountMixin` (sneaking aboard is `AirshipEntity.letsGo`'s to decide; never off the grapple until struggled free), `mixin/AirshipLadderMixin` (the rope ladder is climbable), `mixin/AirshipStrideMixin` (riders' legs go as they walk about her, not as she moves) |
+| Mixins (main, `chitty.mixins.json`) | `mixin/AirshipDismountMixin` (sneaking aboard is `AirshipEntity.letsGo`'s to decide; never off the grapple until struggled free), `mixin/AirshipLadderMixin` (the rope ladder is climbable, and solid on its side towards her, so walking into it climbs it: `intoLadder`), `mixin/AirshipStrideMixin` (riders' legs go as they walk about her, not as she moves) |
 | Client: renderer, bomb renderer, keys and hints, running sounds | `client/AirshipRenderer`, `AirshipBombRenderer`, `AirshipClient` (`init()` from `ChittyClient`), `AirshipSound` |
 | Client mixin | `client/mixin/AirshipStandMixin` (riders are drawn standing); `ChittyCameraMixin` turns the third-person camera about the middle of her (`VIEW_CENTRE`), `VIEW_DISTANCE` (24) back |
 | Mesh loader | `client/ChittyMesh.get("airship")` (shared with Chitty) |
@@ -37,12 +37,15 @@ namespace.
   0.035; turning `TURN` 1.6 and `TURN_STANDING` 0.7 degrees a tick.
 - **Standing and walking:** people come aboard at `PLACES[8]` (the wheel, then two, two and three across, feet on the
   floor 0.42 up), then walk where they like on the floor (`FLOOR_HALF_WIDTH` 0.6 either side, `FLOOR_AFT` -0.46 to
-  `FLOOR_FORE` 1.02) at `WALK` 0.12 a tick, keeping `ELBOW_ROOM` 0.5 from one another. Each rider's client moves them
+  `FLOOR_FORE` 1.02) at `WALK` 0.15 a tick, keeping `ELBOW_ROOM` 0.5 from one another. Each rider's client moves them
   (`AirshipClient.walk`, the movement keys the way they face) and tells the server (`AirshipWalkPayload`, kept to the
   floor and a walker's pace by `AirshipEntity.walk`); the server shares where everyone stands (`STANDS`, by entity id)
   and other clients ease them there.
 - **The wheel:** whoever walks within `HELM_REACH` (0.22) of `HELM_SPOT` (`PLACES[0]`) takes it (`HELM`, the entity id)
-  and their movement keys fly her. Sneaking lets go; to take it again they walk away and back.
+  and their movement keys fly her. Sneaking lets go; to take it again they walk away and back. At the wheel the client
+  switches to third person and back to the view they had when they let go (`AirshipClient.tick`).
+- **Walking looks:** clients ease other riders to where they stand and move their legs (`strides`), knock their steps
+  on the boards, and bob the walker's own view (`updatePassengerPosition`).
 - **Getting off** (`letsGo`): sneak. Down or within 2 blocks of the ground, off beside her; in the air the ladder lets
   itself down and, still sneaking, they get off onto it once it hangs `LADDER_OFF` (2) blocks.
 - **Lift:** `LIFT` 6: with more aboard (a load on the grapple counts one) she cannot climb and sinks.
