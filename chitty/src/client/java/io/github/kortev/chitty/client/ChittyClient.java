@@ -13,6 +13,7 @@ import java.util.WeakHashMap;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.fabricmc.fabric.api.client.particle.v1.ParticleFactoryRegistry;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
@@ -30,21 +31,25 @@ import net.minecraft.util.Identifier;
 import org.lwjgl.glfw.GLFW;
 
 /**
- * Chitty on the client: how she is drawn and heard, the driver's controls, the horn, the wings and the ejector; and the
- * film's other vehicles, each set up from here (the airship: {@link AirshipClient}).
+ * Chitty on the client: how she is drawn and heard, the driver's controls, the horn, the wings, the ejector and revving
+ * her; the shimmer of heat off her bonnet; and the film's other vehicles, each set up from here (the airship:
+ * {@link AirshipClient}).
  */
 public final class ChittyClient implements ClientModInitializer {
 	public static KeyBinding HORN;
 	public static KeyBinding WINGS;
 	public static KeyBinding EJECT;
+	public static KeyBinding REV;
 
 	private static final Set<ChittyEntity> SOUNDING = Collections.newSetFromMap(new WeakHashMap<>());
 	private static byte lastControls = -1;
 	private static byte lastState;
 	private static int sinceSent;
 	private static int hornCooldown;
-	/** What the driver was last shown on the action bar: 0 nothing, 1 driving, 2 flying. */
+	/** What the driver was last shown on the action bar: 0 nothing, 1 driving, 2 flying, 3 she didn't catch. */
 	private static int hint;
+	/** Whether the driver has seen her being cranked since they took the wheel (so a stopped engine is a stall). */
+	private static boolean cranked;
 
 	@Override
 	public void onInitializeClient() {
@@ -57,6 +62,9 @@ public final class ChittyClient implements ClientModInitializer {
 				GLFW.GLFW_KEY_G, "key.categories.shootingstar"));
 		EJECT = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.shootingstar.chitty_eject", InputUtil.Type.KEYSYM,
 				GLFW.GLFW_KEY_X, "key.categories.shootingstar"));
+		REV = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.shootingstar.chitty_rev", InputUtil.Type.KEYSYM,
+				GLFW.GLFW_KEY_V, "key.categories.shootingstar"));
+		ParticleFactoryRegistry.getInstance().register(Chitty.HEAT, ChittyHeatParticle.Factory::new);
 		ResourceManagerHelper.get(ResourceType.CLIENT_RESOURCES).registerReloadListener(new SimpleSynchronousResourceReloadListener() {
 			@Override
 			public Identifier getFabricId() {
@@ -101,7 +109,7 @@ public final class ChittyClient implements ClientModInitializer {
 		Input in = player.input;
 		int forward = (in.pressingForward ? 1 : 0) - (in.pressingBack ? 1 : 0);
 		int turn = (in.pressingLeft ? 1 : 0) - (in.pressingRight ? 1 : 0);
-		return new ChittyControls(forward, turn, in.jumping, MinecraftClient.getInstance().options.sprintKey.isPressed());
+		return new ChittyControls(forward, turn, in.jumping, MinecraftClient.getInstance().options.sprintKey.isPressed(), REV.isPressed());
 	}
 
 	/** Tells the server what the driver is doing whenever it changes, and once a second regardless. */
@@ -141,12 +149,21 @@ public final class ChittyClient implements ClientModInitializer {
 				ClientPlayNetworking.send(new ChittyEjectPayload());
 			}
 		}
-		// A word on the controls when someone takes the wheel, and again when she first takes to the air.
-		int now = !driving ? 0 : car.isFlying() && !car.isOnGround() ? 2 : 1;
+		// A word on the controls when someone takes the wheel, again when she first takes to the air, and if she doesn't
+		// catch when cranked.
+		cranked = driving && (cranked || car.isCranking());
+		boolean stalled = driving && cranked && !car.isCranking() && !car.isEngineRunning();
+		int now = !driving ? 0 : stalled ? 3 : car.isFlying() && !car.isOnGround() ? 2 : 1;
 		if (now != hint) {
 			if (now != 0 && player != null) {
-				player.sendMessage(Text.translatable(now == 2 ? "hud.shootingstar.chitty.air" : "hud.shootingstar.chitty.road",
-						WINGS.getBoundKeyLocalizedText(), EJECT.getBoundKeyLocalizedText(), HORN.getBoundKeyLocalizedText()), true);
+				Text keys = switch (now) {
+					case 3 -> Text.translatable("hud.shootingstar.chitty.stalled", client.options.forwardKey.getBoundKeyLocalizedText());
+					case 2 -> Text.translatable("hud.shootingstar.chitty.air", WINGS.getBoundKeyLocalizedText(),
+							EJECT.getBoundKeyLocalizedText(), HORN.getBoundKeyLocalizedText());
+					default -> Text.translatable("hud.shootingstar.chitty.road", REV.getBoundKeyLocalizedText(),
+							WINGS.getBoundKeyLocalizedText(), EJECT.getBoundKeyLocalizedText(), HORN.getBoundKeyLocalizedText());
+				};
+				player.sendMessage(keys, true);
 			}
 			hint = now;
 		}

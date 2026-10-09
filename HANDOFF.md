@@ -126,15 +126,11 @@ kortev tests in game themselves and reports back. Don't spend usage on the self-
   faceting): kortev chose the faceted finish for the airship, and its bake switches (`LIT_ALL`, `PACK_ROTATE`,
   `ChittyTexture`'s pixelated option) are in `chitty_model.py`, off for her.
 
-- **Chitty polish, kortev's go-ahead pending (do it only after the airship is finished, and not before kortev says
-  so).** kortev wants her to stop feeling empty and lifeless, like the old racecar she is:
-  1. Take out her working headlamp beams (ChittyLamps).
-  2. Her body moves: she squats when you accelerate, dips her nose when you brake, leans in corners and bounces over
-     bumps.
-  3. At idle she shakes in time with the chit-ty firing, and the bonnet straps rattle.
-  4. Heat shimmer over the bonnet and exhaust, dust off the wheels on dirt, and tyre smoke on hard launches and turns.
-  5. She is started the old way, cranked at the front, and now and then doesn't catch.
-  6. A key to blip the throttle, so she roars and backfires while standing still.
+- **Chitty polish: done, waiting on kortev's in-game test.** Her lamp beams are gone; she is cranked at the front and
+  now and then doesn't catch; V revs her standing (a roar, a twist on her springs, a backfire on letting go; rev then
+  go for a smoky getaway); her body rides its springs (squat, dive, lean, bumps) and shakes at idle in time with the
+  firings, the bonnet strap rattling in the idle sound; tyres smoke and squeal on paving and throw dust off it; the
+  air shimmers over her hot bonnet (a translucent particle: Minecraft has no true heat haze).
 - **Flaky game test** `gapgametests.liveevent`: it failed once ("the shooter was not taken home", at home x/z but 5
   blocks lower) and passed on re-run. Find the real cause; the player probably landed before the ground under home
   was back.

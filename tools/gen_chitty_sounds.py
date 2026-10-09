@@ -14,9 +14,11 @@ ticking over, pulling at middling revs and working hard, which the game crossfad
 sound over the whole range.
 
 The car is named for the noise she makes starting: two sputtering coughs (chitty, chitty) and two backfires (bang,
-bang). The start-up is that over the whirr of the starter, and a backfire the same in miniature. Their bangs land where
-ChittyEntity puffs smoke out of the exhaust (START_BANG_1 and START_BANG_2 ticks into the start-up, and five and ten
-ticks into a backfire).
+bang). The start-up is that over the heave of the starting handle, swung by hand at the front, and a backfire the same
+in miniature. Their bangs land where ChittyEntity puffs smoke out of the exhaust (START_BANG_1 and START_BANG_2 ticks
+into the start-up, and five and ten ticks into a backfire). Now and then a swing of the handle doesn't catch: a cough
+or two (where ChittyEntity puffs smoke, START_COUGH_1 and START_COUGH_2), a sputter, and she dies. Ticking over, the
+leather strap round her bonnet slaps and its buckle jingles as she shakes; and her narrow old tyres squeal on paving.
 
 Usage: python3 tools/gen_chitty_sounds.py [--wav DIR] [name ...]
 """
@@ -50,6 +52,7 @@ ENGINE_LOOPS = {
 # The propellers on the wing masts: two, a little out of step, beating once a second over a two second loop.
 FLIGHT_LOOP = 2 * SR
 WIND_LOOP = 6 * SR
+SKID_LOOP = 2 * SR
 ROTOR_PASSES = (40, 42)
 
 
@@ -200,6 +203,19 @@ def rattle(rng):
     return x * rng.uniform(0.3, 1.0)
 
 
+def buckle(rng):
+    """The leather strap round the bonnet slapping down on it as the engine shakes, its brass buckle jingling."""
+    n = ns(0.05)
+    t = np.arange(n) / SR
+    slap = bp(white(n), 180, 900) * np.exp(-t / 0.006) * 0.8
+    jingle = np.zeros(n)
+    for _ in range(rng.integers(2, 4)):
+        i = rng.integers(0, ns(0.02))
+        k = ns(0.008)
+        jingle[i:i + k] += bp(white(k), rng.uniform(2500, 3500), rng.uniform(5500, 7500)) * np.exp(-np.arange(k) / SR / 0.0015)
+    return (slap + jingle * 0.7) * rng.uniform(0.5, 1.0)
+
+
 def engine(cycle, cycles, load, seed):
     """`cycles` turns of a four-cylinder engine, `cycle` samples each, at `load` (0 coasting to 1 flat out)."""
     rng = rng_for('engine:%d' % seed)
@@ -213,6 +229,7 @@ def engine(cycle, cycles, load, seed):
     per_cyl = [np.zeros(n) for _ in range(CYLINDERS)]
     spits = np.zeros(n)
     shakes = np.zeros(n)
+    straps = np.zeros(n)
     for c in range(cycles):
         for k, (when, hard) in enumerate(FIRING):
             at = int(c * cycle + when * cycle + rng.normal(0, wobble * gap * 0.25))
@@ -225,6 +242,9 @@ def engine(cycle, cycles, load, seed):
             place(spits, at + pipe // 2 + headers[k] // 2, spit(rng, hard > 0.8, strength, load))
             if rng.random() < 0.35:
                 place(shakes, at + ns(rng.uniform(0.004, 0.02)), rattle(rng) * strength)
+            # Ticking over, she shakes enough on each hard firing for the bonnet strap to slap and its buckle jingle.
+            if load < 0.5 and hard > 0.8 and rng.random() < 0.75:
+                place(straps, at + ns(rng.uniform(0.01, 0.025)), buckle(rng) * strength)
     out = np.zeros(n)
     for k in range(CYLINDERS):
         out += periodic(per_cyl[k], lambda x, d=headers[k]: waveguide(x, d, -0.45, 2400.0))
@@ -253,8 +273,9 @@ def engine(cycle, cycles, load, seed):
     rumble = loop_noise(n, brown, lambda x: lp(x, 120)) * 0.06
     spits /= np.abs(spits).max() + 1e-9
     shakes /= np.abs(shakes).max() + 1e-9
+    straps /= np.abs(straps).max() + 1e-9
     y = (out + spits * (0.22 - 0.08 * load) + shakes * 0.05 + valves * (0.05 - 0.025 * load) + intake * 0.5
-         + rumble * 0.3)
+         + rumble * 0.3 + straps * 0.16 * max(0.0, (0.5 - load) * 2))
     y = periodic(y, heard_outdoors)
     return sat(y * (1.0 + 0.3 * load), 1.1 + 0.5 * load)
 
@@ -343,19 +364,29 @@ def cough(rng, strength=1.0, bright=1.0):
     return waveguide(x, pipe, -0.55, 900.0) * strength
 
 
-def starter(n, until):
-    """The starter motor whirring the engine over: a whine dipping on each compression stroke."""
-    t = np.arange(n) / SR
-    env = np.clip(t / 0.03, 0, 1) * np.clip((until - t) / 0.06, 0, 1)
-    rpm = 170 + 50 * np.clip(t / until, 0, 1)
-    strokes = rpm / 60 * CYLINDERS / 2
-    phase = np.cumsum(strokes) / SR
-    load = 0.5 + 0.5 * np.cos(2 * np.pi * phase)
-    f = (300 + 120 * np.clip(t / until, 0, 1)) * (1 - 0.12 * load)
-    whine = sum(np.sin(2 * np.pi * np.cumsum(f * h) / SR) / h ** 1.2 for h in (1, 2, 3, 4, 6))
-    gears = bp(white(n), 1800, 5000) * (0.4 + 0.6 * load)
-    chuff = bp(white(n), 150, 900) * load ** 3
-    return (whine * 0.35 * (1 - 0.4 * load) + gears * 0.12 + chuff * 0.5) * env
+def handle(rng, n, until, turns=1.8):
+    """The starting handle swung by hand at the front: its dog clacking into the crankshaft, then the engine heaved over
+    against each cylinder's compression in turn (a chuff through the carburettor and a groan of the old works, two a
+    turn), the swing never quite even, and the valves ticking."""
+    out = np.zeros(n)
+
+    def add(x, at, gain):
+        i = ns(at)
+        k = min(len(x), n - i)
+        if k > 0:
+            out[i:i + k] += x[:k] * gain
+    add(clunk(rng, 140.0, 0.6), 0.0, 0.35)
+    at = 0.04
+    while at < until:
+        m = ns(0.18)
+        tt = np.arange(m) / SR
+        chuff = bp(white(m), 180, 1100) * attack_decay(m, 0.03, 0.07) * rng.uniform(0.6, 1.0)
+        groan = np.sin(2 * np.pi * rng.uniform(65, 90) * tt + rng.uniform(0, 6)) * attack_decay(m, 0.04, 0.06)
+        add(chuff + groan * 0.45, at, 0.9)
+        for off in (0.05, 0.11):
+            add(tick(rng), at + off, 0.25)
+        at += 1.0 / (turns * 2) * rng.uniform(0.85, 1.15)
+    return out
 
 
 def chitty_start():
@@ -370,7 +401,7 @@ def chitty_start():
         k = min(len(x), n - i)
         m[i:i + k] += x[:k] * gain
 
-    m += starter(n, 0.68) * 0.7
+    m += handle(rng, n, 0.68) * 0.8
     for at, s, b in ((0.06, 1.0, 1.0), (0.17, 0.6, 0.8), (0.36, 1.0, 1.0), (0.47, 0.65, 0.8)):
         add(cough(rng, s, b), at, 0.7)
     # The bangs are what she is named for: well above everything else.
@@ -385,6 +416,48 @@ def chitty_start():
     idle *= np.clip(tt / 0.25, 0, 1) * (1.0 - 0.45 * np.clip((tt - 1.2) / 0.9, 0, 1))
     add(idle, 1.08, 0.4)
     return master(outdoors(m, 0.3), peak=0.98, drive=1.2)
+
+
+def chitty_start_fail():
+    """A swing of the handle that doesn't catch: the heave of it, chit-ty, another cough, a sputter that comes to nothing,
+    and she dies, the handle dropping back. Its coughs land on START_COUGH_1 and START_COUGH_2 (ticks 9 and 16)."""
+    rng = rng_for('start_fail')
+    total = 2.4
+    n = ns(total)
+    m = np.zeros(n)
+
+    def add(x, at, gain=1.0):
+        i = ns(at)
+        k = min(len(x), n - i)
+        m[i:i + k] += x[:k] * gain
+
+    m += handle(rng, n, 0.95) * 0.8
+    for at, s, b in ((0.45, 0.85, 1.0), (0.56, 0.5, 0.8), (0.80, 0.65, 0.9)):
+        add(cough(rng, s, b), at, 0.7)
+    # She tries to run and can't: a few weak firings, further and further apart.
+    for at, s in ((1.02, 0.35), (1.21, 0.22), (1.47, 0.12)):
+        add(cough(rng, s, 0.6), at, 0.5)
+    add(clunk(rng, 120.0, 0.4), 1.58, 0.25)
+    return master(outdoors(m, 0.3), peak=0.98, drive=1.2)
+
+
+def chitty_skid():
+    """Her narrow old tyres squealing on paving: the rubber catching and letting go against the road hundreds of times
+    a second, which sings at a wavering pitch, over the hiss and chatter of it scrubbing. Two seconds, looping: its pitch
+    wanders through a whole number of wobbles and the tone a whole number of cycles, so it goes round without a seam."""
+    n = SKID_LOOP
+    t = np.arange(n) / SR
+    f = 1250.0 + 110.0 * np.sin(2 * np.pi * 1.5 * t) + 55.0 * np.sin(2 * np.pi * 4.0 * t + 1.0)
+    phase = np.cumsum(f) / SR
+    tone = np.sin(2 * np.pi * phase) + 0.35 * np.sin(4 * np.pi * phase + 0.4) + 0.15 * np.sin(6 * np.pi * phase + 1.1)
+    flutter = loop_noise(n, white, lambda x: lp(x, 18, 2))
+    flutter = 0.7 + 0.3 * flutter / (np.abs(flutter).max() + 1e-9)
+    hiss = loop_noise(n, white, lambda x: bp(x, 2000, 8000))
+    chatter = loop_noise(n, white, lambda x: bp(x, 300, 900))
+    hiss /= np.abs(hiss).max() + 1e-9
+    chatter /= np.abs(chatter).max() + 1e-9
+    y = tone * flutter * 0.6 + hiss * 0.22 + chatter * 0.2 * flutter
+    return periodic(y, lambda x: lp(x, 7000, 2))
 
 
 def chitty_bang():
@@ -605,6 +678,8 @@ SOUNDS = {
     'chitty_flight': chitty_flight,
     'chitty_wind': chitty_wind,
     'chitty_start': chitty_start,
+    'chitty_start_fail': chitty_start_fail,
+    'chitty_skid': chitty_skid,
     'chitty_bang': chitty_bang,
     'chitty_horn': chitty_horn,
     'chitty_wings_out': chitty_wings_out,
@@ -614,9 +689,9 @@ SOUNDS = {
     'chitty_eject': chitty_eject,
     'chitty_crash': chitty_crash,
 }
-LOOPS = ('chitty_engine_idle', 'chitty_engine_low', 'chitty_engine_high', 'chitty_flight', 'chitty_wind')
+LOOPS = ('chitty_engine_idle', 'chitty_engine_low', 'chitty_engine_high', 'chitty_flight', 'chitty_wind', 'chitty_skid')
 # Loudness (loudest 400 ms, dB): the bangs well above everything, the running loops under the rest.
-LEVELS = {'chitty_engine_idle': -19, 'chitty_engine_low': -17, 'chitty_engine_high': -16, 'chitty_flight': -20, 'chitty_wind': -18, 'chitty_start': -13, 'chitty_bang': -9, 'chitty_horn': -12,
+LEVELS = {'chitty_engine_idle': -19, 'chitty_engine_low': -17, 'chitty_engine_high': -16, 'chitty_flight': -20, 'chitty_wind': -18, 'chitty_start': -13, 'chitty_start_fail': -15, 'chitty_skid': -17, 'chitty_bang': -9, 'chitty_horn': -12,
           'chitty_wings_out': -15, 'chitty_wings_in': -17, 'chitty_floats': -16, 'chitty_floats_down': -18, 'chitty_eject': -13, 'chitty_crash': -11}
 
 

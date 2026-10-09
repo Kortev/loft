@@ -89,6 +89,8 @@ public class ChittySelfTest implements ClientModInitializer {
 		if (!"chitty".equals(System.getProperty("shootingstar.selftest"))) {
 			return;
 		}
+		// The run keeps to a timetable: she catches at the first swing of the handle.
+		ChittyEntity.alwaysCatches = true;
 		Thread watchdog = new Thread(() -> {
 			try {
 				Thread.sleep(40 * 60 * 1000L);
@@ -626,7 +628,7 @@ public class ChittySelfTest implements ClientModInitializer {
 		double time = Capture.time() / 20.0;
 		Vec3d listener = client.gameRenderer.getCamera().getPos();
 		double distance = listener.distanceTo(car.getPos().add(0.0, 0.8, 0.0));
-		rpm = ChittySound.easeRpm(rpm, car);
+		rpm = car.getRpm();
 		for (ChittySound.Layer layer : ChittySound.Layer.values()) {
 			float volume = ChittySound.volumeAt(layer, rpm, car);
 			double range = 32.0 * Math.max(1.0F, volume);
@@ -640,7 +642,12 @@ public class ChittySelfTest implements ClientModInitializer {
 		StringBuilder json = new StringBuilder("{\"tracks\": [\n");
 		ChittySound.Layer[] layers = ChittySound.Layer.values();
 		for (int t = 0; t < layers.length; t++) {
-			String name = layers[t] == ChittySound.Layer.FLIGHT ? "chitty_flight" : "chitty_engine_" + layers[t].name().toLowerCase(Locale.ROOT);
+			String name = switch (layers[t]) {
+				case FLIGHT -> "chitty_flight";
+				case WIND -> "chitty_wind";
+				case SKID -> "chitty_skid";
+				default -> "chitty_engine_" + layers[t].name().toLowerCase(Locale.ROOT);
+			};
 			List<double[]> points = LOOPS.getOrDefault(layers[t], List.of());
 			try {
 				Resource resource = client.getResourceManager().getResource(ShootingStar.id("sounds/" + name + ".ogg")).orElseThrow();

@@ -6,10 +6,12 @@ import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.fabricmc.fabric.api.particle.v1.FabricParticleTypes;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.SpawnGroup;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemGroups;
+import net.minecraft.particle.SimpleParticleType;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
 import net.minecraft.sound.SoundEvent;
@@ -57,6 +59,8 @@ public final class Chitty implements ModInitializer {
 	public static final SoundEvent FLIGHT = sound("chitty.flight");
 	public static final SoundEvent WIND = sound("chitty.wind");
 	public static final SoundEvent START = sound("chitty.start");
+	public static final SoundEvent START_FAIL = sound("chitty.start_fail");
+	public static final SoundEvent SKID = sound("chitty.skid");
 	public static final SoundEvent BANG = sound("chitty.bang");
 	public static final SoundEvent HORN = sound("chitty.horn");
 	public static final SoundEvent WINGS_OUT = sound("chitty.wings_out");
@@ -65,6 +69,10 @@ public final class Chitty implements ModInitializer {
 	public static final SoundEvent FLOATS_DOWN = sound("chitty.floats_down");
 	public static final SoundEvent EJECT = sound("chitty.eject");
 	public static final SoundEvent CRASH = sound("chitty.crash");
+
+	/** The shimmer of hot air over her bonnet and the end of her pipe, once she has run a while. */
+	public static final SimpleParticleType HEAT = Registry.register(Registries.PARTICLE_TYPE, ShootingStar.id("chitty_heat"),
+			FabricParticleTypes.simple());
 
 	private static SoundEvent sound(String name) {
 		Identifier id = ShootingStar.id(name);

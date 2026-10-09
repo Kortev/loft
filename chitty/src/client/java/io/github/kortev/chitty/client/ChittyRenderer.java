@@ -22,8 +22,9 @@ import org.joml.Quaternionf;
  * mast on the end of each wing stands up with its propeller turning flat on top while the pusher propeller unfolds on
  * the stern; the raft blows up round her and the screw turns in the water; the gear lever and handbrake move with the
  * driving, the starting handle swings as she is started, the needles on the dashboard show her speed, height and revs,
- * the back seat springs up when the ejector goes off, the hamper is there or not, and her lamps shine ahead of her in
- * the dark (ChittyLamps); the car pitches and banks in the air and rocks when she is hit.
+ * the back seat springs up when the ejector goes off and the hamper is there or not; the car pitches and banks in the
+ * air and rocks when she is hit. On the road her body rides its springs over the wheels, squatting, diving, leaning
+ * and bouncing (ChittyEntity's suspension), and as the engine ticks over it shakes at every pair of firings.
  *
  * <p>Her texture is baked with her light in it (tools/chitty_model.py), so most of her is drawn evenly lit; only the
  * wheels, which roll, carry real normals and take the game's light, and her polished metal is shone live as you look at
@@ -44,6 +45,16 @@ public class ChittyRenderer extends EntityRenderer<ChittyEntity> {
 	private static final float PLEAT_CLOSED = 0.07F;
 	private static final float WING_DROP = 0.15F;
 	private static final float TAIL_DROP = 0.04F;
+	/**
+	 * Her body shaking as the engine ticks over: the softer firing of each pair comes this far through the pair after
+	 * the hard one (0.17 of a cycle of two pairs), and at each firing the body heaves (blocks), pitches and rolls
+	 * (degrees) this much; KICK_MEAN is a pair's average kick, taken off so that she shakes about where she stands.
+	 */
+	private static final float SECOND_FIRING = 0.34F;
+	private static final float SHAKE_HEAVE = 0.01F;
+	private static final float SHAKE_PITCH = 0.2F;
+	private static final float SHAKE_ROLL = 0.5F;
+	private static final float KICK_MEAN = 0.07F * 1.55F;
 	private final ChittyShine shine = new ChittyShine();
 
 	public ChittyRenderer(EntityRendererFactory.Context context) {
@@ -77,10 +88,12 @@ public class ChittyRenderer extends EntityRenderer<ChittyEntity> {
 			drawParts(car, mesh, tickDelta, matrices, buffers.getBuffer(RenderLayer.getEntityCutoutNoCull(TEXTURE)), light);
 			ChittyMesh.Part glass = mesh.parts.get("glass");
 			if (glass != null) {
+				matrices.push();
+				spring(matrices, car, tickDelta);
 				glass.draw(matrices.peek(), buffers.getBuffer(RenderLayer.getEntityTranslucent(TEXTURE)), light, OverlayTexture.DEFAULT_UV,
 						shine);
+				matrices.pop();
 			}
-			ChittyLamps.draw(car, mesh, tickDelta, matrices, buffers, light);
 			matrices.pop();
 		}
 		super.render(car, yaw, tickDelta, matrices, buffers, light);
@@ -100,14 +113,19 @@ public class ChittyRenderer extends EntityRenderer<ChittyEntity> {
 			if (name.equals("glass") || name.startsWith("mast_") || name.startsWith("rotor_") || name.equals("tailprop")) {
 				continue;
 			}
-			if (name.equals("body")) {
-				part.draw(matrices.peek(), out, light, overlay, shine);
-				continue;
-			}
 			if (name.equals("hamper") && !car.hasHamper()) {
 				continue;
 			}
 			matrices.push();
+			// Everything but the wheels is her body, on its springs.
+			if (!name.startsWith("wheel_")) {
+				spring(matrices, car, tickDelta);
+			}
+			if (name.equals("body")) {
+				part.draw(matrices.peek(), out, light, overlay, shine);
+				matrices.pop();
+				continue;
+			}
 			boolean visible = true;
 			if (name.startsWith("wing_") || name.startsWith("nosefan_") || name.startsWith("tailfan_")) {
 				poseFan(matrices, part, wings);
@@ -169,6 +187,7 @@ public class ChittyRenderer extends EntityRenderer<ChittyEntity> {
 				continue;
 			}
 			matrices.push();
+			spring(matrices, car, tickDelta);
 			poseFan(matrices, wing, wings);
 			matrices.translate(mast.pivot.x, mast.pivot.y, mast.pivot.z);
 			// Folded, it lies along the spar; it stands up once the wing is out.
@@ -188,6 +207,7 @@ public class ChittyRenderer extends EntityRenderer<ChittyEntity> {
 		ChittyMesh.Part prop = mesh.parts.get("tailprop");
 		if (prop != null && raise > 0.02F) {
 			matrices.push();
+			spring(matrices, car, tickDelta);
 			matrices.translate(prop.pivot.x, prop.pivot.y, prop.pivot.z);
 			matrices.multiply(prop.rest);
 			matrices.scale(raise, raise, raise);
@@ -223,6 +243,30 @@ public class ChittyRenderer extends EntityRenderer<ChittyEntity> {
 		matrices.multiply(RotationAxis.POSITIVE_X.rotation(index % 2 == 0 ? pleat : -pleat));
 		float k = MathHelper.lerp(out, part.d, 1.0F);
 		matrices.scale(k, 1.0F, k);
+	}
+
+	/**
+	 * Moves the stack onto her body as it rides its springs over her wheels, and shakes it at each pair of the engine's
+	 * firings as it ticks over: a hard kick and a softer one close behind it, chit-ty, as tools/gen_chitty_sounds.py
+	 * fires them (FIRING).
+	 */
+	private static void spring(MatrixStack matrices, ChittyEntity car, float tickDelta) {
+		float kick = 0.0F;
+		float shake = car.getShake();
+		if (shake > 0.0F) {
+			float phase = car.getFirings(tickDelta) % 1.0F;
+			kick = (pulse(phase) + 0.55F * pulse(phase - SECOND_FIRING) - KICK_MEAN) * shake;
+		}
+		float pivot = (float) ChittyEntity.TILT_PIVOT;
+		matrices.translate(0.0F, pivot + car.getBodyHeave(tickDelta) + kick * SHAKE_HEAVE, 0.0F);
+		matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(-(car.getBodyPitch(tickDelta) + kick * SHAKE_PITCH)));
+		matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(car.getBodyRoll(tickDelta) + kick * SHAKE_ROLL));
+		matrices.translate(0.0F, -pivot, 0.0F);
+	}
+
+	/** One firing's kick through her body, from the moment it fires (x = 0), in pairs of firings. */
+	private static float pulse(float x) {
+		return x < 0.0F ? 0.0F : (float) Math.exp(-x / 0.07F);
 	}
 
 	private static float smooth(float x) {

@@ -52,6 +52,23 @@
       }
     ]
   },
+  "chitty.start_fail": {
+    "subtitle": "subtitles.shootingstar.chitty.start_fail",
+    "sounds": [
+      {
+        "name": "shootingstar:chitty_start_fail"
+      }
+    ]
+  },
+  "chitty.skid": {
+    "subtitle": "subtitles.shootingstar.chitty.skid",
+    "sounds": [
+      {
+        "name": "shootingstar:chitty_skid",
+        "attenuation_distance": 24
+      }
+    ]
+  },
   "chitty.bang": {
     "subtitle": "subtitles.shootingstar.chitty.bang",
     "sounds": [

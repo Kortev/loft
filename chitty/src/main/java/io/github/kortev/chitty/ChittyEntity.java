@@ -2,6 +2,8 @@ package io.github.kortev.chitty;
 
 import io.github.kortev.shootingstar.registry.ModCriteria;
 import java.util.List;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.Blocks;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.entity.Dismounting;
 import net.minecraft.entity.Entity;
@@ -24,7 +26,9 @@ import net.minecraft.nbt.NbtElement;
 import net.minecraft.network.listener.ClientPlayPacketListener;
 import net.minecraft.network.packet.Packet;
 import net.minecraft.network.packet.s2c.play.EntitySpawnS2CPacket;
+import net.minecraft.particle.BlockStateParticleEffect;
 import net.minecraft.particle.ParticleTypes;
+import net.minecraft.registry.tag.BlockTags;
 import net.minecraft.registry.tag.FluidTags;
 import net.minecraft.screen.GenericContainerScreenHandler;
 import net.minecraft.screen.SimpleNamedScreenHandlerFactory;
@@ -78,6 +82,10 @@ public class ChittyEntity extends Entity {
 	private static final TrackedData<Boolean> HAMPER = DataTracker.registerData(ChittyEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
 	private static final TrackedData<Byte> STEER = DataTracker.registerData(ChittyEntity.class, TrackedDataHandlerRegistry.BYTE);
 	private static final TrackedData<Byte> THROTTLE = DataTracker.registerData(ChittyEntity.class, TrackedDataHandlerRegistry.BYTE);
+	/** Her engine: stopped, being cranked or running (the ENGINE_ values). */
+	private static final TrackedData<Byte> ENGINE = DataTracker.registerData(ChittyEntity.class, TrackedDataHandlerRegistry.BYTE);
+	/** Whether the driver is revving her, standing. */
+	private static final TrackedData<Boolean> REV = DataTracker.registerData(ChittyEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
 
 	/** Where each seat is (the driver's, the one beside it, then the back two), from tools/chitty_model.py. */
 	private static final Vec3d[] SEATS = {new Vec3d(-0.30, 0.75, -0.10), new Vec3d(0.30, 0.75, -0.10),
@@ -92,6 +100,13 @@ public class ChittyEntity extends Entity {
 	public static final Vec3d EXHAUST = new Vec3d(-0.83, 0.63, -1.02);
 	/** The point the car pitches and rolls about. */
 	public static final double TILT_PIVOT = 0.8;
+	/** Her rear wheels: out to either side and back from the middle (tools/chitty_model.py's TRACK and REAR_AXLE). */
+	static final double WHEEL_TRACK = 0.70;
+	static final double REAR_WHEELS = -1.70;
+	/** Just over the top of her bonnet, and from where it starts back by the scuttle forward to the radiator. */
+	static final double BONNET_TOP = 1.5;
+	static final double BONNET_BACK = 0.64;
+	static final double BONNET_LENGTH = 1.48;
 
 	// Speeds in blocks per tick.
 	static final double ROAD_TOP = 0.75;
@@ -112,9 +127,30 @@ public class ChittyEntity extends Entity {
 	/** From the middle to the front of the bonnet and to the point of the tail. */
 	static final double NOSE = 1.5;
 	static final double TAIL = 1.75;
-	/** Ticks into the start-up sound at which its two bangs go off. */
+	/** Ticks into the start-up sound at which its two bangs go off; once they have, she runs. */
 	static final int START_BANG_1 = 15;
 	static final int START_BANG_2 = 20;
+	/** Ticks a crank that does not catch takes: the handle swung, two coughs (at these ticks) and a sputter, and she dies. */
+	public static final int START_FAIL = 32;
+	static final int START_COUGH_1 = 9;
+	static final int START_COUGH_2 = 16;
+	/** How often a swing of the starting handle catches; the third swing always does. */
+	static final float CATCHES = 0.7F;
+	static final byte ENGINE_OFF = 0;
+	static final byte ENGINE_CRANKING = 1;
+	static final byte ENGINE_RUNNING = 2;
+	/** Her engine's revs: ticking over, and as high as revving her standing takes them. */
+	public static final float IDLE_RPM = 440.0F;
+	public static final float REV_RPM = 2700.0F;
+	/** Slower than this (blocks a tick) she counts as standing, for revving. */
+	static final double STANDING = 0.05;
+	/**
+	 * Her body on its springs: how far it pitches for each block a tick per tick she gains (nose up) or loses (nose
+	 * down), and rolls for each of sideways pull in a turn (out of the turn), in degrees, at most MAX_SWAY either way.
+	 */
+	static final float SQUAT = 140.0F;
+	static final float LEAN = 105.0F;
+	static final float MAX_SWAY = 4.5F;
 	/** The height of the cloud deck. */
 	static final double CLOUDS = 192.0;
 	/** Ticks in the water without her raft before she blows it up: with a driver, and left to herself. */
@@ -152,6 +188,8 @@ public class ChittyEntity extends Entity {
 
 	@Nullable
 	public static ClientHooks client;
+	/** For the filmed self test, whose run keeps to a timetable: every swing of the handle catches. */
+	public static boolean alwaysCatches;
 
 	// Movement, on whichever side is moving the car.
 	private float speed;
@@ -176,6 +214,13 @@ public class ChittyEntity extends Entity {
 	private int backfireCooldown;
 	private double lastSpeed;
 	private boolean wasAfloat;
+	// Starting her: ticks into this swing of the handle, whether it will catch, swings so far, and ticks since she last
+	// stood stalled; and how long the driver has been revving her.
+	private int cranking;
+	private boolean catching;
+	private int tries;
+	private int stalled;
+	private int revTicks;
 
 	// Interpolation of a car someone else is moving.
 	private int lerpTicks;
@@ -220,6 +265,25 @@ public class ChittyEntity extends Entity {
 	private boolean wasWet;
 	// Ticks since the ejector last went off, on the client: the back seat springs up and bounces back down.
 	private int ejectTicks = EJECT_SETTLED;
+	// On the client: her engine as last seen (to swing the handle when a crank starts), its revs, and how many pairs of
+	// firings (chit-ty) it has made, one a turn of the crankshaft, for her body to shake in time with.
+	private byte shownEngine;
+	private float rpm = IDLE_RPM;
+	private float firings;
+	private float prevFirings;
+	// On the client: her body on its springs, pitching (nose up, degrees), rolling (right side down) and heaving (up,
+	// blocks) on her wheels; what drives them; how far her tyres are slipping (0 to 1) and on what; and how hot her
+	// bonnet is (0 to 1).
+	private final Spring bodyPitch = new Spring();
+	private final Spring bodyRoll = new Spring();
+	private final Spring bodyHeave = new Spring();
+	private double lastForward;
+	private float pull;
+	private boolean wasGrounded;
+	private double lastFall;
+	private float slip;
+	private boolean paved;
+	private float heat;
 
 	// Who sits where (by seat), and the seat a player has asked for as they get in.
 	private final Entity[] seated = new Entity[SEATS.length];
@@ -248,6 +312,8 @@ public class ChittyEntity extends Entity {
 		builder.add(HAMPER, true);
 		builder.add(STEER, (byte) 0);
 		builder.add(THROTTLE, (byte) 0);
+		builder.add(ENGINE, ENGINE_OFF);
+		builder.add(REV, false);
 	}
 
 	// --- what she is ---------------------------------------------------------------------------------
@@ -299,7 +365,7 @@ public class ChittyEntity extends Entity {
 		return !isRemoved();
 	}
 
-	/** The car is longer than her box, her wings far wider, and her lamps shine further still. */
+	/** The car is longer than her box, and her wings far wider. */
 	@Override
 	public Box getVisibilityBoundingBox() {
 		return getBoundingBox().expand(9.0, 2.0, 9.0);
@@ -412,8 +478,22 @@ public class ChittyEntity extends Entity {
 				SoundCategory.NEUTRAL, 1.0F, 0.8F);
 	}
 
+	/** Whether her engine is running: someone is at the wheel and she has caught. */
 	public boolean isEngineRunning() {
-		return getControllingPassenger() != null;
+		return dataTracker.get(ENGINE) == ENGINE_RUNNING && getControllingPassenger() != null;
+	}
+
+	/** Whether her starting handle is being swung (she may or may not catch). */
+	public boolean isCranking() {
+		return dataTracker.get(ENGINE) == ENGINE_CRANKING;
+	}
+
+	/** Whether the driver is revving her, standing: on the driver's client as they press the key, elsewhere as told. */
+	public boolean isRevving() {
+		if (!isLogicalSideForUpdatingMovement()) {
+			return dataTracker.get(REV);
+		}
+		return clientControls.rev() && clientControls.forward() == 0 && isEngineRunning() && motion.horizontalLength() < STANDING;
 	}
 
 	/** Forward speed in blocks per tick, as last moved (any side). */
@@ -531,7 +611,6 @@ public class ChittyEntity extends Entity {
 
 	@Override
 	protected void addPassenger(Entity passenger) {
-		boolean starting = !hasPassengers() && passenger instanceof PlayerEntity;
 		super.addPassenger(passenger);
 		if (!getWorld().isClient) {
 			int seat = wantedSeat >= 0 && seated[wantedSeat] == null ? wantedSeat : -1;
@@ -547,15 +626,34 @@ public class ChittyEntity extends Entity {
 				seated[seat] = passenger;
 			}
 			publishSeating();
-		} else if (starting) {
-			// Someone climbs in and swings the starting handle.
-			crankTicks = 24;
+			// Someone takes the wheel: she is started, the old way, by the handle at the front.
+			if (seat == DRIVER && passenger instanceof PlayerEntity) {
+				crank();
+			}
 		}
-		if (starting && getWorld() instanceof ServerWorld world) {
-			// The crank, two coughs and the bangs she is named for.
-			world.playSound(null, getX(), getY(), getZ(), Chitty.START, SoundCategory.NEUTRAL, 1.0F, 1.0F);
+	}
+
+	/**
+	 * Swings her starting handle, if she is stopped. Most swings catch: the coughs and the two bangs she is named for,
+	 * and she runs. Now and then one doesn't: a cough, a sputter, and she dies, and the driver presses on to swing it
+	 * again; the third swing always catches. In the air she needs no handle: the wind turns her over and she catches.
+	 */
+	void crank() {
+		crank(alwaysCatches || tries >= 2 || random.nextFloat() < CATCHES);
+	}
+
+	/** Swings her starting handle, catching or not (for tests). */
+	public void crank(boolean catches) {
+		if (!(getWorld() instanceof ServerWorld world) || dataTracker.get(ENGINE) != ENGINE_OFF) {
+			return;
+		}
+		tries++;
+		catching = catches;
+		cranking = 0;
+		dataTracker.set(ENGINE, ENGINE_CRANKING);
+		world.playSound(null, getX(), getY(), getZ(), catches ? Chitty.START : Chitty.START_FAIL, SoundCategory.NEUTRAL, 1.0F, 1.0F);
+		if (catches) {
 			startTicks = 0;
-			award("chitty_start");
 		}
 	}
 
@@ -620,7 +718,8 @@ public class ChittyEntity extends Entity {
 		int i = seatOf(passenger);
 		Vec3d seat = SEATS[MathHelper.clamp(i, 0, SEATS.length - 1)];
 		if (getWorld().isClient) {
-			seat = tilt(seat, getTilt(1.0F), getBank(1.0F));
+			// The seats are in her body: they pitch and bank with her in the air, and ride her springs on the road.
+			seat = tilt(seat, getTilt(1.0F) + getBodyPitch(1.0F), getBank(1.0F) + getBodyRoll(1.0F)).add(0.0, getBodyHeave(1.0F), 0.0);
 		}
 		return seat.rotateY(-getYaw() * MathHelper.RADIANS_PER_DEGREE);
 	}
@@ -882,7 +981,8 @@ public class ChittyEntity extends Entity {
 			mode = Mode.FALL;
 		}
 
-		int throttle = in.forward();
+		// Until she has caught, the pedals do nothing.
+		int throttle = isEngineRunning() ? in.forward() : 0;
 		switch (mode) {
 			case AIR -> {
 				if (throttle > 0) {
@@ -1064,10 +1164,18 @@ public class ChittyEntity extends Entity {
 		setState(state);
 		dataTracker.set(STEER, (byte) controls.turn());
 		dataTracker.set(THROTTLE, (byte) controls.forward());
+		boolean running = isEngineRunning();
 		// Lifting off the throttle at speed: she backfires, often.
-		if (before > 0 && controls.forward() <= 0 && lastSpeed > 0.35 && backfireCooldown == 0 && random.nextFloat() < 0.45F) {
+		if (running && before > 0 && controls.forward() <= 0 && lastSpeed > 0.35 && backfireCooldown == 0
+				&& random.nextFloat() < 0.45F) {
 			bangBang();
 		}
+		// Revving her standing; let go of after a good roar (or let in with a jump away), she often backfires.
+		boolean revving = running && controls.rev() && controls.forward() == 0 && lastSpeed < STANDING;
+		if (!revving && dataTracker.get(REV) && revTicks > 6 && backfireCooldown == 0 && random.nextFloat() < 0.5F) {
+			bangBang();
+		}
+		dataTracker.set(REV, revving);
 	}
 
 	public void honk(ServerPlayerEntity player) {
@@ -1084,6 +1192,44 @@ public class ChittyEntity extends Entity {
 		}
 	}
 
+	/**
+	 * Her engine, on the server: it stops when nobody is at the wheel; a swing of the handle catches (once the start-up's
+	 * bangs have gone off) or dies; stopped on the ground, the driver pressing on swings it again; stopped in the air (a
+	 * driver who took over in flight), she catches at once.
+	 */
+	private void startUp() {
+		byte engine = dataTracker.get(ENGINE);
+		if (getControllingPassenger() == null) {
+			if (engine != ENGINE_OFF) {
+				dataTracker.set(ENGINE, ENGINE_OFF);
+			}
+			tries = 0;
+			return;
+		}
+		if (engine == ENGINE_CRANKING) {
+			// A swing that doesn't catch: a puff of smoke out of the pipe at each of its coughs (chitty_start_fail).
+			if (!catching && (cranking == START_COUGH_1 || cranking == START_COUGH_2) && getWorld() instanceof ServerWorld world) {
+				Vec3d at = exhaust();
+				world.spawnParticles(ParticleTypes.SMOKE, at.x, at.y, at.z, 8, 0.05, 0.03, 0.05, 0.015);
+			}
+			if (++cranking >= (catching ? START_BANG_2 : START_FAIL)) {
+				dataTracker.set(ENGINE, catching ? ENGINE_RUNNING : ENGINE_OFF);
+				stalled = 0;
+				if (catching) {
+					tries = 0;
+					award("chitty_start");
+				}
+			}
+		} else if (engine == ENGINE_OFF) {
+			stalled++;
+			if (flying && !isOnGround()) {
+				dataTracker.set(ENGINE, ENGINE_RUNNING);
+			} else if (input.forward() > 0 && stalled > 10) {
+				crank();
+			}
+		}
+	}
+
 	private void serverTick(ServerWorld world) {
 		// Her hitboxes along her length (the hamper's only while she has her hamper: it goes by itself when not).
 		for (int i = 0; i < parts.length; i++) {
@@ -1097,10 +1243,13 @@ public class ChittyEntity extends Entity {
 			dataTracker.set(STATE, getState());
 			dataTracker.set(STEER, (byte) 0);
 			dataTracker.set(THROTTLE, (byte) 0);
+			dataTracker.set(REV, false);
 		}
 		if (backfireCooldown > 0) {
 			backfireCooldown--;
 		}
+		revTicks = dataTracker.get(REV) ? revTicks + 1 : 0;
+		startUp();
 		// The start-up's (or a backfire's) two bangs, each a tongue of flame shot back out of the fishtail, a spatter of
 		// sparks and a puff of dark smoke.
 		if (startTicks >= 0) {
@@ -1239,7 +1388,12 @@ public class ChittyEntity extends Entity {
 		prevBrakeLever = brakeLever;
 		float brake = throttle == 0 && Math.abs(forward) < 0.02 ? 1.0F : 0.0F;
 		brakeLever += (brake - brakeLever) * 0.2F;
-		// The starting handle, swung as she is started.
+		// The starting handle, swung each time she is cranked.
+		byte engine = dataTracker.get(ENGINE);
+		if (engine == ENGINE_CRANKING && shownEngine != ENGINE_CRANKING) {
+			crankTicks = 24;
+		}
+		shownEngine = engine;
 		prevCrankSpin = crankSpin;
 		if (crankTicks > 0) {
 			crankTicks--;
@@ -1248,12 +1402,19 @@ public class ChittyEntity extends Entity {
 		if (ejectTicks < EJECT_SETTLED) {
 			ejectTicks++;
 		}
+		// The engine's revs, easing towards what she wants (quicker up than down, as an engine does; quickest revved),
+		// and its firings, a pair (chit-ty) each turn of the crankshaft.
+		float wanted = targetRpm();
+		rpm += (wanted - rpm) * (wanted > rpm ? isRevving() ? 0.3F : 0.18F : 0.1F);
+		prevFirings = firings;
+		firings += isEngineRunning() ? rpm / 60.0F / 20.0F : 0.0F;
+		if (firings > 1000.0F) {
+			firings -= 1000.0F;
+			prevFirings -= 1000.0F;
+		}
 		// The dials, each needle easing round to its reading; the rev counter's trembles with the engine.
 		System.arraycopy(dials, 0, prevDials, 0, dials.length);
-		float revs = isEngineRunning()
-				? MathHelper.clamp(0.18F + 0.55F * (float) (h / ROAD_TOP) + 0.2F * Math.max(0, throttle) + (random.nextFloat() - 0.5F) * 0.04F,
-						0.0F, 1.0F)
-				: 0.0F;
+		float revs = isEngineRunning() ? MathHelper.clamp(rpm / 3000.0F + (random.nextFloat() - 0.5F) * 0.04F, 0.0F, 1.0F) : 0.0F;
 		float[] readings = {(float) MathHelper.clamp(h / AIR_TOP, 0.0, 1.0),
 				MathHelper.clamp((float) (getY() - world.getSeaLevel()) / 200.0F, 0.0F, 1.0F), revs};
 		float[] rates = {0.2F, 0.1F, 0.3F};
@@ -1261,14 +1422,211 @@ public class ChittyEntity extends Entity {
 			dials[i] += (readings[i] - dials[i]) * rates[i];
 		}
 
-		// Smoke out of the exhaust while she runs, more when she pulls.
-		if (isEngineRunning() && age % (throttle > 0 ? 2 : 4) == 0) {
+		// Smoke out of the exhaust while she runs, more when she pulls or is revved.
+		if (isEngineRunning() && age % (throttle > 0 || rpm > 1500.0F ? 2 : 4) == 0) {
 			Vec3d at = exhaust();
 			Vec3d back = ahead.multiply(-0.04);
-			world.addParticle(ParticleTypes.SMOKE, at.x, at.y, at.z, back.x, 0.02, back.z);
+			world.addParticle(rpm > 2000.0F ? ParticleTypes.LARGE_SMOKE : ParticleTypes.SMOKE, at.x, at.y, at.z, back.x, 0.02, back.z);
 		}
+		boolean grounded = isOnGround() && !aloft && floatOpen < 0.5F;
+		suspension(grounded, forward);
+		tyres(world, grounded, forward, throttle, ahead);
+		bonnetHeat(world, h);
 		if (client != null) {
 			client.tick(this);
+		}
+	}
+
+	/**
+	 * Her body on its springs over her wheels (on the client, for the renderer and her riders): it squats as she pulls
+	 * away and dives as she brakes, leans out of a turn, heaves over the bumps of the road (rougher off the paving), as
+	 * she climbs a step and as she lands, and twists a little against the engine as it revs.
+	 */
+	private void suspension(boolean grounded, double forward) {
+		float gain = (float) (forward - lastForward);
+		lastForward = forward;
+		pull += (gain - pull) * 0.5F;
+		// Turning left the body is thrown to the right (right side down), and the other way.
+		float turnRate = -MathHelper.wrapDegrees(getYaw() - prevYaw) * MathHelper.RADIANS_PER_DEGREE;
+		float sideways = (float) forward * turnRate;
+		float torque = isEngineRunning() ? MathHelper.clamp((rpm - IDLE_RPM) / (REV_RPM - IDLE_RPM), 0.0F, 1.0F) : 0.0F;
+		float pitchTo = 0.0F;
+		float rollTo = -1.2F * torque;
+		if (grounded) {
+			pitchTo = MathHelper.clamp(pull * SQUAT, -MAX_SWAY, MAX_SWAY);
+			rollTo += MathHelper.clamp(sideways * LEAN, -MAX_SWAY, MAX_SWAY);
+			if (!wasGrounded && lastFall < -0.15) {
+				// Down on her wheels from a drop: she sinks on her springs and bounces.
+				bodyHeave.kick((float) Math.max(-0.14, lastFall * 0.3));
+				bodyPitch.kick((random.nextFloat() - 0.5F) * 2.0F);
+			}
+			if (motion.y > 0.25) {
+				// Up a step: the wheels thump up into her.
+				bodyHeave.kick(-0.035F);
+				bodyPitch.kick(2.5F * Math.signum((float) forward));
+			}
+			double s = Math.min(1.0, Math.abs(forward) / 0.4);
+			if (s > 0.1) {
+				float rough = (paved ? 0.5F : 1.4F) * (float) s;
+				bodyHeave.kick((random.nextFloat() - 0.5F) * 0.012F * rough);
+				bodyRoll.kick((random.nextFloat() - 0.5F) * 0.35F * rough);
+				bodyPitch.kick((random.nextFloat() - 0.5F) * 0.25F * rough);
+			}
+		}
+		wasGrounded = grounded;
+		lastFall = motion.y;
+		bodyPitch.step(pitchTo);
+		bodyRoll.step(rollTo);
+		bodyHeave.step(0.0F);
+	}
+
+	/**
+	 * Her tyres (on the client): they spin as she is let away revved, and slide as she brakes hard or is thrown round a
+	 * corner: on paving they squeal and smoke; off it they throw the ground up behind her, as they kick up dust whenever
+	 * she drives on a dirt road.
+	 */
+	private void tyres(World world, boolean grounded, double forward, int throttle, Vec3d ahead) {
+		BlockState under = world.getBlockState(BlockPos.ofFloored(getX(), getY() - 0.05, getZ()));
+		paved = !(under.isIn(BlockTags.DIRT) || under.isIn(BlockTags.SAND) || under.isOf(Blocks.GRAVEL)
+				|| under.isOf(Blocks.DIRT_PATH) || under.isOf(Blocks.SNOW_BLOCK) || under.isOf(Blocks.SNOW) || under.isOf(Blocks.FARMLAND));
+		float slipTo = 0.0F;
+		if (grounded && isEngineRunning()) {
+			if (throttle > 0 && forward < 0.3 && rpm > 1500.0F) {
+				slipTo = (float) (1.0 - forward / 0.3);
+			}
+			if (throttle < 0 && forward > 0.35) {
+				slipTo = Math.max(slipTo, (float) ((forward - 0.35) / 0.3));
+			}
+			float turnRate = -MathHelper.wrapDegrees(getYaw() - prevYaw) * MathHelper.RADIANS_PER_DEGREE;
+			slipTo = Math.max(slipTo, (Math.abs((float) forward * turnRate) - 0.028F) / 0.01F);
+		}
+		slip += (MathHelper.clamp(slipTo, 0.0F, 1.0F) - slip) * 0.3F;
+		double s = Math.abs(forward);
+		if (!grounded || under.isAir() || s < 0.02 && slip < 0.05) {
+			return;
+		}
+		float yawRad = getYaw() * MathHelper.RADIANS_PER_DEGREE;
+		Vec3d back = ahead.multiply(-Math.signum(forward == 0.0 ? 1.0 : forward));
+		float dust = (float) Math.min(1.0, s / 0.6) * 0.7F + slip;
+		for (int side = -1; side <= 1; side += 2) {
+			Vec3d at = getPos().add(new Vec3d(side * WHEEL_TRACK, 0.08, REAR_WHEELS).rotateY(-yawRad));
+			if (paved) {
+				if (slip > 0.05 && random.nextFloat() < slip * 1.5F) {
+					world.addParticle(ParticleTypes.WHITE_SMOKE, at.x, at.y, at.z, back.x * 0.03 + (random.nextFloat() - 0.5F) * 0.04,
+							0.02 + random.nextFloat() * 0.03, back.z * 0.03 + (random.nextFloat() - 0.5F) * 0.04);
+				}
+			} else {
+				if (random.nextFloat() < dust) {
+					world.addParticle(new BlockStateParticleEffect(ParticleTypes.BLOCK, under), at.x, at.y, at.z,
+							back.x * 0.15 * s + (random.nextFloat() - 0.5F) * 0.1, 0.12 + 0.2 * slip, back.z * 0.15 * s + (random.nextFloat() - 0.5F) * 0.1);
+				}
+				if (random.nextFloat() < dust * 0.3F) {
+					world.addParticle(ParticleTypes.DUST_PLUME, at.x, at.y + 0.15, at.z, back.x * 0.04, 0.015, back.z * 0.04);
+				}
+			}
+		}
+	}
+
+	/**
+	 * Her bonnet (on the client) warms as she runs, the harder the hotter, and cools when she stops; hot, the air over
+	 * it and over the end of her pipe shimmers, unless she is going fast enough for the wind to carry the heat off.
+	 */
+	private void bonnetHeat(World world, double speed) {
+		float warmTo = isEngineRunning() ? 0.35F + 0.65F * MathHelper.clamp((rpm - IDLE_RPM) / (REV_RPM - IDLE_RPM), 0.0F, 1.0F) : 0.0F;
+		heat += (warmTo - heat) * (warmTo > heat ? 0.004F : 0.002F);
+		float still = (float) MathHelper.clamp(1.0 - speed / 0.25, 0.0, 1.0);
+		float shimmer = (heat - 0.3F) * 1.6F * still;
+		if (shimmer <= 0.0F) {
+			return;
+		}
+		float yawRad = getYaw() * MathHelper.RADIANS_PER_DEGREE;
+		if (random.nextFloat() < shimmer) {
+			Vec3d at = getPos().add(new Vec3d((random.nextFloat() - 0.5F) * 0.5F, BONNET_TOP, BONNET_BACK + random.nextFloat() * BONNET_LENGTH)
+					.rotateY(-yawRad));
+			world.addParticle(Chitty.HEAT, at.x, at.y, at.z, 0.0, 0.0, 0.0);
+		}
+		if (isEngineRunning() && random.nextFloat() < shimmer * 0.6F) {
+			Vec3d at = exhaust();
+			world.addParticle(Chitty.HEAT, at.x, at.y + 0.1, at.z, 0.0, 0.0, 0.0);
+		}
+	}
+
+	/** The revs her engine wants now: ticking over standing, rising with speed and the throttle, higher in the air. */
+	private float targetRpm() {
+		if (!isEngineRunning()) {
+			return IDLE_RPM;
+		}
+		if (isRevving()) {
+			return REV_RPM;
+		}
+		float speed = (float) Math.abs(getSpeed());
+		float pushing = getThrottle() != 0 ? 1.0F : 0.0F;
+		if (isFlying()) {
+			return 1500.0F + 900.0F * Math.min(1.0F, speed / 1.3F) + 250.0F * pushing;
+		}
+		if (getFloatOpen(1.0F) > 0.5F) {
+			return 600.0F + 1300.0F * Math.min(1.0F, speed / 0.42F) + 300.0F * pushing;
+		}
+		return IDLE_RPM + 1850.0F * Math.min(1.0F, speed / 0.75F) + 380.0F * pushing;
+	}
+
+	/** Her engine's revs, on the client. */
+	public float getRpm() {
+		return rpm;
+	}
+
+	/** Pairs of firings (chit-ty) her engine has made, on the client: her body shakes in time with them. */
+	public float getFirings(float tickDelta) {
+		return MathHelper.lerp(tickDelta, prevFirings, firings);
+	}
+
+	/** How much her body shakes at each firing (0 to 1): most ticking over, standing; less as the revs rise. */
+	public float getShake() {
+		if (!isEngineRunning()) {
+			return 0.0F;
+		}
+		float smooth = MathHelper.clamp((rpm - IDLE_RPM) / 1200.0F, 0.0F, 0.75F);
+		return (1.0F - smooth) * (getSpeed() < STANDING ? 1.0F : 0.5F);
+	}
+
+	/** How hard her tyres squeal (0 to 1): sliding or spinning on paving. */
+	public float getSqueal() {
+		return paved ? slip : 0.0F;
+	}
+
+	/** Her body on its springs: nose up, degrees. */
+	public float getBodyPitch(float tickDelta) {
+		return bodyPitch.get(tickDelta);
+	}
+
+	/** Her body on its springs: right side down, degrees. */
+	public float getBodyRoll(float tickDelta) {
+		return bodyRoll.get(tickDelta);
+	}
+
+	/** Her body on its springs: up, blocks. */
+	public float getBodyHeave(float tickDelta) {
+		return bodyHeave.get(tickDelta);
+	}
+
+	/** A damped spring, eased a tick at a time towards where it is pulled: it overshoots and settles, as a car's do. */
+	private static final class Spring {
+		private float x;
+		private float prev;
+		private float v;
+
+		void step(float to) {
+			prev = x;
+			v += (to - x) * 0.3F - v * 0.3F;
+			x += v;
+		}
+
+		void kick(float dv) {
+			v += dv;
+		}
+
+		float get(float tickDelta) {
+			return MathHelper.lerp(tickDelta, prev, x);
 		}
 	}
 

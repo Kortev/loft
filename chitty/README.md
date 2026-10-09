@@ -18,9 +18,17 @@ with a carrying handle on each post of the windscreen, and the gear lever and ha
 - **Put her down:** use the item on the ground or on water; she faces the way you face. Use her to get in: you take
   the seat nearest where you click (the driver's, the one beside it or either of the two in the back), and the one in
   the driver's seat (the right-hand one) drives. Sneak to get out.
+- **Start her:** taking the wheel swings the starting handle at the front, the old way. Most swings catch: chitty,
+  chitty, bang, bang, and she runs. Now and then one doesn't: a cough, a sputter, and she dies; press forward to swing
+  it again (she always catches by the third swing). Until she has caught the pedals do nothing. In the air she catches
+  at once.
 - **Drive:** forward and back to accelerate, brake and reverse, left and right to steer. She climbs a block at a time
-  and stops at walls rather than driving her bonnet into them. The gear lever and handbrake move as she is driven and
-  the starting handle swings as she starts.
+  and stops at walls rather than driving her bonnet into them. The gear lever and handbrake move as she is driven. Her
+  body rides its springs over the wheels: it squats as she pulls away, dips its nose as she brakes, leans out of a
+  turn and bounces over bumps, steps and drops, more on a dirt road than on paving.
+- **Rev her:** V (rebindable), standing: the engine roars up and the needle with it, she twists on her springs, and
+  let go of after a good roar she often backfires. Rev her and then press forward to let her away in a cloud of tyre
+  smoke.
 - **Fly:** G (rebindable) opens the wings, slowly and with a great creaking. Each side wing is one pleated red and
   yellow cloth, folded up on edge under the running board; its back edge stays along her side while the front edge
   swings out and the pleats flatten as it unfolds, until it lies out flat with a mast standing up at its end and a
@@ -44,13 +52,16 @@ with a carrying handle on each post of the windscreen, and the gear lever and ha
 - **Hamper:** use the hamper on her stern to open it (27 stacks; it has its own hitbox, hers being too short to reach
   it); sneak and use her to take it off (it spills what it holds) or put it back on.
 - **Horn:** H (rebindable) squeezes the serpent's bulb.
-- **Riding in her:** everyone aboard turns with her, and in the air the view banks with her as she turns. The
-  dashboard's needles show her speed, her height above the sea and the engine's revs. At night (or underground, or in
-  heavy rain) her headlamps and spotlights throw soft beams ahead of her while she runs. She is solid from her
+- **Riding in her:** everyone aboard turns with her, rides her springs, and in the air the view banks with her as she
+  turns. The dashboard's needles show her speed, her height above the sea and the engine's revs. She is solid from her
   radiator to her stern: click anywhere on her to take the seat nearest the click.
 
 She starts with two sputters and two bangs, and backfires (bang bang) every so often as she runs and when the
-throttle comes off at speed, each bang a tongue of flame and a puff of dark smoke out of the exhaust. She splashes into water, and the wind rushes
+throttle comes off at speed, each bang a tongue of flame and a puff of dark smoke out of the exhaust. Ticking over she
+shakes at every pair of firings, and the strap round her bonnet slaps and its buckle jingles. Her tyres squeal and
+smoke on paving when they spin or slide (a revved getaway, a hard stop, a fast tight turn), and on a dirt road she
+throws up dust behind her. Once she has run a while her bonnet is hot, and standing, the air over it and over the end
+of her pipe shimmers. She splashes into water, and the wind rushes
 past her as she flies or falls fast. Her engine runs chit-ty chit-ty: it fires in pairs, a hard firing and a softer one hard on
 its heels, and is three sounds made at different revs and crossfaded as hers rise and fall. Her polished aluminium
 and brass shine as you look at them, reflecting the sky, the sun and the ground she is on, rather than having

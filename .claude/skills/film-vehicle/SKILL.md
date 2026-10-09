@@ -156,7 +156,7 @@ Child Catcher's carriage, is specced in `HANDOFF.md`.
 - **Camera/view mixins:**
   - `ChittyCameraMixin`: the third-person distance is doubled for a big vehicle.
   - `ChittyViewMixin`: the first-person view banks with her (roll at `tiltViewWhenHurt` HEAD).
-- **Extras:** `ChittyLamps` (night beams from markers), `ChittyTexture` (smooth filtering and mipmaps for a baked
+- **Extras:** `ChittyTexture` (smooth filtering and mipmaps for a baked
   atlas, registered under the renderer's `TEXTURE`).
 
 ## Sounds script (copy `tools/gen_chitty_sounds.py`)
