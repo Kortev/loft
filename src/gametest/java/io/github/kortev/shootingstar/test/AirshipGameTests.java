@@ -72,6 +72,20 @@ public class AirshipGameTests implements FabricGameTest {
 		});
 	}
 
+	/** Set going with nobody at the wheel, she flies on ahead, slowing as she goes. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_airship_fly", tickLimit = 40)
+	public void fliesAhead(TestContext context) {
+		floor(context, 0);
+		AirshipEntity ship = ship(context, 4.0, 9.0, 2.0);
+		Vec3d start = ship.getPos();
+		context.runAtTick(2, () -> ship.launch(0.3F));
+		context.runAtTick(12, () -> {
+			Vec3d went = ship.getPos().subtract(start);
+			context.assertTrue(went.z > 1.5, "she did not fly ahead: she went " + went + ", at " + ship.getSpeed() + " a tick");
+			done(context, ship);
+		});
+	}
+
 	/** Eight can stand in her gondola, and no more. */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_airship_eight", tickLimit = 60)
 	public void standsEight(TestContext context) {
@@ -236,10 +250,12 @@ public class AirshipGameTests implements FabricGameTest {
 		floor(context, 0);
 		AirshipEntity ship = ship(context, 4.0, 9.0, 2.0);
 		ship.hangGrappleAt(5.0);
+		Vec3d start = ship.getPos();
 		context.runAtTick(2, () -> ship.launch(0.3F));
 		context.runAtTick(12, () -> {
 			Vec3d at = ship.getHookOffset();
-			context.assertTrue(at.z < -0.3, "the grapple did not trail behind her as she set off: " + at);
+			context.assertTrue(at.z < -0.3, "the grapple did not trail behind her as she set off: " + at + " (she went "
+					+ ship.getPos().subtract(start) + ", at " + ship.getSpeed() + " a tick)");
 			context.assertTrue(at.length() <= 5.0 + 1.0E-3, "the grapple hangs further out than its rope: " + at.length());
 			done(context, ship);
 		});
