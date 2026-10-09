@@ -15,11 +15,11 @@ import sys
 
 import numpy as np
 
-PANEL = (2048, 660)     # the carved side, from the engine section to the bow: 3.1 blocks along by 1.0 high
+PANEL = (2048, 1024)    # the carved side, from the engine section to the bow: 2.6 blocks along by 1.3 high
 GAP = 2.2               # the groove round each carved piece, in pixels
 RELIEF = 9.0            # how far in from its edge a piece reaches its full height, in pixels
-BOW_RAKE = 363          # how far the raked bow cuts back across the panel's foot, in pixels (0.55 of 3.1 blocks)
-MEDALLION = (1752, 206)  # the Baron's medallion, near the bow
+BOW_RAKE = 276          # how far the raked bow cuts back across the panel's foot, in pixels (0.35 of 2.6 blocks)
+MEDALLION = (1806, 372)  # the Baron's medallion, near the bow
 
 LACQUER = np.array((15, 13, 17), np.float32) / 255
 GOLD_DARK = np.array((66, 46, 20), np.float32) / 255
@@ -260,11 +260,21 @@ def limb(pts, w0, w1):
     return band(catmull_open(pts, 10), w0, w1)
 
 
-def putto(c):
+def placed(pieces, c, k):
+    """Pieces drawn about the origin, moved to c and scaled by k."""
+    t = '<g transform="translate(%.2f %.2f) scale(%.4f)">%%s</g>' % (c[0], c[1], k)
+    return [(t % svg, t % cuts if cuts else '') for svg, cuts in pieces]
+
+
+def putto(c, k=1.0):
     """The winged cherub at the bow, as the film carves it: sitting on the moulding beside the Baron's medallion with
     his wings raised behind him, one hand on the medallion, the other holding up a festoon of beads, a cloth over
-    his lap. c is where he sits."""
-    x, y = c
+    his lap. c is where he sits; k his size."""
+    return placed(_putto(), c, k)
+
+
+def _putto():
+    x, y = 0.0, 0.0
     out = []
     # His wing, raised behind him: rounded at the shoulder, its long feathers ending in points.
     wing = [(x - 6, y - 150), (x - 40, y - 196), (x - 86, y - 236), (x - 130, y - 254), (x - 150, y - 232),
@@ -325,78 +335,72 @@ def bow_edge(y):
 
 
 def carving():
-    """Every carved piece of one side (the bow on the right), from the back to the front, laid out as the film's
-    gondola has them: a fine gilt border; along the top, rococo strapwork scrolls with festoons of beads hung under
-    them and a shell over the post in the middle; a moulding along the middle; a pendant hung on the middle post;
-    along the bottom a shell between two great crested C-scrolls, acanthus curling out under them, a great acanthus
-    scroll at the stern end; and at the bow a winged cherub beside the Baron's medallion under a crown, a crested
-    rocaille scroll beneath him."""
+    """Every carved piece of one side (the bow on the right), from the back to the front, placed where the film's
+    gondola has them (measured off a still of her right side): a fine gilt border; along the top, rococo strapwork
+    with festoons of beads hung under it and a shell over the post in the middle; a moulding along the middle and a
+    pendant hung on the post; along the bottom a great acanthus at the stern end, then a shell between two great
+    crested C-scrolls with acanthus curling out under them; and at the bow a winged cherub beside the Baron's
+    medallion under a crown, a crested rocaille rolling over beneath him."""
     W, H = PANEL
     out = []
-    edge_top, edge_bot = bow_edge(16), bow_edge(H - 22)
+    edge_top, edge_bot = bow_edge(18), bow_edge(H - 26)
     # The border, and the moulding along the middle.
-    out.append(fillet(10, 12, edge_top - 10, 19))
-    out.append(fillet(10, H - 27, edge_bot - 10, H - 20))
-    out.append(fillet(10, 12, 17, H - 20))
-    out.append(band([(edge_top - 14, 16), (edge_bot - 14, H - 24)], 7, 7))
-    mid_y = int(H * 0.47)
-    out.append(fillet(300, mid_y - 6, bow_edge(mid_y) - 14, mid_y - 2))
-    out.append(fillet(300, mid_y + 3, bow_edge(mid_y) - 14, mid_y + 7))
+    out.append(fillet(10, 14, edge_top - 12, 23))
+    out.append(fillet(10, H - 32, edge_bot - 12, H - 23))
+    out.append(fillet(10, 14, 19, H - 23))
+    out.append(band([(edge_top - 17, 18), (edge_bot - 17, H - 28)], 9, 9))
+    mid_y = 488
+    out.append(fillet(404, mid_y - 8, bow_edge(mid_y) - 17, mid_y - 3))
+    out.append(fillet(404, mid_y + 4, bow_edge(mid_y) - 17, mid_y + 9))
     # The post in the middle of the side.
-    px = W * 0.46
-    out.append(fillet(px - 11, 16, px - 5, H - 22))
-    out.append(fillet(px + 5, 16, px + 11, H - 22))
-    # Along the top: strapwork either side of the post, a shell over it, and festoons of beads hung under.
-    out += strap([(64, 112), (90, 62), (200, 50), (330, 48), (372, 70), (420, 96), (470, 88), (540, 60), (600, 58)], 28,
-                 (40, 1), (34, 1))
-    for s in (-1, 1):
-        mx = lambda x: px + s * (px - x)
-        out += strap([(mx(640), 136), (mx(690), 72), (mx(770), 48), (mx(850), 60), (mx(905), 104)], 28,
-                     (36, -s), (22, s))
-        out.append(acanthus((mx(700), 100), 90 - s * 60, 70, 30, lobes=2, curl=0.35, side=s))
-    out += shell((px, 118), 82, up=-1)
-    out += strap([(1240, 58), (1300, 50), (1360, 64), (1400, 90), (1420, 120)], 26, (28, 1), (30, -1))
-    for a, b, sag in (((92, 150), (360, 150), 52), ((380, 140), (626, 140), 52), ((666, 150), (904, 140), 44),
-                      ((980, 140), (1218, 150), 44), ((1258, 150), (1418, 132), 40)):
-        out += bead_swag(a, b, sag, 9)
+    px = 927
+    out.append(fillet(px - 13, 18, px - 6, H - 26))
+    out.append(fillet(px + 6, 18, px + 13, H - 26))
+    # Along the top: strapwork either side of the post, a shell over it, festoons of beads hung under.
+    out += strap([(44, 196), (60, 80), (150, 52), (269, 57), (344, 112), (419, 152), (508, 138), (568, 84), (640, 62)],
+                 34, (46, 1), (30, 1))
+    out += strap([(660, 60), (730, 66), (790, 110), (840, 168)], 32, (34, -1), (24, -1))
+    out += strap([(1194, 60), (1124, 66), (1064, 110), (1014, 168)], 32, (34, 1), (24, 1))
+    out += strap([(1240, 60), (1310, 104), (1360, 150), (1420, 150), (1500, 128), (1560, 96)], 32, (30, -1), (28, -1))
+    out += shell((px, 168), 116, up=-1)
+    for a, b, sag in (((136, 280), (450, 282), 66), ((540, 264), (806, 250), 76), ((1046, 250), (1306, 262), 70),
+                      ((1340, 270), (1530, 330), 46)):
+        out += bead_swag(a, b, sag, 11)
     # The pendant on the post: a rose among berries, leaves and a tassel hanging below.
     for k in range(3):
-        out.append(acanthus((px, mid_y - 20), 90 + (k - 1) * 22, 90 - abs(k - 1) * 20, 30, lobes=2, curl=0.15))
-    for k in range(8):
-        a = 2 * math.pi * k / 8
-        out.append(disc((px + math.cos(a) * 30, mid_y - 66 + math.sin(a) * 26), 10, ring=False))
-    out += rosette((px, mid_y - 66), 26, 8)
+        out.append(acanthus((px, mid_y - 30), 90 + (k - 1) * 22, 130 - abs(k - 1) * 26, 42, lobes=2, curl=0.15))
+    for k in range(9):
+        a = 2 * math.pi * k / 9
+        out.append(disc((px + math.cos(a) * 42, 392 + math.sin(a) * 36), 14, ring=False))
+    out += rosette((px, 392), 36, 8)
     # Along the bottom: a great acanthus scroll at the stern end ...
-    out.append(band(spiral((150, 470), 110, 0.8, math.pi * 0.95, 1, 60), 18, 10))
-    for ang, ln, wd in ((-62, 250, 104), (-32, 230, 92), (-8, 200, 80)):
-        out.append(acanthus((70, H - 60), ang, ln, wd, lobes=4, curl=0.45, side=-1))
-    # ... a smaller crested scroll beyond it, then the shell over the post between two great crested C-scrolls, with
-    # acanthus curling out under them ...
-    out += crested_arch((530, H - 70), (520, 450), (380, 430), (330, H - 140), 26, 26)
-    for s in (-1, 1):
-        mx = lambda x: px + s * (px - x)
-        out += crested_arch((mx(902), H - 96), (mx(880), 380), (mx(610), 380), (mx(570), H - 64), 32, 34)
-        out.append(acanthus((mx(880), H - 52), 90 - s * 80 + 180 * (s < 0), 190, 62, lobes=4, curl=0.4, side=-s))
-        out.append(acanthus((mx(620), H - 50), 90 + s * 70, 120, 44, lobes=3, curl=0.4, side=s))
-    out += shell((px, H * 0.73), 92, up=-1)
+    out.append(band(spiral((210, 760), 150, 0.8, math.pi * 0.95, 1, 60), 26, 14))
+    for ang, ln, wd in ((-66, 360, 150), (-38, 330, 134), (-12, 290, 116)):
+        out.append(acanthus((92, H - 80), ang, ln, wd, lobes=4, curl=0.45, side=-1))
+    # ... the shell over the foot of the post between two great crested C-scrolls, with acanthus curling out under
+    # them ...
+    out += crested_arch((760, H - 120), (750, 640), (470, 610), (430, H - 210), 40, 44)
+    out += crested_arch((1060, H - 120), (1090, 620), (1430, 600), (1480, H - 190), 40, 44)
+    for x0, ang, side in ((880, 182, 1), (980, -2, -1), (560, 160, 1), (1340, 20, -1)):
+        out.append(acanthus((x0, H - 72), ang, 240, 82, lobes=4, curl=0.4, side=side))
+    out += shell((px, 690), 130, up=-1)
     # ... and under the cherub at the bow a great crested rocaille, rolling over like a wave.
-    out += crested_arch((1370, H - 50), (1400, 420), (1560, 330), (1620, 420), 34, 36)
-    for ang, ln in ((-20, 150), (10, 140), (40, 120)):
-        out.append(acanthus((1560, H - 120), ang, ln, 52, lobes=3, curl=0.4, side=1))
+    out += crested_arch((1520, H - 60), (1540, 640), (1700, 520), (1760, 640), 44, 48)
+    for ang, ln in ((-24, 190), (6, 180), (36, 150)):
+        out.append(acanthus((1640, H - 170), ang, ln, 70, lobes=3, curl=0.4, side=1))
     # The cherub, the medallion and the crown.
-    out += [(fill(polygon(ribbon(catmull_open([(1676, 300), (1650, 200), (1630, 100), (1640, 40)], 8),
-                                 lambda t: 30 * (1 - t) ** 0.8 + 3))), groove([(1670, 290), (1636, 120)], 1.3))]
-    out += bead_swag((1488, 146), (1424, 128), 30, 6)
-    out += putto((1560, 300))
+    out += [(fill(polygon(ribbon(catmull_open([(1736, 470), (1708, 330), (1690, 190), (1702, 110)], 8),
+                                 lambda t: 40 * (1 - t) ** 0.8 + 4))), groove([(1730, 456), (1696, 200)], 1.6))]
+    out += putto((1640, 476), 1.32)
     mc = MEDALLION
-    out.append(disc(mc, 84, ring=False))
-    ring = [(mc[0] + math.cos(a) * 92, mc[1] + math.sin(a) * 92) for a in np.linspace(0, 2 * math.pi, 100)]
-    out.append(band(ring, 14, 14, fluted=True))
-    out += crown((mc[0] + 8, mc[1] - 112), 120)
+    out.append(disc(mc, 88, ring=False))
+    ring = [(mc[0] + math.cos(a) * 97, mc[1] + math.sin(a) * 97) for a in np.linspace(0, 2 * math.pi, 100)]
+    out.append(band(ring, 16, 16, fluted=True))
+    out += crown((mc[0] + 4, mc[1] - 128), 150)
     return out
 
 
-def letter_b(c, size=190):
+def letter_b(c, size=200):
     """The Baron's B, in black letter, cut into his medallion."""
     return ('<text x="%.2f" y="%.2f" font-family="FreeSerif" font-size="%d" text-anchor="middle" fill="#000">'
             '&#x1D505;</text>' % (c[0], c[1] + size * 0.3, size), '')

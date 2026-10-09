@@ -59,35 +59,35 @@ ENV_TAIL = ENV_NOSE - ENV_LENGTH
 ENV_MID_Y = (ENV_NOSE + ENV_TAIL) / 2
 
 # The platform under the envelope: a flat frame of dark lattice, pointed at both ends.
-PLATFORM = dict(front=3.6, back=-12.6, half_width=3.0, z=3.25)
+PLATFORM = dict(front=3.6, back=-12.6, half_width=3.0, z=3.5)
 ENV_Z = PLATFORM['z'] + 0.1 + ENV_R * ENV_BELLY     # the envelope's axis
 
 # The gondola: a black box with a raked bow, the engine section at the stern. Along y its top runs from STERN to BOW;
 # its bottom from the foot of the bow (BOW_FOOT) back to where the engine section's floor slopes up (ENGINE_FRONT).
-GON_BOW = 2.1
-GON_STERN = -2.1
-GON_BOW_FOOT = 1.55
-GON_ENGINE_FRONT = -1.0
-GON_STERN_RISE = 0.45       # how high the bottom has sloped up at the stern
+GON_BOW = 1.85
+GON_STERN = -1.85
+GON_BOW_FOOT = 1.5
+GON_ENGINE_FRONT = -0.75
+GON_STERN_RISE = 0.55       # how high the bottom has sloped up at the stern
 GON_HALF_WIDTH = 0.95
-GON_TOP = 1.0
-GON_FLOOR = 0.18
+GON_TOP = 1.3
+GON_FLOOR = 0.42
 BEAM = 0.14                 # the heavy black rail along the top, square
 BEAM_OVER = 0.35            # how far it runs on past each end
-BAR_Z = 2.3                 # the long bars over the crew's heads, from which the gondola hangs
+BAR_Z = 2.6                 # the long bars over the crew's heads, from which the gondola hangs
 FRAME_NODES = (3.0, 1.8, 0.6, -0.6, -1.8, -3.0, -4.2)    # where the frame's triangles meet the bars
 FRAME_FRONT = 3.55          # where the bars meet the platform's point
 FRAME_BACK = -5.8           # and where they meet the girder's lower chords
 
 # The narrow girder from over the gondola back to the tail, and the tail itself.
-GIRDER = dict(front=-5.5, back=-15.0, half_width=0.4, depth=0.7, top=PLATFORM['z'] - 0.1, tail_top=2.35)
-TAIL = dict(lead=-13.8, hinge=-18.6, trail=-19.9, z=1.85, up=2.3, down=2.1, span=2.8)
+GIRDER = dict(front=-5.5, back=-15.0, half_width=0.4, depth=0.7, top=PLATFORM['z'] - 0.1, tail_top=2.6)
+TAIL = dict(lead=-13.8, hinge=-18.6, trail=-19.9, z=2.1, up=2.3, down=2.1, span=2.8)
 
 # The two propellers behind the stern corners, each on a shaft run aft from its bearings, turned by a belt over a
 # spoked pulley.
-PROP = dict(x=1.85, y=-2.95, z=2.0, r=1.05, bearing_y=-1.3, pulley_y=-2.35, pulley_r=0.36)
+PROP = dict(x=1.85, y=-2.7, z=2.3, r=1.05, bearing_y=-1.05, pulley_y=-2.1, pulley_r=0.36)
 
-WHEEL = Vector((0.0, 1.72, 1.05))
+WHEEL = Vector((0.0, 1.32, 1.29))
 LINE_OUT = Vector((0.0, 0.25, 0.0))    # where the hook's rope comes out under the keel
 LINE_MAX = 32.0             # how far the hook's rope and the rope ladder both let down
 LADDER_PITCH = 0.32         # from one rung of the ladder to the next
@@ -97,8 +97,8 @@ LADDER_TOP = Vector((ROPE_SIDE * (GON_HALF_WIDTH + 0.1), GATE_Y, GON_TOP + BEAM)
 BOMB_RACK_Y = GON_ENGINE_FRONT + 0.16
 
 # Where everyone stands: the pilot at the wheel, then two, two and three across.
-PLACES = [(0.0, 1.3), (-0.45, 0.75), (0.45, 0.75), (-0.45, 0.2), (0.45, 0.2), (-0.55, -0.4), (0.0, -0.4),
-          (0.55, -0.4)]
+PLACES = [(0.0, 1.02), (-0.45, 0.52), (0.45, 0.52), (-0.45, 0.02), (0.45, 0.02), (-0.55, -0.46), (0.0, -0.46),
+          (0.55, -0.46)]
 
 EMBLEM_HEIGHT = 5.4         # Vulgaria's arms on the envelope's flank
 EMBLEM_Y = -1.6
@@ -174,7 +174,7 @@ def envelope_texture():
     return rgba[::-1]   # top row first, as cm.image takes it
 
 
-GON_PANEL = (2048, 660)     # the carved side from the engine section to the bow: 3.1 blocks along by 1.0 high
+GON_PANEL = (2048, 1024)    # the carved side from the engine section to the bow: 2.6 blocks along by 1.3 high
 
 
 def gondola_carving():
