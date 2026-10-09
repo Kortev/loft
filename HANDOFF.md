@@ -55,6 +55,27 @@ wants **renders for approval before baking** anything.
 - References:
   - kortev's Notion page **"claude chitty chitty mod"**, which has a Lebaudy airship photo and two other images.
   - Film stills: research the Baron's airship yourself.
+- **Decided with kortev so far:**
+  - Full scale.
+  - The gondola is standing room only; there are no benches.
+  - Two pusher propellers at the gondola's stern, each driven by a shaft, pulley and belt as in the film. There is
+    no other fan.
+  - The emblem and the colours follow the film. The arms must be crisp heraldry, not cartoony.
+  - She lifts six people. In the film she starts losing height with six aboard and Grandpa's hut on the hook.
+  - The hook is a **grapple hook**. It is mainly a utility for carrying things. A hooked player gets off only by
+    some rule such as a timer.
+  - Bombs break blocks. The cost and reload are ours to choose.
+  - The ladder is a rope ladder that lets down as far as the hook.
+- **Proposed, awaiting kortev's answer:**
+  - Eight places to stand, with lift for six; overloaded, she sinks slowly. A key throws the heaviest passenger
+    overboard.
+  - A hooked player struggles free by holding sneak for 10 s.
+  - Bombs: iron, 2 gunpowder and string make 2. She carries a rack of 6, with about 1.5 s between drops.
+- **The model** (renders sent; awaiting kortev's OK before any baking):
+  - `tools/airship_model.py` builds it in Blender.
+  - `tools/vulgaria_arms.py` draws the arms.
+  - `tools/airship_carving.py` draws the gondola's gilt carving and its relief.
+  - There is no `--game` export yet.
 
 ### 2. The Child Catcher's carriage
 

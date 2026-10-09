@@ -36,7 +36,7 @@ import bpy  # must come first: it provides bmesh and mathutils
 import bmesh
 import numpy as np
 from mathutils import Matrix, Vector
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import chitty_model as cm  # noqa: E402  (materials, meshes, lofts, tubes and the render scene)
@@ -106,150 +106,16 @@ SHIELD_GOLD = (222, 170, 40)
 
 # --- painted textures ----------------------------------------------------------------------------------
 
-def spline(points, per=10, closed=True):
-    """A smooth curve through 2D points (Catmull-Rom)."""
-    P = list(points)
-    n = len(P)
-    out = []
-    for i in (range(n) if closed else range(n - 1)):
-        p0 = P[(i - 1) % n] if closed else P[max(i - 1, 0)]
-        p1 = P[i]
-        p2 = P[(i + 1) % n] if closed else P[min(i + 1, n - 1)]
-        p3 = P[(i + 2) % n] if closed else P[min(i + 2, n - 1)]
-        for k in range(per):
-            t = k / per
-            out.append(tuple(0.5 * ((2 * p1[j]) + (-p0[j] + p2[j]) * t + (2 * p0[j] - 5 * p1[j] + 4 * p2[j] - p3[j]) * t * t
-                                    + (-p0[j] + 3 * p1[j] - 3 * p2[j] + p3[j]) * t * t * t) for j in (0, 1)))
-    if not closed:
-        out.append(P[-1])
-    return out
+_EMBLEM = {}
 
 
-def stroke(d, path, w0, w1, fill):
-    """A line along a path, its width going from w0 to w1, with round joints."""
-    for i in range(len(path) - 1):
-        w = w0 + (w1 - w0) * i / max(len(path) - 2, 1)
-        d.line([path[i], path[i + 1]], fill=fill, width=max(1, int(round(w))))
-        r = w / 2
-        x, y = path[i]
-        d.ellipse([x - r, y - r, x + r, y + r], fill=fill)
-
-
-# The arms' colours, as the frame shows them.
-ARMS_BLACK = (22, 20, 24, 255)
-ARMS_WING = (70, 68, 72, 255)
-ARMS_FEATHER = (112, 110, 114, 255)
-ARMS_GOLD = (206, 160, 38, 255)
-ARMS_GOLD_LIGHT = (220, 178, 58, 255)
-ARMS_SABLE = (58, 54, 46, 255)
-ARMS_WHITE = (236, 232, 218, 255)
-
-
-def emblem(scale=2, box=(96, 186, 676, 1014)):
-    """Vulgaria's arms as the airship wears them, redrawn from a frame of the film: a black griffin rearing up behind a
-    gold and black quartered shield, facing left. Its eagle's head is turned left with its beak open and a crest swept
-    back; one foreleg is raised high with its talons spread, the other reaches over the shield's top to hook its corner;
-    its great dark grey wing spreads up to the right, its two longest feathers furthest; a lion's hind leg stands below
-    and its tail curls up to a tuft on the right. The shapes are placed on the frame's own grid (the crop enlarged
-    twelve times), and drawn at `scale` times that. RGBA."""
-    x0, y0, x1, y1 = box
-    BLACK, WING, FEATHER, SABLE = ARMS_BLACK, ARMS_WING, ARMS_FEATHER, ARMS_SABLE
-    GOLD, GOLD_LIGHT, WHITE = ARMS_GOLD, ARMS_GOLD_LIGHT, ARMS_WHITE
-    W, H = (x1 - x0) * scale, (y1 - y0) * scale
-    img = Image.new('RGBA', (W, H), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
-
-    def P(pts):
-        return [((x - x0) * scale, (y - y0) * scale) for x, y in pts]
-
-    def poly(pts, fill, smooth=True, outline=None, width=0):
-        pts = spline(pts) if smooth else pts
-        d.polygon(P(pts), fill=fill)
-        if outline:
-            d.line(P(pts + [pts[0]]), fill=outline, width=width * scale, joint='curve')
-
-    def line(pts, fill, w):
-        d.line(P(pts), fill=fill, width=int(w * scale), joint='curve')
-
-    # The wing, spread up to the right behind the body: a great dark grey fan from the neck down to the haunch, its
-    # two longest feathers reaching furthest, the feathers parted by black and paler at their tips.
-    wing = [(372, 400), (396, 352), (430, 330), (476, 318), (520, 308), (556, 298), (586, 292), (598, 312), (612, 318),
-            (640, 300), (664, 288), (662, 318), (648, 356), (632, 396), (610, 444), (580, 500), (548, 540), (514, 572),
-            (488, 604), (470, 560), (440, 500), (404, 444)]
-    poly(wing, WING, outline=BLACK, width=3)
-    root = (420, 470)
-    for tip in ((586, 292), (664, 288), (648, 356), (624, 420), (590, 486), (548, 540)):
-        line([((root[0] * 3 + tip[0]) / 4, (root[1] * 3 + tip[1]) / 4), ((root[0] + tip[0] * 7) / 8, (root[1] + tip[1] * 7) / 8)],
-             BLACK, 4)
-    for tip in ((600, 300), (656, 300), (640, 380), (606, 452), (570, 512)):
-        line([((root[0] + tip[0] * 2) / 3, (root[1] + tip[1] * 2) / 3), ((root[0] + tip[0] * 9) / 10, (root[1] + tip[1] * 9) / 10)],
-             FEATHER, 6)
-    line([(410, 352), (470, 330), (540, 312)], FEATHER, 4)
-    # The tail: out of the haunch, round to the right and up to a tuft.
-    tail = spline([(490, 800), (536, 814), (568, 798), (580, 756), (578, 712), (580, 676)], 10, False)
-    for i in range(len(tail) - 1):
-        w = 20 - 8 * i / len(tail)
-        line([tail[i], tail[i + 1]], BLACK, w)
-    poly([(566, 690), (550, 642), (558, 598), (586, 566), (596, 588), (604, 612), (600, 648), (592, 686)], BLACK)
-    poly([(586, 566), (574, 540), (596, 556)], BLACK, smooth=False)
-    # The hind leg, standing: haunch, hock, and the paw turned forward.
-    leg = [(470, 640), (486, 700), (494, 760), (502, 820), (516, 868), (522, 918), (518, 958), (496, 990), (462, 999),
-           (424, 988), (410, 962), (420, 940), (450, 934), (456, 912), (436, 888), (424, 846), (422, 800), (430, 760),
-           (424, 736), (406, 740), (404, 700), (430, 664)]
-    poly(leg, BLACK)
-    for cx in (414, 430, 446):
-        poly([(cx, 960), (cx - 16, 966), (cx - 2, 976)], BLACK, smooth=False)
-    # The body, rearing: from the neck and the raised foreleg down behind the shield to the haunch, the wing on its back.
-    body = [(250, 404), (300, 380), (340, 374), (372, 394), (402, 442), (440, 500), (476, 556), (498, 612), (492, 660),
-            (470, 700), (440, 730), (400, 742), (392, 592), (240, 588), (238, 562), (214, 532), (192, 506), (184, 472),
-            (184, 432), (196, 404), (232, 402)]
-    poly(body, BLACK)
-    # The gap under the head, between the neck and the wing's root, where the envelope shows through.
-    hole = spline([(338, 404), (356, 392), (384, 396), (400, 418), (394, 444), (370, 454), (346, 446), (334, 426)])
-    d.polygon(P(hole), fill=(0, 0, 0, 0))
-    # The raised foreleg, an eagle's, straight up the left side, its talons spread at the top.
-    poly([(186, 472), (180, 420), (188, 370), (198, 312), (204, 266), (212, 240), (230, 228), (244, 238), (228, 258),
-          (218, 292), (214, 332), (220, 370), (240, 398), (252, 406)], BLACK)
-    for a, ln in ((-150, 34), (-110, 36), (-70, 32), (150, 22)):
-        r = math.radians(a)
-        base = (224, 236)
-        tip = (base[0] + math.cos(r) * ln, base[1] + math.sin(r) * ln)
-        n = (-math.sin(r) * 6, math.cos(r) * 6)
-        hook = (tip[0] + math.cos(r + 1.4) * 8, tip[1] + math.sin(r + 1.4) * 8)
-        poly([(base[0] + n[0], base[1] + n[1]), (base[0] - n[0], base[1] - n[1]), tip, hook], BLACK, smooth=False)
-    # The neck and the eagle's head, turned left: tall and square-browed, a long beak a little open and hooked at its
-    # end, one crest of feathers swept back and up behind.
-    poly([(342, 384), (360, 350), (372, 318), (376, 286), (380, 254), (396, 232), (424, 226), (448, 236), (460, 262),
-          (458, 300), (448, 330), (430, 350), (408, 372), (396, 390)], BLACK)
-    poly([(382, 276), (356, 276), (330, 280), (310, 288), (300, 302), (302, 316), (312, 306), (330, 298), (352, 296),
-          (380, 298)], BLACK, smooth=False)
-    poly([(378, 306), (350, 308), (328, 314), (342, 320), (366, 318), (382, 316)], BLACK, smooth=False)
-    poly([(430, 232), (448, 212), (470, 196), (464, 222), (456, 246)], BLACK, smooth=False)
-    d.ellipse(P([(398, 262)]) + P([(408, 272)]), fill=(150, 146, 140, 255))
-    # The shield, quartered gold and black, edged black, its point a little right of its middle.
-    shield = [(118, 588), (388, 588), (388, 700), (386, 790), (378, 868), (364, 930), (334, 970), (286, 992),
-              (238, 966), (190, 926), (150, 868), (126, 790), (118, 690)]
-    split_x, split_y = 252, 738
-    shield_px = P(spline(shield[2:] + [shield[0], shield[1]], 6, True))
-    mask = Image.new('L', (W, H), 0)
-    ImageDraw.Draw(mask).polygon(shield_px, fill=255)
-    quarters = Image.new('RGBA', (W, H), (0, 0, 0, 0))
-    q = ImageDraw.Draw(quarters)
-    sx, sy = (split_x - x0) * scale, (split_y - y0) * scale
-    q.rectangle([0, 0, sx, sy], fill=GOLD)
-    q.rectangle([sx, 0, W, sy], fill=SABLE)
-    q.rectangle([0, sy, sx, H], fill=SABLE)
-    q.rectangle([sx, sy, W, H], fill=GOLD)
-    q.polygon(P([(130, 600), (240, 600), (240, 640), (140, 700)]), fill=GOLD_LIGHT)
-    img.paste(quarters, (0, 0), mask)
-    d = ImageDraw.Draw(img)
-    d.line(shield_px + [shield_px[0]], fill=BLACK, width=5 * scale, joint='curve')
-    # The other foreleg over the shield's top, its talons hooked over the top left corner.
-    poly([(252, 548), (210, 560), (172, 566), (140, 566), (122, 574), (122, 590), (144, 594), (182, 592), (244, 594)],
-         BLACK)
-    for dx in (0, 12, 24):
-        poly([(118 + dx, 584), (112 + dx, 604), (124 + dx, 598)], BLACK, smooth=False)
-    return img
+def emblem(height=1680):
+    """Vulgaria's arms as the airship wears them, drawn by vulgaria_arms.py from a frame of the film: a black griffin
+    rearing up behind a shield quartered gold and black, facing left. RGBA, clear round it."""
+    if height not in _EMBLEM:
+        import vulgaria_arms
+        _EMBLEM[height] = vulgaria_arms.render(height)
+    return _EMBLEM[height]
 
 
 ENV_TEX = (3072, 2048)      # pixels along the envelope (v) and round it (u)
@@ -301,160 +167,22 @@ def envelope_texture():
     return rgba[::-1]   # top row first, as cm.image takes it
 
 
-def curl(cx, cy, r0, turns, sign, a0):
-    """A log spiral winding inward from radius r0 about (cx, cy)."""
-    pts = []
-    n = int(40 * turns)
-    for i in range(n + 1):
-        t = i / n
-        a = a0 + sign * t * turns * 2 * math.pi
-        r = r0 * math.exp(-2.2 * t)
-        pts.append((cx + math.cos(a) * r, cy + math.sin(a) * r))
-    return pts
-
-
-def bezier(p0, p1, p2, p3, n=30):
-    out = []
-    for i in range(n + 1):
-        t = i / n
-        a, b, c, e = (1 - t) ** 3, 3 * (1 - t) ** 2 * t, 3 * (1 - t) * t * t, t ** 3
-        out.append((a * p0[0] + b * p1[0] + c * p2[0] + e * p3[0], a * p0[1] + b * p1[1] + c * p2[1] + e * p3[1]))
-    return out
-
-
-def gilt(d, path, w0, w1):
-    """A gilded moulding: a dark shadow under a gold stroke with a light edge, so it reads as carved."""
-    stroke(d, [(x + 2, y + 3) for x, y in path], w0 + 1, w1 + 1, (70, 44, 14))
-    stroke(d, path, w0, w1, GOLD)
-    stroke(d, [(x - 1, y - 1) for x, y in path], max(1, w0 * 0.35), max(1, w1 * 0.35), (252, 226, 150))
-
-
-def scroll(d, a, b, up, size):
-    """A C-scroll from a to b: a sweep that curls in at both ends, on the side `up` (-1 above, 1 below)."""
-    (ax, ay), (bx, by) = a, b
-    bulge = up * size * 0.9
-    gilt(d, bezier(a, (ax + (bx - ax) * 0.25, ay + bulge), (ax + (bx - ax) * 0.75, by + bulge), b, 40), 8, 8)
-    sgn = 1 if bx > ax else -1
-    gilt(d, curl(ax - sgn * size * 0.05, ay - up * size * 0.32, size * 0.32, 1.1, -sgn * up, math.pi / 2 * up), 7, 2)
-    gilt(d, curl(bx + sgn * size * 0.05, by - up * size * 0.32, size * 0.32, 1.1, sgn * up, math.pi / 2 * up), 7, 2)
-
-
-def leaf(d, base, angle, length, width):
-    """An acanthus leaf: a pointed blade with a rib."""
-    ca, sa = math.cos(angle), math.sin(angle)
-    pts = []
-    for i in list(range(13)) + list(range(12, -1, -1)):
-        t = i / 12
-        w = width * math.sin(math.pi * t) * (1 - 0.3 * t) * (1 if len(pts) < 13 else -1)
-        pts.append((base[0] + ca * length * t - sa * w, base[1] + sa * length * t + ca * w))
-    d.polygon([(x + 2, y + 3) for x, y in pts], fill=(70, 44, 14))
-    d.polygon(pts, fill=GOLD)
-    d.line([base, (base[0] + ca * length * 0.9, base[1] + sa * length * 0.9)], fill=(150, 108, 40), width=2)
-
-
-def flower(d, c, r):
-    """A gilded rose: petals round a boss."""
-    for k in range(7):
-        a = 2 * math.pi * k / 7
-        leaf(d, c, a, r, r * 0.45)
-    d.ellipse([c[0] - r * 0.35, c[1] - r * 0.35, c[0] + r * 0.35, c[1] + r * 0.35], fill=(250, 222, 140))
-
-
 GON_PANEL = (2048, 660)     # the carved side from the engine section to the bow: 3.1 blocks along by 1.0 high
 
 
-def palmette(d, c, r, up=-1):
-    """A fan shell: leaves spread from a point, opening upward (up=-1) or downward."""
-    for k in range(9):
-        a = math.radians(-160 + 140 * k / 8) if up < 0 else math.radians(20 + 140 * k / 8)
-        leaf(d, c, a, r, r * 0.22)
-    d.ellipse([c[0] - r * 0.18, c[1] - r * 0.18, c[0] + r * 0.18, c[1] + r * 0.18], fill=(250, 222, 140))
-
-
-def gondola_panel(bow_right):
-    """One of the gondola's carved sides as the film has it: black lacquer under bold gilt rococo carving. Mouldings top
-    and bottom; heavy festoons of leaves hung along the top; at the bow the Baron's B in an oval frame with a great
-    rose beside it; in the middle a cartouche framed in C-scrolls and acanthus round a bouquet; and along the bottom a
-    band of heavy scrolls curling back to back with fan shells between. The bow is on the right if bow_right, for her
-    right side; her left side is the same carving the other way round, its B still reading forwards."""
-    W, H = GON_PANEL
-    img = Image.new('RGB', (W, H), (14, 13, 16))
-    d = ImageDraw.Draw(img)
-    for y in range(H):
-        k = int(10 * math.exp(-((y - H * 0.3) / (H * 0.2)) ** 2))
-        d.line([(0, y), (W, y)], fill=(14 + k, 13 + k, 17 + k))
-    for y, w in ((H * 0.035, 10), (H * 0.085, 5), (H * 0.96, 9)):
-        gilt(d, [(0, y), (W, y)], w, w)
-    # Heavy festoons along the top, hung between rosettes.
-    step = W / 7
-    for i in range(8):
-        x = i * step
-        if i < 7:
-            for k in range(16):
-                t = (k + 0.5) / 16
-                leaf(d, (x + step * t - 12, H * 0.15 + math.sin(math.pi * t) * H * 0.16), math.radians(-25 + 50 * t),
-                     34, 11)
-        flower(d, (x, H * 0.15), 26)
-    # The band of scrolls along the bottom: pairs curling back to back, a fan shell between each pair.
-    unit = W / 5
-    for i in range(5):
-        cx = unit * (i + 0.5)
-        for sgn in (-1, 1):
-            scroll(d, (cx + sgn * 28, H * 0.86), (cx + sgn * unit * 0.46, H * 0.74), -1, 70)
-            for k in range(4):
-                leaf(d, (cx + sgn * (40 + 26 * k), H * 0.86), math.radians(-90 + sgn * (50 + 10 * k)), 34, 9)
-        palmette(d, (cx, H * 0.9), 60)
-    # The cartouche in the middle: four C-scrolls framing a bouquet, acanthus at the corners.
-    cx, cy = W * 0.44, H * 0.5
-    fw, fh = 300, 150
-    for sx in (-1, 1):
-        scroll(d, (cx + sx * 40, cy - fh), (cx + sx * fw, cy - fh * 0.2), 1, 120)
-        scroll(d, (cx + sx * fw, cy + fh * 0.2), (cx + sx * 40, cy + fh), -1, 120)
-        for k in range(6):
-            leaf(d, (cx + sx * fw, cy), math.radians(90 - sx * 90 + sx * (-60 + 24 * k)), 56, 13)
-    gilt(d, [(cx - 40, cy - fh), (cx + 40, cy - fh)], 9, 9)
-    gilt(d, [(cx - 40, cy + fh), (cx + 40, cy + fh)], 9, 9)
-    palmette(d, (cx, cy - fh - 6), 54, up=-1)
-    for k in range(11):
-        leaf(d, (cx, cy + 40), math.radians(-170 + 160 * k / 10), 70, 14)
-    for fx, fy, fr in ((-40, -10, 26), (36, 0, 24), (0, 30, 30), (-70, 30, 20), (70, 34, 20)):
-        flower(d, (cx + fx, cy + fy), fr)
-    # Sprays of acanthus either side, between the cartouche and the ends.
-    for sx, x0 in ((-1, cx - fw - 40), (1, cx + fw + 40)):
-        for k in range(7):
-            leaf(d, (x0, cy + 20), math.radians(90 + sx * (-90 + 20 * k) - 90), 60 - 4 * k, 12)
-        gilt(d, curl(x0 + sx * 60, cy - 40, 50, 1.2, sx, math.pi), 8, 3)
-    # The B's frame at the bow end (drawn here on the right; mirrored below for her left side), a great rose by it.
-    bx, by = W * 0.8, H * 0.46
-    for k in range(18):
-        a = 2 * math.pi * k / 18
-        leaf(d, (bx + math.cos(a) * 104, by + math.sin(a) * 140), a, 38, 11)
-    gilt(d, [(bx + math.cos(a) * 100, by + math.sin(a) * 136) for a in np.linspace(0, 2 * math.pi, 72)], 13, 13)
-    d.ellipse([bx - 88, by - 124, bx + 88, by + 124], fill=(24, 18, 30))
-    flower(d, (bx - 190, by + 30), 52)
-    for k in range(6):
-        leaf(d, (bx - 190, by + 30), math.radians(150 + 22 * k), 90, 18)
-    if not bow_right:
-        img = img.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
-        bx = W - bx
-        d = ImageDraw.Draw(img)
-    try:
-        font = ImageFont.truetype('DejaVuSerif-Bold.ttf', 170)
-    except OSError:
-        font = ImageFont.load_default(size=170)
-    d.text((bx + 4, by + 7), 'B', font=font, fill=(70, 44, 14), anchor='mm')
-    d.text((bx, by), 'B', font=font, fill=GOLD, anchor='mm')
-    return img
+def gondola_carving():
+    """Both carved sides, drawn by airship_carving.py, in one image: her right side on top, her left below, its B
+    still reading forwards. (rgba, relief height, gilt mask)."""
+    import airship_carving as ac
+    assert ac.PANEL == GON_PANEL
+    right, left = ac.side(True), ac.side(False)
+    rgb = np.concatenate([right[0], left[0]], axis=0)
+    rgba = np.concatenate([rgb, np.ones(rgb.shape[:2] + (1,), np.float32)], axis=2)
+    return rgba, np.concatenate([right[1], left[1]], axis=0), np.concatenate([right[2], left[2]], axis=0)
 
 
 def gondola_art():
-    """Both carved sides in one image: her right side on top, her left below."""
-    W, H = GON_PANEL
-    img = Image.new('RGB', (W, 2 * H))
-    img.paste(gondola_panel(True), (0, 0))
-    img.paste(gondola_panel(False), (0, H))
-    a = np.asarray(img, np.float32) / 255
-    return np.concatenate([a, np.ones(a.shape[:2] + (1,), np.float32)], axis=2)
+    return gondola_carving()[0]
 
 
 def engine_texture(size=512):
@@ -527,6 +255,29 @@ def write_textures(out):
 
 # --- materials -------------------------------------------------------------------------------------------
 
+def gild(mat, height, gilt):
+    """Make a carved material's gilding real: metallic where the gilt lies, raised by the carving's relief."""
+    nt = mat.node_tree
+    b = nt.nodes['Principled BSDF']
+
+    def data(name, a):
+        img = cm.image(name, np.concatenate([np.repeat(a[..., None], 3, axis=2), np.ones(a.shape + (1,))], axis=2))
+        img.colorspace_settings.name = 'Non-Color'
+        node = nt.nodes.new('ShaderNodeTexImage')
+        node.image = img
+        return node
+    metal = nt.nodes.new('ShaderNodeMath')
+    metal.operation = 'MULTIPLY'
+    metal.inputs[1].default_value = 0.85
+    nt.links.new(data(mat.name + '_gilt', gilt).outputs['Color'], metal.inputs[0])
+    nt.links.new(metal.outputs['Value'], b.inputs['Metallic'])
+    bump = nt.nodes.new('ShaderNodeBump')
+    bump.inputs['Strength'].default_value = 1.0
+    bump.inputs['Distance'].default_value = 0.006
+    nt.links.new(data(mat.name + '_relief', height).outputs['Color'], bump.inputs['Height'])
+    nt.links.new(bump.outputs['Normal'], b.inputs['Normal'])
+
+
 def make_materials():
     m = cm.material
     m('envelope', WHITE, rough=0.85, spec=0.15, image=cm.image('envelope', envelope_texture()))
@@ -540,7 +291,8 @@ def make_materials():
     m('belt', (30, 24, 20), rough=0.7)
     m('cable', (44, 40, 36), rough=0.7)
     m('rope', (206, 192, 156), rough=0.95, spec=0.1)
-    m('gondola_side', (14, 13, 16), rough=0.3, coat=0.4, image=cm.image('gondola_side', gondola_art()))
+    carved, height, gilt = gondola_carving()
+    gild(m('gondola_side', (14, 13, 16), rough=0.3, coat=0.4, image=cm.image('gondola_side', carved)), height, gilt)
     m('engine', (128, 128, 124), metal=0.6, rough=0.45, image=cm.image('engine', engine_texture()))
     m('lacquer', (14, 13, 16), rough=0.3, coat=0.4)
     m('beam', (18, 17, 18), rough=0.45, coat=0.2)
@@ -843,6 +595,70 @@ def build_gondola():
     m.obj('gondola_fittings', smooth=40)
 
 
+def pipe(m, path, radius, mat, seg=12, flare=None, closed=False):
+    """A round pipe along a path like cm.tube, but with its rings carried along the path without twisting, so it
+    stays smooth however the path turns (cm.tube's rings flip where the path passes upright); closed joins its ends
+    round into a ring."""
+    pts = [Vector(p) for p in path]
+    n = len(pts)
+
+    def tangent(i):
+        if closed:
+            return (pts[(i + 1) % n] - pts[(i - 1) % n]).normalized()
+        return (pts[min(i + 1, n - 1)] - pts[max(i - 1, 0)]).normalized()
+    t = tangent(0)
+    ref = Vector((0, 0, 1)) if abs(t.z) < 0.9 else Vector((1, 0, 0))
+    a = t.cross(ref).normalized()
+    rings = []
+    for i, p in enumerate(pts):
+        t = tangent(i)
+        a = (a - t * a.dot(t)).normalized()
+        b = t.cross(a)
+        r = radius * (flare(i / (n - 1)) if flare else 1.0)
+        rings.append([m.vert(p + (a * math.cos(2 * math.pi * k / seg) + b * math.sin(2 * math.pi * k / seg)) * r)
+                      for k in range(seg)])
+    if closed:
+        # Line the last ring up with the first, so they join without a twist.
+        first, last = rings[0], rings[-1]
+        shift = min(range(seg), key=lambda k: (last[k].co - first[0].co).length)
+        rings.append(first[-shift:] + first[:-shift] if shift else first)
+    for i in range(len(rings) - 1):
+        for k in range(seg):
+            j = (k + 1) % seg
+            m.face([rings[i][k], rings[i][j], rings[i + 1][j], rings[i + 1][k]], mat)
+    if not closed:
+        m.face(list(reversed(rings[0])), mat)
+        m.face(rings[-1], mat)
+
+
+def rope(m, path, radius, mat, lay=5.5):
+    """A three-strand rope along a path: three strands twisted round each other, a full turn every `lay` times the
+    rope's thickness."""
+    pts = [Vector(p) for p in path]
+    # Resample finely enough for the twist, by length.
+    dense = [pts[0]]
+    for a, b in zip(pts, pts[1:]):
+        n = max(1, int((b - a).length / (radius * 0.9)))
+        dense += [a.lerp(b, (i + 1) / n) for i in range(n)]
+    # Frames carried along the path without twisting of their own.
+    t0 = (dense[1] - dense[0]).normalized()
+    ref = Vector((0, 0, 1)) if abs(t0.z) < 0.9 else Vector((1, 0, 0))
+    u = t0.cross(ref).normalized()
+    frames, s = [], 0.0
+    for i, p in enumerate(dense):
+        t = (dense[min(i + 1, len(dense) - 1)] - dense[max(i - 1, 0)]).normalized()
+        u = (u - t * u.dot(t)).normalized()
+        if i:
+            s += (p - dense[i - 1]).length
+        frames.append((p, u, t.cross(u), s))
+    for k in range(3):
+        strand = []
+        for p, a, b, s in frames:
+            th = 2 * math.pi * (s / (lay * radius * 2) + k / 3)
+            strand.append(p + (a * math.cos(th) + b * math.sin(th)) * radius * 0.46)
+        pipe(m, strand, radius * 0.6, mat, seg=6)
+
+
 def build_coil():
     """The coil of rope hung over her left side at the bow, as the film has it: a long hank of cream rope draped over
     the rail, its loops hanging down the carved side in U's, overlapping and splayed a little along her. It is the
@@ -859,7 +675,7 @@ def build_coil():
             loop.append(Vector((x, cy + half * math.cos(t), -drop * math.sin(t) ** 0.8)))
         # Over the top of the beam and back.
         loop = [Vector((x - ROPE_SIDE * 0.12, cy + half, 0.06))] + loop + [Vector((x - ROPE_SIDE * 0.12, cy - half, 0.06))]
-        cm.tube(m, cm.catmull(loop, per=3), 0.038, 'rope', seg=8)
+        rope(m, cm.catmull(loop, per=3), 0.038, 'rope')
     m.obj('coil', location=(ROPE_SIDE * GON_HALF_WIDTH, COIL_Y, GON_TOP + BEAM), part='coil', smooth=40)
 
 
@@ -982,19 +798,27 @@ def build_bombs():
 
 
 def build_hook():
-    """The grabbing hook: an iron pulley block with a brass sheave, and under it a great forged hook with a safety
-    latch. Its origin is the top of the block, where the rope ties on."""
+    """The grapple: a forged iron grappling hook, a ring at the top where the rope ties on, a long shank, and at its
+    foot a crown of four tines that curve out and up to barbed points. Its origin is the top of the ring."""
     m = cm.Mesh()
-    cm.add_box(m, (0, 0, -0.22), (0.1, 0.34, 0.4), 'iron')
-    for side in (-1, 1):
-        cm.add_box(m, (side * 0.08, 0, -0.22), (0.03, 0.4, 0.46), 'iron')
-    cm.lathe(m, [(0.0, -0.05), (0.15, -0.05), (0.15, 0.05), (0.0, 0.05)], lambda k: 'brass', axis='x', seg=16,
-             origin=(0, 0, -0.18))
-    cm.tube(m, [Vector((0, 0, 0.02)), Vector((0, 0, -0.06))], 0.05, 'iron', seg=8)
-    path = [Vector((0, 0, -0.42)), Vector((0, 0, -0.7)), Vector((0, 0.04, -0.95)), Vector((0, 0.22, -1.08)),
-            Vector((0, 0.38, -0.98)), Vector((0, 0.42, -0.8)), Vector((0, 0.36, -0.68))]
-    cm.tube(m, cm.catmull(path, per=6), 0.075, 'iron', seg=10, flare=lambda t: 1.15 - 0.85 * t * t)
-    cm.tube(m, [Vector((0, 0.02, -0.6)), Vector((0, 0.34, -0.68))], 0.015, 'iron', seg=5)
+    ring = [Vector((0, math.sin(2 * math.pi * k / 48) * 0.11, -0.13 + math.cos(2 * math.pi * k / 48) * 0.11))
+            for k in range(48)]
+    pipe(m, ring, 0.032, 'iron', seg=10, closed=True)
+    cm.lathe(m, [(0.0, -0.22), (0.05, -0.24), (0.05, -0.3), (0.045, -0.32), (0.055, -0.9), (0.075, -1.02),
+                 (0.09, -1.08), (0.07, -1.16), (0.0, -1.18)], lambda k: 'iron', axis='z', seg=12)
+    for k in range(4):
+        a = math.pi / 4 + k * math.pi / 2
+        c, s = math.cos(a), math.sin(a)
+
+        def at(r, z):
+            return Vector((c * r, s * r, z))
+
+        tine = [at(0.04, -1.1), at(0.22, -1.17), at(0.42, -1.12), at(0.56, -0.97), at(0.61, -0.78), at(0.57, -0.6),
+                at(0.49, -0.5)]
+        pipe(m, cm.catmull(tine, per=8), 0.055, 'iron', seg=12, flare=lambda t: 1.0 - 0.82 * t ** 1.6)
+        # The barb: a spur turned back down the inside of the tine, below its point.
+        pipe(m, [at(0.575, -0.66), at(0.5, -0.71), at(0.45, -0.78)], 0.022, 'iron', seg=6,
+             flare=lambda t: 1.0 - 0.8 * t)
     m.obj('hook', part='hook', smooth=40)
 
 
@@ -1122,6 +946,7 @@ SHOTS = [
     ('props', (-4.6, -6.4, 11.8), (-1.6, -2.4, 10.8), 30, 9.0, dict(spin=0.6)),
     ('deck', (3.6, -4.6, 12.0), (0, 0.3, 9.4), 26, 9.0, dict(spin=0.6)),
     ('hook_ladder', (24, 16, 8.0), (0, 0, 11.0), 30, 20.0, dict(spin=0.4, hook=17.0, ladder=17.0, bombs=4)),
+    ('grapple', (2.4, 3.1, 5.3), (0, 0.25, 5.5), 40, 9.0, dict(spin=0.3, hook=3.0)),
     ('landed', (14, 15, 2.6), (0, -1, 3.8), 28, 0.0, dict(spin=0.0)),
 ]
 
