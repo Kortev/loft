@@ -105,10 +105,15 @@ Baron Bomburst's airship from the film, built in Blender from its stills:
   item, a boat, a minecart, even Chitty. It winds that up to carry it three blocks under her keel. Press R again and it
   sets its load down on the ground and lets go; going down empty, R winds it back up. A caught player cannot simply
   step off: holding sneak, they struggle, and after ten seconds of it they wrench free and drop.
-- **Hooking from below:** while the grapple hangs empty, anyone on the ground can use it to take hold of it. It goes
-  where their hand goes, its rope paying out after them. Using it on someone (or something) within four blocks hooks
-  it on, and she winds them up. Sneak to let go. Pressing R aboard, or her pulling further away than her rope reaches,
-  pulls it out of their hands.
+- **From below:** while the grapple hangs empty, anyone on the ground can use it to take hold of it. It goes where
+  their hand goes, its rope paying out after them. Then:
+  - use it on someone (or something) within four blocks to hook it on, and she winds them up;
+  - press **R** to throw it the way you look: it flies out on its rope and takes hold of the first thing it hits;
+  - jump to hang on it: you swing under her as she flies (lean with the movement keys to swing it), and sneak to drop
+    off. R aboard winds you up to her keel, and you climb aboard;
+  - sneak to let go. Her pulling further away than her rope reaches pulls it out of your hands.
+- **The rope:** slack rope sags in a curve; the drum at the bow turns as it winds; the rope creaks under a load; and
+  the grapple rattles and strikes sparks when it is dragged along the ground.
 - **The rope ladder:** **K** (rebindable, anyone aboard) lets it down from the rail on her left as far as the ground
   (64 blocks at most), or draws it up. Anyone can climb it as a ladder against a wall: walk into it (or jump) to go up,
   sneak to hold on. Climbing off its top takes you aboard into a free place.

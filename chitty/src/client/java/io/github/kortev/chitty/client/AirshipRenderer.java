@@ -19,8 +19,9 @@ import org.joml.Quaternionf;
 /**
  * Draws the airship from her Blender mesh (tools/airship_model.py --game) and poses her parts: the two propellers and
  * their pulleys turn on their shafts, the rudder and the wheel with the pilot's steering and the elevator as she climbs
- * or sinks; the grapple hangs on its rope wherever it swings (or in the hand of whoever holds it), its rope drawn
- * straight to it and the grapple turned along it, the drum it winds onto growing thinner as the rope goes out; the rope
+ * or sinks; the grapple hangs on its rope wherever it swings (or in the hand of whoever holds it), its rope drawn to it
+ * (straight when taut, sagging when slack) and the grapple turned along it, the drum it winds onto turning and growing
+ * thinner as the rope goes out; the rope
  * ladder hangs a rung at a time as far as it is let down; and the rack holds as many bombs as are left in it. She banks
  * a little in turns and rocks when she is hit.
  *
@@ -34,6 +35,9 @@ public class AirshipRenderer extends EntityRenderer<AirshipEntity> {
 	private static final float RUDDER = 25.0F;
 	private static final float WHEEL = 120.0F;
 	private static final float ELEVATOR = 20.0F;
+	/** The grapple's drum, round which its rope winds (its radius), and how many pieces a slack rope is drawn in. */
+	private static final float DRUM_RADIUS = 0.15F;
+	private static final int ROPE_PIECES = 12;
 	/** The point she pitches and rolls about: the middle of her, between gondola and envelope. */
 	private static final float PIVOT_Y = 4.0F;
 	private static final float PIVOT_Z = -2.0F;
@@ -95,7 +99,8 @@ public class AirshipRenderer extends EntityRenderer<AirshipEntity> {
 			if (name.startsWith("bomb_") && name.charAt(name.length() - 1) - '0' >= bombs) {
 				continue;
 			}
-			if (name.equals("rope") && rope < 0.05F) {
+			if (name.equals("rope")) {
+				drawRope(part, hookAt, rope, drop, matrices, out, light, overlay);
 				continue;
 			}
 			if (name.equals("ladder")) {
@@ -120,23 +125,51 @@ public class AirshipRenderer extends EntityRenderer<AirshipEntity> {
 				case "elevator" -> matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(-ELEVATOR * ship.getClimb(tickDelta)));
 				case "helm" -> matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(WHEEL * steer));
 				case "coil" -> {
-					// The grapple's rope winds off the drum as the grapple goes down.
+					// The grapple's rope winds off the drum as the grapple goes down, turning it.
 					float k = 1.0F - 0.4F * Math.min(drop, (float) AirshipEntity.LINE_MAX) / (float) AirshipEntity.LINE_MAX;
+					matrices.multiply(RotationAxis.POSITIVE_Z.rotation(drop / DRUM_RADIUS));
 					matrices.scale(k, k, 1.0F);
 				}
 				case "hook" -> {
 					matrices.translate(hookAt.x, hookAt.y, hookAt.z);
 					matrices.multiply(along);
 				}
-				case "rope" -> {
-					matrices.multiply(along);
-					matrices.scale(1.0F, rope, 1.0F);
-				}
 				default -> {
 				}
 			}
 			part.draw(matrices.peek(), out, light, overlay, null);
 			matrices.pop();
+		}
+	}
+
+	/**
+	 * The grapple's rope, from where it comes out under her keel to the grapple's ring: straight when it is taut, and
+	 * with slack in it (more paid out than the distance between) sagging in a curve, drawn in pieces of the one-block
+	 * rope part.
+	 */
+	private static void drawRope(ChittyMesh.Part part, Vec3d hookAt, float distance, float paidOut, MatrixStack matrices,
+			VertexConsumer out, int light, int overlay) {
+		if (distance < 0.05F) {
+			return;
+		}
+		float sag = Math.min((float) Math.sqrt(Math.max(0.0F, paidOut * paidOut - distance * distance)) * 0.5F, 12.0F);
+		int pieces = sag > 0.05F ? ROPE_PIECES : 1;
+		Vec3d from = Vec3d.ZERO;
+		for (int i = 1; i <= pieces; i++) {
+			float t = (float) i / pieces;
+			Vec3d to = hookAt.multiply(t).add(0.0, -4.0F * sag * t * (1.0F - t), 0.0);
+			Vec3d piece = to.subtract(from);
+			float length = (float) piece.length();
+			if (length > 1.0E-4F) {
+				matrices.push();
+				matrices.translate(part.pivot.x + from.x, part.pivot.y + from.y, part.pivot.z + from.z);
+				matrices.multiply(new Quaternionf().rotationTo(0.0F, -1.0F, 0.0F, (float) piece.x / length, (float) piece.y / length,
+						(float) piece.z / length));
+				matrices.scale(1.0F, length, 1.0F);
+				part.draw(matrices.peek(), out, light, overlay, null);
+				matrices.pop();
+			}
+			from = to;
 		}
 	}
 }

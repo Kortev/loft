@@ -213,6 +213,8 @@ public final class AirshipClient {
 		while (GRAPPLE.wasPressed()) {
 			if (ship != null) {
 				act(AirshipEntity.ACTION_GRAPPLE);
+			} else if (player != null && AirshipEntity.grappleHeldBy(player) != null) {
+				act(AirshipEntity.ACTION_THROW);
 			}
 		}
 		while (LADDER.wasPressed()) {

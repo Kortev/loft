@@ -51,7 +51,9 @@ namespace.
 - **Lift:** `LIFT` 6: with more aboard (a load on the grapple counts one) she cannot climb and sinks.
 - **Grapple:** `LINE_OUT` (0, 0, 0.25); `HOOK_GRIP` 0.95 from its ring to its tines; `CARRY` 3.0 under her keel;
   `LINE_MAX` 64; the rope pays out at `HOOK_DOWN` 0.45 and in at `HOOK_UP` 0.2 a tick. States: `UP, LOWERING, DOWN,
-  LIFTING, HOLDING, SETTING, RAISING` (worked by one key, R) and `HELD` (in someone's hand on the ground).
+  LIFTING, HOLDING, SETTING, RAISING` (worked by one key, R), `HELD` (in someone's hand on the ground) and `HANGING`
+  (someone hangs on it by choice: the head is `voluntary`, so they drop off when they sneak). R on `HELD` or `HANGING`
+  winds them up to `HOOK_ABOARD` (0.6) and `comeAboard` puts them aboard.
   - It swings (`swingGrapple`, server): a Verlet point at its ring under `HOOK_GRAVITY` 0.05, keeping `HOOK_DAMPING`
     0.985 of its speed a tick (0.97 loaded), never further from `lineOut()` than the rope paid out (`hookDrop`). Its
     lowest point (tines, or a load's feet) is raycast against blocks: it rests on them and slides a little; a hard
@@ -59,8 +61,12 @@ namespace.
     the rope (`AirshipRenderer`).
   - Its head (`AirshipHookEntity`) is in the world while the grapple is out: loads ride it; hanging empty it can be
     used (`takeHoldOfGrapple`), and then follows `handOf` the holder (`HOOK_HELD`). Using it on something within
-    `HOOK_REACH` 4 hooks it on (`hookOnto`, from Fabric's `UseEntityCallback` in `Airship.init`); sneaking, R aboard or
-    going beyond the rope lets go.
+    `HOOK_REACH` 4 hooks it on (`hookOnto`, from Fabric's `UseEntityCallback` in `Airship.init`). Their grapple key
+    throws it (`ACTION_THROW`, `throwGrapple`: `THROW_SPEED` 1.0 the way they look, `THROW_SLACK` 16 more rope; it
+    will not take hold of the thrower for `THROW_GRACE` ticks, and catches along its path, `catchable`). Jumping with it
+    hangs on (`hangOn`; leaning pumps the swing, `HOOK_PUMP`). Sneaking or going beyond the rope lets go.
+  - Rope looks: `AirshipRenderer.drawRope` sags slack rope (paid out more than the distance) in a curve; the `coil`
+    drum turns by `drop / DRUM_RADIUS`; a loaded rope creaks; dragged along the ground it rattles and sparks.
 - **Ladder:** hangs from `LADDER_TOP` on her left rail; climbers hang on `LADDER_LINE`, 0.25 further out. It is
   stacked from one-rung parts (`LADDER_PITCH` 0.32) down to the ground (`LINE_MAX`, 64, at most).
 - **Rack:** `RACK` 6 bombs, `BOMB_COOLDOWN` 30 ticks; bombs fall through the floor at `RACK_Z`.

@@ -21,15 +21,18 @@ import org.jetbrains.annotations.Nullable;
 /**
  * The airship's grapple's head, out in the world at its tines whenever the grapple is let down (the grapple itself is
  * drawn with her). Whatever the grapple has seized rides it, so that it swings along with the grapple as smoothly as a
- * passenger does. A mob stays caught; a player cannot simply step off (PlayerEntity.shouldDismount): holding sneak,
- * they struggle, and after ten seconds of it they wrench free and drop. Hanging empty, someone on the ground can take
- * hold of it (AirshipEntity.takeHoldOfGrapple). Never saved: she winds her grapple up when she is unloaded.
+ * passenger does. A mob stays caught; a caught player cannot simply step off (PlayerEntity.shouldDismount): holding
+ * sneak, they struggle, and after ten seconds of it they wrench free and drop. Someone who hangs on it by choice lets go
+ * whenever they sneak. Hanging empty, someone on the ground can take hold of it (AirshipEntity.takeHoldOfGrapple). Never
+ * saved: she winds her grapple up when she is unloaded.
  */
 public class AirshipHookEntity extends Entity {
 	/** Ticks of struggling (holding sneak) a player needs to get off the grapple. */
 	public static final int STRUGGLE = 200;
 	private static final TrackedData<Integer> SHIP = DataTracker.registerData(AirshipHookEntity.class, TrackedDataHandlerRegistry.INTEGER);
 	private int struggle;
+	/** Whether whoever is on it hangs on by choice (and so lets go when they like), rather than being caught. */
+	private boolean voluntary;
 
 	public AirshipHookEntity(EntityType<? extends AirshipHookEntity> type, World world) {
 		super(type, world);
@@ -71,7 +74,10 @@ public class AirshipHookEntity extends Entity {
 			setPosition(grip.x, grip.y, grip.z);
 			setVelocity(Vec3d.ZERO);
 		}
-		if (!getWorld().isClient && getFirstPassenger() instanceof ServerPlayerEntity player) {
+		if (!hasPassengers()) {
+			voluntary = false;
+		}
+		if (!getWorld().isClient && !voluntary && getFirstPassenger() instanceof ServerPlayerEntity player) {
 			// Holding sneak, a caught player struggles; let go of it and they tire.
 			if (player.isSneaking()) {
 				struggle++;
@@ -90,9 +96,19 @@ public class AirshipHookEntity extends Entity {
 		}
 	}
 
-	/** Whether a player riding this has struggled long enough to get off. */
+	/** Whether a player riding this may get off: they hang on by choice, or have struggled long enough. */
 	public boolean freed(PlayerEntity player) {
-		return struggle >= STRUGGLE;
+		return voluntary || struggle >= STRUGGLE;
+	}
+
+	/** Whether whoever is on it hangs on by choice. */
+	public boolean isVoluntary() {
+		return voluntary;
+	}
+
+	void setVoluntary(boolean voluntary) {
+		this.voluntary = voluntary;
+		struggle = 0;
 	}
 
 	/** For tests: how long the caught player has struggled. */

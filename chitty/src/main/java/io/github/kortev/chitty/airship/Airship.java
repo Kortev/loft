@@ -93,6 +93,12 @@ public final class Airship {
 		ServerPlayNetworking.registerGlobalReceiver(AirshipActionPayload.ID, (payload, context) -> {
 			if (context.player().getVehicle() instanceof AirshipEntity ship) {
 				ship.act(context.player(), payload.action());
+			} else if (payload.action() == AirshipEntity.ACTION_THROW) {
+				// On the ground with an airship's grapple in hand, the grapple key throws it.
+				AirshipEntity held = AirshipEntity.grappleHeldBy(context.player());
+				if (held != null) {
+					held.throwGrapple(context.player());
+				}
 			}
 		});
 		// Holding an airship's grapple on the ground, using it on something hooks it on (and nothing else happens).
