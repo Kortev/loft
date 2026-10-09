@@ -50,10 +50,16 @@ namespace.
   itself down and, still sneaking, they get off onto it once it hangs `LADDER_OFF` (2) blocks.
 - **Lift:** `LIFT` 6: with more aboard (a load on the grapple counts one) she cannot climb and sinks.
 - **Grapple:** `LINE_OUT` (0, 0, 0.25); `HOOK_GRIP` 0.95 from its ring to its tines; `CARRY` 3.0 under her keel;
-  `LINE_MAX` 64; the rope pays out at `HOOK_DOWN` 0.45 and in at `HOOK_UP` 0.2 a tick. States: `UP, LOWERING, DOWN,
-  LIFTING, HOLDING, SETTING, RAISING` (worked by one key, R), `HELD` (in someone's hand on the ground) and `HANGING`
-  (someone hangs on it by choice: the head is `voluntary`, so they drop off when they sneak). R on `HELD` or `HANGING`
-  winds them up to `HOOK_ABOARD` (0.6) and `comeAboard` puts them aboard.
+  `LINE_MAX` 64. States: `UP` (stowed), `OUT` (on its rope, empty or with a load: a caught thing, or someone hanging
+  on by choice, the head `voluntary`, who drops off when they sneak) and `HELD` (in someone's hand on the ground).
+  - It moves only by its winch (`setWinch(by, way)`, `winchRope`): the crew hold R (`ACTION_PAY_OUT`) or Y
+    (`ACTION_WIND_IN`), and letting go sends `ACTION_WINCH_STOP`; it stops if whoever works it leaves her. The winch
+    eases (`WINCH_EASE`) to `HOOK_DOWN` 0.45 / `HOOK_UP` 0.3 a tick, `LOADED_DOWN` 0.22 / `LOADED_UP` 0.2 with a load.
+    Let out onto the ground it leaves `SLACK` 2 and stops; a load let out until it stands is let go there. Wound in, a
+    caught load stops at `CARRY`, a volunteer at `HOOK_ABOARD` (0.6) climbs aboard (`comeAboard`), and the empty
+    grapple at 0 is stowed. Catching something or someone hanging on stops the winch. Nothing else moves it.
+  - It takes hold only while going faster than `CATCH_SPEED`, never of whoever has just got off it, let go of it or
+    thrown it (`spare`, `SPARE` ticks).
   - It swings (`swingGrapple`, server): a Verlet point at its ring under `HOOK_GRAVITY` 0.05, keeping `HOOK_DAMPING`
     0.985 of its speed a tick (0.97 loaded), never further from `lineOut()` than the rope paid out (`hookDrop`). Its
     lowest point (tines, or a load's feet) is raycast against blocks: it rests on them and slides a little; a hard
@@ -63,7 +69,7 @@ namespace.
     used (`takeHoldOfGrapple`), and then follows `handOf` the holder (`HOOK_HELD`). Using it on something within
     `HOOK_REACH` 4 hooks it on (`hookOnto`, from Fabric's `UseEntityCallback` in `Airship.init`). Their grapple key
     throws it (`ACTION_THROW`, `throwGrapple`: `THROW_SPEED` 1.0 the way they look, `THROW_SLACK` 16 more rope; it
-    will not take hold of the thrower for `THROW_GRACE` ticks, and catches along its path, `catchable`). Jumping with it
+    spares the thrower, and catches along its path, `catchable`). Jumping with it
     hangs on (`hangOn`; leaning pumps the swing, `HOOK_PUMP`). Sneaking or going beyond the rope lets go.
   - Rope looks: `AirshipRenderer.drawRope` sags slack rope (paid out more than the distance) in a curve; the `coil`
     drum turns by `drop / DRUM_RADIUS`; a loaded rope creaks; dragged along the ground it rattles and sparks.

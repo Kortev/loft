@@ -110,21 +110,24 @@ Baron Bomburst's airship from the film, built in Blender from its stills:
   not. Her envelope keeps out of hills and trees: she stops rather than drive it into them.
 - **She lifts six.** With more aboard, a load on her grapple counting as one, she cannot climb and sinks slowly, as
   she does in the film. The pilot's **O** (overboard, rebindable) throws whoever stands furthest aft over the side.
-- **The grapple:** **R** (rebindable, anyone aboard) works it. Stowed, it lets down on its rope, as far as 64 blocks.
-  It is a weight on a rope: it swings, trails behind her as she flies and comes to rest with a clank on whatever it
-  lands on, and what it carries swings with it. It seizes the first thing its tines touch: a mob, a player, a dropped
-  item, a boat, a minecart, even Chitty. It winds that up to carry it three blocks under her keel. Press R again and it
-  sets its load down on the ground and lets go; going down empty, R winds it back up. A caught player cannot simply
+- **The grapple:** anyone aboard works its winch: hold **R** to let it down on its rope (as far as 64 blocks), hold
+  **Y** to wind it in (both rebindable); let go and it stops where it is. It never goes up or down by itself. The
+  winch runs up to speed and slows smoothly, slower with a load, and the action bar shows how much rope is out. It is
+  a weight on a rope: it swings, trails behind her as she flies and comes to rest with a clank on whatever it lands
+  on, and what it carries swings with it. Going, it seizes the first thing its tines meet (lying still it catches
+  nothing): a mob, a player, a dropped item, a boat, a minecart, even Chitty. Then the winch stops, and the crew
+  decide: wind it in to lift its load (as far as three blocks under her keel) or let it out until the load stands on
+  the ground, where it is let go. Wound all the way in, the empty grapple is stowed. A caught player cannot simply
   step off: holding sneak, they struggle (a bar fills as they go), and after ten seconds of it they wrench free and drop.
   You can tell who chose to be there: something caught hangs limp by the back of its collar from the tines, and
   kicks and jerks on the rope; someone hanging on by choice hangs from the ring by both hands. Aboard, the action bar
   says which ("Caught on the grapple: Husk", or "Steve is hanging on the grapple").
 - **From below:** while the grapple hangs empty, anyone on the ground can use it to take hold of it. It goes where
   their hand goes, its rope paying out after them. Then:
-  - use it on someone (or something) within four blocks to hook it on, and she winds them up;
+  - use it on someone (or something) within four blocks to hook it on, for the crew to wind up;
   - press **R** to throw it the way you look: it flies out on its rope and takes hold of the first thing it hits;
   - jump to hang on it: you swing under her as she flies (lean with the movement keys to swing it), and sneak to drop
-    off. R aboard winds you up to her keel, and you climb aboard;
+    off. The crew winding it in bring you up to her keel, and you climb aboard;
   - sneak to let go. Her pulling further away than her rope reaches pulls it out of your hands.
 - **The rope:** slack rope sags in a curve; the drum at the bow turns as it winds; the rope creaks under a load; and
   the grapple rattles and strikes sparks when it is dragged along the ground.

@@ -79,10 +79,11 @@ wants **renders for approval before baking** anything.
     fly her); sneak lets go of it. Sneak gets anyone off: beside her near the ground, or in the air down her rope
     ladder, which lets itself down for them.
   - In third person the camera turns about the middle of her, far enough back to see all of her.
-  - The grapple is a weight on a rope (it swings, trails and lands) and lets down 64 blocks. Anyone on the ground can
-    take hold of it as it hangs empty and then hook it onto someone within reach, throw it (R) or jump to hang on it;
-    she winds up whatever it holds (whoever hangs on comes aboard). Slack rope sags; the drum turns; the rope creaks
-    under a load; dragged, the grapple sparks.
+  - The grapple is a weight on a rope (it swings, trails and lands) and lets down 64 blocks. The crew work its winch
+    by holding keys (R out, Y in); kortev: it must never go up by itself, all its controls are on the ship. Anyone on
+    the ground can take hold of it as it hangs empty and then hook it onto someone within reach, throw it (R) or jump
+    to hang on it; the crew wind up whatever it holds (whoever hangs on comes aboard). Slack rope sags; the drum turns;
+    the rope creaks under a load; dragged, the grapple sparks.
 - **Built and in game.** kortev OK'd the renders and asked for her baked and ported. She is in Chitty's jar, mapped
   in `.claude/skills/film-vehicle/references/airship.md` and described in `chitty/README.md`.
   - kortev's first test: boarding put them in a crew place, so she would not fly; there was no way to the wheel and no

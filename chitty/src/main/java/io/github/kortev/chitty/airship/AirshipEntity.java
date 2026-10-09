@@ -57,10 +57,11 @@ import org.joml.Vector3f;
  * Baron Bomburst's airship, from the film: a gas envelope 34 blocks long over a little gilded gondola hung from it on
  * wires. Eight can stand in the gondola and walk about in it (they cannot fall out); whoever walks up to the wheel in
  * the bow takes it and flies her, and sneaks to let it go. She lifts six, and with more aboard (a load on her grapple
- * counts as one) she cannot climb and sinks slowly, as she does in the film. She hovers where she is left. Her crew can
- * let her grapple down on its rope (it swings and trails as a weight on a rope does) to seize what it touches (a mob, a
- * player, a dropped item, a boat or a car) and wind it up to carry it; someone on the ground can take hold of it and
- * hook it onto someone. They can let down her rope ladder (anyone can climb it, and climbing off its top boards her)
+ * counts as one) she cannot climb and sinks slowly, as she does in the film. She hovers where she is left. Her crew
+ * work her grapple's winch, letting it down on its rope and winding it in (it swings and trails as a weight on a rope
+ * does, and goes up and down only as they work it): going, it seizes what it meets (a mob, a player, a dropped item, a
+ * boat or a car), which they can then wind up to carry, or let down again until it stands on the ground and is let go;
+ * someone on the ground can take hold of it and hook it onto someone. They can let down her rope ladder (anyone can climb it, and climbing off its top boards her)
  * and drop bombs from the rack in her gondola; the pilot can throw a passenger overboard. Sneaking gets anyone else
  * off: beside her when she is down, or onto her rope ladder in the air, which lets itself down for them.
  *
@@ -156,8 +157,21 @@ public class AirshipEntity extends Entity {
 	/** Degrees a tick she turns at speed, and standing (her propellers turn her a little even then). */
 	static final float TURN = 1.6F;
 	static final float TURN_STANDING = 0.7F;
+	/**
+	 * The grapple's winch, worked by the crew: how fast it lets the rope out and winds it in (blocks a tick), empty and
+	 * with a load; how quickly it runs up to speed and slows to a stop (the share of the difference each tick); how
+	 * much slack it lets out onto the grapple once that rests on the ground.
+	 */
 	static final double HOOK_DOWN = 0.45;
-	static final double HOOK_UP = 0.2;
+	static final double HOOK_UP = 0.3;
+	static final double LOADED_DOWN = 0.22;
+	static final double LOADED_UP = 0.2;
+	static final double WINCH_EASE = 0.2;
+	static final double SLACK = 2.0;
+	/** How fast the grapple must be going (blocks a tick) to take hold of what it meets: lying still, it catches nothing. */
+	static final double CATCH_SPEED = 0.04;
+	/** How long the grapple will not take hold again of whoever has just got off it, let go of it or thrown it. */
+	static final int SPARE = 60;
 	/**
 	 * The grapple swinging on its rope: how fast it gathers speed falling (blocks a tick, each tick), and how much of
 	 * its speed it keeps each tick through the air, empty and with a load.
@@ -171,8 +185,6 @@ public class AirshipEntity extends Entity {
 	static final double THROW_SPEED = 1.0;
 	static final double THROW_LIFT = 0.12;
 	static final double THROW_SLACK = 16.0;
-	/** How long a thrown grapple will not take hold of whoever threw it. */
-	static final int THROW_GRACE = 15;
 	/** How much rope is left out when someone hanging on it is wound up to her keel and climbs aboard. */
 	static final double HOOK_ABOARD = 0.6;
 	/** How much someone hanging on the grapple can swing it by leaning (blocks a tick, each tick). */
@@ -180,18 +192,21 @@ public class AirshipEntity extends Entity {
 	static final int BOMB_COOLDOWN = 30;
 
 	/**
-	 * The grapple: stowed, paying out, waiting down, lifting a load, holding it, setting it down, winding up empty, in the
-	 * hands of someone on the ground, and with someone hanging on it by choice.
+	 * The grapple: stowed under her keel, out on its rope (empty, or with something caught on it or someone hanging on
+	 * it), or in the hands of someone on the ground. It goes up and down only as the crew work its winch.
 	 */
-	public enum Hook { UP, LOWERING, DOWN, LIFTING, HOLDING, SETTING, RAISING, HELD, HANGING }
+	public enum Hook { UP, OUT, HELD }
 
 	/** What a crew member can ask of her (AirshipActionPayload). */
-	public static final int ACTION_GRAPPLE = 0;
+	public static final int ACTION_WINCH_STOP = 0;
 	public static final int ACTION_LADDER = 1;
 	public static final int ACTION_BOMB = 2;
 	public static final int ACTION_OVERBOARD = 3;
 	/** Someone holding her grapple on the ground throws it (their grapple key). */
 	public static final int ACTION_THROW = 4;
+	/** The crew working the grapple's winch: letting the rope out, winding it in (ACTION_WINCH_STOP when they let go). */
+	public static final int ACTION_PAY_OUT = 5;
+	public static final int ACTION_WIND_IN = 6;
 
 	/** Client-only behaviour the common code calls into. Set by the client initializer. */
 	public interface ClientHooks {
@@ -239,9 +254,18 @@ public class AirshipEntity extends Entity {
 	private PlayerEntity hookHolder;
 	/** How high whoever holds the grapple stood last tick (they jump to hang on it). */
 	private double holderLastY;
+	/** The grapple's winch: letting rope out (1), winding it in (-1) or still (0), who works it, and how fast it turns. */
+	private int winch;
 	@Nullable
-	private PlayerEntity thrownBy;
-	private int thrownAt;
+	private Entity winchBy;
+	private double winchSpeed;
+	/** Whoever the grapple will not take hold of just now (they have just got off it, let go of it or thrown it), and till when. */
+	@Nullable
+	private Entity spared;
+	private int sparedUntil;
+	/** What was on the grapple last tick (to know when it gets off). */
+	@Nullable
+	private Entity lastLoad;
 	@Nullable
 	private AirshipHookEntity hookEntity;
 	private boolean ladderDown;
@@ -479,9 +503,8 @@ public class AirshipEntity extends Entity {
 
 	/** How many she is carrying: everyone aboard, and a load on the grapple. */
 	public int getLoad() {
-		Hook state = getHookState();
-		return getPassengerList().size() + (state == Hook.HOLDING || state == Hook.LIFTING || state == Hook.SETTING
-				|| state == Hook.HANGING ? 1 : 0);
+		AirshipHookEntity head = getShownHookEntity();
+		return getPassengerList().size() + (head != null && head.hasPassengers() ? 1 : 0);
 	}
 
 	/** Carrying more than she lifts: she cannot climb, and sinks. */
@@ -1132,7 +1155,13 @@ public class AirshipEntity extends Entity {
 			return;
 		}
 		switch (action) {
-			case ACTION_GRAPPLE -> workGrapple();
+			case ACTION_PAY_OUT -> setWinch(player, 1);
+			case ACTION_WIND_IN -> setWinch(player, -1);
+			case ACTION_WINCH_STOP -> {
+				if (winchBy == player) {
+					setWinch(player, 0);
+				}
+			}
 			case ACTION_LADDER -> toggleLadder();
 			case ACTION_BOMB -> dropBomb(player);
 			case ACTION_OVERBOARD -> {
@@ -1146,23 +1175,37 @@ public class AirshipEntity extends Entity {
 	}
 
 	/**
-	 * The grapple's one lever: stowed, it is let down; going down or waiting down, it is wound up; in someone's hands or
-	 * with someone hanging on it, it winds them up (to come aboard); with a load on it, the load is set down on the
-	 * ground and let go; setting one down, it is lifted again.
+	 * The grapple's winch, worked by the crew (held keys, AirshipClient): letting the rope out (1), winding it in (-1) or
+	 * holding it where it is (0). It runs up to speed and slows to a stop smoothly, and it does only what it is worked
+	 * to do: the grapple stays wherever it is left. Winding in on someone holding the grapple on the ground takes them up
+	 * hanging on it. `by` is whoever works it (null in tests): if they leave her, it stops.
 	 */
-	public void workGrapple() {
-		if (hook == Hook.HELD && hookHolder != null && !hangOn(hookHolder)) {
+	public void setWinch(@Nullable Entity by, int way) {
+		if (way == winch && (way == 0 || by == winchBy)) {
+			return;
+		}
+		if (way < 0 && hook == Hook.HELD && hookHolder != null && !hangOn(hookHolder)) {
 			letGoOfGrapple();
 		}
-		Hook next = switch (hook) {
-			case UP, RAISING -> Hook.LOWERING;
-			case LOWERING, DOWN -> Hook.RAISING;
-			case HELD, HANGING, SETTING -> Hook.LIFTING;
-			case LIFTING, HOLDING -> Hook.SETTING;
-		};
-		setHook(next);
-		getWorld().playSound(null, getX(), getY(), getZ(), Airship.WINCH, SoundCategory.NEUTRAL, 1.0F, next == Hook.LOWERING
-				|| next == Hook.SETTING ? 1.1F : 0.9F);
+		if (way < 0 && hook == Hook.UP) {
+			way = 0;
+		}
+		if (way > 0 && hook == Hook.UP) {
+			setHook(Hook.OUT);
+		}
+		boolean started = winch == 0 && way != 0;
+		winch = way;
+		winchBy = way == 0 ? null : by;
+		if (started || way == 0) {
+			// The winch's pawl clacks as it is put in gear or let go.
+			getWorld().playSound(null, getX(), getY(), getZ(), Airship.WINCH, SoundCategory.NEUTRAL, 0.8F,
+					way > 0 ? 1.1F : way < 0 ? 0.9F : 1.3F);
+		}
+	}
+
+	/** Which way the grapple's winch is turning: out (1), in (-1) or still (0). */
+	public int getWinch() {
+		return winch;
 	}
 
 	private void setHook(Hook state) {
@@ -1254,11 +1297,15 @@ public class AirshipEntity extends Entity {
 			hookPrev = out;
 		}
 		Entity load = hookEntity != null && !hookEntity.isRemoved() && hookEntity.hasPassengers() ? hookEntity.getFirstPassenger() : null;
-		if ((hook == Hook.LIFTING || hook == Hook.HOLDING || hook == Hook.SETTING || hook == Hook.HANGING)
-				&& load == null) {
-			// It got away (struggled free, let go, died or was taken off): wind the grapple back up.
-			releaseLoad();
-			setHook(Hook.RAISING);
+		if (load == null && lastLoad != null) {
+			// It got away (struggled free, let go, was set down, died or was taken off): the grapple stays where it is,
+			// and leaves it be a while.
+			spare(lastLoad);
+		}
+		lastLoad = load;
+		if (winchBy != null && (winchBy.isRemoved() || winchBy.getVehicle() != this)) {
+			// Whoever worked the winch has left her: it stops.
+			setWinch(null, 0);
 		}
 		if (hook == Hook.HELD && !stillHeld()) {
 			boolean pulled = hookHolder != null && hookHolder.isAlive() && hookHolder.getWorld() == getWorld()
@@ -1276,60 +1323,29 @@ public class AirshipEntity extends Entity {
 				holderLastY = hookHolder.getY();
 			}
 		}
-		boolean climbing = load instanceof PlayerEntity && hookEntity != null && hookEntity.isVoluntary();
 		double before = hookDrop;
-		switch (hook) {
-			case UP -> hookDrop = 0.0;
-			case LOWERING -> {
-				hookDrop = Math.min(LINE_MAX, hookDrop + HOOK_DOWN);
-				if (hookDrop >= LINE_MAX || hookGrounded) {
-					setHook(Hook.DOWN);
-					// No more rope out than it hangs on.
-					hookDrop = Math.min(hookDrop, hookPos.distanceTo(out) + 0.2);
-				}
-			}
-			case DOWN, HELD, HANGING -> {
-			}
-			case RAISING -> {
-				hookDrop = Math.max(0.0, hookDrop - HOOK_UP * 1.5);
-				if (hookDrop <= 0.0) {
-					setHook(Hook.UP);
-				}
-			}
-			case LIFTING -> {
-				// A load is carried under her keel; someone hanging on by choice is wound right up, and climbs aboard.
-				double to = climbing ? HOOK_ABOARD : CARRY;
-				hookDrop += MathHelper.clamp(to - hookDrop, -HOOK_UP, HOOK_UP);
-				if (Math.abs(hookDrop - to) < 1.0E-3) {
-					if (climbing && load != null && comeAboard(load)) {
-						setHook(Hook.RAISING);
-					} else {
-						setHook(Hook.HOLDING);
-					}
-				}
-			}
-			case HOLDING -> hookDrop = climbing ? HOOK_ABOARD : CARRY;
-			case SETTING -> {
-				hookDrop = Math.min(LINE_MAX, hookDrop + HOOK_UP);
-				// Not load.isOnGround(): a rider never moves itself, so that is still what it was when it was caught.
-				if (load != null && (hookGrounded || load.isTouchingWater() || hookDrop >= LINE_MAX
-						|| loadDown(world, load))) {
-					releaseLoad();
-					setHook(Hook.RAISING);
-				}
-			}
+		if (hook == Hook.UP) {
+			hookDrop = 0.0;
+			winchSpeed = 0.0;
+		} else if (hook == Hook.OUT) {
+			winchRope(world, out, load);
 		}
 		Vec3d gripBefore = gripBelow(hookPos);
 		swingGrapple(world, out, load);
-		if (hook == Hook.LOWERING || hook == Hook.DOWN) {
+		// Going, it takes hold of what it meets (let down onto it, swung or dragged into it, thrown at it); lying still,
+		// it catches nothing.
+		if (hook == Hook.OUT && load == null && gripBefore.distanceTo(hookGrip()) > CATCH_SPEED) {
 			Entity caught = catchable(world, gripBefore);
 			if (caught != null) {
 				grab(world, caught);
 			}
 		}
 		keepHead(world);
-		if (hookDrop != before && age % 8 == 0) {
-			world.playSound(null, getX(), getY(), getZ(), Airship.WINCH, SoundCategory.NEUTRAL, 0.6F, 1.0F);
+		// The winch's ratchet clicks as it turns, quicker and higher the faster it goes.
+		double turned = Math.abs(hookDrop - before);
+		if (turned > 0.01 && age % (turned > 0.2 ? 3 : 5) == 0) {
+			world.playSound(null, getX(), getY(), getZ(), Airship.WINCH, SoundCategory.NEUTRAL, 0.5F,
+					(float) (0.85 + turned * 0.8) + random.nextFloat() * 0.05F);
 		}
 		// The rope creaks under a load as it swings.
 		if (load != null && age % 37 == 0 && hookPos.subtract(hookPrev).lengthSquared() > 0.002) {
@@ -1339,6 +1355,58 @@ public class AirshipEntity extends Entity {
 		dataTracker.set(HOOK_DROP, (float) hookDrop);
 		Vec3d at = hookPos.subtract(out);
 		dataTracker.set(HOOK_AT, new Vector3f((float) at.x, (float) at.y, (float) at.z));
+	}
+
+	/**
+	 * The grapple's winch turns as the crew work it, running up to speed and slowing to a stop, slower with a load. Let
+	 * out, the rope stops paying out once the grapple rests on the ground with a little slack; a load let down until it
+	 * stands on the ground (or in water) is let go there. Wound in, a load comes up as far as under her keel (CARRY) and
+	 * no further; someone hanging on is wound right up and climbs aboard; and the empty grapple, wound all the way in, is
+	 * stowed.
+	 */
+	private void winchRope(ServerWorld world, Vec3d out, @Nullable Entity load) {
+		double speed = winch > 0 ? load != null ? LOADED_DOWN : HOOK_DOWN : winch < 0 ? -(load != null ? LOADED_UP : HOOK_UP) : 0.0;
+		winchSpeed += (speed - winchSpeed) * WINCH_EASE;
+		if (winch == 0 && Math.abs(winchSpeed) < 0.004) {
+			winchSpeed = 0.0;
+		}
+		hookDrop += winchSpeed;
+		if (hookDrop >= LINE_MAX) {
+			hookDrop = LINE_MAX;
+			winchSpeed = 0.0;
+		}
+		if (winchSpeed > 0.0 && hookGrounded) {
+			// Resting on the ground: a little slack, and no more rope comes off the drum.
+			double slack = hookPos.distanceTo(out) + SLACK;
+			if (hookDrop > slack) {
+				hookDrop = slack;
+				winchSpeed = 0.0;
+			}
+		}
+		boolean byChoice = load instanceof PlayerEntity && hookEntity != null && hookEntity.isVoluntary();
+		if (load != null && winchSpeed > 0.0 && (hookGrounded || load.isTouchingWater() || loadDown(world, load))) {
+			// Not load.isOnGround(): a rider never moves itself, so that is still what it was when it was caught.
+			releaseLoad();
+		} else if (load != null && !byChoice && winchSpeed < 0.0 && hookDrop < CARRY) {
+			hookDrop = CARRY;
+			winchSpeed = Math.max(0.0, winchSpeed);
+		} else if (byChoice && hookDrop <= HOOK_ABOARD) {
+			if (!comeAboard(load)) {
+				hookDrop = HOOK_ABOARD;
+				winchSpeed = Math.max(0.0, winchSpeed);
+			}
+		} else if (load == null && hookDrop <= 0.0) {
+			hookDrop = 0.0;
+			winchSpeed = 0.0;
+			setHook(Hook.UP);
+			setWinch(null, 0);
+		}
+	}
+
+	/** The grapple will not take hold of this one for a while (they have just got off it, let go of it or thrown it). */
+	private void spare(Entity e) {
+		spared = e;
+		sparedUntil = age + SPARE;
 	}
 
 	/**
@@ -1457,8 +1525,7 @@ public class AirshipEntity extends Entity {
 		Box reach = new Box(grip.x - 0.7, grip.y - 0.9, grip.z - 0.7, grip.x + 0.7, grip.y + 0.5, grip.z + 0.7)
 				.union(new Box(gripBefore.x - 0.7, gripBefore.y - 0.9, gripBefore.z - 0.7, gripBefore.x + 0.7, gripBefore.y + 0.5,
 						gripBefore.z + 0.7));
-		boolean justThrown = thrownBy != null && age - thrownAt < THROW_GRACE;
-		List<Entity> found = world.getOtherEntities(this, reach, e -> canGrab(e) && !(justThrown && e == thrownBy));
+		List<Entity> found = world.getOtherEntities(this, reach, e -> canGrab(e) && !(e == spared && age < sparedUntil));
 		return found.isEmpty() ? null : found.get(0);
 	}
 
@@ -1484,7 +1551,9 @@ public class AirshipEntity extends Entity {
 		if (!target.startRiding(head, true)) {
 			return;
 		}
-		setHook(Hook.LIFTING);
+		// The rope draws tight on it, and the winch stops: what happens to it now is the crew's to say.
+		setWinch(null, 0);
+		winchSpeed = 0.0;
 		world.playSound(null, grip.x, grip.y, grip.z, Airship.GRAB, SoundCategory.NEUTRAL, 1.2F, 1.0F);
 		world.spawnParticles(ParticleTypes.CRIT, grip.x, grip.y, grip.z, 10, 0.3, 0.3, 0.3, 0.1);
 		for (Entity passenger : getPassengerList()) {
@@ -1502,7 +1571,7 @@ public class AirshipEntity extends Entity {
 	 * hand goes, its rope paying out after them (AirshipHookEntity.interact).
 	 */
 	public boolean takeHoldOfGrapple(PlayerEntity player) {
-		if (player.hasVehicle() || player.isSpectator() || hook != Hook.LOWERING && hook != Hook.DOWN || hookEntity == null
+		if (player.hasVehicle() || player.isSpectator() || hook != Hook.OUT || hookEntity == null
 				|| hookEntity.hasPassengers() || player.squaredDistanceTo(hookGrip()) > 16.0) {
 			return false;
 		}
@@ -1518,8 +1587,8 @@ public class AirshipEntity extends Entity {
 	}
 
 	/**
-	 * Whoever holds the grapple hangs on it (they jump with it in hand, or she winds it up): they ride it, swinging under
-	 * her, and let go when they sneak (AirshipHookEntity.freed). Winding it up takes them up to her keel, and aboard.
+	 * Whoever holds the grapple hangs on it (they jump with it in hand, or the crew wind it in): they ride it, swinging
+	 * under her, and let go when they sneak (AirshipHookEntity.freed). Wound in, they come up to her keel, and aboard.
 	 */
 	public boolean hangOn(PlayerEntity player) {
 		if (hook != Hook.HELD || hookHolder != player || !(getWorld() instanceof ServerWorld world)) {
@@ -1536,7 +1605,10 @@ public class AirshipEntity extends Entity {
 			return false;
 		}
 		head.setVoluntary(true);
-		setHook(Hook.HANGING);
+		setHook(Hook.OUT);
+		// As when it catches something, the rope draws tight and the winch stops (unless the crew are winding them in).
+		setWinch(null, 0);
+		winchSpeed = 0.0;
 		player.sendMessage(Text.translatable("hud.shootingstar.airship.hanging"), true);
 		world.playSound(null, hookPos.x, hookPos.y, hookPos.z, Airship.GRAB, SoundCategory.NEUTRAL, 0.7F, 1.1F);
 		return true;
@@ -1556,8 +1628,6 @@ public class AirshipEntity extends Entity {
 		hookPos = hand;
 		hookPrev = hand.subtract(fling);
 		hookDrop = Math.min(LINE_MAX, Math.max(hookDrop, hand.distanceTo(lineOut()) + THROW_SLACK));
-		thrownBy = player;
-		thrownAt = age;
 		getWorld().playSound(null, hand.x, hand.y, hand.z, Airship.WINCH, SoundCategory.NEUTRAL, 0.9F, 1.6F);
 		return true;
 	}
@@ -1576,7 +1646,7 @@ public class AirshipEntity extends Entity {
 
 	/**
 	 * Whoever holds the grapple hooks it onto something within their reach (using the grapple on it, as on a mob): it
-	 * takes hold, and she winds it up.
+	 * takes hold, and there it stays until the crew wind it up.
 	 */
 	public boolean hookOnto(PlayerEntity player, Entity target) {
 		if (hook != Hook.HELD || hookHolder != player || target == player || !canGrab(target)
@@ -1589,10 +1659,11 @@ public class AirshipEntity extends Entity {
 		hookPrev = hookPos;
 		hookDrop = Math.max(hookDrop, hookPos.distanceTo(lineOut()));
 		grab(world, target);
-		if (hook == Hook.LIFTING && player instanceof ServerPlayerEntity holder) {
+		boolean hooked = target.getVehicle() == hookEntity && hookEntity != null;
+		if (hooked && player instanceof ServerPlayerEntity holder) {
 			ModCriteria.fire(holder, "airship_grab");
 		}
-		return hook == Hook.LIFTING;
+		return hooked;
 	}
 
 	/** Whoever holds the grapple still can: alive, on foot, not sneaking (which lets go), and within reach of her rope. */
@@ -1602,11 +1673,15 @@ public class AirshipEntity extends Entity {
 				&& handOf(hookHolder, 1.0F).distanceTo(lineOut()) <= LINE_MAX;
 	}
 
+	/** Whoever holds the grapple lets go of it (or throws it): it is out on its rope, and leaves them be a while. */
 	private void letGoOfGrapple() {
+		if (hookHolder != null) {
+			spare(hookHolder);
+		}
 		hookHolder = null;
 		dataTracker.set(HOOK_HELD, -1);
 		if (hook == Hook.HELD) {
-			setHook(Hook.DOWN);
+			setHook(Hook.OUT);
 		}
 	}
 
@@ -1894,18 +1969,20 @@ public class AirshipEntity extends Entity {
 		dataTracker.set(BOMBS, (byte) MathHelper.clamp(count, 0, RACK));
 	}
 
-	/** For tests: lets the grapple down at once to the given depth, still going down. */
+	/** For tests: lets the grapple down at once to the given depth, the winch still letting it out. */
 	public void lowerGrappleTo(double drop) {
 		hangGrappleAt(drop);
-		setHook(Hook.LOWERING);
+		setWinch(null, 1);
 	}
 
-	/** For tests: the grapple hanging still at the given depth, waiting there. */
+	/** For tests: the grapple hanging still at the given depth, the winch still. */
 	public void hangGrappleAt(double drop) {
 		hookDrop = drop;
 		hookPos = lineOut().add(0.0, -drop, 0.0);
 		hookPrev = hookPos;
-		setHook(Hook.DOWN);
+		setHook(Hook.OUT);
+		setWinch(null, 0);
+		winchSpeed = 0.0;
 	}
 
 	/** For tests: whether the ladder is let down (or being). */

@@ -191,7 +191,10 @@ public class AirshipGameTests implements FabricGameTest {
 		});
 	}
 
-	/** Let down onto a mob, her grapple seizes it and winds it up off the ground, and sets it down again when asked. */
+	/**
+	 * Let down onto a mob, her grapple seizes it and the winch stops: it does not wind the mob up by itself. Wound in, it
+	 * lifts the mob off the ground; let out again, it sets the mob down and lets it go, and stays down.
+	 */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_airship_grapple", tickLimit = 260)
 	public void grappleSeizes(TestContext context) {
 		floor(context, 0);
@@ -199,29 +202,43 @@ public class AirshipGameTests implements FabricGameTest {
 		ZombieEntity husk = husk(context, 4.0, 1.0, 4.25);
 		ship.lowerGrappleTo(1.0);
 		boolean[] caught = {false};
+		double[] held = {0.0};
 		context.runAtEveryTick(() -> caught[0] |= husk.getVehicle() instanceof AirshipHookEntity);
-		context.runAtTick(80, () -> {
+		context.runAtTick(50, () -> {
 			context.assertTrue(caught[0], "the grapple never caught the mob (grapple " + ship.getHookState() + " at " + ship.getHookDrop() + ")");
-			context.assertTrue(husk.getVehicle() instanceof AirshipHookEntity, "the mob got off the grapple");
-			context.assertTrue(husk.getY() > context.getAbsolute(new Vec3d(0, 1.5, 0)).y, "the mob was not lifted: y " + husk.getY());
-			context.assertTrue(ship.getHookState() == AirshipEntity.Hook.HOLDING, "she is not holding it: " + ship.getHookState());
-			ship.workGrapple();
+			context.assertTrue(ship.getWinch() == 0, "catching the mob did not stop the winch");
+			held[0] = ship.getHookDrop();
 		});
-		context.runAtTick(220, () -> {
-			context.assertTrue(husk.getVehicle() == null, "the grapple never let the mob go");
+		context.runAtTick(70, () -> {
+			context.assertTrue(husk.getVehicle() instanceof AirshipHookEntity, "the mob got off the grapple");
+			context.assertTrue(Math.abs(ship.getHookDrop() - held[0]) < 1.0E-3, "the grapple wound itself: from " + held[0] + " to "
+					+ ship.getHookDrop());
+			ship.setWinch(null, -1);
+		});
+		context.runAtTick(130, () -> {
+			context.assertTrue(husk.getY() > context.getAbsolute(new Vec3d(0, 1.5, 0)).y, "wound in, the mob was not lifted: y "
+					+ (husk.getY() - context.getAbsolute(Vec3d.ZERO).y));
+			ship.setWinch(null, 1);
+		});
+		context.runAtTick(210, () -> {
+			context.assertTrue(husk.getVehicle() == null, "let down, the grapple never let the mob go");
 			context.assertTrue(husk.getY() < context.getAbsolute(new Vec3d(0, 1.5, 0)).y, "the mob was not set down: y " + husk.getY());
-			context.assertTrue(ship.getHookState() == AirshipEntity.Hook.RAISING || ship.getHookState() == AirshipEntity.Hook.UP,
-					"the grapple did not wind back up: " + ship.getHookState());
+			ship.setWinch(null, 0);
 			husk.discard();
+		});
+		context.runAtTick(245, () -> {
+			context.assertTrue(ship.getHookState() == AirshipEntity.Hook.OUT && ship.getHookDrop() > 2.0,
+					"the grapple wound itself back up: " + ship.getHookState() + " at " + ship.getHookDrop());
 			done(context, ship);
 		});
 	}
 
 	/**
 	 * Someone on the ground takes hold of her grapple as it hangs there and hooks it onto a mob within reach: it takes
-	 * hold, and she winds the mob up off the ground. (She and her grapple stay under the test area's barrier roof, y 8.)
+	 * hold, and there it stays until the crew wind it in, which lifts the mob off the ground. (She and her grapple stay
+	 * under the test area's barrier roof, y 8.)
 	 */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_airship_hold", tickLimit = 160)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_airship_hold", tickLimit = 180)
 	public void grappleHeldHooks(TestContext context) {
 		floor(context, 0);
 		AirshipEntity ship = ship(context, 4.0, 9.0, 4.0);
@@ -231,16 +248,21 @@ public class AirshipGameTests implements FabricGameTest {
 		ZombieEntity husk = husk(context, 6.0, 1.0, 5.6);
 		ship.lowerGrappleTo(2.0);
 		context.runAtTick(40, () -> {
-			context.assertTrue(ship.getHookState() == AirshipEntity.Hook.DOWN, "the grapple did not come down to the ground: "
-					+ ship.getHookState() + " at " + ship.getHookOffset());
+			context.assertTrue(ship.getHookState() == AirshipEntity.Hook.OUT, "the grapple is not out: " + ship.getHookState()
+					+ " at " + ship.getHookOffset());
 			context.assertTrue(ship.takeHoldOfGrapple(holder), "the player could not take hold of the grapple");
 			context.assertTrue(ship.getHookState() == AirshipEntity.Hook.HELD, "the grapple is not in the player's hands");
 		});
 		context.runAtTick(45, () -> context.assertTrue(ship.hookOnto(holder, husk), "the player could not hook the grapple onto the mob"));
-		context.runAtTick(130, () -> {
+		context.runAtTick(75, () -> {
 			context.assertTrue(husk.getVehicle() instanceof AirshipHookEntity hook && !hook.isVoluntary(),
 					"the hooked mob is not caught on the grapple");
-			context.assertTrue(husk.getY() > context.getAbsolute(new Vec3d(0.0, 2.5, 0.0)).y, "the hooked mob was not wound up: y "
+			context.assertTrue(husk.getY() < context.getAbsolute(new Vec3d(0.0, 2.0, 0.0)).y, "the grapple lifted the mob by itself: y "
+					+ (husk.getY() - context.getAbsolute(Vec3d.ZERO).y));
+			ship.setWinch(null, -1);
+		});
+		context.runAtTick(160, () -> {
+			context.assertTrue(husk.getY() > context.getAbsolute(new Vec3d(0.0, 2.5, 0.0)).y, "wound in, the hooked mob was not lifted: y "
 					+ (husk.getY() - context.getAbsolute(Vec3d.ZERO).y));
 			husk.discard();
 			context.getWorld().getServer().getPlayerManager().remove(holder);
@@ -249,8 +271,8 @@ public class AirshipGameTests implements FabricGameTest {
 	}
 
 	/**
-	 * Someone on the ground takes hold of her grapple and hangs on it; wound up, they come up to her keel and climb
-	 * aboard. (Under the test area's barrier roof, y 8.)
+	 * Someone on the ground takes hold of her grapple and hangs on it, and hangs there until the crew wind it in: then
+	 * they come up to her keel and climb aboard. (Under the test area's barrier roof, y 8.)
 	 */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_airship_hang", tickLimit = 160)
 	public void hangsOnAndComesAboard(TestContext context) {
@@ -265,8 +287,11 @@ public class AirshipGameTests implements FabricGameTest {
 			context.assertTrue(ship.hangOn(hanger), "the player could not hang on the grapple");
 			context.assertTrue(hanger.getVehicle() instanceof AirshipHookEntity hook && hook.freed(hanger),
 					"the player is not hanging on the grapple by choice");
-			context.assertTrue(ship.getHookState() == AirshipEntity.Hook.HANGING, "the grapple is not hung on: " + ship.getHookState());
-			ship.workGrapple();
+			context.assertTrue(ship.getHookState() == AirshipEntity.Hook.OUT, "the grapple is not out: " + ship.getHookState());
+		});
+		context.runAtTick(60, () -> {
+			context.assertTrue(hanger.getVehicle() instanceof AirshipHookEntity, "the player was taken off the grapple by itself");
+			ship.setWinch(null, -1);
 		});
 		context.runAtTick(140, () -> {
 			context.assertTrue(hanger.getVehicle() == ship, "wound up, the player did not climb aboard: they are on "
@@ -277,7 +302,7 @@ public class AirshipGameTests implements FabricGameTest {
 		});
 	}
 
-	/** Someone holding her grapple on the ground throws it at a mob a few blocks off: it takes hold, and she winds it up. */
+	/** Someone holding her grapple on the ground throws it at a mob a few blocks off: it takes hold. */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_airship_throw", tickLimit = 100)
 	public void throwsGrapple(TestContext context) {
 		floor(context, 0);

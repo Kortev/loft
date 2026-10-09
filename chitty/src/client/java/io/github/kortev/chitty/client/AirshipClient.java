@@ -8,6 +8,7 @@ import io.github.kortev.chitty.airship.AirshipHookEntity;
 import io.github.kortev.chitty.airship.AirshipInputPayload;
 import io.github.kortev.chitty.airship.AirshipWalkPayload;
 import java.util.Collections;
+import java.util.Locale;
 import java.util.Set;
 import java.util.WeakHashMap;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -30,11 +31,12 @@ import org.lwjgl.glfw.GLFW;
 
 /**
  * The airship on the client: how she is drawn and heard, the pilot's controls, walking about her gondola, and the
- * crew's keys for the grapple, the ladder, the bombs and (the pilot's) overboard. Set up from Chitty's client
- * initializer.
+ * crew's keys for the grapple's winch (held: one lets it down, one winds it in, and it stops where they let go), the
+ * ladder, the bombs and (the pilot's) overboard. Set up from Chitty's client initializer.
  */
 public final class AirshipClient {
 	public static KeyBinding GRAPPLE;
+	public static KeyBinding WIND;
 	public static KeyBinding LADDER;
 	public static KeyBinding BOMB;
 	public static KeyBinding OVERBOARD;
@@ -46,6 +48,9 @@ public final class AirshipClient {
 	private static int hint;
 	/** What the crew was last told hangs on the grapple: its entity id, doubled, plus one if it hangs on by choice; -1. */
 	private static int onGrapple = -1;
+	/** Which way this player is working the grapple's winch (1 out, -1 in, 0 not), as last told the server. */
+	private static int winching;
+	private static int sinceWinchSent;
 	/**
 	 * Where this player stands in the airship they are aboard, as they walk about her gondola: theirs to move (so it
 	 * answers at once), sent to the server as it changes. Taken from the server when they come aboard and whenever they
@@ -72,6 +77,7 @@ public final class AirshipClient {
 		EntityRendererRegistry.register(Airship.HOOK, EmptyEntityRenderer::new);
 		EntityRendererRegistry.register(Airship.BOMB_ENTITY, AirshipBombRenderer::new);
 		GRAPPLE = key("airship_grapple", GLFW.GLFW_KEY_R);
+		WIND = key("airship_wind", GLFW.GLFW_KEY_Y);
 		LADDER = key("airship_ladder", GLFW.GLFW_KEY_K);
 		BOMB = key("airship_bomb", GLFW.GLFW_KEY_B);
 		OVERBOARD = key("airship_overboard", GLFW.GLFW_KEY_O);
@@ -213,12 +219,29 @@ public final class AirshipClient {
 		ClientPlayerEntity player = client.player;
 		AirshipEntity ship = player != null && player.getVehicle() instanceof AirshipEntity s ? s : null;
 		boolean piloting = ship != null && ship.getControllingPassenger() == player;
+		// The grapple's winch, aboard: held down, one key lets the rope out and the other winds it in; let go, it stops.
+		// On the ground with the grapple in hand, the first throws it.
 		while (GRAPPLE.wasPressed()) {
-			if (ship != null) {
-				act(AirshipEntity.ACTION_GRAPPLE);
-			} else if (player != null && AirshipEntity.grappleHeldBy(player) != null) {
+			if (ship == null && player != null && AirshipEntity.grappleHeldBy(player) != null) {
 				act(AirshipEntity.ACTION_THROW);
 			}
+		}
+		while (WIND.wasPressed()) {
+			// Only ever held: see below.
+		}
+		int way = ship == null ? 0 : (GRAPPLE.isPressed() ? 1 : 0) - (WIND.isPressed() ? 1 : 0);
+		if (way != winching || way != 0 && ++sinceWinchSent >= 20) {
+			act(way > 0 ? AirshipEntity.ACTION_PAY_OUT : way < 0 ? AirshipEntity.ACTION_WIND_IN : AirshipEntity.ACTION_WINCH_STOP);
+			winching = way;
+			sinceWinchSent = 0;
+		}
+		if (ship != null && player != null && way != 0 && ship.age % 4 == 0) {
+			// How much rope is out, as they work it.
+			AirshipHookEntity on = ship.getShownHookEntity();
+			Entity hanging = on == null ? null : on.getFirstPassenger();
+			String drop = String.format(Locale.ROOT, "%.0f", ship.getShownDrop(1.0F));
+			player.sendMessage(hanging == null ? Text.translatable("hud.shootingstar.airship.winch", drop)
+					: Text.translatable("hud.shootingstar.airship.winch_load", drop, hanging.getDisplayName()), true);
 		}
 		while (LADDER.wasPressed()) {
 			if (ship != null) {
@@ -249,7 +272,8 @@ public final class AirshipClient {
 			if (now != 0 && player != null) {
 				String key = now == 3 ? "hud.shootingstar.airship.heavy" : now == 2 ? "hud.shootingstar.airship.pilot" : "hud.shootingstar.airship.crew";
 				player.sendMessage(Text.translatable(key, GRAPPLE.getBoundKeyLocalizedText(), LADDER.getBoundKeyLocalizedText(),
-						BOMB.getBoundKeyLocalizedText(), OVERBOARD.getBoundKeyLocalizedText(), AirshipEntity.LIFT), true);
+						BOMB.getBoundKeyLocalizedText(), OVERBOARD.getBoundKeyLocalizedText(), AirshipEntity.LIFT,
+						WIND.getBoundKeyLocalizedText()), true);
 			}
 			hint = now;
 		}
@@ -261,7 +285,8 @@ public final class AirshipClient {
 		if (nowOn != onGrapple) {
 			if (load != null && player != null && load != player) {
 				String key = byChoice ? "hud.shootingstar.airship.crew_hanging" : "hud.shootingstar.airship.crew_caught";
-				player.sendMessage(Text.translatable(key, load.getDisplayName(), GRAPPLE.getBoundKeyLocalizedText()), true);
+				player.sendMessage(Text.translatable(key, load.getDisplayName(), WIND.getBoundKeyLocalizedText(),
+						GRAPPLE.getBoundKeyLocalizedText()), true);
 			}
 			onGrapple = nowOn;
 		}
