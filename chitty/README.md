@@ -1,9 +1,9 @@
 # Chitty Chitty Bang Bang
 
-A Fabric mod for Minecraft Java **1.21.1**: the car from the film, to drive, fly and float. It is built beside
-[The Shooting Star](../README.md), in the same repository and build, and needs it installed: Chitty's things share
-its names and its rule that only **kortev** crafts them (crafters do not make them at all). Everyone can ride in her
-and break her once she is made.
+A Fabric mod for Minecraft Java **1.21.1**: the car from the film, to drive, fly and float, and Baron Bomburst's
+Vulgarian airship ([below](#the-vulgarian-airship)). It is built beside [The Shooting Star](../README.md), in the same
+repository and build, and needs it installed: its things share The Shooting Star's names and its rule that only
+**kortev** crafts them (crafters do not make them at all). Everyone can ride in them and break them once they are made.
 
 GEN 11, the car from the film, built in Blender from photographs of it: a long polished aluminium bonnet, an
 egg-shaped radiator (a gold rim round a grey honeycomb, round over the top and wider low down) with the great brass
@@ -73,6 +73,69 @@ the game's mesh and texture; `--out DIR
 --renders` writes `.blend` and `.glb` files and renders her on the road, flying and afloat. Her sounds come from
 `tools/gen_chitty_sounds.py`, which models the engine (each firing and its rush of gas through its own length of header
 into one long flexible pipe, heard outdoors) rather than imitating it.
+
+## The Vulgarian airship
+
+Baron Bomburst's airship from the film, built in Blender from its stills:
+- **The envelope:** 34 blocks long, white, banded at each end in Vulgaria's purple and black, with Vulgaria's arms on
+  each flank (a black griffin with a grey wing rearing behind a shield quartered gold and black, drawn as crisp
+  heraldry).
+- **The frame:** a bronze frame under the envelope, its bars just over the crew's heads.
+- **The gondola:** hung below the frame on wires. It is a little black gondola carved and gilded as the film's, with
+  a winged cherub beside the Baron's black-letter B at the bow, rope wound on drums past the bow and a black iron
+  engine section at the stern.
+- **The propellers:** two pushers behind the stern, on outriggers from the gondola, each turned by a belt over a
+  spoked pulley.
+- **Below and behind:** a four-tined grapple hangs under the keel and a searchlight stands on the frame. A white
+  tailplane and dark fins with the rudder hang under the tail.
+
+- **Put her down:** use the item on the ground; her gondola sits on it and she faces the way you face. Use her to
+  board: you stand in the free place nearest where you click. There are eight places in the gondola, standing room,
+  and whoever stands at the wheel in the bow flies her.
+- **Fly:** forward and back for the propellers, left and right to steer (she turns slowly, even standing still), jump
+  to rise and sprint to sink. She is slow, as an airship is, and keeps her height wherever she is left, piloted or
+  not. Her envelope keeps out of hills and trees: she stops rather than drive it into them.
+- **She lifts six.** With more aboard, a load on her grapple counting as one, she cannot climb and sinks slowly, as
+  she does in the film. The pilot's **O** (overboard, rebindable) throws whoever stands furthest aft over the side.
+- **The grapple:** **R** (rebindable, anyone aboard) works it. Stowed, it lets down on its rope, as far as 32 blocks.
+  It seizes the first thing its tines touch: a mob, a player, a dropped item, a boat, a minecart, even Chitty. It winds
+  that up to carry it three blocks under her keel. Press R again and it sets its load down on the ground and lets go;
+  going down empty, R winds it back up. A caught player cannot simply step off: holding sneak, they struggle, and after
+  ten seconds of it they wrench free and drop.
+- **The rope ladder:** **K** (rebindable, anyone aboard) lets it down from the rail on her left as far as the ground
+  (32 blocks at most), or draws it up. Anyone can climb it, as a ladder: jump to go up, sneak to hold on. Climbing off
+  its top takes you aboard into a free place.
+- **Bombs:** craft them (iron, two gunpowder and string make two), then use them on her to fill the rack in the
+  gondola, six at most. **B** (rebindable, anyone aboard) drops the next one through the floor, one every one and a
+  half seconds. A bomb whistles down and goes off where it strikes the ground, the water or someone, smaller than TNT
+  but enough to break the ground.
+- **Getting off:** sneak, but only where it is safe. You can step off when she is down (or nearly) or her ladder is
+  let down; otherwise sneaking does nothing.
+- **Riding in her:** everyone aboard stands, and turns with her. She is solid all along: her gondola, her envelope
+  (you can stand on it) and her tail have hitboxes, and hitting any of them hits her. In third person the camera
+  stands three times as far back. Nobody aboard takes fall damage. Hit her hard enough and she drops back into an
+  item, with any bombs left in her rack.
+
+Her engine putters along in the stern while she is piloted, its two propellers beating the air a little out of step,
+and the wind sings in her rigging as she goes. Now and then the great envelope creaks, the winch ratchets as the
+grapple goes up and down, and the ladder unrolls with its rungs knocking.
+
+**Craft her** (the recipe unlocks with a phantom membrane), and her bombs (with gunpowder):
+
+```
+P W P     P = Purple Wool        W = White Wool
+M C M     M = Phantom Membrane   C = Chain
+G B G     G = Gold Ingot         B = any Boat
+
+Bombs (shapeless, makes 2): Iron Ingot, Gunpowder, Gunpowder, String
+```
+
+Her model, texture and icon come from `tools/airship_model.py`. Its `--game` option bakes her look into one atlas with
+Chitty's exporter; its `--out DIR --renders` option renders her from the film's angles. Three drawing tools supply its
+art:
+- `tools/vulgaria_arms.py` draws her arms;
+- `tools/airship_carving.py` draws the gondola's gilt carving and lights it as raised gold;
+- `tools/gen_airship_sounds.py` makes her sounds.
 
 ## Installing
 

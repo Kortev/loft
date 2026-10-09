@@ -7,8 +7,11 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.VertexConsumer;
@@ -21,9 +24,10 @@ import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
 /**
- * Chitty as built in Blender (tools/chitty_model.py --game): the body in one piece and every part that moves on its
- * own pivot, read from assets/shootingstar/meshes/chitty.cbm and drawn quad by quad into an entity layer, so she is lit
- * and fogged like everything else. Coordinates are blocks with the car at yaw 0: x to her left, y up, z forward.
+ * A vehicle as built in Blender (tools/chitty_model.py --game, tools/airship_model.py --game): the body in one piece
+ * and every part that moves on its own pivot, read from assets/shootingstar/meshes/NAME.cbm and drawn quad by quad into
+ * an entity layer, so it is lit and fogged like everything else. Coordinates are blocks with the vehicle at yaw 0: x to
+ * its left, y up, z forward.
  */
 public final class ChittyMesh {
 	/**
@@ -95,39 +99,47 @@ public final class ChittyMesh {
 		this.markers = markers;
 	}
 
-	@Nullable
-	private static ChittyMesh loaded;
-	private static boolean failed;
+	private static final Map<String, ChittyMesh> LOADED = new HashMap<>();
+	private static final Set<String> FAILED = new HashSet<>();
 
-	/** The mesh, loaded on first use (and again after resources reload); null if it could not be read. */
+	/** Chitty's mesh. */
 	@Nullable
 	public static ChittyMesh get() {
-		if (loaded == null && !failed) {
+		return get("chitty");
+	}
+
+	/** A vehicle's mesh, loaded on first use (and again after resources reload); null if it could not be read. */
+	@Nullable
+	public static ChittyMesh get(String name) {
+		ChittyMesh mesh = LOADED.get(name);
+		if (mesh == null && !FAILED.contains(name)) {
 			try {
-				loaded = load();
+				mesh = load(name);
+				LOADED.put(name, mesh);
 			} catch (IOException | RuntimeException e) {
-				failed = true;
-				Chitty.LOGGER.error("Could not load Chitty's mesh", e);
+				FAILED.add(name);
+				Chitty.LOGGER.error("Could not load the mesh meshes/{}.cbm", name, e);
 			}
 		}
-		return loaded;
+		return mesh;
 	}
 
 	public static void reload() {
-		loaded = null;
-		failed = false;
+		LOADED.clear();
+		FAILED.clear();
 	}
 
-	private static ChittyMesh load() throws IOException {
+	private static ChittyMesh load(String name) throws IOException {
+		String path = "meshes/" + name + ".cbm";
 		Resource resource = MinecraftClient.getInstance().getResourceManager()
-				.getResource(ShootingStar.id("meshes/chitty.cbm")).orElseThrow(() -> new IOException("missing meshes/chitty.cbm"));
+				.getResource(ShootingStar.id(path)).orElseThrow(() -> new IOException("missing " + path));
 		byte[] bytes;
 		try (InputStream in = resource.getInputStream()) {
 			bytes = in.readAllBytes();
 		}
 		ByteBuffer data = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
 		if (data.get() != 'C' || data.get() != 'B' || data.get() != 'M' || data.get() != '2') {
-			throw new IOException("not a Chitty mesh");
+			throw new IOException("not a vehicle mesh");
 		}
 		int count = data.getInt();
 		Map<String, Part> parts = new LinkedHashMap<>();

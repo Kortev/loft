@@ -34,6 +34,7 @@ built in Blender by a script, the effects are real shaders, and everything has g
 | **SS-03 Gungnir**: orbital kinetic strike with a 22 s cinematic uplink feed, a 128-block crater, molten crust and a spire | `gungnir_uplink` | Done. kortev has more edits planned (not yet specified). |
 | **Ω-00 Ginnungagap**: the Genesis Key erases the world round a target; everyone waits in the void; the cracked key rebuilds it | `genesis_key` | Done. kortev has more edits planned (not yet specified). |
 | **Chitty Chitty Bang Bang**: drivable, flying, floating car from the film | `chitty` | Done and polished (pleated wings, raft, ejector seat, hamper, dials, lamps, live metal shine, banking view). In her own jar. |
+| **The Vulgarian airship**: Baron Bomburst's airship, to fly, with a grapple, a rope ladder and bombs | `airship`, `airship_bomb` | In game (Chitty's jar), waiting on kortev's in-game test. Map: `.claude/skills/film-vehicle/references/airship.md`. |
 | **Owner-only crafting** | all recipes | Done: `OwnerOnly.OWNER = "kortev"`; crafters never make the mods' items. It covers everything in the `shootingstar` namespace, whichever jar it is in. |
 
 The latest work is on branch **`claude/gallant-brahmagupta-qi9mw3`** (it carries everything from
@@ -45,7 +46,7 @@ Two new vehicles from *Chitty Chitty Bang Bang*, built exactly like Chitty and i
 `film-vehicle` skill). kortev
 wants **renders for approval before baking** anything.
 
-### 1. The Vulgarian airship (kortev's own airship)
+### 1. The Vulgarian airship (kortev's own airship): built
 
 - It's a craftable vehicle to fly, not an enemy.
 - It hovers, rises and sinks slowly, and seats a crew in the gondola, with a **ladder**.
@@ -69,16 +70,14 @@ wants **renders for approval before baking** anything.
     some rule such as a timer.
   - Bombs break blocks. The cost and reload are ours to choose.
   - The ladder is a rope ladder that lets down as far as the hook.
-- **Proposed, awaiting kortev's answer:**
-  - Eight places to stand, with lift for six; overloaded, she sinks slowly. A key throws the heaviest passenger
-    overboard.
+  - The gondola is shorter and deeper, like the film's (its carved side about two to one).
+  - Eight places to stand, with lift for six; overloaded, she sinks slowly. The pilot's key throws the passenger
+    furthest aft overboard.
   - A hooked player struggles free by holding sneak for 10 s.
-  - Bombs: iron, 2 gunpowder and string make 2. She carries a rack of 6, with about 1.5 s between drops.
-- **The model** (renders sent; awaiting kortev's OK before any baking):
-  - `tools/airship_model.py` builds it in Blender.
-  - `tools/vulgaria_arms.py` draws the arms.
-  - `tools/airship_carving.py` draws the gondola's gilt carving and its relief.
-  - There is no `--game` export yet.
+  - Bombs: iron, 2 gunpowder and string make 2. She carries a rack of 6, with 1.5 s between drops.
+- **Built and in game.** kortev OK'd the renders and asked for her baked and ported. She is in Chitty's jar, mapped
+  in `.claude/skills/film-vehicle/references/airship.md` and described in `chitty/README.md`. Next: kortev's
+  in-game test, and fixing what they report.
 
 ### 2. The Child Catcher's carriage
 

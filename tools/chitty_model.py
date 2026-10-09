@@ -1961,11 +1961,18 @@ def texel_weight(name):
     return 1.0
 
 
+# Objects whose own UVs are kept for the bake rather than unwrapped afresh (the bake layer starts as a copy of them):
+# a surface whose painting needs them, such as the airship's envelope, cylindrical with her arms on its flanks.
+KEEP_UV = ()
+
+
 def unwrap(objs):
-    """Each object unwrapped on its own, then all their islands scaled alike (by area, then by TEXEL_WEIGHT) and
-    packed into one square."""
+    """Each object unwrapped on its own (or its own UVs kept, KEEP_UV), then all their islands scaled alike (by area,
+    then by TEXEL_WEIGHT) and packed into one square."""
     view = bpy.context.view_layer
     for o in objs:
+        if o.name.split(':', 1)[1] in KEEP_UV:
+            continue
         bpy.ops.object.select_all(action='DESELECT')
         o.select_set(True)
         view.objects.active = o
@@ -2214,7 +2221,7 @@ def export_game(root):
     parts = {}
     for o in objs:
         parts.setdefault(part_of(o), []).append(o)
-    order = ['body', 'glass'] + sorted(k for k in parts if k not in ('body', 'glass'))
+    order = [k for k in ('body', 'glass') if k in parts] + sorted(k for k in parts if k not in ('body', 'glass'))
     with open(GAME_MESH, 'wb') as f:
         f.write(b'CBM2' + struct.pack('<i', len(order)))
         total = 0

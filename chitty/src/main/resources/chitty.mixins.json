@@ -1,0 +1,12 @@
+{
+	"required": true,
+	"package": "io.github.kortev.chitty.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"mixins": [
+		"AirshipDismountMixin",
+		"AirshipLadderMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

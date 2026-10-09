@@ -5,6 +5,7 @@ Needs Blender's Python module (pip install "bpy==4.5.*", on Python 3.11). Run fr
     python tools/airship_model.py --out DIR              # writes DIR/airship.blend
     python tools/airship_model.py --out DIR --renders    # also renders her flying, from the ground and close up
     python tools/airship_model.py --out DIR --textures   # also writes the painted textures as PNGs
+    python tools/airship_model.py --game                 # bakes her for the game: mesh, texture and item icon
 
 Blender units are blocks (metres), as for Chitty (tools/chitty_model.py, whose helpers this uses). The airship faces
 +Y with +X on her right and +Z up. The origin is under the middle of the gondola's keel: she lands on her gondola, and
@@ -44,7 +45,11 @@ from mathutils import Matrix, Vector
 from PIL import Image, ImageDraw
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import chitty_model as cm  # noqa: E402  (materials, meshes, lofts, tubes and the render scene)
+import chitty_model as cm  # noqa: E402  (materials, meshes, lofts, tubes, the render scene and the game export)
+
+# Building her for the game (--game): the ropes are plain tubes, light enough to draw every frame; their lay is only
+# worth its polygons in the renders.
+GAME = '--game' in sys.argv
 
 # --- layout (blocks) ---------------------------------------------------------------------------------
 
@@ -696,7 +701,10 @@ def pipe(m, path, radius, mat, seg=12, flare=None, closed=False):
 
 def rope(m, path, radius, mat, lay=5.5):
     """A three-strand rope along a path: three strands twisted round each other, a full turn every `lay` times the
-    rope's thickness."""
+    rope's thickness (for the game, a plain tube)."""
+    if GAME:
+        pipe(m, path, radius, mat, seg=6)
+        return
     pts = [Vector(p) for p in path]
     # Resample finely enough for the twist, by length.
     dense = [pts[0]]
@@ -746,7 +754,7 @@ def build_coil():
         for layer, rr in ((0, 0.075), (1, 0.075 + 2 * r_rope * 0.9), (2, 0.075 + 4 * r_rope * 0.9)):
             turns = (y1 - y0 - 2 * r_rope) / (2 * r_rope)
             pts = []
-            for t in np.linspace(0, 1, int(turns * 24)):
+            for t in np.linspace(0, 1, int(turns * (10 if GAME else 24))):
                 a = 2 * math.pi * turns * t
                 yy = y0 + r_rope + (y1 - y0 - 2 * r_rope) * (t if layer % 2 == 0 else 1 - t)
                 pts.append((math.cos(a) * rr, yy - (y0 + y1) / 2, math.sin(a) * rr))
@@ -889,7 +897,7 @@ def build_wheel():
         d = Vector((math.cos(a), 0, math.sin(a)))
         cm.tube(m, [d * 0.04, d * (r + 0.1)], 0.018, 'wood', seg=6)
     cm.lathe(m, [(0.0, -0.06), (0.06, -0.06), (0.06, 0.04), (0.0, 0.05)], lambda k: 'brass', axis='y', seg=16)
-    m.obj('wheel', location=tuple(WHEEL), part='wheel', smooth=40)
+    m.obj('helm', location=tuple(WHEEL), part='helm', smooth=40)
     m = cm.Mesh()
     cm.lathe(m, [(0.0, GON_FLOOR), (0.1, GON_FLOOR), (0.045, GON_FLOOR + 0.08), (0.035, WHEEL.z - 0.06),
                  (0.06, WHEEL.z), (0.0, WHEEL.z + 0.02)], lambda k: 'brass', axis='z', seg=16,
@@ -1006,7 +1014,7 @@ def pose(spin=0.0, steer=0.0, climb=0.0, hook=None, ladder=0.0, bombs=6):
             o.rotation_euler = (0, 0, math.radians(-25) * steer)
         elif part == 'elevator':
             o.rotation_euler = (math.radians(20) * climb, 0, 0)
-        elif part == 'wheel':
+        elif part == 'helm':
             o.rotation_euler = (0, math.radians(120) * steer, 0)
         elif part == 'coil':
             k = 1.0 - 0.4 * min(drop, LINE_MAX) / LINE_MAX
@@ -1076,8 +1084,92 @@ SHOTS = [
 ]
 
 
+# --- the game's copy ---------------------------------------------------------------------------------------
+
+GAME_MESH = 'chitty/src/client/resources/assets/shootingstar/meshes/airship.cbm'
+GAME_TEXTURE = 'chitty/src/client/resources/assets/shootingstar/textures/entity/airship.png'
+ITEM_ICON = 'chitty/src/main/resources/assets/shootingstar/textures/item/airship.png'
+
+# How much of the atlas each object gets for its size: the gondola's carving, the arms and what the crew stand among
+# most; the envelope's broad cloth, the platform and the girder least.
+TEXEL_WEIGHT = {'gondola_hull': 2.6, 'gondola_inside': 1.2, 'gondola_rail': 1.4, 'gondola_fittings': 1.4,
+                'helm': 1.6, 'wheel_post': 1.4, 'bomb_': 1.3, 'bomb_rack': 1.0, 'searchlight': 1.3,
+                'drum_': 1.2, 'coil': 1.0, 'hank': 0.9, 'ladder': 1.2, 'hook': 1.0, 'rope': 0.8,
+                'prop_': 1.0, 'envelope': 0.36, 'platform': 0.3, 'platform_rim': 0.5, 'platform_cables': 0.4,
+                'girder': 0.45, 'frame': 0.6, 'rigging': 0.4, 'slack_ropes': 0.5, 'tail_': 0.45, 'rudder': 0.45,
+                'elevator': 0.45}
+
+
+def neutral():
+    """Every part at rest for the game: the propellers and controls unturned, the grapple up under the keel with its
+    rope a block long, one rung of the ladder, all six bombs."""
+    pose(hook=0.0, ladder=LADDER_PITCH)
+    for o in bpy.data.objects:
+        part = o.get('part', '')
+        if part == 'rope':
+            o.scale = (1, 1, 1)
+        elif part == 'ladder':
+            arr = o.modifiers.get('rungs')
+            if arr:
+                o.modifiers.remove(arr)
+    bpy.context.view_layer.update()
+
+
+def export_game():
+    """Bakes her and writes the game's mesh (.cbm), its texture and the item icon, with Chitty's exporter
+    (chitty_model.export_game, whose docstring has the format) pointed at her files: one 4096 atlas, her light
+    baked in from the same sky."""
+    cm.GAME_MESH, cm.GAME_TEXTURE, cm.ITEM_ICON = GAME_MESH, GAME_TEXTURE, ITEM_ICON
+    cm.BAKE_SIZE = 4096
+    cm.BAKE_SAMPLES = int(os.environ.get('AIRSHIP_BAKE_SAMPLES', '64'))
+    cm.TEXEL_WEIGHT = TEXEL_WEIGHT
+    cm.SHINE, cm.GLOW, cm.GLASS_TINT = {}, (), {}
+    cm.KEEP_UV = ('envelope',)     # cylindrical, as her texture is painted: the arms stay upright and in proportion
+    cm.GAME_LIT = ('helm',)         # the steering wheel turns, so the game lights it
+    cm.neutral = neutral
+    cm.pose = lambda *a, **k: pose()
+    cm.export_game(None)
+    render_icon()
+
+
+def render_icon():
+    """The item: her side on, a little from below, shrunk to a crisp 32 x 32."""
+    scene = bpy.context.scene
+    cm.render_scene_setup()
+    for name in ('ground', 'water'):
+        if name in bpy.data.objects:
+            bpy.data.objects[name].hide_render = True
+    scene.render.film_transparent = True
+    cam = scene.camera
+    cam.data.type = 'ORTHO'
+    cam.data.ortho_scale = 40.0
+    cam.location = Vector((60.0, 14.0, 0.0))
+    cam.rotation_euler = (Vector((0.0, ENV_MID_Y + 1.5, 6.0)) - cam.location).to_track_quat('-Z', 'Y').to_euler()
+    scene.render.resolution_x = scene.render.resolution_y = 512
+    scene.cycles.samples = 32
+    path = os.path.join(bpy.app.tempdir or '/tmp', 'airship_icon.png')
+    scene.render.filepath = path
+    bpy.ops.render.render(write_still=True)
+    small = Image.open(path).convert('RGBa').resize((32, 32), Image.LANCZOS).convert('RGBA')
+    from PIL import ImageEnhance
+    rgb = ImageEnhance.Color(ImageEnhance.Brightness(small.convert('RGB')).enhance(1.2)).enhance(1.2)
+    small = Image.merge('RGBA', (*rgb.split(), small.split()[3]))
+    a = np.array(small)
+    a[..., 3] = np.where(a[..., 3] > 100, 255, 0)
+    os.makedirs(os.path.dirname(ITEM_ICON), exist_ok=True)
+    Image.fromarray(a, 'RGBA').save(ITEM_ICON, optimize=True)
+    scene.render.film_transparent = False
+    cam.data.type = 'PERSP'
+    print('icon ->', ITEM_ICON, '(full size at %s)' % path)
+
+
 def main():
     args = sys.argv[1:]
+    if '--game' in args:
+        build()
+        export_game()
+        if '--out' not in args:
+            return
     if '--out' not in args:
         print(__doc__)
         return

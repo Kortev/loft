@@ -115,5 +115,77 @@
         "name": "shootingstar:chitty_crash"
       }
     ]
+  },
+  "airship.engine": {
+    "subtitle": "subtitles.shootingstar.airship.engine",
+    "sounds": [
+      {
+        "name": "shootingstar:airship_engine",
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "airship.wind": {
+    "subtitle": "subtitles.shootingstar.airship.wind",
+    "sounds": [
+      {
+        "name": "shootingstar:airship_wind",
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "airship.creak": {
+    "subtitle": "subtitles.shootingstar.airship.creak",
+    "sounds": [
+      {
+        "name": "shootingstar:airship_creak",
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "airship.winch": {
+    "subtitle": "subtitles.shootingstar.airship.winch",
+    "sounds": [
+      {
+        "name": "shootingstar:airship_winch",
+        "attenuation_distance": 24
+      }
+    ]
+  },
+  "airship.grab": {
+    "subtitle": "subtitles.shootingstar.airship.grab",
+    "sounds": [
+      {
+        "name": "shootingstar:airship_grab",
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "airship.ladder": {
+    "subtitle": "subtitles.shootingstar.airship.ladder",
+    "sounds": [
+      {
+        "name": "shootingstar:airship_ladder",
+        "attenuation_distance": 24
+      }
+    ]
+  },
+  "airship.bomb_drop": {
+    "subtitle": "subtitles.shootingstar.airship.bomb_drop",
+    "sounds": [
+      {
+        "name": "shootingstar:airship_bomb_drop",
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "airship.load": {
+    "subtitle": "subtitles.shootingstar.airship.load",
+    "sounds": [
+      {
+        "name": "shootingstar:airship_load",
+        "attenuation_distance": 16
+      }
+    ]
   }
 }

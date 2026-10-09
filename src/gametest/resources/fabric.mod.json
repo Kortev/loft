@@ -3,7 +3,7 @@
 	"id": "shootingstar-gametest",
 	"version": "1.0.0",
 	"name": "The Shooting Star test harness",
-	"description": "Development only: game tests and client self tests for The Shooting Star and Chitty Chitty Bang Bang.",
+	"description": "Development only: game tests and client self tests for The Shooting Star and Chitty Chitty Bang Bang (Chitty and the Vulgarian airship).",
 	"environment": "*",
 	"entrypoints": {
 		"main": [
@@ -13,7 +13,8 @@
 			"io.github.kortev.shootingstar.test.DataGameTests",
 			"io.github.kortev.shootingstar.test.StrikeGameTests",
 			"io.github.kortev.shootingstar.test.GapGameTests",
-			"io.github.kortev.shootingstar.test.ChittyGameTests"
+			"io.github.kortev.shootingstar.test.ChittyGameTests",
+			"io.github.kortev.shootingstar.test.AirshipGameTests"
 		],
 		"client": [
 			"io.github.kortev.shootingstar.test.ClientSelfTest",

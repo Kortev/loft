@@ -29,7 +29,10 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import org.lwjgl.glfw.GLFW;
 
-/** Chitty on the client: how she is drawn and heard, the driver's controls, the horn, the wings and the ejector. */
+/**
+ * Chitty on the client: how she is drawn and heard, the driver's controls, the horn, the wings and the ejector; and the
+ * film's other vehicles, each set up from here (the airship: {@link AirshipClient}).
+ */
 public final class ChittyClient implements ClientModInitializer {
 	public static KeyBinding HORN;
 	public static KeyBinding WINGS;
@@ -57,7 +60,7 @@ public final class ChittyClient implements ClientModInitializer {
 		ResourceManagerHelper.get(ResourceType.CLIENT_RESOURCES).registerReloadListener(new SimpleSynchronousResourceReloadListener() {
 			@Override
 			public Identifier getFabricId() {
-				return ShootingStar.id("chitty_mesh");
+				return ShootingStar.id("vehicle_meshes");
 			}
 
 			@Override
@@ -87,6 +90,7 @@ public final class ChittyClient implements ClientModInitializer {
 			}
 		};
 		ClientTickEvents.END_CLIENT_TICK.register(ChittyClient::tick);
+		AirshipClient.init();
 	}
 
 	private static ChittyControls controls(ChittyEntity car) {

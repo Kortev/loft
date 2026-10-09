@@ -1,0 +1,33 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "P": {
+      "item": "minecraft:purple_wool"
+    },
+    "W": {
+      "item": "minecraft:white_wool"
+    },
+    "M": {
+      "item": "minecraft:phantom_membrane"
+    },
+    "C": {
+      "item": "minecraft:chain"
+    },
+    "G": {
+      "item": "minecraft:gold_ingot"
+    },
+    "B": {
+      "tag": "minecraft:boats"
+    }
+  },
+  "pattern": [
+    "PWP",
+    "MCM",
+    "GBG"
+  ],
+  "result": {
+    "count": 1,
+    "id": "shootingstar:airship"
+  }
+}
