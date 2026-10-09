@@ -105,7 +105,7 @@ public class AirshipEntity extends Entity {
 	public static final double FLOOR_FORE = 1.02;
 	public static final double FLOOR_Y = 0.42;
 	/** How fast people walk about in the gondola (blocks a tick), and how close they come to one another. */
-	public static final double WALK = 0.12;
+	public static final double WALK = 0.15;
 	public static final double ELBOW_ROOM = 0.5;
 	/** How far down her ladder must hang for someone getting off in the air to climb onto it. */
 	static final double LADDER_OFF = 2.0;
@@ -267,6 +267,7 @@ public class AirshipEntity extends Entity {
 	// On clients: where everyone is shown standing, eased towards where the server has them, and how far they stepped.
 	private final Map<Entity, Vec3d> shown = new WeakHashMap<>();
 	private final Map<Entity, Float> strides = new WeakHashMap<>();
+	private final Map<Entity, Float> sinceStep = new WeakHashMap<>();
 	private final AirshipPartEntity[] parts = new AirshipPartEntity[AirshipPartEntity.COUNT];
 	// When each player last stepped off her (her age then), so that one who has just stepped onto the ladder is not
 	// taken straight back aboard.
@@ -774,6 +775,12 @@ public class AirshipEntity extends Entity {
 		}
 		Vec3d at = local(stand);
 		positionUpdater.accept(passenger, at.x, at.y, at.z);
+		if (getWorld().isClient && passenger instanceof PlayerEntity player) {
+			// Their view bobs as they walk about her, as it does walking anywhere (a rider's otherwise never does).
+			float stride = strideOf(player);
+			player.strideDistance = player.prevStrideDistance + (Math.min(0.1F, stride) - player.prevStrideDistance) * 0.4F;
+			player.horizontalSpeed = player.prevHorizontalSpeed + stride * 0.6F;
+		}
 		if (passenger instanceof LivingEntity) {
 			float turn = MathHelper.wrapDegrees(getYaw() - prevYaw);
 			passenger.setYaw(passenger.getYaw() + turn);
@@ -1523,12 +1530,31 @@ public class AirshipEntity extends Entity {
 	 * up, sneak to hold on). Asked by LivingEntity.isClimbing on each side.
 	 */
 	public static boolean onLadder(LivingEntity entity) {
+		return ladderOf(entity) != null;
+	}
+
+	/**
+	 * Which way is into the rope ladder an entity is on (towards her, level), or null if it is on none: the ladder is
+	 * solid that way, as a ladder against a wall is, so that walking into it climbs it (AirshipLadderMixin).
+	 */
+	@Nullable
+	public static Vec3d intoLadder(LivingEntity entity) {
+		AirshipEntity ship = ladderOf(entity);
+		if (ship == null) {
+			return null;
+		}
+		float yawRad = ship.getYaw() * MathHelper.RADIANS_PER_DEGREE;
+		return new Vec3d(-MathHelper.cos(yawRad), 0.0, -MathHelper.sin(yawRad));
+	}
+
+	@Nullable
+	private static AirshipEntity ladderOf(LivingEntity entity) {
 		if (entity.hasVehicle()) {
-			return false;
+			return null;
 		}
 		Set<AirshipEntity> ladders = entity.getWorld().isClient ? LADDERS_CLIENT : LADDERS_SERVER;
 		if (ladders.isEmpty()) {
-			return false;
+			return null;
 		}
 		for (AirshipEntity ship : ladders) {
 			if (ship.isRemoved() || ship.getWorld() != entity.getWorld()) {
@@ -1538,10 +1564,10 @@ public class AirshipEntity extends Entity {
 			double dx = entity.getX() - top.x;
 			double dz = entity.getZ() - top.z;
 			if (dx * dx + dz * dz < 0.45 * 0.45 && entity.getY() < top.y + 0.5 && entity.getY() > top.y - ship.getLadder() - 0.3) {
-				return true;
+				return ship;
 			}
 		}
-		return false;
+		return null;
 	}
 
 	// --- the look of her, on clients ----------------------------------------------------------------------
@@ -1566,6 +1592,14 @@ public class AirshipEntity extends Entity {
 			strides.put(passenger, stride);
 			if (passenger instanceof LivingEntity living) {
 				living.limbAnimator.updateLimbs(Math.min(stride * 4.0F, 1.0F), 0.4F);
+				// Their footsteps on the boards of her floor.
+				float walked = sinceStep.getOrDefault(passenger, 0.0F) + stride;
+				if (walked > 0.7F) {
+					walked = 0.0F;
+					world.playSound(passenger.getX(), passenger.getY(), passenger.getZ(), SoundEvents.BLOCK_WOOD_STEP, SoundCategory.PLAYERS,
+							0.18F, 0.9F + random.nextFloat() * 0.2F, false);
+				}
+				sinceStep.put(passenger, walked);
 			}
 		}
 		prevPropSpin = propSpin;

@@ -17,6 +17,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.input.Input;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.option.KeyBinding;
+import net.minecraft.client.option.Perspective;
 import net.minecraft.client.render.entity.EmptyEntityRenderer;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.entity.Entity;
@@ -52,6 +53,12 @@ public final class AirshipClient {
 	@Nullable
 	private static Vec3d myStand;
 	private static boolean wasAtHelm;
+	/**
+	 * The view this player had before they took the wheel, which they get back when they let it go: at the wheel they
+	 * watch her from behind (her whole length, ChittyCameraMixin). Null when they are not at a wheel.
+	 */
+	@Nullable
+	private static Perspective viewBeforeWheel;
 
 	private AirshipClient() {
 	}
@@ -222,6 +229,14 @@ public final class AirshipClient {
 			if (piloting) {
 				act(AirshipEntity.ACTION_OVERBOARD);
 			}
+		}
+		// At the wheel the view goes behind her; letting go of it gives back the view there was.
+		if (piloting && viewBeforeWheel == null) {
+			viewBeforeWheel = client.options.getPerspective();
+			client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
+		} else if (!piloting && viewBeforeWheel != null) {
+			client.options.setPerspective(viewBeforeWheel);
+			viewBeforeWheel = null;
 		}
 		// A word on the controls when someone comes aboard or takes the wheel, and a warning when she is overloaded.
 		int now = ship == null ? 0 : ship.isOverloaded() ? 3 : piloting ? 2 : 1;

@@ -92,8 +92,8 @@ Baron Bomburst's airship from the film, built in Blender from its stills:
 - **Put her down:** use the item on the ground; her gondola sits on it and she faces the way you face. Use her to
   board: you come aboard at the free place nearest where you click. Eight can stand in the gondola, and walk about in
   it with the movement keys; nobody can fall out.
-- **Take the wheel:** walk up to the wheel in the bow and it is yours: now the movement keys fly her. Sneak to let go
-  of it and walk about again.
+- **Take the wheel:** walk up to the wheel in the bow and it is yours: now the movement keys fly her, and the view goes
+  behind her to see all of her. Sneak to let go of it; you walk about again, in the view you had before.
 - **Fly:** forward and back for the propellers, left and right to steer (she turns slowly, even standing still), jump
   to rise and sprint to sink. She is slow, as an airship is, and keeps her height wherever she is left, piloted or
   not. Her envelope keeps out of hills and trees: she stops rather than drive it into them.
@@ -110,15 +110,15 @@ Baron Bomburst's airship from the film, built in Blender from its stills:
   it on, and she winds them up. Sneak to let go. Pressing R aboard, or her pulling further away than her rope reaches,
   pulls it out of their hands.
 - **The rope ladder:** **K** (rebindable, anyone aboard) lets it down from the rail on her left as far as the ground
-  (64 blocks at most), or draws it up. Anyone can climb it, as a ladder: jump to go up, sneak to hold on. Climbing off
-  its top takes you aboard into a free place.
+  (64 blocks at most), or draws it up. Anyone can climb it as a ladder against a wall: walk into it (or jump) to go up,
+  sneak to hold on. Climbing off its top takes you aboard into a free place.
 - **Bombs:** craft them (iron, two gunpowder and string make two), then use them on her to fill the rack in the
   gondola, six at most. **B** (rebindable, anyone aboard) drops the next one through the floor, one every one and a
   half seconds. A bomb whistles down and goes off where it strikes the ground, the water or someone, smaller than TNT
   but enough to break the ground.
 - **Getting off:** sneak. When she is down (or nearly) you step off beside her. In the air her rope ladder lets itself
   down: keep sneaking and you climb down onto it. At the wheel, sneaking lets go of the wheel first.
-- **Riding in her:** everyone aboard stands, walks about and turns with her. She is solid all along: her gondola, her
+- **Riding in her:** everyone aboard stands, walks about (their steps knocking on her boards) and turns with her. She is solid all along: her gondola, her
   envelope (you can stand on it) and her tail have hitboxes, and hitting any of them hits her. In third person the
   camera turns about the middle of her and stands far enough back to see all of her. Nobody aboard takes fall damage. Hit her hard enough and she drops back into an
   item, with any bombs left in her rack.
