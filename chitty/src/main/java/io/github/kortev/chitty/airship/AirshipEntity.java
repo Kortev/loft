@@ -1,6 +1,7 @@
 package io.github.kortev.chitty.airship;
 
 import io.github.kortev.chitty.ChittyControls;
+import io.github.kortev.chitty.ChittyPartEntity;
 import io.github.kortev.shootingstar.registry.ModCriteria;
 import java.util.Collections;
 import java.util.HashMap;
@@ -169,8 +170,20 @@ public class AirshipEntity extends Entity {
 	static final double LOADED_UP = 0.2;
 	static final double WINCH_EASE = 0.2;
 	static final double SLACK = 2.0;
-	/** How fast the grapple must be going (blocks a tick) to take hold of what it meets: lying still, it catches nothing. */
-	static final double CATCH_SPEED = 0.04;
+	/**
+	 * When the grapple takes hold of what it meets: let down onto it by the winch, swept into it as she flies (faster
+	 * than SWEEP), or thrown at it (for THROWN_FLIGHT ticks after it leaves the hand). Hanging still or swinging idly
+	 * under her, it catches nothing, so that it never hooks someone just for being near it.
+	 */
+	static final double SWEEP = 0.05;
+	static final int THROWN_FLIGHT = 40;
+	/** How close under her keel the grapple's ring may swing: it never swings up through her gondola. */
+	public static final double KEEL_CLEARANCE = 0.3;
+	/**
+	 * How much further than its rope the grapple may be held back by something it has snagged on (a hill she flies
+	 * away from) before the rope pulls it free over it.
+	 */
+	static final double SNAG = 1.5;
 	/** How long the grapple will not take hold again of whoever has just got off it, let go of it or thrown it. */
 	static final int SPARE = 60;
 	/**
@@ -264,6 +277,8 @@ public class AirshipEntity extends Entity {
 	@Nullable
 	private Entity spared;
 	private int sparedUntil;
+	/** When the grapple was last thrown. */
+	private int thrownAt = -1000;
 	/** What was on the grapple last tick (to know when it gets off). */
 	@Nullable
 	private Entity lastLoad;
@@ -1340,9 +1355,10 @@ public class AirshipEntity extends Entity {
 		}
 		Vec3d gripBefore = gripBelow(hookPos);
 		swingGrapple(world, out, load);
-		// Going, it takes hold of what it meets (let down onto it, swung or dragged into it, thrown at it); lying still,
-		// it catches nothing.
-		if (hook == Hook.OUT && load == null && gripBefore.distanceTo(hookGrip()) > CATCH_SPEED) {
+		// It takes hold of what it meets as it is let down onto it, swept into it as she flies, or thrown at it; hanging
+		// still or swinging idly, it catches nothing.
+		boolean going = winchSpeed > 0.02 || getSpeed() > SWEEP || age - thrownAt < THROWN_FLIGHT;
+		if (hook == Hook.OUT && load == null && going) {
 			Entity caught = catchable(world, gripBefore);
 			if (caught != null) {
 				grab(world, caught);
@@ -1451,6 +1467,24 @@ public class AirshipEntity extends Entity {
 		if (length > hookDrop) {
 			next = out.add(rope.multiply(hookDrop / length));
 		}
+		// Swinging up as she stops or turns, it comes up against her keel and no further.
+		double under = Math.min(KEEL_CLEARANCE, hookDrop);
+		boolean keel = next.y > out.y - under;
+		if (keel) {
+			// Along under her, still within its rope.
+			Vec3d flat = new Vec3d(next.x - out.x, 0.0, next.z - out.z);
+			double room = Math.sqrt(Math.max(0.0, hookDrop * hookDrop - under * under));
+			if (flat.length() > room) {
+				flat = flat.length() > 1.0E-6 ? flat.multiply(room / flat.length()) : Vec3d.ZERO;
+			}
+			next = out.add(flat).add(0.0, -under, 0.0);
+		}
+		if (hookPos.distanceTo(out) > hookDrop + SNAG) {
+			// Snagged on something as she flies away from it: the rope drags it free, over whatever held it.
+			hookPrev = hookPos;
+			hookPos = next;
+			return;
+		}
 		// From its ring down to the lowest point of it: its tines, or the feet of what it carries.
 		double hang = load != null ? AirshipHookEntity.hangBelow(load, hookEntity != null && hookEntity.isVoluntary()) : 0.0;
 		Vec3d low = new Vec3d(0.0, -(HOOK_GRIP + hang), 0.0);
@@ -1476,7 +1510,8 @@ public class AirshipEntity extends Entity {
 			hookPrev = stop.subtract(slide);
 			return;
 		}
-		hookPrev = hookPos;
+		// Against her keel it loses the speed it came up with.
+		hookPrev = keel ? new Vec3d(hookPos.x, next.y, hookPos.z) : hookPos;
 		hookPos = next;
 	}
 
@@ -1533,8 +1568,13 @@ public class AirshipEntity extends Entity {
 		Box reach = new Box(grip.x - 0.7, grip.y - 0.9, grip.z - 0.7, grip.x + 0.7, grip.y + 0.5, grip.z + 0.7)
 				.union(new Box(gripBefore.x - 0.7, gripBefore.y - 0.9, gripBefore.z - 0.7, gripBefore.x + 0.7, gripBefore.y + 0.5,
 						gripBefore.z + 0.7));
-		List<Entity> found = world.getOtherEntities(this, reach, e -> canGrab(e) && !(e == spared && age < sparedUntil));
-		return found.isEmpty() ? null : found.get(0);
+		List<Entity> found = world.getOtherEntities(this, reach, e -> canGrab(whole(e)) && !(whole(e) == spared && age < sparedUntil));
+		return found.isEmpty() ? null : whole(found.get(0));
+	}
+
+	/** What the grapple takes hold of when it meets this: Chitty herself, not one of the hitboxes along her length. */
+	private static Entity whole(Entity e) {
+		return e instanceof ChittyPartEntity part && part.getCar() != null ? part.getCar() : e;
 	}
 
 	private boolean canGrab(Entity e) {
@@ -1636,6 +1676,7 @@ public class AirshipEntity extends Entity {
 		hookPos = hand;
 		hookPrev = hand.subtract(fling);
 		hookDrop = Math.min(LINE_MAX, Math.max(hookDrop, hand.distanceTo(lineOut()) + THROW_SLACK));
+		thrownAt = age;
 		getWorld().playSound(null, hand.x, hand.y, hand.z, Airship.WINCH, SoundCategory.NEUTRAL, 0.9F, 1.6F);
 		return true;
 	}
@@ -1657,6 +1698,7 @@ public class AirshipEntity extends Entity {
 	 * takes hold, and there it stays until the crew wind it up.
 	 */
 	public boolean hookOnto(PlayerEntity player, Entity target) {
+		target = whole(target);
 		if (hook != Hook.HELD || hookHolder != player || target == player || !canGrab(target)
 				|| player.squaredDistanceTo(target) > HOOK_REACH * HOOK_REACH || !(getWorld() instanceof ServerWorld world)) {
 			return false;

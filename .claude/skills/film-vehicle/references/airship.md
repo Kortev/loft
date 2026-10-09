@@ -60,8 +60,11 @@ namespace.
     Let out onto the ground it leaves `SLACK` 2 and stops; a load let out until it stands is let go there. Wound in, a
     caught load stops at `CARRY`, a volunteer at `HOOK_ABOARD` (0.6) climbs aboard (`comeAboard`), and the empty
     grapple at 0 is stowed. Catching something or someone hanging on stops the winch. Nothing else moves it.
-  - It takes hold only while going faster than `CATCH_SPEED`, never of whoever has just got off it, let go of it or
-    thrown it (`spare`, `SPARE` ticks).
+  - It takes hold only while it is going: let out by the winch, swept as she flies faster than `SWEEP`, or thrown
+    (`THROWN_FLIGHT` ticks); never of whoever has just got off it, let go of it or thrown it (`spare`, `SPARE` ticks).
+    Meeting one of Chitty's hitboxes, it takes Chitty (`whole`).
+  - It never swings up past her keel (`KEEL_CLEARANCE`, keeping within its rope), and snagged on something she flies
+    away from it is dragged free once it is held `SNAG` past its rope.
   - It swings (`swingGrapple`, server): a Verlet point at its ring under `HOOK_GRAVITY` 0.05, keeping `HOOK_DAMPING`
     0.985 of its speed a tick (0.97 loaded), never further from `lineOut()` than the rope paid out (`hookDrop`). Its
     lowest point (tines, or a load's feet) is raycast against blocks: it rests on them and slides a little; a hard

@@ -352,6 +352,47 @@ public class AirshipGameTests implements FabricGameTest {
 		});
 	}
 
+	/**
+	 * Stopped dead at speed, her grapple swings on forward under her but comes up against her keel: it never swings up
+	 * through her. (Under the test area's barrier roof.)
+	 */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_airship_keel", tickLimit = 80)
+	public void grappleStaysUnder(TestContext context) {
+		floor(context, 0);
+		AirshipEntity ship = ship(context, 4.0, 6.0, 1.0);
+		ship.hangGrappleAt(2.0);
+		context.runAtTick(2, () -> ship.launch(0.8F));
+		context.runAtTick(14, () -> ship.launch(0.0F));
+		double[] highest = {-10.0};
+		context.runAtEveryTick(() -> highest[0] = Math.max(highest[0], ship.getHookOffset().y));
+		context.runAtTick(60, () -> {
+			context.assertTrue(highest[0] <= -AirshipEntity.KEEL_CLEARANCE + 1.0E-3, "the grapple swung up through her: "
+					+ highest[0] + " above where its rope comes out");
+			done(context, ship);
+		});
+	}
+
+	/**
+	 * Hanging still with a mob right under its tines, her grapple catches nothing; let down, it takes hold. (Under the
+	 * test area's barrier roof.)
+	 */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_airship_idle", tickLimit = 100)
+	public void grappleIdleCatchesNothing(TestContext context) {
+		floor(context, 0);
+		AirshipEntity ship = ship(context, 4.0, 6.0, 4.0);
+		ZombieEntity husk = husk(context, 4.0, 1.0, 4.25);
+		ship.hangGrappleAt(3.0);
+		context.runAtTick(40, () -> {
+			context.assertTrue(husk.getVehicle() == null, "the grapple caught a mob just for standing under it");
+			ship.setWinch(null, 1);
+		});
+		context.runAtTick(80, () -> {
+			context.assertTrue(husk.getVehicle() instanceof AirshipHookEntity, "let down onto the mob, the grapple did not take hold");
+			husk.discard();
+			done(context, ship);
+		});
+	}
+
 	/** A bomb dropped from her falls, strikes the ground and breaks it. */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_airship_bomb", tickLimit = 120)
 	public void bombBreaksGround(TestContext context) {

@@ -117,9 +117,11 @@ Baron Bomburst's airship from the film, built in Blender from its stills:
 - **The grapple:** anyone aboard works its winch: hold **R** to let it down on its rope (as far as 64 blocks), hold
   **Y** to wind it in (both rebindable); let go and it stops where it is. It never goes up or down by itself. The
   winch runs up to speed and slows smoothly, slower with a load. It is
-  a weight on a rope: it swings, trails behind her as she flies and comes to rest with a clank on whatever it lands
-  on, and what it carries swings with it. Going, it seizes the first thing its tines meet (lying still it catches
-  nothing): a mob, a player, a dropped item, a boat, a minecart, even Chitty. Then the winch stops, and the crew
+  a weight on a rope: it swings, trails behind her as she flies (never up through her when she stops: it comes up
+  against her keel), comes to rest with a clank on whatever it lands on, and is dragged free if it snags on a hill she
+  flies away from; what it carries swings with it. Let down onto something, swept into it as she flies, or thrown at
+  it, it seizes the first thing its tines meet (hanging still or swinging idly it catches nothing): a mob, a player, a
+  dropped item, a boat, a minecart, even Chitty. Then the winch stops, and the crew
   decide: wind it in to lift its load (as far as three blocks under her keel) or let it out until the load stands on
   the ground, where it is let go. Wound all the way in, the empty grapple is stowed. A caught player cannot simply
   step off: holding sneak, they struggle (a bar fills as they go), and after ten seconds of it they wrench free and drop.
