@@ -207,7 +207,7 @@ public class AirshipEntity extends Entity {
 	/** How much someone hanging on the grapple can swing it by leaning (blocks a tick, each tick). */
 	static final double HOOK_PUMP = 0.025;
 	/** How fast someone hanging on the grapple climbs its rope, holding jump (blocks a tick). */
-	static final double CLIMB = 0.15;
+	static final double ROPE_CLIMB = 0.15;
 	static final int BOMB_COOLDOWN = 30;
 
 	/**
@@ -1398,7 +1398,7 @@ public class AirshipEntity extends Entity {
 		// Someone hanging on climbs the rope, holding jump, while the winch is still.
 		boolean climbing = winch == 0 && byChoice && load instanceof AirshipJumper rider && rider.isChittyJumping();
 		double speed = winch > 0 ? load != null ? LOADED_DOWN : HOOK_DOWN : winch < 0 ? -(load != null ? LOADED_UP : HOOK_UP)
-				: climbing ? -CLIMB : 0.0;
+				: climbing ? -ROPE_CLIMB : 0.0;
 		winchSpeed += (speed - winchSpeed) * WINCH_EASE;
 		if (winch == 0 && Math.abs(winchSpeed) < 0.004) {
 			winchSpeed = 0.0;
