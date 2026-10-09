@@ -72,11 +72,14 @@ public class AirshipGameTests implements FabricGameTest {
 		});
 	}
 
-	/** Set going with nobody at the wheel, she flies on ahead, slowing as she goes. */
+	/**
+	 * Set going with nobody at the wheel, she flies on ahead, slowing as she goes. (Her gondola is kept under the test
+	 * area's barrier roof: in it, she cannot move.)
+	 */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_airship_fly", tickLimit = 40)
 	public void fliesAhead(TestContext context) {
 		floor(context, 0);
-		AirshipEntity ship = ship(context, 4.0, 9.0, 2.0);
+		AirshipEntity ship = ship(context, 4.0, 5.0, 1.0);
 		Vec3d start = ship.getPos();
 		context.runAtTick(2, () -> ship.launch(0.3F));
 		context.runAtTick(12, () -> {
@@ -244,19 +247,22 @@ public class AirshipGameTests implements FabricGameTest {
 		});
 	}
 
-	/** Her grapple is a weight on a rope: hanging under her as she sets off, it swings back and trails behind her. */
+	/**
+	 * Her grapple is a weight on a rope: hanging under her as she sets off, it swings back and trails behind her. (Under
+	 * the test area's barrier roof, as in fliesAhead.)
+	 */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_airship_swing", tickLimit = 60)
 	public void grappleSwings(TestContext context) {
 		floor(context, 0);
-		AirshipEntity ship = ship(context, 4.0, 9.0, 2.0);
-		ship.hangGrappleAt(5.0);
+		AirshipEntity ship = ship(context, 4.0, 6.0, 1.0);
+		ship.hangGrappleAt(3.0);
 		Vec3d start = ship.getPos();
 		context.runAtTick(2, () -> ship.launch(0.3F));
 		context.runAtTick(12, () -> {
 			Vec3d at = ship.getHookOffset();
 			context.assertTrue(at.z < -0.3, "the grapple did not trail behind her as she set off: " + at + " (she went "
 					+ ship.getPos().subtract(start) + ", at " + ship.getSpeed() + " a tick)");
-			context.assertTrue(at.length() <= 5.0 + 1.0E-3, "the grapple hangs further out than its rope: " + at.length());
+			context.assertTrue(at.length() <= 3.0 + 1.0E-3, "the grapple hangs further out than its rope: " + at.length());
 			done(context, ship);
 		});
 	}
