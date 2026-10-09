@@ -104,7 +104,10 @@ Baron Bomburst's airship from the film, built in Blender from its stills:
   lands on, and what it carries swings with it. It seizes the first thing its tines touch: a mob, a player, a dropped
   item, a boat, a minecart, even Chitty. It winds that up to carry it three blocks under her keel. Press R again and it
   sets its load down on the ground and lets go; going down empty, R winds it back up. A caught player cannot simply
-  step off: holding sneak, they struggle, and after ten seconds of it they wrench free and drop.
+  step off: holding sneak, they struggle (a bar fills as they go), and after ten seconds of it they wrench free and drop.
+  You can tell who chose to be there: something caught hangs limp by the back of its collar from the tines, and
+  kicks and jerks on the rope; someone hanging on by choice hangs from the ring by both hands. Aboard, the action bar
+  says which ("Caught on the grapple: Husk", or "Steve is hanging on the grapple").
 - **From below:** while the grapple hangs empty, anyone on the ground can use it to take hold of it. It goes where
   their hand goes, its rope paying out after them. Then:
   - use it on someone (or something) within four blocks to hook it on, and she winds them up;
@@ -116,7 +119,8 @@ Baron Bomburst's airship from the film, built in Blender from its stills:
   the grapple rattles and strikes sparks when it is dragged along the ground.
 - **The rope ladder:** **K** (rebindable, anyone aboard) lets it down from the rail on her left as far as the ground
   (64 blocks at most), or draws it up. Anyone can climb it as a ladder against a wall: walk into it (or jump) to go up,
-  sneak to hold on. Climbing off its top takes you aboard into a free place.
+  sneak to hold on; its rungs knock as you go. It trails behind her as she flies, and carries whoever is on it along.
+  Climbing off its top takes you aboard into a free place.
 - **Bombs:** craft them (iron, two gunpowder and string make two), then use them on her to fill the rack in the
   gondola, six at most. **B** (rebindable, anyone aboard) drops the next one through the floor, one every one and a
   half seconds. A bomb whistles down and goes off where it strikes the ground, the water or someone, smaller than TNT

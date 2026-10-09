@@ -119,7 +119,8 @@ public class AirshipPartEntity extends Entity {
 		if (ship == null || source.getAttacker() != null && source.getAttacker().getRootVehicle() == ship) {
 			return false;
 		}
-		return ship.damage(source, amount);
+		// The two parts of the gondola are wood; the rest, the envelope and her tail, canvas.
+		return ship.hurt(source, amount, getPart() >= 2);
 	}
 
 	@Override

@@ -2,7 +2,10 @@ package io.github.kortev.chitty.mixin;
 
 import io.github.kortev.chitty.airship.AirshipEntity;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.sound.SoundCategory;
+import net.minecraft.sound.SoundEvents;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.World;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -12,13 +15,17 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
  * An airship's rope ladder is climbed like any ladder against a wall: it is solid on its far side (towards her), so
- * walking into it climbs it, as does jumping; sneak to hold on, let go to slide down.
+ * walking into it climbs it, as does jumping; sneak to hold on, let go to slide down. Whoever is on it is carried along
+ * as she goes, and its rungs knock as they climb.
  */
 @Mixin(LivingEntity.class)
 public abstract class AirshipLadderMixin {
 	/** Which way is into the rope ladder this entity walked into this tick (and so climbs), or null. */
 	@Unique
 	private Vec3d chitty$intoLadder;
+	/** How far this entity has climbed since its last knock on a rung. */
+	@Unique
+	private double chitty$sinceRung;
 
 	@Inject(method = "isClimbing", at = @At("HEAD"), cancellable = true)
 	private void chitty$onRopeLadder(CallbackInfoReturnable<Boolean> cir) {
@@ -28,7 +35,7 @@ public abstract class AirshipLadderMixin {
 		}
 	}
 
-	/** Walking into the ladder goes no further into it. */
+	/** Walking into the ladder goes no further into it; and she carries the ladder, and whoever is on it, along. */
 	@ModifyArg(method = "applyMovementInput", at = @At(value = "INVOKE",
 			target = "Lnet/minecraft/entity/LivingEntity;move(Lnet/minecraft/entity/MovementType;Lnet/minecraft/util/math/Vec3d;)V"),
 			index = 1)
@@ -39,12 +46,33 @@ public abstract class AirshipLadderMixin {
 		if (into == null) {
 			return movement;
 		}
+		chitty$knockRungs(self, movement.y);
+		Vec3d carry = AirshipEntity.ladderCarry(self);
+		Vec3d carried = carry == null ? movement : movement.add(carry);
 		double push = movement.x * into.x + movement.z * into.z;
 		if (push <= 0.0) {
-			return movement;
+			return carried;
 		}
 		chitty$intoLadder = into;
-		return movement.subtract(into.x * push, 0.0, into.z * push);
+		return carried.subtract(into.x * push, 0.0, into.z * push);
+	}
+
+	/** The rungs knock under hands and feet as someone climbs. */
+	@Unique
+	private void chitty$knockRungs(LivingEntity self, double climbed) {
+		chitty$sinceRung += Math.abs(climbed);
+		if (chitty$sinceRung < 0.6) {
+			return;
+		}
+		chitty$sinceRung = 0.0;
+		World world = self.getWorld();
+		float pitch = 0.9F + world.random.nextFloat() * 0.2F;
+		if (world.isClient) {
+			world.playSound(self.getX(), self.getY(), self.getZ(), SoundEvents.BLOCK_LADDER_STEP, SoundCategory.PLAYERS, 0.4F, pitch, false);
+		} else {
+			world.playSound(null, self.getX(), self.getY(), self.getZ(), SoundEvents.BLOCK_LADDER_STEP, SoundCategory.NEUTRAL, 0.4F,
+					pitch);
+		}
 	}
 
 	/** And climbs it, as walking into a ladder does, keeping none of the push into it. */

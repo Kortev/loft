@@ -14,6 +14,7 @@ import net.minecraft.sound.SoundCategory;
 import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
+import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
@@ -21,18 +22,35 @@ import org.jetbrains.annotations.Nullable;
 /**
  * The airship's grapple's head, out in the world at its tines whenever the grapple is let down (the grapple itself is
  * drawn with her). Whatever the grapple has seized rides it, so that it swings along with the grapple as smoothly as a
- * passenger does. A mob stays caught; a caught player cannot simply step off (PlayerEntity.shouldDismount): holding
- * sneak, they struggle, and after ten seconds of it they wrench free and drop. Someone who hangs on it by choice lets go
- * whenever they sneak. Hanging empty, someone on the ground can take hold of it (AirshipEntity.takeHoldOfGrapple). Never
- * saved: she winds her grapple up when she is unloaded.
+ * passenger does.
+ * <ul>
+ * <li>Caught, a thing hangs by the back of its collar from the tines, limp, and kicks and jerks on the rope now and
+ * then; a caught player cannot simply step off (PlayerEntity.shouldDismount): holding sneak, they struggle (kicking and
+ * rattling the grapple, a bar filling as they go), and after ten seconds of it they wrench free and drop.</li>
+ * <li>Someone who hangs on it by choice hangs from its ring by both hands, and lets go whenever they sneak.</li>
+ * </ul>
+ * Clients are told which (VOLUNTARY), and each kick (AGITATION), and draw them so (AirshipHangPoseMixin). Hanging empty,
+ * someone on the ground can take hold of it (AirshipEntity.takeHoldOfGrapple). Never saved: she winds her grapple up
+ * when she is unloaded.
  */
 public class AirshipHookEntity extends Entity {
 	/** Ticks of struggling (holding sneak) a player needs to get off the grapple. */
 	public static final int STRUGGLE = 200;
+	/** How far ahead of the tines a caught thing hangs (they hook it by the back of its collar). */
+	static final double COLLAR = 0.22;
 	private static final TrackedData<Integer> SHIP = DataTracker.registerData(AirshipHookEntity.class, TrackedDataHandlerRegistry.INTEGER);
-	private int struggle;
 	/** Whether whoever is on it hangs on by choice (and so lets go when they like), rather than being caught. */
-	private boolean voluntary;
+	private static final TrackedData<Boolean> VOLUNTARY = DataTracker.registerData(AirshipHookEntity.class,
+			TrackedDataHandlerRegistry.BOOLEAN);
+	/** Counts each kick of whatever is caught on it, for clients to draw. */
+	private static final TrackedData<Integer> AGITATION = DataTracker.registerData(AirshipHookEntity.class,
+			TrackedDataHandlerRegistry.INTEGER);
+	private int struggle;
+	/** The next tick a caught mob kicks. */
+	private int nextFlail = 40;
+	// On clients: the last kick seen, and until when it is drawn kicking.
+	private int seenAgitation;
+	private int kickingUntil;
 
 	public AirshipHookEntity(EntityType<? extends AirshipHookEntity> type, World world) {
 		super(type, world);
@@ -47,6 +65,8 @@ public class AirshipHookEntity extends Entity {
 	@Override
 	protected void initDataTracker(DataTracker.Builder builder) {
 		builder.add(SHIP, -1);
+		builder.add(VOLUNTARY, false);
+		builder.add(AGITATION, 0);
 	}
 
 	@Nullable
@@ -74,15 +94,30 @@ public class AirshipHookEntity extends Entity {
 			setPosition(grip.x, grip.y, grip.z);
 			setVelocity(Vec3d.ZERO);
 		}
-		if (!hasPassengers()) {
-			voluntary = false;
+		if (getWorld().isClient) {
+			int agitation = dataTracker.get(AGITATION);
+			if (agitation != seenAgitation) {
+				seenAgitation = agitation;
+				kickingUntil = age + 8;
+			}
+			return;
 		}
-		if (!getWorld().isClient && !voluntary && getFirstPassenger() instanceof ServerPlayerEntity player) {
-			// Holding sneak, a caught player struggles; let go of it and they tire.
+		if (!hasPassengers() && isVoluntary()) {
+			dataTracker.set(VOLUNTARY, false);
+		}
+		Entity load = getFirstPassenger();
+		if (isVoluntary() || load == null) {
+			return;
+		}
+		if (load instanceof ServerPlayerEntity player) {
+			// Holding sneak, a caught player struggles, kicking; let go of it and they tire.
 			if (player.isSneaking()) {
 				struggle++;
-				if (struggle % 20 == 0) {
-					player.sendMessage(Text.translatable("hud.shootingstar.airship.struggle", (STRUGGLE - struggle) / 20), true);
+				if (struggle % 8 == 0) {
+					kick(ship, 0.05);
+				}
+				if (struggle % 4 == 0) {
+					player.sendMessage(Text.translatable("hud.shootingstar.airship.struggle", bar(struggle)), true);
 				}
 				if (struggle >= STRUGGLE) {
 					player.stopRiding();
@@ -93,21 +128,54 @@ public class AirshipHookEntity extends Entity {
 			} else {
 				struggle = Math.max(0, struggle - 2);
 			}
+		} else if (load instanceof LivingEntity && age >= nextFlail) {
+			// A caught mob kicks and jerks on the rope now and then.
+			nextFlail = age + 30 + random.nextInt(60);
+			kick(ship, 0.08);
 		}
+	}
+
+	/** A kick or a jerk of whatever is caught: it rattles the grapple and jolts it on its rope. */
+	private void kick(@Nullable AirshipEntity ship, double strength) {
+		dataTracker.set(AGITATION, dataTracker.get(AGITATION) + 1);
+		if (ship != null) {
+			ship.jolt(strength);
+		}
+		getWorld().playSound(null, getX(), getY(), getZ(), Airship.GRAB, SoundCategory.NEUTRAL, 0.35F,
+				1.5F + random.nextFloat() * 0.4F);
+	}
+
+	/** How far a struggle has got, as a bar: filled cells for the struggle so far, open ones for the rest. */
+	private static String bar(int struggle) {
+		int filled = Math.min(10, struggle * 10 / STRUGGLE);
+		return "\u25AE".repeat(filled) + "\u25AF".repeat(10 - filled);
+	}
+
+	/** On a client: whether whatever is caught is kicking just now (for its pose). */
+	public boolean isKicking() {
+		return age < kickingUntil;
+	}
+
+	/**
+	 * How far below the tines a load's feet hang: someone hanging on by choice holds the ring above the tines with
+	 * their arms up; a caught thing hangs by the back of its collar.
+	 */
+	public static double hangBelow(Entity load, boolean voluntary) {
+		return voluntary ? Math.max(0.0, load.getHeight() * 1.22 - AirshipEntity.HOOK_GRIP) : load.getHeight() * 0.85;
 	}
 
 	/** Whether a player riding this may get off: they hang on by choice, or have struggled long enough. */
 	public boolean freed(PlayerEntity player) {
-		return voluntary || struggle >= STRUGGLE;
+		return isVoluntary() || struggle >= STRUGGLE;
 	}
 
-	/** Whether whoever is on it hangs on by choice. */
+	/** Whether whoever is on it hangs on by choice (on either side). */
 	public boolean isVoluntary() {
-		return voluntary;
+		return dataTracker.get(VOLUNTARY);
 	}
 
 	void setVoluntary(boolean voluntary) {
-		this.voluntary = voluntary;
+		dataTracker.set(VOLUNTARY, voluntary);
 		struggle = 0;
 	}
 
@@ -116,13 +184,23 @@ public class AirshipHookEntity extends Entity {
 		return struggle;
 	}
 
-	/** Whatever is caught hangs by its shoulders from the tines. */
+	/**
+	 * Whoever hangs on by choice hangs from the ring by their hands; a caught thing hangs by the back of its collar from
+	 * the tines, its body a little ahead of them.
+	 */
 	@Override
 	protected void updatePassengerPosition(Entity passenger, Entity.PositionUpdater positionUpdater) {
 		if (!hasPassenger(passenger)) {
 			return;
 		}
-		positionUpdater.accept(passenger, getX(), getY() - passenger.getHeight() * 0.8, getZ());
+		boolean voluntary = isVoluntary();
+		Vec3d at = new Vec3d(getX(), getY() - hangBelow(passenger, voluntary), getZ());
+		if (!voluntary) {
+			float yaw = passenger instanceof LivingEntity living ? living.bodyYaw : passenger.getYaw();
+			float yawRad = yaw * MathHelper.RADIANS_PER_DEGREE;
+			at = at.add(-MathHelper.sin(yawRad) * COLLAR, 0.0, MathHelper.cos(yawRad) * COLLAR);
+		}
+		positionUpdater.accept(passenger, at.x, at.y, at.z);
 	}
 
 	/**

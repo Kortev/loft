@@ -4,6 +4,7 @@ import io.github.kortev.chitty.ChittyControls;
 import io.github.kortev.chitty.airship.Airship;
 import io.github.kortev.chitty.airship.AirshipActionPayload;
 import io.github.kortev.chitty.airship.AirshipEntity;
+import io.github.kortev.chitty.airship.AirshipHookEntity;
 import io.github.kortev.chitty.airship.AirshipInputPayload;
 import io.github.kortev.chitty.airship.AirshipWalkPayload;
 import java.util.Collections;
@@ -43,6 +44,8 @@ public final class AirshipClient {
 	private static int sinceSent;
 	/** What the rider was last shown on the action bar: 0 nothing, 1 crew, 2 pilot, 3 overloaded. */
 	private static int hint;
+	/** What the crew was last told hangs on the grapple: its entity id, doubled, plus one if it hangs on by choice; -1. */
+	private static int onGrapple = -1;
 	/**
 	 * Where this player stands in the airship they are aboard, as they walk about her gondola: theirs to move (so it
 	 * answers at once), sent to the server as it changes. Taken from the server when they come aboard and whenever they
@@ -249,6 +252,18 @@ public final class AirshipClient {
 						BOMB.getBoundKeyLocalizedText(), OVERBOARD.getBoundKeyLocalizedText(), AirshipEntity.LIFT), true);
 			}
 			hint = now;
+		}
+		// The crew are told what hangs on the grapple, and whether it was caught or hangs on by choice.
+		AirshipHookEntity head = ship == null ? null : ship.getShownHookEntity();
+		Entity load = head == null ? null : head.getFirstPassenger();
+		boolean byChoice = load != null && head.isVoluntary();
+		int nowOn = load == null ? -1 : load.getId() * 2 + (byChoice ? 1 : 0);
+		if (nowOn != onGrapple) {
+			if (load != null && player != null && load != player) {
+				String key = byChoice ? "hud.shootingstar.airship.crew_hanging" : "hud.shootingstar.airship.crew_caught";
+				player.sendMessage(Text.translatable(key, load.getDisplayName(), GRAPPLE.getBoundKeyLocalizedText()), true);
+			}
+			onGrapple = nowOn;
 		}
 		if (ship == null) {
 			lastControls = -1;

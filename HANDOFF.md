@@ -117,6 +117,10 @@ kortev tests in game themselves and reports back. Don't spend usage on the self-
 
 ## Open items
 
+- **Chitty: a polish pass like the airship's, saved for later (kortev: "maybe save that").** Improve what she has
+  rather than add to it, and ask the same question about her look in Minecraft (pixel density, face shading,
+  faceting) once kortev has chosen for the airship.
+
 - **Chitty polish, kortev's go-ahead pending (do it only after the airship is finished, and not before kortev says
   so).** kortev wants her to stop feeling empty and lifeless, like the old racecar she is:
   1. Take out her working headlamp beams (ChittyLamps).

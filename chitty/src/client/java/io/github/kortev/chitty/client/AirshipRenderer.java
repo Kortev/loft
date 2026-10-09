@@ -38,9 +38,12 @@ public class AirshipRenderer extends EntityRenderer<AirshipEntity> {
 	/** The grapple's drum, round which its rope winds (its radius), and how many pieces a slack rope is drawn in. */
 	private static final float DRUM_RADIUS = 0.15F;
 	private static final int ROPE_PIECES = 12;
-	/** The point she pitches and rolls about: the middle of her, between gondola and envelope. */
-	private static final float PIVOT_Y = 4.0F;
-	private static final float PIVOT_Z = -2.0F;
+	/**
+	 * The point she pitches and rolls about: the floor of her gondola, so that it stays under the feet of everyone
+	 * standing in it, and the envelope rocks above.
+	 */
+	private static final float PIVOT_Y = 0.42F;
+	private static final float PIVOT_Z = 0.0F;
 
 	public AirshipRenderer(EntityRendererFactory.Context context) {
 		super(context);
@@ -104,11 +107,17 @@ public class AirshipRenderer extends EntityRenderer<AirshipEntity> {
 				continue;
 			}
 			if (name.equals("ladder")) {
-				// One rung's length of it, stacked down from the top as far as it is let down.
+				// One rung's length of it, stacked down from the top as far as it is let down, trailing behind her as
+				// she goes.
 				int rungs = Math.round(Math.min(ladder, (float) AirshipEntity.LINE_MAX) / AirshipEntity.LADDER_PITCH);
+				float lean = ship.getLadderLean(tickDelta);
+				float down = MathHelper.cos(lean);
+				float aft = MathHelper.sin(lean);
 				for (int i = 0; i < rungs; i++) {
+					float along = i * AirshipEntity.LADDER_PITCH;
 					matrices.push();
-					matrices.translate(part.pivot.x, part.pivot.y - i * AirshipEntity.LADDER_PITCH, part.pivot.z);
+					matrices.translate(part.pivot.x, part.pivot.y - along * down, part.pivot.z - along * aft);
+					matrices.multiply(RotationAxis.POSITIVE_X.rotation(lean));
 					matrices.multiply(part.rest);
 					part.draw(matrices.peek(), out, light, overlay, null);
 					matrices.pop();

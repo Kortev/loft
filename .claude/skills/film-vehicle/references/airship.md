@@ -67,8 +67,18 @@ namespace.
     hangs on (`hangOn`; leaning pumps the swing, `HOOK_PUMP`). Sneaking or going beyond the rope lets go.
   - Rope looks: `AirshipRenderer.drawRope` sags slack rope (paid out more than the distance) in a curve; the `coil`
     drum turns by `drop / DRUM_RADIUS`; a loaded rope creaks; dragged along the ground it rattles and sparks.
+  - Caught or by choice: the head syncs `VOLUNTARY` and counts kicks (`AGITATION`). A caught thing hangs by its collar
+    (`hangBelow`, `COLLAR` ahead of the tines), a volunteer by both hands from the ring; `client/mixin/AirshipHangPoseMixin`
+    poses them (arms up, or limp and thrashing when kicking). Caught players kick as they struggle (a bar in the action
+    bar); caught mobs kick now and then; each kick jolts the grapple (`jolt`). The ship syncs the head's id (`HOOK_HEAD`)
+    and `AirshipClient` tells the crew what hangs on it.
 - **Ladder:** hangs from `LADDER_TOP` on her left rail; climbers hang on `LADDER_LINE`, 0.25 further out. It is
-  stacked from one-rung parts (`LADDER_PITCH` 0.32) down to the ground (`LINE_MAX`, 64, at most).
+  stacked from one-rung parts (`LADDER_PITCH` 0.32) down to the ground (`LINE_MAX`, 64, at most). It trails behind
+  her as she goes (`ladderLean`, eased towards atan(1.2 x forward speed); `ladderAt` is where a climber is at a depth),
+  carries climbers along (`ladderCarry`), and knocks its rungs as they climb (`AirshipLadderMixin`).
+- **Looks and sounds:** she pitches and rolls about the floor of her gondola (`AirshipRenderer.PIVOT_Y`), so it stays
+  under the feet of those aboard; the propellers run up and down (`spinRate`); hits sound of canvas or wood (`hurt`,
+  parts 2 and up are canvas); broken, she bursts into canvas and wood; put down, her canvas rustles.
 - **Rack:** `RACK` 6 bombs, `BOMB_COOLDOWN` 30 ticks; bombs fall through the floor at `RACK_Z`.
 - **Envelope boxes** (`ENVELOPE`: z, bottom, width, height): for the hitboxes and for keeping her envelope out of
   hills (`clearEnvelope`).

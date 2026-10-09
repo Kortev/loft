@@ -238,7 +238,8 @@ public class AirshipGameTests implements FabricGameTest {
 		});
 		context.runAtTick(45, () -> context.assertTrue(ship.hookOnto(holder, husk), "the player could not hook the grapple onto the mob"));
 		context.runAtTick(130, () -> {
-			context.assertTrue(husk.getVehicle() instanceof AirshipHookEntity, "the hooked mob is not on the grapple");
+			context.assertTrue(husk.getVehicle() instanceof AirshipHookEntity hook && !hook.isVoluntary(),
+					"the hooked mob is not caught on the grapple");
 			context.assertTrue(husk.getY() > context.getAbsolute(new Vec3d(0.0, 2.5, 0.0)).y, "the hooked mob was not wound up: y "
 					+ (husk.getY() - context.getAbsolute(Vec3d.ZERO).y));
 			husk.discard();

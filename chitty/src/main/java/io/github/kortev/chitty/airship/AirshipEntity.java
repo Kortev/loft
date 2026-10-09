@@ -11,6 +11,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.WeakHashMap;
 import net.minecraft.block.BlockState;
+import net.minecraft.block.Blocks;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.entity.Dismounting;
 import net.minecraft.entity.Entity;
@@ -84,6 +85,8 @@ public class AirshipEntity extends Entity {
 	private static final TrackedData<Vector3f> HOOK_AT = DataTracker.registerData(AirshipEntity.class, TrackedDataHandlerRegistry.VECTOR3F);
 	/** Who holds the grapple on the ground (their entity id), or -1. */
 	private static final TrackedData<Integer> HOOK_HELD = DataTracker.registerData(AirshipEntity.class, TrackedDataHandlerRegistry.INTEGER);
+	/** The grapple's head (its entity id) while the grapple is out, or -1. */
+	private static final TrackedData<Integer> HOOK_HEAD = DataTracker.registerData(AirshipEntity.class, TrackedDataHandlerRegistry.INTEGER);
 	private static final TrackedData<Float> LADDER = DataTracker.registerData(AirshipEntity.class, TrackedDataHandlerRegistry.FLOAT);
 	private static final TrackedData<Byte> BOMBS = DataTracker.registerData(AirshipEntity.class, TrackedDataHandlerRegistry.BYTE);
 
@@ -257,6 +260,7 @@ public class AirshipEntity extends Entity {
 	// Looks, on clients.
 	private float propSpin;
 	private float prevPropSpin;
+	private float spinRate;
 	private float steer;
 	private float prevSteer;
 	private float climbLook;
@@ -266,6 +270,9 @@ public class AirshipEntity extends Entity {
 	private Vec3d shownHook = Vec3d.ZERO;
 	private Vec3d prevShownHook = Vec3d.ZERO;
 	private float shownLadder;
+	/** How far her rope ladder trails behind her (radians from hanging straight down), as she goes; on both sides. */
+	private float ladderLean;
+	private float prevLadderLean;
 	private float prevShownLadder;
 	private float bank;
 	private float prevBank;
@@ -309,6 +316,7 @@ public class AirshipEntity extends Entity {
 		builder.add(HOOK_STATE, (byte) 0);
 		builder.add(HOOK_AT, new Vector3f());
 		builder.add(HOOK_HELD, -1);
+		builder.add(HOOK_HEAD, -1);
 		builder.add(LADDER, 0.0F);
 		builder.add(BOMBS, (byte) 0);
 	}
@@ -374,12 +382,24 @@ public class AirshipEntity extends Entity {
 	/** Hit, she rocks; hit hard enough (or by anyone in creative), she comes down and drops herself, as a boat does. */
 	@Override
 	public boolean damage(DamageSource source, float amount) {
+		return hurt(source, amount, false);
+	}
+
+	/**
+	 * Hit (on her canvas, or on her wooden gondola): she rocks, with the sound of what was struck; hit hard enough, she
+	 * comes down in a burst of canvas and wood and drops herself.
+	 */
+	public boolean hurt(DamageSource source, float amount, boolean canvas) {
 		if (getWorld().isClient || isRemoved()) {
 			return true;
 		}
 		if (isInvulnerableTo(source)) {
 			return false;
 		}
+		Vec3d struck = canvas ? local(new Vec3d(0.0, 7.5, -3.0)) : getPos().add(0.0, 0.8, 0.0);
+		getWorld().playSound(null, struck.x, struck.y, struck.z,
+				canvas ? SoundEvents.BLOCK_WOOL_HIT : SoundEvents.BLOCK_WOOD_HIT, SoundCategory.NEUTRAL, 1.0F,
+				0.8F + random.nextFloat() * 0.3F);
 		setDamageWobbleSide(-getDamageWobbleSide());
 		setDamageWobbleTicks(10);
 		scheduleVelocityUpdate();
@@ -387,6 +407,18 @@ public class AirshipEntity extends Entity {
 		emitGameEvent(GameEvent.ENTITY_DAMAGE, source.getAttacker());
 		boolean creative = source.getAttacker() instanceof PlayerEntity player && player.getAbilities().creativeMode;
 		if (creative || getDamageWobbleStrength() > 60.0F) {
+			if (getWorld() instanceof ServerWorld world) {
+				Vec3d envelope = local(new Vec3d(0.0, 7.5, -3.0));
+				BlockStateParticleEffect canvasBits = new BlockStateParticleEffect(ParticleTypes.BLOCK,
+						Blocks.WHITE_WOOL.getDefaultState());
+				BlockStateParticleEffect woodBits = new BlockStateParticleEffect(ParticleTypes.BLOCK,
+						Blocks.DARK_OAK_PLANKS.getDefaultState());
+				world.spawnParticles(canvasBits, envelope.x, envelope.y, envelope.z, 120, 3.0, 2.5, 8.0, 0.2);
+				world.spawnParticles(woodBits, getX(), getY() + 0.8, getZ(), 40, 0.9, 0.6, 1.6, 0.2);
+				world.playSound(null, envelope.x, envelope.y, envelope.z, SoundEvents.BLOCK_WOOL_BREAK, SoundCategory.NEUTRAL,
+						2.0F, 0.6F);
+				world.playSound(null, getX(), getY(), getZ(), SoundEvents.BLOCK_WOOD_BREAK, SoundCategory.NEUTRAL, 1.5F, 0.8F);
+			}
 			if (!creative && getWorld().getGameRules().getBoolean(GameRules.DO_ENTITY_DROPS)) {
 				ItemStack stack = new ItemStack(Airship.ITEM);
 				if (hasCustomName()) {
@@ -845,7 +877,7 @@ public class AirshipEntity extends Entity {
 	@Override
 	public Vec3d updatePassengerForDismount(LivingEntity passenger) {
 		if (!isOnGround() && heightAboveGround() >= 2.0 && getLadder() > 1.0) {
-			return local(LADDER_LINE).add(0.0, -1.8, 0.0);
+			return ladderAt(1.8);
 		}
 		float yawRad = getYaw() * MathHelper.RADIANS_PER_DEGREE;
 		Vec3d left = new Vec3d(MathHelper.cos(yawRad), 0.0, MathHelper.sin(yawRad));
@@ -910,6 +942,11 @@ public class AirshipEntity extends Entity {
 		Vec3d pos = getPos();
 		motion = lastPos == null ? Vec3d.ZERO : pos.subtract(lastPos);
 		lastPos = pos;
+		// Her rope ladder trails behind her as she goes, and swings back under her as she slows.
+		float yawRad = getYaw() * MathHelper.RADIANS_PER_DEGREE;
+		double forward = -motion.x * MathHelper.sin(yawRad) + motion.z * MathHelper.cos(yawRad);
+		prevLadderLean = ladderLean;
+		ladderLean += ((float) Math.atan(forward * 1.2) - ladderLean) * 0.06F;
 		Set<AirshipEntity> ladders = getWorld().isClient ? LADDERS_CLIENT : LADDERS_SERVER;
 		if (getLadder() > 0.5 && !isRemoved()) {
 			ladders.add(this);
@@ -1339,7 +1376,8 @@ public class AirshipEntity extends Entity {
 			next = out.add(rope.multiply(hookDrop / length));
 		}
 		// From its ring down to the lowest point of it: its tines, or the feet of what it carries.
-		Vec3d low = new Vec3d(0.0, -(HOOK_GRIP + (load != null ? load.getHeight() * 0.8 : 0.0)), 0.0);
+		double hang = load != null ? AirshipHookEntity.hangBelow(load, hookEntity != null && hookEntity.isVoluntary()) : 0.0;
+		Vec3d low = new Vec3d(0.0, -(HOOK_GRIP + hang), 0.0);
 		BlockHitResult hit = world.raycast(new RaycastContext(hookPos.add(low), next.add(low),
 				RaycastContext.ShapeType.COLLIDER, RaycastContext.FluidHandling.ANY, this));
 		if (hit.getType() == HitResult.Type.BLOCK && !hit.isInsideBlock()) {
@@ -1398,6 +1436,7 @@ public class AirshipEntity extends Entity {
 			hookEntity = new AirshipHookEntity(world, this);
 			hookEntity.refreshPositionAndAngles(grip.x, grip.y, grip.z, getYaw(), 0.0F);
 			world.spawnEntity(hookEntity);
+			dataTracker.set(HOOK_HEAD, hookEntity.getId());
 		} else if (!out && hookEntity != null) {
 			stowHead();
 		}
@@ -1489,8 +1528,8 @@ public class AirshipEntity extends Entity {
 		letGoOfGrapple();
 		keepHead(world);
 		AirshipHookEntity head = hookEntity;
-		// The ring just over their hands, so that they hang from it where they are.
-		hookPos = player.getPos().add(0.0, player.getHeight() * 0.8 + HOOK_GRIP, 0.0);
+		// The ring in their raised hands, so that they hang from it where they are.
+		hookPos = player.getPos().add(0.0, AirshipHookEntity.hangBelow(player, true) + HOOK_GRIP, 0.0);
 		hookPrev = hookPos;
 		hookDrop = Math.max(hookDrop, hookPos.distanceTo(lineOut()));
 		if (head == null || !player.startRiding(head, true)) {
@@ -1545,8 +1584,8 @@ public class AirshipEntity extends Entity {
 			return false;
 		}
 		letGoOfGrapple();
-		// The ring over the shoulders of what it hooks, so that it is caught where it stands.
-		hookPos = target.getPos().add(0.0, target.getHeight() * 0.8 + HOOK_GRIP, 0.0);
+		// The ring over the collar of what it hooks, so that it is caught where it stands.
+		hookPos = target.getPos().add(0.0, AirshipHookEntity.hangBelow(target, false) + HOOK_GRIP, 0.0);
 		hookPrev = hookPos;
 		hookDrop = Math.max(hookDrop, hookPos.distanceTo(lineOut()));
 		grab(world, target);
@@ -1601,12 +1640,28 @@ public class AirshipEntity extends Entity {
 			hookEntity.discard();
 			hookEntity = null;
 		}
+		dataTracker.set(HOOK_HEAD, -1);
 	}
 
 	/** The grapple's head, while the grapple is out. */
 	@Nullable
 	public AirshipHookEntity getHookEntity() {
 		return hookEntity;
+	}
+
+	/** The grapple's head as a client knows it, while the grapple is out. */
+	@Nullable
+	public AirshipHookEntity getShownHookEntity() {
+		int id = dataTracker.get(HOOK_HEAD);
+		return id >= 0 && getWorld().getEntityById(id) instanceof AirshipHookEntity head ? head : null;
+	}
+
+	/** Whatever is caught on the grapple kicks or jerks: the grapple jolts on its rope. */
+	void jolt(double strength) {
+		if (hookPos != null && hookPrev != null) {
+			hookPrev = hookPrev.add((random.nextDouble() - 0.5) * strength, -random.nextDouble() * strength * 0.5,
+					(random.nextDouble() - 0.5) * strength);
+		}
 	}
 
 	/** For tests: where the grapple's ring is, from where its rope comes out under her keel (world axes). */
@@ -1661,6 +1716,24 @@ public class AirshipEntity extends Entity {
 		return new Vec3d(-MathHelper.cos(yawRad), 0.0, -MathHelper.sin(yawRad));
 	}
 
+	/** Where on her rope ladder a climber hangs, so far down it: trailing behind her as she goes (world). */
+	private Vec3d ladderAt(double depth) {
+		double down = Math.max(0.0, depth);
+		return local(new Vec3d(LADDER_LINE.x, LADDER_LINE.y - down, LADDER_LINE.z - down * Math.tan(ladderLean)));
+	}
+
+	/** How far she moved the rope ladder an entity is on this tick, which carries it along; null if it is on none. */
+	@Nullable
+	public static Vec3d ladderCarry(LivingEntity entity) {
+		AirshipEntity ship = ladderOf(entity);
+		return ship == null ? null : ship.motion;
+	}
+
+	/** How far her rope ladder trails behind her (radians), as drawn. */
+	public float getLadderLean(float tickDelta) {
+		return MathHelper.lerp(tickDelta, prevLadderLean, ladderLean);
+	}
+
 	@Nullable
 	private static AirshipEntity ladderOf(LivingEntity entity) {
 		if (entity.hasVehicle()) {
@@ -1675,8 +1748,9 @@ public class AirshipEntity extends Entity {
 				continue;
 			}
 			Vec3d top = ship.local(LADDER_LINE);
-			double dx = entity.getX() - top.x;
-			double dz = entity.getZ() - top.z;
+			Vec3d at = ship.ladderAt(top.y - entity.getY());
+			double dx = entity.getX() - at.x;
+			double dz = entity.getZ() - at.z;
 			if (dx * dx + dz * dz < 0.45 * 0.45 && entity.getY() < top.y + 0.5 && entity.getY() > top.y - ship.getLadder() - 0.3) {
 				return ship;
 			}
@@ -1720,7 +1794,9 @@ public class AirshipEntity extends Entity {
 		int throttle = getThrottle();
 		// The propellers tick over while she is piloted and race with the throttle.
 		float spin = isEngineRunning() ? 0.35F + 0.5F * Math.abs(throttle) + (float) getSpeed() * 1.5F : (float) getSpeed() * 0.5F;
-		propSpin += spin;
+		// They run up and run down, not start and stop at once.
+		spinRate += (spin - spinRate) * 0.04F;
+		propSpin += spinRate;
 		prevSteer = steer;
 		int turn = isLogicalSideForUpdatingMovement() ? clientControls.turn() : dataTracker.get(STEER);
 		steer += (turn - steer) * 0.15F;

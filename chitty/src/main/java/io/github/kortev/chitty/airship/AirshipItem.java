@@ -6,6 +6,8 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.tooltip.TooltipType;
+import net.minecraft.sound.SoundCategory;
+import net.minecraft.sound.SoundEvents;
 import net.minecraft.stat.Stats;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
@@ -40,6 +42,11 @@ public class AirshipItem extends Item {
 				ship.setCustomName(stack.getName());
 			}
 			world.spawnEntity(ship);
+			// Her canvas unfurls and fills as she is put down.
+			world.playSound(null, ship.getX(), ship.getY() + 6.0, ship.getZ(), SoundEvents.BLOCK_WOOL_PLACE, SoundCategory.NEUTRAL,
+					1.5F, 0.7F);
+			world.playSound(null, ship.getX(), ship.getY() + 4.0, ship.getZ(), Airship.CREAK, SoundCategory.NEUTRAL, 1.0F,
+					1.0F);
 			world.emitGameEvent(user, GameEvent.ENTITY_PLACE, hit.getPos());
 			stack.decrementUnlessCreative(1, user);
 		}
