@@ -25,10 +25,10 @@ import org.lwjgl.opengl.GL11;
 
 /**
  * Mjölnir's storm feed. Out of the cloud deck into orbit over the night side, where every thunderstorm on Earth is
- * flickering and red sprites leap above them; the global circuit's charge drawn in across the planet as a ring of light
- * closing on the target, the storms it passes going dark; down onto the storm over the target as it winds into one
- * vortex, MJÖLNIR; and out of the storm's base after the stepped leader as it starts to feel its way down, until the
- * world takes it on. Each shot is one continuous move; the cuts hide in flashes.
+ * flickering and red sprites leap above them; the global circuit's charge relayed in to the target storm to storm by
+ * megaflashes, from all round the planet, each storm going dark as it passes on; down onto the storm over the target as
+ * it winds into one vortex, MJÖLNIR; and out of the storm's base after the stepped leader as it starts to feel its way
+ * down, until the world takes it on. Each shot is one continuous move; the cuts hide in flashes.
  */
 final class ThunderShots implements Feed.Sequence {
 	// --- Earth: radius 1 at the origin. The target is the far north of Europe, on the night side, dawn behind the limb.
@@ -41,8 +41,8 @@ final class ThunderShots implements Feed.Sequence {
 			.add(new Vector3f(NORTH).mul(-0.42F)).normalize();
 	private static final Matrix4f SKY = skyFrame(new Vector3f(TARGET).negate().add(new Vector3f(NORTH).mul(0.4F)).normalize(),
 			NORTH);
-	/** The ring of charge starts this far from the target (radians) and closes on it over the draw. */
-	private static final float FRONT_START = 2.9F;
+	/** How far from the target (radians) the relay of lightning starts, out at the limb as the camera sees it. */
+	private static final float FRONT_START = 1.95F;
 	/** The vortex's angular radius over the target once it has wound up: about two hundred kilometres. */
 	private static final float VORTEX = 0.03F;
 	private static final int STORM_COUNT = 1812;
@@ -95,7 +95,7 @@ final class ThunderShots implements Feed.Sequence {
 	private record Pose(Vector3f eye, Vector3f at, Vector3f up, float fov) {
 	}
 
-	/** The flash the circuit closes with as the draw shot cuts to the dive. */
+	/** The flash the relay ends in as the draw shot cuts to the dive. */
 	private static final float RING_FLASH = 0.75F;
 	private static final int RING_FLASH_COLOR = 0xE6EEFF;
 	private static final int ORBIT_LENGTH = ThunderTimeline.DRAW - ThunderTimeline.FEED;
@@ -117,8 +117,8 @@ final class ThunderShots implements Feed.Sequence {
 		earthCamera(pose, 0.0005F, 60.0F);
 		float e = smoother(s / (ORBIT_LENGTH * 0.75));
 		space.sky(cam, SKY, 0.8F, 0, cam.forward(), 0, 0, 0, time);
-		space.stormEarth(cam, new Matrix4f(), SUN, time * 0.00002F, 1.0F - smooth(e * 2.0F), 1.05F, time, TARGET, 1.0F,
-				4.0F, 0.0F, VORTEX * 0.15F * e, spin(time), 0.0F);
+		space.stormEarth(cam, new Matrix4f(), SUN, time * 0.00002F, 1.05F, time, TARGET, 1.0F, 4.0F, 0.0F,
+				VORTEX * 0.15F * e, spin(time), 0.0F);
 		sprites(s);
 		// Out of the dark of the storm cloud the camera rose into, lit once by its lightning on the way.
 		float cloud = (float) Math.pow(Math.max(0.0, 1.0 - s / 9.0), 1.4);
@@ -170,13 +170,185 @@ final class ThunderShots implements Feed.Sequence {
 	}
 
 	// =============================================================================================
-	// 2. The global circuit's charge drawn in across the planet to the target.
+	// 2. The global circuit's charge drawn in across the planet to the target: lightning relayed storm to storm.
 	// =============================================================================================
+
+	/**
+	 * One leap of the relay: a megaflash (lightning that runs hundreds of kilometres through the tops of the clouds, the
+	 * longest ever seen from orbit) from one storm to the next one nearer the target; its channel and forks along the
+	 * cloud tops, and how far from the target (radians) it starts and ends.
+	 */
+	private record Hop(List<Vector3f> channel, List<List<Vector3f>> forks, float from, float to, float seed) {
+	}
+
+	/** One line of storms relaying the charge in, from out at the limb to the target, and how late it starts. */
+	private record Chain(List<Hop> hops, float lag) {
+	}
+
+	private static final int CHAINS = 18;
+	/** The height of the cloud tops the megaflashes run through: sixteen kilometres. */
+	private static final float CLOUD_TOPS = 1.0025F;
+	private static final List<Chain> RELAY = relay();
+
+	/**
+	 * The relay's lines of storms, the same every time: from all round the target, out at the limb, each leap four to
+	 * eight hundred kilometres and wandering a little either side of the way to the target, so the lines are crooked and
+	 * draw together only as they near it.
+	 */
+	private static List<Chain> relay() {
+		Random random = new Random(1234);
+		List<Chain> chains = new ArrayList<>();
+		for (int c = 0; c < CHAINS; c++) {
+			double bearing = Math.PI * 2.0 * (c + random.nextDouble() * 0.7) / CHAINS;
+			double start = FRONT_START - 0.55 * random.nextDouble();
+			Vector3f across = new Vector3f(EAST).mul((float) Math.cos(bearing)).add(new Vector3f(NORTH).mul((float) Math.sin(bearing)));
+			Vector3f at = new Vector3f(TARGET).mul((float) Math.cos(start)).add(across.mul((float) Math.sin(start))).normalize();
+			double curve = (random.nextDouble() - 0.5) * 0.5;
+			List<Hop> hops = new ArrayList<>();
+			float from = (float) start;
+			while (from > 0.004F) {
+				float length = (float) Math.min(from, 0.06 + 0.06 * random.nextDouble());
+				Vector3f next;
+				if (from - length < 0.03F) {
+					next = new Vector3f(TARGET);
+				} else {
+					double turn = Math.max(-1.0, Math.min(1.0, curve * Math.min(1.0, from / 0.6) + random.nextGaussian() * 0.3));
+					next = travel(at, turn, length);
+				}
+				float to = angle(next, TARGET);
+				hops.add(new Hop(onSphere(jagged(at, next, 0.22F, 5, random)), forks(at, next, random), from, to,
+						random.nextFloat() * 100.0F));
+				at = next;
+				from = to;
+			}
+			chains.add(new Chain(hops, (float) (random.nextDouble() * 0.22)));
+		}
+		return chains;
+	}
+
+	/** From {@code at}, {@code length} radians along the ground, heading for the target turned {@code turn} radians off it. */
+	private static Vector3f travel(Vector3f at, double turn, float length) {
+		Vector3f toward = new Vector3f(TARGET).sub(new Vector3f(at).mul(at.dot(TARGET))).normalize();
+		Vector3f side = new Vector3f(at).cross(toward);
+		Vector3f heading = toward.mul((float) Math.cos(turn)).add(side.mul((float) Math.sin(turn)));
+		return new Vector3f(at).mul((float) Math.cos(length)).add(heading.mul((float) Math.sin(length))).normalize();
+	}
+
+	private static float angle(Vector3f a, Vector3f b) {
+		return (float) Math.acos(Math.max(-1.0F, Math.min(1.0F, new Vector3f(a).normalize().dot(b))));
+	}
+
+	/** A leap's forks: two to four, branching off sideways along the cloud tops. */
+	private static List<List<Vector3f>> forks(Vector3f from, Vector3f to, Random random) {
+		List<List<Vector3f>> forks = new ArrayList<>();
+		float length = angle(from, to);
+		int count = 2 + random.nextInt(3);
+		for (int i = 0; i < count; i++) {
+			float k = 0.15F + 0.7F * random.nextFloat();
+			Vector3f root = slerp(from, to, k);
+			Vector3f toward = new Vector3f(to).sub(new Vector3f(root).mul(root.dot(to))).normalize();
+			Vector3f side = new Vector3f(root).cross(toward);
+			double turn = (random.nextBoolean() ? 1.0 : -1.0) * (0.6 + 0.6 * random.nextDouble());
+			Vector3f heading = toward.mul((float) Math.cos(turn)).add(side.mul((float) Math.sin(turn)));
+			float reach = length * (0.2F + 0.25F * random.nextFloat());
+			Vector3f tip = new Vector3f(root).mul((float) Math.cos(reach)).add(heading.mul((float) Math.sin(reach))).normalize();
+			forks.add(onSphere(jagged(root, tip, 0.3F, 3, random)));
+		}
+		return forks;
+	}
+
+	/** A polyline's points brought out to the planet's surface (a straight line between two places runs under it). */
+	private static List<Vector3f> onSphere(List<Vector3f> points) {
+		List<Vector3f> out = new ArrayList<>(points.size());
+		for (Vector3f p : points) {
+			out.add(new Vector3f(p).normalize());
+		}
+		return out;
+	}
+
+	/** Where the relay's front is for a chain {@code lag} late, {@code k} (0 to 1) through the draw: radians from the target. */
+	private static float relayFront(float k, float lag) {
+		return FRONT_START * (1.0F - smoother((k - lag) / (0.94F - lag)));
+	}
+
+	/**
+	 * The relay as it stands {@code k} through the draw: on each line, the leap the front is crossing crawls out from the
+	 * storm behind towards the one ahead, flickering; the ones it has passed flicker on a moment and fade.
+	 */
+	private void drawRelay(float k) {
+		Vector3f toCam = new Vector3f(cam.pos).normalize();
+		Fx glow = space.glow(cam, Fx.BEAM, 0.0F);
+		List<float[]> lit = new ArrayList<>();
+		for (Chain chain : RELAY) {
+			float front = relayFront(k, chain.lag());
+			for (Hop hop : chain.hops()) {
+				if (front > hop.from() || front < hop.to() - 0.25F) {
+					continue;
+				}
+				float crawl = Math.min(1.0F, (hop.from() - front) / Math.max(hop.from() - hop.to(), 1.0E-4F));
+				float fade = front >= hop.to() ? 1.0F : (float) Math.exp(-(hop.to() - front) / 0.05F);
+				float flicker = 0.7F + 0.3F * (float) Math.sin(time * 2.1F + hop.seed());
+				float b = fade * flicker;
+				if (b < 0.02F) {
+					continue;
+				}
+				int shown = Math.max(1, Math.round(crawl * (hop.channel().size() - 1)));
+				segments(glow, hop.channel(), shown, 0.012F, Fx.argb(0.55F, 0.62F, 1.0F, 0.45F * b));
+				if (crawl >= 1.0F) {
+					for (List<Vector3f> fork : hop.forks()) {
+						segments(glow, fork, fork.size() - 1, 0.007F, Fx.argb(0.5F, 0.58F, 1.0F, 0.3F * b));
+					}
+				}
+				Vector3f middle = hop.channel().get(shown / 2);
+				if (middle.dot(toCam) > 0.2F) {
+					lit.add(new float[] {middle.x, middle.y, middle.z, b, angleSpan(hop)});
+				}
+			}
+		}
+		glow.end(true, 3.0F);
+		Fx core = space.glow(cam, Fx.BEAM, 0.0F);
+		for (Chain chain : RELAY) {
+			float front = relayFront(k, chain.lag());
+			for (Hop hop : chain.hops()) {
+				if (front > hop.from() || front < hop.to() - 0.12F) {
+					continue;
+				}
+				float crawl = Math.min(1.0F, (hop.from() - front) / Math.max(hop.from() - hop.to(), 1.0E-4F));
+				float fade = front >= hop.to() ? 1.0F : (float) Math.exp(-(hop.to() - front) / 0.03F);
+				int shown = Math.max(1, Math.round(crawl * (hop.channel().size() - 1)));
+				segments(core, hop.channel(), shown, 0.0022F, Fx.argb(0.92F, 0.95F, 1.0F, fade));
+				if (crawl >= 1.0F) {
+					for (List<Vector3f> fork : hop.forks()) {
+						segments(core, fork, fork.size() - 1, 0.0013F, Fx.argb(0.9F, 0.93F, 1.0F, 0.7F * fade));
+					}
+				}
+			}
+		}
+		core.end(true, 8.0F);
+		// The cloud tops round each leap lit by it.
+		Fx clouds = space.glow(cam, Fx.BLOB, 1.0F);
+		for (float[] l : lit) {
+			clouds.sprite(new Vector3f(l[0], l[1], l[2]).mul(1.004F), l[4] * 0.45F, 0.0F, Fx.argb(0.5F, 0.6F, 1.0F, 0.35F * l[3]));
+		}
+		clouds.end(false, 1.5F);
+	}
+
+	private static float angleSpan(Hop hop) {
+		return Math.max(0.03F, hop.from() - hop.to());
+	}
+
+	/** The first {@code count} segments of a polyline on the cloud tops, as beams. */
+	private void segments(Fx fx, List<Vector3f> points, int count, float width, int argb) {
+		for (int i = 0; i < count && i + 1 < points.size(); i++) {
+			fx.beam(new Vector3f(points.get(i)).mul(CLOUD_TOPS), new Vector3f(points.get(i + 1)).mul(CLOUD_TOPS), cam.pos, width, argb,
+					argb);
+		}
+	}
 
 	private static Pose drawPose(double s) {
 		Pose start = orbitPose(ORBIT_LENGTH);
 		float k = smoother(s / DRAW_LENGTH);
-		// Round to face the target square on, closing in as the ring closes.
+		// Round to face the target square on, closing in as the relay closes on it.
 		Vector3f from = new Vector3f(start.eye()).normalize();
 		Vector3f to = new Vector3f(TARGET).mul(0.94F).add(new Vector3f(NORTH).mul(-0.34F)).normalize();
 		Vector3f dir = slerp(from, to, k);
@@ -189,14 +361,16 @@ final class ThunderShots implements Feed.Sequence {
 		Pose pose = drawPose(s);
 		earthCamera(pose, 0.0005F, 60.0F);
 		float k = (float) Math.min(1.0, s / (DRAW_LENGTH - 4.0));
-		float front = lerp(FRONT_START, 0.0, smoother(k));
+		// The storms the relay has passed have given up their charge: as far out as the middle of its lines.
+		float front = relayFront(k, 0.11F);
 		float drain = smooth(s / 20.0);
 		float charge = smooth((s - 30.0) / 60.0) * 0.7F;
 		space.sky(cam, SKY, 0.8F, 0, cam.forward(), 0, 0, 0, time);
-		space.stormEarth(cam, new Matrix4f(), SUN, time * 0.00002F, 0.0F, 1.05F, time, TARGET, 1.0F, front, drain,
+		space.stormEarth(cam, new Matrix4f(), SUN, time * 0.00002F, 1.05F, time, TARGET, 1.0F, front, drain,
 				VORTEX * (0.15F + 0.25F * k), spin(time), charge);
 		sprites(s + ORBIT_LENGTH);
-		o.header = "[ DRAWING THE CIRCUIT ]";
+		drawRelay(k);
+		o.header = "[ EVERY STORM ON EARTH · RELAYING ]";
 		o.headerReveal = smooth(s / 6.0);
 		Overlay.Label label = label(o, TARGET, 10, -5, "TARGET", Feed.CYAN, "59.91 N · 10.75 E", Feed.GREY, smooth((s - 4) / 4.0));
 		if (label != null) {
@@ -205,8 +379,8 @@ final class ThunderShots implements Feed.Sequence {
 		double drawn = 4.8 * smoothIn(k);
 		int drained = (int) (STORM_COUNT * smooth(k * 1.05));
 		o.footer = String.format(Locale.ROOT, "CHARGE %.2f MC · POTENTIAL %.2f GV", drawn, 0.25 + 1.95 * smoothIn(k));
-		o.footerSmall = String.format(Locale.ROOT, "STORMS DRAINED %s / %s", Feed.commas(drained), Feed.commas(STORM_COUNT));
-		// The ring closing in rings once as it meets the target: a flash the cut to the dive goes through.
+		o.footerSmall = String.format(Locale.ROOT, "MEGAFLASH RELAY · STORMS %s / %s", Feed.commas(drained), Feed.commas(STORM_COUNT));
+		// The relay rings once as it reaches the target: a flash the cut to the dive goes through.
 		if (s > DRAW_LENGTH - 3) {
 			o.flash = RING_FLASH * smooth((s - (DRAW_LENGTH - 3)) / 3.0);
 			o.flashColor = RING_FLASH_COLOR;
@@ -232,9 +406,8 @@ final class ThunderShots implements Feed.Sequence {
 		// Close in, the storm is dark cloud lit from inside: its lightning and the charge at its heart are turned down so they
 		// flicker in it rather than fill the frame.
 		float close = smooth((k - 0.5) * 2.0);
-		space.stormEarth(cam, new Matrix4f(), SUN, time * 0.00002F, smooth((k - 0.4) * 2.0) * 0.8F, 1.1F, time, TARGET,
-				1.0F - 0.85F * close, 0.0F, 1.0F, VORTEX * (0.4F + 0.6F * wound), spin(time) * (1.0F + wound),
-				(0.7F - 0.4F * wound) * (1.0F - 0.95F * close));
+		space.stormEarth(cam, new Matrix4f(), SUN, time * 0.00002F, 1.1F, time, TARGET, 1.0F - 0.5F * close, 0.0F, 1.0F,
+				VORTEX * (0.4F + 0.6F * wound), spin(time) * (1.0F + wound), (0.7F - 0.4F * wound) * (1.0F - 0.95F * close));
 		// Out of the flash the circuit closed with.
 		if (s < 8.0) {
 			o.flash = RING_FLASH * (float) Math.exp(-s / 2.0);

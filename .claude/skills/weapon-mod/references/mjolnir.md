@@ -18,7 +18,7 @@ so Gungnir can be removed without touching it.
 | `CALL` | 16 | A bolt from the hammer's head to the storm over the target (`ThunderRender.call`); `mjolnir.call` for everyone else. |
 | `RISE` | 30 | The shooter's camera climbs over the target looking up into the storm (`ThunderCamera.rise`, `AerialHaze` dark deck). |
 | `FEED` | 54 | The feed: orbit over the night side (`ThunderShots.orbit`). |
-| `DRAW` | 116 | The ring of charge closes on the target. |
+| `DRAW` | 116 | The charge relayed in storm to storm by megaflashes from the limb to the target (`ThunderShots.drawRelay`). |
 | `FORGE` | 206 | The supercell winds up; MJÖLNIR. |
 | `LEADER` | 276 | Down the eye after the stepped leader (local scene, units of 100 m). |
 | `INBOUND` | 326 | Back in the world: leader steps down, streamers, corona buzz. |
@@ -113,7 +113,17 @@ regenerate the `mjolnir_*` and `thunder_*` sounds.
   others see the same on the hammer held over the shooter's head (`HeldItemFeatureRendererMixin`). The call's bolt leaves the hammer's head in front of the shooter's eyes, so it is drawn
   thinner within 24 blocks of the camera (`bolt(..., near)`), or its glow would cover the picture.
 - **Feed** `client/feed/ThunderShots`: `orbit`, `draw`, `forge`, `leader`. Earth with storms is `ss_storm` through
-  `Space.stormEarth` (uniforms: Target, Storms, Front, Drain, Vortex, Spin, Charge). The leader shot is local, in 100 m
+  `Space.stormEarth` (uniforms: SunObj, Target, Storms, Front, Drain, Vortex, Spin, Charge; NoiseTex as Sampler3). The
+  maps are 20 km a texel, so `ss_storm` works their detail out of NoiseTex in kilometres on a stereographic map
+  centred on the target, at whatever scale the pixel footprint (`px`) shows: clouds as `heaps` and `puffs` with relief
+  lit by the sun and the moon (finite differences towards each), cities as towns and point lights (`sparkle`, cells
+  about four pixels apart at any zoom) with roads between, the maps themselves read with a cubic B-spline
+  (`smoothMap`) and warped so no texel shows. Light comes through the air (`sunlight`, `twilight`, haze towards the
+  limb); the night map's moonlit land is subtracted so only the lights are left. The draw shot's relay is geometry,
+  not shader: `RELAY` is 18 chains of `Hop`s (megaflash channels and forks on the cloud tops, made once from a fixed
+  seed), each chain with its own lag so they never line up into a ring; a hop crawls out as its chain's front
+  (`relayFront`) crosses it, flickers and fades, lighting the cloud round it; the storms outside the middle chain's
+  front go dark (`Front`/`Drain`). The leader shot is local, in 100 m
   units with the ground at y = 0: a ground plane in `ss_ground` (country, rivers, towns, lit by the leader's tip and the
   storm's flashes, lost in rain haze), three layers of the storm's base in `ss_vortex` (`Detail` 8 so the 200 km disc
   has kilometre-sized cloud, no eye, lit from inside by `CLOUD_FLASHES` one at a time through `Flash`/`FlashFalloff`),

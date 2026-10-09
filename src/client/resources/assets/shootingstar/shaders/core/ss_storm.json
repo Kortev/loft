@@ -10,6 +10,9 @@
     },
     {
       "name": "Sampler2"
+    },
+    {
+      "name": "Sampler3"
     }
   ],
   "uniforms": [
@@ -70,6 +73,16 @@
       ]
     },
     {
+      "name": "SunObj",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    {
       "name": "CloudShift",
       "type": "float",
       "count": 1,
@@ -83,14 +96,6 @@
       "count": 1,
       "values": [
         1.0
-      ]
-    },
-    {
-      "name": "Detail",
-      "type": "float",
-      "count": 1,
-      "values": [
-        0.0
       ]
     },
     {

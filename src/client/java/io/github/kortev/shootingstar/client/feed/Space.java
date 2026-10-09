@@ -5,6 +5,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import io.github.kortev.shootingstar.client.gfx.Cam;
 import io.github.kortev.shootingstar.client.gfx.Fx;
 import io.github.kortev.shootingstar.client.gfx.Mesh;
+import io.github.kortev.shootingstar.client.gfx.NoiseTex;
 import io.github.kortev.shootingstar.client.gfx.Post;
 import io.github.kortev.shootingstar.client.gfx.Shaders;
 import io.github.kortev.shootingstar.client.gfx.Tex;
@@ -175,22 +176,24 @@ final class Space {
 	 * storms behind it by {@code drain}, a vortex {@code vortex} radians across over the target turned by {@code spin},
 	 * and {@code charge} gathered at it.
 	 */
-	void stormEarth(Cam cam, Matrix4f model, Vector3f sun, float cloudShift, float detail, float exposure, float time,
+	void stormEarth(Cam cam, Matrix4f model, Vector3f sun, float cloudShift, float exposure, float time,
 			Vector3f target, float storms, float front, float drain, float vortex, float spin, float charge) {
-		stormSurface(sphere, cam, model, sun, cloudShift, detail, exposure, time, target, storms, front, drain, vortex, spin, charge);
+		stormSurface(sphere, cam, model, sun, cloudShift, exposure, time, target, storms, front, drain, vortex, spin, charge);
 		atmosphere(cam, model, sun, 1.025F, 0.3F, 0.55F, 1.0F, 1.5F, 2.6F);
 	}
 
-	private void stormSurface(Mesh mesh, Cam cam, Matrix4f model, Vector3f sun, float cloudShift, float detail, float exposure,
+	private void stormSurface(Mesh mesh, Cam cam, Matrix4f model, Vector3f sun, float cloudShift, float exposure,
 			float time, Vector3f target, float storms, float front, float drain, float vortex, float spin, float charge) {
 		opaque();
 		RenderSystem.setShaderTexture(0, earthDay);
 		RenderSystem.setShaderTexture(1, earthNight);
 		RenderSystem.setShaderTexture(2, earthClouds);
+		// The detail the maps lack close in is worked out of the noise texture.
+		RenderSystem.setShaderTexture(3, NoiseTex.get());
 		Shaders.set(Shaders.storm, "LightDir", cam.viewDir(sun));
+		Shaders.set(Shaders.storm, "SunObj", new Matrix4f(model).invert().transformDirection(new Vector3f(sun)).normalize());
 		Shaders.set(Shaders.storm, "CloudShift", cloudShift);
 		Shaders.set(Shaders.storm, "Exposure", exposure);
-		Shaders.set(Shaders.storm, "Detail", detail);
 		Shaders.set(Shaders.storm, "Time", time);
 		Shaders.set(Shaders.storm, "Target", target);
 		Shaders.set(Shaders.storm, "Storms", storms);
@@ -200,6 +203,7 @@ final class Space {
 		Shaders.set(Shaders.storm, "Spin", spin);
 		Shaders.set(Shaders.storm, "Charge", charge);
 		mesh.draw(Shaders.storm, cam.modelView(model), cam.proj);
+		RenderSystem.setShaderTexture(3, 0);
 	}
 
 	void jupiter(Cam cam, Matrix4f model, Vector3f sun, float time, float exposure) {

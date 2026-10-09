@@ -122,8 +122,9 @@ charge of the whole planet's thunderstorms, the global circuit, as it is drawn i
 the target winds up into a vortex; the stepped leader feels its way down out of it; and the bolt comes down.
 
 The feed is real-time 3D with its own shaders, like Gungnir's: the night side of Earth from orbit with every
-thunderstorm on it flickering inside its clouds and red sprites leaping above them, a ring of charge closing across
-the planet with filaments of current running in ahead of it and the storms it passes going dark, the supercell
+thunderstorm on it flickering inside its clouds and red sprites leaping above them, the charge relayed in to the
+target storm to storm as megaflashes (lightning hundreds of kilometres long, crawling through the cloud tops) along
+lines that draw together on it from all round the planet, each storm going dark as its charge passes on, the supercell
 winding into one vortex lit by lightning that never stops, and the leader stepping down out of the storm's base over
 the dark country under it. The sound under it is the planet's own radio noise of lightning (the clicks of sferics, the pings of
 tweeks and the falling whistles of whistlers) over a drone breathing with the Earth-ionosphere cavity's 7.83 Hz.
@@ -146,7 +147,7 @@ speed of sound.
 | 0.8 s   | **The call**: a bolt leaps from the hammer up into the sky over the target, with a crack and a clap of thunder; your eyes follow it up as the storm boils out where it went in. Everyone can see who called it. |
 | 1.5 s   | Your camera climbs out over the target, looking up into the storm as it turns, and rises into its dark base. |
 | 2.7 s   | **The feed** comes out of the storm cloud into orbit over the night side: `[ Þ-01 MJÖLNIR · GLOBAL CIRCUIT ]`, `THUNDERSTORMS · 1,812 ACTIVE`. |
-| 5.8 s   | `[ DRAWING THE CIRCUIT ]`: a ring of charge closes across the planet on the target, `CHARGE · POTENTIAL · STORMS DRAINED` counting up. |
+| 5.8 s   | `[ EVERY STORM ON EARTH · RELAYING ]`: megaflashes leap storm to storm from the limb in to the target along lines from all round it, the storms behind going dark, `CHARGE · POTENTIAL · MEGAFLASH RELAY` counting up. |
 | 10.3 s  | `[ SUPERCELL · TARGET ]`: down onto the storm over the target as it winds into one vortex: **MJÖLNIR**, struck like an anvil. |
 | 13.8 s  | `[ STEPPED LEADER ]`: the leader stepping down out of the storm's base, seen from kilometres off over the dark country under it, `LEADER ALTITUDE` counting down. |
 | 16.3 s  | Back in the world on you, from over your shoulder, hammer held up, the storm looming over the target far off; then low at the edge of the zone as the leader comes on down out of the wall cloud, streamers rise off everything under it and the air buzzes. |
