@@ -2,6 +2,7 @@ package io.github.kortev.chitty.airship;
 
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.data.DataTracker;
 import net.minecraft.entity.data.TrackedData;
 import net.minecraft.entity.data.TrackedDataHandlerRegistry;
@@ -101,6 +102,15 @@ public class AirshipHookEntity extends Entity {
 			return;
 		}
 		positionUpdater.accept(passenger, getX(), getY() - passenger.getHeight() * 0.8, getZ());
+	}
+
+	/**
+	 * Whatever gets off the grapple, set down or struggling free, gets off where it hangs: not on top of the holder (the
+	 * game's way), which is up at the tines, over its head.
+	 */
+	@Override
+	public Vec3d updatePassengerForDismount(LivingEntity passenger) {
+		return passenger.getPos();
 	}
 
 	@Override
