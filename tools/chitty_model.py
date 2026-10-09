@@ -1841,6 +1841,12 @@ GLOW = ('bulb_glow', 'eye')
 # Parts the game shades as they turn: the wheels roll, so their bake sees an even sky and the game lights them. Every
 # other part carries its light in the texture and is drawn evenly lit (its normals point up).
 GAME_LIT = ('wheel_',)
+# Whether the game lights every part, each face by which way it faces, as it lights Minecraft's own things (the
+# airship): then the bake holds only every part's colours, a little darker in its nooks, and every part keeps its
+# normals.
+LIT_ALL = False
+# With LIT_ALL, how dark the most shut-in nook is (1: not darkened at all).
+SHUT_IN = 0.45
 # Polished metal the game shines itself, as you look at it (ChittyShine): its bake carries only how shut in it is (the
 # louvres' slots, the radiator's rim), and its normals stay, for the reflection.
 SHINE = {'aluminium': 1, 'brass': 2, 'chrome': 3, 'copper': 4, 'aluminium_dull': 5}
@@ -1961,6 +1967,10 @@ def texel_weight(name):
     return 1.0
 
 
+# How the atlas packer may turn each island: None for any way it likes; 'AXIS_ALIGNED' squares each island's edges with
+# the atlas, so that a texture drawn pixelated has its pixels in rows along a part's edges, as Minecraft's do.
+PACK_ROTATE = None
+
 # Objects whose own UVs are kept for the bake rather than unwrapped afresh (the bake layer starts as a copy of them):
 # a surface whose painting needs them, such as the airship's envelope, cylindrical with her arms on its flanks.
 KEEP_UV = ()
@@ -1999,7 +2009,8 @@ def unwrap(objs):
     bpy.ops.object.mode_set(mode='EDIT')
     bpy.ops.mesh.select_all(action='SELECT')
     bpy.ops.uv.select_all(action='SELECT')
-    bpy.ops.uv.pack_islands(rotate=True, margin_method='FRACTION', margin=float(os.environ.get('CHITTY_UV_MARGIN', '0.0012')), shape_method=os.environ.get('CHITTY_UV_SHAPE', 'CONCAVE'))
+    turn = {'rotate_method': PACK_ROTATE} if PACK_ROTATE else {}
+    bpy.ops.uv.pack_islands(rotate=True, **turn, margin_method='FRACTION', margin=float(os.environ.get('CHITTY_UV_MARGIN', '0.0012')), shape_method=os.environ.get('CHITTY_UV_SHAPE', 'CONCAVE'))
     bpy.ops.object.mode_set(mode='OBJECT')
 
 
@@ -2014,8 +2025,9 @@ def joined(objs):
     return objs[0]
 
 
-def bake_pass(name, objs, world, sun, visible):
-    """Bakes the objects' look into a fresh image; `visible` also cast shadows and reflect."""
+def bake_pass(name, objs, world, sun, visible, kind='COMBINED'):
+    """Bakes the objects' look into a fresh image (kind DIFFUSE: their colours alone); `visible` also cast shadows
+    and reflect."""
     scene = bpy.context.scene
     img = bpy.data.images.new('bake_' + name, BAKE_SIZE, BAKE_SIZE, alpha=True, float_buffer=True)
     img.generated_color = (0, 0, 0, 0)
@@ -2033,7 +2045,8 @@ def bake_pass(name, objs, world, sun, visible):
     for o in objs:
         o.select_set(True)
     bpy.context.view_layer.objects.active = objs[0]
-    bpy.ops.object.bake(type='COMBINED', margin=0, use_clear=False)
+    colours = {'pass_filter': {'COLOR'}} if kind == 'DIFFUSE' else {}
+    bpy.ops.object.bake(type=kind, **colours, margin=0, use_clear=False)
     # Through the same view transform as the renders, out to 8 bits.
     path = os.path.join(bpy.app.tempdir or '/tmp', 'chitty_bake_%s.png' % name)
     scene.render.image_settings.file_format = 'PNG'
@@ -2042,6 +2055,30 @@ def bake_pass(name, objs, world, sun, visible):
     out = np.array(Image.open(path).convert('RGBA')).astype(np.float32) / 255.0
     print('  baked %-6s %5.1f%% of the atlas' % (name, (out[..., 3] > 0.5).mean() * 100))
     return out
+
+
+def plain_metal():
+    """Every material made plain (not metal) for a bake of colours, as it was kept to put back (restore_metal)."""
+    kept = []
+    for m in MATS.values():
+        nt = m.node_tree
+        b = nt.nodes.get('Principled BSDF')
+        if b is None:
+            continue
+        socket = b.inputs['Metallic']
+        source = socket.links[0].from_socket if socket.is_linked else None
+        kept.append((nt, socket, socket.default_value, source))
+        if source is not None:
+            nt.links.remove(socket.links[0])
+        socket.default_value = 0.0
+    return kept
+
+
+def restore_metal(kept):
+    for nt, socket, value, source in kept:
+        socket.default_value = value
+        if source is not None:
+            nt.links.new(source, socket)
 
 
 def bake_occlusion(groups, world, sun):
@@ -2188,9 +2225,16 @@ def export_game(root):
     # Each pass bakes one object: Cycles goes over the whole image once per object baked, so forty separate parts
     # take forty times as long as the same parts joined.
     body, others, wheels = joined(body), joined(others), joined(wheels)
-    passes = [bake_pass('body', [body], worlds['sky'], sun, real_wheels),
-              bake_pass('parts', [others], worlds['sky'], sun, []),
-              bake_pass('wheels', [wheels], worlds['even'], sun, [])]
+    kind = 'COMBINED'
+    if LIT_ALL:
+        # Her colours alone, as they are (metal too, which has no colour of its own to a diffuse bake).
+        kind = 'DIFFUSE'
+        scene.view_settings.view_transform = 'Standard'
+        scene.view_settings.look = 'None'
+        metals = plain_metal()
+    passes = [bake_pass('body', [body], worlds['sky'], sun, real_wheels, kind),
+              bake_pass('parts', [others], worlds['sky'], sun, [], kind),
+              bake_pass('wheels', [wheels], worlds['even'], sun, [], kind)]
     rgb = np.zeros((BAKE_SIZE, BAKE_SIZE, 3), np.float32)
     valid = np.zeros((BAKE_SIZE, BAKE_SIZE), bool)
     for px in passes:
@@ -2198,6 +2242,10 @@ def export_game(root):
         rgb[mine] = px[..., :3][mine]
         valid |= mine
     ao = bake_occlusion([(body, real_wheels), (others, []), (wheels, [])], worlds['even'], sun)
+    if LIT_ALL:
+        restore_metal(metals)
+        # Shut in a little in her corners and nooks: the game lights the rest.
+        rgb *= (SHUT_IN + (1.0 - SHUT_IN) * np.clip(ao, 0.0, 1.0))[..., None]
     shut = metal & valid
     rgb[shut] = (0.3 + 0.7 * np.clip(ao[shut], 0, 1) ** 0.8)[:, None]
     print('  polished metal %.1f%% of the atlas' % (shut.mean() * 100))
@@ -2255,7 +2303,7 @@ def export_game(root):
                     extra = (-1.0, 0.0, 0.0, 0.0)
                 if 'open_yaw' in o:
                     extra = (float(o['open_yaw']), float(o['dihedral']), float(o['fold_yaw']), float(o['tuck']))
-            lit = name.startswith(GAME_LIT)
+            lit = LIT_ALL or name.startswith(GAME_LIT)
             quads = []
             for o in group:
                 me = meshes[o.name]

@@ -29,6 +29,11 @@ searchlight stands on the frame over the crew. A narrow girder runs back from th
 under the back of the envelope: a white tailplane with Vulgaria's stripes on its elevator, and dark triangular fins
 above and below it ending in the rudder.
 
+For the game (--game) she is built faceted, to sit among Minecraft's blocks: a sixteen-sided envelope, square bars,
+wires and ropes, round parts of eight sides at most and every face flat. Her atlas holds only her colours, under an
+even sky, and the game draws it pixelated and lights each face by which way it faces, as it does its own mobs. The
+renders keep her round and lit.
+
 Parts that move in the game are objects of their own with their origins on their pivots: the two propellers, the
 rudder and elevator, the wheel, the grapple, the ladder (one rung, stacked by the game), its roll, the grapple's rope
 on its drum and each of the six bombs. Empties mark the eight places to stand, where the grapple's rope comes out
@@ -50,6 +55,39 @@ import chitty_model as cm  # noqa: E402  (materials, meshes, lofts, tubes, the r
 # Building her for the game (--game): the ropes are plain tubes, light enough to draw every frame; their lay is only
 # worth its polygons in the renders.
 GAME = '--game' in sys.argv
+
+# For the game she is faceted, to sit among Minecraft's blocks: her round parts have few flat sides, her bars, wires
+# and ropes are square and none thinner than half a pixel of a block's sixteen across (THINNEST from the middle to a
+# side), and every face is flat, lit by the game by which way it faces. The renders keep her round.
+THINNEST = 0.016
+LATHE_SIDES = 8
+
+
+def tube(m, path, radius, mat, seg=12, flare=None):
+    """A bar or wire along a path: round (chitty_model.tube) for the renders, square and flat on top for the game,
+    broken into straight bars where it turns a corner (a square bar carried round a corner twists flat there)."""
+    if not GAME:
+        return cm.tube(m, path, radius, mat, seg=seg, flare=flare)
+    pts = [Vector(p) for p in path]
+    start = 0
+    for i in range(1, len(pts) - 1):
+        if (pts[i] - pts[i - 1]).angle(pts[i + 1] - pts[i], 0.0) > math.radians(35):
+            pipe(m, pts[start:i + 1], max(radius, THINNEST), mat)
+            start = i
+    pipe(m, pts[start:], max(radius, THINNEST), mat, flare=flare if start == 0 else None)
+
+
+def lathe(m, profile, mat_of, axis='y', seg=32, origin=(0, 0, 0)):
+    """A surface of revolution (chitty_model.lathe): for the game with at most LATHE_SIDES sides, a flat one on top."""
+    if GAME:
+        seg = min(seg, LATHE_SIDES)
+        return cm.lathe(m, profile, mat_of, axis=axis, seg=seg, origin=origin, a0=math.pi / seg)
+    return cm.lathe(m, profile, mat_of, axis=axis, seg=seg, origin=origin)
+
+
+def points(n):
+    """How many points to take round a curve of n for the renders: a third as many for the game, at least eight."""
+    return n if not GAME else max(8, n // 3)
 
 # --- layout (blocks) ---------------------------------------------------------------------------------
 
@@ -334,10 +372,13 @@ def envelope_profile(y):
 
 
 def envelope_section(r, zc, count=64):
-    """A round section, a little flatter underneath; it starts at the top and goes round towards her right."""
+    """A round section, a little flatter underneath; it starts at the top and goes round towards her right (for the
+    game, sixteen-sided, starting half a side round so that a flat side lies along the top)."""
     pts = []
+    half = 0.5 if GAME else 0.0
+    count = 16 if GAME else count
     for i in range(count):
-        t = math.pi / 2 - 2 * math.pi * i / count
+        t = math.pi / 2 - 2 * math.pi * (i + half) / count
         c, s = math.cos(t), math.sin(t)
         pts.append((r * c, zc + r * s * (1.0 if s > 0 else ENV_BELLY)))
     return pts
@@ -345,7 +386,7 @@ def envelope_section(r, zc, count=64):
 
 def build_envelope():
     m = cm.Mesh()
-    n = 120
+    n = 24 if GAME else 120
     ys = [ENV_MID_Y + ENV_LENGTH / 2 * math.sin(math.pi / 2 * (-1 + 2 * i / n)) * 0.9995 for i in range(n + 1)]
     sections = []
     for y in ys:
@@ -389,7 +430,7 @@ def build_platform():
     m = cm.Mesh()
     rim = [Vector((platform_half_width(y), y, p['z'] - 0.04)) for y in ys]
     rim = rim + [Vector((-v.x, v.y, v.z)) for v in reversed(rim)]
-    cm.tube(m, rim, 0.06, 'bronze', seg=8)
+    tube(m, rim, 0.06, 'bronze', seg=8)
     m.obj('platform_rim', smooth=50)
     m = cm.Mesh()
     for y in ys[2:-2:2]:
@@ -398,7 +439,7 @@ def build_platform():
         for side in (-1, 1):
             a = math.radians(30)
             top_pt = Vector((side * r * math.cos(a), y, zc - r * math.sin(a) * ENV_BELLY))
-            cm.tube(m, [top_pt, Vector((side * w, y, p['z']))], 0.022, 'cable', seg=5)
+            tube(m, [top_pt, Vector((side * w, y, p['z']))], 0.022, 'cable', seg=5)
     m.obj('platform_cables')
 
 
@@ -427,22 +468,22 @@ def build_frame():
     m = cm.Mesh()
     ys = np.linspace(FRAME_FRONT, FRAME_BACK, 60)
     for side in (-1, 1):
-        cm.tube(m, [Vector((side * bar_at(y)[0], y, bar_at(y)[1])) for y in ys], 0.05, 'bronze', seg=8)
+        tube(m, [Vector((side * bar_at(y)[0], y, bar_at(y)[1])) for y in ys], 0.05, 'bronze', seg=8)
         # The triangles: from each node up to the platform midway to the next, so the bars hang in a row of V's.
         for i, y in enumerate(FRAME_NODES):
             w, z = bar_at(y)
             for yt in (y - 0.6, y + 0.6):
                 top = Vector((side * platform_half_width(yt) * 0.55, yt, PLATFORM['z']))
-                cm.tube(m, [Vector((side * w, y, z)), top], 0.035, 'bronze', seg=6)
+                tube(m, [Vector((side * w, y, z)), top], 0.035, 'bronze', seg=6)
     for i, y in enumerate(FRAME_NODES):
         w, z = bar_at(y)
-        cm.tube(m, [Vector((-w, y, z)), Vector((w, y, z))], 0.035, 'bronze', seg=6)
+        tube(m, [Vector((-w, y, z)), Vector((w, y, z))], 0.035, 'bronze', seg=6)
         # Wires crossed between the bars in each bay, so the frame keeps square.
         if i + 1 < len(FRAME_NODES):
             y2 = FRAME_NODES[i + 1]
             w2, z2 = bar_at(y2)
             for s in (-1, 1):
-                cm.tube(m, [Vector((s * w, y, z)), Vector((-s * w2, y2, z2))], 0.009, 'cable', seg=4)
+                tube(m, [Vector((s * w, y, z)), Vector((-s * w2, y2, z2))], 0.009, 'cable', seg=4)
     m.obj('frame', smooth=50)
 
 
@@ -459,12 +500,12 @@ def build_rigging():
             w, z = bar_at(y)
             for yr in (y - 0.55, y + 0.55):
                 yr = min(max(yr, GON_STERN - BEAM_OVER + 0.05), GON_BOW + BEAM_OVER - 0.05)
-                cm.tube(m, [Vector((side * w, y, z)), Vector((x, yr, rail_z))], 0.011, 'cable', seg=4)
+                tube(m, [Vector((side * w, y, z)), Vector((x, yr, rail_z))], 0.011, 'cable', seg=4)
         # Long stays from the rail's ends to the bars further out.
         for ye, yb in ((GON_BOW + BEAM_OVER - 0.05, FRAME_NODES[0] + 0.5), (GON_STERN - BEAM_OVER + 0.05, -4.6),
                        (GON_BOW, FRAME_NODES[0] - 0.2), (GON_STERN, FRAME_NODES[-1])):
             w, z = bar_at(yb)
-            cm.tube(m, [Vector((x, ye, rail_z)), Vector((side * w, yb, z))], 0.011, 'cable', seg=4)
+            tube(m, [Vector((x, ye, rail_z)), Vector((side * w, yb, z))], 0.011, 'cable', seg=4)
     m.obj('rigging')
     # The slack ropes, hanging in loops from the bars at each end down past the rail and up again.
     m = cm.Mesh()
@@ -476,12 +517,12 @@ def build_rigging():
             a = Vector((side * wa, ya, za))
             b = Vector((side * wb, yb, zb))
             pts = []
-            for t in np.linspace(0, 1, 24):
+            for t in np.linspace(0, 1, points(24)):
                 p = a.lerp(b, t)
                 p.z -= sag * 4 * t * (1 - t)
                 p.x += side * 0.15 * 4 * t * (1 - t)
                 pts.append(p)
-            cm.tube(m, pts, 0.016, 'rope', seg=5)
+            tube(m, pts, 0.016, 'rope', seg=5)
     m.obj('slack_ropes', smooth=50)
 
 
@@ -507,13 +548,13 @@ def build_girder():
         w = g['half_width'] * (depth / g['depth'])
         pts.append((Vector((0, y, top)), Vector((-w, y, top - depth)), Vector((w, y, top - depth))))
     for k in range(3):
-        cm.tube(m, [p[k] for p in pts], 0.045, 'bronze', seg=8)
+        tube(m, [p[k] for p in pts], 0.045, 'bronze', seg=8)
     for i, p in enumerate(pts):
-        cm.tube(m, [p[1], p[2]], 0.025, 'bronze', seg=6)
+        tube(m, [p[1], p[2]], 0.025, 'bronze', seg=6)
         if i + 1 < len(pts):
             q = pts[i + 1]
             for a, b in ((p[0], q[1]), (p[0], q[2]), (p[1], q[0]) if i % 2 else (p[2], q[0])):
-                cm.tube(m, [a, b], 0.022, 'bronze', seg=5)
+                tube(m, [a, b], 0.022, 'bronze', seg=5)
     m.obj('girder', smooth=50)
 
 
@@ -521,7 +562,7 @@ def panel(m, corners, mat, uvs=None):
     """A flat panel of fabric (one face, drawn from either side) with a bronze rim."""
     vs = [m.vert(c) for c in corners]
     m.face(vs, mat, uvs or [(0, 0), (1, 0), (1, 1), (0, 1)][:len(vs)])
-    cm.tube(m, list(corners) + [corners[0]], 0.035, 'bronze', seg=6)
+    tube(m, list(corners) + [corners[0]], 0.035, 'bronze', seg=6)
 
 
 def build_tail():
@@ -540,7 +581,7 @@ def build_tail():
     # Bracing wires from the fins' tips to the tailplane's corners.
     for zz in (z + T['up'], z - T['down']):
         for side in (-1, 1):
-            cm.tube(m, [Vector((0, hinge, zz)), Vector((side * T['span'], hinge, z))], 0.012, 'cable', seg=4)
+            tube(m, [Vector((0, hinge, zz)), Vector((side * T['span'], hinge, z))], 0.012, 'cable', seg=4)
     m.obj('tail_fixed')
     chord = T['trail'] - hinge
     m = cm.Mesh()
@@ -655,10 +696,10 @@ def build_gondola():
     m = cm.Mesh()
     pipe = [Vector((0.6, GON_STERN + 0.3, GON_TOP)), Vector((0.6, GON_STERN + 0.3, GON_TOP + 0.35)),
             Vector((0.6, GON_STERN + 0.15, GON_TOP + 0.5))]
-    cm.tube(m, cm.catmull(pipe, per=5), 0.05, 'iron', seg=8)
+    tube(m, cm.catmull(pipe, per=5), 0.05, 'iron', seg=8)
     # The hatch the hook's rope goes down through, and a brass fairlead under the keel.
     cm.add_box(m, (0, LINE_OUT.y, GON_FLOOR + 0.005), (0.36, 0.36, 0.02), 'brass')
-    cm.lathe(m, [(0.05, -0.04), (0.1, -0.04), (0.1, 0.02), (0.05, 0.02)], lambda k: 'brass', axis='z', seg=16,
+    lathe(m, [(0.05, -0.04), (0.1, -0.04), (0.1, 0.02), (0.05, 0.02)], lambda k: 'brass', axis='z', seg=16,
              origin=tuple(LINE_OUT))
     m.obj('gondola_fittings', smooth=40)
 
@@ -666,7 +707,11 @@ def build_gondola():
 def pipe(m, path, radius, mat, seg=12, flare=None, closed=False):
     """A round pipe along a path like cm.tube, but with its rings carried along the path without twisting, so it
     stays smooth however the path turns (cm.tube's rings flip where the path passes upright); closed joins its ends
-    round into a ring."""
+    round into a ring. For the game it is square, `radius` from its middle to each flat side, one of them on top
+    where the path runs level."""
+    turn = 0.0
+    if GAME:
+        seg, turn, radius = 4, math.pi / 4, radius * math.sqrt(2)
     pts = [Vector(p) for p in path]
     n = len(pts)
 
@@ -683,8 +728,8 @@ def pipe(m, path, radius, mat, seg=12, flare=None, closed=False):
         a = (a - t * a.dot(t)).normalized()
         b = t.cross(a)
         r = radius * (flare(i / (n - 1)) if flare else 1.0)
-        rings.append([m.vert(p + (a * math.cos(2 * math.pi * k / seg) + b * math.sin(2 * math.pi * k / seg)) * r)
-                      for k in range(seg)])
+        rings.append([m.vert(p + (a * math.cos(turn + 2 * math.pi * k / seg) + b * math.sin(turn + 2 * math.pi * k / seg))
+                             * r) for k in range(seg)])
     if closed:
         # Line the last ring up with the first, so they join without a twist.
         first, last = rings[0], rings[-1]
@@ -740,12 +785,12 @@ def build_coil():
         x = side * (GON_HALF_WIDTH - BEAM / 2 + 0.03)
         # The drum's axle, its cheeks and the hangers from the rail.
         m = cm.Mesh()
-        cm.tube(m, [Vector((x, y0 - 0.04, zr)), Vector((x, y1 + 0.1, zr))], 0.03, 'iron', seg=8)
+        tube(m, [Vector((x, y0 - 0.04, zr)), Vector((x, y1 + 0.1, zr))], 0.03, 'iron', seg=8)
         for yc in (y0, y1):
-            cm.lathe(m, [(0.0, -0.015), (0.19, -0.015), (0.19, 0.015), (0.0, 0.015)], lambda k: 'iron', axis='y',
+            lathe(m, [(0.0, -0.015), (0.19, -0.015), (0.19, 0.015), (0.0, 0.015)], lambda k: 'iron', axis='y',
                      seg=20, origin=(x, yc, zr))
             cm.add_box(m, (x, yc, zr + 0.13), (0.04, 0.03, 0.26), 'iron')
-        cm.lathe(m, [(0.0, -0.03), (0.05, -0.03), (0.06, 0.0), (0.04, 0.05), (0.0, 0.06)], lambda k: 'iron', axis='y',
+        lathe(m, [(0.0, -0.03), (0.05, -0.03), (0.06, 0.0), (0.04, 0.05), (0.0, 0.06)], lambda k: 'iron', axis='y',
                  seg=12, origin=(x, y1 + 0.12, zr))
         m.obj('drum_' + ('r' if side > 0 else 'l'), smooth=40)
         # The rope wound on it: two layers, round and round, back and forth along it.
@@ -754,7 +799,7 @@ def build_coil():
         for layer, rr in ((0, 0.075), (1, 0.075 + 2 * r_rope * 0.9), (2, 0.075 + 4 * r_rope * 0.9)):
             turns = (y1 - y0 - 2 * r_rope) / (2 * r_rope)
             pts = []
-            for t in np.linspace(0, 1, int(turns * (10 if GAME else 24))):
+            for t in np.linspace(0, 1, int(turns * (8 if GAME else 24))):
                 a = 2 * math.pi * turns * t
                 yy = y0 + r_rope + (y1 - y0 - 2 * r_rope) * (t if layer % 2 == 0 else 1 - t)
                 pts.append((math.cos(a) * rr, yy - (y0 + y1) / 2, math.sin(a) * rr))
@@ -770,10 +815,10 @@ def build_coil():
         half = 0.16 + 0.05 * rng.random()
         drop = 0.42 + 0.12 * rng.random()
         loop = []
-        for t in np.linspace(0, math.pi, 15):
+        for t in np.linspace(0, math.pi, points(15)):
             loop.append(Vector((x + half * math.cos(t), cy + 0.03 * k - 0.1, -drop * math.sin(t) ** 0.8)))
         loop = [Vector((x + half, cy + 0.03 * k - 0.1, 0.07))] + loop + [Vector((x - half, cy + 0.03 * k - 0.1, 0.07))]
-        rope(m, cm.catmull(loop, per=3), 0.022, 'rope')
+        rope(m, loop if GAME else cm.catmull(loop, per=3), 0.022, 'rope')
     m.obj('hank', location=(0, 0, GON_TOP + BEAM), smooth=40)
 
 
@@ -783,7 +828,7 @@ def build_searchlight():
     m = cm.Mesh()
     y = FRAME_NODES[2]
     base = BAR_Z + 0.03
-    cm.lathe(m, [(0.0, 0.0), (0.12, 0.0), (0.03, 0.2), (0.0, 0.2)], lambda k: 'beam', axis='z', seg=16,
+    lathe(m, [(0.0, 0.0), (0.12, 0.0), (0.03, 0.2), (0.0, 0.2)], lambda k: 'beam', axis='z', seg=16,
              origin=(0, y, base))
     top = base + 0.2
     for s in (-1, 1):
@@ -793,10 +838,10 @@ def build_searchlight():
     c = Vector((0, y, top + 0.3))
     tilt = Matrix.Rotation(math.radians(-8), 4, 'X')
     lamp = cm.Mesh()
-    cm.lathe(lamp, [(0.0, -0.26), (0.12, -0.26), (0.18, -0.2), (0.19, 0.18), (0.21, 0.2), (0.21, 0.25),
+    lathe(lamp, [(0.0, -0.26), (0.12, -0.26), (0.18, -0.2), (0.19, 0.18), (0.21, 0.2), (0.21, 0.25),
                     (0.17, 0.26)], lambda k: 'beam', axis='y', seg=24)
-    cm.lathe(lamp, [(0.17, 0.255), (0.0, 0.25)], lambda k: 'glass', axis='y', seg=24)
-    cm.lathe(lamp, [(0.0, 0.22), (0.07, 0.22), (0.07, 0.3), (0.1, 0.3), (0.0, 0.34)], lambda k: 'beam', axis='z',
+    lathe(lamp, [(0.17, 0.255), (0.0, 0.25)], lambda k: 'glass', axis='y', seg=24)
+    lathe(lamp, [(0.0, 0.22), (0.07, 0.22), (0.07, 0.3), (0.1, 0.3), (0.0, 0.34)], lambda k: 'beam', axis='z',
              seg=12, origin=(0, -0.06, 0))
     o = lamp.obj('searchlight', location=tuple(c), smooth=40)
     o.matrix_world = Matrix.Translation(c) @ tilt
@@ -838,10 +883,10 @@ def build_props():
         # engine section's front and at the stern corner, and from the stern's foot. Wires from the frame's bars
         # take its weight; nothing rigid joins it to the frame.
         m = cm.Mesh()
-        cm.tube(m, [Vector((x, P['bearing_y'], P['z'])), Vector((x, P['y'] + 0.15, P['z']))], 0.05, 'bronze', seg=10)
+        tube(m, [Vector((x, P['bearing_y'], P['z'])), Vector((x, P['y'] + 0.15, P['z']))], 0.05, 'bronze', seg=10)
         aft = P['y'] + 0.45
         for yb in (P['bearing_y'], aft):
-            cm.lathe(m, [(0.0, -0.1), (0.1, -0.1), (0.1, 0.1), (0.0, 0.1)], lambda k: 'iron', axis='y', seg=12,
+            lathe(m, [(0.0, -0.1), (0.1, -0.1), (0.1, 0.1), (0.0, 0.1)], lambda k: 'iron', axis='y', seg=12,
                      origin=(x, yb, P['z']))
         rail = GON_TOP + BEAM
         for a, yb in (((side * GON_HALF_WIDTH, GON_ENGINE_FRONT, rail), P['bearing_y']),
@@ -849,10 +894,10 @@ def build_props():
                       ((side * GON_HALF_WIDTH, GON_ENGINE_FRONT, rail), aft),
                       ((side * GON_HALF_WIDTH, GON_STERN, GON_STERN_RISE + 0.05), aft),
                       ((side * GON_HALF_WIDTH, GON_STERN, GON_STERN_RISE + 0.05), P['bearing_y'])):
-            cm.tube(m, [Vector(a), Vector((x, yb, P['z']))], 0.035, 'bronze', seg=6)
+            tube(m, [Vector(a), Vector((x, yb, P['z']))], 0.035, 'bronze', seg=6)
         for yb, yn in ((P['bearing_y'], -1.8), (aft, -3.0), (aft, -4.2)):
             w, z = bar_at(yn)
-            cm.tube(m, [Vector((x, yb, P['z'])), Vector((side * w, yn, z))], 0.011, 'cable', seg=4)
+            tube(m, [Vector((x, yb, P['z'])), Vector((side * w, yn, z))], 0.011, 'cable', seg=4)
         # The belt: from a small pulley on the engine section's side up over the big one, both runs straight.
         lo = Vector((side * (GON_HALF_WIDTH + 0.06), P['pulley_y'], 0.62))
         hi = Vector((x, P['pulley_y'], P['z']))
@@ -860,25 +905,25 @@ def build_props():
         d.normalize()
         n = Vector((0, 1, 0)).cross(d)
         for r_hi, r_lo, s in ((P['pulley_r'], 0.1, 1), (P['pulley_r'], 0.1, -1)):
-            cm.tube(m, [lo + n * r_lo * s, hi + n * r_hi * s], 0.02, 'belt', seg=4)
-        cm.lathe(m, [(0.0, -0.05), (0.12, -0.05), (0.12, 0.05), (0.0, 0.05)], lambda k: 'iron', axis='y', seg=12,
+            tube(m, [lo + n * r_lo * s, hi + n * r_hi * s], 0.02, 'belt', seg=4)
+        lathe(m, [(0.0, -0.05), (0.12, -0.05), (0.12, 0.05), (0.0, 0.05)], lambda k: 'iron', axis='y', seg=12,
                  origin=tuple(lo))
         m.obj(name + '_shaft', smooth=40)
         # The pulley: a rim, five spokes and a hub, turning with the propeller.
         m = cm.Mesh()
         r = P['pulley_r']
-        rim = [Vector((math.cos(t) * r, 0, math.sin(t) * r)) for t in np.linspace(0, 2 * math.pi, 41)]
-        cm.tube(m, rim, 0.04, 'iron', seg=8)
+        rim = [Vector((math.cos(t) * r, 0, math.sin(t) * r)) for t in np.linspace(0, 2 * math.pi, points(36) + 1)]
+        tube(m, rim, 0.04, 'iron', seg=8)
         for k in range(5):
             t = 2 * math.pi * k / 5
-            cm.tube(m, [Vector((0, 0, 0)), Vector((math.cos(t) * r, 0, math.sin(t) * r))], 0.022, 'iron', seg=6)
-        cm.lathe(m, [(0.0, -0.08), (0.07, -0.08), (0.07, 0.08), (0.0, 0.08)], lambda k: 'iron', axis='y', seg=12)
+            tube(m, [Vector((0, 0, 0)), Vector((math.cos(t) * r, 0, math.sin(t) * r))], 0.022, 'iron', seg=6)
+        lathe(m, [(0.0, -0.08), (0.07, -0.08), (0.07, 0.08), (0.0, 0.08)], lambda k: 'iron', axis='y', seg=12)
         m.obj(name + '_pulley', location=(x, P['pulley_y'], P['z']), part=name + '_pulley', smooth=40)
         # The propeller.
         m = cm.Mesh()
         for k in (0, 1):
             blade(m, P['r'], 0.1, 0.1, 60, 16, math.pi * k)
-        cm.lathe(m, [(0.0, -0.14), (0.12, -0.12), (0.13, 0.0), (0.11, 0.1), (0.0, 0.13)], lambda k: 'iron', axis='y',
+        lathe(m, [(0.0, -0.14), (0.12, -0.12), (0.13, 0.0), (0.11, 0.1), (0.0, 0.13)], lambda k: 'iron', axis='y',
                  seg=16)
         o = m.obj(name, location=(x, P['y'], P['z']), part=name, smooth=30)
         if side < 0:
@@ -890,16 +935,16 @@ def build_wheel():
     It turns as she is steered."""
     m = cm.Mesh()
     r = 0.28
-    ring = [Vector((math.cos(a) * r, 0, math.sin(a) * r)) for a in np.linspace(0, 2 * math.pi, 41)]
-    cm.tube(m, ring, 0.028, 'wood', seg=8)
+    ring = [Vector((math.cos(a) * r, 0, math.sin(a) * r)) for a in np.linspace(0, 2 * math.pi, points(36) + 1)]
+    tube(m, ring, 0.028, 'wood', seg=8)
     for k in range(8):
         a = 2 * math.pi * k / 8
         d = Vector((math.cos(a), 0, math.sin(a)))
-        cm.tube(m, [d * 0.04, d * (r + 0.1)], 0.018, 'wood', seg=6)
-    cm.lathe(m, [(0.0, -0.06), (0.06, -0.06), (0.06, 0.04), (0.0, 0.05)], lambda k: 'brass', axis='y', seg=16)
+        tube(m, [d * 0.04, d * (r + 0.1)], 0.018, 'wood', seg=6)
+    lathe(m, [(0.0, -0.06), (0.06, -0.06), (0.06, 0.04), (0.0, 0.05)], lambda k: 'brass', axis='y', seg=16)
     m.obj('helm', location=tuple(WHEEL), part='helm', smooth=40)
     m = cm.Mesh()
-    cm.lathe(m, [(0.0, GON_FLOOR), (0.1, GON_FLOOR), (0.045, GON_FLOOR + 0.08), (0.035, WHEEL.z - 0.06),
+    lathe(m, [(0.0, GON_FLOOR), (0.1, GON_FLOOR), (0.045, GON_FLOOR + 0.08), (0.035, WHEEL.z - 0.06),
                  (0.06, WHEEL.z), (0.0, WHEEL.z + 0.02)], lambda k: 'brass', axis='z', seg=16,
              origin=(WHEEL.x, WHEEL.y + 0.1, 0))
     m.obj('wheel_post', smooth=40)
@@ -917,7 +962,7 @@ def build_bombs():
     for i in range(6):
         x = -0.7 + 0.28 * i
         m = cm.Mesh()
-        cm.lathe(m, [(0.0, -0.25), (0.03, -0.24), (0.04, -0.21), (0.09, -0.13), (0.105, -0.04), (0.1, 0.05),
+        lathe(m, [(0.0, -0.25), (0.03, -0.24), (0.04, -0.21), (0.09, -0.13), (0.105, -0.04), (0.1, 0.05),
                      (0.065, 0.14), (0.036, 0.2), (0.036, 0.25), (0.0, 0.25)],
                  lambda k: 'brass' if k < 2 else 'bomb', axis='z', seg=16)
         for k in range(4):
@@ -931,10 +976,11 @@ def build_hook():
     """The grapple: a forged iron grappling hook, a ring at the top where the rope ties on, a long shank, and at its
     foot a crown of four tines that curve out and up to barbed points. Its origin is the top of the ring."""
     m = cm.Mesh()
-    ring = [Vector((0, math.sin(2 * math.pi * k / 48) * 0.11, -0.13 + math.cos(2 * math.pi * k / 48) * 0.11))
-            for k in range(48)]
+    sides = points(48)
+    ring = [Vector((0, math.sin(2 * math.pi * k / sides) * 0.11, -0.13 + math.cos(2 * math.pi * k / sides) * 0.11))
+            for k in range(sides)]
     pipe(m, ring, 0.032, 'iron', seg=10, closed=True)
-    cm.lathe(m, [(0.0, -0.22), (0.05, -0.24), (0.05, -0.3), (0.045, -0.32), (0.055, -0.9), (0.075, -1.02),
+    lathe(m, [(0.0, -0.22), (0.05, -0.24), (0.05, -0.3), (0.045, -0.32), (0.055, -0.9), (0.075, -1.02),
                  (0.09, -1.08), (0.07, -1.16), (0.0, -1.18)], lambda k: 'iron', axis='z', seg=12)
     for k in range(4):
         a = math.pi / 4 + k * math.pi / 2
@@ -945,7 +991,7 @@ def build_hook():
 
         tine = [at(0.04, -1.1), at(0.22, -1.17), at(0.42, -1.12), at(0.56, -0.97), at(0.61, -0.78), at(0.57, -0.6),
                 at(0.49, -0.5)]
-        pipe(m, cm.catmull(tine, per=8), 0.055, 'iron', seg=12, flare=lambda t: 1.0 - 0.82 * t ** 1.6)
+        pipe(m, cm.catmull(tine, per=3 if GAME else 8), 0.055, 'iron', seg=12, flare=lambda t: 1.0 - 0.82 * t ** 1.6)
         # The barb: a spur turned back down the inside of the tine, below its point.
         pipe(m, [at(0.575, -0.66), at(0.5, -0.71), at(0.45, -0.78)], 0.022, 'iron', seg=6,
              flare=lambda t: 1.0 - 0.8 * t)
@@ -959,14 +1005,14 @@ def build_ladder():
     drawn up, it lies in the bottom of the gondola, out of sight."""
     m = cm.Mesh()
     for side in (-0.2, 0.2):
-        cm.tube(m, [Vector((0, side, 0)), Vector((0, side, -LADDER_PITCH))], 0.025, 'rope', seg=6)
+        tube(m, [Vector((0, side, 0)), Vector((0, side, -LADDER_PITCH))], 0.025, 'rope', seg=6)
     cm.add_box(m, (0, 0, -LADDER_PITCH / 2), (0.07, 0.46, 0.05), 'wood')
     o = m.obj('ladder', location=tuple(LADDER_TOP), part='ladder', smooth=40)
     o['pitch'] = LADDER_PITCH
     m = cm.Mesh()
     for y in (-0.2, 0.2):
         hook = [Vector((ROPE_SIDE * x, y, z)) for x, z in ((-0.06, 0.0), (0.02, 0.0), (0.06, -0.08), (0.02, -0.14))]
-        cm.tube(m, cm.catmull(hook, per=4), 0.018, 'iron', seg=6)
+        tube(m, cm.catmull(hook, per=4), 0.018, 'iron', seg=6)
     m.obj('ladder_hooks', location=tuple(LADDER_TOP))
     cm.empty('ladder_top', tuple(LADDER_TOP))
 
@@ -974,7 +1020,7 @@ def build_ladder():
 def build_rope():
     """The hook's rope, a unit long: the renders stretch it down to the hook (the game draws its own)."""
     m = cm.Mesh()
-    cm.tube(m, [Vector((0, 0, 0)), Vector((0, 0, -1))], 0.03, 'rope', seg=8)
+    tube(m, [Vector((0, 0, 0)), Vector((0, 0, -1))], 0.03, 'rope', seg=8)
     m.obj('rope', location=tuple(LINE_OUT), part='rope')
 
 
@@ -996,6 +1042,10 @@ def build():
     build_hook()
     build_ladder()
     build_rope()
+    if GAME:
+        for o in bpy.data.objects:
+            if o.type == 'MESH':
+                o.data.shade_flat()
 
 
 # --- poses -------------------------------------------------------------------------------------------------
@@ -1090,14 +1140,12 @@ GAME_MESH = 'chitty/src/client/resources/assets/shootingstar/meshes/airship.cbm'
 GAME_TEXTURE = 'chitty/src/client/resources/assets/shootingstar/textures/entity/airship.png'
 ITEM_ICON = 'chitty/src/main/resources/assets/shootingstar/textures/item/airship.png'
 
-# How much of the atlas each object gets for its size: the gondola's carving, the arms and what the crew stand among
-# most; the envelope's broad cloth, the platform and the girder least.
-TEXEL_WEIGHT = {'gondola_hull': 2.6, 'gondola_inside': 1.2, 'gondola_rail': 1.4, 'gondola_fittings': 1.4,
-                'helm': 1.6, 'wheel_post': 1.4, 'bomb_': 1.3, 'bomb_rack': 1.0, 'searchlight': 1.3,
-                'drum_': 1.2, 'coil': 1.0, 'hank': 0.9, 'ladder': 1.2, 'hook': 1.0, 'rope': 0.8,
-                'prop_': 1.0, 'envelope': 0.36, 'platform': 0.3, 'platform_rim': 0.5, 'platform_cables': 0.4,
-                'girder': 0.45, 'frame': 0.6, 'rigging': 0.4, 'slack_ropes': 0.5, 'tail_': 0.45, 'rudder': 0.45,
-                'elevator': 0.45}
+# How much of the atlas each object gets for its size. Her texture is drawn pixelated, as Minecraft's are: the envelope,
+# platform and frame at about Minecraft's own size of pixel, seen from afar; what the crew stand among finer, and the
+# gondola's carving finest, so that the cherub and the Baron's B still read.
+TEXEL_WEIGHT = {'gondola_hull': 4.0, 'gondola_inside': 2.5, 'gondola_rail': 2.5, 'gondola_fittings': 2.5,
+                'helm': 2.5, 'wheel_post': 2.5, 'bomb_': 2.0, 'bomb_rack': 2.0, 'searchlight': 2.0,
+                'drum_': 2.0, 'coil': 2.0, 'hank': 2.0, 'ladder': 2.0, 'hook': 2.0, 'rope': 1.5, 'prop_': 1.5}
 
 
 def neutral():
@@ -1117,15 +1165,18 @@ def neutral():
 
 def export_game():
     """Bakes her and writes the game's mesh (.cbm), its texture and the item icon, with Chitty's exporter
-    (chitty_model.export_game, whose docstring has the format) pointed at her files: one 4096 atlas, her light
-    baked in from the same sky."""
+    (chitty_model.export_game, whose docstring has the format) pointed at her files: one 1024 atlas of her colours
+    under an even sky, the game lighting each of her flat faces by which way it faces, as it lights its own blocks
+    and mobs."""
     cm.GAME_MESH, cm.GAME_TEXTURE, cm.ITEM_ICON = GAME_MESH, GAME_TEXTURE, ITEM_ICON
-    cm.BAKE_SIZE = 4096
+    cm.BAKE_SIZE = 1024
     cm.BAKE_SAMPLES = int(os.environ.get('AIRSHIP_BAKE_SAMPLES', '64'))
     cm.TEXEL_WEIGHT = TEXEL_WEIGHT
     cm.SHINE, cm.GLOW, cm.GLASS_TINT = {}, (), {}
     cm.KEEP_UV = ('envelope',)     # cylindrical, as her texture is painted: the arms stay upright and in proportion
-    cm.GAME_LIT = ('helm',)         # the steering wheel turns, so the game lights it
+    cm.GAME_LIT = ('helm',)
+    cm.LIT_ALL = True
+    cm.PACK_ROTATE = 'AXIS_ALIGNED'
     cm.neutral = neutral
     cm.pose = lambda *a, **k: pose()
     cm.export_game(None)

@@ -10,14 +10,21 @@ import net.minecraft.resource.ResourceManager;
 import net.minecraft.util.Identifier;
 
 /**
- * Chitty's baked texture, smoothly filtered and with mipmaps: it is a detailed picture wrapped round a curved model,
- * not pixel art, so it should blend as she moves off into the distance rather than sparkle.
+ * A vehicle's baked texture, with mipmaps, so that it blends as she moves off into the distance rather than sparkles.
+ * Chitty's is smoothly filtered: it is a detailed picture wrapped round a curved model, not pixel art. The airship's is
+ * pixelated close to, as Minecraft draws its blocks and mobs.
  */
 public class ChittyTexture extends ResourceTexture {
 	private static final int LEVELS = 4;
+	private final boolean pixelated;
 
 	public ChittyTexture(Identifier location) {
+		this(location, false);
+	}
+
+	public ChittyTexture(Identifier location, boolean pixelated) {
 		super(location);
+		this.pixelated = pixelated;
 	}
 
 	@Override
@@ -40,7 +47,7 @@ public class ChittyTexture extends ResourceTexture {
 		TextureUtil.prepareImage(getGlId(), LEVELS, mips[0].getWidth(), mips[0].getHeight());
 		for (int level = 0; level <= LEVELS; level++) {
 			NativeImage image = mips[level];
-			image.upload(level, 0, 0, 0, 0, image.getWidth(), image.getHeight(), true, false, true, true);
+			image.upload(level, 0, 0, 0, 0, image.getWidth(), image.getHeight(), !pixelated, false, true, true);
 		}
 	}
 
