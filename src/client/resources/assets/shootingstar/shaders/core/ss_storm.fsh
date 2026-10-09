@@ -245,7 +245,8 @@ void main() {
         float wall = exp(-pow((rr - 0.22) / 0.16, 2.0));
         tops = max(tops, vc * (0.9 + 0.7 * wall) + b);
         vec2 turning = vec2(cos(phi - Spin), sin(phi - Spin)) * rr;
-        lightning = inside > 0.0 ? vortexLightning(turning) * (0.25 + 1.0 * wall) * (0.2 + vc) : 0.0;
+        // The charge gathered into it drives its lightning: wild as the relay reaches it, calming as it winds up.
+        lightning = inside > 0.0 ? vortexLightning(turning) * (0.25 + 1.0 * wall) * (0.2 + vc) * (0.6 + 2.0 * Charge) : 0.0;
     }
 
     // The tops' slope towards the sun, from their height a step that way: a low sun lights the faces turned to it and

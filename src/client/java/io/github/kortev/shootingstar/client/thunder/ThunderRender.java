@@ -157,8 +157,14 @@ public final class ThunderRender {
 	/** How thick the storm over the target is at {@code t}: it gathers from the call and is spent soon after the stroke. */
 	static double stormDensity(double t) {
 		double gather = ThunderTimeline.smooth((t - ThunderTimeline.CALL) / 18.0);
-		double spent = ThunderTimeline.smooth((t - ThunderTimeline.STROKE - 8.0) / 70.0);
+		// Spent, it hangs over the aftermath and thins away over ten seconds, gone a little before the strike ends.
+		double spent = ThunderTimeline.smooth((t - ThunderTimeline.STROKE - 20.0) / 180.0);
 		return gather * (1.0 - spent);
+	}
+
+	/** How far the storm's eye has opened over the crater since the stroke: 0 before it, 1 at the end. */
+	static double clearing(double t) {
+		return ThunderTimeline.smooth((t - ThunderTimeline.STROKE - 10.0) / 150.0);
 	}
 
 	/** How fast the storm turns, in radians per tick, tightening as it winds up. */
@@ -272,6 +278,8 @@ public final class ThunderRender {
 		Vector3f up = new Vector3f(view.m01(), view.m11(), view.m21());
 		float daylight = daylight(world, tickDelta);
 		RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+
+		edge(client, cam, view, proj, main, w, h, tickDelta);
 
 		// The world goes dark under the storm, then the storm itself goes over the sky.
 		Timings.begin("thunder.storm");
@@ -446,13 +454,15 @@ public final class ThunderRender {
 			Shaders.set(Shaders.vortex, "FlashFalloff", 11.0F);
 			Shaders.set(Shaders.vortex, "Detail", 1.0F);
 			Shaders.set(Shaders.vortex, "Stroke", stroke * scale);
-			Shaders.set(Shaders.vortex, "Eye", 0.05F * scale);
+			// Spent, the storm opens over the crater, the sky showing through the hole.
+			Shaders.set(Shaders.vortex, "Eye", (float) (0.05 + 0.3 * clearing(t)) * scale);
 			Shaders.set(Shaders.vortex, "FadeEnd", fogEnd);
 			Post.draw(deck, Shaders.vortex, view, proj);
 		}
 
-		// The wall cloud: it lowers out of the storm as the storm winds up.
-		double lower = ThunderTimeline.smooth((t - ThunderTimeline.DRAW) / (ThunderTimeline.INBOUND - ThunderTimeline.DRAW));
+		// The wall cloud: it lowers out of the storm as the storm winds up, and draws back up into it once the bolt is spent.
+		double lower = ThunderTimeline.smooth((t - ThunderTimeline.DRAW) / (ThunderTimeline.INBOUND - ThunderTimeline.DRAW))
+				* (1.0 - ThunderTimeline.smooth((t - ThunderTimeline.STROKE - 10.0) / 60.0));
 		double drop = thunder.wallDrop() * lower;
 		if (drop > 0.5) {
 			double wall = radius * WALL_REACH;
@@ -585,6 +595,39 @@ public final class ThunderRender {
 		// Soft: drawn straight onto the picture most of the time, where anything brighter clips to white and reads as
 		// lightning running along the ground.
 		line.end(true, 1.3F);
+	}
+
+	/**
+	 * While a shot holds the shooter's camera far from them, it can see past the edge of the world the game has loaded
+	 * round them (their render distance), where the ground stops in a hard square: there the ground fades into the murk
+	 * the void shows, over the last stretch before the edge.
+	 */
+	private static void edge(MinecraftClient client, Vec3d cam, Matrix4f view, Matrix4f proj, Framebuffer main, int w, int h,
+			float tickDelta) {
+		ClientThunder thunder = ClientThunders.cinematic();
+		if (thunder == null || !ClientThunders.shotActive(thunder, thunder.time(tickDelta))) {
+			return;
+		}
+		Vec3d player = client.player.getCameraPosVec(tickDelta);
+		if (player.squaredDistanceTo(cam) < 16.0 * 16.0) {
+			return;
+		}
+		DEPTH.ensure(w, h);
+		DEPTH.copyDepthFrom(main);
+		COPY.ensure(w, h);
+		COPY.copyColorFrom(main);
+		main.beginWrite(true);
+		Post.begin();
+		RenderSystem.setShaderTexture(0, COPY.color());
+		RenderSystem.setShaderTexture(1, DEPTH.depth());
+		Shaders.set(Shaders.edge, "InvProj", new Matrix4f(proj).invert());
+		Shaders.set(Shaders.edge, "InvView", new Matrix4f(view).invert());
+		Shaders.set(Shaders.edge, "Player", (float) (player.x - cam.x), (float) (player.y - cam.y), (float) (player.z - cam.z));
+		Shaders.set(Shaders.edge, "Radius", client.options.getClampedViewDistance() * 16.0F);
+		float[] murk = RenderSystem.getShaderFogColor();
+		Shaders.set(Shaders.edge, "Murk", murk[0], murk[1], murk[2]);
+		Post.quad(Shaders.edge);
+		RenderSystem.setShaderTexture(1, 0);
 	}
 
 	/** The call: a bolt leaping from the raised hammer up into the heart of the storm over the target. */

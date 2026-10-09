@@ -2,17 +2,20 @@ package io.github.kortev.shootingstar.client.thunder;
 
 import io.github.kortev.shootingstar.registry.ModItems;
 import io.github.kortev.shootingstar.thunder.ThunderTimeline;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.item.HeldItemRenderer;
 import net.minecraft.client.render.model.json.ModelTransformationMode;
+import net.minecraft.client.render.model.json.Transformation;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.RotationAxis;
 import net.minecraft.util.math.Vec3d;
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
 
 /**
  * Mjölnir in first person as the storm is called, in time with its sound: the hammer swings up over the shooter's head,
@@ -53,23 +56,33 @@ public final class HammerRaise {
 		// The call leaves it with a kick down and back, settling over a few ticks.
 		double since = t - ThunderTimeline.CALL;
 		double kick = since >= 0 ? Math.exp(-since / 2.5) * Math.sin(Math.min(since, 6.0) * 1.3) * 0.06 : 0.0;
-		float x = (float) (MathHelper.lerp(up, 0.56, 0.18) + Math.sin(t * 11.3) * shake);
 		// As the camera lifts away out of the shooter's head, the hammer they hold falls away down out of the picture.
 		double leave = ease((t - (ThunderTimeline.RISE - 2.0)) / (LEAVING + 2.0));
-		float y = (float) (MathHelper.lerp(up, -0.52, 0.12) + Math.sin(t * 9.1 + 1.0) * shake - kick - 1.4 * leave * leave);
-		float z = (float) (MathHelper.lerp(up, -0.72, -0.82) + kick * 0.6);
+		// Held high: head to the sky, tipped a little forward and in, so the face of the hammer shows. The model lies on
+		// the diagonal, the way a tool sits in a slot: stood up.
+		Vector3f high = new Vector3f((float) (0.18 + Math.sin(t * 11.3) * shake),
+				(float) (0.12 + Math.sin(t * 9.1 + 1.0) * shake - kick - 1.4 * leave * leave), (float) (-0.82 + kick * 0.6));
+		Quaternionf highTurn = new Quaternionf().rotateX((float) Math.toRadians(12.0 + kick * 120.0))
+				.rotateZ((float) Math.toRadians(14.0)).rotateY((float) Math.toRadians(-35.0)).rotateZ((float) Math.toRadians(45.0));
+		// It swings up from just where the game draws it in the hand (the item model's first-person place and turn), so
+		// the raise starts without a jump.
+		Transformation held = MinecraftClient.getInstance().getItemRenderer().getModel(item, player.getWorld(), player, 0)
+				.getTransformation().getTransformation(ModelTransformationMode.FIRST_PERSON_RIGHT_HAND);
+		Vector3f low = new Vector3f(0.56F, -0.52F, -0.72F).add(held.translation);
+		Quaternionf lowTurn = new Quaternionf().rotationXYZ((float) Math.toRadians(held.rotation.x()),
+				(float) Math.toRadians(held.rotation.y()), (float) Math.toRadians(held.rotation.z()));
+		Vector3f size = new Vector3f(held.scale).lerp(new Vector3f(0.62F), (float) up);
 		matrices.push();
-		matrices.translate(x, y, z);
-		// Head to the sky, tipped a little forward and in, so the face of the hammer shows.
-		matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees((float) MathHelper.lerp(up, -30.0, 12.0 + kick * 120.0)));
-		matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees((float) MathHelper.lerp(up, -10.0, 14.0)));
-		matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees((float) MathHelper.lerp(up, 20.0, -35.0)));
-		// The model lies on the diagonal, the way a tool sits in a slot: stand it up. The item renderer centres it.
-		matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(45.0F));
-		matrices.scale(0.62F, 0.62F, 0.62F);
+		Vector3f at = new Vector3f(low).lerp(high, (float) up);
+		matrices.translate(at.x, at.y, at.z);
+		matrices.multiply(new Quaternionf(lowTurn).slerp(highTurn, (float) up));
+		matrices.scale(size.x, size.y, size.z);
+		// Lit by the world in the hand, and by its own light as it charges.
+		int block = LightmapTextureManager.getBlockLightCoordinates(light);
+		int lit = LightmapTextureManager.pack(Math.round(MathHelper.lerp((float) ease((t - 3.0) / 6.0), block, 15.0F)),
+				LightmapTextureManager.getSkyLightCoordinates(light));
 		HammerGlow.boost(glow(t));
-		renderer.renderItem(player, item, ModelTransformationMode.NONE, false, matrices, consumers,
-				t > 6.0 ? LightmapTextureManager.MAX_LIGHT_COORDINATE : light);
+		renderer.renderItem(player, item, ModelTransformationMode.NONE, false, matrices, consumers, lit);
 		HammerGlow.reset();
 		matrices.pop();
 		return true;

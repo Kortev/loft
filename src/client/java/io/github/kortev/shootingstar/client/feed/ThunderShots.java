@@ -45,6 +45,12 @@ final class ThunderShots implements Feed.Sequence {
 	private static final float FRONT_START = 1.95F;
 	/** The vortex's angular radius over the target once it has wound up: about two hundred kilometres. */
 	private static final float VORTEX = 0.03F;
+	/**
+	 * How big the storm over the target is, as a part of {@link #VORTEX}, through the feed: already the storm the camera
+	 * rose through as the feed opens over it, growing as the relay feeds it, winding up to its full size in the dive.
+	 */
+	private static final float STORM_OPEN = 0.45F;
+	private static final float STORM_FED = 0.55F;
 	private static final int STORM_COUNT = 1812;
 	/** Height of the storm's base over the ground in the leader shot (nine kilometres). */
 	private static final float LOCAL_BASE = 90.0F;
@@ -117,8 +123,9 @@ final class ThunderShots implements Feed.Sequence {
 		earthCamera(pose, 0.0005F, 60.0F);
 		float e = smoother(s / (ORBIT_LENGTH * 0.75));
 		space.sky(cam, SKY, 0.8F, 0, cam.forward(), 0, 0, 0, time);
+		// The storm the camera rose up through, under it as the feed opens and in sight all the way out.
 		space.stormEarth(cam, new Matrix4f(), SUN, time * 0.00002F, 1.05F, time, TARGET, 1.0F, 4.0F, 0.0F,
-				VORTEX * 0.15F * e, spin(time), 0.0F);
+				VORTEX * STORM_OPEN, spin(time), 0.0F);
 		sprites(s);
 		// Out of the dark of the storm cloud the camera rose into, lit once by its lightning on the way.
 		float cloud = (float) Math.pow(Math.max(0.0, 1.0 - s / 9.0), 1.4);
@@ -281,6 +288,26 @@ final class ThunderShots implements Feed.Sequence {
 		return out;
 	}
 
+	/** How many of the relay's lines have reached the target {@code k} through the draw, 0 to 1, each arriving over a moment. */
+	private static float relayArrived(float k) {
+		float arrived = 0.0F;
+		for (Chain chain : RELAY) {
+			arrived += smooth((k - chain.end()) * (DRAW_LENGTH - 4) / 4.0 + 0.5);
+		}
+		return arrived / RELAY.size();
+	}
+
+	/**
+	 * How many ticks ago a line's front passed {@code distance} radians from the target, {@code k} through the draw
+	 * (negative before it has): the inverse of {@link #relayFront}.
+	 */
+	private static float sincePassed(Chain chain, float distance, float k) {
+		float rest = 1.0F - distance / chain.start();
+		float u = (float) ((-0.6 + Math.sqrt(0.36 + 1.6 * rest)) / 0.8);
+		float passed = chain.lag() + u * (chain.end() - chain.lag());
+		return (k - passed) * (DRAW_LENGTH - 4);
+	}
+
 	/**
 	 * Where a relay's front is {@code k} (0 to 1) through the draw, for a line that starts {@code start} radians out at
 	 * {@code lag} and reaches the target at {@code end}: radians from the target, gathering speed as it comes in.
@@ -301,11 +328,13 @@ final class ThunderShots implements Feed.Sequence {
 		for (Chain chain : RELAY) {
 			float front = relayFront(k, chain.start(), chain.lag(), chain.end());
 			for (Hop hop : chain.hops()) {
-				if (front > hop.from() || front < hop.to() - 0.25F) {
+				if (front > hop.from() || sincePassed(chain, hop.to(), k) > 15.0F) {
 					continue;
 				}
 				float crawl = Math.min(1.0F, (hop.from() - front) / Math.max(hop.from() - hop.to(), 1.0E-4F));
-				float fade = front >= hop.to() ? 1.0F : (float) Math.exp(-(hop.to() - front) / 0.05F);
+				// Once across, a leap lingers a moment and dies away, the last one into the target too.
+				float since = sincePassed(chain, hop.to(), k);
+				float fade = since <= 0.0F ? 1.0F : (float) Math.exp(-since / 3.0F);
 				float flicker = 0.7F + 0.3F * (float) Math.sin(time * 2.1F + hop.seed());
 				// Where the lines crowd together at the target, each is fainter, or together they burn it out.
 				float b = fade * flicker * (0.4F + 0.6F * smooth((hop.to() - 0.03F) / 0.2F));
@@ -330,12 +359,12 @@ final class ThunderShots implements Feed.Sequence {
 		for (Chain chain : RELAY) {
 			float front = relayFront(k, chain.start(), chain.lag(), chain.end());
 			for (Hop hop : chain.hops()) {
-				if (front > hop.from() || front < hop.to() - 0.12F) {
+				float since = sincePassed(chain, hop.to(), k);
+				if (front > hop.from() || since > 8.0F) {
 					continue;
 				}
 				float crawl = Math.min(1.0F, (hop.from() - front) / Math.max(hop.from() - hop.to(), 1.0E-4F));
-				float fade = (front >= hop.to() ? 1.0F : (float) Math.exp(-(hop.to() - front) / 0.03F))
-						* (0.4F + 0.6F * smooth((hop.to() - 0.03F) / 0.2F));
+				float fade = (since <= 0.0F ? 1.0F : (float) Math.exp(-since / 1.5F)) * (0.4F + 0.6F * smooth((hop.to() - 0.03F) / 0.2F));
 				int shown = Math.max(1, Math.round(crawl * (hop.channel().size() - 1)));
 				segments(core, hop.channel(), shown, 0.0022F, Fx.argb(0.92F, 0.95F, 1.0F, fade));
 				if (crawl >= 1.0F) {
@@ -385,10 +414,11 @@ final class ThunderShots implements Feed.Sequence {
 		// The storms the relay has passed have given up their charge: as far out as the middle of its lines.
 		float front = relayFront(k, 1.6F, 0.07F, 0.84F);
 		float drain = smooth(s / 20.0);
-		float charge = smooth((s - 30.0) / 60.0) * 0.7F;
+		// The storm over the target grows as the lines of the relay reach it, and its charge with them.
+		float charge = 0.7F * relayArrived(k);
 		space.sky(cam, SKY, 0.8F, 0, cam.forward(), 0, 0, 0, time);
 		space.stormEarth(cam, new Matrix4f(), SUN, time * 0.00002F, 1.05F, time, TARGET, 1.0F, front, drain,
-				VORTEX * (0.15F + 0.25F * k), spin(time), charge);
+				VORTEX * (STORM_OPEN + (STORM_FED - STORM_OPEN) * relayArrived(k)), spin(time), charge);
 		sprites(s + ORBIT_LENGTH);
 		drawRelay(k);
 		o.header = "[ EVERY STORM ON EARTH · RELAYING ]";
@@ -427,8 +457,10 @@ final class ThunderShots implements Feed.Sequence {
 		// Close in, the storm is dark cloud lit from inside: its lightning and the charge at its heart are turned down so they
 		// flicker in it rather than fill the frame.
 		float close = smooth((k - 0.5) * 2.0);
-		space.stormEarth(cam, new Matrix4f(), SUN, time * 0.00002F, 1.1F, time, TARGET, 1.0F - 0.5F * close, 0.0F, 1.0F,
-				VORTEX * (0.4F + 0.6F * wound), spin(time) * (1.0F + wound), (0.7F - 0.4F * wound) * (1.0F - 0.95F * close));
+		// On from the draw just as it left the storm, charge and all, winding it up to its full size.
+		float size = STORM_FED + (1.0F - STORM_FED) * wound;
+		space.stormEarth(cam, new Matrix4f(), SUN, time * 0.00002F, lerp(1.05, 1.1, wound), time, TARGET, 1.0F - 0.5F * close, 0.0F,
+				1.0F, VORTEX * size, spin(time) * (1.0F + wound), (0.7F - 0.4F * wound) * (1.0F - 0.95F * close));
 		// Out of the flash the circuit closed with.
 		if (s < 8.0) {
 			o.flash = RING_FLASH * (float) Math.exp(-s / 2.0);
@@ -443,7 +475,7 @@ final class ThunderShots implements Feed.Sequence {
 			o.titleAlpha = title;
 		}
 		o.footer = String.format(Locale.ROOT, "ROTATION %d KM/H · DIAMETER %d KM", (int) (60 + 260 * wound),
-				(int) (120 + 260 * wound));
+				Math.round(2.0F * VORTEX * size * 6371.0F));
 		o.footerSmall = String.format(Locale.ROOT, "CLOUD TOPS %,d M", (int) (11000 + 7000 * wound));
 		// Down into the dark of the eye, where the next shot opens.
 		if (s > FORGE_LENGTH - 8) {

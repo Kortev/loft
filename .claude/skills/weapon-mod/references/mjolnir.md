@@ -86,9 +86,14 @@ regenerate the `mjolnir_*` and `thunder_*` sounds.
   `ClientStrikes.tick`), `raising(player)` for the arm pose, sparks and smoke particles.
 - **`BoltPath`**: the bolt's channel and branches from the seed (the leader and the stroke draw the same path), from
   the wall cloud's foot (`ClientThunder.wallBase()`, `wallDrop()` under the storm's base `top()`) to the ground.
-- **`ThunderRender`** (WorldRenderEvents.LAST): darkens the world under the storm, draws the storm (`drawStorm`: five
-  decks of `ss_vortex`, `DECK_HEIGHT`/`DECK_REACH`/`DECK_DENSITY`, then the wall cloud lowering out of the middle from
-  `DRAW` to `INBOUND`: an `ss_wall` curtain and an `ss_vortex` disc at its foot; flashes inside from `stormFlash`), the
+- **`ThunderRender`** (WorldRenderEvents.LAST): first, while a shot holds the shooter's camera far from them, `edge`
+  fades the ground near the edge of their loaded world (their render distance) into the fog colour (`ss_edge`, from the
+  depth), so a shot that sees past it does not show the world ending in a square. Then it darkens the world under the
+  storm, draws the storm (`drawStorm`: five decks of `ss_vortex`, `DECK_HEIGHT`/`DECK_REACH`/`DECK_DENSITY`, then the wall
+  cloud lowering out of the middle from `DRAW` to `INBOUND` and drawing back up after the stroke: an `ss_wall` curtain and
+  an `ss_vortex` disc at its foot; flashes inside from `stormFlash`). `stormDensity` gathers at the call and thins away
+  from `STROKE + 20` over ten seconds (the rain, the dark and the gloom follow it), and `clearing` opens its eye over the
+  crater as it does, so the aftermath is under a spent storm and not a sky suddenly clear. Then the
   dust (`ThunderDust`), then the light: only when `bright()` (the call, the leader, the stroke and after, or a light) into
   an HDR buffer with the light pass (`ss_light`), bloom without its streak and `fxcomp`; otherwise the warning rings go
   straight onto the picture. In the light: the rings (ground heights sampled at the lock), the call, the leader, the
@@ -107,7 +112,10 @@ regenerate the `mjolnir_*` and `thunder_*` sounds.
   `GameRendererMixin.getFov`) closes in on the leader and is flung wide by the stroke.
 - **`ThunderHud`**: the feed (`Feed.renderThunder`), the lock marker over the target for everyone ("YOU ARE UNDER IT"
   inside the zone), the readout, aim info and a status card with the hammer in hand.
-- **`HammerRaise`**: the first-person raise (`HeldItemRendererMixin`). The model lies on the diagonal; it is stood up
+- **`HammerRaise`**: the first-person raise (`HeldItemRendererMixin`). It swings up from exactly where the game draws
+  the hammer in the hand (the equip offset and the item model's first-person transform, read from the baked model),
+  blending place, turn and size into the raised pose, so the raise starts without a jump; its light rises from the
+  world's to full as it charges. The model lies on the diagonal; it is stood up
   with a 45° turn, as `KeyTurn` does for the key. Its runes flare through `HammerGlow` by `HammerRaise.glow(t)`:
   building to three times their glow at the call, humming bright while the storm gathers, blazing again at the stroke;
   others see the same on the hammer held over the shooter's head (`HeldItemFeatureRendererMixin`). The call's bolt leaves the hammer's head in front of the shooter's eyes, so it is drawn
@@ -128,7 +136,11 @@ regenerate the `mjolnir_*` and `thunder_*` sounds.
   units with the ground at y = 0: a ground plane in `ss_ground` (country, rivers, towns, lit by the leader's tip and the
   storm's flashes, lost in rain haze), three layers of the storm's base in `ss_vortex` (`Detail` 8 so the 200 km disc
   has kilometre-sized cloud, no eye, lit from inside by `CLOUD_FLASHES` one at a time through `Flash`/`FlashFalloff`),
-  and the leader with `Fx` beams, seen from 11 km off looking a little up. Shots hand over through flashes: the draw
+  and the leader with `Fx` beams, seen from 11 km off looking a little up. The storm over the target is in every Earth
+  shot: the one the camera rose through, under it as the feed opens (`STORM_OPEN` of `VORTEX`), growing as the relay's
+  lines arrive (`relayArrived`, which also gathers its `Charge`, and the charge drives its lightning in `ss_storm`), and
+  on from there into the dive at the same size, charge and spin, winding up to full size; the dive's `DIAMETER` readout
+  is that size. Shots hand over through flashes: the draw
   shot ends in a white flash the forge opens out of; the forge ends in the dark the leader shot fades up from.
 - **Shaders:** `ss_vortex`, `ss_wall`, `ss_dust`, `ss_ground`, `ss_thunder`, `ss_storm` (`Shaders.thunderReady()` checks them; the
   other weapons only need `ready()`). The storm shaders read their noise from `gfx/NoiseTex` (a tiling 256x256 texture
