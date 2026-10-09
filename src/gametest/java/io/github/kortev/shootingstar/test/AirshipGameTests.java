@@ -129,7 +129,10 @@ public class AirshipGameTests implements FabricGameTest {
 			context.assertTrue(ship.isLadderDown(), "sneaking in mid-air did not let the ladder down");
 		});
 		context.runAtTick(40, () -> {
-			context.assertTrue(ship.letsGo(walker), "with the ladder down the player could not get off onto it");
+			context.assertTrue(ship.letsGo(walker), "with the ladder down the player could not get off onto it (ladder "
+					+ ship.getLadder() + ", down " + ship.isLadderDown() + ", ship removed " + ship.isRemoved() + " at y "
+					+ (ship.getY() - context.getAbsolute(Vec3d.ZERO).y) + ", player aboard " + (walker.getVehicle() == ship)
+					+ ", at the wheel " + (ship.getControllingPassenger() == walker) + ", sneaking " + walker.isSneaking() + ")");
 			// Off first: a player leaving the game while aboard takes the vehicle with them.
 			walker.stopRiding();
 			context.getWorld().getServer().getPlayerManager().remove(walker);
