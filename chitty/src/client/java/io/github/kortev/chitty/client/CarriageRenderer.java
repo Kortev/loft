@@ -50,7 +50,7 @@ public class CarriageRenderer extends EntityRenderer<CarriageEntity> {
 	private static final float TOSS = 0.12F;
 	private static final float FALL = 0.03F;
 	private static final float LIE = 100.0F;
-	private static final float GONE = 140.0F;
+	private static final float GONE = CarriageEntity.THROWN_SHOWN;
 
 	private final CarriageHorse horse;
 	private final ItemRenderer items;

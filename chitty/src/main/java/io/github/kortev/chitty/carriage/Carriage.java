@@ -70,10 +70,11 @@ public final class Carriage {
 			if (source.isOf(DamageTypes.IN_WALL) && entity.getVehicle() instanceof CarriageEntity) {
 				return false;
 			}
-			// Nobody in her cage, door shut, can hurt anyone outside it through the bars.
+			// Nobody in her cage, door shut, can hurt anyone outside it through the bars (her driver up on the box
+			// included): only each other.
 			Entity attacker = source.getAttacker();
 			return !(attacker != null && attacker.getVehicle() instanceof CarriageEntity carriage && carriage.inCage(attacker)
-					&& !carriage.isDoorOpen() && entity.getVehicle() != carriage);
+					&& !carriage.isDoorOpen() && !(entity.getVehicle() == carriage && carriage.inCage(entity)));
 		});
 		// Hitting something that stands at a carriage's open door shoves it in.
 		AttackEntityCallback.EVENT.register((player, world, hand, entity, hit) -> {

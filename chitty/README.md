@@ -215,9 +215,10 @@ back, hinged on her right and padlocked, is ours: no still shows one.
   - hit whatever stands at the door to shove it in;
   - sneak and use the open door to climb in yourself.
 
-  Shut, nobody inside gets out (a player sneaking is told the door is locked), and nobody inside can hurt anyone
-  outside through the bars. Open it again and the mobs inside make a run for it, one after another; a player can step
-  out.
+  Shut, nobody inside gets out: not by sneaking (they are told the door is locked), an ender pearl, a chorus fruit
+  or getting on something else, nor by leaving the game (they come back still in it). Nobody inside can hurt anyone
+  outside through the bars, the driver on the box included, nor break her from inside. Open it again and the mobs
+  inside make a run for it, one after another; a player can step out.
 - **The trader's wagon:** standing, the driver's **J** (rebindable) dresses the cage as a wandering trader's wagon,
   in his blue and gold: cloths over the bars, a striped awning over the back with an emerald on a hanging sign,
   tassels along the eaves, a barrel and a chest on the roof, lanterns, and a counter on the door. It is a trap:
@@ -232,7 +233,7 @@ back, hinged on her right and padlocked, is ours: no still shows one.
   Crack the whip and it all comes off, as in the film: the cloths and the stock fly off her and lie in the road behind
   her, the bait with them. **J** again, standing, takes it down and gives you the bait back.
 - **Riding in her:** on the box you sit and turn with her; in the cage you stand. She is solid all along (her box, the
-  back of her cage and her horse have hitboxes of their own); hit her hard enough and she drops back into an item. In
+  back of her cage and her horse have hitboxes of their own); hit her hard enough and she drops back into an item (bait on her counter falls into the road). In
   third person the camera stands well back.
 
 Her wheels grind over the ground and her cage rattles as she goes; the horse's hooves walk, trot and gallop and it

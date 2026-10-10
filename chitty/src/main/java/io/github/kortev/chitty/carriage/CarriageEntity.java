@@ -4,9 +4,11 @@ import io.github.kortev.chitty.ChittyControls;
 import io.github.kortev.shootingstar.registry.ModCriteria;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
@@ -28,6 +30,7 @@ import net.minecraft.entity.data.TrackedDataHandlerRegistry;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.passive.VillagerEntity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.inventory.Inventories;
 import net.minecraft.inventory.SimpleInventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
@@ -190,6 +193,10 @@ public class CarriageEntity extends Entity {
 	static final double DOOR_REACH = 1.4;
 	/** How far villagers come from for food set out as bait. */
 	static final double LURE_REACH = 16.0;
+	/** How far from her a prisoner who left the game may come back and still be put back in her cage. */
+	static final double HELD_REACH = 96.0;
+	/** How long (ticks) her disguise, thrown off, lies in the road before it is gone. */
+	public static final int THROWN_SHOWN = 140;
 
 	public static final int ACTION_WHIP = 0;
 	public static final int ACTION_DISGUISE = 1;
@@ -228,6 +235,18 @@ public class CarriageEntity extends Entity {
 	private final Map<UUID, Integer> savedPlaces = new HashMap<>();
 	/** With the door open: how long each mob in the cage waits before it makes a run for it. */
 	private final Map<Entity, Integer> escaping = new HashMap<>();
+	/**
+	 * Players who went into the cage sneaking (climbing in, or shoved in crouched): not let out by it until they have let
+	 * go of sneak once, or they would be straight back out.
+	 */
+	private final Set<UUID> climbing = new HashSet<>();
+	/**
+	 * Players who left the game caught in her cage, its door shut, and the place each had: put back in it when they are
+	 * next in the game in her world (they come back where they left, in the cage).
+	 */
+	private final Map<UUID, Integer> held = new HashMap<>();
+	/** Letting everyone off at once (CarriageEntity.removeAllPassengers): the cage holds nobody. */
+	private boolean releasing;
 	private final SimpleInventory bait = new SimpleInventory(BAIT.length);
 	/** Whoever set the bait out, who may take it back (and is not caught by it). */
 	@Nullable
@@ -337,10 +356,14 @@ public class CarriageEntity extends Entity {
 		return !isRemoved();
 	}
 
-	/** She is longer than her box, with her horse out ahead. */
+	/** She is longer than her box, with her horse out ahead; and her disguise thrown off lies in the road a while. */
 	@Override
 	public Box getVisibilityBoundingBox() {
-		return getBoundingBox().expand(5.0, 1.0, 5.0);
+		Box box = getBoundingBox().expand(5.0, 1.0, 5.0);
+		if (thrownAge < THROWN_SHOWN) {
+			box = box.union(new Box(thrownAt, thrownAt).expand(6.0, 3.0, 6.0));
+		}
+		return box;
 	}
 
 	/** Hit, she rocks; hit hard enough (or by anyone in creative), she comes apart and drops herself, as a boat does. */
@@ -350,6 +373,11 @@ public class CarriageEntity extends Entity {
 			return true;
 		}
 		if (isInvulnerableTo(source)) {
+			return false;
+		}
+		// Nobody in her cage can break her from inside (and walk off with her).
+		Entity attacker = source.getAttacker();
+		if (attacker != null && attacker.getVehicle() == this && inCage(attacker)) {
 			return false;
 		}
 		setDamageWobbleSide(-getDamageWobbleSide());
@@ -365,7 +393,6 @@ public class CarriageEntity extends Entity {
 					stack.set(DataComponentTypes.CUSTOM_NAME, getCustomName());
 				}
 				dropStack(stack);
-				spillBait(Vec3d.ZERO);
 			}
 			discard();
 		}
@@ -566,27 +593,31 @@ public class CarriageEntity extends Entity {
 				mob -> mob.getLeashHolder() == player);
 	}
 
-	/** What a player leads up to her goes into the cage, if its door is open and it fits, off its lead (back into their hand). */
+	/**
+	 * What a player leads up to her goes into the cage, if its door is open, it fits and there is room, off its lead (back
+	 * into their hand); what does not go in stays on its lead.
+	 */
 	private void lead(PlayerEntity player, List<MobEntity> led) {
 		boolean caged = false;
-		boolean refused = false;
+		String refused = null;
 		for (MobEntity mob : led) {
-			if (!isDoorOpen() || !fitsInCage(mob)) {
-				refused = true;
+			String why = !isDoorOpen() ? "door_shut" : !fitsInCage(mob) ? "wont_fit" : !cageHasRoom() ? "full" : null;
+			if (why != null) {
+				refused = why;
 				continue;
 			}
 			mob.detachLeash(true, false);
 			if (!player.getAbilities().creativeMode) {
-				player.giveItemStack(new ItemStack(Items.LEAD));
+				player.getInventory().offerOrDrop(new ItemStack(Items.LEAD));
 			}
 			if (putInCage(mob)) {
 				caged = true;
 			} else {
-				refused = true;
+				refused = "full";
 			}
 		}
-		if (refused && !caged) {
-			player.sendMessage(Text.translatable("hud.shootingstar.carriage." + (!isDoorOpen() ? "door_shut" : "wont_fit")), true);
+		if (refused != null && !caged) {
+			player.sendMessage(Text.translatable("hud.shootingstar.carriage." + refused), true);
 		}
 	}
 
@@ -623,6 +654,9 @@ public class CarriageEntity extends Entity {
 				if (in) {
 					getWorld().playSound(null, getX(), getY() + DECK_TOP, getZ(), SoundEvents.BLOCK_CHAIN_STEP, SoundCategory.NEUTRAL,
 							0.8F, 0.8F);
+					if (entity instanceof PlayerEntity player && player.isSneaking()) {
+						climbing.add(player.getUuid());
+					}
 				}
 				return in;
 			}
@@ -744,9 +778,9 @@ public class CarriageEntity extends Entity {
 		return dataTracker.get(BAITER).filter(player.getUuid()::equals).isPresent();
 	}
 
-	/** Whoever set the bait out, or anyone up on the box, may take it back. */
+	/** Whoever set the bait out may take it back (from the ground at her back: nobody aboard can reach her counter). */
 	public boolean mayTakeBait(PlayerEntity player) {
-		return player.getUuid().equals(baiter) || player.getVehicle() == this && seatOf(player) < CAGE;
+		return player.getUuid().equals(baiter);
 	}
 
 	/** Sets one of what a player holds out on the counter as bait, in its first empty place. */
@@ -774,7 +808,7 @@ public class CarriageEntity extends Entity {
 			ItemStack stack = bait.getStack(i);
 			if (!stack.isEmpty()) {
 				bait.setStack(i, ItemStack.EMPTY);
-				player.giveItemStack(stack);
+				player.getInventory().offerOrDrop(stack);
 				publishBait();
 				Vec3d at = baitAt(i);
 				getWorld().playSound(null, at.x, at.y, at.z, SoundEvents.ENTITY_ITEM_FRAME_REMOVE_ITEM, SoundCategory.NEUTRAL, 0.8F, 1.0F);
@@ -982,10 +1016,80 @@ public class CarriageEntity extends Entity {
 			for (int i = 0; i < PLACES.length; i++) {
 				if (seated[i] == passenger) {
 					seated[i] = null;
+					if (releasing) {
+						// All off at once to go on together (through a portal, say): each to have their place again.
+						savedPlaces.put(passenger.getUuid(), i);
+					} else if (i >= CAGE && !isDoorOpen() && passenger instanceof ServerPlayerEntity player && player.isDisconnected()) {
+						held.put(player.getUuid(), i);
+					}
 				}
 			}
 			escaping.remove(passenger);
+			climbing.remove(passenger.getUuid());
 			publishSeating();
+		}
+	}
+
+	@Override
+	public void removeAllPassengers() {
+		releasing = true;
+		try {
+			super.removeAllPassengers();
+		} finally {
+			releasing = false;
+		}
+	}
+
+	/**
+	 * A player leaving the game takes the vehicle they ride with them when they are the only player aboard: her, only from
+	 * up on her box. A prisoner leaving does not take her away with them; she keeps their place (held).
+	 */
+	@Override
+	public boolean hasPlayerRider() {
+		if (!super.hasPlayerRider()) {
+			return false;
+		}
+		for (Entity passenger : getPassengerList()) {
+			if (passenger instanceof PlayerEntity && inCage(passenger)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Whether her cage holds something in: it is in it, the door is shut and she is not letting everyone off. Then nothing
+	 * takes it out (CarriageCageMixin): not an ender pearl, a chorus fruit, nor getting on something else. Leaving the game,
+	 * dying, or her coming apart, it goes.
+	 */
+	public static boolean holds(Entity entity) {
+		return entity.getVehicle() instanceof CarriageEntity carriage && carriage.keeps(entity);
+	}
+
+	private boolean keeps(Entity entity) {
+		return !getWorld().isClient && !releasing && !isRemoved() && !isDoorOpen() && !entity.isRemoved() && entity.isAlive()
+				&& !(entity instanceof ServerPlayerEntity player && player.isDisconnected()) && seatOf(entity) >= CAGE;
+	}
+
+	/** On the server: anyone she held who has come back into the game, back in her cage. */
+	private void takeBack(ServerWorld world) {
+		if (isDoorOpen()) {
+			held.clear();
+			return;
+		}
+		for (Map.Entry<UUID, Integer> e : List.copyOf(held.entrySet())) {
+			ServerPlayerEntity player = world.getServer().getPlayerManager().getPlayer(e.getKey());
+			if (player == null) {
+				continue;
+			}
+			held.remove(e.getKey());
+			if (player.getServerWorld() != world || player.hasVehicle() || !player.isAlive() || player.isSpectator()
+					|| player.squaredDistanceTo(this) > HELD_REACH * HELD_REACH) {
+				continue;
+			}
+			if (seat(player, e.getValue()) || putInCage(player)) {
+				player.sendMessage(Text.translatable("hud.shootingstar.carriage.still_caught"), true);
+			}
 		}
 	}
 
@@ -1004,6 +1108,9 @@ public class CarriageEntity extends Entity {
 	 * only with the door open.
 	 */
 	public boolean letsOut(PlayerEntity player) {
+		if (climbing.contains(player.getUuid())) {
+			return false;
+		}
 		if (!inCage(player) || isDoorOpen()) {
 			return true;
 		}
@@ -1386,7 +1493,7 @@ public class CarriageEntity extends Entity {
 				ItemStack stack = bait.removeStack(i);
 				if (!stack.isEmpty()) {
 					if (by != null) {
-						by.giveItemStack(stack);
+						by.getInventory().offerOrDrop(stack);
 					} else {
 						dropStack(stack);
 					}
@@ -1394,6 +1501,15 @@ public class CarriageEntity extends Entity {
 			}
 			publishBait();
 		}
+	}
+
+	/** Broken, killed or otherwise done away with (not just unloaded), her bait falls into the road. */
+	@Override
+	public void remove(Entity.RemovalReason reason) {
+		if (!getWorld().isClient && reason.shouldDestroy() && hasBait()) {
+			spillBait(Vec3d.ZERO);
+		}
+		super.remove(reason);
 	}
 
 	// --- the server --------------------------------------------------------------------------------------
@@ -1409,6 +1525,11 @@ public class CarriageEntity extends Entity {
 			whipCooldown--;
 		}
 		escapes();
+		climbing.removeIf(id -> !(world.getEntity(id) instanceof PlayerEntity player) || player.getVehicle() != this
+				|| !player.isSneaking());
+		if (!held.isEmpty() && age % 10 == 0) {
+			takeBack(world);
+		}
 		hooves(world);
 		if (isDisguised() && hasBait() && age % 20 == 0 && villagerFood()) {
 			lure(world);
@@ -1569,9 +1690,17 @@ public class CarriageEntity extends Entity {
 				savedPlaces.put(place.getUuid("Who"), place.getInt("Place"));
 			}
 		}
+		held.clear();
+		NbtList away = nbt.getList("Held", NbtElement.COMPOUND_TYPE);
+		for (int i = 0; i < away.size(); i++) {
+			NbtCompound place = away.getCompound(i);
+			if (place.containsUuid("Who")) {
+				held.put(place.getUuid("Who"), place.getInt("Place"));
+			}
+		}
 		bait.clear();
-		if (nbt.contains("Bait", NbtElement.LIST_TYPE)) {
-			bait.readNbtList(nbt.getList("Bait", NbtElement.COMPOUND_TYPE), getRegistryManager());
+		if (nbt.contains("Bait", NbtElement.COMPOUND_TYPE)) {
+			Inventories.readNbt(nbt.getCompound("Bait"), bait.getHeldStacks(), getRegistryManager());
 		}
 		baiter = nbt.containsUuid("Baiter") ? nbt.getUuid("Baiter") : null;
 		publishBait();
@@ -1581,19 +1710,29 @@ public class CarriageEntity extends Entity {
 	protected void writeCustomDataToNbt(NbtCompound nbt) {
 		nbt.putBoolean("DoorOpen", isDoorOpen());
 		nbt.putBoolean("Disguise", isDisguised());
-		NbtList places = new NbtList();
+		Map<UUID, Integer> where = new HashMap<>(savedPlaces);
 		for (int i = 0; i < PLACES.length; i++) {
 			if (seated[i] != null && seated[i].getVehicle() == this) {
-				NbtCompound place = new NbtCompound();
-				place.putUuid("Who", seated[i].getUuid());
-				place.putInt("Place", i);
-				places.add(place);
+				where.put(seated[i].getUuid(), i);
 			}
 		}
-		nbt.put("Places", places);
-		nbt.put("Bait", bait.toNbtList(getRegistryManager()));
+		nbt.put("Places", places(where));
+		nbt.put("Held", places(held));
+		// Slot by slot, so that two of the same bait stay two pieces in their own places.
+		nbt.put("Bait", Inventories.writeNbt(new NbtCompound(), bait.getHeldStacks(), getRegistryManager()));
 		if (baiter != null) {
 			nbt.putUuid("Baiter", baiter);
 		}
+	}
+
+	private static NbtList places(Map<UUID, Integer> places) {
+		NbtList list = new NbtList();
+		places.forEach((who, at) -> {
+			NbtCompound place = new NbtCompound();
+			place.putUuid("Who", who);
+			place.putInt("Place", at);
+			list.add(place);
+		});
+		return list;
 	}
 }

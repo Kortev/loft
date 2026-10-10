@@ -124,6 +124,7 @@
   "hud.shootingstar.carriage.wont_fit": "That won't fit in the cage",
   "hud.shootingstar.carriage.full": "The cage is full",
   "hud.shootingstar.carriage.locked": "The door is locked",
+  "hud.shootingstar.carriage.still_caught": "You are still locked in the cage",
   "hud.shootingstar.carriage.shoved": "%s shoved you into the cage!",
   "hud.shootingstar.carriage.disguise_stop": "Stop the horse to put the disguise up or down",
   "subtitles.shootingstar.carriage.roll": "Carriage wheels rumble",

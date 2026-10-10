@@ -10,9 +10,11 @@ import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
 import net.minecraft.block.Blocks;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.mob.ZombieEntity;
+import net.minecraft.entity.vehicle.BoatEntity;
 import net.minecraft.entity.passive.VillagerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
+import net.minecraft.nbt.NbtCompound;
 import net.minecraft.network.ClientConnection;
 import net.minecraft.network.NetworkSide;
 import net.minecraft.server.network.ConnectedClientData;
@@ -54,12 +56,11 @@ public class CarriageGameTests implements FabricGameTest {
 	}
 
 	private static void done(TestContext context, CarriageEntity carriage, ServerPlayerEntity... players) {
+		// Everyone off first: a player leaving the game while aboard takes the vehicle with them.
+		carriage.removeAllPassengers();
 		for (ServerPlayerEntity player : players) {
-			// Off first: a player leaving the game while aboard takes the vehicle with them.
-			player.stopRiding();
 			context.getWorld().getServer().getPlayerManager().remove(player);
 		}
-		carriage.removeAllPassengers();
 		carriage.discard();
 		context.complete();
 	}
@@ -93,8 +94,10 @@ public class CarriageGameTests implements FabricGameTest {
 	}
 
 	/**
-	 * With the door open, a husk led in and a player shoved in go in the cage. Shut, nobody inside gets out, nor hurts
-	 * anyone outside through the bars; opened again, a player can get out and the husk makes a run for it.
+	 * With the door open, a husk led in and a player shoved in go in the cage. Shut, nobody inside gets out (not by
+	 * sneaking, nor anything that would take them off her, nor getting on something else), nor hurts anyone outside
+	 * through the bars, up on her box included, nor breaks her; opened again, a player can get out and the husk makes a
+	 * run for it.
 	 */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_carriage_cage", tickLimit = 120)
 	public void cageKeepsThemIn(TestContext context) {
@@ -114,8 +117,21 @@ public class CarriageGameTests implements FabricGameTest {
 		context.assertTrue(carriage.inCage(child) && carriage.inCage(husk), "they are not in the cage");
 		carriage.setDoor(false, catcher);
 		context.assertTrue(!carriage.letsOut(child), "the door shut, the player could get out");
+		child.stopRiding();
+		context.assertTrue(child.getVehicle() == carriage && carriage.inCage(child), "the door shut, the player was taken out");
+		BoatEntity boat = context.spawnEntity(EntityType.BOAT, new Vec3d(7.0, 1.0, 7.0));
+		context.assertTrue(!child.startRiding(boat, true) && child.getVehicle() == carriage, "the door shut, the player got in a boat");
+		boat.discard();
 		context.assertTrue(!outside.damage(context.getWorld().getDamageSources().mobAttack(husk), 2.0F),
 				"from in the cage, the husk hurt someone outside it");
+		ZombieEntity driver = husk(context, new Vec3d(4.0, 1.0, 6.0));
+		context.assertTrue(carriage.seat(driver, CarriageEntity.BOX), "a husk could not be sat up on the box");
+		context.assertTrue(!driver.damage(context.getWorld().getDamageSources().mobAttack(husk), 2.0F),
+				"from in the cage, the husk hurt someone up on her box");
+		context.assertTrue(!carriage.damage(context.getWorld().getDamageSources().mobAttack(husk), 2.0F),
+				"from in the cage, the husk hit her");
+		driver.stopRiding();
+		driver.discard();
 		carriage.setDoor(true, catcher);
 		context.assertTrue(carriage.letsOut(child), "the door open, the player could not get out");
 		context.runAtTick(80, () -> {
@@ -123,6 +139,33 @@ public class CarriageGameTests implements FabricGameTest {
 			context.assertTrue(husk.getPos().distanceTo(door) < 1.5, "the husk did not get out by the door: "
 					+ husk.getPos().subtract(carriage.getPos()));
 			done(context, carriage, catcher, child);
+		});
+	}
+
+	/**
+	 * Climbing in at the open door, sneaking, a player stays in (they are not straight back out for holding sneak); let go
+	 * of and pressed again, sneak gets them out.
+	 */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_carriage_climb", tickLimit = 60)
+	public void climbIn(TestContext context) {
+		floor(context);
+		CarriageEntity carriage = carriage(context, 4.0, 4.5);
+		ServerPlayerEntity child = player(context, "carriage_climber");
+		Vec3d door = carriage.toWorld(CarriageEntity.DOOR_OUT);
+		child.refreshPositionAndAngles(door.x, door.y, door.z, 0.0F, 0.0F);
+		carriage.setDoor(true, child);
+		child.setSneaking(true);
+		Vec3d back = new Vec3d(0.0, 1.3, CarriageEntity.CAGE_BACK - 0.2).rotateY(carriage.getYaw() * MathHelper.RADIANS_PER_DEGREE);
+		carriage.interactAt(child, back, Hand.MAIN_HAND);
+		context.assertTrue(child.getVehicle() == carriage && carriage.inCage(child), "sneaking at the open door, the player did not climb in");
+		context.runAtTick(5, () -> {
+			context.assertTrue(child.getVehicle() == carriage, "still holding sneak from climbing in, the player fell straight back out");
+			child.setSneaking(false);
+		});
+		context.runAtTick(8, () -> child.setSneaking(true));
+		context.runAtTick(12, () -> {
+			context.assertTrue(child.getVehicle() == null, "sneak pressed again, with the door open, the player did not get out");
+			done(context, carriage, child);
 		});
 	}
 
@@ -148,6 +191,14 @@ public class CarriageGameTests implements FabricGameTest {
 		context.assertTrue(carriage.setBait(driver, new ItemStack(Items.DIAMOND)), "a second bait could not be set out");
 		context.assertTrue(carriage.getBait(0).isOf(Items.EMERALD) && carriage.getBait(0).getCount() == 1,
 				"the bait is not one emerald: " + carriage.getBait(0));
+		// Saved and loaded, bait keeps its places: two of the same are two pieces, not one stack.
+		CarriageEntity saved = Carriage.ENTITY.create(context.getWorld());
+		saved.setBait(driver, new ItemStack(Items.BREAD, 2));
+		saved.setBait(driver, new ItemStack(Items.BREAD, 2));
+		CarriageEntity loaded = Carriage.ENTITY.create(context.getWorld());
+		loaded.readNbt(saved.writeNbt(new NbtCompound()));
+		context.assertTrue(loaded.getBait(0).getCount() == 1 && loaded.getBait(1).getCount() == 1 && loaded.getBait(1).isOf(Items.BREAD),
+				"saved and loaded, the bait was not as it was: " + loaded.getBait(0) + ", " + loaded.getBait(1));
 		Vec3d counter = new Vec3d(0.0, 1.3, CarriageEntity.CAGE_BACK - 0.2).rotateY(carriage.getYaw() * MathHelper.RADIANS_PER_DEGREE);
 		carriage.interactAt(mark, counter, Hand.MAIN_HAND);
 		context.assertTrue(mark.getVehicle() == carriage && carriage.inCage(mark), "reaching for the bait, the player was not caught");
