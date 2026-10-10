@@ -202,6 +202,9 @@ back, hinged on her right and padlocked, is ours: no still shows one.
   girth and breeching), drawn as the game draws its own horses: it walks, trots and gallops as she goes, its traces
   back to her and the reins to the driver's hands. It is hers, so it never strays, dies on its own or gets left
   behind; it is solid, and hitting it hits her.
+- **The controls are on screen:** up on the box, a panel at the right lists the reins, the whip and the disguise (each
+  lit while held) and how the cage stands: who is in it, whether its door is shut and what bait is out. In the cage it
+  says whether you can get out; looking at her from outside, what using her there will do. F1 hides it.
 - **Drive her:** use her front to get up on the box (the driver's place on her right, with the reins, and one beside
   it). Forward and back on the reins, left and right to steer (she turns only on the move, the fore-carriage and the
   horse swinging with her). She goes about as fast as a ridden horse, and faster than one on a road (paths, gravel,
