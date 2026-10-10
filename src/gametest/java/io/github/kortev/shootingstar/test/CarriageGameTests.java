@@ -23,6 +23,7 @@ import net.minecraft.test.TestContext;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.GameMode;
 
 /**
  * The Child Catcher's carriage with nobody driving her: the server moves her. She is longer than a test's box with her
@@ -79,6 +80,8 @@ public class CarriageGameTests implements FabricGameTest {
 		CarriageEntity carriage = carriage(context, 4.0, 1.5);
 		HorseEntity horse = horse(context, 6.0, 5.0);
 		ServerPlayerEntity player = player(context, "carriage_hitcher");
+		// In survival: a creative player keeps their lead, and gets none back.
+		player.changeGameMode(GameMode.SURVIVAL);
 		Vec3d stand = context.getAbsolute(new Vec3d(6.0, 1.0, 3.0));
 		player.refreshPositionAndAngles(stand.x, stand.y, stand.z, 0.0F, 0.0F);
 		horse.attachLeash(player, true);
