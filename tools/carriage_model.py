@@ -619,6 +619,226 @@ def build_horse_preview(i, gait=0.0, phase=0.0, steer=0.0):
     return o
 
 
+# --- the sweet-cart disguise ---------------------------------------------------------------------------------
+
+# The film's capture scene: the cage dressed up as a cart giving sweets away, which all falls off as he cracks the whip
+# and drives away (no still of it could be found: this is ours, after his cries in the film). Painted boards over the
+# bars of each side and of the back, a sign along each side between the rails, a striped valance round the eaves, and
+# great lollipops on the roof. Each board, sign, the valance and each lollipop is its own part, which the game throws
+# off one by one.
+DISGUISE_PANELS = {1: ('LOLLIPOPS', 'TREACLE TARTS', 'ICE CREAMS'), -1: ('CREAM PUFFS', 'CHERRY PIES', 'SWEETS')}
+DISGUISE_HEADERS = {1: 'SWEETS FOR GOOD CHILDREN', -1: 'COME AND GET THEM', 0: 'ALL FREE TODAY!'}
+PANEL_COLOURS = [((250, 214, 222), (214, 44, 72)), ((214, 236, 250), (36, 92, 190)), ((252, 238, 186), (226, 132, 22))]
+LOLLIES = [(-0.55, 0.62, 0.3, 0.15), (0.0, 0.05, 0.62, -0.1), (0.5, -0.6, 0.45, 0.2), (-0.35, -1.2, 0.35, -0.2),
+           (0.45, 0.6, 0.38, -0.25)]   # (x, y, height, lean) on the roof
+SIGN_FONT = '/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf'
+
+
+def font(size):
+    from PIL import ImageFont
+    try:
+        return ImageFont.truetype(SIGN_FONT, size)
+    except OSError:
+        return ImageFont.load_default()
+
+
+def candy_border(d, w, h, band, a, b):
+    """A barber's-pole border of two colours round a w x h picture."""
+    for k in range(-h, w + h, band):
+        colour = a if (k // band) % 2 == 0 else b
+        d.polygon([(k, 0), (k + band, 0), (k + band - h, h), (k - h, h)], fill=colour)
+
+
+def sign_texture(text, size, paper, ink, stripe):
+    """A painted board: a candy-striped border, a pale ground and the words in fat serif capitals, fitted to it."""
+    from PIL import Image, ImageDraw
+    w, h = size
+    img = Image.new('RGB', size, paper)
+    d = ImageDraw.Draw(img)
+    candy_border(d, w, h, max(8, h // 6), stripe, (255, 255, 255))
+    edge = max(6, h // 7)
+    d.rectangle((edge, edge, w - edge, h - edge), fill=paper)
+    lines = text.split('\n')
+    fs = h
+    while fs > 8:
+        f = font(fs)
+        widths = [d.textlength(line, font=f) for line in lines]
+        if max(widths) < w - 3 * edge and fs * 1.15 * len(lines) < h - 2.5 * edge:
+            break
+        fs -= 2
+    f = font(fs)
+    y = (h - fs * 1.15 * len(lines)) / 2
+    for line in lines:
+        tw = d.textlength(line, font=f)
+        d.text(((w - tw) / 2, y), line, font=f, fill=ink, stroke_width=max(1, fs // 14), stroke_fill=(255, 255, 255))
+        y += fs * 1.15
+    return np.asarray(img.convert('RGBA'), dtype=np.float64) / 255.0
+
+
+def panel_texture(text, paper, ink, size=(256, 512)):
+    """A tall board: a candy-striped border, a great painted lollipop and its name under it."""
+    from PIL import Image, ImageDraw
+    w, h = size
+    img = Image.new('RGB', size, paper)
+    d = ImageDraw.Draw(img)
+    candy_border(d, w, h, 26, ink, (255, 255, 255))
+    d.rectangle((18, 18, w - 18, h - 18), fill=paper)
+    cx, cy, r = w // 2, int(h * 0.36), int(w * 0.32)
+    d.rectangle((cx - 7, cy, cx + 7, int(h * 0.74)), fill=(250, 250, 240))
+    for k in range(10, 0, -1):
+        rr = r * k / 10
+        d.ellipse((cx - rr, cy - rr, cx + rr, cy + rr), fill=ink if k % 2 else (255, 255, 255))
+    words = text.replace(' ', '\n')
+    lines = words.split('\n')
+    fs = 60
+    while fs > 10:
+        f = font(fs)
+        if max(d.textlength(line, font=f) for line in lines) < w - 44:
+            break
+        fs -= 2
+    f = font(fs)
+    y = int(h * 0.77)
+    for line in lines:
+        tw = d.textlength(line, font=f)
+        d.text(((w - tw) / 2, y), line, font=f, fill=ink, stroke_width=2, stroke_fill=(255, 255, 255))
+        y += int(fs * 1.1)
+    return np.asarray(img.convert('RGBA'), dtype=np.float64) / 255.0
+
+
+def swirl_texture(a, b, size=256):
+    """A lollipop's face: a spiral of two colours."""
+    yy, xx = (np.mgrid[0:size, 0:size] - size / 2 + 0.5) / (size / 2)
+    r, t = np.hypot(xx, yy), np.arctan2(yy, xx)
+    band = ((t / (2 * math.pi) * 3 + r * 4) % 1.0) < 0.5
+    out = np.ones((size, size, 4))
+    out[..., :3] = np.where(band[..., None], np.array(a) / 255, np.array(b) / 255)
+    return out
+
+
+def board(name, corners, image, outward, back_mat='paint_white', thick=0.025):
+    """A painted board, its own part, its picture on the face whose corners are given (bottom left, bottom right,
+    top right, top left), turned to face `outward` (read from there), the rest painted plain."""
+    mat = name + '_art'
+    cm.material(mat, (255, 255, 255), rough=0.55, coat=0.15, image=cm.image(mat, image))
+    m = cm.Mesh()
+    c = [Vector(p) for p in corners]
+    normal = (c[1] - c[0]).cross(c[3] - c[0]).normalized()
+    if normal.dot(Vector(outward)) < 0:
+        c = [c[1], c[0], c[3], c[2]]
+        normal = -normal
+    c = [p + normal * thick for p in c]
+    front = [m.vert(p) for p in c]
+    back = [m.vert(p - normal * thick) for p in c]
+    m.face(front, mat, [(0, 0), (1, 0), (1, 1), (0, 1)])
+    m.face(list(reversed(back)), back_mat)
+    for k in range(4):
+        j = (k + 1) % 4
+        m.face([front[j], front[k], back[k], back[j]], back_mat)
+    centre = sum(c, Vector()) / 4 - normal * thick / 2
+    return moving(m, name, centre, coll='disguise', smooth=None)
+
+
+def disc(m, centre, r, thick, face, edge):
+    """A flat round sweet facing along y: its two faces carry the picture across them, its rim is `edge`."""
+    n = cm.sides(r) if cm.FACET else 24
+    rings = []
+    for side in (1, -1):
+        ring = []
+        for k in range(n):
+            a = 2 * math.pi * k / n + (math.pi / n if cm.FACET else 0.0)
+            ring.append((m.vert(centre + Vector((r * math.cos(a), side * thick / 2, r * math.sin(a)))), math.cos(a), math.sin(a)))
+        rings.append(ring)
+    for ring, flip in ((rings[0], False), (rings[1], True)):
+        verts = [v for v, _, _ in ring]
+        uvs = [(0.5 + 0.5 * c, 0.5 + 0.5 * sn) for _, c, sn in ring]
+        m.face(list(reversed(verts)) if flip else verts, face, list(reversed(uvs)) if flip else uvs)
+    for k in range(n):
+        j = (k + 1) % n
+        m.face([rings[0][k][0], rings[0][j][0], rings[1][j][0], rings[1][k][0]], edge)
+
+
+def build_disguise():
+    """The sweet-cart disguise over the cage (its parts named disguise_*, and lolly_*)."""
+    cm.material('paint_white', (236, 232, 222), rough=0.55, coat=0.15)
+    z0, rail = DECK_TOP + 0.06, DECK_TOP + RAIL2 * H
+    eave = DECK_TOP + H
+    out = CAGE_HW + 0.04
+    span = (CAGE_FRONT - POST) - (CAGE_BACK + POST)
+    for s, words in DISGUISE_PANELS.items():
+        tag = 'r' if s > 0 else 'l'
+        n = len(words)
+        pw = span / n
+        for k, word in enumerate(words):
+            paper, ink = PANEL_COLOURS[k % len(PANEL_COLOURS)]
+            ya, yb = CAGE_BACK + POST + pw * k + 0.02, CAGE_BACK + POST + pw * (k + 1) - 0.02
+            if s > 0:
+                corners = [(out, yb, z0), (out, ya, z0), (out, ya, rail - 0.04), (out, yb, rail - 0.04)]
+            else:
+                corners = [(-out, ya, z0), (-out, yb, z0), (-out, yb, rail - 0.04), (-out, ya, rail - 0.04)]
+            board('disguise_%s%d' % (tag, k), corners, panel_texture(word, paper, ink), (s, 0, 0))
+        header = DISGUISE_HEADERS[s]
+        ya, yb = CAGE_BACK + POST + 0.02, CAGE_FRONT - POST - 0.02
+        zl, zh = rail + 0.02, eave - 0.1
+        corners = ([(out, yb, zl), (out, ya, zl), (out, ya, zh), (out, yb, zh)] if s > 0
+                   else [(-out, ya, zl), (-out, yb, zl), (-out, yb, zh), (-out, ya, zh)])
+        board('disguise_%sh' % tag, corners, sign_texture(header, (1024, 128), (255, 248, 226), (180, 24, 48), (214, 44, 72)),
+              (s, 0, 0))
+    # The back: a board over the door and its bars (standing clear of the padlock), and the sign over it.
+    yb = CAGE_BACK - 0.13
+    xa, xb = CAGE_HW - POST - 0.02, -(CAGE_HW - POST - 0.02)
+    board('disguise_b', [(xa, yb, z0), (xb, yb, z0), (xb, yb, rail - 0.04), (xa, yb, rail - 0.04)],
+          sign_texture('FREE\nSWEETS', (512, 512), (214, 236, 250), (36, 92, 190), (36, 92, 190)), (0, -1, 0))
+    board('disguise_bh', [(xa, yb, rail + 0.02), (xb, yb, rail + 0.02), (xb, yb, eave - 0.1), (xa, yb, eave - 0.1)],
+          sign_texture(DISGUISE_HEADERS[0], (768, 128), (255, 248, 226), (180, 24, 48), (214, 44, 72)), (0, -1, 0))
+    # The valance: a striped, scalloped band hanging from the eaves all round.
+    stripes = np.ones((64, 512, 4))
+    xs = np.arange(512)
+    stripes[..., :3] = np.where(((xs // 32) % 2 == 0)[None, :, None], np.array([214, 44, 72]) / 255, np.array([1.0, 1.0, 1.0]))
+    cm.material('valance', (255, 255, 255), rough=0.8, image=cm.image('valance', stripes))
+    m = cm.Mesh()
+    w = CAGE_HW + ROOF_OVER - 0.01
+    yf, yr = CAGE_FRONT + ROOF_OVER - 0.01, CAGE_BACK - ROOF_OVER + 0.01
+    ring = [(w, yr), (w, yf), (-w, yf), (-w, yr)]
+    run = 0.0
+    scallops = cm.res(6, least=2, div=2)
+    for (xa, ya), (xb, yb) in zip(ring, ring[1:] + ring[:1]):
+        length = math.hypot(xb - xa, yb - ya)
+        n = max(2, int(length / 0.25))
+        for k in range(n):
+            t0, t1 = k / n, (k + 1) / n
+            pa = Vector((xa + (xb - xa) * t0, ya + (yb - ya) * t0, eave + 0.02))
+            pb = Vector((xa + (xb - xa) * t1, ya + (yb - ya) * t1, eave + 0.02))
+            top = [m.vert(pa), m.vert(pb)]
+            bottom = []
+            for j in range(scallops + 1):
+                t = j / scallops
+                dip = 0.07 + 0.04 * math.sin(math.pi * t)
+                bottom.append(m.vert(pa + (pb - pa) * t - Vector((0, 0, dip))))
+            u0, u1 = run / 3.0, (run + length / n) / 3.0
+            for j in range(scallops):
+                t, tn = j / scallops, (j + 1) / scallops
+                ta = m.vert(pa + (pb - pa) * t)
+                tb = m.vert(pa + (pb - pa) * tn)
+                m.face([ta, tb, bottom[j + 1], bottom[j]], 'valance',
+                       [(u0 + (u1 - u0) * t, 1), (u0 + (u1 - u0) * tn, 1), (u0 + (u1 - u0) * tn, 0), (u0 + (u1 - u0) * t, 0)])
+            run += length / n
+    o = moving(m, 'disguise_valance', (0.0, (yf + yr) / 2, eave), coll='disguise', smooth=None)
+    cm.solidify(o, 0.01)
+    # The lollipops on the roof: white sticks, spiral faces.
+    roof = lambda x: eave + ROOF_RISE * (1 - (x / (CAGE_HW + ROOF_OVER)) ** 2) + ROOF_T  # noqa: E731
+    colours = [((214, 44, 72), (255, 255, 255)), ((36, 92, 190), (255, 236, 120)), ((60, 170, 80), (255, 255, 255)),
+               ((226, 132, 22), (255, 236, 200)), ((150, 60, 170), (255, 255, 255))]
+    for k, (x, y, height, lean) in enumerate(LOLLIES):
+        a, b = colours[k % len(colours)]
+        cm.material('lolly_%d_face' % k, (255, 255, 255), rough=0.3, coat=0.6, image=cm.image('lolly_%d_face' % k, swirl_texture(a, b)))
+        m = cm.Mesh()
+        base = Vector((x, y, roof(x)))
+        top = base + Vector((lean * height, 0.0, height))
+        cm.tube(m, [base, top], 0.022, 'paint_white', seg=8)
+        disc(m, top + Vector((0, 0, 0.18)), 0.2, 0.07, 'lolly_%d_face' % k, 'paint_white')
+        moving(m, 'lolly_%d' % k, base, coll='disguise', smooth=None)
+
+
 def build_markers():
     cm.empty('seat_driver', (0.22, SEAT_Y + 0.02, SEAT_TOP + 0.08))
     cm.empty('seat_box', (-0.32, SEAT_Y + 0.02, SEAT_TOP + 0.08))
@@ -639,12 +859,13 @@ def build():
     build_cage()
     build_door()
     build_seat()
+    build_disguise()
     build_markers()
 
 
 # --- poses -------------------------------------------------------------------------------------------------
 
-def pose(door=0.0, steer=0.0, gait=0.0, phase=0.0, spin=0.0):
+def pose(door=0.0, steer=0.0, gait=0.0, phase=0.0, spin=0.0, disguise=False):
     """What the game's animation does: the door swung open that far (0 to 1); the fore-carriage, the front wheels and
     the horses turned on the turntable by steer (-1 to 1); the horses' legs (and heads and tails) at that point of
     their stride (phase, radians) by gait (0 standing, 1 a trot); the wheels turned by spin (radians; the front ones
@@ -654,6 +875,8 @@ def pose(door=0.0, steer=0.0, gait=0.0, phase=0.0, spin=0.0):
         build_horse_preview(i, gait, phase, steer)
     for o in bpy.data.objects:
         part = o.get('part', '')
+        if part.startswith(('disguise_', 'lolly_')):
+            o.hide_render = o.hide_viewport = not disguise
         rest = Vector(o['rest']) if 'rest' in o else None
         if part == 'door':
             o.rotation_euler = (0, 0, math.radians(105) * door)
@@ -703,6 +926,9 @@ SHOTS = [
     ('horse', (2.4, 6.6, 2.3), (0, HORSE_Y + 0.6, 1.6), 32, {}),
     ('door_open', (-1.2, -6.2, 2.3), (0, -1.5, 1.8), 32, dict(door=1.0)),
     ('trotting', (-7.5, 7.5, 2.6), (0, 1.4, 1.5), 30, dict(gait=1.0, phase=0.9, spin=1.2, steer=0.35)),
+    ('disguised', (8.0, 9.0, 3.2), (0, 0.6, 1.9), 30, dict(disguise=True)),
+    ('disguised_left', (-8.6, 0.6, 2.4), (0, -0.2, 2.0), 32, dict(disguise=True)),
+    ('disguised_rear', (4.6, -7.0, 2.6), (0, -0.8, 2.1), 30, dict(disguise=True)),
 ]
 
 GAME_MESH = 'chitty/src/client/resources/assets/shootingstar/meshes/carriage.cbm'
