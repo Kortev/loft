@@ -26,6 +26,27 @@ import numpy as np
 from mathutils import Euler, Matrix, Vector
 from PIL import Image, ImageDraw, ImageFilter
 
+# For the game she is faceted, as the airship is, to sit among Minecraft's blocks (FACET: --game, or --facet to render
+# her so): her round parts have few flat sides, a flat one on top (sides()); her curves are taken in fewer, longer
+# straight runs (res()); her bars and pipes are square, or eight-sided if they are thick, none thinner than THINNEST
+# from the middle to a side; her cushions are chamfered rather than rounded; and every face is flat, lit by the game by
+# which way it faces. Set in main(), never on import: the airship borrows these helpers and makes her own choices.
+FACET = False
+THINNEST = 0.016
+
+
+def res(n, least=6, div=6):
+    """How many steps to take along a curve of n steps: n for the round renders, a sixth as many faceted (at least
+    `least`)."""
+    return n if not FACET else max(least, round(n / div))
+
+
+def sides(r):
+    """How many flat sides a round part of radius r has, faceted: a stalk four, a knob six, a lamp eight, a wheel
+    twelve."""
+    return 4 if r < 0.02 else 6 if r < 0.06 else 8 if r < 0.25 else 12
+
+
 # --- layout (blocks) ---------------------------------------------------------------------------
 
 WHEEL_R = 0.46
@@ -366,7 +387,7 @@ class Mesh:
         self.bm.free()
         for mat in self.slots:
             me.materials.append(MATS[mat])
-        if smooth is not None:
+        if smooth is not None and not FACET:
             me.shade_smooth()
             me.set_sharp_from_angle(angle=math.radians(smooth))
         o = bpy.data.objects.new(name, me)
@@ -467,7 +488,11 @@ def loft(m, sections, mat, closed=True, cap_start=None, cap_end=None, v_scale=1.
 
 
 def lathe(m, profile, mat_of, axis='y', seg=32, origin=(0, 0, 0), a0=0.0):
-    """A surface of revolution: profile [(r, a), ...] (radius, distance along the axis) round the given axis."""
+    """A surface of revolution: profile [(r, a), ...] (radius, distance along the axis) round the given axis. Faceted, it
+    has sides() for its widest radius at most, a flat one on top (facing +z, or +y round the z axis)."""
+    if FACET:
+        seg = min(seg, sides(max(r for r, _ in profile)))
+        a0 = math.pi / 2 - math.pi / seg
     ox, oy, oz = origin
     rings = []
     for r, a in profile:
@@ -503,8 +528,10 @@ def lathe(m, profile, mat_of, axis='y', seg=32, origin=(0, 0, 0), a0=0.0):
     return rings
 
 
-def catmull(points, per=8):
-    """A smooth path through the points."""
+def catmull(points, per=8, keep=False):
+    """A smooth path through the points (faceted, a third as many steps between them, unless keep)."""
+    if FACET and not keep:
+        per = max(1, per // 3)
     P = [Vector(p) for p in points]
     P = [P[0] * 2 - P[1]] + P + [P[-1] * 2 - P[-2]]
     out = []
@@ -519,7 +546,18 @@ def catmull(points, per=8):
 
 
 def tube(m, path, radius, mat, seg=12, flare=None):
-    """A round pipe along a path; flare(t) scales the radius along it."""
+    """A round pipe along a path; flare(t) scales the radius along it. Faceted, it is a bar (facet_bar), broken into
+    straight runs where the path turns a corner (a square bar carried round a corner twists flat there)."""
+    if FACET:
+        pts = [Vector(p) for p in path]
+        last = len(pts) - 1
+        start = 0
+        for i in range(1, last):
+            if (pts[i] - pts[i - 1]).angle(pts[i + 1] - pts[i], 0.0) > math.radians(35):
+                facet_bar(m, pts[start:i + 1], radius, mat, flare, start / last, i / last)
+                start = i
+        facet_bar(m, pts[start:], radius, mat, flare, start / last, 1.0)
+        return
     rings = []
     n = len(path)
     for i, p in enumerate(path):
@@ -535,6 +573,35 @@ def tube(m, path, radius, mat, seg=12, flare=None):
             j = (k + 1) % seg
             m.face([rings[i][k], rings[i][j], rings[i + 1][j], rings[i + 1][k]], mat,
                    [(k / seg, i / n), ((k + 1) / seg, i / n), ((k + 1) / seg, (i + 1) / n), (k / seg, (i + 1) / n)])
+    m.face(list(reversed(rings[0])), mat)
+    m.face(rings[-1], mat)
+
+
+def facet_bar(m, pts, radius, mat, flare=None, t0=0.0, t1=1.0):
+    """A faceted tube's run (tube): square, or eight-sided if it is thick, `radius` (THINNEST at least) from its middle
+    to each flat side, one side on top where it runs level, its faces carried along without twisting; flare is read
+    from t0 to t1 along it."""
+    k = 4 if radius < 0.04 else 8
+    reach = max(radius, THINNEST) / math.cos(math.pi / k)
+    n = len(pts)
+
+    def along(i):
+        return (pts[min(i + 1, n - 1)] - pts[max(i - 1, 0)]).normalized()
+    d = along(0)
+    a = d.cross(Vector((0, 0, 1)) if abs(d.z) < 0.9 else Vector((1, 0, 0))).normalized()
+    rings = []
+    for i, p in enumerate(pts):
+        d = along(i)
+        a = (a - d * a.dot(d)).normalized()
+        b = d.cross(a)
+        r = reach * (flare(t0 + (t1 - t0) * i / max(1, n - 1)) if flare else 1.0)
+        rings.append([m.vert(p + (a * math.cos(math.pi / k + 2 * math.pi * j / k) +
+                                  b * math.sin(math.pi / k + 2 * math.pi * j / k)) * r) for j in range(k)])
+    for i in range(n - 1):
+        for j in range(k):
+            jj = (j + 1) % k
+            m.face([rings[i][j], rings[i][jj], rings[i + 1][jj], rings[i + 1][j]], mat,
+                   [(j / k, i / n), ((j + 1) / k, i / n), ((j + 1) / k, (i + 1) / n), (j / k, (i + 1) / n)])
     m.face(list(reversed(rings[0])), mat)
     m.face(rings[-1], mat)
 
@@ -561,9 +628,10 @@ def text_object(text, size, location, rotation, mat, coll='body'):
 
 
 def bevel(o, width, segments=3, limit=30.0):
+    """Rounds an object's edges (faceted, one chamfer)."""
     mod = o.modifiers.new('bevel', 'BEVEL')
     mod.width = width
-    mod.segments = segments
+    mod.segments = 1 if FACET else segments
     mod.limit_method = 'ANGLE'
     mod.angle_limit = math.radians(limit)
     mod.harden_normals = False
@@ -638,6 +706,7 @@ def edge_angle(y, inset=0.0):
 def hull_cut(y, inset=0.0, count=72):
     """A hull section cut off at hull_edge, and where round the whole section (0 to 1, from the right gunwale) each of
     its points lies: the planks keep their places on a cut section and run on straight past the doors."""
+    count = res(count, least=8)
     t0 = edge_angle(y, inset)
     pts = hull_section(y, *hull_at(y), inset=inset, count=count, t0=t0, t1=math.pi - t0)
     dense = hull_section(y, *hull_at(y), inset=inset, count=2000)
@@ -649,7 +718,7 @@ def hull_cut(y, inset=0.0, count=72):
 
 def hull_ys():
     """Where the hull is sectioned, front to back: the listed sections and enough more to shape the doors."""
-    ys = {y for y, *_ in HULL} | {float(y) for y in np.linspace(DOOR[0], DOOR[1], 15)}
+    ys = {y for y, *_ in HULL} | {float(y) for y in np.linspace(DOOR[0], DOOR[1], res(15, least=5))}
     return sorted(ys, reverse=True)
 
 
@@ -681,9 +750,11 @@ def build_chassis():
 def radiator_outline(scale=1.0, count=72):
     """The radiator's face, (x, z) about the bonnet's axis: an egg, narrowing to its round top, widest low down and
     flat across its foot, where the GEN 11 plate hangs."""
+    count = res(count, least=16, div=4)
+    phase = math.pi / count if FACET else 0.0
     pts = []
     for i in range(count):
-        t = math.pi / 2 - 2 * math.pi * i / count
+        t = math.pi / 2 - phase - 2 * math.pi * i / count
         c, sn = math.cos(t), math.sin(t)
         if sn >= 0:
             x, z = RADIATOR_W * c * (1 - 0.16 * sn), RADIATOR_TOP * sn
@@ -700,8 +771,10 @@ def build_radiator():
     zc = BONNET_Z1
     m = Mesh()
     r1 = BONNET_R1 - 0.01
-    neck = [(r1 * math.cos(math.pi / 2 - 2 * math.pi * i / 72), zc + r1 * math.sin(math.pi / 2 - 2 * math.pi * i / 72))
-            for i in range(72)]
+    around = res(72, least=16, div=4)
+    phase = math.pi / around if FACET else 0.0
+    neck = [(r1 * math.cos(math.pi / 2 - phase - 2 * math.pi * i / around),
+             zc + r1 * math.sin(math.pi / 2 - phase - 2 * math.pi * i / around)) for i in range(around)]
     shell = radiator_outline()
     rim_in = radiator_outline(0.86)
     loft(m, [(BONNET_FRONT - 0.005, neck), (BONNET_FRONT + 0.03, radiator_outline(0.97)), (BONNET_FRONT + 0.05, shell),
@@ -741,10 +814,13 @@ def build_bonnet():
     a brass buckle round its front, and the hinge line down each side. Its back is the walnut dashboard."""
     m = Mesh()
     sections = []
+    # Faceted, as many sides as her brass band's lathe gives it, lined up with them (a flat on top).
+    around = sides(BONNET_R0) if FACET else 72
+    phase = math.pi / around if FACET else 0.0
     for y in np.linspace(BONNET_BACK, BONNET_FRONT, 7):
         r, zc = bonnet_ring(y)
         sections.append((y, [(r * math.cos(t), zc + r * math.sin(t)) for t in
-                             (math.pi / 2 - 2 * math.pi * i / 72 for i in range(72))]))
+                             (math.pi / 2 - phase - 2 * math.pi * i / around for i in range(around))]))
     loft(m, sections, 'aluminium', cap_start='walnut')
     o = m.obj('bonnet', smooth=50)
     m = Mesh()
@@ -754,7 +830,8 @@ def build_bonnet():
     # The strap, over the top from one side to the other.
     y = 1.80
     r, zc = bonnet_ring(y)
-    arc = [((r + 0.008) * math.cos(t), zc + (r + 0.008) * math.sin(t)) for t in np.linspace(-0.35, math.pi + 0.35, 40)]
+    arc = [((r + 0.008) * math.cos(t), zc + (r + 0.008) * math.sin(t)) for t in
+           np.linspace(-0.35, math.pi + 0.35, res(40, least=12, div=3))]
     loft(m, [(y - 0.035, arc), (y + 0.035, arc)], 'strap', closed=False)
     add_box(m, (r * math.cos(0.5) + 0.01, y, zc + r * math.sin(0.5)), (0.03, 0.09, 0.07), 'brass',
             rot=Matrix.Rotation(-0.5, 4, 'Y'))
@@ -809,6 +886,7 @@ def deck_front(x):
 def deck_outline(count=48):
     """The deck's edge in plan, anticlockwise from the right end of its front edge: down the right gunwale to the point
     of the stern, up the left one, and across the curved front edge."""
+    count = res(count, least=8)
     ys = list(np.linspace(DECK_SIDE, HULL[-1][0], count))
     right = [(hull_at(y)[0], y) for y in ys]
     left = [(-x, y) for x, y in reversed(right)]
@@ -864,7 +942,7 @@ def build_hull():
     m = Mesh()
     yc, a, b = WELL
     poly = deck_outline()
-    n, rings = 96, 7
+    n, rings = res(96, least=12), res(7, least=3)
     grid = []
     for i in range(n):
         t = 2 * math.pi * i / n
@@ -884,8 +962,8 @@ def build_hull():
     # The deck's front edge drops into the cockpit behind the front seat, a walnut bulkhead inside the lining from the
     # deck down to the floor.
     hw = hull_at(DECK_SIDE)[0]
-    edge = [(x, deck_front(x)) for x in np.linspace(-hw + 0.04, hw - 0.04, 24)]
-    rows = 6
+    edge = [(x, deck_front(x)) for x in np.linspace(-hw + 0.04, hw - 0.04, res(24))]
+    rows = res(6, least=2)
     grid = []
     for x, y in edge:
         top = deck_z(x, y) - 0.004
@@ -952,7 +1030,7 @@ def build_hull():
     # The bow is closed by a bulkhead behind the dashboard.
     m = Mesh()
     y, hw, zt, zb = HULL[0]
-    pts = hull_section(y, hw, zt, zb, count=40)
+    pts = hull_section(y, hw, zt, zb, count=res(72, least=8) if FACET else 40)
     f = m.face([m.vert((x, y - 0.012, z)) for x, z in pts], 'walnut')
     box_uv(m, [f])
     m.obj('bulkhead', smooth=None)
@@ -965,7 +1043,8 @@ def build_seats():
         add_box(m, (0, 0, 0), size, 'leather', uv_scale=2.0)
         o = m.obj(name, location=center, rotation=(math.radians(tilt), 0, 0))
         bevel(o, min(size) * 0.3, 4)
-        o.modifiers.new('smooth', 'WEIGHTED_NORMAL')
+        if not FACET:
+            o.modifiers.new('smooth', 'WEIGHTED_NORMAL')
         return o
 
     # The front bench, as wide as the hull lets it be at its foot, and its buttoned back curving forward round the
@@ -974,7 +1053,7 @@ def build_seats():
     seat('seat_front', (0, FRONT_SEAT_Y, 0.78), (width, 0.44, 0.16))
     m = Mesh()
     hw = hull_at(DECK_SIDE)[0]
-    xs = np.linspace(-hw + 0.10, hw - 0.10, 25)
+    xs = np.linspace(-hw + 0.10, hw - 0.10, res(25, least=7))
     rings = []
     for z in np.linspace(0.84, 1.40, 5):
         ring = []
@@ -991,7 +1070,7 @@ def build_seats():
     o = m.obj('seatback_front', smooth=60)
     solidify(o, 0.10, offset=0.0)
     m = Mesh()
-    tube(m, catmull([(x, deck_front(x) + 0.08, 1.41) for x in xs[::4]], 4), 0.05, 'leather', seg=12)
+    tube(m, catmull([(x, deck_front(x) + 0.08, 1.41) for x in (xs if FACET else xs[::4])], 4), 0.05, 'leather', seg=12)
     m.obj('seatroll_front', smooth=50)
     # The back seat: a cushion in the front of the well; the buttoned walls of the well are its back and arms. It is the
     # ejector: its own part, which the game throws up on two springs under it (each a coil a block tall, which the game
@@ -1049,9 +1128,11 @@ def build_windscreen():
 def build_steering():
     m = Mesh()
     # The rim round its own axis (local Z), three brass spokes, the boss and the column down into the dash.
-    prof = [(0.17 + 0.016 * math.cos(a), 0.016 * math.sin(a)) for a in np.linspace(0, 2 * math.pi, 9)[:-1]]
+    around = 4 if FACET else 8
+    prof = [(0.17 + 0.016 * math.cos(a), 0.016 * math.sin(a)) for a in
+            np.linspace(0, 2 * math.pi, around + 1)[:-1] + (math.pi / around if FACET else 0.0)]
     rings = []
-    seg = 36
+    seg = 12 if FACET else 36
     for i in range(seg):
         t = 2 * math.pi * i / seg
         rings.append([m.vert((r * math.cos(t), r * math.sin(t), z)) for r, z in prof])
@@ -1082,22 +1163,25 @@ def build_spokes(m, mat):
 def wheel_mesh(side):
     """A red artillery wheel round the X axis: a black tyre, the felloe, twelve spokes and a brass hub."""
     m = Mesh()
-    seg = 48
+    seg = sides(WHEEL_R) if FACET else 48
+    a0 = math.pi / 2 - math.pi / seg if FACET else 0.0
+    around = 8 if FACET else 12
     prof = []
-    for k in range(12):
-        phi = 2 * math.pi * k / 12
+    for k in range(around):
+        phi = 2 * math.pi * k / around + (math.pi / around if FACET else 0.0)
         c, s = math.cos(phi), math.sin(phi)
         prof.append((0.40 + 0.06 * math.copysign(abs(c) ** 0.7, c), 0.058 * math.copysign(abs(s) ** 0.7, s)))
     rings = []
     for i in range(seg):
-        t = 2 * math.pi * i / seg
+        t = a0 + 2 * math.pi * i / seg
         rings.append([m.vert((x, r * math.cos(t), r * math.sin(t))) for r, x in prof])
     for i in range(seg):
         j = (i + 1) % seg
         for k in range(len(prof)):
             l = (k + 1) % len(prof)
             m.face([rings[i][k], rings[i][l], rings[j][l], rings[j][k]], 'rubber',
-                   [(i / seg, k / 12), (i / seg, (k + 1) / 12), ((i + 1) / seg, (k + 1) / 12), ((i + 1) / seg, k / 12)])
+                   [(i / seg, k / around), (i / seg, (k + 1) / around), ((i + 1) / seg, (k + 1) / around),
+                    ((i + 1) / seg, k / around)])
     lathe(m, [(0.30, -0.04), (0.345, -0.04), (0.345, 0.04), (0.30, 0.04), (0.30, -0.04)], lambda k: 'red',
           axis='x', seg=seg)
     build_spokes(m, 'red')
@@ -1132,6 +1216,7 @@ def build_spare():
 
 
 def guard_path(center, r, a0, a1, lead=(), tail=(), steps=16):
+    steps = res(steps, least=5, div=3)
     yc, zc = center
     pts = list(lead)
     for k in range(steps + 1):
@@ -1151,7 +1236,7 @@ def build_guards():
                           lead=[(BOARD_BACK + 0.06, BOARD_Z + 0.005), (BOARD_BACK, BOARD_Z + 0.03)])
         for path, hub in ((front, FRONT_AXLE), (rear, REAR_AXLE)):
             path = [Vector((0, y, z)) for y, z in path]
-            cols = 9
+            cols = res(9, least=3, div=3)
             grid = []
             for i, p in enumerate(path):
                 t = (path[min(i + 1, len(path) - 1)] - path[max(i - 1, 0)]).normalized()
@@ -1190,7 +1275,10 @@ def build_guards():
 
 
 def ellipsoid(m, center, radii, mat, rot=None, seg=16, rings=10):
-    """A squashed sphere, turned by `rot` about its centre."""
+    """A squashed sphere, turned by `rot` about its centre (faceted, with sides() round and half as many rings)."""
+    if FACET:
+        seg = min(seg, sides(max(radii)))
+        rings = max(2, min(rings, seg // 2))
     c = Vector(center)
     R = rot.to_3x3() if rot is not None else Matrix.Identity(3)
     rows = []
@@ -1269,9 +1357,12 @@ def build_exhaust():
     """Four copper pipes out of the right of the bonnet, sweeping down over the front wing into one great flexible pipe
     that runs down outside the spare wheel and back along the running board to a brass fishtail by the rear wing."""
     m = Mesh()
-    main = catmull([(0.60, 1.56, 1.10), (0.71, 1.32, 1.00), (0.80, 1.12, 0.84), (0.83, 0.94, 0.68),
-                    (0.83, 0.50, 0.64), (0.83, -0.30, 0.64), (0.83, -0.82, 0.64)], 8)
+    run = [(0.60, 1.56, 1.10), (0.71, 1.32, 1.00), (0.80, 1.12, 0.84), (0.83, 0.94, 0.68), (0.83, 0.50, 0.64),
+           (0.83, -0.30, 0.64), (0.83, -0.82, 0.64)]
+    main = catmull(run, 8)
     tube(m, main, 0.048, 'copper', seg=16)
+    # Where the branches meet it: eight steps between its points, as the round renders take it.
+    landing = catmull(run, 8, keep=True)
     for i in range(3, len(main) - 2, 2):
         t = (main[i + 1] - main[i - 1]).normalized()
         tube(m, [main[i] - t * 0.008, main[i] + t * 0.008], 0.054, 'copper', seg=16)
@@ -1279,7 +1370,7 @@ def build_exhaust():
     for k, (y, to) in enumerate(((1.64, 0), (1.53, 4), (1.42, 8), (1.31, 12))):
         r, zc = bonnet_ring(y)
         p0 = Vector((r * math.cos(a) - 0.01, y, zc + r * math.sin(a)))
-        p1 = main[min(to, len(main) - 1)]
+        p1 = landing[min(to, len(landing) - 1)]
         mid = Vector((p0.x + 0.10, y - 0.02, p0.z + 0.03))
         tube(m, catmull([tuple(p0), tuple(mid), tuple((mid + p1) / 2 + Vector((0, 0, 0.04))), tuple(p1)], 6),
              0.026, 'copper', seg=12)
@@ -1618,7 +1709,7 @@ def raft_outline(t):
     c, sn = math.cos(t), math.sin(t)
     x = math.copysign(w * (sn * sn) ** 0.72, sn)
     y = yc + l * c
-    wave = RAFT['waves'] * (math.sin(17 * t) + 0.45 * math.sin(41 * t + 1.3))
+    wave = 0.0 if FACET else RAFT['waves'] * (math.sin(17 * t) + 0.45 * math.sin(41 * t + 1.3))
     # Push the edge in and out along its own normal (roughly away from the middle).
     nx, ny = x / (w * w), (y - yc) / (l * l)
     k = math.hypot(nx, ny) or 1.0
@@ -1629,7 +1720,7 @@ def build_float():
     """The great pink raft she blows up under and round herself on the water: flat on top, pointed at both ends, its
     edge waved and puffed, dark underneath."""
     yc, bottom, top = RAFT['centre'], RAFT['bottom'], RAFT['top']
-    n = 160
+    n = 48 if FACET else 160
     edge = [raft_outline(2 * math.pi * i / n) for i in range(n)]
     # Rings in from the edge on top, round the puffed edge, and back in underneath.
     profile = [(0.0, top), (0.35, top), (0.65, top), (0.85, top - 0.005), (0.95, top - 0.02), (1.0, top - 0.06),
@@ -2410,7 +2501,15 @@ def export(out):
 
 
 def main():
+    global FACET, BAKE_SIZE, LIT_ALL, PACK_ROTATE
     args = sys.argv[1:]
+    # Her game build is faceted (and --facet renders her so). Its bake holds her colours alone, a little darker in her
+    # nooks, drawn pixelated (ChittyTexture's pixelated option), the game lighting each flat face by which way it faces.
+    FACET = '--game' in args or '--facet' in args
+    if FACET:
+        BAKE_SIZE = int(args[args.index('--atlas') + 1]) if '--atlas' in args else 1024
+        LIT_ALL = True
+        PACK_ROTATE = 'AXIS_ALIGNED'
     build()
     pose('road')
     if '--game' in args:

@@ -103,6 +103,13 @@ wants **renders for approval before baking** anything.
 - The **cage on the back locks**: anyone put in it (mob or player) can't get out until the driver opens it. It's a
   prisoner transport for PvP.
 - References: two photos on the same Notion page, plus film stills.
+- **Status: model built, renders sent to kortev, waiting on their OK** (`tools/carriage_model.py`, `--out DIR
+  --renders [--horses 2]`; the reference brief was in the session's scratchpad). Two questions for them:
+  - The surviving film carriage (Rothenburg's crime museum, which calls it "einspännig") has shafts for **one** horse;
+    their spec said two. The model does either (`--horses`).
+  - The horse is built in boxes, as Minecraft builds its horses, a size up, black, plumed and in harness.
+  - The door is ours (no source shows one): a barred gate in the back, hinged on her right, padlocked.
+  - The network here blocks image hosts, so only the two Notion photos were seen; bar and spoke counts are estimates.
 
 Both are only craftable by kortev; the existing `OwnerOnly` check already covers every recipe in the mod.
 
@@ -128,6 +135,11 @@ kortev tests in game themselves and reports back. Don't spend usage on the self-
   rather than add to it, and ask the same question about her look in Minecraft (pixel density, face shading,
   faceting): kortev chose the faceted finish for the airship, and its bake switches (`LIT_ALL`, `PACK_ROTATE`,
   `ChittyTexture`'s pixelated option) are in `chitty_model.py`, off for her.
+  - **Faceted Chitty: renders sent, waiting on kortev's OK.** `chitty_model.py` now has `FACET` (set in `main()` by
+    `--game` or `--facet`, never on import, so the airship's helpers are untouched): `sides()`/`res()` for few flat
+    sides and fewer curve steps, square bars (`facet_bar`), one-chamfer bevels, flat faces; `--game` also bakes a
+    1024 colours-only atlas (`LIT_ALL`, `PACK_ROTATE`). Her game files are still the smooth bake. On OK: run `--game`,
+    switch `ChittyRenderer` to `new ChittyTexture(TEXTURE, true)`, update `references/chitty.md` and her README.
 
 - **Chitty polish: done, waiting on kortev's in-game test.** Her lamp beams are gone; she is cranked at the front and
   now and then doesn't catch; V revs her standing (a roar, a twist on her springs, a backfire on letting go; rev then
