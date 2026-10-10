@@ -1,0 +1,31 @@
+{
+  "parent": "shootingstar:chitty/fly",
+  "display": {
+    "icon": {
+      "id": "shootingstar:chitty"
+    },
+    "title": {
+      "translate": "advancements.shootingstar.chitty_clouds.title"
+    },
+    "description": {
+      "translate": "advancements.shootingstar.chitty_clouds.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "clouds": {
+      "trigger": "shootingstar:event",
+      "conditions": {
+        "event": "chitty_clouds"
+      }
+    }
+  },
+  "requirements": [
+    [
+      "clouds"
+    ]
+  ]
+}

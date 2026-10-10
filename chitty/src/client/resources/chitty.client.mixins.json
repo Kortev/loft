@@ -1,0 +1,14 @@
+{
+	"required": true,
+	"package": "io.github.kortev.chitty.client.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"client": [
+		"AirshipHangPoseMixin",
+		"AirshipStandMixin",
+		"ChittyCameraMixin",
+		"ChittyViewMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

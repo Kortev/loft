@@ -1,0 +1,122 @@
+name: selftest
+
+# Plays a full strike in a real client under a virtual display, records it as a video with the mod's
+# sounds mixed in, and screenshots every phase. The video and screenshots are uploaded as artifacts.
+# Run by hand only (Actions > selftest > Run workflow).
+on:
+  workflow_dispatch:
+    inputs:
+      test:
+        description: "Which self test: gap (Ginnungagap), true (a Gungnir strike) or chitty (Chitty Chitty Bang Bang)"
+        default: gap
+      publish:
+        description: "Also force-push the screenshots, logs and video to the selftest-output branch"
+        type: boolean
+        default: false
+
+jobs:
+  selftest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Install virtual display and ffmpeg
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q xvfb libgl1-mesa-dri mesa-utils python3-pil python3-numpy ffmpeg
+      - name: Generate world
+        run: |
+          mkdir -p build/selftest-server
+          echo "eula=true" > build/selftest-server/eula.txt
+          printf "level-name=selftest\nlevel-seed=shootingstar\nonline-mode=false\nspawn-protection=0\n" > build/selftest-server/server.properties
+          timeout 900 ./gradlew runGenworld --stacktrace
+      - name: Run client self test
+        run: |
+          mkdir -p build/selftest/saves
+          cp -r build/selftest-server/selftest build/selftest/saves/selftest
+          cp .github/selftest/options.txt build/selftest/options.txt
+          timeout 4200 xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew runSelftest -Pselftest=${{ inputs.test || 'gap' }} --stacktrace
+      - name: Mix the soundtrack
+        if: always()
+        run: |
+          cat build/selftest/capture/ffmpeg.log || true
+          head -c 3000 build/selftest/capture/sounds.json || true
+          python3 .github/scripts/render-loops.py build/selftest/capture || true
+          python3 .github/scripts/mux-audio.py build/selftest/capture build/selftest/strike.mp4
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: selftest-screenshots
+          path: |
+            build/selftest/screenshots/
+            build/selftest/logs/
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: selftest-video
+          path: build/selftest/strike.mp4
+
+  print-screens:
+    needs: selftest
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          name: selftest-screenshots
+          path: shots
+      - name: Screenshots
+        run: |
+          pip install -q pillow
+          python3 .github/scripts/print-screens.py shots/screenshots
+
+  print-video:
+    needs: selftest
+    if: always()
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        part: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          name: selftest-video
+          path: video
+      - name: Video
+        run: python3 .github/scripts/print-file.py --part ${{ matrix.part }} --parts 4 video/strike.mp4
+
+  # Dev helper: puts what the self test made on an orphan branch (force-pushed each time), so it can be fetched with
+  # git where artifact downloads are out of reach.
+  publish:
+    needs: selftest
+    if: always() && inputs.publish
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: selftest-screenshots
+          path: out
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: selftest-video
+          path: out
+      - name: Push to selftest-output
+        run: |
+          cd out
+          ls -la . screenshots logs || true
+          git init -q -b selftest-output
+          git config user.name "github-actions[bot]"
+          git config user.email "41898729+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "selftest ${{ inputs.test }} at ${{ github.sha }} (run ${{ github.run_id }})"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" selftest-output

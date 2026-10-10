@@ -1,0 +1,359 @@
+{
+  "uplink.lock": {
+    "subtitle": "subtitles.shootingstar.uplink.lock",
+    "sounds": [
+      {
+        "name": "shootingstar:uplink_lock"
+      }
+    ]
+  },
+  "uplink.denied": {
+    "subtitle": "subtitles.shootingstar.uplink.denied",
+    "sounds": [
+      {
+        "name": "shootingstar:uplink_denied"
+      }
+    ]
+  },
+  "camera.rise": {
+    "subtitle": "subtitles.shootingstar.camera.rise",
+    "sounds": [
+      {
+        "name": "shootingstar:camera_rise"
+      }
+    ]
+  },
+  "feed.zoom": {
+    "subtitle": "subtitles.shootingstar.feed.zoom",
+    "sounds": [
+      {
+        "name": "shootingstar:feed_zoom"
+      }
+    ]
+  },
+  "feed.ambience": {
+    "subtitle": "subtitles.shootingstar.feed.ambience",
+    "sounds": [
+      {
+        "name": "shootingstar:feed_ambience",
+        "stream": true
+      }
+    ]
+  },
+  "feed.relay": {
+    "subtitle": "subtitles.shootingstar.feed.relay",
+    "sounds": [
+      {
+        "name": "shootingstar:feed_relay"
+      }
+    ]
+  },
+  "feed.wake": {
+    "subtitle": "subtitles.shootingstar.feed.wake",
+    "sounds": [
+      {
+        "name": "shootingstar:feed_wake"
+      }
+    ]
+  },
+  "feed.load": {
+    "subtitle": "subtitles.shootingstar.feed.load",
+    "sounds": [
+      {
+        "name": "shootingstar:feed_load"
+      }
+    ]
+  },
+  "feed.lap": {
+    "subtitle": "subtitles.shootingstar.feed.lap",
+    "sounds": [
+      {
+        "name": "shootingstar:feed_lap"
+      }
+    ]
+  },
+  "feed.coils": {
+    "subtitle": "subtitles.shootingstar.feed.coils",
+    "sounds": [
+      {
+        "name": "shootingstar:feed_coils"
+      }
+    ]
+  },
+  "feed.release": {
+    "subtitle": "subtitles.shootingstar.feed.release",
+    "sounds": [
+      {
+        "name": "shootingstar:feed_release"
+      }
+    ]
+  },
+  "feed.reentry": {
+    "subtitle": "subtitles.shootingstar.feed.reentry",
+    "sounds": [
+      {
+        "name": "shootingstar:feed_reentry"
+      }
+    ]
+  },
+  "strike.inbound": {
+    "subtitle": "subtitles.shootingstar.strike.inbound",
+    "sounds": [
+      {
+        "name": "shootingstar:strike_inbound",
+        "attenuation_distance": 160
+      }
+    ]
+  },
+  "strike.inbound.near": {
+    "subtitle": "subtitles.shootingstar.strike.inbound",
+    "sounds": [
+      {
+        "name": "shootingstar:strike_inbound_near"
+      }
+    ]
+  },
+  "strike.impact": {
+    "subtitle": "subtitles.shootingstar.strike.impact",
+    "sounds": [
+      {
+        "name": "shootingstar:strike_impact",
+        "attenuation_distance": 320,
+        "stream": true
+      }
+    ]
+  },
+  "strike.impact.near": {
+    "subtitle": "subtitles.shootingstar.strike.impact",
+    "sounds": [
+      {
+        "name": "shootingstar:strike_impact_near",
+        "stream": true
+      }
+    ]
+  },
+  "strike.rumble": {
+    "subtitle": "subtitles.shootingstar.strike.rumble",
+    "sounds": [
+      {
+        "name": "shootingstar:strike_rumble",
+        "attenuation_distance": 640
+      }
+    ]
+  },
+  "strike.rumble.near": {
+    "subtitle": "subtitles.shootingstar.strike.rumble",
+    "sounds": [
+      {
+        "name": "shootingstar:strike_rumble_near"
+      }
+    ]
+  },
+  "strike.aftermath": {
+    "subtitle": "subtitles.shootingstar.strike.aftermath",
+    "sounds": [
+      {
+        "name": "shootingstar:strike_aftermath",
+        "stream": true
+      }
+    ]
+  },
+  "strike.aftermath.near": {
+    "subtitle": "subtitles.shootingstar.strike.aftermath",
+    "sounds": [
+      {
+        "name": "shootingstar:strike_aftermath_near",
+        "stream": true
+      }
+    ]
+  },
+  "feed.strike": {
+    "subtitle": "subtitles.shootingstar.feed.strike",
+    "sounds": [
+      {
+        "name": "shootingstar:feed_strike"
+      }
+    ]
+  },
+  "feed.cruise": {
+    "subtitle": "subtitles.shootingstar.feed.cruise",
+    "sounds": [
+      {
+        "name": "shootingstar:feed_cruise",
+        "stream": true
+      }
+    ]
+  },
+  "feed.transit": {
+    "subtitle": "subtitles.shootingstar.feed.transit",
+    "sounds": [
+      {
+        "name": "shootingstar:feed_transit"
+      }
+    ]
+  },
+  "feed.locate": {
+    "subtitle": "subtitles.shootingstar.feed.locate",
+    "sounds": [
+      {
+        "name": "shootingstar:feed_locate"
+      }
+    ]
+  },
+  "gap.key": {
+    "subtitle": "subtitles.shootingstar.gap.key",
+    "sounds": [
+      {
+        "name": "shootingstar:gap_key"
+      }
+    ]
+  },
+  "gap.lock": {
+    "subtitle": "subtitles.shootingstar.gap.lock",
+    "sounds": [
+      {
+        "name": "shootingstar:gap_lock"
+      }
+    ]
+  },
+  "gap.tear": {
+    "subtitle": "subtitles.shootingstar.gap.tear",
+    "sounds": [
+      {
+        "name": "shootingstar:gap_tear"
+      }
+    ]
+  },
+  "gap.drone": {
+    "subtitle": "subtitles.shootingstar.gap.drone",
+    "sounds": [
+      {
+        "name": "shootingstar:gap_drone",
+        "stream": true
+      }
+    ]
+  },
+  "gap.swap": {
+    "subtitle": "subtitles.shootingstar.gap.swap",
+    "sounds": [
+      {
+        "name": "shootingstar:gap_swap"
+      }
+    ]
+  },
+  "gap.contact": {
+    "subtitle": "subtitles.shootingstar.gap.contact",
+    "sounds": [
+      {
+        "name": "shootingstar:gap_contact"
+      }
+    ]
+  },
+  "gap.impact": {
+    "subtitle": "subtitles.shootingstar.gap.impact",
+    "sounds": [
+      {
+        "name": "shootingstar:gap_impact",
+        "stream": true
+      }
+    ]
+  },
+  "gap.erase": {
+    "subtitle": "subtitles.shootingstar.gap.erase",
+    "sounds": [
+      {
+        "name": "shootingstar:gap_erase",
+        "stream": true
+      }
+    ]
+  },
+  "gap.void": {
+    "subtitle": "subtitles.shootingstar.gap.void",
+    "sounds": [
+      {
+        "name": "shootingstar:gap_void",
+        "stream": true
+      }
+    ]
+  },
+  "gap.void_music": {
+    "sounds": [
+      {
+        "name": "minecraft:music/game/mice_on_venus",
+        "stream": true
+      }
+    ]
+  },
+  "gap.ambience": {
+    "subtitle": "subtitles.shootingstar.gap.ambience",
+    "sounds": [
+      {
+        "name": "shootingstar:gap_ambience"
+      }
+    ]
+  },
+  "gap.wake": {
+    "subtitle": "subtitles.shootingstar.gap.wake",
+    "sounds": [
+      {
+        "name": "shootingstar:gap_wake"
+      }
+    ]
+  },
+  "gap.map": {
+    "subtitle": "subtitles.shootingstar.gap.map",
+    "sounds": [
+      {
+        "name": "shootingstar:gap_map"
+      }
+    ]
+  },
+  "gap.extract": {
+    "subtitle": "subtitles.shootingstar.gap.extract",
+    "sounds": [
+      {
+        "name": "shootingstar:gap_extract"
+      }
+    ]
+  },
+  "gap.send": {
+    "subtitle": "subtitles.shootingstar.gap.send",
+    "sounds": [
+      {
+        "name": "shootingstar:gap_send"
+      }
+    ]
+  },
+  "gap.fall": {
+    "subtitle": "subtitles.shootingstar.gap.fall",
+    "sounds": [
+      {
+        "name": "shootingstar:gap_fall"
+      }
+    ]
+  },
+  "gap.inbound": {
+    "subtitle": "subtitles.shootingstar.gap.inbound",
+    "sounds": [
+      {
+        "name": "shootingstar:gap_inbound"
+      }
+    ]
+  },
+  "gap.blast": {
+    "subtitle": "subtitles.shootingstar.gap.blast",
+    "sounds": [
+      {
+        "name": "shootingstar:gap_blast"
+      }
+    ]
+  },
+  "gap.rebuild": {
+    "subtitle": "subtitles.shootingstar.gap.rebuild",
+    "sounds": [
+      {
+        "name": "shootingstar:gap_rebuild"
+      }
+    ]
+  }
+}

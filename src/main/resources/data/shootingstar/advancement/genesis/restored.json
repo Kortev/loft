@@ -1,0 +1,31 @@
+{
+  "parent": "shootingstar:genesis/open",
+  "display": {
+    "icon": {
+      "id": "shootingstar:mirror_grass"
+    },
+    "title": {
+      "translate": "advancements.shootingstar.genesis_restored.title"
+    },
+    "description": {
+      "translate": "advancements.shootingstar.genesis_restored.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "restored": {
+      "trigger": "shootingstar:event",
+      "conditions": {
+        "event": "gap_restored"
+      }
+    }
+  },
+  "requirements": [
+    [
+      "restored"
+    ]
+  ]
+}

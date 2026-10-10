@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "R": {
+      "item": "minecraft:recovery_compass"
+    },
+    "E": {
+      "item": "minecraft:echo_shard"
+    },
+    "S": {
+      "item": "minecraft:nether_star"
+    },
+    "H": {
+      "item": "minecraft:heavy_core"
+    }
+  },
+  "pattern": [
+    " R ",
+    "ESE",
+    " H "
+  ],
+  "result": {
+    "count": 1,
+    "id": "shootingstar:genesis_key"
+  }
+}

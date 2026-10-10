@@ -1,0 +1,115 @@
+plugins {
+	id 'fabric-loom' version "${loom_version}"
+	id 'maven-publish'
+}
+
+// This build makes every one of kortev's mods, each in its own jar: The Shooting Star here at the root, and
+// Chitty Chitty Bang Bang in chitty/. They are all set up the same way, against the same Minecraft and Fabric, here and
+// for all of them at once, so that each one's source sets exist before the test harness below puts them together.
+allprojects {
+	apply plugin: 'fabric-loom'
+	apply plugin: 'maven-publish'
+
+	version = rootProject.mod_version
+	group = rootProject.maven_group
+
+	loom {
+		splitEnvironmentSourceSets()
+	}
+
+	dependencies {
+		minecraft "com.mojang:minecraft:${rootProject.minecraft_version}"
+		mappings "net.fabricmc:yarn:${rootProject.yarn_mappings}:v2"
+		modImplementation "net.fabricmc:fabric-loader:${rootProject.loader_version}"
+		modImplementation "net.fabricmc.fabric-api:fabric-api:${rootProject.fabric_version}"
+	}
+
+	processResources {
+		inputs.property "version", rootProject.mod_version
+
+		filesMatching("fabric.mod.json") {
+			expand "version": rootProject.mod_version
+		}
+	}
+
+	tasks.withType(JavaCompile).configureEach {
+		it.options.release = 21
+		it.options.encoding = "UTF-8"
+	}
+
+	java {
+		sourceCompatibility = JavaVersion.VERSION_21
+		targetCompatibility = JavaVersion.VERSION_21
+	}
+}
+
+base {
+	archivesName = project.archives_base_name
+}
+
+def chittyProject = project(":chitty")
+
+// Test harness mod: server game tests plus client self tests that film a full strike, a Ginnungagap or a drive in
+// Chitty. It loads every mod in the build together, as a server with all of them installed would.
+sourceSets {
+	gametest {
+		compileClasspath += sourceSets.main.compileClasspath + sourceSets.main.output + sourceSets.client.compileClasspath + sourceSets.client.output
+		runtimeClasspath += sourceSets.main.runtimeClasspath + sourceSets.main.output + sourceSets.client.runtimeClasspath + sourceSets.client.output
+		// Only Chitty's own classes and resources: her classpath has this project on it again.
+		compileClasspath += chittyProject.sourceSets.main.output + chittyProject.sourceSets.client.output
+		runtimeClasspath += chittyProject.sourceSets.main.output + chittyProject.sourceSets.client.output
+	}
+	// No code of its own: what the dev client and server run, every mod in the build together.
+	allMods {
+		runtimeClasspath += sourceSets.main.runtimeClasspath + sourceSets.main.output + sourceSets.client.runtimeClasspath + sourceSets.client.output
+		runtimeClasspath += chittyProject.sourceSets.main.output + chittyProject.sourceSets.client.output
+	}
+}
+
+loom {
+	mods {
+		"shootingstar" {
+			sourceSet sourceSets.main
+			sourceSet sourceSets.client
+		}
+		"chitty" {
+			sourceSet "main", chittyProject
+			sourceSet "client", chittyProject
+		}
+		"shootingstar-gametest" {
+			sourceSet sourceSets.gametest
+		}
+	}
+
+	runs {
+		client {
+			source sourceSets.allMods
+		}
+		server {
+			source sourceSets.allMods
+		}
+		gametest {
+			server()
+			name = "Game Test"
+			vmArg "-Dfabric-api.gametest"
+			vmArg "-Dfabric-api.gametest.report-file=${project.layout.buildDirectory.get().asFile}/gametest/junit.xml"
+			runDir "build/gametest"
+			source sourceSets.gametest
+		}
+		genworld {
+			server()
+			name = "Generate Self Test World"
+			vmArg "-Dshootingstar.genworld=true"
+			runDir "build/selftest-server"
+			source sourceSets.gametest
+		}
+		selftest {
+			client()
+			name = "Client Self Test"
+			vmArg "-Dshootingstar.selftest=${project.findProperty('selftest') ?: 'gap'}"
+			runDir "build/selftest"
+			source sourceSets.gametest
+			programArgs "--quickPlaySingleplayer", "selftest", "--width", "1280", "--height", "720"
+		}
+	}
+}

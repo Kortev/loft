@@ -1,0 +1,105 @@
+{
+  "vertex": "shootingstar:ss_debris",
+  "fragment": "shootingstar:ss_debris",
+  "samplers": [
+    {
+      "name": "Sampler0"
+    }
+  ],
+  "uniforms": [
+    {
+      "name": "ModelViewMat",
+      "type": "matrix4x4",
+      "count": 16,
+      "values": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ]
+    },
+    {
+      "name": "ProjMat",
+      "type": "matrix4x4",
+      "count": 16,
+      "values": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ]
+    },
+    {
+      "name": "LightDir",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        1.0,
+        0
+      ]
+    },
+    {
+      "name": "SkyLight",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.6,
+        0.65,
+        0.75
+      ]
+    },
+    {
+      "name": "FireLight",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "name": "FirePos",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "name": "FireRange",
+      "type": "float",
+      "count": 1,
+      "values": [
+        64.0
+      ]
+    }
+  ]
+}

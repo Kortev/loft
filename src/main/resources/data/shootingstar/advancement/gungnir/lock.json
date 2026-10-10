@@ -1,0 +1,31 @@
+{
+  "parent": "shootingstar:root",
+  "display": {
+    "icon": {
+      "id": "shootingstar:gungnir_uplink"
+    },
+    "title": {
+      "translate": "advancements.shootingstar.gungnir_lock.title"
+    },
+    "description": {
+      "translate": "advancements.shootingstar.gungnir_lock.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "lock": {
+      "trigger": "shootingstar:event",
+      "conditions": {
+        "event": "gungnir_lock"
+      }
+    }
+  },
+  "requirements": [
+    [
+      "lock"
+    ]
+  ]
+}

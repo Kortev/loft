@@ -1,0 +1,33 @@
+{
+	"schemaVersion": 1,
+	"id": "shootingstar-gametest",
+	"version": "1.0.0",
+	"name": "The Shooting Star test harness",
+	"description": "Development only: game tests and client self tests for The Shooting Star and Chitty Chitty Bang Bang (Chitty and the Vulgarian airship).",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"io.github.kortev.shootingstar.test.WorldGenHelper"
+		],
+		"fabric-gametest": [
+			"io.github.kortev.shootingstar.test.DataGameTests",
+			"io.github.kortev.shootingstar.test.StrikeGameTests",
+			"io.github.kortev.shootingstar.test.GapGameTests",
+			"io.github.kortev.shootingstar.test.ChittyGameTests",
+			"io.github.kortev.shootingstar.test.AirshipGameTests"
+		],
+		"client": [
+			"io.github.kortev.shootingstar.test.ClientSelfTest",
+			"io.github.kortev.shootingstar.test.GapSelfTest",
+			"io.github.kortev.shootingstar.test.ChittySelfTest"
+		]
+	},
+	"depends": {
+		"shootingstar": "*",
+		"chitty": "*",
+		"fabric-gametest-api-v1": "*"
+	},
+	"mixins": [
+		"shootingstar-gametest.mixins.json"
+	]
+}

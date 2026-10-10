@@ -1,0 +1,23 @@
+{
+	"required": true,
+	"package": "io.github.kortev.shootingstar.client.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"client": [
+		"BackgroundRendererMixin",
+		"CameraMixin",
+		"EntityLookMixin",
+		"GameRendererMixin",
+		"HeldItemRendererMixin",
+		"MusicTrackerMixin",
+		"PlayerArmPoseMixin",
+		"VoidCameraMixin",
+		"VoidOverlayMixin",
+		"VoidPlayerMixin",
+		"VoidSoundMixin",
+		"VoidToastMixin",
+		"WorldRendererMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

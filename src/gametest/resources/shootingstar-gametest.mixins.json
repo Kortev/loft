@@ -1,0 +1,16 @@
+{
+	"required": true,
+	"package": "io.github.kortev.shootingstar.test.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"client": [
+		"CaptureCameraMixin",
+		"MinecraftClientCaptureMixin",
+		"RenderTickCounterMixin",
+		"SoundManagerMixin",
+		"WorldRendererAccessor",
+		"BuiltChunkStorageAccessor"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

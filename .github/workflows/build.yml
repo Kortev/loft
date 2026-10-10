@@ -1,0 +1,64 @@
+name: build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build
+        run: ./gradlew build --stacktrace
+      # One download with every mod's jar: The Shooting Star and Chitty Chitty Bang Bang.
+      - name: Collect the jars
+        run: |
+          mkdir -p dist
+          cp build/libs/*.jar chitty/build/libs/*.jar dist/
+          ls -la dist
+      - name: Check the jars
+        run: python3 .github/scripts/check-jars.py dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mods
+          path: dist/*.jar
+
+  gametest:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Game tests
+        run: |
+          mkdir -p build/gametest
+          echo "eula=true" > build/gametest/eula.txt
+          ./gradlew runGametest --stacktrace || { cat build/gametest/junit.xml; exit 1; }
+
+  # Dev helper: prints the jars into the job logs in two halves so they can be recovered from the logs.
+  print-jar:
+    needs: build
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        part: [0, 1]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          name: mods
+          path: jar
+      - name: Jar
+        run: |
+          ls -la jar
+          python3 .github/scripts/print-file.py --part ${{ matrix.part }} --parts 2 $(ls jar/*.jar | grep -v sources)

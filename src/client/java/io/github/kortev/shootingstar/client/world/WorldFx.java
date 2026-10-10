@@ -1,0 +1,903 @@
+package io.github.kortev.shootingstar.client.world;
+
+import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.blaze3d.systems.RenderSystem;
+import io.github.kortev.shootingstar.client.ClientStrike;
+import io.github.kortev.shootingstar.client.ClientStrikes;
+import io.github.kortev.shootingstar.client.gfx.Fx;
+import io.github.kortev.shootingstar.client.gfx.Mesh;
+import io.github.kortev.shootingstar.client.gfx.Post;
+import io.github.kortev.shootingstar.client.gfx.Shaders;
+import io.github.kortev.shootingstar.client.gfx.Target;
+import io.github.kortev.shootingstar.strike.StrikeTimeline;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.Framebuffer;
+import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.VertexFormat;
+import net.minecraft.client.render.VertexFormats;
+import net.minecraft.client.texture.Sprite;
+import net.minecraft.client.texture.SpriteAtlasTexture;
+import net.minecraft.client.world.ClientWorld;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.Vec3d;
+import org.jetbrains.annotations.Nullable;
+import org.joml.Matrix4f;
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
+import org.joml.Vector4f;
+import org.lwjgl.opengl.GL11;
+
+/**
+ * The strike in the world: the falling star, the fireball, the condensation shell, the shock ring,
+ * flying debris, fire and dust clouds, then the impact frames and grading over the whole picture.
+ * Light goes into an HDR buffer (depth-tested against the world) that is bloomed and laid over the
+ * frame, so the fireball glows instead of clipping.
+ */
+public final class WorldFx {
+	private static final List<ImpactScene> SCENES = new ArrayList<>();
+	private static final Target DEPTH = new Target(true, false);
+	private static final Target FX = new Target(true, true);
+	private static final Target COPY = new Target(false, false);
+	private static final Fx BATCH = new Fx();
+	private static final float[][] FACES = {
+			{1, 0, 0, 1, -1, -1, 1, 1, -1, 1, 1, 1, 1, -1, 1},
+			{-1, 0, 0, -1, -1, 1, -1, 1, 1, -1, 1, -1, -1, -1, -1},
+			{0, 1, 0, -1, 1, -1, -1, 1, 1, 1, 1, 1, 1, 1, -1},
+			{0, -1, 0, -1, -1, 1, -1, -1, -1, 1, -1, -1, 1, -1, 1},
+			{0, 0, 1, 1, -1, 1, 1, 1, 1, -1, 1, 1, -1, -1, 1},
+			{0, 0, -1, -1, -1, -1, -1, 1, -1, 1, 1, -1, 1, -1, -1}};
+	@Nullable
+	private static Mesh sphere;
+
+	private record Grade(int mode, float mix, float cx, float cy, float zoom, float warp, float warpRadius, float chroma,
+			float exposure, float tint, float flash, float dust, float hazeX, float hazeY, float hazeW, float hazeH, float haze,
+			Trail trail) {
+		Grade(int mode, float mix, float cx, float cy, float zoom, float warp, float warpRadius, float chroma, float exposure,
+				float tint, float flash, float dust, float hazeX, float hazeY, float hazeW, float hazeH, float haze) {
+			this(mode, mix, cx, cy, zoom, warp, warpRadius, chroma, exposure, tint, flash, dust, hazeX, hazeY, hazeW, hazeH, haze,
+					Trail.NONE);
+		}
+
+		Grade withTrail(Trail t) {
+			return new Grade(mode, mix, cx, cy, zoom, warp, warpRadius, chroma, exposure, tint, flash, dust, hazeX, hazeY, hazeW,
+					hazeH, haze, t);
+		}
+	}
+
+	/** The inbound round's shock cone on screen: from the head (a) back along the trail (b). */
+	private record Trail(float ax, float ay, float bx, float by, float width, float strength) {
+		static final Trail NONE = new Trail(0.5F, 0.5F, 0.5F, 0.5F, 0.05F, 0.0F);
+	}
+
+	private record PuffRef(ImpactScene.Puff puff, ImpactScene scene, double distance) {
+	}
+
+	/**
+	 * A point light on the world: position relative to the camera, the distance at which it has fallen
+	 * to half, colour times intensity, and how far it wraps round surfaces turned away from it.
+	 */
+	private record Light(float x, float y, float z, float range, float r, float g, float b, float wrap) {
+		/** How much this light matters from the camera, for picking the strongest few. */
+		float weight() {
+			float d2 = x * x + y * y + z * z;
+			return (r + g + b) * range * range / (range * range + d2);
+		}
+	}
+
+	private WorldFx() {
+	}
+
+	public static void add(ImpactScene scene) {
+		SCENES.add(scene);
+	}
+
+	public static void clear() {
+		SCENES.clear();
+	}
+
+	public static void tick(ClientWorld world) {
+		for (Iterator<ImpactScene> it = SCENES.iterator(); it.hasNext(); ) {
+			ImpactScene scene = it.next();
+			scene.tick(world);
+			if (scene.done()) {
+				it.remove();
+			}
+		}
+	}
+
+	// --- frame -----------------------------------------------------------------------------
+
+	public static void render(WorldRenderContext context) {
+		MinecraftClient client = MinecraftClient.getInstance();
+		ClientWorld world = context.world();
+		if (!Shaders.ready() || world == null || client.player == null) {
+			return;
+		}
+		float tickDelta = context.tickCounter().getTickDelta(false);
+		List<ClientStrike> inbound = new ArrayList<>();
+		for (ClientStrike strike : ClientStrikes.all()) {
+			double t = strike.time(tickDelta);
+			if (!strike.impacted && t >= StrikeTimeline.INBOUND - 2) {
+				inbound.add(strike);
+			}
+		}
+		Vec3d cam = context.camera().getPos();
+		Matrix4f view = new Matrix4f(context.positionMatrix());
+		Matrix4f proj = new Matrix4f(context.projectionMatrix());
+		Grade grade = grade(client, tickDelta, cam, view, proj);
+		if (SCENES.isEmpty() && inbound.isEmpty() && grade == null) {
+			return;
+		}
+		if (sphere == null) {
+			sphere = Mesh.sphere(64, 32);
+		}
+		Framebuffer main = client.getFramebuffer();
+		int w = main.textureWidth;
+		int h = main.textureHeight;
+		Vector3f right = new Vector3f(view.m00(), view.m10(), view.m20());
+		Vector3f up = new Vector3f(view.m01(), view.m11(), view.m21());
+		float far = proj.m32() / (projA(proj) + 1.0F);
+		RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+
+		if (!SCENES.isEmpty() || !inbound.isEmpty()) {
+			// Solid debris goes straight into the world so it is lit, depth-tested and shows up in the depth copy.
+			main.beginWrite(true);
+			for (ImpactScene scene : SCENES) {
+				drawDebris(world, scene, cam, view, proj, tickDelta);
+			}
+
+			DEPTH.ensure(w, h);
+			DEPTH.copyDepthFrom(main);
+			List<Light> lights = lights(inbound, tickDelta, cam);
+			if (!lights.isEmpty()) {
+				COPY.ensure(w, h);
+				COPY.copyColorFrom(main);
+			}
+			FX.ensure(w, h);
+			FX.copyDepthFrom(main);
+			FX.bind();
+			RenderSystem.colorMask(true, true, true, true);
+			RenderSystem.clearColor(0.0F, 0.0F, 0.0F, 0.0F);
+			RenderSystem.clear(GL11.GL_COLOR_BUFFER_BIT, MinecraftClient.IS_SYSTEM_MAC);
+			if (!lights.isEmpty()) {
+				drawLights(lights, view, proj, w, h, Math.max(0.3F, daylight(world, tickDelta)));
+			}
+
+			for (ClientStrike strike : inbound) {
+				drawStar(client, strike, strike.time(tickDelta), cam, view, proj, right, up, far);
+			}
+			for (ImpactScene scene : SCENES) {
+				drawBlast(scene, scene.age + tickDelta, cam, view, proj, right, up);
+			}
+			drawSmoke(world, cam, view, proj, right, up, tickDelta, w, h);
+
+			Post.begin();
+			int[] bloom = Post.bloom(FX.color(), w, h, 1.0F);
+			main.beginWrite(true);
+			RenderSystem.enableBlend();
+			RenderSystem.blendFuncSeparate(GlStateManager.SrcFactor.ONE, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA,
+					GlStateManager.SrcFactor.ZERO, GlStateManager.DstFactor.ONE);
+			RenderSystem.setShaderTexture(0, FX.color());
+			RenderSystem.setShaderTexture(1, bloom[0]);
+			RenderSystem.setShaderTexture(2, bloom[1]);
+			RenderSystem.setShaderTexture(3, bloom[2]);
+			// A crisp, drawn look: a little glow round the fire, not a photographic bloom.
+			Shaders.set(Shaders.fxcomp, "StreakStrength", 0.35F);
+			Shaders.set(Shaders.fxcomp, "Dirt", 0.4F);
+			Shaders.set(Shaders.fxcomp, "BloomStrength", 0.55F);
+			Shaders.set(Shaders.fxcomp, "WideStrength", 0.35F);
+			Post.quad(Shaders.fxcomp);
+			RenderSystem.disableBlend();
+		}
+
+		if (grade != null) {
+			if (SCENES.isEmpty() && inbound.isEmpty()) {
+				DEPTH.ensure(w, h);
+				DEPTH.copyDepthFrom(main);
+			}
+			COPY.ensure(w, h);
+			COPY.copyColorFrom(main);
+			main.beginWrite(true);
+			Post.begin();
+			RenderSystem.setShaderTexture(0, COPY.color());
+			RenderSystem.setShaderTexture(1, DEPTH.depth());
+			ShaderSet.impact(grade, w, h, proj, (float) (world.getTime() + tickDelta));
+			Post.quad(Shaders.impact);
+		}
+
+		for (int i = 0; i < 4; i++) {
+			RenderSystem.setShaderTexture(i, 0);
+		}
+		RenderSystem.disableBlend();
+		RenderSystem.defaultBlendFunc();
+		RenderSystem.enableDepthTest();
+		RenderSystem.depthFunc(GL11.GL_LEQUAL);
+		RenderSystem.depthMask(true);
+		RenderSystem.enableCull();
+		main.beginWrite(true);
+	}
+
+	/** Uniform plumbing for the impact pass, kept apart from the drawing code. */
+	private static final class ShaderSet {
+		static void impact(Grade g, int w, int h, Matrix4f proj, float time) {
+			Shaders.setInt(Shaders.impact, "Mode", g.mode());
+			Shaders.set(Shaders.impact, "Mix", g.mix());
+			Shaders.set(Shaders.impact, "Center", g.cx(), g.cy());
+			Shaders.set(Shaders.impact, "ScreenSize", w, h);
+			Shaders.set(Shaders.impact, "Time", time);
+			Shaders.set(Shaders.impact, "ProjA", projA(proj));
+			Shaders.set(Shaders.impact, "ProjB", proj.m32());
+			Shaders.set(Shaders.impact, "Zoom", g.zoom());
+			Shaders.set(Shaders.impact, "Warp", g.warp());
+			Shaders.set(Shaders.impact, "WarpRadius", g.warpRadius());
+			Shaders.set(Shaders.impact, "Chroma", g.chroma());
+			Shaders.set(Shaders.impact, "Darken", 0.0F);
+			Shaders.set(Shaders.impact, "Exposure", g.exposure() * (1.0F - 0.12F * g.dust()));
+			Shaders.set(Shaders.impact, "Tint", 0.55F * g.tint() + 0.07F * g.dust(), 0.22F * g.tint() + 0.03F * g.dust(),
+					0.06F * g.tint());
+			Shaders.set(Shaders.impact, "HazeCenter", g.hazeX(), g.hazeY());
+			Shaders.set(Shaders.impact, "HazeSize", g.hazeW(), g.hazeH());
+			Shaders.set(Shaders.impact, "Haze", g.haze());
+			Shaders.set(Shaders.impact, "TrailA", g.trail().ax(), g.trail().ay());
+			Shaders.set(Shaders.impact, "TrailB", g.trail().bx(), g.trail().by());
+			Shaders.set(Shaders.impact, "TrailWidth", g.trail().width());
+			Shaders.set(Shaders.impact, "Trail", g.trail().strength());
+			Shaders.set(Shaders.impact, "Flash", g.flash());
+			Shaders.set(Shaders.impact, "FlashColor", 1.0F, 0.98F, 0.94F);
+		}
+	}
+
+	// --- the falling star ------------------------------------------------------------------
+
+	/** Distance of the round from the target along its path: slow at first, then a streak at the end. */
+	public static double range(double length, double p) {
+		p = MathHelper.clamp(p, 0.0, 1.0);
+		return length * (1.0 - p * p);
+	}
+
+	/**
+	 * The round's path, chosen once. On the shooter's camera it starts high in the upper right of the
+	 * witness shot, a few hundred blocks out, and comes down on the target: the whole fall crosses the
+	 * frame as a diagonal streak, still travelling right to left as it did in the feed's last shot.
+	 * Anyone else sees it come in at about 37 degrees from beyond and to the side of the target as seen
+	 * from where they stand. Null while the shooter's feed still covers the screen.
+	 */
+	@Nullable
+	private static Vec3d approach(MinecraftClient client, ClientStrike strike, double t, Vec3d cam, Matrix4f view, Matrix4f proj) {
+		if (strike.approach != null) {
+			return strike.approach;
+		}
+		Vec3d c = strike.center;
+		if (strike.cinematic() && ClientStrikes.shotActive(strike, t)) {
+			if (strike.witness == null) {
+				return null;
+			}
+			Vector3f forward = new Vector3f(-view.m02(), -view.m12(), -view.m22());
+			Vector3f across = right(view).mul(0.55F / proj.m00());
+			Vector3f high = new Vector3f(view.m01(), view.m11(), view.m21()).mul(0.8F / proj.m11());
+			Vector3f ray = forward.add(across).add(high).normalize();
+			Vec3d path = cam.add(ray.x * 560.0, ray.y * 560.0, ray.z * 560.0).subtract(c);
+			strike.approachLength = path.length();
+			strike.approach = path.normalize();
+		} else if (strike.cinematic() && t < StrikeTimeline.INBOUND) {
+			return null;
+		} else {
+			Vec3d viewer = client.player.getPos();
+			Vec3d away = new Vec3d(c.x - viewer.x, 0, c.z - viewer.z);
+			away = away.lengthSquared() < 1.0E-4 ? new Vec3d(1, 0, 0) : away.normalize();
+			Vec3d side = new Vec3d(away.z, 0, -away.x);
+			strike.approachLength = 3600.0;
+			strike.approach = away.multiply(0.6).add(side.multiply(0.4)).add(0, 0.55, 0).normalize();
+		}
+		return strike.approach;
+	}
+
+	private static void drawStar(MinecraftClient client, ClientStrike strike, double t, Vec3d cam, Matrix4f view, Matrix4f proj,
+			Vector3f right, Vector3f up, float far) {
+		double p = MathHelper.clamp((t - StrikeTimeline.INBOUND) / (StrikeTimeline.IMPACT - StrikeTimeline.INBOUND), 0.0, 1.0);
+		Vec3d c = strike.center;
+		Vec3d dir = approach(client, strike, t, cam, view, proj);
+		if (dir == null) {
+			return;
+		}
+		double range = range(strike.approachLength, p);
+		Vector3f head = rel(c.x + dir.x * range, c.y + dir.y * range, c.z + dir.z * range, cam);
+		float trail = (float) (500.0 + 1400.0 * p * p);
+		Vector3f tail = new Vector3f(head).add((float) dir.x * trail, (float) dir.y * trail, (float) dir.z * trail);
+		// Keep everything inside the far plane: pulling points towards the eye leaves them where they are on screen.
+		float reach = Math.max(head.length(), tail.length());
+		float pull = Math.min(1.0F, far * 0.85F / Math.max(reach, 1.0F));
+		head.mul(pull);
+		tail.mul(pull);
+		float distance = head.length();
+		float core = Math.max(2.0F * pull, distance * 0.012F);
+		float fadeIn = (float) MathHelper.clamp((t - StrikeTimeline.INBOUND + 2) / 6.0, 0.0, 1.0);
+		Vector3f eye = new Vector3f();
+
+		Fx halo = BATCH.begin(Fx.BLOB, 1.0F, view, proj, right, up);
+		halo.sprite(head, core * 10.0F, 0, Fx.argb(1.0F, 0.5F, 0.22F, 0.3F * fadeIn));
+		halo.end(true, 1.0F + 1.5F * (float) p);
+
+		Fx glow = BATCH.begin(Fx.BEAM, 0, view, proj, right, up);
+		glow.beam(head, tail, eye, core * 3.2F, Fx.argb(1.0F, 0.5F, 0.2F, 0.7F * fadeIn), Fx.argb(1.0F, 0.3F, 0.1F, 0.0F));
+		glow.end(true, 1.6F);
+		Fx beam = BATCH.begin(Fx.BEAM, 0, view, proj, right, up);
+		beam.beam(head, tail, eye, core * 0.9F, Fx.argb(1.0F, 0.9F, 0.7F, fadeIn), Fx.argb(1.0F, 0.45F, 0.15F, 0.0F));
+		beam.end(true, 5.0F);
+
+		Fx star = BATCH.begin(Fx.SPIKES, 0, view, proj, right, up);
+		star.sprite(head, core * 5.0F, (float) (t * 0.02), Fx.argb(1.0F, 0.96F, 0.88F, fadeIn));
+		star.end(true, 7.0F + 10.0F * (float) (p * p));
+
+	}
+
+	// --- light on the world ----------------------------------------------------------------
+
+	/**
+	 * The lights the strikes cast this frame, strongest first (at most four): the round as it comes
+	 * in, the flash of the hit, the fireball, and the molten bowl glowing long after.
+	 */
+	private static List<Light> lights(List<ClientStrike> inbound, float tickDelta, Vec3d cam) {
+		List<Light> lights = new ArrayList<>();
+		for (ClientStrike strike : inbound) {
+			Vec3d dir = strike.approach;
+			double t = strike.time(tickDelta);
+			if (dir == null || t < StrikeTimeline.INBOUND) {
+				continue;
+			}
+			double p = MathHelper.clamp((t - StrikeTimeline.INBOUND) / (StrikeTimeline.IMPACT - StrikeTimeline.INBOUND), 0.0, 1.0);
+			Vec3d head = strike.center.add(dir.multiply(range(strike.approachLength, p)));
+			float i = (float) (12.0 * p * p * p * p);
+			lights.add(light(head, cam, (float) (20.0 + 60.0 * p), 1.0F * i, 0.86F * i, 0.68F * i, 0.2F));
+		}
+		for (ImpactScene scene : SCENES) {
+			double e = scene.age + tickDelta;
+			if (e < 0) {
+				continue;
+			}
+			int r = scene.radius;
+			if (e < 14) {
+				float i = (float) (24.0 * Math.exp(-e / 1.4));
+				lights.add(light(scene.center.add(0, r * 0.12, 0), cam, r * 1.0F, i, 0.95F * i, 0.88F * i, 0.35F));
+			}
+			double dome = scene.domeRadius(e);
+			float fire = (float) (2.2 * scene.domeIntensity(e) * flicker(e, 0.0));
+			if (fire > 0.02F) {
+				double rise = Math.max(0.0, e - 8.0) * r * 0.004;
+				lights.add(light(scene.center.add(0, dome * 0.55 + rise, 0), cam, (float) Math.max(r * 0.35, dome * 1.6), fire,
+						0.5F * fire, 0.17F * fire, 0.3F));
+			}
+			for (ImpactScene.Bolt bolt : scene.bolts) {
+				float b = 5.0F * bolt.brightness();
+				if (b > 0.05F) {
+					lights.add(light(bolt.middle, cam, r * 0.9F, 0.75F * b, 0.8F * b, b, 0.4F));
+				}
+			}
+			if (e > 8) {
+				float glow = (float) (1.1 * Math.min(1.0, (e - 8) / 40.0) * Math.exp(-e / 3000.0) * flicker(e, 7.0)
+						* (1.0 - smooth((e - 700) / 200.0)));
+				if (glow > 0.01F) {
+					lights.add(light(scene.center.add(0, 3, 0), cam, (float) scene.bowl, glow, 0.32F * glow, 0.08F * glow, 0.1F));
+				}
+			}
+		}
+		lights.sort((a, b) -> Float.compare(b.weight(), a.weight()));
+		return lights.size() > 4 ? lights.subList(0, 4) : lights;
+	}
+
+	private static Light light(Vec3d pos, Vec3d cam, float range, float r, float g, float b, float wrap) {
+		return new Light((float) (pos.x - cam.x), (float) (pos.y - cam.y), (float) (pos.z - cam.z), range, r, g, b, wrap);
+	}
+
+	/** Fire light never holds still. */
+	private static double flicker(double e, double seed) {
+		return 0.86 + 0.08 * Math.sin(e * 1.7 + seed) + 0.06 * Math.sin(e * 4.3 + seed * 2.1);
+	}
+
+	private static double smooth(double x) {
+		x = MathHelper.clamp(x, 0.0, 1.0);
+		return x * x * (3.0 - 2.0 * x);
+	}
+
+	private static void drawLights(List<Light> lights, Matrix4f view, Matrix4f proj, int w, int h, float ambient) {
+		Post.begin();
+		RenderSystem.enableBlend();
+		RenderSystem.blendFuncSeparate(GlStateManager.SrcFactor.ONE, GlStateManager.DstFactor.ONE, GlStateManager.SrcFactor.ZERO,
+				GlStateManager.DstFactor.ONE);
+		RenderSystem.setShaderTexture(0, COPY.color());
+		RenderSystem.setShaderTexture(1, DEPTH.depth());
+		Shaders.set(Shaders.light, "InvViewProj", new Matrix4f(proj).mul(view).invert());
+		Shaders.set(Shaders.light, "ScreenSize", w, h);
+		Shaders.set(Shaders.light, "Ambient", ambient);
+		// The world's own fog: start fading the light a little before it, gone where the fog is solid.
+		float fogEnd = RenderSystem.getShaderFogEnd();
+		float fogStart = Math.min(RenderSystem.getShaderFogStart(), fogEnd * 0.8F);
+		Shaders.set(Shaders.light, "Fog", fogStart * 0.85F, Math.max(fogEnd, fogStart * 0.85F + 1.0F));
+		for (int i = 0; i < 4; i++) {
+			Light l = i < lights.size() ? lights.get(i) : null;
+			if (l == null) {
+				Shaders.set(Shaders.light, "Light" + i + "Pos", 0.0F, 0.0F, 0.0F, 1.0F);
+				Shaders.set(Shaders.light, "Light" + i + "Color", 0.0F, 0.0F, 0.0F, 0.0F);
+			} else {
+				Shaders.set(Shaders.light, "Light" + i + "Pos", l.x(), l.y(), l.z(), l.range());
+				Shaders.set(Shaders.light, "Light" + i + "Color", l.r(), l.g(), l.b(), l.wrap());
+			}
+		}
+		Post.quad(Shaders.light);
+		RenderSystem.disableBlend();
+	}
+
+	// --- the blast -------------------------------------------------------------------------
+
+	private static void drawBlast(ImpactScene scene, double e, Vec3d cam, Matrix4f view, Matrix4f proj, Vector3f right,
+			Vector3f up) {
+		int r = scene.radius;
+		Vector3f c = rel(scene.center.x, scene.center.y, scene.center.z, cam);
+
+		// The flash at the moment of impact: a searing point; the whole picture flashing is the grading's job.
+		if (e < 10) {
+			Fx flash = BATCH.begin(Fx.BLOB, 1.0F, view, proj, right, up);
+			flash.sprite(new Vector3f(c).add(0, r * 0.1F, 0), (float) (r * (0.45 + e * 0.06)), 0, Fx.argb(1.0F, 0.92F, 0.8F, 1.0F));
+			flash.end(true, (float) (14.0 * Math.exp(-e / 1.3)));
+		}
+
+		// Condensation shell racing out ahead of the fireball.
+		if (e > 0.5 && e < 44) {
+			double rs = r * (0.35 + 2.3 * (1.0 - Math.exp(-e / 9.0)));
+			float k = (float) Math.sin(Math.PI * MathHelper.clamp((e - 0.5) / 43.5, 0.0, 1.0));
+			Matrix4f model = new Matrix4f().translation(c).scale((float) rs, (float) (rs * 0.72), (float) rs);
+			RenderSystem.enableDepthTest();
+			additive();
+			Shaders.set(Shaders.shell, "GlowColor", 0.85F, 0.9F, 1.0F);
+			Shaders.set(Shaders.shell, "Intensity", 0.9F * k);
+			Shaders.set(Shaders.shell, "Falloff", 3.5F);
+			Shaders.set(Shaders.shell, "Toon", 1.0F);
+			sphere.draw(Shaders.shell, new Matrix4f(view).mul(model), proj);
+		}
+
+		// The fireball: a dome of flat bands of fire, white in the middle, drawn like the impact frames; it is eaten
+		// away as it cools. Opaque and writing depth, so the smoke behind it stays behind it.
+		double dome = scene.domeRadius(e);
+		double intensity = scene.domeIntensity(e);
+		if (intensity > 0.03 && dome > 0.5) {
+			float rise = (float) (Math.max(0.0, e - 8.0) * r * 0.004);
+			Matrix4f model = new Matrix4f().translation(c.x, c.y - (float) dome * 0.12F + rise, c.z)
+					.scale((float) dome, (float) dome * 0.86F, (float) dome);
+			RenderSystem.enableDepthTest();
+			RenderSystem.depthMask(true);
+			RenderSystem.disableCull();
+			RenderSystem.enableBlend();
+			RenderSystem.blendFuncSeparate(GlStateManager.SrcFactor.ONE, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA,
+					GlStateManager.SrcFactor.ONE, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA);
+			Shaders.set(Shaders.plasma, "Toon", 1.0F);
+			Shaders.set(Shaders.plasma, "Time", (float) (e * 0.04));
+			Shaders.set(Shaders.plasma, "Intensity", (float) intensity);
+			Shaders.set(Shaders.plasma, "Heat", (float) MathHelper.clamp(0.9 - e / 110.0, 0.25, 0.9));
+			Shaders.set(Shaders.plasma, "Flow", 0.0F, -1.6F, 0.0F);
+			Shaders.set(Shaders.plasma, "Scale", 1.7F);
+			sphere.draw(Shaders.plasma, new Matrix4f(view).mul(model), proj);
+			Shaders.set(Shaders.plasma, "Toon", 0.0F);
+			RenderSystem.depthMask(false);
+		}
+
+		// The shock front sweeping over the ground: bright while it is still carving, then a dust edge.
+		double front = scene.front(e);
+		if (e > 0.5 && e < scene.waveTicks * 2.4) {
+			float fade = (float) Math.exp(-e / (scene.waveTicks * 0.8));
+			Vector3f ground = new Vector3f(c).add(0, 0.8F, 0);
+			Vector3f u = new Vector3f((float) front, 0, 0);
+			Vector3f v = new Vector3f(0, 0, (float) front);
+			Fx ring = BATCH.begin(Fx.RING, 0.035F, view, proj, right, up);
+			ring.flat(ground, u, v, Fx.argb(1.0F, 0.75F, 0.45F, fade));
+			ring.end(true, 3.5F);
+			Fx edge = BATCH.begin(Fx.RING, 0.16F, view, proj, right, up);
+			edge.flat(ground, u, v, Fx.argb(1.0F, 0.6F, 0.4F, 0.5F * fade));
+			edge.end(true, 1.0F);
+		}
+
+		// Sparks: white-hot streaks flung out of the bowl.
+		if (!scene.sparks.isEmpty()) {
+			Fx sparks = BATCH.begin(Fx.DRAWN_STREAK, 0, view, proj, right, up);
+			Vector3f axis = new Vector3f();
+			for (ImpactScene.Spark s : scene.sparks) {
+				float life = 1.0F - (float) s.age / s.life;
+				Vector3f pos = rel(s.px + (s.x - s.px) * 0.5, s.py + (s.y - s.py) * 0.5, s.pz + (s.z - s.pz) * 0.5, cam);
+				axis.set((float) s.vx, (float) s.vy, (float) s.vz);
+				float speed = axis.length();
+				if (speed < 1.0E-3F) {
+					continue;
+				}
+				if (s.ember) {
+					float flick = 0.55F + 0.45F * MathHelper.sin((float) (s.age + e) * 0.7F + s.seed);
+					float fadeIn = Math.min(1.0F, s.age / 6.0F);
+					sparks.stretched(pos, axis, speed * 2.0F + s.size, s.size,
+							Fx.argb(1.0F, 0.42F + 0.2F * flick, 0.1F + 0.05F * flick, life * flick * fadeIn));
+				} else {
+					sparks.stretched(pos, axis, speed * 1.4F + s.size, s.size, Fx.argb(1.0F, 0.7F + 0.3F * life, 0.35F + 0.4F * life, life));
+				}
+			}
+			sparks.end(true, 4.0F);
+		}
+
+		// Lightning in the ash cloud: a wide blue-white glow, then the white-hot channel inside it.
+		for (ImpactScene.Bolt bolt : scene.bolts) {
+			float b = bolt.brightness();
+			if (b <= 0.01F) {
+				continue;
+			}
+			Fx glow = BATCH.begin(Fx.BEAM, 0, view, proj, right, up);
+			channel(glow, bolt.channel, cam, 1.8F, Fx.argb(0.55F, 0.65F, 1.0F, 0.55F * b));
+			for (List<Vec3d> fork : bolt.forks) {
+				channel(glow, fork, cam, 1.0F, Fx.argb(0.55F, 0.65F, 1.0F, 0.35F * b));
+			}
+			glow.end(true, 3.0F);
+			Fx core = BATCH.begin(Fx.BEAM, 0, view, proj, right, up);
+			channel(core, bolt.channel, cam, 0.22F, Fx.argb(0.92F, 0.95F, 1.0F, b));
+			for (List<Vec3d> fork : bolt.forks) {
+				channel(core, fork, cam, 0.12F, Fx.argb(0.9F, 0.93F, 1.0F, 0.7F * b));
+			}
+			core.end(true, 12.0F);
+		}
+	}
+
+	private static void channel(Fx fx, List<Vec3d> points, Vec3d cam, float width, int argb) {
+		Vector3f eye = new Vector3f();
+		for (int i = 0; i + 1 < points.size(); i++) {
+			Vec3d a = points.get(i);
+			Vec3d c = points.get(i + 1);
+			fx.beam(rel(a.x, a.y, a.z, cam), rel(c.x, c.y, c.z, cam), eye, width, argb, argb);
+		}
+	}
+
+	// --- smoke -----------------------------------------------------------------------------
+
+	/** How much bigger a puff's quad is than the puff, in its shader's units (see ss_smoke). */
+	private static final float PUFF_MARGIN = 1.25F;
+
+	private static void drawSmoke(ClientWorld world, Vec3d cam, Matrix4f view, Matrix4f proj, Vector3f right, Vector3f up,
+			float tickDelta, int w, int h) {
+		List<PuffRef> all = new ArrayList<>();
+		for (ImpactScene scene : SCENES) {
+			for (ImpactScene.Puff p : scene.puffs) {
+				double x = MathHelper.lerp(tickDelta, p.px, p.x) - cam.x;
+				double y = MathHelper.lerp(tickDelta, p.py, p.y) - cam.y;
+				double z = MathHelper.lerp(tickDelta, p.pz, p.z) - cam.z;
+				all.add(new PuffRef(p, scene, x * x + y * y + z * z));
+			}
+		}
+		if (all.isEmpty()) {
+			return;
+		}
+		// Back to front, so nearer smoke covers farther smoke.
+		all.sort((a, b) -> Double.compare(b.distance(), a.distance()));
+		float daylight = daylight(world, tickDelta);
+		RenderSystem.enableDepthTest();
+		RenderSystem.depthMask(false);
+		RenderSystem.disableCull();
+		RenderSystem.enableBlend();
+		RenderSystem.blendFuncSeparate(GlStateManager.SrcFactor.ONE, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA,
+				GlStateManager.SrcFactor.ONE, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA);
+		RenderSystem.setShaderTexture(1, DEPTH.depth());
+		Shaders.set(Shaders.smoke, "ScreenSize", w, h);
+		Shaders.set(Shaders.smoke, "ProjA", projA(proj));
+		Shaders.set(Shaders.smoke, "ProjB", proj.m32());
+		Shaders.set(Shaders.smoke, "Softness", 1.5F);
+		// Every puff in ink first, a little fatter, then every puff's fill over it: the ink only shows round the
+		// outside of each cloud.
+		for (int pass = 0; pass < 2; pass++) {
+			BufferBuilder b = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR_NORMAL);
+			Vector3f rx = new Vector3f();
+			Vector3f uy = new Vector3f();
+			for (PuffRef ref : all) {
+				ImpactScene.Puff p = ref.puff();
+				ImpactScene scene = ref.scene();
+				float x = (float) (MathHelper.lerp(tickDelta, p.px, p.x) - cam.x);
+				float y = (float) (MathHelper.lerp(tickDelta, p.py, p.y) - cam.y);
+				float z = (float) (MathHelper.lerp(tickDelta, p.pz, p.z) - cam.z);
+				float size = MathHelper.lerp(tickDelta, p.prevSize, p.size);
+				float age = p.age + tickDelta;
+				float fadeIn = MathHelper.clamp(age / 4.0F, 0.0F, 1.0F);
+				float fadeOut = MathHelper.clamp((p.life - age) / (p.life * 0.35F), 0.0F, 1.0F);
+				// A puff close to the camera would bury the picture: it breaks up and clears out of the way first.
+				float distance = (float) Math.sqrt(ref.distance());
+				float nearFade = MathHelper.clamp((distance - size * 0.8F) / (size * 2.0F), 0.0F, 1.0F);
+				// How much of the puff is left: it pops in, and breaks up and shrinks away instead of going transparent.
+				float a = fadeIn * fadeOut * nearFade;
+				if (a < 0.02F) {
+					continue;
+				}
+				// Daylight from above plus the fireball's orange light on the smoke around it.
+				double dx = x + cam.x - scene.center.x;
+				double dy = y + cam.y - scene.center.y;
+				double dz = z + cam.z - scene.center.z;
+				double fromFire = Math.sqrt(dx * dx + dy * dy + dz * dz) / Math.max(1.0, scene.radius * 1.6);
+				float fire = (float) (scene.domeIntensity(scene.age + tickDelta) * 0.5 * Math.max(0.0, 1.0 - fromFire));
+				float light = 0.35F + 0.75F * daylight;
+				float red = p.r * light + fire * 0.9F;
+				float green = p.g * light + fire * 0.42F;
+				float blue = p.b * light + fire * 0.12F;
+				// The quad is a quarter bigger than the puff so its billows and ink line never touch the edge.
+				rx.set(right).mul(size * PUFF_MARGIN);
+				uy.set(up).mul(size * PUFF_MARGIN);
+				// The normal's bytes carry the seed (0..1), the spin and the fire glow (over 4), each within -1..1.
+				float spin = p.spin * age * 0.004F;
+				float glow = p.glow * 0.25F;
+				float seed = p.seed * 0.1F;
+				float m = PUFF_MARGIN;
+				vertex(b, x - rx.x - uy.x, y - rx.y - uy.y, z - rx.z - uy.z, -m, -m, red, green, blue, a, seed, spin, glow);
+				vertex(b, x + rx.x - uy.x, y + rx.y - uy.y, z + rx.z - uy.z, m, -m, red, green, blue, a, seed, spin, glow);
+				vertex(b, x + rx.x + uy.x, y + rx.y + uy.y, z + rx.z + uy.z, m, m, red, green, blue, a, seed, spin, glow);
+				vertex(b, x - rx.x + uy.x, y - rx.y + uy.y, z - rx.z + uy.z, -m, m, red, green, blue, a, seed, spin, glow);
+			}
+			Shaders.set(Shaders.smoke, "Pass", (float) pass);
+			Post.draw(b, Shaders.smoke, view, proj);
+		}
+	}
+
+	private static void vertex(BufferBuilder b, float x, float y, float z, float u, float v, float r, float g, float bl, float a,
+			float seed, float spin, float glow) {
+		b.vertex(x, y, z).texture(u, v).color(clamp(r), clamp(g), clamp(bl), clamp(a)).normal(seed, spin, glow);
+	}
+
+	// --- debris ----------------------------------------------------------------------------
+
+	private static void drawDebris(ClientWorld world, ImpactScene scene, Vec3d cam, Matrix4f view, Matrix4f proj, float tickDelta) {
+		if (scene.chunks.isEmpty() || scene.sprites.isEmpty()) {
+			return;
+		}
+		BufferBuilder b = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR_NORMAL);
+		Quaternionf q = new Quaternionf();
+		Vector3f n = new Vector3f();
+		Vector3f corner = new Vector3f();
+		for (ImpactScene.Chunk c : scene.chunks) {
+			float x = (float) (MathHelper.lerp(tickDelta, c.px, c.x) - cam.x);
+			float y = (float) (MathHelper.lerp(tickDelta, c.py, c.y) - cam.y);
+			float z = (float) (MathHelper.lerp(tickDelta, c.pz, c.z) - cam.z);
+			float half = c.size * 0.5F;
+			if (c.landed && c.landedAge > 120) {
+				half *= Math.max(0.0F, 1.0F - (c.landedAge - 120 + tickDelta) / 40.0F);
+			}
+			if (half <= 0.01F) {
+				continue;
+			}
+			q.identity().rotateAxis(MathHelper.lerp(tickDelta, c.prevAngle, c.angle), c.ax, c.ay, c.az);
+			Sprite sprite = scene.sprites.get(c.sprite);
+			float[] tint = scene.tints.get(c.sprite);
+			float u0 = sprite.getMinU();
+			float u1 = sprite.getMaxU();
+			float v0 = sprite.getMinV();
+			float v1 = sprite.getMaxV();
+			float heat = MathHelper.clamp(c.heat, 0.0F, 1.0F);
+			for (float[] f : FACES) {
+				q.transform(n.set(f[0], f[1], f[2]));
+				for (int i = 0; i < 4; i++) {
+					q.transform(corner.set(f[3 + i * 3], f[4 + i * 3], f[5 + i * 3])).mul(half).add(x, y, z);
+					float u = i < 2 ? u0 : u1;
+					float v = i == 0 || i == 3 ? v1 : v0;
+					b.vertex(corner.x, corner.y, corner.z).texture(u, v).color(tint[0], tint[1], tint[2], heat).normal(n.x, n.y, n.z);
+				}
+			}
+		}
+		float angle = world.getSkyAngle(tickDelta) * MathHelper.TAU;
+		float daylight = daylight(world, tickDelta);
+		double e = scene.age + tickDelta;
+		float fire = (float) Math.min(1.5, scene.domeIntensity(e));
+		Vector3f firePos = rel(scene.center.x, scene.center.y + scene.radius * 0.3, scene.center.z, cam);
+		RenderSystem.enableDepthTest();
+		RenderSystem.depthFunc(GL11.GL_LEQUAL);
+		RenderSystem.depthMask(true);
+		RenderSystem.disableBlend();
+		RenderSystem.disableCull();
+		RenderSystem.setShaderTexture(0, SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
+		Shaders.set(Shaders.debris, "LightDir", -MathHelper.sin(angle), Math.max(0.2F, MathHelper.cos(angle)), 0.25F);
+		Shaders.set(Shaders.debris, "SkyLight", 0.25F + 0.5F * daylight, 0.26F + 0.52F * daylight, 0.3F + 0.55F * daylight);
+		Shaders.set(Shaders.debris, "FireLight", 1.6F * fire, 0.7F * fire, 0.25F * fire);
+		Shaders.set(Shaders.debris, "FirePos", firePos);
+		Shaders.set(Shaders.debris, "FireRange", scene.radius * 2.5F);
+		Post.draw(b, Shaders.debris, view, proj);
+	}
+
+	// --- grading and impact frames ---------------------------------------------------------
+
+	/**
+	 * The impact frames, in beats of ticks after the hit: the white flash, a flurry of hard cuts between drawn styles,
+	 * longer held frames while the fireball swells, a last flurry, and a white pop back to the picture at the final
+	 * beat. Each beat's style is one of {@code ss_impact}'s modes (0: the flash).
+	 */
+	private static final float[] FRAME_AT = {0.0F, 1.5F, 3.0F, 4.0F, 5.5F, 6.5F, 8.0F, 12.0F, 13.0F, 18.0F, 19.0F, 24.0F, 25.0F,
+			30.0F, 31.5F, 32.5F, 34.0F, 35.0F, 38.0F, 39.0F, 42.0F};
+	private static final int[] FRAME_MODE = {0, 1, 6, 2, 1, 6, 3, 7, 4, 6, 2, 1, 7, 5, 6, 3, 1, 4, 2, 5};
+
+	/** The impact frame showing {@code e} ticks after the hit, or -1 once they are over. */
+	private static int frameBeat(double e) {
+		if (e < 0.0 || e >= FRAME_AT[FRAME_AT.length - 1]) {
+			return -1;
+		}
+		int beat = 0;
+		while (beat + 1 < FRAME_MODE.length && e >= FRAME_AT[beat + 1]) {
+			beat++;
+		}
+		return beat;
+	}
+
+	@Nullable
+	private static Grade grade(MinecraftClient client, float tickDelta, Vec3d cam, Matrix4f view, Matrix4f proj) {
+		Grade best = null;
+		float bestWeight = 0.0F;
+		Vector3f forward = new Vector3f(-view.m02(), -view.m12(), -view.m22());
+		for (ClientStrike strike : ClientStrikes.all()) {
+			double t = strike.time(tickDelta);
+			boolean cinematic = strike.cinematic();
+			float flash = 0.0F;
+			if (cinematic && t >= StrikeTimeline.INBOUND && t < StrikeTimeline.INBOUND + 8) {
+				// Out of the feed's re-entry whiteout into the world.
+				double k = (t - StrikeTimeline.INBOUND) / 8.0;
+				flash = (float) (1.0 - k * k * (3 - 2 * k));
+			}
+			if (!strike.impacted || strike.scene == null) {
+				Trail trail = inboundTrail(client, strike, t, cam, view, proj);
+				if ((flash > 0.0F || trail != null) && flash >= bestWeight) {
+					Grade g = new Grade(0, 0, 0.5F, 0.5F, 1, 0, 0, 0, 1, 0, flash, 0, 0.5F, 0.5F, 0.1F, 0.1F, 0);
+					best = trail != null ? g.withTrail(trail) : g;
+					bestWeight = Math.max(flash, 0.001F);
+				}
+				continue;
+			}
+			ImpactScene scene = strike.scene;
+			double e = scene.age + tickDelta;
+			if (e > 900) {
+				continue;
+			}
+			Vec3d to = scene.center.subtract(cam);
+			double distance = to.length();
+			double near = MathHelper.clamp(1.0 - distance / (scene.radius * 9.0 + 120.0), 0.0, 1.0);
+			Vector3f dir = new Vector3f((float) to.x, (float) to.y, (float) to.z).normalize();
+			float looking = Math.max(0.0F, forward.dot(dir));
+			float[] screen = screen(scene.center, cam, view, proj);
+			float cx = screen != null ? screen[0] : 0.5F;
+			float cy = screen != null ? screen[1] : 0.5F;
+
+			boolean frames = cinematic || near > 0.25 && looking > 0.55F;
+			int mode = 0;
+			float mix = 0.0F;
+			float zoom = e < 14 ? (float) (1.0 + 0.05 * Math.exp(-e / 4.0)) : 1.0F;
+			int beat = frameBeat(e);
+			if (frames && beat >= 0) {
+				mode = FRAME_MODE[beat];
+				mix = mode == 0 ? 0.0F : 1.0F;
+				// Every cut punches in on the impact, and a held frame keeps creeping closer.
+				double since = e - FRAME_AT[beat];
+				zoom += (float) (0.045 * Math.exp(-since / 1.2) + Math.min(since, 6.0) * 0.006);
+			}
+			double pop = e - FRAME_AT[FRAME_AT.length - 1];
+			float white = (float) (cinematic ? (e < FRAME_AT[1] ? 1.0 : 0.0) : near * (0.35 + 0.65 * looking) * Math.exp(-e / 2.5));
+			if (frames && pop >= 0.0) {
+				// A white pop back to the picture after the last frame.
+				white = Math.max(white, (float) (0.85 * Math.exp(-pop / 0.7)) * (cinematic ? 1.0F : (float) near));
+			}
+			flash = Math.max(flash, white);
+			float chroma = (float) (0.012 * Math.exp(-e / 14.0) * (0.3 + 0.7 * near));
+			float exposure = (float) (1.0 + 0.5 * near * Math.exp(-e / 10.0));
+			float tint = (float) (near * 0.45 * Math.exp(-e / 28.0));
+			// The shock ring as a refraction wave round the impact, sized from where the front is on screen.
+			float warp = 0.0F;
+			float warpRadius = 0.0F;
+			double front = scene.front(e);
+			if (screen != null && e > 1.5 && e < scene.waveTicks * 2.2) {
+				Vec3d side = new Vec3d(right(view).x, 0, right(view).z).normalize().multiply(front);
+				float[] edge = screen(scene.center.add(side), cam, view, proj);
+				if (edge != null) {
+					float aspect = (float) client.getWindow().getFramebufferWidth() / client.getWindow().getFramebufferHeight();
+					warpRadius = (float) Math.hypot((edge[0] - cx) * aspect, edge[1] - cy);
+					warp = (float) (0.025 * Math.exp(-e / (scene.waveTicks * 0.9)) * (0.4 + 0.6 * near));
+				}
+			}
+			// Afterwards: dust in the air warms and dims the light near the crater, and the air over the
+			// molten bowl shimmers.
+			float dust = (float) (near * 0.8 * smooth(e / 60.0) * (1.0 - smooth((e - 650.0) / 250.0)));
+			float haze = 0.0F;
+			float hazeX = 0.5F;
+			float hazeY = 0.5F;
+			float hazeW = 0.1F;
+			float hazeH = 0.1F;
+			float[] hot = screen(scene.center.add(0, scene.radius * 0.18, 0), cam, view, proj);
+			if (hot != null && e > 10) {
+				float[] side = screen(scene.center.add(0, scene.radius * 0.18, 0).add(new Vec3d(right(view).x, 0, right(view).z)
+						.normalize().multiply(scene.bowl)), cam, view, proj);
+				float[] top = screen(scene.center.add(0, scene.radius * 0.6, 0), cam, view, proj);
+				if (side != null && top != null) {
+					hazeX = hot[0];
+					hazeY = hot[1];
+					hazeW = Math.max(0.02F, Math.abs(side[0] - hot[0]));
+					hazeH = Math.max(0.02F, Math.abs(top[1] - hot[1]));
+					haze = (float) (0.006 * smooth((e - 10.0) / 50.0) * (1.0 - smooth((e - 600.0) / 300.0)) * (0.3 + 0.7 * near));
+				}
+			}
+			float weight = (float) (near + (cinematic ? 1.0 : 0.0) + flash);
+			if (weight > bestWeight && (mix > 0 || flash > 0.005F || warp > 0.0005F || tint > 0.01F || chroma > 0.0005F
+					|| dust > 0.01F || haze > 0.0002F)) {
+				best = new Grade(mode, mix, cx, cy, zoom, warp, warpRadius, chroma, exposure, tint, flash, dust, hazeX, hazeY, hazeW,
+						hazeH, haze);
+				bestWeight = weight;
+			}
+		}
+		return best;
+	}
+
+	/** The inbound round's shock cone on screen, growing as it comes down, or null when it is not in view. */
+	@Nullable
+	private static Trail inboundTrail(MinecraftClient client, ClientStrike strike, double t, Vec3d cam, Matrix4f view, Matrix4f proj) {
+		if (strike.impacted || t < StrikeTimeline.INBOUND || t >= StrikeTimeline.IMPACT) {
+			return null;
+		}
+		Vec3d dir = approach(client, strike, t, cam, view, proj);
+		if (dir == null) {
+			return null;
+		}
+		double p = MathHelper.clamp((t - StrikeTimeline.INBOUND) / (StrikeTimeline.IMPACT - StrikeTimeline.INBOUND), 0.0, 1.0);
+		double range = range(strike.approachLength, p);
+		Vec3d head = strike.center.add(dir.multiply(range));
+		Vec3d back = head.add(dir.multiply(Math.max(range * 0.5, 40.0)));
+		float[] a = screen(head, cam, view, proj);
+		float[] b = screen(back, cam, view, proj);
+		if (a == null || b == null) {
+			return null;
+		}
+		float strength = (float) (0.004 + 0.02 * p * p);
+		float width = (float) (0.02 + 0.06 * p);
+		return new Trail(a[0], a[1], b[0], b[1], width, strength);
+	}
+
+	/** World point to screen (0..1, y up), or null behind the camera. */
+	@Nullable
+	private static float[] screen(Vec3d world, Vec3d cam, Matrix4f view, Matrix4f proj) {
+		Vector4f v = new Vector4f((float) (world.x - cam.x), (float) (world.y - cam.y), (float) (world.z - cam.z), 1.0F);
+		view.transform(v);
+		proj.transform(v);
+		if (v.w <= 1.0E-3F) {
+			return null;
+		}
+		return new float[] {v.x / v.w * 0.5F + 0.5F, v.y / v.w * 0.5F + 0.5F};
+	}
+
+	private static Vector3f right(Matrix4f view) {
+		return new Vector3f(view.m00(), view.m10(), view.m20());
+	}
+
+	// --- helpers ---------------------------------------------------------------------------
+
+	/**
+	 * The depth term of the projection, for turning depth-buffer values back into distances. Camera shake
+	 * and view bobbing are multiplied into the projection, and their tilt scales m22 by the cosine of the
+	 * angle: enough to throw the sky's depth to infinity and beyond. The length of the third row undoes it.
+	 */
+	private static float projA(Matrix4f proj) {
+		return -(float) Math.sqrt(proj.m02() * proj.m02() + proj.m12() * proj.m12() + proj.m22() * proj.m22());
+	}
+
+	private static Vector3f rel(double x, double y, double z, Vec3d cam) {
+		return new Vector3f((float) (x - cam.x), (float) (y - cam.y), (float) (z - cam.z));
+	}
+
+	private static float daylight(ClientWorld world, float tickDelta) {
+		float angle = world.getSkyAngle(tickDelta) * MathHelper.TAU;
+		return MathHelper.clamp(MathHelper.cos(angle) * 2.0F + 0.5F, 0.15F, 1.0F);
+	}
+
+	private static void additive() {
+		RenderSystem.depthMask(false);
+		RenderSystem.disableCull();
+		RenderSystem.enableBlend();
+		RenderSystem.blendFuncSeparate(GlStateManager.SrcFactor.ONE, GlStateManager.DstFactor.ONE, GlStateManager.SrcFactor.ZERO,
+				GlStateManager.DstFactor.ONE);
+	}
+
+	private static float clamp(float v) {
+		return v < 0 ? 0 : v > 1 ? 1 : v;
+	}
+}

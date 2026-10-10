@@ -1,0 +1,19 @@
+{
+  "vertex": "shootingstar:ss_screen",
+  "fragment": "shootingstar:ss_blit",
+  "samplers": [
+    {
+      "name": "Sampler0"
+    }
+  ],
+  "uniforms": [
+    {
+      "name": "Weight",
+      "type": "float",
+      "count": 1,
+      "values": [
+        1.0
+      ]
+    }
+  ]
+}

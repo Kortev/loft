@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "E": {
+      "item": "minecraft:elytra"
+    },
+    "G": {
+      "item": "minecraft:gold_ingot"
+    },
+    "M": {
+      "item": "minecraft:minecart"
+    },
+    "P": {
+      "item": "minecraft:piston"
+    },
+    "B": {
+      "tag": "minecraft:boats"
+    }
+  },
+  "pattern": [
+    " E ",
+    "GMG",
+    "PBP"
+  ],
+  "result": {
+    "count": 1,
+    "id": "shootingstar:chitty"
+  }
+}

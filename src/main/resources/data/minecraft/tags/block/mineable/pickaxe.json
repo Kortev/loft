@@ -1,0 +1,10 @@
+{
+  "replace": false,
+  "values": [
+    "shootingstar:gungnir_hull",
+    "shootingstar:gungnir_coil",
+    "shootingstar:molten_crust",
+    "shootingstar:fused_crust",
+    "shootingstar:mirror_stone"
+  ]
+}
