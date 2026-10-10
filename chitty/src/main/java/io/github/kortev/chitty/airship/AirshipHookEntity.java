@@ -1,5 +1,8 @@
 package io.github.kortev.chitty.airship;
 
+import io.github.kortev.chitty.SoftLanding;
+import java.util.List;
+import java.util.UUID;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.LivingEntity;
@@ -10,6 +13,7 @@ import net.minecraft.entity.data.TrackedDataHandlerRegistry;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
@@ -32,12 +36,15 @@ import org.jetbrains.annotations.Nullable;
  * sneak.</li>
  * </ul>
  * Clients are told which (VOLUNTARY), and each kick (AGITATION), and draw them so (AirshipHangPoseMixin). Hanging empty,
- * someone can take hold of it, or leap and catch it to hang on (AirshipEntity.takeHoldOfGrapple). Never saved: she winds
- * her grapple up when she is unloaded.
+ * someone can take hold of it, or leap and catch it to hang on (AirshipEntity.takeHoldOfGrapple). Saved with whatever
+ * it has hold of, and which airship it is hers: loaded again, she takes it back (AirshipEntity.adoptHead), out on its
+ * rope as it was. If she does not come back for it, it lets whatever it has go, gently (slow falling to the ground).
  */
 public class AirshipHookEntity extends Entity {
 	/** Ticks of struggling (holding sneak) a player needs to get off the grapple. */
 	public static final int STRUGGLE = 200;
+	/** How long (ticks) it waits, loaded without her, for her to be loaded too. */
+	static final int FIND_SHIP = 60;
 	/** How far ahead of the tines a caught thing hangs (they hook it by the back of its collar). */
 	static final double COLLAR = 0.22;
 	private static final TrackedData<Integer> SHIP = DataTracker.registerData(AirshipHookEntity.class, TrackedDataHandlerRegistry.INTEGER);
@@ -48,6 +55,11 @@ public class AirshipHookEntity extends Entity {
 	private static final TrackedData<Integer> AGITATION = DataTracker.registerData(AirshipHookEntity.class,
 			TrackedDataHandlerRegistry.INTEGER);
 	private int struggle;
+	/** Whose grapple it is (on the server, to find her again when both are loaded from the world). */
+	@Nullable
+	private UUID shipUuid;
+	/** Ticks it has been without her (loaded before her, waiting for her). */
+	private int lost;
 	/** The next tick a caught mob kicks. */
 	private int nextFlail = 40;
 	// On clients: the last kick seen, and until when it is drawn kicking.
@@ -61,7 +73,14 @@ public class AirshipHookEntity extends Entity {
 
 	AirshipHookEntity(World world, AirshipEntity ship) {
 		this(Airship.HOOK, world);
+		attachTo(ship);
+	}
+
+	/** Hers again (or for the first time). */
+	void attachTo(AirshipEntity ship) {
 		dataTracker.set(SHIP, ship.getId());
+		shipUuid = ship.getUuid();
+		lost = 0;
 	}
 
 	@Override
@@ -85,8 +104,17 @@ public class AirshipHookEntity extends Entity {
 	public void tick() {
 		super.tick();
 		AirshipEntity ship = getShip();
+		if (!getWorld().isClient && ship == null && shipUuid != null && getWorld() instanceof ServerWorld world
+				&& world.getEntity(shipUuid) instanceof AirshipEntity found && !found.isRemoved() && found.adoptHead(this)) {
+			ship = found;
+		}
 		if (!getWorld().isClient && (ship == null || ship.getHookEntity() != this)) {
-			removeAllPassengers();
+			if (ship == null && shipUuid != null && hasPassengers() && ++lost < FIND_SHIP) {
+				// Loaded from the world before her: it hangs where it was a little while, for her to come for it.
+				setVelocity(Vec3d.ZERO);
+				return;
+			}
+			letGoGently();
 			discard();
 			return;
 		}
@@ -134,6 +162,18 @@ public class AirshipHookEntity extends Entity {
 			// A caught mob kicks and jerks on the rope now and then.
 			nextFlail = age + 30 + random.nextInt(60);
 			kick(ship, 0.08);
+		}
+	}
+
+	/** Lets go of whatever it has, without her: it is let down gently, slow falling to the ground below. */
+	private void letGoGently() {
+		for (Entity load : List.copyOf(getPassengerList())) {
+			load.stopRiding();
+			load.setVelocity(Vec3d.ZERO);
+			load.fallDistance = 0.0F;
+			if (load instanceof LivingEntity living) {
+				SoftLanding.letDown(living);
+			}
 		}
 	}
 
@@ -269,9 +309,17 @@ public class AirshipHookEntity extends Entity {
 
 	@Override
 	protected void readCustomDataFromNbt(NbtCompound nbt) {
+		shipUuid = nbt.containsUuid("Ship") ? nbt.getUuid("Ship") : null;
+		dataTracker.set(VOLUNTARY, nbt.getBoolean("Voluntary"));
+		struggle = nbt.getInt("Struggle");
 	}
 
 	@Override
 	protected void writeCustomDataToNbt(NbtCompound nbt) {
+		if (shipUuid != null) {
+			nbt.putUuid("Ship", shipUuid);
+		}
+		nbt.putBoolean("Voluntary", isVoluntary());
+		nbt.putInt("Struggle", struggle);
 	}
 }

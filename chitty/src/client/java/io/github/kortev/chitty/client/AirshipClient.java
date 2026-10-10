@@ -6,14 +6,12 @@ import io.github.kortev.chitty.airship.AirshipActionPayload;
 import io.github.kortev.chitty.airship.AirshipEntity;
 import io.github.kortev.chitty.airship.AirshipInputPayload;
 import io.github.kortev.chitty.airship.AirshipWalkPayload;
-import java.util.Collections;
-import java.util.Set;
-import java.util.WeakHashMap;
+import java.util.Arrays;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
-import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
+import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.input.Input;
 import net.minecraft.client.network.ClientPlayerEntity;
@@ -39,12 +37,10 @@ public final class AirshipClient {
 	public static KeyBinding BOMB;
 	public static KeyBinding OVERBOARD;
 
-	private static final Set<AirshipEntity> SOUNDING = Collections.newSetFromMap(new WeakHashMap<>());
 	private static byte lastControls = -1;
 	private static int sinceSent;
 	/** Which way this player is working the grapple's winch (1 out, -1 in, 0 not), as last told the server. */
 	private static int winching;
-	private static int sinceWinchSent;
 	/**
 	 * Where this player stands in the airship they are aboard, as they walk about her gondola: theirs to move (so it
 	 * answers at once), sent to the server as it changes. Taken from the server when they come aboard and whenever they
@@ -88,12 +84,7 @@ public final class AirshipClient {
 
 			@Override
 			public void tick(AirshipEntity ship) {
-				if (SOUNDING.add(ship)) {
-					MinecraftClient client = MinecraftClient.getInstance();
-					for (AirshipSound.Layer layer : AirshipSound.Layer.values()) {
-						client.getSoundManager().play(new AirshipSound(ship, layer));
-					}
-				}
+				VehicleSounds.keep(ship, () -> Arrays.stream(AirshipSound.Layer.values()).map(layer -> new AirshipSound(ship, layer)).toList());
 				walk(ship);
 			}
 
@@ -225,11 +216,12 @@ public final class AirshipClient {
 		while (WIND.wasPressed()) {
 			// Only ever held: see below.
 		}
+		// Told only as the keys change: when the winch stops of itself (something caught, or someone taking hold), it
+		// stays stopped until the key is let go and pressed again.
 		int way = ship == null ? 0 : (GRAPPLE.isPressed() ? 1 : 0) - (WIND.isPressed() ? 1 : 0);
-		if (way != winching || way != 0 && ++sinceWinchSent >= 20) {
+		if (way != winching) {
 			act(way > 0 ? AirshipEntity.ACTION_PAY_OUT : way < 0 ? AirshipEntity.ACTION_WIND_IN : AirshipEntity.ACTION_WINCH_STOP);
 			winching = way;
-			sinceWinchSent = 0;
 		}
 		while (LADDER.wasPressed()) {
 			if (ship != null) {

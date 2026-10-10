@@ -135,6 +135,7 @@ GEN 11, the car from the film, is a mod of its own, built here beside this one a
 | `gungnirSpire`         | `true`  | Whether the spent round is left standing as a spire.     |
 | `ginnungagapRadius`    | `96`    | Radius erased by a Ginnungagap, 16–256.                  |
 | `ginnungagapTerrainDamage` | `true` | `false` leaves the blocks in place.                  |
+| `ginnungagapLethal`    | `true`  | Whether anyone left standing in the zone is erased with it (`false`: held safe in the void and brought home). |
 
 ## Client options
 

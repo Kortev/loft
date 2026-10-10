@@ -2,6 +2,7 @@ package io.github.kortev.chitty.airship;
 
 import io.github.kortev.chitty.ChittyControls;
 import io.github.kortev.chitty.ChittyPartEntity;
+import io.github.kortev.chitty.carriage.CarriagePartEntity;
 import io.github.kortev.chitty.mixin.AirshipJumper;
 import io.github.kortev.shootingstar.registry.ModCriteria;
 import java.util.Collections;
@@ -686,7 +687,10 @@ public class AirshipEntity extends Entity {
 		return Math.sqrt(dx * dx + dz * dz);
 	}
 
-	/** The free place nearest a point in or beside her (local), or -1 if every place is taken. */
+	/**
+	 * The free place nearest a point in or beside her (local); with people standing about in all of them but room aboard
+	 * still, the roomiest; or -1 if she is full.
+	 */
 	private int nearestFreePlace(Vec3d local) {
 		int best = -1;
 		double bestDistance = Double.MAX_VALUE;
@@ -701,6 +705,9 @@ public class AirshipEntity extends Entity {
 				bestDistance = distance;
 				best = i;
 			}
+		}
+		if (best < 0 && getPassengerList().size() < PLACES.length) {
+			return roomiestPlace();
 		}
 		return best;
 	}
@@ -938,7 +945,9 @@ public class AirshipEntity extends Entity {
 			stillSneaking.add(player);
 			return false;
 		}
-		if (down || getLadder() > LADDER_OFF) {
+		// Off onto her ladder once it is long enough to climb down, or let all the way down onto whatever is under it (a
+		// roof, a tree) however short.
+		if (down || getLadder() > LADDER_OFF || ladderDown && getLadder() >= Math.min(LADDER_OFF, ladderTarget) - 0.05) {
 			return true;
 		}
 		if (!ladderDown) {
@@ -951,8 +960,8 @@ public class AirshipEntity extends Entity {
 	/** Off onto the ground beside the gondola if she is down; up in the air, onto the top of her ladder. */
 	@Override
 	public Vec3d updatePassengerForDismount(LivingEntity passenger) {
-		if (!isOnGround() && heightAboveGround() >= 2.0 && getLadder() > 1.0) {
-			return ladderAt(1.8);
+		if (!isOnGround() && heightAboveGround() >= 2.0 && getLadder() > 0.9) {
+			return ladderAt(Math.min(1.8, getLadder()));
 		}
 		float yawRad = getYaw() * MathHelper.RADIANS_PER_DEGREE;
 		Vec3d left = new Vec3d(MathHelper.cos(yawRad), 0.0, MathHelper.sin(yawRad));
@@ -1240,6 +1249,10 @@ public class AirshipEntity extends Entity {
 			letGoOfGrapple();
 		}
 		if (way < 0 && hook == Hook.UP) {
+			// Wound up already: nothing to wind (and no clack of a pawl let go that was never in gear).
+			if (winch == 0) {
+				return;
+			}
 			way = 0;
 		}
 		if (way > 0 && hook == Hook.UP) {
@@ -1285,7 +1298,7 @@ public class AirshipEntity extends Entity {
 		dataTracker.set(BOMBS, (byte) i);
 		bombCooldown = BOMB_COOLDOWN;
 		Vec3d at = local(new Vec3d(0.7 - 0.28 * i, -0.75, RACK_Z));
-		AirshipBombEntity bomb = new AirshipBombEntity(world, this, at, motion.add(0.0, -0.05, 0.0));
+		AirshipBombEntity bomb = new AirshipBombEntity(world, this, by, at, motion.add(0.0, -0.05, 0.0));
 		world.spawnEntity(bomb);
 		world.playSound(null, at.x, at.y, at.z, Airship.BOMB_DROP, SoundCategory.NEUTRAL, 1.6F, 1.0F);
 		if (by != null) {
@@ -1665,8 +1678,12 @@ public class AirshipEntity extends Entity {
 	}
 
 	/** What the grapple takes hold of when it meets this: Chitty herself, not one of the hitboxes along her length. */
+	/** What one of a vehicle's hitboxes belongs to: Chitty's or the Child Catcher's carriage's, the whole of her. */
 	private static Entity whole(Entity e) {
-		return e instanceof ChittyPartEntity part && part.getCar() != null ? part.getCar() : e;
+		if (e instanceof ChittyPartEntity part && part.getCar() != null) {
+			return part.getCar();
+		}
+		return e instanceof CarriagePartEntity part && part.getCarriage() != null ? part.getCarriage() : e;
 	}
 
 	private boolean canGrab(Entity e) {
@@ -1694,6 +1711,8 @@ public class AirshipEntity extends Entity {
 		hookDrop = Math.max(hookDrop, hookPos.distanceTo(lineOut()));
 		Vec3d grip = hookGrip();
 		head.refreshPositionAndAngles(grip.x, grip.y, grip.z, getYaw(), 0.0F);
+		// Caught, not hanging on by choice (whoever last hung on may have let go only just now).
+		head.setVoluntary(false);
 		if (!target.startRiding(head, true)) {
 			hookPos = before;
 			hookPrev = before;
@@ -1895,6 +1914,37 @@ public class AirshipEntity extends Entity {
 		dataTracker.set(HOOK_HEAD, -1);
 	}
 
+	/**
+	 * Her grapple's head, loaded from the world with what it has hold of (she is loaded wound up): she takes it back, out
+	 * on its rope where it hangs, the winch still. An empty head she has let down meanwhile gives way to it. Not while
+	 * someone holds her grapple on the ground.
+	 */
+	boolean adoptHead(AirshipHookEntity head) {
+		if (hookEntity == head) {
+			return true;
+		}
+		if (hook == Hook.HELD || hookEntity != null && !hookEntity.isRemoved() && hookEntity.hasPassengers()) {
+			return false;
+		}
+		if (hookEntity != null) {
+			hookEntity.discard();
+		}
+		hookEntity = head;
+		head.attachTo(this);
+		dataTracker.set(HOOK_HEAD, head.getId());
+		Vec3d top = head.getPos().add(0.0, HOOK_GRIP, 0.0);
+		hookDrop = MathHelper.clamp(top.distanceTo(lineOut()), HOOK_ABOARD, LINE_MAX);
+		hookPos = top;
+		hookPrev = top;
+		setHook(Hook.OUT);
+		winch = 0;
+		winchBy = null;
+		dataTracker.set(WINCH, (byte) 0);
+		winchSpeed = 0.0;
+		dataTracker.set(HOOK_DROP, (float) hookDrop);
+		return true;
+	}
+
 	/** The grapple's head, while the grapple is out. */
 	@Nullable
 	public AirshipHookEntity getHookEntity() {
@@ -1984,6 +2034,17 @@ public class AirshipEntity extends Entity {
 	/** How far her rope ladder trails behind her (radians), as drawn. */
 	public float getLadderLean(float tickDelta) {
 		return MathHelper.lerp(tickDelta, prevLadderLean, ladderLean);
+	}
+
+	/** Whether something is part of her: herself, her hull's hitboxes, her grapple's head, or anyone aboard. */
+	public boolean isHers(Entity entity) {
+		return entity == this || entity.getRootVehicle() == this || entity instanceof AirshipPartEntity part && part.getShip() == this
+				|| entity instanceof AirshipHookEntity head && head.getShip() == this;
+	}
+
+	/** Whether something hangs from her grapple or climbs her ladder. */
+	public boolean carries(LivingEntity entity) {
+		return entity.getVehicle() instanceof AirshipHookEntity head && head.getShip() == this || ladderOf(entity) == this;
 	}
 
 	@Nullable
@@ -2125,7 +2186,8 @@ public class AirshipEntity extends Entity {
 		ladderDown = nbt.getBoolean("LadderDown");
 		dataTracker.set(LADDER, nbt.getFloat("Ladder"));
 		speed = nbt.getFloat("Speed");
-		// A load on the grapple is not kept: she comes back with it wound up.
+		// She comes back with her grapple wound up; its head, saved with whatever it had hold of, comes back on its own,
+		// and she takes it back (adoptHead).
 		hook = Hook.UP;
 		hookDrop = 0.0;
 		hookPos = null;

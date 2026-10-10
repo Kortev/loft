@@ -46,8 +46,8 @@ public abstract class AirshipLadderMixin {
 		if (into == null) {
 			return movement;
 		}
-		chitty$knockRungs(self, movement.y);
 		Vec3d carry = AirshipEntity.ladderCarry(self);
+		chitty$knockRungs(self, carry);
 		Vec3d carried = carry == null ? movement : movement.add(carry);
 		double push = movement.x * into.x + movement.z * into.z;
 		if (push <= 0.0) {
@@ -57,10 +57,18 @@ public abstract class AirshipLadderMixin {
 		return carried.subtract(into.x * push, 0.0, into.z * push);
 	}
 
-	/** The rungs knock under hands and feet as someone climbs. */
+	/**
+	 * The rungs knock under hands and feet as someone climbs: by how far they climbed up or down it last tick (not how
+	 * hard they were pulled, which, standing at its foot, is only their weight).
+	 */
 	@Unique
-	private void chitty$knockRungs(LivingEntity self, double climbed) {
-		chitty$sinceRung += Math.abs(climbed);
+	private void chitty$knockRungs(LivingEntity self, Vec3d carry) {
+		if (self.isOnGround()) {
+			chitty$sinceRung = 0.0;
+			return;
+		}
+		// Less what she carried them up or down with the ladder.
+		chitty$sinceRung += Math.abs(self.getY() - self.prevY - (carry == null ? 0.0 : carry.y));
 		if (chitty$sinceRung < 0.6) {
 			return;
 		}

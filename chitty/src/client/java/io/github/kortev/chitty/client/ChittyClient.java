@@ -7,14 +7,12 @@ import io.github.kortev.chitty.ChittyEntity;
 import io.github.kortev.chitty.ChittyHornPayload;
 import io.github.kortev.chitty.ChittyInputPayload;
 import io.github.kortev.shootingstar.ShootingStar;
-import java.util.Collections;
-import java.util.Set;
-import java.util.WeakHashMap;
+import java.util.Arrays;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
-import net.fabricmc.fabric.api.client.particle.v1.ParticleFactoryRegistry;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.client.particle.v1.ParticleFactoryRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
 import net.fabricmc.fabric.api.resource.SimpleSynchronousResourceReloadListener;
@@ -41,7 +39,6 @@ public final class ChittyClient implements ClientModInitializer {
 	public static KeyBinding EJECT;
 	public static KeyBinding REV;
 
-	private static final Set<ChittyEntity> SOUNDING = Collections.newSetFromMap(new WeakHashMap<>());
 	private static byte lastControls = -1;
 	private static byte lastState;
 	private static int sinceSent;
@@ -89,12 +86,7 @@ public final class ChittyClient implements ClientModInitializer {
 
 			@Override
 			public void tick(ChittyEntity car) {
-				if (SOUNDING.add(car)) {
-					MinecraftClient client = MinecraftClient.getInstance();
-					for (ChittySound.Layer layer : ChittySound.Layer.values()) {
-						client.getSoundManager().play(new ChittySound(car, layer));
-					}
-				}
+				VehicleSounds.keep(car, () -> Arrays.stream(ChittySound.Layer.values()).map(layer -> new ChittySound(car, layer)).toList());
 			}
 		};
 		ClientTickEvents.END_CLIENT_TICK.register(ChittyClient::tick);

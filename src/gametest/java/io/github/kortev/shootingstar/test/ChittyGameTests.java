@@ -5,6 +5,7 @@ import io.github.kortev.chitty.Chitty;
 import io.github.kortev.chitty.ChittyControls;
 import io.github.kortev.chitty.ChittyEntity;
 import io.github.kortev.chitty.ChittyPartEntity;
+import io.github.kortev.chitty.SoftLanding;
 import io.github.kortev.shootingstar.OwnerOnly;
 import io.netty.channel.embedded.EmbeddedChannel;
 import java.util.ArrayList;
@@ -225,6 +226,23 @@ public class ChittyGameTests implements FabricGameTest {
 				context.assertTrue(back.getVehicle() == null, "seat " + i + " was not ejected");
 				context.assertTrue(back.getY() > start + 2.0, "seat " + i + " did not go up: y " + (back.getY() - start));
 			}
+			context.complete();
+		});
+	}
+
+	/**
+	 * Let down gently from high in the air (as the ejector does a passenger), someone floats all the way down, however
+	 * long that takes, and lands unhurt.
+	 */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_chitty", tickLimit = 300)
+	public void softLanding(TestContext context) {
+		floor(context, 0);
+		ZombieEntity husk = context.spawnEntity(EntityType.HUSK, new Vec3d(4.0, 16.0, 4.0));
+		SoftLanding.letDown(husk);
+		context.runAtTick(280, () -> {
+			context.assertTrue(husk.isOnGround(), "still in the air: y " + husk.getY());
+			context.assertTrue(husk.getHealth() == husk.getMaxHealth(), "hurt landing: health " + husk.getHealth());
+			context.assertTrue(!SoftLanding.isFalling(husk), "still kept up, landed");
 			context.complete();
 		});
 	}

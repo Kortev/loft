@@ -37,6 +37,8 @@ public final class Chitty implements ModInitializer {
 	public static final EntityType<ChittyEntity> ENTITY = Registry.register(Registries.ENTITY_TYPE, ShootingStar.id("chitty"),
 			EntityType.Builder.<ChittyEntity>create(ChittyEntity::new, SpawnGroup.MISC)
 					.dimensions(2.0F, 1.6F)
+					// Her paint may blister, but she does not burn up in a fire or in lava (nor does her item).
+					.makeFireImmune()
 					.maxTrackingRange(10)
 					.trackingTickInterval(1)
 					.build("chitty"));
@@ -53,7 +55,7 @@ public final class Chitty implements ModInitializer {
 					.build("chitty_part"));
 
 	public static final Item ITEM = Registry.register(Registries.ITEM, ShootingStar.id("chitty"),
-			new ChittyItem(new Item.Settings().maxCount(1).rarity(Rarity.RARE)));
+			new ChittyItem(new Item.Settings().maxCount(1).rarity(Rarity.RARE).fireproof()));
 
 	public static final SoundEvent ENGINE_IDLE = sound("chitty.engine_idle");
 	public static final SoundEvent ENGINE_LOW = sound("chitty.engine_low");
@@ -86,6 +88,8 @@ public final class Chitty implements ModInitializer {
 		ItemGroupEvents.modifyEntriesEvent(ItemGroups.TOOLS).register(entries -> entries.add(ITEM));
 		Airship.init();
 		Carriage.init();
+		SoftLanding.init();
+		Reboard.init();
 		PayloadTypeRegistry.playC2S().register(ChittyInputPayload.ID, ChittyInputPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(ChittyHornPayload.ID, ChittyHornPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(ChittyEjectPayload.ID, ChittyEjectPayload.CODEC);

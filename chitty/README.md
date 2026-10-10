@@ -48,8 +48,8 @@ with a carrying handle on each post of the windscreen, and the gear lever and ha
   land, where the raft goes down again. She does it with nobody aboard too: get out and run as the tide comes in, and
   she blows it up herself.
 - **Ejector:** X (rebindable), for the driver: the back seat springs up out of its well on two brass springs and
-  bounces back down, throwing whoever is on it high into the air. Players float down under slow falling; mobs come down
-  as they will. A mob put in her (`/ride`) takes the back seat first.
+  bounces back down, throwing whoever is on it high into the air. Players float down under slow falling, kept up
+  however high she was until they land; mobs come down as they will. A mob put in her (`/ride`) takes the back seat first.
 - **Hamper:** use the hamper on her stern to open it (27 stacks; it has its own hitbox, hers being too short to reach
   it); sneak and use her to take it off (it spills what it holds) or put it back on.
 - **Horn:** H (rebindable) squeezes the serpent's bulb.
@@ -127,7 +127,7 @@ Baron Bomburst's airship from the film, built in Blender from its stills:
   against her keel), comes to rest with a clank on whatever it lands on, and is dragged free if it snags on a hill she
   flies away from; what it carries swings with it. Let down onto something, swept into it as she flies, or thrown at
   it, it seizes the first thing its tines meet (hanging still or swinging idly it catches nothing): a mob, a player, a
-  dropped item, a boat, a minecart, even Chitty. Then the winch stops, and the crew
+  dropped item, a boat, a minecart, even Chitty or the Child Catcher's carriage. Then the winch stops, and the crew
   decide: wind it in to lift its load (as far as three blocks under her keel) or let it out until the load stands on
   the ground, where it is let go. Wound all the way in, the empty grapple is stowed. A caught player cannot simply
   step off: holding sneak, they struggle (a bar fills as they go), and after ten seconds of it they wrench free and drop.
@@ -160,13 +160,19 @@ Baron Bomburst's airship from the film, built in Blender from its stills:
 - **Bombs:** craft them (iron, two gunpowder and string make two), then use them on her to fill the rack in the
   gondola, six at most. **B** (rebindable, anyone aboard) drops the next one through the floor, one every one and a
   half seconds. A bomb whistles down and goes off where it strikes the ground, the water or someone, smaller than TNT
-  but enough to break the ground.
+  but enough to break the ground. Its blast spares her, her hull and everyone aboard (so she can bomb from low down),
+  but not what hangs from her grapple or climbs her ladder, if it is near enough; whoever dropped it is blamed for what
+  it does.
 - **Getting off:** sneak. When she is down (or nearly) you step off beside her. In the air her rope ladder lets itself
-  down: keep sneaking and you climb down onto it. At the wheel, sneaking lets go of the wheel first.
+  down: keep sneaking and you climb down onto it (however short it is, over a roof or a tree). At the wheel,
+  sneaking lets go of the wheel first.
 - **Riding in her:** everyone aboard stands, walks about (their steps knocking on her boards) and turns with her. She is solid all along: her gondola, her
   envelope (you can stand on it) and her tail have hitboxes, and hitting any of them hits her. In third person the
   camera turns about the middle of her and stands far enough back to see all of her. Nobody aboard takes fall damage. Hit her hard enough and she drops back into an
   item, with any bombs left in her rack.
+- **Saving and leaving:** her grapple is saved with whatever it holds, and she takes it back when the world loads
+  again; if she is not there for it, it lets its load down gently. A player who leaves the game aboard her (or
+  Chitty) while others are aboard comes back aboard her if she is still near, and floats down if she is not.
 
 Her engine putters along in the stern while she is piloted, its two propellers beating the air a little out of step,
 and the wind sings in her rigging as she goes. Now and then the great envelope creaks, the winch ratchets as the

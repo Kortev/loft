@@ -41,9 +41,9 @@ public final class Airship {
 					.build("airship_part"));
 	public static final EntityType<AirshipHookEntity> HOOK = Registry.register(Registries.ENTITY_TYPE, ShootingStar.id("airship_hook"),
 			EntityType.Builder.<AirshipHookEntity>create(AirshipHookEntity::new, SpawnGroup.MISC)
-					// Generous, so that the empty grapple is easy to take hold of (it is not solid).
+					// Generous, so that the empty grapple is easy to take hold of (it is not solid). Saved, with whatever it
+					// has hold of, for her to take back when she is loaded again.
 					.dimensions(1.3F, 1.5F)
-					.disableSaving()
 					.disableSummon()
 					.makeFireImmune()
 					.maxTrackingRange(16)

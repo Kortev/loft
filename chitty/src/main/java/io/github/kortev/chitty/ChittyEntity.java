@@ -16,8 +16,6 @@ import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.data.DataTracker;
 import net.minecraft.entity.data.TrackedData;
 import net.minecraft.entity.data.TrackedDataHandlerRegistry;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.inventory.SimpleInventory;
 import net.minecraft.item.ItemStack;
@@ -207,12 +205,22 @@ public class ChittyEntity extends Entity {
 	private boolean wasMoving;
 	private Vec3d lastPos;
 	private Vec3d motion = Vec3d.ZERO;
+	/**
+	 * Her motion over the last two ticks, a tick's worth: on the server, moved by the driver's packets, which arrive
+	 * none in one tick and two in the next as the network goes, so that a single tick's motion stutters.
+	 */
+	private Vec3d steadyMotion = Vec3d.ZERO;
+	private Vec3d prevMotion = Vec3d.ZERO;
 
 	// The server's view of the driver.
 	private ChittyControls input = ChittyControls.NONE;
 	private int startTicks = -1;
 	private int backfireCooldown;
+	/** Ticks until the horn sounds again, and the ejector fires again (whatever a client sends, held keys repeating). */
+	private int hornCooldown;
+	private int ejectCooldown;
 	private double lastSpeed;
+	private double speedBefore;
 	private boolean wasAfloat;
 	// Starting her: ticks into this swing of the handle, whether it will catch, swings so far, and ticks since she last
 	// stood stalled; and how long the driver has been revving her.
@@ -686,9 +694,10 @@ public class ChittyEntity extends Entity {
 	 * falling it gives them. For the driver (the X key).
 	 */
 	public void ejectBackSeat() {
-		if (!(getWorld() instanceof ServerWorld world)) {
+		if (!(getWorld() instanceof ServerWorld world) || ejectCooldown > 0) {
 			return;
 		}
+		ejectCooldown = 20;
 		boolean any = false;
 		for (int i = BACK_SEAT; i < SEATS.length; i++) {
 			Entity passenger = seated[i];
@@ -701,9 +710,10 @@ public class ChittyEntity extends Entity {
 			passenger.setVelocity(getVelocity().add(0.0, 1.25, 0.0));
 			passenger.velocityModified = true;
 			passenger.fallDistance = 0.0F;
-			// Players float down; anything else (an unwanted passenger) takes its chances.
+			// Players float down, however high she is, until they are down; anything else (an unwanted passenger) takes
+			// its chances.
 			if (passenger instanceof PlayerEntity player) {
-				player.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOW_FALLING, 100, 0, false, false));
+				SoftLanding.letDown(player);
 			}
 			world.spawnParticles(ParticleTypes.POOF, seat.x, seat.y - 0.4, seat.z, 12, 0.2, 0.1, 0.2, 0.05);
 			any = true;
@@ -829,7 +839,9 @@ public class ChittyEntity extends Entity {
 		}
 		wasMoving = moving;
 		Vec3d pos = getPos();
+		prevMotion = motion;
 		motion = lastPos == null ? Vec3d.ZERO : pos.subtract(lastPos);
+		steadyMotion = motion.add(prevMotion).multiply(0.5);
 		lastPos = pos;
 		if (getWorld() instanceof ServerWorld world) {
 			serverTick(world);
@@ -842,12 +854,12 @@ public class ChittyEntity extends Entity {
 	private void adopt() {
 		float yawRad = getYaw() * MathHelper.RADIANS_PER_DEGREE;
 		Vec3d ahead = new Vec3d(-MathHelper.sin(yawRad), 0.0, MathHelper.cos(yawRad));
-		speed = (float) motion.dotProduct(ahead);
+		speed = (float) steadyMotion.dotProduct(ahead);
 		int bits = dataTracker.get(STATE);
 		flying = (bits & STATE_WINGS) != 0;
 		wingsHeld = (bits & STATE_WINGS_HELD) != 0;
 		floats = (bits & STATE_FLOATS) != 0;
-		setVelocity(motion);
+		setVelocity(steadyMotion);
 	}
 
 	/** Sets her going: forward speed in blocks a tick, and whether her wings are out. For tests and commands. */
@@ -1179,8 +1191,9 @@ public class ChittyEntity extends Entity {
 	}
 
 	public void honk(ServerPlayerEntity player) {
-		if (player.getVehicle() == this && getWorld() instanceof ServerWorld world) {
+		if (player.getVehicle() == this && hornCooldown == 0 && getWorld() instanceof ServerWorld world) {
 			world.playSound(null, getX(), getY(), getZ(), Chitty.HORN, SoundCategory.NEUTRAL, 1.6F, 1.0F);
+			hornCooldown = 10;
 		}
 	}
 
@@ -1245,6 +1258,12 @@ public class ChittyEntity extends Entity {
 			dataTracker.set(THROTTLE, (byte) 0);
 			dataTracker.set(REV, false);
 		}
+		if (hornCooldown > 0) {
+			hornCooldown--;
+		}
+		if (ejectCooldown > 0) {
+			ejectCooldown--;
+		}
 		if (backfireCooldown > 0) {
 			backfireCooldown--;
 		}
@@ -1293,10 +1312,14 @@ public class ChittyEntity extends Entity {
 		if (flying && age % 20 == 0 && getY() > CLOUDS) {
 			award("chitty_clouds");
 		}
-		// Hitting something hard: a crunch for everyone.
-		double now = motion.horizontalLength();
-		if (age > 20 && lastSpeed > 0.45 && now < lastSpeed * 0.3) {
+		// Hitting something hard: a crunch for everyone. (Her steady speed against two ticks before: a stutter in the
+		// driver's packets is not a crash.)
+		double now = steadyMotion.horizontalLength();
+		if (age > 20 && speedBefore > 0.45 && now < speedBefore * 0.3) {
 			world.playSound(null, getX(), getY(), getZ(), Chitty.CRASH, SoundCategory.NEUTRAL, 1.2F, 0.9F + random.nextFloat() * 0.2F);
+			speedBefore = 0.0;
+		} else {
+			speedBefore = lastSpeed;
 		}
 		lastSpeed = now;
 	}

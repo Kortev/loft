@@ -4,9 +4,7 @@ import io.github.kortev.chitty.ChittyControls;
 import io.github.kortev.chitty.carriage.Carriage;
 import io.github.kortev.chitty.carriage.CarriageActionPayload;
 import io.github.kortev.chitty.carriage.CarriageEntity;
-import java.util.Collections;
-import java.util.Set;
-import java.util.WeakHashMap;
+import java.util.List;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -28,7 +26,6 @@ import org.lwjgl.glfw.GLFW;
 public final class CarriageClient {
 	public static KeyBinding DISGUISE;
 
-	private static final Set<CarriageEntity> SOUNDING = Collections.newSetFromMap(new WeakHashMap<>());
 	private static boolean wasJumping;
 
 	private CarriageClient() {
@@ -49,9 +46,7 @@ public final class CarriageClient {
 
 			@Override
 			public void tick(CarriageEntity carriage) {
-				if (SOUNDING.add(carriage)) {
-					MinecraftClient.getInstance().getSoundManager().play(new CarriageSound(carriage));
-				}
+				VehicleSounds.keep(carriage, () -> List.of(new CarriageSound(carriage)));
 			}
 		};
 		ClientTickEvents.END_CLIENT_TICK.register(CarriageClient::tick);
