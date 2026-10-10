@@ -103,13 +103,22 @@ wants **renders for approval before baking** anything.
 - The **cage on the back locks**: anyone put in it (mob or player) can't get out until the driver opens it. It's a
   prisoner transport for PvP.
 - References: two photos on the same Notion page, plus film stills.
-- **Status: model built, renders sent to kortev, waiting on their OK** (`tools/carriage_model.py`, `--out DIR
-  --renders [--horses 2]`; the reference brief was in the session's scratchpad). Two questions for them:
-  - The surviving film carriage (Rothenburg's crime museum, which calls it "einspännig") has shafts for **one** horse;
-    their spec said two. The model does either (`--horses`).
-  - The horse is built in boxes, as Minecraft builds its horses, a size up, black, plumed and in harness.
+- **Status: model built; second renders sent, waiting on kortev's OK** (`tools/carriage_model.py`, `--out DIR
+  --renders`, `MC_HORSE_TEXTURE=<vanilla horse_black.png>` to draw the coat).
+  - kortev's answers so far: look at the film's references (done: text only, since the network here blocks image
+    hosts; the brief was in the session's scratchpad), and **the horse should be a real mob**.
+  - References: the film's carriage was drawn by **one** horse (Rothenburg's crime museum, which owns the two
+    surviving carriages, calls it "einspännig"; the prop has shafts for one; every account says "his horse and
+    carriage"). In the capture scene it is dressed as a sweet cart, and all of it falls off as he cracks the whip and
+    drives off. Nothing found on the horse's colour or plumes: kept black and plumed, as kortev's spec says.
+  - The horse: a vanilla black horse hitched into the shafts. Vanilla animates a mob's legs from how far it moved in
+    its own tick (`LivingEntity.travel` -> `updateLimbs`; a passenger's never move), so the plan is for the hitched
+    horse to place itself at the shafts at the start of its own `tickMovement` (server and client), with the client
+    ignoring the server's positions for it while hitched: no lag behind the driver, and vanilla's own walk and gallop.
+    The harness is a box model in the horse model's own frames (`HARNESS`; `body` and `head_parts`), drawn on a
+    hitched horse as a feature, as vanilla draws a saddle; traces and reins are straps the carriage draws.
+  - Open questions for kortev: does the carriage come with its horse; the sweets disguise; how prisoners are put in.
   - The door is ours (no source shows one): a barred gate in the back, hinged on her right, padlocked.
-  - The network here blocks image hosts, so only the two Notion photos were seen; bar and spoke counts are estimates.
 
 Both are only craftable by kortev; the existing `OwnerOnly` check already covers every recipe in the mod.
 

@@ -6,12 +6,13 @@ Needs Blender's Python module, as tools/chitty_model.py does. Run from the repos
     python tools/carriage_model.py --game                                            # the game's mesh, texture, icon
 
 Blender units are blocks (metres). The carriage faces +Y with +X on its right and +Z up, its wheels on the ground at
-Z = 0 and the middle of its wheelbase over the origin; its horse stands in the shafts ahead of it (or a pair stand
-either side of a pole, --horses 2). Every part the game moves is its own object with its origin on its pivot, named as
+Z = 0 and the middle of its wheelbase over the origin; its horse stands in the shafts ahead of it (or a pair either side
+of a pole, --horses 2). In the game the horse is a real Minecraft horse, hitched to her; the renders draw one as the
+game does (its model's boxes, in the vanilla black coat if MC_HORSE_TEXTURE names it) in the harness the game puts on
+it (HARNESS), and are never baked. Every part the game moves is its own object with its origin on its pivot, named as
 the game knows it: the four wheels; the fore-carriage (front axle, springs, shafts or pole) that turns on its turntable
-under the driver's seat, taking the front wheels and the horses with it; the cage door on its hinges; and each horse's
-legs, head (with its neck) and tail. Empties mark the driver's seat, the places in the cage and where the driver holds
-the reins.
+under the driver's seat, taking the front wheels (and the hitched horse) with it; and the cage door on its hinges.
+Empties mark the driver's seat, the places in the cage and where the driver holds the reins.
 
 The film's wagon, from kortev's two photos (a film still of the children screaming at its window, and one of the two
 surviving carriages, in Rothenburg's crime museum; scratchpad brief): a black iron cage on a high flat dray,
@@ -71,34 +72,66 @@ TURNTABLE = Vector((0.0, FRONT_AXLE, 1.0))
 SEAT_Y, SEAT_W, SEAT_D, SEAT_H, SEAT_BACK = 1.32, 1.20, 0.46, 0.40, 0.50
 SEAT_TOP = DECK_TOP + SEAT_H
 HANDS = Vector((0.22, SEAT_Y + 0.34, SEAT_TOP + 0.42))   # where the driver holds the reins
-# The horse: the middle of its body is HORSE_Y ahead (its rump a little ahead of the deck); a pair stand PAIR apart.
-HORSE_Y = 3.30
+# The horse: a real Minecraft horse (a black one) that the game hitches into her shafts: the middle of its body HORSE_Y
+# ahead of hers, its rump a little ahead of the deck; a pair (--horses 2) stand PAIR either side of a pole.
+HORSE_Y = 3.08
 PAIR = 0.56
-# The splinter bar across the front of the fore-carriage, which the horses pull on.
+# The splinter bar across the front of the fore-carriage, which the horse pulls on.
 SPLINTER = Vector((0.0, FRONT_AXLE + 0.42, 0.74))
 
-# The horse, built as Minecraft builds its horses (in boxes), a size up and black, about the ground under the middle of
-# its body, facing +Y (blocks): its body, legs (turning at their tops), neck and head (pitched forward from the
-# withers, turning there), and tail.
-BODY = dict(hw=0.33, bottom=0.88, top=1.62, back=-0.86, front=0.86)
-LEGS = {'fl': (0.19, 0.62), 'fr': (-0.19, 0.62), 'hl': (0.19, -0.64), 'hr': (-0.19, -0.64)}
-LEG_W, LEG_TOP = 0.24, 0.94
-NECK_BASE = Vector((0.0, 0.70, 1.38))
-NECK_DIR = Vector((0.0, math.sin(math.radians(35)), math.cos(math.radians(35))))
-NECK_LEN, NECK_W, NECK_D = 0.95, 0.34, 0.50
-POLL = NECK_BASE + NECK_DIR * NECK_LEN
-FACE = Vector((0.0, math.cos(math.radians(-42)), math.sin(math.radians(-42))))
-HEAD_L, HEAD_W, HEAD_H = 0.52, 0.38, 0.36
-MUZZLE = POLL + Vector((0.0, 0.04, -0.06)) + FACE * (HEAD_L + 0.2)
-TAIL_ROOT = Vector((0.0, -0.86, 1.52))
-
-
-def boxed(m, center, size, mat, along=None):
-    """A box about center, its length (size[1]) laid along `along` (in her YZ plane) if given."""
-    rot = None
-    if along is not None:
-        rot = Matrix.Rotation(math.atan2(along.z, along.y), 4, 'X')
-    cm.add_box(m, tuple(center), size, mat, rot=rot)
+# How the game draws its horses (HorseEntityModel, adult), for the renders: boxes in its model's pixels (y down, the
+# horse facing -z, x to its left), each in the frame of the part it hangs on, with its place on the coat's 64 x 64
+# texture; drawn 1.1 times the model's size (HorseEntityRenderer). The frames: their pivots in the model and their pitch
+# at rest (the head and tail are carried at 30 degrees).
+HORSE_SCALE = 1.1
+HORSE_FRAMES = {
+    'body': ((0, 11, 5), 0.0), 'head': ((0, 4, -12), math.pi / 6), 'tail': ((0, 6, 7), math.pi / 6),
+    'leg_hl': ((4, 14, 7), 0.0), 'leg_hr': ((-4, 14, 7), 0.0), 'leg_fl': ((4, 14, -10), 0.0), 'leg_fr': ((-4, 14, -10), 0.0)}
+HORSE_BOXES = [  # frame, corner, size, texture offset
+    ('body', (-5, -8, -17), (10, 10, 22), (0, 32)),
+    ('head', (-2.05, -6, -2), (4, 12, 7), (0, 35)), ('head', (-3, -11, -2), (6, 5, 7), (0, 13)),
+    ('head', (-1, -11, 5.01), (2, 16, 2), (56, 36)), ('head', (-2, -11, -7), (4, 5, 5), (0, 25)),
+    ('head', (0.55, -13, 4), (2, 3, 1), (19, 16)), ('head', (-2.55, -13, 4), (2, 3, 1), (19, 16)),
+    ('tail', (-1.5, 0, 0), (3, 14, 4), (42, 36)),
+    ('leg_hl', (-3, -1.01, -1), (4, 11, 4), (48, 21)), ('leg_hr', (-1, -1.01, -1), (4, 11, 4), (48, 21)),
+    ('leg_fl', (-3, -1.01, -1.9), (4, 11, 4), (48, 21)), ('leg_fr', (-1, -1.01, -1.9), (4, 11, 4), (48, 21))]
+# Her harness on it, which the game draws on the hitched horse as it draws a saddle (boxes in the same frames, in
+# pixels): a collar round the base of the neck with brass hames, blinkers, a browband and noseband, the bit, the black
+# plume on its poll; a saddle pad with brass terrets and a girth, the tugs that carry the shafts, the crupper and the
+# breeching round its quarters. A box may be turned about a pivot of its own (pitch, roll), as the plume's feathers
+# are: its corner is then taken from that pivot.
+HARNESS = [
+    ('head', (-3.0, 1.0, -3.0), (6, 2.5, 1), 'leather'), ('head', (-3.0, 1.0, 5.0), (6, 2.5, 1), 'leather'),
+    ('head', (-3.0, 1.0, -2.0), (0.95, 2.5, 7), 'leather'), ('head', (1.95, 1.0, -2.0), (1.05, 2.5, 7), 'leather'),
+    ('head', (-3.4, -1.5, -3.4), (0.5, 5, 0.6), 'brass'), ('head', (2.9, -1.5, -3.4), (0.5, 5, 0.6), 'brass'),
+    ('head', (-3.5, -2.3, -3.5), (0.7, 0.8, 0.8), 'brass'), ('head', (2.8, -2.3, -3.5), (0.7, 0.8, 0.8), 'brass'),
+    ('head', (-3.6, -10.6, -1.8), (0.5, 3.2, 3.2), 'leather'), ('head', (3.1, -10.6, -1.8), (0.5, 3.2, 3.2), 'leather'),
+    ('head', (-3.2, -11.2, -2.3), (6.4, 0.8, 0.5), 'leather'),
+    ('head', (-3.4, -11.3, -2.4), (0.6, 0.9, 0.6), 'brass'), ('head', (2.8, -11.3, -2.4), (0.6, 0.9, 0.6), 'brass'),
+    ('head', (-2.3, -11.3, -5.4), (4.6, 0.3, 0.8), 'leather'), ('head', (-2.3, -6.3, -5.4), (4.6, 0.3, 0.8), 'leather'),
+    ('head', (-2.3, -11.0, -5.4), (0.3, 4.7, 0.8), 'leather'), ('head', (2.0, -11.0, -5.4), (0.3, 4.7, 0.8), 'leather'),
+    ('head', (-2.5, -8.0, -6.5), (0.4, 1.2, 1.2), 'brass'), ('head', (2.1, -8.0, -6.5), (0.4, 1.2, 1.2), 'brass'),
+    ('head', (-0.6, -12.6, 2.4), (1.2, 1.6, 1.2), 'brass'),
+    ('head', (-0.8, -9.5, -1.0), (1.6, 9.0, 2.0), 'plume', ((0, -12.6, 3.0), -0.2, 0.0)),
+    ('head', (-0.6, -7.5, -0.8), (1.2, 7.0, 1.6), 'plume', ((0, -12.6, 3.0), -0.1, 0.4)),
+    ('head', (-0.6, -7.5, -0.8), (1.2, 7.0, 1.6), 'plume', ((0, -12.6, 3.0), -0.1, -0.4)),
+    ('body', (-5.5, -8.6, -11.5), (11, 0.6, 4.5), 'leather'),
+    ('body', (-5.6, -8.0, -11.0), (0.6, 5.5, 3.5), 'leather'), ('body', (5.0, -8.0, -11.0), (0.6, 5.5, 3.5), 'leather'),
+    ('body', (-3.4, -9.8, -9.6), (1.0, 1.2, 0.4), 'brass'), ('body', (2.4, -9.8, -9.6), (1.0, 1.2, 0.4), 'brass'),
+    ('body', (-5.45, -2.5, -10.0), (0.45, 4.5, 1.5), 'leather'), ('body', (5.0, -2.5, -10.0), (0.45, 4.5, 1.5), 'leather'),
+    ('body', (-5.5, 2.0, -10.0), (11, 0.5, 1.5), 'leather'),
+    ('body', (-7.6, -3.4, -10.4), (2.6, 1.0, 2.2), 'leather'), ('body', (5.0, -3.4, -10.4), (2.6, 1.0, 2.2), 'leather'),
+    ('body', (-0.5, -8.45, -7.0), (1.0, 0.45, 12.0), 'leather'),
+    ('body', (-5.45, -3.5, -2.0), (0.45, 1.0, 7.4), 'leather'), ('body', (5.0, -3.5, -2.0), (0.45, 1.0, 7.4), 'leather'),
+    ('body', (-5.45, -3.5, 5.0), (10.9, 1.0, 0.45), 'leather'),
+    ('body', (-5.45, -8.5, 0.5), (10.9, 0.45, 1.0), 'leather'),
+    ('body', (-5.45, -8.5, 0.5), (0.45, 5.0, 1.0), 'leather'), ('body', (5.0, -8.5, 0.5), (0.45, 5.0, 1.0), 'leather')]
+# Where the traces leave the collar and the reins the bit (head frame), and the terrets they run through (body frame).
+TRACE_FROM = (3.0, 2.2, 0.5)
+BIT = (2.4, -7.4, -6.0)
+TERRET = (2.9, -9.2, -9.4)
+# The vanilla coat for the renders (not part of the mod: the game draws its own): MC_HORSE_TEXTURE, or a plain black.
+HORSE_TEXTURE = os.environ.get('MC_HORSE_TEXTURE', '')
 
 
 def horse_at(i):
@@ -106,6 +139,59 @@ def horse_at(i):
     if HORSES == 1:
         return Vector((0.0, HORSE_Y, 0.0))
     return Vector(((PAIR if i == 0 else -PAIR), HORSE_Y, 0.0))
+
+
+def model_rx(p, angle):
+    """A point in a horse model's pixels turned by pitch `angle` about its x (y down, -z ahead: + tips forward)."""
+    x, y, z = p
+    c, s = math.cos(angle), math.sin(angle)
+    return (x, y * c - z * s, y * s + z * c)
+
+
+def model_rz(p, angle):
+    x, y, z = p
+    c, s = math.cos(angle), math.sin(angle)
+    return (x * c - y * s, x * s + y * c, z)
+
+
+def horse_point(at, frame, p, pitches):
+    """Where a point (pixels, in one of the horse's frames) is in Blender, for the horse standing at `at`."""
+    pivot, _ = HORSE_FRAMES[frame]
+    q = model_rx(p, pitches[frame])
+    if frame == 'tail':
+        q = model_rx(q, pitches['body'])
+    m = (pivot[0] + q[0], pivot[1] + q[1], pivot[2] + q[2])
+    k = HORSE_SCALE / 16
+    return at + Vector((-m[0] * k, -m[2] * k, HORSE_SCALE * 1.501 - m[1] * k))
+
+
+def horse_box(m, at, frame, corner, size, pitches, mat, uv=None, turn=None):
+    """One of a horse model's boxes, with the game's own layout of its faces on the texture (ModelPart.Cuboid)."""
+    x0, y0, z0 = corner
+    sx, sy, sz = size
+    x1, y1, z1 = x0 + sx, y0 + sy, z0 + sz
+
+    def place(p):
+        if turn:
+            # A turned box is laid out from its own pivot (its corner taken from there), then turned about it.
+            (px, py, pz), pitch, roll = turn
+            q = model_rz(model_rx(p, pitch), roll)
+            p = (q[0] + px, q[1] + py, q[2] + pz)
+        return m.vert(horse_point(at, frame, p, pitches))
+    v1, v2, v3, v4 = place((x0, y0, z0)), place((x1, y0, z0)), place((x1, y1, z0)), place((x0, y1, z0))
+    v5, v6, v7, v8 = place((x0, y0, z1)), place((x1, y0, z1)), place((x1, y1, z1)), place((x0, y1, z1))
+    faces = [[v6, v5, v1, v2], [v3, v4, v8, v7], [v1, v5, v8, v4], [v2, v1, v4, v3], [v6, v2, v3, v7], [v5, v6, v7, v8]]
+    if uv is None:
+        for f in faces:
+            m.face(f, mat)
+        return
+    u, v = uv
+    j, k, l, mm, n, o = u, u + sz, u + sz + sx, u + sz + 2 * sx, u + 2 * sz + sx, u + 2 * sz + 2 * sx
+    p_, q, r = v, v + sz, v + sz + sy
+    rects = [(k, p_, l, q), (l, q, mm, p_), (j, q, k, r), (k, q, l, r), (l, q, n, r), (n, q, o, r)]
+    for f, (u1, v1_, u2, v2_) in zip(faces, rects):
+        corners = [(u2, v1_), (u1, v1_), (u1, v2_), (u2, v2_)]
+        m.face(f, mat, [(cu / 64, 1 - cv / 64) for cu, cv in corners])
 
 
 # --- textures ------------------------------------------------------------------------------------------
@@ -144,7 +230,13 @@ def make_materials():
     m('tyre', (46, 46, 48), metal=0.6, rough=0.5)
     m('leather', (22, 20, 19), rough=0.55, coat=0.1)
     m('cushion', (32, 27, 25), rough=0.7)
-    m('coat', (19, 18, 19), rough=0.42, coat=0.15)
+    # The vanilla horse's coat (renders only), drawn pixelated as the game draws it; a plain black without it.
+    if HORSE_TEXTURE and os.path.exists(HORSE_TEXTURE):
+        from PIL import Image
+        rgba = np.asarray(Image.open(HORSE_TEXTURE).convert('RGBA'), dtype=np.float64) / 255.0
+        m('horse_coat', (255, 255, 255), rough=0.6, image=cm.image('horse_coat', rgba))
+    else:
+        m('horse_coat', (24, 22, 22), rough=0.6)
     m('mane', (10, 10, 11), rough=0.9)
     m('hoof', (52, 48, 44), rough=0.7)
     m('muzzle', (46, 42, 42), rough=0.6)
@@ -300,7 +392,7 @@ def shaft_path(s):
     """One of the shafts (s: +1 her right, -1 her left), from the splinter bar forward along the horse's side to just
     past its shoulder, a little bowed out and turned in at the tip."""
     return cm.catmull([(s * 0.58, SPLINTER.y, SPLINTER.z), (s * 0.58, SPLINTER.y + 0.55, 0.86),
-                       (s * 0.57, HORSE_Y - 0.4, 1.14), (s * 0.53, HORSE_Y + 0.55, 1.23), (s * 0.46, HORSE_Y + 0.95, 1.22)], 6)
+                       (s * 0.56, HORSE_Y - 0.4, 1.06), (s * 0.53, HORSE_Y + 0.55, 1.1), (s * 0.47, HORSE_Y + 0.95, 1.1)], 6)
 
 
 def build_fore_carriage():
@@ -491,114 +583,40 @@ def build_seat():
 
 # --- the horses -----------------------------------------------------------------------------------------
 
-def build_horse(i):
-    """Horse i: black, in harness. Its body (with its collar, saddle, breeching, traces and the reins back to the
-    driver's hands) is one part; each leg is a part turning at its top, the head (with the neck, mane, bridle, blinkers
-    and the black plume) another turning at the withers, the tail another."""
+def build_horse_preview(i, gait=0.0, phase=0.0, steer=0.0):
+    """For the renders: horse i as the game draws it (the vanilla model in its black coat), in her harness, its legs at
+    that point of their stride (the vanilla walk: limb angle `phase`, limb distance `gait`), the traces back to the
+    splinter bar and the reins to the driver's hands; turned with the fore-carriage by steer."""
+    name = 'horse_preview_%d' % i
+    if name in bpy.data.objects:
+        bpy.data.objects.remove(bpy.data.objects[name])
     at = horse_at(i)
-    W = lambda p: at + Vector(p)  # noqa: E731
-    b = BODY
+    t = math.cos(phase * 0.6662 + math.pi)
+    pitches = {'body': 0.0, 'head': math.pi / 6 + math.cos(phase * 0.8) * 0.15 * gait * (gait > 0.2),
+               'tail': math.pi / 6 + gait * 0.75,
+               'leg_hl': -t * 0.5 * gait, 'leg_hr': t * 0.5 * gait, 'leg_fl': t * 0.8 * gait, 'leg_fr': -t * 0.8 * gait}
     m = cm.Mesh()
-    cm.add_box(m, tuple(W((0, (b['front'] + b['back']) / 2, (b['top'] + b['bottom']) / 2))),
-               (2 * b['hw'], b['front'] - b['back'], b['top'] - b['bottom']), 'coat')
-    # The chest standing a little proud in front.
-    cm.add_box(m, tuple(W((0, b['front'] + 0.07, 1.25))), (0.58, 0.14, 0.5), 'coat')
-    # The collar round the base of the neck, the brass hames along it.
-    d = NECK_DIR
-    u = Vector((1.0, 0.0, 0.0))
-    v = d.cross(u)
-    c = W(NECK_BASE + d * 0.12)
-    ring = [c + u * (0.24 * math.cos(a)) + v * (0.31 * math.sin(a))
-            for a in np.linspace(0, 2 * math.pi, cm.res(20, least=8, div=2) + 1)]
-    cm.tube(m, ring, 0.055, 'leather', seg=10)
-    for s in (-1, 1):
-        hame = [c + u * (s * 0.28) + v * (0.27 * k) - d * 0.01 for k in (-0.8, -0.3, 0.3, 0.8)]
-        cm.tube(m, hame, 0.014, 'brass', seg=8)
-        cm.ellipsoid(m, hame[0] - v * 0.04, (0.025, 0.025, 0.025), 'brass', seg=10, rings=6)
-    # The saddle pad over the back, its flaps, the girth under the belly, two brass terrets on top.
-    ys = at.y + 0.25
-    top = b['top']
-    cm.add_box(m, (at.x, ys, top + 0.025), (0.5, 0.24, 0.05), 'leather')
-    for s in (-1, 1):
-        cm.add_box(m, (at.x + s * (b['hw'] + 0.012), ys, top - 0.2), (0.02, 0.22, 0.4), 'leather')
-        cm.add_box(m, (at.x + s * (b['hw'] + 0.008), ys, (top - 0.4 + b['bottom']) / 2), (0.016, 0.07, top - 0.4 - b['bottom']),
-                   'leather')
-        terret = [W((s * 0.12 + 0.035 * math.cos(a), 0.25, top + 0.09 + 0.035 * math.sin(a)))
-                  for a in np.linspace(0, 2 * math.pi, cm.res(12, least=6, div=2) + 1)]
-        cm.tube(m, terret, 0.008, 'brass', seg=6)
-    cm.add_box(m, (at.x, ys, b['bottom'] - 0.01), (2 * b['hw'] + 0.02, 0.07, 0.02), 'leather')
-    # The crupper down the spine to the tail; the breeching round the hindquarters, held up by a strap over the croup.
-    cm.add_box(m, tuple(W((0, -0.3, top + 0.012))), (0.05, 1.1, 0.024), 'leather')
-    for s in (-1, 1):
-        cm.add_box(m, tuple(W((s * (b['hw'] + 0.012), -0.6, 1.25))), (0.024, 0.52, 0.06), 'leather')
-        cm.add_box(m, tuple(W((s * (b['hw'] + 0.01), -0.62, (1.25 + top) / 2))), (0.02, 0.05, top - 1.25), 'leather')
-    cm.add_box(m, tuple(W((0, b['back'] - 0.012, 1.25))), (2 * b['hw'] + 0.05, 0.024, 0.06), 'leather')
-    cm.add_box(m, tuple(W((0, -0.62, top + 0.01))), (2 * b['hw'], 0.05, 0.02), 'leather')
-    # The traces from the hames back to the swingletree on the splinter bar; in shafts, the tugs that carry them.
+    for frame, corner, size, uv in HORSE_BOXES:
+        horse_box(m, at, frame, corner, size, pitches, 'horse_coat', uv)
+    for entry in HARNESS:
+        frame, corner, size, mat = entry[:4]
+        horse_box(m, at, frame, corner, size, pitches, mat, turn=entry[4] if len(entry) > 4 else None)
+    # The traces from the collar back to the swingletree; the reins from the bit, through the terrets, to the driver.
     tree = SPLINTER + Vector((at.x, 0.07, 0.0))
     for s in (-1, 1):
-        cm.tube(m, cm.catmull([tuple(W((s * 0.30, 0.84, 1.28))), tuple(W((s * (b['hw'] + 0.03), 0.0, 1.2))),
-                               tuple(W((s * (b['hw'] + 0.03), -0.8, 1.08))), tuple(tree + Vector((s * 0.29, 0.0, 0.0)))], 4),
-                0.02, 'leather', seg=8)
-        if HORSES == 1:
-            cm.add_box(m, (at.x + s * 0.45, ys, 1.19), (0.24, 0.06, 0.07), 'leather')
-    # The reins: from the bit, through the terrets, back to the driver's hands.
-    bit = W(MUZZLE - FACE * 0.12 + Vector((0, 0, -0.05)))
-    for s in (-1, 1):
-        hand = HANDS + Vector((s * 0.03, 0, 0))
-        terret = W((s * 0.12, 0.25, top + 0.12))
-        cm.tube(m, cm.catmull([tuple(bit + Vector((s * 0.15, 0, 0))), tuple(terret),
-                               tuple((terret + hand) * 0.5 - Vector((0, 0, 0.1))), tuple(hand)], 4), 0.009, 'leather', seg=6)
-    o = moving(m, 'horse_%d' % i, at)
-    o['horse'] = i
-
-    # The legs: a square leg and its hoof, turning at the top.
-    for tag, (x, y) in LEGS.items():
-        m = cm.Mesh()
-        cm.add_box(m, tuple(W((x, y, (LEG_TOP + 0.13) / 2))), (LEG_W, LEG_W, LEG_TOP - 0.13), 'coat')
-        cm.add_box(m, tuple(W((x, y + 0.01, 0.07))), (LEG_W + 0.02, LEG_W + 0.04, 0.14), 'hoof')
-        moving(m, 'leg_%s_%d' % (tag, i), W((x, y, LEG_TOP)))
-
-    # The neck and head, pitched forward from the withers: neck, mane, head, muzzle, ears, eyes behind blinkers, the
-    # bridle and the bit, and the plume on the poll.
-    m = cm.Mesh()
-    boxed(m, W(NECK_BASE + NECK_DIR * (NECK_LEN / 2)), (NECK_W, NECK_LEN, NECK_D), 'coat', along=NECK_DIR)
-    boxed(m, W(NECK_BASE + NECK_DIR * (NECK_LEN / 2) - v * (NECK_D / 2 + 0.04) + NECK_DIR * 0.04), (0.1, NECK_LEN + 0.06, 0.1),
-          'mane', along=NECK_DIR)
-    head = POLL + Vector((0.0, 0.04, -0.06)) + FACE * (HEAD_L / 2)
-    boxed(m, W(head), (HEAD_W, HEAD_L, HEAD_H), 'coat', along=FACE)
-    boxed(m, W(MUZZLE - FACE * 0.1), (HEAD_W - 0.08, 0.22, HEAD_H - 0.08), 'muzzle', along=FACE)
-    side_up = FACE.cross(u)    # across the face, up out of the forehead
-    for s in (-1, 1):
-        ear = POLL + Vector((s * 0.12, 0.0, 0.05))
-        boxed(m, W(ear + Vector((0, -0.02, 0.07))), (0.08, 0.05, 0.16), 'coat')
-        eye = W(head + u * (s * (HEAD_W / 2 + 0.005)) + FACE * -0.06 - side_up * 0.04)
-        cm.add_box(m, tuple(eye), (0.012, 0.05, 0.05), 'eye')
-        boxed(m, eye + Vector((s * 0.035, 0, 0)) + side_up * -0.0, (0.014, 0.15, 0.13), 'leather', along=FACE)
-        cm.add_box(m, tuple(W(POLL + Vector((s * (HEAD_W / 2 + 0.01), 0.06, -0.04)))), (0.016, 0.05, 0.05), 'brass')
-        boxed(m, W(POLL + FACE * (HEAD_L / 2 + 0.05) + u * (s * (HEAD_W / 2 + 0.008)) - side_up * 0.06),
-              (0.012, HEAD_L + 0.1, 0.03), 'leather', along=FACE)
-        cm.lathe(m, [(0.035, -0.008), (0.035, 0.008)], lambda k: 'brass', axis='x', seg=10,
-                 origin=tuple(W(MUZZLE - FACE * 0.12 + Vector((s * (HEAD_W / 2 - 0.02), 0, -0.05)))))
-    boxed(m, W(POLL + Vector((0, 0.07, -0.02))), (HEAD_W + 0.03, 0.03, 0.035), 'leather')
-    boxed(m, W(MUZZLE - FACE * 0.17), (HEAD_W - 0.05, 0.035, HEAD_H - 0.04), 'leather', along=FACE)
-    # The plume: a brass holder on the poll and a tall black plume of three, the middle one tallest.
-    crown = W(POLL + Vector((0, 0.02, 0.1)))
-    cm.add_box(m, tuple(crown), (0.06, 0.06, 0.1), 'brass')
-    for tilt, height, lean in ((0.0, 0.48, 0.1), (0.38, 0.36, 0.06), (-0.38, 0.36, 0.06)):
-        def plume(mm, height=height, lean=lean):
-            limb(mm, Vector((0, 0, 0.04)), Vector((0, lean * 0.4, height * 0.8)),
-                 [(0, 0.025, 0.025), (0.25, 0.06, 0.045), (0.65, 0.07, 0.05), (1, 0.055, 0.04)], 'plume', n=2.0)
-            limb(mm, Vector((0, lean * 0.4, height * 0.8)), Vector((0, lean, height)),
-                 [(0, 0.055, 0.04), (1, 0.012, 0.012)], 'plume', n=2.0)
-        placed(m, Matrix.Translation(crown) @ Matrix.Rotation(tilt, 4, 'Y'), plume)
-    moving(m, 'head_%d' % i, W(NECK_BASE))
-
-    # The tail: a long box hanging from the top of the rump, swept back a little.
-    m = cm.Mesh()
-    sweep = Vector((0.0, -math.sin(math.radians(18)), -math.cos(math.radians(18))))
-    boxed(m, W(TAIL_ROOT + sweep * 0.42 + Vector((0, -0.04, 0))), (0.18, 0.84, 0.22), 'mane', along=sweep)
-    moving(m, 'tail_%d' % i, W(TAIL_ROOT))
+        start = horse_point(at, 'head', (s * TRACE_FROM[0], TRACE_FROM[1], TRACE_FROM[2]), pitches)
+        mid = horse_point(at, 'body', (s * 5.4, -3.0, -10.0), pitches)
+        cm.tube(m, [start, mid, tree + Vector((s * 0.29, 0.0, 0.0))], 0.018, 'leather', seg=8)
+        bit = horse_point(at, 'head', (s * BIT[0], BIT[1], BIT[2]), pitches)
+        terret = horse_point(at, 'body', (s * TERRET[0], TERRET[1], TERRET[2]), pitches)
+        hand = HANDS + Vector((-s * 0.03, 0.0, 0.0))
+        cm.tube(m, cm.catmull([tuple(bit), tuple(terret), tuple((terret + hand) * 0.5 - Vector((0, 0, 0.12))), tuple(hand)], 4),
+                0.008, 'leather', seg=6)
+    o = m.obj(name, coll='preview', smooth=None)
+    del o['part']       # the renders only: never baked (the game draws its own horse)
+    turn = Matrix.Translation(TURNTABLE) @ Matrix.Rotation(math.radians(22) * steer, 4, 'Z') @ Matrix.Translation(-TURNTABLE)
+    o.matrix_world = turn
+    return o
 
 
 def build_markers():
@@ -621,8 +639,6 @@ def build():
     build_cage()
     build_door()
     build_seat()
-    for i in range(HORSES):
-        build_horse(i)
     build_markers()
 
 
@@ -634,13 +650,15 @@ def pose(door=0.0, steer=0.0, gait=0.0, phase=0.0, spin=0.0):
     their stride (phase, radians) by gait (0 standing, 1 a trot); the wheels turned by spin (radians; the front ones
     faster, being smaller)."""
     turn = Matrix.Rotation(math.radians(22) * steer, 4, 'Z')
+    for i in range(HORSES):
+        build_horse_preview(i, gait, phase, steer)
     for o in bpy.data.objects:
         part = o.get('part', '')
         rest = Vector(o['rest']) if 'rest' in o else None
         if part == 'door':
             o.rotation_euler = (0, 0, math.radians(105) * door)
             continue
-        front = part in ('fore_carriage', 'wheel_fl', 'wheel_fr') or part.startswith(('horse_', 'leg_', 'head_', 'tail_'))
+        front = part in ('fore_carriage', 'wheel_fl', 'wheel_fr')
         if rest is None or part == '':
             continue
         yaw = math.radians(22) * steer if front else 0.0
