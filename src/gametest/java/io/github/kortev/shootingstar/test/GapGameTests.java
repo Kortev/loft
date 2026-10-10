@@ -2,6 +2,7 @@ package io.github.kortev.shootingstar.test;
 
 import com.mojang.authlib.GameProfile;
 import io.github.kortev.shootingstar.ShootingStar;
+import io.github.kortev.shootingstar.gap.Erasure;
 import io.github.kortev.shootingstar.gap.GapManager;
 import io.github.kortev.shootingstar.gap.GapTimeline;
 import io.github.kortev.shootingstar.item.GenesisKeyItem;
@@ -65,6 +66,8 @@ public class GapGameTests implements FabricGameTest {
 		for (BlockPos pos : BlockPos.iterate(center.add(-RADIUS - 16, -3, -RADIUS - 16), center.add(RADIUS + 16, 0, RADIUS + 16))) {
 			world.setBlockState(pos, Blocks.STONE.getDefaultState());
 		}
+		// The shooter's home, out of reach of the fissures: still there to go back to, whichever way they run.
+		BlockPos shooterGround = beyondFissures(world, center, -1, 0);
 		BlockPos farGround = center.add(150, 0, 30);
 		for (BlockPos pos : BlockPos.iterate(farGround.add(-3, -1, -3), farGround.add(3, 0, 3))) {
 			world.setBlockState(pos, Blocks.STONE.getDefaultState());
@@ -83,7 +86,7 @@ public class GapGameTests implements FabricGameTest {
 		float spawnAngle = world.getSpawnAngle();
 		world.setSpawnPos(center.add(3, 1, 3), 0.0F);
 
-		Vec3d shooterHome = Vec3d.ofBottomCenter(center.add(-RADIUS - 10, 1, 0));
+		Vec3d shooterHome = Vec3d.ofBottomCenter(shooterGround.up());
 		Vec3d farHome = Vec3d.ofBottomCenter(farGround.up());
 		Vec3d voidHome = Vec3d.ofBottomCenter(voidGround.up());
 		Vec3d netherHome = Vec3d.ofBottomCenter(netherGround.up());
@@ -226,7 +229,7 @@ public class GapGameTests implements FabricGameTest {
 			world.setBlockState(pos, Blocks.STONE.getDefaultState());
 		}
 		Vec3d shooterHome = Vec3d.ofBottomCenter(center.add(-RADIUS - 6, 1, 4));
-		Vec3d watcherHome = Vec3d.ofBottomCenter(center.add(RADIUS + 9, 1, -3));
+		Vec3d watcherHome = Vec3d.ofBottomCenter(beyondFissures(world, center, 1, 0).up());
 		ServerPlayerEntity shooter = player(context, world, "stopshooter", shooterHome);
 		ServerPlayerEntity watcher = player(context, world, "stopwatcher", watcherHome);
 		ItemStack key = new ItemStack(ModItems.GENESIS_KEY);
@@ -264,6 +267,22 @@ public class GapGameTests implements FabricGameTest {
 			context.assertTrue(problems.length() == 0, problems.toString());
 			context.complete();
 		});
+	}
+
+	/**
+	 * A platform of stone out from {@code center} along x or z ({@code dx}, {@code dz}: -1, 0 or 1), all of it past
+	 * the farthest a hole of these tests splits the ground ({@link Erasure#farthest}); returns its middle, the block to
+	 * stand on. Where the fissures run is laid out from where the target is, and the test server puts its tests
+	 * somewhere new every run: a home any nearer is split by one now and then, and whoever lives there is set down at
+	 * the bottom of it, the nearest ground in its column.
+	 */
+	private static BlockPos beyondFissures(ServerWorld world, BlockPos center, int dx, int dz) {
+		int out = Erasure.farthest(RADIUS) + 4;
+		BlockPos ground = center.add(dx * out, 0, dz * out);
+		for (BlockPos pos : BlockPos.iterate(ground.add(-3, -1, -3), ground.add(3, 0, 3))) {
+			world.setBlockState(pos, Blocks.STONE.getDefaultState());
+		}
+		return ground;
 	}
 
 	/** A connected survival player standing at {@code at} in {@code world}. */

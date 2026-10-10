@@ -93,7 +93,12 @@ regenerate the `gap_*` sounds.
   - **Players:**
     - `gather` / `place` / `hold`: the void floor sends `GapFloorPayload(floor)`.
     - `warp`: the light holds a player `WARP_DELAY` ticks, then `GapWarpPayload` and the move.
-    - `sendHome`, `safe`, `standable`, `toRim`.
+    - `sendHome`, `safe`, `standable`, `toRim`. Home is the position saved in `GapState.homes` when the player was
+      gathered. `sendHome` sends them to `safe(home)`: if home is within radius + 8 of the target, its rim; otherwise
+      the nearest standable block in home's own column, near its height. So if a fissure split home, that is the
+      bottom of the fissure. Failing that, the nearest ground round about.
+    - The server never puts any ground back. The rebuild is only drawn by the clients; the hole and the fissures are
+      there for good.
   - **While the world is gone ("cut")**, Fabric events block attacking, using, placing and breaking. Only the key
     still works. `ALLOW_DAMAGE` protects the shooter during the sequence and everyone held.
   - **Lifecycle:**
@@ -105,6 +110,9 @@ regenerate the `gap_*` sounds.
     registered for the network format, but nothing sends or draws them now.
 - **`gap/Erasure`**: the hole.
   - The shape: a ragged shaft (`RAGGED` 4) from the build limit through bedrock, plus `CRACKS` 14 fissures.
+  - The fissures run out from just inside the rim, 0.25–0.7 × radius long. Where they run is seeded from the target's
+    position, so `recover` cuts the same ones again. `farthest(radius)` (about 1.7 × radius + 3) is the farthest out
+    any of them can reach: ground beyond it is never touched.
   - It changes blocks quietly (`FORCE_STATE | SKIP_DROPS`), `BLOCK_BUDGET` 40 000 and `READ_BUDGET` 200 000 a tick.
   - `WorldChunkMixin` hands it the light checks, so there is one per column at the bottom when done.
   - Every touched chunk is resent once at the end; `finishBlocks()` does the rest at once.
@@ -176,9 +184,14 @@ Their events are `gap.key`, `gap.ambience`, and so on.
 
 `src/gametest/.../GapGameTests.java`:
 
-- `liveEvent` (batch `c_gap`): a whole event with fake players, through the void and home. It's **flaky** at
-  times: "the shooter was not taken home", 5 blocks low. That's an open item.
+- `liveEvent` (batch `c_gap`): a whole event with fake players, through the void and home.
 - `stopMidEvent` (batch `d_gapstop`): the server going down mid-event finishes the hole, removes the floor,
   sends everyone home and shatters the key.
+- A home a test expects to find whole (the shooter's in `liveEvent`, the watcher's in `stopMidEvent`) stands on a
+  platform past `Erasure.farthest(RADIUS)` (`beyondFissures`).
+  - The test server puts its tests at a random x/z every run, so the fissures run somewhere new every time.
+  - The shooter's home used to be 30 blocks out, within their reach. About one run in 25 a fissure split it, and
+    `safe` set the shooter down at the bottom of it: the old flake, "the shooter was not taken home", 5 blocks low.
+  - Put any new test home out there too, unless the test is meant to cope with it being split.
 
 The client self test is `GapSelfTest` (selftest workflow, `test=gap`).

@@ -134,9 +134,18 @@ kortev tests in game themselves and reports back. Don't spend usage on the self-
   go for a smoky getaway); her body rides its springs (squat, dive, lean, bumps) and shakes at idle in time with the
   firings, the bonnet strap rattling in the idle sound; tyres smoke and squeal on paving and throw dust off it; the
   air shimmers over her hot bonnet (a translucent particle: Minecraft has no true heat haze).
-- **Flaky game test** `gapgametests.liveevent`: it failed once ("the shooter was not taken home", at home x/z but 5
-  blocks lower) and passed on re-run. Find the real cause; the player probably landed before the ground under home
-  was back.
+- **Flaky game test** `gapgametests.liveevent`: **fixed; confirm it on the next CI runs.** It failed once with "the
+  shooter was not taken home": at home x/z, 5 blocks lower.
+  - It was not timing. The server never puts ground back (the rebuild is only drawn), and it sends everyone home at
+    `REBUILD_END` to the nearest ground in their home's column (`GapManager.safe`).
+  - The shooter's home was 30 blocks out, within reach of the fissures (up to about 1.7 × radius). Where the fissures
+    run is seeded from the target's position, and the test server puts its tests at a random x/z every run.
+  - About one run in 25 a fissure split that column, and the shooter was set down at the bottom of it, as `safe`
+    means to.
+  - The fix: the shooter's home, and `stopMidEvent`'s watcher's (it had the same exposure), now stand on platforms
+    past `Erasure.farthest(radius)`, the farthest any fissure can reach.
+  - Open for kortev: should someone whose home a fissure split be set down beside it, as `unlid` does, rather than
+    in it? That would be a change to `safe`.
 - kortev's planned edits to Gungnir and the Genesis Key: ask what they are.
 
 ## How to work here

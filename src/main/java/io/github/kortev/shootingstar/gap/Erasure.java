@@ -45,6 +45,9 @@ public final class Erasure {
 	/** How far the edge wanders in and out. */
 	private static final double RAGGED = 4.0;
 	private static final int CRACKS = 14;
+	/** How far a fissure runs out from the rim, as a share of the radius: at least this, up to this much more. */
+	private static final double CRACK_LENGTH = 0.25;
+	private static final double CRACK_SPREAD = 0.45;
 	/** Quietly: no update sent, no neighbours told, nothing dropped. */
 	private static final int QUIET = Block.FORCE_STATE | Block.SKIP_DROPS;
 
@@ -109,9 +112,19 @@ public final class Erasure {
 		// Fissures out from the rim, wandering, forking now and then.
 		for (int i = 0; i < CRACKS; i++) {
 			double angle = (i + random.nextDouble() * 0.6) / CRACKS * Math.PI * 2.0;
-			double length = radius * (0.25 + random.nextDouble() * 0.45);
+			double length = radius * (CRACK_LENGTH + random.nextDouble() * CRACK_SPREAD);
 			crack(angle, radius - 1.0, length, random, 0);
 		}
+	}
+
+	/**
+	 * The farthest out from the target that the erasure ever splits the ground, for a hole of this radius: the tip of
+	 * the longest fissure there could be, a block a step straight out from just inside the rim, with the block a fork
+	 * can add at its end, a block either side where it is wide and the block it is rounded to. Where the fissures run
+	 * is different for every target (they are laid out from where it is), but nothing further out is ever touched.
+	 */
+	public static int farthest(int radius) {
+		return radius + MathHelper.ceil(radius * (CRACK_LENGTH + CRACK_SPREAD)) + 3;
 	}
 
 	/** How far out the edge of the hole is in the direction of (dx, dz): the radius, wandering in and out. */
