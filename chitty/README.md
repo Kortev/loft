@@ -77,11 +77,15 @@ G M G     M = Minecart        P = Piston
 P B P     B = any Boat
 ```
 
+She is faceted, to sit among Minecraft's blocks as the airship does: her round parts have a few flat sides, her bars
+and pipes are square, and the game lights each flat face by which way it faces, over a pixelated texture of her
+colours.
+
 The model, its texture and the item icon come from `tools/chitty_model.py` (Blender's Python module,
-`pip install "bpy==4.5.*"` on Python 3.11): `--game` unwraps every part into one atlas, bakes her look into it with
-Cycles (the sky and soft shadows; for the polished metal only how shut in it is, the game shining it live) and writes
-the game's mesh and texture; `--out DIR
---renders` writes `.blend` and `.glb` files and renders her on the road, flying and afloat. Her sounds come from
+`pip install "bpy==4.5.*"` on Python 3.11): `--game` builds her faceted, unwraps every part into one 1024 atlas, bakes
+her colours into it with Cycles (a little darker in her nooks; for the polished metal only how shut in it is, the game
+shining it live) and writes the game's mesh and texture; `--out DIR --renders` writes `.blend` and `.glb` files and
+renders her (round, or faceted with `--facet`) on the road, flying and afloat. Her sounds come from
 `tools/gen_chitty_sounds.py`, which models the engine (each firing and its rush of gas through its own length of header
 into one long flexible pipe, heard outdoors) rather than imitating it.
 

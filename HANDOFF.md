@@ -135,11 +135,8 @@ kortev tests in game themselves and reports back. Don't spend usage on the self-
   rather than add to it, and ask the same question about her look in Minecraft (pixel density, face shading,
   faceting): kortev chose the faceted finish for the airship, and its bake switches (`LIT_ALL`, `PACK_ROTATE`,
   `ChittyTexture`'s pixelated option) are in `chitty_model.py`, off for her.
-  - **Faceted Chitty: renders sent, waiting on kortev's OK.** `chitty_model.py` now has `FACET` (set in `main()` by
-    `--game` or `--facet`, never on import, so the airship's helpers are untouched): `sides()`/`res()` for few flat
-    sides and fewer curve steps, square bars (`facet_bar`), one-chamfer bevels, flat faces; `--game` also bakes a
-    1024 colours-only atlas (`LIT_ALL`, `PACK_ROTATE`). Her game files are still the smooth bake. On OK: run `--game`,
-    switch `ChittyRenderer` to `new ChittyTexture(TEXTURE, true)`, update `references/chitty.md` and her README.
+  - **Faceted Chitty: done.** kortev OK'd the comparison renders ("chitty is great"); her game files are the faceted
+    bake (`chitty_model.py --game`: `FACET`, `LIT_ALL`, a 1024 atlas) and `ChittyRenderer` draws it pixelated.
 
 - **Chitty polish: done, waiting on kortev's in-game test.** Her lamp beams are gone; she is cranked at the front and
   now and then doesn't catch; V revs her standing (a roar, a twist on her springs, a backfire on letting go; rev then

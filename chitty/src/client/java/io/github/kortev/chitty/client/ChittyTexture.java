@@ -11,8 +11,8 @@ import net.minecraft.util.Identifier;
 
 /**
  * A vehicle's baked texture, with mipmaps, so that it blends as she moves off into the distance rather than sparkles.
- * Chitty's is smoothly filtered: it is a detailed picture wrapped round a curved model, not pixel art. The airship's is
- * pixelated close to, as Minecraft draws its blocks and mobs.
+ * Chitty's and the airship's are pixelated close to, as Minecraft draws its blocks and mobs (both are faceted); a
+ * smoothly filtered one suits a detailed picture wrapped round a smooth model.
  */
 public class ChittyTexture extends ResourceTexture {
 	private static final int LEVELS = 4;

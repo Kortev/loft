@@ -26,9 +26,9 @@ import org.joml.Quaternionf;
  * air and rocks when she is hit. On the road her body rides its springs over the wheels, squatting, diving, leaning
  * and bouncing (ChittyEntity's suspension), and as the engine ticks over it shakes at every pair of firings.
  *
- * <p>Her texture is baked with her light in it (tools/chitty_model.py), so most of her is drawn evenly lit; only the
- * wheels, which roll, carry real normals and take the game's light, and her polished metal is shone live as you look at
- * it (ChittyShine).
+ * <p>She is faceted, as Minecraft's things are (kortev chose it, as for the airship): her texture holds her colours
+ * alone, a little darker in her nooks, drawn pixelated, and the game lights each of her flat faces by which way it faces
+ * (tools/chitty_model.py --game); her polished metal is shone live as you look at it (ChittyShine).
  *
  * <p>Blender's axes map onto the car's as (x, y, z) to (-x, z, y), so a Blender turn about its z is a turn about our y by
  * the same angle, about its y one about our z, and about its x one about our x the other way.
@@ -60,7 +60,7 @@ public class ChittyRenderer extends EntityRenderer<ChittyEntity> {
 	public ChittyRenderer(EntityRendererFactory.Context context) {
 		super(context);
 		this.shadowRadius = 1.6F;
-		MinecraftClient.getInstance().getTextureManager().registerTexture(TEXTURE, new ChittyTexture(TEXTURE));
+		MinecraftClient.getInstance().getTextureManager().registerTexture(TEXTURE, new ChittyTexture(TEXTURE, true));
 	}
 
 	@Override

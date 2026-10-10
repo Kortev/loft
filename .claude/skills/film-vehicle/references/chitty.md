@@ -23,7 +23,7 @@ and her assets and data are under `chitty/src/{main,client}/resources/`, still i
 | Renderer (posing every part) | `client/ChittyRenderer.java` |
 | Live metal reflections | `client/ChittyShine.java` |
 | Engine and flight loops | `client/ChittySound.java` |
-| Smooth-filtered atlas | `client/ChittyTexture.java` |
+| Pixelated atlas (faceted look) | `client/ChittyTexture.java` (`pixelated` true, as the airship's) |
 | Third-person distance ×2 | `client/mixin/ChittyCameraMixin.java` (config `chitty.client.mixins.json`) |
 | First-person bank | `client/mixin/ChittyViewMixin.java` |
 | Manifest | `chitty/src/main/resources/fabric.mod.json` (depends on `shootingstar`) |
@@ -131,7 +131,12 @@ The renderer has `PLEAT_CLOSED` 0.07, `WING_DROP` 0.15 and `TAIL_DROP` 0.04. The
   Mode strings: `road@0.3` means the wings 30% out, and `road^0.75` means the back seat thrown 0.75 up.
 - Materials that the game shines (`SHINE`): aluminium 1, brass 2, chrome 3, copper 4, aluminium_dull 5.
   - `GLOW`: `bulb_glow`, `eye`.
-  - `GAME_LIT`: `wheel_`.
+  - `GAME_LIT`: `wheel_` (moot in her faceted game build: `--game` sets `LIT_ALL`, so the game lights every part).
+- **Faceted (`FACET`, set in `main()` by `--game` or `--facet`, never on import):** `sides(r)` gives a round part 4/6/8/12
+  flat sides with a flat on top; `res(n)` takes a sixth the curve steps; `tube` makes square or eight-sided bars of at
+  least `THINNEST` (`facet_bar`), broken at corners over 35°; bevels are one chamfer; faces are flat. `--game` also bakes
+  a 1024 colours-only atlas (`LIT_ALL`, `PACK_ROTATE = 'AXIS_ALIGNED'`, `--atlas N` to change it). kortev chose it from
+  comparison renders (the game's look: `cbm_preview`-style, flat faces lit as the game lights them).
   - `GLASS_TINT`: per-vertex tint and alpha.
 
 ## Sounds
