@@ -291,6 +291,16 @@ public class AirshipEntity extends Entity {
 	private double winchSpeed;
 	/** How much further whoever has just taken hold to hang on is pulling themselves up the rope (HANG_CLEAR). */
 	private double pullUp;
+	/**
+	 * Whether the rope last moved because whoever hangs on it climbed it or pulled themselves up (then the winch's ratchet
+	 * is still: nobody is turning the drum), rather than because the crew turned it.
+	 */
+	private boolean climbed;
+	/**
+	 * Where each player close to the empty grapple was at the end of the last tick: how they were moving when they take
+	 * hold of it (a server's players have no velocity of their own to read), which carries into their swing.
+	 */
+	private final Map<PlayerEntity, Vec3d> nearGrapple = new WeakHashMap<>();
 	/** Whoever the grapple will not take hold of just now (they have just got off it, let go of it or thrown it), and till when. */
 	@Nullable
 	private Entity spared;
@@ -1353,6 +1363,7 @@ public class AirshipEntity extends Entity {
 		lastLoad = load;
 		if (load == null) {
 			pullUp = 0.0;
+			climbed = false;
 		}
 		if (winchBy != null && (winchBy.isRemoved() || winchBy.getVehicle() != this)) {
 			// Whoever worked the winch has left her: it stops.
@@ -1393,9 +1404,10 @@ public class AirshipEntity extends Entity {
 			}
 		}
 		keepHead(world);
-		// The winch's ratchet clicks as it turns, quicker and higher the faster it goes.
+		// The winch's ratchet clicks as the drum turns, quicker and higher the faster it goes: as the crew turn it, or as
+		// the rope pays out after whoever holds the grapple; not as someone climbs the rope.
 		double turned = Math.abs(hookDrop - before);
-		if (turned > 0.01 && age % (turned > 0.2 ? 3 : 5) == 0) {
+		if (turned > 0.01 && !climbed && age % (turned > 0.2 ? 3 : 5) == 0) {
 			world.playSound(null, getX(), getY(), getZ(), Airship.WINCH, SoundCategory.NEUTRAL, 0.5F,
 					(float) (0.85 + turned * 0.8) + random.nextFloat() * 0.05F);
 		}
@@ -1407,6 +1419,14 @@ public class AirshipEntity extends Entity {
 		dataTracker.set(HOOK_DROP, (float) hookDrop);
 		Vec3d at = hookPos.subtract(out);
 		dataTracker.set(HOOK_AT, new Vector3f((float) at.x, (float) at.y, (float) at.z));
+		// Who is about the empty grapple, and where (last of all, so that a catch next tick sees a tick's movement).
+		nearGrapple.clear();
+		if (hook != Hook.UP && load == null) {
+			for (PlayerEntity player : world.getEntitiesByClass(PlayerEntity.class, new Box(hookPos, hookPos).expand(GRAB_REACH + 2.0),
+					near -> !near.isSpectator())) {
+				nearGrapple.put(player, player.getPos());
+			}
+		}
 	}
 
 	/**
@@ -1420,6 +1440,11 @@ public class AirshipEntity extends Entity {
 		boolean byChoice = load instanceof PlayerEntity && hookEntity != null && hookEntity.isVoluntary();
 		// Someone hanging on climbs the rope, holding jump, while the winch is still.
 		boolean climbing = winch == 0 && byChoice && load instanceof AirshipJumper rider && rider.isChittyJumping();
+		if (climbing) {
+			climbed = true;
+		} else if (winch != 0 || !byChoice) {
+			climbed = false;
+		}
 		double speed = winch > 0 ? load != null ? LOADED_DOWN : HOOK_DOWN : winch < 0 ? -(load != null ? LOADED_UP : HOOK_UP)
 				: climbing ? -ROPE_CLIMB : 0.0;
 		winchSpeed += (speed - winchSpeed) * WINCH_EASE;
@@ -1429,6 +1454,7 @@ public class AirshipEntity extends Entity {
 		hookDrop += winchSpeed;
 		if (byChoice && winch == 0 && pullUp > 0.0) {
 			// Taking hold, they pull themselves up it, clear of the ground.
+			climbed = true;
 			double step = Math.min(pullUp, PULL_STEP);
 			hookDrop = Math.max(HOOK_ABOARD, hookDrop - step);
 			pullUp -= step;
@@ -1725,9 +1751,15 @@ public class AirshipEntity extends Entity {
 		keepHead(world);
 		AirshipHookEntity head = hookEntity;
 		// The crown in their raised hands, so that they hang from it where they are, on a rope drawn taut (no slack to
-		// leave them standing on the ground): from there they swing.
+		// leave them standing on the ground): from there they swing, carried on the way they were going (a running leap
+		// swings them on; a move of more than a block and a half in a tick was a teleport, not a run).
+		Vec3d last = nearGrapple.get(player);
+		Vec3d moving = last == null ? Vec3d.ZERO : player.getPos().subtract(last);
+		if (moving.lengthSquared() > 1.5 * 1.5) {
+			moving = Vec3d.ZERO;
+		}
 		hookPos = player.getPos().add(0.0, AirshipHookEntity.hangBelow(player, true) + HOOK_GRIP, 0.0);
-		hookPrev = hookPos.subtract(player.getVelocity());
+		hookPrev = hookPos.subtract(moving);
 		hookDrop = hookPos.distanceTo(lineOut());
 		if (head == null || !player.startRiding(head, true)) {
 			return false;

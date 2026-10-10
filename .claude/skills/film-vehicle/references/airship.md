@@ -73,8 +73,10 @@ namespace.
     landing clanks and puffs dust (`thud`). Clients draw it from `HOOK_AT` (eased), the rope and grapple turned along
     the rope (`AirshipRenderer`).
   - Its head (`AirshipHookEntity`) is in the world while the grapple is out: loads ride it; hanging empty it can be
-    used within `GRAB_REACH` 4.5 of the eyes (`takeHoldOfGrapple`). Used in the air (`!isOnGround()`: leaping or
-    falling for it), they catch it and hang on at once; standing, it follows `handOf` the holder (`HOOK_HELD`). Using it on something within
+    used within `GRAB_REACH` 4.5 of the eyes (`takeHoldOfGrapple`; the head's box is a generous 1.3 by 1.5, easy to
+    click). Used in the air (`!isOnGround()`: leaping or falling for it), they catch it and hang on at once, carried on
+    the way they were moving (`nearGrapple`: where each player about the empty grapple was last tick, since a server's
+    players have no velocity of their own); standing, it follows `handOf` the holder (`HOOK_HELD`). Using it on something within
     `HOOK_REACH` 4 hooks it on (`hookOnto`, from Fabric's `UseEntityCallback` in `Airship.init`). Their grapple key
     throws it (`ACTION_THROW`, `throwGrapple`: `THROW_SPEED` 1.0 the way they look, `THROW_SLACK` 16 more rope; it
     spares the thrower, and catches along its path, `catchable`). Jumping with it
@@ -82,7 +84,8 @@ namespace.
     `PULL_STEP` a tick and `PULL_UP` at most, until the bottom of the swing under her keel clears the ground there by
     `HANG_CLEAR`, `clearDrop`; leaning pumps the swing, `HOOK_PUMP`, doubled with their feet on the ground so they run
     with it; holding jump climbs the rope at `ROPE_CLIMB`, read through the `mixin/AirshipJumper` accessor). Sneaking
-    or going beyond the rope lets go. Game tests set `setOnGround(true)` on their standing players: a test player is
+    or going beyond the rope lets go. The winch's ratchet clicks only as the drum turns for the crew (or pays out after a
+    holder), not as someone climbs or pulls themselves up (`climbed`). Game tests set `setOnGround(true)` on their standing players: a test player is
     never on the ground by itself, and would count as leaping.
   - Whatever it takes hold of is hung by its collar where it stands (`grab`), never from wherever the tines met it;
     its lowest point is lifted out of any block it ends up in (`outOfTheGround`); and nothing on a grapple takes
