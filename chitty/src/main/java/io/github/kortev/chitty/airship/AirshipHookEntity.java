@@ -32,8 +32,8 @@ import org.jetbrains.annotations.Nullable;
  * sneak.</li>
  * </ul>
  * Clients are told which (VOLUNTARY), and each kick (AGITATION), and draw them so (AirshipHangPoseMixin). Hanging empty,
- * someone on the ground can take hold of it (AirshipEntity.takeHoldOfGrapple). Never saved: she winds her grapple up
- * when she is unloaded.
+ * someone can take hold of it, or leap and catch it to hang on (AirshipEntity.takeHoldOfGrapple). Never saved: she winds
+ * her grapple up when she is unloaded.
  */
 public class AirshipHookEntity extends Entity {
 	/** Ticks of struggling (holding sneak) a player needs to get off the grapple. */
@@ -236,7 +236,7 @@ public class AirshipHookEntity extends Entity {
 		return false;
 	}
 
-	/** Someone on the ground takes hold of it as it hangs empty. */
+	/** Someone takes hold of it as it hangs empty (or, leaping for it, catches it and hangs on). */
 	@Override
 	public ActionResult interact(PlayerEntity player, Hand hand) {
 		AirshipEntity ship = getShip();

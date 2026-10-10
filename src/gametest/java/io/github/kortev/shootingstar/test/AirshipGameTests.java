@@ -245,6 +245,7 @@ public class AirshipGameTests implements FabricGameTest {
 		ServerPlayerEntity holder = player(context, "grapple_holder");
 		Vec3d stand = context.getAbsolute(new Vec3d(4.0, 1.0, 5.6));
 		holder.requestTeleport(stand.x, stand.y, stand.z);
+		holder.setOnGround(true);
 		ZombieEntity husk = husk(context, 6.0, 1.0, 5.6);
 		ship.lowerGrappleTo(2.0);
 		context.runAtTick(40, () -> {
@@ -281,6 +282,7 @@ public class AirshipGameTests implements FabricGameTest {
 		ServerPlayerEntity hanger = player(context, "grapple_hanger");
 		Vec3d stand = context.getAbsolute(new Vec3d(4.0, 1.0, 5.6));
 		hanger.requestTeleport(stand.x, stand.y, stand.z);
+		hanger.setOnGround(true);
 		ship.lowerGrappleTo(1.0);
 		context.runAtTick(40, () -> {
 			context.assertTrue(ship.takeHoldOfGrapple(hanger), "the player could not take hold of the grapple: " + ship.getHookState());
@@ -303,6 +305,84 @@ public class AirshipGameTests implements FabricGameTest {
 	}
 
 	/**
+	 * Someone on the ground under her takes hold of her grapple and jumps to hang on: they pull themselves up it, clear of
+	 * the ground, so that they swing free rather than drag their feet.
+	 */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_airship_clear", tickLimit = 140)
+	public void hangsOnClearOfTheGround(TestContext context) {
+		floor(context, 0);
+		AirshipEntity ship = ship(context, 4.0, 6.0, 4.0);
+		ServerPlayerEntity hanger = player(context, "grapple_swinger");
+		Vec3d stand = context.getAbsolute(new Vec3d(4.0, 1.0, 5.6));
+		hanger.requestTeleport(stand.x, stand.y, stand.z);
+		hanger.setOnGround(true);
+		ship.lowerGrappleTo(1.0);
+		context.runAtTick(40, () -> {
+			context.assertTrue(ship.takeHoldOfGrapple(hanger), "the player could not take hold of the grapple: " + ship.getHookState());
+			context.assertTrue(ship.hangOn(hanger), "the player could not hang on the grapple");
+		});
+		context.runAtTick(100, () -> {
+			context.assertTrue(hanger.getVehicle() instanceof AirshipHookEntity hook && hook.freed(hanger),
+					"the player is not hanging on the grapple: they are on " + hanger.getVehicle());
+			context.assertTrue(hanger.getY() > context.getAbsolute(new Vec3d(0.0, 1.3, 0.0)).y,
+					"hanging on, the player's feet are not clear of the ground: y " + (hanger.getY() - context.getAbsolute(Vec3d.ZERO).y));
+			hanger.stopRiding();
+			context.getWorld().getServer().getPlayerManager().remove(hanger);
+			done(context, ship);
+		});
+	}
+
+	/**
+	 * Her grapple hangs empty over someone's head: leaping for it, they catch it and hang on at once, off the ground.
+	 * Holding it on the ground, someone else is taken up hanging on it when the crew wind it in, and comes aboard.
+	 */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_airship_leap", tickLimit = 200)
+	public void leapsForTheGrapple(TestContext context) {
+		floor(context, 0);
+		AirshipEntity ship = ship(context, 4.0, 6.0, 4.0);
+		ServerPlayerEntity leaper = player(context, "grapple_leaper");
+		ship.hangGrappleAt(1.5);
+		context.runAtTick(30, () -> {
+			// At the top of a leap, under it.
+			Vec3d air = context.getAbsolute(new Vec3d(4.0, 1.8, 5.0));
+			leaper.requestTeleport(air.x, air.y, air.z);
+			leaper.setOnGround(false);
+			context.assertTrue(ship.takeHoldOfGrapple(leaper), "the leaping player could not catch the grapple");
+			context.assertTrue(leaper.getVehicle() instanceof AirshipHookEntity hook && hook.freed(leaper),
+					"leaping for it, the player did not catch the grapple and hang on: they are on " + leaper.getVehicle()
+							+ ", the grapple " + ship.getHookState());
+		});
+		context.runAtTick(60, () -> {
+			context.assertTrue(leaper.getVehicle() instanceof AirshipHookEntity, "the player was taken off the grapple by itself");
+			context.assertTrue(leaper.getY() > context.getAbsolute(new Vec3d(0.0, 1.3, 0.0)).y,
+					"hanging on, the player's feet are not clear of the ground: y " + (leaper.getY() - context.getAbsolute(Vec3d.ZERO).y));
+			leaper.stopRiding();
+			context.getWorld().getServer().getPlayerManager().remove(leaper);
+		});
+		ServerPlayerEntity holder = player(context, "grapple_held_up");
+		context.runAtTick(70, () -> {
+			ship.lowerGrappleTo(1.0);
+			Vec3d stand = context.getAbsolute(new Vec3d(4.0, 1.0, 5.6));
+			holder.requestTeleport(stand.x, stand.y, stand.z);
+			holder.setOnGround(true);
+		});
+		context.runAtTick(110, () -> {
+			context.assertTrue(ship.takeHoldOfGrapple(holder), "the player could not take hold of the grapple: " + ship.getHookState());
+			context.assertTrue(ship.getHookState() == AirshipEntity.Hook.HELD, "standing, the player did not take the grapple in hand");
+			ship.setWinch(null, -1);
+			context.assertTrue(holder.getVehicle() instanceof AirshipHookEntity hook && hook.freed(holder),
+					"wound in, the player holding the grapple was not taken up hanging on it: they are on " + holder.getVehicle());
+		});
+		context.runAtTick(190, () -> {
+			context.assertTrue(holder.getVehicle() == ship, "wound up, the player did not climb aboard: they are on "
+					+ holder.getVehicle() + ", the grapple " + ship.getHookState());
+			holder.stopRiding();
+			context.getWorld().getServer().getPlayerManager().remove(holder);
+			done(context, ship);
+		});
+	}
+
+	/**
 	 * Someone holding her grapple on the ground throws it at a mob a few blocks off: it takes hold of it where it
 	 * stands, by its collar, not dragging it into the ground from wherever the tines met it.
 	 */
@@ -313,6 +393,7 @@ public class AirshipGameTests implements FabricGameTest {
 		ServerPlayerEntity thrower = player(context, "grapple_thrower");
 		Vec3d stand = context.getAbsolute(new Vec3d(1.5, 1.0, 4.25));
 		thrower.requestTeleport(stand.x, stand.y, stand.z);
+		thrower.setOnGround(true);
 		// Facing along +x, at the mob.
 		thrower.setYaw(-90.0F);
 		thrower.setHeadYaw(-90.0F);

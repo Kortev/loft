@@ -105,8 +105,9 @@ Baron Bomburst's airship from the film, built in Blender from its stills:
   it with the movement keys; nobody can fall out.
 - **The controls are on screen:** aboard, a panel at the right lists the keys for what you can do where you are
   (walking about, or at the wheel), each lighting up as you press it, with a gauge for the grapple: how far down it
-  is, which way the winch is turning and what is on it. On the ground with the grapple in hand, hanging on it or
-  caught on it, a smaller panel says what you can do. F1 hides it with the rest of the HUD.
+  is, which way the winch is turning and what is on it. Looking at the grapple as it hangs empty, with it in hand,
+  hanging on it or caught on it, a smaller panel says what you can do (and, hanging on, when the crew are winding you
+  up or letting you down). F1 hides it with the rest of the HUD.
 - **Take the wheel:** walk up to the wheel in the bow and it is yours: now the movement keys fly her, and the view goes
   behind her to see all of her. Sneak to let go of it; you walk about again, in the view you had before.
 - **Fly:** forward and back for the propellers, left and right to steer (she turns even standing still), jump to rise
@@ -126,16 +127,25 @@ Baron Bomburst's airship from the film, built in Blender from its stills:
   the ground, where it is let go. Wound all the way in, the empty grapple is stowed. A caught player cannot simply
   step off: holding sneak, they struggle (a bar fills as they go), and after ten seconds of it they wrench free and drop.
   You can tell who chose to be there: something caught hangs limp by the back of its collar from the tines, and
-  kicks and jerks on the rope; someone hanging on by choice hangs from the ring by both hands. Aboard, the action bar
+  kicks and jerks on the rope; someone hanging on by choice hangs from its crown by both hands. Aboard, the action bar
   says which ("Caught on the grapple: Husk", or "Steve is hanging on the grapple").
-- **From below:** while the grapple hangs empty, anyone on the ground can use it to take hold of it. It goes where
-  their hand goes, its rope paying out after them. Then:
+- **From below:** while the grapple hangs empty, anyone can use it to take hold of it, as far as about four blocks
+  from their eyes. **Leap for it** (jump, and use it in the air) and you catch it and hang on at once, swinging from
+  where you caught it. Standing, you take it in hand: it goes where your hand goes, its rope paying out after you.
+  Then:
   - use it on someone (or something) within four blocks to hook it on, for the crew to wind up;
   - press **R** to throw it the way you look: it flies out on its rope and takes hold of the first thing it hits;
   - jump to hang on it: you hang from its crown by your hands, the rope drawn taut, and swing under her as she flies
     (lean with the movement keys to swing it). Hold jump to climb the rope up to her keel and aboard (or the crew can
     wind you up), and sneak to drop off;
   - sneak to let go. Her pulling further away than her rope reaches pulls it out of your hands.
+
+  Taking hold to hang on, you pull yourself up the rope (up to two and a half blocks) until the bottom of your swing,
+  under her keel, clears the ground: you swing free rather than drag your feet. Where your feet still touch the
+  ground, the movement keys run you along with it, pushing off, until it swings you off them. If the crew wind the
+  grapple in while you hold it or hang on it, up you go with it, to her keel and aboard (or, with her full, to hang
+  under her keel); if they let it out, you are let down until you stand on the ground, and let go there. Sneak to let
+  go of it at any time.
 - **The rope:** slack rope sags in a curve; the drum at the bow turns as it winds; the rope creaks under a load; and
   the grapple rattles and strikes sparks when it is dragged along the ground.
 - **The rope ladder:** **K** (rebindable, anyone aboard) lets it down from the rail on her left as far as the ground

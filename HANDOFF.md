@@ -82,8 +82,10 @@ wants **renders for approval before baking** anything.
   - The grapple is a weight on a rope (it swings, trails and lands) and lets down 64 blocks. The crew work its winch
     by holding keys (R out, Y in); kortev: it must never go up by itself, all its controls are on the ship. Anyone on
     the ground can take hold of it as it hangs empty and then hook it onto someone within reach, throw it (R) or jump
-    to hang on it; the crew wind up whatever it holds (whoever hangs on comes aboard). Slack rope sags; the drum turns;
-    the rope creaks under a load; dragged, the grapple sparks.
+    to hang on it, or leap and catch it in the air to hang on at once; hanging on, they pull themselves up clear of
+    the ground so they can swing (kortev: picked up off the ground, you hung with your feet on it and couldn't swing).
+    The crew wind up whatever it holds, and whoever holds it or hangs on goes up with it and comes aboard. Slack rope
+    sags; the drum turns; the rope creaks under a load; dragged, the grapple sparks.
 - **Built and in game.** kortev OK'd the renders and asked for her baked and ported. She is in Chitty's jar, mapped
   in `.claude/skills/film-vehicle/references/airship.md` and described in `chitty/README.md`.
   - kortev's first test: boarding put them in a crew place, so she would not fly; there was no way to the wheel and no

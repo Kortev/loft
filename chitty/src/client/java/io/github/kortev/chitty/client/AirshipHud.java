@@ -21,8 +21,8 @@ import org.jetbrains.annotations.Nullable;
  * The airship's controls on screen, so that nobody has to remember them. Aboard, a panel at the right of the screen
  * lists the keys for what the player can do where they are (walking about her gondola, or at the wheel), each key lit
  * while it is held, and under them a gauge for the grapple: how far down it is, which way its winch is turning, and
- * what is on it. On the ground with her grapple in hand, hanging on it or caught on it, a smaller panel says what can be
- * done. (F1 hides it with the rest of the HUD.)
+ * what is on it. Looking at her grapple as it hangs empty, with it in hand, hanging on it or caught on it, a smaller
+ * panel says what can be done. (F1 hides it with the rest of the HUD.)
  */
 final class AirshipHud {
 	private static final int BACK = 0x99000000;
@@ -91,6 +91,12 @@ final class AirshipHud {
 						|| o.backKey.isPressed() || o.rightKey.isPressed(), ui("swing")));
 				rows.add(row(o.jumpKey, ui("climb")));
 				rows.add(row(o.sneakKey, ui("let_go")));
+				// Whatever the crew are doing with the winch, so that it is no surprise.
+				AirshipEntity ship = head.getShip();
+				int winch = ship == null ? 0 : ship.getShownWinch();
+				if (winch != 0) {
+					rows.add(new Row(null, false, ui(winch < 0 ? "wound_up" : "let_down"), DIM));
+				}
 			} else {
 				title = ui("caught");
 				rows.add(row(o.sneakKey, ui("struggle")));
@@ -101,6 +107,11 @@ final class AirshipHud {
 			rows.add(row(o.useKey, ui("hook_on")));
 			rows.add(row(o.jumpKey, ui("hang_on")));
 			rows.add(row(o.sneakKey, ui("let_go")));
+			rows.add(new Row(null, false, ui("wound_in_hint"), DIM));
+		} else if (player.getVehicle() == null && client.targetedEntity instanceof AirshipHookEntity head && head.canHit()) {
+			title = ui("grapple");
+			rows.add(row(o.useKey, ui("take_hold")));
+			rows.add(row(combo(o.jumpKey, o.useKey), o.jumpKey.isPressed(), ui("leap_on")));
 		} else {
 			return;
 		}
@@ -213,6 +224,18 @@ final class AirshipHud {
 		for (KeyBinding key : bindings) {
 			if (!joined.isEmpty() && !letters) {
 				joined.append('/');
+			}
+			joined.append(key.getBoundKeyLocalizedText().getString());
+		}
+		return Text.literal(joined.toString());
+	}
+
+	/** Keys pressed one after the other, in one cap. */
+	private static Text combo(KeyBinding... bindings) {
+		StringBuilder joined = new StringBuilder();
+		for (KeyBinding key : bindings) {
+			if (!joined.isEmpty()) {
+				joined.append(" + ");
 			}
 			joined.append(key.getBoundKeyLocalizedText().getString());
 		}

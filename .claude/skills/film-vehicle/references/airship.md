@@ -20,7 +20,7 @@ namespace.
 | Payloads | `AirshipInputPayload` (the pilot's controls, Chitty's `ChittyControls`), `AirshipActionPayload` (`ACTION_` codes), `AirshipWalkPayload` (where a rider has walked to in the gondola) |
 | Mixins (main, `chitty.mixins.json`) | `mixin/AirshipDismountMixin` (sneaking aboard is `AirshipEntity.letsGo`'s to decide; never off the grapple until struggled free), `mixin/AirshipLadderMixin` (the rope ladder is climbable, and solid on its side towards her, so walking into it climbs it: `intoLadder`), `mixin/AirshipStrideMixin` (riders' legs go as they walk about her, not as she moves) |
 | Client: renderer, bomb renderer, keys, running sounds | `client/AirshipRenderer`, `AirshipBombRenderer`, `AirshipClient` (`init()` from `ChittyClient`), `AirshipSound` |
-| The controls on screen (kortev found the keys confusing) | `client/AirshipHud` (a `HudRenderCallback`): aboard, the keys for walking or the wheel and the crew's, lit while held, and the grapple's gauge; on the ground with the grapple, hanging on it or caught, what they can do. Words under `hud.shootingstar.airship.ui.*` |
+| The controls on screen (kortev found the keys confusing) | `client/AirshipHud` (a `HudRenderCallback`): aboard, the keys for walking or the wheel and the crew's, lit while held, and the grapple's gauge; looking at the empty grapple (`client.targetedEntity`), with it in hand, hanging on it (with what the crew are doing to the winch, `getShownWinch`, tracked `WINCH`) or caught, what they can do. Words under `hud.shootingstar.airship.ui.*` |
 | Client mixin | `client/mixin/AirshipStandMixin` (riders are drawn standing); `ChittyCameraMixin` turns the third-person camera about the middle of her (`VIEW_CENTRE`), `VIEW_DISTANCE` (24) back |
 | Mesh loader | `client/ChittyMesh.get("airship")` (shared with Chitty) |
 | Model, bake, icon, renders | `tools/airship_model.py` (`--game` builds her faceted: `tube`, `lathe`, `pipe` and `points` make square bars of at least `THINNEST` and round parts of `LATHE_SIDES`, the envelope has 16 sides, every face is flat; it reuses `chitty_model.export_game` with her settings: a 1024 atlas, `TEXEL_WEIGHT` towards the gondola, `LIT_ALL` (her colours alone, darker in nooks by `SHUT_IN`, every part's normals kept for the game's face lighting) and `PACK_ROTATE = 'AXIS_ALIGNED'`; `AirshipRenderer` draws the texture pixelated, `ChittyTexture(..., true)`) |
@@ -59,7 +59,9 @@ namespace.
     eases (`WINCH_EASE`) to `HOOK_DOWN` 0.45 / `HOOK_UP` 0.3 a tick, `LOADED_DOWN` 0.22 / `LOADED_UP` 0.2 with a load.
     Let out onto the ground it leaves `SLACK` 2 and stops; a load let out until it stands is let go there. Wound in, a
     caught load stops at `CARRY`, a volunteer at `HOOK_ABOARD` (0.6) climbs aboard (`comeAboard`), and the empty
-    grapple at 0 is stowed. Catching something or someone hanging on stops the winch. Nothing else moves it.
+    grapple at 0 is stowed. Catching something stops the winch; so does someone hanging on, unless it is winding
+    in (then up they go). Winding in on someone holding it takes them up hanging on it (`setWinch`), as does taking
+    hold while it winds in. Nothing else moves it, but a volunteer's own pulling up and climbing (below).
   - It takes hold only while it is going: let out by the winch, swept as she flies faster than `SWEEP`, or thrown
     (`THROWN_FLIGHT` ticks); never of whoever has just got off it, let go of it or thrown it (`spare`, `SPARE` ticks).
     Meeting one of Chitty's hitboxes, it takes Chitty (`whole`).
@@ -71,13 +73,17 @@ namespace.
     landing clanks and puffs dust (`thud`). Clients draw it from `HOOK_AT` (eased), the rope and grapple turned along
     the rope (`AirshipRenderer`).
   - Its head (`AirshipHookEntity`) is in the world while the grapple is out: loads ride it; hanging empty it can be
-    used (`takeHoldOfGrapple`), and then follows `handOf` the holder (`HOOK_HELD`). Using it on something within
+    used within `GRAB_REACH` 4.5 of the eyes (`takeHoldOfGrapple`). Used in the air (`!isOnGround()`: leaping or
+    falling for it), they catch it and hang on at once; standing, it follows `handOf` the holder (`HOOK_HELD`). Using it on something within
     `HOOK_REACH` 4 hooks it on (`hookOnto`, from Fabric's `UseEntityCallback` in `Airship.init`). Their grapple key
     throws it (`ACTION_THROW`, `throwGrapple`: `THROW_SPEED` 1.0 the way they look, `THROW_SLACK` 16 more rope; it
     spares the thrower, and catches along its path, `catchable`). Jumping with it
-    hangs on (`hangOn`: from the crown, the rope drawn taut where they are; leaning pumps the swing, `HOOK_PUMP`;
-    holding jump climbs the rope at `CLIMB`, read through the `mixin/AirshipJumper` accessor). Sneaking or going beyond
-    the rope lets go.
+    hangs on (`hangOn`: from the crown, the rope drawn taut where they are, then `pullUp`: they pull themselves up it,
+    `PULL_STEP` a tick and `PULL_UP` at most, until the bottom of the swing under her keel clears the ground there by
+    `HANG_CLEAR`, `clearDrop`; leaning pumps the swing, `HOOK_PUMP`, doubled with their feet on the ground so they run
+    with it; holding jump climbs the rope at `ROPE_CLIMB`, read through the `mixin/AirshipJumper` accessor). Sneaking
+    or going beyond the rope lets go. Game tests set `setOnGround(true)` on their standing players: a test player is
+    never on the ground by itself, and would count as leaping.
   - Whatever it takes hold of is hung by its collar where it stands (`grab`), never from wherever the tines met it;
     its lowest point is lifted out of any block it ends up in (`outOfTheGround`); and nothing on a grapple takes
     suffocation damage (`Airship.init`).
