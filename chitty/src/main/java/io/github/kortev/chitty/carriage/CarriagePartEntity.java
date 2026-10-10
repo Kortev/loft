@@ -20,17 +20,20 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * One of the hitboxes along the carriage, as Chitty has (ChittyPartEntity): her own box covers only her middle, so her
- * box at the front (the driver's) and the back of her cage (its door) get invisible ones of their own, which keep to
- * her as she moves. They are as solid as she is, using one is using her there and hitting one is hitting her, unless
- * you are riding in her. Never saved: she puts out new ones when she is loaded.
+ * box at the front (the driver's), the back of her cage (its door) and her horse get invisible ones of their own, which
+ * keep to her as she moves (the horse's turning with her shafts). They are as solid as she is, using one is using her
+ * there and hitting one is hitting her (the horse squeals), unless you are riding in her. Never saved: she puts out new
+ * ones when she is loaded.
  */
 public class CarriagePartEntity extends Entity {
 	public static final int FRONT = 0;
 	public static final int BACK = 1;
-	static final int COUNT = 2;
-	/** Where the bottom middle of each box is on her, in her own axes, and its size. */
+	public static final int HORSE = 2;
+	static final int COUNT = 3;
+	/** Where the bottom middle of the box and of the back is on her, in her own axes (the horse's: where it stands), and each size. */
 	private static final Vec3d[] OFFSETS = {new Vec3d(0.0, 0.0, 1.45), new Vec3d(0.0, 0.0, -1.0)};
-	private static final EntityDimensions[] SIZES = {EntityDimensions.changing(1.0F, 2.3F), EntityDimensions.changing(1.6F, 3.4F)};
+	private static final EntityDimensions[] SIZES = {EntityDimensions.changing(1.0F, 2.3F), EntityDimensions.changing(1.6F, 3.4F),
+			EntityDimensions.changing(1.3F, 1.7F)};
 	private static final TrackedData<Integer> CARRIAGE = DataTracker.registerData(CarriagePartEntity.class,
 			TrackedDataHandlerRegistry.INTEGER);
 	private static final TrackedData<Byte> PART = DataTracker.registerData(CarriagePartEntity.class, TrackedDataHandlerRegistry.BYTE);
@@ -62,7 +65,7 @@ public class CarriagePartEntity extends Entity {
 		}
 	}
 
-	/** Which of her boxes this is: FRONT or BACK. */
+	/** Which of her boxes this is: FRONT, BACK or HORSE. */
 	public int getPart() {
 		return MathHelper.clamp(dataTracker.get(PART), 0, COUNT - 1);
 	}
@@ -93,7 +96,7 @@ public class CarriagePartEntity extends Entity {
 	}
 
 	private void follow(CarriageEntity carriage) {
-		Vec3d at = carriage.toWorld(OFFSETS[getPart()]);
+		Vec3d at = getPart() == HORSE ? carriage.horseAt() : carriage.toWorld(OFFSETS[getPart()]);
 		setPosition(at.x, at.y, at.z);
 		setVelocity(Vec3d.ZERO);
 	}
@@ -116,7 +119,7 @@ public class CarriagePartEntity extends Entity {
 		if (carriage == null || source.getAttacker() != null && source.getAttacker().getRootVehicle() == carriage) {
 			return false;
 		}
-		return carriage.damage(source, amount);
+		return getPart() == HORSE ? carriage.damageHorse(source, amount) : carriage.damage(source, amount);
 	}
 
 	@Override
@@ -127,13 +130,6 @@ public class CarriagePartEntity extends Entity {
 	@Override
 	public boolean isCollidable() {
 		return true;
-	}
-
-	/** Not to her own horse, which stands in her shafts against her front. */
-	@Override
-	public boolean collidesWith(Entity other) {
-		CarriageEntity carriage = getCarriage();
-		return super.collidesWith(other) && (carriage == null || CarriageEntity.hitchedTo(other) != carriage);
 	}
 
 	@Override

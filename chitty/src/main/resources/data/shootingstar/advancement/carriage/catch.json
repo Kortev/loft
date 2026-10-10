@@ -1,5 +1,5 @@
 {
-  "parent": "shootingstar:carriage/hitch",
+  "parent": "shootingstar:carriage/root",
   "display": {
     "icon": {
       "id": "minecraft:iron_bars"

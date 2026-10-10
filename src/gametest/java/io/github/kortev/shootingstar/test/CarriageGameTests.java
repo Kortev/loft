@@ -3,15 +3,15 @@ package io.github.kortev.shootingstar.test;
 import com.mojang.authlib.GameProfile;
 import io.github.kortev.chitty.carriage.Carriage;
 import io.github.kortev.chitty.carriage.CarriageEntity;
+import io.github.kortev.chitty.carriage.CarriagePartEntity;
 import io.netty.channel.embedded.EmbeddedChannel;
 import java.util.UUID;
 import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
 import net.minecraft.block.Blocks;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.mob.ZombieEntity;
-import net.minecraft.entity.passive.HorseEntity;
-import net.minecraft.entity.passive.LlamaEntity;
 import net.minecraft.entity.passive.VillagerEntity;
+import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.network.ClientConnection;
 import net.minecraft.network.NetworkSide;
@@ -22,13 +22,14 @@ import net.minecraft.test.GameTest;
 import net.minecraft.test.TestContext;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.GameMode;
 
 /**
  * The Child Catcher's carriage with nobody driving her: the server moves her. She is longer than a test's box with her
  * horse ahead of her, so each test runs in a batch of its own, and takes her away at its end. Prisoners are husks,
- * which the sun cannot hurt.
+ * which the sun cannot hurt, players and villagers.
  */
 public class CarriageGameTests implements FabricGameTest {
 	private static void floor(TestContext context) {
@@ -44,12 +45,6 @@ public class CarriageGameTests implements FabricGameTest {
 		carriage.setYaw(0.0F);
 		carriage.prevYaw = 0.0F;
 		return carriage;
-	}
-
-	private static HorseEntity horse(TestContext context, double x, double z) {
-		HorseEntity horse = context.spawnEntity(EntityType.HORSE, new Vec3d(x, 1.0, z));
-		horse.setBaby(false);
-		return horse;
 	}
 
 	private static ZombieEntity husk(TestContext context, Vec3d at) {
@@ -70,57 +65,29 @@ public class CarriageGameTests implements FabricGameTest {
 	}
 
 	/**
-	 * A horse led up to her on a lead and her used is hitched into her shafts: off the lead (which goes back to the
-	 * player), standing where its shafts are. Unhitched, it goes back onto the player's lead. A llama, or a foal, is not
-	 * hitched.
+	 * Set going, she goes ahead, and her horse's hitbox with her, ahead of her in her shafts. Hitting the horse hits her.
 	 */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_carriage_hitch", tickLimit = 60)
-	public void hitchesALedHorse(TestContext context) {
-		floor(context);
-		CarriageEntity carriage = carriage(context, 4.0, 1.5);
-		HorseEntity horse = horse(context, 6.0, 5.0);
-		ServerPlayerEntity player = player(context, "carriage_hitcher");
-		// In survival: a creative player keeps their lead, and gets none back.
-		player.changeGameMode(GameMode.SURVIVAL);
-		Vec3d stand = context.getAbsolute(new Vec3d(6.0, 1.0, 3.0));
-		player.refreshPositionAndAngles(stand.x, stand.y, stand.z, 0.0F, 0.0F);
-		horse.attachLeash(player, true);
-		carriage.interactAt(player, new Vec3d(0.0, 1.5, 1.6), Hand.MAIN_HAND);
-		context.assertTrue(CarriageEntity.hitchedTo(horse) == carriage, "the led horse was not hitched");
-		context.assertTrue(!horse.isLeashed(), "the hitched horse is still on its lead");
-		context.assertTrue(player.getInventory().count(Items.LEAD) == 1, "the lead did not go back to the player");
-		LlamaEntity llama = context.spawnEntity(EntityType.LLAMA, new Vec3d(2.0, 1.0, 6.0));
-		HorseEntity foal = horse(context, 2.0, 4.0);
-		foal.setBaby(true);
-		context.assertTrue(!CarriageEntity.canPull(llama), "a llama could be put in her shafts");
-		context.assertTrue(!CarriageEntity.canPull(foal), "a foal could be put in her shafts");
-		context.runAtTick(5, () -> {
-			Vec3d shafts = carriage.toWorld(new Vec3d(0.0, 0.0, CarriageEntity.HORSE_AHEAD));
-			context.assertTrue(Math.hypot(horse.getX() - shafts.x, horse.getZ() - shafts.z) < 0.3,
-					"the horse is not in her shafts: " + horse.getPos().subtract(carriage.getPos()));
-			carriage.unhitch(player);
-			context.assertTrue(CarriageEntity.hitchedTo(horse) == null, "unhitched, the horse is still hitched");
-			context.assertTrue(horse.getLeashHolder() == player, "unhitched, the horse did not go back onto the player's lead");
-			done(context, carriage, player);
-		});
-	}
-
-	/** Set going, she goes ahead with her horse in her shafts, its legs going. */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_carriage_pull", tickLimit = 60)
 	public void pulls(TestContext context) {
 		floor(context);
 		CarriageEntity carriage = carriage(context, 4.0, 1.0);
-		HorseEntity horse = horse(context, 4.0, 4.0);
-		context.assertTrue(carriage.hitch(horse, null), "the horse could not be hitched");
 		Vec3d start = carriage.getPos();
 		context.runAtTick(2, () -> carriage.launch(0.2F));
 		context.runAtTick(8, () -> {
 			Vec3d went = carriage.getPos().subtract(start);
 			context.assertTrue(went.z > 0.5, "she did not go ahead: she went " + went);
+			CarriagePartEntity horse = null;
+			for (CarriagePartEntity part : context.getWorld().getEntitiesByClass(CarriagePartEntity.class,
+					carriage.getBoundingBox().expand(6.0), p -> p.getCarriage() == carriage && p.getPart() == CarriagePartEntity.HORSE)) {
+				horse = part;
+			}
+			context.assertTrue(horse != null, "her horse has no hitbox");
 			Vec3d shafts = carriage.toWorld(new Vec3d(0.0, 0.0, CarriageEntity.HORSE_AHEAD));
 			context.assertTrue(Math.hypot(horse.getX() - shafts.x, horse.getZ() - shafts.z) < 0.4,
-					"her horse was left behind: " + horse.getPos().subtract(carriage.getPos()));
-			context.assertTrue(horse.limbAnimator.getSpeed() > 0.1F, "her horse's legs did not go: " + horse.limbAnimator.getSpeed());
+					"her horse's hitbox was left behind: " + horse.getPos().subtract(carriage.getPos()));
+			ZombieEntity hitter = husk(context, new Vec3d(1.0, 1.0, 6.0));
+			horse.damage(context.getWorld().getDamageSources().mobAttack(hitter), 2.0F);
+			context.assertTrue(carriage.getDamageWobbleTicks() > 0, "hitting her horse did not hit her");
 			done(context, carriage);
 		});
 	}
@@ -160,28 +127,57 @@ public class CarriageGameTests implements FabricGameTest {
 	}
 
 	/**
-	 * Dressed as a sweet cart with her door open, she draws a child at her door in; the driver's whip throws the
+	 * Dressed as a trader's wagon, with bait set out on her counter by the driver: another player reaching for it is
+	 * caught, the door slamming on them (and hidden in her cage); the driver takes the rest back. The whip throws the
 	 * disguise off.
 	 */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_carriage_disguise", tickLimit = 80)
-	public void sweetCart(TestContext context) {
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_carriage_bait", tickLimit = 60)
+	public void baitTrap(TestContext context) {
 		floor(context);
 		CarriageEntity carriage = carriage(context, 4.0, 3.5);
-		HorseEntity horse = horse(context, 4.0, 6.0);
-		carriage.hitch(horse, null);
 		ServerPlayerEntity driver = player(context, "carriage_driver");
+		ServerPlayerEntity mark = player(context, "carriage_mark");
+		driver.changeGameMode(GameMode.SURVIVAL);
+		mark.changeGameMode(GameMode.SURVIVAL);
+		Vec3d door = carriage.toWorld(CarriageEntity.DOOR_OUT);
+		mark.refreshPositionAndAngles(door.x, door.y, door.z, 0.0F, 0.0F);
 		context.assertTrue(carriage.seat(driver, CarriageEntity.DRIVER), "the driver could not get up on the box");
-		context.assertTrue(carriage.getControllingPassenger() == driver, "the driver does not have the reins");
 		carriage.toggleDisguise(driver);
 		context.assertTrue(carriage.isDisguised(), "the disguise did not go up");
-		carriage.setDoor(true, driver);
-		VillagerEntity child = context.spawnEntity(EntityType.VILLAGER, context.getRelative(carriage.toWorld(CarriageEntity.DOOR_OUT)));
-		child.setBaby(true);
-		child.setAiDisabled(true);
+		context.assertTrue(carriage.setBait(driver, new ItemStack(Items.EMERALD, 3)), "the bait could not be set out");
+		context.assertTrue(carriage.setBait(driver, new ItemStack(Items.DIAMOND)), "a second bait could not be set out");
+		context.assertTrue(carriage.getBait(0).isOf(Items.EMERALD) && carriage.getBait(0).getCount() == 1,
+				"the bait is not one emerald: " + carriage.getBait(0));
+		Vec3d counter = new Vec3d(0.0, 1.3, CarriageEntity.CAGE_BACK - 0.2).rotateY(carriage.getYaw() * MathHelper.RADIANS_PER_DEGREE);
+		carriage.interactAt(mark, counter, Hand.MAIN_HAND);
+		context.assertTrue(mark.getVehicle() == carriage && carriage.inCage(mark), "reaching for the bait, the player was not caught");
+		context.assertTrue(!carriage.isDoorOpen(), "the door did not slam on them");
+		context.assertTrue(CarriageEntity.hidden(mark), "in the disguised cage, the player is not hidden");
+		context.assertTrue(!carriage.letsOut(mark), "the caught player could get out");
+		// Down off the box (a rider cannot reach his own carriage's counter), the driver takes the diamond back.
+		driver.stopRiding();
+		carriage.interactAt(driver, counter, Hand.MAIN_HAND);
+		context.assertTrue(driver.getVehicle() == null && driver.getInventory().count(Items.DIAMOND) == 1,
+				"the driver did not take the diamond back, nor was left free");
+		carriage.crackWhip(driver);
+		context.assertTrue(!carriage.isDisguised(), "the whip did not throw the disguise off");
+		context.assertTrue(!carriage.hasBait(), "the bait stayed on the counter with the disguise gone");
+		done(context, carriage, driver, mark);
+	}
+
+	/** Bread on her counter brings a villager at her back in: caught, the door slamming on it. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_carriage_lure", tickLimit = 80)
+	public void villagersComeForBread(TestContext context) {
+		floor(context);
+		CarriageEntity carriage = carriage(context, 4.0, 3.5);
+		ServerPlayerEntity driver = player(context, "carriage_baker");
+		context.assertTrue(carriage.seat(driver, CarriageEntity.DRIVER), "the driver could not get up on the box");
+		carriage.toggleDisguise(driver);
+		carriage.setBait(driver, new ItemStack(Items.BREAD));
+		VillagerEntity villager = context.spawnEntity(EntityType.VILLAGER, context.getRelative(carriage.toWorld(CarriageEntity.DOOR_OUT)));
+		villager.setAiDisabled(true);
 		context.runAtTick(45, () -> {
-			context.assertTrue(child.getVehicle() == carriage && carriage.inCage(child), "the child at the door did not climb in");
-			carriage.crackWhip(driver);
-			context.assertTrue(!carriage.isDisguised(), "the whip did not throw the disguise off");
+			context.assertTrue(villager.getVehicle() == carriage && carriage.inCage(villager), "the villager at the counter was not caught");
 			done(context, carriage, driver);
 		});
 	}

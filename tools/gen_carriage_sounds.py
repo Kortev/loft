@@ -6,8 +6,8 @@ All of them are mono, to be placed in the world at the carriage. Its horse is th
   rattling on the dray, every part repeating exactly over the loop so that it goes round without a seam while the game
   bends its pitch with her speed (CarriageSound);
 - the whip: the lash whistling through the air and cracking;
-- the disguise going up: painted boards set against the bars and knocked home;
-- the disguise coming off: the boards and the lollipops clattering off her all at once and scattering on the road.
+- the disguise going up: the trader's cloths shaken out and hung over the bars, his stock set up on the roof;
+- the disguise coming off: the cloths flapping off her all at once, the barrel and the chest tumbling into the road.
 
 Usage: python3 tools/gen_carriage_sounds.py [--wav DIR] [name ...]
 """
@@ -133,33 +133,46 @@ def carriage_whip():
     return master(outdoors(m, 0.35), peak=0.98)
 
 
+def flap(rng, k):
+    """Cloth shaken out: a soft rush of air with the weave's hiss in it, rising and falling."""
+    t = np.arange(k) / SR
+    env = np.sin(np.pi * np.clip(t / (k / SR), 0, 1)) ** 2
+    return (bp(pink(k), 300, 2500) * 0.6 + bp(white(k), 2500, 7000) * 0.15) * env * rng.uniform(0.6, 1.0)
+
+
 def carriage_disguise_on():
-    """The painted boards set up against the bars, one after another, and each knocked home."""
+    """The trader's cloths shaken out and hung over the bars, one after another, their rings ticking on the iron; the
+    barrel and the chest set down on the roof."""
     rng = rng_for('disguise_on')
-    n = ns(1.4)
+    n = ns(1.6)
     m = np.zeros(n)
-    s = 0.04
-    for i in range(5):
-        k = ns(0.15)
-        m[ns(s):ns(s) + k] += knock(rng, k, 0.9) * rng.uniform(0.6, 0.9)
-        # Set against the bars: an iron tick under the wood.
+    s = 0.02
+    for i in range(3):
+        k = ns(0.3)
+        m[ns(s):ns(s) + k] += flap(rng, k)
         kk = ns(0.03)
-        m[ns(s + 0.01):ns(s + 0.01) + kk] += ring((2600, 4100), kk, (0.01, 0.006), (0.25, 0.15))
-        s += rng.uniform(0.2, 0.28)
+        m[ns(s + 0.22):ns(s + 0.22) + kk] += ring((2600, 4100), kk, (0.01, 0.006), (0.25, 0.15))
+        s += rng.uniform(0.3, 0.36)
+    for at in (1.12, 1.36):
+        k = ns(0.15)
+        m[ns(at):ns(at) + k] += knock(rng, k, 0.75) * 0.8
     return master(outdoors(m, 0.18), peak=0.95)
 
 
 def carriage_disguise_off():
-    """Everything off her at once: the boards wrenched off the bars, clattering down, bouncing and sliding on the road,
-    the lollipops' sticks rattling after them."""
+    """Everything off her at once: the cloths torn off the bars and flapping down, the barrel and the chest knocking
+    and bouncing on the road, the lanterns rattling after them."""
     rng = rng_for('disguise_off')
     n = ns(1.9)
     m = np.zeros(n)
-    # The wrench: a scrape of wood on iron.
+    # The wrench: the cloths torn off the bars, flapping as they fall.
     k = ns(0.25)
-    m[:k] += sweep_filter(white(k), 'bandpass', curve(k, [(0, 1200), (0.25, 500)], 'log'), width=0.5) * attack_decay(k, 0.01, 0.12) * 0.5
+    m[:k] += sweep_filter(white(k), 'bandpass', curve(k, [(0, 1200), (0.25, 500)], 'log'), width=0.5) * attack_decay(k, 0.01, 0.12) * 0.3
+    for at in (0.05, 0.2, 0.32):
+        kk = ns(0.35)
+        m[ns(at):ns(at) + kk] += flap(rng, kk) * 0.8
     # Down they come, each landing and bouncing, more and more scattered.
-    for i in range(14):
+    for i in range(8):
         at = 0.18 + rng.uniform(0, 0.55) + (0.1 if i > 8 else 0.0)
         kk = ns(0.16)
         m[ns(at):ns(at) + kk] += knock(rng, kk, rng.uniform(0.7, 1.2)) * rng.uniform(0.4, 1.0)

@@ -2,30 +2,30 @@
   "parent": "shootingstar:carriage/root",
   "display": {
     "icon": {
-      "id": "minecraft:lead"
+      "id": "minecraft:emerald"
     },
     "title": {
-      "translate": "advancements.shootingstar.carriage_hitch.title"
+      "translate": "advancements.shootingstar.carriage_trap.title"
     },
     "description": {
-      "translate": "advancements.shootingstar.carriage_hitch.description"
+      "translate": "advancements.shootingstar.carriage_trap.description"
     },
-    "frame": "task",
+    "frame": "goal",
     "show_toast": true,
     "announce_to_chat": true,
     "hidden": false
   },
   "criteria": {
-    "hitch": {
+    "trap": {
       "trigger": "shootingstar:event",
       "conditions": {
-        "event": "carriage_hitch"
+        "event": "carriage_trap"
       }
     }
   },
   "requirements": [
     [
-      "hitch"
+      "trap"
     ]
   ]
 }

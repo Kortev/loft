@@ -15,21 +15,19 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityDimensions;
 import net.minecraft.entity.EntityPose;
 import net.minecraft.entity.EntityType;
+import net.minecraft.entity.ItemEntity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.MovementType;
 import net.minecraft.entity.ai.brain.MemoryModuleType;
 import net.minecraft.entity.ai.brain.WalkTarget;
-import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.data.DataTracker;
 import net.minecraft.entity.data.TrackedData;
 import net.minecraft.entity.data.TrackedDataHandlerRegistry;
 import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.entity.passive.AbstractHorseEntity;
-import net.minecraft.entity.passive.CamelEntity;
-import net.minecraft.entity.passive.LlamaEntity;
 import net.minecraft.entity.passive.VillagerEntity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.inventory.SimpleInventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtCompound;
@@ -45,7 +43,9 @@ import net.minecraft.registry.tag.FluidTags;
 import net.minecraft.server.network.EntityTrackerEntry;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.sound.BlockSoundGroup;
 import net.minecraft.sound.SoundCategory;
+import net.minecraft.sound.SoundEvent;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
@@ -62,26 +62,27 @@ import net.minecraft.world.event.GameEvent;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * The Child Catcher's carriage: a black iron cage on a high dray, drawn by a horse in its shafts, the driver up on the
- * box at the front.
+ * The Child Catcher's carriage: a black iron cage on a high dray, drawn by a black horse in its shafts, the driver up on
+ * the box at the front.
  *
- * <p>It brings no horse of its own: lead one of yours up to it and use it, and the horse is hitched into the shafts
- * (any horse, donkey or mule, grown). Hitched, the horse is the game's own horse still, drawn as it is with its
- * harness on (CarriageHarnessFeature); it does nothing of its own accord (CarriageHorseMixin) but walk, trot and gallop
- * in the shafts as the carriage goes, its legs going as fast as she does; it pulls her as fast as it can run (its speed,
- * the same one a rider gets), faster on a road. Sneak and use it to unhitch it (back onto your lead, if you have one).
- * Killing it stops her where she is.
+ * <p>Her horse is hers: it comes with her, a fast black horse in a plumed harness, drawn as the game draws its own
+ * horses (CarriageRenderer), walking, trotting and galloping as she goes. It is no mob of its own, so it never strays,
+ * dies on its own or is left behind in a part of the world not loaded; it is solid (a hitbox of hers) and hitting it is
+ * hitting her.
  *
  * <p>Two sit up on the box: the driver on the right, with the reins (on, back, left, right) and the whip (jump: a crack,
  * and the horse breaks into a gallop for a while), and one beside. The cage behind has standing room for four, and its
  * door in the back, which anyone outside may open or shut by using it. With it open, whatever you lead up to it on your
- * lead goes in (anything that fits: about the size of a player), and whatever stands at the door you can shove in by
- * hitting it; sneak and use the open door to climb in yourself. With it shut, nobody inside gets out: not by sneaking,
- * nor by hitting anyone outside through the bars. Opened, a mob inside makes a run for it; a player can get out.
+ * lead goes in (anything about a player's size), and whatever stands at the door you can shove in by hitting it; sneak
+ * and use the open door to climb in yourself. With it shut, nobody inside gets out: not by sneaking, nor by hitting
+ * anyone outside through the bars. Opened, a mob inside makes a run for it; a player can get out.
  *
- * <p>The cage can be dressed as a sweet cart (the driver's disguise key, standing): painted boards over its bars and
- * lollipops on its roof, all free today, and with its door open the village's children come for the sweets and climb
- * in. Cracking the whip throws the lot off as she drives away, as in the film.
+ * <p>The disguise (the driver's key, standing): the cage dressed as a wandering trader's wagon, in his colours, with a
+ * counter on its door. Set bait out on the counter (sneak and use the door with it in hand) and whoever reaches for it
+ * (uses the door) is pulled in and the door slams on them; villagers come for food set out there (as they come for
+ * bread on the ground) and are caught the same way. Nobody outside sees who is in the cage while she wears it: the
+ * cloths hide them, and their names. Cracking the whip throws it all off as she drives away, as in the film, the bait
+ * spilling into the road. Whoever set the bait (or anyone on the box) takes it back by using the door.
  *
  * <p>Like Chitty she is moved by whoever drives her (their client) and by the server when nobody does. Positions are in
  * blocks; local offsets are at yaw 0, x to her left, z forward.
@@ -90,16 +91,22 @@ public class CarriageEntity extends Entity {
 	private static final TrackedData<Integer> WOBBLE_TICKS = DataTracker.registerData(CarriageEntity.class, TrackedDataHandlerRegistry.INTEGER);
 	private static final TrackedData<Integer> WOBBLE_SIDE = DataTracker.registerData(CarriageEntity.class, TrackedDataHandlerRegistry.INTEGER);
 	private static final TrackedData<Float> WOBBLE_STRENGTH = DataTracker.registerData(CarriageEntity.class, TrackedDataHandlerRegistry.FLOAT);
-	/** The hitched horse's entity id, or -1. */
-	private static final TrackedData<Integer> HORSE = DataTracker.registerData(CarriageEntity.class, TrackedDataHandlerRegistry.INTEGER);
 	private static final TrackedData<Boolean> DOOR = DataTracker.registerData(CarriageEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
 	private static final TrackedData<Boolean> DISGUISE = DataTracker.registerData(CarriageEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
 	/** Counts the times the disguise has been thrown off, for clients to throw it. */
 	private static final TrackedData<Integer> THROWN = DataTracker.registerData(CarriageEntity.class, TrackedDataHandlerRegistry.INTEGER);
 	/** Counts the cracks of the whip, for clients to draw. */
 	private static final TrackedData<Integer> WHIP = DataTracker.registerData(CarriageEntity.class, TrackedDataHandlerRegistry.INTEGER);
+	/** Counts the times the trap has sprung, for clients to swing the door open and slam it. */
+	private static final TrackedData<Integer> SNAP = DataTracker.registerData(CarriageEntity.class, TrackedDataHandlerRegistry.INTEGER);
 	/** Which place each passenger, in the order they are listed, is in: three bits each. */
 	private static final TrackedData<Integer> SEATING = DataTracker.registerData(CarriageEntity.class, TrackedDataHandlerRegistry.INTEGER);
+	/** The bait on the counter, for clients to draw. */
+	@SuppressWarnings("unchecked")
+	private static final TrackedData<ItemStack>[] BAIT = new TrackedData[] {
+			DataTracker.registerData(CarriageEntity.class, TrackedDataHandlerRegistry.ITEM_STACK),
+			DataTracker.registerData(CarriageEntity.class, TrackedDataHandlerRegistry.ITEM_STACK),
+			DataTracker.registerData(CarriageEntity.class, TrackedDataHandlerRegistry.ITEM_STACK)};
 
 	// --- what she is: from tools/carriage_model.py (Blender's (x, y, z) is our (-x, z, y)) -----------------------
 
@@ -114,7 +121,7 @@ public class CarriageEntity extends Entity {
 	public static final double CAGE_HEIGHT = 2.0;
 	/** The door: half its width, and the hinge, on her right at the back. */
 	public static final double DOOR_HALF_WIDTH = 0.39;
-	public static final Vec3d HINGE = new Vec3d(-0.392, DECK_TOP, -1.6175);
+	public static final Vec3d HINGE = new Vec3d(-0.402, DECK_TOP, -1.6175);
 	/** Where someone let out of the cage is set down: on the ground behind the door. */
 	public static final Vec3d DOOR_OUT = new Vec3d(0.0, 0.0, -2.48);
 	/**
@@ -141,37 +148,44 @@ public class CarriageEntity extends Entity {
 	public static final double HORSE_AHEAD = 3.08;
 	/** The splinter bar its traces pull on: across the fore-carriage, ahead of the axle. */
 	public static final Vec3d SPLINTER = new Vec3d(0.0, 0.74, FRONT_AXLE + 0.42);
+	/**
+	 * Where the bait stands on the door's counter (the middle one; the others BAIT_APART either side), shut: the counter
+	 * swings with the door.
+	 */
+	public static final Vec3d BAIT_AT = new Vec3d(0.0, 1.305, -1.87);
+	public static final double BAIT_APART = 0.22;
 
 	// --- how she goes ---------------------------------------------------------------------------------
 
-	/** Her top speed (blocks a tick) for each point of the horse's speed: a horse pulling her goes a little over half as fast as a ridden one. */
-	static final double PULL = 1.35;
-	/** On a road, a little faster. */
-	static final double ROAD = 1.2;
-	/** After a crack of the whip, for a while, faster still: a gallop. */
-	static final double GALLOP = 1.4;
+	/** Her top speed (blocks a tick): a fast horse's trot pulling her; on a road, faster than a ridden horse. */
+	static final double TOP = 0.40;
+	static final double ROAD = 1.4;
+	/** After a crack of the whip, for a while, a gallop. */
+	static final double GALLOP = 1.15;
 	static final int GALLOP_TICKS = 70;
 	static final int WHIP_COOLDOWN = 16;
-	static final double ACCEL = 0.006;
-	static final double BRAKE = 0.025;
+	static final double ACCEL = 0.007;
+	static final double BRAKE = 0.03;
 	static final double REVERSE_TOP = 0.06;
 	/** In water up to her axles she can only creep. */
 	static final double WADE_TOP = 0.08;
-	/** Degrees a tick she turns at most, once she is moving. */
+	/** Degrees a tick she turns at most, once she is moving (less at her fastest). */
 	static final float TURN = 3.5F;
 	static final double GRAVITY = 0.08;
 	/** Slower than this (blocks a tick) she counts as standing, to dress or undress her. */
 	static final double STANDING = 0.03;
 	/** How far the gaits change, by speed (blocks a tick): a walk, a trot, then a gallop. */
 	public static final double TROT = 0.14;
-	public static final double CANTER = 0.3;
+	public static final double CANTER = 0.36;
 	/** How far you can be from what you are leading (a lead's length). */
 	static final double LEAD_REACH = 10.0;
 	/** What fits in the cage. */
 	static final float CAGE_FITS_WIDTH = 1.0F;
 	static final float CAGE_FITS_HEIGHT = 2.1F;
-	/** How near the door (blocks, out from it along the ground) something must be to be shoved in, or to climb in. */
+	/** How near the door (blocks, out from it along the ground) something must be to be shoved in, or caught by the bait. */
 	static final double DOOR_REACH = 1.4;
+	/** How far villagers come from for food set out as bait. */
+	static final double LURE_REACH = 16.0;
 
 	public static final int ACTION_WHIP = 0;
 	public static final int ACTION_DISGUISE = 1;
@@ -196,30 +210,24 @@ public class CarriageEntity extends Entity {
 	@Nullable
 	private Vec3d lastPos;
 	private Vec3d motion = Vec3d.ZERO;
-	// The fore-carriage's turn (-1 to 1, left positive), from how she turns, on every side.
+	// The fore-carriage's turn (-1 to 1, left positive), from how she turns, on every side; and how far above her the
+	// horse stands (on the ground ahead of her), easing onto it.
 	private float steer;
 	private float prevSteer;
-	// Where her horse stands in the shafts and which way it faces, now and a tick ago, and how far above her it stands
-	// (on the ground ahead of her).
-	@Nullable
-	private Vec3d horseAt;
-	@Nullable
-	private Vec3d prevHorseAt;
-	private float horseYaw;
-	private float prevHorseYaw;
-	private double horseLift;
+	private float horseLift;
+	private float prevHorseLift;
 
-	// The server's view of her horse, her passengers and her cage.
-	@Nullable
-	private UUID horseUuid;
-	@Nullable
-	private AbstractHorseEntity horse;
+	// The server's view of her passengers, her cage and its bait.
 	private final Entity[] seated = new Entity[PLACES.length];
 	private int wantedPlace = -1;
 	/** The places her passengers had when she was saved (by who they are), for them to have again when they get back in. */
 	private final Map<UUID, Integer> savedPlaces = new HashMap<>();
 	/** With the door open: how long each mob in the cage waits before it makes a run for it. */
 	private final Map<Entity, Integer> escaping = new HashMap<>();
+	private final SimpleInventory bait = new SimpleInventory(BAIT.length);
+	/** Whoever set the bait out, who may take it back (and is not caught by it). */
+	@Nullable
+	private UUID baiter;
 	private int whipCooldown;
 	private double hoofDistance;
 	private final CarriagePartEntity[] parts = new CarriagePartEntity[CarriagePartEntity.COUNT];
@@ -232,20 +240,27 @@ public class CarriageEntity extends Entity {
 	private double lerpYaw;
 	private double lerpPitch;
 
-	// Looks, on clients: her wheels' turn (rear and front, radians), the door's swing (0 shut to 1 open), the disguise
-	// thrown off (ticks since, where and which way she was then), the whip's crack (ticks since).
+	// Looks, on clients: her wheels' turn (rear and front, radians), the door's swing (0 shut to 1 open), the trap
+	// springing (ticks since), the disguise thrown off (ticks since, where and which way she was then), the whip's crack
+	// (ticks since), and the horse's legs (how far they have gone, and how fast).
 	private float rearSpin;
 	private float prevRearSpin;
 	private float frontSpin;
 	private float prevFrontSpin;
 	private float door;
 	private float prevDoor;
+	private int seenSnap;
+	private int snapAge = Integer.MAX_VALUE / 2;
 	private int seenThrown;
 	private int thrownAge = Integer.MAX_VALUE / 2;
 	private Vec3d thrownAt = Vec3d.ZERO;
 	private float thrownYaw;
 	private int seenWhip;
 	private int whipAge = Integer.MAX_VALUE / 2;
+	private float limbPos;
+	private float prevLimbPos;
+	private float limbSpeed;
+	private float prevLimbSpeed;
 
 	public CarriageEntity(EntityType<? extends CarriageEntity> type, World world) {
 		super(type, world);
@@ -257,12 +272,15 @@ public class CarriageEntity extends Entity {
 		builder.add(WOBBLE_TICKS, 0);
 		builder.add(WOBBLE_SIDE, 1);
 		builder.add(WOBBLE_STRENGTH, 0.0F);
-		builder.add(HORSE, -1);
 		builder.add(DOOR, false);
 		builder.add(DISGUISE, false);
 		builder.add(THROWN, 0);
 		builder.add(WHIP, 0);
+		builder.add(SNAP, 0);
 		builder.add(SEATING, 0);
+		for (TrackedData<ItemStack> slot : BAIT) {
+			builder.add(slot, ItemStack.EMPTY);
+		}
 	}
 
 	// --- what she is ---------------------------------------------------------------------------------
@@ -301,7 +319,7 @@ public class CarriageEntity extends Entity {
 	@Override
 	public boolean collidesWith(Entity other) {
 		return (other.isCollidable() || other.isPushable()) && !isConnectedThroughVehicle(other)
-				&& !(other instanceof CarriagePartEntity part && part.getCarriage() == this) && hitchedTo(other) != this;
+				&& !(other instanceof CarriagePartEntity part && part.getCarriage() == this);
 	}
 
 	@Override
@@ -342,19 +360,21 @@ public class CarriageEntity extends Entity {
 					stack.set(DataComponentTypes.CUSTOM_NAME, getCustomName());
 				}
 				dropStack(stack);
+				spillBait(Vec3d.ZERO);
 			}
 			discard();
 		}
 		return true;
 	}
 
-	/** Broken up (not merely unloaded), she lets her horse go. */
-	@Override
-	public void remove(RemovalReason reason) {
-		if (reason.shouldDestroy() && !getWorld().isClient) {
-			unhitch(null);
+	/** Her horse is hit (its hitbox, CarriagePartEntity.HORSE): it squeals, and she takes the blow. */
+	public boolean damageHorse(DamageSource source, float amount) {
+		if (!getWorld().isClient) {
+			Vec3d at = horseAt();
+			getWorld().playSound(null, at.x, at.y + 1.0, at.z, SoundEvents.ENTITY_HORSE_HURT, SoundCategory.NEUTRAL, 1.0F,
+					0.9F + random.nextFloat() * 0.2F);
 		}
-		super.remove(reason);
+		return damage(source, amount);
 	}
 
 	public int getDamageWobbleTicks() {
@@ -400,157 +420,22 @@ public class CarriageEntity extends Entity {
 		return motion.x * -MathHelper.sin(yawRad) + motion.z * MathHelper.cos(yawRad);
 	}
 
-	// --- her horse ---------------------------------------------------------------------------------------
+	// --- her horse -----------------------------------------------------------------------------------------
 
-	/** Her horse, while one is hitched (and there: loaded, alive). */
-	@Nullable
-	public AbstractHorseEntity getHorse() {
-		if (getWorld().isClient) {
-			return getWorld().getEntityById(dataTracker.get(HORSE)) instanceof AbstractHorseEntity h && h.isAlive() ? h : null;
-		}
-		return horse != null && horse.isAlive() && !horse.isRemoved() ? horse : null;
+	/** Where her horse stands, on her (local): ahead of the fore-carriage, turned with it about its turntable. */
+	public Vec3d horseLocal(float steer, float lift) {
+		return new Vec3d(0.0, 0.0, HORSE_AHEAD - FRONT_AXLE).rotateY(steer * STEER_MAX * MathHelper.RADIANS_PER_DEGREE)
+				.add(0.0, lift, FRONT_AXLE);
 	}
 
-	/** Whether she has a horse hitched, there or not (it may be in a part of the world not loaded). */
-	public boolean hasHorse() {
-		return getWorld().isClient ? dataTracker.get(HORSE) >= 0 : horseUuid != null;
+	/** Where her horse stands in the world. */
+	public Vec3d horseAt() {
+		return toWorld(horseLocal(steer, horseLift));
 	}
 
-	/** The carriage a horse is hitched to, if it is. */
-	@Nullable
-	public static CarriageEntity hitchedTo(Entity entity) {
-		if (entity instanceof CarriageHitch hitch && hitch.chitty$getCarriage() instanceof CarriageEntity carriage && !carriage.isRemoved()
-				&& carriage.dataTracker.get(HORSE) == entity.getId()) {
-			return carriage;
-		}
-		return null;
-	}
-
-	/** Whether this can be hitched into her shafts: a horse, donkey or mule (not a llama, nor a camel), grown. */
-	public static boolean canPull(Entity entity) {
-		return entity instanceof AbstractHorseEntity horse && !(horse instanceof LlamaEntity) && !(horse instanceof CamelEntity)
-				&& !horse.isBaby() && horse.isAlive() && hitchedTo(horse) == null;
-	}
-
-	/** Hitches a horse into her shafts: it comes off its lead (which goes back to whoever led it) and stands there. */
-	public boolean hitch(AbstractHorseEntity horse, @Nullable PlayerEntity by) {
-		if (getWorld().isClient || hasHorse() || !canPull(horse)) {
-			return false;
-		}
-		if (horse.isLeashed()) {
-			horse.detachLeash(true, false);
-			if (by != null && !by.getAbilities().creativeMode) {
-				by.giveItemStack(new ItemStack(Items.LEAD));
-			}
-		}
-		horse.removeAllPassengers();
-		horse.setEatingGrass(false);
-		this.horse = horse;
-		this.horseUuid = horse.getUuid();
-		dataTracker.set(HORSE, horse.getId());
-		((CarriageHitch) horse).chitty$setCarriage(this);
-		horseAt = null;
-		placeHorse();
-		holdHorse(horse);
-		getWorld().playSound(null, horse.getX(), horse.getY(), horse.getZ(), SoundEvents.ENTITY_HORSE_SADDLE, SoundCategory.NEUTRAL,
-				0.8F, 1.0F);
-		if (by instanceof ServerPlayerEntity player) {
-			ModCriteria.fire(player, "carriage_hitch");
-			player.sendMessage(Text.translatable("hud.shootingstar.carriage.hitched", horse.getDisplayName()), true);
-		}
-		return true;
-	}
-
-	/**
-	 * Lets her horse out of the shafts, where it stands: onto the lead of whoever unhitched it, if they have one (in
-	 * creative they always do).
-	 */
-	public void unhitch(@Nullable PlayerEntity by) {
-		AbstractHorseEntity was = getHorse();
-		horse = null;
-		horseUuid = null;
-		dataTracker.set(HORSE, -1);
-		speed = 0.0F;
-		if (was == null) {
-			return;
-		}
-		((CarriageHitch) was).chitty$setCarriage(null);
-		was.setVelocity(Vec3d.ZERO);
-		if (by != null && !getWorld().isClient) {
-			if (by.getAbilities().creativeMode || takeLead(by)) {
-				was.attachLeash(by, true);
-			}
-			getWorld().playSound(null, was.getX(), was.getY(), was.getZ(), SoundEvents.ENTITY_HORSE_ARMOR, SoundCategory.NEUTRAL,
-					0.6F, 1.2F);
-		}
-	}
-
-	private static boolean takeLead(PlayerEntity player) {
-		for (int i = 0; i < player.getInventory().size(); i++) {
-			ItemStack stack = player.getInventory().getStack(i);
-			if (stack.isOf(Items.LEAD)) {
-				stack.decrement(1);
-				return true;
-			}
-		}
-		return false;
-	}
-
-	/** On the server: finds her horse again (loaded later than she was, say), and lets it go if it has died. */
-	private void keepHorse(ServerWorld world) {
-		if (horseUuid == null) {
-			if (dataTracker.get(HORSE) != -1) {
-				dataTracker.set(HORSE, -1);
-			}
-			return;
-		}
-		if (horse == null || horse.isRemoved()) {
-			RemovalReason gone = horse == null ? null : horse.getRemovalReason();
-			horse = null;
-			if (gone != null && gone.shouldDestroy()) {
-				unhitch(null);
-				return;
-			}
-			if (world.getEntity(horseUuid) instanceof AbstractHorseEntity found) {
-				horse = found;
-			}
-		}
-		if (horse != null && !horse.isAlive()) {
-			unhitch(null);
-			return;
-		}
-		dataTracker.set(HORSE, horse == null ? -1 : horse.getId());
-	}
-
-	/** Tells her horse whose it is (on every side: CarriageHorseMixin asks). */
-	private void claimHorse() {
-		AbstractHorseEntity h = getHorse();
-		if (h != null) {
-			((CarriageHitch) h).chitty$setCarriage(this);
-		}
-	}
-
-	/**
-	 * Where her horse stands in the shafts this tick, and which way it faces: ahead of the fore-carriage, turned with it
-	 * about its turntable, on the ground there (a step up or down from hers at most, and easing onto it).
-	 */
-	private void placeHorse() {
-		Vec3d local = new Vec3d(0.0, 0.0, HORSE_AHEAD - FRONT_AXLE).rotateY(steer * STEER_MAX * MathHelper.RADIANS_PER_DEGREE)
-				.add(0.0, 0.0, FRONT_AXLE);
-		Vec3d at = getPos().add(local.rotateY(-getYaw() * MathHelper.RADIANS_PER_DEGREE));
-		double lift = groundAt(at) - getY();
-		horseLift = horseAt == null ? lift : horseLift + (lift - horseLift) * 0.4;
-		Vec3d now = new Vec3d(at.x, getY() + horseLift, at.z);
-		float yaw = getYaw() - steer * STEER_MAX;
-		if (horseAt == null) {
-			prevHorseAt = now;
-			prevHorseYaw = yaw;
-		} else {
-			prevHorseAt = horseAt;
-			prevHorseYaw = horseYaw;
-		}
-		horseAt = now;
-		horseYaw = yaw;
+	/** Her horse's height over her as it is drawn (on the ground ahead of her, a step up or down at most). */
+	public float getHorseLift(float tickDelta) {
+		return MathHelper.lerp(tickDelta, prevHorseLift, horseLift);
 	}
 
 	/** The top of the ground at a point beside her: from a block above her wheels to a block below (else hers). */
@@ -569,44 +454,21 @@ public class CarriageEntity extends Entity {
 		return getY();
 	}
 
-	/**
-	 * Puts her horse where it stands in the shafts (now, and a tick ago, for it to be drawn moving smoothly between),
-	 * facing the way it pulls. Called as she moves and as it ticks (CarriageHorseMixin), whichever comes first, on every
-	 * side: a client puts it there itself rather than where the server last said it was.
-	 */
-	public void holdHorse(AbstractHorseEntity h) {
-		if (horseAt == null || prevHorseAt == null) {
-			placeHorse();
-		}
-		h.setPosition(horseAt.x, horseAt.y, horseAt.z);
-		h.prevX = prevHorseAt.x;
-		h.prevY = prevHorseAt.y;
-		h.prevZ = prevHorseAt.z;
-		h.lastRenderX = prevHorseAt.x;
-		h.lastRenderY = prevHorseAt.y;
-		h.lastRenderZ = prevHorseAt.z;
-		h.setYaw(horseYaw);
-		h.prevYaw = prevHorseYaw;
-		h.setBodyYaw(horseYaw);
-		h.prevBodyYaw = prevHorseYaw;
-		h.setHeadYaw(horseYaw);
-		h.prevHeadYaw = prevHorseYaw;
-		h.setVelocity(Vec3d.ZERO);
-		h.fallDistance = 0.0F;
-		h.setOnGround(true);
+	/** How far its legs have gone (for their swing) and how fast they go, on clients, as LivingEntity's limbs do. */
+	public float getLimbPos(float tickDelta) {
+		return MathHelper.lerp(tickDelta, prevLimbPos, limbPos);
 	}
 
-	/** How far her horse's legs go this tick: as far as she went. */
-	public float getStride() {
-		return (float) getSpeed();
+	public float getLimbSpeed(float tickDelta) {
+		return Math.min(1.0F, MathHelper.lerp(tickDelta, prevLimbSpeed, limbSpeed));
 	}
 
 	// --- passengers ------------------------------------------------------------------------------------
 
 	/**
-	 * Using her: leading something, it is hitched (a horse, if she has none) or goes into the cage (if the door is open);
-	 * at the door, it opens or shuts (or, sneaking with it open, you climb in); anywhere else, you get up on the box, in
-	 * the free place nearest where you clicked.
+	 * Using her: leading something, it goes into the cage (if the door is open); at the back, the disguise's counter
+	 * (bait set out, taken back, or reached for) or the door (opened, shut, or, sneaking with it open, climbed in);
+	 * anywhere else, you get up on the box, in the free place nearest where you clicked.
 	 */
 	@Override
 	public ActionResult interactAt(PlayerEntity player, Vec3d hitPos, Hand hand) {
@@ -624,13 +486,7 @@ public class CarriageEntity extends Entity {
 		}
 		if (atDoor(local)) {
 			if (!client) {
-				if (player.shouldCancelInteraction() && isDoorOpen()) {
-					if (!putInCage(player)) {
-						player.sendMessage(Text.translatable("hud.shootingstar.carriage.full"), true);
-					}
-				} else {
-					setDoor(!isDoorOpen(), player);
-				}
+				useBack(player, hand);
 			}
 			return ActionResult.success(client);
 		}
@@ -659,6 +515,41 @@ public class CarriageEntity extends Entity {
 		return ActionResult.SUCCESS;
 	}
 
+	/**
+	 * The back of her, used. Disguised: sneaking, with something in hand you set one of it out on the counter as bait,
+	 * and with nothing in hand you open or shut the door (carefully, not touching the bait); not sneaking, with bait
+	 * out, whoever set it takes it back and anyone else reaching for it is caught. Undisguised, the door: sneaking with
+	 * it open, you climb in; else it opens or shuts.
+	 */
+	private void useBack(PlayerEntity player, Hand hand) {
+		ItemStack held = player.getStackInHand(hand);
+		if (isDisguised()) {
+			if (player.shouldCancelInteraction()) {
+				if (!held.isEmpty()) {
+					setBait(player, held);
+				} else {
+					setDoor(!isDoorOpen(), player);
+				}
+				return;
+			}
+			if (hasBait()) {
+				if (mayTakeBait(player)) {
+					takeBait(player);
+				} else {
+					spring(player);
+				}
+				return;
+			}
+		}
+		if (player.shouldCancelInteraction() && isDoorOpen()) {
+			if (!putInCage(player)) {
+				player.sendMessage(Text.translatable("hud.shootingstar.carriage.full"), true);
+			}
+		} else {
+			setDoor(!isDoorOpen(), player);
+		}
+	}
+
 	/** Whether a point on her (local) is at her door: the back of the cage, about the middle. */
 	private static boolean atDoor(Vec3d local) {
 		return local.z < CAGE_BACK + 0.45 && Math.abs(local.x) < DOOR_HALF_WIDTH + 0.15 && local.y > DECK_TOP - 0.3;
@@ -670,21 +561,11 @@ public class CarriageEntity extends Entity {
 				mob -> mob.getLeashHolder() == player);
 	}
 
-	/**
-	 * What a player leads up to her: a horse (the first, if she has none) into her shafts; anything else into the cage,
-	 * if its door is open and it fits, each coming off its lead (back into their hand).
-	 */
+	/** What a player leads up to her goes into the cage, if its door is open and it fits, off its lead (back into their hand). */
 	private void lead(PlayerEntity player, List<MobEntity> led) {
-		boolean hitched = false;
 		boolean caged = false;
 		boolean refused = false;
 		for (MobEntity mob : led) {
-			if (!hitched && !hasHorse() && canPull(mob)) {
-				hitched = hitch((AbstractHorseEntity) mob, player);
-				if (hitched) {
-					continue;
-				}
-			}
 			if (!isDoorOpen() || !fitsInCage(mob)) {
 				refused = true;
 				continue;
@@ -699,18 +580,26 @@ public class CarriageEntity extends Entity {
 				refused = true;
 			}
 		}
-		if (refused && !hitched && !caged) {
-			String why = !isDoorOpen() ? "door_shut" : hasHorse() && led.stream().allMatch(CarriageEntity::canPull) ? "has_horse"
-					: "wont_fit";
-			player.sendMessage(Text.translatable("hud.shootingstar.carriage." + why), true);
+		if (refused && !caged) {
+			player.sendMessage(Text.translatable("hud.shootingstar.carriage." + (!isDoorOpen() ? "door_shut" : "wont_fit")), true);
 		}
 	}
 
-	/** Whether something could be put in her cage: alive, about a player's size at most, not riding or ridden, and not her horse. */
+	/** Whether something could be put in her cage: alive, about a player's size at most, and not riding or ridden. */
 	public boolean fitsInCage(Entity entity) {
 		return entity instanceof LivingEntity living && living.isAlive() && !living.isSpectator()
 				&& living.getWidth() <= CAGE_FITS_WIDTH && living.getHeight() <= CAGE_FITS_HEIGHT && !living.hasVehicle()
-				&& !living.hasPassengers() && hitchedTo(living) == null;
+				&& !living.hasPassengers();
+	}
+
+	/** Whether her cage has room. */
+	public boolean cageHasRoom() {
+		for (int i = CAGE; i < PLACES.length; i++) {
+			if (!taken(i)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** Puts something in a free place in the cage (whatever the door; it is the door that keeps it in). */
@@ -824,6 +713,135 @@ public class CarriageEntity extends Entity {
 		}
 	}
 
+	// --- the bait -------------------------------------------------------------------------------------
+
+	public boolean hasBait() {
+		return !bait.isEmpty();
+	}
+
+	/** On clients too: the bait on the counter, slot by slot. */
+	public ItemStack getBait(int slot) {
+		return dataTracker.get(BAIT[slot]);
+	}
+
+	/** Whoever set the bait out, or anyone up on the box, may take it back. */
+	public boolean mayTakeBait(PlayerEntity player) {
+		return player.getUuid().equals(baiter) || player.getVehicle() == this && seatOf(player) < CAGE;
+	}
+
+	/** Sets one of what a player holds out on the counter as bait, in its first empty place. */
+	public boolean setBait(PlayerEntity player, ItemStack held) {
+		for (int i = 0; i < bait.size(); i++) {
+			if (bait.getStack(i).isEmpty()) {
+				if (baiter == null || bait.isEmpty()) {
+					baiter = player.getUuid();
+				}
+				bait.setStack(i, held.copyWithCount(1));
+				held.decrementUnlessCreative(1, player);
+				publishBait();
+				Vec3d at = baitAt(i);
+				getWorld().playSound(null, at.x, at.y, at.z, SoundEvents.ENTITY_ITEM_FRAME_ADD_ITEM, SoundCategory.NEUTRAL, 0.8F, 1.0F);
+				return true;
+			}
+		}
+		player.sendMessage(Text.translatable("hud.shootingstar.carriage.counter_full"), true);
+		return false;
+	}
+
+	/** Takes the last bait set out back into a player's hands. */
+	private void takeBait(PlayerEntity player) {
+		for (int i = bait.size() - 1; i >= 0; i--) {
+			ItemStack stack = bait.getStack(i);
+			if (!stack.isEmpty()) {
+				bait.setStack(i, ItemStack.EMPTY);
+				player.giveItemStack(stack);
+				publishBait();
+				Vec3d at = baitAt(i);
+				getWorld().playSound(null, at.x, at.y, at.z, SoundEvents.ENTITY_ITEM_FRAME_REMOVE_ITEM, SoundCategory.NEUTRAL, 0.8F, 1.0F);
+				return;
+			}
+		}
+	}
+
+	/** Every piece of bait off the counter into the road, thrown along `push`. */
+	private void spillBait(Vec3d push) {
+		for (int i = 0; i < bait.size(); i++) {
+			ItemStack stack = bait.removeStack(i);
+			if (!stack.isEmpty()) {
+				Vec3d at = baitAt(i);
+				ItemEntity item = new ItemEntity(getWorld(), at.x, at.y + 0.1, at.z, stack, push.x, 0.15, push.z);
+				item.setToDefaultPickupDelay();
+				getWorld().spawnEntity(item);
+			}
+		}
+		publishBait();
+	}
+
+	private void publishBait() {
+		for (int i = 0; i < BAIT.length; i++) {
+			dataTracker.set(BAIT[i], bait.getStack(i).copy());
+		}
+	}
+
+	/** Where a piece of bait stands on the counter, in the world (the door shut). */
+	public Vec3d baitAt(int slot) {
+		return toWorld(BAIT_AT.add((slot - 1) * BAIT_APART, 0.0, 0.0));
+	}
+
+	/**
+	 * The trap: someone reaching for the bait is pulled in, and the door slams on them (it springs open and shut, and
+	 * is left shut). Nothing happens if the cage is full or they do not fit.
+	 */
+	public boolean spring(Entity victim) {
+		if (getWorld().isClient || !fitsInCage(victim) || !cageHasRoom()) {
+			return false;
+		}
+		dataTracker.set(DOOR, false);
+		escaping.clear();
+		if (!putInCage(victim)) {
+			return false;
+		}
+		dataTracker.set(SNAP, dataTracker.get(SNAP) + 1);
+		Vec3d at = toWorld(HINGE.add(0.4, 1.0, 0.0));
+		getWorld().playSound(null, at.x, at.y, at.z, SoundEvents.BLOCK_IRON_DOOR_CLOSE, SoundCategory.NEUTRAL, 1.2F, 1.1F);
+		getWorld().playSound(null, at.x, at.y, at.z, SoundEvents.BLOCK_CHAIN_PLACE, SoundCategory.NEUTRAL, 1.0F, 1.4F);
+		if (victim instanceof PlayerEntity caught) {
+			caught.sendMessage(Text.translatable("hud.shootingstar.carriage.trapped"), true);
+		}
+		if (baiter != null && getWorld().getPlayerByUuid(baiter) instanceof ServerPlayerEntity setter) {
+			ModCriteria.fire(setter, "carriage_trap");
+		}
+		return true;
+	}
+
+	/** Whether there is food out on the counter that villagers come for (as they come for it lying on the ground). */
+	private boolean villagerFood() {
+		for (int i = 0; i < bait.size(); i++) {
+			if (VillagerEntity.ITEM_FOOD_VALUES.containsKey(bait.getStack(i).getItem())) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** Food set out on her counter draws the villagers round about to it, and whoever reaches it is caught. */
+	private void lure(ServerWorld world) {
+		Vec3d out = toWorld(DOOR_OUT);
+		for (VillagerEntity villager : world.getEntitiesByClass(VillagerEntity.class, getBoundingBox().expand(LURE_REACH, 4.0, LURE_REACH),
+				v -> v.isAlive() && !v.hasVehicle() && !v.isSleeping())) {
+			if (!cageHasRoom()) {
+				return;
+			}
+			if (nearDoor(villager)) {
+				spring(villager);
+			} else {
+				villager.getBrain().remember(MemoryModuleType.WALK_TARGET, new WalkTarget(out, 0.6F, 0));
+			}
+		}
+	}
+
+	// --- places ---------------------------------------------------------------------------------------
+
 	/** The free place on the box nearest a point on her (local), or -1 if both are taken. */
 	private int nearestFreeSeat(Vec3d local) {
 		int best = -1;
@@ -874,6 +892,11 @@ public class CarriageEntity extends Entity {
 	/** Whether a passenger is in her cage. */
 	public boolean inCage(Entity passenger) {
 		return seatOf(passenger) >= CAGE;
+	}
+
+	/** Whether someone is hidden from outside: in her cage while she wears the disguise. */
+	public static boolean hidden(Entity entity) {
+		return entity.getVehicle() instanceof CarriageEntity carriage && carriage.isDisguised() && carriage.inCage(entity);
 	}
 
 	/** How many are in her cage. */
@@ -1064,10 +1087,6 @@ public class CarriageEntity extends Entity {
 			setDamageWobbleStrength(getDamageWobbleStrength() - 1.0F);
 		}
 		super.tick();
-		if (getWorld() instanceof ServerWorld world) {
-			keepHorse(world);
-		}
-		claimHorse();
 		boolean moving = isLogicalSideForUpdatingMovement();
 		if (moving) {
 			lerpTicks = 0;
@@ -1084,20 +1103,17 @@ public class CarriageEntity extends Entity {
 		Vec3d pos = getPos();
 		motion = lastPos == null ? Vec3d.ZERO : pos.subtract(lastPos);
 		lastPos = pos;
-		// The fore-carriage turns as she turns (on every side, from how she has turned), and her horse with it.
+		// The fore-carriage turns as she turns (on every side, from how she has turned), and her horse with it, onto the
+		// ground ahead of her.
 		prevSteer = steer;
 		float turned = MathHelper.wrapDegrees(prevYaw - getYaw());
 		float want = getSpeed() > 0.005 ? MathHelper.clamp(turned / TURN, -1.0F, 1.0F) : steer;
 		steer += (want - steer) * 0.3F;
-		AbstractHorseEntity h = getHorse();
-		if (h != null) {
-			placeHorse();
-			holdHorse(h);
-		} else {
-			horseAt = null;
-		}
+		prevHorseLift = horseLift;
+		float lift = (float) (groundAt(toWorld(horseLocal(steer, 0.0F))) - getY());
+		horseLift = age < 2 ? lift : horseLift + (lift - horseLift) * 0.4F;
 		if (getWorld() instanceof ServerWorld world) {
-			serverTick(world, h);
+			serverTick(world);
 		} else {
 			clientTick();
 		}
@@ -1114,9 +1130,9 @@ public class CarriageEntity extends Entity {
 		this.speed = speed;
 	}
 
-	/** Her top speed, for her horse, on the ground she is on (blocks a tick). */
-	public double topSpeed(AbstractHorseEntity h) {
-		double top = h.getAttributeValue(EntityAttributes.GENERIC_MOVEMENT_SPEED) * PULL;
+	/** Her top speed on the ground she is on (blocks a tick). */
+	public double topSpeed() {
+		double top = TOP;
 		if (onRoad()) {
 			top *= ROAD;
 		}
@@ -1141,8 +1157,7 @@ public class CarriageEntity extends Entity {
 
 	private void drive(ChittyControls in) {
 		World world = getWorld();
-		AbstractHorseEntity h = getHorse();
-		boolean driven = h != null && getControllingPassenger() != null;
+		boolean driven = getControllingPassenger() != null;
 		if (!driven) {
 			in = ChittyControls.NONE;
 		}
@@ -1152,7 +1167,7 @@ public class CarriageEntity extends Entity {
 		Vec3d v = getVelocity();
 		boolean ground = isOnGround();
 		double depth = getFluidHeight(FluidTags.WATER);
-		double top = h == null ? 0.0 : topSpeed(h);
+		double top = topSpeed();
 		if (depth > 0.4) {
 			top = Math.min(top, WADE_TOP);
 		}
@@ -1164,7 +1179,8 @@ public class CarriageEntity extends Entity {
 		float rate = 0.0F;
 		double s = Math.abs(speed);
 		if (ground || depth > 0.05) {
-			rate = (float) (in.turn() * TURN * MathHelper.clamp(s / 0.06, 0.0, 1.0) * Math.signum(speed));
+			rate = (float) (in.turn() * TURN * MathHelper.clamp(s / 0.06, 0.0, 1.0) * (1.0 - 0.3 * Math.min(1.0, s / (TOP * ROAD)))
+					* Math.signum(speed));
 		}
 		yawVelocity += (rate - yawVelocity) * 0.4F;
 		setYaw(getYaw() - yawVelocity);
@@ -1282,9 +1298,7 @@ public class CarriageEntity extends Entity {
 			return;
 		}
 		whipCooldown = WHIP_COOLDOWN;
-		if (hasHorse()) {
-			galloping = GALLOP_TICKS;
-		}
+		galloping = GALLOP_TICKS;
 		if (!(getWorld() instanceof ServerWorld world)) {
 			return;
 		}
@@ -1294,29 +1308,34 @@ public class CarriageEntity extends Entity {
 		if (by != null) {
 			by.swingHand(Hand.MAIN_HAND, true);
 		}
-		AbstractHorseEntity h = getHorse();
-		if (h != null && random.nextInt(3) == 0) {
-			h.playAngrySound();
+		if (random.nextInt(3) == 0) {
+			Vec3d horse = horseAt();
+			world.playSound(null, horse.x, horse.y + 1.4, horse.z, SoundEvents.ENTITY_HORSE_ANGRY, SoundCategory.NEUTRAL, 1.0F,
+					0.9F + random.nextFloat() * 0.2F);
 		}
 		if (isDisguised()) {
 			throwDisguise(world, by);
 		}
 	}
 
-	/** Off comes the disguise, all of it at once, as she drives away (clients throw its pieces, CarriageRenderer). */
+	/**
+	 * Off comes the disguise, all of it at once, as she drives away (clients throw its pieces, CarriageRenderer), and the
+	 * bait spills into the road.
+	 */
 	private void throwDisguise(ServerWorld world, @Nullable PlayerEntity by) {
 		dataTracker.set(DISGUISE, false);
 		dataTracker.set(THROWN, dataTracker.get(THROWN) + 1);
 		Vec3d mid = toWorld(new Vec3d(0.0, DECK_TOP + 1.0, -0.3));
 		world.playSound(null, mid.x, mid.y, mid.z, Carriage.DISGUISE_OFF, SoundCategory.NEUTRAL, 1.2F, 1.0F);
-		world.spawnParticles(new BlockStateParticleEffect(ParticleTypes.BLOCK, Blocks.BIRCH_PLANKS.getDefaultState()), mid.x, mid.y,
+		world.spawnParticles(new BlockStateParticleEffect(ParticleTypes.BLOCK, Blocks.BLUE_WOOL.getDefaultState()), mid.x, mid.y,
 				mid.z, 30, 0.8, 0.8, 1.2, 0.1);
+		spillBait(toWorld(new Vec3d(0.0, 0.0, -1.0)).subtract(getPos()).multiply(0.15));
 		if (by instanceof ServerPlayerEntity player) {
 			ModCriteria.fire(player, "carriage_unmask");
 		}
 	}
 
-	/** The disguise up or down, by the driver, standing (it takes a moment to put up). */
+	/** The disguise up or down, by the driver, standing (it takes a moment to put up); taken down, the bait comes back to them. */
 	public void toggleDisguise(@Nullable PlayerEntity by) {
 		if (!(getWorld() instanceof ServerWorld world)) {
 			return;
@@ -1330,13 +1349,29 @@ public class CarriageEntity extends Entity {
 		boolean up = !isDisguised();
 		dataTracker.set(DISGUISE, up);
 		Vec3d mid = toWorld(new Vec3d(0.0, DECK_TOP + 1.0, -0.3));
-		world.playSound(null, mid.x, mid.y, mid.z, up ? Carriage.DISGUISE_ON : SoundEvents.BLOCK_WOOD_BREAK, SoundCategory.NEUTRAL,
+		world.playSound(null, mid.x, mid.y, mid.z, up ? Carriage.DISGUISE_ON : SoundEvents.BLOCK_WOOL_BREAK, SoundCategory.NEUTRAL,
 				1.0F, 1.0F);
+		if (up && by != null) {
+			by.sendMessage(Text.translatable("hud.shootingstar.carriage.disguised"), true);
+		}
+		if (!up) {
+			for (int i = 0; i < bait.size(); i++) {
+				ItemStack stack = bait.removeStack(i);
+				if (!stack.isEmpty()) {
+					if (by != null) {
+						by.giveItemStack(stack);
+					} else {
+						dropStack(stack);
+					}
+				}
+			}
+			publishBait();
+		}
 	}
 
 	// --- the server --------------------------------------------------------------------------------------
 
-	private void serverTick(ServerWorld world, @Nullable AbstractHorseEntity h) {
+	private void serverTick(ServerWorld world) {
 		for (int i = 0; i < parts.length; i++) {
 			if (parts[i] == null || parts[i].isRemoved()) {
 				parts[i] = new CarriagePartEntity(world, this, i);
@@ -1347,23 +1382,22 @@ public class CarriageEntity extends Entity {
 			whipCooldown--;
 		}
 		escapes();
-		if (h != null) {
-			// The horse does nothing of its own accord in the shafts: it does not graze.
-			if (h.isEatingGrass()) {
-				h.setEatingGrass(false);
-			}
-			hooves(world, h);
-		}
-		if (isDisguised() && isDoorOpen() && age % 20 == 0) {
+		hooves(world);
+		if (isDisguised() && hasBait() && age % 20 == 0 && villagerFood()) {
 			lure(world);
 		}
 	}
 
-	/** Its hooves on the ground as it goes: a walk, a trot, a gallop (it is not moving itself, so the game makes none). */
-	private void hooves(ServerWorld world, AbstractHorseEntity h) {
+	/** Its hooves on the ground as it goes: a walk, a trot, a gallop; and now and then a snort, standing. */
+	private void hooves(ServerWorld world) {
+		Vec3d horse = horseAt();
 		double s = getSpeed();
 		if (s < 0.01) {
 			hoofDistance = 0.0;
+			if (random.nextInt(600) == 0) {
+				world.playSound(null, horse.x, horse.y + 1.4, horse.z, SoundEvents.ENTITY_HORSE_AMBIENT, SoundCategory.NEUTRAL, 0.6F,
+						0.9F + random.nextFloat() * 0.2F);
+			}
 			return;
 		}
 		hoofDistance += s;
@@ -1372,26 +1406,14 @@ public class CarriageEntity extends Entity {
 			return;
 		}
 		hoofDistance -= stride;
-		BlockState under = world.getBlockState(h.getBlockPos().down());
-		boolean wood = under.getSoundGroup() == net.minecraft.sound.BlockSoundGroup.WOOD;
-		var sound = wood ? SoundEvents.ENTITY_HORSE_STEP_WOOD : s > CANTER ? SoundEvents.ENTITY_HORSE_GALLOP : SoundEvents.ENTITY_HORSE_STEP;
-		world.playSound(null, h.getX(), h.getY(), h.getZ(), sound, SoundCategory.NEUTRAL, s > CANTER ? 0.3F : 0.2F,
+		BlockState under = world.getBlockState(BlockPos.ofFloored(horse.x, horse.y - 0.2, horse.z));
+		boolean wood = under.getSoundGroup() == BlockSoundGroup.WOOD;
+		SoundEvent sound = wood ? SoundEvents.ENTITY_HORSE_STEP_WOOD : s > CANTER ? SoundEvents.ENTITY_HORSE_GALLOP : SoundEvents.ENTITY_HORSE_STEP;
+		world.playSound(null, horse.x, horse.y, horse.z, sound, SoundCategory.NEUTRAL, s > CANTER ? 0.3F : 0.2F,
 				0.9F + random.nextFloat() * 0.2F);
-	}
-
-	/**
-	 * Dressed as a sweet cart with its door open, she draws the village's children: they come running for the sweets,
-	 * and climb in.
-	 */
-	private void lure(ServerWorld world) {
-		Vec3d out = toWorld(DOOR_OUT);
-		for (VillagerEntity child : world.getEntitiesByClass(VillagerEntity.class, getBoundingBox().expand(16.0, 4.0, 16.0),
-				v -> v.isBaby() && v.isAlive() && !v.hasVehicle())) {
-			if (nearDoor(child)) {
-				putInCage(child);
-			} else {
-				child.getBrain().remember(MemoryModuleType.WALK_TARGET, new WalkTarget(out, 0.6F, 0));
-			}
+		if (s > CANTER && random.nextInt(12) == 0) {
+			world.playSound(null, horse.x, horse.y + 1.4, horse.z, SoundEvents.ENTITY_HORSE_BREATHE, SoundCategory.NEUTRAL, 0.5F,
+					1.0F);
 		}
 	}
 
@@ -1401,16 +1423,27 @@ public class CarriageEntity extends Entity {
 		if (client != null) {
 			client.tick(this);
 		}
-		// Her wheels turn as far as she goes, the small front ones faster.
+		// Her wheels turn as far as she goes, the small front ones faster; the horse's legs go as LivingEntity's do.
 		double forward = getForwardSpeed();
 		prevRearSpin = rearSpin;
 		prevFrontSpin = frontSpin;
 		rearSpin += (float) (forward / REAR_RADIUS);
 		frontSpin += (float) (forward / FRONT_RADIUS);
+		prevLimbSpeed = limbSpeed;
+		prevLimbPos = limbPos;
+		limbSpeed += (Math.min(1.0F, (float) getSpeed() * 4.0F) - limbSpeed) * 0.4F;
+		limbPos += limbSpeed;
 		// The door swings slowly on its hinges.
 		prevDoor = door;
 		float wantDoor = isDoorOpen() ? 1.0F : 0.0F;
 		door += MathHelper.clamp(wantDoor - door, -0.12F, 0.12F);
+		int snap = dataTracker.get(SNAP);
+		if (snap != seenSnap) {
+			snapAge = age > 2 ? 0 : snapAge;
+			seenSnap = snap;
+		} else {
+			snapAge++;
+		}
 		// The disguise thrown off: where she was when it went, for its pieces to fall there.
 		int thrown = dataTracker.get(THROWN);
 		if (thrown != seenThrown) {
@@ -1427,9 +1460,6 @@ public class CarriageEntity extends Entity {
 		if (whip != seenWhip) {
 			whipAge = age > 2 ? 0 : whipAge;
 			seenWhip = whip;
-			if (!(getControllingPassenger() instanceof PlayerEntity driver && driver.isMainPlayer())) {
-				galloping = GALLOP_TICKS;
-			}
 		} else {
 			whipAge++;
 		}
@@ -1462,8 +1492,12 @@ public class CarriageEntity extends Entity {
 		return MathHelper.lerp(tickDelta, prevFrontSpin, frontSpin);
 	}
 
+	/** The door's swing, 0 shut to 1 open; the trap springing flings it open and slams it again. */
 	public float getDoorOpen(float tickDelta) {
-		return MathHelper.lerp(tickDelta, prevDoor, door);
+		float d = MathHelper.lerp(tickDelta, prevDoor, door);
+		float t = snapAge + tickDelta;
+		float snap = t < 3.0F ? t / 3.0F : t < 9.0F ? 1.0F - (t - 3.0F) / 6.0F : 0.0F;
+		return Math.max(d, snap * 0.8F);
 	}
 
 	/** Ticks since the disguise was thrown off (on clients), and where she was and which way she faced then. */
@@ -1490,7 +1524,6 @@ public class CarriageEntity extends Entity {
 
 	@Override
 	protected void readCustomDataFromNbt(NbtCompound nbt) {
-		horseUuid = nbt.containsUuid("Horse") ? nbt.getUuid("Horse") : null;
 		dataTracker.set(DOOR, nbt.getBoolean("DoorOpen"));
 		dataTracker.set(DISGUISE, nbt.getBoolean("Disguise"));
 		savedPlaces.clear();
@@ -1501,13 +1534,16 @@ public class CarriageEntity extends Entity {
 				savedPlaces.put(place.getUuid("Who"), place.getInt("Place"));
 			}
 		}
+		bait.clear();
+		if (nbt.contains("Bait", NbtElement.LIST_TYPE)) {
+			bait.readNbtList(nbt.getList("Bait", NbtElement.COMPOUND_TYPE), getRegistryManager());
+		}
+		baiter = nbt.containsUuid("Baiter") ? nbt.getUuid("Baiter") : null;
+		publishBait();
 	}
 
 	@Override
 	protected void writeCustomDataToNbt(NbtCompound nbt) {
-		if (horseUuid != null) {
-			nbt.putUuid("Horse", horseUuid);
-		}
 		nbt.putBoolean("DoorOpen", isDoorOpen());
 		nbt.putBoolean("Disguise", isDisguised());
 		NbtList places = new NbtList();
@@ -1520,5 +1556,9 @@ public class CarriageEntity extends Entity {
 			}
 		}
 		nbt.put("Places", places);
+		nbt.put("Bait", bait.toNbtList(getRegistryManager()));
+		if (baiter != null) {
+			nbt.putUuid("Baiter", baiter);
+		}
 	}
 }

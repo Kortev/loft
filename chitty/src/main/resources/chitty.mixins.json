@@ -6,10 +6,7 @@
 		"AirshipDismountMixin",
 		"AirshipJumper",
 		"AirshipLadderMixin",
-		"AirshipStrideMixin",
-		"CarriageHitchMixin",
-		"CarriageHorseAiMixin",
-		"CarriageHorseMixin"
+		"AirshipStrideMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

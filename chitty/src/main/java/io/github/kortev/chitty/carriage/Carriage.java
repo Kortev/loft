@@ -3,7 +3,6 @@ package io.github.kortev.chitty.carriage;
 import io.github.kortev.shootingstar.ShootingStar;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
-import net.fabricmc.fabric.api.event.player.UseEntityCallback;
 import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -17,14 +16,13 @@ import net.minecraft.item.ItemGroups;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
 import net.minecraft.sound.SoundEvent;
-import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.Rarity;
 
 /**
  * The Child Catcher's carriage: the carriage and its hitboxes, the item that puts it down, its sounds and the driver's
- * messages; and the rules for the horse in its shafts and whoever is in its cage. Set up from Chitty's initializer.
+ * messages; and the rules for whoever is in its cage. Set up from Chitty's initializer.
  */
 public final class Carriage {
 	public static final EntityType<CarriageEntity> ENTITY = Registry.register(Registries.ENTITY_TYPE, ShootingStar.id("carriage"),
@@ -68,29 +66,14 @@ public final class Carriage {
 			}
 		});
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
-			// Her horse is never smothered in the bank it is walked against, nor anyone in her cage in what she drives under.
-			if (source.isOf(DamageTypes.IN_WALL) && (CarriageEntity.hitchedTo(entity) != null || entity.getVehicle() instanceof CarriageEntity)) {
+			// Nobody in her cage is smothered in what she drives under.
+			if (source.isOf(DamageTypes.IN_WALL) && entity.getVehicle() instanceof CarriageEntity) {
 				return false;
 			}
 			// Nobody in her cage, door shut, can hurt anyone outside it through the bars.
 			Entity attacker = source.getAttacker();
 			return !(attacker != null && attacker.getVehicle() instanceof CarriageEntity carriage && carriage.inCage(attacker)
 					&& !carriage.isDoorOpen() && entity.getVehicle() != carriage);
-		});
-		// Her horse, in its shafts, is not to be ridden, fed or led off: sneak and use it to unhitch it.
-		UseEntityCallback.EVENT.register((player, world, hand, entity, hit) -> {
-			CarriageEntity carriage = entity instanceof LivingEntity ? CarriageEntity.hitchedTo(entity) : null;
-			if (carriage == null || player.isSpectator()) {
-				return ActionResult.PASS;
-			}
-			if (!world.isClient) {
-				if (player.shouldCancelInteraction()) {
-					carriage.unhitch(player);
-				} else {
-					player.sendMessage(Text.translatable("hud.shootingstar.carriage.unhitch_hint"), true);
-				}
-			}
-			return ActionResult.SUCCESS;
 		});
 		// Hitting something that stands at a carriage's open door shoves it in.
 		AttackEntityCallback.EVENT.register((player, world, hand, entity, hit) -> {

@@ -5,9 +5,9 @@
 	"client": [
 		"AirshipHangPoseMixin",
 		"AirshipStandMixin",
+		"CarriageLabelMixin",
 		"ChittyCameraMixin",
-		"ChittyViewMixin",
-		"HorseModelAccess"
+		"ChittyViewMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

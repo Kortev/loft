@@ -12,45 +12,37 @@ import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityModelLayerRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
-import net.fabricmc.fabric.api.client.rendering.v1.LivingEntityFeatureRendererRegistrationCallback;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.input.Input;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.render.entity.AbstractHorseEntityRenderer;
 import net.minecraft.client.render.entity.EmptyEntityRenderer;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.text.Text;
 import org.lwjgl.glfw.GLFW;
 
 /**
- * The Child Catcher's carriage on the client: how she is drawn and heard, the harness on her horse, and the driver's
- * reins, whip (jump) and disguise (a key of its own). Set up from Chitty's client initializer.
+ * The Child Catcher's carriage on the client: how she and her horse are drawn and heard, and the driver's reins, whip
+ * (jump) and disguise (a key of its own). Set up from Chitty's client initializer.
  */
 public final class CarriageClient {
 	public static KeyBinding DISGUISE;
 
 	private static final Set<CarriageEntity> SOUNDING = Collections.newSetFromMap(new WeakHashMap<>());
 	private static boolean wasJumping;
-	/** What the driver was last shown on the action bar: 0 nothing, 1 driving, 2 no horse. */
+	/** What the driver was last shown on the action bar: 0 nothing, 1 driving. */
 	private static int hint;
 
 	private CarriageClient() {
 	}
 
-	@SuppressWarnings({"unchecked", "rawtypes"})
 	public static void init() {
 		EntityRendererRegistry.register(Carriage.ENTITY, CarriageRenderer::new);
 		EntityRendererRegistry.register(Carriage.PART, EmptyEntityRenderer::new);
 		DISGUISE = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.shootingstar.carriage_disguise", InputUtil.Type.KEYSYM,
 				GLFW.GLFW_KEY_J, "key.categories.shootingstar"));
-		// Every horse, donkey and mule can wear her harness (it is drawn only while one is hitched to her).
-		EntityModelLayerRegistry.registerModelLayer(CarriageHarnessFeature.LAYER, CarriageHarnessFeature::getTexturedModelData);
-		LivingEntityFeatureRendererRegistrationCallback.EVENT.register((type, renderer, helper, context) -> {
-			if (renderer instanceof AbstractHorseEntityRenderer horses) {
-				helper.register(new CarriageHarnessFeature(horses, context.getPart(CarriageHarnessFeature.LAYER)));
-			}
-		});
+		// Her horse's harness (her horse is the game's own model, CarriageHorse).
+		EntityModelLayerRegistry.registerModelLayer(CarriageHorse.HARNESS, CarriageHorse::getTexturedModelData);
 		CarriageEntity.client = new CarriageEntity.ClientHooks() {
 			@Override
 			public ChittyControls controls(CarriageEntity carriage) {
@@ -101,14 +93,12 @@ public final class CarriageClient {
 				act(CarriageEntity.ACTION_DISGUISE);
 			}
 		}
-		// A word on the reins when someone takes them, and if there is no horse to drive.
-		int now = !driving ? 0 : carriage.hasHorse() ? 1 : 2;
+		// A word on the reins when someone takes them.
+		int now = driving ? 1 : 0;
 		if (now != hint) {
 			if (now != 0) {
-				Text keys = now == 2 ? Text.translatable("hud.shootingstar.carriage.no_horse")
-						: Text.translatable("hud.shootingstar.carriage.driving", client.options.jumpKey.getBoundKeyLocalizedText(),
-								DISGUISE.getBoundKeyLocalizedText(), client.options.sneakKey.getBoundKeyLocalizedText());
-				player.sendMessage(keys, true);
+				player.sendMessage(Text.translatable("hud.shootingstar.carriage.driving", client.options.jumpKey.getBoundKeyLocalizedText(),
+						DISGUISE.getBoundKeyLocalizedText(), client.options.sneakKey.getBoundKeyLocalizedText()), true);
 			}
 			hint = now;
 		}
