@@ -95,6 +95,12 @@ public final class GapManager {
 	 * rows beside and behind them, a few blocks apart.
 	 */
 	private static final double GATHER_OUT = 10.0;
+	/**
+	 * How far round home (blocks) to look for ground level with it before taking whatever its own column has, and the
+	 * heights tried there, nearest first.
+	 */
+	private static final int LEVEL_REACH = 6;
+	private static final int[] LEVEL_STEPS = {0, 1, -1, 2, -2};
 	private static final double GATHER_APART = 3.0;
 	private static final double GATHER_BACK = 3.0;
 	private static final int PER_ROW = 9;
@@ -750,11 +756,42 @@ public final class GapManager {
 		if (gap != null && horizontal(pos, gap.target) <= gap.radius + 8) {
 			pos = rim(world, gap, pos);
 		}
-		BlockPos ground = groundNear(world, BlockPos.ofFloored(pos));
+		BlockPos home = BlockPos.ofFloored(pos);
+		BlockPos ground = levelWith(world, home);
+		if (ground == null) {
+			ground = groundNear(world, home);
+		}
 		if (ground == null) {
 			ground = groundNear(world, world.getSpawnPos());
 		}
 		return ground == null ? Vec3d.ofBottomCenter(world.getSpawnPos()) : Vec3d.ofBottomCenter(ground);
+	}
+
+	/** For tests: where someone whose home is {@code home} is set down when they are sent home (outside any hole). */
+	public static Vec3d landingFor(ServerWorld world, Vec3d home) {
+		return safe(world, null, home);
+	}
+
+	/**
+	 * Somewhere to stand level with {@code at} (a couple of blocks up or down at most), in its own column or close
+	 * beside it: so that someone whose home a fissure has split is set down at its edge, not at the bottom of it.
+	 */
+	@Nullable
+	private static BlockPos levelWith(ServerWorld world, BlockPos at) {
+		for (int r = 0; r <= LEVEL_REACH; r++) {
+			int around = r == 0 ? 1 : Math.max(8, r * 8);
+			for (int dy : LEVEL_STEPS) {
+				for (int i = 0; i < around; i++) {
+					double a = i * Math.PI * 2.0 / around;
+					BlockPos p = new BlockPos(at.getX() + MathHelper.floor(Math.cos(a) * r + 0.5), at.getY() + dy,
+							at.getZ() + MathHelper.floor(Math.sin(a) * r + 0.5));
+					if (standable(world, p)) {
+						return p;
+					}
+				}
+			}
+		}
+		return null;
 	}
 
 	/**

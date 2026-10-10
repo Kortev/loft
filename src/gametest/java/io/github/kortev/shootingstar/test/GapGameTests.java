@@ -220,6 +220,27 @@ public class GapGameTests implements FabricGameTest {
 	}
 
 	/** The server going down in the middle of an event: the hole finished, its floor gone, everyone home, the key shattered. */
+	/**
+	 * A home that a fissure has split (a trench three wide and six deep through where they stood): whoever lived there is
+	 * set down on its edge, level with home, not at the bottom of it.
+	 */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_gaphome")
+	public void splitHomeLandsBeside(TestContext context) {
+		ServerWorld world = context.getWorld();
+		BlockPos floor = context.getAbsolutePos(new BlockPos(4, 0, 4));
+		for (BlockPos pos : BlockPos.iterate(floor.add(-4, -8, -4), floor.add(4, 0, 4))) {
+			world.setBlockState(pos, Blocks.STONE.getDefaultState());
+		}
+		for (BlockPos pos : BlockPos.iterate(floor.add(-1, -6, -4), floor.add(1, 0, 4))) {
+			world.setBlockState(pos, Blocks.AIR.getDefaultState());
+		}
+		Vec3d home = Vec3d.ofBottomCenter(floor.up());
+		Vec3d to = GapManager.landingFor(world, home);
+		context.assertTrue(Math.abs(to.y - home.y) < 0.01, "set down " + (home.y - to.y) + " blocks below home, in the fissure");
+		context.assertTrue(Math.abs(to.x - home.x) <= 3.5 && Math.abs(to.z - home.z) <= 3.5, "set down too far from home: " + to.subtract(home));
+		context.complete();
+	}
+
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "d_gapstop", tickLimit = GapTimeline.NOTHING + 200)
 	public void stopMidEvent(TestContext context) {
 		ServerWorld world = context.getWorld();

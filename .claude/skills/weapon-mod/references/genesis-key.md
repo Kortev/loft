@@ -94,9 +94,11 @@ regenerate the `gap_*` sounds.
     - `gather` / `place` / `hold`: the void floor sends `GapFloorPayload(floor)`.
     - `warp`: the light holds a player `WARP_DELAY` ticks, then `GapWarpPayload` and the move.
     - `sendHome`, `safe`, `standable`, `toRim`. Home is the position saved in `GapState.homes` when the player was
-      gathered. `sendHome` sends them to `safe(home)`: if home is within radius + 8 of the target, its rim; otherwise
-      the nearest standable block in home's own column, near its height. So if a fissure split home, that is the
-      bottom of the fissure. Failing that, the nearest ground round about.
+      gathered. `sendHome` sends them to `safe(home)`: if home is within radius + 8 of the target, its rim. Then
+      ground level with home (`levelWith`: two blocks up or down at most, in home's column or within `LEVEL_REACH` 6
+      of it), so that someone whose home a fissure split lands on its edge, not at its bottom (kortev's choice; test
+      `splitHomeLandsBeside`, through `GapManager.landingFor`); failing that the nearest standable block in home's own
+      column, near its height; failing that, the nearest ground round about.
     - The server never puts any ground back. The rebuild is only drawn by the clients; the hole and the fissures are
       there for good.
   - **While the world is gone ("cut")**, Fabric events block attacking, using, placing and breaking. Only the key

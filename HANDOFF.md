@@ -162,8 +162,9 @@ kortev tests in game themselves and reports back. Don't spend usage on the self-
     means to.
   - The fix: the shooter's home, and `stopMidEvent`'s watcher's (it had the same exposure), now stand on platforms
     past `Erasure.farthest(radius)`, the farthest any fissure can reach.
-  - Open for kortev: should someone whose home a fissure split be set down beside it, as `unlid` does, rather than
-    in it? That would be a change to `safe`.
+  - kortev chose that someone whose home a fissure split is set down beside it, not in it: `safe` now looks for ground
+    level with home (`levelWith`, within `LEVEL_REACH` and two blocks up or down) before its column's nearest ground
+    (test `splitHomeLandsBeside`).
 - kortev's planned edits to Gungnir and the Genesis Key: ask what they are.
 
 ## How to work here
