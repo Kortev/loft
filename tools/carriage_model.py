@@ -7,11 +7,11 @@ Needs Blender's Python module, as tools/chitty_model.py does. Run from the repos
 
 Blender units are blocks (metres). The carriage faces +Y with +X on its right and +Z up, its wheels on the ground at
 Z = 0 and the middle of its wheelbase over the origin; its horse stands in the shafts ahead of it (or a pair either side
-of a pole, --horses 2). In the game the horse is a real Minecraft horse, hitched to her; the renders draw one as the
-game does (its model's boxes, in the vanilla black coat if MC_HORSE_TEXTURE names it) in the harness the game puts on
-it (HARNESS), and are never baked. Every part the game moves is its own object with its origin on its pivot, named as
+of a pole, --horses 2). In the game her horse is drawn with the game's own horse model (CarriageHorse), never baked;
+the renders draw it as the game does (its model's boxes, in the vanilla black coat if MC_HORSE_TEXTURE names it) in its
+harness (HARNESS). Every part the game moves is its own object with its origin on its pivot, named as
 the game knows it: the four wheels; the fore-carriage (front axle, springs, shafts or pole) that turns on its turntable
-under the driver's seat, taking the front wheels (and the hitched horse) with it; and the cage door on its hinges.
+under the driver's seat, taking the front wheels (and the horse) with it; and the cage door on its hinges.
 Empties mark the driver's seat, the places in the cage and where the driver holds the reins.
 
 The film's wagon, from kortev's two photos (a film still of the children screaming at its window, and one of the two
@@ -72,7 +72,7 @@ TURNTABLE = Vector((0.0, FRONT_AXLE, 1.0))
 SEAT_Y, SEAT_W, SEAT_D, SEAT_H, SEAT_BACK = 1.32, 1.20, 0.46, 0.40, 0.50
 SEAT_TOP = DECK_TOP + SEAT_H
 HANDS = Vector((0.22, SEAT_Y + 0.34, SEAT_TOP + 0.42))   # where the driver holds the reins
-# The horse: a real Minecraft horse (a black one) that the game hitches into her shafts: the middle of its body HORSE_Y
+# The horse: the game's own horse model (a black one), which the game draws in her shafts: the middle of its body HORSE_Y
 # ahead of hers, its rump a little ahead of the deck; a pair (--horses 2) stand PAIR either side of a pole.
 HORSE_Y = 3.08
 PAIR = 0.56
@@ -95,7 +95,7 @@ HORSE_BOXES = [  # frame, corner, size, texture offset
     ('tail', (-1.5, 0, 0), (3, 14, 4), (42, 36)),
     ('leg_hl', (-3, -1.01, -1), (4, 11, 4), (48, 21)), ('leg_hr', (-1, -1.01, -1), (4, 11, 4), (48, 21)),
     ('leg_fl', (-3, -1.01, -1.9), (4, 11, 4), (48, 21)), ('leg_fr', (-1, -1.01, -1.9), (4, 11, 4), (48, 21))]
-# Her harness on it, which the game draws on the hitched horse as it draws a saddle (boxes in the same frames, in
+# Her harness on it, which the game draws on her horse as it draws a saddle (boxes in the same frames, in
 # pixels): a collar round the base of the neck with brass hames, blinkers, a browband and noseband, the bit, the black
 # plume on its poll; a saddle pad with brass terrets and a girth, the tugs that carry the shafts, the crupper and the
 # breeching round its quarters. A box may be turned about a pivot of its own (pitch, roll), as the plume's feathers
@@ -619,108 +619,111 @@ def build_horse_preview(i, gait=0.0, phase=0.0, steer=0.0):
     return o
 
 
-# --- the sweet-cart disguise ---------------------------------------------------------------------------------
+# --- the trader's-wagon disguise --------------------------------------------------------------------------------
 
-# The film's capture scene: the cage dressed up as a cart giving sweets away, which all falls off as he cracks the whip
-# and drives away (no still of it could be found: this is ours, after his cries in the film). Painted boards over the
-# bars of each side and of the back, a sign along each side between the rails, a striped valance round the eaves, and
-# great lollipops on the roof. Each board, sign, the valance and each lollipop is its own part, which the game throws
-# off one by one.
-DISGUISE_PANELS = {1: ('LOLLIPOPS', 'TREACLE TARTS', 'ICE CREAMS'), -1: ('CREAM PUFFS', 'CHERRY PIES', 'SWEETS')}
-DISGUISE_HEADERS = {1: 'SWEETS FOR GOOD CHILDREN', -1: 'COME AND GET THEM', 0: 'ALL FREE TODAY!'}
-PANEL_COLOURS = [((250, 214, 222), (214, 44, 72)), ((214, 236, 250), (36, 92, 190)), ((252, 238, 186), (226, 132, 22))]
-LOLLIES = [(-0.55, 0.62, 0.3, 0.15), (0.0, 0.05, 0.62, -0.1), (0.5, -0.6, 0.45, 0.2), (-0.35, -1.2, 0.35, -0.2),
-           (0.45, 0.6, 0.38, -0.25)]   # (x, y, height, lean) on the roof
-SIGN_FONT = '/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf'
-
-
-def font(size):
-    from PIL import ImageFont
-    try:
-        return ImageFont.truetype(SIGN_FONT, size)
-    except OSError:
-        return ImageFont.load_default()
+# kortev: the film's sweet cart need not be copied; better a disguise that makes sense in Minecraft and might actually
+# work. So the cage is dressed as a wandering trader's wagon, in the wandering trader's own colours (his robe and his
+# llamas' decor: blue cloth edged in gold, banded with red): cloths hung over the bars of each side, one over the door
+# with a counter on it where the bait is set out, a striped awning over the back with an emerald on a hanging sign,
+# banded tassels along the eaves, a barrel and a chest of stock on the roof and lanterns at the corners. Drawn as pixel
+# art, PX texture pixels to the block (twice Minecraft's). Each piece is its own part (disguise_*), which the game
+# throws off one by one; the door's cloth and its counter (disguise_b) swing with the door.
+TRADER = dict(blue=(67, 95, 145), blue2=(55, 84, 130), blue3=(44, 69, 108), blue4=(36, 57, 94), gold=(242, 192, 57),
+              gold2=(255, 190, 0), gold3=(204, 142, 41), red=(129, 18, 0), red2=(98, 14, 0), brown=(164, 95, 30))
+PX = 32
+# On the roof: (x, y) of the barrel and of the chest.
+ROOF_STOCK = {'barrel': (0.42, -0.95), 'chest': (-0.38, -0.1)}
+# The counter on the door, the bait set out on it (CarriageEntity.BAIT_AT).
+COUNTER_OUT, COUNTER_Z = 0.24, DECK_TOP + 0.08
 
 
-def candy_border(d, w, h, band, a, b):
-    """A barber's-pole border of two colours round a w x h picture."""
-    for k in range(-h, w + h, band):
-        colour = a if (k // band) % 2 == 0 else b
-        d.polygon([(k, 0), (k + band, 0), (k + band - h, h), (k - h, h)], fill=colour)
-
-
-def sign_texture(text, size, paper, ink, stripe):
-    """A painted board: a candy-striped border, a pale ground and the words in fat serif capitals, fitted to it."""
-    from PIL import Image, ImageDraw
-    w, h = size
-    img = Image.new('RGB', size, paper)
-    d = ImageDraw.Draw(img)
-    candy_border(d, w, h, max(8, h // 6), stripe, (255, 255, 255))
-    edge = max(6, h // 7)
-    d.rectangle((edge, edge, w - edge, h - edge), fill=paper)
-    lines = text.split('\n')
-    fs = h
-    while fs > 8:
-        f = font(fs)
-        widths = [d.textlength(line, font=f) for line in lines]
-        if max(widths) < w - 3 * edge and fs * 1.15 * len(lines) < h - 2.5 * edge:
-            break
-        fs -= 2
-    f = font(fs)
-    y = (h - fs * 1.15 * len(lines)) / 2
-    for line in lines:
-        tw = d.textlength(line, font=f)
-        d.text(((w - tw) / 2, y), line, font=f, fill=ink, stroke_width=max(1, fs // 14), stroke_fill=(255, 255, 255))
-        y += fs * 1.15
-    return np.asarray(img.convert('RGBA'), dtype=np.float64) / 255.0
-
-
-def panel_texture(text, paper, ink, size=(256, 512)):
-    """A tall board: a candy-striped border, a great painted lollipop and its name under it."""
-    from PIL import Image, ImageDraw
-    w, h = size
-    img = Image.new('RGB', size, paper)
-    d = ImageDraw.Draw(img)
-    candy_border(d, w, h, 26, ink, (255, 255, 255))
-    d.rectangle((18, 18, w - 18, h - 18), fill=paper)
-    cx, cy, r = w // 2, int(h * 0.36), int(w * 0.32)
-    d.rectangle((cx - 7, cy, cx + 7, int(h * 0.74)), fill=(250, 250, 240))
-    for k in range(10, 0, -1):
-        rr = r * k / 10
-        d.ellipse((cx - rr, cy - rr, cx + rr, cy + rr), fill=ink if k % 2 else (255, 255, 255))
-    words = text.replace(' ', '\n')
-    lines = words.split('\n')
-    fs = 60
-    while fs > 10:
-        f = font(fs)
-        if max(d.textlength(line, font=f) for line in lines) < w - 44:
-            break
-        fs -= 2
-    f = font(fs)
-    y = int(h * 0.77)
-    for line in lines:
-        tw = d.textlength(line, font=f)
-        d.text(((w - tw) / 2, y), line, font=f, fill=ink, stroke_width=2, stroke_fill=(255, 255, 255))
-        y += int(fs * 1.1)
-    return np.asarray(img.convert('RGBA'), dtype=np.float64) / 255.0
-
-
-def swirl_texture(a, b, size=256):
-    """A lollipop's face: a spiral of two colours."""
-    yy, xx = (np.mgrid[0:size, 0:size] - size / 2 + 0.5) / (size / 2)
-    r, t = np.hypot(xx, yy), np.arctan2(yy, xx)
-    band = ((t / (2 * math.pi) * 3 + r * 4) % 1.0) < 0.5
-    out = np.ones((size, size, 4))
-    out[..., :3] = np.where(band[..., None], np.array(a) / 255, np.array(b) / 255)
+def pixels(a, scale=8):
+    """A pixel-art image (H x W x 3 bytes, top row first) for Blender, each pixel grown to scale x scale so that it
+    stays crisp, as a float RGBA array."""
+    a = np.repeat(np.repeat(a, scale, axis=0), scale, axis=1)
+    out = np.ones(a.shape[:2] + (4,))
+    out[..., :3] = a[::-1] / 255.0
     return out
 
 
-def board(name, corners, image, outward, back_mat='paint_white', thick=0.025):
-    """A painted board, its own part, its picture on the face whose corners are given (bottom left, bottom right,
-    top right, top left), turned to face `outward` (read from there), the rest painted plain."""
+def emerald(a, cx, cy, size=1.0):
+    """Minecraft's emerald, as pixel art, centred on (cx, cy): a long hexagonal gem, lit from its top left."""
+    rows = [2, 4, 6, 8, 8, 8, 8, 8, 8, 6, 4, 2]
+    h = len(rows)
+    for r, w in enumerate(rows):
+        y = cy - h // 2 + r
+        for c in range(w):
+            x = cx - w // 2 + c
+            if not (0 <= y < a.shape[0] and 0 <= x < a.shape[1]):
+                continue
+            edge = c in (0, w - 1) or r in (0, h - 1)
+            if edge:
+                col = (6, 95, 38)
+            elif c + r < w // 2 + 3:
+                col = (23, 221, 98)
+            elif c + r > w + h // 2 - 2:
+                col = (5, 130, 47)
+            else:
+                col = (13, 177, 73)
+            if not edge and (c, r) in ((2, 2), (2, 3), (3, 2)):
+                col = (162, 255, 195)
+            a[y, x] = col
+
+
+def cloth(w, h, emblem=False, seed=1):
+    """The trader's cloth, w x h blocks: blue, faintly checked as his llamas' decor is, edged in gold and banded in red
+    and gold near its top and bottom; an emerald on it if `emblem`."""
+    rng = np.random.default_rng(seed)
+    W, H = max(8, round(w * PX)), max(8, round(h * PX))
+    yy, xx = np.mgrid[0:H, 0:W]
+    a = np.zeros((H, W, 3), np.uint8)
+    a[:] = TRADER['blue']
+    a[(xx // 2 + yy // 2) % 2 == 0] = TRADER['blue2']
+    a[rng.random((H, W)) < 0.05] = TRADER['blue3']
+    a[(xx == 0) | (xx == W - 1) | (yy == 0) | (yy == H - 1)] = TRADER['gold3']
+    a[((xx == 1) | (xx == W - 2)) & (yy > 0) & (yy < H - 1)] = TRADER['gold']
+    a[((yy == 1) | (yy == H - 2)) & (xx > 0) & (xx < W - 1)] = TRADER['gold']
+    for band in (4, H - 7):
+        a[band] = TRADER['gold']
+        a[band + 1] = TRADER['red']
+        a[band + 1, ::3] = TRADER['gold2']
+        a[band + 2] = TRADER['gold']
+    if emblem:
+        emerald(a, W // 2, H // 2 - 2)
+    return pixels(a)
+
+
+def stripes(w, h, across=0.2):
+    """The awning's cloth: blue and gold stripes running down it, a gold hem along its edge."""
+    W, H = max(8, round(w * PX)), max(8, round(h * PX))
+    xx = np.arange(W)
+    a = np.zeros((H, W, 3), np.uint8)
+    band = max(1, round(across * PX))
+    a[:] = np.where(((xx // band) % 2 == 0)[:, None], np.array(TRADER['blue']), np.array(TRADER['gold'])).reshape(1, W, 3)
+    a[-2:] = TRADER['gold3']
+    a[:2] = TRADER['blue4']
+    return pixels(a)
+
+
+def sign_board(w, h):
+    """The hanging sign: spruce planks with an emerald on them."""
+    W, H = max(8, round(w * PX)), max(8, round(h * PX))
+    yy, xx = np.mgrid[0:H, 0:W]
+    a = np.zeros((H, W, 3), np.uint8)
+    a[:] = (114, 84, 48)
+    a[yy % 4 == 0] = (90, 64, 36)
+    a[(xx == 0) | (xx == W - 1) | (yy == 0) | (yy == H - 1)] = (64, 44, 24)
+    emerald(a, W // 2, H // 2)
+    return pixels(a)
+
+
+def board(name, corners, image, outward, back_mat='paint_white', thick=0.025, mesh=None):
+    """A flat piece (a painted board, a cloth), its own part, its picture on the face whose corners are given (bottom
+    left, bottom right, top right, top left), turned to face `outward` (read from there), the rest plain. Given a mesh,
+    it is added to that instead, for the caller to make into a part."""
     mat = name + '_art'
-    cm.material(mat, (255, 255, 255), rough=0.55, coat=0.15, image=cm.image(mat, image))
-    m = cm.Mesh()
+    cm.material(mat, (255, 255, 255), rough=0.8, image=cm.image(mat, image))
+    m = mesh or cm.Mesh()
     c = [Vector(p) for p in corners]
     normal = (c[1] - c[0]).cross(c[3] - c[0]).normalized()
     if normal.dot(Vector(outward)) < 0:
@@ -734,109 +737,157 @@ def board(name, corners, image, outward, back_mat='paint_white', thick=0.025):
     for k in range(4):
         j = (k + 1) % 4
         m.face([front[j], front[k], back[k], back[j]], back_mat)
+    if mesh is not None:
+        return None
     centre = sum(c, Vector()) / 4 - normal * thick / 2
     return moving(m, name, centre, coll='disguise', smooth=None)
 
 
-def disc(m, centre, r, thick, face, edge):
-    """A flat round sweet facing along y: its two faces carry the picture across them, its rim is `edge`."""
-    n = cm.sides(r) if cm.FACET else 24
-    rings = []
-    for side in (1, -1):
-        ring = []
-        for k in range(n):
-            a = 2 * math.pi * k / n + (math.pi / n if cm.FACET else 0.0)
-            ring.append((m.vert(centre + Vector((r * math.cos(a), side * thick / 2, r * math.sin(a)))), math.cos(a), math.sin(a)))
-        rings.append(ring)
-    for ring, flip in ((rings[0], False), (rings[1], True)):
-        verts = [v for v, _, _ in ring]
-        uvs = [(0.5 + 0.5 * c, 0.5 + 0.5 * sn) for _, c, sn in ring]
-        m.face(list(reversed(verts)) if flip else verts, face, list(reversed(uvs)) if flip else uvs)
-    for k in range(n):
-        j = (k + 1) % n
-        m.face([rings[0][k][0], rings[0][j][0], rings[1][j][0], rings[1][k][0]], edge)
+def barrel_faces(top):
+    """Minecraft's barrel: spruce staves with dark ends (its sides), or its lid in a dark ring (its top)."""
+    n = 16
+    yy, xx = np.mgrid[0:n, 0:n]
+    a = np.zeros((n, n, 3), np.uint8)
+    if top:
+        a[:] = (116, 84, 50)
+        a[(xx == 0) | (xx == n - 1) | (yy == 0) | (yy == n - 1)] = (70, 50, 30)
+        ring = (np.abs(xx - 7.5) <= 5.5) & (np.abs(yy - 7.5) <= 5.5) & ~((np.abs(xx - 7.5) <= 4.5) & (np.abs(yy - 7.5) <= 4.5))
+        a[ring] = (84, 60, 36)
+        a[(np.abs(xx - 7.5) <= 1.5) & (np.abs(yy - 7.5) <= 0.5)] = (52, 38, 24)
+    else:
+        a[:] = (116, 84, 50)
+        a[xx % 4 == 0] = (98, 70, 42)
+        a[(yy <= 1) | (yy >= n - 2)] = (70, 50, 30)
+        a[(yy == 4) | (yy == n - 5)] = (84, 60, 36)
+    return pixels(a)
+
+
+def tbox(m, centre, size, side, top):
+    """A box with a picture on each side (material `side`) and on its top and bottom (`top`)."""
+    cx, cy, cz = centre
+    hx, hy, hz = size[0] / 2, size[1] / 2, size[2] / 2
+    v = {}
+    for i in (-1, 1):
+        for j in (-1, 1):
+            for k in (-1, 1):
+                v[i, j, k] = m.vert((cx + i * hx, cy + j * hy, cz + k * hz))
+    uv = [(0, 0), (1, 0), (1, 1), (0, 1)]
+    m.face([v[-1, -1, -1], v[1, -1, -1], v[1, -1, 1], v[-1, -1, 1]], side, uv)
+    m.face([v[1, 1, -1], v[-1, 1, -1], v[-1, 1, 1], v[1, 1, 1]], side, uv)
+    m.face([v[-1, 1, -1], v[-1, -1, -1], v[-1, -1, 1], v[-1, 1, 1]], side, uv)
+    m.face([v[1, -1, -1], v[1, 1, -1], v[1, 1, 1], v[1, -1, 1]], side, uv)
+    m.face([v[-1, -1, 1], v[1, -1, 1], v[1, 1, 1], v[-1, 1, 1]], top, uv)
+    m.face([v[-1, 1, -1], v[1, 1, -1], v[1, -1, -1], v[-1, -1, -1]], top, uv)
+
+
+def tassels(m, a, b, z, every=0.18):
+    """A row of the trader's tassels from a to b (at height z): a gold knot and a red tip under each."""
+    a, b = Vector(a), Vector(b)
+    n = max(2, int((b - a).length / every))
+    for k in range(n + 1):
+        p = a + (b - a) * (k / n)
+        cm.add_box(m, (p.x, p.y, z - 0.045), (0.05, 0.05, 0.07), 'trader_gold')
+        cm.add_box(m, (p.x, p.y, z - 0.11), (0.035, 0.035, 0.06), 'trader_red')
+
+
+def lantern(name, at):
+    """A lantern hung from the eaves, as Minecraft's: a dark iron cage round a glowing core, on a short chain."""
+    m = cm.Mesh()
+    x, y, z = at
+    cm.add_box(m, (x, y, z + 0.16), (0.03, 0.03, 0.1), 'lantern_iron')
+    cm.add_box(m, (x, y, z + 0.1), (0.12, 0.12, 0.03), 'lantern_iron')
+    cm.add_box(m, (x, y, z), (0.16, 0.16, 0.17), 'lantern_iron')
+    cm.add_box(m, (x, y, z), (0.165, 0.11, 0.12), 'lantern_glow')
+    cm.add_box(m, (x, y, z), (0.11, 0.165, 0.12), 'lantern_glow')
+    cm.add_box(m, (x, y, z - 0.1), (0.14, 0.14, 0.03), 'lantern_iron')
+    moving(m, name, (x, y, z + 0.2), coll='disguise', smooth=None)
 
 
 def build_disguise():
-    """The sweet-cart disguise over the cage (its parts named disguise_*, and lolly_*)."""
+    """The trader's-wagon disguise over the cage (its parts named disguise_*)."""
     cm.material('paint_white', (236, 232, 222), rough=0.55, coat=0.15)
-    z0, rail = DECK_TOP + 0.06, DECK_TOP + RAIL2 * H
-    eave = DECK_TOP + H
-    out = CAGE_HW + 0.04
-    span = (CAGE_FRONT - POST) - (CAGE_BACK + POST)
-    for s, words in DISGUISE_PANELS.items():
-        tag = 'r' if s > 0 else 'l'
-        n = len(words)
-        pw = span / n
-        for k, word in enumerate(words):
-            paper, ink = PANEL_COLOURS[k % len(PANEL_COLOURS)]
-            ya, yb = CAGE_BACK + POST + pw * k + 0.02, CAGE_BACK + POST + pw * (k + 1) - 0.02
-            if s > 0:
-                corners = [(out, yb, z0), (out, ya, z0), (out, ya, rail - 0.04), (out, yb, rail - 0.04)]
-            else:
-                corners = [(-out, ya, z0), (-out, yb, z0), (-out, yb, rail - 0.04), (-out, ya, rail - 0.04)]
-            board('disguise_%s%d' % (tag, k), corners, panel_texture(word, paper, ink), (s, 0, 0))
-        header = DISGUISE_HEADERS[s]
-        ya, yb = CAGE_BACK + POST + 0.02, CAGE_FRONT - POST - 0.02
-        zl, zh = rail + 0.02, eave - 0.1
-        corners = ([(out, yb, zl), (out, ya, zl), (out, ya, zh), (out, yb, zh)] if s > 0
-                   else [(-out, ya, zl), (-out, yb, zl), (-out, yb, zh), (-out, ya, zh)])
-        board('disguise_%sh' % tag, corners, sign_texture(header, (1024, 128), (255, 248, 226), (180, 24, 48), (214, 44, 72)),
-              (s, 0, 0))
-    # The back: a board over the door and its bars (standing clear of the padlock), and the sign over it.
-    yb = CAGE_BACK - 0.13
-    xa, xb = CAGE_HW - POST - 0.02, -(CAGE_HW - POST - 0.02)
-    board('disguise_b', [(xa, yb, z0), (xb, yb, z0), (xb, yb, rail - 0.04), (xa, yb, rail - 0.04)],
-          sign_texture('FREE\nSWEETS', (512, 512), (214, 236, 250), (36, 92, 190), (36, 92, 190)), (0, -1, 0))
-    board('disguise_bh', [(xa, yb, rail + 0.02), (xb, yb, rail + 0.02), (xb, yb, eave - 0.1), (xa, yb, eave - 0.1)],
-          sign_texture(DISGUISE_HEADERS[0], (768, 128), (255, 248, 226), (180, 24, 48), (214, 44, 72)), (0, -1, 0))
-    # The valance: a striped, scalloped band hanging from the eaves all round.
-    stripes = np.ones((64, 512, 4))
-    xs = np.arange(512)
-    stripes[..., :3] = np.where(((xs // 32) % 2 == 0)[None, :, None], np.array([214, 44, 72]) / 255, np.array([1.0, 1.0, 1.0]))
-    cm.material('valance', (255, 255, 255), rough=0.8, image=cm.image('valance', stripes))
+    cm.material('trader_back', TRADER['blue4'], rough=0.85)
+    cm.material('trader_gold', TRADER['gold'], rough=0.6)
+    cm.material('trader_red', TRADER['red'], rough=0.7)
+    cm.material('oak', (162, 130, 78), rough=0.7)
+    cm.material('oak_dark', (112, 84, 48), rough=0.7)
+    cm.material('chest', (161, 110, 48), rough=0.7)
+    cm.material('chest_dark', (96, 62, 26), rough=0.7)
+    cm.material('chest_latch', (190, 190, 196), metal=0.6, rough=0.4)
+    cm.material('lantern_iron', (52, 52, 60), metal=0.4, rough=0.6)
+    cm.material('lantern_glow', (252, 200, 96), rough=0.4, emit=((252, 200, 96), 2.0))
+    z0, eave = DECK_TOP + 0.04, DECK_TOP + H
+    out = CAGE_HW + 0.035
+    ya, yb = CAGE_BACK - 0.02, CAGE_FRONT + 0.02
+    # A cloth over the bars of each side, hung from the eave rail to the deck.
+    for s, tag in ((1, 'r'), (-1, 'l')):
+        x = s * out
+        corners = ([(x, yb, z0), (x, ya, z0), (x, ya, eave - 0.02), (x, yb, eave - 0.02)] if s > 0
+                   else [(x, ya, z0), (x, yb, z0), (x, yb, eave - 0.02), (x, ya, eave - 0.02)])
+        board('disguise_%s' % tag, corners, cloth(yb - ya, eave - z0, emblem=True, seed=3 + s), (s, 0, 0), back_mat='trader_back',
+              thick=0.02)
+    # The back: a cloth either side of the door, and one on the door with the counter on it.
+    yback = CAGE_BACK - 0.05
+    xd = DOOR_W / 2 + 0.02
+    for s, tag in ((1, 'br'), (-1, 'bl')):
+        xa_, xb_ = s * xd, s * out
+        lo, hi = (xb_, xa_) if s > 0 else (xa_, xb_)
+        board('disguise_%s' % tag, [(hi, yback, z0), (lo, yback, z0), (lo, yback, eave - 0.02), (hi, yback, eave - 0.02)],
+              cloth(abs(xb_ - xa_), eave - z0, seed=7 + s), (0, -1, 0), back_mat='trader_back', thick=0.02)
     m = cm.Mesh()
-    w = CAGE_HW + ROOF_OVER - 0.01
-    yf, yr = CAGE_FRONT + ROOF_OVER - 0.01, CAGE_BACK - ROOF_OVER + 0.01
-    ring = [(w, yr), (w, yf), (-w, yf), (-w, yr)]
-    run = 0.0
-    scallops = cm.res(6, least=2, div=2)
-    for (xa, ya), (xb, yb) in zip(ring, ring[1:] + ring[:1]):
-        length = math.hypot(xb - xa, yb - ya)
-        n = max(2, int(length / 0.25))
-        for k in range(n):
-            t0, t1 = k / n, (k + 1) / n
-            pa = Vector((xa + (xb - xa) * t0, ya + (yb - ya) * t0, eave + 0.02))
-            pb = Vector((xa + (xb - xa) * t1, ya + (yb - ya) * t1, eave + 0.02))
-            top = [m.vert(pa), m.vert(pb)]
-            bottom = []
-            for j in range(scallops + 1):
-                t = j / scallops
-                dip = 0.07 + 0.04 * math.sin(math.pi * t)
-                bottom.append(m.vert(pa + (pb - pa) * t - Vector((0, 0, dip))))
-            u0, u1 = run / 3.0, (run + length / n) / 3.0
-            for j in range(scallops):
-                t, tn = j / scallops, (j + 1) / scallops
-                ta = m.vert(pa + (pb - pa) * t)
-                tb = m.vert(pa + (pb - pa) * tn)
-                m.face([ta, tb, bottom[j + 1], bottom[j]], 'valance',
-                       [(u0 + (u1 - u0) * t, 1), (u0 + (u1 - u0) * tn, 1), (u0 + (u1 - u0) * tn, 0), (u0 + (u1 - u0) * t, 0)])
-            run += length / n
-    o = moving(m, 'disguise_valance', (0.0, (yf + yr) / 2, eave), coll='disguise', smooth=None)
-    cm.solidify(o, 0.01)
-    # The lollipops on the roof: white sticks, spiral faces.
+    yd = CAGE_BACK - 0.09
+    board('disguise_b', [(DOOR_W / 2 - 0.01, yd, z0 + 0.14), (-DOOR_W / 2 + 0.01, yd, z0 + 0.14),
+                         (-DOOR_W / 2 + 0.01, yd, eave - 0.06), (DOOR_W / 2 - 0.01, yd, eave - 0.06)],
+          cloth(DOOR_W - 0.02, eave - z0 - 0.2, emblem=True, seed=11), (0, -1, 0), back_mat='trader_back', thick=0.02, mesh=m)
+    # The counter: an oak shelf across the door, on brackets, a lip along its front.
+    cy = yd - 0.04 - COUNTER_OUT / 2
+    cm.add_box(m, (0.0, cy, COUNTER_Z), (DOOR_W - 0.04, COUNTER_OUT, 0.05), 'oak')
+    cm.add_box(m, (0.0, cy - COUNTER_OUT / 2 + 0.015, COUNTER_Z + 0.04), (DOOR_W - 0.04, 0.03, 0.04), 'oak_dark')
+    for x in (-(DOOR_W / 2 - 0.08), DOOR_W / 2 - 0.08):
+        cm.add_box(m, (x, yd - 0.12, COUNTER_Z - 0.1), (0.04, 0.16, 0.16), 'oak_dark')
+    moving(m, 'disguise_b', (0.0, yd, z0 + 0.5), coll='disguise', smooth=None)
+    # The awning over the back: striped cloth sloping out from the eave, tassels along its edge, the sign under it.
+    reach, drop = 0.62, 0.3
+    aw = CAGE_HW + 0.06
+    m = cm.Mesh()
+    board('disguise_awning_cloth', [(aw, CAGE_BACK - reach, eave - drop), (-aw, CAGE_BACK - reach, eave - drop),
+                              (-aw, CAGE_BACK - 0.02, eave + 0.02), (aw, CAGE_BACK - 0.02, eave + 0.02)],
+          stripes(2 * aw, math.hypot(reach, drop)), (0, -0.4, 1), back_mat='trader_back', thick=0.02, mesh=m)
+    tassels(m, (aw, CAGE_BACK - reach, 0), (-aw, CAGE_BACK - reach, 0), eave - drop)
+    for x in (-0.22, 0.22):
+        cm.add_box(m, (x, CAGE_BACK - reach + 0.03, eave - drop - 0.06), (0.02, 0.02, 0.1), 'lantern_iron')
+    board('disguise_awning_sign', [(0.3, CAGE_BACK - reach + 0.03, eave - drop - 0.44), (-0.3, CAGE_BACK - reach + 0.03, eave - drop - 0.44),
+                              (-0.3, CAGE_BACK - reach + 0.03, eave - drop - 0.1), (0.3, CAGE_BACK - reach + 0.03, eave - drop - 0.1)],
+          sign_board(0.6, 0.34), (0, -1, 0), back_mat='oak_dark', thick=0.025, mesh=m)
+    moving(m, 'disguise_awning', (0.0, CAGE_BACK - reach / 2, eave - drop / 2), coll='disguise', smooth=None)
+    # Tassels along the eaves of both sides and the front.
+    m = cm.Mesh()
+    w = CAGE_HW + ROOF_OVER - 0.02
+    yf, yr = CAGE_FRONT + ROOF_OVER - 0.02, CAGE_BACK - ROOF_OVER + 0.02
+    for a, b in (((w, yr), (w, yf)), ((-w, yr), (-w, yf)), ((w, yf), (-w, yf))):
+        tassels(m, (a[0], a[1], 0), (b[0], b[1], 0), eave + 0.01)
+    moving(m, 'disguise_fringe', (0.0, (yf + yr) / 2, eave), coll='disguise', smooth=None)
+    # The stock on the roof: a barrel and a chest, as Minecraft's.
     roof = lambda x: eave + ROOF_RISE * (1 - (x / (CAGE_HW + ROOF_OVER)) ** 2) + ROOF_T  # noqa: E731
-    colours = [((214, 44, 72), (255, 255, 255)), ((36, 92, 190), (255, 236, 120)), ((60, 170, 80), (255, 255, 255)),
-               ((226, 132, 22), (255, 236, 200)), ((150, 60, 170), (255, 255, 255))]
-    for k, (x, y, height, lean) in enumerate(LOLLIES):
-        a, b = colours[k % len(colours)]
-        cm.material('lolly_%d_face' % k, (255, 255, 255), rough=0.3, coat=0.6, image=cm.image('lolly_%d_face' % k, swirl_texture(a, b)))
-        m = cm.Mesh()
-        base = Vector((x, y, roof(x)))
-        top = base + Vector((lean * height, 0.0, height))
-        cm.tube(m, [base, top], 0.022, 'paint_white', seg=8)
-        disc(m, top + Vector((0, 0, 0.18)), 0.2, 0.07, 'lolly_%d_face' % k, 'paint_white')
-        moving(m, 'lolly_%d' % k, base, coll='disguise', smooth=None)
+    x, y = ROOF_STOCK['barrel']
+    m = cm.Mesh()
+    zb = roof(x) - 0.02
+    cm.material('barrel_side', (255, 255, 255), rough=0.75, image=cm.image('barrel_side', barrel_faces(False)))
+    cm.material('barrel_top', (255, 255, 255), rough=0.75, image=cm.image('barrel_top', barrel_faces(True)))
+    tbox(m, (x, y, zb + 0.25), (0.5, 0.5, 0.5), 'barrel_side', 'barrel_top')
+    moving(m, 'disguise_barrel', (x, y, zb), coll='disguise', smooth=None)
+    x, y = ROOF_STOCK['chest']
+    m = cm.Mesh()
+    zc = roof(x) - 0.03
+    cm.add_box(m, (x, y, zc + 0.2), (0.44, 0.44, 0.4), 'chest')
+    cm.add_box(m, (x, y, zc + 0.27), (0.455, 0.455, 0.03), 'chest_dark')
+    cm.add_box(m, (x + 0.23, y, zc + 0.25), (0.03, 0.08, 0.1), 'chest_latch')
+    moving(m, 'disguise_chest', (x, y, zc), coll='disguise', smooth=None)
+    # Lanterns at the front corners of the eaves, and either side of the awning.
+    for k, at in enumerate(((CAGE_HW + 0.14, CAGE_FRONT + 0.05, eave - 0.3), (-(CAGE_HW + 0.14), CAGE_FRONT + 0.05, eave - 0.3),
+                            (aw - 0.06, CAGE_BACK - reach + 0.08, eave - drop - 0.28),
+                            (-(aw - 0.06), CAGE_BACK - reach + 0.08, eave - drop - 0.28))):
+        lantern('disguise_lantern_%d' % k, at)
 
 
 def build_markers():
@@ -875,7 +926,7 @@ def pose(door=0.0, steer=0.0, gait=0.0, phase=0.0, spin=0.0, disguise=False):
         build_horse_preview(i, gait, phase, steer)
     for o in bpy.data.objects:
         part = o.get('part', '')
-        if part.startswith(('disguise_', 'lolly_')):
+        if part.startswith('disguise_'):
             o.hide_render = o.hide_viewport = not disguise
         rest = Vector(o['rest']) if 'rest' in o else None
         if part == 'door':
@@ -935,11 +986,9 @@ GAME_MESH = 'chitty/src/client/resources/assets/shootingstar/meshes/carriage.cbm
 GAME_TEXTURE = 'chitty/src/client/resources/assets/shootingstar/textures/entity/carriage.png'
 ITEM_ICON = 'chitty/src/main/resources/assets/shootingstar/textures/item/carriage.png'
 
-# How much of the atlas a part gets for its size: the disguise's lettered boards most (its long signs and its striped
-# valance less: the longest island sets how small everything else must be), the deck's planks and what is under her
-# least.
-TEXEL_WEIGHT = {'disguise_valance': 0.7, 'disguise_lh': 1.4, 'disguise_rh': 1.4, 'disguise_bh': 1.6, 'disguise_': 2.0,
-                'lolly_': 1.4, 'seat': 1.4, 'door': 1.2, 'deck': 0.6, 'fore_carriage': 0.8, 'wheel_': 0.9, 'trace': 0.3,
+# How much of the atlas a part gets for its size: the driver's box and the door more, the deck's planks and what is
+# under her less. (The disguise is pixel art at PX to the block, which the atlas holds at any of these.)
+TEXEL_WEIGHT = {'disguise_': 1.2, 'seat': 1.4, 'door': 1.2, 'deck': 0.6, 'fore_carriage': 0.8, 'wheel_': 0.9, 'trace': 0.3,
                 'rein': 0.3}
 
 
@@ -968,7 +1017,7 @@ def export_game():
     """Bakes her and writes the game's mesh (.cbm), its texture and the item icon, with Chitty's exporter
     (chitty_model.export_game, whose docstring has the format) pointed at her files: one 1024 atlas of her colours,
     the game lighting each of her flat faces by which way it faces. Every part at rest, the disguise included (the game
-    shows it or not); no horse (the game's own is hitched to her)."""
+    shows it or not); no horse (the game draws its own horse model in her shafts)."""
     build_straps()
     cm.GAME_MESH, cm.GAME_TEXTURE, cm.ITEM_ICON = GAME_MESH, GAME_TEXTURE, ITEM_ICON
     cm.BAKE_SIZE = 1024
@@ -982,42 +1031,95 @@ def export_game():
     cm.neutral = square_aspect
     cm.pose = lambda *a, **k: None
     cm.export_game(None)
-    render_icon()
+    pixel_icon()
 
 
-def render_icon():
-    """The item: her side on (the cage, the driver's box, the wheels), a little from the front and above, without a
-    horse, shrunk to a crisp 32 x 32."""
-    from PIL import Image, ImageEnhance
-    scene = bpy.context.scene
-    cm.render_scene_setup()
-    for name in ('ground', 'water'):
-        if name in bpy.data.objects:
-            bpy.data.objects[name].hide_render = True
-    for o in bpy.data.objects:
-        if o.get('part', '').startswith(('disguise_', 'lolly_')) or o.name in ('trace', 'rein'):
-            o.hide_render = True
-    scene.render.film_transparent = True
-    cam = scene.camera
-    cam.data.type = 'ORTHO'
-    cam.data.ortho_scale = 4.6
-    cam.location = Vector((14.0, 5.0, 4.5))
-    cam.rotation_euler = (Vector((0.0, 0.1, 1.6)) - cam.location).to_track_quat('-Z', 'Y').to_euler()
-    scene.render.resolution_x = scene.render.resolution_y = 512
-    scene.cycles.samples = 32
-    path = os.path.join(bpy.app.tempdir or '/tmp', 'carriage_icon.png')
-    scene.render.filepath = path
-    bpy.ops.render.render(write_still=True)
-    small = Image.open(path).convert('RGBa').resize((32, 32), Image.LANCZOS).convert('RGBA')
-    rgb = ImageEnhance.Color(ImageEnhance.Brightness(small.convert('RGB')).enhance(1.35)).enhance(1.1)
-    small = Image.merge('RGBA', (*rgb.split(), small.split()[3]))
-    a = np.array(small)
-    a[..., 3] = np.where(a[..., 3] > 100, 255, 0)
-    os.makedirs(os.path.dirname(ITEM_ICON), exist_ok=True)
-    Image.fromarray(a, 'RGBA').save(ITEM_ICON, optimize=True)
-    scene.render.film_transparent = False
-    cam.data.type = 'PERSP'
-    print('icon ->', ITEM_ICON, '(full size at %s)' % path)
+def pixel_icon(out_path=None):
+    """The item: her side on, facing right, drawn as pixel art at 32 x 32 as Minecraft's items are (a render shrunk
+    that small lost her bars in the dark): the arched roof, the cage's posts, rails and barred sides with the padlock on
+    the door, the plank front wall with its little window, the deck, the driver's black box in its cream frame, the
+    shafts, the big dark wheels behind and the small cream ones in front."""
+    from PIL import Image
+    W = 32
+    img = Image.new('RGBA', (W, W), (0, 0, 0, 0))
+    px = img.load()
+    BLACK = (24, 24, 28, 255)
+    IRON = (44, 44, 50, 255)
+    IRON_HI = (78, 78, 88, 255)
+    ROOF = (34, 34, 38, 255)
+    ROOF_HI = (64, 64, 70, 255)
+    DECK = (58, 40, 28, 255)
+    DECK_HI = (92, 66, 46, 255)
+    PLANK = (150, 144, 132, 255)
+    PLANK_D = (108, 102, 94, 255)
+    CREAM = (222, 210, 176, 255)
+    CREAM_D = (168, 156, 124, 255)
+    DARKWHEEL = (50, 40, 32, 255)
+    DARKWHEEL_HI = (82, 66, 52, 255)
+    BRASS = (214, 168, 72, 255)
+    SEAT = (30, 28, 30, 255)
+
+    def put(x, y, c):
+        if 0 <= x < W and 0 <= y < W:
+            px[x, y] = c
+
+    def rect(x0, y0, x1, y1, c):
+        for y in range(y0, y1 + 1):
+            for x in range(x0, x1 + 1):
+                put(x, y, c)
+
+    def wheel(cx, cy, r, rim, rim_hi, spoke, hub):
+        for y in range(cy - r - 1, cy + r + 2):
+            for x in range(cx - r - 1, cx + r + 2):
+                d = math.hypot(x - cx, y - cy)
+                if r - 0.9 <= d <= r + 0.5:
+                    put(x, y, rim_hi if y < cy else rim)
+        for k in range(8):
+            a = k * math.pi / 4 + math.pi / 8
+            for t in range(1, r):
+                put(round(cx + math.cos(a) * t), round(cy + math.sin(a) * t), spoke)
+        rect(cx - 1, cy - 1, cx + 1, cy + 1, hub)
+        put(cx, cy, BRASS)
+
+    # The roof, arched across, overhanging.
+    rect(3, 5, 22, 6, ROOF)
+    rect(5, 4, 20, 4, ROOF_HI)
+    rect(3, 5, 22, 5, ROOF_HI)
+    # The cage: corner posts, the eave rail and the one under it, bars with their collars, the floor.
+    rect(4, 7, 4, 19, BLACK)
+    rect(18, 7, 18, 19, BLACK)
+    rect(4, 7, 18, 7, IRON)
+    rect(4, 9, 18, 9, IRON)
+    for x in range(6, 18, 2):
+        rect(x, 8, x, 19, IRON)
+        put(x, 13, IRON_HI)
+    put(5, 13, BRASS)   # the padlock on the door at the back
+    put(5, 14, BRASS)
+    # The front wall: weathered planks, with its little barred window.
+    rect(19, 7, 22, 19, PLANK)
+    for y in range(8, 20, 3):
+        rect(19, y, 22, y, PLANK_D)
+    rect(20, 10, 21, 12, BLACK)
+    put(20, 11, IRON_HI)
+    # The deck.
+    rect(2, 20, 27, 21, DECK)
+    rect(2, 20, 27, 20, DECK_HI)
+    # The driver's box: black, cream-framed, on the front of the deck.
+    rect(23, 16, 26, 19, SEAT)
+    rect(23, 16, 26, 16, CREAM)
+    rect(26, 13, 26, 19, CREAM)
+    rect(23, 13, 23, 16, CREAM_D)
+    # The shafts out ahead, brass-tipped.
+    for i, x in enumerate(range(26, 32)):
+        put(x, 22 - i // 2, BLACK)
+    put(31, 19, BRASS)
+    # The wheels: the big dark ones behind, the small cream ones in front.
+    wheel(9, 25, 5, DARKWHEEL, DARKWHEEL_HI, DARKWHEEL_HI, BLACK)
+    wheel(22, 26, 4, CREAM_D, CREAM, CREAM_D, CREAM_D)
+    out = out_path or ITEM_ICON
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    img.save(out, optimize=True)
+    print('icon ->', out)
 
 
 def main():

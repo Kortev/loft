@@ -100,20 +100,16 @@ wants **renders for approval before baking** anything.
 
 - There is **no Child Catcher mob**, just his carriage as a craftable vehicle (see `chitty/README.md`, "The Child
   Catcher's carriage", and `.claude/skills/film-vehicle/references/carriage.md`).
-- **Status: everything is in but her baked mesh, which waits on kortev's OK of the look.** Renders and an in-game
-  preview of the bake were sent (`tools/carriage_model.py --out DIR --renders`, with `MC_HORSE_TEXTURE=<vanilla
-  horse_black.png>` for the preview horse's coat). Once kortev OKs it: run `~/.bpy/bin/python tools/carriage_model.py
-  --game` from the repository root (writes `meshes/carriage.cbm`, `textures/entity/carriage.png` and the item icon),
-  add those three to `check-jars.py`'s list, push, and send the in-game test list.
-- kortev's answers: the horse is **a real mob, and you bring your own** (any horse, donkey or mule, hitched with a
-  lead); the disguise is **"maybe combine it"** (an optional sweet-cart disguise that the whip throws off, as in the
-  film; with the door open it lures villager children in); prisoners are **shoved or led in**.
+- **Status: in the game, baked; waiting on kortev's in-game test.**
+- kortev's answers: the plain carriage was fine; the sweet-cart disguise "doesn't fit the movie at all", and a disguise
+  that makes sense in Minecraft and might actually work was welcome (else copy the film exactly), so it is a wandering
+  trader's wagon that works as a bait trap; the horse was left to us ("cool but might be kinda annoying"), so it is the
+  carriage's own, drawn with the game's horse model (why: the reference, "Her horse, and why it is hers"); prisoners are
+  **shoved or led in**.
 - References: the film's carriage was drawn by **one** horse (Rothenburg's crime museum, which owns the two surviving
   carriages, calls it "einspännig"; the prop has shafts for one). The door is ours (no source shows one).
-- The hitched horse is the game's own: not a passenger, it puts itself in the shafts as it ticks, on every side
-  (`CarriageHorseMixin`), and wears the harness as a feature (`CarriageHarnessFeature`). Details in the reference.
-- The bake: Blender's unwrap and packer go by each face's image aspect, which squashed the signs (painted on long
-  strips of image); `chitty_model.UV_CORRECT_ASPECT` and the carriage's `square_aspect` make every image square first.
+- The bake: Blender's unwrap and packer go by each face's image aspect, which squashed pictures painted on long strips
+  of image; `chitty_model.UV_CORRECT_ASPECT` and the carriage's `square_aspect` make every image square first.
 
 Both are only craftable by kortev; the existing `OwnerOnly` check already covers every recipe in the mod.
 

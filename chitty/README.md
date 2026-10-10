@@ -198,39 +198,43 @@ weathered planks and a small barred window just behind the driver, a cream-frame
 wooden wheels with iron tyres (the front ones smaller and cream), and shafts for one horse. The barred door in the
 back, hinged on her right and padlocked, is ours: no still shows one.
 
-- **Bring your own horse:** she has none of her own. Lead a horse, donkey or mule (grown) up to her on a lead and use
-  her: it is hitched into her shafts, and the lead goes back to you. It is still your horse, drawn as the game draws
-  it, in her harness: a collar with brass hames, blinkers, a black plume on its poll, a saddle pad, girth and
-  breeching, the traces back to her and the reins to the driver's hands. In the shafts it walks, trots and gallops as
-  she goes, and does nothing of its own accord. Sneak and use it to unhitch it, back onto your lead if you have one.
-  If it dies she stops where she is.
+- **Her horse:** she comes with a fast black horse in a plumed harness (a collar with brass hames, blinkers, a pad,
+  girth and breeching), drawn as the game draws its own horses: it walks, trots and gallops as she goes, its traces
+  back to her and the reins to the driver's hands. It is hers, so it never strays, dies on its own or gets left
+  behind; it is solid, and hitting it hits her.
 - **Drive her:** use her front to get up on the box (the driver's place on her right, with the reins, and one beside
   it). Forward and back on the reins, left and right to steer (she turns only on the move, the fore-carriage and the
-  horse swinging with her). She goes as fast as her horse can run pulling her, a little faster on a road (paths,
-  gravel, cobbles, bricks, slabs). **Jump** cracks the whip: the horse breaks into a gallop for a few seconds. Sneak to
-  get down.
+  horse swinging with her). She goes about as fast as a ridden horse, and faster than one on a road (paths, gravel,
+  cobbles, bricks, slabs). **Jump** cracks the whip: the horse breaks into a gallop for a few seconds. Sneak to get
+  down.
 - **The cage:** four stand in it. Anyone outside can open or shut its door by using it. With it open:
-  - lead something up on your lead and use her: in it goes (anything about a player's size; a horse is hitched
-    instead, if she has none);
+  - lead something up on your lead and use her: in it goes (anything about a player's size);
   - hit whatever stands at the door to shove it in;
   - sneak and use the open door to climb in yourself.
 
   Shut, nobody inside gets out (a player sneaking is told the door is locked), and nobody inside can hurt anyone
   outside through the bars. Open it again and the mobs inside make a run for it, one after another; a player can step
   out.
-- **The sweet cart:** standing, the driver's **J** (rebindable) dresses the cage as a sweet cart: painted boards
-  (LOLLIPOPS, TREACLE TARTS, ICE CREAMS; CREAM PUFFS, CHERRY PIES, SWEETS; FREE SWEETS across the back) over its bars,
-  signs along its sides (SWEETS FOR GOOD CHILDREN, COME AND GET THEM, ALL FREE TODAY!), a striped valance and
-  lollipops on the roof. With the door open, the village's children come for the sweets and climb in. Crack the whip
-  and it all comes off, as in the film: the boards fly off her sides and lie in the road behind her. **J** again,
-  standing, takes it down.
-- **Riding in her:** on the box you sit and turn with her; in the cage you stand. She is solid all along (her box and
-  the back of her cage have hitboxes of their own); hit her hard enough and she drops back into an item, letting her
-  horse go. In third person the camera stands well back.
+- **The trader's wagon:** standing, the driver's **J** (rebindable) dresses the cage as a wandering trader's wagon,
+  in his blue and gold: cloths over the bars, a striped awning over the back with an emerald on a hanging sign,
+  tassels along the eaves, a barrel and a chest on the roof, lanterns, and a counter on the door. It is a trap:
+  - sneak and use her back with something in hand to set one of it out on the counter as bait (three at most); use
+    her back again to take it back;
+  - anyone else who uses her back reaches for the bait, and is pulled in as the door slams shut behind them;
+  - food that villagers gather (bread, carrots, potatoes, beetroot) draws the villagers round about to the counter,
+    and they are caught the same way;
+  - while she wears it, nobody outside can see who is in the cage, nor their names;
+  - sneaking with nothing in hand, anyone can still open or shut the door without touching the bait.
 
-Her wheels grind over the ground and her cage rattles as she goes; the horse's own hooves walk, trot and gallop; the
-whip cracks, the iron door clangs and its padlock's chain rattles; the disguise goes up board by board and clatters
-off all at once.
+  Crack the whip and it all comes off, as in the film: the cloths and the stock fly off her and lie in the road behind
+  her, the bait with them. **J** again, standing, takes it down and gives you the bait back.
+- **Riding in her:** on the box you sit and turn with her; in the cage you stand. She is solid all along (her box, the
+  back of her cage and her horse have hitboxes of their own); hit her hard enough and she drops back into an item. In
+  third person the camera stands well back.
+
+Her wheels grind over the ground and her cage rattles as she goes; the horse's hooves walk, trot and gallop and it
+snorts now and then; the whip cracks, the iron door clangs and its padlock's chain rattles; the disguise's cloths are
+shaken out and hung, and tumble off all at once.
 
 **Craft her** (the recipe unlocks with iron bars):
 
@@ -241,8 +245,8 @@ P M P     P = any Planks    M = Minecart
 ```
 
 Her model, texture and icon come from `tools/carriage_model.py`. Its `--game` option builds her faceted and bakes her
-colours with Chitty's exporter, as the airship's does; `--out DIR --renders` renders her, round, with a vanilla horse
-in her shafts (`MC_HORSE_TEXTURE` names its coat; the renders' horse is never baked). `tools/gen_carriage_sounds.py`
+colours with Chitty's exporter, as the airship's does; `--out DIR --renders` renders her, round, with her horse
+(`MC_HORSE_TEXTURE` names the vanilla coat to draw it in; the horse is never baked). `tools/gen_carriage_sounds.py`
 makes her sounds.
 
 ## Installing
