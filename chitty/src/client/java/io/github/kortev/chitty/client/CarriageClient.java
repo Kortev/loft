@@ -12,13 +12,13 @@ import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityModelLayerRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
+import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.input.Input;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.render.entity.EmptyEntityRenderer;
 import net.minecraft.client.util.InputUtil;
-import net.minecraft.text.Text;
 import org.lwjgl.glfw.GLFW;
 
 /**
@@ -30,8 +30,6 @@ public final class CarriageClient {
 
 	private static final Set<CarriageEntity> SOUNDING = Collections.newSetFromMap(new WeakHashMap<>());
 	private static boolean wasJumping;
-	/** What the driver was last shown on the action bar: 0 nothing, 1 driving. */
-	private static int hint;
 
 	private CarriageClient() {
 	}
@@ -57,6 +55,8 @@ public final class CarriageClient {
 			}
 		};
 		ClientTickEvents.END_CLIENT_TICK.register(CarriageClient::tick);
+		// The controls, on screen.
+		HudRenderCallback.EVENT.register(CarriageHud::render);
 	}
 
 	private static ChittyControls controls(CarriageEntity carriage) {
@@ -92,15 +92,6 @@ public final class CarriageClient {
 			if (driving) {
 				act(CarriageEntity.ACTION_DISGUISE);
 			}
-		}
-		// A word on the reins when someone takes them.
-		int now = driving ? 1 : 0;
-		if (now != hint) {
-			if (now != 0) {
-				player.sendMessage(Text.translatable("hud.shootingstar.carriage.driving", client.options.jumpKey.getBoundKeyLocalizedText(),
-						DISGUISE.getBoundKeyLocalizedText(), client.options.sneakKey.getBoundKeyLocalizedText()), true);
-			}
-			hint = now;
 		}
 	}
 }

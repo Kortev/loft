@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
@@ -101,6 +102,9 @@ public class CarriageEntity extends Entity {
 	private static final TrackedData<Integer> SNAP = DataTracker.registerData(CarriageEntity.class, TrackedDataHandlerRegistry.INTEGER);
 	/** Which place each passenger, in the order they are listed, is in: three bits each. */
 	private static final TrackedData<Integer> SEATING = DataTracker.registerData(CarriageEntity.class, TrackedDataHandlerRegistry.INTEGER);
+	/** Whoever set the bait out, for clients to tell them (CarriageHud). */
+	private static final TrackedData<Optional<UUID>> BAITER = DataTracker.registerData(CarriageEntity.class,
+			TrackedDataHandlerRegistry.OPTIONAL_UUID);
 	/** The bait on the counter, for clients to draw. */
 	@SuppressWarnings("unchecked")
 	private static final TrackedData<ItemStack>[] BAIT = new TrackedData[] {
@@ -278,6 +282,7 @@ public class CarriageEntity extends Entity {
 		builder.add(WHIP, 0);
 		builder.add(SNAP, 0);
 		builder.add(SEATING, 0);
+		builder.add(BAITER, Optional.empty());
 		for (TrackedData<ItemStack> slot : BAIT) {
 			builder.add(slot, ItemStack.EMPTY);
 		}
@@ -551,7 +556,7 @@ public class CarriageEntity extends Entity {
 	}
 
 	/** Whether a point on her (local) is at her door: the back of the cage, about the middle. */
-	private static boolean atDoor(Vec3d local) {
+	public static boolean atDoor(Vec3d local) {
 		return local.z < CAGE_BACK + 0.45 && Math.abs(local.x) < DOOR_HALF_WIDTH + 0.15 && local.y > DECK_TOP - 0.3;
 	}
 
@@ -724,6 +729,21 @@ public class CarriageEntity extends Entity {
 		return dataTracker.get(BAIT[slot]);
 	}
 
+	/** On clients too: whether there is bait out. */
+	public boolean hasBaitShown() {
+		for (TrackedData<ItemStack> slot : BAIT) {
+			if (!dataTracker.get(slot).isEmpty()) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** On clients too: whether this player set the bait out. */
+	public boolean isBaiter(PlayerEntity player) {
+		return dataTracker.get(BAITER).filter(player.getUuid()::equals).isPresent();
+	}
+
 	/** Whoever set the bait out, or anyone up on the box, may take it back. */
 	public boolean mayTakeBait(PlayerEntity player) {
 		return player.getUuid().equals(baiter) || player.getVehicle() == this && seatOf(player) < CAGE;
@@ -781,6 +801,10 @@ public class CarriageEntity extends Entity {
 		for (int i = 0; i < BAIT.length; i++) {
 			dataTracker.set(BAIT[i], bait.getStack(i).copy());
 		}
+		if (bait.isEmpty()) {
+			baiter = null;
+		}
+		dataTracker.set(BAITER, Optional.ofNullable(baiter));
 	}
 
 	/** Where a piece of bait stands on the counter, in the world (the door shut). */
@@ -1305,6 +1329,9 @@ public class CarriageEntity extends Entity {
 		dataTracker.set(WHIP, dataTracker.get(WHIP) + 1);
 		Vec3d at = toWorld(HANDS.add(0.0, 0.8, 0.6));
 		world.playSound(null, at.x, at.y, at.z, Carriage.WHIP, SoundCategory.NEUTRAL, 1.4F, 0.9F + random.nextFloat() * 0.2F);
+		// The crack at the lash's tip, out over the horse's back.
+		Vec3d tip = toWorld(HANDS.add(0.0, 1.3, 1.4));
+		world.spawnParticles(ParticleTypes.CRIT, tip.x, tip.y, tip.z, 8, 0.12, 0.12, 0.12, 0.25);
 		if (by != null) {
 			by.swingHand(Hand.MAIN_HAND, true);
 		}
@@ -1466,8 +1493,16 @@ public class CarriageEntity extends Entity {
 		if (whipCooldown > 0) {
 			whipCooldown--;
 		}
-		// Dust off her wheels, at a trot and over.
+		// Dust off her wheels, at a trot and over; at a gallop, earth thrown up by the horse's hooves.
 		double s = getSpeed();
+		if (s > CANTER && isOnGround() && random.nextFloat() < 0.6F) {
+			Vec3d hooves = horseAt();
+			BlockState ground = getWorld().getBlockState(BlockPos.ofFloored(hooves.x, hooves.y - 0.2, hooves.z));
+			if (!ground.isAir()) {
+				getWorld().addParticle(new BlockStateParticleEffect(ParticleTypes.BLOCK, ground), hooves.x + random.nextGaussian() * 0.3,
+						hooves.y + 0.05, hooves.z + random.nextGaussian() * 0.3, motion.x * -0.3, 0.12, motion.z * -0.3);
+			}
+		}
 		if (s > TROT && isOnGround() && random.nextFloat() < s) {
 			BlockState under = getWorld().getBlockState(getBlockPos().down());
 			if (!under.isAir()) {

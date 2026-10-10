@@ -26,11 +26,11 @@ import org.jetbrains.annotations.Nullable;
  */
 final class AirshipHud {
 	private static final int BACK = 0x99000000;
-	private static final int TITLE = 0xFFE0B048;
-	private static final int TEXT = 0xFFE8E8E8;
-	private static final int DIM = 0xFF9A9A9A;
-	private static final int WARN = 0xFFFF6A5A;
-	private static final int GOOD = 0xFF8EE08E;
+	static final int TITLE = 0xFFE0B048;
+	static final int TEXT = 0xFFE8E8E8;
+	static final int DIM = 0xFF9A9A9A;
+	static final int WARN = 0xFFFF6A5A;
+	static final int GOOD = 0xFF8EE08E;
 	private static final int CAP = 0xFF34343E;
 	private static final int CAP_EDGE = 0xFF8A8A96;
 	private static final int CAP_LIT = 0xFFE0B048;
@@ -41,8 +41,11 @@ final class AirshipHud {
 	/** How wide the grapple's gauge is at least. */
 	private static final int GAUGE = 110;
 
-	/** One line of a panel: a key (or keys) to press and what it does; or, with no key, a line of its own. */
-	private record Row(@Nullable Text key, boolean lit, Text label, int color) {
+	/**
+	 * One line of a panel: a key (or keys) to press and what it does; or, with no key, a line of its own. (The
+	 * carriage's panel, CarriageHud, is drawn the same way.)
+	 */
+	record Row(@Nullable Text key, boolean lit, Text label, int color) {
 	}
 
 	private AirshipHud() {
@@ -118,7 +121,7 @@ final class AirshipHud {
 		draw(ctx, client.textRenderer, title, rows, gauge, tickDelta);
 	}
 
-	private static void draw(DrawContext ctx, TextRenderer font, Text title, List<Row> rows, @Nullable AirshipEntity ship,
+	static void draw(DrawContext ctx, TextRenderer font, Text title, List<Row> rows, @Nullable AirshipEntity ship,
 			float tickDelta) {
 		int cap = 0;
 		int label = font.getWidth(title);
@@ -206,16 +209,16 @@ final class AirshipHud {
 		}
 	}
 
-	private static Row row(KeyBinding key, Text label) {
+	static Row row(KeyBinding key, Text label) {
 		return new Row(key.getBoundKeyLocalizedText(), key.isPressed(), label, TEXT);
 	}
 
-	private static Row row(Text keys, boolean lit, Text label) {
+	static Row row(Text keys, boolean lit, Text label) {
 		return new Row(keys, lit, label, TEXT);
 	}
 
 	/** Several keys in one cap: run together if each is a single letter (WASD), otherwise with slashes between. */
-	private static Text keys(KeyBinding... bindings) {
+	static Text keys(KeyBinding... bindings) {
 		StringBuilder joined = new StringBuilder();
 		boolean letters = true;
 		for (KeyBinding key : bindings) {
@@ -231,7 +234,7 @@ final class AirshipHud {
 	}
 
 	/** Keys pressed one after the other, in one cap. */
-	private static Text combo(KeyBinding... bindings) {
+	static Text combo(KeyBinding... bindings) {
 		StringBuilder joined = new StringBuilder();
 		for (KeyBinding key : bindings) {
 			if (!joined.isEmpty()) {

@@ -21,7 +21,7 @@ import net.minecraft.util.math.RotationAxis;
 /**
  * The carriage's horse, drawn as the game draws its own: the vanilla horse model (EntityModelLayers.HORSE) in the black
  * coat, its legs, head and tail posed as HorseEntityModel poses a horse walking, trotting and galloping, 1.1 times its
- * model's size; and on it her harness, boxes in the same body and head frames (tools/carriage_model.py's HARNESS, which
+ * model's size (standing, it swishes its tail and tosses its head now and then); and on it her harness, boxes in the same body and head frames (tools/carriage_model.py's HARNESS, which
  * its renders draw): a collar with brass hames, blinkers, a browband and noseband, the bit's rings, the black plume on
  * its poll; a pad with brass terrets and a girth, the tugs that carry the shafts, the crupper and the breeching. The
  * harness's texture is in bands, one colour each: leather, brass and plume.
@@ -126,7 +126,7 @@ public final class CarriageHorse {
 	 * limbPos of their stride by limbSpeed (0 standing, 1 a gallop), its head nodding to its stride once it trots, its
 	 * tail lifting as it goes.
 	 */
-	private void pose(float limbPos, float limbSpeed) {
+	private void pose(float limbPos, float limbSpeed, float time) {
 		float nod = limbSpeed > 0.2F ? MathHelper.cos(limbPos * 0.8F) * 0.15F * limbSpeed : 0.0F;
 		body.pivotY = 11.0F;
 		body.pitch = 0.0F;
@@ -147,6 +147,13 @@ public final class CarriageHorse {
 		tail.pitch = (float) (Math.PI / 6) + limbSpeed * 0.75F;
 		tail.pivotY = -5.0F + limbSpeed;
 		tail.pivotZ = 2.0F + limbSpeed * 2.0F;
+		// Standing, it swishes its tail now and then (as a horse wags it, HorseEntityModel), and tosses its head.
+		float cycle = time % 160.0F;
+		tail.yaw = limbSpeed < 0.1F && cycle < 12.0F ? MathHelper.cos(cycle * 0.7F) * 0.6F : 0.0F;
+		float toss = time % 230.0F;
+		if (limbSpeed < 0.1F && toss < 10.0F) {
+			head.pitch -= MathHelper.sin(toss / 10.0F * (float) Math.PI) * 0.25F;
+		}
 		harnessBody.copyTransform(body);
 		harnessHead.copyTransform(head);
 	}
@@ -160,7 +167,7 @@ public final class CarriageHorse {
 			int overlay) {
 		float steer = carriage.getSteer(tickDelta);
 		var at = carriage.horseLocal(steer, carriage.getHorseLift(tickDelta));
-		pose(carriage.getLimbPos(tickDelta), carriage.getLimbSpeed(tickDelta));
+		pose(carriage.getLimbPos(tickDelta), carriage.getLimbSpeed(tickDelta), carriage.age + tickDelta + carriage.getId() * 37.0F);
 		matrices.push();
 		matrices.translate(at.x, at.y, at.z);
 		matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180.0F + steer * CarriageEntity.STEER_MAX));
