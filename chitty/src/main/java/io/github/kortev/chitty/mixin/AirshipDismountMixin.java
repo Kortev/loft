@@ -2,6 +2,7 @@ package io.github.kortev.chitty.mixin;
 
 import io.github.kortev.chitty.airship.AirshipEntity;
 import io.github.kortev.chitty.airship.AirshipHookEntity;
+import io.github.kortev.chitty.carriage.CarriageEntity;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
 import org.spongepowered.asm.mixin.Mixin;
@@ -12,7 +13,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 /**
  * Sneaking aboard the airship is hers to decide (AirshipEntity.letsGo): at the wheel it lets go of the wheel; anywhere
  * else it gets you off beside her when she is down, or in the air onto her rope ladder, never to your death. Nor does
- * sneaking take a player off her grapple until they have struggled free (AirshipHookEntity).
+ * sneaking take a player off her grapple until they have struggled free (AirshipHookEntity). Nor out of the Child
+ * Catcher's cage while its door is shut (CarriageEntity.letsOut).
  */
 @Mixin(PlayerEntity.class)
 public abstract class AirshipDismountMixin {
@@ -26,6 +28,8 @@ public abstract class AirshipDismountMixin {
 			}
 		} else if (vehicle instanceof AirshipEntity ship) {
 			cir.setReturnValue(self.isSneaking() && ship.letsGo(self));
+		} else if (vehicle instanceof CarriageEntity carriage && self.isSneaking() && !carriage.letsOut(self)) {
+			cir.setReturnValue(false);
 		}
 	}
 }

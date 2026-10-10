@@ -2,6 +2,7 @@ package io.github.kortev.chitty.client.mixin;
 
 import io.github.kortev.chitty.airship.AirshipEntity;
 import io.github.kortev.chitty.airship.AirshipHookEntity;
+import io.github.kortev.chitty.carriage.CarriageEntity;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.LivingEntityRenderer;
 import net.minecraft.client.render.entity.model.EntityModel;
@@ -16,7 +17,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * The airship's gondola is standing room: everyone aboard her is drawn standing, not sitting as riders are; and so is
- * whoever hangs from her grapple.
+ * whoever hangs from her grapple. So is everyone in the Child Catcher's cage.
  */
 @Mixin(LivingEntityRenderer.class)
 public abstract class AirshipStandMixin {
@@ -28,7 +29,8 @@ public abstract class AirshipStandMixin {
 					shift = At.Shift.AFTER), require = 0)
 	private void chitty$standAboard(LivingEntity entity, float yaw, float tickDelta, MatrixStack matrices, VertexConsumerProvider buffers,
 			int light, CallbackInfo ci) {
-		if (entity.getVehicle() instanceof AirshipEntity || entity.getVehicle() instanceof AirshipHookEntity) {
+		if (entity.getVehicle() instanceof AirshipEntity || entity.getVehicle() instanceof AirshipHookEntity
+				|| entity.getVehicle() instanceof CarriageEntity carriage && carriage.inCage(entity)) {
 			model.riding = false;
 		}
 	}

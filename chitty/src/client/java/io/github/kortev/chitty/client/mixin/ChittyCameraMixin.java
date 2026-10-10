@@ -2,6 +2,7 @@ package io.github.kortev.chitty.client.mixin;
 
 import io.github.kortev.chitty.ChittyEntity;
 import io.github.kortev.chitty.airship.AirshipEntity;
+import io.github.kortev.chitty.carriage.CarriageEntity;
 import net.minecraft.client.render.Camera;
 import net.minecraft.entity.Entity;
 import net.minecraft.util.math.Vec3d;
@@ -15,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * The third-person view from the film's vehicles. Chitty is five blocks long: someone riding in her is watched from
- * twice as far back. The airship is 34 blocks long and 13 high: riding her, the camera turns about the middle of her
+ * twice as far back; the Child Catcher's carriage, with its horse, is longer still. The airship is 34 blocks long and 13 high: riding her, the camera turns about the middle of her
  * (between the gondola and the envelope) rather than about the rider, and stands far enough back to see all of her.
  */
 @Mixin(Camera.class)
@@ -43,6 +44,7 @@ public abstract class ChittyCameraMixin {
 			return distance;
 		}
 		return focusedEntity.getVehicle() instanceof ChittyEntity ? distance * 2.0F
+				: focusedEntity.getVehicle() instanceof CarriageEntity ? distance * 2.2F
 				: focusedEntity.getVehicle() instanceof AirshipEntity ? AirshipEntity.VIEW_DISTANCE : distance;
 	}
 }

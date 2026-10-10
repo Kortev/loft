@@ -1,0 +1,35 @@
+{
+  "display": {
+    "icon": {
+      "id": "shootingstar:carriage"
+    },
+    "title": {
+      "translate": "advancements.shootingstar.carriage_root.title"
+    },
+    "description": {
+      "translate": "advancements.shootingstar.carriage_root.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false,
+    "background": "minecraft:textures/block/black_wool.png"
+  },
+  "criteria": {
+    "carriage": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "shootingstar:carriage"
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "carriage"
+    ]
+  ]
+}

@@ -1,6 +1,7 @@
 package io.github.kortev.chitty;
 
 import io.github.kortev.chitty.airship.Airship;
+import io.github.kortev.chitty.carriage.Carriage;
 import io.github.kortev.shootingstar.ShootingStar;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
@@ -22,7 +23,8 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Chitty Chitty Bang Bang: the car, the item that puts her down, her sounds and the driver's messages; and the film's
- * other vehicles, each set up from here (the Vulgarian airship: {@link Airship}).
+ * other vehicles, each set up from here (the Vulgarian airship: {@link Airship}; the Child Catcher's carriage:
+ * {@link Carriage}).
  *
  * <p>She is a mod of her own, in her own jar, built beside The Shooting Star and needing it: her things keep the
  * {@code shootingstar} names they were made with (so cars already put down and items already made survive the move),
@@ -83,6 +85,7 @@ public final class Chitty implements ModInitializer {
 	public void onInitialize() {
 		ItemGroupEvents.modifyEntriesEvent(ItemGroups.TOOLS).register(entries -> entries.add(ITEM));
 		Airship.init();
+		Carriage.init();
 		PayloadTypeRegistry.playC2S().register(ChittyInputPayload.ID, ChittyInputPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(ChittyHornPayload.ID, ChittyHornPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(ChittyEjectPayload.ID, ChittyEjectPayload.CODEC);

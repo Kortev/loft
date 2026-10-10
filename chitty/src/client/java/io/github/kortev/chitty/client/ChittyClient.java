@@ -33,7 +33,7 @@ import org.lwjgl.glfw.GLFW;
 /**
  * Chitty on the client: how she is drawn and heard, the driver's controls, the horn, the wings, the ejector and revving
  * her; the shimmer of heat off her bonnet; and the film's other vehicles, each set up from here (the airship:
- * {@link AirshipClient}).
+ * {@link AirshipClient}; the Child Catcher's carriage: {@link CarriageClient}).
  */
 public final class ChittyClient implements ClientModInitializer {
 	public static KeyBinding HORN;
@@ -99,6 +99,7 @@ public final class ChittyClient implements ClientModInitializer {
 		};
 		ClientTickEvents.END_CLIENT_TICK.register(ChittyClient::tick);
 		AirshipClient.init();
+		CarriageClient.init();
 	}
 
 	private static ChittyControls controls(ChittyEntity car) {

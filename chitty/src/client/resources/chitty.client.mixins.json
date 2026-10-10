@@ -6,7 +6,8 @@
 		"AirshipHangPoseMixin",
 		"AirshipStandMixin",
 		"ChittyCameraMixin",
-		"ChittyViewMixin"
+		"ChittyViewMixin",
+		"HorseModelAccess"
 	],
 	"injectors": {
 		"defaultRequire": 1

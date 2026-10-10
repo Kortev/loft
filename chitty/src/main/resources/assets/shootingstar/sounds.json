@@ -204,5 +204,41 @@
         "attenuation_distance": 16
       }
     ]
+  },
+  "carriage.roll": {
+    "subtitle": "subtitles.shootingstar.carriage.roll",
+    "sounds": [
+      {
+        "name": "shootingstar:carriage_roll",
+        "attenuation_distance": 24
+      }
+    ]
+  },
+  "carriage.whip": {
+    "subtitle": "subtitles.shootingstar.carriage.whip",
+    "sounds": [
+      {
+        "name": "shootingstar:carriage_whip",
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "carriage.disguise_on": {
+    "subtitle": "subtitles.shootingstar.carriage.disguise_on",
+    "sounds": [
+      {
+        "name": "shootingstar:carriage_disguise_on",
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "carriage.disguise_off": {
+    "subtitle": "subtitles.shootingstar.carriage.disguise_off",
+    "sounds": [
+      {
+        "name": "shootingstar:carriage_disguise_off",
+        "attenuation_distance": 24
+      }
+    ]
   }
 }

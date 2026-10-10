@@ -66,6 +66,10 @@ if star:
         'assets/shootingstar/sounds/airship_',
         'data/shootingstar/advancement/airship/',
         'data/shootingstar/recipe/airship',
+        'assets/shootingstar/meshes/carriage',
+        'assets/shootingstar/sounds/carriage_',
+        'data/shootingstar/advancement/carriage/',
+        'data/shootingstar/recipe/carriage',
     ])
 if chitty:
     check(chitty, 'chitty', [
@@ -90,6 +94,12 @@ if chitty:
         'data/shootingstar/recipe/airship.json',
         'data/shootingstar/recipe/airship_bomb.json',
         'data/shootingstar/advancement/airship/root.json',
+        'io/github/kortev/chitty/carriage/CarriageEntity.class',
+        'io/github/kortev/chitty/client/CarriageRenderer.class',
+        'assets/shootingstar/textures/entity/carriage_harness.png',
+        'assets/shootingstar/sounds/carriage_roll.ogg',
+        'data/shootingstar/recipe/carriage.json',
+        'data/shootingstar/advancement/carriage/root.json',
     ], [
         'io/github/kortev/shootingstar/',
         'assets/shootingstar/shaders/',

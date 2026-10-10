@@ -1,0 +1,31 @@
+{
+  "parent": "shootingstar:carriage/hitch",
+  "display": {
+    "icon": {
+      "id": "minecraft:iron_bars"
+    },
+    "title": {
+      "translate": "advancements.shootingstar.carriage_catch.title"
+    },
+    "description": {
+      "translate": "advancements.shootingstar.carriage_catch.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "catch": {
+      "trigger": "shootingstar:event",
+      "conditions": {
+        "event": "carriage_catch"
+      }
+    }
+  },
+  "requirements": [
+    [
+      "catch"
+    ]
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "parent": "shootingstar:carriage/hitch",
+  "display": {
+    "icon": {
+      "id": "minecraft:sugar"
+    },
+    "title": {
+      "translate": "advancements.shootingstar.carriage_unmask.title"
+    },
+    "description": {
+      "translate": "advancements.shootingstar.carriage_unmask.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "unmask": {
+      "trigger": "shootingstar:event",
+      "conditions": {
+        "event": "carriage_unmask"
+      }
+    }
+  },
+  "requirements": [
+    [
+      "unmask"
+    ]
+  ]
+}
