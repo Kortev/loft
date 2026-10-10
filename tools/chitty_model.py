@@ -2066,6 +2066,10 @@ PACK_ROTATE = None
 # a surface whose painting needs them, such as the airship's envelope, cylindrical with her arms on its flanks.
 KEEP_UV = ()
 
+# Whether the unwrap corrects for the aspect of each face's image (Blender's default). Off, an island keeps the shape of
+# its faces whatever their texture: a sign painted on a long strip of image is not squashed to a line (the carriage's).
+UV_CORRECT_ASPECT = True
+
 
 def unwrap(objs):
     """Each object unwrapped on its own (or its own UVs kept, KEEP_UV), then all their islands scaled alike (by area,
@@ -2079,7 +2083,8 @@ def unwrap(objs):
         view.objects.active = o
         bpy.ops.object.mode_set(mode='EDIT')
         bpy.ops.mesh.select_all(action='SELECT')
-        bpy.ops.uv.smart_project(angle_limit=math.radians(55), island_margin=0.0, area_weight=0.0, scale_to_bounds=False)
+        bpy.ops.uv.smart_project(angle_limit=math.radians(55), island_margin=0.0, area_weight=0.0, scale_to_bounds=False,
+                                 correct_aspect=UV_CORRECT_ASPECT)
         bpy.ops.object.mode_set(mode='OBJECT')
     bpy.ops.object.select_all(action='DESELECT')
     for o in objs:
@@ -2361,6 +2366,7 @@ def export_game(root):
     for o in objs:
         parts.setdefault(part_of(o), []).append(o)
     order = [k for k in ('body', 'glass') if k in parts] + sorted(k for k in parts if k not in ('body', 'glass'))
+    os.makedirs(os.path.dirname(GAME_MESH), exist_ok=True)
     with open(GAME_MESH, 'wb') as f:
         f.write(b'CBM2' + struct.pack('<i', len(order)))
         total = 0

@@ -606,7 +606,7 @@ def build_horse_preview(i, gait=0.0, phase=0.0, steer=0.0):
     for s in (-1, 1):
         start = horse_point(at, 'head', (s * TRACE_FROM[0], TRACE_FROM[1], TRACE_FROM[2]), pitches)
         mid = horse_point(at, 'body', (s * 5.4, -3.0, -10.0), pitches)
-        cm.tube(m, [start, mid, tree + Vector((s * 0.29, 0.0, 0.0))], 0.018, 'leather', seg=8)
+        cm.tube(m, [start, mid, tree + Vector((-s * 0.29, 0.0, 0.0))], 0.018, 'leather', seg=8)
         bit = horse_point(at, 'head', (s * BIT[0], BIT[1], BIT[2]), pitches)
         terret = horse_point(at, 'body', (s * TERRET[0], TERRET[1], TERRET[2]), pitches)
         hand = HANDS + Vector((-s * 0.03, 0.0, 0.0))
@@ -935,10 +935,98 @@ GAME_MESH = 'chitty/src/client/resources/assets/shootingstar/meshes/carriage.cbm
 GAME_TEXTURE = 'chitty/src/client/resources/assets/shootingstar/textures/entity/carriage.png'
 ITEM_ICON = 'chitty/src/main/resources/assets/shootingstar/textures/item/carriage.png'
 
+# How much of the atlas a part gets for its size: the disguise's lettered boards most (its long signs and its striped
+# valance less: the longest island sets how small everything else must be), the deck's planks and what is under her
+# least.
+TEXEL_WEIGHT = {'disguise_valance': 0.7, 'disguise_lh': 1.4, 'disguise_rh': 1.4, 'disguise_bh': 1.6, 'disguise_': 2.0,
+                'lolly_': 1.4, 'seat': 1.4, 'door': 1.2, 'deck': 0.6, 'fore_carriage': 0.8, 'wheel_': 0.9, 'trace': 0.3,
+                'rein': 0.3}
+
+
+def build_straps():
+    """For the game: a block's length of trace and of rein, hanging from its top, which the game stretches from point
+    to point (the horse's collar to her splinter bar, its bit to the driver's hands)."""
+    for name, (w, t) in (('trace', (0.05, 0.016)), ('rein', (0.018, 0.012))):
+        m = cm.Mesh()
+        cm.add_box(m, (0, 0, -0.5), (w, t, 1.0), 'leather')
+        moving(m, name, (0, 0, 0), smooth=None)
+
+
+def square_aspect():
+    """Every material's active texture made a square image before her atlas is unwrapped: Blender's unwrap and its
+    packer go by the aspect of a face's active image (turning an island a quarter turn, the packer stretches it by it),
+    and her signs are painted on long strips of image. The bake's own target, square too, is made active later."""
+    img = bpy.data.images.new('square_aspect', 8, 8)
+    for mat in cm.MATS.values():
+        nt = mat.node_tree
+        node = nt.nodes.new('ShaderNodeTexImage')
+        node.image = img
+        nt.nodes.active = node
+
+
+def export_game():
+    """Bakes her and writes the game's mesh (.cbm), its texture and the item icon, with Chitty's exporter
+    (chitty_model.export_game, whose docstring has the format) pointed at her files: one 1024 atlas of her colours,
+    the game lighting each of her flat faces by which way it faces. Every part at rest, the disguise included (the game
+    shows it or not); no horse (the game's own is hitched to her)."""
+    build_straps()
+    cm.GAME_MESH, cm.GAME_TEXTURE, cm.ITEM_ICON = GAME_MESH, GAME_TEXTURE, ITEM_ICON
+    cm.BAKE_SIZE = 1024
+    cm.BAKE_SAMPLES = int(os.environ.get('CARRIAGE_BAKE_SAMPLES', '64'))
+    cm.TEXEL_WEIGHT = TEXEL_WEIGHT
+    cm.SHINE, cm.GLOW, cm.GLASS_TINT = {}, (), {}
+    cm.GAME_LIT = ('wheel_',)
+    cm.LIT_ALL = True
+    cm.PACK_ROTATE = 'AXIS_ALIGNED'
+    cm.UV_CORRECT_ASPECT = False    # her signs are painted on long strips of image
+    cm.neutral = square_aspect
+    cm.pose = lambda *a, **k: None
+    cm.export_game(None)
+    render_icon()
+
+
+def render_icon():
+    """The item: her side on (the cage, the driver's box, the wheels), a little from the front and above, without a
+    horse, shrunk to a crisp 32 x 32."""
+    from PIL import Image, ImageEnhance
+    scene = bpy.context.scene
+    cm.render_scene_setup()
+    for name in ('ground', 'water'):
+        if name in bpy.data.objects:
+            bpy.data.objects[name].hide_render = True
+    for o in bpy.data.objects:
+        if o.get('part', '').startswith(('disguise_', 'lolly_')) or o.name in ('trace', 'rein'):
+            o.hide_render = True
+    scene.render.film_transparent = True
+    cam = scene.camera
+    cam.data.type = 'ORTHO'
+    cam.data.ortho_scale = 4.6
+    cam.location = Vector((14.0, 5.0, 4.5))
+    cam.rotation_euler = (Vector((0.0, 0.1, 1.6)) - cam.location).to_track_quat('-Z', 'Y').to_euler()
+    scene.render.resolution_x = scene.render.resolution_y = 512
+    scene.cycles.samples = 32
+    path = os.path.join(bpy.app.tempdir or '/tmp', 'carriage_icon.png')
+    scene.render.filepath = path
+    bpy.ops.render.render(write_still=True)
+    small = Image.open(path).convert('RGBa').resize((32, 32), Image.LANCZOS).convert('RGBA')
+    rgb = ImageEnhance.Color(ImageEnhance.Brightness(small.convert('RGB')).enhance(1.35)).enhance(1.1)
+    small = Image.merge('RGBA', (*rgb.split(), small.split()[3]))
+    a = np.array(small)
+    a[..., 3] = np.where(a[..., 3] > 100, 255, 0)
+    os.makedirs(os.path.dirname(ITEM_ICON), exist_ok=True)
+    Image.fromarray(a, 'RGBA').save(ITEM_ICON, optimize=True)
+    scene.render.film_transparent = False
+    cam.data.type = 'PERSP'
+    print('icon ->', ITEM_ICON, '(full size at %s)' % path)
+
 
 def main():
     args = sys.argv[1:]
     cm.FACET = GAME or '--facet' in args
+    if GAME:
+        build()
+        export_game()
+        return
     if '--out' not in args:
         print(__doc__)
         return

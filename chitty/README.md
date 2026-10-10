@@ -1,7 +1,8 @@
 # Chitty Chitty Bang Bang
 
-A Fabric mod for Minecraft Java **1.21.1**: the car from the film, to drive, fly and float, and Baron Bomburst's
-Vulgarian airship ([below](#the-vulgarian-airship)). It is built beside [The Shooting Star](../README.md), in the same
+A Fabric mod for Minecraft Java **1.21.1**: the car from the film, to drive, fly and float, Baron Bomburst's
+Vulgarian airship ([below](#the-vulgarian-airship)) and the Child Catcher's carriage
+([below](#the-child-catchers-carriage)). It is built beside [The Shooting Star](../README.md), in the same
 repository and build, and needs it installed: its things share The Shooting Star's names and its rule that only
 **kortev** crafts them (crafters do not make them at all). Everyone can ride in them and break them once they are made.
 
@@ -189,6 +190,60 @@ art:
 - `tools/vulgaria_arms.py` draws her arms;
 - `tools/airship_carving.py` draws the gondola's gilt carving and lights it as raised gold;
 - `tools/gen_airship_sounds.py` makes her sounds.
+
+## The Child Catcher's carriage
+
+The Child Catcher's carriage from the film: a black iron cage on a high flat dray, with a solid front wall of
+weathered planks and a small barred window just behind the driver, a cream-framed driver's box at the front, four
+wooden wheels with iron tyres (the front ones smaller and cream), and shafts for one horse. The barred door in the
+back, hinged on her right and padlocked, is ours: no still shows one.
+
+- **Bring your own horse:** she has none of her own. Lead a horse, donkey or mule (grown) up to her on a lead and use
+  her: it is hitched into her shafts, and the lead goes back to you. It is still your horse, drawn as the game draws
+  it, in her harness: a collar with brass hames, blinkers, a black plume on its poll, a saddle pad, girth and
+  breeching, the traces back to her and the reins to the driver's hands. In the shafts it walks, trots and gallops as
+  she goes, and does nothing of its own accord. Sneak and use it to unhitch it, back onto your lead if you have one.
+  If it dies she stops where she is.
+- **Drive her:** use her front to get up on the box (the driver's place on her right, with the reins, and one beside
+  it). Forward and back on the reins, left and right to steer (she turns only on the move, the fore-carriage and the
+  horse swinging with her). She goes as fast as her horse can run pulling her, a little faster on a road (paths,
+  gravel, cobbles, bricks, slabs). **Jump** cracks the whip: the horse breaks into a gallop for a few seconds. Sneak to
+  get down.
+- **The cage:** four stand in it. Anyone outside can open or shut its door by using it. With it open:
+  - lead something up on your lead and use her: in it goes (anything about a player's size; a horse is hitched
+    instead, if she has none);
+  - hit whatever stands at the door to shove it in;
+  - sneak and use the open door to climb in yourself.
+
+  Shut, nobody inside gets out (a player sneaking is told the door is locked), and nobody inside can hurt anyone
+  outside through the bars. Open it again and the mobs inside make a run for it, one after another; a player can step
+  out.
+- **The sweet cart:** standing, the driver's **J** (rebindable) dresses the cage as a sweet cart: painted boards
+  (LOLLIPOPS, TREACLE TARTS, ICE CREAMS; CREAM PUFFS, CHERRY PIES, SWEETS; FREE SWEETS across the back) over its bars,
+  signs along its sides (SWEETS FOR GOOD CHILDREN, COME AND GET THEM, ALL FREE TODAY!), a striped valance and
+  lollipops on the roof. With the door open, the village's children come for the sweets and climb in. Crack the whip
+  and it all comes off, as in the film: the boards fly off her sides and lie in the road behind her. **J** again,
+  standing, takes it down.
+- **Riding in her:** on the box you sit and turn with her; in the cage you stand. She is solid all along (her box and
+  the back of her cage have hitboxes of their own); hit her hard enough and she drops back into an item, letting her
+  horse go. In third person the camera stands well back.
+
+Her wheels grind over the ground and her cage rattles as she goes; the horse's own hooves walk, trot and gallop; the
+whip cracks, the iron door clangs and its padlock's chain rattles; the disguise goes up board by board and clatters
+off all at once.
+
+**Craft her** (the recipe unlocks with iron bars):
+
+```
+B B B     B = Iron Bars
+B L B     L = Lead
+P M P     P = any Planks    M = Minecart
+```
+
+Her model, texture and icon come from `tools/carriage_model.py`. Its `--game` option builds her faceted and bakes her
+colours with Chitty's exporter, as the airship's does; `--out DIR --renders` renders her, round, with a vanilla horse
+in her shafts (`MC_HORSE_TEXTURE` names its coat; the renders' horse is never baked). `tools/gen_carriage_sounds.py`
+makes her sounds.
 
 ## Installing
 

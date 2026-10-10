@@ -98,27 +98,22 @@ wants **renders for approval before baking** anything.
 
 ### 2. The Child Catcher's carriage
 
-- There is **no Child Catcher mob**, just his carriage as a craftable vehicle.
-- It's pulled by **two fast black plumed horses** that trot and gallop as it drives, faster than a horse on roads.
-- The **cage on the back locks**: anyone put in it (mob or player) can't get out until the driver opens it. It's a
-  prisoner transport for PvP.
-- References: two photos on the same Notion page, plus film stills.
-- **Status: model built; second renders sent, waiting on kortev's OK** (`tools/carriage_model.py`, `--out DIR
-  --renders`, `MC_HORSE_TEXTURE=<vanilla horse_black.png>` to draw the coat).
-  - kortev's answers so far: look at the film's references (done: text only, since the network here blocks image
-    hosts; the brief was in the session's scratchpad), and **the horse should be a real mob**.
-  - References: the film's carriage was drawn by **one** horse (Rothenburg's crime museum, which owns the two
-    surviving carriages, calls it "einspännig"; the prop has shafts for one; every account says "his horse and
-    carriage"). In the capture scene it is dressed as a sweet cart, and all of it falls off as he cracks the whip and
-    drives off. Nothing found on the horse's colour or plumes: kept black and plumed, as kortev's spec says.
-  - The horse: a vanilla black horse hitched into the shafts. Vanilla animates a mob's legs from how far it moved in
-    its own tick (`LivingEntity.travel` -> `updateLimbs`; a passenger's never move), so the plan is for the hitched
-    horse to place itself at the shafts at the start of its own `tickMovement` (server and client), with the client
-    ignoring the server's positions for it while hitched: no lag behind the driver, and vanilla's own walk and gallop.
-    The harness is a box model in the horse model's own frames (`HARNESS`; `body` and `head_parts`), drawn on a
-    hitched horse as a feature, as vanilla draws a saddle; traces and reins are straps the carriage draws.
-  - Open questions for kortev: does the carriage come with its horse; the sweets disguise; how prisoners are put in.
-  - The door is ours (no source shows one): a barred gate in the back, hinged on her right, padlocked.
+- There is **no Child Catcher mob**, just his carriage as a craftable vehicle (see `chitty/README.md`, "The Child
+  Catcher's carriage", and `.claude/skills/film-vehicle/references/carriage.md`).
+- **Status: everything is in but her baked mesh, which waits on kortev's OK of the look.** Renders and an in-game
+  preview of the bake were sent (`tools/carriage_model.py --out DIR --renders`, with `MC_HORSE_TEXTURE=<vanilla
+  horse_black.png>` for the preview horse's coat). Once kortev OKs it: run `~/.bpy/bin/python tools/carriage_model.py
+  --game` from the repository root (writes `meshes/carriage.cbm`, `textures/entity/carriage.png` and the item icon),
+  add those three to `check-jars.py`'s list, push, and send the in-game test list.
+- kortev's answers: the horse is **a real mob, and you bring your own** (any horse, donkey or mule, hitched with a
+  lead); the disguise is **"maybe combine it"** (an optional sweet-cart disguise that the whip throws off, as in the
+  film; with the door open it lures villager children in); prisoners are **shoved or led in**.
+- References: the film's carriage was drawn by **one** horse (Rothenburg's crime museum, which owns the two surviving
+  carriages, calls it "einspännig"; the prop has shafts for one). The door is ours (no source shows one).
+- The hitched horse is the game's own: not a passenger, it puts itself in the shafts as it ticks, on every side
+  (`CarriageHorseMixin`), and wears the harness as a feature (`CarriageHarnessFeature`). Details in the reference.
+- The bake: Blender's unwrap and packer go by each face's image aspect, which squashed the signs (painted on long
+  strips of image); `chitty_model.UV_CORRECT_ASPECT` and the carriage's `square_aspect` make every image square first.
 
 Both are only craftable by kortev; the existing `OwnerOnly` check already covers every recipe in the mod.
 

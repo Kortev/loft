@@ -14,8 +14,8 @@ A vehicle here is a **film prop you can ride**:
 - with sounds synthesised from a model of the real thing.
 
 **Chitty** is the finished template. Read `references/chitty.md` for her full map before starting. The **Vulgarian
-airship** is the second (`references/airship.md`): she shares Chitty's mesh format, exporter and loader. The next, the
-Child Catcher's carriage, is specced in `HANDOFF.md`.
+airship** is the second (`references/airship.md`): she shares Chitty's mesh format, exporter and loader. The third,
+the **Child Catcher's carriage** (`references/carriage.md`), is drawn by a real vanilla horse hitched into her shafts.
 
 ## Where vehicles live
 
