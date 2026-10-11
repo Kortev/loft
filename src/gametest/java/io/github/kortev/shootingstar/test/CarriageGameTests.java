@@ -132,9 +132,14 @@ public class CarriageGameTests implements FabricGameTest {
 	public void climbsSmoothly(TestContext context) {
 		floor(context);
 		ServerWorld world = context.getWorld();
+		// The step, running on out past the end of the test's area (whose edge is walled off: cleared, for her horse to
+		// have the road ahead of it clear).
 		for (int x = 0; x <= 7; x++) {
 			for (int z = 5; z <= 16; z++) {
 				world.setBlockState(context.getAbsolutePos(new BlockPos(x, 1, z)), Blocks.STONE.getDefaultState());
+				for (int y = 2; y <= 6; y++) {
+					world.setBlockState(context.getAbsolutePos(new BlockPos(x, y, z)), Blocks.AIR.getDefaultState());
+				}
 			}
 		}
 		CarriageEntity carriage = carriage(context, 3.5, 1.0);
