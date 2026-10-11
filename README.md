@@ -5,8 +5,10 @@ A Fabric mod for Minecraft Java **1.21.1** based on the "SS-03 Gungnir" orbital-
 It is kortev's own mod on a shared server: only **kortev** can craft its things (crafters do not make them at all), and
 everyone can use them once they are made.
 
-Use the **Gungnir Uplink** on any block 96–640 blocks away to get a kinetic lock on it. The
-minimum is 1.5× the crater radius, so the shooter is never caught in their own blast. A mass driver
+Use the **Gungnir Uplink** on any block 96–640 blocks away to get a kinetic lock on it (as far out
+as the world around you is loaded: the server's view distance, ten chunks by default, is about 160
+blocks). The minimum is 1.5× the crater radius, so the shooter is never caught in their own blast
+(with a `gungnirCraterRadius` over about 100, raise the view distance to have anything to aim at). A mass driver
 ringing Jupiter spins a round up over seven laps to 0.96c and fires it across the asteroid belt.
 About 22 seconds later the round lands on the target. It does not explode: it is a spear. It hits
 so hard that it blasts out a crater 128 blocks across, planes the ground into glowing molten crust
@@ -100,8 +102,9 @@ only each other, unable to touch anything or be touched. Everything within `ginn
 is erased for good: a ragged shaft down through bedrock, fissures split out across the ground from its rim.
 The first turn cracks the key, and only the cracked key brings the world back: turned in the black, it
 shatters, Yggdrasil grows out of the hole, and the world is put back along its roots, block by block, for
-everyone. (If whoever holds the cracked key is gone for five minutes, the world comes back by itself;
-`/ginnungagap release` brings it back at once.) Skipping the feed shows all of it from your own eyes, free
+everyone. (The cracked key can be handed to someone else to turn. If nobody in the game holds it for
+five minutes, the world comes back by itself; `/ginnungagap release` brings it back at once.) While it
+plays, nothing can touch the one who turned the key, and they can touch nothing either. Skipping the feed shows all of it from your own eyes, free
 to move, as any other player sees it.
 The feed, and the rebuild, can be hurried with the same key as Gungnir's skip (Backspace).
 
@@ -123,7 +126,8 @@ GEN 11, the car from the film, is a mod of its own, built here beside this one a
 
 - `/gungnir strike <pos>`: call a strike on a position (operators).
 - `/gungnir cancel`: call off every strike that has not landed yet.
-- `/ginnungagap open <pos>`: open a Ginnungagap on a position (operators).
+- `/ginnungagap open <pos>`: open a Ginnungagap on a position (operators); with no key turned for it, the
+  world comes back by itself once it is over.
   From a command block or the console there is no shooter: everyone watches from outside, and the world
   comes back by itself at the end.
 - `/ginnungagap release`: end every Ginnungagap and let reality back in.

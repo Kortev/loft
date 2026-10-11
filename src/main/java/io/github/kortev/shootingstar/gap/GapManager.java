@@ -81,11 +81,15 @@ import org.jetbrains.annotations.Nullable;
  * after a crash, as soon as it is back.
  */
 public final class GapManager {
-	private static final ChunkTicketType<ChunkPos> TICKET = ChunkTicketType.create("shootingstar_gap",
-			Comparator.comparingLong(ChunkPos::toLong), GapTimeline.END + 200);
 	/**
-	 * Only the key lets the world back. But if whoever has it is gone (logged off) this long, it comes back on its own,
-	 * so nobody is left in the void for good.
+	 * Keeps everything the event touches loaded (out to the tips of its fissures), from the key turning until the world
+	 * is back and everyone home, however long the black lasts: taken off then (Gap.kept).
+	 */
+	private static final ChunkTicketType<ChunkPos> TICKET = ChunkTicketType.create("shootingstar_gap",
+			Comparator.comparingLong(ChunkPos::toLong));
+	/**
+	 * Only the key lets the world back. But if nobody in the game has held the cracked key this long (whoever has it
+	 * logged off, or it was dropped or put away), it comes back on its own, so nobody is left in the void for good.
 	 */
 	private static final int ABSENT_LIMIT = 20 * 60 * 5;
 	/** How long a player is held in the light before they are carried off (so everyone sees them go). */
@@ -100,6 +104,8 @@ public final class GapManager {
 	 * heights tried there, nearest first.
 	 */
 	private static final int LEVEL_REACH = 6;
+	/** How far out (blocks) the ground is looked for in the world as yet unloaded, for someone with nowhere to stand. */
+	private static final int LOAD_TO_LOOK = 24;
 	private static final int[] LEVEL_STEPS = {0, 1, -1, 2, -2};
 	private static final double GATHER_APART = 3.0;
 	private static final double GATHER_BACK = 3.0;
@@ -137,14 +143,18 @@ public final class GapManager {
 		final boolean tree;
 		final Random random;
 		int age;
+		/** How far round its target (chunks) the world is kept loaded for it, or 0. */
+		int kept;
+		/** Whether a key was turned for it (and so its cracked key ends it), rather than a command. */
+		boolean keyed;
+		/** Ticks with nobody in the game holding a cracked key, once it is over. */
+		int keyless;
 		@Nullable
 		Erasure erasure;
 		boolean erased;
 		boolean released;
 		/** Everyone in the world has been taken into the void. */
 		boolean taken;
-		/** How long the shooter has been gone (logged off) while everyone waits in the void. */
-		int absent;
 		/** The world's spawn has been seen to (moved out of the hole if it was in it). */
 		boolean spawnMoved;
 		/** Everyone walking on the floor of nothing for it. */
@@ -254,12 +264,17 @@ public final class GapManager {
 				}
 			}
 		});
-		// Nothing touches the shooter while their event plays: they cannot move, and they are the one thing left. Nor
-		// anyone, once their world is gone, until they are home again.
+		// Nothing touches the shooter while their event plays: they are the one thing left. Nor anyone, once their world
+		// is gone, until they are home again. And the shooter, untouchable, touches nothing either (no fighting on with
+		// nothing able to hurt them, the feed skipped): nothing they shot or threw before hurts anyone now, but the
+		// event itself, which is theirs.
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> !(entity instanceof ServerPlayerEntity player
-				&& (shielded(player) || gone(player.getWorld()) || held(player))));
-		// And nothing is there to touch: no breaking, placing, using or hitting anything in a world that is gone, or while
-		// held at the rim watching it come back. Only the key, which brings it back.
+				&& (shielded(player) || gone(player.getWorld()) || held(player)))
+				&& !(source.getAttacker() instanceof ServerPlayerEntity attacker && shielded(attacker)
+						&& !source.isOf(ModDamageTypes.ERASED) && !source.isOf(ModDamageTypes.SWALLOWED)));
+		// And nothing is there to touch: no breaking, placing, using or hitting anything in a world that is gone, while
+		// held at the rim watching it come back, or for the shooter while their event plays. Only the key, which brings
+		// it back.
 		AttackBlockCallback.EVENT.register((player, world, hand, pos, direction) -> cut(player, world) ? ActionResult.FAIL : ActionResult.PASS);
 		UseBlockCallback.EVENT.register((player, world, hand, hit) -> cut(player, world) && !holdingKey(player, hand) ? ActionResult.FAIL
 				: ActionResult.PASS);
@@ -277,23 +292,37 @@ public final class GapManager {
 		return state;
 	}
 
-	/** Whether {@code player} can touch nothing: their world is gone, or they are held at the rim while it comes back. */
+	/**
+	 * Whether {@code player} can touch nothing: their world is gone, they are held at the rim while it comes back, or
+	 * they turned the key and their event plays (nothing can touch them).
+	 */
 	private static boolean cut(PlayerEntity player, World world) {
-		return gone(world) || player instanceof ServerPlayerEntity serverPlayer && held(serverPlayer);
+		return gone(world) || player instanceof ServerPlayerEntity serverPlayer && (held(serverPlayer) || shielded(serverPlayer));
 	}
 
 	/** Turns the key on {@code hit}. The shooter may be null for events called in by command. */
 	public static Gap launch(ServerWorld world, BlockPos hit, @Nullable ServerPlayerEntity shooter) {
+		return launch(world, hit, shooter, true);
+	}
+
+	/**
+	 * Opens a Ginnungagap on {@code hit}, seen by {@code shooter} (if any) as the one who turned the key. {@code keyed}:
+	 * a key was turned for it, cracked, whose second turn ends it; otherwise (called in by command) it ends by itself
+	 * once it is over.
+	 */
+	public static Gap launch(ServerWorld world, BlockPos hit, @Nullable ServerPlayerEntity shooter, boolean keyed) {
 		BlockPos target = Targeting.settle(world, hit);
 		int radius = world.getGameRules().getInt(ModGameRules.GAP_RADIUS);
 		boolean terrain = world.getGameRules().getBoolean(ModGameRules.GAP_TERRAIN);
 		BlockPos from = shooter != null ? shooter.getBlockPos() : target.add(48, 0, 0);
-		BlockPos spot = ground(world, (target.getX() + from.getX()) / 2, (target.getZ() + from.getZ()) / 2);
+		BlockPos spot = ground(world, (target.getX() + from.getX()) / 2, (target.getZ() + from.getZ()) / 2, target.getY());
 		Gap gap = new Gap(nextId++, world.getRegistryKey(), target, shooter != null ? shooter.getUuid() : Util.NIL_UUID, radius,
 				terrain, spot, false);
+		gap.keyed = keyed && shooter != null;
 		GAPS.add(gap);
 		ChunkPos chunk = new ChunkPos(target);
-		world.getChunkManager().addTicket(TICKET, chunk, MathHelper.clamp(MathHelper.ceil(radius / 16.0) + 2, 1, 32), chunk);
+		gap.kept = MathHelper.clamp(MathHelper.ceil(Erasure.farthest(radius) / 16.0) + 1, 1, 32);
+		world.getChunkManager().addTicket(TICKET, chunk, gap.kept, chunk);
 		// Remembered with the world, so a hole cut short by a crash is finished when the server comes back.
 		state(world.getServer()).event = gap.record();
 		state(world.getServer()).markDirty();
@@ -475,6 +504,10 @@ public final class GapManager {
 			}
 			// Kept a moment longer, for the last of them to land.
 			if (gap.age >= GapTimeline.REBUILD_END + WARP_DELAY + 4) {
+				if (gap.kept > 0) {
+					ChunkPos chunk = new ChunkPos(gap.target);
+					world.getChunkManager().removeTicket(TICKET, chunk, gap.kept, chunk);
+				}
 				gap.floors.clear();
 				state(server).event = null;
 				state(server).markDirty();
@@ -513,11 +546,13 @@ public final class GapManager {
 			}
 			if (gap.age >= GapTimeline.END) {
 				// Called in by command, with no key to turn: it comes back by itself once it is over.
-				if (gap.shooter.equals(Util.NIL_UUID)) {
+				if (!gap.keyed) {
 					release(gap, server);
 				} else {
-					gap.absent = shooter == null ? gap.absent + 1 : 0;
-					if (gap.absent >= ABSENT_LIMIT) {
+					// Whoever holds the cracked key may end it (the shooter, or whoever they gave it to); if nobody in the
+					// game has one for long enough (logged off with it, dropped it, put it away), it ends by itself.
+					gap.keyless = crackedKeyHeld(server) ? 0 : gap.keyless + 1;
+					if (gap.keyless >= ABSENT_LIMIT) {
 						ShootingStar.LOGGER.info("Ginnungagap #{}: the key has been gone too long, letting the world back", gap.id);
 						release(gap, server);
 					}
@@ -539,7 +574,8 @@ public final class GapManager {
 		// One floor for everyone: level with the roots of the tree that will grow out of the hole (its long root runs out
 		// to the shooter's feet on it), or the ground where the shooter will stand, if that is higher.
 		Vec3d front = place(world, gap, 0);
-		gap.floor = Math.max(gap.target.getY() + 2.0, groundAround(world, MathHelper.floor(front.x), MathHelper.floor(front.z)));
+		gap.floor = Math.max(gap.target.getY() + 2.0, groundAround(world, MathHelper.floor(front.x), MathHelper.floor(front.z),
+				gap.target.getY()));
 		if (shooter != null) {
 			gather(gap, shooter);
 		}
@@ -695,18 +731,21 @@ public final class GapManager {
 		int x = MathHelper.floor(gap.target.getX() + 0.5 + Math.cos(a) * ring);
 		int z = MathHelper.floor(gap.target.getZ() + 0.5 + Math.sin(a) * ring);
 		world.getChunk(x >> 4, z >> 4);
-		double y = Double.isNaN(gap.floor) ? world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z) : gap.floor;
+		double y = Double.isNaN(gap.floor) ? surface(world, x, z, gap.target.getY()) : gap.floor;
 		return new Vec3d(x + 0.5, y, z + 0.5);
 	}
 
-	/** The ground round (x, z): the middle of the heights within a few blocks, so a lone spike or tree does not count. */
-	private static double groundAround(ServerWorld world, int x, int z) {
+	/**
+	 * The ground round (x, z), near the height {@code near}: the middle of the heights within a few blocks, so a lone
+	 * spike or tree does not count.
+	 */
+	private static double groundAround(ServerWorld world, int x, int z, int near) {
 		world.getChunk(x >> 4, z >> 4);
 		int[] heights = new int[25];
 		int n = 0;
 		for (int dx = -4; dx <= 4; dx += 2) {
 			for (int dz = -4; dz <= 4; dz += 2) {
-				heights[n++] = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x + dx, z + dz);
+				heights[n++] = surface(world, x + dx, z + dz, near);
 			}
 		}
 		Arrays.sort(heights);
@@ -797,11 +836,12 @@ public final class GapManager {
 	/**
 	 * The nearest place to stand round {@code at}: in its own column first, near its height, then further and further
 	 * out, a couple of hundred blocks at most. In each column, near the height asked for, then (where the sky is open)
-	 * on top of it.
+	 * on top of it. Close by, the world is loaded to look; further out (over an ocean, or the End's void), only where it
+	 * is loaded already, rather than loading hundreds of pieces of it at once.
 	 */
 	@Nullable
 	private static BlockPos groundNear(ServerWorld world, BlockPos at) {
-		BlockPos here = standableIn(world, at.getX(), at.getZ(), at.getY());
+		BlockPos here = standableIn(world, at.getX(), at.getZ(), at.getY(), true);
 		if (here != null) {
 			return here;
 		}
@@ -810,7 +850,7 @@ public final class GapManager {
 			for (int i = 0; i < around; i++) {
 				double a = i * Math.PI * 2.0 / around;
 				BlockPos found = standableIn(world, at.getX() + MathHelper.floor(Math.cos(a) * r), at.getZ() + MathHelper.floor(Math.sin(a) * r),
-						at.getY());
+						at.getY(), r <= LOAD_TO_LOOK);
 				if (found != null) {
 					return found;
 				}
@@ -819,9 +859,15 @@ public final class GapManager {
 		return null;
 	}
 
-	/** A place to stand in the column (x, z): within a few dozen blocks of {@code y}, nearest first; else on top of it. */
+	/**
+	 * A place to stand in the column (x, z): within a few dozen blocks of {@code y}, nearest first; else on top of it.
+	 * Unless {@code load}, only if it is loaded.
+	 */
 	@Nullable
-	private static BlockPos standableIn(ServerWorld world, int x, int z, int y) {
+	private static BlockPos standableIn(ServerWorld world, int x, int z, int y, boolean load) {
+		if (!load && !world.isChunkLoaded(x >> 4, z >> 4)) {
+			return null;
+		}
 		world.getChunk(x >> 4, z >> 4);
 		for (int dy = 0; dy <= 32; dy++) {
 			for (int sign : dy == 0 ? new int[] {1} : new int[] {1, -1}) {
@@ -873,21 +919,39 @@ public final class GapManager {
 
 	// --- the key -------------------------------------------------------------------------
 
+	/** Whether anyone in the game holds a cracked key (in their inventory, or on the cursor). */
+	private static boolean crackedKeyHeld(MinecraftServer server) {
+		for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+			PlayerInventory inventory = player.getInventory();
+			for (int i = 0; i < inventory.size(); i++) {
+				if (crackedKey(inventory.getStack(i))) {
+					return true;
+				}
+			}
+			if (crackedKey(player.currentScreenHandler.getCursorStack())) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static boolean crackedKey(ItemStack stack) {
+		return stack.isOf(ModItems.GENESIS_KEY) && GenesisKeyItem.cracked(stack);
+	}
+
 	/**
 	 * Puts right the cracked key of an event that did not end with it: shattered if the world was taken (it is back
-	 * without it), whole again if the world never was. Now if they are here, or when they are next seen.
+	 * without it), whole again if the world never was. Whoever has one in the game now (the shooter may have given it
+	 * away); the shooter, if they are not here, when they are next seen.
 	 */
 	private static void mendKey(MinecraftServer server, UUID shooter, boolean shatter) {
-		if (shooter.equals(Util.NIL_UUID)) {
-			return;
+		for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+			mendKey(player, shatter);
 		}
-		ServerPlayerEntity player = server.getPlayerManager().getPlayer(shooter);
-		if (player == null) {
+		if (!shooter.equals(Util.NIL_UUID) && server.getPlayerManager().getPlayer(shooter) == null) {
 			state(server).keys.put(shooter, shatter);
 			state(server).markDirty();
-			return;
 		}
-		mendKey(player, shatter);
 	}
 
 	/** Puts right this player's cracked key, if one is owed them. */
@@ -1117,7 +1181,7 @@ public final class GapManager {
 					}
 					int x = feet.getX() + dx;
 					int z = feet.getZ() + dz;
-					int y = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z);
+					int y = surface(world, x, z, feet.getY());
 					BlockPos ground = new BlockPos(x, y - 1, z);
 					if (y > world.getBottomY() && !gap.erasure.lid(ground.asLong()) && !onLid(gap, new BlockPos(x, y, z))) {
 						return new BlockPos(x, y, z);
@@ -1145,12 +1209,45 @@ public final class GapManager {
 		int x = MathHelper.floor(gap.target.getX() + 0.5 + away.x * (gap.radius + GATHER_OUT));
 		int z = MathHelper.floor(gap.target.getZ() + 0.5 + away.z * (gap.radius + GATHER_OUT));
 		world.getChunk(x >> 4, z >> 4);
-		int y = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z);
+		int y = surface(world, x, z, MathHelper.floor(from.y));
 		return new Vec3d(x + 0.5, Math.max(y, world.getBottomY() + 1), z + 0.5);
 	}
 
-	private static BlockPos ground(World world, int x, int z) {
-		return new BlockPos(x, world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z) - 1, z);
+	private static BlockPos ground(World world, int x, int z, int near) {
+		return new BlockPos(x, surface(world, x, z, near) - 1, z);
+	}
+
+	/**
+	 * The height to stand at on the ground at (x, z): where the sky is open, the top of the column; under a roof over
+	 * the whole world (the Nether's), the floor nearest below {@code near} (or else above it), never up on the roof.
+	 */
+	private static int surface(World world, int x, int z, int near) {
+		if (!world.getDimension().hasCeiling()) {
+			return world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z);
+		}
+		int top = world.getBottomY() + world.getDimension().logicalHeight() - 2;
+		int from = MathHelper.clamp(near + 4, world.getBottomY() + 1, top);
+		BlockPos.Mutable feet = new BlockPos.Mutable();
+		for (int y = from; y > world.getBottomY(); y--) {
+			if (floorAt(world, feet.set(x, y, z))) {
+				return y;
+			}
+		}
+		for (int y = from + 1; y <= top; y++) {
+			if (floorAt(world, feet.set(x, y, z))) {
+				return y;
+			}
+		}
+		return near;
+	}
+
+	/** Something solid under {@code feet}, and room and no fluid there and over it. */
+	private static boolean floorAt(World world, BlockPos feet) {
+		BlockPos head = feet.up();
+		BlockPos below = feet.down();
+		return world.getBlockState(feet).getCollisionShape(world, feet).isEmpty() && world.getBlockState(head).getCollisionShape(world, head).isEmpty()
+				&& world.getFluidState(feet).isEmpty() && world.getFluidState(head).isEmpty()
+				&& !world.getBlockState(below).getCollisionShape(world, below).isEmpty();
 	}
 
 	private static double horizontal(Vec3d pos, BlockPos target) {

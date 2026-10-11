@@ -12,6 +12,7 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
+import net.fabricmc.fabric.api.entity.event.v1.ServerEntityWorldChangeEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
@@ -80,16 +81,33 @@ public final class StrikeManager {
 
 	public static void init() {
 		ServerTickEvents.END_SERVER_TICK.register(StrikeManager::tick);
+		// The server going down with a crater half carved: it is finished now, before the world is saved, rather than
+		// left half done for good.
+		ServerLifecycleEvents.SERVER_STOPPING.register(StrikeManager::finishNow);
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> STRIKES.clear());
-		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
-			ServerPlayerEntity player = handler.getPlayer();
-			for (Strike strike : STRIKES) {
-				if (strike.dimension == player.getWorld().getRegistryKey() && strike.age < StrikeTimeline.IMPACT) {
-					ModNetworking.send(player, new StrikeLockPayload(strike.id, strike.target, strike.shooter, strike.age,
-							strike.radius));
-				}
+		// Anyone coming into a world with a round in flight to it sees the lock, as everyone there already does.
+		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> showLocks(handler.getPlayer()));
+		ServerEntityWorldChangeEvents.AFTER_PLAYER_CHANGE_WORLD.register((player, origin, destination) -> showLocks(player));
+	}
+
+	private static void showLocks(ServerPlayerEntity player) {
+		for (Strike strike : STRIKES) {
+			if (strike.dimension == player.getWorld().getRegistryKey() && strike.age < StrikeTimeline.IMPACT) {
+				ModNetworking.send(player, new StrikeLockPayload(strike.id, strike.target, strike.shooter, strike.age, strike.radius));
 			}
-		});
+		}
+	}
+
+	/** Carves every crater still being carved to the end, at once. */
+	private static void finishNow(MinecraftServer server) {
+		for (Strike strike : STRIKES) {
+			if (strike.impact == null || strike.carved) {
+				continue;
+			}
+			for (int i = 0; i < 20_000 && !strike.carved; i++) {
+				strike.carved = strike.impact.step();
+			}
+		}
 	}
 
 	/** Locks a strike onto {@code hit}. The shooter may be null for strikes called in by command. */

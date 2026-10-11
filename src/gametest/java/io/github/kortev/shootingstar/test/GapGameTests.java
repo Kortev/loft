@@ -118,6 +118,10 @@ public class GapGameTests implements FabricGameTest {
 			if (!swallowed.isAlive() || !erased.isAlive()) {
 				problems.append("someone died before the block came down; ");
 			}
+			// Nothing can touch the shooter while it plays, and they touch nothing either.
+			if (far.damage(world.getDamageSources().playerAttack(shooter), 1.0F)) {
+				problems.append("the shooter, untouchable, hurt someone; ");
+			}
 		});
 		context.waitAndRun(GapTimeline.ERASURE - 2, () -> {
 			if (swallowed.isAlive()) {

@@ -30,7 +30,7 @@ public final class GapCommand {
 			source.sendError(Text.translatable("commands.shootingstar.gap.busy"));
 			return 0;
 		}
-		GapManager.launch(source.getWorld(), pos, source.getPlayer());
+		GapManager.launch(source.getWorld(), pos, source.getPlayer(), false);
 		source.sendFeedback(() -> Text.translatable("commands.shootingstar.gap.open", pos.getX(), pos.getY(), pos.getZ()), true);
 		return 1;
 	}
