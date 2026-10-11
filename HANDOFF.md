@@ -157,6 +157,19 @@ kortev tests in game themselves and reports back. Don't spend usage on the self-
     level with home (`levelWith`, within `LEVEL_REACH` and two blocks up or down) before its column's nearest ground
     (test `splitHomeLandsBeside`).
 - kortev's planned edits to Gungnir and the Genesis Key: ask what they are.
+- **Polish day (kortev: "go for even more improvements and polish for EVERYTHING"), waiting on kortev's in-game
+  test.** Three review agents read the carriage, the airship, and Chitty with the weapons; what they found was fixed
+  (see the commit messages from "Carriage: the shut cage holds" on):
+  - the carriage's shut cage holds against ender pearls, chorus fruit, mounting something else and relogging
+    (`CarriageCageMixin`, `CarriageEntity.held`);
+  - the airship's grapple head is saved with its load and re-adopted (`AirshipEntity.adoptHead`); her bombs spare her;
+  - `SoftLanding` keeps slow falling on until someone lands (the ejector, an orphaned grapple, rejoining mid-air);
+    `Reboard` puts a player who left mid-air back aboard;
+  - the Genesis Key's shooter can't fight while untouchable; the Gap works in the Nether and keeps its chunks loaded;
+  - Chitty now has an on-screen controls panel like the others (`ChittyHud`).
+  - Left as they are, on purpose: Gungnir's carve sends each block as it goes (the wave is seen live, and its glowing
+    crust needs its light), and `OwnerOnly` matches kortev by name (safe on an online-mode server, where names are
+    checked; nothing is safe on an offline one).
 
 ## How to work here
 

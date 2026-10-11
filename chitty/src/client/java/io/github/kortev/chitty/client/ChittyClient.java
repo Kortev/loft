@@ -14,6 +14,7 @@ import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.particle.v1.ParticleFactoryRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
+import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
 import net.fabricmc.fabric.api.resource.SimpleSynchronousResourceReloadListener;
 import net.minecraft.client.MinecraftClient;
@@ -24,7 +25,6 @@ import net.minecraft.client.render.entity.EmptyEntityRenderer;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.resource.ResourceManager;
 import net.minecraft.resource.ResourceType;
-import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import org.lwjgl.glfw.GLFW;
 
@@ -43,10 +43,10 @@ public final class ChittyClient implements ClientModInitializer {
 	private static byte lastState;
 	private static int sinceSent;
 	private static int hornCooldown;
-	/** What the driver was last shown on the action bar: 0 nothing, 1 driving, 2 flying, 3 she didn't catch. */
-	private static int hint;
 	/** Whether the driver has seen her being cranked since they took the wheel (so a stopped engine is a stall). */
 	private static boolean cranked;
+	/** Whether she was cranked and didn't catch, as the driver sees it (ChittyHud). */
+	private static boolean stalled;
 
 	@Override
 	public void onInitializeClient() {
@@ -90,8 +90,15 @@ public final class ChittyClient implements ClientModInitializer {
 			}
 		};
 		ClientTickEvents.END_CLIENT_TICK.register(ChittyClient::tick);
+		// The controls, on screen.
+		HudRenderCallback.EVENT.register(ChittyHud::render);
 		AirshipClient.init();
 		CarriageClient.init();
+	}
+
+	/** Whether she was cranked and didn't catch, as the driver sees it. */
+	static boolean stalled() {
+		return stalled;
 	}
 
 	private static ChittyControls controls(ChittyEntity car) {
@@ -142,24 +149,9 @@ public final class ChittyClient implements ClientModInitializer {
 				ClientPlayNetworking.send(new ChittyEjectPayload());
 			}
 		}
-		// A word on the controls when someone takes the wheel, again when she first takes to the air, and if she doesn't
-		// catch when cranked.
+		// Whether she didn't catch when cranked, for the controls on screen (ChittyHud).
 		cranked = driving && (cranked || car.isCranking());
-		boolean stalled = driving && cranked && !car.isCranking() && !car.isEngineRunning();
-		int now = !driving ? 0 : stalled ? 3 : car.isFlying() && !car.isOnGround() ? 2 : 1;
-		if (now != hint) {
-			if (now != 0 && player != null) {
-				Text keys = switch (now) {
-					case 3 -> Text.translatable("hud.shootingstar.chitty.stalled", client.options.forwardKey.getBoundKeyLocalizedText());
-					case 2 -> Text.translatable("hud.shootingstar.chitty.air", WINGS.getBoundKeyLocalizedText(),
-							EJECT.getBoundKeyLocalizedText(), HORN.getBoundKeyLocalizedText());
-					default -> Text.translatable("hud.shootingstar.chitty.road", REV.getBoundKeyLocalizedText(),
-							WINGS.getBoundKeyLocalizedText(), EJECT.getBoundKeyLocalizedText(), HORN.getBoundKeyLocalizedText());
-				};
-				player.sendMessage(keys, true);
-			}
-			hint = now;
-		}
+		stalled = driving && cranked && !car.isCranking() && !car.isEngineRunning();
 		if (car == null) {
 			lastControls = -1;
 		}

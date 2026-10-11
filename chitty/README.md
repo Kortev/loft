@@ -53,6 +53,9 @@ with a carrying handle on each post of the windscreen, and the gear lever and ha
 - **Hamper:** use the hamper on her stern to open it (27 stacks; it has its own hitbox, hers being too short to reach
   it); sneak and use her to take it off (it spills what it holds) or put it back on.
 - **Horn:** H (rebindable) squeezes the serpent's bulb.
+- **The controls are on screen:** aboard, a panel at the right lists the keys for what you can do just now (on the
+  road, on the water, in the air), each lit while held, and how her engine is (not yet started, the handle swinging,
+  or she didn't catch); a passenger's lists the horn and getting out. F1 hides it with the rest of the HUD.
 - **Riding in her:** everyone aboard turns with her, rides her springs, and in the air the view banks with her as she
   turns. The dashboard's needles show her speed, her height above the sea and the engine's revs. She is solid from her
   radiator to her stern: click anywhere on her to take the seat nearest the click.
