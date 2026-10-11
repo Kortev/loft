@@ -38,6 +38,15 @@ classes in `io.github.kortev.chitty.client` (client). Her assets and data are in
 - **Gaits** for the hooves: walk, trot from `TROT` 0.14, gallop from `CANTER` 0.36.
 - **The cage:** fits anything up to 1.0 wide and 2.1 high; shoved in from within `DOOR_REACH` 1.4 of the door; mobs
   make a run for it 10 to 40 ticks apart when the door opens.
+- **What holds them in, door shut** (`CarriageEntity.holds`): sneaking is refused (`letsOut`, via
+  `AirshipDismountMixin`); anything else that would take them off her (`Entity.dismountVehicle`: ender pearls, chorus
+  fruit, `/ride dismount`, `/tp`) or put them on something else (`startRiding`) is cancelled by `CarriageCageMixin`.
+  Not while she lets everyone off herself (`removeAllPassengers`, `releasing`: breaking up, a portal), nor for the
+  dead, the removed or a player leaving the game. A prisoner leaving the game doesn't take her with them
+  (`hasPlayerRider` is false while a player rides in the cage); she keeps them in `held` (saved) and puts them back in
+  (`takeBack`) when they are back in her world within `HELD_REACH` 96. Someone who climbs in sneaking is kept in
+  (`climbing`) until they let go of sneak once. Prisoners can't hurt anyone outside the cage, the driver included, nor
+  her (`damage`).
 
 ## Her horse, and why it is hers
 

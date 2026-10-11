@@ -18,7 +18,10 @@ and her assets and data are under `chitty/src/{main,client}/resources/`, still i
 | Driver input (forward, turn, up, down, packed in a byte) | `ChittyControls.java` |
 | Payloads | `ChittyInputPayload` (controls, state), `ChittyHornPayload`, `ChittyEjectPayload` |
 | Placing item | `ChittyItem.java` (raycast with fluids; on water she starts with her raft up) |
-| Client entry point, keys, input sending, hints | `client/ChittyClient.java` |
+| Client entry point, keys, input sending | `client/ChittyClient.java` |
+| The controls on screen (drawn with `AirshipHud.draw`) | `client/ChittyHud.java` |
+| Each vehicle's looping sounds, started again if stopped | `client/VehicleSounds.java` |
+| Slow falling kept on until landing (ejector, orphaned grapple, rejoin); back aboard after leaving mid-air | `SoftLanding.java`, `Reboard.java` |
 | Mesh loader (CBM2) | `client/ChittyMesh.java` (`meshes/chitty.cbm`) |
 | Renderer (posing every part) | `client/ChittyRenderer.java` |
 | Live metal reflections | `client/ChittyShine.java` |

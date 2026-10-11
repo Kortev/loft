@@ -99,6 +99,10 @@ namespace.
     poses them (arms up, or limp and thrashing when kicking). Caught players kick as they struggle (a bar in the action
     bar); caught mobs kick now and then; each kick jolts the grapple (`jolt`). The ship syncs the head's id (`HOOK_HEAD`)
     and `AirshipClient` tells the crew what hangs on it.
+  - Saved: the head (not `disableSaving`) keeps its ship's UUID, `VOLUNTARY` and the struggle; she is saved wound up,
+    and when both are loaded the head finds her and she takes it back (`adoptHead`: out on its rope where it hangs, the
+    winch still). A head that doesn't find her within `FIND_SHIP` 60 ticks lets its load down gently
+    (`SoftLanding`).
 - **Ladder:** hangs from `LADDER_TOP` on her left rail; climbers hang on `LADDER_LINE`, 0.25 further out. It is
   stacked from one-rung parts (`LADDER_PITCH` 0.32) down to the ground (`LINE_MAX`, 64, at most). It trails behind
   her as she goes (`ladderLean`, eased towards atan(1.2 x forward speed); `ladderAt` is where a climber is at a depth),
