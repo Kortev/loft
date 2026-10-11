@@ -142,6 +142,7 @@ public class CarriageGameTests implements FabricGameTest {
 		double low = context.getAbsolute(new Vec3d(0.0, 1.0, 0.0)).y;
 		double[] last = new double[3];
 		StringBuilder jumps = new StringBuilder();
+		StringBuilder history = new StringBuilder();
 		context.runAtTick(2, () -> carriage.holdReins(1, 0));
 		for (int t = 3; t <= 70; t++) {
 			int tick = t;
@@ -157,6 +158,10 @@ public class CarriageGameTests implements FabricGameTest {
 				if (tick == 55) {
 					carriage.holdReins(0, 0);
 				}
+				if (tick % 3 == 0 && tick <= 45) {
+					history.append(String.format(" t%d z%.2f v%.3f%s%s", tick, carriage.getZ() - start.z, carriage.getSpeed(),
+							carriage.isOnGround() ? "" : " air", carriage.horizontalCollision ? " hit" : ""));
+				}
 				if (tick == 40) {
 					Vec3d went = carriage.getPos().subtract(start);
 					context.assertTrue(went.z > 2.5, "on the reins, she hardly went: " + went + " at " + carriage.getSpeed()
@@ -167,7 +172,7 @@ public class CarriageGameTests implements FabricGameTest {
 		context.runAtTick(85, () -> {
 			context.assertTrue(jumps.isEmpty(), jumps.toString());
 			context.assertTrue(carriage.getY() > low + 0.9, "she did not climb the step: y " + (carriage.getY() - low) + ", went "
-					+ carriage.getPos().subtract(start) + ", front " + (carriage.getFrontGround(1.0F) - low));
+					+ carriage.getPos().subtract(start) + ", front " + (carriage.getFrontGround(1.0F) - low) + ";" + history);
 			context.assertTrue(Math.abs(carriage.getRearGround(1.0F) - carriage.getY()) < 0.05
 					&& Math.abs(carriage.getFrontGround(1.0F) - carriage.getY()) < 0.05,
 					"up the step, her wheels are not on it: front " + (carriage.getFrontGround(1.0F) - low) + ", rear "

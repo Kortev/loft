@@ -352,9 +352,10 @@ public class CarriageEntity extends Entity {
 		return true;
 	}
 
+	/** A block (a hair over, as Chitty's: exactly 1.0 misses a block's top by a rounding error and she stalls at it). */
 	@Override
 	public float getStepHeight() {
-		return 1.0F;
+		return 1.05F;
 	}
 
 	@Override
