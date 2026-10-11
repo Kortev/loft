@@ -1923,7 +1923,9 @@ public class AirshipEntity extends Entity {
 		if (hookEntity == head) {
 			return true;
 		}
-		if (hook == Hook.HELD || hookEntity != null && !hookEntity.isRemoved() && hookEntity.hasPassengers()) {
+		// Not if she has gone further off than her rope reaches (it would drag it to her through whatever is between).
+		if (hook == Hook.HELD || hookEntity != null && !hookEntity.isRemoved() && hookEntity.hasPassengers()
+				|| head.getPos().distanceTo(lineOut()) > LINE_MAX + 2.0) {
 			return false;
 		}
 		if (hookEntity != null) {

@@ -1,6 +1,7 @@
 package io.github.kortev.chitty.airship;
 
 import io.github.kortev.chitty.SoftLanding;
+import io.github.kortev.chitty.carriage.CarriageEntity;
 import java.util.List;
 import java.util.UUID;
 import net.minecraft.entity.Entity;
@@ -257,6 +258,15 @@ public class AirshipHookEntity extends Entity {
 	@Override
 	protected boolean canAddPassenger(Entity passenger) {
 		return !hasPassengers();
+	}
+
+	/**
+	 * Whether a player leaving the game takes it, and what hangs from it, with them (their only player): not when what
+	 * hangs from it is the Child Catcher's carriage with them in its cage (it keeps them, CarriageEntity.hasPlayerRider).
+	 */
+	@Override
+	public boolean hasPlayerRider() {
+		return getFirstPassenger() instanceof CarriageEntity carriage ? carriage.hasPlayerRider() : super.hasPlayerRider();
 	}
 
 	/** Hanging empty, it can be taken hold of; not while someone holds it, nor with something on it. */

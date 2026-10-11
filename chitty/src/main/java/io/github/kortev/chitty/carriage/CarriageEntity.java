@@ -1,6 +1,7 @@
 package io.github.kortev.chitty.carriage;
 
 import io.github.kortev.chitty.ChittyControls;
+import io.github.kortev.shootingstar.gap.GapManager;
 import io.github.kortev.shootingstar.registry.ModCriteria;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -1127,7 +1128,8 @@ public class CarriageEntity extends Entity {
 	/**
 	 * Whether her cage holds something in: it is in it, the door is shut and she is not letting everyone off. Then nothing
 	 * takes it out (CarriageCageMixin): not an ender pearl, a chorus fruit, nor getting on something else. Leaving the game,
-	 * dying, or her coming apart, it goes.
+	 * dying, being carried off to another world (a portal, a command), her coming apart, or her world gone into a
+	 * Ginnungagap, it goes.
 	 */
 	public static boolean holds(Entity entity) {
 		return entity.getVehicle() instanceof CarriageEntity carriage && carriage.keeps(entity);
@@ -1135,7 +1137,8 @@ public class CarriageEntity extends Entity {
 
 	private boolean keeps(Entity entity) {
 		return !getWorld().isClient && !releasing && !isRemoved() && !isDoorOpen() && !entity.isRemoved() && entity.isAlive()
-				&& !(entity instanceof ServerPlayerEntity player && player.isDisconnected()) && seatOf(entity) >= CAGE;
+				&& !(entity instanceof ServerPlayerEntity player && (player.isDisconnected() || player.isInTeleportationState()))
+				&& !GapManager.gone(getWorld()) && seatOf(entity) >= CAGE;
 	}
 
 	/** On the server: anyone she held who has come back into the game, back in her cage. */

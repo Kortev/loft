@@ -1007,6 +1007,11 @@ public final class GapManager {
 			if (!gap.released) {
 				mendKey(server, gap.shooter, gap.taken);
 			}
+			if (world != null && gap.kept > 0) {
+				ChunkPos chunk = new ChunkPos(gap.target);
+				world.getChunkManager().removeTicket(TICKET, chunk, gap.kept, chunk);
+				gap.kept = 0;
+			}
 			gap.floors.clear();
 		}
 		WARPS.clear();
