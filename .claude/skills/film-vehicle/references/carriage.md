@@ -31,10 +31,27 @@ classes in `io.github.kortev.chitty.client` (client). Her assets and data are in
   `CAGE_FRONT` 1.00 to `CAGE_BACK` -1.62, half width 0.875, 2 high; door half width 0.39, hinge `HINGE`; let out at
   `DOOR_OUT` (0, 0, -2.48). `PLACES`: the driver (-0.22, 1.57, 1.34), the box seat (0.32, 1.57, 1.34), four in the cage
   standing at (±0.42, 1.20, 0.55 / -0.95). Axles -0.98 and 0.95, wheel radii 0.52 and 0.43. The horse stands
-  `HORSE_AHEAD` 3.08 ahead, turned with the fore-carriage about the front axle by `steer * STEER_MAX` (22 degrees).
+  `HORSE_AHEAD` 3.08 ahead, turned with the fore-carriage about the front axle by `steer` (degrees, left positive).
+  Wheelbase `WHEELBASE` 1.93. Step height 1.05 (as Chitty's: exactly 1.0 misses a block's top by a rounding error).
 - **Speeds** (blocks/tick): `TOP` 0.40 (about a ridden horse's), × `ROAD` 1.4 on a road (faster than one), × `GALLOP`
   1.15 for `GALLOP_TICKS` 70 after a crack of the whip; `ACCEL` 0.007, `BRAKE` 0.03, `REVERSE_TOP` 0.06, `WADE_TOP`
-  0.08; turning `TURN` 3.5 degrees a tick, scaled down below 0.06 and by up to 30% at her fastest.
+  0.08.
+- **Steering (kortev: the horse in front leads):** the reins turn the horse, `HORSE_TURN` 4.5 degrees a tick going,
+  `HORSE_TURN_STANDING` 2.5 standing (it steps round in its shafts, if `horseFits`), up to `steerLock`: `STEER_MAX` 40
+  at a walk down to `STEER_AT_SPEED` 16 at her fastest. Then `drive` moves her as a cart behind its horse (a bicycle
+  model): the front axle goes along the fore-carriage at her speed, the rear axle follows in line at speed x cos(steer),
+  and her body turns by speed x sin(steer) / `WHEELBASE`; going forward the horse keeps its heading in the world (so
+  she straightens out behind it once the reins are let go), backing it keeps its angle to her (car-like, stable). The
+  side moving her owns `steer`: the driver's client sends it (`CarriageSteerPayload`, when it changes by 0.2), the
+  server keeps it in `STEER` for everyone else, who ease to it. `blocked` looks a block ahead of the horse the way it
+  is going (or behind her tail, backing) for anything over a step.
+- **Climbing** (`settle`, every side, each tick): the ground under her front axle, her rear axle and her horse's
+  hooves (`groundAt`, from a block above her to two below), followed in world heights: wheels rise at most
+  max(0.08, speed x 1.6) a tick and drop as fast as she falls, the horse steps max(0.15, its speed x 2). She is drawn
+  riding on her axles (`onBody`: lifted at the rear axle, pitched by `pitchOf`), her passengers carried the same way
+  (`posed`, in `getPassengerAttachmentPos` and the cage's places), and the horse on its own ground; the shafts (their
+  own part, hinged on the splinter bar) tilt to meet it (`CarriageRenderer.shaftLift`). Her box still steps up a block
+  at once; nothing drawn on it does.
 - **Gaits** for the hooves: walk, trot from `TROT` 0.14, gallop from `CANTER` 0.36.
 - **The cage:** fits anything up to 1.0 wide and 2.1 high; shoved in from within `DOOR_REACH` 1.4 of the door; mobs
   make a run for it 10 to 40 ticks apart when the door opens.
@@ -54,9 +71,10 @@ kortev first chose a real horse brought along and hitched with a lead, then left
 annoying"). A hitched mob could stray, die on its own, or be left behind: the game takes a vehicle away with a driver
 who logs off, but not a horse that is merely next to it, nor one in a chunk that unloaded. Keeping it in the shafts
 also took mixins on every horse's movement and AI, and a client-side placement. So the horse is part of the carriage:
-`CarriageEntity` keeps where it stands (`horseLocal`, turned with the shafts by `steer`, lifted onto the ground ahead,
-`horseLift`) and how its legs go (`limbPos`, `limbSpeed`, as `LivingEntity`'s limb animator), and the client draws the
-game's own horse model there. It looks and moves exactly as a black horse does.
+`CarriageEntity` keeps where it stands (`horseLocal`, turned with the shafts by `steer`, on the ground under its
+hooves, `horseGround`) and how its legs go (`limbPos`, `limbSpeed`, as `LivingEntity`'s limb animator, by how far the
+horse itself went, `horseSpeed`, stepping round standing included), and the client draws the game's own horse model
+there. It looks and moves exactly as a black horse does.
 
 ## The trap
 
