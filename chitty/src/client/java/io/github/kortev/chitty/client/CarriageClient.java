@@ -4,6 +4,7 @@ import io.github.kortev.chitty.ChittyControls;
 import io.github.kortev.chitty.carriage.Carriage;
 import io.github.kortev.chitty.carriage.CarriageActionPayload;
 import io.github.kortev.chitty.carriage.CarriageEntity;
+import io.github.kortev.chitty.carriage.CarriageSteerPayload;
 import java.util.List;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
@@ -27,6 +28,8 @@ public final class CarriageClient {
 	public static KeyBinding DISGUISE;
 
 	private static boolean wasJumping;
+	/** Where this driver last told the server the horse is turned (NaN: not yet). */
+	private static float sentSteer = Float.NaN;
 
 	private CarriageClient() {
 	}
@@ -83,6 +86,16 @@ public final class CarriageClient {
 			act(CarriageEntity.ACTION_WHIP);
 		}
 		wasJumping = jumping;
+		// Where the horse is turned: this client moves her, and tells the server as it changes, for everyone to see.
+		if (driving) {
+			float steer = carriage.getSteerNow();
+			if (!(Math.abs(steer - sentSteer) < 0.2F) && ClientPlayNetworking.canSend(CarriageSteerPayload.ID)) {
+				ClientPlayNetworking.send(new CarriageSteerPayload(steer));
+				sentSteer = steer;
+			}
+		} else {
+			sentSteer = Float.NaN;
+		}
 		while (DISGUISE.wasPressed()) {
 			if (driving) {
 				act(CarriageEntity.ACTION_DISGUISE);

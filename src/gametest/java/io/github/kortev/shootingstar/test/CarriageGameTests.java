@@ -94,6 +94,82 @@ public class CarriageGameTests implements FabricGameTest {
 	}
 
 	/**
+	 * The reins turn the horse. Standing, it steps round in its shafts, the fore-carriage turning under her, and she stays
+	 * where she is; set going, she comes round after it, and straightens out behind it once it goes straight.
+	 */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_carriage_steer", tickLimit = 80)
+	public void followsHerHorse(TestContext context) {
+		floor(context);
+		CarriageEntity carriage = carriage(context, 3.0, 1.0);
+		Vec3d start = carriage.getPos();
+		context.runAtTick(2, () -> carriage.holdReins(0, 1));
+		context.runAtTick(18, () -> {
+			context.assertTrue(carriage.getSteerNow() > 30.0F, "standing, the horse did not turn left: " + carriage.getSteerNow());
+			context.assertTrue(carriage.getPos().distanceTo(start) < 0.05, "turning the horse standing, she moved");
+			context.assertTrue(Math.abs(carriage.getYaw()) < 0.5F, "turning the horse standing, she turned: " + carriage.getYaw());
+			carriage.holdReins(0, 0);
+			carriage.launch(0.15F);
+		});
+		context.runAtTick(48, () -> {
+			context.assertTrue(carriage.getYaw() < -10.0F, "she did not come round after her horse: yaw " + carriage.getYaw());
+			context.assertTrue(carriage.getSteerNow() < 25.0F, "she did not straighten out behind her horse: " + carriage.getSteerNow());
+			CarriagePartEntity horse = null;
+			for (CarriagePartEntity part : context.getWorld().getEntitiesByClass(CarriagePartEntity.class,
+					carriage.getBoundingBox().expand(6.0), p -> p.getCarriage() == carriage && p.getPart() == CarriagePartEntity.HORSE)) {
+				horse = part;
+			}
+			context.assertTrue(horse != null && horse.getPos().distanceTo(carriage.horseAt()) < 0.5,
+					"her horse's hitbox is not where her horse is");
+			done(context, carriage);
+		});
+	}
+
+	/**
+	 * Driving up a step a block high, she climbs it an axle at a time: her horse steps up, then her front wheels roll up
+	 * onto it, then her rear ones, none of them jumping up a block at once.
+	 */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_carriage_climb_step", tickLimit = 90)
+	public void climbsSmoothly(TestContext context) {
+		floor(context);
+		ServerWorld world = context.getWorld();
+		for (int x = 0; x <= 7; x++) {
+			for (int z = 5; z <= 16; z++) {
+				world.setBlockState(context.getAbsolutePos(new BlockPos(x, 1, z)), Blocks.STONE.getDefaultState());
+			}
+		}
+		CarriageEntity carriage = carriage(context, 3.5, 1.0);
+		double low = context.getAbsolute(new Vec3d(0.0, 1.0, 0.0)).y;
+		double[] last = new double[3];
+		StringBuilder jumps = new StringBuilder();
+		context.runAtTick(2, () -> carriage.holdReins(1, 0));
+		for (int t = 3; t <= 70; t++) {
+			int tick = t;
+			context.runAtTick(t, () -> {
+				double[] now = {carriage.getHorseGround(1.0F), carriage.getFrontGround(1.0F), carriage.getRearGround(1.0F)};
+				for (int i = 0; i < 3; i++) {
+					if (tick > 3 && Math.abs(now[i] - last[i]) > 0.7 && jumps.isEmpty()) {
+						jumps.append(new String[] {"her horse", "her front axle", "her rear axle"}[i]).append(" jumped ")
+								.append(String.format("%.2f", now[i] - last[i])).append(" at tick ").append(tick);
+					}
+					last[i] = now[i];
+				}
+				if (tick == 55) {
+					carriage.holdReins(0, 0);
+				}
+			});
+		}
+		context.runAtTick(85, () -> {
+			context.assertTrue(jumps.isEmpty(), jumps.toString());
+			context.assertTrue(carriage.getY() > low + 0.9, "she did not climb the step: y " + (carriage.getY() - low));
+			context.assertTrue(Math.abs(carriage.getRearGround(1.0F) - carriage.getY()) < 0.05
+					&& Math.abs(carriage.getFrontGround(1.0F) - carriage.getY()) < 0.05,
+					"up the step, her wheels are not on it: front " + (carriage.getFrontGround(1.0F) - low) + ", rear "
+							+ (carriage.getRearGround(1.0F) - low));
+			done(context, carriage);
+		});
+	}
+
+	/**
 	 * With the door open, a husk led in and a player shoved in go in the cage. Shut, nobody inside gets out (not by
 	 * sneaking, nor anything that would take them off her, nor getting on something else), nor hurts anyone outside
 	 * through the bars, up on her box included, nor breaks her; opened again, a player can get out and the husk makes a

@@ -60,6 +60,12 @@ public final class Carriage {
 	public static void init() {
 		ItemGroupEvents.modifyEntriesEvent(ItemGroups.TOOLS).register(entries -> entries.add(ITEM));
 		PayloadTypeRegistry.playC2S().register(CarriageActionPayload.ID, CarriageActionPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(CarriageSteerPayload.ID, CarriageSteerPayload.CODEC);
+		ServerPlayNetworking.registerGlobalReceiver(CarriageSteerPayload.ID, (payload, context) -> {
+			if (context.player().getVehicle() instanceof CarriageEntity carriage && carriage.getControllingPassenger() == context.player()) {
+				carriage.steeredBy(payload.steer());
+			}
+		});
 		ServerPlayNetworking.registerGlobalReceiver(CarriageActionPayload.ID, (payload, context) -> {
 			if (context.player().getVehicle() instanceof CarriageEntity carriage) {
 				carriage.act(context.player(), payload.action());

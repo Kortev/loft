@@ -105,6 +105,8 @@ public class CarriageEntity extends Entity {
 	private static final TrackedData<Integer> SNAP = DataTracker.registerData(CarriageEntity.class, TrackedDataHandlerRegistry.INTEGER);
 	/** Which place each passenger, in the order they are listed, is in: three bits each. */
 	private static final TrackedData<Integer> SEATING = DataTracker.registerData(CarriageEntity.class, TrackedDataHandlerRegistry.INTEGER);
+	/** The fore-carriage's angle to her (degrees, left positive), from the side moving her. */
+	private static final TrackedData<Float> STEER = DataTracker.registerData(CarriageEntity.class, TrackedDataHandlerRegistry.FLOAT);
 	/** Whoever set the bait out, for clients to tell them (CarriageHud). */
 	private static final TrackedData<Optional<UUID>> BAITER = DataTracker.registerData(CarriageEntity.class,
 			TrackedDataHandlerRegistry.OPTIONAL_UUID);
@@ -149,8 +151,14 @@ public class CarriageEntity extends Entity {
 	public static final double FRONT_AXLE = 0.95;
 	public static final float REAR_RADIUS = 0.52F;
 	public static final float FRONT_RADIUS = 0.43F;
-	/** How far the fore-carriage, and the horse in its shafts, turn either way at most (degrees). */
-	public static final float STEER_MAX = 22.0F;
+	/**
+	 * How far the fore-carriage, and the horse in its shafts, turn either way at most (degrees): standing or at a walk,
+	 * its small front wheels turning in under her deck; at her fastest, STEER_AT_SPEED.
+	 */
+	public static final float STEER_MAX = 40.0F;
+	static final float STEER_AT_SPEED = 16.0F;
+	/** From her rear axle to her front one, under the fore-carriage's turntable. */
+	public static final double WHEELBASE = FRONT_AXLE - REAR_AXLE;
 	/** Where the horse stands in the shafts, ahead of her middle (and of the fore-carriage's turntable). */
 	public static final double HORSE_AHEAD = 3.08;
 	/** The splinter bar its traces pull on: across the fore-carriage, ahead of the axle. */
@@ -176,8 +184,12 @@ public class CarriageEntity extends Entity {
 	static final double REVERSE_TOP = 0.06;
 	/** In water up to her axles she can only creep. */
 	static final double WADE_TOP = 0.08;
-	/** Degrees a tick she turns at most, once she is moving (less at her fastest). */
-	static final float TURN = 3.5F;
+	/**
+	 * How fast the reins turn the horse (degrees a tick): going, it turns its head and goes round; standing, it steps
+	 * round, the fore-carriage turning on its turntable under her.
+	 */
+	static final float HORSE_TURN = 4.5F;
+	static final float HORSE_TURN_STANDING = 2.5F;
 	static final double GRAVITY = 0.08;
 	/** Slower than this (blocks a tick) she counts as standing, to dress or undress her. */
 	static final double STANDING = 0.03;
@@ -215,18 +227,31 @@ public class CarriageEntity extends Entity {
 
 	// Moving, on whichever side is moving her.
 	private float speed;
-	private float yawVelocity;
 	private int galloping;
 	private boolean wasMoving;
 	@Nullable
 	private Vec3d lastPos;
 	private Vec3d motion = Vec3d.ZERO;
-	// The fore-carriage's turn (-1 to 1, left positive), from how she turns, on every side; and how far above her the
-	// horse stands (on the ground ahead of her), easing onto it.
+	// The fore-carriage's angle to her (degrees, left positive): which way the horse in its shafts is going. The side
+	// moving her turns it as the reins turn the horse (drive); everyone else follows it (STEER).
 	private float steer;
 	private float prevSteer;
-	private float horseLift;
-	private float prevHorseLift;
+	// The ground under her front and rear axles, and under her horse's hooves (heights in the world), easing as her
+	// wheels roll up onto a step or down off one and the horse steps up or down: she is drawn on them, pitching as she
+	// climbs, and carries her passengers on them, rather than jumping a block at a time as her box does.
+	private double frontGround;
+	private double rearGround;
+	private double horseGround;
+	private double prevFrontGround;
+	private double prevRearGround;
+	private double prevHorseGround;
+	private boolean settled;
+	// How far her horse went this tick (blocks), stepping round in its shafts as well as pulling her: its legs and hooves.
+	private double horseSpeed;
+	@Nullable
+	private Vec3d lastHorsePos;
+	/** For tests: the reins held, with nobody driving her. */
+	private ChittyControls testReins = ChittyControls.NONE;
 
 	// The server's view of her passengers, her cage and its bait.
 	private final Entity[] seated = new Entity[PLACES.length];
@@ -301,6 +326,7 @@ public class CarriageEntity extends Entity {
 		builder.add(WHIP, 0);
 		builder.add(SNAP, 0);
 		builder.add(SEATING, 0);
+		builder.add(STEER, 0.0F);
 		builder.add(BAITER, Optional.empty());
 		for (TrackedData<ItemStack> slot : BAIT) {
 			builder.add(slot, ItemStack.EMPTY);
@@ -454,26 +480,67 @@ public class CarriageEntity extends Entity {
 
 	// --- her horse -----------------------------------------------------------------------------------------
 
-	/** Where her horse stands, on her (local): ahead of the fore-carriage, turned with it about its turntable. */
-	public Vec3d horseLocal(float steer, float lift) {
-		return new Vec3d(0.0, 0.0, HORSE_AHEAD - FRONT_AXLE).rotateY(steer * STEER_MAX * MathHelper.RADIANS_PER_DEGREE)
-				.add(0.0, lift, FRONT_AXLE);
+	/**
+	 * Where her horse stands, on her (local): ahead of the fore-carriage, turned with it about its turntable by
+	 * steerDegrees (left positive), lift above her.
+	 */
+	public static Vec3d horseLocal(float steerDegrees, double lift) {
+		return new Vec3d(0.0, 0.0, HORSE_AHEAD - FRONT_AXLE).rotateY(steerDegrees * MathHelper.RADIANS_PER_DEGREE).add(0.0, lift,
+				FRONT_AXLE);
 	}
 
 	/** Where her horse stands in the world. */
 	public Vec3d horseAt() {
-		return toWorld(horseLocal(steer, horseLift));
+		return toWorld(horseLocal(steer, horseGround - getY()));
 	}
 
-	/** Her horse's height over her as it is drawn (on the ground ahead of her, a step up or down at most). */
-	public float getHorseLift(float tickDelta) {
-		return MathHelper.lerp(tickDelta, prevHorseLift, horseLift);
+	/** Which way a heading of yaw goes (level, a block long). */
+	private static Vec3d heading(float yaw) {
+		float yawRad = yaw * MathHelper.RADIANS_PER_DEGREE;
+		return new Vec3d(-MathHelper.sin(yawRad), 0.0, MathHelper.cos(yawRad));
 	}
 
-	/** The top of the ground at a point beside her: from a block above her wheels to a block below (else hers). */
+	/** The ground under her horse's hooves, under her front axle and under her rear one, as drawn (heights in the world). */
+	public double getHorseGround(float tickDelta) {
+		return MathHelper.lerp(tickDelta, prevHorseGround, horseGround);
+	}
+
+	public double getFrontGround(float tickDelta) {
+		return MathHelper.lerp(tickDelta, prevFrontGround, frontGround);
+	}
+
+	public double getRearGround(float tickDelta) {
+		return MathHelper.lerp(tickDelta, prevRearGround, rearGround);
+	}
+
+	/** How far her nose is up (radians), with her front axle at front and her rear one at rear. */
+	public static double pitchOf(double front, double rear) {
+		return Math.asin(MathHelper.clamp((front - rear) / WHEELBASE, -0.7, 0.7));
+	}
+
+	/**
+	 * A point on her (local, as she stands on level ground) where it is with her rear axle lifted by rearLift (blocks) and
+	 * her nose pitched up by pitch (radians) about it: her body rides on her axles up and down steps.
+	 */
+	public static Vec3d onBody(Vec3d local, double rearLift, double pitch) {
+		double c = Math.cos(pitch);
+		double sn = Math.sin(pitch);
+		double along = local.z - REAR_AXLE;
+		return new Vec3d(local.x, rearLift + local.y * c + along * sn, REAR_AXLE + along * c - local.y * sn);
+	}
+
+	/** A point on her (local, as on level ground) where it is now, riding on her axles as they are. */
+	private Vec3d posed(Vec3d local) {
+		return onBody(local, rearGround - getY(), pitchOf(frontGround, rearGround));
+	}
+
+	/**
+	 * The top of the ground at a point beside her: from a block above her to two below (a wheel or a hoof up on a step, or
+	 * still down off one); else her own height.
+	 */
 	private double groundAt(Vec3d at) {
 		World world = getWorld();
-		for (int dy = 1; dy >= -1; dy--) {
+		for (int dy = 1; dy >= -2; dy--) {
 			BlockPos pos = BlockPos.ofFloored(at.x, getY() + dy, at.z);
 			VoxelShape shape = world.getBlockState(pos).getCollisionShape(world, pos);
 			if (!shape.isEmpty()) {
@@ -1120,10 +1187,11 @@ public class CarriageEntity extends Entity {
 		return false;
 	}
 
+	/** Where a passenger rides: their place on her, riding up and down steps with her body. */
 	@Override
 	protected Vec3d getPassengerAttachmentPos(Entity passenger, EntityDimensions dimensions, float scaleFactor) {
 		int place = MathHelper.clamp(seatOf(passenger), 0, PLACES.length - 1);
-		return PLACES[place].rotateY(-getYaw() * MathHelper.RADIANS_PER_DEGREE);
+		return posed(PLACES[place]).rotateY(-getYaw() * MathHelper.RADIANS_PER_DEGREE);
 	}
 
 	/** Up on the box they sit; in the cage they stand, their feet on its floor; and they all turn with her. */
@@ -1134,7 +1202,7 @@ public class CarriageEntity extends Entity {
 		}
 		int place = seatOf(passenger);
 		if (place >= CAGE) {
-			Vec3d at = toWorld(PLACES[place]);
+			Vec3d at = toWorld(posed(PLACES[place]));
 			positionUpdater.accept(passenger, at.x, at.y, at.z);
 		} else {
 			super.updatePassengerPosition(passenger, positionUpdater);
@@ -1218,6 +1286,7 @@ public class CarriageEntity extends Entity {
 			setDamageWobbleStrength(getDamageWobbleStrength() - 1.0F);
 		}
 		super.tick();
+		prevSteer = steer;
 		boolean moving = isLogicalSideForUpdatingMovement();
 		if (moving) {
 			lerpTicks = 0;
@@ -1226,23 +1295,20 @@ public class CarriageEntity extends Entity {
 				adopt();
 			}
 			drive(getWorld().isClient && client != null ? client.controls(this) : ChittyControls.NONE);
+			if (!getWorld().isClient) {
+				dataTracker.set(STEER, steer);
+			}
 		} else {
 			lerp();
 			setVelocity(Vec3d.ZERO);
+			// The fore-carriage and the horse as whoever moves her has them turned.
+			steer += (dataTracker.get(STEER) - steer) * 0.5F;
 		}
 		wasMoving = moving;
 		Vec3d pos = getPos();
 		motion = lastPos == null ? Vec3d.ZERO : pos.subtract(lastPos);
 		lastPos = pos;
-		// The fore-carriage turns as she turns (on every side, from how she has turned), and her horse with it, onto the
-		// ground ahead of her.
-		prevSteer = steer;
-		float turned = MathHelper.wrapDegrees(prevYaw - getYaw());
-		float want = getSpeed() > 0.005 ? MathHelper.clamp(turned / TURN, -1.0F, 1.0F) : steer;
-		steer += (want - steer) * 0.3F;
-		prevHorseLift = horseLift;
-		float lift = (float) (groundAt(toWorld(horseLocal(steer, 0.0F))) - getY());
-		horseLift = age < 2 ? lift : horseLift + (lift - horseLift) * 0.4F;
+		settle();
 		if (getWorld() instanceof ServerWorld world) {
 			serverTick(world);
 		} else {
@@ -1250,10 +1316,62 @@ public class CarriageEntity extends Entity {
 		}
 	}
 
-	/** Taking over a carriage that was moving without us: carry on as she was going. */
+	/** Taking over a carriage that was moving without us: carry on as she was going, the horse turned as it was. */
 	private void adopt() {
 		speed = (float) getForwardSpeed();
 		setVelocity(motion);
+		steer = dataTracker.get(STEER);
+	}
+
+	/**
+	 * On every side, after she has moved: her wheels and her horse onto the ground under them. A wheel rolls up onto a
+	 * step over the next half block or so of the way (sooner the faster she goes) and drops off one as fast as she falls;
+	 * the horse steps up or down quicker. Far off it (teleported, falling, just loaded), they are put straight onto it.
+	 */
+	private void settle() {
+		prevFrontGround = frontGround;
+		prevRearGround = rearGround;
+		prevHorseGround = horseGround;
+		double y = getY();
+		double front = groundAt(toWorld(new Vec3d(0.0, 0.0, FRONT_AXLE)));
+		double rear = groundAt(toWorld(new Vec3d(0.0, 0.0, REAR_AXLE)));
+		double hooves = groundAt(toWorld(horseLocal(steer, 0.0)));
+		if (!settled || Math.abs(frontGround - y) > 2.2 || Math.abs(rearGround - y) > 2.2 || Math.abs(horseGround - y) > 2.2) {
+			frontGround = front;
+			rearGround = rear;
+			horseGround = hooves;
+			prevFrontGround = front;
+			prevRearGround = rear;
+			prevHorseGround = hooves;
+			settled = true;
+		} else {
+			double roll = Math.max(0.08, getSpeed() * 1.6);
+			double drop = Math.max(roll, Math.abs(motion.y) + 0.15);
+			frontGround += MathHelper.clamp(front - frontGround, -drop, roll);
+			rearGround += MathHelper.clamp(rear - rearGround, -drop, roll);
+			double step = Math.max(0.15, horseSpeed * 2.0);
+			horseGround += MathHelper.clamp(hooves - horseGround, -Math.max(step, drop), step);
+		}
+		Vec3d horse = horseAt();
+		horseSpeed = lastHorsePos == null ? 0.0 : horse.subtract(lastHorsePos).horizontalLength();
+		lastHorsePos = horse;
+	}
+
+	/** The driver's client, which moves her, tells where the horse is turned (CarriageSteerPayload). */
+	public void steeredBy(float degrees) {
+		if (Float.isFinite(degrees)) {
+			dataTracker.set(STEER, MathHelper.clamp(degrees, -STEER_MAX, STEER_MAX));
+		}
+	}
+
+	/** The fore-carriage's angle to her as this side has it now (degrees, left positive). */
+	public float getSteerNow() {
+		return steer;
+	}
+
+	/** For tests: holds the reins (forward 1, back -1; left 1, right -1), with nobody driving her. */
+	public void holdReins(int forward, int turn) {
+		testReins = new ChittyControls(forward, turn, false, false);
 	}
 
 	/** Sets her going: forward speed in blocks a tick. For tests and commands. */
@@ -1287,10 +1405,9 @@ public class CarriageEntity extends Entity {
 	}
 
 	private void drive(ChittyControls in) {
-		World world = getWorld();
 		boolean driven = getControllingPassenger() != null;
 		if (!driven) {
-			in = ChittyControls.NONE;
+			in = testReins;
 		}
 		if (galloping > 0) {
 			galloping--;
@@ -1307,25 +1424,46 @@ public class CarriageEntity extends Entity {
 		} else {
 			speed *= 0.995F;
 		}
-		float rate = 0.0F;
 		double s = Math.abs(speed);
-		if (ground || depth > 0.05) {
-			rate = (float) (in.turn() * TURN * MathHelper.clamp(s / 0.06, 0.0, 1.0) * (1.0 - 0.3 * Math.min(1.0, s / (TOP * ROAD)))
-					* Math.signum(speed));
+		boolean grip = ground || depth > 0.05;
+		// The reins turn the horse. Going forward, it turns its head and goes round where it is turned, the fore-carriage
+		// with it; backing, it holds the angle the driver sets, as a car's front wheels do. Standing, it steps round,
+		// the fore-carriage turning under her on its turntable (if there is room for it).
+		float lock = steerLock(s);
+		float before = steer;
+		if (grip && in.turn() != 0) {
+			float turn = in.turn() * (s < STANDING ? HORSE_TURN_STANDING : HORSE_TURN);
+			float turned = MathHelper.clamp(steer + (speed < 0.0F ? turn * 0.6F : turn), -lock, lock);
+			if (Math.abs(turned) <= Math.abs(steer) || horseFits(turned)) {
+				steer = turned;
+			}
 		}
-		yawVelocity += (rate - yawVelocity) * 0.4F;
-		setYaw(getYaw() - yawVelocity);
-
-		float yawRad = getYaw() * MathHelper.RADIANS_PER_DEGREE;
-		Vec3d ahead = new Vec3d(-MathHelper.sin(yawRad), 0.0, MathHelper.cos(yawRad));
+		steer = MathHelper.clamp(steer, -lock, lock);
+		// Her front axle goes where the fore-carriage points, at the horse's pace; her rear axle follows it in line,
+		// and her body turns between them, as a cart's does behind its horse (and straightens out behind it once it goes
+		// straight).
+		float yaw = getYaw();
+		double angle = steer * MathHelper.RADIANS_PER_DEGREE;
+		double bodyTurn = grip ? speed * Math.sin(angle) / WHEELBASE * MathHelper.DEGREES_PER_RADIAN : 0.0;
+		float newYaw = yaw - (float) bodyTurn;
+		if (speed > 0.0F) {
+			// The horse keeps to its way as her body comes round behind it.
+			steer = MathHelper.clamp(steer - (float) bodyTurn, -lock, lock);
+		}
+		Vec3d was = heading(yaw);
+		Vec3d now = heading(newYaw);
+		Vec3d rear = getPos().add(was.multiply(REAR_AXLE + speed * Math.cos(angle)));
+		Vec3d centre = rear.subtract(now.multiply(REAR_AXLE));
+		setYaw(newYaw);
 		double vy = depth > 0.4 ? (ground ? -GRAVITY : v.y * 0.8 - 0.01) : (v.y - GRAVITY) * 0.98;
-		Vec3d horizontal = ahead.multiply(speed);
-		Vec3d step = new Vec3d(horizontal.x, vy, horizontal.z);
+		Vec3d step = new Vec3d(centre.x - getX(), vy, centre.z - getZ());
 		// Her box is square and shorter than she is, and her horse goes ahead of her: look ahead of it (or behind her
 		// tail) for anything she cannot climb, so that she stops at a wall instead of walking her horse into it.
-		if (Math.abs(speed) > 0.01 && blocked(world, ahead, step)) {
+		if (Math.abs(speed) > 0.01 && blocked(step)) {
 			speed = 0.0F;
 			step = new Vec3d(0.0, vy, 0.0);
+			setYaw(yaw);
+			steer = before;
 		}
 		setVelocity(step);
 		move(MovementType.SELF, step);
@@ -1352,13 +1490,43 @@ public class CarriageEntity extends Entity {
 		return Math.abs(speed) < 0.004 ? 0.0 : speed;
 	}
 
-	private boolean blocked(World world, Vec3d ahead, Vec3d step) {
-		double reach = speed > 0 ? HORSE_AHEAD + 1.0 : DECK_BACK - 0.2;
-		Vec3d c = getPos().add(ahead.multiply(reach)).add(step.x, 0.0, step.z);
+	/** How far the fore-carriage may turn at this speed (degrees): all the way at a walk, less and less towards her fastest. */
+	static float steerLock(double speed) {
+		return MathHelper.lerp((float) MathHelper.clamp(speed / (TOP * ROAD), 0.0, 1.0), STEER_MAX, STEER_AT_SPEED);
+	}
+
+	/**
+	 * Whether anything she could not climb is in her way: going forward, just ahead of her horse, the way it is going;
+	 * backing, just behind her tail.
+	 */
+	private boolean blocked(Vec3d step) {
+		Vec3d c;
+		if (speed > 0) {
+			c = toWorld(horseLocal(steer, 0.0)).add(heading(getYaw() - steer)).add(step.x, 0.0, step.z);
+		} else {
+			c = getPos().add(heading(getYaw()).multiply(DECK_BACK - 0.2)).add(step.x, 0.0, step.z);
+		}
 		double lift = Math.max(0.0, step.y);
 		double bottom = getY() + lift + getStepHeight() + 0.05;
 		double top = getY() + lift + 1.8;
-		return !world.isSpaceEmpty(this, new Box(c.x - 0.4, bottom, c.z - 0.4, c.x + 0.4, top, c.z + 0.4));
+		return solid(new Box(c.x - 0.4, bottom, c.z - 0.4, c.x + 0.4, top, c.z + 0.4));
+	}
+
+	/** Whether her horse has room to stand turned steerDegrees in its shafts: nothing it could not step up onto, where its head would be. */
+	private boolean horseFits(float steerDegrees) {
+		Vec3d head = toWorld(horseLocal(steerDegrees, 0.0)).add(heading(getYaw() - steerDegrees).multiply(0.9));
+		double feet = Math.max(getY(), horseGround);
+		return !solid(new Box(head.x - 0.3, feet + getStepHeight() + 0.05, head.z - 0.3, head.x + 0.3, feet + 2.2, head.z + 0.3));
+	}
+
+	/** Whether any block in the box is solid. */
+	private boolean solid(Box box) {
+		for (VoxelShape shape : getWorld().getBlockCollisions(this, box)) {
+			if (!shape.isEmpty()) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	// --- someone else is moving her: follow their updates smoothly ------------------------------------
@@ -1539,9 +1707,8 @@ public class CarriageEntity extends Entity {
 	/** Its hooves on the ground as it goes: a walk, a trot, a gallop; and now and then a snort, standing. */
 	private void hooves(ServerWorld world) {
 		Vec3d horse = horseAt();
-		double s = getSpeed();
+		double s = horseSpeed;
 		if (s < 0.01) {
-			hoofDistance = 0.0;
 			if (random.nextInt(600) == 0) {
 				world.playSound(null, horse.x, horse.y + 1.4, horse.z, SoundEvents.ENTITY_HORSE_AMBIENT, SoundCategory.NEUTRAL, 0.6F,
 						0.9F + random.nextFloat() * 0.2F);
@@ -1579,7 +1746,8 @@ public class CarriageEntity extends Entity {
 		frontSpin += (float) (forward / FRONT_RADIUS);
 		prevLimbSpeed = limbSpeed;
 		prevLimbPos = limbPos;
-		limbSpeed += (Math.min(1.0F, (float) getSpeed() * 4.0F) - limbSpeed) * 0.4F;
+		// (By how far the horse itself went: it steps round in its shafts, standing, as well as pulling her.)
+		limbSpeed += (Math.min(1.0F, (float) horseSpeed * 4.0F) - limbSpeed) * 0.4F;
 		limbPos += limbSpeed;
 		// The door swings slowly on its hinges.
 		prevDoor = door;
@@ -1636,6 +1804,7 @@ public class CarriageEntity extends Entity {
 		}
 	}
 
+	/** The fore-carriage's angle to her, as drawn (degrees, left positive). */
 	public float getSteer(float tickDelta) {
 		return MathHelper.lerp(tickDelta, prevSteer, steer);
 	}

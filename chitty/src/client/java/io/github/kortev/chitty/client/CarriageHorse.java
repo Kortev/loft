@@ -160,17 +160,16 @@ public final class CarriageHorse {
 
 	/**
 	 * Draws it in her frame (yaw 0, x to her left, z forward) where it stands, turned with the shafts by steerDegrees
-	 * (left positive), as LivingEntityRenderer draws a horse: turned about, flipped, scaled and lifted by its model's
-	 * 1.501.
+	 * (left positive) and lift above her, as LivingEntityRenderer draws a horse: turned about, flipped, scaled and lifted
+	 * by its model's 1.501.
 	 */
-	public void render(CarriageEntity carriage, float tickDelta, MatrixStack matrices, VertexConsumerProvider buffers, int light,
-			int overlay) {
-		float steer = carriage.getSteer(tickDelta);
-		var at = carriage.horseLocal(steer, carriage.getHorseLift(tickDelta));
+	public void render(CarriageEntity carriage, float steerDegrees, double lift, float tickDelta, MatrixStack matrices,
+			VertexConsumerProvider buffers, int light, int overlay) {
+		var at = CarriageEntity.horseLocal(steerDegrees, lift);
 		pose(carriage.getLimbPos(tickDelta), carriage.getLimbSpeed(tickDelta), carriage.age + tickDelta + carriage.getId() * 37.0F);
 		matrices.push();
 		matrices.translate(at.x, at.y, at.z);
-		matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180.0F + steer * CarriageEntity.STEER_MAX));
+		matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180.0F + steerDegrees));
 		matrices.scale(-1.0F, -1.0F, 1.0F);
 		matrices.scale(SCALE, SCALE, SCALE);
 		matrices.translate(0.0F, -1.501F, 0.0F);

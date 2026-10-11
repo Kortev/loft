@@ -215,10 +215,16 @@ back, hinged on her right and padlocked, is ours: no still shows one.
   lit while held) and how the cage stands: who is in it, whether its door is shut and what bait is out. In the cage it
   says whether you can get out; looking at her from outside, what using her there will do. F1 hides it.
 - **Drive her:** use her front to get up on the box (the driver's place on her right, with the reins, and one beside
-  it). Forward and back on the reins, left and right to steer (she turns only on the move, the fore-carriage and the
-  horse swinging with her). She goes about as fast as a ridden horse, and faster than one on a road (paths, gravel,
-  cobbles, bricks, slabs). **Jump** cracks the whip: the horse breaks into a gallop for a few seconds. Sneak to get
-  down.
+  it). Forward and back on the reins; left and right turn the horse, and she follows it: the horse goes where it is
+  turned, the fore-carriage (its front wheels and shafts) turning on its turntable with it, and her body comes round
+  behind them as a cart's does, straightening out behind the horse once you let go. Standing, the horse steps round in
+  its shafts, so you can set her up for a tight turn before moving off; at a walk she turns tightly, at speed more
+  widely. Backing, the horse holds the angle you give it, and her tail swings the other way, as a car's does. She goes
+  about as fast as a ridden horse, and faster than one on a road (paths, gravel, cobbles, bricks, slabs). **Jump**
+  cracks the whip: the horse breaks into a gallop for a few seconds. Sneak to get down.
+- **Steps:** she climbs a block at a time, an axle at a time: the horse steps up first (the shafts rising on their
+  hinges with it), then her front wheels roll up onto the step and she tips nose up, until her rear wheels follow;
+  everyone aboard rides up with her, smoothly. Down a step, the same the other way.
 - **The cage:** four stand in it. Anyone outside can open or shut its door by using it. With it open:
   - lead something up on your lead and use her: in it goes (anything about a player's size);
   - hit whatever stands at the door to shove it in;

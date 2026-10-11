@@ -23,9 +23,12 @@ import org.joml.Vector3f;
 /**
  * Draws the Child Catcher's carriage from her Blender mesh (tools/carriage_model.py --game) and poses her parts: her
  * wheels turn as she goes, the fore-carriage (its axle, springs and shafts, and the front wheels) turns under the box as
- * she turns, and the cage door swings on its hinges. Her horse is drawn as the game draws its own, in her harness
- * (CarriageHorse), in her shafts; its traces run back from its collar to her splinter bar and the reins from its bit to
- * the driver's hands. Her disguise is drawn while she wears it, the cloth on the door and its counter swinging with the
+ * the horse turns it, and the cage door swings on its hinges. She rides on her axles, each on the ground under it
+ * (CarriageEntity.getFrontGround, getRearGround): climbing a step, her front wheels roll up onto it first and she
+ * pitches nose up until her rear wheels follow. Her horse is drawn as the game draws its own, in her harness
+ * (CarriageHorse), in her shafts, on the ground under its hooves; the shafts hinge at the splinter bar to meet it as it
+ * steps up or down. Its traces run back from its collar to her splinter bar and the reins from its bit to the driver's
+ * hands. Her disguise is drawn while she wears it, the cloth on the door and its counter swinging with the
  * door, and the bait standing on the counter; thrown off, its pieces fall away from her where she was, tip over onto
  * the ground and lie there a while.
  *
@@ -45,6 +48,8 @@ public class CarriageRenderer extends EntityRenderer<CarriageEntity> {
 	private static final double[] TERRET = {2.9, -9.2, -9.4};
 	/** The ends of her splinter bar, either side, which the traces pull on. */
 	private static final double TREE = 0.29;
+	/** How far ahead of their hinge on the splinter bar the shafts reach the horse. */
+	private static final double SHAFT_REACH = CarriageEntity.HORSE_AHEAD - CarriageEntity.SPLINTER.z;
 	/** The disguise thrown off: how fast its pieces fly out and up, how hard they fall, and when they go. */
 	private static final float FLING = 0.06F;
 	private static final float TOSS = 0.12F;
@@ -76,12 +81,22 @@ public class CarriageRenderer extends EntityRenderer<CarriageEntity> {
 			VertexConsumer out = buffers.getBuffer(RenderLayer.getEntityCutoutNoCull(TEXTURE));
 			drawThrown(carriage, mesh, tickDelta, matrices, out, light);
 		}
+		// How she rides on her axles and where her horse stands, relative to her as drawn.
+		double y = MathHelper.lerp(tickDelta, carriage.lastRenderY, carriage.getY());
+		double rearLift = carriage.getRearGround(tickDelta) - y;
+		double pitch = CarriageEntity.pitchOf(carriage.getFrontGround(tickDelta), carriage.getRearGround(tickDelta));
+		double horseLift = carriage.getHorseGround(tickDelta) - y;
+		float steer = carriage.getSteer(tickDelta);
 		matrices.push();
 		matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-yaw));
-		horse.render(carriage, tickDelta, matrices, buffers, light, overlay);
+		horse.render(carriage, steer, horseLift, tickDelta, matrices, buffers, light, overlay);
 		if (mesh != null) {
 			VertexConsumer out = buffers.getBuffer(RenderLayer.getEntityCutoutNoCull(TEXTURE));
-			drawHarness(carriage, mesh, tickDelta, matrices, out, light);
+			drawHarness(mesh, steer, horseLift, rearLift, pitch, matrices, out, light);
+			// Her body on her axles: the rear one on the ground under it, her nose up or down to the front one's.
+			matrices.translate(0.0F, (float) rearLift, (float) CarriageEntity.REAR_AXLE);
+			matrices.multiply(RotationAxis.POSITIVE_X.rotation((float) -pitch));
+			matrices.translate(0.0F, 0.0F, (float) -CarriageEntity.REAR_AXLE);
 			float wobble = carriage.getDamageWobbleTicks() - tickDelta;
 			if (wobble > 0.0F) {
 				float strength = Math.max(0.0F, carriage.getDamageWobbleStrength() - tickDelta);
@@ -90,7 +105,7 @@ public class CarriageRenderer extends EntityRenderer<CarriageEntity> {
 						MathHelper.sin(wobble) * wobble * strength / 80.0F * carriage.getDamageWobbleSide()));
 				matrices.translate(0.0F, (float) -CarriageEntity.DECK_TOP, 0.0F);
 			}
-			drawParts(carriage, mesh, tickDelta, matrices, out, light);
+			drawParts(carriage, mesh, tickDelta, steer, shaftLift(horseLift, rearLift, pitch), matrices, out, light);
 			if (carriage.isDisguised()) {
 				drawBait(carriage, mesh, tickDelta, matrices, buffers, light);
 			}
@@ -114,10 +129,18 @@ public class CarriageRenderer extends EntityRenderer<CarriageEntity> {
 		matrices.translate(-hinge.pivot.x, -hinge.pivot.y, -hinge.pivot.z);
 	}
 
-	private static void drawParts(CarriageEntity carriage, ChittyMesh mesh, float tickDelta, MatrixStack matrices, VertexConsumer out,
-			int light) {
+	/**
+	 * How far the shafts are lifted on their hinge (radians, tips up) to meet the horse: by how far it stands above (or
+	 * below) where her body, as it rides, would have them.
+	 */
+	private static double shaftLift(double horseLift, double rearLift, double pitch) {
+		double carried = CarriageEntity.onBody(new Vec3d(0.0, 0.0, CarriageEntity.HORSE_AHEAD), rearLift, pitch).y;
+		return MathHelper.clamp(Math.atan2(horseLift - carried, SHAFT_REACH), -0.6, 0.6);
+	}
+
+	private static void drawParts(CarriageEntity carriage, ChittyMesh mesh, float tickDelta, float steer, double shaftLift,
+			MatrixStack matrices, VertexConsumer out, int light) {
 		int overlay = OverlayTexture.DEFAULT_UV;
-		float steer = carriage.getSteer(tickDelta) * CarriageEntity.STEER_MAX;
 		float rear = carriage.getRearSpin(tickDelta);
 		float front = carriage.getFrontSpin(tickDelta);
 		float door = carriage.getDoorOpen(tickDelta);
@@ -132,8 +155,8 @@ public class CarriageRenderer extends EntityRenderer<CarriageEntity> {
 				continue;
 			}
 			matrices.push();
-			if (name.equals("fore_carriage") || name.startsWith("wheel_f")) {
-				// The fore-carriage turns on its turntable, the front wheels with it.
+			if (name.equals("fore_carriage") || name.equals("shafts") || name.startsWith("wheel_f")) {
+				// The fore-carriage turns on its turntable, the front wheels and the shafts with it.
 				matrices.translate(TURNTABLE.x, TURNTABLE.y, TURNTABLE.z);
 				matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(steer));
 				matrices.translate(-TURNTABLE.x, -TURNTABLE.y, -TURNTABLE.z);
@@ -142,6 +165,10 @@ public class CarriageRenderer extends EntityRenderer<CarriageEntity> {
 				swingDoor(mesh, door, matrices);
 			}
 			matrices.translate(part.pivot.x, part.pivot.y, part.pivot.z);
+			if (name.equals("shafts")) {
+				// Hinged on the splinter bar: tips up as the horse steps up ahead of her, down as it steps down.
+				matrices.multiply(RotationAxis.POSITIVE_X.rotation((float) -shaftLift));
+			}
 			matrices.multiply(part.rest);
 			if (name.startsWith("wheel_r")) {
 				matrices.multiply(RotationAxis.POSITIVE_X.rotation(rear));
@@ -237,28 +264,27 @@ public class CarriageRenderer extends EntityRenderer<CarriageEntity> {
 	 * The horse's traces, from its collar back along its sides to the ends of her splinter bar, and the reins from its
 	 * bit through the terrets on its back to the driver's hands, sagging a little; in her frame, where the horse is drawn.
 	 */
-	private static void drawHarness(CarriageEntity carriage, ChittyMesh mesh, float tickDelta, MatrixStack matrices, VertexConsumer out,
-			int light) {
+	private static void drawHarness(ChittyMesh mesh, float steerDegrees, double horseLift, double rearLift, double pitch,
+			MatrixStack matrices, VertexConsumer out, int light) {
 		ChittyMesh.Part trace = mesh.parts.get("trace");
 		ChittyMesh.Part rein = mesh.parts.get("rein");
 		if (trace == null || rein == null) {
 			return;
 		}
-		float steerFraction = carriage.getSteer(tickDelta);
-		Vec3d horseAt = carriage.horseLocal(steerFraction, carriage.getHorseLift(tickDelta));
-		float bodyYaw = -steerFraction * CarriageEntity.STEER_MAX;
-		float steer = -bodyYaw * MathHelper.RADIANS_PER_DEGREE;
+		Vec3d horseAt = CarriageEntity.horseLocal(steerDegrees, horseLift);
+		float bodyYaw = -steerDegrees;
+		float steer = steerDegrees * MathHelper.RADIANS_PER_DEGREE;
 		int overlay = OverlayTexture.DEFAULT_UV;
 		for (int s = -1; s <= 1; s += 2) {
 			Vec3d collar = horsePoint(horseAt, bodyYaw, true, s * TRACE_FROM[0], TRACE_FROM[1], TRACE_FROM[2]);
 			Vec3d side = horsePoint(horseAt, bodyYaw, false, s * TRACE_MID[0], TRACE_MID[1], TRACE_MID[2]);
-			Vec3d tree = new Vec3d(s * TREE, CarriageEntity.SPLINTER.y, CarriageEntity.SPLINTER.z + 0.07).subtract(TURNTABLE)
-					.rotateY(steer).add(TURNTABLE);
+			Vec3d tree = CarriageEntity.onBody(new Vec3d(s * TREE, CarriageEntity.SPLINTER.y, CarriageEntity.SPLINTER.z + 0.07)
+					.subtract(TURNTABLE).rotateY(steer).add(TURNTABLE), rearLift, pitch);
 			strap(trace, collar, side, matrices, out, light, overlay);
 			strap(trace, side, tree, matrices, out, light, overlay);
 			Vec3d bit = horsePoint(horseAt, bodyYaw, true, s * BIT[0], BIT[1], BIT[2]);
 			Vec3d terret = horsePoint(horseAt, bodyYaw, false, s * TERRET[0], TERRET[1], TERRET[2]);
-			Vec3d hand = CarriageEntity.HANDS.add(s * 0.03, 0.0, 0.0);
+			Vec3d hand = CarriageEntity.onBody(CarriageEntity.HANDS.add(s * 0.03, 0.0, 0.0), rearLift, pitch);
 			Vec3d slack = terret.add(hand).multiply(0.5).add(0.0, -0.12, 0.0);
 			strap(rein, bit, terret, matrices, out, light, overlay);
 			strap(rein, terret, slack, matrices, out, light, overlay);

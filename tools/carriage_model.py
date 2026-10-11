@@ -10,8 +10,9 @@ Z = 0 and the middle of its wheelbase over the origin; its horse stands in the s
 of a pole, --horses 2). In the game her horse is drawn with the game's own horse model (CarriageHorse), never baked;
 the renders draw it as the game does (its model's boxes, in the vanilla black coat if MC_HORSE_TEXTURE names it) in its
 harness (HARNESS). Every part the game moves is its own object with its origin on its pivot, named as
-the game knows it: the four wheels; the fore-carriage (front axle, springs, shafts or pole) that turns on its turntable
-under the driver's seat, taking the front wheels (and the horse) with it; and the cage door on its hinges.
+the game knows it: the four wheels; the fore-carriage (front axle, springs, splinter bar, or a pair's pole) that turns
+on its turntable under the driver's seat, taking the front wheels, the shafts (hinged on the splinter bar, rising and
+falling with the horse) and the horse with it; and the cage door on its hinges.
 Empties mark the driver's seat, the places in the cage and where the driver holds the reins.
 
 The film's wagon, from kortev's two photos (a film still of the children screaming at its window, and one of the two
@@ -398,7 +399,9 @@ def shaft_path(s):
 def build_fore_carriage():
     """The front axle on its bed and springs, the bolster and the lower half of the fifth wheel it turns on, the splinter
     bar and swingletree(s), and the shafts for one horse (or the pole between a pair): all turning together on the
-    turntable (with the front wheels and the horses, which are their own parts)."""
+    turntable (with the front wheels and the horses, which are their own parts). The shafts are a part of their own,
+    hinged on the splinter bar (as shafts are, on their couplings), so that they rise and fall with the horse as it steps
+    up or down ahead of her."""
     m = cm.Mesh()
     cm.add_box(m, (0, FRONT_AXLE, FRONT_R), (2 * TRACK - 0.14, 0.07, 0.07), 'iron')
     cm.add_box(m, (0, FRONT_AXLE, FRONT_R + 0.08), (2 * TRACK - 0.28, 0.1, 0.09), 'cream')
@@ -414,11 +417,13 @@ def build_fore_carriage():
     if HORSES == 1:
         cm.add_box(m, SPLINTER, (1.24, 0.07, 0.07), 'black')
         cm.add_box(m, SPLINTER + Vector((0, 0.07, 0.0)), (0.62, 0.05, 0.05), 'black')
+        shafts = cm.Mesh()
         for s in (-1, 1):
-            cm.tube(m, shaft_path(s), 0.035, 'black', seg=10)
+            cm.tube(shafts, shaft_path(s), 0.035, 'black', seg=10)
             # The tug stop and a brass tip.
             tip = shaft_path(s)[-1]
-            cm.ellipsoid(m, tip, (0.04, 0.04, 0.04), 'brass', seg=10, rings=6)
+            cm.ellipsoid(shafts, tip, (0.04, 0.04, 0.04), 'brass', seg=10, rings=6)
+        moving(shafts, 'shafts', SPLINTER)
     else:
         cm.add_box(m, SPLINTER, (1.9, 0.07, 0.07), 'black')
         for s in (-1, 1):
@@ -583,7 +588,7 @@ def build_seat():
 
 # --- the horses -----------------------------------------------------------------------------------------
 
-def build_horse_preview(i, gait=0.0, phase=0.0, steer=0.0):
+def build_horse_preview(i, gait=0.0, phase=0.0, steer=0.0, lift=0.0, body=Matrix.Identity(4)):
     """For the renders: horse i as the game draws it (the vanilla model in its black coat), in her harness, its legs at
     that point of their stride (the vanilla walk: limb angle `phase`, limb distance `gait`), the traces back to the
     splinter bar and the reins to the driver's hands; turned with the fore-carriage by steer."""
@@ -602,20 +607,24 @@ def build_horse_preview(i, gait=0.0, phase=0.0, steer=0.0):
         frame, corner, size, mat = entry[:4]
         horse_box(m, at, frame, corner, size, pitches, mat, turn=entry[4] if len(entry) > 4 else None)
     # The traces from the collar back to the swingletree; the reins from the bit, through the terrets, to the driver.
-    tree = SPLINTER + Vector((at.x, 0.07, 0.0))
+    # (The swingletree and the driver's hands ride on her body, which body pitches; the horse is placed by lift and
+    # turn: so they are brought into the horse's own frame.)
+    turn = Matrix.Translation(TURNTABLE) @ Matrix.Rotation(math.radians(steer), 4, 'Z') @ Matrix.Translation(-TURNTABLE)
+    placed_at = Matrix.Translation((0.0, 0.0, lift)) @ turn
+    to_horse = placed_at.inverted() @ body
+    tree = to_horse @ (turn @ (SPLINTER + Vector((at.x, 0.07, 0.0))))
     for s in (-1, 1):
         start = horse_point(at, 'head', (s * TRACE_FROM[0], TRACE_FROM[1], TRACE_FROM[2]), pitches)
         mid = horse_point(at, 'body', (s * 5.4, -3.0, -10.0), pitches)
         cm.tube(m, [start, mid, tree + Vector((-s * 0.29, 0.0, 0.0))], 0.018, 'leather', seg=8)
         bit = horse_point(at, 'head', (s * BIT[0], BIT[1], BIT[2]), pitches)
         terret = horse_point(at, 'body', (s * TERRET[0], TERRET[1], TERRET[2]), pitches)
-        hand = HANDS + Vector((-s * 0.03, 0.0, 0.0))
+        hand = to_horse @ (HANDS + Vector((-s * 0.03, 0.0, 0.0)))
         cm.tube(m, cm.catmull([tuple(bit), tuple(terret), tuple((terret + hand) * 0.5 - Vector((0, 0, 0.12))), tuple(hand)], 4),
                 0.008, 'leather', seg=6)
     o = m.obj(name, coll='preview', smooth=None)
     del o['part']       # the renders only: never baked (the game draws its own horse)
-    turn = Matrix.Translation(TURNTABLE) @ Matrix.Rotation(math.radians(22) * steer, 4, 'Z') @ Matrix.Translation(-TURNTABLE)
-    o.matrix_world = turn
+    o.matrix_world = placed_at
     return o
 
 
@@ -916,14 +925,50 @@ def build():
 
 # --- poses -------------------------------------------------------------------------------------------------
 
-def pose(door=0.0, steer=0.0, gait=0.0, phase=0.0, spin=0.0, disguise=False):
-    """What the game's animation does: the door swung open that far (0 to 1); the fore-carriage, the front wheels and
-    the horses turned on the turntable by steer (-1 to 1); the horses' legs (and heads and tails) at that point of
-    their stride (phase, radians) by gait (0 standing, 1 a trot); the wheels turned by spin (radians; the front ones
-    faster, being smaller)."""
-    turn = Matrix.Rotation(math.radians(22) * steer, 4, 'Z')
+def pose_root():
+    """For the renders: an empty that everything of hers (not the horses, nor the world) hangs from, to pitch her body
+    on her axles as the game does climbing a step."""
+    root = bpy.data.objects.get('pose_root')
+    if root is None:
+        root = bpy.data.objects.new('pose_root', None)
+        bpy.context.scene.collection.objects.link(root)
+        for o in bpy.data.objects:
+            if o is root or o.type in ('CAMERA', 'LIGHT') or o.name in ('ground', 'water', 'step') \
+                    or o.name.startswith('horse_preview') or o.parent is not None:
+                continue
+            o.parent = root
+            o.matrix_parent_inverse = Matrix.Identity(4)
+    return root
+
+
+def step_block(show):
+    """For the renders: a block's step across the road ahead of her rear wheels, for her to be climbing."""
+    o = bpy.data.objects.get('step')
+    if o is None:
+        m = cm.Mesh()
+        cm.add_box(m, (0.0, 4.5, 0.5), (6.0, 9.0, 1.0), 'iron')
+        o = m.obj('step', coll='preview', smooth=None)
+        o.pop('part', None)
+    o.hide_render = o.hide_viewport = not show
+
+
+def pose(door=0.0, steer=0.0, gait=0.0, phase=0.0, spin=0.0, disguise=False, rear=0.0, front=0.0, horse_lift=0.0,
+         step=False):
+    """What the game's animation does: the door swung open that far (0 to 1); the fore-carriage, the front wheels, the
+    shafts and the horses turned on the turntable by steer (degrees, left positive, as in the game); the horses' legs (and heads and tails) at that point of their stride (phase,
+    radians) by gait (0 standing, 1 a trot); the wheels turned by spin (radians; the front ones faster, being smaller).
+    Climbing a step: her rear axle on ground rear high and her front one on ground front high (blocks), her body pitched
+    between them; her horse on ground horse_lift high, the shafts hinged up to it (CarriageRenderer.shaftLift)."""
+    turn = Matrix.Rotation(math.radians(steer), 4, 'Z')
+    pitch = math.asin(max(-0.7, min(0.7, (front - rear) / (FRONT_AXLE - REAR_AXLE))))
+    carried = rear + (HORSE_Y - REAR_AXLE) * math.sin(pitch)
+    shaft = max(-0.6, min(0.6, math.atan2(horse_lift - carried, HORSE_Y - SPLINTER.y)))
+    root = pose_root()
+    root.matrix_world = (Matrix.Translation((0.0, REAR_AXLE, rear)) @ Matrix.Rotation(pitch, 4, 'X')
+                         @ Matrix.Translation((0.0, -REAR_AXLE, 0.0)))
+    step_block(step)
     for i in range(HORSES):
-        build_horse_preview(i, gait, phase, steer)
+        build_horse_preview(i, gait, phase, steer, horse_lift, root.matrix_world.copy())
     for o in bpy.data.objects:
         part = o.get('part', '')
         if part.startswith('disguise_'):
@@ -932,13 +977,15 @@ def pose(door=0.0, steer=0.0, gait=0.0, phase=0.0, spin=0.0, disguise=False):
         if part == 'door':
             o.rotation_euler = (0, 0, math.radians(105) * door)
             continue
-        front = part in ('fore_carriage', 'wheel_fl', 'wheel_fr')
+        turns = part in ('fore_carriage', 'shafts', 'wheel_fl', 'wheel_fr')
         if rest is None or part == '':
             continue
-        yaw = math.radians(22) * steer if front else 0.0
-        o.location = (TURNTABLE + turn @ (rest - TURNTABLE)) if front else rest
+        yaw = math.radians(steer) if turns else 0.0
+        o.location = (TURNTABLE + turn @ (rest - TURNTABLE)) if turns else rest
         roll = 0.0
-        if part.startswith('wheel_'):
+        if part == 'shafts':
+            roll = shaft
+        elif part.startswith('wheel_'):
             roll = spin * (REAR_R / FRONT_R if part.startswith('wheel_f') else 1.0)
         elif part.startswith('leg_'):
             tag = part.split('_')[1]
@@ -976,7 +1023,10 @@ SHOTS = [
     ('driver_and_window', (2.5, 3.6, 2.6), (0, 1.0, 2.0), 30, {}),
     ('horse', (2.4, 6.6, 2.3), (0, HORSE_Y + 0.6, 1.6), 32, {}),
     ('door_open', (-1.2, -6.2, 2.3), (0, -1.5, 1.8), 32, dict(door=1.0)),
-    ('trotting', (-7.5, 7.5, 2.6), (0, 1.4, 1.5), 30, dict(gait=1.0, phase=0.9, spin=1.2, steer=0.35)),
+    ('trotting', (-7.5, 7.5, 2.6), (0, 1.4, 1.5), 30, dict(gait=1.0, phase=0.9, spin=1.2, steer=8.0)),
+    ('full_lock', (-5.0, 7.5, 9.0), (0, 1.6, 0.8), 30, dict(gait=0.6, phase=0.4, steer=40.0)),
+    ('climbing', (-9.5, 1.6, 2.2), (0, 1.4, 1.9), 30, dict(gait=1.0, phase=1.6, rear=0.0, front=1.0, horse_lift=1.0,
+                                                            step=True)),
     ('disguised', (8.0, 9.0, 3.2), (0, 0.6, 1.9), 30, dict(disguise=True)),
     ('disguised_left', (-8.6, 0.6, 2.4), (0, -0.2, 2.0), 32, dict(disguise=True)),
     ('disguised_rear', (4.6, -7.0, 2.6), (0, -0.8, 2.1), 30, dict(disguise=True)),
