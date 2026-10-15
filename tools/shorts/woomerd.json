@@ -1,14 +1,13 @@
-{"source": "build/film/woomerd.mp4", "out": "build/film/woomerd-short.mp4",
- "audio": "build/film/woomerd-game.wav",
- "band": {"height": 1350, "center": 1060},
- "banner": {"text": "griefing has CONSEQUENCES now 😭🙏", "y": 270, "size": 64},
- "segments": [
-  {"from": 2.6, "to": 21.4},
-  {"from": 26.6, "to": 36.2},
-  {"from": 37.6, "to": 43.4},
-  {"from": 44.9, "to": 53.9},
+{"source": "build/film/woomerd.mp4", "out": "build/film/woomerd-short.mp4", "audio": "build/film/woomerd-game.wav", "band": {"height": 1350, "center": 1060}, "banner": {"text": "griefing has CONSEQUENCES now 😭🙏", "y": 270, "size": 64}, "segments": [
+  {"from": 2.6, "to": 21.4}, 
+  {"from": 26.6, "to": 36.2}, 
+  {"from": 37.6, "to": 43.4}, 
+  {"from": 44.9, "to": 53.9}, 
   {"from": 70.5, "to": 87.0}],
  "sfx": [
-  {"at": 23.87, "sound": "riser", "gain": 0.8},
-  {"at": 27.37, "sound": "hit", "gain": 0.9}],
- "crf": 18, "preset": "medium"}
+  {"at": 24.88, "sound": "riser", "gain": 0.8}, 
+  {"at": 27.38, "sound": "hit", "gain": 0.7}],
+ "crf": 18, "preset": "medium", "music": [
+  {"file": "build/film/music/Sneaky Snitch.mp3", "at": 0.0, "from": 0.0, "dur": 5.42, "db": -9, "fade_in": 0.05, "fade_out": 0.06}, 
+  {"file": "build/film/music/Hitman.mp3", "at": 5.6, "from": 52.0, "dur": 21.78, "db": -15, "fade_in": 0.15, "fade_out": 0.08}, 
+  {"file": "build/film/music/Floating Cities.mp3", "at": 34.48, "from": 0.0, "dur": 8.12, "db": -4, "fade_in": 1.2, "fade_out": 1.0}]}

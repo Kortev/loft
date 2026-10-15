@@ -1,11 +1,9 @@
-{"source": "build/film/kortev.mp4", "out": "build/film/kortev-short.mp4",
- "audio": "build/film/kortev-game.wav",
- "band": {"height": 1350, "center": 1060},
- "banner": {"text": "the revenge was NOT proportional 😭🙏", "y": 270, "size": 64},
- "segments": [
-  {"from": 6.8, "to": 43.2},
-  {"from": 44.9, "to": 50.85},
+{"source": "build/film/kortev.mp4", "out": "build/film/kortev-short.mp4", "audio": "build/film/kortev-game.wav", "band": {"height": 1350, "center": 1060}, "banner": {"text": "the revenge was NOT proportional 😭🙏", "y": 270, "size": 64}, "segments": [
+  {"from": 6.8, "to": 43.2}, 
+  {"from": 44.9, "to": 50.85}, 
   {"from": 61.5, "to": 81.5}],
  "sfx": [
-  {"at": 24.4, "sound": "riser", "gain": 0.6}],
- "crf": 18, "preset": "medium"}
+  {"at": 26.01, "sound": "riser", "gain": 0.6}],
+ "crf": 18, "preset": "medium", "music": [
+  {"file": "build/film/music/Hitman.mp3", "at": 0.0, "from": 52.0, "dur": 28.51, "db": -15, "fade_in": 0.15, "fade_out": 0.08}, 
+  {"file": "build/film/music/Floating Cities.mp3", "at": 36.84, "from": 0.0, "dur": 5.51, "db": -4, "fade_in": 1.2, "fade_out": 1.0}]}

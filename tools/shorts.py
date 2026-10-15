@@ -319,12 +319,27 @@ def main():
         graph.append('[music][key]sidechaincompress=threshold=0.04:ratio=6:attack=25:release=450:makeup=1[ducked]')
         graph.append('[game][ducked]amix=inputs=2:normalize=0:duration=first:dropout_transition=0[scored]')
         audio = 'scored'
-    graph.append('[%s]loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000[aout]' % audio)
+    graph.append('[%s]aresample=48000[aout]' % audio)
+    # The picture and the sound as mixed, then the sound measured and levelled to -14 LUFS in a second pass (one pass
+    # fell short of it on these, a couple of dB quiet, which YouTube never turns up), a limiter last to keep it under
+    # -1.5 dBFS. The picture is only encoded once.
+    mixed = os.path.join(tmp, 'mixed.mkv')
     cmd += ['-filter_complex', ';'.join(graph), '-map', '[%s]' % last, '-map', '[aout]',
             '-c:v', 'libx264', '-preset', edl.get('preset', 'medium'), '-crf', str(edl.get('crf', 18)), '-pix_fmt', 'yuv420p',
-            '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', '-r', '30', edl['out']]
+            '-c:a', 'pcm_s16le', '-r', '30', mixed]
     subprocess.run(cmd, check=True)
-    print('wrote', edl['out'])
+    target = 'I=-14:TP=-1.5:LRA=11'
+    report = subprocess.run(['ffmpeg', '-hide_banner', '-nostats', '-i', mixed, '-vn', '-af', 'loudnorm=%s:print_format=json' % target,
+                             '-f', 'null', '-'], capture_output=True, text=True).stderr
+    m = json.loads(report[report.rindex('{'):report.rindex('}') + 1])
+    # Aimed a touch over -14 into the limiter, which takes a little off; limited at four times the rate, so the peaks
+    # between samples (and the AAC encoder's own overshoot) stay under 0 dBFS too.
+    level = ('loudnorm=I=-13.4:TP=-1:LRA=11:measured_I=%s:measured_TP=%s:measured_LRA=%s:measured_thresh=%s:offset=%s:linear=true,'
+             'aresample=192000,alimiter=limit=0.72:level=0:attack=1:release=60,aresample=48000'
+             % (m['input_i'], m['input_tp'], m['input_lra'], m['input_thresh'], m['target_offset']))
+    subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', mixed, '-map', '0:v', '-map', '0:a', '-c:v', 'copy', '-af', level,
+                    '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', edl['out']], check=True)
+    print('wrote', edl['out'], '(was %s LUFS)' % m['input_i'])
 
 
 if __name__ == '__main__':
