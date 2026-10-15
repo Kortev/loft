@@ -8,6 +8,10 @@ whole scripted episode with the other two players moved by the server, and write
 
     build/film/<who>.mp4          the master: 1080x1920, 30 fps, the game's sounds mixed in (edit from this)
     build/film/<who>-stills/      screenshots at the scene's beats, to look it over without the video
+    build/film/moves/<who>.tsv    how they moved, tick by tick: the other two's takes play it back on the server's copy
+
+So that the others move as they did in their own takes, everyone is recorded at least once before the takes that
+matter: "all" records Kortev, Woomerd and gerald, then Kortev and Woomerd again if anyone's moves were missing.
 
 The game is drawn at 1080x1920 whatever the window's size; the window (540x960 by default, --window WxH) only shows
 it. The game is silent while it records (its sounds are logged and mixed in afterwards) and ignores the keyboard and
@@ -57,9 +61,9 @@ def check():
         sys.exit(1)
 
 
-def gradle(*args):
+def gradle(*args, check=True):
     say('gradlew', ' '.join(args))
-    subprocess.run([GRADLEW, *args, '--stacktrace'], cwd=ROOT, check=True)
+    return subprocess.run([GRADLEW, *args, '--stacktrace'], cwd=ROOT, check=check).returncode
 
 
 def world(fresh):
@@ -101,7 +105,15 @@ def take(who, window):
     shutil.rmtree(capture, ignore_errors=True)
     shutil.rmtree(shots, ignore_errors=True)
     width, height = window.lower().split('x')
-    gradle('runSelftest', '-Pselftest=film-' + who, '-Pwidth=' + width, '-Pheight=' + height, '-Pusername=' + name)
+    # The game can hang on its way down after the take, and is then stopped (FilmSelfTest): the take is all written by
+    # then, so what counts is whether its video is there and finished, not how the game ended.
+    code = gradle('runSelftest', '-Pselftest=film-' + who, '-Pwidth=' + width, '-Pheight=' + height, '-Pusername=' + name,
+                  check=False)
+    log = os.path.join(CLIENT, 'logs', 'latest.log')
+    finished = os.path.exists(log) and '[capture] ffmpeg finished: exit 0' in open(log, encoding='utf-8', errors='replace').read()
+    if code != 0 and not finished:
+        say('the game failed before the take was finished: see build/selftest/logs/latest.log')
+        sys.exit(1)
 
     os.makedirs(OUT, exist_ok=True)
     if not os.path.exists(os.path.join(capture, 'video.mp4')):
@@ -126,12 +138,14 @@ def main():
     parser.add_argument('--skins', action='store_true', help="fetch Kortev's and Woomerd's skins again")
     args = parser.parse_args()
     who = list(WHO) if 'all' in args.who else list(dict.fromkeys(args.who))
+    if 'all' in args.who and not all(os.path.exists(os.path.join(OUT, 'moves', w + '.tsv')) for w in WHO):
+        who += ['kortev', 'woomerd']
     check()
     world(args.fresh_world)
     skins(args.skins)
     for w in who:
         take(w, args.window)
-    say('all done:', ', '.join(os.path.join('build', 'film', w + '.mp4') for w in who))
+    say('all done:', ', '.join(os.path.join('build', 'film', w + '.mp4') for w in dict.fromkeys(who)))
 
 
 if __name__ == '__main__':

@@ -5,18 +5,24 @@ The EDL (edit decision list) is JSON:
     {"source": "build/film/kortev.mp4", "out": "build/film/kortev-short.mp4", "width": 1080, "height": 1920,
      "segments": [{"from": 12.0, "to": 14.5, "speed": 1.0, "punch": 0.0}, ...],
      "captions": [{"at": 0.0, "dur": 1.6, "text": "Woomerd blew up my *house*", "style": "hook", "y": 0.2}, ...],
+     "sfx": [{"at": 0.0, "sound": "hit", "gain": 1.0}, ...],
      "crf": 18, "preset": "medium"}
 
 Segments are played in order: "from"/"to" are seconds of the source, "speed" speeds it up (sound too), "punch" pushes
 in over the segment (0.1 = 10%). Captions are timed in seconds of the output; "style" is hook (biggest), cap or small,
-"y" is the height of its middle (0 top, 1 bottom), and words in *stars* are yellow. The sound is levelled to -14 LUFS,
-as YouTube plays it. The captions' font is Inter ExtraBold if it is installed, else Arial Black or the nearest bold
-font found (SHORTS_FONT=path picks one). Needs ffmpeg and Pillow."""
+"y" is the height of its middle (0 top, 1 bottom), and words in *stars* are yellow. "sfx" are sounds laid over the
+game's, at seconds of the output: "pop" (a caption landing), "whoosh" (a cut or a speed-up) or "hit" (a low thud), made
+here, so nobody owns them; or "file", a sound file. The sound is levelled to -14 LUFS, as YouTube plays it. The
+captions' font is Inter ExtraBold if it is installed, else Arial Black or the nearest bold font found (SHORTS_FONT=path
+picks one). Needs ffmpeg, numpy and Pillow."""
 import json
 import os
 import subprocess
 import sys
 import tempfile
+import wave
+
+import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 FONTS = [os.environ.get('SHORTS_FONT', ''),
@@ -76,6 +82,57 @@ def caption_png(text, style, W, path):
     return H
 
 
+RATE = 48000
+
+
+def synth(name):
+    """One of the made sounds, as mono samples at RATE."""
+    rng = np.random.default_rng(len(name))
+    if name == 'pop':
+        n = int(0.09 * RATE)
+        t = np.arange(n) / RATE
+        f = 380 + 700 * np.exp(-t / 0.018)
+        y = np.sin(2 * np.pi * np.cumsum(f) / RATE) * np.exp(-t / 0.028) * np.minimum(1, t / 0.002)
+        return 0.5 * y
+    if name == 'whoosh':
+        n = int(0.5 * RATE)
+        t = np.arange(n) / RATE
+        noise = rng.standard_normal(n)
+        # Noise through a band that sweeps up and back, swelling and dying away.
+        y = np.zeros(n)
+        low = band = 0.0
+        for i in range(n):
+            f = 400 + 2600 * np.sin(np.pi * t[i] / t[-1]) ** 2
+            k = 2 * np.sin(np.pi * f / RATE)
+            low += k * band
+            high = noise[i] - low - 0.7 * band
+            band += k * high
+            y[i] = band
+        y *= np.sin(np.pi * t / t[-1]) ** 2
+        return 0.35 * y / np.abs(y).max()
+    if name == 'hit':
+        n = int(1.1 * RATE)
+        t = np.arange(n) / RATE
+        f = 34 + 60 * np.exp(-t / 0.06)
+        body = np.sin(2 * np.pi * np.cumsum(f) / RATE) * np.exp(-t / 0.35)
+        click = rng.standard_normal(n) * np.exp(-t / 0.008) * 0.3
+        return 0.8 * np.tanh(1.6 * (body + click))
+    raise SystemExit('no such sound: ' + name)
+
+
+def sound_file(fx, tmp, j):
+    if 'file' in fx:
+        return fx['file']
+    path = os.path.join(tmp, 'fx%d.wav' % j)
+    y = np.clip(synth(fx['sound']), -1, 1)
+    with wave.open(path, 'wb') as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(RATE)
+        w.writeframes((y * 32767).astype(np.int16).tobytes())
+    return path
+
+
 def atempo(speed):
     filters = []
     while speed > 2.0:
@@ -120,7 +177,19 @@ def main():
         graph.append("[%s][%d:v]overlay=0:%d:enable='between(t,%.3f,%.3f)':shortest=1[o%d]" % (last, n, y, c['at'], end, j))
         last = 'o%d' % j
         n += 1
-    graph.append('[ca]loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000[aout]')
+    audio = 'ca'
+    effects = edl.get('sfx', [])
+    if effects:
+        mix = ['[ca]']
+        for j, fx in enumerate(effects):
+            cmd += ['-i', sound_file(fx, tmp, j)]
+            graph.append('[%d:a]aformat=channel_layouts=stereo,aresample=48000,volume=%.3f,adelay=%d:all=1[fx%d]'
+                         % (n, fx.get('gain', 1.0), int(round(fx['at'] * 1000)), j))
+            mix.append('[fx%d]' % j)
+            n += 1
+        graph.append('%samix=inputs=%d:normalize=0:duration=first:dropout_transition=0[mixed]' % (''.join(mix), len(mix)))
+        audio = 'mixed'
+    graph.append('[%s]loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000[aout]' % audio)
     cmd += ['-filter_complex', ';'.join(graph), '-map', '[%s]' % last, '-map', '[aout]',
             '-c:v', 'libx264', '-preset', edl.get('preset', 'medium'), '-crf', str(edl.get('crf', 18)), '-pix_fmt', 'yuv420p',
             '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', '-r', '30', edl['out']]

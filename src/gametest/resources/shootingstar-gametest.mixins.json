@@ -11,7 +11,8 @@
 		"BuiltChunkStorageAccessor",
 		"FilmSkinMixin",
 		"FilmFrameMixin",
-		"FilmPreviewMixin"
+		"FilmPreviewMixin",
+		"FilmMouseAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 1
