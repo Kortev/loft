@@ -20,7 +20,7 @@ sfx are optional: tools/shorts/*.json, the series' raw POV cuts, use neither. Ca
 game's, at seconds of the output: "pop" (a caption landing), "whoosh" (a cut or a speed-up) or "hit" (a low thud), made
 here, so nobody owns them; or "file", a sound file. The sound is levelled to -14 LUFS, as YouTube plays it. The
 captions' font is Inter ExtraBold if it is installed, else Arial Black or the nearest bold font found (SHORTS_FONT=path
-picks one). "riser" is a made sound too: noise and a tone climbing over two and a half seconds, ending dead, to put just
+picks one). "boom" (the meme's bass boom), "ding" (a small bell) and "riser" are made sounds too: noise and a tone climbing over two and a half seconds, ending dead, to put just
 before a big moment (its end at the moment).
 
 "band" crops the picture to a band across it, "height" tall (from the middle of the source's picture), and stands it
@@ -205,6 +205,30 @@ def synth(name):
         tone = np.sin(2 * np.pi * np.cumsum(110 * 2 ** (3 * k)) / RATE)
         y = (0.6 * y + 0.4 * tone) * k ** 2.2
         return 0.5 * y * np.minimum(1, (n - np.arange(n)) / (0.004 * RATE))
+    if name == 'boom':
+        # The meme's bass boom: a deep hit dropping in pitch, saturated, ringing out in a dark room.
+        n = int(2.2 * RATE)
+        t = np.arange(n) / RATE
+        f = 46 + 84 * np.exp(-t / 0.07)
+        phase = 2 * np.pi * np.cumsum(f) / RATE
+        body = (np.sin(phase) + 0.3 * np.sin(2 * phase)) * np.exp(-t / 0.55) * np.minimum(1, t / 0.002)
+        knock = rng.standard_normal(n) * np.exp(-t / 0.012)
+        knock = np.convolve(knock, np.ones(24) / 24, mode='same')
+        y = np.tanh(2.4 * (body + 0.8 * knock))
+        room = y.copy()
+        for delay, g in ((0.031, 0.32), (0.067, 0.24), (0.109, 0.18), (0.163, 0.12), (0.229, 0.08)):
+            k = int(delay * RATE)
+            room[k:] += g * np.convolve(y, np.ones(40) / 40, mode='same')[:n - k]
+        return 0.9 * room / np.abs(room).max()
+    if name == 'ding':
+        # A small bright bell: a few slightly out-of-tune partials, the high ones dying first.
+        n = int(1.4 * RATE)
+        t = np.arange(n) / RATE
+        y = np.zeros(n)
+        for ratio, amp, tau in ((1.0, 1.0, 0.55), (2.0, 0.35, 0.3), (2.76, 0.22, 0.22), (4.07, 0.1, 0.12)):
+            y += amp * np.sin(2 * np.pi * 1318.5 * ratio * t) * np.exp(-t / tau)
+        y *= np.minimum(1, t / 0.001)
+        return 0.5 * y / np.abs(y).max()
     raise SystemExit('no such sound: ' + name)
 
 
@@ -319,6 +343,10 @@ def main():
         graph.append('[music][key]sidechaincompress=threshold=0.04:ratio=6:attack=25:release=450:makeup=1[ducked]')
         graph.append('[game][ducked]amix=inputs=2:normalize=0:duration=first:dropout_transition=0[scored]')
         audio = 'scored'
+    if edl.get('compress'):
+        # A quiet take (gerald's lava, mostly): its loud moments brought in a little, so it can be levelled up to -14.
+        graph.append('[%s]acompressor=threshold=0.05:ratio=3:attack=12:release=260:makeup=1[glued]' % audio)
+        audio = 'glued'
     graph.append('[%s]aresample=48000[aout]' % audio)
     # The picture and the sound as mixed, then the sound measured and levelled to -14 LUFS in a second pass (one pass
     # fell short of it on these, a couple of dB quiet, which YouTube never turns up), a limiter last to keep it under

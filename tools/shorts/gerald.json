@@ -1,10 +1,10 @@
-{"source": "build/film/gerald.mp4", "out": "build/film/gerald-short.mp4", "audio": "build/film/gerald-game.wav", "band": {"height": 1350, "center": 1060}, "banner": {"text": "bro JUST wanted to bridge 😭🙏", "y": 270, "size": 64}, "segments": [
+{"source": "build/film/gerald.mp4", "out": "build/film/gerald-short.mp4", "band": {"height": 1350, "center": 1060}, "banner": {"text": "bro JUST wanted to bridge 😭🙏", "y": 270, "size": 64}, "segments": [
   {"from": 0.4, "to": 16.4}, 
   {"from": 31.8, "to": 61.9}, 
   {"from": 93.1, "to": 104.0}],
  "sfx": [
-  {"at": 26.91, "sound": "riser", "gain": 0.6}],
- "crf": 18, "preset": "medium", "music": [
-  {"file": "build/film/music/Sneaky Snitch.mp3", "at": 0.0, "from": 0.0, "dur": 26.91, "db": -9, "fade_in": 0.05, "fade_out": 0.25}, 
-  {"file": "build/film/music/Floating Cities.mp3", "at": 29.41, "from": 0.0, "dur": 15.6, "db": -4, "fade_in": 1.5, "fade_out": 1.5}, 
-  {"file": "build/film/music/Sneaky Snitch.mp3", "at": 46.2, "from": 27.0, "dur": 6.3, "db": -9, "fade_in": 0.4, "fade_out": 0.05}]}
+  {"at": 12.4, "sound": "ding", "gain": 1.0}, 
+  {"at": 18.4, "sound": "boom", "gain": 1.0}, 
+  {"at": 26.91, "sound": "riser", "gain": 0.6}, 
+  {"at": 55.0, "sound": "boom", "gain": 1.0}],
+ "crf": 18, "preset": "medium", "compress": true}
