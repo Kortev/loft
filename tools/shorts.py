@@ -9,7 +9,8 @@ The EDL (edit decision list) is JSON:
      "crf": 18, "preset": "medium"}
 
 Segments are played in order: "from"/"to" are seconds of the source, "speed" speeds it up (sound too), "punch" pushes
-in over the segment (0.1 = 10%). Captions are timed in seconds of the output; "style" is hook (biggest), cap or small,
+in over the segment (0.1 = 10%); each is cut hard, with a few milliseconds' fade of its sound either side. Captions and
+sfx are optional: tools/shorts/*.json, the series' raw POV cuts, use neither. Captions are timed in seconds of the output; "style" is hook (biggest), cap or small,
 "y" is the height of its middle (0 top, 1 bottom), and words in *stars* are yellow. "sfx" are sounds laid over the
 game's, at seconds of the output: "pop" (a caption landing), "whoosh" (a cut or a speed-up) or "hit" (a low thud), made
 here, so nobody owns them; or "file", a sound file. The sound is levelled to -14 LUFS, as YouTube plays it. The
@@ -162,7 +163,10 @@ def main():
             v += (",scale=w='trunc(%d*(1+%.4f*min(t/%.4f\\,1))/2)*2':h='trunc(%d*(1+%.4f*min(t/%.4f\\,1))/2)*2':eval=frame,"
                   "crop=%d:%d" % (W, punch, dur, H, punch, dur, W, H))
         v += ',fps=30[v%d]' % i
-        a = '[0:a]atrim=start=%.4f:end=%.4f,asetpts=PTS-STARTPTS,%s[a%d]' % (seg['from'], seg['to'], atempo(sp), i)
+        # A few milliseconds' fade either side of each cut, so a hard cut doesn't click.
+        out = (seg['to'] - seg['from']) / sp
+        a = ('[0:a]atrim=start=%.4f:end=%.4f,asetpts=PTS-STARTPTS,%s,afade=t=in:d=0.012,afade=t=out:st=%.4f:d=0.012[a%d]'
+             % (seg['from'], seg['to'], atempo(sp), max(0.0, out - 0.012), i))
         graph += [v, a]
         labels.append('[v%d][a%d]' % (i, i))
     graph.append('%sconcat=n=%d:v=1:a=1[cv][ca]' % (''.join(labels), len(labels)))

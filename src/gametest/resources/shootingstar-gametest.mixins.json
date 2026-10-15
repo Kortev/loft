@@ -12,7 +12,8 @@
 		"FilmSkinMixin",
 		"FilmFrameMixin",
 		"FilmPreviewMixin",
-		"FilmMouseAccessor"
+		"FilmMouseAccessor",
+		"FilmClickInvoker"
 	],
 	"injectors": {
 		"defaultRequire": 1

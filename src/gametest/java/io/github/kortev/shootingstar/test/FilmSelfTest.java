@@ -172,17 +172,17 @@ public class FilmSelfTest implements ClientModInitializer {
 	private static int lastTry = -1000;
 	private static int lastRecorded = -1;
 	private static boolean swung;
-	// Kortev: the wheat being got in, the chest.
+	// Kortev: the wheat being got in (which stalk, which step of it, since when), the chest.
 	private static int job;
+	private static int jobStep;
 	private static int jobAt;
 	private static int openedAt = -1;
 	private static int closedAt = -1;
-	// gerald_2009: the bridge.
+	// gerald_2009: the bridge (its end, the blocks put down, the stops to look about).
 	private static int bridgeX;
 	private static int placed;
 	private static int pauseUntil = -1;
 	private static int nextPause = 7;
-	private static int lastPlace = -100;
 
 	public static boolean active() {
 		return me != null;
@@ -343,12 +343,13 @@ public class FilmSelfTest implements ClientModInitializer {
 				FilmHuman.release(client);
 				chest(client, player, screen, now);
 			} else {
+				h.at(now);
 				switch (me) {
 					case KORTEV -> kortev(client, player, h, sc, now, r);
 					case WOOMERD -> woomerd(client, player, h, sc, now, r);
 					case GERALD -> gerald(client, player, h, sc, now, r);
 				}
-				h.tick(client, player, now);
+				h.tick(client, player);
 			}
 		}
 		record(client, player, now, r);
@@ -405,74 +406,108 @@ public class FilmSelfTest implements ClientModInitializer {
 		Vec3d target = Vec3d.ofCenter(sc.target);
 		Vec3d woomerd = orElse(eyes(client, Role.WOOMERD), eye(sc.woomerdSafe));
 		Vec3d cabin = Vec3d.ofCenter(sc.house).add(0.0, 2.5, 0.0);
+		h.slack(2.5).spam(false).sneak(false).back(false).idle(0.0).stay();
 		if (age < 0) {
-			h.wander(2.0).follow(0.3).fidget(0.0).spam(false).sneak(false).back(false);
 			if (now < BOOM) {
 				farming(client, player, h, sc, now);
-			} else if (now < BOOM + 8) {
+			} else if (now < BOOM + 6) {
 				// It goes up behind them: round they spin, a step back.
-				h.look(cabin.add(4.0, 0.0, 0.0)).wander(1.0).stay().back(now < BOOM + 4);
-			} else if (now < BOOM + 16) {
-				h.look(cabin.add(3.0, -1.0, 0.0)).wander(2.5).stay();
+				h.look(cabin.add(4.0, -0.5, 0.0)).slack(5.0).back(now < BOOM + 4);
+			} else if (now < BOOM + 22) {
+				// What is left of the wall.
+				h.glance("boom", 6, 10, cabin.add(3.5, -1.5, 0.0), cabin.add(2.5, 0.5, 1.5), cabin.add(3.5, -2.0, -1.0)).slack(2.0);
 			} else if (now < CHEST_GO) {
-				// And there is Woomerd, crouching at them.
-				h.look(woomerd).follow(0.35).wander(1.0).go(sc.kortev.add(1.2, 0.0, 0.6), FilmHuman.Pace.WALK, 0.3, false);
+				// And there is Woomerd, crouching at them: a step their way.
+				h.look(woomerd).track().slack(1.5).go(sc.kortev.add(1.2, 0.0, 0.6), FilmHuman.Pace.WALK, 0.3, false);
 			} else if (closedAt < 0) {
-				Vec3d box = Vec3d.ofCenter(sc.chest).add(0.0, 0.25, 0.0);
-				h.look(box).wander(0.6).follow(0.45).go(sc.atChest, FilmHuman.Pace.WALK, 0.3, false);
-				if (openedAt < 0 && (FilmHuman.near(player, sc.atChest, 0.5) && h.off(player, box) < 7.0 || now >= CHEST_GO + 30)) {
-					if (ACTED.add("open")) {
-						client.interactionManager.interactBlock(player, Hand.MAIN_HAND,
-								new BlockHitResult(Vec3d.ofCenter(sc.chest).add(-0.5, 0.0, 0.0), Direction.WEST, sc.chest, false));
-						swing(player);
-						ShootingStar.LOGGER.info("[film] Kortev opens the chest at {}", now);
-					}
-				}
+				toChest(client, player, h, sc, now);
 			} else {
 				// The key out, and on the base.
 				if (once(now, closedAt + 3, "key out")) {
-					player.getInventory().selectedSlot = 0;
+					for (int k = 0; k < 9; k++) {
+						if (player.getInventory().getStack(k).isOf(ModItems.GENESIS_KEY)) {
+							player.getInventory().selectedSlot = k;
+						}
+					}
 				}
-				h.look(target.add(0.0, 0.6, 0.0)).wander(0.4).follow(0.5).stay();
+				h.look(target.add(0.0, 0.6, 0.0)).slack(0.6);
 				if (once(now, KEY_TURN, "key")) {
 					aimAt(player, player.getEyePos(), target);
 					ShootingStar.LOGGER.info("[film] Kortev turns the key at {}", now);
-					client.interactionManager.interactItem(player, Hand.MAIN_HAND);
-					swing(player);
+					FilmHuman.rightClick(client);
+					swung = true;
 				}
 			}
 			return;
 		}
 		if (released < 0) {
-			kortevVoid(client, player, h, sc, now, target);
+			kortevVoid(client, player, h, target);
 			return;
 		}
 		if (r >= HOME) {
-			kortevHome(client, player, h, sc, now, r - HOME, target);
+			kortevHome(client, player, h, sc, r - HOME, target);
 		}
 	}
 
-	/** Getting the wheat in: to each ripe stalk along the path, break it, put seed back in. */
+	/** Getting the wheat in: to each ripe stalk along the path, a left click on it, a right click on its soil (seed back in). */
 	private static void farming(MinecraftClient client, ClientPlayerEntity player, FilmHuman h, FilmScene sc, int now) {
 		BlockPos crop = crop(sc, job);
 		BlockPos soil = crop.down();
 		Vec3d stand = new Vec3d(sc.kortev.x, sc.kortev.y, crop.getZ() + 0.5 + (job % 2 == 0 ? -0.2 : 0.2));
 		int t = now - jobAt;
-		h.go(stand, FilmHuman.Pace.WALK, 0.35, false);
-		if (t < 9) {
-			h.look(Vec3d.ofCenter(crop).add(0.0, -0.2, 0.0)).wander(0.8).follow(0.4);
-		} else if (t == 9) {
-			client.interactionManager.attackBlock(crop, Direction.UP);
-			swing(player);
-		} else if (t < 15) {
-			h.look(Vec3d.ofCenter(soil).add(0.0, 0.45, 0.0)).wander(0.6);
-		} else if (t == 15) {
-			client.interactionManager.interactBlock(player, Hand.MAIN_HAND,
-					new BlockHitResult(Vec3d.ofCenter(soil).add(0.0, 0.44, 0.0), Direction.UP, soil, false));
-			swing(player);
-		} else if (t >= 18) {
-			job = Math.min(job + 1, 13);
-			jobAt = now;
+		h.go(stand, FilmHuman.Pace.WALK, 0.35, false).slack(1.2);
+		switch (jobStep) {
+			case 0 -> {
+				h.look(Vec3d.ofCenter(crop).add(0.0, -0.2, 0.0));
+				if (t >= 4 && FilmHuman.on(client, crop, null)) {
+					FilmHuman.leftClick(client);
+					swung = true;
+					jobStep = 1;
+					jobAt = now;
+				} else if (t > 40) {
+					nextJob(now);
+				}
+			}
+			case 1 -> {
+				h.look(Vec3d.ofCenter(soil).add(0.0, 0.44, 0.0));
+				if (t >= 3 && FilmHuman.on(client, soil, Direction.UP)) {
+					FilmHuman.rightClick(client);
+					swung = true;
+					jobStep = 2;
+					jobAt = now;
+				} else if (t > 30) {
+					nextJob(now);
+				}
+			}
+			default -> {
+				if (t >= 3) {
+					nextJob(now);
+				}
+			}
+		}
+	}
+
+	private static void nextJob(int now) {
+		job = Math.min(job + 1, 13);
+		jobStep = 0;
+		jobAt = now;
+	}
+
+	/** Over to the chest, and a right click on it once the crosshair is on it. */
+	private static void toChest(MinecraftClient client, ClientPlayerEntity player, FilmHuman h, FilmScene sc, int now) {
+		h.look(Vec3d.ofCenter(sc.chest).add(0.0, 0.2, 0.0)).slack(1.0).go(sc.atChest, FilmHuman.Pace.WALK, 0.3, false);
+		if (openedAt >= 0 || ACTED.contains("open")) {
+			return;
+		}
+		if (FilmHuman.near(player, sc.atChest, 0.7) && FilmHuman.on(client, sc.chest, null)) {
+			ACTED.add("open");
+			FilmHuman.rightClick(client);
+			swung = true;
+			ShootingStar.LOGGER.info("[film] Kortev opens the chest at {}", now);
+		} else if (now >= CHEST_GO + 40) {
+			ACTED.add("open");
+			ShootingStar.LOGGER.warn("[film] Kortev's crosshair never found the chest: opened it anyway");
+			client.interactionManager.interactBlock(player, Hand.MAIN_HAND, new BlockHitResult(Vec3d.ofCenter(sc.chest), Direction.WEST, sc.chest, false));
 		}
 	}
 
@@ -487,22 +522,22 @@ public class FilmSelfTest implements ClientModInitializer {
 		int t = now - openedAt;
 		int key = 13;
 		int hotbar = handler.getRows() * 9 + 27;
-		if (t == 1) {
-			FilmCursor.moveTo(slotX(screen, handler.getSlot(key)) + 2.0, slotY(screen, handler.getSlot(key)) + 3.0, 7.0);
+		if (t == 2) {
+			FilmCursor.moveTo(slotX(screen, handler.getSlot(key)) + 2.0, slotY(screen, handler.getSlot(key)) + 3.0, 6.0);
 		}
-		if (t == 15) {
+		if (t == 14) {
 			client.interactionManager.clickSlot(handler.syncId, key, 0, SlotActionType.PICKUP, player);
 		}
-		if (t == 17) {
-			FilmCursor.moveTo(slotX(screen, handler.getSlot(hotbar)) + 1.0, slotY(screen, handler.getSlot(hotbar)) + 2.0, 6.0);
+		if (t == 16) {
+			FilmCursor.moveTo(slotX(screen, handler.getSlot(hotbar)) + 1.0, slotY(screen, handler.getSlot(hotbar)) + 2.0, 5.0);
 		}
-		if (t == 25) {
+		if (t == 23) {
 			client.interactionManager.clickSlot(handler.syncId, hotbar, 0, SlotActionType.PICKUP, player);
 		}
-		if (t == 27) {
+		if (t == 25) {
 			FilmCursor.moveTo(slotX(screen, handler.getSlot(hotbar)) + 14.0, slotY(screen, handler.getSlot(hotbar)) - 10.0, 4.0);
 		}
-		if (t >= 31) {
+		if (t >= 29) {
 			FilmCursor.show(false);
 			player.closeHandledScreen();
 			closedAt = now;
@@ -518,38 +553,39 @@ public class FilmSelfTest implements ClientModInitializer {
 		return (screen.height - (114 + screen.getScreenHandler().getRows() * 18)) / 2.0 + slot.y + 8.0;
 	}
 
-	/** In the void, once the view is theirs again: taking it in, Woomerd at them, gerald, then the hole, and the key. */
-	private static void kortevVoid(MinecraftClient client, ClientPlayerEntity player, FilmHuman h, FilmScene sc, int now, Vec3d target) {
+	/** In the void, once the view is theirs again: taking it in, a few steps on nothing, Woomerd, gerald, the hole, the key. */
+	private static void kortevVoid(MinecraftClient client, ClientPlayerEntity player, FilmHuman h, Vec3d target) {
 		if (age < GapTimeline.RETURN) {
 			return;
 		}
 		Vec3d woomerd = orElse(eyes(client, Role.WOOMERD), target);
 		Vec3d gerald = orElse(eyes(client, Role.GERALD), woomerd);
 		Vec3d hole = target.add(0.0, -4.0, 0.0);
-		double toHole = FilmHuman.angles(player.getEyePos(), hole)[0];
+		Vec3d eye = player.getEyePos();
+		double toHole = FilmHuman.angles(eye, hole)[0];
 		int a = age;
-		h.spam(false).sneak(false).back(false).fidget(0.0).follow(0.3);
-		if (a < 760) {
-			h.look(toHole + 70.0 * Math.sin((a - GapTimeline.RETURN) / 18.0), -8.0 + 6.0 * Math.sin((a - GapTimeline.RETURN) / 11.0)).wander(3.0).stay();
+		if (a < 770) {
+			h.glance("void", 16, 34, far(eye, toHole + 100.0, -4.0), far(eye, toHole - 80.0, 12.0), far(eye, toHole + 15.0, 55.0), hole,
+					far(eye, toHole + 160.0, -15.0)).slack(3.0);
 		} else if (a < 800) {
-			// Down at their feet: rings where they step on nothing.
-			Vec3d ahead = player.getPos().add(Vec3d.fromPolar(0.0F, (float) toHole).multiply(3.0));
-			h.look(toHole - 20.0, 62.0).wander(2.0).go(ahead, FilmHuman.Pace.WALK, 0.4, false);
-			if (a == 790) {
+			// A few steps out on it, rings where each foot comes down; a hop.
+			Vec3d ahead = player.getPos().add(Vec3d.fromPolar(0.0F, (float) (toHole - 25.0)).multiply(4.0));
+			h.look(far(eye, toHole - 25.0, 50.0)).slack(4.0).go(ahead, FilmHuman.Pace.WALK, 0.5, false);
+			if (a == 788) {
 				h.jump();
 			}
-		} else if (a < 860) {
-			h.look(woomerd).wander(1.0).fidget(0.6).stay();
-		} else if (a < 900) {
-			h.look(gerald).wander(1.5).stay();
+		} else if (a < 870) {
+			h.look(woomerd).track().slack(1.5).idle(0.6);
+		} else if (a < 910) {
+			h.look(gerald).track().slack(1.5);
 		} else {
-			h.look(hole).wander(0.8).follow(0.4).stay();
+			h.look(hole).slack(1.0);
 		}
 		if (released < 0 && age >= RELEASE_FROM && ticks - lastTry >= 20 && player.getMainHandStack().isOf(ModItems.GENESIS_KEY)) {
 			lastTry = ticks;
 			ShootingStar.LOGGER.info("[film] Kortev turns the cracked key at age {}", age);
-			client.interactionManager.interactItem(player, Hand.MAIN_HAND);
-			swing(player);
+			FilmHuman.rightClick(client);
+			swung = true;
 		}
 	}
 
@@ -557,30 +593,34 @@ public class FilmSelfTest implements ClientModInitializer {
 	 * Home: over to the edge of the hole where the base was, on the side Woomerd comes running up to it from (the spawn's),
 	 * a few blocks along from them; a look down it; then at Woomerd beside them, and the crouch back at them.
 	 */
-	private static void kortevHome(MinecraftClient client, ClientPlayerEntity player, FilmHuman h, FilmScene sc, int now, int t, Vec3d target) {
+	private static void kortevHome(MinecraftClient client, ClientPlayerEntity player, FilmHuman h, FilmScene sc, int t, Vec3d target) {
 		Vec3d woomerd = orElse(eyes(client, Role.WOOMERD), target);
 		Vec3d middle = Vec3d.ofBottomCenter(sc.target);
 		Vec3d out = new Vec3d(sc.respawn.x - middle.x, 0.0, sc.respawn.z - middle.z).normalize().rotateY(-0.2F);
 		Vec3d spot = new Vec3d(middle.x + out.x * 28.0, player.getY(), middle.z + out.z * 28.0);
-		h.sneak(false).back(false).spam(false).fidget(0.0).follow(0.3);
 		if (t < 24) {
-			h.look(target.add(0.0, -6.0, 0.0)).wander(4.0).stay();
+			h.look(target.add(0.0, -6.0, 0.0)).slack(4.0);
 		} else if (t < 165 && !ACTED.contains("kortev at rim")) {
 			if (FilmHuman.near(player, spot, 1.0) || !safeAhead(player)) {
 				ACTED.add("kortev at rim");
 			}
-			h.look(t < 100 ? eye(spot) : target.add(0.0, -8.0, 0.0)).wander(2.0).go(spot,
+			h.look(t < 100 ? eye(spot) : target.add(0.0, -8.0, 0.0)).slack(3.0).go(spot,
 					player.squaredDistanceTo(spot) > 100.0 ? FilmHuman.Pace.SPRINT : FilmHuman.Pace.WALK, 1.0, false);
 		} else if (t < 190) {
-			h.look(target.add(0.0, -16.0, 0.0)).wander(3.0).stay();
+			h.look(target.add(0.0, -16.0, 0.0)).slack(2.0);
 		} else if (t < 240) {
-			h.look(woomerd).wander(0.6).follow(0.4).stay().spam(t > 196);
+			h.look(woomerd).track().slack(1.0).spam(t > 196);
 		} else {
-			h.look(woomerd).wander(1.5).fidget(0.8).stay();
+			h.look(woomerd).track().slack(1.5).idle(0.8);
 		}
 		if (!safeAhead(player)) {
 			h.stay();
 		}
+	}
+
+	/** A point well off from {@code eye}, this way. */
+	private static Vec3d far(Vec3d eye, double yaw, double pitch) {
+		return eye.add(Vec3d.fromPolar((float) pitch, (float) yaw).multiply(40.0));
 	}
 
 	/** The place {@code from} blocks out from the hole's middle on the player's side, to go and look down from. */
@@ -591,7 +631,7 @@ public class FilmSelfTest implements ClientModInitializer {
 		return new Vec3d(middle.x + out.x * from, player.getY(), middle.z + out.z * from);
 	}
 
-	/** Ground a step or two ahead (no fissure or hole there to walk into). */
+	/** Ground a step or two ahead: no fissure or hole there to walk into (a dip in the land is fine). */
 	private static boolean safeAhead(ClientPlayerEntity player) {
 		Vec3d v = player.getVelocity();
 		if (v.horizontalLengthSquared() < 1.0E-4 || player.getWorld() == null) {
@@ -599,7 +639,7 @@ public class FilmSelfTest implements ClientModInitializer {
 		}
 		Vec3d ahead = player.getPos().add(v.normalize().multiply(1.8));
 		int top = player.getWorld().getTopY(Heightmap.Type.MOTION_BLOCKING, MathHelper.floor(ahead.x), MathHelper.floor(ahead.z));
-		return top >= player.getY() - 3.0;
+		return top >= player.getY() - 10.0;
 	}
 
 	// --- Woomerd -----------------------------------------------------------------------------
@@ -608,66 +648,22 @@ public class FilmSelfTest implements ClientModInitializer {
 		Vec3d kortev = orElse(eyes(client, Role.KORTEV), eye(sc.atChest));
 		Vec3d target = Vec3d.ofCenter(sc.target);
 		Vec3d wall = new Vec3d(sc.house.getX() + 4.5, sc.house.getY() + 1.0, sc.house.getZ() + 0.5);
-		h.spam(false).sneak(false).back(false).fidget(0.0).follow(0.3).wander(2.0);
+		h.spam(false).sneak(false).back(false).idle(0.0).slack(2.5).stay();
 		if (age < 0) {
-			if (now < 44) {
-				// Up to the cabin, crouching for the last few steps, a look round the corner for Kortev on the way.
-				Vec3d look = now > 18 && now < 28 ? Vec3d.ofCenter(sc.farm).add(0.0, 1.5, 0.0) : wall;
-				boolean close = FilmHuman.near(player, sc.woomerdAtHouse, 2.8);
-				h.look(look).wander(2.5).go(sc.woomerdAtHouse, close ? FilmHuman.Pace.SNEAK : FilmHuman.Pace.WALK, 0.3, false);
-			} else if (now < IGNITE + 2) {
-				int i = MathHelper.clamp((now - TNT_AT[0] + 4) / 8, 0, 2);
-				h.look(sc.tnt[i].toCenterPos()).wander(0.8).follow(0.45).go(sc.woomerdAtHouse, FilmHuman.Pace.WALK, 0.3, false);
-				for (int at : TNT_AT) {
-					if (once(now, at, "tnt" + at)) {
-						swing(player);
-					}
-				}
-				if (once(now, FLINT, "flint")) {
-					player.getInventory().selectedSlot = 1;
-				}
-				if (once(now, IGNITE, "ignite")) {
-					swing(player);
-				}
-			} else if (now < RUN_AWAY + 40) {
-				if (once(now, RUN_AWAY, "sword")) {
-					player.getInventory().selectedSlot = 2;
-				}
-				boolean there = FilmHuman.near(player, sc.woomerdSafe, 0.8) || ACTED.contains("safe");
-				if (there) {
-					ACTED.add("safe");
-				}
-				h.look(there ? wall : eye(sc.woomerdSafe)).wander(1.5).go(there ? null : sc.woomerdSafe, FilmHuman.Pace.SPRINT, 0.8, true);
-			} else if (now < TAUNT_FROM) {
-				h.look(now < BOOM ? wall : wall.add(0.0, 1.5, 0.0)).wander(2.0).fidget(1.2).stay();
-			} else if (now < TAUNT_TO) {
-				// At Kortev, crouching up and down, a hop for good measure.
-				h.look(kortev).wander(1.0).follow(0.4).stay().spam(true);
-				if (now == TAUNT_FROM + 20) {
-					h.jump();
-				}
-			} else {
-				boolean home = FilmHuman.near(player, sc.woomerdAtBase, 0.8) || ACTED.contains("home");
-				if (home) {
-					ACTED.add("home");
-					celebrate(h, player, sc, now, kortev);
-				} else {
-					h.look(eye(sc.woomerdAtBase)).wander(2.0).go(sc.woomerdAtBase, FilmHuman.Pace.SPRINT, 0.8, true);
-				}
-			}
+			woomerdBefore(client, player, h, sc, now, kortev, wall);
 			return;
 		}
 		if (released < 0 && age < GapTimeline.NOTHING) {
 			if (!ACTED.contains("respawned") && age < GapTimeline.CONTACT + 20) {
-				woomerdBase(h, player, sc, now, kortev, target);
+				woomerdBase(h, sc, now, kortev, target);
 			} else {
 				ACTED.add("respawned");
-				woomerdFlee(h, player, sc, now, target);
+				woomerdFlee(h, player, target);
 			}
 			return;
 		}
 		if (released < 0) {
-			woomerdVoid(client, player, h, now, kortev);
+			woomerdVoid(client, player, h, kortev);
 			return;
 		}
 		if (r < HOME) {
@@ -677,126 +673,225 @@ public class FilmSelfTest implements ClientModInitializer {
 		woomerdHome(h, player, sc, r - HOME, kortev, target);
 	}
 
-	/** At the base: hopping about, a spin, a crouch or two at the cabin; looking round at Kortev now and then. */
-	private static void celebrate(FilmHuman h, ClientPlayerEntity player, FilmScene sc, int now, Vec3d kortev) {
-		int t = now - RUN_HOME;
-		Vec3d spot = sc.woomerdAtBase.add(Math.sin(t / 23.0) * 1.2, 0.0, Math.cos(t / 31.0) * 1.4);
-		if ((t / 40) % 3 == 1) {
-			h.look(kortev).wander(1.5).spam((t % 40) > 22).go(spot, FilmHuman.Pace.WALK, 0.5, false);
-		} else {
-			double yaw = player.getYaw() + 9.0;
-			h.look(yaw, 4.0).wander(4.0).fidget(2.0).go(spot, FilmHuman.Pace.WALK, 0.5, false);
-			if (t % 17 == 0) {
-				h.jump();
-			}
-		}
+	/** Where Woomerd stands to put down the {@code i}th TNT: square in front of it, a couple of blocks back. */
+	private static Vec3d tntSpot(FilmScene sc, int i) {
+		BlockPos p = sc.tnt[i];
+		return new Vec3d(p.getX() + 2.8, sc.woomerdAtHouse.y, p.getZ() + 0.5);
 	}
 
-	/** The event, at the base: Kortev's light going up, the sky, then the block coming down on them. */
-	private static void woomerdBase(FilmHuman h, ClientPlayerEntity player, FilmScene sc, int now, Vec3d kortev, Vec3d target) {
-		int a = age;
-		Vec3d beam = kortev.add(0.0, Math.min(60.0, Math.max(0.0, (a - 37) * 6.0)), 0.0);
-		if (a < 40) {
-			celebrate(h, player, sc, now, kortev);
-		} else if (a < 70) {
-			// The flash where Kortev is.
-			h.look(kortev).wander(1.0).follow(0.4).stay().fidget(0.5);
-		} else if (a < 92) {
-			h.look(kortev.add(0.0, Math.min(22.0, (a - 70) * 1.5), 0.0)).wander(1.5).stay();
-		} else if (a < 300) {
-			// Whatever that was, it did nothing: at Kortev again, crouching, hopping about, a glance up now and then.
-			int p = (a - 92) % 64;
-			Vec3d toward = new Vec3d(kortev.x - sc.woomerdAtBase.x, 0.0, kortev.z - sc.woomerdAtBase.z).normalize();
-			Vec3d spot = sc.woomerdAtBase.add(toward.multiply(1.5 + Math.sin(a / 21.0))).add(0.0, 0.0, Math.cos(a / 27.0));
-			if (p < 26) {
-				h.look(kortev).wander(1.0).follow(0.4).spam(p > 8).go(spot, FilmHuman.Pace.WALK, 0.5, false);
-			} else if (p < 38) {
-				h.look(kortev.add(0.0, 14.0, 0.0)).wander(3.0).stay();
-			} else {
-				h.look(kortev).wander(2.5).fidget(2.0).stay();
-				if (p == 44 || p == 56) {
-					h.jump();
+	/** The first TNT not yet put down (3: all of them). */
+	private static int nextTnt() {
+		for (int k = 0; k < TNT_AT.length; k++) {
+			if (!ACTED.contains("tnt" + k)) {
+				return k;
+			}
+		}
+		return TNT_AT.length;
+	}
+
+	/**
+	 * Before the key: up to the cabin, crouching the last of the way; the TNT down a block at a time, each with a right
+	 * click on the ground in front of the wall; lit with a right click on it; away to safety to watch; the crouch at
+	 * Kortev; home to the base.
+	 */
+	private static void woomerdBefore(MinecraftClient client, ClientPlayerEntity player, FilmHuman h, FilmScene sc, int now, Vec3d kortev,
+			Vec3d wall) {
+		int i = nextTnt();
+		if (now < TNT_AT[0] - 8) {
+			Vec3d spot = tntSpot(sc, 0);
+			boolean close = FilmHuman.near(player, spot, 1.2);
+			h.look(now > 12 && now < 22 ? Vec3d.ofCenter(sc.farm).add(0.0, 1.5, 0.0) : wall).slack(3.0)
+					.go(spot, close ? FilmHuman.Pace.SNEAK : FilmHuman.Pace.WALK, 0.25, false);
+		} else if (i < TNT_AT.length) {
+			BlockPos soil = sc.tnt[i].down();
+			h.look(Vec3d.ofCenter(soil).add(0.0, 0.5, 0.0)).slack(0.6).go(tntSpot(sc, i), FilmHuman.Pace.WALK, 0.2, false);
+			if (now >= TNT_AT[i]) {
+				if (FilmHuman.on(client, soil, Direction.UP)) {
+					ACTED.add("tnt" + i);
+					FilmHuman.rightClick(client);
+					swung = true;
+				} else if (now >= TNT_AT[i] + 6) {
+					ACTED.add("tnt" + i);
+					ShootingStar.LOGGER.warn("[film] Woomerd's crosshair was not on TNT spot {} in time: the server puts it there", i);
 				}
 			}
+		} else if (!ACTED.contains("ignite")) {
+			if (once(now, FLINT, "flint")) {
+				player.getInventory().selectedSlot = 1;
+			}
+			h.look(Vec3d.ofCenter(sc.tnt[1]).add(0.0, 0.1, 0.0)).slack(0.6).go(tntSpot(sc, 1), FilmHuman.Pace.WALK, 0.2, false);
+			if (now >= IGNITE && !ACTED.contains("ignite")) {
+				if (FilmHuman.on(client, sc.tnt[1], null)) {
+					ACTED.add("ignite");
+					FilmHuman.rightClick(client);
+					swung = true;
+				} else if (now >= IGNITE + 6) {
+					ACTED.add("ignite");
+					ShootingStar.LOGGER.warn("[film] Woomerd's crosshair was not on the TNT to light it: the server lights it");
+				}
+			}
+		} else if (now < TAUNT_FROM) {
+			if (once(now, RUN_AWAY, "sword")) {
+				player.getInventory().selectedSlot = 2;
+			}
+			boolean there = FilmHuman.near(player, sc.woomerdSafe, 0.9) || ACTED.contains("safe");
+			if (there) {
+				ACTED.add("safe");
+				if (now < BOOM) {
+					h.glance("watch", 10, 24, wall.add(0.0, 1.0, 0.0), wall.add(-1.0, 3.5, 0.5), wall.add(0.0, 0.5, 1.5)).slack(2.5).idle(1.2);
+				} else {
+					h.look(wall.add(-1.0, 1.0, 0.0)).slack(3.0);
+				}
+			} else {
+				h.look(eye(sc.woomerdSafe)).slack(4.0).go(sc.woomerdSafe, FilmHuman.Pace.SPRINT, 0.9, true);
+			}
+		} else if (now < TAUNT_TO) {
+			h.look(kortev).track().slack(1.0).spam(true);
+			if (now == TAUNT_FROM + 20) {
+				h.jump();
+			}
 		} else {
-			// The bridge reaching down, the block on it: they back off a step, looking up at it.
-			double fall = MathHelper.clamp((a - 404) / 24.0, 0.0, 1.0);
-			h.look(target.add(0.0, MathHelper.lerp(fall, 60.0, 4.0), 0.0)).wander(0.8).follow(0.45)
-					.go(a > 396 ? sc.woomerdAtBase.add(1.5, 0.0, 1.2) : null, FilmHuman.Pace.WALK, 0.4, false);
+			boolean home = FilmHuman.near(player, sc.woomerdAtBase, 0.8) || ACTED.contains("home");
+			if (home) {
+				ACTED.add("home");
+				celebrate(h, sc, now, kortev);
+			} else {
+				h.look(eye(sc.woomerdAtBase)).slack(4.0).go(sc.woomerdAtBase, FilmHuman.Pace.SPRINT, 0.8, true);
+			}
 		}
 	}
 
-	/** Back at the spawn, the base gone in a flash, and then the black coming for them: they run. */
-	private static void woomerdFlee(FilmHuman h, ClientPlayerEntity player, FilmScene sc, int now, Vec3d target) {
+	/** At the base: looking about, hopping and stepping about, a crouch at Kortev now and then. */
+	private static void celebrate(FilmHuman h, FilmScene sc, int now, Vec3d kortev) {
+		int t = now - RUN_HOME;
+		if ((t / 45) % 2 == 1) {
+			h.look(kortev).track().slack(1.2).spam(t % 45 > 18);
+		} else {
+			h.glance("at base", 12, 26, kortev, Vec3d.ofCenter(sc.base).add(0.0, 3.0, 0.0), Vec3d.ofCenter(sc.house).add(0.0, 2.0, 0.0))
+					.slack(2.5).idle(1.6);
+		}
+	}
+
+	/** The event, at the base: the flash where Kortev is, the light going up; taunting; then the block coming down on them. */
+	private static void woomerdBase(FilmHuman h, FilmScene sc, int now, Vec3d kortev, Vec3d target) {
+		int a = age;
+		if (a < 40) {
+			celebrate(h, sc, now, kortev);
+		} else if (a < 70) {
+			h.look(kortev).slack(1.5);
+		} else if (a < 100) {
+			h.look(kortev.add(0.0, 30.0, 0.0)).track().slack(2.0);
+		} else if (a < 300) {
+			// Whatever that was, it did nothing: at Kortev again, crouching; a look up now and then.
+			int p = (a - 100) % 70;
+			if (p < 30) {
+				h.look(kortev).track().slack(1.2).spam(p > 8);
+			} else if (p < 44) {
+				h.look(kortev.add(0.0, 25.0, 0.0)).slack(2.5);
+			} else {
+				h.glance("waiting", 10, 20, kortev, target.add(0.0, 20.0, 0.0), Vec3d.ofCenter(sc.house).add(0.0, 2.0, 0.0)).slack(2.5).idle(1.5);
+			}
+		} else if (a < GapTimeline.INBOUND) {
+			// Something in the sky over them.
+			h.look(target.add(0.0, 60.0, 0.0)).slack(2.0);
+		} else {
+			// It comes down: they back off a step, watching it.
+			double fall = MathHelper.clamp((a - GapTimeline.INBOUND) / 24.0, 0.0, 1.0);
+			h.look(target.add(0.0, MathHelper.lerp(fall, 60.0, 4.0), 0.0)).track().slack(1.0)
+					.go(sc.woomerdAtBase.add(1.5, 0.0, 1.2), FilmHuman.Pace.WALK, 0.4, false);
+		}
+	}
+
+	/** Back at the spawn, the base gone in a flash, and then the black coming for them: they run, one look back. */
+	private static void woomerdFlee(FilmHuman h, ClientPlayerEntity player, Vec3d target) {
 		int a = age;
 		if (a < GapTimeline.ERASURE + 4) {
-			h.look(target.add(0.0, 10.0, 0.0)).wander(3.0).follow(0.35).stay();
+			h.look(target.add(0.0, 10.0, 0.0)).slack(3.0);
 		} else {
 			Vec3d away = new Vec3d(player.getX() - target.x, 0.0, player.getZ() - target.z).normalize();
 			Vec3d to = player.getPos().add(away.multiply(30.0));
-			h.look(a < GapTimeline.ERASURE + 10 ? target : eye(to)).wander(4.0).go(to, FilmHuman.Pace.SPRINT, 1.0, true);
+			boolean back = a < GapTimeline.ERASURE + 10 || a > GapTimeline.ERASURE + 40 && a < GapTimeline.ERASURE + 52;
+			h.look(back ? target : eye(to)).slack(4.0).go(to, FilmHuman.Pace.SPRINT, 1.0, true);
 		}
 	}
 
-	/** In the void: all over the place at first, then up to Kortev and at them. */
-	private static void woomerdVoid(MinecraftClient client, ClientPlayerEntity player, FilmHuman h, int now, Vec3d kortev) {
+	/** In the void: where are we, then up to Kortev, hitting them (nothing touches anyone here), the crouch, gerald. */
+	private static void woomerdVoid(MinecraftClient client, ClientPlayerEntity player, FilmHuman h, Vec3d kortev) {
 		int a = age;
 		if (a < ANCHOR) {
 			return;
 		}
+		Vec3d eye = player.getEyePos();
+		Vec3d gerald = orElse(eyes(client, Role.GERALD), kortev);
+		double toKortev = FilmHuman.angles(eye, kortev)[0];
 		if (a < 690) {
-			h.look(player.getYaw() + 25.0 * Math.sin(a / 5.0) + (a < 660 ? 30.0 : -40.0), -5.0 + 25.0 * Math.sin(a / 9.0)).wander(8.0).stay();
-			if (a == 650 || a == 668) {
+			h.glance("lost", 10, 22, far(eye, toKortev + 140.0, 0.0), far(eye, toKortev - 120.0, 20.0), far(eye, toKortev + 60.0, 60.0), kortev)
+					.slack(4.0);
+			if (a == 652 || a == 670) {
 				h.jump();
 			}
 		} else if (a < 730) {
-			h.look(kortev).wander(1.0).go(kortev.add(0.0, -1.62, 0.0), FilmHuman.Pace.WALK, 1.8, false);
+			h.look(kortev).track().slack(1.5).go(kortev.add(0.0, -1.62, 0.0), FilmHuman.Pace.WALK, 1.8, false);
 		} else if (a < 800) {
-			// Hitting them (nothing touches anyone here).
-			h.look(kortev.add(0.0, -0.5, 0.0)).wander(1.2).follow(0.45).go(kortev.add(0.0, -1.62, 0.0), FilmHuman.Pace.WALK, 1.6, false);
+			h.look(kortev.add(0.0, -0.4, 0.0)).track().slack(1.0).go(kortev.add(0.0, -1.62, 0.0), FilmHuman.Pace.WALK, 1.6, false);
 			if ((a - 730) % 7 == 0) {
-				swing(player);
+				FilmHuman.leftClick(client);
+				swung = true;
 			}
 		} else if (a < 830) {
-			h.look(kortev).wander(1.0).stay().spam(true);
-		} else if (a < 880) {
-			h.look(player.getYaw() - 6.0, 30.0).wander(6.0).fidget(1.0).stay();
+			h.look(kortev).track().slack(1.0).spam(true);
 		} else {
-			h.look(kortev).wander(1.5).fidget(1.0).stay();
+			// Off to Kortev's side, so the hole is in sight past them when the world comes back.
+			Vec3d feet = kortev.add(0.0, -1.62, 0.0);
+			Vec3d side = beside(feet, target(), 3.5, true);
+			h.look(a < 880 ? gerald : kortev).track().slack(2.0).go(side, FilmHuman.Pace.WALK, 0.6, false);
 		}
 	}
 
+	/** The key's target (the middle of the hole). */
+	private static Vec3d target() {
+		return Vec3d.ofCenter(scene.target);
+	}
+
+	/** {@code by} blocks to one side of {@code of}, across the line from it to {@code toward}. */
+	private static Vec3d beside(Vec3d of, Vec3d toward, double by, boolean left) {
+		Vec3d d = new Vec3d(toward.x - of.x, 0.0, toward.z - of.z);
+		d = d.lengthSquared() < 1.0E-4 ? new Vec3d(1.0, 0.0, 0.0) : d.normalize();
+		Vec3d side = left ? new Vec3d(-d.z, 0.0, d.x) : new Vec3d(d.z, 0.0, -d.x);
+		return of.add(side.multiply(by));
+	}
+
 	/**
-	 * Watching the world come back: up the tree as it grows, then round about as the land comes back along its roots
-	 * (never up at the sun), then down at where the base was.
+	 * Watching the world come back: up the tree as it grows, then about at the land coming back along its roots, a long
+	 * look at each, then down at where the base was.
 	 */
 	private static void rebuild(FilmHuman h, ClientPlayerEntity player, Vec3d target, int r) {
-		h.stay().follow(0.25);
-		if (r < 160) {
-			h.look(target.add(0.0, Math.min(45.0, 8.0 + r * 0.25), 0.0)).wander(6.0);
+		Vec3d eye = player.getEyePos();
+		double toward = FilmHuman.angles(eye, target)[0];
+		if (r < 150) {
+			h.look(target.add(0.0, Math.min(45.0, 8.0 + r * 0.25), 0.0)).track().slack(1.5);
 		} else if (r < 440) {
-			double toward = FilmHuman.angles(player.getEyePos(), target)[0];
-			h.look(toward + 75.0 * Math.sin((r - 160) / 45.0), 8.0 + 6.0 * Math.sin(r / 23.0)).wander(5.0);
+			h.glance("rebuild", 40, 80, far(eye, toward + 70.0, 6.0), target.add(0.0, 30.0, 0.0), far(eye, toward - 75.0, 4.0),
+					far(eye, toward + 150.0, 10.0)).slack(3.0);
 		} else {
-			h.look(target.add(0.0, -8.0, 0.0)).wander(4.0);
+			h.look(target.add(0.0, -8.0, 0.0)).slack(2.5);
 		}
 	}
 
 	/** Home: running over to where the base was; looking down into the hole; and there is Kortev, crouching at them. */
 	private static void woomerdHome(FilmHuman h, ClientPlayerEntity player, FilmScene sc, int t, Vec3d kortev, Vec3d target) {
 		if (t < 20) {
-			h.look(target).wander(5.0).stay();
+			h.look(target).slack(4.0);
 		} else if (!ACTED.contains("at rim")) {
 			Vec3d rim = edge(player, sc, 27.0);
 			if (FilmHuman.near(player, rim, 1.0) || !safeAhead(player)) {
 				ACTED.add("at rim");
 			}
-			h.look(target.add(0.0, -6.0, 0.0)).wander(2.0).go(rim, player.squaredDistanceTo(rim) > 64.0 ? FilmHuman.Pace.SPRINT : FilmHuman.Pace.WALK,
-					1.0, false);
+			h.look(eye(rim)).slack(3.0).go(rim, player.squaredDistanceTo(rim) > 64.0 ? FilmHuman.Pace.SPRINT : FilmHuman.Pace.WALK, 1.0, true);
 		} else if (t < 185) {
-			h.look(target.add(0.0, -18.0, 0.0)).wander(2.5).follow(0.2).stay();
+			h.look(target.add(0.0, -18.0, 0.0)).slack(2.5);
 		} else {
-			h.look(kortev).wander(1.0).stay();
+			h.look(kortev).track().slack(1.0);
 		}
 	}
 
@@ -807,32 +902,37 @@ public class FilmSelfTest implements ClientModInitializer {
 		if (set == null) {
 			return;
 		}
-		h.spam(false).fidget(0.0).follow(0.3).wander(1.0).stay();
+		h.spam(false).idle(0.0).slack(2.0).stay().sneak(false).back(false);
 		if (released < 0 && age < SLIP) {
 			bridge(client, player, h, set, now);
 			return;
 		}
 		if (released < 0 && age < ANCHOR) {
 			// The slip: up off the crouch with S still down, off the edge, and falling.
-			h.sneak(false).back(player.isOnGround()).look(90.0, 72.0).wander(0.5);
+			h.back(player.isOnGround()).look(90.0, 80.0).slack(6.0);
 			return;
 		}
-		Vec3d kortev = orElse(eyes(client, Role.KORTEV), player.getEyePos().add(4.0, 0.0, 0.0));
+		Vec3d eye = player.getEyePos();
+		Vec3d kortev = orElse(eyes(client, Role.KORTEV), eye.add(4.0, 0.0, 0.0));
 		Vec3d woomerd = orElse(eyes(client, Role.WOOMERD), kortev);
-		h.sneak(false).back(false);
 		if (released < 0) {
 			int a = age;
-			if (a < 680) {
-				h.look(player.getYaw() + 40.0 * Math.sin(a / 7.0), 10.0 * Math.sin(a / 5.0)).wander(9.0);
+			double toKortev = FilmHuman.angles(eye, kortev)[0];
+			if (a < 690) {
+				h.glance("where", 9, 20, far(eye, toKortev + 150.0, 5.0), far(eye, toKortev - 100.0, -10.0), far(eye, toKortev + 40.0, 70.0), kortev,
+						woomerd).slack(4.0);
 			} else if (a < 730) {
-				h.look(player.getYaw() + 3.0, 70.0).wander(3.0);
+				// Down at the floor of nothing; a hop on it.
+				h.look(far(eye, toKortev + 10.0, 72.0)).slack(4.0);
 				if (a == 700 || a == 714) {
 					h.jump();
 				}
 			} else if (a < 820) {
-				h.look(a < 780 ? kortev : woomerd).wander(1.5).go(kortev.add(-3.0, -1.62, 2.0), FilmHuman.Pace.WALK, 2.5, false);
+				// Over to the other two: to Kortev's other side from Woomerd, a few blocks off.
+				Vec3d side = beside(kortev.add(0.0, -1.62, 0.0), target(), 4.5, false);
+				h.look(a < 780 ? kortev : woomerd).track().slack(1.5).go(side, FilmHuman.Pace.WALK, 0.8, false);
 			} else {
-				h.look(woomerd).wander(2.0).fidget(1.0);
+				h.glance("them", 25, 50, woomerd, kortev).track().slack(2.0).idle(0.6);
 			}
 			return;
 		}
@@ -843,60 +943,50 @@ public class FilmSelfTest implements ClientModInitializer {
 		// Back on the bridge: where am I, down at the lava, and a step back off the end of it.
 		int t = r - HOME;
 		if (t < 40) {
-			h.look(player.getYaw() + 50.0 * Math.sin(t / 6.0), 15.0 * Math.sin(t / 4.0)).wander(8.0);
+			h.glance("back", 8, 14, far(eye, -90.0, 10.0), far(eye, 90.0, 5.0), far(eye, 0.0, 30.0)).slack(4.0);
 		} else if (t < 85) {
-			h.look(player.getYaw(), 62.0).wander(3.0);
+			h.look(player.getYaw(), 65.0).slack(4.0);
 		} else {
-			h.look(player.getYaw(), 70.0).wander(2.0).back(true);
+			h.look(player.getYaw(), 70.0).slack(4.0).back(true);
 		}
 	}
 
 	/**
-	 * Bridging: crouched, walking backwards along the bridge, looking down over the edge behind; at the edge, a block put
-	 * against the end; every so often a stop to look round at how far there is to go.
+	 * Bridging, as it is done: crouched, walking backwards, looking down past their heels at the side of the block they
+	 * are on, the right button held, so a block goes on the end each time they reach it and the crosshair finds that side;
+	 * now and then a stop to look round at how far there is to go.
 	 */
 	private static void bridge(MinecraftClient client, ClientPlayerEntity player, FilmHuman h, FilmNether set, int now) {
+		int y = FilmNether.BRIDGE_Y;
+		int z = set.end.getZ();
 		if (bridgeX == 0) {
 			bridgeX = set.end.getX();
 		}
-		int y = FilmNether.BRIDGE_Y;
-		int z = set.end.getZ();
-		boolean late = age >= SLIP - 40;
+		while (!client.world.getBlockState(new BlockPos(bridgeX + 1, y, z)).isAir()) {
+			bridgeX++;
+			placed++;
+			if (placed >= nextPause && age < SLIP - 120) {
+				pauseUntil = now + 40 + (placed * 7) % 24;
+				nextPause = placed + 7 + (placed * 5) % 5;
+			}
+		}
+		h.sneak(true);
+		Vec3d eye = player.getEyePos();
 		if (age >= SLIP - HESITATE) {
-			// At the edge, crouched against it, distracted: a look about, and back down.
-			int t = age - (SLIP - HESITATE);
-			h.sneak(true).back(true).look(90.0 + 35.0 * Math.sin(t / 5.0), 40.0 + 20.0 * Math.cos(t / 7.0)).wander(2.0);
+			// At the edge, crouched against it, looking about.
+			h.glance("edge", 6, 10, far(eye, -70.0, 20.0), far(eye, 140.0, 35.0), far(eye, 90.0, 75.0)).slack(3.0);
 			return;
 		}
-		if (pauseUntil > now && !late) {
-			int t = pauseUntil - now;
-			h.sneak(true).back(false);
-			if (t > 30) {
-				h.look(-90.0, 18.0).wander(4.0);
-			} else if (t > 14) {
-				h.look(-60.0, 55.0).wander(3.0);
+		if (now < pauseUntil) {
+			if (pauseUntil - now > 12) {
+				// Round to see how far is left, across the lava, and back.
+				h.glance("pause " + nextPause, 12, 20, far(eye, -90.0, 12.0), far(eye, -60.0, 30.0), far(eye, 160.0, 20.0)).slack(3.0);
 			} else {
-				h.look(90.0, 78.0).wander(1.0);
+				h.look(90.0, 81.0).slack(0.8);
 			}
 			return;
 		}
-		h.sneak(true).back(true).look(90.0 + 6.0 * Math.sin(now / 13.0), 64.0 + 3.0 * Math.sin(now / 9.0)).wander(0.8).follow(0.35);
-		boolean atEdge = player.getX() >= bridgeX + 1.08;
-		if (atEdge && now - lastPlace >= 4 && player.isOnGround()) {
-			BlockPos last = new BlockPos(bridgeX, y, z);
-			client.interactionManager.interactBlock(player, Hand.MAIN_HAND,
-					new BlockHitResult(new Vec3d(bridgeX + 1.0, y + 0.45, z + 0.5), Direction.EAST, last, false));
-			swing(player);
-			lastPlace = now;
-			if (!client.world.getBlockState(last.east()).isAir()) {
-				bridgeX++;
-				placed++;
-				if (placed >= nextPause && !late) {
-					pauseUntil = now + 36 + (placed * 7) % 22;
-					nextPause = placed + 6 + (placed * 5) % 4;
-				}
-			}
-		}
+		h.look(90.0, 81.0).slack(0.8).back(true).use();
 	}
 
 	// --- stills ------------------------------------------------------------------------------
@@ -1046,6 +1136,8 @@ public class FilmSelfTest implements ClientModInitializer {
 				player.getInventory().setStack(6, new ItemStack(Items.OAK_LOG, 48));
 				player.getInventory().setStack(7, new ItemStack(Items.TORCH, 31));
 				player.getInventory().setStack(8, new ItemStack(Items.WATER_BUCKET));
+				// Wheat already in the bag, so what is harvested stacks there and not in the first hotbar slot (the key's).
+				player.getInventory().setStack(9, new ItemStack(Items.WHEAT, 19));
 				player.equipStack(EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE));
 				player.equipStack(EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS));
 				player.equipStack(EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
@@ -1135,9 +1227,11 @@ public class FilmSelfTest implements ClientModInitializer {
 			finished = true;
 		}
 
-		// Woomerd's TNT against the cabin's east wall, lit.
+		// Woomerd's TNT against the cabin's east wall, lit. Filmed as Woomerd, their own clicks put it down and light it,
+		// and this only makes up for a click that missed (a few ticks later, once it has had its chance).
+		boolean own = me == Role.WOOMERD;
 		for (int i = 0; i < TNT_AT.length; i++) {
-			if (now == TNT_AT[i]) {
+			if (now == TNT_AT[i] + (own ? 8 : 0) && !world.getBlockState(sc.tnt[i]).isOf(Blocks.TNT)) {
 				BlockPos p = sc.tnt[i];
 				world.setBlockState(p, Blocks.TNT.getDefaultState(), 3);
 				world.playSound(null, p, SoundEvents.BLOCK_GRASS_PLACE, SoundCategory.BLOCKS, 1.0F, 0.8F);
@@ -1146,13 +1240,21 @@ public class FilmSelfTest implements ClientModInitializer {
 				}
 			}
 		}
-		if (now == IGNITE) {
-			world.playSound(null, sc.tnt[1], SoundEvents.ITEM_FLINTANDSTEEL_USE, SoundCategory.BLOCKS, 1.0F, 1.0F);
+		if (now == IGNITE + (own ? 8 : 0)) {
+			boolean lit = false;
 			for (BlockPos p : sc.tnt) {
+				if (!world.getBlockState(p).isOf(Blocks.TNT)) {
+					// Lit already (Woomerd's flint and steel).
+					lit = true;
+					continue;
+				}
 				world.setBlockState(p, Blocks.AIR.getDefaultState(), 11);
 				TntEntity tnt = new TntEntity(world, p.getX() + 0.5, p.getY(), p.getZ() + 0.5, woomerd);
 				world.spawnEntity(tnt);
 				world.playSound(null, tnt.getX(), tnt.getY(), tnt.getZ(), SoundEvents.ENTITY_TNT_PRIMED, SoundCategory.BLOCKS, 1.0F, 1.0F);
+			}
+			if (!lit) {
+				world.playSound(null, sc.tnt[1], SoundEvents.ITEM_FLINTANDSTEEL_USE, SoundCategory.BLOCKS, 1.0F, 1.0F);
 			}
 		}
 

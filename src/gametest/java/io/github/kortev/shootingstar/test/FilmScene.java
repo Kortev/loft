@@ -85,7 +85,7 @@ final class FilmScene {
 		this.chest = house.add(1, 0, 10);
 		this.kortev = new Vec3d(house.getX() - 1.5, yardY, house.getZ() + 8.5);
 		this.atChest = new Vec3d(house.getX() - 0.5, yardY, house.getZ() + 10.5);
-		this.woomerdStart = new Vec3d(house.getX() + 14.5, house.getY(), house.getZ() - 1.5);
+		this.woomerdStart = new Vec3d(house.getX() + 11.5, house.getY(), house.getZ() - 1.5);
 		this.woomerdAtHouse = new Vec3d(house.getX() + 6.5, house.getY(), house.getZ() + 0.5);
 		this.woomerdSafe = new Vec3d(house.getX() + 14.5, house.getY(), house.getZ() + 4.5);
 		this.woomerdAtBase = new Vec3d(base.getX() - 4.5, base.getY(), base.getZ() + 0.5);
