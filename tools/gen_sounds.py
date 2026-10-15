@@ -1191,8 +1191,8 @@ def aftermath(close=True):
 
 # GapTimeline's beats, in ticks from the key turning. The sounds are cut to fit them, so if the timeline changes, change
 # it here too and make the Ginnungagap sounds again.
-GAP = dict(KEY=0, RISE=42, FEED=66, GATE=92, OPEN=136, MAP=184, CUT=268, SEND=310, FALL=336, INBOUND=404, CONTACT=428,
-           BLAST=458, COLLAPSE=518, ERASURE=528, NOTHING=628, RETURN=728, END=808)
+GAP = dict(KEY=0, RISE=42, FEED=66, GATE=92, OPEN=136, MAP=184, PICK=246, CUT=288, SEND=330, FALL=356, INBOUND=424,
+           CONTACT=448, BLAST=478, COLLAPSE=538, ERASURE=548, NOTHING=648, RETURN=748, END=828)
 
 
 def gap_at(beat, ticks=0, since='KEY'):
@@ -1573,19 +1573,23 @@ def gap_tear():
 
 
 def gap_map():
-    """Inside the other universe and back out of it (4.2 s, MAP to CUT): the violet flash going in, then a hush, vast
+    """Inside the other universe and back out of it (5.2 s, MAP to CUT): the violet flash going in, then a hush, vast
     and still, as the camera drifts in over the face of the galaxy, the other universe's chord breathing wide over the
     slow weight of the galaxy and stars glinting all round; from 0.8 s the long pull back, a rush rising and widening
     and an endless climb under it, the chord opening upwards and the stars thickening as the neighbouring galaxies come
-    in, until the whole universe is a lattice and a run of glass lights across it; at 2.1 s the block in the middle is
-    selected and everything else dims to it; from 2.3 s it lifts out of the lattice, the tritone coming up under its
-    held note, a pulse quickening; from 2.5 s it is crushed down, grinding, snapping home at 3.5 s with a deep
-    implosion; then the rush as the camera swings round to the gate, into the cut."""
+    in, until the whole universe is a block in a lattice of them and a run of glass lights across it (2.3 s); held
+    there on the void between universes, the chord full and the climb stilled to a held tone, the stars glinting;
+    at 3.1 s the block in the middle is selected and everything else dims to it; from 3.3 s it lifts out of the
+    lattice, the tritone coming up under its held note, a pulse quickening; from 3.5 s it is crushed down, grinding,
+    snapping home at 4.5 s with a deep implosion; then the rush as the camera swings round to the gate, into the
+    cut."""
     total = gap_at('CUT', since='MAP')
     drift = 16 / 20.0
-    select = 42 / 20.0
+    # The pull back ends with the whole lattice in view (GapShots: MAP_PULL_TO), held a moment before the block in the
+    # middle is selected (GapTimeline.PICK) and lifts out of it.
     shown = 46 / 20.0
-    lift = 46 / 20.0
+    select = gap_at('PICK', since='MAP')
+    lift = select + 4 / 20.0
     span = total + 0.1
     n = ns(span)
     t = times(span)
@@ -1604,14 +1608,16 @@ def gap_map():
         breathe = 0.7 + 0.3 * np.sin(2 * np.pi * rng.uniform(0.1, 0.25) * t + rng.uniform(0, 2 * np.pi))
         chord += glass(((f, 0.35 * (110.0 / f) ** 0.35),), n) * come * breathe
     chord += sum(choir(f, n, OO, voices=4) for f in (329.63, 415.30)) * 0.8 * \
-        curve(n, [(0, 0.0), (0.6, 0.3), (select - 0.2, 0.6), (shown, 0.8), (span, 0.8)])
-    sky.add(chord * curve(n, [(0, 0.0), (0.3, 0.14), (drift, 0.16), (select - 0.2, 0.6), (select, 1.0), (span, 1.0)]), 0, 0.5)
+        curve(n, [(0, 0.0), (0.6, 0.3), (shown - 0.4, 0.6), (shown, 0.8), (span, 0.8)])
+    # Opening out as the lattice comes into view, and still swelling a little as it is held.
+    sky.add(chord * curve(n, [(0, 0.0), (0.3, 0.14), (drift, 0.16), (shown - 0.4, 0.6), (shown, 0.9), (select, 1.0),
+                              (span, 1.0)]), 0, 0.5)
     # The weight of the galaxy, slow, going as the camera pulls away from it.
     weight = sine(55.0 * (1 + 0.002 * np.sin(2 * np.pi * 0.2 * t))) + 0.5 * sine(np.full(n, 82.41))
     sky.add(stereo(weight * (0.75 + 0.25 * np.sin(2 * np.pi * 0.35 * t))) *
             curve(n, [(0, 0.0), (0.3, 1.0), (drift, 1.0), (1.8, 0.0), (span, 0.0)]), 0, 0.08)
-    # Stars, thickening as the neighbouring galaxies come in.
-    sky.add(grains(n, lambda s: 3.0 if s < drift else 3.0 + 45.0 * ((s - drift) / (select - drift)) ** 2, twinkle,
+    # Stars, thickening as the neighbouring galaxies come in, and glinting all through the hold.
+    sky.add(grains(n, lambda s: 3.0 if s < drift else 3.0 + 45.0 * min(1.0, (s - drift) / (shown - drift)) ** 2, twinkle,
                    end=select, spread=1.0), 0, 0.2)
     # The pull back: a rush rising and widening, faster and faster, over a climb that never arrives.
     q = ns(shown - drift + 0.3)
@@ -1621,15 +1627,16 @@ def gap_map():
     rush = np.vstack([mid + (c - mid) * (0.25 + 0.75 * p) for c in (left, right)])
     rush = np.vstack([sweep_filter(c, 'bandpass', 160.0 * 37.5 ** (p ** 1.7), order=2, width=1.8) for c in rush])
     sky.add(rush * p ** 1.8 * curve(q, [(0, 1.0), (shown - drift, 1.0), (q / SR, 0.0)]), drift, 0.35)
+    # Climbing with the pull back, stilled to a held tone once it stops, easing off through the hold.
     q = ns(select - drift)
-    octaves = 1.5 * (np.arange(q) / SR / (select - drift)) ** 1.6
+    octaves = 1.5 * np.minimum(1.0, np.arange(q) / SR / (shown - drift)) ** 1.6
     climb = np.zeros(q)
     for k in range(6):
         place = (k + octaves) % 6.0
         climb += np.exp(-((place - 3.0) / 1.4) ** 2) * sine(55.0 * 2.0 ** place)
-    sky.add(stereo(climb * curve(q, [(0, 0.0), (0.4, 0.5), (select - drift, 1.0)])), drift, 0.06)
-    # The lattice lit up across, a run of glass from one side to the other.
-    run = np.arange(select - 0.6, select - 0.02, 0.045)
+    sky.add(stereo(climb * curve(q, [(0, 0.0), (0.4, 0.5), (shown - drift, 1.0), (select - drift, 0.55)])), drift, 0.06)
+    # The lattice lit up across as it comes into view, a run of glass from one side to the other.
+    run = np.arange(shown - 0.6, shown - 0.02, 0.045)
     for i, at in enumerate(run):
         ping = struck(UNIVERSE[min(len(UNIVERSE) - 1, 9 + i)], 0.5, tau=0.12, ratios=(1.0, 2.76), bright=0.2)
         sky.add(pan(ping, -0.8 + 1.6 * i / max(1, len(run) - 1)), at, 0.06 * (0.5 + 0.5 * i / len(run)))
@@ -1668,10 +1675,10 @@ def gap_map():
         beat = np.sin(2 * np.pi * (40 + 30 * np.exp(-tt / 0.02)) * tt) * np.exp(-tt / 0.1)
         up.add(sat(beat * 1.4, 1.4), at, 0.3)
     up.add(stereo(inhale(total - lift, 250, 4000, tau=0.6)), lift, 0.5)
-    # Crushed down (2.5 to 3.5 s): its two trillion galaxies packed in, a deep grinding crunch closing up on itself,
-    # snapping home with a hard, deep implosion; then the camera swinging round (from 3.6 s), a rush tearing up past it,
+    # Crushed down (3.5 to 4.5 s): its two trillion galaxies packed in, a deep grinding crunch closing up on itself,
+    # snapping home with a hard, deep implosion; then the camera swinging round (from 4.6 s), a rush tearing up past it,
     # faster and faster into the cut.
-    crunch_at, crushed_at, drag_at = 50 / 20.0, 70 / 20.0, 72 / 20.0
+    crunch_at, crushed_at, drag_at = select + 8 / 20.0, select + 28 / 20.0, select + 30 / 20.0
     q = ns(1.2)
     tq = np.arange(q) / SR
     snap = np.sin(2 * np.pi * curve(q, [(0, 70), (1.2, 26)], 'log') * tq) * np.exp(-tq / 0.25)
@@ -1690,7 +1697,7 @@ def gap_map():
 
 
 def gap_lock():
-    """The block selected (1.2 s, MAP+42): a crisp, cold two-note chime, E7 rising to A7, each a pure partial over a
+    """The block selected (1.2 s, PICK): a crisp, cold two-note chime, E7 rising to A7, each a pure partial over a
     faint glassy one against a detuned twin that makes it shiver, a needle of a transient and a small, soft knock under
     the first; a soft blip each time the box blinks back on; and the outline humming bright and high."""
     total = 1.2
@@ -1704,7 +1711,7 @@ def gap_lock():
         m.add(note, at, 0.5, position=side)
     q = ns(0.25)
     m.add(sine(curve(q, [(0, 180), (0.25, 90)], 'log')) * attack_decay(q, 0.002, 0.04), 0.0, 0.12)
-    # The box blinking back on (GapShots: on at 42, 46 and 50).
+    # The box blinking back on (GapShots: on at the pick, and 4 and 8 ticks after).
     for at in (0.2, 0.4):
         m.add(struck(3520.0, 0.1, tau=0.02, ratios=(1.0, 2.76), bright=0.2), at, 0.12, position=0.1)
     hold = glass(((3520.0, 0.5), (5274.04, 0.25)), n, detune=0.0008)

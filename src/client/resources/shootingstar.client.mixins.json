@@ -9,6 +9,7 @@
 		"GameRendererMixin",
 		"HeldItemFeatureRendererMixin",
 		"HeldItemRendererMixin",
+		"LensMixin",
 		"MusicTrackerMixin",
 		"PlayerArmPoseMixin",
 		"VoidCameraMixin",

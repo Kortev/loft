@@ -8,7 +8,6 @@ import io.github.kortev.shootingstar.network.GapLockPayload;
 import io.github.kortev.shootingstar.network.GapSettlePayload;
 import io.github.kortev.shootingstar.network.GapWarpPayload;
 import io.github.kortev.shootingstar.network.ModNetworking;
-import io.github.kortev.shootingstar.registry.ModBlocks;
 import io.github.kortev.shootingstar.registry.ModCriteria;
 import io.github.kortev.shootingstar.registry.ModDamageTypes;
 import io.github.kortev.shootingstar.registry.ModGameRules;
@@ -49,7 +48,6 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ChunkTicketType;
 import net.minecraft.server.world.ServerWorld;
-import net.minecraft.state.property.Properties;
 import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Formatting;
@@ -61,7 +59,6 @@ import net.minecraft.util.math.Box;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.math.random.Random;
 import net.minecraft.world.Heightmap;
 import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
@@ -126,10 +123,6 @@ public final class GapManager {
 		final UUID shooter;
 		final int radius;
 		final boolean terrain;
-		/** Halfway between the shooter and the target (kept for the network format; nothing watches it now). */
-		final BlockPos swapSpot;
-		final boolean tree;
-		final Random random;
 		int age;
 		@Nullable
 		Erasure erasure;
@@ -150,17 +143,13 @@ public final class GapManager {
 		double floor = Double.NaN;
 		final Map<UUID, Integer> places = new HashMap<>();
 
-		Gap(int id, RegistryKey<World> dimension, BlockPos target, UUID shooter, int radius, boolean terrain, BlockPos swapSpot,
-				boolean tree) {
+		Gap(int id, RegistryKey<World> dimension, BlockPos target, UUID shooter, int radius, boolean terrain) {
 			this.id = id;
 			this.dimension = dimension;
 			this.target = target;
 			this.shooter = shooter;
 			this.radius = radius;
 			this.terrain = terrain;
-			this.swapSpot = swapSpot;
-			this.tree = tree;
-			this.random = Random.create(target.asLong() ^ id);
 		}
 
 		public int id() {
@@ -175,13 +164,16 @@ public final class GapManager {
 			return age;
 		}
 
-		/** Whether what was in the zone has all gone (the crater is carved), so the world can come back round it. */
+		/**
+		 * Whether what was in the zone has all gone (the hole is carved), so the world can come back round it. Its light
+		 * may still be settling: that finishes, and the hole is sent, while the rebuild starts in the dark.
+		 */
 		public boolean unmade() {
-			return !terrain || erased;
+			return !terrain || erasure != null && erasure.carved();
 		}
 
 		GapLockPayload payload() {
-			return new GapLockPayload(id, target, shooter, age, radius, terrain, swapSpot, tree);
+			return new GapLockPayload(id, target, shooter, age, radius, terrain);
 		}
 
 		GapState.Event record() {
@@ -215,8 +207,7 @@ public final class GapManager {
 					ServerWorld world = server.getWorld(home.world());
 					if (world != null) {
 						Vec3d to = safe(world, null, home.pos());
-						player.teleport(world, to.x, to.y, to.z, home.yaw(), home.pitch());
-						player.fallDistance = 0.0F;
+						moveTo(player, world, to.x, to.y, to.z, home.yaw(), home.pitch());
 					}
 				}
 			}
@@ -229,6 +220,9 @@ public final class GapManager {
 		// Carried into another world (to the rim, or home): told about any event going on there.
 		ServerEntityWorldChangeEvents.AFTER_PLAYER_CHANGE_WORLD.register((player, origin, destination) -> introduce(player));
 		ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> {
+			// Where the server takes them to be is where they respawned, at once: their client's first move from there can
+			// come in before the server's next tick, and was being measured from where they died (moved too quickly).
+			newPlayer.networkHandler.syncWithPlayerPosition();
 			Gap gap = holding();
 			if (gap != null && !alive) {
 				// Erased, and back: straight back to the rest of them at the rim, and afterwards home to where they came back.
@@ -281,10 +275,7 @@ public final class GapManager {
 		BlockPos target = Targeting.settle(world, hit);
 		int radius = world.getGameRules().getInt(ModGameRules.GAP_RADIUS);
 		boolean terrain = world.getGameRules().getBoolean(ModGameRules.GAP_TERRAIN);
-		BlockPos from = shooter != null ? shooter.getBlockPos() : target.add(48, 0, 0);
-		BlockPos spot = ground(world, (target.getX() + from.getX()) / 2, (target.getZ() + from.getZ()) / 2);
-		Gap gap = new Gap(nextId++, world.getRegistryKey(), target, shooter != null ? shooter.getUuid() : Util.NIL_UUID, radius,
-				terrain, spot, false);
+		Gap gap = new Gap(nextId++, world.getRegistryKey(), target, shooter != null ? shooter.getUuid() : Util.NIL_UUID, radius, terrain);
 		GAPS.add(gap);
 		ChunkPos chunk = new ChunkPos(target);
 		world.getChunkManager().addTicket(TICKET, chunk, MathHelper.clamp(MathHelper.ceil(radius / 16.0) + 2, 1, 32), chunk);
@@ -300,16 +291,6 @@ public final class GapManager {
 	/** True while an event is going on anywhere on the server, from the key turning until everyone is home. */
 	public static boolean running() {
 		return !GAPS.isEmpty() || !RETURNING.isEmpty();
-	}
-
-	/** True while the player's last event is still playing or holding them in the black. */
-	public static boolean isBusy(UUID shooter) {
-		for (Gap gap : GAPS) {
-			if (gap.shooter.equals(shooter) && !gap.released) {
-				return true;
-			}
-		}
-		return false;
 	}
 
 	/** The event that has taken this world, which the cracked key turned in it ends; or null. */
@@ -643,6 +624,10 @@ public final class GapManager {
 	 * or, if they are about there already and on the ground, simply lets them go where they stand.
 	 */
 	private static void sendHome(Gap gap, ServerPlayerEntity player) {
+		// Already on their way (asked for by their client as its rebuild ended, and again as the server's did).
+		if (WARPS.stream().anyMatch(warp -> warp.player().equals(player.getUuid()))) {
+			return;
+		}
 		MinecraftServer server = player.getServer();
 		GapState saved = state(server);
 		GapState.Home home = saved.homes.remove(player.getUuid());
@@ -684,7 +669,9 @@ public final class GapManager {
 		int row = index / PER_ROW;
 		int slot = index % PER_ROW;
 		double ring = gap.radius + GATHER_OUT + row * GATHER_BACK;
-		double along = ((slot + 1) / 2) * (slot % 2 == 1 ? 1 : -1) + (row % 2 == 1 ? 0.5 : 0.0);
+		// The shooter's own row leaves a place empty either side of them: the camera comes round to stand there.
+		int step = (slot + 1) / 2 + (row == 0 && slot > 0 ? 1 : 0);
+		double along = step * (slot % 2 == 1 ? 1 : -1) + (row % 2 == 1 ? 0.5 : 0.0);
 		double a = gap.side + along * GATHER_APART / ring;
 		int x = MathHelper.floor(gap.target.getX() + 0.5 + Math.cos(a) * ring);
 		int z = MathHelper.floor(gap.target.getZ() + 0.5 + Math.sin(a) * ring);
@@ -737,8 +724,7 @@ public final class GapManager {
 		// Their floor first, so they are on it (or off it) the moment they land, rather than for a moment on the one they
 		// left, at whatever height that was.
 		hold(warp.gap(), player, warp.floor());
-		player.teleport(world, warp.to().x, warp.to().y, warp.to().z, warp.yaw(), warp.pitch());
-		player.fallDistance = 0.0F;
+		moveTo(player, world, warp.to().x, warp.to().y, warp.to().z, warp.yaw(), warp.pitch());
 	}
 
 	/**
@@ -758,12 +744,29 @@ public final class GapManager {
 	}
 
 	/**
-	 * The nearest place to stand round {@code at}: in its own column first, near its height, then further and further
-	 * out, a couple of hundred blocks at most. In each column, near the height asked for, then (where the sky is open)
-	 * on top of it.
+	 * The nearest place to stand round {@code at}. First at about its own height, in its own column or a few blocks
+	 * round it: beside a fissure that has opened where they were, rather than at the bottom of it. Then anywhere in its
+	 * column, near its height first, and then further and further out, a couple of hundred blocks at most; in each column,
+	 * near the height asked for, then (where the sky is open) on top of it.
 	 */
 	@Nullable
 	private static BlockPos groundNear(ServerWorld world, BlockPos at) {
+		for (int r = 0; r <= 8; r++) {
+			for (int dx = -r; dx <= r; dx++) {
+				for (int dz = -r; dz <= r; dz++) {
+					if (Math.max(Math.abs(dx), Math.abs(dz)) != r) {
+						continue;
+					}
+					world.getChunk((at.getX() + dx) >> 4, (at.getZ() + dz) >> 4);
+					for (int dy : new int[] {0, 1, -1, 2}) {
+						BlockPos p = at.add(dx, dy, dz);
+						if (standable(world, p)) {
+							return p;
+						}
+					}
+				}
+			}
+		}
 		BlockPos here = standableIn(world, at.getX(), at.getZ(), at.getY());
 		if (here != null) {
 			return here;
@@ -815,8 +818,7 @@ public final class GapManager {
 		}
 		BlockPos ground = groundNear(world, at.withY(world.getSeaLevel()));
 		if (ground != null) {
-			player.teleport(world, ground.getX() + 0.5, ground.getY(), ground.getZ() + 0.5, player.getYaw(), player.getPitch());
-			player.fallDistance = 0.0F;
+			moveTo(player, world, ground.getX() + 0.5, ground.getY(), ground.getZ() + 0.5, player.getYaw(), player.getPitch());
 		}
 	}
 
@@ -915,8 +917,7 @@ public final class GapManager {
 			ServerWorld world = home == null ? null : server.getWorld(home.world());
 			if (world != null) {
 				Vec3d to = safe(world, null, home.pos());
-				player.teleport(world, to.x, to.y, to.z, home.yaw(), home.pitch());
-				player.fallDistance = 0.0F;
+				moveTo(player, world, to.x, to.y, to.z, home.yaw(), home.pitch());
 			}
 		}
 		saved.event = null;
@@ -938,6 +939,9 @@ public final class GapManager {
 		}
 		ServerWorld world = server.getWorld(event.dimension());
 		if (world != null && event.taken() && event.terrain()) {
+			// Held loaded a while, as an event's hole is, so the light the recovery queues is worked out before they go.
+			ChunkPos chunk = new ChunkPos(event.target());
+			world.getChunkManager().addTicket(TICKET, chunk, MathHelper.clamp(MathHelper.ceil(event.radius() / 16.0) + 2, 1, 32), chunk);
 			Erasure erasure = new Erasure(world, event.target(), event.radius(), true);
 			erasure.finishOffline();
 			moveSpawn(server, world, event.target(), event.radius());
@@ -956,7 +960,7 @@ public final class GapManager {
 	 * world over nothing; and anyone here whose own spawn point was in it goes back to the world's.
 	 */
 	private static void moveSpawn(MinecraftServer server, ServerWorld world, BlockPos target, int radius) {
-		Gap at = new Gap(0, world.getRegistryKey(), target, Util.NIL_UUID, radius, true, target, false);
+		Gap at = new Gap(0, world.getRegistryKey(), target, Util.NIL_UUID, radius, true);
 		if (world == server.getOverworld() && horizontal(Vec3d.ofCenter(world.getSpawnPos()), target) <= radius + 8) {
 			Vec3d rim = rim(world, at, Vec3d.ofCenter(world.getSpawnPos()));
 			world.setSpawnPos(BlockPos.ofFloored(rim), world.getSpawnAngle());
@@ -969,31 +973,6 @@ public final class GapManager {
 				player.setSpawnPoint(World.OVERWORLD, null, 0.0F, false, false);
 			}
 		}
-	}
-
-	// --- the mirror blocks ------------------------------------------------------------
-
-	/** What a block becomes when it trades places with its twin in the mirror universe, or null if it cannot. */
-	@Nullable
-	public static BlockState mirrorOf(World world, BlockPos pos, BlockState state) {
-		if (state.isAir() || !state.getFluidState().isEmpty() || state.getHardness(world, pos) < 0.0F
-				|| state.isIn(BlockTags.WITHER_IMMUNE)) {
-			return null;
-		}
-		if (state.isIn(BlockTags.LOGS)) {
-			BlockState log = ModBlocks.MIRROR_LOG.getDefaultState();
-			return state.contains(Properties.AXIS) ? log.with(Properties.AXIS, state.get(Properties.AXIS)) : log;
-		}
-		if (state.isIn(BlockTags.LEAVES)) {
-			return ModBlocks.MIRROR_LEAVES.getDefaultState();
-		}
-		if (!state.isFullCube(world, pos)) {
-			return null;
-		}
-		if (state.isIn(BlockTags.DIRT) || state.isIn(BlockTags.SAND) || state.isOf(Blocks.GRAVEL) || state.isOf(Blocks.SNOW_BLOCK)) {
-			return ModBlocks.MIRROR_GRASS.getDefaultState();
-		}
-		return ModBlocks.MIRROR_STONE.getDefaultState();
 	}
 
 	// --- the erasure ---------------------------------------------------------------------
@@ -1048,8 +1027,7 @@ public final class GapManager {
 			if (onLid(gap, feet)) {
 				BlockPos safe = besideLid(world, gap, feet);
 				if (safe != null) {
-					player.teleport(world, safe.getX() + 0.5, safe.getY(), safe.getZ() + 0.5, player.getYaw(), player.getPitch());
-					player.fallDistance = 0.0F;
+					moveTo(player, world, safe.getX() + 0.5, safe.getY(), safe.getZ() + 0.5, player.getYaw(), player.getPitch());
 				}
 			}
 		}
@@ -1097,8 +1075,7 @@ public final class GapManager {
 		Vec3d middle = Vec3d.ofCenter(gap.target);
 		// Turned to face back across the hole, rather than at whatever hillside happens to be in front of them.
 		float yaw = (float) (MathHelper.atan2(middle.z - to.z, middle.x - to.x) * MathHelper.DEGREES_PER_RADIAN) - 90.0F;
-		player.teleport(world, to.x, to.y, to.z, yaw, 10.0F);
-		player.fallDistance = 0.0F;
+		moveTo(player, world, to.x, to.y, to.z, yaw, 10.0F);
 	}
 
 	/** The ground on the rim of the hole on the side {@code from} is on. */
@@ -1112,8 +1089,17 @@ public final class GapManager {
 		return new Vec3d(x + 0.5, Math.max(y, world.getBottomY() + 1), z + 0.5);
 	}
 
-	private static BlockPos ground(World world, int x, int z) {
-		return new BlockPos(x, world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z) - 1, z);
+	/**
+	 * Moves {@code player} as {@link ServerPlayerEntity#teleport} does, and counts it as where they were last tick, so
+	 * the first move their client makes from there is not taken for moving too quickly from where they were before.
+	 */
+	private static void moveTo(ServerPlayerEntity player, ServerWorld world, double x, double y, double z, float yaw, float pitch) {
+		boolean same = player.getWorld() == world;
+		player.teleport(world, x, y, z, yaw, pitch);
+		if (same) {
+			player.networkHandler.syncWithPlayerPosition();
+		}
+		player.fallDistance = 0.0F;
 	}
 
 	private static double horizontal(Vec3d pos, BlockPos target) {

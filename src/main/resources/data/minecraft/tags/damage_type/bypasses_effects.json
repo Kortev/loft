@@ -3,6 +3,8 @@
   "values": [
     "shootingstar:erased",
     "shootingstar:swallowed",
-    "shootingstar:thunderstruck"
+    "shootingstar:thunderstruck",
+    "shootingstar:swallowed_by",
+    "shootingstar:erased_by"
   ]
 }
