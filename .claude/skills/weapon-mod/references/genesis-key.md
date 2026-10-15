@@ -182,3 +182,9 @@ Their events are `gap.key`, `gap.ambience`, and so on.
   sends everyone home and shatters the key.
 
 The client self test is `GapSelfTest` (selftest workflow, `test=gap`).
+
+`FilmSelfTest` (with `FilmScene`, `FilmSkins`) films the YouTube Shorts series: a scripted episode with three players
+(Kortev, Woomerd, gerald_2009), recorded 1080x1920 from one player's eyes, the others moved by the server, every beat
+on the same tick in all three takes. Record on a computer with a graphics card with `python tools/film.py kortev`
+(or `woomerd`, `gerald`, `all`) → `build/film/<who>.mp4`; or in CI (selftest workflow, `test=film-kortev` etc.,
+much slower). Cut the Shorts with `python tools/shorts.py edl.json` (see its docstring).

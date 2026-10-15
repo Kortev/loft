@@ -89,6 +89,9 @@ public class FilmSelfTest implements ClientModInitializer {
 	private static final int IGNITE = 100;
 	private static final int GERALD_JOINS = 200;
 	private static final int KEY_OUT = 284;
+	/** The size of a Short, which the game is drawn at while filming, whatever the window's size. */
+	public static final int WIDTH = 1080;
+	public static final int HEIGHT = 1920;
 
 	private record Line(int at, Role who, String text) {
 	}
@@ -168,6 +171,11 @@ public class FilmSelfTest implements ClientModInitializer {
 
 	public static boolean active() {
 		return me != null;
+	}
+
+	/** True in a film self test, from before the window opens (the mixins that size the frame ask before this loads). */
+	public static boolean filming() {
+		return System.getProperty("shootingstar.selftest", "").startsWith("film-");
 	}
 
 	@Override

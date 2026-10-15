@@ -9,7 +9,9 @@
 		"SoundManagerMixin",
 		"WorldRendererAccessor",
 		"BuiltChunkStorageAccessor",
-		"FilmSkinMixin"
+		"FilmSkinMixin",
+		"FilmFrameMixin",
+		"FilmPreviewMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
