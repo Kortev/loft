@@ -43,7 +43,7 @@ final class FilmScene {
 	/** Where Kortev stands to watch (south-east of the cabin), Woomerd's spot by the cabin's east wall. */
 	final Vec3d kortev;
 	final Vec3d woomerdAtHouse;
-	/** Woomerd's spot in front of his W, and the block the key is aimed at (just in front of him). */
+	/** Woomerd's spot in front of the W, and the block the key is aimed at (just in front of it). */
 	final Vec3d woomerdAtBase;
 	final BlockPos target;
 	/** The world spawn: gerald_2009's place, and where anyone killed comes back. */

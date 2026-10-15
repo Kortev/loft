@@ -51,13 +51,13 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * With -Dshootingstar.selftest=film-kortev, film-woomerd or film-gerald: films one episode of the Genesis Key series from
- * one player's eyes, with that player's HUD, chat and hands. Three players are on the server: Kortev, Woomerd (his
+ * one player's eyes, with that player's HUD, chat and hands. Three players are on the server: Kortev, Woomerd (Kortev's
  * enemy, the mean one) and gerald_2009 (a random who joins at the worst moment). The client is whichever one the mode
  * names; the other two are players the server makes for the scene (as the game tests do) and moves itself. Everything
  * happens at the same tick in all three films, so the three can be cut together:
  *
- * <p>Woomerd blows up Kortev's cabin with TNT and runs back to his base; gerald_2009 joins; Kortev takes out the
- * Genesis Key and turns it on the base. The block comes down on Woomerd (swallowed by Kortev); he comes back at the
+ * <p>Woomerd blows up Kortev's cabin with TNT and runs back to the base; gerald_2009 joins; Kortev takes out the
+ * Genesis Key and turns it on the base. The block comes down on Woomerd (swallowed by Kortev), who comes back at the
  * spawn beside gerald_2009 as the black spreads; all three end up in the void; Kortev turns the cracked key, the world
  * comes back, and where the base was is a hole to the void.
  *
@@ -82,7 +82,7 @@ public class FilmSelfTest implements ClientModInitializer {
 	private static final int HOME = GapTimeline.REBUILD_END + 20;
 	/** How long the recording goes on once everyone is home. */
 	private static final int AFTER = 240;
-	/** Woomerd's run back to his base. */
+	/** Woomerd's run back to the base. */
 	private static final int RUN_FROM = 106;
 	private static final int RUN_TO = 228;
 	private static final int[] TNT_AT = {52, 60, 68};
@@ -114,7 +114,7 @@ public class FilmSelfTest implements ClientModInitializer {
 			new Line(45, Role.WOOMERD, "lol what was that"),
 			new Line(110, Role.WOOMERD, "nothing happened"),
 			new Line(170, Role.GERALD, "uh"),
-			new Line(205, Role.GERALD, "what did he do"),
+			new Line(205, Role.GERALD, "what did kortev do"),
 			new Line(260, Role.WOOMERD, "its broken lol"),
 			new Line(300, Role.KORTEV, "wait for it"),
 			new Line(345, Role.GERALD, "LOOK UP"),
@@ -602,7 +602,7 @@ public class FilmSelfTest implements ClientModInitializer {
 			}
 		}
 
-		// Woomerd's TNT against the cabin's east wall, lit, and his run home.
+		// Woomerd's TNT against the cabin's east wall, lit, and the run home.
 		for (int i = 0; i < TNT_AT.length; i++) {
 			if (now == TNT_AT[i]) {
 				BlockPos p = sc.tnt[i];
@@ -719,7 +719,7 @@ public class FilmSelfTest implements ClientModInitializer {
 		}
 	}
 
-	/** Where a server-moved player stands before the event: Woomerd runs from the cabin to his base; the others stay. */
+	/** Where a server-moved player stands before the event: Woomerd runs from the cabin to the base; the others stay. */
 	@Nullable
 	private static Vec3d feet(ServerWorld world, FilmScene sc, Role role, int now) {
 		return switch (role) {
