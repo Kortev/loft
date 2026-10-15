@@ -35,6 +35,8 @@ final class FilmScene {
 	/** The spawn, from the key's target: west and well south, outside the hole (the zone is 96 blocks round). */
 	static final int SPAWN_WEST = 20;
 	static final int SPAWN_SOUTH = 105;
+	/** Kortev's place at the end, west of gerald_2009. */
+	static final int HOME_WEST = 4;
 
 	/** The cabin's middle, on its floor. */
 	final BlockPos house;
@@ -49,10 +51,15 @@ final class FilmScene {
 	/** The world spawn: gerald_2009's place, and where anyone killed comes back. */
 	final Vec3d gerald;
 	final BlockPos spawn;
+	/**
+	 * Where Kortev is sent home to when the world comes back: beside the other two at the spawn, on the rim of the hole,
+	 * since the cabin is inside it and the rim on that side is wherever the hole happens to end.
+	 */
+	final Vec3d kortevHome;
 	/** The three TNT spots against the cabin's east wall. */
 	final BlockPos[] tnt;
 
-	private FilmScene(BlockPos house, BlockPos base, int kortevY, int geraldY) {
+	private FilmScene(BlockPos house, BlockPos base, int kortevY, int geraldY, int homeY) {
 		this.house = house;
 		this.base = base;
 		this.kortev = new Vec3d(house.getX() + 2.5, kortevY, house.getZ() + 11.5);
@@ -61,6 +68,7 @@ final class FilmScene {
 		this.target = new BlockPos(base.getX() - 6, base.getY() - 1, base.getZ());
 		this.gerald = new Vec3d(target.getX() - SPAWN_WEST + 0.5, geraldY, target.getZ() + SPAWN_SOUTH + 0.5);
 		this.spawn = BlockPos.ofFloored(gerald).add(3, 0, 0);
+		this.kortevHome = new Vec3d(gerald.x - HOME_WEST, homeY, gerald.z - 1.0);
 		this.tnt = new BlockPos[] {house.add(4, 0, -1), house.add(4, 0, 0), house.add(4, 0, 1)};
 	}
 
@@ -101,7 +109,8 @@ final class FilmScene {
 		BlockPos base = new BlockPos(bestX + BASE_EAST, baseY, bestZ);
 		int gx = base.getX() - 6 - SPAWN_WEST;
 		int gz = base.getZ() + SPAWN_SOUTH;
-		FilmScene scene = new FilmScene(house, base, ground(world, bestX + 2, bestZ + 11), ground(world, gx, gz));
+		FilmScene scene = new FilmScene(house, base, ground(world, bestX + 2, bestZ + 11), ground(world, gx, gz),
+				ground(world, gx - HOME_WEST, gz - 1));
 		scene.clear(world);
 		scene.pad(world, house, 6);
 		scene.pad(world, base, 6);

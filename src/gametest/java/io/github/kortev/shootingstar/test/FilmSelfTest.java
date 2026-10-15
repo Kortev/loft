@@ -3,6 +3,7 @@ package io.github.kortev.shootingstar.test;
 import com.mojang.authlib.GameProfile;
 import com.mojang.datafixers.util.Pair;
 import io.github.kortev.shootingstar.ShootingStar;
+import io.github.kortev.shootingstar.gap.FilmHomes;
 import io.github.kortev.shootingstar.gap.GapManager;
 import io.github.kortev.shootingstar.gap.GapTimeline;
 import io.github.kortev.shootingstar.registry.ModItems;
@@ -162,6 +163,7 @@ public class FilmSelfTest implements ClientModInitializer {
 	private static final Set<String> SAID = new HashSet<>();
 	private static int deadAt = -1;
 	private static boolean geraldIn;
+	private static boolean homeSet;
 
 	// Client thread only.
 	private static final Set<String> SHOT = new HashSet<>();
@@ -238,9 +240,22 @@ public class FilmSelfTest implements ClientModInitializer {
 				ticks = 0;
 			}
 			case SETTLE -> {
-				// Long enough for the scene's chunks to be built round the new place, in software.
-				if (ready && ticks >= 900) {
+				// Counted from when the scene is built: long enough for its chunks to be drawn, in software, and for the
+				// advancements everyone's kit earns them to be over with.
+				if (!ready) {
+					ticks = 0;
+					return;
+				}
+				if (ticks >= 600 && client.player != null) {
+					// Looking where the film opens, before it does.
+					Vec3d at = look(me, 0, -1, eyes(client));
+					if (at != null) {
+						aimAt(client.player, client.player.getEyePos(), at);
+					}
+				}
+				if (ticks >= 900) {
 					ShootingStar.LOGGER.info("[film] rolling");
+					server.execute(() -> server.getOverworld().getGameRules().get(GameRules.ANNOUNCE_ADVANCEMENTS).set(true, server));
 					shot(client, "00_ready");
 					Capture.start(client, client.runDirectory.toPath().resolve("capture"));
 					running = true;
@@ -285,17 +300,7 @@ public class FilmSelfTest implements ClientModInitializer {
 			return;
 		}
 		deadFor = 0;
-		Function<Role, Vec3d> eyes = role -> {
-			if (client.world == null) {
-				return null;
-			}
-			for (AbstractClientPlayerEntity other : client.world.getPlayers()) {
-				if (other.getGameProfile().getName().equals(role.name)) {
-					return other.getEyePos();
-				}
-			}
-			return null;
-		};
+		Function<Role, Vec3d> eyes = eyes(client);
 		// The shooter's head is the event's while it has the camera.
 		boolean held = me == Role.KORTEV && age >= 0 && age < GapTimeline.RETURN && released < 0
 				|| me == Role.KORTEV && released >= 0 && now - released < HOME;
@@ -343,6 +348,21 @@ public class FilmSelfTest implements ClientModInitializer {
 				client.interactionManager.interactItem(player, Hand.MAIN_HAND);
 			}
 		}
+	}
+
+	/** Where each player's eyes are, as the client sees them. */
+	private static Function<Role, Vec3d> eyes(MinecraftClient client) {
+		return role -> {
+			if (client.world == null) {
+				return null;
+			}
+			for (AbstractClientPlayerEntity other : client.world.getPlayers()) {
+				if (other.getGameProfile().getName().equals(role.name)) {
+					return other.getEyePos();
+				}
+			}
+			return null;
+		};
 	}
 
 	/** True the first tick at or after {@code at}. */
@@ -479,7 +499,8 @@ public class FilmSelfTest implements ClientModInitializer {
 		rules.get(GameRules.DO_WEATHER_CYCLE).set(false, server);
 		rules.get(GameRules.DO_MOB_SPAWNING).set(false, server);
 		rules.get(GameRules.SPAWN_RADIUS).set(0, server);
-		rules.get(GameRules.ANNOUNCE_ADVANCEMENTS).set(true, server);
+		// The advancements their kits earn them are not news; announced again from the first frame.
+		rules.get(GameRules.ANNOUNCE_ADVANCEMENTS).set(false, server);
 		world.setTimeOfDay(2500);
 		world.setWeather(24000, 0, false, false);
 		FilmScene sc = FilmScene.build(world);
@@ -681,6 +702,14 @@ public class FilmSelfTest implements ClientModInitializer {
 		if (released < 0 && age >= RELEASE_FROM && kortev != null && !hasKey(kortev)) {
 			released = now;
 			ShootingStar.LOGGER.info("[film] the world comes back from {} (age {})", now, age);
+		}
+
+		// Kortev's cabin is inside the hole: when the world comes back, Kortev is sent home beside the other two at the
+		// spawn instead, facing the hole, rather than to wherever its rim happens to be on the cabin's side.
+		if (age == GapTimeline.NOTHING + 20 && released < 0 && kortev != null && !homeSet) {
+			homeSet = true;
+			float[] a = angles(sc.kortevHome.add(0.0, 1.62, 0.0), Vec3d.ofCenter(sc.target).add(0.0, -12.0, 0.0));
+			FilmHomes.set(kortev, world, sc.kortevHome, a[0], a[1]);
 		}
 
 		// Woomerd swallowed, and back a few seconds later (the client's own does it from the death screen).
