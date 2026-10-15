@@ -41,14 +41,18 @@ def encode(crf):
                      'alimiter=limit=0.89:level=0:attack=2:release=60,apad[aout]' % len(sounds))
         cmd += ['-filter_complex', ';'.join(graph), '-map', '0:v', '-map', '[aout]', '-c:a', 'aac', '-b:a', '160k',
                 '-shortest']
-    cmd += ['-c:v', 'libx264', '-preset', 'medium', '-crf', str(crf), '-pix_fmt', 'yuv420p', '-movflags', '+faststart',
-            output]
+    cmd += ['-c:v', 'libx264', '-preset', os.environ.get('MUX_PRESET', 'medium'), '-crf', str(crf), '-pix_fmt', 'yuv420p',
+            '-movflags', '+faststart', output]
     subprocess.run(cmd, check=True)
     return os.path.getsize(output)
 
 
-for crf in (22, 25, 28, 31):
-    size = encode(crf)
-    print('crf', crf, '->', size, 'bytes')
-    if size <= 14 * 1024 * 1024:
-        break
+# MUX_CRF: one encode at that quality, however big (a master to edit from); otherwise small enough to hand around.
+if os.environ.get('MUX_CRF'):
+    print('crf', os.environ['MUX_CRF'], '->', encode(int(os.environ['MUX_CRF'])), 'bytes')
+else:
+    for crf in (22, 25, 28, 31):
+        size = encode(crf)
+        print('crf', crf, '->', size, 'bytes')
+        if size <= 14 * 1024 * 1024:
+            break

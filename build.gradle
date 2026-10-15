@@ -110,7 +110,13 @@ loom {
 			vmArg "-Dshootingstar.selftest.target=${project.findProperty('target') ?: ''}"
 			runDir "build/selftest"
 			source sourceSets.gametest
-			programArgs "--quickPlaySingleplayer", "selftest", "--width", "1280", "--height", "720"
+			// The window's size (-Pwidth, -Pheight: the film self tests are 1080x1920, for Shorts) and who plays (-Pusername).
+			def window = ["--quickPlaySingleplayer", "selftest", "--width", (project.findProperty('width') ?: '1280').toString(),
+					"--height", (project.findProperty('height') ?: '720').toString()]
+			if (project.findProperty('username')) {
+				window += ["--username", project.findProperty('username').toString()]
+			}
+			programArgs(window)
 		}
 		// The server going down without warning mid-event, and coming back (CrashTestServer, tools/crashtest.sh).
 		crashserver {

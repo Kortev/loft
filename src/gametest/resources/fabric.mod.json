@@ -24,7 +24,8 @@
 			"io.github.kortev.shootingstar.test.GapSelfTest",
 			"io.github.kortev.shootingstar.test.ChittySelfTest",
 			"io.github.kortev.shootingstar.test.MjolnirSelfTest",
-			"io.github.kortev.shootingstar.test.MultiplayerTestClient"
+			"io.github.kortev.shootingstar.test.MultiplayerTestClient",
+			"io.github.kortev.shootingstar.test.FilmSelfTest"
 		]
 	},
 	"depends": {
