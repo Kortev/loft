@@ -1,0 +1,31 @@
+{
+  "parent": "shootingstar:airship/root",
+  "display": {
+    "icon": {
+      "id": "shootingstar:airship"
+    },
+    "title": {
+      "translate": "advancements.shootingstar.airship_board.title"
+    },
+    "description": {
+      "translate": "advancements.shootingstar.airship_board.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "board": {
+      "trigger": "shootingstar:event",
+      "conditions": {
+        "event": "airship_board"
+      }
+    }
+  },
+  "requirements": [
+    [
+      "board"
+    ]
+  ]
+}

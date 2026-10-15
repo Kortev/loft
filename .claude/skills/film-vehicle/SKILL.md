@@ -13,8 +13,9 @@ A vehicle here is a **film prop you can ride**:
 - driven like a boat (the driver's client moves it);
 - with sounds synthesised from a model of the real thing.
 
-**Chitty** is the finished template. Read `references/chitty.md` for her full map before starting. The next two
-are specced in `HANDOFF.md`: the Vulgarian airship and the Child Catcher's carriage.
+**Chitty** is the finished template. Read `references/chitty.md` for her full map before starting. The **Vulgarian
+airship** is the second (`references/airship.md`): she shares Chitty's mesh format, exporter and loader. The next, the
+Child Catcher's carriage, is specced in `HANDOFF.md`.
 
 ## Where vehicles live
 
@@ -155,7 +156,7 @@ are specced in `HANDOFF.md`: the Vulgarian airship and the Child Catcher's carri
 - **Camera/view mixins:**
   - `ChittyCameraMixin`: the third-person distance is doubled for a big vehicle.
   - `ChittyViewMixin`: the first-person view banks with her (roll at `tiltViewWhenHurt` HEAD).
-- **Extras:** `ChittyLamps` (night beams from markers), `ChittyTexture` (smooth filtering and mipmaps for a baked
+- **Extras:** `ChittyTexture` (smooth filtering and mipmaps for a baked
   atlas, registered under the renderer's `TEXTURE`).
 
 ## Sounds script (copy `tools/gen_chitty_sounds.py`)

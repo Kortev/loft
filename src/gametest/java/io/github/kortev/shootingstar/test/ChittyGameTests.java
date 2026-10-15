@@ -2,6 +2,7 @@ package io.github.kortev.shootingstar.test;
 
 import com.mojang.authlib.GameProfile;
 import io.github.kortev.chitty.Chitty;
+import io.github.kortev.chitty.ChittyControls;
 import io.github.kortev.chitty.ChittyEntity;
 import io.github.kortev.chitty.ChittyPartEntity;
 import io.github.kortev.shootingstar.OwnerOnly;
@@ -424,6 +425,40 @@ public class ChittyGameTests implements FabricGameTest {
 			context.assertTrue(back.getZ() < car.getZ() - 0.5, "the back seat is not behind: " + (back.getZ() - car.getZ()));
 			ZombieEntity driver = riders.get(3);
 			context.assertTrue(driver.getX() < car.getX() - 0.2, "the driver's seat is not on her right: " + (driver.getX() - car.getX()));
+			context.complete();
+		});
+	}
+
+	/**
+	 * Someone takes the wheel and she is cranked. Now and then a swing doesn't catch: she stops again; pressing on swings
+	 * the handle again, and by the third swing she always catches. With nobody at the wheel she stops.
+	 */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "c_chitty", tickLimit = 200)
+	public void stallsThenCatches(TestContext context) {
+		floor(context, 0);
+		ChittyEntity car = car(context, 4.0, 1.0, 4.0);
+		ServerPlayerEntity driver = player(context, "chitty_driver");
+		// This swing won't catch, whatever taking the wheel would have rolled (it finds her already being cranked).
+		car.crank(false);
+		context.assertTrue(driver.startRiding(car, true), "the player could not get in");
+		context.assertTrue(car.getControllingPassenger() == driver, "the player did not take the wheel");
+		context.runAtTick(5, () -> context.assertTrue(car.isCranking(), "she was not being cranked"));
+		context.runAtTick(ChittyEntity.START_FAIL + 4, () -> context.assertTrue(!car.isCranking() && !car.isEngineRunning(),
+				"a swing that did not catch left her running"));
+		ChittyControls pressing = new ChittyControls(1, 0, false, false);
+		context.runAtEveryTick(() -> {
+			if (context.getTick() > ChittyEntity.START_FAIL + 5 && driver.getVehicle() == car) {
+				car.applyInput(driver, pressing, car.getState());
+			}
+		});
+		context.runAtTick(180, () -> {
+			context.assertTrue(car.isEngineRunning(), "pressing on did not start her by the third swing");
+			// Out first: a player leaving the game takes what they ride with them.
+			driver.stopRiding();
+			context.getWorld().getServer().getPlayerManager().remove(driver);
+		});
+		context.runAtTick(182, () -> {
+			context.assertTrue(!car.isEngineRunning() && !car.isCranking(), "she ran on with nobody at the wheel");
 			context.complete();
 		});
 	}

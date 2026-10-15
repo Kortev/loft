@@ -1,0 +1,31 @@
+{
+  "parent": "shootingstar:airship/board",
+  "display": {
+    "icon": {
+      "id": "shootingstar:airship"
+    },
+    "title": {
+      "translate": "advancements.shootingstar.airship_grab.title"
+    },
+    "description": {
+      "translate": "advancements.shootingstar.airship_grab.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "grab": {
+      "trigger": "shootingstar:event",
+      "conditions": {
+        "event": "airship_grab"
+      }
+    }
+  },
+  "requirements": [
+    [
+      "grab"
+    ]
+  ]
+}

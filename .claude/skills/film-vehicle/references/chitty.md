@@ -23,7 +23,6 @@ and her assets and data are under `chitty/src/{main,client}/resources/`, still i
 | Renderer (posing every part) | `client/ChittyRenderer.java` |
 | Live metal reflections | `client/ChittyShine.java` |
 | Engine and flight loops | `client/ChittySound.java` |
-| Night lamp beams | `client/ChittyLamps.java` |
 | Smooth-filtered atlas | `client/ChittyTexture.java` |
 | Third-person distance ×2 | `client/mixin/ChittyCameraMixin.java` (config `chitty.client.mixins.json`) |
 | First-person bank | `client/mixin/ChittyViewMixin.java` |
@@ -57,20 +56,36 @@ and her assets and data are under `chitty/src/{main,client}/resources/`, still i
   - `BEACHED` 20;
   - `WINGS_BITE` 36 (ticks until the wings bear her);
   - `RESCUE_FALL` 5 blocks, `SWOOP` 14 (the self-rescue from a fall);
-  - `START_BANG_1/2` 15 / 20;
+  - `START_BANG_1/2` 15 / 20 (a catching crank runs after the second); `START_FAIL` 32, `START_COUGH_1/2` 9 / 16 (a
+    crank that doesn't); `CATCHES` 0.7 (the third swing always catches);
+  - `IDLE_RPM` 440, `REV_RPM` 2700, `STANDING` 0.05 (slower than this she can be revved);
+  - the springs: `SQUAT` 140 and `LEAN` 105 degrees per block/tick² of pull, at most `MAX_SWAY` 4.5;
+  - `WHEEL_TRACK` 0.70 / `REAR_WHEELS` -1.70 (where the tyres smoke and throw dust), `BONNET_TOP/BACK/LENGTH` (where it
+    shimmers);
   - `CLOUDS` y 192 (the clouds advancement);
   - `EJECT_STATUS` 90 (entity status for the ejector), `EJECT_SETTLED` 60.
 - **State bits** (tracked `STATE`): `STATE_WINGS` 1, `STATE_WINGS_HELD` 2 (opened by hand, they stay out on the
   ground), `STATE_FLOATS` 4.
-- **Tracked data:** `STATE`, `SEATING` (two bits per passenger), `HAMPER`, `STEER`, `THROTTLE`, and the damage
-  wobble trio.
+- **Tracked data:** `STATE`, `SEATING` (two bits per passenger), `HAMPER`, `STEER`, `THROTTLE`, `ENGINE`
+  (`ENGINE_OFF` / `CRANKING` / `RUNNING`, the server's `startUp()`), `REV`, and the damage wobble trio.
+- **Starting:** a player taking the driver's seat calls `crank()`; it catches or not (`START` / `START_FAIL`); stalled
+  on the ground, the driver's forward pedal cranks again; in the air she catches at once. `isEngineRunning()` needs
+  `ENGINE_RUNNING` and a driver; until then `drive()` ignores the pedals. `crank(boolean)` for tests,
+  `alwaysCatches` for the filmed self test.
+- **Revving:** `ChittyControls.rev` (V); the server sets `REV` while standing and out of gear, and lets go of it after
+  more than 6 ticks with a backfire half the time.
 - **Modes:** `ROAD`, `WATER`, `WADE`, `AIR`, `FALL`, in `drive()`.
   - Nose-into-wall stop: `noseHits`.
   - Climbing banks: `bankAhead`.
   - Self-rescue: `aboutToHit`.
 - **Client-tick getters** for the renderer, all interpolated: `getWingOpen`, `getFloatOpen`, `getWheelSpin`,
   `getPropSpin`, `getScrewSpin`, `getGearLever`, `getBrakeLever`, `getCrankSpin`, `getDial(0 speed, 1 height,
-  2 revs)`, `getEjectLift`, `getSteer`, `getBank`, `getTilt`.
+  2 revs)`, `getEjectLift`, `getSteer`, `getBank`, `getTilt`; and her body on its springs, `getBodyPitch`,
+  `getBodyRoll`, `getBodyHeave` (`suspension()`: three damped `Spring`s), with `getFirings` and `getShake` for the
+  idle shake (the renderer's `spring()` kicks at each pair of firings).
+- **Client-tick looks:** `getRpm()` (the engine sound and the rev needle use it), `tyres()` (slip on paving smokes,
+  `WHITE_SMOKE`, and squeals, `getSqueal()` for `ChittySound`'s `SKID` layer; off paving, block and `DUST_PLUME`
+  particles), `bonnetHeat()` (`Chitty.HEAT` particles, `ChittyHeatParticle`).
 - **Behaviours:**
   - `ejectBackSeat()`: launches the back seat's riders, with slow falling for players.
   - `toggleHamper()`: sneak-use takes it off and spills it stack by stack behind her.
@@ -92,7 +107,7 @@ and her assets and data are under `chitty/src/{main,client}/resources/`, still i
 - **Ejector:** `seat_rear` and `spring_l/r`.
 - **`hamper`:** hidden when she has none.
 - **Markers:** `seat_driver`, `seat_front_passenger`, `seat_rear_left`, `seat_rear_right`, `exhaust`,
-  `beam_lamp_l/r`, `beam_spot_l/r`.
+  `beam_lamp_l/r`, `beam_spot_l/r` (unused since her lamp beams went).
 
 The renderer has `PLEAT_CLOSED` 0.07, `WING_DROP` 0.15 and `TAIL_DROP` 0.04. These must match `WING`, `NOSEFAN` and
 `TAILFAN` in the model script.

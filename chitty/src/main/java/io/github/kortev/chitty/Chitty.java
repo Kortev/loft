@@ -1,14 +1,17 @@
 package io.github.kortev.chitty;
 
+import io.github.kortev.chitty.airship.Airship;
 import io.github.kortev.shootingstar.ShootingStar;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.fabricmc.fabric.api.particle.v1.FabricParticleTypes;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.SpawnGroup;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemGroups;
+import net.minecraft.particle.SimpleParticleType;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
 import net.minecraft.sound.SoundEvent;
@@ -18,7 +21,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Chitty Chitty Bang Bang: the car, the item that puts her down, her sounds and the driver's messages.
+ * Chitty Chitty Bang Bang: the car, the item that puts her down, her sounds and the driver's messages; and the film's
+ * other vehicles, each set up from here (the Vulgarian airship: {@link Airship}).
  *
  * <p>She is a mod of her own, in her own jar, built beside The Shooting Star and needing it: her things keep the
  * {@code shootingstar} names they were made with (so cars already put down and items already made survive the move),
@@ -55,6 +59,8 @@ public final class Chitty implements ModInitializer {
 	public static final SoundEvent FLIGHT = sound("chitty.flight");
 	public static final SoundEvent WIND = sound("chitty.wind");
 	public static final SoundEvent START = sound("chitty.start");
+	public static final SoundEvent START_FAIL = sound("chitty.start_fail");
+	public static final SoundEvent SKID = sound("chitty.skid");
 	public static final SoundEvent BANG = sound("chitty.bang");
 	public static final SoundEvent HORN = sound("chitty.horn");
 	public static final SoundEvent WINGS_OUT = sound("chitty.wings_out");
@@ -64,6 +70,10 @@ public final class Chitty implements ModInitializer {
 	public static final SoundEvent EJECT = sound("chitty.eject");
 	public static final SoundEvent CRASH = sound("chitty.crash");
 
+	/** The shimmer of hot air over her bonnet and the end of her pipe, once she has run a while. */
+	public static final SimpleParticleType HEAT = Registry.register(Registries.PARTICLE_TYPE, ShootingStar.id("chitty_heat"),
+			FabricParticleTypes.simple());
+
 	private static SoundEvent sound(String name) {
 		Identifier id = ShootingStar.id(name);
 		return Registry.register(Registries.SOUND_EVENT, id, SoundEvent.of(id));
@@ -72,6 +82,7 @@ public final class Chitty implements ModInitializer {
 	@Override
 	public void onInitialize() {
 		ItemGroupEvents.modifyEntriesEvent(ItemGroups.TOOLS).register(entries -> entries.add(ITEM));
+		Airship.init();
 		PayloadTypeRegistry.playC2S().register(ChittyInputPayload.ID, ChittyInputPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(ChittyHornPayload.ID, ChittyHornPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(ChittyEjectPayload.ID, ChittyEjectPayload.CODEC);

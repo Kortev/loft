@@ -35,6 +35,7 @@ built in Blender by a script, the effects are real shaders, and everything has g
 | **Ω-00 Ginnungagap**: the Genesis Key erases the world round a target; everyone waits in the void; the cracked key rebuilds it | `genesis_key` | Done. kortev has more edits planned (not yet specified). |
 | **Þ-01 Mjölnir**: the planet's thunderstorms in one bolt; a storm over the target, a fused crater with the bolt left standing petrified, the zone burned, a Lichtenberg scar, arcs through the ring | `mjolnir` | New: made as kortev's own answer to Gungnir, which they can't keep in their mod. Shares no class with Gungnir. |
 | **Chitty Chitty Bang Bang**: drivable, flying, floating car from the film | `chitty` | Done and polished (pleated wings, raft, ejector seat, hamper, dials, lamps, live metal shine, banking view). In her own jar. |
+| **The Vulgarian airship**: Baron Bomburst's airship, to fly, with a grapple, a rope ladder and bombs | `airship`, `airship_bomb` | In game (Chitty's jar), waiting on kortev's in-game test. Map: `.claude/skills/film-vehicle/references/airship.md`. |
 | **Owner-only crafting** | all recipes | Done: `OwnerOnly.OWNER = "kortev"`; crafters never make the mods' items. It covers everything in the `shootingstar` namespace, whichever jar it is in. |
 
 The latest work is on branch **`claude/gallant-brahmagupta-qi9mw3`** (it carries everything from
@@ -46,7 +47,7 @@ Two new vehicles from *Chitty Chitty Bang Bang*, built exactly like Chitty and i
 `film-vehicle` skill). kortev
 wants **renders for approval before baking** anything.
 
-### 1. The Vulgarian airship (kortev's own airship)
+### 1. The Vulgarian airship (kortev's own airship): built
 
 - It's a craftable vehicle to fly, not an enemy.
 - It hovers, rises and sinks slowly, and seats a crew in the gondola, with a **ladder**.
@@ -56,6 +57,45 @@ wants **renders for approval before baking** anything.
 - References:
   - kortev's Notion page **"claude chitty chitty mod"**, which has a Lebaudy airship photo and two other images.
   - Film stills: research the Baron's airship yourself.
+- **Decided with kortev so far:**
+  - Full scale.
+  - The gondola is standing room only; there are no benches.
+  - Two pusher propellers at the gondola's stern, each driven by a shaft, pulley and belt as in the film. There is
+    no other fan.
+  - The emblem and the colours follow the film. The arms must be crisp heraldry, not cartoony.
+  - Everything is copied from the film as closely as the logo was. The metal frame stops above the crew's heads.
+    The gondola and the propellers hang from it on wires; nothing rigid joins them to it.
+  - The gondola's carving follows the film's layout, with a cherub beside a black-letter B at the bow.
+  - She lifts six people. In the film she starts losing height with six aboard and Grandpa's hut on the hook.
+  - The hook is a **grapple hook**. It is mainly a utility for carrying things. A hooked player gets off only by
+    some rule such as a timer.
+  - Bombs break blocks. The cost and reload are ours to choose.
+  - The ladder is a rope ladder that lets down as far as the hook.
+  - The gondola is shorter and deeper, like the film's (its carved side about two to one).
+  - Eight places to stand, with lift for six; overloaded, she sinks slowly. The pilot's key throws the passenger
+    furthest aft overboard.
+  - A hooked player struggles free by holding sneak for 10 s.
+  - Bombs: iron, 2 gunpowder and string make 2. She carries a rack of 6, with 1.5 s between drops.
+  - Riders walk freely about the gondola and can't fall out. Walking up to the wheel takes it (then the movement keys
+    fly her); sneak lets go of it. Sneak gets anyone off: beside her near the ground, or in the air down her rope
+    ladder, which lets itself down for them.
+  - In third person the camera turns about the middle of her, far enough back to see all of her.
+  - The grapple is a weight on a rope (it swings, trails and lands) and lets down 64 blocks. The crew work its winch
+    by holding keys (R out, Y in); kortev: it must never go up by itself, all its controls are on the ship. Anyone on
+    the ground can take hold of it as it hangs empty and then hook it onto someone within reach, throw it (R) or jump
+    to hang on it, or leap and catch it in the air to hang on at once; hanging on, they pull themselves up clear of
+    the ground so they can swing (kortev: picked up off the ground, you hung with your feet on it and couldn't swing).
+    The crew wind up whatever it holds, and whoever holds it or hangs on goes up with it and comes aboard. Slack rope
+    sags; the drum turns; the rope creaks under a load; dragged, the grapple sparks.
+- **Built and in game.** kortev OK'd the renders and asked for her baked and ported. She is in Chitty's jar, mapped
+  in `.claude/skills/film-vehicle/references/airship.md` and described in `chitty/README.md`.
+  - kortev's first test: boarding put them in a crew place, so she would not fly; there was no way to the wheel and no
+    clear way off; the camera was too close. Hence walking, the wheel, sneaking off and the new camera.
+  - Her look: kortev asked whether she was too soft for Minecraft and chose a faceted finish from the comparison
+    renders. Her game build is faceted (a sixteen-sided envelope, square bars and wires, round parts of eight sides,
+    flat faces), her 1024 atlas holds only her colours (a little darker in nooks) drawn pixelated, and the game lights
+    each face by which way it faces. Her gondola's floor and lining show now (the old lit bake left them black).
+  - Next: kortev's next in-game test, and fixing what they report.
 
 ### 2. The Child Catcher's carriage
 
@@ -85,6 +125,16 @@ kortev tests in game themselves and reports back. Don't spend usage on the self-
 
 ## Open items
 
+- **Chitty: a polish pass like the airship's, saved for later (kortev: "maybe save that").** Improve what she has
+  rather than add to it, and ask the same question about her look in Minecraft (pixel density, face shading,
+  faceting): kortev chose the faceted finish for the airship, and its bake switches (`LIT_ALL`, `PACK_ROTATE`,
+  `ChittyTexture`'s pixelated option) are in `chitty_model.py`, off for her.
+
+- **Chitty polish: done, waiting on kortev's in-game test.** Her lamp beams are gone; she is cranked at the front and
+  now and then doesn't catch; V revs her standing (a roar, a twist on her springs, a backfire on letting go; rev then
+  go for a smoky getaway); her body rides its springs (squat, dive, lean, bumps) and shakes at idle in time with the
+  firings, the bonnet strap rattling in the idle sound; tyres smoke and squeal on paving and throw dust off it; the
+  air shimmers over her hot bonnet (a translucent particle: Minecraft has no true heat haze).
 - **Flaky game test** `gapgametests.liveevent`: it failed once ("the shooter was not taken home", at home x/z but 5
   blocks lower) and passed on re-run. Find the real cause; the player probably landed before the ground under home
   was back.
