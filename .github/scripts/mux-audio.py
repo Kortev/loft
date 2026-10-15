@@ -1,5 +1,9 @@
 """Mixes the sounds logged during the self test's capture into its video and re-encodes it small
-enough to hand around. Usage: mux-audio.py <capture dir> <output.mp4>"""
+enough to hand around. Usage: mux-audio.py <capture dir> <output.mp4>
+
+An output ending .wav is the mixed sound alone, as long as the video. MUX_EXCLUDE=a,b leaves out every sound whose
+file name has one of those in it (the film's game sound without Minecraft's own music, for a Short with music of its
+own)."""
 import json
 import os
 import subprocess
@@ -14,6 +18,11 @@ if not os.path.exists(video):
 log = os.path.join(folder, 'sounds.json')
 sounds = json.load(open(log)) if os.path.exists(log) else []
 sounds = [s for s in sounds if os.path.exists(os.path.join(folder, 'sounds', s['file']))]
+leave_out = [x for x in os.environ.get('MUX_EXCLUDE', '').split(',') if x]
+sounds = [s for s in sounds if not any(x in s['file'] for x in leave_out)]
+audio_only = output.lower().endswith('.wav')
+length = float(subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', video],
+                              capture_output=True, text=True, check=True).stdout.strip())
 print(len(sounds), 'sounds')
 
 
@@ -53,10 +62,17 @@ def encode(crf):
         # A plain sum, as the game mixes them, with a limiter only to catch overs: alimiter's default
         # auto-level would turn everything up to the ceiling and flatten the mix's dynamics.
         graph.append(''.join(labels) + 'amix=inputs=%d:normalize=0:dropout_transition=0,'
-                     'alimiter=limit=0.89:level=0:attack=2:release=60,apad[aout]' % len(sounds))
+                     'alimiter=limit=0.89:level=0:attack=2:release=60,apad,atrim=end=%.3f[aout]'
+                     % (len(sounds), length))
         with open(os.path.join(folder, 'mix.txt'), 'w') as g:
             g.write(';\n'.join(graph))
-        cmd += ['-/filter_complex', 'mix.txt', '-map', '0:v', '-map', '[aout]', '-c:a', 'aac', '-b:a', '160k', '-shortest']
+        cmd += ['-/filter_complex', 'mix.txt']
+        if audio_only:
+            # Bounded by length: a pad that never ends would otherwise run on for good.
+            cmd += ['-map', '[aout]', '-t', '%.3f' % length, '-c:a', 'pcm_s16le', target]
+            subprocess.run(cmd, check=True, cwd=folder)
+            return os.path.getsize(target)
+        cmd += ['-map', '0:v', '-map', '[aout]', '-c:a', 'aac', '-b:a', '160k', '-shortest']
     cmd += ['-c:v', 'libx264', '-preset', os.environ.get('MUX_PRESET', 'medium'), '-crf', str(crf), '-pix_fmt', 'yuv420p',
             '-movflags', '+faststart', target]
     subprocess.run(cmd, check=True, cwd=folder)
@@ -64,7 +80,9 @@ def encode(crf):
 
 
 # MUX_CRF: one encode at that quality, however big (a master to edit from); otherwise small enough to hand around.
-if os.environ.get('MUX_CRF'):
+if audio_only:
+    print('sound alone ->', encode(0), 'bytes')
+elif os.environ.get('MUX_CRF'):
     print('crf', os.environ['MUX_CRF'], '->', encode(int(os.environ['MUX_CRF'])), 'bytes')
 else:
     for crf in (22, 25, 28, 31):

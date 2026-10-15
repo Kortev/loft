@@ -9,6 +9,8 @@ whole scripted episode with the other two players moved by the server, and write
     build/film/<who>.mp4          the master: 1080x1920, 30 fps, the game's sounds mixed in (edit from this)
     build/film/<who>-stills/      screenshots at the scene's beats, to look it over without the video
     build/film/moves/<who>.tsv    how they moved, tick by tick: the other two's takes play it back on the server's copy
+    build/film/<who>-game.wav     the master's sound without Minecraft's own music (for a Short with music of its own)
+    build/film/<who>-capture/     the take's raw video and sounds, to mix again from
 
 So that the others move as they did in their own takes, everyone is recorded at least once before the takes that
 matter: "all" records Kortev, Woomerd and gerald, then Kortev and Woomerd again if anyone's moves were missing.
@@ -123,6 +125,14 @@ def take(who, window):
     master = os.path.join(OUT, who + '.mp4')
     env = dict(os.environ, MUX_CRF='17', MUX_PRESET='medium')
     subprocess.run([sys.executable, os.path.join(SCRIPTS, 'mux-audio.py'), capture, master], env=env, check=True)
+    # The game's sound without Minecraft's own music, for a Short with music of its own (shorts.py "audio"), and the
+    # capture itself, kept, to mix again from.
+    game = os.path.join(OUT, who + '-game.wav')
+    subprocess.run([sys.executable, os.path.join(SCRIPTS, 'mux-audio.py'), capture, game],
+                   env=dict(os.environ, MUX_EXCLUDE='minecraft_sounds_music'), check=True)
+    kept = os.path.join(OUT, who + '-capture')
+    shutil.rmtree(kept, ignore_errors=True)
+    shutil.copytree(capture, kept)
     stills = os.path.join(OUT, who + '-stills')
     shutil.rmtree(stills, ignore_errors=True)
     if os.path.isdir(shots):

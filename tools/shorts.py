@@ -6,6 +6,11 @@ The EDL (edit decision list) is JSON:
      "segments": [{"from": 12.0, "to": 14.5, "speed": 1.0, "punch": 0.0}, ...],
      "captions": [{"at": 0.0, "dur": 1.6, "text": "Woomerd blew up my *house*", "style": "hook", "y": 0.2}, ...],
      "sfx": [{"at": 0.0, "sound": "hit", "gain": 1.0}, ...],
+     "audio": "build/film/kortev-game.wav",
+     "band": {"height": 1350, "center": 1060},
+     "banner": {"text": "the revenge was NOT proportional 😭🙏", "y": 270, "size": 64},
+     "music": [{"file": "build/film/music/a.mp3", "at": 0.0, "from": 12.0, "dur": 20.0, "db": -16, "fade_in": 0.3,
+                "fade_out": 1.5}, ...],
      "crf": 18, "preset": "medium"}
 
 Segments are played in order: "from"/"to" are seconds of the source, "speed" speeds it up (sound too), "punch" pushes
@@ -15,7 +20,17 @@ sfx are optional: tools/shorts/*.json, the series' raw POV cuts, use neither. Ca
 game's, at seconds of the output: "pop" (a caption landing), "whoosh" (a cut or a speed-up) or "hit" (a low thud), made
 here, so nobody owns them; or "file", a sound file. The sound is levelled to -14 LUFS, as YouTube plays it. The
 captions' font is Inter ExtraBold if it is installed, else Arial Black or the nearest bold font found (SHORTS_FONT=path
-picks one). Needs ffmpeg, numpy and Pillow."""
+picks one). "riser" is a made sound too: noise and a tone climbing over two and a half seconds, ending dead, to put just
+before a big moment (its end at the moment).
+
+"band" crops the picture to a band across it, "height" tall (from the middle of the source's picture), and stands it
+on black with its middle "center" from the top; "banner" is one line of plain white text (wrapped if it must be, its
+emoji in colour) on the whole Short, its middle "y" from the top: the series' black-bars-and-a-caption look.
+
+"audio" is the sound to cut instead of the source's own: the same take's sound without Minecraft's music (film.py's
+<who>-game.wav), for a Short with music of its own. "music" lays tracks under it: each from "from" seconds into its
+file, "dur" long, at "at" seconds of the output, "db" loud (-16 if not said), faded in and out; and ducked under the
+game's sound, so it gives way whenever something loud happens and comes back after. Needs ffmpeg, numpy and Pillow."""
 import json
 import os
 import subprocess
@@ -34,6 +49,11 @@ FONTS = [os.environ.get('SHORTS_FONT', ''),
          '/System/Library/Fonts/Supplemental/Arial Black.ttf', '/System/Library/Fonts/Supplemental/Arial Bold.ttf',
          '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf']
 FONT = next((f for f in FONTS if f and os.path.exists(f)), None)
+# The banner's: a plain sans like the one YouTube's own text tool puts on a Short, and colour emoji.
+PLAIN = next((f for f in [os.environ.get('SHORTS_PLAIN', ''), 'C:/Windows/Fonts/segoeui.ttf', '/System/Library/Fonts/SFNS.ttf',
+                          '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'] if f and os.path.exists(f)), None)
+EMOJI = next((f for f in ['C:/Windows/Fonts/seguiemj.ttf', '/System/Library/Fonts/Apple Color Emoji.ttc',
+                          '/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf'] if os.path.exists(f)), None)
 
 
 def wrap(draw, text, font, width):
@@ -83,6 +103,54 @@ def caption_png(text, style, W, path):
     return H
 
 
+def banner_runs(line):
+    """The line as runs of plain text and of emoji."""
+    out = []
+    for ch in line:
+        e = ord(ch) > 0x2600
+        if out and out[-1][1] == e:
+            out[-1][0] += ch
+        else:
+            out.append([ch, e])
+    return out
+
+
+def banner_png(text, size, W, path):
+    """The banner: plain white text, its emoji in colour, centred; a little smaller to keep to one line, else wrapped."""
+    room = W - 90
+    probe = ImageDraw.Draw(Image.new('RGBA', (W, 10)))
+    for k in range(0, 9):
+        s = int(size * (1.0 - 0.025 * k))
+        font = ImageFont.truetype(PLAIN, s) if PLAIN else ImageFont.load_default(s)
+        emoji = ImageFont.truetype(EMOJI, s) if EMOJI and EMOJI.endswith('.ttf') else font
+        if sum(probe.textlength(t, font=emoji if e else font) for t, e in banner_runs(text)) <= room:
+            break
+    size = s
+
+    runs = banner_runs
+    measure = lambda line: sum(probe.textlength(t, font=emoji if e else font) for t, e in runs(line))
+    lines = ['']
+    for word in text.split(' '):
+        test = (lines[-1] + ' ' + word).strip()
+        if measure(test) > room and lines[-1]:
+            lines.append(word)
+        else:
+            lines[-1] = test
+    lh = int(size * 1.3)
+    H = lh * len(lines) + 20
+    img = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    for k, line in enumerate(lines):
+        x = (W - measure(line)) / 2
+        for t, e in runs(line):
+            f = emoji if e else font
+            # Both fonts on one baseline: the emoji font's own sits its pictures higher than the text.
+            d.text((x, 10 + k * lh + font.getmetrics()[0]), t, font=f, fill=(255, 255, 255, 255), embedded_color=e, anchor='ls')
+            x += d.textlength(t, font=f)
+    img.save(path)
+    return H
+
+
 RATE = 48000
 
 
@@ -118,6 +186,25 @@ def synth(name):
         body = np.sin(2 * np.pi * np.cumsum(f) / RATE) * np.exp(-t / 0.35)
         click = rng.standard_normal(n) * np.exp(-t / 0.008) * 0.3
         return 0.8 * np.tanh(1.6 * (body + click))
+    if name == 'riser':
+        n = int(2.5 * RATE)
+        t = np.arange(n) / RATE
+        k = t / t[-1]
+        # Noise through a band climbing from low to high, a tone climbing under it, swelling to the end and cut dead.
+        noise = rng.standard_normal(n)
+        y = np.zeros(n)
+        low = band = 0.0
+        for i in range(n):
+            f = 200 + 5800 * k[i] ** 2
+            q = 2 * np.sin(np.pi * f / RATE)
+            low += q * band
+            high = noise[i] - low - 0.5 * band
+            band += q * high
+            y[i] = band
+        y /= np.abs(y).max()
+        tone = np.sin(2 * np.pi * np.cumsum(110 * 2 ** (3 * k)) / RATE)
+        y = (0.6 * y + 0.4 * tone) * k ** 2.2
+        return 0.5 * y * np.minimum(1, (n - np.arange(n)) / (0.004 * RATE))
     raise SystemExit('no such sound: ' + name)
 
 
@@ -147,10 +234,17 @@ def atempo(speed):
 
 
 def main():
-    edl = json.load(open(sys.argv[1]))
+    edl = json.load(open(sys.argv[1], encoding='utf-8'))
     W, H = edl.get('width', 1080), edl.get('height', 1920)
     tmp = tempfile.mkdtemp(prefix='shorts_')
     cmd = ['ffmpeg', '-y', '-loglevel', 'error', '-i', edl['source']]
+    # The sound cut with the picture: the source's own, or the same take's from elsewhere (without its music).
+    src_a = '0:a'
+    n = 1
+    if edl.get('audio'):
+        cmd += ['-i', edl['audio']]
+        src_a = '1:a'
+        n = 2
     graph = []
     labels = []
     for i, seg in enumerate(edl['segments']):
@@ -165,13 +259,26 @@ def main():
         v += ',fps=30[v%d]' % i
         # A few milliseconds' fade either side of each cut, so a hard cut doesn't click.
         out = (seg['to'] - seg['from']) / sp
-        a = ('[0:a]atrim=start=%.4f:end=%.4f,asetpts=PTS-STARTPTS,%s,afade=t=in:d=0.012,afade=t=out:st=%.4f:d=0.012[a%d]'
-             % (seg['from'], seg['to'], atempo(sp), max(0.0, out - 0.012), i))
+        a = ('[%s]atrim=start=%.4f:end=%.4f,asetpts=PTS-STARTPTS,aformat=channel_layouts=stereo,aresample=48000,%s,'
+             'afade=t=in:d=0.012,afade=t=out:st=%.4f:d=0.012[a%d]'
+             % (src_a, seg['from'], seg['to'], atempo(sp), max(0.0, out - 0.012), i))
         graph += [v, a]
         labels.append('[v%d][a%d]' % (i, i))
     graph.append('%sconcat=n=%d:v=1:a=1[cv][ca]' % (''.join(labels), len(labels)))
     last = 'cv'
-    n = 1
+    band = edl.get('band')
+    if band:
+        h = band['height']
+        graph.append('[cv]crop=%d:%d:0:%d,pad=%d:%d:0:%d:black[bv]' % (W, h, (H - h) // 2, W, H, band.get('center', H // 2) - h // 2))
+        last = 'bv'
+    if edl.get('banner'):
+        b = edl['banner']
+        png = os.path.join(tmp, 'banner.png')
+        bh = banner_png(b['text'], b.get('size', 64), W, png)
+        cmd += ['-loop', '1', '-i', png]
+        graph.append("[%s][%d:v]overlay=0:%d:shortest=1[bn]" % (last, n, int(b.get('y', 270) - bh / 2)))
+        last = 'bn'
+        n += 1
     for j, c in enumerate(edl.get('captions', [])):
         png = os.path.join(tmp, 'c%d.png' % j)
         h = caption_png(c['text'], c.get('style', 'cap'), W, png)
@@ -193,6 +300,25 @@ def main():
             n += 1
         graph.append('%samix=inputs=%d:normalize=0:duration=first:dropout_transition=0[mixed]' % (''.join(mix), len(mix)))
         audio = 'mixed'
+    cues = edl.get('music', [])
+    if cues:
+        tracks = []
+        for j, m in enumerate(cues):
+            cmd += ['-i', m['file']]
+            fin = m.get('fade_in', 0.3)
+            fout = m.get('fade_out', 1.5)
+            graph.append('[%d:a]atrim=start=%.3f:end=%.3f,asetpts=PTS-STARTPTS,aformat=channel_layouts=stereo,aresample=48000,'
+                         'afade=t=in:d=%.3f,afade=t=out:st=%.3f:d=%.3f,volume=%.2fdB,adelay=%d:all=1[m%d]'
+                         % (n, m.get('from', 0.0), m.get('from', 0.0) + m['dur'], fin, max(0.0, m['dur'] - fout), fout,
+                            m.get('db', -16.0), int(round(m['at'] * 1000)), j))
+            tracks.append('[m%d]' % j)
+            n += 1
+        graph.append('%samix=inputs=%d:normalize=0:dropout_transition=0[music]' % (''.join(tracks), len(tracks)))
+        # Ducked under the game: when the game is loud the music gives way, and comes back after.
+        graph.append('[%s]asplit=2[game][key]' % audio)
+        graph.append('[music][key]sidechaincompress=threshold=0.04:ratio=6:attack=25:release=450:makeup=1[ducked]')
+        graph.append('[game][ducked]amix=inputs=2:normalize=0:duration=first:dropout_transition=0[scored]')
+        audio = 'scored'
     graph.append('[%s]loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000[aout]' % audio)
     cmd += ['-filter_complex', ';'.join(graph), '-map', '[%s]' % last, '-map', '[aout]',
             '-c:v', 'libx264', '-preset', edl.get('preset', 'medium'), '-crf', str(edl.get('crf', 18)), '-pix_fmt', 'yuv420p',
