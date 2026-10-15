@@ -16,7 +16,6 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.block.Blocks;
-import net.minecraft.block.TntBlock;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.DeathScreen;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
@@ -25,6 +24,7 @@ import net.minecraft.client.option.Perspective;
 import net.minecraft.client.util.ScreenshotRecorder;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EquipmentSlot;
+import net.minecraft.entity.TntEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.network.ClientConnection;
@@ -624,8 +624,10 @@ public class FilmSelfTest implements ClientModInitializer {
 		if (now == IGNITE) {
 			world.playSound(null, sc.tnt[1], SoundEvents.ITEM_FLINTANDSTEEL_USE, SoundCategory.BLOCKS, 1.0F, 1.0F);
 			for (BlockPos p : sc.tnt) {
-				TntBlock.primeTnt(world, p, woomerd);
 				world.setBlockState(p, Blocks.AIR.getDefaultState(), 11);
+				TntEntity tnt = new TntEntity(world, p.getX() + 0.5, p.getY(), p.getZ() + 0.5, woomerd);
+				world.spawnEntity(tnt);
+				world.playSound(null, tnt.getX(), tnt.getY(), tnt.getZ(), SoundEvents.ENTITY_TNT_PRIMED, SoundCategory.BLOCKS, 1.0F, 1.0F);
 			}
 			if (woomerd != null && me != Role.WOOMERD) {
 				woomerd.swingHand(Hand.MAIN_HAND, true);
