@@ -44,6 +44,11 @@ final class FilmHuman {
 	private double pitch;
 	private float lastYaw;
 	private float lastPitch;
+	// The look a tick ago and now, for the frames in between, and the look a frame was last given.
+	private double fromTickYaw;
+	private double fromTickPitch;
+	private float frameYaw = Float.NaN;
+	private float framePitch;
 	private int strokeAt = -1;
 	private int strokeLength;
 	private double fromYaw;
@@ -80,6 +85,8 @@ final class FilmHuman {
 	private boolean spam;
 	private boolean jumpOnce;
 	private boolean useHeld;
+	/** A or D held this tick (-1, 1; 0 neither), as when keeping to the middle of a bridge. */
+	private int strafe;
 	private double idle;
 	private int nextIdle = 40;
 	private int idleUntil = -1;
@@ -98,6 +105,7 @@ final class FilmHuman {
 	FilmHuman at(int now) {
 		clock = now;
 		useHeld = false;
+		strafe = 0;
 		track = false;
 		return this;
 	}
@@ -190,6 +198,12 @@ final class FilmHuman {
 		return this;
 	}
 
+	/** Hold A ({@code -1}) or D ({@code 1}) this tick. */
+	FilmHuman strafe(int side) {
+		strafe = side;
+		return this;
+	}
+
 	/** Standing about: how restless (0: still; 1: a step, hop or crouch every few seconds; 2: twice as often). */
 	FilmHuman idle(double level) {
 		idle = level;
@@ -254,11 +268,15 @@ final class FilmHuman {
 
 	private void mouse(ClientPlayerEntity player) {
 		int now = clock;
+		fromTickYaw = yaw;
+		fromTickPitch = pitch;
 		// Turned by something else since last tick (carried somewhere, the event giving the view back): start from there.
 		if (!started || Math.abs(MathHelper.wrapDegrees(player.getYaw() - lastYaw)) > 0.5 || Math.abs(player.getPitch() - lastPitch) > 0.5) {
 			started = true;
 			yaw = player.getYaw();
 			pitch = player.getPitch();
+			fromTickYaw = yaw;
+			fromTickPitch = pitch;
 			strokeAt = -1;
 			restUntil = now + 4;
 			lastWant = null;
@@ -287,7 +305,7 @@ final class FilmHuman {
 			pitch = fromPitch + dp * k + dy / len * side;
 			if (t >= 1.0) {
 				strokeAt = -1;
-				restUntil = now + 1 + random.nextInt(3);
+				restUntil = now + 1 + random.nextInt(2);
 			}
 		} else if (want != null && now >= restUntil && now >= reactAt) {
 			double dy = MathHelper.wrapDegrees(want[0] - yaw);
@@ -305,7 +323,8 @@ final class FilmHuman {
 				toYaw = yaw + dy * gain;
 				toPitch = MathHelper.clamp(pitch + dp * gain, -89.5, 89.5);
 				bulge = MathHelper.clamp(random.nextGaussian() * 0.06 * err, -0.15 * err, 0.15 * err);
-				strokeLength = Math.max(2, (int) Math.round(1.5 + 1.15 * (Math.log1p(err / 1.5) / Math.log(2.0)) + random.nextGaussian() * 0.4));
+				// A hand on a mouse in a recorded game: a third of a second for a few degrees, most of a second to turn round.
+				strokeLength = Math.max(3, (int) Math.round(3.0 + 2.6 * (Math.log1p(err / 3.0) / Math.log(2.0)) + random.nextGaussian() * 0.5));
 				strokeAt = now;
 				double t = 1.0 / strokeLength;
 				double k = t * t * t * (10.0 - 15.0 * t + 6.0 * t * t);
@@ -318,6 +337,29 @@ final class FilmHuman {
 		lastPitch = (float) pitch;
 		player.setYaw(lastYaw);
 		player.setPitch(lastPitch);
+	}
+
+	/**
+	 * A frame {@code tickDelta} of the way from the last tick to the next: the look on its way from where it was a tick
+	 * ago to where it is now, as a mouse moves it every frame (the game draws its own player's look as it is).
+	 */
+	void frame(ClientPlayerEntity player, float tickDelta) {
+		if (!started) {
+			return;
+		}
+		frameYaw = (float) (fromTickYaw + (yaw - fromTickYaw) * tickDelta);
+		framePitch = (float) (fromTickPitch + (pitch - fromTickPitch) * tickDelta);
+		player.setYaw(frameYaw);
+		player.setPitch(framePitch);
+	}
+
+	/** At the start of a tick: the look the tick left, unless something else has turned the player since the last frame. */
+	void unframe(ClientPlayerEntity player) {
+		if (!Float.isNaN(frameYaw) && player.getYaw() == frameYaw && player.getPitch() == framePitch) {
+			player.setYaw(lastYaw);
+			player.setPitch(lastPitch);
+		}
+		frameYaw = Float.NaN;
 	}
 
 	private void feet(MinecraftClient client, ClientPlayerEntity player) {
@@ -389,6 +431,10 @@ final class FilmHuman {
 					default -> crouch = (idleUntil - now) % 4 < 2;
 				}
 			}
+		}
+		if (strafe != 0) {
+			a = strafe < 0;
+			d = strafe > 0;
 		}
 		if (spam) {
 			crouch = (now / 2) % 2 == 0;

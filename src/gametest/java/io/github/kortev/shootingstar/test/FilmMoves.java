@@ -38,20 +38,23 @@ final class FilmMoves {
 		moves.add(move);
 	}
 
-	/** The move at scene tick {@code s}, or null if there is none. */
+	/** The move at scene tick {@code s}, or the last one before it (null before the first). */
 	@Nullable
 	Move at(int s) {
-		return s >= 0 && s < moves.size() && moves.get(s).s() == s ? moves.get(s) : find(s);
-	}
-
-	@Nullable
-	private Move find(int s) {
-		for (Move m : moves) {
-			if (m.s() == s) {
-				return m;
+		int lo = 0;
+		int hi = moves.size() - 1;
+		Move found = null;
+		while (lo <= hi) {
+			int mid = (lo + hi) >>> 1;
+			Move m = moves.get(mid);
+			if (m.s() <= s) {
+				found = m;
+				lo = mid + 1;
+			} else {
+				hi = mid - 1;
 			}
 		}
-		return null;
+		return found;
 	}
 
 	/** The first move at or after the event's age {@code age} (before the world came back). */

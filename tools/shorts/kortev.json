@@ -1,14 +1,6 @@
 {"source": "build/film/kortev.mp4", "out": "build/film/kortev-short.mp4",
  "segments": [
-  {"from": 6.8, "to": 16.2},
-  {"from": 18.0, "to": 21.0},
-  {"from": 21.5, "to": 22.6},
-  {"from": 25.5, "to": 27.0},
-  {"from": 28.5, "to": 41.5},
-  {"from": 45.4, "to": 49.6},
-  {"from": 53.0, "to": 55.4},
-  {"from": 62.8, "to": 68.0},
-  {"from": 71.0, "to": 76.6},
-  {"from": 79.0, "to": 81.0},
-  {"from": 89.8, "to": 92.8}],
+  {"from": 6.8, "to": 42.6},
+  {"from": 44.9, "to": 50.95},
+  {"from": 61.0, "to": 81.5}],
  "crf": 18, "preset": "medium"}

@@ -1,12 +1,6 @@
 {"source": "build/film/gerald.mp4", "out": "build/film/gerald-short.mp4",
  "segments": [
-  {"from": 5.4, "to": 7.8},
-  {"from": 12.6, "to": 15.6},
-  {"from": 35.0, "to": 36.6},
-  {"from": 41.6, "to": 46.0},
-  {"from": 48.6, "to": 54.0},
-  {"from": 62.6, "to": 75.8},
-  {"from": 79.0, "to": 81.0},
-  {"from": 83.0, "to": 86.0},
-  {"from": 92.8, "to": 103.0}],
+  {"from": 0.4, "to": 16.4},
+  {"from": 31.8, "to": 61.9},
+  {"from": 93.1, "to": 104.0}],
  "crf": 18, "preset": "medium"}

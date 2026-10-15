@@ -69,8 +69,9 @@ final class FilmScene {
 	Vec3d woomerdStart;
 	final Vec3d woomerdAtHouse;
 	Vec3d woomerdSafe;
-	/** Woomerd's spot in front of the W, and the block the key is aimed at (just in front of it). */
+	/** Woomerd's spot in front of the W, the chest beside it, and the block the key is aimed at (just in front of it). */
 	final Vec3d woomerdAtBase;
+	final BlockPos baseChest;
 	final BlockPos target;
 	/** Where anyone killed comes back: the world spawn, where it can all be seen from. */
 	final Vec3d respawn;
@@ -89,6 +90,7 @@ final class FilmScene {
 		this.woomerdAtHouse = new Vec3d(house.getX() + 6.5, house.getY(), house.getZ() + 0.5);
 		this.woomerdSafe = new Vec3d(house.getX() + 14.5, house.getY(), house.getZ() + 4.5);
 		this.woomerdAtBase = new Vec3d(base.getX() - 4.5, base.getY(), base.getZ() + 0.5);
+		this.baseChest = base.add(-4, 0, 1);
 		this.target = new BlockPos(base.getX() - 6, base.getY() - 1, base.getZ());
 		this.respawn = Vec3d.ofBottomCenter(respawn);
 		this.spawn = respawn;
@@ -505,6 +507,17 @@ final class FilmScene {
 		set(world, new BlockPos(x0 - 2, y0, z0 - 2), Blocks.CHEST.getDefaultState());
 		set(world, new BlockPos(x0 - 1, y0, z0 - 2), Blocks.CHEST.getDefaultState());
 		set(world, new BlockPos(x0 + 2, y0, z0 + 2), Blocks.ANVIL.getDefaultState());
+		// Woomerd's chest by the W, what they took from everyone in it.
+		set(world, baseChest, Blocks.CHEST.getDefaultState().with(ChestBlock.FACING, Direction.WEST));
+		if (world.getBlockEntity(baseChest) instanceof ChestBlockEntity box) {
+			box.setStack(2, new ItemStack(Items.TNT, 27));
+			box.setStack(4, new ItemStack(Items.GOLDEN_APPLE, 6));
+			box.setStack(6, new ItemStack(Items.DIAMOND, 14));
+			box.setStack(10, new ItemStack(Items.ENDER_PEARL, 9));
+			box.setStack(13, new ItemStack(Items.GOLD_INGOT, 31));
+			box.setStack(20, new ItemStack(Items.IRON_INGOT, 52));
+			box.setStack(22, new ItemStack(Items.OBSIDIAN, 18));
+		}
 		// A fence and a torch either side of where Woomerd stands.
 		for (int dz : new int[] {-2, 2}) {
 			set(world, new BlockPos(x0 - 5, y0, z0 + dz), Blocks.OAK_FENCE.getDefaultState().with(FenceBlock.NORTH, false));

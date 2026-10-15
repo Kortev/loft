@@ -22,6 +22,8 @@ import net.minecraft.block.Blocks;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.DeathScreen;
 import net.minecraft.client.gui.screen.ingame.GenericContainerScreen;
+import net.minecraft.client.gui.screen.ingame.HandledScreen;
+import net.minecraft.client.gui.screen.ingame.InventoryScreen;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.option.Perspective;
@@ -127,6 +129,10 @@ public class FilmSelfTest implements ClientModInitializer {
 	private static final int SLIP = GapTimeline.NOTHING - 11;
 	/** gerald stops bridging this long before the slip, at the edge, looking about. */
 	private static final int HESITATE = 24;
+	/** gerald, in the inventory since running out of blocks, gets the stack in the bag out and goes on bridging. */
+	private static final int REFILL_AT = 400;
+	/** Woomerd, in the chest at the base, shuts it. */
+	private static final int CHEST_SHUT = 300;
 	/** Everyone has been carried into the void by now: where each is then is where their moves there are measured from. */
 	private static final int ANCHOR = GapTimeline.NOTHING + 14;
 	/** Kortev turns the cracked key (and again every second until the world comes back). */
@@ -170,7 +176,10 @@ public class FilmSelfTest implements ClientModInitializer {
 	private static FilmHuman human;
 	private static int deadFor;
 	private static int lastTry = -1000;
-	private static int lastRecorded = -1;
+	/** The client's own tick in the scene: one a tick, every tick (the server's, seen from here, skip and stall). */
+	private static int clientTick = -1;
+	/** The film's player's look is theirs this tick (not the event's, a screen's or a death's): turned every frame. */
+	private static boolean looking;
 	private static boolean swung;
 	// Kortev: the wheat being got in (which stalk, which step of it, since when), the chest.
 	private static int job;
@@ -183,6 +192,9 @@ public class FilmSelfTest implements ClientModInitializer {
 	private static int placed;
 	private static int pauseUntil = -1;
 	private static int nextPause = 7;
+	// Inside a screen (gerald's inventory, Woomerd's chest): ticks in it, the tick the business at the end began.
+	private static int invTicks;
+	private static int refillAt = -1;
 
 	public static boolean active() {
 		return me != null;
@@ -219,6 +231,11 @@ public class FilmSelfTest implements ClientModInitializer {
 			if (running) {
 				s++;
 				serverTick(server);
+			}
+		});
+		ClientTickEvents.START_CLIENT_TICK.register(client -> {
+			if (human != null && client.player != null) {
+				human.unframe(client.player);
 			}
 		});
 		ClientTickEvents.END_CLIENT_TICK.register(FilmSelfTest::clientTick);
@@ -310,6 +327,14 @@ public class FilmSelfTest implements ClientModInitializer {
 		}
 	}
 
+	/** Each frame, before it is drawn: the film's player's look, between ticks, while it is theirs to move. */
+	public static void frame(float tickDelta) {
+		MinecraftClient client = MinecraftClient.getInstance();
+		if (looking && human != null && client.player != null && client.currentScreen == null) {
+			human.frame(client.player, tickDelta);
+		}
+	}
+
 	/** What the client's own player does this tick, through {@link FilmHuman}: where they look and go, what they use. */
 	private static void act(MinecraftClient client) {
 		ClientPlayerEntity player = client.player;
@@ -318,11 +343,9 @@ public class FilmSelfTest implements ClientModInitializer {
 		if (player == null || sc == null || h == null || s < 0) {
 			return;
 		}
-		int now = s;
-		if (now == lastRecorded) {
-			return;
-		}
+		int now = ++clientTick;
 		swung = false;
+		looking = false;
 		stills(client, now);
 		int r = released >= 0 ? now - released : -1;
 		if (player.isDead() || client.currentScreen instanceof DeathScreen) {
@@ -339,9 +362,21 @@ public class FilmSelfTest implements ClientModInitializer {
 			boolean held = me == Role.KORTEV && (age >= 0 && age < GapTimeline.RETURN && released < 0 || r >= 0 && r < HOME);
 			if (held) {
 				FilmHuman.release(client);
-			} else if (client.currentScreen instanceof GenericContainerScreen screen) {
+			} else if (client.currentScreen instanceof HandledScreen<?> screen) {
 				FilmHuman.release(client);
-				chest(client, player, screen, now);
+				switch (me) {
+					case KORTEV -> {
+						if (screen instanceof GenericContainerScreen box) {
+							chest(client, player, box, now);
+						}
+					}
+					case WOOMERD -> {
+						if (screen instanceof GenericContainerScreen box) {
+							woomerdChest(client, player, box);
+						}
+					}
+					case GERALD -> geraldInventory(client, player, screen);
+				}
 			} else {
 				h.at(now);
 				switch (me) {
@@ -350,13 +385,13 @@ public class FilmSelfTest implements ClientModInitializer {
 					case GERALD -> gerald(client, player, h, sc, now, r);
 				}
 				h.tick(client, player);
+				looking = true;
 			}
 		}
 		record(client, player, now, r);
 	}
 
 	private static void record(MinecraftClient client, ClientPlayerEntity player, int now, int r) {
-		lastRecorded = now;
 		Identifier item = Registries.ITEM.getId(player.getMainHandStack().getItem());
 		RECORD.add(new FilmMoves.Move(now, released >= 0 ? -1 : age, r, player.getWorld().getRegistryKey().getValue().toString(), player.getX(),
 				player.getY(), player.getZ(), player.getYaw(), player.getPitch(), player.isSneaking(), player.isSprinting(), swung,
@@ -545,12 +580,19 @@ public class FilmSelfTest implements ClientModInitializer {
 		}
 	}
 
-	private static double slotX(GenericContainerScreen screen, Slot slot) {
+	private static double slotX(HandledScreen<?> screen, Slot slot) {
 		return (screen.width - 176) / 2.0 + slot.x + 8.0;
 	}
 
-	private static double slotY(GenericContainerScreen screen, Slot slot) {
-		return (screen.height - (114 + screen.getScreenHandler().getRows() * 18)) / 2.0 + slot.y + 8.0;
+	private static double slotY(HandledScreen<?> screen, Slot slot) {
+		int height = screen instanceof GenericContainerScreen box ? 114 + box.getScreenHandler().getRows() * 18 : 166;
+		return (screen.height - height) / 2.0 + slot.y + 8.0;
+	}
+
+	/** The pointer on to {@code slot}, a little off its middle, over {@code ticks}. */
+	private static void pointAt(HandledScreen<?> screen, int slot, double ticks) {
+		Slot at = screen.getScreenHandler().getSlot(slot);
+		FilmCursor.moveTo(slotX(screen, at) + 1.5, slotY(screen, at) + 2.5, ticks);
 	}
 
 	/** In the void, once the view is theirs again: taking it in, a few steps on nothing, Woomerd, gerald, the hole, the key. */
@@ -564,20 +606,23 @@ public class FilmSelfTest implements ClientModInitializer {
 		Vec3d eye = player.getEyePos();
 		double toHole = FilmHuman.angles(eye, hole)[0];
 		int a = age;
-		if (a < 770) {
-			h.glance("void", 16, 34, far(eye, toHole + 100.0, -4.0), far(eye, toHole - 80.0, 12.0), far(eye, toHole + 15.0, 55.0), hole,
-					far(eye, toHole + 160.0, -15.0)).slack(3.0);
+		if (a < 744) {
+			h.glance("void", 10, 18, far(eye, toHole + 100.0, -4.0), far(eye, toHole - 70.0, 40.0), woomerd).slack(3.0);
 		} else if (a < 800) {
-			// A few steps out on it, rings where each foot comes down; a hop.
-			Vec3d ahead = player.getPos().add(Vec3d.fromPolar(0.0F, (float) (toHole - 25.0)).multiply(4.0));
-			h.look(far(eye, toHole - 25.0, 50.0)).slack(4.0).go(ahead, FilmHuman.Pace.WALK, 0.5, false);
-			if (a == 788) {
+			// Woomerd at them, punching (nothing can be hurt here).
+			h.look(woomerd).track().slack(1.2).idle(0.6);
+		} else if (a < 852) {
+			// Back at them.
+			h.look(woomerd.add(0.0, -0.3, 0.0)).track().slack(1.0).go(woomerd.add(0.0, -1.62, 0.0), FilmHuman.Pace.WALK, 2.0, false);
+			if ((a - 800) % 6 == 0 && FilmHuman.off(player, woomerd) < 12.0) {
+				FilmHuman.leftClick(client);
+				swung = true;
+			}
+		} else if (a < 905) {
+			h.look(gerald).track().slack(1.5).idle(0.8);
+			if (a == 884) {
 				h.jump();
 			}
-		} else if (a < 870) {
-			h.look(woomerd).track().slack(1.5).idle(0.6);
-		} else if (a < 910) {
-			h.look(gerald).track().slack(1.5);
 		} else {
 			h.look(hole).slack(1.0);
 		}
@@ -655,7 +700,7 @@ public class FilmSelfTest implements ClientModInitializer {
 		}
 		if (released < 0 && age < GapTimeline.NOTHING) {
 			if (!ACTED.contains("respawned") && age < GapTimeline.CONTACT + 20) {
-				woomerdBase(h, sc, now, kortev, target);
+				woomerdBase(client, player, h, sc, now, kortev, target);
 			} else {
 				ACTED.add("respawned");
 				woomerdFlee(h, player, target);
@@ -772,8 +817,12 @@ public class FilmSelfTest implements ClientModInitializer {
 		}
 	}
 
-	/** The event, at the base: the flash where Kortev is, the light going up; taunting; then the block coming down on them. */
-	private static void woomerdBase(FilmHuman h, FilmScene sc, int now, Vec3d kortev, Vec3d target) {
+	/**
+	 * The event, at the base: the flash where Kortev is, the light going up; a crouch at it; then into the chest by the W
+	 * (whatever that was, it did nothing); out again to something in the sky, and the block coming down on them.
+	 */
+	private static void woomerdBase(MinecraftClient client, ClientPlayerEntity player, FilmHuman h, FilmScene sc, int now, Vec3d kortev,
+			Vec3d target) {
 		int a = age;
 		if (a < 40) {
 			celebrate(h, sc, now, kortev);
@@ -781,19 +830,30 @@ public class FilmSelfTest implements ClientModInitializer {
 			h.look(kortev).slack(1.5);
 		} else if (a < 100) {
 			h.look(kortev.add(0.0, 30.0, 0.0)).track().slack(2.0);
-		} else if (a < 300) {
-			// Whatever that was, it did nothing: at Kortev again, crouching; a look up now and then.
-			int p = (a - 100) % 70;
-			if (p < 30) {
-				h.look(kortev).track().slack(1.2).spam(p > 8);
-			} else if (p < 44) {
-				h.look(kortev.add(0.0, 25.0, 0.0)).slack(2.5);
-			} else {
-				h.glance("waiting", 10, 20, kortev, target.add(0.0, 20.0, 0.0), Vec3d.ofCenter(sc.house).add(0.0, 2.0, 0.0)).slack(2.5).idle(1.5);
+		} else if (a < 124) {
+			h.look(kortev).track().slack(1.2).spam(a > 106);
+		} else if (!ACTED.contains("base chest")) {
+			h.look(Vec3d.ofCenter(sc.baseChest).add(0.0, 0.2, 0.0)).slack(1.0).go(sc.woomerdAtBase, FilmHuman.Pace.WALK, 0.3, false);
+			if (FilmHuman.on(client, sc.baseChest, null)) {
+				ACTED.add("base chest");
+				FilmHuman.rightClick(client);
+				swung = true;
+			} else if (a > 150) {
+				ACTED.add("base chest");
+				ShootingStar.LOGGER.warn("[film] Woomerd's crosshair never found the chest: opened it anyway");
+				client.interactionManager.interactBlock(player, Hand.MAIN_HAND,
+						new BlockHitResult(Vec3d.ofCenter(sc.baseChest), Direction.WEST, sc.baseChest, false));
 			}
+		} else if (a < CHEST_SHUT + 12) {
+			// Out of it: a step back, a look round.
+			h.look(Vec3d.ofCenter(sc.house).add(0.0, 4.0, 0.0)).slack(3.0).go(sc.woomerdAtBase.add(-1.2, 0.0, -0.4), FilmHuman.Pace.WALK, 0.4, false);
 		} else if (a < GapTimeline.INBOUND) {
-			// Something in the sky over them.
-			h.look(target.add(0.0, 60.0, 0.0)).slack(2.0);
+			// Something in the sky over them: up at it, round at Kortev, up again, backing about under it, a hop.
+			h.glance("sky", 14, 26, target.add(0.0, 60.0, 0.0), kortev, target.add(8.0, 45.0, -6.0)).slack(2.0)
+					.go(sc.woomerdAtBase.add(-1.5 + 1.5 * Math.sin(a / 19.0), 0.0, 1.2 * Math.cos(a / 23.0)), FilmHuman.Pace.WALK, 0.5, false);
+			if (a % 37 == 0) {
+				h.jump();
+			}
 		} else {
 			// It comes down: they back off a step, watching it.
 			double fall = MathHelper.clamp((a - GapTimeline.INBOUND) / 24.0, 0.0, 1.0);
@@ -872,9 +932,9 @@ public class FilmSelfTest implements ClientModInitializer {
 			h.look(target.add(0.0, Math.min(45.0, 8.0 + r * 0.25), 0.0)).track().slack(1.5);
 		} else if (r < 440) {
 			h.glance("rebuild", 40, 80, far(eye, toward + 70.0, 6.0), target.add(0.0, 30.0, 0.0), far(eye, toward - 75.0, 4.0),
-					far(eye, toward + 150.0, 10.0)).slack(3.0);
+					far(eye, toward + 150.0, 10.0)).slack(3.0).idle(0.9);
 		} else {
-			h.look(target.add(0.0, -8.0, 0.0)).slack(2.5);
+			h.look(target.add(0.0, -8.0, 0.0)).slack(2.5).idle(0.9);
 		}
 	}
 
@@ -986,7 +1046,90 @@ public class FilmSelfTest implements ClientModInitializer {
 			}
 			return;
 		}
-		h.look(90.0, 81.0).slack(0.8).back(true).use();
+		if (player.getMainHandStack().isEmpty() && ACTED.add("out of blocks")) {
+			// Out of blocks: E for the inventory, for the stack in the bag.
+			ShootingStar.LOGGER.info("[film] gerald_2009 runs out of blocks at {} (age {})", now, age);
+			client.setScreen(new InventoryScreen(player));
+			return;
+		}
+		// Kept to the middle of the bridge with A and D, as anyone does (facing west, D is north): drift to one side, and
+		// the crosshair, looking down past the heels, misses the end of it.
+		double off = player.getZ() - (z + 0.5);
+		h.look(90.0, 81.0).slack(0.8).back(true).use().strafe(Math.abs(off) > 0.07 ? (off > 0 ? 1 : -1) : 0);
+	}
+
+	/**
+	 * In the inventory: the pointer over the stack in the bag, held there (as if looking for something), and, once it is
+	 * time to get on, the stack into the empty hotbar slot and E again.
+	 */
+	private static void geraldInventory(MinecraftClient client, ClientPlayerEntity player, HandledScreen<?> screen) {
+		int t = invTicks++;
+		if (t == 0) {
+			FilmCursor.show(true);
+			FilmCursor.place(screen.width / 2.0 - 10.0, screen.height / 2.0 - 30.0);
+		}
+		if (t == 3) {
+			pointAt(screen, 9, 7.0);
+		}
+		if (age < REFILL_AT) {
+			return;
+		}
+		if (refillAt < 0) {
+			refillAt = t;
+		}
+		int u = t - refillAt;
+		if (u == 0) {
+			client.interactionManager.clickSlot(screen.getScreenHandler().syncId, 9, 0, SlotActionType.PICKUP, player);
+		}
+		if (u == 2) {
+			pointAt(screen, 36, 6.0);
+		}
+		if (u == 9) {
+			client.interactionManager.clickSlot(screen.getScreenHandler().syncId, 36, 0, SlotActionType.PICKUP, player);
+		}
+		if (u >= 13) {
+			FilmCursor.show(false);
+			player.getInventory().selectedSlot = 0;
+			player.closeHandledScreen();
+			ShootingStar.LOGGER.info("[film] gerald_2009 back to bridging at age {}", age);
+		}
+	}
+
+	/**
+	 * Woomerd in the chest at the base: the pointer to the golden apples, held over them, and at the end the apples and
+	 * the TNT shift-clicked out, and shut.
+	 */
+	private static void woomerdChest(MinecraftClient client, ClientPlayerEntity player, GenericContainerScreen screen) {
+		int t = invTicks++;
+		int sync = screen.getScreenHandler().syncId;
+		if (t == 0) {
+			FilmCursor.show(true);
+			FilmCursor.place(screen.width / 2.0 + 4.0, screen.height / 2.0 + 20.0);
+		}
+		if (t == 2) {
+			pointAt(screen, 4, 7.0);
+		}
+		if (age < CHEST_SHUT - 16) {
+			return;
+		}
+		if (refillAt < 0) {
+			refillAt = t;
+		}
+		int u = t - refillAt;
+		if (u == 0) {
+			client.interactionManager.clickSlot(sync, 4, 0, SlotActionType.QUICK_MOVE, player);
+		}
+		if (u == 2) {
+			pointAt(screen, 2, 5.0);
+		}
+		if (u == 8) {
+			client.interactionManager.clickSlot(sync, 2, 0, SlotActionType.QUICK_MOVE, player);
+		}
+		if (u >= 12) {
+			FilmCursor.show(false);
+			player.closeHandledScreen();
+			ShootingStar.LOGGER.info("[film] Woomerd shuts the chest at age {}", age);
+		}
 	}
 
 	// --- stills ------------------------------------------------------------------------------
@@ -1159,8 +1302,9 @@ public class FilmSelfTest implements ClientModInitializer {
 				select(player, Role.WOOMERD, 0);
 			}
 			case GERALD -> {
-				player.getInventory().setStack(0, new ItemStack(Items.COBBLESTONE, 64));
-				player.getInventory().setStack(1, new ItemStack(Items.COBBLESTONE, 64));
+				player.getInventory().setStack(0, new ItemStack(Items.COBBLESTONE, 14));
+				player.getInventory().setStack(9, new ItemStack(Items.COBBLESTONE, 64));
+				player.getInventory().setStack(10, new ItemStack(Items.COBBLESTONE, 37));
 				player.getInventory().setStack(2, new ItemStack(Items.STONE_PICKAXE));
 				player.getInventory().setStack(3, new ItemStack(Items.BREAD, 7));
 				player.getInventory().setStack(4, new ItemStack(Items.TORCH, 12));
