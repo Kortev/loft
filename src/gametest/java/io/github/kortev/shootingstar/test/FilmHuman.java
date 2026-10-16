@@ -1,5 +1,6 @@
 package io.github.kortev.shootingstar.test;
 
+import io.github.kortev.shootingstar.ShootingStar;
 import io.github.kortev.shootingstar.test.mixin.FilmClickInvoker;
 import java.util.Random;
 import net.minecraft.client.MinecraftClient;
@@ -11,6 +12,7 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.RaycastContext;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -27,6 +29,9 @@ import org.jetbrains.annotations.Nullable;
  * <p>The keys: going somewhere is W (or whichever keys take them there from where they are looking), sprinting with the
  * odd jump in it, a jump when walked into a step; standing about is now and then a step to one side, a hop or a crouch,
  * each a whole movement rather than a twitch.
+ *
+ * <p>What they look at is something they can see: a person, a place or a hole behind a wall, a hill or a near edge is
+ * looked over (or past, if over will not do), never stared at through the blocks in the way.
  *
  * <p>Clicks are the game's own mouse buttons, on whatever is under the crosshair.
  *
@@ -72,6 +77,9 @@ final class FilmHuman {
 	private String glanceKey;
 	private int glanceIndex = -1;
 	private int glanceUntil = -1;
+	// Staring at a block a step away while meaning to look at something further off (reported, being a mistake).
+	private int staring;
+	private int blindAt = -100;
 
 	// The feet and the right mouse button.
 	@Nullable
@@ -283,7 +291,7 @@ final class FilmHuman {
 		}
 		double[] want = null;
 		if (gaze != null) {
-			want = angles(player.getEyePos(), gaze);
+			want = angles(player.getEyePos(), inSight(player, gaze));
 		} else if (!Double.isNaN(gazeYaw)) {
 			want = new double[] {gazeYaw, MathHelper.clamp(gazePitch, -89.0, 89.0)};
 		}
@@ -337,6 +345,65 @@ final class FilmHuman {
 		lastPitch = (float) pitch;
 		player.setYaw(lastYaw);
 		player.setPitch(lastPitch);
+		double far = gaze == null ? 0.0 : player.getEyePos().distanceTo(gaze);
+		if (far > 3.0 && strokeAt < 0 && player.raycast(2.5, 1.0F, false) instanceof BlockHitResult hit && hit.getType() == HitResult.Type.BLOCK
+				&& player.getEyePos().distanceTo(hit.getPos()) < far - 1.5) {
+			if (++staring == 15) {
+				ShootingStar.LOGGER.warn("[film] {} stares at the block at {} (meaning to look at {})", player.getName().getString(),
+						hit.getBlockPos().toShortString(), gaze);
+			}
+		} else {
+			staring = 0;
+		}
+	}
+
+	/**
+	 * {@code at} as far as it can be seen from where they are: as it is if nothing is in the way (or it is within reach,
+	 * a block to click or something right there), else raised until the line to it is clear, the way a person looks
+	 * over a wall or a hill at someone, or down a hole past its near edge. If no rise of up to 30 blocks will do it, or
+	 * it would mean looking up more than 35 degrees past it, then past whatever is in the way to one side, as near
+	 * round as will do.
+	 */
+	private Vec3d inSight(ClientPlayerEntity player, Vec3d at) {
+		Vec3d eye = player.getEyePos();
+		if (eye.distanceTo(at) < 6.0 || clear(player, eye, at)) {
+			return at;
+		}
+		double pitch = angles(eye, at)[1];
+		for (double up = 1.0; up <= 30.0; up += up < 6.0 ? 1.0 : 2.0) {
+			Vec3d p = at.add(0.0, up, 0.0);
+			if (pitch - angles(eye, p)[1] > 35.0) {
+				break;
+			}
+			if (clear(player, eye, p)) {
+				return p;
+			}
+		}
+		Vec3d d = at.subtract(eye);
+		for (int k = 1; k <= 8; k++) {
+			for (int side : new int[] {1, -1}) {
+				Vec3d p = eye.add(d.rotateY((float) Math.toRadians(side * k * 8.0)));
+				if (clear(player, eye, p)) {
+					return p;
+				}
+			}
+		}
+		if (clock - blindAt > 40) {
+			blindAt = clock;
+			ShootingStar.LOGGER.warn("[film] {} cannot see {} from {} at all", player.getName().getString(), at, eye);
+		}
+		return at;
+	}
+
+	/**
+	 * Nothing solid on the way from {@code eye} to {@code p} short of its last stretch (what is looked at may be a block
+	 * or a building itself, or stand in front of one).
+	 */
+	private static boolean clear(ClientPlayerEntity player, Vec3d eye, Vec3d p) {
+		double dist = eye.distanceTo(p);
+		BlockHitResult hit = player.getWorld().raycast(new RaycastContext(eye, p, RaycastContext.ShapeType.COLLIDER,
+				RaycastContext.FluidHandling.NONE, player));
+		return hit.getType() == HitResult.Type.MISS || eye.distanceTo(hit.getPos()) >= dist - Math.max(4.0, 0.2 * dist);
 	}
 
 	/**

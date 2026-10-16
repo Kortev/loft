@@ -17,6 +17,7 @@ import java.util.Set;
 import net.fabricmc.api.ClientModInitializer;
 import net.minecraft.advancement.AdvancementEntry;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
@@ -32,9 +33,11 @@ import net.minecraft.client.sound.PositionedSoundInstance;
 import net.minecraft.client.util.ScreenshotRecorder;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityPose;
+import net.minecraft.entity.EntityType;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.TntEntity;
 import net.minecraft.entity.mob.MobEntity;
+import net.minecraft.entity.projectile.thrown.EnderPearlEntity;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
@@ -59,6 +62,7 @@ import net.minecraft.util.Hand;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.Uuids;
 import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Direction;
@@ -67,6 +71,7 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.GameMode;
 import net.minecraft.world.GameRules;
 import net.minecraft.world.Heightmap;
+import net.minecraft.world.RaycastContext;
 import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
@@ -136,6 +141,8 @@ public class FilmSelfTest implements ClientModInitializer {
 	private static final int CHEST_SHUT = 300;
 	/** The fewest ticks between two blocks of the pile by the base going down. */
 	private static final int PILE_GAP = 5;
+	/** How much of the pile goes down before the chest (the rest after it). */
+	private static final int PILE_FIRST = 10;
 	/** Everyone has been carried into the void by now: where each is then is where their moves there are measured from. */
 	private static final int ANCHOR = GapTimeline.NOTHING + 14;
 	/** Kortev turns the cracked key (and again every second until the world comes back). */
@@ -195,10 +202,16 @@ public class FilmSelfTest implements ClientModInitializer {
 	private static Vec3d edge;
 	// Inside a screen (gerald's inventory, Woomerd's chest): ticks in it, the tick the business at the end began.
 	private static int invTicks;
-	// Woomerd's pile: the age the last block of it went down (client), and the next block to put down (server, in the
+	// Woomerd's pile: the tick the last block of it went down (client), and the next block to put down (server, in the
 	// others' takes, as Woomerd's recorded clicks come).
 	private static int lastPile = -100;
 	private static int pileNext;
+	// Woomerd's pearl home: the look that throws it, the tick it went and where from.
+	@Nullable
+	private static float[] pearlAim;
+	private static int pearlAt = -1;
+	@Nullable
+	private static Vec3d pearlFrom;
 	private static int refillAt = -1;
 
 	public static boolean active() {
@@ -800,36 +813,138 @@ public class FilmSelfTest implements ClientModInitializer {
 			if (now == TAUNT_FROM + 20) {
 				h.jump();
 			}
+		} else if (!ACTED.contains("home")) {
+			woomerdPearl(client, player, h, sc, now);
 		} else {
-			boolean home = FilmHuman.near(player, sc.woomerdAtBase, 0.8) || ACTED.contains("home");
-			if (home) {
-				ACTED.add("home");
-				celebrate(h, sc, now, kortev);
-			} else {
-				h.look(eye(sc.woomerdAtBase)).slack(4.0).go(sc.woomerdAtBase, FilmHuman.Pace.SPRINT, 0.8, true);
-			}
+			// Home before the key: straight on with the pile.
+			player.getInventory().selectedSlot = 4;
+			pile(client, player, h, sc, woomerdSpot(sc), PILE_FIRST, kortev);
 		}
 	}
 
-	/** At the base: looking about, hopping and stepping about, a crouch at Kortev now and then. */
-	private static void celebrate(FilmHuman h, FilmScene sc, int now, Vec3d kortev) {
-		int t = now - RUN_HOME;
-		if ((t / 45) % 2 == 1) {
-			h.look(kortev).track().slack(1.2).spam(t % 45 > 18);
+	/** Where Woomerd stands to build the pile, by the W. */
+	private static Vec3d woomerdSpot(FilmScene sc) {
+		return sc.woomerdAtBase.add(0.0, 0.0, -1.1);
+	}
+
+	/** Where Woomerd's pearl is meant to come down: just short of where they build the pile, so they are straight at it. */
+	private static Vec3d pearlTo(FilmScene sc) {
+		Vec3d spot = woomerdSpot(sc);
+		Vec3d d = spot.subtract(sc.woomerdSafe).multiply(1.0, 0.0, 1.0);
+		return spot.subtract(d.normalize().multiply(1.5));
+	}
+
+	/**
+	 * Home the quick way: from the lookout, a pearl down the way to the base (the pearl in hand, the look that throws it
+	 * there, a right click), watched as it goes, and there they are, a few blocks short. If no throw from here would get
+	 * it near, the whole way at a run.
+	 */
+	private static void woomerdPearl(MinecraftClient client, ClientPlayerEntity player, FilmHuman h, FilmScene sc, int now) {
+		Vec3d to = pearlTo(sc);
+		if (pearlAt < 0 && pearlAim == null && !ACTED.contains("no pearl")) {
+			pearlAim = pearlAim(player, to);
+			if (pearlAim == null) {
+				ACTED.add("no pearl");
+				ShootingStar.LOGGER.warn("[film] Woomerd has no throw that gets a pearl to {}: running home", to);
+			} else {
+				ShootingStar.LOGGER.info("[film] Woomerd throws for {} at yaw {} pitch {}", to, pearlAim[0], pearlAim[1]);
+			}
+		}
+		if (ACTED.contains("no pearl") || pearlAt >= 0 && now > pearlAt + 70) {
+			if (FilmHuman.near(player, sc.woomerdAtBase, 0.8)) {
+				ACTED.add("home");
+			}
+			h.look(eye(sc.woomerdAtBase)).slack(4.0).go(sc.woomerdAtBase, FilmHuman.Pace.SPRINT, 0.8, true);
+			return;
+		}
+		if (pearlAt < 0) {
+			player.getInventory().selectedSlot = 5;
+			h.look(pearlAim[0], pearlAim[1]).slack(0.3);
+			double off = Math.hypot(MathHelper.wrapDegrees(player.getYaw() - pearlAim[0]), player.getPitch() - pearlAim[1]);
+			if (now >= TAUNT_TO + 6 && off < 0.5 && player.getMainHandStack().isOf(Items.ENDER_PEARL)) {
+				FilmHuman.rightClick(client);
+				swung = true;
+				pearlAt = now;
+				pearlFrom = player.getPos();
+				ShootingStar.LOGGER.info("[film] Woomerd throws the pearl at {}", now);
+			}
+			return;
+		}
+		// In the air: watching where it goes, then round the way the pile will be from there as it comes down (landing
+		// face to the W otherwise, a wall to look at); then, there.
+		if (now - pearlAt < 3) {
+			h.look(to.add(0.0, 1.0, 0.0)).slack(3.0);
 		} else {
-			h.glance("at base", 12, 26, kortev, Vec3d.ofCenter(sc.base).add(0.0, 3.0, 0.0), Vec3d.ofCenter(sc.house).add(0.0, 2.0, 0.0))
-					.slack(2.5).idle(1.6);
+			Vec3d top = Vec3d.ofBottomCenter(sc.pile.get(0)).add(0.0, -0.04, 0.0);
+			double[] way = FilmHuman.angles(eye(woomerdSpot(sc)), top);
+			h.look(way[0], way[1]).slack(3.0);
+		}
+		if (player.getPos().distanceTo(pearlFrom) > 6.0) {
+			ACTED.add("home");
+			ShootingStar.LOGGER.info("[film] Woomerd lands at {} at {}", player.getPos(), now);
 		}
 	}
 
 	/**
-	 * The event, at the base: the flash where Kortev is, the light going up; a crouch at it; then into the chest by the W
-	 * (whatever that was, it did nothing); out again to something in the sky, and the block coming down on them.
+	 * The look that throws a pearl from where they stand to come down nearest {@code to}: straight at it, and the
+	 * flattest pitch that gets it within a block (or the nearest, within two), found by flying the pearl as the game
+	 * does. Null if none will.
+	 */
+	@Nullable
+	private static float[] pearlAim(ClientPlayerEntity player, Vec3d to) {
+		Vec3d from = new Vec3d(player.getX(), player.getEyeY() - 0.1, player.getZ());
+		float yaw = (float) FilmHuman.angles(player.getEyePos(), to)[0];
+		float[] best = null;
+		double bestOff = 2.0;
+		for (float pitch = 10.0F; pitch >= -45.0F; pitch -= 0.25F) {
+			Vec3d at = pearlLands(player, from, yaw, pitch);
+			if (at == null) {
+				continue;
+			}
+			double off = Math.hypot(at.x - to.x, at.z - to.z);
+			if (off < 1.0) {
+				return new float[] {yaw, pitch};
+			}
+			if (off < bestOff) {
+				bestOff = off;
+				best = new float[] {yaw, pitch};
+			}
+		}
+		return best;
+	}
+
+	/**
+	 * Where a pearl thrown standing still from {@code from} with this look comes down, stepped as the game steps one
+	 * (1.5 a tick off the hand, 0.99 of it kept each tick, 0.03 a tick lost to falling) against the blocks; null if it is
+	 * still up after 4 seconds.
+	 */
+	@Nullable
+	private static Vec3d pearlLands(ClientPlayerEntity player, Vec3d from, float yaw, float pitch) {
+		float r = MathHelper.RADIANS_PER_DEGREE;
+		Vec3d v = new Vec3d(-MathHelper.sin(yaw * r) * MathHelper.cos(pitch * r), -MathHelper.sin(pitch * r),
+				MathHelper.cos(yaw * r) * MathHelper.cos(pitch * r)).normalize().multiply(1.5);
+		Vec3d pos = from;
+		for (int t = 0; t < 80; t++) {
+			Vec3d next = pos.add(v);
+			BlockHitResult hit = player.getWorld().raycast(new RaycastContext(pos, next, RaycastContext.ShapeType.COLLIDER,
+					RaycastContext.FluidHandling.NONE, player));
+			if (hit.getType() != HitResult.Type.MISS) {
+				return hit.getPos();
+			}
+			pos = next;
+			v = v.multiply(0.99).add(0.0, -0.03, 0.0);
+		}
+		return null;
+	}
+
+	/**
+	 * The event, at the base: on with the pile, whatever the light from Kortev is; then into the chest by the W; out
+	 * again to the last of the pile, to something in the sky, and the block coming down on them.
 	 */
 	private static void woomerdBase(MinecraftClient client, ClientPlayerEntity player, FilmHuman h, FilmScene sc, int now, Vec3d kortev,
 			Vec3d target) {
 		int a = age;
-		Vec3d spot = sc.woomerdAtBase.add(0.0, 0.0, -1.1);
+		Vec3d spot = woomerdSpot(sc);
 		// Not home yet when the key turned: still sprinting there.
 		if (!ACTED.contains("home") && a < 124) {
 			if (FilmHuman.near(player, sc.woomerdAtBase, 0.9)) {
@@ -839,21 +954,17 @@ public class FilmSelfTest implements ClientModInitializer {
 				return;
 			}
 		}
-		boolean building = a >= 52 && a < 124 || a >= CHEST_SHUT + 12 && a < 360;
+		boolean first = a < 150 && !piled(client, sc, PILE_FIRST);
+		boolean building = first || a >= CHEST_SHUT + 12 && a < 360;
 		// The cobblestone in hand to build with, the sword otherwise.
 		if (building) {
 			player.getInventory().selectedSlot = 4;
 		} else if (a >= 52 && player.getInventory().selectedSlot == 4) {
 			player.getInventory().selectedSlot = 2;
 		}
-		if (a < 40) {
-			celebrate(h, sc, now, kortev);
-		} else if (a < 52) {
-			// The flash where Kortev is; whatever. Over to the corner to build.
-			h.look(kortev).slack(1.5).go(spot, FilmHuman.Pace.WALK, 0.3, false);
-		} else if (a < 124) {
-			// Building, all of it in one go (a look up at the light from Kortev would take the hand away too long).
-			pile(client, player, h, sc, spot, 6, kortev);
+		if (first) {
+			// On with it, the light from Kortev or not (a look over at it would take the hand away too long).
+			pile(client, player, h, sc, spot, PILE_FIRST, kortev);
 		} else if (!ACTED.contains("base chest")) {
 			h.look(Vec3d.ofCenter(sc.baseChest).add(0.0, 0.2, 0.0)).slack(1.0).go(sc.woomerdAtBase, FilmHuman.Pace.WALK, 0.3, false);
 			if (FilmHuman.on(client, sc.baseChest, null)) {
@@ -870,7 +981,7 @@ public class FilmSelfTest implements ClientModInitializer {
 			// Out of it: back to the pile.
 			h.look(Vec3d.ofCenter(sc.pile.get(3))).slack(3.0).go(spot, FilmHuman.Pace.WALK, 0.3, false);
 		} else if (a < 360) {
-			pile(client, player, h, sc, spot, 8, kortev);
+			pile(client, player, h, sc, spot, sc.pile.size(), kortev);
 		} else if (a < GapTimeline.INBOUND) {
 			// Something in the sky over them: up at it, round at Kortev, up again, backing about under it, a hop.
 			h.glance("sky", 14, 26, target.add(0.0, 60.0, 0.0), kortev, target.add(8.0, 45.0, -6.0)).slack(2.0)
@@ -901,14 +1012,25 @@ public class FilmSelfTest implements ClientModInitializer {
 			}
 			BlockPos under = p.down();
 			h.look(new Vec3d(p.getX() + 0.5, p.getY() - 0.04, p.getZ() + 0.5)).slack(0.6).go(spot, FilmHuman.Pace.WALK, 0.3, false);
-			if (age - lastPile >= PILE_GAP && FilmHuman.near(player, spot, 0.6) && FilmHuman.on(client, under, Direction.UP)) {
+			if (clientTick - lastPile >= PILE_GAP && FilmHuman.near(player, spot, 0.6) && FilmHuman.on(client, under, Direction.UP)) {
 				FilmHuman.rightClick(client);
 				swung = true;
-				lastPile = age;
+				lastPile = clientTick;
 			}
 			return;
 		}
 		h.look(kortev).track().slack(1.5).idle(0.8);
+	}
+
+	/** The first {@code n} blocks of the pile are down. */
+	private static boolean piled(MinecraftClient client, FilmScene sc, int n) {
+		for (int i = 0; i < n; i++) {
+			BlockState there = client.world.getBlockState(sc.pile.get(i));
+			if (there.isAir() || there.isReplaceable()) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	/** Back at the spawn, the base gone in a flash, and then the black coming for them: they run, one look back. */
@@ -1083,9 +1205,11 @@ public class FilmSelfTest implements ClientModInitializer {
 				// The burst, Woomerd with it: a few steps back from it, watching.
 				h.look(target.add(0.0, 12.0, 0.0)).track().slack(2.0).back(!FilmHuman.near(player, back, 0.8));
 			} else {
-				// The black coming for them: a look, and run.
+				// The black coming for them: a look, and run, looking on ahead the way they run (not at where they run to,
+				// which is the ground at their feet once they are nearly there).
 				boolean look = a < GapTimeline.ERASURE + 8;
-				h.look(look ? target : eye(away)).slack(4.0).go(look ? null : away, FilmHuman.Pace.SPRINT, 1.0, true);
+				Vec3d ahead = away.add(away.subtract(middle).normalize().multiply(20.0));
+				h.look(look ? target : new Vec3d(ahead.x, eye.y, ahead.z)).slack(4.0).go(look ? null : away, FilmHuman.Pace.SPRINT, 1.0, true);
 			}
 			return;
 		}
@@ -1274,6 +1398,10 @@ public class FilmSelfTest implements ClientModInitializer {
 
 	private static void setUp(MinecraftServer server) {
 		ServerWorld world = server.getOverworld();
+		// The game's respawn at the world spawn faces south whatever the spawn's own angle, into the portal just there
+		// (all Woomerd saw of coming back): turned north instead, over it all, as they come back.
+		ServerPlayerEvents.AFTER_RESPAWN.register((before, after, alive) -> after.networkHandler.requestTeleport(after.getX(), after.getY(),
+				after.getZ(), 180.0F, 0.0F));
 		GameRules rules = world.getGameRules();
 		rules.get(GameRules.DO_DAYLIGHT_CYCLE).set(false, server);
 		rules.get(GameRules.DO_WEATHER_CYCLE).set(false, server);
@@ -1626,7 +1754,18 @@ public class FilmSelfTest implements ClientModInitializer {
 			p.swingHand(Hand.MAIN_HAND, true);
 			// Woomerd's clicks with cobblestone at the base put the pile there down, block by block, as in their take.
 			FilmScene sc = scene;
-			if (role == Role.WOOMERD && m.item().equals("minecraft:cobblestone") && released < 0 && age >= 0 && pileNext < sc.pile.size()) {
+			if (role == Role.WOOMERD && m.item().equals("minecraft:ender_pearl") && released < 0) {
+				// Their pearl home: one like it thrown here (no one's, so it only flies and breaks; they get there by
+				// their moves, as it comes down).
+				ServerWorld world = p.getServerWorld();
+				EnderPearlEntity pearl = new EnderPearlEntity(EntityType.ENDER_PEARL, world);
+				pearl.setPosition(p.getX(), p.getEyeY() - 0.1, p.getZ());
+				pearl.setItem(new ItemStack(Items.ENDER_PEARL));
+				pearl.setVelocity(p, m.pitch(), m.yaw(), 0.0F, 1.5F, 0.0F);
+				world.spawnEntity(pearl);
+				world.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.ENTITY_ENDER_PEARL_THROW, SoundCategory.NEUTRAL, 0.5F, 0.45F);
+			}
+			if (role == Role.WOOMERD && m.item().equals("minecraft:cobblestone") && released < 0 && now >= RUN_HOME && pileNext < sc.pile.size()) {
 				BlockPos block = sc.pile.get(pileNext++);
 				ServerWorld world = p.getServerWorld();
 				world.setBlockState(block, Blocks.COBBLESTONE.getDefaultState(), 3);

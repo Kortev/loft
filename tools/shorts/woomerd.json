@@ -1,8 +1,8 @@
 {"source": "build/film/woomerd.mp4", "out": "build/film/woomerd-short.mp4", "band": {"height": 1350, "center": 1060}, "banner": {"text": "griefing has CONSEQUENCES now 😭🙏", "y": 270, "size": 64}, "segments": [
-  {"from": 2.6, "to": 20.933}, 
+  {"from": 2.6, "to": 22.4}, 
   {"from": 26.933, "to": 44.3}, 
   {"from": 44.95, "to": 54.75}, 
   {"from": 70.5, "to": 86.2}],
  "sfx": [
-  {"at": 24.679, "file": "build/film/sfx/riser.mp3", "gain": 2.0}],
+  {"at": 26.176, "file": "build/film/sfx/riser.mp3", "gain": 2.0}],
  "crf": 18, "preset": "medium"}

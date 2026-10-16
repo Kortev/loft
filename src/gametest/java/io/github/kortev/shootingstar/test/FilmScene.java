@@ -88,7 +88,7 @@ final class FilmScene {
 	/** The three TNT spots against the cabin's east wall. */
 	final BlockPos[] tnt;
 	/**
-	 * The cobblestone Woomerd piles up by the base while waiting (2x2, two high, north-west of the fort): its blocks in the
+	 * The cobblestone Woomerd piles up by the base while waiting (3x2, two high, north-west of the fort): its blocks in the
 	 * order they go down, the far ones of each layer first so the near ones are never in the way. Out of the key's line of
 	 * sight to its target and off to the side of the W, as Kortev sees them.
 	 */
@@ -160,12 +160,12 @@ final class FilmScene {
 		level(world, base.getX() - YARD, base.getZ() - YARD, base.getX() + YARD, base.getZ() + YARD, baseY);
 		FilmScene scene = new FilmScene(house, base, houseY, lookout(world, gx, gz, rough));
 		scene.clear(world);
-		for (int[] c : new int[][] {{-7, -4}, {-6, -4}, {-7, -3}, {-6, -3}}) {
+		for (int[] c : new int[][] {{-7, -4}, {-6, -4}, {-5, -4}, {-7, -3}, {-6, -3}, {-5, -3}}) {
 			int x = base.getX() + c[0];
 			int z = base.getZ() + c[1];
 			scene.pile.add(new BlockPos(x, ground(world, x, z), z));
 		}
-		for (int k = 0; k < 4; k++) {
+		for (int k = 0; k < 6; k++) {
 			scene.pile.add(scene.pile.get(k).up());
 		}
 		// No grass where it goes, or between there and where Woomerd builds it from: a tuft takes the click.
@@ -193,7 +193,9 @@ final class FilmScene {
 				world.setChunkForced(cx, cz, true);
 			}
 		}
-		world.setSpawnPos(scene.spawn, 0.0F);
+		// Facing north, over it all: whoever comes back here (Woomerd killed, gerald sent home) faces the scene, not the
+		// portal just south of it, which filled the view.
+		world.setSpawnPos(scene.spawn, 180.0F);
 		ShootingStar.LOGGER.info("[film] cabin {} base {} target {} spawn {}", house.toShortString(), base.toShortString(),
 				scene.target.toShortString(), scene.spawn.toShortString());
 		return scene;
@@ -574,8 +576,9 @@ final class FilmScene {
 			box.setStack(20, new ItemStack(Items.IRON_INGOT, 52));
 			box.setStack(22, new ItemStack(Items.OBSIDIAN, 18));
 		}
-		// A fence and a torch either side of where Woomerd stands.
-		for (int dz : new int[] {-2, 2}) {
+		// A fence and a torch either side of the W, clear of where Woomerd stands and builds (one between there and the
+		// pile was all they could see of it, and it took their clicks).
+		for (int dz : new int[] {-6, 4}) {
 			set(world, new BlockPos(x0 - 5, y0, z0 + dz), Blocks.OAK_FENCE.getDefaultState().with(FenceBlock.NORTH, false));
 			set(world, new BlockPos(x0 - 5, y0 + 1, z0 + dz), Blocks.TORCH.getDefaultState());
 		}
