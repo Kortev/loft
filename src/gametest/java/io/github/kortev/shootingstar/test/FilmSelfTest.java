@@ -28,6 +28,7 @@ import net.minecraft.client.gui.screen.ingame.InventoryScreen;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.option.Perspective;
+import net.minecraft.client.sound.PositionedSoundInstance;
 import net.minecraft.client.util.ScreenshotRecorder;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityPose;
@@ -126,12 +127,11 @@ public class FilmSelfTest implements ClientModInitializer {
 	private static final int CHEST_GO = 192;
 	private static final int KEY_TURN = 256;
 	// The event (its age).
-	/** gerald_2009 slips, just before the black takes everyone. */
-	private static final int SLIP = GapTimeline.NOTHING - 11;
-	/** gerald stops bridging this long before the slip, at the edge, looking about. */
-	private static final int HESITATE = 24;
-	/** gerald, in the inventory since running out of blocks, gets the stack in the bag out and goes on bridging. */
-	private static final int REFILL_AT = 400;
+	/** gerald_2009 comes through the Nether portal at the spawn (in the Nether since joining), just before the cabin goes up. */
+	private static final int ARRIVE = 146;
+	/** gerald opens the inventory (the event's age; being new, while the sky does what it does), and shuts it. */
+	private static final int GERALD_INV = 112;
+	private static final int GERALD_INV_SHUT = 296;
 	/** Woomerd, in the chest at the base, shuts it. */
 	private static final int CHEST_SHUT = 300;
 	/** The fewest ticks between two blocks of the pile by the base going down. */
@@ -143,7 +143,7 @@ public class FilmSelfTest implements ClientModInitializer {
 	/** Ticks after the cracked key is turned that everyone has been sent home (the rebuild's end, and a little more). */
 	private static final int HOME = GapTimeline.REBUILD_END + 20;
 	/** How long the recording goes on once everyone is home. */
-	private static final int AFTER = 260;
+	private static final int AFTER = 360;
 	/** How long someone killed lies dead before coming back. */
 	private static final int RESPAWN_DELAY = 60;
 
@@ -190,11 +190,9 @@ public class FilmSelfTest implements ClientModInitializer {
 	private static int jobAt;
 	private static int openedAt = -1;
 	private static int closedAt = -1;
-	// gerald_2009: the bridge (its end, the blocks put down, the stops to look about).
-	private static int bridgeX;
-	private static int placed;
-	private static int pauseUntil = -1;
-	private static int nextPause = 7;
+	// gerald_2009: where they make for to go in at the edge of the hole, at the end.
+	@Nullable
+	private static Vec3d edge;
 	// Inside a screen (gerald's inventory, Woomerd's chest): ticks in it, the tick the business at the end began.
 	private static int invTicks;
 	// Woomerd's pile: the age the last block of it went down (client), and the next block to put down (server, in the
@@ -1008,141 +1006,182 @@ public class FilmSelfTest implements ClientModInitializer {
 
 	// --- gerald_2009 -------------------------------------------------------------------------
 
+	/**
+	 * gerald_2009, new to the server: through the portal at the spawn just as the cabin goes up; up towards it all, Woomerd
+	 * running past; Kortev's light; a look in the inventory (being new); the block coming down from a safe way off, and
+	 * Woomerd with it; away from the black; the void, the world coming back; and then, home, over to see the new hole, and
+	 * in.
+	 */
 	private static void gerald(MinecraftClient client, ClientPlayerEntity player, FilmHuman h, FilmScene sc, int now, int r) {
-		FilmNether set = nether;
-		if (set == null) {
-			return;
-		}
 		h.spam(false).idle(0.0).slack(2.0).stay().sneak(false).back(false);
-		if (released < 0 && age < SLIP) {
-			bridge(client, player, h, set, now);
+		if (now <= ARRIVE) {
+			// In the Nether since joining: not in the film.
 			return;
 		}
-		if (released < 0 && age < ANCHOR) {
-			// The slip: up off the crouch with S still down, off the edge, and falling.
-			h.back(player.isOnGround()).look(90.0, 80.0).slack(6.0);
-			return;
+		if (once(now, ARRIVE + 1, "portal sound")) {
+			client.getSoundManager().play(PositionedSoundInstance.master(SoundEvents.BLOCK_PORTAL_TRAVEL, 1.0F, 0.3F));
 		}
 		Vec3d eye = player.getEyePos();
-		Vec3d kortev = orElse(eyes(client, Role.KORTEV), eye.add(4.0, 0.0, 0.0));
-		Vec3d woomerd = orElse(eyes(client, Role.WOOMERD), kortev);
-		if (released < 0) {
-			int a = age;
-			double toKortev = FilmHuman.angles(eye, kortev)[0];
-			if (a < 690) {
-				h.glance("where", 9, 20, far(eye, toKortev + 150.0, 5.0), far(eye, toKortev - 100.0, -10.0), far(eye, toKortev + 40.0, 70.0), kortev,
-						woomerd).slack(4.0);
-			} else if (a < 730) {
-				// Down at the floor of nothing; a hop on it.
-				h.look(far(eye, toKortev + 10.0, 72.0)).slack(4.0);
-				if (a == 700 || a == 714) {
-					h.jump();
-				}
-			} else if (a < 820) {
-				// Over to the other two: to Kortev's other side from Woomerd, a few blocks off.
-				Vec3d side = beside(kortev.add(0.0, -1.62, 0.0), target(), 4.5, false);
-				h.look(a < 780 ? kortev : woomerd).track().slack(1.5).go(side, FilmHuman.Pace.WALK, 0.8, false);
+		Vec3d middle = Vec3d.ofBottomCenter(sc.target);
+		Vec3d target = Vec3d.ofCenter(sc.target);
+		Vec3d cabin = Vec3d.ofCenter(sc.house).add(0.0, 2.5, 0.0);
+		Vec3d kortev = orElse(eyes(client, Role.KORTEV), eye(sc.atChest));
+		Vec3d woomerd = orElse(eyes(client, Role.WOOMERD), eye(sc.woomerdAtBase));
+		// Where they go: a first look at it all, a little nearer to watch, back from the burst, away from the black.
+		Vec3d watch = middle.add(-12.0, 0.0, 28.0);
+		Vec3d nearer = middle.add(-9.0, 0.0, 24.0);
+		Vec3d back = middle.add(-11.0, 0.0, 28.5);
+		Vec3d away = middle.add(-17.0, 0.0, 43.0);
+		if (age < 0) {
+			if (now < BOOM) {
+				// Out of the portal into a new world, a look about it.
+				h.look(far(eye, 180.0, 3.0)).slack(3.0).go(sc.portalOut.add(0.0, 0.0, -3.5), FilmHuman.Pace.WALK, 0.4, false);
+			} else if (now < BOOM + 34) {
+				// What was that.
+				h.glance("boom", 10, 16, cabin, cabin.add(3.0, 3.0, 0.0), cabin.add(1.0, -1.0, 2.0)).slack(2.0);
 			} else {
-				h.glance("them", 25, 50, woomerd, kortev).track().slack(2.0).idle(0.6);
+				// Up towards it; Woomerd sprinting off home past them.
+				boolean runner = now > RUN_HOME - 6 && now < RUN_HOME + 70;
+				h.look(runner ? woomerd : cabin).track().slack(2.0).go(watch, FilmHuman.Pace.WALK, 0.6, false);
 			}
+			return;
+		}
+		if (released < 0 && age < GapTimeline.NOTHING) {
+			int a = age;
+			// The light going up from Kortev, followed only so far up: past that it is blank sky to look at.
+			Vec3d beam = kortev.add(0.0, Math.min(28.0, Math.max(0.0, (a - 37) * 6.0)), 0.0);
+			// Hungry, being new: two of the bread while the light goes up, and the third out of the inventory (all of which
+			// is too far off to hear anything of, but the eating).
+			if (a >= 34 && a < GapTimeline.SEND && player.getInventory().selectedSlot != 3) {
+				player.getInventory().selectedSlot = 3;
+			}
+			int eaten = player.getMainHandStack().isOf(Items.BREAD) ? 7 - player.getMainHandStack().getCount() : 0;
+			if ((a >= 40 && a < GERALD_INV && eaten < 2) || (a >= GERALD_INV_SHUT && a < GapTimeline.SEND + 2 && eaten < 3)) {
+				h.use();
+			}
+			if (a < 37) {
+				h.look(kortev).slack(1.5).idle(0.6);
+			} else if (a < 84) {
+				h.look(beam).track().slack(2.0);
+			} else if (a < GERALD_INV) {
+				h.glance("after beam", 10, 16, woomerd, eye(sc.woomerdAtBase).add(0.0, 2.0, 0.0)).slack(2.0).idle(0.8);
+			} else if (!ACTED.contains("inventory")) {
+				// E, to see what they have, being new.
+				ACTED.add("inventory");
+				client.setScreen(new InventoryScreen(player));
+			} else if (a < GapTimeline.SEND + 8) {
+				// The fort and Woomerd, a bit nearer to see; nothing in the sky yet.
+				h.glance("fort", 12, 22, woomerd, Vec3d.ofCenter(sc.base).add(0.0, 3.0, 0.0)).slack(2.0).go(nearer, FilmHuman.Pace.WALK, 0.6, false);
+			} else if (a < GapTimeline.INBOUND) {
+				// The light reaching down over the base: up at it, the fort still in sight below.
+				h.glance("sky", 18, 30, target.add(0.0, 22.0, 0.0), woomerd, target.add(4.0, 28.0, -3.0)).slack(2.0)
+						.go(nearer, FilmHuman.Pace.WALK, 0.6, false);
+			} else if (a < GapTimeline.CONTACT + 4) {
+				double fall = MathHelper.clamp((a - GapTimeline.INBOUND) / 24.0, 0.0, 1.0);
+				h.look(target.add(0.0, MathHelper.lerp(fall, 34.0, 4.0), 0.0)).track().slack(1.0);
+			} else if (a < GapTimeline.ERASURE) {
+				// The burst, Woomerd with it: a few steps back from it, watching.
+				h.look(target.add(0.0, 12.0, 0.0)).track().slack(2.0).back(!FilmHuman.near(player, back, 0.8));
+			} else {
+				// The black coming for them: a look, and run.
+				boolean look = a < GapTimeline.ERASURE + 8;
+				h.look(look ? target : eye(away)).slack(4.0).go(look ? null : away, FilmHuman.Pace.SPRINT, 1.0, true);
+			}
+			return;
+		}
+		if (released < 0) {
+			geraldVoid(client, player, h);
 			return;
 		}
 		if (r < HOME) {
-			rebuild(h, player, Vec3d.ofCenter(sc.target), r);
+			rebuild(h, player, target, r);
 			return;
 		}
-		// Back on the bridge: where am I, down at the lava, and a step back off the end of it.
+		// Home: where am I; over to see the new hole; and in.
 		int t = r - HOME;
-		if (t < 40) {
-			h.glance("back", 8, 14, far(eye, -90.0, 10.0), far(eye, 90.0, 5.0), far(eye, 0.0, 30.0)).slack(4.0);
-		} else if (t < 85) {
-			h.look(player.getYaw(), 65.0).slack(4.0);
-		} else {
-			h.look(player.getYaw(), 70.0).slack(4.0).back(true);
+		if (t < 14) {
+			h.glance("home", 6, 10, target.add(0.0, -6.0, 0.0), far(eye, 120.0, 0.0), target).slack(3.0);
+			return;
 		}
+		if (edge == null) {
+			edge = toTheEdge(client, player, middle);
+			ShootingStar.LOGGER.info("[film] gerald_2009 makes for the edge, at {}", edge);
+		}
+		// A sprint over (the last few blocks walked), to see it before anyone else does.
+		h.look(new Vec3d(edge.x, player.getY() - 6.0, edge.z)).slack(2.5).go(edge, FilmHuman.Pace.SPRINT, 0.1, false);
 	}
 
-	/**
-	 * Bridging, as it is done: crouched, walking backwards, looking down past their heels at the side of the block they
-	 * are on, the right button held, so a block goes on the end each time they reach it and the crosshair finds that side;
-	 * now and then a stop to look round at how far there is to go.
-	 */
-	private static void bridge(MinecraftClient client, ClientPlayerEntity player, FilmHuman h, FilmNether set, int now) {
-		int y = FilmNether.BRIDGE_Y;
-		int z = set.end.getZ();
-		if (bridgeX == 0) {
-			bridgeX = set.end.getX();
-		}
-		while (!client.world.getBlockState(new BlockPos(bridgeX + 1, y, z)).isAir()) {
-			bridgeX++;
-			placed++;
-			if (placed >= nextPause && age < SLIP - 120) {
-				pauseUntil = now + 40 + (placed * 7) % 24;
-				nextPause = placed + 7 + (placed * 5) % 5;
-			}
-		}
-		h.sneak(true);
+	/** In the void: where are we, then up to the other two, and about with them. */
+	private static void geraldVoid(MinecraftClient client, ClientPlayerEntity player, FilmHuman h) {
 		Vec3d eye = player.getEyePos();
-		if (age >= SLIP - HESITATE) {
-			// At the edge, crouched against it, looking about.
-			h.glance("edge", 6, 10, far(eye, -70.0, 20.0), far(eye, 140.0, 35.0), far(eye, 90.0, 75.0)).slack(3.0);
+		Vec3d kortev = orElse(eyes(client, Role.KORTEV), eye.add(4.0, 0.0, 0.0));
+		Vec3d woomerd = orElse(eyes(client, Role.WOOMERD), kortev);
+		int a = age;
+		if (a < ANCHOR) {
 			return;
 		}
-		if (now < pauseUntil) {
-			if (pauseUntil - now > 12) {
-				// Round to see how far is left, across the lava, and back.
-				h.glance("pause " + nextPause, 12, 20, far(eye, -90.0, 12.0), far(eye, -60.0, 30.0), far(eye, 160.0, 20.0)).slack(3.0);
-			} else {
-				h.look(90.0, 81.0).slack(0.8);
+		double toKortev = FilmHuman.angles(eye, kortev)[0];
+		if (a < 690) {
+			h.glance("where", 9, 20, far(eye, toKortev + 150.0, 5.0), far(eye, toKortev - 100.0, -10.0), far(eye, toKortev + 40.0, 70.0), kortev,
+					woomerd).slack(4.0);
+		} else if (a < 730) {
+			// Down at the floor of nothing; a hop on it.
+			h.look(far(eye, toKortev + 10.0, 72.0)).slack(4.0);
+			if (a == 700 || a == 714) {
+				h.jump();
 			}
-			return;
+		} else if (a < 820) {
+			Vec3d side = beside(kortev.add(0.0, -1.62, 0.0), target(), 4.5, false);
+			h.look(a < 780 ? kortev : woomerd).track().slack(1.5).go(side, FilmHuman.Pace.WALK, 0.8, false);
+		} else {
+			h.glance("them", 25, 50, woomerd, kortev).track().slack(2.0).idle(0.6);
 		}
-		if (player.getMainHandStack().isEmpty() && ACTED.add("out of blocks")) {
-			// Out of blocks: E for the inventory, for the stack in the bag.
-			ShootingStar.LOGGER.info("[film] gerald_2009 runs out of blocks at {} (age {})", now, age);
-			client.setScreen(new InventoryScreen(player));
-			return;
-		}
-		// Kept to the middle of the bridge with A and D, as anyone does (facing west, D is north): drift to one side, and
-		// the crosshair, looking down past the heels, misses the end of it.
-		double off = player.getZ() - (z + 0.5);
-		h.look(90.0, 81.0).slack(0.8).back(true).use().strafe(Math.abs(off) > 0.07 ? (off > 0 ? 1 : -1) : 0);
 	}
 
 	/**
-	 * In the inventory: the pointer over the stack in the bag, held there (as if looking for something), and, once it is
-	 * time to get on, the stack into the empty hotbar slot and E again.
+	 * Where to walk to go in at the edge of the hole: a straight way there from where they stand (towards the hole's middle,
+	 * or as near that as there is one) over ground with no crack in it (one would only drop them a few blocks), out to a
+	 * little past the edge. With no such way, straight at the middle.
 	 */
+	private static Vec3d toTheEdge(MinecraftClient client, ClientPlayerEntity player, Vec3d middle) {
+		double y = player.getY();
+		double bearing = Math.atan2(middle.z - player.getZ(), middle.x - player.getX());
+		for (int k = 0; k <= 12; k++) {
+			double angle = bearing + Math.toRadians((k % 2 == 1 ? 1 : -1) * ((k + 1) / 2) * 6.0);
+			double dx = Math.cos(angle);
+			double dz = Math.sin(angle);
+			for (double d = 0.5; d <= 40.0; d += 0.5) {
+				double x = player.getX() + dx * d;
+				double z = player.getZ() + dz * d;
+				int top = client.world.getTopY(Heightmap.Type.MOTION_BLOCKING, MathHelper.floor(x), MathHelper.floor(z));
+				if (top < y - 20.0) {
+					return new Vec3d(player.getX() + dx * (d + 3.0), y, player.getZ() + dz * (d + 3.0));
+				}
+				if (Math.abs(top - y) > 1.5) {
+					break;
+				}
+			}
+		}
+		return middle;
+	}
+
+	/** In the inventory, being new: the pointer from one thing to the next, held on each (its name comes up), and shut. */
 	private static void geraldInventory(MinecraftClient client, ClientPlayerEntity player, HandledScreen<?> screen) {
 		int t = invTicks++;
 		if (t == 0) {
 			FilmCursor.show(true);
 			FilmCursor.place(screen.width / 2.0 - 10.0, screen.height / 2.0 - 30.0);
 		}
-		if (t == 3) {
-			pointAt(screen, 9, 7.0);
+		int[] slots = {39, 40, 38, 9, 36};
+		for (int k = 0; k < slots.length; k++) {
+			if (t == 4 + k * 26) {
+				pointAt(screen, slots[k], 7.0);
+			}
 		}
-		if (age < REFILL_AT) {
-			return;
-		}
-		if (refillAt < 0) {
-			refillAt = t;
-		}
-		int u = t - refillAt;
-		if (u == 0) {
-			client.interactionManager.clickSlot(screen.getScreenHandler().syncId, 9, 0, SlotActionType.PICKUP, player);
-		}
-		if (u == 2) {
-			pointAt(screen, 36, 6.0);
-		}
-		if (u == 9) {
-			client.interactionManager.clickSlot(screen.getScreenHandler().syncId, 36, 0, SlotActionType.PICKUP, player);
-		}
-		if (u >= 13) {
+		if (age >= GERALD_INV_SHUT) {
 			FilmCursor.show(false);
-			player.getInventory().selectedSlot = 0;
 			player.closeHandledScreen();
-			ShootingStar.LOGGER.info("[film] gerald_2009 back to bridging at age {}", age);
+			ShootingStar.LOGGER.info("[film] gerald_2009 shuts the inventory at age {}", age);
 		}
 	}
 
@@ -1280,7 +1319,7 @@ public class FilmSelfTest implements ClientModInitializer {
 		}
 	}
 
-	/** Where each one starts: Kortev at the farm, facing it; Woomerd creeping up from the east; gerald on the bridge. */
+	/** Where each one starts: Kortev at the farm, facing it; Woomerd creeping up from the east; gerald in the Nether. */
 	private static void place(MinecraftServer server, ServerPlayerEntity player, Role role) {
 		FilmScene sc = scene;
 		FilmNether set = nether;
@@ -1359,6 +1398,8 @@ public class FilmSelfTest implements ClientModInitializer {
 				player.getInventory().setStack(2, new ItemStack(Items.STONE_PICKAXE));
 				player.getInventory().setStack(3, new ItemStack(Items.BREAD, 7));
 				player.getInventory().setStack(4, new ItemStack(Items.TORCH, 12));
+				// Hungry from the Nether: room for three of the bread.
+				player.getHungerManager().setFoodLevel(5);
 				player.setExperienceLevel(3);
 				select(player, Role.GERALD, 0);
 			}
@@ -1453,7 +1494,17 @@ public class FilmSelfTest implements ClientModInitializer {
 			}
 		}
 
-		// gerald_2009 joins (in the Nether, bridging): what their kit and the Nether earn them, unannounced.
+		// gerald_2009 comes through the portal at the spawn, from the Nether.
+		if (now == ARRIVE) {
+			ServerPlayerEntity gerald = player(server, Role.GERALD);
+			if (gerald != null) {
+				gerald.teleport(world, sc.portalOut.x, sc.portalOut.y, sc.portalOut.z, 180.0F, 2.0F);
+				gerald.setSneaking(false);
+				ShootingStar.LOGGER.info("[film] gerald_2009 comes through the portal at {}", sc.portalOut);
+			}
+		}
+
+		// gerald_2009 joins (in the Nether): what their kit and the Nether earn them, unannounced.
 		if (now == GERALD_JOINS + 4) {
 			world.getGameRules().get(GameRules.ANNOUNCE_ADVANCEMENTS).set(true, server);
 		}
@@ -1541,9 +1592,9 @@ public class FilmSelfTest implements ClientModInitializer {
 			return;
 		}
 		if (!m.alive()) {
-			// Dead in their own take after it was all over (gerald, in the lava): dead here too.
+			// Dead in their own take after it was all over (gerald, in the hole): dead here too.
 			if (r >= HOME) {
-				p.damage(p.getServerWorld().getDamageSources().lava(), Float.MAX_VALUE);
+				p.damage(p.getServerWorld().getDamageSources().outOfWorld(), Float.MAX_VALUE);
 			}
 			return;
 		}

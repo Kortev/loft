@@ -1,8 +1,11 @@
-{"source": "build/film/gerald.mp4", "out": "build/film/gerald-short.mp4", "band": {"height": 1350, "center": 1060}, "banner": {"text": "bro JUST wanted to bridge 😭🙏", "y": 270, "size": 64}, "segments": [
-  {"from": 33.5, "to": 47.0}, 
-  {"from": 62.8, "to": 70.0}, 
-  {"from": 71.2, "to": 104.0}],
+{"source": "build/film/gerald.mp4", "out": "build/film/gerald-short.mp4", "band": {"height": 1350, "center": 1060}, "banner": {"text": "bro picked the WORST day to join 😭🙏", "y": 270, "size": 64}, "segments": [
+  {"from": 7.42, "to": 18.59}, 
+  {"from": 27.45, "to": 44.08}, 
+  {"from": 45.0, "to": 47.2}, 
+  {"from": 62.37, "to": 89.37}, 
+  {"from": 91.4, "to": 103.47}, 
+  {"from": 106.97, "to": 110.27}],
  "sfx": [
-  {"at": 9.81, "file": "build/film/sfx/riser.mp3", "gain": 2.0}, 
-  {"at": 51.6, "file": "build/film/sfx/vine-boom.mp3", "gain": 1.4}],
+  {"at": 17.002, "file": "build/film/sfx/riser.mp3", "gain": 2.0}, 
+  {"at": 69.27, "file": "build/film/sfx/vine-boom.mp3", "gain": 1.4}],
  "crf": 18, "preset": "medium", "compress": true}

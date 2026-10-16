@@ -11,6 +11,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.block.CropBlock;
 import net.minecraft.block.Blocks;
+import net.minecraft.block.NetherPortalBlock;
 import net.minecraft.block.DoorBlock;
 import net.minecraft.block.FenceBlock;
 import net.minecraft.block.StairsBlock;
@@ -78,6 +79,12 @@ final class FilmScene {
 	/** Where anyone killed comes back: the world spawn, where it can all be seen from. */
 	final Vec3d respawn;
 	final BlockPos spawn;
+	/**
+	 * The Nether portal just south of the spawn, gerald_2009's way in: the west one of its bottom two inner blocks, and
+	 * where they stand on coming through (the middle of its foot, facing north into the scene).
+	 */
+	final BlockPos portal;
+	final Vec3d portalOut;
 	/** The three TNT spots against the cabin's east wall. */
 	final BlockPos[] tnt;
 	/**
@@ -102,6 +109,8 @@ final class FilmScene {
 		this.target = new BlockPos(base.getX() - 6, base.getY() - 1, base.getZ());
 		this.respawn = Vec3d.ofBottomCenter(respawn);
 		this.spawn = respawn;
+		this.portal = respawn.add(0, 0, 3);
+		this.portalOut = new Vec3d(portal.getX() + 1.0, portal.getY(), portal.getZ() + 0.5);
 		this.tnt = new BlockPos[] {house.add(4, 0, -1), house.add(4, 0, 0), house.add(4, 0, 1)};
 	}
 
@@ -176,6 +185,7 @@ final class FilmScene {
 		scene.woomerdSafe = onGround(world, scene.woomerdSafe);
 		scene.cabin(world);
 		scene.farm(world);
+		scene.portal(world);
 		scene.fort(world);
 		// The scene's chunks kept loaded whoever is where.
 		for (int cx = (bestX - 16) >> 4; cx <= (bestX + BASE_EAST + 16) >> 4; cx++) {
@@ -484,6 +494,24 @@ final class FilmScene {
 			box.setStack(17, new ItemStack(Items.DIAMOND, 5));
 			box.setStack(22, new ItemStack(Items.ENDER_PEARL, 4));
 			box.setStack(26, new ItemStack(Items.WHEAT, 37));
+		}
+	}
+
+	/** The Nether portal at the spawn: an obsidian frame (2 wide, 3 tall inside) along x, lit, on a little levelled pad. */
+	private void portal(ServerWorld world) {
+		level(world, portal.getX() - 3, portal.getZ() - 2, portal.getX() + 4, portal.getZ() + 2, portal.getY());
+		for (int dx = -1; dx <= 2; dx++) {
+			for (int dy = -1; dy <= 3; dy++) {
+				BlockPos p = portal.add(dx, dy, 0);
+				boolean frame = dx == -1 || dx == 2 || dy == -1 || dy == 3;
+				world.setBlockState(p, frame ? Blocks.OBSIDIAN.getDefaultState() : Blocks.AIR.getDefaultState(), 2 | 16);
+			}
+		}
+		for (int dx = 0; dx <= 1; dx++) {
+			for (int dy = 0; dy <= 2; dy++) {
+				world.setBlockState(portal.add(dx, dy, 0), Blocks.NETHER_PORTAL.getDefaultState().with(NetherPortalBlock.AXIS, Direction.Axis.X),
+						2 | 16);
+			}
 		}
 	}
 
