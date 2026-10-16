@@ -28,6 +28,8 @@ import net.minecraft.world.biome.Biome;
 import net.minecraft.world.biome.BiomeKeys;
 import net.minecraft.world.gen.chunk.ChunkGenerator;
 import net.minecraft.world.gen.noise.NoiseConfig;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Where the film's scene is and what is built there: Kortev's cabin with a wheat farm south-west of it and a chest by
@@ -78,6 +80,12 @@ final class FilmScene {
 	final BlockPos spawn;
 	/** The three TNT spots against the cabin's east wall. */
 	final BlockPos[] tnt;
+	/**
+	 * The cobblestone Woomerd piles up by the base while waiting (2x2, two high, north-west of the fort): its blocks in the
+	 * order they go down, the far ones of each layer first so the near ones are never in the way. Out of the key's line of
+	 * sight to its target and off to the side of the W, as Kortev sees them.
+	 */
+	final List<BlockPos> pile = new ArrayList<>();
 
 	private FilmScene(BlockPos house, BlockPos base, int yardY, BlockPos respawn) {
 		this.house = house;
@@ -143,6 +151,26 @@ final class FilmScene {
 		level(world, base.getX() - YARD, base.getZ() - YARD, base.getX() + YARD, base.getZ() + YARD, baseY);
 		FilmScene scene = new FilmScene(house, base, houseY, lookout(world, gx, gz, rough));
 		scene.clear(world);
+		for (int[] c : new int[][] {{-7, -4}, {-6, -4}, {-7, -3}, {-6, -3}}) {
+			int x = base.getX() + c[0];
+			int z = base.getZ() + c[1];
+			scene.pile.add(new BlockPos(x, ground(world, x, z), z));
+		}
+		for (int k = 0; k < 4; k++) {
+			scene.pile.add(scene.pile.get(k).up());
+		}
+		// No grass where it goes, or between there and where Woomerd builds it from: a tuft takes the click.
+		for (int x = base.getX() - 8; x <= base.getX() - 4; x++) {
+			for (int z = base.getZ() - 5; z <= base.getZ(); z++) {
+				BlockPos top = new BlockPos(x, ground(world, x, z), z);
+				for (BlockPos q : new BlockPos[] {top, top.up()}) {
+					BlockState plant = world.getBlockState(q);
+					if (!plant.isAir() && plant.isReplaceable()) {
+						world.setBlockState(q, Blocks.AIR.getDefaultState(), 2);
+					}
+				}
+			}
+		}
 		// Out of the yards, on the ground where it is.
 		scene.woomerdStart = onGround(world, scene.woomerdStart);
 		scene.woomerdSafe = onGround(world, scene.woomerdSafe);

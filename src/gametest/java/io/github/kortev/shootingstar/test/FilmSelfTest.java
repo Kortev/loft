@@ -18,6 +18,7 @@ import net.fabricmc.api.ClientModInitializer;
 import net.minecraft.advancement.AdvancementEntry;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.DeathScreen;
@@ -133,6 +134,8 @@ public class FilmSelfTest implements ClientModInitializer {
 	private static final int REFILL_AT = 400;
 	/** Woomerd, in the chest at the base, shuts it. */
 	private static final int CHEST_SHUT = 300;
+	/** The fewest ticks between two blocks of the pile by the base going down. */
+	private static final int PILE_GAP = 5;
 	/** Everyone has been carried into the void by now: where each is then is where their moves there are measured from. */
 	private static final int ANCHOR = GapTimeline.NOTHING + 14;
 	/** Kortev turns the cracked key (and again every second until the world comes back). */
@@ -194,6 +197,10 @@ public class FilmSelfTest implements ClientModInitializer {
 	private static int nextPause = 7;
 	// Inside a screen (gerald's inventory, Woomerd's chest): ticks in it, the tick the business at the end began.
 	private static int invTicks;
+	// Woomerd's pile: the age the last block of it went down (client), and the next block to put down (server, in the
+	// others' takes, as Woomerd's recorded clicks come).
+	private static int lastPile = -100;
+	private static int pileNext;
 	private static int refillAt = -1;
 
 	public static boolean active() {
@@ -742,7 +749,7 @@ public class FilmSelfTest implements ClientModInitializer {
 	private static void woomerdBefore(MinecraftClient client, ClientPlayerEntity player, FilmHuman h, FilmScene sc, int now, Vec3d kortev,
 			Vec3d wall) {
 		int i = nextTnt();
-		if (now < TNT_AT[0] - 8) {
+		if (now < TNT_AT[0] - 20) {
 			Vec3d spot = tntSpot(sc, 0);
 			boolean close = FilmHuman.near(player, spot, 1.2);
 			h.look(now > 12 && now < 22 ? Vec3d.ofCenter(sc.farm).add(0.0, 1.5, 0.0) : wall).slack(3.0)
@@ -824,29 +831,48 @@ public class FilmSelfTest implements ClientModInitializer {
 	private static void woomerdBase(MinecraftClient client, ClientPlayerEntity player, FilmHuman h, FilmScene sc, int now, Vec3d kortev,
 			Vec3d target) {
 		int a = age;
+		Vec3d spot = sc.woomerdAtBase.add(0.0, 0.0, -1.1);
+		// Not home yet when the key turned: still sprinting there.
+		if (!ACTED.contains("home") && a < 124) {
+			if (FilmHuman.near(player, sc.woomerdAtBase, 0.9)) {
+				ACTED.add("home");
+			} else {
+				h.look(eye(sc.woomerdAtBase)).slack(4.0).go(sc.woomerdAtBase, FilmHuman.Pace.SPRINT, 0.8, true);
+				return;
+			}
+		}
+		boolean building = a >= 52 && a < 124 || a >= CHEST_SHUT + 12 && a < 360;
+		// The cobblestone in hand to build with, the sword otherwise.
+		if (building) {
+			player.getInventory().selectedSlot = 4;
+		} else if (a >= 52 && player.getInventory().selectedSlot == 4) {
+			player.getInventory().selectedSlot = 2;
+		}
 		if (a < 40) {
 			celebrate(h, sc, now, kortev);
-		} else if (a < 70) {
-			h.look(kortev).slack(1.5);
-		} else if (a < 100) {
-			h.look(kortev.add(0.0, 30.0, 0.0)).track().slack(2.0);
+		} else if (a < 52) {
+			// The flash where Kortev is; whatever. Over to the corner to build.
+			h.look(kortev).slack(1.5).go(spot, FilmHuman.Pace.WALK, 0.3, false);
 		} else if (a < 124) {
-			h.look(kortev).track().slack(1.2).spam(a > 106);
+			// Building, all of it in one go (a look up at the light from Kortev would take the hand away too long).
+			pile(client, player, h, sc, spot, 6, kortev);
 		} else if (!ACTED.contains("base chest")) {
 			h.look(Vec3d.ofCenter(sc.baseChest).add(0.0, 0.2, 0.0)).slack(1.0).go(sc.woomerdAtBase, FilmHuman.Pace.WALK, 0.3, false);
 			if (FilmHuman.on(client, sc.baseChest, null)) {
 				ACTED.add("base chest");
 				FilmHuman.rightClick(client);
 				swung = true;
-			} else if (a > 150) {
+			} else if (a > 190) {
 				ACTED.add("base chest");
 				ShootingStar.LOGGER.warn("[film] Woomerd's crosshair never found the chest: opened it anyway");
 				client.interactionManager.interactBlock(player, Hand.MAIN_HAND,
 						new BlockHitResult(Vec3d.ofCenter(sc.baseChest), Direction.WEST, sc.baseChest, false));
 			}
 		} else if (a < CHEST_SHUT + 12) {
-			// Out of it: a step back, a look round.
-			h.look(Vec3d.ofCenter(sc.house).add(0.0, 4.0, 0.0)).slack(3.0).go(sc.woomerdAtBase.add(-1.2, 0.0, -0.4), FilmHuman.Pace.WALK, 0.4, false);
+			// Out of it: back to the pile.
+			h.look(Vec3d.ofCenter(sc.pile.get(3))).slack(3.0).go(spot, FilmHuman.Pace.WALK, 0.3, false);
+		} else if (a < 360) {
+			pile(client, player, h, sc, spot, 8, kortev);
 		} else if (a < GapTimeline.INBOUND) {
 			// Something in the sky over them: up at it, round at Kortev, up again, backing about under it, a hop.
 			h.glance("sky", 14, 26, target.add(0.0, 60.0, 0.0), kortev, target.add(8.0, 45.0, -6.0)).slack(2.0)
@@ -860,6 +886,31 @@ public class FilmSelfTest implements ClientModInitializer {
 			h.look(target.add(0.0, MathHelper.lerp(fall, 60.0, 4.0), 0.0)).track().slack(1.0)
 					.go(sc.woomerdAtBase.add(1.5, 0.0, 1.2), FilmHuman.Pace.WALK, 0.4, false);
 		}
+	}
+
+	/**
+	 * Building the pile: from {@code spot}, the first of its blocks (up to {@code upTo}) not down yet, looked at (the top of
+	 * the block it goes on) and put down with a right click as soon as the crosshair is on it. With all of them down, a
+	 * look at Kortev.
+	 */
+	private static void pile(MinecraftClient client, ClientPlayerEntity player, FilmHuman h, FilmScene sc, Vec3d spot, int upTo,
+			Vec3d kortev) {
+		for (int i = 0; i < upTo; i++) {
+			BlockPos p = sc.pile.get(i);
+			BlockState there = client.world.getBlockState(p);
+			if (!there.isAir() && !there.isReplaceable()) {
+				continue;
+			}
+			BlockPos under = p.down();
+			h.look(new Vec3d(p.getX() + 0.5, p.getY() - 0.04, p.getZ() + 0.5)).slack(0.6).go(spot, FilmHuman.Pace.WALK, 0.3, false);
+			if (age - lastPile >= PILE_GAP && FilmHuman.near(player, spot, 0.6) && FilmHuman.on(client, under, Direction.UP)) {
+				FilmHuman.rightClick(client);
+				swung = true;
+				lastPile = age;
+			}
+			return;
+		}
+		h.look(kortev).track().slack(1.5).idle(0.8);
 	}
 
 	/** Back at the spawn, the base gone in a flash, and then the black coming for them: they run, one look back. */
@@ -1522,6 +1573,14 @@ public class FilmSelfTest implements ClientModInitializer {
 		p.setSprinting(m.sprint());
 		if (m.swing()) {
 			p.swingHand(Hand.MAIN_HAND, true);
+			// Woomerd's clicks with cobblestone at the base put the pile there down, block by block, as in their take.
+			FilmScene sc = scene;
+			if (role == Role.WOOMERD && m.item().equals("minecraft:cobblestone") && released < 0 && age >= 0 && pileNext < sc.pile.size()) {
+				BlockPos block = sc.pile.get(pileNext++);
+				ServerWorld world = p.getServerWorld();
+				world.setBlockState(block, Blocks.COBBLESTONE.getDefaultState(), 3);
+				world.playSound(null, block, SoundEvents.BLOCK_STONE_PLACE, SoundCategory.BLOCKS, 1.0F, 0.8F);
+			}
 		}
 		Item item = Registries.ITEM.get(Identifier.of(m.item()));
 		if (p.getInventory().selectedSlot != m.slot() || !p.getMainHandStack().isOf(item)) {

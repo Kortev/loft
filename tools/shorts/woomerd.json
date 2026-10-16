@@ -2,12 +2,12 @@
   {"from": 2.6, "to": 21.4}, 
   {"from": 26.6, "to": 36.2}, 
   {"from": 37.6, "to": 43.4}, 
-  {"from": 44.9, "to": 53.9}, 
-  {"from": 70.5, "to": 87.0}],
+  {"from": 44.9, "to": 54.7}, 
+  {"from": 70.5, "to": 86.2}],
  "sfx": [
   {"at": 10.2, "sound": "ding", "gain": 1.0}, 
   {"at": 19.2, "sound": "ding", "gain": 1.0}, 
-  {"at": 24.88, "sound": "riser", "gain": 0.8}, 
+  {"at": 24.87, "sound": "riser", "gain": 0.8}, 
   {"at": 27.4, "sound": "boom", "gain": 1.0}, 
-  {"at": 38.5, "sound": "boom", "gain": 1.0}],
+  {"at": 37.8, "sound": "boom", "gain": 1.0}],
  "crf": 18, "preset": "medium"}
