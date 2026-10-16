@@ -5,9 +5,9 @@
   {"from": 44.9, "to": 54.7}, 
   {"from": 70.5, "to": 86.2}],
  "sfx": [
-  {"at": 10.2, "sound": "ding", "gain": 1.0}, 
-  {"at": 19.2, "sound": "ding", "gain": 1.0}, 
-  {"at": 24.87, "sound": "riser", "gain": 0.8}, 
-  {"at": 27.4, "sound": "boom", "gain": 1.0}, 
-  {"at": 37.8, "sound": "boom", "gain": 1.0}],
+  {"at": 10.15, "file": "build/film/sfx/ding.mp3", "gain": 6.0}, 
+  {"at": 19.15, "file": "build/film/sfx/ding.mp3", "gain": 6.0}, 
+  {"at": 25.47, "file": "build/film/sfx/riser.mp3", "gain": 2.0}, 
+  {"at": 27.3, "file": "build/film/sfx/vine-boom.mp3", "gain": 1.4}, 
+  {"at": 37.7, "file": "build/film/sfx/vine-boom.mp3", "gain": 0.8}],
  "crf": 18, "preset": "medium"}

@@ -313,9 +313,14 @@ def main():
         last = 'o%d' % j
         n += 1
     audio = 'ca'
+    if edl.get('compress'):
+        # A quiet take (gerald's lava, mostly): the game's loud moments brought in a little, so it can be levelled up to
+        # -14, before the effects go on (squashed with it, a boom over the lava hardly came through).
+        graph.append('[ca]acompressor=threshold=0.05:ratio=3:attack=12:release=260:makeup=1[glued]')
+        audio = 'glued'
     effects = edl.get('sfx', [])
     if effects:
-        mix = ['[ca]']
+        mix = ['[%s]' % audio]
         for j, fx in enumerate(effects):
             cmd += ['-i', sound_file(fx, tmp, j)]
             graph.append('[%d:a]aformat=channel_layouts=stereo,aresample=48000,volume=%.3f,adelay=%d:all=1[fx%d]'
@@ -343,10 +348,6 @@ def main():
         graph.append('[music][key]sidechaincompress=threshold=0.04:ratio=6:attack=25:release=450:makeup=1[ducked]')
         graph.append('[game][ducked]amix=inputs=2:normalize=0:duration=first:dropout_transition=0[scored]')
         audio = 'scored'
-    if edl.get('compress'):
-        # A quiet take (gerald's lava, mostly): its loud moments brought in a little, so it can be levelled up to -14.
-        graph.append('[%s]acompressor=threshold=0.05:ratio=3:attack=12:release=260:makeup=1[glued]' % audio)
-        audio = 'glued'
     graph.append('[%s]aresample=48000[aout]' % audio)
     # The picture and the sound as mixed, then the sound measured and levelled to -14 LUFS in a second pass (one pass
     # fell short of it on these, a couple of dB quiet, which YouTube never turns up), a limiter last to keep it under
