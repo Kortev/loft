@@ -31,8 +31,10 @@ emoji in colour) on the whole Short, its middle "y" from the top: the series' bl
 <who>-game.wav), for a Short with music of its own. "music" lays tracks under it: each from "from" seconds into its
 file, "dur" long, at "at" seconds of the output, "db" loud (-16 if not said), faded in and out; and ducked under the
 game's sound, so it gives way whenever something loud happens and comes back after. Needs ffmpeg, numpy and Pillow."""
+import atexit
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -261,6 +263,7 @@ def main():
     edl = json.load(open(sys.argv[1], encoding='utf-8'))
     W, H = edl.get('width', 1080), edl.get('height', 1920)
     tmp = tempfile.mkdtemp(prefix='shorts_')
+    atexit.register(shutil.rmtree, tmp, True)
     cmd = ['ffmpeg', '-y', '-loglevel', 'error', '-i', edl['source']]
     # The sound cut with the picture: the source's own, or the same take's from elsewhere (without its music).
     src_a = '0:a'
@@ -362,12 +365,13 @@ def main():
                              '-f', 'null', '-'], capture_output=True, text=True).stderr
     m = json.loads(report[report.rindex('{'):report.rindex('}') + 1])
     # Aimed a touch over -14 into the limiter, which takes a little off; limited at four times the rate, so the peaks
-    # between samples (and the AAC encoder's own overshoot) stay under 0 dBFS too.
+    # between samples (and the AAC encoder's own overshoot) stay under 0 dBFS too. The AAC at 320k: at 192k the encoder
+    # threw a spike of several dB over the limit on Kortev's send and drone (where the take itself clips).
     level = ('loudnorm=I=-13.4:TP=-1:LRA=11:measured_I=%s:measured_TP=%s:measured_LRA=%s:measured_thresh=%s:offset=%s:linear=true,'
              'aresample=192000,alimiter=limit=0.72:level=0:attack=1:release=60,aresample=48000'
              % (m['input_i'], m['input_tp'], m['input_lra'], m['input_thresh'], m['target_offset']))
     subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', mixed, '-map', '0:v', '-map', '0:a', '-c:v', 'copy', '-af', level,
-                    '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', edl['out']], check=True)
+                    '-c:a', 'aac', '-b:a', '320k', '-movflags', '+faststart', edl['out']], check=True)
     print('wrote', edl['out'], '(was %s LUFS)' % m['input_i'])
 
 

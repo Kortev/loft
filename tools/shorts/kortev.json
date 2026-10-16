@@ -1,7 +1,8 @@
 {"source": "build/film/kortev.mp4", "out": "build/film/kortev-short.mp4", "band": {"height": 1350, "center": 1060}, "banner": {"text": "the revenge was NOT proportional 😭🙏", "y": 270, "size": 64}, "segments": [
-  {"from": 6.8, "to": 43.2}, 
-  {"from": 44.9, "to": 50.85}, 
+  {"from": 6.8, "to": 43.867}, 
+  {"from": 45.167, "to": 50.85}, 
+  {"from": 55.4, "to": 58.9}, 
   {"from": 61.5, "to": 81.5}],
  "sfx": [
-  {"at": 26.61, "file": "build/film/sfx/riser.mp3", "gain": 2.0}],
+  {"at": 26.607, "file": "build/film/sfx/riser.mp3", "gain": 2.0}],
  "crf": 18, "preset": "medium"}
