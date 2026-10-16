@@ -3,7 +3,5 @@
   {"from": 44.9, "to": 50.85}, 
   {"from": 61.5, "to": 81.5}],
  "sfx": [
-  {"at": 4.15, "file": "build/film/sfx/ding.mp3", "gain": 6.0}, 
-  {"at": 26.61, "file": "build/film/sfx/riser.mp3", "gain": 2.0}, 
-  {"at": 39.65, "file": "build/film/sfx/vine-boom.mp3", "gain": 0.8}],
+  {"at": 26.61, "file": "build/film/sfx/riser.mp3", "gain": 2.0}],
  "crf": 18, "preset": "medium"}

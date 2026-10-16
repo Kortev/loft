@@ -1,10 +1,8 @@
 {"source": "build/film/gerald.mp4", "out": "build/film/gerald-short.mp4", "band": {"height": 1350, "center": 1060}, "banner": {"text": "bro JUST wanted to bridge 😭🙏", "y": 270, "size": 64}, "segments": [
-  {"from": 0.4, "to": 16.4}, 
-  {"from": 31.8, "to": 61.9}, 
-  {"from": 93.1, "to": 104.0}],
+  {"from": 33.5, "to": 47.0}, 
+  {"from": 62.8, "to": 70.0}, 
+  {"from": 71.2, "to": 104.0}],
  "sfx": [
-  {"at": 12.35, "file": "build/film/sfx/ding.mp3", "gain": 6.0}, 
-  {"at": 18.3, "file": "build/film/sfx/vine-boom.mp3", "gain": 0.8}, 
-  {"at": 27.51, "file": "build/film/sfx/riser.mp3", "gain": 2.0}, 
-  {"at": 54.9, "file": "build/film/sfx/vine-boom.mp3", "gain": 1.4}],
+  {"at": 9.81, "file": "build/film/sfx/riser.mp3", "gain": 2.0}, 
+  {"at": 51.6, "file": "build/film/sfx/vine-boom.mp3", "gain": 1.4}],
  "crf": 18, "preset": "medium", "compress": true}
