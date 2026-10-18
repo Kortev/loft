@@ -44,7 +44,7 @@ His ult. With the blindfold on, he presses **Z** (rebindable: Domain Expansion).
   is **caught**: players and mobs, in the air or not (not players in creative or spectator, and not bosses). For
   everyone in it, black and silence; his camera is back in his eyes. From outside it is a sphere of black, its skin
   rippling, stars deep inside it, the air bending round its edge and ink pooled at its foot.
-- **5 s, the void opens** out of the great eye, over the whole sky, with a vast chord of sound. UNLIMITED VOID, and
+- **5 s, the void opens** out of the great eye, over the whole sky, with one deep, slow, struck boom ringing cold and far voices with no words. UNLIMITED VOID, and
   its name brushed in ink under it: 無量空処. Endless space, light flowing past in slow rivers that curve round the eye
   as they run in to it, the eye a black disc bending the stars round it in a ring of white fire, a band of light across
   it, and still black water underfoot giving it all back, rippling out round him. Whoever is in there with him is dark
@@ -118,4 +118,6 @@ drawing.
   `sight/SixEyes` and `SixEyesClient` with `SixEyesMixin` and `SixEyesColorMixin` (the Six Eyes, drawn as the
   game's own outlines). The self
   test logs the frame rate and each pass's cost once a second (`[perf]` in the log).
-- Sounds: `python tools/gen_gojolander_sounds.py`; textures: `python tools/gen_gojolander_textures.py`.
+- Sounds: `python tools/gen_gojolander_sounds.py` (all of them in one run: each run builds its reverbs from its first
+  sound, so one made alone comes out a little different); textures: `python tools/gen_gojolander_textures.py`. The deep
+  sounds carry their own overtones so a phone's or laptop's speaker still plays them.

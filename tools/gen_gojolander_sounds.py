@@ -10,9 +10,11 @@ Each is timed to the Domain's timeline (DomainTimeline, in ticks of 1/20 s):
   glassy shimmer as the ring of ink hisses out over the ground;
 - the close (from tick 46, RISE - 4): the air drawn in from every side, faster and faster, until at tick 86 (CLOSE,
   2 s in) the barrier shuts: one deep, soft blow and a glassy ring, cut off at once into silence;
-- the reveal (at tick 100, VOID, after the silence): a vast chord blooming out of nothing as the void opens;
-- the void: an endless shimmering hum as wide as the sky, a low chord beating slowly in it, high air, and now and
-  then a far, clear glint of light;
+- the reveal (at tick 100, VOID, after the silence): out of nothing, one deep, slow, struck boom ringing cold, an
+  open chord with no warmth in it, far voices and a high cluster that won't settle, as the void opens (vast and
+  unsettling, as in the show: not a bright, triumphant chord);
+- the void: an endless shimmering hum as wide as the sky, a low open chord beating slowly in it, far voices with no
+  words, high air, and now and then a far, cold glint of light;
 - the flood: what the caught hear, everything there is at once: a roaring rush, chattering data, voices that are not
   voices, a ringing in the ears;
 - the fade (its natural end, as in the show): the void's chord sinking and thinning away into air, a long soft
@@ -20,6 +22,9 @@ Each is timed to the Domain's timeline (DomainTimeline, in ticks of 1/20 s):
 - the collapse (cut short): the barrier cracking out from one point (the first 0.45 s), then shattering, its shards
   falling and tinkling away, and the world's air rushing back in;
 - the denied: a soft dead click.
+
+The deep sounds carry their own overtones (presence) and the void has voices in its middle, so they still come
+through a phone's or a laptop's small speaker, which plays almost nothing below 250 Hz.
 
 Usage: python tools/gen_gojolander_sounds.py [--wav DIR] [name ...]
 """
@@ -32,7 +37,7 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(__file__))
 import gen_sounds as g  # noqa: E402
 from gen_sounds import (SR, attack_decay, bp, chime, crush, curve, decorrelated, hp, limit, loudness, lp, master,  # noqa: E402
-                        mono, ns, pan, pink, reverb, sat, sine, spaces, stereo, sweep_filter, white)
+                        mono, ns, pan, pink, reverb, sat, saw, sine, spaces, stereo, sweep_filter, white)
 
 g.OUT = os.path.join(os.path.dirname(__file__), '..', 'gojolander', 'src', 'main', 'resources', 'assets', 'gojolander',
                      'sounds')
@@ -71,6 +76,39 @@ def looped(x, loop, overlap):
     k = np.linspace(0.0, 1.0, m)
     head[:, :m] = head[:, :m] * np.sin(k * np.pi / 2) + tail * np.cos(k * np.pi / 2)
     return head
+
+
+def presence(x, amount, cutoff=180.0, lo=250.0, hi=2500.0, drive=4.0):
+    """The low end's own overtones, for a small speaker (a phone, a laptop) that can't play the low end itself: the
+    deep part, brought to one level and driven hard, and only the harmonics that makes kept, then given back the
+    deep part's own rise and fall. So they come and go with it at a steady share of it ({amount}), and the ear hears
+    the same deep sound through a small speaker, the way it hears a bass line from a phone."""
+    def one(c):
+        low = lp(c, cutoff)
+        level = lp(np.abs(low), 12.0) * 1.6 + 1e-6
+        return bp(sat(low / level * drive, 1.0), lo, hi, order=2) * level
+    return (np.vstack([one(c) for c in x]) if x.ndim == 2 else one(x)) * amount
+
+
+# Vowel formants (the first three: centre, and how wide as a share of it): a hollow "oo" and an open "oh".
+OO = ((320.0, 0.30), (800.0, 0.18), (2400.0, 0.10))
+OH = ((480.0, 0.28), (880.0, 0.18), (2600.0, 0.10))
+
+
+def choir(n, notes, vowel=OO, drift=0.07):
+    """Voices with no words, far off and cold: for each note a few slightly detuned voices, a slow vibrato, sung
+    through a vowel's formants, each note swelling and falling on its own slow breath. {notes}: (frequency, pan)."""
+    t = np.arange(n) / SR
+    out = np.zeros((2, n))
+    for k, (f, where) in enumerate(notes):
+        src = np.zeros(n)
+        for d in (-0.006, 0.0, 0.0055):
+            vib = 1.0 + 0.004 * np.sin(2 * np.pi * (4.6 + 0.4 * k) * t + g.rng.uniform(0, 2 * np.pi))
+            src += saw(f * (1.0 + d) * vib, n)
+        voice = sum(bp(src, c * (1 - w / 2), c * (1 + w / 2)) * level for (c, w), level in zip(vowel, (1.0, 0.55, 0.22)))
+        breath = 0.55 + 0.45 * np.sin(2 * np.pi * drift * (1.0 + 0.3 * k) * t + g.rng.uniform(0, 2 * np.pi))
+        out += pan(voice * breath, where)
+    return out / max(1, len(notes))
 
 
 def inhale(n, start, length):
@@ -134,7 +172,8 @@ def domain_sign():
     out[:, ns(EYES_AT):] += decorrelated(m, lambda k: chime(1975.0, k, tau=1.6, bright=0.35) + chime(2637.0, k, tau=1.2, bright=0.3),
                                          0.6) * 0.18
     place(out, HAND_AT, pan(snap(ns(0.6)), 0.15) * 0.9)
-    out += pan(swell(n, 30.0, 44.0, HAND_AT, 2.6, 0.5), 0.0) * 0.9
+    low = pan(swell(n, 30.0, 44.0, HAND_AT, 2.6, 0.5), 0.0) * 0.9
+    out += low + presence(low, 5.4)
     out += shimmer(n, HAND_AT, 2.0)
     out += decorrelated(n, lambda m: ring_hiss(m, 0.1, 2.4), 0.8) * 0.25
     _, _, _, space = spaces()
@@ -143,7 +182,8 @@ def domain_sign():
 
 def domain_sign_world():
     n = ns(4.8)
-    y = swell(n, 32.0, 46.0, 0.6, 2.8) * 0.8 + ring_hiss(n, 0.1, 2.6) * 0.7 + mono(shimmer(n, HAND_AT, 2.0)) * 0.6
+    low = swell(n, 32.0, 46.0, 0.6, 2.8) * 0.8
+    y = low + presence(low, 5.4) + ring_hiss(n, 0.1, 2.6) * 0.7 + mono(shimmer(n, HAND_AT, 2.0)) * 0.6
     outdoor, _, _, _ = spaces()
     return master(reverb(y, outdoor, wet=0.3), peak=0.95)
 
@@ -158,16 +198,19 @@ def suck(n, until):
 
 
 def shut(n, at, depth=1.0):
-    """The barrier shutting: a deep soft blow (felt more than heard) and the glassy ring of its closing."""
+    """The barrier shutting: a deep soft blow (felt more than heard, with the knock of it that a small speaker
+    carries) and the glassy ring of its closing."""
     t = np.arange(n) / SR - at
     on = t >= 0
     tt = np.maximum(t, 0)
     sub = np.sin(2 * np.pi * (28.0 * tt + 16.0 * (1 - np.exp(-tt / 0.08)))) * np.exp(-tt / 0.5) * on
     body = lp(white(n), 260) * np.exp(-tt / 0.12) * on
+    knock = bp(white(n), 140.0, 700.0) * np.exp(-tt / 0.08) * on
     glass = np.zeros(n)
     for f in (523.0, 1046.0 * 1.003, 1568.0, 2349.0):
         glass += chime(f, n, tau=1.6, bright=0.4) * on
-    return sub * 1.2 * depth + body * 0.6 * depth + glass * 0.12
+    blow = sub * 1.2 + body * 0.6
+    return (blow + presence(blow, 1.6) + knock * 0.35) * depth + glass * 0.12
 
 
 def domain_close():
@@ -189,26 +232,45 @@ def domain_close_world():
 
 
 def domain_reveal():
-    """The void opening, after the silence: a breath of air rising out of nothing, then a vast bright chord blooming
-    out wide, glints of light all through it, and a long, long tail."""
+    """The void opening, after the silence: a breath of air rising out of nothing, then not a bright chord but the
+    vastness of it: one deep, slow, struck boom ringing cold, an open chord with no warmth in it (fifths, no third)
+    spreading out under it, far voices with no words, a faint high cluster that won't settle, cold glints of light,
+    and a long, long tail."""
     n = ns(6.0)
+    t = np.arange(n) / SR
     out = np.zeros((2, n))
     out += decorrelated(n, lambda m: sweep_filter(pink(m), 'bandpass', curve(m, [(0.0, 300.0), (0.7, 6000.0)], 'log'),
                                                   order=2, width=1.4), 0.9) * attack_decay(n, 0.6, 0.25) * 0.4
-    bloom = attack_decay(n, 0.7, 2.2, 0.35)
-    for f, gain, where in ((55.0, 0.5, 0.0), (110.0, 0.4, -0.3), (164.8, 0.3, 0.3), (220.0, 0.28, -0.5), (277.2, 0.22, 0.5),
-                           (329.6, 0.18, -0.7), (440.0, 0.14, 0.7), (493.9, 0.1, 0.0), (659.3, 0.08, -0.4)):
-        voice = sine(f, n) + 0.6 * sine(f * 1.0035, n, phase=2.0) + 0.25 * sine(f * 2.0, n)
+    # The boom: a deep blow falling in pitch, and over it a huge, cold, struck ring (a gong's uneven partials).
+    tt = np.maximum(t - 0.62, 0.0)
+    on = t >= 0.62
+    boom = np.sin(2 * np.pi * (34.0 * tt + 22.0 * (1 - np.exp(-tt / 0.15)))) * np.exp(-tt / 1.4) * on * 0.9
+    boom += lp(white(n), 500) * np.exp(-tt / 0.3) * on * 0.5
+    ring = np.zeros(n)
+    for r, tau, gain in ((1.0, 3.2, 0.5), (2.76, 2.4, 0.32), (5.40, 1.6, 0.18), (8.93, 1.0, 0.09)):
+        ring += np.sin(2 * np.pi * 82.4 * r * tt + g.rng.uniform(0, 2 * np.pi)) * np.exp(-tt / tau) * on * gain
+    ring *= np.clip(tt / 0.03, 0, 1)
+    out += pan(boom + presence(boom, 4.8), 0.0) + stereo(ring) * 0.6
+    # The open chord, spreading out slowly under it.
+    bloom = attack_decay(n, 1.2, 2.6, 0.5)
+    for f, gain, where in ((55.0, 0.45, 0.0), (82.4, 0.32, -0.3), (110.0, 0.28, 0.3), (164.8, 0.2, -0.5), (246.9, 0.12, 0.5)):
+        voice = sine(f, n) + 0.6 * sine(f * 1.0035, n, phase=2.0) + 0.3 * lp(saw(f, n), 900.0)
         out += pan(voice * gain * bloom, where)
-    for _ in range(24):
-        at = 0.4 + g.rng.exponential(0.6)
+    # Far voices, and a high cluster rubbing against itself.
+    out += choir(n, ((220.0, -0.5), (329.6, 0.5), (493.9, 0.0)), OO) * attack_decay(n, 1.0, 2.8, 0.7) * 3.2
+    cold = np.zeros(n)
+    for f in (1318.5, 1396.9, 1975.5):
+        cold += sine(f, n) + 0.5 * sine(f * 1.003, n, phase=1.0)
+    out += stereo(cold * attack_decay(n, 1.6, 2.4, 1.0)) * 0.025
+    for _ in range(12):
+        at = 0.6 + g.rng.exponential(0.8)
         m = n - ns(at)
         if m <= 0:
             continue
-        f = 1760.0 * 2 ** (g.rng.choice([0, 2, 4, 7, 9, 12, 14, 16, 19]) / 12.0)
-        out[:, ns(at):] += pan(chime(f, m, tau=1.8, bright=0.3), g.rng.uniform(-0.9, 0.9)) * 0.05
+        f = 1760.0 * 2 ** (g.rng.choice([0, 5, 7, 12, 17, 19]) / 12.0)
+        out[:, ns(at):] += pan(chime(f, m, tau=1.8, bright=0.3), g.rng.uniform(-0.9, 0.9)) * 0.045
     _, _, _, space = spaces()
-    return master(reverb(out, space, wet=0.55), peak=0.95)
+    return master(reverb(out, space, wet=0.6), peak=0.95)
 
 
 def domain_void():
@@ -217,23 +279,24 @@ def domain_void():
     n = ns(total)
     t = np.arange(n) / SR
     out = np.zeros((2, n))
-    # A low chord, each note a pair of slightly mistuned sines beating slowly, spread wide.
-    for f, gain, where in ((55.0, 0.5, 0.0), (82.4, 0.32, -0.4), (110.0, 0.28, 0.4), (138.6, 0.16, -0.7), (164.8, 0.12, 0.7)):
+    # A low chord, open and cold (fifths, no third), each note a pair of slightly mistuned sines beating slowly, spread
+    # wide; and its overtones, for a speaker too small for the chord itself.
+    low = np.zeros((2, n))
+    for f, gain, where in ((55.0, 0.5, 0.0), (82.4, 0.32, -0.4), (110.0, 0.28, 0.4), (164.8, 0.14, 0.7)):
         pair = sine(f, n) + sine(f * 1.0021, n, phase=1.3)
         tremble = 1.0 + 0.12 * np.sin(2 * np.pi * (0.13 + 0.05 * where) * t)
-        out += pan(pair * gain * tremble, where)
+        low += pan(pair * gain * tremble, where)
+    out += low + presence(low, 2.0)
     # High air, as wide as the sky, breathing slowly.
     air = decorrelated(n, lambda m: hp(pink(m), 5000), 1.0) * (0.6 + 0.4 * np.sin(2 * np.pi * 0.11 * t))
     out += air * 0.05
-    # A ghostly choir: formant-filtered noise on a few long notes.
-    for f, where in ((440.0, -0.5), (659.3, 0.5), (554.4, 0.0)):
-        voice = bp(white(n), f * 0.97, f * 1.03, order=2) * (0.5 + 0.5 * np.sin(2 * np.pi * 0.07 * t + where * 3))
-        out += pan(voice, where) * 0.25
+    # Far voices with no words, on the chord's notes and one cold step above, each on its own slow breath.
+    out += choir(n, ((220.0, -0.5), (329.6, 0.5), (440.0, -0.2), (493.9, 0.3)), OO, drift=0.06) * 1.9
     # Far glints of light: now and then a clear, high bell, far off.
     for _ in range(9):
         at = g.rng.uniform(0.0, total - 1.0)
         m = n - ns(at)
-        f = 2093.0 * 2 ** (g.rng.choice([0, 2, 4, 7, 9, 12, 14]) / 12.0)
+        f = 2093.0 * 2 ** (g.rng.choice([0, 5, 7, 12, 17, 19]) / 12.0)
         out[:, ns(at):] += pan(chime(f, m, tau=2.4, bright=0.3), g.rng.uniform(-0.9, 0.9)) * 0.06
     _, _, _, space = spaces()
     out = reverb(out, space, wet=0.5)[:, :n]
@@ -328,13 +391,18 @@ def rush_back(n, at):
 
 
 def domain_fade():
-    """Let go of: the void's chord sinking a little and thinning into air, a long soft exhale outward, quiet after."""
+    """Let go of: the void's chord and its far voices sinking a little and thinning into air, a long soft exhale
+    outward, quiet after."""
     n = ns(4.0)
     out = np.zeros((2, n))
     fall = curve(n, [(0.0, 1.0), (1.6, 0.94), (4.0, 0.9)])
     env = curve(n, [(0.0, 1.0), (0.4, 0.8), (1.8, 0.15), (3.0, 0.0)]) ** 1.5
+    low = np.zeros((2, n))
     for f, gain, where in ((55.0, 0.45, 0.0), (110.0, 0.3, -0.4), (164.8, 0.22, 0.4), (220.0, 0.16, -0.6), (329.6, 0.1, 0.6)):
-        out += pan((sine(f * fall, n) + 0.5 * sine(f * fall * 1.004, n, phase=1.1)) * gain * env, where)
+        low += pan((sine(f * fall, n) + 0.5 * sine(f * fall * 1.004, n, phase=1.1)) * gain * env, where)
+    out += low + presence(low, 1.8)
+    # The void's far voices going with it, sinking.
+    out += choir(n, ((220.0 * 0.97, -0.5), (329.6 * 0.97, 0.5), (493.9 * 0.97, 0.0)), OH, drift=0.0) * env * 1.75
     air = decorrelated(n, lambda m: sweep_filter(pink(m), 'lowpass', curve(m, [(0.0, 6000.0), (2.5, 600.0)], 'log'), order=2),
                        0.9)
     out += air * attack_decay(n, 0.25, 1.0) * 0.35
@@ -397,7 +465,7 @@ LOOPS = ('domain_void', 'domain_flood')
 # How long each one-shot runs at most (seconds): the reverb's long tail is cut short and faded.
 LENGTHS = {'domain_sign': 4.6, 'domain_sign_world': 4.8, 'domain_close': 3.2, 'domain_close_world': 5.0,
            'domain_reveal': 6.0, 'domain_fade': 4.0, 'domain_fade_world': 4.0, 'domain_collapse': 4.0, 'domain_collapse_world': 5.0, 'domain_denied': 0.35}
-LEVELS = {'domain_fade': -15, 'domain_fade_world': -16, 'domain_reveal': -13, 'domain_sign': -16, 'domain_sign_world': -18, 'domain_close': -12, 'domain_close_world': -13, 'domain_void': -21,
+LEVELS = {'domain_fade': -15, 'domain_fade_world': -16, 'domain_reveal': -14, 'domain_sign': -16, 'domain_sign_world': -18, 'domain_close': -12, 'domain_close_world': -13, 'domain_void': -21,
           'domain_flood': -17, 'domain_collapse': -12, 'domain_collapse_world': -13, 'domain_denied': -20}
 
 
