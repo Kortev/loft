@@ -14,12 +14,16 @@ Fabric mods for Minecraft Java **1.21.1** (Yarn mappings), repo `Kortev/loft`. T
 SMP** where every player gets a custom mod of their own, with a story and PvP. Only `kortev` can craft their things
 (`OwnerOnly`); everyone can use, ride and break them once made.
 
-One Gradle build makes two jars, so all of it is edited, built and tested together:
+One Gradle build makes every jar, so all of it is edited, built and tested together:
 
 - **The Shooting Star** (id `shootingstar`, the root project, `src/`): the weapons, plus what both mods share
   (`ShootingStar.id`, `OwnerOnly`, `ModCriteria`) and the game-test harness for both.
 - **Chitty Chitty Bang Bang** (id `chitty`, the `chitty/` subproject): the film's vehicles. It needs The Shooting
   Star. Its things keep the `shootingstar` namespace, so Chittys made before the split survived it.
+- **The friends' mods**, one jar each, beside kortev's: every other player on the SMP gets a mod of their own. Each is
+  its own subproject and namespace, needs The Shooting Star, and registers its owner with `OwnerOnly.register` (only
+  they craft its things). The first is **Gojolander** (id `gojolander`, the `gojolander/` subproject): see
+  [gojolander/README.md](gojolander/README.md).
 
 The root `build.gradle` sets up every mod at once (`allprojects`); `./gradlew build` makes both jars, and the dev
 runs (`runGametest`, `runSelftest`, `runGenworld`) load both.
@@ -40,6 +44,23 @@ built in Blender by a script, the effects are real shaders, and everything has g
 
 The latest work is on branch **`claude/gallant-brahmagupta-qi9mw3`** (it carries everything from
 `claude/happy-brahmagupta-ueara3`). No PR is open; ask kortev before opening one.
+
+## The friends' mods
+
+The SMP after the Shorts is real players (the Shorts' Woomerd and gerald_2009 are skit characters, not players). Each
+friend gets their own mod, presented on the server as things that exist there, never named publicly.
+
+- **Gojolander** (`gojolander/`): the first friend, kortev's rival, who wants to be Gojo (Jujutsu Kaisen) and Homelander
+  (The Boys) at once. Built so far: the blindfold and **Domain Expansion: Unlimited Void** (sign, ring, black sphere,
+  the void, the caught held still and flooded, the barrier nobody crosses, the shattering), its sounds, recipe,
+  advancements, commands, game rules for balance, game tests (`DomainGameTests`) and a client self test with
+  screenshots (`-Pselftest=domain`). Branch `claude/gojolander-domain`.
+  - The owner is a stand-in, `gojolander`, until kortev has the friend's Minecraft name: `/gojolander owner <name>` on
+    the server, or `Owner.PLACEHOLDER`.
+  - Only the owner can use his things (kortev's choice); others' blindfold is just cloth.
+  - Next, as kortev and the friend decide: Infinity (the friend has his own idea for how it treats kortev's weapons),
+    the Six Eyes, Blue, Red and Hollow Purple, and Homelander's cape (flight) and heat vision. Keep everything balanced
+    against the other friends' mods (game rules for the numbers).
 
 ## What to build next
 
