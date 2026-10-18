@@ -62,9 +62,10 @@ import org.jetbrains.annotations.Nullable;
  * ({@link DomainTimeline#CLOSE}) every living thing inside but him is caught (not players in creative or spectator,
  * nor bosses), and held exactly where it was, in the air or not, until the barrier shatters: it neither moves nor falls
  * nor is knocked about, mobs stop thinking, and players can neither act nor, their clients told, move or look round
- * (the server puts them back if they do). Hurting them is left to him: the Domain does no harm of its own. While it
- * stands nothing crosses its surface either way: whoever tries is put back where they were, and anything fired at it
- * or out of it stops dead against it. When it shatters the caught go free, dazed for a while.
+ * (the server puts them back if they do). While it stands nothing crosses its surface either way: whoever tries is put
+ * back where they were, and anything fired at it or out of it stops dead against it. It is his ult: held to the end,
+ * the caught come out of it broken (everything there is, all at once, for ten seconds): when it shatters they are left
+ * at half a heart ({@code unlimitedVoidBreaks}), slow, weak and half blind for a while. The finishing is left to him.
  *
  * <p>A Domain ends early, shattering at once, if its caster dies, leaves the world or the game, or the Genesis Key
  * takes the world; and it is not cast at all while a Genesis Key event is going on. The clients make all of what is
@@ -78,6 +79,8 @@ public final class DomainManager {
 	public static final int CROWD_SIZE = 10;
 	/** How far either side of the barrier its watch reaches: whatever moves faster than this a tick is not seen crossing. */
 	private static final double SHELL = 6.0;
+	/** What the void leaves of whoever it held to the end: half a heart. */
+	private static final float BROKEN = 1.0F;
 	/** How far a held player may drift (squared, in blocks) before the server puts them back. */
 	private static final double DRIFT = 0.04;
 
@@ -102,20 +105,22 @@ public final class DomainManager {
 		public final UUID caster;
 		public final Vec3d center;
 		public final double radius;
-		/** How many ticks its void holds, from the game rule as it was cast. */
+		/** How many ticks its void holds, and whether it breaks whoever it holds to the end, from the game rules as it was cast. */
 		public final int hold;
+		public final boolean breaks;
 		int age;
 		final Map<UUID, Hold> caught = new LinkedHashMap<>();
 		final Map<UUID, Side> sides = new HashMap<>();
 		boolean released;
 
-		Domain(int id, ServerWorld world, @Nullable UUID caster, Vec3d center, double radius, int hold) {
+		Domain(int id, ServerWorld world, @Nullable UUID caster, Vec3d center, double radius, int hold, boolean breaks) {
 			this.id = id;
 			this.world = world;
 			this.caster = caster;
 			this.center = center;
 			this.radius = radius;
 			this.hold = hold;
+			this.breaks = breaks;
 		}
 
 		public int age() {
@@ -151,7 +156,7 @@ public final class DomainManager {
 
 	public static void init() {
 		ServerTickEvents.END_SERVER_TICK.register(DomainManager::tick);
-		ServerLifecycleEvents.SERVER_STOPPING.register(server -> endAll(false));
+		ServerLifecycleEvents.SERVER_STOPPING.register(server -> endAll());
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> introduce(handler.getPlayer()));
 		// Held, nobody does anything: no hitting, no using, no breaking.
 		AttackEntityCallback.EVENT.register((player, world, hand, entity, hit) -> !world.isClient() && isHeld(player)
@@ -228,7 +233,8 @@ public final class DomainManager {
 	public static Domain launch(ServerWorld world, Vec3d center, @Nullable ServerPlayerEntity caster) {
 		int radius = world.getGameRules().getInt(GojoRules.VOID_RADIUS);
 		int hold = world.getGameRules().getInt(GojoRules.VOID_HOLD) * 20;
-		Domain domain = new Domain(nextId++, world, caster != null ? caster.getUuid() : null, center, radius, hold);
+		boolean breaks = world.getGameRules().getBoolean(GojoRules.VOID_BREAKS);
+		Domain domain = new Domain(nextId++, world, caster != null ? caster.getUuid() : null, center, radius, hold, breaks);
 		ACTIVE.add(domain);
 		ModNetworking.broadcast(world, domain.lock());
 		return domain;
@@ -259,7 +265,7 @@ public final class DomainManager {
 			Domain domain = it.next();
 			domain.age++;
 			if (domain.age >= DomainTimeline.end(domain.hold)) {
-				release(domain, true);
+				release(domain, Letting.END);
 				it.remove();
 				continue;
 			}
@@ -275,7 +281,7 @@ public final class DomainManager {
 				barrier(domain);
 			}
 			if (domain.age == DomainTimeline.collapse(domain.hold)) {
-				release(domain, true);
+				release(domain, Letting.END);
 			}
 		}
 		early.forEach(DomainManager::endEarly);
@@ -411,8 +417,18 @@ public final class DomainManager {
 		}
 	}
 
-	/** Lets go of everything it caught; {@code dazed}, they come out of it slow and with the light going in and out. */
-	private static void release(Domain domain, boolean dazed) {
+	/** How a Domain lets go: held to its end, cut short (its caster fell, say), or with the server going down. */
+	enum Letting {
+		/** Broken, if the rule says (half a heart), and dazed: slow, weak and half blind. */
+		END,
+		/** Only shaken: a little slow, the light going in and out, briefly. */
+		EARLY,
+		/** Nothing: everyone simply let go. */
+		STOP
+	}
+
+	/** Lets go of everything it caught, the way {@code how} says. */
+	private static void release(Domain domain, Letting how) {
 		if (domain.released) {
 			return;
 		}
@@ -423,15 +439,27 @@ public final class DomainManager {
 				entity.setVelocity(Vec3d.ZERO);
 				entity.velocityModified = true;
 				entity.fallDistance = 0.0F;
-				if (dazed) {
-					entity.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, DomainTimeline.DAZE, 1, false, true));
-					if (entity instanceof PlayerEntity) {
-						entity.addStatusEffect(new StatusEffectInstance(StatusEffects.DARKNESS, DomainTimeline.DAZE, 0, false, true));
+				if (how == Letting.END) {
+					if (domain.breaks) {
+						entity.setAbsorptionAmount(0.0F);
+						entity.setHealth(Math.min(entity.getHealth(), BROKEN));
 					}
+					daze(entity, DomainTimeline.DAZE, 2);
+					entity.addStatusEffect(new StatusEffectInstance(StatusEffects.WEAKNESS, DomainTimeline.DAZE, 1, false, true));
+				} else if (how == Letting.EARLY) {
+					daze(entity, DomainTimeline.DAZE / 3, 0);
 				}
 			}
 		}
 		domain.sides.clear();
+	}
+
+	/** Slowed by {@code slowness}, and for a player, the light going in and out, for {@code ticks}. */
+	private static void daze(LivingEntity entity, int ticks, int slowness) {
+		entity.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, ticks, slowness, false, true));
+		if (entity instanceof PlayerEntity) {
+			entity.addStatusEffect(new StatusEffectInstance(StatusEffects.DARKNESS, ticks, 0, false, true));
+		}
 	}
 
 	/**
@@ -447,7 +475,7 @@ public final class DomainManager {
 			ModNetworking.broadcast(domain.world, new DomainEndPayload(domain.id, domain.age, true));
 			return;
 		}
-		release(domain, true);
+		release(domain, Letting.EARLY);
 		if (domain.age < DomainTimeline.collapse(domain.hold)) {
 			domain.age = DomainTimeline.collapse(domain.hold);
 			ModNetworking.broadcast(domain.world, new DomainEndPayload(domain.id, domain.age, false));
@@ -455,9 +483,9 @@ public final class DomainManager {
 	}
 
 	/** The server going down: everyone let go at once, nothing dazed, nothing left over. */
-	private static void endAll(boolean dazed) {
+	private static void endAll() {
 		for (Domain domain : ACTIVE) {
-			release(domain, dazed);
+			release(domain, Letting.STOP);
 		}
 		ACTIVE.clear();
 		HELD.clear();

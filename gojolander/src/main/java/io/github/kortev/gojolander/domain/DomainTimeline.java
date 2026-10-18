@@ -9,24 +9,35 @@ import net.minecraft.util.math.MathHelper;
  * the void is counted from it.
  *
  * <pre>
- *  0  SIGN      he lifts the blindfold and crosses two fingers; the camera swings round in front of him; a dark ring
- *               spreads out over the ground round him. Anyone who gets out of the ring is not caught.
- * 22  RISE      the ring is at its full reach; black flows up out of it, round the sphere.
- * 30  CLOSE     the black meets over the top. Whoever is inside is caught and held still; nobody gets in or out.
- * 40  VOID      inside, the world is gone: endless space over still black water. He is back in his own eyes, free.
- * 40+hold       COLLAPSE: the barrier cracks and shatters; the world rushes back; the caught are let go, dazed.
- *    +SHATTER   END: the last of it gone.
+ *   0  SIGN      a hard cut to his face, close: the blindfold comes up, a ring of ink starts out over the ground.
+ *  18  EYES      the blindfold is up; his eyes burn.
+ *  30  HAND      his hand snaps up into the sign, the camera punching in on it. DOMAIN EXPANSION.
+ *  38  WIDE      a cut to wide: the camera cranes back and up round him to watch the rest.
+ *  50  RISE      the ring is at its full reach; the black floods up out of it, round the sphere.
+ *  86  CLOSE     the black meets overhead. Whoever is inside is caught and held still; nobody gets in or out. For everyone
+ *                in it, a hard cut to black and silence; his camera is back in his eyes.
+ * 100  VOID      the void opens out of the great eye, over OPEN ticks. UNLIMITED VOID. He is free.
+ * 100+hold       COLLAPSE: the barrier cracks out from one point, then shatters, its shards falling away; the world
+ *                rushes back; the caught are let go, broken: half a heart, and dazed.
+ *    +SHATTER    END: the last of it gone.
  * </pre>
+ *
+ * Anyone who gets out of the ring before CLOSE is not caught: about 4 s, against a sprint of a block every 3.6 ticks.
  */
 public final class DomainTimeline {
 	public static final int SIGN = 0;
-	public static final int RISE = 22;
-	public static final int CLOSE = 30;
-	public static final int VOID = 40;
+	public static final int EYES = 18;
+	public static final int HAND = 30;
+	public static final int WIDE = 38;
+	public static final int RISE = 50;
+	public static final int CLOSE = 86;
+	public static final int VOID = 100;
+	/** How long the void takes to open out of the eye over the whole sky. */
+	public static final int OPEN = 22;
 	/** How long the barrier takes to crack, shatter and be gone. */
-	public static final int SHATTER = 16;
-	/** How long the caught are left dazed after (slow, and the light going in and out), in ticks. */
-	public static final int DAZE = 100;
+	public static final int SHATTER = 30;
+	/** How long the caught are left dazed after (slow, weak, and the light going in and out), in ticks. */
+	public static final int DAZE = 300;
 
 	private DomainTimeline() {
 	}
@@ -43,7 +54,7 @@ public final class DomainTimeline {
 	/** How far out the ring on the ground has spread, from 0 to 1, at tick {@code t}. */
 	public static double ring(double t) {
 		double x = MathHelper.clamp(t / RISE, 0.0, 1.0);
-		return 1.0 - Math.pow(1.0 - x, 3.0);
+		return 1.0 - Math.pow(1.0 - x, 2.2);
 	}
 
 	/**
@@ -53,5 +64,11 @@ public final class DomainTimeline {
 	public static double rise(double t) {
 		double x = MathHelper.clamp((t - RISE) / (CLOSE - RISE), 0.0, 1.0);
 		return x * x * (3.0 - 2.0 * x);
+	}
+
+	/** How far the void has opened out of the eye, from 0 (all black) to 1 (the whole sky), at tick {@code t}. */
+	public static double open(double t) {
+		double x = MathHelper.clamp((t - VOID) / OPEN, 0.0, 1.0);
+		return 1.0 - Math.pow(1.0 - x, 3.0);
 	}
 }

@@ -8,13 +8,15 @@ and the Six Eyes that show, burning, when it is pushed up.
 - textures/entity/six_eyes.png (64x64): in the head's own layout, nothing but the eyes, where a skin has them (the
   middle row of the face), in the colour of a clear sky lit from inside, a glow over and under them. The game adds it
   full bright to the face.
+- textures/gui/unlimited_void.png (1024x256): its name, 無量空処, white, as if brushed in ink with a dry brush: set in
+  Yu Gothic Bold (Windows' own), then roughened at its edges and streaked through where the brush ran dry.
 
 Usage: python tools/gen_gojolander_textures.py
 """
 import os
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 ROOT = os.path.join(os.path.dirname(__file__), '..', 'gojolander', 'src', 'main', 'resources', 'assets', 'gojolander')
 CLIENT = os.path.join(os.path.dirname(__file__), '..', 'gojolander', 'src', 'client', 'resources', 'assets', 'gojolander')
@@ -105,10 +107,49 @@ def six_eyes():
     return Image.fromarray(img, 'RGBA')
 
 
+def kanji():
+    w, h = 1024, 256
+    font = None
+    for name in ('YuGothB.ttc', 'msgothic.ttc', 'simsun.ttc'):
+        try:
+            font = ImageFont.truetype(os.path.join(os.environ.get('WINDIR', r'C:\Windows'), 'Fonts', name), 196)
+            break
+        except OSError:
+            continue
+    if font is None:
+        raise SystemExit('no font with the kanji in it')
+    mask = Image.new('L', (w, h), 0)
+    draw = ImageDraw.Draw(mask)
+    text = '\u7121\u91cf\u7a7a\u51e6'
+    # Spread out, a little apart, as a title.
+    widths = [draw.textlength(ch, font=font) for ch in text]
+    gap = 34
+    x = (w - sum(widths) - gap * (len(text) - 1)) / 2
+    for ch, cw in zip(text, widths):
+        draw.text((x, 16), ch, font=font, fill=255)
+        x += cw + gap
+    m = np.asarray(mask.filter(ImageFilter.GaussianBlur(1.6)), np.float64) / 255.0
+    # Ragged edges: the ink's edge eaten into by the paper.
+    grain = rng.random((h, w))
+    edge = np.clip((m - 0.35 - 0.3 * (grain - 0.5)) * 4.0, 0.0, 1.0)
+    # Dry-brush streaks where the ink thinned: long, thin and few, in patches, never a pattern.
+    field = Image.fromarray((rng.random((h // 3, w // 40)) * 255).astype(np.uint8), 'L').resize((w, h), Image.BILINEAR)
+    patch = Image.fromarray((rng.random((4, 12)) * 255).astype(np.uint8), 'L').resize((w, h), Image.BILINEAR)
+    streaks = np.asarray(field, np.float64) / 255.0
+    patches = np.asarray(patch, np.float64) / 255.0
+    dry = np.clip((streaks - 0.78) * 6.0, 0.0, 1.0) * np.clip((patches - 0.45) * 3.0, 0.0, 1.0)
+    alpha = np.clip(edge * (1.0 - 0.75 * dry), 0.0, 1.0)
+    img = np.zeros((h, w, 4), np.uint8)
+    img[..., :3] = 255
+    img[..., 3] = (alpha * 255).astype(np.uint8)
+    return Image.fromarray(img, 'RGBA')
+
+
 def main():
     save(icon(), ROOT, 'textures', 'item', 'blindfold.png')
     save(entity(), CLIENT, 'textures', 'entity', 'blindfold.png')
     save(six_eyes(), CLIENT, 'textures', 'entity', 'six_eyes.png')
+    save(kanji(), CLIENT, 'textures', 'gui', 'unlimited_void.png')
 
 
 if __name__ == '__main__':

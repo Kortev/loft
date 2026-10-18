@@ -65,7 +65,7 @@
       "type": "float",
       "count": 1,
       "values": [
-        16.0
+        32.0
       ]
     },
     {
@@ -85,7 +85,15 @@
       ]
     },
     {
-      "name": "Void",
+      "name": "Black",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0.0
+      ]
+    },
+    {
+      "name": "Open",
       "type": "float",
       "count": 1,
       "values": [
@@ -116,6 +124,26 @@
         0.0,
         0.0,
         1.0
+      ]
+    },
+    {
+      "name": "Walker",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "name": "Impact",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.0,
+        1.0,
+        0.0
       ]
     }
   ]

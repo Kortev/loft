@@ -5,16 +5,18 @@ for everyone outside it, are mono so the game can place them where it is. The vo
 are crossfaded into their starts, so they go round without a seam for as long as the Domain holds.
 
 Each is timed to the Domain's timeline (DomainTimeline, in ticks of 1/20 s):
-- the sign (from tick 0): a held breath drawn in, the soft tick of two fingers crossing, and a low swell rising
-  under a glassy shimmer as the ring of ink hisses out over the ground;
-- the close (from tick 18, RISE - 4): the air drawn in from every side, faster and faster, until at tick 30 (CLOSE,
-  0.6 s in) the barrier shuts: a deep, soft blow and a glassy ring, and at tick 40 (VOID, 1.1 s in) all of it is
-  drawn away into silence;
+- the sign (from tick 0): a held breath drawn in as the blindfold comes up, a cold chime as the eyes light (tick 18),
+  the snap of two fingers crossing and the rush of the camera punching in (tick 30), and a low swell rising under a
+  glassy shimmer as the ring of ink hisses out over the ground;
+- the close (from tick 46, RISE - 4): the air drawn in from every side, faster and faster, until at tick 86 (CLOSE,
+  2 s in) the barrier shuts: one deep, soft blow and a glassy ring, cut off at once into silence;
+- the reveal (at tick 100, VOID, after the silence): a vast chord blooming out of nothing as the void opens;
 - the void: an endless shimmering hum as wide as the sky, a low chord beating slowly in it, high air, and now and
   then a far, clear glint of light;
 - the flood: what the caught hear, everything there is at once: a roaring rush, chattering data, voices that are not
   voices, a ringing in the ears;
-- the collapse: the barrier cracking all over, then shattering, and the world's air rushing back in;
+- the collapse: the barrier cracking out from one point (the first 0.45 s), then shattering, its shards falling and
+  tinkling away, and the world's air rushing back in;
 - the denied: a soft dead click.
 
 Usage: python tools/gen_gojolander_sounds.py [--wav DIR] [name ...]
@@ -33,9 +35,12 @@ from gen_sounds import (SR, attack_decay, bp, chime, crush, curve, decorrelated,
 g.OUT = os.path.join(os.path.dirname(__file__), '..', 'gojolander', 'src', 'main', 'resources', 'assets', 'gojolander',
                      'sounds')
 
-# The Domain's beats, in seconds from the start of each sound (DomainTimeline: SIGN 0, RISE 22, CLOSE 30, VOID 40).
-CLOSE_AT = (30 - 18) / 20.0
-VOID_AT = (40 - 18) / 20.0
+# The Domain's beats, in seconds from the start of each sound (DomainTimeline: SIGN 0, EYES 18, HAND 30, RISE 50,
+# CLOSE 86, VOID 100; the shatter takes 30 ticks, its cracks the first 30% of them).
+EYES_AT = 18 / 20.0
+HAND_AT = 30 / 20.0
+CLOSE_AT = (86 - 46) / 20.0
+CRACKS = 0.45
 LOOP_VOID = 8.0
 LOOP_FLOOD = 6.0
 
@@ -110,21 +115,33 @@ def ring_hiss(n, start, length):
     return sweep_filter(pink(n), 'bandpass', curve(n, [(start, 3000.0), (start + length, 1200.0)]), order=2, width=1.5) * env
 
 
+def snap(n):
+    """The sign snapping up: a dry snap of fingers, and the rush of the camera punching in on it."""
+    t = np.arange(n) / SR
+    crack = hp(white(n), 1800) * np.exp(-t / 0.006) + bp(white(n), 500, 2000) * np.exp(-t / 0.02) * 0.5
+    rush = sweep_filter(pink(n), 'bandpass', curve(n, [(0.0, 900.0), (0.25, 5000.0)], 'log'), order=2, width=1.0) \
+        * attack_decay(n, 0.12, 0.12)
+    return crack + rush * 0.5
+
+
 def domain_sign():
-    n = ns(2.2)
+    n = ns(4.6)
     out = np.zeros((2, n))
-    place(out, 0.0, pan(inhale(ns(0.6), 0.0, 0.42), 0.0) * 0.5)
-    place(out, 0.22, pan(finger_tick(ns(0.05)), 0.25) * 0.9)
-    out += pan(swell(n, 32.0, 46.0, 0.25, 0.85), 0.0) * 0.9
-    out += shimmer(n, 0.3, 0.8)
-    out += decorrelated(n, lambda m: ring_hiss(m, 0.3, 1.0), 0.8) * 0.25
+    place(out, 0.0, pan(inhale(ns(1.1), 0.0, 0.85), 0.0) * 0.5)
+    m = n - ns(EYES_AT)
+    out[:, ns(EYES_AT):] += decorrelated(m, lambda k: chime(1975.0, k, tau=1.6, bright=0.35) + chime(2637.0, k, tau=1.2, bright=0.3),
+                                         0.6) * 0.18
+    place(out, HAND_AT, pan(snap(ns(0.6)), 0.15) * 0.9)
+    out += pan(swell(n, 30.0, 44.0, HAND_AT, 2.6, 0.5), 0.0) * 0.9
+    out += shimmer(n, HAND_AT, 2.0)
+    out += decorrelated(n, lambda m: ring_hiss(m, 0.1, 2.4), 0.8) * 0.25
     _, _, _, space = spaces()
     return master(reverb(out, space, wet=0.35), peak=0.95)
 
 
 def domain_sign_world():
-    n = ns(2.4)
-    y = swell(n, 34.0, 48.0, 0.2, 0.9) * 0.8 + ring_hiss(n, 0.25, 1.1) * 0.7 + mono(shimmer(n, 0.3, 0.8)) * 0.6
+    n = ns(4.8)
+    y = swell(n, 32.0, 46.0, 0.6, 2.8) * 0.8 + ring_hiss(n, 0.1, 2.6) * 0.7 + mono(shimmer(n, HAND_AT, 2.0)) * 0.6
     outdoor, _, _, _ = spaces()
     return master(reverb(y, outdoor, wet=0.3), peak=0.95)
 
@@ -157,8 +174,8 @@ def domain_close():
     out += pan(shut(n, CLOSE_AT), 0.0)
     _, hall, _, space = spaces()
     out = reverb(out, space, wet=0.45)
-    # At the void, everything is drawn away into silence: the tail is pulled down hard, leaving only a breath of it.
-    k = curve(out.shape[1], [(0.0, 1.0), (VOID_AT - 0.08, 1.0), (VOID_AT + 0.1, 0.08), (3.0, 0.0)])
+    # As it shuts, everything is cut off at once: one blow, then silence.
+    k = curve(out.shape[1], [(0.0, 1.0), (CLOSE_AT + 0.18, 1.0), (CLOSE_AT + 0.32, 0.0), (CLOSE_AT + 1.0, 0.0)])
     return master(out * k, peak=0.95)
 
 
@@ -167,6 +184,29 @@ def domain_close_world():
     y = suck(n, CLOSE_AT) * 0.4 + shut(n, CLOSE_AT, 1.3)
     outdoor, _, _, _ = spaces()
     return master(reverb(y, outdoor, wet=0.35), peak=0.95)
+
+
+def domain_reveal():
+    """The void opening, after the silence: a breath of air rising out of nothing, then a vast bright chord blooming
+    out wide, glints of light all through it, and a long, long tail."""
+    n = ns(6.0)
+    out = np.zeros((2, n))
+    out += decorrelated(n, lambda m: sweep_filter(pink(m), 'bandpass', curve(m, [(0.0, 300.0), (0.7, 6000.0)], 'log'),
+                                                  order=2, width=1.4), 0.9) * attack_decay(n, 0.6, 0.25) * 0.4
+    bloom = attack_decay(n, 0.7, 2.2, 0.35)
+    for f, gain, where in ((55.0, 0.5, 0.0), (110.0, 0.4, -0.3), (164.8, 0.3, 0.3), (220.0, 0.28, -0.5), (277.2, 0.22, 0.5),
+                           (329.6, 0.18, -0.7), (440.0, 0.14, 0.7), (493.9, 0.1, 0.0), (659.3, 0.08, -0.4)):
+        voice = sine(f, n) + 0.6 * sine(f * 1.0035, n, phase=2.0) + 0.25 * sine(f * 2.0, n)
+        out += pan(voice * gain * bloom, where)
+    for _ in range(24):
+        at = 0.4 + g.rng.exponential(0.6)
+        m = n - ns(at)
+        if m <= 0:
+            continue
+        f = 1760.0 * 2 ** (g.rng.choice([0, 2, 4, 7, 9, 12, 14, 16, 19]) / 12.0)
+        out[:, ns(at):] += pan(chime(f, m, tau=1.8, bright=0.3), g.rng.uniform(-0.9, 0.9)) * 0.05
+    _, _, _, space = spaces()
+    return master(reverb(out, space, wet=0.55), peak=0.95)
 
 
 def domain_void():
@@ -286,18 +326,19 @@ def rush_back(n, at):
 
 
 def domain_collapse():
-    n = ns(3.6)
-    out = cracks(n, 0.0, 0.3, 40.0)
-    out += shards(n, 0.32)
-    out += decorrelated(n, lambda m: rush_back(m, 0.34), 0.9) * 0.5
-    out += pan(shut(n, 0.32, 0.6), 0.0) * 0.6
+    n = ns(4.0)
+    out = cracks(n, 0.0, CRACKS, 34.0)
+    out += shards(n, CRACKS + 0.02, 140)
+    out += decorrelated(n, lambda m: rush_back(m, CRACKS + 0.05), 0.9) * 0.5
+    out += pan(shut(n, CRACKS + 0.02, 0.6), 0.0) * 0.6
     _, hall, _, _ = spaces()
     return master(reverb(out, hall, wet=0.25), peak=0.95)
 
 
 def domain_collapse_world():
     n = ns(4.0)
-    y = mono(cracks(n, 0.0, 0.3, 30.0)) + mono(shards(n, 0.32, 60)) + rush_back(n, 0.34) * 0.4 + shut(n, 0.32, 1.0) * 0.8
+    y = mono(cracks(n, 0.0, CRACKS, 28.0)) + mono(shards(n, CRACKS + 0.02, 90)) + rush_back(n, CRACKS + 0.05) * 0.4 \
+        + shut(n, CRACKS + 0.02, 1.0) * 0.8
     outdoor, _, _, _ = spaces()
     return master(reverb(y, outdoor, wet=0.3), peak=0.95)
 
@@ -316,6 +357,7 @@ SOUNDS = {
     'domain_sign_world': (domain_sign_world, False),
     'domain_close': (domain_close, True),
     'domain_close_world': (domain_close_world, False),
+    'domain_reveal': (domain_reveal, True),
     'domain_void': (domain_void, True),
     'domain_flood': (domain_flood, True),
     'domain_collapse': (domain_collapse, True),
@@ -325,9 +367,9 @@ SOUNDS = {
 LOOPS = ('domain_void', 'domain_flood')
 # Loudness (loudest 400 ms, dB).
 # How long each one-shot runs at most (seconds): the reverb's long tail is cut short and faded.
-LENGTHS = {'domain_sign': 2.6, 'domain_sign_world': 3.0, 'domain_close': 2.9, 'domain_close_world': 4.2, 'domain_collapse': 3.6,
-           'domain_collapse_world': 4.6, 'domain_denied': 0.35}
-LEVELS = {'domain_sign': -16, 'domain_sign_world': -18, 'domain_close': -12, 'domain_close_world': -13, 'domain_void': -21,
+LENGTHS = {'domain_sign': 4.6, 'domain_sign_world': 4.8, 'domain_close': 3.2, 'domain_close_world': 5.0,
+           'domain_reveal': 6.0, 'domain_collapse': 4.0, 'domain_collapse_world': 5.0, 'domain_denied': 0.35}
+LEVELS = {'domain_reveal': -13, 'domain_sign': -16, 'domain_sign_world': -18, 'domain_close': -12, 'domain_close_world': -13, 'domain_void': -21,
           'domain_flood': -17, 'domain_collapse': -12, 'domain_collapse_world': -13, 'domain_denied': -20}
 
 

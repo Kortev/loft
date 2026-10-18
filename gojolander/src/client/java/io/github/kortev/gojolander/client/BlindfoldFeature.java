@@ -2,6 +2,7 @@ package io.github.kortev.gojolander.client;
 
 import io.github.kortev.gojolander.BlindfoldItem;
 import io.github.kortev.gojolander.Gojolander;
+import io.github.kortev.gojolander.domain.DomainTimeline;
 import net.minecraft.client.model.Dilation;
 import net.minecraft.client.model.ModelData;
 import net.minecraft.client.model.ModelPart;
@@ -38,7 +39,7 @@ public final class BlindfoldFeature extends FeatureRenderer<AbstractClientPlayer
 	/** How far the sign's two fingers bend up from the line of the arm at the knuckles (radians). */
 	private static final float KNUCKLE = -1.3F;
 	/** How long it takes to push up, and to come down again (ticks). */
-	private static final double UP = 5.0;
+	private static final double UP = DomainTimeline.EYES;
 	private static final double DOWN = 6.0;
 
 	private final ModelPart band;

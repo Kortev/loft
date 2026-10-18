@@ -1,9 +1,16 @@
 #version 150
 
-// Unlimited Void's full-screen pass over the world: the ring of ink spreading over the ground round the caster, the
-// black flowing up out of it into a sphere and closing overhead, the void inside it (endless space, light streaming
-// past, a vast black eye ringed with light, and still black water underfoot giving it all back), and the barrier
-// cracking and shattering at the end. Positions are relative to the middle of the Domain.
+// Unlimited Void's full-screen pass over the world. Positions are relative to the middle of the Domain.
+//
+// Outside it: ink spreading out over the ground in a ragged, branching ring; the black flooding up out of it like a
+// liquid, fingers racing ahead of a curling lip, and closing overhead; the sphere it leaves, its skin rippling, stars
+// deep inside it, the air bending round its edge and ink pooled where it meets the ground; and at the end, cracks
+// running out across it from the side facing you, its shards falling away.
+//
+// Inside it: the same ink and black, then nothing (black, silence), then the void opening out of the great eye over
+// the whole sky: endless space, light flowing past in slow curving rivers towards the eye, the eye a black disc that
+// bends the stars round it in a ring of white fire, and still black water underfoot giving all of it back, rippling
+// round him. At the end it cracks out from the eye and falls away in shards, the world behind.
 
 uniform sampler2D Sampler0;
 uniform sampler2D Sampler1;
@@ -13,16 +20,19 @@ uniform float Time;
 // The camera, relative to the middle of the Domain.
 uniform vec3 CamOffset;
 uniform float Radius;
-// How far the ring has spread (0 to 1), how far the black has climbed from it to the top (0 to 1), how much of the
-// world inside is gone into the void (0 to 1), and how far the barrier has got through shattering (0 to 1).
+// How far the ring has spread and the black climbed (0 to 1); how far the world inside has gone to black, and the void
+// opened out of the eye (0 to 1); how far the barrier has got through shattering (0 to 1).
 uniform float Ring;
 uniform float Rise;
-uniform float Void;
+uniform float Black;
+uniform float Open;
 uniform float Shatter;
 // 1 when the camera is inside the sphere.
 uniform float Inside;
-// The way the great eye in the void lies, a unit vector.
+// The way the great eye lies (a unit vector); where the caster stands, for the ripples; where the cracks start.
 uniform vec3 Eye;
+uniform vec3 Walker;
+uniform vec3 Impact;
 
 in vec2 texCoord;
 
@@ -32,6 +42,10 @@ const float PI = 3.14159265;
 
 float hash(float n) {
     return fract(sin(n * 12.9898 + 4.1414) * 43758.5453);
+}
+
+float hash2(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
 }
 
 float hash3(vec3 p) {
@@ -101,6 +115,13 @@ vec3 normalAt(vec2 uv, vec3 rel) {
     return dot(n, rel) > 0.0 ? -n : n;
 }
 
+// A basis round an axis: two unit vectors square to it and each other.
+void basis(vec3 axis, out vec3 t1, out vec3 t2) {
+    vec3 up = abs(axis.y) < 0.95 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+    t1 = normalize(cross(axis, up));
+    t2 = cross(axis, t1);
+}
+
 // ---- the void ---------------------------------------------------------------------------------------------------
 
 // Stars on a lattice of directions: in each cell maybe one, a point of some colour and brightness.
@@ -114,8 +135,7 @@ vec3 stars(vec3 d, float scale, float density) {
         if (h.x > density) {
             continue;
         }
-        vec3 star = o + h;
-        float dist = length(p - star);
+        float dist = length(p - (o + h));
         float size = 0.03 + 0.05 * h.y;
         float b = smoothstep(size, 0.0, dist) * (0.4 + 1.6 * h.z * h.z);
         float twinkle = 0.75 + 0.25 * sin(Time * (1.0 + 3.0 * h.y) + h.z * 40.0);
@@ -125,59 +145,80 @@ vec3 stars(vec3 d, float scale, float density) {
     return c;
 }
 
-// Light streaming past, all one way, towards the eye: long thin threads of it, some brighter, some faint.
-float streams(vec3 d) {
-    vec3 a = normalize(cross(Eye, vec3(0.0, 1.0, 0.0)) + vec3(1.0e-4));
-    vec3 b = cross(a, Eye);
+// Light flowing past in slow rivers, curving round the eye as they run in towards it: many faint threads, a few bright.
+float rivers(vec3 d) {
+    vec3 t1;
+    vec3 t2;
+    basis(Eye, t1, t2);
     float along = dot(d, Eye);
-    float ang = atan(dot(d, b), dot(d, a));
-    float lane = ang * 70.0;
+    float ang = atan(dot(d, t2), dot(d, t1));
+    // The nearer the eye, the more they swirl.
+    float twist = ang + (1.0 - along) * 1.4 + Time * 0.03;
+    float lane = twist * 26.0 / PI;
     float id = floor(lane);
     float f = fract(lane);
-    float thread = smoothstep(0.5, 0.0, abs(f - 0.5) * (1.4 + 3.0 * hash(id)));
-    float run = fract(along * (2.0 + 2.0 * hash(id + 3.0)) + Time * (0.05 + 0.08 * hash(id + 7.0)) + hash(id + 11.0));
-    float pulse = smoothstep(0.0, 0.25, run) * smoothstep(1.0, 0.55, run);
-    return thread * pulse * step(0.55, hash(id + 13.0)) * (0.3 + 0.7 * hash(id + 17.0));
+    float width = 0.12 + 0.25 * hash(id);
+    float thread = smoothstep(width, 0.0, abs(f - 0.5)) * step(0.45, hash(id + 13.0));
+    float run = fract(along * (1.2 + 1.5 * hash(id)) + Time * (0.02 + 0.04 * hash(id + 7.0)) + hash(id + 11.0));
+    float pulse = smoothstep(0.0, 0.35, run) * smoothstep(1.0, 0.5, run);
+    float wide = smoothstep(0.75, 0.2, abs(fbm(vec3(twist * 2.0, along * 3.0, Time * 0.02)) - 0.5) * 4.0);
+    return thread * pulse * (0.25 + 0.75 * hash(id + 17.0)) + 0.12 * wide * (1.0 - abs(along));
 }
 
-// The great eye: a black disc that swallows the stars, a thin ring of white fire round it and its glow.
-vec3 eye(vec3 d, out float hole) {
+// The great eye: a black disc ringed in white fire, the light round it swirling, a thin bright band of it across the
+// disc, and the stars behind it bent round it. Returns the eye's own light; bent is the direction to look for stars
+// in, hole how much of this direction it covers.
+vec3 eye(vec3 d, out vec3 bent, out float hole) {
     float a = acos(clamp(dot(d, Eye), -1.0, 1.0));
-    float r = 0.22;
-    hole = smoothstep(r + 0.004, r - 0.004, a);
-    float rim = exp(-abs(a - r) * 95.0);
-    float glow = exp(-max(a - r, 0.0) * 9.0) * 0.55 + exp(-max(a - r, 0.0) * 2.5) * 0.18;
-    // The ring is not even: it flickers and is brighter on one side, as if it turned.
-    vec3 side = normalize(cross(Eye, vec3(0.0, 1.0, 0.0)) + vec3(1.0e-4));
-    float bias = 0.75 + 0.35 * dot(normalize(d - Eye * dot(d, Eye) + vec3(1.0e-5)), side);
-    float flick = 0.85 + 0.15 * noise(vec3(atan(d.z, d.x) * 6.0, a * 30.0, Time * 0.6));
-    vec3 white = vec3(1.0, 0.98, 1.0);
-    vec3 blue = vec3(0.45, 0.75, 1.0);
-    return (white * rim * 3.2 * bias * flick + mix(blue, vec3(0.75, 0.6, 1.0), 0.3) * glow * bias) * (1.0 - hole);
+    float r = 0.21;
+    hole = smoothstep(r + 0.003, r - 0.003, a);
+    // Light passing close to it is bent out round it.
+    vec3 side = d - Eye * dot(d, Eye);
+    float sl = length(side);
+    vec3 t = sl > 1.0e-4 ? side / sl : vec3(0.0, 1.0, 0.0);
+    float bend = 0.012 / max(a - r * 0.9, 0.01);
+    float a2 = a + bend;
+    bent = normalize(Eye * cos(a2) + t * sin(a2));
+    vec3 t1;
+    vec3 t2;
+    basis(Eye, t1, t2);
+    float ang = atan(dot(d, t2), dot(d, t1));
+    float swirl = 0.7 + 0.5 * noise(vec3(ang * 3.0 - Time * 0.9, a * 25.0, Time * 0.2));
+    float rim = exp(-abs(a - r) * 110.0) * swirl;
+    float glow = (exp(-max(a - r, 0.0) * 10.0) * 0.6 + exp(-max(a - r, 0.0) * 2.6) * 0.18) * swirl;
+    // The band of light round it, tilted, seen nearly edge on across it.
+    vec3 bandAxis = normalize(t2 * 0.92 + Eye * 0.38);
+    float across = abs(dot(d, bandAxis));
+    float band = exp(-across * 140.0) * smoothstep(r * 0.7, r * 1.05, a) * smoothstep(r * 3.4, r * 1.3, a);
+    vec3 white = vec3(1.0, 0.97, 1.0);
+    vec3 blue = vec3(0.45, 0.72, 1.0);
+    vec3 light = white * rim * 3.4 + mix(blue, vec3(0.78, 0.62, 1.0), 0.3) * glow + vec3(1.0, 0.93, 0.85) * band * 1.6;
+    return light * (1.0 - hole);
 }
 
 // Endless space, in every direction.
 vec3 cosmos(vec3 d) {
-    vec3 c = mix(vec3(0.004, 0.006, 0.02), vec3(0.012, 0.02, 0.06), 0.5 + 0.5 * d.y);
-    float neb = fbm(d * 2.6 + vec3(0.0, 0.0, Time * 0.004));
-    float wisp = fbm(d * 6.0 + neb * 2.0);
-    c += vec3(0.05, 0.08, 0.2) * smoothstep(0.45, 0.85, neb) + vec3(0.12, 0.05, 0.18) * smoothstep(0.6, 0.95, wisp) * 0.6;
-    c += stars(d, 180.0, 0.22) + stars(d, 90.0, 0.08) * 1.4 + stars(d, 420.0, 0.35) * 0.5;
-    c += vec3(0.6, 0.8, 1.0) * streams(d) * 0.6;
+    vec3 bent;
     float hole;
-    vec3 e = eye(d, hole);
+    vec3 e = eye(d, bent, hole);
+    vec3 c = mix(vec3(0.004, 0.006, 0.02), vec3(0.012, 0.02, 0.06), 0.5 + 0.5 * bent.y);
+    float neb = fbm(bent * 2.4 + vec3(0.0, 0.0, Time * 0.004));
+    float wisp = fbm(bent * 5.5 + neb * 2.0);
+    c += vec3(0.04, 0.09, 0.2) * smoothstep(0.45, 0.85, neb) + vec3(0.14, 0.05, 0.2) * smoothstep(0.6, 0.95, wisp) * 0.6;
+    c += stars(bent, 180.0, 0.22) + stars(bent, 90.0, 0.08) * 1.4 + stars(bent, 420.0, 0.35) * 0.5;
+    c += vec3(0.55, 0.78, 1.0) * rivers(bent) * 0.5;
     return c * (1.0 - hole) + e;
 }
 
-// The ground inside: black water, perfectly still but for slow rings out from the caster, giving the void back.
+// The ground inside: black water, a mirror, rippling out round him, giving the void back.
 vec3 water(vec3 p, vec3 dir, vec3 n) {
-    float r = length(p.xz);
-    float ripple = sin(r * 2.2 - Time * 0.9) * exp(-r * 0.02) * 0.015;
-    vec3 wn = normalize(n + vec3(p.x, 0.0, p.z) / max(r, 0.5) * ripple);
+    vec2 off = p.xz - Walker.xz;
+    float r = length(off);
+    float ripple = sin(r * 2.6 - Time * 3.2) * exp(-r * 0.12) * 0.05 + sin(r * 0.9 - Time * 1.1) * exp(-r * 0.04) * 0.012;
+    vec3 wn = normalize(n + vec3(off.x, 0.0, off.y) / max(r, 0.4) * ripple);
     vec3 refl = reflect(dir, wn);
-    float fres = 0.25 + 0.75 * pow(1.0 - max(dot(-dir, wn), 0.0), 3.0);
-    vec3 c = cosmos(refl) * fres * 0.75;
-    return c + vec3(0.002, 0.004, 0.01);
+    float fres = 0.55 + 0.45 * pow(1.0 - max(dot(-dir, wn), 0.0), 3.0);
+    return cosmos(refl) * fres * 0.9 + vec3(0.002, 0.004, 0.01);
 }
 
 // Anything standing in the void that is not floor (walls, trees, the sides of hills): black, edged in the eye's light.
@@ -185,6 +226,17 @@ vec3 standing(vec3 dir, vec3 n) {
     float rim = pow(1.0 - max(dot(-dir, n), 0.0), 4.0);
     float lit = max(dot(n, Eye), 0.0);
     return vec3(0.01, 0.012, 0.025) + vec3(0.35, 0.5, 0.8) * rim * (0.2 + 0.8 * lit) * 0.6;
+}
+
+// What the void shows at uv: its sky, or the world inside it turned to black water and black shapes.
+vec3 voidAt(vec2 uv, vec3 dir, vec3 rel, vec3 p, bool sky) {
+    if (sky || length(p) > Radius) {
+        return cosmos(dir);
+    }
+    vec3 n = normalAt(uv, rel);
+    vec3 v = n.y > 0.55 ? water(p, dir, n) : standing(dir, n);
+    // The far edge of it fades into space, so nothing ends.
+    return mix(v, cosmos(dir), smoothstep(Radius * 0.6, Radius, length(p)) * 0.8);
 }
 
 // ---- the barrier -----------------------------------------------------------------------------------------------
@@ -201,58 +253,77 @@ vec2 sphere(vec3 o, vec3 d) {
     return vec2(-b - h, -b + h);
 }
 
-// How high the black has climbed up the sphere from the ring on the ground: nothing above this is closed yet.
-float climb() {
-    return Radius * Rise * 1.02;
+// How high the black has climbed up the sphere at this point round it: fingers of it racing up ahead of the rest.
+float climb(vec3 s) {
+    float az = atan(s.z, s.x);
+    float fingers = pow(fbm(vec3(az * 7.0, Time * 0.25, 3.0)), 2.0) * 2.4;
+    return Radius * Rise * 1.02 + Radius * 0.16 * fingers * Rise * (1.0 - Rise) * 4.0;
 }
 
-// The barrier's skin seen from outside: black as nothing, a sheen sliding over it, deep blue at its edges, and where
-// it is still climbing, a seething edge of white light and ink.
+// The barrier's skin: black as nothing; from outside a sheen sliding over it, slow ripples, stars deep inside, deep
+// blue at its edges; while it climbs, black liquid streaming up, a white-hot lip, drips running back down.
 vec3 skin(vec3 s, vec3 d, bool outside) {
     vec3 n = normalize(s);
-    float fres = pow(1.0 - abs(dot(d, n)), 3.0);
-    float sheen = fbm(n * 5.0 + vec3(0.0, Time * 0.04, 0.0));
+    float ripple = sin(dot(n, vec3(0.3, 1.0, 0.2)) * 40.0 - Time * 1.6) * 0.5 + fbm(n * 6.0 + vec3(0.0, Time * 0.05, 0.0)) - 0.5;
+    vec3 rn = normalize(n + 0.04 * vec3(ripple));
+    float fres = pow(1.0 - abs(dot(d, rn)), 3.0);
+    float sheen = fbm(rn * 5.0 + vec3(0.0, Time * 0.04, 0.0));
     vec3 c = vec3(0.004, 0.004, 0.01) + vec3(0.06, 0.1, 0.3) * fres * (outside ? 1.0 : 0.4);
     c += vec3(0.05, 0.06, 0.12) * smoothstep(0.55, 0.8, sheen) * (outside ? 1.0 : 0.3);
-    if (!outside) {
-        c += stars(n, 120.0, 0.12) * 0.25 * Rise;
-    }
+    c += stars(refract(d, rn, 0.8), 110.0, 0.12) * (outside ? 0.12 : 0.25 * Rise);
     if (Rise < 1.0) {
-        float edge = climb() + (fbm(n * 9.0 + vec3(Time * 0.2)) - 0.5) * Radius * 0.08;
-        float k = exp(-abs(s.y - edge) * 3.0);
-        c += vec3(0.75, 0.9, 1.0) * k * 1.6;
+        float az = atan(s.z, s.x);
+        float top = climb(s);
+        // Black liquid streaming up.
+        float stream = fbm(vec3(az * 26.0, s.y * 0.22 - Time * 2.2, 1.0));
+        c += vec3(0.25, 0.35, 0.55) * smoothstep(0.62, 0.78, stream) * (outside ? 0.25 : 0.08);
+        // The lip, white-hot, and drips running back down from it.
+        float lip = exp(-abs(s.y - top) * 2.2);
+        float drip = smoothstep(0.82, 0.95, noise(vec3(az * 60.0, 0.0, 1.0))) * smoothstep(top - Radius * 0.12, top, s.y)
+                * step(s.y, top);
+        c += vec3(0.75, 0.9, 1.0) * (lip * 1.5 + drip * 0.4);
     }
     return c;
 }
 
 // ---- the shattering --------------------------------------------------------------------------------------------
 
-// The barrier broken into shards: how near this direction is to a crack, and when its shard falls away (0 to 1).
-vec2 shards(vec3 d) {
-    vec3 p = d * 11.0;
-    vec3 cell = floor(p);
-    float best = 8.0;
-    float second = 8.0;
-    vec3 id = vec3(0.0);
-    for (int x = -1; x <= 1; x++) {
-        for (int y = -1; y <= 1; y++) {
-            for (int z = -1; z <= 1; z++) {
-                vec3 o = cell + vec3(float(x), float(y), float(z));
-                vec3 q = o + hash33(o);
-                float dist = length(p - q);
-                if (dist < best) {
-                    second = best;
-                    best = dist;
-                    id = o;
-                } else if (dist < second) {
-                    second = dist;
-                }
-            }
-        }
-    }
-    float edge = second - best;
-    float crack = smoothstep(0.03, 0.0, edge) + 0.35 * exp(-edge * 18.0);
-    return vec2(crack, hash3(id));
+// The barrier as glass breaking, for a direction n (on the sphere, or from the camera): cracks running out from
+// impact in long rays and rings, then the shards falling away from there outward, shrinking and turning as they go,
+// their edges catching the light. x: how much of the barrier is still there; y: the light of its cracks and edges.
+vec2 shards(vec3 n, vec3 impact, float s) {
+    float a = acos(clamp(dot(n, impact), -1.0, 1.0));
+    vec3 t1;
+    vec3 t2;
+    basis(impact, t1, t2);
+    float ang = atan(dot(n, t2), dot(n, t1));
+    float sectors = 15.0;
+    float wander = (noise(vec3(a * 4.0, 7.0, 0.0)) - 0.5) * 0.35;
+    float sector = (ang + PI) / (2.0 * PI) * sectors + wander;
+    float k = floor(sector);
+    float u = fract(sector);
+    float rings = pow(a / PI, 0.6) * 9.0 + (noise(vec3(ang * 2.5, k, 1.0)) - 0.5) * 0.5;
+    float j = floor(rings);
+    float v = fract(rings);
+    float h = hash2(vec2(k, j));
+    // Its crack lines, in angle, so they are as fine near the start as far out.
+    float du = min(u, 1.0 - u) * (2.0 * PI / sectors) * max(sin(a), 0.05);
+    float dv = min(v, 1.0 - v) * 0.1;
+    float line = min(du, dv);
+    float front = clamp(s / 0.3, 0.0, 1.0) * PI * 1.05;
+    float cracked = step(a, front);
+    float crack = (smoothstep(0.0025, 0.0, line) + exp(-line * 260.0) * 0.25) * cracked;
+    // Then the shards go, nearest the start first.
+    float starts = 0.3 + 0.45 * (a / PI) + 0.15 * h;
+    float f = clamp((s - starts) / 0.25, 0.0, 1.0);
+    vec2 local = vec2(u - 0.5, v - 0.5);
+    float turn = f * 1.4 * (h - 0.5);
+    local = mat2(cos(turn), -sin(turn), sin(turn), cos(turn)) * local;
+    float size = 0.5 * (1.0 - f);
+    float edgeDist = max(abs(local.x), abs(local.y));
+    float there = step(edgeDist, size);
+    float rim = f > 0.0 ? smoothstep(size - 0.07, size, edgeDist) * there : 0.0;
+    return vec2(there * (1.0 - 0.5 * f), crack * (1.0 - f) + rim * 0.9);
 }
 
 void main() {
@@ -264,90 +335,95 @@ void main() {
     vec3 rel = relAt(uv);
     float dist = sky ? 1.0e9 : length(rel);
     vec3 p = CamOffset + rel;
+    vec3 o = CamOffset;
+    bool camIn = Inside > 0.5;
 
-    // The ring of ink over the ground, until the world goes.
-    if (Ring > 0.0 && !sky && Void < 1.0) {
+    // The ink over the ground, until the world goes: a ragged ring of it spreading, fingers branching out ahead.
+    if (Ring > 0.0 && !sky && !(camIn && Black >= 1.0)) {
         float reach = Radius * Ring;
         float r = length(p.xz);
-        float ragged = (fbm(vec3(p.xz * 0.35, Time * 0.05)) - 0.5) * 2.2;
+        float az = atan(p.z, p.x);
+        float ragged = (fbm(vec3(az * 5.0, Time * 0.05, 0.0)) - 0.5) * 3.0;
+        float fingers = pow(fbm(vec3(az * 18.0, 2.0, 0.0)), 3.0) * 6.0 * (1.0 - Ring * 0.6);
+        float edge = reach + ragged + fingers;
         float ground = smoothstep(2.5, 0.5, p.y) * smoothstep(-Radius, -Radius * 0.6, p.y);
         // Over the ground, not up whoever stands on it.
         ground *= smoothstep(0.35, 0.75, normalAt(uv, rel).y);
-        float ink = smoothstep(reach + ragged, reach + ragged - 1.2, r) * ground;
-        c = mix(c, vec3(0.01, 0.012, 0.03), ink * 0.88);
-        if (Ring < 1.0 || Rise < 0.05) {
-            float front = exp(-abs(r - reach - ragged * 0.5) * 2.4) * ground;
-            c += vec3(0.45, 0.7, 1.0) * front * 0.9;
+        float ink = smoothstep(edge, edge - 1.5, r) * ground * (1.0 - Shatter);
+        float wet = fbm(vec3(p.xz * 0.6, Time * 0.1));
+        c = mix(c, vec3(0.008, 0.01, 0.025) + vec3(0.03, 0.05, 0.1) * smoothstep(0.6, 0.8, wet), ink * 0.9);
+        if (Ring < 1.0) {
+            float edgeLight = exp(-abs(r - edge) * 3.0) * ground;
+            c += vec3(0.35, 0.55, 0.9) * edgeLight * 0.35;
         }
     }
 
-    // The barrier, from the moment the black starts to climb until it is gone.
-    vec3 o = CamOffset;
-    bool camIn = Inside > 0.5;
-    if (Rise > 0.0 && Void < 1.0) {
+    // Ink pooled round its foot, once it stands, seen from outside.
+    if (!camIn && Rise > 0.0 && !sky) {
+        float beyond = length(p) - Radius;
+        float pool = smoothstep(3.0, 0.0, beyond) * step(0.0, beyond) * smoothstep(2.0, 0.0, p.y + 0.5) * Rise;
+        c = mix(c, vec3(0.006, 0.008, 0.02), pool * 0.7 * (1.0 - Shatter));
+    }
+
+    // The barrier, from the moment the black starts to climb until it is gone. Outside, it hides what is inside it.
+    if (Rise > 0.0 && !camIn) {
         vec2 t = sphere(o, dir);
-        float top = climb();
-        if (!camIn && t.x > 0.0) {
+        if (t.x > 0.0) {
             vec3 s = o + dir * t.x;
-            if (s.y < top && t.x < dist) {
-                c = skin(s, dir, true);
+            if (s.y < climb(s) && t.x < dist) {
+                vec3 k = skin(s, dir, true);
+                if (Shatter > 0.0) {
+                    vec2 sh = shards(normalize(s), Impact, Shatter);
+                    k = mix(c, k, sh.x) + vec3(0.8, 0.92, 1.0) * sh.y * 0.9;
+                }
+                c = k;
             } else {
                 // Not yet closed over here: through the gap, the inside of the far wall.
                 vec3 s2 = o + dir * t.y;
-                if (s2.y < top && t.y < dist) {
+                if (s2.y < climb(s2) && t.y < dist) {
                     c = skin(s2, dir, false);
                 }
             }
-        } else if (camIn && t.y > 0.0) {
-            vec3 s = o + dir * t.y;
-            if (s.y < top && t.y < dist) {
-                c = skin(s, dir, false);
+        } else if (Rise >= 1.0 && Shatter < 1.0) {
+            // The air bending round its edge.
+            float b = dot(o, dir);
+            float closest = sqrt(max(dot(o, o) - b * b, 0.0));
+            float haze = smoothstep(Radius * 1.06, Radius, closest) * step(b, 0.0) * (1.0 - Shatter);
+            if (haze > 0.0) {
+                vec2 wobble = vec2(sin(Time * 2.3 + uv.y * 90.0), cos(Time * 1.9 + uv.x * 70.0)) * 0.0025 * haze;
+                c = mix(c, scene(uv + wobble), haze) + vec3(0.02, 0.04, 0.1) * haze * 0.5;
             }
         }
     }
 
-    // Outside, once it has closed: only the black sphere (the void is for those in it).
-    if (!camIn && Void >= 1.0) {
-        vec2 t = sphere(o, dir);
-        if (t.x > 0.0 && t.x < dist) {
-            c = skin(o + dir * t.x, dir, true);
-        }
-    }
-
-    // Inside: the void.
-    if (camIn && Void > 0.0) {
-        vec3 v;
-        if (sky || length(p) > Radius) {
-            v = cosmos(dir);
-        } else {
-            vec3 n = normalAt(uv, rel);
-            v = n.y > 0.55 ? water(p, dir, n) : standing(dir, n);
-            // The far edge of it fades into space, so nothing ends.
-            v = mix(v, cosmos(dir), smoothstep(Radius * 0.55, Radius, length(p)) * 0.8);
-        }
-        c = mix(c, v, Void);
-    }
-
-    // The shattering: cracks of white light all over it, then the shards dropping away, the world behind.
-    if (Shatter > 0.0) {
-        vec3 basis;
-        bool hit = true;
-        if (camIn) {
-            basis = dir;
-        } else {
+    // Inside: the black climbing round and over, then nothing, then the void opening out of the eye.
+    if (camIn) {
+        if (Rise > 0.0 && Black < 1.0) {
             vec2 t = sphere(o, dir);
-            hit = t.x > 0.0 && t.x < dist;
-            basis = normalize(o + dir * max(t.x, 0.0));
+            vec3 s = o + dir * t.y;
+            if (t.y > 0.0 && s.y < climb(s) && t.y < dist) {
+                c = skin(s, dir, false);
+            }
         }
-        if (hit) {
-            vec2 sh = shards(basis);
-            float gone = smoothstep(sh.y * 0.6 + 0.15, sh.y * 0.6 + 0.3, Shatter);
-            float crack = sh.x * smoothstep(0.0, 0.12, Shatter) * (1.0 - gone);
-            c = mix(c, scene(uv), gone);
-            c += vec3(0.75, 0.9, 1.0) * crack * 1.6;
+        if (Black > 0.0) {
+            vec3 world = scene(uv);
+            c = mix(c, vec3(0.0), Black);
+            if (Open > 0.0) {
+                float a = acos(clamp(dot(dir, Eye), -1.0, 1.0));
+                float reach = Open * PI * 1.08;
+                float shown = smoothstep(reach, reach - 0.18, a);
+                vec3 v = voidAt(uv, dir, rel, p, sky);
+                c = mix(c, v, shown);
+                // The edge of it opening, burning.
+                c += vec3(0.7, 0.85, 1.0) * exp(-abs(a - reach) * 22.0) * (1.0 - Open) * 1.8;
+            }
+            if (Shatter > 0.0) {
+                vec2 sh = shards(dir, Impact, Shatter);
+                c = mix(world, c, sh.x) + vec3(0.8, 0.92, 1.0) * sh.y * 1.0;
+                // The flash of it going.
+                c += vec3(0.8, 0.9, 1.0) * exp(-abs(Shatter - 0.3) * 18.0) * 0.35;
+            }
         }
-        // The flash of it going.
-        c += vec3(0.8, 0.9, 1.0) * exp(-Shatter * 14.0) * smoothstep(0.0, 0.02, Shatter) * (camIn ? 0.9 : 0.4);
     }
 
     fragColor = vec4(c, 1.0);

@@ -57,10 +57,27 @@ public final class ClientDomains {
 		return null;
 	}
 
-	/** Whether the camera's shot of the caster runs: his own Domain, not yet back in his eyes, and shots wanted. */
+	/** Whether the camera's shots of the caster run: his own Domain, not yet closed, and shots wanted. */
 	public static boolean shooting() {
 		ClientDomain domain = mine();
-		return domain != null && ClientConfig.cameraShots && domain.age < DomainTimeline.VOID;
+		return domain != null && ClientConfig.cameraShots && domain.age < DomainTimeline.CLOSE;
+	}
+
+	/**
+	 * Whether this player's screen is the Domain's alone, with no HUD over it: the caster's shots, and for everyone in it,
+	 * the black and the void opening out of it.
+	 */
+	public static boolean cinematic(MinecraftClient client) {
+		if (shooting()) {
+			return true;
+		}
+		for (ClientDomain domain : DOMAINS.values()) {
+			if (domain.age >= DomainTimeline.CLOSE && domain.age < DomainTimeline.VOID + DomainTimeline.OPEN && domain.age < domain.collapse()
+					&& (domain.mine || domain.holdsMe || client.gameRenderer != null && domain.contains(client.gameRenderer.getCamera().getPos()))) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** The Domain holding this client's player still now, or null. */
@@ -84,11 +101,11 @@ public final class ClientDomains {
 		return holding() != null || shooting();
 	}
 
-	/** The Domain {@code player} is casting, while the sign is up (from the key until a moment after the void). */
+	/** The Domain {@code player} is casting, while the sign is up (from the key until a moment after it closes). */
 	@Nullable
 	public static ClientDomain signing(PlayerEntity player) {
 		for (ClientDomain domain : DOMAINS.values()) {
-			if (player.getUuid().equals(domain.caster) && domain.age < DomainTimeline.VOID + 12) {
+			if (player.getUuid().equals(domain.caster) && domain.age < DomainTimeline.CLOSE + 12) {
 				return domain;
 			}
 		}
@@ -146,10 +163,9 @@ public final class ClientDomains {
 		domain.holdsMe = domain.caught.contains(client.player.getId());
 		if (domain.holdsMe) {
 			client.player.setVelocity(Vec3d.ZERO);
-			// Its sound from the moment they know, not from a mark on the timeline the news might arrive a tick after.
-			if (domain.floodSound == null && domain.age < domain.collapse()) {
-				domain.floodSound = new LoopSound(GojoSounds.FLOOD, 0.8F);
-				client.getSoundManager().play(domain.floodSound);
+			// Told only once the void is already open (the news can come a tick late): the flood pours in at once.
+			if (domain.age >= DomainTimeline.VOID) {
+				startFlood(client, domain);
 			}
 		}
 	}
@@ -197,11 +213,12 @@ public final class ClientDomains {
 	}
 
 	/**
-	 * The caster's shot puts the HUD away, and the hand with it (the camera is out in front of him, not in his eyes);
-	 * the Domain's name is still drawn over it. Put back as it was when the camera is back.
+	 * The caster's shots put the HUD away, and the hand with it (the camera is out in front of him, not in his eyes), and
+	 * so do the black and the void opening for everyone in it; the Domain's name is still drawn over them. Put back as
+	 * it was after.
 	 */
 	private static void hud(MinecraftClient client) {
-		boolean takeOver = shooting();
+		boolean takeOver = cinematic(client);
 		if (takeOver && !hudOverride) {
 			savedHudHidden = client.options.hudHidden;
 			client.options.hudHidden = true;
@@ -242,9 +259,14 @@ public final class ClientDomains {
 				at(client, domain.center, GojoSounds.CLOSE_WORLD, 3.0F);
 			}
 		}
-		if (passed(from, to, DomainTimeline.VOID - 2) && to < domain.collapse() && hearsInside(client, domain)) {
+		// Between the close and the void, silence. Then the void opens with a bloom of sound, and its hum goes on under it.
+		if (passed(from, to, DomainTimeline.VOID) && to < domain.collapse() && hearsInside(client, domain)) {
+			master(client, GojoSounds.REVEAL, 1.0F);
 			domain.voidSound = new LoopSound(GojoSounds.VOID, 0.9F);
 			client.getSoundManager().play(domain.voidSound);
+			if (domain.holdsMe) {
+				startFlood(client, domain);
+			}
 		}
 		if (passed(from, to, domain.collapse())) {
 			stopSounds(client, domain);
@@ -253,6 +275,14 @@ public final class ClientDomains {
 			} else if (inRange) {
 				at(client, domain.center, GojoSounds.COLLAPSE_WORLD, 3.0F);
 			}
+		}
+	}
+
+	/** What the caught hear, from the void opening until it shatters (once). */
+	private static void startFlood(MinecraftClient client, ClientDomain domain) {
+		if (domain.floodSound == null && domain.age < domain.collapse()) {
+			domain.floodSound = new LoopSound(GojoSounds.FLOOD, 0.8F);
+			client.getSoundManager().play(domain.floodSound);
 		}
 	}
 

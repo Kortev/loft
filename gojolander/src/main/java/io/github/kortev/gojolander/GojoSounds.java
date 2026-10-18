@@ -17,6 +17,8 @@ public final class GojoSounds {
 	/** The barrier closing overhead: the air drawn in, then a deep, glassy shut. */
 	public static final SoundEvent CLOSE = register("domain.close");
 	public static final SoundEvent CLOSE_WORLD = register("domain.close.world");
+	/** The void opening out of the eye, after the silence: a vast chord blooming out of nothing. */
+	public static final SoundEvent REVEAL = register("domain.reveal");
 	/** The void: an endless shimmering hum, as wide as the sky. */
 	public static final SoundEvent VOID = register("domain.void");
 	/** What those it caught hear: everything there is, at once. */

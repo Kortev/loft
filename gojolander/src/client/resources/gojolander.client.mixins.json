@@ -4,6 +4,7 @@
 	"compatibilityLevel": "JAVA_21",
 	"client": [
 		"DomainCameraMixin",
+		"DomainFovMixin",
 		"DomainLookMixin",
 		"HeadItemMixin",
 		"PlayerModelMixin"

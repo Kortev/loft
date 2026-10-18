@@ -31,6 +31,14 @@
       }
     ]
   },
+  "domain.reveal": {
+    "subtitle": "subtitles.gojolander.domain.reveal",
+    "sounds": [
+      {
+        "name": "gojolander:domain_reveal"
+      }
+    ]
+  },
   "domain.void": {
     "subtitle": "subtitles.gojolander.domain.void",
     "sounds": [

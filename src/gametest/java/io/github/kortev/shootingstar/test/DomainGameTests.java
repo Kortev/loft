@@ -44,6 +44,12 @@ public class DomainGameTests implements FabricGameTest {
 	private static final int RADIUS = 12;
 	private static final int HOLD_SECONDS = 2;
 	private static final int HOLD = HOLD_SECONDS * 20;
+	/**
+	 * How far from its test box each Domain test lays its floor: clear of every other test's ground (Mjölnir's and
+	 * Gungnir's at 40 to 48, the Genesis Key's at 80 and -120), since tests stand close together and their ground, the
+	 * chunks a Domain test keeps loaded and the Domain itself would otherwise reach into theirs.
+	 */
+	private static final int FAR = 220;
 	/** Whose the blindfold is in these tests. */
 	private static final String OWNER = "blindfold_owner";
 	/** Ticks of slack either side of a mark: the test and the Domain tick at different points of the server's tick. */
@@ -109,8 +115,8 @@ public class DomainGameTests implements FabricGameTest {
 	/**
 	 * A whole Domain: a cow, a villager caught falling, and a player inside are caught; a player outside is not. The
 	 * caught stay exactly where they were; the one outside cannot step in, an arrow from outside stops at the barrier,
-	 * and the caster cannot step out. When it shatters they are let go, dazed, and he cannot cast it again until it has
-	 * cooled.
+	 * and the caster cannot step out. When it shatters they are let go broken (half a heart) and dazed, the one outside
+	 * untouched, and he cannot cast it again until it has cooled.
 	 */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "g_gojo_domain", tickLimit = DomainTimeline.VOID + HOLD + 80)
 	public void wholeDomain(TestContext context) {
@@ -206,6 +212,12 @@ public class DomainGameTests implements FabricGameTest {
 			if (!cow.hasStatusEffect(StatusEffects.SLOWNESS)) {
 				problems.add("the cow came out of it without being slowed");
 			}
+			if (inside.getHealth() > 1.0F || cow.getHealth() > 1.0F) {
+				problems.add("the void did not break them (" + inside.getHealth() + ", " + cow.getHealth() + ")");
+			}
+			if (outside.getHealth() < outside.getMaxHealth()) {
+				problems.add("the player outside was hurt");
+			}
 			if (outside.hasStatusEffect(StatusEffects.SLOWNESS)) {
 				problems.add("the player outside was dazed");
 			}
@@ -229,7 +241,7 @@ public class DomainGameTests implements FabricGameTest {
 		});
 	}
 
-	/** The caster falls in his own Domain: it shatters at once, and lets go of everyone. */
+	/** The caster falls in his own Domain: it shatters at once, and lets go of everyone, shaken but not broken. */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "g_gojo_early", tickLimit = DomainTimeline.VOID + HOLD + 60)
 	public void endsWhenTheCasterFalls(TestContext context) {
 		ServerWorld world = context.getWorld();
@@ -246,26 +258,30 @@ public class DomainGameTests implements FabricGameTest {
 		});
 		context.runAtTick(DomainTimeline.CLOSE + SLACK + 3, () -> {
 			boolean still = DomainManager.isHeld(cow);
+			float health = cow.getHealth();
 			finish(context, center, caster);
 			context.assertTrue(caught[0], "the cow was not caught");
 			context.assertTrue(!still, "the cow was still held after the caster fell");
+			context.assertTrue(health > 1.0F, "a Domain cut short broke the cow");
 			context.complete();
 		});
 	}
 
 	private static void rules(ServerWorld world, int cooldownSeconds) {
+		world.getGameRules().get(GojoRules.VOID_BREAKS).set(true, world.getServer());
 		world.getGameRules().get(GojoRules.VOID_RADIUS).set(RADIUS, world.getServer());
 		world.getGameRules().get(GojoRules.VOID_HOLD).set(HOLD_SECONDS, world.getServer());
 		world.getGameRules().get(GojoRules.VOID_COOLDOWN).set(cooldownSeconds, world.getServer());
 	}
 
 	/**
-	 * A disc of stone well clear of the test box, open air over it, its chunks kept loaded and ticking (out here they
-	 * would not be: what is in them would neither move nor be found); returns the point on it the Domain is cast from.
+	 * A disc of stone well clear of the test box and every other test's ground, open air over it, its chunks kept loaded
+	 * and ticking (out here they would not be: what is in them would neither move nor be found); returns the point on it
+	 * the Domain is cast from.
 	 */
 	private static Vec3d floor(TestContext context) {
 		ServerWorld world = context.getWorld();
-		BlockPos center = context.getAbsolutePos(new BlockPos(4, 1, 60));
+		BlockPos center = context.getAbsolutePos(new BlockPos(4, 1, FAR));
 		int r = RADIUS + 8;
 		forceChunks(world, center, r, true);
 		for (BlockPos pos : BlockPos.iterate(center.add(-r, -1, -r), center.add(r, 12, r))) {

@@ -22,34 +22,41 @@ be, and keeps out nothing a helmet would: wearing it is going without one.
 
 ## Domain Expansion: Unlimited Void
 
-With the blindfold on, its owner presses **Z** (rebindable: Domain Expansion). Second by second:
+His ult. With the blindfold on, he presses **Z** (rebindable: Domain Expansion). Second by second:
 
-- **0 to 1.1 s, the sign.** He pushes the blindfold up onto his forehead, his eyes burning blue under it, and brings
-  his right hand up in front of his face, the first two fingers crossed. His own camera comes out of his eyes and round in
-  front of him, close on his face. A held breath, the tick of his fingers crossing, a low swell under glass singing.
-  DOMAIN EXPANSION comes up low on the screen. Round him a ring of ink spreads out over the ground, 16 blocks, a seething
-  blue-white edge running ahead of it. **Anyone who gets out of the ring now is not caught.**
-- **1.1 to 1.5 s, the barrier.** Black flows up out of the ring, round and over, its climbing edge white-hot, the air
-  drawn in from every side. His camera pulls back and up to see it close over him.
-- **1.5 s, it closes.** A deep, soft blow and a glassy ring. Every living thing inside it but him is **caught**:
-  players and mobs, in the air or not (not players in creative or spectator, and not bosses). UNLIMITED VOID, and its
-  name in kanji under it. From outside it is a sphere of black, a sheen sliding over it, deep blue at its edges.
-- **2 to 7 s, the void.** Inside, the world is gone: endless space, stars and drifting light, threads of light
-  streaming past towards a vast black eye ringed with white fire, and still black water underfoot giving it all back.
-  He is back in his own eyes, free to move, hit and use anything.
-  - **The caught** are held exactly where they were: they cannot move, fall, look round, hit, use or break anything,
-    and mobs stop thinking. Nothing knocks them about. What they see is everything there is, all at once: the picture
-    torn apart by light rushing in, flickering grids of meaning, flashes of colour and white; what they hear is a roar
-    of data and voices and a ringing in the ears.
+- **0 to 1.5 s, the eyes.** A hard cut to his face, close, the camera drifting slowly round him as he pushes the
+  blindfold up onto his forehead and his eyes open, burning blue. A breath drawn in; a cold chime as they light. Round
+  him a ring of ink starts out over the ground, ragged, fingers of it branching ahead.
+- **1.5 to 1.9 s, the sign.** His right hand snaps up in front of his chin, the first two fingers crossed, and the
+  camera punches in on it. DOMAIN EXPANSION comes up on the screen.
+- **1.9 to 4.3 s, the barrier.** A cut to wide, the camera craning back and up round him. The ink reaches its full
+  32 blocks at 2.5 s and the black floods up out of it like a liquid, fingers racing ahead of a white-hot curling lip,
+  drips running back down, the air drawn in from every side faster and faster. **Anyone who gets out of the ring
+  before it closes is not caught**: about 4 s from the key, against a sprint of a block every 3.6 ticks.
+- **4.3 s, it closes.** One deep, soft blow and a glassy ring, cut off at once. Every living thing inside it but him
+  is **caught**: players and mobs, in the air or not (not players in creative or spectator, and not bosses). For
+  everyone in it, black and silence; his camera is back in his eyes. From outside it is a sphere of black, its skin
+  rippling, stars deep inside it, the air bending round its edge and ink pooled at its foot.
+- **5 s, the void opens** out of the great eye, over the whole sky, with a vast chord of sound. UNLIMITED VOID, and
+  its name brushed in ink under it: 無量空処. Endless space, light flowing past in slow rivers that curve round the eye
+  as they run in to it, the eye a black disc bending the stars round it in a ring of white fire, a band of light across
+  it, and still black water underfoot giving it all back, rippling out round him. Whoever is in there with him is dark
+  but for the eye's light along their edges. He is free to move, hit and use anything.
+  - **The caught** are held exactly where they were for the whole of it: they cannot move, fall, look round, hit, use or
+    break anything, and mobs stop thinking. Nothing knocks them about. What they see is everything there is, all at
+    once: the picture torn apart by light rushing in, flickering grids of meaning, flashes of colour and white; what
+    they hear is a roar of data and voices and a ringing in the ears.
   - **Nothing crosses the barrier** either way while it stands. Whoever tries is put back where they were; anything
     fired at it or out of it stops against it, in a puff of ink.
-  - The Domain does **no harm of its own**. The kill is whatever he does in those five seconds.
-- **7 to 7.8 s, the shattering.** Cracks of white light all over it, then it shatters, the shards falling away and the
-  world rushing back. The caught go free, **dazed for 5 s** (slowed, and players' sight going in and out).
+- **15 to 16.5 s, the shattering.** Cracks run out across it from the eye (from outside, from the side facing you), in
+  long rays and rings, then it shatters, the shards falling away nearest first, edges catching the light, the world
+  behind and its air rushing back. The caught go free **broken: half a heart**, and slow, weak and half blind for 15 s.
+  The finishing is left to him.
 
-He can cast it again **5 minutes** after he cast it (the blindfold shows it cooling, through leaving and coming back
-too). It ends at once, shattering, if he dies or leaves, or if kortev's Genesis Key takes the world; and it is not cast
-at all while a Genesis Key event is going on (from the key turning until everyone is home).
+He can cast it again **15 minutes** after he cast it (the blindfold shows it cooling, through leaving and coming back
+too). There is no other cost. It ends at once, shattering, if he dies or leaves (then the caught are only shaken, not
+broken), or if kortev's Genesis Key takes the world; and it is not cast at all while a Genesis Key event is going on
+(from the key turning until everyone is home). Killing him while he casts it, before it closes, stops it.
 
 ### Commands (operators)
 
@@ -64,9 +71,10 @@ at all while a Genesis Key event is going on (from the key turning until everyon
 
 | Rule | Default | Range | What it is |
 |---|---|---|---|
-| `unlimitedVoidRadius` | 16 | 8 to 48 | How far it reaches from where he casts it, in blocks. |
-| `unlimitedVoidHoldSeconds` | 5 | 1 to 30 | How long the void holds the caught. |
-| `unlimitedVoidCooldownSeconds` | 300 | 0 to 3600 | How long before he can cast it again. |
+| `unlimitedVoidRadius` | 32 | 8 to 64 | How far it reaches from where he casts it, in blocks. |
+| `unlimitedVoidHoldSeconds` | 10 | 1 to 30 | How long the void stays open, holding the caught. |
+| `unlimitedVoidCooldownSeconds` | 900 | 0 to 7200 | How long before he can cast it again. |
+| `unlimitedVoidBreaks` | true | | Whether whoever it holds to the end is left at half a heart. |
 
 ## How it is made
 
@@ -74,8 +82,9 @@ at all while a Genesis Key event is going on (from the key turning until everyon
   (`DomainGameTests`) and its client self test (`DomainSelfTest`, `-Pselftest=domain`, screenshots of it cast, watched
   from outside and caught in) are in the root project's harness.
 - The server: `domain/DomainManager` (who may cast, catching, holding, the barrier, letting go), against
-  `domain/DomainTimeline`. The client: `ClientDomains` (state, sounds), `DomainRender` with `gl_domain.fsh` (the ring,
-  the sphere, the void, the shattering, in one full-screen pass, the void's people drawn again over it), `DomainHud`
-  with `gl_flood.fsh` (the flood, the name), `DomainCamera` (his shot), `BlindfoldFeature` and `HandSign` (the cloth,
-  the eyes, the sign).
+  `domain/DomainTimeline`. The client: `ClientDomains` (state, sounds), `DomainRender` with `gl_domain.fsh` (the ink,
+  the black rising, the sphere, the black and the reveal, the void, the shattering, in one full-screen pass) and
+  `gl_rim.fsh` (whoever is in the void with you, lit by the eye), `DomainHud` with `gl_flood.fsh` (the flood, the
+  name), `DomainCamera` (his shots and the punch-in), `BlindfoldFeature` and `HandSign` (the cloth, the eyes, the
+  sign).
 - Sounds: `python tools/gen_gojolander_sounds.py`; textures: `python tools/gen_gojolander_textures.py`.

@@ -1,7 +1,7 @@
 {
   "item.gojolander.blindfold": "Blindfold",
   "item.gojolander.blindfold.tooltip.0": "Worn over the eyes, in place of a helmet.",
-  "item.gojolander.blindfold.tooltip.1": "Its owner casts his Domain with it on: Unlimited Void.",
+  "item.gojolander.blindfold.tooltip.1": "Its owner casts his ult with it on: Domain Expansion, Unlimited Void.",
   "item.gojolander.blindfold.tooltip.2": "On anyone else, a strip of black cloth.",
   "key.categories.gojolander": "Gojolander",
   "key.gojolander.domain": "Domain Expansion",
@@ -28,6 +28,7 @@
   "subtitles.gojolander.domain.sign.world": "A Domain opens",
   "subtitles.gojolander.domain.close": "The barrier closes",
   "subtitles.gojolander.domain.close.world": "A barrier closes",
+  "subtitles.gojolander.domain.reveal": "The void opens",
   "subtitles.gojolander.domain.void": "The void hums",
   "subtitles.gojolander.domain.flood": "Everything, all at once",
   "subtitles.gojolander.domain.collapse": "The barrier shatters",
@@ -40,5 +41,7 @@
   "advancements.gojolander.caught.title": "Everything, All at Once",
   "advancements.gojolander.caught.description": "Catch another player in Unlimited Void",
   "advancements.gojolander.crowd.title": "The Honored One",
-  "advancements.gojolander.crowd.description": "Catch ten at once in Unlimited Void"
+  "advancements.gojolander.crowd.description": "Catch ten at once in Unlimited Void",
+  "gamerule.unlimitedVoidBreaks": "Unlimited Void: breaks the caught",
+  "gamerule.unlimitedVoidBreaks.description": "Whether whoever it holds to the end is left at half a heart when it shatters."
 }

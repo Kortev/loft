@@ -11,15 +11,22 @@ import net.minecraft.world.GameRules;
 public final class GojoRules {
 	/** How far the Domain reaches from where he casts it, in blocks: the ring on the ground and the sphere over it. */
 	public static final GameRules.Key<GameRules.IntRule> VOID_RADIUS = GameRuleRegistry.register(
-			"unlimitedVoidRadius", GameRules.Category.MISC, GameRuleFactory.createIntRule(16, 8, 48));
+			"unlimitedVoidRadius", GameRules.Category.MISC, GameRuleFactory.createIntRule(32, 8, 64));
 
-	/** How long the void holds whoever it caught, in seconds, from the world going until the barrier shatters. */
+	/** How long the void holds whoever it caught, in seconds, from the void opening until the barrier shatters. */
 	public static final GameRules.Key<GameRules.IntRule> VOID_HOLD = GameRuleRegistry.register(
-			"unlimitedVoidHoldSeconds", GameRules.Category.MISC, GameRuleFactory.createIntRule(5, 1, 30));
+			"unlimitedVoidHoldSeconds", GameRules.Category.MISC, GameRuleFactory.createIntRule(10, 1, 30));
 
 	/** How long after casting it before he can cast it again, in seconds. */
 	public static final GameRules.Key<GameRules.IntRule> VOID_COOLDOWN = GameRuleRegistry.register(
-			"unlimitedVoidCooldownSeconds", GameRules.Category.MISC, GameRuleFactory.createIntRule(300, 0, 3600));
+			"unlimitedVoidCooldownSeconds", GameRules.Category.MISC, GameRuleFactory.createIntRule(900, 0, 7200));
+
+	/**
+	 * Whether the void breaks whoever it held to the end: when it shatters they are left at half a heart, as well as
+	 * dazed. Off, they are only dazed.
+	 */
+	public static final GameRules.Key<GameRules.BooleanRule> VOID_BREAKS = GameRuleRegistry.register(
+			"unlimitedVoidBreaks", GameRules.Category.MISC, GameRuleFactory.createBooleanRule(true));
 
 	private GojoRules() {
 	}

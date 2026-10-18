@@ -51,8 +51,9 @@ The SMP after the Shorts is real players (the Shorts' Woomerd and gerald_2009 ar
 friend gets their own mod, presented on the server as things that exist there, never named publicly.
 
 - **Gojolander** (`gojolander/`): the first friend, kortev's rival, who wants to be Gojo (Jujutsu Kaisen) and Homelander
-  (The Boys) at once. Built so far: the blindfold and **Domain Expansion: Unlimited Void** (sign, ring, black sphere,
-  the void, the caught held still and flooded, the barrier nobody crosses, the shattering), its sounds, recipe,
+  (The Boys) at once. Built so far: the blindfold and his ult, **Domain Expansion: Unlimited Void** (a 4 s cast
+  cinematic, a 32-block sphere, 10 s of void with the caught held still and flooded, the barrier nobody crosses, the
+  shattering, and the caught left at half a heart; 15-minute cooldown, no cost, as kortev chose), its sounds, recipe,
   advancements, commands, game rules for balance, game tests (`DomainGameTests`) and a client self test with
   screenshots (`-Pselftest=domain`). Branch `claude/gojolander-domain`.
   - It is nobody's until kortev has the friend's Minecraft name, and while it is nobody's anyone can craft and cast

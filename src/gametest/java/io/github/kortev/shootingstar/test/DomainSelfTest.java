@@ -45,11 +45,12 @@ import net.minecraft.world.Heightmap;
 public class DomainSelfTest implements ClientModInitializer {
 	private enum Stage { WAIT_WORLD, SETUP, SETTLE, CAST, WATCH, OUTSIDE, CAUGHT, DONE, FINISHED }
 
-	/** How far the disc reaches, how far off the watched Domain is, and where the creatures stand round the caster. */
-	private static final int DISC = 40;
-	private static final int AWAY = 34;
-	private static final int RADIUS = 16;
-	private static final int HOLD_SECONDS = 5;
+	/** How far the disc reaches, how far off (and how high) the watched Domain is seen from, and its size and hold. */
+	private static final int DISC = 44;
+	private static final int AWAY = 62;
+	private static final int UP = 16;
+	private static final int RADIUS = 32;
+	private static final int HOLD_SECONDS = 10;
 	private static final int HOLD = HOLD_SECONDS * 20;
 
 	private static final Deque<Integer> STILLS = new ArrayDeque<>();
@@ -149,9 +150,9 @@ public class DomainSelfTest implements ClientModInitializer {
 					client.options.hudHidden = false;
 					ShootingStar.LOGGER.info("[selftest] casting");
 					ClientPlayNetworking.send(new DomainCastPayload());
-					stills(2, 6, 10, 15, 19, 22, 25, 28, 30, 33, 36, 40, 44, 52, 70, 90, 110, DomainTimeline.collapse(HOLD) + 1,
-							DomainTimeline.collapse(HOLD) + 4, DomainTimeline.collapse(HOLD) + 8, DomainTimeline.collapse(HOLD) + 13,
-							DomainTimeline.end(HOLD) + 3);
+					int c = DomainTimeline.collapse(HOLD);
+					stills(4, 12, 20, 27, 33, 36, 42, 54, 66, 76, 84, 88, 96, 102, 107, 113, 124, 150, 175, 215, 255, c + 4, c + 9, c + 14,
+							c + 19, c + 25, DomainTimeline.end(HOLD) + 3);
 				}
 				if (ClientDomains.mine() != null) {
 					stage = Stage.WATCH;
@@ -165,12 +166,12 @@ public class DomainSelfTest implements ClientModInitializer {
 				ClientDomain domain = latest();
 				if (domain != null) {
 					// Look round the void: down at the water, round at the held, up again at the eye.
-					if (domain.age == 60) {
-						client.player.setPitch(55.0F);
-					} else if (domain.age == 80) {
+					if (domain.age == 165) {
+						client.player.setPitch(50.0F);
+					} else if (domain.age == 195) {
 						client.player.setPitch(5.0F);
-						client.player.setYaw(facing + 180.0F);
-					} else if (domain.age == 100) {
+						client.player.setYaw(facing + 150.0F);
+					} else if (domain.age == 235) {
 						client.player.setYaw(facing);
 						client.player.setPitch(-12.0F);
 					}
@@ -188,15 +189,15 @@ public class DomainSelfTest implements ClientModInitializer {
 						ServerPlayerEntity player = server.getPlayerManager().getPlayerList().get(0);
 						ServerWorld world = player.getServerWorld();
 						Vec3d center = Vec3d.ofBottomCenter(home);
-						Vec3d from = center.add(direction(facing + 180.0F).multiply(AWAY)).add(0.0, 7.0, 0.0);
+						Vec3d from = center.add(direction(facing + 180.0F).multiply(AWAY)).add(0.0, UP, 0.0);
 						player.changeGameMode(GameMode.CREATIVE);
 						player.getAbilities().flying = true;
 						player.sendAbilitiesUpdate();
-						player.networkHandler.requestTeleport(from.x, from.y, from.z, facing, 10.0F);
+						player.networkHandler.requestTeleport(from.x, from.y, from.z, facing, 14.0F);
 						DomainManager.launch(world, center, null);
 					});
-					stills(4, 10, 16, 21, 24, 27, 30, 36, 60, DomainTimeline.collapse(HOLD) + 2, DomainTimeline.collapse(HOLD) + 5,
-							DomainTimeline.collapse(HOLD) + 9, DomainTimeline.collapse(HOLD) + 13);
+					int c = DomainTimeline.collapse(HOLD);
+					stills(8, 24, 40, 56, 64, 72, 80, 88, 140, c + 5, c + 10, c + 16, c + 24);
 				}
 				if (ticks > 41) {
 					ClientDomain domain = latest();
@@ -217,7 +218,7 @@ public class DomainSelfTest implements ClientModInitializer {
 						player.networkHandler.requestTeleport(center.x + 4.0, center.y, center.z + 4.0, facing + 40.0F, 0.0F);
 						DomainManager.launch(player.getServerWorld(), center, null);
 					});
-					stills(32, 34, 37, 45, 60, 90, DomainTimeline.collapse(HOLD) + 3);
+					stills(90, 98, 104, 110, 118, 140, 220, DomainTimeline.collapse(HOLD) + 6);
 				}
 				if (ticks > 41) {
 					ClientDomain domain = latest();
