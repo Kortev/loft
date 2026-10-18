@@ -11,6 +11,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.Framebuffer;
 import net.minecraft.client.gl.ShaderProgram;
+import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.util.math.MatrixStack;
@@ -20,6 +21,7 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
+import org.jetbrains.annotations.Nullable;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
 import org.joml.Vector3f;
@@ -28,7 +30,8 @@ import org.lwjgl.opengl.GL11;
 
 /**
  * Draws Domains over the world in one full-screen pass each ({@code gl_domain}): the ink, the black flooding up into a
- * sphere, from outside the sphere itself, from inside the black and the void opening out of the eye, and the shattering.
+ * sphere, from outside the sphere itself, from inside the black and the void opening out of the eye, and its end:
+ * fading away, let go of, as in the show, or shattering, cut short.
  *
  * <p>The void takes everything inside it, people too, so whatever is in there with the camera is drawn again, into a
  * picture of its own, and laid back over the void ({@code gl_rim}): dark, lit only by the great eye, its edges towards
@@ -62,16 +65,51 @@ public final class DomainRender {
 	private DomainRender() {
 	}
 
+	/** The world's frame, kept for drawing after a shader pack has finished it. */
+	private record Frame(Camera camera, Matrix4f view, Matrix4f proj, float tickDelta) {
+	}
+
+	@Nullable
+	private static Frame deferred;
+
+	/**
+	 * At the end of the world's drawing: draws the Domains now, over the world as it stands; or, with an Iris shader pack
+	 * in use (which draws the world into its own pictures and lays them over the screen only at the very end, over
+	 * anything drawn here), keeps what it needs and draws them once the pack is done ({@link #afterWorld}).
+	 */
 	public static void render(WorldRenderContext context) {
-		MinecraftClient client = MinecraftClient.getInstance();
-		ClientWorld world = context.world();
-		if (domain == null || world == null || client.player == null || ClientDomains.all().isEmpty()) {
+		if (domain == null || ClientDomains.all().isEmpty()) {
 			return;
 		}
-		float tickDelta = context.tickCounter().getTickDelta(false);
-		Vec3d cam = context.camera().getPos();
-		Matrix4f view = new Matrix4f(context.positionMatrix());
-		Matrix4f proj = new Matrix4f(context.projectionMatrix());
+		Frame frame = new Frame(context.camera(), new Matrix4f(context.positionMatrix()), new Matrix4f(context.projectionMatrix()),
+				context.tickCounter().getTickDelta(false));
+		if (ShaderPacks.inUse()) {
+			deferred = frame;
+			return;
+		}
+		draw(frame);
+	}
+
+	/** After the whole world (a shader pack's last pass and all) is on the screen: the Domains held back for it. */
+	public static void afterWorld() {
+		Frame frame = deferred;
+		deferred = null;
+		if (frame != null && domain != null) {
+			draw(frame);
+		}
+	}
+
+	private static void draw(Frame frame) {
+		MinecraftClient client = MinecraftClient.getInstance();
+		ClientWorld world = client.world;
+		if (world == null || client.player == null) {
+			return;
+		}
+		Camera camera = frame.camera();
+		float tickDelta = frame.tickDelta();
+		Vec3d cam = camera.getPos();
+		Matrix4f view = frame.view();
+		Matrix4f proj = frame.proj();
 		Framebuffer main = client.getFramebuffer();
 		int w = main.textureWidth;
 		int h = main.textureHeight;
@@ -79,13 +117,16 @@ public final class DomainRender {
 		frames++;
 		for (ClientDomain d : ClientDomains.all()) {
 			double t = d.time(tickDelta);
-			if (t >= d.end() || cam.distanceTo(d.center) > DRAWN + d.radius || !onScreen(client, context, d, cam)) {
+			if (t >= d.end() || cam.distanceTo(d.center) > DRAWN + d.radius || !onScreen(client, camera, d, cam)) {
 				continue;
 			}
 			boolean inside = d.contains(cam);
 			float black = (float) MathHelper.clamp((t - DomainTimeline.CLOSE) / BLACKOUT, 0.0, 1.0);
 			float open = (float) DomainTimeline.open(t);
-			float shatter = (float) MathHelper.clamp((t - d.collapse()) / DomainTimeline.SHATTER, 0.0, 1.0);
+			float ending = (float) MathHelper.clamp((t - d.collapse()) / DomainTimeline.SHATTER, 0.0, 1.0);
+			// Let go of, it fades away, as in the show; cut short, it shatters.
+			float shatter = d.shattered ? ending : 0.0F;
+			float fade = d.shattered ? 0.0F : ending;
 			Vec3d facing = d.facing();
 			Vector3f eye = new Vector3f((float) facing.x, EYE_RISE, (float) facing.z).normalize();
 			Vec3d offset = cam.subtract(d.center);
@@ -122,6 +163,7 @@ public final class DomainRender {
 			Shaders.set(domain, "Black", black);
 			Shaders.set(domain, "Open", open);
 			Shaders.set(domain, "Shatter", shatter);
+			Shaders.set(domain, "Fade", fade);
 			Shaders.set(domain, "Inside", inside ? 1.0F : 0.0F);
 			Shaders.set(domain, "Eye", eye);
 			Shaders.set(domain, "Walker", (float) walker.x, (float) walker.y, (float) walker.z);
@@ -133,9 +175,9 @@ public final class DomainRender {
 			RenderSystem.setShaderTexture(1, 0);
 			RenderSystem.setShaderTexture(2, 0);
 			// Whatever is in the void with the camera, drawn again over it, until the shards have fallen.
-			if (inside && black > 0.0F && shatter < 0.85F) {
+			if (inside && black > 0.0F && ending < 0.85F) {
 				Timings.begin("domain.people");
-				people(client, world, d, context, cam, view, proj, eye, tickDelta, Math.min(open, 1.0F - shatter), w, h);
+				people(client, world, d, camera, cam, view, proj, eye, tickDelta, Math.min(open, 1.0F - ending), w, h);
 				Timings.end();
 			}
 		}
@@ -152,14 +194,14 @@ public final class DomainRender {
 	 * Whether any of a Domain (its sphere, and the ink round its foot) can be on screen: from inside, always; from
 	 * outside, only if it lies within the view's widest angle (its diagonal) from where the camera looks.
 	 */
-	private static boolean onScreen(MinecraftClient client, WorldRenderContext context, ClientDomain d, Vec3d cam) {
+	private static boolean onScreen(MinecraftClient client, Camera camera, ClientDomain d, Vec3d cam) {
 		Vec3d to = d.center.subtract(cam);
 		double dist = to.length();
 		double reach = d.radius * 1.3 + 8.0;
 		if (dist <= reach) {
 			return true;
 		}
-		Vec3d look = Vec3d.fromPolar(context.camera().getPitch(), context.camera().getYaw());
+		Vec3d look = Vec3d.fromPolar(camera.getPitch(), camera.getYaw());
 		double aspect = (double) client.getWindow().getFramebufferWidth() / Math.max(1, client.getWindow().getFramebufferHeight());
 		double halfV = Math.toRadians(client.options.getFov().getValue()) * 0.5;
 		double halfDiagonal = Math.atan(Math.tan(halfV) * Math.sqrt(1.0 + aspect * aspect));
@@ -195,14 +237,14 @@ public final class DomainRender {
 	 * Draws everything in the sphere with the camera into a picture of its own (against the world's depth), then lays it
 	 * over the void lit by the eye: {@code strength} how much it is in the void's light rather than its own.
 	 */
-	private static void people(MinecraftClient client, ClientWorld world, ClientDomain d, WorldRenderContext context, Vec3d cam,
+	private static void people(MinecraftClient client, ClientWorld world, ClientDomain d, Camera camera, Vec3d cam,
 			Matrix4f view, Matrix4f proj, Vector3f eye, float tickDelta, float strength, int w, int h) {
 		Framebuffer main = client.getFramebuffer();
 		double r = d.radius + 1.0;
-		Entity viewer = context.camera().getFocusedEntity();
+		Entity viewer = camera.getFocusedEntity();
 		java.util.List<Entity> drawn = new java.util.ArrayList<>();
 		for (Entity entity : world.getOtherEntities(null, Box.of(d.center, r * 2.0, r * 2.0, r * 2.0))) {
-			if (entity == viewer && !context.camera().isThirdPerson() || entity instanceof PlayerEntity player && player.isSpectator()
+			if (entity == viewer && !camera.isThirdPerson() || entity instanceof PlayerEntity player && player.isSpectator()
 					|| entity.isInvisible() || !d.contains(entity.getLerpedPos(tickDelta))) {
 				continue;
 			}

@@ -7,6 +7,7 @@ import io.github.kortev.gojolander.network.DomainCastPayload;
 import io.github.kortev.gojolander.network.DomainCaughtPayload;
 import io.github.kortev.gojolander.network.DomainEndPayload;
 import io.github.kortev.gojolander.network.DomainLockPayload;
+import io.github.kortev.gojolander.network.SixEyesPayload;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientWorldEvents;
@@ -25,8 +26,8 @@ import net.minecraft.client.util.InputUtil;
 import org.lwjgl.glfw.GLFW;
 
 /**
- * Gojolander on the client: the Domain key, what it is told of Domains, and their pictures and sounds; and the
- * blindfold drawn on whoever wears it.
+ * Gojolander on the client: the Domain key, what it is told of Domains, and their pictures and sounds; the blindfold
+ * drawn on whoever wears it; and what the Six Eyes see.
  */
 public final class GojolanderClient implements ClientModInitializer {
 	/** Domain Expansion: cast with the blindfold on. */
@@ -53,8 +54,12 @@ public final class GojolanderClient implements ClientModInitializer {
 		ClientPlayNetworking.registerGlobalReceiver(DomainCaughtPayload.ID,
 				(payload, context) -> ClientDomains.onCaught(payload, context.client()));
 		ClientPlayNetworking.registerGlobalReceiver(DomainEndPayload.ID, (payload, context) -> ClientDomains.onEnd(payload, context.client()));
+		ClientPlayNetworking.registerGlobalReceiver(SixEyesPayload.ID, (payload, context) -> SixEyesClient.set(payload.range()));
 		ClientWorldEvents.AFTER_CLIENT_WORLD_CHANGE.register((client, world) -> ClientDomains.clear(client));
-		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> ClientDomains.clear(client));
+		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+			ClientDomains.clear(client);
+			SixEyesClient.clear();
+		});
 
 		// Before anything reads the keys this tick.
 		ClientTickEvents.START_CLIENT_TICK.register(ClientDomains::holdInput);

@@ -192,6 +192,7 @@ public final class ClientDomains {
 			return;
 		}
 		int from = domain.age;
+		domain.shattered = true;
 		domain.age = Math.max(domain.age, payload.age());
 		cues(client, domain, from, domain.age);
 	}
@@ -279,12 +280,13 @@ public final class ClientDomains {
 				startFlood(client, domain);
 			}
 		}
+		// Its end: let go of, it fades away; cut short, it shatters.
 		if (passed(from, to, domain.collapse())) {
 			stopSounds(client, domain);
 			if (hearsInside(client, domain)) {
-				master(client, GojoSounds.COLLAPSE, 1.0F);
+				master(client, domain.shattered ? GojoSounds.COLLAPSE : GojoSounds.FADE, 1.0F);
 			} else if (inRange) {
-				at(client, domain.center, GojoSounds.COLLAPSE_WORLD, 3.0F);
+				at(client, domain.center, domain.shattered ? GojoSounds.COLLAPSE_WORLD : GojoSounds.FADE_WORLD, 3.0F);
 			}
 		}
 	}

@@ -28,6 +28,13 @@ public final class GojoRules {
 	public static final GameRules.Key<GameRules.BooleanRule> VOID_BREAKS = GameRuleRegistry.register(
 			"unlimitedVoidBreaks", GameRules.Category.MISC, GameRuleFactory.createBooleanRule(true));
 
+	/**
+	 * How far the Six Eyes see through the blindfold (and through walls): every living thing within this many blocks of
+	 * its owner shows to him. 0 turns them off.
+	 */
+	public static final GameRules.Key<GameRules.IntRule> SIX_EYES_RANGE = GameRuleRegistry.register(
+			"sixEyesRange", GameRules.Category.MISC, GameRuleFactory.createIntRule(24, 0, 64));
+
 	private GojoRules() {
 	}
 

@@ -28,7 +28,9 @@ public final class ClientDomain {
 	public final Set<Integer> caught = new HashSet<>();
 	/** Whether this client's player is one of them. */
 	public boolean holdsMe;
-	/** The void's sounds, stopped when it shatters. */
+	/** Whether it was cut short (its caster fell, an operator ended it): then it shatters, instead of fading away. */
+	public boolean shattered;
+	/** The void's sounds, stopped as it ends. */
 	@Nullable
 	SoundInstance voidSound;
 	@Nullable

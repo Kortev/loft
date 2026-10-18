@@ -57,6 +57,22 @@
       }
     ]
   },
+  "domain.fade": {
+    "subtitle": "subtitles.gojolander.domain.fade",
+    "sounds": [
+      {
+        "name": "gojolander:domain_fade"
+      }
+    ]
+  },
+  "domain.fade.world": {
+    "subtitle": "subtitles.gojolander.domain.fade.world",
+    "sounds": [
+      {
+        "name": "gojolander:domain_fade_world"
+      }
+    ]
+  },
   "domain.collapse": {
     "subtitle": "subtitles.gojolander.domain.collapse",
     "sounds": [

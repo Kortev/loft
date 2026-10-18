@@ -1,6 +1,6 @@
 {
   "item.gojolander.blindfold": "Blindfold",
-  "item.gojolander.blindfold.tooltip.0": "Worn over the eyes, in place of a helmet.",
+  "item.gojolander.blindfold.tooltip.0": "Worn over the eyes, in place of a helmet. Its owner sees through it, and through walls.",
   "item.gojolander.blindfold.tooltip.1": "Its owner casts his ult with it on: Domain Expansion, Unlimited Void.",
   "item.gojolander.blindfold.tooltip.2": "On anyone else, a strip of black cloth.",
   "key.categories.gojolander": "Gojolander",
@@ -31,6 +31,8 @@
   "subtitles.gojolander.domain.reveal": "The void opens",
   "subtitles.gojolander.domain.void": "The void hums",
   "subtitles.gojolander.domain.flood": "Everything, all at once",
+  "subtitles.gojolander.domain.fade": "The void fades",
+  "subtitles.gojolander.domain.fade.world": "A barrier fades",
   "subtitles.gojolander.domain.collapse": "The barrier shatters",
   "subtitles.gojolander.domain.collapse.world": "A barrier shatters",
   "subtitles.gojolander.domain.denied": "Nothing happens",
@@ -43,5 +45,8 @@
   "advancements.gojolander.crowd.title": "The Honored One",
   "advancements.gojolander.crowd.description": "Catch ten at once in Unlimited Void",
   "gamerule.unlimitedVoidBreaks": "Unlimited Void: breaks the caught",
-  "gamerule.unlimitedVoidBreaks.description": "Whether whoever it holds to the end is left at half a heart when it shatters."
+  "gamerule.unlimitedVoidBreaks.description": "Whether whoever it holds to the end is left at half a heart when it shatters.",
+  "gamerule.sixEyesRange": "Six Eyes: range",
+  "gamerule.sixEyesRange.description": "How far the blindfold's owner sees the living through walls, in blocks. 0 turns it off.",
+  "commands.gojolander.cast": "%s casts Unlimited Void."
 }

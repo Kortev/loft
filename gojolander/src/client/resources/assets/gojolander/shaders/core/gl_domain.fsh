@@ -10,7 +10,8 @@
 // Inside it: the same ink and black, then nothing (black, silence), then the void opening out of the great eye over
 // the whole sky: endless space, light flowing past in slow curving rivers towards the eye, the eye a black disc that
 // bends the stars round it in a ring of white fire, and still black water underfoot giving all of it back, rippling
-// round him. At the end it cracks out from the eye and falls away in shards, the world behind.
+// round him. At the end, let go of, it fades away as in the show, dissolving like smoke with the world showing through;
+// cut short (its caster fallen), it cracks out from the eye and falls away in shards instead.
 //
 // Made to be cheap, being drawn over the whole screen every frame: the void's smooth sky comes painted in a panorama
 // (Sampler2, gl_sky) and only its sharp parts are worked out here; the surfaces' facing comes from the screen's own
@@ -32,6 +33,8 @@ uniform float Rise;
 uniform float Black;
 uniform float Open;
 uniform float Shatter;
+// How far it has faded away, at its natural end (0 to 1).
+uniform float Fade;
 // 1 when the camera is inside the sphere.
 uniform float Inside;
 // The way the great eye lies (a unit vector); where the caster stands, for the ripples; where the cracks start.
@@ -219,7 +222,17 @@ vec3 skin(vec3 s, vec3 d, bool outside) {
     return c;
 }
 
-// ---- the shattering --------------------------------------------------------------------------------------------
+// ---- its end ---------------------------------------------------------------------------------------------------
+
+// Fading away, for a direction n (on the sphere, or from the camera): it dissolves like smoke, patch by patch, wisps of
+// light along where it is going. x: how much of it is still there; y: the light of its going edge.
+vec2 dissolve(vec3 n, float f) {
+    float k = fbm(n * 3.2 + vec3(0.0, Time * 0.15, 0.0));
+    float edge = f * 1.3 - 0.15;
+    float there = smoothstep(edge, edge + 0.14, k);
+    float wisp = exp(-abs(k - edge - 0.07) * 38.0) * (1.0 - f) * step(0.001, f);
+    return vec2(there, wisp);
+}
 
 // The barrier as glass breaking, for a direction n (on the sphere, or from the camera): cracks running out from
 // impact in long rays and rings, then the shards falling away from there outward, shrinking and turning as they go,
@@ -301,7 +314,7 @@ void main() {
         float ground = smoothstep(2.5, 0.5, p.y) * smoothstep(-Radius, -Radius * 0.6, p.y);
         // Over the ground, not up whoever stands on it.
         ground *= smoothstep(0.35, 0.75, n.y);
-        float ink = smoothstep(edge, edge - 1.5, r) * ground * (1.0 - Shatter);
+        float ink = smoothstep(edge, edge - 1.5, r) * ground * (1.0 - Shatter) * (1.0 - Fade);
         if (ink > 0.0) {
             float wet = noise(vec3(p.xz * 0.6, Time * 0.1));
             c = mix(c, vec3(0.008, 0.01, 0.025) + vec3(0.03, 0.05, 0.1) * smoothstep(0.6, 0.8, wet), ink * 0.9);
@@ -316,7 +329,7 @@ void main() {
     if (!camIn && Rise > 0.0 && !sky) {
         float beyond = length(p) - Radius;
         float pool = smoothstep(3.0, 0.0, beyond) * step(0.0, beyond) * smoothstep(2.0, 0.0, p.y + 0.5) * Rise;
-        c = mix(c, vec3(0.006, 0.008, 0.02), pool * 0.7 * (1.0 - Shatter));
+        c = mix(c, vec3(0.006, 0.008, 0.02), pool * 0.7 * (1.0 - Shatter) * (1.0 - Fade));
     }
 
     // The barrier, from the moment the black starts to climb until it is gone. Outside, it hides what is inside it.
@@ -330,6 +343,10 @@ void main() {
                     vec2 sh = shards(normalize(s), Impact, Shatter);
                     k = mix(c, k, sh.x) + vec3(0.8, 0.92, 1.0) * sh.y * 0.9;
                 }
+                if (Fade > 0.0) {
+                    vec2 fd = dissolve(normalize(s), Fade);
+                    k = mix(c, k, fd.x) + vec3(0.6, 0.8, 1.0) * fd.y * 0.8;
+                }
                 c = k;
             } else {
                 // Not yet closed over here: through the gap, the inside of the far wall.
@@ -342,7 +359,7 @@ void main() {
             // The air bending round its edge.
             float b = dot(o, dir);
             float closest = sqrt(max(dot(o, o) - b * b, 0.0));
-            float haze = smoothstep(Radius * 1.06, Radius, closest) * step(b, 0.0) * (1.0 - Shatter);
+            float haze = smoothstep(Radius * 1.06, Radius, closest) * step(b, 0.0) * (1.0 - Shatter) * (1.0 - Fade);
             if (haze > 0.0) {
                 vec2 wobble = vec2(sin(Time * 2.3 + uv.y * 90.0), cos(Time * 1.9 + uv.x * 70.0)) * 0.0025 * haze;
                 c = mix(c, scene(uv + wobble), haze) + vec3(0.02, 0.04, 0.1) * haze * 0.5;
@@ -377,6 +394,10 @@ void main() {
                 c = mix(world, c, sh.x) + vec3(0.8, 0.92, 1.0) * sh.y * 1.0;
                 // The flash of it going.
                 c += vec3(0.8, 0.9, 1.0) * exp(-abs(Shatter - 0.3) * 18.0) * 0.35;
+            }
+            if (Fade > 0.0) {
+                vec2 fd = dissolve(dir, Fade);
+                c = mix(world, c, fd.x) + vec3(0.6, 0.8, 1.0) * fd.y * 0.9;
             }
         }
     }

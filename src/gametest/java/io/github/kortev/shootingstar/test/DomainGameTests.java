@@ -6,6 +6,7 @@ import io.github.kortev.gojolander.GojoRules;
 import io.github.kortev.gojolander.Owner;
 import io.github.kortev.gojolander.domain.DomainManager;
 import io.github.kortev.gojolander.domain.DomainTimeline;
+import io.github.kortev.gojolander.sight.SixEyes;
 import io.github.kortev.shootingstar.OwnerOnly;
 import io.netty.channel.embedded.EmbeddedChannel;
 import java.util.ArrayList;
@@ -102,6 +103,31 @@ public class DomainGameTests implements FabricGameTest {
 			DomainManager.collapseAll();
 			owner(context);
 			remove(context, bare, other);
+		}
+		context.complete();
+	}
+
+	/**
+	 * The Six Eyes: its owner sees through walls with the blindfold on, as far as the rule says, and not with it off;
+	 * nobody else does with it on; and with the rule at 0, not even he does.
+	 */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "g_gojo_eyes", tickLimit = 20)
+	public void sixEyesFollowTheBlindfold(TestContext context) {
+		ServerWorld world = context.getWorld();
+		world.getGameRules().get(GojoRules.SIX_EYES_RANGE).set(24, world.getServer());
+		ServerPlayerEntity owner = player(context, owner(context), null);
+		ServerPlayerEntity other = player(context, "not_the_owner", null);
+		try {
+			context.assertTrue(SixEyes.range(owner) == 0, "the owner saw through walls without the blindfold on");
+			owner.equipStack(EquipmentSlot.HEAD, new ItemStack(Gojolander.BLINDFOLD));
+			other.equipStack(EquipmentSlot.HEAD, new ItemStack(Gojolander.BLINDFOLD));
+			context.assertTrue(SixEyes.range(owner) == 24, "the owner did not see 24 blocks with it on: " + SixEyes.range(owner));
+			context.assertTrue(SixEyes.range(other) == 0, "someone else saw through walls with it on");
+			world.getGameRules().get(GojoRules.SIX_EYES_RANGE).set(0, world.getServer());
+			context.assertTrue(SixEyes.range(owner) == 0, "the owner saw with the rule at 0");
+		} finally {
+			world.getGameRules().get(GojoRules.SIX_EYES_RANGE).set(24, world.getServer());
+			remove(context, owner, other);
 		}
 		context.complete();
 	}

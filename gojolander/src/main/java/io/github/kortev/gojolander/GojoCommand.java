@@ -13,8 +13,8 @@ import net.minecraft.util.math.Vec3d;
 
 /**
  * {@code /gojolander}, for operators: {@code owner [<name>]} shows or sets whose this mod is; {@code domain <pos>} casts
- * a Domain there with nobody casting it (everyone inside is caught); {@code collapse} shatters every Domain now; and
- * {@code ready <player>} makes their Domain ready again.
+ * a Domain there with nobody casting it (everyone inside is caught); {@code collapse} shatters every Domain now;
+ * {@code ready <player>} makes their Domain ready again; and {@code cast <player>} casts as if they had pressed the key.
  */
 public final class GojoCommand {
 	private GojoCommand() {
@@ -44,7 +44,19 @@ public final class GojoCommand {
 								}))
 						.then(CommandManager.literal("ready")
 								.then(CommandManager.argument("player", EntityArgumentType.player())
-										.executes(context -> ready(context.getSource(), EntityArgumentType.getPlayer(context, "player")))))));
+										.executes(context -> ready(context.getSource(), EntityArgumentType.getPlayer(context, "player")))))
+						.then(CommandManager.literal("cast")
+								.then(CommandManager.argument("player", EntityArgumentType.player())
+										.executes(context -> cast(context.getSource(), EntityArgumentType.getPlayer(context, "player")))))));
+	}
+
+	/** As if {@code player} had pressed the Domain key (for trying it out, or from a datapack): the same rules hold. */
+	private static int cast(ServerCommandSource source, ServerPlayerEntity player) {
+		boolean cast = DomainManager.cast(player);
+		if (cast) {
+			source.sendFeedback(() -> Text.translatable("commands.gojolander.cast", player.getDisplayName()), true);
+		}
+		return cast ? 1 : 0;
 	}
 
 	private static int owner(ServerCommandSource source, String name) {

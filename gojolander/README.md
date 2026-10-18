@@ -6,7 +6,7 @@ rival. It needs The Shooting Star installed: it is under that mod's rule that on
 not make it at all), and only for **him**. Here, his things work for him alone too: on anyone else the blindfold is a
 strip of black cloth. (Until he is made its owner, it is open to everyone: see below.)
 
-For now he has one thing, the blindfold, and what he casts with it.
+For now he has one thing, the blindfold: what he sees through it, and what he casts with it.
 
 ## The blindfold
 
@@ -19,6 +19,12 @@ be, and keeps out nothing a helmet would: wearing it is going without one.
   cast with it**, to try it out. An operator makes it his alone on the server with `/gojolander owner <name>` (no new
   jar needed); the world keeps it, and from then on only he crafts it and only he can cast. (The stand-in for nobody,
   `-unclaimed-` in `Owner.PLACEHOLDER`, is a name no account can have.)
+
+## The Six Eyes
+
+The blindfold does not blind him; it is how he sees. With it on, every living thing within **24 blocks**
+(`sixEyesRange`) shows to him through whatever stands between them: walls, hills, the dark, outlined in the cold blue
+of his eyes. Only he sees it, and only with the blindfold on; at 0 the rule turns it off.
 
 ## Domain Expansion: Unlimited Void
 
@@ -50,10 +56,13 @@ His ult. With the blindfold on, he presses **Z** (rebindable: Domain Expansion).
     they hear is a roar of data and voices and a ringing in the ears.
   - **Nothing crosses the barrier** either way while it stands. Whoever tries is put back where they were; anything
     fired at it or out of it stops against it, in a puff of ink.
-- **15 to 16.5 s, the shattering.** Cracks run out across it from the eye (from outside, from the side facing you), in
-  long rays and rings, then it shatters, the shards falling away nearest first, edges catching the light, the world
-  behind and its air rushing back. His left hand comes up again and pulls the blindfold back down over his eyes. The
-  caught go free **broken: half a heart**, and slow, weak and half blind for 15 s. The finishing is left to him.
+- **15 to 16.5 s, it fades.** As in the show, when it has done its work it simply goes: the void and the barrier thin
+  away like smoke, patch by patch, wisps of light along their going edges, the world showing through, with a long
+  falling breath of sound. His left hand comes up again and pulls the blindfold back down over his eyes. The caught go
+  free **broken: half a heart**, and slow, weak and half blind for 15 s. The finishing is left to him.
+- **Cut short, it shatters** instead: cracks run out across it from the eye (from outside, from the side facing you),
+  in long rays and rings, then the shards fall away nearest first, edges catching the light, the world behind and its
+  air rushing back.
 
 He can cast it again **15 minutes** after he cast it (the blindfold shows it cooling, through leaving and coming back
 too). There is no other cost. It ends at once, shattering, if he dies or leaves (then the caught are only shaken, not
@@ -68,6 +77,7 @@ broken), or if kortev's Genesis Key takes the world; and it is not cast at all w
 | `/gojolander domain <pos>` | Casts a Domain at `pos` with nobody casting it: everyone inside is caught. |
 | `/gojolander collapse` | Shatters every Domain now. |
 | `/gojolander ready <player>` | Makes that player's Domain ready again. |
+| `/gojolander cast <player>` | As if that player had pressed the key (for trying it, or from a datapack): the same rules hold. |
 
 ### Game rules (for balancing it against everyone's mods)
 
@@ -77,18 +87,31 @@ broken), or if kortev's Genesis Key takes the world; and it is not cast at all w
 | `unlimitedVoidHoldSeconds` | 10 | 1 to 30 | How long the void stays open, holding the caught. |
 | `unlimitedVoidCooldownSeconds` | 900 | 0 to 7200 | How long before he can cast it again. |
 | `unlimitedVoidBreaks` | true | | Whether whoever it holds to the end is left at half a heart. |
+| `sixEyesRange` | 24 | 0 to 64 | How far he sees through things with the blindfold on (0: not at all). |
+
+### With Sodium, Iris and shader packs
+
+It works with Sodium and with Iris, shader packs on or off (tried with Complementary Reimagined). A shader pack draws
+the world into its own pictures and lays them over the screen only at the very end, so with one in use the Domain is
+drawn after the pack has finished each frame (`ShaderPacks`, `AfterWorldMixin`) instead of at the end of the world's
+drawing.
 
 ## How it is made
 
 - `gojolander/` is its own Gradle subproject and jar (`gojolander-<version>.jar`), set up like `chitty/`. Its tests
   (`DomainGameTests`) and its client self test (`DomainSelfTest`, `-Pselftest=domain`, screenshots of it cast, watched
-  from outside and caught in) are in the root project's harness.
+  from outside and caught in) are in the root project's harness, and so is its multiplayer test (`tools/mptest.sh
+  domain`: a dedicated server and three clients, one casting it, one caught, one looking on from outside; twice, the
+  second time the caster leaving the game in the middle of it; `DomainMultiplayerServer` logs a PASS or FAIL for
+  each thing it checks).
 - The server: `domain/DomainManager` (who may cast, catching, holding, the barrier, letting go), against
   `domain/DomainTimeline`. The client: `ClientDomains` (state, sounds), `DomainRender` with `gl_domain.fsh` (the ink,
   the black rising, the sphere, the black and the reveal, the void, the shattering, in one full-screen pass) and
   `gl_rim.fsh` (whoever is in the void with you, lit by the eye), `gl_sky.fsh` (the void's smooth sky, painted
   into a small panorama every other frame so the pass only looks it up: the pass is about a fifth of what it was), `DomainHud` with `gl_flood.fsh` (the flood, the
   name), `DomainCamera` (his shots and the punch-in), `BlindfoldFeature`, `HandSign`, `PlayerModelMixin` and
-  `HeldTrembleMixin` (the cloth, the eyes, his hands lifting and lowering it, the sign, the caught trembling). The self
+  `HeldTrembleMixin` (the cloth, the eyes, his hands lifting and lowering it, the sign, the caught trembling);
+  `sight/SixEyes` and `SixEyesClient` with `SixEyesMixin` and `SixEyesColorMixin` (the Six Eyes, drawn as the
+  game's own outlines). The self
   test logs the frame rate and each pass's cost once a second (`[perf]` in the log).
 - Sounds: `python tools/gen_gojolander_sounds.py`; textures: `python tools/gen_gojolander_textures.py`.

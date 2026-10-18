@@ -23,7 +23,10 @@ public final class GojoSounds {
 	public static final SoundEvent VOID = register("domain.void");
 	/** What those it caught hear: everything there is, at once. */
 	public static final SoundEvent FLOOD = register("domain.flood");
-	/** The barrier shattering and the world rushing back. */
+	/** Let go of, the void fading away: its hum sinking and thinning into air, the world's quiet coming back. */
+	public static final SoundEvent FADE = register("domain.fade");
+	public static final SoundEvent FADE_WORLD = register("domain.fade.world");
+	/** Cut short, the barrier shattering and the world rushing back. */
 	public static final SoundEvent COLLAPSE = register("domain.collapse");
 	public static final SoundEvent COLLAPSE_WORLD = register("domain.collapse.world");
 	/** Not now: a soft dead click. */

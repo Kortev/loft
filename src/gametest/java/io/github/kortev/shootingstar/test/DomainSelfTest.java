@@ -156,8 +156,16 @@ public class DomainSelfTest implements ClientModInitializer {
 				if (ticks == 150) {
 					shot(client, "a01_blindfold_back.png");
 					client.options.setPerspective(Perspective.FIRST_PERSON);
+					// The Six Eyes: round to the wall with a villager behind it.
+					client.player.setYaw(facing - 90.0F);
+					client.player.setPitch(4.0F);
 				}
-				if (ticks >= 165) {
+				if (ticks == 158) {
+					shot(client, "a02_six_eyes.png");
+					client.player.setYaw(facing);
+					client.player.setPitch(0.0F);
+				}
+				if (ticks >= 170) {
 					stage = Stage.CAST;
 					ticks = 0;
 				}
@@ -221,10 +229,14 @@ public class DomainSelfTest implements ClientModInitializer {
 						DomainManager.launch(world, center, null);
 					});
 					int c = DomainTimeline.collapse(HOLD);
-					stills(8, 24, 40, 56, 64, 72, 80, 88, 140, c + 5, c + 10, c + 16, c + 24);
+					stills(8, 24, 40, 56, 64, 72, 80, 88, 140, 190, c + 5, c + 10, c + 16, c + 24);
 				}
 				if (ticks > 41) {
 					ClientDomain domain = latest();
+					// This one is cut short (as if its caster fell): it shatters, instead of fading away.
+					if (domain != null && domain.age == 200) {
+						server.execute(DomainManager::collapseAll);
+					}
 					photograph(client, domain, "c");
 					if (domain == null && ticks > 60 || domain != null && domain.age > DomainTimeline.end(HOLD) + 5) {
 						stage = Stage.CAUGHT;
@@ -313,6 +325,16 @@ public class DomainSelfTest implements ClientModInitializer {
 		Vec3d at = Vec3d.ofBottomCenter(home);
 		player.networkHandler.requestTeleport(at.x, at.y, at.z, facing, 0.0F);
 
+		// A wall off to his left, a villager stood behind it, for the Six Eyes to see through.
+		Vec3d left = direction(facing - 90.0F);
+		BlockPos wall = BlockPos.ofFloored(at.add(left.multiply(5.0)));
+		for (int across = -2; across <= 2; across++) {
+			for (int up = 0; up < 4; up++) {
+				world.setBlockState(wall.add(MathHelper.floor(direction(facing).x * across), up, MathHelper.floor(direction(facing).z * across)),
+						Blocks.STONE_BRICKS.getDefaultState());
+			}
+		}
+		set(world, EntityType.VILLAGER, at.add(left.multiply(8.0)), facing + 90.0F);
 		// Creatures stood round him: some in front, where the camera looks, some behind and to the sides.
 		set(world, EntityType.VILLAGER, at.add(direction(facing).multiply(6.0)).add(direction(facing + 90.0F).multiply(3.0)), facing + 180.0F);
 		set(world, EntityType.ZOMBIE, at.add(direction(facing).multiply(9.0)).add(direction(facing - 90.0F).multiply(4.0)), facing + 160.0F);

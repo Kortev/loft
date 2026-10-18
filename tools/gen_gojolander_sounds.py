@@ -15,8 +15,10 @@ Each is timed to the Domain's timeline (DomainTimeline, in ticks of 1/20 s):
   then a far, clear glint of light;
 - the flood: what the caught hear, everything there is at once: a roaring rush, chattering data, voices that are not
   voices, a ringing in the ears;
-- the collapse: the barrier cracking out from one point (the first 0.45 s), then shattering, its shards falling and
-  tinkling away, and the world's air rushing back in;
+- the fade (its natural end, as in the show): the void's chord sinking and thinning away into air, a long soft
+  exhale outward, and the world's quiet coming back;
+- the collapse (cut short): the barrier cracking out from one point (the first 0.45 s), then shattering, its shards
+  falling and tinkling away, and the world's air rushing back in;
 - the denied: a soft dead click.
 
 Usage: python tools/gen_gojolander_sounds.py [--wav DIR] [name ...]
@@ -325,6 +327,30 @@ def rush_back(n, at):
     return sweep_filter(pink(n), 'lowpass', curve(n, [(at, 7000.0), (at + 1.5, 900.0)], 'log'), order=2) * env
 
 
+def domain_fade():
+    """Let go of: the void's chord sinking a little and thinning into air, a long soft exhale outward, quiet after."""
+    n = ns(4.0)
+    out = np.zeros((2, n))
+    fall = curve(n, [(0.0, 1.0), (1.6, 0.94), (4.0, 0.9)])
+    env = curve(n, [(0.0, 1.0), (0.4, 0.8), (1.8, 0.15), (3.0, 0.0)]) ** 1.5
+    for f, gain, where in ((55.0, 0.45, 0.0), (110.0, 0.3, -0.4), (164.8, 0.22, 0.4), (220.0, 0.16, -0.6), (329.6, 0.1, 0.6)):
+        out += pan((sine(f * fall, n) + 0.5 * sine(f * fall * 1.004, n, phase=1.1)) * gain * env, where)
+    air = decorrelated(n, lambda m: sweep_filter(pink(m), 'lowpass', curve(m, [(0.0, 6000.0), (2.5, 600.0)], 'log'), order=2),
+                       0.9)
+    out += air * attack_decay(n, 0.25, 1.0) * 0.35
+    _, _, _, space = spaces()
+    return master(reverb(out, space, wet=0.5), peak=0.95)
+
+
+def domain_fade_world():
+    n = ns(4.0)
+    y = lp(white(n), 220) * attack_decay(n, 0.05, 0.5) * 0.8 + sweep_filter(pink(n), 'lowpass',
+                                                                             curve(n, [(0.0, 4000.0), (2.5, 400.0)], 'log'),
+                                                                             order=2) * attack_decay(n, 0.2, 0.9) * 0.5
+    outdoor, _, _, _ = spaces()
+    return master(reverb(y, outdoor, wet=0.35), peak=0.95)
+
+
 def domain_collapse():
     n = ns(4.0)
     out = cracks(n, 0.0, CRACKS, 34.0)
@@ -360,6 +386,8 @@ SOUNDS = {
     'domain_reveal': (domain_reveal, True),
     'domain_void': (domain_void, True),
     'domain_flood': (domain_flood, True),
+    'domain_fade': (domain_fade, True),
+    'domain_fade_world': (domain_fade_world, False),
     'domain_collapse': (domain_collapse, True),
     'domain_collapse_world': (domain_collapse_world, False),
     'domain_denied': (domain_denied, False),
@@ -368,8 +396,8 @@ LOOPS = ('domain_void', 'domain_flood')
 # Loudness (loudest 400 ms, dB).
 # How long each one-shot runs at most (seconds): the reverb's long tail is cut short and faded.
 LENGTHS = {'domain_sign': 4.6, 'domain_sign_world': 4.8, 'domain_close': 3.2, 'domain_close_world': 5.0,
-           'domain_reveal': 6.0, 'domain_collapse': 4.0, 'domain_collapse_world': 5.0, 'domain_denied': 0.35}
-LEVELS = {'domain_reveal': -13, 'domain_sign': -16, 'domain_sign_world': -18, 'domain_close': -12, 'domain_close_world': -13, 'domain_void': -21,
+           'domain_reveal': 6.0, 'domain_fade': 4.0, 'domain_fade_world': 4.0, 'domain_collapse': 4.0, 'domain_collapse_world': 5.0, 'domain_denied': 0.35}
+LEVELS = {'domain_fade': -15, 'domain_fade_world': -16, 'domain_reveal': -13, 'domain_sign': -16, 'domain_sign_world': -18, 'domain_close': -12, 'domain_close_world': -13, 'domain_void': -21,
           'domain_flood': -17, 'domain_collapse': -12, 'domain_collapse_world': -13, 'domain_denied': -20}
 
 
