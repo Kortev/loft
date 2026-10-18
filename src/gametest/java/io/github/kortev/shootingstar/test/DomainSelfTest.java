@@ -263,6 +263,9 @@ public class DomainSelfTest implements ClientModInitializer {
 		world.setTimeOfDay(5000);
 		world.setWeather(12000, 0, false, false);
 		Owner.set(server, player.getGameProfile().getName());
+		// Whatever the last run left on them (its daze is saved with the world) is gone, and they are whole.
+		player.clearStatusEffects();
+		player.setHealth(player.getMaxHealth());
 		player.changeGameMode(GameMode.SURVIVAL);
 		player.addStatusEffect(new StatusEffectInstance(StatusEffects.RESISTANCE, 20 * 60 * 10, 4, false, false));
 		player.addStatusEffect(new StatusEffectInstance(StatusEffects.SATURATION, 20 * 60 * 10, 0, false, false));
