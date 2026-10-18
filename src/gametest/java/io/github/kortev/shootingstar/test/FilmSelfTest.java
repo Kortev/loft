@@ -8,6 +8,7 @@ import io.github.kortev.shootingstar.gap.GapTimeline;
 import io.github.kortev.shootingstar.registry.ModGameRules;
 import io.github.kortev.shootingstar.registry.ModItems;
 import io.netty.channel.embedded.EmbeddedChannel;
+import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.List;
@@ -229,7 +230,12 @@ public class FilmSelfTest implements ClientModInitializer {
 		if (!mode.startsWith("film-")) {
 			return;
 		}
-		me = Role.valueOf(mode.substring(5).toUpperCase(Locale.ROOT));
+		String who = mode.substring(5).toUpperCase(Locale.ROOT);
+		if (Arrays.stream(Role.values()).noneMatch(role -> role.name().equals(who))) {
+			// Another film, not the series' (FilmDomain).
+			return;
+		}
+		me = Role.valueOf(who);
 		human = new FilmHuman(me.ordinal() * 7919L + 17L);
 		Thread watchdog = new Thread(() -> {
 			try {

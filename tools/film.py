@@ -2,6 +2,7 @@
 
     python tools/film.py kortev            # or woomerd, gerald; several at once; or all
     python tools/film.py all --fresh-world  # make the test world again first
+    python tools/film.py domain             # the first friend's ult, from his eyes (FilmDomain), Kortev caught in it
 
 Each take starts from a clean copy of the self-test world (made once with runGenworld, seed "shootingstar"), plays the
 whole scripted episode with the other two players moved by the server, and writes:
@@ -24,6 +25,7 @@ Needs: Java 21 (JAVA_HOME or on the PATH), ffmpeg on the PATH, Python 3 with num
 fetched from Mojang the first time (build/selftest/skins; --skins fetches them again).
 """
 import argparse
+import json
 import os
 import shutil
 import subprocess
@@ -35,7 +37,9 @@ SERVER = os.path.join(BUILD, 'selftest-server')
 CLIENT = os.path.join(BUILD, 'selftest')
 OUT = os.path.join(BUILD, 'film')
 SCRIPTS = os.path.join(ROOT, '.github', 'scripts')
-WHO = {'kortev': 'Kortev', 'woomerd': 'Woomerd', 'gerald': 'gerald_2009'}
+WHO = {'kortev': 'Kortev', 'woomerd': 'Woomerd', 'gerald': 'gerald_2009', 'domain': 'Rival'}
+# The Genesis Key series' three takes ("all"); "domain" is a film of its own.
+SERIES = ['kortev', 'woomerd', 'gerald']
 GRADLEW = os.path.join(ROOT, 'gradlew.bat' if os.name == 'nt' else 'gradlew')
 
 
@@ -85,6 +89,11 @@ def world(fresh):
 
 def skins(again):
     folder = os.path.join(CLIENT, 'skins')
+    # The first friend's stand-in (his own skin goes here instead, once there is his: Rival.png).
+    rival = os.path.join(folder, 'Rival.png')
+    if not os.path.exists(rival):
+        os.makedirs(folder, exist_ok=True)
+        subprocess.run([sys.executable, os.path.join(ROOT, 'tools', 'film_skin.py'), rival], check=True)
     if not again and all(os.path.exists(os.path.join(folder, n + '.png')) for n in ('Kortev', 'Woomerd')):
         return
     say('fetching skins')
@@ -121,6 +130,15 @@ def take(who, window):
     if not os.path.exists(os.path.join(capture, 'video.mp4')):
         say('no video was recorded: see build/selftest/logs/latest.log')
         sys.exit(1)
+    # A loop the take tracked itself (loops.json: the Domain's hum) is heard as its track, not once from its start too.
+    loops = os.path.join(capture, 'loops.json')
+    log = os.path.join(capture, 'sounds.json')
+    if os.path.exists(loops) and os.path.exists(log):
+        tracked = {t['loop'] for t in json.load(open(loops))['tracks']}
+        with open(log) as f:
+            sounds = json.load(f)
+        with open(log, 'w') as f:
+            json.dump([x for x in sounds if x['file'] not in tracked], f, indent=1)
     subprocess.run([sys.executable, os.path.join(SCRIPTS, 'render-loops.py'), capture])
     master = os.path.join(OUT, who + '.mp4')
     env = dict(os.environ, MUX_CRF='17', MUX_PRESET='medium')
@@ -147,8 +165,8 @@ def main():
     parser.add_argument('--fresh-world', action='store_true', help='make the self-test world again first')
     parser.add_argument('--skins', action='store_true', help="fetch Kortev's and Woomerd's skins again")
     args = parser.parse_args()
-    who = list(WHO) if 'all' in args.who else list(dict.fromkeys(args.who))
-    if 'all' in args.who and not all(os.path.exists(os.path.join(OUT, 'moves', w + '.tsv')) for w in WHO):
+    who = list(SERIES) if 'all' in args.who else list(dict.fromkeys(args.who))
+    if 'all' in args.who and not all(os.path.exists(os.path.join(OUT, 'moves', w + '.tsv')) for w in SERIES):
         who += ['kortev', 'woomerd']
     check()
     world(args.fresh_world)

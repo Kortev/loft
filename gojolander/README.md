@@ -104,6 +104,10 @@ drawing.
   domain`: a dedicated server and three clients, one casting it, one caught, one looking on from outside; twice, the
   second time the caster leaving the game in the middle of it; `DomainMultiplayerServer` logs a PASS or FAIL for
   each thing it checks).
+- A film of it for a Short, from his own eyes (`FilmDomain`, `python tools/film.py domain`): Kortev comes at him with
+  a sword, is caught, and is finished off after it fades. Cut with `python tools/shorts.py tools/shorts/domain.json`.
+  His skin there is a stand-in (`tools/film_skin.py`) until there is the friend's own: put it at
+  build/selftest/skins/Rival.png.
 - The server: `domain/DomainManager` (who may cast, catching, holding, the barrier, letting go), against
   `domain/DomainTimeline`. The client: `ClientDomains` (state, sounds), `DomainRender` with `gl_domain.fsh` (the ink,
   the black rising, the sphere, the black and the reveal, the void, the shattering, in one full-screen pass) and
