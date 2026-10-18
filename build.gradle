@@ -48,6 +48,14 @@ base {
 	archivesName = project.archives_base_name
 }
 
+// Other players' mods run beside these in the dev game, to see how everything looks with them (Sodium, Iris and a
+// shader pack, say): -PextraMods=path/to/one.jar;path/to/another.jar. Never part of a build or a jar.
+if (project.hasProperty('extraMods')) {
+	dependencies {
+		project.property('extraMods').toString().split(';').findAll { it }.each { modLocalRuntime files(it) }
+	}
+}
+
 def chittyProject = project(":chitty")
 def gojolanderProject = project(":gojolander")
 
@@ -136,12 +144,14 @@ loom {
 			runDir "build/crash/server"
 			source sourceSets.gametest
 		}
-		// The multiplayer test: a dedicated server and three clients (MultiplayerTestServer, MultiplayerTestClient).
+		// The multiplayer test: a dedicated server and three clients (MultiplayerTestServer, MultiplayerTestClient), playing
+		// a Ginnungagap together, or with -Pscenario=domain the Domain (DomainMultiplayerServer, DomainMultiplayerClient).
 		mpserver {
 			server()
 			name = "MP Test Server"
 			vmArg "-Xmx3G"
 			vmArg "-Dshootingstar.mptest=server"
+			vmArg "-Dshootingstar.mptest.scenario=${project.findProperty('scenario') ?: 'gap'}"
 			runDir "build/mp/server"
 			source sourceSets.gametest
 		}
@@ -151,6 +161,7 @@ loom {
 				name = "MP Test " + who
 				vmArg "-Xmx2G"
 				vmArg "-Dshootingstar.selftest=mp-" + who.toLowerCase()
+				vmArg "-Dshootingstar.mptest.scenario=${project.findProperty('scenario') ?: 'gap'}"
 				runDir "build/mp/" + who.toLowerCase()
 				source sourceSets.gametest
 				programArgs "--quickPlayMultiplayer", "localhost:25565", "--username", who, "--width", "854", "--height", "480"

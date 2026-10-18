@@ -51,17 +51,23 @@ The SMP after the Shorts is real players (the Shorts' Woomerd and gerald_2009 ar
 friend gets their own mod, presented on the server as things that exist there, never named publicly.
 
 - **Gojolander** (`gojolander/`): the first friend, kortev's rival, who wants to be Gojo (Jujutsu Kaisen) and Homelander
-  (The Boys) at once. Built so far: the blindfold and his ult, **Domain Expansion: Unlimited Void** (a 4 s cast
-  cinematic, a 32-block sphere, 10 s of void with the caught held still and flooded, the barrier nobody crosses, the
-  shattering, and the caught left at half a heart; 15-minute cooldown, no cost, as kortev chose), its sounds, recipe,
-  advancements, commands, game rules for balance, game tests (`DomainGameTests`) and a client self test with
-  screenshots (`-Pselftest=domain`). Branch `claude/gojolander-domain`.
+  (The Boys) at once. Built so far: the blindfold, the **Six Eyes** (with it on he sees living things through walls,
+  24 blocks) and his ult, **Domain Expansion: Unlimited Void** (a 4 s cast cinematic, a 32-block sphere, 10 s of void
+  with the caught held still and flooded, the barrier nobody crosses, then it fading away as in the show, or
+  shattering if cut short, and the caught left at half a heart; 15-minute cooldown, no cost, as kortev chose), its
+  sounds, recipe, advancements, commands, game rules for balance, game tests (`DomainGameTests`), a client self test
+  with screenshots (`-Pselftest=domain`) and a three-player test (`tools/mptest.sh domain`). It works with Sodium, Iris
+  and shader packs. Branch `claude/gojolander-domain`.
+  - kortev's rule for it: **everything should match the show** (so no counter item; it fades at its end).
   - It is nobody's until kortev has the friend's Minecraft name, and while it is nobody's anyone can craft and cast
     it (kortev wanted to test it). `/gojolander owner <name>` on the server makes it the friend's alone (kortev's
     choice for the SMP: on anyone else the blindfold is just cloth).
   - Next, as kortev and the friend decide: Infinity (the friend has his own idea for how it treats kortev's weapons),
-    the Six Eyes, Blue, Red and Hollow Purple, and Homelander's cape (flight) and heat vision. Keep everything balanced
-    against the other friends' mods (game rules for the numbers).
+    Blue, Red and Hollow Purple, and Homelander's cape (flight) and heat vision. Keep everything balanced against the
+    other friends' mods (game rules for the numbers).
+  - To see any of it with other players' mods in the dev game: `./gradlew runClient -PextraMods="a.jar;b.jar"` (never
+    part of a build). Sodium itself will not load in the dev game (it is built with a newer Loom); try it with the
+    built jars in a normal Fabric install instead.
 
 ## What to build next
 

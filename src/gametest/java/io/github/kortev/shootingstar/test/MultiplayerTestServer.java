@@ -43,7 +43,8 @@ public class MultiplayerTestServer implements ModInitializer {
 
 	@Override
 	public void onInitialize() {
-		if (!"server".equals(System.getProperty("shootingstar.mptest"))) {
+		// (The Domain's own multiplayer test is DomainMultiplayerServer.)
+		if (!"server".equals(System.getProperty("shootingstar.mptest")) || DomainMultiplayerServer.scenario()) {
 			return;
 		}
 		ServerLifecycleEvents.SERVER_STARTED.register(server -> {
