@@ -146,6 +146,11 @@ public final class ClientDomains {
 		domain.holdsMe = domain.caught.contains(client.player.getId());
 		if (domain.holdsMe) {
 			client.player.setVelocity(Vec3d.ZERO);
+			// Its sound from the moment they know, not from a mark on the timeline the news might arrive a tick after.
+			if (domain.floodSound == null && domain.age < domain.collapse()) {
+				domain.floodSound = new LoopSound(GojoSounds.FLOOD, 0.8F);
+				client.getSoundManager().play(domain.floodSound);
+			}
 		}
 	}
 
@@ -240,10 +245,6 @@ public final class ClientDomains {
 		if (passed(from, to, DomainTimeline.VOID - 2) && to < domain.collapse() && hearsInside(client, domain)) {
 			domain.voidSound = new LoopSound(GojoSounds.VOID, 0.9F);
 			client.getSoundManager().play(domain.voidSound);
-		}
-		if (passed(from, to, DomainTimeline.CLOSE + 1) && to < domain.collapse() && domain.holdsMe) {
-			domain.floodSound = new LoopSound(GojoSounds.FLOOD, 0.8F);
-			client.getSoundManager().play(domain.floodSound);
 		}
 		if (passed(from, to, domain.collapse())) {
 			stopSounds(client, domain);

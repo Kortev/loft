@@ -66,8 +66,9 @@ import org.jetbrains.annotations.Nullable;
  * stands nothing crosses its surface either way: whoever tries is put back where they were, and anything fired at it
  * or out of it stops dead against it. When it shatters the caught go free, dazed for a while.
  *
- * <p>A Domain ends early, shattering at once, if its caster dies, leaves the world or the game, and never runs while
- * the Genesis Key has the world gone. The clients make all of what is seen and heard from the payloads.
+ * <p>A Domain ends early, shattering at once, if its caster dies, leaves the world or the game, or the Genesis Key
+ * takes the world; and it is not cast at all while a Genesis Key event is going on. The clients make all of what is
+ * seen and heard from the payloads.
  */
 public final class DomainManager {
 	/** Advancement events ({@code shootingstar:event}): cast and closed, a player caught in it, a crowd caught at once. */
@@ -262,7 +263,7 @@ public final class DomainManager {
 				it.remove();
 				continue;
 			}
-			if (!domain.released && (casterGone(server, domain) || GapManager.running())) {
+			if (!domain.released && (casterGone(server, domain) || worldGone(server))) {
 				early.add(domain);
 				continue;
 			}
@@ -278,6 +279,22 @@ public final class DomainManager {
 			}
 		}
 		early.forEach(DomainManager::endEarly);
+	}
+
+	/**
+	 * Whether a Genesis Key has the world gone (everyone on the server is taken into its void, and the Domain cannot hold
+	 * them there and here at once). Its turning and its cinematic before that leave a Domain be.
+	 */
+	private static boolean worldGone(MinecraftServer server) {
+		if (!GapManager.running()) {
+			return false;
+		}
+		for (ServerWorld world : server.getWorlds()) {
+			if (GapManager.goneWith(world) != null) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private static boolean casterGone(MinecraftServer server, Domain domain) {
