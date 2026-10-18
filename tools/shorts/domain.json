@@ -1,4 +1,4 @@
-{"source": "build/film/domain.mp4", "out": "build/film/domain-short.mp4", "band": {"height": 1350, "center": 1060}, "banner": {"text": "bro brought an ULT to a sword fight 😭🙏", "y": 270, "size": 64}, "segments": [
+{"source": "build/film/domain.mp4", "out": "build/film/domain-short.mp4", "band": {"height": 1350, "center": 1060}, "banner": {"text": "the 1v1 was NOT fair 😭🙏", "y": 270, "size": 64}, "segments": [
   {"from": 1.45, "to": 24.75}],
  "sfx": [
   {"at": 20.29, "file": "build/film/sfx/vine-boom.mp3", "gain": 1.4}],
