@@ -35,7 +35,7 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.GameMode;
 
 /**
- * Gojolander's Unlimited Void on flat stone: who may craft the blindfold and cast it; a whole Domain, catching what is
+ * Gojolander's Unlimited Void on flat stone: who may craft the blindfold and cast it, nobody's and someone's; a whole Domain, catching what is
  * in it and not what is not, holding it still (in the air too), letting nobody and nothing across the barrier either
  * way, and letting them go dazed; and a Domain ending early when its caster falls.
  */
@@ -44,41 +44,66 @@ public class DomainGameTests implements FabricGameTest {
 	private static final int RADIUS = 12;
 	private static final int HOLD_SECONDS = 2;
 	private static final int HOLD = HOLD_SECONDS * 20;
+	/** Whose the blindfold is in these tests. */
+	private static final String OWNER = "blindfold_owner";
 	/** Ticks of slack either side of a mark: the test and the Domain tick at different points of the server's tick. */
 	private static final int SLACK = 3;
 
-	/** Only the owner crafts the blindfold; kortev, who crafts everything of his own, does not, and anyone may make sticks. */
+	/**
+	 * While the blindfold is nobody's, anyone crafts it; once it is someone's, only they do: kortev, who crafts
+	 * everything of his own, does not, and anyone may still make sticks.
+	 */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "g_gojo_owner", tickLimit = 20)
-	public void onlyTheOwnerCrafts(TestContext context) {
-		ServerPlayerEntity owner = player(context, Owner.get(), null);
+	public void craftingFollowsTheOwner(TestContext context) {
+		ServerPlayerEntity owner = player(context, OWNER, null);
 		ServerPlayerEntity kortev = player(context, OwnerOnly.OWNER, null);
 		ServerPlayerEntity other = player(context, "someone_else", null);
 		try {
+			Owner.set(context.getWorld().getServer(), Owner.PLACEHOLDER);
+			context.assertTrue(!Owner.claimed(), "it was someone's after being made nobody's");
+			context.assertTrue(crafted(context, other, true).isOf(Gojolander.BLINDFOLD), "someone could not craft it while it was nobody's");
+			context.assertTrue(crafted(context, kortev, true).isOf(Gojolander.BLINDFOLD), "kortev could not craft it while it was nobody's");
+			owner(context);
 			context.assertTrue(crafted(context, owner, true).isOf(Gojolander.BLINDFOLD), "the owner could not craft the blindfold");
 			context.assertTrue(crafted(context, kortev, true).isEmpty(), "kortev crafted the blindfold");
 			context.assertTrue(crafted(context, other, true).isEmpty(), "someone else crafted the blindfold");
 			context.assertTrue(crafted(context, other, false).isOf(Items.STICK), "someone else could not craft sticks");
 		} finally {
+			owner(context);
 			remove(context, owner, kortev, other);
 		}
 		context.complete();
 	}
 
-	/** Nobody casts it without the blindfold on, nor anybody but its owner with it on. */
+	/**
+	 * Nobody casts it without the blindfold on, nor, once it is someone's, anybody but its owner with it on; while it
+	 * is nobody's, anyone with it on does.
+	 */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "g_gojo_refuse", tickLimit = 20)
-	public void onlyTheOwnerCasts(TestContext context) {
+	public void castingFollowsTheOwner(TestContext context) {
 		Vec3d at = context.getAbsolute(new Vec3d(4.5, 2.0, 4.5));
-		ServerPlayerEntity bare = player(context, Owner.get(), at);
+		ServerPlayerEntity bare = player(context, owner(context), at);
 		ServerPlayerEntity other = player(context, "not_the_owner", at.add(3.0, 0.0, 0.0));
 		other.equipStack(EquipmentSlot.HEAD, new ItemStack(Gojolander.BLINDFOLD));
+		context.getWorld().getGameRules().get(GojoRules.VOID_COOLDOWN).set(0, context.getWorld().getServer());
 		try {
 			context.assertTrue(!DomainManager.cast(bare), "the owner cast it without the blindfold on");
 			context.assertTrue(!DomainManager.cast(other), "someone else cast it with the blindfold on");
 			context.assertTrue(DomainManager.active().isEmpty(), "a Domain is running after two refusals");
+			Owner.set(context.getWorld().getServer(), Owner.PLACEHOLDER);
+			context.assertTrue(DomainManager.cast(other), "someone could not cast it while it was nobody's");
 		} finally {
+			DomainManager.collapseAll();
+			owner(context);
 			remove(context, bare, other);
 		}
 		context.complete();
+	}
+
+	/** Makes the test's owner the blindfold's owner, and returns their name. */
+	private static String owner(TestContext context) {
+		Owner.set(context.getWorld().getServer(), OWNER);
+		return OWNER;
 	}
 
 	/**
@@ -92,7 +117,7 @@ public class DomainGameTests implements FabricGameTest {
 		ServerWorld world = context.getWorld();
 		rules(world, 600);
 		Vec3d center = floor(context);
-		ServerPlayerEntity caster = player(context, Owner.get(), center);
+		ServerPlayerEntity caster = player(context, owner(context), center);
 		caster.equipStack(EquipmentSlot.HEAD, new ItemStack(Gojolander.BLINDFOLD));
 		ServerPlayerEntity inside = player(context, "caught", center.add(8.0, 0.0, 0.0));
 		ServerPlayerEntity outside = player(context, "watching", center.add(0.0, 0.0, RADIUS + 3.0));
@@ -210,7 +235,7 @@ public class DomainGameTests implements FabricGameTest {
 		ServerWorld world = context.getWorld();
 		rules(world, 0);
 		Vec3d center = floor(context);
-		ServerPlayerEntity caster = player(context, Owner.get(), center);
+		ServerPlayerEntity caster = player(context, owner(context), center);
 		caster.equipStack(EquipmentSlot.HEAD, new ItemStack(Gojolander.BLINDFOLD));
 		CowEntity cow = context.spawnEntity(EntityType.COW, relative(context, center.add(5.0, 0.0, 0.0)));
 		context.assertTrue(DomainManager.cast(caster), "the owner could not cast it");

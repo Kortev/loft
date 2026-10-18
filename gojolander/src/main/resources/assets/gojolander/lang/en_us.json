@@ -13,6 +13,7 @@
   "message.gojolander.domain.busy": "Already in a Domain.",
   "message.gojolander.domain.cooldown": "Unlimited Void is ready again in %s.",
   "commands.gojolander.owner": "The blindfold is %s's.",
+  "commands.gojolander.owner.none": "The blindfold is nobody's yet, so anyone can craft it and cast with it. /gojolander owner <name> makes it someone's alone.",
   "commands.gojolander.owner.set": "The blindfold is now %s's.",
   "commands.gojolander.domain": "Unlimited Void cast at %s %s %s.",
   "commands.gojolander.collapse": "Shattered %s Domain(s).",

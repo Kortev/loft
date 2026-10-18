@@ -27,7 +27,7 @@ public final class OwnerOnly {
 
 	/**
 	 * Puts every item in {@code namespace} under this rule, for the player {@code owner} names when asked (asked each
-	 * time, so a mod can let its owner be changed while the server runs).
+	 * time, so a mod can let its owner be changed while the server runs; null while it has none, and anyone may craft).
 	 */
 	public static void register(String namespace, Supplier<String> owner) {
 		OWNERS.put(namespace, owner);

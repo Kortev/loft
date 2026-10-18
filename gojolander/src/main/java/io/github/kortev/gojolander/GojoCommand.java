@@ -26,7 +26,9 @@ public final class GojoCommand {
 						.requires(source -> source.hasPermissionLevel(2))
 						.then(CommandManager.literal("owner")
 								.executes(context -> {
-									context.getSource().sendFeedback(() -> Text.translatable("commands.gojolander.owner", Owner.get()), false);
+									context.getSource().sendFeedback(() -> Owner.claimed()
+											? Text.translatable("commands.gojolander.owner", Owner.get())
+											: Text.translatable("commands.gojolander.owner.none"), false);
 									return 1;
 								})
 								.then(CommandManager.argument("name", StringArgumentType.word())

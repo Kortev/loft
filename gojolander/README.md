@@ -4,7 +4,7 @@ A Fabric mod for Minecraft Java **1.21.1**: the first friend's own mod on the SM
 [The Shooting Star](../README.md) and in the same repository and build. He plays the strongest there is, and kortev's
 rival. It needs The Shooting Star installed: it is under that mod's rule that only a thing's owner crafts it (crafters do
 not make it at all), and only for **him**. Here, his things work for him alone too: on anyone else the blindfold is a
-strip of black cloth.
+strip of black cloth. (Until he is made its owner, it is open to everyone: see below.)
 
 For now he has one thing, the blindfold, and what he casts with it.
 
@@ -15,9 +15,10 @@ be, and keeps out nothing a helmet would: wearing it is going without one.
 
 - **Getting it:** echo shard over black wool, a nether star and black wool, over an echo shard. Only its owner can
   craft it.
-- **Whose it is:** until kortev has his Minecraft name it is `gojolander`, a stand-in. An operator sets the real one
-  on the server with `/gojolander owner <name>` (no new jar needed); the world keeps it. It can also be changed in
-  `Owner.PLACEHOLDER`.
+- **Whose it is:** nobody's until kortev has his Minecraft name, and **while it is nobody's, anyone can craft it and
+  cast with it**, to try it out. An operator makes it his alone on the server with `/gojolander owner <name>` (no new
+  jar needed); the world keeps it, and from then on only he crafts it and only he can cast. (The stand-in for nobody,
+  `-unclaimed-` in `Owner.PLACEHOLDER`, is a name no account can have.)
 
 ## Domain Expansion: Unlimited Void
 
@@ -47,14 +48,14 @@ With the blindfold on, its owner presses **Z** (rebindable: Domain Expansion). S
   world rushing back. The caught go free, **dazed for 5 s** (slowed, and players' sight going in and out).
 
 He can cast it again **5 minutes** after he cast it (the blindfold shows it cooling, through leaving and coming back
-too). It ends at once, shattering, if he dies or leaves; it is not cast at all, nor kept, while kortev's Genesis Key has
-the world gone.
+too). It ends at once, shattering, if he dies or leaves, or if kortev's Genesis Key takes the world; and it is not cast
+at all while a Genesis Key event is going on (from the key turning until everyone is home).
 
 ### Commands (operators)
 
 | Command | What it does |
 |---|---|
-| `/gojolander owner [<name>]` | Shows, or sets, whose the blindfold is. |
+| `/gojolander owner [<name>]` | Shows, or sets, whose the blindfold is (nobody's, and so anyone's, until set). |
 | `/gojolander domain <pos>` | Casts a Domain at `pos` with nobody casting it: everyone inside is caught. |
 | `/gojolander collapse` | Shatters every Domain now. |
 | `/gojolander ready <player>` | Makes that player's Domain ready again. |

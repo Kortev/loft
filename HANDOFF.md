@@ -55,9 +55,9 @@ friend gets their own mod, presented on the server as things that exist there, n
   the void, the caught held still and flooded, the barrier nobody crosses, the shattering), its sounds, recipe,
   advancements, commands, game rules for balance, game tests (`DomainGameTests`) and a client self test with
   screenshots (`-Pselftest=domain`). Branch `claude/gojolander-domain`.
-  - The owner is a stand-in, `gojolander`, until kortev has the friend's Minecraft name: `/gojolander owner <name>` on
-    the server, or `Owner.PLACEHOLDER`.
-  - Only the owner can use his things (kortev's choice); others' blindfold is just cloth.
+  - It is nobody's until kortev has the friend's Minecraft name, and while it is nobody's anyone can craft and cast
+    it (kortev wanted to test it). `/gojolander owner <name>` on the server makes it the friend's alone (kortev's
+    choice for the SMP: on anyone else the blindfold is just cloth).
   - Next, as kortev and the friend decide: Infinity (the friend has his own idea for how it treats kortev's weapons),
     the Six Eyes, Blue, Red and Hollow Purple, and Homelander's cape (flight) and heat vision. Keep everything balanced
     against the other friends' mods (game rules for the numbers).
