@@ -6,6 +6,7 @@ import io.github.kortev.gojolander.domain.DomainTimeline;
 import io.github.kortev.shootingstar.client.gfx.Post;
 import io.github.kortev.shootingstar.client.gfx.Shaders;
 import io.github.kortev.shootingstar.client.gfx.Target;
+import io.github.kortev.shootingstar.client.gfx.Timings;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gl.Framebuffer;
@@ -65,6 +66,7 @@ public final class DomainHud {
 			return;
 		}
 		ctx.draw();
+		Timings.begin("domain.flood");
 		Framebuffer main = client.getFramebuffer();
 		int w = main.textureWidth;
 		int h = main.textureHeight;
@@ -78,6 +80,7 @@ public final class DomainHud {
 		Shaders.set(flood, "Strength", strength(d, t));
 		Shaders.set(flood, "Seed", (float) Math.floor(t * 1.5));
 		Post.quad(flood);
+		Timings.end();
 		RenderSystem.setShaderTexture(0, 0);
 		RenderSystem.enableBlend();
 		RenderSystem.defaultBlendFunc();

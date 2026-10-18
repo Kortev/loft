@@ -11,9 +11,14 @@
 // the whole sky: endless space, light flowing past in slow curving rivers towards the eye, the eye a black disc that
 // bends the stars round it in a ring of white fire, and still black water underfoot giving all of it back, rippling
 // round him. At the end it cracks out from the eye and falls away in shards, the world behind.
+//
+// Made to be cheap, being drawn over the whole screen every frame: the void's smooth sky comes painted in a panorama
+// (Sampler2, gl_sky) and only its sharp parts are worked out here; the surfaces' facing comes from the screen's own
+// derivatives; and seen from outside, every pixel nowhere near the sphere or its ink is passed straight through.
 
 uniform sampler2D Sampler0;
 uniform sampler2D Sampler1;
+uniform sampler2D Sampler2;
 uniform mat4 InvViewProj;
 uniform vec2 ScreenSize;
 uniform float Time;
@@ -39,10 +44,8 @@ in vec2 texCoord;
 out vec4 fragColor;
 
 const float PI = 3.14159265;
-
-float hash(float n) {
-    return fract(sin(n * 12.9898 + 4.1414) * 43758.5453);
-}
+// The great eye's size in the sky (radians).
+const float EYE = 0.21;
 
 float hash2(vec2 p) {
     return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -67,15 +70,16 @@ float noise(vec3 p) {
     return mix(a, b, f.z);
 }
 
+// Three octaves: enough for ink and liquid, at a third of the cost of more.
 float fbm(vec3 p) {
     float s = 0.0;
     float a = 0.5;
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 3; i++) {
         s += a * noise(p);
         p = p * 2.03 + vec3(1.7, 9.2, 3.1);
         a *= 0.5;
     }
-    return s;
+    return s / 0.875;
 }
 
 vec3 scene(vec2 uv) {
@@ -84,35 +88,6 @@ vec3 scene(vec2 uv) {
 
 float rawDepth(vec2 uv) {
     return texture(Sampler1, clamp(uv, vec2(0.001), vec2(0.999))).r;
-}
-
-vec3 viewDir(vec2 uv) {
-    vec4 far = InvViewProj * vec4(uv * 2.0 - 1.0, 1.0, 1.0);
-    return normalize(far.xyz / far.w);
-}
-
-// The surface at uv, relative to the camera; the sky as very far off.
-vec3 relAt(vec2 uv) {
-    float d = rawDepth(uv);
-    vec2 ndc = uv * 2.0 - 1.0;
-    if (d >= 0.99999) {
-        return viewDir(uv) * 100000.0;
-    }
-    vec4 w = InvViewProj * vec4(ndc, d * 2.0 - 1.0, 1.0);
-    return w.xyz / w.w;
-}
-
-// The surface's facing at uv, from its neighbours (whichever side is nearer, so edges do not smear).
-vec3 normalAt(vec2 uv, vec3 rel) {
-    vec2 px = 1.0 / ScreenSize;
-    vec3 r1 = relAt(uv + vec2(px.x, 0.0));
-    vec3 l1 = relAt(uv - vec2(px.x, 0.0));
-    vec3 u1 = relAt(uv + vec2(0.0, px.y));
-    vec3 d1 = relAt(uv - vec2(0.0, px.y));
-    vec3 dx = length(r1 - rel) < length(rel - l1) ? r1 - rel : rel - l1;
-    vec3 dy = length(u1 - rel) < length(rel - d1) ? u1 - rel : rel - d1;
-    vec3 n = normalize(cross(dx, dy));
-    return dot(n, rel) > 0.0 ? -n : n;
 }
 
 // A basis round an axis: two unit vectors square to it and each other.
@@ -128,86 +103,38 @@ void basis(vec3 axis, out vec3 t1, out vec3 t2) {
 vec3 stars(vec3 d, float scale, float density) {
     vec3 p = d * scale;
     vec3 cell = floor(p);
-    vec3 c = vec3(0.0);
-    for (int i = 0; i < 2; i++) {
-        vec3 o = cell + vec3(float(i), 0.0, 0.0);
-        vec3 h = hash33(o);
-        if (h.x > density) {
-            continue;
-        }
-        float dist = length(p - (o + h));
-        float size = 0.03 + 0.05 * h.y;
-        float b = smoothstep(size, 0.0, dist) * (0.4 + 1.6 * h.z * h.z);
-        float twinkle = 0.75 + 0.25 * sin(Time * (1.0 + 3.0 * h.y) + h.z * 40.0);
-        vec3 tint = mix(vec3(0.7, 0.82, 1.0), mix(vec3(1.0, 0.85, 0.7), vec3(0.85, 0.7, 1.0), h.y), h.z);
-        c += tint * b * twinkle;
+    vec3 h = hash33(cell);
+    if (h.x > density) {
+        return vec3(0.0);
     }
-    return c;
+    float b = smoothstep(0.03 + 0.05 * h.y, 0.0, length(p - (cell + h))) * (0.4 + 1.6 * h.z * h.z);
+    float twinkle = 0.75 + 0.25 * sin(Time * (1.0 + 3.0 * h.y) + h.z * 40.0);
+    vec3 tint = mix(vec3(0.7, 0.82, 1.0), mix(vec3(1.0, 0.85, 0.7), vec3(0.85, 0.7, 1.0), h.y), h.z);
+    return tint * b * twinkle;
 }
 
-// Light flowing past in slow rivers, curving round the eye as they run in towards it: many faint threads, a few bright.
-float rivers(vec3 d) {
-    vec3 t1;
-    vec3 t2;
-    basis(Eye, t1, t2);
-    float along = dot(d, Eye);
-    float ang = atan(dot(d, t2), dot(d, t1));
-    // The nearer the eye, the more they swirl.
-    float twist = ang + (1.0 - along) * 1.4 + Time * 0.03;
-    float lane = twist * 26.0 / PI;
-    float id = floor(lane);
-    float f = fract(lane);
-    float width = 0.12 + 0.25 * hash(id);
-    float thread = smoothstep(width, 0.0, abs(f - 0.5)) * step(0.45, hash(id + 13.0));
-    float run = fract(along * (1.2 + 1.5 * hash(id)) + Time * (0.02 + 0.04 * hash(id + 7.0)) + hash(id + 11.0));
-    float pulse = smoothstep(0.0, 0.35, run) * smoothstep(1.0, 0.5, run);
-    float wide = smoothstep(0.75, 0.2, abs(fbm(vec3(twist * 2.0, along * 3.0, Time * 0.02)) - 0.5) * 4.0);
-    return thread * pulse * (0.25 + 0.75 * hash(id + 17.0)) + 0.12 * wide * (1.0 - abs(along));
-}
-
-// The great eye: a black disc ringed in white fire, the light round it swirling, a thin bright band of it across the
-// disc, and the stars behind it bent round it. Returns the eye's own light; bent is the direction to look for stars
-// in, hole how much of this direction it covers.
-vec3 eye(vec3 d, out vec3 bent, out float hole) {
+// Endless space, in direction d: its smooth sky from the panorama; its stars, bent round the eye; and the eye itself,
+// a black disc ringed in white fire, a thin band of light across it.
+vec3 cosmos(vec3 d) {
     float a = acos(clamp(dot(d, Eye), -1.0, 1.0));
-    float r = 0.21;
-    hole = smoothstep(r + 0.003, r - 0.003, a);
-    // Light passing close to it is bent out round it.
+    vec2 pano = vec2(atan(d.z, d.x) / (2.0 * PI) + 0.5, 1.0 - acos(clamp(d.y, -1.0, 1.0)) / PI);
+    vec3 c = texture(Sampler2, pano).rgb;
     vec3 side = d - Eye * dot(d, Eye);
     float sl = length(side);
     vec3 t = sl > 1.0e-4 ? side / sl : vec3(0.0, 1.0, 0.0);
-    float bend = 0.012 / max(a - r * 0.9, 0.01);
-    float a2 = a + bend;
-    bent = normalize(Eye * cos(a2) + t * sin(a2));
+    float a2 = a + 0.012 / max(a - EYE * 0.9, 0.01);
+    vec3 bent = normalize(Eye * cos(a2) + t * sin(a2));
+    c += stars(bent, 180.0, 0.22) + stars(bent, 90.0, 0.08) * 1.4;
+    float hole = smoothstep(EYE + 0.003, EYE - 0.003, a);
     vec3 t1;
     vec3 t2;
     basis(Eye, t1, t2);
     float ang = atan(dot(d, t2), dot(d, t1));
     float swirl = 0.7 + 0.5 * noise(vec3(ang * 3.0 - Time * 0.9, a * 25.0, Time * 0.2));
-    float rim = exp(-abs(a - r) * 110.0) * swirl;
-    float glow = (exp(-max(a - r, 0.0) * 10.0) * 0.6 + exp(-max(a - r, 0.0) * 2.6) * 0.18) * swirl;
-    // The band of light round it, tilted, seen nearly edge on across it.
+    float rim = exp(-abs(a - EYE) * 110.0) * swirl;
     vec3 bandAxis = normalize(t2 * 0.92 + Eye * 0.38);
-    float across = abs(dot(d, bandAxis));
-    float band = exp(-across * 140.0) * smoothstep(r * 0.7, r * 1.05, a) * smoothstep(r * 3.4, r * 1.3, a);
-    vec3 white = vec3(1.0, 0.97, 1.0);
-    vec3 blue = vec3(0.45, 0.72, 1.0);
-    vec3 light = white * rim * 3.4 + mix(blue, vec3(0.78, 0.62, 1.0), 0.3) * glow + vec3(1.0, 0.93, 0.85) * band * 1.6;
-    return light * (1.0 - hole);
-}
-
-// Endless space, in every direction.
-vec3 cosmos(vec3 d) {
-    vec3 bent;
-    float hole;
-    vec3 e = eye(d, bent, hole);
-    vec3 c = mix(vec3(0.004, 0.006, 0.02), vec3(0.012, 0.02, 0.06), 0.5 + 0.5 * bent.y);
-    float neb = fbm(bent * 2.4 + vec3(0.0, 0.0, Time * 0.004));
-    float wisp = fbm(bent * 5.5 + neb * 2.0);
-    c += vec3(0.04, 0.09, 0.2) * smoothstep(0.45, 0.85, neb) + vec3(0.14, 0.05, 0.2) * smoothstep(0.6, 0.95, wisp) * 0.6;
-    c += stars(bent, 180.0, 0.22) + stars(bent, 90.0, 0.08) * 1.4 + stars(bent, 420.0, 0.35) * 0.5;
-    c += vec3(0.55, 0.78, 1.0) * rivers(bent) * 0.5;
-    return c * (1.0 - hole) + e;
+    float band = exp(-abs(dot(d, bandAxis)) * 140.0) * smoothstep(EYE * 0.7, EYE * 1.05, a) * smoothstep(EYE * 3.4, EYE * 1.3, a);
+    return c * (1.0 - hole) + (vec3(1.0, 0.97, 1.0) * rim * 3.4 + vec3(1.0, 0.93, 0.85) * band * 1.6) * (1.0 - hole);
 }
 
 // The ground inside: black water, a mirror, rippling out round him, giving the void back.
@@ -228,15 +155,18 @@ vec3 standing(vec3 dir, vec3 n) {
     return vec3(0.01, 0.012, 0.025) + vec3(0.35, 0.5, 0.8) * rim * (0.2 + 0.8 * lit) * 0.6;
 }
 
-// What the void shows at uv: its sky, or the world inside it turned to black water and black shapes.
-vec3 voidAt(vec2 uv, vec3 dir, vec3 rel, vec3 p, bool sky) {
+// What the void shows: its sky, or the world inside it turned to black water and black shapes, fading into space at
+// its far edge so nothing ends.
+vec3 voidAt(vec3 dir, vec3 p, vec3 n, bool sky) {
     if (sky || length(p) > Radius) {
         return cosmos(dir);
     }
-    vec3 n = normalAt(uv, rel);
-    vec3 v = n.y > 0.55 ? water(p, dir, n) : standing(dir, n);
-    // The far edge of it fades into space, so nothing ends.
-    return mix(v, cosmos(dir), smoothstep(Radius * 0.6, Radius, length(p)) * 0.8);
+    if (n.y > 0.55) {
+        return water(p, dir, n);
+    }
+    vec3 v = standing(dir, n);
+    float far = smoothstep(Radius * 0.6, Radius, length(p));
+    return far > 0.0 ? mix(v, cosmos(dir), far * 0.8) : v;
 }
 
 // ---- the barrier -----------------------------------------------------------------------------------------------
@@ -255,6 +185,9 @@ vec2 sphere(vec3 o, vec3 d) {
 
 // How high the black has climbed up the sphere at this point round it: fingers of it racing up ahead of the rest.
 float climb(vec3 s) {
+    if (Rise >= 1.0) {
+        return Radius * 1.02;
+    }
     float az = atan(s.z, s.x);
     float fingers = pow(fbm(vec3(az * 7.0, Time * 0.25, 3.0)), 2.0) * 2.4;
     return Radius * Rise * 1.02 + Radius * 0.16 * fingers * Rise * (1.0 - Rise) * 4.0;
@@ -264,19 +197,19 @@ float climb(vec3 s) {
 // blue at its edges; while it climbs, black liquid streaming up, a white-hot lip, drips running back down.
 vec3 skin(vec3 s, vec3 d, bool outside) {
     vec3 n = normalize(s);
-    float ripple = sin(dot(n, vec3(0.3, 1.0, 0.2)) * 40.0 - Time * 1.6) * 0.5 + fbm(n * 6.0 + vec3(0.0, Time * 0.05, 0.0)) - 0.5;
+    float ripple = sin(dot(n, vec3(0.3, 1.0, 0.2)) * 40.0 - Time * 1.6) * 0.5 + noise(n * 6.0 + vec3(0.0, Time * 0.05, 0.0)) - 0.5;
     vec3 rn = normalize(n + 0.04 * vec3(ripple));
     float fres = pow(1.0 - abs(dot(d, rn)), 3.0);
-    float sheen = fbm(rn * 5.0 + vec3(0.0, Time * 0.04, 0.0));
+    float sheen = noise(rn * 5.0 + vec3(0.0, Time * 0.04, 0.0));
     vec3 c = vec3(0.004, 0.004, 0.01) + vec3(0.06, 0.1, 0.3) * fres * (outside ? 1.0 : 0.4);
-    c += vec3(0.05, 0.06, 0.12) * smoothstep(0.55, 0.8, sheen) * (outside ? 1.0 : 0.3);
+    c += vec3(0.05, 0.06, 0.12) * smoothstep(0.55, 0.85, sheen) * (outside ? 1.0 : 0.3);
     c += stars(refract(d, rn, 0.8), 110.0, 0.12) * (outside ? 0.12 : 0.25 * Rise);
     if (Rise < 1.0) {
         float az = atan(s.z, s.x);
         float top = climb(s);
         // Black liquid streaming up.
-        float stream = fbm(vec3(az * 26.0, s.y * 0.22 - Time * 2.2, 1.0));
-        c += vec3(0.25, 0.35, 0.55) * smoothstep(0.62, 0.78, stream) * (outside ? 0.25 : 0.08);
+        float stream = noise(vec3(az * 26.0, s.y * 0.22 - Time * 2.2, 1.0));
+        c += vec3(0.25, 0.35, 0.55) * smoothstep(0.62, 0.8, stream) * (outside ? 0.25 : 0.08);
         // The lip, white-hot, and drips running back down from it.
         float lip = exp(-abs(s.y - top) * 2.2);
         float drip = smoothstep(0.82, 0.95, noise(vec3(az * 60.0, 0.0, 1.0))) * smoothstep(top - Radius * 0.12, top, s.y)
@@ -331,15 +264,34 @@ void main() {
     vec3 c = scene(uv);
     float depth = rawDepth(uv);
     bool sky = depth >= 0.99999;
-    vec3 dir = viewDir(uv);
-    vec3 rel = relAt(uv);
+    vec2 ndc = uv * 2.0 - 1.0;
+    vec4 far4 = InvViewProj * vec4(ndc, 1.0, 1.0);
+    vec3 dir = normalize(far4.xyz / far4.w);
+    vec4 w4 = InvViewProj * vec4(ndc, depth * 2.0 - 1.0, 1.0);
+    vec3 rel = sky ? dir * 100000.0 : w4.xyz / w4.w;
+    // The surface's facing, from the screen's own derivatives (taken here, where every pixel takes them).
+    vec3 fn = normalize(cross(dFdx(rel), dFdy(rel)));
+    vec3 n = dot(fn, rel) > 0.0 ? -fn : fn;
     float dist = sky ? 1.0e9 : length(rel);
     vec3 p = CamOffset + rel;
     vec3 o = CamOffset;
     bool camIn = Inside > 0.5;
 
+    // Seen from outside, nothing to do for whatever is nowhere near it: no sphere on its ray, no ink under it.
+    if (!camIn) {
+        float b = dot(o, dir);
+        float closest2 = dot(o, o) - b * b;
+        bool nearRay = b < 0.0 && closest2 < Radius * Radius * 1.13;
+        bool nearInk = !sky && length(p) < Radius * 1.25 + 8.0;
+        if (!nearRay && !nearInk) {
+            fragColor = vec4(c, 1.0);
+            gl_FragDepth = depth;
+            return;
+        }
+    }
+
     // The ink over the ground, until the world goes: a ragged ring of it spreading, fingers branching out ahead.
-    if (Ring > 0.0 && !sky && !(camIn && Black >= 1.0)) {
+    if (Ring > 0.0 && !sky && !(camIn && Black >= 1.0) && length(p.xz) < Radius * 1.25 + 8.0) {
         float reach = Radius * Ring;
         float r = length(p.xz);
         float az = atan(p.z, p.x);
@@ -348,10 +300,12 @@ void main() {
         float edge = reach + ragged + fingers;
         float ground = smoothstep(2.5, 0.5, p.y) * smoothstep(-Radius, -Radius * 0.6, p.y);
         // Over the ground, not up whoever stands on it.
-        ground *= smoothstep(0.35, 0.75, normalAt(uv, rel).y);
+        ground *= smoothstep(0.35, 0.75, n.y);
         float ink = smoothstep(edge, edge - 1.5, r) * ground * (1.0 - Shatter);
-        float wet = fbm(vec3(p.xz * 0.6, Time * 0.1));
-        c = mix(c, vec3(0.008, 0.01, 0.025) + vec3(0.03, 0.05, 0.1) * smoothstep(0.6, 0.8, wet), ink * 0.9);
+        if (ink > 0.0) {
+            float wet = noise(vec3(p.xz * 0.6, Time * 0.1));
+            c = mix(c, vec3(0.008, 0.01, 0.025) + vec3(0.03, 0.05, 0.1) * smoothstep(0.6, 0.8, wet), ink * 0.9);
+        }
         if (Ring < 1.0) {
             float edgeLight = exp(-abs(r - edge) * 3.0) * ground;
             c += vec3(0.35, 0.55, 0.9) * edgeLight * 0.35;
@@ -412,8 +366,9 @@ void main() {
                 float a = acos(clamp(dot(dir, Eye), -1.0, 1.0));
                 float reach = Open * PI * 1.08;
                 float shown = smoothstep(reach, reach - 0.18, a);
-                vec3 v = voidAt(uv, dir, rel, p, sky);
-                c = mix(c, v, shown);
+                if (shown > 0.0) {
+                    c = mix(c, voidAt(dir, p, n, sky), shown);
+                }
                 // The edge of it opening, burning.
                 c += vec3(0.7, 0.85, 1.0) * exp(-abs(a - reach) * 22.0) * (1.0 - Open) * 1.8;
             }

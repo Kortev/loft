@@ -1,10 +1,12 @@
 package io.github.kortev.gojolander.client;
 
+import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import io.github.kortev.gojolander.domain.DomainTimeline;
 import io.github.kortev.shootingstar.client.gfx.Post;
 import io.github.kortev.shootingstar.client.gfx.Shaders;
 import io.github.kortev.shootingstar.client.gfx.Target;
+import io.github.kortev.shootingstar.client.gfx.Timings;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.Framebuffer;
@@ -31,11 +33,21 @@ import org.lwjgl.opengl.GL11;
  * <p>The void takes everything inside it, people too, so whatever is in there with the camera is drawn again, into a
  * picture of its own, and laid back over the void ({@code gl_rim}): dark, lit only by the great eye, its edges towards
  * the eye burning blue-white. The depth is kept throughout, so the walls of the world still hide what they hid.
+ *
+ * <p>It is drawn every frame over the whole screen, so it is kept cheap: the void's smooth sky is painted into a small
+ * panorama ({@code gl_sky}, every other frame) that the pass looks up instead of working out; a Domain that is nowhere
+ * on screen is not drawn at all; and the people pass only runs with someone there to draw.
  */
 public final class DomainRender {
 	private static final Target DEPTH = new Target(true, false);
 	private static final Target COPY = new Target(false, false);
 	private static final Target PEOPLE = new Target(true, false);
+	/** The void's sky, all of it, longitude across and latitude down (HDR: the eye's glow goes past white). */
+	private static final Target SKY = new Target(false, true);
+	private static final int SKY_W = 1024;
+	private static final int SKY_H = 512;
+	private static int frames;
+	private static boolean skyPainted;
 	/** How far off a Domain is drawn at all. */
 	private static final double DRAWN = 512.0;
 	/** How long the world inside takes to go to black as it closes. */
@@ -45,6 +57,7 @@ public final class DomainRender {
 
 	public static ShaderProgram domain;
 	public static ShaderProgram rim;
+	public static ShaderProgram sky;
 
 	private DomainRender() {
 	}
@@ -63,9 +76,10 @@ public final class DomainRender {
 		int w = main.textureWidth;
 		int h = main.textureHeight;
 		float time = (float) (world.getTime() % 24000L) / 20.0F + tickDelta / 20.0F;
+		frames++;
 		for (ClientDomain d : ClientDomains.all()) {
 			double t = d.time(tickDelta);
-			if (t >= d.end() || cam.distanceTo(d.center) > DRAWN + d.radius) {
+			if (t >= d.end() || cam.distanceTo(d.center) > DRAWN + d.radius || !onScreen(client, context, d, cam)) {
 				continue;
 			}
 			boolean inside = d.contains(cam);
@@ -78,6 +92,13 @@ public final class DomainRender {
 			Vector3f impact = inside ? new Vector3f(eye) : new Vector3f((float) offset.x, (float) offset.y, (float) offset.z).normalize();
 			Vec3d walker = walker(world, d, tickDelta).subtract(d.center);
 
+			boolean voidShows = inside && open > 0.0F && sky != null;
+			if (voidShows && (!skyPainted || frames % 2 == 0)) {
+				Timings.begin("domain.sky");
+				paintSky(time, eye);
+				Timings.end();
+			}
+			Timings.begin("domain.pass");
 			DEPTH.ensure(w, h);
 			DEPTH.copyDepthFrom(main);
 			COPY.ensure(w, h);
@@ -90,6 +111,7 @@ public final class DomainRender {
 			RenderSystem.depthMask(true);
 			RenderSystem.setShaderTexture(0, COPY.color());
 			RenderSystem.setShaderTexture(1, DEPTH.depth());
+			RenderSystem.setShaderTexture(2, voidShows ? SKY.color() : 0);
 			Shaders.set(domain, "InvViewProj", new Matrix4f(proj).mul(view).invert());
 			Shaders.set(domain, "ScreenSize", (float) w, (float) h);
 			Shaders.set(domain, "Time", time);
@@ -105,12 +127,16 @@ public final class DomainRender {
 			Shaders.set(domain, "Walker", (float) walker.x, (float) walker.y, (float) walker.z);
 			Shaders.set(domain, "Impact", impact);
 			Post.quad(domain);
+			Timings.end();
 			RenderSystem.depthFunc(GL11.GL_LEQUAL);
 			RenderSystem.setShaderTexture(0, 0);
 			RenderSystem.setShaderTexture(1, 0);
+			RenderSystem.setShaderTexture(2, 0);
 			// Whatever is in the void with the camera, drawn again over it, until the shards have fallen.
 			if (inside && black > 0.0F && shatter < 0.85F) {
+				Timings.begin("domain.people");
 				people(client, world, d, context, cam, view, proj, eye, tickDelta, Math.min(open, 1.0F - shatter), w, h);
+				Timings.end();
 			}
 		}
 		RenderSystem.disableBlend();
@@ -120,6 +146,43 @@ public final class DomainRender {
 		RenderSystem.depthMask(true);
 		RenderSystem.enableCull();
 		main.beginWrite(true);
+	}
+
+	/**
+	 * Whether any of a Domain (its sphere, and the ink round its foot) can be on screen: from inside, always; from
+	 * outside, only if it lies within the view's widest angle (its diagonal) from where the camera looks.
+	 */
+	private static boolean onScreen(MinecraftClient client, WorldRenderContext context, ClientDomain d, Vec3d cam) {
+		Vec3d to = d.center.subtract(cam);
+		double dist = to.length();
+		double reach = d.radius * 1.3 + 8.0;
+		if (dist <= reach) {
+			return true;
+		}
+		Vec3d look = Vec3d.fromPolar(context.camera().getPitch(), context.camera().getYaw());
+		double aspect = (double) client.getWindow().getFramebufferWidth() / Math.max(1, client.getWindow().getFramebufferHeight());
+		double halfV = Math.toRadians(client.options.getFov().getValue()) * 0.5;
+		double halfDiagonal = Math.atan(Math.tan(halfV) * Math.sqrt(1.0 + aspect * aspect));
+		double spread = Math.asin(Math.min(1.0, reach / dist));
+		return to.multiply(1.0 / dist).dotProduct(look) > Math.cos(Math.min(Math.PI, halfDiagonal * 1.15 + spread));
+	}
+
+	/** Paints the void's smooth sky into the panorama, which wraps round side to side. */
+	private static void paintSky(float time, Vector3f eye) {
+		boolean made = SKY.width() != SKY_W;
+		SKY.ensure(SKY_W, SKY_H);
+		if (made) {
+			GlStateManager._bindTexture(SKY.color());
+			GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL11.GL_REPEAT);
+			GlStateManager._bindTexture(0);
+		}
+		SKY.bind();
+		Post.begin();
+		Shaders.set(sky, "Time", time);
+		Shaders.set(sky, "Eye", eye);
+		Post.quad(sky);
+		skyPainted = true;
+		MinecraftClient.getInstance().getFramebuffer().beginWrite(true);
 	}
 
 	/** Where the caster stands now (the void's water ripples out round him), or the middle if there is none here. */
@@ -135,6 +198,19 @@ public final class DomainRender {
 	private static void people(MinecraftClient client, ClientWorld world, ClientDomain d, WorldRenderContext context, Vec3d cam,
 			Matrix4f view, Matrix4f proj, Vector3f eye, float tickDelta, float strength, int w, int h) {
 		Framebuffer main = client.getFramebuffer();
+		double r = d.radius + 1.0;
+		Entity viewer = context.camera().getFocusedEntity();
+		java.util.List<Entity> drawn = new java.util.ArrayList<>();
+		for (Entity entity : world.getOtherEntities(null, Box.of(d.center, r * 2.0, r * 2.0, r * 2.0))) {
+			if (entity == viewer && !context.camera().isThirdPerson() || entity instanceof PlayerEntity player && player.isSpectator()
+					|| entity.isInvisible() || !d.contains(entity.getLerpedPos(tickDelta))) {
+				continue;
+			}
+			drawn.add(entity);
+		}
+		if (drawn.isEmpty()) {
+			return;
+		}
 		PEOPLE.begin(w, h, 0.0F, 0.0F, 0.0F, 0.0F);
 		PEOPLE.copyDepthFrom(main);
 		PEOPLE.bind();
@@ -147,16 +223,7 @@ public final class DomainRender {
 		RenderSystem.depthMask(true);
 		RenderSystem.enableCull();
 		VertexConsumerProvider.Immediate consumers = client.getBufferBuilders().getEntityVertexConsumers();
-		double r = d.radius + 1.0;
-		Entity viewer = context.camera().getFocusedEntity();
-		for (Entity entity : world.getOtherEntities(null, Box.of(d.center, r * 2.0, r * 2.0, r * 2.0))) {
-			if (entity == viewer && !context.camera().isThirdPerson()) {
-				continue;
-			}
-			if (entity instanceof PlayerEntity player && player.isSpectator() || entity.isInvisible()
-					|| !d.contains(entity.getLerpedPos(tickDelta))) {
-				continue;
-			}
+		for (Entity entity : drawn) {
 			Vec3d p = entity.getLerpedPos(tickDelta);
 			client.getEntityRenderDispatcher().render(entity, p.x - cam.x, p.y - cam.y, p.z - cam.z, entity.getYaw(tickDelta), tickDelta,
 					new MatrixStack(), consumers, LightmapTextureManager.MAX_LIGHT_COORDINATE);

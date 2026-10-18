@@ -1,0 +1,25 @@
+{
+  "vertex": "shootingstar:ss_screen",
+  "fragment": "gojolander:gl_sky",
+  "samplers": [],
+  "uniforms": [
+    {
+      "name": "Time",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0.0
+      ]
+    },
+    {
+      "name": "Eye",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  ]
+}

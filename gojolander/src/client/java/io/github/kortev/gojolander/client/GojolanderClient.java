@@ -40,6 +40,7 @@ public final class GojolanderClient implements ClientModInitializer {
 			context.register(Gojolander.id("gl_domain"), VertexFormats.BLIT_SCREEN, program -> DomainRender.domain = program);
 			context.register(Gojolander.id("gl_flood"), VertexFormats.BLIT_SCREEN, program -> DomainHud.flood = program);
 			context.register(Gojolander.id("gl_rim"), VertexFormats.BLIT_SCREEN, program -> DomainRender.rim = program);
+			context.register(Gojolander.id("gl_sky"), VertexFormats.BLIT_SCREEN, program -> DomainRender.sky = program);
 		});
 		DomainHold.client = ClientDomains::heldHere;
 		LivingEntityFeatureRendererRegistrationCallback.EVENT.register((type, renderer, helper, context) -> {
