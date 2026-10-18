@@ -5,9 +5,16 @@ import io.github.kortev.shootingstar.client.gap.ClientGaps;
 import io.github.kortev.shootingstar.client.gap.GapHud;
 import io.github.kortev.shootingstar.client.gap.GapRender;
 import io.github.kortev.shootingstar.client.gfx.Shaders;
+import io.github.kortev.shootingstar.client.gfx.WorldPasses;
 import io.github.kortev.shootingstar.client.render.HudEffects;
 import io.github.kortev.shootingstar.client.render.WorldEffects;
 import io.github.kortev.shootingstar.client.render.WorldProjector;
+import io.github.kortev.shootingstar.client.thunder.ClientThunders;
+import io.github.kortev.shootingstar.client.thunder.HammerMesh;
+import io.github.kortev.shootingstar.client.thunder.HammerRenderer;
+import io.github.kortev.shootingstar.client.thunder.ThunderHud;
+import io.github.kortev.shootingstar.client.thunder.ThunderRender;
+import io.github.kortev.shootingstar.client.thunder.ThunderWeather;
 import io.github.kortev.shootingstar.client.world.WorldFx;
 import io.github.kortev.shootingstar.item.GenesisKeyItem;
 import io.github.kortev.shootingstar.client.gap.VoidFx;
@@ -19,18 +26,30 @@ import io.github.kortev.shootingstar.network.GapLockPayload;
 import io.github.kortev.shootingstar.network.StrikeCancelPayload;
 import io.github.kortev.shootingstar.network.StrikeImpactPayload;
 import io.github.kortev.shootingstar.network.StrikeLockPayload;
+import io.github.kortev.shootingstar.network.ThunderArcsPayload;
+import io.github.kortev.shootingstar.network.ThunderCancelPayload;
+import io.github.kortev.shootingstar.network.ThunderLockPayload;
+import io.github.kortev.shootingstar.network.ThunderStrokePayload;
 import io.github.kortev.shootingstar.registry.ModItems;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientWorldEvents;
+import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
+import net.minecraft.client.gui.screen.DownloadingTerrainScreen;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.client.rendering.v1.BuiltinItemRendererRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
+import net.fabricmc.fabric.api.resource.SimpleSynchronousResourceReloadListener;
 import net.minecraft.client.item.ModelPredicateProviderRegistry;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
+import net.minecraft.resource.ResourceManager;
+import net.minecraft.resource.ResourceType;
+import net.minecraft.util.Identifier;
 import org.lwjgl.glfw.GLFW;
 
 public class ShootingStarClient implements ClientModInitializer {
@@ -43,6 +62,20 @@ public class ShootingStarClient implements ClientModInitializer {
 				GenesisKeyItem.cracked(stack) && !ClientGaps.keyStillWhole() ? 1.0F : 0.0F);
 		ClientConfig.load();
 		Shaders.register();
+		// Mjölnir is drawn from its baked mesh (its model's parent is builtin/entity), read again on a resource reload.
+		BuiltinItemRendererRegistry.INSTANCE.register(ModItems.MJOLNIR, new HammerRenderer());
+		ResourceManagerHelper resources = ResourceManagerHelper.get(ResourceType.CLIENT_RESOURCES);
+		resources.registerReloadListener(new SimpleSynchronousResourceReloadListener() {
+			@Override
+			public Identifier getFabricId() {
+				return ShootingStar.id("mjolnir_mesh");
+			}
+
+			@Override
+			public void reload(ResourceManager manager) {
+				HammerMesh.reload();
+			}
+		});
 		SKIP_FEED = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.shootingstar.skip_feed",
 				InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_BACKSPACE, "key.categories.shootingstar"));
 
@@ -56,11 +89,19 @@ public class ShootingStarClient implements ClientModInitializer {
 		ClientPlayNetworking.registerGlobalReceiver(GapEndPayload.ID, (payload, context) -> ClientGaps.onEnd(payload));
 		ClientPlayNetworking.registerGlobalReceiver(GapFloorPayload.ID, (payload, context) -> ClientGaps.onFloor(payload, context.client()));
 		ClientPlayNetworking.registerGlobalReceiver(GapWarpPayload.ID, (payload, context) -> VoidFx.onWarp(payload, context.client()));
+		ClientPlayNetworking.registerGlobalReceiver(ThunderLockPayload.ID,
+				(payload, context) -> ClientThunders.onLock(payload, context.client()));
+		ClientPlayNetworking.registerGlobalReceiver(ThunderStrokePayload.ID,
+				(payload, context) -> ClientThunders.onStroke(payload, context.client()));
+		ClientPlayNetworking.registerGlobalReceiver(ThunderArcsPayload.ID,
+				(payload, context) -> ClientThunders.onArcs(payload, context.client()));
+		ClientPlayNetworking.registerGlobalReceiver(ThunderCancelPayload.ID, (payload, context) -> ClientThunders.onCancel(payload));
 		VoidFloor.client = ClientGaps::floorFor;
 		ClientWorldEvents.AFTER_CLIENT_WORLD_CHANGE.register((client, world) -> ClientGaps.leftWorld());
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
 			ClientStrikes.clear(client);
 			ClientGaps.clear(client);
+			ClientThunders.clear(client);
 		});
 
 		// Before anything reads the keys this tick.
@@ -69,19 +110,39 @@ public class ShootingStarClient implements ClientModInitializer {
 			while (SKIP_FEED.wasPressed()) {
 				ClientStrikes.skipFeed();
 				ClientGaps.skipFeed();
+				ClientThunders.skipFeed();
 			}
 			Aim.tick(client);
 			ClientStrikes.tick(client);
 			ClientGaps.tick(client);
+			ClientThunders.tick(client);
+			ThunderWeather.tick(client);
 			VoidFx.tick(client);
 		});
 
-		WorldRenderEvents.AFTER_TRANSLUCENT.register(WorldEffects::render);
+		// In the world and over it when it is finished; with a shader pack in use, both once the pack is done (WorldPasses).
+		WorldRenderEvents.AFTER_TRANSLUCENT.register(WorldPasses::afterTranslucent);
 		WorldRenderEvents.LAST.register(WorldProjector::capture);
-		WorldRenderEvents.LAST.register(WorldFx::render);
-		WorldRenderEvents.LAST.register(GapRender::render);
-		WorldRenderEvents.LAST.register(VoidFx::render);
+		WorldRenderEvents.LAST.register(WorldPasses::last);
+		WorldPasses.registerInWorld(WorldEffects::render);
+		WorldPasses.register(WorldFx::render);
+		WorldPasses.register(GapRender::render);
+		WorldPasses.register(VoidFx::render);
+		WorldPasses.register(ThunderRender::render);
 		HudRenderCallback.EVENT.register(HudEffects::render);
 		HudRenderCallback.EVENT.register(GapHud::render);
+		HudRenderCallback.EVENT.register(ThunderHud::render);
+		// Carried into another world by the event: the loading screen the change of world brings is the white the picture
+		// goes as they are carried, rather than a portal's.
+		ScreenEvents.AFTER_INIT.register((client, screen, width, height) -> {
+			if (screen instanceof DownloadingTerrainScreen) {
+				ScreenEvents.afterRender(screen).register((s, context, mouseX, mouseY, tickDelta) -> {
+					float flash = VoidFx.flash(tickDelta);
+					if (flash > 0.01F || ClientGaps.floating()) {
+						context.fill(0, 0, s.width, s.height, (Math.min(255, (int) (Math.max(flash, 0.9F) * 255)) << 24) | 0xF4EEFF);
+					}
+				});
+			}
+		});
 	}
 }

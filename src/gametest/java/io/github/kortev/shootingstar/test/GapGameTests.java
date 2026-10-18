@@ -119,7 +119,7 @@ public class GapGameTests implements FabricGameTest {
 		context.waitAndRun(GapTimeline.ERASURE - 2, () -> {
 			if (swallowed.isAlive()) {
 				problems.append("the player where the burst came up survived it; ");
-			} else if (DEATHS.get(swallowed.getUuid()) != ModDamageTypes.SWALLOWED) {
+			} else if (DEATHS.get(swallowed.getUuid()) != ModDamageTypes.SWALLOWED && DEATHS.get(swallowed.getUuid()) != ModDamageTypes.SWALLOWED_BY) {
 				problems.append("the player in the burst died of ").append(DEATHS.get(swallowed.getUuid())).append("; ");
 			}
 			if (!erased.isAlive()) {
@@ -129,7 +129,7 @@ public class GapGameTests implements FabricGameTest {
 		context.waitAndRun(GapTimeline.NOTHING + 30, () -> {
 			if (erased.isAlive()) {
 				problems.append("the player in the zone survived the black; ");
-			} else if (DEATHS.get(erased.getUuid()) != ModDamageTypes.ERASED) {
+			} else if (DEATHS.get(erased.getUuid()) != ModDamageTypes.ERASED && DEATHS.get(erased.getUuid()) != ModDamageTypes.ERASED_BY) {
 				problems.append("the player in the zone died of ").append(DEATHS.get(erased.getUuid())).append("; ");
 			}
 			double floor = Double.NaN;
@@ -172,6 +172,21 @@ public class GapGameTests implements FabricGameTest {
 			if (far.getHealth() < before) {
 				problems.append("the far player was hurt while held; ");
 			}
+			// And hunger stands still: walking about uses nothing, and nothing is healed or starved by it.
+			int food = far.getHungerManager().getFoodLevel();
+			float saturation = far.getHungerManager().getSaturationLevel();
+			far.addExhaustion(40.0F);
+			far.setHealth(10.0F);
+			for (int i = 0; i < 200; i++) {
+				far.getHungerManager().update(far);
+			}
+			if (far.getHungerManager().getFoodLevel() != food || far.getHungerManager().getSaturationLevel() != saturation
+					|| far.getHealth() != 10.0F) {
+				problems.append("hunger moved while held: food ").append(food).append(" -> ").append(far.getHungerManager().getFoodLevel())
+						.append(", saturation ").append(saturation).append(" -> ").append(far.getHungerManager().getSaturationLevel())
+						.append(", health 10 -> ").append(far.getHealth()).append("; ");
+			}
+			far.setHealth(far.getMaxHealth());
 			// The world's spawn was in the hole: moved out to its rim.
 			double spawnOut = Math.hypot(world.getSpawnPos().getX() - center.getX(), world.getSpawnPos().getZ() - center.getZ());
 			if (spawnOut <= RADIUS + 8) {
@@ -185,9 +200,7 @@ public class GapGameTests implements FabricGameTest {
 			if (far.getPos().distanceTo(farHome) > 2.0) {
 				problems.append("the far player was not taken home: at ").append(far.getPos()).append("; ");
 			}
-			if (shooter.getPos().distanceTo(shooterHome) > 2.0) {
-				problems.append("the shooter was not taken home: at ").append(shooter.getPos()).append("; ");
-			}
+			problems.append(home(world, shooter, shooterHome));
 			if (netherite.getWorld() != nether || netherite.getPos().distanceTo(netherHome) > 2.0) {
 				problems.append("the player from the Nether was not taken home: in ").append(netherite.getWorld().getRegistryKey().getValue())
 						.append(" at ").append(netherite.getPos()).append("; ");
@@ -202,6 +215,15 @@ public class GapGameTests implements FabricGameTest {
 				if (GapManager.held(player)) {
 					problems.append(player.getName().getString()).append(" is still held after going home; ");
 				}
+			}
+			// Home, hunger runs again.
+			far.getHungerManager().setSaturationLevel(0.0F);
+			int foodHome = far.getHungerManager().getFoodLevel();
+			far.addExhaustion(4.5F);
+			far.getHungerManager().update(far);
+			if (far.getHungerManager().getFoodLevel() != foodHome - 1) {
+				problems.append("hunger did not run again once home: food ").append(foodHome).append(" -> ")
+						.append(far.getHungerManager().getFoodLevel()).append("; ");
 			}
 			// Released without it: the cracked key has shattered.
 			for (int i = 0; i < shooter.getInventory().size(); i++) {
@@ -244,9 +266,7 @@ public class GapGameTests implements FabricGameTest {
 			if (GapManager.held(watcher) || GapManager.held(shooter) || GapManager.running()) {
 				problems.append("someone is still held, or the event still running; ");
 			}
-			if (watcher.getPos().distanceTo(watcherHome) > 2.0) {
-				problems.append("the watcher was not sent home: at ").append(watcher.getPos()).append("; ");
-			}
+			problems.append(home(world, watcher, watcherHome));
 			// The hole finished all the way down, and no floor of barriers left over it.
 			for (int y = world.getBottomY(); y <= center.getY() + 2; y++) {
 				BlockPos at = new BlockPos(center.getX() + 3, y, center.getZ() - 2);
@@ -264,6 +284,22 @@ public class GapGameTests implements FabricGameTest {
 			context.assertTrue(problems.length() == 0, problems.toString());
 			context.complete();
 		});
+	}
+
+	/**
+	 * What is wrong with where {@code player} was sent home to, if anything: it must be solid ground at about the height
+	 * of {@code home}, and at it or just beside it (a fissure may have opened where they were).
+	 */
+	private static String home(ServerWorld world, ServerPlayerEntity player, Vec3d home) {
+		Vec3d at = player.getPos();
+		BlockPos under = player.getBlockPos().down();
+		boolean ground = !world.getBlockState(under).getCollisionShape(world, under).isEmpty();
+		double off = Math.hypot(at.x - home.x, at.z - home.z);
+		if (player.getWorld() == world && player.isAlive() && ground && off <= 8.0 && Math.abs(at.y - home.y) <= 2.0) {
+			return "";
+		}
+		return player.getName().getString() + " was not sent home to solid ground: at " + at + ", " + String.format("%.1f", off)
+				+ " from home, over " + world.getBlockState(under) + "; ";
 	}
 
 	/** A connected survival player standing at {@code at} in {@code world}. */

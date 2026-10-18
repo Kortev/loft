@@ -1,6 +1,6 @@
 """Checks the built jars, which the game tests never load (they run the mods from the dev build):
 
-- each mod's jar holds its manifest, classes and assets, and nothing of the other mod's;
+- each mod's jar holds its manifest, classes and assets, and nothing of the other mods';
 - every mixin config it lists names a refmap that is in the jar. Without one, mixins that worked in the dev build
   find nothing to hook in a real game and it crashes at start.
 
@@ -49,6 +49,7 @@ def check(path, mod_id, holds, never):
 folder = sys.argv[1]
 star = jar(folder, 'shooting-star')
 chitty = jar(folder, 'chitty-chitty-bang-bang')
+gojolander = jar(folder, 'gojolander')
 if star:
     check(star, 'shootingstar', [
         'io/github/kortev/shootingstar/ShootingStar.class',
@@ -56,6 +57,9 @@ if star:
         'assets/shootingstar/lang/en_us.json',
         'assets/shootingstar/sounds.json',
         'data/shootingstar/advancement/gungnir/danger_close.json',
+        'assets/shootingstar/meshes/mjolnir.hbm',
+        'assets/shootingstar/textures/entity/mjolnir_baked.png',
+        'assets/shootingstar/textures/entity/mjolnir_glow.png',
     ], [
         'io/github/kortev/chitty/',
         'assets/shootingstar/meshes/chitty',
@@ -66,6 +70,9 @@ if star:
         'assets/shootingstar/sounds/airship_',
         'data/shootingstar/advancement/airship/',
         'data/shootingstar/recipe/airship',
+        'io/github/kortev/gojolander/',
+        'assets/gojolander/',
+        'data/gojolander/',
     ])
 if chitty:
     check(chitty, 'chitty', [
@@ -94,9 +101,36 @@ if chitty:
         'io/github/kortev/shootingstar/',
         'assets/shootingstar/shaders/',
         'data/shootingstar/advancement/gungnir/',
+        'io/github/kortev/gojolander/',
+        'assets/gojolander/',
+        'data/gojolander/',
+    ])
+if gojolander:
+    check(gojolander, 'gojolander', [
+        'io/github/kortev/gojolander/Gojolander.class',
+        'io/github/kortev/gojolander/client/GojolanderClient.class',
+        'io/github/kortev/gojolander/domain/DomainManager.class',
+        'gojolander.mixins.json',
+        'gojolander.client.mixins.json',
+        'assets/gojolander/lang/en_us.json',
+        'assets/gojolander/sounds.json',
+        'assets/gojolander/sounds/domain_void.ogg',
+        'assets/gojolander/shaders/core/gl_domain.json',
+        'assets/gojolander/shaders/core/gl_domain.fsh',
+        'assets/gojolander/shaders/core/gl_flood.json',
+        'assets/gojolander/textures/item/blindfold.png',
+        'assets/gojolander/textures/entity/blindfold.png',
+        'assets/gojolander/textures/entity/six_eyes.png',
+        'data/gojolander/recipe/blindfold.json',
+        'data/gojolander/advancement/root.json',
+    ], [
+        'io/github/kortev/shootingstar/',
+        'io/github/kortev/chitty/',
+        'assets/shootingstar/',
+        'data/shootingstar/',
     ])
 
 if problems:
     print('\n'.join(problems))
     sys.exit(1)
-print('both jars hold what they should')
+print('every jar holds what it should')

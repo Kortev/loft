@@ -1,0 +1,16 @@
+// Gojolander, the first friend's mod on the SMP, in its own jar. Loom, Minecraft, Fabric and Java are set up for every
+// mod in the root build.gradle, which also has the test harness and the dev runs that load it beside The Shooting Star.
+
+base {
+	archivesName = 'gojolander'
+}
+
+dependencies {
+	// It needs The Shooting Star: its owner-only crafting and its advancement trigger, and the full-screen passes and
+	// render targets its effects are drawn with.
+	implementation project(path: ':', configuration: 'namedElements')
+}
+
+// It is run from the root project beside The Shooting Star (its runClient, runServer and runGametest load every mod),
+// so `./gradlew runClient` starts one game, not a second one from here.
+loom.runConfigs.clear()

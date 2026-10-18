@@ -1,0 +1,10 @@
+{"source": "build/film/gerald.mp4", "out": "build/film/gerald-short.mp4", "band": {"height": 1350, "center": 1060}, "banner": {"text": "bro picked the WORST day to join 😭🙏", "y": 270, "size": 64}, "segments": [
+  {"from": 7.42, "to": 18.59}, 
+  {"from": 27.45, "to": 47.2}, 
+  {"from": 62.47, "to": 88.9}, 
+  {"from": 93.05, "to": 103.33}, 
+  {"from": 106.77, "to": 110.07}],
+ "sfx": [
+  {"at": 16.994, "file": "build/film/sfx/riser.mp3", "gain": 2.0}, 
+  {"at": 67.83, "file": "build/film/sfx/vine-boom.mp3", "gain": 1.4}],
+ "crf": 18, "preset": "medium", "compress": true}

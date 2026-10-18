@@ -1,6 +1,6 @@
 ---
 name: weapon-mod
-description: How The Shooting Star's cinematic weapons are built (SS-03 Gungnir's orbital strike, the Ω-00 Genesis Key's Ginnungagap) and the exact recipe for editing them or adding a new weapon of the same kind - an item that triggers a server-timed event with a client cinematic (feed, camera shots, world effects, synthesised sound), world changes, game rules, advancements and game tests. Use whenever the task is to change Gungnir or the Genesis Key, or to make a new weapon, strike, event or "ultimate" item for this mod.
+description: How The Shooting Star's cinematic weapons are built (SS-03 Gungnir's orbital strike, the Ω-00 Genesis Key's Ginnungagap, Þ-01 Mjölnir's god-bolt) and the exact recipe for editing them or adding a new weapon of the same kind - an item that triggers a server-timed event with a client cinematic (feed, camera shots, world effects, synthesised sound), world changes, game rules, advancements and game tests. Use whenever the task is to change Gungnir, the Genesis Key or Mjölnir, or to make a new weapon, strike, event or "ultimate" item for this mod.
 ---
 
 # Weapons of The Shooting Star
@@ -10,16 +10,19 @@ A weapon here is not an item that does damage. It is an **event**: using the ite
 to the world and to entities. The clients turn the same timeline into a cinematic: a full-screen 3D feed, camera
 shots, effects drawn into the world, a HUD and a synthesised soundtrack.
 
-Two exist, and they are the templates:
+Three exist, and they are the templates:
 
 - **SS-03 Gungnir** (`gungnir_uplink`): a 22-second strike; a 128-block crater, molten crust and a spire.
   Read `references/gungnir.md`.
 - **Ω-00 Ginnungagap** (`genesis_key`): a world-scale event; the world round the target is erased, everyone waits
   in the void, and the cracked key rebuilds it. Read `references/genesis-key.md`.
+- **Þ-01 Mjölnir** (`mjolnir`): an 18-second strike as strong as Gungnir but its own: a storm over the target, a bolt
+  that blasts a fused crater, burns the zone, scars the ground in a Lichtenberg figure and arcs on through the ring,
+  and is left standing petrified. It shares no class with Gungnir. Read `references/mjolnir.md`.
 
-Read the reference for the weapon you are touching before editing it. For a new weapon, read both and copy the
-nearer one: Gungnir for a strike that changes terrain and is over, the Genesis Key for an event that holds players
-and must survive restarts.
+Read the reference for the weapon you are touching before editing it. For a new weapon, read them and copy the
+nearest: Mjölnir (or Gungnir) for a strike that changes terrain and is over, the Genesis Key for an event that holds
+players and must survive restarts. Mjölnir is the newest and the most self-contained strike to copy from.
 
 ## The shape every weapon has
 
@@ -41,7 +44,8 @@ Client [client source set]
                                    holds just short of IMPACT until the server's impact payload arrives
   Feed (HudRenderCallback) ── Feed.Sequence.render(t) → 3D shots offscreen (HDR) → bloom → Overlay text
   CameraDirector / CameraMixin ── the shooter's camera shots (rise, impact, wide)
-  WorldRenderEvents.LAST ── effects in the world (beam, falling object, fireball, rings, debris) in an HDR light pass
+  WorldPasses ── effects in the world (beam, falling object, fireball, rings, debris) in an HDR light pass, drawn
+                 at the end of the world's drawing, or after an Iris shader pack has finished the frame
   HudRenderCallback ── HUD over the world;  GameRendererMixin ── ScreenShake
 ```
 
@@ -142,7 +146,11 @@ Name it once (say `thunder`, item `thunder_rod`, timeline `ThunderTimeline`) and
    - The words over the feed are `Overlay` fields that the shot fills: `header`, `title` / `subtitle`, `banner`,
      `footer`, `labels`, `bars`, plus grading (`flash`, `exposure`, `zoomBlur`…).
    - Camera shots in `CameraDirector`.
-   - World effects registered on `WorldRenderEvents.LAST`, and HUD on `HudRenderCallback`.
+   - World effects registered with `WorldPasses.register` (over the finished world) or `WorldPasses.registerInWorld`
+     (glowing things in the world, like the lock beam), never straight on `WorldRenderEvents.LAST`: an Iris shader
+     pack lays its own picture of the world over anything drawn there, and takes things drawn mid-world for its own
+     blocks (the glow goes dull). WorldPasses draws them after the pack when one is in use. HUD on
+     `HudRenderCallback`.
    - New GLSL: `src/client/resources/assets/shootingstar/shaders/core/ss_<name>.json/.vsh/.fsh` (beside `ss_glow`,
      `ss_impact`, `ss_galaxy`…), registered in `Shaders.register` with its vertex format. Feed meshes (`.ssm`) live
      in `src/client/resources/assets/shootingstar/meshes/`.

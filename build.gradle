@@ -3,9 +3,10 @@ plugins {
 	id 'maven-publish'
 }
 
-// This build makes every one of kortev's mods, each in its own jar: The Shooting Star here at the root, and
-// Chitty Chitty Bang Bang in chitty/. They are all set up the same way, against the same Minecraft and Fabric, here and
-// for all of them at once, so that each one's source sets exist before the test harness below puts them together.
+// This build makes every mod of the SMP's, each in its own jar: kortev's The Shooting Star here at the root and Chitty
+// Chitty Bang Bang in chitty/, and the friends' own beside them (gojolander/). They are all set up the same way,
+// against the same Minecraft and Fabric, here and for all of them at once, so that each one's source sets exist before
+// the test harness below puts them together.
 allprojects {
 	apply plugin: 'fabric-loom'
 	apply plugin: 'maven-publish'
@@ -47,22 +48,35 @@ base {
 	archivesName = project.archives_base_name
 }
 
+// Other players' mods run beside these in the dev game, to see how everything looks with them (Sodium, Iris and a
+// shader pack, say): -PextraMods=path/to/one.jar;path/to/another.jar. Never part of a build or a jar.
+if (project.hasProperty('extraMods')) {
+	dependencies {
+		project.property('extraMods').toString().split(';').findAll { it }.each { modLocalRuntime files(it) }
+	}
+}
+
 def chittyProject = project(":chitty")
+def gojolanderProject = project(":gojolander")
 
 // Test harness mod: server game tests plus client self tests that film a full strike, a Ginnungagap or a drive in
-// Chitty. It loads every mod in the build together, as a server with all of them installed would.
+// Chitty, and the game tests of the friends' mods. It loads every mod in the build together, as a server with all of
+// them installed would.
 sourceSets {
 	gametest {
 		compileClasspath += sourceSets.main.compileClasspath + sourceSets.main.output + sourceSets.client.compileClasspath + sourceSets.client.output
 		runtimeClasspath += sourceSets.main.runtimeClasspath + sourceSets.main.output + sourceSets.client.runtimeClasspath + sourceSets.client.output
-		// Only Chitty's own classes and resources: her classpath has this project on it again.
+		// Only Chitty's (and the friends' mods') own classes and resources: their classpaths have this project on it again.
 		compileClasspath += chittyProject.sourceSets.main.output + chittyProject.sourceSets.client.output
 		runtimeClasspath += chittyProject.sourceSets.main.output + chittyProject.sourceSets.client.output
+		compileClasspath += gojolanderProject.sourceSets.main.output + gojolanderProject.sourceSets.client.output
+		runtimeClasspath += gojolanderProject.sourceSets.main.output + gojolanderProject.sourceSets.client.output
 	}
 	// No code of its own: what the dev client and server run, every mod in the build together.
 	allMods {
 		runtimeClasspath += sourceSets.main.runtimeClasspath + sourceSets.main.output + sourceSets.client.runtimeClasspath + sourceSets.client.output
 		runtimeClasspath += chittyProject.sourceSets.main.output + chittyProject.sourceSets.client.output
+		runtimeClasspath += gojolanderProject.sourceSets.main.output + gojolanderProject.sourceSets.client.output
 	}
 }
 
@@ -75,6 +89,10 @@ loom {
 		"chitty" {
 			sourceSet "main", chittyProject
 			sourceSet "client", chittyProject
+		}
+		"gojolander" {
+			sourceSet "main", gojolanderProject
+			sourceSet "client", gojolanderProject
 		}
 		"shootingstar-gametest" {
 			sourceSet sourceSets.gametest
@@ -107,9 +125,47 @@ loom {
 			client()
 			name = "Client Self Test"
 			vmArg "-Dshootingstar.selftest=${project.findProperty('selftest') ?: 'gap'}"
+			vmArg "-Dshootingstar.selftest.target=${project.findProperty('target') ?: ''}"
 			runDir "build/selftest"
 			source sourceSets.gametest
-			programArgs "--quickPlaySingleplayer", "selftest", "--width", "1280", "--height", "720"
+			// The window's size (-Pwidth, -Pheight: the film self tests are 1080x1920, for Shorts) and who plays (-Pusername).
+			def window = ["--quickPlaySingleplayer", "selftest", "--width", (project.findProperty('width') ?: '1280').toString(),
+					"--height", (project.findProperty('height') ?: '720').toString()]
+			if (project.findProperty('username')) {
+				window += ["--username", project.findProperty('username').toString()]
+			}
+			programArgs(window)
+		}
+		// The server going down without warning mid-event, and coming back (CrashTestServer, tools/crashtest.sh).
+		crashserver {
+			server()
+			name = "Crash Test Server"
+			vmArg "-Dshootingstar.crashtest=${project.findProperty('crashtest') ?: 'crash'}"
+			runDir "build/crash/server"
+			source sourceSets.gametest
+		}
+		// The multiplayer test: a dedicated server and three clients (MultiplayerTestServer, MultiplayerTestClient), playing
+		// a Ginnungagap together, or with -Pscenario=domain the Domain (DomainMultiplayerServer, DomainMultiplayerClient).
+		mpserver {
+			server()
+			name = "MP Test Server"
+			vmArg "-Xmx3G"
+			vmArg "-Dshootingstar.mptest=server"
+			vmArg "-Dshootingstar.mptest.scenario=${project.findProperty('scenario') ?: 'gap'}"
+			runDir "build/mp/server"
+			source sourceSets.gametest
+		}
+		["Shooter", "Victim", "Netherling"].each { who ->
+			create("mp" + who.toLowerCase()) {
+				client()
+				name = "MP Test " + who
+				vmArg "-Xmx2G"
+				vmArg "-Dshootingstar.selftest=mp-" + who.toLowerCase()
+				vmArg "-Dshootingstar.mptest.scenario=${project.findProperty('scenario') ?: 'gap'}"
+				runDir "build/mp/" + who.toLowerCase()
+				source sourceSets.gametest
+				programArgs "--quickPlayMultiplayer", "localhost:25565", "--username", who, "--width", "854", "--height", "480"
+			}
 		}
 	}
 }

@@ -117,8 +117,9 @@ speed maths. `Feed.showing(t)` is `ORBIT ≤ t < INBOUND`.
   - `ScreenShake`: the rumble, the jolt, the shock front.
   - `AerialHaze` + `BackgroundRendererMixin`: haze and cloud deck on the rise, and the dust after (`render/Dust`).
 - **World**:
-  - `render/WorldEffects` (AFTER_TRANSLUCENT): the lock beam and the reticle rings.
-  - `world/WorldFx` (LAST): the falling star, the fireball, the condensation shell, the shock ring, debris, smoke,
+  - `render/WorldEffects` (`WorldPasses.registerInWorld`: AFTER_TRANSLUCENT, or after a shader pack): the lock beam
+    and the reticle rings.
+  - `world/WorldFx` (`WorldPasses`): the falling star, the fireball, the condensation shell, the shock ring, debris, smoke,
     then the impact frames and grading.
   - `world/ImpactScene`: one impact's simulation, scaled by the radius.
   - `render/ImpactEffects`: the boom at the speed of sound, embers, keeping the carved terrain drawn.

@@ -154,9 +154,17 @@ public final class Erasure {
 		if (erasure == null || gatheringOn != Thread.currentThread()) {
 			return false;
 		}
-		long column = ((long) pos.getX() << 32) | (pos.getZ() & 0xFFFFFFFFL);
-		erasure.lowest.put(column, Math.min(erasure.lowest.getOrDefault(column, Integer.MAX_VALUE), pos.getY()));
+		erasure.lightFrom(pos.getX(), pos.getZ(), pos.getY());
 		return true;
+	}
+
+	/**
+	 * Has the light of column (x, z) worked out again when the hole is done, from {@code y} (the lowest block taken out of
+	 * it) up.
+	 */
+	private void lightFrom(int x, int z, int y) {
+		long column = ((long) x << 32) | (z & 0xFFFFFFFFL);
+		lowest.put(column, Math.min(lowest.getOrDefault(column, Integer.MAX_VALUE), y));
 	}
 
 	/** Works on, a budget's worth per call; true when the hole and the fissures are all done, lit and sent. */
@@ -250,6 +258,9 @@ public final class Erasure {
 			int x = center.getX() + (int) ((hole[cursor] >>> 16) & 0xFFFF) - 1024;
 			int z = center.getZ() + (int) (hole[cursor] & 0xFFFF) - 1024;
 			if (columnY == Integer.MIN_VALUE) {
+				// Loaded first: the height of a chunk that is not loaded reads as the bottom of the world, and the whole column
+				// would be passed over (after a crash nothing holds the hole loaded; and the fissures run past the event's ticket).
+				world.getChunk(x >> 4, z >> 4);
 				columnY = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z) - 1;
 				columnTop = columnY;
 				columnY = Math.max(columnY, world.getTopY(Heightmap.Type.WORLD_SURFACE, x, z) - 1);
@@ -270,6 +281,9 @@ public final class Erasure {
 				columnY--;
 			}
 			if (columnY < bottom) {
+				// Every column of the hole has its light worked out from the bottom, whatever came out of it: one emptied before a
+				// crash comes back with only its lid in it, and the light it had underground.
+				lightFrom(x, z, bottom);
 				lid(pos.set(x, columnTop, z));
 				cursor++;
 				columnY = Integer.MIN_VALUE;
@@ -289,6 +303,7 @@ public final class Erasure {
 					for (int oz = -(width / 2); oz <= width / 2; oz++) {
 						int x = cx + ox;
 						int z = cz + oz;
+						world.getChunk(x >> 4, z >> 4);
 						int top = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z) - 1;
 						// Narrower further down: a wedge, not a trench.
 						int depth = ox == 0 && oz == 0 ? split : split / 2;
@@ -306,6 +321,9 @@ public final class Erasure {
 						}
 						if (opened) {
 							lid(pos.set(x, top, z));
+						}
+						if (depth > 0) {
+							lightFrom(x, z, top - depth + 1);
 						}
 						touched.add(ChunkPos.toLong(x >> 4, z >> 4));
 					}

@@ -6,8 +6,8 @@ import io.github.kortev.shootingstar.client.gfx.Post;
 import io.github.kortev.shootingstar.client.gfx.Shaders;
 import io.github.kortev.shootingstar.client.gfx.Target;
 import io.github.kortev.shootingstar.client.gfx.Universe;
+import io.github.kortev.shootingstar.client.gfx.WorldFrame;
 import io.github.kortev.shootingstar.gap.GapTimeline;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.Framebuffer;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
@@ -58,13 +58,13 @@ public final class GapRender {
 	private GapRender() {
 	}
 
-	public static void render(WorldRenderContext context) {
+	public static void render(WorldFrame context) {
 		MinecraftClient client = MinecraftClient.getInstance();
 		ClientWorld world = context.world();
 		if (!Shaders.ready() || world == null || client.player == null || ClientGaps.all().isEmpty()) {
 			return;
 		}
-		float tickDelta = context.tickCounter().getTickDelta(false);
+		float tickDelta = context.tickDelta();
 		Vec3d cam = context.camera().getPos();
 		Matrix4f view = new Matrix4f(context.positionMatrix());
 		Matrix4f proj = new Matrix4f(context.projectionMatrix());
@@ -129,7 +129,8 @@ public final class GapRender {
 			if (grade.front >= 0.0F || grade.black > 0.0F) {
 				for (AbstractClientPlayerEntity player : world.getPlayers()) {
 					boolean self = player == client.player;
-					if ((self ? context.camera().isThirdPerson() : player.squaredDistanceTo(cam) < 128.0 * 128.0) && !player.isSpectator()) {
+					if ((self ? context.camera().isThirdPerson() : player.squaredDistanceTo(cam) < 128.0 * 128.0) && !player.isSpectator()
+							&& !GapCamera.atLens(player)) {
 						redrawPlayer(client, player, cam, view, tickDelta);
 					}
 				}
@@ -674,7 +675,7 @@ public final class GapRender {
 		}
 		Vec3d feet = TreeRender.foot(gap).subtract(gap.target.getX(), gap.target.getY(), gap.target.getZ());
 		g.tree.set((float) feet.x, (float) feet.y, (float) feet.z, (float) TreeRender.width(gap));
-		g.treeState.set((float) TreeRender.there(r), 0.0F, 0.0F, 0.0F);
+		g.treeState.set((float) TreeRender.there(r), (float) skyBack(gap, r), 0.0F, 0.0F);
 		// Its light on the world as it comes back round it: violet and cold, flaring as the light goes out through it.
 		double height = TreeRender.height(gap);
 		Vec3d glow = TreeRender.foot(gap).add(0.0, height * 0.3, 0.0).subtract(gap.target.getX(), gap.target.getY(), gap.target.getZ());
@@ -712,20 +713,15 @@ public final class GapRender {
 		return MathHelper.clamp(view + gap.radius + 48.0, gap.radius + 120.0, 600.0);
 	}
 
-	/** How much of the sky's light is back during a rebuild, 0 to 1, as the grade pass brings the sky back. */
-	public static float skyLight(float tickDelta) {
-		ClientGap gap = ClientGaps.rebuilding();
-		if (gap == null) {
-			return 1.0F;
-		}
-		double front = rebuildFront(gap, gap.rebuild(tickDelta));
+	/** How much of the sky is back, {@code r} ticks into the rebuild: as the grade pass brings it back (ss_gap). */
+	static double skyBack(ClientGap gap, double r) {
+		double front = rebuildFront(gap, r);
 		if (front < 0.0) {
-			return 1.0F;
+			return r < GapTimeline.REBUILD_SWEEP ? 0.0 : 1.0;
 		}
-		// As the grade pass brings the sky back (ss_gap: from a tenth of the way out to most of it).
 		double reach = rebuildReach(gap);
 		double x = MathHelper.clamp((front - 0.1 * reach) / (0.77 * reach), 0.0, 1.0);
-		return (float) (x * x * (3.0 - 2.0 * x));
+		return x * x * (3.0 - 2.0 * x);
 	}
 
 	/** When the rebuild's front gets out as far as {@code reach}: rebuildFront turned round. */

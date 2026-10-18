@@ -71,6 +71,8 @@ final class Overlay {
 	/** Light above this level blooms. */
 	float threshold = 0.9F;
 	float vignette = 0.55F;
+	/** How strongly the video lines show over the picture (1 for the full look of a feed). */
+	float scanlines = 1.0F;
 	float saturation = 1.0F;
 	float fade = 1.0F;
 }

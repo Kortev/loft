@@ -1,0 +1,31 @@
+{
+  "parent": "gojolander:domain",
+  "display": {
+    "icon": {
+      "id": "gojolander:blindfold"
+    },
+    "title": {
+      "translate": "advancements.gojolander.caught.title"
+    },
+    "description": {
+      "translate": "advancements.gojolander.caught.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "caught": {
+      "trigger": "shootingstar:event",
+      "conditions": {
+        "event": "unlimited_void_player"
+      }
+    }
+  },
+  "requirements": [
+    [
+      "caught"
+    ]
+  ]
+}

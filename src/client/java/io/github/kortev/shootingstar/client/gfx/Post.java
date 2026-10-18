@@ -59,6 +59,14 @@ public final class Post {
 	 * the half and quarter resolution glow textures and a horizontal streak of the very brightest light.
 	 */
 	public static int[] bloom(int source, int width, int height, float threshold) {
+		return bloom(source, width, height, threshold, true);
+	}
+
+	/**
+	 * As {@link #bloom(int, int, int, float)}; without {@code streak} the streak (more than half the passes) is left out
+	 * and its texture comes back as 0, for pictures that do not want it.
+	 */
+	public static int[] bloom(int source, int width, int height, float threshold, boolean streak) {
 		int hw = Math.max(1, width / 2);
 		int hh = Math.max(1, height / 2);
 		int qw = Math.max(1, width / 4);
@@ -76,24 +84,28 @@ public final class Post {
 
 		// The streak: only light far above the threshold, squeezed into a short, wide buffer and smeared
 		// sideways with ever wider steps.
-		int sw = Math.max(1, width / 2);
-		int sh = Math.max(1, height / 8);
-		Target streakA = STREAK_A.ensure(sw, sh);
-		Target streakB = STREAK_B.ensure(sw, sh);
-		streakA.bind();
-		RenderSystem.setShaderTexture(0, halfA.color());
-		Shaders.set(Shaders.bright, "Threshold", 1.5F);
-		Shaders.set(Shaders.bright, "TexelSize", 1.0F / hw, 4.0F / hh);
-		quad(Shaders.bright);
-		for (float step : new float[] {1.0F, 2.5F, 6.0F, 14.0F}) {
-			streakB.bind();
-			RenderSystem.setShaderTexture(0, streakA.color());
-			Shaders.set(Shaders.blur, "Direction", step / sw, 0.0F);
-			quad(Shaders.blur);
+		int streaked = 0;
+		if (streak) {
+			int sw = Math.max(1, width / 2);
+			int sh = Math.max(1, height / 8);
+			Target streakA = STREAK_A.ensure(sw, sh);
+			Target streakB = STREAK_B.ensure(sw, sh);
 			streakA.bind();
-			RenderSystem.setShaderTexture(0, streakB.color());
-			Shaders.set(Shaders.blur, "Direction", step * 1.6F / sw, 0.0F);
-			quad(Shaders.blur);
+			RenderSystem.setShaderTexture(0, halfA.color());
+			Shaders.set(Shaders.bright, "Threshold", 1.5F);
+			Shaders.set(Shaders.bright, "TexelSize", 1.0F / hw, 4.0F / hh);
+			quad(Shaders.bright);
+			for (float step : new float[] {1.0F, 2.5F, 6.0F, 14.0F}) {
+				streakB.bind();
+				RenderSystem.setShaderTexture(0, streakA.color());
+				Shaders.set(Shaders.blur, "Direction", step / sw, 0.0F);
+				quad(Shaders.blur);
+				streakA.bind();
+				RenderSystem.setShaderTexture(0, streakB.color());
+				Shaders.set(Shaders.blur, "Direction", step * 1.6F / sw, 0.0F);
+				quad(Shaders.blur);
+			}
+			streaked = streakA.color();
 		}
 
 		blur(halfA, halfB, hw, hh);
@@ -105,7 +117,7 @@ public final class Post {
 		quad(Shaders.bright);
 		blur(quarterA, quarterB, qw, qh);
 		blur(quarterA, quarterB, qw, qh);
-		return new int[] {halfA.color(), quarterA.color(), streakA.color()};
+		return new int[] {halfA.color(), quarterA.color(), streaked};
 	}
 
 	/** Separable blur of {@code a} using {@code b} as scratch; the result ends up back in {@code a}. */

@@ -2,6 +2,7 @@ package io.github.kortev.shootingstar;
 
 import io.github.kortev.shootingstar.command.GapCommand;
 import io.github.kortev.shootingstar.command.GungnirCommand;
+import io.github.kortev.shootingstar.command.MjolnirCommand;
 import io.github.kortev.shootingstar.gap.GapManager;
 import io.github.kortev.shootingstar.network.ModNetworking;
 import io.github.kortev.shootingstar.registry.ModBlocks;
@@ -10,6 +11,7 @@ import io.github.kortev.shootingstar.registry.ModGameRules;
 import io.github.kortev.shootingstar.registry.ModItems;
 import io.github.kortev.shootingstar.registry.ModSounds;
 import io.github.kortev.shootingstar.strike.StrikeManager;
+import io.github.kortev.shootingstar.thunder.ThunderManager;
 import net.fabricmc.api.ModInitializer;
 import net.minecraft.util.Identifier;
 import org.slf4j.Logger;
@@ -35,6 +37,8 @@ public class ShootingStar implements ModInitializer {
 		GungnirCommand.init();
 		GapManager.init();
 		GapCommand.init();
+		ThunderManager.init();
+		MjolnirCommand.init();
 		LOGGER.info("SS-03 Gungnir online");
 	}
 }

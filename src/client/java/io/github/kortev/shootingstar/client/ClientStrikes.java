@@ -4,6 +4,7 @@ import io.github.kortev.shootingstar.client.feed.Feed;
 import io.github.kortev.shootingstar.client.gap.ClientGaps;
 import io.github.kortev.shootingstar.client.render.Culling;
 import io.github.kortev.shootingstar.client.render.ImpactEffects;
+import io.github.kortev.shootingstar.client.thunder.ClientThunders;
 import io.github.kortev.shootingstar.client.world.ImpactScene;
 import io.github.kortev.shootingstar.client.world.WorldFx;
 import io.github.kortev.shootingstar.network.StrikeCancelPayload;
@@ -178,7 +179,7 @@ public final class ClientStrikes {
 		boolean takeOver = cinematic != null && (feedActive(cinematic, cinematic.age) || shotActive(cinematic, cinematic.age));
 		// The camera shots fly where the world's culling has never looked from; a tick of margin either side.
 		boolean flying = cinematic != null && (shotActive(cinematic, cinematic.age - 2) || shotActive(cinematic, cinematic.age + 2));
-		Culling.update(client, flying || ClientGaps.flying());
+		Culling.update(client, flying || ClientGaps.flying() || ClientThunders.flying());
 		if (takeOver && !hudOverride) {
 			savedHudHidden = client.options.hudHidden;
 			client.options.hudHidden = true;
