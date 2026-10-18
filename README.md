@@ -252,6 +252,9 @@ screenShake=1.0    # 0 turns shake off
 2. Put [Fabric API](https://modrinth.com/mod/fabric-api) (any 1.21.1 build) and
    `shooting-star-1.0.0.jar` in your `mods` folder, and `chitty-chitty-bang-bang-1.0.0.jar` beside them for Chitty.
 3. The mod is needed on both the server and every client that should see the feed and effects.
+4. It works with Sodium and Iris, shader packs on or off (tried with Complementary Reimagined): with a pack in use,
+   the effects drawn over the world (the beam, the blast, the Gap, the storm) are drawn after the pack has finished
+   each frame (`WorldPasses`), as a pack lays its own picture of the world over anything drawn before.
 
 ## Building
 

@@ -93,8 +93,8 @@ broken), or if kortev's Genesis Key takes the world; and it is not cast at all w
 
 It works with Sodium and with Iris, shader packs on or off (tried with Complementary Reimagined). A shader pack draws
 the world into its own pictures and lays them over the screen only at the very end, so with one in use the Domain is
-drawn after the pack has finished each frame (`ShaderPacks`, `AfterWorldMixin`) instead of at the end of the world's
-drawing.
+drawn after the pack has finished each frame (shootingstar's `WorldPasses`, which kortev's own effects use too) instead
+of at the end of the world's drawing.
 
 ## How it is made
 

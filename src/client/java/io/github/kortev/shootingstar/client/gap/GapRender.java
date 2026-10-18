@@ -6,8 +6,8 @@ import io.github.kortev.shootingstar.client.gfx.Post;
 import io.github.kortev.shootingstar.client.gfx.Shaders;
 import io.github.kortev.shootingstar.client.gfx.Target;
 import io.github.kortev.shootingstar.client.gfx.Universe;
+import io.github.kortev.shootingstar.client.gfx.WorldFrame;
 import io.github.kortev.shootingstar.gap.GapTimeline;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.Framebuffer;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
@@ -58,13 +58,13 @@ public final class GapRender {
 	private GapRender() {
 	}
 
-	public static void render(WorldRenderContext context) {
+	public static void render(WorldFrame context) {
 		MinecraftClient client = MinecraftClient.getInstance();
 		ClientWorld world = context.world();
 		if (!Shaders.ready() || world == null || client.player == null || ClientGaps.all().isEmpty()) {
 			return;
 		}
-		float tickDelta = context.tickCounter().getTickDelta(false);
+		float tickDelta = context.tickDelta();
 		Vec3d cam = context.camera().getPos();
 		Matrix4f view = new Matrix4f(context.positionMatrix());
 		Matrix4f proj = new Matrix4f(context.projectionMatrix());

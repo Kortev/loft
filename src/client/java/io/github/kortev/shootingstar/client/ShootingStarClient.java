@@ -5,6 +5,7 @@ import io.github.kortev.shootingstar.client.gap.ClientGaps;
 import io.github.kortev.shootingstar.client.gap.GapHud;
 import io.github.kortev.shootingstar.client.gap.GapRender;
 import io.github.kortev.shootingstar.client.gfx.Shaders;
+import io.github.kortev.shootingstar.client.gfx.WorldPasses;
 import io.github.kortev.shootingstar.client.render.HudEffects;
 import io.github.kortev.shootingstar.client.render.WorldEffects;
 import io.github.kortev.shootingstar.client.render.WorldProjector;
@@ -119,12 +120,15 @@ public class ShootingStarClient implements ClientModInitializer {
 			VoidFx.tick(client);
 		});
 
-		WorldRenderEvents.AFTER_TRANSLUCENT.register(WorldEffects::render);
+		// In the world and over it when it is finished; with a shader pack in use, both once the pack is done (WorldPasses).
+		WorldRenderEvents.AFTER_TRANSLUCENT.register(WorldPasses::afterTranslucent);
 		WorldRenderEvents.LAST.register(WorldProjector::capture);
-		WorldRenderEvents.LAST.register(WorldFx::render);
-		WorldRenderEvents.LAST.register(GapRender::render);
-		WorldRenderEvents.LAST.register(VoidFx::render);
-		WorldRenderEvents.LAST.register(ThunderRender::render);
+		WorldRenderEvents.LAST.register(WorldPasses::last);
+		WorldPasses.registerInWorld(WorldEffects::render);
+		WorldPasses.register(WorldFx::render);
+		WorldPasses.register(GapRender::render);
+		WorldPasses.register(VoidFx::render);
+		WorldPasses.register(ThunderRender::render);
 		HudRenderCallback.EVENT.register(HudEffects::render);
 		HudRenderCallback.EVENT.register(GapHud::render);
 		HudRenderCallback.EVENT.register(ThunderHud::render);

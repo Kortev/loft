@@ -4,8 +4,8 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import io.github.kortev.shootingstar.client.Aim;
 import io.github.kortev.shootingstar.client.ClientStrike;
 import io.github.kortev.shootingstar.client.ClientStrikes;
+import io.github.kortev.shootingstar.client.gfx.WorldFrame;
 import io.github.kortev.shootingstar.strike.StrikeTimeline;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.block.BlockState;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.world.ClientWorld;
@@ -26,9 +26,9 @@ public final class WorldEffects {
 	private WorldEffects() {
 	}
 
-	public static void render(WorldRenderContext context) {
+	public static void render(WorldFrame context) {
 		ClientWorld world = context.world();
-		float tickDelta = context.tickCounter().getTickDelta(false);
+		float tickDelta = context.tickDelta();
 		boolean anyStrike = false;
 		for (ClientStrike strike : ClientStrikes.all()) {
 			if (strike.time(tickDelta) < StrikeTimeline.IMPACT + 2) {

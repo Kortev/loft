@@ -7,7 +7,7 @@ import io.github.kortev.shootingstar.client.gfx.Post;
 import io.github.kortev.shootingstar.client.gfx.Shaders;
 import io.github.kortev.shootingstar.client.gfx.Target;
 import io.github.kortev.shootingstar.client.gfx.Timings;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+import io.github.kortev.shootingstar.client.gfx.WorldFrame;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.Framebuffer;
 import net.minecraft.client.gl.ShaderProgram;
@@ -21,7 +21,6 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
-import org.jetbrains.annotations.Nullable;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
 import org.joml.Vector3f;
@@ -65,51 +64,21 @@ public final class DomainRender {
 	private DomainRender() {
 	}
 
-	/** The world's frame, kept for drawing after a shader pack has finished it. */
-	private record Frame(Camera camera, Matrix4f view, Matrix4f proj, float tickDelta) {
-	}
-
-	@Nullable
-	private static Frame deferred;
-
 	/**
-	 * At the end of the world's drawing: draws the Domains now, over the world as it stands; or, with an Iris shader pack
-	 * in use (which draws the world into its own pictures and lays them over the screen only at the very end, over
-	 * anything drawn here), keeps what it needs and draws them once the pack is done ({@link #afterWorld}).
+	 * Over the finished world (shootingstar's WorldPasses: at the end of the world's drawing, or with an Iris shader pack
+	 * in use, which lays its own picture of the world over anything drawn there, once the pack is done).
 	 */
-	public static void render(WorldRenderContext context) {
-		if (domain == null || ClientDomains.all().isEmpty()) {
-			return;
-		}
-		Frame frame = new Frame(context.camera(), new Matrix4f(context.positionMatrix()), new Matrix4f(context.projectionMatrix()),
-				context.tickCounter().getTickDelta(false));
-		if (ShaderPacks.inUse()) {
-			deferred = frame;
-			return;
-		}
-		draw(frame);
-	}
-
-	/** After the whole world (a shader pack's last pass and all) is on the screen: the Domains held back for it. */
-	public static void afterWorld() {
-		Frame frame = deferred;
-		deferred = null;
-		if (frame != null && domain != null) {
-			draw(frame);
-		}
-	}
-
-	private static void draw(Frame frame) {
+	public static void render(WorldFrame frame) {
 		MinecraftClient client = MinecraftClient.getInstance();
 		ClientWorld world = client.world;
-		if (world == null || client.player == null) {
+		if (domain == null || ClientDomains.all().isEmpty() || world == null || client.player == null) {
 			return;
 		}
 		Camera camera = frame.camera();
 		float tickDelta = frame.tickDelta();
 		Vec3d cam = camera.getPos();
-		Matrix4f view = frame.view();
-		Matrix4f proj = frame.proj();
+		Matrix4f view = new Matrix4f(frame.positionMatrix());
+		Matrix4f proj = new Matrix4f(frame.projectionMatrix());
 		Framebuffer main = client.getFramebuffer();
 		int w = main.textureWidth;
 		int h = main.textureHeight;
