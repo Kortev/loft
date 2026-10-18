@@ -1,5 +1,6 @@
 package io.github.kortev.shootingstar.test;
 
+import com.mojang.authlib.GameProfile;
 import io.github.kortev.gojolander.Gojolander;
 import io.github.kortev.gojolander.GojoRules;
 import io.github.kortev.gojolander.Owner;
@@ -10,6 +11,7 @@ import io.github.kortev.gojolander.domain.DomainTimeline;
 import io.github.kortev.gojolander.network.DomainCastPayload;
 import io.github.kortev.shootingstar.ShootingStar;
 import io.github.kortev.shootingstar.client.gfx.Timings;
+import io.netty.channel.embedded.EmbeddedChannel;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import net.fabricmc.api.ClientModInitializer;
@@ -27,25 +29,33 @@ import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.item.ItemStack;
+import net.minecraft.network.ClientConnection;
+import net.minecraft.network.NetworkSide;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.integrated.IntegratedServer;
+import net.minecraft.server.network.ConnectedClientData;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.util.Uuids;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.GameMode;
 import net.minecraft.world.GameRules;
 import net.minecraft.world.Heightmap;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * With -Dshootingstar.selftest=domain: joins the quick-play world as the blindfold's owner, on a cleared disc of grass
  * with creatures stood round, and photographs Unlimited Void three ways: cast by this player (the blindfold, the hand
  * sign shot, the black closing, the void, the shattering); cast by nobody a way off, watched from outside it (the ring,
- * the sphere, its shattering); and cast over this player, caught in it (the flood). The pictures are in the run
- * directory's screenshots folder.
+ * the sphere, its shattering); cast by nobody over a stand-in player in front of this one, watched from inside it (them
+ * jolted at each step down, and let go broken: on their knees, getting up, the light leaving them); and cast over this
+ * player, caught in it (the flood, its surges, and the snap as it lets go). The pictures are in the run directory's
+ * screenshots folder.
  */
 public class DomainSelfTest implements ClientModInitializer {
-	private enum Stage { WAIT_WORLD, SETUP, SETTLE, CAST, WATCH, OUTSIDE, CAUGHT, DONE, FINISHED }
+	private enum Stage { WAIT_WORLD, SETUP, SETTLE, CAST, WATCH, OUTSIDE, BROKEN, CAUGHT, DONE, FINISHED }
 
 	/** How far the disc reaches, how far off (and how high) the watched Domain is seen from, and its size and hold. */
 	private static final int DISC = 44;
@@ -54,12 +64,23 @@ public class DomainSelfTest implements ClientModInitializer {
 	private static final int RADIUS = 32;
 	private static final int HOLD_SECONDS = 10;
 	private static final int HOLD = HOLD_SECONDS * 20;
+	/**
+	 * The game's speed while the broken and the caught are photographed: slow, so that every tick is drawn (and each
+	 * still is of the tick it is named for) however slowly the machine draws.
+	 */
+	private static final float SLOW = 4.0F;
+	/** How far in front of this player the stand-in stands, for the broken. */
+	private static final double STAND_IN = 4.0;
 
 	private static final Deque<Integer> STILLS = new ArrayDeque<>();
 	private static Stage stage = Stage.WAIT_WORLD;
 	private static int ticks;
+	/** When the stand-in's Domain was over (in this stage's ticks), for the stills of their daze after. */
+	private static int quiet;
 	private static BlockPos home;
 	private static float facing;
+	@Nullable
+	private static ServerPlayerEntity standIn;
 
 	@Override
 	public void onInitializeClient() {
@@ -239,8 +260,59 @@ public class DomainSelfTest implements ClientModInitializer {
 					}
 					photograph(client, domain, "c");
 					if (domain == null && ticks > 60 || domain != null && domain.age > DomainTimeline.end(HOLD) + 5) {
-						stage = Stage.CAUGHT;
+						stage = Stage.BROKEN;
 						ticks = 0;
+					}
+				}
+			}
+			case BROKEN -> {
+				client.options.hudHidden = true;
+				if (ticks == 40) {
+					// A stand-in player in front of this one, turned three-quarters away, and one cast over them both
+					// by nobody: this one, in creative, is not caught and watches from inside, as he would.
+					server.execute(() -> {
+						server.getTickManager().setTickRate(SLOW);
+						ServerPlayerEntity player = server.getPlayerManager().getPlayerList().get(0);
+						ServerWorld world = player.getServerWorld();
+						Vec3d at = Vec3d.ofBottomCenter(home);
+						Vec3d them = at.add(direction(facing).multiply(STAND_IN));
+						player.changeGameMode(GameMode.CREATIVE);
+						player.getAbilities().flying = false;
+						player.sendAbilitiesUpdate();
+						player.networkHandler.requestTeleport(at.x, at.y, at.z, facing, 8.0F);
+						standIn = join(server, world, them, facing + 140.0F);
+						DomainManager.launch(world, at, null);
+					});
+					int c = DomainTimeline.collapse(HOLD);
+					int first = DomainTimeline.step(HOLD, 1);
+					stills(first - 4, first + 1, first + 2, first + 4, DomainTimeline.step(HOLD, 2) + 1, c - 2, c + 2, c + 5, c + 8, c + 12, c + 22,
+							c + 32, c + 37, c + 42);
+				}
+				if (ticks > 41) {
+					ClientDomain domain = latest();
+					photograph(client, domain, "e");
+					if (domain == null && ticks > 60) {
+						// The light leaving them, a while into their daze, from in front and from beside.
+						int after = ticks - quiet;
+						if (quiet == 0) {
+							quiet = ticks;
+						} else if (after == 20) {
+							shot(client, "e_daze_front.png");
+							client.player.setYaw(facing + 35.0F);
+						} else if (after == 28) {
+							shot(client, "e_daze_side.png");
+						} else if (after == 34) {
+							server.execute(() -> {
+								if (standIn != null) {
+									server.getPlayerManager().remove(standIn);
+									standIn = null;
+								}
+							});
+							quiet = 0;
+							client.options.hudHidden = false;
+							stage = Stage.CAUGHT;
+							ticks = 0;
+						}
 					}
 				}
 			}
@@ -254,7 +326,9 @@ public class DomainSelfTest implements ClientModInitializer {
 						player.networkHandler.requestTeleport(center.x + 4.0, center.y, center.z + 4.0, facing + 40.0F, 0.0F);
 						DomainManager.launch(player.getServerWorld(), center, null);
 					});
-					stills(90, 98, 104, 110, 118, 140, 220, DomainTimeline.collapse(HOLD) + 6);
+					int c = DomainTimeline.collapse(HOLD);
+					int first = DomainTimeline.step(HOLD, 1);
+					stills(90, 98, 104, 110, 118, first - 3, first + 1, first + 3, 220, c + 2, c + 5, c + 8, c + 12, c + 24, c + 36);
 				}
 				if (ticks > 41) {
 					ClientDomain domain = latest();
@@ -265,6 +339,7 @@ public class DomainSelfTest implements ClientModInitializer {
 				}
 			}
 			case DONE -> {
+				server.execute(() -> server.getTickManager().setTickRate(20.0F));
 				ShootingStar.LOGGER.info("[selftest] finished");
 				stage = Stage.FINISHED;
 				client.scheduleStop();
@@ -272,6 +347,24 @@ public class DomainSelfTest implements ClientModInitializer {
 			case FINISHED -> {
 			}
 		}
+	}
+
+	/** A stand-in player the server makes, connected as the game tests' are, standing at {@code at} facing {@code yaw}. */
+	private static ServerPlayerEntity join(MinecraftServer server, ServerWorld world, Vec3d at, float yaw) {
+		GameProfile profile = new GameProfile(Uuids.getOfflinePlayerUuid("StandIn"), "StandIn");
+		ConnectedClientData data = ConnectedClientData.createDefault(profile, false);
+		ServerPlayerEntity player = new ServerPlayerEntity(server, world, profile, data.syncedOptions());
+		ClientConnection connection = new ClientConnection(NetworkSide.SERVERBOUND);
+		new EmbeddedChannel(connection);
+		server.getPlayerManager().onPlayerConnect(connection, player, data);
+		// Whole, whatever the last run left on them (they are saved with the world, broken).
+		player.clearStatusEffects();
+		player.setHealth(player.getMaxHealth());
+		player.changeGameMode(GameMode.SURVIVAL);
+		player.teleport(world, at.x, at.y, at.z, yaw, 0.0F);
+		player.setHeadYaw(yaw);
+		player.setBodyYaw(yaw);
+		return player;
 	}
 
 	private static ClientDomain latest() {

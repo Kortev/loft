@@ -57,6 +57,38 @@
       }
     ]
   },
+  "domain.pulse": {
+    "subtitle": "subtitles.gojolander.domain.pulse",
+    "sounds": [
+      {
+        "name": "gojolander:domain_pulse"
+      }
+    ]
+  },
+  "domain.pulse.world": {
+    "subtitle": "subtitles.gojolander.domain.pulse.world",
+    "sounds": [
+      {
+        "name": "gojolander:domain_pulse_world"
+      }
+    ]
+  },
+  "domain.break": {
+    "subtitle": "subtitles.gojolander.domain.break",
+    "sounds": [
+      {
+        "name": "gojolander:domain_break"
+      }
+    ]
+  },
+  "domain.break.world": {
+    "subtitle": "subtitles.gojolander.domain.break.world",
+    "sounds": [
+      {
+        "name": "gojolander:domain_break_world"
+      }
+    ]
+  },
   "domain.fade": {
     "subtitle": "subtitles.gojolander.domain.fade",
     "sounds": [

@@ -54,19 +54,27 @@ His ult. With the blindfold on, he presses **Z** (rebindable: Domain Expansion).
     hang, players with their heads tipped back, arms out from them. What they see is everything there is, all at
     once: the picture torn apart by light rushing in, flickering grids of meaning, flashes of colour and white; what
     they hear is a roar of data and voices and a ringing in the ears.
+  - **It takes them down as it goes** (as in the show, where how long you are in it is how bad it is: a fifth of a
+    second, and a crowd needs two months to come back). About every 2 s the flood surges: a dull blow inside their
+    heads, the picture whiting out, and a step of the way down to half a heart, through any armour, enchantment,
+    Resistance or shield. Everyone sees it: they flinch red, heads thrown back and arms flung out, with a muffled
+    throb. It is not a wound: no cry of pain, no knock, nothing to bleed.
   - **Nothing crosses the barrier** either way while it stands. Whoever tries is put back where they were; anything
     fired at it or out of it stops against it, in a puff of ink.
 - **15 to 16.5 s, it fades.** As in the show, when it has done its work it simply goes: the void and the barrier thin
   away like smoke, patch by patch, wisps of light along their going edges, the world showing through, with a long
   falling breath of sound. His left hand comes up again and pulls the blindfold back down over his eyes. The caught go
-  free **broken: half a heart**, and slow, weak and half blind for 15 s. The finishing is left to him.
+  free **broken: half a heart** (its last step), and slow, weak and half blind for 15 s. The ringing in their heads
+  climbs and snaps off, and their knees give out: down onto them, head hung, for a little over a second (they can do
+  nothing), then up again, dazed, a faint mote of light leaving their heads now and then. Their own view goes down with
+  them. The finishing is left to him: his next blow lands as it would.
 - **Cut short, it shatters** instead: cracks run out across it from the eye (from outside, from the side facing you),
   in long rays and rings, then the shards fall away nearest first, edges catching the light, the world behind and its
   air rushing back.
 
 He can cast it again **15 minutes** after he cast it (the blindfold shows it cooling, through leaving and coming back
 too). There is no other cost. It ends at once, shattering, if he dies or leaves (then the caught are only shaken, not
-broken), or if kortev's Genesis Key takes the world; and it is not cast at all while a Genesis Key event is going on
+broken: they keep what its steps had taken by then, no more), or if kortev's Genesis Key takes the world; and it is not cast at all while a Genesis Key event is going on
 (from the key turning until everyone is home). Killing him while he casts it, before it closes, stops it.
 
 ### Commands (operators)
@@ -86,7 +94,7 @@ broken), or if kortev's Genesis Key takes the world; and it is not cast at all w
 | `unlimitedVoidRadius` | 32 | 8 to 64 | How far it reaches from where he casts it, in blocks. |
 | `unlimitedVoidHoldSeconds` | 10 | 1 to 30 | How long the void stays open, holding the caught. |
 | `unlimitedVoidCooldownSeconds` | 900 | 0 to 7200 | How long before he can cast it again. |
-| `unlimitedVoidBreaks` | true | | Whether whoever it holds to the end is left at half a heart. |
+| `unlimitedVoidBreaks` | true | | Whether it takes whoever it holds down, step by step, to half a heart at its end. |
 | `sixEyesRange` | 24 | 0 to 64 | How far he sees through things with the blindfold on (0: not at all). |
 
 ### With Sodium, Iris and shader packs

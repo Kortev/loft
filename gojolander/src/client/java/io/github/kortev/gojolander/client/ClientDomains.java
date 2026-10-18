@@ -6,9 +6,13 @@ import io.github.kortev.gojolander.network.DomainCaughtPayload;
 import io.github.kortev.gojolander.network.DomainEndPayload;
 import io.github.kortev.gojolander.network.DomainLockPayload;
 import io.github.kortev.shootingstar.client.ClientConfig;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import net.minecraft.client.MinecraftClient;
@@ -17,7 +21,10 @@ import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.sound.PositionedSoundInstance;
 import net.minecraft.client.sound.SoundInstance;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.particle.ParticleTypes;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvent;
 import net.minecraft.util.math.random.Random;
@@ -33,8 +40,15 @@ public final class ClientDomains {
 	private static final Map<Integer, ClientDomain> DOMAINS = new LinkedHashMap<>();
 	/** How far off the Domain's sounds carry to someone outside it, beyond its own size. */
 	private static final double HEARD = 64.0;
-	/** How long after its end a Domain is kept, for the last of the shattering to be drawn. */
-	private static final int KEEP = 10;
+	/** How long after it lets go (ticks) one it held in the air may still land and go down onto their knees. */
+	private static final int LAND = 40;
+	/** How long after its end a Domain is kept, for the last of the shattering to be drawn and the broken to get up. */
+	private static final int KEEP = LAND + DomainTimeline.RISEN - DomainTimeline.SHATTER + 2;
+	/** How near (blocks) one of the caught has to be for their throb or their knees to be heard, and how many are. */
+	private static final double NEAR = 24.0;
+	private static final int VOICES = 4;
+	/** The broken (network ids), and the world tick their daze is over: the light leaving them, a mote at a time. */
+	private static final Map<Integer, Long> DAZED = new HashMap<>();
 	/** The HUD (and the hand) put away for the caster's shot, and whether it was away already. */
 	private static boolean hudOverride;
 	private static boolean savedHudHidden;
@@ -102,14 +116,47 @@ public final class ClientDomains {
 		return null;
 	}
 
+	/** The Domain that let {@code entity} go onto its knees, from the moment it let go until they are up again, or null. */
+	@Nullable
+	public static ClientDomain kneeling(Entity entity) {
+		for (ClientDomain domain : DOMAINS.values()) {
+			if (domain.knelt.containsKey(entity.getId()) && domain.age >= domain.collapse() && domain.age < domain.risen(entity.getId())) {
+				return domain;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Whether this client's player is being let go of broken, from just before the void lets go until they are up again:
+	 * their eyes go down into the middle of their own body then.
+	 */
+	public static boolean breakingMe() {
+		for (ClientDomain domain : DOMAINS.values()) {
+			int after = domain.age - domain.collapse();
+			if (domain.holdsMe && !domain.shattered && after >= -5 && after < LAND + DomainTimeline.RISEN) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	/** For {@link io.github.kortev.gojolander.domain.DomainHold}: whether this entity is this client's player, held. */
 	public static boolean heldHere(Entity entity) {
 		return entity == MinecraftClient.getInstance().player && holding() != null;
 	}
 
-	/** Whether this client's player can neither move nor look round: held, or casting with the camera taken. */
+	/**
+	 * Whether this client's player can neither move nor look round: held, on their knees as it let them go (until they
+	 * come to), or casting with the camera taken.
+	 */
 	public static boolean locked() {
-		return holding() != null || shooting();
+		if (holding() != null || shooting()) {
+			return true;
+		}
+		MinecraftClient client = MinecraftClient.getInstance();
+		ClientDomain knelt = client.player != null ? kneeling(client.player) : null;
+		return knelt != null && knelt.age < knelt.comeTo(client.player.getId());
 	}
 
 	/** The Domain {@code player} is casting, while the sign is up (from the key until a moment after it closes). */
@@ -199,6 +246,7 @@ public final class ClientDomains {
 
 	public static void tick(MinecraftClient client) {
 		hud(client);
+		motes(client);
 		if (DOMAINS.isEmpty()) {
 			return;
 		}
@@ -208,6 +256,7 @@ public final class ClientDomains {
 			int from = domain.age;
 			domain.age++;
 			cues(client, domain, from, domain.age);
+			landings(client, domain);
 			if (domain.age > domain.end() + KEEP) {
 				stopSounds(client, domain);
 				it.remove();
@@ -221,7 +270,41 @@ public final class ClientDomains {
 			stopSounds(client, domain);
 		}
 		DOMAINS.clear();
+		DAZED.clear();
 		hud(client);
+	}
+
+	/**
+	 * The broken, all through their daze: now and then a faint mote of light drifting up off their head and away (the
+	 * effects' own swirls are round them too), fewer as it wears off. Not their own, seen from their own eyes.
+	 */
+	private static void motes(MinecraftClient client) {
+		if (DAZED.isEmpty() || client.world == null) {
+			return;
+		}
+		long now = client.world.getTime();
+		Iterator<Map.Entry<Integer, Long>> it = DAZED.entrySet().iterator();
+		while (it.hasNext()) {
+			Map.Entry<Integer, Long> entry = it.next();
+			Entity entity = client.world.getEntityById(entry.getKey());
+			long left = entry.getValue() - now;
+			if (left <= 0L || !(entity instanceof LivingEntity living) || !living.isAlive()
+					|| entity == client.player && !client.player.hasStatusEffect(StatusEffects.SLOWNESS)) {
+				it.remove();
+				continue;
+			}
+			boolean ownEyes = entity == client.player && !client.gameRenderer.getCamera().isThirdPerson();
+			int every = left < 60L ? 20 : 12;
+			if (ownEyes || (now + entity.getId()) % every != 0L) {
+				continue;
+			}
+			// One at a time, rising off the top of the head and away, so each is seen on its own.
+			Random random = entity.getRandom();
+			double w = entity.getWidth() * 0.5;
+			client.world.addParticle(ParticleTypes.END_ROD, entity.getX() + (random.nextDouble() - 0.5) * w,
+					entity.getBoundingBox().maxY + 0.05, entity.getZ() + (random.nextDouble() - 0.5) * w,
+					(random.nextDouble() - 0.5) * 0.02, 0.045 + random.nextDouble() * 0.02, (random.nextDouble() - 0.5) * 0.02);
+		}
 	}
 
 	/**
@@ -280,6 +363,17 @@ public final class ClientDomains {
 				startFlood(client, domain);
 			}
 		}
+		// Each step down: the flood surging through whoever it holds (not caught up all at once by a shattering).
+		int steps = DomainTimeline.steps(domain.hold);
+		for (int k = 1; k < steps && !domain.shattered; k++) {
+			if (passed(from, to, DomainTimeline.step(domain.hold, k))) {
+				if (domain.holdsMe) {
+					master(client, GojoSounds.PULSE, 1.0F);
+				} else if (hearsInside(client, domain)) {
+					nearest(client, domain.caught).forEach(e -> at(client, e.getPos(), GojoSounds.PULSE_WORLD, 1.0F));
+				}
+			}
+		}
 		// Its end: let go of, it fades away; cut short, it shatters.
 		if (passed(from, to, domain.collapse())) {
 			stopSounds(client, domain);
@@ -288,7 +382,85 @@ public final class ClientDomains {
 			} else if (inRange) {
 				at(client, domain.center, domain.shattered ? GojoSounds.COLLAPSE_WORLD : GojoSounds.FADE_WORLD, 3.0F);
 			}
+			if (!domain.shattered) {
+				broken(client, domain);
+			}
 		}
+	}
+
+	/**
+	 * Let go of at its end: the caught come out of it broken. Whoever is on the ground then drops to their knees as the
+	 * ringing in their head snaps off (heard by them inside, and by whoever is by as their knees hit the ground), and
+	 * all of them are dazed.
+	 */
+	private static void broken(MinecraftClient client, ClientDomain domain) {
+		if (client.world == null) {
+			return;
+		}
+		long until = client.world.getTime() + DomainTimeline.DAZE;
+		for (int id : domain.caught) {
+			if (client.world.getEntityById(id) instanceof LivingEntity entity && entity.isAlive()) {
+				DAZED.put(id, until);
+				if (grounded(client, entity)) {
+					domain.knelt.put(id, domain.collapse());
+				} else {
+					domain.falling.add(id);
+				}
+			}
+		}
+		if (domain.holdsMe) {
+			master(client, GojoSounds.BREAK, 1.0F);
+		}
+		nearest(client, domain.knelt.keySet()).forEach(e -> at(client, e.getPos(), GojoSounds.BREAK_WORLD, 1.2F));
+	}
+
+	/**
+	 * Whoever it let go of in the air goes down onto their knees as they land (their knees giving out a few ticks after,
+	 * as they would have where they stood), unless they are still falling a while after.
+	 */
+	private static void landings(MinecraftClient client, ClientDomain domain) {
+		if (domain.falling.isEmpty() || client.world == null) {
+			return;
+		}
+		if (domain.age > domain.collapse() + LAND) {
+			domain.falling.clear();
+			return;
+		}
+		List<Integer> landed = new ArrayList<>();
+		for (int id : domain.falling) {
+			if (client.world.getEntityById(id) instanceof LivingEntity entity && entity.isAlive()) {
+				if (grounded(client, entity)) {
+					landed.add(id);
+					domain.knelt.put(id, domain.age - DomainTimeline.SNAP + 4);
+				}
+			} else {
+				landed.add(id);
+			}
+		}
+		landed.forEach(domain.falling::remove);
+		nearest(client, landed.stream().filter(domain.knelt::containsKey).toList())
+				.forEach(e -> at(client, e.getPos(), GojoSounds.BREAK_WORLD, 1.2F));
+	}
+
+	/** Whether {@code entity} stands on something. */
+	private static boolean grounded(MinecraftClient client, LivingEntity entity) {
+		return !client.world.isSpaceEmpty(entity, entity.getBoundingBox().offset(0.0, -0.1, 0.0));
+	}
+
+	/** Of {@code ids}, the few that are near this player (not this player), nearest first. */
+	private static List<Entity> nearest(MinecraftClient client, Collection<Integer> ids) {
+		List<Entity> near = new ArrayList<>();
+		if (client.world == null || client.player == null) {
+			return near;
+		}
+		for (int id : ids) {
+			Entity entity = client.world.getEntityById(id);
+			if (entity != null && entity != client.player && entity.squaredDistanceTo(client.player) < NEAR * NEAR) {
+				near.add(entity);
+			}
+		}
+		near.sort(Comparator.comparingDouble(e -> e.squaredDistanceTo(client.player)));
+		return near.subList(0, Math.min(VOICES, near.size()));
 	}
 
 	/** What the caught hear, from the void opening until it shatters (once). */

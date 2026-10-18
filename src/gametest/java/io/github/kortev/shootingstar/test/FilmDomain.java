@@ -2,6 +2,7 @@ package io.github.kortev.shootingstar.test;
 
 import com.mojang.authlib.GameProfile;
 import com.mojang.datafixers.util.Pair;
+import io.github.kortev.gojolander.GojoDamage;
 import io.github.kortev.gojolander.Gojolander;
 import io.github.kortev.gojolander.GojoRules;
 import io.github.kortev.gojolander.Owner;
@@ -83,8 +84,8 @@ import org.jetbrains.annotations.Nullable;
  * off. He casts it: the close-up, the sign, the wide shot of the black flooding up. Kortev backs away from the burning
  * eyes, too late, and is caught facing them, with every animal round them. In the void the friend looks up at the
  * great eye, walks out to where Kortev hangs, trembling, under it, face to face, looks him over and steps back. It
- * fades as in the show, and Kortev, left at half a heart and dazed, staggers off and tries to eat a golden apple; one
- * punch, his things all over the grass, and the friend crouching over them, shown off from behind (F5).
+ * fades as in the show, and Kortev, left at half a heart, drops to his knees; he comes to, dazed, staggers off and
+ * tries to eat a golden apple; one punch, his things all over the grass, and the friend crouching over them, shown off from behind (F5).
  *
  * <p>The client is the friend, played as a person plays ({@link FilmHuman}); Kortev is a player the server makes and
  * moves itself, every step of him scripted here (a player the server makes is never moved by the game itself). Nobody's
@@ -124,8 +125,11 @@ public class FilmDomain implements ClientModInitializer {
 	private static final int CIRCLE_TO = 246;
 	private static final int STEP_BACK = 266;
 	private static final int EYE_AGAIN = 286;
-	/** After it fades: Kortev staggers off and goes for a golden apple; the friend goes after him. */
-	private static final int APPLE = 12;
+	/**
+	 * After it fades: Kortev on his knees until he comes to (and can do nothing till then, as a player could not), then,
+	 * this long after, he staggers off and goes for a golden apple; the friend goes after him.
+	 */
+	private static final int APPLE = 6;
 	private static final int FINISH = 328;
 	/** How long the friend crouches over Kortev's things, and how long the recording runs on after Kortev falls. */
 	private static final int TEABAG = 40;
@@ -178,6 +182,8 @@ public class FilmDomain implements ClientModInitializer {
 	private static int serverAge = -1;
 	private static boolean domainSeen;
 	private static int released = -1;
+	/** When Kortev, let go of, was on the ground (at once, or once he had dropped from where it held him). */
+	private static int landedAt = -1;
 	private static int eatingFrom = -1;
 	private static int kDeadAt = -1;
 	private static final Random RANDOM = Random.create(31L);
@@ -883,8 +889,10 @@ public class FilmDomain implements ClientModInitializer {
 			jumpV = 0.0;
 			return;
 		}
-		// Hit (the friend's punches): knocked back a little, as the game knocks a player back.
-		if (kortev.getHealth() < lastHealth - 0.01F) {
+		// Hit (the friend's punches): knocked back a little, as the game knocks a player back. Not by the void: it knocks
+		// nobody about.
+		boolean byTheVoid = kortev.getRecentDamageSource() != null && kortev.getRecentDamageSource().isOf(GojoDamage.UNLIMITED_VOID);
+		if (kortev.getHealth() < lastHealth - 0.01F && !byTheVoid) {
 			Vec3d away = kPos.subtract(friend.getPos()).multiply(1.0, 0.0, 1.0);
 			knock = away.lengthSquared() > 1.0E-4 ? away.normalize().multiply(0.42) : Vec3d.ZERO;
 			jumpV = Math.max(jumpV, 0.34);
@@ -946,14 +954,21 @@ public class FilmDomain implements ClientModInitializer {
 				ShootingStar.LOGGER.info("[film] Kortev let go at {} (age {}), health {}", now, serverAge, kortev.getHealth());
 			}
 			int t = now - released;
+			if (landedAt < 0 && jumpY <= 0.0) {
+				landedAt = now;
+			}
+			// On his knees until he comes to, counted as his client counts it: from its letting go if he stood on the ground,
+			// or from his landing (ClientDomains.landings).
+			int up = landedAt < 0 ? Integer.MAX_VALUE
+					: landedAt == released ? DomainTimeline.UP : landedAt - released - DomainTimeline.SNAP + 4 + DomainTimeline.UP;
 			float wobble = 18.0F * MathHelper.sin(t * 0.21F) + 9.0F * MathHelper.sin(t * 0.53F + 1.0F);
 			Vec3d off = direction(FACING + 25.0F + wobble);
-			want = t < 6 ? Vec3d.ZERO : off.multiply(eatingFrom >= 0 ? 0.03 : 0.05);
+			want = t < up ? Vec3d.ZERO : off.multiply(eatingFrom >= 0 ? 0.03 : 0.05);
 			look = kortev.getEyePos().add(off.multiply(6.0)).add(0.0, -2.2 + 0.6 * MathHelper.sin(t * 0.3F), 0.0);
-			if (t == APPLE) {
+			if (t == up + APPLE) {
 				select(kortev, 1, false);
 			}
-			if (t == APPLE + 3) {
+			if (t == up + APPLE + 3) {
 				kortev.setCurrentHand(Hand.MAIN_HAND);
 				eatingFrom = now;
 			}

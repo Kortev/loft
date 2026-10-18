@@ -15,7 +15,9 @@ import net.minecraft.util.math.MathHelper;
  *   {@link BlindfoldFeature}), held there until it closes, then let down;</li>
  *   <li>as the barrier cracks, his left hand comes up again and pulls the blindfold back down over his eyes;</li>
  *   <li>a player caught in the void, the flood pouring in, has their head tipped back, their arms a little out from
- *   them, trembling.</li>
+ *   them, trembling, and at each step down jolts, head thrown further back and arms flung out;</li>
+ *   <li>let go of broken, their knees give out: down onto them, slumped, head hung and arms limp, until they come to
+ *   and get up.</li>
  * </ul>
  */
 public final class HandSign {
@@ -33,6 +35,12 @@ public final class HandSign {
 	/** How far his head dips as he lifts it (radians, down), and how far the caught have theirs tipped back. */
 	private static final float NOD = 0.28F;
 	private static final float TIPPED = -0.5F;
+	/** On their knees: the legs folded back under them, flat, the head hung, the arms hanging a little forward. */
+	private static final float KNEES = 1.5F;
+	private static final float HUNG = 0.8F;
+	private static final float LIMP = -0.22F;
+	/** How far the body drops onto its knees (blocks): the hips down to just over the ground, the legs flat under them. */
+	public static final float DROP = 10.0F / 16.0F * 0.9375F;
 
 	private HandSign() {
 	}
@@ -89,17 +97,44 @@ public final class HandSign {
 		model.hat.copyTransform(model.head);
 	}
 
-	/** A caught player, {@code k} into the flood: head tipped back, arms a little out, trembling. */
-	public static void poseHeld(PlayerEntityModel<?> model, float k, double t, int id) {
-		float tremble = (float) (Math.sin(t * 2.7 + id) * 0.04 + Math.sin(t * 6.1 + id * 3.0) * 0.025);
-		model.head.pitch = MathHelper.lerp(k, model.head.pitch, TIPPED + tremble);
+	/** A caught player, {@code k} into the flood: head tipped back, arms a little out, trembling, jolted by {@code jolt}. */
+	public static void poseHeld(PlayerEntityModel<?> model, float k, double t, int id, float jolt) {
+		float tremble = (float) (Math.sin(t * 2.7 + id) * 0.04 + Math.sin(t * 6.1 + id * 3.0) * 0.025) * (1.0F + 2.0F * jolt);
+		model.head.pitch = MathHelper.lerp(k, model.head.pitch, TIPPED - 0.35F * jolt + tremble);
 		model.hat.copyTransform(model.head);
-		model.rightArm.roll = MathHelper.lerp(k, model.rightArm.roll, 0.35F + tremble);
-		model.leftArm.roll = MathHelper.lerp(k, model.leftArm.roll, -0.35F - tremble);
-		model.rightArm.pitch = MathHelper.lerp(k, model.rightArm.pitch, -0.15F + tremble);
-		model.leftArm.pitch = MathHelper.lerp(k, model.leftArm.pitch, -0.15F - tremble);
+		model.rightArm.roll = MathHelper.lerp(k, model.rightArm.roll, 0.35F + 0.4F * jolt + tremble);
+		model.leftArm.roll = MathHelper.lerp(k, model.leftArm.roll, -0.35F - 0.4F * jolt - tremble);
+		model.rightArm.pitch = MathHelper.lerp(k, model.rightArm.pitch, -0.15F - 0.3F * jolt + tremble);
+		model.leftArm.pitch = MathHelper.lerp(k, model.leftArm.pitch, -0.15F - 0.3F * jolt - tremble);
 		model.rightSleeve.copyTransform(model.rightArm);
 		model.leftSleeve.copyTransform(model.leftArm);
+	}
+
+	/**
+	 * A player let go of broken, {@code k} of the way down onto their knees: legs folded flat under them, slumped, head
+	 * hung, arms limp, breathing (the body is dropped to the ground with it, {@link #DROP}).
+	 */
+	public static void poseKneel(PlayerEntityModel<?> model, float k, double t, int id) {
+		float breath = (float) Math.sin(t * 0.3 + id) * 0.04F;
+		model.rightLeg.pitch = MathHelper.lerp(k, model.rightLeg.pitch, KNEES);
+		model.leftLeg.pitch = MathHelper.lerp(k, model.leftLeg.pitch, KNEES);
+		model.rightLeg.yaw = MathHelper.lerp(k, model.rightLeg.yaw, 0.12F);
+		model.leftLeg.yaw = MathHelper.lerp(k, model.leftLeg.yaw, -0.12F);
+		model.rightLeg.roll = MathHelper.lerp(k, model.rightLeg.roll, 0.0F);
+		model.leftLeg.roll = MathHelper.lerp(k, model.leftLeg.roll, 0.0F);
+		model.head.pitch = MathHelper.lerp(k, model.head.pitch, HUNG + breath);
+		model.head.yaw = MathHelper.lerp(k, model.head.yaw, 0.0F);
+		model.rightArm.pitch = MathHelper.lerp(k, model.rightArm.pitch, LIMP + breath);
+		model.leftArm.pitch = MathHelper.lerp(k, model.leftArm.pitch, LIMP + breath);
+		model.rightArm.yaw = MathHelper.lerp(k, model.rightArm.yaw, -0.1F);
+		model.leftArm.yaw = MathHelper.lerp(k, model.leftArm.yaw, 0.1F);
+		model.rightArm.roll = MathHelper.lerp(k, model.rightArm.roll, 0.06F);
+		model.leftArm.roll = MathHelper.lerp(k, model.leftArm.roll, -0.06F);
+		model.hat.copyTransform(model.head);
+		model.rightSleeve.copyTransform(model.rightArm);
+		model.leftSleeve.copyTransform(model.leftArm);
+		model.rightPants.copyTransform(model.rightLeg);
+		model.leftPants.copyTransform(model.leftLeg);
 	}
 
 	/** 0 before {@code r0}, up to 1 by {@code r1}, held, and down to 0 again from {@code f0} to {@code f1}. */

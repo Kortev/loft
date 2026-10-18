@@ -1,7 +1,9 @@
 package io.github.kortev.gojolander.client;
 
 import io.github.kortev.gojolander.domain.DomainTimeline;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import net.minecraft.client.sound.SoundInstance;
@@ -37,6 +39,16 @@ public final class ClientDomain {
 	SoundInstance floodSound;
 	/** Whether this player's camera was inside it when it closed, for which sounds they hear. */
 	boolean heardInside;
+	/**
+	 * The caught (network ids) whose knees gave out as it let them go at its end (not cut short), and the age their
+	 * going down is counted from: its collapse for whoever was on the ground then; for whoever it held in the air, a
+	 * little before they landed, so their knees give out as they land.
+	 */
+	public final Map<Integer, Integer> knelt = new HashMap<>();
+	/** The caught it let go of in the air, until they land (or it is too long since). */
+	public final Set<Integer> falling = new HashSet<>();
+	/** How long a jolt at a step down takes to die away, in ticks. */
+	private static final double JOLT = 3.5;
 
 	public ClientDomain(int id, @Nullable UUID caster, boolean mine, Vec3d center, float radius, int hold, float yaw, int age) {
 		this.id = id;
@@ -65,6 +77,60 @@ public final class ClientDomain {
 	/** Whether the barrier stands at tick {@code t}: closed and not yet shattering. */
 	public boolean standing(double t) {
 		return t >= DomainTimeline.CLOSE && t < collapse();
+	}
+
+	/** How hard the flood jolts whoever it holds at tick {@code t}, from 0 to 1: at each step down, dying away fast. */
+	public float jolt(double t) {
+		if (shattered && t >= collapse()) {
+			return 0.0F;
+		}
+		double sum = 0.0;
+		int steps = DomainTimeline.steps(hold);
+		for (int k = 1; k < steps; k++) {
+			double x = t - DomainTimeline.step(hold, k);
+			if (x >= 0.0 && x < JOLT * 5.0) {
+				sum += Math.min(1.0, x * 2.0) * Math.exp(-x / JOLT);
+			}
+		}
+		return (float) Math.min(1.0, sum);
+	}
+
+	/**
+	 * For {@code id}, let go of on their knees, how far down they are at tick {@code t}, from 0 (standing) to 1: their
+	 * knees giving out as the ringing snaps off (falling, faster and faster, onto them at SNAP), there until they come to
+	 * at UP, and up again by RISEN (all counted from when their going down is counted from, {@link #knelt}).
+	 */
+	public float kneel(int id, double t) {
+		Integer from = knelt.get(id);
+		double x = from != null ? t - from : -1.0;
+		if (shattered || x < 0.0 || x >= DomainTimeline.RISEN) {
+			return 0.0F;
+		}
+		double down = MathHelper.clamp((x - (DomainTimeline.SNAP - 3.5)) / 3.5, 0.0, 1.0);
+		double up = MathHelper.clamp((x - DomainTimeline.UP) / (DomainTimeline.RISEN - DomainTimeline.UP), 0.0, 1.0);
+		return (float) Math.min(down * down, 1.0 - up * up * (3.0 - 2.0 * up));
+	}
+
+	/**
+	 * For {@code id}, let go of on their knees from where they stood: whether they are still as it held them in the moment
+	 * before it snaps (the ringing climbing).
+	 */
+	public boolean snapping(int id, double t) {
+		Integer from = knelt.get(id);
+		double x = t - collapse();
+		return !shattered && from != null && from == collapse() && x >= 0.0 && x < DomainTimeline.SNAP;
+	}
+
+	/** For {@code id}, let go of on their knees: the age they are up again by, or -1 if they never went down. */
+	public int risen(int id) {
+		Integer from = knelt.get(id);
+		return from != null ? from + DomainTimeline.RISEN : -1;
+	}
+
+	/** For {@code id}, let go of on their knees: the age they come to (and may move again), or -1 if they never went down. */
+	public int comeTo(int id) {
+		Integer from = knelt.get(id);
+		return from != null ? from + DomainTimeline.UP : -1;
 	}
 
 	public boolean contains(Vec3d point) {

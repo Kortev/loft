@@ -9,6 +9,7 @@
 		"DomainLookMixin",
 		"HeadItemMixin",
 		"HeldTrembleMixin",
+		"KneelParticlesMixin",
 		"PlayerModelMixin",
 		"SixEyesColorMixin",
 		"SixEyesMixin"

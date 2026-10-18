@@ -17,6 +17,12 @@ Each is timed to the Domain's timeline (DomainTimeline, in ticks of 1/20 s):
   words, high air, and now and then a far, cold glint of light;
 - the flood: what the caught hear, everything there is at once: a roaring rush, chattering data, voices that are not
   voices, a ringing in the ears;
+- the pulse (every step down, about every 2 s): for the caught, the flood surging, a dull blow inside the head and the
+  ringing swelling with it; for whoever is by (.world), a muffled throb from them and a faint glassy shiver;
+- the break (let go of at its natural end, under the fade): for the caught, the ringing climbing until it snaps off
+  at SNAP (7 ticks in), a deep dull thud as their knees give out, then almost nothing, muffled, their own slow
+  heartbeat; for whoever is by (.world), the faint ring of it cut off and their knees hitting the ground (not a wound:
+  a mind giving out);
 - the fade (its natural end, as in the show): the void's chord sinking and thinning away into air, a long soft
   exhale outward, and the world's quiet coming back;
 - the collapse (cut short): the barrier cracking out from one point (the first 0.45 s), then shattering, its shards
@@ -48,6 +54,7 @@ EYES_AT = 18 / 20.0
 HAND_AT = 30 / 20.0
 CLOSE_AT = (86 - 46) / 20.0
 CRACKS = 0.45
+SNAP_AT = 7 / 20.0
 LOOP_VOID = 8.0
 LOOP_FLOOD = 6.0
 
@@ -437,6 +444,110 @@ def domain_collapse_world():
     return master(reverb(y, outdoor, wet=0.3), peak=0.95)
 
 
+def ringing(n, freqs, bend=1.0):
+    """The ringing in the ears the flood leaves: thin high tones, each a pair beating slowly against itself; {bend}, a
+    pitch multiplier (per sample or not)."""
+    y = np.zeros(n)
+    for k, f in enumerate(freqs):
+        y += (sine(f * bend + np.zeros(n)) + 0.7 * sine(f * 1.0016 * bend + np.zeros(n), phase=0.7 + k)) * (0.6 if k else 1.0)
+    return y
+
+
+def thud(n, at, f0, f1, tau):
+    """A deep, dull blow from inside, with no ring to it: a sub gliding from {f0} down to {f1} Hz, dying over {tau} s,
+    felt more than heard (with the overtones and the knock of it a small speaker carries)."""
+    t = np.arange(n) / SR - at
+    on = t >= 0
+    tt = np.maximum(t, 0)
+    sub = np.sin(2 * np.pi * (f1 * tt + (f0 - f1) * 0.08 * (1 - np.exp(-tt / 0.08)))) * np.exp(-tt / tau) * on
+    body = lp(white(n), 220) * np.exp(-tt / 0.09) * on
+    blow = sub + body * 0.5
+    knock = bp(white(n), 120.0, 600.0) * np.exp(-tt / 0.05) * on
+    return blow + presence(blow, 1.8) + knock * 0.3
+
+
+def knees(n, at):
+    """Someone's knees giving out under them: a rustle as they go, a soft, heavy thump on the ground, and the second
+    knee just after."""
+    t = np.arange(n) / SR
+    rustle = bp(white(n), 1200.0, 4000.0) * attack_decay(n, 0.05, 0.08, at - 0.1) * 0.15
+    y = rustle
+    for when, gain in ((at, 1.0), (at + 0.09, 0.6)):
+        tt = np.maximum(t - when, 0)
+        on = t >= when
+        y += (lp(white(n), 350) * np.exp(-tt / 0.04) * 0.7 + np.sin(2 * np.pi * 62.0 * tt) * np.exp(-tt / 0.1) * 0.6) * on * gain
+    return y + presence(lp(y, 180), 1.2)
+
+
+def domain_pulse():
+    """A step down, for the caught: the flood rushing up and falling back, a dull blow inside the head, and the ringing
+    swelling with it and ebbing."""
+    n = ns(1.6)
+    out = decorrelated(n, lambda m: sweep_filter(pink(m), 'lowpass', curve(m, [(0.0, 800.0), (0.14, 5200.0), (1.2, 900.0)], 'log'),
+                                                 order=2), 0.9) * attack_decay(n, 0.14, 0.35) * 0.55
+    out += pan(thud(n, 0.12, 52.0, 30.0, 0.35), 0.0) * 0.9
+    out += np.vstack([ringing(n, (4186.0, 6272.0)), ringing(n, (4193.0, 6281.0))]) * attack_decay(n, 0.16, 0.5) * 0.05
+    _, _, _, space = spaces()
+    return master(reverb(out, space, wet=0.15), peak=0.95)
+
+
+def domain_pulse_world():
+    """A step down, heard by whoever is near the caught: a muffled throb from them, a shudder of breath, and a faint
+    glassy shiver."""
+    n = ns(1.2)
+    y = thud(n, 0.1, 60.0, 38.0, 0.25) * 0.9
+    y += bp(white(n), 300.0, 1400.0) * attack_decay(n, 0.12, 0.25) * 0.2
+    y += sum(chime(f, n, tau=0.5, bright=0.3) for f in (1661.0, 2489.0, 3322.0)) * attack_decay(n, 0.1, 0.4) * 0.05
+    _, _, _, space = spaces()
+    return master(reverb(y, space, wet=0.3), peak=0.95)
+
+
+def domain_break():
+    """Let go of at its end, broken, for the caught: the ringing in their head, loud as the flood stops, climbing until
+    it snaps off dead; a deep, dull thud as their knees give out; then almost nothing: muffled, their own slow
+    heartbeat, the world far away."""
+    n = ns(3.2)
+    end = n / SR
+    cut = SNAP_AT - 0.02
+    gate = curve(n, [(0.0, 1.0), (cut, 1.0), (cut + 0.006, 0.0), (end, 0.0)])
+    climb = curve(n, [(0.0, 0.55), (cut, 1.0), (end, 1.0)]) ** 1.5 * gate
+    bend = curve(n, [(0.0, 1.0), (cut, 1.07), (end, 1.07)])
+    # Inside the head, and cut off dead: none of it goes into the reverb, or the reverb would carry it on past the cut.
+    ring = np.vstack([ringing(n, (4186.0, 6272.0), bend), ringing(n, (4193.0, 6281.0), bend)]) * climb * 0.07
+    # The last of the flood shrieking up with it, and cut off with it.
+    ring += decorrelated(n, chatter, 1.0) * climb * 0.12
+    ring += decorrelated(n, lambda m: lp(pink(m), 2400), 0.9) * climb * 0.25
+    # The snap: one deep, dull thud, and their knees.
+    out = pan(thud(n, SNAP_AT, 46.0, 24.0, 0.7), 0.0) * 1.1
+    out += pan(knees(n, SNAP_AT + 0.02), 0.0) * 0.35
+    # After it: blood in the ears, and two slow heartbeats, far off.
+    after = lp(pink(n), 300) * attack_decay(n, 0.3, 0.9, SNAP_AT + 0.1) * 0.12
+    for at in (1.25, 2.2):
+        after += lp(white(n), 90) * attack_decay(n, 0.01, 0.08, at) + lp(white(n), 90) * attack_decay(n, 0.01, 0.06, at + 0.2) * 0.6
+    out += pan(after + presence(after, 1.4), 0.0)
+    _, _, _, space = spaces()
+    out = reverb(out, space, wet=0.12)
+    out[:, :n] += ring
+    return master(out, peak=0.95)
+
+
+def domain_break_world():
+    """Whoever is by, as one of the caught is let go broken: the faint ring of it cut off, and their knees hitting the
+    ground."""
+    n = ns(2.0)
+    end = n / SR
+    cut = SNAP_AT - 0.02
+    gate = curve(n, [(0.0, 1.0), (cut, 1.0), (cut + 0.006, 0.0), (end, 0.0)])
+    ring = ringing(n, (4186.0, 6272.0), curve(n, [(0.0, 1.0), (cut, 1.07), (end, 1.07)])) * curve(n, [(0.0, 0.4), (cut, 1.0), (end, 1.0)]) \
+        * gate * 0.03
+    y = knees(n, SNAP_AT) + thud(n, SNAP_AT, 50.0, 30.0, 0.3) * 0.5
+    outdoor, _, _, _ = spaces()
+    # The ring dry, so it stops dead: the reverb would carry it on past the cut.
+    y = mono(reverb(y, outdoor, wet=0.25))
+    y[:n] += ring
+    return master(y, peak=0.95)
+
+
 def domain_denied():
     n = ns(0.35)
     t = np.arange(n) / SR
@@ -459,14 +570,21 @@ SOUNDS = {
     'domain_collapse': (domain_collapse, True),
     'domain_collapse_world': (domain_collapse_world, False),
     'domain_denied': (domain_denied, False),
+    # New ones go last: the reverbs are made from the first sound of a run, so the others stay exactly as they were.
+    'domain_pulse': (domain_pulse, True),
+    'domain_pulse_world': (domain_pulse_world, False),
+    'domain_break': (domain_break, True),
+    'domain_break_world': (domain_break_world, False),
 }
 LOOPS = ('domain_void', 'domain_flood')
 # Loudness (loudest 400 ms, dB).
 # How long each one-shot runs at most (seconds): the reverb's long tail is cut short and faded.
 LENGTHS = {'domain_sign': 4.6, 'domain_sign_world': 4.8, 'domain_close': 3.2, 'domain_close_world': 5.0,
-           'domain_reveal': 6.0, 'domain_fade': 4.0, 'domain_fade_world': 4.0, 'domain_collapse': 4.0, 'domain_collapse_world': 5.0, 'domain_denied': 0.35}
+           'domain_reveal': 6.0, 'domain_fade': 4.0, 'domain_fade_world': 4.0, 'domain_collapse': 4.0, 'domain_collapse_world': 5.0, 'domain_denied': 0.35,
+           'domain_pulse': 1.6, 'domain_pulse_world': 1.2, 'domain_break': 3.2, 'domain_break_world': 2.0}
 LEVELS = {'domain_fade': -15, 'domain_fade_world': -16, 'domain_reveal': -14, 'domain_sign': -16, 'domain_sign_world': -18, 'domain_close': -12, 'domain_close_world': -13, 'domain_void': -21,
-          'domain_flood': -17, 'domain_collapse': -12, 'domain_collapse_world': -13, 'domain_denied': -20}
+          'domain_flood': -17, 'domain_collapse': -12, 'domain_collapse_world': -13, 'domain_denied': -20,
+          'domain_pulse': -14, 'domain_pulse_world': -17, 'domain_break': -12, 'domain_break_world': -15}
 
 
 def make(name):

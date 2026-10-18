@@ -43,7 +43,7 @@ public final class DomainHud {
 		float tickDelta = counter.getTickDelta(false);
 		for (ClientDomain d : ClientDomains.all()) {
 			double t = d.time(tickDelta);
-			if (d.holdsMe && t >= DomainTimeline.VOID && t < d.collapse() + 6) {
+			if (d.holdsMe && t >= DomainTimeline.VOID && t < d.collapse() + (d.shattered ? 6 : DomainTimeline.SNAP)) {
 				flood(ctx, client, d, t);
 			}
 			boolean inside = d.mine || d.holdsMe || d.contains(client.gameRenderer.getCamera().getPos());
@@ -53,12 +53,17 @@ public final class DomainHud {
 		}
 	}
 
-	/** How hard the flood pours in at {@code t}: in with the void opening, then never letting up, gone as it shatters. */
+	/**
+	 * How hard the flood pours in at {@code t}: in with the void opening, then never letting up, surging at each step
+	 * down; cut short, gone as it shatters; let go of at its end, climbing until it snaps off dead, with the ringing.
+	 */
 	static float strength(ClientDomain d, double t) {
 		double in = MathHelper.clamp((t - DomainTimeline.VOID) / 8.0, 0.0, 1.0);
-		double out = 1.0 - MathHelper.clamp((t - d.collapse()) / 6.0, 0.0, 1.0);
+		double after = t - d.collapse();
+		double out = d.shattered ? 1.0 - MathHelper.clamp(after / 6.0, 0.0, 1.0)
+				: after < DomainTimeline.SNAP ? 1.0 + 0.4 * MathHelper.clamp(after / DomainTimeline.SNAP, 0.0, 1.0) : 0.0;
 		double surge = 0.85 + 0.15 * Math.sin(t * 0.9) * Math.sin(t * 0.37);
-		return (float) (in * out * surge);
+		return (float) (in * out * surge * (1.0 + 0.45 * d.jolt(t)));
 	}
 
 	private static void flood(DrawContext ctx, MinecraftClient client, ClientDomain d, double t) {

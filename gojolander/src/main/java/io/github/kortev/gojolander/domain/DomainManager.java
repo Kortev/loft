@@ -1,6 +1,7 @@
 package io.github.kortev.gojolander.domain;
 
 import io.github.kortev.gojolander.BlindfoldItem;
+import io.github.kortev.gojolander.GojoDamage;
 import io.github.kortev.gojolander.Gojolander;
 import io.github.kortev.gojolander.GojoRules;
 import io.github.kortev.gojolander.GojoSounds;
@@ -64,8 +65,11 @@ import org.jetbrains.annotations.Nullable;
  * nor is knocked about, mobs stop thinking, and players can neither act nor, their clients told, move or look round
  * (the server puts them back if they do). While it stands nothing crosses its surface either way: whoever tries is put
  * back where they were, and anything fired at it or out of it stops dead against it. It is his ult: held to the end,
- * the caught come out of it broken (everything there is, all at once, for ten seconds): when it shatters they are left
- * at half a heart ({@code unlimitedVoidBreaks}), slow, weak and half blind for a while. The finishing is left to him.
+ * the caught come out of it broken (everything there is, all at once, for ten seconds). It is not a wound but too much
+ * for a mind: it takes them down a step at a time as the flood surges ({@link DomainTimeline#steps}, through armour and
+ * all, {@link GojoDamage}), the last step as it lets go, leaving them at half a heart ({@code unlimitedVoidBreaks}),
+ * slow, weak and half blind for a while. Cut short, it leaves them only as far down as it had taken them, shaken. The
+ * finishing is left to him.
  *
  * <p>A Domain ends early, shattering at once, if its caster dies, leaves the world or the game, or the Genesis Key
  * takes the world; and it is not cast at all while a Genesis Key event is going on. The clients make all of what is
@@ -279,6 +283,10 @@ public final class DomainManager {
 			if (domain.standing()) {
 				hold(domain);
 				barrier(domain);
+				int step = DomainTimeline.stepAt(domain.hold, domain.age);
+				if (step > 0 && step < DomainTimeline.steps(domain.hold)) {
+					pulse(domain, step);
+				}
 			}
 			if (domain.age == DomainTimeline.collapse(domain.hold)) {
 				release(domain, Letting.END);
@@ -417,11 +425,37 @@ public final class DomainManager {
 		}
 	}
 
+	/** Step {@code k} of the void (not its last): the flood surges, and takes everyone it holds a step further down. */
+	private static void pulse(Domain domain, int k) {
+		if (!domain.breaks) {
+			return;
+		}
+		int left = DomainTimeline.steps(domain.hold) - k + 1;
+		for (UUID id : domain.caught.keySet()) {
+			if (domain.world.getEntity(id) instanceof LivingEntity entity && entity.isAlive()) {
+				overwhelm(entity, left);
+			}
+		}
+	}
+
+	/**
+	 * One of the {@code left} steps still to come down to half a heart: an even share of the way from where they are now
+	 * (whatever they have healed or been hit for since the last), absorption first. Never past half a heart, so never
+	 * the end of them. It leaves them no moment's grace against the next blow, either: his is landed as it would be.
+	 */
+	private static void overwhelm(LivingEntity entity, int left) {
+		float above = entity.getHealth() + entity.getAbsorptionAmount() - BROKEN;
+		if (above > 0.0F) {
+			entity.damage(GojoDamage.unlimitedVoid(entity.getWorld()), above / left);
+			entity.timeUntilRegen = 0;
+		}
+	}
+
 	/** How a Domain lets go: held to its end, cut short (its caster fell, say), or with the server going down. */
 	enum Letting {
-		/** Broken, if the rule says (half a heart), and dazed: slow, weak and half blind. */
+		/** Broken, if the rule says (its last step: half a heart), and dazed: slow, weak and half blind. */
 		END,
-		/** Only shaken: a little slow, the light going in and out, briefly. */
+		/** Only shaken: as far down as its steps had taken them, a little slow, the light going in and out, briefly. */
 		EARLY,
 		/** Nothing: everyone simply let go. */
 		STOP
@@ -441,6 +475,8 @@ public final class DomainManager {
 				entity.fallDistance = 0.0F;
 				if (how == Letting.END) {
 					if (domain.breaks) {
+						overwhelm(entity, 1);
+						// Whatever turned it aside (a mod's own armour, say), it leaves them at half a heart all the same.
 						entity.setAbsorptionAmount(0.0F);
 						entity.setHealth(Math.min(entity.getHealth(), BROKEN));
 					}

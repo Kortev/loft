@@ -31,6 +31,10 @@
   "subtitles.gojolander.domain.reveal": "The void opens",
   "subtitles.gojolander.domain.void": "The void hums",
   "subtitles.gojolander.domain.flood": "Everything, all at once",
+  "subtitles.gojolander.domain.pulse": "The void surges through you",
+  "subtitles.gojolander.domain.pulse.world": "Someone shudders",
+  "subtitles.gojolander.domain.break": "Your mind gives out",
+  "subtitles.gojolander.domain.break.world": "Someone drops to their knees",
   "subtitles.gojolander.domain.fade": "The void fades",
   "subtitles.gojolander.domain.fade.world": "A barrier fades",
   "subtitles.gojolander.domain.collapse": "The barrier shatters",
@@ -45,8 +49,9 @@
   "advancements.gojolander.crowd.title": "The Honored One",
   "advancements.gojolander.crowd.description": "Catch ten at once in Unlimited Void",
   "gamerule.unlimitedVoidBreaks": "Unlimited Void: breaks the caught",
-  "gamerule.unlimitedVoidBreaks.description": "Whether whoever it holds to the end is left at half a heart when it shatters.",
+  "gamerule.unlimitedVoidBreaks.description": "Whether it takes whoever it holds down, a step at a time, to half a heart at its end.",
   "gamerule.sixEyesRange": "Six Eyes: range",
   "gamerule.sixEyesRange.description": "How far the blindfold's owner sees the living through walls, in blocks. 0 turns it off.",
-  "commands.gojolander.cast": "%s casts Unlimited Void."
+  "commands.gojolander.cast": "%s casts Unlimited Void.",
+  "death.attack.gojolander.unlimited_void": "%1$s's mind gave out in Unlimited Void"
 }
