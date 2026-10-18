@@ -1,0 +1,76 @@
+{
+  "domain.sign": {
+    "subtitle": "subtitles.gojolander.domain.sign",
+    "sounds": [
+      {
+        "name": "gojolander:domain_sign"
+      }
+    ]
+  },
+  "domain.sign.world": {
+    "subtitle": "subtitles.gojolander.domain.sign.world",
+    "sounds": [
+      {
+        "name": "gojolander:domain_sign_world"
+      }
+    ]
+  },
+  "domain.close": {
+    "subtitle": "subtitles.gojolander.domain.close",
+    "sounds": [
+      {
+        "name": "gojolander:domain_close"
+      }
+    ]
+  },
+  "domain.close.world": {
+    "subtitle": "subtitles.gojolander.domain.close.world",
+    "sounds": [
+      {
+        "name": "gojolander:domain_close_world"
+      }
+    ]
+  },
+  "domain.void": {
+    "subtitle": "subtitles.gojolander.domain.void",
+    "sounds": [
+      {
+        "name": "gojolander:domain_void",
+        "stream": true
+      }
+    ]
+  },
+  "domain.flood": {
+    "subtitle": "subtitles.gojolander.domain.flood",
+    "sounds": [
+      {
+        "name": "gojolander:domain_flood",
+        "stream": true
+      }
+    ]
+  },
+  "domain.collapse": {
+    "subtitle": "subtitles.gojolander.domain.collapse",
+    "sounds": [
+      {
+        "name": "gojolander:domain_collapse"
+      }
+    ]
+  },
+  "domain.collapse.world": {
+    "subtitle": "subtitles.gojolander.domain.collapse.world",
+    "sounds": [
+      {
+        "name": "gojolander:domain_collapse_world"
+      }
+    ]
+  },
+  "domain.denied": {
+    "subtitle": "subtitles.gojolander.domain.denied",
+    "sounds": [
+      {
+        "name": "gojolander:domain_denied"
+      }
+    ]
+  }
+}

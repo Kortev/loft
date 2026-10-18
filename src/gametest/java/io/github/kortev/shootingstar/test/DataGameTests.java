@@ -1,5 +1,6 @@
 package io.github.kortev.shootingstar.test;
 
+import io.github.kortev.gojolander.Gojolander;
 import io.github.kortev.shootingstar.ShootingStar;
 import java.util.ArrayList;
 import java.util.List;
@@ -13,8 +14,9 @@ import net.minecraft.util.Identifier;
 /** What every mod in this build ships as data, checked as the server loaded it. */
 public class DataGameTests implements FabricGameTest {
 	/**
-	 * Every advancement file in the {@code shootingstar} namespace, whichever jar it came in, loaded. One that names an
-	 * icon with no item (a block registered without one) is dropped at server start with only a line in the log.
+	 * Every advancement file in the {@code shootingstar} namespace, whichever jar it came in, and in the friends' mods'
+	 * own ({@code gojolander}), loaded. One that names an icon with no item (a block registered without one) is dropped at
+	 * server start with only a line in the log.
 	 */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "a_data", tickLimit = 20)
 	public void everyAdvancementLoads(TestContext context) {
@@ -23,7 +25,7 @@ public class DataGameTests implements FabricGameTest {
 		List<Identifier> broken = new ArrayList<>();
 		int shipped = 0;
 		for (Identifier file : finder.findResources(server.getResourceManager()).keySet()) {
-			if (file.getNamespace().equals(ShootingStar.MOD_ID)) {
+			if (file.getNamespace().equals(ShootingStar.MOD_ID) || file.getNamespace().equals(Gojolander.MOD_ID)) {
 				shipped++;
 				Identifier id = finder.toResourceId(file);
 				if (server.getAdvancementLoader().get(id) == null) {

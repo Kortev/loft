@@ -1,0 +1,38 @@
+{
+	"schemaVersion": 1,
+	"id": "gojolander",
+	"version": "${version}",
+	"name": "Gojolander",
+	"description": "The blindfold, and what its owner casts with it: Domain Expansion, Unlimited Void. A sphere closes round him; inside, the world is gone, and everyone in it but him is held still. Built beside The Shooting Star and needs it.",
+	"authors": [
+		"Kortev"
+	],
+	"contact": {
+		"sources": "https://github.com/Kortev/loft"
+	},
+	"license": "MIT",
+	"icon": "assets/gojolander/textures/item/blindfold.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"io.github.kortev.gojolander.Gojolander"
+		],
+		"client": [
+			"io.github.kortev.gojolander.client.GojolanderClient"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.16.0",
+		"minecraft": "~1.21.1",
+		"java": ">=21",
+		"fabric-api": "*",
+		"shootingstar": "*"
+	},
+	"mixins": [
+		"gojolander.mixins.json",
+		{
+			"config": "gojolander.client.mixins.json",
+			"environment": "client"
+		}
+	]
+}

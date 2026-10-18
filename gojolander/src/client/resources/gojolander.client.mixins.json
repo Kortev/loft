@@ -1,0 +1,14 @@
+{
+	"required": true,
+	"package": "io.github.kortev.gojolander.client.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"client": [
+		"DomainCameraMixin",
+		"DomainLookMixin",
+		"HeadItemMixin",
+		"PlayerModelMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

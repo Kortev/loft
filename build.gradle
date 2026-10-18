@@ -3,9 +3,10 @@ plugins {
 	id 'maven-publish'
 }
 
-// This build makes every one of kortev's mods, each in its own jar: The Shooting Star here at the root, and
-// Chitty Chitty Bang Bang in chitty/. They are all set up the same way, against the same Minecraft and Fabric, here and
-// for all of them at once, so that each one's source sets exist before the test harness below puts them together.
+// This build makes every mod of the SMP's, each in its own jar: kortev's The Shooting Star here at the root and Chitty
+// Chitty Bang Bang in chitty/, and the friends' own beside them (gojolander/). They are all set up the same way,
+// against the same Minecraft and Fabric, here and for all of them at once, so that each one's source sets exist before
+// the test harness below puts them together.
 allprojects {
 	apply plugin: 'fabric-loom'
 	apply plugin: 'maven-publish'
@@ -48,21 +49,26 @@ base {
 }
 
 def chittyProject = project(":chitty")
+def gojolanderProject = project(":gojolander")
 
 // Test harness mod: server game tests plus client self tests that film a full strike, a Ginnungagap or a drive in
-// Chitty. It loads every mod in the build together, as a server with all of them installed would.
+// Chitty, and the game tests of the friends' mods. It loads every mod in the build together, as a server with all of
+// them installed would.
 sourceSets {
 	gametest {
 		compileClasspath += sourceSets.main.compileClasspath + sourceSets.main.output + sourceSets.client.compileClasspath + sourceSets.client.output
 		runtimeClasspath += sourceSets.main.runtimeClasspath + sourceSets.main.output + sourceSets.client.runtimeClasspath + sourceSets.client.output
-		// Only Chitty's own classes and resources: her classpath has this project on it again.
+		// Only Chitty's (and the friends' mods') own classes and resources: their classpaths have this project on it again.
 		compileClasspath += chittyProject.sourceSets.main.output + chittyProject.sourceSets.client.output
 		runtimeClasspath += chittyProject.sourceSets.main.output + chittyProject.sourceSets.client.output
+		compileClasspath += gojolanderProject.sourceSets.main.output + gojolanderProject.sourceSets.client.output
+		runtimeClasspath += gojolanderProject.sourceSets.main.output + gojolanderProject.sourceSets.client.output
 	}
 	// No code of its own: what the dev client and server run, every mod in the build together.
 	allMods {
 		runtimeClasspath += sourceSets.main.runtimeClasspath + sourceSets.main.output + sourceSets.client.runtimeClasspath + sourceSets.client.output
 		runtimeClasspath += chittyProject.sourceSets.main.output + chittyProject.sourceSets.client.output
+		runtimeClasspath += gojolanderProject.sourceSets.main.output + gojolanderProject.sourceSets.client.output
 	}
 }
 
@@ -75,6 +81,10 @@ loom {
 		"chitty" {
 			sourceSet "main", chittyProject
 			sourceSet "client", chittyProject
+		}
+		"gojolander" {
+			sourceSet "main", gojolanderProject
+			sourceSet "client", gojolanderProject
 		}
 		"shootingstar-gametest" {
 			sourceSet sourceSets.gametest
