@@ -26,8 +26,8 @@ import net.minecraft.util.math.RotationAxis;
 
 /**
  * The blindfold on whoever wears it: a band of black cloth round the head over the eyes, knotted at the back with its
- * two ends hanging. As its owner casts his Domain he pushes it up onto his forehead, and his eyes show, burning blue,
- * until the Domain is gone. And while the sign is up, his right hand (drawn up in front of him by {@code
+ * two ends hanging, swinging as he moves. As he casts his Domain his hand pushes it up onto his forehead
+ * ({@link HandSign#lift}), and his eyes show, burning blue, until his hand pulls it down again as the barrier goes. And while the sign is up, his right hand (drawn up in front of him by {@code
  * PlayerModelMixin}) has its first two fingers crossed, the rest curled.
  */
 public final class BlindfoldFeature extends FeatureRenderer<AbstractClientPlayerEntity, PlayerEntityModel<AbstractClientPlayerEntity>> {
@@ -38,17 +38,18 @@ public final class BlindfoldFeature extends FeatureRenderer<AbstractClientPlayer
 	private static final float TIP = 0.16F;
 	/** How far the sign's two fingers bend up from the line of the arm at the knuckles (radians). */
 	private static final float KNUCKLE = -1.3F;
-	/** How long it takes to push up, and to come down again (ticks). */
-	private static final double UP = DomainTimeline.EYES;
-	private static final double DOWN = 6.0;
 
 	private final ModelPart band;
+	private final ModelPart leftEnd;
+	private final ModelPart rightEnd;
 	private final ModelPart wideHand;
 	private final ModelPart slimHand;
 
 	public BlindfoldFeature(FeatureRendererContext<AbstractClientPlayerEntity, PlayerEntityModel<AbstractClientPlayerEntity>> context) {
 		super(context);
 		band = bandModel().createModel();
+		leftEnd = band.getChild("left_end");
+		rightEnd = band.getChild("right_end");
 		wideHand = handModel(false).createModel();
 		slimHand = handModel(true).createModel();
 	}
@@ -94,8 +95,17 @@ public final class BlindfoldFeature extends FeatureRenderer<AbstractClientPlayer
 	public void render(MatrixStack matrices, VertexConsumerProvider consumers, int light, AbstractClientPlayerEntity player, float limbAngle,
 			float limbDistance, float tickDelta, float animationProgress, float headYaw, float headPitch) {
 		ClientDomain unveiled = ClientDomains.unveiled(player);
-		float lift = unveiled != null ? lift(unveiled, unveiled.time(tickDelta)) : 0.0F;
+		double t = unveiled != null ? unveiled.time(tickDelta) : 0.0;
+		float lift = unveiled != null ? HandSign.lift(unveiled, t) : 0.0F;
 		if (BlindfoldItem.wearing(player)) {
+			// Its two ends swing as he moves and stir in the air, and are whipped about as the barrier closes over him.
+			float gust = unveiled != null && t > DomainTimeline.RISE && t < DomainTimeline.CLOSE + 10
+					? 0.35F * MathHelper.sin((float) t * 1.7F) * (float) Math.min(1.0, (t - DomainTimeline.RISE) / 10.0) : 0.0F;
+			float sway = 0.08F * MathHelper.sin(animationProgress * 0.12F) + Math.min(limbDistance, 1.0F) * 0.5F + gust;
+			leftEnd.pitch = 0.22F + sway;
+			rightEnd.pitch = 0.3F + sway * 0.85F;
+			leftEnd.roll = 0.16F + 0.06F * MathHelper.sin(animationProgress * 0.17F) + gust * 0.4F;
+			rightEnd.roll = -0.22F - 0.05F * MathHelper.sin(animationProgress * 0.13F + 1.0F) - gust * 0.3F;
 			matrices.push();
 			getContextModel().head.rotate(matrices);
 			if (lift > 0.0F) {
@@ -125,13 +135,5 @@ public final class BlindfoldFeature extends FeatureRenderer<AbstractClientPlayer
 	private static int gray(float k) {
 		int g = MathHelper.clamp((int) (k * 255.0F), 0, 255);
 		return 0xFF000000 | g << 16 | g << 8 | g;
-	}
-
-	/** How far up the band is at {@code t}: pushed up with the sign, down again as the barrier goes. */
-	private static float lift(ClientDomain domain, double t) {
-		double up = MathHelper.clamp(t / UP, 0.0, 1.0);
-		double down = MathHelper.clamp((t - (domain.end() - DOWN)) / DOWN, 0.0, 1.0);
-		double k = Math.min(up, 1.0 - down);
-		return (float) (k * k * (3.0 - 2.0 * k));
 	}
 }

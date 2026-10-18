@@ -91,6 +91,17 @@ public final class ClientDomains {
 		return null;
 	}
 
+	/** The Domain holding {@code entity} still now (any entity this client was told it caught), or null. */
+	@Nullable
+	public static ClientDomain holdingEntity(Entity entity) {
+		for (ClientDomain domain : DOMAINS.values()) {
+			if (domain.standing(domain.age) && domain.caught.contains(entity.getId())) {
+				return domain;
+			}
+		}
+		return null;
+	}
+
 	/** For {@link io.github.kortev.gojolander.domain.DomainHold}: whether this entity is this client's player, held. */
 	public static boolean heldHere(Entity entity) {
 		return entity == MinecraftClient.getInstance().player && holding() != null;

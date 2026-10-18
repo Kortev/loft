@@ -24,9 +24,10 @@ be, and keeps out nothing a helmet would: wearing it is going without one.
 
 His ult. With the blindfold on, he presses **Z** (rebindable: Domain Expansion). Second by second:
 
-- **0 to 1.5 s, the eyes.** A hard cut to his face, close, the camera drifting slowly round him as he pushes the
-  blindfold up onto his forehead and his eyes open, burning blue. A breath drawn in; a cold chime as they light. Round
-  him a ring of ink starts out over the ground, ragged, fingers of it branching ahead.
+- **0 to 1.5 s, the eyes.** A hard cut to his face, close, the camera drifting slowly round him as his left hand comes
+  up to his brow, hooks the blindfold and pushes it up onto his forehead, his head dipping a little, and his eyes open,
+  burning blue; the hand drops. A breath drawn in; a cold chime as they light. Round him a ring of ink starts out over
+  the ground, ragged, fingers of it branching ahead. The blindfold's ends swing, and whip about as the black closes.
 - **1.5 to 1.9 s, the sign.** His right hand snaps up in front of his chin, the first two fingers crossed, and the
   camera punches in on it. DOMAIN EXPANSION comes up on the screen.
 - **1.9 to 4.3 s, the barrier.** A cut to wide, the camera craning back and up round him. The ink reaches its full
@@ -43,15 +44,16 @@ His ult. With the blindfold on, he presses **Z** (rebindable: Domain Expansion).
   it, and still black water underfoot giving it all back, rippling out round him. Whoever is in there with him is dark
   but for the eye's light along their edges. He is free to move, hit and use anything.
   - **The caught** are held exactly where they were for the whole of it: they cannot move, fall, look round, hit, use or
-    break anything, and mobs stop thinking. Nothing knocks them about. What they see is everything there is, all at
+    break anything, and mobs stop thinking. Nothing knocks them about. Seen by anyone else they tremble where they
+    hang, players with their heads tipped back, arms out from them. What they see is everything there is, all at
     once: the picture torn apart by light rushing in, flickering grids of meaning, flashes of colour and white; what
     they hear is a roar of data and voices and a ringing in the ears.
   - **Nothing crosses the barrier** either way while it stands. Whoever tries is put back where they were; anything
     fired at it or out of it stops against it, in a puff of ink.
 - **15 to 16.5 s, the shattering.** Cracks run out across it from the eye (from outside, from the side facing you), in
   long rays and rings, then it shatters, the shards falling away nearest first, edges catching the light, the world
-  behind and its air rushing back. The caught go free **broken: half a heart**, and slow, weak and half blind for 15 s.
-  The finishing is left to him.
+  behind and its air rushing back. His left hand comes up again and pulls the blindfold back down over his eyes. The
+  caught go free **broken: half a heart**, and slow, weak and half blind for 15 s. The finishing is left to him.
 
 He can cast it again **15 minutes** after he cast it (the blindfold shows it cooling, through leaving and coming back
 too). There is no other cost. It ends at once, shattering, if he dies or leaves (then the caught are only shaken, not
@@ -84,7 +86,9 @@ broken), or if kortev's Genesis Key takes the world; and it is not cast at all w
 - The server: `domain/DomainManager` (who may cast, catching, holding, the barrier, letting go), against
   `domain/DomainTimeline`. The client: `ClientDomains` (state, sounds), `DomainRender` with `gl_domain.fsh` (the ink,
   the black rising, the sphere, the black and the reveal, the void, the shattering, in one full-screen pass) and
-  `gl_rim.fsh` (whoever is in the void with you, lit by the eye), `DomainHud` with `gl_flood.fsh` (the flood, the
-  name), `DomainCamera` (his shots and the punch-in), `BlindfoldFeature` and `HandSign` (the cloth, the eyes, the
-  sign).
+  `gl_rim.fsh` (whoever is in the void with you, lit by the eye), `gl_sky.fsh` (the void's smooth sky, painted
+  into a small panorama every other frame so the pass only looks it up: the pass is about a fifth of what it was), `DomainHud` with `gl_flood.fsh` (the flood, the
+  name), `DomainCamera` (his shots and the punch-in), `BlindfoldFeature`, `HandSign`, `PlayerModelMixin` and
+  `HeldTrembleMixin` (the cloth, the eyes, his hands lifting and lowering it, the sign, the caught trembling). The self
+  test logs the frame rate and each pass's cost once a second (`[perf]` in the log).
 - Sounds: `python tools/gen_gojolander_sounds.py`; textures: `python tools/gen_gojolander_textures.py`.

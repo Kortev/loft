@@ -9,11 +9,13 @@ import io.github.kortev.gojolander.domain.DomainManager;
 import io.github.kortev.gojolander.domain.DomainTimeline;
 import io.github.kortev.gojolander.network.DomainCastPayload;
 import io.github.kortev.shootingstar.ShootingStar;
+import io.github.kortev.shootingstar.client.gfx.Timings;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.block.Blocks;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.Perspective;
@@ -76,6 +78,20 @@ public class DomainSelfTest implements ClientModInitializer {
 		watchdog.setDaemon(true);
 		watchdog.start();
 		ClientTickEvents.END_CLIENT_TICK.register(DomainSelfTest::tick);
+		// What each frame costs, and what the Domain's passes cost of it, logged once a second through it all.
+		Timings.on = true;
+		WorldRenderEvents.START.register(context -> Timings.begin("world"));
+		WorldRenderEvents.END.register(context -> Timings.end());
+	}
+
+	/** Once a second: the frame rate, and what each pass cost (each waits for the card, so the rate is lower than in play). */
+	private static void perf(MinecraftClient client) {
+		if (ticks % 20 != 0 || client.world == null) {
+			return;
+		}
+		ClientDomain domain = latest();
+		ShootingStar.LOGGER.info("[perf] {} age {} fps {} | {}", stage, domain != null ? domain.age : -1, client.getCurrentFps(),
+				Timings.drain());
 	}
 
 	private static void shot(MinecraftClient client, String name) {
@@ -109,6 +125,7 @@ public class DomainSelfTest implements ClientModInitializer {
 
 	private static void tick(MinecraftClient client) {
 		ticks++;
+		perf(client);
 		IntegratedServer server = client.getServer();
 		switch (stage) {
 			case WAIT_WORLD -> {
@@ -151,8 +168,8 @@ public class DomainSelfTest implements ClientModInitializer {
 					ShootingStar.LOGGER.info("[selftest] casting");
 					ClientPlayNetworking.send(new DomainCastPayload());
 					int c = DomainTimeline.collapse(HOLD);
-					stills(4, 12, 20, 27, 33, 36, 42, 54, 66, 76, 84, 88, 96, 102, 107, 113, 124, 150, 175, 215, 255, c + 4, c + 9, c + 14,
-							c + 19, c + 25, DomainTimeline.end(HOLD) + 3);
+					stills(3, 6, 9, 12, 16, 20, 27, 33, 36, 42, 54, 66, 76, 84, 88, 96, 102, 107, 113, 124, 136, 150, 175, 215, 255, c + 4, c + 7,
+							c + 10, c + 13, c + 16, c + 19, c + 25, DomainTimeline.end(HOLD) + 3);
 				}
 				if (ClientDomains.mine() != null) {
 					stage = Stage.WATCH;
@@ -165,6 +182,13 @@ public class DomainSelfTest implements ClientModInitializer {
 			case WATCH -> {
 				ClientDomain domain = latest();
 				if (domain != null) {
+					// Him from the front in the void, his eyes burning; and again as he pulls the blindfold back down.
+					int c = domain.collapse();
+					if (domain.age == 132 || domain.age == c + 2) {
+						client.options.setPerspective(Perspective.THIRD_PERSON_FRONT);
+					} else if (domain.age == 140 || domain.age == DomainTimeline.end(HOLD) + 1) {
+						client.options.setPerspective(Perspective.FIRST_PERSON);
+					}
 					// Look round the void: down at the water, round at the held, up again at the eye.
 					if (domain.age == 165) {
 						client.player.setPitch(50.0F);
