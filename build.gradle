@@ -181,3 +181,57 @@ loom {
 		}
 	}
 }
+
+// The dev game and the form self test wear kortev's skin, the Public Safety one from tools/skins, unless a skin is
+// already there: run/skins/kortev.png for the dev game (DevSkins), build/selftest/skins/Kortev.png for the stand-in.
+tasks.register('seedSkins') {
+	def skin = file('tools/skins/kortev_public_safety.png')
+	def targets = [file('run/skins/kortev.png'), file('build/selftest/skins/Kortev.png')]
+	doLast {
+		targets.each { target ->
+			if (!target.exists()) {
+				target.parentFile.mkdirs()
+				java.nio.file.Files.copy(skin.toPath(), target.toPath())
+			}
+		}
+	}
+}
+tasks.matching { it.name in ['runClient', 'runSelftest'] }.configureEach { dependsOn 'seedSkins' }
+
+// The self tests' world, made once the way CI makes it (runGenworld's server, its world copied into the client's saves),
+// and the client's options, so ./gradlew runSelftest quick-plays straight into it on a PC too.
+tasks.register('selftestServerSetup') {
+	doLast {
+		def dir = file('build/selftest-server')
+		dir.mkdirs()
+		new File(dir, 'eula.txt').text = 'eula=true\n'
+		def props = new File(dir, 'server.properties')
+		if (!props.exists()) {
+			props.text = 'level-name=selftest\nlevel-seed=shootingstar\nonline-mode=false\nspawn-protection=0\n'
+		}
+	}
+}
+tasks.matching { it.name == 'runGenworld' }.configureEach {
+	dependsOn 'selftestServerSetup'
+	onlyIf { !file('build/selftest/saves/selftest').exists() }
+}
+tasks.register('selftestWorld') {
+	dependsOn 'runGenworld'
+	doLast {
+		def world = file('build/selftest/saves/selftest')
+		if (!world.exists()) {
+			project.copy {
+				from 'build/selftest-server/selftest'
+				into world
+			}
+		}
+		def options = file('build/selftest/options.txt')
+		if (!options.exists()) {
+			project.copy {
+				from '.github/selftest/options.txt'
+				into 'build/selftest'
+			}
+		}
+	}
+}
+tasks.matching { it.name == 'runSelftest' }.configureEach { dependsOn 'selftestWorld' }

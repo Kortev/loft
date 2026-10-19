@@ -131,7 +131,11 @@ attempts that invented a new hair shape: if you touch the skin again, stay close
 
 ### The model pipeline (`tools/chainsaw_model.py`, Blender as a Python module)
 
-- Needs Python 3.11 with `pip install "bpy==4.5.*" numpy pillow` (keep the venv outside the repo).
+- Needs Python 3.11 with `pip install "bpy==4.5.*" numpy pillow` (keep the venv outside the repo). kortev's PC has
+  Blender 4.3 instead, which runs it as `blender -b --factory-startup --python-use-system-env --python
+  tools/chainsaw_model.py -- --game` (Pillow put on `PYTHONPATH`), but **4.3 unwraps the painted parts differently
+  from 4.5**: a full 4.3 export changes the approved look. On 4.3, export to a scratch copy and splice only the parts
+  you changed into the committed `form.csm` (the chains were done that way; their swatches sit in the same place).
 - `--out DIR --renders [--only hero,front,side,head,head_side,head_back,arm_saw]` renders preview stills (Cycles,
   realistic materials, for judging shape). `CSM_SAMPLES=12` for a quick look.
 - `--game` builds the rest pose, unwraps, **paints** the texture (`paint_toon`: flat colour per material from the
@@ -141,8 +145,10 @@ attempts that invented a new hair shape: if you touch the skin again, stay close
   about 15 seconds. Commit both outputs.
 - `form.csm` format (CSM2) is documented in `export_game`'s docstring: parts with the bone they follow (`head`,
   `body`, `right_arm`, `left_arm`), an optional grow root/axis for saw parts (`*_bar`, `*_chainK`), and quads.
-  Each chain is exported in 4 frames (`*_chain0..3`), each a step further round its bar; the game shows one at a
-  time to run the chain. A one-quad part named `rope` only carries the cord's colour.
+  Each chain is exported in 12 frames (`*_chain0..11`), each a quarter of a cutter further round its bar; the game
+  shows one at a time to run the chain (it counts the frames from the mesh). Their blood is on the links, not on a
+  place (`chain_tones`, `CHAIN_BLOOD`: a fleck of blood on some links, about as much as before), so it runs round with the chain; the
+  12 frames are the chain moving one whole pattern on, so they loop without a jump. A one-quad part named `rope` only carries the cord's colour.
 - Coordinates: the build is in skin pixels, feet at the origin, facing -y, z up; `to_game` maps to each bone's
   model space.
 
@@ -163,9 +169,13 @@ too and regenerate. Commit the `.ogg`s.
   `src/gametest/java/.../test/FormSelfTest.java`. (The game never draws your own player while the camera is another
   entity, so the test films a client-side stand-in; it also forces every outer skin layer on, which a stand-in
   otherwise never shows.)
-- On a PC: `./gradlew runClient` plays as `kortev` and wears `run/skins/kortev.png` if present (`DevSkins`, only
-  active with the `-Dshootingstar.devskins` flag the dev run sets); `./gradlew runSelftest -Pselftest=form` runs the
-  test locally.
+- On a PC: `./gradlew runClient` plays as `kortev` and wears `run/skins/kortev.png` (`DevSkins`, only active with the
+  `-Dshootingstar.devskins` flag the dev run sets; `seedSkins` puts the Public Safety skin there if nothing is).
+  `./gradlew runSelftest -Pselftest=form -Pusername=kortev` runs the test locally; it makes its world first, as CI
+  does (`selftestWorld`), so it quick-plays straight in.
+- Through your own transformation your hand, the HUD and pop-ups are hidden until the camera is back in your eyes
+  (`FormHandHiddenMixin`, `FormHudHiddenMixin`, `FormToastHiddenMixin`; the impact frames still draw). The test films
+  it with the HUD on to show that.
 - Yarn 1.21.1 names differ from Mojang's; check a doubtful one against the mappings before pushing.
 
 ## What's next, in order
