@@ -6,6 +6,7 @@
 		"AfterWorldMixin",
 		"BackgroundRendererMixin",
 		"CameraMixin",
+		"DevSkinMixin",
 		"EntityLookMixin",
 		"GameRendererMixin",
 		"HeldItemFeatureRendererMixin",

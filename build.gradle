@@ -110,6 +110,10 @@ loom {
 	runs {
 		client {
 			source sourceSets.allMods
+			// The dev game plays offline, where nobody's skin can be fetched: it plays as kortev (or -Pusername) and
+			// wears the players' own skins from run/skins/NAME.png (DevSkins).
+			vmArg "-Dshootingstar.devskins"
+			programArgs "--username", (project.findProperty('username') ?: 'kortev').toString()
 		}
 		server {
 			source sourceSets.allMods
