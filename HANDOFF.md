@@ -1,5 +1,9 @@
 # Handoff: The Shooting Star
 
+> **Working on kortev's Chainsaw Man mod?** It lives on the branch `claude/chainsaw-man`, not `main`. Read
+> [`chainsawman/HANDOFF.md`](chainsawman/HANDOFF.md) on that branch first: where it stands, kortev's rules for it
+> (no spoilers past the Reze arc among them), and what's next.
+
 Start here. This is what the project is, where it stands, what to build next and how to work on it. The deep
 how-to lives in two skill books in `.claude/skills/`, which Claude Code loads by itself:
 

@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       test:
-        description: "Which self test: gap (Ginnungagap), true (a Gungnir strike), mjolnir (a Mjölnir strike), chitty (Chitty Chitty Bang Bang), or film-kortev, film-woomerd, film-gerald (the Genesis Key Short from that player's eyes, 1080x1920)"
+        description: "Which self test: gap (Ginnungagap), true (a Gungnir strike), mjolnir (a Mjölnir strike), chitty (Chitty Chitty Bang Bang), form (Chainsaw Man's form and its transformation, photographed), or film-kortev, film-woomerd, film-gerald (the Genesis Key Short from that player's eyes, 1080x1920)"
         default: gap
       publish:
         description: "Also force-push the screenshots, logs and video to the selftest-output branch"
@@ -44,6 +44,12 @@ jobs:
           SCREEN=1280x720
           EXTRA=""
           case "$TEST" in
+            form)
+              # The form photographed on a stand-in of kortev in their own skin (tools/kortev_skin.py, committed).
+              mkdir -p build/selftest/skins
+              cp tools/skins/kortev_public_safety.png build/selftest/skins/Kortev.png
+              EXTRA="-Pusername=kortev"
+              ;;
             film-*)
               # A Short: portrait, as the named player, everyone in their own skin.
               case "$TEST" in
