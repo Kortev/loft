@@ -120,6 +120,12 @@ public final class FormCinematic {
 		return new Vec3d[] {hips.add(side), hips.subtract(side)};
 	}
 
+	/** Whether your own transformation is playing: the camera is off on its shots, your hand and the HUD hidden. */
+	public static boolean filming(float tickDelta) {
+		float t = mine(tickDelta);
+		return t >= 0.0F && t < FormTimeline.END;
+	}
+
 	/** How many ticks into your own transformation you are, or -1. */
 	private static float mine(float tickDelta) {
 		ClientPlayerEntity self = MinecraftClient.getInstance().player;

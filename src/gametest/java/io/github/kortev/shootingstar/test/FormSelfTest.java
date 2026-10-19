@@ -55,7 +55,7 @@ public class FormSelfTest implements ClientModInitializer {
 	private static final int[] PULL_SHOTS = {2, 6, 10, 14, 16, 17, 18, 19, 20, 21, 22, 23, 25, 28, 32, 38, 44, 56};
 	private static int pullTick;
 	/** Your own transformation, filmed from your own camera: the ticks after the pull to photograph, and how far it has got. */
-	private static final int[] CINE_SHOTS = {2, 6, 10, 14, 16, 17, 18, 19, 20, 21, 22, 24, 28, 33, 36, 37, 38, 39, 42, 48, 56, 61};
+	private static final int[] CINE_SHOTS = {2, 6, 10, 14, 16, 17, 18, 19, 20, 21, 22, 24, 28, 33, 36, 37, 38, 39, 42, 48, 56, 61, 63};
 	private static final int CINE_START = 10;
 	private static int cineTick;
 
@@ -153,6 +153,8 @@ public class FormSelfTest implements ClientModInitializer {
 					client.setCameraEntity(client.player);
 					client.options.setPerspective(Perspective.FIRST_PERSON);
 					if (cineTick == 0) {
+						// With the HUD on, as you play: the cinematic hides it and your hand itself, until the end (63).
+						client.options.hudHidden = false;
 						client.world.removeEntity(-4242, Entity.RemovalReason.DISCARDED);
 						server.execute(() -> Form.pullCord(server.getPlayerManager().getPlayerList().get(0)));
 					} else if (cineTick == CINE_START) {
