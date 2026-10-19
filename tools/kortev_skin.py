@@ -1,4 +1,4 @@
-"""Draws kortev's skin in the Public Safety uniform: py tools/kortev_skin.py SOURCE.png OUT.png [--hood [--under]]
+"""Draws kortev's skin in the Public Safety uniform: py tools/kortev_skin.py SOURCE.png OUT.png [--hood [--under] [--dark]]
 
 With --hood the head is their skin's own, hood up, untouched, and the onesie's top is worn open over the shirt
 (--under: under the shirt, only its hood and drawstrings showing); without it, the hood is pulled down (below).
@@ -355,6 +355,18 @@ def hoodie_under(src):
         put(x, 41, BUCKLE[0])
 
 
+def in_black():
+    """--dark: the hood and the onesie's other blues (the drawstrings, the hood's base at the neck) in charcoal, to
+    sit with the suit's black and white: each blue to a grey of its own lightness, so the hood's shading stays, and
+    light enough that its black eyes still show. Its teeth and blush stay as they were."""
+    for y in range(64):
+        for x in range(64):
+            r, g, b, a = (int(c) for c in img[y, x])
+            if a and b > r + 15:
+                v = max(30, min(100, int(40 + (0.3 * r + 0.59 * g + 0.11 * b - 110) * 0.5)))
+                img[y, x] = (v, v, v + 4, a)
+
+
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith('--')]
     src = Image.open(args[0]).convert('RGBA')
@@ -379,6 +391,8 @@ def main():
         hoodie_under(src)
     elif hooded:
         hoodie(src)
+    if '--dark' in sys.argv:
+        in_black()
     Image.fromarray(img, 'RGBA').save(args[1])
     print('wrote', args[1])
 
