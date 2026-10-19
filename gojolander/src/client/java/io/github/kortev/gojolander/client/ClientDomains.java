@@ -40,6 +40,9 @@ public final class ClientDomains {
 	private static final Map<Integer, ClientDomain> DOMAINS = new LinkedHashMap<>();
 	/** How far off the Domain's sounds carry to someone outside it, beyond its own size. */
 	private static final double HEARD = 64.0;
+	/** When he speaks: "Domain Expansion" as his hand comes up into the sign, "Unlimited Void" as the void opens. */
+	private static final int SAYS_EXPANSION = DomainTimeline.HAND - 2;
+	private static final int SAYS_VOID = DomainTimeline.VOID + 2;
 	/** How long after it lets go (ticks) one it held in the air may still land and go down onto their knees. */
 	private static final int LAND = 40;
 	/** How long after its end a Domain is kept, for the last of the shattering to be drawn and the broken to get up. */
@@ -354,6 +357,18 @@ public final class ClientDomains {
 				at(client, domain.center, GojoSounds.CLOSE_WORLD, 3.0F);
 			}
 		}
+		// His voice: heard by him as it is, by anyone else in reach from where he stands; "Unlimited Void", once it has
+		// closed, by everyone in it all round, as the void's own sounds are.
+		if (passed(from, to, SAYS_EXPANSION)) {
+			says(client, domain, GojoSounds.VOICE_EXPANSION, inRange);
+		}
+		if (passed(from, to, SAYS_VOID) && to < domain.collapse()) {
+			if (hearsInside(client, domain)) {
+				master(client, GojoSounds.VOICE_VOID, 1.0F);
+			} else {
+				says(client, domain, GojoSounds.VOICE_VOID, inRange);
+			}
+		}
 		// Between the close and the void, silence. Then the void opens with a bloom of sound, and its hum goes on under it.
 		if (passed(from, to, DomainTimeline.VOID) && to < domain.collapse() && hearsInside(client, domain)) {
 			master(client, GojoSounds.REVEAL, 1.0F);
@@ -461,6 +476,19 @@ public final class ClientDomains {
 		}
 		near.sort(Comparator.comparingDouble(e -> e.squaredDistanceTo(client.player)));
 		return near.subList(0, Math.min(VOICES, near.size()));
+	}
+
+	/** His voice, {@code line}: in his own ears as it is; for anyone else in reach, from where he stands (or its middle). */
+	private static void says(MinecraftClient client, ClientDomain domain, SoundEvent line, boolean inRange) {
+		if (domain.mine) {
+			master(client, line, 1.0F);
+			return;
+		}
+		if (!inRange || client.world == null) {
+			return;
+		}
+		PlayerEntity caster = domain.caster != null ? client.world.getPlayerByUuid(domain.caster) : null;
+		at(client, caster != null ? caster.getEyePos().subtract(0.0, 1.0, 0.0) : domain.center, line, 2.0F);
 	}
 
 	/** What the caught hear, from the void opening until it shatters (once). */

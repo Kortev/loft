@@ -35,7 +35,8 @@ His ult. With the blindfold on, he presses **Z** (rebindable: Domain Expansion).
   burning blue; the hand drops. A breath drawn in; a cold chime as they light. Round him a ring of ink starts out over
   the ground, ragged, fingers of it branching ahead. The blindfold's ends swing, and whip about as the black closes.
 - **1.5 to 1.9 s, the sign.** His right hand snaps up in front of his chin, the first two fingers crossed, and the
-  camera punches in on it. DOMAIN EXPANSION comes up on the screen.
+  camera punches in on it. DOMAIN EXPANSION comes up on the screen, and he says it, in his own voice from the show:
+  "Ryōiki Tenkai" (heard by everyone in reach, from where he stands).
 - **1.9 to 4.3 s, the barrier.** A cut to wide, the camera craning back and up round him. The ink reaches its full
   32 blocks at 2.5 s and the black floods up out of it like a liquid, fingers racing ahead of a white-hot curling lip,
   drips running back down, the air drawn in from every side faster and faster. **Anyone who gets out of the ring
@@ -44,7 +45,7 @@ His ult. With the blindfold on, he presses **Z** (rebindable: Domain Expansion).
   is **caught**: players and mobs, in the air or not (not players in creative or spectator, and not bosses). For
   everyone in it, black and silence; his camera is back in his eyes. From outside it is a sphere of black, its skin
   rippling, stars deep inside it, the air bending round its edge and ink pooled at its foot.
-- **5 s, the void opens** out of the great eye, over the whole sky, with one deep, slow, struck boom ringing cold and far voices with no words. UNLIMITED VOID, and
+- **5 s, the void opens** out of the great eye, over the whole sky, with one deep, slow, struck boom ringing cold and far voices with no words, and him: "Muryōkūsho" (all round, for everyone in it). UNLIMITED VOID, and
   its name brushed in ink under it: 無量空処. Endless space, light flowing past in slow rivers that curve round the eye
   as they run in to it, the eye a black disc bending the stars round it in a ring of white fire, a band of light across
   it, and still black water underfoot giving it all back, rippling out round him. Whoever is in there with him is dark

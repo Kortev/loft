@@ -3,6 +3,7 @@
     python tools/film.py kortev            # or woomerd, gerald; several at once; or all
     python tools/film.py all --fresh-world  # make the test world again first
     python tools/film.py domain             # the first friend's ult, from his eyes (FilmDomain), Kortev caught in it
+    python tools/film.py domain-kortev      # the same fight from Kortev's eyes, the one it is cast on (FilmDomainKortev)
 
 Each take starts from a clean copy of the self-test world (made once with runGenworld, seed "shootingstar"), plays the
 whole scripted episode with the other two players moved by the server, and writes:
@@ -37,7 +38,7 @@ SERVER = os.path.join(BUILD, 'selftest-server')
 CLIENT = os.path.join(BUILD, 'selftest')
 OUT = os.path.join(BUILD, 'film')
 SCRIPTS = os.path.join(ROOT, '.github', 'scripts')
-WHO = {'kortev': 'Kortev', 'woomerd': 'Woomerd', 'gerald': 'gerald_2009', 'domain': 'Rival'}
+WHO = {'kortev': 'Kortev', 'woomerd': 'Woomerd', 'gerald': 'gerald_2009', 'domain': 'Rival', 'domain-kortev': 'Kortev'}
 # The Genesis Key series' three takes ("all"); "domain" is a film of its own.
 SERIES = ['kortev', 'woomerd', 'gerald']
 GRADLEW = os.path.join(ROOT, 'gradlew.bat' if os.name == 'nt' else 'gradlew')

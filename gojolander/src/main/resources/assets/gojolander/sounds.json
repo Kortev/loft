@@ -128,5 +128,21 @@
         "name": "gojolander:domain_denied"
       }
     ]
+  },
+  "domain.voice.expansion": {
+    "subtitle": "subtitles.gojolander.domain.voice.expansion",
+    "sounds": [
+      {
+        "name": "gojolander:domain_voice_expansion"
+      }
+    ]
+  },
+  "domain.voice.void": {
+    "subtitle": "subtitles.gojolander.domain.voice.void",
+    "sounds": [
+      {
+        "name": "gojolander:domain_voice_void"
+      }
+    ]
   }
 }

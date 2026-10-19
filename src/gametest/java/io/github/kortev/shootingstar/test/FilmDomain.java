@@ -99,48 +99,55 @@ public class FilmDomain implements ClientModInitializer {
 
 	static final String KORTEV = "Kortev";
 	/** How long the scene is left once it is built before the recording starts: its chunks drawn, the toasts gone. */
-	private static final int SETTLE = 500;
+	static final int SETTLE = 500;
 	/** Which way the friend faces as he casts (east, into the morning sun, so the close-up of his face is lit). */
-	private static final float FACING = -90.0F;
+	static final float FACING = -90.0F;
 	/** Where Kortev comes from: this far in front of the friend, and this far to his left. */
-	private static final double KORTEV_OUT = 13.0;
+	static final double KORTEV_OUT = 13.0;
 	private static final double KORTEV_LEFT = 2.0;
+	/**
+	 * The meadow levelled for them ({@link #level}): round a point this far out ahead of him, flat out to LEVEL_FLAT,
+	 * easing back to the land by LEVEL_EDGE (it takes in the ground behind him that the close-up looks at, too).
+	 */
+	private static final double LEVEL_AHEAD = 9.0;
+	private static final double LEVEL_FLAT = 26.0;
+	private static final double LEVEL_EDGE = 38.0;
 	/** The friend turns to Kortev coming at him. */
-	private static final int NOTICE = 6;
+	static final int NOTICE = 6;
 	/** The last of Kortev's swings, after which he stands off, out of the close-up's way. */
-	private static final int WHIFF = 70;
+	static final int WHIFF = 70;
 	/** Kortev's hits (the first tick each may land, once he is in reach); between and after them, swings at the air. */
-	private static final int[] HITS = {34, 52};
-	private static final int[] WHIFFS = {45, WHIFF};
+	static final int[] HITS = {34, 52};
+	static final int[] WHIFFS = {45, WHIFF};
 	/** The friend side-steps. */
-	private static final int SIDESTEP = 56;
+	static final int SIDESTEP = 56;
 	/** The friend casts. */
-	private static final int CAST = 84;
+	static final int CAST = 84;
 	/** Kortev, in it: stares at the eyes, then backs away from them (still facing them) until it closes. */
-	private static final int BACK_AWAY = 18;
+	static final int BACK_AWAY = 18;
 	/** The void (ages): he looks up at the eye, walks out to Kortev, looks him over, steps back, and looks up again. */
-	private static final int LOOK_UP = 104;
-	private static final int WALK_OUT = 132;
-	private static final int CIRCLE_FROM = 222;
-	private static final int CIRCLE_TO = 246;
-	private static final int STEP_BACK = 266;
-	private static final int EYE_AGAIN = 286;
+	static final int LOOK_UP = 104;
+	static final int WALK_OUT = 132;
+	static final int CIRCLE_FROM = 222;
+	static final int CIRCLE_TO = 246;
+	static final int STEP_BACK = 266;
+	static final int EYE_AGAIN = 286;
 	/**
 	 * After it fades: Kortev on his knees until he comes to (and can do nothing till then, as a player could not), then,
 	 * this long after, he staggers off and goes for a golden apple; the friend goes after him.
 	 */
-	private static final int APPLE = 6;
-	private static final int FINISH = 328;
+	static final int APPLE = 6;
+	static final int FINISH = 328;
 	/** How long the friend crouches over Kortev's things, and how long the recording runs on after Kortev falls. */
-	private static final int TEABAG = 40;
+	static final int TEABAG = 40;
 	/** When he turns the camera round behind himself to show it off (F5), after Kortev falls. */
 	private static final int THIRD_PERSON = 10;
-	private static final int AFTER = 80;
+	static final int AFTER = 80;
 
 	/** How long the void holds (unlimitedVoidHoldSeconds), as the film casts it. */
-	private static final int HOLD_SECONDS = 10;
-	private static final int HOLD = HOLD_SECONDS * 20;
-	private static final double REACH = 3.2;
+	static final int HOLD_SECONDS = 10;
+	static final int HOLD = HOLD_SECONDS * 20;
+	static final double REACH = 3.2;
 
 	private static Stage stage = Stage.WAIT_WORLD;
 	private static int ticks;
@@ -466,7 +473,7 @@ public class FilmDomain implements ClientModInitializer {
 	}
 
 	/** The void's hum and the flood, as this client hears them (ClientDomains' cues), this tick. */
-	private static void loops(MinecraftClient client, @Nullable ClientDomain mine) {
+	static void loops(MinecraftClient client, @Nullable ClientDomain mine) {
 		double t = Capture.time() / 20.0;
 		double hum = 0.0;
 		double flood = 0.0;
@@ -482,7 +489,7 @@ public class FilmDomain implements ClientModInitializer {
 	}
 
 	/** The loops' tracks (render-loops.py makes them sound), with their sounds copied out of the game beside the others. */
-	private static void writeLoops(MinecraftClient client) {
+	static void writeLoops(MinecraftClient client) {
 		Path dir = client.runDirectory.toPath().resolve("capture");
 		StringBuilder json = new StringBuilder("{\"tracks\": [\n");
 		String[][] loops = {{"gojolander", "domain_void"}, {"gojolander", "domain_flood"}};
@@ -544,7 +551,7 @@ public class FilmDomain implements ClientModInitializer {
 		});
 	}
 
-	private static Vec3d direction(float yaw) {
+	static Vec3d direction(float yaw) {
 		float r = yaw * MathHelper.RADIANS_PER_DEGREE;
 		return new Vec3d(-MathHelper.sin(r), 0.0, MathHelper.cos(r));
 	}
@@ -556,6 +563,37 @@ public class FilmDomain implements ClientModInitializer {
 	private static void setUp(MinecraftServer server) {
 		ServerPlayerEntity friend = server.getPlayerManager().getPlayerList().get(0);
 		ServerWorld world = friend.getServerWorld();
+		spot = scene(server, world, friend.getGameProfile().getName());
+		Vec3d facing = direction(FACING);
+
+		dress(friend, false, true);
+		friend.equipStack(EquipmentSlot.HEAD, new ItemStack(Gojolander.BLINDFOLD));
+		Vec3d at = Vec3d.ofBottomCenter(spot);
+		friend.networkHandler.requestTeleport(at.x, at.y, at.z, FACING, 4.0F);
+
+		ServerPlayerEntity kortev = join(server, world, KORTEV);
+		dress(kortev, true, false);
+		Vec3d from = kortevStart(at);
+		kPos = new Vec3d(from.x, ground(world, from.x, from.z).getY(), from.z);
+		kYaw = FACING + 180.0F;
+		kortev.teleport(world, kPos.x, kPos.y, kPos.z, kYaw, 0.0F);
+		kortev.setHeadYaw(kYaw);
+		lastHealth = kortev.getHealth();
+		ready = true;
+		ShootingStar.LOGGER.info("[film] set up at {} (ground along the way: {})", spot, profile(world, at, facing));
+	}
+
+	/** Where Kortev starts: out in front of the friend, a little to his left. */
+	static Vec3d kortevStart(Vec3d at) {
+		return at.add(direction(FACING).multiply(KORTEV_OUT)).add(direction(FACING - 90.0F).multiply(KORTEV_LEFT));
+	}
+
+	/**
+	 * The scene, the same for either's eyes ({@link FilmDomainKortev} films it from Kortev's): the game's rules for it,
+	 * the blindfold {@code owner}'s, the flattest open plains near the spawn cleared and levelled, nothing else about,
+	 * and the animals stood about it. Returns where the friend stands at the start.
+	 */
+	static BlockPos scene(MinecraftServer server, ServerWorld world, String owner) {
 		GameRules rules = world.getGameRules();
 		rules.get(GameRules.DO_DAYLIGHT_CYCLE).set(false, server);
 		rules.get(GameRules.DO_WEATHER_CYCLE).set(false, server);
@@ -569,28 +607,15 @@ public class FilmDomain implements ClientModInitializer {
 		rules.get(GojoRules.VOID_BREAKS).set(true, server);
 		world.setTimeOfDay(4200);
 		world.setWeather(24000, 0, false, false);
-		Owner.set(server, friend.getGameProfile().getName());
+		Owner.set(server, owner);
 
-		spot = field(world);
+		BlockPos spot = field(world);
 		Vec3d facing = direction(FACING);
-		clear(world, Vec3d.ofBottomCenter(spot).add(facing.multiply(10.0)), 30);
+		clear(world, Vec3d.ofBottomCenter(spot).add(facing.multiply(10.0)), 42);
+		level(world, Vec3d.ofBottomCenter(spot).add(facing.multiply(LEVEL_AHEAD)), spot.getY());
 		mow(world, Vec3d.ofBottomCenter(spot), 12);
-		shoo(world);
-
-		dress(friend, false);
-		friend.equipStack(EquipmentSlot.HEAD, new ItemStack(Gojolander.BLINDFOLD));
+		shoo(world, spot);
 		Vec3d at = Vec3d.ofBottomCenter(spot);
-		friend.networkHandler.requestTeleport(at.x, at.y, at.z, FACING, 4.0F);
-
-		ServerPlayerEntity kortev = join(server, world);
-		dress(kortev, true);
-		Vec3d left = direction(FACING - 90.0F);
-		Vec3d from = at.add(facing.multiply(KORTEV_OUT)).add(left.multiply(KORTEV_LEFT));
-		kPos = new Vec3d(from.x, ground(world, from.x, from.z).getY(), from.z);
-		kYaw = FACING + 180.0F;
-		kortev.teleport(world, kPos.x, kPos.y, kPos.z, kYaw, 0.0F);
-		kortev.setHeadYaw(kYaw);
-		lastHealth = kortev.getHealth();
 
 		// The animals about the field: in front, where he looks as Kortev comes, and behind him, where the close-up looks.
 		// Kept off the line between them, so none of them stands in front of Kortev as he comes.
@@ -602,8 +627,7 @@ public class FilmDomain implements ClientModInitializer {
 		animal(world, EntityType.SHEEP, at, facing, -7.0, -5.0);
 		animal(world, EntityType.COW, at, facing, -10.0, 6.0);
 		animal(world, EntityType.VILLAGER, at, facing, -15.0, 1.0);
-		ready = true;
-		ShootingStar.LOGGER.info("[film] set up at {} (ground along the way: {})", spot, profile(world, at, facing));
+		return spot;
 	}
 
 	/**
@@ -719,7 +743,7 @@ public class FilmDomain implements ClientModInitializer {
 	}
 
 	/** The ground's height every four blocks from the friend out to where Kortev starts, to see how flat it is. */
-	private static String profile(ServerWorld world, Vec3d at, Vec3d facing) {
+	static String profile(ServerWorld world, Vec3d at, Vec3d facing) {
 		StringBuilder out = new StringBuilder();
 		for (int d = -12; d <= 28; d += 4) {
 			Vec3d p = at.add(facing.multiply(d));
@@ -729,7 +753,7 @@ public class FilmDomain implements ClientModInitializer {
 	}
 
 	/** The block the feet stand in at {@code x, z}: the first air over the ground (leaves and plants not counted). */
-	private static BlockPos ground(ServerWorld world, double x, double z) {
+	static BlockPos ground(ServerWorld world, double x, double z) {
 		int bx = MathHelper.floor(x);
 		int bz = MathHelper.floor(z);
 		return new BlockPos(bx, world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, bx, bz), bz);
@@ -753,6 +777,44 @@ public class FilmDomain implements ClientModInitializer {
 		}
 	}
 
+	/**
+	 * The meadow they fight on, flat: out to {@code LEVEL_FLAT} round {@code middle} the ground is brought to {@code y}
+	 * (where he stands), and from there out to {@code LEVEL_EDGE} it eases back to the land as it was, so no rise stands
+	 * between them and the camera and nothing looks built. Grass on top, dirt under it.
+	 */
+	private static void level(ServerWorld world, Vec3d middle, int y) {
+		BlockPos c = BlockPos.ofFloored(middle);
+		int r = (int) Math.ceil(LEVEL_EDGE);
+		for (int dx = -r; dx <= r; dx++) {
+			for (int dz = -r; dz <= r; dz++) {
+				double d = Math.sqrt(dx * dx + dz * dz);
+				if (d > LEVEL_EDGE) {
+					continue;
+				}
+				int x = c.getX() + dx;
+				int z = c.getZ() + dz;
+				int h = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z);
+				if (!world.getFluidState(new BlockPos(x, h - 1, z)).isEmpty()) {
+					continue;
+				}
+				double k = MathHelper.clamp((LEVEL_EDGE - d) / (LEVEL_EDGE - LEVEL_FLAT), 0.0, 1.0);
+				int to = (int) Math.round(MathHelper.lerp(k * k * (3.0 - 2.0 * k), h, y));
+				if (to == h) {
+					continue;
+				}
+				for (int yy = Math.min(h, to) - 3; yy <= Math.max(h, to) + 2; yy++) {
+					BlockPos pos = new BlockPos(x, yy, z);
+					BlockState state = yy >= to ? Blocks.AIR.getDefaultState()
+							: yy == to - 1 ? Blocks.GRASS_BLOCK.getDefaultState() : Blocks.DIRT.getDefaultState();
+					if (yy < Math.min(h, to) - 1 && !world.getBlockState(pos).isAir()) {
+						continue;
+					}
+					world.setBlockState(pos, state, 2 | 16);
+				}
+			}
+		}
+	}
+
 	/** No tufts of grass round where he casts it (the wide shot starts low beside him, and they stood across it). */
 	private static void mow(ServerWorld world, Vec3d middle, int radius) {
 		BlockPos c = BlockPos.ofFloored(middle);
@@ -767,7 +829,7 @@ public class FilmDomain implements ClientModInitializer {
 	}
 
 	/** No animals or villagers but the film's about the field. */
-	private static void shoo(ServerWorld world) {
+	private static void shoo(ServerWorld world, BlockPos spot) {
 		Box around = new Box(spot).expand(56.0, 40.0, 56.0);
 		for (MobEntity mob : world.getEntitiesByClass(MobEntity.class, around, mob -> true)) {
 			mob.discard();
@@ -787,20 +849,20 @@ public class FilmDomain implements ClientModInitializer {
 		mob.setBodyYaw(yaw);
 		mob.setPersistent();
 		mob.initialize(world, world.getLocalDifficulty(feet), SpawnReason.COMMAND, null);
-		// Grazing: about, turning and stepping, but slow enough that none wanders into a shot.
-		mob.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 20 * 60 * 10, 4, true, false));
+		// Standing where they are put, off the line between them: grazing, even slowed, one walked up to the camera.
+		mob.setAiDisabled(true);
 		world.spawnEntity(mob);
 	}
 
-	/** Kortev: a player the server makes and moves itself, connected as the game tests' are. */
-	private static ServerPlayerEntity join(MinecraftServer server, ServerWorld world) {
-		GameProfile profile = new GameProfile(Uuids.getOfflinePlayerUuid(KORTEV), KORTEV);
+	/** A player the server makes and moves itself (Kortev, or from Kortev's eyes the friend), connected as the game tests' are. */
+	static ServerPlayerEntity join(MinecraftServer server, ServerWorld world, String name) {
+		GameProfile profile = new GameProfile(Uuids.getOfflinePlayerUuid(name), name);
 		ConnectedClientData data = ConnectedClientData.createDefault(profile, false);
 		ServerPlayerEntity player = new ServerPlayerEntity(server, world, profile, data.syncedOptions());
 		ClientConnection connection = new ClientConnection(NetworkSide.SERVERBOUND);
 		new EmbeddedChannel(connection);
 		server.getPlayerManager().onPlayerConnect(connection, player, data);
-		ShootingStar.LOGGER.info("[film] {} joined", KORTEV);
+		ShootingStar.LOGGER.info("[film] {} joined", name);
 		return player;
 	}
 
@@ -809,7 +871,7 @@ public class FilmDomain implements ClientModInitializer {
 	 * the friend his bare hands and a few things in his bar. Both have every recipe and the Domain's advancements already
 	 * (and any toast is cleared before it is drawn: {@link #clientTick}).
 	 */
-	private static void dress(ServerPlayerEntity player, boolean kortev) {
+	static void dress(ServerPlayerEntity player, boolean kortev, boolean own) {
 		player.changeGameMode(GameMode.SURVIVAL);
 		player.clearStatusEffects();
 		player.getInventory().clear();
@@ -826,14 +888,14 @@ public class FilmDomain implements ClientModInitializer {
 			player.getInventory().setStack(7, new ItemStack(Items.IRON_PICKAXE));
 			player.getInventory().setStack(8, new ItemStack(Items.TORCH, 24));
 			player.setExperienceLevel(14);
-			select(player, 0, false);
+			select(player, 0, own);
 		} else {
 			player.getInventory().setStack(1, new ItemStack(Items.COBBLESTONE, 37));
 			player.getInventory().setStack(2, new ItemStack(Items.COOKED_PORKCHOP, 11));
 			player.getInventory().setStack(3, new ItemStack(Items.DIAMOND_PICKAXE));
 			player.getInventory().setStack(8, new ItemStack(Items.TORCH, 16));
 			player.setExperienceLevel(31);
-			select(player, 0, true);
+			select(player, 0, own);
 		}
 		MinecraftServer server = player.getServer();
 		player.unlockRecipes(server.getRecipeManager().values());
@@ -846,7 +908,7 @@ public class FilmDomain implements ClientModInitializer {
 		}
 	}
 
-	private static void select(ServerPlayerEntity player, int slot, boolean own) {
+	static void select(ServerPlayerEntity player, int slot, boolean own) {
 		player.getInventory().selectedSlot = slot;
 		if (own) {
 			player.networkHandler.sendPacket(new UpdateSelectedSlotS2CPacket(slot));

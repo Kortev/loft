@@ -1,6 +1,7 @@
 package io.github.kortev.shootingstar.test.mixin;
 
 import io.github.kortev.shootingstar.test.FilmDomain;
+import io.github.kortev.shootingstar.test.FilmDomainKortev;
 import io.github.kortev.shootingstar.test.FilmSelfTest;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.RenderTickCounter;
@@ -20,5 +21,6 @@ public abstract class FilmLookMixin {
 	private void shootingstarTest$look(RenderTickCounter tickCounter, boolean tick, CallbackInfo ci) {
 		FilmSelfTest.frame(tickCounter.getTickDelta(true));
 		FilmDomain.frame(tickCounter.getTickDelta(true));
+		FilmDomainKortev.frame(tickCounter.getTickDelta(true));
 	}
 }

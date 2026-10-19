@@ -14,7 +14,8 @@
 		"FilmPreviewMixin",
 		"FilmMouseAccessor",
 		"FilmClickInvoker",
-		"FilmLookMixin"
+		"FilmLookMixin",
+		"FilmHandMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

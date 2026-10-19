@@ -24,6 +24,8 @@
   "gamerule.unlimitedVoidHoldSeconds.description": "How long the void holds whoever it caught, until the barrier shatters.",
   "gamerule.unlimitedVoidCooldownSeconds": "Unlimited Void: cooldown (seconds)",
   "gamerule.unlimitedVoidCooldownSeconds.description": "How long after casting it before it can be cast again.",
+  "subtitles.gojolander.domain.voice.expansion": "\"Domain Expansion\"",
+  "subtitles.gojolander.domain.voice.void": "\"Unlimited Void\"",
   "subtitles.gojolander.domain.sign": "Fingers cross",
   "subtitles.gojolander.domain.sign.world": "A Domain opens",
   "subtitles.gojolander.domain.close": "The barrier closes",

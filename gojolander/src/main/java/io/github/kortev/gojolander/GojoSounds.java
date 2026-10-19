@@ -6,11 +6,18 @@ import net.minecraft.sound.SoundEvent;
 import net.minecraft.util.Identifier;
 
 /**
- * The Domain's sounds, all made by {@code tools/gen_gojolander_sounds.py}. Those heard from inside it (and the caster's
+ * The Domain's sounds, all made by {@code tools/gen_gojolander_sounds.py} but his voice. Those heard from inside it (and the caster's
  * own) are stereo, played as they are heard rather than placed; the ".world" ones are what everyone outside hears, mono
  * so they can be placed where it is.
  */
 public final class GojoSounds {
+	/**
+	 * His own voice, as in the show: "Ryōiki Tenkai" (Domain Expansion) as his hand comes up into the sign, and
+	 * "Muryōkūsho" (Unlimited Void) as the void opens. Cut from a clip kortev chose (build/voice/source), not made by
+	 * the generator.
+	 */
+	public static final SoundEvent VOICE_EXPANSION = register("domain.voice.expansion");
+	public static final SoundEvent VOICE_VOID = register("domain.voice.void");
 	/** The hand sign: a held breath and a low swell, and the ring hissing out over the ground. */
 	public static final SoundEvent SIGN = register("domain.sign");
 	public static final SoundEvent SIGN_WORLD = register("domain.sign.world");
