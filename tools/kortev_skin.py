@@ -1,4 +1,5 @@
 """Draws kortev's skin in the Public Safety uniform: py tools/kortev_skin.py SOURCE.png OUT.png [--hood [--under] [--dark]]
+(or --onesie: their onesie itself, uniform and all left out, in the charcoal of --dark)
 
 With --hood the head is their skin's own, hood up, untouched, and the onesie's top is worn open over the shirt
 (--under: under the shirt, only its hood and its neck above the collar showing); without it, the hood is pulled down (below).
@@ -364,7 +365,7 @@ def in_black():
     for y in range(64):
         for x in range(64):
             r, g, b, a = (int(c) for c in img[y, x])
-            if a and b > r + 15:
+            if a and b > r + 8:  # (+15 missed the palest, #c4cdd3)
                 v = max(30, min(100, int(40 + (0.3 * r + 0.59 * g + 0.11 * b - 110) * 0.5)))
                 img[y, x] = (v, v, v + 4, a)
 
@@ -372,6 +373,13 @@ def in_black():
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith('--')]
     src = Image.open(args[0]).convert('RGBA')
+    if '--onesie' in sys.argv:
+        # Their onesie as it is, all of it in the charcoal of --dark: no uniform.
+        img[:] = np.array(src)
+        in_black()
+        Image.fromarray(img, 'RGBA').save(args[1])
+        print('wrote', args[1])
+        return
     if '--hood' in sys.argv:
         hood_up(src)
     else:
