@@ -152,7 +152,14 @@ def shirt_body():
         for y in range(h):
             put(x0, y0 + y, SHIRT_SHADE)
             put(x0 + w - 1, y0 + y, SHIRT_SHADE)
-        # (The tie is on the outer layer only: on both, it shows twice, a little apart, from any angle.)
+        # The tie down the middle, its knot at the collar and its point above the belt. Flat on the shirt: on the
+        # outer layer it floats, and on both it shows twice, a little apart.
+        put(x0 + 3, y0, TIE_KNOT)
+        put(x0 + 4, y0, TIE_KNOT)
+        for y in range(1, 9):
+            put(x0 + 3, y0 + y, TIE[0])
+            put(x0 + 4, y0 + y, TIE[1])
+        put(x0 + 3, y0 + 9, TIE[0])
         # Tucked in: blousing over the belt, then the belt and its buckle.
         fill(x0, y0 + 10, x0 + w, y0 + 11, SHIRT_SHADE)
         put(x0 + 2, y0 + 10, SHIRT_DEEP)
@@ -187,22 +194,14 @@ def shirt_body():
 
 
 def shirt_layer(hooded=False):
-    """The outer layer of the body: the collar standing up round the neck, its points spread, and the tie down the
-    middle, its knot at the collar and its point above the belt, with its shark-tooth clip."""
+    """The outer layer of the body: the collar standing up round the neck, its points spread, and the shark-tooth clip
+    on the tie."""
     def front(x0, y0, w, h):
         for x in (1, 2, 5, 6):
             put(x0 + x, y0, SHIRT[0])
         put(x0 + 2, y0 + 1, SHIRT_SHADE)
         put(x0 + 5, y0 + 1, SHIRT_SHADE)
-        put(x0 + 3, y0, TIE_KNOT)
-        put(x0 + 4, y0, TIE_KNOT)
-        for y in range(1, 9):
-            put(x0 + 3, y0 + y, TIE[1])
-            put(x0 + 4, y0 + y, TIE[0])
-        put(x0 + 3, y0 + 9, TIE[1])  # its point, above the belt
-        # A shark tooth clipped to the tie.
-        put(x0 + 3, y0 + 4, BUCKLE[1])
-        put(x0 + 4, y0 + 4, BUCKLE[0])
+        # A shark tooth clipped to the tie: one pixel to one side, not a bar across it, which cut the tie in two.
         put(x0 + 4, y0 + 5, TOOTH)
 
     def ring(x0, y0, w, h):
@@ -334,19 +333,18 @@ def hoodie_under(src):
     blue, shade = tuple(int(c) for c in s[24, 22]), hexc('#6886a9')
     img[16:20, 20:28] = s[16:20, 20:28]  # round the neck, seen from above
     img[32:36, 20:28] = CLEAR
-    # Front, inner layer: the V, narrowing in behind the tie's knot.
+    # Front, inner layer: the V above the tie's knot, pulled down two rows, and the collar closed round the knot
+    # (with the V either side of it, the tie seemed to come out of the hood).
     x0, y0, o0 = 20, 20, 36
     for x, y, c in [(x, 0, blue) for x in range(1, 7)] + [(x, 1, blue) for x in range(2, 6)] + \
-            [(x, 2, shade) for x in range(2, 6)]:
+            [(2, 2, SHIRT[0]), (5, 2, SHIRT[0]), (3, 2, TIE_KNOT), (4, 2, TIE_KNOT)]:
         put(x0 + x, y0 + y, c)
-    # Front, outer layer: the collar's points over the V's edges, the knot two rows down.
+    # Front, outer layer: the collar's points over the V's edges, meeting at the knot.
     for y in range(3):
         for x in range(8):
             put(x0 + x, o0 + y, CLEAR)
-    for x, y in ((0, 0), (7, 0), (0, 1), (1, 1), (6, 1), (7, 1), (1, 2), (6, 2)):
+    for x, y in ((0, 0), (7, 0), (0, 1), (1, 1), (6, 1), (7, 1), (1, 2), (2, 2), (5, 2), (6, 2)):
         put(x0 + x, o0 + y, SHIRT[0])
-    put(x0 + 3, o0 + 2, TIE_KNOT)
-    put(x0 + 4, o0 + 2, TIE_KNOT)
     # Sides and back: the hood's fabric over the top two rows, the collar standing out just below it.
     for x in list(range(16, 20)) + list(range(28, 40)):
         put(x, 20, blue)
