@@ -1,6 +1,7 @@
-"""Draws kortev's skin in the Public Safety uniform: py tools/kortev_skin.py SOURCE.png OUT.png [--hood]
+"""Draws kortev's skin in the Public Safety uniform: py tools/kortev_skin.py SOURCE.png OUT.png [--hood [--under]]
 
-With --hood the head is his skin's own, hood up, untouched; without it, the hood is pulled down (below).
+With --hood the head is their skin's own, hood up, untouched, and the onesie's top is worn open over the shirt
+(--under: under the shirt, only its hood and drawstrings showing); without it, the hood is pulled down (below).
 
 His own head, from his skin (SOURCE: his shark onesie, hood up, only his face and fringe showing), with the hood
 pulled down: his face and fringe exactly as they were, and the hood become hair in his fringe's own oranges, hanging in
@@ -191,7 +192,7 @@ def shirt_body():
     cube(16, 16, 8, 12, 4, {'top': top, 'bottom': bottom, 'front': front, 'right': side, 'left': side, 'back': back})
 
 
-def shirt_layer():
+def shirt_layer(hooded=False):
     """The outer layer of the body: the collar standing up round the neck, its points spread, and the tie standing
     out from the shirt with its shark-tooth clip."""
     def front(x0, y0, w, h):
@@ -220,7 +221,13 @@ def shirt_layer():
             put(x0 + 1, y0 + y, SHIRT[1])
             put(x0 + w - 2, y0 + y, SHIRT[1])
 
-    cube(16, 32, 8, 12, 4, {'top': top, 'front': front, 'right': ring, 'left': ring, 'back': ring})
+    cube(16, 32, 8, 12, 4, {'front': front})
+    if hooded:
+        # Under the hoodie only the front of the collar shows, between its open edges.
+        put(16 + 4 + 1, 36, CLEAR)
+        put(16 + 4 + 6, 36, CLEAR)
+    else:
+        cube(16, 32, 8, 12, 4, {'top': top, 'right': ring, 'left': ring, 'back': ring})
 
 
 def arm(u, v):
@@ -243,10 +250,11 @@ def arm(u, v):
     cube(u, v, 4, 12, 4, {'top': top, 'bottom': bottom, 'front': face, 'right': face, 'left': face, 'back': face})
 
 
-def cuff_layer(u, v):
-    """The rolled cuff standing out from the arm, on the outer layer."""
+def cuff_layer(u, v, fold=SHIRT_SHADE):
+    """The rolled cuff standing out from the arm, on the outer layer: its fold (or the hoodie's sleeve bunched above
+    it) and the white of the cuff."""
     def face(x0, y0, w, h):
-        fill(x0, y0 + 6, x0 + w, y0 + 7, SHIRT_SHADE)
+        fill(x0, y0 + 6, x0 + w, y0 + 7, fold)
         fill(x0, y0 + 7, x0 + w, y0 + 8, SHIRT[0])
 
     cube(u, v, 4, 12, 4, {'front': face, 'right': face, 'left': face, 'back': face})
@@ -288,8 +296,63 @@ def wallet_chain():
 
 
 def hood_up(src):
-    """His head exactly as his skin has it, hood up, on both layers."""
+    """Their head exactly as their skin has it, hood up, on both layers."""
     img[0:16, 0:64] = np.array(src)[0:16, 0:64]
+
+
+def hoodie(src):
+    """With the hood up, the hood has to come from something: their onesie's top, unzipped and hanging open over the
+    shirt and tie, its hem at the belt. Every pixel of it is the onesie's own (the fin down the back, the fins on the
+    arms) except down the front, open on the shirt with the zip split along both edges, and the sleeves, pushed up to
+    the elbow over the shirt's rolled cuffs."""
+    s = np.array(src)
+    zip_, hem = hexc('#c4cdd4'), hexc('#6886a9')
+    # The body: top, sides and back whole; the front only at its edges.
+    img[16:20, 20:28] = s[16:20, 20:28]
+    for x0 in (16, 28, 32):
+        img[20:32, x0:x0 + (8 if x0 == 32 else 4)] = s[20:32, x0:x0 + (8 if x0 == 32 else 4)]
+    for x in (20, 21, 26, 27):
+        img[20:32, x] = s[20:32, x]
+    for y in range(20, 32):
+        put(21, y, zip_)
+        put(26, y, zip_)
+    # The ribbed hem round the waist, over the belt (the buckle shows in the opening).
+    for x in list(range(16, 22)) + list(range(26, 40)):
+        put(x, 31, hem)
+    # The fin, standing out from the back as on the onesie.
+    img[32:48, 32:40] = np.where(s[32:48, 32:40, 3:] > 0, s[32:48, 32:40], img[32:48, 32:40])
+    # The sleeves, to just above the elbow, then bunched; the cuff_layer draws the bunch over the shirt's cuff.
+    for u, v, ou, ov in ((40, 16, 40, 32), (32, 48, 48, 48)):
+        img[v:v + 4, u + 4:u + 8] = s[v:v + 4, u + 4:u + 8]
+        img[v + 4:v + 10, u:u + 16] = s[v + 4:v + 10, u:u + 16]
+        fill(u, v + 10, u + 16, v + 11, hem)
+        o = s[ov + 4:ov + 10, ou:ou + 16]
+        img[ov + 4:ov + 10, ou:ou + 16] = np.where(o[..., 3:] > 0, o, img[ov + 4:ov + 10, ou:ou + 16])
+
+
+def hoodie_under(src):
+    """A lighter way for the hood to come from something: their onesie's top worn under the shirt, so only a little
+    of it shows: the hood, its base resting on the collar round the back of the neck, and its drawstrings hanging
+    down the front either side of the tie."""
+    s = np.array(src)
+    blue = tuple(int(c) for c in s[24, 22])
+    # The base of the hood round the neck, over the top of the shirt's back and sides, and standing out a little at
+    # the back on the outer layer.
+    img[16:20, 20:28] = s[16:20, 20:28]
+    for x in range(16, 20):
+        put(x, 20, blue)
+    for x in range(28, 40):
+        put(x, 20, blue)
+    for x in range(33, 39):
+        put(x, 21, blue)
+        put(x, 36, blue)
+    # Its front edges coming down on to the shoulders either side of the collar, and the drawstrings.
+    for x in (20, 27):
+        put(x, 20, blue)
+    for x in (21, 26):
+        for y in range(37, 41):
+            put(x, y, hexc('#c4cdd4'))
+        put(x, 41, BUCKLE[0])
 
 
 def main():
@@ -300,15 +363,22 @@ def main():
     else:
         head(src)
         hair_layer(src)
+    hooded = '--hood' in sys.argv
+    under = '--under' in sys.argv
     shirt_body()
-    shirt_layer()
+    shirt_layer(hooded and not under)
     arm(40, 16)     # right arm
     arm(32, 48)     # left arm
-    cuff_layer(40, 32)
-    cuff_layer(48, 48)
+    fold = hexc('#6886a9') if hooded and not under else SHIRT_SHADE
+    cuff_layer(40, 32, fold)
+    cuff_layer(48, 48, fold)
     leg(0, 16)      # right leg
     leg(16, 48)     # left leg
     wallet_chain()
+    if hooded and under:
+        hoodie_under(src)
+    elif hooded:
+        hoodie(src)
     Image.fromarray(img, 'RGBA').save(args[1])
     print('wrote', args[1])
 
