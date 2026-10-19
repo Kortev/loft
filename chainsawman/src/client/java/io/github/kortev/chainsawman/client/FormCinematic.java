@@ -25,8 +25,8 @@ import org.joml.Vector3f;
 
 /**
  * The transformation as a cinematic ({@link FormTimeline}). Everyone round about sees it play out on whoever pulled the
- * cord: the yank ({@link CordPull}), smoke at each cough of the engine, the head bursting in blood as its saw punches
- * out, the arms' saws pushing out through the fists in more, and the roar. Whoever pulled it also has their camera taken for
+ * cord: the yank ({@link CordPull}), smoke at each cough of the engine, a spurt of blood as the saw punches out of the
+ * forehead, the head bursting in blood, the arms' saws pushing out through the fists in more, and the roar. Whoever pulled it also has their camera taken for
  * it, their keys held:
  *
  * <ul>
@@ -88,6 +88,10 @@ public final class FormCinematic {
 			for (int i = 0; i < 14; i++) {
 				world.addParticle(ParticleTypes.SMOKE, back.x, back.y + 0.1, back.z, spread(0.04), 0.05 + RANDOM.nextDouble() * 0.04, spread(0.04));
 			}
+		} else if (age == FormTimeline.PUNCH) {
+			// The bar through the forehead.
+			Vec3d brow = head.add(Vec3d.fromPolar(0.0F, player.bodyYaw).multiply(0.3)).add(0.0, 0.15, 0.0);
+			splash(world, brow, 16, 0.12);
 		} else if (age == FormTimeline.BURST) {
 			splash(world, head.add(Vec3d.fromPolar(0.0F, player.bodyYaw).multiply(0.25)), 70, 0.35);
 		} else if (age == FormTimeline.ARMS) {
@@ -196,7 +200,7 @@ public final class FormCinematic {
 		return MathHelper.lerp(k, 0.72F, 1.0F);
 	}
 
-	/** How hard the camera is being shaken now (blocks): the yank, each cough, the burst, the roar. */
+	/** How hard the camera is being shaken now (blocks): the yank, each cough, the punch, the burst, the roar. */
 	public static double shake(float tickDelta) {
 		MinecraftClient client = MinecraftClient.getInstance();
 		double amplitude = 0.0;
@@ -207,6 +211,7 @@ public final class FormCinematic {
 			}
 			amplitude = Math.max(amplitude, pulse(t, FormTimeline.CATCH, 0.06, 3.0));
 			amplitude = Math.max(amplitude, pulse(t, FormTimeline.COUGH, 0.06, 3.0));
+			amplitude = Math.max(amplitude, pulse(t, FormTimeline.PUNCH, 0.05, 3.0));
 			amplitude = Math.max(amplitude, pulse(t, FormTimeline.BURST, 0.1, 4.0));
 			amplitude = Math.max(amplitude, pulse(t, FormTimeline.ARMS, 0.05, 4.0));
 			amplitude = Math.max(amplitude, pulse(t, FormTimeline.ROAR, 0.16, 9.0));

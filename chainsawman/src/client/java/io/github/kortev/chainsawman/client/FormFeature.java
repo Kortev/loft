@@ -13,8 +13,10 @@ import net.minecraft.client.render.entity.feature.FeatureRenderer;
 import net.minecraft.client.render.entity.feature.FeatureRendererContext;
 import net.minecraft.client.render.entity.model.PlayerEntityModel;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.entity.player.PlayerModelPart;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.RotationAxis;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
@@ -24,12 +26,15 @@ import org.joml.Vector3f;
  * chains run round their bars all the while, and race when they swing.
  *
  * <p>Through the transformation ({@link FormTimeline}): the cord stretches out of the chest to the yanking hand and
- * snaps back; at the burst the head is suddenly there in the blood (swelling the last little way into place) and its
- * saw grows out of it to its full length; then the arms' saws push out through the fists and grow, the fists splitting
- * open as they come.
+ * snaps back; the saw's bar punches out through the forehead of their own head, thinner than it will be; at the burst
+ * their head splits down the middle, the halves peeling open, and the chainsaw head is there in the blood (swelling the
+ * last little way into place) with the saw growing on out of it to its full length and thickness; then the arms' saws
+ * push out through the fists and grow, the fists splitting open as they come.
  */
 public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntity, PlayerEntityModel<AbstractClientPlayerEntity>> {
 	public static final Identifier TEXTURE = ChainsawMan.id("textures/entity/form.png");
+	/** The inside of their own head, on the cut faces of its halves as it splits open. */
+	private static final Identifier FLESH = ChainsawMan.id("textures/entity/form_flesh.png");
 	/** How many frames each chain is baked in, and how fast they go by (frames a tick) idling and swinging. */
 	private static final int CHAIN_FRAMES = 4;
 	private static final float CHAIN_IDLE = 0.5F;
@@ -38,6 +43,18 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 	private static final float HEAD_FROM = 0.72F;
 	private static final float HEAD_SWELL = 3.0F;
 	private static final Vector3f HEAD_MIDDLE = new Vector3f(0.0F, -4.5F, -1.0F);
+	/**
+	 * The bar punching out of their own head before the burst: how far along it (pixels) the face of a player's head is,
+	 * how far out of the face the bar has come by the burst, how thick across it is until the chainsaw head swells, and
+	 * how far lower than on the chainsaw head it comes out (the middle of the forehead, so none of it shows over the top).
+	 */
+	private static final float FACE = 4.0F;
+	private static final float PUNCH_OUT = 6.0F;
+	private static final float PUNCH_THICK = 0.5F;
+	private static final float PUNCH_DROP = 1.4F;
+	/** Their head split open: how far each half swings out on its hinge (degrees), and drifts out (pixels). */
+	private static final float SPLIT_ANGLE = 75.0F;
+	private static final float SPLIT_DRIFT = 1.5F;
 	/** The cord's root on the chest, in the body's space (pixels); the hand's grip, in the right arm's; its thickness. */
 	private static final Vector3f CORD_ROOT = new Vector3f(0.0F, 3.5F, -2.15F);
 	private static final Vector3f GRIP = new Vector3f(-1.0F, 10.5F, 0.0F);
@@ -55,17 +72,24 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 		}
 		PlayerEntityModel<AbstractClientPlayerEntity> model = getContextModel();
 		float t = ClientForms.pullAge(player, tickDelta);
+		int overlay = LivingEntityRenderer.getOverlay(player, 0.0F);
 		if (t >= FormTimeline.REACH && t < FormTimeline.SNAP + 2) {
 			cord(matrices, consumers, light, model, t);
 		}
 		if (!ClientForms.on(player)) {
+			// (Past the burst only while the server's word that the form is on is still on its way.)
+			if (t >= FormTimeline.PUNCH && t < FormTimeline.HEAD_OPEN) {
+				punch(matrices, consumers, light, overlay, player, tickDelta, model.head, t);
+			}
 			return;
 		}
-		int overlay = LivingEntityRenderer.getOverlay(player, 0.0F);
 		draw(matrices, consumers, light, overlay, player, tickDelta, "head", model.head);
 		draw(matrices, consumers, light, overlay, player, tickDelta, "body", model.body);
 		draw(matrices, consumers, light, overlay, player, tickDelta, "right_arm", model.rightArm);
 		draw(matrices, consumers, light, overlay, player, tickDelta, "left_arm", model.leftArm);
+		if (t >= FormTimeline.BURST && t < FormTimeline.HEAD_OPEN) {
+			split(matrices, consumers, light, overlay, player, model.head, t);
+		}
 	}
 
 	/**
@@ -79,12 +103,14 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 			return;
 		}
 		VertexConsumer out = consumers.getBuffer(RenderLayer.getEntityCutoutNoCull(TEXTURE));
-		float time = player.age + tickDelta;
-		float speed = player.handSwinging ? CHAIN_SWING : CHAIN_IDLE;
-		int chainFrame = Math.floorMod((int) (time * speed), CHAIN_FRAMES);
+		int chainFrame = chainFrame(player, tickDelta);
 		boolean arm = boneName.endsWith("_arm");
 		float grown = ClientForms.grown(player, tickDelta, arm);
 		float t = ClientForms.pullAge(player, tickDelta);
+		// The head's saw grows on from as far as it had punched out of their own head, and swells to its thickness with
+		// the head.
+		float length = arm ? grown : MathHelper.lerp(grown, (FACE + PUNCH_OUT) / headReach(mesh), 1.0F);
+		float thick = arm ? 1.0F : MathHelper.lerp(swell(t), PUNCH_THICK, 1.0F);
 		matrices.push();
 		bone.rotate(matrices);
 		for (FormMesh.Part part : mesh.parts.values()) {
@@ -92,11 +118,11 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 				continue;
 			}
 			if (part.growRoot != null) {
-				if (grown <= 0.0F) {
+				if (length <= 0.0F) {
 					continue;
 				}
 				matrices.push();
-				along(matrices, part.growRoot, part.growAxis, grown);
+				saw(matrices, part.growRoot, part.growAxis, 0.0F, length, thick);
 				part.draw(matrices.peek(), out, light, overlay);
 				matrices.pop();
 				continue;
@@ -106,8 +132,7 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 				continue;
 			}
 			if (part.name.equals("head") && t >= 0.0F && t < FormTimeline.BURST + HEAD_SWELL) {
-				float k = MathHelper.clamp((t - FormTimeline.BURST) / HEAD_SWELL, 0.0F, 1.0F);
-				float s = MathHelper.lerp(1.0F - (1.0F - k) * (1.0F - k), HEAD_FROM, 1.0F);
+				float s = MathHelper.lerp(swell(t), HEAD_FROM, 1.0F);
 				matrices.push();
 				matrices.translate(HEAD_MIDDLE.x / 16.0F, HEAD_MIDDLE.y / 16.0F, HEAD_MIDDLE.z / 16.0F);
 				matrices.scale(s, s, s);
@@ -121,20 +146,200 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 		matrices.pop();
 	}
 
-	/** Squashes everything along {@code axis} toward {@code root} (pixels) to {@code k} of its length: a saw part grown that far. */
-	private static void along(MatrixStack matrices, Vector3f root, Vector3f axis, float k) {
-		float x = root.x / 16.0F;
-		float y = root.y / 16.0F;
-		float z = root.z / 16.0F;
-		matrices.translate(x, y, z);
-		float c = k - 1.0F;
+	/** Which frame the chains have run round to. */
+	private static int chainFrame(AbstractClientPlayerEntity player, float tickDelta) {
+		float time = player.age + tickDelta;
+		float speed = player.handSwinging ? CHAIN_SWING : CHAIN_IDLE;
+		return Math.floorMod((int) (time * speed), CHAIN_FRAMES);
+	}
+
+	/** How far the chainsaw head has swelled into place since the burst (0 to 1); 1 when not transforming. */
+	private static float swell(float t) {
+		if (t < 0.0F) {
+			return 1.0F;
+		}
+		float k = MathHelper.clamp((t - FormTimeline.BURST) / HEAD_SWELL, 0.0F, 1.0F);
+		return 1.0F - (1.0F - k) * (1.0F - k);
+	}
+
+	/** How far the head's bar runs out from its root (pixels). */
+	private static float headReach(FormMesh mesh) {
+		FormMesh.Part bar = mesh.parts.get("head_bar");
+		float reach = bar != null ? bar.reach() : 0.0F;
+		return reach > 0.0F ? reach : 30.0F;
+	}
+
+	/**
+	 * Shapes a saw part: squashed along {@code axis} toward {@code root} (pixels) to {@code length} of its length and to
+	 * {@code thick} of its thickness across, with its root moved {@code base} pixels out along the axis.
+	 */
+	private static void saw(MatrixStack matrices, Vector3f root, Vector3f axis, float base, float length, float thick) {
+		matrices.translate((root.x + axis.x * base) / 16.0F, (root.y + axis.y * base) / 16.0F, (root.z + axis.z * base) / 16.0F);
+		float c = length - thick;
 		Matrix4f m = new Matrix4f(
-				1.0F + c * axis.x * axis.x, c * axis.y * axis.x, c * axis.z * axis.x, 0.0F,
-				c * axis.x * axis.y, 1.0F + c * axis.y * axis.y, c * axis.z * axis.y, 0.0F,
-				c * axis.x * axis.z, c * axis.y * axis.z, 1.0F + c * axis.z * axis.z, 0.0F,
+				thick + c * axis.x * axis.x, c * axis.y * axis.x, c * axis.z * axis.x, 0.0F,
+				c * axis.x * axis.y, thick + c * axis.y * axis.y, c * axis.z * axis.y, 0.0F,
+				c * axis.x * axis.z, c * axis.y * axis.z, thick + c * axis.z * axis.z, 0.0F,
 				0.0F, 0.0F, 0.0F, 1.0F);
 		matrices.multiplyPositionMatrix(m);
-		matrices.translate(-x, -y, -z);
+		matrices.translate(-root.x / 16.0F, -root.y / 16.0F, -root.z / 16.0F);
+	}
+
+	/**
+	 * Before the burst, while their own head is still on: the head's saw punching out through its forehead, the bar
+	 * coming out of the face (its root moved forward to it, so none of it shows through the back or top of the head) and
+	 * thinner than it will be.
+	 */
+	private static void punch(MatrixStack matrices, VertexConsumerProvider consumers, int light, int overlay, AbstractClientPlayerEntity player,
+			float tickDelta, ModelPart head, float t) {
+		FormMesh mesh = FormMesh.get();
+		if (mesh == null) {
+			return;
+		}
+		// Out hard, then pushing on more slowly.
+		float k = MathHelper.clamp((t - FormTimeline.PUNCH) / (FormTimeline.BURST - FormTimeline.PUNCH), 0.0F, 1.0F);
+		float length = PUNCH_OUT * (1.0F - (1.0F - k) * (1.0F - k) * (1.0F - k)) / headReach(mesh);
+		if (length <= 0.001F) {
+			return;
+		}
+		VertexConsumer out = consumers.getBuffer(RenderLayer.getEntityCutoutNoCull(TEXTURE));
+		int chainFrame = chainFrame(player, tickDelta);
+		matrices.push();
+		head.rotate(matrices);
+		matrices.translate(0.0F, PUNCH_DROP / 16.0F, 0.0F);
+		for (FormMesh.Part part : mesh.parts.values()) {
+			if (!part.bone.equals("head") || part.growRoot == null || (part.chainFrame >= 0 && part.chainFrame != chainFrame)) {
+				continue;
+			}
+			matrices.push();
+			saw(matrices, part.growRoot, part.growAxis, FACE, length, PUNCH_THICK);
+			part.draw(matrices.peek(), out, light, overlay);
+			matrices.pop();
+		}
+		matrices.pop();
+	}
+
+	/**
+	 * At the burst: their own head (hidden whole in the form) split down the middle by the saw, each half swinging out
+	 * on a hinge at the bottom of its outer side and drifting away, raw inside, and shrinking to nothing by HEAD_OPEN,
+	 * as the chainsaw head swells out from between them.
+	 */
+	private static void split(MatrixStack matrices, VertexConsumerProvider consumers, int light, int overlay, AbstractClientPlayerEntity player,
+			ModelPart head, float t) {
+		float k = MathHelper.clamp((t - FormTimeline.BURST) / (FormTimeline.HEAD_OPEN - FormTimeline.BURST), 0.0F, 1.0F);
+		float open = 1.0F - (1.0F - k) * (1.0F - k);
+		float size = k < 0.5F ? 1.0F : 1.0F - (k - 0.5F) * 2.0F;
+		if (size <= 0.0F) {
+			return;
+		}
+		boolean hat = player.isPartVisible(PlayerModelPart.HAT);
+		// The skin first, then the cut faces: each layer's quads all together.
+		VertexConsumer skin = consumers.getBuffer(RenderLayer.getEntityCutoutNoCull(player.getSkinTextures().texture()));
+		for (int side = -1; side <= 1; side += 2) {
+			matrices.push();
+			half(matrices, head, side, open, size);
+			halfBox(skin, matrices.peek(), side, 0.0F, 0.0F, 0.0F, light, overlay);
+			if (hat) {
+				halfBox(skin, matrices.peek(), side, 32.0F, 0.0F, 0.5F, light, overlay);
+			}
+			matrices.pop();
+		}
+		VertexConsumer flesh = consumers.getBuffer(RenderLayer.getEntityCutoutNoCull(FLESH));
+		float[][] cut = {{-8.0F, -4.0F, 0.0F, 0.0F}, {0.0F, -4.0F, 0.0F, 1.0F}, {0.0F, 4.0F, 1.0F, 1.0F}, {-8.0F, 4.0F, 1.0F, 0.0F}};
+		Vector3f p = new Vector3f();
+		Vector3f n = new Vector3f();
+		for (int side = -1; side <= 1; side += 2) {
+			matrices.push();
+			half(matrices, head, side, open, size);
+			MatrixStack.Entry entry = matrices.peek();
+			entry.transformNormal(-side, 0.0F, 0.0F, n);
+			for (float[] c : cut) {
+				entry.getPositionMatrix().transformPosition(0.0F, c[0] / 16.0F, c[1] / 16.0F, p);
+				flesh.vertex(p.x, p.y, p.z, 0xFFFFFFFF, c[2], c[3], overlay, light, n.x, n.y, n.z);
+			}
+			matrices.pop();
+		}
+	}
+
+	/** Moves the stack to one half of the split head (side -1 the half at x &lt;= 0, 1 the other). */
+	private static void half(MatrixStack matrices, ModelPart head, int side, float open, float size) {
+		head.rotate(matrices);
+		matrices.translate(side * (4.0F + open * SPLIT_DRIFT) / 16.0F, 0.0F, 0.0F);
+		matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(side * open * SPLIT_ANGLE));
+		matrices.scale(size, size, size);
+		matrices.translate(-side * 4.0F / 16.0F, 0.0F, 0.0F);
+	}
+
+	/**
+	 * A player model box's faces as the game builds them: the corners of each (numbered as in {@code halfBox}), where it
+	 * is in the skin (u1, v1, u2, v2, in pixels from the box's own corner there) and which way it faces.
+	 */
+	private static final int[][] FACE_CORNERS = {{5, 4, 0, 1}, {2, 3, 7, 6}, {0, 4, 7, 3}, {1, 0, 3, 2}, {5, 1, 2, 6}, {4, 5, 6, 7}};
+	private static final float[][] FACE_UV = {{8, 0, 16, 8}, {16, 8, 24, 0}, {0, 8, 8, 16}, {8, 8, 16, 16}, {16, 8, 24, 16}, {24, 8, 32, 16}};
+	private static final float[][] FACE_NORMAL = {{0, -1, 0}, {0, 1, 0}, {-1, 0, 0}, {0, 0, -1}, {1, 0, 0}, {0, 0, 1}};
+
+	/**
+	 * One half of a player model box 8 pixels each way, its texture at (u, v) in the skin and grown by {@code grow} (the
+	 * head, or the hat over it): the game's own faces, cut through at x = 0 and only what is on {@code side}.
+	 */
+	private static void halfBox(VertexConsumer out, MatrixStack.Entry entry, int side, float u, float v, float grow, int light, int overlay) {
+		float x0 = -4.0F - grow;
+		float x1 = 4.0F + grow;
+		float y0 = -8.0F - grow;
+		float y1 = grow;
+		float z0 = -4.0F - grow;
+		float z1 = 4.0F + grow;
+		float[][] corner = {{x0, y0, z0}, {x1, y0, z0}, {x1, y1, z0}, {x0, y1, z0}, {x0, y0, z1}, {x1, y0, z1}, {x1, y1, z1}, {x0, y1, z1}};
+		Vector3f p = new Vector3f();
+		Vector3f n = new Vector3f();
+		for (int f = 0; f < FACE_CORNERS.length; f++) {
+			float[] r = FACE_UV[f];
+			// The corners take (u2, v1), (u1, v1), (u1, v2), (u2, v2), as the game's quads do.
+			float[][] uv = {{r[2], r[1]}, {r[0], r[1]}, {r[0], r[3]}, {r[2], r[3]}};
+			float[][] q = new float[4][];
+			for (int i = 0; i < 4; i++) {
+				float[] c = corner[FACE_CORNERS[f][i]];
+				q[i] = new float[] {c[0], c[1], c[2], u + uv[i][0], v + uv[i][1]};
+			}
+			if (!cut(q, side)) {
+				continue;
+			}
+			entry.transformNormal(FACE_NORMAL[f][0], FACE_NORMAL[f][1], FACE_NORMAL[f][2], n);
+			for (float[] c : q) {
+				entry.getPositionMatrix().transformPosition(c[0] / 16.0F, c[1] / 16.0F, c[2] / 16.0F, p);
+				out.vertex(p.x, p.y, p.z, 0xFFFFFFFF, c[3] / 64.0F, c[4] / 64.0F, overlay, light, n.x, n.y, n.z);
+			}
+		}
+	}
+
+	/**
+	 * Cuts a box face (corners as x, y, z, u, v) at x = 0, keeping what is on {@code side}: each corner past the line is
+	 * slid along its edge back to it, texture and all. False if none of the face is on that side.
+	 */
+	private static boolean cut(float[][] q, int side) {
+		float[][] was = new float[4][];
+		for (int i = 0; i < 4; i++) {
+			was[i] = q[i].clone();
+		}
+		for (int i = 0; i < 4; i++) {
+			if (side * was[i][0] >= 0.0F) {
+				continue;
+			}
+			float[] to = null;
+			for (float[] o : was) {
+				if (side * o[0] > 0.0F && o[1] == was[i][1] && o[2] == was[i][2]) {
+					to = o;
+				}
+			}
+			if (to == null) {
+				return false;
+			}
+			float k = -was[i][0] / (to[0] - was[i][0]);
+			for (int j = 0; j < 5; j++) {
+				q[i][j] = MathHelper.lerp(k, was[i][j], to[j]);
+			}
+		}
+		return true;
 	}
 
 	/**

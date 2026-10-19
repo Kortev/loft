@@ -52,6 +52,19 @@ public final class FormMesh {
 			this.glow = new boolean[vertices];
 		}
 
+		/** For a saw, how far it runs out from its root along its axis (pixels). */
+		public float reach() {
+			if (growRoot == null) {
+				return 0.0F;
+			}
+			float reach = 0.0F;
+			for (int i = 0; i < glow.length; i++) {
+				reach = Math.max(reach, (pos[i * 3] - growRoot.x) * growAxis.x + (pos[i * 3 + 1] - growRoot.y) * growAxis.y
+						+ (pos[i * 3 + 2] - growRoot.z) * growAxis.z);
+			}
+			return reach;
+		}
+
 		/** Draws the part with the stack already moved to its bone; the eye at full light. */
 		public void draw(MatrixStack.Entry entry, VertexConsumer out, int light, int overlay) {
 			Matrix4f m = entry.getPositionMatrix();

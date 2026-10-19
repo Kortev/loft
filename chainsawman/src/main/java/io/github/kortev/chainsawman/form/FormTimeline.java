@@ -10,7 +10,9 @@ package io.github.kortev.chainsawman.form;
  *  4-12 YANK      one long hard pull: the cord stretches out of his chest, he leans back, his head snaps back
  * 13  SNAP        the cord snaps back in
  * 14  CATCH       the engine catches; misses; COUGH (17) catches again: smoke and a jolt on each
- * 20  BURST       the head bursts in blood and the saw punches out of his forehead, growing to its length (HEAD_GROWN)
+ * 16  PUNCH       the saw's bar punches out through the forehead of his own head
+ * 20  BURST       his head splits open in blood, the halves peeling away (HEAD_OPEN), and the chainsaw head is there;
+ *                 its saw grows on out to its length (HEAD_GROWN)
  * 23  ARMS        the arms' saws push out through his fists and slide out past them (ARMS_GROWN)
  * 36  ROAR        a cut to his face, close; the anime's impact frames, red and black; the engine screams; he roars
  * 52  ROAR_END    the camera pulls back
@@ -24,7 +26,9 @@ public final class FormTimeline {
 	public static final int SNAP = 13;
 	public static final int CATCH = 14;
 	public static final int COUGH = 17;
+	public static final int PUNCH = 16;
 	public static final int BURST = 20;
+	public static final int HEAD_OPEN = 24;
 	public static final int HEAD_GROWN = 27;
 	public static final int ARMS = 23;
 	public static final int ARMS_GROWN = 32;
