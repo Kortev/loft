@@ -327,23 +327,25 @@ def hoodie(src):
 def hoodie_under(src):
     """A lighter way for the hood to come from something: their onesie's top worn under the shirt, so only a little
     of it shows: the hood, and its neck going down into the shirt, in a band under the chin above the collar all the
-    way round. The tie is knotted at the top of the collar, where a tie is, and the collar stands a little out from
-    the shirt where the fabric goes in under it."""
+    way round and a small V at the open collar in front. The tie is tied round the neck, its knot in the V, and the
+    collar stands a little out from the shirt where the fabric goes in under it."""
     s = np.array(src)
     blue, shade = tuple(int(c) for c in s[24, 22]), hexc('#6886a9')
     img[16:20, 20:28] = s[16:20, 20:28]  # round the neck, seen from above
     img[32:36, 20:28] = CLEAR
-    # Front, inner layer: the band under the chin, then the collar with the knot at its top. (A V of the hood below
-    # the chin, the knot under it, made the tie seem to hang from the hood.)
+    # Front, inner layer: the band under the chin, dipping into a small V at the open collar, and the tie's knot in
+    # the V with its band running up either side of it into the collar, so the tie is tied round the neck rather than
+    # hanging from the hood.
     x0, y0, o0 = 20, 20, 36
     for x in range(8):
         put(x0 + x, y0, blue)
-        put(x0 + x, y0 + 1, TIE_KNOT if x in (3, 4) else SHIRT[0])
-    # Front, outer layer: the collar either side of the knot, its points spread below.
+        put(x0 + x, y0 + 1, {2: TIE[0], 3: shade, 4: shade, 5: TIE[1]}.get(x, SHIRT[0]))
+        put(x0 + x, y0 + 2, TIE_KNOT if x in (3, 4) else SHIRT[0])
+    # Front, outer layer: the collar round the V, its points spread either side of the knot.
     for y in range(3):
         for x in range(8):
             put(x0 + x, o0 + y, CLEAR)
-    for x, y in ((0, 1), (1, 1), (2, 1), (5, 1), (6, 1), (7, 1), (0, 2), (1, 2), (6, 2), (7, 2)):
+    for x, y in ((0, 1), (1, 1), (6, 1), (7, 1), (0, 2), (1, 2), (2, 2), (5, 2), (6, 2), (7, 2)):
         put(x0 + x, o0 + y, SHIRT[0])
     # Sides and back: the hood's fabric over the top two rows, the collar standing out just below it.
     for x in list(range(16, 20)) + list(range(28, 40)):
