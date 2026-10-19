@@ -39,12 +39,15 @@ public class FormSelfTest implements ClientModInitializer {
 	/** Where the cameras stand, as (angle round from the player's front in degrees, distance, height over their feet). */
 	private static final double[][] CAMERAS = {{-30, 3.0, 1.9}, {0, 2.6, 1.7}, {90, 3.2, 1.7}, {-90, 3.2, 1.7}, {160, 3.0, 2.0},
 			{-40, 1.4, 1.8}};
+	/** The cameras that photograph the skin again with the form off. */
+	private static final int[] PLAIN = {0, 4};
 	private static final String[] NAMES = {"front_three_quarter", "front", "side_left", "side_right", "back", "close"};
 
 	private static Stage stage = Stage.WAIT_WORLD;
 	private static int ticks;
 	private static int shot;
 	private static final List<Integer> CAMERA_IDS = new ArrayList<>();
+	private static UUID standInId;
 
 	@Override
 	public void onInitializeClient() {
@@ -63,6 +66,11 @@ public class FormSelfTest implements ClientModInitializer {
 		watchdog.setDaemon(true);
 		watchdog.start();
 		ClientTickEvents.END_CLIENT_TICK.register(FormSelfTest::tick);
+	}
+
+	/** Whether this test is running (the stand-in wears Kortev's skin from build/selftest/skins, as in the films). */
+	public static boolean active() {
+		return "form".equals(System.getProperty("shootingstar.selftest"));
 	}
 
 	private static void tick(MinecraftClient client) {
@@ -93,19 +101,20 @@ public class FormSelfTest implements ClientModInitializer {
 				if (ticks > 80 && CAMERA_IDS.size() == CAMERAS.length) {
 					// The game never draws your own player while the camera is another entity: a stand-in of them, in the
 					// form, where they stand.
-					OtherClientPlayerEntity standIn = new OtherClientPlayerEntity(client.world, new GameProfile(UUID.randomUUID(), "kortev"));
+					OtherClientPlayerEntity standIn = new OtherClientPlayerEntity(client.world, new GameProfile(UUID.randomUUID(), "Kortev"));
 					standIn.setId(-4242);
 					standIn.refreshPositionAndAngles(client.player.getX(), client.player.getY(), client.player.getZ(), 0.0F, 0.0F);
 					standIn.setHeadYaw(0.0F);
 					standIn.setBodyYaw(0.0F);
 					client.world.addEntity(standIn);
-					ClientForms.set(standIn.getUuid(), true);
+					standInId = standIn.getUuid();
+					ClientForms.set(standInId, true);
 					stage = Stage.SHOOT;
 					ticks = 0;
 				}
 			}
 			case SHOOT -> {
-				if (shot >= CAMERAS.length) {
+				if (shot >= CAMERAS.length + PLAIN.length) {
 					client.setCameraEntity(client.player);
 					client.options.setPerspective(Perspective.THIRD_PERSON_FRONT);
 					if (ticks == 20) {
@@ -115,17 +124,17 @@ public class FormSelfTest implements ClientModInitializer {
 					}
 					return;
 				}
-				Entity camera = client.world.getEntityById(CAMERA_IDS.get(shot));
+				// Last, a few of the same shots with the form off: the skin under it, as it is.
+				boolean plain = shot >= CAMERAS.length;
+				ClientForms.set(standInId, !plain);
+				int which = plain ? PLAIN[shot - CAMERAS.length] : shot;
+				Entity camera = client.world.getEntityById(CAMERA_IDS.get(which));
 				if (camera != null) {
 					client.options.setPerspective(Perspective.FIRST_PERSON);
 					client.setCameraEntity(camera);
 				}
 				if (ticks == 12) {
-					if (camera != null) {
-						ShootingStar.LOGGER.info("[selftest] camera {} at {} yaw {} pitch {}; player at {}", NAMES[shot], camera.getPos(),
-								camera.getYaw(), camera.getPitch(), client.player.getPos());
-					}
-					screenshot(client, NAMES[shot]);
+					screenshot(client, (plain ? "plain_" : "") + NAMES[which]);
 				} else if (ticks > 14) {
 					shot++;
 					ticks = 0;

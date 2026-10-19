@@ -18,9 +18,10 @@ import net.minecraft.util.Identifier;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * The players' own skins in the films ({@link FilmSelfTest}, {@link FilmDomain}): the test runs offline, where everyone would get a default
- * skin, so the workflow fetches each named player's current skin into the run folder's skins/ (NAME.png, and NAME.model
- * with "slim" or "default"), and these are drawn instead. Anyone without one keeps the default skin.
+ * The players' own skins in the films ({@link FilmSelfTest}, {@link FilmDomain}) and the form's photographs
+ * ({@link FormSelfTest}): the test runs offline, where everyone would get a default skin, so the workflow fetches each
+ * named player's current skin into the run folder's skins/ (NAME.png, and NAME.model with "slim" or "default"), and
+ * these are drawn instead. Anyone without one keeps the default skin.
  */
 public final class FilmSkins {
 	private static final Map<String, SkinTextures> LOADED = new HashMap<>();
@@ -31,7 +32,7 @@ public final class FilmSkins {
 
 	@Nullable
 	public static SkinTextures get(String name) {
-		if (!FilmSelfTest.active() && !FilmDomain.active() && !FilmDomainKortev.active()) {
+		if (!FilmSelfTest.active() && !FilmDomain.active() && !FilmDomainKortev.active() && !FormSelfTest.active()) {
 			return null;
 		}
 		SkinTextures known = LOADED.get(name);
