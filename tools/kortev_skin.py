@@ -1,7 +1,7 @@
 """Draws kortev's skin in the Public Safety uniform: py tools/kortev_skin.py SOURCE.png OUT.png [--hood [--under] [--dark]]
 
 With --hood the head is their skin's own, hood up, untouched, and the onesie's top is worn open over the shirt
-(--under: under the shirt, only its hood and drawstrings showing); without it, the hood is pulled down (below).
+(--under: under the shirt, only its hood and its neck at the open collar showing); without it, the hood is pulled down (below).
 
 His own head, from his skin (SOURCE: his shark onesie, hood up, only his face and fringe showing), with the hood
 pulled down: his face and fringe exactly as they were, and the hood become hair in his fringe's own oranges, hanging in
@@ -152,13 +152,7 @@ def shirt_body():
         for y in range(h):
             put(x0, y0 + y, SHIRT_SHADE)
             put(x0 + w - 1, y0 + y, SHIRT_SHADE)
-        # The tie down the middle, its knot at the collar and its point above the belt.
-        put(x0 + 3, y0, TIE_KNOT)
-        put(x0 + 4, y0, TIE_KNOT)
-        for y in range(1, 9):
-            put(x0 + 3, y0 + y, TIE[0])
-            put(x0 + 4, y0 + y, TIE[1])
-        put(x0 + 3, y0 + 9, TIE[0])
+        # (The tie is on the outer layer only: on both, it shows twice, a little apart, from any angle.)
         # Tucked in: blousing over the belt, then the belt and its buckle.
         fill(x0, y0 + 10, x0 + w, y0 + 11, SHIRT_SHADE)
         put(x0 + 2, y0 + 10, SHIRT_DEEP)
@@ -193,8 +187,8 @@ def shirt_body():
 
 
 def shirt_layer(hooded=False):
-    """The outer layer of the body: the collar standing up round the neck, its points spread, and the tie standing
-    out from the shirt with its shark-tooth clip."""
+    """The outer layer of the body: the collar standing up round the neck, its points spread, and the tie down the
+    middle, its knot at the collar and its point above the belt, with its shark-tooth clip."""
     def front(x0, y0, w, h):
         for x in (1, 2, 5, 6):
             put(x0 + x, y0, SHIRT[0])
@@ -205,6 +199,7 @@ def shirt_layer(hooded=False):
         for y in range(1, 9):
             put(x0 + 3, y0 + y, TIE[1])
             put(x0 + 4, y0 + y, TIE[0])
+        put(x0 + 3, y0 + 9, TIE[1])  # its point, above the belt
         # A shark tooth clipped to the tie.
         put(x0 + 3, y0 + 4, BUCKLE[1])
         put(x0 + 4, y0 + 4, BUCKLE[0])
@@ -332,31 +327,40 @@ def hoodie(src):
 
 def hoodie_under(src):
     """A lighter way for the hood to come from something: their onesie's top worn under the shirt, so only a little
-    of it shows: the hood, its base resting on the collar round the back of the neck, and its drawstrings hanging
-    down the front either side of the tie."""
+    of it shows: the hood, and its neck going down into the shirt. At the front it shows in a V at the open collar,
+    the collar's points folded out over it and the tie loosened below it; round the sides and back it shows above the
+    collar, which stands a little out from the shirt where the fabric goes in under it."""
     s = np.array(src)
-    blue = tuple(int(c) for c in s[24, 22])
-    # The base of the hood round the neck, over the top of the shirt's back and sides, and standing out a little at
-    # the back on the outer layer.
-    img[16:20, 20:28] = s[16:20, 20:28]
-    for x in range(16, 20):
+    blue, shade = tuple(int(c) for c in s[24, 22]), hexc('#6886a9')
+    img[16:20, 20:28] = s[16:20, 20:28]  # round the neck, seen from above
+    img[32:36, 20:28] = CLEAR
+    # Front, inner layer: the V, narrowing in behind the tie's knot.
+    x0, y0, o0 = 20, 20, 36
+    for x, y, c in [(x, 0, blue) for x in range(1, 7)] + [(x, 1, blue) for x in range(2, 6)] + \
+            [(x, 2, shade) for x in range(2, 6)]:
+        put(x0 + x, y0 + y, c)
+    # Front, outer layer: the collar's points over the V's edges, the knot two rows down.
+    for y in range(3):
+        for x in range(8):
+            put(x0 + x, o0 + y, CLEAR)
+    for x, y in ((0, 0), (7, 0), (0, 1), (1, 1), (6, 1), (7, 1), (1, 2), (6, 2)):
+        put(x0 + x, o0 + y, SHIRT[0])
+    put(x0 + 3, o0 + 2, TIE_KNOT)
+    put(x0 + 4, o0 + 2, TIE_KNOT)
+    # Sides and back: the hood's fabric over the top two rows, the collar standing out just below it.
+    for x in list(range(16, 20)) + list(range(28, 40)):
         put(x, 20, blue)
-    for x in range(28, 40):
-        put(x, 20, blue)
-    for x in range(33, 39):
-        put(x, 21, blue)
-        put(x, 36, blue)
-    # Its front edges coming down on to the shoulders either side of the collar, and the drawstrings.
-    for x in (20, 27):
-        put(x, 20, blue)
-    for x in (21, 26):
-        for y in range(37, 41):
-            put(x, y, hexc('#c4cdd4'))
-        put(x, 41, BUCKLE[0])
+        put(x, 21, shade)
+        put(x, 36, CLEAR)
+        put(x, 37, CLEAR)
+        put(x, 38, SHIRT[0])
+        put(x, 22, SHIRT_SHADE)
+    put(20, 38, SHIRT[0])
+    put(27, 38, SHIRT[0])
 
 
 def in_black():
-    """--dark: the hood and the onesie's other blues (the drawstrings, the hood's base at the neck) in charcoal, to
+    """--dark: the hood and the onesie's other blues (the hood's neck at the collar) in charcoal, to
     sit with the suit's black and white: each blue to a grey of its own lightness, so the hood's shading stays, and
     light enough that its black eyes still show. Its teeth and blush stay as they were."""
     for y in range(64):
