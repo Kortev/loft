@@ -451,7 +451,8 @@ def saw(name, size, frame, part, housing=True):
     for i in range(len(outline)):
         j = (i + 1) % len(outline)
         bm.faces.new((front[i], front[j], back[j], back[i]))
-    plate = mesh_obj(name + '_bar', bm, ['bar'], part)
+    plate = mesh_obj(name + '_bar', bm, ['bar'], part + '_bar')
+    grows(plate, frame)
 
     # The chain: a cutter at each pitch round the edge, each a sawtooth raking the way the chain runs, on a link that
     # rides in the bar's edge. For the game, CHAIN_FRAMES of them, each moved a step further round, shown in turn to
@@ -462,6 +463,13 @@ def saw(name, size, frame, part, housing=True):
         return plate
     housing_of(name, size, frame, part)
     return plate
+
+
+def grows(obj, frame):
+    """Marks {@code obj} as part of a saw that grows out of its root along its length in the transformation: the bar's
+    root and the way it runs, in the object's own space (frame: the bar's space to the object's)."""
+    obj['grow_root'] = list(frame @ Vector((0.0, 0.0, 0.0)))
+    obj['grow_axis'] = list(frame.to_3x3() @ Vector((1.0, 0.0, 0.0)))
 
 
 def chain(name, size, frame, part, frame_k):
@@ -495,7 +503,7 @@ def chain(name, size, frame, part, frame_k):
         )]
         for face in ((0, 2, 4), (1, 5, 3), (0, 4, 5, 1), (2, 3, 5, 4), (0, 1, 3, 2)):
             bm.faces.new([tv[t] for t in face])
-    mesh_obj(name + '_chain%d' % frame_k, bm, ['chain'], part + '_chain%d' % frame_k)
+    grows(mesh_obj(name + '_chain%d' % frame_k, bm, ['chain'], part + '_chain%d' % frame_k), frame)
 
 
 def housing_of(name, size, frame, part):
@@ -1101,12 +1109,14 @@ SATURATE = 1.2
 # What each part is drawn with in the game: which bone it follows, and where that bone's pivot is in the build (the
 # neck, for the head and the body; the shoulder for an arm).
 GAME_PARTS = {'head': ('head', Vector((0.0, 0.0, 24.0))), 'cord': ('body', Vector((0.0, 0.0, 24.0))),
-              'arm_left': ('left_arm', Vector((5.0, 0.0, 22.0))), 'arm_right': ('right_arm', Vector((-5.0, 0.0, 22.0)))}
+              'arm_left': ('left_arm', Vector((5.0, 0.0, 22.0))), 'arm_right': ('right_arm', Vector((-5.0, 0.0, 22.0))),
+              'rope': ('body', Vector((0.0, 0.0, 24.0)))}
 
 
 def game_part(part):
-    """The part an object's part name belongs to for the game: a chain's frame goes with its bar's."""
-    return part.split('_chain')[0] if part else part
+    """The bone-part an object's part name belongs to for the game: a bar (NAME_bar) and its chain's frames
+    (NAME_chainK) go with NAME."""
+    return part.split('_chain')[0].split('_bar')[0] if part else part
 # Materials drawn at full brightness whatever the light: the eye.
 GLOW = {'eye'}
 # How finely the curved tubes (the wires, the handle, the hoses) are cut up in the game's copy.
@@ -1425,7 +1435,8 @@ def swatch_tones(mat, pos, normal):
 
 
 def assign_swatches(copies, size):
-    """Points every face of the swatched copies at its tone's swatch; returns what to paint where: (x, y, colour)."""
+    """Points every face of the swatched copies at its tone's swatch; returns what to paint where ((x, y, colour) for
+    each swatch) and where each swatch is ((material, tone) to its UV)."""
     mats = sorted({material_of(c) for c in copies})
     cells = {}
     paint = []
@@ -1454,7 +1465,7 @@ def assign_swatches(copies, size):
             u, v = cells[(mat, int(tone))]
             for li in poly.loop_indices:
                 layer[li].uv = (u, v)
-    return paint
+    return paint, cells
 
 
 def shrink_uvs(copies, share):
@@ -1471,9 +1482,11 @@ def shrink_uvs(copies, share):
 def export_game():
     """Paints the form and writes the game's mesh and texture.
 
-    .csm (little endian): b"CSM1", int32 part count; per part its name and the bone it follows (each int16 length then
-    UTF-8), int32 quad count, and four corners per quad: float32 x, y, z (pixels, in the bone's model space from its
-    pivot), u, v, then int8 nx, ny, nz and uint8 flags (bit 0: glows). Triangles repeat their last corner."""
+    .csm (little endian): b"CSM2", int32 part count; per part its name and the bone it follows (each int16 length then
+    UTF-8); a byte, 1 if the part is a saw that grows out in the transformation, then its root and the way it runs (six
+    float32, pixels and a unit vector in the bone's model space); int32 quad count, and four corners per quad: float32
+    x, y, z (pixels, in the bone's model space from its pivot), u, v, then int8 nx, ny, nz and uint8 flags (bit 0:
+    glows). Triangles repeat their last corner."""
     import struct
     global CHAIN_FRAMES
     CHAIN_FRAMES = CHAIN_FRAMES_GAME
@@ -1495,6 +1508,13 @@ def export_game():
         scene.collection.objects.link(c)
         c['game_part'] = part
         copies.append(c)
+    # Where each growing part grows from, and which way, in the build's space.
+    growth = {}
+    for o, part in objs:
+        if 'grow_root' in o:
+            root = o.matrix_world @ Vector(o['grow_root'])
+            axis = (o.matrix_world.to_3x3() @ Vector(o['grow_axis'])).normalized()
+            growth[part] = (root, axis)
     for o, part in objs:
         o.hide_render = True
     painted = [c for c in copies if material_of(c) not in SWATCHED]
@@ -1502,7 +1522,7 @@ def export_game():
     unwrap(painted)
     shrink_uvs(painted, PAINTED_SHARE)
     size = toon_size(painted)
-    swatches = assign_swatches(swatched, size)
+    swatches, cells = assign_swatches(swatched, size)
     # Read each copy's geometry before they are joined for the bake.
     parts = {}
     for c in copies:
@@ -1521,6 +1541,11 @@ def export_game():
                 corners.append(corners[2])
             parts.setdefault(part, []).append(corners)
 
+    # The cord stretched out of the chest in the transformation is drawn by the game itself: a part named rope, one
+    # empty quad, gives it its colour in the texture (the handle's black, to stand out against the shirt).
+    rope_uv = cells[('handle', 0)]
+    parts['rope'] = [[(Vector(GAME_PARTS['rope'][1]), rope_uv, Vector((0.0, -1.0, 0.0)), 0)] * 4]
+
     # The texture, painted (see paint_toon), and the swatches beside it.
     img = paint_toon(painted, size)
     draw = ImageDraw.Draw(img)
@@ -1532,10 +1557,15 @@ def export_game():
 
     os.makedirs(os.path.dirname(GAME_MESH), exist_ok=True)
     with open(GAME_MESH, 'wb') as f:
-        f.write(b'CSM1' + struct.pack('<i', len(parts)))
+        f.write(b'CSM2' + struct.pack('<i', len(parts)))
         for name, quads in parts.items():
             bone, pivot = GAME_PARTS[game_part(name)]
             f.write(struct.pack('<h', len(name)) + name.encode() + struct.pack('<h', len(bone)) + bone.encode())
+            if name in growth:
+                root, axis = growth[name]
+                f.write(struct.pack('<B3f3f', 1, *to_game(root, pivot), *game_normal(axis)))
+            else:
+                f.write(struct.pack('<B', 0))
             f.write(struct.pack('<i', len(quads)))
             buf = bytearray()
             for q in quads:

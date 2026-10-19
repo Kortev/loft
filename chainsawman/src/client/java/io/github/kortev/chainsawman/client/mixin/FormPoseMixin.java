@@ -11,7 +11,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/** The cord being pulled, for everyone to see ({@link CordPull}): the right arm yanking it out of the chest. */
+/** The body through the transformation, for everyone to see ({@link CordPull}): the yank, the brace and the roar. */
 @Mixin(PlayerEntityModel.class)
 public abstract class FormPoseMixin {
 	@Inject(method = "setAngles(Lnet/minecraft/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
@@ -28,6 +28,8 @@ public abstract class FormPoseMixin {
 			PlayerEntityModel<?> model = (PlayerEntityModel<?>) (Object) this;
 			CordPull.pose(model, t);
 			model.rightSleeve.copyTransform(model.rightArm);
+			model.leftSleeve.copyTransform(model.leftArm);
+			model.hat.copyTransform(model.head);
 		}
 	}
 }

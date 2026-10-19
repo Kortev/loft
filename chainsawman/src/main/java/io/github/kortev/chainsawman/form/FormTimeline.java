@@ -1,20 +1,38 @@
 package io.github.kortev.chainsawman.form;
 
 /**
- * The transformation's beats, in ticks from the pull: what the server does and what every client shows read the same
- * numbers, and the sounds (tools/gen_chainsaw_sounds.py: CATCH_AT, BURST_AT) are cut to them.
+ * The transformation's beats, in ticks from the cord key: the server, every client's pictures and the camera read the
+ * same numbers, and the sounds (tools/gen_chainsaw_sounds.py) are cut to them.
+ *
+ * <pre>
+ *  0  GRAB        the camera cuts round in front of him; his hand comes up to the cord on his chest
+ *  4  REACH       hand on the handle
+ *  4-12 YANK      one long hard pull: the cord stretches out of his chest, he leans back, his head snaps back
+ * 13  SNAP        the cord snaps back in
+ * 14  CATCH       the engine catches; misses; COUGH (17) catches again: smoke and a jolt on each
+ * 20  BURST       the head bursts in blood and the saw punches out of his forehead, growing to its length (HEAD_GROWN)
+ * 23  ARMS        the arms' saws push out through his fists and slide out past them (ARMS_GROWN)
+ * 36  ROAR        a cut to his face, close; the anime's impact frames, red and black; the engine screams; he roars
+ * 52  ROAR_END    the camera pulls back
+ * 62  END         back in first person, the form on
+ * </pre>
  */
 public final class FormTimeline {
-	/** The hand comes up to the cord on the chest. */
+	public static final int GRAB = 0;
 	public static final int REACH = 4;
-	/** The cord is yanked out, the arm flung out with it. */
-	public static final int YANK = 9;
-	/** The engine catches. */
-	public static final int CATCH = 6;
-	/** The saws burst out of head and arms in a spray of blood: the form is on. */
-	public static final int BURST = 17;
-	/** The arm has come back down. */
-	public static final int SETTLE = 24;
+	public static final int YANK = 12;
+	public static final int SNAP = 13;
+	public static final int CATCH = 14;
+	public static final int COUGH = 17;
+	public static final int BURST = 20;
+	public static final int HEAD_GROWN = 27;
+	public static final int ARMS = 23;
+	public static final int ARMS_GROWN = 32;
+	public static final int ROAR = 36;
+	/** How long the impact frames last, from ROAR. */
+	public static final int IMPACT = 4;
+	public static final int ROAR_END = 52;
+	public static final int END = 62;
 
 	private FormTimeline() {
 	}

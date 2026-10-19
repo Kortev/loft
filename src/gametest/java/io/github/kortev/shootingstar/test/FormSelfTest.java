@@ -52,8 +52,12 @@ public class FormSelfTest implements ClientModInitializer {
 	private static final List<Integer> CAMERA_IDS = new ArrayList<>();
 	private static UUID standInId;
 	/** The ticks after the pull to photograph, and how far it has got. */
-	private static final int[] PULL_SHOTS = {2, 5, 8, 12, 17, 20, 24};
+	private static final int[] PULL_SHOTS = {2, 6, 10, 14, 20, 22, 25, 28, 32, 38, 44, 56};
 	private static int pullTick;
+	/** Your own transformation, filmed from your own camera: the ticks after the pull to photograph, and how far it has got. */
+	private static final int[] CINE_SHOTS = {2, 6, 10, 14, 18, 21, 24, 28, 33, 36, 37, 38, 39, 42, 48, 56, 61};
+	private static final int CINE_START = 10;
+	private static int cineTick;
 
 	@Override
 	public void onInitializeClient() {
@@ -130,7 +134,7 @@ public class FormSelfTest implements ClientModInitializer {
 					}
 					if (pullTick == 0) {
 						ClientForms.set(standInId, false);
-						ClientForms.pulled(standInId, client.world.getTime());
+						ClientForms.pulled(standInId, client.world.getTime(), 0.0F);
 					}
 					if (pullTick == FormTimeline.BURST) {
 						ClientForms.set(standInId, true);
@@ -141,6 +145,25 @@ public class FormSelfTest implements ClientModInitializer {
 						}
 					}
 					pullTick++;
+					ticks = 0;
+					return;
+				}
+				if (shot >= CAMERAS.length + PLAIN.length && cineTick <= CINE_START + CINE_SHOTS[CINE_SHOTS.length - 1] + 4) {
+					// Your own transformation as you see it: back out of the form, then the cord pulled for real.
+					client.setCameraEntity(client.player);
+					client.options.setPerspective(Perspective.FIRST_PERSON);
+					if (cineTick == 0) {
+						client.world.removeEntity(-4242, Entity.RemovalReason.DISCARDED);
+						server.execute(() -> Form.pullCord(server.getPlayerManager().getPlayerList().get(0)));
+					} else if (cineTick == CINE_START) {
+						server.execute(() -> Form.pullCord(server.getPlayerManager().getPlayerList().get(0)));
+					}
+					for (int at : CINE_SHOTS) {
+						if (cineTick == CINE_START + 1 + at) {
+							screenshot(client, String.format("cine_%02d", at));
+						}
+					}
+					cineTick++;
 					ticks = 0;
 					return;
 				}
@@ -155,7 +178,6 @@ public class FormSelfTest implements ClientModInitializer {
 						// Your own arms in front of you, empty-handed: their saws.
 						client.options.setPerspective(Perspective.FIRST_PERSON);
 						client.player.setPitch(25.0F);
-						client.world.removeEntity(-4242, Entity.RemovalReason.DISCARDED);
 						// Hiding the HUD hides your hand as well.
 						client.options.hudHidden = false;
 					} else if (ticks == 32) {

@@ -25,18 +25,27 @@ import org.joml.Vector3f;
 public final class FormMesh {
 	/** A part: the bone it follows (head, body...) and its quads, four corners each, in pixels from the bone's pivot. */
 	public static final class Part {
+		public final String name;
 		public final String bone;
 		/** Which frame of its chain this is (a part named NAME_chainK is frame K of NAME's chain), or -1. */
 		public final int chainFrame;
+		/** For a saw (a bar or its chain), where it grows out from and the way it runs, in pixels from the bone's pivot. */
+		@Nullable
+		public final Vector3f growRoot;
+		@Nullable
+		public final Vector3f growAxis;
 		final float[] pos;
 		final float[] uv;
 		final byte[] normal;
 		final boolean[] glow;
 
-		Part(String name, String bone, int vertices) {
+		Part(String name, String bone, @Nullable Vector3f growRoot, @Nullable Vector3f growAxis, int vertices) {
 			int chain = name.lastIndexOf("_chain");
 			this.chainFrame = chain >= 0 ? Integer.parseInt(name.substring(chain + "_chain".length())) : -1;
+			this.name = name;
 			this.bone = bone;
+			this.growRoot = growRoot;
+			this.growAxis = growAxis;
 			this.pos = new float[vertices * 3];
 			this.uv = new float[vertices * 2];
 			this.normal = new byte[vertices * 3];
@@ -59,6 +68,12 @@ public final class FormMesh {
 	}
 
 	public final Map<String, Part> parts;
+
+	/** Where in the texture the cord's colour is (the empty part named rope points at it), for the cord the game draws. */
+	public float[] ropeUv() {
+		Part rope = parts.get("rope");
+		return rope != null ? new float[] {rope.uv[0], rope.uv[1]} : new float[] {0.0F, 0.0F};
+	}
 
 	private FormMesh(Map<String, Part> parts) {
 		this.parts = parts;
@@ -95,7 +110,7 @@ public final class FormMesh {
 			bytes = in.readAllBytes();
 		}
 		ByteBuffer data = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
-		if (data.get() != 'C' || data.get() != 'S' || data.get() != 'M' || data.get() != '1') {
+		if (data.get() != 'C' || data.get() != 'S' || data.get() != 'M' || data.get() != '2') {
 			throw new IOException("bad header in form.csm");
 		}
 		int count = data.getInt();
@@ -103,8 +118,14 @@ public final class FormMesh {
 		for (int k = 0; k < count; k++) {
 			String name = string(data);
 			String bone = string(data);
+			Vector3f root = null;
+			Vector3f axis = null;
+			if (data.get() != 0) {
+				root = new Vector3f(data.getFloat(), data.getFloat(), data.getFloat());
+				axis = new Vector3f(data.getFloat(), data.getFloat(), data.getFloat());
+			}
 			int quads = data.getInt();
-			Part part = new Part(name, bone, quads * 4);
+			Part part = new Part(name, bone, root, axis, quads * 4);
 			for (int i = 0; i < quads * 4; i++) {
 				part.pos[i * 3] = data.getFloat();
 				part.pos[i * 3 + 1] = data.getFloat();

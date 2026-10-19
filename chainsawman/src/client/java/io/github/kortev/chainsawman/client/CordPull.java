@@ -1,63 +1,89 @@
 package io.github.kortev.chainsawman.client;
 
 import io.github.kortev.chainsawman.form.FormTimeline;
-import net.minecraft.client.model.ModelPart;
 import net.minecraft.client.render.entity.model.BipedEntityModel;
 import net.minecraft.util.math.MathHelper;
 
 /**
- * The cord pulled, as everyone sees it: the right hand comes up to the cord in the middle of the chest
- * ({@link FormTimeline#REACH}), yanks it out and away, flinging the arm out to the side and up ({@link FormTimeline#YANK}),
- * holds there as the engine screams and the saws burst out, and comes back down ({@link FormTimeline#SETTLE}). The head
- * jerks back with the yank.
+ * The body through the transformation, as everyone sees it ({@link FormTimeline}): the right hand comes up to the cord
+ * on the chest (REACH) and yanks it out in one long arc up and away from the body, the head snapping back (YANK); the
+ * arm hangs out there as the engine catches and coughs; at the burst it drops and both arms brace out from the sides as
+ * the saws push out through the fists; at the roar the arms are flung down and wide and the head thrown back; then it
+ * all settles (END).
+ *
+ * <p>Angles are radians. A hanging arm turns outward with a positive roll on the right and a negative on the left; a
+ * raised arm swings out from the body with a positive yaw on the right (a roll would swing it inward).
  */
 public final class CordPull {
-	/** The arm at the cord: forward and across the chest (radians). */
+	/** The hand at the cord: forward and across the chest. */
 	private static final float REACH_PITCH = -1.15F;
 	private static final float REACH_YAW = -0.55F;
-	/** The arm flung out with the cord: raised a little above level and swung out to the side (with the arm raised, a roll would swing it inward). */
-	private static final float YANK_PITCH = -1.7F;
-	private static final float YANK_YAW = 0.95F;
-	private static final float YANK_ROLL = 0.0F;
-	private static final float HEAD_JERK = -0.35F;
+	/** The yank's end: high, out to the side. */
+	private static final float YANK_PITCH = -2.15F;
+	private static final float YANK_YAW = 1.05F;
+	private static final float HEAD_SNAP = -0.45F;
+	/** The arms braced out as the saws come through. */
+	private static final float BRACE_ROLL = 0.32F;
+	private static final float BRACE_PITCH = -0.25F;
+	/** The roar: arms flung down and wide, the head thrown back. */
+	private static final float ROAR_ROLL = 0.95F;
+	private static final float ROAR_PITCH = -0.35F;
+	private static final float ROAR_HEAD = -0.6F;
 
 	private CordPull() {
 	}
 
-	/** Poses the arm and head {@code t} ticks after the pull. */
+	/** Poses the arms and head {@code t} ticks after the pull. */
 	public static void pose(BipedEntityModel<?> model, float t) {
-		float pitch;
-		float yaw;
-		float roll;
-		float head;
+		float rPitch = 0.0F;
+		float rYaw = 0.0F;
+		float rRoll = 0.0F;
+		float lPitch = 0.0F;
+		float lRoll = 0.0F;
+		float head = 0.0F;
 		if (t < FormTimeline.REACH) {
 			float k = ease(t / FormTimeline.REACH);
-			pitch = REACH_PITCH * k;
-			yaw = REACH_YAW * k;
-			roll = 0.0F;
-			head = 0.0F;
+			rPitch = REACH_PITCH * k;
+			rYaw = REACH_YAW * k;
 		} else if (t < FormTimeline.YANK) {
-			float k = ease((t - FormTimeline.REACH) / (FormTimeline.YANK - FormTimeline.REACH));
-			pitch = MathHelper.lerp(k, REACH_PITCH, YANK_PITCH);
-			yaw = MathHelper.lerp(k, REACH_YAW, YANK_YAW);
-			roll = YANK_ROLL * k;
-			head = HEAD_JERK * k;
+			// Slow out of the chest, then whipping out: the pull's weight is at its start.
+			float k = (float) Math.pow((t - FormTimeline.REACH) / (FormTimeline.YANK - FormTimeline.REACH), 0.6);
+			rPitch = MathHelper.lerp(k, REACH_PITCH, YANK_PITCH);
+			rYaw = MathHelper.lerp(k, REACH_YAW, YANK_YAW);
+			head = HEAD_SNAP * ease(k * 1.4F);
 		} else if (t < FormTimeline.BURST) {
-			pitch = YANK_PITCH;
-			yaw = YANK_YAW;
-			roll = YANK_ROLL;
-			head = HEAD_JERK * (1.0F - (t - FormTimeline.YANK) / (FormTimeline.BURST - FormTimeline.YANK) * 0.5F);
+			// Held out there, sagging a little, as the engine catches.
+			float k = (t - FormTimeline.YANK) / (FormTimeline.BURST - FormTimeline.YANK);
+			rPitch = YANK_PITCH + 0.35F * k;
+			rYaw = YANK_YAW;
+			head = HEAD_SNAP * (1.0F - 0.6F * k);
+		} else if (t < FormTimeline.ROAR) {
+			// Dropped, and both arms braced out as the saws push through.
+			float k = ease((t - FormTimeline.BURST) / 4.0F);
+			rPitch = MathHelper.lerp(k, YANK_PITCH + 0.35F, BRACE_PITCH);
+			rYaw = MathHelper.lerp(k, YANK_YAW, 0.0F);
+			float brace = ease((t - FormTimeline.ARMS) / 4.0F);
+			rRoll = BRACE_ROLL * brace;
+			lRoll = -BRACE_ROLL * brace;
+			lPitch = BRACE_PITCH * brace;
+			head = HEAD_SNAP * 0.4F * (1.0F - k);
 		} else {
-			float k = 1.0F - ease((t - FormTimeline.BURST) / (FormTimeline.SETTLE - FormTimeline.BURST));
-			pitch = YANK_PITCH * k;
-			yaw = YANK_YAW * k;
-			roll = YANK_ROLL * k;
-			head = HEAD_JERK * 0.5F * k;
+			float in = ease((t - FormTimeline.ROAR) / 3.0F);
+			float out = 1.0F - ease((t - FormTimeline.ROAR_END) / (FormTimeline.END - FormTimeline.ROAR_END));
+			rPitch = MathHelper.lerp(in, BRACE_PITCH, ROAR_PITCH) * out;
+			lPitch = rPitch;
+			rRoll = MathHelper.lerp(in, BRACE_ROLL, ROAR_ROLL) * out;
+			lRoll = -rRoll;
+			head = ROAR_HEAD * in * out;
 		}
-		ModelPart arm = model.rightArm;
-		arm.pitch = pitch;
-		arm.yaw = yaw;
-		arm.roll = roll;
+		model.rightArm.pitch = rPitch;
+		model.rightArm.yaw = rYaw;
+		model.rightArm.roll = rRoll;
+		if (t >= FormTimeline.ARMS) {
+			model.leftArm.pitch = lPitch;
+			model.leftArm.yaw = 0.0F;
+			model.leftArm.roll = lRoll;
+		}
 		model.head.pitch += head;
 		model.hat.pitch = model.head.pitch;
 	}

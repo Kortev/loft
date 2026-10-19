@@ -4,6 +4,8 @@
 	"compatibilityLevel": "JAVA_21",
 	"client": [
 		"FirstPersonSawMixin",
+		"FormCameraMixin",
+		"FormFovMixin",
 		"FormPoseMixin",
 		"HeadHiddenMixin",
 		"HeadItemHiddenMixin",

@@ -28,9 +28,16 @@ from gen_sounds import SR, bp, curve, hp, limit, loudness, lp, mono, ns, sat, wh
 g.OUT = os.path.join(os.path.dirname(__file__), '..', 'chainsawman', 'src', 'main', 'resources', 'assets', 'chainsawman',
                      'sounds')
 
-# When the engine catches in the start, and when the saws burst out (seconds).
-CATCH_AT = 0.32
-BURST_AT = 0.85
+# The transformation's beats (FormTimeline, ticks of 1/20 s, from the press): the yank (4 to 12), the cord snapping back
+# (13), the engine catching (14) and coughing (17), the head bursting (20), the arms (23), the roar (36).
+YANK_FROM = 4 / 20.0
+YANK_TO = 12 / 20.0
+SNAP_AT = 13 / 20.0
+CATCH_AT = 14 / 20.0
+COUGH_AT = 17 / 20.0
+BURST_AT = 20 / 20.0
+ARMS_AT = 23 / 20.0
+ROAR_AT = 36 / 20.0
 LOOP_IDLE = 2.0
 
 
@@ -103,37 +110,43 @@ def ratchet(n, start, length, rate0, rate1):
 
 
 def form_cord():
-    n = ns(1.0)
+    n = ns(1.2)
     x = np.zeros(n)
     # The rope: a rough zip of fibre over metal, rising as it is yanked out and stopping hard.
-    pull = curve(n, [(0.0, 0.0), (0.03, 1.0), (0.42, 0.85), (0.46, 0.0), (1.0, 0.0)])
-    zip_ = g.sweep_filter(white(n), 'bandpass', curve(n, [(0.0, 900.0), (0.4, 2600.0), (1.0, 2600.0)]), order=2, width=0.8)
+    pull = curve(n, [(0.0, 0.0), (YANK_FROM, 0.0), (YANK_FROM + 0.03, 1.0), (YANK_TO - 0.04, 0.85), (YANK_TO, 0.0), (1.2, 0.0)])
+    zip_ = g.sweep_filter(white(n), 'bandpass', curve(n, [(0.0, 900.0), (YANK_FROM, 900.0), (YANK_TO, 2600.0), (1.2, 2600.0)]),
+                          order=2, width=0.8)
     x += zip_ * pull * 0.9
-    x += ratchet(n, 0.02, 0.44, 60.0, 140.0)
-    # Out of his chest: wet at the very start.
-    x += flesh(n, 0.22, wet=1.2) * 0.8
+    x += ratchet(n, YANK_FROM + 0.02, YANK_TO - YANK_FROM - 0.02, 60.0, 140.0)
+    # Out of his chest: wet as it starts.
+    x += np.roll(flesh(n, 0.22, wet=1.2), ns(YANK_FROM)) * 0.8
     # The rope snapping back in, and the handle knocking against him.
-    back = curve(n, [(0.0, 0.0), (0.55, 0.0), (0.57, 0.7), (0.78, 0.0), (1.0, 0.0)])
+    back = curve(n, [(0.0, 0.0), (SNAP_AT - 0.02, 0.0), (SNAP_AT, 0.7), (SNAP_AT + 0.2, 0.0), (1.2, 0.0)])
     x += bp(white(n), 1200.0, 4000.0) * back * 0.5
     knock = np.zeros(n)
-    knock[ns(0.8)] = 1.0
+    knock[ns(SNAP_AT + 0.22)] = 1.0
     x += lp(np.convolve(knock, np.sin(2 * np.pi * 180 * np.arange(ns(0.05)) / SR) * np.exp(-np.arange(ns(0.05)) / ns(0.01)))[:n],
             1200.0) * 0.6
     return x * np.minimum(1.0, (n - np.arange(n)) / ns(0.05))
 
 
 def form_start():
-    n = ns(3.6)
-    # How fast the engine fires: a few coughs as it catches, then screaming up as the saws come out, then down to idle.
-    rate = curve(n, [(0.0, 0.0), (CATCH_AT - 0.01, 0.0), (CATCH_AT, 9.0), (0.55, 14.0), (0.7, 40.0), (BURST_AT, 150.0),
-                     (1.6, 185.0), (2.2, 120.0), (2.7, 52.0), (3.6, 46.0)])
-    level = curve(n, [(0.0, 0.0), (CATCH_AT, 0.9), (0.6, 0.8), (BURST_AT, 1.2), (1.8, 1.25), (2.6, 0.75), (3.6, 0.65)])
+    n = ns(4.4)
+    # How fast the engine fires: it catches, misses, coughs and catches again, screams up as the saws come out, howls
+    # louder still in the roar, and drops back to its idle.
+    rate = curve(n, [(0.0, 0.0), (CATCH_AT - 0.01, 0.0), (CATCH_AT, 10.0), (CATCH_AT + 0.08, 2.0), (COUGH_AT, 12.0),
+                     (BURST_AT - 0.05, 40.0), (BURST_AT, 140.0), (ARMS_AT + 0.2, 165.0), (ROAR_AT - 0.1, 150.0),
+                     (ROAR_AT, 215.0), (ROAR_AT + 0.7, 225.0), (ROAR_AT + 1.3, 110.0), (ROAR_AT + 1.8, 50.0), (4.4, 46.0)])
+    level = curve(n, [(0.0, 0.0), (CATCH_AT, 0.9), (CATCH_AT + 0.08, 0.3), (COUGH_AT, 0.9), (BURST_AT, 1.15),
+                      (ROAR_AT - 0.1, 1.05), (ROAR_AT, 1.45), (ROAR_AT + 0.8, 1.4), (ROAR_AT + 1.6, 0.7), (4.4, 0.62)])
     x = engine(n, rate, level)
     # The chains whipping round as it screams.
-    chain = hp(white(n), 3500.0) * curve(n, [(0.0, 0.0), (0.75, 0.0), (BURST_AT, 1.0), (2.0, 0.9), (2.8, 0.35), (3.6, 0.3)])
+    chain = hp(white(n), 3500.0) * curve(n, [(0.0, 0.0), (BURST_AT - 0.05, 0.0), (BURST_AT, 1.0), (ROAR_AT, 1.0),
+                                             (ROAR_AT + 0.8, 1.2), (ROAR_AT + 1.6, 0.35), (4.4, 0.3)])
     x += chain * 0.35
-    # The saws tearing out of him.
-    x += np.roll(flesh(n, 0.6, wet=1.4), ns(BURST_AT - 0.05)) * 1.3
+    # The saws tearing out of him: the head, then the arms.
+    x += np.roll(flesh(n, 0.6, wet=1.4), ns(BURST_AT - 0.03)) * 1.3
+    x += np.roll(flesh(n, 0.45, wet=1.2), ns(ARMS_AT - 0.03)) * 1.0
     return x
 
 
@@ -168,7 +181,7 @@ SOUNDS = {
 }
 LOOPS = ('form_idle',)
 # Loudness (loudest 400 ms, dB).
-LEVELS = {'form_cord': -14, 'form_start': -11, 'form_idle': -20, 'form_stop': -16}
+LEVELS = {'form_cord': -14, 'form_start': -10, 'form_idle': -20, 'form_stop': -16}
 
 
 def make(name):

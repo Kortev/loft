@@ -28,7 +28,7 @@ public abstract class FirstPersonSawMixin {
 		}
 		PlayerEntityRenderer renderer = (PlayerEntityRenderer) (Object) this;
 		String bone = arm == renderer.getModel().rightArm ? "right_arm" : "left_arm";
-		float time = player.age + MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(true);
-		FormFeature.draw(matrices, consumers, light, OverlayTexture.DEFAULT_UV, player, time, bone, arm);
+		float tickDelta = MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(true);
+		FormFeature.draw(matrices, consumers, light, OverlayTexture.DEFAULT_UV, player, tickDelta, bone, arm);
 	}
 }
