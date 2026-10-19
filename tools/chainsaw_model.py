@@ -22,7 +22,7 @@ eye, burning yellow. Under it the mouth: long straight white teeth hanging from 
 standing up between them, round the front and back along the sides. The jaw is an orange plate under the teeth, a V
 from the front, its front turned down into a point. The neck, and the cheeks behind the side teeth, are bound in dark
 cords laid like brickwork. The bar comes straight out of the top of the visor's front, long, pale and bloodied, its
-chain all spikes. A bar comes out of the back of each forearm, edge outward, and runs on past the fist. A starter cord
+chain all spikes. A bar comes out of the middle of each forearm and runs on past the fist. A starter cord
 comes out of the middle of the chest and hangs with its T handle at the belly.
 """
 import math
@@ -116,7 +116,7 @@ HEAD_BAR_ROOT = Vector((0.0, 0.0, 30.9))
 HEAD_BAR = (30.0, 4.2, 0.75)
 HEAD_BAR_TILT = 0.0
 # The arms' saws: length, height and thickness; where they leave the forearm, measured down the arm from the shoulder.
-ARM_BAR = (13.0, 2.4, 0.6)
+ARM_BAR = (13.0, 2.9, 0.6)
 ARM_BAR_ROOT = 6.0
 # The chain's cutters: how far apart they are round the bar, and how far their spikes stand out, as part of the
 # bar's height.
@@ -352,6 +352,8 @@ def make_materials():
     new_material('gum', (0.5, 0.1, 0.12), rough=0.22, sss=0.35)
     MATS['gum'].node_tree.nodes['Principled BSDF'].inputs['Coat Weight'].default_value = 0.5
     new_material('throat', (0.012, 0.002, 0.003), rough=0.25, sss=0.2)
+    # Torn flesh where the arms' saws come through: wet, dark red.
+    new_material('wound', (0.32, 0.01, 0.015), rough=0.22, sss=0.3)
     wire_material('cords')
     # The saws: the bar bloodied steel; the chain dark oily steel; the housings black paint.
     steel('bar', (0.84, 0.84, 0.82), rough=0.3, blood_amount=0.44)
@@ -1001,7 +1003,7 @@ def shoulder(side):
 
 
 def build_arm(side, pose):
-    """An arm of the stand-in, and the saw out of its forearm, edge outward, running down past the fist; all hung from
+    """An arm of the stand-in, and the saw out of the middle of its forearm, running down past the fist; all hung from
     an empty at the shoulder turned by {@code pose} (x, y, z degrees), so the arm can be posed."""
     pivot = bpy.data.objects.new('arm_' + ('left' if side > 0 else 'right'), None)
     link(pivot, 'arm')
@@ -1011,12 +1013,21 @@ def build_arm(side, pose):
     # The sleeve, and the hand below it, in the arm's own space (shoulder at the origin, hanging down -z).
     parts.append(box('sleeve', (0.0, 0.0, -4.5), (2.0, 2.0, 4.5), 'shirt', 'stand_in'))
     parts.append(box('hand', (0.0, 0.0, -10.75), (2.0, 2.0, 1.75), 'hand', 'stand_in'))
-    # The saw: out of the back of the forearm, flat faces forward and back, running down the arm and past the fist.
-    root = Vector((side * 2.6, 0.0, -ARM_BAR_ROOT))
+    # The saw: out of the middle of the forearm, flat faces forward and back, its chain breaking out through both
+    # sides of the sleeve, running on down the arm and past the fist.
+    root = Vector((0.0, 0.0, -ARM_BAR_ROOT))
     frame = Matrix.Translation(root) @ Matrix((
         (0.0, side * 1.0, 0.0, 0.0), (0.0, 0.0, 1.0, 0.0), (-1.0, 0.0, 0.0, 0.0), (0, 0, 0, 1)))
     before = set(bpy.context.scene.objects)
-    saw('arm_saw', ARM_BAR, frame, 'arm_left' if side > 0 else 'arm_right')
+    part = 'arm_left' if side > 0 else 'arm_right'
+    saw('arm_saw', ARM_BAR, frame, part, housing=False)
+    # Where it comes through: the fist split in two along the middle finger, open and bloody down both its sides and
+    # across its knuckles, and the sleeve torn open above it where the blade bursts out of the forearm.
+    for sx in (-1.0, 1.0):
+        box('gash', (sx * 2.03, 0.0, -10.75), (0.03, 0.45, 1.75), 'wound', part)
+        box('tear', (sx * 2.03, 0.0, -7.5), (0.03, 0.38, 1.5), 'throat', part)
+        box('tear_edge', (sx * 2.04, 0.0, -9.0), (0.03, 0.55, 0.12), 'wound', part)
+    box('gash', (0.0, 0.0, -12.53), (2.0, 0.45, 0.03), 'wound', part)
     parts += [o for o in bpy.context.scene.objects if o not in before]
     for o in parts:
         o.parent = pivot
