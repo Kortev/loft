@@ -145,6 +145,9 @@ if chainsaw:
         'io/github/kortev/chainsawman/client/ChainsawManClient.class',
         'assets/chainsawman/lang/en_us.json',
         'data/chainsawman/recipe/pochita.json',
+        'chainsawman.client.mixins.json',
+        'assets/chainsawman/meshes/form.csm',
+        'assets/chainsawman/textures/entity/form.png',
     ], [
         'io/github/kortev/shootingstar/',
         'io/github/kortev/chitty/',

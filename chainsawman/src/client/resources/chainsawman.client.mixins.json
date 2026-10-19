@@ -1,0 +1,13 @@
+{
+	"required": true,
+	"package": "io.github.kortev.chainsawman.client.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"client": [
+		"HeadHiddenMixin",
+		"HeadItemHiddenMixin",
+		"HelmetHiddenMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

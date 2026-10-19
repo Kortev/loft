@@ -31,7 +31,8 @@
 			"io.github.kortev.shootingstar.test.FilmSelfTest",
 			"io.github.kortev.shootingstar.test.FilmDomain",
 			"io.github.kortev.shootingstar.test.FilmDomainKortev",
-			"io.github.kortev.shootingstar.test.DomainSelfTest"
+			"io.github.kortev.shootingstar.test.DomainSelfTest",
+			"io.github.kortev.shootingstar.test.FormSelfTest"
 		]
 	},
 	"depends": {

@@ -3,6 +3,7 @@
 Needs Blender's Python module (py -3.11 -m pip install "bpy==4.5.*" numpy pillow). Run from the repository root:
 
     py -3.11 tools/chainsaw_model.py --out DIR --renders   # preview renders and DIR/chainsaw.blend, for approval
+    py -3.11 tools/chainsaw_model.py --game                # bakes the game's mesh and texture (chainsawman/)
 
 Add --only name,name to render some of them, and CSM_SAMPLES=24 for a quick look.
 
@@ -32,6 +33,8 @@ import sys
 import bpy  # must come first: it provides bmesh and mathutils
 import bmesh
 from mathutils import Matrix, Vector
+import numpy as np
+from PIL import Image
 
 # --- layout (pixels; feet at the origin, facing -y, z up) ---------------------------------------------------------
 
@@ -1051,6 +1054,245 @@ def build(pose='stance'):
         build_arm(-1, (0.0, 0.0, 0.0))
 
 
+# --- the game's copy -----------------------------------------------------------------------------------------------
+#
+# The parts are baked into one texture (their colours as the materials paint them, darkened a little where they are
+# shut in) and written out as a mesh the client draws into an entity layer, lit by the game like the rest of the player.
+
+GAME_ASSETS = os.path.join('chainsawman', 'src', 'client', 'resources', 'assets', 'chainsawman')
+GAME_MESH = os.path.join(GAME_ASSETS, 'meshes', 'form.csm')
+GAME_TEXTURE = os.path.join(GAME_ASSETS, 'textures', 'entity', 'form.png')
+BAKE_SIZE = int(os.environ.get('CSM_BAKE_SIZE', '2048'))
+BAKE_SAMPLES = int(os.environ.get('CSM_BAKE_SAMPLES', '24'))
+# How dark the most shut-in corners get in the texture (the game's own lighting does the rest).
+SHUT_IN = 0.45
+# What each part is drawn with in the game: which bone it follows, and where that bone's pivot is in the build (the
+# neck, for the head and the body; the shoulder for an arm).
+GAME_PARTS = {'head': ('head', Vector((0.0, 0.0, 24.0))), 'cord': ('body', Vector((0.0, 0.0, 24.0)))}
+# Materials drawn at full brightness whatever the light: the eye.
+GLOW = {'eye'}
+# How finely the curved tubes (the wires, the handle, the hoses) are cut up in the game's copy.
+GAME_CURVE_RESOLUTION = 4
+
+
+def to_game(v, pivot):
+    """The build's pixels (x to the player's left, y backward, z up, from the feet) to the bone's model space as the
+    player model has it (pixels, x to the left, y down, the face toward -z), measured from the bone's pivot."""
+    d = v - pivot
+    return (d.x, -d.z, d.y)
+
+
+def game_normal(n):
+    return (n.x, -n.z, n.y)
+
+
+def game_objects():
+    """Every object of the game's parts, with the part it belongs to."""
+    out = []
+    for o in bpy.context.scene.objects:
+        if o.type in ('MESH', 'CURVE') and o.get('part') in GAME_PARTS and not o.hide_render:
+            out.append((o, o['part']))
+    return out
+
+
+def world_mesh(o, deps):
+    """The object as it is evaluated (modifiers applied, curves made tubes), in the build's space, its faces of more
+    than four corners cut into triangles."""
+    me = bpy.data.meshes.new_from_object(o.evaluated_get(deps))
+    me.transform(o.matrix_world)
+    if o.matrix_world.to_3x3().determinant() < 0:
+        me.flip_normals()
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    big = [f for f in bm.faces if len(f.verts) > 4]
+    if big:
+        bmesh.ops.triangulate(bm, faces=big)
+    bm.to_mesh(me)
+    bm.free()
+    return me
+
+
+def unwrap(objs):
+    """Each object unwrapped on its own, then all their islands scaled alike and packed into one square."""
+    view = bpy.context.view_layer
+    for o in objs:
+        bpy.ops.object.select_all(action='DESELECT')
+        o.select_set(True)
+        view.objects.active = o
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.mesh.select_all(action='SELECT')
+        bpy.ops.uv.smart_project(angle_limit=math.radians(55), island_margin=0.0, area_weight=0.0,
+                                 scale_to_bounds=False)
+        bpy.ops.object.mode_set(mode='OBJECT')
+    bpy.ops.object.select_all(action='DESELECT')
+    for o in objs:
+        o.select_set(True)
+    view.objects.active = objs[0]
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.select_all(action='SELECT')
+    bpy.ops.uv.select_all(action='SELECT')
+    bpy.ops.uv.average_islands_scale()
+    bpy.ops.uv.pack_islands(rotate=True, margin_method='FRACTION', margin=0.002, shape_method='CONCAVE')
+    bpy.ops.object.mode_set(mode='OBJECT')
+
+
+def plain_metal():
+    """Every material made plain (not metal) for a bake of colours; what was there, to put back."""
+    kept = []
+    for m in MATS.values():
+        nt = m.node_tree
+        socket = nt.nodes['Principled BSDF'].inputs['Metallic']
+        source = socket.links[0].from_socket if socket.is_linked else None
+        kept.append((nt, socket, socket.default_value, source))
+        if source is not None:
+            nt.links.remove(socket.links[0])
+        socket.default_value = 0.0
+    return kept
+
+
+def restore_metal(kept):
+    for nt, socket, value, source in kept:
+        socket.default_value = value
+        if source is not None:
+            nt.links.new(source, socket)
+
+
+def bake_into(kind, obj, filters=None):
+    """Bakes {@code kind} of the object into a fresh image and returns its pixels (rows from the top)."""
+    img = bpy.data.images.new('bake_' + kind.lower(), BAKE_SIZE, BAKE_SIZE, alpha=True, float_buffer=True)
+    img.generated_color = (0, 0, 0, 0)
+    for m in MATS.values():
+        nt = m.node_tree
+        node = nt.nodes.get('bake_target') or nt.nodes.new('ShaderNodeTexImage')
+        node.name = 'bake_target'
+        node.image = img
+        nt.nodes.active = node
+    bpy.ops.object.select_all(action='DESELECT')
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    extra = {'pass_filter': filters} if filters else {}
+    bpy.ops.object.bake(type=kind, margin=0, use_clear=False, **extra)
+    px = np.array(img.pixels[:], np.float32).reshape(BAKE_SIZE, BAKE_SIZE, 4)[::-1]
+    return px
+
+
+def dilate(rgb, valid, steps=16):
+    """Spreads each island's colour out past its edges, so filtering does not pull in the background."""
+    rgb, valid = rgb.copy(), valid.copy()
+    for _ in range(steps):
+        acc = np.zeros_like(rgb)
+        cnt = np.zeros(valid.shape, np.float32)
+        for dy, dx in ((-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, 1), (-1, 1), (1, -1)):
+            v = np.roll(np.roll(valid, dy, 0), dx, 1)
+            acc += np.roll(np.roll(rgb, dy, 0), dx, 1) * v[..., None]
+            cnt += v
+        grow = (~valid) & (cnt > 0)
+        rgb[grow] = acc[grow] / cnt[grow][:, None]
+        valid = valid | grow
+    rgb[~valid] = rgb[valid].mean(axis=0)
+    return rgb
+
+
+def linear_to_srgb(c):
+    c = np.clip(c, 0.0, 1.0)
+    return np.where(c <= 0.0031308, c * 12.92, 1.055 * np.power(c, 1 / 2.4) - 0.055)
+
+
+def export_game():
+    """Bakes the form and writes the game's mesh and texture.
+
+    .csm (little endian): b"CSM1", int32 part count; per part its name and the bone it follows (each int16 length then
+    UTF-8), int32 quad count, and four corners per quad: float32 x, y, z (pixels, in the bone's model space from its
+    pivot), u, v, then int8 nx, ny, nz and uint8 flags (bit 0: glows). Triangles repeat their last corner."""
+    import struct
+    build('stance')
+    scene = bpy.context.scene
+    for o in scene.objects:
+        if o.type == 'CURVE':
+            o.data.resolution_u = GAME_CURVE_RESOLUTION
+            o.data.bevel_resolution = 1
+    deps = bpy.context.evaluated_depsgraph_get()
+    objs = game_objects()
+    copies = []
+    for o, part in objs:
+        me = world_mesh(o, deps)
+        me.uv_layers.new(name='bake')
+        me.uv_layers.active = me.uv_layers['bake']
+        me.uv_layers['bake'].active_render = True
+        c = bpy.data.objects.new('bake:' + o.name, me)
+        scene.collection.objects.link(c)
+        c['game_part'] = part
+        copies.append(c)
+    for o, part in objs:
+        o.hide_render = True
+    unwrap(copies)
+    # Read each copy's geometry before they are joined for the bake.
+    parts = {}
+    for c in copies:
+        me = c.data
+        uv = me.uv_layers['bake'].data
+        normals = me.corner_normals
+        part = c['game_part']
+        for poly in me.polygons:
+            mat = me.materials[poly.material_index].name if me.materials else ''
+            flags = 1 if mat.split('.')[0] in GLOW else 0
+            corners = []
+            for li in poly.loop_indices:
+                co = me.vertices[me.loops[li].vertex_index].co
+                corners.append((co.copy(), tuple(uv[li].uv), Vector(normals[li].vector), flags))
+            if len(corners) == 3:
+                corners.append(corners[2])
+            parts.setdefault(part, []).append(corners)
+
+    # One object for the bake: Cycles goes over the whole image once per object baked.
+    bpy.ops.object.select_all(action='DESELECT')
+    for c in copies:
+        c.select_set(True)
+    bpy.context.view_layer.objects.active = copies[0]
+    bpy.ops.object.join()
+    joined = copies[0]
+    scene.render.engine = 'CYCLES'
+    scene.cycles.device = 'CPU'
+    scene.cycles.samples = BAKE_SAMPLES
+    scene.render.bake.margin = 0
+    world = bpy.data.worlds.new('bake_even')
+    world.use_nodes = True
+    world.node_tree.nodes['Background'].inputs['Color'].default_value = (1.0, 1.0, 1.0, 1.0)
+    scene.world = world
+    kept = plain_metal()
+    color = bake_into('DIFFUSE', joined, {'COLOR'})
+    emit = bake_into('EMIT', joined)
+    restore_metal(kept)
+    scene.cycles.samples = 64
+    world.light_settings.distance = 0.6
+    ao = bake_into('AO', joined)[..., 0]
+    valid = color[..., 3] > 0.5
+    rgb = color[..., :3] * (SHUT_IN + (1.0 - SHUT_IN) * np.clip(ao, 0.0, 1.0))[..., None]
+    rgb = np.maximum(rgb, np.clip(emit[..., :3], 0.0, 1.0))
+    rgb = dilate(linear_to_srgb(rgb), valid)
+    os.makedirs(os.path.dirname(GAME_TEXTURE), exist_ok=True)
+    Image.fromarray((np.clip(rgb, 0, 1) * 255 + 0.5).astype(np.uint8), 'RGB').save(GAME_TEXTURE, optimize=True)
+    print('texture %s, %.1f%% of it used (%d KB)' % (GAME_TEXTURE, valid.mean() * 100, os.path.getsize(GAME_TEXTURE) // 1024))
+
+    os.makedirs(os.path.dirname(GAME_MESH), exist_ok=True)
+    with open(GAME_MESH, 'wb') as f:
+        f.write(b'CSM1' + struct.pack('<i', len(parts)))
+        for name, quads in parts.items():
+            bone, pivot = GAME_PARTS[name]
+            f.write(struct.pack('<h', len(name)) + name.encode() + struct.pack('<h', len(bone)) + bone.encode())
+            f.write(struct.pack('<i', len(quads)))
+            buf = bytearray()
+            for q in quads:
+                for co, (u, v), n, flags in q:
+                    x, y, z = to_game(co, pivot)
+                    nx, ny, nz = game_normal(n.normalized())
+                    buf += struct.pack('<5f3bB', x, y, z, u, 1.0 - v, int(round(nx * 127)), int(round(ny * 127)),
+                                       int(round(nz * 127)), flags)
+            f.write(buf)
+            print('  %-6s on the %-4s %6d quads' % (name, bone, len(quads)))
+    print('mesh %s (%d KB)' % (GAME_MESH, os.path.getsize(GAME_MESH) // 1024))
+
+
 # --- preview renders ----------------------------------------------------------------------------------------------
 
 def look_at(obj, target):
@@ -1149,6 +1391,8 @@ def main():
     os.makedirs(out, exist_ok=True)
     if '--renders' in args:
         renders(out, only)
+    if '--game' in args:
+        export_game()
 
 
 if __name__ == '__main__':

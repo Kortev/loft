@@ -27,5 +27,11 @@
 		"java": ">=21",
 		"fabric-api": "*",
 		"shootingstar": "*"
-	}
+	},
+	"mixins": [
+		{
+			"config": "chainsawman.client.mixins.json",
+			"environment": "client"
+		}
+	]
 }
