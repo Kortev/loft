@@ -201,6 +201,21 @@ splash, your own head back. A shorter beat sheet in `FormTimeline`, the same mac
 Attacks, then blood healing with the health drain, the chain grapple, the revive, the frenzy ult. Each one: build,
 test, commit, push, show kortev, then the next.
 
+### Later: Pochita as a real animal (kortev's idea, 2026-10-19; not designed yet)
+
+kortev wants Pochita to stop being a crafted item:
+
+- Pochita is **an animal in the world that you tame**.
+- A tamed Pochita can be used as an **ordinary chainsaw weapon**.
+- If you **die while you have it**, you come back **as Chainsaw Man**, the way it happens in season 1. You no longer
+  need the item to be the form.
+
+This changes the decided design above: how you get Pochita (no recipe), what starts the form (death rather than only
+the cord), and the "revive once" power, which it largely becomes. Before building any of it, ask kortev the open
+questions: where Pochita spawns and how you tame it; whether the cord still transforms you after that first death;
+what happens to Pochita (the weapon) once you have merged; and whether only kortev can tame it, as only kortev can
+craft it now.
+
 ## Not checked yet
 
 - The sounds by ear in the game (only checked as files).
