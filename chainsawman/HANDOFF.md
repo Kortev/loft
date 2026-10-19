@@ -186,9 +186,12 @@ too and regenerate. Commit the `.ogg`s.
    the player's ordinary head, then the head splits open in the blood and the chainsaw head is there. (Today it is
    swapped inside the blood burst and swells the last bit into place.) The human head is the player model's own; a
    way in is to keep it drawn until BURST and draw `head_bar` (grown from its root) on it from ~BURST-4.
-2. ~~**Blood on the lens**~~ **dropped.** It was built (flat chunky splats on the puller's screen at the burst,
-   dripping, dissolving before the roar) and kortev tried it: it looked bad and arcade-y, and they don't think it's
-   needed. Don't bring it back.
+2. ~~**Blood on the lens**~~ **taken out of the transformation.** It was built (flat chunky splats on the puller's
+   screen at the burst, dripping, dissolving pixel by pixel before the roar) and kortev tried it: in the
+   transformation it looked bad and arcade-y and isn't needed. **But kortev wants it kept** as a possible start for
+   how the gameplay looks: blood on your screen when you kill things with the saws. The code is saved in the history:
+   `git show e85a346:chainsawman/src/client/java/io/github/kortev/chainsawman/client/FormLens.java` (it was drawn
+   from `FormHud.render`). Ask kortev before using it, and rework the look rather than reusing it as it was.
 3. **Manga sound-effect lettering on the impact frames**: big brushed katakana for the engine's roar (e.g. ヴゥン)
    slammed across the frame.
 4. **The eye ignites at the roar**: dark until ROAR, then a flash as it lights. (The eye is the glowing `eye`
