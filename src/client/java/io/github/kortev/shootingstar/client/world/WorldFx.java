@@ -9,11 +9,11 @@ import io.github.kortev.shootingstar.client.gfx.Mesh;
 import io.github.kortev.shootingstar.client.gfx.Post;
 import io.github.kortev.shootingstar.client.gfx.Shaders;
 import io.github.kortev.shootingstar.client.gfx.Target;
+import io.github.kortev.shootingstar.client.gfx.WorldFrame;
 import io.github.kortev.shootingstar.strike.StrikeTimeline;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.Framebuffer;
 import net.minecraft.client.render.BufferBuilder;
@@ -112,13 +112,13 @@ public final class WorldFx {
 
 	// --- frame -----------------------------------------------------------------------------
 
-	public static void render(WorldRenderContext context) {
+	public static void render(WorldFrame context) {
 		MinecraftClient client = MinecraftClient.getInstance();
 		ClientWorld world = context.world();
 		if (!Shaders.ready() || world == null || client.player == null) {
 			return;
 		}
-		float tickDelta = context.tickCounter().getTickDelta(false);
+		float tickDelta = context.tickDelta();
 		List<ClientStrike> inbound = new ArrayList<>();
 		for (ClientStrike strike : ClientStrikes.all()) {
 			double t = strike.time(tickDelta);

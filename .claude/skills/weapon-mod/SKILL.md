@@ -44,7 +44,8 @@ Client [client source set]
                                    holds just short of IMPACT until the server's impact payload arrives
   Feed (HudRenderCallback) ── Feed.Sequence.render(t) → 3D shots offscreen (HDR) → bloom → Overlay text
   CameraDirector / CameraMixin ── the shooter's camera shots (rise, impact, wide)
-  WorldRenderEvents.LAST ── effects in the world (beam, falling object, fireball, rings, debris) in an HDR light pass
+  WorldPasses ── effects in the world (beam, falling object, fireball, rings, debris) in an HDR light pass, drawn
+                 at the end of the world's drawing, or after an Iris shader pack has finished the frame
   HudRenderCallback ── HUD over the world;  GameRendererMixin ── ScreenShake
 ```
 
@@ -145,7 +146,11 @@ Name it once (say `thunder`, item `thunder_rod`, timeline `ThunderTimeline`) and
    - The words over the feed are `Overlay` fields that the shot fills: `header`, `title` / `subtitle`, `banner`,
      `footer`, `labels`, `bars`, plus grading (`flash`, `exposure`, `zoomBlur`…).
    - Camera shots in `CameraDirector`.
-   - World effects registered on `WorldRenderEvents.LAST`, and HUD on `HudRenderCallback`.
+   - World effects registered with `WorldPasses.register` (over the finished world) or `WorldPasses.registerInWorld`
+     (glowing things in the world, like the lock beam), never straight on `WorldRenderEvents.LAST`: an Iris shader
+     pack lays its own picture of the world over anything drawn there, and takes things drawn mid-world for its own
+     blocks (the glow goes dull). WorldPasses draws them after the pack when one is in use. HUD on
+     `HudRenderCallback`.
    - New GLSL: `src/client/resources/assets/shootingstar/shaders/core/ss_<name>.json/.vsh/.fsh` (beside `ss_glow`,
      `ss_impact`, `ss_galaxy`…), registered in `Shaders.register` with its vertex format. Feed meshes (`.ssm`) live
      in `src/client/resources/assets/shootingstar/meshes/`.

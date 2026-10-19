@@ -86,7 +86,7 @@ regenerate the `mjolnir_*` and `thunder_*` sounds.
   `ClientStrikes.tick`), `raising(player)` for the arm pose, sparks and smoke particles.
 - **`BoltPath`**: the bolt's channel and branches from the seed (the leader and the stroke draw the same path), from
   the wall cloud's foot (`ClientThunder.wallBase()`, `wallDrop()` under the storm's base `top()`) to the ground.
-- **`ThunderRender`** (WorldRenderEvents.LAST): first, while a shot holds the shooter's camera far from them, `edge`
+- **`ThunderRender`** (`WorldPasses`): first, while a shot holds the shooter's camera far from them, `edge`
   fades the ground near the edge of their loaded world (their render distance) into the fog colour (`ss_edge`, from the
   depth), so a shot that sees past it does not show the world ending in a square. Then it darkens the world under the
   storm, draws the storm (`drawStorm`: five decks of `ss_vortex`, `DECK_HEIGHT`/`DECK_REACH`/`DECK_DENSITY`, then the wall

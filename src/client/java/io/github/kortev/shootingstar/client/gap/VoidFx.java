@@ -3,6 +3,7 @@ package io.github.kortev.shootingstar.client.gap;
 import com.mojang.blaze3d.systems.RenderSystem;
 import io.github.kortev.shootingstar.client.gfx.Fx;
 import io.github.kortev.shootingstar.client.gfx.Shaders;
+import io.github.kortev.shootingstar.client.gfx.WorldFrame;
 import io.github.kortev.shootingstar.network.GapWarpPayload;
 import io.github.kortev.shootingstar.registry.ModSounds;
 import java.util.ArrayList;
@@ -10,7 +11,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.client.sound.PositionedSoundInstance;
@@ -147,12 +147,12 @@ public final class VoidFx {
 		return (float) (0.9 * Math.max(0.0, 1.0 - (e - warp.delay()) / 16.0));
 	}
 
-	public static void render(WorldRenderContext context) {
+	public static void render(WorldFrame context) {
 		MinecraftClient client = MinecraftClient.getInstance();
 		if (!Shaders.ready() || client.world == null || client.player == null || WARPS.isEmpty() && RIPPLES.isEmpty() && !ClientGaps.floating()) {
 			return;
 		}
-		float tickDelta = context.tickCounter().getTickDelta(false);
+		float tickDelta = context.tickDelta();
 		Vec3d cam = context.camera().getPos();
 		Matrix4f view = new Matrix4f(context.positionMatrix());
 		Matrix4f proj = new Matrix4f(context.projectionMatrix());

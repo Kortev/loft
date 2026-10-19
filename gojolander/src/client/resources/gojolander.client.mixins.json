@@ -3,7 +3,6 @@
 	"package": "io.github.kortev.gojolander.client.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"client": [
-		"AfterWorldMixin",
 		"BipedKneelMixin",
 		"DomainCameraMixin",
 		"DomainFovMixin",

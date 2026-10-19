@@ -9,6 +9,7 @@ import io.github.kortev.gojolander.network.DomainCaughtPayload;
 import io.github.kortev.gojolander.network.DomainEndPayload;
 import io.github.kortev.gojolander.network.DomainLockPayload;
 import io.github.kortev.gojolander.network.SixEyesPayload;
+import io.github.kortev.shootingstar.client.gfx.WorldPasses;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientWorldEvents;
@@ -19,7 +20,6 @@ import net.fabricmc.fabric.api.client.particle.v1.ParticleFactoryRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.CoreShaderRegistrationCallback;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.client.rendering.v1.LivingEntityFeatureRendererRegistrationCallback;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.render.VertexFormats;
@@ -72,7 +72,7 @@ public final class GojolanderClient implements ClientModInitializer {
 			}
 			ClientDomains.tick(client);
 		});
-		WorldRenderEvents.LAST.register(DomainRender::render);
+		WorldPasses.register(DomainRender::render);
 		HudRenderCallback.EVENT.register(DomainHud::render);
 	}
 

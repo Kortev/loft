@@ -8,12 +8,12 @@ import io.github.kortev.shootingstar.client.gfx.Post;
 import io.github.kortev.shootingstar.client.gfx.Shaders;
 import io.github.kortev.shootingstar.client.gfx.Target;
 import io.github.kortev.shootingstar.client.gfx.Timings;
+import io.github.kortev.shootingstar.client.gfx.WorldFrame;
 import io.github.kortev.shootingstar.thunder.Lichtenberg;
 import io.github.kortev.shootingstar.thunder.ThunderTimeline;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.block.BlockState;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.Framebuffer;
@@ -251,14 +251,14 @@ public final class ThunderRender {
 		return thunder.struck && e >= 0 && e < Math.max(90.0, thunder.figure().reach() / ThunderTimeline.SCAR_SPEED + 90.0);
 	}
 
-	public static void render(WorldRenderContext context) {
+	public static void render(WorldFrame context) {
 		MinecraftClient client = MinecraftClient.getInstance();
 		ClientWorld world = context.world();
 		if (!Shaders.thunderReady() || world == null || client.player == null
 				|| ClientThunders.all().isEmpty() && ThunderDust.isEmpty()) {
 			return;
 		}
-		float tickDelta = context.tickCounter().getTickDelta(false);
+		float tickDelta = context.tickDelta();
 		Vec3d cam = context.camera().getPos();
 		List<ClientThunder> live = new ArrayList<>();
 		for (ClientThunder thunder : ClientThunders.all()) {
