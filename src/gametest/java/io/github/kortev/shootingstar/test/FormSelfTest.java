@@ -3,6 +3,7 @@ package io.github.kortev.shootingstar.test;
 import io.github.kortev.chainsawman.ChainsawMan;
 import io.github.kortev.chainsawman.form.Form;
 import io.github.kortev.shootingstar.ShootingStar;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 import net.fabricmc.api.ClientModInitializer;
@@ -17,7 +18,9 @@ import net.minecraft.client.option.Perspective;
 import net.minecraft.client.util.ScreenshotRecorder;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
+import net.minecraft.entity.data.TrackedData;
 import net.minecraft.entity.decoration.ArmorStandEntity;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.server.integrated.IntegratedServer;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -26,7 +29,6 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.GameMode;
-import net.minecraft.world.Heightmap;
 
 /**
  * With -Dshootingstar.selftest=form: joins the quick-play world, gives the player Pochita, pulls the cord, and
@@ -106,6 +108,7 @@ public class FormSelfTest implements ClientModInitializer {
 					standIn.refreshPositionAndAngles(client.player.getX(), client.player.getY(), client.player.getZ(), 0.0F, 0.0F);
 					standIn.setHeadYaw(0.0F);
 					standIn.setBodyYaw(0.0F);
+					showEveryLayer(standIn);
 					client.world.addEntity(standIn);
 					standInId = standIn.getUuid();
 					ClientForms.set(standInId, true);
@@ -150,6 +153,21 @@ public class FormSelfTest implements ClientModInitializer {
 		}
 	}
 
+	/**
+	 * A player's outer layers (hat, jacket, sleeves, trouser legs) are drawn only as far as their skin settings say,
+	 * which a stand-in never sends: all of them on.
+	 */
+	@SuppressWarnings("unchecked")
+	private static void showEveryLayer(PlayerEntity player) {
+		try {
+			Field parts = PlayerEntity.class.getDeclaredField("PLAYER_MODEL_PARTS");
+			parts.setAccessible(true);
+			player.getDataTracker().set((TrackedData<Byte>) parts.get(null), (byte) 0x7F);
+		} catch (ReflectiveOperationException e) {
+			ShootingStar.LOGGER.warn("[selftest] could not show the stand-in's outer layers", e);
+		}
+	}
+
 	private static void screenshot(MinecraftClient client, String name) {
 		ShootingStar.LOGGER.info("[selftest] screenshot form_{}", name);
 		ScreenshotRecorder.saveScreenshot(client.runDirectory, "form_" + name + ".png", client.getFramebuffer(), message -> {
@@ -164,8 +182,8 @@ public class FormSelfTest implements ClientModInitializer {
 		server.getGameRules().get(net.minecraft.world.GameRules.DO_DAYLIGHT_CYCLE).set(false, server);
 		player.changeGameMode(GameMode.CREATIVE);
 		player.setHealth(player.getMaxHealth());
-		// A platform of stone high in open air, so nothing stands between the cameras and the player.
-		BlockPos ground = world.getTopPosition(Heightmap.Type.MOTION_BLOCKING, player.getBlockPos()).up(40);
+		// A platform of stone high in open air (the same height every run), so nothing stands between the cameras and the player.
+		BlockPos ground = player.getBlockPos().withY(220);
 		for (BlockPos p : BlockPos.iterate(ground.add(-8, -1, -8), ground.add(8, 6, 8))) {
 			world.setBlockState(p, p.getY() == ground.getY() - 1 ? Blocks.SMOOTH_STONE.getDefaultState() : Blocks.AIR.getDefaultState());
 		}
