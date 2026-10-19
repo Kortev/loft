@@ -1,5 +1,5 @@
 {"source": "build/film/domain.mp4", "out": "build/film/domain-short.mp4", "band": {"height": 1350, "center": 1060}, "banner": {"text": "the 1v1 was NOT fair 😭🙏", "y": 270, "size": 64}, "segments": [
   {"from": 1.45, "to": 24.75}],
  "sfx": [
-  {"at": 19.84, "file": "build/film/sfx/vine-boom.mp3", "gain": 1.4}],
+  {"at": 19.78, "file": "build/film/sfx/vine-boom.mp3", "gain": 1.4}],
  "crf": 18, "preset": "medium"}

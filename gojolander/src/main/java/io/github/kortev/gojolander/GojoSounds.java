@@ -42,6 +42,8 @@ public final class GojoSounds {
 	 */
 	public static final SoundEvent BREAK = register("domain.break");
 	public static final SoundEvent BREAK_WORLD = register("domain.break.world");
+	/** One slow, muffled beat of their own heart, heard by one it broke over and over through their daze. */
+	public static final SoundEvent HEARTBEAT = register("domain.heartbeat");
 	/** Let go of, the void fading away: its hum sinking and thinning into air, the world's quiet coming back. */
 	public static final SoundEvent FADE = register("domain.fade");
 	public static final SoundEvent FADE_WORLD = register("domain.fade.world");

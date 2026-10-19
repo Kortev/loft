@@ -89,6 +89,14 @@
       }
     ]
   },
+  "domain.heartbeat": {
+    "subtitle": "subtitles.gojolander.domain.heartbeat",
+    "sounds": [
+      {
+        "name": "gojolander:domain_heartbeat"
+      }
+    ]
+  },
   "domain.fade": {
     "subtitle": "subtitles.gojolander.domain.fade",
     "sounds": [

@@ -1,6 +1,7 @@
 package io.github.kortev.gojolander.client;
 
 import io.github.kortev.gojolander.BlindfoldItem;
+import io.github.kortev.gojolander.GojoParticles;
 import io.github.kortev.gojolander.Gojolander;
 import io.github.kortev.gojolander.domain.DomainHold;
 import io.github.kortev.gojolander.network.DomainCastPayload;
@@ -14,6 +15,7 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientWorldEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.client.particle.v1.ParticleFactoryRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.CoreShaderRegistrationCallback;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.client.rendering.v1.LivingEntityFeatureRendererRegistrationCallback;
@@ -44,6 +46,7 @@ public final class GojolanderClient implements ClientModInitializer {
 			context.register(Gojolander.id("gl_sky"), VertexFormats.BLIT_SCREEN, program -> DomainRender.sky = program);
 		});
 		DomainHold.client = ClientDomains::heldHere;
+		ParticleFactoryRegistry.getInstance().register(GojoParticles.MOTE, MoteParticle.Factory::new);
 		LivingEntityFeatureRendererRegistrationCallback.EVENT.register((type, renderer, helper, context) -> {
 			if (renderer instanceof PlayerEntityRenderer player) {
 				helper.register(new BlindfoldFeature(player));

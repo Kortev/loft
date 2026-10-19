@@ -61,7 +61,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>Cast by the blindfold's owner ({@link #cast}), a Domain is a sphere of {@code unlimitedVoidRadius} round where he
  * stood. Through the hand sign nothing is decided: anyone can get out of the ring. When the barrier closes
  * ({@link DomainTimeline#CLOSE}) every living thing inside but him is caught (not players in creative or spectator,
- * nor bosses), and held exactly where it was, in the air or not, until the barrier shatters: it neither moves nor falls
+ * nor bosses, nor whoever is crouched holding on to him: {@link #touching}), and held exactly where it was, in the air or not, until the barrier shatters: it neither moves nor falls
  * nor is knocked about, mobs stop thinking, and players can neither act nor, their clients told, move or look round
  * (the server puts them back if they do). While it stands nothing crosses its surface either way: whoever tries is put
  * back where they were, and anything fired at it or out of it stops dead against it. It is his ult: held to the end,
@@ -85,6 +85,8 @@ public final class DomainManager {
 	private static final double SHELL = 6.0;
 	/** What the void leaves of whoever it held to the end: half a heart. */
 	private static final float BROKEN = 1.0F;
+	/** How near (blocks, between them) counts as touching him, for whoever is spared ({@link #touching}). */
+	private static final double TOUCH = 0.5;
 	/** How far a held player may drift (squared, in blocks) before the server puts them back. */
 	private static final double DRIFT = 0.04;
 
@@ -324,8 +326,9 @@ public final class DomainManager {
 		double r = domain.radius;
 		Box box = Box.of(domain.center, r * 2.0, r * 2.0, r * 2.0);
 		int players = 0;
+		ServerPlayerEntity casting = domain.caster != null ? server.getPlayerManager().getPlayer(domain.caster) : null;
 		for (LivingEntity entity : domain.world.getEntitiesByClass(LivingEntity.class, box, e -> catchable(domain, e))) {
-			if (!domain.contains(entity.getBoundingBox().getCenter())) {
+			if (!domain.contains(entity.getBoundingBox().getCenter()) || touching(casting, entity)) {
 				continue;
 			}
 			domain.caught.put(entity.getUuid(), new Hold(entity.getId(), entity.getPos(), entity.getYaw(), entity.getPitch()));
@@ -337,15 +340,25 @@ public final class DomainManager {
 			}
 		}
 		ModNetworking.broadcast(domain.world, domain.caughtPayload());
-		ServerPlayerEntity caster = domain.caster != null ? server.getPlayerManager().getPlayer(domain.caster) : null;
-		ModCriteria.fire(caster, CAST);
+		ModCriteria.fire(casting, CAST);
 		if (players > 0) {
-			ModCriteria.fire(caster, CAUGHT_PLAYER);
+			ModCriteria.fire(casting, CAUGHT_PLAYER);
 		}
 		if (domain.caught.size() >= CROWD_SIZE) {
-			ModCriteria.fire(caster, CROWD);
+			ModCriteria.fire(casting, CROWD);
 		}
 		Gojolander.LOGGER.debug("Unlimited Void {} caught {}", domain.id, domain.caught.size());
+	}
+
+	/**
+	 * Whether {@code entity} is holding on to him as it closes, and so spared, as in the show ("as long as I'm touching
+	 * you, you'll be fine"): a player crouched right against him (on purpose, so a foe at a sword's reach is not).
+	 */
+	static boolean touching(@Nullable PlayerEntity caster, LivingEntity entity) {
+		if (caster == null || !(entity instanceof PlayerEntity player) || !player.isSneaking()) {
+			return false;
+		}
+		return caster.getBoundingBox().expand(TOUCH).intersects(player.getBoundingBox());
 	}
 
 	private static boolean catchable(Domain domain, LivingEntity entity) {

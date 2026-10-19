@@ -23,6 +23,7 @@ Each is timed to the Domain's timeline (DomainTimeline, in ticks of 1/20 s):
   at SNAP (7 ticks in), a deep dull thud as their knees give out, then almost nothing, muffled, their own slow
   heartbeat; for whoever is by (.world), the faint ring of it cut off and their knees hitting the ground (not a wound:
   a mind giving out);
+- the heartbeat: one slow, muffled beat of their own heart, heard by one it broke over and over through the daze;
 - the fade (its natural end, as in the show): the void's chord sinking and thinning away into air, a long soft
   exhale outward, and the world's quiet coming back;
 - the collapse (cut short): the barrier cracking out from one point (the first 0.45 s), then shattering, its shards
@@ -548,6 +549,21 @@ def domain_break_world():
     return master(y, peak=0.95)
 
 
+def domain_heartbeat():
+    """One slow beat of the heart of one it broke, as they hear it through the daze: a muffled lub and a softer dub,
+    felt more than heard (with the overtones a small speaker carries), close, with no room round it."""
+    n = ns(0.9)
+    y = np.zeros(n)
+    for at, gain in ((0.02, 1.0), (0.24, 0.62)):
+        t = np.arange(n) / SR - at
+        on = t >= 0
+        tt = np.maximum(t, 0)
+        thump = np.sin(2 * np.pi * (44.0 * tt + 10.0 * 0.05 * (1 - np.exp(-tt / 0.05)))) * np.exp(-tt / 0.09) * on
+        y += (thump + lp(white(n), 120) * np.exp(-tt / 0.04) * on * 0.5) * gain
+    y = y + presence(y, 1.6)
+    return master(stereo(y), peak=0.95)
+
+
 def domain_denied():
     n = ns(0.35)
     t = np.arange(n) / SR
@@ -575,16 +591,19 @@ SOUNDS = {
     'domain_pulse_world': (domain_pulse_world, False),
     'domain_break': (domain_break, True),
     'domain_break_world': (domain_break_world, False),
+    'domain_heartbeat': (domain_heartbeat, True),
 }
 LOOPS = ('domain_void', 'domain_flood')
 # Loudness (loudest 400 ms, dB).
 # How long each one-shot runs at most (seconds): the reverb's long tail is cut short and faded.
 LENGTHS = {'domain_sign': 4.6, 'domain_sign_world': 4.8, 'domain_close': 3.2, 'domain_close_world': 5.0,
            'domain_reveal': 6.0, 'domain_fade': 4.0, 'domain_fade_world': 4.0, 'domain_collapse': 4.0, 'domain_collapse_world': 5.0, 'domain_denied': 0.35,
-           'domain_pulse': 1.6, 'domain_pulse_world': 1.2, 'domain_break': 3.2, 'domain_break_world': 2.0}
+           'domain_pulse': 1.6, 'domain_pulse_world': 1.2, 'domain_break': 3.2, 'domain_break_world': 2.0,
+           'domain_heartbeat': 0.9}
 LEVELS = {'domain_fade': -15, 'domain_fade_world': -16, 'domain_reveal': -14, 'domain_sign': -16, 'domain_sign_world': -18, 'domain_close': -12, 'domain_close_world': -13, 'domain_void': -21,
           'domain_flood': -17, 'domain_collapse': -12, 'domain_collapse_world': -13, 'domain_denied': -20,
-          'domain_pulse': -14, 'domain_pulse_world': -17, 'domain_break': -12, 'domain_break_world': -15}
+          'domain_pulse': -14, 'domain_pulse_world': -17, 'domain_break': -12, 'domain_break_world': -15,
+          'domain_heartbeat': -16}
 
 
 def make(name):

@@ -67,8 +67,12 @@ His ult. With the blindfold on, he presses **Z** (rebindable: Domain Expansion).
   falling breath of sound. His left hand comes up again and pulls the blindfold back down over his eyes. The caught go
   free **broken: half a heart** (its last step), and slow, weak and half blind for 15 s. The ringing in their heads
   climbs and snaps off, and their knees give out: down onto them, head hung, for a little over a second (they can do
-  nothing), then up again, dazed, a faint mote of light leaving their heads now and then. Their own view goes down with
-  them. The finishing is left to him: his next blow lands as it would.
+  nothing), then up again, dazed, faint pale motes of the void's light drifting off their heads. Their own view goes
+  down with them, and through the daze they hear their own heart, slow and muffled, fading as it wears off. Anything
+  with arms and legs like a player's (zombies, skeletons, piglins) goes down onto its knees too; other creatures sag.
+  Whoever it held in the air goes down as they land. The finishing is left to him: his next blow lands as it would.
+- **Holding on to him** spares you, as in the show ("as long as I'm touching you, you'll be fine"): a player crouched
+  right against him as it closes is not caught. They see the void, but are not held, flooded or broken.
 - **Cut short, it shatters** instead: cracks run out across it from the eye (from outside, from the side facing you),
   in long rays and rings, then the shards fall away nearest first, edges catching the light, the world behind and its
   air rushing back.

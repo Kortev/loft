@@ -1,6 +1,7 @@
 package io.github.kortev.gojolander.client;
 
 import io.github.kortev.gojolander.domain.DomainTimeline;
+import net.minecraft.client.render.entity.model.BipedEntityModel;
 import net.minecraft.client.render.entity.model.PlayerEntityModel;
 import net.minecraft.util.math.MathHelper;
 
@@ -98,23 +99,22 @@ public final class HandSign {
 	}
 
 	/** A caught player, {@code k} into the flood: head tipped back, arms a little out, trembling, jolted by {@code jolt}. */
-	public static void poseHeld(PlayerEntityModel<?> model, float k, double t, int id, float jolt) {
+	public static void poseHeld(BipedEntityModel<?> model, float k, double t, int id, float jolt) {
 		float tremble = (float) (Math.sin(t * 2.7 + id) * 0.04 + Math.sin(t * 6.1 + id * 3.0) * 0.025) * (1.0F + 2.0F * jolt);
 		model.head.pitch = MathHelper.lerp(k, model.head.pitch, TIPPED - 0.35F * jolt + tremble);
-		model.hat.copyTransform(model.head);
 		model.rightArm.roll = MathHelper.lerp(k, model.rightArm.roll, 0.35F + 0.4F * jolt + tremble);
 		model.leftArm.roll = MathHelper.lerp(k, model.leftArm.roll, -0.35F - 0.4F * jolt - tremble);
 		model.rightArm.pitch = MathHelper.lerp(k, model.rightArm.pitch, -0.15F - 0.3F * jolt + tremble);
 		model.leftArm.pitch = MathHelper.lerp(k, model.leftArm.pitch, -0.15F - 0.3F * jolt - tremble);
-		model.rightSleeve.copyTransform(model.rightArm);
-		model.leftSleeve.copyTransform(model.leftArm);
+		layers(model);
 	}
 
 	/**
-	 * A player let go of broken, {@code k} of the way down onto their knees: legs folded flat under them, slumped, head
-	 * hung, arms limp, breathing (the body is dropped to the ground with it, {@link #DROP}).
+	 * A player, or anything with arms and legs like one (a zombie, a skeleton, a piglin), let go of broken, {@code k} of
+	 * the way down onto their knees: legs folded flat under them, slumped, head hung, arms limp, breathing (the body is
+	 * dropped to the ground with it, {@link #DROP}).
 	 */
-	public static void poseKneel(PlayerEntityModel<?> model, float k, double t, int id) {
+	public static void poseKneel(BipedEntityModel<?> model, float k, double t, int id) {
 		float breath = (float) Math.sin(t * 0.3 + id) * 0.04F;
 		model.rightLeg.pitch = MathHelper.lerp(k, model.rightLeg.pitch, KNEES);
 		model.leftLeg.pitch = MathHelper.lerp(k, model.leftLeg.pitch, KNEES);
@@ -130,11 +130,18 @@ public final class HandSign {
 		model.leftArm.yaw = MathHelper.lerp(k, model.leftArm.yaw, 0.1F);
 		model.rightArm.roll = MathHelper.lerp(k, model.rightArm.roll, 0.06F);
 		model.leftArm.roll = MathHelper.lerp(k, model.leftArm.roll, -0.06F);
+		layers(model);
+	}
+
+	/** The hat over the head, and a player's sleeves and trouser legs over their arms and legs, as posed. */
+	private static void layers(BipedEntityModel<?> model) {
 		model.hat.copyTransform(model.head);
-		model.rightSleeve.copyTransform(model.rightArm);
-		model.leftSleeve.copyTransform(model.leftArm);
-		model.rightPants.copyTransform(model.rightLeg);
-		model.leftPants.copyTransform(model.leftLeg);
+		if (model instanceof PlayerEntityModel<?> player) {
+			player.rightSleeve.copyTransform(player.rightArm);
+			player.leftSleeve.copyTransform(player.leftArm);
+			player.rightPants.copyTransform(player.rightLeg);
+			player.leftPants.copyTransform(player.leftLeg);
+		}
 	}
 
 	/** 0 before {@code r0}, up to 1 by {@code r1}, held, and down to 0 again from {@code f0} to {@code f1}. */

@@ -435,6 +435,9 @@ public class DomainSelfTest implements ClientModInitializer {
 		set(world, EntityType.SHEEP, at.add(direction(facing - 130.0F).multiply(10.0)), facing + 30.0F);
 		set(world, EntityType.PILLAGER, at.add(direction(facing + 200.0F).multiply(12.0)), facing);
 		set(world, EntityType.PIG, at.add(direction(facing + 40.0F).multiply(13.0)), facing + 200.0F);
+		// A husk (arms and legs like a player's, and no burning in the sun) beside where the stand-in will be, to be seen
+		// going down onto its knees as a player does.
+		set(world, EntityType.HUSK, at.add(direction(facing).multiply(STAND_IN + 1.0)).add(direction(facing - 90.0F).multiply(2.4)), facing + 150.0F);
 		ShootingStar.LOGGER.info("[selftest] {} owns the blindfold, standing at {}", Owner.get(), home);
 	}
 

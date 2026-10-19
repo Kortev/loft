@@ -44,6 +44,7 @@ public final class Gojolander implements ModInitializer {
 	@Override
 	public void onInitialize() {
 		GojoSounds.init();
+		GojoParticles.init();
 		GojoRules.init();
 		Owner.init();
 		ItemGroupEvents.modifyEntriesEvent(ItemGroups.COMBAT).register(entries -> entries.add(BLINDFOLD));

@@ -451,6 +451,42 @@ public class DomainGameTests implements FabricGameTest {
 	}
 
 	/**
+	 * Whoever is holding on to him as it closes is spared, as in the show: a player crouched right against him is not
+	 * caught; one standing beside him is, and so is one crouching a few blocks off.
+	 */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "g_gojo_touch", tickLimit = WAIT + DomainTimeline.VOID + HOLD + 60)
+	public void sparesWhoeverHoldsOnToHim(TestContext context) {
+		ServerWorld world = context.getWorld();
+		rules(world, 0);
+		Vec3d center = floor(context);
+		ServerPlayerEntity caster = player(context, owner(context), center);
+		caster.equipStack(EquipmentSlot.HEAD, new ItemStack(Gojolander.BLINDFOLD));
+		ServerPlayerEntity holding = player(context, "holding_on", center.add(0.8, 0.0, 0.0));
+		ServerPlayerEntity beside = player(context, "standing_by", center.add(-0.9, 0.0, 0.0));
+		ServerPlayerEntity off = player(context, "crouched_off", center.add(0.0, 0.0, 3.0));
+		holding.setSneaking(true);
+		off.setSneaking(true);
+		boolean[] held = new boolean[3];
+		Marks marks = new Marks();
+		marks.at(DomainTimeline.CLOSE + SLACK, () -> {
+			held[0] = DomainManager.isHeld(holding);
+			held[1] = DomainManager.isHeld(beside);
+			held[2] = DomainManager.isHeld(off);
+		});
+		marks.at(DomainTimeline.end(HOLD) + SLACK, () -> {
+			float health = holding.getHealth();
+			finish(context, center, caster, holding, beside, off);
+			context.assertTrue(!held[0], "the player crouched against him was caught");
+			context.assertTrue(held[1], "the player standing beside him was not caught");
+			context.assertTrue(held[2], "the player crouching a few blocks off was not caught");
+			context.assertTrue(health == holding.getMaxHealth(), "the one holding on to him was hurt (" + health + ")");
+			context.complete();
+		});
+		marks.run(context, center, List.of(caster, holding, beside, off),
+				() -> context.assertTrue(DomainManager.cast(caster), "the owner could not cast it"));
+	}
+
+	/**
 	 * What a Domain test does, each at a tick counted from its cast. Out here its ground's chunks are still coming in
 	 * while the test server races ahead, and whatever stands in a chunk not yet tracking entities is neither found nor
 	 * caught: so it is cast only once all that stands there can be found (each put back first where the test stood it,

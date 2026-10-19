@@ -1,5 +1,6 @@
 package io.github.kortev.gojolander.client;
 
+import io.github.kortev.gojolander.GojoParticles;
 import io.github.kortev.gojolander.GojoSounds;
 import io.github.kortev.gojolander.domain.DomainTimeline;
 import io.github.kortev.gojolander.network.DomainCaughtPayload;
@@ -24,7 +25,6 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.particle.ParticleTypes;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvent;
 import net.minecraft.util.math.random.Random;
@@ -50,6 +50,12 @@ public final class ClientDomains {
 	/** How near (blocks) one of the caught has to be for their throb or their knees to be heard, and how many are. */
 	private static final double NEAR = 24.0;
 	private static final int VOICES = 4;
+	/**
+	 * Their own heart, heard by one it broke through their daze: this often (ticks, about 46 a minute), once the snap's
+	 * own two beats are done, fading as the daze wears off.
+	 */
+	private static final int BEAT = 26;
+	private static final int BEATS_FROM = 60;
 	/** The broken (network ids), and the world tick their daze is over: the light leaving them, a mote at a time. */
 	private static final Map<Integer, Long> DAZED = new HashMap<>();
 	/** The HUD (and the hand) put away for the caster's shot, and whether it was away already. */
@@ -250,6 +256,7 @@ public final class ClientDomains {
 	public static void tick(MinecraftClient client) {
 		hud(client);
 		motes(client);
+		heartbeat(client);
 		if (DOMAINS.isEmpty()) {
 			return;
 		}
@@ -297,16 +304,32 @@ public final class ClientDomains {
 				continue;
 			}
 			boolean ownEyes = entity == client.player && !client.gameRenderer.getCamera().isThirdPerson();
-			int every = left < 60L ? 20 : 12;
+			int every = left < 60L ? 10 : 6;
 			if (ownEyes || (now + entity.getId()) % every != 0L) {
 				continue;
 			}
-			// One at a time, rising off the top of the head and away, so each is seen on its own.
+			// One at a time, off the top of the head, drifting up and away.
 			Random random = entity.getRandom();
-			double w = entity.getWidth() * 0.5;
-			client.world.addParticle(ParticleTypes.END_ROD, entity.getX() + (random.nextDouble() - 0.5) * w,
-					entity.getBoundingBox().maxY + 0.05, entity.getZ() + (random.nextDouble() - 0.5) * w,
-					(random.nextDouble() - 0.5) * 0.02, 0.045 + random.nextDouble() * 0.02, (random.nextDouble() - 0.5) * 0.02);
+			double w = entity.getWidth() * 0.6;
+			client.world.addParticle(GojoParticles.MOTE, entity.getX() + (random.nextDouble() - 0.5) * w,
+					entity.getBoundingBox().maxY - 0.1 + random.nextDouble() * 0.2, entity.getZ() + (random.nextDouble() - 0.5) * w,
+					(random.nextDouble() - 0.5) * 0.012, 0.012 + random.nextDouble() * 0.01, (random.nextDouble() - 0.5) * 0.012);
+		}
+	}
+
+	/** This player's own heart, if it broke them: slow, muffled beats through their daze, fading as it wears off. */
+	private static void heartbeat(MinecraftClient client) {
+		if (client.player == null || client.world == null) {
+			return;
+		}
+		Long until = DAZED.get(client.player.getId());
+		if (until == null) {
+			return;
+		}
+		long left = until - client.world.getTime();
+		long since = DomainTimeline.DAZE - left;
+		if (left > 0L && since >= BEATS_FROM && (since - BEATS_FROM) % BEAT == 0L) {
+			master(client, GojoSounds.HEARTBEAT, (float) (0.15 + 0.75 * left / DomainTimeline.DAZE));
 		}
 	}
 

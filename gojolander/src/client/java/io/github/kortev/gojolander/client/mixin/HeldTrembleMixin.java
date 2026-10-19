@@ -7,6 +7,7 @@ import io.github.kortev.gojolander.domain.DomainTimeline;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.LivingEntityRenderer;
+import net.minecraft.client.render.entity.model.BipedEntityModel;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
@@ -20,8 +21,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 /**
  * Whatever a Domain holds trembles where it hangs once the flood pours in: everything there is, all at once, is too much
  * to stand still under; at each step down it jolts. Let go of broken, it shakes harder as the ringing climbs, then
- * gives way: a player drops onto their knees (posed by {@link PlayerModelMixin}), anything else sags forward over its
- * legs, until they come to and get up. Only drawn so (it stays exactly where it is).
+ * gives way: a player, or anything with arms and legs like one, drops onto its knees (posed by {@link PlayerModelMixin}
+ * and {@link BipedKneelMixin}), anything else sags forward over its legs, until they come to and get up. Only drawn so (it stays exactly where it is).
  */
 @Mixin(LivingEntityRenderer.class)
 public abstract class HeldTrembleMixin {
@@ -53,8 +54,9 @@ public abstract class HeldTrembleMixin {
 		if (kneel <= 0.0F) {
 			return;
 		}
-		if (entity instanceof PlayerEntity) {
-			matrices.translate(0.0F, -HandSign.DROP * kneel, 0.0F);
+		if (((LivingEntityRenderer<?, ?>) (Object) this).getModel() instanceof BipedEntityModel<?>) {
+			// Down onto its knees, as far as its legs are long (a player's, a zombie's, a baby's).
+			matrices.translate(0.0F, -HandSign.DROP * entity.getHeight() / PlayerEntity.STANDING_DIMENSIONS.height() * kneel, 0.0F);
 		} else {
 			// Forward over its legs: about the axis to its right, through its feet.
 			float r = MathHelper.lerpAngleDegrees(delta, entity.prevBodyYaw, entity.bodyYaw) * MathHelper.RADIANS_PER_DEGREE;
