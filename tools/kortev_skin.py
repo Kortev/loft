@@ -1,10 +1,11 @@
 """Draws kortev's skin in the Public Safety uniform: py tools/kortev_skin.py SOURCE.png OUT.png
 
-His own face, from his skin (SOURCE: his shark onesie, hood up, only his face and fringe showing), with the hood gone
-and his hair as he has it: orange and fluffy, messy, an e-boy cut with a mullet (the outer layer gives it its bulk).
+His own head, from his skin (SOURCE: his shark onesie, hood up, only his face and fringe showing), with the hood
+pulled down: his face and fringe exactly as they were, and the hood become hair in his fringe's own oranges, hanging in
+strands round the sides and back on the outer layer.
 Under it Public Safety's devil-hunter uniform as Denji wears it in the anime: a white shirt with the sleeves rolled to
 the elbow, a black tie, a belt, black trousers and black shoes. And a little of his old skin's style: a shark-tooth
-clip on the tie, a silver hoop in his right ear, and a wallet chain on his right hip. A 64x64 skin in the game's
+clip on the tie and a wallet chain on his right hip. A 64x64 skin in the game's
 layout, wide arms. Needs Pillow and numpy.
 """
 import sys
@@ -68,125 +69,76 @@ def cube(u, v, w, h, d, faces):
 
 # --- the head ---------------------------------------------------------------------------------------------------------
 #
-# His hair is drawn pixel by pixel, a map for each face of the head (8 x 8, the inner layer and the outer): orange and
-# fluffy, messy, an e-boy cut: parted in the middle with curtain bangs falling either side of his face, full over the
-# ears, and a mullet down the back of his neck and over his collar. Letters are colours (HAIR_KEY), '.' is bare (the
-# outer layer) or his face as it was (the front of the inner layer's lower rows, 'x').
+# His head is his own skin's with the hood pulled down: every pixel of his face and his fringe stays where it is (on
+# both layers), and every pixel that was the hood (its blue, its teeth, its eyes and blush) becomes hair, in the
+# oranges of his own fringe and nothing else. On the outer layer the hair hangs round the sides and the back in strands
+# with jagged ends, the way the e-boy style draws it, ending at the nape.
 
-HAIR_KEY = {'L': hexc('#ffb35a'), 'O': hexc('#f58a1f'), 'M': hexc('#e2761a'), 'D': hexc('#b95a12'), 'K': hexc('#86400c'),
-            's': hexc('#d8b49d'), 'S': hexc('#c9a28a'), 'r': hexc('#b9b9bd')}
-
-# The inner layer. The top's last row meets the front's top; the sides run from the back (left) to the face (right) on
-# his right side, mirrored on his left.
-HEAD_TOP = ['OMOLOMOO',
-            'MOLOOMLO',
-            'OOMOLOOM',
-            'LOOMOOLO',
-            'OMOODOMO',
-            'OOLDDLOO',
-            'MOODDOOM',
-            'OLMDDMLO']
-HEAD_FRONT = ['OLOOOOLO',
-              'OOODDOOO',
-              'OOMssMOO',
-              'MOssssOM',
-              'xxxxxxxx',
-              'xxxxxxxx',
-              'xxxxxxxx',
-              'xxxxxxxx']
-HEAD_SIDE = ['OOLOOMOO',
-             'MOOLOOMO',
-             'OMOOMOOO',
-             'DOMOOLOM',
-             'DMOOMOsS',
-             'DDMOOsss',
-             'KDDMsrss',
-             'KKDDssss']
-HEAD_BACK = ['OMOLOMOO',
-             'MOOMOOLO',
-             'OLMOOMOO',
-             'MOOMLOOM',
-             'DMOOMODM',
-             'DDMOODDD',
-             'KDDMDDKD',
-             'KKDDDDKK']
-
-# The outer layer: the hair's bulk, standing off the head.
-HAT_TOP = ['LOMOOLOM',
-           'O.OLMO.O',
-           'MOLOO.LO',
-           'OO.MOLOO',
-           'L.OOMO.L',
-           'OLO..OLO',
-           'MOL..LOM',
-           'OM....MO']
-HAT_FRONT = ['OOLOOLOO',
-             'OLMO.LOO',
-             'OMO...MO',
-             'MOD...OM',
-             'M......M',
-             'D......D',
-             'D......D',
-             '........']
-HAT_SIDE = ['OOLOOMOO',
-            'OMOOLOOO',
-            'LOOMOOMO',
-            'OOMOLOOM',
-            'MOOMOOM.',
-            'DMOOMD..',
-            'DDMDD...',
-            'KDDD....']
-HAT_BACK = ['OLOOMOLO',
-            'OOMOLOOM',
-            'MOLOOMOO',
-            'OOMLOOMO',
-            'DMOOMODM',
-            'DDMODMDD',
-            'KDDMDDKD',
-            'KDDKDDKK']
-# The mullet going on down over his collar (the outer layer of the body's back, its top rows).
-MULLET = ['.DMDDMD.',
-          '..DKDD..',
-          '...K.K..']
+# His fringe's oranges, from his skin, lightest to darkest.
+HAIR_TONES = [hexc('#ffac05'), hexc('#f2a304'), hexc('#e39904'), hexc('#e09704'), hexc('#db9304'), hexc('#c98803'),
+              hexc('#b07703')]
+# The head's six faces in the skin, for the inner layer (u = 0) and the outer (u = 32): name -> (x, y) of its corner.
+FACES = {'top': (8, 0), 'bottom': (16, 0), 'right': (0, 8), 'front': (8, 8), 'left': (16, 8), 'back': (24, 8)}
 
 
-def paint(x0, y0, rows, mirror=False, under=None):
-    """Paints a face from its map; 'x' takes {@code under}'s pixel there (his own face)."""
-    for y, row in enumerate(rows):
-        row = row[::-1] if mirror else row
-        for x, c in enumerate(row):
-            if c == '.':
-                continue
-            if c == 'x':
-                img[y0 + y, x0 + x] = under.getpixel((8 + x, 8 + y))
-            else:
-                img[y0 + y, x0 + x] = HAIR_KEY[c]
+def his(c):
+    """Whether a pixel of his old skin is his own (his face, his hair: warm), not the hood's (blue, white, grey, pink)."""
+    r, g, b, a = c
+    return a > 0 and r > b + 30 and not (r > 230 and b > 200)
+
+
+def strands(seed):
+    """A hair tone for each pixel of a face: each column a strand of one tone, a step darker every few rows down and
+    darkest at its tip, its neighbours a little different; like hair drawn in strands, not noise."""
+    local = np.random.default_rng(seed)
+    base = local.integers(0, 4, 8)
+    return lambda x, y, length=8: HAIR_TONES[min(len(HAIR_TONES) - 1, int(base[x]) + y // 3 + (2 if y >= length - 1 else 0))]
 
 
 def head(src):
-    def bottom(x0, y0, w, h):
-        fill(x0, y0, x0 + w, y0 + h, SKIN_SHADE)
+    for i, (name, (fx, fy)) in enumerate(FACES.items()):
+        tone = strands(100 + i)
+        for y in range(8):
+            for x in range(8):
+                c = src.getpixel((fx + x, fy + y))
+                if name == 'bottom':
+                    img[fy + y, fx + x] = SKIN_SHADE
+                elif name == 'front' and y >= 2:
+                    # His face, exactly as it was: only the hood's brim above it changes.
+                    img[fy + y, fx + x] = c
+                elif his(c):
+                    img[fy + y, fx + x] = c
+                else:
+                    img[fy + y, fx + x] = tone(x, y)
 
-    cube(0, 0, 8, 8, 8, {'top': lambda x0, y0, w, h: paint(x0, y0, HEAD_TOP),
-                         'bottom': bottom,
-                         'front': lambda x0, y0, w, h: paint(x0, y0, HEAD_FRONT, under=src),
-                         'right': lambda x0, y0, w, h: paint(x0, y0, HEAD_SIDE),
-                         'left': lambda x0, y0, w, h: paint(x0, y0, HEAD_SIDE, mirror=True),
-                         'back': lambda x0, y0, w, h: paint(x0, y0, HEAD_BACK)})
-    put(16 + 2, 8 + 6, HAIR_KEY['s'])
-    # The sides of his face under the curtain bangs: hair, not the hood's dark edge.
-    for y in (4, 5, 6):
-        put(8, 8 + y, HAIR_KEY['D'])
-        put(15, 8 + y, HAIR_KEY['D'])
 
-
-def hair_layer():
-    """The outer layer of the head: the hair's bulk."""
-    cube(32, 0, 8, 8, 8, {'top': lambda x0, y0, w, h: paint(x0, y0, HAT_TOP),
-                          'front': lambda x0, y0, w, h: paint(x0, y0, HAT_FRONT),
-                          'right': lambda x0, y0, w, h: paint(x0, y0, HAT_SIDE),
-                          'left': lambda x0, y0, w, h: paint(x0, y0, HAT_SIDE, mirror=True),
-                          'back': lambda x0, y0, w, h: paint(x0, y0, HAT_BACK)})
+def hair_layer(src):
+    """The outer layer of the head: his fringe's strands where they were, the rest of the hood become hair's bulk."""
+    # How far each column's strand hangs (rows from the top), across each face. The sides run from the back of the
+    # head to his face on his right (mirrored on his left): long at the back, shorter toward his face, which the
+    # strands frame. The back ends at the nape, jagged.
+    side = [8, 7, 8, 7, 7, 6, 5, 4]
+    lengths = {'right': side, 'left': side[::-1], 'back': [7, 8, 6, 8, 7, 8, 6, 7]}
+    for i, (name, (fx, fy)) in enumerate(FACES.items()):
+        fx += 32
+        tone = strands(200 + i)
+        for y in range(8):
+            for x in range(8):
+                c = src.getpixel((fx + x, fy + y))
+                if his(c):
+                    img[fy + y, fx + x] = c
+                elif name == 'top':
+                    # The crown, all but a few gaps that let the hair under it show through.
+                    if rng.random() < 0.88:
+                        img[fy + y, fx + x] = tone(x, y // 3)
+                elif name == 'front':
+                    # Over his forehead where the hood's brim and teeth were: his fringe, carried on up to the top.
+                    if y < 3 or (y == 3 and c[3] > 0):
+                        img[fy + y, fx + x] = tone(x, y)
+                elif name in lengths:
+                    n = lengths[name][x]
+                    if y < n:
+                        img[fy + y, fx + x] = tone(x, y, n)
 
 
 # --- the body ---------------------------------------------------------------------------------------------------------
@@ -239,7 +191,7 @@ def shirt_body():
 
 def shirt_layer():
     """The outer layer of the body: the collar standing up round the neck, its points spread, and the tie standing
-    out from the shirt with its shark-tooth clip, and his mullet falling over the collar at the back."""
+    out from the shirt with its shark-tooth clip."""
     def front(x0, y0, w, h):
         for x in (1, 2, 5, 6):
             put(x0 + x, y0, SHIRT[0])
@@ -255,11 +207,6 @@ def shirt_layer():
         put(x0 + 4, y0 + 4, BUCKLE[0])
         put(x0 + 4, y0 + 5, TOOTH)
 
-    def back(x0, y0, w, h):
-        for x in range(w):
-            put(x0 + x, y0, SHIRT[0])
-        paint(x0, y0, MULLET)
-
     def ring(x0, y0, w, h):
         for x in range(w):
             put(x0 + x, y0, SHIRT[0])
@@ -271,7 +218,7 @@ def shirt_layer():
             put(x0 + 1, y0 + y, SHIRT[1])
             put(x0 + w - 2, y0 + y, SHIRT[1])
 
-    cube(16, 32, 8, 12, 4, {'top': top, 'front': front, 'right': ring, 'left': ring, 'back': back})
+    cube(16, 32, 8, 12, 4, {'top': top, 'front': front, 'right': ring, 'left': ring, 'back': ring})
 
 
 def arm(u, v):
@@ -341,7 +288,7 @@ def wallet_chain():
 def main():
     src = Image.open(sys.argv[1]).convert('RGBA')
     head(src)
-    hair_layer()
+    hair_layer(src)
     shirt_body()
     shirt_layer()
     arm(40, 16)     # right arm
