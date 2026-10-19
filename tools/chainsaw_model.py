@@ -34,7 +34,7 @@ import bpy  # must come first: it provides bmesh and mathutils
 import bmesh
 from mathutils import Matrix, Vector
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw
 
 # --- layout (pixels; feet at the origin, facing -y, z up) ---------------------------------------------------------
 
@@ -116,8 +116,8 @@ HEAD_BAR_ROOT = Vector((0.0, 0.0, 30.9))
 HEAD_BAR = (30.0, 4.2, 0.75)
 HEAD_BAR_TILT = 0.0
 # The arms' saws: length, height and thickness; where they leave the forearm, measured down the arm from the shoulder.
-ARM_BAR = (13.0, 2.9, 0.6)
-ARM_BAR_ROOT = 6.0
+ARM_BAR = (19.0, 3.4, 0.6)
+ARM_BAR_ROOT = 3.5
 # The chain's cutters: how far apart they are round the bar, and how far their spikes stand out, as part of the
 # bar's height.
 CUTTER_PITCH = 0.85
@@ -1013,21 +1013,23 @@ def build_arm(side, pose):
     # The sleeve, and the hand below it, in the arm's own space (shoulder at the origin, hanging down -z).
     parts.append(box('sleeve', (0.0, 0.0, -4.5), (2.0, 2.0, 4.5), 'shirt', 'stand_in'))
     parts.append(box('hand', (0.0, 0.0, -10.75), (2.0, 2.0, 1.75), 'hand', 'stand_in'))
-    # The saw: out of the middle of the forearm, flat faces forward and back, its chain breaking out through both
-    # sides of the sleeve, running on down the arm and past the fist.
+    # The saw: out of the middle of the arm from just below the shoulder, its width running front to back (its teeth
+    # along the top and bottom of the arm when it is held out, its flat faces to the sides), its chain breaking out
+    # through the front and back of the sleeve, running on down the arm, through the fist and far past it.
     root = Vector((0.0, 0.0, -ARM_BAR_ROOT))
     frame = Matrix.Translation(root) @ Matrix((
-        (0.0, side * 1.0, 0.0, 0.0), (0.0, 0.0, 1.0, 0.0), (-1.0, 0.0, 0.0, 0.0), (0, 0, 0, 1)))
+        (0.0, 0.0, 1.0, 0.0), (0.0, 1.0, 0.0, 0.0), (-1.0, 0.0, 0.0, 0.0), (0, 0, 0, 1)))
     before = set(bpy.context.scene.objects)
     part = 'arm_left' if side > 0 else 'arm_right'
     saw('arm_saw', ARM_BAR, frame, part, housing=False)
-    # Where it comes through: the fist split in two along the middle finger, open and bloody down both its sides and
-    # across its knuckles, and the sleeve torn open above it where the blade bursts out of the forearm.
-    for sx in (-1.0, 1.0):
-        box('gash', (sx * 2.03, 0.0, -10.75), (0.03, 0.45, 1.75), 'wound', part)
-        box('tear', (sx * 2.03, 0.0, -7.5), (0.03, 0.38, 1.5), 'throat', part)
-        box('tear_edge', (sx * 2.04, 0.0, -9.0), (0.03, 0.55, 0.12), 'wound', part)
-    box('gash', (0.0, 0.0, -12.53), (2.0, 0.45, 0.03), 'wound', part)
+    # Where it comes through: the fist split in two along the middle finger, open and bloody down its front and back
+    # and across its knuckles, and the sleeve torn open above it all the way up to where the blade bursts out.
+    tear_top = -ARM_BAR_ROOT
+    for sy in (-1.0, 1.0):
+        box('gash', (0.0, sy * 2.03, -10.75), (0.45, 0.03, 1.75), 'wound', part)
+        box('tear', (0.0, sy * 2.03, (tear_top - 9.0) / 2), (0.38, 0.03, (tear_top + 9.0) / 2), 'throat', part)
+        box('tear_edge', (0.0, sy * 2.04, -9.0), (0.55, 0.03, 0.12), 'wound', part)
+    box('gash', (0.0, 0.0, -12.53), (0.45, 2.0, 0.03), 'wound', part)
     parts += [o for o in bpy.context.scene.objects if o not in before]
     for o in parts:
         o.parent = pivot
@@ -1234,8 +1236,240 @@ def linear_to_srgb(c):
     return np.where(c <= 0.0031308, c * 12.92, 1.055 * np.power(c, 1 / 2.4) - 0.055)
 
 
+# --- the game's look: painted, not baked ------------------------------------------------------------------------------
+#
+# The game's texture is not a render of the realistic materials (scratched, grimy, photographic: they fit neither
+# Minecraft nor the anime). It is painted the way the anime draws him and the way Minecraft draws everything: flat
+# colours, a light tone and a shadow tone for each, cut by a hard line where the light turns away; dark ink lines along
+# every hard edge; the cords striped in bands; blood in flat red splats. And chunky: about TEXELS_PER_PIXEL texels to
+# each pixel of a skin, so it sits with the skin under it.
+
+# Each material's flat colours in the game (sRGB): light, shadow, ink.
+TOON = {
+    'visor': ((255, 132, 36), (214, 94, 26), (70, 24, 8)),
+    'engine': ((52, 52, 58), (32, 32, 36), (8, 8, 10)),
+    'housing': ((52, 52, 58), (32, 32, 36), (8, 8, 10)),
+    'slot': ((18, 14, 14), (18, 14, 14), (8, 6, 6)),
+    'eye': ((255, 214, 84), (255, 196, 60), (255, 160, 40)),
+    'tooth': ((244, 242, 234), (204, 202, 194), (86, 84, 80)),
+    'gum': ((196, 74, 86), (152, 52, 62), (70, 18, 24)),
+    'throat': ((30, 8, 12), (22, 6, 8), (10, 2, 4)),
+    'cords': ((88, 66, 58), (60, 44, 38), (22, 15, 13)),
+    'bar': ((246, 246, 242), (236, 236, 232), (80, 80, 84)),
+    'chain': ((62, 62, 68), (42, 42, 46), (12, 12, 14)),
+    'links': ((150, 150, 156), (108, 108, 114), (30, 30, 32)),
+    'bolt': ((150, 150, 156), (108, 108, 114), (30, 30, 32)),
+    'handle': ((36, 36, 40), (24, 24, 28), (8, 8, 10)),
+    'hose': ((30, 30, 32), (20, 20, 22), (6, 6, 8)),
+    'cord': ((166, 154, 136), (128, 118, 104), (50, 44, 38)),
+    'wound': ((160, 18, 28), (108, 10, 18), (50, 4, 8)),
+}
+# The blood: a bright red and its darker heart.
+BLOOD = ((186, 18, 26), (120, 8, 14))
+# How much of each material's surface is splashed with blood (the chance, roughly), and how big the splashes are
+# (pixels).
+BLOODY = {'bar': (0.42, 1.6), 'chain': (0.3, 1.0), 'tooth': (0.03, 0.8), 'visor': (0.1, 0.9), 'wound': (1.0, 1.0)}
+# The light the shadow tone is cut against: from in front, above and to his left.
+TOON_LIGHT = Vector((0.35, -0.55, 0.75)).normalized()
+TOON_SHADOW_AT = 0.12
+# Edges sharper than this (degrees between their faces) get an ink line.
+INK_ANGLE = 38.0
+TEXELS_PER_PIXEL = 2.5
+
+
+def value_noise(p, scale, seed):
+    """Smooth value noise at {@code p} (arrays of x, y, z), features about {@code scale} apart; 0 to 1."""
+    q = [c / scale for c in p]
+    i = [np.floor(c).astype(np.int64) for c in q]
+    f = [c - np.floor(c) for c in q]
+    f = [t * t * (3 - 2 * t) for t in f]
+
+    def hashed(x, y, z):
+        h = (x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (seed * 2654435761)
+        h = (h ^ (h >> 13)) * 1274126177
+        return ((h ^ (h >> 16)) & 0xFFFF) / 65535.0
+
+    out = 0.0
+    for dx in (0, 1):
+        for dy in (0, 1):
+            for dz in (0, 1):
+                w = (f[0] if dx else 1 - f[0]) * (f[1] if dy else 1 - f[1]) * (f[2] if dz else 1 - f[2])
+                out = out + w * hashed(i[0] + dx, i[1] + dy, i[2] + dz)
+    return out
+
+
+def toon_colour(mat, pos, normal):
+    """The colours of texels of {@code mat} at build-space points {@code pos} (N x 3) facing {@code normal} (N x 3)."""
+    light, shadow, ink = TOON.get(mat, ((200, 0, 200), (150, 0, 150), (40, 0, 40)))
+    lit = normal @ np.array(TOON_LIGHT) > TOON_SHADOW_AT
+    rgb = np.where(lit[:, None], np.array(light, np.float32), np.array(shadow, np.float32))
+    if mat == 'cords':
+        # Wrapped in bands, like the anime's brickwork of strands.
+        band = (np.floor(pos[:, 2] * 2.2 + value_noise(pos.T, 0.6, 5) * 1.5) % 2).astype(bool)
+        rgb = np.where(band[:, None], rgb * 0.68, rgb)
+    if mat in BLOODY:
+        amount, size = BLOODY[mat]
+        n = value_noise(pos.T, size, 11) * 0.7 + value_noise(pos.T, size * 0.35, 12) * 0.3
+        drip = value_noise(np.array([pos[:, 0], pos[:, 1], pos[:, 2] * 0.18]), size * 0.5, 13)
+        splash = (n > 1.0 - amount * 0.75) | ((drip > 0.8) & (n > 1.0 - amount * 1.1))
+        heart = n > 1.0 - amount * 0.45
+        rgb = np.where(splash[:, None], np.array(BLOOD[0], np.float32), rgb)
+        rgb = np.where((splash & heart)[:, None], np.array(BLOOD[1], np.float32), rgb)
+    return rgb
+
+
+def paint_toon(copies, size):
+    """Paints the copies' faces into a size x size texture through their 'bake' UVs: each texel the colour of its
+    material where it lands on the model, then ink along the hard edges. Returns the image (rows from the top)."""
+    rgb = np.zeros((size, size, 3), np.float32)
+    valid = np.zeros((size, size), bool)
+    inks = []
+    for c in copies:
+        bm = bmesh.new()
+        bm.from_mesh(c.data)
+        uv_layer = bm.loops.layers.uv['bake']
+        mats = [m.name.split('.')[0] for m in c.data.materials] or ['']
+        # Ink: every boundary edge and every edge sharper than INK_ANGLE, in each face's own UVs.
+        for e in bm.edges:
+            faces = e.link_faces
+            sharp = len(faces) < 2 or math.degrees(faces[0].normal.angle(faces[1].normal, 0.0)) > INK_ANGLE
+            if not sharp:
+                continue
+            for f in faces:
+                for loop in f.loops:
+                    if loop.edge == e:
+                        a = loop[uv_layer].uv
+                        b = loop.link_loop_next[uv_layer].uv
+                        inks.append(((a.x * size, (1 - a.y) * size), (b.x * size, (1 - b.y) * size),
+                                     TOON.get(mats[f.material_index], ((0, 0, 0),) * 3)[2]))
+        bmesh.ops.triangulate(bm, faces=bm.faces[:])
+        for f in bm.faces:
+            mat = mats[min(f.material_index, len(mats) - 1)]
+            uv = np.array([[l[uv_layer].uv.x * size, (1 - l[uv_layer].uv.y) * size] for l in f.loops], np.float64)
+            co = np.array([list(l.vert.co) for l in f.loops], np.float64)
+            x0, y0 = np.floor(uv.min(axis=0)).astype(int)
+            x1, y1 = np.ceil(uv.max(axis=0)).astype(int)
+            x0, y0 = max(x0, 0), max(y0, 0)
+            x1, y1 = min(x1, size - 1), min(y1, size - 1)
+            if x1 < x0 or y1 < y0:
+                continue
+            gx, gy = np.meshgrid(np.arange(x0, x1 + 1) + 0.5, np.arange(y0, y1 + 1) + 0.5)
+            p = np.stack([gx.ravel(), gy.ravel()], axis=1)
+            (ax, ay), (bx, by), (cx, cy) = uv
+            det = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy)
+            if abs(det) < 1e-12:
+                continue
+            w0 = ((by - cy) * (p[:, 0] - cx) + (cx - bx) * (p[:, 1] - cy)) / det
+            w1 = ((cy - ay) * (p[:, 0] - cx) + (ax - cx) * (p[:, 1] - cy)) / det
+            w2 = 1 - w0 - w1
+            # A little slack, so texels on the triangles' shared edges are not left out.
+            inside = (w0 >= -0.02) & (w1 >= -0.02) & (w2 >= -0.02)
+            if not inside.any():
+                continue
+            w = np.stack([w0, w1, w2], axis=1)[inside]
+            pos = w @ co
+            normal = np.repeat(np.array([list(f.normal)]), len(pos), axis=0)
+            col = toon_colour(mat, pos, normal)
+            px = p[inside].astype(int)
+            rgb[px[:, 1], px[:, 0]] = col
+            valid[px[:, 1], px[:, 0]] = True
+        bm.free()
+    img = Image.fromarray(np.clip(dilate(rgb / 255.0, valid, steps=4) * 255 + 0.5, 0, 255).astype(np.uint8), 'RGB')
+    draw = ImageDraw.Draw(img)
+    for a, b, colour in inks:
+        draw.line([a, b], fill=tuple(colour), width=1)
+    return img
+
+
+def toon_size(copies):
+    """The texture's size (a power of two) that gives about TEXELS_PER_PIXEL texels to a pixel of the model."""
+    model, uv = 0.0, 0.0
+    for c in copies:
+        me = c.data
+        layer = me.uv_layers['bake'].data
+        for poly in me.polygons:
+            model += poly.area
+            pts = [layer[li].uv for li in poly.loop_indices]
+            uv += abs(sum(pts[i].x * pts[(i + 1) % len(pts)].y - pts[(i + 1) % len(pts)].x * pts[i].y
+                          for i in range(len(pts)))) / 2
+    want = TEXELS_PER_PIXEL * math.sqrt(model / max(uv, 1e-9))
+    return int(2 ** round(math.log2(want)))
+
+
+# Small, many-pieced parts (the chains, the teeth, the wires, the bolts...) are not unwrapped and painted: each of their
+# faces takes one flat colour from a swatch, light or shadow as it faces, striped or bloodied as its place says. At their
+# size that looks the same, and it leaves the texture to the big parts.
+SWATCHED = {'chain', 'links', 'bolt', 'tooth', 'cords', 'handle', 'hose', 'gum', 'throat', 'slot', 'eye', 'cord',
+            'wound'}
+# The share of the texture's width the painted parts are packed into; the swatches go down the rest.
+PAINTED_SHARE = 0.8
+SWATCH_TEXELS = 4
+
+
+def material_of(c):
+    return c.data.materials[0].name.split('.')[0] if c.data.materials else ''
+
+
+def swatch_tones(mat, pos, normal):
+    """Which of a swatched material's tones each face takes: 0 light, 1 shadow, 2 blood, 3 dark blood."""
+    rgb = toon_colour(mat, pos, normal)
+    light, shadow, ink = TOON.get(mat, ((200, 0, 200),) * 3)
+    tones = np.zeros(len(pos), int)
+    for k, colour in enumerate((light, shadow, BLOOD[0], BLOOD[1])):
+        tones[np.all(np.abs(rgb - np.array(colour, np.float32)) < 1, axis=1)] = k
+    # The cords' dark bands are their own tone: the shadow's.
+    if mat == 'cords':
+        tones[np.all(np.abs(rgb - np.array(light, np.float32) * 0.68) < 1, axis=1)] = 1
+        tones[np.all(np.abs(rgb - np.array(shadow, np.float32) * 0.68) < 1, axis=1)] = 1
+    return tones
+
+
+def assign_swatches(copies, size):
+    """Points every face of the swatched copies at its tone's swatch; returns what to paint where: (x, y, colour)."""
+    mats = sorted({material_of(c) for c in copies})
+    cells = {}
+    paint = []
+    x0 = int(size * PAINTED_SHARE) + 2
+    per_row = max(1, (size - x0) // SWATCH_TEXELS)
+    i = 0
+    for mat in mats:
+        light, shadow, ink = TOON.get(mat, ((200, 0, 200),) * 3)
+        for k, colour in enumerate((light, shadow, BLOOD[0], BLOOD[1])):
+            cx = x0 + (i % per_row) * SWATCH_TEXELS
+            cy = (i // per_row) * SWATCH_TEXELS
+            cells[(mat, k)] = ((cx + SWATCH_TEXELS / 2) / size, 1.0 - (cy + SWATCH_TEXELS / 2) / size)
+            paint.append((cx, cy, colour))
+            i += 1
+    assert (i - 1) // per_row * SWATCH_TEXELS + SWATCH_TEXELS <= size, 'the swatches do not fit beside the painted parts'
+    for c in copies:
+        me = c.data
+        mat = material_of(c)
+        layer = me.uv_layers['bake'].data
+        centres = np.array([list(p.center) for p in me.polygons])
+        normals = np.array([list(p.normal) for p in me.polygons])
+        if not len(centres):
+            continue
+        tones = swatch_tones(mat, centres, normals)
+        for poly, tone in zip(me.polygons, tones):
+            u, v = cells[(mat, int(tone))]
+            for li in poly.loop_indices:
+                layer[li].uv = (u, v)
+    return paint
+
+
+def shrink_uvs(copies, share):
+    """Scales the copies' packed UVs into the bottom-left {@code share} of the square."""
+    for c in copies:
+        layer = c.data.uv_layers['bake'].data
+        co = np.empty(len(layer) * 2, np.float32)
+        layer.foreach_get('uv', co)
+        co = co * share
+        co[1::2] += 1.0 - share
+        layer.foreach_set('uv', co)
+
+
 def export_game():
-    """Bakes the form and writes the game's mesh and texture.
+    """Paints the form and writes the game's mesh and texture.
 
     .csm (little endian): b"CSM1", int32 part count; per part its name and the bone it follows (each int16 length then
     UTF-8), int32 quad count, and four corners per quad: float32 x, y, z (pixels, in the bone's model space from its
@@ -1263,7 +1497,12 @@ def export_game():
         copies.append(c)
     for o, part in objs:
         o.hide_render = True
-    unwrap(copies)
+    painted = [c for c in copies if material_of(c) not in SWATCHED]
+    swatched = [c for c in copies if material_of(c) in SWATCHED]
+    unwrap(painted)
+    shrink_uvs(painted, PAINTED_SHARE)
+    size = toon_size(painted)
+    swatches = assign_swatches(swatched, size)
     # Read each copy's geometry before they are joined for the bake.
     parts = {}
     for c in copies:
@@ -1282,38 +1521,14 @@ def export_game():
                 corners.append(corners[2])
             parts.setdefault(part, []).append(corners)
 
-    # One object for the bake: Cycles goes over the whole image once per object baked.
-    bpy.ops.object.select_all(action='DESELECT')
-    for c in copies:
-        c.select_set(True)
-    bpy.context.view_layer.objects.active = copies[0]
-    bpy.ops.object.join()
-    joined = copies[0]
-    scene.render.engine = 'CYCLES'
-    scene.cycles.device = 'CPU'
-    scene.cycles.samples = BAKE_SAMPLES
-    scene.render.bake.margin = 0
-    world = bpy.data.worlds.new('bake_even')
-    world.use_nodes = True
-    world.node_tree.nodes['Background'].inputs['Color'].default_value = (1.0, 1.0, 1.0, 1.0)
-    scene.world = world
-    kept = plain_metal()
-    color = bake_into('DIFFUSE', joined, {'COLOR'})
-    emit = bake_into('EMIT', joined)
-    restore_metal(kept)
-    scene.cycles.samples = 64
-    world.light_settings.distance = 0.6
-    ao = bake_into('AO', joined)[..., 0]
-    valid = color[..., 3] > 0.5
-    rgb = color[..., :3] * (SHUT_IN + (1.0 - SHUT_IN) * np.clip(ao, 0.0, 1.0))[..., None]
-    rgb = np.maximum(rgb, np.clip(emit[..., :3], 0.0, 1.0))
-    rgb = dilate(linear_to_srgb(rgb), valid)
-    rgb = np.clip(rgb ** LIFT[0] * LIFT[1], 0.0, 1.0)
-    grey = rgb.mean(axis=-1, keepdims=True)
-    rgb = np.clip(grey + (rgb - grey) * SATURATE, 0.0, 1.0)
+    # The texture, painted (see paint_toon), and the swatches beside it.
+    img = paint_toon(painted, size)
+    draw = ImageDraw.Draw(img)
+    for x, y, colour in swatches:
+        draw.rectangle([x, y, x + SWATCH_TEXELS - 1, y + SWATCH_TEXELS - 1], fill=tuple(colour))
     os.makedirs(os.path.dirname(GAME_TEXTURE), exist_ok=True)
-    Image.fromarray((np.clip(rgb, 0, 1) * 255 + 0.5).astype(np.uint8), 'RGB').save(GAME_TEXTURE, optimize=True)
-    print('texture %s, %.1f%% of it used (%d KB)' % (GAME_TEXTURE, valid.mean() * 100, os.path.getsize(GAME_TEXTURE) // 1024))
+    img.save(GAME_TEXTURE, optimize=True)
+    print('texture %s, %d x %d (%d KB)' % (GAME_TEXTURE, size, size, os.path.getsize(GAME_TEXTURE) // 1024))
 
     os.makedirs(os.path.dirname(GAME_MESH), exist_ok=True)
     with open(GAME_MESH, 'wb') as f:
