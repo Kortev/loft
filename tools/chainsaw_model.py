@@ -11,10 +11,18 @@ stands, feet at the origin, facing -y, z up: legs to 12, body to 24, head to 32,
 The stand-in is only there to judge the parts against; in the game they go on the real player, whose head is hidden
 while the form is on.
 
-The design follows the anime (season 1 and the Reze arc). The head is all mouth and saw: a rounded dark skull with a
-grin of jagged teeth that runs from cheek to cheek, and a chainsaw bar standing out of the forehead, long, tipped a
-little up. A chainsaw bar comes out of the back of each forearm, edge outward, and runs on past the fist. A starter
-cord comes out of the middle of the chest and hangs with its T handle at the belly.
+The design follows the anime (season 1 and the Reze arc), from stills kortev chose; the head is measured off the
+side-on one. It is a chainsaw's engine with a face. The back half is the engine: a dark iron block with a round plate on
+each side, its top cut in notches like a cog and a dark socket in it, a screw by it and a ribbed hinge low down; the
+rear handle stands off its back in a D, a pole stands up out of its top behind the bar, and a coiled cable runs down
+where it meets the visor. Over the front is the orange visor, the engine's cover, shaped like a prow: a ridge along its
+top, its front curving down to a point, four curved vent slots on each side round its back corner, the inner two his
+eye, burning yellow. Under it the mouth: long straight white teeth hanging from the visor nearly to the jaw, short ones
+standing up between them, round the front and back along the sides. The jaw is an orange plate under the teeth, a V
+from the front, its front turned down into a point. The neck, and the cheeks behind the side teeth, are bound in dark
+cords laid like brickwork. The bar comes straight out of the top of the visor's front, long, pale and bloodied, its
+chain all spikes. A bar comes out of the back of each forearm, edge outward, and runs on past the fist. A starter cord
+comes out of the middle of the chest and hangs with its T handle at the belly.
 """
 import math
 import os
@@ -27,26 +35,86 @@ from mathutils import Matrix, Vector
 
 # --- layout (pixels; feet at the origin, facing -y, z up) ---------------------------------------------------------
 
-# The head: its centre, half its width, depth and height, and how round its corners are.
-HEAD_C = Vector((0.0, -0.3, 28.6))
-HEAD_HALF = (4.9, 5.0, 5.0)
-HEAD_ROUND = 2.6
-# The mouth: the middle of the grin on the face, half its width and height, and how far round the cheeks it goes.
-MOUTH_C = Vector((0.0, -5.4, 26.6))
-MOUTH_HALF = (4.6, 3.2, 1.75)
-# The teeth: how many along each row, how long they are and how thick at the root.
-TEETH = 13
-TOOTH_LEN = (1.5, 2.1)
-TOOTH_R = 0.42
-# The forehead's saw: where the bar leaves the head, its length, height and thickness, and its tilt up (degrees).
-HEAD_BAR_ROOT = Vector((0.0, -3.6, 31.4))
-HEAD_BAR = (15.0, 3.0, 0.7)
-HEAD_BAR_TILT = 9.0
+# The head is laid out from the side-on still (the bar to the right): measured there, then scaled so it stands 11
+# pixels from the jaw's point to the top of the engine. y is forward-negative, z up; the back of the visor is y = 0.
+#
+# The engine block, the back half of the head: half its width, its back and front, bottom and top, how round its edges.
+ENGINE = (3.4, 5.7, -1.5, 26.1, 33.4)
+ENGINE_ROUND = 0.45
+# Its outline seen from the side, going round from the top at the front: the top rising to a crown and sloping off to
+# the back, the back full and round, tucked under at the bottom. It narrows toward its top.
+ENGINE_PROFILE = [(-1.5, 32.9), (0.8, 33.4), (2.6, 33.7), (3.6, 33.5), (4.9, 32.8), (5.6, 31.6), (5.7, 28.6), (5.3, 27.0),
+                  (4.4, 26.1), (-1.5, 26.1)]
+# The armour plates over its top, stepped one behind the other, and how wide they are.
+TOP_PLATES = [[(-0.6, 33.0), (0.9, 33.75), (2.4, 34.0), (2.9, 33.7), (2.4, 33.2), (-0.6, 32.6)],
+              [(3.1, 33.95), (4.3, 33.6), (5.3, 32.85), (5.0, 32.35), (3.3, 33.2)]]
+TOP_PLATE_HALF = 2.3
+# The ribs down the back of the neck, under the engine: how many, the top one's height, how far apart.
+RIBS = (5, 25.7, 0.72)
+# The short chain down each side behind the visor, from a curl under the screw to the back of the jaw: its path (y, z)
+# and how far apart its links are.
+CHAIN_PATH = [(0.05, 30.1), (0.5, 30.15), (0.62, 29.75), (0.45, 29.3), (0.4, 28.2), (0.5, 26.6), (0.75, 25.0)]
+CHAIN_PITCH = 0.36
+# How thick the covers on its sides are, and how many fins the cylinder on its back has.
+COVER_T = 0.3
+FINS = 5
+# The plate on each side of the engine with its round socket (an eye-like hole) and a screw below and in front of it:
+# the socket's middle (y, z), the plate's radius and how many notches its top edge has, the socket's radius.
+SOCKET = (2.5, 30.6)
+SIDE_PLATE_R = 2.3
+SIDE_PLATE_NOTCHES = 7
+SOCKET_R = 0.85
+SCREW = (0.75, 29.7, 0.3)
+# The ribbed hinge low on each side of the engine, over the cords: its middle (y, z), its length, how many ribs.
+# The rear handle, a D standing out from the back of the engine (y, z points round it), and its thickness.
+REAR_HANDLE = [(5.0, 32.5), (6.4, 32.5), (7.0, 31.8), (7.0, 28.9), (6.4, 28.2), (5.0, 28.2)]
+HANDLE_R = 0.45
+# The pole standing up out of the top of the head behind the bar: its foot (y, z), its tilt back from upright
+# (degrees), length and radius.
+POLE = (0.4, 32.4, 32.0, 5.0, 0.48)
+# The coiled cable down the join of the engine and the visor: its top and bottom (z), at y, and its coil's radius.
+# The visor, seen from the side, from the spike at its top back, round its front to its point, back along its bottom
+# edge and up its back edge; the points of its outer edge (top and front) are the first OUTER of them, and along those
+# its middle stands up in a ridge RIDGE high.
+VISOR = [(-0.2, 33.25), (-1.4, 33.15), (-2.6, 32.75), (-3.7, 32.0), (-4.6, 31.0), (-5.4, 29.8), (-6.0, 28.4),
+         (-6.4, 27.0), (-4.5, 27.4), (-2.5, 27.75), (-0.9, 28.05), (0.45, 28.25), (0.55, 28.8), (0.2, 29.6), (0.25, 31.2), (0.05, 32.5)]
+VISOR_OUTER = 8
+VISOR_RIDGE = 0.55
+# Its half width at the back and at the front point: it narrows to a prow.
+VISOR_HALF = (3.75, 1.3)
+# The vent slots on its sides: the corner they curve round (y, z), their radii and width, and how far round they go
+# (radians from straight up toward the front). The inner two are the eye.
+VENT_C = (-0.9, 27.75)
+VENT_R = (1.35, 2.35, 3.35, 4.35)
+VENT_W = 0.36
+VENT_SWEEP = (-0.05, 1.55)
+# The jaw plate, seen from the side: a flat top under the teeth, its front turned down into a point. Its half width at
+# the top and at the point: seen from the front it is a V.
+JAW = [(1.2, 24.75), (-3.9, 24.75), (-4.9, 21.9), (-3.0, 23.85), (1.2, 24.15)]
+JAW_HALF = (2.9, 0.35)
+# The teeth: the line they stand on (the front row's y and half width, the sides' half width and how far back they go),
+# how far apart, and their length and half thickness. The upper hang from under the visor nearly to the jaw.
+TEETH_FRONT = (-4.0, 2.4)
+TEETH_SIDE = (2.85, -0.9)
+TOOTH_STEP = 0.7
+UPPER_TOOTH = (2.5, 0.2)
+LOWER_TOOTH = (1.5, 0.17)
+# The neck of cords, under the engine and down into the collar: half width, back, front, bottom, top.
+NECK = (3.0, 3.6, -1.2, 22.4, 26.6)
+# How many wires make the neck, and how many are in each cheek.
+NECK_WIRES = 72
+CHEEK_WIRES = 6
+# The head's saw: where the bar's root is (inside the visor), its length, height and thickness, and its tilt up.
+HEAD_BAR_ROOT = Vector((0.0, 0.0, 30.9))
+HEAD_BAR = (30.0, 4.2, 0.75)
+HEAD_BAR_TILT = 0.0
 # The arms' saws: length, height and thickness; where they leave the forearm, measured down the arm from the shoulder.
 ARM_BAR = (13.0, 2.4, 0.6)
 ARM_BAR_ROOT = 6.0
-# The chain's cutters: how far apart they are round the bar.
-CUTTER_PITCH = 0.8
+# The chain's cutters: how far apart they are round the bar, and how far their spikes stand out, as part of the
+# bar's height.
+CUTTER_PITCH = 0.85
+SPIKE = 0.3
 # The cord: where it leaves the chest, how far it hangs, and the T handle's length and thickness.
 CORD_ROOT = Vector((0.0, -2.05, 20.5))
 CORD_DROP = 4.2
@@ -57,48 +125,233 @@ SAMPLES = int(os.environ.get('CSM_SAMPLES', '64'))
 MATS = {}
 
 
-def new_material(name, color, metal=0.0, rough=0.5, emit=None, bumpy=0.0, sss=0.0):
-    """A principled material, with a little noise bump if {@code bumpy} > 0 (skin, worn metal)."""
+class Graph:
+    """A small helper for building a material's nodes: each call adds a node, wires its inputs (a number or another
+    node's output) and returns its main output."""
+
+    def __init__(self, mat):
+        self.nt = mat.node_tree
+        self.p = self.nt.nodes['Principled BSDF']
+        self.co = self.nt.nodes.new('ShaderNodeTexCoord').outputs['Object']
+
+    def feed(self, socket, value):
+        if isinstance(value, (int, float)):
+            socket.default_value = value
+        elif isinstance(value, tuple):
+            socket.default_value = value if len(value) == 4 or len(socket.default_value) == 3 else (*value, 1.0)
+        else:
+            self.nt.links.new(value, socket)
+
+    def math(self, op, a, b=0.0):
+        n = self.nt.nodes.new('ShaderNodeMath')
+        n.operation = op
+        self.feed(n.inputs[0], a)
+        self.feed(n.inputs[1], b)
+        return n.outputs[0]
+
+    def mix(self, fac, a, b):
+        n = self.nt.nodes.new('ShaderNodeMix')
+        n.data_type = 'RGBA'
+        self.feed(n.inputs[0], fac)
+        self.feed(n.inputs[6], a)
+        self.feed(n.inputs[7], b)
+        return n.outputs[2]
+
+    def lerp(self, fac, a, b):
+        n = self.nt.nodes.new('ShaderNodeMix')
+        n.data_type = 'FLOAT'
+        self.feed(n.inputs[0], fac)
+        self.feed(n.inputs[2], a)
+        self.feed(n.inputs[3], b)
+        return n.outputs[0]
+
+    def mapped(self, scale=(1.0, 1.0, 1.0), rotation=(0.0, 0.0, 0.0)):
+        n = self.nt.nodes.new('ShaderNodeMapping')
+        self.feed(n.inputs['Vector'], self.co)
+        n.inputs['Scale'].default_value = scale
+        n.inputs['Rotation'].default_value = rotation
+        return n.outputs[0]
+
+    def noise(self, scale, detail=6.0, rough=0.55, vector=None, distortion=0.0):
+        n = self.nt.nodes.new('ShaderNodeTexNoise')
+        self.feed(n.inputs['Vector'], vector if vector is not None else self.co)
+        n.inputs['Scale'].default_value = scale
+        n.inputs['Detail'].default_value = detail
+        n.inputs['Roughness'].default_value = rough
+        n.inputs['Distortion'].default_value = distortion
+        return n.outputs['Fac']
+
+    def step(self, value, lo, hi):
+        """0 below {@code lo}, 1 above {@code hi}, smooth between."""
+        n = self.nt.nodes.new('ShaderNodeMapRange')
+        n.interpolation_type = 'SMOOTHSTEP'
+        self.feed(n.inputs['Value'], value)
+        n.inputs['From Min'].default_value = lo
+        n.inputs['From Max'].default_value = hi
+        return n.outputs['Result']
+
+    def ao(self, distance, inside=False):
+        """How open the surface is round about (1 open, 0 shut in); inside, how far from a convex edge."""
+        n = self.nt.nodes.new('ShaderNodeAmbientOcclusion')
+        n.inside = inside
+        n.samples = 12
+        n.inputs['Distance'].default_value = distance
+        return n.outputs['AO']
+
+    def bump(self, height, strength, distance=0.1):
+        n = self.nt.nodes.new('ShaderNodeBump')
+        self.feed(n.inputs['Height'], height)
+        n.inputs['Strength'].default_value = strength
+        n.inputs['Distance'].default_value = distance
+        self.feed(self.p.inputs['Normal'], n.outputs['Normal'])
+
+    def out(self, name, value):
+        self.feed(self.p.inputs[name], value)
+
+
+def new_material(name, color, metal=0.0, rough=0.5, emit=None, sss=0.0):
+    """A plain principled material; the worn ones below build on it."""
     mat = bpy.data.materials.new(name)
     mat.use_nodes = True
-    nt = mat.node_tree
-    p = nt.nodes['Principled BSDF']
+    p = mat.node_tree.nodes['Principled BSDF']
     p.inputs['Base Color'].default_value = (*color, 1.0)
     p.inputs['Metallic'].default_value = metal
     p.inputs['Roughness'].default_value = rough
     if sss:
         p.inputs['Subsurface Weight'].default_value = sss
-        p.inputs['Subsurface Radius'].default_value = (1.0, 0.25, 0.15)
-        p.inputs['Subsurface Scale'].default_value = 0.4
+        p.inputs['Subsurface Radius'].default_value = (1.0, 0.3, 0.2)
+        p.inputs['Subsurface Scale'].default_value = 0.3
     if emit:
         p.inputs['Emission Color'].default_value = (*emit[0], 1.0)
         p.inputs['Emission Strength'].default_value = emit[1]
-    if bumpy:
-        noise = nt.nodes.new('ShaderNodeTexNoise')
-        noise.inputs['Scale'].default_value = 1.6
-        noise.inputs['Detail'].default_value = 8.0
-        bump = nt.nodes.new('ShaderNodeBump')
-        bump.inputs['Strength'].default_value = bumpy
-        bump.inputs['Distance'].default_value = 0.2
-        nt.links.new(noise.outputs['Fac'], bump.inputs['Height'])
-        nt.links.new(bump.outputs['Normal'], p.inputs['Normal'])
     MATS[name] = mat
     return mat
 
 
+def scratches(g, density=0.72):
+    """Fine scratches every way: three sets of long thin streaks, each a noise stretched along its own direction."""
+    marks = None
+    for rot in ((0.3, 0.9, 0.2), (1.2, -0.4, 0.8), (-0.6, 0.2, 1.7)):
+        streak = g.step(g.noise(2.2, 3.0, 0.5, g.mapped((0.6, 0.6, 30.0), rot)), density, density + 0.012)
+        marks = streak if marks is None else g.math('MAXIMUM', marks, streak)
+    return marks
+
+
+def worn_paint(name, paint, under, paint_rough=0.42, under_metal=1.0, chips=0.3, scratched=0.72,
+               grime=(0.025, 0.018, 0.012)):
+    """Paint over metal, used hard: chipped back to the metal along its edges, scratched through all over, its colour
+    a little uneven, and grime gathered in every corner and seam."""
+    mat = new_material(name, paint)
+    g = Graph(mat)
+    edge = g.math('SUBTRACT', 1.0, g.ao(0.18, inside=True))
+    chipped = g.step(g.math('MULTIPLY', edge, g.noise(2.6, 12.0, 0.72)), chips, chips + 0.04)
+    wear = g.math('MAXIMUM', chipped, g.math('MULTIPLY', scratches(g, scratched), 0.85))
+    shut = g.step(g.math('SUBTRACT', 1.0, g.ao(0.7)), 0.05, 0.7)
+    tone = g.mix(g.noise(0.9, 4.0), tuple(c * 0.78 for c in paint), tuple(min(c * 1.12, 1.0) for c in paint))
+    tone = g.mix(g.step(g.noise(0.35, 8.0, 0.7), 0.55, 0.75), tone, tuple(c * 0.6 for c in paint))
+    color = g.mix(wear, tone, under)
+    color = g.mix(g.math('MULTIPLY', shut, 0.8), color, grime)
+    g.out('Base Color', color)
+    g.out('Metallic', g.math('MULTIPLY', wear, under_metal))
+    g.out('Roughness', g.math('ADD', g.math('MULTIPLY', wear, -0.12), g.math('ADD', paint_rough, g.math('MULTIPLY', shut, 0.25))))
+    g.bump(g.math('ADD', g.math('MULTIPLY', wear, -1.0), g.math('MULTIPLY', g.noise(14.0, 6.0), 0.3)), 0.35, 0.05)
+    return mat
+
+
+def steel(name, color, rough=0.3, blood_amount=0.0, grime=(0.03, 0.025, 0.02)):
+    """Bare steel, brushed and scratched, dirty in its corners, and bloodied: splashes, specks and drips, wet."""
+    mat = new_material(name, color, metal=0.95)
+    g = Graph(mat)
+    brushed = g.noise(3.0, 2.0, 0.5, g.mapped((0.4, 25.0, 0.4)))
+    marks = scratches(g, 0.7)
+    shut = g.step(g.math('SUBTRACT', 1.0, g.ao(0.6)), 0.05, 0.6)
+    base = g.mix(brushed, tuple(c * 0.85 for c in color), color)
+    base = g.mix(marks, base, tuple(min(c * 1.25, 1.0) for c in color))
+    base = g.mix(g.math('MULTIPLY', shut, 0.85), base, grime)
+    rough_out = g.math('ADD', rough, g.math('MULTIPLY', g.math('SUBTRACT', brushed, 0.5), 0.2))
+    if blood_amount:
+        splash = g.step(g.noise(0.16, 14.0, 0.62), 1.0 - blood_amount, 1.02 - blood_amount)
+        specks = g.step(g.noise(3.5, 2.0, 0.5), 0.74, 0.76)
+        drips = g.step(g.noise(0.9, 3.0, 0.5, g.mapped((1.0, 1.0, 0.12))), 0.69, 0.7)
+        wet = g.math('MAXIMUM', splash, g.math('MAXIMUM', g.math('MULTIPLY', specks, splash), drips))
+        dark = g.noise(1.2, 4.0)
+        blood = g.mix(dark, (0.09, 0.0, 0.002), (0.26, 0.004, 0.006))
+        base = g.mix(wet, base, blood)
+        rough_out = g.lerp(wet, rough_out, 0.08)
+        g.out('Metallic', g.math('SUBTRACT', 0.95, g.math('MULTIPLY', wet, 0.95)))
+        g.out('Coat Weight', g.math('MULTIPLY', wet, 0.6))
+    g.out('Base Color', base)
+    g.out('Roughness', rough_out)
+    g.bump(g.math('MULTIPLY', marks, -1.0), 0.15, 0.03)
+    return mat
+
+
+def wire_material(name):
+    """The wires he is bound with: dark rubbery cords, each wrapped round and round in short tight bands, some lighter
+    and some near black, oily where the light catches them."""
+    mat = new_material(name, (0.09, 0.07, 0.06), rough=0.55)
+    g = Graph(mat)
+    wave = g.nt.nodes.new('ShaderNodeTexWave')
+    wave.wave_type = 'BANDS'
+    wave.bands_direction = 'Z'
+    wave.inputs['Scale'].default_value = 1.6
+    wave.inputs['Distortion'].default_value = 1.5
+    wave.inputs['Detail'].default_value = 3.0
+    g.feed(wave.inputs['Vector'], g.co)
+    bands = g.step(wave.outputs['Fac'], 0.2, 0.45)
+    tone = g.mix(g.noise(3.5, 2.0), (0.05, 0.036, 0.032), (0.17, 0.13, 0.11))
+    shut = g.step(g.math('SUBTRACT', 1.0, g.ao(0.5)), 0.05, 0.6)
+    color = g.mix(bands, (0.012, 0.008, 0.008), tone)
+    g.out('Base Color', g.mix(shut, color, (0.005, 0.004, 0.004)))
+    g.out('Roughness', g.math('ADD', 0.35, g.math('MULTIPLY', bands, 0.3)))
+    g.bump(bands, 0.6, 0.06)
+    return mat
+
+
+def bone(name):
+    """The teeth: off-white, yellowed and dirty toward their roots and wherever they crowd together, a little glossy."""
+    mat = new_material(name, (0.8, 0.78, 0.7), rough=0.32, sss=0.12)
+    g = Graph(mat)
+    shut = g.step(g.math('SUBTRACT', 1.0, g.ao(0.8)), 0.05, 0.75)
+    color = g.mix(g.noise(5.0, 4.0), (0.74, 0.71, 0.62), (0.86, 0.85, 0.8))
+    g.out('Base Color', g.mix(shut, color, (0.32, 0.25, 0.15)))
+    g.bump(g.noise(20.0, 4.0), 0.15, 0.02)
+    return mat
+
+
+def worn_rubber(name, color):
+    """Black rubber or plastic, scuffed pale where it is handled, dusty in its corners."""
+    mat = new_material(name, color, rough=0.6)
+    g = Graph(mat)
+    edge = g.step(g.math('SUBTRACT', 1.0, g.ao(0.15, inside=True)), 0.25, 0.5)
+    scuff = g.math('MULTIPLY', edge, g.noise(3.0, 8.0, 0.7))
+    g.out('Base Color', g.mix(scuff, color, tuple(c * 3.5 + 0.03 for c in color)))
+    g.out('Roughness', g.math('ADD', 0.5, g.math('MULTIPLY', scuff, 0.3)))
+    g.bump(g.noise(18.0, 6.0), 0.2, 0.02)
+    return mat
+
+
 def make_materials():
-    # His head: near-black, a little red in it, the skin wet and ridged.
-    new_material('skin', (0.022, 0.012, 0.013), rough=0.58, bumpy=0.5, sss=0.05)
-    new_material('gum', (0.22, 0.015, 0.02), rough=0.3, sss=0.3)
-    new_material('throat', (0.012, 0.0, 0.002), rough=0.7)
-    new_material('tooth', (0.78, 0.74, 0.62), rough=0.28, sss=0.1)
-    # The saws: the bar's plate pale steel, worn; the chain darker; the housings dark iron.
-    new_material('bar', (0.66, 0.67, 0.70), metal=0.75, rough=0.42, bumpy=0.06)
-    new_material('bar_groove', (0.18, 0.18, 0.19), metal=1.0, rough=0.45)
-    new_material('chain', (0.42, 0.42, 0.44), metal=0.8, rough=0.36)
-    new_material('housing', (0.06, 0.06, 0.065), metal=0.6, rough=0.5, bumpy=0.1)
+    # His head: the engine black paint over steel; the visor and jaw orange paint, chipped and scratched; the eye
+    # burning yellow in its slots; the rear handle and pole black rubber.
+    worn_paint('engine', (0.018, 0.019, 0.022), (0.32, 0.31, 0.3), paint_rough=0.55, chips=0.3, scratched=0.68)
+    worn_paint('visor', (0.55, 0.15, 0.02), (0.42, 0.4, 0.38), paint_rough=0.55, chips=0.2, scratched=0.66)
+    new_material('slot', (0.006, 0.005, 0.005), rough=0.8)
+    new_material('eye', (1.0, 0.75, 0.15), emit=((1.0, 0.6, 0.08), 22.0))
+    bone('tooth')
+    new_material('gum', (0.5, 0.1, 0.12), rough=0.22, sss=0.35)
+    MATS['gum'].node_tree.nodes['Principled BSDF'].inputs['Coat Weight'].default_value = 0.5
+    new_material('throat', (0.012, 0.002, 0.003), rough=0.25, sss=0.2)
+    wire_material('cords')
+    # The saws: the bar bloodied steel; the chain dark oily steel; the housings black paint.
+    steel('bar', (0.6, 0.6, 0.6), rough=0.3, blood_amount=0.44)
+    steel('chain', (0.16, 0.16, 0.17), rough=0.32, blood_amount=0.2)
+    steel('links', (0.38, 0.37, 0.36), rough=0.38)
+    worn_paint('housing', (0.025, 0.025, 0.028), (0.3, 0.3, 0.3), chips=0.34)
     new_material('cord', (0.42, 0.40, 0.36), rough=0.8)
-    new_material('handle', (0.035, 0.035, 0.04), rough=0.55)
+    worn_rubber('handle', (0.022, 0.022, 0.024))
+    worn_rubber('hose', (0.014, 0.014, 0.015))
+    steel('bolt', (0.45, 0.44, 0.42), rough=0.35)
     # The stand-in: Denji's work clothes (white shirt, black tie and trousers), and skin.
     new_material('shirt', (0.78, 0.78, 0.76), rough=0.85)
     new_material('tie', (0.02, 0.02, 0.025), rough=0.6)
@@ -170,9 +423,9 @@ def perimeter(length, height, pitch, inset=0.0):
     return out
 
 
-def saw(name, size, frame, part):
-    """A chainsaw bar of {@code size} (length, height, thickness): the plate, a groove down its middle, the chain of
-    cutters round its edge, and the drive housing it comes out of. {@code frame} takes the bar's own space (u along
+def saw(name, size, frame, part, housing=True):
+    """A chainsaw bar of {@code size} (length, height, thickness): the plate, the chain of spiked cutters round its
+    edge, and (if {@code housing}) the drive housing it comes out of. {@code frame} takes the bar's own space (u along
     the bar from its root, v across it, w through it) to the model's."""
     length, height, thick = size
     bm = bmesh.new()
@@ -187,24 +440,15 @@ def saw(name, size, frame, part):
         bm.faces.new((front[i], front[j], back[j], back[i]))
     plate = mesh_obj(name + '_bar', bm, ['bar'], part)
 
-    # The groove, a dark strip a little proud of each face, along the middle of the bar.
-    bm = bmesh.new()
-    for w in (-thick / 2 - 0.02, thick / 2 + 0.02):
-        inner = stadium(length - 0.6, height * 0.22, steps=8)
-        vs = [bm.verts.new(frame @ Vector((u + 0.3, v, w))) for u, v in inner]
-        f = bm.faces.new(vs if w > 0 else vs[::-1])
-    mesh_obj(name + '_groove', bm, ['bar_groove'], part)
-
     # The chain: a cutter at each pitch round the edge, each a little wedge leaning the way the chain runs, its tooth
     # on alternate sides, on a link that rides in the bar's edge.
     bm = bmesh.new()
     for k, (u, v, du, dv) in enumerate(perimeter(length, height, CUTTER_PITCH)):
         along = Vector((du, dv, 0.0))
-        out = Vector((dv, -du, 0.0))  # away from the bar
+        out = Vector((-dv, du, 0.0))  # away from the bar
         base = Vector((u, v, 0.0))
-        side = 1.0 if k % 2 else -1.0
         # The link: a flat block on the edge.
-        link_half = (CUTTER_PITCH * 0.49, 0.3, thick * 0.34)
+        link_half = (CUTTER_PITCH * 0.5, 0.42, thick * 0.62)
         corners = []
         for a in (-1, 1):
             for b in (-1, 1):
@@ -213,18 +457,22 @@ def saw(name, size, frame, part):
         lv = [bm.verts.new(frame @ p) for p in corners]
         for quad in ((0, 1, 3, 2), (4, 6, 7, 5), (0, 4, 5, 1), (2, 3, 7, 6), (0, 2, 6, 4), (1, 5, 7, 3)):
             bm.faces.new([lv[q] for q in quad])
-        # The tooth: a wedge on one side of the link, its point raking forward and out.
-        w = side * thick * 0.42
+        # The cutter: a sawtooth on the link, raking forward the way the chain runs, as thick as the link.
+        w = thick * 0.5
+        rise = 0.52
         tv = [bm.verts.new(frame @ p) for p in (
-            base - along * 0.38 + out * 0.32 + Vector((0, 0, w - 0.13)),
-            base - along * 0.38 + out * 0.32 + Vector((0, 0, w + 0.13)),
-            base + along * 0.3 + out * 0.36 + Vector((0, 0, w - 0.13)),
-            base + along * 0.3 + out * 0.36 + Vector((0, 0, w + 0.13)),
-            base + along * 0.45 + out * 1.0 + Vector((0, 0, w)),
+            base - along * 0.45 + out * rise + Vector((0, 0, -w)),
+            base - along * 0.45 + out * rise + Vector((0, 0, w)),
+            base + along * 0.3 + out * rise + Vector((0, 0, -w)),
+            base + along * 0.3 + out * rise + Vector((0, 0, w)),
+            base + along * 0.5 + out * (rise + SPIKE * height) + Vector((0, 0, -w * 0.4)),
+            base + along * 0.5 + out * (rise + SPIKE * height) + Vector((0, 0, w * 0.4)),
         )]
-        for tri in ((0, 2, 4), (3, 1, 4), (1, 0, 4), (2, 3, 4), (0, 1, 3, 2)):
-            bm.faces.new([tv[t] for t in tri])
+        for face in ((0, 2, 4), (1, 5, 3), (0, 4, 5, 1), (2, 3, 5, 4), (0, 1, 3, 2)):
+            bm.faces.new([tv[t] for t in face])
     chain = mesh_obj(name + '_chain', bm, ['chain'], part)
+    if not housing:
+        return plate
 
     # The housing at the root: a dark block the bar comes out of, wider than the bar.
     bm = bmesh.new()
@@ -239,85 +487,488 @@ def saw(name, size, frame, part):
     return plate
 
 
-def build_head():
-    """The skull: a rounded block, the grin cut into its face and the mouth behind it dark red, two rows of teeth."""
-    head = box('head', HEAD_C, HEAD_HALF, 'skin', 'head', bevel=HEAD_ROUND, segments=5)
-    head.data.materials.append(MATS['gum'])
-    # The grin, cut out with a squashed sphere that reaches round the cheeks.
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=48, ring_count=24, radius=1.0, location=MOUTH_C)
-    cutter = bpy.context.active_object
-    cutter.scale = MOUTH_HALF
-    cutter.hide_render = True
-    cutter.hide_viewport = True
-    bpy.context.view_layer.update()
-    bpy.context.view_layer.objects.active = head
-    head.select_set(True)
-    bpy.ops.object.modifier_apply(modifier='bevel')
-    mod = head.modifiers.new('mouth', 'BOOLEAN')
-    mod.object = cutter
-    mod.operation = 'DIFFERENCE'
-    mod.solver = 'EXACT'
-    mod.material_mode = 'TRANSFER'
-    bpy.ops.object.modifier_apply(modifier='mouth')
-    bpy.data.objects.remove(cutter)
-    # Faces cut by the grin take the gum's colour.
-    for poly in head.data.polygons:
-        c = poly.center
-        dx = (c.x - MOUTH_C.x) / MOUTH_HALF[0]
-        dy = (c.y - MOUTH_C.y) / MOUTH_HALF[1]
-        dz = (c.z - MOUTH_C.z) / MOUTH_HALF[2]
-        if dx * dx + dy * dy + dz * dz < 1.08:
-            poly.material_index = 1
-    smooth = head.modifiers.new('smooth', 'SUBSURF')
-    smooth.levels = 1
-    smooth.render_levels = 2
-    bpy.ops.object.shade_smooth()
-
-    # The dark of the throat behind the teeth.
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=32, ring_count=16, radius=1.0,
-                                         location=MOUTH_C + Vector((0.0, 2.3, 0.0)))
-    throat = bpy.context.active_object
-    throat.scale = (MOUTH_HALF[0] * 0.92, 2.2, MOUTH_HALF[2] * 0.95)
-    throat.data.materials.append(MATS['throat'])
-    bpy.ops.object.shade_smooth()
-    throat['part'] = 'head'
-
-    # The teeth: an upper row hanging from the top of the grin and a lower row standing up from the bottom, set round
-    # the curve of the face, each a little different, jagged and leaning, the two rows between each other.
-    rnd = random.Random(7)
+def solid(name, profile, half, mat, part, bevel=0.0, ridge=None):
+    """A solid seen from the side as {@code profile} ((y, z) points round it), {@code half(y, z)} wide either side of
+    the middle there. If {@code ridge} is (n, height), the middle of its first n points' edge stands up that much,
+    outward from the profile, in a ridge from end to end of them. Its edges are rounded by {@code bevel}."""
+    n = len(profile)
     bm = bmesh.new()
-    for row, sign in (('upper', -1.0), ('lower', 1.0)):
-        for i in range(TEETH):
-            f = (i + (0.5 if sign > 0 else 0.0)) / (TEETH - 0.5) * 2.0 - 1.0
-            if abs(f) > 1.0:
-                continue
-            a = f * 1.18  # how far round the cheek, radians from the front
-            x = MOUTH_C.x + math.sin(a) * MOUTH_HALF[0] * 0.95
-            y = MOUTH_C.y + (1.0 - math.cos(a)) * MOUTH_HALF[1] * 0.95 + 0.55
-            z = MOUTH_C.z - sign * (MOUTH_HALF[2] - 0.15)
-            length = rnd.uniform(*TOOTH_LEN) * (1.0 - 0.35 * abs(f))
-            r = TOOTH_R * rnd.uniform(0.85, 1.15)
-            lean = Vector((rnd.uniform(-0.25, 0.25), -0.35, sign))
-            tip = Vector((x, y, z)) + lean.normalized() * length
-            root = Vector((x, y, z)) - Vector((0, 0, sign)) * 0.3
-            ring = []
-            for k in range(5):
-                t = 2 * math.pi * k / 5
-                ring.append(bm.verts.new(root + Vector((math.cos(t) * r, math.sin(t) * r * 0.8, 0.0))))
-            apex = bm.verts.new(tip)
-            for k in range(5):
-                tri = [ring[k], ring[(k + 1) % 5], apex]
-                bm.faces.new(tri if sign < 0 else tri[::-1])
-            bm.faces.new(ring[::-1] if sign < 0 else ring)
-    teeth = mesh_obj('teeth', bm, ['tooth'], 'head')
+    left = [bm.verts.new((-half(y, z), y, z)) for y, z in profile]
+    right = [bm.verts.new((half(y, z), y, z)) for y, z in profile]
+    mid = []
+    for i, (y, z) in enumerate(profile):
+        lift = Vector()
+        if ridge and i < ridge[0]:
+            a = Vector(profile[max(i - 1, 0)])
+            b = Vector(profile[min(i + 1, n - 1)])
+            t = (b - a).normalized()
+            lift = Vector((0.0, t.y, -t.x)) * ridge[1]  # outward: the profile goes round clockwise seen from +x
+            if i in (0, ridge[0] - 1):
+                lift *= 0.4
+        mid.append(bm.verts.new((0.0, y + lift.y, z + lift.z)))
+    bm.faces.new(left)
+    bm.faces.new(right[::-1])
+    for i in range(n):
+        j = (i + 1) % n
+        bm.faces.new((left[i], mid[i], mid[j], left[j]))
+        bm.faces.new((mid[i], right[i], right[j], mid[j]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    obj = mesh_obj(name, bm, [mat], part)
+    if bevel:
+        mod = obj.modifiers.new('bevel', 'BEVEL')
+        mod.width = bevel
+        mod.segments = 3 if bevel > 0.3 else 2
+        mod.limit_method = 'ANGLE'
+    return obj
 
-    # The saw out of the forehead: out along -y, tipped up, flat faces to the sides.
+
+def engine_half(y, z):
+    """The engine's half width: full down its sides, drawing in over its top."""
+    return ENGINE[0] - max(z - 32.9, 0.0) * 0.9
+
+
+def visor_half(y, z):
+    back, front = VISOR[11][0], VISOR[7][0]
+    f = min(max((back - y) / (back - front), 0.0), 1.0)
+    return VISOR_HALF[0] + (VISOR_HALF[1] - VISOR_HALF[0]) * f ** 1.4
+
+
+def jaw_half(y, z):
+    top, tip = JAW[0][1], JAW[2][1]
+    f = (top - z) / (top - tip)
+    return JAW_HALF[0] + (JAW_HALF[1] - JAW_HALF[0]) * f
+
+
+def cylinder(bm, a, b, r, segments=16):
+    """A round bar from {@code a} to {@code b}, capped."""
+    a, b = Vector(a), Vector(b)
+    axis = b - a
+    verts = bmesh.ops.create_cone(bm, cap_ends=True, segments=segments, radius1=r, radius2=r, depth=axis.length)['verts']
+    rot = Vector((0, 0, 1)).rotation_difference(axis.normalized()).to_matrix()
+    bmesh.ops.rotate(bm, cent=Vector(), matrix=rot, verts=verts)
+    bmesh.ops.translate(bm, vec=(a + b) / 2, verts=verts)
+
+
+def cylinder_x(bm, x, y, z, r, depth, segments=32):
+    """A disc on a side of the head, its axis across (x), {@code depth} thick, its inner face at {@code x}."""
+    side = 1.0 if x > 0 else -1.0
+    cylinder(bm, (x, y, z), (x + side * depth, y, z), r, segments)
+
+
+def arc_strip(bm, x, center, r, width, a0, a1, steps=24):
+    """A curved strip lying on the plane at {@code x}, round {@code center} (y, z) at radius {@code r}, from angle a0 to
+    a1 (radians from straight up, turning toward the front)."""
+    side = 1.0 if x > 0 else -1.0
+    c = Vector((x, center[0], center[1]))
+    inner, outer = [], []
+    for i in range(steps + 1):
+        a = a0 + (a1 - a0) * i / steps
+        d = Vector((0.0, -math.sin(a), math.cos(a)))
+        inner.append(bm.verts.new(c + d * (r - width / 2)))
+        outer.append(bm.verts.new(c + d * (r + width / 2)))
+    for i in range(steps):
+        quad = [inner[i], inner[i + 1], outer[i + 1], outer[i]]
+        bm.faces.new(quad if side < 0 else quad[::-1])
+
+
+def tube(name, points, r, mat, part, cyclic=False):
+    """A tube of radius {@code r} along a smooth curve through {@code points} (x, y, z)."""
+    curve = bpy.data.curves.new(name, 'CURVE')
+    curve.dimensions = '3D'
+    spline = curve.splines.new('BEZIER')
+    spline.bezier_points.add(len(points) - 1)
+    for bp, p in zip(spline.bezier_points, points):
+        bp.co = p
+        bp.handle_left_type = bp.handle_right_type = 'AUTO'
+    spline.use_cyclic_u = cyclic
+    curve.bevel_depth = r
+    curve.bevel_resolution = 4
+    curve.use_fill_caps = True
+    curve.materials.append(MATS[mat])
+    return link(bpy.data.objects.new(name, curve), part)
+
+
+def roof_z(y):
+    """The underside of the visor at {@code y}, which the upper teeth hang from."""
+    (y0, z0), (y1, z1) = VISOR[10], VISOR[7]
+    return z0 + (z1 - z0) * (y - y0) / (y1 - y0)
+
+
+def teeth_line():
+    """Where the teeth stand, evenly spaced: forward along the left side, round the front corner, across the front and
+    back along the right side."""
+    front_y, front_x = TEETH_FRONT
+    side_x, back_y = TEETH_SIDE
+    corner = 0.9
+    path = [(-side_x, back_y), (-side_x, front_y + corner), (-front_x, front_y), (front_x, front_y),
+            (side_x, front_y + corner), (side_x, back_y)]
+    lengths = [math.dist(path[i], path[i + 1]) for i in range(len(path) - 1)]
+    total = sum(lengths)
+    n = int(total / TOOTH_STEP)
+    points = []
+    for i in range(n + 1):
+        s = i * total / n
+        k = 0
+        while k < len(lengths) - 1 and s > lengths[k]:
+            s -= lengths[k]
+            k += 1
+        f = s / lengths[k]
+        points.append((path[k][0] + (path[k + 1][0] - path[k][0]) * f, path[k][1] + (path[k + 1][1] - path[k][1]) * f))
+    return points
+
+
+def plate_x(name, outline, x, thick, mat, part, bevel=0.06):
+    """A flat plate on a side of the head, {@code outline} ((y, z) points round it), its inner face at {@code x} and
+    {@code thick} thick outward."""
+    side = 1.0 if x > 0 else -1.0
+    bm = bmesh.new()
+    inner = [bm.verts.new((x, y, z)) for y, z in outline]
+    outer = [bm.verts.new((x + side * thick, y, z)) for y, z in outline]
+    bm.faces.new(inner)
+    bm.faces.new(outer[::-1])
+    n = len(outline)
+    for i in range(n):
+        j = (i + 1) % n
+        bm.faces.new((inner[i], outer[i], outer[j], inner[j]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    obj = mesh_obj(name, bm, [mat], part)
+    if bevel:
+        mod = obj.modifiers.new('bevel', 'BEVEL')
+        mod.width = bevel
+        mod.segments = 1
+        mod.limit_method = 'ANGLE'
+    return obj
+
+
+def rounded_outline(y0, y1, z0, z1, r, steps=8):
+    """A rectangle's outline in (y, z) with its corners rounded by {@code r}, going round from the bottom front."""
+    pts = []
+    for cy, cz, a0 in ((y1 - r, z0 + r, -90), (y1 - r, z1 - r, 0), (y0 + r, z1 - r, 90), (y0 + r, z0 + r, 180)):
+        for i in range(steps + 1):
+            a = math.radians(a0 + 90 * i / steps)
+            pts.append((cy + r * math.cos(a), cz + r * math.sin(a)))
+    return pts
+
+
+def smooth_outline(points, steps=6):
+    """A closed outline through {@code points}, its corners rounded off (Chaikin's cutting, three times)."""
+    pts = list(points)
+    for _ in range(3):
+        out = []
+        for i in range(len(pts)):
+            a, b = Vector(pts[i]), Vector(pts[(i + 1) % len(pts)])
+            out += [tuple(a * 0.75 + b * 0.25), tuple(a * 0.25 + b * 0.75)]
+        pts = out
+    return pts
+
+
+def shrunk(outline, by, top):
+    """{@code outline} drawn in toward its middle by {@code by}, and cut off flat at {@code top}."""
+    cy = sum(y for y, z in outline) / len(outline)
+    cz = sum(z for y, z in outline) / len(outline)
+    out = []
+    for y, z in outline:
+        d = Vector((cy - y, cz - z))
+        p = Vector((y, z)) + d.normalized() * by
+        out.append((p.x, min(p.y, top)))
+    return out
+
+
+def notched(outline, keep, depth, every=2):
+    """{@code outline} with every other short run of its points, where {@code keep(y, z)}, pulled in toward its middle by
+    {@code depth}: the edge cut in notches like a cog's."""
+    cy = sum(y for y, z in outline) / len(outline)
+    cz = sum(z for y, z in outline) / len(outline)
+    out = []
+    for i, (y, z) in enumerate(outline):
+        if keep(y, z) and (i // every) % 2:
+            d = Vector((cy - y, cz - z)).normalized() * depth
+            out.append((y + d.x, z + d.y))
+        else:
+            out.append((y, z))
+    return out
+
+
+def bolt(bm, x, y, z, r=0.2, axis='x'):
+    """A hex bolt head on a face, standing out of it along {@code axis} ('x' on a side, 'y' on the back)."""
+    a = Vector((x, y, z))
+    side = 1.0 if (x if axis == 'x' else y) > 0 else -1.0
+    d = Vector((side, 0, 0)) if axis == 'x' else Vector((0, side, 0))
+    cylinder(bm, a - d * 0.05, a + d * 0.16, r, segments=6)
+
+
+def build_engine_detail(half, back, front, bottom, top):
+    """Everything on the engine besides its block: the side covers, cut in notches along their top and back like a
+    cog, with a stepped plate, a ledge and a nub on each; the armour plates over the top; the plate on the back with its
+    bolts, and the finned cylinder under it; bolts all over; the ribs down the back of the neck; and a hose down each
+    side into the neck."""
+    bm_bolts = bmesh.new()
+    for side in (-1, 1):
+        x = side * half
+        cover = shrunk(smooth_outline(ENGINE_PROFILE), 0.5, 32.8)
+        cover = notched(cover, lambda y, z: y > 1.0 and z > 29.6, 0.38, every=2)
+        plate_x('cover', cover, x, COVER_T, 'engine', 'head')
+        # A second, smaller plate over it behind the socket, its back edge stepped.
+        step = [(3.0, 27.3), (4.6, 27.3), (4.6, 28.4), (4.95, 28.4), (4.95, 31.2), (4.4, 31.2), (4.4, 32.2), (3.0, 32.2)]
+        plate_x('cover_step', step, x + side * COVER_T, 0.18, 'engine', 'head')
+        # The ledge along the bottom of the cover, under the socket.
+        ledge = [(-0.8, 26.95), (4.5, 26.95), (4.9, 27.35), (4.5, 27.75), (-0.8, 27.75)]
+        plate_x('ledge', ledge, x + side * COVER_T, 0.32, 'engine', 'head')
+        # The nub where the engine meets the visor.
+        box('nub', (x + side * (COVER_T + 0.15), 0.3, 30.4), (0.18, 0.28, 0.3), 'engine', 'head', bevel=0.06, segments=1)
+        for by, bz in ((front + 1.4, bottom + 1.1), (front + 1.4, top - 0.9), (back - 1.0, bottom + 1.1), (4.7, 29.0),
+                       (4.15, 31.8), (3.3, 27.6)):
+            bolt(bm_bolts, x + side * (COVER_T + (0.18 if by > 2.9 else 0.0)), by, bz, 0.17)
+
+    # The armour plates over the top, the front one rising to a point, a step down to the one behind it.
+    for k, plate in enumerate(TOP_PLATES):
+        solid('top_plate', plate, lambda y, z, k=k: TOP_PLATE_HALF - 0.4 * k, 'engine', 'head', bevel=0.08)
+
+    # The back: a plate with a bolt at each corner, behind the handle, and the cylinder's fins under it.
+    plate = [(-2.6, 28.7), (2.6, 28.7), (2.9, 29.1), (2.9, 32.3), (2.5, 32.7), (-2.5, 32.7), (-2.9, 32.3), (-2.9, 29.1)]
+    bm = bmesh.new()
+    inner = [bm.verts.new((px, back, pz)) for px, pz in plate]
+    outer = [bm.verts.new((px, back + 0.22, pz)) for px, pz in plate]
+    bm.faces.new(inner[::-1])
+    bm.faces.new(outer)
+    for i in range(len(plate)):
+        j = (i + 1) % len(plate)
+        bm.faces.new((inner[i], inner[j], outer[j], outer[i]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    mesh_obj('back_plate', bm, ['engine'], 'head')
+    for bx, bz in ((-2.4, 29.2), (2.4, 29.2), (-2.4, 32.2), (2.4, 32.2)):
+        bolt(bm_bolts, bx, back + 0.22, bz, 0.17, axis='y')
+    box('cylinder', (0.0, back - 0.1, 27.3), (2.0, 0.5, 1.1), 'engine', 'head', bevel=0.15)
+    for k in range(FINS):
+        box('fin', (0.0, back + 0.45, 26.35 + k * 0.38), (2.5, 0.55, 0.08), 'engine', 'head', bevel=0.03, segments=1)
+
+    # Bolts down the join of the engine and the visor.
+    for side in (-1, 1):
+        for bz in (29.0, 31.6):
+            bolt(bm_bolts, side * (half + 0.05), 0.0, bz, 0.15)
+    mesh_obj('bolts', bm_bolts, ['bolt'], 'head')
+
+    # The ribs down the back of the neck, like a spine's, each a little narrower than the one above.
+    count, z0, gap = RIBS
+    for k in range(count):
+        box('rib', (0.0, 3.25 - k * 0.12, z0 - k * gap), (2.75 - k * 0.1, 1.15, 0.22), 'engine', 'head', bevel=0.12)
+
+    # A hose down each side, out from under the front of the engine, round and down into the neck.
+    for side in (-1, 1):
+        tube('hose', [(side * 2.9, -0.8, 27.6), (side * 3.9, 0.6, 26.6), (side * 3.5, 2.4, 25.0), (side * 2.7, 2.9, 23.2)],
+             0.27, 'hose', 'head')
+
+
+def wire_bundle(name, paths, radii, mat, part):
+    """Many wires in one object: a tube of radius radii[i] along a smooth curve through each of {@code paths}."""
+    curve = bpy.data.curves.new(name, 'CURVE')
+    curve.dimensions = '3D'
+    curve.bevel_depth = 1.0
+    curve.bevel_resolution = 2
+    curve.use_fill_caps = True
+    for path, r in zip(paths, radii):
+        spline = curve.splines.new('BEZIER')
+        spline.bezier_points.add(len(path) - 1)
+        for bp, p in zip(spline.bezier_points, path):
+            bp.co = p
+            bp.radius = r
+            bp.handle_left_type = bp.handle_right_type = 'AUTO'
+    curve.materials.append(MATS[mat])
+    return link(bpy.data.objects.new(name, curve), part)
+
+
+def build_wires():
+    """The tendons: wires bound tight in a thick neck, out from under the engine and down into the collar, each a
+    little twisted round it; and more in the cheeks, behind the side teeth, from under the visor down into the jaw."""
+    rnd = random.Random(23)
+    nh, nb, nf, nbot, ntop = NECK
+    cy, ry, rx = (nb + nf) / 2, (nb - nf) / 2, nh
+    paths, radii = [], []
+    for i in range(NECK_WIRES):
+        # Most round the outside, where they show; a few through the middle so it is not hollow.
+        a = 2 * math.pi * (i + rnd.uniform(-0.3, 0.3)) / NECK_WIRES
+        rr = 1.0 if i % 5 else rnd.uniform(0.35, 0.8)
+        twist = rnd.uniform(0.25, 0.45)
+        path = []
+        for k, (z, bulge) in enumerate(((ntop + 0.3, 0.98), ((ntop * 2 + nbot) / 3, 1.06), ((ntop + nbot * 2) / 3, 1.04),
+                                       (nbot, 0.9))):
+            t = a + twist * k / 3
+            path.append((math.cos(t) * rx * rr * bulge, cy + math.sin(t) * ry * rr * bulge, z + rnd.uniform(-0.1, 0.1)))
+        paths.append(path)
+        radii.append(rnd.uniform(0.17, 0.27))
+    for side in (-1, 1):
+        n = CHEEK_WIRES
+        # Only at the back corners of the mouth, where the jaw hinges: the mouth itself is left open.
+        for i in range(n):
+            y = TEETH_SIDE[1] + 1.4 - 1.2 * i / (n - 1)
+            x = side * (TEETH_SIDE[0] + 0.05 - 0.9 * (i / (n - 1)) ** 2 + rnd.uniform(-0.08, 0.05))
+            top_z = roof_z(y) + 0.4
+            jaw_z = JAW[0][1] - 0.3
+            wob = rnd.uniform(-0.12, 0.12)
+            paths.append([(x, y, top_z), (x + side * 0.12 + wob, y + rnd.uniform(-0.15, 0.15), (top_z + jaw_z) / 2),
+                          (x, y + rnd.uniform(-0.1, 0.1), jaw_z)])
+            radii.append(rnd.uniform(0.17, 0.23))
+    wire_bundle('wires', paths, radii, 'cords', 'head')
+    # The dark inside the bundle, so it does not show through between the wires.
+    box('neck_core', (0.0, cy, (nbot + ntop) / 2), (rx * 0.8, ry * 0.8, (ntop - nbot) / 2), 'throat', 'head')
+
+
+def chain_strip(side):
+    """A short length of roller chain lying down the side of the head on {@code side}, along CHAIN_PATH: its links in
+    turn wide (the outer plates, with a pin through each end) and narrow (the inner), each turned along the way it runs.
+    It lies on the engine at the top and comes out onto the cords toward the jaw."""
+    path = smooth_outline(CHAIN_PATH)[:-9]  # rounded, and left open at its end
+    length = [0.0]
+    for i in range(1, len(path)):
+        length.append(length[-1] + math.dist(path[i - 1], path[i]))
+    bm = bmesh.new()
+    pins = bmesh.new()
+    s = 0.0
+    k = 0
+    while s < length[-1]:
+        i = max(j for j in range(len(path)) if length[j] <= s)
+        i = min(i, len(path) - 2)
+        f = (s - length[i]) / max(length[i + 1] - length[i], 1e-6)
+        y = path[i][0] + (path[i + 1][0] - path[i][0]) * f
+        z = path[i][1] + (path[i + 1][1] - path[i][1]) * f
+        t = Vector((0.0, path[i + 1][0] - path[i][0], path[i + 1][1] - path[i][1])).normalized()
+        # Out from the head: on the engine at the top, coming in onto the cords below.
+        x = side * (ENGINE[0] + COVER_T + 0.08 - max(29.0 - z, 0.0) * 0.17)
+        outer = k % 2 == 0
+        w = 0.22 if outer else 0.15
+        half_len = CHAIN_PITCH * 0.62
+        n = Vector((side, 0.0, 0.0))
+        across = t.cross(n).normalized()
+        c = Vector((x, y, z)) + n * (0.1 if outer else 0.04)
+        corners = [c + t * a * half_len + across * b * w + n * d * 0.05 for a in (-1, 1) for b in (-1, 1) for d in (-1, 1)]
+        vs = [bm.verts.new(p) for p in corners]
+        for quad in ((0, 1, 3, 2), (4, 6, 7, 5), (0, 4, 5, 1), (2, 3, 7, 6), (0, 2, 6, 4), (1, 5, 7, 3)):
+            bm.faces.new([vs[q] for q in quad])
+        if outer:
+            for a in (-1, 1):
+                p = c + t * a * half_len * 0.8
+                cylinder(pins, p - n * 0.1, p + n * 0.1, 0.075, segments=8)
+        s += CHAIN_PITCH
+        k += 1
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    mesh_obj('chain_strip', bm, ['links'], 'head')
+    mesh_obj('chain_pins', pins, ['bolt'], 'head')
+
+
+def build_head():
+    """The engine with a face: the iron block with its side plates and sockets, hinges, rear handle, pole and cable;
+    the orange visor with its vents and eye; the teeth; the jaw; the neck of cords; and the saw out of the front."""
+    half, back, front, bottom, top = ENGINE
+    head = solid('engine', ENGINE_PROFILE, engine_half, 'engine', 'head', bevel=ENGINE_ROUND)
+    build_engine_detail(half, back, front, bottom, top)
+
+    for side in (-1, 1):
+        x = side * (half + COVER_T)
+        sy, sz = SOCKET
+        # The side plate: round, its top edge cut in notches like a cog, standing a little proud of the engine.
+        bm = bmesh.new()
+        ring = []
+        steps = 64
+        for i in range(steps):
+            a = 2 * math.pi * i / steps
+            r = SIDE_PLATE_R
+            # Notches round the top half only.
+            if math.sin(a) > 0.1 and int(i * SIDE_PLATE_NOTCHES * 2 / (steps / 2)) % 2:
+                r += 0.32
+            ring.append((sy + math.cos(a) * r, sz + math.sin(a) * r))
+        inner = [bm.verts.new((x, y, z)) for y, z in ring]
+        outer = [bm.verts.new((x + side * 0.22, y, z)) for y, z in ring]
+        bm.faces.new(outer if side > 0 else outer[::-1])
+        for i in range(steps):
+            j = (i + 1) % steps
+            quad = [inner[i], inner[j], outer[j], outer[i]]
+            bm.faces.new(quad if side > 0 else quad[::-1])
+        cylinder_x(bm, x + side * 0.22, sy, sz, SOCKET_R + 0.28, 0.18, 32)
+        cylinder_x(bm, x + side * 0.22, SCREW[0], SCREW[1], SCREW[2], 0.16, 12)
+        mesh_obj('side_plate', bm, ['engine'], 'head')
+        # The socket's dark hole, and the screw's slot.
+        bm = bmesh.new()
+        cylinder_x(bm, x + side * 0.4, sy, sz, SOCKET_R, 0.02, 32)
+        mesh_obj('socket', bm, ['slot'], 'head')
+        bm = bmesh.new()
+        arc_strip(bm, x + side * 0.42, (sy, sz), SOCKET_R + 0.06, 0.12, 0.0, 2 * math.pi, steps=48)
+        mesh_obj('socket_lip', bm, ['bolt'], 'head')
+
+    # The rear handle, and the pole on top.
+    tube('rear_handle', [(0.0, y, z) for y, z in REAR_HANDLE], HANDLE_R, 'handle', 'head')
+    py, pz, tilt, length, r = POLE
+    t = math.radians(tilt)
+    end = Vector((0.0, py + math.sin(t) * length, pz + math.cos(t) * length))
+    bm = bmesh.new()
+    cylinder(bm, (0.0, py, pz - 1.0), end, r)
+    tip = bmesh.ops.create_uvsphere(bm, u_segments=16, v_segments=8, radius=r)['verts']
+    bmesh.ops.translate(bm, vec=end, verts=tip)
+    mesh_obj('pole', bm, ['handle'], 'head')
+    # The collar the pole goes into.
+    bm = bmesh.new()
+    cylinder(bm, (0.0, py, pz - 0.4), (0.0, py + 0.1, pz + 0.4), r + 0.28, segments=16)
+    mesh_obj('pole_collar', bm, ['engine'], 'head')
+    # The chain down each side, behind the visor.
+    for side in (-1, 1):
+        chain_strip(side)
+
+    # The visor, a prow-shaped cover with a ridge along its top, and its vents: the outer two dark, the inner two his
+    # eye, burning.
+    solid('visor', VISOR, visor_half, 'visor', 'head', bevel=0.12, ridge=(VISOR_OUTER, VISOR_RIDGE))
+    for side in (-1, 1):
+        for radii, mat in ((VENT_R[2:], 'slot'), (VENT_R[:2], 'eye')):
+            bm = bmesh.new()
+            for r in radii:
+                arc_strip(bm, 0.0, VENT_C, r, VENT_W, *VENT_SWEEP)
+            # Laid on the visor's side, which leans in toward the front.
+            for v in bm.verts:
+                v.co.x = side * (visor_half(v.co.y, v.co.z) + 0.02)
+            mesh_obj('vents' if mat == 'slot' else 'eye', bm, [mat], 'head')
+
+    # The jaw, a V seen from the front, its point down; the gum along its top; the dark of the mouth behind the teeth.
+    solid('jaw', JAW, jaw_half, 'visor', 'head', bevel=0.12)
+    jaw_top = JAW[0][1]
+    box('gum', (0.0, (TEETH_FRONT[0] + 0.6) / 2, jaw_top + 0.06), (TEETH_SIDE[0] - 0.1, (0.6 - TEETH_FRONT[0]) / 2, 0.08),
+        'gum', 'head')
+    # The mouth is open behind the teeth: its inside sits well back from them, dark and wet, so it shows as a hole.
+    box('throat', (0.0, -1.4, (jaw_top + 28.0) / 2), (TEETH_SIDE[0] - 0.75, 2.0, (28.0 - jaw_top) / 2), 'throat', 'head')
+
+    build_wires()
+
+    # The teeth: the upper hanging from under the visor nearly to the jaw, the lower standing up between them; long,
+    # straight and thin, each a little uneven.
+    rnd = random.Random(11)
+    points = teeth_line()
+    bm = bmesh.new()
+    for k, (x, y) in enumerate(points):
+        for upper, (length, half_t) in ((True, UPPER_TOOTH), (False, LOWER_TOOTH)):
+            if upper:
+                cx, cy = x, y
+                z0 = roof_z(y) + 0.1
+            elif k + 1 < len(points):
+                cx, cy = (x + points[k + 1][0]) / 2, (y + points[k + 1][1]) / 2
+                z0 = jaw_top
+            else:
+                continue
+            sign = -1.0 if upper else 1.0
+            ln = min(length * rnd.uniform(0.9, 1.08), abs(z0 - jaw_top) - 0.15) if upper else length * rnd.uniform(0.85, 1.1)
+            lean = Vector((rnd.uniform(-0.06, 0.06), rnd.uniform(-0.1, 0.02), 0.0))
+            root = [bm.verts.new((cx + dx, cy + dy, z0)) for dx, dy in
+                    ((-half_t, -half_t * 0.7), (half_t, -half_t * 0.7), (half_t, half_t * 0.7), (-half_t, half_t * 0.7))]
+            tip = bm.verts.new(Vector((cx, cy, z0 + sign * ln)) + lean)
+            for i in range(4):
+                bm.faces.new([root[i], root[(i + 1) % 4], tip])
+            bm.faces.new(root)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    mesh_obj('teeth', bm, ['tooth'], 'head')
+
+    # The saw, out of the top of the visor's front, flat faces to the sides.
     tilt = math.radians(HEAD_BAR_TILT)
     along = Vector((0.0, -math.cos(tilt), math.sin(tilt)))
     up = Vector((0.0, math.sin(tilt), math.cos(tilt)))
     frame = Matrix.Translation(HEAD_BAR_ROOT) @ Matrix((
         (along.x, up.x, 1.0, 0.0), (along.y, up.y, 0.0, 0.0), (along.z, up.z, 0.0, 0.0), (0, 0, 0, 1)))
-    saw('head_saw', HEAD_BAR, frame, 'head')
+    saw('head_saw', HEAD_BAR, frame, 'head', housing=False)
     return head
 
 
@@ -408,8 +1059,22 @@ def studio():
     scene = bpy.context.scene
     world = bpy.data.worlds.new('studio')
     world.use_nodes = True
-    world.node_tree.nodes['Background'].inputs['Color'].default_value = (0.05, 0.052, 0.058, 1.0)
-    world.node_tree.nodes['Background'].inputs['Strength'].default_value = 1.0
+    # A dim sky for the metal to reflect: dark below the horizon, grey-blue above, brightest high up.
+    nt = world.node_tree
+    sep = nt.nodes.new('ShaderNodeSeparateXYZ')
+    ramp = nt.nodes.new('ShaderNodeValToRGB')
+    ramp.color_ramp.elements[0].position = 0.45
+    ramp.color_ramp.elements[0].color = (0.012, 0.012, 0.014, 1.0)
+    ramp.color_ramp.elements[1].position = 1.0
+    ramp.color_ramp.elements[1].color = (0.32, 0.36, 0.42, 1.0)
+    ramp.color_ramp.elements.new(0.52).color = (0.09, 0.095, 0.11, 1.0)
+    rng = nt.nodes.new('ShaderNodeMapRange')
+    rng.inputs['From Min'].default_value = -1.0
+    nt.links.new(nt.nodes.new('ShaderNodeTexCoord').outputs['Generated'], sep.inputs['Vector'])
+    nt.links.new(sep.outputs['Z'], rng.inputs['Value'])
+    nt.links.new(rng.outputs['Result'], ramp.inputs['Fac'])
+    nt.links.new(ramp.outputs['Color'], nt.nodes['Background'].inputs['Color'])
+    nt.nodes['Background'].inputs['Strength'].default_value = 1.0
     scene.world = world
     for name, loc, size, energy, color in (('key', (-40, -48, 52), 30, 60000, (1.0, 0.94, 0.86)),
                                            ('rim', (34, 46, 40), 22, 42000, (0.65, 0.78, 1.0)),
@@ -441,10 +1106,12 @@ def studio():
 
 SHOTS = [
     # name, pose, camera, target, lens, size
-    ('hero', 'stance', (-38, -62, 34), (0, -4, 19), 60, (1000, 1250)),
+    ('hero', 'stance', (-44, -66, 34), (0, -8, 20), 55, (1000, 1250)),
     ('front', 'stance', (0, -80, 22), (0, 0, 19), 55, (1000, 1250)),
     ('side', 'rest', (-80, -4, 20), (0, -4, 18), 55, (1250, 1000)),
-    ('head', 'stance', (-16, -30, 33), (0, -6, 29), 70, (1250, 1000)),
+    ('head', 'stance', (-24, -30, 33), (0, -6, 28.5), 55, (1250, 1000)),
+    ('head_side', 'stance', (-48, -4, 29), (0, -6, 28.5), 50, (1500, 900)),
+    ('head_back', 'stance', (-28, 30, 34), (0, 0, 28.5), 55, (1250, 1000)),
     ('arm_saw', 'rest', (30, -26, 12), (7, 0, 10), 65, (1000, 1250)),
 ]
 
