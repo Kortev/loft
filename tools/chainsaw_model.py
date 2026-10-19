@@ -46,42 +46,46 @@ ENGINE_ROUND = 0.45
 ENGINE_PROFILE = [(-1.5, 32.9), (0.8, 33.4), (2.6, 33.7), (3.6, 33.5), (4.9, 32.8), (5.6, 31.6), (5.7, 28.6), (5.3, 27.0),
                   (4.4, 26.1), (-1.5, 26.1)]
 # The armour plates over its top, stepped one behind the other, and how wide they are.
-TOP_PLATES = [[(-0.6, 33.0), (0.9, 33.75), (2.4, 34.0), (2.9, 33.7), (2.4, 33.2), (-0.6, 32.6)],
+TOP_PLATES = [[(1.3, 33.5), (2.0, 34.0), (2.9, 34.1), (3.2, 33.75), (2.7, 33.3), (1.3, 33.2)],
               [(3.1, 33.95), (4.3, 33.6), (5.3, 32.85), (5.0, 32.35), (3.3, 33.2)]]
 TOP_PLATE_HALF = 2.3
 # The ribs down the back of the neck, under the engine: how many, the top one's height, how far apart.
 RIBS = (5, 25.7, 0.72)
 # The short chain down each side behind the visor, from a curl under the screw to the back of the jaw: its path (y, z)
 # and how far apart its links are.
-CHAIN_PATH = [(0.05, 30.1), (0.5, 30.15), (0.62, 29.75), (0.45, 29.3), (0.4, 28.2), (0.5, 26.6), (0.75, 25.0)]
+CHAIN_PATH = [(1.4, 29.5), (1.85, 29.55), (1.98, 29.15), (1.8, 28.75), (1.7, 27.8), (1.6, 26.4), (1.3, 25.0)]
 CHAIN_PITCH = 0.36
 # How thick the covers on its sides are, and how many fins the cylinder on its back has.
 COVER_T = 0.3
 FINS = 5
 # The plate on each side of the engine with its round socket (an eye-like hole) and a screw below and in front of it:
 # the socket's middle (y, z), the plate's radius and how many notches its top edge has, the socket's radius.
-SOCKET = (2.5, 30.6)
-SIDE_PLATE_R = 2.3
+SOCKET = (3.0, 30.4)
+SIDE_PLATE_R = 2.05
 SIDE_PLATE_NOTCHES = 7
 SOCKET_R = 0.85
-SCREW = (0.75, 29.7, 0.3)
-# The ribbed hinge low on each side of the engine, over the cords: its middle (y, z), its length, how many ribs.
+SCREW = (1.75, 29.0, 0.28)
 # The rear handle, a D standing out from the back of the engine (y, z points round it), and its thickness.
 REAR_HANDLE = [(5.0, 32.5), (6.4, 32.5), (7.0, 31.8), (7.0, 28.9), (6.4, 28.2), (5.0, 28.2)]
 HANDLE_R = 0.45
 # The pole standing up out of the top of the head behind the bar: its foot (y, z), its tilt back from upright
 # (degrees), length and radius.
-POLE = (0.4, 32.4, 32.0, 5.0, 0.48)
+POLE = (1.4, 33.2, 32.0, 5.0, 0.48)
 # The coiled cable down the join of the engine and the visor: its top and bottom (z), at y, and its coil's radius.
 # The visor, seen from the side, from the spike at its top back, round its front to its point, back along its bottom
 # edge and up its back edge; the points of its outer edge (top and front) are the first OUTER of them, and along those
-# its middle stands up in a ridge RIDGE high.
-VISOR = [(-0.2, 33.25), (-1.4, 33.15), (-2.6, 32.75), (-3.7, 32.0), (-4.6, 31.0), (-5.4, 29.8), (-6.0, 28.4),
-         (-6.4, 27.0), (-4.5, 27.4), (-2.5, 27.75), (-0.9, 28.05), (0.45, 28.25), (0.55, 28.8), (0.2, 29.6), (0.25, 31.2), (0.05, 32.5)]
-VISOR_OUTER = 8
+# its middle stands up in a ridge RIDGE high. It is the shell: it comes back over the front of the engine and is wider
+# than it, so the engine sits inside it.
+VISOR = [(0.7, 33.8), (-0.6, 33.7), (-1.9, 33.35), (-3.0, 32.75), (-3.9, 31.95), (-4.7, 30.95), (-5.4, 29.8),
+         (-6.0, 28.4), (-6.4, 27.0), (-4.5, 27.4), (-2.5, 27.75), (-0.9, 28.05), (1.35, 28.25), (1.45, 28.8),
+         (1.1, 29.6), (1.2, 31.2), (1.05, 32.6)]
+VISOR_OUTER = 9
 VISOR_RIDGE = 0.55
+# Which of its points are its front point, and the back of the mouth under it.
+VISOR_POINT = 8
+VISOR_MOUTH = 11
 # Its half width at the back and at the front point: it narrows to a prow.
-VISOR_HALF = (3.75, 1.3)
+VISOR_HALF = (4.15, 1.3)
 # The vent slots on its sides: the corner they curve round (y, z), their radii and width, and how far round they go
 # (radians from straight up toward the front). The inner two are the eye.
 VENT_C = (-0.9, 27.75)
@@ -528,7 +532,7 @@ def engine_half(y, z):
 
 
 def visor_half(y, z):
-    back, front = VISOR[11][0], VISOR[7][0]
+    back, front = max(y for y, z in VISOR), VISOR[VISOR_POINT][0]
     f = min(max((back - y) / (back - front), 0.0), 1.0)
     return VISOR_HALF[0] + (VISOR_HALF[1] - VISOR_HALF[0]) * f ** 1.4
 
@@ -590,7 +594,7 @@ def tube(name, points, r, mat, part, cyclic=False):
 
 def roof_z(y):
     """The underside of the visor at {@code y}, which the upper teeth hang from."""
-    (y0, z0), (y1, z1) = VISOR[10], VISOR[7]
+    (y0, z0), (y1, z1) = VISOR[VISOR_MOUTH], VISOR[VISOR_POINT]
     return z0 + (z1 - z0) * (y - y0) / (y1 - y0)
 
 
@@ -715,7 +719,7 @@ def build_engine_detail(half, back, front, bottom, top):
         ledge = [(-0.8, 26.95), (4.5, 26.95), (4.9, 27.35), (4.5, 27.75), (-0.8, 27.75)]
         plate_x('ledge', ledge, x + side * COVER_T, 0.32, 'engine', 'head')
         # The nub where the engine meets the visor.
-        box('nub', (x + side * (COVER_T + 0.15), 0.3, 30.4), (0.18, 0.28, 0.3), 'engine', 'head', bevel=0.06, segments=1)
+        box('nub', (x + side * (COVER_T + 0.15), 1.6, 31.6), (0.18, 0.28, 0.3), 'engine', 'head', bevel=0.06, segments=1)
         for by, bz in ((front + 1.4, bottom + 1.1), (front + 1.4, top - 0.9), (back - 1.0, bottom + 1.1), (4.7, 29.0),
                        (4.15, 31.8), (3.3, 27.6)):
             bolt(bm_bolts, x + side * (COVER_T + (0.18 if by > 2.9 else 0.0)), by, bz, 0.17)
