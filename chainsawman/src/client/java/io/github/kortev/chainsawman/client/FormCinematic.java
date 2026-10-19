@@ -127,7 +127,7 @@ public final class FormCinematic {
 	}
 
 	/** How many ticks into your own transformation you are, or -1. */
-	static float mine(float tickDelta) {
+	private static float mine(float tickDelta) {
 		ClientPlayerEntity self = MinecraftClient.getInstance().player;
 		return self != null ? ClientForms.pullAge(self, tickDelta) : -1.0F;
 	}
