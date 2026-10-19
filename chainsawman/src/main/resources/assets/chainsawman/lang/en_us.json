@@ -3,5 +3,9 @@
   "item.chainsawman.pochita.tooltip.0": "Carry him. Pull the cord.",
   "item.chainsawman.pochita.tooltip.1": "A heart for a heart.",
   "key.categories.chainsawman": "Chainsaw Man",
-  "key.chainsawman.pull_cord": "Pull the cord"
+  "key.chainsawman.pull_cord": "Pull the cord",
+  "subtitles.chainsawman.form.cord": "Cord ripped out",
+  "subtitles.chainsawman.form.start": "Chainsaw engine screams to life",
+  "subtitles.chainsawman.form.idle": "Chainsaw engine idles",
+  "subtitles.chainsawman.form.stop": "Chainsaw engine dies"
 }

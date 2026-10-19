@@ -2,6 +2,7 @@ package io.github.kortev.shootingstar.test;
 
 import io.github.kortev.chainsawman.ChainsawMan;
 import io.github.kortev.chainsawman.form.Form;
+import io.github.kortev.chainsawman.form.FormTimeline;
 import io.github.kortev.shootingstar.ShootingStar;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -50,6 +51,9 @@ public class FormSelfTest implements ClientModInitializer {
 	private static int shot;
 	private static final List<Integer> CAMERA_IDS = new ArrayList<>();
 	private static UUID standInId;
+	/** The ticks after the pull to photograph, and how far it has got. */
+	private static final int[] PULL_SHOTS = {2, 5, 8, 12, 17, 20, 24};
+	private static int pullTick;
 
 	@Override
 	public void onInitializeClient() {
@@ -117,6 +121,29 @@ public class FormSelfTest implements ClientModInitializer {
 				}
 			}
 			case SHOOT -> {
+				if (shot >= CAMERAS.length + PLAIN.length && pullTick <= PULL_SHOTS[PULL_SHOTS.length - 1]) {
+					// The stand-in pulls the cord, photographed through the yank and the burst.
+					Entity camera = client.world.getEntityById(CAMERA_IDS.get(0));
+					if (camera != null) {
+						client.options.setPerspective(Perspective.FIRST_PERSON);
+						client.setCameraEntity(camera);
+					}
+					if (pullTick == 0) {
+						ClientForms.set(standInId, false);
+						ClientForms.pulled(standInId, client.world.getTime());
+					}
+					if (pullTick == FormTimeline.BURST) {
+						ClientForms.set(standInId, true);
+					}
+					for (int at : PULL_SHOTS) {
+						if (at == pullTick) {
+							screenshot(client, String.format("pull_%02d", at));
+						}
+					}
+					pullTick++;
+					ticks = 0;
+					return;
+				}
 				if (shot >= CAMERAS.length + PLAIN.length) {
 					client.setCameraEntity(client.player);
 					if (ticks < 22) {

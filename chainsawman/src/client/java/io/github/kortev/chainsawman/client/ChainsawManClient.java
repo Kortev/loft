@@ -3,6 +3,7 @@ package io.github.kortev.chainsawman.client;
 import io.github.kortev.chainsawman.ChainsawMan;
 import io.github.kortev.chainsawman.PochitaItem;
 import io.github.kortev.chainsawman.network.FormPayload;
+import io.github.kortev.chainsawman.network.FormPullPayload;
 import io.github.kortev.chainsawman.network.PullCordPayload;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -21,7 +22,7 @@ import net.minecraft.resource.ResourceType;
 import net.minecraft.util.Identifier;
 import org.lwjgl.glfw.GLFW;
 
-/** Chainsaw Man on the client: the cord key, who is in the form, and the form drawn on them. */
+/** Chainsaw Man on the client: the cord key, who is in the form and pulling the cord, and the form drawn and heard on them. */
 public final class ChainsawManClient implements ClientModInitializer {
 	/** Pull the cord: into the form with Pochita carried, or out of it again. */
 	public static KeyBinding PULL_CORD;
@@ -47,11 +48,17 @@ public final class ChainsawManClient implements ClientModInitializer {
 			}
 		});
 		ClientPlayNetworking.registerGlobalReceiver(FormPayload.ID, (payload, context) -> ClientForms.set(payload.player(), payload.on()));
+		ClientPlayNetworking.registerGlobalReceiver(FormPullPayload.ID, (payload, context) -> {
+			if (context.client().world != null) {
+				ClientForms.pulled(payload.player(), context.client().world.getTime());
+			}
+		});
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> ClientForms.clear());
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
 			while (PULL_CORD.wasPressed()) {
 				pullCord(client);
 			}
+			ClientForms.tick(client);
 		});
 	}
 

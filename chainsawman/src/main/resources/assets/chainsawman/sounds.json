@@ -1,0 +1,34 @@
+{
+  "form.cord": {
+    "subtitle": "subtitles.chainsawman.form.cord",
+    "sounds": [
+      {
+        "name": "chainsawman:form_cord"
+      }
+    ]
+  },
+  "form.start": {
+    "subtitle": "subtitles.chainsawman.form.start",
+    "sounds": [
+      {
+        "name": "chainsawman:form_start"
+      }
+    ]
+  },
+  "form.idle": {
+    "subtitle": "subtitles.chainsawman.form.idle",
+    "sounds": [
+      {
+        "name": "chainsawman:form_idle"
+      }
+    ]
+  },
+  "form.stop": {
+    "subtitle": "subtitles.chainsawman.form.stop",
+    "sounds": [
+      {
+        "name": "chainsawman:form_stop"
+      }
+    ]
+  }
+}

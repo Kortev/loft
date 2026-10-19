@@ -2,6 +2,7 @@ package io.github.kortev.chainsawman;
 
 import io.github.kortev.chainsawman.form.Form;
 import io.github.kortev.chainsawman.network.FormPayload;
+import io.github.kortev.chainsawman.network.FormPullPayload;
 import io.github.kortev.chainsawman.network.PullCordPayload;
 import io.github.kortev.shootingstar.OwnerOnly;
 import net.fabricmc.api.ModInitializer;
@@ -39,8 +40,10 @@ public final class ChainsawMan implements ModInitializer {
 	@Override
 	public void onInitialize() {
 		OwnerOnly.register(MOD_ID, () -> OWNER);
+		ChainsawSounds.init();
 		ItemGroupEvents.modifyEntriesEvent(ItemGroups.COMBAT).register(entries -> entries.add(POCHITA));
 		PayloadTypeRegistry.playS2C().register(FormPayload.ID, FormPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(FormPullPayload.ID, FormPullPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(PullCordPayload.ID, PullCordPayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(PullCordPayload.ID, (payload, context) -> Form.pullCord(context.player()));
 		Form.init();
