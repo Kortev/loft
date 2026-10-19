@@ -1,4 +1,6 @@
-"""Draws kortev's skin in the Public Safety uniform: py tools/kortev_skin.py SOURCE.png OUT.png
+"""Draws kortev's skin in the Public Safety uniform: py tools/kortev_skin.py SOURCE.png OUT.png [--hood]
+
+With --hood the head is his skin's own, hood up, untouched; without it, the hood is pulled down (below).
 
 His own head, from his skin (SOURCE: his shark onesie, hood up, only his face and fringe showing), with the hood
 pulled down: his face and fringe exactly as they were, and the hood become hair in his fringe's own oranges, hanging in
@@ -285,10 +287,19 @@ def wallet_chain():
         put(12 + x, 36 + y, BUCKLE[(x + y) % 2])
 
 
+def hood_up(src):
+    """His head exactly as his skin has it, hood up, on both layers."""
+    img[0:16, 0:64] = np.array(src)[0:16, 0:64]
+
+
 def main():
-    src = Image.open(sys.argv[1]).convert('RGBA')
-    head(src)
-    hair_layer(src)
+    args = [a for a in sys.argv[1:] if not a.startswith('--')]
+    src = Image.open(args[0]).convert('RGBA')
+    if '--hood' in sys.argv:
+        hood_up(src)
+    else:
+        head(src)
+        hair_layer(src)
     shirt_body()
     shirt_layer()
     arm(40, 16)     # right arm
@@ -298,8 +309,8 @@ def main():
     leg(0, 16)      # right leg
     leg(16, 48)     # left leg
     wallet_chain()
-    Image.fromarray(img, 'RGBA').save(sys.argv[2])
-    print('wrote', sys.argv[2])
+    Image.fromarray(img, 'RGBA').save(args[1])
+    print('wrote', args[1])
 
 
 if __name__ == '__main__':
