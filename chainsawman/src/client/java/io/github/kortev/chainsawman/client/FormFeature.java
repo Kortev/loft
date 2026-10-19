@@ -15,7 +15,7 @@ import net.minecraft.util.Identifier;
 
 /**
  * The form on whoever is in it: the chainsaw head in place of their own (hidden, with their hat layer, by {@code
- * HeadHiddenMixin}), and the cord on their chest; each part moving with its bone.
+ * HeadHiddenMixin}), the saws out of their forearms, and the cord on their chest; each part moving with its bone.
  */
 public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntity, PlayerEntityModel<AbstractClientPlayerEntity>> {
 	public static final Identifier TEXTURE = ChainsawMan.id("textures/entity/form.png");
@@ -37,7 +37,12 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 		VertexConsumer out = consumers.getBuffer(RenderLayer.getEntityCutoutNoCull(TEXTURE));
 		int overlay = LivingEntityRenderer.getOverlay(player, 0.0F);
 		PlayerEntityModel<AbstractClientPlayerEntity> model = getContextModel();
+		int chainFrame = 0;
 		for (FormMesh.Part part : mesh.parts.values()) {
+			// Each chain comes in a few frames, each a step further round its bar: one at a time is drawn.
+			if (part.chainFrame >= 0 && part.chainFrame != chainFrame) {
+				continue;
+			}
 			ModelPart bone = switch (part.bone) {
 				case "head" -> model.head;
 				case "body" -> model.body;

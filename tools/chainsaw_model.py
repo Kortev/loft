@@ -109,7 +109,7 @@ LOWER_TOOTH = (1.5, 0.17)
 # The neck of cords, under the engine and down into the collar: half width, back, front, bottom, top.
 NECK = (3.0, 3.6, -1.2, 22.4, 26.6)
 # How many wires make the neck, and how many are in each cheek.
-NECK_WIRES = 72
+NECK_WIRES = 40
 CHEEK_WIRES = 6
 # The head's saw: where the bar's root is (inside the visor), its length, height and thickness, and its tilt up.
 HEAD_BAR_ROOT = Vector((0.0, 0.0, 30.9))
@@ -122,6 +122,9 @@ ARM_BAR_ROOT = 6.0
 # bar's height.
 CUTTER_PITCH = 0.85
 SPIKE = 0.3
+# How many frames of each chain are built: one for the renders; the game's copy has CHAIN_FRAMES_GAME, shown in turn.
+CHAIN_FRAMES = 1
+CHAIN_FRAMES_GAME = 4
 # The cord: where it leaves the chest, how far it hangs, and the T handle's length and thickness.
 CORD_ROOT = Vector((0.0, -2.05, 20.5))
 CORD_DROP = 4.2
@@ -282,7 +285,7 @@ def steel(name, color, rough=0.3, blood_amount=0.0, grime=(0.03, 0.025, 0.02)):
         drips = g.step(g.noise(0.9, 3.0, 0.5, g.mapped((1.0, 1.0, 0.12))), 0.69, 0.7)
         wet = g.math('MAXIMUM', splash, g.math('MAXIMUM', g.math('MULTIPLY', specks, splash), drips))
         dark = g.noise(1.2, 4.0)
-        blood = g.mix(dark, (0.09, 0.0, 0.002), (0.26, 0.004, 0.006))
+        blood = g.mix(dark, (0.3, 0.0, 0.004), (0.6, 0.01, 0.012))
         base = g.mix(wet, base, blood)
         rough_out = g.lerp(wet, rough_out, 0.08)
         g.out('Metallic', g.math('SUBTRACT', 0.95, g.math('MULTIPLY', wet, 0.95)))
@@ -342,7 +345,7 @@ def make_materials():
     # His head: the engine black paint over steel; the visor and jaw orange paint, chipped and scratched; the eye
     # burning yellow in its slots; the rear handle and pole black rubber.
     worn_paint('engine', (0.018, 0.019, 0.022), (0.32, 0.31, 0.3), paint_rough=0.55, chips=0.3, scratched=0.68)
-    worn_paint('visor', (0.55, 0.15, 0.02), (0.42, 0.4, 0.38), paint_rough=0.55, chips=0.2, scratched=0.66)
+    worn_paint('visor', (0.78, 0.22, 0.025), (0.42, 0.4, 0.38), paint_rough=0.55, chips=0.2, scratched=0.66)
     new_material('slot', (0.006, 0.005, 0.005), rough=0.8)
     new_material('eye', (1.0, 0.75, 0.15), emit=((1.0, 0.6, 0.08), 22.0))
     bone('tooth')
@@ -351,7 +354,7 @@ def make_materials():
     new_material('throat', (0.012, 0.002, 0.003), rough=0.25, sss=0.2)
     wire_material('cords')
     # The saws: the bar bloodied steel; the chain dark oily steel; the housings black paint.
-    steel('bar', (0.6, 0.6, 0.6), rough=0.3, blood_amount=0.44)
+    steel('bar', (0.84, 0.84, 0.82), rough=0.3, blood_amount=0.44)
     steel('chain', (0.16, 0.16, 0.17), rough=0.32, blood_amount=0.2)
     steel('links', (0.38, 0.37, 0.36), rough=0.38)
     worn_paint('housing', (0.025, 0.025, 0.028), (0.3, 0.3, 0.3), chips=0.34)
@@ -410,16 +413,17 @@ def stadium(length, height, steps=12):
     return pts
 
 
-def perimeter(length, height, pitch, inset=0.0):
+def perimeter(length, height, pitch, inset=0.0, phase=0.0):
     """Points evenly spaced round the bar's running edge (not the root end), with the way the chain runs there:
-    (u, v, du, dv). The chain goes out along the top, round the nose and back along the bottom."""
+    (u, v, du, dv). The chain goes out along the top, round the nose and back along the bottom; {@code phase} (0 to 1)
+    moves every point that far on toward the next."""
     r = height / 2.0 - inset
     straight = length - height / 2.0
     total = 2 * straight + math.pi * r
     out = []
     n = int(total / pitch)
     for i in range(n):
-        s = (i + 0.5) * total / n
+        s = (i + 0.5 + phase) * total / n % total
         if s < straight:
             out.append((s, r, 1.0, 0.0))
         elif s < straight + math.pi * r:
@@ -447,10 +451,22 @@ def saw(name, size, frame, part, housing=True):
         bm.faces.new((front[i], front[j], back[j], back[i]))
     plate = mesh_obj(name + '_bar', bm, ['bar'], part)
 
-    # The chain: a cutter at each pitch round the edge, each a little wedge leaning the way the chain runs, its tooth
-    # on alternate sides, on a link that rides in the bar's edge.
+    # The chain: a cutter at each pitch round the edge, each a sawtooth raking the way the chain runs, on a link that
+    # rides in the bar's edge. For the game, CHAIN_FRAMES of them, each moved a step further round, shown in turn to
+    # run the chain.
+    for frame_k in range(CHAIN_FRAMES):
+        chain(name, size, frame, part, frame_k)
+    if not housing:
+        return plate
+    housing_of(name, size, frame, part)
+    return plate
+
+
+def chain(name, size, frame, part, frame_k):
+    """One frame of a bar's chain (see saw)."""
+    length, height, thick = size
     bm = bmesh.new()
-    for k, (u, v, du, dv) in enumerate(perimeter(length, height, CUTTER_PITCH)):
+    for k, (u, v, du, dv) in enumerate(perimeter(length, height, CUTTER_PITCH, phase=frame_k / CHAIN_FRAMES)):
         along = Vector((du, dv, 0.0))
         out = Vector((-dv, du, 0.0))  # away from the bar
         base = Vector((u, v, 0.0))
@@ -477,11 +493,12 @@ def saw(name, size, frame, part, housing=True):
         )]
         for face in ((0, 2, 4), (1, 5, 3), (0, 4, 5, 1), (2, 3, 5, 4), (0, 1, 3, 2)):
             bm.faces.new([tv[t] for t in face])
-    chain = mesh_obj(name + '_chain', bm, ['chain'], part)
-    if not housing:
-        return plate
+    mesh_obj(name + '_chain%d' % frame_k, bm, ['chain'], part + '_chain%d' % frame_k)
 
-    # The housing at the root: a dark block the bar comes out of, wider than the bar.
+
+def housing_of(name, size, frame, part):
+    """The dark block a bar comes out of, wider than the bar."""
+    length, height, thick = size
     bm = bmesh.new()
     bmesh.ops.create_cube(bm, size=1.0)
     bmesh.ops.scale(bm, vec=Vector((2.2, height + 0.9, thick + 1.5)), verts=bm.verts)
@@ -491,7 +508,6 @@ def saw(name, size, frame, part, housing=True):
     mod = housing.modifiers.new('bevel', 'BEVEL')
     mod.width = 0.35
     mod.segments = 2
-    return plate
 
 
 def solid(name, profile, half, mat, part, bevel=0.0, ridge=None):
@@ -802,7 +818,7 @@ def build_wires():
             t = a + twist * k / 3
             path.append((math.cos(t) * rx * rr * bulge, cy + math.sin(t) * ry * rr * bulge, z + rnd.uniform(-0.1, 0.1)))
         paths.append(path)
-        radii.append(rnd.uniform(0.17, 0.27))
+        radii.append(rnd.uniform(0.26, 0.36))
     for side in (-1, 1):
         n = CHEEK_WIRES
         # Only at the back corners of the mouth, where the jaw hinges: the mouth itself is left open.
@@ -1000,7 +1016,7 @@ def build_arm(side, pose):
     frame = Matrix.Translation(root) @ Matrix((
         (0.0, side * 1.0, 0.0, 0.0), (0.0, 0.0, 1.0, 0.0), (-1.0, 0.0, 0.0, 0.0), (0, 0, 0, 1)))
     before = set(bpy.context.scene.objects)
-    saw('arm_saw', ARM_BAR, frame, 'arm')
+    saw('arm_saw', ARM_BAR, frame, 'arm_left' if side > 0 else 'arm_right')
     parts += [o for o in bpy.context.scene.objects if o not in before]
     for o in parts:
         o.parent = pivot
@@ -1065,10 +1081,19 @@ GAME_TEXTURE = os.path.join(GAME_ASSETS, 'textures', 'entity', 'form.png')
 BAKE_SIZE = int(os.environ.get('CSM_BAKE_SIZE', '2048'))
 BAKE_SAMPLES = int(os.environ.get('CSM_BAKE_SAMPLES', '24'))
 # How dark the most shut-in corners get in the texture (the game's own lighting does the rest).
-SHUT_IN = 0.45
+SHUT_IN = 0.72
+# And then everything lifted and its colour strengthened a little: the game shades the form as well.
+LIFT = (0.85, 1.08)
+SATURATE = 1.2
 # What each part is drawn with in the game: which bone it follows, and where that bone's pivot is in the build (the
 # neck, for the head and the body; the shoulder for an arm).
-GAME_PARTS = {'head': ('head', Vector((0.0, 0.0, 24.0))), 'cord': ('body', Vector((0.0, 0.0, 24.0)))}
+GAME_PARTS = {'head': ('head', Vector((0.0, 0.0, 24.0))), 'cord': ('body', Vector((0.0, 0.0, 24.0))),
+              'arm_left': ('left_arm', Vector((5.0, 0.0, 22.0))), 'arm_right': ('right_arm', Vector((-5.0, 0.0, 22.0)))}
+
+
+def game_part(part):
+    """The part an object's part name belongs to for the game: a chain's frame goes with its bar's."""
+    return part.split('_chain')[0] if part else part
 # Materials drawn at full brightness whatever the light: the eye.
 GLOW = {'eye'}
 # How finely the curved tubes (the wires, the handle, the hoses) are cut up in the game's copy.
@@ -1090,7 +1115,7 @@ def game_objects():
     """Every object of the game's parts, with the part it belongs to."""
     out = []
     for o in bpy.context.scene.objects:
-        if o.type in ('MESH', 'CURVE') and o.get('part') in GAME_PARTS and not o.hide_render:
+        if o.type in ('MESH', 'CURVE') and game_part(o.get('part')) in GAME_PARTS and not o.hide_render:
             out.append((o, o['part']))
     return out
 
@@ -1205,7 +1230,9 @@ def export_game():
     UTF-8), int32 quad count, and four corners per quad: float32 x, y, z (pixels, in the bone's model space from its
     pivot), u, v, then int8 nx, ny, nz and uint8 flags (bit 0: glows). Triangles repeat their last corner."""
     import struct
-    build('stance')
+    global CHAIN_FRAMES
+    CHAIN_FRAMES = CHAIN_FRAMES_GAME
+    build('rest')
     scene = bpy.context.scene
     for o in scene.objects:
         if o.type == 'CURVE':
@@ -1270,6 +1297,9 @@ def export_game():
     rgb = color[..., :3] * (SHUT_IN + (1.0 - SHUT_IN) * np.clip(ao, 0.0, 1.0))[..., None]
     rgb = np.maximum(rgb, np.clip(emit[..., :3], 0.0, 1.0))
     rgb = dilate(linear_to_srgb(rgb), valid)
+    rgb = np.clip(rgb ** LIFT[0] * LIFT[1], 0.0, 1.0)
+    grey = rgb.mean(axis=-1, keepdims=True)
+    rgb = np.clip(grey + (rgb - grey) * SATURATE, 0.0, 1.0)
     os.makedirs(os.path.dirname(GAME_TEXTURE), exist_ok=True)
     Image.fromarray((np.clip(rgb, 0, 1) * 255 + 0.5).astype(np.uint8), 'RGB').save(GAME_TEXTURE, optimize=True)
     print('texture %s, %.1f%% of it used (%d KB)' % (GAME_TEXTURE, valid.mean() * 100, os.path.getsize(GAME_TEXTURE) // 1024))
@@ -1278,7 +1308,7 @@ def export_game():
     with open(GAME_MESH, 'wb') as f:
         f.write(b'CSM1' + struct.pack('<i', len(parts)))
         for name, quads in parts.items():
-            bone, pivot = GAME_PARTS[name]
+            bone, pivot = GAME_PARTS[game_part(name)]
             f.write(struct.pack('<h', len(name)) + name.encode() + struct.pack('<h', len(bone)) + bone.encode())
             f.write(struct.pack('<i', len(quads)))
             buf = bytearray()

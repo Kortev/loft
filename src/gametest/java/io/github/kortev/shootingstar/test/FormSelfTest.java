@@ -179,6 +179,7 @@ public class FormSelfTest implements ClientModInitializer {
 		ServerPlayerEntity player = server.getPlayerManager().getPlayerList().get(0);
 		ServerWorld world = server.getOverworld();
 		world.setTimeOfDay(6000);
+		world.setWeather(12000, 0, false, false);
 		server.getGameRules().get(net.minecraft.world.GameRules.DO_DAYLIGHT_CYCLE).set(false, server);
 		player.changeGameMode(GameMode.CREATIVE);
 		player.setHealth(player.getMaxHealth());

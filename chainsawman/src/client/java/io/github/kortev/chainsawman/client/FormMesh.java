@@ -26,12 +26,16 @@ public final class FormMesh {
 	/** A part: the bone it follows (head, body...) and its quads, four corners each, in pixels from the bone's pivot. */
 	public static final class Part {
 		public final String bone;
+		/** Which frame of its chain this is (a part named NAME_chainK is frame K of NAME's chain), or -1. */
+		public final int chainFrame;
 		final float[] pos;
 		final float[] uv;
 		final byte[] normal;
 		final boolean[] glow;
 
-		Part(String bone, int vertices) {
+		Part(String name, String bone, int vertices) {
+			int chain = name.lastIndexOf("_chain");
+			this.chainFrame = chain >= 0 ? Integer.parseInt(name.substring(chain + "_chain".length())) : -1;
 			this.bone = bone;
 			this.pos = new float[vertices * 3];
 			this.uv = new float[vertices * 2];
@@ -100,7 +104,7 @@ public final class FormMesh {
 			String name = string(data);
 			String bone = string(data);
 			int quads = data.getInt();
-			Part part = new Part(bone, quads * 4);
+			Part part = new Part(name, bone, quads * 4);
 			for (int i = 0; i < quads * 4; i++) {
 				part.pos[i * 3] = data.getFloat();
 				part.pos[i * 3 + 1] = data.getFloat();
