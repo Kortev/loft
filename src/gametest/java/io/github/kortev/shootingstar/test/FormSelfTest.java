@@ -55,7 +55,7 @@ public class FormSelfTest implements ClientModInitializer {
 	private static final int[] PULL_SHOTS = {2, 6, 10, 14, 16, 17, 18, 19, 20, 21, 22, 23, 25, 28, 32, 38, 44, 56};
 	private static int pullTick;
 	/** Your own transformation, filmed from your own camera: the ticks after the pull to photograph, and how far it has got. */
-	private static final int[] CINE_SHOTS = {2, 6, 10, 14, 16, 17, 18, 19, 20, 21, 22, 24, 28, 33, 36, 37, 38, 39, 42, 48, 56, 61, 63};
+	private static final int[] CINE_SHOTS = {2, 6, 10, 14, 16, 17, 18, 19, 20, 21, 22, 23, 24, 26, 28, 30, 32, 33, 34, 36, 37, 38, 39, 42, 48, 56, 61, 63};
 	private static final int CINE_START = 10;
 	private static int cineTick;
 

@@ -182,12 +182,12 @@ too and regenerate. Commit the `.ogg`s.
 
 ### 1. A polish pass on the transformation (kortev said yes to all of this)
 
-1. **The head grows instead of swapping**: for a few ticks before BURST, the bar punches out through the forehead of
+1. ~~**The head grows instead of swapping**~~ **done** (PUNCH, HEAD_OPEN; `FormFeature.punch`, `split`): for a few ticks before BURST, the bar punches out through the forehead of
    the player's ordinary head, then the head splits open in the blood and the chainsaw head is there. (Today it is
    swapped inside the blood burst and swells the last bit into place.) The human head is the player model's own; a
    way in is to keep it drawn until BURST and draw `head_bar` (grown from its root) on it from ~BURST-4.
-2. **Blood on the lens**: at the burst, blood splatters the puller's screen and runs down for a second (a HUD/screen
-   overlay, like `FormHud`).
+2. ~~**Blood on the lens**~~ **done** (`FormLens`): at the burst flat chunky splats hit the puller's screen, drip
+   down, and dissolve pixel by pixel before the roar; each pull's splatter is its own.
 3. **Manga sound-effect lettering on the impact frames**: big brushed katakana for the engine's roar (e.g. ヴゥン)
    slammed across the frame.
 4. **The eye ignites at the roar**: dark until ROAR, then a flash as it lights. (The eye is the glowing `eye`
