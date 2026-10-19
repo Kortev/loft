@@ -2,6 +2,7 @@ package io.github.kortev.chainsawman.client.mixin;
 
 import io.github.kortev.chainsawman.client.ClientForms;
 import io.github.kortev.chainsawman.client.CordPull;
+import io.github.kortev.chainsawman.client.SawPose;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.entity.model.PlayerEntityModel;
 import net.minecraft.entity.LivingEntity;
@@ -11,7 +12,10 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/** The body through the transformation, for everyone to see ({@link CordPull}): the yank, the brace and the roar. */
+/**
+ * The body in the form, for everyone to see: through the transformation the yank, the brace and the roar ({@link
+ * CordPull}); after it, fighting with the saws in place of the game's punch ({@link SawPose}).
+ */
 @Mixin(PlayerEntityModel.class)
 public abstract class FormPoseMixin {
 	@Inject(method = "setAngles(Lnet/minecraft/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
@@ -23,13 +27,19 @@ public abstract class FormPoseMixin {
 		if (!(entity instanceof PlayerEntity player) || ownEyes) {
 			return;
 		}
-		float t = ClientForms.pullAge(player, client.getRenderTickCounter().getTickDelta(true));
+		float tickDelta = client.getRenderTickCounter().getTickDelta(true);
+		float t = ClientForms.pullAge(player, tickDelta);
+		PlayerEntityModel<?> model = (PlayerEntityModel<?>) (Object) this;
 		if (t >= 0.0F) {
-			PlayerEntityModel<?> model = (PlayerEntityModel<?>) (Object) this;
 			CordPull.pose(model, t);
-			model.rightSleeve.copyTransform(model.rightArm);
-			model.leftSleeve.copyTransform(model.leftArm);
-			model.hat.copyTransform(model.head);
+		} else if (ClientForms.on(player)) {
+			SawPose.pose(model, player, tickDelta);
+		} else {
+			return;
 		}
+		model.rightSleeve.copyTransform(model.rightArm);
+		model.leftSleeve.copyTransform(model.leftArm);
+		model.jacket.copyTransform(model.body);
+		model.hat.copyTransform(model.head);
 	}
 }

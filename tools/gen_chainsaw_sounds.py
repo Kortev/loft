@@ -8,7 +8,12 @@ All are mono: the game places them on whoever makes them, and they are heard by 
   saws burst out (a wet tearing burst of flesh and wire in the middle of it), and dropping back to its idle;
 - the idle: what he sounds like while the form is on, a loop: a two-stroke engine putting along unevenly, the chains
   ticking round slack on their bars;
-- the stop: the engine coughing, stumbling and dying as he turns back.
+- the stop: the engine coughing, stumbling and dying as he turns back;
+- the fight: a slash (the engine snarling up as a saw whips through the air), a hit (the saw biting into flesh, the
+  engine bogging under it), the grind (a loop: the engine screaming under load, the chain chewing), the chain fired
+  out of the arm (links rattling out fast, the hook biting), the frenzy kicking in (the engine shrieking up into a
+  roar) and its loop (flat out, screaming), going down (a wet collapse as the engine splutters out), and coming back
+  up (a gulp of blood, the heart and the engine catching).
 
 A two-stroke engine is built the way it sounds: one sharp pop of exhaust at every firing, rung through the muffler and
 the body, as fast as the engine turns, with no two pops quite alike; and over it the buzz of the metal and the chain.
@@ -173,15 +178,168 @@ def form_stop():
     return x
 
 
+def loop(x, length, overlap=0.4):
+    """{x} (longer than {length} s by {overlap} s) cut to {length} s, its tail crossfaded into its head so it loops."""
+    m = ns(length)
+    k = ns(overlap)
+    head = x[:m].copy()
+    w = np.linspace(0.0, 1.0, k)
+    head[:k] = head[:k] * np.sin(w * np.pi / 2) + x[m:m + k] * np.cos(w * np.pi / 2)
+    return head
+
+
+def whoosh(n, at, length, lo=500.0, hi=2600.0):
+    """Air torn by something fast: a swell of noise sweeping up through a band."""
+    m = ns(length)
+    t = np.linspace(0.0, 1.0, m)
+    swept = g.sweep_filter(white(m), 'bandpass', lo + (hi - lo) * t, order=2, width=0.9)
+    env = np.sin(np.pi * np.minimum(t * 1.4, 1.0)) ** 1.5
+    out = np.zeros(n)
+    out[ns(at):ns(at) + m] = (swept * env)[:n - ns(at)]
+    return out
+
+
+def form_slash():
+    n = ns(0.55)
+    rate = curve(n, [(0.0, 60.0), (0.06, 190.0), (0.22, 210.0), (0.4, 120.0), (0.55, 70.0)])
+    level = curve(n, [(0.0, 0.5), (0.06, 1.2), (0.3, 1.0), (0.55, 0.0)])
+    x = engine(n, rate, level, buzz=0.45)
+    x += hp(white(n), 3500.0) * curve(n, [(0.0, 0.0), (0.05, 0.9), (0.35, 0.5), (0.55, 0.0)]) * 0.5
+    x += whoosh(n, 0.04, 0.3) * 1.3
+    return x
+
+
+def form_hit():
+    n = ns(0.45)
+    rate = curve(n, [(0.0, 200.0), (0.05, 90.0), (0.25, 130.0), (0.45, 150.0)])
+    level = curve(n, [(0.0, 1.2), (0.3, 0.8), (0.45, 0.0)])
+    x = engine(n, rate, level, buzz=0.6) * 0.7
+    x += flesh(n, 0.35, wet=1.5) * 1.4
+    # The teeth catching bone: a short crunch.
+    x += bp(white(n), 900.0, 4000.0) * curve(n, [(0.0, 0.0), (0.01, 1.0), (0.08, 0.2), (0.45, 0.0)]) * 0.8
+    return x
+
+
+def form_grind():
+    n = ns(1.5 + 0.4)
+    t = np.arange(n) / SR
+    rate = 175.0 + 18.0 * np.sin(2 * np.pi * 3.1 * t) + lp(white(n), 6.0) * 120.0
+    level = 1.0 + 0.2 * np.sin(2 * np.pi * 5.3 * t)
+    x = engine(n, rate, level, jitter=0.1, buzz=0.7)
+    # The chain chewing: a coarse grating, pulsing with the load.
+    chew = bp(white(n), 700.0, 5000.0) * (0.6 + 0.4 * np.abs(np.sin(2 * np.pi * 7.0 * t)))
+    x += chew * 0.55
+    wet = lp(white(n), 500.0) * (0.5 + 0.5 * np.sin(2 * np.pi * 2.3 * t) ** 2)
+    x += wet * 0.6
+    return loop(x, 1.5)
+
+
+def form_chain():
+    n = ns(0.8)
+    x = np.zeros(n)
+    # The links running out: fast clinks, slowing, over a hiss of the chain through the air.
+    x += ratchet(n, 0.0, 0.32, 260.0, 120.0) * 1.2
+    x += whoosh(n, 0.0, 0.3, 900.0, 3800.0) * 0.8
+    # The hook biting home, and the chain going taut with a jangle.
+    bite = np.zeros(n)
+    bite[ns(0.33)] = 1.0
+    ring = g.chime(1250.0, ns(0.4), tau=0.12, bright=0.7)
+    x += np.convolve(bite, ring)[:n] * 0.5
+    x += bp(white(n), 1500.0, 6000.0) * curve(n, [(0.0, 0.0), (0.33, 0.0), (0.34, 0.9), (0.5, 0.0), (0.8, 0.0)]) * 0.6
+    return x * np.minimum(1.0, (n - np.arange(n)) / ns(0.05))
+
+
+def roar(n, at, length, pitch=95.0):
+    """A roar from the throat: a growl of rough pulses through the formants of an open mouth."""
+    m = ns(length)
+    t = np.arange(m) / SR
+    f = pitch * (1.0 + 0.08 * np.sin(2 * np.pi * 4.0 * t)) * (1.0 + lp(white(m), 8.0) * 0.6)
+    phase = np.cumsum(f / SR)
+    pulses = (np.diff(np.floor(phase), prepend=0.0) > 0).astype(float) * g.rng.uniform(0.6, 1.2, m)
+    voice = np.convolve(pulses, np.exp(-np.arange(ns(0.006)) / ns(0.0015)))[:m]
+    voice = bp(voice, 500.0, 900.0) * 1.2 + bp(voice, 1100.0, 1500.0) * 0.8 + bp(voice, 2300.0, 2900.0) * 0.5
+    voice += bp(white(m), 400.0, 2500.0) * 0.35
+    env = curve(m, [(0.0, 0.0), (0.08, 1.0), (length - 0.35, 0.9), (length, 0.0)])
+    out = np.zeros(n)
+    out[ns(at):ns(at) + m] = sat(voice * env * 2.0, 2.0)[:n - ns(at)]
+    return out
+
+
+def form_frenzy():
+    n = ns(2.2)
+    rate = curve(n, [(0.0, 60.0), (0.15, 160.0), (0.4, 240.0), (1.6, 250.0), (2.2, 200.0)])
+    level = curve(n, [(0.0, 0.6), (0.2, 1.3), (1.7, 1.3), (2.2, 0.0)])
+    x = engine(n, rate, level, buzz=0.6)
+    x += hp(white(n), 3200.0) * curve(n, [(0.0, 0.0), (0.2, 1.0), (1.8, 1.0), (2.2, 0.0)]) * 0.4
+    x += roar(n, 0.2, 1.6) * 1.1
+    return x
+
+
+def form_frenzy_loop():
+    n = ns(2.0 + 0.4)
+    t = np.arange(n) / SR
+    rate = 240.0 + 12.0 * np.sin(2 * np.pi * 1.7 * t) + lp(white(n), 5.0) * 80.0
+    x = engine(n, rate, jitter=0.08, buzz=0.65)
+    x += hp(white(n), 3800.0) * 0.3
+    return loop(x, 2.0)
+
+
+def form_down():
+    n = ns(1.6)
+    x = np.zeros(n)
+    x += flesh(n, 0.5, wet=1.8) * 1.3
+    # The body hitting the ground.
+    thud = np.zeros(n)
+    thud[ns(0.12)] = 1.0
+    k = np.arange(ns(0.15))
+    x += np.convolve(thud, np.sin(2 * np.pi * 70.0 * k / SR) * np.exp(-k / ns(0.04)))[:n] * 1.6
+    # The engine spluttering out.
+    rate = curve(n, [(0.0, 120.0), (0.3, 40.0), (0.8, 12.0), (1.0, 0.0), (1.6, 0.0)])
+    level = curve(n, [(0.0, 0.8), (0.9, 0.5), (1.0, 0.0), (1.6, 0.0)])
+    x += engine(n, rate, level, skip=0.3) * 0.7
+    return x
+
+
+def form_revive():
+    n = ns(1.3)
+    x = np.zeros(n)
+    # A gulp: a wet swallow, low.
+    k = np.arange(ns(0.18))
+    gulp = lp(white(len(k)), 350.0) * np.sin(np.pi * k / len(k)) * 2.0
+    gulp += np.sin(2 * np.pi * np.linspace(220.0, 120.0, len(k)) * k / SR) * np.exp(-k / ns(0.06))
+    x[ns(0.05):ns(0.05) + len(k)] += gulp
+    # The heart: two beats.
+    for at in (0.3, 0.52):
+        beat = np.zeros(n)
+        beat[ns(at)] = 1.0
+        kk = np.arange(ns(0.12))
+        x += np.convolve(beat, np.sin(2 * np.pi * 55.0 * kk / SR) * np.exp(-kk / ns(0.03)))[:n] * 1.8
+    # And the engine catching.
+    rate = curve(n, [(0.0, 0.0), (0.7, 0.0), (0.72, 14.0), (0.9, 60.0), (1.3, 48.0)])
+    level = curve(n, [(0.0, 0.0), (0.7, 0.0), (0.75, 1.0), (1.3, 0.0)])
+    x += engine(n, rate, level) * 0.8
+    return x
+
+
 SOUNDS = {
     'form_cord': form_cord,
     'form_start': form_start,
     'form_idle': form_idle,
     'form_stop': form_stop,
+    'form_slash': form_slash,
+    'form_hit': form_hit,
+    'form_grind': form_grind,
+    'form_chain': form_chain,
+    'form_frenzy': form_frenzy,
+    'form_frenzy_loop': form_frenzy_loop,
+    'form_down': form_down,
+    'form_revive': form_revive,
 }
-LOOPS = ('form_idle',)
+LOOPS = ('form_idle', 'form_grind', 'form_frenzy_loop')
 # Loudness (loudest 400 ms, dB).
-LEVELS = {'form_cord': -14, 'form_start': -10, 'form_idle': -20, 'form_stop': -16}
+LEVELS = {'form_cord': -14, 'form_start': -10, 'form_idle': -20, 'form_stop': -16, 'form_slash': -13, 'form_hit': -12,
+          'form_grind': -15, 'form_chain': -14, 'form_frenzy': -10, 'form_frenzy_loop': -17, 'form_down': -13,
+          'form_revive': -14}
 
 
 def make(name):

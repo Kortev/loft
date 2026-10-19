@@ -19,7 +19,8 @@
 			"io.github.kortev.shootingstar.test.ChittyGameTests",
 			"io.github.kortev.shootingstar.test.ThunderGameTests",
 			"io.github.kortev.shootingstar.test.AirshipGameTests",
-			"io.github.kortev.shootingstar.test.DomainGameTests"
+			"io.github.kortev.shootingstar.test.DomainGameTests",
+			"io.github.kortev.shootingstar.test.FormGameTests"
 		],
 		"client": [
 			"io.github.kortev.shootingstar.test.ClientSelfTest",

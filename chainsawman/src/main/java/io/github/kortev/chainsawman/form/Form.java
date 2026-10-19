@@ -44,17 +44,53 @@ public final class Form {
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
 			PULLING.remove(handler.player.getUuid());
 			set(server, handler.player.getUuid(), false);
+			Saw.forget(handler.player.getUuid());
+			Grapple.forget(handler.player.getUuid());
+			Frenzy.forget(handler.player.getUuid());
 		});
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
 			ON.clear();
 			PULLING.clear();
+			Saw.clear();
+			Downed.clear();
+			Grapple.clear();
+			Frenzy.clear();
 		});
 		ServerTickEvents.END_SERVER_TICK.register(Form::tick);
+		// What the form does once it is on: the saws, the blood, never dying, the chain, the frenzy.
+		Saw.init();
+		Downed.init();
+		ServerTickEvents.END_SERVER_TICK.register(server -> {
+			Saw.tick(server);
+			Downed.tick(server);
+			Grapple.tick(server);
+			Frenzy.tick(server);
+		});
 	}
 
 	/** Whether {@code player} is in the form. */
 	public static boolean on(ServerPlayerEntity player) {
 		return ON.contains(player.getUuid());
+	}
+
+	/** Whether {@code player} is in the form and done transforming: free to fight. */
+	public static boolean fighting(ServerPlayerEntity player) {
+		return on(player) && !PULLING.containsKey(player.getUuid()) && !Downed.is(player);
+	}
+
+	/** Straight into the form, no transformation (for the tests). */
+	public static void start(ServerPlayerEntity player) {
+		PULLING.remove(player.getUuid());
+		set(player.server, player.getUuid(), true);
+	}
+
+	/** Out of the form now, the engine dying: downed, or for a test. */
+	public static void end(ServerPlayerEntity player) {
+		PULLING.remove(player.getUuid());
+		if (on(player)) {
+			play(player, ChainsawSounds.STOP, 1.0F);
+			set(player.server, player.getUuid(), false);
+		}
 	}
 
 	/** The cord pulled: into the form if they carry Pochita, or back out of it. */
@@ -66,7 +102,7 @@ public final class Form {
 		if (on(player)) {
 			play(player, ChainsawSounds.STOP, 1.0F);
 			set(player.server, id, false);
-		} else if (PochitaItem.carried(player) && player.isAlive()) {
+		} else if (PochitaItem.carried(player) && player.isAlive() && !Downed.is(player)) {
 			PULLING.put(id, 0);
 			play(player, ChainsawSounds.CORD, 1.0F);
 			play(player, ChainsawSounds.START, 1.4F);
@@ -103,7 +139,7 @@ public final class Form {
 		}
 	}
 
-	private static void play(ServerPlayerEntity player, SoundEvent sound, float volume) {
+	public static void play(ServerPlayerEntity player, SoundEvent sound, float volume) {
 		player.getServerWorld().playSound(null, player.getX(), player.getY() + 1.0, player.getZ(), sound, SoundCategory.PLAYERS, volume, 1.0F);
 	}
 
@@ -114,7 +150,8 @@ public final class Form {
 		broadcast(server, new FormPayload(id, on));
 	}
 
-	private static void broadcast(MinecraftServer server, CustomPayload payload) {
+	/** Tells everyone. */
+	public static void broadcast(MinecraftServer server, CustomPayload payload) {
 		for (ServerPlayerEntity p : server.getPlayerManager().getPlayerList()) {
 			if (ServerPlayNetworking.canSend(p, payload.getId())) {
 				ServerPlayNetworking.send(p, payload);

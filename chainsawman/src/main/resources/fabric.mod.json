@@ -29,6 +29,7 @@
 		"shootingstar": "*"
 	},
 	"mixins": [
+		"chainsawman.mixins.json",
 		{
 			"config": "chainsawman.client.mixins.json",
 			"environment": "client"

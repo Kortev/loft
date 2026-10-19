@@ -1,7 +1,13 @@
 package io.github.kortev.shootingstar.test;
 
 import io.github.kortev.chainsawman.ChainsawMan;
+import io.github.kortev.chainsawman.client.ClientCombat;
+import io.github.kortev.chainsawman.form.Downed;
 import io.github.kortev.chainsawman.form.Form;
+import io.github.kortev.chainsawman.form.Frenzy;
+import io.github.kortev.chainsawman.form.Grapple;
+import io.github.kortev.chainsawman.form.Saw;
+import io.github.kortev.chainsawman.network.FormEventPayload;
 import io.github.kortev.chainsawman.form.FormTimeline;
 import io.github.kortev.shootingstar.ShootingStar;
 import java.lang.reflect.Field;
@@ -37,7 +43,7 @@ import net.minecraft.world.GameMode;
  * looking at their head, the camera handed to each in turn. Screenshots land in build/selftest/screenshots.
  */
 public class FormSelfTest implements ClientModInitializer {
-	private enum Stage { WAIT_WORLD, SETUP, SETTLE, SHOOT, DONE }
+	private enum Stage { WAIT_WORLD, SETUP, SETTLE, SHOOT, FIGHT, DONE }
 
 	/** Where the cameras stand, as (angle round from the player's front in degrees, distance, height over their feet). */
 	private static final double[][] CAMERAS = {{-30, 3.0, 1.9}, {0, 2.6, 1.7}, {90, 3.2, 1.7}, {-90, 3.2, 1.7}, {160, 3.0, 2.0},
@@ -111,15 +117,7 @@ public class FormSelfTest implements ClientModInitializer {
 				if (ticks > 80 && CAMERA_IDS.size() == CAMERAS.length) {
 					// The game never draws your own player while the camera is another entity: a stand-in of them, in the
 					// form, where they stand.
-					OtherClientPlayerEntity standIn = new OtherClientPlayerEntity(client.world, new GameProfile(UUID.randomUUID(), "Kortev"));
-					standIn.setId(-4242);
-					standIn.refreshPositionAndAngles(client.player.getX(), client.player.getY(), client.player.getZ(), 0.0F, 0.0F);
-					standIn.setHeadYaw(0.0F);
-					standIn.setBodyYaw(0.0F);
-					showEveryLayer(standIn);
-					client.world.addEntity(standIn);
-					standInId = standIn.getUuid();
-					ClientForms.set(standInId, true);
+					addStandIn(client);
 					stage = Stage.SHOOT;
 					ticks = 0;
 				}
@@ -185,7 +183,8 @@ public class FormSelfTest implements ClientModInitializer {
 					} else if (ticks == 32) {
 						screenshot(client, "first_person");
 					} else if (ticks == 40) {
-						stage = Stage.DONE;
+						stage = Stage.FIGHT;
+						ticks = 0;
 					}
 					return;
 				}
@@ -205,6 +204,7 @@ public class FormSelfTest implements ClientModInitializer {
 					ticks = 0;
 				}
 			}
+			case FIGHT -> fight(client, server, ticks - 1);
 			case DONE -> {
 				ShootingStar.LOGGER.info("[selftest] form: done");
 				stage = null;
@@ -213,6 +213,137 @@ public class FormSelfTest implements ClientModInitializer {
 			default -> {
 			}
 		}
+	}
+
+	/**
+	 * The fight, frame by frame: first the stand-in, seen from the front, slashing through the combo, grinding, firing
+	 * the chain, in a frenzy, and down (from the side and the front); then your own first-person view of the same,
+	 * done for real on the server, with the HUD on.
+	 */
+	private static void fight(MinecraftClient client, IntegratedServer server, int f) {
+		if (f == 0) {
+			// Back where the cameras look (the cinematic took them away), in the form.
+			if (client.world.getEntityById(-4242) == null) {
+				addStandIn(client);
+			}
+		}
+		UUID me = standInId;
+		if (f == 0) {
+			Entity camera = client.world.getEntityById(CAMERA_IDS.get(0));
+			client.options.setPerspective(Perspective.FIRST_PERSON);
+			client.options.hudHidden = true;
+			if (camera != null) {
+				client.setCameraEntity(camera);
+			}
+		}
+		int[] slashAt = {0, 14, 28};
+		for (int step = 0; step < 3; step++) {
+			if (f == slashAt[step]) {
+				ClientCombat.event(new FormEventPayload(me, FormEventPayload.SWING, step));
+			}
+			for (int age : new int[] {2, 4, 6, 8}) {
+				if (f == slashAt[step] + age && (age < 8 || step == 2)) {
+					screenshot(client, String.format("fight_slash%d_%02d", step, age));
+				}
+			}
+		}
+		Entity standIn = client.world.getEntityById(-4242);
+		switch (f) {
+			case 42 -> ClientCombat.event(new FormEventPayload(me, FormEventPayload.GRIND, 1));
+			case 48 -> screenshot(client, "fight_grind");
+			case 52 -> ClientCombat.event(new FormEventPayload(me, FormEventPayload.GRIND, 0));
+			case 56 -> {
+				if (standIn != null) {
+					Vec3d to = standIn.getEyePos().add(1.5, 0.5, 10.0);
+					ClientCombat.event(new FormEventPayload(me, FormEventPayload.CHAIN, -2, to.x, to.y, to.z));
+				}
+			}
+			case 58 -> screenshot(client, "fight_chain_02");
+			case 61 -> screenshot(client, "fight_chain_05");
+			case 70 -> ClientCombat.event(new FormEventPayload(me, FormEventPayload.FRENZY, 300));
+			case 74 -> screenshot(client, "fight_frenzy");
+			case 80 -> {
+				// Down, out of the form, as the server would have it.
+				ClientCombat.event(new FormEventPayload(me, FormEventPayload.FRENZY, 0));
+				ClientCombat.event(new FormEventPayload(me, FormEventPayload.DOWNED, 1));
+				ClientForms.set(me, false);
+				Entity side = client.world.getEntityById(CAMERA_IDS.get(2));
+				if (side != null) {
+					client.setCameraEntity(side);
+				}
+			}
+			case 92 -> screenshot(client, "fight_downed_side");
+			case 93 -> {
+				Entity front = client.world.getEntityById(CAMERA_IDS.get(5));
+				if (front != null) {
+					client.setCameraEntity(front);
+				}
+			}
+			case 96 -> screenshot(client, "fight_downed_close");
+			case 97 -> {
+				ClientCombat.event(new FormEventPayload(me, FormEventPayload.DOWNED, 0));
+				// Out of the way of your own eyes.
+				client.world.removeEntity(-4242, Entity.RemovalReason.DISCARDED);
+			}
+			// Your own view: the same, for real.
+			case 100 -> {
+				client.setCameraEntity(client.player);
+				client.options.setPerspective(Perspective.FIRST_PERSON);
+				client.options.hudHidden = false;
+				client.player.setPitch(10.0F);
+				server.execute(() -> Saw.slash(serverPlayer(server)));
+			}
+			case 114, 128 -> server.execute(() -> Saw.slash(serverPlayer(server)));
+			case 142 -> server.execute(() -> Saw.grind(serverPlayer(server), true));
+			case 150 -> screenshot(client, "fp_grind");
+			case 152 -> server.execute(() -> Saw.grind(serverPlayer(server), false));
+			case 154 -> client.player.setPitch(-25.0F);
+			case 156 -> server.execute(() -> Grapple.fire(serverPlayer(server)));
+			case 158 -> screenshot(client, "fp_chain_02");
+			case 161 -> screenshot(client, "fp_chain_05");
+			case 166 -> client.player.setPitch(10.0F);
+			case 170 -> server.execute(() -> Frenzy.start(serverPlayer(server)));
+			case 175 -> screenshot(client, "fp_frenzy");
+			case 180 -> server.execute(() -> Frenzy.end(serverPlayer(server)));
+			case 184 -> server.execute(() -> Downed.down(serverPlayer(server)));
+			case 194 -> screenshot(client, "fp_downed");
+			case 195 -> client.options.setPerspective(Perspective.THIRD_PERSON_FRONT);
+			case 203 -> screenshot(client, "tp_downed");
+			case 204 -> client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
+			case 208 -> screenshot(client, "tp_downed_back");
+			case 209 -> {
+				client.options.setPerspective(Perspective.FIRST_PERSON);
+				server.execute(() -> Downed.up(serverPlayer(server)));
+			}
+			case 216 -> stage = Stage.DONE;
+			default -> {
+			}
+		}
+		int[] fpAt = {100, 114, 128};
+		for (int step = 0; step < 3; step++) {
+			for (int age : new int[] {2, 4, 6, 8}) {
+				if (f == fpAt[step] + age && (age < 8 || step == 2)) {
+					screenshot(client, String.format("fp_slash%d_%02d", step, age));
+				}
+			}
+		}
+	}
+
+	/** A stand-in of the player, in the form, where they stand: the game never draws your own player while the camera is another entity. */
+	private static void addStandIn(MinecraftClient client) {
+		OtherClientPlayerEntity standIn = new OtherClientPlayerEntity(client.world, new GameProfile(UUID.randomUUID(), "Kortev"));
+		standIn.setId(-4242);
+		standIn.refreshPositionAndAngles(client.player.getX(), client.player.getY(), client.player.getZ(), 0.0F, 0.0F);
+		standIn.setHeadYaw(0.0F);
+		standIn.setBodyYaw(0.0F);
+		showEveryLayer(standIn);
+		client.world.addEntity(standIn);
+		standInId = standIn.getUuid();
+		ClientForms.set(standInId, true);
+	}
+
+	private static ServerPlayerEntity serverPlayer(IntegratedServer server) {
+		return server.getPlayerManager().getPlayerList().get(0);
 	}
 
 	/**

@@ -46,6 +46,16 @@ FLESH = [
     'iiiiiiii',
 ]
 
+# A link of the chain the arm fires (ChainRender draws one on each link's quad, along the chain): a steel ring round
+# its hole, inked.
+CHAIN = [
+    '.iiiiiiii.',
+    'iLLLLLLLLi',
+    'iLs....sLi',
+    'iLLLLLLLLi',
+    '.iiiiiiii.',
+]
+
 PALETTE = {
     '.': (0, 0, 0, 0),
     'O': (236, 128, 38, 255),   # his fur
@@ -63,6 +73,8 @@ PALETTE = {
     'w': (108, 10, 18, 255),    # its darker heart
     'g': (196, 74, 86, 255),    # pink (the model's gum)
     'i': (50, 4, 8, 255),       # the ink round it
+    'L': (150, 150, 156, 255),  # the chain's steel (the model's links)
+    's': (108, 108, 114, 255),  # its shadow
 }
 
 
@@ -77,7 +89,8 @@ def draw(rows):
 
 def main():
     preview = sys.argv[sys.argv.index('--preview') + 1] if '--preview' in sys.argv else None
-    out = {(ROOT, 'item/pochita.png'): draw(POCHITA), (CLIENT_ROOT, 'entity/form_flesh.png'): draw(FLESH)}
+    out = {(ROOT, 'item/pochita.png'): draw(POCHITA), (CLIENT_ROOT, 'entity/form_flesh.png'): draw(FLESH),
+           (CLIENT_ROOT, 'entity/form_chain.png'): draw(CHAIN)}
     for (root, name), img in out.items():
         path = os.path.join(root, name)
         os.makedirs(os.path.dirname(path), exist_ok=True)

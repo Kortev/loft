@@ -30,5 +30,69 @@
         "name": "chainsawman:form_stop"
       }
     ]
+  },
+  "form.slash": {
+    "subtitle": "subtitles.chainsawman.form.slash",
+    "sounds": [
+      {
+        "name": "chainsawman:form_slash"
+      }
+    ]
+  },
+  "form.hit": {
+    "subtitle": "subtitles.chainsawman.form.hit",
+    "sounds": [
+      {
+        "name": "chainsawman:form_hit"
+      }
+    ]
+  },
+  "form.grind": {
+    "subtitle": "subtitles.chainsawman.form.grind",
+    "sounds": [
+      {
+        "name": "chainsawman:form_grind"
+      }
+    ]
+  },
+  "form.chain": {
+    "subtitle": "subtitles.chainsawman.form.chain",
+    "sounds": [
+      {
+        "name": "chainsawman:form_chain"
+      }
+    ]
+  },
+  "form.frenzy": {
+    "subtitle": "subtitles.chainsawman.form.frenzy",
+    "sounds": [
+      {
+        "name": "chainsawman:form_frenzy"
+      }
+    ]
+  },
+  "form.frenzy_loop": {
+    "subtitle": "subtitles.chainsawman.form.frenzy_loop",
+    "sounds": [
+      {
+        "name": "chainsawman:form_frenzy_loop"
+      }
+    ]
+  },
+  "form.down": {
+    "subtitle": "subtitles.chainsawman.form.down",
+    "sounds": [
+      {
+        "name": "chainsawman:form_down"
+      }
+    ]
+  },
+  "form.revive": {
+    "subtitle": "subtitles.chainsawman.form.revive",
+    "sounds": [
+      {
+        "name": "chainsawman:form_revive"
+      }
+    ]
   }
 }

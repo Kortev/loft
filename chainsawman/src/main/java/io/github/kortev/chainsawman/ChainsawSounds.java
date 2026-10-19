@@ -15,6 +15,22 @@ public final class ChainsawSounds {
 	public static final SoundEvent IDLE = register("form.idle");
 	/** The engine coughing, stumbling and dying as he turns back. */
 	public static final SoundEvent STOP = register("form.stop");
+	/** A slash: the engine revving up hard as the saw whips through the air. */
+	public static final SoundEvent SLASH = register("form.slash");
+	/** The saw biting into something: a wet rip under the engine bogging down. */
+	public static final SoundEvent HIT = register("form.hit");
+	/** Grinding, a loop: the engine screaming under load, the chain chewing. */
+	public static final SoundEvent GRIND = register("form.grind");
+	/** The chain fired out of the arm: links rattling out fast, and the hook biting. */
+	public static final SoundEvent CHAIN = register("form.chain");
+	/** The frenzy kicking in: the engine shrieking up into a roar. */
+	public static final SoundEvent FRENZY = register("form.frenzy");
+	/** The frenzy's engine, a loop: screaming flat out. */
+	public static final SoundEvent FRENZY_LOOP = register("form.frenzy_loop");
+	/** Down: a wet collapse, the engine spluttering out. */
+	public static final SoundEvent DOWN = register("form.down");
+	/** Back up: a gulp of blood and the heart catching. */
+	public static final SoundEvent REVIVE = register("form.revive");
 
 	private ChainsawSounds() {
 	}

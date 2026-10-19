@@ -1,6 +1,11 @@
 package io.github.kortev.chainsawman;
 
 import io.github.kortev.chainsawman.form.Form;
+import io.github.kortev.chainsawman.form.Frenzy;
+import io.github.kortev.chainsawman.form.Grapple;
+import io.github.kortev.chainsawman.form.Saw;
+import io.github.kortev.chainsawman.network.FormActionPayload;
+import io.github.kortev.chainsawman.network.FormEventPayload;
 import io.github.kortev.chainsawman.network.FormPayload;
 import io.github.kortev.chainsawman.network.FormPullPayload;
 import io.github.kortev.chainsawman.network.PullCordPayload;
@@ -20,7 +25,8 @@ import org.slf4j.LoggerFactory;
 
 /**
  * kortev's own powers on the SMP, beside The Shooting Star: Pochita, carried, and the cord on the chest that turns
- * whoever carries him into Chainsaw Man ({@link Form}). Its things are kortev's alone to craft, under The Shooting
+ * whoever carries him into Chainsaw Man ({@link Form}): the saws to fight with ({@link Saw}), the chain ({@link Grapple}),
+ * the frenzy ({@link Frenzy}), and never dying while Pochita is with you ({@link io.github.kortev.chainsawman.form.Downed}). Its things are kortev's alone to craft, under The Shooting
  * Star's owner-only rule.
  */
 public final class ChainsawMan implements ModInitializer {
@@ -44,8 +50,20 @@ public final class ChainsawMan implements ModInitializer {
 		ItemGroupEvents.modifyEntriesEvent(ItemGroups.COMBAT).register(entries -> entries.add(POCHITA));
 		PayloadTypeRegistry.playS2C().register(FormPayload.ID, FormPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(FormPullPayload.ID, FormPullPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(FormEventPayload.ID, FormEventPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(PullCordPayload.ID, PullCordPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(FormActionPayload.ID, FormActionPayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(PullCordPayload.ID, (payload, context) -> Form.pullCord(context.player()));
+		ServerPlayNetworking.registerGlobalReceiver(FormActionPayload.ID, (payload, context) -> {
+			switch (payload.action()) {
+				case FormActionPayload.SLASH -> Saw.slash(context.player());
+				case FormActionPayload.GRIND -> Saw.grind(context.player(), payload.on());
+				case FormActionPayload.CHAIN -> Grapple.fire(context.player());
+				case FormActionPayload.FRENZY -> Frenzy.start(context.player());
+				default -> {
+				}
+			}
+		});
 		Form.init();
 	}
 }

@@ -95,6 +95,7 @@ public final class ClientForms {
 	}
 
 	static void clear() {
+		ClientCombat.clear();
 		ON.clear();
 		PULLED.clear();
 		IDLING.clear();

@@ -67,24 +67,45 @@ gets a mod of their own; this one is kortev's.
   Keys and look are held during it. Everyone nearby sees the body animation, the cord, the growing saws and the
   blood; only the puller gets the camera, zoom, impact frames and vignette.
 - **Sounds** (synthesised, `tools/gen_chainsaw_sounds.py`): the cord rip, the engine start cut to the timeline
-  (catch, cough, burst, roar, settling to idle), the idle loop while transformed, the engine dying.
+  (catch, cough, burst, roar, settling to idle), the idle loop while transformed, the engine dying; and for the fight:
+  slash, hit, grind loop, chain, frenzy kick and its loop, going down, coming back up.
+- **The fight** (built 2026-10-19 with the numbers kortev picked; all in `form/`, the server owns it, `FormEventPayload`
+  tells every client what to show):
+  - **Saws** (`Saw`): the attack key in the form is a slash, not a punch: a combo of three (right arm across, left arm
+    back, both overhead and down), 10 damage each, the third 14 with more knockback, through everything in a cone in
+    front (3.5 blocks), at most one every 12 ticks. **Held**, the attack key grinds: both saws out, 2.5 damage every 4
+    ticks to what is in front, slowing it. On a block, holding it mines (cutting through). Blood and sparks on every
+    hit. Armour stands don't count (nothing to drink).
+  - **Blood healing**: a slash that hits heals half a heart, every third grinding bite that hits half a heart, a kill 3
+    hearts. **Health drain**: in the form you lose half a heart every 3 s.
+  - **Never dying** (`Downed`), with Pochita carried, in the form or not: what would kill you leaves you down instead:
+    lying flat (the crawl pose), arms and legs gone (raw stumps), unable to move, fight or use anything, and nothing
+    hurts you. Someone crouching by you and holding use on you for 3 s gives you 3 hearts of their own and you're back
+    up; alone, you come back after 10 minutes. Saved with the player (a data attachment), so leaving doesn't skip it.
+    The void and `/kill` still kill. The drain running out puts you down too. This replaced "revive once".
+  - **Chain** (`Grapple`, key R): fired the way you look, 24 blocks, catching anything within half a block of the
+    aim; a living thing is yanked to you (2 damage), a block pulls you to it (no fall damage after); every 3 s. Drawn
+    as steel links (`ChainRender`, `form_chain.png`).
+  - **Blood frenzy** (`Frenzy`, key B): 15 s of double saw damage, 4 times the healing, no Slowness, cobwebs and berry
+    bushes don't slow you; the screen pulses red, the engine screams, the eye throws sparks. Then 5 minutes to recharge.
+  - **Animations**: third person `SawPose` (combo, grind, chain throw, frenzy stance); first person `FirstPersonSaws`
+    shows both saw arms and plays the same moves (`FirstPersonFormMixin` takes over the hand; eating or a shield
+    still shows normally).
 
 ## The design kortev approved (don't change it without asking)
 
-### The powers (decided; most not built yet)
+### The powers (all built; the numbers are above, chosen by kortev: both kinds of attack, medium drain, downed with
+a way out, the frenzy every 5 minutes)
 
-- Transform: Pochita carried + the cord key. **Built.**
-- **Chainsaw attacks**: the saws from head and arms as heavy, revving melee that shreds players and mobs, with sparks
-  and blood. Not built.
-- **Blood healing**: you heal by hitting and killing things (drinking blood). Kept small; it's the passive. Not built.
-- **Health drain**: while transformed your health slowly drains; you stay up by hitting things. This is the form's
-  cost and what keeps it fair against the friend's Domain. Not built.
-- **Chain grapple**: fire the chain from your arm to swing to blocks or yank a player to you. Not built.
-- **Revive once**: Pochita's heart brings you back the first time you die, then a cooldown. Not built.
-- **The ult: blood frenzy.** The big burst version: you go berserk, every hit heals a lot, saws do double damage,
-  you can't be slowed, red screen, the engine screaming, ~15 s. **No cutscene** for the ult (kortev: a frenzy doesn't
-  need one), just a hit as it kicks in (roar, red pulse, the eye flaring). Not built. (A "shark ride" ult from the
-  Reze arc was liked as a possible second ult later.)
+- Transform: Pochita carried + the cord key.
+- **Chainsaw attacks**: heavy slashes and holding to grind, with new attack animations instead of a punch (kortev
+  asked for the form's combat to be a full overhaul of the game's).
+- **Blood healing** (the passive) and the **health drain** (the cost, what keeps it fair against the friend's Domain).
+- **Chain grapple**: to blocks, or yanking a player or mob to you.
+- **Never dying**: kortev's own idea, replacing "revive once": down instead of dead until someone gives you blood.
+  Overpowered (you can't die) and a real weakness (alone you're stuck for 10 minutes).
+- **The ult: blood frenzy.** **No cutscene** (kortev: a frenzy doesn't need one), just the kick as it starts. (A
+  "shark ride" ult from the Reze arc was liked as a possible second ult later.)
 
 ### The look (decided after several rounds; keep it)
 
@@ -126,8 +147,11 @@ attempts that invented a new hair shape: if you touch the skin again, stay close
 | Who's in the form, pulls, idle sound | `client/ClientForms.java`, `FormIdleSound.java` |
 | Drawing the form | `client/FormFeature.java` (feature renderer: parts on bones, chain frames, growth, the cord), `FormMesh.java` (loads `form.csm`) |
 | Cinematic | `client/FormCinematic.java` (beats' particles, your camera shots, shake, input hold, impact/vignette timing), `CordPull.java` (body poses), `FormHud.java` + `shaders/core/csm_impact.*` |
-| Mixins | `client/mixin/`: hide head/hat/helmet/head items, first-person saws, pose, camera, FOV |
-| Assets | `form.csm` (mesh), `textures/entity/form.png`, sounds, lang |
+| Mixins | `client/mixin/`: hide head/hat/helmet/head items, first-person saws, pose, camera, FOV, the attack key (`FormAttackMixin`), the downed body; common `mixin/`: the downed pose, the frenzy ignoring slowing blocks |
+| The fight (server) | `form/Saw.java`, `Downed.java`, `Grapple.java`, `Frenzy.java`; `network/FormActionPayload` (C2S: slash, grind, chain, frenzy), `FormEventPayload` (S2C: what everyone should see) |
+| The fight (client) | `client/ClientCombat.java` (state, keys, loops), `SawPose.java`, `FirstPersonSaws.java`, `ChainRender.java` |
+| Tests | `src/gametest/.../FormGameTests.java` (the fight, server side); `FormSelfTest` photographs it (`fight_*`, `fp_*`, `tp_downed*`) |
+| Assets | `form.csm` (mesh), `textures/entity/form.png`, `form_flesh.png`, `form_chain.png`, sounds, lang |
 
 ### The model pipeline (`tools/chainsaw_model.py`, Blender as a Python module)
 
@@ -210,10 +234,14 @@ they chose.)
 The transformation in reverse: the saws slide back into the arms and head, the engine dies (`form_stop`), a last
 splash, your own head back. A shorter beat sheet in `FormTimeline`, the same machinery.
 
-### 3. Then the abilities, one at a time (ask kortev about numbers before balancing)
+### 3. The abilities: built (see "The fight" above). Next is kortev trying them in game and tuning the numbers.
 
-Attacks, then blood healing with the health drain, the chain grapple, the revive, the frenzy ult. Each one: build,
-test, commit, push, show kortev, then the next.
+### Later ideas kortev has had (not designed; ask before building)
+
+- **Losing limbs mid-fight** (kortev, 2026-10-19, brainstorming): not only all at once when you go down, but an arm
+  lost after enough damage, then the other, and grown back by drinking blood, as in the show. Could build on the
+  downed body's hidden limbs and stumps (`DownedBodyMixin`, `FormFeature.stumps`).
+- **Blood on the lens for kills**: see the polish list above; saved in the history.
 
 ### Later: Pochita as a real animal (kortev's idea, 2026-10-19; not designed yet)
 
@@ -236,4 +264,7 @@ craft it now.
 - The form and the impact frames with a shader pack (Sodium + Iris + Complementary). Full-screen and in-world effects
   must go through `WorldPasses` or the HUD, never straight on `WorldRenderEvents.LAST` (a pack paints over that).
   `FormHud` draws in the HUD pass.
-- Multiplayer: another player watching a transformation (should work: everything is driven by payloads to all).
+- Multiplayer: another player watching a transformation (should work: everything is driven by payloads to all), and
+  the fight against another player (the downed pose and the stumps are only checked on yourself in third person; the
+  self test's stand-in can't lie down).
+- The fight's numbers in real play, and fighting with a shader pack.

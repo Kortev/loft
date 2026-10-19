@@ -1,6 +1,7 @@
 package io.github.kortev.chainsawman.client;
 
 import io.github.kortev.chainsawman.ChainsawMan;
+import io.github.kortev.chainsawman.form.Downed;
 import io.github.kortev.chainsawman.form.FormTimeline;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.model.ModelPart;
@@ -72,6 +73,11 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 		PlayerEntityModel<AbstractClientPlayerEntity> model = getContextModel();
 		float t = ClientForms.pullAge(player, tickDelta);
 		int overlay = LivingEntityRenderer.getOverlay(player, 0.0F);
+		if (Downed.is(player)) {
+			// Down: no saws, only where the arms and legs were.
+			stumps(matrices, consumers, light, overlay, model.body);
+			return;
+		}
 		if (t >= FormTimeline.REACH && t < FormTimeline.SNAP + 2) {
 			cord(matrices, consumers, light, model, t);
 		}
@@ -145,10 +151,35 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 		matrices.pop();
 	}
 
+	/** Down, where the arms and legs were: raw stumps at the shoulders and hips (the body's own space, in pixels). */
+	private static final float[][][] STUMPS = {
+			{{-4.05F, 0.0F, -2.0F}, {-4.05F, 4.0F, -2.0F}, {-4.05F, 4.0F, 2.0F}, {-4.05F, 0.0F, 2.0F}, {-1.0F, 0.0F, 0.0F}},
+			{{4.05F, 0.0F, 2.0F}, {4.05F, 4.0F, 2.0F}, {4.05F, 4.0F, -2.0F}, {4.05F, 0.0F, -2.0F}, {1.0F, 0.0F, 0.0F}},
+			{{-4.0F, 12.05F, -2.0F}, {0.0F, 12.05F, -2.0F}, {0.0F, 12.05F, 2.0F}, {-4.0F, 12.05F, 2.0F}, {0.0F, 1.0F, 0.0F}},
+			{{0.0F, 12.05F, -2.0F}, {4.0F, 12.05F, -2.0F}, {4.0F, 12.05F, 2.0F}, {0.0F, 12.05F, 2.0F}, {0.0F, 1.0F, 0.0F}}};
+
+	private static void stumps(MatrixStack matrices, VertexConsumerProvider consumers, int light, int overlay, ModelPart body) {
+		VertexConsumer out = consumers.getBuffer(RenderLayer.getEntityCutoutNoCull(FLESH));
+		matrices.push();
+		body.rotate(matrices);
+		MatrixStack.Entry entry = matrices.peek();
+		Vector3f p = new Vector3f();
+		Vector3f n = new Vector3f();
+		float[][] uv = {{0.0F, 0.0F}, {0.0F, 1.0F}, {1.0F, 1.0F}, {1.0F, 0.0F}};
+		for (float[][] stump : STUMPS) {
+			entry.transformNormal(stump[4][0], stump[4][1], stump[4][2], n);
+			for (int i = 0; i < 4; i++) {
+				entry.getPositionMatrix().transformPosition(stump[i][0] / 16.0F, stump[i][1] / 16.0F, stump[i][2] / 16.0F, p);
+				out.vertex(p.x, p.y, p.z, 0xFFFFFFFF, uv[i][0], uv[i][1], overlay, light, n.x, n.y, n.z);
+			}
+		}
+		matrices.pop();
+	}
+
 	/** Which frame the chains have run round to. */
 	private static int chainFrame(FormMesh mesh, AbstractClientPlayerEntity player, float tickDelta) {
 		float time = player.age + tickDelta;
-		float speed = player.handSwinging ? CHAIN_SWING : CHAIN_IDLE;
+		float speed = ClientCombat.busy(player) ? CHAIN_SWING : CHAIN_IDLE;
 		return Math.floorMod((int) (time * speed), mesh.chainFrames);
 	}
 

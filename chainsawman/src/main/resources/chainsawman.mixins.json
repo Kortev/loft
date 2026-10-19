@@ -1,0 +1,12 @@
+{
+	"required": true,
+	"package": "io.github.kortev.chainsawman.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"mixins": [
+		"DownedPoseMixin",
+		"FrenzySlowMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

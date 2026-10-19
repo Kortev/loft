@@ -2,6 +2,7 @@ package io.github.kortev.chainsawman.client;
 
 import io.github.kortev.chainsawman.ChainsawMan;
 import io.github.kortev.chainsawman.PochitaItem;
+import io.github.kortev.chainsawman.network.FormEventPayload;
 import io.github.kortev.chainsawman.network.FormPayload;
 import io.github.kortev.chainsawman.network.FormPullPayload;
 import io.github.kortev.chainsawman.network.PullCordPayload;
@@ -13,6 +14,7 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.CoreShaderRegistrationCallback;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.client.rendering.v1.LivingEntityFeatureRendererRegistrationCallback;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
 import net.fabricmc.fabric.api.resource.SimpleSynchronousResourceReloadListener;
 import net.minecraft.client.MinecraftClient;
@@ -26,15 +28,26 @@ import net.minecraft.resource.ResourceType;
 import net.minecraft.util.Identifier;
 import org.lwjgl.glfw.GLFW;
 
-/** Chainsaw Man on the client: the cord key, who is in the form and pulling the cord, and the form drawn and heard on them. */
+/**
+ * Chainsaw Man on the client: the cord key and the fight's keys, who is in the form and pulling the cord and fighting,
+ * and the form drawn and heard on them.
+ */
 public final class ChainsawManClient implements ClientModInitializer {
 	/** Pull the cord: into the form with Pochita carried, or out of it again. */
 	public static KeyBinding PULL_CORD;
+	/** Fire the chain from the arm; call up the blood frenzy. */
+	public static KeyBinding CHAIN;
+	public static KeyBinding FRENZY;
 
 	@Override
 	public void onInitializeClient() {
 		PULL_CORD = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.chainsawman.pull_cord", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_G,
 				"key.categories.chainsawman"));
+		CHAIN = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.chainsawman.chain", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_R,
+				"key.categories.chainsawman"));
+		FRENZY = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.chainsawman.frenzy", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_B,
+				"key.categories.chainsawman"));
+		ClientCombat.init();
 		LivingEntityFeatureRendererRegistrationCallback.EVENT.register((type, renderer, helper, context) -> {
 			if (renderer instanceof PlayerEntityRenderer player) {
 				helper.register(new FormFeature(player));
@@ -58,6 +71,8 @@ public final class ChainsawManClient implements ClientModInitializer {
 				ClientForms.pulled(payload.player(), context.client().world.getTime(), puller != null ? puller.getYaw() : 0.0F);
 			}
 		});
+		ClientPlayNetworking.registerGlobalReceiver(FormEventPayload.ID, (payload, context) -> ClientCombat.event(payload));
+		WorldRenderEvents.AFTER_ENTITIES.register(ChainRender::render);
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> ClientForms.clear());
 		CoreShaderRegistrationCallback.EVENT.register(context -> context.register(ChainsawMan.id("csm_impact"), VertexFormats.BLIT_SCREEN,
 				program -> FormHud.impact = program));
@@ -67,6 +82,7 @@ public final class ChainsawManClient implements ClientModInitializer {
 				pullCord(client);
 			}
 			ClientForms.tick(client);
+			ClientCombat.tick(client);
 			FormCinematic.tick(client);
 		});
 	}

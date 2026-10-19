@@ -3,7 +3,10 @@
 	"package": "io.github.kortev.chainsawman.client.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"client": [
+		"DownedBodyMixin",
+		"FirstPersonFormMixin",
 		"FirstPersonSawMixin",
+		"FormAttackMixin",
 		"FormCameraMixin",
 		"FormFovMixin",
 		"FormHandHiddenMixin",
@@ -12,6 +15,7 @@
 		"FormPoseMixin",
 		"HeadHiddenMixin",
 		"HeadItemHiddenMixin",
+		"HeldItemRendererInvoker",
 		"HelmetHiddenMixin"
 	],
 	"injectors": {
