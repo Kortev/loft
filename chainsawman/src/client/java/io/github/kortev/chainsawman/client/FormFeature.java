@@ -35,8 +35,7 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 	public static final Identifier TEXTURE = ChainsawMan.id("textures/entity/form.png");
 	/** The inside of their own head, on the cut faces of its halves as it splits open. */
 	private static final Identifier FLESH = ChainsawMan.id("textures/entity/form_flesh.png");
-	/** How many frames each chain is baked in, and how fast they go by (frames a tick) idling and swinging. */
-	private static final int CHAIN_FRAMES = 4;
+	/** How fast the chains' frames go by (frames a tick) idling and swinging. */
 	private static final float CHAIN_IDLE = 0.5F;
 	private static final float CHAIN_SWING = 2.0F;
 	/** The head swelling into place at the burst: from how small, over how many ticks, round which point (pixels). */
@@ -103,7 +102,7 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 			return;
 		}
 		VertexConsumer out = consumers.getBuffer(RenderLayer.getEntityCutoutNoCull(TEXTURE));
-		int chainFrame = chainFrame(player, tickDelta);
+		int chainFrame = chainFrame(mesh, player, tickDelta);
 		boolean arm = boneName.endsWith("_arm");
 		float grown = ClientForms.grown(player, tickDelta, arm);
 		float t = ClientForms.pullAge(player, tickDelta);
@@ -147,10 +146,10 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 	}
 
 	/** Which frame the chains have run round to. */
-	private static int chainFrame(AbstractClientPlayerEntity player, float tickDelta) {
+	private static int chainFrame(FormMesh mesh, AbstractClientPlayerEntity player, float tickDelta) {
 		float time = player.age + tickDelta;
 		float speed = player.handSwinging ? CHAIN_SWING : CHAIN_IDLE;
-		return Math.floorMod((int) (time * speed), CHAIN_FRAMES);
+		return Math.floorMod((int) (time * speed), mesh.chainFrames);
 	}
 
 	/** How far the chainsaw head has swelled into place since the burst (0 to 1); 1 when not transforming. */
@@ -203,7 +202,7 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 			return;
 		}
 		VertexConsumer out = consumers.getBuffer(RenderLayer.getEntityCutoutNoCull(TEXTURE));
-		int chainFrame = chainFrame(player, tickDelta);
+		int chainFrame = chainFrame(mesh, player, tickDelta);
 		matrices.push();
 		head.rotate(matrices);
 		matrices.translate(0.0F, PUNCH_DROP / 16.0F, 0.0F);

@@ -123,8 +123,13 @@ ARM_BAR_ROOT = 3.5
 CUTTER_PITCH = 0.85
 SPIKE = 0.3
 # How many frames of each chain are built: one for the renders; the game's copy has CHAIN_FRAMES_GAME, shown in turn.
+# Each frame moves the chain 1/CHAIN_STEPS of a cutter on. The blood rides on the links, so it runs round with them: how
+# bloody the links are, in turn round the chain (the chance for each face of the link), the pattern repeating; the
+# game's frames go on until the chain has moved a whole pattern on, so they loop without a jump.
 CHAIN_FRAMES = 1
-CHAIN_FRAMES_GAME = 4
+CHAIN_STEPS = 4
+CHAIN_BLOOD = (0.07, 0.0, 0.02)
+CHAIN_FRAMES_GAME = CHAIN_STEPS * len(CHAIN_BLOOD)
 # The cord: where it leaves the chest, how far it hangs, and the T handle's length and thickness.
 CORD_ROOT = Vector((0.0, -2.05, 20.5))
 CORD_DROP = 4.2
@@ -476,7 +481,12 @@ def chain(name, size, frame, part, frame_k):
     """One frame of a bar's chain (see saw)."""
     length, height, thick = size
     bm = bmesh.new()
-    for k, (u, v, du, dv) in enumerate(perimeter(length, height, CUTTER_PITCH, phase=frame_k / CHAIN_FRAMES)):
+    # Which link each face is on (counted from the root along the top) and which face of the link: the blood goes by
+    # them (assign_swatches).
+    link_layer = bm.faces.layers.int.new('link')
+    facet_layer = bm.faces.layers.int.new('facet')
+    for k, (u, v, du, dv) in enumerate(perimeter(length, height, CUTTER_PITCH, phase=(frame_k % CHAIN_STEPS) / CHAIN_STEPS)):
+        first = len(bm.faces)
         along = Vector((du, dv, 0.0))
         out = Vector((-dv, du, 0.0))  # away from the bar
         base = Vector((u, v, 0.0))
@@ -503,6 +513,10 @@ def chain(name, size, frame, part, frame_k):
         )]
         for face in ((0, 2, 4), (1, 5, 3), (0, 4, 5, 1), (2, 3, 5, 4), (0, 1, 3, 2)):
             bm.faces.new([tv[t] for t in face])
+        bm.faces.ensure_lookup_table()
+        for i in range(first, len(bm.faces)):
+            bm.faces[i][link_layer] = k
+            bm.faces[i][facet_layer] = i - first
     grows(mesh_obj(name + '_chain%d' % frame_k, bm, ['chain'], part + '_chain%d' % frame_k), frame)
 
 
@@ -1434,6 +1448,24 @@ def swatch_tones(mat, pos, normal):
     return tones
 
 
+def chain_tones(c, normals):
+    """A chain frame's faces' tones, its blood going by the link each face is on rather than where it is, so it runs
+    round with the chain: the link that is at slot k in frame F is the one that was at slot k - F // CHAIN_STEPS in
+    frame 0, and how bloody it is is CHAIN_BLOOD's entry for that, round."""
+    me = c.data
+    frame = int(c['game_part'].rsplit('_chain', 1)[1])
+    links = [a.value for a in me.attributes['link'].data]
+    facets = [a.value for a in me.attributes['facet'].data]
+    lit = normals @ np.array(TOON_LIGHT) > TOON_SHADOW_AT
+    tones = np.where(lit, 0, 1)
+    for i, (link, facet) in enumerate(zip(links, facets)):
+        which = (link - frame // CHAIN_STEPS) % len(CHAIN_BLOOD)
+        roll = random.Random(which * 101 + facet).random()
+        if roll < CHAIN_BLOOD[which]:
+            tones[i] = 3 if roll < CHAIN_BLOOD[which] * 0.3 else 2
+    return tones
+
+
 def assign_swatches(copies, size):
     """Points every face of the swatched copies at its tone's swatch; returns what to paint where ((x, y, colour) for
     each swatch) and where each swatch is ((material, tone) to its UV)."""
@@ -1461,6 +1493,8 @@ def assign_swatches(copies, size):
         if not len(centres):
             continue
         tones = swatch_tones(mat, centres, normals)
+        if mat == 'chain' and 'link' in me.attributes:
+            tones = chain_tones(c, normals)
         for poly, tone in zip(me.polygons, tones):
             u, v = cells[(mat, int(tone))]
             for li in poly.loop_indices:

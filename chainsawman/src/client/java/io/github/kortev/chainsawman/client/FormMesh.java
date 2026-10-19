@@ -81,6 +81,8 @@ public final class FormMesh {
 	}
 
 	public final Map<String, Part> parts;
+	/** How many frames each chain is built in (shown in turn to run it round). */
+	public final int chainFrames;
 
 	/** Where in the texture the cord's colour is (the empty part named rope points at it), for the cord the game draws. */
 	public float[] ropeUv() {
@@ -90,6 +92,11 @@ public final class FormMesh {
 
 	private FormMesh(Map<String, Part> parts) {
 		this.parts = parts;
+		int frames = 1;
+		for (Part part : parts.values()) {
+			frames = Math.max(frames, part.chainFrame + 1);
+		}
+		this.chainFrames = frames;
 	}
 
 	private static FormMesh loaded;
