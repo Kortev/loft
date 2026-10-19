@@ -3,10 +3,10 @@ plugins {
 	id 'maven-publish'
 }
 
-// This build makes every mod of the SMP's, each in its own jar: kortev's The Shooting Star here at the root and Chitty
-// Chitty Bang Bang in chitty/, and the friends' own beside them (gojolander/). They are all set up the same way,
-// against the same Minecraft and Fabric, here and for all of them at once, so that each one's source sets exist before
-// the test harness below puts them together.
+// This build makes every mod of the SMP's, each in its own jar: kortev's The Shooting Star here at the root, Chitty
+// Chitty Bang Bang in chitty/, kortev's own powers in chainsawman/, and the friends' beside them (gojolander/). They are
+// all set up the same way, against the same Minecraft and Fabric, here and for all of them at once, so that each one's
+// source sets exist before the test harness below puts them together.
 allprojects {
 	apply plugin: 'fabric-loom'
 	apply plugin: 'maven-publish'
@@ -58,6 +58,7 @@ if (project.hasProperty('extraMods')) {
 
 def chittyProject = project(":chitty")
 def gojolanderProject = project(":gojolander")
+def chainsawProject = project(":chainsawman")
 
 // Test harness mod: server game tests plus client self tests that film a full strike, a Ginnungagap or a drive in
 // Chitty, and the game tests of the friends' mods. It loads every mod in the build together, as a server with all of
@@ -71,12 +72,15 @@ sourceSets {
 		runtimeClasspath += chittyProject.sourceSets.main.output + chittyProject.sourceSets.client.output
 		compileClasspath += gojolanderProject.sourceSets.main.output + gojolanderProject.sourceSets.client.output
 		runtimeClasspath += gojolanderProject.sourceSets.main.output + gojolanderProject.sourceSets.client.output
+		compileClasspath += chainsawProject.sourceSets.main.output + chainsawProject.sourceSets.client.output
+		runtimeClasspath += chainsawProject.sourceSets.main.output + chainsawProject.sourceSets.client.output
 	}
 	// No code of its own: what the dev client and server run, every mod in the build together.
 	allMods {
 		runtimeClasspath += sourceSets.main.runtimeClasspath + sourceSets.main.output + sourceSets.client.runtimeClasspath + sourceSets.client.output
 		runtimeClasspath += chittyProject.sourceSets.main.output + chittyProject.sourceSets.client.output
 		runtimeClasspath += gojolanderProject.sourceSets.main.output + gojolanderProject.sourceSets.client.output
+		runtimeClasspath += chainsawProject.sourceSets.main.output + chainsawProject.sourceSets.client.output
 	}
 }
 
@@ -93,6 +97,10 @@ loom {
 		"gojolander" {
 			sourceSet "main", gojolanderProject
 			sourceSet "client", gojolanderProject
+		}
+		"chainsawman" {
+			sourceSet "main", chainsawProject
+			sourceSet "client", chainsawProject
 		}
 		"shootingstar-gametest" {
 			sourceSet sourceSets.gametest

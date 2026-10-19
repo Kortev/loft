@@ -17,11 +17,11 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Build
         run: ./gradlew build --stacktrace
-      # One download with every mod's jar: The Shooting Star, Chitty Chitty Bang Bang and the friends' (Gojolander).
+      # One download with every mod's jar: The Shooting Star, Chitty Chitty Bang Bang and the friends' (Gojolander) and kortev's second.
       - name: Collect the jars
         run: |
           mkdir -p dist
-          cp build/libs/*.jar chitty/build/libs/*.jar gojolander/build/libs/*.jar dist/
+          cp build/libs/*.jar chitty/build/libs/*.jar gojolander/build/libs/*.jar chainsawman/build/libs/*.jar dist/
           ls -la dist
       - name: Check the jars
         run: python3 .github/scripts/check-jars.py dist

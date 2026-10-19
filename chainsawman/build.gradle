@@ -1,0 +1,15 @@
+// kortev's own powers on the SMP, beside The Shooting Star, in their own jar. Loom, Minecraft, Fabric and Java are set
+// up for every mod in the root build.gradle, which also has the test harness and the dev runs that load it.
+
+base {
+	archivesName = 'chainsawman'
+}
+
+dependencies {
+	// It needs The Shooting Star: its owner-only crafting and its advancement trigger, and the passes and render targets
+	// its effects are drawn with.
+	implementation project(path: ':', configuration: 'namedElements')
+}
+
+// It is run from the root project beside every other mod, so `./gradlew runClient` starts one game, not a second one.
+loom.runConfigs.clear()

@@ -1,0 +1,31 @@
+{
+	"schemaVersion": 1,
+	"id": "chainsawman",
+	"version": "${version}",
+	"name": "Chainsaw Man",
+	"description": "Pochita, and what pulling the cord makes of whoever carries him. Built beside The Shooting Star and needs it.",
+	"authors": [
+		"Kortev"
+	],
+	"contact": {
+		"sources": "https://github.com/Kortev/loft"
+	},
+	"license": "MIT",
+	"icon": "assets/chainsawman/textures/item/pochita.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"io.github.kortev.chainsawman.ChainsawMan"
+		],
+		"client": [
+			"io.github.kortev.chainsawman.client.ChainsawManClient"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.16.0",
+		"minecraft": "~1.21.1",
+		"java": ">=21",
+		"fabric-api": "*",
+		"shootingstar": "*"
+	}
+}

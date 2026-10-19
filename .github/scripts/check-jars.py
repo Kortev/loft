@@ -50,6 +50,7 @@ folder = sys.argv[1]
 star = jar(folder, 'shooting-star')
 chitty = jar(folder, 'chitty-chitty-bang-bang')
 gojolander = jar(folder, 'gojolander')
+chainsaw = jar(folder, 'chainsawman')
 if star:
     check(star, 'shootingstar', [
         'io/github/kortev/shootingstar/ShootingStar.class',
@@ -73,6 +74,9 @@ if star:
         'io/github/kortev/gojolander/',
         'assets/gojolander/',
         'data/gojolander/',
+        'io/github/kortev/chainsawman/',
+        'assets/chainsawman/',
+        'data/chainsawman/',
     ])
 if chitty:
     check(chitty, 'chitty', [
@@ -104,6 +108,9 @@ if chitty:
         'io/github/kortev/gojolander/',
         'assets/gojolander/',
         'data/gojolander/',
+        'io/github/kortev/chainsawman/',
+        'assets/chainsawman/',
+        'data/chainsawman/',
     ])
 if gojolander:
     check(gojolander, 'gojolander', [
@@ -126,8 +133,26 @@ if gojolander:
     ], [
         'io/github/kortev/shootingstar/',
         'io/github/kortev/chitty/',
+        'io/github/kortev/chainsawman/',
         'assets/shootingstar/',
         'data/shootingstar/',
+        'assets/chainsawman/',
+        'data/chainsawman/',
+    ])
+if chainsaw:
+    check(chainsaw, 'chainsawman', [
+        'io/github/kortev/chainsawman/ChainsawMan.class',
+        'io/github/kortev/chainsawman/client/ChainsawManClient.class',
+        'assets/chainsawman/lang/en_us.json',
+        'data/chainsawman/recipe/pochita.json',
+    ], [
+        'io/github/kortev/shootingstar/',
+        'io/github/kortev/chitty/',
+        'io/github/kortev/gojolander/',
+        'assets/shootingstar/',
+        'data/shootingstar/',
+        'assets/gojolander/',
+        'data/gojolander/',
     ])
 
 if problems:

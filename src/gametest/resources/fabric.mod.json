@@ -38,6 +38,7 @@
 		"shootingstar": "*",
 		"chitty": "*",
 		"gojolander": "*",
+		"chainsawman": "*",
 		"fabric-gametest-api-v1": "*"
 	},
 	"mixins": [
