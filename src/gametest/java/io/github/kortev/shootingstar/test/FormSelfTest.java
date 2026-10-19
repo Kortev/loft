@@ -119,10 +119,21 @@ public class FormSelfTest implements ClientModInitializer {
 			case SHOOT -> {
 				if (shot >= CAMERAS.length + PLAIN.length) {
 					client.setCameraEntity(client.player);
-					client.options.setPerspective(Perspective.THIRD_PERSON_FRONT);
+					if (ticks < 22) {
+						client.options.setPerspective(Perspective.THIRD_PERSON_FRONT);
+					}
 					if (ticks == 20) {
 						screenshot(client, "third_person_front");
-					} else if (ticks == 30) {
+					} else if (ticks == 22) {
+						// Your own arms in front of you, empty-handed: their saws.
+						client.options.setPerspective(Perspective.FIRST_PERSON);
+						client.player.setPitch(25.0F);
+						client.world.removeEntity(-4242, Entity.RemovalReason.DISCARDED);
+						// Hiding the HUD hides your hand as well.
+						client.options.hudHidden = false;
+					} else if (ticks == 32) {
+						screenshot(client, "first_person");
+					} else if (ticks == 40) {
 						stage = Stage.DONE;
 					}
 					return;
@@ -193,7 +204,8 @@ public class FormSelfTest implements ClientModInitializer {
 		player.getAbilities().flying = false;
 		player.sendAbilitiesUpdate();
 		player.getInventory().clear();
-		player.getInventory().insertStack(new ItemStack(ChainsawMan.POCHITA));
+		// Carried, not held: the hand stays empty, so it is drawn in first person.
+		player.getInventory().setStack(9, new ItemStack(ChainsawMan.POCHITA));
 		Form.pullCord(player);
 		Vec3d head = feet.add(0, 1.6, 0);
 		for (double[] cam : CAMERAS) {

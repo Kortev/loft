@@ -15,10 +15,15 @@ import net.minecraft.util.Identifier;
 
 /**
  * The form on whoever is in it: the chainsaw head in place of their own (hidden, with their hat layer, by {@code
- * HeadHiddenMixin}), the saws out of their forearms, and the cord on their chest; each part moving with its bone.
+ * HeadHiddenMixin}), the saws out of their forearms, and the cord on their chest; each part moving with its bone. The
+ * chains run round their bars all the while, and race when they swing.
  */
 public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntity, PlayerEntityModel<AbstractClientPlayerEntity>> {
 	public static final Identifier TEXTURE = ChainsawMan.id("textures/entity/form.png");
+	/** How many frames each chain is baked in, and how fast they go by (frames a tick) idling and swinging. */
+	private static final int CHAIN_FRAMES = 4;
+	private static final float CHAIN_IDLE = 0.5F;
+	private static final float CHAIN_SWING = 2.0F;
 
 	public FormFeature(FeatureRendererContext<AbstractClientPlayerEntity, PlayerEntityModel<AbstractClientPlayerEntity>> context) {
 		super(context);
@@ -30,33 +35,35 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 		if (!ClientForms.on(player) || player.isInvisible()) {
 			return;
 		}
+		PlayerEntityModel<AbstractClientPlayerEntity> model = getContextModel();
+		int overlay = LivingEntityRenderer.getOverlay(player, 0.0F);
+		draw(matrices, consumers, light, overlay, player, animationProgress, "head", model.head);
+		draw(matrices, consumers, light, overlay, player, animationProgress, "body", model.body);
+		draw(matrices, consumers, light, overlay, player, animationProgress, "right_arm", model.rightArm);
+		draw(matrices, consumers, light, overlay, player, animationProgress, "left_arm", model.leftArm);
+	}
+
+	/**
+	 * Draws the parts of the form that follow one bone of the player model, the stack moved to the bone first; the
+	 * chains on the frame they have run to by {@code time} (ticks).
+	 */
+	public static void draw(MatrixStack matrices, VertexConsumerProvider consumers, int light, int overlay, AbstractClientPlayerEntity player,
+			float time, String boneName, ModelPart bone) {
 		FormMesh mesh = FormMesh.get();
 		if (mesh == null) {
 			return;
 		}
 		VertexConsumer out = consumers.getBuffer(RenderLayer.getEntityCutoutNoCull(TEXTURE));
-		int overlay = LivingEntityRenderer.getOverlay(player, 0.0F);
-		PlayerEntityModel<AbstractClientPlayerEntity> model = getContextModel();
-		int chainFrame = 0;
+		float speed = player.handSwinging ? CHAIN_SWING : CHAIN_IDLE;
+		int chainFrame = Math.floorMod((int) (time * speed), CHAIN_FRAMES);
+		matrices.push();
+		bone.rotate(matrices);
 		for (FormMesh.Part part : mesh.parts.values()) {
 			// Each chain comes in a few frames, each a step further round its bar: one at a time is drawn.
-			if (part.chainFrame >= 0 && part.chainFrame != chainFrame) {
-				continue;
+			if (part.bone.equals(boneName) && (part.chainFrame < 0 || part.chainFrame == chainFrame)) {
+				part.draw(matrices.peek(), out, light, overlay);
 			}
-			ModelPart bone = switch (part.bone) {
-				case "head" -> model.head;
-				case "body" -> model.body;
-				case "right_arm" -> model.rightArm;
-				case "left_arm" -> model.leftArm;
-				default -> null;
-			};
-			if (bone == null) {
-				continue;
-			}
-			matrices.push();
-			bone.rotate(matrices);
-			part.draw(matrices.peek(), out, light, overlay);
-			matrices.pop();
 		}
+		matrices.pop();
 	}
 }
