@@ -52,7 +52,8 @@ The latest work is on branch **`claude/gallant-brahmagupta-qi9mw3`** (it carries
 ## The friends' mods
 
 The SMP after the Shorts is real players (the Shorts' Woomerd and gerald_2009 are skit characters, not players). Each
-friend gets their own mod, presented on the server as things that exist there, never named publicly.
+friend gets their own mod, presented on the server as things that exist there. (Naming the mods in public content is
+fine: kortev dropped the old rule against it on 2026-10-20.)
 
 - **Gojolander** (`gojolander/`): the first friend, kortev's rival, who wants to be Gojo (Jujutsu Kaisen) and Homelander
   (The Boys) at once. Built so far: the blindfold, the **Six Eyes** (with it on he sees living things through walls,

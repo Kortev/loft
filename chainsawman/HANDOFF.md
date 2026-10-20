@@ -31,16 +31,17 @@ gets a mod of their own; this one is kortev's.
    movie), and has not read the manga. In every question, option, name, comment and commit, draw only on season 1
    and the Reze arc. Never mention or hint at later forms, characters or events. (An early question once offered a
    later-manga form as an ult option; they noticed.) If you research, do it text-only and keep what you report safe.
-2. **Never name the mods or their items in public content**: Shorts titles, captions, pinned comments, public PR
-   descriptions. The series is becoming an SMP and kortev wants the mystery kept. Names in the code are fine.
-3. **One piece at a time, committed and pushed as soon as it works.** Get each piece in the game first even before
+2. **One piece at a time, committed and pushed as soon as it works.** Get each piece in the game first even before
    it does anything, then add each ability on its own. Commit (one topic, a subject in plain words, a body that says
    why), push, then start the next piece.
-4. **Ask before design calls** (what a power does, balance, PvP, how something looks); decide technical calls
+3. **Ask before design calls** (what a power does, balance, PvP, how something looks); decide technical calls
    yourself. Keep messages short and plain. Refer to kortev as "they".
-5. **Show renders/screenshots before baking or shipping a look**, and match the anime. kortev reacts strongly to
+4. **Show renders/screenshots before baking or shipping a look**, and match the anime. kortev reacts strongly to
    things that look invented instead of matched; when they send references, follow them exactly.
-6. **End a round of work with a numbered list of what to test in game.**
+5. **End a round of work with a numbered list of what to test in game.**
+
+(There was once a rule against naming the mods in public content; kortev dropped it on 2026-10-20: naming them is
+fine.)
 
 ## What the mod does now (all pushed)
 
