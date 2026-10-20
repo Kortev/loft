@@ -8,6 +8,7 @@ import io.github.kortev.chainsawman.form.Frenzy;
 import io.github.kortev.chainsawman.form.Grapple;
 import io.github.kortev.chainsawman.form.Saw;
 import io.github.kortev.chainsawman.network.FormEventPayload;
+import io.github.kortev.shootingstar.test.mixin.FilmClickInvoker;
 import io.github.kortev.chainsawman.form.FormTimeline;
 import io.github.kortev.shootingstar.ShootingStar;
 import java.lang.reflect.Field;
@@ -291,12 +292,19 @@ public class FormSelfTest implements ClientModInitializer {
 				client.options.setPerspective(Perspective.FIRST_PERSON);
 				client.options.hudHidden = false;
 				client.player.setPitch(10.0F);
-				server.execute(() -> Saw.slash(serverPlayer(server)));
+				click(client);
 			}
-			case 114, 128 -> server.execute(() -> Saw.slash(serverPlayer(server)));
-			case 142 -> server.execute(() -> Saw.grind(serverPlayer(server), true));
-			case 150 -> screenshot(client, "fp_grind");
-			case 152 -> server.execute(() -> Saw.grind(serverPlayer(server), false));
+			// Clicked and held as a player does, through the game's own handling of the attack key.
+			case 114, 128 -> click(client);
+			case 102, 116, 130 -> checkSwing(client, (f - 102) / 14);
+			case 142 -> client.options.attackKey.setPressed(true);
+			case 150 -> {
+				screenshot(client, "fp_grind");
+				if (!ClientCombat.grinding(client.player)) {
+					ShootingStar.LOGGER.error("[selftest] form: FAILED: holding the attack key did not grind");
+				}
+			}
+			case 152 -> client.options.attackKey.setPressed(false);
 			case 154 -> client.player.setPitch(-25.0F);
 			case 156 -> server.execute(() -> Grapple.fire(serverPlayer(server)));
 			case 158 -> screenshot(client, "fp_chain_02");
@@ -340,6 +348,21 @@ public class FormSelfTest implements ClientModInitializer {
 		client.world.addEntity(standIn);
 		standInId = standIn.getUuid();
 		ClientForms.set(standInId, true);
+	}
+
+	/** A left click, through the game's own handling of it. */
+	private static void click(MinecraftClient client) {
+		((FilmClickInvoker) client).shootingstar$leftClick();
+	}
+
+	/** That the click before came back from the server as the combo's {@code step}. */
+	private static void checkSwing(MinecraftClient client, int step) {
+		ClientCombat.Swing swing = ClientCombat.swing(client.player);
+		if (swing == null || swing.step() != step || ClientCombat.swingAge(client.player, 0.0F) < 0.0F) {
+			ShootingStar.LOGGER.error("[selftest] form: FAILED: click {} did not slash (swing {})", step, swing);
+		} else {
+			ShootingStar.LOGGER.info("[selftest] form: click {} slashed", step);
+		}
 	}
 
 	private static ServerPlayerEntity serverPlayer(IntegratedServer server) {

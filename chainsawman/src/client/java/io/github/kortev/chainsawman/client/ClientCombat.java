@@ -62,10 +62,12 @@ public final class ClientCombat {
 	private static final DustParticleEffect BLOOD = new DustParticleEffect(new Vector3f(0.5F, 0.0F, 0.03F), 1.0F);
 	private static final Random RANDOM = Random.create();
 
+	/** Long enough ago that the next slash may come (not Long.MIN_VALUE: the time since it would overflow). */
+	private static final long NEVER = -1000L;
 	/** Your own attack key: how long it has been held, whether you are grinding, and when you last slashed. */
 	private static int held;
 	private static boolean grindSent;
-	private static long lastSlash = Long.MIN_VALUE;
+	private static long lastSlash = NEVER;
 
 	private ClientCombat() {
 	}
@@ -313,7 +315,7 @@ public final class ClientCombat {
 		FRENZY_SOUNDS.clear();
 		held = 0;
 		grindSent = false;
-		lastSlash = Long.MIN_VALUE;
+		lastSlash = NEVER;
 	}
 
 	/** A loop on someone, going round where they are while it should. */
