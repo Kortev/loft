@@ -12,6 +12,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.minecraft.block.Blocks;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityStatuses;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.decoration.ArmorStandEntity;
 import net.minecraft.entity.player.PlayerEntity;
@@ -24,6 +25,7 @@ import net.minecraft.particle.ParticleTypes;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.sound.SoundCategory;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
@@ -45,7 +47,21 @@ public final class Saw {
 	public static final float FINISHER_DAMAGE = 14.0F;
 	/** Ticks between slashes at the fastest, and how long the combo waits for the next before starting over. */
 	public static final int SLASH_EVERY = 12;
-	private static final int COMBO_GAP = 24;
+	public static final int COMBO_GAP = 24;
+	/**
+	 * How many ticks early a slash may come and still count (with lag a client's slashes, sent at the right time, can
+	 * reach the server a little bunched up, and would otherwise be dropped).
+	 */
+	private static final int LAG_SLACK = 2;
+	/**
+	 * What was under a slasher's crosshair is hit if it's this much further than the reach (blocks), and anywhere in front
+	 * of them: what they saw land, lands, lag or not.
+	 */
+	private static final double AIM_SLACK = 1.0;
+	/** How much of a player's knockback the first two slashes leave them (they stay in reach for the finisher). */
+	private static final double COMBO_HOLD = 0.3;
+	/** A shield cut through: how long it's useless (ticks), as long as an axe leaves it. */
+	public static final int GUARD_DOWN = 100;
 	/** Grinding: how far and wide it reaches, how often it bites (ticks) and for how much. */
 	private static final double GRIND_REACH = 2.8;
 	private static final double GRIND_WIDTH = 0.6;
@@ -120,13 +136,21 @@ public final class Saw {
 
 	/** A slash of the saws, if one may come yet: the next step of the combo, through all in front. */
 	public static boolean slash(ServerPlayerEntity player) {
+		return slash(player, -1);
+	}
+
+	/**
+	 * A slash, with what was under the slasher's crosshair ({@code aimed}, an entity's id, or -1): through all in front,
+	 * and that too if it's near enough.
+	 */
+	public static boolean slash(ServerPlayerEntity player, int aimed) {
 		boolean held = !Form.fighting(player) && wielding(player);
 		if (!Form.fighting(player) && !held) {
 			return false;
 		}
 		long now = player.getServerWorld().getTime();
 		Slash last = SLASHED.get(player.getUuid());
-		if (last != null && now - last.at() < SLASH_EVERY) {
+		if (last != null && now - last.at() < SLASH_EVERY - LAG_SLACK) {
 			return false;
 		}
 		int step = last == null || now - last.at() > COMBO_GAP ? 0 : (last.step() + 1) % 3;
@@ -147,14 +171,35 @@ public final class Saw {
 		boolean finisher = step == 2;
 		float damage = (finisher ? FINISHER_DAMAGE : SLASH_DAMAGE) * (held ? WIELDED : Frenzy.damage(player) * Limbs.damage(player));
 		List<LivingEntity> hit = inFront(player, SLASH_REACH, finisher ? FINISHER_WIDTH : SLASH_WIDTH);
+		LivingEntity aim = aimed(player, aimed);
+		if (aim != null && !hit.contains(aim)) {
+			hit.add(aim);
+		}
 		for (LivingEntity target : hit) {
+			breakGuard(target);
 			target.timeUntilRegen = 0;
 			target.damage(player.getDamageSources().playerAttack(player), damage);
 			Vec3d push = target.getPos().subtract(player.getPos()).multiply(1.0, 0.0, 1.0).normalize();
-			target.takeKnockback(finisher ? 0.9 : 0.45, -push.x, -push.z);
+			if (target instanceof PlayerEntity && !finisher) {
+				// A player held in reach by the first two (the game's own knockback mostly taken back off)...
+				target.setVelocity(target.getVelocity().multiply(COMBO_HOLD, 1.0, COMBO_HOLD));
+				target.velocityModified = true;
+			} else if (target instanceof PlayerEntity) {
+				// ...and the finisher sends them flying.
+				target.takeKnockback(0.75, -push.x, -push.z);
+				target.addVelocity(0.0, 0.2, 0.0);
+				target.velocityModified = true;
+			} else {
+				target.takeKnockback(finisher ? 0.9 : 0.45, -push.x, -push.z);
+			}
 			bleed(player.getServerWorld(), target, finisher ? 30 : 18);
+			if (target instanceof PlayerEntity || finisher) {
+				impact(player, target);
+			}
 		}
-		Form.play(player, ChainsawSounds.SLASH, 1.0F);
+		// Everyone else hears it; the slasher's own game played it already, as they clicked (ClientCombat).
+		player.getServerWorld().playSound(player, player.getX(), player.getY() + 1.0, player.getZ(), ChainsawSounds.SLASH, SoundCategory.PLAYERS, 1.0F,
+				1.0F);
 		Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.SWING, step));
 		if (held) {
 			if (!hit.isEmpty()) {
@@ -165,6 +210,55 @@ public final class Saw {
 			landed(player, hit.size());
 		}
 		return true;
+	}
+
+	/**
+	 * What {@code player} had under their crosshair as they slashed ({@code id}), if it's still there to be hit: alive, in
+	 * front of them, in sight, and no further than the reach and {@link #AIM_SLACK}.
+	 */
+	@org.jetbrains.annotations.Nullable
+	private static LivingEntity aimed(ServerPlayerEntity player, int id) {
+		if (id < 0 || !(player.getWorld().getEntityById(id) instanceof LivingEntity target) || target == player || !target.isAlive()
+				|| target.isSpectator() || target instanceof ArmorStandEntity || target instanceof ServerPlayerEntity other && Downed.is(other)) {
+			return null;
+		}
+		Vec3d eye = player.getEyePos();
+		Box b = target.getBoundingBox();
+		Vec3d near = new Vec3d(MathHelper.clamp(eye.x, b.minX, b.maxX), MathHelper.clamp(eye.y, b.minY, b.maxY), MathHelper.clamp(eye.z, b.minZ, b.maxZ));
+		if (near.distanceTo(eye) > SLASH_REACH + AIM_SLACK || b.getCenter().subtract(eye).normalize().dotProduct(player.getRotationVec(1.0F)) < 0.3
+				|| !player.canSee(target)) {
+			return null;
+		}
+		return target;
+	}
+
+	/**
+	 * A shield raised against the saws is no use: cut through, and knocked out a while ({@link #GUARD_DOWN}), as an axe
+	 * does to it. Whatever is held up blocking, another mod's shield too.
+	 */
+	public static void breakGuard(LivingEntity target) {
+		if (!target.isBlocking()) {
+			return;
+		}
+		ItemStack guard = target.getActiveItem();
+		if (target instanceof PlayerEntity blocker) {
+			blocker.getItemCooldownManager().set(guard.getItem(), GUARD_DOWN);
+		}
+		target.clearActiveItem();
+		target.getWorld().sendEntityStatus(target, EntityStatuses.BREAK_SHIELD);
+		// Heard by everyone round (the status alone doesn't play it in their games).
+		target.getWorld().playSound(null, target.getX(), target.getY() + 1.0, target.getZ(), net.minecraft.sound.SoundEvents.ITEM_SHIELD_BREAK,
+				target.getSoundCategory(), 1.0F, 0.8F + target.getRandom().nextFloat() * 0.4F);
+	}
+
+	/** A saw biting hard into {@code target}: everyone sees the sparks and hears the crunch; the one swinging feels it. */
+	private static void impact(ServerPlayerEntity player, LivingEntity target) {
+		Box b = target.getBoundingBox();
+		// On the near side of it, at the slasher's chest height (within it).
+		Vec3d mid = b.getCenter();
+		Vec3d to = player.getPos().subtract(mid).multiply(1.0, 0.0, 1.0).normalize().multiply(b.getLengthX() * 0.5);
+		double y = MathHelper.clamp(player.getY() + 1.1, b.minY + 0.2, b.maxY - 0.2);
+		Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.IMPACT, target.getId(), mid.x + to.x, y, mid.z + to.z));
 	}
 
 	/** Whether {@code player} holds Pochita in their hand, as a chainsaw. */
@@ -301,6 +395,8 @@ public final class Saw {
 					int cut = 0;
 					for (LivingEntity target : inFront(player, 2.2, 0.35)) {
 						if (lunge.cut().add(target.getUuid())) {
+							breakGuard(target);
+							impact(player, target);
 							target.timeUntilRegen = 0;
 							target.damage(player.getDamageSources().playerAttack(player), LUNGE_DAMAGE * Frenzy.damage(player));
 							Vec3d push = player.getRotationVec(1.0F);
@@ -316,6 +412,7 @@ public final class Saw {
 			if (bites != null && now % GRIND_EVERY == 0) {
 				List<LivingEntity> hit = inFront(player, GRIND_REACH, GRIND_WIDTH);
 				for (LivingEntity target : hit) {
+					breakGuard(target);
 					target.timeUntilRegen = 0;
 					target.damage(player.getDamageSources().playerAttack(player), GRIND_DAMAGE * Frenzy.damage(player) * Limbs.damage(player));
 					target.setVelocity(target.getVelocity().multiply(0.4, 1.0, 0.4));

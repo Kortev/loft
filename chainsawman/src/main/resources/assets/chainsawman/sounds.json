@@ -150,5 +150,13 @@
         "name": "chainsawman:pochita_tame"
       }
     ]
+  },
+  "form.crunch": {
+    "subtitle": "subtitles.chainsawman.form.crunch",
+    "sounds": [
+      {
+        "name": "chainsawman:form_crunch"
+      }
+    ]
   }
 }

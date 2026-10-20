@@ -76,7 +76,7 @@ public final class ChainsawMan implements ModInitializer {
 		ServerPlayNetworking.registerGlobalReceiver(PullCordPayload.ID, (payload, context) -> Form.pullCord(context.player()));
 		ServerPlayNetworking.registerGlobalReceiver(FormActionPayload.ID, (payload, context) -> {
 			switch (payload.action()) {
-				case FormActionPayload.SLASH -> Saw.slash(context.player());
+				case FormActionPayload.SLASH -> Saw.slash(context.player(), payload.target());
 				case FormActionPayload.GRIND -> Saw.grind(context.player(), payload.on());
 				case FormActionPayload.CHAIN -> Grapple.fire(context.player());
 				case FormActionPayload.FRENZY -> Frenzy.start(context.player());

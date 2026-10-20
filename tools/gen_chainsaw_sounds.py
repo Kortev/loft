@@ -220,6 +220,28 @@ def form_hit():
     return x
 
 
+def form_crunch():
+    """The saw biting hard into someone (a player, or a finisher): a heavy thump, bone cracking under the teeth, the
+    engine bogging right down and a wet rip after."""
+    n = ns(0.6)
+    t = np.arange(n) / SR
+    # The thump of it landing, low.
+    thump = np.sin(2 * np.pi * (55.0 + 40.0 * np.exp(-t / 0.03)) * t) * np.exp(-t / 0.07) * 1.6
+    # Bone giving: a few hard cracks close together.
+    crack = np.zeros(n)
+    for at, size in ((0.004, 1.0), (0.022, 0.7), (0.041, 0.85), (0.07, 0.45)):
+        m = ns(0.03)
+        k = np.arange(m) / SR
+        start = ns(at)
+        crack[start:start + m] += (bp(white(m), 1500.0, 6500.0) * np.exp(-k / 0.006) * size)[:n - start]
+    rate = curve(n, [(0.0, 160.0), (0.04, 70.0), (0.3, 105.0), (0.6, 140.0)])
+    level = curve(n, [(0.0, 1.3), (0.35, 0.7), (0.6, 0.0)])
+    x = thump + crack * 1.8
+    x += engine(n, rate, level, buzz=0.7) * 0.6
+    x += flesh(n, 0.45, wet=1.8) * 1.3
+    return x
+
+
 def form_grind():
     n = ns(1.5 + 0.4)
     t = np.arange(n) / SR
@@ -473,6 +495,7 @@ SOUNDS = {
     'form_stop': form_stop,
     'form_slash': form_slash,
     'form_hit': form_hit,
+    'form_crunch': form_crunch,
     'form_grind': form_grind,
     'form_chain': form_chain,
     'form_frenzy': form_frenzy,
@@ -482,7 +505,7 @@ SOUNDS = {
 }
 LOOPS = ('form_idle', 'form_grind', 'form_frenzy_loop')
 # Loudness (loudest 400 ms, dB).
-LEVELS = {'pochita_tame': -14, 'form_merge': -12, 'form_cord': -14, 'form_start': -10, 'form_idle': -20, 'form_stop': -16, 'form_slash': -13, 'form_hit': -12,
+LEVELS = {'form_crunch': -10, 'pochita_tame': -14, 'form_merge': -12, 'form_cord': -14, 'form_start': -10, 'form_idle': -20, 'form_stop': -16, 'form_slash': -13, 'form_hit': -12,
           'form_grind': -15, 'form_chain': -14, 'form_frenzy': -10, 'form_frenzy_loop': -17, 'form_down': -13,
           'form_revive': -14}
 

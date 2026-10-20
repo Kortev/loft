@@ -19,6 +19,8 @@ public final class ChainsawSounds {
 	public static final SoundEvent SLASH = register("form.slash");
 	/** The saw biting into something: a wet rip under the engine bogging down. */
 	public static final SoundEvent HIT = register("form.hit");
+	/** The saw biting hard into someone (a player, a finisher): a thump, bone cracking, the engine bogging down. */
+	public static final SoundEvent CRUNCH = register("form.crunch");
 	/** Grinding, a loop: the engine screaming under load, the chain chewing. */
 	public static final SoundEvent GRIND = register("form.grind");
 	/** The chain fired out of the arm: links rattling out fast, and the hook biting. */

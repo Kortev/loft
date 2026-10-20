@@ -81,6 +81,67 @@ public class FormGameTests implements FabricGameTest {
 		context.complete();
 	}
 
+	/** The saws cut through a raised shield: it's knocked out a while, and the cut lands all the same. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_guard", tickLimit = JOINED + 20)
+	public void sawsBeatShields(TestContext context) {
+		ServerPlayerEntity player = fighter(context, "cutter", 0.0);
+		ServerPlayerEntity guard = player(context, "guard", 0.0);
+		Vec3d at = spot(context).add(0.0, 0.0, 2.0);
+		guard.teleport(context.getWorld(), at.x, at.y, at.z, 180.0F, 0.0F);
+		guard.onTeleportationDone();
+		guard.setStackInHand(net.minecraft.util.Hand.OFF_HAND, new net.minecraft.item.ItemStack(net.minecraft.item.Items.SHIELD));
+		guard.setCurrentHand(net.minecraft.util.Hand.OFF_HAND);
+		// (The test server has players unable to hurt each other.)
+		boolean pvp = context.getWorld().getServer().isPvpEnabled();
+		context.getWorld().getServer().setPvpEnabled(true);
+		// Held up a while (the stand-in never ticks to raise it).
+		((io.github.kortev.shootingstar.test.mixin.ItemUseAccessor) guard).shootingstar$setItemUseTimeLeft(guard.getActiveItem().getMaxUseTime(guard) - 10);
+		// (Once a new player can be hurt at all.)
+		context.waitAndRun(JOINED, () -> {
+			try {
+				context.assertTrue(guard.isBlocking(), "the guard's shield was not up to begin with");
+				float before = guard.getHealth();
+				context.assertTrue(Saw.slash(player), "the slash did not come");
+				context.assertTrue(guard.getHealth() < before, "the shield stopped the saws");
+				context.assertTrue(!guard.isBlocking(), "the shield was still up");
+				context.assertTrue(guard.getItemCooldownManager().isCoolingDown(net.minecraft.item.Items.SHIELD), "the shield was not knocked out");
+			} finally {
+				context.getWorld().getServer().setPvpEnabled(pvp);
+				done(context, player);
+				done(context, guard);
+			}
+			context.complete();
+		});
+	}
+
+	/**
+	 * What was under the slasher's crosshair is cut even out at the edge of the sweep, where the slash alone misses it:
+	 * what they saw land, lands.
+	 */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_aim", tickLimit = 40)
+	public void aimedHitsLand(TestContext context) {
+		ServerPlayerEntity player = fighter(context, "aimer", 0.0);
+		HuskEntity side = husk(context, 3.2, 1.4);
+		try {
+			context.assertTrue(Saw.slash(player), "the first slash did not come");
+			context.assertTrue(side.getHealth() >= side.getMaxHealth(), "the slash alone reached the husk off to the side");
+		} catch (RuntimeException e) {
+			done(context, player);
+			side.discard();
+			throw e;
+		}
+		context.waitAndRun(Saw.SLASH_EVERY + 1, () -> {
+			try {
+				context.assertTrue(Saw.slash(player, side.getId()), "the aimed slash did not come");
+				context.assertTrue(side.getHealth() < side.getMaxHealth(), "aimed at, the husk off to the side was not cut");
+			} finally {
+				done(context, player);
+				side.discard();
+			}
+			context.complete();
+		});
+	}
+
 	/** In the form the saws cut through blocks many times as fast as hands; out of it, as hands. */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_dig", tickLimit = 20)
 	public void sawsCutWalls(TestContext context) {

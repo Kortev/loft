@@ -87,6 +87,9 @@ public class FormSelfTest implements ClientModInitializer {
 		}, "chainsawman-form-selftest-watchdog");
 		watchdog.setDaemon(true);
 		watchdog.start();
+		// The other player in the fight (-Ptarget=pvp) has no game of their own to move them: knocked back, they're moved
+		// here, as their game would.
+		ServerTickEvents.END_SERVER_TICK.register(FormSelfTest::moveRival);
 		if (capturing()) {
 			// The server in step with the frames (Capture).
 			ServerTickEvents.START_SERVER_TICK.register(server -> Capture.serverTickStart());
@@ -102,6 +105,63 @@ public class FormSelfTest implements ClientModInitializer {
 	 */
 	private static boolean capturing() {
 		return "true".equals(System.getProperty("shootingstar.selftest.capture"));
+	}
+
+	/** The other player in the fight (-Ptarget=pvp), on the server: a stand-in with no game of its own. */
+	private static ServerPlayerEntity rival;
+
+	/** Them, coming in: in front of you, a shield raised, the health for a fight. */
+	private static void rival(IntegratedServer server) {
+		ServerPlayerEntity p = serverPlayer(server);
+		ServerWorld world = p.getServerWorld();
+		GameProfile profile = new GameProfile(UUID.randomUUID(), "Rival");
+		net.minecraft.server.network.ConnectedClientData data = net.minecraft.server.network.ConnectedClientData.createDefault(profile, false);
+		rival = new ServerPlayerEntity(server, world, profile, data.syncedOptions());
+		net.minecraft.network.ClientConnection connection = new net.minecraft.network.ClientConnection(net.minecraft.network.NetworkSide.SERVERBOUND);
+		new io.netty.channel.embedded.EmbeddedChannel(connection);
+		server.getPlayerManager().onPlayerConnect(connection, rival, data);
+		rival.changeGameMode(GameMode.SURVIVAL);
+		rival.addStatusEffect(new net.minecraft.entity.effect.StatusEffectInstance(net.minecraft.entity.effect.StatusEffects.HEALTH_BOOST, 20 * 60 * 10, 19,
+				false, false));
+		rival.setHealth(rival.getMaxHealth());
+		rival.equipStack(net.minecraft.entity.EquipmentSlot.CHEST, new ItemStack(net.minecraft.item.Items.IRON_CHESTPLATE));
+		rival.setStackInHand(net.minecraft.util.Hand.MAIN_HAND, new ItemStack(net.minecraft.item.Items.IRON_SWORD));
+		rival.setStackInHand(net.minecraft.util.Hand.OFF_HAND, new ItemStack(net.minecraft.item.Items.SHIELD));
+		stand(rival, p, 0.0);
+		rival.onTeleportationDone();
+	}
+
+	/** {@code rival} 3 blocks in front of {@code p} ({@code side} blocks off to their left), facing them, shield up. */
+	private static void stand(ServerPlayerEntity rival, ServerPlayerEntity p, double side) {
+		float yaw = (float) Math.toDegrees(Math.atan2(side, -3.0));
+		rival.teleport(p.getServerWorld(), p.getX() + side, p.getY(), p.getZ() + 3.0, yaw, 0.0F);
+		rival.setHeadYaw(yaw);
+		rival.setBodyYaw(yaw);
+		rival.setVelocity(Vec3d.ZERO);
+		rival.setCurrentHand(net.minecraft.util.Hand.OFF_HAND);
+		((io.github.kortev.shootingstar.test.mixin.ItemUseAccessor) rival).shootingstar$setItemUseTimeLeft(rival.getActiveItem().getMaxUseTime(rival) - 10);
+		// (What they hold and wear, which their own game would have the server send round.)
+		java.util.List<com.mojang.datafixers.util.Pair<net.minecraft.entity.EquipmentSlot, ItemStack>> gear = new ArrayList<>();
+		for (net.minecraft.entity.EquipmentSlot slot : new net.minecraft.entity.EquipmentSlot[] {net.minecraft.entity.EquipmentSlot.MAINHAND,
+				net.minecraft.entity.EquipmentSlot.OFFHAND, net.minecraft.entity.EquipmentSlot.CHEST}) {
+			gear.add(com.mojang.datafixers.util.Pair.of(slot, rival.getEquippedStack(slot).copy()));
+		}
+		p.server.getPlayerManager().sendToAll(new net.minecraft.network.packet.s2c.play.EntityEquipmentUpdateS2CPacket(rival.getId(), gear));
+	}
+
+	/** Moves the rival as their own game would have: flung by the saws, falling, sliding to a stop. */
+	private static void moveRival(net.minecraft.server.MinecraftServer server) {
+		if (rival == null || rival.isRemoved()) {
+			return;
+		}
+		Vec3d v = rival.getVelocity();
+		if (v.lengthSquared() < 1.0E-6 && rival.isOnGround()) {
+			return;
+		}
+		rival.move(net.minecraft.entity.MovementType.SELF, v);
+		double slide = rival.isOnGround() ? 0.55 : 0.91;
+		double fall = rival.isOnGround() && v.y <= 0.0 ? 0.0 : (v.y - 0.08) * 0.98;
+		rival.setVelocity(v.x * slide, fall, v.z * slide);
 	}
 
 	/** Whether this test is running (the stand-in wears Kortev's skin from build/selftest/skins, as in the films). */
@@ -142,6 +202,10 @@ public class FormSelfTest implements ClientModInitializer {
 					// Only the test ground (-Ptarget=scene).
 					stage = Stage.FIGHT;
 					ticks = 1599;
+				} else if (ticks > 80 && CAMERA_IDS.size() == CAMERAS.length && "pvp".equals(System.getProperty("shootingstar.selftest.target"))) {
+					// Only the fight with another player (-Ptarget=pvp).
+					stage = Stage.FIGHT;
+					ticks = 2199;
 				} else if (ticks > 80 && CAMERA_IDS.size() == CAMERAS.length && "limbs".equals(System.getProperty("shootingstar.selftest.target"))) {
 					// Only the arms lost and grown back (-Ptarget=limbs).
 					stage = Stage.FIGHT;
@@ -602,6 +666,77 @@ public class FormSelfTest implements ClientModInitializer {
 			case 2065 -> server.execute(() -> io.github.kortev.chainsawman.form.Limbs.regrow(serverPlayer(server)));
 			case 2069 -> screenshot(client, "limbs_regrow");
 			case 2110 -> stage = Stage.DONE;
+			// A fight with another player (-Ptarget=pvp): their shield raised, cut through by the first slash; the combo
+			// holding them in close; the finisher sending them flying. Then again, seen from behind you.
+			case 2200 -> {
+				client.setCameraEntity(client.player);
+				client.options.hudHidden = false;
+				client.options.setPerspective(Perspective.FIRST_PERSON);
+				client.player.setYaw(0.0F);
+				client.player.setPitch(12.0F);
+				server.execute(() -> {
+					ServerPlayerEntity p = serverPlayer(server);
+					for (Entity e : p.getServerWorld().getOtherEntities(p, p.getBoundingBox().expand(40.0), x -> x instanceof net.minecraft.entity.mob.MobEntity)) {
+						e.discard();
+					}
+					io.github.kortev.chainsawman.form.Blood.set(p, io.github.kortev.chainsawman.form.Blood.MAX);
+					Form.start(p);
+					io.github.kortev.chainsawman.form.Limbs.whole(p);
+					// Room to be thrown about on (the platform floats high up).
+					BlockPos under = p.getBlockPos().down();
+					for (BlockPos b : BlockPos.iterate(under.add(-24, 0, -12), under.add(24, 0, 30))) {
+						p.getServerWorld().setBlockState(b, Blocks.SMOOTH_STONE.getDefaultState());
+					}
+					rival(server);
+				});
+			}
+			case 2350, 2364, 2378 -> {
+				// Ahead, them off to the right in the sweep: in sight past you from behind.
+				client.player.setYaw(0.0F);
+				click(client);
+			}
+			case 2265, 2279, 2293 -> {
+				// Turned to them, wherever they are.
+				for (PlayerEntity other : client.world.getPlayers()) {
+					if ("Rival".equals(other.getGameProfile().getName())) {
+						Vec3d to = other.getPos().subtract(client.player.getPos());
+						client.player.setYaw((float) Math.toDegrees(Math.atan2(-to.x, to.z)));
+					}
+				}
+				click(client);
+			}
+			case 2210 -> client.inGameHud.getChatHud().clear(false);
+			case 2263, 2270 -> server.execute(() -> {
+				if (rival != null) {
+					ShootingStar.LOGGER.info("[selftest] form: the rival blocking {}, shield knocked out {}", rival.isBlocking(),
+							rival.getItemCooldownManager().isCoolingDown(net.minecraft.item.Items.SHIELD));
+				}
+			});
+			case 2267 -> screenshot(client, "pvp_guard_broken");
+			case 2281 -> screenshot(client, "pvp_second");
+			case 2296 -> screenshot(client, "pvp_finisher");
+			case 2305 -> screenshot(client, "pvp_flying");
+			case 2325 -> server.execute(() -> {
+				if (rival != null) {
+					stand(rival, serverPlayer(server), 1.4);
+				}
+			});
+			case 2330 -> {
+				client.player.setPitch(4.0F);
+				client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
+			}
+			case 2352 -> screenshot(client, "pvp_back_guard");
+			case 2380 -> screenshot(client, "pvp_back_finisher");
+			case 2390 -> screenshot(client, "pvp_back_flying");
+			case 2430 -> {
+				server.execute(() -> {
+					if (rival != null) {
+						server.getPlayerManager().remove(rival);
+						rival = null;
+					}
+				});
+				stage = Stage.DONE;
+			}
 			default -> {
 			}
 		}

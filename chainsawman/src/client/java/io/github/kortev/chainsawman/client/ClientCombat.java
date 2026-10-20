@@ -22,11 +22,16 @@ import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.sound.MovingSoundInstance;
 import net.minecraft.client.sound.SoundInstance;
 import net.minecraft.client.world.ClientWorld;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.decoration.ArmorStandEntity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.projectile.ProjectileUtil;
 import net.minecraft.particle.DustParticleEffect;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvent;
+import net.minecraft.util.Hand;
+import net.minecraft.util.hit.EntityHitResult;
 import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
@@ -61,13 +66,26 @@ public final class ClientCombat {
 		}
 	}
 
-	/** A heavy hit's pause: the swing held still until {@code until}, at {@code age} ticks in. */
-	private record Pause(long until, float age) {
+	/** A heavy hit's pause: the swing held still until {@code until}, at {@code age} ticks in, for {@code length} ticks. */
+	private record Pause(long until, float age, int length) {
 	}
 
 	/** How long a hit holds the swing still (ticks), how hard it kicks your camera (blocks) and punches the view in. */
 	private static final int PAUSE = 2;
 	private static final double KICK = 0.07;
+	/**
+	 * A saw biting into a player (IMPACT): how long the swing holds on it (ticks), and how many times as hard as a hit's
+	 * the kick to your camera is (the one bitten is jolted a little less).
+	 */
+	private static final int IMPACT_PAUSE = 4;
+	private static final double IMPACT_KICK = 2.4;
+	/** How early a click may come and still slash the moment it can (ticks). */
+	private static final int BUFFER = 5;
+	/** How long a slash swung here waits for the server's word on it before it's taken as dropped (ticks). */
+	private static final int PREDICTED = 12;
+	/** The step in with a slash: only after someone this near (blocks) and no nearer; and how far ahead it looks. */
+	private static final double STEP_CLOSE = 1.4;
+	private static final double STEP_FAR = 5.0;
 	private static final float PUNCH = 0.05F;
 	/** Swinging from a block: how fast the chain reels you in (blocks a tick), and how short it gets. */
 
@@ -77,6 +95,15 @@ public final class ClientCombat {
 	private static final Map<UUID, Pause> PAUSED = new ConcurrentHashMap<>();
 	/** When your own last hit landed (for the kick), and how long your swinging chain is (or -1). */
 	private static long kickAt = NEVER;
+	/** How hard the last kick was, times a hit's. */
+	private static double kickSize = 1.0;
+	/** A click that came a moment early (when), to slash the moment it can. */
+	private static long queuedSlash = NEVER;
+	/** Your last slash as swung here, before the server's word on it; your combo's last step and when. */
+	@Nullable
+	private static Swing predicted;
+	private static int lastStep = -1;
+	private static long lastStepAt = NEVER;
 	private static double tether = -1.0;
 	/** Reeled in to a block: how close is there (blocks), and the fastest it goes (blocks a tick). */
 	private static final double ARRIVE = 1.4;
@@ -135,7 +162,46 @@ public final class ClientCombat {
 		UUID id = event.player();
 		long now = world.getTime();
 		switch (event.kind()) {
-			case FormEventPayload.SWING -> SWINGS.put(id, new Swing(event.value(), now));
+			case FormEventPayload.SWING -> {
+				if (predicted != null && client.player != null && id.equals(client.player.getUuid()) && event.value() <= 2
+						&& now - predicted.at() <= PREDICTED) {
+					// The server's word on a slash already swinging here: only its step, if it says another.
+					if (event.value() != predicted.step()) {
+						SWINGS.put(id, new Swing(event.value(), predicted.at()));
+					}
+					lastStep = event.value();
+					predicted = null;
+				} else {
+					SWINGS.put(id, new Swing(event.value(), now));
+				}
+			}
+			case FormEventPayload.IMPACT -> {
+				// A saw biting into someone: sparks off the teeth, the crunch.
+				Vec3d at = new Vec3d(event.x(), event.y(), event.z());
+				for (int i = 0; i < 10; i++) {
+					world.addParticle(ParticleTypes.CRIT, at.x, at.y, at.z, (RANDOM.nextDouble() - 0.5) * 0.9, RANDOM.nextDouble() * 0.5,
+							(RANDOM.nextDouble() - 0.5) * 0.9);
+				}
+				for (int i = 0; i < 4; i++) {
+					world.addParticle(ParticleTypes.ELECTRIC_SPARK, at.x, at.y, at.z, (RANDOM.nextDouble() - 0.5) * 0.6, RANDOM.nextDouble() * 0.4,
+							(RANDOM.nextDouble() - 0.5) * 0.6);
+				}
+				world.playSound(at.x, at.y, at.z, ChainsawSounds.CRUNCH, SoundCategory.PLAYERS, 1.0F, 0.92F + RANDOM.nextFloat() * 0.16F, false);
+				ClientPlayerEntity self = client.player;
+				if (self != null && id.equals(self.getUuid())) {
+					// Yours: the swing held a beat in it, the camera kicked hard.
+					float age = swingAge(self, 0.0F);
+					if (age >= 0.0F) {
+						PAUSED.put(id, new Pause(now + IMPACT_PAUSE, age, IMPACT_PAUSE));
+					}
+					kickAt = now;
+					kickSize = IMPACT_KICK;
+				} else if (self != null && event.value() == self.getId()) {
+					// Bitten into yourself: jolted.
+					kickAt = now;
+					kickSize = IMPACT_KICK * 0.7;
+				}
+			}
 			case FormEventPayload.GRIND -> {
 				if (event.value() != 0) {
 					GRINDING.add(id);
@@ -239,13 +305,18 @@ public final class ClientCombat {
 					}
 				}
 				PlayerEntity player = world.getPlayerByUuid(id);
-				if (player != null) {
+				Pause held = PAUSED.get(id);
+				if (player != null && (held == null || held.until() < now + PAUSE)) {
 					float age = swingAge(player, 0.0F);
 					if (age >= 0.0F) {
-						PAUSED.put(id, new Pause(now + PAUSE, age));
+						PAUSED.put(id, new Pause(now + PAUSE, age, PAUSE));
 					}
 				}
 				if (client.player != null && id.equals(client.player.getUuid())) {
+					// (An impact this tick kicks harder: left as it is.)
+					if (kickAt != now) {
+						kickSize = 1.0;
+					}
 					kickAt = now;
 				}
 			}
@@ -303,7 +374,7 @@ public final class ClientCombat {
 			// Held still on the hit: the swing caught in what it cut.
 			return pause.age();
 		}
-		float paused = pause != null && pause.until() > swing.at() ? PAUSE : 0.0F;
+		float paused = pause != null && pause.until() > swing.at() ? pause.length() : 0.0F;
 		float age = now - swing.at() + tickDelta - paused;
 		return age >= 0.0F && age < SWING ? age : -1.0F;
 	}
@@ -325,7 +396,7 @@ public final class ClientCombat {
 			return 0.0;
 		}
 		float t = self.getWorld().getTime() - kickAt + tickDelta;
-		return t < 0.0F ? 0.0 : KICK * Math.exp(-t / 2.0);
+		return t < 0.0F ? 0.0 : KICK * kickSize * Math.exp(-t / 2.0);
 	}
 
 	/** How far your view is punched in by your own last hit (1 for not at all). */
@@ -453,17 +524,100 @@ public final class ClientCombat {
 			return self == null || !Downed.is(self);
 		}
 		long now = self.getWorld().getTime();
-		if (wielding) {
-			if (now - lastSlash >= Saw.SLASH_EVERY) {
-				lastSlash = now;
-				send(FormActionPayload.SLASH, true);
-				self.swingHand(net.minecraft.util.Hand.MAIN_HAND);
-			}
-		} else if (now - lastSlash >= Saw.SLASH_EVERY) {
-			lastSlash = now;
-			send(FormActionPayload.SLASH, true);
+		if (now - lastSlash >= Saw.SLASH_EVERY) {
+			slashNow(self, now, wielding);
+		} else if (now - lastSlash >= Saw.SLASH_EVERY - BUFFER) {
+			// A moment early: it comes the moment it can.
+			queuedSlash = now;
 		}
 		return client.crosshairTarget != null && client.crosshairTarget.getType() == HitResult.Type.BLOCK;
+	}
+
+	/**
+	 * A slash, the moment you click: sent to the server with what's under your crosshair, and swung and heard here at
+	 * once, not when the server's word comes back (on a server far off, a moment late); a step in after whoever it's at.
+	 * The server still decides what it hits, and says which step of the combo it was (SWING).
+	 */
+	private static void slashNow(ClientPlayerEntity self, long now, boolean wielding) {
+		lastSlash = now;
+		queuedSlash = NEVER;
+		LivingEntity aim = aim(self);
+		if (ClientPlayNetworking.canSend(FormActionPayload.ID)) {
+			ClientPlayNetworking.send(new FormActionPayload(FormActionPayload.SLASH, true, aim != null ? aim.getId() : -1));
+		}
+		// The step the server will make it (Saw.slash).
+		int step = lastStep < 0 || now - lastStepAt > Saw.COMBO_GAP ? 0 : (lastStep + 1) % 3;
+		boolean right = Limbs.has(self, Limbs.RIGHT);
+		boolean left = Limbs.has(self, Limbs.LEFT);
+		if (!right && !left) {
+			step = 2;
+		} else if (step == 0 && !right) {
+			step = 1;
+		} else if (step == 1 && !left) {
+			step = 0;
+		}
+		if (wielding && step == 1) {
+			step = 0;
+		}
+		lastStep = step;
+		lastStepAt = now;
+		predicted = new Swing(step, now);
+		SWINGS.put(self.getUuid(), predicted);
+		self.getWorld().playSound(self, self.getX(), self.getY() + 1.0, self.getZ(), ChainsawSounds.SLASH, SoundCategory.PLAYERS, 1.0F, 1.0F);
+		if (wielding) {
+			self.swingHand(Hand.MAIN_HAND);
+		}
+		stepIn(self, aim, step == 2);
+	}
+
+	/** What's under your crosshair to slash, in reach (a little past it: the server allows for lag) and not behind a wall. */
+	@Nullable
+	private static LivingEntity aim(ClientPlayerEntity self) {
+		Vec3d eye = self.getEyePos();
+		Vec3d look = self.getRotationVec(1.0F);
+		double reach = Saw.SLASH_REACH + 0.8;
+		EntityHitResult hit = ProjectileUtil.raycast(self, eye, eye.add(look.multiply(reach)), self.getBoundingBox().stretch(look.multiply(reach)).expand(1.0),
+				e -> e instanceof LivingEntity l && l.isAlive() && !e.isSpectator() && !(e instanceof ArmorStandEntity), reach * reach);
+		if (hit == null || !(hit.getEntity() instanceof LivingEntity target)) {
+			return null;
+		}
+		HitResult wall = self.raycast(reach, 1.0F, false);
+		if (wall.getType() == HitResult.Type.BLOCK && wall.getPos().squaredDistanceTo(eye) < hit.getPos().squaredDistanceTo(eye)) {
+			return null;
+		}
+		return target;
+	}
+
+	/**
+	 * A step in with the slash, after whoever it's at (what you aim at, or the nearest in front of you), so a player
+	 * backing off or strafing stays in reach; the finisher's longer. Only on the ground, and not into them.
+	 */
+	private static void stepIn(ClientPlayerEntity self, @Nullable LivingEntity aim, boolean finisher) {
+		LivingEntity at = aim;
+		if (at == null) {
+			Vec3d flat = self.getRotationVec(1.0F).multiply(1.0, 0.0, 1.0).normalize();
+			double nearest = STEP_FAR;
+			for (net.minecraft.entity.Entity e : self.getWorld().getOtherEntities(self, self.getBoundingBox().expand(STEP_FAR),
+					e -> e instanceof LivingEntity l && l.isAlive() && !e.isSpectator() && !(e instanceof ArmorStandEntity))) {
+				Vec3d to = e.getPos().subtract(self.getPos()).multiply(1.0, 0.0, 1.0);
+				double far = to.length();
+				if (far < nearest && far > 0.01 && to.normalize().dotProduct(flat) > 0.75) {
+					nearest = far;
+					at = (LivingEntity) e;
+				}
+			}
+		}
+		if (at == null || !self.isOnGround()) {
+			return;
+		}
+		Vec3d to = at.getPos().subtract(self.getPos()).multiply(1.0, 0.0, 1.0);
+		double far = to.length();
+		if (far < STEP_CLOSE || far > STEP_FAR) {
+			return;
+		}
+		Vec3d dir = to.normalize();
+		double push = Math.min(finisher ? 0.45 : 0.3, (far - STEP_CLOSE) * 0.25);
+		self.addVelocity(dir.x * push, 0.0, dir.z * push);
 	}
 
 	/** Whether you are in the form, done transforming and up: free to fight. */
@@ -479,6 +633,14 @@ public final class ClientCombat {
 			return;
 		}
 		long now = world.getTime();
+		if (queuedSlash != NEVER) {
+			boolean wielding = !ClientForms.on(self) && Saw.wielding(self);
+			if (now - queuedSlash > BUFFER * 2 || !fighting(self) && !wielding) {
+				queuedSlash = NEVER;
+			} else if (now - lastSlash >= Saw.SLASH_EVERY) {
+				slashNow(self, now, wielding);
+			}
+		}
 		while (ChainsawManClient.CHAIN.wasPressed()) {
 			if (fighting(self)) {
 				send(FormActionPayload.CHAIN, true);
@@ -712,6 +874,11 @@ public final class ClientCombat {
 		held = 0;
 		grindSent = false;
 		lastSlash = NEVER;
+		queuedSlash = NEVER;
+		predicted = null;
+		lastStep = -1;
+		lastStepAt = NEVER;
+		kickSize = 1.0;
 	}
 
 	/** A loop on someone, going round where they are while it should. */

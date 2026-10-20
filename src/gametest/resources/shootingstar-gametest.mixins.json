@@ -2,6 +2,9 @@
 	"required": true,
 	"package": "io.github.kortev.shootingstar.test.mixin",
 	"compatibilityLevel": "JAVA_21",
+	"mixins": [
+		"ItemUseAccessor"
+	],
 	"client": [
 		"CaptureCameraMixin",
 		"MinecraftClientCaptureMixin",

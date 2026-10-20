@@ -225,7 +225,8 @@ one go crashed libsndfile here without a word; the script writes in chunks.)
   `./gradlew runSelftest -Pselftest=form -Pusername=kortev` runs the test locally; it makes its world first, as CI
   does (`selftestWorld`), so it quick-plays straight in. `-Ptarget=` films one part only: `merge` (the merge by
   tick, `form_merge_wait_*`, the pull, then turning back `form_back_NN`), `cine` (your own transformation),
-  `ring` (the form from round about), `boxhead` (the same with the proposed box head).
+  `ring` (the form from round about), `meshhead` (the same with the old mesh head), `limbs`, `pvp`, `kill`,
+  `chain`, `scene`; add `-Pcapture=true` for a video of it.
 - Through your own transformation your hand, the HUD and pop-ups are hidden until the camera is back in your eyes
   (`FormHandHiddenMixin`, `FormHudHiddenMixin`, `FormToastHiddenMixin`; the impact frames still draw). The test films
   it with the HUD on to show that.
@@ -362,13 +363,47 @@ tuning the numbers.
 - **No zoom while held still** (`HeldStillFovMixin`): down or merging, your speed is taken away and the game zoomed
   your view in by half, as it does for slowness; every merge shot had been framed against that.
 
-### The head: a cleaner proposal, waiting on kortev
+### The head: boxes, chosen (2026-10-20)
 
-kortev asked for the head to be redesigned cleaner, fitting the style better. Proposed, as Pochita was: the head as
-Minecraft boxes and pixels (`FormHeadModel`, painted by `gen_chainsaw_textures.py`'s `form_head`, its eye lit by a
-glow layer like a spider's), keeping the mesh's saw. It is **off** unless the selftest runs with `-Ptarget=boxhead`
-(`FormHeadModel.on`). Show kortev the two side by side; if they want it, switch it on for good (and drop the mesh's
-head part, or keep it as a choice); if not, delete `FormHeadModel` and its textures.
+kortev chose the box head (`FormHeadModel`, painted by `gen_chainsaw_textures.py`'s `form_head`, its eye lit by a glow
+layer like a spider's; the saw stays the mesh's) over the mesh's, "a tiny bit less boxy": **not smaller** (a scaled
+down try was wrong), but the visor's top bevelled in from the sides and stepping down from the brow to the engine,
+the ridge running down the slope, the prow narrowing to the mouth, the engine's top edge bevelled. It's on by
+default; `/chainsawhead mesh` (client) and the selftest's `-Ptarget=meshhead` show the old one to compare.
+
+### Round of 2026-10-20 (kortev on their phone: reviewed by video)
+
+- **Mobs leave you be while you're down** (or dead while Pochita comes): any mob after you gives up as you go down
+  (`Downed.forgotten`), and none can take you for a target till you're up (`DownedUnseenMixin`, on
+  `PlayerEntity.canTakeDamage`, which the game's targeting asks).
+- **The missing merge line**: "I always loved hearing you talk about your dreams" plays as the camera cuts to the
+  memories, 90 blocks over your body, so it was out of earshot (and the dream's music with it). While your own merge
+  plays and the camera is far from your body, you hear from your body (`DreamHearingMixin`,
+  `MergeCinematic.hearing`). (The clip itself never says "I'll give you my heart": the caption does.)
+- **Arms lost leave bleeding stubs** (`Stumps`, texture `form_stump`): the upper arm's stub (`STUB` of it), its end
+  torn round the bone, gushing as it comes off, then spurting with the heartbeat and dripping; in first person the
+  stump where that hand was, tipped so you see its end, drops running off it, and a splash of blood on that side
+  of your screen (`LensBlood.lost`). Arms grow back out of the stubs. The server's burst as an arm comes off isn't
+  sent to the one losing it (it went off inside their head).
+- **The attacks, for PvP** (kortev picked all four):
+  - *Instant swings*: your slash swings and sounds the moment you click (`ClientCombat.slashNow`, predicting the
+    combo step as `Saw.slash` will); the server's SWING only corrects the step. The server plays the slash sound to
+    everyone but the slasher. A click up to `BUFFER` ticks early slashes the moment it can; the server takes a
+    slash up to `LAG_SLACK` ticks early.
+  - *Hits that land*: the slash sends what's under your crosshair (`FormActionPayload.target`); the server hits it
+    too if it's in front, in sight and within the reach plus `AIM_SLACK` (`Saw.aimed`). You step in after whoever
+    you slash (`stepIn`). A player hit by the first two slashes keeps only `COMBO_HOLD` of the knockback; the
+    finisher launches them (about 6 or 7 blocks).
+  - *Impact*: a saw biting into a player (or any finisher) sends IMPACT: sparks, the new `form_crunch` sound, your
+    swing held `IMPACT_PAUSE` ticks and your camera kicked hard (`kickSize`); the one bitten is jolted.
+  - *Saws beat shields*: a raised shield (anyone's, any mod's blocking item) is cut through and knocked out for
+    `GUARD_DOWN` ticks, as an axe does (`Saw.breakGuard`), with the break sound.
+- **Videos for kortev**: the form self test records its part as a video with its sounds, `-Pcapture=true` (needs
+  ffmpeg on the PATH; with only Python's imageio-ffmpeg, copy its exe in as `ffmpeg.exe`, and `mux-audio.py` wants
+  `ffprobe` too, or read the length off `ffmpeg -i`). Then `.github/scripts/render-loops.py` and
+  `.github/scripts/mux-audio.py build/selftest/capture out.mp4`. New targets: `limbs` (arms lost and grown back) and
+  `pvp` (a stand-in player, `Rival`, with a shield: the combo, first person then from behind). The recorder now
+  judges sounds from where the game hears, not the camera.
 
 ### 4. Still to do from kortev's picks (agreed, not built yet)
 
@@ -382,9 +417,6 @@ head part, or keep it as a choice); if not, delete `FormHeadModel` and its textu
 
 ### Later ideas kortev has had (not designed; ask before building)
 
-- **Losing limbs mid-fight** (kortev, 2026-10-19, brainstorming): not only all at once when you go down, but an arm
-  lost after enough damage, then the other, and grown back by drinking blood, as in the show. Could build on the
-  downed body's hidden limbs and stumps (`DownedBodyMixin`, `FormFeature.stumps`).
 - **Blood on the lens for kills**: see the polish list above; saved in the history.
 
 ### Later: Pochita as a real animal (kortev's idea, 2026-10-19; not designed yet)
