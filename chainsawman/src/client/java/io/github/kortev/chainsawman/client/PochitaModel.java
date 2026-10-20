@@ -21,13 +21,17 @@ import net.minecraft.util.math.MathHelper;
 public class PochitaModel extends SinglePartEntityModel<PochitaEntity> {
 	private final ModelPart root;
 	private final ModelPart tail;
-	private final ModelPart muzzle;
+	/** His lower jaw, hinged at its back under his snout: a little open at rest, wide as he talks. */
+	private final ModelPart jaw;
+	/** How far open his jaw is at rest, and how much further his words open it (radians). */
+	private static final float JAW_REST = 0.22F;
+	private static final float JAW_TALK = 0.6F;
 	private final ModelPart[] legs;
 
 	public PochitaModel(ModelPart root) {
 		this.root = root;
 		this.tail = root.getChild("tail");
-		this.muzzle = root.getChild("muzzle");
+		this.jaw = root.getChild("jaw");
 		this.legs = new ModelPart[] {root.getChild("leg0"), root.getChild("leg1"), root.getChild("leg2"), root.getChild("leg3")};
 	}
 
@@ -40,7 +44,10 @@ public class PochitaModel extends SinglePartEntityModel<PochitaEntity> {
 		root.addChild("head_top", box(30, 0, -3.5F, 10.0F, -7.0F, 7, 1, 4), ModelTransform.NONE);
 		root.addChild("body_top", box(30, 5, -3.0F, 11.0F, -1.0F, 6, 1, 6), ModelTransform.NONE);
 		root.addChild("rump", box(34, 16, -3.0F, 13.0F, 7.0F, 6, 7, 1), ModelTransform.NONE);
-		root.addChild("muzzle", box(48, 16, -2.5F, 16.0F, -9.5F, 5, 4, 2), ModelTransform.NONE);
+		// The snout, its nose and fang; under it the lower jaw, hinged at its back (inside his mouth, painted dark on the
+		// front of his head, shows as it drops).
+		root.addChild("snout", box(48, 16, -2.5F, 16.0F, -9.5F, 5, 2, 2), ModelTransform.NONE);
+		root.addChild("jaw", box(0, 54, -2.5F, 0.0F, -2.0F, 5, 2, 2), ModelTransform.of(0.0F, 18.0F, -7.5F, JAW_REST, 0.0F, 0.0F));
 		// The small handle under his rear, between his back legs.
 		root.addChild("under_handle", box(34, 38, -1.0F, 21.0F, 2.0F, 2, 2, 4), ModelTransform.NONE);
 		// Stubby legs.
@@ -85,8 +92,7 @@ public class PochitaModel extends SinglePartEntityModel<PochitaEntity> {
 
 	/** Poses him without an entity (the merge draws him itself): walking that far and fast, his tail wagging, sitting. */
 	public void animate(float limbAngle, float limbDistance, float animationProgress, boolean sitting) {
-		muzzle.pivotY = 0.0F;
-		muzzle.pitch = 0.0F;
+		jaw.pitch = JAW_REST;
 		tail.yaw = MathHelper.sin(animationProgress * 0.4F) * 0.35F;
 		for (int i = 0; i < 4; i++) {
 			float swing = MathHelper.cos(limbAngle * 0.9F + (i == 1 || i == 2 ? MathHelper.PI : 0.0F)) * 1.1F * limbDistance;
@@ -95,9 +101,8 @@ public class PochitaModel extends SinglePartEntityModel<PochitaEntity> {
 		}
 	}
 
-	/** His mouth open {@code open} of the way (0 to 1), as he talks: the muzzle dropping, tipping. After {@link #animate}. */
+	/** His mouth open {@code open} of the way (0 to 1), as he talks: his jaw dropping on its hinge. After {@link #animate}. */
 	public void talk(float open) {
-		muzzle.pivotY = 1.3F * open;
-		muzzle.pitch = 0.3F * open;
+		jaw.pitch = JAW_REST + JAW_TALK * MathHelper.clamp(open, 0.0F, 1.0F);
 	}
 }

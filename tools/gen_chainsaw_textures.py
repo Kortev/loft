@@ -90,7 +90,7 @@ def draw(rows):
 # Pochita the animal, painted for the client PochitaModel's boxes (its texture corners and sizes, mirrored here), from
 # kortev's stills: his orange, the reddish brown on his underside, rear and low down his sides; big eyes at the front
 # corners of his head (a black pupil with a glint, a crescent of white), seen from the front and the side alike; a
-# "w" of a muzzle over an open mouth with a fang and his tongue; toes on his paws; the bar pale grey with a glint
+# "w" of a snout with his fang under it and a lower jaw that drops as he talks (his tongue on it, his mouth dark behind); toes on his paws; the bar pale grey with a glint
 # along it and its chain dark top and bottom, the end rounded; black handles and tail with a few light marks; the
 # open triangle of the starter's grip.
 POCHITA_COLOURS = {
@@ -158,6 +158,9 @@ def pochita_entity():
                     return c
         if face == 'front' and 3 <= y <= 4 and x in (0, fw - 1):
             return 'K'
+        if face == 'front' and 7 <= y <= 8 and 2 <= x <= 6:
+            # Inside his mouth, under the snout: hidden by the jaw until it drops.
+            return 'M'
         return fur(face, x, y, fw, fh, under=0.3)
 
     paint(img, 0, 0, 9, 10, 6, head)
@@ -166,12 +169,27 @@ def pochita_entity():
     paint(img, 30, 5, 6, 1, 6, lambda f, x, y, fw, fh: 'O')
     paint(img, 34, 16, 6, 7, 1, lambda f, x, y, fw, fh: 'S' if f == 'back' and y >= 2 else fur(f, x, y, fw, fh, under=0.6))
 
-    def muzzle(face, x, y, fw, fh):
+    def snout(face, x, y, fw, fh):
+        # The "w" of his nose on its front; under it, the roof of his mouth and his fang.
         if face == 'front':
-            return ['OOOOO', 'DODOD', 'OMMMO', 'OWTMO'][y][x]
-        return fur(face, x, y, fw, fh, under=0.5)
+            return ['OOOOO', 'DODOD'][y][x]
+        if face == 'bottom':
+            return 'W' if x == 1 else 'M'
+        return 'O'
 
-    paint(img, 48, 16, 5, 4, 2, muzzle)
+    paint(img, 48, 16, 5, 2, 2, snout)
+
+    def jaw(face, x, y, fw, fh):
+        # His lower lip and chin; on top, his tongue in the dark of his mouth.
+        if face == 'top':
+            return 'T' if 1 <= x <= 3 else 'M'
+        if face == 'front':
+            return 'O' if y == 0 else 'S'
+        if face == 'back':
+            return 'M'
+        return 'S'
+
+    paint(img, 0, 54, 5, 2, 2, jaw)
 
     def leg(face, x, y, fw, fh):
         if face == 'front' and y == fh - 1:
