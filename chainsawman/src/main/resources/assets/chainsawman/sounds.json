@@ -142,5 +142,13 @@
         "name": "chainsawman:form_merge_voice_5"
       }
     ]
+  },
+  "pochita.tame": {
+    "subtitle": "subtitles.chainsawman.pochita.tame",
+    "sounds": [
+      {
+        "name": "chainsawman:pochita_tame"
+      }
+    ]
   }
 }

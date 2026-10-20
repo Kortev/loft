@@ -321,8 +321,8 @@ head part, or keep it as a choice); if not, delete `FormHeadModel` and its textu
 ### 4. Still to do from kortev's picks (agreed, not built yet)
 
 - **The transformation polish** above still open: the stretched cord in your own camera.
-- Smaller follow-ups: brutal kills cutting the body in two; the wild Pochita lying hurt rather than standing; a sound
-  for taming.
+- Smaller follow-ups: brutal kills cutting the body in two. (Done: the wild Pochita lies fainted in his log; taming
+  him, or bringing him round, plays `pochita_tame`, two happy yips and his engine's purr.)
 
 ### Later ideas kortev has had (not designed; ask before building)
 

@@ -208,6 +208,7 @@ public class PochitaEntity extends TameableEntity {
 			setFainted(false);
 			setHealth(getMaxHealth());
 			((ServerWorld) getWorld()).spawnParticles(ParticleTypes.HEART, getX(), getY() + 0.7, getZ(), 3, 0.3, 0.3, 0.3, 0.0);
+			playSound(ChainsawSounds.TAME, 0.8F, 1.1F);
 			return;
 		}
 		if (done >= FEED) {
@@ -218,6 +219,7 @@ public class PochitaEntity extends TameableEntity {
 			setHealth(getMaxHealth());
 			navigation.stop();
 			((ServerWorld) getWorld()).spawnParticles(ParticleTypes.HEART, getX(), getY() + 0.7, getZ(), 6, 0.3, 0.3, 0.3, 0.0);
+			playSound(ChainsawSounds.TAME, 1.0F, 1.0F);
 			player.sendMessage(Text.translatable("message.chainsawman.pochita_tamed").formatted(Formatting.GOLD), true);
 			return;
 		}

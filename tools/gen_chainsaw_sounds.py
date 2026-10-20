@@ -403,8 +403,27 @@ def form_merge():
     x += engine(n, rate, level, skip=0.3) * 0.6
     return x
 
+def pochita_tame():
+    """Pochita yours: two happy yips, up at the end, and his engine's little purr under them."""
+    n = ns(1.1)
+    x = np.zeros(n)
+    for at, length, pitch in ((0.02, 0.12, 1050.0), (0.2, 0.16, 1250.0)):
+        m = ns(length)
+        t = np.arange(m) / SR
+        # A yip: a quick upward bend, bright, cut off short.
+        f = pitch * (0.8 + 0.4 * np.minimum(t / length * 1.6, 1.0))
+        tone = np.sin(2 * np.pi * np.cumsum(f) / SR) + 0.45 * np.sin(4 * np.pi * np.cumsum(f) / SR)
+        env = np.minimum(t / 0.01, 1.0) * np.exp(-t / (length * 0.45))
+        yip = bp(tone + 0.15 * white(m), 500.0, 4000.0) * env
+        x[ns(at):ns(at) + m] += yip[:n - ns(at)]
+    rate = curve(n, [(0.0, 0.0), (0.38, 0.0), (0.4, 18.0), (0.8, 24.0), (1.1, 20.0)])
+    level = curve(n, [(0.0, 0.0), (0.38, 0.0), (0.45, 0.5), (0.8, 0.35), (1.1, 0.0)])
+    x += engine(n, rate, level, body=(140.0, 2200.0)) * 0.5
+    return x
+
 
 SOUNDS = {
+    'pochita_tame': pochita_tame,
     'form_merge': form_merge,
     'form_cord': form_cord,
     'form_start': form_start,
@@ -421,7 +440,7 @@ SOUNDS = {
 }
 LOOPS = ('form_idle', 'form_grind', 'form_frenzy_loop')
 # Loudness (loudest 400 ms, dB).
-LEVELS = {'form_merge': -12, 'form_cord': -14, 'form_start': -10, 'form_idle': -20, 'form_stop': -16, 'form_slash': -13, 'form_hit': -12,
+LEVELS = {'pochita_tame': -14, 'form_merge': -12, 'form_cord': -14, 'form_start': -10, 'form_idle': -20, 'form_stop': -16, 'form_slash': -13, 'form_hit': -12,
           'form_grind': -15, 'form_chain': -14, 'form_frenzy': -10, 'form_frenzy_loop': -17, 'form_down': -13,
           'form_revive': -14}
 
