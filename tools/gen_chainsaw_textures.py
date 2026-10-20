@@ -332,18 +332,34 @@ def form_head():
             # The vents curving round the back of each side, the inner two the eye (drawn with the front at the right,
             # as the west face lies; the east face is its mirror).
             col = x if face == 'west' else fw - 1 - x
-            return HEAD_VENTS[y][col]
+            # (Its top row is the top's, over it.)
+            return HEAD_VENTS[y + 1][col]
         if face == 'top':
-            return 'o' if y == fh - 1 else 'O'
+            # Only its edges show round the top over it: lit, a bevel.
+            return 'o'
         if face == 'front':
             return 'S' if y == fh - 1 else 'O'
         if face == 'bottom':
             return 'D'
         return 'S'
 
-    head_paint(img, glow, 0, 14, 10, 5, 6, visor)
-    head_paint(img, glow, 32, 0, 2, 1, 6, lambda f, x, y, fw, fh: 'o' if f == 'top' else 'O')
-    head_paint(img, glow, 50, 0, 6, 4, 1, lambda f, x, y, fw, fh: 'S' if y == fh - 1 or f == 'bottom' else 'o' if f == 'top' else 'O')
+    head_paint(img, glow, 0, 14, 10, 4, 6, visor)
+
+    def visor_top(face, x, y, fw, fh):
+        if face in ('west', 'east'):
+            col = x if face == 'west' else fw - 1 - x
+            return 'S' if col == 0 else 'O'
+        if face == 'top':
+            return 'o' if y == fh - 1 else 'O'
+        if face == 'back':
+            return 'S'
+        return 'O'
+
+    head_paint(img, glow, 32, 44, 8, 1, 5, visor_top)
+    head_paint(img, glow, 32, 0, 2, 1, 4, lambda f, x, y, fw, fh: 'o' if f == 'top' else 'O')
+    head_paint(img, glow, 24, 44, 2, 1, 2, lambda f, x, y, fw, fh: 'o' if f == 'top' else 'S' if f == 'back' else 'O')
+    head_paint(img, glow, 50, 0, 6, 3, 1, lambda f, x, y, fw, fh: 'o' if f == 'top' else 'O')
+    head_paint(img, glow, 0, 50, 4, 1, 1, lambda f, x, y, fw, fh: 'S' if f == 'bottom' else 'O')
 
     def mouth(face, x, y, fw, fh):
         if face in ('top', 'bottom', 'back'):
@@ -371,7 +387,8 @@ def form_head():
             return 'k' if y == 0 else 'K'
         return 'K'
 
-    head_paint(img, glow, 0, 0, 9, 8, 6, engine)
+    head_paint(img, glow, 0, 0, 9, 7, 6, engine)
+    head_paint(img, glow, 0, 44, 7, 1, 5, lambda f, x, y, fw, fh: 'k' if f == 'top' and y == 0 or f == 'back' else 'K')
     head_paint(img, glow, 38, 40, 7, 1, 3, lambda f, x, y, fw, fh: 'k' if f == 'top' else 'K')
 
     def socket(face, x, y, fw, fh):
