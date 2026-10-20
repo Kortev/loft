@@ -444,7 +444,13 @@ public class FormSelfTest implements ClientModInitializer {
 				});
 			}
 			case 1310, 1324, 1338 -> server.execute(() -> Saw.slash(serverPlayer(server)));
-			case 1390 -> server.execute(() -> victim(serverPlayer(server), EntityType.COW));
+			case 1390 -> {
+				// This one from your own eyes: the blood on the lens.
+				client.options.setPerspective(Perspective.FIRST_PERSON);
+				client.options.hudHidden = false;
+				client.player.setPitch(15.0F);
+				server.execute(() -> victim(serverPlayer(server), EntityType.COW));
+			}
 			case 1400 -> server.execute(() -> Saw.slash(serverPlayer(server)));
 			// The chain, at a husk further off, seen from the side.
 			case 1440 -> server.execute(() -> {

@@ -543,6 +543,75 @@ def dream_door():
     return img
 
 
+# Blood on the lens from a close kill (LensBlood): three splats, each 16 by 16, dark red with a wet glint, ragged.
+LENS_SPLATS = [
+    [
+        '......RR........',
+        '.....RRRR...R...',
+        '..R.RRRRRR......',
+        '...RRRrrRRRR....',
+        '..RRRrrrrRRRR.R.',
+        '.RRRrrrrrrRRR...',
+        '..RRrrrwrrRRRR..',
+        '.RRRrrrrrrrRR...',
+        '..RRRrrrrrRRR...',
+        '...RRRrrRRRR....',
+        '....RRRRRRR..R..',
+        '.R...RRRRR......',
+        '......RR........',
+        '......RR........',
+        '.......R........',
+        '................',
+    ],
+    [
+        '................',
+        '...R.....RR.....',
+        '........RRRR....',
+        '.....RRRRRRRR...',
+        '....RRRrrrRRRR..',
+        '...RRRrrwrrRRR..',
+        '...RRrrrrrrRR...',
+        '..RRRRrrrrRRR.R.',
+        '...RRRRRRRRR....',
+        '.R...RRRRRR.....',
+        '......RRR.......',
+        '......RR........',
+        '.......R........',
+        '.......R........',
+        '................',
+        '................',
+    ],
+    [
+        '................',
+        '..........R.....',
+        '...RR....RRR....',
+        '..RRRR..RRRRR...',
+        '..RRRRRRRrrRR...',
+        '...RRrrrrrrRRR..',
+        '...RRrrwrrrRR...',
+        '....RRrrrrRRR...',
+        '.....RRRRRRR..R.',
+        '......RRRR......',
+        '.......RR.......',
+        '.......RR.......',
+        '........R.......',
+        '................',
+        '................',
+        '................',
+    ],
+]
+
+
+def lens_blood():
+    colours = {'.': (0, 0, 0, 0), 'R': (98, 4, 10, 250), 'r': (134, 10, 16, 255), 'w': (210, 96, 96, 255)}
+    img = Image.new('RGBA', (48, 16))
+    for i, splat in enumerate(LENS_SPLATS):
+        for y, row in enumerate(splat):
+            for x, c in enumerate(row):
+                img.putpixel((i * 16 + x, y), colours[c])
+    return img
+
+
 def main():
     preview = sys.argv[sys.argv.index('--preview') + 1] if '--preview' in sys.argv else None
     out = {(ROOT, 'item/pochita.png'): draw(POCHITA), (CLIENT_ROOT, 'entity/form_flesh.png'): draw(FLESH),
@@ -550,7 +619,7 @@ def main():
            (CLIENT_ROOT, 'entity/pochita.png'): pochita_entity(), (CLIENT_ROOT, 'entity/blood_pool.png'): pool(),
            (CLIENT_ROOT, 'entity/form_flare.png'): flare(), (CLIENT_ROOT, 'entity/form_trail.png'): trail(),
            (CLIENT_ROOT, 'gui/form_roar.png'): roar(), (CLIENT_ROOT, 'entity/form_saw_chain.png'): saw_chain(),
-           (CLIENT_ROOT, 'gui/dream_door.png'): dream_door()}
+           (CLIENT_ROOT, 'gui/dream_door.png'): dream_door(), (CLIENT_ROOT, 'gui/lens_blood.png'): lens_blood()}
     head, head_glow = form_head()
     out[(CLIENT_ROOT, 'entity/form_head.png')] = head
     out[(CLIENT_ROOT, 'entity/form_head_glow.png')] = head_glow

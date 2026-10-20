@@ -209,6 +209,10 @@ public final class ClientCombat {
 				if (event.kind() == FormEventPayload.KILL) {
 					// Cut in two (the server is taking the body away; it's kept here to come apart).
 					CutDown.killed(world, event.value(), now);
+					net.minecraft.entity.Entity dead = world.getEntityById(event.value());
+					if (dead != null && client.player != null && id.equals(client.player.getUuid())) {
+						LensBlood.killed(dead.distanceTo(client.player), now);
+					}
 				}
 				PlayerEntity player = world.getPlayerByUuid(id);
 				if (player != null) {
@@ -648,6 +652,7 @@ public final class ClientCombat {
 		CHAINS.clear();
 		MergeCinematic.clear();
 		CutDown.clear();
+		LensBlood.clear();
 		Severed.clear();
 		SawTrails.clear();
 		LOST.clear();
