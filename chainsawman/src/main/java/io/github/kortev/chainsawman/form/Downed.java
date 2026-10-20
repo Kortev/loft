@@ -3,7 +3,6 @@ package io.github.kortev.chainsawman.form;
 import com.mojang.serialization.Codec;
 import io.github.kortev.chainsawman.ChainsawMan;
 import io.github.kortev.chainsawman.ChainsawSounds;
-import io.github.kortev.chainsawman.PochitaItem;
 import io.github.kortev.chainsawman.network.FormEventPayload;
 import java.util.Map;
 import java.util.Set;
@@ -82,7 +81,7 @@ public final class Downed {
 
 	static void init() {
 		ServerLivingEntityEvents.ALLOW_DEATH.register((entity, source, amount) -> {
-			if (entity instanceof ServerPlayerEntity player && !lethal(source) && (PochitaItem.carried(player) || is(player))) {
+			if (entity instanceof ServerPlayerEntity player && !lethal(source) && (Heart.has(player) || is(player))) {
 				down(player);
 				return false;
 			}
@@ -155,6 +154,7 @@ public final class Downed {
 		FED.remove(player.getUuid());
 		player.removeAttached(LEFT);
 		hold(player, false);
+		Limbs.whole(player);
 		player.setHealth(GIVEN);
 		Form.play(player, ChainsawSounds.REVIVE, 1.0F);
 		player.sendMessage(Text.translatable("message.chainsawman.revived").formatted(Formatting.RED), true);

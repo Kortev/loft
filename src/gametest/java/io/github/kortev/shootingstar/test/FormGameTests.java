@@ -2,10 +2,12 @@ package io.github.kortev.shootingstar.test;
 
 import com.mojang.authlib.GameProfile;
 import io.github.kortev.chainsawman.ChainsawMan;
+import io.github.kortev.chainsawman.form.Blood;
 import io.github.kortev.chainsawman.form.Downed;
 import io.github.kortev.chainsawman.form.Form;
 import io.github.kortev.chainsawman.form.Frenzy;
 import io.github.kortev.chainsawman.form.Grapple;
+import io.github.kortev.chainsawman.form.Limbs;
 import io.github.kortev.chainsawman.form.Saw;
 import io.netty.channel.embedded.EmbeddedChannel;
 import java.util.UUID;
@@ -222,6 +224,51 @@ public class FormGameTests implements FabricGameTest {
 			Frenzy.ready(player);
 			done(context, player);
 			front.discard();
+		}
+		context.complete();
+	}
+
+	/** Enough harm in the form takes an arm off, then the other; a kill grows one back; out of the form both are back. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_limbs", tickLimit = JOINED + 20)
+	public void armsComeOffAndGrowBack(TestContext context) {
+		ServerPlayerEntity player = fighter(context, "limbless", 0.0);
+		context.waitAndRun(JOINED, () -> {
+			HuskEntity front = husk(context, 0.0, 2.0);
+			try {
+				player.damage(player.getDamageSources().generic(), Limbs.EVERY + 0.5F);
+				context.assertTrue(!Limbs.has(player, Limbs.RIGHT) && Limbs.has(player, Limbs.LEFT), "the right arm did not come off first");
+				player.setHealth(player.getMaxHealth());
+				player.timeUntilRegen = 0;
+				player.damage(player.getDamageSources().generic(), Limbs.EVERY + 0.5F);
+				context.assertTrue(!Limbs.has(player, Limbs.LEFT), "the left arm did not come off");
+				front.setHealth(1.0F);
+				context.assertTrue(Saw.slash(player), "with no arms, the head's saw did not slash");
+				context.assertTrue(!front.isAlive(), "the head's saw did not kill");
+				context.assertTrue(Limbs.has(player, Limbs.LEFT), "the kill did not grow an arm back");
+				Form.end(player);
+				context.assertTrue(Limbs.has(player, Limbs.RIGHT), "out of the form, the arm was still gone");
+			} finally {
+				done(context, player);
+				front.discard();
+			}
+			context.complete();
+		});
+	}
+
+	/** The cord needs blood to start the engine, and takes it. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_blood", tickLimit = 20)
+	public void cordNeedsBlood(TestContext context) {
+		ServerPlayerEntity player = player(context, "bloodless", 0.0);
+		player.getInventory().insertStack(new ItemStack(ChainsawMan.POCHITA));
+		try {
+			Blood.set(player, Blood.TRANSFORM - 1);
+			Form.pullCord(player);
+			context.assertTrue(Blood.get(player) == Blood.TRANSFORM - 1, "the cord took blood it didn't have");
+			Blood.set(player, Blood.MAX);
+			Form.pullCord(player);
+			context.assertTrue(Blood.get(player) == Blood.MAX - Blood.TRANSFORM, "the cord didn't take its blood: " + Blood.get(player));
+		} finally {
+			done(context, player);
 		}
 		context.complete();
 	}

@@ -1,7 +1,6 @@
 package io.github.kortev.chainsawman.form;
 
 import io.github.kortev.chainsawman.ChainsawSounds;
-import io.github.kortev.chainsawman.PochitaItem;
 import io.github.kortev.chainsawman.network.FormPayload;
 import io.github.kortev.chainsawman.network.FormPullPayload;
 import java.util.Map;
@@ -47,6 +46,8 @@ public final class Form {
 			Saw.forget(handler.player.getUuid());
 			Grapple.forget(handler.player.getUuid());
 			Frenzy.forget(handler.player.getUuid());
+			Limbs.forget(handler.player.getUuid());
+			Blood.forget(handler.player.getUuid());
 		});
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
 			ON.clear();
@@ -55,12 +56,16 @@ public final class Form {
 			Downed.clear();
 			Grapple.clear();
 			Frenzy.clear();
+			Limbs.clear();
+			Blood.clear();
 		});
 		ServerTickEvents.END_SERVER_TICK.register(Form::tick);
 		// What the form does once it is on: the saws, the blood, never dying, the chain, the frenzy.
 		Saw.init();
 		Downed.init();
+		Limbs.init();
 		ServerTickEvents.END_SERVER_TICK.register(server -> {
+			Blood.tick(server);
 			Saw.tick(server);
 			Downed.tick(server);
 			Grapple.tick(server);
@@ -93,7 +98,10 @@ public final class Form {
 		}
 	}
 
-	/** The cord pulled: into the form if they carry Pochita, or back out of it. */
+	/**
+	 * The cord pulled: into the form if they have Pochita's heart ({@link Heart}) and the blood for it ({@link
+	 * Blood#TRANSFORM}), or back out of it.
+	 */
 	public static void pullCord(ServerPlayerEntity player) {
 		UUID id = player.getUuid();
 		if (PULLING.containsKey(id)) {
@@ -102,7 +110,7 @@ public final class Form {
 		if (on(player)) {
 			play(player, ChainsawSounds.STOP, 1.0F);
 			set(player.server, id, false);
-		} else if (PochitaItem.carried(player) && player.isAlive() && !Downed.is(player)) {
+		} else if (Heart.has(player) && player.isAlive() && !Downed.is(player) && Blood.spend(player, Blood.TRANSFORM)) {
 			PULLING.put(id, 0);
 			play(player, ChainsawSounds.CORD, 1.0F);
 			play(player, ChainsawSounds.START, 1.4F);
@@ -130,7 +138,7 @@ public final class Form {
 		}
 		for (UUID id : Set.copyOf(ON)) {
 			ServerPlayerEntity player = server.getPlayerManager().getPlayer(id);
-			if (player == null || !player.isAlive() || !PochitaItem.carried(player)) {
+			if (player == null || !player.isAlive() || !Heart.has(player)) {
 				if (player != null) {
 					play(player, ChainsawSounds.STOP, 1.0F);
 				}
@@ -146,6 +154,11 @@ public final class Form {
 	private static void set(MinecraftServer server, UUID id, boolean on) {
 		if (on ? !ON.add(id) : !ON.remove(id)) {
 			return;
+		}
+		ServerPlayerEntity player = server.getPlayerManager().getPlayer(id);
+		if (player != null && !on) {
+			// Out of the form, your arms are your own again.
+			Limbs.whole(player);
 		}
 		broadcast(server, new FormPayload(id, on));
 	}

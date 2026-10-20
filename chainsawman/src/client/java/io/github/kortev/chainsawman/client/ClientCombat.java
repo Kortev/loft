@@ -3,6 +3,7 @@ package io.github.kortev.chainsawman.client;
 import io.github.kortev.chainsawman.ChainsawSounds;
 import io.github.kortev.chainsawman.form.Downed;
 import io.github.kortev.chainsawman.form.Frenzy;
+import io.github.kortev.chainsawman.form.Limbs;
 import io.github.kortev.chainsawman.form.Saw;
 import io.github.kortev.chainsawman.network.FormActionPayload;
 import io.github.kortev.chainsawman.network.FormEventPayload;
@@ -80,6 +81,9 @@ public final class ClientCombat {
 	private static final Map<UUID, Long> FRENZY = new ConcurrentHashMap<>();
 	private static final Map<UUID, Long> FRENZY_FROM = new ConcurrentHashMap<>();
 	private static final Set<UUID> DOWN = ConcurrentHashMap.newKeySet();
+	private static final Map<UUID, Integer> LOST = new ConcurrentHashMap<>();
+	/** Your own blood, as the server last said (-1 before it has). */
+	private static int blood = -1;
 	private static final Map<UUID, SoundInstance> GRIND_SOUNDS = new ConcurrentHashMap<>();
 	private static final Map<UUID, SoundInstance> FRENZY_SOUNDS = new ConcurrentHashMap<>();
 	private static final DustParticleEffect EYE = new DustParticleEffect(new Vector3f(1.0F, 0.85F, 0.3F), 0.8F);
@@ -96,6 +100,8 @@ public final class ClientCombat {
 
 	static void init() {
 		Downed.client = p -> DOWN.contains(p.getUuid());
+		Limbs.clientRight = p -> (LOST.getOrDefault(p.getUuid(), 0) & Limbs.RIGHT) != 0;
+		Limbs.clientLeft = p -> (LOST.getOrDefault(p.getUuid(), 0) & Limbs.LEFT) != 0;
 		Frenzy.client = p -> FRENZY.containsKey(p.getUuid());
 	}
 
@@ -124,6 +130,14 @@ public final class ClientCombat {
 				}
 			}
 			case FormEventPayload.CHAIN_END -> CHAINS.remove(id);
+			case FormEventPayload.BLOOD -> blood = event.value();
+			case FormEventPayload.LIMBS -> {
+				if (event.value() == 0) {
+					LOST.remove(id);
+				} else {
+					LOST.put(id, event.value());
+				}
+			}
 			case FormEventPayload.HIT, FormEventPayload.KILL -> {
 				PlayerEntity player = world.getPlayerByUuid(id);
 				if (player != null) {
@@ -214,6 +228,11 @@ public final class ClientCombat {
 
 	public static Map<UUID, Chain> chains() {
 		return CHAINS;
+	}
+
+	/** Your own blood, 0 to 100, or -1 if the server hasn't said. */
+	public static int blood() {
+		return blood;
 	}
 
 	public static boolean frenzy(PlayerEntity player) {
@@ -418,6 +437,8 @@ public final class ClientCombat {
 		SWINGS.clear();
 		GRINDING.clear();
 		CHAINS.clear();
+		LOST.clear();
+		blood = -1;
 		PAUSED.clear();
 		kickAt = NEVER;
 		tether = -1.0;

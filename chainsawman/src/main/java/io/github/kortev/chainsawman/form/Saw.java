@@ -95,6 +95,8 @@ public final class Saw {
 		ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
 			if (source.getAttacker() instanceof ServerPlayerEntity killer && killer != entity && Form.fighting(killer)) {
 				heal(killer, KILL_HEAL);
+				Blood.add(killer, Blood.KILL);
+				Limbs.regrow(killer);
 				tearApart(killer, entity);
 			}
 		});
@@ -111,9 +113,19 @@ public final class Saw {
 			return false;
 		}
 		int step = last == null || now - last.at() > COMBO_GAP ? 0 : (last.step() + 1) % 3;
+		// An arm gone: its sweep comes from the other; with none, the head's saw nods down.
+		boolean right = Limbs.has(player, Limbs.RIGHT);
+		boolean left = Limbs.has(player, Limbs.LEFT);
+		if (!right && !left) {
+			step = 2;
+		} else if (step == 0 && !right) {
+			step = 1;
+		} else if (step == 1 && !left) {
+			step = 0;
+		}
 		SLASHED.put(player.getUuid(), new Slash(now, step));
 		boolean finisher = step == 2;
-		float damage = (finisher ? FINISHER_DAMAGE : SLASH_DAMAGE) * Frenzy.damage(player);
+		float damage = (finisher ? FINISHER_DAMAGE : SLASH_DAMAGE) * Frenzy.damage(player) * Limbs.damage(player);
 		List<LivingEntity> hit = inFront(player, SLASH_REACH, finisher ? FINISHER_WIDTH : SLASH_WIDTH);
 		for (LivingEntity target : hit) {
 			target.timeUntilRegen = 0;
@@ -133,6 +145,7 @@ public final class Saw {
 		if (hit > 0) {
 			Form.play(player, ChainsawSounds.HIT, 1.0F);
 			heal(player, HIT_HEAL * Frenzy.heal(player));
+			Blood.add(player, Blood.HIT);
 			Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.HIT, hit));
 		}
 	}
@@ -144,7 +157,7 @@ public final class Saw {
 		}
 		long now = player.getServerWorld().getTime();
 		Long last = LUNGED.get(player.getUuid());
-		if (last != null && now - last < LUNGE_EVERY) {
+		if (last != null && now - last < LUNGE_EVERY || !Blood.spend(player, Blood.LUNGE)) {
 			return false;
 		}
 		LUNGED.put(player.getUuid(), now);
@@ -241,12 +254,13 @@ public final class Saw {
 				List<LivingEntity> hit = inFront(player, GRIND_REACH, GRIND_WIDTH);
 				for (LivingEntity target : hit) {
 					target.timeUntilRegen = 0;
-					target.damage(player.getDamageSources().playerAttack(player), GRIND_DAMAGE * Frenzy.damage(player));
+					target.damage(player.getDamageSources().playerAttack(player), GRIND_DAMAGE * Frenzy.damage(player) * Limbs.damage(player));
 					target.setVelocity(target.getVelocity().multiply(0.4, 1.0, 0.4));
 					target.velocityModified = true;
 					bleed(player.getServerWorld(), target, 8);
 				}
 				if (!hit.isEmpty()) {
+					Blood.add(player, Blood.BITE);
 					bites++;
 					if (bites >= GRIND_HEAL_BITES) {
 						heal(player, HIT_HEAL * Frenzy.heal(player));

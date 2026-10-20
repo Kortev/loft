@@ -1,6 +1,7 @@
 package io.github.kortev.chainsawman.client.mixin;
 
 import io.github.kortev.chainsawman.form.Downed;
+import io.github.kortev.chainsawman.form.Limbs;
 import net.minecraft.client.render.entity.model.PlayerEntityModel;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
@@ -18,6 +19,18 @@ public abstract class DownedBodyMixin {
 	@Inject(method = "setAngles(Lnet/minecraft/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
 	private void chainsawman$noLimbs(LivingEntity entity, float limbAngle, float limbDistance, float animationProgress, float headYaw,
 			float headPitch, CallbackInfo ci) {
+		if (entity instanceof PlayerEntity player && !Downed.is(player)) {
+			// In the fight, an arm lost: gone, its sleeve with it.
+			PlayerEntityModel<?> model = (PlayerEntityModel<?>) (Object) this;
+			if (!Limbs.has(player, Limbs.RIGHT)) {
+				model.rightArm.visible = false;
+				model.rightSleeve.visible = false;
+			}
+			if (!Limbs.has(player, Limbs.LEFT)) {
+				model.leftArm.visible = false;
+				model.leftSleeve.visible = false;
+			}
+		}
 		if (entity instanceof PlayerEntity player && Downed.is(player)) {
 			PlayerEntityModel<?> model = (PlayerEntityModel<?>) (Object) this;
 			model.rightArm.visible = false;

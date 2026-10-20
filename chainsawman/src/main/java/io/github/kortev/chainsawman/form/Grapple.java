@@ -26,8 +26,8 @@ import net.minecraft.world.RaycastContext;
  */
 public final class Grapple {
 	public static final double REACH = 24.0;
-	/** Ticks between shots. */
-	public static final int EVERY = 60;
+	/** Ticks between shots at the fastest (it costs blood, {@link Blood#CHAIN}). */
+	public static final int EVERY = 10;
 	/** The hook's bite on what it catches. */
 	public static final float DAMAGE = 2.0F;
 	/** How far off your aim the chain still catches something (blocks): it is a chain, not a needle. */
@@ -62,7 +62,7 @@ public final class Grapple {
 		}
 		long now = player.getServerWorld().getTime();
 		Long last = FIRED.get(player.getUuid());
-		if (last != null && now - last < EVERY) {
+		if (last != null && now - last < EVERY || !Blood.spend(player, Blood.CHAIN)) {
 			return null;
 		}
 		FIRED.put(player.getUuid(), now);

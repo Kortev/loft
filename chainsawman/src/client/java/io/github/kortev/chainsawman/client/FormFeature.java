@@ -2,6 +2,7 @@ package io.github.kortev.chainsawman.client;
 
 import io.github.kortev.chainsawman.ChainsawMan;
 import io.github.kortev.chainsawman.form.Downed;
+import io.github.kortev.chainsawman.form.Limbs;
 import io.github.kortev.chainsawman.form.FormTimeline;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.model.ModelPart;
@@ -75,7 +76,7 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 		int overlay = LivingEntityRenderer.getOverlay(player, 0.0F);
 		if (Downed.is(player)) {
 			// Down: no saws, only where the arms and legs were.
-			stumps(matrices, consumers, light, overlay, model.body);
+			stumps(matrices, consumers, light, overlay, model.body, true, true, true);
 			return;
 		}
 		if (t >= FormTimeline.REACH && t < FormTimeline.SNAP + 2) {
@@ -90,8 +91,15 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 		}
 		draw(matrices, consumers, light, overlay, player, tickDelta, "head", model.head);
 		draw(matrices, consumers, light, overlay, player, tickDelta, "body", model.body);
-		draw(matrices, consumers, light, overlay, player, tickDelta, "right_arm", model.rightArm);
-		draw(matrices, consumers, light, overlay, player, tickDelta, "left_arm", model.leftArm);
+		if (Limbs.has(player, Limbs.RIGHT)) {
+			draw(matrices, consumers, light, overlay, player, tickDelta, "right_arm", model.rightArm);
+		}
+		if (Limbs.has(player, Limbs.LEFT)) {
+			draw(matrices, consumers, light, overlay, player, tickDelta, "left_arm", model.leftArm);
+		}
+		if (!Limbs.has(player, Limbs.RIGHT) || !Limbs.has(player, Limbs.LEFT)) {
+			stumps(matrices, consumers, light, overlay, model.body, !Limbs.has(player, Limbs.RIGHT), !Limbs.has(player, Limbs.LEFT), false);
+		}
 		if (t >= FormTimeline.BURST && t < FormTimeline.HEAD_OPEN) {
 			split(matrices, consumers, light, overlay, player, model.head, t);
 		}
@@ -158,7 +166,8 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 			{{-4.0F, 12.05F, -2.0F}, {0.0F, 12.05F, -2.0F}, {0.0F, 12.05F, 2.0F}, {-4.0F, 12.05F, 2.0F}, {0.0F, 1.0F, 0.0F}},
 			{{0.0F, 12.05F, -2.0F}, {4.0F, 12.05F, -2.0F}, {4.0F, 12.05F, 2.0F}, {0.0F, 12.05F, 2.0F}, {0.0F, 1.0F, 0.0F}}};
 
-	private static void stumps(MatrixStack matrices, VertexConsumerProvider consumers, int light, int overlay, ModelPart body) {
+	private static void stumps(MatrixStack matrices, VertexConsumerProvider consumers, int light, int overlay, ModelPart body, boolean right,
+			boolean left, boolean legs) {
 		VertexConsumer out = consumers.getBuffer(RenderLayer.getEntityCutoutNoCull(FLESH));
 		matrices.push();
 		body.rotate(matrices);
@@ -166,7 +175,11 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 		Vector3f p = new Vector3f();
 		Vector3f n = new Vector3f();
 		float[][] uv = {{0.0F, 0.0F}, {0.0F, 1.0F}, {1.0F, 1.0F}, {1.0F, 0.0F}};
-		for (float[][] stump : STUMPS) {
+		for (int s = 0; s < STUMPS.length; s++) {
+			float[][] stump = STUMPS[s];
+			if (s == 0 && !right || s == 1 && !left || s >= 2 && !legs) {
+				continue;
+			}
 			entry.transformNormal(stump[4][0], stump[4][1], stump[4][2], n);
 			for (int i = 0; i < 4; i++) {
 				entry.getPositionMatrix().transformPosition(stump[i][0] / 16.0F, stump[i][1] / 16.0F, stump[i][2] / 16.0F, p);

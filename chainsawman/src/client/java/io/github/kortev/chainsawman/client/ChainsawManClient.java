@@ -77,6 +77,7 @@ public final class ChainsawManClient implements ClientModInitializer {
 		CoreShaderRegistrationCallback.EVENT.register(context -> context.register(ChainsawMan.id("csm_impact"), VertexFormats.BLIT_SCREEN,
 				program -> FormHud.impact = program));
 		HudRenderCallback.EVENT.register(FormHud::render);
+		HudRenderCallback.EVENT.register(BloodHud::render);
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
 			while (PULL_CORD.wasPressed()) {
 				pullCord(client);

@@ -11,25 +11,21 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.particle.DustParticleEffect;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
 import org.joml.Vector3f;
 
 /**
  * The ult: blood frenzy. In the form, called up with its key: for {@link #LASTS} ticks you go berserk, the saws doing
  * {@link #DAMAGE} times their damage and every hit healing {@link #HEAL} times as much, and nothing slows you (Slowness
  * comes off, cobwebs and berry bushes don't hold you); the screen goes red and the engine screams. No cutscene: just a
- * roar and a red pulse as it kicks in. Then {@link #EVERY} ticks before it can come again.
+ * roar and a red pulse as it kicks in. It costs {@link Blood#FRENZY} blood.
  */
 public final class Frenzy {
 	public static final int LASTS = 15 * 20;
-	public static final int EVERY = 5 * 60 * 20;
 	public static final float DAMAGE = 2.0F;
 	public static final float HEAL = 4.0F;
 
-	/** When each player's frenzy ends (world time), and when they last called one up. */
+	/** When each player's frenzy ends (world time). */
 	private static final Map<UUID, Long> UNTIL = new ConcurrentHashMap<>();
-	private static final Map<UUID, Long> CALLED = new ConcurrentHashMap<>();
 	private static final DustParticleEffect RED = new DustParticleEffect(new Vector3f(0.9F, 0.05F, 0.05F), 1.6F);
 
 	/** Who is in a frenzy as far as each client has been told; the server's own on the server. */
@@ -55,18 +51,10 @@ public final class Frenzy {
 
 	/** The frenzy called up by {@code player}: whether it came. */
 	public static boolean start(ServerPlayerEntity player) {
-		if (!Form.fighting(player) || is(player)) {
+		if (!Form.fighting(player) || is(player) || !Blood.spend(player, Blood.FRENZY)) {
 			return false;
 		}
 		long now = player.getServerWorld().getTime();
-		Long last = CALLED.get(player.getUuid());
-		if (last != null && now - last < EVERY) {
-			long left = EVERY - (now - last);
-			player.sendMessage(Text.translatable("message.chainsawman.frenzy_wait", left / 1200, String.format("%02d", left / 20 % 60))
-					.formatted(Formatting.GRAY), true);
-			return false;
-		}
-		CALLED.put(player.getUuid(), now);
 		UNTIL.put(player.getUuid(), now + LASTS);
 		player.removeStatusEffect(StatusEffects.SLOWNESS);
 		Form.play(player, ChainsawSounds.FRENZY, 1.6F);
@@ -94,19 +82,13 @@ public final class Frenzy {
 				player.removeStatusEffect(StatusEffects.SLOWNESS);
 			}
 		}
-		for (Map.Entry<UUID, Long> e : Map.copyOf(CALLED).entrySet()) {
-			if (now - e.getValue() == EVERY) {
-				ServerPlayerEntity player = server.getPlayerManager().getPlayer(e.getKey());
-				if (player != null) {
-					player.sendMessage(Text.translatable("message.chainsawman.frenzy_ready").formatted(Formatting.RED), true);
-				}
-			}
-		}
 	}
 
-	/** Lets {@code player} call it up again at once (for the tests). */
+	/** Fills {@code player} with blood, so they can call it up at once (for the tests). */
 	public static void ready(PlayerEntity player) {
-		CALLED.remove(player.getUuid());
+		if (player instanceof ServerPlayerEntity server) {
+			Blood.set(server, Blood.MAX);
+		}
 	}
 
 	static void forget(UUID id) {
@@ -115,6 +97,5 @@ public final class Frenzy {
 
 	static void clear() {
 		UNTIL.clear();
-		CALLED.clear();
 	}
 }

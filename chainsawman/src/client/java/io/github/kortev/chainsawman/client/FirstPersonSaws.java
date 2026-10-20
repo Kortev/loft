@@ -37,6 +37,10 @@ public final class FirstPersonSaws {
 				: chain.held() ? 1.0F : 1.0F - MathHelper.clamp((player.getWorld().getTime() - chain.at() + tickDelta - 6.0F) / 4.0F, 0.0F, 1.0F);
 		float time = player.age + tickDelta;
 		for (Arm arm : new Arm[] {Arm.RIGHT, Arm.LEFT}) {
+			if (!io.github.kortev.chainsawman.form.Limbs.has(player, arm == Arm.RIGHT ? io.github.kortev.chainsawman.form.Limbs.RIGHT
+					: io.github.kortev.chainsawman.form.Limbs.LEFT)) {
+				continue;
+			}
 			float side = arm == Arm.RIGHT ? 1.0F : -1.0F;
 			matrices.push();
 			// At rest, a little lower and wider than a hand would be, the saws reaching up into the view.
