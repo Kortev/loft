@@ -127,6 +127,11 @@ public class FormSelfTest implements ClientModInitializer {
 					addStandIn(client);
 					stage = Stage.SHOOT;
 					ticks = 0;
+					if ("cine".equals(System.getProperty("shootingstar.selftest.target"))) {
+						// Only your own transformation (-Ptarget=cine).
+						shot = CAMERAS.length + PLAIN.length;
+						pullTick = PULL_SHOTS[PULL_SHOTS.length - 1] + 1;
+					}
 				}
 			}
 			case SHOOT -> {
@@ -167,9 +172,14 @@ public class FormSelfTest implements ClientModInitializer {
 						// With the HUD on, as you play: the cinematic hides it and your hand itself, until the end (63).
 						client.options.hudHidden = false;
 						client.world.removeEntity(-4242, Entity.RemovalReason.DISCARDED);
-						server.execute(() -> Form.pullCord(server.getPlayerManager().getPlayerList().get(0)));
+						// Straight out of the form (the cord would turn them back, which takes a while).
+						server.execute(() -> Form.end(server.getPlayerManager().getPlayerList().get(0)));
 					} else if (cineTick == CINE_START) {
-						server.execute(() -> Form.pullCord(server.getPlayerManager().getPlayerList().get(0)));
+						server.execute(() -> {
+							ServerPlayerEntity p = server.getPlayerManager().getPlayerList().get(0);
+							io.github.kortev.chainsawman.form.Blood.set(p, io.github.kortev.chainsawman.form.Blood.MAX);
+							Form.pullCord(p);
+						});
 					}
 					for (int at : CINE_SHOTS) {
 						if (cineTick == CINE_START + 1 + at) {
@@ -178,6 +188,10 @@ public class FormSelfTest implements ClientModInitializer {
 					}
 					cineTick++;
 					ticks = 0;
+					return;
+				}
+				if (shot >= CAMERAS.length + PLAIN.length && "cine".equals(System.getProperty("shootingstar.selftest.target"))) {
+					stage = Stage.DONE;
 					return;
 				}
 				if (shot >= CAMERAS.length + PLAIN.length) {
@@ -525,6 +539,8 @@ public class FormSelfTest implements ClientModInitializer {
 		player.getInventory().setStack(9, new ItemStack(ChainsawMan.POCHITA));
 		// Pochita already their heart, as after the first time they died with him.
 		player.setAttached(io.github.kortev.chainsawman.form.Heart.MERGED, true);
+		// Full of blood (the world keeps what earlier runs spent).
+		io.github.kortev.chainsawman.form.Blood.set(player, io.github.kortev.chainsawman.form.Blood.MAX);
 		Form.pullCord(player);
 		Vec3d head = feet.add(0, 1.6, 0);
 		for (double[] cam : CAMERAS) {

@@ -223,8 +223,9 @@ one go crashed libsndfile here without a word; the script writes in chunks.)
 - On a PC: `./gradlew runClient` plays as `kortev` and wears `run/skins/kortev.png` (`DevSkins`, only active with the
   `-Dshootingstar.devskins` flag the dev run sets; `seedSkins` puts the Public Safety skin there if nothing is).
   `./gradlew runSelftest -Pselftest=form -Pusername=kortev` runs the test locally; it makes its world first, as CI
-  does (`selftestWorld`), so it quick-plays straight in. Add `-Ptarget=merge` to film only the merge
-  (`form_merge_NNN.png` by tick, `form_merge_wait_*`, then the pull).
+  does (`selftestWorld`), so it quick-plays straight in. `-Ptarget=` films one part only: `merge` (the merge by
+  tick, `form_merge_wait_*`, the pull, then turning back `form_back_NN`), `cine` (your own transformation),
+  `ring` (the form from round about), `boxhead` (the same with the proposed box head).
 - Through your own transformation your hand, the HUD and pop-ups are hidden until the camera is back in your eyes
   (`FormHandHiddenMixin`, `FormHudHiddenMixin`, `FormToastHiddenMixin`; the impact frames still draw). The test films
   it with the HUD on to show that.
@@ -244,8 +245,10 @@ one go crashed libsndfile here without a word; the script writes in chunks.)
    how the gameplay looks: blood on your screen when you kill things with the saws. The code is saved in the history:
    `git show e85a346:chainsawman/src/client/java/io/github/kortev/chainsawman/client/FormLens.java` (it was drawn
    from `FormHud.render`). Ask kortev before using it, and rework the look rather than reusing it as it was.
-3. **Manga sound-effect lettering on the impact frames**: big brushed katakana for the engine's roar (e.g. ヴゥン)
-   slammed across the frame.
+3. ~~**Manga sound-effect lettering on the impact frames**~~ **done**: ヴゥン in heavy black pixel strokes, white
+   outline, blood-red shadow (`textures/gui/form_roar.png`, painted by `gen_chainsaw_textures.py`'s `roar`), each
+   letter slammed in a tick after the last round the head (never over the face), shaking, gone 16 ticks after the
+   roar (`FormHud.lettering`, in your own transformation only).
 4. ~~**The eye ignites at the roar**~~ **done**: dark through the transformation, then at ROAR a pixel star flares on
    each eye and dies away (`FormFeature.flare`, `textures/entity/form_flare.png`, drawn added on; the eyes are the
    mesh's glowing vertices, flag bit 0). In a frenzy the eyes burn red, throbbing.
@@ -315,7 +318,7 @@ head part, or keep it as a choice); if not, delete `FormHeadModel` and its textu
 
 ### 4. Still to do from kortev's picks (agreed, not built yet)
 
-- **The transformation polish** above still open: the manga lettering, and the stretched cord in your own camera.
+- **The transformation polish** above still open: the stretched cord in your own camera.
 - Smaller follow-ups: brutal kills cutting the body in two; the wild Pochita lying hurt rather than standing; a sound
   for taming.
 

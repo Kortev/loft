@@ -388,12 +388,86 @@ def form_head():
     return img, glow
 
 
+# The engine's roar as the manga letters it, slammed over the impact frames (FormHud.lettering): ヴ, ゥ, ン, each in a
+# 20 by 20 cell of the texture, heavy black strokes in a white outline with a blood-red shadow behind.
+ROAR_GLYPHS = [
+    [
+        '................',
+        '.......##..#.#..',
+        '.......##...#.#.',
+        '..############..',
+        '..############..',
+        '..##........##..',
+        '..##........##..',
+        '..##.......##...',
+        '...........##...',
+        '..........##....',
+        '.........###....',
+        '........###.....',
+        '......####......',
+        '...#####........',
+        '...###..........',
+        '................',
+    ],
+    [
+        '................',
+        '................',
+        '................',
+        '................',
+        '.......##.......',
+        '.......##.......',
+        '....########....',
+        '....########....',
+        '....##....##....',
+        '..........##....',
+        '.........##.....',
+        '........###.....',
+        '......####......',
+        '.....###........',
+        '................',
+        '................',
+    ],
+    [
+        '................',
+        '................',
+        '.###............',
+        '..####..........',
+        '....###.....###.',
+        '............###.',
+        '...........###..',
+        '..........###...',
+        '.........###....',
+        '........###.....',
+        '.......###......',
+        '.##..####.......',
+        '..######........',
+        '...###..........',
+        '................',
+        '................',
+    ],
+]
+
+
+def roar():
+    img = Image.new('RGBA', (64, 32), (0, 0, 0, 0))
+    for i, glyph in enumerate(ROAR_GLYPHS):
+        ink = {(x + 2, y + 2) for y, row in enumerate(glyph) for x, c in enumerate(row) if c == '#'}
+        edge = {(x + dx, y + dy) for x, y in ink for dx in (-1, 0, 1) for dy in (-1, 0, 1)} - ink
+        shadow = {(x + 2, y + 2) for x, y in ink | edge} - ink - edge
+        for pixels, colour in ((shadow, (120, 8, 14, 255)), (edge, (250, 248, 240, 255)), (ink, (14, 12, 16, 255))):
+            for x, y in pixels:
+                if 0 <= x < 20 and 0 <= y < 20:
+                    img.putpixel((i * 20 + x, y), colour)
+    return img
+
+
 def main():
     preview = sys.argv[sys.argv.index('--preview') + 1] if '--preview' in sys.argv else None
     out = {(ROOT, 'item/pochita.png'): draw(POCHITA), (CLIENT_ROOT, 'entity/form_flesh.png'): draw(FLESH),
            (CLIENT_ROOT, 'entity/form_chain.png'): draw(CHAIN),
            (CLIENT_ROOT, 'entity/pochita.png'): pochita_entity(), (CLIENT_ROOT, 'entity/blood_pool.png'): pool(),
-           (CLIENT_ROOT, 'entity/form_flare.png'): flare(), (CLIENT_ROOT, 'entity/form_trail.png'): trail()}
+           (CLIENT_ROOT, 'entity/form_flare.png'): flare(), (CLIENT_ROOT, 'entity/form_trail.png'): trail(),
+           (CLIENT_ROOT, 'gui/form_roar.png'): roar()}
     head, head_glow = form_head()
     out[(CLIENT_ROOT, 'entity/form_head.png')] = head
     out[(CLIENT_ROOT, 'entity/form_head_glow.png')] = head_glow
