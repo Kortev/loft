@@ -21,11 +21,13 @@ import net.minecraft.util.math.MathHelper;
 public class PochitaModel extends SinglePartEntityModel<PochitaEntity> {
 	private final ModelPart root;
 	private final ModelPart tail;
+	private final ModelPart muzzle;
 	private final ModelPart[] legs;
 
 	public PochitaModel(ModelPart root) {
 		this.root = root;
 		this.tail = root.getChild("tail");
+		this.muzzle = root.getChild("muzzle");
 		this.legs = new ModelPart[] {root.getChild("leg0"), root.getChild("leg1"), root.getChild("leg2"), root.getChild("leg3")};
 	}
 
@@ -83,11 +85,19 @@ public class PochitaModel extends SinglePartEntityModel<PochitaEntity> {
 
 	/** Poses him without an entity (the merge draws him itself): walking that far and fast, his tail wagging, sitting. */
 	public void animate(float limbAngle, float limbDistance, float animationProgress, boolean sitting) {
+		muzzle.pivotY = 0.0F;
+		muzzle.pitch = 0.0F;
 		tail.yaw = MathHelper.sin(animationProgress * 0.4F) * 0.35F;
 		for (int i = 0; i < 4; i++) {
 			float swing = MathHelper.cos(limbAngle * 0.9F + (i == 1 || i == 2 ? MathHelper.PI : 0.0F)) * 1.1F * limbDistance;
 			// Sitting (the renderer tips him up at the back): the back legs folded forward under him.
 			legs[i].pitch = sitting ? (i < 2 ? 0.0F : -1.2F) : swing;
 		}
+	}
+
+	/** His mouth open {@code open} of the way (0 to 1), as he talks: the muzzle dropping, tipping. After {@link #animate}. */
+	public void talk(float open) {
+		muzzle.pivotY = 1.3F * open;
+		muzzle.pitch = 0.3F * open;
 	}
 }

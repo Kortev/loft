@@ -63,6 +63,7 @@ public final class MergeCinematic {
 	/** How far the dream's floor reaches round you (blocks). */
 	private static final float FLOOR_SIZE = 14.0F;
 	private static final DustParticleEffect BLOOD = new DustParticleEffect(new Vector3f(0.62F, 0.02F, 0.04F), 0.9F);
+	private static final DustParticleEffect MOTE = new DustParticleEffect(new Vector3f(1.0F, 0.93F, 0.75F), 0.45F);
 	private static final DustParticleEffect DARK_BLOOD = new DustParticleEffect(new Vector3f(0.35F, 0.0F, 0.02F), 1.1F);
 	private static final Random RANDOM = Random.create();
 	/** How far up you lie off the ground, where along you (from your feet) your chest and face are (blocks). */
@@ -80,6 +81,16 @@ public final class MergeCinematic {
 	private static final net.minecraft.sound.SoundEvent[] VOICES = io.github.kortev.chainsawman.ChainsawSounds.MERGE_VOICES;
 
 	private static PochitaModel model;
+	/**
+	 * How loud each voice is, tick by tick (0 to 9), measured off the clips themselves (form_merge_voice_1..5.ogg): his
+	 * mouth moves with his, your head with yours. Measure again if the clips change.
+	 */
+	private static final String[] VOICE_LEVELS = {
+			"0000000122143353100000000000000000079300000000298988318555830000000000000000017762598569702024410",
+			"00000005940754555774100000000000019988836776557777774577844587211107898221220368930010",
+			"00000000395788970135678811638300",
+			"0000000000004606633588799639557012210000000000",
+			"055567699765864442212111121111110"};
 
 	private MergeCinematic() {
 	}
@@ -103,6 +114,30 @@ public final class MergeCinematic {
 			return 0.0F;
 		}
 		return Math.min(ease((t - MergeTimeline.DARK) / 30.0F), 1.0F - ease((t - MergeTimeline.WAKE) / (MergeTimeline.RISE - MergeTimeline.WAKE)));
+	}
+
+	/** How loud line {@code line} of the talk is {@code t} ticks into the merge (0 to 1); 0 when it isn't playing. */
+	public static float voice(int line, float t) {
+		String levels = VOICE_LEVELS[line];
+		float in = t - MergeTimeline.LINES[line];
+		if (in < 0.0F || in >= levels.length() - 1) {
+			return 0.0F;
+		}
+		int i = (int) in;
+		float a = (levels.charAt(i) - '0') / 9.0F;
+		float b = (levels.charAt(i + 1) - '0') / 9.0F;
+		return MathHelper.lerp(in - i, a, b);
+	}
+
+	/** How open his mouth is at {@code t}: with his voice, on his lines. */
+	private static float mouth(float t) {
+		float open = 0.0F;
+		for (int i = 0; i < MergeTimeline.LINES.length; i++) {
+			if (MergeTimeline.POCHITA_SAYS[i]) {
+				open = Math.max(open, voice(i, t));
+			}
+		}
+		return open;
 	}
 
 	/** Whether {@code player}'s chest is seen through now: inside it, him curled up as the heart. */
@@ -300,9 +335,11 @@ public final class MergeCinematic {
 			return look(chest.add(side.multiply(1.1)).add(head.multiply(-0.5)).add(0.0, 0.8, 0.0), chest.add(0.0, 0.05, 0.0));
 		}
 		if (t < MergeTimeline.RISE) {
-			// Over your face as the last beats bring the world back, closer with each.
-			double k = (t - MergeTimeline.WAKE) / (MergeTimeline.RISE - MergeTimeline.WAKE);
-			return look(you.add(head.multiply(-0.15)).add(0.0, MathHelper.lerp(k, 1.4, 0.75), 0.0), you);
+			// Through your own eyes, waking: looking straight up, your eyelids fluttering on the beats, then open, the
+			// sky coming back.
+			Vec3d yours = you.add(0.0, 0.18, 0.0);
+			float drift = MathHelper.sin(t * 0.13F) * 2.0F;
+			return new FormCinematic.Shot(yours.x, yours.y, yours.z, yaw(self) + 180.0F + drift, -88.0F);
 		}
 		// Low and to the side as you get up, the whole of you, coming round in front as you stand; then low in front,
 		// looking up at you standing there, the cord hanging out of your chest, slowly closing in until you pull it (the
@@ -400,6 +437,9 @@ public final class MergeCinematic {
 			return 0.55F;
 		}
 		if (t < MergeTimeline.RISE) {
+			return 1.1F;
+		}
+		if (t < MergeTimeline.RISE) {
 			return 0.5F;
 		}
 		return 0.75F;
@@ -425,7 +465,7 @@ public final class MergeCinematic {
 		if (t < 0.0F) {
 			return 0.0;
 		}
-		double s = pulse(t, MergeTimeline.FELL, 0.14, 3.0);
+		double s = Math.max(pulse(t, MergeTimeline.FELL, 0.14, 3.0), pulse(t, GASP, 0.1, 4.0));
 		s = Math.max(s, pulse(t, MergeTimeline.SINK, 0.2, 7.0));
 		for (int beat : MergeTimeline.BEATS) {
 			s = Math.max(s, pulse(t, beat, 0.07, 2.5));
@@ -489,10 +529,38 @@ public final class MergeCinematic {
 		return level;
 	}
 
+	/** The gasp as your eyes open, waking. */
+	private static final int GASP = MergeTimeline.BEATS[4];
+
+	/**
+	 * How open your eyes are, waking (0 shut to 1 open; 1 the rest of the time): shut as the dream lifts, fluttering
+	 * part open on the beats, and open wide with a gasp.
+	 */
+	public static float eyes(float tickDelta) {
+		float t = mine(tickDelta);
+		if (t < MergeTimeline.WAKE || t >= MergeTimeline.RISE) {
+			return 1.0F;
+		}
+		float open = 0.0F;
+		int[] beats = MergeTimeline.BEATS;
+		// Fluttering on the two beats before the gasp.
+		for (int i = 2; i <= 3; i++) {
+			float in = t - beats[i];
+			if (in >= 0.0F && in < 6.0F) {
+				open = Math.max(open, (i == 2 ? 0.25F : 0.45F) * MathHelper.sin(in / 6.0F * MathHelper.PI));
+			}
+		}
+		return Math.max(open, ease((t - GASP) / 3.0F));
+	}
+
 	/** How white the screen flashes as he goes into you. */
 	public static float flash(float tickDelta) {
 		float t = mine(tickDelta);
-		return t < MergeTimeline.SINK ? 0.0F : (float) pulse(t, MergeTimeline.SINK, 1.0, 3.0);
+		if (t < 0.0F) {
+			return 0.0F;
+		}
+		float memory = MergeMemories.flash(t);
+		return Math.max(memory, t < MergeTimeline.SINK ? 0.0F : (float) pulse(t, MergeTimeline.SINK, 1.0, 3.0));
 	}
 
 	/** The impact frames as he sinks into you: 1 red and black, 2 its negative; 0 none. */
@@ -515,6 +583,20 @@ public final class MergeCinematic {
 		float white = flash(tickDelta);
 		if (white > 0.01F) {
 			ctx.fill(0, 0, w, screen, ((int) (Math.min(white, 1.0F) * 255) << 24) | 0xFFFFFF);
+		}
+		float open = eyes(tickDelta);
+		if (open < 0.999F) {
+			// Your eyelids, from the top and the bottom, the opening between them round like an eye's.
+			float rx = w * 0.75F;
+			float ry = screen * 0.5F * open * 1.35F;
+			for (int x = 0; x < w; x += 2) {
+				float across = (x + 1 - w / 2.0F) / rx;
+				float half = across * across >= 1.0F ? 0.0F : ry * MathHelper.sqrt(1.0F - across * across);
+				int top = (int) (screen / 2.0F - half);
+				int bottom = (int) (screen / 2.0F + half);
+				ctx.fill(x, 0, x + 2, Math.max(0, top), 0xFF000000);
+				ctx.fill(x, Math.min(screen, bottom), x + 2, screen, 0xFF000000);
+			}
 		}
 		float k = ease(t / 8.0F);
 		int h = (int) (screen * BARS * k);
@@ -604,7 +686,8 @@ public final class MergeCinematic {
 					nod = Math.max(nod, (float) (t >= line ? Math.sin(Math.min(1.0, (t - line) / 8.0) * Math.PI) * 0.18 : 0.0));
 				}
 			}
-			return new Pose(top, onYaw, 0.18F + nod, 1.0F - breath, 1.0F + breath, false);
+			float lean = 0.18F * ease((t - MergeTimeline.LINES[3]) / 10.0F);
+			return new Pose(top, onYaw, 0.18F + nod + lean, 1.0F - breath, 1.0F + breath, false);
 		}
 		// The leap: a crouch, up off you, slow, turning over in the air, and down head first into your chest.
 		float crouch = ease((t - MergeTimeline.LEAP) / 6.0F) * (1.0F - ease((t - MergeTimeline.LEAP - 7.0F) / 2.0F));
@@ -666,7 +749,10 @@ public final class MergeCinematic {
 			matrices.scale(pose.wide(), pose.tall(), pose.wide());
 			matrices.scale(-1.0F, -1.0F, 1.0F);
 			matrices.translate(0.0, -1.501, 0.0);
-			model.animate(pose.walking() ? t * 1.1F : 0.0F, pose.walking() ? 0.7F : 0.0F, t, false);
+			boolean talking = t >= MergeTimeline.TALK && t < MergeTimeline.LEAP;
+			// His tail going faster while he talks to you.
+			model.animate(pose.walking() ? t * 1.1F : 0.0F, pose.walking() ? 0.7F : 0.0F, talking ? t * 1.8F : t, false);
+			model.talk(mouth(t));
 			model.render(matrices, consumers.getBuffer(RenderLayer.getEntityCutoutNoCull(POCHITA)), light, OverlayTexture.DEFAULT_UV, 0xFFFFFFFF);
 			matrices.pop();
 		}
@@ -711,20 +797,21 @@ public final class MergeCinematic {
 
 	/** Him curled up in your chest, seen through it, glowing, beating with your heart. */
 	private static void heart(MatrixStack matrices, VertexConsumerProvider consumers, PlayerEntity player, Vec3d cam, float t, float tickDelta) {
-		Vec3d at = chest(player, tickDelta).add(0.0, -0.08, 0.0);
+		// In the middle of your body's thickness, under its front: inside you.
+		Vec3d at = along(player, tickDelta, CHEST, LIFT + 0.03);
 		double beat = 0.0;
 		for (int b : MergeTimeline.BEATS) {
 			beat = Math.max(beat, pulse(t, b, 1.0, 2.5));
 		}
-		float size = 0.42F * (float) (1.0 + 0.22 * beat);
-		glow(matrices, consumers, at.add(0.0, 0.05, 0.0), cam, 1.1F + 0.6F * (float) beat, 0.7F);
+		float size = 0.38F * (float) (1.0 + 0.2 * beat);
+		glow(matrices, consumers, at.add(0.0, 0.12, 0.0), cam, 0.8F + 0.5F * (float) beat, 0.85F + 0.15F * (float) beat);
 		matrices.push();
 		matrices.translate(at.x - cam.x, at.y - cam.y, at.z - cam.z);
 		matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180.0F - yawTo(headward(player))));
 		// Curled up on his side.
 		matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(80.0F));
 		matrices.scale(-size, -size, size);
-		matrices.translate(0.0, -1.2, 0.0);
+		matrices.translate(0.0, -1.3, 0.0);
 		model.animate(0.0F, 0.0F, t, true);
 		model.render(matrices, consumers.getBuffer(RenderLayer.getEntityCutoutNoCull(POCHITA)),
 				net.minecraft.client.render.LightmapTextureManager.MAX_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, 0xFFFFFFFF);
@@ -803,12 +890,14 @@ public final class MergeCinematic {
 				Vec3d at = pochita(player, e.getValue(), t, 0.0F).at();
 				world.addParticle(ParticleTypes.POOF, at.x, at.y + 0.05, at.z, 0.0, 0.01, 0.0);
 			}
-			if (player == MinecraftClient.getInstance().player && dream(0.0F) > 0.5F && !MergeMemories.on(t) && RANDOM.nextFloat() < 0.6F) {
-				// Motes of light drifting in the dark round you.
-				double a = RANDOM.nextDouble() * Math.PI * 2.0;
-				double r = 0.8 + RANDOM.nextDouble() * 3.5;
-				world.addParticle(ParticleTypes.END_ROD, chest.x + Math.cos(a) * r, chest.y - 0.2 + RANDOM.nextDouble() * 2.2, chest.z + Math.sin(a) * r,
-						0.0, 0.004, 0.0);
+			if (player == MinecraftClient.getInstance().player && dream(0.0F) > 0.5F && !MergeMemories.on(t)) {
+				// Motes of light drifting up in the dark round you, small and warm.
+				for (int i = 0; i < 2; i++) {
+					double a = RANDOM.nextDouble() * Math.PI * 2.0;
+					double r = 0.6 + RANDOM.nextDouble() * 4.0;
+					world.addParticle(MOTE, chest.x + Math.cos(a) * r, chest.y - 0.3 + RANDOM.nextDouble() * 2.4, chest.z + Math.sin(a) * r, 0.0, 0.2,
+							0.0);
+				}
 			}
 			if (t >= MergeTimeline.SINK && t < MergeTimeline.SINK + 5) {
 				for (int i = 0; i < 14; i++) {

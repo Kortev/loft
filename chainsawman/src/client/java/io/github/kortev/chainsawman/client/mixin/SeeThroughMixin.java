@@ -45,6 +45,6 @@ public abstract class SeeThroughMixin {
 					target = "Lnet/minecraft/client/render/entity/model/EntityModel;render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;III)V"))
 	private void chainsawman$drawFaint(EntityModel<?> model, MatrixStack matrices, VertexConsumer vertices, int light, int overlay, int color,
 			Operation<Void> original) {
-		original.call(model, matrices, vertices, light, overlay, chainsawman$through ? (0x50 << 24) | (color & 0xFFFFFF) : color);
+		original.call(model, matrices, vertices, light, overlay, chainsawman$through ? (0x2C << 24) | (color & 0xFFFFFF) : color);
 	}
 }

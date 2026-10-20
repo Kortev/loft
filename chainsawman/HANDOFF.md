@@ -294,9 +294,16 @@ tuning the numbers.
   Sepia), you in your own skin and him in his model: the shack holding him, bread with him looking up, asleep with him
   curled beside you, him as the chainsaw against a zombie. Then he leaps up off you and dives into your chest; a light,
   your hand reaching after it on "POCHITA?!"; **inside your chest**, seen through (`SeeThroughMixin`), him curled up
-  as your heart, beating; the cord tears out; the beats lift the dream and bring the world back; you get up and stand
+  as your heart, beating; the cord tears out; you **wake through your own eyes** (looking straight up, your eyelids
+  fluttering on the beats, then open with a gasp as the sky comes back); you get up and stand
   there with "[G] Pull the cord" until you pull it yourself, as Denji does (first pull free; after `Merge.WAIT`, 60 s,
   it pulls itself).
+- **The merge's second pass (2026-10-20)**: Pochita's mouth moves with his voice (`MergeCinematic.VOICE_LEVELS`, the
+  clips' loudness tick by tick: measure them again if the clips change), his tail going, leaning in on "show me your
+  dream", your head lifting to him as you speak; the memories move (rocking him, bites of bread, breathing, the saw
+  shaking into the zombie, blood) under an old film's flicker, grain and dark edges (`csm_impact` Film), a flash at
+  each cut; the dream has its own sound (a soft chord, a music box under the memories, a whoosh as he leaps, deep
+  muffled beats inside your chest, the world rushing back and a gasp).
 - **The voices in the merge** are the anime's own (Japanese), cut from a clip kortev chose
   (`sounds/form_merge_voice_1..5.ogg`): you ask if he took your body; he loved hearing your dreams; this is a
   contract; show me your dream; and you crying his name as he sinks into you (at SINK). `MergeTimeline.LINES`,

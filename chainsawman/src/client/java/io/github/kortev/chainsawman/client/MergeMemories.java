@@ -49,6 +49,9 @@ public final class MergeMemories {
 	private static final DustParticleEffect BLOOD = new DustParticleEffect(new Vector3f(0.62F, 0.02F, 0.04F), 1.0F);
 
 	private static ZombieEntity devil;
+	/** How far into a bite of the bread, and into a breath, the scene up now is (for your pose). */
+	private static float eating;
+	private static float breath;
 
 	private MergeMemories() {
 	}
@@ -81,6 +84,16 @@ public final class MergeMemories {
 		return 0.8F * Math.min(in, out);
 	}
 
+	/** The white of a cut to the next memory (and into the first, out of the last). */
+	public static float flash(float t) {
+		float f = 0.0F;
+		for (int i = 0; i <= SCENES; i++) {
+			float at = MergeTimeline.MONTAGE + i * length();
+			f = Math.max(f, t >= at ? 0.75F * (float) Math.exp(-(t - at) / 1.6F) : 0.0F);
+		}
+		return f;
+	}
+
 	/** Where scene {@code i} is, for someone lying at {@code feet}. */
 	private static Vec3d origin(Vec3d feet, int i) {
 		return new Vec3d(Math.floor(feet.x) + 0.5 + (i - 1.5) * APART, Math.floor(feet.y) + UP, Math.floor(feet.z) + 0.5);
@@ -110,23 +123,29 @@ public final class MergeMemories {
 		switch (i) {
 			case 0 -> {
 				shack(matrices, consumers);
-				you(self, matrices, consumers, 0.0, 0.0, 0.0, 0.0F, Pose.SITTING_HOLDING);
+				// Rocking him a little; his tail going.
+				you(self, matrices, consumers, 0.0, 0.0, 0.0, 4.0F * MathHelper.sin(t * 0.18F), Pose.SITTING_HOLDING);
 				// In your lap, held to you.
-				pochita(matrices, consumers, 0.0, 0.12, 0.45, 0.0F, 0.1F, t, 0.8F);
+				pochita(matrices, consumers, 0.0, 0.12, 0.45, 4.0F * MathHelper.sin(t * 0.18F), 0.1F, t * 2.5F, 0.8F);
 			}
 			case 1 -> {
 				shack(matrices, consumers);
+				// Bites of it; him watching every one, tail going.
+				float bite = Math.max(0.0F, MathHelper.sin(t * 0.55F));
+				eating = bite;
 				you(self, matrices, consumers, 0.0, 0.0, 0.0, -15.0F, Pose.SITTING_EATING);
-				bread(matrices, consumers, -0.33, 1.1, 0.35);
-				pochita(matrices, consumers, 0.95, 0.0, 0.55, -125.0F, -0.35F, t, 1.0F);
+				bread(matrices, consumers, -0.33, 1.02 + 0.1 * bite, 0.35 - 0.08 * bite);
+				pochita(matrices, consumers, 0.95, 0.0, 0.55, -125.0F, -0.35F + 0.12F * MathHelper.sin(t * 0.3F), t * 3.0F, 1.0F);
 			}
 			case 2 -> {
 				shack(matrices, consumers);
 				for (int x = -1; x <= 1; x++) {
 					block(matrices, consumers, Blocks.WHITE_CARPET.getDefaultState(), x, 0, 0);
 				}
-				you(self, matrices, consumers, -0.9, 0.08, 0.0, 90.0F, Pose.ASLEEP);
-				pochita(matrices, consumers, -0.6, 0.06, 1.05, -100.0F, 0.0F, t, 0.75F);
+				// Both breathing, slow.
+				breath = MathHelper.sin(t * 0.15F);
+				you(self, matrices, consumers, -0.9, 0.08 + 0.01 * breath, 0.0, 90.0F, Pose.ASLEEP);
+				pochita(matrices, consumers, -0.6, 0.06, 1.05, -100.0F, 0.0F, t * 0.4F, 0.75F + 0.015F * breath);
 			}
 			default -> {
 				for (int x = -3; x <= 3; x++) {
@@ -134,12 +153,16 @@ public final class MergeMemories {
 						block(matrices, consumers, Blocks.COARSE_DIRT.getDefaultState(), x, -1, z);
 					}
 				}
-				zombie(world, matrices, consumers, 0.0, 0.0, -2.0);
+				// Him tearing into it, shaking with the engine; it reeling; blood off it.
+				long tick = world.getTime();
+				double shake = ((tick * 7) % 5 - 2) * 0.012;
+				zombie(world, matrices, consumers, shake * 2.0, 0.0, -2.0 - Math.abs(shake) * 3.0);
 				you(self, matrices, consumers, 0.0, 0.0, 0.8, 180.0F, Pose.SAWING);
-				pochita(matrices, consumers, 0.0, 0.85, 0.05, 180.0F, 0.0F, t, 1.0F);
-				if (world.getTime() % 2 == 0) {
-					Vec3d hit = o.add(0.0, 1.2, -1.6);
-					world.addParticle(BLOOD, hit.x, hit.y, hit.z, 0.0, 0.0, 0.0);
+				pochita(matrices, consumers, shake, 0.85 + shake, 0.05, 180.0F, 0.0F, t * 3.0F, 1.0F);
+				Vec3d hit = o.add(0.0, 1.2, -1.55);
+				for (int b = 0; b < 2; b++) {
+					world.addParticle(BLOOD, hit.x + (Math.random() - 0.5) * 0.3, hit.y + (Math.random() - 0.5) * 0.3, hit.z, (Math.random() - 0.5) * 0.4,
+							0.2 + Math.random() * 0.3, Math.random() * 0.3);
 				}
 			}
 		}
@@ -250,10 +273,10 @@ public final class MergeMemories {
 					model.leftArm.yaw = 0.45F;
 					model.head.pitch = 0.35F;
 				} else {
-					model.rightArm.pitch = -2.1F;
+					model.rightArm.pitch = -1.95F - 0.25F * eating;
 					model.rightArm.yaw = -0.3F;
 					model.leftArm.pitch = -0.2F;
-					model.head.pitch = -0.1F;
+					model.head.pitch = -0.1F + 0.12F * eating;
 				}
 			}
 			case ASLEEP -> {
@@ -261,6 +284,7 @@ public final class MergeMemories {
 				matrices.translate(0.0, 0.15, 0.0);
 				matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(90.0F));
 				model.head.yaw = 0.5F;
+				model.body.pitch = 0.015F * breath;
 				model.rightArm.roll = 0.25F;
 				model.leftArm.roll = -0.15F;
 			}

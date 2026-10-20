@@ -545,7 +545,7 @@ public class FormSelfTest implements ClientModInitializer {
 			}
 		}
 		for (int age : new int[] {3, 30, 75, 100, 125, 150, 182, 230, 300, 318, 338, 358, 378, 410, 460, 490, 500, 508, 514, 518, 523, 530,
-				536, 545, 552, 560, 568, 580, 592, 600, 612, 624}) {
+				536, 545, 552, 560, 568, 575, 580, 584, 589, 594, 600, 612, 624}) {
 			if (f == 255 + age) {
 				screenshot(client, String.format("merge_%03d", age));
 			}

@@ -16,6 +16,9 @@ uniform float Grey;
 uniform float Dark;
 // How far the picture is an old photograph (0 to 1): browns, warm, for the memories in the merge's dream.
 uniform float Sepia;
+// How far it's an old film (0 to 1): flickering, grainy, dark at the edges. Time: the world's, in ticks.
+uniform float Film;
+uniform float Time;
 
 in vec2 texCoord;
 
@@ -38,6 +41,12 @@ void main() {
     colour = mix(colour, photo, Sepia);
     vec2 to = (texCoord - 0.5) * vec2(ScreenSize.x / ScreenSize.y, 1.0);
     float r = length(to);
+    if (Film > 0.0) {
+        float flicker = 1.0 - 0.09 * hash(floor(Time));
+        float grain = hash(dot(floor(texCoord * ScreenSize / 2.0), vec2(12.9898, 78.233)) + floor(Time) * 7.13) - 0.5;
+        colour = mix(colour, colour * flicker + grain * 0.07, Film);
+        colour *= mix(1.0, 1.0 - 0.5 * smoothstep(0.35, 0.95, r), Film);
+    }
     float light = 1.0 - smoothstep(0.22, 0.85, r);
     colour *= mix(1.0, 0.07 + 0.93 * light * light, Dark);
     if (Style > 0.5) {

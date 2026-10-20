@@ -332,10 +332,16 @@ MERGE_SNIFF = 140 / 20.0
 MERGE_CLIMB = 175 / 20.0
 MERGE_TALK = 190 / 20.0
 MERGE_LEAP = 495 / 20.0
+MERGE_MONTAGE = 311 / 20.0
+MERGE_MONTAGE_END = 397 / 20.0
+MERGE_HEART = 540 / 20.0
+MERGE_WAKE = 572 / 20.0
+MERGE_GASP = 586 / 20.0
 MERGE_SINK = 520 / 20.0
 MERGE_SUNK = 566 / 20.0
 MERGE_BEATS = [550 / 20.0, 562 / 20.0, 572 / 20.0, 580 / 20.0, 586 / 20.0, 591 / 20.0]
 MERGE_END = 626 / 20.0
+MERGE_RISE_AT = 596 / 20.0
 
 
 def whimper(n, at, length=0.35, pitch=900.0):
@@ -398,6 +404,42 @@ def form_merge():
             beat[ns(at + dub)] = 1.0
             kk = np.arange(ns(0.18))
             x += np.convolve(beat, np.sin(2 * np.pi * 50.0 * kk / SR) * np.exp(-kk / ns(0.045)))[:n] * (1.2 + 0.28 * i) * gain
+    # The dream: a soft warm chord in the void, swelling in as the world falls away, lifting as you wake.
+    pad = np.zeros(n)
+    for f, g in ((110.0, 1.0), (138.6, 0.6), (164.8, 0.7), (220.3, 0.35)):
+        pad += g * (np.sin(2 * np.pi * f * t) + 0.5 * np.sin(2 * np.pi * f * 1.003 * t))
+    x += lp(pad, 900.0) * 0.045 * curve(n, [(0.0, 0.0), (MERGE_DARK + 0.5, 0.0), (MERGE_DARK + 3.0, 1.0), (MERGE_SINK, 1.0),
+                                             (MERGE_SINK + 0.1, 0.4), (MERGE_WAKE, 0.5), (MERGE_GASP, 0.0), (MERGE_END + 0.5, 0.0)])
+    # The memories: a music box, slow, a few notes over and over.
+    tune = [659.3, 554.4, 440.0, 493.9, 554.4, 440.0, 370.0, 415.3]
+    step = (MERGE_MONTAGE_END - MERGE_MONTAGE) / 10.0
+    for i in range(10):
+        at = MERGE_MONTAGE + 0.15 + i * step
+        f = tune[i % len(tune)]
+        m = ns(1.6)
+        kk = np.arange(m) / SR
+        note = (np.sin(2 * np.pi * f * kk) + 0.3 * np.sin(2 * np.pi * f * 2.0 * kk) + 0.12 * np.sin(2 * np.pi * f * 3.01 * kk))
+        note *= np.exp(-kk / 0.45) * np.minimum(kk / 0.004, 1.0)
+        start = ns(at)
+        x[start:start + m] += (note * 0.09)[:n - start]
+    # The leap: air rushing, rising, into the boom.
+    whoosh = bp(white(n), 500.0, 3500.0)
+    x += whoosh * curve(n, [(0.0, 0.0), (MERGE_LEAP + 0.35, 0.0), (MERGE_LEAP + 0.85, 0.12), (MERGE_SINK - 0.05, 0.3), (MERGE_SINK, 0.0),
+                            (MERGE_END + 0.5, 0.0)])
+    # Inside your chest: the first two beats deep and muffled, as from inside.
+    for at in MERGE_BEATS[:2]:
+        kk = np.arange(ns(0.5))
+        thump = np.sin(2 * np.pi * 36.0 * kk / SR) * np.exp(-kk / ns(0.12)) * 1.6
+        start = ns(at)
+        x[start:start + len(thump)] += thump[:n - start]
+    # Waking: the world's sound rushing back in, and a gasp.
+    x += lp(white(n), 1400.0) * curve(n, [(0.0, 0.0), (MERGE_WAKE, 0.0), (MERGE_GASP - 0.05, 0.14), (MERGE_GASP + 0.1, 0.05),
+                                         (MERGE_RISE_AT, 0.02), (MERGE_END + 0.5, 0.0)])
+    m = ns(0.38)
+    kk = np.arange(m) / SR
+    gasp = bp(white(m), 700.0, 3200.0) * np.sin(np.pi * np.minimum(kk / 0.38, 1.0)) ** 0.6 * (0.6 + 0.4 * kk / 0.38)
+    start = ns(MERGE_GASP - 0.05)
+    x[start:start + m] += (gasp * 0.5)[:n - start]
     rate = curve(n, [(0.0, 0.0), (MERGE_BEATS[-1] - 0.01, 0.0), (MERGE_BEATS[-1], 14.0), (MERGE_END - 0.1, 24.0), (MERGE_END + 0.5, 0.0)])
     level = curve(n, [(0.0, 0.0), (MERGE_BEATS[-1], 0.0), (MERGE_BEATS[-1] + 0.02, 0.8), (MERGE_END, 0.5), (MERGE_END + 0.5, 0.0)])
     x += engine(n, rate, level, skip=0.3) * 0.6

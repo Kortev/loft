@@ -70,6 +70,8 @@ public final class FormHud {
 		Shaders.set(impact, "Grey", grey);
 		Shaders.set(impact, "Dark", dark);
 		Shaders.set(impact, "Sepia", sepia);
+		Shaders.set(impact, "Film", Math.min(1.0F, sepia / 0.8F));
+		Shaders.set(impact, "Time", (float) (client.player.getWorld().getTime() % 100000L));
 		Post.quad(impact);
 		RenderSystem.setShaderTexture(0, 0);
 		RenderSystem.enableBlend();

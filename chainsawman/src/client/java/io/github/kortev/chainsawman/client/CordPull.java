@@ -72,7 +72,8 @@ public final class CordPull {
 		model.leftLeg.roll = -0.08F * (1.0F - stand);
 		// Fallen to one side; turned up to him as he talks.
 		model.head.yaw = 0.55F * (1.0F - ease((t - io.github.kortev.chainsawman.form.MergeTimeline.TALK) / 12.0F));
-		model.head.pitch = -0.25F * jerk + 0.4F * stand;
+		// Lifting a little toward him as you speak to him.
+		model.head.pitch = -0.25F * jerk + 0.4F * stand - 0.25F * MergeCinematic.voice(0, t);
 		model.hat.copyTransform(model.head);
 	}
 
