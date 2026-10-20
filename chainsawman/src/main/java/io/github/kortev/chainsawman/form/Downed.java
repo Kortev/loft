@@ -81,6 +81,11 @@ public final class Downed {
 
 	static void init() {
 		ServerLivingEntityEvents.ALLOW_DEATH.register((entity, source, amount) -> {
+			if (entity instanceof ServerPlayerEntity player && !lethal(source) && Heart.merges(player)) {
+				// The first time, carrying him: Pochita becomes your heart, and you come back as Chainsaw Man.
+				Heart.merge(player);
+				return false;
+			}
 			if (entity instanceof ServerPlayerEntity player && !lethal(source) && (Heart.has(player) || is(player))) {
 				down(player);
 				return false;

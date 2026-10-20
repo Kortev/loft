@@ -87,10 +87,42 @@ def draw(rows):
     return img
 
 
+def box(img, u, v, w, h, d, side, top=None, bottom=None, front=None):
+    """Paints a model box's faces where the game's box at texture (u, v), w x h x d, looks for them: {side} everywhere,
+    {top}, {bottom} on those faces, and {front(x, y)} (a colour or None) over its front face."""
+    faces = {'top': (u + d, v, w, d), 'bottom': (u + d + w, v, w, d), 'west': (u, v + d, d, h), 'front': (u + d, v + d, w, h),
+             'east': (u + d + w, v + d, d, h), 'back': (u + 2 * d + w, v + d, w, h)}
+    for name, (x0, y0, fw, fh) in faces.items():
+        colour = top if name == 'top' and top else bottom if name == 'bottom' and bottom else side
+        for y in range(fh):
+            for x in range(fw):
+                c = front(x, y) if name == 'front' and front else None
+                img.putpixel((x0 + x, y0 + y), c or colour)
+
+
+def pochita_entity():
+    """Pochita the animal (client PochitaModel's boxes): orange, shaded under, a face, the blade with its teeth."""
+    img = Image.new('RGBA', (64, 32), (0, 0, 0, 0))
+    fur, under, paw = PALETTE['O'], PALETTE['o'], PALETTE['p']
+    box(img, 0, 0, 6, 5, 8, fur, bottom=under)
+    face = {(1, 2): PALETTE['k'], (4, 2): PALETTE['k'], (2, 4): PALETTE['n'], (3, 4): PALETTE['n']}
+    box(img, 28, 0, 6, 6, 5, fur, bottom=under, front=lambda x, y: face.get((x, y)))
+    box(img, 20, 14, 2, 3, 2, under, bottom=paw)
+    box(img, 30, 14, 1, 1, 3, PALETTE['t'])
+    # The blade, its teeth along the top and bottom of each side.
+    box(img, 0, 14, 1, 2, 8, PALETTE['B'], top=PALETTE['S'], bottom=PALETTE['S'])
+    for x0 in (0, 9):
+        for x in range(8):
+            img.putpixel((x0 + x, 22), PALETTE['S'] if x % 2 == 0 else PALETTE['s'])
+            img.putpixel((x0 + x, 23), PALETTE['S'] if x % 2 == 1 else PALETTE['s'])
+    return img
+
+
 def main():
     preview = sys.argv[sys.argv.index('--preview') + 1] if '--preview' in sys.argv else None
     out = {(ROOT, 'item/pochita.png'): draw(POCHITA), (CLIENT_ROOT, 'entity/form_flesh.png'): draw(FLESH),
-           (CLIENT_ROOT, 'entity/form_chain.png'): draw(CHAIN)}
+           (CLIENT_ROOT, 'entity/form_chain.png'): draw(CHAIN),
+           (CLIENT_ROOT, 'entity/pochita.png'): pochita_entity()}
     for (root, name), img in out.items():
         path = os.path.join(root, name)
         os.makedirs(os.path.dirname(path), exist_ok=True)

@@ -323,7 +323,27 @@ public class FormSelfTest implements ClientModInitializer {
 				client.options.setPerspective(Perspective.FIRST_PERSON);
 				server.execute(() -> Downed.up(serverPlayer(server)));
 			}
-			case 216 -> stage = Stage.DONE;
+			case 212 -> server.execute(() -> {
+				// Pochita, tamed, sitting in front of the first camera.
+				ServerPlayerEntity p = serverPlayer(server);
+				io.github.kortev.chainsawman.PochitaEntity pochita = ChainsawMan.POCHITA_ENTITY.create(p.getServerWorld());
+				if (pochita != null) {
+					pochita.refreshPositionAndAngles(p.getX() + 0.4, p.getY(), p.getZ() - 0.2, -30.0F, 0.0F);
+					pochita.setHeadYaw(-30.0F);
+					pochita.setBodyYaw(-30.0F);
+					pochita.setAiDisabled(true);
+					p.getServerWorld().spawnEntity(pochita);
+				}
+			});
+			case 218 -> {
+				client.options.hudHidden = true;
+				Entity camera = client.world.getEntityById(CAMERA_IDS.get(0));
+				if (camera != null) {
+					client.setCameraEntity(camera);
+				}
+			}
+			case 226 -> screenshot(client, "pochita");
+			case 230 -> stage = Stage.DONE;
 			default -> {
 			}
 		}
@@ -411,6 +431,8 @@ public class FormSelfTest implements ClientModInitializer {
 		player.getInventory().clear();
 		// Carried, not held: the hand stays empty, so it is drawn in first person.
 		player.getInventory().setStack(9, new ItemStack(ChainsawMan.POCHITA));
+		// Pochita already their heart, as after the first time they died with him.
+		player.setAttached(io.github.kortev.chainsawman.form.Heart.MERGED, true);
 		Form.pullCord(player);
 		Vec3d head = feet.add(0, 1.6, 0);
 		for (double[] cam : CAMERAS) {

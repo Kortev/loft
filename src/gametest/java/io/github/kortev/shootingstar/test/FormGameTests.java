@@ -2,11 +2,13 @@ package io.github.kortev.shootingstar.test;
 
 import com.mojang.authlib.GameProfile;
 import io.github.kortev.chainsawman.ChainsawMan;
+import io.github.kortev.chainsawman.PochitaEntity;
 import io.github.kortev.chainsawman.form.Blood;
 import io.github.kortev.chainsawman.form.Downed;
 import io.github.kortev.chainsawman.form.Form;
 import io.github.kortev.chainsawman.form.Frenzy;
 import io.github.kortev.chainsawman.form.Grapple;
+import io.github.kortev.chainsawman.form.Heart;
 import io.github.kortev.chainsawman.form.Limbs;
 import io.github.kortev.chainsawman.form.Saw;
 import io.netty.channel.embedded.EmbeddedChannel;
@@ -259,7 +261,7 @@ public class FormGameTests implements FabricGameTest {
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_blood", tickLimit = 20)
 	public void cordNeedsBlood(TestContext context) {
 		ServerPlayerEntity player = player(context, "bloodless", 0.0);
-		player.getInventory().insertStack(new ItemStack(ChainsawMan.POCHITA));
+		player.setAttached(Heart.MERGED, true);
 		try {
 			Blood.set(player, Blood.TRANSFORM - 1);
 			Form.pullCord(player);
@@ -273,10 +275,62 @@ public class FormGameTests implements FabricGameTest {
 		context.complete();
 	}
 
-	/** A player in the form, carrying Pochita, at {@code x} across the test's spot, facing along +z. */
+	/** Carrying Pochita, kortev dying the first time doesn't: he becomes their heart and they come back transforming. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_merge", tickLimit = JOINED + 20)
+	public void pochitaBecomesYourHeart(TestContext context) {
+		ServerPlayerEntity player = player(context, ChainsawMan.OWNER, 0.0);
+		player.getInventory().insertStack(new ItemStack(ChainsawMan.POCHITA));
+		context.waitAndRun(JOINED, () -> {
+			try {
+				player.damage(player.getDamageSources().generic(), 1000.0F);
+				context.assertTrue(player.isAlive() && player.getHealth() == player.getMaxHealth(), "they didn't come back whole");
+				context.assertTrue(Heart.merged(player), "Pochita didn't become their heart");
+				context.assertTrue(!io.github.kortev.chainsawman.PochitaItem.carried(player), "Pochita was still in their pack");
+				context.assertTrue(!Downed.is(player), "they were down, not back");
+			} finally {
+				done(context, player);
+				player.removeAttached(Heart.MERGED);
+			}
+			context.complete();
+		});
+	}
+
+	/** Pochita takes kortev's blood until he's theirs; anyone else's he won't. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_tame", tickLimit = PochitaEntity.FEED + 40)
+	public void bloodTamesPochita(TestContext context) {
+		ServerPlayerEntity owner = player(context, ChainsawMan.OWNER, 0.0);
+		ServerPlayerEntity other = player(context, "stranger", 2.0);
+		PochitaEntity pochita = new PochitaEntity(ChainsawMan.POCHITA_ENTITY, context.getWorld());
+		Vec3d at = spot(context).add(0.0, 0.0, 1.5);
+		pochita.refreshPositionAndAngles(at.x, at.y, at.z, 0.0F, 0.0F);
+		pochita.setNoGravity(true);
+		context.getWorld().spawnEntity(pochita);
+		for (int t = 0; t <= 8; t += 4) {
+			context.runAtTick(t + 1, () -> pochita.feed(other));
+		}
+		for (int t = 12; t <= PochitaEntity.FEED + 20; t += 4) {
+			context.runAtTick(t + 1, () -> {
+				if (!pochita.isTamed()) {
+					pochita.feed(owner);
+				}
+			});
+		}
+		context.runAtTick(PochitaEntity.FEED + 30, () -> {
+			try {
+				context.assertTrue(pochita.isTamed() && pochita.isOwner(owner), "kortev's blood didn't tame him");
+			} finally {
+				pochita.discard();
+				done(context, owner);
+				done(context, other);
+			}
+			context.complete();
+		});
+	}
+
+	/** A player in the form, with Pochita's heart, at {@code x} across the test's spot, facing along +z. */
 	private static ServerPlayerEntity fighter(TestContext context, String name, double x) {
 		ServerPlayerEntity player = player(context, name, x);
-		player.getInventory().insertStack(new ItemStack(ChainsawMan.POCHITA));
+		player.setAttached(Heart.MERGED, true);
 		Form.start(player);
 		return player;
 	}
