@@ -323,7 +323,7 @@ def form_revive():
 
 # Pochita becoming your heart (MergeTimeline, ticks of 1/20 s): struck down (0, hitting the ground at 7), the grey
 # quiet (8), the world going out (60), he comes (90), sniffs and whimpers at you (140), hops up (175), the talk (190
-# to 505; the anime's voices are their own sounds, over this), bows (505), goes into you (520), the cord (534), your heart's six beats
+# to 495; the anime's voices are their own sounds, over this), leaps (495), goes into you (520), the cord (566), your heart's six beats
 # (550, 562, 572, 580, 586, 591), you get up (596), standing, waiting to pull the cord (626).
 MERGE_LAND = 7 / 20.0
 MERGE_DARK = 60 / 20.0
@@ -331,9 +331,9 @@ MERGE_COMING = 90 / 20.0
 MERGE_SNIFF = 140 / 20.0
 MERGE_CLIMB = 175 / 20.0
 MERGE_TALK = 190 / 20.0
-MERGE_BOW = 505 / 20.0
+MERGE_LEAP = 495 / 20.0
 MERGE_SINK = 520 / 20.0
-MERGE_SUNK = 534 / 20.0
+MERGE_SUNK = 566 / 20.0
 MERGE_BEATS = [550 / 20.0, 562 / 20.0, 572 / 20.0, 580 / 20.0, 586 / 20.0, 591 / 20.0]
 MERGE_END = 626 / 20.0
 
@@ -365,7 +365,7 @@ def form_merge():
                           (MERGE_END + 0.5, 0.0)])
     # The dark: a low hum, two tones slowly beating against each other, under everything until the heart starts.
     hum = (np.sin(2 * np.pi * 55.0 * t) + 0.7 * np.sin(2 * np.pi * 55.7 * t) + 0.25 * np.sin(2 * np.pi * 110.4 * t)) * 0.12
-    x += hum * curve(n, [(0.0, 0.0), (MERGE_DARK, 0.0), (MERGE_DARK + 1.5, 1.0), (MERGE_TALK, 0.8), (MERGE_BOW, 0.9),
+    x += hum * curve(n, [(0.0, 0.0), (MERGE_DARK, 0.0), (MERGE_DARK + 1.5, 1.0), (MERGE_TALK, 0.8), (MERGE_LEAP, 0.9),
                          (MERGE_SINK, 1.4), (MERGE_SINK + 0.05, 0.0), (MERGE_END + 0.5, 0.0)])
     # His steps coming out of the dark, a limp in them; sniffing and two whimpers; the scramble up.
     steps = int((MERGE_SNIFF - MERGE_COMING) / 0.12)

@@ -6,6 +6,9 @@
 		"AnimalModelInvoker",
 		"CutInTwoMixin",
 		"DownedBodyMixin",
+		"DreamEntitiesMixin",
+		"DreamFogMixin",
+		"DreamSkyMixin",
 		"FirstPersonFormMixin",
 		"FirstPersonSawMixin",
 		"FormAttackMixin",
@@ -24,7 +27,8 @@
 		"HelmetHiddenMixin",
 		"HeldStillFovMixin",
 		"MergeLyingMixin",
-		"ModelPartAccessor"
+		"ModelPartAccessor",
+		"SeeThroughMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

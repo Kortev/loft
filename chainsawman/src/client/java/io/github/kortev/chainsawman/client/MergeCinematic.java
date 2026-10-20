@@ -58,6 +58,10 @@ public final class MergeCinematic {
 	private static final Map<UUID, Float> DRAWN_YAW = new ConcurrentHashMap<>();
 	private static final Identifier POCHITA = ChainsawMan.id("textures/entity/pochita.png");
 	private static final Identifier POOL = ChainsawMan.id("textures/entity/blood_pool.png");
+	/** The dream's floor: black, a pool of light in the middle (and, added on, the light he goes into you as). */
+	private static final Identifier FLOOR = ChainsawMan.id("textures/entity/dream_floor.png");
+	/** How far the dream's floor reaches round you (blocks). */
+	private static final float FLOOR_SIZE = 14.0F;
 	private static final DustParticleEffect BLOOD = new DustParticleEffect(new Vector3f(0.62F, 0.02F, 0.04F), 0.9F);
 	private static final DustParticleEffect DARK_BLOOD = new DustParticleEffect(new Vector3f(0.35F, 0.0F, 0.02F), 1.1F);
 	private static final Random RANDOM = Random.create();
@@ -82,6 +86,35 @@ public final class MergeCinematic {
 
 	static void setModel(PochitaModel pochita) {
 		model = pochita;
+	}
+
+	@Nullable
+	static PochitaModel pochitaModel() {
+		return model;
+	}
+
+	/**
+	 * How far into the dream your own merge is (0 to 1): the world falling away into the black from DARK, coming back
+	 * with the last beats (WAKE to RISE). The fog, the sky, the other things in the world all follow it.
+	 */
+	public static float dream(float tickDelta) {
+		float t = mine(tickDelta);
+		if (t < 0.0F) {
+			return 0.0F;
+		}
+		return Math.min(ease((t - MergeTimeline.DARK) / 30.0F), 1.0F - ease((t - MergeTimeline.WAKE) / (MergeTimeline.RISE - MergeTimeline.WAKE)));
+	}
+
+	/** Whether {@code player}'s chest is seen through now: inside it, him curled up as the heart. */
+	public static boolean seeThrough(PlayerEntity player) {
+		float t = age(player, 0.0F);
+		return t >= MergeTimeline.HEART && t < MergeTimeline.SUNK;
+	}
+
+	/** The screen's old-photograph browns, over the memories. */
+	public static float sepia(float tickDelta) {
+		float t = mine(tickDelta);
+		return t < 0.0F ? 0.0F : MergeMemories.sepia(t);
 	}
 
 	static void started(UUID player, long at, Vec3d from) {
@@ -241,26 +274,34 @@ public final class MergeCinematic {
 			// Off to the side, watching him hop up.
 			return look(chest.add(side.multiply(-2.8)).add(head.multiply(-0.3)).add(0.0, 1.0, 0.0), chest.add(0.0, 0.35, 0.0));
 		}
-		if (t < MergeTimeline.BOW) {
+		if (MergeMemories.on(t)) {
+			// Your life with him, the scenes his words call up.
+			return MergeMemories.shot(feet, t);
+		}
+		if (t < MergeTimeline.LEAP) {
 			return talking(t, you, chest, head, side, up, eyes);
 		}
 		if (t < MergeTimeline.SINK) {
-			// Low beside you: him bowing his head to your chest.
-			double k = ease((t - MergeTimeline.BOW) / (MergeTimeline.SINK - MergeTimeline.BOW));
-			return look(chest.add(side.multiply(MathHelper.lerp(k, 2.3, 2.0))).add(head.multiply(0.3)).add(0.0, 0.65, 0.0),
-					chest.add(head.multiply(0.35)).add(0.0, 0.45, 0.0));
+			// Low beside you, following him: crouching, leaping up off you, slow, and diving down into your chest.
+			return look(chest.add(side.multiply(2.8)).add(head.multiply(0.2)).add(0.0, 0.6, 0.0), pochita.at().add(0.0, 0.35, 0.0));
+		}
+		if (t < MergeTimeline.HEART) {
+			// From behind your head, down along you: your hand reaching up after him into the light, the light sinking.
+			double k = ease((t - MergeTimeline.SINK) / (MergeTimeline.HEART - MergeTimeline.SINK));
+			return look(you.add(head.multiply(1.1)).add(0.0, 0.85, 0.0), chest.add(0.0, MathHelper.lerp(k, 0.75, 0.3), 0.0));
 		}
 		if (t < MergeTimeline.SUNK) {
-			// Level with your chest from the side, as he goes down into it.
-			return look(chest.add(side.multiply(1.9)).add(head.multiply(0.15)).add(0.0, 0.35, 0.0), chest.add(0.0, 0.15, 0.0));
+			// Straight down into your chest, seen through: him curled up in there as your heart.
+			double k = (t - MergeTimeline.HEART) / (MergeTimeline.SUNK - MergeTimeline.HEART);
+			return look(chest.add(head.multiply(0.02)).add(0.0, MathHelper.lerp(k, 1.5, 1.1), 0.0), chest);
 		}
-		if (t < MergeTimeline.BEAT) {
-			// The cord pushing out of your chest.
+		if (t < MergeTimeline.WAKE) {
+			// The cord tearing out of your chest.
 			return look(chest.add(side.multiply(1.1)).add(head.multiply(-0.5)).add(0.0, 0.8, 0.0), chest.add(0.0, 0.05, 0.0));
 		}
 		if (t < MergeTimeline.RISE) {
-			// Over your face as your heart starts, closer with each beat.
-			double k = (t - MergeTimeline.BEAT) / (MergeTimeline.RISE - MergeTimeline.BEAT);
+			// Over your face as the last beats bring the world back, closer with each.
+			double k = (t - MergeTimeline.WAKE) / (MergeTimeline.RISE - MergeTimeline.WAKE);
 			return look(you.add(head.multiply(-0.15)).add(0.0, MathHelper.lerp(k, 1.4, 0.75), 0.0), you);
 		}
 		// Low and to the side as you get up, the whole of you, coming round in front as you stand; then low in front,
@@ -298,7 +339,7 @@ public final class MergeCinematic {
 		int[] lines = MergeTimeline.LINES;
 		int line = line(t);
 		float from = line == 0 ? MergeTimeline.TALK : lines[line] - 6;
-		float until = line + 1 < lines.length ? lines[line + 1] - 6 : MergeTimeline.BOW;
+		float until = line + 1 < lines.length ? lines[line + 1] - 6 : MergeTimeline.LEAP;
 		double k = ease((t - from) / (until - from));
 		Vec3d both = chest.lerp(you, 0.45);
 		switch (line) {
@@ -340,13 +381,22 @@ public final class MergeCinematic {
 		if (t < MergeTimeline.ON_CHEST) {
 			return 0.7F;
 		}
-		if (t < MergeTimeline.BOW) {
+		if (MergeMemories.on(t)) {
+			return 1.0F;
+		}
+		if (t < MergeTimeline.LEAP) {
 			return new float[] {0.6F, 0.6F, 0.45F, 0.45F, 0.55F}[line(t)];
 		}
 		if (t < MergeTimeline.SINK) {
-			return 0.45F;
+			return 0.7F;
 		}
-		if (t < MergeTimeline.BEAT) {
+		if (t < MergeTimeline.HEART) {
+			return 0.8F;
+		}
+		if (t < MergeTimeline.SUNK) {
+			return 0.6F;
+		}
+		if (t < MergeTimeline.WAKE) {
 			return 0.55F;
 		}
 		if (t < MergeTimeline.RISE) {
@@ -424,7 +474,7 @@ public final class MergeCinematic {
 		if (t < 0.0F) {
 			return 0.0F;
 		}
-		return Math.min(ease((t - MergeTimeline.DARK) / 30.0F), lifting(t));
+		return 0.4F * Math.min(ease((t - MergeTimeline.DARK) / 30.0F), lifting(t));
 	}
 
 	/** What's left of the grey and the dark after the beats so far: each beat takes a share of it away. */
@@ -544,7 +594,7 @@ public final class MergeCinematic {
 			float land = (float) pulse(t, MergeTimeline.ON_CHEST - 2, 0.25, 1.5);
 			return new Pose(at, yaw, -0.25F * (float) Math.sin(k * Math.PI), 1.0F + land * 0.6F, 1.0F - land, false);
 		}
-		if (t < MergeTimeline.BOW) {
+		if (t < MergeTimeline.LEAP) {
 			// Standing on you, looking at your face; breathing; a nod as each line starts.
 			float breath = MathHelper.sin(t * 0.3F) * 0.025F;
 			float nod = 0.0F;
@@ -556,16 +606,14 @@ public final class MergeCinematic {
 			}
 			return new Pose(top, onYaw, 0.18F + nod, 1.0F - breath, 1.0F + breath, false);
 		}
-		if (t < MergeTimeline.SINK) {
-			// Bowing his head to your chest.
-			float bow = ease((t - MergeTimeline.BOW) / (MergeTimeline.SINK - MergeTimeline.BOW));
-			return new Pose(top, onYaw, 0.18F + 0.35F * bow, 1.0F, 1.0F, false);
-		}
-		// Down into you: squashing into your chest, spreading, and gone.
-		double k = easeIn((t - MergeTimeline.SINK) / (MergeTimeline.SUNK - MergeTimeline.SINK));
-		float tall = (float) (1.0 - k);
-		float wide = (float) (1.0 + 0.5 * Math.sin(k * Math.PI)) * (float) (1.0 - k * k);
-		return new Pose(top.subtract(0.0, 0.12 * k, 0.0), onYaw, 0.0F, wide, tall, false);
+		// The leap: a crouch, up off you, slow, turning over in the air, and down head first into your chest.
+		float crouch = ease((t - MergeTimeline.LEAP) / 6.0F) * (1.0F - ease((t - MergeTimeline.LEAP - 7.0F) / 2.0F));
+		float rise = easeOut((t - MergeTimeline.LEAP - 8.0F) / 9.0F);
+		float dive = easeIn((t - MergeTimeline.LEAP - 17.0F) / (MergeTimeline.SINK - MergeTimeline.LEAP - 17.0F));
+		double height = 1.25 * rise * (1.0 - dive) - 0.25 * dive;
+		float pitch = 0.18F + 1.4F * ease((t - MergeTimeline.LEAP - 12.0F) / 7.0F);
+		float stretch = 0.25F * rise * (1.0F - dive) + 0.35F * dive;
+		return new Pose(top.add(0.0, height, 0.0), onYaw, pitch, 1.0F + 0.2F * crouch - 0.1F * stretch, 1.0F - 0.25F * crouch + stretch, false);
 	}
 
 	private static float yawTo(Vec3d d) {
@@ -591,8 +639,19 @@ public final class MergeCinematic {
 			if (t < 0.0F) {
 				continue;
 			}
+			boolean mine = player == MinecraftClient.getInstance().player;
+			if (mine) {
+				floor(matrices, consumers, player, cam, tickDelta);
+				if (MergeMemories.on(t) && player instanceof net.minecraft.client.network.AbstractClientPlayerEntity self) {
+					MergeMemories.render(self, player.getLerpedPos(tickDelta), t, matrices, consumers, cam, world);
+				}
+			}
 			pool(matrices, consumers, world, player, cam, t, tickDelta);
-			if (t < MergeTimeline.COMING || t >= MergeTimeline.SUNK) {
+			light(matrices, consumers, player, cam, t, tickDelta);
+			if (t >= MergeTimeline.HEART && t < MergeTimeline.SUNK) {
+				heart(matrices, consumers, player, cam, t, tickDelta);
+			}
+			if (t < MergeTimeline.COMING || t >= MergeTimeline.SINK) {
 				continue;
 			}
 			Pose pose = pochita(player, e.getValue(), t, tickDelta);
@@ -610,6 +669,88 @@ public final class MergeCinematic {
 			model.animate(pose.walking() ? t * 1.1F : 0.0F, pose.walking() ? 0.7F : 0.0F, t, false);
 			model.render(matrices, consumers.getBuffer(RenderLayer.getEntityCutoutNoCull(POCHITA)), light, OverlayTexture.DEFAULT_UV, 0xFFFFFFFF);
 			matrices.pop();
+		}
+	}
+
+	/** The dream's floor under you: black, and a pool of light where you lie, faded in and out with the dream. */
+	private static void floor(MatrixStack matrices, VertexConsumerProvider consumers, PlayerEntity player, Vec3d cam, float tickDelta) {
+		float d = dream(tickDelta);
+		if (d <= 0.01F) {
+			return;
+		}
+		Vec3d mid = chest(player, tickDelta);
+		Vec3d at = new Vec3d(mid.x, player.getLerpedPos(tickDelta).y + 0.004, mid.z);
+		VertexConsumer out = consumers.getBuffer(RenderLayer.getEntityTranslucent(FLOOR));
+		matrices.push();
+		matrices.translate(at.x - cam.x, at.y - cam.y, at.z - cam.z);
+		Matrix4f m = matrices.peek().getPositionMatrix();
+		int colour = ((int) (d * 255) << 24) | 0xFFFFFF;
+		float s = FLOOR_SIZE;
+		float[][] corners = {{-s, -s, 0.0F, 0.0F}, {-s, s, 0.0F, 1.0F}, {s, s, 1.0F, 1.0F}, {s, -s, 1.0F, 0.0F}};
+		for (float[] c : corners) {
+			out.vertex(m, c[0], 0.0F, c[1]).color(colour).texture(c[2], c[3]).overlay(OverlayTexture.DEFAULT_UV)
+					.light(net.minecraft.client.render.LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0.0F, 1.0F, 0.0F);
+		}
+		matrices.pop();
+	}
+
+	/**
+	 * The light he goes into you as: a glow where he dives in, flaring as he goes, then sinking into your chest as your
+	 * hand reaches after it.
+	 */
+	private static void light(MatrixStack matrices, VertexConsumerProvider consumers, PlayerEntity player, Vec3d cam, float t, float tickDelta) {
+		float in = ease((t - MergeTimeline.LEAP - 14.0F) / 6.0F);
+		float k = MathHelper.clamp((t - MergeTimeline.SINK) / (MergeTimeline.HEART - MergeTimeline.SINK), 0.0F, 1.0F);
+		if (in <= 0.0F || k >= 1.0F) {
+			return;
+		}
+		Vec3d at = chest(player, tickDelta).add(0.0, MathHelper.lerp(easeIn(k), 1.0, 0.05), 0.0);
+		float size = (float) (in * (t < MergeTimeline.SINK ? 0.6 : MathHelper.lerp(easeIn(k), 1.3, 0.1)));
+		glow(matrices, consumers, at, cam, size, 1.0F - k * k);
+	}
+
+	/** Him curled up in your chest, seen through it, glowing, beating with your heart. */
+	private static void heart(MatrixStack matrices, VertexConsumerProvider consumers, PlayerEntity player, Vec3d cam, float t, float tickDelta) {
+		Vec3d at = chest(player, tickDelta).add(0.0, -0.08, 0.0);
+		double beat = 0.0;
+		for (int b : MergeTimeline.BEATS) {
+			beat = Math.max(beat, pulse(t, b, 1.0, 2.5));
+		}
+		float size = 0.42F * (float) (1.0 + 0.22 * beat);
+		glow(matrices, consumers, at.add(0.0, 0.05, 0.0), cam, 1.1F + 0.6F * (float) beat, 0.7F);
+		matrices.push();
+		matrices.translate(at.x - cam.x, at.y - cam.y, at.z - cam.z);
+		matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180.0F - yawTo(headward(player))));
+		// Curled up on his side.
+		matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(80.0F));
+		matrices.scale(-size, -size, size);
+		matrices.translate(0.0, -1.2, 0.0);
+		model.animate(0.0F, 0.0F, t, true);
+		model.render(matrices, consumers.getBuffer(RenderLayer.getEntityCutoutNoCull(POCHITA)),
+				net.minecraft.client.render.LightmapTextureManager.MAX_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, 0xFFFFFFFF);
+		matrices.pop();
+	}
+
+	/** A soft glow, added onto the picture, facing the camera. */
+	private static void glow(MatrixStack matrices, VertexConsumerProvider consumers, Vec3d at, Vec3d cam, float size, float bright) {
+		if (size <= 0.01F || bright <= 0.01F) {
+			return;
+		}
+		org.joml.Quaternionf facing = MinecraftClient.getInstance().gameRenderer.getCamera().getRotation();
+		Vector3f right = facing.transform(new Vector3f(size, 0.0F, 0.0F));
+		Vector3f up = facing.transform(new Vector3f(0.0F, size, 0.0F));
+		VertexConsumer out = consumers.getBuffer(RenderLayer.getEyes(FLOOR));
+		Matrix4f m = matrices.peek().getPositionMatrix();
+		int c = (int) (255 * MathHelper.clamp(bright, 0.0F, 1.0F));
+		int colour = 0xFF000000 | c << 16 | (int) (c * 0.92F) << 8 | (int) (c * 0.8F);
+		float x = (float) (at.x - cam.x);
+		float y = (float) (at.y - cam.y);
+		float z = (float) (at.z - cam.z);
+		float[][] corners = {{-1, -1, 0, 1}, {-1, 1, 0, 0}, {1, 1, 1, 0}, {1, -1, 1, 1}, {1, -1, 1, 1}, {1, 1, 1, 0}, {-1, 1, 0, 0}, {-1, -1, 0, 1}};
+		for (float[] q : corners) {
+			out.vertex(m, x + right.x * q[0] + up.x * q[1], y + right.y * q[0] + up.y * q[1], z + right.z * q[0] + up.z * q[1]).color(colour)
+					.texture(q[2] * 0.5F + 0.25F, q[3] * 0.5F + 0.25F).overlay(OverlayTexture.DEFAULT_UV)
+					.light(net.minecraft.client.render.LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0.0F, 1.0F, 0.0F);
 		}
 	}
 
@@ -662,14 +803,22 @@ public final class MergeCinematic {
 				Vec3d at = pochita(player, e.getValue(), t, 0.0F).at();
 				world.addParticle(ParticleTypes.POOF, at.x, at.y + 0.05, at.z, 0.0, 0.01, 0.0);
 			}
-			if (t >= MergeTimeline.SINK && t < MergeTimeline.SUNK) {
+			if (player == MinecraftClient.getInstance().player && dream(0.0F) > 0.5F && !MergeMemories.on(t) && RANDOM.nextFloat() < 0.6F) {
+				// Motes of light drifting in the dark round you.
+				double a = RANDOM.nextDouble() * Math.PI * 2.0;
+				double r = 0.8 + RANDOM.nextDouble() * 3.5;
+				world.addParticle(ParticleTypes.END_ROD, chest.x + Math.cos(a) * r, chest.y - 0.2 + RANDOM.nextDouble() * 2.2, chest.z + Math.sin(a) * r,
+						0.0, 0.004, 0.0);
+			}
+			if (t >= MergeTimeline.SINK && t < MergeTimeline.SINK + 5) {
 				for (int i = 0; i < 14; i++) {
 					world.addParticle(i % 3 == 0 ? DARK_BLOOD : BLOOD, chest.x, chest.y + 0.1, chest.z, (RANDOM.nextDouble() - 0.5) * 0.45,
 							0.25 + RANDOM.nextDouble() * 0.55, (RANDOM.nextDouble() - 0.5) * 0.45);
 				}
 			}
 			for (int beat : MergeTimeline.BEATS) {
-				if (t == beat) {
+				// (Not into the look inside your chest.)
+				if (t == beat && t >= MergeTimeline.SUNK) {
 					for (int i = 0; i < 10; i++) {
 						float a = i / 10.0F * MathHelper.TAU;
 						world.addParticle(BLOOD, chest.x, chest.y - 0.1, chest.z, MathHelper.cos(a) * 0.12, 0.05, MathHelper.sin(a) * 0.12);

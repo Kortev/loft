@@ -14,6 +14,8 @@ uniform float Vignette;
 uniform float Grey;
 // How far the world has gone out (0 to 1): black, but for a soft last light in the middle of the picture.
 uniform float Dark;
+// How far the picture is an old photograph (0 to 1): browns, warm, for the memories in the merge's dream.
+uniform float Sepia;
 
 in vec2 texCoord;
 
@@ -32,6 +34,8 @@ void main() {
     float grey = dot(colour, vec3(0.299, 0.587, 0.114));
     vec3 drained = mix(vec3(0.5), vec3(grey) * vec3(0.94, 0.97, 1.02), 0.82);
     colour = mix(colour, drained, Grey);
+    vec3 photo = vec3(grey * 1.08 + 0.06, grey * 0.9 + 0.03, grey * 0.66);
+    colour = mix(colour, photo, Sepia);
     vec2 to = (texCoord - 0.5) * vec2(ScreenSize.x / ScreenSize.y, 1.0);
     float r = length(to);
     float light = 1.0 - smoothstep(0.22, 0.85, r);

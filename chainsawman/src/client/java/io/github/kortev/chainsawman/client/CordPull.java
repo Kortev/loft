@@ -57,8 +57,11 @@ public final class CordPull {
 		float stand = ease((t - io.github.kortev.chainsawman.form.MergeTimeline.RISE)
 				/ (io.github.kortev.chainsawman.form.MergeTimeline.END - io.github.kortev.chainsawman.form.MergeTimeline.RISE));
 		float reach = ease((t - beats[3]) / 5.0F) * (1.0F - stand);
-		model.rightArm.pitch = REACH_PITCH * reach;
-		model.rightArm.yaw = REACH_YAW * reach;
+		// Reaching up after him as he goes into the light ("POCHITA?!"), and falling back.
+		float after = ease((t - io.github.kortev.chainsawman.form.MergeTimeline.SINK + 2.0F) / 4.0F)
+				* (1.0F - ease((t - io.github.kortev.chainsawman.form.MergeTimeline.HEART) / 8.0F));
+		model.rightArm.pitch = REACH_PITCH * reach - 1.75F * after;
+		model.rightArm.yaw = REACH_YAW * reach + 0.2F * after;
 		model.rightArm.roll = (0.45F - 0.15F * jerk) * (1.0F - reach) * (1.0F - stand) + 0.06F * stand;
 		model.leftArm.pitch = -0.15F * jerk;
 		model.leftArm.yaw = 0.0F;

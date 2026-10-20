@@ -776,6 +776,19 @@ def sfx():
     return img
 
 
+# The merge's dream (MergeCinematic): its floor, a pool of light in the black.
+def dream_floor():
+    """The dream's floor: black, a pool of warm light in the middle, falling off in steps."""
+    img = Image.new('RGBA', (64, 64))
+    for y in range(64):
+        for x in range(64):
+            d = ((x - 31.5) ** 2 + (y - 31.5) ** 2) ** 0.5 / 32.0
+            k = max(0.0, 1.0 - d / 0.25)
+            k = round(k * k * 6) / 6.0
+            img.putpixel((x, y), (int(8 + 200 * k), int(6 + 186 * k), int(10 + 160 * k), 255))
+    return img
+
+
 def main():
     preview = sys.argv[sys.argv.index('--preview') + 1] if '--preview' in sys.argv else None
     out = {(ROOT, 'item/pochita.png'): draw(POCHITA), (CLIENT_ROOT, 'entity/form_flesh.png'): draw(FLESH),
@@ -784,7 +797,7 @@ def main():
            (CLIENT_ROOT, 'entity/form_flare.png'): flare(), (CLIENT_ROOT, 'entity/form_trail.png'): trail(),
            (CLIENT_ROOT, 'gui/form_roar.png'): roar(), (CLIENT_ROOT, 'entity/form_saw_chain.png'): saw_chain(),
            (CLIENT_ROOT, 'gui/dream_door.png'): dream_door(), (CLIENT_ROOT, 'gui/lens_blood.png'): lens_blood(),
-           (CLIENT_ROOT, 'gui/form_sfx.png'): sfx()}
+           (CLIENT_ROOT, 'gui/form_sfx.png'): sfx(), (CLIENT_ROOT, 'entity/dream_floor.png'): dream_floor()}
     head, head_glow = form_head()
     out[(CLIENT_ROOT, 'entity/form_head.png')] = head
     out[(CLIENT_ROOT, 'entity/form_head_glow.png')] = head_glow

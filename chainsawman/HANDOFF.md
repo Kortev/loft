@@ -285,14 +285,18 @@ tuning the numbers.
   once he's someone's heart. No natural spawns, no recipe.
 - **Can't die**: faints (on his side) until kortev gives him blood again (`PochitaEntity.WAKE`).
 - **Merging**: the first death with him **carried or tamed within 32 blocks** (`Merge`) plays the anime's scene, long
-  (about 30 s; kortev: "the longer the cooler, it only happens once"). The beats are in `MergeTimeline`'s table; the
-  pictures in `MergeCinematic`, the sound in `form_merge.ogg` (`tools/gen_chainsaw_sounds.py form_merge`, its
-  constants mirror the timeline). You go over backwards, the colour drains, a pool of blood spreads; the world goes
-  black but for a soft light on you; Pochita limps over out of the dark (in colour), sniffs at you, hops onto your
-  chest and says five lines (captions in the bottom black bar); bows, sinks into you (flash, impact frames, blood),
-  the cord comes out, six heartbeats bring the world back, you get up. **Then you stand there** with the cord in your
-  chest and "[G] Pull the cord" in the bar until you pull it yourself, as Denji does (the first pull is free); after
-  `Merge.WAIT` (60 s) it pulls itself so nobody is stuck. You can't be hurt from the fall until the pull.
+  (about 31 s), its beats in `MergeTimeline`'s table, the pictures in `MergeCinematic`, the sound in `form_merge.ogg`.
+  You go over and the colour drains; then **the dream** (`MergeCinematic.dream`): the world falls away into black fog
+  (`DreamFogMixin`, no sky or clouds `DreamSkyMixin`, nothing else drawn `DreamEntitiesMixin`), you lying in a pool of
+  light (`dream_floor.png`), motes drifting. Pochita limps out of the dark, sniffs you, climbs onto your chest and
+  they talk (the anime's voices); over his "I always loved hearing you talk about your dreams" come **the memories**
+  (`MergeMemories`): four little scenes built of real blocks floating far up in the void, sepia (`csm_impact`'s
+  Sepia), you in your own skin and him in his model: the shack holding him, bread with him looking up, asleep with him
+  curled beside you, him as the chainsaw against a zombie. Then he leaps up off you and dives into your chest; a light,
+  your hand reaching after it on "POCHITA?!"; **inside your chest**, seen through (`SeeThroughMixin`), him curled up
+  as your heart, beating; the cord tears out; the beats lift the dream and bring the world back; you get up and stand
+  there with "[G] Pull the cord" until you pull it yourself, as Denji does (first pull free; after `Merge.WAIT`, 60 s,
+  it pulls itself).
 - **The voices in the merge** are the anime's own (Japanese), cut from a clip kortev chose
   (`sounds/form_merge_voice_1..5.ogg`): you ask if he took your body; he loved hearing your dreams; this is a
   contract; show me your dream; and you crying his name as he sinks into you (at SINK). `MergeTimeline.LINES`,

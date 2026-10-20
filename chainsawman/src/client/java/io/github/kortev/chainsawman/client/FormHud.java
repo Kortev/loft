@@ -41,6 +41,7 @@ public final class FormHud {
 		float vignette = Math.max(Math.max(FormCinematic.vignette(tickDelta), ClientCombat.vignette(tickDelta)), MergeCinematic.vignette(tickDelta));
 		float grey = MergeCinematic.grey(tickDelta);
 		float dark = MergeCinematic.darkness(tickDelta);
+		float sepia = MergeCinematic.sepia(tickDelta);
 		float faint = ClientCombat.faint(tickDelta);
 		if (faint > 0.0F && client.player != null) {
 			// Faint from blood loss: drained of colour, the edges going dark and coming back with each slow beat.
@@ -48,7 +49,7 @@ public final class FormHud {
 			grey = Math.max(grey, 0.45F * faint);
 			dark = Math.max(dark, (0.25F + 0.2F * beat) * faint);
 		}
-		if (impact == null || client.player == null || (style == 0 && vignette < 0.01F && grey < 0.01F && dark < 0.01F)) {
+		if (impact == null || client.player == null || (style == 0 && vignette < 0.01F && grey < 0.01F && dark < 0.01F && sepia < 0.01F)) {
 			MergeCinematic.bars(ctx, tickDelta);
 			lettering(ctx, tickDelta);
 			speedLines(ctx, tickDelta);
@@ -68,6 +69,7 @@ public final class FormHud {
 		Shaders.set(impact, "Vignette", vignette);
 		Shaders.set(impact, "Grey", grey);
 		Shaders.set(impact, "Dark", dark);
+		Shaders.set(impact, "Sepia", sepia);
 		Post.quad(impact);
 		RenderSystem.setShaderTexture(0, 0);
 		RenderSystem.enableBlend();

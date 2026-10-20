@@ -47,6 +47,14 @@
       "values": [
         0.0
       ]
+    },
+    {
+      "name": "Sepia",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0.0
+      ]
     }
   ]
 }
