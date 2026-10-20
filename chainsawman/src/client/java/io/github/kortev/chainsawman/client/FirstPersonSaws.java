@@ -40,6 +40,8 @@ public final class FirstPersonSaws {
 		for (Arm arm : new Arm[] {Arm.RIGHT, Arm.LEFT}) {
 			if (!io.github.kortev.chainsawman.form.Limbs.has(player, arm == Arm.RIGHT ? io.github.kortev.chainsawman.form.Limbs.RIGHT
 					: io.github.kortev.chainsawman.form.Limbs.LEFT)) {
+				// Lost: its stub, where the hand was.
+				Stumps.firstPerson(matrices, consumers, light, player, arm, tickDelta);
 				continue;
 			}
 			float side = arm == Arm.RIGHT ? 1.0F : -1.0F;

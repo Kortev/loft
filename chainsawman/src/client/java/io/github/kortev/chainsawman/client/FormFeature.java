@@ -108,8 +108,12 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 		if (Limbs.has(player, Limbs.LEFT)) {
 			draw(matrices, consumers, light, overlay, player, tickDelta, "left_arm", model.leftArm);
 		}
-		if (!Limbs.has(player, Limbs.RIGHT) || !Limbs.has(player, Limbs.LEFT)) {
-			stumps(matrices, consumers, light, overlay, model.body, !Limbs.has(player, Limbs.RIGHT), !Limbs.has(player, Limbs.LEFT), false);
+		// An arm lost: its stub's torn end, bleeding.
+		if (!Limbs.has(player, Limbs.RIGHT)) {
+			Stumps.end(matrices, consumers, light, overlay, player, model.rightArm, true);
+		}
+		if (!Limbs.has(player, Limbs.LEFT)) {
+			Stumps.end(matrices, consumers, light, overlay, player, model.leftArm, false);
 		}
 		if (t >= FormTimeline.BURST && t < FormTimeline.HEAD_OPEN) {
 			split(matrices, consumers, light, overlay, player, model.head, t);

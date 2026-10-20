@@ -68,13 +68,17 @@ public abstract class FormPoseMixin {
 		}
 		for (int arm : new int[] {io.github.kortev.chainsawman.form.Limbs.RIGHT, io.github.kortev.chainsawman.form.Limbs.LEFT}) {
 			float k = io.github.kortev.chainsawman.client.ClientCombat.regrowing(player, arm, tickDelta);
+			net.minecraft.client.model.ModelPart part = arm == io.github.kortev.chainsawman.form.Limbs.RIGHT ? model.rightArm : model.leftArm;
 			if (k >= 0.0F) {
-				// Grown back out of blood: out of the stump, a little past its length, settling.
+				// Grown back out of blood: out of the stub, a little past its length, settling.
 				float g = io.github.kortev.chainsawman.client.GetUp.regrown(k * 0.3F);
-				net.minecraft.client.model.ModelPart part = arm == io.github.kortev.chainsawman.form.Limbs.RIGHT ? model.rightArm : model.leftArm;
-				part.yScale = g;
-				part.xScale = 0.6F + 0.4F * g;
-				part.zScale = 0.6F + 0.4F * g;
+				float stub = io.github.kortev.chainsawman.client.Stumps.STUB;
+				part.yScale = stub + (1.0F - stub) * g;
+				part.xScale = 0.85F + 0.15F * g;
+				part.zScale = 0.85F + 0.15F * g;
+			} else if (!io.github.kortev.chainsawman.form.Limbs.has(player, arm)) {
+				// Lost: the stub of it.
+				io.github.kortev.chainsawman.client.Stumps.stub(part);
 			}
 		}
 		model.rightSleeve.copyTransform(model.rightArm);

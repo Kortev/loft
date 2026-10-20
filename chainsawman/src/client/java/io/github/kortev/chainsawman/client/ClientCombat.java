@@ -95,6 +95,8 @@ public final class ClientCombat {
 	/** When each got up off the ground after being down (world time). */
 	private static final Map<UUID, Long> UP = new ConcurrentHashMap<>();
 	private static final Map<UUID, Integer> LOST = new ConcurrentHashMap<>();
+	/** When each player's arms (right, left) last came off. */
+	private static final Map<UUID, long[]> LOST_AT = new ConcurrentHashMap<>();
 	/** Your own blood, as the server last said (-1 before it has). */
 	private static int blood = -1;
 	private static final Map<UUID, SoundInstance> GRIND_SOUNDS = new ConcurrentHashMap<>();
@@ -196,11 +198,21 @@ public final class ClientCombat {
 				if (!DOWN.contains(id) && world.getPlayerByUuid(id) instanceof AbstractClientPlayerEntity player) {
 					// An arm lost in the fight: off it flies.
 					int off = event.value() & ~was;
+					long[] at = LOST_AT.computeIfAbsent(id, k -> new long[] {NEVER, NEVER});
+					boolean mine = client.player != null && id.equals(client.player.getUuid());
 					if ((off & Limbs.RIGHT) != 0) {
 						Severed.off(player, Severed.RIGHT_ARM, now);
+						at[0] = now;
+						if (mine) {
+							LensBlood.lost(true, now);
+						}
 					}
 					if ((off & Limbs.LEFT) != 0) {
 						Severed.off(player, Severed.LEFT_ARM, now);
+						at[1] = now;
+						if (mine) {
+							LensBlood.lost(false, now);
+						}
 					}
 				}
 			}
@@ -371,6 +383,12 @@ public final class ClientCombat {
 	}
 
 	/** How far grown back {@code player}'s {@code arm} is (0 to 1), or -1 if it isn't growing. */
+	/** When {@code player}'s {@code arm} last came off (world time); long ago if never. */
+	public static long lostAt(PlayerEntity player, int arm) {
+		long[] at = LOST_AT.get(player.getUuid());
+		return at == null ? NEVER : at[arm == Limbs.RIGHT ? 0 : 1];
+	}
+
 	public static float regrowing(PlayerEntity player, int arm, float tickDelta) {
 		long[] at = REGROWN.get(player.getUuid());
 		if (at == null) {
@@ -675,6 +693,8 @@ public final class ClientCombat {
 		Severed.clear();
 		SawTrails.clear();
 		LOST.clear();
+		LOST_AT.clear();
+		Stumps.clear();
 		HEARTS.clear();
 		BLOODY.clear();
 		REGROWN.clear();

@@ -806,6 +806,39 @@ def dream_floor():
     return img
 
 
+# The torn end of an arm lost in the fight (client Stumps): raw flesh on the left, wet and clotted, and the bone on the
+# right, its marrow showing at the middle of the cut.
+STUMP = [
+    'ddRrRdRrIIiIIiII',
+    'RrPRrRdRIiIIIIiI',
+    'rRRpRrRrIIiMMiII',
+    'dRrRRdRrIiMmmMiI',
+    'RpRrdRPrIiMmmMIi',
+    'rRdRrRrdIIiMMiII',
+    'RrRPrRRrIiIIiIII',
+    'dRrRdRrdIIIiIIiI',
+]
+STUMP_COLOURS = {
+    'R': (156, 20, 26, 255),    # raw flesh
+    'r': (118, 10, 16, 255),    # darker
+    'd': (66, 4, 8, 255),       # clotted
+    'P': (214, 102, 104, 255),  # wet, the light on it
+    'p': (190, 70, 74, 255),
+    'I': (236, 226, 200, 255),  # bone
+    'i': (200, 184, 152, 255),  # its shade
+    'M': (150, 44, 36, 255),    # marrow
+    'm': (112, 24, 22, 255),
+}
+
+
+def stump():
+    img = Image.new('RGBA', (16, 8))
+    for y, row in enumerate(STUMP):
+        for x, ch in enumerate(row):
+            img.putpixel((x, y), STUMP_COLOURS[ch])
+    return img
+
+
 def main():
     preview = sys.argv[sys.argv.index('--preview') + 1] if '--preview' in sys.argv else None
     out = {(ROOT, 'item/pochita.png'): draw(POCHITA), (CLIENT_ROOT, 'entity/form_flesh.png'): draw(FLESH),
@@ -814,7 +847,8 @@ def main():
            (CLIENT_ROOT, 'entity/form_flare.png'): flare(), (CLIENT_ROOT, 'entity/form_trail.png'): trail(),
            (CLIENT_ROOT, 'gui/form_roar.png'): roar(), (CLIENT_ROOT, 'entity/form_saw_chain.png'): saw_chain(),
            (CLIENT_ROOT, 'gui/dream_door.png'): dream_door(), (CLIENT_ROOT, 'gui/lens_blood.png'): lens_blood(),
-           (CLIENT_ROOT, 'gui/form_sfx.png'): sfx(), (CLIENT_ROOT, 'entity/dream_floor.png'): dream_floor()}
+           (CLIENT_ROOT, 'gui/form_sfx.png'): sfx(), (CLIENT_ROOT, 'entity/dream_floor.png'): dream_floor(),
+           (CLIENT_ROOT, 'entity/form_stump.png'): stump()}
     head, head_glow = form_head()
     out[(CLIENT_ROOT, 'entity/form_head.png')] = head
     out[(CLIENT_ROOT, 'entity/form_head_glow.png')] = head_glow

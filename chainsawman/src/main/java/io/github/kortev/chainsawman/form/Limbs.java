@@ -75,7 +75,7 @@ public final class Limbs {
 		int arm = (lost & RIGHT) == 0 ? RIGHT : LEFT;
 		set(player, lost | arm);
 		Form.play(player, ChainsawSounds.HIT, 1.3F);
-		player.getServerWorld().spawnParticles(BLOOD, player.getX(), player.getY() + 1.3, player.getZ(), 40, 0.4, 0.3, 0.4, 0.15);
+		around(player, 40, 0.4, 0.3, 0.15);
 	}
 
 	/** Blood drunk by cutting: with an arm gone, every {@link #REGROW} of it grows one back. */
@@ -98,11 +98,24 @@ public final class Limbs {
 		if (lost != 0) {
 			set(player, (lost & LEFT) != 0 ? lost & ~LEFT : lost & ~RIGHT);
 			Form.play(player, ChainsawSounds.REVIVE, 0.6F);
-			player.getServerWorld().spawnParticles(BLOOD, player.getX(), player.getY() + 1.3, player.getZ(), 20, 0.35, 0.25, 0.35, 0.05);
+			around(player, 20, 0.35, 0.25, 0.05);
 		}
 	}
 
 	/** Both arms back, and the count of damage started over. */
+	/**
+	 * Blood about {@code player}'s shoulders, for everyone else to see: in their own eyes it would burst in their face
+	 * (their client sprays their own, from the stump).
+	 */
+	private static void around(ServerPlayerEntity player, int count, double spread, double high, double speed) {
+		for (ServerPlayerEntity other : player.getServerWorld().getPlayers()) {
+			if (other != player) {
+				player.getServerWorld().spawnParticles(other, BLOOD, false, player.getX(), player.getY() + 1.3, player.getZ(), count, spread, high, spread,
+						speed);
+			}
+		}
+	}
+
 	public static void whole(ServerPlayerEntity player) {
 		TAKEN.remove(player.getUuid());
 		DRUNK.remove(player.getUuid());

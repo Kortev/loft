@@ -142,6 +142,10 @@ public class FormSelfTest implements ClientModInitializer {
 					// Only the test ground (-Ptarget=scene).
 					stage = Stage.FIGHT;
 					ticks = 1599;
+				} else if (ticks > 80 && CAMERA_IDS.size() == CAMERAS.length && "limbs".equals(System.getProperty("shootingstar.selftest.target"))) {
+					// Only the arms lost and grown back (-Ptarget=limbs).
+					stage = Stage.FIGHT;
+					ticks = 1799;
 				} else if (ticks > 80 && CAMERA_IDS.size() == CAMERAS.length && "chain".equals(System.getProperty("shootingstar.selftest.target"))) {
 					// Only the chain (-Ptarget=chain), thrown by the stand-in.
 					addStandIn(client);
@@ -565,6 +569,39 @@ public class FormSelfTest implements ClientModInitializer {
 			case 1738 -> screenshot(client, "standin_kick_02");
 			case 1740 -> screenshot(client, "standin_kick_04");
 			case 1746 -> stage = Stage.DONE;
+			// Arms lost in the fight (-Ptarget=limbs): the right, then the left, seen from the front; from behind; through
+			// your own eyes; then grown back out of blood, one and the other.
+			case 1800 -> {
+				client.setCameraEntity(client.player);
+				client.options.hudHidden = false;
+				client.options.setPerspective(Perspective.THIRD_PERSON_FRONT);
+				client.player.setPitch(8.0F);
+				server.execute(() -> {
+					ServerPlayerEntity p = serverPlayer(server);
+					for (Entity e : p.getServerWorld().getOtherEntities(p, p.getBoundingBox().expand(40.0), x -> x instanceof net.minecraft.entity.mob.MobEntity)) {
+						e.discard();
+					}
+					io.github.kortev.chainsawman.form.Blood.set(p, io.github.kortev.chainsawman.form.Blood.MAX);
+					Form.start(p);
+					io.github.kortev.chainsawman.form.Limbs.whole(p);
+				});
+			}
+			case 1830, 1890 -> server.execute(() -> io.github.kortev.chainsawman.form.Limbs.lose(serverPlayer(server)));
+			case 1834 -> screenshot(client, "limbs_right_off");
+			case 1860 -> screenshot(client, "limbs_right_stub");
+			case 1894 -> screenshot(client, "limbs_left_off");
+			case 1925 -> screenshot(client, "limbs_both_front");
+			case 1940 -> client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
+			case 1960 -> screenshot(client, "limbs_both_back");
+			case 1975 -> client.options.setPerspective(Perspective.FIRST_PERSON);
+			case 1995 -> screenshot(client, "limbs_first_person");
+			case 2010 -> screenshot(client, "limbs_first_person_2");
+			case 2030 -> server.execute(() -> io.github.kortev.chainsawman.form.Limbs.regrow(serverPlayer(server)));
+			case 2036 -> screenshot(client, "limbs_first_person_regrow");
+			case 2050 -> client.options.setPerspective(Perspective.THIRD_PERSON_FRONT);
+			case 2065 -> server.execute(() -> io.github.kortev.chainsawman.form.Limbs.regrow(serverPlayer(server)));
+			case 2069 -> screenshot(client, "limbs_regrow");
+			case 2110 -> stage = Stage.DONE;
 			default -> {
 			}
 		}

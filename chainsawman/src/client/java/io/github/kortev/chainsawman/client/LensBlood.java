@@ -49,6 +49,18 @@ public final class LensBlood {
 		}
 	}
 
+	/** Your own arm off: blood thrown up over that side of the view, big. */
+	static void lost(boolean right, long now) {
+		if (MinecraftClient.getInstance().gameRenderer.getCamera().isThirdPerson()) {
+			return;
+		}
+		for (int i = 0; i < 3; i++) {
+			float x = right ? 0.68F + RANDOM.nextFloat() * 0.27F : 0.05F + RANDOM.nextFloat() * 0.27F;
+			float y = 0.3F + RANDOM.nextFloat() * 0.6F;
+			ON.add(new Splat(now, x, y, 0.2F + RANDOM.nextFloat() * 0.12F, RANDOM.nextInt(3), RANDOM.nextBoolean()));
+		}
+	}
+
 	public static void render(DrawContext ctx, RenderTickCounter counter) {
 		MinecraftClient client = MinecraftClient.getInstance();
 		if (ON.isEmpty() || client.player == null) {
