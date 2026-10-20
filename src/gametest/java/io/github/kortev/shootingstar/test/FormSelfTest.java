@@ -484,6 +484,11 @@ public class FormSelfTest implements ClientModInitializer {
 				screenshot(client, String.format("kill_cow_%02d", age));
 			}
 		}
+		for (int age : new int[] {2, 5, 9, 14}) {
+			if (f == end + 303 + age) {
+				screenshot(client, String.format("down_%02d", age));
+			}
+		}
 		for (int age : new int[] {0, 3, 6, 9, 12, 15, 19, 23, 27}) {
 			if (f == end + 321 + age) {
 				screenshot(client, String.format("getup_%02d", age));

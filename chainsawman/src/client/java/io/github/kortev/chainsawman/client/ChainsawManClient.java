@@ -54,6 +54,7 @@ public final class ChainsawManClient implements ClientModInitializer {
 		WorldRenderEvents.AFTER_ENTITIES.register(MergeCinematic::render);
 		WorldRenderEvents.AFTER_ENTITIES.register(SawTrails::render);
 		WorldRenderEvents.AFTER_ENTITIES.register(CutDown::render);
+		WorldRenderEvents.AFTER_ENTITIES.register(Severed::render);
 		LivingEntityFeatureRendererRegistrationCallback.EVENT.register((type, renderer, helper, context) -> {
 			if (renderer instanceof PlayerEntityRenderer player) {
 				MergeCinematic.setModel(new PochitaModel(context.getPart(PochitaRenderer.LAYER)));

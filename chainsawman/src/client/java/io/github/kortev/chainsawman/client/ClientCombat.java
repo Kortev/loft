@@ -161,10 +161,21 @@ public final class ClientCombat {
 				}
 			}
 			case FormEventPayload.LIMBS -> {
+				int was = LOST.getOrDefault(id, 0);
 				if (event.value() == 0) {
 					LOST.remove(id);
 				} else {
 					LOST.put(id, event.value());
+				}
+				if (!DOWN.contains(id) && world.getPlayerByUuid(id) instanceof AbstractClientPlayerEntity player) {
+					// An arm lost in the fight: off it flies.
+					int off = event.value() & ~was;
+					if ((off & Limbs.RIGHT) != 0) {
+						Severed.off(player, Severed.RIGHT_ARM, now);
+					}
+					if ((off & Limbs.LEFT) != 0) {
+						Severed.off(player, Severed.LEFT_ARM, now);
+					}
 				}
 			}
 			case FormEventPayload.HIT, FormEventPayload.KILL -> {
@@ -185,6 +196,18 @@ public final class ClientCombat {
 			}
 			case FormEventPayload.DOWNED -> {
 				if (event.value() != 0) {
+					if (!DOWN.contains(id) && world.getPlayerByUuid(id) instanceof AbstractClientPlayerEntity player) {
+						// Going down: whatever arms and legs are still on fly off.
+						int lost = LOST.getOrDefault(id, 0);
+						if ((lost & Limbs.RIGHT) == 0) {
+							Severed.off(player, Severed.RIGHT_ARM, now);
+						}
+						if ((lost & Limbs.LEFT) == 0) {
+							Severed.off(player, Severed.LEFT_ARM, now);
+						}
+						Severed.off(player, Severed.RIGHT_LEG, now);
+						Severed.off(player, Severed.LEFT_LEG, now);
+					}
 					DOWN.add(id);
 					UP.remove(id);
 				} else if (DOWN.remove(id)) {
@@ -383,6 +406,7 @@ public final class ClientCombat {
 		}
 		MergeCinematic.tick(world);
 		CutDown.tick(world);
+		Severed.tick(world);
 		swing(client, self);
 		for (AbstractClientPlayerEntity player : world.getPlayers()) {
 			UUID id = player.getUuid();
@@ -552,6 +576,7 @@ public final class ClientCombat {
 		CHAINS.clear();
 		MergeCinematic.clear();
 		CutDown.clear();
+		Severed.clear();
 		SawTrails.clear();
 		LOST.clear();
 		HEARTS.clear();

@@ -312,6 +312,9 @@ tuning the numbers.
   under you and stand (`GetUpMixin`, `GetUpLeanMixin` stops the game's crawl leaning you as well; the server holds you
   still for `Downed.RISE`, 26 ticks). At the end of the merge you sit up with your legs out, rock forward into a
   crouch and stand (RISE to END is now 30 ticks; END moved to 626 and `form_merge.ogg` with it).
+- **Limbs come off** (`Severed`): going down, the arms and legs still on you fly off in a spray of blood, spinning,
+  land and lie there 4 seconds before a puff; an arm lost mid-fight does the same. Each is the player's own arm or
+  leg, their skin and sleeve, drawn on its own.
 - **No zoom while held still** (`HeldStillFovMixin`): down or merging, your speed is taken away and the game zoomed
   your view in by half, as it does for slowness; every merge shot had been framed against that.
 
