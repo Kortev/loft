@@ -14,7 +14,7 @@ public abstract class FormFovMixin {
 	@Inject(method = "getFov", at = @At("RETURN"), cancellable = true)
 	private void chainsawman$punchIn(Camera camera, float tickDelta, boolean changingFov, CallbackInfoReturnable<Double> cir) {
 		if (changingFov) {
-			float scale = FormCinematic.fovScale(tickDelta);
+			float scale = FormCinematic.fovScale(tickDelta) * io.github.kortev.chainsawman.client.ClientCombat.fov(tickDelta);
 			if (scale != 1.0F) {
 				cir.setReturnValue(cir.getReturnValue() * scale);
 			}

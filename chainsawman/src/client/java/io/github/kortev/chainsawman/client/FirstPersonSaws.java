@@ -31,8 +31,10 @@ public final class FirstPersonSaws {
 		int step = swing >= 0.0F && which != null ? which.step() : -1;
 		float k = swing / ClientCombat.SWING;
 		boolean grind = ClientCombat.grinding(player) || player.handSwinging && step < 0;
+		boolean lunge = step == 3;
 		ClientCombat.Chain chain = ClientCombat.chain(player);
-		float chainOut = chain != null ? 1.0F - MathHelper.clamp((player.getWorld().getTime() - chain.at() + tickDelta - 6.0F) / 4.0F, 0.0F, 1.0F) : 0.0F;
+		float chainOut = chain == null ? 0.0F
+				: chain.held() ? 1.0F : 1.0F - MathHelper.clamp((player.getWorld().getTime() - chain.at() + tickDelta - 6.0F) / 4.0F, 0.0F, 1.0F);
 		float time = player.age + tickDelta;
 		for (Arm arm : new Arm[] {Arm.RIGHT, Arm.LEFT}) {
 			float side = arm == Arm.RIGHT ? 1.0F : -1.0F;
@@ -44,7 +46,11 @@ public final class FirstPersonSaws {
 				matrices.translate(-side * 0.16F + shake, 0.12F + shake, -0.12F);
 				matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(side * 12.0F));
 			}
-			if (step == 2) {
+			if (lunge) {
+				// Both arms swept back and down out of the way: the head leads.
+				float back = MathHelper.sin(MathHelper.clamp(k, 0.0F, 1.0F) * MathHelper.PI);
+				matrices.translate(side * 0.18F * back, -0.35F * back, 0.15F * back);
+			} else if (step == 2) {
 				// Both raised up out of view, then brought down hard through the middle.
 				float up = ease(k / 0.3F);
 				float down = ease((k - 0.3F) / 0.25F);

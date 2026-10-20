@@ -14,7 +14,10 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.decoration.ArmorStandEntity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.particle.BlockStateParticleEffect;
+import net.minecraft.particle.ItemStackParticleEffect;
 import net.minecraft.particle.DustParticleEffect;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.server.MinecraftServer;
@@ -53,6 +56,14 @@ public final class Saw {
 	public static final float KILL_HEAL = 6.0F;
 	/** The form's cost: a point of health (half a heart) every so many ticks. */
 	public static final int DRAIN_EVERY = 60;
+	/**
+	 * The lunge (attacking while sprinting): headfirst, the head's saw first, this fast (blocks a tick), for this long
+	 * (ticks), cutting what it runs through for this much; then this long before the next.
+	 */
+	private static final double LUNGE_SPEED = 1.5;
+	public static final int LUNGE_TICKS = 8;
+	public static final float LUNGE_DAMAGE = 12.0F;
+	public static final int LUNGE_EVERY = 24;
 
 	private static final DustParticleEffect BLOOD = new DustParticleEffect(new Vector3f(0.62F, 0.02F, 0.04F), 1.0F);
 	private static final DustParticleEffect DARK_BLOOD = new DustParticleEffect(new Vector3f(0.35F, 0.0F, 0.02F), 1.3F);
@@ -67,6 +78,15 @@ public final class Saw {
 	private static final Map<UUID, Integer> GRINDING = new ConcurrentHashMap<>();
 	/** Who the form drains, and since when (server ticks). */
 	private static final Map<UUID, Long> DRAINING = new ConcurrentHashMap<>();
+	/** Who is lunging: since when, and what the lunge has cut already (each thing once). */
+	private record Lunge(long at, Set<UUID> cut) {
+	}
+
+	private static final Map<UUID, Lunge> LUNGING = new ConcurrentHashMap<>();
+	private static final Map<UUID, Long> LUNGED = new ConcurrentHashMap<>();
+	/** What a kill throws about: torn flesh and bone. */
+	private static final ItemStackParticleEffect FLESH = new ItemStackParticleEffect(ParticleTypes.ITEM, new ItemStack(Items.ROTTEN_FLESH));
+	private static final ItemStackParticleEffect BONE = new ItemStackParticleEffect(ParticleTypes.ITEM, new ItemStack(Items.BONE));
 
 	private Saw() {
 	}
@@ -75,6 +95,7 @@ public final class Saw {
 		ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
 			if (source.getAttacker() instanceof ServerPlayerEntity killer && killer != entity && Form.fighting(killer)) {
 				heal(killer, KILL_HEAL);
+				tearApart(killer, entity);
 			}
 		});
 	}
@@ -102,12 +123,56 @@ public final class Saw {
 			bleed(player.getServerWorld(), target, finisher ? 30 : 18);
 		}
 		Form.play(player, ChainsawSounds.SLASH, 1.0F);
-		if (!hit.isEmpty()) {
+		Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.SWING, step));
+		landed(player, hit.size());
+		return true;
+	}
+
+	/** A hit or more landing: the sound of it, the blood drunk, and everyone told (the pause and kick of a heavy hit). */
+	private static void landed(ServerPlayerEntity player, int hit) {
+		if (hit > 0) {
 			Form.play(player, ChainsawSounds.HIT, 1.0F);
 			heal(player, HIT_HEAL * Frenzy.heal(player));
+			Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.HIT, hit));
 		}
-		Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.SWING, step));
+	}
+
+	/** The lunge: off headfirst the way you look, cutting through what you run into. */
+	public static boolean lunge(ServerPlayerEntity player) {
+		if (!Form.fighting(player)) {
+			return false;
+		}
+		long now = player.getServerWorld().getTime();
+		Long last = LUNGED.get(player.getUuid());
+		if (last != null && now - last < LUNGE_EVERY) {
+			return false;
+		}
+		LUNGED.put(player.getUuid(), now);
+		LUNGING.put(player.getUuid(), new Lunge(now, ConcurrentHashMap.newKeySet()));
+		Vec3d look = player.getRotationVec(1.0F).multiply(1.0, 0.25, 1.0).normalize();
+		player.setVelocity(look.multiply(LUNGE_SPEED).add(0.0, 0.15, 0.0));
+		player.velocityModified = true;
+		Form.play(player, ChainsawSounds.SLASH, 1.2F);
+		Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.SWING, 3));
 		return true;
+	}
+
+	/** A kill by the saws: torn apart, in a burst of blood, flesh and bone, the body gone with it. */
+	private static void tearApart(ServerPlayerEntity killer, LivingEntity dead) {
+		ServerWorld world = killer.getServerWorld();
+		Vec3d at = dead.getBoundingBox().getCenter();
+		double w = dead.getWidth() * 0.5;
+		double h = dead.getHeight() * 0.4;
+		world.spawnParticles(GORE, at.x, at.y, at.z, 40, w, h, w, 0.35);
+		world.spawnParticles(BLOOD, at.x, at.y, at.z, 50, w, h, w, 0.3);
+		world.spawnParticles(DARK_BLOOD, at.x, at.y, at.z, 25, w, h, w, 0.2);
+		world.spawnParticles(FLESH, at.x, at.y, at.z, 14, w, h, w, 0.25);
+		world.spawnParticles(BONE, at.x, at.y, at.z, 6, w, h, w, 0.25);
+		Form.broadcast(killer.server, new FormEventPayload(killer.getUuid(), FormEventPayload.KILL, dead.getId()));
+		if (!(dead instanceof PlayerEntity)) {
+			// Nothing left to fall over.
+			dead.discard();
+		}
 	}
 
 	/** The saws held grinding, or let go. */
@@ -151,6 +216,25 @@ public final class Saw {
 					continue;
 				}
 				player.setHealth(player.getHealth() - 1.0F);
+			}
+			Lunge lunge = LUNGING.get(id);
+			if (lunge != null) {
+				if (now - lunge.at() > LUNGE_TICKS) {
+					LUNGING.remove(id);
+				} else {
+					int cut = 0;
+					for (LivingEntity target : inFront(player, 2.2, 0.35)) {
+						if (lunge.cut().add(target.getUuid())) {
+							target.timeUntilRegen = 0;
+							target.damage(player.getDamageSources().playerAttack(player), LUNGE_DAMAGE * Frenzy.damage(player));
+							Vec3d push = player.getRotationVec(1.0F);
+							target.takeKnockback(1.2, -push.x, -push.z);
+							bleed(player.getServerWorld(), target, 30);
+							cut++;
+						}
+					}
+					landed(player, cut);
+				}
 			}
 			Integer bites = GRINDING.get(id);
 			if (bites != null && now % GRIND_EVERY == 0) {
@@ -235,12 +319,16 @@ public final class Saw {
 	}
 
 	static void forget(UUID id) {
+		LUNGING.remove(id);
+		LUNGED.remove(id);
 		SLASHED.remove(id);
 		GRINDING.remove(id);
 		DRAINING.remove(id);
 	}
 
 	static void clear() {
+		LUNGING.clear();
+		LUNGED.clear();
 		SLASHED.clear();
 		GRINDING.clear();
 		DRAINING.clear();

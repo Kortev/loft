@@ -10,8 +10,10 @@ import net.minecraft.util.Uuids;
 
 /**
  * What a player in the form has done, told to everyone so they see it: a slash ({@code value} the step of the combo),
- * grinding on or off ({@code value} 1 or 0), the chain fired ({@code value} the entity it caught or -1, {@code x y z}
- * where it went), downed or back up ({@code value} 1 or 0), the frenzy ({@code value} its ticks left, 0 when over).
+ * grinding on or off ({@code value} 1 or 0), the chain fired ({@code value} the entity it caught, -1 a block, -2
+ * nothing; {@code x y z} where it went; held until CHAIN_END, unless it caught nothing), downed or back up ({@code value}
+ * 1 or 0), the frenzy ({@code value} its ticks left, 0 when over), a hit landing ({@code value} how many it hit), a kill
+ * by the saws ({@code value} the entity torn apart).
  */
 public record FormEventPayload(UUID player, byte kind, int value, double x, double y, double z) implements CustomPayload {
 	public static final byte SWING = 0;
@@ -19,6 +21,9 @@ public record FormEventPayload(UUID player, byte kind, int value, double x, doub
 	public static final byte CHAIN = 2;
 	public static final byte DOWNED = 3;
 	public static final byte FRENZY = 4;
+	public static final byte HIT = 5;
+	public static final byte CHAIN_END = 6;
+	public static final byte KILL = 7;
 
 	public static final CustomPayload.Id<FormEventPayload> ID = new CustomPayload.Id<>(ChainsawMan.id("form_event"));
 	public static final PacketCodec<RegistryByteBuf, FormEventPayload> CODEC = PacketCodec.tuple(Uuids.PACKET_CODEC, FormEventPayload::player,

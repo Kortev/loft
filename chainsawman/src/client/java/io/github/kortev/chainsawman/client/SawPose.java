@@ -8,8 +8,10 @@ import net.minecraft.util.math.MathHelper;
  * The body fighting in the form, as everyone sees it, in place of the game's punch. The combo ({@link ClientCombat#SWING}
  * ticks a slash): the right arm drawn back out to the side and swept across the body, the torso twisting into it; the
  * left the same way back; then both arms raised overhead and brought down together, the head nodding its saw down with
- * them. Grinding (or cutting through a block): both arms held out in front, shaking with the engine. The chain fired:
- * the right arm thrown out the way you look. In a frenzy the arms hang wide and the head comes forward.
+ * them. The lunge: bent forward headfirst, the head's saw leading, arms swept back. Grinding (or cutting through a
+ * block): both arms held out in front, shaking with the engine. The chain out: the right arm held out along it. And
+ * the rest of the time his own stance, not a player's: standing, arms a little forward and out, saws low; running,
+ * leaning in with the arms swept back, saws trailing. In a frenzy the arms hang wider and the head comes forward.
  *
  * <p>Angles in radians, as in {@link CordPull}: an arm out in front is pitched -π/2; a raised arm swings out from the
  * body with a positive yaw on the right.
@@ -32,16 +34,21 @@ public final class SawPose {
 		float swing = ClientCombat.swingAge(player, tickDelta);
 		ClientCombat.Swing which = ClientCombat.swing(player);
 		ClientCombat.Chain chain = ClientCombat.chain(player);
-		if (swing >= 0.0F && which != null) {
+		if (swing >= 0.0F && which != null && which.step() == 3) {
+			lunge(model, swing / ClientCombat.SWING);
+		} else if (swing >= 0.0F && which != null) {
 			slash(model, which.step(), swing / ClientCombat.SWING);
 		} else if (ClientCombat.grinding(player) || player.handSwinging) {
 			grind(model, player.age + tickDelta);
-		} else if (ClientCombat.frenzy(player)) {
-			model.rightArm.roll += 0.35F;
-			model.leftArm.roll -= 0.35F;
-			model.head.pitch += 0.2F;
+		} else {
+			stance(model, player);
 		}
-		if (chain != null && player.getWorld().getTime() - chain.at() < 8) {
+		if (ClientCombat.frenzy(player)) {
+			model.rightArm.roll += 0.2F;
+			model.leftArm.roll -= 0.2F;
+			model.head.pitch += 0.15F;
+		}
+		if (chain != null) {
 			model.rightArm.pitch = FORWARD + model.head.pitch;
 			model.rightArm.yaw = model.head.yaw;
 			model.rightArm.roll = 0.0F;
@@ -90,6 +97,35 @@ public final class SawPose {
 			model.leftArm.roll = 0.0F;
 			model.rightArm.yaw += model.body.yaw;
 		}
+	}
+
+	/** Standing or walking: arms a little forward and out, swinging less than a player's; running: leaning in, arms back. */
+	private static void stance(BipedEntityModel<?> model, PlayerEntity player) {
+		if (player.isSprinting()) {
+			float swing = model.rightArm.pitch * 0.25F;
+			model.rightArm.pitch = 0.85F + swing;
+			model.leftArm.pitch = 0.85F - swing;
+			model.rightArm.roll = 0.3F;
+			model.leftArm.roll = -0.3F;
+			model.body.pitch = 0.3F;
+			model.head.pitch -= 0.25F;
+			return;
+		}
+		model.rightArm.pitch = model.rightArm.pitch * 0.4F - 0.3F;
+		model.leftArm.pitch = model.leftArm.pitch * 0.4F - 0.3F;
+		model.rightArm.roll += 0.18F;
+		model.leftArm.roll -= 0.18F;
+	}
+
+	/** Headfirst: bent forward, the head's saw leading, the arms swept back. */
+	private static void lunge(BipedEntityModel<?> model, float k) {
+		float in = ease(k / 0.2F) * (1.0F - ease((k - 0.7F) / 0.3F));
+		model.body.pitch = 0.5F * in;
+		model.head.pitch += 0.25F * in;
+		model.rightArm.pitch = 1.1F * in;
+		model.leftArm.pitch = 1.1F * in;
+		model.rightArm.roll = 0.25F * in;
+		model.leftArm.roll = -0.25F * in;
 	}
 
 	/** Both arms out in front, a little in, shaking with the engine. */

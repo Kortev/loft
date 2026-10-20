@@ -174,7 +174,7 @@ public class FormGameTests implements FabricGameTest {
 		});
 	}
 
-	/** The chain yanks what it catches to you; caught in a block, it pulls you to it. */
+	/** The chain yanks what it catches to you and holds it; let go and fired at a block, it pulls you to it. */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_chain", tickLimit = 20)
 	public void chainYanksAndPulls(TestContext context) {
 		ServerPlayerEntity player = fighter(context, "chainer", 0.0);
@@ -189,6 +189,9 @@ public class FormGameTests implements FabricGameTest {
 			far.discard();
 			BlockPos wall = BlockPos.ofFloored(player.getEyePos().add(0.0, 0.0, 4.0));
 			context.getWorld().setBlockState(wall, Blocks.STONE.getDefaultState());
+			context.assertTrue(Grapple.holding(player), "the husk was not held on the chain");
+			Grapple.release(player);
+			context.assertTrue(!Grapple.holding(player), "the chain did not let go");
 			Grapple.ready(player);
 			player.setVelocity(Vec3d.ZERO);
 			player.setYaw(0.0F);

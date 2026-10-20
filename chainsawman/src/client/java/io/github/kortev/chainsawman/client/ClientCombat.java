@@ -42,17 +42,41 @@ public final class ClientCombat {
 	private static final int HOLD_TO_GRIND = 6;
 	/** How long a chain is out (ticks). */
 	public static final int CHAIN = 12;
+	/** Long enough ago that the next slash may come (not Long.MIN_VALUE: the time since it would overflow). */
+	private static final long NEVER = -1000L;
 
 	public record Swing(int step, long at) {
 	}
 
-	/** A chain fired: what it caught (an entity's id; -1 a block, -2 nothing), where it went, and when. */
+	/**
+	 * A chain fired: what it caught (an entity's id; -1 a block, -2 nothing), where it went, and when. One that caught
+	 * something is held until the server lets it go.
+	 */
 	public record Chain(int entity, Vec3d to, long at) {
+		public boolean held() {
+			return entity != -2;
+		}
 	}
+
+	/** A heavy hit's pause: the swing held still until {@code until}, at {@code age} ticks in. */
+	private record Pause(long until, float age) {
+	}
+
+	/** How long a hit holds the swing still (ticks), how hard it kicks your camera (blocks) and punches the view in. */
+	private static final int PAUSE = 2;
+	private static final double KICK = 0.07;
+	private static final float PUNCH = 0.05F;
+	/** Swinging from a block: how fast the chain reels you in (blocks a tick), and how short it gets. */
+	private static final double REEL = 0.1;
+	private static final double SHORTEST = 2.5;
 
 	private static final Map<UUID, Swing> SWINGS = new ConcurrentHashMap<>();
 	private static final Set<UUID> GRINDING = ConcurrentHashMap.newKeySet();
 	private static final Map<UUID, Chain> CHAINS = new ConcurrentHashMap<>();
+	private static final Map<UUID, Pause> PAUSED = new ConcurrentHashMap<>();
+	/** When your own last hit landed (for the kick), and how long your swinging chain is (or -1). */
+	private static long kickAt = NEVER;
+	private static double tether = -1.0;
 	private static final Map<UUID, Long> FRENZY = new ConcurrentHashMap<>();
 	private static final Map<UUID, Long> FRENZY_FROM = new ConcurrentHashMap<>();
 	private static final Set<UUID> DOWN = ConcurrentHashMap.newKeySet();
@@ -62,8 +86,6 @@ public final class ClientCombat {
 	private static final DustParticleEffect BLOOD = new DustParticleEffect(new Vector3f(0.5F, 0.0F, 0.03F), 1.0F);
 	private static final Random RANDOM = Random.create();
 
-	/** Long enough ago that the next slash may come (not Long.MIN_VALUE: the time since it would overflow). */
-	private static final long NEVER = -1000L;
 	/** Your own attack key: how long it has been held, whether you are grinding, and when you last slashed. */
 	private static int held;
 	private static boolean grindSent;
@@ -95,7 +117,25 @@ public final class ClientCombat {
 					GRINDING.remove(id);
 				}
 			}
-			case FormEventPayload.CHAIN -> CHAINS.put(id, new Chain(event.value(), new Vec3d(event.x(), event.y(), event.z()), now));
+			case FormEventPayload.CHAIN -> {
+				CHAINS.put(id, new Chain(event.value(), new Vec3d(event.x(), event.y(), event.z()), now));
+				if (client.player != null && id.equals(client.player.getUuid())) {
+					tether = -1.0;
+				}
+			}
+			case FormEventPayload.CHAIN_END -> CHAINS.remove(id);
+			case FormEventPayload.HIT, FormEventPayload.KILL -> {
+				PlayerEntity player = world.getPlayerByUuid(id);
+				if (player != null) {
+					float age = swingAge(player, 0.0F);
+					if (age >= 0.0F) {
+						PAUSED.put(id, new Pause(now + PAUSE, age));
+					}
+				}
+				if (client.player != null && id.equals(client.player.getUuid())) {
+					kickAt = now;
+				}
+			}
 			case FormEventPayload.DOWNED -> {
 				if (event.value() != 0) {
 					DOWN.add(id);
@@ -131,7 +171,14 @@ public final class ClientCombat {
 		if (swing == null) {
 			return -1.0F;
 		}
-		float age = player.getWorld().getTime() - swing.at() + tickDelta;
+		long now = player.getWorld().getTime();
+		Pause pause = PAUSED.get(player.getUuid());
+		if (pause != null && now < pause.until()) {
+			// Held still on the hit: the swing caught in what it cut.
+			return pause.age();
+		}
+		float paused = pause != null && pause.until() > swing.at() ? PAUSE : 0.0F;
+		float age = now - swing.at() + tickDelta - paused;
 		return age >= 0.0F && age < SWING ? age : -1.0F;
 	}
 
@@ -142,7 +189,27 @@ public final class ClientCombat {
 	@Nullable
 	public static Chain chain(PlayerEntity player) {
 		Chain chain = CHAINS.get(player.getUuid());
-		return chain != null && player.getWorld().getTime() - chain.at() < CHAIN ? chain : null;
+		return chain != null && (chain.held() || player.getWorld().getTime() - chain.at() < CHAIN) ? chain : null;
+	}
+
+	/** How hard your camera is kicked now by your own last hit (blocks). */
+	public static double kick(float tickDelta) {
+		ClientPlayerEntity self = MinecraftClient.getInstance().player;
+		if (self == null || kickAt == NEVER) {
+			return 0.0;
+		}
+		float t = self.getWorld().getTime() - kickAt + tickDelta;
+		return t < 0.0F ? 0.0 : KICK * Math.exp(-t / 2.0);
+	}
+
+	/** How far your view is punched in by your own last hit (1 for not at all). */
+	public static float fov(float tickDelta) {
+		ClientPlayerEntity self = MinecraftClient.getInstance().player;
+		if (self == null || kickAt == NEVER) {
+			return 1.0F;
+		}
+		float t = self.getWorld().getTime() - kickAt + tickDelta;
+		return t < 0.0F ? 1.0F : 1.0F - PUNCH * (float) Math.exp(-t / 2.5);
 	}
 
 	public static Map<UUID, Chain> chains() {
@@ -183,7 +250,10 @@ public final class ClientCombat {
 			return self == null || !Downed.is(self);
 		}
 		long now = self.getWorld().getTime();
-		if (now - lastSlash >= Saw.SLASH_EVERY) {
+		if (self.isSprinting()) {
+			// Running at it: headfirst.
+			send(FormActionPayload.LUNGE, true);
+		} else if (now - lastSlash >= Saw.SLASH_EVERY) {
 			lastSlash = now;
 			send(FormActionPayload.SLASH, true);
 		}
@@ -223,6 +293,7 @@ public final class ClientCombat {
 		if (Downed.is(self)) {
 			holdStill(client.options);
 		}
+		swing(client, self);
 		for (AbstractClientPlayerEntity player : world.getPlayers()) {
 			UUID id = player.getUuid();
 			loop(client, GRIND_SOUNDS, player, ChainsawSounds.GRIND, () -> grinding(player) && ClientForms.on(player), 0.9F);
@@ -236,8 +307,47 @@ public final class ClientCombat {
 			}
 		}
 		FRENZY.entrySet().removeIf(e -> now > e.getValue() + 40);
-		CHAINS.entrySet().removeIf(e -> now - e.getValue().at() > CHAIN);
+		CHAINS.entrySet().removeIf(e -> now - e.getValue().at() > (e.getValue().held() ? 400 : CHAIN));
+		PAUSED.entrySet().removeIf(e -> now > e.getValue().until() + SWING);
 		SWINGS.entrySet().removeIf(e -> now - e.getValue().at() > SWING * 3);
+	}
+
+	/**
+	 * Swinging from your chain caught in a block: the chain doesn't stretch, so you swing round where it's fixed, reeled
+	 * in a little every tick; jumping lets go (with a kick the way you look).
+	 */
+	private static void swing(MinecraftClient client, ClientPlayerEntity self) {
+		Chain chain = CHAINS.get(self.getUuid());
+		if (chain == null || chain.entity() != -1) {
+			tether = -1.0;
+			return;
+		}
+		Vec3d anchor = chain.to();
+		Vec3d hand = self.getPos().add(0.0, 1.2, 0.0);
+		Vec3d out = hand.subtract(anchor);
+		double far = out.length();
+		if (tether < 0.0) {
+			tether = far;
+		}
+		tether = Math.max(SHORTEST, tether - REEL);
+		if (client.options.jumpKey.isPressed() && self.getWorld().getTime() - chain.at() > 4) {
+			self.setVelocity(self.getVelocity().add(self.getRotationVec(1.0F).multiply(0.35)).add(0.0, 0.25, 0.0));
+			send(FormActionPayload.RELEASE, true);
+			CHAINS.remove(self.getUuid());
+			tether = -1.0;
+			return;
+		}
+		if (far > tether && far > 1.0E-3) {
+			Vec3d dir = out.multiply(1.0 / far);
+			Vec3d fixed = anchor.add(dir.multiply(tether)).subtract(0.0, 1.2, 0.0);
+			self.setPosition(fixed.x, fixed.y, fixed.z);
+			Vec3d v = self.getVelocity();
+			double away = v.dotProduct(dir);
+			if (away > 0.0) {
+				self.setVelocity(v.subtract(dir.multiply(away)));
+			}
+		}
+		self.fallDistance = 0.0F;
 	}
 
 	/** Down, you can look round but not move, jump, fight or use anything. */
@@ -308,6 +418,9 @@ public final class ClientCombat {
 		SWINGS.clear();
 		GRINDING.clear();
 		CHAINS.clear();
+		PAUSED.clear();
+		kickAt = NEVER;
+		tether = -1.0;
 		FRENZY.clear();
 		FRENZY_FROM.clear();
 		DOWN.clear();

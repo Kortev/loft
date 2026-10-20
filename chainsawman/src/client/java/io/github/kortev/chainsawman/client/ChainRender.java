@@ -56,7 +56,7 @@ public final class ChainRender {
 				continue;
 			}
 			float age = world.getTime() - chain.at() + tickDelta;
-			if (age < 0.0F || age >= ClientCombat.CHAIN) {
+			if (age < 0.0F || !chain.held() && age >= ClientCombat.CHAIN) {
 				continue;
 			}
 			Vec3d from = fist(shooter, tickDelta);

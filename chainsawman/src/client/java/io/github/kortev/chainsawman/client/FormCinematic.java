@@ -209,7 +209,7 @@ public final class FormCinematic {
 	/** How hard the camera is being shaken now (blocks): the yank, each cough, the punch, the burst, the roar. */
 	public static double shake(float tickDelta) {
 		MinecraftClient client = MinecraftClient.getInstance();
-		double amplitude = 0.0;
+		double amplitude = ClientCombat.kick(tickDelta);
 		float t = mine(tickDelta);
 		if (t >= 0.0F) {
 			if (t > FormTimeline.REACH && t < FormTimeline.YANK) {

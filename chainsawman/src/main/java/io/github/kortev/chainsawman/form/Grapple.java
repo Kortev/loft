@@ -19,7 +19,10 @@ import net.minecraft.world.RaycastContext;
 
 /**
  * The chain from the arm: fired the way you look, up to {@link #REACH} blocks. Caught in something living, it yanks it
- * to you; caught in a block, it pulls you to it, and you land without hurting yourself. Missing, it rattles back.
+ * to you and holds it there, bound to you, for {@link #BIND} ticks: it can't get further than {@link #BOUND} blocks
+ * away (as he chains himself to Reze). Caught in a block, you swing from it on the chain, reeling in, until you let go
+ * (the chain key again, or jumping) or {@link #SWING} ticks are up, and you land without hurting yourself. Missing, it
+ * rattles back. The swinging is your own client's to move (it moves you), the server only keeps the chain.
  */
 public final class Grapple {
 	public static final double REACH = 24.0;
@@ -29,10 +32,20 @@ public final class Grapple {
 	public static final float DAMAGE = 2.0F;
 	/** How far off your aim the chain still catches something (blocks): it is a chain, not a needle. */
 	private static final double CATCH = 0.45;
+	/** How long something caught stays bound to you (ticks), and how far it may get. */
+	public static final int BIND = 100;
+	public static final double BOUND = 4.5;
+	/** How long you may swing from a block (ticks). */
+	public static final int SWING = 120;
 	/** How long after a pull you are kept from fall damage (ticks). */
 	private static final int SAFE = 50;
 
 	private static final Map<UUID, Long> FIRED = new ConcurrentHashMap<>();
+	/** A chain held: on what (an entity, or none for a block), and until when. */
+	private record Held(UUID shooter, Entity caught, long until) {
+	}
+
+	private static final Map<UUID, Held> HELD = new ConcurrentHashMap<>();
 	private static final Map<UUID, Long> SAFE_UNTIL = new ConcurrentHashMap<>();
 
 	private Grapple() {
@@ -41,6 +54,10 @@ public final class Grapple {
 	/** The chain fired by {@code player}; what it caught, or null if it missed or could not be fired yet. */
 	public static HitResult fire(ServerPlayerEntity player) {
 		if (!Form.fighting(player)) {
+			return null;
+		}
+		if (HELD.containsKey(player.getUuid())) {
+			release(player);
 			return null;
 		}
 		long now = player.getServerWorld().getTime();
@@ -56,14 +73,17 @@ public final class Grapple {
 		Vec3d reach = block.getType() == HitResult.Type.MISS ? end : block.getPos();
 		EntityHitResult entity = caught(player, eye, reach);
 		Form.play(player, ChainsawSounds.CHAIN, 1.0F);
+		long until = player.getServerWorld().getTime();
 		if (entity != null) {
 			yank(player, (LivingEntity) entity.getEntity());
+			HELD.put(player.getUuid(), new Held(player.getUuid(), entity.getEntity(), until + BIND));
 			Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.CHAIN, entity.getEntity().getId(),
 					entity.getPos().x, entity.getPos().y, entity.getPos().z));
 			return entity;
 		}
 		if (block.getType() != HitResult.Type.MISS) {
 			pull(player, block.getPos());
+			HELD.put(player.getUuid(), new Held(player.getUuid(), null, until + SWING));
 			Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.CHAIN, -1, reach.x, reach.y, reach.z));
 			return block;
 		}
@@ -104,15 +124,60 @@ public final class Grapple {
 	private static void pull(ServerPlayerEntity player, Vec3d at) {
 		Vec3d to = at.subtract(player.getPos());
 		double distance = to.length();
-		Vec3d pulled = to.normalize().multiply(Math.min(2.4, 0.6 + distance * 0.1)).add(0.0, 0.42, 0.0);
+		Vec3d pulled = to.normalize().multiply(Math.min(1.2, 0.55 + distance * 0.04)).add(0.0, 0.3, 0.0);
 		player.setVelocity(pulled);
 		player.velocityModified = true;
 		player.fallDistance = 0.0F;
 		SAFE_UNTIL.put(player.getUuid(), player.getServerWorld().getTime() + SAFE);
 	}
 
+	/** The chain let go: what it held is free, or you drop from your swing. */
+	public static void release(ServerPlayerEntity player) {
+		Held held = HELD.remove(player.getUuid());
+		if (held != null) {
+			SAFE_UNTIL.put(player.getUuid(), player.getServerWorld().getTime() + SAFE);
+			Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.CHAIN_END, 0));
+		}
+	}
+
+	/** Whether {@code player}'s chain is out and held. */
+	public static boolean holding(ServerPlayerEntity player) {
+		return HELD.containsKey(player.getUuid());
+	}
+
 	static void tick(MinecraftServer server) {
 		long now = server.getOverworld().getTime();
+		for (Map.Entry<UUID, Held> e : Map.copyOf(HELD).entrySet()) {
+			ServerPlayerEntity player = server.getPlayerManager().getPlayer(e.getKey());
+			Held held = e.getValue();
+			if (player == null) {
+				HELD.remove(e.getKey());
+				continue;
+			}
+			if (now > held.until() || !Form.fighting(player) || held.caught() != null && (!held.caught().isAlive() || held.caught().getWorld() != player.getWorld())) {
+				release(player);
+				continue;
+			}
+			if (held.caught() == null) {
+				player.fallDistance = 0.0F;
+				continue;
+			}
+			// Bound: pulled back in whenever it gets further than the chain lets it.
+			Entity caught = held.caught();
+			Vec3d out = caught.getPos().subtract(player.getPos());
+			double far = out.length();
+			if (far > BOUND) {
+				Vec3d back = out.normalize().multiply(-(far - BOUND) * 0.35);
+				Vec3d v = caught.getVelocity();
+				double away = v.dotProduct(out.normalize());
+				if (away > 0.0) {
+					v = v.subtract(out.normalize().multiply(away));
+				}
+				caught.setVelocity(v.add(back));
+				caught.velocityModified = true;
+				caught.fallDistance = 0.0F;
+			}
+		}
 		SAFE_UNTIL.entrySet().removeIf(e -> {
 			ServerPlayerEntity player = server.getPlayerManager().getPlayer(e.getKey());
 			if (player == null || now > e.getValue()) {
@@ -129,11 +194,13 @@ public final class Grapple {
 	}
 
 	static void forget(UUID id) {
+		HELD.remove(id);
 		FIRED.remove(id);
 		SAFE_UNTIL.remove(id);
 	}
 
 	static void clear() {
+		HELD.clear();
 		FIRED.clear();
 		SAFE_UNTIL.clear();
 	}
