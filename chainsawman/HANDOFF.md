@@ -263,6 +263,26 @@ splash, your own head back. A shorter beat sheet in `FormTimeline`, the same mac
 ### 3. The abilities: built (see "The fight" and "Second round" above). Next is kortev trying them in game and
 tuning the numbers.
 
+### Pochita, settled with kortev (2026-10-20)
+
+- **One per world** (`PochitaPlace`): placed once, fainted in a hollow fallen log 250-450 blocks from spawn; kortev
+  hears him whimpering within 40 blocks; lost for real (void, /kill), he's back there 2 minutes later; never again
+  once he's someone's heart. No natural spawns, no recipe.
+- **Can't die**: faints (on his side) until kortev gives him blood again (`PochitaEntity.WAKE`).
+- **Merging**: the first death with him **carried or tamed within 32 blocks** (`Merge`), as a 5.5 s cinematic
+  (`MergeTimeline`, `MergeCinematic`, `form_merge.ogg`): you go over backwards in the dark, he limps over, climbs onto
+  your chest, sinks into it (impact frames), the cord comes out, four heartbeats, you get up, the cord pulls itself.
+- **Held as a chainsaw**: the form's slash and grind, half damage, nothing drunk (`Saw.WIELDED`).
+- **Dreams**: down, now and then he appears on your darkened screen (`DreamHud`).
+- **His look is being redone**: kortev sent anime stills (not in the repo; described in `tools/pochita_model.py`'s
+  docstring). `tools/pochita_model.py --renders` builds him in Blender (round orange bean, darker under, big round
+  eyes, little snout, the bar on edge out of his forehead with a spiked chain, a big black D handle over the back of
+  his head, stubby front paws, round haunches, a thin black tail ending in a triangle) and renders previews.
+  **Waiting on kortev's OK of the renders**; then export him for the game (a mesh like `form.csm`, drawn for the
+  entity, the held item and the merge, replacing the boxy `PochitaModel`).
+- On the black chainsaw kortev asked about: it is past the Reze arc; told only "Part 1, read on from chapter 53"; build
+  nothing of it until kortev describes what they want from it.
+
 ### 4. Still to do from kortev's picks (agreed, not built yet)
 
 - **The transformation polish** above (the eye lighting up at the roar, the cord on the chest all the time - now
