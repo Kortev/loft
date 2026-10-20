@@ -70,8 +70,6 @@ public final class ClientCombat {
 	private static final double KICK = 0.07;
 	private static final float PUNCH = 0.05F;
 	/** Swinging from a block: how fast the chain reels you in (blocks a tick), and how short it gets. */
-	private static final double REEL = 0.1;
-	private static final double SHORTEST = 2.5;
 
 	private static final Map<UUID, Swing> SWINGS = new ConcurrentHashMap<>();
 	private static final Set<UUID> GRINDING = ConcurrentHashMap.newKeySet();
@@ -80,6 +78,9 @@ public final class ClientCombat {
 	/** When your own last hit landed (for the kick), and how long your swinging chain is (or -1). */
 	private static long kickAt = NEVER;
 	private static double tether = -1.0;
+	/** Reeled in to a block: how close is there (blocks), and the fastest it goes (blocks a tick). */
+	private static final double ARRIVE = 1.4;
+	private static final double ZIP = 1.7;
 	private static final Map<UUID, Long> FRENZY = new ConcurrentHashMap<>();
 	/** Who has Pochita's heart: the cord on their chest. */
 	private static final Set<UUID> HEARTS = ConcurrentHashMap.newKeySet();
@@ -345,6 +346,20 @@ public final class ClientCombat {
 		return Math.max(kick, 0.42F + 0.12F * MathHelper.sin(t * 0.45F));
 	}
 
+	/**
+	 * The use key in the form: right-clicking at nothing (or at a mob), the lunge, headfirst the way you look. At a block
+	 * (a door, a chest) or sneaking (to give a friend blood) it does what it always does. Whether the lunge took it.
+	 */
+	public static boolean use(MinecraftClient client) {
+		ClientPlayerEntity self = client.player;
+		if (self == null || !fighting(self) || self.isSneaking() || client.crosshairTarget != null
+				&& client.crosshairTarget.getType() == net.minecraft.util.hit.HitResult.Type.BLOCK) {
+			return false;
+		}
+		send(FormActionPayload.LUNGE, true);
+		return true;
+	}
+
 	/** The attack key pressed in the form: a slash. Whether the game should go on to do what it would have (mine a block). */
 	public static boolean attack(MinecraftClient client) {
 		ClientPlayerEntity self = client.player;
@@ -359,9 +374,6 @@ public final class ClientCombat {
 				send(FormActionPayload.SLASH, true);
 				self.swingHand(net.minecraft.util.Hand.MAIN_HAND);
 			}
-		} else if (self.isSprinting()) {
-			// Running at it: headfirst.
-			send(FormActionPayload.LUNGE, true);
 		} else if (now - lastSlash >= Saw.SLASH_EVERY) {
 			lastSlash = now;
 			send(FormActionPayload.SLASH, true);
@@ -450,36 +462,26 @@ public final class ClientCombat {
 	 * in a little every tick; jumping lets go (with a kick the way you look).
 	 */
 	private static void swing(MinecraftClient client, ClientPlayerEntity self) {
+		// Hooked on a block: reeled in straight to it, fast, and let go there with a hop (or early, jumping).
 		Chain chain = CHAINS.get(self.getUuid());
 		if (chain == null || chain.entity() != -1) {
 			tether = -1.0;
 			return;
 		}
-		Vec3d anchor = chain.to();
-		Vec3d hand = self.getPos().add(0.0, 1.2, 0.0);
-		Vec3d out = hand.subtract(anchor);
-		double far = out.length();
-		if (tether < 0.0) {
-			tether = far;
-		}
-		tether = Math.max(SHORTEST, tether - REEL);
-		if (client.options.jumpKey.isPressed() && self.getWorld().getTime() - chain.at() > 4) {
-			self.setVelocity(self.getVelocity().add(self.getRotationVec(1.0F).multiply(0.35)).add(0.0, 0.25, 0.0));
+		Vec3d to = chain.to().subtract(self.getPos().add(0.0, 1.0, 0.0));
+		double far = to.length();
+		boolean jumped = client.options.jumpKey.isPressed() && self.getWorld().getTime() - chain.at() > 4;
+		// Stuck against something: as good as there.
+		boolean stuck = tether >= 0.0 && tether - far < 0.05 && self.getWorld().getTime() - chain.at() > 6;
+		if (far < ARRIVE || jumped || stuck) {
+			self.setVelocity(self.getRotationVec(1.0F).multiply(0.25).add(0.0, 0.42, 0.0));
 			send(FormActionPayload.RELEASE, true);
 			CHAINS.remove(self.getUuid());
 			tether = -1.0;
 			return;
 		}
-		if (far > tether && far > 1.0E-3) {
-			Vec3d dir = out.multiply(1.0 / far);
-			Vec3d fixed = anchor.add(dir.multiply(tether)).subtract(0.0, 1.2, 0.0);
-			self.setPosition(fixed.x, fixed.y, fixed.z);
-			Vec3d v = self.getVelocity();
-			double away = v.dotProduct(dir);
-			if (away > 0.0) {
-				self.setVelocity(v.subtract(dir.multiply(away)));
-			}
-		}
+		tether = far;
+		self.setVelocity(to.multiply(Math.min(ZIP, 0.6 + far * 0.15) / far));
 		self.fallDistance = 0.0F;
 	}
 

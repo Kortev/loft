@@ -29,6 +29,10 @@ public final class Form {
 	private static final Set<UUID> ON = ConcurrentHashMap.newKeySet();
 	/** Who has pulled the cord and is on the way into the form, and how many ticks ago. */
 	private static final Map<UUID, Integer> PULLING = new ConcurrentHashMap<>();
+	/** How tough the form makes you: armour and toughness while it's on. */
+	public static final double ARMOR = 10.0;
+	public static final double TOUGHNESS = 6.0;
+	private static final net.minecraft.util.Identifier TOUGH = io.github.kortev.chainsawman.ChainsawMan.id("form_tough");
 	/** Who is turning back, and how many ticks in. */
 	private static final Map<UUID, Integer> TURNING = new ConcurrentHashMap<>();
 
@@ -201,7 +205,30 @@ public final class Form {
 			// Out of the form, your arms are your own again.
 			Limbs.whole(player);
 		}
+		if (player != null) {
+			tough(player, on);
+		}
 		broadcast(server, new FormPayload(id, on));
+	}
+
+	/**
+	 * In the form you're tough, as Chainsaw Man shrugs off what would kill a man: {@link #ARMOR} armour and {@link
+	 * #TOUGHNESS} toughness on you (about a third off a mob's hit), gone when you change back.
+	 */
+	private static void tough(ServerPlayerEntity player, boolean on) {
+		for (net.minecraft.registry.entry.RegistryEntry<net.minecraft.entity.attribute.EntityAttribute> attribute : java.util.List.of(
+				net.minecraft.entity.attribute.EntityAttributes.GENERIC_ARMOR, net.minecraft.entity.attribute.EntityAttributes.GENERIC_ARMOR_TOUGHNESS)) {
+			net.minecraft.entity.attribute.EntityAttributeInstance instance = player.getAttributeInstance(attribute);
+			if (instance == null) {
+				continue;
+			}
+			instance.removeModifier(TOUGH);
+			if (on) {
+				double amount = attribute == net.minecraft.entity.attribute.EntityAttributes.GENERIC_ARMOR ? ARMOR : TOUGHNESS;
+				instance.addTemporaryModifier(new net.minecraft.entity.attribute.EntityAttributeModifier(TOUGH, amount,
+						net.minecraft.entity.attribute.EntityAttributeModifier.Operation.ADD_VALUE));
+			}
+		}
 	}
 
 	/** Tells everyone. */

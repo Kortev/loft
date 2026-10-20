@@ -322,8 +322,8 @@ def form_revive():
 
 
 # Pochita becoming your heart (MergeTimeline, ticks of 1/20 s): struck down (0, hitting the ground at 7), the grey
-# quiet (8), the world going out (60), he comes (90), sniffs and whimpers at you (140), hops up (175), talks (190 to
-# 505; his voice is its own sounds, over this), bows (505), goes into you (520), the cord (534), your heart's six beats
+# quiet (8), the world going out (60), he comes (90), sniffs and whimpers at you (140), hops up (175), the talk (190
+# to 505; the anime's voices are their own sounds, over this), bows (505), goes into you (520), the cord (534), your heart's six beats
 # (550, 562, 572, 580, 586, 591), you get up (596), standing, waiting to pull the cord (626).
 MERGE_LAND = 7 / 20.0
 MERGE_DARK = 60 / 20.0

@@ -461,13 +461,38 @@ def roar():
     return img
 
 
+# The chain the arm fires (ChainRender), as the anime draws it: the saw's own chain, seen from the side, one link's
+# length to the texture: a cutter tooth hooked up over the links, the link plates riveted, a drive tang hanging under;
+# dark steel, lit along its top, flecked with blood. It repeats along the chain.
+SAW_CHAIN = [
+    '..........KKK...',
+    '........KKHSSK..',
+    '.......KHSSSSK..',
+    'KKKKKKKKKKKKKKKK',
+    'KSSHSSSKKSSHSSSK',
+    'KShSSRSKKShSSSSK',
+    'KKKKKKKKKKKKKKKK',
+    '...KSSK...KSSK..',
+]
+
+
+def saw_chain():
+    colours = {'.': (0, 0, 0, 0), 'K': (26, 26, 32, 255), 'S': (96, 98, 108, 255), 'H': (176, 180, 190, 255), 'h': (210, 212, 220, 255),
+               'R': (128, 12, 16, 255)}
+    img = Image.new('RGBA', (16, 8))
+    for y, row in enumerate(SAW_CHAIN):
+        for x, c in enumerate(row):
+            img.putpixel((x, y), colours[c])
+    return img
+
+
 def main():
     preview = sys.argv[sys.argv.index('--preview') + 1] if '--preview' in sys.argv else None
     out = {(ROOT, 'item/pochita.png'): draw(POCHITA), (CLIENT_ROOT, 'entity/form_flesh.png'): draw(FLESH),
            (CLIENT_ROOT, 'entity/form_chain.png'): draw(CHAIN),
            (CLIENT_ROOT, 'entity/pochita.png'): pochita_entity(), (CLIENT_ROOT, 'entity/blood_pool.png'): pool(),
            (CLIENT_ROOT, 'entity/form_flare.png'): flare(), (CLIENT_ROOT, 'entity/form_trail.png'): trail(),
-           (CLIENT_ROOT, 'gui/form_roar.png'): roar()}
+           (CLIENT_ROOT, 'gui/form_roar.png'): roar(), (CLIENT_ROOT, 'entity/form_saw_chain.png'): saw_chain()}
     head, head_glow = form_head()
     out[(CLIENT_ROOT, 'entity/form_head.png')] = head
     out[(CLIENT_ROOT, 'entity/form_head_glow.png')] = head_glow

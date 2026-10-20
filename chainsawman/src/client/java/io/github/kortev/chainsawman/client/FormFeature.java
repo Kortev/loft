@@ -165,6 +165,13 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 					// (The head's lifted on the box head.)
 					Vector3f root = !arm && FormHeadModel.on ? new Vector3f(part.growRoot).add(0.0F, FormHeadModel.BAR_LIFT, 0.0F) : part.growRoot;
 					SawTrails.sample(player, boneName, tickDelta, matrices.peek(), root, part.growAxis, part.reach() * length);
+					if (boneName.equals("right_arm") && !SawTrails.firstPerson) {
+						// Where the chain comes out from.
+						org.joml.Vector3f tip = matrices.peek().getPositionMatrix().transformPosition(
+								new Vector3f(part.growAxis).mul(part.reach() * length).add(root).div(16.0F));
+						ChainRender.tip(player, new net.minecraft.util.math.Vec3d(tip.x, tip.y, tip.z)
+								.add(MinecraftClient.getInstance().gameRenderer.getCamera().getPos()), player.getWorld().getTime() + tickDelta);
+					}
 				}
 				matrices.push();
 				if (!arm && FormHeadModel.on) {

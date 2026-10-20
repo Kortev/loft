@@ -61,9 +61,9 @@ public final class Saw {
 	 */
 	public static final float WIELDED = 0.5F;
 	/** The form's cost: a point of health (half a heart) every so many ticks. */
-	public static final int DRAIN_EVERY = 60;
+	public static final int DRAIN_EVERY = 120;
 	/**
-	 * The lunge (attacking while sprinting): headfirst, the head's saw first, this fast (blocks a tick), for this long
+	 * The lunge (right-click at nothing, or at a mob): headfirst, the head's saw first, this fast (blocks a tick), for this long
 	 * (ticks), cutting what it runs through for this much; then this long before the next.
 	 */
 	private static final double LUNGE_SPEED = 1.5;

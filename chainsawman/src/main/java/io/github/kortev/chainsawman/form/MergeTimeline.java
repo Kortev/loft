@@ -12,10 +12,11 @@ package io.github.kortev.chainsawman.form;
  *  90  COMING    Pochita comes hobbling to you out of the dark
  * 140  SNIFF     at your face: he sniffs at you, nudges you, whimpers
  * 175  CLIMB     he hops up onto your chest and settles
- * 190  TALK      he talks to you, standing on you: his five lines (LINES, each LINE ticks), back and forth between him
- *                and your face
+ * 190  TALK      the dream's talk, him standing on you (LINES, LINE_LENGTHS; the anime's own voices, cut from the clip
+ *                kortev chose): you ask if he took your body; he loved hearing your dreams; this is a contract; show
+ *                me your dream
  * 505  BOW       he lowers his head to your chest
- * 520  SINK      he goes down into your chest: a white flash, impact frames, a fountain of blood
+ * 520  SINK      he goes down into your chest: a white flash, impact frames, a fountain of blood; you cry his name
  * 534  SUNK      the cord pushes out of your chest
  * 550  BEAT      your heart starts: six beats, closer and harder, each lifting the dark and bringing the colour back
  * 596  RISE      you get up: sit up, legs out in front; rock forward into a crouch, a knee down; stand
@@ -32,9 +33,14 @@ public final class MergeTimeline {
 	public static final int CLIMB = 175;
 	public static final int ON_CHEST = 190;
 	public static final int TALK = 190;
-	/** When each of Pochita's lines starts, and how long each lasts. */
-	public static final int[] LINES = {200, 262, 324, 386, 448};
-	public static final int LINE = 55;
+	/**
+	 * When each line of the talk starts (ticks), as paced in the anime: yours ("Pochita... did you take my body?"), his
+	 * three, and yours again, crying his name as he goes into you (at SINK); how long each stays under the picture; and
+	 * which are his. Their voices are sounds/form_merge_voice_1..5.ogg.
+	 */
+	public static final int[] LINES = {205, 311, 397, 445, 520};
+	public static final int[] LINE_LENGTHS = {104, 86, 46, 56, 40};
+	public static final boolean[] POCHITA_SAYS = {false, true, true, true, false};
 	public static final int BOW = 505;
 	public static final int SINK = 520;
 	public static final int SUNK = 534;

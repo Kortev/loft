@@ -441,7 +441,25 @@ public class FormSelfTest implements ClientModInitializer {
 			case 1310, 1324, 1338 -> server.execute(() -> Saw.slash(serverPlayer(server)));
 			case 1390 -> server.execute(() -> victim(serverPlayer(server), EntityType.COW));
 			case 1400 -> server.execute(() -> Saw.slash(serverPlayer(server)));
-			case 1450 -> stage = Stage.DONE;
+			// The chain, at a husk further off, seen from the side.
+			case 1440 -> server.execute(() -> {
+				ServerPlayerEntity p = serverPlayer(server);
+				io.github.kortev.chainsawman.form.Blood.set(p, io.github.kortev.chainsawman.form.Blood.MAX);
+				net.minecraft.entity.mob.MobEntity mob = EntityType.HUSK.create(p.getServerWorld());
+				if (mob != null) {
+					Vec3d at = p.getPos().add(p.getRotationVector().multiply(1.0, 0.0, 1.0).normalize().multiply(9.0));
+					mob.refreshPositionAndAngles(at.x, p.getY(), at.z, p.getYaw() + 180.0F, 0.0F);
+					mob.setAiDisabled(true);
+					p.getServerWorld().spawnEntity(mob);
+				}
+				p.setPitch(5.0F);
+			});
+			case 1442 -> client.player.setPitch(5.0F);
+			case 1444 -> {
+				client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
+				server.execute(() -> Grapple.fire(serverPlayer(server)));
+			}
+			case 1456 -> stage = Stage.DONE;
 			// The test ground (-Ptarget=scene): /chainsaw scene, looked at from behind you, then toward the log.
 			case 1500 -> {
 				client.setCameraEntity(client.player);
@@ -503,6 +521,11 @@ public class FormSelfTest implements ClientModInitializer {
 			client.options.setPerspective(Perspective.FIRST_PERSON);
 			client.options.hudHidden = false;
 			client.player.setPitch(0.0F);
+		}
+		for (int age : new int[] {1, 2, 4}) {
+			if (f == 1444 + age) {
+				screenshot(client, String.format("chain_%02d", age));
+			}
 		}
 		for (int age : new int[] {1, 3, 5, 8, 12, 17, 24, 35}) {
 			if (f == 1338 + age) {

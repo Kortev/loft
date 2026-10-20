@@ -477,10 +477,11 @@ public final class MergeCinematic {
 		MinecraftClient client = MinecraftClient.getInstance();
 		for (int i = 0; i < lines.length; i++) {
 			float in = t - lines[i];
-			if (in < 0.0F || in > MergeTimeline.LINE) {
+			int length = MergeTimeline.LINE_LENGTHS[i];
+			if (in < 0.0F || in > length) {
 				continue;
 			}
-			float alpha = MathHelper.clamp(Math.min(in / 5.0F, (MergeTimeline.LINE - in) / 6.0F), 0.0F, 1.0F);
+			float alpha = MathHelper.clamp(Math.min(in / 5.0F, (length - in) / 6.0F), 0.0F, 1.0F);
 			if (alpha < 0.05F) {
 				continue;
 			}
@@ -488,7 +489,8 @@ public final class MergeCinematic {
 			net.minecraft.text.Text said = net.minecraft.text.Text.translatable("merge.chainsawman.line" + (i + 1), name);
 			int a = (int) (alpha * 255) << 24;
 			int y = screen - h + (h - client.textRenderer.fontHeight) / 2;
-			ctx.drawCenteredTextWithShadow(client.textRenderer, said, w / 2, y, a | 0xF2F2F2);
+			// His lines warm, yours white.
+			ctx.drawCenteredTextWithShadow(client.textRenderer, said, w / 2, y, a | (MergeTimeline.POCHITA_SAYS[i] ? 0xFFC98A : 0xF2F2F2));
 		}
 		Merging m = client.player != null ? MERGING.get(client.player.getUuid()) : null;
 		if (m != null && m.waiting()) {
@@ -546,8 +548,11 @@ public final class MergeCinematic {
 			// Standing on you, looking at your face; breathing; a nod as each line starts.
 			float breath = MathHelper.sin(t * 0.3F) * 0.025F;
 			float nod = 0.0F;
-			for (int line : MergeTimeline.LINES) {
-				nod = Math.max(nod, (float) (t >= line ? Math.sin(Math.min(1.0, (t - line) / 8.0) * Math.PI) * 0.18 : 0.0));
+			for (int i = 0; i < MergeTimeline.LINES.length; i++) {
+				int line = MergeTimeline.LINES[i];
+				if (MergeTimeline.POCHITA_SAYS[i]) {
+					nod = Math.max(nod, (float) (t >= line ? Math.sin(Math.min(1.0, (t - line) / 8.0) * Math.PI) * 0.18 : 0.0));
+				}
 			}
 			return new Pose(top, onYaw, 0.18F + nod, 1.0F - breath, 1.0F + breath, false);
 		}

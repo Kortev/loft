@@ -293,10 +293,12 @@ tuning the numbers.
   the cord comes out, six heartbeats bring the world back, you get up. **Then you stand there** with the cord in your
   chest and "[G] Pull the cord" in the bar until you pull it yourself, as Denji does (the first pull is free); after
   `Merge.WAIT` (60 s) it pulls itself so nobody is stuck. You can't be hurt from the fall until the pull.
-- **Pochita's voice in the merge**: five slots, `sounds/form_merge_voice_1.ogg` to `_5.ogg`, silent for now. kortev
-  picks the clips (as for the Domain's voice lines); cut each to fit its line (`MergeTimeline.LINES`, `LINE` = 55
-  ticks = 2.75 s each; change the times there if a clip is longer). The captions are `merge.chainsawman.line1..5` in
-  `lang/en_us.json` (line 1 takes the player's name twice); they are my paraphrase, so swap in the clip's words.
+- **The voices in the merge** are the anime's own (Japanese), cut from a clip kortev chose
+  (`sounds/form_merge_voice_1..5.ogg`): you ask if he took your body; he loved hearing your dreams; this is a
+  contract; show me your dream; and you crying his name as he sinks into you (at SINK). `MergeTimeline.LINES`,
+  `LINE_LENGTHS` and `POCHITA_SAYS` time them as the clip paces them; the captions (`merge.chainsawman.line1..5`)
+  are kortev's English, his warm and yours white. The clip says "this is a contract" where the caption also has
+  "I'll give you my heart".
 - **His look**: a Minecraft animal, boxes and pixels (`client/PochitaModel.java`, texture painted by
   `tools/gen_chainsaw_textures.py`'s `pochita_entity`, 64x64), after kortev judged the smooth anime render didn't fit
   the game. `tools/pochita_model.py` (Blender, anime style) stays only as a reference.
@@ -305,6 +307,12 @@ tuning the numbers.
 
 ### The fight's look, polished (2026-10-20, my passes while kortev slept)
 
+- **Changed after kortev played it (2026-10-20)**: the lunge is **right-click** at nothing or at a mob (sprinting into
+  an attack kept lunging by accident; at a block or sneaking, right-click does what it always did); the form's drain
+  is halved (half a heart every 6 s) and the form makes you tough (10 armour, 6 toughness, `Form.ARMOR`), as you
+  went down too easily; the chain is the saw's own chain (`form_saw_chain.png`, teeth and all) off the end of the
+  right saw, whipping out in a wave, taut when it catches; caught on a block it zips you straight there
+  (`ClientCombat.swing`) instead of swinging.
 - **Slash trails** (`SawTrails`, `textures/entity/form_trail.png`): each slash leaves a smear behind the saw's tip,
   white at the edge going to blood red, gone in 3 ticks; sampled from where the bar is drawn each frame, so it follows
   the real arc. In your own view it is shorter and reaches further down the bar, or it reads as a thin line.
