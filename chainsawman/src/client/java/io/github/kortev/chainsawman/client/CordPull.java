@@ -40,6 +40,16 @@ public final class CordPull {
 	 */
 	public static void lie(BipedEntityModel<?> model, float t) {
 		int[] beats = io.github.kortev.chainsawman.form.MergeTimeline.BEATS;
+		if (t >= io.github.kortev.chainsawman.form.MergeTimeline.RISE) {
+			// Getting up, looking down at the cord by the end; the hand that held it letting go as you sit up.
+			float k = MergeCinematic.rising(t);
+			GetUp.limbs(model, true, k, 0.4F);
+			float hold = 1.0F - ease(k / 0.3F);
+			model.rightArm.pitch = MathHelper.lerp(hold, model.rightArm.pitch, REACH_PITCH);
+			model.rightArm.yaw = MathHelper.lerp(hold, model.rightArm.yaw, REACH_YAW);
+			model.rightArm.roll = MathHelper.lerp(hold, model.rightArm.roll, 0.0F);
+			return;
+		}
 		float jerk = 0.0F;
 		for (int beat : beats) {
 			jerk = Math.max(jerk, t >= beat ? (float) Math.exp(-(t - beat) / 1.5) : 0.0F);

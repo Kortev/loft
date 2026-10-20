@@ -158,7 +158,8 @@ public final class Downed {
 		}
 		FED.remove(player.getUuid());
 		player.removeAttached(LEFT);
-		hold(player, false);
+		// Held a moment more, getting up.
+		RISING.put(player.getUuid(), player.getServerWorld().getTime() + RISE);
 		Limbs.whole(player);
 		player.setHealth(GIVEN);
 		Form.play(player, ChainsawSounds.REVIVE, 1.0F);
@@ -179,6 +180,11 @@ public final class Downed {
 		FED.put(down.getUuid(), new Feed(by.getUuid(), feed.done(), now));
 	}
 
+	/** Who is getting up off the ground, and when they'll be up (world time): held still till then. */
+	private static final Map<UUID, Long> RISING = new ConcurrentHashMap<>();
+	/** How long getting up takes (ticks): the limbs growing back, pushing up, a foot under you, standing. */
+	public static final int RISE = 26;
+
 	/** Stops (or lets go) {@code player}'s legs: they cannot walk or jump while down. */
 	public static void hold(ServerPlayerEntity player, boolean on) {
 		for (EntityAttributeInstance attribute : new EntityAttributeInstance[] {player.getAttributeInstance(EntityAttributes.GENERIC_MOVEMENT_SPEED),
@@ -195,6 +201,15 @@ public final class Downed {
 
 	static void tick(MinecraftServer server) {
 		long now = server.getOverworld().getTime();
+		for (Map.Entry<UUID, Long> rising : Map.copyOf(RISING).entrySet()) {
+			ServerPlayerEntity player = server.getPlayerManager().getPlayer(rising.getKey());
+			if (player == null || DOWN.contains(rising.getKey())) {
+				RISING.remove(rising.getKey());
+			} else if (now >= rising.getValue()) {
+				RISING.remove(rising.getKey());
+				hold(player, false);
+			}
+		}
 		for (UUID id : Set.copyOf(DOWN)) {
 			ServerPlayerEntity player = server.getPlayerManager().getPlayer(id);
 			if (player == null) {
@@ -243,5 +258,6 @@ public final class Downed {
 	static void clear() {
 		DOWN.clear();
 		FED.clear();
+		RISING.clear();
 	}
 }

@@ -324,7 +324,7 @@ def form_revive():
 # Pochita becoming your heart (MergeTimeline, ticks of 1/20 s): struck down (0, hitting the ground at 7), the grey
 # quiet (8), the world going out (60), he comes (90), sniffs and whimpers at you (140), hops up (175), talks (190 to
 # 505; his voice is its own sounds, over this), bows (505), goes into you (520), the cord (534), your heart's six beats
-# (550, 562, 572, 580, 586, 591), you rise (596), the cord pulls itself (610).
+# (550, 562, 572, 580, 586, 591), you get up (596), standing, waiting to pull the cord (626).
 MERGE_LAND = 7 / 20.0
 MERGE_DARK = 60 / 20.0
 MERGE_COMING = 90 / 20.0
@@ -335,7 +335,7 @@ MERGE_BOW = 505 / 20.0
 MERGE_SINK = 520 / 20.0
 MERGE_SUNK = 534 / 20.0
 MERGE_BEATS = [550 / 20.0, 562 / 20.0, 572 / 20.0, 580 / 20.0, 586 / 20.0, 591 / 20.0]
-MERGE_END = 610 / 20.0
+MERGE_END = 626 / 20.0
 
 
 def whimper(n, at, length=0.35, pitch=900.0):

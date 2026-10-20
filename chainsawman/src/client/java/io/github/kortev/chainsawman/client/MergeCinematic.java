@@ -129,6 +129,11 @@ public final class MergeCinematic {
 		return 1.0F - ease((t - MergeTimeline.RISE) / (MergeTimeline.END - MergeTimeline.RISE));
 	}
 
+	/** How far through getting up you are, {@code t} ticks in (0 to 1). */
+	public static float rising(float t) {
+		return MathHelper.clamp((t - MergeTimeline.RISE) / (MergeTimeline.END - MergeTimeline.RISE), 0.0F, 1.0F);
+	}
+
 	/** Whether {@code player} stands at the end of it, waiting to pull the cord. */
 	public static boolean waiting(PlayerEntity player) {
 		Merging m = MERGING.get(player.getUuid());
@@ -258,14 +263,15 @@ public final class MergeCinematic {
 			double k = (t - MergeTimeline.BEAT) / (MergeTimeline.RISE - MergeTimeline.BEAT);
 			return look(you.add(head.multiply(-0.15)).add(0.0, MathHelper.lerp(k, 1.4, 0.75), 0.0), you);
 		}
-		// Back off in front of you as you get up; then low in front, looking up at you standing there, the cord hanging
-		// out of your chest, slowly closing in until you pull it (the transformation's own camera takes over from there).
+		// Low and to the side as you get up, the whole of you, coming round in front as you stand; then low in front,
+		// looking up at you standing there, the cord hanging out of your chest, slowly closing in until you pull it (the
+		// transformation's own camera takes over from there).
 		Vec3d front = Vec3d.fromPolar(0.0F, yaw(self));
 		Vec3d eye = feet.add(0.0, 1.0, 0.0);
 		if (t < MergeTimeline.END) {
-			double k = ease((t - MergeTimeline.RISE) / (MergeTimeline.END - MergeTimeline.RISE));
-			return look(eye.add(front.multiply(MathHelper.lerp(k, 1.4, 2.6))).add(0.0, MathHelper.lerp(k, 1.0, -0.55), 0.0),
-					eye.add(0.0, 0.15 * k, 0.0));
+			double k = ease(rising(t));
+			return look(feet.add(side.multiply(MathHelper.lerp(k, 2.6, 0.0))).add(front.multiply(MathHelper.lerp(k, 1.2, 2.6)))
+					.add(0.0, MathHelper.lerp(k, 0.8, 0.5), 0.0), feet.add(0.0, MathHelper.lerp(k, 0.4, 1.2), 0.0));
 		}
 		double k = 1.0 - Math.exp(-(t - MergeTimeline.END) / 200.0);
 		return look(eye.add(front.multiply(MathHelper.lerp(k, 2.6, 2.1))).add(side.multiply(0.35 * k)).add(0.0, -0.5, 0.0),
@@ -345,9 +351,6 @@ public final class MergeCinematic {
 		}
 		if (t < MergeTimeline.RISE) {
 			return 0.5F;
-		}
-		if (t < MergeTimeline.END) {
-			return 0.6F;
 		}
 		return 0.75F;
 	}

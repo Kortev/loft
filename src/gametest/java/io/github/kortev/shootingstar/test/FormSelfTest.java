@@ -417,12 +417,12 @@ public class FormSelfTest implements ClientModInitializer {
 				});
 			}
 			case 254 -> server.execute(() -> io.github.kortev.chainsawman.form.Merge.start(serverPlayer(server)));
-			case 1180 -> stage = Stage.DONE;
+			case 1270 -> stage = Stage.DONE;
 			default -> {
 			}
 		}
 		for (int age : new int[] {3, 30, 75, 100, 125, 150, 165, 182, 205, 230, 270, 300, 340, 380, 410, 460, 490, 512, 522, 526, 540,
-				552, 566, 580, 592, 600, 607}) {
+				552, 566, 580, 592, 600, 606, 612, 618, 624}) {
 			if (f == 255 + age) {
 				screenshot(client, String.format("merge_%03d", age));
 			}
@@ -444,8 +444,22 @@ public class FormSelfTest implements ClientModInitializer {
 			client.options.setPerspective(Perspective.THIRD_PERSON_FRONT);
 		} else if (f == end + 254) {
 			server.execute(() -> Form.pullCord(serverPlayer(server)));
-		} else if (f == end + 290) {
+		} else if (f == end + 302) {
+			// Then down, and back up off the ground: seen from in front and above, nothing over the picture.
+			client.options.hudHidden = true;
+			client.player.setPitch(-30.0F);
+			server.execute(() -> Downed.down(serverPlayer(server)));
+		} else if (f == end + 320) {
+			server.execute(() -> Downed.up(serverPlayer(server)));
+		} else if (f == end + 360) {
 			client.options.setPerspective(Perspective.FIRST_PERSON);
+			client.options.hudHidden = false;
+			client.player.setPitch(0.0F);
+		}
+		for (int age : new int[] {0, 3, 6, 9, 12, 15, 19, 23, 27}) {
+			if (f == end + 321 + age) {
+				screenshot(client, String.format("getup_%02d", age));
+			}
 		}
 		for (int age : new int[] {3, 7, 11, 14, 16, 19, 24}) {
 			if (f == end + 255 + age) {

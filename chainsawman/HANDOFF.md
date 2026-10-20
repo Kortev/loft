@@ -307,6 +307,11 @@ tuning the numbers.
   lines stream in from the edges of your screen (`FormHud.speedLines`, `ClientCombat.lunging`).
 - **The frenzy has a look from outside** now: the red eyes, a red mist of blood rising round the body, the exhaust
   pouring. (Inside it was already the red pulsing screen edge.)
+- **Getting up** (`GetUp`, kortev asked for it to look a lot better): no more tipping up like a plank. Back up after
+  being down, your arms and legs grow back out of their stumps in blood as you push up on your hands, get a foot
+  under you and stand (`GetUpMixin`, `GetUpLeanMixin` stops the game's crawl leaning you as well; the server holds you
+  still for `Downed.RISE`, 26 ticks). At the end of the merge you sit up with your legs out, rock forward into a
+  crouch and stand (RISE to END is now 30 ticks; END moved to 626 and `form_merge.ogg` with it).
 - **No zoom while held still** (`HeldStillFovMixin`): down or merging, your speed is taken away and the game zoomed
   your view in by half, as it does for slowness; every merge shot had been framed against that.
 

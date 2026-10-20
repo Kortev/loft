@@ -12,7 +12,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * Through the merge ({@code MergeCinematic}) you lie on your back where you fell: the body tipped over backwards from
- * the feet, a little off the ground, and back up again as you rise.
+ * the feet, a little off the ground; and get up off it ({@code GetUp}) as you rise.
  */
 @Mixin(PlayerEntityRenderer.class)
 public abstract class MergeLyingMixin {
@@ -20,6 +20,13 @@ public abstract class MergeLyingMixin {
 			at = @At("TAIL"))
 	private void chainsawman$lie(AbstractClientPlayerEntity player, MatrixStack matrices, float animationProgress, float bodyYaw, float tickDelta,
 			float scale, CallbackInfo ci) {
+		float t = MergeCinematic.age(player, tickDelta);
+		if (t >= io.github.kortev.chainsawman.form.MergeTimeline.RISE && t < io.github.kortev.chainsawman.form.MergeTimeline.END) {
+			// Getting up off your back, as a body does.
+			MergeCinematic.drawn(player, bodyYaw);
+			io.github.kortev.chainsawman.client.GetUp.root(matrices, true, MergeCinematic.rising(t));
+			return;
+		}
 		float k = MergeCinematic.lying(player, tickDelta);
 		if (k > 0.0F) {
 			MergeCinematic.drawn(player, bodyYaw);

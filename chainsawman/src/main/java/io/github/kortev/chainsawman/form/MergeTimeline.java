@@ -18,8 +18,8 @@ package io.github.kortev.chainsawman.form;
  * 520  SINK      he goes down into your chest: a white flash, impact frames, a fountain of blood
  * 534  SUNK      the cord pushes out of your chest
  * 550  BEAT      your heart starts: six beats, closer and harder, each lifting the dark and bringing the colour back
- * 596  RISE      you sit up and get to your feet
- * 610  END       standing, the cord hanging out of your chest: "Pull the cord" in the bar, until you do
+ * 596  RISE      you get up: sit up, legs out in front; rock forward into a crouch, a knee down; stand
+ * 626  END       standing, the cord hanging out of your chest: "Pull the cord" in the bar, until you do
  * </pre>
  */
 public final class MergeTimeline {
@@ -41,7 +41,7 @@ public final class MergeTimeline {
 	public static final int BEAT = 550;
 	public static final int[] BEATS = {BEAT, BEAT + 12, BEAT + 22, BEAT + 30, BEAT + 36, BEAT + 41};
 	public static final int RISE = 596;
-	public static final int END = 610;
+	public static final int END = 626;
 	/** How far from your body Pochita sets off at most (blocks), however far away he was. */
 	public static final double FROM = 7.0;
 

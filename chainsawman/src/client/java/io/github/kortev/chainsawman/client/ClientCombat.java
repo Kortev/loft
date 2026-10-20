@@ -85,6 +85,8 @@ public final class ClientCombat {
 	private static final Set<UUID> HEARTS = ConcurrentHashMap.newKeySet();
 	private static final Map<UUID, Long> FRENZY_FROM = new ConcurrentHashMap<>();
 	private static final Set<UUID> DOWN = ConcurrentHashMap.newKeySet();
+	/** When each got up off the ground after being down (world time). */
+	private static final Map<UUID, Long> UP = new ConcurrentHashMap<>();
 	private static final Map<UUID, Integer> LOST = new ConcurrentHashMap<>();
 	/** Your own blood, as the server last said (-1 before it has). */
 	private static int blood = -1;
@@ -180,8 +182,9 @@ public final class ClientCombat {
 			case FormEventPayload.DOWNED -> {
 				if (event.value() != 0) {
 					DOWN.add(id);
-				} else {
-					DOWN.remove(id);
+					UP.remove(id);
+				} else if (DOWN.remove(id)) {
+					UP.put(id, now);
 				}
 			}
 			case FormEventPayload.FRENZY -> {
@@ -271,6 +274,16 @@ public final class ClientCombat {
 	/** Your own blood, 0 to 100, or -1 if the server hasn't said. */
 	public static int blood() {
 		return blood;
+	}
+
+	/** How far {@code player} is through getting up after being down (0 to 1), or -1. */
+	public static float gettingUp(PlayerEntity player, float tickDelta) {
+		Long at = UP.get(player.getUuid());
+		if (at == null) {
+			return -1.0F;
+		}
+		float k = (player.getWorld().getTime() - at + tickDelta) / Downed.RISE;
+		return k >= 0.0F && k <= 1.0F ? k : -1.0F;
 	}
 
 	/** Whether {@code player} has Pochita's heart, as this client has been told. */
@@ -383,12 +396,21 @@ public final class ClientCombat {
 				}
 			}
 			exhaust(world, player, now);
+			float up = gettingUp(player, 0.0F);
+			if (up >= 0.0F && up < 0.3F && !ownEyes(player)) {
+				// The arms and legs growing back: blood off the stumps.
+				for (int i = 0; i < 3; i++) {
+					world.addParticle(BLOOD, player.getX() + (RANDOM.nextDouble() - 0.5) * 0.9, player.getY() + 0.15 + RANDOM.nextDouble() * 0.4,
+							player.getZ() + (RANDOM.nextDouble() - 0.5) * 0.9, 0.0, 0.0, 0.0);
+				}
+			}
 			if (DOWN.contains(id) && now % 8 == 0 && !ownEyes(player)) {
 				world.addParticle(BLOOD, player.getX() + (RANDOM.nextDouble() - 0.5) * 0.8, player.getY() + 0.2,
 						player.getZ() + (RANDOM.nextDouble() - 0.5) * 0.8, 0.0, 0.0, 0.0);
 			}
 		}
 		FRENZY.entrySet().removeIf(e -> now > e.getValue() + 40);
+		UP.entrySet().removeIf(e -> now > e.getValue() + Downed.RISE + 20);
 		CHAINS.entrySet().removeIf(e -> now - e.getValue().at() > (e.getValue().held() ? 400 : CHAIN));
 		PAUSED.entrySet().removeIf(e -> now > e.getValue().until() + SWING);
 		SWINGS.entrySet().removeIf(e -> now - e.getValue().at() > SWING * 3);
@@ -527,6 +549,7 @@ public final class ClientCombat {
 		SawTrails.clear();
 		LOST.clear();
 		HEARTS.clear();
+		UP.clear();
 		blood = -1;
 		PAUSED.clear();
 		kickAt = NEVER;

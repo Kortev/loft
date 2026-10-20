@@ -12,6 +12,8 @@
 		"FormHandHiddenMixin",
 		"FormHudHiddenMixin",
 		"FormToastHiddenMixin",
+		"GetUpLeanMixin",
+		"GetUpMixin",
 		"FormPoseMixin",
 		"HeadHiddenMixin",
 		"HeadItemHiddenMixin",

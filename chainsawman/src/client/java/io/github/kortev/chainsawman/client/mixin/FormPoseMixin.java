@@ -22,6 +22,14 @@ public abstract class FormPoseMixin {
 	private void chainsawman$pullCord(LivingEntity entity, float limbAngle, float limbDistance, float animationProgress, float headYaw,
 			float headPitch, CallbackInfo ci) {
 		MinecraftClient client = MinecraftClient.getInstance();
+		PlayerEntityModel<?> whole = (PlayerEntityModel<?>) (Object) this;
+		// (One model draws every player: whatever was regrowing on the last one is whole again first.)
+		for (net.minecraft.client.model.ModelPart limb : new net.minecraft.client.model.ModelPart[] {whole.rightArm, whole.leftArm, whole.rightLeg,
+				whole.leftLeg}) {
+			limb.xScale = 1.0F;
+			limb.yScale = 1.0F;
+			limb.zScale = 1.0F;
+		}
 		// Not your own arm seen from your own eyes: that is posed for the hand in front of the camera.
 		boolean ownEyes = entity == client.player && !client.gameRenderer.getCamera().isThirdPerson();
 		if (!(entity instanceof PlayerEntity player) || ownEyes) {
@@ -32,7 +40,20 @@ public abstract class FormPoseMixin {
 		PlayerEntityModel<?> model = (PlayerEntityModel<?>) (Object) this;
 		float merge = io.github.kortev.chainsawman.client.MergeCinematic.age(player, tickDelta);
 		float back = ClientForms.turnAge(player, tickDelta);
-		if (merge >= 0.0F && t < 0.0F) {
+		float up = io.github.kortev.chainsawman.client.ClientCombat.gettingUp(player, tickDelta);
+		if (up >= 0.0F) {
+			// Back up after being down: the limbs growing out of their stumps as you push yourself up.
+			io.github.kortev.chainsawman.client.GetUp.limbs(model, false, up, 0.0F);
+			float g = io.github.kortev.chainsawman.client.GetUp.regrown(up);
+			for (net.minecraft.client.model.ModelPart limb : new net.minecraft.client.model.ModelPart[] {model.rightArm, model.leftArm, model.rightLeg,
+					model.leftLeg}) {
+				limb.yScale = g;
+				limb.xScale = 0.6F + 0.4F * g;
+				limb.zScale = 0.6F + 0.4F * g;
+			}
+			model.rightPants.copyTransform(model.rightLeg);
+			model.leftPants.copyTransform(model.leftLeg);
+		} else if (merge >= 0.0F && t < 0.0F) {
 			io.github.kortev.chainsawman.client.CordPull.lie(model, merge);
 		} else if (back >= 0.0F) {
 			io.github.kortev.chainsawman.client.CordPull.turnBack(model, back);
