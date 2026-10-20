@@ -5,7 +5,8 @@ package io.github.kortev.chainsawman.form;
  * once. First cut as an 18-cut storyboard kortev approved, then staged again (2026-10-20) for feeling, kortev finding it
  * silly: wide shots in the dream's dark and its one warm light, him coming to you and lying down against you, the light
  * behind him as he makes the deal, no close-ups of his blocks. Beat by beat in ticks; the server, the pictures, the
- * sound (tools/gen_chainsaw_sounds.py, form_merge, its music too) and the voices all read it. Then you stand there until
+ * sound (tools/gen_chainsaw_sounds.py, form_merge: no music, the dream is empty but for your voices) and the voices
+ * all read it. Then you stand there until
  * you pull the cord ({@link Merge#WAIT}): the transformation.
  *
  * <pre>

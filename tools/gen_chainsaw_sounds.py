@@ -353,7 +353,6 @@ MERGE_COMING = 90 / 20.0
 MERGE_SNIFF = 140 / 20.0
 MERGE_CLIMB = 175 / 20.0
 MERGE_TALK = 190 / 20.0
-MERGE_DEAL = 397 / 20.0
 MERGE_LEAP = 495 / 20.0
 MERGE_MONTAGE = 311 / 20.0
 MERGE_MONTAGE_END = 397 / 20.0
@@ -428,50 +427,7 @@ def form_merge():
             thud = np.sin(2 * np.pi * 50.0 * kk / SR) * np.exp(-kk / ns(0.045)) * (1.4 + 0.5 * i) * gain
             start = ns(at + dub)
             x[start:start + len(thud)] += thud[:n - start]
-    # The dream's music: slow chords (A minor, F, C, G and round again) swelling in as the world falls away, a gentle
-    # piano over them rising with the deal, gone for your cry as he dives; the chords back faintly as you wake.
-    chords = [(220.0, 261.63, 329.63, 110.0), (174.61, 220.0, 261.63, 87.31), (196.0, 261.63, 329.63, 130.81),
-              (196.0, 246.94, 293.66, 98.0)]
-    bar = 2.8
-    first = MERGE_DARK + 0.5
-    pad = np.zeros(n)
-    at, i = first, 0
-    while at < MERGE_END:
-        m = ns(bar + 1.2)
-        kk = np.arange(m) / SR
-        env = np.minimum(kk / 0.9, 1.0) * np.clip((bar + 1.2 - kk) / 1.2, 0.0, 1.0)
-        tone = np.zeros(m)
-        for k, f in enumerate(chords[i % len(chords)]):
-            g = 0.6 if k == 3 else 1.0
-            tone += g * (np.sin(2 * np.pi * f * kk) + 0.4 * np.sin(2 * np.pi * f * 1.004 * kk) + 0.15 * np.sin(2 * np.pi * f * 2.0 * kk))
-        start = ns(at)
-        pad[start:start + m] += (tone * env)[:n - start]
-        at += bar
-        i += 1
-    level = curve(n, [(0.0, 0.0), (first, 0.0), (first + 2.5, 0.8), (MERGE_TALK, 0.7), (MERGE_DEAL, 1.0), (MERGE_SINK - 0.3, 1.25),
-                      (MERGE_SINK - 0.05, 0.0), (MERGE_WAKE, 0.0), (MERGE_GASP, 0.3), (MERGE_END + 0.5, 0.0)])
-    x += lp(pad, 1200.0) * 0.048 * level
-    # The piano: a slow tune, a note to each beat of the bar (and rests), round again.
-    tune = [659.25, 0, 587.33, 523.25, 493.88, 0, 440.0, 0,
-            523.25, 587.33, 659.25, 0, 587.33, 523.25, 440.0, 0,
-            392.0, 440.0, 523.25, 0, 493.88, 440.0, 392.0, 0,
-            440.0, 0, 523.25, 493.88, 440.0, 0, 0, 0]
-    piano = np.zeros(n)
-    beat = bar / 4.0
-    at, j = first + bar, 0
-    while at < MERGE_SINK - 0.4:
-        f = tune[j % len(tune)]
-        if f:
-            m = ns(2.2)
-            kk = np.arange(m) / SR
-            note = (np.sin(2 * np.pi * f * kk) + 0.45 * np.sin(2 * np.pi * f * 2.0 * kk) * np.exp(-kk / 0.4)
-                    + 0.2 * np.sin(2 * np.pi * f * 3.0 * kk) * np.exp(-kk / 0.25) + 0.08 * np.sin(2 * np.pi * f * 4.01 * kk) * np.exp(-kk / 0.15))
-            note *= np.exp(-kk / 0.85) * np.minimum(kk / 0.004, 1.0)
-            start = ns(at)
-            piano[start:start + m] += note[:n - start]
-        at += beat
-        j += 1
-    x += piano * 0.1 * level
+    # No music in the dream (kortev: it should feel empty, just you talking to him): only the hum of the dark, above.
     # The leap: air rushing, rising, into the boom.
     whoosh = bp(white(n), 500.0, 3500.0)
     x += whoosh * curve(n, [(0.0, 0.0), (MERGE_LEAP + 0.35, 0.0), (MERGE_LEAP + 0.85, 0.12), (MERGE_PLUNGE - 0.05, 0.3), (MERGE_PLUNGE, 0.0),

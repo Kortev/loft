@@ -317,8 +317,8 @@ tuning the numbers.
   nears you (`render`'s light by distance); he noses at you and lies down against you, chin on your chest
   (LIES), lifting his head to your face as you speak; up at your side for the deal, nodding with his words
   (`mouth`), a warm light behind him (`glow`, `dream_glow.png`) and his front in shadow; the flashbacks dimmer, wider,
-  a warm light behind them. `form_merge.ogg` now has music: slow chords (A minor, F, C, G) and a piano melody from the
-  dark until "POCHITA?!", which comes in silence.
+  a warm light behind them. It has no music: music was tried (chords and a piano) and kortev
+  wants it to feel empty, just you talking to him; only the dark's low hum under the voices.
 - **The merge's second pass (2026-10-20)**: Pochita's mouth moves with his voice (`MergeCinematic.VOICE_LEVELS`, the
   clips' loudness tick by tick: measure them again if the clips change), his tail going, leaning in on "show me your
   dream", your head lifting to him as you speak; the memories move (rocking him, bites of bread, breathing, the saw
