@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.block.Blocks;
 import com.mojang.authlib.GameProfile;
 import io.github.kortev.chainsawman.client.ClientForms;
@@ -65,14 +66,16 @@ public class FormSelfTest implements ClientModInitializer {
 	private static final int[] CINE_SHOTS = {2, 6, 10, 14, 16, 17, 18, 19, 20, 21, 22, 23, 24, 26, 28, 30, 32, 33, 34, 36, 37, 38, 39, 42, 48, 56, 61, 63};
 	private static final int CINE_START = 10;
 	private static int cineTick;
+	/** Whether the video of the part filmed has been started (it is, once). */
+	private static boolean captured;
 
 	@Override
 	public void onInitializeClient() {
 		if (!"form".equals(System.getProperty("shootingstar.selftest"))) {
 			return;
 		}
-		// -Ptarget=boxhead: the boxes proposed for the head, in place of the mesh's.
-		io.github.kortev.chainsawman.client.FormHeadModel.on = "boxhead".equals(System.getProperty("shootingstar.selftest.target"));
+		// -Ptarget=meshhead: the mesh's head, as it was before the boxes, to compare.
+		io.github.kortev.chainsawman.client.FormHeadModel.on = !"meshhead".equals(System.getProperty("shootingstar.selftest.target"));
 		Thread watchdog = new Thread(() -> {
 			try {
 				Thread.sleep(30 * 60 * 1000L);
@@ -84,7 +87,21 @@ public class FormSelfTest implements ClientModInitializer {
 		}, "chainsawman-form-selftest-watchdog");
 		watchdog.setDaemon(true);
 		watchdog.start();
+		if (capturing()) {
+			// The server in step with the frames (Capture).
+			ServerTickEvents.START_SERVER_TICK.register(server -> Capture.serverTickStart());
+			ServerTickEvents.END_SERVER_TICK.register(server -> Capture.serverTickEnd());
+		}
 		ClientTickEvents.END_CLIENT_TICK.register(FormSelfTest::tick);
+	}
+
+	/**
+	 * With -Pcapture=true, the part of the fight the target picks (-Ptarget=merge, kill, scene or chain) is also recorded
+	 * as a video with its sounds, frame by frame (Capture), into build/selftest/capture: mux it with
+	 * .github/scripts/mux-audio.py.
+	 */
+	private static boolean capturing() {
+		return "true".equals(System.getProperty("shootingstar.selftest.capture"));
 	}
 
 	/** Whether this test is running (the stand-in wears Kortev's skin from build/selftest/skins, as in the films). */
@@ -148,9 +165,9 @@ public class FormSelfTest implements ClientModInitializer {
 				}
 			}
 			case SHOOT -> {
-				if (shot >= CAMERAS.length && (io.github.kortev.chainsawman.client.FormHeadModel.on
+				if (shot >= CAMERAS.length && ("meshhead".equals(System.getProperty("shootingstar.selftest.target"))
 						|| "ring".equals(System.getProperty("shootingstar.selftest.target")))) {
-					// Only the form from round about (-Ptarget=ring; and the proposed head, -Ptarget=boxhead).
+					// Only the form from round about (-Ptarget=ring; and the mesh's head, -Ptarget=meshhead).
 					stage = Stage.DONE;
 					return;
 				}
@@ -244,8 +261,15 @@ public class FormSelfTest implements ClientModInitializer {
 					ticks = 0;
 				}
 			}
-			case FIGHT -> fight(client, server, ticks - 1);
+			case FIGHT -> {
+				if (capturing() && !Capture.active() && !captured) {
+					captured = true;
+					Capture.start(client, client.runDirectory.toPath().resolve("capture"));
+				}
+				fight(client, server, ticks - 1);
+			}
 			case DONE -> {
+				Capture.stop();
 				ShootingStar.LOGGER.info("[selftest] form: done");
 				stage = null;
 				client.scheduleStop();

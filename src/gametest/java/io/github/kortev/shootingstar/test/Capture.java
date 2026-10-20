@@ -241,7 +241,11 @@ public final class Capture {
 		float volume = instance.getVolume();
 		float gain = MathHelper.clamp(volume, 0.0F, 1.0F);
 		if (instance.getAttenuationType() == SoundInstance.AttenuationType.LINEAR && !instance.isRelative()) {
-			Vec3d listener = client.gameRenderer.getCamera().getPos();
+			// Where the game hears from: the camera, unless something has moved the ears elsewhere (as a mod may).
+			Vec3d listener = client.getSoundManager().getListenerTransform().position();
+			if (listener.lengthSquared() == 0.0) {
+				listener = client.gameRenderer.getCamera().getPos();
+			}
 			double distance = listener.distanceTo(new Vec3d(instance.getX(), instance.getY(), instance.getZ()));
 			double range = sound.getAttenuation() * Math.max(1.0F, volume);
 			gain *= (float) MathHelper.clamp(1.0 - distance / range, 0.0, 1.0);

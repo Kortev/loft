@@ -252,6 +252,23 @@ public final class MergeCinematic {
 		return self != null ? age(self, tickDelta) : -1.0F;
 	}
 
+	/** How far the camera may go from your body, in your merge, before you hear from your body instead (blocks). */
+	private static final double HEARD = 8.0;
+
+	/**
+	 * Where you hear from while your own merge plays, with the camera at {@code cam}: your head, when the camera has gone
+	 * far from it (the memories, high over you); otherwise null (the camera, as always).
+	 */
+	@Nullable
+	public static Vec3d hearing(Vec3d cam) {
+		ClientPlayerEntity self = MinecraftClient.getInstance().player;
+		if (self == null || age(self, 0.0F) < 0.0F) {
+			return null;
+		}
+		Vec3d head = self.getEyePos();
+		return cam.squaredDistanceTo(head) > HEARD * HEARD ? head : null;
+	}
+
 	/** Whether your own merge is playing. */
 	public static boolean filming(float tickDelta) {
 		return mine(tickDelta) >= 0.0F;

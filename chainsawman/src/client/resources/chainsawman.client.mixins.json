@@ -6,6 +6,7 @@
 		"AnimalModelInvoker",
 		"CutInTwoMixin",
 		"DownedBodyMixin",
+		"DreamHearingMixin",
 		"DreamEntitiesMixin",
 		"DreamFogMixin",
 		"DreamSkyMixin",

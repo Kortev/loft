@@ -138,6 +138,8 @@ loom {
 			name = "Client Self Test"
 			vmArg "-Dshootingstar.selftest=${project.findProperty('selftest') ?: 'gap'}"
 			vmArg "-Dshootingstar.selftest.target=${project.findProperty('target') ?: ''}"
+			// -Pcapture=true: the form self test's part also as a video (FormSelfTest).
+			vmArg "-Dshootingstar.selftest.capture=${project.findProperty('capture') ?: ''}"
 			runDir "build/selftest"
 			source sourceSets.gametest
 			// The window's size (-Pwidth, -Pheight: the film self tests are 1080x1920, for Shorts) and who plays (-Pusername).
