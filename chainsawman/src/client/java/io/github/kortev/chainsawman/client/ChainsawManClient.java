@@ -83,12 +83,14 @@ public final class ChainsawManClient implements ClientModInitializer {
 				program -> FormHud.impact = program));
 		HudRenderCallback.EVENT.register(FormHud::render);
 		HudRenderCallback.EVENT.register(BloodHud::render);
+		HudRenderCallback.EVENT.register(DreamHud::render);
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
 			while (PULL_CORD.wasPressed()) {
 				pullCord(client);
 			}
 			ClientForms.tick(client);
 			ClientCombat.tick(client);
+			DreamHud.tick(client);
 			FormCinematic.tick(client);
 		});
 	}

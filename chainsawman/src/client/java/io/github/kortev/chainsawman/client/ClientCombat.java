@@ -272,11 +272,18 @@ public final class ClientCombat {
 	/** The attack key pressed in the form: a slash. Whether the game should go on to do what it would have (mine a block). */
 	public static boolean attack(MinecraftClient client) {
 		ClientPlayerEntity self = client.player;
-		if (self == null || !fighting(self)) {
+		boolean wielding = self != null && !ClientForms.on(self) && Saw.wielding(self);
+		if (self == null || !fighting(self) && !wielding) {
 			return self == null || !Downed.is(self);
 		}
 		long now = self.getWorld().getTime();
-		if (self.isSprinting()) {
+		if (wielding) {
+			if (now - lastSlash >= Saw.SLASH_EVERY) {
+				lastSlash = now;
+				send(FormActionPayload.SLASH, true);
+				self.swingHand(net.minecraft.util.Hand.MAIN_HAND);
+			}
+		} else if (self.isSprinting()) {
 			// Running at it: headfirst.
 			send(FormActionPayload.LUNGE, true);
 		} else if (now - lastSlash >= Saw.SLASH_EVERY) {
@@ -310,7 +317,8 @@ public final class ClientCombat {
 		}
 		// Held, the attack key grinds, unless it is on a block (cutting through that is the game's own mining).
 		boolean onBlock = client.crosshairTarget != null && client.crosshairTarget.getType() == HitResult.Type.BLOCK;
-		held = fighting(self) && client.options.attackKey.isPressed() && client.currentScreen == null ? held + 1 : 0;
+		boolean armed = fighting(self) || !ClientForms.on(self) && Saw.wielding(self);
+		held = armed && client.options.attackKey.isPressed() && client.currentScreen == null ? held + 1 : 0;
 		boolean grind = held >= HOLD_TO_GRIND && !onBlock;
 		if (grind != grindSent) {
 			grindSent = grind;

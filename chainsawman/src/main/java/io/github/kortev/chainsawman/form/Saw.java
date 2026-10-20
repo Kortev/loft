@@ -1,5 +1,6 @@
 package io.github.kortev.chainsawman.form;
 
+import io.github.kortev.chainsawman.ChainsawMan;
 import io.github.kortev.chainsawman.ChainsawSounds;
 import io.github.kortev.chainsawman.network.FormEventPayload;
 import java.util.ArrayList;
@@ -54,6 +55,11 @@ public final class Saw {
 	public static final float HIT_HEAL = 1.0F;
 	private static final int GRIND_HEAL_BITES = 3;
 	public static final float KILL_HEAL = 6.0F;
+	/**
+	 * Pochita held as a chainsaw (before he's your heart): the same moves, a taste of the form, at this much of the
+	 * damage, with one arm (the right's sweep twice, then the chop), and no blood drunk.
+	 */
+	public static final float WIELDED = 0.5F;
 	/** The form's cost: a point of health (half a heart) every so many ticks. */
 	public static final int DRAIN_EVERY = 60;
 	/**
@@ -104,7 +110,8 @@ public final class Saw {
 
 	/** A slash of the saws, if one may come yet: the next step of the combo, through all in front. */
 	public static boolean slash(ServerPlayerEntity player) {
-		if (!Form.fighting(player)) {
+		boolean held = !Form.fighting(player) && wielding(player);
+		if (!Form.fighting(player) && !held) {
 			return false;
 		}
 		long now = player.getServerWorld().getTime();
@@ -123,9 +130,12 @@ public final class Saw {
 		} else if (step == 1 && !left) {
 			step = 0;
 		}
+		if (held && step == 1) {
+			step = 0;
+		}
 		SLASHED.put(player.getUuid(), new Slash(now, step));
 		boolean finisher = step == 2;
-		float damage = (finisher ? FINISHER_DAMAGE : SLASH_DAMAGE) * Frenzy.damage(player) * Limbs.damage(player);
+		float damage = (finisher ? FINISHER_DAMAGE : SLASH_DAMAGE) * (held ? WIELDED : Frenzy.damage(player) * Limbs.damage(player));
 		List<LivingEntity> hit = inFront(player, SLASH_REACH, finisher ? FINISHER_WIDTH : SLASH_WIDTH);
 		for (LivingEntity target : hit) {
 			target.timeUntilRegen = 0;
@@ -136,8 +146,20 @@ public final class Saw {
 		}
 		Form.play(player, ChainsawSounds.SLASH, 1.0F);
 		Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.SWING, step));
-		landed(player, hit.size());
+		if (held) {
+			if (!hit.isEmpty()) {
+				Form.play(player, ChainsawSounds.HIT, 0.8F);
+				Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.HIT, hit.size()));
+			}
+		} else {
+			landed(player, hit.size());
+		}
 		return true;
+	}
+
+	/** Whether {@code player} holds Pochita in their hand, as a chainsaw. */
+	public static boolean wielding(PlayerEntity player) {
+		return player.getMainHandStack().isOf(ChainsawMan.POCHITA);
 	}
 
 	/** A hit or more landing: the sound of it, the blood drunk, and everyone told (the pause and kick of a heavy hit). */
@@ -191,7 +213,7 @@ public final class Saw {
 	/** The saws held grinding, or let go. */
 	public static void grind(ServerPlayerEntity player, boolean on) {
 		boolean was = GRINDING.containsKey(player.getUuid());
-		if (on && Form.fighting(player)) {
+		if (on && (Form.fighting(player) || wielding(player) && !Form.on(player))) {
 			GRINDING.putIfAbsent(player.getUuid(), 0);
 		} else {
 			GRINDING.remove(player.getUuid());
@@ -216,8 +238,15 @@ public final class Saw {
 			UUID id = player.getUuid();
 			if (!Form.fighting(player)) {
 				DRAINING.remove(id);
-				if (GRINDING.containsKey(id)) {
+				if (GRINDING.containsKey(id) && (Form.on(player) || !wielding(player))) {
 					grind(player, false);
+				} else if (GRINDING.containsKey(id) && now % GRIND_EVERY == 0) {
+					// Pochita held, grinding: half the bite, no blood drunk.
+					for (LivingEntity target : inFront(player, GRIND_REACH, GRIND_WIDTH)) {
+						target.timeUntilRegen = 0;
+						target.damage(player.getDamageSources().playerAttack(player), GRIND_DAMAGE * WIELDED);
+						bleed(player.getServerWorld(), target, 5);
+					}
 				}
 				continue;
 			}

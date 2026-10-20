@@ -338,6 +338,54 @@ public class FormGameTests implements FabricGameTest {
 		});
 	}
 
+	/** Pochita doesn't die: he faints, and kortev's blood brings him round. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_faint", tickLimit = PochitaEntity.WAKE + 40)
+	public void pochitaFaints(TestContext context) {
+		ServerPlayerEntity owner = player(context, ChainsawMan.OWNER, 0.0);
+		PochitaEntity pochita = new PochitaEntity(ChainsawMan.POCHITA_ENTITY, context.getWorld());
+		Vec3d at = spot(context).add(0.0, 0.0, 1.5);
+		pochita.refreshPositionAndAngles(at.x, at.y, at.z, 0.0F, 0.0F);
+		pochita.setNoGravity(true);
+		pochita.setOwner(owner);
+		pochita.setTamed(true, true);
+		context.getWorld().spawnEntity(pochita);
+		pochita.damage(context.getWorld().getDamageSources().generic(), 1000.0F);
+		context.assertTrue(pochita.isAlive() && pochita.fainted(), "Pochita died, or didn't faint");
+		for (int t = 0; t <= PochitaEntity.WAKE + 12; t += 4) {
+			context.runAtTick(t + 1, () -> {
+				if (pochita.fainted()) {
+					pochita.feed(owner);
+				}
+			});
+		}
+		context.runAtTick(PochitaEntity.WAKE + 25, () -> {
+			try {
+				context.assertTrue(!pochita.fainted(), "kortev's blood didn't bring him round");
+			} finally {
+				pochita.discard();
+				done(context, owner);
+			}
+			context.complete();
+		});
+	}
+
+	/** Pochita held as a chainsaw: the same slash, at half the damage, and nothing drunk. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_wield", tickLimit = 20)
+	public void heldPochitaSlashes(TestContext context) {
+		ServerPlayerEntity player = player(context, "wielder", 0.0);
+		player.setStackInHand(net.minecraft.util.Hand.MAIN_HAND, new ItemStack(ChainsawMan.POCHITA));
+		HuskEntity front = husk(context, 0.0, 2.0);
+		try {
+			context.assertTrue(Saw.slash(player), "held, Pochita didn't slash");
+			float lost = front.getMaxHealth() - front.getHealth();
+			context.assertTrue(lost > Saw.SLASH_DAMAGE * Saw.WIELDED * 0.8F && lost < Saw.SLASH_DAMAGE * 0.8F, "the slash did " + lost);
+		} finally {
+			done(context, player);
+			front.discard();
+		}
+		context.complete();
+	}
+
 	/** A player in the form, with Pochita's heart, at {@code x} across the test's spot, facing along +z. */
 	private static ServerPlayerEntity fighter(TestContext context, String name, double x) {
 		ServerPlayerEntity player = player(context, name, x);
