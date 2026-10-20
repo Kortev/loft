@@ -433,7 +433,7 @@ public class FormSelfTest implements ClientModInitializer {
 			case 1270 -> stage = Stage.DONE;
 			// Kills (-Ptarget=kill): a husk (the whole combo), then a cow, cut down in front of you, seen from in front.
 			case 1300 -> {
-				client.options.hudHidden = true;
+				client.options.hudHidden = false;
 				client.options.setPerspective(Perspective.THIRD_PERSON_FRONT);
 				client.player.setPitch(-12.0F);
 				server.execute(() -> {

@@ -325,6 +325,9 @@ tuning the numbers.
 - **Blood on the lens for kills** (`LensBlood`, `textures/gui/lens_blood.png`), reworked from the transformation's
   (saved at e85a346) as kortev asked: a kill within 4.5 blocks, in your own eyes, throws 1 to 4 dark pixel splats onto
   the edges of the picture (never the middle), sliding a little down and gone in about 2 seconds.
+- **Sound effects lettered** (`Sfx`, `textures/gui/form_sfx.png`, glyphs painted in `gen_chainsaw_textures.py`):
+  your kills ブシャッ, the overhead chop landing ザシュッ, grinding into something ギャリギャリ, slammed onto your
+  screen off to one side, tilted and shaking, gone in a moment. A new word needs its glyphs drawn there (16 by 16).
 - **Slash trails** (`SawTrails`, `textures/entity/form_trail.png`): each slash leaves a smear behind the saw's tip,
   white at the edge going to blood red, gone in 3 ticks; sampled from where the bar is drawn each frame, so it follows
   the real arc. In your own view it is shorter and reaches further down the bar, or it reads as a thin line.

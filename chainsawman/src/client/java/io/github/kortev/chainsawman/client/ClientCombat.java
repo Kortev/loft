@@ -213,6 +213,17 @@ public final class ClientCombat {
 					if (dead != null && client.player != null && id.equals(client.player.getUuid())) {
 						LensBlood.killed(dead.distanceTo(client.player), now);
 					}
+					if (client.player != null && id.equals(client.player.getUuid())) {
+						Sfx.show(Sfx.KILL, 0.13F, 16, now);
+					}
+				} else if (client.player != null && id.equals(client.player.getUuid())) {
+					// Your own hit landing: the overhead chop's, or grinding's, sound lettered.
+					Swing swung = SWINGS.get(id);
+					if (grinding(client.player)) {
+						Sfx.grinding(now);
+					} else if (swung != null && swung.step() == 2 && now - swung.at() < SWING) {
+						Sfx.show(Sfx.CHOP, 0.11F, 12, now);
+					}
 				}
 				PlayerEntity player = world.getPlayerByUuid(id);
 				if (player != null) {
@@ -653,6 +664,7 @@ public final class ClientCombat {
 		MergeCinematic.clear();
 		CutDown.clear();
 		LensBlood.clear();
+		Sfx.clear();
 		Severed.clear();
 		SawTrails.clear();
 		LOST.clear();
