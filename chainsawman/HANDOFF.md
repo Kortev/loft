@@ -92,6 +92,32 @@ gets a mod of their own; this one is kortev's.
     shows both saw arms and plays the same moves (`FirstPersonFormMixin` takes over the hand; eating or a shield
     still shows normally).
 
+### Second round (2026-10-19, kortev's picks from a list of improvements)
+
+- **Heavy hits**: a hit holds the swing still a moment (everyone sees it), kicks your camera, punches the view in.
+- **Brutal kills**: a mob killed by the saws bursts into blood, flesh and bone and is gone (`Saw.tearApart`). Not yet:
+  actually cutting the body in two.
+- **The lunge**: attacking while sprinting throws you forward headfirst, the head's saw cutting what you run
+  through (12 damage, once each; 10 blood).
+- **The chain held** (`Grapple`): what it catches is yanked to you and bound within 4.5 blocks for 5 s; caught in a
+  block you **swing** from it (the client moves you: `ClientCombat.swing`), reeling in, until you jump or press R.
+- **His stance** (`SawPose.stance`): arms a little forward and out standing; bent in, arms back, running.
+- **Blood as fuel** (`Blood`, bar over the food bar, `BloodHud`): 0 to 100, kept with the player. Gains: 8 a hit, 3 a
+  grinding bite, 25 a kill, and out of the form a point every 2 s. Costs: the cord 25 (the engine won't start
+  without it), the chain 15, the lunge 10, the frenzy 60. These replaced the chain's and the frenzy's cooldowns.
+- **Losing arms** (`Limbs`): in the form every 6 hearts of harm takes an arm off (right, then left), its saw with
+  it, a stump at the shoulder. One arm: three quarters damage; none: the head's saw alone, half. A kill grows one
+  back; out of the form or back up, both are back.
+- **Pochita the animal** (`PochitaEntity`, `PochitaModel`): rare in the wild (forests, plains, meadows), hurt; tamed
+  as Denji did, by giving him your blood (hold use on him, 4 s, half a heart a second; kortev only). Tamed he follows
+  and sits; crouch + use picks him up as the Pochita item, a chainsaw weapon (`PochitaItem.weapon`); used on the
+  ground he's set down. **Carry him when you die** (kortev, first time) and he becomes your heart (`Heart.MERGED`,
+  kept for good): back whole, full of blood, transforming. From then on only the heart matters: the cord and never
+  dying are the heart's, not the item's. The crafting recipe is gone.
+- **To try it on a PC**: `./gradlew runClient` (plays as kortev); survival, cheats on; `/summon chainsawman:pochita`
+  (or the spawn egg), hold right-click on him till he's yours, crouch + right-click to pick him up, then
+  `/damage @s 100` to merge (not `/kill`: that one still kills). Then G transforms.
+
 ## The design kortev approved (don't change it without asking)
 
 ### The powers (all built; the numbers are above, chosen by kortev: both kinds of attack, medium drain, downed with
@@ -234,7 +260,16 @@ they chose.)
 The transformation in reverse: the saws slide back into the arms and head, the engine dies (`form_stop`), a last
 splash, your own head back. A shorter beat sheet in `FormTimeline`, the same machinery.
 
-### 3. The abilities: built (see "The fight" above). Next is kortev trying them in game and tuning the numbers.
+### 3. The abilities: built (see "The fight" and "Second round" above). Next is kortev trying them in game and
+tuning the numbers.
+
+### 4. Still to do from kortev's picks (agreed, not built yet)
+
+- **The transformation polish** above (the eye lighting up at the roar, the cord on the chest all the time - now
+  for whoever has the heart, which clients would need telling - sparks and exhaust, the manga lettering).
+- **Turning back** (section 2).
+- Smaller follow-ups: brutal kills cutting the body in two; the wild Pochita lying hurt rather than standing; a sound
+  for taming.
 
 ### Later ideas kortev has had (not designed; ask before building)
 
