@@ -31,6 +31,8 @@ public final class ChainsawSounds {
 	public static final SoundEvent DOWN = register("form.down");
 	/** Back up: a gulp of blood and the heart catching. */
 	public static final SoundEvent REVIVE = register("form.revive");
+	/** Pochita becoming your heart, cut to {@code MergeTimeline}: ringing silence, his steps, the sink, the heart starting. */
+	public static final SoundEvent MERGE = register("form.merge");
 
 	private ChainsawSounds() {
 	}

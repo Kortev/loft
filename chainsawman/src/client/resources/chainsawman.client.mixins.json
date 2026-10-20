@@ -16,7 +16,8 @@
 		"HeadHiddenMixin",
 		"HeadItemHiddenMixin",
 		"HeldItemRendererInvoker",
-		"HelmetHiddenMixin"
+		"HelmetHiddenMixin",
+		"MergeLyingMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

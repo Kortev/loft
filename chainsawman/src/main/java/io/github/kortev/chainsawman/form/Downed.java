@@ -81,9 +81,9 @@ public final class Downed {
 
 	static void init() {
 		ServerLivingEntityEvents.ALLOW_DEATH.register((entity, source, amount) -> {
-			if (entity instanceof ServerPlayerEntity player && !lethal(source) && Heart.merges(player)) {
-				// The first time, carrying him: Pochita becomes your heart, and you come back as Chainsaw Man.
-				Heart.merge(player);
+			if (entity instanceof ServerPlayerEntity player && !lethal(source) && (Merge.is(player) || Merge.comes(player))) {
+				// The first time, with him carried or near: Pochita becomes your heart, and you come back as Chainsaw Man.
+				Merge.start(player);
 				return false;
 			}
 			if (entity instanceof ServerPlayerEntity player && !lethal(source) && (Heart.has(player) || is(player))) {
@@ -93,7 +93,7 @@ public final class Downed {
 			return true;
 		});
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) ->
-				!(entity instanceof ServerPlayerEntity player && is(player) && !lethal(source)));
+				!(entity instanceof ServerPlayerEntity player && (is(player) || Merge.is(player)) && !lethal(source)));
 		AttackEntityCallback.EVENT.register((player, world, hand, entity, hit) -> is(player) ? ActionResult.FAIL : ActionResult.PASS);
 		AttackBlockCallback.EVENT.register((player, world, hand, pos, direction) -> is(player) ? ActionResult.FAIL : ActionResult.PASS);
 		UseBlockCallback.EVENT.register((player, world, hand, hit) -> is(player) ? ActionResult.FAIL : ActionResult.PASS);
@@ -180,7 +180,7 @@ public final class Downed {
 	}
 
 	/** Stops (or lets go) {@code player}'s legs: they cannot walk or jump while down. */
-	private static void hold(ServerPlayerEntity player, boolean on) {
+	public static void hold(ServerPlayerEntity player, boolean on) {
 		for (EntityAttributeInstance attribute : new EntityAttributeInstance[] {player.getAttributeInstance(EntityAttributes.GENERIC_MOVEMENT_SPEED),
 				player.getAttributeInstance(EntityAttributes.GENERIC_JUMP_STRENGTH)}) {
 			if (attribute == null) {

@@ -26,7 +26,8 @@ public final class FormHud {
 		MinecraftClient client = MinecraftClient.getInstance();
 		float tickDelta = counter.getTickDelta(true);
 		int style = FormCinematic.impactStyle(tickDelta);
-		float vignette = Math.max(FormCinematic.vignette(tickDelta), ClientCombat.vignette(tickDelta));
+		MergeCinematic.darkness(ctx, tickDelta);
+		float vignette = Math.max(Math.max(FormCinematic.vignette(tickDelta), ClientCombat.vignette(tickDelta)), MergeCinematic.vignette(tickDelta));
 		if (impact == null || client.player == null || (style == 0 && vignette < 0.01F)) {
 			return;
 		}

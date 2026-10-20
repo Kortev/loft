@@ -51,8 +51,10 @@ public final class ChainsawManClient implements ClientModInitializer {
 		ClientCombat.init();
 		EntityModelLayerRegistry.registerModelLayer(PochitaRenderer.LAYER, PochitaModel::texturedModelData);
 		EntityRendererRegistry.register(ChainsawMan.POCHITA_ENTITY, PochitaRenderer::new);
+		WorldRenderEvents.AFTER_ENTITIES.register(MergeCinematic::render);
 		LivingEntityFeatureRendererRegistrationCallback.EVENT.register((type, renderer, helper, context) -> {
 			if (renderer instanceof PlayerEntityRenderer player) {
+				MergeCinematic.setModel(new PochitaModel(context.getPart(PochitaRenderer.LAYER)));
 				helper.register(new FormFeature(player));
 			}
 		});

@@ -82,6 +82,11 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 		if (t >= FormTimeline.REACH && t < FormTimeline.SNAP + 2) {
 			cord(matrices, consumers, light, model, t);
 		}
+		float merge = MergeCinematic.age(player, tickDelta);
+		if (merge >= io.github.kortev.chainsawman.form.MergeTimeline.SUNK && !ClientForms.on(player)) {
+			// He's in: the cord comes out of your chest.
+			draw(matrices, consumers, light, overlay, player, tickDelta, "body", model.body);
+		}
 		if (!ClientForms.on(player)) {
 			// (Past the burst only while the server's word that the form is on is still on its way.)
 			if (t >= FormTimeline.PUNCH && t < FormTimeline.HEAD_OPEN) {

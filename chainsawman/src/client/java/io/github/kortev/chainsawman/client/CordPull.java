@@ -33,6 +33,27 @@ public final class CordPull {
 	private CordPull() {
 	}
 
+	/**
+	 * Lying dead through the merge ({@code MergeTimeline}): limp, arms a little out, head fallen to one side; as the heart
+	 * starts the right hand comes up to the cord on the chest, and holds it as you rise.
+	 */
+	public static void lie(BipedEntityModel<?> model, float t) {
+		float reach = ease((t - io.github.kortev.chainsawman.form.MergeTimeline.BEATS[2]) / 6.0F);
+		model.rightArm.pitch = REACH_PITCH * reach;
+		model.rightArm.yaw = REACH_YAW * reach;
+		model.rightArm.roll = 0.25F * (1.0F - reach);
+		model.leftArm.pitch = 0.0F;
+		model.leftArm.yaw = 0.0F;
+		model.leftArm.roll = -0.25F;
+		model.rightLeg.pitch = 0.0F;
+		model.leftLeg.pitch = 0.0F;
+		model.rightLeg.roll = 0.08F;
+		model.leftLeg.roll = -0.08F;
+		model.head.yaw = 0.5F * (1.0F - ease((t - io.github.kortev.chainsawman.form.MergeTimeline.BEAT) / 10.0F));
+		model.head.pitch = 0.0F;
+		model.hat.copyTransform(model.head);
+	}
+
 	/** Poses the arms and head {@code t} ticks after the pull. */
 	public static void pose(BipedEntityModel<?> model, float t) {
 		float rPitch = 0.0F;

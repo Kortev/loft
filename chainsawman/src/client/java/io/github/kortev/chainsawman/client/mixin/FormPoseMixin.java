@@ -30,7 +30,10 @@ public abstract class FormPoseMixin {
 		float tickDelta = client.getRenderTickCounter().getTickDelta(true);
 		float t = ClientForms.pullAge(player, tickDelta);
 		PlayerEntityModel<?> model = (PlayerEntityModel<?>) (Object) this;
-		if (t >= 0.0F) {
+		float merge = io.github.kortev.chainsawman.client.MergeCinematic.age(player, tickDelta);
+		if (merge >= 0.0F && t < 0.0F) {
+			io.github.kortev.chainsawman.client.CordPull.lie(model, merge);
+		} else if (t >= 0.0F) {
 			CordPull.pose(model, t);
 		} else if (ClientForms.on(player)) {
 			SawPose.pose(model, player, tickDelta);

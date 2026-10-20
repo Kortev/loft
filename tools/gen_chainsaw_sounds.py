@@ -321,7 +321,59 @@ def form_revive():
     return x
 
 
+# Pochita becoming your heart (MergeTimeline, ticks of 1/20 s): you fall (0), he comes (20), climbs (44), sinks into
+# you (64), your heart beats (76, 86, 93, 98), you rise (100), and the cord pulls itself (110).
+MERGE_FALL = 0.0
+MERGE_COMING = 20 / 20.0
+MERGE_CLIMB = 44 / 20.0
+MERGE_SINK = 64 / 20.0
+MERGE_BEATS = [76 / 20.0, 86 / 20.0, 93 / 20.0, 98 / 20.0]
+MERGE_END = 110 / 20.0
+
+
+def form_merge():
+    n = ns(MERGE_END + 0.4)
+    t = np.arange(n) / SR
+    x = np.zeros(n)
+    # The fall: a body hitting the ground, wet.
+    hit = np.zeros(n)
+    hit[ns(0.25)] = 1.0
+    k = np.arange(ns(0.2))
+    x += np.convolve(hit, np.sin(2 * np.pi * 60.0 * k / SR) * np.exp(-k / ns(0.05)))[:n] * 1.8
+    x += np.roll(flesh(n, 0.3, wet=1.6), ns(0.24)) * 0.7
+    # Then a ringing in the ears over the dark, fading as he comes.
+    ring = np.sin(2 * np.pi * 3150.0 * t) * 0.06 + np.sin(2 * np.pi * 3720.0 * t) * 0.03
+    x += ring * curve(n, [(0.0, 0.0), (0.35, 0.0), (0.6, 1.0), (MERGE_COMING + 0.6, 0.7), (MERGE_SINK, 0.15), (MERGE_SINK + 0.05, 0.0),
+                          (MERGE_END + 0.4, 0.0)])
+    # His steps: little pads, a limp in them, then the scramble up onto the chest.
+    for i in range(14):
+        at = MERGE_COMING + i * (MERGE_CLIMB - MERGE_COMING) / 14 + (0.04 if i % 2 else 0.0)
+        pad = np.zeros(n)
+        pad[ns(at)] = 0.5 + 0.3 * (i % 2)
+        x += lp(np.convolve(pad, white(ns(0.03)) * np.exp(-np.arange(ns(0.03)) / ns(0.006)))[:n], 1800.0) * 0.8
+    x += bp(white(n), 600.0, 2500.0) * curve(n, [(0.0, 0.0), (MERGE_CLIMB, 0.0), (MERGE_CLIMB + 0.05, 0.4), (MERGE_CLIMB + 0.4, 0.0),
+                                                (MERGE_END + 0.4, 0.0)])
+    # The sink: a deep boom and a wet tearing as he goes into you.
+    boom = np.zeros(n)
+    boom[ns(MERGE_SINK)] = 1.0
+    kb = np.arange(ns(1.2))
+    x += np.convolve(boom, np.sin(2 * np.pi * np.linspace(70.0, 32.0, len(kb)) * kb / SR) * np.exp(-kb / ns(0.35)))[:n] * 2.2
+    x += np.roll(flesh(n, 0.9, wet=2.0), ns(MERGE_SINK)) * 1.4
+    # The heart starting: four beats, closer and harder, the last with the engine's first cough in it.
+    for i, at in enumerate(MERGE_BEATS):
+        for dub, gain in ((0.0, 1.0), (0.16, 0.6)):
+            beat = np.zeros(n)
+            beat[ns(at + dub)] = 1.0
+            kk = np.arange(ns(0.18))
+            x += np.convolve(beat, np.sin(2 * np.pi * 52.0 * kk / SR) * np.exp(-kk / ns(0.045)))[:n] * (1.4 + 0.35 * i) * gain
+    rate = curve(n, [(0.0, 0.0), (MERGE_BEATS[3] - 0.01, 0.0), (MERGE_BEATS[3], 14.0), (MERGE_END - 0.1, 22.0), (MERGE_END + 0.4, 0.0)])
+    level = curve(n, [(0.0, 0.0), (MERGE_BEATS[3], 0.0), (MERGE_BEATS[3] + 0.02, 0.8), (MERGE_END, 0.5), (MERGE_END + 0.4, 0.0)])
+    x += engine(n, rate, level, skip=0.3) * 0.6
+    return x
+
+
 SOUNDS = {
+    'form_merge': form_merge,
     'form_cord': form_cord,
     'form_start': form_start,
     'form_idle': form_idle,
@@ -337,7 +389,7 @@ SOUNDS = {
 }
 LOOPS = ('form_idle', 'form_grind', 'form_frenzy_loop')
 # Loudness (loudest 400 ms, dB).
-LEVELS = {'form_cord': -14, 'form_start': -10, 'form_idle': -20, 'form_stop': -16, 'form_slash': -13, 'form_hit': -12,
+LEVELS = {'form_merge': -12, 'form_cord': -14, 'form_start': -10, 'form_idle': -20, 'form_stop': -16, 'form_slash': -13, 'form_hit': -12,
           'form_grind': -15, 'form_chain': -14, 'form_frenzy': -10, 'form_frenzy_loop': -17, 'form_down': -13,
           'form_revive': -14}
 

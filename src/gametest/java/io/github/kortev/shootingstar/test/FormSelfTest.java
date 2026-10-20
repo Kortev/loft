@@ -343,9 +343,40 @@ public class FormSelfTest implements ClientModInitializer {
 				}
 			}
 			case 226 -> screenshot(client, "pochita");
-			case 230 -> stage = Stage.DONE;
+			// The merge, as the first time: out of the form, the heart not theirs yet, their tamed Pochita a few blocks off.
+			case 230 -> {
+				client.setCameraEntity(client.player);
+				client.options.setPerspective(Perspective.FIRST_PERSON);
+				client.options.hudHidden = false;
+				server.execute(() -> {
+					ServerPlayerEntity p = serverPlayer(server);
+					Form.end(p);
+					p.removeAttached(io.github.kortev.chainsawman.form.Heart.MERGED);
+					for (Entity e : p.getServerWorld().getEntitiesByClass(io.github.kortev.chainsawman.PochitaEntity.class,
+							p.getBoundingBox().expand(30.0), x -> true)) {
+						e.discard();
+					}
+					io.github.kortev.chainsawman.PochitaEntity pochita = ChainsawMan.POCHITA_ENTITY.create(p.getServerWorld());
+					if (pochita != null) {
+						pochita.refreshPositionAndAngles(p.getX() + 4.0, p.getY(), p.getZ() + 2.0, 0.0F, 0.0F);
+						pochita.setOwner(p);
+						pochita.setTamed(true, true);
+						p.getServerWorld().spawnEntity(pochita);
+					}
+				});
+			}
+			case 234 -> server.execute(() -> io.github.kortev.chainsawman.form.Merge.start(serverPlayer(server)));
+			case 420 -> stage = Stage.DONE;
 			default -> {
 			}
+		}
+		for (int age : new int[] {3, 12, 26, 36, 46, 56, 64, 66, 70, 78, 88, 98, 104, 108}) {
+			if (f == 235 + age) {
+				screenshot(client, String.format("merge_%03d", age));
+			}
+		}
+		if (f == 235 + io.github.kortev.chainsawman.form.MergeTimeline.END + 30) {
+			screenshot(client, "merge_then_burst");
 		}
 		int[] fpAt = {100, 114, 128};
 		for (int step = 0; step < 3; step++) {

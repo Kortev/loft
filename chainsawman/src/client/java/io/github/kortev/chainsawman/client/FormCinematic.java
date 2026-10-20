@@ -123,7 +123,7 @@ public final class FormCinematic {
 	/** Whether your own transformation is playing: the camera is off on its shots, your hand and the HUD hidden. */
 	public static boolean filming(float tickDelta) {
 		float t = mine(tickDelta);
-		return t >= 0.0F && t < FormTimeline.END;
+		return t >= 0.0F && t < FormTimeline.END || MergeCinematic.filming(tickDelta);
 	}
 
 	/** How many ticks into your own transformation you are, or -1. */
@@ -164,7 +164,7 @@ public final class FormCinematic {
 		float t = mine(tickDelta);
 		ClientForms.Pull pull = self != null ? ClientForms.pull(self) : null;
 		if (self == null || pull == null || t < 0.0F || t >= FormTimeline.END) {
-			return null;
+			return MergeCinematic.shot(tickDelta);
 		}
 		Vec3d eye = self.getLerpedPos(tickDelta).add(0.0, self.getStandingEyeHeight(), 0.0);
 		Vec3d face = eye.add(0.0, -0.08, 0.0);
@@ -209,7 +209,7 @@ public final class FormCinematic {
 	/** How hard the camera is being shaken now (blocks): the yank, each cough, the punch, the burst, the roar. */
 	public static double shake(float tickDelta) {
 		MinecraftClient client = MinecraftClient.getInstance();
-		double amplitude = ClientCombat.kick(tickDelta);
+		double amplitude = Math.max(ClientCombat.kick(tickDelta), MergeCinematic.shake(tickDelta));
 		float t = mine(tickDelta);
 		if (t >= 0.0F) {
 			if (t > FormTimeline.REACH && t < FormTimeline.YANK) {
@@ -243,6 +243,10 @@ public final class FormCinematic {
 
 	/** The impact frame showing now, if any: 1 red and black, 2 its negative; 0 none. */
 	public static int impactStyle(float tickDelta) {
+		int merge = MergeCinematic.impactStyle(tickDelta);
+		if (merge != 0) {
+			return merge;
+		}
 		float t = mine(tickDelta);
 		if (t < FormTimeline.ROAR || t >= FormTimeline.ROAR + FormTimeline.IMPACT) {
 			return 0;

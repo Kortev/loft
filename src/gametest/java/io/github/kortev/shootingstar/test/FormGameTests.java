@@ -10,6 +10,8 @@ import io.github.kortev.chainsawman.form.Frenzy;
 import io.github.kortev.chainsawman.form.Grapple;
 import io.github.kortev.chainsawman.form.Heart;
 import io.github.kortev.chainsawman.form.Limbs;
+import io.github.kortev.chainsawman.form.Merge;
+import io.github.kortev.chainsawman.form.MergeTimeline;
 import io.github.kortev.chainsawman.form.Saw;
 import io.netty.channel.embedded.EmbeddedChannel;
 import java.util.UUID;
@@ -276,22 +278,31 @@ public class FormGameTests implements FabricGameTest {
 	}
 
 	/** Carrying Pochita, kortev dying the first time doesn't: he becomes their heart and they come back transforming. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_merge", tickLimit = JOINED + 20)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_merge", tickLimit = JOINED + MergeTimeline.END + 30)
 	public void pochitaBecomesYourHeart(TestContext context) {
 		ServerPlayerEntity player = player(context, ChainsawMan.OWNER, 0.0);
 		player.getInventory().insertStack(new ItemStack(ChainsawMan.POCHITA));
 		context.waitAndRun(JOINED, () -> {
 			try {
 				player.damage(player.getDamageSources().generic(), 1000.0F);
-				context.assertTrue(player.isAlive() && player.getHealth() == player.getMaxHealth(), "they didn't come back whole");
-				context.assertTrue(Heart.merged(player), "Pochita didn't become their heart");
+				context.assertTrue(player.isAlive() && Merge.is(player), "they didn't start merging");
 				context.assertTrue(!io.github.kortev.chainsawman.PochitaItem.carried(player), "Pochita was still in their pack");
-				context.assertTrue(!Downed.is(player), "they were down, not back");
-			} finally {
+				context.assertTrue(!player.damage(player.getDamageSources().generic(), 5.0F), "merging, they were hurt");
+			} catch (RuntimeException e) {
 				done(context, player);
-				player.removeAttached(Heart.MERGED);
+				throw e;
 			}
-			context.complete();
+			context.runAtTick(JOINED + MergeTimeline.END + 10, () -> {
+				try {
+					context.assertTrue(!Merge.is(player) && Heart.merged(player), "Pochita didn't become their heart");
+					context.assertTrue(player.getHealth() == player.getMaxHealth(), "they didn't come back whole");
+					context.assertTrue(!Downed.is(player), "they were down, not back");
+				} finally {
+					done(context, player);
+					player.removeAttached(Heart.MERGED);
+				}
+				context.complete();
+			});
 		});
 	}
 

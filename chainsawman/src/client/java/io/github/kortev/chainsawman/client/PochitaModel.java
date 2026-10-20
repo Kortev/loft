@@ -55,8 +55,12 @@ public class PochitaModel extends SinglePartEntityModel<PochitaEntity> {
 	public void setAngles(PochitaEntity pochita, float limbAngle, float limbDistance, float animationProgress, float headYaw, float headPitch) {
 		head.yaw = headYaw * MathHelper.RADIANS_PER_DEGREE;
 		head.pitch = headPitch * MathHelper.RADIANS_PER_DEGREE;
+		animate(limbAngle, limbDistance, animationProgress, pochita.isInSittingPose());
+	}
+
+	/** Poses him without an entity (the merge draws him itself): walking that far and fast, his tail wagging, sitting. */
+	public void animate(float limbAngle, float limbDistance, float animationProgress, boolean sitting) {
 		tail.yaw = MathHelper.sin(animationProgress * 0.4F) * 0.4F;
-		boolean sitting = pochita.isInSittingPose();
 		for (int i = 0; i < 4; i++) {
 			float swing = MathHelper.cos(limbAngle * 0.8F + (i == 1 || i == 2 ? MathHelper.PI : 0.0F)) * 1.2F * limbDistance;
 			legs[i].pitch = sitting ? (i < 2 ? -1.4F : 1.4F) : swing;

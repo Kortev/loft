@@ -94,5 +94,13 @@
         "name": "chainsawman:form_revive"
       }
     ]
+  },
+  "form.merge": {
+    "subtitle": "subtitles.chainsawman.form.merge",
+    "sounds": [
+      {
+        "name": "chainsawman:form_merge"
+      }
+    ]
   }
 }

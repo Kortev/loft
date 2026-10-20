@@ -58,14 +58,17 @@ public final class Form {
 			Frenzy.clear();
 			Limbs.clear();
 			Blood.clear();
+			Merge.clear();
 		});
 		ServerTickEvents.END_SERVER_TICK.register(Form::tick);
 		// What the form does once it is on: the saws, the blood, never dying, the chain, the frenzy.
 		Saw.init();
 		Downed.init();
 		Limbs.init();
+		Merge.init();
 		ServerTickEvents.END_SERVER_TICK.register(server -> {
 			Blood.tick(server);
+			Merge.tick(server);
 			Saw.tick(server);
 			Downed.tick(server);
 			Grapple.tick(server);

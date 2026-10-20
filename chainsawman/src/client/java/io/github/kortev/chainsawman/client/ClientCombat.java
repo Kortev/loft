@@ -4,6 +4,7 @@ import io.github.kortev.chainsawman.ChainsawSounds;
 import io.github.kortev.chainsawman.form.Downed;
 import io.github.kortev.chainsawman.form.Frenzy;
 import io.github.kortev.chainsawman.form.Limbs;
+import io.github.kortev.chainsawman.form.Merge;
 import io.github.kortev.chainsawman.form.Saw;
 import io.github.kortev.chainsawman.network.FormActionPayload;
 import io.github.kortev.chainsawman.network.FormEventPayload;
@@ -103,6 +104,7 @@ public final class ClientCombat {
 		Limbs.clientRight = p -> (LOST.getOrDefault(p.getUuid(), 0) & Limbs.RIGHT) != 0;
 		Limbs.clientLeft = p -> (LOST.getOrDefault(p.getUuid(), 0) & Limbs.LEFT) != 0;
 		Frenzy.client = p -> FRENZY.containsKey(p.getUuid());
+		Merge.client = MergeCinematic::merging;
 	}
 
 	/** Something done in the form, as the server tells it (or a test's stand-in, which the server never sees). */
@@ -131,6 +133,11 @@ public final class ClientCombat {
 			}
 			case FormEventPayload.CHAIN_END -> CHAINS.remove(id);
 			case FormEventPayload.BLOOD -> blood = event.value();
+			case FormEventPayload.MERGE -> {
+				if (event.value() != 0) {
+					MergeCinematic.started(id, now, new Vec3d(event.x(), event.y(), event.z()));
+				}
+			}
 			case FormEventPayload.LIMBS -> {
 				if (event.value() == 0) {
 					LOST.remove(id);
@@ -309,9 +316,10 @@ public final class ClientCombat {
 			grindSent = grind;
 			send(FormActionPayload.GRIND, grind);
 		}
-		if (Downed.is(self)) {
+		if (Downed.is(self) || MergeCinematic.merging(self)) {
 			holdStill(client.options);
 		}
+		MergeCinematic.tick(world);
 		swing(client, self);
 		for (AbstractClientPlayerEntity player : world.getPlayers()) {
 			UUID id = player.getUuid();
@@ -437,6 +445,7 @@ public final class ClientCombat {
 		SWINGS.clear();
 		GRINDING.clear();
 		CHAINS.clear();
+		MergeCinematic.clear();
 		LOST.clear();
 		blood = -1;
 		PAUSED.clear();
