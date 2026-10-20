@@ -171,6 +171,26 @@ public class FormGameTests implements FabricGameTest {
 		});
 	}
 
+	/** Down, the mobs give up on you: the one after you lets you be, and none can take you for a target till you're up. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_unseen", tickLimit = 20)
+	public void downedMobsLetYouBe(TestContext context) {
+		ServerPlayerEntity player = fighter(context, "lying", 0.0);
+		HuskEntity husk = husk(context, 0.0, 2.0);
+		try {
+			husk.setTarget(player);
+			context.assertTrue(husk.getTarget() == player && husk.canTarget(player), "the husk was not after them to begin with");
+			Downed.down(player);
+			context.assertTrue(husk.getTarget() == null, "down, the husk was still after them");
+			context.assertTrue(!husk.canTarget(player), "down, the husk could take them for a target");
+			Downed.up(player);
+			context.assertTrue(husk.canTarget(player), "up, the husk could not go after them again");
+		} finally {
+			done(context, player);
+			husk.discard();
+		}
+		context.complete();
+	}
+
 	/** Someone holding use on you, crouched, gives you their blood and brings you back up. */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_feed", tickLimit = Downed.FEED + 40)
 	public void bloodBringsYouBack(TestContext context) {

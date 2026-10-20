@@ -4,6 +4,7 @@
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
 		"DownedPoseMixin",
+		"DownedUnseenMixin",
 		"EatBloodMixin",
 		"FormDigMixin",
 		"FrenzySlowMixin"

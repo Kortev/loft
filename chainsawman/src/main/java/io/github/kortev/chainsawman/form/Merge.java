@@ -104,6 +104,7 @@ public final class Merge {
 		Form.end(player);
 		Downed.hold(player, true);
 		MERGING.put(player.getUuid(), 0);
+		Downed.forgotten(player);
 		Form.play(player, ChainsawSounds.MERGE, 1.6F);
 		player.getServerWorld().spawnParticles(BLOOD, body.x, body.y + 0.2, body.z, 40, 0.6, 0.05, 0.6, 0.02);
 		Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.MERGE, 1, from.x, from.y, from.z));

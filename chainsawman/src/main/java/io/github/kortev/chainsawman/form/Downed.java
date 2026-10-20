@@ -19,11 +19,15 @@ import net.fabricmc.fabric.api.event.player.UseEntityCallback;
 import net.fabricmc.fabric.api.event.player.UseItemCallback;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.entity.ai.brain.MemoryModuleState;
+import net.minecraft.entity.ai.brain.MemoryModuleType;
 import net.minecraft.entity.attribute.EntityAttributeInstance;
 import net.minecraft.entity.attribute.EntityAttributeModifier;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.damage.DamageTypes;
+import net.minecraft.entity.mob.Angerable;
+import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.particle.DustParticleEffect;
@@ -146,6 +150,7 @@ public final class Downed {
 		player.extinguish();
 		player.clearStatusEffects();
 		hold(player, true);
+		forgotten(player);
 		Form.play(player, ChainsawSounds.DOWN, 1.0F);
 		Saw.around(player, BLOOD, 0.3, 60, 0.5, 0.1);
 		Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.DOWNED, 1));
@@ -249,6 +254,28 @@ public final class Downed {
 			}
 		}
 	}
+
+	/**
+	 * Every mob round {@code player} that was after them gives up on them: down (or dead, and Pochita coming), there's
+	 * nothing left to fight. None takes them for a target again while they lie there (DownedUnseenMixin).
+	 */
+	public static void forgotten(ServerPlayerEntity player) {
+		for (MobEntity mob : player.getServerWorld().getEntitiesByClass(MobEntity.class, player.getBoundingBox().expand(FORGOTTEN), m -> true)) {
+			if (mob.getTarget() == player) {
+				mob.setTarget(null);
+			}
+			if (mob instanceof Angerable angry && player.getUuid().equals(angry.getAngryAt())) {
+				angry.stopAnger();
+			}
+			if (mob.getBrain().isMemoryInState(MemoryModuleType.ATTACK_TARGET, MemoryModuleState.VALUE_PRESENT)
+					&& mob.getBrain().getOptionalRegisteredMemory(MemoryModuleType.ATTACK_TARGET).orElse(null) == player) {
+				mob.getBrain().forget(MemoryModuleType.ATTACK_TARGET);
+			}
+		}
+	}
+
+	/** How far round them mobs give up on someone who goes down (blocks). */
+	private static final double FORGOTTEN = 48.0;
 
 	/** Who is down now (for the tests). */
 	public static Set<UUID> all() {
