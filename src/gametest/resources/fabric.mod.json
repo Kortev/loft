@@ -10,6 +10,7 @@
 			"io.github.kortev.shootingstar.test.WorldGenHelper",
 			"io.github.kortev.shootingstar.test.MultiplayerTestServer",
 			"io.github.kortev.shootingstar.test.DomainMultiplayerServer",
+			"io.github.kortev.shootingstar.test.ChainsawMultiplayerServer",
 			"io.github.kortev.shootingstar.test.CrashTestServer"
 		],
 		"fabric-gametest": [
@@ -29,11 +30,13 @@
 			"io.github.kortev.shootingstar.test.MjolnirSelfTest",
 			"io.github.kortev.shootingstar.test.MultiplayerTestClient",
 			"io.github.kortev.shootingstar.test.DomainMultiplayerClient",
+			"io.github.kortev.shootingstar.test.ChainsawMultiplayerClient",
 			"io.github.kortev.shootingstar.test.FilmSelfTest",
 			"io.github.kortev.shootingstar.test.FilmDomain",
 			"io.github.kortev.shootingstar.test.FilmDomainKortev",
 			"io.github.kortev.shootingstar.test.DomainSelfTest",
-			"io.github.kortev.shootingstar.test.FormSelfTest"
+			"io.github.kortev.shootingstar.test.FormSelfTest",
+			"io.github.kortev.shootingstar.test.ReelSelfTest"
 		]
 	},
 	"depends": {

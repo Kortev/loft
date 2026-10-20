@@ -200,6 +200,14 @@ tasks.register('seedSkins') {
 }
 tasks.matching { it.name in ['runClient', 'runSelftest'] }.configureEach { dependsOn 'seedSkins' }
 
+// The first reel's cast (tools/reel_skins.py), and Denji in kortev's own onesie, for the reel's self test (ReelSelfTest).
+tasks.register('seedReelSkins', Copy) {
+	from('tools/skins/reel')
+	from('tools/skins/kortev_onesie.png') { rename { 'Denji.png' } }
+	into('build/selftest/skins')
+}
+tasks.matching { it.name == 'runSelftest' }.configureEach { dependsOn 'seedReelSkins' }
+
 // The self tests' world, made once the way CI makes it (runGenworld's server, its world copied into the client's saves),
 // and the client's options, so ./gradlew runSelftest quick-plays straight into it on a PC too.
 tasks.register('selftestServerSetup') {
