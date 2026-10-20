@@ -124,7 +124,12 @@ public class FormSelfTest implements ClientModInitializer {
 				} else if (ticks > 80 && CAMERA_IDS.size() == CAMERAS.length && "scene".equals(System.getProperty("shootingstar.selftest.target"))) {
 					// Only the test ground (-Ptarget=scene).
 					stage = Stage.FIGHT;
-					ticks = 1499;
+					ticks = 1599;
+				} else if (ticks > 80 && CAMERA_IDS.size() == CAMERAS.length && "chain".equals(System.getProperty("shootingstar.selftest.target"))) {
+					// Only the chain (-Ptarget=chain), thrown by the stand-in.
+					addStandIn(client);
+					stage = Stage.FIGHT;
+					ticks = 1699;
 				} else if (ticks > 80 && CAMERA_IDS.size() == CAMERAS.length && "kill".equals(System.getProperty("shootingstar.selftest.target"))) {
 					// Only the kills (-Ptarget=kill).
 					stage = Stage.FIGHT;
@@ -459,31 +464,59 @@ public class FormSelfTest implements ClientModInitializer {
 				client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
 				server.execute(() -> Grapple.fire(serverPlayer(server)));
 			}
-			case 1456 -> stage = Stage.DONE;
+			case 1456 -> screenshot(client, "bloody");
+			// Turned back nearly bled out: faint.
+			case 1460 -> server.execute(() -> {
+				ServerPlayerEntity p = serverPlayer(server);
+				io.github.kortev.chainsawman.form.Blood.set(p, 10);
+				Form.pullCord(p);
+			});
+			case 1462 -> client.options.setPerspective(Perspective.FIRST_PERSON);
+			case 1530 -> screenshot(client, "faint");
+			case 1540 -> stage = Stage.DONE;
 			// The test ground (-Ptarget=scene): /chainsaw scene, looked at from behind you, then toward the log.
-			case 1500 -> {
+			case 1600 -> {
 				client.setCameraEntity(client.player);
 				client.options.hudHidden = false;
 				client.player.setYaw(0.0F);
 				server.execute(() -> server.getCommandManager().executeWithPrefix(serverPlayer(server).getCommandSource().withLevel(4), "chainsaw scene"));
 			}
-			case 1504 -> {
+			case 1604 -> {
 				client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
 				client.player.setPitch(20.0F);
 			}
-			case 1530 -> screenshot(client, "scene_behind");
-			case 1532 -> {
+			case 1630 -> screenshot(client, "scene_behind");
+			case 1632 -> {
 				client.options.setPerspective(Perspective.FIRST_PERSON);
 				client.player.setYaw(client.player.getYaw() + 75.0F);
 				client.player.setPitch(15.0F);
 			}
-			case 1540 -> screenshot(client, "scene_log");
-			case 1542 -> {
+			case 1640 -> screenshot(client, "scene_log");
+			case 1642 -> {
 				client.player.setYaw(client.player.getYaw() - 75.0F);
 				client.player.setPitch(5.0F);
 			}
-			case 1550 -> screenshot(client, "scene_mobs");
-			case 1560 -> stage = Stage.DONE;
+			case 1650 -> screenshot(client, "scene_mobs");
+			case 1660 -> stage = Stage.DONE;
+			// The chain (-Ptarget=chain): thrown past, then hooked on a point up and off to the side.
+			case 1700 -> {
+				client.options.hudHidden = true;
+				Entity camera = client.world.getEntityById(CAMERA_IDS.get(0));
+				if (camera != null) {
+					client.setCameraEntity(camera);
+				}
+				if (standIn != null) {
+					Vec3d to = standIn.getEyePos().add(2.5, 0.5, 9.0);
+					ClientCombat.event(new FormEventPayload(me, FormEventPayload.CHAIN, -2, to.x, to.y, to.z));
+				}
+			}
+			case 1720 -> {
+				if (standIn != null) {
+					Vec3d to = standIn.getEyePos().add(-3.0, 2.5, 6.0);
+					ClientCombat.event(new FormEventPayload(me, FormEventPayload.CHAIN, -1, to.x, to.y, to.z));
+				}
+			}
+			case 1740 -> stage = Stage.DONE;
 			default -> {
 			}
 		}
@@ -521,6 +554,14 @@ public class FormSelfTest implements ClientModInitializer {
 			client.options.setPerspective(Perspective.FIRST_PERSON);
 			client.options.hudHidden = false;
 			client.player.setPitch(0.0F);
+		}
+		for (int age : new int[] {1, 2, 4, 8}) {
+			if (f == 1700 + age) {
+				screenshot(client, String.format("chain_miss_%02d", age));
+			}
+			if (f == 1720 + age) {
+				screenshot(client, String.format("chain_hook_%02d", age));
+			}
 		}
 		for (int age : new int[] {1, 2, 4}) {
 			if (f == 1444 + age) {

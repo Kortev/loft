@@ -98,6 +98,11 @@ public final class FormMesh {
 
 		/** Draws the part, the eye lit {@code eye} of the way (0 dark, still in its own light; 1 burning). */
 		public void draw(MatrixStack.Entry entry, VertexConsumer out, int light, int overlay, float eye) {
+			draw(entry, out, light, overlay, eye, 0xFFFFFFFF);
+		}
+
+		/** Draws the part, tinted {@code tint} (drenched in blood, say), the eye lit {@code eye} of the way. */
+		public void draw(MatrixStack.Entry entry, VertexConsumer out, int light, int overlay, float eye, int tint) {
 			Matrix4f m = entry.getPositionMatrix();
 			Vector3f p = new Vector3f();
 			Vector3f n = new Vector3f();
@@ -107,7 +112,7 @@ public final class FormMesh {
 			for (int i = 0; i < count; i++) {
 				m.transformPosition(pos[i * 3] / 16.0F, pos[i * 3 + 1] / 16.0F, pos[i * 3 + 2] / 16.0F, p);
 				entry.transformNormal(normal[i * 3] / 127.0F, normal[i * 3 + 1] / 127.0F, normal[i * 3 + 2] / 127.0F, n);
-				out.vertex(p.x, p.y, p.z, glow[i] ? lit : 0xFFFFFFFF, uv[i * 2], uv[i * 2 + 1], overlay,
+				out.vertex(p.x, p.y, p.z, glow[i] ? lit : tint, uv[i * 2], uv[i * 2 + 1], overlay,
 						glow[i] ? LightmapTextureManager.MAX_LIGHT_COORDINATE : light, n.x, n.y, n.z);
 			}
 		}

@@ -32,6 +32,15 @@ public final class Blood {
 	public static final int KILL = 25;
 	/** Out of the form, a point every so many ticks. */
 	public static final int MAKES_EVERY = 40;
+	/**
+	 * Turned back with less than {@link #FAINT}, you're faint from the loss (slow, the world swimming) till you've made
+	 * {@link #WELL} again; eating makes blood faster ({@link #FOOD} a point of food).
+	 */
+	public static final int FAINT = 30;
+	public static final int WELL = 50;
+	public static final int FOOD = 3;
+	private static final java.util.Set<UUID> FAINTING = ConcurrentHashMap.newKeySet();
+	private static final net.minecraft.util.Identifier WOOZY = ChainsawMan.id("faint");
 
 	public static final AttachmentType<Integer> LEVEL = AttachmentRegistry.<Integer>builder().persistent(Codec.INT)
 			.buildAndRegister(ChainsawMan.id("blood"));
@@ -65,8 +74,44 @@ public final class Blood {
 		return true;
 	}
 
+	/** {@code player} just turned back: faint, if they've bled too much. */
+	static void turnedBack(ServerPlayerEntity player) {
+		if (get(player) < FAINT && FAINTING.add(player.getUuid())) {
+			woozy(player, true);
+		}
+	}
+
+	/** {@code player} ate something worth {@code food}: blood made of it. */
+	public static void ate(ServerPlayerEntity player, int food) {
+		if (Heart.has(player)) {
+			add(player, food * FOOD);
+		}
+	}
+
+	private static void woozy(ServerPlayerEntity player, boolean on) {
+		net.minecraft.entity.attribute.EntityAttributeInstance speed = player.getAttributeInstance(
+				net.minecraft.entity.attribute.EntityAttributes.GENERIC_MOVEMENT_SPEED);
+		if (speed != null) {
+			speed.removeModifier(WOOZY);
+			if (on) {
+				speed.addTemporaryModifier(new net.minecraft.entity.attribute.EntityAttributeModifier(WOOZY, -0.3,
+						net.minecraft.entity.attribute.EntityAttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+			}
+		}
+		Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.FAINT, on ? 1 : 0));
+	}
+
 	static void tick(MinecraftServer server) {
 		long now = server.getOverworld().getTime();
+		for (UUID id : java.util.Set.copyOf(FAINTING)) {
+			ServerPlayerEntity player = server.getPlayerManager().getPlayer(id);
+			if (player == null) {
+				FAINTING.remove(id);
+			} else if (get(player) >= WELL || Form.on(player) || !player.isAlive()) {
+				FAINTING.remove(id);
+				woozy(player, false);
+			}
+		}
 		for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
 			if (now % MAKES_EVERY == 0 && !Form.on(player) && !Downed.is(player) && Heart.has(player)) {
 				add(player, 1);
@@ -82,9 +127,11 @@ public final class Blood {
 
 	static void forget(UUID id) {
 		TOLD.remove(id);
+		FAINTING.remove(id);
 	}
 
 	static void clear() {
 		TOLD.clear();
+		FAINTING.clear();
 	}
 }

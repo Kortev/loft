@@ -173,6 +173,7 @@ public final class Form {
 				TURNING.remove(turn.getKey());
 				play(player, ChainsawSounds.HIT, 0.7F);
 				set(server, turn.getKey(), false);
+				Blood.turnedBack(player);
 			} else {
 				TURNING.put(turn.getKey(), age);
 			}

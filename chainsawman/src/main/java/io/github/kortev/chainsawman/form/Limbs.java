@@ -15,10 +15,14 @@ import org.joml.Vector3f;
 /**
  * Losing arms in the fight: in the form, every {@link #EVERY} health you lose takes an arm off (the right, then the left),
  * its saw with it. With one arm left the saws do three quarters of their damage, with none half (the head's saw alone).
- * Blood grows them back: a kill brings one back. Out of the form, or back up from being down, you have both again.
+ * Blood grows them back, as Denji's do: every {@link #REGROW} blood you drink by cutting (hits, bites, kills) brings one
+ * back. Out of the form, or back up from being down, you have both again.
  */
 public final class Limbs {
 	public static final float EVERY = 12.0F;
+	/** How much blood drunk by cutting grows an arm back. */
+	public static final int REGROW = 25;
+	private static final Map<UUID, Integer> DRUNK = new ConcurrentHashMap<>();
 	/** Which arms are gone: bits, {@link #RIGHT} and {@link #LEFT}. */
 	public static final int RIGHT = 1;
 	public static final int LEFT = 2;
@@ -74,17 +78,34 @@ public final class Limbs {
 		player.getServerWorld().spawnParticles(BLOOD, player.getX(), player.getY() + 1.3, player.getZ(), 40, 0.4, 0.3, 0.4, 0.15);
 	}
 
+	/** Blood drunk by cutting: with an arm gone, every {@link #REGROW} of it grows one back. */
+	public static void drank(ServerPlayerEntity player, int blood) {
+		if (lost(player) == 0) {
+			DRUNK.remove(player.getUuid());
+			return;
+		}
+		int drunk = DRUNK.getOrDefault(player.getUuid(), 0) + blood;
+		while (drunk >= REGROW && lost(player) != 0) {
+			drunk -= REGROW;
+			regrow(player);
+		}
+		DRUNK.put(player.getUuid(), drunk);
+	}
+
 	/** An arm back, grown out of blood: the left first (the last lost). */
 	public static void regrow(ServerPlayerEntity player) {
 		int lost = lost(player);
 		if (lost != 0) {
 			set(player, (lost & LEFT) != 0 ? lost & ~LEFT : lost & ~RIGHT);
+			Form.play(player, ChainsawSounds.REVIVE, 0.6F);
+			player.getServerWorld().spawnParticles(BLOOD, player.getX(), player.getY() + 1.3, player.getZ(), 20, 0.35, 0.25, 0.35, 0.05);
 		}
 	}
 
 	/** Both arms back, and the count of damage started over. */
 	public static void whole(ServerPlayerEntity player) {
 		TAKEN.remove(player.getUuid());
+		DRUNK.remove(player.getUuid());
 		if (lost(player) != 0) {
 			set(player, 0);
 		}

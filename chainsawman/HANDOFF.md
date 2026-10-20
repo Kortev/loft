@@ -313,6 +313,12 @@ tuning the numbers.
   went down too easily; the chain is the saw's own chain (`form_saw_chain.png`, teeth and all) off the end of the
   right saw, whipping out in a wave, taut when it catches; caught on a block it zips you straight there
   (`ClientCombat.swing`) instead of swinging.
+- **From the show, kortev's picks (2026-10-20)**: the life steal stays how you drink blood (kortev: Denji drinks it
+  fighting); **arms grow back** from it (`Limbs.drank`: every 25 blood drunk cutting, a kill's worth, brings a lost
+  arm back, growing out of the stump on screen); **you get bloodier** as you fight (`ClientCombat.bloody`: hits and
+  kills soak the form darker and redder, dripping; water and rain wash it off); **you faint from blood loss**
+  (`Blood.FAINT`): turned back with under 30 blood you're slow and the world drains grey and dims at the edges with a
+  slow beat, till you've made 50 again; eating makes blood (`EatBloodMixin`, 3 a point of food).
 - **Slash trails** (`SawTrails`, `textures/entity/form_trail.png`): each slash leaves a smear behind the saw's tip,
   white at the edge going to blood red, gone in 3 ticks; sampled from where the bar is drawn each frame, so it follows
   the real arc. In your own view it is shorter and reaches further down the bar, or it reads as a thin line.

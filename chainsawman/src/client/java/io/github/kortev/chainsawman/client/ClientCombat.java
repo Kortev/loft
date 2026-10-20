@@ -82,6 +82,12 @@ public final class ClientCombat {
 	private static final double ARRIVE = 1.4;
 	private static final double ZIP = 1.7;
 	private static final Map<UUID, Long> FRENZY = new ConcurrentHashMap<>();
+	/** Who is faint from blood loss (you, as far as the screen goes), since when. */
+	private static long faintFrom = NEVER;
+	/** How bloody each one's form is (0 to 1): more with every hit and kill, washed off in water and rain. */
+	private static final Map<UUID, Float> BLOODY = new ConcurrentHashMap<>();
+	/** When each arm grew back (world time), right and left, to grow it out on screen. */
+	private static final Map<UUID, long[]> REGROWN = new ConcurrentHashMap<>();
 	/** Who has Pochita's heart: the cord on their chest. */
 	private static final Set<UUID> HEARTS = ConcurrentHashMap.newKeySet();
 	private static final Map<UUID, Long> FRENZY_FROM = new ConcurrentHashMap<>();
@@ -95,6 +101,8 @@ public final class ClientCombat {
 	private static final Map<UUID, SoundInstance> FRENZY_SOUNDS = new ConcurrentHashMap<>();
 	private static final DustParticleEffect EYE = new DustParticleEffect(new Vector3f(1.0F, 0.85F, 0.3F), 0.8F);
 	private static final DustParticleEffect BLOOD = new DustParticleEffect(new Vector3f(0.5F, 0.0F, 0.03F), 1.0F);
+	private static final net.minecraft.particle.BlockStateParticleEffect DRIP = new net.minecraft.particle.BlockStateParticleEffect(
+			net.minecraft.particle.ParticleTypes.FALLING_DUST, net.minecraft.block.Blocks.REDSTONE_BLOCK.getDefaultState());
 	private static final DustParticleEffect MIST = new DustParticleEffect(new Vector3f(0.75F, 0.04F, 0.06F), 0.7F);
 	private static final Random RANDOM = Random.create();
 
@@ -149,6 +157,11 @@ public final class ClientCombat {
 					MergeCinematic.ended(id);
 				}
 			}
+			case FormEventPayload.FAINT -> {
+				if (client.player != null && id.equals(client.player.getUuid())) {
+					faintFrom = event.value() != 0 ? now : NEVER;
+				}
+			}
 			case FormEventPayload.TURN -> {
 				ClientForms.turned(id, now);
 				FRENZY.remove(id);
@@ -168,6 +181,17 @@ public final class ClientCombat {
 				} else {
 					LOST.put(id, event.value());
 				}
+				int back = was & ~event.value();
+				if (back != 0 && !DOWN.contains(id)) {
+					// Grown back out of blood.
+					long[] at = REGROWN.computeIfAbsent(id, k -> new long[] {NEVER, NEVER});
+					if ((back & Limbs.RIGHT) != 0) {
+						at[0] = now;
+					}
+					if ((back & Limbs.LEFT) != 0) {
+						at[1] = now;
+					}
+				}
 				if (!DOWN.contains(id) && world.getPlayerByUuid(id) instanceof AbstractClientPlayerEntity player) {
 					// An arm lost in the fight: off it flies.
 					int off = event.value() & ~was;
@@ -180,6 +204,8 @@ public final class ClientCombat {
 				}
 			}
 			case FormEventPayload.HIT, FormEventPayload.KILL -> {
+				// Drenched a little more.
+				BLOODY.merge(id, event.kind() == FormEventPayload.KILL ? 0.2F : 0.05F, (a, b) -> Math.min(1.0F, a + b));
 				if (event.kind() == FormEventPayload.KILL) {
 					// Cut in two (the server is taking the body away; it's kept here to come apart).
 					CutDown.killed(world, event.value(), now);
@@ -312,6 +338,31 @@ public final class ClientCombat {
 		}
 		float k = (player.getWorld().getTime() - at + tickDelta) / Downed.RISE;
 		return k >= 0.0F && k <= 1.0F ? k : -1.0F;
+	}
+
+	/** How faint from blood loss you are (0 to 1), easing in. */
+	public static float faint(float tickDelta) {
+		ClientPlayerEntity self = MinecraftClient.getInstance().player;
+		if (self == null || faintFrom == NEVER) {
+			return 0.0F;
+		}
+		return MathHelper.clamp((self.getWorld().getTime() - faintFrom + tickDelta) / 40.0F, 0.0F, 1.0F);
+	}
+
+	/** How bloody {@code player}'s form is (0 to 1). */
+	public static float bloody(PlayerEntity player) {
+		return BLOODY.getOrDefault(player.getUuid(), 0.0F);
+	}
+
+	/** How far grown back {@code player}'s {@code arm} is (0 to 1), or -1 if it isn't growing. */
+	public static float regrowing(PlayerEntity player, int arm, float tickDelta) {
+		long[] at = REGROWN.get(player.getUuid());
+		if (at == null) {
+			return -1.0F;
+		}
+		long when = at[arm == Limbs.RIGHT ? 0 : 1];
+		float k = (player.getWorld().getTime() - when + tickDelta) / 12.0F;
+		return when == NEVER || k < 0.0F || k > 1.0F ? -1.0F : k;
 	}
 
 	/** Whether {@code player} has Pochita's heart, as this client has been told. */
@@ -452,6 +503,25 @@ public final class ClientCombat {
 		}
 		FRENZY.entrySet().removeIf(e -> now > e.getValue() + 40);
 		UP.entrySet().removeIf(e -> now > e.getValue() + Downed.RISE + 20);
+		for (AbstractClientPlayerEntity player : world.getPlayers()) {
+			Float b = BLOODY.get(player.getUuid());
+			if (b == null) {
+				continue;
+			}
+			// Dries and flakes off slowly; water and rain wash it away.
+			float left = b - (player.isTouchingWaterOrRain() ? 0.05F : 0.0006F);
+			if (left <= 0.0F) {
+				BLOODY.remove(player.getUuid());
+				continue;
+			}
+			BLOODY.put(player.getUuid(), left);
+			if (left > 0.35F && ClientForms.on(player) && !ownEyes(player) && RANDOM.nextFloat() < left * 0.5F) {
+				// Dripping off the saws.
+				Vec3d right = Vec3d.fromPolar(0.0F, player.getBodyYaw() + 90.0F).multiply(RANDOM.nextBoolean() ? 0.4 : -0.4);
+				world.addParticle(DRIP, player.getX() + right.x, player.getY() + 0.5 + RANDOM.nextDouble() * 0.6, player.getZ() + right.z, 0.0, -0.05,
+						0.0);
+			}
+		}
 		CHAINS.entrySet().removeIf(e -> now - e.getValue().at() > (e.getValue().held() ? 400 : CHAIN));
 		PAUSED.entrySet().removeIf(e -> now > e.getValue().until() + SWING);
 		SWINGS.entrySet().removeIf(e -> now - e.getValue().at() > SWING * 3);
@@ -582,6 +652,9 @@ public final class ClientCombat {
 		SawTrails.clear();
 		LOST.clear();
 		HEARTS.clear();
+		BLOODY.clear();
+		REGROWN.clear();
+		faintFrom = NEVER;
 		UP.clear();
 		blood = -1;
 		PAUSED.clear();

@@ -66,6 +66,17 @@ public abstract class FormPoseMixin {
 		} else {
 			return;
 		}
+		for (int arm : new int[] {io.github.kortev.chainsawman.form.Limbs.RIGHT, io.github.kortev.chainsawman.form.Limbs.LEFT}) {
+			float k = io.github.kortev.chainsawman.client.ClientCombat.regrowing(player, arm, tickDelta);
+			if (k >= 0.0F) {
+				// Grown back out of blood: out of the stump, a little past its length, settling.
+				float g = io.github.kortev.chainsawman.client.GetUp.regrown(k * 0.3F);
+				net.minecraft.client.model.ModelPart part = arm == io.github.kortev.chainsawman.form.Limbs.RIGHT ? model.rightArm : model.leftArm;
+				part.yScale = g;
+				part.xScale = 0.6F + 0.4F * g;
+				part.zScale = 0.6F + 0.4F * g;
+			}
+		}
 		model.rightSleeve.copyTransform(model.rightArm);
 		model.leftSleeve.copyTransform(model.leftArm);
 		model.jacket.copyTransform(model.body);

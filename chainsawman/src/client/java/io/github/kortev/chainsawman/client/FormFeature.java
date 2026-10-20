@@ -137,6 +137,9 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 		float thick = arm ? 1.0F : MathHelper.lerp(swell(t), PUNCH_THICK, 1.0F);
 		// The eyes dark through the transformation, until they catch at the roar.
 		float eye = t >= 0.0F && t < FormTimeline.ROAR ? 0.0F : 1.0F;
+		// Drenched: the more blood on it, the darker and redder.
+		float soaked = ClientCombat.bloody(player);
+		int tint = 0xFF000000 | 255 << 16 | (int) (255 * (1.0F - 0.55F * soaked)) << 8 | (int) (255 * (1.0F - 0.6F * soaked));
 		java.util.List<Vector3f> eyes = new java.util.ArrayList<>();
 		boolean flaring = t >= FormTimeline.ROAR && t < FormTimeline.ROAR + FLARE_FADE * 4 || ClientCombat.frenzy(player);
 		boolean boxHead = false;
@@ -192,11 +195,11 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 				matrices.translate(HEAD_MIDDLE.x / 16.0F, HEAD_MIDDLE.y / 16.0F, HEAD_MIDDLE.z / 16.0F);
 				matrices.scale(s, s, s);
 				matrices.translate(-HEAD_MIDDLE.x / 16.0F, -HEAD_MIDDLE.y / 16.0F, -HEAD_MIDDLE.z / 16.0F);
-				part.draw(matrices.peek(), out, light, overlay, eye);
+				part.draw(matrices.peek(), out, light, overlay, eye, tint);
 				matrices.pop();
 				continue;
 			}
-			part.draw(matrices.peek(), out, light, overlay, eye);
+			part.draw(matrices.peek(), out, light, overlay, eye, tint);
 		}
 		// (After the parts: asking for another layer finishes the parts' one.)
 		if (boxHead) {

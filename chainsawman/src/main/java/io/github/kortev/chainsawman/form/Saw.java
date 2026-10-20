@@ -102,7 +102,7 @@ public final class Saw {
 			if (source.getAttacker() instanceof ServerPlayerEntity killer && killer != entity && Form.fighting(killer)) {
 				heal(killer, KILL_HEAL);
 				Blood.add(killer, Blood.KILL);
-				Limbs.regrow(killer);
+				Limbs.drank(killer, Blood.KILL);
 				tearApart(killer, entity);
 			}
 		});
@@ -168,6 +168,7 @@ public final class Saw {
 			Form.play(player, ChainsawSounds.HIT, 1.0F);
 			heal(player, HIT_HEAL * Frenzy.heal(player));
 			Blood.add(player, Blood.HIT);
+			Limbs.drank(player, Blood.HIT);
 			Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.HIT, hit));
 		}
 	}
@@ -290,6 +291,7 @@ public final class Saw {
 				}
 				if (!hit.isEmpty()) {
 					Blood.add(player, Blood.BITE);
+					Limbs.drank(player, Blood.BITE);
 					bites++;
 					if (bites >= GRIND_HEAL_BITES) {
 						heal(player, HIT_HEAL * Frenzy.heal(player));

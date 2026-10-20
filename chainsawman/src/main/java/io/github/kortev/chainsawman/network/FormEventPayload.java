@@ -34,6 +34,8 @@ public record FormEventPayload(UUID player, byte kind, int value, double x, doub
 	public static final byte HEART = 11;
 	/** Turning back: the saws going in, the form off at {@code FormTimeline.BACK_SPLASH}. */
 	public static final byte TURN = 12;
+	/** Faint from blood loss ({@code value} 1), or over it (0). */
+	public static final byte FAINT = 13;
 
 	public static final CustomPayload.Id<FormEventPayload> ID = new CustomPayload.Id<>(ChainsawMan.id("form_event"));
 	public static final PacketCodec<RegistryByteBuf, FormEventPayload> CODEC = PacketCodec.tuple(Uuids.PACKET_CODEC, FormEventPayload::player,
