@@ -259,6 +259,29 @@ public class FormGameTests implements FabricGameTest {
 		});
 	}
 
+	/** The cord pulled in the form turns you back: no fighting while the saws go in, and out of the form at the splash. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_back", tickLimit = io.github.kortev.chainsawman.form.FormTimeline.BACK_SPLASH + 20)
+	public void cordTurnsYouBack(TestContext context) {
+		ServerPlayerEntity player = player(context, "turning", 0.0);
+		player.setAttached(Heart.MERGED, true);
+		Form.start(player);
+		Form.pullCord(player);
+		try {
+			context.assertTrue(Form.on(player) && Form.turning(player) && !Form.fighting(player), "pulling the cord in the form didn't start turning back");
+		} catch (RuntimeException e) {
+			done(context, player);
+			throw e;
+		}
+		context.runAtTick(io.github.kortev.chainsawman.form.FormTimeline.BACK_SPLASH + 5, () -> {
+			try {
+				context.assertTrue(!Form.on(player) && !Form.turning(player), "they were still in the form after turning back");
+			} finally {
+				done(context, player);
+			}
+			context.complete();
+		});
+	}
+
 	/** The cord needs blood to start the engine, and takes it. */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_blood", tickLimit = 20)
 	public void cordNeedsBlood(TestContext context) {

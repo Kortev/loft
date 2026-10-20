@@ -260,10 +260,12 @@ one go crashed libsndfile here without a word; the script writes in chunks.)
 (Also offered, not yet chosen: a voice clip at the roar, which kortev would have to pick, as the Domain uses a clip
 they chose.)
 
-### 2. Turning back
+### 2. ~~Turning back~~ done
 
-The transformation in reverse: the saws slide back into the arms and head, the engine dies (`form_stop`), a last
-splash, your own head back. A shorter beat sheet in `FormTimeline`, the same machinery.
+The cord pulled again in the form turns you back (`FormTimeline` BACK_*, `Form.TURNING`, `FormEventPayload.TURN`):
+the engine dies, the arms' saws slide back in through the fists while the arms are held out shaking, the head bows
+as its saw goes in, and at BACK_SPLASH (14 ticks) the chainsaw head comes away in a splash of blood, your own head
+thrown back. No fighting while it plays. The merge's chat line now says the cord does both.
 
 ### 3. The abilities: built (see "The fight" and "Second round" above). Next is kortev trying them in game and
 tuning the numbers.
@@ -314,7 +316,6 @@ head part, or keep it as a choice); if not, delete `FormHeadModel` and its textu
 ### 4. Still to do from kortev's picks (agreed, not built yet)
 
 - **The transformation polish** above still open: the manga lettering, and the stretched cord in your own camera.
-- **Turning back** (section 2).
 - Smaller follow-ups: brutal kills cutting the body in two; the wild Pochita lying hurt rather than standing; a sound
   for taming.
 

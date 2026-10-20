@@ -397,7 +397,7 @@ public class FormSelfTest implements ClientModInitializer {
 				});
 			}
 			case 254 -> server.execute(() -> io.github.kortev.chainsawman.form.Merge.start(serverPlayer(server)));
-			case 1080 -> stage = Stage.DONE;
+			case 1180 -> stage = Stage.DONE;
 			default -> {
 			}
 		}
@@ -419,6 +419,18 @@ public class FormSelfTest implements ClientModInitializer {
 			screenshot(client, "merge_pulled_12");
 		} else if (f == end + 162 + 30) {
 			screenshot(client, "merge_then_burst");
+		} else if (f == end + 250) {
+			// Then turning back, seen from the front.
+			client.options.setPerspective(Perspective.THIRD_PERSON_FRONT);
+		} else if (f == end + 254) {
+			server.execute(() -> Form.pullCord(serverPlayer(server)));
+		} else if (f == end + 290) {
+			client.options.setPerspective(Perspective.FIRST_PERSON);
+		}
+		for (int age : new int[] {3, 7, 11, 14, 16, 19, 24}) {
+			if (f == end + 255 + age) {
+				screenshot(client, String.format("back_%02d", age));
+			}
 		}
 		int[] fpAt = {100, 114, 128};
 		for (int step = 0; step < 3; step++) {

@@ -38,6 +38,20 @@ public final class FormTimeline {
 	public static final int ROAR_END = 52;
 	public static final int END = 62;
 
+	/*
+	 * Turning back (the cord pulled again in the form), in ticks from the pull:
+	 *  0  BACK_ARMS     the engine dies; the arms' saws slide back in through the fists
+	 *  3  BACK_HEAD     the head's saw slides back into the head, the head bowing
+	 * 14  BACK_SPLASH   the chainsaw head comes away in a splash of blood: your own head, thrown back
+	 * 24  BACK_END      upright again
+	 */
+	public static final int BACK_ARMS = 0;
+	public static final int BACK_ARMS_IN = 9;
+	public static final int BACK_HEAD = 3;
+	public static final int BACK_HEAD_IN = 12;
+	public static final int BACK_SPLASH = 14;
+	public static final int BACK_END = 24;
+
 	private FormTimeline() {
 	}
 }

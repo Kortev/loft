@@ -32,6 +32,8 @@ public record FormEventPayload(UUID player, byte kind, int value, double x, doub
 	public static final byte MERGE = 10;
 	/** Who has Pochita's heart ({@code value} 1): the cord shows on their chest. */
 	public static final byte HEART = 11;
+	/** Turning back: the saws going in, the form off at {@code FormTimeline.BACK_SPLASH}. */
+	public static final byte TURN = 12;
 
 	public static final CustomPayload.Id<FormEventPayload> ID = new CustomPayload.Id<>(ChainsawMan.id("form_event"));
 	public static final PacketCodec<RegistryByteBuf, FormEventPayload> CODEC = PacketCodec.tuple(Uuids.PACKET_CODEC, FormEventPayload::player,

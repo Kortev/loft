@@ -146,6 +146,11 @@ public final class ClientCombat {
 					MergeCinematic.ended(id);
 				}
 			}
+			case FormEventPayload.TURN -> {
+				ClientForms.turned(id, now);
+				FRENZY.remove(id);
+				GRINDING.remove(id);
+			}
 			case FormEventPayload.HEART -> {
 				if (event.value() != 0) {
 					HEARTS.add(id);
@@ -315,7 +320,8 @@ public final class ClientCombat {
 
 	/** Whether you are in the form, done transforming and up: free to fight. */
 	public static boolean fighting(PlayerEntity player) {
-		return ClientForms.on(player) && ClientForms.pullAge(player, 0.0F) < 0.0F && !Downed.is(player);
+		return ClientForms.on(player) && ClientForms.pullAge(player, 0.0F) < 0.0F && ClientForms.turnAge(player, 0.0F) < 0.0F
+				&& !Downed.is(player);
 	}
 
 	static void tick(MinecraftClient client) {

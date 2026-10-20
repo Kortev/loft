@@ -23,7 +23,7 @@ final class FormIdleSound extends MovingSoundInstance {
 
 	@Override
 	public void tick() {
-		if (player.isRemoved() || !ClientForms.on(player)) {
+		if (player.isRemoved() || !ClientForms.on(player) || ClientForms.turnAge(player, 0.0F) >= 0.0F) {
 			setDone();
 			return;
 		}

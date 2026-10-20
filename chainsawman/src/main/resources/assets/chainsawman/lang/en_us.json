@@ -8,7 +8,7 @@
   "message.chainsawman.pochita_feeding": "Giving him your blood... %s%%",
   "message.chainsawman.pochita_tamed": "Pochita is yours.",
   "message.chainsawman.pochita_near": "Something small is whimpering nearby...",
-  "message.chainsawman.merged": "Pochita is your heart now. Pull the cord.",
+  "message.chainsawman.merged": "Pochita is your heart now. Pull the cord [%s] to become Chainsaw Man, and again to turn back.",
   "key.categories.chainsawman": "Chainsaw Man",
   "key.chainsawman.pull_cord": "Pull the cord",
   "key.chainsawman.chain": "Fire the chain",

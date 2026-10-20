@@ -19,6 +19,13 @@ public final class ClientForms {
 	/** Who pulled the cord: the world time they pulled it at and which way they faced. */
 	private static final Map<UUID, Pull> PULLED = new ConcurrentHashMap<>();
 	private static final Map<UUID, FormIdleSound> IDLING = new ConcurrentHashMap<>();
+	/** Who is turning back: the world time it started. Who has had their splash. */
+	private static final Map<UUID, Long> TURNED = new ConcurrentHashMap<>();
+	private static final Set<UUID> SPLASHED = ConcurrentHashMap.newKeySet();
+	private static final net.minecraft.particle.BlockStateParticleEffect GORE = new net.minecraft.particle.BlockStateParticleEffect(
+			net.minecraft.particle.ParticleTypes.BLOCK, net.minecraft.block.Blocks.REDSTONE_BLOCK.getDefaultState());
+	private static final net.minecraft.particle.DustParticleEffect BLOOD = new net.minecraft.particle.DustParticleEffect(
+			new org.joml.Vector3f(0.62F, 0.02F, 0.04F), 1.3F);
 
 	/** A pull of the cord: when, and which way its puller faced (the camera's shots are set round that). */
 	public record Pull(long at, float yaw) {
@@ -45,6 +52,22 @@ public final class ClientForms {
 		PULLED.put(player, new Pull(worldTime, yaw));
 	}
 
+	/** {@code player} began turning back at {@code worldTime} (as the server says). */
+	public static void turned(UUID player, long worldTime) {
+		TURNED.put(player, worldTime);
+		SPLASHED.remove(player);
+	}
+
+	/** How many ticks into turning back {@code player} is, while it plays out; otherwise -1. */
+	public static float turnAge(PlayerEntity player, float tickDelta) {
+		Long at = TURNED.get(player.getUuid());
+		if (at == null) {
+			return -1.0F;
+		}
+		float age = player.getWorld().getTime() - at + tickDelta;
+		return age >= 0.0F && age <= FormTimeline.BACK_END ? age : -1.0F;
+	}
+
 	@Nullable
 	public static Pull pull(PlayerEntity player) {
 		return PULLED.get(player.getUuid());
@@ -65,6 +88,14 @@ public final class ClientForms {
 	 * transforming has them out in full.
 	 */
 	public static float grown(PlayerEntity player, float tickDelta, boolean arms) {
+		float back = turnAge(player, tickDelta);
+		if (back >= 0.0F) {
+			// Going back in: slow to start, then sucked in.
+			float from = arms ? FormTimeline.BACK_ARMS : FormTimeline.BACK_HEAD;
+			float to = arms ? FormTimeline.BACK_ARMS_IN : FormTimeline.BACK_HEAD_IN;
+			float k = Math.max(0.0F, Math.min(1.0F, (back - from) / (to - from)));
+			return 1.0F - k * k;
+		}
 		float t = pullAge(player, tickDelta);
 		if (t < 0.0F) {
 			return 1.0F;
@@ -83,7 +114,23 @@ public final class ClientForms {
 		}
 		long now = client.world.getTime();
 		PULLED.values().removeIf(pull -> now - pull.at() > FormTimeline.END + 20);
+		TURNED.values().removeIf(at -> now - at > FormTimeline.BACK_END + 20);
 		for (AbstractClientPlayerEntity player : client.world.getPlayers()) {
+			if (turnAge(player, 0.0F) >= FormTimeline.BACK_SPLASH && SPLASHED.add(player.getUuid())) {
+				// The chainsaw head comes away in a splash of blood: from all round the head (not inside it, where none
+				// of it would show), gore flying.
+				net.minecraft.util.math.Vec3d head = player.getEyePos().add(0.0, 0.1, 0.0);
+				for (int i = 0; i < 40; i++) {
+					net.minecraft.util.math.Vec3d out = new net.minecraft.util.math.Vec3d(Math.random() - 0.5, Math.random() * 0.8 - 0.2,
+							Math.random() - 0.5).normalize();
+					net.minecraft.util.math.Vec3d at = head.add(out.multiply(0.4));
+					if (i % 2 == 0) {
+						client.world.addParticle(GORE, at.x, at.y, at.z, out.x * 0.25, 0.15 + out.y * 0.2, out.z * 0.25);
+					} else {
+						client.world.addParticle(BLOOD, at.x, at.y, at.z, out.x, out.y, out.z);
+					}
+				}
+			}
 			// Idling once the transformation (whose own sound runs into the idle) is over.
 			if (ON.contains(player.getUuid()) && !IDLING.containsKey(player.getUuid()) && pullAge(player, 0.0F) < 0.0F) {
 				FormIdleSound sound = new FormIdleSound(player);
@@ -99,5 +146,7 @@ public final class ClientForms {
 		ON.clear();
 		PULLED.clear();
 		IDLING.clear();
+		TURNED.clear();
+		SPLASHED.clear();
 	}
 }

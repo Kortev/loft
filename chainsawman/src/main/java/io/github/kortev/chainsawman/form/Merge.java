@@ -153,7 +153,7 @@ public final class Merge {
 		MERGING.remove(player.getUuid());
 		Downed.hold(player, false);
 		Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.MERGE, 0));
-		player.sendMessage(Text.translatable("message.chainsawman.merged").formatted(Formatting.GOLD), false);
+		player.sendMessage(Text.translatable("message.chainsawman.merged", Text.keybind("key.chainsawman.pull_cord")).formatted(Formatting.GOLD), false);
 	}
 
 	static void clear() {

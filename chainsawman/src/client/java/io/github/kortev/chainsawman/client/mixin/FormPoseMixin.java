@@ -31,8 +31,11 @@ public abstract class FormPoseMixin {
 		float t = ClientForms.pullAge(player, tickDelta);
 		PlayerEntityModel<?> model = (PlayerEntityModel<?>) (Object) this;
 		float merge = io.github.kortev.chainsawman.client.MergeCinematic.age(player, tickDelta);
+		float back = ClientForms.turnAge(player, tickDelta);
 		if (merge >= 0.0F && t < 0.0F) {
 			io.github.kortev.chainsawman.client.CordPull.lie(model, merge);
+		} else if (back >= 0.0F) {
+			io.github.kortev.chainsawman.client.CordPull.turnBack(model, back);
 		} else if (t >= 0.0F) {
 			CordPull.pose(model, t);
 		} else if (ClientForms.on(player) || io.github.kortev.chainsawman.form.Saw.wielding(player)

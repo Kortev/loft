@@ -63,6 +63,28 @@ public final class CordPull {
 		model.hat.copyTransform(model.head);
 	}
 
+	/**
+	 * Turning back, {@code t} ticks in: the arms held out in front, shaking as the saws go back into them, then dropping;
+	 * the head bowing as its saw goes in, thrown back at the splash, and upright again.
+	 */
+	public static void turnBack(BipedEntityModel<?> model, float t) {
+		float in = ease(t / 3.0F) * (1.0F - ease((t - FormTimeline.BACK_ARMS_IN) / 4.0F));
+		float shake = MathHelper.sin(t * 5.1F) * 0.06F * in;
+		model.rightArm.pitch = -1.1F * in + shake;
+		model.leftArm.pitch = -1.1F * in - shake;
+		model.rightArm.yaw = -0.25F * in;
+		model.leftArm.yaw = 0.25F * in;
+		model.rightArm.roll = 0.05F;
+		model.leftArm.roll = -0.05F;
+		float bow = ease((t - FormTimeline.BACK_HEAD) / 8.0F);
+		float thrown = t >= FormTimeline.BACK_SPLASH
+				? (float) Math.exp(-(t - FormTimeline.BACK_SPLASH) / 3.0) : 0.0F;
+		float after = t >= FormTimeline.BACK_SPLASH ? 1.0F : 0.0F;
+		model.head.pitch = 0.45F * bow * (1.0F - after) - 0.5F * thrown;
+		model.head.yaw = 0.0F;
+		model.hat.copyTransform(model.head);
+	}
+
 	/** Poses the arms and head {@code t} ticks after the pull. */
 	public static void pose(BipedEntityModel<?> model, float t) {
 		float rPitch = 0.0F;

@@ -1,6 +1,7 @@
 package io.github.kortev.chainsawman.form;
 
 import io.github.kortev.chainsawman.ChainsawSounds;
+import io.github.kortev.chainsawman.network.FormEventPayload;
 import io.github.kortev.chainsawman.network.FormPayload;
 import io.github.kortev.chainsawman.network.FormPullPayload;
 import java.util.Map;
@@ -28,6 +29,8 @@ public final class Form {
 	private static final Set<UUID> ON = ConcurrentHashMap.newKeySet();
 	/** Who has pulled the cord and is on the way into the form, and how many ticks ago. */
 	private static final Map<UUID, Integer> PULLING = new ConcurrentHashMap<>();
+	/** Who is turning back, and how many ticks in. */
+	private static final Map<UUID, Integer> TURNING = new ConcurrentHashMap<>();
 
 	private Form() {
 	}
@@ -42,6 +45,7 @@ public final class Form {
 		});
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
 			PULLING.remove(handler.player.getUuid());
+			TURNING.remove(handler.player.getUuid());
 			set(server, handler.player.getUuid(), false);
 			Saw.forget(handler.player.getUuid());
 			Grapple.forget(handler.player.getUuid());
@@ -52,6 +56,7 @@ public final class Form {
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
 			ON.clear();
 			PULLING.clear();
+			TURNING.clear();
 			Saw.clear();
 			Downed.clear();
 			Grapple.clear();
@@ -89,7 +94,12 @@ public final class Form {
 	}
 
 	public static boolean fighting(ServerPlayerEntity player) {
-		return on(player) && !PULLING.containsKey(player.getUuid()) && !Downed.is(player);
+		return on(player) && !PULLING.containsKey(player.getUuid()) && !TURNING.containsKey(player.getUuid()) && !Downed.is(player);
+	}
+
+	/** Whether {@code player} is turning back (the form still on until the splash). */
+	public static boolean turning(ServerPlayerEntity player) {
+		return TURNING.containsKey(player.getUuid());
 	}
 
 	/** Straight into the form, no transformation (for the tests). */
@@ -101,6 +111,7 @@ public final class Form {
 	/** Out of the form now, the engine dying: downed, or for a test. */
 	public static void end(ServerPlayerEntity player) {
 		PULLING.remove(player.getUuid());
+		TURNING.remove(player.getUuid());
 		if (on(player)) {
 			play(player, ChainsawSounds.STOP, 1.0F);
 			set(player.server, player.getUuid(), false);
@@ -113,7 +124,7 @@ public final class Form {
 	 */
 	public static void pullCord(ServerPlayerEntity player) {
 		UUID id = player.getUuid();
-		if (PULLING.containsKey(id) || Merge.is(player) && !Merge.waiting(player)) {
+		if (PULLING.containsKey(id) || TURNING.containsKey(id) || Merge.is(player) && !Merge.waiting(player)) {
 			return;
 		}
 		// The first pull, at the end of Pochita becoming your heart, is yours to make, and free.
@@ -122,8 +133,11 @@ public final class Form {
 			Merge.pulled(player);
 		}
 		if (on(player)) {
+			// Turning back: the engine dies, the saws go in, and at the splash the form is off.
+			TURNING.put(id, 0);
+			Frenzy.end(player);
 			play(player, ChainsawSounds.STOP, 1.0F);
-			set(player.server, id, false);
+			broadcast(player.server, new FormEventPayload(id, FormEventPayload.TURN, 1));
 		} else if (Heart.has(player) && player.isAlive() && !Downed.is(player) && (first || Blood.spend(player, Blood.TRANSFORM))) {
 			PULLING.put(id, 0);
 			play(player, ChainsawSounds.CORD, 1.0F);
@@ -144,6 +158,19 @@ public final class Form {
 				set(server, pull.getKey(), true);
 			} else {
 				PULLING.put(pull.getKey(), age);
+			}
+		}
+		for (Map.Entry<UUID, Integer> turn : Map.copyOf(TURNING).entrySet()) {
+			ServerPlayerEntity player = server.getPlayerManager().getPlayer(turn.getKey());
+			int age = turn.getValue() + 1;
+			if (player == null || !player.isAlive()) {
+				TURNING.remove(turn.getKey());
+			} else if (age >= FormTimeline.BACK_SPLASH) {
+				TURNING.remove(turn.getKey());
+				play(player, ChainsawSounds.HIT, 0.7F);
+				set(server, turn.getKey(), false);
+			} else {
+				TURNING.put(turn.getKey(), age);
 			}
 		}
 		// Out of the form whoever has lost Pochita or died.
