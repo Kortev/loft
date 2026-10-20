@@ -21,6 +21,12 @@ public class PochitaRenderer extends MobEntityRenderer<PochitaEntity, PochitaMod
 	@Override
 	protected void setupTransforms(PochitaEntity pochita, MatrixStack matrices, float animationProgress, float bodyYaw, float tickDelta, float scale) {
 		super.setupTransforms(pochita, matrices, animationProgress, bodyYaw, tickDelta, scale);
+		if (pochita.isInSittingPose() && !pochita.fainted()) {
+			// Sitting: tipped up from his rump, his front end raised.
+			matrices.translate(0.0F, 0.0F, 0.45F);
+			matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(28.0F));
+			matrices.translate(0.0F, 0.0F, -0.45F);
+		}
 		if (pochita.fainted()) {
 			// Fainted: over on his side.
 			matrices.translate(0.3F, 0.0F, 0.0F);

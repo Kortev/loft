@@ -334,6 +334,15 @@ public class FormSelfTest implements ClientModInitializer {
 					pochita.setAiDisabled(true);
 					p.getServerWorld().spawnEntity(pochita);
 				}
+				// A wolf beside him, to judge him against the game's own animals.
+				net.minecraft.entity.passive.WolfEntity wolf = EntityType.WOLF.create(p.getServerWorld());
+				if (wolf != null) {
+					wolf.refreshPositionAndAngles(p.getX() - 1.1, p.getY(), p.getZ() - 0.2, -30.0F, 0.0F);
+					wolf.setHeadYaw(-30.0F);
+					wolf.setBodyYaw(-30.0F);
+					wolf.setAiDisabled(true);
+					p.getServerWorld().spawnEntity(wolf);
+				}
 			});
 			case 218 -> {
 				client.options.hudHidden = true;
@@ -343,8 +352,14 @@ public class FormSelfTest implements ClientModInitializer {
 				}
 			}
 			case 226 -> screenshot(client, "pochita");
+			case 228 -> camera(client, 2);
+			case 232 -> screenshot(client, "pochita_side");
+			case 234 -> camera(client, 5);
+			case 238 -> screenshot(client, "pochita_close");
+			case 240 -> camera(client, 4);
+			case 244 -> screenshot(client, "pochita_back");
 			// The merge, as the first time: out of the form, the heart not theirs yet, their tamed Pochita a few blocks off.
-			case 230 -> {
+			case 250 -> {
 				client.setCameraEntity(client.player);
 				client.options.setPerspective(Perspective.FIRST_PERSON);
 				client.options.hudHidden = false;
@@ -365,17 +380,17 @@ public class FormSelfTest implements ClientModInitializer {
 					}
 				});
 			}
-			case 234 -> server.execute(() -> io.github.kortev.chainsawman.form.Merge.start(serverPlayer(server)));
-			case 420 -> stage = Stage.DONE;
+			case 254 -> server.execute(() -> io.github.kortev.chainsawman.form.Merge.start(serverPlayer(server)));
+			case 440 -> stage = Stage.DONE;
 			default -> {
 			}
 		}
 		for (int age : new int[] {3, 12, 26, 36, 46, 56, 64, 66, 70, 78, 88, 98, 104, 108}) {
-			if (f == 235 + age) {
+			if (f == 255 + age) {
 				screenshot(client, String.format("merge_%03d", age));
 			}
 		}
-		if (f == 235 + io.github.kortev.chainsawman.form.MergeTimeline.END + 30) {
+		if (f == 255 + io.github.kortev.chainsawman.form.MergeTimeline.END + 30) {
 			screenshot(client, "merge_then_burst");
 		}
 		int[] fpAt = {100, 114, 128};
@@ -413,6 +428,13 @@ public class FormSelfTest implements ClientModInitializer {
 			ShootingStar.LOGGER.error("[selftest] form: FAILED: click {} did not slash (swing {})", step, swing);
 		} else {
 			ShootingStar.LOGGER.info("[selftest] form: click {} slashed", step);
+		}
+	}
+
+	private static void camera(MinecraftClient client, int which) {
+		Entity camera = client.world.getEntityById(CAMERA_IDS.get(which));
+		if (camera != null) {
+			client.setCameraEntity(camera);
 		}
 	}
 

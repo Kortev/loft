@@ -87,34 +87,128 @@ def draw(rows):
     return img
 
 
-def box(img, u, v, w, h, d, side, top=None, bottom=None, front=None):
-    """Paints a model box's faces where the game's box at texture (u, v), w x h x d, looks for them: {side} everywhere,
-    {top}, {bottom} on those faces, and {front(x, y)} (a colour or None) over its front face."""
-    faces = {'top': (u + d, v, w, d), 'bottom': (u + d + w, v, w, d), 'west': (u, v + d, d, h), 'front': (u + d, v + d, w, h),
-             'east': (u + d + w, v + d, d, h), 'back': (u + 2 * d + w, v + d, w, h)}
-    for name, (x0, y0, fw, fh) in faces.items():
-        colour = top if name == 'top' and top else bottom if name == 'bottom' and bottom else side
+# Pochita the animal, painted for the client PochitaModel's boxes (its texture corners and sizes, mirrored here), from
+# kortev's stills: his orange, the reddish brown on his underside, rear and low down his sides; big eyes at the front
+# corners of his head (a black pupil with a glint, a crescent of white), seen from the front and the side alike; a
+# "w" of a muzzle over an open mouth with a fang and his tongue; toes on his paws; the bar pale grey with a glint
+# along it and its chain dark top and bottom, the end rounded; black handles and tail with a few light marks; the
+# open triangle of the starter's grip.
+POCHITA_COLOURS = {
+    'O': (229, 118, 46, 255),   # his orange
+    'S': (142, 62, 47, 255),    # its shadow, the reddish brown
+    'D': (96, 40, 32, 255),     # lines: toes, the muzzle's w
+    'K': (22, 20, 26, 255),     # pupils
+    'W': (250, 250, 247, 255),  # the whites, glints, the fang
+    'M': (92, 24, 28, 255),     # inside his mouth
+    'T': (232, 128, 140, 255),  # his tongue
+    'G': (190, 196, 201, 255),  # the bar
+    'g': (232, 236, 240, 255),  # the glint along it
+    'C': (58, 60, 68, 255),     # the chain
+    'H': (34, 34, 42, 255),     # the handles, the tail
+    'h': (120, 124, 136, 255),  # a light mark on a handle
+    '.': (0, 0, 0, 0),
+}
+
+# His eye, as it looks from his left side (front to the right): round and white, the big black pupil looking ahead
+# (wrapping round the corner onto his face, so it shows from the front too).
+EYE = [
+    'OWWO',
+    'WWKK',
+    'WWKK',
+    'OWWO',
+]
+
+
+def faces(u, v, w, h, d):
+    """Where a model box's faces are in the texture, as the game lays them out: top, bottom, then round the sides, the
+    side at x min ('west', its front edge at its right), the front (-z), the side at x max ('east', front at its left),
+    the back."""
+    return {'top': (u + d, v, w, d), 'bottom': (u + d + w, v, w, d), 'west': (u, v + d, d, h), 'front': (u + d, v + d, w, h),
+            'east': (u + d + w, v + d, d, h), 'back': (u + 2 * d + w, v + d, w, h)}
+
+
+def paint(img, u, v, w, h, d, colour):
+    """Paints every face of the box at (u, v): {colour(face, x, y, fw, fh)} gives each pixel's key in POCHITA_COLOURS."""
+    for name, (x0, y0, fw, fh) in faces(u, v, w, h, d).items():
         for y in range(fh):
             for x in range(fw):
-                c = front(x, y) if name == 'front' and front else None
-                img.putpixel((x0 + x, y0 + y), c or colour)
+                img.putpixel((x0 + x, y0 + y), POCHITA_COLOURS[colour(name, x, y, fw, fh)])
+
+
+def fur(face, x, y, fw, fh, under=0.35):
+    """His fur: orange, reddish brown underneath and on the lowest part of his sides and back."""
+    if face == 'bottom':
+        return 'S'
+    if face == 'top':
+        return 'O'
+    return 'S' if y >= fh * (1.0 - under) else 'O'
 
 
 def pochita_entity():
-    """Pochita the animal (client PochitaModel's boxes): orange, shaded under, a face, the blade with its teeth."""
-    img = Image.new('RGBA', (64, 32), (0, 0, 0, 0))
-    fur, under, paw = PALETTE['O'], PALETTE['o'], PALETTE['p']
-    box(img, 0, 0, 6, 5, 8, fur, bottom=under)
-    face = {(1, 2): PALETTE['k'], (4, 2): PALETTE['k'], (2, 4): PALETTE['n'], (3, 4): PALETTE['n']}
-    box(img, 28, 0, 6, 6, 5, fur, bottom=under, front=lambda x, y: face.get((x, y)))
-    box(img, 20, 14, 2, 3, 2, under, bottom=paw)
-    box(img, 30, 14, 1, 1, 3, PALETTE['t'])
-    # The blade, its teeth along the top and bottom of each side.
-    box(img, 0, 14, 1, 2, 8, PALETTE['B'], top=PALETTE['S'], bottom=PALETTE['S'])
-    for x0 in (0, 9):
-        for x in range(8):
-            img.putpixel((x0 + x, 22), PALETTE['S'] if x % 2 == 0 else PALETTE['s'])
-            img.putpixel((x0 + x, 23), PALETTE['S'] if x % 2 == 1 else PALETTE['s'])
+    img = Image.new('RGBA', (64, 64), (0, 0, 0, 0))
+
+    def head(face, x, y, fw, fh):
+        # The eyes at its front corners: on each side face's front end, and wrapping round onto the front.
+        if face in ('west', 'east') and 2 <= y <= 5:
+            col = x if face == 'west' else fw - 1 - x
+            ex = col - (fw - 5)
+            if 0 <= ex < 4:
+                c = EYE[y - 2][ex]
+                if c != 'O':
+                    return c
+        if face == 'front' and 3 <= y <= 4 and x in (0, fw - 1):
+            return 'K'
+        return fur(face, x, y, fw, fh, under=0.3)
+
+    paint(img, 0, 0, 9, 10, 6, head)
+    paint(img, 0, 16, 8, 9, 9, lambda f, x, y, fw, fh: fur(f, x, y, fw, fh, under=0.4))
+    paint(img, 30, 0, 7, 1, 4, lambda f, x, y, fw, fh: 'O')
+    paint(img, 30, 5, 6, 1, 6, lambda f, x, y, fw, fh: 'O')
+    paint(img, 34, 16, 6, 7, 1, lambda f, x, y, fw, fh: 'S' if f == 'back' and y >= 2 else fur(f, x, y, fw, fh, under=0.6))
+
+    def muzzle(face, x, y, fw, fh):
+        if face == 'front':
+            return ['OOOOO', 'DODOD', 'OMMMO', 'OWTMO'][y][x]
+        return fur(face, x, y, fw, fh, under=0.5)
+
+    paint(img, 48, 16, 5, 4, 2, muzzle)
+
+    def leg(face, x, y, fw, fh):
+        if face == 'front' and y == fh - 1:
+            return 'D' if x == 1 else 'S'
+        if face == 'bottom':
+            return 'S'
+        return 'S' if y == fh - 1 else 'O'
+
+    paint(img, 34, 24, 3, 3, 3, leg)
+
+    def bar(face, x, y, fw, fh):
+        if face in ('west', 'east'):
+            front = (x == fw - 1) if face == 'west' else (x == 0)
+            if front and y in (0, fh - 1):
+                return '.'
+            if y in (0, fh - 1) or front:
+                return 'C'
+            return 'g' if y == 1 and 2 <= (x if face == 'west' else fw - 1 - x) <= fw - 3 else 'G'
+        return 'C'
+
+    paint(img, 0, 34, 1, 5, 13, bar)
+    paint(img, 46, 24, 1, 1, 1, lambda f, x, y, fw, fh: 'C')
+
+    def handle_grip(face, x, y, fw, fh):
+        return 'h' if face in ('top', 'front', 'back') and x in (fw - 3, fw - 2) and (face != 'top' or y == 0) else 'H'
+
+    paint(img, 28, 34, 1, 6, 2, lambda f, x, y, fw, fh: 'H')
+    paint(img, 34, 34, 9, 1, 2, handle_grip)
+    paint(img, 34, 38, 2, 2, 4, lambda f, x, y, fw, fh: 'H')
+    paint(img, 46, 38, 1, 1, 3, lambda f, x, y, fw, fh: 'H')
+    paint(img, 54, 38, 1, 4, 1, lambda f, x, y, fw, fh: 'H')
+
+    def grip(face, x, y, fw, fh):
+        # The open triangle, its point down onto the tail.
+        return ['HHHHHHH', '.H...H.', '..H.H..', '...H...'][y][x] if face in ('west', 'east') else '.'
+
+    paint(img, 28, 44, 0, 4, 7, grip)
     return img
 
 

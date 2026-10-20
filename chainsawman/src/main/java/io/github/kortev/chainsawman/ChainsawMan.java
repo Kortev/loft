@@ -48,7 +48,7 @@ public final class ChainsawMan implements ModInitializer {
 			new PochitaItem(new Item.Settings().maxCount(1).rarity(Rarity.EPIC).fireproof().attributeModifiers(PochitaItem.weapon())));
 	/** Pochita himself, the animal: one in a world, found fainted, tamed with your blood. */
 	public static final EntityType<PochitaEntity> POCHITA_ENTITY = Registry.register(Registries.ENTITY_TYPE, id("pochita"),
-			EntityType.Builder.create(PochitaEntity::new, SpawnGroup.CREATURE).dimensions(0.6F, 0.6F).maxTrackingRange(10).build("pochita"));
+			EntityType.Builder.create(PochitaEntity::new, SpawnGroup.CREATURE).dimensions(0.6F, 0.7F).maxTrackingRange(10).build("pochita"));
 	public static final Item POCHITA_SPAWN_EGG = Registry.register(Registries.ITEM, id("pochita_spawn_egg"),
 			new SpawnEggItem(POCHITA_ENTITY, 0xEC8026, 0x9A9EA6, new Item.Settings()));
 
