@@ -38,7 +38,7 @@ public class MultiplayerTestClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
 		String mode = System.getProperty("shootingstar.selftest", "");
-		if (!mode.startsWith("mp-") || DomainMultiplayerServer.scenario()) {
+		if (!mode.startsWith("mp-") || DomainMultiplayerServer.scenario() || ChainsawMultiplayerServer.scenario()) {
 			return;
 		}
 		role = mode.substring(3);
