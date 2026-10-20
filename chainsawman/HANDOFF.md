@@ -246,13 +246,16 @@ one go crashed libsndfile here without a word; the script writes in chunks.)
    from `FormHud.render`). Ask kortev before using it, and rework the look rather than reusing it as it was.
 3. **Manga sound-effect lettering on the impact frames**: big brushed katakana for the engine's roar (e.g. ヴゥン)
    slammed across the frame.
-4. **The eye ignites at the roar**: dark until ROAR, then a flash as it lights. (The eye is the glowing `eye`
-   material; flag bit 0 in the mesh.)
-5. **The cord on the chest all the time** while Pochita is carried (needs the server to tell clients who carries
-   Pochita), so the yank grabs something already there; and make the stretched cord read better in the puller's own
-   camera.
-6. **Sparks and exhaust**: sparks off the chains while they race (swinging), exhaust from the back of the head while
-   the engine revs.
+4. ~~**The eye ignites at the roar**~~ **done**: dark through the transformation, then at ROAR a pixel star flares on
+   each eye and dies away (`FormFeature.flare`, `textures/entity/form_flare.png`, drawn added on; the eyes are the
+   mesh's glowing vertices, flag bit 0). In a frenzy the eyes burn red, throbbing.
+5. ~~**The cord on the chest all the time**~~ **done** for whoever has the heart: the server tells everyone who
+   has it (`FormEventPayload.HEART`, on joining and at the merge), and `FormFeature` draws the cord on their chest
+   until it is grabbed. (Still open: making the stretched cord read better in the puller's own camera.)
+6. ~~**Sparks and exhaust**~~ **exhaust done**: light grey puffs off the top of the pole behind the bar, now and then
+   idling, more while the saws work or in a frenzy, a burst at the roar (`ClientCombat.exhaust`; black smoke read as a
+   blob of hair on the head, so it's the game's white smoke). Sparks come off what the saws hit (the server's hit
+   particles); none off the chains in the air.
 
 (Also offered, not yet chosen: a voice clip at the roar, which kortev would have to pick, as the Domain uses a clip
 they chose.)
@@ -290,10 +293,27 @@ tuning the numbers.
 - On the black chainsaw kortev asked about: it is past the Reze arc; told only "Part 1, read on from chapter 53"; build
   nothing of it until kortev describes what they want from it.
 
+### The fight's look, polished (2026-10-20, my passes while kortev slept)
+
+- **Slash trails** (`SawTrails`, `textures/entity/form_trail.png`): each slash leaves a smear behind the saw's tip,
+  white at the edge going to blood red, gone in 3 ticks; sampled from where the bar is drawn each frame, so it follows
+  the real arc. In your own view it is shorter and reaches further down the bar, or it reads as a thin line.
+- **The frenzy has a look from outside** now: the red eyes, a red mist of blood rising round the body, the exhaust
+  pouring. (Inside it was already the red pulsing screen edge.)
+- **No zoom while held still** (`HeldStillFovMixin`): down or merging, your speed is taken away and the game zoomed
+  your view in by half, as it does for slowness; every merge shot had been framed against that.
+
+### The head: a cleaner proposal, waiting on kortev
+
+kortev asked for the head to be redesigned cleaner, fitting the style better. Proposed, as Pochita was: the head as
+Minecraft boxes and pixels (`FormHeadModel`, painted by `gen_chainsaw_textures.py`'s `form_head`, its eye lit by a
+glow layer like a spider's), keeping the mesh's saw. It is **off** unless the selftest runs with `-Ptarget=boxhead`
+(`FormHeadModel.on`). Show kortev the two side by side; if they want it, switch it on for good (and drop the mesh's
+head part, or keep it as a choice); if not, delete `FormHeadModel` and its textures.
+
 ### 4. Still to do from kortev's picks (agreed, not built yet)
 
-- **The transformation polish** above (the eye lighting up at the roar, the cord on the chest all the time - now
-  for whoever has the heart, which clients would need telling - sparks and exhaust, the manga lettering).
+- **The transformation polish** above still open: the manga lettering, and the stretched cord in your own camera.
 - **Turning back** (section 2).
 - Smaller follow-ups: brutal kills cutting the body in two; the wild Pochita lying hurt rather than standing; a sound
   for taming.

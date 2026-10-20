@@ -71,6 +71,8 @@ public class FormSelfTest implements ClientModInitializer {
 		if (!"form".equals(System.getProperty("shootingstar.selftest"))) {
 			return;
 		}
+		// -Ptarget=boxhead: the boxes proposed for the head, in place of the mesh's.
+		io.github.kortev.chainsawman.client.FormHeadModel.on = "boxhead".equals(System.getProperty("shootingstar.selftest.target"));
 		Thread watchdog = new Thread(() -> {
 			try {
 				Thread.sleep(30 * 60 * 1000L);
@@ -128,6 +130,12 @@ public class FormSelfTest implements ClientModInitializer {
 				}
 			}
 			case SHOOT -> {
+				if (shot >= CAMERAS.length && (io.github.kortev.chainsawman.client.FormHeadModel.on
+						|| "ring".equals(System.getProperty("shootingstar.selftest.target")))) {
+					// Only the form from round about (-Ptarget=ring; and the proposed head, -Ptarget=boxhead).
+					stage = Stage.DONE;
+					return;
+				}
 				if (shot >= CAMERAS.length + PLAIN.length && pullTick <= PULL_SHOTS[PULL_SHOTS.length - 1]) {
 					// The stand-in pulls the cord, photographed through the yank and the burst.
 					Entity camera = client.world.getEntityById(CAMERA_IDS.get(0));
@@ -314,7 +322,11 @@ public class FormSelfTest implements ClientModInitializer {
 			case 158 -> screenshot(client, "fp_chain_02");
 			case 161 -> screenshot(client, "fp_chain_05");
 			case 166 -> client.player.setPitch(10.0F);
-			case 170 -> server.execute(() -> Frenzy.start(serverPlayer(server)));
+			case 170 -> server.execute(() -> {
+				// With the blood for it (the fight so far has spent most of it).
+				io.github.kortev.chainsawman.form.Blood.set(serverPlayer(server), io.github.kortev.chainsawman.form.Blood.MAX);
+				Frenzy.start(serverPlayer(server));
+			});
 			case 175 -> screenshot(client, "fp_frenzy");
 			case 180 -> server.execute(() -> Frenzy.end(serverPlayer(server)));
 			case 184 -> server.execute(() -> Downed.down(serverPlayer(server)));

@@ -29,6 +29,11 @@ public abstract class FirstPersonSawMixin {
 		PlayerEntityRenderer renderer = (PlayerEntityRenderer) (Object) this;
 		String bone = arm == renderer.getModel().rightArm ? "right_arm" : "left_arm";
 		float tickDelta = MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(true);
-		FormFeature.draw(matrices, consumers, light, OverlayTexture.DEFAULT_UV, player, tickDelta, bone, arm);
+		io.github.kortev.chainsawman.client.SawTrails.firstPerson = true;
+		try {
+			FormFeature.draw(matrices, consumers, light, OverlayTexture.DEFAULT_UV, player, tickDelta, bone, arm);
+		} finally {
+			io.github.kortev.chainsawman.client.SawTrails.firstPerson = false;
+		}
 	}
 }

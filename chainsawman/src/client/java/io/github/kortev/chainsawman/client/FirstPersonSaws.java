@@ -85,6 +85,7 @@ public final class FirstPersonSaws {
 			arms.chainsawman$renderArm(matrices, consumers, light, 0.0F, 0.0F, arm);
 			matrices.pop();
 		}
+		SawTrails.renderView(consumers, player, tickDelta);
 		consumers.draw();
 	}
 

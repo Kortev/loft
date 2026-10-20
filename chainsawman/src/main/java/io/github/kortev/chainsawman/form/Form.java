@@ -66,6 +66,7 @@ public final class Form {
 		Downed.init();
 		Limbs.init();
 		Merge.init();
+		Heart.init();
 		ServerTickEvents.END_SERVER_TICK.register(server -> {
 			Blood.tick(server);
 			Merge.tick(server);

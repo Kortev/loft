@@ -37,6 +37,11 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 	public static final Identifier TEXTURE = ChainsawMan.id("textures/entity/form.png");
 	/** The inside of their own head, on the cut faces of its halves as it splits open. */
 	private static final Identifier FLESH = ChainsawMan.id("textures/entity/form_flesh.png");
+	/** The flare of the eyes catching light at the roar, drawn added onto the picture. */
+	private static final Identifier FLARE = ChainsawMan.id("textures/entity/form_flare.png");
+	/** The flare: how big at its brightest (blocks across), and how fast it dies away (ticks). */
+	private static final float FLARE_SIZE = 0.7F;
+	private static final float FLARE_FADE = 6.0F;
 	/** How fast the chains' frames go by (frames a tick) idling and swinging. */
 	private static final float CHAIN_IDLE = 0.5F;
 	private static final float CHAIN_SWING = 2.0F;
@@ -83,8 +88,9 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 			cord(matrices, consumers, light, model, t);
 		}
 		float merge = MergeCinematic.age(player, tickDelta);
-		if (merge >= io.github.kortev.chainsawman.form.MergeTimeline.SUNK && !ClientForms.on(player)) {
-			// He's in: the cord comes out of your chest.
+		if ((merge >= io.github.kortev.chainsawman.form.MergeTimeline.SUNK || ClientCombat.heart(player)) && !ClientForms.on(player)
+				&& t < FormTimeline.REACH) {
+			// He's in: the cord hangs out of your chest, from the merge on, until it's grabbed.
 			draw(matrices, consumers, light, overlay, player, tickDelta, "body", model.body);
 		}
 		if (!ClientForms.on(player)) {
@@ -129,17 +135,39 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 		// the head.
 		float length = arm ? grown : MathHelper.lerp(grown, (FACE + PUNCH_OUT) / headReach(mesh), 1.0F);
 		float thick = arm ? 1.0F : MathHelper.lerp(swell(t), PUNCH_THICK, 1.0F);
+		// The eyes dark through the transformation, until they catch at the roar.
+		float eye = t >= 0.0F && t < FormTimeline.ROAR ? 0.0F : 1.0F;
+		java.util.List<Vector3f> eyes = new java.util.ArrayList<>();
+		boolean flaring = t >= FormTimeline.ROAR && t < FormTimeline.ROAR + FLARE_FADE * 4 || ClientCombat.frenzy(player);
+		boolean boxHead = false;
 		matrices.push();
 		bone.rotate(matrices);
 		for (FormMesh.Part part : mesh.parts.values()) {
 			if (!part.bone.equals(boneName) || part.name.equals("rope") || (part.chainFrame >= 0 && part.chainFrame != chainFrame)) {
 				continue;
 			}
+			if (part.name.equals("head") && FormHeadModel.on) {
+				// The boxes instead (drawn after the mesh's parts: another texture).
+				boxHead = true;
+				if (flaring) {
+					eyes.addAll(FormHeadModel.EYES);
+				}
+				continue;
+			}
+			if (flaring) {
+				eyes.addAll(part.glowCentres());
+			}
 			if (part.growRoot != null) {
 				if (length <= 0.0F) {
 					continue;
 				}
+				if (arm && part.name.endsWith("_bar")) {
+					SawTrails.sample(player, boneName, tickDelta, matrices.peek(), part.growRoot, part.growAxis, part.reach() * length);
+				}
 				matrices.push();
+				if (!arm && FormHeadModel.on) {
+					matrices.translate(0.0F, FormHeadModel.BAR_LIFT / 16.0F, 0.0F);
+				}
 				saw(matrices, part.growRoot, part.growAxis, 0.0F, length, thick);
 				part.draw(matrices.peek(), out, light, overlay);
 				matrices.pop();
@@ -155,13 +183,69 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 				matrices.translate(HEAD_MIDDLE.x / 16.0F, HEAD_MIDDLE.y / 16.0F, HEAD_MIDDLE.z / 16.0F);
 				matrices.scale(s, s, s);
 				matrices.translate(-HEAD_MIDDLE.x / 16.0F, -HEAD_MIDDLE.y / 16.0F, -HEAD_MIDDLE.z / 16.0F);
-				part.draw(matrices.peek(), out, light, overlay);
+				part.draw(matrices.peek(), out, light, overlay, eye);
 				matrices.pop();
 				continue;
 			}
-			part.draw(matrices.peek(), out, light, overlay);
+			part.draw(matrices.peek(), out, light, overlay, eye);
+		}
+		// (After the parts: asking for another layer finishes the parts' one.)
+		if (boxHead) {
+			matrices.push();
+			if (t >= 0.0F && t < FormTimeline.BURST + HEAD_SWELL) {
+				float s = MathHelper.lerp(swell(t), HEAD_FROM, 1.0F);
+				matrices.translate(HEAD_MIDDLE.x / 16.0F, HEAD_MIDDLE.y / 16.0F, HEAD_MIDDLE.z / 16.0F);
+				matrices.scale(s, s, s);
+				matrices.translate(-HEAD_MIDDLE.x / 16.0F, -HEAD_MIDDLE.y / 16.0F, -HEAD_MIDDLE.z / 16.0F);
+			}
+			net.minecraft.client.model.ModelPart head = FormHeadModel.get();
+			head.render(matrices, consumers.getBuffer(RenderLayer.getEntityCutoutNoCull(FormHeadModel.TEXTURE)), light, overlay);
+			if (eye > 0.0F) {
+				head.render(matrices, consumers.getBuffer(RenderLayer.getEyes(FormHeadModel.GLOW)),
+						net.minecraft.client.render.LightmapTextureManager.MAX_LIGHT_COORDINATE, overlay);
+			}
+			matrices.pop();
+		}
+		if (!eyes.isEmpty()) {
+			flare(matrices, consumers, eyes, t, ClientCombat.frenzy(player) ? player.age + tickDelta : -1.0F);
 		}
 		matrices.pop();
+	}
+
+	/**
+	 * The eyes igniting at the roar: a pixel star of light flaring on each, added onto the picture, facing the camera,
+	 * dying away. In a frenzy ({@code frenzy} the time, or -1) they burn red, throbbing.
+	 */
+	private static void flare(MatrixStack matrices, VertexConsumerProvider consumers, java.util.List<Vector3f> eyes, float t, float frenzy) {
+		float age = t - FormTimeline.ROAR;
+		float k = t < 0.0F ? 0.0F : Math.min(age / 1.5F, 1.0F) * (float) Math.exp(-Math.max(age - 1.5F, 0.0F) / FLARE_FADE);
+		int colour;
+		float half;
+		if (frenzy >= 0.0F && k < 0.6F) {
+			float throb = 0.55F + 0.2F * MathHelper.sin(frenzy * 0.9F) + 0.1F * MathHelper.sin(frenzy * 2.3F);
+			half = FLARE_SIZE * 0.5F * (0.55F + 0.25F * throb);
+			colour = 0xFF000000 | (int) (255 * throb) << 16 | (int) (40 * throb) << 8 | (int) (30 * throb);
+		} else {
+			half = FLARE_SIZE * 0.5F * (0.6F + 0.4F * k);
+			int c = (int) (255 * k);
+			colour = 0xFF000000 | c << 16 | c << 8 | c;
+		}
+		org.joml.Quaternionf facing = MinecraftClient.getInstance().gameRenderer.getCamera().getRotation();
+		Vector3f right = facing.transform(new Vector3f(half, 0.0F, 0.0F));
+		Vector3f up = facing.transform(new Vector3f(0.0F, half, 0.0F));
+		VertexConsumer out = consumers.getBuffer(RenderLayer.getEyes(FLARE));
+		Matrix4f m = matrices.peek().getPositionMatrix();
+		for (Vector3f centre : eyes) {
+			Vector3f at = m.transformPosition(centre.x / 16.0F, centre.y / 16.0F, centre.z / 16.0F, new Vector3f());
+			// Both ways round, so it faces the camera whichever way the layer culls.
+			float[][] corners = {{-1, -1, 0, 1}, {-1, 1, 0, 0}, {1, 1, 1, 0}, {1, -1, 1, 1}, {1, -1, 1, 1}, {1, 1, 1, 0}, {-1, 1, 0, 0},
+					{-1, -1, 0, 1}};
+			for (float[] q : corners) {
+				out.vertex(at.x + right.x * q[0] + up.x * q[1], at.y + right.y * q[0] + up.y * q[1], at.z + right.z * q[0] + up.z * q[1], colour,
+						q[2], q[3], net.minecraft.client.render.OverlayTexture.DEFAULT_UV, net.minecraft.client.render.LightmapTextureManager.MAX_LIGHT_COORDINATE,
+						0.0F, 1.0F, 0.0F);
+			}
+		}
 	}
 
 	/** Down, where the arms and legs were: raw stumps at the shoulders and hips (the body's own space, in pixels). */

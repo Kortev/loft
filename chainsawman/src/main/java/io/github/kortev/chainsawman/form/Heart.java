@@ -2,9 +2,13 @@ package io.github.kortev.chainsawman.form;
 
 import com.mojang.serialization.Codec;
 import io.github.kortev.chainsawman.ChainsawMan;
+import io.github.kortev.chainsawman.network.FormEventPayload;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentRegistry;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentType;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.server.network.ServerPlayerEntity;
 
 /**
  * Pochita's heart: whether a player has it, and so can pull the cord and can't die. They have it once Pochita has
@@ -16,6 +20,26 @@ public final class Heart {
 			.copyOnDeath().buildAndRegister(ChainsawMan.id("heart"));
 
 	private Heart() {
+	}
+
+	/** Everyone told who has the heart (the cord shows on their chest): whoever joins, and they of everyone there. */
+	static void init() {
+		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
+			ServerPlayerEntity joined = handler.player;
+			if (merged(joined)) {
+				told(joined);
+			}
+			for (ServerPlayerEntity other : server.getPlayerManager().getPlayerList()) {
+				if (other != joined && merged(other) && ServerPlayNetworking.canSend(joined, FormEventPayload.ID)) {
+					ServerPlayNetworking.send(joined, new FormEventPayload(other.getUuid(), FormEventPayload.HEART, 1));
+				}
+			}
+		});
+	}
+
+	/** Everyone told that {@code player} has the heart now. */
+	static void told(ServerPlayerEntity player) {
+		Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.HEART, 1));
 	}
 
 	public static boolean has(PlayerEntity player) {

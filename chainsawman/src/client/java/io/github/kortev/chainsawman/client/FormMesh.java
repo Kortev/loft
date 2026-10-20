@@ -6,7 +6,9 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.LightmapTextureManager;
@@ -38,6 +40,8 @@ public final class FormMesh {
 		final float[] uv;
 		final byte[] normal;
 		final boolean[] glow;
+		@Nullable
+		private List<Vector3f> glowCentres;
 
 		Part(String name, String bone, @Nullable Vector3f growRoot, @Nullable Vector3f growAxis, int vertices) {
 			int chain = name.lastIndexOf("_chain");
@@ -65,16 +69,45 @@ public final class FormMesh {
 			return reach;
 		}
 
+		/** Where its glowing vertices are on each side, left and right (pixels, from the bone's pivot): the form's eyes. */
+		public List<Vector3f> glowCentres() {
+			if (glowCentres == null) {
+				List<Vector3f> centres = new ArrayList<>();
+				for (int side = -1; side <= 1; side += 2) {
+					Vector3f sum = new Vector3f();
+					int n = 0;
+					for (int i = 0; i < glow.length; i++) {
+						if (glow[i] && Math.signum(pos[i * 3]) == side) {
+							sum.add(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]);
+							n++;
+						}
+					}
+					if (n > 0) {
+						centres.add(sum.div(n));
+					}
+				}
+				glowCentres = centres;
+			}
+			return glowCentres;
+		}
+
 		/** Draws the part with the stack already moved to its bone; the eye at full light. */
 		public void draw(MatrixStack.Entry entry, VertexConsumer out, int light, int overlay) {
+			draw(entry, out, light, overlay, 1.0F);
+		}
+
+		/** Draws the part, the eye lit {@code eye} of the way (0 dark, still in its own light; 1 burning). */
+		public void draw(MatrixStack.Entry entry, VertexConsumer out, int light, int overlay, float eye) {
 			Matrix4f m = entry.getPositionMatrix();
 			Vector3f p = new Vector3f();
 			Vector3f n = new Vector3f();
+			int c = (int) (255 * (0.2F + 0.8F * eye));
+			int lit = 0xFF000000 | c << 16 | c << 8 | c;
 			int count = glow.length;
 			for (int i = 0; i < count; i++) {
 				m.transformPosition(pos[i * 3] / 16.0F, pos[i * 3 + 1] / 16.0F, pos[i * 3 + 2] / 16.0F, p);
 				entry.transformNormal(normal[i * 3] / 127.0F, normal[i * 3 + 1] / 127.0F, normal[i * 3 + 2] / 127.0F, n);
-				out.vertex(p.x, p.y, p.z, 0xFFFFFFFF, uv[i * 2], uv[i * 2 + 1], overlay,
+				out.vertex(p.x, p.y, p.z, glow[i] ? lit : 0xFFFFFFFF, uv[i * 2], uv[i * 2 + 1], overlay,
 						glow[i] ? LightmapTextureManager.MAX_LIGHT_COORDINATE : light, n.x, n.y, n.z);
 			}
 		}

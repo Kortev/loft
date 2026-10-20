@@ -136,6 +136,7 @@ public final class Merge {
 	/** The heart theirs for good, whole and full of blood; waiting now for them to pull the cord. */
 	private static void finish(ServerPlayerEntity player) {
 		player.setAttached(Heart.MERGED, true);
+		Heart.told(player);
 		player.setHealth(player.getMaxHealth());
 		Blood.set(player, Blood.MAX);
 		Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.MERGE, 2));

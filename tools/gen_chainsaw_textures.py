@@ -243,11 +243,160 @@ def pool():
     return img
 
 
+def flare():
+    """The eyes catching light at the roar (FormFeature.flare): a pixel star, drawn added onto the picture, so black is
+    nothing: a white-hot middle, yellow and orange rays out to the four sides."""
+    img = Image.new('RGBA', (16, 16), (0, 0, 0, 255))
+    levels = [(0.85, (255, 246, 214)), (0.62, (255, 210, 100)), (0.4, (240, 140, 40)), (0.2, (150, 64, 12)), (0.07, (60, 22, 4))]
+    for y in range(16):
+        for x in range(16):
+            dx, dy = abs(x - 7.5), abs(y - 7.5)
+            core = max(0.0, 1.0 - (dx * dx + dy * dy) ** 0.5 / 3.4)
+            ray = 0.0
+            for along, across in ((dx, dy), (dy, dx)):
+                width = 1.0 if across < 1.0 else 0.3 if across < 2.0 else 0.0
+                ray = max(ray, max(0.0, 1.0 - along / 9.0) * width)
+            v = max(core, ray)
+            for at, colour in levels:
+                if v >= at:
+                    img.putpixel((x, y), colour + (255,))
+                    break
+    return img
+
+
+def trail():
+    """The smear behind a slashing saw (SawTrails): along it (u) from the tip's newest place to its oldest, across it
+    (v) from the tip's edge in toward the bar. White at the edge going to blood red, fading in steps both ways."""
+    across = [(255, 255, 255, 235), (255, 238, 230, 215), (252, 196, 186, 185), (226, 70, 70, 150), (176, 22, 28, 110),
+              (124, 10, 16, 70), (84, 6, 10, 36), (0, 0, 0, 0)]
+    img = Image.new('RGBA', (16, 8))
+    for y, (r, g, b, a) in enumerate(across):
+        for x in range(16):
+            fade = max(0.0, 1.0 - (x // 2) / 8.0) ** 1.3
+            img.putpixel((x, y), (r, g, b, int(a * fade)))
+    return img
+
+
+# The chainsaw head as boxes (FormHeadModel, a proposal beside the mesh head: kortev asked for a cleaner head that fits
+# the game's style better, as Pochita's boxes do), painted for its boxes' texture corners and sizes, mirrored here. The
+# orange visor over the front, its ridge and its prow; the eye's vents curving round the back of each of its sides, the
+# inner ones burning yellow; an open mouth of long white teeth meeting; the orange jaw stepping down to its point; the
+# black engine behind with a round socket on each side and fins across its back; the D handle and the pole; the neck
+# bound in dark cords.
+HEAD_COLOURS = {
+    'O': (236, 122, 34, 255),   # the visor's orange
+    'o': (255, 166, 74, 255),   # its light edge
+    'S': (178, 78, 22, 255),    # its shadow
+    'D': (112, 44, 14, 255),    # its darkest, the ink
+    'K': (30, 30, 36, 255),     # the engine
+    'k': (58, 60, 70, 255),     # its light edges, the fins
+    'G': (128, 132, 142, 255),  # steel: the socket's ring
+    'W': (246, 244, 236, 255),  # teeth
+    'w': (200, 196, 186, 255),  # their shade
+    'M': (58, 10, 14, 255),     # the mouth's dark
+    'R': (150, 24, 30, 255),    # the gum
+    'Y': (150, 104, 30, 255),   # the eye, unlit (the glow layer lights it)
+    'B': (70, 44, 34, 255),     # the neck's cords
+    'b': (40, 26, 22, 255),     # between them
+    '.': (0, 0, 0, 0),
+}
+# The side of the visor (6 by 5, its front at the right): the vents curving round its back, outer two dark, inner two
+# the eye.
+HEAD_VENTS = [
+    'KOOOOO',
+    'OKOOOO',
+    'YOKOOO',
+    'OYOKOO',
+    'YOYOKS',
+]
+# Where the eye's pixels are lit (the glow layer drawn over the head, as a spider's eyes are).
+HEAD_GLOW = (255, 214, 90, 255)
+
+
+def head_paint(img, glow, u, v, w, h, d, colour):
+    for name, (x0, y0, fw, fh) in faces(u, v, w, h, d).items():
+        for y in range(fh):
+            for x in range(fw):
+                c = colour(name, x, y, fw, fh)
+                img.putpixel((x0 + x, y0 + y), HEAD_COLOURS[c])
+                if c == 'Y':
+                    glow.putpixel((x0 + x, y0 + y), HEAD_GLOW)
+
+
+def form_head():
+    img = Image.new('RGBA', (64, 64), (0, 0, 0, 0))
+    glow = Image.new('RGBA', (64, 64), (0, 0, 0, 0))
+
+    def visor(face, x, y, fw, fh):
+        if face in ('west', 'east'):
+            # The vents curving round the back of each side, the inner two the eye (drawn with the front at the right,
+            # as the west face lies; the east face is its mirror).
+            col = x if face == 'west' else fw - 1 - x
+            return HEAD_VENTS[y][col]
+        if face == 'top':
+            return 'o' if y == fh - 1 else 'O'
+        if face == 'front':
+            return 'S' if y == fh - 1 else 'O'
+        if face == 'bottom':
+            return 'D'
+        return 'S'
+
+    head_paint(img, glow, 0, 14, 10, 5, 6, visor)
+    head_paint(img, glow, 32, 0, 2, 1, 6, lambda f, x, y, fw, fh: 'o' if f == 'top' else 'O')
+    head_paint(img, glow, 50, 0, 6, 4, 1, lambda f, x, y, fw, fh: 'S' if y == fh - 1 or f == 'bottom' else 'o' if f == 'top' else 'O')
+
+    def mouth(face, x, y, fw, fh):
+        if face in ('top', 'bottom', 'back'):
+            return 'M'
+        # Long teeth meeting: the upper hanging from the gum, the lower standing between them.
+        rows = ['RRRRRRRR', 'WMWMWMWM', 'WwWwWwWw', 'WwWwWwWw', 'MwMwMwMw']
+        return rows[y][x % 8]
+
+    head_paint(img, glow, 0, 26, 8, 5, 5, mouth)
+
+    def jaw(face, x, y, fw, fh):
+        if face == 'bottom':
+            return 'S'
+        return 'O'
+
+    head_paint(img, glow, 0, 36, 8, 1, 4, jaw)
+    head_paint(img, glow, 26, 36, 4, 1, 2, lambda f, x, y, fw, fh: 'S' if f == 'bottom' else 'O')
+    head_paint(img, glow, 38, 36, 2, 1, 1, lambda f, x, y, fw, fh: 'S' if f == 'bottom' else 'O')
+
+    def engine(face, x, y, fw, fh):
+        if face == 'back':
+            # Fins across the back.
+            return 'k' if y % 2 == 1 and 1 <= x < fw - 1 else 'K'
+        if face == 'top':
+            return 'k' if y == 0 else 'K'
+        return 'K'
+
+    head_paint(img, glow, 0, 0, 9, 8, 6, engine)
+    head_paint(img, glow, 38, 40, 7, 1, 3, lambda f, x, y, fw, fh: 'k' if f == 'top' else 'K')
+
+    def socket(face, x, y, fw, fh):
+        if face in ('west', 'east'):
+            ring = ['.GG.', 'GKKG', 'GKKG', 'GKKG', '.GG.'][y][x]
+            return 'K' if ring == '.' else ring
+        return 'K'
+
+    head_paint(img, glow, 32, 14, 1, 5, 4, socket)
+    head_paint(img, glow, 44, 14, 1, 1, 3, lambda f, x, y, fw, fh: 'K')
+    head_paint(img, glow, 52, 14, 1, 6, 1, lambda f, x, y, fw, fh: 'k' if f == 'back' and y in (1, 4) else 'K')
+    head_paint(img, glow, 56, 14, 1, 3, 1, lambda f, x, y, fw, fh: 'K')
+    head_paint(img, glow, 26, 26, 6, 1, 5, lambda f, x, y, fw, fh: 'b' if x % 2 == 1 else 'B')
+    return img, glow
+
+
 def main():
     preview = sys.argv[sys.argv.index('--preview') + 1] if '--preview' in sys.argv else None
     out = {(ROOT, 'item/pochita.png'): draw(POCHITA), (CLIENT_ROOT, 'entity/form_flesh.png'): draw(FLESH),
            (CLIENT_ROOT, 'entity/form_chain.png'): draw(CHAIN),
-           (CLIENT_ROOT, 'entity/pochita.png'): pochita_entity(), (CLIENT_ROOT, 'entity/blood_pool.png'): pool()}
+           (CLIENT_ROOT, 'entity/pochita.png'): pochita_entity(), (CLIENT_ROOT, 'entity/blood_pool.png'): pool(),
+           (CLIENT_ROOT, 'entity/form_flare.png'): flare(), (CLIENT_ROOT, 'entity/form_trail.png'): trail()}
+    head, head_glow = form_head()
+    out[(CLIENT_ROOT, 'entity/form_head.png')] = head
+    out[(CLIENT_ROOT, 'entity/form_head_glow.png')] = head_glow
     for (root, name), img in out.items():
         path = os.path.join(root, name)
         os.makedirs(os.path.dirname(path), exist_ok=True)

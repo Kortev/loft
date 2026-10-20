@@ -24,6 +24,7 @@ import net.minecraft.client.sound.SoundInstance;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.particle.DustParticleEffect;
+import net.minecraft.particle.ParticleTypes;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvent;
 import net.minecraft.util.hit.HitResult;
@@ -80,6 +81,8 @@ public final class ClientCombat {
 	private static long kickAt = NEVER;
 	private static double tether = -1.0;
 	private static final Map<UUID, Long> FRENZY = new ConcurrentHashMap<>();
+	/** Who has Pochita's heart: the cord on their chest. */
+	private static final Set<UUID> HEARTS = ConcurrentHashMap.newKeySet();
 	private static final Map<UUID, Long> FRENZY_FROM = new ConcurrentHashMap<>();
 	private static final Set<UUID> DOWN = ConcurrentHashMap.newKeySet();
 	private static final Map<UUID, Integer> LOST = new ConcurrentHashMap<>();
@@ -89,6 +92,7 @@ public final class ClientCombat {
 	private static final Map<UUID, SoundInstance> FRENZY_SOUNDS = new ConcurrentHashMap<>();
 	private static final DustParticleEffect EYE = new DustParticleEffect(new Vector3f(1.0F, 0.85F, 0.3F), 0.8F);
 	private static final DustParticleEffect BLOOD = new DustParticleEffect(new Vector3f(0.5F, 0.0F, 0.03F), 1.0F);
+	private static final DustParticleEffect MIST = new DustParticleEffect(new Vector3f(0.75F, 0.04F, 0.06F), 0.7F);
 	private static final Random RANDOM = Random.create();
 
 	/** Your own attack key: how long it has been held, whether you are grinding, and when you last slashed. */
@@ -140,6 +144,13 @@ public final class ClientCombat {
 					MergeCinematic.waiting(id);
 				} else {
 					MergeCinematic.ended(id);
+				}
+			}
+			case FormEventPayload.HEART -> {
+				if (event.value() != 0) {
+					HEARTS.add(id);
+				} else {
+					HEARTS.remove(id);
 				}
 			}
 			case FormEventPayload.LIMBS -> {
@@ -246,6 +257,11 @@ public final class ClientCombat {
 		return blood;
 	}
 
+	/** Whether {@code player} has Pochita's heart, as this client has been told. */
+	public static boolean heart(PlayerEntity player) {
+		return HEARTS.contains(player.getUuid());
+	}
+
 	public static boolean frenzy(PlayerEntity player) {
 		return FRENZY.containsKey(player.getUuid());
 	}
@@ -340,6 +356,16 @@ public final class ClientCombat {
 			if (frenzy(player) && now % 3 == 0) {
 				eyeGlow(world, player);
 			}
+			if (frenzy(player) && ClientForms.on(player) && !ownEyes(player)) {
+				// Blood boiling off them: a red mist rising round the body.
+				for (int i = 0; i < 2; i++) {
+					double a = RANDOM.nextDouble() * Math.PI * 2.0;
+					double r = 0.3 + RANDOM.nextDouble() * 0.25;
+					world.addParticle(MIST, player.getX() + Math.cos(a) * r, player.getY() + 0.2 + RANDOM.nextDouble() * 1.5,
+							player.getZ() + Math.sin(a) * r, 0.0, 0.04 + RANDOM.nextDouble() * 0.04, 0.0);
+				}
+			}
+			exhaust(world, player, now);
 			if (DOWN.contains(id) && now % 8 == 0 && !ownEyes(player)) {
 				world.addParticle(BLOOD, player.getX() + (RANDOM.nextDouble() - 0.5) * 0.8, player.getY() + 0.2,
 						player.getZ() + (RANDOM.nextDouble() - 0.5) * 0.8, 0.0, 0.0, 0.0);
@@ -420,6 +446,29 @@ public final class ClientCombat {
 		world.addParticle(EYE, eye.x, eye.y, eye.z, 0.0, 0.03, 0.0);
 	}
 
+	/**
+	 * The engine's exhaust, light grey puffs off the top of the pole behind the bar: one now and then while it idles,
+	 * more while the saws work or in a frenzy, a burst as it roars into life at the end of the transformation.
+	 */
+	private static void exhaust(ClientWorld world, AbstractClientPlayerEntity player, long now) {
+		if (ownEyes(player) || player.isInvisible()) {
+			return;
+		}
+		float pull = ClientForms.pullAge(player, 0.0F);
+		boolean roar = pull >= io.github.kortev.chainsawman.form.FormTimeline.ROAR && pull < io.github.kortev.chainsawman.form.FormTimeline.ROAR + 10;
+		if (!ClientForms.on(player) && !roar) {
+			return;
+		}
+		int every = roar ? 1 : frenzy(player) ? 2 : busy(player) ? 3 : 20;
+		if (now % every != 0) {
+			return;
+		}
+		Vec3d back = Vec3d.fromPolar(0.0F, player.getHeadYaw()).multiply(-1.0);
+		Vec3d at = player.getEyePos().add(back.multiply(0.15)).add(0.0, 0.6, 0.0);
+		world.addParticle(ParticleTypes.WHITE_SMOKE, at.x, at.y, at.z, back.x * 0.04 + (RANDOM.nextDouble() - 0.5) * 0.02,
+				0.05 + RANDOM.nextDouble() * 0.03, back.z * 0.04 + (RANDOM.nextDouble() - 0.5) * 0.02);
+	}
+
 	/** Whether {@code player} is you, seen from your own eyes (particles on you would fill the view). */
 	private static boolean ownEyes(PlayerEntity player) {
 		MinecraftClient client = MinecraftClient.getInstance();
@@ -458,7 +507,9 @@ public final class ClientCombat {
 		GRINDING.clear();
 		CHAINS.clear();
 		MergeCinematic.clear();
+		SawTrails.clear();
 		LOST.clear();
+		HEARTS.clear();
 		blood = -1;
 		PAUSED.clear();
 		kickAt = NEVER;
