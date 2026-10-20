@@ -857,7 +857,7 @@ public class FilmDomain implements ClientModInitializer {
 	/** A player the server makes and moves itself (Kortev, or from Kortev's eyes the friend), connected as the game tests' are. */
 	static ServerPlayerEntity join(MinecraftServer server, ServerWorld world, String name) {
 		GameProfile profile = new GameProfile(Uuids.getOfflinePlayerUuid(name), name);
-		ConnectedClientData data = ConnectedClientData.createDefault(profile, false);
+		ConnectedClientData data = new ConnectedClientData(profile, 0, FilmSkins.allLayers(), false);
 		ServerPlayerEntity player = new ServerPlayerEntity(server, world, profile, data.syncedOptions());
 		ClientConnection connection = new ClientConnection(NetworkSide.SERVERBOUND);
 		new EmbeddedChannel(connection);
@@ -867,7 +867,9 @@ public class FilmDomain implements ClientModInitializer {
 	}
 
 	/**
-	 * What each has on him: Kortev a diamond sword (no armour: a fight in the open), golden apples and what anyone carries;
+	 * What each has on him: Kortev his kit from the series (iron chestplate, leggings and boots, no helmet over his hair,
+	 * and a diamond sword), golden apples and what anyone carries (the punch that ends him is made to: through the iron a
+	 * fist would not, at half a heart);
 	 * the friend his bare hands and a few things in his bar. Both have every recipe and the Domain's advancements already
 	 * (and any toast is cleared before it is drawn: {@link #clientTick}).
 	 */
@@ -887,6 +889,9 @@ public class FilmDomain implements ClientModInitializer {
 			player.getInventory().setStack(6, new ItemStack(Items.WATER_BUCKET));
 			player.getInventory().setStack(7, new ItemStack(Items.IRON_PICKAXE));
 			player.getInventory().setStack(8, new ItemStack(Items.TORCH, 24));
+			player.equipStack(EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE));
+			player.equipStack(EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS));
+			player.equipStack(EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
 			player.setExperienceLevel(14);
 			select(player, 0, own);
 		} else {
@@ -955,6 +960,13 @@ public class FilmDomain implements ClientModInitializer {
 		// nobody about.
 		boolean byTheVoid = kortev.getRecentDamageSource() != null && kortev.getRecentDamageSource().isOf(GojoDamage.UNLIMITED_VOID);
 		if (kortev.getHealth() < lastHealth - 0.01F && !byTheVoid) {
+			if (released >= 0) {
+				// One punch, as kortev wants it: through his iron a fist leaves him a sliver of his half a heart, so the
+				// blow that lands is made the end of him (the game's own death: the fall, his things everywhere).
+				kortev.damage(world.getDamageSources().playerAttack(friend), Float.MAX_VALUE);
+				ShootingStar.LOGGER.info("[film] one punch: Kortev is finished");
+				return;
+			}
 			Vec3d away = kPos.subtract(friend.getPos()).multiply(1.0, 0.0, 1.0);
 			knock = away.lengthSquared() > 1.0E-4 ? away.normalize().multiply(0.42) : Vec3d.ZERO;
 			jumpV = Math.max(jumpV, 0.34);

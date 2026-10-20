@@ -1475,7 +1475,7 @@ public class FilmSelfTest implements ClientModInitializer {
 	/** A player the server makes and moves itself, connected as the game tests' are. */
 	private static ServerPlayerEntity join(MinecraftServer server, ServerWorld world, Role role) {
 		GameProfile profile = new GameProfile(Uuids.getOfflinePlayerUuid(role.name), role.name);
-		ConnectedClientData data = ConnectedClientData.createDefault(profile, false);
+		ConnectedClientData data = new ConnectedClientData(profile, 0, FilmSkins.allLayers(), false);
 		ServerPlayerEntity player = new ServerPlayerEntity(server, world, profile, data.syncedOptions());
 		ClientConnection connection = new ClientConnection(NetworkSide.SERVERBOUND);
 		new EmbeddedChannel(connection);

@@ -548,6 +548,10 @@ public class FilmDomainKortev implements ClientModInitializer {
 		world.playSound(null, kortev.getX(), kortev.getY(), kortev.getZ(), SoundEvents.ENTITY_PLAYER_ATTACK_STRONG, SoundCategory.PLAYERS, 1.0F,
 				1.0F);
 		kortev.damage(world.getDamageSources().playerAttack(friend), 2.0F);
+		if (kortev.isAlive()) {
+			// One punch, as kortev wants it: through his iron a fist leaves him a sliver of his half a heart.
+			kortev.damage(world.getDamageSources().playerAttack(friend), Float.MAX_VALUE);
+		}
 		ShootingStar.LOGGER.info("[film] the friend punches Kortev at age {}, who is at {}", serverAge, kortev.getHealth());
 	}
 

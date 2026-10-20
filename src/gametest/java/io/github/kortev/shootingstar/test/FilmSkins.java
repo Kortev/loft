@@ -14,6 +14,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.texture.NativeImage;
 import net.minecraft.client.texture.NativeImageBackedTexture;
 import net.minecraft.client.util.SkinTextures;
+import net.minecraft.network.packet.c2s.common.SyncedClientOptions;
 import net.minecraft.util.Identifier;
 import org.jetbrains.annotations.Nullable;
 
@@ -28,6 +29,20 @@ public final class FilmSkins {
 
 	private FilmSkins() {
 	}
+
+	/**
+	 * The options a player the server makes itself joins with: the game's defaults, but with every outer layer of the
+	 * skin shown (hat, jacket, sleeves, trouser legs, cape). The defaults show none of them, so such a player was filmed
+	 * without whatever its skin draws there (Kortev without his hair).
+	 */
+	public static SyncedClientOptions allLayers() {
+		SyncedClientOptions d = SyncedClientOptions.createDefault();
+		return new SyncedClientOptions(d.language(), d.viewDistance(), d.chatVisibility(), d.chatColorsEnabled(), ALL_LAYERS, d.mainArm(),
+				d.filtersText(), d.allowsServerListing());
+	}
+
+	/** Every bit of the model's parts (PlayerModelPart): cape, jacket, both sleeves, both trouser legs and the hat. */
+	private static final int ALL_LAYERS = 0x7F;
 
 	@Nullable
 	public static SkinTextures get(String name) {
