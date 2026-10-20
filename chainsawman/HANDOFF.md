@@ -229,6 +229,11 @@ one go crashed libsndfile here without a word; the script writes in chunks.)
 - Through your own transformation your hand, the HUD and pop-ups are hidden until the camera is back in your eyes
   (`FormHandHiddenMixin`, `FormHudHiddenMixin`, `FormToastHiddenMixin`; the impact frames still draw). The test films
   it with the HUD on to show that.
+- **Trying it all in the game** (`ChainsawCommand`, operators): in a new world with cheats on (superflat is best:
+  it flattens and clears a 33-block square round you), `/chainsaw scene` builds a test ground (a row of mobs standing
+  still in front of you, a wild Pochita fainted in a log to your right), puts you in survival with full blood and
+  without Pochita's heart, and lists what to try. Then `/chainsaw mobs | pochita | heart | reset | blood | down | up`;
+  and `/chainsawhead boxes | mesh` (client) switches between the two heads. Film it with `-Ptarget=scene`.
 - Yarn 1.21.1 names differ from Mojang's; check a doubtful one against the mappings before pushing.
 
 ## What's next, in order

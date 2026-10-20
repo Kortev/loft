@@ -121,6 +121,10 @@ public class FormSelfTest implements ClientModInitializer {
 					// Only the merge (-Ptarget=merge), for working on it.
 					stage = Stage.FIGHT;
 					ticks = 249;
+				} else if (ticks > 80 && CAMERA_IDS.size() == CAMERAS.length && "scene".equals(System.getProperty("shootingstar.selftest.target"))) {
+					// Only the test ground (-Ptarget=scene).
+					stage = Stage.FIGHT;
+					ticks = 1499;
 				} else if (ticks > 80 && CAMERA_IDS.size() == CAMERAS.length && "kill".equals(System.getProperty("shootingstar.selftest.target"))) {
 					// Only the kills (-Ptarget=kill).
 					stage = Stage.FIGHT;
@@ -438,6 +442,30 @@ public class FormSelfTest implements ClientModInitializer {
 			case 1390 -> server.execute(() -> victim(serverPlayer(server), EntityType.COW));
 			case 1400 -> server.execute(() -> Saw.slash(serverPlayer(server)));
 			case 1450 -> stage = Stage.DONE;
+			// The test ground (-Ptarget=scene): /chainsaw scene, looked at from behind you, then toward the log.
+			case 1500 -> {
+				client.setCameraEntity(client.player);
+				client.options.hudHidden = false;
+				client.player.setYaw(0.0F);
+				server.execute(() -> server.getCommandManager().executeWithPrefix(serverPlayer(server).getCommandSource().withLevel(4), "chainsaw scene"));
+			}
+			case 1504 -> {
+				client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
+				client.player.setPitch(20.0F);
+			}
+			case 1530 -> screenshot(client, "scene_behind");
+			case 1532 -> {
+				client.options.setPerspective(Perspective.FIRST_PERSON);
+				client.player.setYaw(client.player.getYaw() + 75.0F);
+				client.player.setPitch(15.0F);
+			}
+			case 1540 -> screenshot(client, "scene_log");
+			case 1542 -> {
+				client.player.setYaw(client.player.getYaw() - 75.0F);
+				client.player.setPitch(5.0F);
+			}
+			case 1550 -> screenshot(client, "scene_mobs");
+			case 1560 -> stage = Stage.DONE;
 			default -> {
 			}
 		}

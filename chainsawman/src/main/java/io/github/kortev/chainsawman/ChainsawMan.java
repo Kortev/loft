@@ -67,6 +67,7 @@ public final class ChainsawMan implements ModInitializer {
 				AnimalEntity::isValidNaturalSpawn);
 		// One in a world, waiting where he was put.
 		PochitaPlace.init();
+		ChainsawCommand.init();
 		PayloadTypeRegistry.playS2C().register(FormPayload.ID, FormPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(FormPullPayload.ID, FormPullPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(FormEventPayload.ID, FormEventPayload.CODEC);

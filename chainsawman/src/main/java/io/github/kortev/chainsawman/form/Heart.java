@@ -37,6 +37,18 @@ public final class Heart {
 		});
 	}
 
+	/** Pochita's heart given to {@code player} straight off, no merge (to try things out). */
+	public static void give(ServerPlayerEntity player) {
+		player.setAttached(MERGED, true);
+		told(player);
+	}
+
+	/** Pochita's heart taken back from {@code player} (to see the merge again). */
+	public static void take(ServerPlayerEntity player) {
+		player.removeAttached(MERGED);
+		Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.HEART, 0));
+	}
+
 	/** Everyone told that {@code player} has the heart now. */
 	static void told(ServerPlayerEntity player) {
 		Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.HEART, 1));

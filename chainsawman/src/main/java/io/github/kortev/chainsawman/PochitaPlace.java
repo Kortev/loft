@@ -117,6 +117,18 @@ public final class PochitaPlace extends PersistentState {
 		markDirty();
 	}
 
+	/** A wild Pochita fainted in a hollow log at {@code at} lying along {@code axis}, apart from the world's own (for trying him out). */
+	public static void waiting(ServerWorld world, BlockPos at, Direction.Axis axis) {
+		log(world, at, axis);
+		PochitaEntity pochita = ChainsawMan.POCHITA_ENTITY.create(world);
+		if (pochita != null) {
+			pochita.refreshPositionAndAngles(at.getX() + 0.5, at.getY(), at.getZ() + 0.5, world.random.nextFloat() * 360.0F, 0.0F);
+			pochita.initialize(world, world.getLocalDifficulty(at), SpawnReason.COMMAND, null);
+			pochita.setPersistent();
+			world.spawnEntity(pochita);
+		}
+	}
+
 	/** A hollow fallen log lying along {@code axis}, open at both ends, ferns about it. */
 	private static void log(ServerWorld world, BlockPos at, Direction.Axis axis) {
 		BlockState wood = Blocks.OAK_LOG.getDefaultState().with(PillarBlock.AXIS, axis);

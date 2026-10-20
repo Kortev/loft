@@ -49,6 +49,19 @@ public final class ChainsawManClient implements ClientModInitializer {
 		FRENZY = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.chainsawman.frenzy", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_B,
 				"key.categories.chainsawman"));
 		ClientCombat.init();
+		// /chainsawhead boxes|mesh: the two heads to choose between, here on this client.
+		net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(
+				net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal("chainsawhead")
+						.then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal("boxes").executes(context -> {
+							FormHeadModel.on = true;
+							context.getSource().sendFeedback(net.minecraft.text.Text.translatable("commands.chainsawhead.boxes"));
+							return 1;
+						}))
+						.then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal("mesh").executes(context -> {
+							FormHeadModel.on = false;
+							context.getSource().sendFeedback(net.minecraft.text.Text.translatable("commands.chainsawhead.mesh"));
+							return 1;
+						}))));
 		EntityModelLayerRegistry.registerModelLayer(PochitaRenderer.LAYER, PochitaModel::texturedModelData);
 		EntityRendererRegistry.register(ChainsawMan.POCHITA_ENTITY, PochitaRenderer::new);
 		WorldRenderEvents.AFTER_ENTITIES.register(MergeCinematic::render);

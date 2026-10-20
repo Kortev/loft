@@ -37,5 +37,22 @@
   "merge.chainsawman.line3": "So let's make a deal. My heart is yours.",
   "merge.chainsawman.line4": "And in return... show me that dream.",
   "merge.chainsawman.line5": "Live it, for both of us.",
-  "merge.chainsawman.pull": "[%s]  Pull the cord"
+  "merge.chainsawman.pull": "[%s]  Pull the cord",
+  "commands.chainsaw.mobs": "A row of mobs in front of you, standing still.",
+  "commands.chainsaw.pochita": "A wild Pochita, fainted in a log beside you.",
+  "commands.chainsaw.heart": "Pochita's heart is yours (no merge).",
+  "commands.chainsaw.reset": "Pochita's heart taken back, out of the form, full of blood.",
+  "commands.chainsaw.blood": "Full of blood.",
+  "commands.chainsaw.down": "Down.",
+  "commands.chainsaw.up": "Back up.",
+  "commands.chainsaw.scene": "Test ground ready. Try it in order:",
+  "commands.chainsaw.scene.1": "1. Pochita is fainted in the log to your right: hold use on him till he's yours.",
+  "commands.chainsaw.scene.2": "2. Die with him near (/damage @s 100): the merge. When it says, press [%1$s].",
+  "commands.chainsaw.scene.3": "3. On the mobs in front: click to slash, hold to grind, sprint and click to lunge, [%2$s] the chain, [%3$s] the frenzy. Kills cut them in two.",
+  "commands.chainsaw.scene.4": "4. Press [%1$s] again to turn back, and again to change.",
+  "commands.chainsaw.scene.5": "5. /chainsaw down, then /chainsaw up: your limbs come off, and you get up.",
+  "commands.chainsaw.scene.6": "6. /chainsawhead boxes or /chainsawhead mesh: the two heads to choose between.",
+  "commands.chainsaw.scene.7": "Also: /chainsaw mobs (more mobs), heart (skip the merge), reset (see it again), blood, pochita.",
+  "commands.chainsawhead.boxes": "The head as boxes and pixels (the proposal).",
+  "commands.chainsawhead.mesh": "The head as it is now."
 }
