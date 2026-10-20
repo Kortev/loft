@@ -121,6 +121,10 @@ public class FormSelfTest implements ClientModInitializer {
 					// Only the merge (-Ptarget=merge), for working on it.
 					stage = Stage.FIGHT;
 					ticks = 249;
+				} else if (ticks > 80 && CAMERA_IDS.size() == CAMERAS.length && "kill".equals(System.getProperty("shootingstar.selftest.target"))) {
+					// Only the kills (-Ptarget=kill).
+					stage = Stage.FIGHT;
+					ticks = 1299;
 				} else if (ticks > 80 && CAMERA_IDS.size() == CAMERAS.length) {
 					// The game never draws your own player while the camera is another entity: a stand-in of them, in the
 					// form, where they stand.
@@ -418,6 +422,22 @@ public class FormSelfTest implements ClientModInitializer {
 			}
 			case 254 -> server.execute(() -> io.github.kortev.chainsawman.form.Merge.start(serverPlayer(server)));
 			case 1270 -> stage = Stage.DONE;
+			// Kills (-Ptarget=kill): a husk (the whole combo), then a cow, cut down in front of you, seen from in front.
+			case 1300 -> {
+				client.options.hudHidden = true;
+				client.options.setPerspective(Perspective.THIRD_PERSON_FRONT);
+				client.player.setPitch(-12.0F);
+				server.execute(() -> {
+					ServerPlayerEntity p = serverPlayer(server);
+					io.github.kortev.chainsawman.form.Blood.set(p, io.github.kortev.chainsawman.form.Blood.MAX);
+					Form.start(p);
+					victim(p, EntityType.HUSK);
+				});
+			}
+			case 1310, 1324, 1338 -> server.execute(() -> Saw.slash(serverPlayer(server)));
+			case 1390 -> server.execute(() -> victim(serverPlayer(server), EntityType.COW));
+			case 1400 -> server.execute(() -> Saw.slash(serverPlayer(server)));
+			case 1450 -> stage = Stage.DONE;
 			default -> {
 			}
 		}
@@ -455,6 +475,14 @@ public class FormSelfTest implements ClientModInitializer {
 			client.options.setPerspective(Perspective.FIRST_PERSON);
 			client.options.hudHidden = false;
 			client.player.setPitch(0.0F);
+		}
+		for (int age : new int[] {1, 3, 5, 8, 12, 17, 24, 35}) {
+			if (f == 1338 + age) {
+				screenshot(client, String.format("kill_husk_%02d", age));
+			}
+			if (f == 1400 + age) {
+				screenshot(client, String.format("kill_cow_%02d", age));
+			}
 		}
 		for (int age : new int[] {0, 3, 6, 9, 12, 15, 19, 23, 27}) {
 			if (f == end + 321 + age) {
@@ -508,6 +536,19 @@ public class FormSelfTest implements ClientModInitializer {
 		Entity camera = client.world.getEntityById(CAMERA_IDS.get(which));
 		if (camera != null) {
 			client.setCameraEntity(camera);
+		}
+	}
+
+	/** A mob standing still in front of {@code p}, to be cut down. */
+	private static void victim(ServerPlayerEntity p, EntityType<? extends net.minecraft.entity.mob.MobEntity> type) {
+		net.minecraft.entity.mob.MobEntity mob = type.create(p.getServerWorld());
+		if (mob != null) {
+			Vec3d at = p.getPos().add(p.getRotationVector().multiply(1.0, 0.0, 1.0).normalize().multiply(2.2));
+			mob.refreshPositionAndAngles(at.x, p.getY(), at.z, p.getYaw() + 180.0F, 0.0F);
+			mob.setAiDisabled(true);
+			mob.setHeadYaw(p.getYaw() + 180.0F);
+			mob.setBodyYaw(p.getYaw() + 180.0F);
+			p.getServerWorld().spawnEntity(mob);
 		}
 	}
 

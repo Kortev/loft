@@ -168,6 +168,10 @@ public final class ClientCombat {
 				}
 			}
 			case FormEventPayload.HIT, FormEventPayload.KILL -> {
+				if (event.kind() == FormEventPayload.KILL) {
+					// Cut in two (the server is taking the body away; it's kept here to come apart).
+					CutDown.killed(world, event.value(), now);
+				}
 				PlayerEntity player = world.getPlayerByUuid(id);
 				if (player != null) {
 					float age = swingAge(player, 0.0F);
@@ -378,6 +382,7 @@ public final class ClientCombat {
 			holdStill(client.options);
 		}
 		MergeCinematic.tick(world);
+		CutDown.tick(world);
 		swing(client, self);
 		for (AbstractClientPlayerEntity player : world.getPlayers()) {
 			UUID id = player.getUuid();
@@ -546,6 +551,7 @@ public final class ClientCombat {
 		GRINDING.clear();
 		CHAINS.clear();
 		MergeCinematic.clear();
+		CutDown.clear();
 		SawTrails.clear();
 		LOST.clear();
 		HEARTS.clear();

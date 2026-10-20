@@ -326,8 +326,12 @@ head part, or keep it as a choice); if not, delete `FormHeadModel` and its textu
 ### 4. Still to do from kortev's picks (agreed, not built yet)
 
 - **The transformation polish** above still open: the stretched cord in your own camera.
-- Smaller follow-ups: brutal kills cutting the body in two. (Done: the wild Pochita lies fainted in his log; taming
-  him, or bringing him round, plays `pochita_tame`, two happy yips and his engine's purr.)
+- Done from the smaller follow-ups: **kills cut the body in two** (`CutDown`, `CutInTwoMixin`): the server still
+  takes the body away with its burst of gore, but the client keeps it a moment and draws it as two halves, split
+  where the model's parts hang from (the legs below the middle, the rest above): the top sliced off sideways, tipping
+  and falling, the legs folding a beat later, blood pouring out of the cut, then a puff. A mob in one piece just
+  falls. Film it with `-Ptarget=kill` (a husk through the whole combo, then a cow). The wild Pochita lies fainted in
+  his log; taming him, or bringing him round, plays `pochita_tame`.
 
 ### Later ideas kortev has had (not designed; ask before building)
 
