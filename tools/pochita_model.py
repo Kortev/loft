@@ -1,11 +1,12 @@
 """Pochita, built in Blender from the anime stills kortev sent (the chainsaw devil as a little dog), for the game.
 
-What he is, from the stills: one round bean of a body, head and body all one, taller than wide sitting and widest at
-the bottom where his round haunches sit; orange, a darker reddish brown underneath and behind; two big round eyes set
-wide on the front, white with a large dark pupil; a small "w" of a snout between them, low; a chainsaw's bar standing
-straight out of his forehead, pale grey, its chain dark with spikes all round; a big black D handle arching over the
-back of his head, as wide as he is; two stubby front paws in front of his chest, toes marked; and a thin black tail out
-of his bottom, ending in a little triangle (the starter's grip).
+What he is, from the stills (kortev: "look at the one of him running, they are much longer shaped"): a long low bean of
+a body on four short stubby legs, head and body all one, the front end (his head) a little rounder and fuller; orange,
+a darker reddish brown underneath; a big round eye on each side of his head, a large dark pupil over a crescent of
+white; under the front, a little open mouth with a fang and his tongue; a chainsaw's bar straight out of his forehead,
+forward and a little up, on edge, pale grey, its chain dark with big spikes all round; a big black D handle on top of
+him, leaning back; and a thin black tail out of his back end, curling up, ending in a little triangle (the starter's
+grip). This is him standing, as he walks about; sitting, the game tips him up.
 
 Run (Blender 4.3 here; see chainsawman/HANDOFF.md):
   blender -b --factory-startup --python tools/pochita_model.py -- --renders --out DIR
@@ -32,11 +33,11 @@ WHITE = (0.97, 0.97, 0.96)
 PUPIL = (0.07, 0.07, 0.10)
 TONGUE = (0.85, 0.42, 0.45)
 
-# His body: a bean, this wide (x), deep (y, front is -y) and tall (z), sitting on the ground.
-BODY = (1.0, 0.95, 1.3)
-# How high up him the under-colour comes at the back, and at the front.
-UNDER_BACK = 0.55
-UNDER_FRONT = 0.18
+# His body: a long bean, this wide (x), long (y, his front is -y) and tall (z), its middle this high off the ground.
+BODY = (0.88, 1.5, 0.94)
+BODY_UP = 0.46
+# How high up him the under-colour comes.
+UNDER_LINE = 0.3
 
 
 def clear():
@@ -73,59 +74,49 @@ def ellipsoid(name, centre, radii, mat, segments=32, rings=20):
 
 
 def body():
-    """The bean: wider low down (the haunches swell it), narrowing over the head; the under-colour below and behind."""
+    """The long bean: the front end (his head) a little fuller and higher, the back end tapering, the belly flatter; the
+    under-colour below."""
     bm = bmesh.new()
     bmesh.ops.create_uvsphere(bm, u_segments=48, v_segments=32, radius=1.0)
-    w, d, h = BODY
+    w, l, h = BODY
     for v in bm.verts:
         x, y, z = v.co
-        # Bottom flat on the ground and wide; top rounder and a little narrower.
-        up = (z + 1.0) / 2.0
-        widen = 1.08 - 0.16 * up
-        v.co = Vector((x * w / 2 * widen, y * d / 2 * (1.0 - 0.06 * up), (z + 1.0) / 2.0 * h))
-        if v.co.z < 0.06:
-            v.co.z = 0.06 * (v.co.z / 0.06) ** 2 if v.co.z > 0 else 0.0
+        front = max(0.0, -y)
+        # Fuller and a little higher at the front; flatter underneath.
+        grow = 1.0 + 0.1 * front - 0.08 * max(0.0, y)
+        zz = z * (0.75 if z < 0 else 1.0)
+        v.co = Vector((x * w / 2 * grow, y * l / 2, zz * h / 2 * grow + BODY_UP + 0.05 * front))
     o = obj('body', bm, [material('orange', ORANGE), material('under', UNDER)])
     for p in o.data.polygons:
-        c = p.center
-        # The under-colour: higher behind than in front.
-        line = UNDER_FRONT + (UNDER_BACK - UNDER_FRONT) * (c.y / (d / 2) * 0.5 + 0.5)
-        p.material_index = 1 if c.z < line else 0
+        p.material_index = 1 if p.center.z < UNDER_LINE else 0
     return o
 
 
-def haunches():
-    """His round hind legs, swelling out low at either side, with flat feet in front of them."""
+def legs():
+    """Four short stubby legs under him, the front pair under his head, the back pair under his rump; round paws."""
     for side in (-1, 1):
-        ellipsoid('haunch_%d' % side, (side * 0.42, 0.08, 0.3), (0.24, 0.36, 0.28), material('orange', ORANGE))
-        ellipsoid('foot_%d' % side, (side * 0.45, -0.3, 0.05), (0.13, 0.2, 0.06), material('under', UNDER))
+        for y in (-0.4, 0.42):
+            ellipsoid('leg_%d_%d' % (side, y > 0), (side * 0.24, y, 0.11), (0.11, 0.13, 0.11), material('orange', ORANGE))
+            ellipsoid('paw_%d_%d' % (side, y > 0), (side * 0.24, y - 0.05, 0.035), (0.12, 0.14, 0.04), material('under', UNDER))
 
 
-def paws():
-    """The stubby front legs, down in front of his chest, toes marked by three dark lines."""
-    for side in (-1, 1):
-        x = side * 0.17
-        ellipsoid('leg_%d' % side, (x, -0.4, 0.16), (0.1, 0.11, 0.17), material('orange', ORANGE))
-        ellipsoid('paw_%d' % side, (x, -0.47, 0.05), (0.11, 0.1, 0.06), material('orange', ORANGE))
-        for t in (-1, 0, 1):
-            bm = bmesh.new()
-            bmesh.ops.create_cube(bm, size=1.0)
-            bmesh.ops.scale(bm, vec=Vector((0.008, 0.05, 0.04)), verts=bm.verts)
-            bmesh.ops.translate(bm, vec=Vector((x + t * 0.04, -0.56, 0.05)), verts=bm.verts)
-            obj('toe_%d_%d' % (side, t), bm, [material('under', UNDER)], smooth=False)
+def mouth():
+    """Under the front, a little open mouth: dark inside, his tongue, one fang."""
+    ellipsoid('mouth', (0.0, -0.76, 0.38), (0.12, 0.05, 0.075), material('pupil', PUPIL))
+    ellipsoid('tongue', (0.0, -0.785, 0.345), (0.075, 0.035, 0.03), material('tongue', TONGUE))
+    bm = bmesh.new()
+    a = bm.verts.new((0.04, -0.8, 0.44))
+    b = bm.verts.new((0.09, -0.8, 0.44))
+    c = bm.verts.new((0.065, -0.81, 0.38))
+    bm.faces.new((a, b, c))
+    obj('fang', bm, [material('white', WHITE)], smooth=False)
 
 
 def face():
-    """Two big round eyes set wide, white with a large dark pupil looking ahead; the little snout low between them."""
-    w, d, h = BODY
+    """A big round eye on each side of his head: a large dark pupil over a crescent of white, looking ahead."""
     for side in (-1, 1):
-        x = side * 0.27
-        ellipsoid('eye_%d' % side, (x, -0.43, 0.86), (0.15, 0.045, 0.15), material('white', WHITE))
-        ellipsoid('pupil_%d' % side, (x * 1.02, -0.47, 0.85), (0.105, 0.02, 0.105), material('pupil', PUPIL))
-    # The snout: two round cheeks and a dark nose between, with a small tongue beneath (as in the stills).
-    for side in (-1, 1):
-        ellipsoid('cheek_%d' % side, (side * 0.065, -0.47, 0.62), (0.075, 0.05, 0.06), material('orange', ORANGE))
-    ellipsoid('nose', (0.0, -0.5, 0.66), (0.03, 0.02, 0.022), material('pupil', PUPIL))
+        ellipsoid('eye_%d' % side, (side * 0.4, -0.42, 0.66), (0.05, 0.16, 0.16), material('white', WHITE))
+        ellipsoid('pupil_%d' % side, (side * 0.43, -0.44, 0.69), (0.03, 0.12, 0.12), material('pupil', PUPIL))
 
 
 def stadium(length, height, segments=10):
@@ -141,10 +132,10 @@ def stadium(length, height, segments=10):
 
 def bar():
     """The chainsaw's bar straight out of his forehead, standing on edge, its chain dark round it with spikes."""
-    length, height, thick = 0.95, 0.42, 0.05
-    root = Vector((0.0, -0.3, 1.12))
-    # Out forward and up a little, on edge (its flat faces to the sides).
-    tilt = math.radians(28)
+    length, height, thick = 1.0, 0.44, 0.05
+    root = Vector((0.0, -0.5, 0.84))
+    # Straight out forward and a little up, on edge (its flat faces to the sides).
+    tilt = math.radians(10)
     along = Vector((0.0, -math.cos(tilt), math.sin(tilt)))
     across = Vector((0.0, math.sin(tilt), math.cos(tilt)))
     frame = Matrix(((0, along.x, across.x, root.x), (1, along.y, across.y, root.y), (0, along.z, across.z, root.z), (0, 0, 0, 1)))
@@ -181,7 +172,7 @@ def bar():
         # A spike every other segment.
         if i % 2 == 0:
             mid = ((u0 + u1) / 2, (v0 + v1) / 2)
-            tip = (mid[0] + n.x * 0.13, mid[1] + n.y * 0.13)
+            tip = (mid[0] + n.x * 0.16, mid[1] + n.y * 0.16)
             s = [bm.verts.new(place(u0 + n.x * rim, v0 + n.y * rim, w)) for w in (-0.02, 0.02)]
             e = [bm.verts.new(place(u1 + n.x * rim, v1 + n.y * rim, w)) for w in (-0.02, 0.02)]
             t = bm.verts.new(place(tip[0], tip[1], 0.0))
@@ -192,11 +183,11 @@ def bar():
 
 
 def handle():
-    """The big black D handle arching over the back of his head, as wide as he is: a thick rounded tube."""
-    w = 0.4
-    hgt = 0.4
-    y = 0.26
-    z0 = 1.14
+    """The big black D handle on top of him, as wide as he is, leaning back: a thick rounded tube."""
+    w = 0.33
+    hgt = 0.42
+    y = 0.05
+    z0 = 0.92
     r = 0.07
     curve = bpy.data.curves.new('handle', 'CURVE')
     curve.dimensions = '3D'
@@ -204,12 +195,12 @@ def handle():
     curve.bevel_resolution = 4
     spline = curve.splines.new('POLY')
     corner = 0.12
-    pts = [(-w, y, z0 - 0.08), (-w, y, z0 + hgt - corner), (-w + corner, y, z0 + hgt), (w - corner, y, z0 + hgt), (w, y, z0 + hgt - corner),
-           (w, y, z0 - 0.08)]
+    pts = [(-w, y, z0), (-w, y, z0 + hgt - corner), (-w + corner, y, z0 + hgt), (w - corner, y, z0 + hgt), (w, y, z0 + hgt - corner),
+           (w, y, z0)]
     spline.points.add(len(pts) - 1)
     for p, (x, yy, z) in zip(spline.points, pts):
-        # Leaning back a little.
-        p.co = (x, yy + (z - z0) * 0.25, z, 1.0)
+        # Leaning back.
+        p.co = (x, yy + (z - z0) * 0.7, z, 1.0)
     o = bpy.data.objects.new('handle', curve)
     curve.materials.append(material('black', BLACK))
     bpy.context.scene.collection.objects.link(o)
@@ -222,7 +213,7 @@ def tail():
     curve.bevel_depth = 0.022
     curve.bevel_resolution = 2
     spline = curve.splines.new('NURBS')
-    pts = [(0.0, 0.42, 0.1), (0.05, 0.62, 0.06), (0.12, 0.8, 0.12), (0.16, 0.9, 0.3), (0.18, 0.92, 0.45)]
+    pts = [(0.0, 0.68, 0.55), (0.0, 0.86, 0.6), (0.0, 0.98, 0.75), (0.0, 1.0, 0.95), (0.0, 0.98, 1.05)]
     spline.points.add(len(pts) - 1)
     for p, c in zip(spline.points, pts):
         p.co = (*c, 1.0)
@@ -236,8 +227,8 @@ def tail():
     tri.dimensions = '3D'
     tri.bevel_depth = 0.02
     s = tri.splines.new('POLY')
-    c = Vector((0.18, 0.92, 0.45))
-    corners = [c, c + Vector((-0.07, 0.0, 0.11)), c + Vector((0.07, 0.0, 0.11))]
+    c = Vector((0.0, 0.98, 1.05))
+    corners = [c, c + Vector((0.0, -0.07, 0.11)), c + Vector((0.0, 0.07, 0.11))]
     s.points.add(len(corners) - 1)
     for p, v in zip(s.points, corners):
         p.co = (*v, 1.0)
@@ -250,8 +241,8 @@ def tail():
 def build():
     clear()
     body()
-    haunches()
-    paws()
+    legs()
+    mouth()
     face()
     bar()
     handle()
@@ -271,16 +262,16 @@ def renders(out):
     scene.render.film_transparent = False
     scene.world = bpy.data.worlds.new('world')
     scene.world.color = (0.62, 0.74, 0.95)
-    scene.render.resolution_x = 600
-    scene.render.resolution_y = 700
+    scene.render.resolution_x = 700
+    scene.render.resolution_y = 560
     cam_data = bpy.data.cameras.new('cam')
     cam_data.type = 'ORTHO'
-    cam_data.ortho_scale = 2.6
+    cam_data.ortho_scale = 3.0
     cam = bpy.data.objects.new('cam', cam_data)
     scene.collection.objects.link(cam)
     scene.camera = cam
-    target = Vector((0.0, -0.1, 0.8))
-    for name, angle, height in (('front', 0, 0.0), ('three_quarter', 40, 0.25), ('side', 90, 0.0), ('back', 200, 0.3)):
+    target = Vector((0.0, -0.1, 0.65))
+    for name, angle, height in (('side', 90, 0.05), ('three_quarter', 40, 0.25), ('front', 0, 0.1), ('back', 200, 0.3)):
         a = math.radians(angle)
         pos = target + Vector((math.sin(a) * 6.0, -math.cos(a) * 6.0, height * 6.0))
         cam.location = pos
