@@ -473,7 +473,12 @@ public class FormSelfTest implements ClientModInitializer {
 			});
 			case 1462 -> client.options.setPerspective(Perspective.FIRST_PERSON);
 			case 1530 -> screenshot(client, "faint");
-			case 1540 -> stage = Stage.DONE;
+			// Down, dreaming of the door.
+			case 1532 -> server.execute(() -> Downed.down(serverPlayer(server)));
+			case 1540 -> io.github.kortev.chainsawman.client.DreamHud.dreamNow(client, true);
+			case 1575 -> screenshot(client, "dream_door");
+			case 1580 -> server.execute(() -> Downed.up(serverPlayer(server)));
+			case 1595 -> stage = Stage.DONE;
 			// The test ground (-Ptarget=scene): /chainsaw scene, looked at from behind you, then toward the log.
 			case 1600 -> {
 				client.setCameraEntity(client.player);

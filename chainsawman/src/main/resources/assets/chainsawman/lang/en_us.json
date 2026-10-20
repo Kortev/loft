@@ -54,5 +54,6 @@
   "commands.chainsaw.scene.6": "6. /chainsawhead boxes or /chainsawhead mesh: the two heads to choose between.",
   "commands.chainsaw.scene.7": "Also: /chainsaw mobs (more mobs), heart (skip the merge), reset (see it again), blood, pochita.",
   "commands.chainsawhead.boxes": "The head as boxes and pixels (the proposal).",
-  "commands.chainsawhead.mesh": "The head as it is now."
+  "commands.chainsawhead.mesh": "The head as it is now.",
+  "dream.chainsawman.door": "Denji... don't open that door."
 }

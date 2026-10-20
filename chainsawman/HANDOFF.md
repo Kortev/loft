@@ -319,6 +319,9 @@ tuning the numbers.
   kills soak the form darker and redder, dripping; water and rain wash it off); **you faint from blood loss**
   (`Blood.FAINT`): turned back with under 30 blood you're slow and the world drains grey and dims at the edges with a
   slow beat, till you've made 50 again; eating makes blood (`EatBloodMixin`, 3 a point of food).
+- **The door in your dreams** (season 1; `DreamHud`, `textures/gui/dream_door.png`): down, the dreams alternate
+  between Pochita and a dark corridor with a door at its end, light leaking round it, Pochita in front of it: "Denji...
+  don't open that door."
 - **Slash trails** (`SawTrails`, `textures/entity/form_trail.png`): each slash leaves a smear behind the saw's tip,
   white at the edge going to blood red, gone in 3 ticks; sampled from where the bar is drawn each frame, so it follows
   the real arc. In your own view it is shorter and reaches further down the bar, or it reads as a thin line.

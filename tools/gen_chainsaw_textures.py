@@ -486,13 +486,71 @@ def saw_chain():
     return img
 
 
+# The dream of the door (DreamHud, season 1): a dark corridor running away to a door at its end, light leaking out
+# round it, and Pochita on the floor in front of it, looking back at you.
+DREAM_POCHITA = [
+    '....GG....',
+    '....GG....',
+    '..OOOOOO..',
+    '.OOWWOOOO.',
+    '.OOWKOOOO.',
+    '.OOOOOOOO.',
+    '..OSSSSO..',
+    '..K.KK.K..',
+]
+
+
+def dream_door():
+    w, h = 64, 40
+    img = Image.new('RGBA', (w, h), (0, 0, 0, 255))
+    vx, vy = 32, 19
+    door = (27, 8, 37, 29)
+    for y in range(h):
+        for x in range(w):
+            inside = door[0] <= x <= door[2] and door[1] <= y <= door[3]
+            if inside:
+                continue
+            # Walls, floor and ceiling of the corridor, darker the nearer they are (the light is at the door).
+            d = max(abs(x - vx) / 32.0, abs(y - vy) / 20.0)
+            shade = int(46 * (1.0 - d) ** 1.4)
+            floor = y > door[3] and abs(x - vx) <= (y - vy) * 1.6
+            ceiling = y < door[1] and abs(x - vx) <= (vy - y) * 1.6
+            if floor:
+                c = (shade + 8, shade + 4, shade + 2)
+            elif ceiling:
+                c = (shade // 2, shade // 2, shade // 2 + 4)
+            else:
+                c = (shade // 2 + 2, shade // 2 + 4, shade // 2 + 10)
+            img.putpixel((x, y), c + (255,))
+    for y in range(door[1], door[3] + 1):
+        for x in range(door[0], door[2] + 1):
+            edge = x in (door[0], door[2]) or y == door[1]
+            panel = (door[0] + 2 <= x <= door[2] - 2) and (door[1] + 2 <= y <= door[1] + 8 or door[1] + 11 <= y <= door[3] - 2)
+            c = (74, 58, 46) if edge else (58, 44, 36) if panel else (66, 50, 40)
+            img.putpixel((x, y), c + (255,))
+    # The light leaking out down its side and under it; the knob.
+    for y in range(door[1], door[3] + 1):
+        img.putpixel((door[2] + 1, y), (255, 226, 150, 255))
+        img.putpixel((door[2] + 2, y), (150, 110, 60, 255))
+    for x in range(door[0], door[2] + 3):
+        img.putpixel((x, door[3] + 1), (200, 160, 90, 255))
+    img.putpixel((door[2] - 2, (door[1] + door[3]) // 2), (210, 190, 120, 255))
+    colours = {'O': (229, 118, 46, 255), 'S': (142, 62, 47, 255), 'W': (250, 250, 247, 255), 'K': (22, 20, 26, 255), 'G': (170, 176, 182, 255)}
+    for y, row in enumerate(DREAM_POCHITA):
+        for x, c in enumerate(row):
+            if c in colours:
+                img.putpixel((15 + x, 30 + y), colours[c])
+    return img
+
+
 def main():
     preview = sys.argv[sys.argv.index('--preview') + 1] if '--preview' in sys.argv else None
     out = {(ROOT, 'item/pochita.png'): draw(POCHITA), (CLIENT_ROOT, 'entity/form_flesh.png'): draw(FLESH),
            (CLIENT_ROOT, 'entity/form_chain.png'): draw(CHAIN),
            (CLIENT_ROOT, 'entity/pochita.png'): pochita_entity(), (CLIENT_ROOT, 'entity/blood_pool.png'): pool(),
            (CLIENT_ROOT, 'entity/form_flare.png'): flare(), (CLIENT_ROOT, 'entity/form_trail.png'): trail(),
-           (CLIENT_ROOT, 'gui/form_roar.png'): roar(), (CLIENT_ROOT, 'entity/form_saw_chain.png'): saw_chain()}
+           (CLIENT_ROOT, 'gui/form_roar.png'): roar(), (CLIENT_ROOT, 'entity/form_saw_chain.png'): saw_chain(),
+           (CLIENT_ROOT, 'gui/dream_door.png'): dream_door()}
     head, head_glow = form_head()
     out[(CLIENT_ROOT, 'entity/form_head.png')] = head
     out[(CLIENT_ROOT, 'entity/form_head_glow.png')] = head_glow
