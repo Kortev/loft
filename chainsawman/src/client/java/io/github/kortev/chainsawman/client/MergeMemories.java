@@ -44,8 +44,8 @@ public final class MergeMemories {
 	private static final int SCENES = 4;
 	private static final double APART = 40.0;
 	private static final double UP = 90.0;
-	/** The light they're lit by: warm lamplight, no sky. */
-	private static final int LIGHT = LightmapTextureManager.pack(15, 0);
+	/** The light they're lit by: dim, a warm light behind them (drawn in {@link #render}) their shapes against it. */
+	private static final int LIGHT = LightmapTextureManager.pack(9, 0);
 	private static final DustParticleEffect BLOOD = new DustParticleEffect(new Vector3f(0.62F, 0.02F, 0.04F), 1.0F);
 
 	private static ZombieEntity devil;
@@ -89,7 +89,7 @@ public final class MergeMemories {
 		float f = 0.0F;
 		for (int i = 0; i <= SCENES; i++) {
 			float at = MergeTimeline.MONTAGE + i * length();
-			f = Math.max(f, t >= at ? 0.75F * (float) Math.exp(-(t - at) / 1.6F) : 0.0F);
+			f = Math.max(f, t >= at ? 0.45F * (float) Math.exp(-(t - at) / 2.2F) : 0.0F);
 		}
 		return f;
 	}
@@ -106,7 +106,7 @@ public final class MergeMemories {
 		double k = into(t);
 		Vec3d[] from = {new Vec3d(1.0, 1.05, 1.9), new Vec3d(-1.2, 1.0, 1.8), new Vec3d(0.6, 1.9, 1.5), new Vec3d(2.3, 1.3, -0.5)};
 		Vec3d[] at = {new Vec3d(0.0, 0.45, 0.1), new Vec3d(0.4, 0.7, 0.1), new Vec3d(-0.4, 0.2, 0.5), new Vec3d(0.0, 1.0, -0.6)};
-		Vec3d eye = o.add(at[i]).add(from[i].subtract(at[i]).multiply(0.85 - 0.13 * k));
+		Vec3d eye = o.add(at[i]).add(from[i].subtract(at[i]).multiply(1.2 - 0.12 * k));
 		Vec3d to = o.add(at[i]).subtract(eye);
 		float yaw = (float) (MathHelper.atan2(to.z, to.x) * MathHelper.DEGREES_PER_RADIAN) - 90.0F;
 		float pitch = (float) -(MathHelper.atan2(to.y, Math.sqrt(to.x * to.x + to.z * to.z)) * MathHelper.DEGREES_PER_RADIAN);
@@ -118,6 +118,10 @@ public final class MergeMemories {
 			ClientWorld world) {
 		int i = scene(t);
 		Vec3d o = origin(feet, i);
+		// A warm light behind the scene, from where the camera is: you and him against it.
+		Vec3d mid = o.add(0.0, 0.7, 0.0);
+		Vec3d back = new Vec3d(mid.x - cam.x, 0.0, mid.z - cam.z).normalize();
+		MergeCinematic.glow(matrices, consumers, mid.add(back.multiply(2.6)).add(0.0, 0.3, 0.0), cam, 2.8F, 0.85F);
 		matrices.push();
 		matrices.translate(o.x - cam.x, o.y - cam.y, o.z - cam.z);
 		switch (i) {

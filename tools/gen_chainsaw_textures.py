@@ -883,6 +883,17 @@ def dream_floor():
     return img
 
 
+# A soft round light for the merge (MergeCinematic.glow, added onto the picture): warm, falling off to black at its edges.
+def dream_glow():
+    img = Image.new('RGBA', (32, 32))
+    for y in range(32):
+        for x in range(32):
+            d = ((x - 15.5) ** 2 + (y - 15.5) ** 2) ** 0.5 / 16.0
+            k = max(0.0, 1.0 - d) ** 2
+            img.putpixel((x, y), (int(255 * k), int(232 * k), int(196 * k), 255))
+    return img
+
+
 # The torn end of an arm lost in the fight (client Stumps): raw flesh on the left, wet and clotted, and the bone on the
 # right, its marrow showing at the middle of the cut.
 STUMP = [
@@ -925,7 +936,7 @@ def main():
            (CLIENT_ROOT, 'gui/form_roar.png'): roar(), (CLIENT_ROOT, 'entity/form_saw_chain.png'): saw_chain(),
            (CLIENT_ROOT, 'gui/dream_door.png'): dream_door(), (CLIENT_ROOT, 'gui/lens_blood.png'): lens_blood(),
            (CLIENT_ROOT, 'gui/form_sfx.png'): sfx(), (CLIENT_ROOT, 'entity/dream_floor.png'): dream_floor(),
-           (CLIENT_ROOT, 'entity/form_stump.png'): stump()}
+           (CLIENT_ROOT, 'entity/form_stump.png'): stump(), (CLIENT_ROOT, 'entity/dream_glow.png'): dream_glow()}
     head, head_glow = form_head()
     out[(CLIENT_ROOT, 'entity/form_head.png')] = head
     out[(CLIENT_ROOT, 'entity/form_head_glow.png')] = head_glow

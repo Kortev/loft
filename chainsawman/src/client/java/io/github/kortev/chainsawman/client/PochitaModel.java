@@ -21,11 +21,9 @@ import net.minecraft.util.math.MathHelper;
 public class PochitaModel extends SinglePartEntityModel<PochitaEntity> {
 	private final ModelPart root;
 	private final ModelPart tail;
-	/** His lower jaw, hinged at its back under his snout: a little open at rest, wide as he talks. */
+	/** His lower jaw, hinged at its back under his snout: a little open, as he always is (it doesn't move as he talks). */
 	private final ModelPart jaw;
-	/** How far open his jaw is at rest, and how much further his words open it (radians). */
 	private static final float JAW_REST = 0.22F;
-	private static final float JAW_TALK = 0.6F;
 	private final ModelPart[] legs;
 
 	public PochitaModel(ModelPart root) {
@@ -101,8 +99,16 @@ public class PochitaModel extends SinglePartEntityModel<PochitaEntity> {
 		}
 	}
 
-	/** His mouth open {@code open} of the way (0 to 1), as he talks: his jaw dropping on its hinge. After {@link #animate}. */
-	public void talk(float open) {
-		jaw.pitch = JAW_REST + JAW_TALK * MathHelper.clamp(open, 0.0F, 1.0F);
+	/** How far his legs drop him when they fold under him (blocks): their height. */
+	public static final float LEGS = 3.0F / 16.0F;
+
+	/**
+	 * Lying down {@code down} of the way (0 to 1): his legs folded flat, out in front and behind (lower him by {@link #LEGS}
+	 * that much). After {@link #animate}.
+	 */
+	public void lie(float down) {
+		for (int i = 0; i < 4; i++) {
+			legs[i].pitch = MathHelper.lerp(down, legs[i].pitch, i < 2 ? -1.45F : 1.45F);
+		}
 	}
 }

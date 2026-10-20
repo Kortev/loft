@@ -310,6 +310,15 @@ tuning the numbers.
   the black, three beats (`BEATS`), each a red flash with ドクン lettered (`Sfx.HEARTBEAT`, new glyphs in
   `form_sfx.png`); your eyes open on the real sky (EYES, the gasp at GASP); you rise (RISE, 18 ticks); and the last
   cut eases in on the cord. `form_merge.ogg` was regenerated to the new beats.
+- **The merge staged again, for feeling (2026-10-20)**: kortev found the whole thing (talking, flashbacks, all of it)
+  silly, though not too long. Up close, Minecraft's blocks read as comedy: so no close-ups of Pochita's face, no
+  jaw flapping (his jaw rests a little open; `PochitaModel.lie` folds his legs), and he never stands on you. Wide
+  shots in the dream's dark (its fog hides all past about 11 blocks, so he comes out of it); lit by your light as he
+  nears you (`render`'s light by distance); he noses at you and lies down against you, chin on your chest
+  (LIES), lifting his head to your face as you speak; up at your side for the deal, nodding with his words
+  (`mouth`), a warm light behind him (`glow`, `dream_glow.png`) and his front in shadow; the flashbacks dimmer, wider,
+  a warm light behind them. `form_merge.ogg` now has music: slow chords (A minor, F, C, G) and a piano melody from the
+  dark until "POCHITA?!", which comes in silence.
 - **The merge's second pass (2026-10-20)**: Pochita's mouth moves with his voice (`MergeCinematic.VOICE_LEVELS`, the
   clips' loudness tick by tick: measure them again if the clips change), his tail going, leaning in on "show me your
   dream", your head lifting to him as you speak; the memories move (rocking him, bites of bread, breathing, the saw

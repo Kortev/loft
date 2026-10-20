@@ -741,8 +741,8 @@ public class FormSelfTest implements ClientModInitializer {
 			}
 		}
 		// A frame or two from each cut of the storyboard (MergeTimeline).
-		for (int age : new int[] {4, 15, 45, 75, 100, 125, 150, 165, 182, 197, 230, 250, 280, 300, 330, 360, 410, 435, 460, 485, 505, 515, 525,
-				535, 541, 545, 555, 565, 576, 586, 594, 598, 603, 612, 620}) {
+		for (int age : new int[] {4, 15, 45, 75, 100, 125, 150, 172, 190, 230, 270, 300, 330, 360, 410, 440, 470, 490, 505, 515, 525,
+				535, 545, 565, 576, 598, 603, 612, 620}) {
 			if (f == 255 + age) {
 				screenshot(client, String.format("merge_%03d", age));
 			}

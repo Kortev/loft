@@ -2,23 +2,24 @@ package io.github.kortev.chainsawman.form;
 
 /**
  * The first death, when Pochita becomes your heart ({@link Merge}): the anime's scene, long, since it only ever happens
- * once, cut as the storyboard kortev approved (2026-10-20). Beat by beat in ticks; the server, the pictures, the sound
- * (tools/gen_chainsaw_sounds.py, form_merge) and the voices all read it. Then you stand there until you pull the cord
- * ({@link Merge#WAIT}): the transformation.
+ * once. First cut as an 18-cut storyboard kortev approved, then staged again (2026-10-20) for feeling, kortev finding it
+ * silly: wide shots in the dream's dark and its one warm light, him coming to you and lying down against you, the light
+ * behind him as he makes the deal, no close-ups of his blocks. Beat by beat in ticks; the server, the pictures, the
+ * sound (tools/gen_chainsaw_sounds.py, form_merge, its music too) and the voices all read it. Then you stand there until
+ * you pull the cord ({@link Merge#WAIT}): the transformation.
  *
  * <pre>
- *   0  FALL      cut 1: low at the ground, you collapse; the colour drains out of the world
- *  30  OVER      cut 2: straight down over you, rising: blood spreads out from under you
- *  60  DARK      cut 3: higher; the world goes black round the pool, only you lit
- *  90  COMING    cut 4: behind Pochita at his height, him trotting out of the dark to you
- * 140  SNIFF     cut 5: beside your head: he nudges your cheek with his nose, whimpers
- * 175  CLIMB     cut 6: he hops up and stands on your chest (ON_CHEST, 190)
- * 205  LINES[0]  cut 7: over his shoulder onto your face: "Pochita... did you take my body, like I said?"
- * 260  LISTEN    cut 8: your view, up past your chest at him sitting on you, head tilted
- * 311  MONTAGE   cut 9: the memories, over "I always loved hearing you talk about your dreams" (to MONTAGE_END)
- * 397  LINES[2]  cut 10: your view again, easing in: "Here's the deal. I'll give you my heart..."
- * 445  LINES[3]  cut 11: close on his face: "And in exchange, I want you to show me your dream."
- * 495  LEAP      cut 12: low beside you, looking up: he springs high off you into the light
+ *   0  FALL      low at the ground, you collapse; the colour drains out of the world
+ *  30  OVER      straight down over you, rising: blood spreads out from under you
+ *  60  DARK      higher; the world goes black round the pool, only you lit
+ *  90  COMING    low and wide across you: him trotting out of the dark into your light
+ * 140  SNIFF     from past your feet: at your side, he noses at you, twice
+ * 165  LIES      he lies down against you, his chin on your chest
+ * 205  LINES[0]  high over you both, coming down: "Pochita... did you take my body, like I said?" (him lifting his head)
+ * 311  MONTAGE   the memories, over "I always loved hearing you talk about your dreams" (to MONTAGE_END)
+ * 397  LINES[2]  low across you, him at your side, the light behind him: "Here's the deal. I'll give you my heart..."
+ * 445  LINES[3]  "And in exchange, I want you to show me your dream." (bowing his head to your chest)
+ * 495  LEAP      wide and low: he springs up over you into the light
  * 520  SINK      cut 13: your view, your hand reaching up after him: "POCHITA?!"; he dives at you; a white flash
  * 540  PLUNGE    cut 14: straight down on your chest: he plunges in, blood bursts; his tail, the cord, left in you (SUNK)
  * 572  WAKE      cut 15: black; your heart starts, three beats (BEATS), ドクン lettered on each
@@ -36,6 +37,7 @@ public final class MergeTimeline {
 	public static final int COMING = 90;
 	public static final int SNIFF = 140;
 	public static final int CLIMB = 175;
+	public static final int LIES = 165;
 	public static final int ON_CHEST = 190;
 	public static final int TALK = 190;
 	/**
