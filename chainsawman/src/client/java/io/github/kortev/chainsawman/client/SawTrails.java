@@ -49,7 +49,7 @@ public final class SawTrails {
 	private SawTrails() {
 	}
 
-	/** Whether {@code player}'s {@code arm} (right_arm, left_arm) is slashing now: the one sweeping, or both chopping. */
+	/** Whether {@code player}'s {@code arm} (right_arm, left_arm, or the head) is cutting now: the one sweeping, both chopping, the head lunging. */
 	private static boolean slashing(PlayerEntity player, String arm, float tickDelta) {
 		ClientCombat.Swing swing = ClientCombat.swing(player);
 		if (swing == null || ClientCombat.swingAge(player, tickDelta) < 0.0F) {
@@ -58,7 +58,8 @@ public final class SawTrails {
 		return switch (swing.step()) {
 			case 0 -> arm.equals("right_arm");
 			case 1 -> arm.equals("left_arm");
-			case 2 -> true;
+			case 2 -> !arm.equals("head");
+			case 3 -> arm.equals("head");
 			default -> false;
 		};
 	}

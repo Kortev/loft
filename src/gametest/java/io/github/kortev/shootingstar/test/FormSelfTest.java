@@ -276,6 +276,10 @@ public class FormSelfTest implements ClientModInitializer {
 		}
 		Entity standIn = client.world.getEntityById(-4242);
 		switch (f) {
+			// The lunge (step 3), headfirst.
+			case 37 -> ClientCombat.event(new FormEventPayload(me, FormEventPayload.SWING, 3));
+			case 40 -> screenshot(client, "fight_lunge_03");
+			case 41 -> screenshot(client, "fight_lunge_04");
 			case 42 -> ClientCombat.event(new FormEventPayload(me, FormEventPayload.GRIND, 1));
 			case 48 -> screenshot(client, "fight_grind");
 			case 52 -> ClientCombat.event(new FormEventPayload(me, FormEventPayload.GRIND, 0));
@@ -323,6 +327,8 @@ public class FormSelfTest implements ClientModInitializer {
 			// Clicked and held as a player does, through the game's own handling of the attack key.
 			case 114, 128 -> click(client);
 			case 102, 116, 130 -> checkSwing(client, (f - 102) / 14);
+			case 137 -> ClientCombat.event(new FormEventPayload(client.player.getUuid(), FormEventPayload.SWING, 3));
+			case 140 -> screenshot(client, "fp_lunge_03");
 			case 142 -> client.options.attackKey.setPressed(true);
 			case 150 -> {
 				screenshot(client, "fp_grind");

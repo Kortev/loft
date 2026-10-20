@@ -303,6 +303,8 @@ tuning the numbers.
 - **Slash trails** (`SawTrails`, `textures/entity/form_trail.png`): each slash leaves a smear behind the saw's tip,
   white at the edge going to blood red, gone in 3 ticks; sampled from where the bar is drawn each frame, so it follows
   the real arc. In your own view it is shorter and reaches further down the bar, or it reads as a thin line.
+- **The lunge** sells its speed: the head's saw leaves the same smear, your view stretches wider, and white speed
+  lines stream in from the edges of your screen (`FormHud.speedLines`, `ClientCombat.lunging`).
 - **The frenzy has a look from outside** now: the red eyes, a red mist of blood rising round the body, the exhaust
   pouring. (Inside it was already the red pulsing screen edge.)
 - **No zoom while held still** (`HeldStillFovMixin`): down or merging, your speed is taken away and the game zoomed

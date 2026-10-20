@@ -161,8 +161,10 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 				if (length <= 0.0F) {
 					continue;
 				}
-				if (arm && part.name.endsWith("_bar")) {
-					SawTrails.sample(player, boneName, tickDelta, matrices.peek(), part.growRoot, part.growAxis, part.reach() * length);
+				if (part.name.endsWith("_bar")) {
+					// (The head's lifted on the box head.)
+					Vector3f root = !arm && FormHeadModel.on ? new Vector3f(part.growRoot).add(0.0F, FormHeadModel.BAR_LIFT, 0.0F) : part.growRoot;
+					SawTrails.sample(player, boneName, tickDelta, matrices.peek(), root, part.growAxis, part.reach() * length);
 				}
 				matrices.push();
 				if (!arm && FormHeadModel.on) {

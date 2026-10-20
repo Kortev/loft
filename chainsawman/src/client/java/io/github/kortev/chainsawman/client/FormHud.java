@@ -44,6 +44,7 @@ public final class FormHud {
 		if (impact == null || client.player == null || (style == 0 && vignette < 0.01F && grey < 0.01F && dark < 0.01F)) {
 			MergeCinematic.bars(ctx, tickDelta);
 			lettering(ctx, tickDelta);
+			speedLines(ctx, tickDelta);
 			return;
 		}
 		ctx.draw();
@@ -70,6 +71,35 @@ public final class FormHud {
 		// The film's black bars, over all of it.
 		MergeCinematic.bars(ctx, tickDelta);
 		lettering(ctx, tickDelta);
+		speedLines(ctx, tickDelta);
+	}
+
+	/**
+	 * Your own lunge, as the anime draws speed: white lines streaming in from the edges of the screen toward the middle,
+	 * a new set each tick, swelling and gone with the lunge.
+	 */
+	private static void speedLines(DrawContext ctx, float tickDelta) {
+		MinecraftClient client = MinecraftClient.getInstance();
+		float k = ClientCombat.lunging(tickDelta);
+		if (k < 0.02F || client.player == null || client.options.hudHidden) {
+			return;
+		}
+		int w = ctx.getScaledWindowWidth();
+		int h = ctx.getScaledWindowHeight();
+		float reach = (float) Math.hypot(w, h) * 0.5F;
+		long tick = client.player.getWorld().getTime();
+		net.minecraft.util.math.random.Random random = net.minecraft.util.math.random.Random.create(tick * 7919L);
+		int alpha = (int) (k * 170) << 24;
+		for (int i = 0; i < 28; i++) {
+			float angle = random.nextFloat() * 360.0F;
+			float inner = reach * (0.55F + 0.25F * random.nextFloat() - 0.15F * k);
+			float thick = 1.0F + random.nextInt(2);
+			ctx.getMatrices().push();
+			ctx.getMatrices().translate(w / 2.0F, h / 2.0F, 0.0F);
+			ctx.getMatrices().multiply(RotationAxis.POSITIVE_Z.rotationDegrees(angle));
+			ctx.fill((int) inner, (int) -thick, (int) reach + 4, (int) thick, alpha | 0xFFFFFF);
+			ctx.getMatrices().pop();
+		}
 	}
 
 	/**

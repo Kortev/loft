@@ -247,10 +247,21 @@ public final class ClientCombat {
 	public static float fov(float tickDelta) {
 		ClientPlayerEntity self = MinecraftClient.getInstance().player;
 		if (self == null || kickAt == NEVER) {
-			return 1.0F;
+			return 1.0F + 0.2F * lunging(tickDelta);
 		}
 		float t = self.getWorld().getTime() - kickAt + tickDelta;
-		return t < 0.0F ? 1.0F : 1.0F - PUNCH * (float) Math.exp(-t / 2.5);
+		return (t < 0.0F ? 1.0F : 1.0F - PUNCH * (float) Math.exp(-t / 2.5)) * (1.0F + 0.2F * lunging(tickDelta));
+	}
+
+	/** How far into your own lunge you are, as a swell from 0 to 1 and back (0 when not lunging). */
+	public static float lunging(float tickDelta) {
+		ClientPlayerEntity self = MinecraftClient.getInstance().player;
+		Swing swing = self != null ? SWINGS.get(self.getUuid()) : null;
+		float age = self != null ? swingAge(self, tickDelta) : -1.0F;
+		if (swing == null || swing.step() != 3 || age < 0.0F) {
+			return 0.0F;
+		}
+		return MathHelper.sin(Math.min(age / SWING, 1.0F) * MathHelper.PI);
 	}
 
 	public static Map<UUID, Chain> chains() {
