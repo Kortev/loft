@@ -1,7 +1,6 @@
 package io.github.kortev.chainsawman.client;
 
 import io.github.kortev.chainsawman.ChainsawMan;
-import io.github.kortev.chainsawman.PochitaItem;
 import io.github.kortev.chainsawman.network.FormEventPayload;
 import io.github.kortev.chainsawman.network.FormPayload;
 import io.github.kortev.chainsawman.network.FormPullPayload;
@@ -92,10 +91,12 @@ public final class ChainsawManClient implements ClientModInitializer {
 		});
 	}
 
-	/** The cord key: only worth asking the server with Pochita carried, or to come back out of the form. */
+	/**
+	 * The cord key: always asked of the server, which knows whether you have Pochita's heart (merged, he's no longer an
+	 * item you carry) and the blood for it.
+	 */
 	private static void pullCord(MinecraftClient client) {
-		if (client.player != null && (PochitaItem.carried(client.player) || ClientForms.on(client.player))
-				&& ClientPlayNetworking.canSend(PullCordPayload.ID)) {
+		if (client.player != null && ClientPlayNetworking.canSend(PullCordPayload.ID)) {
 			ClientPlayNetworking.send(new PullCordPayload());
 		}
 	}
