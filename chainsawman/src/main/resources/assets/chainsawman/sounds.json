@@ -102,5 +102,45 @@
         "name": "chainsawman:form_merge"
       }
     ]
+  },
+  "form.merge.voice.1": {
+    "subtitle": "subtitles.chainsawman.form.merge.voice",
+    "sounds": [
+      {
+        "name": "chainsawman:form_merge_voice_1"
+      }
+    ]
+  },
+  "form.merge.voice.2": {
+    "subtitle": "subtitles.chainsawman.form.merge.voice",
+    "sounds": [
+      {
+        "name": "chainsawman:form_merge_voice_2"
+      }
+    ]
+  },
+  "form.merge.voice.3": {
+    "subtitle": "subtitles.chainsawman.form.merge.voice",
+    "sounds": [
+      {
+        "name": "chainsawman:form_merge_voice_3"
+      }
+    ]
+  },
+  "form.merge.voice.4": {
+    "subtitle": "subtitles.chainsawman.form.merge.voice",
+    "sounds": [
+      {
+        "name": "chainsawman:form_merge_voice_4"
+      }
+    ]
+  },
+  "form.merge.voice.5": {
+    "subtitle": "subtitles.chainsawman.form.merge.voice",
+    "sounds": [
+      {
+        "name": "chainsawman:form_merge_voice_5"
+      }
+    ]
   }
 }

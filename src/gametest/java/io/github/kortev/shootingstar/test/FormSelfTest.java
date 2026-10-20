@@ -115,7 +115,11 @@ public class FormSelfTest implements ClientModInitializer {
 				ticks = 0;
 			}
 			case SETTLE -> {
-				if (ticks > 80 && CAMERA_IDS.size() == CAMERAS.length) {
+				if (ticks > 80 && CAMERA_IDS.size() == CAMERAS.length && "merge".equals(System.getProperty("shootingstar.selftest.target"))) {
+					// Only the merge (-Ptarget=merge), for working on it.
+					stage = Stage.FIGHT;
+					ticks = 249;
+				} else if (ticks > 80 && CAMERA_IDS.size() == CAMERAS.length) {
 					// The game never draws your own player while the camera is another entity: a stand-in of them, in the
 					// form, where they stand.
 					addStandIn(client);
@@ -367,8 +371,8 @@ public class FormSelfTest implements ClientModInitializer {
 					ServerPlayerEntity p = serverPlayer(server);
 					Form.end(p);
 					p.removeAttached(io.github.kortev.chainsawman.form.Heart.MERGED);
-					for (Entity e : p.getServerWorld().getEntitiesByClass(io.github.kortev.chainsawman.PochitaEntity.class,
-							p.getBoundingBox().expand(30.0), x -> true)) {
+					for (Entity e : p.getServerWorld().getOtherEntities(p, p.getBoundingBox().expand(30.0),
+							x -> x instanceof io.github.kortev.chainsawman.PochitaEntity || x instanceof net.minecraft.entity.passive.WolfEntity)) {
 						e.discard();
 					}
 					io.github.kortev.chainsawman.PochitaEntity pochita = ChainsawMan.POCHITA_ENTITY.create(p.getServerWorld());
@@ -381,16 +385,27 @@ public class FormSelfTest implements ClientModInitializer {
 				});
 			}
 			case 254 -> server.execute(() -> io.github.kortev.chainsawman.form.Merge.start(serverPlayer(server)));
-			case 440 -> stage = Stage.DONE;
+			case 1080 -> stage = Stage.DONE;
 			default -> {
 			}
 		}
-		for (int age : new int[] {3, 12, 26, 36, 46, 56, 64, 66, 70, 78, 88, 98, 104, 108}) {
+		for (int age : new int[] {3, 30, 75, 100, 125, 150, 165, 182, 205, 230, 270, 300, 340, 380, 410, 460, 490, 512, 522, 526, 540,
+				552, 566, 580, 592, 600, 607}) {
 			if (f == 255 + age) {
 				screenshot(client, String.format("merge_%03d", age));
 			}
 		}
-		if (f == 255 + io.github.kortev.chainsawman.form.MergeTimeline.END + 30) {
+		// On your feet, waiting to pull the cord; then pulled, as the key does.
+		int end = 255 + io.github.kortev.chainsawman.form.MergeTimeline.END;
+		if (f == end + 20) {
+			screenshot(client, "merge_wait_020");
+		} else if (f == end + 160) {
+			screenshot(client, "merge_wait_160");
+		} else if (f == end + 162) {
+			server.execute(() -> Form.pullCord(serverPlayer(server)));
+		} else if (f == end + 162 + 12) {
+			screenshot(client, "merge_pulled_12");
+		} else if (f == end + 162 + 30) {
 			screenshot(client, "merge_then_burst");
 		}
 		int[] fpAt = {100, 114, 128};

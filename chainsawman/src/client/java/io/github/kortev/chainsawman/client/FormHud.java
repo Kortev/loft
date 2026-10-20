@@ -26,9 +26,11 @@ public final class FormHud {
 		MinecraftClient client = MinecraftClient.getInstance();
 		float tickDelta = counter.getTickDelta(true);
 		int style = FormCinematic.impactStyle(tickDelta);
-		MergeCinematic.darkness(ctx, tickDelta);
 		float vignette = Math.max(Math.max(FormCinematic.vignette(tickDelta), ClientCombat.vignette(tickDelta)), MergeCinematic.vignette(tickDelta));
-		if (impact == null || client.player == null || (style == 0 && vignette < 0.01F)) {
+		float grey = MergeCinematic.grey(tickDelta);
+		float dark = MergeCinematic.darkness(tickDelta);
+		if (impact == null || client.player == null || (style == 0 && vignette < 0.01F && grey < 0.01F && dark < 0.01F)) {
+			MergeCinematic.bars(ctx, tickDelta);
 			return;
 		}
 		ctx.draw();
@@ -43,6 +45,8 @@ public final class FormHud {
 		Shaders.set(impact, "ScreenSize", (float) w, (float) h);
 		Shaders.set(impact, "Style", (float) style);
 		Shaders.set(impact, "Vignette", vignette);
+		Shaders.set(impact, "Grey", grey);
+		Shaders.set(impact, "Dark", dark);
 		Post.quad(impact);
 		RenderSystem.setShaderTexture(0, 0);
 		RenderSystem.enableBlend();
@@ -50,5 +54,7 @@ public final class FormHud {
 		RenderSystem.enableDepthTest();
 		RenderSystem.depthMask(true);
 		RenderSystem.enableCull();
+		// The film's black bars, over all of it.
+		MergeCinematic.bars(ctx, tickDelta);
 	}
 }

@@ -321,53 +321,85 @@ def form_revive():
     return x
 
 
-# Pochita becoming your heart (MergeTimeline, ticks of 1/20 s): you fall (0), he comes (20), climbs (44), sinks into
-# you (64), your heart beats (76, 86, 93, 98), you rise (100), and the cord pulls itself (110).
-MERGE_FALL = 0.0
-MERGE_COMING = 20 / 20.0
-MERGE_CLIMB = 44 / 20.0
-MERGE_SINK = 64 / 20.0
-MERGE_BEATS = [76 / 20.0, 86 / 20.0, 93 / 20.0, 98 / 20.0]
-MERGE_END = 110 / 20.0
+# Pochita becoming your heart (MergeTimeline, ticks of 1/20 s): struck down (0, hitting the ground at 7), the grey
+# quiet (8), the world going out (60), he comes (90), sniffs and whimpers at you (140), hops up (175), talks (190 to
+# 505; his voice is its own sounds, over this), bows (505), goes into you (520), the cord (534), your heart's six beats
+# (550, 562, 572, 580, 586, 591), you rise (596), the cord pulls itself (610).
+MERGE_LAND = 7 / 20.0
+MERGE_DARK = 60 / 20.0
+MERGE_COMING = 90 / 20.0
+MERGE_SNIFF = 140 / 20.0
+MERGE_CLIMB = 175 / 20.0
+MERGE_TALK = 190 / 20.0
+MERGE_BOW = 505 / 20.0
+MERGE_SINK = 520 / 20.0
+MERGE_SUNK = 534 / 20.0
+MERGE_BEATS = [550 / 20.0, 562 / 20.0, 572 / 20.0, 580 / 20.0, 586 / 20.0, 591 / 20.0]
+MERGE_END = 610 / 20.0
+
+
+def whimper(n, at, length=0.35, pitch=900.0):
+    """A small dog's whimper: a thin rising and falling whine through the nose."""
+    m = ns(length)
+    t = np.arange(m) / SR
+    f = pitch * (1.0 + 0.25 * np.sin(np.pi * t / length)) * (1.0 + 0.02 * np.sin(2 * np.pi * 7.0 * t))
+    tone = np.sin(2 * np.pi * np.cumsum(f) / SR) + 0.3 * np.sin(4 * np.pi * np.cumsum(f) / SR)
+    env = np.sin(np.pi * np.minimum(t / length, 1.0)) ** 1.5
+    out = np.zeros(n)
+    out[ns(at):ns(at) + m] = (bp(tone, 600.0, 3000.0) * env)[:n - ns(at)]
+    return out
 
 
 def form_merge():
-    n = ns(MERGE_END + 0.4)
+    n = ns(MERGE_END + 0.5)
     t = np.arange(n) / SR
     x = np.zeros(n)
-    # The fall: a body hitting the ground, wet.
+    # Struck down: the body hitting the ground, wet; then a ringing in the ears over the grey.
     hit = np.zeros(n)
-    hit[ns(0.25)] = 1.0
-    k = np.arange(ns(0.2))
-    x += np.convolve(hit, np.sin(2 * np.pi * 60.0 * k / SR) * np.exp(-k / ns(0.05)))[:n] * 1.8
-    x += np.roll(flesh(n, 0.3, wet=1.6), ns(0.24)) * 0.7
-    # Then a ringing in the ears over the dark, fading as he comes.
+    hit[ns(MERGE_LAND)] = 1.0
+    k = np.arange(ns(0.25))
+    x += np.convolve(hit, np.sin(2 * np.pi * 55.0 * k / SR) * np.exp(-k / ns(0.06)))[:n] * 2.0
+    x += np.roll(flesh(n, 0.35, wet=1.7), ns(MERGE_LAND - 0.01)) * 0.8
     ring = np.sin(2 * np.pi * 3150.0 * t) * 0.06 + np.sin(2 * np.pi * 3720.0 * t) * 0.03
-    x += ring * curve(n, [(0.0, 0.0), (0.35, 0.0), (0.6, 1.0), (MERGE_COMING + 0.6, 0.7), (MERGE_SINK, 0.15), (MERGE_SINK + 0.05, 0.0),
-                          (MERGE_END + 0.4, 0.0)])
-    # His steps: little pads, a limp in them, then the scramble up onto the chest.
-    for i in range(14):
-        at = MERGE_COMING + i * (MERGE_CLIMB - MERGE_COMING) / 14 + (0.04 if i % 2 else 0.0)
+    x += ring * curve(n, [(0.0, 0.0), (MERGE_LAND + 0.1, 0.0), (MERGE_LAND + 0.5, 1.0), (MERGE_DARK, 0.7), (MERGE_DARK + 1.5, 0.0),
+                          (MERGE_END + 0.5, 0.0)])
+    # The dark: a low hum, two tones slowly beating against each other, under everything until the heart starts.
+    hum = (np.sin(2 * np.pi * 55.0 * t) + 0.7 * np.sin(2 * np.pi * 55.7 * t) + 0.25 * np.sin(2 * np.pi * 110.4 * t)) * 0.12
+    x += hum * curve(n, [(0.0, 0.0), (MERGE_DARK, 0.0), (MERGE_DARK + 1.5, 1.0), (MERGE_TALK, 0.8), (MERGE_BOW, 0.9),
+                         (MERGE_SINK, 1.4), (MERGE_SINK + 0.05, 0.0), (MERGE_END + 0.5, 0.0)])
+    # His steps coming out of the dark, a limp in them; sniffing and two whimpers; the scramble up.
+    steps = int((MERGE_SNIFF - MERGE_COMING) / 0.12)
+    for i in range(steps):
+        at = MERGE_COMING + i * 0.12 + (0.04 if i % 2 else 0.0)
         pad = np.zeros(n)
-        pad[ns(at)] = 0.5 + 0.3 * (i % 2)
+        pad[ns(at)] = (0.35 + 0.35 * (i % 2)) * min(1.0, 0.25 + i / steps)
         x += lp(np.convolve(pad, white(ns(0.03)) * np.exp(-np.arange(ns(0.03)) / ns(0.006)))[:n], 1800.0) * 0.8
-    x += bp(white(n), 600.0, 2500.0) * curve(n, [(0.0, 0.0), (MERGE_CLIMB, 0.0), (MERGE_CLIMB + 0.05, 0.4), (MERGE_CLIMB + 0.4, 0.0),
-                                                (MERGE_END + 0.4, 0.0)])
-    # The sink: a deep boom and a wet tearing as he goes into you.
+    for i in range(5):
+        sniff = np.zeros(n)
+        start = ns(MERGE_SNIFF + 0.1 + i * 0.13)
+        burst = bp(white(ns(0.07)), 1800.0, 6000.0) * np.hanning(ns(0.07)) * 0.35
+        sniff[start:start + len(burst)] = burst[:n - start]
+        x += sniff
+    x += whimper(n, MERGE_SNIFF + 0.85) * 0.5
+    x += whimper(n, MERGE_SNIFF + 1.3, 0.45, 820.0) * 0.45
+    x += bp(white(n), 600.0, 2500.0) * curve(n, [(0.0, 0.0), (MERGE_CLIMB, 0.0), (MERGE_CLIMB + 0.05, 0.4), (MERGE_CLIMB + 0.35, 0.0),
+                                                (MERGE_END + 0.5, 0.0)])
+    # As he bows: the hum swelling. The sink: a deep boom, a wet tearing, and the cord ripping out of you.
     boom = np.zeros(n)
     boom[ns(MERGE_SINK)] = 1.0
-    kb = np.arange(ns(1.2))
-    x += np.convolve(boom, np.sin(2 * np.pi * np.linspace(70.0, 32.0, len(kb)) * kb / SR) * np.exp(-kb / ns(0.35)))[:n] * 2.2
+    kb = np.arange(ns(1.4))
+    x += np.convolve(boom, np.sin(2 * np.pi * np.linspace(70.0, 28.0, len(kb)) * kb / SR) * np.exp(-kb / ns(0.4)))[:n] * 2.4
     x += np.roll(flesh(n, 0.9, wet=2.0), ns(MERGE_SINK)) * 1.4
-    # The heart starting: four beats, closer and harder, the last with the engine's first cough in it.
+    x += ratchet(n, MERGE_SUNK, 0.25, 140.0, 60.0) * 0.6
+    # The heart starting: six beats, closer and harder, the last with the engine's first cough in it.
     for i, at in enumerate(MERGE_BEATS):
-        for dub, gain in ((0.0, 1.0), (0.16, 0.6)):
+        for dub, gain in ((0.0, 1.0), (0.15, 0.6)):
             beat = np.zeros(n)
             beat[ns(at + dub)] = 1.0
             kk = np.arange(ns(0.18))
-            x += np.convolve(beat, np.sin(2 * np.pi * 52.0 * kk / SR) * np.exp(-kk / ns(0.045)))[:n] * (1.4 + 0.35 * i) * gain
-    rate = curve(n, [(0.0, 0.0), (MERGE_BEATS[3] - 0.01, 0.0), (MERGE_BEATS[3], 14.0), (MERGE_END - 0.1, 22.0), (MERGE_END + 0.4, 0.0)])
-    level = curve(n, [(0.0, 0.0), (MERGE_BEATS[3], 0.0), (MERGE_BEATS[3] + 0.02, 0.8), (MERGE_END, 0.5), (MERGE_END + 0.4, 0.0)])
+            x += np.convolve(beat, np.sin(2 * np.pi * 50.0 * kk / SR) * np.exp(-kk / ns(0.045)))[:n] * (1.2 + 0.28 * i) * gain
+    rate = curve(n, [(0.0, 0.0), (MERGE_BEATS[-1] - 0.01, 0.0), (MERGE_BEATS[-1], 14.0), (MERGE_END - 0.1, 24.0), (MERGE_END + 0.5, 0.0)])
+    level = curve(n, [(0.0, 0.0), (MERGE_BEATS[-1], 0.0), (MERGE_BEATS[-1] + 0.02, 0.8), (MERGE_END, 0.5), (MERGE_END + 0.5, 0.0)])
     x += engine(n, rate, level, skip=0.3) * 0.6
     return x
 

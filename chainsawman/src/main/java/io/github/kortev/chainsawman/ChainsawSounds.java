@@ -33,6 +33,12 @@ public final class ChainsawSounds {
 	public static final SoundEvent REVIVE = register("form.revive");
 	/** Pochita becoming your heart, cut to {@code MergeTimeline}: ringing silence, his steps, the sink, the heart starting. */
 	public static final SoundEvent MERGE = register("form.merge");
+	/**
+	 * Pochita's five lines in the merge, his own voice: each cut from a clip kortev chooses (as the Domain's are), dropped
+	 * in as sounds/form_merge_voice_N.ogg. Until then each is a moment of silence; the words show under the picture.
+	 */
+	public static final SoundEvent[] MERGE_VOICES = {register("form.merge.voice.1"), register("form.merge.voice.2"),
+			register("form.merge.voice.3"), register("form.merge.voice.4"), register("form.merge.voice.5")};
 
 	private ChainsawSounds() {
 	}

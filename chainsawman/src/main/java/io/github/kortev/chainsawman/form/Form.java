@@ -82,6 +82,11 @@ public final class Form {
 	}
 
 	/** Whether {@code player} is in the form and done transforming: free to fight. */
+	/** Whether {@code player} has pulled the cord and is transforming (the form not on yet). */
+	public static boolean pulling(ServerPlayerEntity player) {
+		return PULLING.containsKey(player.getUuid());
+	}
+
 	public static boolean fighting(ServerPlayerEntity player) {
 		return on(player) && !PULLING.containsKey(player.getUuid()) && !Downed.is(player);
 	}
@@ -107,13 +112,18 @@ public final class Form {
 	 */
 	public static void pullCord(ServerPlayerEntity player) {
 		UUID id = player.getUuid();
-		if (PULLING.containsKey(id)) {
+		if (PULLING.containsKey(id) || Merge.is(player) && !Merge.waiting(player)) {
 			return;
+		}
+		// The first pull, at the end of Pochita becoming your heart, is yours to make, and free.
+		boolean first = Merge.waiting(player);
+		if (first) {
+			Merge.pulled(player);
 		}
 		if (on(player)) {
 			play(player, ChainsawSounds.STOP, 1.0F);
 			set(player.server, id, false);
-		} else if (Heart.has(player) && player.isAlive() && !Downed.is(player) && Blood.spend(player, Blood.TRANSFORM)) {
+		} else if (Heart.has(player) && player.isAlive() && !Downed.is(player) && (first || Blood.spend(player, Blood.TRANSFORM))) {
 			PULLING.put(id, 0);
 			play(player, ChainsawSounds.CORD, 1.0F);
 			play(player, ChainsawSounds.START, 1.4F);

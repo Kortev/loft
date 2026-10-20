@@ -23,12 +23,16 @@ import org.joml.Vector3f;
 
 /**
  * The first time kortev dies with Pochita (carried, or tamed and within {@link #NEAR} blocks), he becomes their heart:
- * not a death but the cinematic of it ({@link MergeTimeline}), held still and untouchable through it, and at its end
- * the heart is theirs for good ({@link Heart#MERGED}) and the cord pulls itself.
+ * not a death but the cinematic of it ({@link MergeTimeline}), held still and untouchable through it. At its end the
+ * heart is theirs for good ({@link Heart#MERGED}), and they stand there, the cord hanging out of their chest, until they
+ * pull it themselves (as Denji does), the transformation's own cinematic following; or, left there {@link #WAIT} ticks,
+ * it pulls itself.
  */
 public final class Merge {
 	/** How near a tamed Pochita must be to come to you (blocks). */
 	public static final double NEAR = 32.0;
+	/** How long you stand waiting to pull the cord before it pulls itself (ticks). */
+	public static final int WAIT = 60 * 20;
 
 	private static final Map<UUID, Integer> MERGING = new ConcurrentHashMap<>();
 	private static final DustParticleEffect BLOOD = new DustParticleEffect(new Vector3f(0.5F, 0.0F, 0.03F), 1.4F);
@@ -118,24 +122,37 @@ public final class Merge {
 			if (age == MergeTimeline.SINK) {
 				player.getServerWorld().spawnParticles(BLOOD, player.getX(), player.getY() + 0.4, player.getZ(), 50, 0.3, 0.2, 0.3, 0.25);
 			}
-			if (age >= MergeTimeline.END) {
+			if (age == MergeTimeline.END) {
 				finish(player);
+			}
+			if (age >= MergeTimeline.END + WAIT) {
+				Form.pullCord(player);
 			} else {
 				MERGING.put(e.getKey(), age);
 			}
 		}
 	}
 
-	/** The heart theirs for good, whole and full of blood; and the cord pulls itself. */
+	/** The heart theirs for good, whole and full of blood; waiting now for them to pull the cord. */
 	private static void finish(ServerPlayerEntity player) {
-		MERGING.remove(player.getUuid());
 		player.setAttached(Heart.MERGED, true);
-		Downed.hold(player, false);
 		player.setHealth(player.getMaxHealth());
 		Blood.set(player, Blood.MAX);
+		Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.MERGE, 2));
+	}
+
+	/** Whether {@code player} is on their feet at the end of it, waiting to pull the cord. */
+	public static boolean waiting(ServerPlayerEntity player) {
+		Integer age = MERGING.get(player.getUuid());
+		return age != null && age >= MergeTimeline.END;
+	}
+
+	/** The cord pulled at the end of it: the merge over, the transformation's own cinematic from here. */
+	static void pulled(ServerPlayerEntity player) {
+		MERGING.remove(player.getUuid());
+		Downed.hold(player, false);
 		Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.MERGE, 0));
 		player.sendMessage(Text.translatable("message.chainsawman.merged").formatted(Formatting.GOLD), false);
-		Form.pullCord(player);
 	}
 
 	static void clear() {

@@ -277,7 +277,10 @@ public class FormGameTests implements FabricGameTest {
 		context.complete();
 	}
 
-	/** Carrying Pochita, kortev dying the first time doesn't: he becomes their heart and they come back transforming. */
+	/**
+	 * Carrying Pochita, kortev dying the first time doesn't: he becomes their heart, and they come back on their feet,
+	 * waiting to pull the cord; the pull is free, and transforms them.
+	 */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_merge", tickLimit = JOINED + MergeTimeline.END + 30)
 	public void pochitaBecomesYourHeart(TestContext context) {
 		ServerPlayerEntity player = player(context, ChainsawMan.OWNER, 0.0);
@@ -294,9 +297,14 @@ public class FormGameTests implements FabricGameTest {
 			}
 			context.runAtTick(JOINED + MergeTimeline.END + 10, () -> {
 				try {
-					context.assertTrue(!Merge.is(player) && Heart.merged(player), "Pochita didn't become their heart");
+					context.assertTrue(Heart.merged(player), "Pochita didn't become their heart");
 					context.assertTrue(player.getHealth() == player.getMaxHealth(), "they didn't come back whole");
 					context.assertTrue(!Downed.is(player), "they were down, not back");
+					context.assertTrue(Merge.waiting(player) && !Form.pulling(player), "the cord didn't wait for them to pull it");
+					context.assertTrue(!player.damage(player.getDamageSources().generic(), 5.0F), "waiting to pull it, they were hurt");
+					Form.pullCord(player);
+					context.assertTrue(!Merge.is(player) && Form.pulling(player), "pulling the cord didn't end the merge and transform them");
+					context.assertTrue(Blood.get(player) == Blood.MAX, "the first pull took blood: " + Blood.get(player));
 				} finally {
 					done(context, player);
 					player.removeAttached(Heart.MERGED);

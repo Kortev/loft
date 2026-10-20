@@ -23,7 +23,8 @@ public abstract class MergeLyingMixin {
 		float k = MergeCinematic.lying(player, tickDelta);
 		if (k > 0.0F) {
 			MergeCinematic.drawn(player, bodyYaw);
-			matrices.translate(0.0F, 0.15F * k, 0.0F);
+			// A little off the ground, and jolted off it by each beat of the heart.
+			matrices.translate(0.0F, 0.15F * k + MergeCinematic.jolt(player, tickDelta), 0.0F);
 			matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(90.0F * k));
 		}
 	}

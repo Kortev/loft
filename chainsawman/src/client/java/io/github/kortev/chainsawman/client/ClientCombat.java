@@ -134,8 +134,12 @@ public final class ClientCombat {
 			case FormEventPayload.CHAIN_END -> CHAINS.remove(id);
 			case FormEventPayload.BLOOD -> blood = event.value();
 			case FormEventPayload.MERGE -> {
-				if (event.value() != 0) {
+				if (event.value() == 1) {
 					MergeCinematic.started(id, now, new Vec3d(event.x(), event.y(), event.z()));
+				} else if (event.value() == 2) {
+					MergeCinematic.waiting(id);
+				} else {
+					MergeCinematic.ended(id);
 				}
 			}
 			case FormEventPayload.LIMBS -> {

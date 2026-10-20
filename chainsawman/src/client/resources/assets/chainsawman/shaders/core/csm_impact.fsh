@@ -1,6 +1,6 @@
 #version 150
 
-// Chainsaw Man's roar, as the anime cuts it: impact frames, the picture flattened to three inks (black, a hard red and
+// The grey of a world gone out (dying, before Pochita becomes your heart), and Chainsaw Man's roar, as the anime cuts it: impact frames, the picture flattened to three inks (black, a hard red and
 // white), and on the next frame flipped to its negative; with speed lines bursting out from the middle. And the edges
 // of the screen washed with red, from the burst and the roar, fading.
 
@@ -10,6 +10,10 @@ uniform vec2 ScreenSize;
 uniform float Style;
 // How red the screen's edges are (0 to 1).
 uniform float Vignette;
+// How far the colour has drained out of the world (0 to 1): grey, a little cold, flattened.
+uniform float Grey;
+// How far the world has gone out (0 to 1): black, but for a soft last light in the middle of the picture.
+uniform float Dark;
 
 in vec2 texCoord;
 
@@ -25,8 +29,13 @@ float hash(float x) {
 
 void main() {
     vec3 colour = texture(Sampler0, texCoord).rgb;
+    float grey = dot(colour, vec3(0.299, 0.587, 0.114));
+    vec3 drained = mix(vec3(0.5), vec3(grey) * vec3(0.94, 0.97, 1.02), 0.82);
+    colour = mix(colour, drained, Grey);
     vec2 to = (texCoord - 0.5) * vec2(ScreenSize.x / ScreenSize.y, 1.0);
     float r = length(to);
+    float light = 1.0 - smoothstep(0.22, 0.85, r);
+    colour *= mix(1.0, 0.07 + 0.93 * light * light, Dark);
     if (Style > 0.5) {
         float lum = dot(colour, vec3(0.299, 0.587, 0.114));
         vec3 ink = lum < 0.2 ? INK : lum < 0.5 ? RED : PAPER;

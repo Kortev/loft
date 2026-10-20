@@ -212,11 +212,42 @@ def pochita_entity():
     return img
 
 
+# The pool of blood spreading from under you as you die (MergeCinematic): flat, ragged at its edge, a darker heart,
+# a glint of wet; transparent round it.
+POOL = [
+    '................',
+    '.....RRR..R.....',
+    '...RRRRRRRRR..R.',
+    '..RRRRRRRRRRRR..',
+    '.RRRRrrrrRRRRRR.',
+    '.RRRrrrrrrrRRRR.',
+    'RRRrrrrrrrrrRRR.',
+    '.RRrrrrrrwrrrRR.',
+    '.RRrrrrrrrrrrRRR',
+    'RRRRrrrrrrrrRRR.',
+    '.RRRrrrrrrrRRRR.',
+    '..RRRRrrrrRRRR..',
+    '.R.RRRRRRRRRR...',
+    '....RRRRRRR..R..',
+    '.......RR.......',
+    '................',
+]
+
+
+def pool():
+    colours = {'.': (0, 0, 0, 0), 'R': (150, 14, 20, 255), 'r': (104, 6, 12, 255), 'w': (214, 90, 96, 255)}
+    img = Image.new('RGBA', (16, 16))
+    for y, row in enumerate(POOL):
+        for x, c in enumerate(row):
+            img.putpixel((x, y), colours[c])
+    return img
+
+
 def main():
     preview = sys.argv[sys.argv.index('--preview') + 1] if '--preview' in sys.argv else None
     out = {(ROOT, 'item/pochita.png'): draw(POCHITA), (CLIENT_ROOT, 'entity/form_flesh.png'): draw(FLESH),
            (CLIENT_ROOT, 'entity/form_chain.png'): draw(CHAIN),
-           (CLIENT_ROOT, 'entity/pochita.png'): pochita_entity()}
+           (CLIENT_ROOT, 'entity/pochita.png'): pochita_entity(), (CLIENT_ROOT, 'entity/blood_pool.png'): pool()}
     for (root, name), img in out.items():
         path = os.path.join(root, name)
         os.makedirs(os.path.dirname(path), exist_ok=True)

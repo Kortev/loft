@@ -17,6 +17,7 @@
 		"HeadItemHiddenMixin",
 		"HeldItemRendererInvoker",
 		"HelmetHiddenMixin",
+		"HeldStillFovMixin",
 		"MergeLyingMixin"
 	],
 	"injectors": {

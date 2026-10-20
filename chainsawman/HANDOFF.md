@@ -1,4 +1,4 @@
-# Handoff: kortev's Chainsaw Man mod (state on 2026-10-19)
+# Handoff: kortev's Chainsaw Man mod (state on 2026-10-20)
 
 You are picking this up with nothing but this GitHub repository (`Kortev/loft`). No chat history, no files from
 kortev's PC, and none of the reference images they sent come with it. Everything you need is in this file and the
@@ -205,8 +205,9 @@ attempts that invented a new hair shape: if you touch the skin again, stay close
 ### Sounds
 
 `python tools/gen_chainsaw_sounds.py [form_cord form_start form_idle form_stop]` (NumPy, SciPy, ffmpeg; uses
-`tools/gen_sounds.py`'s helpers). Its beat constants mirror `FormTimeline`; if you retime the timeline, change them
-too and regenerate. Commit the `.ogg`s.
+`tools/gen_sounds.py`'s helpers). Its beat constants mirror `FormTimeline` and `MergeTimeline`; if you retime a
+timeline, change them too and regenerate. Commit the `.ogg`s. (Writing a long track, like the 31 s `form_merge`, in
+one go crashed libsndfile here without a word; the script writes in chunks.)
 
 ### Testing
 
@@ -222,7 +223,8 @@ too and regenerate. Commit the `.ogg`s.
 - On a PC: `./gradlew runClient` plays as `kortev` and wears `run/skins/kortev.png` (`DevSkins`, only active with the
   `-Dshootingstar.devskins` flag the dev run sets; `seedSkins` puts the Public Safety skin there if nothing is).
   `./gradlew runSelftest -Pselftest=form -Pusername=kortev` runs the test locally; it makes its world first, as CI
-  does (`selftestWorld`), so it quick-plays straight in.
+  does (`selftestWorld`), so it quick-plays straight in. Add `-Ptarget=merge` to film only the merge
+  (`form_merge_NNN.png` by tick, `form_merge_wait_*`, then the pull).
 - Through your own transformation your hand, the HUD and pop-ups are hidden until the camera is back in your eyes
   (`FormHandHiddenMixin`, `FormHudHiddenMixin`, `FormToastHiddenMixin`; the impact frames still draw). The test films
   it with the HUD on to show that.
@@ -269,17 +271,22 @@ tuning the numbers.
   hears him whimpering within 40 blocks; lost for real (void, /kill), he's back there 2 minutes later; never again
   once he's someone's heart. No natural spawns, no recipe.
 - **Can't die**: faints (on his side) until kortev gives him blood again (`PochitaEntity.WAKE`).
-- **Merging**: the first death with him **carried or tamed within 32 blocks** (`Merge`), as a 5.5 s cinematic
-  (`MergeTimeline`, `MergeCinematic`, `form_merge.ogg`): you go over backwards in the dark, he limps over, climbs onto
-  your chest, sinks into it (impact frames), the cord comes out, four heartbeats, you get up, the cord pulls itself.
-- **Held as a chainsaw**: the form's slash and grind, half damage, nothing drunk (`Saw.WIELDED`).
-- **Dreams**: down, now and then he appears on your darkened screen (`DreamHud`).
-- **His look is being redone**: kortev sent anime stills (not in the repo; described in `tools/pochita_model.py`'s
-  docstring). `tools/pochita_model.py --renders` builds him in Blender (round orange bean, darker under, big round
-  eyes, little snout, the bar on edge out of his forehead with a spiked chain, a big black D handle over the back of
-  his head, stubby front paws, round haunches, a thin black tail ending in a triangle) and renders previews.
-  **Waiting on kortev's OK of the renders**; then export him for the game (a mesh like `form.csm`, drawn for the
-  entity, the held item and the merge, replacing the boxy `PochitaModel`).
+- **Merging**: the first death with him **carried or tamed within 32 blocks** (`Merge`) plays the anime's scene, long
+  (about 30 s; kortev: "the longer the cooler, it only happens once"). The beats are in `MergeTimeline`'s table; the
+  pictures in `MergeCinematic`, the sound in `form_merge.ogg` (`tools/gen_chainsaw_sounds.py form_merge`, its
+  constants mirror the timeline). You go over backwards, the colour drains, a pool of blood spreads; the world goes
+  black but for a soft light on you; Pochita limps over out of the dark (in colour), sniffs at you, hops onto your
+  chest and says five lines (captions in the bottom black bar); bows, sinks into you (flash, impact frames, blood),
+  the cord comes out, six heartbeats bring the world back, you get up. **Then you stand there** with the cord in your
+  chest and "[G] Pull the cord" in the bar until you pull it yourself, as Denji does (the first pull is free); after
+  `Merge.WAIT` (60 s) it pulls itself so nobody is stuck. You can't be hurt from the fall until the pull.
+- **Pochita's voice in the merge**: five slots, `sounds/form_merge_voice_1.ogg` to `_5.ogg`, silent for now. kortev
+  picks the clips (as for the Domain's voice lines); cut each to fit its line (`MergeTimeline.LINES`, `LINE` = 55
+  ticks = 2.75 s each; change the times there if a clip is longer). The captions are `merge.chainsawman.line1..5` in
+  `lang/en_us.json` (line 1 takes the player's name twice); they are my paraphrase, so swap in the clip's words.
+- **His look**: a Minecraft animal, boxes and pixels (`client/PochitaModel.java`, texture painted by
+  `tools/gen_chainsaw_textures.py`'s `pochita_entity`, 64x64), after kortev judged the smooth anime render didn't fit
+  the game. `tools/pochita_model.py` (Blender, anime style) stays only as a reference.
 - On the black chainsaw kortev asked about: it is past the Reze arc; told only "Part 1, read on from chapter 53"; build
   nothing of it until kortev describes what they want from it.
 

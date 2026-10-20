@@ -31,6 +31,22 @@
       "values": [
         0.0
       ]
+    },
+    {
+      "name": "Grey",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0.0
+      ]
+    },
+    {
+      "name": "Dark",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0.0
+      ]
     }
   ]
 }
