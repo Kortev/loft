@@ -15,11 +15,12 @@ import net.minecraft.util.math.random.Random;
 /**
  * The fight's sounds lettered over your picture as the manga letters them ({@code form_sfx.png}, painted by
  * {@code gen_chainsaw_textures.py}'s {@code sfx}): a kill ブシャッ, the overhead chop landing ザシュッ, grinding into
- * something ギャリギャリ. Each slammed in big and tilted, shaking, gone in a moment; never over the middle.
+ * something ギャリギャリ; your heart starting in the merge ドクン. Each slammed in big and tilted, shaking, gone in a moment;
+ * never over the middle.
  */
 public final class Sfx {
 	private static final Identifier ATLAS = ChainsawMan.id("textures/gui/form_sfx.png");
-	private static final int GLYPHS = 8;
+	private static final int GLYPHS = 11;
 	/** The glyphs' cells in the atlas. */
 	private static final int BU = 0;
 	private static final int SHI = 1;
@@ -29,10 +30,15 @@ public final class Sfx {
 	private static final int YU = 5;
 	private static final int GI = 6;
 	private static final int RI = 7;
+	private static final int DO = 8;
+	private static final int KU = 9;
+	private static final int N = 10;
 	/** The words. */
 	public static final int[] KILL = {BU, SHI, YA, TSU};
 	public static final int[] CHOP = {ZA, SHI, YU, TSU};
 	public static final int[] GRIND = {GI, YA, RI, GI, YA, RI};
+	/** Your heart starting, in the merge. */
+	public static final int[] HEARTBEAT = {DO, KU, N};
 	private static final Random RANDOM = Random.create();
 
 	/** A word on screen: its glyphs, when, where (shares of the screen), each glyph's size (a share of its height), its tilt. */

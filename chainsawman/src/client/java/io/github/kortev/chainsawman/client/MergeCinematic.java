@@ -20,6 +20,8 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.particle.DustParticleEffect;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.hit.HitResult;
+import net.minecraft.world.RaycastContext;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.RotationAxis;
@@ -30,27 +32,32 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
 /**
- * Pochita becoming your heart, as a cinematic: the anime's scene, long ({@link MergeTimeline}). Everyone round about sees
- * it play out and hears him; you see it from outside your own body, through black bars, his lines under the picture.
+ * Pochita becoming your heart, as a cinematic: the anime's scene, long, cut by cut as the storyboard kortev approved
+ * ({@link MergeTimeline} lists the cuts). Everyone round about sees it play out and hears him; you see it through black
+ * bars, his lines under the picture.
  *
- * <p>You're struck down: the view tips back with you as you fall to the sky, then cuts high over your body lying in the
- * grey and the quiet, a pool of blood spreading from under you. The world goes out round you, black but for you lying in
- * a last light. Low on the ground past your head, Pochita comes hobbling out of the dark; he sniffs at your face, nudges
- * you, whimpers; hops up onto your chest and settles. He talks to you: five lines (his voice, cut from clips kortev
- * chooses, and under the picture), the camera going back and forth between him over you and your face under him, and
- * round you both in the light. He bows his head to your chest and goes down into it: a white flash, impact frames, a
- * fountain of blood, the cord pushing out of you where he went. Your heart starts, six beats, closer and harder, your
- * body jolting with each, the edges of the screen throbbing red, the dark lifting and the colour coming back a beat at a
- * time; and you get to your feet, and stand there with the cord hanging out of your chest, "Pull the cord" in the bar,
- * until you pull it: the transformation.
+ * <p>Low at the ground you collapse, the colour going out of the world; from straight above, rising, blood spreads from
+ * under you and the world goes black round it. Pochita trots to you out of the dark (followed at his height), nudges your
+ * cheek with his nose, hops up and stands on your chest. Over his head onto your face you ask if he took your body; your
+ * own eyes look up at him sitting on you, head on one side; the memories; he leans in, close, and makes the deal. He
+ * springs up off you into the light; you reach up after him, "POCHITA?!", and he dives at you; from straight above he
+ * plunges into your chest, blood bursting, and all that's left is his tail, the cord, sticking out of you. In the black
+ * your heart starts, ドクン, three beats; your eyes open on the sky; you get up; and the camera eases in on the cord until
+ * you pull it: the transformation.
+ *
+ * <p>Every shot is kept out of the blocks round you (pulled in toward what it looks at) and a step off you and him; when
+ * the camera is in your own eyes your head isn't drawn ({@link #ownEyes}).
  */
 public final class MergeCinematic {
 	/** Someone merging: when it started, and where Pochita comes from. */
 	public record Merging(long at, Vec3d from, boolean waiting) {
 	}
 
-	/** Where Pochita is and how he's held at a moment: his feet, the way he faces, his nose up or down, his squash. */
-	private record Pose(Vec3d at, float yaw, float pitch, float wide, float tall, boolean walking) {
+	/**
+	 * Where Pochita is and how he's held at a moment: his feet, the way he faces, his nose up or down, his head on one side
+	 * (the whole of him leaned over), his squash, and whether he's walking or sitting.
+	 */
+	private record Pose(Vec3d at, float yaw, float pitch, float roll, float wide, float tall, boolean walking, boolean sitting) {
 	}
 
 	private static final Map<UUID, Merging> MERGING = new ConcurrentHashMap<>();
@@ -70,6 +77,13 @@ public final class MergeCinematic {
 	private static final double LIFT = 0.15;
 	private static final double CHEST = 0.95;
 	private static final double CHEST_UP = 0.28;
+	/** How far over the middle of your lying body your shirt is (blocks): what he stands on. */
+	private static final double SURFACE = 0.14;
+	/** Where along you he stands on you (his feet's middle): toward your middle, so his head is clear of your face. */
+	private static final double ON = 0.78;
+	/** Half your head's width, and how far in front of his feet his snout reaches (blocks): his nose to your cheek. */
+	private static final double HEAD_HALF = 0.24;
+	private static final double SNOUT = 0.6;
 	private static final double FACE = 1.42;
 	/** Where along you (from your feet) the middle of your face is, as the camera looks at it. */
 	private static final double YOU = 1.64;
@@ -113,7 +127,7 @@ public final class MergeCinematic {
 		if (t < 0.0F) {
 			return 0.0F;
 		}
-		return Math.min(ease((t - MergeTimeline.DARK) / 30.0F), 1.0F - ease((t - MergeTimeline.WAKE) / (MergeTimeline.RISE - MergeTimeline.WAKE)));
+		return Math.min(ease((t - MergeTimeline.DARK) / 30.0F), 1.0F - ease((t - MergeTimeline.WAKE) / (MergeTimeline.EYES - MergeTimeline.WAKE)));
 	}
 
 	/** How loud line {@code line} of the talk is {@code t} ticks into the merge (0 to 1); 0 when it isn't playing. */
@@ -138,12 +152,6 @@ public final class MergeCinematic {
 			}
 		}
 		return open;
-	}
-
-	/** Whether {@code player}'s chest is seen through now: inside it, him curled up as the heart. */
-	public static boolean seeThrough(PlayerEntity player) {
-		float t = age(player, 0.0F);
-		return t >= MergeTimeline.HEART && t < MergeTimeline.SUNK;
 	}
 
 	/** The screen's old-photograph browns, over the memories. */
@@ -247,6 +255,36 @@ public final class MergeCinematic {
 		return along(player, tickDelta, FACE, LIFT + 0.25);
 	}
 
+	/** Your shirt at your chest, where his paws go. */
+	private static Vec3d chestTop(PlayerEntity player, float tickDelta) {
+		return along(player, tickDelta, CHEST, LIFT + SURFACE);
+	}
+
+	/** Which side of you he comes to (1 or -1, along the way your right hand lies): the side he comes from. */
+	private static double side(PlayerEntity player, Merging m, float tickDelta) {
+		Vec3d side = Vec3d.fromPolar(0.0F, yaw(player) + 90.0F);
+		return side.dotProduct(m.from().subtract(along(player, tickDelta, YOU, 0.0))) >= 0.0 ? 1.0 : -1.0;
+	}
+
+	/** Where he sets off from: where he was, but never nearer than FROM_NEAR nor further than FROM, on your ground. */
+	private static Vec3d start(PlayerEntity player, Merging m, float tickDelta) {
+		Vec3d cheek = along(player, tickDelta, YOU, 0.0);
+		Vec3d away = m.from().subtract(cheek).multiply(1.0, 0.0, 1.0);
+		double far = MathHelper.clamp(away.length(), MergeTimeline.FROM_NEAR, MergeTimeline.FROM);
+		Vec3d dir = away.lengthSquared() < 1.0E-4 ? Vec3d.fromPolar(0.0F, yaw(player) + 90.0F) : away.normalize();
+		return new Vec3d(cheek.x, player.getLerpedPos(tickDelta).y, cheek.z).add(dir.multiply(far));
+	}
+
+	/**
+	 * Whether your own camera is in your own eyes now (or just past the top of your head, looking up along you): your
+	 * head isn't drawn then, or you'd see the inside of it.
+	 */
+	public static boolean ownEyes() {
+		float t = mine(0.0F);
+		return t >= MergeTimeline.LISTEN && t < MergeTimeline.MONTAGE || t >= MergeTimeline.MONTAGE_END && t < MergeTimeline.LINES[3]
+				|| t >= MergeTimeline.SINK && t < MergeTimeline.PLUNGE || t >= MergeTimeline.WAKE && t < MergeTimeline.RISE;
+	}
+
 	private static float mine(float tickDelta) {
 		ClientPlayerEntity self = MinecraftClient.getInstance().player;
 		return self != null ? age(self, tickDelta) : -1.0F;
@@ -276,7 +314,7 @@ public final class MergeCinematic {
 
 	// The camera.
 
-	/** Your camera's shot of your own merge, while it plays; otherwise null. */
+	/** Your camera's shot of your own merge, cut by cut ({@link MergeTimeline}), while it plays; otherwise null. */
 	@Nullable
 	public static FormCinematic.Shot shot(float tickDelta) {
 		ClientPlayerEntity self = MinecraftClient.getInstance().player;
@@ -285,181 +323,193 @@ public final class MergeCinematic {
 		if (self == null || m == null || t < 0.0F) {
 			return null;
 		}
-		Vec3d chest = chest(self, tickDelta);
-		Vec3d head = headward(self);
-		Vec3d side = Vec3d.fromPolar(0.0F, yaw(self) + 90.0F);
 		Vec3d feet = self.getLerpedPos(tickDelta);
+		Vec3d head = headward(self);
+		Vec3d front = head.negate();
+		Vec3d side = Vec3d.fromPolar(0.0F, yaw(self) + 90.0F);
+		Vec3d chest = chestTop(self, tickDelta);
+		Vec3d face = along(self, tickDelta, YOU, LIFT + 0.2);
 		Pose pochita = pochita(self, m, t, tickDelta);
-		if (t < MergeTimeline.FELL + 1) {
-			// Through your own eyes as you go over: the world tipping away to the sky.
-			double k = ease(t / (MergeTimeline.FELL + 1));
-			Vec3d eye = feet.add(0.0, MathHelper.lerp(k, 1.62, 0.95), 0.0).add(head.multiply(0.8 * k));
-			return new FormCinematic.Shot(eye.x, eye.y, eye.z, yaw(self), (float) MathHelper.lerp(k, 0.0, -85.0));
+		Vec3d him = pochita.at().add(0.0, 0.4, 0.0);
+		Vec3d forward = Vec3d.fromPolar(0.0F, pochita.yaw());
+		Vec3d snout = pochita.at().add(forward.multiply(SNOUT - 0.1)).add(0.0, 0.42, 0.0);
+		double which = side(self, m, tickDelta);
+		// Past the top of your head, low: your own eyes, as near as the camera can be to them.
+		Vec3d yours = along(self, tickDelta, 2.35, LIFT + 0.46);
+		if (t < MergeTimeline.OVER) {
+			// 1, Down: low at the ground off your side, you collapsing in front of it.
+			double k = ease(t / MergeTimeline.OVER);
+			float l = lying(self, tickDelta);
+			Vec3d mid = feet.add(head.multiply(0.85 * l)).add(0.0, MathHelper.lerp(l, 0.95, 0.35), 0.0);
+			return framed(feet.add(side.multiply(-which * MathHelper.lerp(k, 2.5, 2.1))).add(head.multiply(0.8)).add(0.0, MathHelper.lerp(k, 0.3, 0.8), 0.0), mid);
+		}
+		if (t < MergeTimeline.DARK) {
+			// 2, Blood: straight down over you, rising slowly, turning a little.
+			double k = (t - MergeTimeline.OVER) / (double) (MergeTimeline.DARK - MergeTimeline.OVER);
+			return overhead(chest, head, MathHelper.lerp(ease(k), 2.3, 3.3), 12.0F * (float) k);
 		}
 		if (t < MergeTimeline.COMING) {
-			// High over your body, turning slowly, coming down as the world goes out round you.
-			double k = (t - MergeTimeline.FELL) / (MergeTimeline.COMING - MergeTimeline.FELL);
-			Vec3d out = Vec3d.fromPolar(0.0F, yaw(self) + 30.0F + 70.0F * (float) k).multiply(0.35);
-			return look(chest.add(out).add(0.0, MathHelper.lerp(ease(k), 6.0, 2.6), 0.0), chest);
+			// 3, The dark: higher still, the world going out round the pool.
+			double k = (t - MergeTimeline.DARK) / (double) (MergeTimeline.COMING - MergeTimeline.DARK);
+			return overhead(chest, head, MathHelper.lerp(ease(k), 3.3, 4.6), 12.0F + 12.0F * (float) k);
 		}
-		// Pochita's eyes, and your own face (properly: FACE is where your chin is, for him to sniff at).
-		Vec3d eyes = pochita.at().add(Vec3d.fromPolar(0.0F, pochita.yaw()).multiply(0.45)).add(0.0, 0.5, 0.0);
-		Vec3d you = along(self, tickDelta, YOU, LIFT + 0.22);
-		Vec3d up = new Vec3d(0.0, 1.0, 0.0);
 		if (t < MergeTimeline.SNIFF) {
-			// Down on the ground past your head, your head in the bottom of the picture, him coming at it out of the dark.
-			Vec3d away = flat(you.subtract(pochita.at()));
-			return look(you.add(away.multiply(1.4)).add(side.multiply(0.3)).add(0.0, 0.3, 0.0), pochita.at().add(0.0, 0.3, 0.0));
+			// 4, He comes: behind him at his height, following him to you.
+			return framed(pochita.at().subtract(forward.multiply(2.2)).add(0.0, 0.62, 0.0), pochita.at().add(forward.multiply(1.8)).add(0.0, 0.25, 0.0), him);
 		}
 		if (t < MergeTimeline.CLIMB) {
-			// From the side, the two of you face to face: him sniffing at you.
-			Vec3d to = flat(pochita.at().subtract(you));
-			Vec3d across = new Vec3d(-to.z, 0.0, to.x);
-			if (across.dotProduct(head) < 0.0) {
-				across = across.negate();
-			}
-			Vec3d mid = you.lerp(pochita.at(), 0.5);
-			double k = (t - MergeTimeline.SNIFF) / (MergeTimeline.CLIMB - MergeTimeline.SNIFF);
-			return look(mid.add(across.multiply(MathHelper.lerp(k, 2.6, 2.3))).add(0.0, 0.6, 0.0), mid.add(0.0, 0.25, 0.0));
+			// 5, Nudge: from your other side, low, across your face: your face in front, him nuzzling your cheek.
+			Vec3d mid = face.lerp(snout, 0.5);
+			double k = (t - MergeTimeline.SNIFF) / (double) (MergeTimeline.CLIMB - MergeTimeline.SNIFF);
+			Vec3d across = face.add(side.multiply(-which * MathHelper.lerp(k, 1.45, 1.25))).add(head.multiply(-0.35)).add(0.0, 0.42, 0.0);
+			return framed(across, mid.add(0.0, 0.08, 0.0), mid);
 		}
-		if (t < MergeTimeline.ON_CHEST) {
-			// Off to the side, watching him hop up.
-			return look(chest.add(side.multiply(-2.8)).add(head.multiply(-0.3)).add(0.0, 1.0, 0.0), chest.add(0.0, 0.35, 0.0));
+		if (t < MergeTimeline.LINES[0]) {
+			// 6, Up onto you: low off your side by your waist, him hopping up onto your chest.
+			Vec3d waist = along(self, tickDelta, 0.3, LIFT + 0.1);
+			Vec3d look = along(self, tickDelta, ON + 0.2, LIFT + SURFACE + 0.35);
+			return framed(waist.add(side.multiply(which * 2.2)).add(0.0, 0.4, 0.0), look);
+		}
+		if (t < MergeTimeline.LISTEN) {
+			// 7, You ask: over his head, steeply down onto your face under him, his head at the bottom of the picture.
+			double k = ease((t - MergeTimeline.LINES[0]) / (double) (MergeTimeline.LISTEN - MergeTimeline.LINES[0]));
+			Vec3d over = along(self, tickDelta, MathHelper.lerp(k, 1.38, 1.45), LIFT + SURFACE + MathHelper.lerp(k, 1.15, 1.05))
+					.add(side.multiply(which * MathHelper.lerp(k, 0.8, 0.72)));
+			return framed(over, face.add(0.0, 0.04, 0.0));
 		}
 		if (MergeMemories.on(t)) {
-			// Your life with him, the scenes his words call up.
+			// 9, Your life with him, the scenes his words call up.
 			return MergeMemories.shot(feet, t);
 		}
+		if (t < MergeTimeline.MONTAGE) {
+			// 8, He listens: your own eyes, looking up past your chest at him sitting on you.
+			return framed(yours, him.add(0.0, 0.05, 0.0), him);
+		}
+		if (t < MergeTimeline.LINES[3]) {
+			// 10, The deal: your own eyes again, easing in on him leaning down to you; never closer than a step.
+			double k = ease((t - MergeTimeline.MONTAGE_END) / (double) (MergeTimeline.LINES[3] - MergeTimeline.MONTAGE_END));
+			Vec3d out = yours.subtract(snout);
+			double far = MathHelper.lerp(k, out.length(), Math.min(out.length(), 0.85));
+			return framed(snout.add(out.normalize().multiply(far)), snout.add(0.0, -0.02, 0.0), snout);
+		}
 		if (t < MergeTimeline.LEAP) {
-			return talking(t, you, chest, head, side, up, eyes);
+			// 11, Show me: close on his face, from a little to the side and below, held a step off him.
+			double k = ease((t - MergeTimeline.LINES[3]) / (double) (MergeTimeline.LEAP - MergeTimeline.LINES[3]));
+			Vec3d off = forward.add(side.multiply(which * 0.45)).add(0.0, 0.1, 0.0).normalize();
+			Vec3d eye = snout.add(forward.multiply(-0.1)).add(0.0, 0.03, 0.0);
+			return framed(snout.add(off.multiply(MathHelper.lerp(k, 1.0, 0.82))), eye, snout);
 		}
 		if (t < MergeTimeline.SINK) {
-			// Low beside you, following him: crouching, leaping up off you, slow, and diving down into your chest.
-			return look(chest.add(side.multiply(2.8)).add(head.multiply(0.2)).add(0.0, 0.6, 0.0), pochita.at().add(0.0, 0.35, 0.0));
+			// 12, The leap: low beside you, looking up as he springs up off you into the light.
+			Vec3d by = along(self, tickDelta, ON + 0.15, LIFT);
+			return framed(by.add(side.multiply(-which * 1.55)).add(0.0, 0.32, 0.0), him.add(0.0, 0.1, 0.0), him);
 		}
-		if (t < MergeTimeline.HEART) {
-			// From behind your head, down along you: your hand reaching up after him into the light, the light sinking.
-			double k = ease((t - MergeTimeline.SINK) / (MergeTimeline.HEART - MergeTimeline.SINK));
-			return look(you.add(head.multiply(1.1)).add(0.0, 0.85, 0.0), chest.add(0.0, MathHelper.lerp(k, 0.75, 0.3), 0.0));
-		}
-		if (t < MergeTimeline.SUNK) {
-			// Straight down into your chest, seen through: him curled up in there as your heart.
-			double k = (t - MergeTimeline.HEART) / (MergeTimeline.SUNK - MergeTimeline.HEART);
-			return look(chest.add(head.multiply(0.02)).add(0.0, MathHelper.lerp(k, 1.5, 1.1), 0.0), chest);
+		if (t < MergeTimeline.PLUNGE) {
+			// 13, POCHITA?!: your own eyes, your hand reaching up after him, him diving down at you.
+			return framed(yours.add(0.0, 0.1, 0.0), him.lerp(chest, 0.15), him);
 		}
 		if (t < MergeTimeline.WAKE) {
-			// The cord tearing out of your chest.
-			return look(chest.add(side.multiply(1.1)).add(head.multiply(-0.5)).add(0.0, 0.8, 0.0), chest.add(0.0, 0.05, 0.0));
+			// 14, Into your heart: down on your chest at a slant from beside your waist; him plunging in; the cord left in you.
+			double k = ease((t - MergeTimeline.PLUNGE) / (double) (MergeTimeline.WAKE - MergeTimeline.PLUNGE));
+			Vec3d slant = chest.add(front.multiply(MathHelper.lerp(k, 0.75, 0.6))).add(side.multiply(which * 0.3)).add(0.0, MathHelper.lerp(k, 1.0, 0.8), 0.0);
+			return framed(slant, chest.add(0.0, 0.06, 0.0));
 		}
 		if (t < MergeTimeline.RISE) {
-			// Through your own eyes, waking: looking straight up, your eyelids fluttering on the beats, then open, the
-			// sky coming back.
-			Vec3d yours = you.add(0.0, 0.18, 0.0);
-			float drift = MathHelper.sin(t * 0.13F) * 2.0F;
-			return new FormCinematic.Shot(yours.x, yours.y, yours.z, yaw(self) + 180.0F + drift, -88.0F);
+			// 15 and 16, the heartbeats in the black, and your eyes opening: your own eyes, looking straight up at the sky.
+			Vec3d eye = along(self, tickDelta, YOU, LIFT + 0.3);
+			float drift = MathHelper.sin(t * 0.13F) * 1.5F;
+			return new FormCinematic.Shot(eye.x, eye.y, eye.z, yaw(self) + 180.0F + drift, -88.0F);
 		}
-		// Low and to the side as you get up, the whole of you, coming round in front as you stand; then low in front,
-		// looking up at you standing there, the cord hanging out of your chest, slowly closing in until you pull it (the
-		// transformation's own camera takes over from there).
-		Vec3d front = Vec3d.fromPolar(0.0F, yaw(self));
-		Vec3d eye = feet.add(0.0, 1.0, 0.0);
 		if (t < MergeTimeline.END) {
+			// 17, Rise: low in front of you, as you sit up and get to your feet.
 			double k = ease(rising(t));
-			return look(feet.add(side.multiply(MathHelper.lerp(k, 2.6, 0.0))).add(front.multiply(MathHelper.lerp(k, 1.2, 2.6)))
-					.add(0.0, MathHelper.lerp(k, 0.8, 0.5), 0.0), feet.add(0.0, MathHelper.lerp(k, 0.4, 1.2), 0.0));
+			Vec3d look = feet.add(front.multiply(0.25)).add(0.0, MathHelper.lerp(k, 0.35, 1.1), 0.0);
+			return framed(feet.add(front.multiply(2.4)).add(side.multiply(0.35)).add(0.0, 0.32, 0.0), look);
 		}
-		double k = 1.0 - Math.exp(-(t - MergeTimeline.END) / 200.0);
-		return look(eye.add(front.multiply(MathHelper.lerp(k, 2.6, 2.1))).add(side.multiply(0.35 * k)).add(0.0, -0.5, 0.0),
-				eye.add(0.0, 0.2, 0.0));
+		// 18, The cord: in front at chest height, easing in on its handle until you pull it (the transformation's own camera
+		// takes over from there).
+		double k = 1.0 - Math.exp(-(t - MergeTimeline.END) / 60.0);
+		Vec3d cord = feet.add(front.multiply(0.2)).add(0.0, 0.9, 0.0);
+		return framed(feet.add(front.multiply(MathHelper.lerp(k, 1.65, 1.08))).add(side.multiply(0.16)).add(0.0, 1.02, 0.0), cord);
 	}
 
-	/** Which of Pochita's lines the camera is on at {@code t} (0 to 4), cutting a little before each starts. */
-	private static int line(float t) {
-		int line = 0;
-		for (int i = 1; i < MergeTimeline.LINES.length; i++) {
-			if (t >= MergeTimeline.LINES[i] - 6) {
-				line = i;
-			}
-		}
-		return line;
+	/** Straight down on {@code at} from {@code high} over it, your head at the top of the picture, turned {@code turn} degrees. */
+	private static FormCinematic.Shot overhead(Vec3d at, Vec3d head, double high, float turn) {
+		Vec3d tip = head.rotateY(turn * MathHelper.RADIANS_PER_DEGREE).multiply(-0.06 * high);
+		return framed(at.add(tip).add(0.0, high, 0.0), at, at.add(0.0, 0.2, 0.0));
 	}
 
-	/**
-	 * While he talks, each line its own shot, slowly pushing in: him looming over you, from past the top of your head;
-	 * over his shoulder, down at your face under him; round the two of you in the last of the light; close on his face
-	 * from beside yours; and high over the two of you, rising.
-	 */
-	private static FormCinematic.Shot talking(float t, Vec3d you, Vec3d chest, Vec3d head, Vec3d side, Vec3d up, Vec3d eyes) {
-		int[] lines = MergeTimeline.LINES;
-		int line = line(t);
-		float from = line == 0 ? MergeTimeline.TALK : lines[line] - 6;
-		float until = line + 1 < lines.length ? lines[line + 1] - 6 : MergeTimeline.LEAP;
-		double k = ease((t - from) / (until - from));
-		Vec3d both = chest.lerp(you, 0.45);
-		switch (line) {
-			case 0 -> {
-				return look(you.add(head.multiply(MathHelper.lerp(k, 1.4, 1.2))).add(side.multiply(0.5)).add(up.multiply(0.3)), eyes.lerp(you, 0.3));
-			}
-			case 1 -> {
-				return look(chest.add(head.multiply(-0.3)).add(side.multiply(MathHelper.lerp(k, 1.7, 1.55))).add(up.multiply(1.6)),
-						you.lerp(eyes, 0.35));
-			}
-			case 2 -> {
-				float round = (float) MathHelper.lerp(k, -60.0, 15.0);
-				Vec3d out = side.rotateY(round * MathHelper.RADIANS_PER_DEGREE).multiply(2.5);
-				return look(both.add(out).add(0.0, 1.15, 0.0), both.add(0.0, 0.3, 0.0));
-			}
-			case 3 -> {
-				return look(you.add(side.multiply(MathHelper.lerp(k, 1.2, 1.05))).add(head.multiply(0.4)).add(up.multiply(0.4)), eyes);
-			}
-			default -> {
-				return look(both.add(side.multiply(0.2)).add(up.multiply(MathHelper.lerp(k, 3.0, 4.0))), both);
-			}
-		}
-	}
-
-	/** How long the lens is for each shot, as a share of your field of view: long on the close ones, kept clear of you both. */
+	/** How long the lens is for each cut, as a share of your field of view: long on the close ones. */
 	private static float lens(float t) {
-		if (t < MergeTimeline.FELL + 1) {
-			return 1.0F;
+		if (t < MergeTimeline.OVER) {
+			return 0.7F;
 		}
 		if (t < MergeTimeline.COMING) {
 			return 0.65F;
 		}
 		if (t < MergeTimeline.SNIFF) {
-			return 0.75F;
+			return 0.95F;
 		}
 		if (t < MergeTimeline.CLIMB) {
-			return 0.6F;
-		}
-		if (t < MergeTimeline.ON_CHEST) {
 			return 0.7F;
+		}
+		if (t < MergeTimeline.LINES[0]) {
+			return 0.7F;
+		}
+		if (t < MergeTimeline.LISTEN) {
+			return 0.6F;
 		}
 		if (MergeMemories.on(t)) {
 			return 1.0F;
 		}
-		if (t < MergeTimeline.LEAP) {
-			return new float[] {0.6F, 0.6F, 0.45F, 0.45F, 0.55F}[line(t)];
+		if (t < MergeTimeline.MONTAGE) {
+			return 1.0F;
 		}
-		if (t < MergeTimeline.SINK) {
-			return 0.7F;
-		}
-		if (t < MergeTimeline.HEART) {
+		if (t < MergeTimeline.LINES[3]) {
 			return 0.8F;
 		}
-		if (t < MergeTimeline.SUNK) {
-			return 0.6F;
+		if (t < MergeTimeline.LEAP) {
+			return 0.65F;
+		}
+		if (t < MergeTimeline.SINK) {
+			return 0.85F;
+		}
+		if (t < MergeTimeline.PLUNGE) {
+			return 0.95F;
 		}
 		if (t < MergeTimeline.WAKE) {
-			return 0.55F;
+			return 0.6F;
 		}
 		if (t < MergeTimeline.RISE) {
 			return 1.1F;
 		}
-		if (t < MergeTimeline.RISE) {
-			return 0.5F;
+		if (t < MergeTimeline.END) {
+			return 0.8F;
 		}
-		return 0.75F;
+		return 0.6F;
+	}
+
+	/** The camera at {@code at} looking at {@code look}, kept out of the blocks between it and what it looks at. */
+	private static FormCinematic.Shot framed(Vec3d at, Vec3d look) {
+		return framed(at, look, look);
+	}
+
+	/**
+	 * The camera at {@code at} looking at {@code look}; if a block stands between it and {@code subject}, pulled in toward
+	 * {@code subject} to this side of it.
+	 */
+	private static FormCinematic.Shot framed(Vec3d at, Vec3d look, Vec3d subject) {
+		MinecraftClient client = MinecraftClient.getInstance();
+		if (client.world != null && client.player != null) {
+			HitResult hit = client.world.raycast(new RaycastContext(subject, at, RaycastContext.ShapeType.VISUAL, RaycastContext.FluidHandling.NONE,
+					client.player));
+			if (hit.getType() != HitResult.Type.MISS) {
+				Vec3d back = at.subtract(subject);
+				double reach = Math.max(0.35, subject.distanceTo(hit.getPos()) - 0.25);
+				at = subject.add(back.multiply(reach / Math.max(back.length(), 1.0E-4)));
+			}
+		}
+		return look(at, look);
 	}
 
 	private static Vec3d flat(Vec3d v) {
@@ -482,8 +532,8 @@ public final class MergeCinematic {
 		if (t < 0.0F) {
 			return 0.0;
 		}
-		double s = Math.max(pulse(t, MergeTimeline.FELL, 0.14, 3.0), pulse(t, GASP, 0.1, 4.0));
-		s = Math.max(s, pulse(t, MergeTimeline.SINK, 0.2, 7.0));
+		double s = Math.max(pulse(t, MergeTimeline.FELL, 0.14, 3.0), pulse(t, MergeTimeline.GASP, 0.1, 4.0));
+		s = Math.max(s, pulse(t, MergeTimeline.PLUNGE, 0.2, 7.0));
 		for (int beat : MergeTimeline.BEATS) {
 			s = Math.max(s, pulse(t, beat, 0.07, 2.5));
 		}
@@ -496,20 +546,20 @@ public final class MergeCinematic {
 		if (t < 0.0F) {
 			return 1.0F;
 		}
-		double punch = pulse(t, MergeTimeline.SINK, 0.15, 6.0);
+		double punch = pulse(t, MergeTimeline.PLUNGE, 0.15, 6.0);
 		for (int beat : MergeTimeline.BEATS) {
 			punch = Math.max(punch, pulse(t, beat, 0.07, 3.0));
 		}
 		return lens(t) * (1.0F - (float) punch);
 	}
 
-	/** The red at the edges of the screen: throbbing with each beat, flooding at the sink. */
+	/** The red at the edges of the screen: throbbing with each beat, flooding as he plunges into you. */
 	public static float vignette(float tickDelta) {
 		float t = mine(tickDelta);
 		if (t < 0.0F) {
 			return 0.0F;
 		}
-		double v = pulse(t, MergeTimeline.SINK, 1.0, 10.0);
+		double v = pulse(t, MergeTimeline.PLUNGE, 1.0, 10.0);
 		for (int beat : MergeTimeline.BEATS) {
 			v = Math.max(v, pulse(t, beat, 0.85, 4.0));
 		}
@@ -546,28 +596,17 @@ public final class MergeCinematic {
 		return level;
 	}
 
-	/** The gasp as your eyes open, waking. */
-	private static final int GASP = MergeTimeline.BEATS[4];
-
 	/**
-	 * How open your eyes are, waking (0 shut to 1 open; 1 the rest of the time): shut as the dream lifts, fluttering
-	 * part open on the beats, and open wide with a gasp.
+	 * How open your eyes are, waking (0 shut to 1 open; 1 the rest of the time): shut through the heartbeats in the black,
+	 * a flutter, then open wide with a gasp.
 	 */
 	public static float eyes(float tickDelta) {
 		float t = mine(tickDelta);
 		if (t < MergeTimeline.WAKE || t >= MergeTimeline.RISE) {
 			return 1.0F;
 		}
-		float open = 0.0F;
-		int[] beats = MergeTimeline.BEATS;
-		// Fluttering on the two beats before the gasp.
-		for (int i = 2; i <= 3; i++) {
-			float in = t - beats[i];
-			if (in >= 0.0F && in < 6.0F) {
-				open = Math.max(open, (i == 2 ? 0.25F : 0.45F) * MathHelper.sin(in / 6.0F * MathHelper.PI));
-			}
-		}
-		return Math.max(open, ease((t - GASP) / 3.0F));
+		float flutter = t >= MergeTimeline.EYES && t < MergeTimeline.EYES + 4 ? 0.3F * MathHelper.sin((t - MergeTimeline.EYES) / 4.0F * MathHelper.PI) : 0.0F;
+		return Math.max(flutter, ease((t - MergeTimeline.GASP) / 4.0F));
 	}
 
 	/** How white the screen flashes as he goes into you. */
@@ -577,16 +616,17 @@ public final class MergeCinematic {
 			return 0.0F;
 		}
 		float memory = MergeMemories.flash(t);
-		return Math.max(memory, t < MergeTimeline.SINK ? 0.0F : (float) pulse(t, MergeTimeline.SINK, 1.0, 3.0));
+		// White as he comes down on you, just before he plunges in.
+		return Math.max(memory, (float) pulse(t, MergeTimeline.PLUNGE - 3, 1.0, 2.5));
 	}
 
-	/** The impact frames as he sinks into you: 1 red and black, 2 its negative; 0 none. */
+	/** The impact frames as he plunges into you: 1 red and black, 2 its negative; 0 none. */
 	public static int impactStyle(float tickDelta) {
 		float t = mine(tickDelta);
-		if (t < MergeTimeline.SINK || t >= MergeTimeline.SINK + 4) {
+		if (t < MergeTimeline.PLUNGE || t >= MergeTimeline.PLUNGE + 4) {
 			return 0;
 		}
-		return ((int) (t - MergeTimeline.SINK)) % 2 == 0 ? 1 : 2;
+		return ((int) (t - MergeTimeline.PLUNGE)) % 2 == 0 ? 1 : 2;
 	}
 
 	/** The black bars closing in at the top and bottom as you die, and opening as you rise; his lines in the bottom one. */
@@ -614,6 +654,14 @@ public final class MergeCinematic {
 				ctx.fill(x, 0, x + 2, Math.max(0, top), 0xFF000000);
 				ctx.fill(x, Math.min(screen, bottom), x + 2, screen, 0xFF000000);
 			}
+		}
+		// Each beat of your heart in the black, a flash of red.
+		float red = 0.0F;
+		for (int beat : MergeTimeline.BEATS) {
+			red = Math.max(red, (float) pulse(t, beat, 0.7, 2.5));
+		}
+		if (red > 0.01F) {
+			ctx.fill(0, 0, w, screen, ((int) (red * 255) << 24) | 0x8A0A12);
 		}
 		float k = ease(t / 8.0F);
 		int h = (int) (screen * BARS * k);
@@ -659,61 +707,75 @@ public final class MergeCinematic {
 
 	// Pochita, and the blood.
 
-	/** Pochita {@code t} ticks into {@code player}'s merge: coming, sniffing, climbing, on your chest, going into you. */
+	/**
+	 * Pochita {@code t} ticks into {@code player}'s merge: trotting to you on the ground; his nose to your cheek; hopping
+	 * up onto your chest, his paws on your shirt; standing, sitting, leaning in as he talks; springing up off you; diving;
+	 * plunging into your chest.
+	 */
 	private static Pose pochita(PlayerEntity player, Merging m, float t, float tickDelta) {
-		Vec3d chest = chest(player, tickDelta);
-		Vec3d face = face(player, tickDelta);
+		Vec3d head = headward(player);
 		Vec3d side = Vec3d.fromPolar(0.0F, yaw(player) + 90.0F);
-		double ground = player.getLerpedPos(tickDelta).y;
-		double which = side.dotProduct(m.from().subtract(face)) >= 0.0 ? 1.0 : -1.0;
-		Vec3d bySide = new Vec3d(face.x, ground, face.z).add(side.multiply(0.75 * which)).add(headward(player).multiply(-0.15));
-		float faceYaw = yawTo(face.subtract(bySide));
+		double which = side(player, m, tickDelta);
+		// Beside your head on the ground, facing it, his snout to your cheek.
+		Vec3d cheek = along(player, tickDelta, YOU - 0.05, 0.0);
+		Vec3d bySide = cheek.add(side.multiply(which * (HEAD_HALF + SNOUT)));
+		float faceYaw = yawTo(side.multiply(-which));
+		Vec3d top = along(player, tickDelta, ON, LIFT + SURFACE);
+		float onYaw = yawTo(head);
 		if (t < MergeTimeline.SNIFF) {
-			// Hobbling: a dip on every other step, slowing as he comes.
-			double k = easeOut((t - MergeTimeline.COMING) / (MergeTimeline.SNIFF - MergeTimeline.COMING));
-			Vec3d at = new Vec3d(m.from().x, ground, m.from().z).lerp(bySide, k);
-			double hob = Math.abs(MathHelper.sin(t * 0.85F)) * 0.07 * (1.0 - k);
-			float limp = MathHelper.sin(t * 0.85F) * 0.12F * (float) (1.0 - k);
-			return new Pose(at.add(0.0, hob, 0.0), yawTo(bySide.subtract(m.from())), limp, 1.0F, 1.0F, true);
+			// Trotting to you out of the dark, a little hobble in it, slowing as he comes, turning to your face at the end.
+			Vec3d from = start(player, m, tickDelta);
+			double k = easeOut((t - MergeTimeline.COMING) / (double) (MergeTimeline.SNIFF - MergeTimeline.COMING));
+			Vec3d at = from.lerp(bySide, k);
+			double hob = Math.abs(MathHelper.sin(t * 0.85F)) * 0.05 * (1.0 - k);
+			float going = yawTo(bySide.subtract(from));
+			float yaw = MathHelper.lerpAngleDegrees(ease((float) ((k - 0.85) / 0.15)), going, faceYaw);
+			return new Pose(at.add(0.0, hob, 0.0), yaw, MathHelper.sin(t * 0.85F) * 0.06F * (float) (1.0 - k), 0.0F, 1.0F, 1.0F, k < 0.98, false);
 		}
 		if (t < MergeTimeline.CLIMB) {
-			// Sniffing at your face, nose down and up; a nudge at it.
-			float sniff = MathHelper.sin((t - MergeTimeline.SNIFF) * 1.7F) * 0.22F + 0.15F;
-			float nudge = (float) pulse(t, MergeTimeline.SNIFF + 7, 0.12, 2.0);
-			Vec3d to = face.subtract(bySide).multiply(1.0, 0.0, 1.0).normalize();
-			return new Pose(bySide.add(to.multiply(nudge)), faceYaw, sniff, 1.0F, 1.0F, false);
+			// His nose to your cheek: pushing in twice, drawing back; sniffing.
+			float nudge = (float) (pulse(t, MergeTimeline.SNIFF + 6, 1.0, 3.0) + pulse(t, MergeTimeline.SNIFF + 18, 0.8, 3.0));
+			float sniff = MathHelper.sin((t - MergeTimeline.SNIFF) * 1.7F) * 0.06F;
+			return new Pose(bySide.add(side.multiply(-which * 0.04 * nudge)), faceYaw, 0.1F + sniff + 0.08F * nudge, 0.0F, 1.0F, 1.0F, false, false);
 		}
-		Vec3d top = chest.add(0.0, 0.01, 0.0);
-		float onYaw = yawTo(headward(player));
 		if (t < MergeTimeline.ON_CHEST) {
-			// The hop up, and landing squashed.
-			double k = ease((t - MergeTimeline.CLIMB) / (MergeTimeline.ON_CHEST - MergeTimeline.CLIMB - 2));
-			Vec3d at = bySide.lerp(top, k).add(0.0, MathHelper.sin((float) Math.min(k, 1.0) * MathHelper.PI) * 0.45, 0.0);
+			// The hop up onto you, and landing squashed, his paws on your shirt.
+			double k = ease((t - MergeTimeline.CLIMB) / (float) (MergeTimeline.ON_CHEST - MergeTimeline.CLIMB - 2));
+			Vec3d at = bySide.lerp(top, k).add(0.0, MathHelper.sin((float) Math.min(k, 1.0) * MathHelper.PI) * 0.55, 0.0);
 			float yaw = MathHelper.lerpAngleDegrees((float) k, faceYaw, onYaw);
 			float land = (float) pulse(t, MergeTimeline.ON_CHEST - 2, 0.25, 1.5);
-			return new Pose(at, yaw, -0.25F * (float) Math.sin(k * Math.PI), 1.0F + land * 0.6F, 1.0F - land, false);
+			return new Pose(at, yaw, -0.25F * (float) Math.sin(k * Math.PI), 0.0F, 1.0F + land * 0.6F, 1.0F - land, false, false);
 		}
 		if (t < MergeTimeline.LEAP) {
-			// Standing on you, looking at your face; breathing; a nod as each line starts.
+			// On you: standing as you ask; sitting to listen, his head on one side; leaning down to you as he talks; a nod
+			// as each of his lines starts.
 			float breath = MathHelper.sin(t * 0.3F) * 0.025F;
+			boolean sitting = t >= MergeTimeline.LISTEN - 4;
+			float roll = 0.22F * ease((t - MergeTimeline.LISTEN) / 8.0F) * (1.0F - ease((t - MergeTimeline.MONTAGE + 8.0F) / 8.0F));
 			float nod = 0.0F;
 			for (int i = 0; i < MergeTimeline.LINES.length; i++) {
 				int line = MergeTimeline.LINES[i];
 				if (MergeTimeline.POCHITA_SAYS[i]) {
-					nod = Math.max(nod, (float) (t >= line ? Math.sin(Math.min(1.0, (t - line) / 8.0) * Math.PI) * 0.18 : 0.0));
+					nod = Math.max(nod, (float) (t >= line ? Math.sin(Math.min(1.0, (t - line) / 8.0) * Math.PI) * 0.15 : 0.0));
 				}
 			}
-			float lean = 0.18F * ease((t - MergeTimeline.LINES[3]) / 10.0F);
-			return new Pose(top, onYaw, 0.18F + nod + lean, 1.0F - breath, 1.0F + breath, false);
+			float lean = 0.16F * ease((t - MergeTimeline.LINES[2]) / 12.0F) + 0.1F * ease((t - MergeTimeline.LINES[3]) / 10.0F);
+			return new Pose(top.add(head.multiply(0.18 * lean)), onYaw, 0.06F + nod + lean, roll, 1.0F - breath, 1.0F + breath, false, sitting);
 		}
-		// The leap: a crouch, up off you, slow, turning over in the air, and down head first into your chest.
+		if (t >= MergeTimeline.PLUNGE) {
+			// In: down into your chest nose first, swallowed, smaller as he goes.
+			float in = ease((t - MergeTimeline.PLUNGE) / (float) (MergeTimeline.SUNK - MergeTimeline.PLUNGE));
+			return new Pose(top.add(0.0, -0.55 * in, 0.0), onYaw, 1.55F, 0.0F, 1.0F - 0.5F * in, 1.0F - 0.5F * in, false, false);
+		}
+		// The leap: a crouch, up off you into the light, slow at the top as he turns nose down, then the dive into your chest.
 		float crouch = ease((t - MergeTimeline.LEAP) / 6.0F) * (1.0F - ease((t - MergeTimeline.LEAP - 7.0F) / 2.0F));
-		float rise = easeOut((t - MergeTimeline.LEAP - 8.0F) / 9.0F);
-		float dive = easeIn((t - MergeTimeline.LEAP - 17.0F) / (MergeTimeline.SINK - MergeTimeline.LEAP - 17.0F));
-		double height = 1.25 * rise * (1.0 - dive) - 0.25 * dive;
-		float pitch = 0.18F + 1.4F * ease((t - MergeTimeline.LEAP - 12.0F) / 7.0F);
+		float rise = easeOut((t - MergeTimeline.LEAP - 8.0F) / 12.0F);
+		float dive = easeIn((t - MergeTimeline.SINK - 4.0F) / (MergeTimeline.PLUNGE - MergeTimeline.SINK - 4.0F));
+		double height = 1.7 * rise * (1.0 - dive);
+		float pitch = 0.1F + 1.45F * ease((t - MergeTimeline.LEAP - 14.0F) / 10.0F);
 		float stretch = 0.25F * rise * (1.0F - dive) + 0.35F * dive;
-		return new Pose(top.add(0.0, height, 0.0), onYaw, pitch, 1.0F + 0.2F * crouch - 0.1F * stretch, 1.0F - 0.25F * crouch + stretch, false);
+		return new Pose(top.add(0.0, height, 0.0), onYaw, pitch, 0.0F, 1.0F + 0.2F * crouch - 0.1F * stretch, 1.0F - 0.25F * crouch + stretch, false,
+				false);
 	}
 
 	private static float yawTo(Vec3d d) {
@@ -748,10 +810,7 @@ public final class MergeCinematic {
 			}
 			pool(matrices, consumers, world, player, cam, t, tickDelta);
 			light(matrices, consumers, player, cam, t, tickDelta);
-			if (t >= MergeTimeline.HEART && t < MergeTimeline.SUNK) {
-				heart(matrices, consumers, player, cam, t, tickDelta);
-			}
-			if (t < MergeTimeline.COMING || t >= MergeTimeline.SINK) {
+			if (t < MergeTimeline.COMING || t >= MergeTimeline.SUNK) {
 				continue;
 			}
 			Pose pose = pochita(player, e.getValue(), t, tickDelta);
@@ -759,16 +818,17 @@ public final class MergeCinematic {
 			matrices.push();
 			matrices.translate(pose.at().x - cam.x, pose.at().y - cam.y, pose.at().z - cam.z);
 			matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180.0F - pose.yaw()));
-			// Nose down (sniffing) or up, round the middle of him.
+			// Nose down (sniffing, diving) or up, and leaned over to one side, round the middle of him.
 			matrices.translate(0.0, 0.3, 0.0);
 			matrices.multiply(RotationAxis.POSITIVE_X.rotation(pose.pitch()));
+			matrices.multiply(RotationAxis.POSITIVE_Z.rotation(pose.roll()));
 			matrices.translate(0.0, -0.3, 0.0);
 			matrices.scale(pose.wide(), pose.tall(), pose.wide());
 			matrices.scale(-1.0F, -1.0F, 1.0F);
 			matrices.translate(0.0, -1.501, 0.0);
 			boolean talking = t >= MergeTimeline.TALK && t < MergeTimeline.LEAP;
 			// His tail going faster while he talks to you.
-			model.animate(pose.walking() ? t * 1.1F : 0.0F, pose.walking() ? 0.7F : 0.0F, talking ? t * 1.8F : t, false);
+			model.animate(pose.walking() ? t * 1.1F : 0.0F, pose.walking() ? 0.7F : 0.0F, talking ? t * 1.8F : t, pose.sitting());
 			model.talk(mouth(t));
 			model.render(matrices, consumers.getBuffer(RenderLayer.getEntityCutoutNoCull(POCHITA)), light, OverlayTexture.DEFAULT_UV, 0xFFFFFFFF);
 			matrices.pop();
@@ -797,42 +857,13 @@ public final class MergeCinematic {
 		matrices.pop();
 	}
 
-	/**
-	 * The light he goes into you as: a glow where he dives in, flaring as he goes, then sinking into your chest as your
-	 * hand reaches after it.
-	 */
+	/** The light he springs up into, high over you as he leaps; and its burst at your chest as he plunges in. */
 	private static void light(MatrixStack matrices, VertexConsumerProvider consumers, PlayerEntity player, Vec3d cam, float t, float tickDelta) {
-		float in = ease((t - MergeTimeline.LEAP - 14.0F) / 6.0F);
-		float k = MathHelper.clamp((t - MergeTimeline.SINK) / (MergeTimeline.HEART - MergeTimeline.SINK), 0.0F, 1.0F);
-		if (in <= 0.0F || k >= 1.0F) {
-			return;
-		}
-		Vec3d at = chest(player, tickDelta).add(0.0, MathHelper.lerp(easeIn(k), 1.0, 0.05), 0.0);
-		float size = (float) (in * (t < MergeTimeline.SINK ? 0.6 : MathHelper.lerp(easeIn(k), 1.3, 0.1)));
-		glow(matrices, consumers, at, cam, size, 1.0F - k * k);
-	}
-
-	/** Him curled up in your chest, seen through it, glowing, beating with your heart. */
-	private static void heart(MatrixStack matrices, VertexConsumerProvider consumers, PlayerEntity player, Vec3d cam, float t, float tickDelta) {
-		// In the middle of your body's thickness, under its front: inside you.
-		Vec3d at = along(player, tickDelta, CHEST, LIFT + 0.03);
-		double beat = 0.0;
-		for (int b : MergeTimeline.BEATS) {
-			beat = Math.max(beat, pulse(t, b, 1.0, 2.5));
-		}
-		float size = 0.38F * (float) (1.0 + 0.2 * beat);
-		glow(matrices, consumers, at.add(0.0, 0.12, 0.0), cam, 0.8F + 0.5F * (float) beat, 0.85F + 0.15F * (float) beat);
-		matrices.push();
-		matrices.translate(at.x - cam.x, at.y - cam.y, at.z - cam.z);
-		matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180.0F - yawTo(headward(player))));
-		// Curled up on his side.
-		matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(80.0F));
-		matrices.scale(-size, -size, size);
-		matrices.translate(0.0, -1.3, 0.0);
-		model.animate(0.0F, 0.0F, t, true);
-		model.render(matrices, consumers.getBuffer(RenderLayer.getEntityCutoutNoCull(POCHITA)),
-				net.minecraft.client.render.LightmapTextureManager.MAX_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, 0xFFFFFFFF);
-		matrices.pop();
+		Vec3d chest = chestTop(player, tickDelta);
+		float high = ease((t - MergeTimeline.LEAP - 4.0F) / 10.0F) * (1.0F - ease((t - MergeTimeline.SINK - 4.0F) / 12.0F));
+		glow(matrices, consumers, chest.add(0.0, 2.4, 0.0), cam, 1.7F * high, 0.9F * high);
+		float burst = (float) pulse(t, MergeTimeline.PLUNGE, 1.0, 3.0);
+		glow(matrices, consumers, chest.add(0.0, 0.08, 0.0), cam, 1.0F * burst, burst);
 	}
 
 	/** A soft glow, added onto the picture, facing the camera. */
@@ -862,7 +893,7 @@ public final class MergeCinematic {
 	private static void pool(MatrixStack matrices, VertexConsumerProvider consumers, ClientWorld world, PlayerEntity player, Vec3d cam, float t,
 			float tickDelta) {
 		float spread = easeOut((t - MergeTimeline.FELL) / (MergeTimeline.COMING - MergeTimeline.FELL + 10));
-		float more = 0.2F * easeOut((t - MergeTimeline.SINK) / 10.0F);
+		float more = 0.2F * easeOut((t - MergeTimeline.PLUNGE) / 10.0F);
 		float size = POOL_SIZE * (spread + more);
 		if (size <= 0.01F) {
 			return;
@@ -892,9 +923,10 @@ public final class MergeCinematic {
 			Vec3d chest = chest(player, 0.0F);
 			if (t == MergeTimeline.FELL) {
 				Vec3d mid = along(player, 0.0F, CHEST, 0.1);
-				for (int i = 0; i < 16; i++) {
-					world.addParticle(ParticleTypes.POOF, mid.x + (RANDOM.nextDouble() - 0.5) * 1.2, mid.y, mid.z + (RANDOM.nextDouble() - 0.5) * 1.2,
-							(RANDOM.nextDouble() - 0.5) * 0.06, 0.02, (RANDOM.nextDouble() - 0.5) * 0.06);
+				// A little dust where you hit (not so much it hides you).
+				for (int i = 0; i < 5; i++) {
+					world.addParticle(ParticleTypes.POOF, mid.x + (RANDOM.nextDouble() - 0.5) * 1.4, mid.y - 0.05, mid.z + (RANDOM.nextDouble() - 0.5) * 1.4,
+							(RANDOM.nextDouble() - 0.5) * 0.08, 0.01, (RANDOM.nextDouble() - 0.5) * 0.08);
 				}
 			}
 			for (int i = 0; i < MergeTimeline.LINES.length && i < VOICES.length; i++) {
@@ -902,10 +934,6 @@ public final class MergeCinematic {
 					MinecraftClient.getInstance().getSoundManager().play(new net.minecraft.client.sound.PositionedSoundInstance(VOICES[i],
 							net.minecraft.sound.SoundCategory.PLAYERS, 1.0F, 1.0F, Random.create(), chest.x, chest.y, chest.z));
 				}
-			}
-			if (t >= MergeTimeline.COMING && t < MergeTimeline.SNIFF && t % 3 == 0) {
-				Vec3d at = pochita(player, e.getValue(), t, 0.0F).at();
-				world.addParticle(ParticleTypes.POOF, at.x, at.y + 0.05, at.z, 0.0, 0.01, 0.0);
 			}
 			if (player == MinecraftClient.getInstance().player && dream(0.0F) > 0.5F && !MergeMemories.on(t)) {
 				// Motes of light drifting up in the dark round you, small and warm.
@@ -916,10 +944,20 @@ public final class MergeCinematic {
 							0.0);
 				}
 			}
-			if (t >= MergeTimeline.SINK && t < MergeTimeline.SINK + 5) {
+			if (t >= MergeTimeline.PLUNGE && t < MergeTimeline.PLUNGE + 5) {
+				// He's in: blood bursting up out of you.
+				Vec3d in = chestTop(player, 0.0F);
 				for (int i = 0; i < 14; i++) {
-					world.addParticle(i % 3 == 0 ? DARK_BLOOD : BLOOD, chest.x, chest.y + 0.1, chest.z, (RANDOM.nextDouble() - 0.5) * 0.45,
+					world.addParticle(i % 3 == 0 ? DARK_BLOOD : BLOOD, in.x, in.y + 0.05, in.z, (RANDOM.nextDouble() - 0.5) * 0.45,
 							0.25 + RANDOM.nextDouble() * 0.55, (RANDOM.nextDouble() - 0.5) * 0.45);
+				}
+			}
+			if (player == MinecraftClient.getInstance().player) {
+				for (int beat : MergeTimeline.BEATS) {
+					if (t == beat) {
+						// Your heart starting, lettered as the manga letters it.
+						Sfx.show(Sfx.HEARTBEAT, 0.16F, 14, world.getTime());
+					}
 				}
 			}
 			for (int beat : MergeTimeline.BEATS) {

@@ -28,8 +28,7 @@
 		"HelmetHiddenMixin",
 		"HeldStillFovMixin",
 		"MergeLyingMixin",
-		"ModelPartAccessor",
-		"SeeThroughMixin"
+		"ModelPartAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 1

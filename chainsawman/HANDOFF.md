@@ -293,12 +293,23 @@ tuning the numbers.
   they talk (the anime's voices); over his "I always loved hearing you talk about your dreams" come **the memories**
   (`MergeMemories`): four little scenes built of real blocks floating far up in the void, sepia (`csm_impact`'s
   Sepia), you in your own skin and him in his model: the shack holding him, bread with him looking up, asleep with him
-  curled beside you, him as the chainsaw against a zombie. Then he leaps up off you and dives into your chest; a light,
-  your hand reaching after it on "POCHITA?!"; **inside your chest**, seen through (`SeeThroughMixin`), him curled up
-  as your heart, beating; the cord tears out; you **wake through your own eyes** (looking straight up, your eyelids
-  fluttering on the beats, then open with a gasp as the sky comes back); you get up and stand
-  there with "[G] Pull the cord" until you pull it yourself, as Denji does (first pull free; after `Merge.WAIT`, 60 s,
-  it pulls itself).
+  curled beside you, him as the chainsaw against a zombie. Then he springs up off you and plunges into your chest,
+  leaving his tail, the cord, sticking out of you; your heart starts in the black; you wake through your own eyes; you
+  get up and stand there with "[G] Pull the cord" until you pull it yourself, as Denji does (first pull free; after
+  `Merge.WAIT`, 60 s, it pulls itself).
+- **The merge's third pass, from a storyboard (2026-10-20)**: kortev wants the merge to be close to the best part of
+  the mod, and found it full of problems (the camera inside heads and blocks, Pochita floating over you, a confusing
+  see-through heart shot, a weak start and end). I drew a storyboard of 18 cuts (an artifact:
+  https://claude.ai/artifact/1oJPh3jRN7Um3y6a9Z6Asq), kortev said go, and `MergeTimeline`'s table is now those cuts.
+  Every shot goes through `MergeCinematic.framed` (pulled in toward what it looks at if a block is in the way) and is
+  placed a step off you and him; when the camera is in your own eyes (`ownEyes`) your head isn't drawn
+  (`HeadHiddenMixin`), which is what the grey blur waking up was (the inside of your hood). Pochita stands on your
+  shirt (`SURFACE`, toward your middle at `ON` so his head is clear of your face), nudges your cheek with his nose
+  (`HEAD_HALF`, `SNOUT`), sits to listen with his head on one side (`Pose.roll`, `sitting`). The see-through chest
+  (`SeeThroughMixin`) is gone: he plunges in nose first (PLUNGE) and the cord is left (SUNK). Your heart starts in
+  the black, three beats (`BEATS`), each a red flash with ドクン lettered (`Sfx.HEARTBEAT`, new glyphs in
+  `form_sfx.png`); your eyes open on the real sky (EYES, the gasp at GASP); you rise (RISE, 18 ticks); and the last
+  cut eases in on the cord. `form_merge.ogg` was regenerated to the new beats.
 - **The merge's second pass (2026-10-20)**: Pochita's mouth moves with his voice (`MergeCinematic.VOICE_LEVELS`, the
   clips' loudness tick by tick: measure them again if the clips change), his tail going, leaning in on "show me your
   dream", your head lifting to him as you speak; the memories move (rocking him, bites of bread, breathing, the saw
@@ -307,7 +318,7 @@ tuning the numbers.
   muffled beats inside your chest, the world rushing back and a gasp).
 - **The voices in the merge** are the anime's own (Japanese), cut from a clip kortev chose
   (`sounds/form_merge_voice_1..5.ogg`): you ask if he took your body; he loved hearing your dreams; this is a
-  contract; show me your dream; and you crying his name as he sinks into you (at SINK). `MergeTimeline.LINES`,
+  contract; show me your dream; and you crying his name as he dives at you (at SINK). `MergeTimeline.LINES`,
   `LINE_LENGTHS` and `POCHITA_SAYS` time them as the clip paces them; the captions (`merge.chainsawman.line1..5`)
   are kortev's English, his warm and yours white. The clip says "this is a contract" where the caption also has
   "I'll give you my heart".

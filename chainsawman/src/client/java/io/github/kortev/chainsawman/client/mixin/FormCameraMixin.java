@@ -31,8 +31,10 @@ public abstract class FormCameraMixin {
 		if (shot != null) {
 			setRotation(shot.yaw(), shot.pitch());
 			setPos(shot.x(), shot.y(), shot.z());
-			// Your body shows once the camera is out of your head.
-			if (focusedEntity != null && focusedEntity.getCameraPosVec(tickDelta).squaredDistanceTo(shot.x(), shot.y(), shot.z()) > 0.5) {
+			// Your body shows once the camera is out of your head; and all through your merge, lying where your standing eyes
+			// would not be (in its own eyes, your head alone isn't drawn).
+			if (focusedEntity != null && (focusedEntity.getCameraPosVec(tickDelta).squaredDistanceTo(shot.x(), shot.y(), shot.z()) > 0.5
+					|| io.github.kortev.chainsawman.client.MergeCinematic.filming(tickDelta))) {
 				this.thirdPerson = true;
 			}
 		}

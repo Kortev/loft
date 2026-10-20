@@ -120,7 +120,7 @@ public final class Merge {
 			int age = e.getValue() + 1;
 			player.setHealth(Math.max(player.getHealth(), 1.0F));
 			player.fallDistance = 0.0F;
-			if (age == MergeTimeline.SINK) {
+			if (age == MergeTimeline.PLUNGE + 1) {
 				player.getServerWorld().spawnParticles(BLOOD, player.getX(), player.getY() + 0.4, player.getZ(), 50, 0.3, 0.2, 0.3, 0.25);
 			}
 			if (age == MergeTimeline.END) {

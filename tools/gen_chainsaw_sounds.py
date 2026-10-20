@@ -358,12 +358,13 @@ MERGE_MONTAGE = 311 / 20.0
 MERGE_MONTAGE_END = 397 / 20.0
 MERGE_HEART = 540 / 20.0
 MERGE_WAKE = 572 / 20.0
-MERGE_GASP = 586 / 20.0
+MERGE_GASP = 600 / 20.0
 MERGE_SINK = 520 / 20.0
-MERGE_SUNK = 566 / 20.0
-MERGE_BEATS = [550 / 20.0, 562 / 20.0, 572 / 20.0, 580 / 20.0, 586 / 20.0, 591 / 20.0]
+MERGE_SUNK = 546 / 20.0
+MERGE_PLUNGE = 540 / 20.0
+MERGE_BEATS = [574 / 20.0, 584 / 20.0, 592 / 20.0]
 MERGE_END = 626 / 20.0
-MERGE_RISE_AT = 596 / 20.0
+MERGE_RISE_AT = 608 / 20.0
 
 
 def whimper(n, at, length=0.35, pitch=900.0):
@@ -394,7 +395,7 @@ def form_merge():
     # The dark: a low hum, two tones slowly beating against each other, under everything until the heart starts.
     hum = (np.sin(2 * np.pi * 55.0 * t) + 0.7 * np.sin(2 * np.pi * 55.7 * t) + 0.25 * np.sin(2 * np.pi * 110.4 * t)) * 0.12
     x += hum * curve(n, [(0.0, 0.0), (MERGE_DARK, 0.0), (MERGE_DARK + 1.5, 1.0), (MERGE_TALK, 0.8), (MERGE_LEAP, 0.9),
-                         (MERGE_SINK, 1.4), (MERGE_SINK + 0.05, 0.0), (MERGE_END + 0.5, 0.0)])
+                         (MERGE_PLUNGE, 1.4), (MERGE_PLUNGE + 0.05, 0.0), (MERGE_END + 0.5, 0.0)])
     # His steps coming out of the dark, a limp in them; sniffing and two whimpers; the scramble up.
     steps = int((MERGE_SNIFF - MERGE_COMING) / 0.12)
     for i in range(steps):
@@ -412,26 +413,26 @@ def form_merge():
     x += whimper(n, MERGE_SNIFF + 1.3, 0.45, 820.0) * 0.45
     x += bp(white(n), 600.0, 2500.0) * curve(n, [(0.0, 0.0), (MERGE_CLIMB, 0.0), (MERGE_CLIMB + 0.05, 0.4), (MERGE_CLIMB + 0.35, 0.0),
                                                 (MERGE_END + 0.5, 0.0)])
-    # As he bows: the hum swelling. The sink: a deep boom, a wet tearing, and the cord ripping out of you.
+    # As he dives: the hum swelling. The plunge: a deep boom, a wet tearing, and the cord ripping out of you.
     boom = np.zeros(n)
-    boom[ns(MERGE_SINK)] = 1.0
+    boom[ns(MERGE_PLUNGE)] = 1.0
     kb = np.arange(ns(1.4))
     x += np.convolve(boom, np.sin(2 * np.pi * np.linspace(70.0, 28.0, len(kb)) * kb / SR) * np.exp(-kb / ns(0.4)))[:n] * 2.4
-    x += np.roll(flesh(n, 0.9, wet=2.0), ns(MERGE_SINK)) * 1.4
+    x += np.roll(flesh(n, 0.9, wet=2.0), ns(MERGE_PLUNGE)) * 1.4
     x += ratchet(n, MERGE_SUNK, 0.25, 140.0, 60.0) * 0.6
-    # The heart starting: six beats, closer and harder, the last with the engine's first cough in it.
+    # The heart starting in the black: three beats, closer and harder, the last with the engine's first cough in it.
     for i, at in enumerate(MERGE_BEATS):
         for dub, gain in ((0.0, 1.0), (0.15, 0.6)):
-            beat = np.zeros(n)
-            beat[ns(at + dub)] = 1.0
             kk = np.arange(ns(0.18))
-            x += np.convolve(beat, np.sin(2 * np.pi * 50.0 * kk / SR) * np.exp(-kk / ns(0.045)))[:n] * (1.2 + 0.28 * i) * gain
+            thud = np.sin(2 * np.pi * 50.0 * kk / SR) * np.exp(-kk / ns(0.045)) * (1.4 + 0.5 * i) * gain
+            start = ns(at + dub)
+            x[start:start + len(thud)] += thud[:n - start]
     # The dream: a soft warm chord in the void, swelling in as the world falls away, lifting as you wake.
     pad = np.zeros(n)
     for f, g in ((110.0, 1.0), (138.6, 0.6), (164.8, 0.7), (220.3, 0.35)):
         pad += g * (np.sin(2 * np.pi * f * t) + 0.5 * np.sin(2 * np.pi * f * 1.003 * t))
-    x += lp(pad, 900.0) * 0.045 * curve(n, [(0.0, 0.0), (MERGE_DARK + 0.5, 0.0), (MERGE_DARK + 3.0, 1.0), (MERGE_SINK, 1.0),
-                                             (MERGE_SINK + 0.1, 0.4), (MERGE_WAKE, 0.5), (MERGE_GASP, 0.0), (MERGE_END + 0.5, 0.0)])
+    x += lp(pad, 900.0) * 0.045 * curve(n, [(0.0, 0.0), (MERGE_DARK + 0.5, 0.0), (MERGE_DARK + 3.0, 1.0), (MERGE_PLUNGE, 1.0),
+                                             (MERGE_PLUNGE + 0.1, 0.4), (MERGE_WAKE, 0.5), (MERGE_GASP, 0.0), (MERGE_END + 0.5, 0.0)])
     # The memories: a music box, slow, a few notes over and over.
     tune = [659.3, 554.4, 440.0, 493.9, 554.4, 440.0, 370.0, 415.3]
     step = (MERGE_MONTAGE_END - MERGE_MONTAGE) / 10.0
@@ -446,7 +447,7 @@ def form_merge():
         x[start:start + m] += (note * 0.09)[:n - start]
     # The leap: air rushing, rising, into the boom.
     whoosh = bp(white(n), 500.0, 3500.0)
-    x += whoosh * curve(n, [(0.0, 0.0), (MERGE_LEAP + 0.35, 0.0), (MERGE_LEAP + 0.85, 0.12), (MERGE_SINK - 0.05, 0.3), (MERGE_SINK, 0.0),
+    x += whoosh * curve(n, [(0.0, 0.0), (MERGE_LEAP + 0.35, 0.0), (MERGE_LEAP + 0.85, 0.12), (MERGE_PLUNGE - 0.05, 0.3), (MERGE_PLUNGE, 0.0),
                             (MERGE_END + 0.5, 0.0)])
     # Inside your chest: the first two beats deep and muffled, as from inside.
     for at in MERGE_BEATS[:2]:

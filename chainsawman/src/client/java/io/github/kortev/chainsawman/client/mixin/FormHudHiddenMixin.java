@@ -12,7 +12,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * Through your own transformation the HUD (hotbar, hearts, crosshair, chat) is not drawn, until the camera is back in
- * your eyes: only the cinematic's own impact frames and red ({@link FormHud}), which would otherwise come with the rest.
+ * your eyes: only the cinematic's own impact frames and red ({@link FormHud}), which would otherwise come with the rest,
+ * and the sounds lettered ({@code Sfx}).
  */
 @Mixin(InGameHud.class)
 public abstract class FormHudHiddenMixin {
@@ -20,6 +21,8 @@ public abstract class FormHudHiddenMixin {
 	private void chainsawman$noHud(DrawContext context, RenderTickCounter counter, CallbackInfo ci) {
 		if (FormCinematic.filming(counter.getTickDelta(true))) {
 			FormHud.render(context, counter);
+			// And the sounds lettered (your heart starting in the merge).
+			io.github.kortev.chainsawman.client.Sfx.render(context, counter);
 			ci.cancel();
 		}
 	}

@@ -133,7 +133,9 @@ public class FormGameTests implements FabricGameTest {
 		context.waitAndRun(Saw.SLASH_EVERY + 1, () -> {
 			try {
 				context.assertTrue(Saw.slash(player, side.getId()), "the aimed slash did not come");
-				context.assertTrue(side.getHealth() < side.getMaxHealth(), "aimed at, the husk off to the side was not cut");
+				context.assertTrue(side.getHealth() < side.getMaxHealth(), "aimed at, the husk off to the side was not cut (it at "
+						+ side.getPos().subtract(player.getPos()) + ", seen " + player.canSee(side) + ", health " + side.getHealth() + ", the slasher fighting "
+						+ io.github.kortev.chainsawman.form.Form.fighting(player) + ")");
 			} finally {
 				done(context, player);
 				side.discard();

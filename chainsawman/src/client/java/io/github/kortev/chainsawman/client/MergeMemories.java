@@ -106,7 +106,7 @@ public final class MergeMemories {
 		double k = into(t);
 		Vec3d[] from = {new Vec3d(1.0, 1.05, 1.9), new Vec3d(-1.2, 1.0, 1.8), new Vec3d(0.6, 1.9, 1.5), new Vec3d(2.3, 1.3, -0.5)};
 		Vec3d[] at = {new Vec3d(0.0, 0.45, 0.1), new Vec3d(0.4, 0.7, 0.1), new Vec3d(-0.4, 0.2, 0.5), new Vec3d(0.0, 1.0, -0.6)};
-		Vec3d eye = o.add(at[i]).add(from[i].subtract(at[i]).multiply(1.0 - 0.15 * k));
+		Vec3d eye = o.add(at[i]).add(from[i].subtract(at[i]).multiply(0.85 - 0.13 * k));
 		Vec3d to = o.add(at[i]).subtract(eye);
 		float yaw = (float) (MathHelper.atan2(to.z, to.x) * MathHelper.DEGREES_PER_RADIAN) - 90.0F;
 		float pitch = (float) -(MathHelper.atan2(to.y, Math.sqrt(to.x * to.x + to.z * to.z)) * MathHelper.DEGREES_PER_RADIAN);
