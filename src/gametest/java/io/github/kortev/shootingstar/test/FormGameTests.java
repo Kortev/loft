@@ -64,6 +64,38 @@ public class FormGameTests implements FabricGameTest {
 		context.complete();
 	}
 
+	/** The kick: what's in front kicked, slowed (dazed), and no second kick at once. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_kick", tickLimit = 20)
+	public void kickDazes(TestContext context) {
+		ServerPlayerEntity player = fighter(context, "kicker", 0.0);
+		HuskEntity front = husk(context, 0.0, 2.0);
+		try {
+			context.assertTrue(Saw.kick(player), "the kick did not come");
+			context.assertTrue(front.getHealth() < front.getMaxHealth(), "the husk was not kicked");
+			context.assertTrue(front.hasStatusEffect(net.minecraft.entity.effect.StatusEffects.SLOWNESS), "the husk was not dazed");
+			context.assertTrue(!Saw.kick(player), "a second kick came at once");
+		} finally {
+			done(context, player);
+			front.discard();
+		}
+		context.complete();
+	}
+
+	/** In the form the saws cut through blocks many times as fast as hands; out of it, as hands. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_dig", tickLimit = 20)
+	public void sawsCutWalls(TestContext context) {
+		ServerPlayerEntity player = fighter(context, "cutter", 0.0);
+		try {
+			float cutting = player.getBlockBreakingSpeed(net.minecraft.block.Blocks.STONE.getDefaultState());
+			Form.end(player);
+			float hands = player.getBlockBreakingSpeed(net.minecraft.block.Blocks.STONE.getDefaultState());
+			context.assertTrue(cutting >= hands * Saw.CUTS * 0.99F, "the saws didn't cut faster: " + cutting + " against " + hands);
+		} finally {
+			done(context, player);
+		}
+		context.complete();
+	}
+
 	/** A kill drinks deep: the hit's heal and the kill's. */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_kill", tickLimit = 20)
 	public void killHeals(TestContext context) {

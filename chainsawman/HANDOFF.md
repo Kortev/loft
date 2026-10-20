@@ -328,6 +328,11 @@ tuning the numbers.
 - **Sound effects lettered** (`Sfx`, `textures/gui/form_sfx.png`, glyphs painted in `gen_chainsaw_textures.py`):
   your kills ブシャッ, the overhead chop landing ザシュッ, grinding into something ギャリギャリ, slammed onto your
   screen off to one side, tilted and shaking, gone in a moment. A new word needs its glyphs drawn there (16 by 16).
+- **From the show, my picks of the set pieces (kortev: "do what you want")**: the saws **cut through blocks** ten times
+  as fast as hands in the form (`FormDigMixin`, `Saw.CUTS`; not obsidian and harder), to tear through a building; the
+  **kick** (V, `Saw.kick`): Denji's dirty kick, short, knocking back and dazing (slowness) what it hits; **dragged
+  under**: something caught on your chain, in water with you, is pulled down and held under, drowning (as he drags
+  Reze into the sea; `Grapple` tick). The drag isn't filmed yet; Beam the shark (a second ult) is left for later.
 - **Slash trails** (`SawTrails`, `textures/entity/form_trail.png`): each slash leaves a smear behind the saw's tip,
   white at the edge going to blood red, gone in 3 ticks; sampled from where the bar is drawn each frame, so it follows
   the real arc. In your own view it is shorter and reaches further down the bar, or it reads as a thin line.

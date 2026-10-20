@@ -31,7 +31,8 @@ public final class FirstPersonSaws {
 		int step = swing >= 0.0F && which != null ? which.step() : -1;
 		float k = swing / ClientCombat.SWING;
 		boolean grind = ClientCombat.grinding(player) || player.handSwinging && step < 0;
-		boolean lunge = step == 3;
+		// (The kick's arms go wide, as the lunge's go back.)
+		boolean lunge = step == 3 || step == 4;
 		ClientCombat.Chain chain = ClientCombat.chain(player);
 		float chainOut = chain == null ? 0.0F
 				: chain.held() ? 1.0F : 1.0F - MathHelper.clamp((player.getWorld().getTime() - chain.at() + tickDelta - 6.0F) / 4.0F, 0.0F, 1.0F);

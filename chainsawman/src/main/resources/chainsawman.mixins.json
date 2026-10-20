@@ -5,6 +5,7 @@
 	"mixins": [
 		"DownedPoseMixin",
 		"EatBloodMixin",
+		"FormDigMixin",
 		"FrenzySlowMixin"
 	],
 	"injectors": {

@@ -35,6 +35,8 @@ public final class Grapple {
 	/** How long something caught stays bound to you (ticks), and how far it may get. */
 	public static final int BIND = 100;
 	public static final double BOUND = 4.5;
+	/** What being dragged under does, a second (health points). */
+	public static final float DROWN = 3.0F;
 	/** How long you may swing from a block (ticks). */
 	public static final int SWING = 120;
 	/** How long after a pull you are kept from fall damage (ticks). */
@@ -164,6 +166,16 @@ public final class Grapple {
 			}
 			// Bound: pulled back in whenever it gets further than the chain lets it.
 			Entity caught = held.caught();
+			if (player.isTouchingWater() && caught.isTouchingWater()) {
+				// In the water together: dragged down with you, as he drags Reze under, and held there while you're in it.
+				Vec3d to = player.getPos().subtract(caught.getPos());
+				caught.setVelocity(caught.getVelocity().multiply(0.6).add(to.multiply(0.08)).add(0.0, -0.09, 0.0));
+				caught.velocityModified = true;
+				if (caught.isSubmergedInWater() && now % 20 == 0) {
+					caught.damage(player.getDamageSources().drown(), DROWN);
+				}
+				HELD.put(e.getKey(), new Held(held.shooter(), caught, Math.max(held.until(), now + 40)));
+			}
 			Vec3d out = caught.getPos().subtract(player.getPos());
 			double far = out.length();
 			if (far > BOUND) {

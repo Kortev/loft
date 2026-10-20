@@ -39,6 +39,8 @@ public final class ChainsawManClient implements ClientModInitializer {
 	/** Fire the chain from the arm; call up the blood frenzy. */
 	public static KeyBinding CHAIN;
 	public static KeyBinding FRENZY;
+	/** The kick. */
+	public static KeyBinding KICK;
 
 	@Override
 	public void onInitializeClient() {
@@ -47,6 +49,8 @@ public final class ChainsawManClient implements ClientModInitializer {
 		CHAIN = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.chainsawman.chain", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_R,
 				"key.categories.chainsawman"));
 		FRENZY = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.chainsawman.frenzy", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_B,
+				"key.categories.chainsawman"));
+		KICK = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.chainsawman.kick", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_V,
 				"key.categories.chainsawman"));
 		ClientCombat.init();
 		// /chainsawhead boxes|mesh: the two heads to choose between, here on this client.

@@ -18,6 +18,7 @@ public record FormActionPayload(byte action, boolean on) implements CustomPayloa
 	public static final byte FRENZY = 3;
 	public static final byte LUNGE = 4;
 	public static final byte RELEASE = 5;
+	public static final byte KICK = 6;
 
 	public static final CustomPayload.Id<FormActionPayload> ID = new CustomPayload.Id<>(ChainsawMan.id("form_action"));
 	public static final PacketCodec<RegistryByteBuf, FormActionPayload> CODEC = PacketCodec.tuple(PacketCodecs.BYTE, FormActionPayload::action,

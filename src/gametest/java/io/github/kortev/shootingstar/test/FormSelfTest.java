@@ -452,6 +452,16 @@ public class FormSelfTest implements ClientModInitializer {
 				server.execute(() -> victim(serverPlayer(server), EntityType.COW));
 			}
 			case 1400 -> server.execute(() -> Saw.slash(serverPlayer(server)));
+			// The kick, seen from the front.
+			case 1416 -> {
+				client.options.setPerspective(Perspective.THIRD_PERSON_FRONT);
+				client.player.setPitch(-10.0F);
+				server.execute(() -> victim(serverPlayer(server), EntityType.HUSK));
+			}
+			case 1422 -> server.execute(() -> Saw.kick(serverPlayer(server)));
+			case 1424 -> screenshot(client, "kick_02");
+			case 1426 -> screenshot(client, "kick_04");
+			case 1429 -> screenshot(client, "kick_07");
 			// The chain, at a husk further off, seen from the side.
 			case 1440 -> server.execute(() -> {
 				ServerPlayerEntity p = serverPlayer(server);
@@ -527,7 +537,10 @@ public class FormSelfTest implements ClientModInitializer {
 					ClientCombat.event(new FormEventPayload(me, FormEventPayload.CHAIN, -1, to.x, to.y, to.z));
 				}
 			}
-			case 1740 -> stage = Stage.DONE;
+			case 1736 -> ClientCombat.event(new FormEventPayload(me, FormEventPayload.SWING, 4));
+			case 1738 -> screenshot(client, "standin_kick_02");
+			case 1740 -> screenshot(client, "standin_kick_04");
+			case 1746 -> stage = Stage.DONE;
 			default -> {
 			}
 		}

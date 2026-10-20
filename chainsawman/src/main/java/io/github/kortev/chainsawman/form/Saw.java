@@ -70,6 +70,16 @@ public final class Saw {
 	public static final int LUNGE_TICKS = 8;
 	public static final float LUNGE_DAMAGE = 12.0F;
 	public static final int LUNGE_EVERY = 24;
+	/** How many times as fast as hands the saws cut through blocks. */
+	public static final float CUTS = 10.0F;
+	/**
+	 * The kick (its own key), Denji's dirty kick: short, for this much, knocking what it hits back and leaving it dazed
+	 * (slowed) a moment; then this long before the next.
+	 */
+	public static final float KICK_DAMAGE = 4.0F;
+	public static final int KICK_EVERY = 16;
+	private static final double KICK_REACH = 2.6;
+	private static final Map<UUID, Long> KICKED = new ConcurrentHashMap<>();
 
 	private static final DustParticleEffect BLOOD = new DustParticleEffect(new Vector3f(0.62F, 0.02F, 0.04F), 1.0F);
 	private static final DustParticleEffect DARK_BLOOD = new DustParticleEffect(new Vector3f(0.35F, 0.0F, 0.02F), 1.3F);
@@ -171,6 +181,29 @@ public final class Saw {
 			Limbs.drank(player, Blood.HIT);
 			Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.HIT, hit));
 		}
+	}
+
+	/** The kick: what's in front, kicked back and dazed. Whether it came. */
+	public static boolean kick(ServerPlayerEntity player) {
+		if (!Form.fighting(player)) {
+			return false;
+		}
+		long now = player.getServerWorld().getTime();
+		Long last = KICKED.get(player.getUuid());
+		if (last != null && now - last < KICK_EVERY) {
+			return false;
+		}
+		KICKED.put(player.getUuid(), now);
+		for (LivingEntity target : inFront(player, KICK_REACH, 0.6)) {
+			target.timeUntilRegen = 0;
+			target.damage(player.getDamageSources().playerAttack(player), KICK_DAMAGE * Frenzy.damage(player));
+			Vec3d push = target.getPos().subtract(player.getPos()).multiply(1.0, 0.0, 1.0).normalize();
+			target.takeKnockback(1.4, -push.x, -push.z);
+			target.addStatusEffect(new net.minecraft.entity.effect.StatusEffectInstance(net.minecraft.entity.effect.StatusEffects.SLOWNESS, 40, 3));
+		}
+		Form.play(player, ChainsawSounds.HIT, 0.8F);
+		Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.SWING, 4));
+		return true;
 	}
 
 	/** The lunge: off headfirst the way you look, cutting through what you run into. */

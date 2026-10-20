@@ -34,7 +34,9 @@ public final class SawPose {
 		float swing = ClientCombat.swingAge(player, tickDelta);
 		ClientCombat.Swing which = ClientCombat.swing(player);
 		ClientCombat.Chain chain = ClientCombat.chain(player);
-		if (swing >= 0.0F && which != null && which.step() == 3) {
+		if (swing >= 0.0F && which != null && which.step() == 4) {
+			kick(model, swing / ClientCombat.SWING);
+		} else if (swing >= 0.0F && which != null && which.step() == 3) {
 			lunge(model, swing / ClientCombat.SWING);
 		} else if (swing >= 0.0F && which != null) {
 			slash(model, which.step(), swing / ClientCombat.SWING);
@@ -53,6 +55,21 @@ public final class SawPose {
 			model.rightArm.yaw = model.head.yaw;
 			model.rightArm.roll = 0.0F;
 		}
+	}
+
+	/** The kick: the right leg up and out in front, fast, the arms out for balance, leaning back into it; and down. */
+	private static void kick(BipedEntityModel<?> model, float k) {
+		float up = MathHelper.sin(MathHelper.clamp(k / 0.7F, 0.0F, 1.0F) * MathHelper.PI);
+		model.rightLeg.pitch = -1.75F * up;
+		model.leftLeg.pitch = 0.15F * up;
+		model.rightArm.pitch = -0.4F * up;
+		model.leftArm.pitch = -0.4F * up;
+		model.rightArm.roll = 0.6F * up;
+		model.leftArm.roll = -0.6F * up;
+		model.rightArm.yaw = 0.0F;
+		model.leftArm.yaw = 0.0F;
+		model.body.pitch = -0.2F * up;
+		model.head.pitch -= 0.15F * up;
 	}
 
 	private static void slash(BipedEntityModel<?> model, int step, float k) {

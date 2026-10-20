@@ -82,6 +82,7 @@ public final class ChainsawMan implements ModInitializer {
 				case FormActionPayload.FRENZY -> Frenzy.start(context.player());
 				case FormActionPayload.LUNGE -> Saw.lunge(context.player());
 				case FormActionPayload.RELEASE -> Grapple.release(context.player());
+				case FormActionPayload.KICK -> Saw.kick(context.player());
 				default -> {
 				}
 			}

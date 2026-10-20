@@ -87,6 +87,14 @@ public final class Form {
 	}
 
 	/** Whether {@code player} is in the form. */
+	/** Who is in the form as far as each client has been told. */
+	public static java.util.function.Predicate<net.minecraft.entity.player.PlayerEntity> client = p -> false;
+
+	/** Whether {@code player} is in the form: on either side. */
+	public static boolean in(net.minecraft.entity.player.PlayerEntity player) {
+		return player.getWorld().isClient ? client.test(player) : ON.contains(player.getUuid());
+	}
+
 	public static boolean on(ServerPlayerEntity player) {
 		return ON.contains(player.getUuid());
 	}

@@ -120,6 +120,7 @@ public final class ClientCombat {
 		Limbs.clientLeft = p -> (LOST.getOrDefault(p.getUuid(), 0) & Limbs.LEFT) != 0;
 		Frenzy.client = p -> FRENZY.containsKey(p.getUuid());
 		Merge.client = MergeCinematic::merging;
+		io.github.kortev.chainsawman.form.Form.client = ClientForms::on;
 	}
 
 	/** Something done in the form, as the server tells it (or a test's stand-in, which the server never sees). */
@@ -463,6 +464,12 @@ public final class ClientCombat {
 		while (ChainsawManClient.CHAIN.wasPressed()) {
 			if (fighting(self)) {
 				send(FormActionPayload.CHAIN, true);
+			}
+		}
+		while (ChainsawManClient.KICK.wasPressed()) {
+			if (fighting(self)) {
+				send(FormActionPayload.KICK, true);
+				kickAt = self.getWorld().getTime();
 			}
 		}
 		while (ChainsawManClient.FRENZY.wasPressed()) {
