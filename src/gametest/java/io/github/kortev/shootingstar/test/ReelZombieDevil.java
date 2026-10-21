@@ -97,6 +97,54 @@ final class ReelZombieDevil {
 		return ModelPartBuilder.create().uv(u, v).cuboid(x, y, z, w, h, d);
 	}
 
+	/** What's above the cut through it (the bottom of its torso): everything but its open ribs and its guts. */
+	private static final String[] TOP = {"torso", "stump_right", "stump_left", "neck", "brain", "brain_top", "lobe_right", "lobe_left", "lobe_front",
+			"lobe_back", "lobe_under", "chest_head"};
+	/** Where it's cut through: the bottom of its torso, below its neck (pixels). */
+	private static final float CUT = 16.0F;
+
+	/**
+	 * Draws it cut in two through the bottom of its torso, {@code cut} ticks ago: its top half slid off sideways, tipping
+	 * over and falling, its bottom (the ribs and the guts) dropping and keeling over the other way; both down on the floor
+	 * at {@code floor} after a while. Before the cut ({@code cut} below 0), whole.
+	 */
+	static void render(MatrixStack matrices, VertexConsumerProvider consumers, Vec3d at, Vec3d cam, float yaw, float scale, float t, int light,
+			float cut, double floor) {
+		if (cut < 0.0F) {
+			render(matrices, consumers, at, cam, yaw, scale, t, light);
+			return;
+		}
+		ModelPart model = get();
+		float k = MathHelper.clamp(cut / 16.0F, 0.0F, 1.0F);
+		float fall = k * k;
+		double drop = at.y - floor;
+		float below = CUT * scale / 16.0F;
+		for (int half = 0; half < 2; half++) {
+			boolean top = half == 0;
+			for (String name : TOP) {
+				model.getChild(name).visible = top;
+			}
+			model.getChild("ribs").visible = !top;
+			for (int i = 0; i < STRANDS; i++) {
+				model.getChild("gut" + i).visible = !top;
+			}
+			matrices.push();
+			// The top slides off to one side, down to lie on the floor; the bottom drops where it was, and over.
+			Vec3d off = top ? new Vec3d(0.0, -(drop - 0.6) * fall, 0.9 * k) : new Vec3d(0.0, -(drop - below - 0.2) * fall, -0.4 * k);
+			Vec3d side = off.rotateY((float) Math.toRadians(-yaw));
+			matrices.translate(at.x + side.x - cam.x, at.y + side.y - cam.y, at.z + side.z - cam.z);
+			matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180.0F - yaw));
+			// Tipping over round the cut.
+			matrices.translate(0.0, -below, 0.0);
+			matrices.multiply(top ? RotationAxis.POSITIVE_X.rotationDegrees(-80.0F * k) : RotationAxis.POSITIVE_Z.rotationDegrees(75.0F * k));
+			matrices.translate(0.0, below, 0.0);
+			matrices.scale(-scale, -scale, scale);
+			model.render(matrices, consumers.getBuffer(RenderLayer.getEntityCutoutNoCull(TEXTURE)), light, OverlayTexture.DEFAULT_UV);
+			matrices.pop();
+		}
+		model.traverse().forEach(part -> part.visible = true);
+	}
+
 	/**
 	 * Draws it with the base of its neck at {@code at}, facing {@code yaw}, {@code scale} times its pixels' size, at
 	 * {@code t} ticks (its guts sway with it, it bobs as it floats), lit by {@code light}.

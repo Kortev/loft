@@ -433,8 +433,11 @@ not played live). Reel 1 is episode 1, from the storyboard kortev approved (an A
 restaged as kortev remembers the episode: no chainsaw fight; Denji and Pochita stabbed in the back at the same moment by
 two of the yakuza; the Zombie Devil rising; the yakuza turning; the zombies finishing Denji off on the floor; dragged
 out and thrown in a dumpster with Pochita; dead a while in the dark of it, his blood dripping onto Pochita, who stirs
-just enough; the mod's own merge; the lid bursting open and Denji rising with the cord in his chest. No voices but
-the merge's. About 84 seconds.
+just enough; the mod's own merge; the lid bursting open and Denji rising with the cord in his chest; then (kortev:
+"have the chainsaw stuff too, worst case we cut it later") he pulls it, the mod's own transformation plays, and as
+Chainsaw Man he cuts down the zombies by the bin and the ones out of the back door (the form's own slashes, the kills
+cut in two), walks in, leaps and cuts the Zombie Devil in two in a rain of its blood. No voices but the merge's. About
+96 seconds; the chainsaw part from 80 s, to cut if kortev wants.
 
 - **Run it**: `./gradlew runSelftest -Pselftest=reel1 -Pusername=Denji` (with ffmpeg on the PATH and
   `-Pcapture=true` to record it; then `render-loops.py` and `mux-audio.py` as for the form's videos). `-Ptarget=cast`

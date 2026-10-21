@@ -2,6 +2,7 @@ package io.github.kortev.shootingstar.test;
 
 import com.mojang.authlib.GameProfile;
 import io.github.kortev.chainsawman.ChainsawMan;
+import io.github.kortev.chainsawman.ChainsawSounds;
 import io.github.kortev.chainsawman.PochitaEntity;
 import io.github.kortev.chainsawman.client.ClientCombat;
 import io.github.kortev.chainsawman.client.LensBlood;
@@ -10,7 +11,9 @@ import io.github.kortev.chainsawman.client.Sfx;
 import io.github.kortev.chainsawman.form.Form;
 import io.github.kortev.chainsawman.form.Heart;
 import io.github.kortev.chainsawman.form.Merge;
+import io.github.kortev.chainsawman.form.FormTimeline;
 import io.github.kortev.chainsawman.form.MergeTimeline;
+import io.github.kortev.chainsawman.form.Saw;
 import io.github.kortev.chainsawman.network.FormEventPayload;
 import io.github.kortev.shootingstar.ShootingStar;
 import java.util.HashMap;
@@ -112,7 +115,23 @@ public class ReelSelfTest implements ClientModInitializer {
 	/** The merge's own camera from here (it's in the dark of the dream by then), to your getting up. */
 	private static final int ITS_OWN = MERGE + 74;
 	private static final int AWAKE = MERGE + MergeTimeline.RISE;
-	private static final int END = AWAKE + 117;
+	/** On your feet at the merge's end, the camera easing in on the cord in your chest, until you pull it. */
+	private static final int PULL = MERGE + MergeTimeline.END + 34;
+	/** Chainsaw Man: the transformation all its own (FormTimeline), then the fight, filmed again. */
+	private static final int FORM_ON = PULL + FormTimeline.END;
+	/** Out of the bin, over its front. */
+	private static final int OUT = FORM_ON + 6;
+	/** The kills, the three by the bin and the five coming out of the back door: the swings land on these ticks. */
+	private static final int[] KILLS = {OUT + 24, OUT + 36, OUT + 48, OUT + 62, OUT + 74, OUT + 86, OUT + 98, OUT + 110};
+	private static final String[] KILLED = {"Y2", "Y3", "Z5", "Y1", "Y4", "Boss", "Z6", "Z7"};
+	/** At the ones coming out of the back door. */
+	private static final int DASH = OUT + 54;
+	/** In through the back door at the Zombie Devil; the leap at it; cut in two; down again, in its blood. */
+	private static final int IN = OUT + 114;
+	private static final int LEAP = IN + 28;
+	private static final int CUT = LEAP + 11;
+	private static final int LAND = LEAP + 22;
+	private static final int END = LAND + 63;
 	/** How far ahead of the clock the stand-ins are placed: they get there over the next two ticks, as they're drawn. */
 	private static final int LEAD = 2;
 
@@ -145,6 +164,15 @@ public class ReelSelfTest implements ClientModInitializer {
 	private static final Vec3d POCHITA_IN = new Vec3d(27.0, 0.1, 4.15);
 	/** Where Denji's stand-in lands in the bin (his feet's place, had he any: his body lies west of it, face down). */
 	private static final Vec3d DENJI_IN = new Vec3d(28.05, 0.12, 3.75);
+	/** Where each of them is when cut down: the three by the bin, the five out of the back door. */
+	private static final Vec3d[] KILLED_AT = {new Vec3d(27.45, 0.0, 1.85), new Vec3d(27.5, 0.0, 2.7), new Vec3d(25.2, 0.0, 2.5),
+			new Vec3d(23.55, 0.0, 1.2), new Vec3d(23.25, 0.0, 0.9), new Vec3d(22.95, 0.0, 0.8), new Vec3d(22.65, 0.0, 0.6), new Vec3d(22.35, 0.0, 0.6)};
+	/** Where you stand, out of the bin; your steps at the back door, a kill at each; inside; landing. */
+	private static final Vec3d STAND = new Vec3d(26.35, 0.0, 2.1);
+	private static final Vec3d[] STEPS = {new Vec3d(24.7, 0.0, 1.2), new Vec3d(24.4, 0.0, 0.9), new Vec3d(24.1, 0.0, 0.8), new Vec3d(23.8, 0.0, 0.6),
+			new Vec3d(23.5, 0.0, 0.6)};
+	private static final Vec3d INSIDE = new Vec3d(20.2, 0.0, 0.4);
+	private static final Vec3d LANDING = new Vec3d(16.4, 0.0, 0.5);
 	/** The ones who close round him, in order round him. */
 	private static final String[] SWARM = {"Y1", "Y2", "Y3", "Y4", "Boss", "Z5", "Z6", "Z7"};
 	/** Their arms coming down on him. */
@@ -205,9 +233,11 @@ public class ReelSelfTest implements ClientModInitializer {
 			if (stage != Stage.RUN || !scene() || dreaming()) {
 				return;
 			}
-			if (t >= DEVIL && t < LID) {
-				ReelZombieDevil.render(matrices, consumers, origin.add(devilAt(t)), cam, 90.0F, DEVIL_SCALE, (float) t,
-						LightmapTextureManager.pack((int) MathHelper.lerp(ease(span(t, DEVIL + 10, DEVIL + 72)), 2.0, 10.0), 0));
+			if (t >= DEVIL) {
+				float facing = (float) MathHelper.lerp(ease(span(t, IN, IN + 20)), 90.0, 270.0);
+				ReelZombieDevil.render(matrices, consumers, origin.add(devilAt(t)), cam, facing, DEVIL_SCALE, (float) t,
+						LightmapTextureManager.pack((int) MathHelper.lerp(ease(span(t, DEVIL + 10, DEVIL + 72)), 2.0, 10.0), 0),
+						t >= CUT ? (float) (t - CUT) : -1.0F, origin.y);
 			}
 			ClientWorld world = context.world();
 			int light = WorldRenderer.getLightmapCoordinates(world, BlockPos.ofFloored(origin.add(27.0, BIN_HIGH + 0.4, 3.8)));
@@ -291,6 +321,19 @@ public class ReelSelfTest implements ClientModInitializer {
 				place(e.getValue(), p);
 			}
 		}
+		if (f >= OUT - 2 && f < END && client.player != null) {
+			Vec3d want = origin.add(you(f + LEAD));
+			client.player.setVelocity(want.subtract(client.player.getPos()));
+			float facing = youYaw(f + LEAD);
+			client.player.setYaw(facing);
+			client.player.setHeadYaw(facing);
+			client.player.setBodyYaw(facing);
+			client.player.setPitch(0.0F);
+			client.player.fallDistance = 0.0F;
+		}
+		if (f >= FORM_ON && f < END && client.options.getPerspective() != Perspective.THIRD_PERSON_BACK) {
+			client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
+		}
 		if (f >= SWAP && f < MERGE + 10 && client.player != null) {
 			// You, lying down along the bin (your head to the east end).
 			client.player.setYaw(90.0F);
@@ -308,7 +351,8 @@ public class ReelSelfTest implements ClientModInitializer {
 
 	/** A few frames saved as pictures along the way, to look at without the video. */
 	private static final int[] SCREENS = {40, 130, 230, 290, 340, 357, 380, 400, 450, 480, 512, 540, 570, 600, 640, 690, 700, 760, 790, 830,
-			850, 890, 912, 930, AWAKE + 6, AWAKE + 56, AWAKE + 106, Integer.MAX_VALUE};
+			850, 890, 912, 930, AWAKE + 6, AWAKE + 40, PULL - 4, FORM_ON + 4, OUT + 8, OUT + 24, OUT + 37, OUT + 48, DASH + 9, OUT + 75, OUT + 99,
+			IN + 14, LEAP + 6, CUT + 1, CUT + 8, LAND + 4, LAND + 30, END - 26, Integer.MAX_VALUE};
 	private static int shots;
 
 	private static void start(MinecraftClient client, IntegratedServer server) {
@@ -611,9 +655,130 @@ public class ReelSelfTest implements ClientModInitializer {
 				act(z, Act.ZOMBIE, f);
 			}
 		}
-		if (f == AWAKE + 18 || f == AWAKE + 46 || f == AWAKE + 80) {
+		if (f == AWAKE + 18 || f == AWAKE + 46) {
 			sound(origin.add(IN_THE_BIN).add(0.0, 1.5, 0.0), SoundEvents.ENTITY_PLAYER_BREATH, 0.9F, 0.9F);
 		}
+		// 15, The cord pulled: the transformation, all its own, its own camera.
+		if (f == PULL) {
+			Capture.camera = null;
+			server.execute(() -> Form.pullCord(player(server)));
+		}
+		if (f == PULL + FormTimeline.ROAR_END) {
+			Capture.camera = time -> cam(now());
+		}
+		// 16, Chainsaw Man: the ones by the bin come at him, and the rest out of the back door; he cuts them all down.
+		for (int i = 0; i < KILLS.length; i++) {
+			if (f == KILLS[i] - 2) {
+				server.execute(() -> Saw.slash(player(server)));
+				sound(origin.add(you(f)).add(0.0, 1.2, 0.0), ChainsawSounds.SLASH, 1.0F, 1.0F);
+			}
+			if (f == KILLS[i]) {
+				LivingEntity dead = ACTORS.get(KILLED[i]);
+				if (dead != null) {
+					Vec3d hit = dead.getPos().add(0.0, 1.1, 0.0);
+					ClientCombat.event(new FormEventPayload(client.player.getUuid(), FormEventPayload.IMPACT, dead.getId(), hit.x, hit.y, hit.z));
+					ClientCombat.event(new FormEventPayload(client.player.getUuid(), FormEventPayload.KILL, dead.getId()));
+					ACTORS.remove(KILLED[i]);
+					world.removeEntity(dead.getId(), Entity.RemovalReason.KILLED);
+					sound(hit, ChainsawSounds.HIT, 1.0F, 0.85F + i % 3 * 0.08F);
+				}
+			}
+		}
+		if (f == FORM_ON + 2 || f == OUT + 40 || f == DASH + 2 || f == OUT + 80) {
+			String who = f == FORM_ON + 2 ? "Y2" : f == OUT + 40 ? "Z5" : f == DASH + 2 ? "Y1" : "Z6";
+			sound(at(who).add(0.0, 1.6, 0.0), SoundEvents.ENTITY_ZOMBIE_AMBIENT, 1.1F, 0.7F + (f % 3) * 0.06F);
+		}
+		// 17, The Zombie Devil: the leap, the cut through it, the blood raining down on him.
+		if (f == LEAP) {
+			sound(origin.add(INSIDE).add(0.0, 1.0, 0.0), ChainsawSounds.START, 1.2F, 1.0F);
+		}
+		if (f == CUT - 2) {
+			server.execute(() -> Saw.slash(player(server)));
+			sound(origin.add(you(f)).add(0.0, 1.2, 0.0), ChainsawSounds.SLASH, 1.2F, 0.8F);
+		}
+		if (f == CUT) {
+			Vec3d c = origin.add(devilAt(CUT)).add(0.0, -1.3, 0.0);
+			sound(c, ChainsawSounds.HIT, 1.4F, 0.6F);
+			sound(c, ChainsawSounds.CRUNCH, 1.4F, 0.6F);
+			sound(c, SoundEvents.ENTITY_RAVAGER_DEATH, 1.3F, 0.6F);
+			sound(c, SoundEvents.ENTITY_SLIME_DEATH, 1.4F, 0.5F);
+			bleed(world, c, 70);
+			for (int i = 0; i < 40; i++) {
+				world.addParticle(DROP, c.x, c.y, c.z, (world.random.nextDouble() - 0.5) * 0.9, world.random.nextDouble() * 0.6,
+						(world.random.nextDouble() - 0.5) * 0.9);
+			}
+			Sfx.show(Sfx.KILL, 0.2F, 26, now);
+			LensBlood.splash(8, now);
+		}
+		if (f >= CUT && f < CUT + 70) {
+			// Its blood, raining down.
+			for (int i = 0; i < 12; i++) {
+				Vec3d drop = origin.add(LANDING).add((world.random.nextDouble() - 0.4) * 7.0, 6.5 + world.random.nextDouble(),
+						(world.random.nextDouble() - 0.5) * 6.0);
+				world.addParticle(i % 3 == 0 ? BLOOD : DROP, drop.x, drop.y, drop.z, 0.0, -0.25, 0.0);
+			}
+		}
+		if (f == CUT + 15) {
+			Vec3d c = origin.add(devilAt(CUT)).withAxis(net.minecraft.util.math.Direction.Axis.Y, origin.y + 0.3);
+			sound(c, SoundEvents.ENTITY_SLIME_SQUISH, 1.4F, 0.4F);
+			sound(c, SoundEvents.BLOCK_ANVIL_LAND, 0.5F, 0.5F);
+		}
+		if (f == LAND) {
+			sound(origin.add(LANDING), SoundEvents.ENTITY_PLAYER_BIG_FALL, 1.0F, 0.8F);
+		}
+		if (f == LAND + 10 || f == LAND + 34) {
+			sound(origin.add(LANDING).add(0.0, 1.5, 0.0), ChainsawSounds.IDLE, 1.0F, 1.0F);
+		}
+		if (f == LAND + 22) {
+			sound(origin.add(LANDING).add(0.0, 1.5, 0.0), ChainsawSounds.START, 1.0F, 1.1F);
+		}
+	}
+
+	/** Where you are at {@code s} as Chainsaw Man: out over the bin's front; at the back door; in at the devil; landing. */
+	private static Vec3d you(double s) {
+		if (s < OUT) {
+			return IN_THE_BIN;
+		}
+		if (s < OUT + 10) {
+			double k = span(s, OUT, OUT + 10);
+			return IN_THE_BIN.lerp(STAND, k).add(0.0, 1.35 * 4.0 * k * (1.0 - k), 0.0);
+		}
+		if (s < DASH) {
+			return STAND;
+		}
+		if (s < DASH + 8) {
+			return STAND.lerp(STEPS[0], ease(span(s, DASH, DASH + 8)));
+		}
+		for (int i = 1; i < STEPS.length; i++) {
+			if (s < KILLS[3 + i] - 4) {
+				return STEPS[i - 1];
+			}
+			if (s < KILLS[3 + i]) {
+				return STEPS[i - 1].lerp(STEPS[i], ease(span(s, KILLS[3 + i] - 4, KILLS[3 + i])));
+			}
+		}
+		if (s < LEAP) {
+			return STEPS[STEPS.length - 1].lerp(INSIDE, span(s, KILLS[7] + 4, LEAP - 2));
+		}
+		if (s < LAND) {
+			double k = span(s, LEAP, LAND);
+			return INSIDE.lerp(LANDING, k).add(0.0, 2.6 * 4.0 * k * (1.0 - k), 0.0);
+		}
+		return LANDING;
+	}
+
+	/** The way you face at {@code s}: at each of them as they come; at the door, and in; at the camera, landed. */
+	private static float youYaw(double s) {
+		if (s < OUT) {
+			return 90.0F;
+		}
+		for (int i = 0; i < 3; i++) {
+			if (s < KILLS[i] + 2) {
+				float from = i == 0 ? 90.0F : yaw(STAND, KILLED_AT[i - 1]);
+				return turn(from, yaw(STAND, KILLED_AT[i]), ease(span(s, i == 0 ? OUT : KILLS[i - 1] + 2, KILLS[i] - 3)));
+			}
+		}
+		return turn(yaw(STAND, KILLED_AT[2]), 90.0F, ease(span(s, KILLS[2] + 2, DASH)));
 	}
 
 	/** Blood out of {@code at}, up and a little out. */
@@ -776,11 +941,23 @@ public class ReelSelfTest implements ClientModInitializer {
 			put("Pochita", origin.add(POCHITA_IN).add(0.0, s > STIRS - 4 && s < STIRS + 12 ? 0.06 * stir : 0.0, 0.0), 60.0F,
 					60.0F + (s > STIRS ? 12.0F * (float) stir : 0.0F), 0.0F);
 		} else {
-			// 14, The ones left, round the bin, as you rise out of it.
-			Vec3d bin = o(27.0, 0.0, 3.8);
-			put("Y2", o(28.6, 0.0, 1.1), yaw(o(28.6, 0.0, 1.1), bin), yaw(o(28.6, 0.0, 1.1), bin), 10.0F);
-			put("Y3", o(30.0, 0.0, 4.6), yaw(o(30.0, 0.0, 4.6), bin), yaw(o(30.0, 0.0, 4.6), bin), 10.0F);
-			put("Z5", o(29.2, 0.0, 6.6), yaw(o(29.2, 0.0, 6.6), bin), yaw(o(29.2, 0.0, 6.6), bin), 10.0F);
+			// 14 and 16, The ones left, round the bin as you rise out of it, then coming at you; the rest out of the back
+			// door at you, one after another.
+			Vec3d you = origin.add(you(s));
+			Vec3d[][] ways = {{o(28.6, 0.0, 1.1), o(28.6, 0.0, 1.1), origin.add(KILLED_AT[0])},
+					{o(30.0, 0.0, 4.6), o(29.4, 0.0, 2.4), origin.add(KILLED_AT[1])},
+					{o(29.2, 0.0, 6.6), o(24.9, 0.0, 5.6), origin.add(KILLED_AT[2])}};
+			for (int i = 0; i < 3; i++) {
+				Vec3d at = path(ways[i], s, FORM_ON + 2 + i * 2, FORM_ON + 30, KILLS[i] - 2);
+				float face = s < FORM_ON ? yaw(at, o(27.0, 0.0, 3.8)) : yaw(at, you);
+				put(KILLED[i], at, face, face, 10.0F);
+			}
+			for (int i = 3; i < KILLED.length; i++) {
+				Vec3d from = o(20.6 - (i - 3) * 0.9, 0.0, 0.5);
+				Vec3d at = walk(from, origin.add(KILLED_AT[i]), s, FORM_ON + 10 + (i - 3) * 6, KILLS[i] - 2);
+				float face = yaw(at, you);
+				put(KILLED[i], at, face, face, 15.0F);
+			}
 		}
 	}
 
@@ -925,11 +1102,34 @@ public class ReelSelfTest implements ClientModInitializer {
 				at = o(26.4, 0.92, 3.25);
 				look = o(27.0, 0.2, 4.1);
 			} else {
-				// 14, Low at the bin's end as it bursts open and you rise; then easing in on the cord in your chest.
-				double k = ease(span(t, AWAKE + 40, END - 8));
-				double rise = ease(span(t, AWAKE, AWAKE + 40));
-				at = o(23.6, 0.8, 2.4).lerp(o(23.9, 1.15, 2.9), rise).lerp(o(24.9, 1.45, 3.65), k);
-				look = o(26.6, 1.0, 3.8).lerp(o(26.3, 1.4, 3.8), rise).lerp(o(26.0, 1.2, 3.8), k);
+				if (t < PULL) {
+					// 14, Low at the bin's end as it bursts open and you rise; then easing in on the cord in your chest.
+					double k = ease(span(t, AWAKE + 40, PULL));
+					double rise = ease(span(t, AWAKE, AWAKE + 40));
+					at = o(23.6, 0.8, 2.4).lerp(o(23.9, 1.15, 2.9), rise).lerp(o(24.9, 1.45, 3.65), k);
+					look = o(26.6, 1.0, 3.8).lerp(o(26.3, 1.4, 3.8), rise).lerp(o(26.0, 1.2, 3.8), k);
+				} else if (t < DASH) {
+					// 16, Low off the bin's front corner: out of it, and at the three of them by it.
+					at = o(23.6, 1.1, -1.0);
+					look = origin.add(you(t)).add(0.5, 1.1, 0.3);
+				} else if (t < IN) {
+					// From behind him at the back door, them coming out of it at him.
+					at = o(28.6, 1.7, 2.6);
+					look = origin.add(you(t)).add(0.0, 1.1, 0.0).lerp(o(22.4, 1.2, 0.6), 0.45);
+				} else if (t < LEAP) {
+					// 17, Inside, low, past the Zombie Devil: him coming in through the back door.
+					at = o(15.0, 0.7, 2.6);
+					look = o(21.0, 1.5, 0.4);
+				} else if (t < LAND) {
+					// Low and side on: the leap, and the cut.
+					at = o(19.6, 0.35, 4.4);
+					look = o(18.2, 2.6, 0.2);
+				} else {
+					// Low in front of him, in its blood coming down; easing in.
+					double k = ease(span(t, LAND, END));
+					at = o(12.6, 0.6, 1.6).lerp(o(13.2, 0.75, 1.4), k);
+					look = o(16.4, 1.5, 0.5);
+				}
 			}
 		}
 		return shaken(look(at, look), t);
@@ -948,14 +1148,23 @@ public class ReelSelfTest implements ClientModInitializer {
 				return lens[1];
 			}
 		}
-		return (float) MathHelper.lerp(ease(span(t, AWAKE + 40, END - 8)), 70.0, 56.0);
+		if (t < PULL) {
+			return (float) MathHelper.lerp(ease(span(t, AWAKE + 40, PULL)), 70.0, 56.0);
+		}
+		float[][] fight = {{DASH, 62.0F}, {IN, 64.0F}, {LEAP, 60.0F}, {LAND, 72.0F}};
+		for (float[] lens : fight) {
+			if (t < lens[0]) {
+				return lens[1];
+			}
+		}
+		return 62.0F;
 	}
 
 	/** The camera shaken: the doors slamming, the knives, the devil rising, the lid banging shut and bursting open. */
 	private static Capture.Pose shaken(Capture.Pose pose, double t) {
 		double s = 0.0;
-		for (int at : new int[] {267, SHUT_IN, AWAKE}) {
-			s = Math.max(s, t >= at ? 0.06 * Math.exp(-(t - at) / 4.0) : 0.0);
+		for (int at : new int[] {267, SHUT_IN, AWAKE, CUT, LAND}) {
+			s = Math.max(s, t >= at ? (at == CUT ? 0.09 : 0.06) * Math.exp(-(t - at) / 4.0) : 0.0);
 		}
 		s = Math.max(s, t >= STAB ? 0.025 * Math.exp(-(t - STAB) / 3.0) : 0.0);
 		if (t > DEVIL + 10 && t < DEVIL + 72) {
