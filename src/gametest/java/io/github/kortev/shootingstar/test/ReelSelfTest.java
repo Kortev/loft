@@ -190,7 +190,7 @@ public class ReelSelfTest implements ClientModInitializer {
 	}
 
 	private static boolean scene() {
-		return !"cast".equals(target()) && !"set".equals(target());
+		return target().isEmpty();
 	}
 
 	private static boolean capturing() {
@@ -284,6 +284,8 @@ public class ReelSelfTest implements ClientModInitializer {
 					cast(client, ticks);
 				} else if ("set".equals(target())) {
 					set(client, ticks);
+				} else if ("den".equals(target())) {
+					den(client, ticks);
 				} else {
 					reel(client, ticks);
 				}
@@ -1535,6 +1537,31 @@ public class ReelSelfTest implements ClientModInitializer {
 		}
 	}
 
+	/**
+	 * Where the wild Pochita waits (PochitaPlace's fallen tree), built on the world's own ground in the morning:
+	 * photographed wide, along his blood's trail, close under the trunk, at its roots, at its broken end and its crown,
+	 * and from the other side.
+	 */
+	private static void den(MinecraftClient client, int f) {
+		double[][][] shots = {{{-9.0, 5.0, -13.0}, {1.0, 0.5, 0.5}}, {{3.5, 1.2, -13.0}, {0.0, 0.3, 0.0}}, {{0.6, 0.5, -2.6}, {0.0, 0.3, 0.3}},
+				{{-11.0, 2.0, -4.0}, {-6.0, 1.5, 0.5}}, {{9.0, 3.0, -6.0}, {5.0, 1.0, 0.5}}, {{-2.0, 1.4, 6.0}, {0.0, 0.6, 0.0}}};
+		String[] names = {"den_wide", "den_trail", "den_under", "den_roots", "den_break", "den_other_side"};
+		if (f == 1) {
+			client.options.hudHidden = true;
+		}
+		int shot = (f - 1) / 30;
+		if (shot < shots.length && (f - 1) % 30 == 0) {
+			camera(origin.add(shots[shot][0][0], shots[shot][0][1], shots[shot][0][2]), origin.add(shots[shot][1][0], shots[shot][1][1],
+					shots[shot][1][2]));
+		}
+		if (shot < shots.length && (f - 1) % 30 == 25) {
+			shot(client, names[shot]);
+		}
+		if (shot >= shots.length) {
+			stage = Stage.DONE;
+		}
+	}
+
 	/** The camera fixed at {@code at}, looking at {@code look} (through the capture's camera, filming or not). */
 	private static void camera(Vec3d at, Vec3d look) {
 		Capture.Pose pose = look(at, look);
@@ -1556,6 +1583,19 @@ public class ReelSelfTest implements ClientModInitializer {
 		ServerPlayerEntity player = player(server);
 		ServerWorld world = server.getOverworld();
 		boolean cast = "cast".equals(target());
+		if ("den".equals(target())) {
+			// Pochita's fallen tree, on the world's own ground a way off, in the morning.
+			world.setTimeOfDay(2500);
+			world.setWeather(12000, 0, false, false);
+			server.getGameRules().get(GameRules.DO_DAYLIGHT_CYCLE).set(false, server);
+			BlockPos spot = world.getTopPosition(net.minecraft.world.Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, player.getBlockPos().add(40, 0, 12));
+			io.github.kortev.chainsawman.PochitaPlace.waiting(world, spot, net.minecraft.util.math.Direction.Axis.X);
+			player.changeGameMode(GameMode.SPECTATOR);
+			player.teleport(world, spot.getX() + 0.5, spot.getY() + 4.0, spot.getZ() - 8.0, 0.0F, 0.0F);
+			origin = Vec3d.ofBottomCenter(spot);
+			ShootingStar.LOGGER.info("[selftest] reel1: den at {}", spot);
+			return;
+		}
 		world.setTimeOfDay(cast ? 6000 : 18000);
 		if (cast) {
 			world.setWeather(12000, 0, false, false);

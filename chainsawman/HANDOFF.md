@@ -4,6 +4,70 @@ You are picking this up with nothing but this GitHub repository (`Kortev/loft`).
 kortev's PC, and none of the reference images they sent come with it. Everything you need is in this file and the
 repo. Read it all before doing anything, then read the repo's own `HANDOFF.md` at the root for the wider project.
 
+## Start here: where things stand (2026-10-20, late)
+
+kortev moves between Claude accounts when one runs out; this section is what the next session needs first. The rest
+of the file is the full record.
+
+**In progress: Pochita's spot in the world, redone** (kortev: "this hollowed log looks like shit"; for the mod itself,
+not for a reel). kortev picked, from three options: **a big fallen tree** (over a den under a rock, or a junk pile), with
+**a blood trail leading to him** and **signs of a fight** round it. Where it stands:
+
+- `PochitaPlace.den` (replacing the old `log`) builds it, used by `choose` (the world's own Pochita, placed once per
+  world) and by `waiting` (`/chainsaw pochita`, `/chainsaw scene`). First version: a small clearing levelled and
+  cleared; the roots torn up at one end, standing on edge over the hole they left (dirt, rooted dirt, mangrove roots,
+  hanging roots); a 2x2 trunk raised a block off the ground so he lies in the gap under it, moss carpet on top, vines
+  down its sides; a broken limb under it; a jagged snapped-off end with stripped-log splinters; the crown down in a heap
+  of persistent leaves past the break; broken branches, scattered leaves and streaks of coarse dirt (the fight); a
+  trail of redstone-dust drops in from the clearing's edge to him (placed without block updates, so they stay dots).
+- **Photograph it** with `./gradlew runSelftest -Pselftest=reel1 -Pusername=Denji -Ptarget=den`: it builds the spot
+  on the test world's own ground 40 blocks from spawn and saves `build/selftest/screenshots/reel_den_*.png` (wide,
+  along the trail, under the trunk, the roots, the break, the other side).
+- **What the first photos showed, and the fixes planned** (not done yet):
+  - It landed on a badlands mesa: the levelling cut steps into the terracotta, and the biome tinted the grass and
+    leaves brown. `choose` should take only a forest, plains, meadow or taiga spot (`BiomeTags.IS_FOREST`,
+    `IS_TAIGA`, `BiomeKeys.PLAINS`, `MEADOW`, ...) that's fairly flat (sample the ground round the footprint; reject a
+    spread of more than about 4 blocks), trying more spots (about 32), falling back to any dry flat one, then to spawn.
+  - The 2x2 trunk reads as a wooden wall. Give it a round profile (a plus-shaped slice, corners empty, moss carpet on
+    the side shoulders), raised at the root end with him under it, tapering and resting on the ground at the broken end.
+  - The stripped-log splinters read as pale boxes: use one or two oak fence posts (unconnected) as splinters instead.
+  - The root plate is too much mangrove roots: fewer behind it.
+  - kortev's own survival world (`run/saves/New World (23)`, Pochita at x 123, y 118, z 379, the old log) was placed
+    before this. Plan: a version number in the saved state (`Built`, 0 for old saves); on server start, an old one is
+    rebuilt once round the same spot (only blocks; Pochita stays where he lies), unless he's already someone's heart.
+  - Then photograph again and **send kortev the pictures before calling it done** (rule 4).
+
+**Waiting on kortev**: their notes on reel 1 (sent: a 96 s cut; see "Reels" below), and whether its chainsaw ending
+stays (they said keep it, worst case cut it later). No music in it (they let that go).
+
+**kortev's queue of ideas** (ask before building any): the merge dead a while first, as reel 1 has it (below, "Later
+ideas"); more reels after reel 1 (anime scenes or skits); the black chainsaw (build nothing until kortev describes
+it); Beam the shark as an ult; the "I'll give you my heart" clip. Older open items: the shader-pack check (needs
+kortev's OK to download Fabric 1.21.1 Sodium + Iris), the multiplayer test (written, never run), balance after play,
+the stretched cord in your own camera, the chain's drag in water (not filmed), hearts against the blood bar.
+
+**How kortev works with you right now**: often on their phone, remoting in, unable to test. Send videos and pictures
+(the app's send-file tool) of every change, short and plain. The recipes:
+
+- Game tests: `./gradlew runGametest` (76, all passing; `aimedHitsLand` flaked once in nine runs).
+- Self tests with pictures and video: `./gradlew runSelftest -Pselftest=form -Pusername=kortev -Ptarget=...`
+  (`merge`, `limbs`, `pvp`, `kill`, `scene`, `chain`, ...) and `-Pselftest=reel1 -Pusername=Denji` (the reel;
+  `-Ptarget=cast`, `set`, `den` for pictures). Add `-Pcapture=true` for a video with its sounds, frame by frame, into
+  `build/selftest/capture`; then `python .github/scripts/render-loops.py build/selftest/capture` and
+  `python .github/scripts/mux-audio.py build/selftest/capture out.mp4`.
+- Video needs `ffmpeg` on the PATH of the shell that runs gradle. This PC has none installed: copy Python's
+  imageio-ffmpeg binary (`python -c "import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())"`) into a folder
+  as `ffmpeg.exe` and put that folder first on the PATH. `mux-audio.py` also wants `ffprobe`, which that package
+  lacks: in a copy of the script, read the video's length off `ffmpeg -i` instead.
+- On this PC, bash here-documents containing apostrophes fail in the tool shell: write edits as Python scripts to a
+  file and run them.
+
+**Things learned the hard way**: client-only stand-in players never get the mod's downed pose (their pose stays
+standing; the reel lays them down itself); spectators see invisible entities (don't test hiding things as a
+spectator); the test world keeps everything between runs (the reel clears its set's entities at setup and takes your
+heart away again); a model poking out through something drawn rather than built (the reel's dumpster) looks like a
+stray entity: log the entities near it before chasing one.
+
 ## Where the work is
 
 - **Branch: `claude/chainsaw-man`.** All of this mod's work is there and nowhere else. It is **not merged into
@@ -13,8 +77,8 @@ repo. Read it all before doing anything, then read the repo's own `HANDOFF.md` a
   neither PR is merged yet and this mod needs both. Those two PRs conflict in one file
   (`gojolander/src/client/resources/gojolander.client.mixins.json`); it is already resolved on this branch.
 - **No PR and nothing into `main` without kortev's OK.** Merging is their call.
-- CI (`build` workflow: `build` and `gametest` jobs) is green on the branch as of the last commit. All 55 game tests
-  pass.
+- CI (`build` workflow: `build` and `gametest` jobs) was green on the branch when last checked. All 76 game tests
+  pass locally (2026-10-20).
 
 ## The project in one paragraph
 

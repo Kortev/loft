@@ -153,7 +153,7 @@ public final class ChainsawCommand {
 		}
 	}
 
-	/** A wild Pochita fainted in a hollow log at {@code at}. */
+	/** A wild Pochita fainted under a fallen tree at {@code at}. */
 	private static void pochita(ServerPlayerEntity player, Vec3d at) {
 		PochitaPlace.waiting(player.getServerWorld(), BlockPos.ofFloored(at.x, player.getY(), at.z),
 				// Lying across your way, an open end toward you.
