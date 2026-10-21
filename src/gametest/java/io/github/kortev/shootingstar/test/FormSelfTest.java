@@ -879,7 +879,7 @@ public class FormSelfTest implements ClientModInitializer {
 	 * which a stand-in never sends: all of them on.
 	 */
 	@SuppressWarnings("unchecked")
-	private static void showEveryLayer(PlayerEntity player) {
+	static void showEveryLayer(PlayerEntity player) {
 		try {
 			Field parts = PlayerEntity.class.getDeclaredField("PLAYER_MODEL_PARTS");
 			parts.setAccessible(true);

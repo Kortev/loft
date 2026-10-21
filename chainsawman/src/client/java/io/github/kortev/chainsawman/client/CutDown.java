@@ -59,9 +59,10 @@ public final class CutDown {
 	}
 
 	/** {@code killer}'s saws killed the mob {@code id}: keep its body, to come apart. */
-	static void killed(ClientWorld world, int id, long now) {
+	public static void killed(ClientWorld world, int id, long now) {
 		Entity entity = world.getEntityById(id);
-		if (!(entity instanceof LivingEntity body) || entity instanceof PlayerEntity) {
+		// (Not a real player, who comes back; a film's stand-in, only here, can be cut down.)
+		if (!(entity instanceof LivingEntity body) || entity instanceof PlayerEntity && entity.getId() >= 0) {
 			return;
 		}
 		// Not red, not toppling as the game's own dead do: it comes apart instead.

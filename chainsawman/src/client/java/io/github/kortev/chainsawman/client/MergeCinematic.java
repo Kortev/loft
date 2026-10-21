@@ -517,7 +517,10 @@ public final class MergeCinematic {
 		for (int beat : MergeTimeline.BEATS) {
 			punch = Math.max(punch, pulse(t, beat, 0.07, 3.0));
 		}
-		return lens(t) * (1.0F - (float) punch);
+		// Filmed tall (a reel, 9:16): the lens opened up, so what was framed for a wide picture still fits across it.
+		net.minecraft.client.util.Window window = MinecraftClient.getInstance().getWindow();
+		float tall = window.getFramebufferHeight() > window.getFramebufferWidth() ? 1.45F : 1.0F;
+		return lens(t) * tall * (1.0F - (float) punch);
 	}
 
 	/** The red at the edges of the screen: throbbing with each beat, flooding as he plunges into you. */
@@ -597,6 +600,9 @@ public final class MergeCinematic {
 	}
 
 	/** The black bars closing in at the top and bottom as you die, and opening as you rise; his lines in the bottom one. */
+	/** Whether the end shows "Pull the cord" in the bottom bar (not in a film: a reel's end isn't a game's). */
+	public static boolean prompt = true;
+
 	public static void bars(DrawContext ctx, float tickDelta) {
 		float t = mine(tickDelta);
 		if (t < 0.0F) {
@@ -657,7 +663,7 @@ public final class MergeCinematic {
 			ctx.drawCenteredTextWithShadow(client.textRenderer, said, w / 2, y, a | (MergeTimeline.POCHITA_SAYS[i] ? 0xFFC98A : 0xF2F2F2));
 		}
 		Merging m = client.player != null ? MERGING.get(client.player.getUuid()) : null;
-		if (m != null && m.waiting()) {
+		if (prompt && m != null && m.waiting()) {
 			// Yours to pull.
 			float in = MathHelper.clamp((t - MergeTimeline.END) / 10.0F, 0.0F, 1.0F);
 			float throb = 0.85F + 0.15F * MathHelper.sin(t * 0.25F);

@@ -18,7 +18,14 @@
 		"FilmMouseAccessor",
 		"FilmClickInvoker",
 		"FilmLookMixin",
-		"FilmHandMixin"
+		"FilmHandMixin",
+		"ReelPoseMixin",
+		"ReelBodyMixin",
+		"ReelHudMixin",
+		"ReelDreamMixin",
+		"ReelLensMixin",
+		"ReelLabelMixin",
+		"ReelBloodHudMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

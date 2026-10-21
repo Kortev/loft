@@ -426,6 +426,33 @@ default; `/chainsawhead mesh` (client) and the selftest's `-Ptarget=meshhead` sh
   `pvp` (a stand-in player, `Rival`, with a shield: the combo, first person then from behind). The recorder now
   judges sounds from where the game hears, not the camera.
 
+### Reels: anime scenes recreated in the mod, for content (kortev's idea, 2026-10-20)
+
+kortev wants a run of short vertical reels, each an anime scene recreated in the mod and fully animated (scripted,
+not played live). Reel 1 is episode 1, from the storyboard kortev approved (an Artifact, "Reel 1: Betrayed"), then
+restaged as kortev remembers the episode: no chainsaw fight; Denji and Pochita stabbed in the back at the same moment by
+two of the yakuza; the Zombie Devil rising; the yakuza turning; the zombies finishing Denji off on the floor; dragged
+out and thrown in a dumpster with Pochita; dead a while in the dark of it, his blood dripping onto Pochita, who stirs
+just enough; the mod's own merge; the lid bursting open and Denji rising with the cord in his chest. No voices but
+the merge's. About 84 seconds.
+
+- **Run it**: `./gradlew runSelftest -Pselftest=reel1 -Pusername=Denji` (with ffmpeg on the PATH and
+  `-Pcapture=true` to record it; then `render-loops.py` and `mux-audio.py` as for the form's videos). `-Ptarget=cast`
+  photographs the cast and the Zombie Devil, `-Ptarget=set` the set. It saves `reel_frame_<tick>.png` stills along
+  the way, to look over without the video.
+- **All of it is test code** (`src/gametest/.../test`): `ReelSelfTest` (the script: each cut's blocking, camera, lens,
+  sounds and events, by tick), `ReelSet` (the shack, the warehouse, the alley, built high over the clouds at night in
+  the rain, with its lamps), `ReelZombieDevil` (its own model, `tools/reel_textures.py`), `ReelDumpster` (drawn, its lid
+  swinging), and mixins for the stand-ins' poses (`ReelPoseMixin`, `ReelBodyMixin`), no names over heads, no HUD but
+  the mod's lettering, lens blood and the merge's bars, the lens per cut, and the set gone in the merge's dream (no
+  blocks, clouds or rain). The actors are client-only stand-ins in skins from `tools/skins/reel` (Denji in kortev's
+  onesie); you're swapped in for Denji's stand-in in the dumpster, for the merge.
+- **What the mod opened up for it** (no change in play): `Sfx.show`, `Severed.off`, `CutDown.killed` (a film's
+  stand-in can be cut down), `LensBlood.filmed` and `splash` (blood on a film camera's lens), `MergeCinematic.prompt`
+  (the end's "Pull the cord" off), and the merge's lens opened up when filmed tall.
+- **Waiting on kortev**: their notes on the first cut; which music they meant ("I really like this music", while a
+  test run was playing).
+
 ### 4. Still to do from kortev's picks (agreed, not built yet)
 
 - **The transformation polish** above still open: the stretched cord in your own camera.
@@ -438,6 +465,8 @@ default; `/chainsawhead mesh` (client) and the selftest's `-Ptarget=meshhead` sh
 
 ### Later ideas kortev has had (not designed; ask before building)
 
+- **The merge dead a while first** (2026-10-20): Denji lying dead for a moment before Pochita comes, as reel 1 has it
+  in the dumpster (his blood dripping onto Pochita, who stirs).
 - **Blood on the lens for kills**: see the polish list above; saved in the history.
 
 ### Later: Pochita as a real animal (kortev's idea, 2026-10-19; not designed yet)

@@ -77,7 +77,7 @@ public final class Severed {
 	}
 
 	/** {@code player}'s {@code which} limb comes off now. */
-	static void off(AbstractClientPlayerEntity player, int which, long now) {
+	public static void off(AbstractClientPlayerEntity player, int which, long now) {
 		boolean arm = which <= LEFT_ARM;
 		float side = which == RIGHT_ARM || which == RIGHT_LEG ? -1.0F : 1.0F;
 		Vec3d right = Vec3d.fromPolar(0.0F, player.getBodyYaw() + 90.0F).multiply(side);

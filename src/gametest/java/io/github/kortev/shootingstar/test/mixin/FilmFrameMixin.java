@@ -21,7 +21,7 @@ public abstract class FilmFrameMixin {
 
 	@Inject(method = "updateFramebufferSize", at = @At("TAIL"))
 	private void shootingstar$filmFrame(CallbackInfo ci) {
-		if (FilmSelfTest.filming()) {
+		if (FilmSelfTest.filming() || io.github.kortev.shootingstar.test.ReelSelfTest.active()) {
 			framebufferWidth = FilmSelfTest.WIDTH;
 			framebufferHeight = FilmSelfTest.HEIGHT;
 		}
@@ -29,7 +29,7 @@ public abstract class FilmFrameMixin {
 
 	@Inject(method = "onFramebufferSizeChanged", at = @At("HEAD"), cancellable = true)
 	private void shootingstar$keepFilmFrame(long window, int width, int height, CallbackInfo ci) {
-		if (FilmSelfTest.filming()) {
+		if (FilmSelfTest.filming() || io.github.kortev.shootingstar.test.ReelSelfTest.active()) {
 			ci.cancel();
 		}
 	}

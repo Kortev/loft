@@ -30,6 +30,8 @@ public final class LensBlood {
 	}
 
 	private static final List<Splat> ON = new CopyOnWriteArrayList<>();
+	/** A film's camera, off you: splats on its lens all the same. */
+	public static boolean filmed;
 
 	private LensBlood() {
 	}
@@ -61,6 +63,15 @@ public final class LensBlood {
 		}
 	}
 
+	/** {@code count} splats on the lens now, out at the edges (a film's: whoever's camera it is). */
+	public static void splash(int count, long now) {
+		for (int i = 0; i < count; i++) {
+			float x = RANDOM.nextBoolean() ? 0.05F + RANDOM.nextFloat() * 0.25F : 0.7F + RANDOM.nextFloat() * 0.25F;
+			float y = 0.05F + RANDOM.nextFloat() * 0.75F;
+			ON.add(new Splat(now, x, y, 0.14F + RANDOM.nextFloat() * 0.12F, RANDOM.nextInt(3), RANDOM.nextBoolean()));
+		}
+	}
+
 	public static void render(DrawContext ctx, RenderTickCounter counter) {
 		MinecraftClient client = MinecraftClient.getInstance();
 		if (ON.isEmpty() || client.player == null) {
@@ -73,7 +84,7 @@ public final class LensBlood {
 		RenderSystem.enableBlend();
 		for (Splat s : ON) {
 			float t = now - s.at() + tickDelta;
-			if (t > LASTS || client.gameRenderer.getCamera().isThirdPerson()) {
+			if (t > LASTS || client.gameRenderer.getCamera().isThirdPerson() && !filmed) {
 				ON.remove(s);
 				continue;
 			}

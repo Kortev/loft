@@ -52,7 +52,7 @@ public final class Sfx {
 	}
 
 	/** {@code word} slammed onto the screen now, off to one side of the middle, for {@code lasts} ticks. */
-	static void show(int[] word, float size, int lasts, long now) {
+	public static void show(int[] word, float size, int lasts, long now) {
 		// One sound to a moment: a kill's takes the place of the hit's that came with it.
 		ON.removeIf(w -> now - w.at() <= 1);
 		float side = RANDOM.nextBoolean() ? 1.0F : -1.0F;
