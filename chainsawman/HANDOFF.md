@@ -453,8 +453,7 @@ cut in two), walks in, leaps and cuts the Zombie Devil in two in a rain of its b
 - **What the mod opened up for it** (no change in play): `Sfx.show`, `Severed.off`, `CutDown.killed` (a film's
   stand-in can be cut down), `LensBlood.filmed` and `splash` (blood on a film camera's lens), `MergeCinematic.prompt`
   (the end's "Pull the cord" off), and the merge's lens opened up when filmed tall.
-- **Waiting on kortev**: their notes on the first cut; which music they meant ("I really like this music", while a
-  test run was playing).
+- **Waiting on kortev**: their notes on the cut (and whether the chainsaw ending stays). No music (kortev let it go).
 
 ### 4. Still to do from kortev's picks (agreed, not built yet)
 
