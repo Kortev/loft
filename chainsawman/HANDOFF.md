@@ -126,7 +126,29 @@ tall within 3 blocks of you, else the action bar says so and nothing is spent) a
   `beam` in `ShowcaseSelfTest` still expects the old automatic bites (he now bites only when the attack key is pressed), so it
   needs a `Saw.slash` call per bite before it is filmed again, and its cameras were set for the smaller Beam.
 
-**Waiting on kortev**: nothing on reel 1 any more (dropped for the showcases).
+**Latest (2026-10-22, afternoon) — read this first:**
+- **How kortev wants the work done**: Opus (the main session) plans and reviews; **Sonnet 5.5 subagents execute** from
+  briefs written to files (the briefs are in the session scratchpad; write new ones the same way). Keep usage down:
+  review videos/photos as small contact sheets, not full-size images.
+- **Showcase reels: final and posting.** Six videos in `showcase-reels/` at the repo root (git-ignored, local to the PC
+  "GraehamsPC"): `Post1_Thu_Merge.mp4` … `Post6_Tue_Arms.mp4`, with `POSTING_PLAN.md` (titles, descriptions, tags,
+  schedule: one a day from Thu Oct 22, 1 PM CDT). kortev's rules for them: **showcase style** (captions/titles say
+  plainly what the feature is, no skits, no meme captions); the same end question on every reel, "What should I add
+  next?"; trending music added in each app, not baked in. Captions live in `ShowcaseSelfTest.hook()`/`ask()`. Film in
+  a separate worktree (`../loft-film`) when another agent is using the game, so two games don't share the test world.
+  Send kortev files as chat attachments (they download them there; Drive upload of video doesn't work).
+- **Beam (the ult) is being redesigned.** Moveset is built and approved in principle (bite LMB, saw hold, charge RMB,
+  leap Space, Shift off; 60 blood, 20 s). The look: three box versions were rejected (didn't look like Beam); a smooth
+  Blender model (`tools/beam_model.py`, renders in the scratchpad `beam_v4_*`) got "I like the idea, but it should match
+  the box head and Pochita". **Now: v5 = that design rebuilt in boxes**, proportions fixed against kortev's movie still
+  (bulkier body, heavier head, thick curved blade legs), **mouth open ~38°**, and **more snout/nose above the mouth**.
+  References (with sources) in the scratchpad `beam_refs/`: kortev's still, the official IMAX poster, Prime 1 Studio's
+  Reze Arc statue. Show kortev side-by-sides (reference | blueprint | game) before filming Beam's reel; his old reel is
+  `OLD_beam_being_rebuilt.mp4`, not to be posted.
+- **Usage setup**: prompt suggestions off; `.claude/settings.json` has a SessionStart "compact" hook that re-prints
+  this section after a compaction. Third-party compaction plugins were checked and skipped (unverifiable).
+
+**Waiting on kortev**: their verdict on Beam v5's look.
 
 **kortev's queue of ideas** (ask before building any): the ult is Beam now (above; the frenzy was dropped for looking the
 same as normal attacks); the merge dead
