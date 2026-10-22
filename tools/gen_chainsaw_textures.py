@@ -230,255 +230,197 @@ def pochita_entity():
     return img
 
 
-# Beam the shark on his four crab legs (client BeamModel's boxes, their texture corners and sizes mirrored here; change one,
-# change the other), from the Reze arc: a heavy rounded torpedo, navy on top and mint white underneath (the white takes the
-# whole lower half of his body and of his head, up almost to the eyes) with a sharp jagged line between them, as the anime
-# paints it; three round eyes in a diagonal row up each side of his head; a huge open mouth, dark red inside with pink gums
-# and many small cream triangular teeth along both jaws; a row of dark spikes down his back; gill lines on his cheek; thin
-# legs, blue on the outside and pale on the inside, ending in a point.
+# Beam the shark on his four crab legs, from the Reze arc, painted for the boxes tools/beam_boxes.py lays out (it writes the
+# game's BeamLayout.java from the same layout, so the boxes and this texture cannot drift apart): a heavy rounded torpedo,
+# navy on top and mint white underneath (the white takes the whole lower half of his body and of his head, up almost to the
+# eyes) with a crisp jagged line between them, as the anime paints it; three round eyes in a diagonal row up each side of
+# his head; a huge open mouth, dark red inside with pink gums and many small cream triangular teeth along both jaws; a row of
+# dark spikes down his back; gill lines behind his mouth; crab legs, blue on the outside and pale on the inside, ending in a
+# point. Flat colours, a shade tone, dark ink on the lines, at Pochita's pixel density. Each box is painted from where its
+# pixels are on him (the line between the colours runs along him whatever slice it falls on).
 BEAM_COLOURS = {
-    'b': (58, 108, 184, 255),    # his back, the top of it in the light
-    'B': (40, 86, 160, 255),     # navy blue
-    'N': (28, 60, 120, 255),     # blue in shade
-    'n': (18, 38, 84, 255),      # the darkest navy: spikes, fins' edges, gill lines
-    'W': (228, 244, 239, 255),   # his belly, white with a touch of mint
-    'w': (178, 210, 206, 255),   # it in shade
-    'v': (136, 168, 170, 255),   # the underside
+    'h': (64, 114, 192, 255),    # navy in the light, on the tops of things
+    'B': (46, 88, 166, 255),     # navy blue
+    'N': (30, 56, 122, 255),     # navy in shade
+    'n': (12, 18, 50, 255),      # ink: lines, rims, the darkest navy
+    'W': (208, 236, 228, 255),   # his lower half, white with a touch of mint
+    'w': (146, 186, 188, 255),   # it in shade
+    'v': (110, 148, 160, 255),   # the underside
     'R': (112, 24, 38, 255),     # inside his mouth
-    'r': (78, 14, 28, 255),      # its depths
-    'P': (206, 96, 118, 255),    # the gums
-    'p': (178, 70, 94, 255),     # his tongue
-    'T': (240, 224, 164, 255),   # a tooth
-    'E': (248, 246, 236, 255),   # the white of an eye
-    'e': (214, 210, 196, 255),   # its rim
-    'K': (14, 14, 22, 255),      # a pupil
+    'r': (70, 12, 26, 255),      # its depths
+    'P': (228, 114, 134, 255),   # the gums
+    'p': (190, 84, 104, 255),    # his tongue
+    'T': (250, 240, 210, 255),   # a tooth
+    't': (214, 198, 162, 255),   # its shade
+    'E': (246, 244, 226, 255),   # the white of an eye
+    'e': (216, 214, 192, 255),   # its shade
+    'K': (10, 10, 16, 255),      # a pupil
     '.': (0, 0, 0, 0),
 }
 
-# Each box of the model: its texture corner and size (w, h, d) as BeamModel makes it. Packed into 256 by 160.
-BEAM_BOXES = {
-    'trunk_core': (0, 0, 32, 22, 26),
-    'trunk_top': (0, 48, 26, 6, 26),
-    'trunk_bot': (116, 0, 24, 7, 26),
-    'h1_core': (166, 48, 32, 18, 12),
-    'h1_top': (108, 107, 26, 6, 12),
-    'h2_core': (0, 80, 28, 18, 9),
-    'h2_top': (158, 127, 22, 3, 9),
-    'h3_core': (164, 80, 22, 14, 6),
-    'h3_top': (76, 143, 16, 2, 6),
-    'h4': (60, 127, 14, 10, 5),
-    'jaw1': (74, 80, 26, 11, 12),
-    'jaw2': (0, 107, 20, 10, 10),
-    'jaw3': (204, 107, 14, 8, 8),
-    'eyeA': (220, 127, 1, 6, 6),
-    'eyeB': (16, 143, 1, 5, 5),
-    'eyeC': (120, 143, 1, 4, 4),
-    'rear': (104, 48, 22, 22, 9),
-    'stalk': (74, 107, 12, 14, 5),
-    'tail_base': (0, 127, 2, 12, 4),
-    'tail_up1': (234, 127, 2, 8, 4),
-    'tail_up2': (28, 143, 2, 6, 4),
-    'tail_low': (52, 143, 2, 6, 3),
-    'leg_up': (162, 143, 16, 2, 2),
-    'leg_shin': (184, 107, 2, 16, 2),
-    'leg_mid': (130, 143, 2, 6, 2),
-    'leg_point': (62, 143, 1, 8, 1),
-    'pect': (138, 143, 8, 1, 4),
-    'pect_tip': (198, 143, 4, 1, 3),
-    'spike0': (150, 80, 0, 15, 7),
-    'spike1': (60, 107, 0, 13, 7),
-    'spike2': (192, 107, 0, 11, 6),
-    'spike3': (98, 127, 0, 9, 6),
-    'spike4': (130, 127, 0, 8, 5),
-    'teeth_h1': (12, 127, 0, 4, 12),
-    'teeth_h2': (140, 127, 0, 4, 9),
-    'teeth_h3': (40, 143, 0, 4, 6),
-    'teeth_h4': (66, 143, 0, 4, 5),
-    'teeth_j1': (36, 127, 0, 4, 12),
-    'teeth_j2': (110, 127, 0, 4, 10),
-    'teeth_j3': (0, 143, 0, 4, 8),
-    'teeth_front_up': (212, 143, 12, 4, 0),
-    'teeth_front_low': (0, 155, 12, 4, 0),
+# A tooth is four pixels across and four tall.
+# (a tooth leans back like a shark's: a right triangle, its upright edge toward the throat, its point down or up)
+
+# His eye: a round white disc with a thin ink ring, the pupil big and looking ahead (toward the left of the picture, the front
+# of him); {size} 5 to 7. The two crossed boxes of an eye each show their part of it.
+EYE_DISC = {
+    7: ['..nnn..', '.nEEEn.', 'nEKKKEn', 'nEKKKEn', 'nEKKKEn', '.nEEEn.', '..nnn..'],
+    6: ['.nnnn.', 'nEEEEn', 'nEKKEn', 'nEKKEn', 'nEEEEn', '.nnnn.'],
+    5: ['.nnn.', 'nEEEn', 'nKKEn', 'nKKEn', '.nnn.'],
 }
 
 
-def split_line(z):
-    """Where, in the model's space (y down, the top of his back 0), the blue gives way to white at {z} along him: from low
-    on the snout, up on the head almost to the eyes, then down his flank to the tail; a sawtooth of sharp points all along it,
-    as the anime paints the line."""
-    if z < -8:
-        base = 14.0 + (z + 40) * 5.0 / 32.0
-    elif z < 18:
-        base = 19.0 - (z + 8) / 26.0
-    else:
-        base = 18.0 - (z - 18) * 3.0 / 14.0
-    saw = ((z + 40) % 7) / 7.0 * 4.0 - 2.0
-    return round(base + saw)
-
-
-def body(y0, z0, d):
-    """The body's colouring on a box whose top is {y0} down from the top of his back and whose front is at {z0}: the top
-    light blue, the sides navy down to the jagged line and white below it, the lowest row of each shaded, the underside
-    grey-white."""
-    def colour(face, x, y, fw, fh):
-        if face == 'top':
-            return 'b'
-        if face == 'bottom':
-            return 'v'
-        if face == 'west':
-            z = z0 + (fw - 1 - x)
-        elif face == 'east':
-            z = z0 + x
-        elif face == 'back':
-            z = z0 + d
-        else:
-            z = z0
-        low = y0 + y >= split_line(z)
-        if y == fh - 1:
-            return 'w' if low else 'N'
-        if low:
-            return 'w' if y0 + y == split_line(z) else 'W'
-        return 'N' if y0 + y == split_line(z) - 1 else 'B'
-    return colour
+def beam_sawline(u):
+    """A zig-zag of a pixel or two along the line between navy and mint: sharp points, as the anime paints the line."""
+    k = (u % 5.0) / 5.0
+    return (k if k < 0.5 else 1.0 - k) * 3.0 - 0.75
 
 
 def beam_entity():
-    img = Image.new('RGBA', (256, 160), (0, 0, 0, 0))
-    used = []
+    import math
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import numpy as np
+    import beam_boxes as bb
+    bb.build()
+    height = bb.pack()
+    img = Image.new('RGBA', (bb.TEXTURE_W, height), (0, 0, 0, 0))
+    mats = bb.part_matrices(bb.standing(paint=True))     # (the head's tilt left out: the painting is by where the boxes are in the layout)
 
-    def put(name, colour):
-        u, v, w, h, d = BEAM_BOXES[name]
-        box = (u, v, 2 * d + 2 * w, d + h)
-        for other in used:
-            assert not (box[0] < other[0] + other[2] and other[0] < box[0] + box[2] and box[1] < other[1] + other[3] and other[1] < box[1] + box[3]), name
-        used.append(box)
-        paint(img, u, v, w, h, d, colour, BEAM_COLOURS)
-
-    def trunk(face, x, y, fw, fh):
-        base = body(6, -8, 26)
-        if face in ('west', 'east'):
-            # Gill lines on the cheek behind the head: four slanting slits, longer toward the head.
-            c = x if face == 'east' else fw - 1 - x    # counted from the front of the box
-            for k in range(4):
-                if c == 2 + k * 2 + (y - 2) // 4 and 2 <= y <= 2 + 3 * (4 - k) // 2 + 4:
-                    return 'n' if 6 + y < split_line(-8 + c) else 'v'
-        if face == 'front':
-            # The back of his mouth, the throat, below where the head's roof ends.
-            if y >= 18 and 3 <= x <= fw - 4:
-                return 'r' if y >= 20 else 'R'
-        return base(face, x, y, fw, fh)
-
-    put('trunk_core', trunk)
-    put('trunk_top', body(0, -8, 26))
-
-    def trunk_bot(face, x, y, fw, fh):
-        if face == 'front':
-            return 'r'
-        return body(28, -8, 26)(face, x, y, fw, fh)
-
-    put('trunk_bot', trunk_bot)
-
-    def roof(y0, z0, d):
-        """An upper head box: the body's colours, its underside the roof of his mouth: red inside gum-pink edges."""
-        base = body(y0, z0, d)
-
-        def colour(face, x, y, fw, fh):
-            if face == 'bottom':
-                edge = x == 0 or x == fw - 1 or y == 0
-                return 'P' if edge else 'R'
-            return base(face, x, y, fw, fh)
-        return colour
-
-    put('h1_core', roof(6, -20, 12))
-    put('h1_top', body(0, -20, 12))
-    put('h2_core', roof(4, -29, 9))
-    put('h2_top', body(1, -29, 9))
-    put('h3_core', roof(6, -35, 6))
-    put('h3_top', body(4, -35, 6))
-
-    def snout(face, x, y, fw, fh):
-        # (his nostrils: two dark dots on top)
-        if face == 'top' and y == 1 and x in (2, fw - 3):
-            return 'N'
-        return roof(8, -40, 5)(face, x, y, fw, fh)
-
-    put('h4', snout)
-
-    def jaw(y0, z0, d, tongue):
-        def colour(face, x, y, fw, fh):
-            if face == 'top':
-                edge = x == 0 or x == fw - 1 or y == 0
-                if edge:
-                    return 'P'
-                return 'p' if tongue and 3 <= x <= fw - 4 and 3 <= y <= fh - 3 else 'R'
-            if face == 'bottom':
-                return 'v'
-            if face == 'back':
-                return 'r'
-            low = y == fh - 1
+    def skin(face, nrm, u, h):
+        """The body's colouring at a spot (u back from his nose, h above the ground, facing nrm)."""
+        top, bot, half = bb.sections_at(min(max(u, 0.0), bb.LENGTH - 0.01))
+        line = bb.interp(bb.BOUNDARY, u) + beam_sawline(u)
+        mint = h < line
+        if face == 'bottom':
+            return 'v' if h <= bot + 0.6 else ('W' if mint else 'N')
+        # the lowest part of each side is in shade (the game shades faces by their direction itself)
+        low = (h - bot) < 0.26 * (top - bot)
+        if face == 'top':
+            return 'W' if mint else 'h'
+        if mint:
             return 'w' if low else 'W'
-        return colour
+        if h < line + 1.2 and abs(nrm[0]) > 0.5:
+            return 'N'
+        return 'N' if low else 'B'
 
-    put('jaw1', jaw(24, -22, 12, True))
-    put('jaw2', jaw(22, -32, 10, False))
-    put('jaw3', jaw(20, -40, 8, False))
+    gills = [bb.U_WALL + 3.0 + 2.6 * k for k in range(4)]
 
-    def eye(face, x, y, fw, fh):
-        """An eye: white, a big round black pupil looking ahead (toward the front of the box, the left of its outer face)."""
-        if face == 'west':
-            return 'e'
-        if face == 'east':
-            inner = 1 <= x <= fw - 2 and 1 <= y <= fh - 2
-            return 'K' if inner else 'E'
-        return 'E' if face == 'top' else 'e'
+    def gill(u, h):
+        top, bot = 38.0, 27.0
+        if not bot <= h <= top:
+            return False
+        t = (top - h) / (top - bot)
+        for k, u0 in enumerate(gills):
+            uc = u0 + 4.5 * t + 1.2 * math.sin(math.pi * t)
+            if t <= 1.0 - 0.12 * k and abs(u - uc) < 0.62:
+                return True
+        return False
 
-    for name in ('eyeA', 'eyeB', 'eyeC'):
-        put(name, eye)
-
-    # Behind the trunk: the rear of the body, tapering, then the stalk of the tail and its crescent fin.
-    put('rear', body(4, 18, 9))
-    put('stalk', body(9, 27, 5))
-    for name in ('tail_base', 'tail_up1', 'tail_up2', 'tail_low'):
-        put(name, lambda f, x, y, fw, fh: 'n' if f in ('top', 'bottom', 'front', 'back') else 'N')
-
-    # (a leg's inner side, toward his body, is the pale one; the boxes of the left legs are mirrored)
-    put('leg_up', lambda f, x, y, fw, fh: 'b' if f == 'top' else 'W' if f in ('bottom', 'west') else 'B')
-    put('leg_shin', lambda f, x, y, fw, fh: 'W' if f == 'west' else 'N' if f == 'back' else 'B')
-    put('leg_mid', lambda f, x, y, fw, fh: 'W' if f == 'west' else 'N')
-    put('leg_point', lambda f, x, y, fw, fh: 'n')
-    put('pect', lambda f, x, y, fw, fh: 'b' if f == 'top' else 'W' if f == 'bottom' else 'N')
-    put('pect_tip', lambda f, x, y, fw, fh: 'B' if f == 'top' else 'w' if f == 'bottom' else 'N')
-
-    def spike(face, x, y, fw, fh):
-        # A dark triangle swept back: its front edge climbs from the base's front to the point at the back top.
-        if face not in ('west', 'east'):
-            return '.'
-        c = x if face == 'east' else fw - 1 - x
-        reach = (fw - 1) * (1.0 - y / max(1, fh - 1))
-        if c + 0.01 >= reach and c >= 0:
-            return 'n' if c >= reach + 1 or y >= fh - 2 else 'N'
-        return '.'
-
-    for name in ('spike0', 'spike1', 'spike2', 'spike3', 'spike4'):
-        put(name, spike)
-
-    def row(up):
-        """A row of small triangular teeth along a jaw's edge (flat, each side the same): a tooth every two pixels, each
-        narrowing to its point; points down from an upper jaw, up from a lower one."""
-        def colour(face, x, y, fw, fh):
-            if face not in ('west', 'east', 'front', 'back'):
-                return '.'
-            r = fh - 1 - y if up else y
-            if r == 0:
-                return 'T'
-            return 'T' if x % (2 if r <= 1 else 4) == 0 else '.'
-        return colour
-
-    for name in ('teeth_j1', 'teeth_j2', 'teeth_j3', 'teeth_front_low'):
-        put(name, row(True))
-    for name in ('teeth_h1', 'teeth_h2', 'teeth_h3', 'teeth_h4', 'teeth_front_up'):
-        put(name, row(False))
+    for b in bb.BOXES:
+        M = mats[b.part]
+        R = M[:3, :3]
+        for face, (x0, y0, fw, fh) in bb.faces(b).items():
+            if fw <= 0 or fh <= 0:
+                continue
+            nrm = R @ np.array(bb.NORMALS[face], float)
+            for j in range(fh):
+                for i in range(fw):
+                    lp = bb.pixel(b, face, i, j)
+                    pos = (M @ np.array([lp[0], lp[1], lp[2], 1.0]))[:3]
+                    u, h = pos[2] + bb.Z0, bb.HEIGHT - pos[1]
+                    key = beam_pixel(bb, b, face, i, j, fw, fh, pos, nrm, u, h, skin, gill)
+                    if key is not None:
+                        img.putpixel((x0 + i, y0 + j), BEAM_COLOURS[key])
     return img
+
+
+def beam_pixel(bb, b, face, i, j, fw, fh, pos, nrm, u, h, skin, gill):
+    """The key of the pixel (i, j) of {face} of box {b}, or None to leave it clear."""
+    k = b.kind
+    if k in ('head', 'trunk', 'rear', 'stalk'):
+        side = abs(nrm[0]) > 0.5
+        if k == 'head' and face == 'bottom':
+            # the roof of his mouth behind the front teeth: dark red, gum pink at its edges; ahead of that his underside
+            if u >= bb.NOSE - 0.5 and h < bb.interp(bb.BOTTOM, u) + 1.0:
+                edge = i == 0 or i == fw - 1
+                return 'P' if edge else ('r' if u > 36 else 'R')
+            return 'v'
+        if k == 'head' and face in ('front', 'back') and u >= bb.NOSE - 0.5 and h < bb.interp(bb.BOTTOM, u) + 2.0 and abs(pos[0]) < bb.interp(bb.HALF, u) - 1.0:
+            return 'r' if u > 36 else 'R'               # the steps of the roof, seen from inside his mouth
+        if k == 'head' and face in ('west', 'east') and u >= bb.NOSE - 0.5 and h < bb.interp(bb.BOTTOM, u) + 1.0:
+            return 'n'                                  # the lip's ink line, along the edge of his mouth
+        if k == 'head' and face == 'top' and abs(u - 4.5) < 1.0 and abs(abs(pos[0]) - 4.5) < 0.6:
+            return 'n'                                  # a nostril
+        if k == 'trunk' and face == 'front' and b.meta.get('slice_u', 0) < bb.U_WALL + 3 and 18 <= h < bb.HINGE_H and abs(pos[0]) < 16:
+            return 'r' if h < 21 else 'R'               # the back of his throat, seen through the open mouth
+        if side and gill(u, h):
+            return 'n'
+        return skin(face, nrm, u, h)
+    if k == 'jaw':
+        if face == 'top':
+            edge = i == 0 or i == fw - 1 or (j == 0 and b.meta['v'] < 4) or (j == fh - 1 and b.meta['v'] > 26)
+            tongue = abs(i + 0.5 - fw / 2.0) < 2.6 and j >= 3 and b.meta['v'] > 5
+            return 'P' if edge else ('p' if tongue else 'R')
+        if face == 'bottom':
+            return 'v' if b.meta['row'][0] <= -b.meta['depth'] + 0.6 else 'W'
+        if face == 'back':
+            return 'r'
+        return 'P' if (j == 0 and b.meta['row'][1] == 0) else ('w' if j >= fh - 1 else 'W')
+    if k == 'eye':
+        size = b.meta['size']
+        if face in ('west', 'east'):
+            outer = (face == 'east') == (b.meta['side'] > 0)
+            if not outer:
+                return 'e'
+            # the picture as seen from outside, the front toward the left for an eye on the right of him; the two crossed
+            # boxes each show their part of the disc
+            tall = b.meta['shape'] == 'tall'
+            col = (i if face == 'east' else fw - 1 - i) + (1 if tall else 0)
+            row = j + (0 if tall else 1)
+            ch = EYE_DISC[size][row][col]
+            return None if ch == '.' else ch
+        return 'e'
+    if k == 'spike':
+        if face not in ('west', 'east'):
+            return None
+        c = i if face == 'east' else fw - 1 - i          # counted from the front of the base
+        reach = (fw - 1) * (1.0 - j / max(1, fh - 1))
+        if c + 0.01 >= reach and c >= 0:
+            return 'n' if c >= reach + 1 or j >= fh - 2 else 'N'
+        return None
+    if k == 'fin':
+        if face in ('west', 'east'):
+            return 'n' if (i == 0 or i == fw - 1) else 'N'
+        return 'n'
+    if k in ('teeth_up', 'teeth_low', 'teeth_front_up', 'teeth_front_low'):
+        if face not in ('west', 'east', 'front', 'back'):
+            return None
+        up = k in ('teeth_up', 'teeth_front_up')
+        row = j if up else fh - 1 - j
+        c = (fw - 1 - i) if face in ('west', 'back') else i          # counted from the front
+        m = c % 4
+        if m < row:
+            return None
+        return 't' if (m == 3 and row < 3) else 'T'
+    if k == 'leg_up':
+        if face == 'top':
+            return 'h'
+        if face == 'bottom':
+            return 'W'
+        if face in ('front', 'back'):
+            return 'w' if j >= fh - 2 else 'B'
+        return 'N'
+    if k == 'leg_shin':
+        s = b.meta['side']
+        outer = (face == 'east') == (s > 0)
+        if face in ('west', 'east'):
+            return 'B' if outer else 'W'
+        if face in ('front', 'back'):
+            return 'n' if b.meta['piece'] == 3 else 'N'
+        return 'n' if face == 'bottom' else 'N'
+    if k in ('pect', 'pect_tip'):
+        return 'B' if face == 'top' else ('W' if face == 'bottom' else 'N')
+    return 'n'
 
 
 # The pool of blood spreading from under you as you die (MergeCinematic): flat, ragged at its edge, a darker heart,

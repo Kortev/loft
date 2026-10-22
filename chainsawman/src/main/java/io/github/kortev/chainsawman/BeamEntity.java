@@ -35,7 +35,7 @@ public class BeamEntity extends Entity {
 	public static final float WIDTH = 2.0F;
 	public static final float HEIGHT = 2.4F;
 	/** How far above his feet the top of his back stands (blocks): the length of his legs and the depth of his body. */
-	public static final float BACK = 48.0F / 16.0F;
+	public static final float BACK = 54.0F / 16.0F;
 	/** Where the rider stands: on the middle of his back, this far ahead of his middle (blocks; behind it). */
 	public static final double SEAT_AHEAD = -0.5;
 	/** One full cycle of his gait covers this much ground (blocks): the gait's phase advances with the distance he goes. */
