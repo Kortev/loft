@@ -27,8 +27,8 @@ public class BeamRenderer extends EntityRenderer<BeamEntity> {
 	/** Where his body turns when he pitches: this far under the top of his back (blocks). */
 	private static final float MIDDLE = 1.0F;
 	/** The corners of his mouth, from his middle: how far out to the sides, ahead of it, and above his feet (blocks). */
-	private static final double CORNER_OUT = 0.5;
-	private static final double CORNER_AHEAD = 0.85;
+	private static final double CORNER_OUT = 0.66;
+	private static final double CORNER_AHEAD = 0.8;
 	private static final double CORNER_UP = 1.56;
 	/** A rider's hands holding the reins, from their feet: how far ahead, how high, how far apart (blocks); and from your own eyes, in your own view. */
 	private static final double HAND_AHEAD = 0.5;

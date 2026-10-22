@@ -80,10 +80,10 @@ public class BeamModel {
 		ModelPartData root = data.getRoot();
 		ModelPartData trunk = root.addChild("trunk", box("trunk", -9.0F, 0.0F, -11.0F, 18, 22, 22), ModelTransform.NONE);
 		// The row of dark spikes down his back, the front one the biggest, each a flat triangle swept back.
-		trunk.addChild("spike0", plane("spike0", 0.0F, -9.0F, 5.0F), ModelTransform.NONE);
-		trunk.addChild("spike1", plane("spike1", 0.0F, -8.0F, 8.0F), ModelTransform.NONE);
-		trunk.addChild("spike2", plane("spike2", 0.0F, -6.0F, 11.0F), ModelTransform.NONE);
-		trunk.addChild("spike3", plane("spike3", 0.0F, -5.0F, 14.0F), ModelTransform.NONE);
+		trunk.addChild("spike0", plane("spike0", 0.0F, -12.0F, 5.0F), ModelTransform.NONE);
+		trunk.addChild("spike1", plane("spike1", 0.0F, -11.0F, 8.0F), ModelTransform.NONE);
+		trunk.addChild("spike2", plane("spike2", 0.0F, -8.0F, 11.0F), ModelTransform.NONE);
+		trunk.addChild("spike3", plane("spike3", 0.0F, -7.0F, 14.0F), ModelTransform.NONE);
 		// The head, hinged where it meets the trunk so it lifts to bite: the roof of the mouth in three steps narrowing to the
 		// blunt snout (cream teeth hanging along its edges), three eyes standing out up each side, and the lower jaw hinged
 		// at the back of the mouth (teeth rising along it).
@@ -98,9 +98,9 @@ public class BeamModel {
 			head.addChild("teeth_h1_" + side, plane("teeth_h1", 8.0F * x, 4.0F, -7.0F), ModelTransform.NONE);
 			head.addChild("teeth_h2_" + side, plane("teeth_h2", 7.0F * x, 3.0F, -13.0F), ModelTransform.NONE);
 			head.addChild("teeth_h3_" + side, plane("teeth_h3", 5.0F * x, 2.0F, -18.0F), ModelTransform.NONE);
-			head.addChild("eye_a_" + side, eye("eyeA", left, 8.0F, -8.0F, -11.0F, 5, 5), ModelTransform.NONE);
-			head.addChild("eye_b_" + side, eye("eyeB", left, 9.0F, -11.0F, -5.0F, 4, 4), ModelTransform.NONE);
-			head.addChild("eye_c_" + side, eye("eyeC", left, 9.0F, -13.0F, -1.0F, 3, 3), ModelTransform.NONE);
+			head.addChild("eye_a_" + side, eye("eyeA", left, 8.0F, -9.0F, -12.0F, 6, 6), ModelTransform.NONE);
+			head.addChild("eye_b_" + side, eye("eyeB", left, 9.0F, -12.0F, -6.0F, 5, 5), ModelTransform.NONE);
+			head.addChild("eye_c_" + side, eye("eyeC", left, 9.0F, -14.0F, -2.0F, 4, 4), ModelTransform.NONE);
 		}
 		for (float x : new float[] {-5.0F, -3.0F, -1.0F, 0.0F, 2.0F, 4.0F}) {
 			head.addChild("tooth_up_" + x, tooth(x, 2.0F, -18.0F), ModelTransform.NONE);
@@ -112,10 +112,10 @@ public class BeamModel {
 			jaw.addChild("tooth_low_" + x, tooth(x, -3.0F, -17.0F), ModelTransform.NONE);
 		}
 		// The small pectoral fins, down and out of his sides and swept back, a smaller piece at each tip.
-		ModelPartData right = trunk.addChild("pectoral_r", box("pect", 0.0F, 0.0F, 0.0F, 11, 1, 6), ModelTransform.pivot(8.0F, 15.0F, -3.0F));
-		right.addChild("tip_r", box("pect_tip", 0.0F, 0.0F, 2.0F, 6, 1, 4), ModelTransform.pivot(11.0F, 0.0F, 0.0F));
-		ModelPartData left = trunk.addChild("pectoral_l", box("pect", -11.0F, 0.0F, 0.0F, 11, 1, 6, true), ModelTransform.pivot(-8.0F, 15.0F, -3.0F));
-		left.addChild("tip_l", box("pect_tip", -6.0F, 0.0F, 2.0F, 6, 1, 4, true), ModelTransform.pivot(-11.0F, 0.0F, 0.0F));
+		ModelPartData right = trunk.addChild("pectoral_r", box("pect", 0.0F, 0.0F, 0.0F, 9, 1, 5), ModelTransform.pivot(8.0F, 15.0F, -3.0F));
+		right.addChild("tip_r", box("pect_tip", 0.0F, 0.0F, 1.0F, 5, 1, 3), ModelTransform.pivot(9.0F, 0.0F, 0.0F));
+		ModelPartData left = trunk.addChild("pectoral_l", box("pect", -9.0F, 0.0F, 0.0F, 9, 1, 5, true), ModelTransform.pivot(-8.0F, 15.0F, -3.0F));
+		left.addChild("tip_l", box("pect_tip", -5.0F, 0.0F, 1.0F, 5, 1, 3, true), ModelTransform.pivot(-9.0F, 0.0F, 0.0F));
 		// The four legs: the front pair a little forward of the middle, the rear pair near the end of the trunk.
 		leg(trunk, "leg_fr", 1.0F, -5.0F);
 		leg(trunk, "leg_fl", -1.0F, -5.0F);
@@ -124,7 +124,7 @@ public class BeamModel {
 		// The rear of the body, hinged at the back of the trunk, with the last spike on it; then the stalk, then the crescent
 		// tail fin: a base, the long upper lobe in two steps and the shorter lower lobe.
 		ModelPartData rear = trunk.addChild("rear", box("rear", -7.0F, 2.0F, 0.0F, 14, 18, 8), ModelTransform.pivot(0.0F, 0.0F, 11.0F));
-		rear.addChild("spike4", plane("spike4", 0.0F, -4.0F, -1.0F), ModelTransform.NONE);
+		rear.addChild("spike4", plane("spike4", 0.0F, -6.0F, -1.0F), ModelTransform.NONE);
 		ModelPartData stalk = rear.addChild("stalk", box("stalk", -3.0F, 6.0F, 0.0F, 6, 10, 6), ModelTransform.pivot(0.0F, 0.0F, 8.0F));
 		ModelPartData tail = stalk.addChild("tail", box("tail_base", -1.0F, 5.0F, 0.0F, 2, 8, 4), ModelTransform.pivot(0.0F, 0.0F, 6.0F));
 		tail.addChild("tail_up1", box("tail_up1", -1.0F, -1.0F, 1.0F, 2, 6, 4), ModelTransform.NONE);
@@ -140,10 +140,11 @@ public class BeamModel {
 	 */
 	private static void leg(ModelPartData trunk, String name, float side, float z) {
 		boolean left = side < 0.0F;
-		ModelPartData hip = trunk.addChild(name, box("leg_up", left ? -11.0F : 0.0F, -1.5F, -1.5F, 11, 3, 3, left), ModelTransform.pivot(9.0F * side, 9.0F, z));
-		ModelPartData shin = hip.addChild("shin", box("leg_shin", -1.5F, -1.5F, -1.5F, 3, 25, 3, left), ModelTransform.pivot(11.0F * side, 0.0F, 0.0F));
-		ModelPartData mid = shin.addChild("mid", box("leg_mid", -1.0F, 0.0F, -1.0F, 2, 8, 2, left), ModelTransform.pivot(0.0F, 23.0F, 0.0F));
-		mid.addChild("tip", box("leg_tip", -0.5F, 0.0F, -0.5F, 1, 6, 1, left), ModelTransform.pivot(0.0F, 8.0F, 0.0F));
+		ModelPartData hip = trunk.addChild(name, box("leg_up", left ? -11.0F : 0.0F, -2.0F, -2.0F, 11, 4, 4, left), ModelTransform.pivot(9.0F * side, 9.0F, z));
+		ModelPartData shin = hip.addChild("shin", box("leg_shin", -2.0F, -2.0F, -2.0F, 4, 24, 4, left), ModelTransform.pivot(11.0F * side, 0.0F, 0.0F));
+		ModelPartData mid = shin.addChild("mid", box("leg_mid", -1.5F, 0.0F, -1.5F, 3, 8, 3, left), ModelTransform.pivot(0.0F, 22.0F, 0.0F));
+		ModelPartData tip = mid.addChild("tip", box("leg_tip", -1.0F, 0.0F, -1.0F, 2, 5, 2, left), ModelTransform.pivot(0.0F, 8.0F, 0.0F));
+		tip.addChild("point", box("leg_point", -0.5F, 0.0F, -0.5F, 1, 3, 1, left), ModelTransform.pivot(0.0F, 5.0F, 0.0F));
 	}
 
 	/** The texture corners and sizes of the boxes, as the painter lays them out ({@code BEAM_BOXES} in {@code tools/gen_chainsaw_textures.py}). */
@@ -152,33 +153,34 @@ public class BeamModel {
 			case "trunk" -> new int[] {0, 0, 18, 22, 22};
 			case "head1" -> new int[] {44, 44, 18, 16, 7};
 			case "head2" -> new int[] {0, 93, 16, 13, 6};
-			case "head3" -> new int[] {0, 112, 12, 10, 5};
+			case "head3" -> new int[] {92, 93, 12, 10, 5};
 			case "jaw" -> new int[] {0, 70, 14, 6, 17};
-			case "eyeA" -> new int[] {80, 112, 2, 5, 5};
-			case "eyeB" -> new int[] {24, 127, 2, 4, 4};
-			case "eyeC" -> new int[] {94, 127, 2, 3, 3};
+			case "eyeA" -> new int[] {10, 112, 2, 6, 6};
+			case "eyeB" -> new int[] {50, 112, 2, 5, 5};
+			case "eyeC" -> new int[] {114, 112, 2, 4, 4};
 			case "rear" -> new int[] {0, 44, 14, 18, 8};
-			case "stalk" -> new int[] {72, 93, 6, 10, 6};
-			case "tail_base" -> new int[] {58, 112, 2, 8, 4};
-			case "tail_up1" -> new int[] {94, 112, 2, 6, 4};
-			case "tail_up2" -> new int[] {0, 127, 2, 5, 4};
-			case "tail_low" -> new int[] {36, 127, 2, 5, 3};
-			case "leg_up" -> new int[] {0, 136, 11, 3, 3};
-			case "leg_shin" -> new int[] {80, 0, 3, 25, 3};
-			case "leg_mid" -> new int[] {106, 112, 2, 8, 2};
-			case "leg_tip" -> new int[] {56, 127, 1, 6, 1};
-			case "pect" -> new int[] {60, 127, 11, 1, 6};
-			case "pect_tip" -> new int[] {28, 136, 6, 1, 4};
-			case "spike0" -> new int[] {44, 93, 0, 12, 7};
-			case "spike1" -> new int[] {58, 93, 0, 11, 7};
-			case "spike2" -> new int[] {34, 112, 0, 9, 6};
-			case "spike3" -> new int[] {46, 112, 0, 8, 6};
-			case "spike4" -> new int[] {70, 112, 0, 7, 5};
-			case "teeth_jaw" -> new int[] {62, 70, 0, 3, 17};
-			case "teeth_h1" -> new int[] {114, 112, 0, 3, 7};
-			case "teeth_h2" -> new int[] {12, 127, 0, 3, 6};
-			case "teeth_h3" -> new int[] {46, 127, 0, 3, 5};
-			case "tooth" -> new int[] {48, 136, 1, 3, 1};
+			case "stalk" -> new int[] {56, 93, 6, 10, 6};
+			case "tail_base" -> new int[] {26, 112, 2, 8, 4};
+			case "tail_up1" -> new int[] {64, 112, 2, 6, 4};
+			case "tail_up2" -> new int[] {90, 112, 2, 5, 4};
+			case "tail_low" -> new int[] {0, 126, 2, 5, 3};
+			case "leg_up" -> new int[] {10, 126, 11, 4, 4};
+			case "leg_shin" -> new int[] {80, 0, 4, 24, 4};
+			case "leg_mid" -> new int[] {38, 112, 3, 8, 3};
+			case "leg_tip" -> new int[] {50, 126, 2, 5, 2};
+			case "leg_point" -> new int[] {86, 126, 1, 3, 1};
+			case "pect" -> new int[] {58, 126, 9, 1, 5};
+			case "pect_tip" -> new int[] {90, 126, 5, 1, 3};
+			case "spike0" -> new int[] {62, 70, 0, 15, 7};
+			case "spike1" -> new int[] {76, 70, 0, 14, 7};
+			case "spike2" -> new int[] {44, 93, 0, 11, 6};
+			case "spike3" -> new int[] {80, 93, 0, 10, 6};
+			case "spike4" -> new int[] {0, 112, 0, 9, 5};
+			case "teeth_jaw" -> new int[] {90, 70, 0, 3, 17};
+			case "teeth_h1" -> new int[] {76, 112, 0, 3, 7};
+			case "teeth_h2" -> new int[] {102, 112, 0, 3, 6};
+			case "teeth_h3" -> new int[] {40, 126, 0, 3, 5};
+			case "tooth" -> new int[] {106, 126, 1, 3, 1};
 			default -> throw new IllegalArgumentException(name);
 		};
 	}

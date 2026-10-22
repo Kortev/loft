@@ -260,40 +260,41 @@ BEAM_BOXES = {
     'trunk': (0, 0, 18, 22, 22),
     'head1': (44, 44, 18, 16, 7),
     'head2': (0, 93, 16, 13, 6),
-    'head3': (0, 112, 12, 10, 5),
+    'head3': (92, 93, 12, 10, 5),
     'jaw': (0, 70, 14, 6, 17),
-    'eyeA': (80, 112, 2, 5, 5),
-    'eyeB': (24, 127, 2, 4, 4),
-    'eyeC': (94, 127, 2, 3, 3),
+    'eyeA': (10, 112, 2, 6, 6),
+    'eyeB': (50, 112, 2, 5, 5),
+    'eyeC': (114, 112, 2, 4, 4),
     'rear': (0, 44, 14, 18, 8),
-    'stalk': (72, 93, 6, 10, 6),
-    'tail_base': (58, 112, 2, 8, 4),
-    'tail_up1': (94, 112, 2, 6, 4),
-    'tail_up2': (0, 127, 2, 5, 4),
-    'tail_low': (36, 127, 2, 5, 3),
-    'leg_up': (0, 136, 11, 3, 3),
-    'leg_shin': (80, 0, 3, 25, 3),
-    'leg_mid': (106, 112, 2, 8, 2),
-    'leg_tip': (56, 127, 1, 6, 1),
-    'pect': (60, 127, 11, 1, 6),
-    'pect_tip': (28, 136, 6, 1, 4),
-    'spike0': (44, 93, 0, 12, 7),
-    'spike1': (58, 93, 0, 11, 7),
-    'spike2': (34, 112, 0, 9, 6),
-    'spike3': (46, 112, 0, 8, 6),
-    'spike4': (70, 112, 0, 7, 5),
-    'teeth_jaw': (62, 70, 0, 3, 17),
-    'teeth_h1': (114, 112, 0, 3, 7),
-    'teeth_h2': (12, 127, 0, 3, 6),
-    'teeth_h3': (46, 127, 0, 3, 5),
-    'tooth': (48, 136, 1, 3, 1),
+    'stalk': (56, 93, 6, 10, 6),
+    'tail_base': (26, 112, 2, 8, 4),
+    'tail_up1': (64, 112, 2, 6, 4),
+    'tail_up2': (90, 112, 2, 5, 4),
+    'tail_low': (0, 126, 2, 5, 3),
+    'leg_up': (10, 126, 11, 4, 4),
+    'leg_shin': (80, 0, 4, 24, 4),
+    'leg_mid': (38, 112, 3, 8, 3),
+    'leg_tip': (50, 126, 2, 5, 2),
+    'leg_point': (86, 126, 1, 3, 1),
+    'pect': (58, 126, 9, 1, 5),
+    'pect_tip': (90, 126, 5, 1, 3),
+    'spike0': (62, 70, 0, 15, 7),
+    'spike1': (76, 70, 0, 14, 7),
+    'spike2': (44, 93, 0, 11, 6),
+    'spike3': (80, 93, 0, 10, 6),
+    'spike4': (0, 112, 0, 9, 5),
+    'teeth_jaw': (90, 70, 0, 3, 17),
+    'teeth_h1': (76, 112, 0, 3, 7),
+    'teeth_h2': (102, 112, 0, 3, 6),
+    'teeth_h3': (40, 126, 0, 3, 5),
+    'tooth': (106, 126, 1, 3, 1),
 }
 
 
 def split_line(z):
     """Where, in the model's space (y down, the top of his back 0), the blue gives way to white at {z} along him: low
     on the snout, up on his cheek, down his flank; a sawtooth of sharp points along it, as the anime paints the line."""
-    base = 9.0 if z < -11 else 9.0 + (z + 11) * 0.22
+    base = 6.0 if z < -11 else 6.0 + (z + 11) * 0.36
     saw = ((z + 40) % 6) / 6.0 * 3.4 - 1.7
     return round(base + saw)
 
@@ -392,16 +393,12 @@ def beam_entity():
     put('jaw', jaw)
 
     def eye(face, x, y, fw, fh):
-        """An eye: white, a big black pupil looking ahead (toward the front of the box, the left of its outer face)."""
-        if face in ('east', 'west'):
-            if face == 'west':
-                return 'e'
-            # (the pupil takes the front two-thirds, as the anime draws it looking forward)
-            px = x < max(2, (fw * 2 + 2) // 3)
-            py = 1 <= y <= fh - 2 or fh <= 3
-            if px and py and not (y in (0, fh - 1) and x in (0, fw - 1)):
-                return 'K'
-            return 'E'
+        """An eye: white, a big round black pupil looking ahead (toward the front of the box, the left of its outer face)."""
+        if face == 'west':
+            return 'e'
+        if face == 'east':
+            inner = 1 <= x <= fw - 2 and 1 <= y <= fh - 2
+            return 'K' if inner else 'E'
         if face == 'front':
             return 'K' if 0 < y < fh - 1 else 'E'
         return 'E' if face == 'top' else 'e'
@@ -428,7 +425,8 @@ def beam_entity():
     put('leg_up', leg('b', 'B', 'W'))
     put('leg_shin', lambda f, x, y, fw, fh: 'W' if f == 'west' else 'N' if f == 'back' else 'B')
     put('leg_mid', lambda f, x, y, fw, fh: 'W' if f == 'west' else 'B')
-    put('leg_tip', lambda f, x, y, fw, fh: 'n' if f in ('top', 'bottom') else 'N')
+    put('leg_tip', lambda f, x, y, fw, fh: 'W' if f == 'west' else 'N')
+    put('leg_point', lambda f, x, y, fw, fh: 'n')
     put('pect', lambda f, x, y, fw, fh: 'b' if f == 'top' else 'W' if f == 'bottom' else 'N')
     put('pect_tip', lambda f, x, y, fw, fh: 'B' if f == 'top' else 'w' if f == 'bottom' else 'N')
 
