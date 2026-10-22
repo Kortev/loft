@@ -217,8 +217,16 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 			net.minecraft.client.model.ModelPart head = FormHeadModel.get();
 			head.render(matrices, consumers.getBuffer(RenderLayer.getEntityCutoutNoCull(FormHeadModel.TEXTURE)), light, overlay);
 			if (eye > 0.0F) {
+				// In a frenzy the vents themselves burn red, throbbing (the red flare, added onto their yellow, would
+				// only stay yellow).
+				int glow = -1;
+				if (ClientCombat.frenzy(player)) {
+					float age = player.age + tickDelta;
+					float throb = 0.55F + 0.2F * MathHelper.sin(age * 0.9F) + 0.1F * MathHelper.sin(age * 2.3F);
+					glow = 0xFF000000 | (int) (255 * Math.min(1.0F, throb + 0.35F)) << 16 | (int) (35 * throb) << 8 | (int) (25 * throb);
+				}
 				head.render(matrices, consumers.getBuffer(RenderLayer.getEyes(FormHeadModel.GLOW)),
-						net.minecraft.client.render.LightmapTextureManager.MAX_LIGHT_COORDINATE, overlay);
+						net.minecraft.client.render.LightmapTextureManager.MAX_LIGHT_COORDINATE, overlay, glow);
 			}
 			matrices.pop();
 		}

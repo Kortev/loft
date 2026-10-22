@@ -1,10 +1,10 @@
-# Handoff: kortev's Chainsaw Man mod (state on 2026-10-21)
+# Handoff: kortev's Chainsaw Man mod (state on 2026-10-22)
 
 You are picking this up with nothing but this GitHub repository (`Kortev/loft`). No chat history, no files from
 kortev's PC, and none of the reference images they sent come with it. Everything you need is in this file and the
 repo. Read it all before doing anything, then read the repo's own `HANDOFF.md` at the root for the wider project.
 
-## Start here: where things stand (2026-10-21)
+## Start here: where things stand (2026-10-22)
 
 kortev moves between Claude accounts when one runs out; this section is what the next session needs first. The rest
 of the file is the full record.
@@ -34,11 +34,26 @@ trail leading to him** and **signs of a fight** round it; they approved the seco
   test world keeps everything) and saves `build/selftest/screenshots/reel_den_*.png` (wide, along the trail, under
   the trunk, the roots, the break, the other side). The cameras stand inside the clearing: further out is in the trees.
 
-**Waiting on kortev**: their notes on reel 1 (sent: a 96 s cut; see "Reels" below), and whether its chainsaw ending
-stays (they said keep it, worst case cut it later). No music in it (they let that go).
+**In progress: showcase reels** (2026-10-22). kortev judged reel 1 (the episode recreated, below) would lose viewers
+long before its chainsaw part and dropped the idea: the reels are now **mod showcases**, one feature each, about
+10 s, filmed tall (1080x1920) in a village at dusk, "CHAINSAW MAN MOD" in orange over every one, no music (kortev adds
+a trending sound when posting). Only **what he does** (kortev: don't show the ult). The test is
+`src/gametest/.../test/ShowcaseSelfTest.java`: `./gradlew runSelftest -Pselftest=showcase -Ptarget=<reel>
+-Pusername=Kortev -Pcapture=true`, then `mux-audio.py` as below (stills: `build/selftest/screenshots/showcase_*.png`).
+Done and approved: `transform` (the cord pulled among zombies, the combo, ends on "What should I add next?" for the
+comments: kortev wanted that question on the one likeliest to spread), `saws` (grinding out through a hut wall, the
+lunge, the combo, a grind; ends on a kill, to loop), `chain` (two zombies yanked off a tower and cut down in the air,
+then up the tower on the chain; the flight down is carried by the test, as the yank alone doesn't clear the edge).
+Left to choose from: losing and regrowing arms, the merge, taming Pochita. Lessons: a camera straight in front makes
+the head's saw a spike at the lens (always three quarters on); cameras closer than ~2.6 blocks drop into first
+person; the test world keeps entities between takes (`strays` clears them); grass between a low camera and you hides
+you. kortev offered to ask YouTube Studio's AI for advice; nothing back from it yet.
 
-**kortev's queue of ideas** (ask before building any): the merge dead a while first, as reel 1 has it (below, "Later
-ideas"); more reels after reel 1 (anime scenes or skits); the black chainsaw (build nothing until kortev describes
+**Waiting on kortev**: nothing on reel 1 any more (dropped for the showcases).
+
+**kortev's queue of ideas** (ask before building any): **change the ult** (kortev, 2026-10-22: the blood frenzy looks
+the same as normal attacks, red eyes apart; "maybe change it": ask what they want before touching it); the merge dead
+a while first, as reel 1 has it (below, "Later ideas"); the black chainsaw (build nothing until kortev describes
 it); Beam the shark as an ult; the "I'll give you my heart" clip. Older open items: the shader-pack check (needs
 kortev's OK to download Fabric 1.21.1 Sodium + Iris), the multiplayer test (written, never run), balance after play,
 the stretched cord in your own camera, the chain's drag in water (not filmed), hearts against the blood bar.
