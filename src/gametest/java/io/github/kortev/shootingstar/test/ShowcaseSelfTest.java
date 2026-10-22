@@ -104,7 +104,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 			case "arms" -> ARMS_HERO + 16;
 			case "pochita" -> POCHITA_HERO + 10;
 			case "merge" -> REVENGE_CUTS[REVENGE_CUTS.length - 1] + 6;
-			case "beam" -> beamReelEnd - BEAM_ASKED_FOR;
+			case "beam" -> beamAsked;
 			default -> ASKED;
 		};
 	}
@@ -784,32 +784,37 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 	}
 
 	// The Beam reel (kortev, 2026-10-22: "He rides a shark through the ground"). Already Chainsaw Man in the open on level
-	// ground, a horde ahead; he calls Beam, who bursts up under him; he rides at them (the real forward key), Beam biting the
-	// first two; he leaps over the rest and crashes down on them (the real jump key); he gets off (sneak) and Beam dives; the
-	// hero shot in the blood. The cameras are the film's own, tracking him alongside, and each cut has its own lens.
+	// ground, a horde ahead; he calls Beam, who bursts up under him; he rides at them (the real forward key), Beam biting a
+	// stray and then the front of the clump; he leaps (the real jump key) and crashes down on the rest; he gets off (sneak)
+	// and Beam dives; the hero shot in the blood. Beam is big in every shot he is in: the cameras are close, each cut with
+	// its own lens, and the one alongside goes along with him at most of his speed.
 
-	/** The horde ahead of him (blocks ahead, blocks across): the two he bites on the way in, then the four he crashes down on. */
-	private static final double[][] BEAM_FIRST = {{11.0, 0.5}, {12.4, -0.7}};
-	private static final double[][] BEAM_REST = {{14.6, 1.2}, {15.5, -1.0}, {16.3, 0.3}, {15.0, -1.7}};
+	/** The horde ahead of him (blocks ahead, blocks across): one out in front, which his first bite takes; three, which his bite two bites later takes (his bites come every eighth tick and reach about two blocks either side of his mouth, so the bite between finds nothing); and four he crashes down on. */
+	private static final double[][] BEAM_FIRST = {{7.0, 0.2}};
+	private static final double[][] BEAM_REST = {{14.6, 0.5}, {15.3, -1.1}, {15.8, 1.2}, {18.6, 0.2}, {19.5, -1.4}, {20.2, 1.0}, {21.0, -0.4}};
 	/** How much health they have: one bite kills. */
 	private static final float BEAM_FRAIL = 8.0F;
 	/** When he is called (the reel's tick), when the forward key goes down, and how far along he leaps if the bites have not come by then. */
-	private static final int BEAM_CALL = 12;
-	private static final int BEAM_RIDES = 46;
+	private static final int BEAM_CALL = 6;
+	private static final int BEAM_RIDES = 48;
 	private static final double BEAM_LEAP_BY = 11.0;
-	/** How long after the leap begins he lands, how long after that the sneak key goes down, how long the hero shot lasts, and how long the question is held. */
+	/** How long after the leap begins he lands, how long after that the forward key is let go and the sneak key goes down, how long the question is held. */
 	private static final int BEAM_LANDS = 15;
-	private static final int BEAM_GET_OFF = 14;
-	private static final int BEAM_HERO_FOR = 112;
+	private static final int BEAM_LETS_GO = 8;
+	private static final int BEAM_GET_OFF = 26;
+	/** The hero shot: the question comes in this long into it, and the reel ends this long after the question. */
+	private static final int BEAM_ASKED_AT = 10;
 	private static final int BEAM_ASKED_FOR = 50;
 	/** The lens (vertical field of view, degrees) the reel is shot through now: 0 is the game's own. */
 	private static float beamLens;
+	private static int beamAsked = 100000;
 	private static int beamReelEnd = 100000;
-	/** The reel's own state: when he leapt, when the sneak key went down, the frame the hero shot began, bites seen, where the hero camera is. */
+	/** The reel's own state: when he leapt, when the sneak key went down, the frame the hero shot began, bites seen and when the last was, where the hero camera is. */
 	private static int beamLeapAt;
 	private static int beamOffAt;
 	private static int beamHeroAt;
 	private static int beamBites;
+	private static int beamLastBite;
 	private static Vec3d beamHeroCam = Vec3d.ZERO;
 
 	/** The lens the reel is shot through at the moment (read by the lens mixin), or 0. */
@@ -827,13 +832,24 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 			beamOffAt = 0;
 			beamHeroAt = 0;
 			beamBites = 0;
+			beamLastBite = -10;
+			beamAsked = 100000;
 			beamReelEnd = 100000;
 			if (capturing()) {
 				Capture.start(client, client.runDirectory.toPath().resolve("capture"));
 			}
-			// Low behind him and to one side, looking up the street: him in front, the horde beyond.
-			beamLens = 54.0F;
-			fixed(rel(origin, ahead, side, -4.6, 0.8, 1.5), rel(origin, ahead, side, 3.0, 1.2, -0.3));
+			// Close, low, three quarters on from in front, at the height of his back: where he will burst up, his head, his
+			// teeth and his fin, and you on him.
+			beamLens = 66.0F;
+			Vec3d centre = rel(origin, ahead, side, 0.3, 0.9, 0.0);
+			// Slowly round him, from three quarters on toward side on: his head and teeth, then his back and fin.
+			Capture.camera = t -> {
+				double k = ease(span(t, 0.0, BEAM_RIDES - 2));
+				double angle = Math.toRadians(MathHelper.lerp(k, 35.0, 85.0));
+				double radius = MathHelper.lerp(k, 4.5, 4.0);
+				Vec3d out = ahead.multiply(Math.cos(angle)).add(side.multiply(-Math.sin(angle))).multiply(radius);
+				return look(centre.add(out).add(0.0, MathHelper.lerp(k, -0.2, 0.0), 0.0), centre);
+			};
 		}
 		BeamEntity beam = client.world == null ? null : client.world.getEntitiesByClass(BeamEntity.class, new net.minecraft.util.math.Box(origin, origin).expand(80.0), b -> !b.diving())
 				.stream().findFirst().orElse(null);
@@ -845,36 +861,45 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 			server.execute(() -> Beam.summon(player(server)));
 		}
 		if (f == BEAM_RIDES - 2) {
-			// Cut to alongside him, low, a way off, as he goes.
-			beamLens = 62.0F;
-			alongside(client, ahead, side, -7.5, 1.1, 1.0, 1.8, 0.55);
+			// Cut to alongside him, low and close, as he goes: his back, his fin and the ground he throws up fill the lower third.
+			beamLens = 74.0F;
+			alongside(client, ahead, side, -4.4, 0.8, 0.2, 0.8, 0.8);
 		}
 		if (f == BEAM_RIDES) {
 			client.options.forwardKey.setPressed(true);
 		}
-		if (f > BEAM_RIDES && f < BEAM_RIDES + 60) {
-			// On the horde: the way they stand, not the way he was facing.
+		if (f > BEAM_RIDES && f < BEAM_RIDES + 90) {
 			face(client, facing, 0.0F);
 		}
-		if (beam != null && beam.sinceBite(0.0F) < 1.0F && f > beamBites + 3) {
-			beamBites = f;
-			ShootingStar.LOGGER.info("[selftest] beam reel: a bite at f={}, he is {} ahead", f, beam.getPos().subtract(origin).dotProduct(ahead));
-		}
-		// The leap, once the first two are down (or he has come far enough for it), seen wide from the side.
-		boolean down = ZOMBIES.size() >= BEAM_FIRST.length && client.world != null;
-		for (int i = 0; down && i < BEAM_FIRST.length; i++) {
-			Entity z = client.world.getEntityById(ZOMBIES.get(i));
-			down = z == null || !z.isAlive();
+		// His bites, as the clients see them (each one that takes something).
+		if (beam != null && beam.sinceBite(0.0F) < 3.0F && f > beamLastBite + 3) {
+			beamLastBite = f;
+			beamBites++;
+			StringBuilder left = new StringBuilder();
+			for (int id : ZOMBIES) {
+				Entity z = client.world.getEntityById(id);
+				if (z != null && z.isAlive()) {
+					left.append(String.format(" %.1f", z.getPos().subtract(origin).dotProduct(ahead)));
+				}
+			}
+			ShootingStar.LOGGER.info("[selftest] beam reel: bite {} at f={}, his mouth is {} ahead; still standing at:{}", beamBites, f,
+					beam.getPos().subtract(origin).dotProduct(ahead) + Beam.MOUTH, left);
 		}
 		double along = beam == null ? 0.0 : beam.getPos().subtract(origin).dotProduct(ahead);
-		if (beamLeapAt == 0 && beam != null && f > BEAM_RIDES + 6 && (down || along > BEAM_LEAP_BY)) {
-			beamLeapAt = f + 3;
-			ShootingStar.LOGGER.info("[selftest] beam reel: leaping at f={}, he is {} ahead, the first two down: {}", beamLeapAt, along, down);
+		// The leap, once he has bitten twice (or has come far enough for it), seen from the side.
+		if (beamLeapAt == 0 && beam != null && f > BEAM_RIDES + 6 && (beamBites >= 2 && f > beamLastBite + 2 || along > BEAM_LEAP_BY)) {
+			beamLeapAt = f + 2;
+			ShootingStar.LOGGER.info("[selftest] beam reel: leaping at f={}, he is {} ahead, bites {}", beamLeapAt, along, beamBites);
 		}
 		if (beamLeapAt != 0 && f == beamLeapAt - 1) {
+			// Side on, low, so that he arcs up across the sky; the camera stays and turns with him.
 			Vec3d from = beam != null ? beam.getPos() : origin;
-			beamLens = 70.0F;
-			fixed(rel(from, ahead, side, 4.5, 1.6, -11.5), rel(from, ahead, side, 4.5, 1.9, 0.0));
+			beamLens = 72.0F;
+			Vec3d at = framed(rel(from, ahead, side, 3.4, 0.4, -6.2), from.add(0.0, 1.0, 0.0));
+			Capture.camera = t -> {
+				Vec3d now = client.player.getLerpedPos((float) (t - Math.floor(t)));
+				return look(at, now.add(0.0, 0.6, 0.0));
+			};
 		}
 		if (beamLeapAt != 0 && f == beamLeapAt) {
 			client.options.jumpKey.setPressed(true);
@@ -882,25 +907,26 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		if (beamLeapAt != 0 && f == beamLeapAt + 2) {
 			client.options.jumpKey.setPressed(false);
 		}
-		if (beamLeapAt != 0 && f == beamLeapAt + BEAM_LANDS + 2) {
-			// Close, as he comes down at the end of it.
-			beamLens = 62.0F;
-			alongside(client, ahead, side, -7.5, 1.1, 0.5, 1.0, 0.55);
+		if (beamLeapAt != 0 && f == beamLeapAt + BEAM_LANDS + 1) {
+			// Close again, alongside him, as he comes down in the clump and rides on.
+			beamLens = 74.0F;
+			alongside(client, ahead, side, -4.4, 0.8, 0.2, 0.8, 0.5);
 		}
-		if (beamLeapAt != 0 && f == beamLeapAt + BEAM_LANDS - 3) {
+		if (beamLeapAt != 0 && f == beamLeapAt + BEAM_LANDS + BEAM_LETS_GO) {
 			client.options.forwardKey.setPressed(false);
 		}
-		if (beamLeapAt != 0 && f == beamLeapAt + BEAM_GET_OFF + BEAM_LANDS) {
+		if (beamLeapAt != 0 && f == beamLeapAt + BEAM_LANDS + BEAM_GET_OFF) {
 			beamOffAt = f;
 			client.options.sneakKey.setPressed(true);
 		}
 		if (beamOffAt != 0 && f == beamOffAt + 3) {
 			client.options.sneakKey.setPressed(false);
 		}
-		// The hero shot: low, three quarters on, standing where he got off, in the blood.
-		if (beamOffAt != 0 && f == beamOffAt + 6 && client.player != null) {
+		// The hero shot (about three seconds): low, three quarters on, standing where he got off, in the blood.
+		if (beamOffAt != 0 && f == beamOffAt + 3 && client.player != null) {
 			beamHeroAt = f;
-			beamReelEnd = f + BEAM_HERO_FOR;
+			beamAsked = f + BEAM_ASKED_AT;
+			beamReelEnd = beamAsked + BEAM_ASKED_FOR;
 			Vec3d you = client.player.getPos();
 			beamLens = 50.0F;
 			beamHeroCam = framed(rel(you, ahead, side, 5.2, 0.5, -3.4), you.add(0.0, 1.0, 0.0));
