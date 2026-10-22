@@ -1,6 +1,7 @@
 package io.github.kortev.shootingstar.test.mixin;
 
 import io.github.kortev.shootingstar.test.ReelSelfTest;
+import io.github.kortev.shootingstar.test.ShowcaseSelfTest;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.GameRenderer;
 import org.spongepowered.asm.mixin.Mixin;
@@ -14,6 +15,9 @@ public abstract class ReelLensMixin {
 	@Inject(method = "getFov", at = @At("RETURN"), cancellable = true)
 	private void shootingstarTest$lens(Camera camera, float tickDelta, boolean changingFov, CallbackInfoReturnable<Double> cir) {
 		float lens = ReelSelfTest.lens();
+		if (lens <= 0.0F) {
+			lens = ShowcaseSelfTest.lens();
+		}
 		if (lens > 0.0F) {
 			cir.setReturnValue((double) lens);
 		}
