@@ -6,6 +6,7 @@ import io.github.kortev.chainsawman.form.FormTimeline;
 import io.github.kortev.chainsawman.form.Grapple;
 import io.github.kortev.chainsawman.form.Heart;
 import io.github.kortev.chainsawman.form.Limbs;
+import io.github.kortev.chainsawman.form.MergeTimeline;
 import io.github.kortev.chainsawman.form.Saw;
 import io.github.kortev.shootingstar.ShootingStar;
 import java.util.ArrayList;
@@ -152,6 +153,19 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 	private static Vec3d huskFrom;
 	private static Vec3d huskTo;
 
+	// The merge reel, filmed whole and cut down after (kortev: a question hook, an emotional beat, a payoff). The question
+	// over you in the horde; their blows (you hurt); the merge, its own camera all through; the cord pulled the moment you
+	// can; the transformation, its own camera; then you cut the horde down.
+	private static final String[] HOOK = {"What happens if you die", "holding Pochita?"};
+	private static final float[] HORDE = {60.0F, -60.0F, 160.0F, -160.0F};
+	private static final double HORDE_OFF = 2.2;
+	private static final int[] BLOWS = {12, 20, 28};
+	private static final int MERGE_AT = 34;
+	private static final int PULL_AT = MERGE_AT + MergeTimeline.END + 14;
+	private static final int REVENGE = PULL_AT + FormTimeline.ROAR_END;
+	private static final int[] REVENGE_CUTS = {REVENGE + 12, REVENGE + 24, REVENGE + 36, REVENGE + 48};
+	private static final int MERGE_END = REVENGE + 90;
+
 	/** Where you landed. */
 	private static Vec3d landed;
 	/** The way you face at the start of the saws reel: whichever way its spot runs. */
@@ -250,6 +264,8 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 					pochita(client, server, ticks);
 				} else if ("held".equals(target())) {
 					held(client, server, ticks);
+				} else if ("merge".equals(target())) {
+					merge(client, server, ticks);
 				} else {
 					transform(client, server, ticks);
 				}
@@ -747,6 +763,94 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		}
 	}
 
+	// The merge reel.
+
+	private static void merge(MinecraftClient client, IntegratedServer server, int f) {
+		if (f == 1) {
+			client.options.hudHidden = false;
+			io.github.kortev.chainsawman.client.MergeCinematic.prompt = false;
+			if (capturing()) {
+				Capture.start(client, client.runDirectory.toPath().resolve("capture"));
+			}
+			// Close, three quarters on, the horde round you, the sunset behind.
+			fixed(framed(local(3.4, 1.9, -2.0), origin.add(0.0, 1.2, 0.0)), origin.add(0.0, 1.2, 0.0));
+		}
+		if (f < MERGE_AT && client.options.getPerspective() != Perspective.THIRD_PERSON_BACK) {
+			client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
+		}
+		if (f < MERGE_AT) {
+			face(client, facing + 20.0F, 0.0F);
+			// (Their blows would knock you out of the shot.)
+			go(client, origin);
+		}
+		for (int i = 0; i < BLOWS.length; i++) {
+			if (f == BLOWS[i] - 3) {
+				int id = ZOMBIES.get(i % ZOMBIES.size());
+				server.execute(() -> {
+					if (server.getOverworld().getEntityById(id) instanceof ZombieEntity z) {
+						z.swingHand(Hand.MAIN_HAND);
+					}
+				});
+			}
+			if (f == BLOWS[i]) {
+				int id = ZOMBIES.get(i % ZOMBIES.size());
+				server.execute(() -> {
+					ServerPlayerEntity p = player(server);
+					if (server.getOverworld().getEntityById(id) instanceof ZombieEntity z) {
+						p.damage(p.getDamageSources().mobAttack(z), 3.0F);
+					}
+				});
+			}
+		}
+		if (f == MERGE_AT) {
+			// Death, but not: the mod's own merge, its own camera.
+			Capture.camera = null;
+			server.execute(() -> io.github.kortev.chainsawman.form.Merge.start(player(server)));
+		}
+		if (f == PULL_AT) {
+			server.execute(() -> Form.pullCord(player(server)));
+		}
+		// Chainsaw Man: back on the horde, a cut to each as you turn on it.
+		for (int i = 0; i < REVENGE_CUTS.length; i++) {
+			int from = i == 0 ? REVENGE : REVENGE_CUTS[i - 1] + 2;
+			if (f == from) {
+				client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
+				Vec3d chest = origin.add(0.0, 1.1, 0.0);
+				Vec3d it = origin.add(way(HORDE[i]).multiply(HORDE_OFF)).add(0.0, 1.0, 0.0);
+				Vec3d at = framed(origin.add(way(HORDE[i] + (i % 2 == 0 ? -110.0F : 110.0F)).multiply(4.0)).add(0.0, 1.7, 0.0), chest);
+				fixed(at, chest.lerp(it, 0.45));
+			}
+			if (f > from && f < REVENGE_CUTS[i]) {
+				face(client, facing + HORDE[i], 0.0F);
+			}
+			if (f == REVENGE_CUTS[i]) {
+				int id = ZOMBIES.get(i);
+				server.execute(() -> Saw.slash(player(server), id));
+			}
+		}
+		if (f >= REVENGE) {
+			// Kept where you stood (each slash steps you in after it, out of the shot).
+			go(client, origin);
+		}
+		// The last: low, three quarters on, in their blood.
+		int last = REVENGE_CUTS[REVENGE_CUTS.length - 1] + 6;
+		if (f == last) {
+			fixed(framed(local(3.4, 1.0, -2.2), origin.add(0.0, 1.3, 0.0)), origin.add(0.0, 1.4, 0.0));
+		}
+		if (f > last) {
+			face(client, facing + 15.0F, 6.0F);
+		}
+		if (f == 6 || f == MERGE_AT + 20 || f == MERGE_AT + MergeTimeline.COMING + 20 || f == MERGE_AT + MergeTimeline.LINES[3] + 20
+				|| f == MERGE_AT + MergeTimeline.SINK + 4 || f == MERGE_AT + MergeTimeline.PLUNGE + 4 || f == MERGE_AT + MergeTimeline.BEATS[1]
+				|| f == MERGE_AT + MergeTimeline.EYES + 6 || f == MERGE_AT + MergeTimeline.RISE + 12 || f == PULL_AT + 30 || f == PULL_AT + 40
+				|| f == REVENGE_CUTS[0] + 3 || f == REVENGE_CUTS[3] + 3 || f == MERGE_END - 4) {
+			shot(client, target() + "_" + f);
+		}
+		if (f >= MERGE_END) {
+			stage = Stage.DONE;
+		}
+	}
+
 	// The arms reel.
 
 	private static void arms(MinecraftClient client, IntegratedServer server, int f) {
@@ -980,6 +1084,12 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		int w = context.getScaledWindowWidth();
 		int h = context.getScaledWindowHeight();
 		outlined(context, font, TITLE, w / 2.0, h * 0.14, w * 0.78 / font.getWidth(TITLE), 0xFFFF8A1E);
+		if ("merge".equals(target()) && t < MERGE_AT + 12) {
+			// The question, from the first frame till you're down.
+			outlined(context, font, HOOK[0], w / 2.0, h * 0.62, w * 0.86 / font.getWidth(HOOK[0]), 0xFFFFFFFF);
+			outlined(context, font, HOOK[1], w / 2.0, h * 0.62 + w * 0.86 / font.getWidth(HOOK[0]) * font.fontHeight * 1.3, w * 0.86 / font.getWidth(HOOK[0]),
+					0xFFFF8A1E);
+		}
 		if (t >= ASKED && "transform".equals(target())) {
 			// Slammed in, a little big, settling.
 			double k = span(t, ASKED, ASKED + 4);
@@ -1153,6 +1263,13 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 			player.sendAbilitiesUpdate();
 			player.getInventory().selectedSlot = 0;
 			player.getInventory().setStack(0, new ItemStack(io.github.kortev.chainsawman.ChainsawMan.POCHITA));
+		} else if ("merge".equals(target())) {
+			// Yourself, not merged yet, Pochita carried (not held: it's your death he comes to), the horde round you.
+			player.removeAttached(Heart.MERGED);
+			player.getInventory().setStack(9, new ItemStack(io.github.kortev.chainsawman.ChainsawMan.POCHITA));
+			for (int i = 0; i < HORDE.length; i++) {
+				zombie(world, feet.add(way(HORDE[i]).multiply(HORDE_OFF)), FACING + HORDE[i] + 180.0F, 6.0F);
+			}
 		} else {
 			for (int i = 0; i < AROUND.length; i++) {
 				// One cut each, whatever the combo's step.

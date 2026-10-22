@@ -44,9 +44,14 @@ Done and approved: `transform` (the cord pulled among zombies, the combo, ends o
 comments: kortev wanted that question on the one likeliest to spread), `saws` (grinding out through a hut wall, the
 lunge, the combo, a grind; ends on a kill, to loop), `chain` (two zombies yanked off a tower and cut down in the air,
 then up the tower on the chain; the flight down is carried by the test, as the yank alone doesn't clear the edge),
-`arms` (two vindicators chop both arms off, the head's saw kills grow them back). In progress: `pochita` (along his
-blood's trail to the fallen tree, your blood into him, he wakes, picked up and held as a chainsaw, a husk cut down;
-a husk, as a zombie burns at dusk). Left: the merge. `held` photographs Pochita held (with `-Pcapture=true`, a video of
+`arms` (two vindicators chop both arms off, the head's saw kills grow them back), `pochita` (along his blood's trail
+to the fallen tree, your blood into him, he wakes, picked up and held as a chainsaw, a husk cut down; a husk, as a
+zombie burns at dusk), `merge` (kortev: question hook + emotional beat + payoff; "What happens if you die holding
+Pochita?" over you in a horde, killed, the mod's own merge, the pull, the horde cut down). The merge reel is filmed
+whole (41 s) and **cut by hand** to 17.5 s: after `mux-audio.py`, keep 0-2.95 s (hook, death), 23.9-32.45 s (his
+"show me your dream" line through waking) and 33.65-39.6 s (the pull to the end), joined with ffmpeg's trim/atrim and
+concat (50 ms audio fades at the joins); if the merge's timeline changes, find the cuts again. All six reels approved
+by kortev (the first four were filmed before the eased head turns; reshoot them if they should match). `held` photographs Pochita held (with `-Pcapture=true`, a video of
 him in use with the real attack key). kortev: the head must move like a real person's, especially in first person (no
 snapping round: eased turns, the body lagging the head, a little sway). Lessons: a camera straight in front makes
 the head's saw a spike at the lens (always three quarters on); cameras closer than ~2.6 blocks drop into first
