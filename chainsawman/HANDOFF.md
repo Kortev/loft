@@ -72,54 +72,55 @@ continuously (`Saw.HELD_BITE`, about his old sword damage a second), kicking bac
 the first person")**: his first-person view (`HeldPochita.renderFirstPerson`, the `VIEW_*`/`ARM_*` numbers): ask
 kortev what they want it to look like before reworking it.
 
-**Done (2026-10-22): Beam replaces the frenzy as the ult** (built overnight from kortev's picks; kortev has not seen it yet:
-judge it from the photographs, below). The ult key (B, `ChainsawManClient.FRENZY`, `FormActionPayload.FRENZY`, now "Beam
-(ult)" in the lang file) summons **Beam, the shark fiend in his big shark form** (the Reze arc), for `Blood.BEAM` = 60
-(the blood bar's mark moved to it; `Frenzy.java`, its game test and `Blood.FRENZY` stay as dormant code, unreachable from
-the key). In the form and able to fight, he bursts up out of the ground under you in a spray of the ground's own blocks and
-you sit on his back; one to a player.
+**Done (2026-10-22): Beam replaces the frenzy as the ult, second version** (built overnight from kortev's picks; kortev said the
+first looked nothing like Beam and was useless, so this one is his real look and a moveset of his own; kortev has not seen
+it yet: judge it from the photographs). The ult key (B, `ChainsawManClient.FRENZY`, `FormActionPayload.FRENZY`, "Beam (ult)"
+in the lang file) summons **Beam, the shark fiend in his big shark form** (the Reze arc), for `Blood.BEAM` = 60 (the blood
+bar's mark moved to it; `Frenzy.java`, its game test and `Blood.FRENZY` stay as dormant code). In the form and able to fight,
+he bursts up out of the ground under you in a spray of the ground's own blocks (he needs a clear space about 1.9 wide and 2.2
+tall within 3 blocks of you, else the action bar says so and nothing is spent) and you stand on his back; one to a player,
+20 seconds (`Beam.LASTS`), gone when you leave the form or go down, and he dives back into the ground when he goes.
 
-- **Riding**: he swims *through* the ground, only his back and his dorsal fin above the surface. He goes the way you look
-  (turning at most 14 degrees a tick), the forward key drives him (up to 0.55 blocks a tick, picked up and braked
-  smoothly; back stops him; strafe nudges), and he follows the surface (`Heightmap.Type.MOTION_BLOCKING_NO_LEAVES`),
-  smoothed (up quickly, down slowly, never more than a block under it), so he rises over a step or a wall and sinks again
-  (a tree trunk or a roof is a bump too). **Bite**: every 8 ticks, whatever living thing is within 2.2 blocks of his mouth
-  (ahead of his middle; not you, not downed players, not armour stands) takes 12 of **your** `playerAttack` damage, so kills
-  are yours through `Saw.init`'s `AFTER_DEATH` hook (blood, 6 health, bodies torn apart and cut in two); bites give no blood
-  or healing of their own. **Leap**: the jump key, at most every 40 ticks: 2.5 up, 6 forward over 14 ticks, a ring of the
-  ground thrown up and 14 damage to everything within 3 blocks of the landing. **End**: after 400 ticks (`Beam.LASTS`), when
-  you sneak, or if you leave the form or go down: he dives (sinks out of sight over 15 ticks) and you are left standing on the
-  surface, no fall damage. While you ride, the lunge and the chain are off (`Beam.riding` checks in `Saw.lunge` and
-  `Grapple.fire`); slashing and grinding work from his back.
-- **How it's built**: `BeamEntity` (a plain `Entity`, `noClip`, no gravity, not saved, tracked every tick out to 10 chunks'
-  worth of range; `getControllingPassenger()` is nobody) holds the seat, the tracked times of his last bite, leap and dive
-  (as world time) and, on the client, a glide of 3 ticks between the server's positions (as a boat does) so he moves
-  smoothly. `form/Beam.java` is all the server logic: `summon`, `tick` (his run, bites, leap, dive), and `Beam.Ride`, the
-  per-run state. The rider's keys reach the server through the game's own `PlayerInputC2SPacket` (the client sends it every
-  tick while riding); `ServerPlayerEntity.updateInput` puts them in `forwardSpeed`, `sidewaysSpeed`, the (accessor-mixed,
-  `LivingEntityAccessor`) `jumping` and `isSneaking()`. A rider's head in the ground (a slope, a roof) takes no `IN_WALL`
-  damage (`Beam.init`). `ChainsawMan.BEAM_ENTITY` is registered with `trackingTickInterval(1)`, `maxTrackingRange(10)`.
 - **His look** (`client/BeamModel.java`, `BeamRenderer.java`, texture `textures/entity/beam.png` painted by
-  `tools/gen_chainsaw_textures.py`'s `beam_entity`, 128x64, its box corners in `BEAM_BOXES` mirroring the model): a boxy
-  shark about 3.5 blocks long and 1.2 tall, Pochita's pixel density: slate back, white belly, tall swept dorsal fin, two
-  pectorals, crescent tail, a lower jaw with rows of white teeth over a dark red mouth, small black eyes, gill slits. Drawn
-  with the top of his back 0.55 blocks above the surface (`BeamEntity.BACK`), the rest in the ground, lit from the air over
-  him (on a slope he is partly in a block). Animated: the body undulates (the rear, the stalk and the tail fin each hinged,
-  faster when he goes faster), the jaw drops and the head lifts to bite, he pitches in a leap. `client/BeamClient.java` throws
-  the ground's own blocks up at his bow (not in your own eyes) and fin every tick he moves and loops `beam_swim`.
-- **Sounds** (synthesised, `tools/gen_chainsaw_sounds.py`): `beam_burst` (summon, leap, crash), `beam_swim` (loop),
-  `beam_bite`, `beam_dive`, registered in `ChainsawSounds`, `sounds.json`, lang subtitles. **Only checked as files, not by
+  `tools/gen_chainsaw_textures.py`'s `beam_entity`, 128x144, box corners in `BEAM_BOXES` mirroring `BeamModel.corner`; the
+  layout was packed by a throwaway script, change both together): Minecraft boxes at Pochita's pixel density, about 3.75 blocks
+  long, his back 2.56 blocks off the ground, from kortev's own still and the Prime 1 statue. **Four long jointed crab legs**
+  (upper part out and up from his side, shin down to the ground, three boxes narrowing to a point) that walk a gait from the
+  ground he covers (diagonal pairs), tuck in the air; cobalt on top and mint white underneath with a sawtooth line between;
+  **three bulging boxed eyes up each side** (white, big black pupil); a huge open mouth (red inside, pink gums, cream teeth as
+  flat sawtooth rows along both jaws plus boxes at the front) over a **lower jaw that snaps** on a bite; a row of five dark
+  back spikes (flat triangles, the front one biggest); gill lines; crescent tail (upper lobe longer) that sways; small
+  pectorals. **The chain is his reins**: `ChainRender.reins` draws two strips of the form's chain from the rider's hands (low
+  in front of you in your own eyes) to the corners of his mouth. The rider stands (`SawPose.ride`: knees bent, feet apart,
+  arms forward on the reins, or held out grinding).
+- **Riding** (`form/Beam.java`; `BeamEntity` is a plain `Entity`, not saved, server-driven: `getControllingPassenger()` is
+  nobody; hitbox 1.9 x 2.2; the game's own collision, `getStepHeight()` 2, and his own gravity): the forward key walks him the
+  way you look (turning 12 degrees a tick, up to 0.6 blocks a tick, back stops, strafe nudges); he steps up a block or two and
+  stops at a wall. Your keys while riding (an action-bar line shows them with your own key names, at the start and again at
+  2.5 s):
+  **attack = bite** (`FormActionPayload.SLASH` goes to `Beam.bite` through `Saw.slash`; no swing is predicted on the client):
+  everything in a cone about 3.5 blocks in front of his mouth takes 16 of **your** `playerAttack` damage (kills are yours
+  through `Saw.init`'s `AFTER_DEATH`), survivors are flung (1.2 up, 1.5 forward as velocity), at most every 12 ticks (a click up
+  to 2 ticks early still counts, as for the slash); **hold attack = your saws grind** from his back as before;
+  **use = charge** (`LUNGE` goes to `Beam.charge` through `Saw.lunge`): 9 blocks in 8 ticks, 12 damage once to each thing in
+  the way, flung aside, every 30 ticks, with the lunge's speed lines and wider view (`ClientCombat.lunging` reads his
+  `sinceCharge`); **jump = leap**: about 4 up and 8 forward on ballistic physics, crashing down in a ring of the ground's
+  blocks with 16 damage to everything within 3 blocks (every 40 ticks); **sneak = get off** (he dives). The chain key is off
+  while you ride. A rider spared the fall of getting off in the air (`SAFE`), and the `IN_WALL` damage of his head in a roof.
+- **Sounds** (synthesised, `tools/gen_chainsaw_sounds.py`, unchanged from the first version): `beam_burst`, `beam_swim` (now
+  his pounding feet, looped, louder with his speed, silent standing), `beam_bite`, `beam_dive`. **Only checked as files, not by
   ear.**
-- **Tests**: eight game tests in `FormGameTests` (84 in all now, all passing; they stand on a small stone floor: a big one
-  disturbed the neighbouring tests); `./gradlew runSelftest -Pselftest=showcase -Ptarget=beamlook -Pusername=Kortev` photographs
-  him (`build/selftest/screenshots/showcase_beamlook_*.png`: side, front, behind, bite from the side and the front, a leap from
-  the side and the front, your own eyes) in daylight with a husk for the bite (a zombie would burn), and logs that the real
-  keys drive and dismount him.
-- **Not verified**: the sounds by ear; how his motion *feels* (the glide between the server's positions, the turn rate,
-  speed over slopes, trees and buildings, and the camera in first person on the ground: none of it played, only
-  photographed and logged); the rider's seat and the form's arm pose from his back in third person against the real game
-  (looks right in the photographs); multiplayer; with a shader pack. Left as built: summoning indoors puts him on the
-  roof (the heightmap's surface); no blood or healing from bites themselves.
+- **Tests**: ten Beam game tests in `FormGameTests` (86 in all, all passing): summon, refused, walks the way you look,
+  stops at a wall, the slash becomes a bite (16 damage, flung, behind untouched, no second at once), the lunge becomes a charge
+  (dashes, 12 once, flung aside), leap, dives on sneak, on leaving the form, after 20 s. `./gradlew runSelftest -Pselftest=showcase
+  -Ptarget=beamlook -Pusername=Kortev` photographs him in daylight (`build/selftest/screenshots/showcase_beamlook_*.png`: side,
+  front, behind, mouth with a husk in front, two bites, the charge, the leap, walking, your own eyes).
+- **Not verified**: the sounds by ear; how his motion *feels* (the glide between the server's positions, turn rate, stepping up
+  over trees and buildings, the camera on his back in first person: only photographed and logged); multiplayer; a shader pack.
+  **Not like the stills**: his head and teeth are boxes (the stills' head is rounded, the white spreads much further up it, the
+  mouth gapes wider with many more teeth, the legs are thinner and end in blades), and the reel `beam` in `ShowcaseSelfTest`
+  still expects the old automatic bites (he now bites only when the attack key is pressed), so it needs its script changed
+  (a `Saw.slash` call per bite) before it is filmed again.
 
 **Waiting on kortev**: nothing on reel 1 any more (dropped for the showcases).
 
