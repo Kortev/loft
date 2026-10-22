@@ -24,6 +24,10 @@ public abstract class FirstPersonFormMixin {
 		if (ClientForms.on(player) && ClientForms.pullAge(player, tickDelta) < 0.0F && !player.isUsingItem()) {
 			FirstPersonSaws.render((HeldItemRenderer) (Object) this, tickDelta, matrices, consumers, player, light);
 			ci.cancel();
+		} else if (io.github.kortev.chainsawman.client.HeldPochita.held(player) && !player.isUsingItem()) {
+			// Pochita held as a chainsaw, in both hands.
+			io.github.kortev.chainsawman.client.HeldPochita.renderFirstPerson((HeldItemRenderer) (Object) this, tickDelta, matrices, consumers, player, light);
+			ci.cancel();
 		}
 	}
 }

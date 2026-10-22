@@ -76,6 +76,7 @@ public final class ChainsawManClient implements ClientModInitializer {
 			if (renderer instanceof PlayerEntityRenderer player) {
 				MergeCinematic.setModel(new PochitaModel(context.getPart(PochitaRenderer.LAYER)));
 				helper.register(new FormFeature(player));
+				helper.register(new HeldPochita(player, new PochitaModel(context.getPart(PochitaRenderer.LAYER))));
 			}
 		});
 		ResourceManagerHelper.get(ResourceType.CLIENT_RESOURCES).registerReloadListener(new SimpleSynchronousResourceReloadListener() {

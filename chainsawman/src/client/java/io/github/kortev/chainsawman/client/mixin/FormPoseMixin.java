@@ -59,10 +59,11 @@ public abstract class FormPoseMixin {
 			io.github.kortev.chainsawman.client.CordPull.turnBack(model, back);
 		} else if (t >= 0.0F) {
 			CordPull.pose(model, t);
-		} else if (ClientForms.on(player) || io.github.kortev.chainsawman.form.Saw.wielding(player)
-				&& io.github.kortev.chainsawman.client.ClientCombat.swingAge(player, tickDelta) >= 0.0F) {
-			// In the form; or Pochita held, his sweep and chop with the one arm.
+		} else if (ClientForms.on(player)) {
 			SawPose.pose(model, player, tickDelta);
+		} else if (io.github.kortev.chainsawman.client.HeldPochita.held(player)) {
+			// Pochita held as a chainsaw, in both hands.
+			io.github.kortev.chainsawman.client.HeldPochita.pose(model, player, tickDelta);
 		} else {
 			return;
 		}

@@ -43,11 +43,23 @@ a trending sound when posting). Only **what he does** (kortev: don't show the ul
 Done and approved: `transform` (the cord pulled among zombies, the combo, ends on "What should I add next?" for the
 comments: kortev wanted that question on the one likeliest to spread), `saws` (grinding out through a hut wall, the
 lunge, the combo, a grind; ends on a kill, to loop), `chain` (two zombies yanked off a tower and cut down in the air,
-then up the tower on the chain; the flight down is carried by the test, as the yank alone doesn't clear the edge).
-Left to choose from: losing and regrowing arms, the merge, taming Pochita. Lessons: a camera straight in front makes
+then up the tower on the chain; the flight down is carried by the test, as the yank alone doesn't clear the edge),
+`arms` (two vindicators chop both arms off, the head's saw kills grow them back). In progress: `pochita` (along his
+blood's trail to the fallen tree, your blood into him, he wakes, picked up and held as a chainsaw, a husk cut down;
+a husk, as a zombie burns at dusk). Left: the merge. `held` photographs Pochita held (with `-Pcapture=true`, a video of
+him in use with the real attack key). kortev: the head must move like a real person's, especially in first person (no
+snapping round: eased turns, the body lagging the head, a little sway). Lessons: a camera straight in front makes
 the head's saw a spike at the lens (always three quarters on); cameras closer than ~2.6 blocks drop into first
 person; the test world keeps entities between takes (`strays` clears them); grass between a low camera and you hides
 you. kortev offered to ask YouTube Studio's AI for advice; nothing back from it yet.
+
+**Done (2026-10-22): Pochita held is a real chainsaw** (kortev's picks): his 3D model in both hands at your waist
+(`HeldPochita`: a feature for everyone's view, the arm pose in `FormPoseMixin`, his item model shrunk to nothing in the
+hands so the flat picture is only his icon); no click swings: holding attack revs him (`Saw.REV`) then cuts in front
+continuously (`Saw.HELD_BITE`, about his old sword damage a second), kicking back; wood and plants cut fast (his
+`tool()` component); the engine idles while held, screams while cutting. **To fix later (kortev: "looks really bad from
+the first person")**: his first-person view (`HeldPochita.renderFirstPerson`, the `VIEW_*`/`ARM_*` numbers): ask
+kortev what they want it to look like before reworking it.
 
 **Waiting on kortev**: nothing on reel 1 any more (dropped for the showcases).
 
