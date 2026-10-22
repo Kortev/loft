@@ -576,22 +576,23 @@ public class FormGameTests implements FabricGameTest {
 		context.complete();
 	}
 
-	/** The forward key drives him: he goes the way you face, across the ground. */
+	/** The forward key drives him: he goes the way you face, across the ground, standing on it. */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_beam_swim", tickLimit = 30)
-	public void beamSwimsTheWayYouLook(TestContext context) {
-		ServerPlayerEntity player = fighter(context, "swimmer", 0.0);
+	public void beamWalksTheWayYouLook(TestContext context) {
+		ServerPlayerEntity player = fighter(context, "walker", 0.0);
 		ground(context, true);
 		Blood.set(player, Blood.MAX);
 		Beam.summon(player);
 		BeamEntity beam = (BeamEntity) player.getVehicle();
-		double z0 = beam.getZ();
-		player.updateInput(0.0F, 1.0F, false, false);
-		context.runAtTick(14, () -> {
+		double z0 = spot(context).z;
+		context.runAtTick(Beam.POP_TICKS + 1, () -> player.updateInput(0.0F, 1.0F, false, false));
+		context.runAtTick(Beam.POP_TICKS + 16, () -> {
 			try {
-				context.assertTrue(beam.isAlive() && player.getVehicle() == beam, "he dived or lost his rider while swimming");
+				context.assertTrue(beam.isAlive() && player.getVehicle() == beam, "he dived or lost his rider while walking");
 				context.assertTrue(beam.getZ() - z0 > 3.0, "he did not go forward: " + (beam.getZ() - z0));
 				context.assertTrue(Math.abs(player.getZ() - beam.getZ()) < 1.0, "the rider was left behind");
-				context.assertTrue(Math.abs(beam.getY() - spot(context).y) < 1.5, "he left the ground: " + (beam.getY() - spot(context).y));
+				context.assertTrue(Math.abs(beam.getY() - spot(context).y) < 0.2 && beam.isOnGround(), "he is not standing on the ground: " + (beam.getY() - spot(context).y));
+				context.assertTrue(Math.abs(player.getY() - (beam.getY() + BeamEntity.BACK)) < 0.3, "the rider is not standing on his back");
 			} finally {
 				done(context, player);
 				ground(context, false);
@@ -600,26 +601,109 @@ public class FormGameTests implements FabricGameTest {
 		});
 	}
 
-	/** What is in front of his mouth is bitten, hard, and what is behind him is left alone; a slash works from his back. */
+	/** He does not go through a wall: he stops at it (a wall too high to step up). */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_beam_wall", tickLimit = 40)
+	public void beamStopsAtAWall(TestContext context) {
+		ServerPlayerEntity player = fighter(context, "walled", 0.0);
+		ground(context, true);
+		Blood.set(player, Blood.MAX);
+		BlockPos wall = BlockPos.ofFloored(spot(context)).add(0, 0, 6);
+		for (int x = -3; x <= 3; x++) {
+			for (int y = 0; y < 4; y++) {
+				context.getWorld().setBlockState(wall.add(x, y, 0), Blocks.STONE.getDefaultState());
+			}
+		}
+		Beam.summon(player);
+		BeamEntity beam = (BeamEntity) player.getVehicle();
+		context.runAtTick(Beam.POP_TICKS + 1, () -> player.updateInput(0.0F, 1.0F, false, false));
+		context.runAtTick(Beam.POP_TICKS + 25, () -> {
+			try {
+				context.assertTrue(beam.getZ() < wall.getZ() - BeamEntity.WIDTH / 2.0 + 0.2, "he went into the wall: " + (beam.getZ() - wall.getZ()));
+				context.assertTrue(beam.getZ() - spot(context).z > 2.0, "he did not get to the wall: " + (beam.getZ() - spot(context).z));
+			} finally {
+				done(context, player);
+				for (int x = -3; x <= 3; x++) {
+					for (int y = 0; y < 4; y++) {
+						context.getWorld().setBlockState(wall.add(x, y, 0), Blocks.AIR.getDefaultState());
+					}
+				}
+				ground(context, false);
+			}
+			context.complete();
+		});
+	}
+
+	/**
+	 * The attack key is his bite while you ride (the slash action becomes {@code Beam.bite}): what is in front of his mouth
+	 * takes {@link Beam#BITE_DAMAGE} (not a slash's), is flung up and forward, and what is behind him is left alone; a second
+	 * bite straight after is refused.
+	 */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_beam_bite", tickLimit = 40)
-	public void beamBitesWhatIsInFront(TestContext context) {
+	public void slashBecomesABiteOnBeam(TestContext context) {
 		ServerPlayerEntity player = fighter(context, "biter", 0.0);
 		ground(context, true);
 		Blood.set(player, Blood.MAX);
-		HuskEntity front = husk(context, 0.0, 2.0);
+		HuskEntity front = husk(context, 0.0, 2.2);
 		HuskEntity behind = husk(context, 0.0, -2.5);
 		Beam.summon(player);
-		context.runAtTick(14, () -> {
+		BeamEntity beam = (BeamEntity) player.getVehicle();
+		// (The husks here stand without a mind and their motion is not run: what they were thrown at is what they keep, as velocity.)
+		double[] flung = new double[2];
+		context.runAtTick(Beam.POP_TICKS + 2, () -> {
+			context.assertTrue(Saw.slash(player), "the attack key did nothing from his back");
+			context.assertTrue(beam.sinceBite(0.0F) < 2.0F, "his jaw did not snap");
+			context.assertTrue(!Saw.slash(player), "a second bite came at once");
+		});
+		context.runAtTick(Beam.POP_TICKS + 3, () -> {
+			flung[0] = front.getVelocity().z;
+			flung[1] = front.getVelocity().y;
+		});
+		context.runAtTick(Beam.POP_TICKS + 6, () -> {
 			try {
-				context.assertTrue(front.getHealth() <= front.getMaxHealth() - Beam.BITE_DAMAGE + 0.5F, "the husk in front was not bitten: " + front.getHealth());
+				float lost = front.getMaxHealth() - front.getHealth();
+				context.assertTrue(lost >= Beam.BITE_DAMAGE - 0.5F && lost <= Beam.BITE_DAMAGE + 0.5F, "the bite did " + lost + ", not " + Beam.BITE_DAMAGE);
 				context.assertTrue(behind.getHealth() == behind.getMaxHealth(), "the husk behind was bitten");
-				float before = front.getHealth();
-				context.assertTrue(Saw.slash(player), "the slash did not come from his back");
-				context.assertTrue(!front.isAlive() || front.getHealth() < before, "the slash from his back did not cut");
+				context.assertTrue(flung[0] > Beam.FLING_AHEAD * 0.7, "the husk was not flung forward: " + flung[0]);
+				context.assertTrue(flung[1] > Beam.FLING_UP * 0.7, "the husk was not flung up: " + flung[1]);
 			} finally {
 				done(context, player);
 				front.discard();
 				behind.discard();
+				ground(context, false);
+			}
+			context.complete();
+		});
+	}
+
+	/** The use key is his charge (the lunge action becomes {@code Beam.charge}): he dashes ahead, biting what is in the way once and flinging it aside. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_beam_charge", tickLimit = 50)
+	public void lungeBecomesAChargeOnBeam(TestContext context) {
+		ServerPlayerEntity player = fighter(context, "charger", 0.0);
+		ground(context, true);
+		Blood.set(player, Blood.MAX);
+		HuskEntity inWay = husk(context, 0.0, 5.0);
+		Beam.summon(player);
+		BeamEntity beam = (BeamEntity) player.getVehicle();
+		double[] from = new double[1];
+		double[] aside = new double[1];
+		for (int t = Beam.POP_TICKS + 2; t < Beam.POP_TICKS + 2 + Beam.CHARGE_TICKS + 4; t++) {
+			context.runAtTick(t, () -> aside[0] = Math.max(aside[0], Math.abs(inWay.getVelocity().x)));
+		}
+		context.runAtTick(Beam.POP_TICKS + 2, () -> {
+			from[0] = beam.getZ();
+			context.assertTrue(Saw.lunge(player), "the use key did nothing from his back");
+			context.assertTrue(!Saw.lunge(player), "a second charge came at once");
+		});
+		context.runAtTick(Beam.POP_TICKS + 2 + Beam.CHARGE_TICKS + 4, () -> {
+			try {
+				context.assertTrue(beam.getZ() - from[0] > Beam.CHARGE_BLOCKS * 0.8, "he did not dash ahead: " + (beam.getZ() - from[0]));
+				context.assertTrue(player.getVehicle() == beam, "the rider was thrown");
+				float lost = inWay.getMaxHealth() - inWay.getHealth();
+				context.assertTrue(lost >= Beam.CHARGE_DAMAGE - 0.5F && lost <= Beam.CHARGE_DAMAGE + 0.5F, "what was in his way took " + lost + ", not " + Beam.CHARGE_DAMAGE + " once");
+				context.assertTrue(aside[0] > 0.7, "what was in his way was not flung aside: " + aside[0]);
+			} finally {
+				done(context, player);
+				inWay.discard();
 				ground(context, false);
 			}
 			context.complete();
@@ -636,13 +720,15 @@ public class FormGameTests implements FabricGameTest {
 		HuskEntity landing = husk(context, 0.0, Beam.LEAP_LONG);
 		Beam.summon(player);
 		BeamEntity beam = (BeamEntity) player.getVehicle();
-		double ground = beam.getY();
-		player.updateInput(0.0F, 0.0F, true, false);
+		double ground = spot(context).y;
+		int go = Beam.POP_TICKS + 1;
+		context.runAtTick(go, () -> player.updateInput(0.0F, 0.0F, true, false));
+		context.runAtTick(go + 2, () -> player.updateInput(0.0F, 0.0F, false, false));
 		double[] top = {0.0};
-		for (int t = 2; t < Beam.LEAP_TICKS; t++) {
+		for (int t = go; t < go + Beam.LEAP_TICKS + 4; t++) {
 			context.runAtTick(t, () -> top[0] = Math.max(top[0], beam.getY() - ground));
 		}
-		context.runAtTick(Beam.LEAP_TICKS + 8, () -> {
+		context.runAtTick(go + Beam.LEAP_TICKS + 12, () -> {
 			try {
 				context.assertTrue(top[0] > Beam.LEAP_UP * 0.8, "he did not leap: " + top[0]);
 				context.assertTrue(beam.getZ() - spot(context).z > Beam.LEAP_LONG * 0.8, "he did not land far ahead: " + (beam.getZ() - spot(context).z));

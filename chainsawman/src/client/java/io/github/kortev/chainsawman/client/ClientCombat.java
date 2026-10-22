@@ -48,6 +48,8 @@ public final class ClientCombat {
 	/** How long a slash plays (ticks), and how long the attack key must be held before it grinds. */
 	public static final int SWING = 10;
 	private static final int HOLD_TO_GRIND = 6;
+	/** How long Beam's charge is felt on your screen (ticks): the dash and a moment after. */
+	private static final float CHARGE_FELT = io.github.kortev.chainsawman.form.Beam.CHARGE_TICKS + 3;
 	/** How long a chain is out (ticks). */
 	public static final int CHAIN = 12;
 	/** Long enough ago that the next slash may come (not Long.MIN_VALUE: the time since it would overflow). */
@@ -413,6 +415,11 @@ public final class ClientCombat {
 	/** How far into your own lunge you are, as a swell from 0 to 1 and back (0 when not lunging). */
 	public static float lunging(float tickDelta) {
 		ClientPlayerEntity self = MinecraftClient.getInstance().player;
+		if (self != null && self.getVehicle() instanceof io.github.kortev.chainsawman.BeamEntity beam) {
+			// On Beam: his charge is yours (the same rush of lines and widening of the view).
+			float age = beam.sinceCharge(tickDelta);
+			return age >= 0.0F && age <= CHARGE_FELT ? MathHelper.sin(age / CHARGE_FELT * MathHelper.PI) : 0.0F;
+		}
 		Swing swing = self != null ? SWINGS.get(self.getUuid()) : null;
 		float age = self != null ? swingAge(self, tickDelta) : -1.0F;
 		if (swing == null || swing.step() != 3 || age < 0.0F) {
@@ -509,7 +516,12 @@ public final class ClientCombat {
 	 */
 	public static boolean use(MinecraftClient client) {
 		ClientPlayerEntity self = client.player;
-		if (self == null || !fighting(self) || self.isSneaking() || self.getVehicle() instanceof io.github.kortev.chainsawman.BeamEntity || client.crosshairTarget != null
+		if (self != null && fighting(self) && self.getVehicle() instanceof io.github.kortev.chainsawman.BeamEntity) {
+			// From Beam's back the use key is his charge, wherever you are looking.
+			send(FormActionPayload.LUNGE, true);
+			return true;
+		}
+		if (self == null || !fighting(self) || self.isSneaking() || client.crosshairTarget != null
 				&& client.crosshairTarget.getType() == net.minecraft.util.hit.HitResult.Type.BLOCK) {
 			return false;
 		}
@@ -530,6 +542,14 @@ public final class ClientCombat {
 			return self == null || !Downed.is(self);
 		}
 		long now = self.getWorld().getTime();
+		if (self.getVehicle() instanceof io.github.kortev.chainsawman.BeamEntity) {
+			// From Beam's back the attack key is his bite: told to the server, and his jaw snaps when it answers; no swing of the saws.
+			if (now - lastSlash >= io.github.kortev.chainsawman.form.Beam.BITE_EVERY) {
+				lastSlash = now;
+				send(FormActionPayload.SLASH, true);
+			}
+			return client.crosshairTarget != null && client.crosshairTarget.getType() == HitResult.Type.BLOCK;
+		}
 		if (now - lastSlash >= Saw.SLASH_EVERY) {
 			slashNow(self, now, wielding);
 		} else if (now - lastSlash >= Saw.SLASH_EVERY - BUFFER) {

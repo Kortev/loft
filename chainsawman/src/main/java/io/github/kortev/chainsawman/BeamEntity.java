@@ -19,32 +19,39 @@ import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Beam, the shark fiend, in his big shark form: Chainsaw Man's ult ({@link Beam}). He swims through the ground as if it
- * were water, a rider on his back, his body sunk so that only his back and his dorsal fin show above the surface. He
- * is nobody's mount in the game's sense (nothing is steered by the rider on the client): the server moves him every
- * tick from what the rider asks of him, so {@link #getControllingPassenger} is nobody. He is not saved, and what he does
- * is {@code Beam}'s to say; this holds where he is, what the clients are to show of him (a bite, a leap, a dive, as
- * the world time it began) and the rider's seat.
+ * Beam, the shark fiend, in his big shark form: Chainsaw Man's ult ({@link Beam}). In the Reze arc he stands and runs on
+ * four long thin legs like a crab's, a rider standing on his back; here he is a big body of about two blocks that walks on
+ * the ground and steps up onto what is in his way (a block or two), the game's own collision doing the rest. He is nobody's
+ * mount in the game's sense (nothing is steered by the rider on the client): the server moves him every tick from what the
+ * rider asks of him, so {@link #getControllingPassenger} is nobody. He is not saved, and what he does is {@code Beam}'s to
+ * say; this holds where he is, what the clients are to show of him (a bite, a leap, a charge, a dive, as the world time it
+ * began; whether he is in the air) and the rider's footing on his back.
  *
- * <p>His hitbox is small and stands on the surface ({@link #WIDTH} by {@link #HEIGHT}); the model is drawn lower than it,
- * the top of his back {@link #BACK} blocks above where he is.
+ * <p>His hitbox ({@link #WIDTH} by {@link #HEIGHT}) is the body between the legs; the model draws his back {@link #BACK}
+ * blocks above where he is (the ground, under his feet), and the rider stands on it.
  */
 public class BeamEntity extends Entity {
-	/** His hitbox (blocks): he stands on the surface, the rest of him is underground. */
-	public static final float WIDTH = 1.4F;
-	public static final float HEIGHT = 0.6F;
-	/** How far above where he is (the surface) the top of his back stands (blocks). */
-	public static final float BACK = 0.55F;
-	/** Where the rider's seat is: this far above where he is, and this far ahead of his middle (blocks). */
-	public static final float SEAT = 0.57F;
-	public static final double SEAT_AHEAD = 0.3;
+	/** His hitbox (blocks): wide and tall enough that he does not squeeze through what a horse could not. */
+	public static final float WIDTH = 1.9F;
+	public static final float HEIGHT = 2.2F;
+	/** How far above his feet the top of his back stands (blocks): the length of his legs and the depth of his body. */
+	public static final float BACK = 41.0F / 16.0F;
+	/** Where the rider stands: on his back, this far ahead of his middle (blocks), just behind his head. */
+	public static final double SEAT_AHEAD = 0.1;
+	/** One full cycle of his gait covers this much ground (blocks): the gait's phase advances with the distance he goes. */
+	public static final float STRIDE = 4.4F;
+	/** How high he steps up in one go (blocks): a block or two of what is in his way. */
+	private static final float STEP = 2.0F;
 	/** How many ticks the clients are told of his place ahead, so they glide him there between the server's word. */
 	private static final int GLIDE = 3;
 
-	/** The world time (as an int) of his last bite, his leap, and the start of his dive; -1 for never. */
+	/** The world time (as an int) of his last bite, his leap, his charge and the start of his dive; -1 for never. */
 	private static final TrackedData<Integer> BITE_AT = DataTracker.registerData(BeamEntity.class, TrackedDataHandlerRegistry.INTEGER);
 	private static final TrackedData<Integer> LEAP_AT = DataTracker.registerData(BeamEntity.class, TrackedDataHandlerRegistry.INTEGER);
 	private static final TrackedData<Integer> DIVE_AT = DataTracker.registerData(BeamEntity.class, TrackedDataHandlerRegistry.INTEGER);
+	private static final TrackedData<Integer> CHARGE_AT = DataTracker.registerData(BeamEntity.class, TrackedDataHandlerRegistry.INTEGER);
+	/** Whether he is off the ground (leaping or falling): the clients draw his legs drawn up. */
+	private static final TrackedData<Boolean> AIRBORNE = DataTracker.registerData(BeamEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
 
 	/** Whose Beam he is (the server's only), and what his run is doing (the server's only). */
 	private UUID owner;
@@ -56,15 +63,20 @@ public class BeamEntity extends Entity {
 	private float glideYaw;
 	private float glidePitch;
 	private int glideSteps;
-	/** The client's: the phase of his swimming (it runs faster the faster he goes), the last tick's, and how fast he is going (0 to 1 of his top speed). */
-	private float swim;
-	private float prevSwim;
+	/** The client's: the phase of his gait (it advances with the ground he covers), the last tick's, the phase of the clock (his tail's sway), and how fast he is going (0 to 1 of his top speed). */
+	private float walk;
+	private float prevWalk;
+	private float time;
+	private float prevTime;
 	private float pace;
+	/** The client's: how far his legs are drawn up for the air (0 to 1), smoothed, and the last tick's. */
+	private float air;
+	private float prevAir;
 
 	public BeamEntity(EntityType<? extends BeamEntity> type, World world) {
 		super(type, world);
-		// He moves through the ground: nothing stops him, nothing pulls him down, and he is not pushed.
-		this.noClip = true;
+		// He walks on the ground (the game's collision stops him at a wall, and he steps up what he can); what pulls him down
+		// is Beam's to do, so he has no gravity of his own.
 		this.setNoGravity(true);
 	}
 
@@ -73,6 +85,8 @@ public class BeamEntity extends Entity {
 		builder.add(BITE_AT, -1);
 		builder.add(LEAP_AT, -1);
 		builder.add(DIVE_AT, -1);
+		builder.add(CHARGE_AT, -1);
+		builder.add(AIRBORNE, false);
 	}
 
 	/** The world time (as an int) that {@code tracked} was last set, or -1. */
@@ -88,6 +102,11 @@ public class BeamEntity extends Entity {
 	/** How long since his leap began, in ticks; a long time if never. */
 	public float sinceLeap(float delta) {
 		return since(LEAP_AT, delta);
+	}
+
+	/** How long since his charge began, in ticks; a long time if never. */
+	public float sinceCharge(float delta) {
+		return since(CHARGE_AT, delta);
 	}
 
 	/** How long since he began to dive, in ticks; a long time if he has not. */
@@ -117,6 +136,21 @@ public class BeamEntity extends Entity {
 		dataTracker.set(DIVE_AT, (int) getWorld().getTime());
 	}
 
+	public void charged() {
+		dataTracker.set(CHARGE_AT, (int) getWorld().getTime());
+	}
+
+	/** Whether he is off the ground (the server's word). */
+	public boolean airborne() {
+		return dataTracker.get(AIRBORNE);
+	}
+
+	public void setAirborne(boolean airborne) {
+		if (airborne != airborne()) {
+			dataTracker.set(AIRBORNE, airborne);
+		}
+	}
+
 	@Nullable
 	public UUID owner() {
 		return owner;
@@ -137,9 +171,19 @@ public class BeamEntity extends Entity {
 		return getFirstPassenger() instanceof ServerPlayerEntity player && player.getUuid().equals(owner) ? player : null;
 	}
 
-	/** The phase of his swimming, {@code delta} of the way through the tick (the client's). */
-	public float swim(float delta) {
-		return MathHelper.lerp(delta, prevSwim, swim);
+	/** The phase of his gait, {@code delta} of the way through the tick (the client's). */
+	public float walk(float delta) {
+		return MathHelper.lerp(delta, prevWalk, walk);
+	}
+
+	/** The phase of the clock, for the sway of his tail (the client's). */
+	public float time(float delta) {
+		return MathHelper.lerp(delta, prevTime, time);
+	}
+
+	/** How far his legs are drawn up for the air (0 to 1), {@code delta} of the way through the tick (the client's). */
+	public float air(float delta) {
+		return MathHelper.lerp(delta, prevAir, air);
 	}
 
 	/** How fast he is going now, 0 to 1 of his top speed (the client's). */
@@ -159,8 +203,12 @@ public class BeamEntity extends Entity {
 			glide();
 			double moved = Math.hypot(getX() - prevX, getZ() - prevZ);
 			pace += (MathHelper.clamp((float) (moved / Beam.SPEED), 0.0F, 1.0F) - pace) * 0.3F;
-			prevSwim = swim;
-			swim += 0.22F + 1.0F * pace;
+			prevWalk = walk;
+			walk += (float) (moved / STRIDE * (2.0F * MathHelper.PI));
+			prevTime = time;
+			time += 0.15F + 0.5F * pace;
+			prevAir = air;
+			air += ((airborne() ? 1.0F : 0.0F) - air) * 0.4F;
 		} else {
 			Beam.tick(this);
 		}
@@ -197,21 +245,26 @@ public class BeamEntity extends Entity {
 		super.onRemoved();
 	}
 
-	/** The rider sits on his back, a little ahead of his middle and above the surface by the seat's height. */
+	/** The rider stands on his back, a little ahead of his middle, their feet on the top of it (not sat: the game's seat is not used). */
 	@Override
 	protected void updatePassengerPosition(Entity passenger, Entity.PositionUpdater updater) {
 		if (!hasPassenger(passenger)) {
 			return;
 		}
 		Vec3d ahead = heading().multiply(SEAT_AHEAD);
-		Vec3d hang = passenger.getVehicleAttachmentPos(this);
-		updater.accept(passenger, getX() + ahead.x, getY() + SEAT - hang.y, getZ() + ahead.z);
+		updater.accept(passenger, getX() + ahead.x, getY() + BACK - 0.05, getZ() + ahead.z);
 	}
 
-	/** Off his back: standing on the surface where he is. */
+	/** Off his back: down on the ground where he is. */
 	@Override
 	public Vec3d updatePassengerForDismount(LivingEntity passenger) {
 		return new Vec3d(getX(), getY() + 0.05, getZ());
+	}
+
+	/** He steps up what is in his way, a block or two. */
+	@Override
+	public float getStepHeight() {
+		return STEP;
 	}
 
 	/** The game steers nothing of him: the server moves him. */
@@ -226,7 +279,7 @@ public class BeamEntity extends Entity {
 		return getPassengerList().isEmpty();
 	}
 
-	/** Under water the rider stays on: he swims along its surface. */
+	/** Under water the rider stays on: he wades. */
 	@Override
 	public boolean shouldDismountUnderwater() {
 		return false;
@@ -234,7 +287,7 @@ public class BeamEntity extends Entity {
 
 	@Override
 	protected Vec3d getPassengerAttachmentPos(Entity passenger, EntityDimensions dimensions, float scaleFactor) {
-		return new Vec3d(0.0, SEAT, 0.0);
+		return new Vec3d(0.0, BACK, 0.0);
 	}
 
 	/** Nothing hurts him but the void: he is a fiend, not a mount to be killed. */

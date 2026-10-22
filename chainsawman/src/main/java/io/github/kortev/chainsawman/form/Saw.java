@@ -154,6 +154,10 @@ public final class Saw {
 	 * and that too if it's near enough.
 	 */
 	public static boolean slash(ServerPlayerEntity player, int aimed) {
+		if (Beam.riding(player)) {
+			// From Beam's back the attack key is his bite.
+			return Beam.bite(player);
+		}
 		boolean held = !Form.fighting(player) && wielding(player);
 		if (!Form.fighting(player) && !held) {
 			return false;
@@ -312,7 +316,11 @@ public final class Saw {
 
 	/** The lunge: off headfirst the way you look, cutting through what you run into. */
 	public static boolean lunge(ServerPlayerEntity player) {
-		if (!Form.fighting(player) || Beam.riding(player)) {
+		if (Beam.riding(player)) {
+			// From Beam's back the use key is his charge.
+			return Beam.charge(player);
+		}
+		if (!Form.fighting(player)) {
 			return false;
 		}
 		long now = player.getServerWorld().getTime();
