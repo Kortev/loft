@@ -36,7 +36,7 @@ import org.lwjgl.glfw.GLFW;
 public final class ChainsawManClient implements ClientModInitializer {
 	/** Pull the cord: into the form with Pochita carried, or out of it again. */
 	public static KeyBinding PULL_CORD;
-	/** Fire the chain from the arm; call up the blood frenzy. */
+	/** Fire the chain from the arm; call up Beam, the ult (the key was the blood frenzy's, so its id is). */
 	public static KeyBinding CHAIN;
 	public static KeyBinding FRENZY;
 	/** The kick. */
@@ -68,6 +68,8 @@ public final class ChainsawManClient implements ClientModInitializer {
 						}))));
 		EntityModelLayerRegistry.registerModelLayer(PochitaRenderer.LAYER, PochitaModel::texturedModelData);
 		EntityRendererRegistry.register(ChainsawMan.POCHITA_ENTITY, PochitaRenderer::new);
+		EntityModelLayerRegistry.registerModelLayer(BeamRenderer.LAYER, BeamModel::texturedModelData);
+		EntityRendererRegistry.register(ChainsawMan.BEAM_ENTITY, BeamRenderer::new);
 		WorldRenderEvents.AFTER_ENTITIES.register(MergeCinematic::render);
 		WorldRenderEvents.AFTER_ENTITIES.register(SawTrails::render);
 		WorldRenderEvents.AFTER_ENTITIES.register(CutDown::render);
@@ -99,7 +101,10 @@ public final class ChainsawManClient implements ClientModInitializer {
 		});
 		ClientPlayNetworking.registerGlobalReceiver(FormEventPayload.ID, (payload, context) -> ClientCombat.event(payload));
 		WorldRenderEvents.AFTER_ENTITIES.register(ChainRender::render);
-		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> ClientForms.clear());
+		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+			ClientForms.clear();
+			BeamClient.clear();
+		});
 		CoreShaderRegistrationCallback.EVENT.register(context -> context.register(ChainsawMan.id("csm_impact"), VertexFormats.BLIT_SCREEN,
 				program -> FormHud.impact = program));
 		HudRenderCallback.EVENT.register(FormHud::render);
@@ -115,6 +120,7 @@ public final class ChainsawManClient implements ClientModInitializer {
 			ClientCombat.tick(client);
 			DreamHud.tick(client);
 			FormCinematic.tick(client);
+			BeamClient.tick(client);
 		});
 	}
 

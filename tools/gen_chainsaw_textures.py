@@ -127,12 +127,12 @@ def faces(u, v, w, h, d):
             'east': (u + d + w, v + d, d, h), 'back': (u + 2 * d + w, v + d, w, h)}
 
 
-def paint(img, u, v, w, h, d, colour):
-    """Paints every face of the box at (u, v): {colour(face, x, y, fw, fh)} gives each pixel's key in POCHITA_COLOURS."""
+def paint(img, u, v, w, h, d, colour, palette=POCHITA_COLOURS):
+    """Paints every face of the box at (u, v): {colour(face, x, y, fw, fh)} gives each pixel's key in {palette}."""
     for name, (x0, y0, fw, fh) in faces(u, v, w, h, d).items():
         for y in range(fh):
             for x in range(fw):
-                img.putpixel((x0 + x, y0 + y), POCHITA_COLOURS[colour(name, x, y, fw, fh)])
+                img.putpixel((x0 + x, y0 + y), palette[colour(name, x, y, fw, fh)])
 
 
 def fur(face, x, y, fw, fh, under=0.35):
@@ -227,6 +227,114 @@ def pochita_entity():
         return ['HHHHHHH', '.H...H.', '..H.H..', '...H...'][y][x] if face in ('west', 'east') else '.'
 
     paint(img, 28, 44, 0, 4, 7, grip)
+    return img
+
+
+# Beam the shark (client BeamModel's boxes, its texture corners and sizes mirrored here; change one, change the other):
+# a slate blue-grey back (its top a lighter shade, a darker band where it turns under) over a white belly (shaded
+# lower down, greyer on the underside), the line between them ragged; darker slate fins; a mouth of dark red with white
+# teeth; small black eyes; gill slits behind the head.
+BEAM_COLOURS = {
+    'S': (93, 120, 150, 255),    # his back, #5d7896
+    'L': (112, 142, 174, 255),   # its top, in the light
+    'D': (76, 100, 128, 255),    # the band of it where it turns under, in shade
+    'F': (70, 92, 119, 255),     # the fins
+    'f': (56, 76, 100, 255),     # their edges
+    'W': (242, 245, 246, 255),   # his belly
+    'V': (208, 217, 224, 255),   # its shaded lower edge
+    'U': (168, 181, 194, 255),   # the underside
+    'M': (96, 22, 30, 255),      # inside his mouth
+    'm': (140, 40, 50, 255),     # his tongue
+    'T': (248, 248, 242, 255),   # a tooth
+    't': (214, 214, 208, 255),   # its point, in shade
+    'K': (12, 14, 20, 255),      # an eye
+    'G': (52, 72, 96, 255),      # a gill slit
+    'N': (62, 84, 108, 255),     # a nostril
+    '.': (0, 0, 0, 0),
+}
+
+# Each box of the model: its texture corner and size (w, h, d) as BeamModel makes it. Packed into 128 by 64.
+BEAM_BOXES = {
+    'trunk': (0, 0, 14, 17, 14), 'head': (56, 0, 12, 15, 10), 'tail_base': (100, 0, 2, 8, 5), 'tail_up1': (114, 0, 2, 5, 5),
+    'dorsal1': (100, 13, 2, 5, 7), 'pect_tip': (56, 25, 4, 1, 4), 'fin2': (72, 25, 1, 3, 3), 'tooth': (80, 25, 1, 2, 1),
+    'rear': (0, 31, 11, 13, 9), 'dorsal0': (40, 31, 2, 8, 10), 'snout': (64, 31, 8, 8, 8), 'stalk': (96, 31, 5, 7, 7),
+    'jaw': (0, 53, 8, 3, 8), 'pect': (32, 53, 8, 1, 7), 'tail_up2': (62, 53, 2, 5, 5), 'tail_low': (76, 53, 2, 4, 4),
+    'dorsal2': (88, 53, 2, 3, 4),
+}
+
+
+def shark(split):
+    """The body's colouring on a box: the top light, the underside grey, the sides slate down to {split} of their height
+    (a ragged line, a shaded band above it) and white below, the lowest row shaded."""
+    def colour(face, x, y, fw, fh):
+        if face == 'top':
+            return 'L'
+        if face == 'bottom':
+            return 'U'
+        line = round(fh * split) + (1 if x % 4 == 1 else 0)
+        if y == fh - 1:
+            return 'V'
+        if y >= line:
+            return 'W'
+        return 'D' if y >= line - 1 else 'S'
+    return colour
+
+
+def beam_entity():
+    img = Image.new('RGBA', (128, 64), (0, 0, 0, 0))
+
+    def put(name, colour):
+        u, v, w, h, d = BEAM_BOXES[name]
+        paint(img, u, v, w, h, d, colour, BEAM_COLOURS)
+
+    def front_col(face, x, fw):
+        """How far toward the front of the box a side face's column is (larger is nearer the front)."""
+        return x if face == 'west' else fw - 1 - x
+
+    def trunk(face, x, y, fw, fh):
+        if face in ('west', 'east'):
+            # Gill slits just behind the head.
+            if front_col(face, x, fw) in (fw - 3, fw - 5, fw - 7) and 3 <= y <= 8:
+                return 'G'
+        return shark(0.56)(face, x, y, fw, fh)
+
+    put('trunk', trunk)
+
+    def head(face, x, y, fw, fh):
+        if face in ('west', 'east') and 4 <= y <= 5 and front_col(face, x, fw) in (fw - 4, fw - 3):
+            return 'K'
+        if face == 'front':
+            if 9 <= y <= 13:
+                # The back of his mouth, under the snout.
+                return 'M' if 2 <= x <= fw - 3 else 'W'
+        return shark(0.6)(face, x, y, fw, fh)
+
+    put('head', head)
+
+    def snout(face, x, y, fw, fh):
+        if face == 'bottom':
+            return 'M'
+        if face == 'top' and y in (1, 2) and x in (2, fw - 3):
+            return 'N'
+        return shark(0.6)(face, x, y, fw, fh)
+
+    put('snout', snout)
+
+    def jaw(face, x, y, fw, fh):
+        if face == 'top':
+            return 'm' if 2 <= x <= fw - 3 and 2 <= y <= 5 else 'M'
+        if face == 'bottom':
+            return 'U'
+        return 'V' if y == fh - 1 else 'W'
+
+    put('jaw', jaw)
+    put('rear', shark(0.5))
+    put('stalk', shark(0.55))
+    for name in ('tail_base', 'tail_up1', 'tail_up2', 'tail_low', 'dorsal0', 'dorsal1', 'dorsal2', 'fin2'):
+        put(name, lambda f, x, y, fw, fh: 'f' if f in ('top', 'bottom', 'front', 'back') else 'F')
+    for name in ('pect', 'pect_tip'):
+        put(name, lambda f, x, y, fw, fh: 'F' if f == 'top' else 'V' if f == 'bottom' else 'f')
+    put('tooth', lambda f, x, y, fw, fh: 't' if f == 'bottom' else 'T')
     return img
 
 
@@ -931,7 +1039,8 @@ def main():
     preview = sys.argv[sys.argv.index('--preview') + 1] if '--preview' in sys.argv else None
     out = {(ROOT, 'item/pochita.png'): draw(POCHITA), (CLIENT_ROOT, 'entity/form_flesh.png'): draw(FLESH),
            (CLIENT_ROOT, 'entity/form_chain.png'): draw(CHAIN),
-           (CLIENT_ROOT, 'entity/pochita.png'): pochita_entity(), (CLIENT_ROOT, 'entity/blood_pool.png'): pool(),
+           (CLIENT_ROOT, 'entity/pochita.png'): pochita_entity(), (CLIENT_ROOT, 'entity/beam.png'): beam_entity(),
+           (CLIENT_ROOT, 'entity/blood_pool.png'): pool(),
            (CLIENT_ROOT, 'entity/form_flare.png'): flare(), (CLIENT_ROOT, 'entity/form_trail.png'): trail(),
            (CLIENT_ROOT, 'gui/form_roar.png'): roar(), (CLIENT_ROOT, 'entity/form_saw_chain.png'): saw_chain(),
            (CLIENT_ROOT, 'gui/dream_door.png'): dream_door(), (CLIENT_ROOT, 'gui/lens_blood.png'): lens_blood(),

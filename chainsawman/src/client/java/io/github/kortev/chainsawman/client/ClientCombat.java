@@ -42,7 +42,7 @@ import org.joml.Vector3f;
 /**
  * The fight as each client knows it ({@link FormEventPayload}): who slashed and with which step of the combo, who is
  * grinding, whose chain is out and to where, who is in a frenzy, who is down. And your own keys in the form: the attack
- * key slashes (or grinds, held), the chain key fires the chain, the frenzy key calls it up; down, you can only look round.
+ * key slashes (or grinds, held), the chain key fires the chain, the ult key calls up Beam; down, you can only look round.
  */
 public final class ClientCombat {
 	/** How long a slash plays (ticks), and how long the attack key must be held before it grinds. */
@@ -509,7 +509,7 @@ public final class ClientCombat {
 	 */
 	public static boolean use(MinecraftClient client) {
 		ClientPlayerEntity self = client.player;
-		if (self == null || !fighting(self) || self.isSneaking() || client.crosshairTarget != null
+		if (self == null || !fighting(self) || self.isSneaking() || self.getVehicle() instanceof io.github.kortev.chainsawman.BeamEntity || client.crosshairTarget != null
 				&& client.crosshairTarget.getType() == net.minecraft.util.hit.HitResult.Type.BLOCK) {
 			return false;
 		}
