@@ -1,17 +1,15 @@
 package io.github.kortev.chainsawman;
 
 import java.util.List;
-import net.minecraft.component.type.AttributeModifierSlot;
-import net.minecraft.component.type.AttributeModifiersComponent;
+import net.minecraft.component.type.ToolComponent;
 import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.attribute.EntityAttributeModifier;
-import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.ItemUsageContext;
 import net.minecraft.item.tooltip.TooltipType;
 import net.minecraft.particle.DustParticleEffect;
+import net.minecraft.registry.tag.BlockTags;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.text.Text;
@@ -32,14 +30,13 @@ public class PochitaItem extends Item {
 		super(settings);
 	}
 
-	/** As a weapon: the chainsaw's bite, and how quickly it comes round again. */
-	public static AttributeModifiersComponent weapon() {
-		return AttributeModifiersComponent.builder()
-				.add(EntityAttributes.GENERIC_ATTACK_DAMAGE, new EntityAttributeModifier(BASE_ATTACK_DAMAGE_MODIFIER_ID, 7.0,
-						EntityAttributeModifier.Operation.ADD_VALUE), AttributeModifierSlot.MAINHAND)
-				.add(EntityAttributes.GENERIC_ATTACK_SPEED, new EntityAttributeModifier(BASE_ATTACK_SPEED_MODIFIER_ID, -2.6,
-						EntityAttributeModifier.Operation.ADD_VALUE), AttributeModifierSlot.MAINHAND)
-				.build();
+	/**
+	 * As a tool: through wood and plants as a chainsaw goes through a tree (kortev, 2026-10-22). (As a weapon he isn't
+	 * swung: held in both hands, holding the attack key revs him up and cuts, Saw.HELD_BITE.)
+	 */
+	public static ToolComponent tool() {
+		return new ToolComponent(List.of(ToolComponent.Rule.of(BlockTags.AXE_MINEABLE, 14.0F), ToolComponent.Rule.of(BlockTags.LEAVES, 15.0F),
+				ToolComponent.Rule.of(BlockTags.SWORD_EFFICIENT, 15.0F), ToolComponent.Rule.of(BlockTags.HOE_MINEABLE, 10.0F)), 1.0F, 0);
 	}
 
 	/** Whether {@code player} carries him anywhere in their inventory. */

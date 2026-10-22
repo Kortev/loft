@@ -76,6 +76,14 @@ public final class Saw {
 	 * damage, with one arm (the right's sweep twice, then the chop), and no blood drunk.
 	 */
 	public static final float WIELDED = 0.5F;
+	/**
+	 * Pochita held in both hands as a real chainsaw (kortev, 2026-10-22): no swings; holding the attack key revs him up
+	 * for {@link #REV} ticks, then he cuts whatever's in front for as long as it's held, biting at this much of the
+	 * form's grind (about the damage a second he did as a sword before), slowing it, and kicking back at you a little.
+	 */
+	public static final int REV = 8;
+	public static final float HELD_BITE = 1.8F;
+	private static final double KICKBACK = 0.05;
 	/** The form's cost: a point of health (half a heart) every so many ticks. */
 	public static final int DRAIN_EVERY = 120;
 	/**
@@ -108,6 +116,8 @@ public final class Saw {
 	private static final Map<UUID, Slash> SLASHED = new ConcurrentHashMap<>();
 	/** Who is grinding, and how many bites that hit since the last heal. */
 	private static final Map<UUID, Integer> GRINDING = new ConcurrentHashMap<>();
+	/** Since when each one grinding has been (server ticks): Pochita held needs revving up first. */
+	private static final Map<UUID, Long> REVVED = new ConcurrentHashMap<>();
 	/** Who the form drains, and since when (server ticks). */
 	private static final Map<UUID, Long> DRAINING = new ConcurrentHashMap<>();
 	/** Who is lunging: since when, and what the lunge has cut already (each thing once). */
@@ -343,8 +353,10 @@ public final class Saw {
 		boolean was = GRINDING.containsKey(player.getUuid());
 		if (on && (Form.fighting(player) || wielding(player) && !Form.on(player))) {
 			GRINDING.putIfAbsent(player.getUuid(), 0);
+			REVVED.putIfAbsent(player.getUuid(), player.getServerWorld().getTime());
 		} else {
 			GRINDING.remove(player.getUuid());
+			REVVED.remove(player.getUuid());
 		}
 		if (was != GRINDING.containsKey(player.getUuid())) {
 			Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.GRIND, was ? 0 : 1));
@@ -368,12 +380,18 @@ public final class Saw {
 				DRAINING.remove(id);
 				if (GRINDING.containsKey(id) && (Form.on(player) || !wielding(player))) {
 					grind(player, false);
-				} else if (GRINDING.containsKey(id) && now % GRIND_EVERY == 0) {
-					// Pochita held, grinding: half the bite, no blood drunk.
+				} else if (GRINDING.containsKey(id) && now - REVVED.getOrDefault(id, now) >= REV && now % GRIND_EVERY == 0) {
+					// Pochita held, revved up and cutting: no blood drunk.
 					for (LivingEntity target : inFront(player, GRIND_REACH, GRIND_WIDTH)) {
+						breakGuard(target);
 						target.timeUntilRegen = 0;
-						target.damage(player.getDamageSources().playerAttack(player), GRIND_DAMAGE * WIELDED);
-						bleed(player.getServerWorld(), target, 5);
+						target.damage(player.getDamageSources().playerAttack(player), GRIND_DAMAGE * HELD_BITE);
+						target.setVelocity(target.getVelocity().multiply(0.4, 1.0, 0.4));
+						target.velocityModified = true;
+						bleed(player.getServerWorld(), target, 8);
+						Vec3d back = player.getRotationVec(1.0F).multiply(-KICKBACK, 0.0, -KICKBACK);
+						player.addVelocity(back.x, 0.0, back.z);
+						player.velocityModified = true;
 					}
 				}
 				continue;
@@ -498,6 +516,7 @@ public final class Saw {
 		LUNGED.remove(id);
 		SLASHED.remove(id);
 		GRINDING.remove(id);
+		REVVED.remove(id);
 		DRAINING.remove(id);
 	}
 
@@ -506,6 +525,7 @@ public final class Saw {
 		LUNGED.clear();
 		SLASHED.clear();
 		GRINDING.clear();
+		REVVED.clear();
 		DRAINING.clear();
 	}
 }

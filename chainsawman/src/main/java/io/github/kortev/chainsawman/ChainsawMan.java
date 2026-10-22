@@ -45,7 +45,7 @@ public final class ChainsawMan implements ModInitializer {
 
 	/** Pochita picked up: a chainsaw in your hands, and carried when you die, your heart. */
 	public static final Item POCHITA = Registry.register(Registries.ITEM, id("pochita"),
-			new PochitaItem(new Item.Settings().maxCount(1).rarity(Rarity.EPIC).fireproof().attributeModifiers(PochitaItem.weapon())));
+			new PochitaItem(new Item.Settings().maxCount(1).rarity(Rarity.EPIC).fireproof().component(net.minecraft.component.DataComponentTypes.TOOL, PochitaItem.tool())));
 	/** Pochita himself, the animal: one in a world, found fainted, tamed with your blood. */
 	public static final EntityType<PochitaEntity> POCHITA_ENTITY = Registry.register(Registries.ENTITY_TYPE, id("pochita"),
 			EntityType.Builder.create(PochitaEntity::new, SpawnGroup.CREATURE).dimensions(0.6F, 0.7F).maxTrackingRange(10).build("pochita"));

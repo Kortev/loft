@@ -127,6 +127,7 @@ public final class ClientCombat {
 	/** Your own blood, as the server last said (-1 before it has). */
 	private static int blood = -1;
 	private static final Map<UUID, SoundInstance> GRIND_SOUNDS = new ConcurrentHashMap<>();
+	private static final Map<UUID, SoundInstance> HELD_SOUNDS = new ConcurrentHashMap<>();
 	private static final Map<UUID, SoundInstance> FRENZY_SOUNDS = new ConcurrentHashMap<>();
 	private static final DustParticleEffect EYE = new DustParticleEffect(new Vector3f(1.0F, 0.85F, 0.3F), 0.8F);
 	private static final DustParticleEffect BLOOD = new DustParticleEffect(new Vector3f(0.5F, 0.0F, 0.03F), 1.0F);
@@ -520,7 +521,12 @@ public final class ClientCombat {
 	public static boolean attack(MinecraftClient client) {
 		ClientPlayerEntity self = client.player;
 		boolean wielding = self != null && !ClientForms.on(self) && Saw.wielding(self);
-		if (self == null || !fighting(self) && !wielding) {
+		if (wielding) {
+			// Pochita held is a real chainsaw, not swung: holding the key revs him and cuts (tick); on a block it's the
+			// game's own mining, his tool speed doing the rest.
+			return client.crosshairTarget != null && client.crosshairTarget.getType() == HitResult.Type.BLOCK;
+		}
+		if (self == null || !fighting(self)) {
 			return self == null || !Downed.is(self);
 		}
 		long now = self.getWorld().getTime();
@@ -659,9 +665,11 @@ public final class ClientCombat {
 		}
 		// Held, the attack key grinds, unless it is on a block (cutting through that is the game's own mining).
 		boolean onBlock = client.crosshairTarget != null && client.crosshairTarget.getType() == HitResult.Type.BLOCK;
-		boolean armed = fighting(self) || !ClientForms.on(self) && Saw.wielding(self);
+		boolean wielding = !ClientForms.on(self) && Saw.wielding(self);
+		boolean armed = fighting(self) || wielding;
 		held = armed && client.options.attackKey.isPressed() && client.currentScreen == null ? held + 1 : 0;
-		boolean grind = held >= HOLD_TO_GRIND && !onBlock;
+		// (Pochita held runs the moment it's held, cutting a tree too: the server revs him up before he bites.)
+		boolean grind = wielding ? held > 0 : held >= HOLD_TO_GRIND && !onBlock;
 		if (grind != grindSent) {
 			grindSent = grind;
 			send(FormActionPayload.GRIND, grind);
@@ -675,7 +683,9 @@ public final class ClientCombat {
 		swing(client, self);
 		for (AbstractClientPlayerEntity player : world.getPlayers()) {
 			UUID id = player.getUuid();
-			loop(client, GRIND_SOUNDS, player, ChainsawSounds.GRIND, () -> grinding(player) && ClientForms.on(player), 0.9F);
+			loop(client, GRIND_SOUNDS, player, ChainsawSounds.GRIND, () -> grinding(player) && (ClientForms.on(player) || Saw.wielding(player)), 0.9F);
+			// Pochita in your hands putters along, idling, till you cut.
+			loop(client, HELD_SOUNDS, player, ChainsawSounds.IDLE, () -> !ClientForms.on(player) && Saw.wielding(player) && !grinding(player), 0.35F);
 			loop(client, FRENZY_SOUNDS, player, ChainsawSounds.FRENZY_LOOP, () -> frenzy(player) && ClientForms.on(player), 0.8F);
 			if (frenzy(player) && now % 3 == 0) {
 				eyeGlow(world, player);
@@ -870,6 +880,7 @@ public final class ClientCombat {
 		FRENZY_FROM.clear();
 		DOWN.clear();
 		GRIND_SOUNDS.clear();
+		HELD_SOUNDS.clear();
 		FRENZY_SOUNDS.clear();
 		held = 0;
 		grindSent = false;
