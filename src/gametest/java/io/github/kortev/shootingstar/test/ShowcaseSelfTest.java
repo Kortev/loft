@@ -70,26 +70,20 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 	/** Each reel's hook over its first moments (kortev: a question hook works), and the question it ends on (for comments). */
 	private static String[] hook() {
 		return switch (target()) {
-			case "saws" -> new String[] {"His saws cut", "through walls"};
-			case "chain" -> new String[] {"His chain yanks mobs", "right off towers"};
-			case "arms" -> new String[] {"Lose both arms...", "then grow them back"};
-			case "pochita" -> new String[] {"Pochita is hiding", "in your world"};
-			case "merge" -> new String[] {"What happens if you die", "holding Pochita?"};
-			case "beam" -> new String[] {"He rides a shark", "through the ground"};
-			default -> new String[] {"POV:", "you're Chainsaw Man"};
+			// (kortev: a showcase, so each says plainly what the feature is.)
+			case "saws" -> new String[] {"Saws that cut", "through walls"};
+			case "chain" -> new String[] {"Grab mobs", "with your chain"};
+			case "arms" -> new String[] {"Lose your arms, drink", "blood to regrow them"};
+			case "pochita" -> new String[] {"Find and tame", "Pochita"};
+			case "merge" -> new String[] {"Die holding Pochita to", "become Chainsaw Man"};
+			case "beam" -> new String[] {"Summon Beam", "and ride him"};
+			default -> new String[] {"Pull the cord", "to transform"};
 		};
 	}
 
+	/** The same question on every reel: the series' catchphrase (kortev, 2026-10-22). */
 	private static String ask() {
-		return switch (target()) {
-			case "saws" -> "What should I cut through next?";
-			case "chain" -> "What should the chain grab next?";
-			case "arms" -> "Rate this power 1-10";
-			case "pochita" -> "What should Pochita do next?";
-			case "merge" -> "Which scene should I make next?";
-			case "beam" -> "What should his next ult be?";
-			default -> "What should I add next?";
-		};
+		return "What should I add next?";
 	}
 
 	/** Until when the hook stays up, and from when the question's there (reel ticks). */
