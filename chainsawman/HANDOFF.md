@@ -48,10 +48,16 @@ then up the tower on the chain; the flight down is carried by the test, as the y
 to the fallen tree, your blood into him, he wakes, picked up and held as a chainsaw, a husk cut down; a husk, as a
 zombie burns at dusk), `merge` (kortev: question hook + emotional beat + payoff; "What happens if you die holding
 Pochita?" over you in a horde, killed, the mod's own merge, the pull, the horde cut down). The merge reel is filmed
-whole (41 s) and **cut by hand** to 17.5 s: after `mux-audio.py`, keep 0-2.95 s (hook, death), 23.9-32.45 s (his
-"show me your dream" line through waking) and 33.65-39.6 s (the pull to the end), joined with ffmpeg's trim/atrim and
-concat (50 ms audio fades at the joins); if the merge's timeline changes, find the cuts again. All six reels approved
-by kortev (the first four were filmed before the eased head turns; reshoot them if they should match). `held` photographs Pochita held (with `-Pcapture=true`, a video of
+whole (41.5 s) and **cut by hand** to 19.3 s: after `mux-audio.py`, keep 0-2.95 s (hook, death), 23.9-32.45 s (his
+"show me your dream" line through waking) and 33.65-41.4 s (the pull to the end and its question), joined with
+ffmpeg's trim/atrim and concat (50 ms audio fades at the joins); if the merge's timeline changes, find the cuts again.
+All six approved by kortev, then a second pass (2026-10-22, from my review, kortev: "do all of it"): **every reel
+opens on a hook** (`hook()`, two lines, white then orange) **and ends on a question for the comments** (`ask()`,
+kortev: comment-farm on all of them, not one); `transform` is now **your own eyes** ("POV: you're Chainsaw Man": the
+mod's own transformation camera, then three kills with the real attack key, then both saws revving), as the merge
+already shows it from outside; endings differ (saws: one ground down, no combo; arms: both saws revving; chain: a
+third flung up from the ground below and cut at the tower's edge); Pochita starts nearer him. All reshot with the eased
+head turns. Not yet seen by kortev: this second pass. `held` photographs Pochita held (with `-Pcapture=true`, a video of
 him in use with the real attack key). kortev: the head must move like a real person's, especially in first person (no
 snapping round: eased turns, the body lagging the head, a little sway). Lessons: a camera straight in front makes
 the head's saw a spike at the lens (always three quarters on); cameras closer than ~2.6 blocks drop into first

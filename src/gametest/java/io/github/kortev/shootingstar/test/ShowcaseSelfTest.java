@@ -63,20 +63,58 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 	}
 
 	private static final String TITLE = "CHAINSAW MAN MOD";
-	private static final String ASK = "What should I add next?";
+
+	/** Each reel's hook over its first moments (kortev: a question hook works), and the question it ends on (for comments). */
+	private static String[] hook() {
+		return switch (target()) {
+			case "saws" -> new String[] {"His saws cut", "through walls"};
+			case "chain" -> new String[] {"His chain yanks mobs", "right off towers"};
+			case "arms" -> new String[] {"Lose both arms...", "then grow them back"};
+			case "pochita" -> new String[] {"Pochita is hiding", "in your world"};
+			case "merge" -> new String[] {"What happens if you die", "holding Pochita?"};
+			default -> new String[] {"POV:", "you're Chainsaw Man"};
+		};
+	}
+
+	private static String ask() {
+		return switch (target()) {
+			case "saws" -> "What should I cut through next?";
+			case "chain" -> "What should the chain grab next?";
+			case "arms" -> "Rate this power 1-10";
+			case "pochita" -> "What should Pochita do next?";
+			case "merge" -> "Which scene should I make next?";
+			default -> "What should I add next?";
+		};
+	}
+
+	/** Until when the hook stays up, and from when the question's there (reel ticks). */
+	private static int hookUntil() {
+		return "merge".equals(target()) ? MERGE_AT + 12 : 44;
+	}
+
+	private static int askedAt() {
+		return switch (target()) {
+			case "saws" -> GRIND_TO - 4;
+			case "chain" -> THIRD_CUT + 6;
+			case "arms" -> ARMS_HERO + 16;
+			case "pochita" -> POCHITA_HERO + 10;
+			case "merge" -> REVENGE_CUTS[REVENGE_CUTS.length - 1] + 6;
+			default -> ASKED;
+		};
+	}
 
 	/** The way you face at the start: east, so every shot toward you has the sunset behind you. */
 	private static final float FACING = -90.0F;
 	/** The zombies round you: the angle from the way you face (degrees) and how far off; none in front, for the roar. */
 	private static final float[] AROUND = {70.0F, -70.0F, 180.0F};
 	private static final double OFF = 2.3;
-	/** Your swings at them, in order (the combo: across, back, overhead); the cuts to each, a little before. */
-	private static final int[] SLASHES = {66, 80, 94};
-	/** The last shot: you turning to the camera as it eases in, and the question. */
-	private static final int TURN = 104;
-	private static final int ASKED = 116;
-	private static final int END = 210;
-	private static final int[] SCREENS = {12, 30, 40, 48, 58, 68, 76, 84, 96, 102, 112, 124, 200};
+	/** Your swings at them, in order (the combo: across, back, overhead), once the transformation's done. */
+	private static final int[] SLASHES = {78, 92, 106};
+	/** Back the way you faced; the question. */
+	private static final int TURN = 110;
+	private static final int ASKED = 118;
+	private static final int END = 180;
+	private static final int[] SCREENS = {12, 30, 40, 48, 58, 70, 79, 93, 107, 120, 170};
 
 	// The saws reel. The hut you're in (east of you its front wall, the way out), the hole cut through it (across, up)
 	// a block at a time; where you stand clear of it, and lunge from; where you end up, the zombies round there (angles
@@ -98,13 +136,12 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 	 * down, tougher, in case a slash catches it.
 	 */
 	private static final int LANDED = 67;
-	private static final float[] RING = {55.0F, -55.0F, 180.0F, -120.0F};
-	private static final double RING_OFF = 2.9;
-	private static final int[] SAW_SLASHES = {80, 94, 108};
-	private static final int GRIND_FROM = 122;
-	private static final int GRIND_TO = 150;
-	private static final int SAW_END = 162;
-	private static final int[] SAW_SCREENS = {2, 12, 24, 36, 46, 56, 62, 72, 82, 96, 110, 120, 130, 142, 158};
+	private static final float[] RING = {-150.0F};
+	private static final double RING_OFF = 2.2;
+	private static final int GRIND_FROM = LANDED + 16;
+	private static final int GRIND_TO = GRIND_FROM + 28;
+	private static final int SAW_END = GRIND_TO + 56;
+	private static final int[] SAW_SCREENS = {2, 12, 24, 36, 46, 56, 62, 72, 84, 96, 108, 120, 150};
 	// The chain reel. A lookout tower ahead of you (its near face, across, its height), the two on top of it; when the
 	// chain's fired at each and when each is cut down; the chain at the tower and you up it, onto the top.
 	private static final int TOWER_NEAR = 11;
@@ -118,8 +155,12 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 	private static final int ZIP = 50;
 	private static final int CLIMB = 60;
 	private static final int ON_TOWER = 68;
-	private static final int CHAIN_END = 118;
-	private static final int[] CHAIN_SCREENS = {2, 8, 12, 16, 18, 24, 30, 36, 40, 48, 53, 57, 62, 70, 84, 112};
+	/** From the top: one on the ground below, chained, flung up to you and cut down at the edge. */
+	private static final Vec3d BELOW = new Vec3d(5.0, 0.0, 2.2);
+	private static final int THIRD_YANK = 88;
+	private static final int THIRD_CUT = THIRD_YANK + FLY + 3;
+	private static final int CHAIN_END = THIRD_CUT + 64;
+	private static final int[] CHAIN_SCREENS = {2, 8, 12, 16, 18, 24, 30, 36, 40, 48, 53, 57, 62, 70, 84, 90, 94, 98, 104, 150};
 
 	// The arms reel. The two with axes (angles from the way you face, how far off); when each swings, and your arm comes
 	// off; armless a while; when you cut each down with the head's saw (each kill's blood growing an arm back); the end.
@@ -136,10 +177,11 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 	// by him; your blood into him (twice the game's pace: two feeds a tick); his waking; picked up, the chainsaw; the
 	// one that comes for you, cut down with him; the end.
 	// (From inside the clearing, levelled to his ground: the trail's first drops are out past its edge, often lower.)
-	private static final double[][] TRAIL = {{2.4, -8.4}, {1.8, -7.6}, {1.4, -6.0}, {0.8, -4.4}, {0.4, -2.9}};
+	// (Only the last of it: a long walk in is a slow start.)
+	private static final double[][] TRAIL = {{1.4, -6.0}, {0.8, -4.4}, {0.4, -2.9}};
 	private static final double[] KNEEL = {0.2, -1.9};
-	private static final int WALK_TO = 46;
-	private static final int FEED_FROM = 52;
+	private static final int WALK_TO = 22;
+	private static final int FEED_FROM = 28;
 	private static final int WOKEN = FEED_FROM + 40;
 	private static final int PICKED_UP = WOKEN + 26;
 	private static final int ZOMBIE_IN = PICKED_UP + 4;
@@ -147,7 +189,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 	private static final int CUT_IT = PICKED_UP + 24;
 	private static final int POCHITA_HERO = CUT_IT + 24;
 	private static final int POCHITA_END = POCHITA_HERO + 56;
-	private static final int[] POCHITA_SCREENS = {4, 24, 44, 56, 70, 84, 94, 104, 116, 124, 134, 142, 150, 158, 170, 210};
+	private static final int[] POCHITA_SCREENS = {4, 14, 24, 36, 50, 70, 80, 92, 100, 110, 118, 126, 134, 146, 186};
 	private static int pochitaId = -1;
 	/** The husk's way to you. */
 	private static Vec3d huskFrom;
@@ -156,7 +198,6 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 	// The merge reel, filmed whole and cut down after (kortev: a question hook, an emotional beat, a payoff). The question
 	// over you in the horde; their blows (you hurt); the merge, its own camera all through; the cord pulled the moment you
 	// can; the transformation, its own camera; then you cut the horde down.
-	private static final String[] HOOK = {"What happens if you die", "holding Pochita?"};
 	private static final float[] HORDE = {60.0F, -60.0F, 160.0F, -160.0F};
 	private static final double HORDE_OFF = 2.2;
 	private static final int[] BLOWS = {12, 20, 28};
@@ -164,7 +205,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 	private static final int PULL_AT = MERGE_AT + MergeTimeline.END + 14;
 	private static final int REVENGE = PULL_AT + FormTimeline.ROAR_END;
 	private static final int[] REVENGE_CUTS = {REVENGE + 12, REVENGE + 24, REVENGE + 36, REVENGE + 48};
-	private static final int MERGE_END = REVENGE + 90;
+	private static final int MERGE_END = REVENGE + 104;
 
 	/** Where you landed. */
 	private static Vec3d landed;
@@ -286,48 +327,40 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 
 	private static void transform(MinecraftClient client, IntegratedServer server, int f) {
 		if (f == 1) {
+			// (Shown, or your hands aren't drawn in your own eyes; the game's own HUD stays off, ReelHudMixin.)
 			client.options.hudHidden = false;
 			client.options.setPerspective(Perspective.FIRST_PERSON);
 			if (capturing()) {
 				Capture.start(client, client.runDirectory.toPath().resolve("capture"));
 			}
-			// The mod's own camera for the transformation, as anyone pulling the cord sees it.
+			// Your own transformation, as you see it pulling the cord: the mod's own camera, then your own eyes.
 			Capture.camera = null;
 			server.execute(() -> Form.pullCord(player(server)));
 		}
-		// Then yours: a cut to each zombie as you turn on it, low and to one side, looking past you at it.
+		if (f < SLASHES[0] - 12) {
+			face(client, FACING, 0.0F);
+		}
+		// Then on them, each in turn, as you'd play it: turned on it, the crosshair on it, the attack key.
 		for (int i = 0; i < SLASHES.length; i++) {
-			int from = i == 0 ? FormTimeline.ROAR_END : SLASHES[i - 1] + 3;
-			if (f == from) {
-				Vec3d you = origin.add(0.0, 1.1, 0.0);
+			int from = i == 0 ? SLASHES[0] - 12 : SLASHES[i - 1] + 2;
+			if (f > from && f <= SLASHES[i] && client.player != null) {
 				Vec3d it = origin.add(around(i).multiply(OFF)).add(0.0, 1.0, 0.0);
-				Vec3d side = around(i).rotateY((float) Math.toRadians(i % 2 == 0 ? -55.0 : 55.0));
-				Vec3d at = framed(origin.add(side.multiply(4.3)).add(0.0, 1.3, 0.0), you);
-				Capture.Pose pose = look(at, you.lerp(it, 0.45));
-				Capture.camera = t -> pose;
-			}
-			if (f > from && f <= SLASHES[i] - 2) {
-				float start = i == 0 ? FACING : FACING + AROUND[i - 1];
-				face(client, turn(start, FACING + AROUND[i], ease(span(f, from, SLASHES[i] - 3))));
+				Capture.Pose aim = look(client.player.getEyePos(), it);
+				face(client, aim.yaw(), aim.pitch());
 			}
 			if (f == SLASHES[i]) {
-				server.execute(() -> Saw.slash(player(server)));
+				io.github.kortev.chainsawman.client.ClientCombat.attack(client);
 			}
 		}
-		// The last shot: in front of you and off to one side (head on, the head's saw points at the lens and reads as a
-		// spike), a little low, the sunset behind you, easing in as you turn to it.
-		if (f >= TURN) {
-			face(client, turn(FACING + AROUND[AROUND.length - 1], FACING, ease(span(f, TURN, TURN + 10))));
-			Vec3d you = origin.add(0.0, 1.45, 0.0);
-			double side = Math.toRadians(FACING - 40.0);
-			Vec3d off = new Vec3d(-Math.sin(side), 0.0, Math.cos(side));
-			// (Not so low that the grass between is in the way.)
-			Vec3d far = framed(origin.add(off.multiply(6.5)).add(0.0, 1.5, 0.0), you);
-			Vec3d near = framed(origin.add(off.multiply(3.4)).add(0.0, 1.25, 0.0), you);
-			Capture.camera = t -> {
-				double k = ease(span(t, TURN, END));
-				return look(far.lerp(near, k), you);
-			};
+		// The last: back the way you faced, both saws held out in front of you, revving (the grind, at nothing).
+		if (f > TURN) {
+			face(client, FACING + 20.0F, 8.0F);
+		}
+		if (f == TURN + 2) {
+			server.execute(() -> Saw.grind(player(server), true));
+		}
+		if (f == END - 2) {
+			server.execute(() -> Saw.grind(player(server), false));
 		}
 		if (shots < SCREENS.length && f == SCREENS[shots]) {
 			shot(client, target() + "_" + f);
@@ -386,34 +419,19 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 			Vec3d at = landed;
 			server.execute(() -> {
 				for (int i = 0; i < RING.length; i++) {
-					zombie(server.getOverworld(), at.add(way(RING[i]).multiply(RING_OFF)), facing + RING[i] + 180.0F, i == RING.length - 1 ? 12.0F : 6.0F);
+					zombie(server.getOverworld(), at.add(way(RING[i]).multiply(RING_OFF)), facing + RING[i] + 180.0F, 16.0F);
 				}
 			});
 		}
 		if (f >= LANDED && landed != null) {
 			go(client, landed);
 		}
-		// Three in the combo, a cut to each as you turn on it.
-		for (int i = 0; i < SAW_SLASHES.length; i++) {
-			int from = i == 0 ? LANDED : SAW_SLASHES[i - 1] + 3;
-			if (f == from && landed != null) {
-				victimShot(landed, RING[i], i % 2 == 0 ? -55.0 : 55.0, 4.3, 1.8);
-			}
-			if (f > from && f <= SAW_SLASHES[i] - 2) {
-				float start = i == 0 ? facing : facing + RING[i - 1];
-				face(client, turn(start, facing + RING[i], ease(span(f, from, SAW_SLASHES[i] - 3))), 0.0F);
-			}
-			if (f == SAW_SLASHES[i]) {
-				server.execute(() -> Saw.slash(player(server)));
-			}
+		// The one waiting where you land, ground down: from its other side (closer in, the bar fills the picture).
+		if (f == LANDED + 2 && landed != null) {
+			victimShot(landed, RING[0], -60.0, 4.6, 1.9);
 		}
-		// The last, ground down: from its other side (closer in, the bar fills the picture and hides it).
-		int from = SAW_SLASHES[SAW_SLASHES.length - 1] + 3;
-		if (f == from && landed != null) {
-			victimShot(landed, RING[3], -60.0, 4.6, 1.9);
-		}
-		if (f > from && f <= GRIND_FROM - 2) {
-			face(client, turn(facing + RING[2], facing + RING[3], ease(span(f, from, GRIND_FROM - 3))), 0.0F);
+		if (f > LANDED && f <= GRIND_FROM - 2) {
+			face(client, facing + RING[0], 0.0F);
 		}
 		if (f == GRIND_FROM) {
 			server.execute(() -> Saw.grind(player(server), true));
@@ -528,7 +546,46 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 			fixed(local(3.6, 2.6, 5.4), local(TOWER_NEAR + 1.0, TOWER_HIGH + 1.2, 0.0));
 		}
 		if (f >= ON_TOWER) {
-			face(client, turn(facing, facing + 150.0F, ease(span(f, ON_TOWER, ON_TOWER + 12))), 10.0F);
+			go(client, local(TOWER_NEAR + 1.2, TOWER_HIGH, 0.0));
+		}
+		if (f >= ON_TOWER && f < THIRD_YANK - 8) {
+			face(client, facing + 150.0F, 10.0F);
+		}
+		// The one below: aimed down at it, the chain, and up it comes in an arc to the edge in front of you.
+		Vec3d below = local(BELOW.x, 0.0, BELOW.z);
+		Vec3d edge = local(TOWER_NEAR + 0.2, TOWER_HIGH, -0.1);
+		if (f >= THIRD_YANK - 8 && f <= THIRD_YANK && client.player != null) {
+			Capture.Pose aim = look(client.player.getEyePos(), below.add(0.0, 1.0, 0.0));
+			face(client, aim.yaw(), aim.pitch());
+		}
+		if (f == THIRD_YANK - 1) {
+			server.execute(() -> Grapple.release(player(server)));
+		}
+		if (f == THIRD_YANK) {
+			server.execute(() -> Grapple.fire(player(server)));
+		}
+		if (f > THIRD_YANK && f <= THIRD_YANK + FLY && ZOMBIES.size() > 2) {
+			int id = ZOMBIES.get(2);
+			double k = (f - THIRD_YANK) / (double) FLY;
+			Vec3d at = below.lerp(edge, k).add(0.0, Math.sin(k * Math.PI) * 2.0, 0.0);
+			server.execute(() -> {
+				if (server.getOverworld().getEntityById(id) instanceof ZombieEntity z && z.isAlive()) {
+					z.requestTeleport(at.x, at.y, at.z);
+					z.setVelocity(Vec3d.ZERO);
+					z.fallDistance = 0.0F;
+				}
+			});
+		}
+		if (f > THIRD_YANK && f <= THIRD_CUT && client.player != null) {
+			Capture.Pose aim = look(client.player.getEyePos(), edge.add(0.0, 1.0, 0.0));
+			face(client, aim.yaw(), MathHelper.clamp(aim.pitch(), -20.0F, 20.0F));
+		}
+		if (f == THIRD_CUT && ZOMBIES.size() > 2) {
+			int id = ZOMBIES.get(2);
+			server.execute(() -> Saw.slash(player(server), id));
+		}
+		if (f > THIRD_CUT + 4) {
+			face(client, facing + 150.0F, 10.0F);
 		}
 		if (shots < CHAIN_SCREENS.length && f == CHAIN_SCREENS[shots]) {
 			shot(client, target() + "_" + f);
@@ -704,6 +761,9 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 			server.execute(() -> {
 				ServerPlayerEntity p = player(server);
 				if (p.getServerWorld().getEntityById(id) instanceof io.github.kortev.chainsawman.PochitaEntity pochita) {
+					// (Hands empty, or he goes in the next slot: the moss off his tree can drop and be picked up on the way in.)
+					p.getInventory().clear();
+					p.getInventory().selectedSlot = 0;
 					p.setSneaking(true);
 					pochita.interactMob(p, Hand.MAIN_HAND);
 				}
@@ -920,7 +980,14 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 			fixed(framed(local(3.2, 0.7, -2.0), origin.add(0.0, 1.3, 0.0)), origin.add(0.0, 1.5, 0.0));
 		}
 		if (f >= ARMS_HERO) {
-			face(client, turn(facing + AXES[1], facing + 15.0F, ease(span(f, ARMS_HERO, ARMS_HERO + 10))), 6.0F);
+			face(client, facing + 15.0F, 6.0F);
+		}
+		// Both arms back: both saws held out, revving, shaking (the grind, at nothing).
+		if (f == ARMS_HERO + 8) {
+			server.execute(() -> Saw.grind(player(server), true));
+		}
+		if (f == ARMS_END - 2) {
+			server.execute(() -> Saw.grind(player(server), false));
 		}
 		if (shots < ARMS_SCREENS.length && f == ARMS_SCREENS[shots]) {
 			shot(client, target() + "_" + f);
@@ -1084,17 +1151,33 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		int w = context.getScaledWindowWidth();
 		int h = context.getScaledWindowHeight();
 		outlined(context, font, TITLE, w / 2.0, h * 0.14, w * 0.78 / font.getWidth(TITLE), 0xFFFF8A1E);
-		if ("merge".equals(target()) && t < MERGE_AT + 12) {
-			// The question, from the first frame till you're down.
-			outlined(context, font, HOOK[0], w / 2.0, h * 0.62, w * 0.86 / font.getWidth(HOOK[0]), 0xFFFFFFFF);
-			outlined(context, font, HOOK[1], w / 2.0, h * 0.62 + w * 0.86 / font.getWidth(HOOK[0]) * font.fontHeight * 1.3, w * 0.86 / font.getWidth(HOOK[0]),
-					0xFFFF8A1E);
+		if (t < hookUntil() && !"held".equals(target())) {
+			// The hook, from the first frame: its first line white, its second orange, both the width of the longer.
+			String[] hook = hook();
+			double scale = w * 0.86 / Math.max(font.getWidth(hook[0]), font.getWidth(hook[1]));
+			outlined(context, font, hook[0], w / 2.0, h * 0.62, scale, 0xFFFFFFFF);
+			outlined(context, font, hook[1], w / 2.0, h * 0.62 + scale * font.fontHeight * 1.3, scale, 0xFFFF8A1E);
 		}
-		if (t >= ASKED && "transform".equals(target())) {
-			// Slammed in, a little big, settling.
-			double k = span(t, ASKED, ASKED + 4);
-			double scale = w * 0.84 / font.getWidth(ASK) * (1.0 + 0.45 * (1.0 - ease(k)));
-			outlined(context, font, ASK, w / 2.0, h * 0.68, scale, 0xFFFFFFFF);
+		if (t >= askedAt() && !"held".equals(target())) {
+			// The question, slammed in, a little big, settling; over two lines, broken at the space nearest its middle, so
+			// it's as big as the hook.
+			String ask = ask();
+			int cut = -1;
+			for (int i = 0; i < ask.length(); i++) {
+				if (ask.charAt(i) == ' ' && (cut < 0 || Math.abs(i - ask.length() / 2) < Math.abs(cut - ask.length() / 2))) {
+					cut = i;
+				}
+			}
+			String[] lines = cut < 0 ? new String[] {ask} : new String[] {ask.substring(0, cut), ask.substring(cut + 1)};
+			double k = span(t, askedAt(), askedAt() + 4);
+			int widest = 0;
+			for (String line : lines) {
+				widest = Math.max(widest, font.getWidth(line));
+			}
+			double scale = w * 0.84 / widest * (1.0 + 0.45 * (1.0 - ease(k)));
+			for (int i = 0; i < lines.length; i++) {
+				outlined(context, font, lines[i], w / 2.0, h * 0.62 + i * scale * font.fontHeight * 1.3, scale, 0xFFFFFFFF);
+			}
 		}
 	}
 
@@ -1221,7 +1304,8 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 				player.sendAbilitiesUpdate();
 				// The tower, the two on it facing you, free to be flung (their AI on, but going nowhere).
 				tower(world, spot);
-				for (Vec3d top : ON_TOP) {
+				// (And one on the ground below, for the last.)
+				for (Vec3d top : new Vec3d[] {ON_TOP[0], ON_TOP[1], BELOW}) {
 					zombie(world, local(top.x, 0.0, top.z), facing + 180.0F, 6.0F);
 					if (world.getEntityById(ZOMBIES.get(ZOMBIES.size() - 1)) instanceof ZombieEntity z) {
 						z.setAiDisabled(false);
@@ -1286,6 +1370,8 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 	 */
 	private static void pochitaSet(IntegratedServer server, ServerPlayerEntity player, ServerWorld world) {
 		world.setTimeOfDay(12200);
+		// (Nothing dropped to be picked up on the way in.)
+		server.getGameRules().get(GameRules.DO_TILE_DROPS).set(false, server);
 		facing = FACING;
 		BlockPos spot = io.github.kortev.chainsawman.PochitaPlace.woods(world, player.getBlockPos().add(40, 0, 12),
 				net.minecraft.util.math.random.Random.create(7));
