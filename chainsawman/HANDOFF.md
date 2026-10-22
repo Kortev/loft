@@ -72,19 +72,68 @@ continuously (`Saw.HELD_BITE`, about his old sword damage a second), kicking bac
 the first person")**: his first-person view (`HeldPochita.renderFirstPerson`, the `VIEW_*`/`ARM_*` numbers): ask
 kortev what they want it to look like before reworking it.
 
+**Done (2026-10-22): Beam replaces the frenzy as the ult** (built overnight from kortev's picks; kortev has not seen it yet:
+judge it from the photographs, below). The ult key (B, `ChainsawManClient.FRENZY`, `FormActionPayload.FRENZY`, now "Beam
+(ult)" in the lang file) summons **Beam, the shark fiend in his big shark form** (the Reze arc), for `Blood.BEAM` = 60
+(the blood bar's mark moved to it; `Frenzy.java`, its game test and `Blood.FRENZY` stay as dormant code, unreachable from
+the key). In the form and able to fight, he bursts up out of the ground under you in a spray of the ground's own blocks and
+you sit on his back; one to a player.
+
+- **Riding**: he swims *through* the ground, only his back and his dorsal fin above the surface. He goes the way you look
+  (turning at most 14 degrees a tick), the forward key drives him (up to 0.55 blocks a tick, picked up and braked
+  smoothly; back stops him; strafe nudges), and he follows the surface (`Heightmap.Type.MOTION_BLOCKING_NO_LEAVES`),
+  smoothed (up quickly, down slowly, never more than a block under it), so he rises over a step or a wall and sinks again
+  (a tree trunk or a roof is a bump too). **Bite**: every 8 ticks, whatever living thing is within 2.2 blocks of his mouth
+  (ahead of his middle; not you, not downed players, not armour stands) takes 12 of **your** `playerAttack` damage, so kills
+  are yours through `Saw.init`'s `AFTER_DEATH` hook (blood, 6 health, bodies torn apart and cut in two); bites give no blood
+  or healing of their own. **Leap**: the jump key, at most every 40 ticks: 2.5 up, 6 forward over 14 ticks, a ring of the
+  ground thrown up and 14 damage to everything within 3 blocks of the landing. **End**: after 400 ticks (`Beam.LASTS`), when
+  you sneak, or if you leave the form or go down: he dives (sinks out of sight over 15 ticks) and you are left standing on the
+  surface, no fall damage. While you ride, the lunge and the chain are off (`Beam.riding` checks in `Saw.lunge` and
+  `Grapple.fire`); slashing and grinding work from his back.
+- **How it's built**: `BeamEntity` (a plain `Entity`, `noClip`, no gravity, not saved, tracked every tick out to 10 chunks'
+  worth of range; `getControllingPassenger()` is nobody) holds the seat, the tracked times of his last bite, leap and dive
+  (as world time) and, on the client, a glide of 3 ticks between the server's positions (as a boat does) so he moves
+  smoothly. `form/Beam.java` is all the server logic: `summon`, `tick` (his run, bites, leap, dive), and `Beam.Ride`, the
+  per-run state. The rider's keys reach the server through the game's own `PlayerInputC2SPacket` (the client sends it every
+  tick while riding); `ServerPlayerEntity.updateInput` puts them in `forwardSpeed`, `sidewaysSpeed`, the (accessor-mixed,
+  `LivingEntityAccessor`) `jumping` and `isSneaking()`. A rider's head in the ground (a slope, a roof) takes no `IN_WALL`
+  damage (`Beam.init`). `ChainsawMan.BEAM_ENTITY` is registered with `trackingTickInterval(1)`, `maxTrackingRange(10)`.
+- **His look** (`client/BeamModel.java`, `BeamRenderer.java`, texture `textures/entity/beam.png` painted by
+  `tools/gen_chainsaw_textures.py`'s `beam_entity`, 128x64, its box corners in `BEAM_BOXES` mirroring the model): a boxy
+  shark about 3.5 blocks long and 1.2 tall, Pochita's pixel density: slate back, white belly, tall swept dorsal fin, two
+  pectorals, crescent tail, a lower jaw with rows of white teeth over a dark red mouth, small black eyes, gill slits. Drawn
+  with the top of his back 0.55 blocks above the surface (`BeamEntity.BACK`), the rest in the ground, lit from the air over
+  him (on a slope he is partly in a block). Animated: the body undulates (the rear, the stalk and the tail fin each hinged,
+  faster when he goes faster), the jaw drops and the head lifts to bite, he pitches in a leap. `client/BeamClient.java` throws
+  the ground's own blocks up at his bow (not in your own eyes) and fin every tick he moves and loops `beam_swim`.
+- **Sounds** (synthesised, `tools/gen_chainsaw_sounds.py`): `beam_burst` (summon, leap, crash), `beam_swim` (loop),
+  `beam_bite`, `beam_dive`, registered in `ChainsawSounds`, `sounds.json`, lang subtitles. **Only checked as files, not by
+  ear.**
+- **Tests**: eight game tests in `FormGameTests` (84 in all now, all passing; they stand on a small stone floor: a big one
+  disturbed the neighbouring tests); `./gradlew runSelftest -Pselftest=showcase -Ptarget=beamlook -Pusername=Kortev` photographs
+  him (`build/selftest/screenshots/showcase_beamlook_*.png`: side, front, behind, bite from the side and the front, a leap from
+  the side and the front, your own eyes) in daylight with a husk for the bite (a zombie would burn), and logs that the real
+  keys drive and dismount him.
+- **Not verified**: the sounds by ear; how his motion *feels* (the glide between the server's positions, the turn rate,
+  speed over slopes, trees and buildings, and the camera in first person on the ground: none of it played, only
+  photographed and logged); the rider's seat and the form's arm pose from his back in third person against the real game
+  (looks right in the photographs); multiplayer; with a shader pack. Left as built: summoning indoors puts him on the
+  roof (the heightmap's surface); no blood or healing from bites themselves.
+
 **Waiting on kortev**: nothing on reel 1 any more (dropped for the showcases).
 
-**kortev's queue of ideas** (ask before building any): **change the ult** (kortev, 2026-10-22: the blood frenzy looks
-the same as normal attacks, red eyes apart; "maybe change it": ask what they want before touching it); the merge dead
+**kortev's queue of ideas** (ask before building any): the ult is Beam now (above; the frenzy was dropped for looking the
+same as normal attacks); the merge dead
 a while first, as reel 1 has it (below, "Later ideas"); the black chainsaw (build nothing until kortev describes
-it); Beam the shark as an ult; the "I'll give you my heart" clip. Older open items: the shader-pack check (needs
+it); the "I'll give you my heart" clip. Older open items: the shader-pack check (needs
 kortev's OK to download Fabric 1.21.1 Sodium + Iris), the multiplayer test (written, never run), balance after play,
 the stretched cord in your own camera, the chain's drag in water (not filmed), hearts against the blood bar.
 
 **How kortev works with you right now**: often on their phone, remoting in, unable to test. Send videos and pictures
 (the app's send-file tool) of every change, short and plain. The recipes:
 
-- Game tests: `./gradlew runGametest` (76, all passing; `aimedHitsLand` flaked once in nine runs).
+- Game tests: `./gradlew runGametest` (84, all passing; `aimedHitsLand` flaked once in nine runs).
 - Self tests with pictures and video: `./gradlew runSelftest -Pselftest=form -Pusername=kortev -Ptarget=...`
   (`merge`, `limbs`, `pvp`, `kill`, `scene`, `chain`, ...) and `-Pselftest=reel1 -Pusername=Denji` (the reel;
   `-Ptarget=cast`, `set`, `den` for pictures). Add `-Pcapture=true` for a video with its sounds, frame by frame, into
@@ -186,7 +235,7 @@ fine.)
   - **Chain** (`Grapple`, key R): fired the way you look, 24 blocks, catching anything within half a block of the
     aim; a living thing is yanked to you (2 damage), a block pulls you to it (no fall damage after); every 3 s. Drawn
     as steel links (`ChainRender`, `form_chain.png`).
-  - **Blood frenzy** (`Frenzy`, key B): 15 s of double saw damage, 4 times the healing, no Slowness, cobwebs and berry
+  - **Blood frenzy** (`Frenzy`; no longer on a key: Beam replaced it as the ult, 2026-10-22): 15 s of double saw damage, 4 times the healing, no Slowness, cobwebs and berry
     bushes don't slow you; the screen pulses red, the engine screams, the eye throws sparks. Then 5 minutes to recharge.
   - **Animations**: third person `SawPose` (combo, grind, chain throw, frenzy stance); first person `FirstPersonSaws`
     shows both saw arms and plays the same moves (`FirstPersonFormMixin` takes over the hand; eating or a shield
@@ -230,8 +279,8 @@ a way out, the frenzy every 5 minutes)
 - **Chain grapple**: to blocks, or yanking a player or mob to you.
 - **Never dying**: kortev's own idea, replacing "revive once": down instead of dead until someone gives you blood.
   Overpowered (you can't die) and a real weakness (alone you're stuck for 10 minutes).
-- **The ult: blood frenzy.** **No cutscene** (kortev: a frenzy doesn't need one), just the kick as it starts. (A
-  "shark ride" ult from the Reze arc was liked as a possible second ult later.)
+- **The ult: blood frenzy** (replaced by Beam, 2026-10-22; see "Start here"). **No cutscene** (kortev: a frenzy doesn't need one), just the kick as it starts. (The
+  "shark ride" ult from the Reze arc was liked as a possible second ult: it became the ult, Beam.)
 
 ### The look (decided after several rounds; keep it)
 
