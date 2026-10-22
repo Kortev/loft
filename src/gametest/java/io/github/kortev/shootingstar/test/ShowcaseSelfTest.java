@@ -619,6 +619,8 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 
 	private static final int BEAM_SUMMON = 2;
 	private static final int BEAM_SIDE = 24;
+	private static final int BEAM_TAIL = 26;
+	private static final int BEAM_LOW = 30;
 	private static final int BEAM_FRONT = 34;
 	private static final int BEAM_BEHIND = 44;
 	private static final int BEAM_HUSK = 54;
@@ -683,15 +685,31 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		Vec3d ahead = Vec3d.fromPolar(0.0F, facing);
 		Vec3d side = new Vec3d(ahead.z, 0.0, -ahead.x);
 		if (f == BEAM_SIDE - 1) {
-			// Side on, level with his middle: the whole of him, the legs, the rider with the reins.
-			fixed(rel(origin, ahead, side, 0.0, 2.5, -9.5), rel(origin, ahead, side, 0.0, 2.5, 0.0));
+			// From the front and the side, a little above his middle, as the blueprint's side render is framed: the whole of him,
+			// the legs, the rider with the reins.
+			fixed(rel(origin, ahead, side, 5.4, 3.0, -9.0), rel(origin, ahead, side, 0.3, 2.2, 0.0));
 		}
 		if (f == BEAM_SIDE) {
 			shot(client, "beamlook_side");
 		}
+		if (f == BEAM_TAIL - 1) {
+			// From behind and the side, low: the tail, the back legs, the spikes down his back.
+			fixed(rel(origin, ahead, side, -6.5, 2.2, -6.0), rel(origin, ahead, side, -1.2, 1.9, 0.0));
+		}
+		if (f == BEAM_TAIL) {
+			shot(client, "beamlook_tail");
+		}
+		if (f == BEAM_LOW - 1) {
+			// Low in front, looking up at him, as kortev's still of the movie is framed.
+			fixed(rel(origin, ahead, side, 6.5, 1.3, -6.0), rel(origin, ahead, side, 0.3, 2.7, 0.0));
+		}
+		if (f == BEAM_LOW) {
+			shot(client, "beamlook_low");
+		}
 		if (f == BEAM_FRONT - 1) {
-			// Three quarters from the front: the eyes, the mouth, the teeth, the white jaw.
-			fixed(rel(origin, ahead, side, 9.0, 2.4, -6.0), rel(origin, ahead, side, 1.4, 2.2, 0.0));
+			// Three quarters from the front, close, as the blueprint's render and the statue's head are framed: the eyes, the
+			// mouth, the teeth, the white jaw.
+			fixed(rel(origin, ahead, side, 5.6, 3.0, -4.0), rel(origin, ahead, side, 1.0, 2.4, 0.0));
 		}
 		if (f == BEAM_FRONT) {
 			shot(client, "beamlook_front");
@@ -706,7 +724,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		if (f == BEAM_HUSK - 1) {
 			// A husk in front of his mouth (the jaw hanging open), from three quarters in front.
 			server.execute(() -> beamHusk(server.getOverworld(), origin, ahead, side, BEAM_HUSK_AHEAD, 0.0));
-			fixed(rel(origin, ahead, side, 9.0, 2.4, -6.5), rel(origin, ahead, side, 2.4, 1.9, 0.0));
+			fixed(rel(origin, ahead, side, 5.8, 2.9, -4.6), rel(origin, ahead, side, 2.6, 2.1, 0.0));
 		}
 		if (f == BEAM_HUSK + 6) {
 			shot(client, "beamlook_mouth");
