@@ -14,6 +14,7 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.client.MinecraftClient;
@@ -130,6 +131,27 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 	private static final int ARMS_END = 186;
 	private static final int[] ARMS_SCREENS = {6, 14, 18, 26, 40, 44, 58, 70, 80, 86, 92, 100, 114, 120, 130, 180};
 
+	// The Pochita reel (in his fallen tree's own coordinates: along it, across it). Along his blood's trail to him; down
+	// by him; your blood into him (twice the game's pace: two feeds a tick); his waking; picked up, the chainsaw; the
+	// one that comes for you, cut down with him; the end.
+	// (From inside the clearing, levelled to his ground: the trail's first drops are out past its edge, often lower.)
+	private static final double[][] TRAIL = {{2.4, -8.4}, {1.8, -7.6}, {1.4, -6.0}, {0.8, -4.4}, {0.4, -2.9}};
+	private static final double[] KNEEL = {0.2, -1.9};
+	private static final int WALK_TO = 46;
+	private static final int FEED_FROM = 52;
+	private static final int WOKEN = FEED_FROM + 40;
+	private static final int PICKED_UP = WOKEN + 26;
+	private static final int ZOMBIE_IN = PICKED_UP + 4;
+	private static final Vec3d COMES_FROM = new Vec3d(4.6, 0.0, -4.4);
+	private static final int CUT_IT = PICKED_UP + 24;
+	private static final int POCHITA_HERO = CUT_IT + 24;
+	private static final int POCHITA_END = POCHITA_HERO + 56;
+	private static final int[] POCHITA_SCREENS = {4, 24, 44, 56, 70, 84, 94, 104, 116, 124, 134, 142, 150, 158, 170, 210};
+	private static int pochitaId = -1;
+	/** The husk's way to you. */
+	private static Vec3d huskFrom;
+	private static Vec3d huskTo;
+
 	/** Where you landed. */
 	private static Vec3d landed;
 	/** The way you face at the start of the saws reel: whichever way its spot runs. */
@@ -224,9 +246,14 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 					chain(client, server, ticks);
 				} else if ("arms".equals(target())) {
 					arms(client, server, ticks);
+				} else if ("pochita".equals(target())) {
+					pochita(client, server, ticks);
+				} else if ("held".equals(target())) {
+					held(client, server, ticks);
 				} else {
 					transform(client, server, ticks);
 				}
+				head(client);
 			}
 			case DONE -> {
 				Capture.stop();
@@ -508,6 +535,218 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		}
 	}
 
+	// Looking it over: Pochita held as a chainsaw (photographs; with -Pcapture=true, a video of him in use).
+
+	private static void held(MinecraftClient client, IntegratedServer server, int f) {
+		if (capturing()) {
+			heldInUse(client, server, f);
+			return;
+		}
+		// From in front three quarters, the side, behind, close on the hands, your own eyes; then cutting a zombie.
+		double[][][] shots = {{{2.6, 1.4, -1.6}, {0.0, 1.0, 0.0}}, {{0.0, 1.2, -2.8}, {0.0, 1.0, 0.0}}, {{-2.4, 1.6, 1.4}, {0.0, 1.0, 0.0}},
+				{{1.3, 1.2, -0.7}, {0.3, 0.9, 0.0}}, null, {{1.0, 1.6, -3.8}, {1.0, 1.0, 0.0}}};
+		String[] names = {"front", "side", "back", "hands", "own_eyes", "cutting"};
+		int shot = (f - 1) / 30;
+		if (f == 1) {
+			// (Shown, or your hands aren't drawn in your own eyes: the game's own HUD is kept off anyway, ReelHudMixin.)
+			client.options.hudHidden = false;
+		}
+		if (shot < shots.length && (f - 1) % 30 == 0) {
+			face(client, facing, 0.0F);
+			if (shots[shot] == null) {
+				Capture.camera = null;
+				client.options.setPerspective(Perspective.FIRST_PERSON);
+			} else {
+				client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
+				fixed(local(shots[shot][0][0], shots[shot][0][1], shots[shot][0][2]), local(shots[shot][1][0], shots[shot][1][1], shots[shot][1][2]));
+			}
+			if ("cutting".equals(names[shot])) {
+				server.execute(() -> {
+					zombie(server.getOverworld(), local(2.0, 0.0, 0.0), facing + 180.0F, 200.0F);
+					Saw.grind(player(server), true);
+				});
+			}
+		}
+		if (shot < shots.length && (f - 1) % 30 == 25) {
+			shot(client, "held_" + names[shot]);
+		}
+		if (shot >= shots.length) {
+			server.execute(() -> Saw.grind(player(server), false));
+			stage = Stage.DONE;
+		}
+	}
+
+	/**
+	 * Him in use, played with the real attack key: idling from in front, then in your own eyes; cutting a husk in your own
+	 * eyes and from the side; cutting down a tree in your own eyes, a log at a time from the top.
+	 */
+	private static void heldInUse(MinecraftClient client, IntegratedServer server, int f) {
+		if (f == 1) {
+			client.options.hudHidden = false;
+			Capture.start(client, client.runDirectory.toPath().resolve("capture"));
+			client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
+			fixed(local(2.6, 1.4, -1.6), local(0.0, 1.0, 0.0));
+		}
+		if (f < 41) {
+			face(client, facing, 0.0F);
+		}
+		if (f == 41 || f == 81 || f == 191) {
+			Capture.camera = null;
+			client.options.setPerspective(Perspective.FIRST_PERSON);
+		}
+		if (f >= 41 && f < 191) {
+			face(client, facing, 12.0F);
+		}
+		if (f == 81 || f == 136) {
+			server.execute(() -> zombie(server.getOverworld(), EntityType.HUSK, local(1.8, 0.0, 0.0), facing + 180.0F, 20.0F));
+		}
+		if (f == 136) {
+			client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
+			fixed(local(1.0, 1.6, -3.8), local(1.0, 1.0, 0.0));
+		}
+		if (f == 191) {
+			// A tree trunk, three logs high, in front of you.
+			server.execute(() -> {
+				for (int y = 0; y < 3; y++) {
+					player(server).getServerWorld().setBlockState(BlockPos.ofFloored(local(1.6, y + 0.5, 0.0)), Blocks.OAK_LOG.getDefaultState());
+				}
+			});
+		}
+		if (f >= 191) {
+			// Down the trunk a log at a time.
+			float pitch = f < 210 ? -14.0F : f < 224 ? 2.0F : 34.0F;
+			face(client, facing, pitch);
+		}
+		boolean cutting = f >= 88 && f < 130 || f >= 143 && f < 185 || f >= 196 && f < 250;
+		client.options.attackKey.setPressed(cutting);
+		if (f >= 262) {
+			client.options.attackKey.setPressed(false);
+			stage = Stage.DONE;
+		}
+	}
+
+	// The Pochita reel.
+
+	private static void pochita(MinecraftClient client, IntegratedServer server, int f) {
+		if (f == 1) {
+			client.options.hudHidden = false;
+			if (capturing()) {
+				Capture.start(client, client.runDirectory.toPath().resolve("capture"));
+			}
+			// Across the clearing (over the fight's broken branch): the tree, him under it, you coming in along the trail.
+			fixed(framed(local(6.5, 2.8, -7.5), local(0.5, 0.6, -2.0)), local(1.0, 0.7, -3.5));
+		}
+		if (client.options.getPerspective() != Perspective.THIRD_PERSON_BACK) {
+			client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
+		}
+		Vec3d him = local(0.5, 0.3, 0.5);
+		if ((f == 1 || f == WALK_TO || f == PICKED_UP || f == POCHITA_HERO) && client.player != null) {
+			ShootingStar.LOGGER.info("[selftest] showcase: pochita f={} you at {} (origin {})", f, client.player.getPos(), origin);
+		}
+		// In along the trail, drop to drop.
+		if (f <= WALK_TO && client.player != null) {
+			double k = span(f, 1, WALK_TO) * TRAIL.length;
+			int i = Math.min((int) k, TRAIL.length - 1);
+			double[] a = TRAIL[i];
+			double[] b = i + 1 < TRAIL.length ? TRAIL[i + 1] : KNEEL;
+			Vec3d want = local(MathHelper.lerp(k - i, a[0], b[0]), 0.0, MathHelper.lerp(k - i, a[1], b[1]));
+			go(client, new Vec3d(want.x, origin.y, want.z));
+			face(client, look(client.player.getEyePos(), him).yaw(), 25.0F);
+		}
+		// Down by him, giving him your blood: close, across from you under the trunk.
+		if (f == WALK_TO + 2) {
+			fixed(framed(local(3.6, 1.7, -5.0), local(0.4, 0.6, -1.4)), local(0.3, 0.5, -1.0));
+		}
+		if (f > WALK_TO && f < PICKED_UP && client.player != null) {
+			client.options.sneakKey.setPressed(true);
+			face(client, look(client.player.getEyePos(), him).yaw(), 35.0F);
+		}
+		if (f >= FEED_FROM && f < WOKEN) {
+			int id = pochitaId;
+			server.execute(() -> {
+				ServerPlayerEntity p = player(server);
+				if (p.getServerWorld().getEntityById(id) instanceof io.github.kortev.chainsawman.PochitaEntity pochita && !pochita.isTamed()) {
+					pochita.feed(p);
+					pochita.feed(p);
+				}
+				if ((f - FEED_FROM) % 8 == 0) {
+					p.swingHand(Hand.MAIN_HAND, true);
+				}
+			});
+		}
+		if (f == FEED_FROM + 16) {
+			// Low on him from the other side of the trunk, your hand at him beyond.
+			fixed(framed(local(1.4, 0.8, 3.6), him), local(0.3, 0.45, -0.6));
+		}
+		// Awake: wider again, him getting up.
+		if (f == WOKEN + 2) {
+			fixed(framed(local(3.6, 1.3, -3.6), local(0.3, 0.7, -0.8)), local(0.4, 0.6, -0.8));
+		}
+		// Picked up: he's the chainsaw in your hand.
+		if (f == PICKED_UP) {
+			int id = pochitaId;
+			server.execute(() -> {
+				ServerPlayerEntity p = player(server);
+				if (p.getServerWorld().getEntityById(id) instanceof io.github.kortev.chainsawman.PochitaEntity pochita) {
+					p.setSneaking(true);
+					pochita.interactMob(p, Hand.MAIN_HAND);
+				}
+			});
+		}
+		if (f == PICKED_UP + 3) {
+			client.options.sneakKey.setPressed(false);
+		}
+		// Something coming for you out of the trees; you turn and cut it down with him.
+		if (f == ZOMBIE_IN && client.player != null) {
+			Vec3d at = local(COMES_FROM.x, 0.0, COMES_FROM.z);
+			Vec3d you = client.player.getPos();
+			// Where it'll stop, in front of you; the camera side-on to the two of you, on the open side (away from the
+			// tree), so both are in the tall frame.
+			Vec3d way = at.subtract(you).multiply(1.0, 0.0, 1.0).normalize();
+			huskFrom = new Vec3d(at.x, you.y, at.z);
+			huskTo = you.add(way.multiply(1.3));
+			Vec3d side = new Vec3d(-way.z, 0.0, way.x);
+			Vec3d mid = you.lerp(huskTo, 0.5).add(0.0, 1.0, 0.0);
+			Vec3d out = mid.add(side.multiply(4.2)).add(way.multiply(-0.6)).add(0.0, 0.5, 0.0);
+			Vec3d other = mid.add(side.multiply(-4.2)).add(way.multiply(-0.6)).add(0.0, 0.5, 0.0);
+			Vec3d tree = local(0.0, 0.0, 0.0);
+			fixed(framed(out.squaredDistanceTo(tree) > other.squaredDistanceTo(tree) ? out : other, mid), mid);
+			float yaw = look(at, you).yaw();
+			// A husk: the sun's not down here yet, and a zombie would burn up before it got to you.
+			server.execute(() -> zombie(server.getOverworld(), EntityType.HUSK, at, yaw, 12.0F));
+		}
+		if (f > ZOMBIE_IN && f <= CUT_IT && client.player != null && client.world != null && !ZOMBIES.isEmpty() && huskFrom != null) {
+			// It shambles at you, and you turn to it.
+			Vec3d next = huskFrom.lerp(huskTo, span(f, ZOMBIE_IN, CUT_IT - 2));
+			int id = ZOMBIES.get(0);
+			server.execute(() -> {
+				if (server.getOverworld().getEntityById(id) instanceof ZombieEntity z && z.isAlive()) {
+					z.requestTeleport(next.x, next.y, next.z);
+				}
+			});
+			face(client, look(client.player.getEyePos(), next.add(0.0, 1.0, 0.0)).yaw(), 8.0F);
+		}
+		// The attack key held as it comes: he revs, and cuts into it as it reaches you.
+		client.options.attackKey.setPressed(f >= CUT_IT - 10 && f < CUT_IT + 18);
+		// The end: low, three quarters on, him in your hand, the light in the trees behind.
+		if (f == POCHITA_HERO && client.player != null) {
+			Vec3d you = client.player.getPos().add(0.0, 1.2, 0.0);
+			fixed(framed(local(3.4, 1.0, -5.4), you), you);
+		}
+		if (f > POCHITA_HERO && client.player != null) {
+			// Turned to the camera, three quarters on.
+			face(client, look(client.player.getEyePos(), local(3.4, 1.0, -5.4)).yaw() + 35.0F, 6.0F);
+		}
+		if (shots < POCHITA_SCREENS.length && f == POCHITA_SCREENS[shots]) {
+			shot(client, target() + "_" + f);
+			shots++;
+		}
+		if (f >= POCHITA_END) {
+			client.options.attackKey.setPressed(false);
+			stage = Stage.DONE;
+		}
+	}
+
 	// The arms reel.
 
 	private static void arms(MinecraftClient client, IntegratedServer server, int f) {
@@ -637,7 +876,11 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 
 	/** A zombie standing still on the ground at {@code at}, facing {@code yaw}, with {@code health}. */
 	private static void zombie(ServerWorld world, Vec3d at, float yaw, float health) {
-		ZombieEntity zombie = EntityType.ZOMBIE.create(world);
+		zombie(world, EntityType.ZOMBIE, at, yaw, health);
+	}
+
+	private static void zombie(ServerWorld world, EntityType<? extends ZombieEntity> type, Vec3d at, float yaw, float health) {
+		ZombieEntity zombie = type.create(world);
 		if (zombie == null) {
 			return;
 		}
@@ -689,14 +932,44 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		face(client, yaw, 5.0F);
 	}
 
-	/** (Looking level, the crosshair on no block: its outline would be drawn.) */
+	/**
+	 * Where you're to look (kortev: the head must move like a real person's, especially in your own eyes): it gets there
+	 * over a few ticks, not at once ({@link #head}). (Looking level, the crosshair on no block: its outline would be drawn.)
+	 */
 	private static void face(MinecraftClient client, float yaw, float pitch) {
-		if (client.player != null) {
-			client.player.setYaw(yaw);
-			client.player.setHeadYaw(yaw);
-			client.player.setBodyYaw(yaw);
-			client.player.setPitch(pitch);
+		wantYaw = yaw;
+		wantPitch = pitch;
+	}
+
+	/** Where you're to look, and where your head is on its way there (NaN: not started). */
+	private static float wantYaw = Float.NaN;
+	private static float wantPitch;
+	private static float headYaw = Float.NaN;
+	private static float headPitch;
+	/** How much of the way there the head goes each tick, and the fastest it turns (degrees a tick). */
+	private static final float FOLLOW = 0.4F;
+	private static final float FASTEST = 28.0F;
+
+	/**
+	 * Your head this tick, as a person's moves: easing toward where you're to look and settling (never snapping), with a
+	 * little sway as you breathe and your eyes wander; your body is left to follow it as the game turns any player's.
+	 */
+	private static void head(MinecraftClient client) {
+		if (client.player == null || Float.isNaN(wantYaw)) {
+			return;
 		}
+		if (Float.isNaN(headYaw)) {
+			headYaw = client.player.getYaw();
+			headPitch = client.player.getPitch();
+		}
+		headYaw += MathHelper.clamp(MathHelper.wrapDegrees(wantYaw - headYaw) * FOLLOW, -FASTEST, FASTEST);
+		headPitch += MathHelper.clamp((wantPitch - headPitch) * FOLLOW, -FASTEST, FASTEST);
+		float t = ticks;
+		float swayYaw = 0.7F * MathHelper.sin(t * 0.061F) + 0.35F * MathHelper.sin(t * 0.173F + 1.3F);
+		float swayPitch = 0.45F * MathHelper.sin(t * 0.083F + 0.6F) + 0.2F * MathHelper.sin(t * 0.211F);
+		client.player.setYaw(headYaw + swayYaw);
+		client.player.setHeadYaw(headYaw + swayYaw);
+		client.player.setPitch(MathHelper.clamp(headPitch + swayPitch, -90.0F, 90.0F));
 	}
 
 	// Over the picture: the title all along, the question at the end. Big, outlined, inside where a phone's buttons and
@@ -799,6 +1072,10 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		server.getGameRules().get(GameRules.DO_MOB_SPAWNING).set(false, server);
 		// No rotten flesh picked up into your empty hand.
 		server.getGameRules().get(GameRules.DO_MOB_LOOT).set(false, server);
+		if ("pochita".equals(target())) {
+			pochitaSet(server, player, world);
+			return;
+		}
 		BlockPos village = world.locateStructure(StructureTags.VILLAGE, player.getBlockPos(), 100, false);
 		if (village == null) {
 			ShootingStar.LOGGER.error("[selftest] showcase: no village found");
@@ -869,6 +1146,13 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 				hut(world, spot);
 				zombie(world, local(WAITING.x, 0.0, WAITING.z), facing + 180.0F, 6.0F);
 			}
+		} else if ("held".equals(target())) {
+			// Pochita in your hands, yourself (not your heart yet).
+			player.removeAttached(Heart.MERGED);
+			player.getAbilities().invulnerable = true;
+			player.sendAbilitiesUpdate();
+			player.getInventory().selectedSlot = 0;
+			player.getInventory().setStack(0, new ItemStack(io.github.kortev.chainsawman.ChainsawMan.POCHITA));
 		} else {
 			for (int i = 0; i < AROUND.length; i++) {
 				// One cut each, whatever the combo's step.
@@ -876,6 +1160,71 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 			}
 		}
 		origin = feet;
+	}
+
+	/**
+	 * The Pochita reel's set: his own fallen tree (PochitaPlace's), built in the woods nearest, a little earlier in the
+	 * dusk, him fainted under it; you at the far end of his blood's trail, yourself (no
+	 * heart, not in the form), nothing in your hands.
+	 */
+	private static void pochitaSet(IntegratedServer server, ServerPlayerEntity player, ServerWorld world) {
+		world.setTimeOfDay(12200);
+		facing = FACING;
+		BlockPos spot = io.github.kortev.chainsawman.PochitaPlace.woods(world, player.getBlockPos().add(40, 0, 12),
+				net.minecraft.util.math.random.Random.create(7));
+		if (spot == null) {
+			spot = world.getTopPosition(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, player.getBlockPos().add(40, 0, 12));
+		}
+		origin = Vec3d.ofBottomCenter(spot);
+		// (The tree lies east-west, as FACING: so its own coordinates, along, up, across, are local's.)
+		for (Entity e : world.getOtherEntities(player, new net.minecraft.util.math.Box(spot).expand(32.0, 16.0, 32.0))) {
+			if (!(e instanceof ServerPlayerEntity)) {
+				e.discard();
+			}
+		}
+		io.github.kortev.chainsawman.PochitaPlace.waiting(world, spot, net.minecraft.util.math.Direction.Axis.X);
+		// The one it laid there taken away, and one of ours put in his place, so we know him.
+		for (Entity e : world.getEntitiesByClass(io.github.kortev.chainsawman.PochitaEntity.class, new net.minecraft.util.math.Box(spot).expand(8.0), p -> true)) {
+			e.discard();
+		}
+		io.github.kortev.chainsawman.PochitaEntity pochita = io.github.kortev.chainsawman.ChainsawMan.POCHITA_ENTITY.create(world);
+		if (pochita != null) {
+			pochita.refreshPositionAndAngles(origin.x, origin.y, origin.z, facing + 160.0F, 0.0F);
+			pochita.initialize(world, world.getLocalDifficulty(spot), net.minecraft.entity.SpawnReason.COMMAND, null);
+			pochita.setPersistent();
+			world.spawnEntity(pochita);
+			pochitaId = pochita.getId();
+		}
+		// The way in clear (a plant or a block of the fight's mess in the path stops you short of him), and the
+		// clearing's plants gone (a camera low in them sees nothing else); his blood's drops left.
+		for (int i = -6; i <= 7; i++) {
+			for (int j = -9; j <= 6; j++) {
+				for (int k = 0; k <= 1; k++) {
+					BlockPos p = cell(spot, i, k, j);
+					BlockState state = world.getBlockState(p);
+					// (His side of the tree, short of the trunk: the fight's broken branches there stand between every camera
+					// and you.)
+					boolean path = j <= -2 && j >= -9 && i >= -5 && i <= 7;
+					if (!state.isOf(Blocks.REDSTONE_WIRE) && !state.isOf(Blocks.VINE) && !state.isAir() && (state.isReplaceable() || path)) {
+						world.setBlockState(p, Blocks.AIR.getDefaultState(), Block.NOTIFY_LISTENERS | Block.FORCE_STATE);
+					}
+				}
+			}
+		}
+		Form.end(player);
+		player.removeAttached(Heart.MERGED);
+		player.changeGameMode(GameMode.SURVIVAL);
+		// (Giving him blood costs you some: a hurt flashes you red.)
+		player.getAbilities().invulnerable = true;
+		player.sendAbilitiesUpdate();
+		player.getInventory().clear();
+		player.getInventory().selectedSlot = 0;
+		player.setHealth(player.getMaxHealth());
+		Vec3d start = local(TRAIL[0][0], 0.0, TRAIL[0][1]);
+		Vec3d to = local(KNEEL[0], 0.0, KNEEL[1]);
+		player.teleport(world, start.x, origin.y, start.z, look(start, to).yaw(), 10.0F);
+		ZOMBIES.clear();
+		ShootingStar.LOGGER.info("[selftest] showcase: Pochita's tree at {}, Pochita {}", spot, pochitaId);
 	}
 
 	/**
