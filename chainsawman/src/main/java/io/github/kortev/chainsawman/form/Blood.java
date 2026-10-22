@@ -18,13 +18,16 @@ import net.minecraft.util.Formatting;
  * Blood, the form's fuel: a bar from 0 to {@link #MAX}, kept with the player. The saws fill it as they cut (a slash or
  * lunge that hits, a grinding bite, a kill most of all), and out of the form your body slowly makes more. Pulling the
  * cord costs {@link #TRANSFORM} (the engine won't start without it), the chain {@link #CHAIN}, the lunge {@link
- * #LUNGE}, the frenzy {@link #FRENZY}: blood in place of plain cooldowns.
+ * #LUNGE}, Beam {@link #BEAM} (the ult; the dormant frenzy's {@link #FRENZY} stays): blood in place of plain cooldowns.
  */
 public final class Blood {
 	public static final int MAX = 100;
 	public static final int TRANSFORM = 25;
 	public static final int CHAIN = 15;
 	public static final int LUNGE = 10;
+	/** The ult, Beam the shark. */
+	public static final int BEAM = 60;
+	/** The blood frenzy, now dormant (kept in case kortev wants it back). */
 	public static final int FRENZY = 60;
 	/** What cutting gives: a hit landing, a grinding bite, a kill. */
 	public static final int HIT = 8;

@@ -55,7 +55,7 @@ public final class Grapple {
 
 	/** The chain fired by {@code player}; what it caught, or null if it missed or could not be fired yet. */
 	public static HitResult fire(ServerPlayerEntity player) {
-		if (!Form.fighting(player)) {
+		if (!Form.fighting(player) || Beam.riding(player)) {
 			return null;
 		}
 		if (HELD.containsKey(player.getUuid())) {

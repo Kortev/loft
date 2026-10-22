@@ -9,7 +9,7 @@ import net.minecraft.client.render.RenderTickCounter;
 
 /**
  * Your blood ({@link Blood}), as a bar over the food bar: in the form, or whenever it isn't full and you have Pochita.
- * Flat red under a dark edge, a light line along its top, marks where the cord (to transform) and the frenzy need it.
+ * Flat red under a dark edge, a light line along its top, marks where the cord (to transform) and Beam need it.
  */
 public final class BloodHud {
 	private static final int WIDE = 81;
@@ -36,7 +36,7 @@ public final class BloodHud {
 		int full = WIDE * blood / Blood.MAX;
 		ctx.fill(x + WIDE - full, y, x + WIDE, y + 4, RED);
 		ctx.fill(x + WIDE - full, y, x + WIDE, y + 1, SHINE);
-		for (int need : new int[] {Blood.TRANSFORM, Blood.FRENZY}) {
+		for (int need : new int[] {Blood.TRANSFORM, Blood.BEAM}) {
 			int at = x + WIDE - WIDE * need / Blood.MAX;
 			ctx.fill(at, y - 1, at + 1, y + 5, EDGE);
 		}

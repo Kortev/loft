@@ -44,6 +44,15 @@ public final class ChainsawSounds {
 	public static final SoundEvent[] MERGE_VOICES = {register("form.merge.voice.1"), register("form.merge.voice.2"),
 			register("form.merge.voice.3"), register("form.merge.voice.4"), register("form.merge.voice.5")};
 
+	/** Beam bursting up out of the ground (and leaping, and crashing down): the earth cracking and a heavy whoosh of stone. */
+	public static final SoundEvent BEAM_BURST = register("beam.burst");
+	/** Beam swimming through the ground, a loop: a low churning of earth. */
+	public static final SoundEvent BEAM_SWIM = register("beam.swim");
+	/** Beam's bite: a wet, heavy chomp. */
+	public static final SoundEvent BEAM_BITE = register("beam.bite");
+	/** Beam diving: the earth closing over him. */
+	public static final SoundEvent BEAM_DIVE = register("beam.dive");
+
 	private ChainsawSounds() {
 	}
 

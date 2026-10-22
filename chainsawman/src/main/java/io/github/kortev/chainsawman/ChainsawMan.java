@@ -1,5 +1,6 @@
 package io.github.kortev.chainsawman;
 
+import io.github.kortev.chainsawman.form.Beam;
 import io.github.kortev.chainsawman.form.Form;
 import io.github.kortev.chainsawman.form.Frenzy;
 import io.github.kortev.chainsawman.form.Grapple;
@@ -34,7 +35,7 @@ import org.slf4j.LoggerFactory;
 /**
  * kortev's own powers on the SMP, beside The Shooting Star: Pochita, carried, and the cord on the chest that turns
  * whoever carries him into Chainsaw Man ({@link Form}): the saws to fight with ({@link Saw}), the chain ({@link Grapple}),
- * the frenzy ({@link Frenzy}), and never dying while Pochita is with you ({@link io.github.kortev.chainsawman.form.Downed}). Its things are kortev's alone to craft, under The Shooting
+ * Beam the shark, the ult ({@link Beam}; the blood frenzy, {@link Frenzy}, is kept dormant), and never dying while Pochita is with you ({@link io.github.kortev.chainsawman.form.Downed}). Its things are kortev's alone to craft, under The Shooting
  * Star's owner-only rule.
  */
 public final class ChainsawMan implements ModInitializer {
@@ -49,6 +50,10 @@ public final class ChainsawMan implements ModInitializer {
 	/** Pochita himself, the animal: one in a world, found fainted, tamed with your blood. */
 	public static final EntityType<PochitaEntity> POCHITA_ENTITY = Registry.register(Registries.ENTITY_TYPE, id("pochita"),
 			EntityType.Builder.create(PochitaEntity::new, SpawnGroup.CREATURE).dimensions(0.6F, 0.7F).maxTrackingRange(10).build("pochita"));
+	/** Beam, the shark fiend: summoned by the ult, never found or saved. */
+	public static final EntityType<BeamEntity> BEAM_ENTITY = Registry.register(Registries.ENTITY_TYPE, id("beam"),
+			EntityType.Builder.<BeamEntity>create(BeamEntity::new, SpawnGroup.MISC).dimensions(BeamEntity.WIDTH, BeamEntity.HEIGHT).maxTrackingRange(10)
+					.trackingTickInterval(1).disableSummon().disableSaving().makeFireImmune().build("beam"));
 	public static final Item POCHITA_SPAWN_EGG = Registry.register(Registries.ITEM, id("pochita_spawn_egg"),
 			new SpawnEggItem(POCHITA_ENTITY, 0xEC8026, 0x9A9EA6, new Item.Settings()));
 
@@ -79,7 +84,7 @@ public final class ChainsawMan implements ModInitializer {
 				case FormActionPayload.SLASH -> Saw.slash(context.player(), payload.target());
 				case FormActionPayload.GRIND -> Saw.grind(context.player(), payload.on());
 				case FormActionPayload.CHAIN -> Grapple.fire(context.player());
-				case FormActionPayload.FRENZY -> Frenzy.start(context.player());
+				case FormActionPayload.FRENZY -> Beam.summon(context.player());
 				case FormActionPayload.LUNGE -> Saw.lunge(context.player());
 				case FormActionPayload.RELEASE -> Grapple.release(context.player());
 				case FormActionPayload.KICK -> Saw.kick(context.player());

@@ -8,7 +8,7 @@ import net.minecraft.network.packet.CustomPayload;
 
 /**
  * Something done in the form, from the one doing it: a slash of the saws, the saws held grinding (or let go), the chain
- * fired, the frenzy called up, a lunge (attacking while sprinting), the chain let go. A slash says what was under their
+ * fired, the ult (Beam) called up, a lunge (attacking while sprinting), the chain let go. A slash says what was under their
  * crosshair ({@code target}, an entity's id; -1 for nothing), so a hit that looked good to them lands. The server decides
  * whether anything comes of it.
  */
@@ -16,6 +16,7 @@ public record FormActionPayload(byte action, boolean on, int target) implements 
 	public static final byte SLASH = 0;
 	public static final byte GRIND = 1;
 	public static final byte CHAIN = 2;
+	/** The ult key: Beam (it was the blood frenzy's, and keeps its number). */
 	public static final byte FRENZY = 3;
 	public static final byte LUNGE = 4;
 	public static final byte RELEASE = 5;

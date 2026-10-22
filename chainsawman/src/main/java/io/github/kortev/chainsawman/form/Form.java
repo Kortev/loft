@@ -68,6 +68,7 @@ public final class Form {
 			Limbs.clear();
 			Blood.clear();
 			Merge.clear();
+			Beam.clear();
 		});
 		ServerTickEvents.END_SERVER_TICK.register(Form::tick);
 		// What the form does once it is on: the saws, the blood, never dying, the chain, the frenzy.
@@ -76,6 +77,7 @@ public final class Form {
 		Limbs.init();
 		Merge.init();
 		Heart.init();
+		Beam.init();
 		ServerTickEvents.END_SERVER_TICK.register(server -> {
 			Blood.tick(server);
 			Merge.tick(server);

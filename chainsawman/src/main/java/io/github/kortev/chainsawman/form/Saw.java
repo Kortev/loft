@@ -312,7 +312,7 @@ public final class Saw {
 
 	/** The lunge: off headfirst the way you look, cutting through what you run into. */
 	public static boolean lunge(ServerPlayerEntity player) {
-		if (!Form.fighting(player)) {
+		if (!Form.fighting(player) || Beam.riding(player)) {
 			return false;
 		}
 		long now = player.getServerWorld().getTime();

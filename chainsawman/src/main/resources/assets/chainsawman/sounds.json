@@ -158,5 +158,37 @@
         "name": "chainsawman:form_crunch"
       }
     ]
+  },
+  "beam.burst": {
+    "subtitle": "subtitles.chainsawman.beam.burst",
+    "sounds": [
+      {
+        "name": "chainsawman:beam_burst"
+      }
+    ]
+  },
+  "beam.swim": {
+    "subtitle": "subtitles.chainsawman.beam.swim",
+    "sounds": [
+      {
+        "name": "chainsawman:beam_swim"
+      }
+    ]
+  },
+  "beam.bite": {
+    "subtitle": "subtitles.chainsawman.beam.bite",
+    "sounds": [
+      {
+        "name": "chainsawman:beam_bite"
+      }
+    ]
+  },
+  "beam.dive": {
+    "subtitle": "subtitles.chainsawman.beam.dive",
+    "sounds": [
+      {
+        "name": "chainsawman:beam_dive"
+      }
+    ]
   }
 }
