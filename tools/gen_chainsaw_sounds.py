@@ -14,6 +14,9 @@ All are mono: the game places them on whoever makes them, and they are heard by 
   out of the arm (links rattling out fast, the hook biting), the frenzy kicking in (the engine shrieking up into a
   roar) and its loop (flat out, screaming), going down (a wet collapse as the engine splutters out), and coming back
   up (a gulp of blood, the heart and the engine catching).
+- Beam the shark (the ult): bursting up out of the ground (the earth cracking, a heavy whoosh of stone and a low thump),
+  swimming through it (a loop: a low churning of earth, grit rattling), his bite (a wet, heavy chomp, bone cracking under
+  it) and the dive (the earth closing over him, a sinking whoosh, debris trickling).
 
 A two-stroke engine is built the way it sounds: one sharp pop of exhaust at every firing, rung through the muffler and
 the body, as fast as the engine turns, with no two pops quite alike; and over it the buzz of the metal and the chain.
@@ -470,8 +473,97 @@ def pochita_tame():
     return x
 
 
+def debris(n, at, length, rate, size=1.0, level=1.0):
+    """Stones and grit clattering: {rate} small thuds and clicks a second for {length} s from {at} s, tailing off."""
+    out = np.zeros(n)
+    t = at
+    while t < at + length:
+        t += g.rng.exponential(1.0 / rate)
+        if t >= at + length:
+            break
+        k = (1.0 - (t - at) / length) ** 1.5
+        out = place(out, t, g.rock(size * g.rng.uniform(0.5, 1.4)) * k * level)
+    return out
+
+
+def beam_burst():
+    """The ground cracking and bursting: a crack of stone, a heavy thump, a whoosh of earth thrown up, rubble falling."""
+    n = ns(1.6)
+    t = np.arange(n) / SR
+    x = np.zeros(n)
+    # The thump: a low sweep down from 90 to 32 Hz, dying over a third of a second, driven hard.
+    f = curve(n, [(0.0, 95.0), (0.12, 55.0), (0.4, 32.0), (1.6, 28.0)])
+    x += sat(np.sin(2 * np.pi * np.cumsum(f) / SR) * np.exp(-t / 0.22) * 2.2, 1.6) * 0.9
+    # The crack: stone splitting, a sharp burst of noise with a few ringing clicks in it.
+    crack = bp(white(n), 700.0, 5200.0) * np.exp(-t / 0.05)
+    clicks = (g.rng.random(n) < 260.0 / SR) * g.rng.uniform(-1, 1, n) * np.exp(-t / 0.2)
+    x += crack * 1.5 + hp(np.convolve(clicks, np.exp(-np.arange(ns(0.004)) / ns(0.0009)))[:n], 900.0) * 3.0
+    # The earth thrown up: a rumbling roar swelling at once and sinking away, sweeping down through the low mids.
+    swell = np.minimum(t / 0.06, 1.0) * np.exp(-t / 0.55)
+    x += g.sweep_filter(white(n), 'bandpass', curve(n, [(0.0, 1800.0), (0.25, 600.0), (1.2, 180.0), (1.6, 140.0)]), order=2, width=1.6) * swell * 2.4
+    x += lp(white(n), 160.0) * swell * 3.0
+    # Rubble falling back.
+    x += debris(n, 0.25, 1.2, 70.0, size=1.0, level=0.8)
+    return x
+
+
+def beam_swim():
+    """Swimming through the ground, a loop: a low churning of earth, a rumble under it, grit rattling along his sides."""
+    seconds = 2.4
+    n = ns(seconds + 0.5)
+    t = np.arange(n) / SR
+    # The churn: low noise opened and shut a few times a second, its pulse drifting a little.
+    pulse = 0.55 + 0.45 * np.sin(2 * np.pi * (3.4 * t + 0.25 * np.sin(2 * np.pi * 0.37 * t))) ** 2
+    x = lp(white(n), 330.0) * pulse * 3.2
+    x += lp(g.brown(n), 90.0) * 4.0
+    # The grit: a gravel of small clicks, ceaseless, a little uneven.
+    gravel = (g.rng.random(n) < 520.0 / SR) * g.rng.uniform(-1, 1, n)
+    gravel = np.convolve(gravel, np.exp(-np.arange(ns(0.006)) / ns(0.0014)))[:n]
+    x += bp(gravel, 500.0, 3200.0) * (0.5 + 0.5 * pulse) * 1.4
+    # Now and then a bigger stone knocked loose.
+    x += debris(n, 0.0, seconds + 0.5, 6.0, size=1.3, level=0.7)
+    return loop(x, seconds, 0.5)
+
+
+def beam_bite():
+    """A wet, heavy chomp: the jaws slamming shut, flesh giving, bone cracking, a deep thump through all of it."""
+    n = ns(0.75)
+    t = np.arange(n) / SR
+    x = np.zeros(n)
+    # The jaws meeting: a hard knock and the thump after it.
+    f = curve(n, [(0.0, 140.0), (0.08, 70.0), (0.4, 45.0), (0.75, 40.0)])
+    x += sat(np.sin(2 * np.pi * np.cumsum(f) / SR) * np.exp(-t / 0.12) * 2.0, 1.5)
+    x += bp(white(n), 900.0, 3500.0) * np.exp(-t / 0.012) * 1.6
+    # The flesh: a wet rip under it, and two or three bones cracking.
+    x += np.roll(flesh(n, 0.4, wet=1.4), ns(0.015)) * 0.9
+    for at in (0.03, 0.07, 0.13):
+        k = ns(0.02)
+        crack = bp(white(k), 1500.0, 6000.0) * np.exp(-np.arange(k) / ns(0.004)) * g.rng.uniform(0.6, 1.1)
+        x = place(x, at, crack * 1.6)
+    # The squelch after: liquid, low, sinking.
+    x += lp(white(n), 420.0) * np.exp(-np.maximum(t - 0.05, 0.0) / 0.18) * 1.6 * (t > 0.05)
+    return x
+
+
+def beam_dive():
+    """The dive: a sinking whoosh of earth closing over him, a rumble going down into the ground, debris trickling after."""
+    n = ns(1.5)
+    t = np.arange(n) / SR
+    env = np.minimum(t / 0.08, 1.0) * np.exp(-t / 0.5)
+    x = g.sweep_filter(white(n), 'bandpass', curve(n, [(0.0, 1500.0), (0.3, 500.0), (1.0, 130.0), (1.5, 100.0)]), order=2, width=1.4) * env * 2.4
+    f = curve(n, [(0.0, 70.0), (0.5, 42.0), (1.5, 30.0)])
+    x += sat(np.sin(2 * np.pi * np.cumsum(f) / SR) * np.exp(-t / 0.5) * 1.6, 1.4) * 0.8
+    x += lp(white(n), 140.0) * env * 2.5
+    x += debris(n, 0.05, 1.3, 55.0, size=0.9, level=0.7)
+    return x
+
+
 SOUNDS = {
     'pochita_tame': pochita_tame,
+    'beam_burst': beam_burst,
+    'beam_swim': beam_swim,
+    'beam_bite': beam_bite,
+    'beam_dive': beam_dive,
     'form_merge': form_merge,
     'form_cord': form_cord,
     'form_start': form_start,
@@ -487,11 +579,11 @@ SOUNDS = {
     'form_down': form_down,
     'form_revive': form_revive,
 }
-LOOPS = ('form_idle', 'form_grind', 'form_frenzy_loop')
+LOOPS = ('form_idle', 'form_grind', 'form_frenzy_loop', 'beam_swim')
 # Loudness (loudest 400 ms, dB).
 LEVELS = {'form_crunch': -10, 'pochita_tame': -14, 'form_merge': -12, 'form_cord': -14, 'form_start': -10, 'form_idle': -20, 'form_stop': -16, 'form_slash': -13, 'form_hit': -12,
           'form_grind': -15, 'form_chain': -14, 'form_frenzy': -10, 'form_frenzy_loop': -17, 'form_down': -13,
-          'form_revive': -14}
+          'form_revive': -14, 'beam_burst': -9, 'beam_swim': -18, 'beam_bite': -10, 'beam_dive': -13}
 
 
 def make(name):
