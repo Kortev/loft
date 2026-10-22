@@ -67,12 +67,17 @@ public final class BeamClient {
 		Vec3d ahead = beam.heading();
 		Vec3d side = new Vec3d(ahead.z, 0.0, -ahead.x);
 		int bits = 1 + (int) (pace * 2.5F);
+		// (Not at the bow when it is you riding him and looking out of your own eyes: it would fill the view.)
+		MinecraftClient client = MinecraftClient.getInstance();
+		boolean yours = client.player != null && client.player.getVehicle() == beam && !client.gameRenderer.getCamera().isThirdPerson();
 		for (int i = 0; i < bits; i++) {
 			// At the bow, flung up and out to the sides.
 			double across = (RANDOM.nextDouble() - 0.5) * 0.9;
 			Vec3d at = beam.getPos().add(ahead.multiply(Beam.MOUTH + 0.1)).add(side.multiply(across));
-			world.addParticle(effect, at.x, beam.getY() + 0.1, at.z, side.x * across * 0.12 + ahead.x * 0.04, 0.12 + RANDOM.nextDouble() * 0.12,
-					side.z * across * 0.12 + ahead.z * 0.04);
+			if (!yours) {
+				world.addParticle(effect, at.x, beam.getY() + 0.1, at.z, side.x * across * 0.12 + ahead.x * 0.04, 0.12 + RANDOM.nextDouble() * 0.12,
+						side.z * across * 0.12 + ahead.z * 0.04);
+			}
 			// Behind the fin, thrown back and up.
 			Vec3d wake = beam.getPos().add(ahead.multiply(-0.6 - RANDOM.nextDouble() * 0.5)).add(side.multiply((RANDOM.nextDouble() - 0.5) * 0.4));
 			world.addParticle(effect, wake.x, beam.getY() + 0.3, wake.z, -ahead.x * 0.08, 0.1 + RANDOM.nextDouble() * 0.08, -ahead.z * 0.08);

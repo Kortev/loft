@@ -10,8 +10,10 @@ import net.minecraft.client.render.entity.EntityRendererFactory;
 import net.minecraft.client.render.entity.model.EntityModelLayer;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.RotationAxis;
+import net.minecraft.world.LightType;
 
 /**
  * Beam, drawn ({@link BeamModel}): the model's back {@link BeamEntity#BACK} above where he is (the surface), the rest of him
@@ -47,6 +49,29 @@ public class BeamRenderer extends EntityRenderer<BeamEntity> {
 		model.render(matrices, vertices, light);
 		matrices.pop();
 		super.render(beam, yaw, tickDelta, matrices, consumers, light);
+	}
+
+	/**
+	 * How light he is is judged from the air over his back, not from where he is: on a slope he is partly in the ground,
+	 * and lit from inside a block he would be drawn black.
+	 */
+	@Override
+	protected int getBlockLight(BeamEntity beam, BlockPos pos) {
+		return above(beam, pos, LightType.BLOCK);
+	}
+
+	@Override
+	protected int getSkyLight(BeamEntity beam, BlockPos pos) {
+		return above(beam, pos, LightType.SKY);
+	}
+
+	/** The brightest of the three blocks of air above {@code pos}. */
+	private static int above(BeamEntity beam, BlockPos pos, LightType type) {
+		int best = 0;
+		for (int up = 0; up <= 3; up++) {
+			best = Math.max(best, beam.getWorld().getLightLevel(type, pos.up(up)));
+		}
+		return best;
 	}
 
 	@Override

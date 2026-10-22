@@ -34,9 +34,9 @@ public class BeamEntity extends Entity {
 	public static final float WIDTH = 1.4F;
 	public static final float HEIGHT = 0.6F;
 	/** How far above where he is (the surface) the top of his back stands (blocks). */
-	public static final float BACK = 0.3F;
+	public static final float BACK = 0.55F;
 	/** Where the rider's seat is: this far above where he is, and this far ahead of his middle (blocks). */
-	public static final float SEAT = 0.32F;
+	public static final float SEAT = 0.57F;
 	public static final double SEAT_AHEAD = 0.3;
 	/** How many ticks the clients are told of his place ahead, so they glide him there between the server's word. */
 	private static final int GLIDE = 3;
