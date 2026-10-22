@@ -137,7 +137,8 @@ public final class FormHud {
 				continue;
 			}
 			float slam = 1.0F + 0.7F * (float) Math.exp(-in / 1.0F);
-			float size = h * l[3];
+			// (By the screen's shorter side: on a tall one, filmed for a phone, by its height they'd cover the face.)
+			float size = Math.min(w, h) * l[3];
 			// The engine's shake: a pixel or two, a new way each tick.
 			float sx = ((tick * 31 + i * 17) % 5 - 2) * 0.8F;
 			float sy = ((tick * 23 + i * 11) % 5 - 2) * 0.8F;

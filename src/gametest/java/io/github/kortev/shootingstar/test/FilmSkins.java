@@ -32,7 +32,7 @@ public final class FilmSkins {
 
 	@Nullable
 	public static SkinTextures get(String name) {
-		if (!FilmSelfTest.active() && !FilmDomain.active() && !FilmDomainKortev.active() && !FormSelfTest.active() && !ReelSelfTest.active()) {
+		if (!FilmSelfTest.active() && !FilmDomain.active() && !FilmDomainKortev.active() && !FormSelfTest.active() && !ReelSelfTest.active() && !ShowcaseSelfTest.active()) {
 			return null;
 		}
 		SkinTextures known = LOADED.get(name);

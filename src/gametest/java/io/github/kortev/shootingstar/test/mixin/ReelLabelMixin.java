@@ -13,7 +13,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class ReelLabelMixin {
 	@Inject(method = "hasLabel(Lnet/minecraft/entity/LivingEntity;)Z", at = @At("HEAD"), cancellable = true)
 	private void shootingstarTest$noNames(LivingEntity entity, CallbackInfoReturnable<Boolean> cir) {
-		if (ReelSelfTest.active()) {
+		if (ReelSelfTest.active() || io.github.kortev.shootingstar.test.ShowcaseSelfTest.active()) {
 			cir.setReturnValue(false);
 		}
 	}
