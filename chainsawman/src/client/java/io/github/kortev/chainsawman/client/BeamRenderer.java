@@ -25,11 +25,11 @@ public class BeamRenderer extends EntityRenderer<BeamEntity> {
 	public static final EntityModelLayer LAYER = new EntityModelLayer(ChainsawMan.id("beam"), "main");
 	private static final Identifier TEXTURE = ChainsawMan.id("textures/entity/beam.png");
 	/** Where his body turns when he pitches: this far under the top of his back (blocks). */
-	private static final float MIDDLE = 1.0F;
+	private static final float MIDDLE = 1.1F;
 	/** The corners of his mouth, from his middle: how far out to the sides, ahead of it, and above his feet (blocks). */
-	private static final double CORNER_OUT = 0.66;
-	private static final double CORNER_AHEAD = 0.8;
-	private static final double CORNER_UP = 1.56;
+	private static final double CORNER_OUT = 1.04;
+	private static final double CORNER_AHEAD = 0.75;
+	private static final double CORNER_UP = 1.5;
 	/** A rider's hands holding the reins, from their feet: how far ahead, how high, how far apart (blocks); and from your own eyes, in your own view. */
 	private static final double HAND_AHEAD = 0.5;
 	private static final double HAND_UP = 0.85;
@@ -42,7 +42,7 @@ public class BeamRenderer extends EntityRenderer<BeamEntity> {
 	public BeamRenderer(EntityRendererFactory.Context context) {
 		super(context);
 		this.model = new BeamModel(context.getPart(LAYER));
-		this.shadowRadius = 1.0F;
+		this.shadowRadius = 1.6F;
 	}
 
 	@Override

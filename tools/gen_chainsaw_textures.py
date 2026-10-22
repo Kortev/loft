@@ -231,77 +231,94 @@ def pochita_entity():
 
 
 # Beam the shark on his four crab legs (client BeamModel's boxes, their texture corners and sizes mirrored here; change one,
-# change the other), from the Reze arc: cobalt blue over a pale mint white with a jagged line between them, as the anime
-# paints it; three round eyes in a row up each side of his head; a huge open mouth, dark red inside with pink gums and rows
-# of cream triangular teeth; a row of dark spikes down his back; gill lines on his cheek; thin legs, blue on the outside and
-# pale on the inside, ending in a point.
+# change the other), from the Reze arc: a heavy rounded torpedo, navy on top and mint white underneath (the white takes the
+# whole lower half of his body and of his head, up almost to the eyes) with a sharp jagged line between them, as the anime
+# paints it; three round eyes in a diagonal row up each side of his head; a huge open mouth, dark red inside with pink gums
+# and many small cream triangular teeth along both jaws; a row of dark spikes down his back; gill lines on his cheek; thin
+# legs, blue on the outside and pale on the inside, ending in a point.
 BEAM_COLOURS = {
-    'b': (62, 114, 190, 255),    # his back, the top of it in the light
-    'B': (44, 92, 168, 255),     # cobalt
-    'N': (30, 64, 128, 255),     # blue in shade
-    'n': (20, 40, 88, 255),      # the darkest navy: spikes, fins' edges, gill lines
-    'W': (216, 236, 230, 255),   # his belly, white with a touch of mint
-    'w': (170, 202, 198, 255),   # it in shade
-    'v': (128, 160, 164, 255),   # the underside
+    'b': (58, 108, 184, 255),    # his back, the top of it in the light
+    'B': (40, 86, 160, 255),     # navy blue
+    'N': (28, 60, 120, 255),     # blue in shade
+    'n': (18, 38, 84, 255),      # the darkest navy: spikes, fins' edges, gill lines
+    'W': (228, 244, 239, 255),   # his belly, white with a touch of mint
+    'w': (178, 210, 206, 255),   # it in shade
+    'v': (136, 168, 170, 255),   # the underside
     'R': (112, 24, 38, 255),     # inside his mouth
     'r': (78, 14, 28, 255),      # its depths
     'P': (206, 96, 118, 255),    # the gums
     'p': (178, 70, 94, 255),     # his tongue
-    'T': (242, 232, 198, 255),   # a tooth
-    't': (204, 190, 150, 255),   # a tooth in shade
+    'T': (240, 224, 164, 255),   # a tooth
     'E': (248, 246, 236, 255),   # the white of an eye
     'e': (214, 210, 196, 255),   # its rim
     'K': (14, 14, 22, 255),      # a pupil
     '.': (0, 0, 0, 0),
 }
 
-# Each box of the model: its texture corner and size (w, h, d) as BeamModel makes it. Packed into 128 by 144.
+# Each box of the model: its texture corner and size (w, h, d) as BeamModel makes it. Packed into 256 by 160.
 BEAM_BOXES = {
-    'trunk': (0, 0, 18, 22, 22),
-    'head1': (44, 44, 18, 16, 7),
-    'head2': (0, 93, 16, 13, 6),
-    'head3': (92, 93, 12, 10, 5),
-    'jaw': (0, 70, 14, 6, 17),
-    'eyeA': (10, 112, 2, 6, 6),
-    'eyeB': (50, 112, 2, 5, 5),
-    'eyeC': (114, 112, 2, 4, 4),
-    'rear': (0, 44, 14, 18, 8),
-    'stalk': (56, 93, 6, 10, 6),
-    'tail_base': (26, 112, 2, 8, 4),
-    'tail_up1': (64, 112, 2, 6, 4),
-    'tail_up2': (90, 112, 2, 5, 4),
-    'tail_low': (0, 126, 2, 5, 3),
-    'leg_up': (10, 126, 11, 4, 4),
-    'leg_shin': (80, 0, 4, 24, 4),
-    'leg_mid': (38, 112, 3, 8, 3),
-    'leg_tip': (50, 126, 2, 5, 2),
-    'leg_point': (86, 126, 1, 3, 1),
-    'pect': (58, 126, 9, 1, 5),
-    'pect_tip': (90, 126, 5, 1, 3),
-    'spike0': (62, 70, 0, 15, 7),
-    'spike1': (76, 70, 0, 14, 7),
-    'spike2': (44, 93, 0, 11, 6),
-    'spike3': (80, 93, 0, 10, 6),
-    'spike4': (0, 112, 0, 9, 5),
-    'teeth_jaw': (90, 70, 0, 3, 17),
-    'teeth_h1': (76, 112, 0, 3, 7),
-    'teeth_h2': (102, 112, 0, 3, 6),
-    'teeth_h3': (40, 126, 0, 3, 5),
-    'tooth': (106, 126, 1, 3, 1),
+    'trunk_core': (0, 0, 32, 22, 26),
+    'trunk_top': (0, 48, 26, 6, 26),
+    'trunk_bot': (116, 0, 24, 7, 26),
+    'h1_core': (166, 48, 32, 18, 12),
+    'h1_top': (108, 107, 26, 6, 12),
+    'h2_core': (0, 80, 28, 18, 9),
+    'h2_top': (158, 127, 22, 3, 9),
+    'h3_core': (164, 80, 22, 14, 6),
+    'h3_top': (76, 143, 16, 2, 6),
+    'h4': (60, 127, 14, 10, 5),
+    'jaw1': (74, 80, 26, 11, 12),
+    'jaw2': (0, 107, 20, 10, 10),
+    'jaw3': (204, 107, 14, 8, 8),
+    'eyeA': (220, 127, 1, 6, 6),
+    'eyeB': (16, 143, 1, 5, 5),
+    'eyeC': (120, 143, 1, 4, 4),
+    'rear': (104, 48, 22, 22, 9),
+    'stalk': (74, 107, 12, 14, 5),
+    'tail_base': (0, 127, 2, 12, 4),
+    'tail_up1': (234, 127, 2, 8, 4),
+    'tail_up2': (28, 143, 2, 6, 4),
+    'tail_low': (52, 143, 2, 6, 3),
+    'leg_up': (162, 143, 16, 2, 2),
+    'leg_shin': (184, 107, 2, 16, 2),
+    'leg_mid': (130, 143, 2, 6, 2),
+    'leg_point': (62, 143, 1, 8, 1),
+    'pect': (138, 143, 8, 1, 4),
+    'pect_tip': (198, 143, 4, 1, 3),
+    'spike0': (150, 80, 0, 15, 7),
+    'spike1': (60, 107, 0, 13, 7),
+    'spike2': (192, 107, 0, 11, 6),
+    'spike3': (98, 127, 0, 9, 6),
+    'spike4': (130, 127, 0, 8, 5),
+    'teeth_h1': (12, 127, 0, 4, 12),
+    'teeth_h2': (140, 127, 0, 4, 9),
+    'teeth_h3': (40, 143, 0, 4, 6),
+    'teeth_h4': (66, 143, 0, 4, 5),
+    'teeth_j1': (36, 127, 0, 4, 12),
+    'teeth_j2': (110, 127, 0, 4, 10),
+    'teeth_j3': (0, 143, 0, 4, 8),
+    'teeth_front_up': (212, 143, 12, 4, 0),
+    'teeth_front_low': (0, 155, 12, 4, 0),
 }
 
 
 def split_line(z):
-    """Where, in the model's space (y down, the top of his back 0), the blue gives way to white at {z} along him: low
-    on the snout, up on his cheek, down his flank; a sawtooth of sharp points along it, as the anime paints the line."""
-    base = 6.0 if z < -11 else 6.0 + (z + 11) * 0.36
-    saw = ((z + 40) % 6) / 6.0 * 3.4 - 1.7
+    """Where, in the model's space (y down, the top of his back 0), the blue gives way to white at {z} along him: from low
+    on the snout, up on the head almost to the eyes, then down his flank to the tail; a sawtooth of sharp points all along it,
+    as the anime paints the line."""
+    if z < -8:
+        base = 14.0 + (z + 40) * 5.0 / 32.0
+    elif z < 18:
+        base = 19.0 - (z + 8) / 26.0
+    else:
+        base = 18.0 - (z - 18) * 3.0 / 14.0
+    saw = ((z + 40) % 7) / 7.0 * 4.0 - 2.0
     return round(base + saw)
 
 
 def body(y0, z0, d):
     """The body's colouring on a box whose top is {y0} down from the top of his back and whose front is at {z0}: the top
-    light blue, the sides cobalt down to the jagged line and white below it, the lowest row of each shaded, the underside
+    light blue, the sides navy down to the jagged line and white below it, the lowest row of each shaded, the underside
     grey-white."""
     def colour(face, x, y, fw, fh):
         if face == 'top':
@@ -326,7 +343,7 @@ def body(y0, z0, d):
 
 
 def beam_entity():
-    img = Image.new('RGBA', (128, 144), (0, 0, 0, 0))
+    img = Image.new('RGBA', (256, 160), (0, 0, 0, 0))
     used = []
 
     def put(name, colour):
@@ -338,24 +355,30 @@ def beam_entity():
         paint(img, u, v, w, h, d, colour, BEAM_COLOURS)
 
     def trunk(face, x, y, fw, fh):
-        base = body(0, -11, 22)
+        base = body(6, -8, 26)
         if face in ('west', 'east'):
             # Gill lines on the cheek behind the head: four slanting slits, longer toward the head.
             c = x if face == 'east' else fw - 1 - x    # counted from the front of the box
             for k in range(4):
-                if c == 2 + k * 2 + (y - 3) // 4 and 3 <= y <= 3 + 3 * (4 - k) // 2 + 3:
-                    return 'n' if y < split_line(-11 + c) else 'v'
+                if c == 2 + k * 2 + (y - 2) // 4 and 2 <= y <= 2 + 3 * (4 - k) // 2 + 4:
+                    return 'n' if 6 + y < split_line(-8 + c) else 'v'
         if face == 'front':
             # The back of his mouth, the throat, below where the head's roof ends.
-            if y >= 16 and 2 <= x <= fw - 3:
-                return 'r' if y >= 18 else 'R'
-            if y >= 16:
-                return 'w'
+            if y >= 18 and 3 <= x <= fw - 4:
+                return 'r' if y >= 20 else 'R'
         return base(face, x, y, fw, fh)
 
-    put('trunk', trunk)
+    put('trunk_core', trunk)
+    put('trunk_top', body(0, -8, 26))
 
-    def head_roof(y0, z0, d):
+    def trunk_bot(face, x, y, fw, fh):
+        if face == 'front':
+            return 'r'
+        return body(28, -8, 26)(face, x, y, fw, fh)
+
+    put('trunk_bot', trunk_bot)
+
+    def roof(y0, z0, d):
         """An upper head box: the body's colours, its underside the roof of his mouth: red inside gum-pink edges."""
         base = body(y0, z0, d)
 
@@ -366,31 +389,39 @@ def beam_entity():
             return base(face, x, y, fw, fh)
         return colour
 
-    put('head1', head_roof(0, -18, 7))
-    put('head2', head_roof(2, -24, 6))
+    put('h1_core', roof(6, -20, 12))
+    put('h1_top', body(0, -20, 12))
+    put('h2_core', roof(4, -29, 9))
+    put('h2_top', body(1, -29, 9))
+    put('h3_core', roof(6, -35, 6))
+    put('h3_top', body(4, -35, 6))
 
     def snout(face, x, y, fw, fh):
         # (his nostrils: two dark dots on top)
         if face == 'top' and y == 1 and x in (2, fw - 3):
             return 'N'
-        return head_roof(4, -29, 5)(face, x, y, fw, fh)
+        return roof(8, -40, 5)(face, x, y, fw, fh)
 
-    put('head3', snout)
+    put('h4', snout)
 
-    def jaw(face, x, y, fw, fh):
-        if face == 'top':
-            edge = x == 0 or x == fw - 1 or y == 0
-            if edge:
-                return 'P'
-            return 'p' if 3 <= x <= fw - 4 and 4 <= y <= fh - 4 else 'R'
-        if face == 'bottom':
-            return 'v'
-        if face == 'back':
-            return 'r'
-        low = y == fh - 1
-        return 'w' if low else 'W'
+    def jaw(y0, z0, d, tongue):
+        def colour(face, x, y, fw, fh):
+            if face == 'top':
+                edge = x == 0 or x == fw - 1 or y == 0
+                if edge:
+                    return 'P'
+                return 'p' if tongue and 3 <= x <= fw - 4 and 3 <= y <= fh - 3 else 'R'
+            if face == 'bottom':
+                return 'v'
+            if face == 'back':
+                return 'r'
+            low = y == fh - 1
+            return 'w' if low else 'W'
+        return colour
 
-    put('jaw', jaw)
+    put('jaw1', jaw(24, -22, 12, True))
+    put('jaw2', jaw(22, -32, 10, False))
+    put('jaw3', jaw(20, -40, 8, False))
 
     def eye(face, x, y, fw, fh):
         """An eye: white, a big round black pupil looking ahead (toward the front of the box, the left of its outer face)."""
@@ -399,33 +430,21 @@ def beam_entity():
         if face == 'east':
             inner = 1 <= x <= fw - 2 and 1 <= y <= fh - 2
             return 'K' if inner else 'E'
-        if face == 'front':
-            return 'K' if 0 < y < fh - 1 else 'E'
         return 'E' if face == 'top' else 'e'
 
     for name in ('eyeA', 'eyeB', 'eyeC'):
         put(name, eye)
 
     # Behind the trunk: the rear of the body, tapering, then the stalk of the tail and its crescent fin.
-    put('rear', body(2, 11, 8))
-    put('stalk', body(6, 19, 6))
+    put('rear', body(4, 18, 9))
+    put('stalk', body(9, 27, 5))
     for name in ('tail_base', 'tail_up1', 'tail_up2', 'tail_low'):
         put(name, lambda f, x, y, fw, fh: 'n' if f in ('top', 'bottom', 'front', 'back') else 'N')
 
-    def leg(top, outer, inner):
-        def colour(face, x, y, fw, fh):
-            if face == 'top':
-                return top
-            if face == 'bottom':
-                return inner
-            return outer if face != 'west' else inner
-        return colour
-
     # (a leg's inner side, toward his body, is the pale one; the boxes of the left legs are mirrored)
-    put('leg_up', leg('b', 'B', 'W'))
+    put('leg_up', lambda f, x, y, fw, fh: 'b' if f == 'top' else 'W' if f in ('bottom', 'west') else 'B')
     put('leg_shin', lambda f, x, y, fw, fh: 'W' if f == 'west' else 'N' if f == 'back' else 'B')
-    put('leg_mid', lambda f, x, y, fw, fh: 'W' if f == 'west' else 'B')
-    put('leg_tip', lambda f, x, y, fw, fh: 'W' if f == 'west' else 'N')
+    put('leg_mid', lambda f, x, y, fw, fh: 'W' if f == 'west' else 'N')
     put('leg_point', lambda f, x, y, fw, fh: 'n')
     put('pect', lambda f, x, y, fw, fh: 'b' if f == 'top' else 'W' if f == 'bottom' else 'N')
     put('pect_tip', lambda f, x, y, fw, fh: 'B' if f == 'top' else 'w' if f == 'bottom' else 'N')
@@ -444,21 +463,21 @@ def beam_entity():
         put(name, spike)
 
     def row(up):
-        """A row of triangular teeth along a jaw's edge (flat, each side the same): points down from an upper jaw, up from
-        a lower one."""
+        """A row of small triangular teeth along a jaw's edge (flat, each side the same): a tooth every two pixels, each
+        narrowing to its point; points down from an upper jaw, up from a lower one."""
         def colour(face, x, y, fw, fh):
-            if face not in ('west', 'east'):
+            if face not in ('west', 'east', 'front', 'back'):
                 return '.'
             r = fh - 1 - y if up else y
             if r == 0:
                 return 'T'
-            return 'T' if x % 3 == 1 else '.'
+            return 'T' if x % (2 if r <= 1 else 4) == 0 else '.'
         return colour
 
-    put('teeth_jaw', row(True))
-    for name in ('teeth_h1', 'teeth_h2', 'teeth_h3'):
+    for name in ('teeth_j1', 'teeth_j2', 'teeth_j3', 'teeth_front_low'):
+        put(name, row(True))
+    for name in ('teeth_h1', 'teeth_h2', 'teeth_h3', 'teeth_h4', 'teeth_front_up'):
         put(name, row(False))
-    put('tooth', lambda f, x, y, fw, fh: 't' if f == 'bottom' else 'T')
     return img
 
 
