@@ -1,5 +1,7 @@
 package io.github.kortev.shootingstar.test;
 
+import io.github.kortev.chainsawman.BeamEntity;
+import io.github.kortev.chainsawman.form.Beam;
 import io.github.kortev.chainsawman.form.Blood;
 import io.github.kortev.chainsawman.form.Form;
 import io.github.kortev.chainsawman.form.FormTimeline;
@@ -54,7 +56,8 @@ import net.minecraft.world.RaycastContext;
  * camera), cut the three of them down in the combo, and turn to the camera as it eases in, "What should I add next?"
  * over it. {@code saws}: already Chainsaw Man, you grind out through the wall of a hut, lunge into the first zombie
  * outside, take three more in the combo (across, back, the overhead finisher) and grind the last one down; it ends on
- * that kill, to loop. Play as kortev (-Pusername=Kortev) to wear their skin. With -Pcapture=true it's recorded with its sounds
+ * that kill, to loop. {@code beamlook}: photographs of Beam (the ult) from several sides, riding and leaping, and a bite on a
+ * zombie (beamlook_*.png; no reel). Play as kortev (-Pusername=Kortev) to wear their skin. With -Pcapture=true it's recorded with its sounds
  * (Capture) into build/selftest/capture; either way a few frames are saved as pictures (showcase_*.png).
  */
 public class ShowcaseSelfTest implements ClientModInitializer {
@@ -305,6 +308,8 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 					pochita(client, server, ticks);
 				} else if ("held".equals(target())) {
 					held(client, server, ticks);
+				} else if ("beamlook".equals(target())) {
+					beamlook(client, server, ticks);
 				} else if ("merge".equals(target())) {
 					merge(client, server, ticks);
 				} else {
@@ -606,6 +611,175 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 				z -> !ZOMBIES.contains(z.getId()))) {
 			z.discard();
 		}
+	}
+
+	// Looking Beam over (kortev, 2026-10-22: they judge his look from photographs): already Chainsaw Man in the open on the
+	// village's level ground, Beam called up in front of the camera; side on, three quarters from the front, from behind
+	// riding, a bite on a zombie, a leap from the side and a leap from the front (the whole shark, out of the ground), and
+	// your own eyes as he swims. Each shot's frame; the screenshots are beamlook_*.
+
+	private static final int BEAM_SUMMON = 2;
+	private static final int BEAM_SIDE = 26;
+	private static final int BEAM_FRONT = 38;
+	private static final int BEAM_BEHIND = 50;
+	private static final int BEAM_BITE = 62;
+	private static final int BEAM_BITE_GIVE_UP = 140;
+	private static final int BEAM_LEAP_SIDE = 150;
+	private static final int BEAM_LEAP_FRONT = 205;
+	private static final int BEAM_OWN_EYES = 262;
+	private static final int BEAM_END = 310;
+	/** How many ticks into a leap he is at the top of it. */
+	private static final int APEX = 8;
+	/** How many of the bite's two photographs are taken, and the frame of the last. */
+	private static int bites;
+	private static int lastBiteShot;
+	private static Vec3d beamFrom = Vec3d.ZERO;
+	private static int leapFrom = -1;
+
+	private static void beamlook(MinecraftClient client, IntegratedServer server, int f) {
+		if (f == 1) {
+			client.options.hudHidden = false;
+			client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
+			face(client, facing, 0.0F);
+			bites = 0;
+			lastBiteShot = 0;
+			leapFrom = -1;
+		}
+		BeamEntity beam = client.world == null ? null : client.world.getEntitiesByClass(BeamEntity.class, new net.minecraft.util.math.Box(origin, origin).expand(80.0), b -> !b.diving())
+				.stream().findFirst().orElse(null);
+		if (f == BEAM_SUMMON) {
+			server.execute(() -> {
+				Blood.set(player(server), Blood.MAX);
+				Beam.summon(player(server));
+			});
+		}
+		Vec3d at = beam != null ? beam.getPos() : origin;
+		Vec3d ahead = Vec3d.fromPolar(0.0F, facing);
+		Vec3d side = new Vec3d(ahead.z, 0.0, -ahead.x);
+		if (f == BEAM_SUMMON + 1) {
+			// Side on, low, along the surface: the back and the fin, and the line where the ground hides the rest.
+			fixed(rel(origin, ahead, side, 0.3, 0.55, -5.2), rel(origin, ahead, side, 0.3, 0.45, 0.0));
+		}
+		if (f == BEAM_SIDE) {
+			shot(client, "beamlook_side");
+		}
+		if (f == BEAM_FRONT - 1) {
+			// Three quarters from the front, close and low.
+			fixed(rel(origin, ahead, side, 4.4, 0.9, -3.0), rel(origin, ahead, side, 0.4, 0.3, 0.0));
+		}
+		if (f == BEAM_FRONT + 8) {
+			shot(client, "beamlook_front");
+		}
+		if (f == BEAM_BEHIND - 1) {
+			// From behind, riding: Chainsaw Man on his back.
+			fixed(rel(origin, ahead, side, -4.0, 1.5, 0.6), rel(origin, ahead, side, 0.4, 1.0, 0.0));
+		}
+		if (f == BEAM_BEHIND + 8) {
+			shot(client, "beamlook_behind");
+		}
+		if (f == BEAM_BITE - 1) {
+			// A husk (a zombie that does not burn: it is day) in front of his mouth, built up to take a few bites.
+			server.execute(() -> {
+				zombie(server.getOverworld(), EntityType.HUSK, origin.add(ahead.multiply(2.4)), facing + 180.0F, 20.0F);
+				if (server.getOverworld().getEntityById(ZOMBIES.get(ZOMBIES.size() - 1)) instanceof ZombieEntity z) {
+					z.getAttributeInstance(net.minecraft.entity.attribute.EntityAttributes.GENERIC_MAX_HEALTH).setBaseValue(400.0);
+					z.setHealth(400.0F);
+					z.setFireTicks(0);
+				}
+			});
+			// First from his side, his head and the zombie in front of it...
+			fixed(rel(origin, ahead, side, 1.2, 0.8, -3.8), rel(origin, ahead, side, 1.4, 0.5, 0.0));
+		}
+		if (f > BEAM_BITE && f < BEAM_BITE_GIVE_UP && beam != null && beam.sinceBite(0.0F) >= 1.0F && beam.sinceBite(0.0F) < 2.5F) {
+			if (bites == 0) {
+				shot(client, "beamlook_bite_side");
+				// ...then three quarters from the front, over the zombie's shoulder, for the jaw.
+				fixed(rel(origin, ahead, side, 5.2, 1.5, -2.6), rel(origin, ahead, side, 1.0, 0.45, 0.0));
+				bites = 1;
+			} else if (bites == 1 && f > lastBiteShot + 6) {
+				shot(client, "beamlook_bite_front");
+				bites = 2;
+			}
+			lastBiteShot = bites == 1 ? f : lastBiteShot;
+		}
+		if (f == BEAM_LEAP_SIDE - 1) {
+			// Out of the way: the zombie gone; the next shot's camera by where he leaps from.
+			server.execute(() -> {
+				for (int id : ZOMBIES) {
+					Entity z = server.getOverworld().getEntityById(id);
+					if (z != null) {
+						z.discard();
+					}
+				}
+				ZOMBIES.clear();
+			});
+			Vec3d from = beam != null ? beam.getPos() : origin;
+			fixed(rel(from, ahead, side, 3.0, 1.2, -6.5), rel(from, ahead, side, 3.0, 1.3, 0.0));
+		}
+		if (f == BEAM_LEAP_SIDE) {
+			leapFrom = f;
+			client.options.jumpKey.setPressed(true);
+		}
+		if (f == BEAM_LEAP_SIDE + 2) {
+			client.options.jumpKey.setPressed(false);
+		}
+		if (f == BEAM_LEAP_SIDE + 1 + APEX) {
+			shot(client, "beamlook_leap_side");
+		}
+		if (f == BEAM_LEAP_FRONT - 40) {
+			// Turned round, to leap back the way he came (the clear ground is only so long).
+			face(client, facing + 180.0F, 0.0F);
+		}
+		if (f == BEAM_LEAP_FRONT - 1) {
+			Vec3d from = beam != null ? beam.getPos() : origin;
+			// Three quarters from the front, to the side of where he comes down, looking at him in the air.
+			fixed(rel(from, ahead.negate(), side.negate(), 7.5, 2.2, -4.5), rel(from, ahead.negate(), side.negate(), 3.0, 2.2, 0.0));
+		}
+		if (f == BEAM_LEAP_FRONT) {
+			client.options.jumpKey.setPressed(true);
+		}
+		if (f == BEAM_LEAP_FRONT + 2) {
+			client.options.jumpKey.setPressed(false);
+		}
+		if (f == BEAM_LEAP_FRONT + 1 + APEX) {
+			shot(client, "beamlook_leap_front");
+		}
+		if (f == BEAM_OWN_EYES - 25) {
+			face(client, facing, 0.0F);
+		}
+		if (f == BEAM_OWN_EYES) {
+			// Your own eyes, the forward key held: the ground he throws up as he swims.
+			Capture.camera = null;
+			face(client, facing, 14.0F);
+			client.options.setPerspective(Perspective.FIRST_PERSON);
+			client.options.forwardKey.setPressed(true);
+		}
+		if (f == BEAM_OWN_EYES + 34) {
+			shot(client, "beamlook_own_eyes");
+		}
+		if (f == BEAM_OWN_EYES + 1 && beam != null) {
+			beamFrom = beam.getPos();
+		}
+		if (f == BEAM_OWN_EYES + 34 && beam != null) {
+			// (The real keys reach the server as a rider's input: he has gone the way you look.)
+			ShootingStar.LOGGER.info("[selftest] beamlook: riding with the forward key held, he went {} blocks in 33 ticks, rider on him: {}",
+					beam.getPos().distanceTo(beamFrom), client.player.getVehicle() == beam);
+		}
+		if (f == BEAM_END - 12) {
+			client.options.forwardKey.setPressed(false);
+			client.options.sneakKey.setPressed(true);
+		}
+		if (f >= BEAM_END) {
+			client.options.sneakKey.setPressed(false);
+			ShootingStar.LOGGER.info("[selftest] beamlook: after sneaking, the player is still on a vehicle: {}; Beam about: {}", client.player.hasVehicle(),
+					client.world.getEntitiesByClass(BeamEntity.class, new net.minecraft.util.math.Box(origin, origin).expand(80.0), b -> true).size());
+			stage = Stage.DONE;
+		}
+	}
+
+	/** The point {@code x} ahead of {@code from} the way you face, {@code y} up and {@code z} to the side. */
+	private static Vec3d rel(Vec3d from, Vec3d ahead, Vec3d side, double x, double y, double z) {
+		return from.add(ahead.multiply(x)).add(side.multiply(z)).add(0.0, y, 0.0);
 	}
 
 	// Looking it over: Pochita held as a chainsaw (photographs; with -Pcapture=true, a video of him in use).
@@ -1147,6 +1321,10 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 	// captions don't cover it.
 
 	private static void lettering(DrawContext context, double t) {
+		if ("beamlook".equals(target())) {
+			// (Photographs of Beam, nothing written over them.)
+			return;
+		}
 		TextRenderer font = MinecraftClient.getInstance().textRenderer;
 		int w = context.getScaledWindowWidth();
 		int h = context.getScaledWindowHeight();
@@ -1265,6 +1443,10 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		server.getGameRules().get(GameRules.DO_MOB_SPAWNING).set(false, server);
 		// No rotten flesh picked up into your empty hand.
 		server.getGameRules().get(GameRules.DO_MOB_LOOT).set(false, server);
+		if ("beamlook".equals(target())) {
+			// (Broad daylight, to judge his colours by: a husk, not a zombie, takes his bites, as it does not burn.)
+			world.setTimeOfDay(6000);
+		}
 		if ("pochita".equals(target())) {
 			pochitaSet(server, player, world);
 			return;
@@ -1274,7 +1456,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 			ShootingStar.LOGGER.error("[selftest] showcase: no village found");
 			village = player.getBlockPos();
 		}
-		boolean saws = "saws".equals(target()) || "chain".equals(target()) || "arms".equals(target());
+		boolean saws = "saws".equals(target()) || "chain".equals(target()) || "arms".equals(target()) || "beamlook".equals(target());
 		facing = FACING;
 		BlockPos spot = open(world, village, saws ? ShowcaseSelfTest::runway : ShowcaseSelfTest::roomy);
 		ShootingStar.LOGGER.info("[selftest] showcase: village at {}, standing at {}", village, spot);
@@ -1336,6 +1518,10 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 					world.spawnEntity(v);
 					ZOMBIES.add(v.getId());
 				}
+			} else if ("beamlook".equals(target())) {
+				// Just the open, level ground (Beam is called up by the script, in front of the camera).
+				player.getAbilities().invulnerable = true;
+				player.sendAbilitiesUpdate();
 			} else {
 				hut(world, spot);
 				zombie(world, local(WAITING.x, 0.0, WAITING.z), facing + 180.0F, 6.0F);
