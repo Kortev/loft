@@ -31,6 +31,10 @@ public final class SawPose {
 
 	/** Poses {@code player} in the form: a slash, grinding, the chain, or standing ready. */
 	public static void pose(BipedEntityModel<?> model, PlayerEntity player, float tickDelta) {
+		if (player.getVehicle() instanceof io.github.kortev.chainsawman.BeamEntity) {
+			ride(model, player, tickDelta);
+			return;
+		}
 		float swing = ClientCombat.swingAge(player, tickDelta);
 		ClientCombat.Swing which = ClientCombat.swing(player);
 		ClientCombat.Chain chain = ClientCombat.chain(player);
@@ -55,6 +59,31 @@ public final class SawPose {
 			model.rightArm.yaw = model.head.yaw;
 			model.rightArm.roll = 0.0F;
 		}
+	}
+
+	/**
+	 * On Beam's back: standing, knees bent and feet apart, leaning in, both arms out in front holding the reins (his chain),
+	 * or held out grinding with the saws when the attack key is held.
+	 */
+	private static void ride(BipedEntityModel<?> model, PlayerEntity player, float tickDelta) {
+		if (ClientCombat.grinding(player) || player.handSwinging) {
+			grind(model, player.age + tickDelta);
+		} else {
+			model.rightArm.pitch = FORWARD + 0.5F;
+			model.leftArm.pitch = FORWARD + 0.5F;
+			model.rightArm.yaw = -0.18F;
+			model.leftArm.yaw = 0.18F;
+			model.rightArm.roll = 0.0F;
+			model.leftArm.roll = 0.0F;
+			model.body.pitch = 0.25F;
+			model.head.pitch -= 0.1F;
+		}
+		model.rightLeg.pitch = -0.5F;
+		model.leftLeg.pitch = -0.5F;
+		model.rightLeg.roll = 0.28F;
+		model.leftLeg.roll = -0.28F;
+		model.rightLeg.yaw = 0.0F;
+		model.leftLeg.yaw = 0.0F;
 	}
 
 	/** The kick: the right leg up and out in front, fast, the arms out for balance, leaning back into it; and down. */

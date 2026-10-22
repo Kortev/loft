@@ -89,7 +89,7 @@ public final class ChainRender {
 			// Thrown: a wave running out along it, dying down; caught: taut, humming; missed: slack, coming back.
 			double wave = 0.32 * Math.exp(-age / 3.5) + (missed ? 0.0 : 0.012);
 			double sag = missed ? 0.45 * MathHelper.clamp((age - 4.0F) / 3.0F, 0.0F, 1.0F) : 0.0;
-			strip(m, consumers.getBuffer(RenderLayer.getEntityCutoutNoCull(CHAIN)), world, cam, from, end, age, wave, sag, !chain.held() || missed);
+			strip(m, consumers.getBuffer(RenderLayer.getEntityCutoutNoCull(CHAIN)), world, cam, cam, from, end, age, wave, sag, !chain.held() || missed);
 			hook(m, consumers.getBuffer(RenderLayer.getEntityCutoutNoCull(LINK)), world, cam, end, end.subtract(from));
 		}
 	}
@@ -118,8 +118,8 @@ public final class ChainRender {
 	 * {@code wave} blocks of wave running along it, {@code sag} blocks of sag in its middle; its links running along it
 	 * as it goes out and comes back ({@code racing}).
 	 */
-	private static void strip(Matrix4f m, VertexConsumer out, ClientWorld world, Vec3d cam, Vec3d a, Vec3d b, float age, double wave, double sag,
-			boolean racing) {
+	private static void strip(Matrix4f m, VertexConsumer out, ClientWorld world, Vec3d cam, Vec3d base, Vec3d a, Vec3d b, float age, double wave,
+			double sag, boolean racing) {
 		Vec3d d = b.subtract(a);
 		double length = d.length();
 		if (length < 1.0E-3) {
@@ -149,11 +149,21 @@ public final class ChainRender {
 			float u1 = (float) ((along + piece) / LINK_LONG - scroll);
 			along += piece;
 			int light = WorldRenderer.getLightmapCoordinates(world, BlockPos.ofFloored(p0));
-			vertex(m, out, p0.subtract(w0).subtract(cam), u0, 1.0F, light);
-			vertex(m, out, p0.add(w0).subtract(cam), u0, 0.0F, light);
-			vertex(m, out, p1.add(w1).subtract(cam), u1, 0.0F, light);
-			vertex(m, out, p1.subtract(w1).subtract(cam), u1, 1.0F, light);
+			vertex(m, out, p0.subtract(w0).subtract(base), u0, 1.0F, light);
+			vertex(m, out, p0.add(w0).subtract(base), u0, 0.0F, light);
+			vertex(m, out, p1.add(w1).subtract(base), u1, 0.0F, light);
+			vertex(m, out, p1.subtract(w1).subtract(base), u1, 1.0F, light);
 		}
+	}
+
+	/**
+	 * Beam's reins: the chain from {@code from} to {@code to} (world space), hanging taut with a little sag, drawn inside an
+	 * entity's render, where {@code matrices} are already moved to {@code origin} (the entity's place, as the game draws it).
+	 */
+	static void reins(MatrixStack matrices, VertexConsumerProvider consumers, ClientWorld world, Vec3d origin, Vec3d from, Vec3d to) {
+		Vec3d cam = MinecraftClient.getInstance().gameRenderer.getCamera().getPos();
+		strip(matrices.peek().getPositionMatrix(), consumers.getBuffer(RenderLayer.getEntityCutoutNoCull(CHAIN)), world, cam, origin, from, to, 0.0F, 0.0,
+				0.12, false);
 	}
 
 	/** Half the strip's width at {@code at}, across it and turned to face the camera. */
