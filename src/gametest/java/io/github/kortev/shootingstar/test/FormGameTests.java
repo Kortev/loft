@@ -1,8 +1,10 @@
 package io.github.kortev.shootingstar.test;
 
 import com.mojang.authlib.GameProfile;
+import io.github.kortev.chainsawman.BeamEntity;
 import io.github.kortev.chainsawman.ChainsawMan;
 import io.github.kortev.chainsawman.PochitaEntity;
+import io.github.kortev.chainsawman.form.Beam;
 import io.github.kortev.chainsawman.form.Blood;
 import io.github.kortev.chainsawman.form.Downed;
 import io.github.kortev.chainsawman.form.Form;
@@ -37,7 +39,8 @@ import net.minecraft.world.GameMode;
  * faster than they may; a kill heals a lot; grinding chews and heals; the form drains health, and running out of it
  * leaves you down, not dead; with Pochita nothing kills you, without him it does; someone giving you blood brings you
  * back up at their cost, and lying there long enough does too; the chain yanks what it catches to you and pulls you to
- * a block; the frenzy doubles the saws' damage and won't come again straight away.
+ * a block; the frenzy doubles the saws' damage and won't come again straight away; Beam, the ult, costs blood, carries you,
+ * bites what is in front of him, leaps, and dives away.
  */
 public class FormGameTests implements FabricGameTest {
 	/** How long a player who has just joined can't be hurt (ticks), as the game keeps them. */
@@ -532,6 +535,205 @@ public class FormGameTests implements FabricGameTest {
 		context.complete();
 	}
 
+	/** Beam costs blood and puts you on his back; one to a player. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_beam_summon", tickLimit = 20)
+	public void beamCarriesYou(TestContext context) {
+		ServerPlayerEntity player = fighter(context, "rider", 0.0);
+		ground(context, true);
+		Blood.set(player, Blood.MAX);
+		try {
+			context.assertTrue(Beam.summon(player), "Beam did not come");
+			context.assertTrue(Blood.get(player) == Blood.MAX - Blood.BEAM, "Beam did not cost his blood: " + Blood.get(player));
+			context.assertTrue(player.getVehicle() instanceof BeamEntity, "the player is not on Beam");
+			context.assertTrue(Beam.active(player) == player.getVehicle(), "Beam is not the player's own");
+			context.assertTrue(!Beam.summon(player), "a second Beam came");
+			context.assertTrue(Blood.get(player) == Blood.MAX - Blood.BEAM, "a second call cost blood");
+		} finally {
+			done(context, player);
+			ground(context, false);
+		}
+		context.complete();
+	}
+
+	/** Out of the form, or without the blood, Beam does not come and nothing is spent. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_beam_refused", tickLimit = 20)
+	public void beamNeedsTheFormAndTheBlood(TestContext context) {
+		ServerPlayerEntity plain = player(context, "plain", 0.0);
+		ServerPlayerEntity weak = fighter(context, "weak", 4.0);
+		ground(context, true);
+		Blood.set(plain, Blood.MAX);
+		Blood.set(weak, Blood.BEAM - 1);
+		try {
+			context.assertTrue(!Beam.summon(plain), "Beam came to someone out of the form");
+			context.assertTrue(Blood.get(plain) == Blood.MAX && !plain.hasVehicle(), "the one out of the form lost blood or was carried");
+			context.assertTrue(!Beam.summon(weak), "Beam came without the blood for him");
+			context.assertTrue(Blood.get(weak) == Blood.BEAM - 1 && !weak.hasVehicle(), "the one short of blood lost blood or was carried");
+		} finally {
+			done(context, plain);
+			done(context, weak);
+			ground(context, false);
+		}
+		context.complete();
+	}
+
+	/** The forward key drives him: he goes the way you face, across the ground. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_beam_swim", tickLimit = 30)
+	public void beamSwimsTheWayYouLook(TestContext context) {
+		ServerPlayerEntity player = fighter(context, "swimmer", 0.0);
+		ground(context, true);
+		Blood.set(player, Blood.MAX);
+		Beam.summon(player);
+		BeamEntity beam = (BeamEntity) player.getVehicle();
+		double z0 = beam.getZ();
+		player.updateInput(0.0F, 1.0F, false, false);
+		context.runAtTick(14, () -> {
+			try {
+				context.assertTrue(beam.isAlive() && player.getVehicle() == beam, "he dived or lost his rider while swimming");
+				context.assertTrue(beam.getZ() - z0 > 3.0, "he did not go forward: " + (beam.getZ() - z0));
+				context.assertTrue(Math.abs(player.getZ() - beam.getZ()) < 1.0, "the rider was left behind");
+				context.assertTrue(Math.abs(beam.getY() - spot(context).y) < 1.5, "he left the ground: " + (beam.getY() - spot(context).y));
+			} finally {
+				done(context, player);
+				ground(context, false);
+			}
+			context.complete();
+		});
+	}
+
+	/** What is in front of his mouth is bitten, hard, and what is behind him is left alone; a slash works from his back. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_beam_bite", tickLimit = 40)
+	public void beamBitesWhatIsInFront(TestContext context) {
+		ServerPlayerEntity player = fighter(context, "biter", 0.0);
+		ground(context, true);
+		Blood.set(player, Blood.MAX);
+		HuskEntity front = husk(context, 0.0, 2.0);
+		HuskEntity behind = husk(context, 0.0, -2.5);
+		Beam.summon(player);
+		context.runAtTick(14, () -> {
+			try {
+				context.assertTrue(front.getHealth() <= front.getMaxHealth() - Beam.BITE_DAMAGE + 0.5F, "the husk in front was not bitten: " + front.getHealth());
+				context.assertTrue(behind.getHealth() == behind.getMaxHealth(), "the husk behind was bitten");
+				float before = front.getHealth();
+				context.assertTrue(Saw.slash(player), "the slash did not come from his back");
+				context.assertTrue(!front.isAlive() || front.getHealth() < before, "the slash from his back did not cut");
+			} finally {
+				done(context, player);
+				front.discard();
+				behind.discard();
+				ground(context, false);
+			}
+			context.complete();
+		});
+	}
+
+	/** The jump key makes him leap: up, over, and down on what is where he lands, for the crash's bite. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_beam_leap", tickLimit = 60)
+	public void beamLeaps(TestContext context) {
+		ServerPlayerEntity player = fighter(context, "leaper", 0.0);
+		ground(context, true);
+		Blood.set(player, Blood.MAX);
+		// Where he lands, six blocks ahead (nothing is by his mouth to begin with, so he bites nothing on the way).
+		HuskEntity landing = husk(context, 0.0, Beam.LEAP_LONG);
+		Beam.summon(player);
+		BeamEntity beam = (BeamEntity) player.getVehicle();
+		double ground = beam.getY();
+		player.updateInput(0.0F, 0.0F, true, false);
+		double[] top = {0.0};
+		for (int t = 2; t < Beam.LEAP_TICKS; t++) {
+			context.runAtTick(t, () -> top[0] = Math.max(top[0], beam.getY() - ground));
+		}
+		context.runAtTick(Beam.LEAP_TICKS + 8, () -> {
+			try {
+				context.assertTrue(top[0] > Beam.LEAP_UP * 0.8, "he did not leap: " + top[0]);
+				context.assertTrue(beam.getZ() - spot(context).z > Beam.LEAP_LONG * 0.8, "he did not land far ahead: " + (beam.getZ() - spot(context).z));
+				context.assertTrue(landing.getHealth() <= landing.getMaxHealth() - Beam.LEAP_DAMAGE + 0.5F, "the crash did not bite what was under it: " + landing.getHealth());
+				context.assertTrue(player.getVehicle() == beam, "the rider was thrown");
+			} finally {
+				done(context, player);
+				landing.discard();
+				ground(context, false);
+			}
+			context.complete();
+		});
+	}
+
+	/** Sneaking gets you off: he dives, is gone, and you are left standing. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_beam_sneak", tickLimit = Beam.DIVE_TICKS + 30)
+	public void beamDivesWhenYouSneak(TestContext context) {
+		ServerPlayerEntity player = fighter(context, "dismounter", 0.0);
+		ground(context, true);
+		Blood.set(player, Blood.MAX);
+		Beam.summon(player);
+		BeamEntity beam = (BeamEntity) player.getVehicle();
+		context.runAtTick(5, () -> player.updateInput(0.0F, 0.0F, false, true));
+		context.runAtTick(7, () -> context.assertTrue(!player.hasVehicle() && beam.diving(), "he did not dive when the rider sneaked"));
+		context.runAtTick(7 + Beam.DIVE_TICKS + 4, () -> {
+			try {
+				context.assertTrue(!beam.isAlive(), "he was not gone after diving");
+				context.assertTrue(Beam.active(player) == null, "he was still the player's");
+			} finally {
+				done(context, player);
+				ground(context, false);
+			}
+			context.complete();
+		});
+	}
+
+	/** Leaving the form ends it too: he dives and you are left off. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_beam_leave", tickLimit = 30)
+	public void beamDivesWhenYouLeaveTheForm(TestContext context) {
+		ServerPlayerEntity player = fighter(context, "leaver", 0.0);
+		ground(context, true);
+		Blood.set(player, Blood.MAX);
+		Beam.summon(player);
+		BeamEntity beam = (BeamEntity) player.getVehicle();
+		context.runAtTick(4, () -> Form.end(player));
+		context.runAtTick(8, () -> {
+			try {
+				context.assertTrue(!player.hasVehicle() && beam.diving(), "he stayed with a rider who left the form");
+			} finally {
+				done(context, player);
+				ground(context, false);
+			}
+			context.complete();
+		});
+	}
+
+	/** After {@link Beam#LASTS} he is gone, and the player is off. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_beam_time", tickLimit = Beam.LASTS + Beam.DIVE_TICKS + 40)
+	public void beamLeavesAfterTwentySeconds(TestContext context) {
+		ServerPlayerEntity player = fighter(context, "timed", 0.0);
+		ground(context, true);
+		Blood.set(player, Blood.MAX);
+		Beam.summon(player);
+		BeamEntity beam = (BeamEntity) player.getVehicle();
+		context.runAtTick(Beam.LASTS - 10, () -> context.assertTrue(player.getVehicle() == beam && !beam.diving(), "he left early"));
+		context.runAtTick(Beam.LASTS + 5, () -> context.assertTrue(!player.hasVehicle() && beam.diving(), "he did not dive when his time was up"));
+		context.runAtTick(Beam.LASTS + Beam.DIVE_TICKS + 8, () -> {
+			try {
+				context.assertTrue(!beam.isAlive(), "he was not gone after the dive");
+				context.assertTrue(!player.hasVehicle(), "the player was still on him");
+			} finally {
+				done(context, player);
+				ground(context, false);
+			}
+			context.complete();
+		});
+	}
+
+	/**
+	 * A small floor of stone under where these tests stand ({@code on}), or taken away again: Beam swims along the ground, and
+	 * the tests' spot is in the air.
+	 */
+	private static void ground(TestContext context, boolean on) {
+		BlockPos at = BlockPos.ofFloored(spot(context)).down();
+		for (int x = -3; x <= 3; x++) {
+			for (int z = -3; z <= 9; z++) {
+				context.getWorld().setBlockState(at.add(x, 0, z), on ? Blocks.STONE.getDefaultState() : Blocks.AIR.getDefaultState());
+			}
+		}
+	}
+
 	/** A player in the form, with Pochita's heart, at {@code x} across the test's spot, facing along +z. */
 	private static ServerPlayerEntity fighter(TestContext context, String name, double x) {
 		ServerPlayerEntity player = player(context, name, x);
@@ -577,6 +779,7 @@ public class FormGameTests implements FabricGameTest {
 
 	/** Out of the form, up, gone. */
 	private static void done(TestContext context, ServerPlayerEntity player) {
+		Beam.end(player);
 		Form.end(player);
 		Downed.up(player);
 		Frenzy.end(player);
