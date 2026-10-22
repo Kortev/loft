@@ -750,19 +750,20 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		if (f == BEAM_OWN_EYES) {
 			// Your own eyes, the forward key held: the ground he throws up as he swims.
 			Capture.camera = null;
-			face(client, facing, 14.0F);
+			face(client, facing, 19.0F);
 			client.options.setPerspective(Perspective.FIRST_PERSON);
 			client.options.forwardKey.setPressed(true);
 		}
-		if (f == BEAM_OWN_EYES + 34) {
-			shot(client, "beamlook_own_eyes");
+		if (f == BEAM_OWN_EYES + 16 || f == BEAM_OWN_EYES + 24) {
+			// (Over the level ground, before the end of it: he rides up whatever stands in his way, and the view goes up with him.)
+			shot(client, f == BEAM_OWN_EYES + 16 ? "beamlook_own_eyes" : "beamlook_own_eyes_far");
 		}
 		if (f == BEAM_OWN_EYES + 1 && beam != null) {
 			beamFrom = beam.getPos();
 		}
-		if (f == BEAM_OWN_EYES + 34 && beam != null) {
+		if (f == BEAM_OWN_EYES + 24 && beam != null) {
 			// (The real keys reach the server as a rider's input: he has gone the way you look.)
-			ShootingStar.LOGGER.info("[selftest] beamlook: riding with the forward key held, he went {} blocks in 33 ticks, rider on him: {}",
+			ShootingStar.LOGGER.info("[selftest] beamlook: riding with the forward key held, he went {} blocks in 23 ticks, rider on him: {}",
 					beam.getPos().distanceTo(beamFrom), client.player.getVehicle() == beam);
 		}
 		if (f == BEAM_END - 12) {
@@ -1456,7 +1457,8 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 			ShootingStar.LOGGER.error("[selftest] showcase: no village found");
 			village = player.getBlockPos();
 		}
-		boolean saws = "saws".equals(target()) || "chain".equals(target()) || "arms".equals(target()) || "beamlook".equals(target());
+		boolean saws = "saws".equals(target()) || "chain".equals(target()) || "arms".equals(target()) || "beamlook".equals(target())
+				|| "beam".equals(target());
 		facing = FACING;
 		BlockPos spot = open(world, village, saws ? ShowcaseSelfTest::runway : ShowcaseSelfTest::roomy);
 		ShootingStar.LOGGER.info("[selftest] showcase: village at {}, standing at {}", village, spot);
@@ -1478,6 +1480,10 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		ZOMBIES.clear();
 		if (saws) {
 			// Already Chainsaw Man (done before the filming starts), in the hut; one waiting outside it.
+			if ("beamlook".equals(target()) || "beam".equals(target())) {
+				// (The test world keeps what an earlier reel built here: Beam would swim up its tower.)
+				builtAway(world, spot);
+			}
 			level(world, spot);
 			Form.pullCord(player);
 			if ("chain".equals(target())) {
@@ -1518,7 +1524,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 					world.spawnEntity(v);
 					ZOMBIES.add(v.getId());
 				}
-			} else if ("beamlook".equals(target())) {
+			} else if ("beamlook".equals(target()) || "beam".equals(target())) {
 				// Just the open, level ground (Beam is called up by the script, in front of the camera).
 				player.getAbilities().invulnerable = true;
 				player.sendAbilitiesUpdate();
@@ -1701,6 +1707,27 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 				BlockState top = world.getBlockState(c.down());
 				if (top.isOf(Blocks.DIRT) || top.isOf(Blocks.COARSE_DIRT)) {
 					world.setBlockState(c.down(), Blocks.GRASS_BLOCK.getDefaultState());
+				}
+			}
+		}
+	}
+
+	/**
+	 * What the other reels built over the run (the hut, the lookout tower: cobblestone, oak logs and planks, glass, a
+	 * torch) taken away again, the ground under it grass.
+	 */
+	private static void builtAway(ServerWorld world, BlockPos spot) {
+		for (int x = -4; x <= 14; x++) {
+			for (int z = -7; z <= 7; z++) {
+				for (int y = 5; y >= -1; y--) {
+					BlockPos p = cell(spot, x, y, z);
+					BlockState state = world.getBlockState(p);
+					if (state.isOf(Blocks.OAK_PLANKS) || state.isOf(Blocks.OAK_LOG) || state.isOf(Blocks.GLASS_PANE) || state.isOf(Blocks.WALL_TORCH)
+							|| state.isOf(Blocks.COBBLESTONE) && y >= 0) {
+						world.setBlockState(p, Blocks.AIR.getDefaultState(), Block.NOTIFY_LISTENERS | Block.FORCE_STATE);
+					} else if (state.isOf(Blocks.COBBLESTONE)) {
+						world.setBlockState(p, Blocks.GRASS_BLOCK.getDefaultState(), Block.NOTIFY_LISTENERS | Block.FORCE_STATE);
+					}
 				}
 			}
 		}
