@@ -78,8 +78,8 @@ public final class Beam {
 	public static final double BITE_REACH = 3.5;
 	private static final double BITE_CONE = 0.55;
 	private static final double BITE_CLOSE = 1.2;
-	public static final double MOUTH = 1.6;
-	public static final double MOUTH_HEIGHT = 1.5;
+	public static final double MOUTH = 2.2;
+	public static final double MOUTH_HEIGHT = 1.4;
 	public static final double FLING_UP = 1.2;
 	public static final double FLING_AHEAD = 1.5;
 	/** The charge (the use key): how long it takes (ticks), how far it goes (blocks), what each thing in the way takes, the time between charges (ticks) and how near his mouth a thing must be to be caught. */

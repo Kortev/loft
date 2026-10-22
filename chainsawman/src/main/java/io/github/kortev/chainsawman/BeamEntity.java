@@ -32,14 +32,14 @@ import org.jetbrains.annotations.Nullable;
  */
 public class BeamEntity extends Entity {
 	/** His hitbox (blocks): wide and tall enough that he does not squeeze through what a horse could not. */
-	public static final float WIDTH = 1.9F;
-	public static final float HEIGHT = 2.2F;
+	public static final float WIDTH = 2.0F;
+	public static final float HEIGHT = 2.4F;
 	/** How far above his feet the top of his back stands (blocks): the length of his legs and the depth of his body. */
-	public static final float BACK = 41.0F / 16.0F;
-	/** Where the rider stands: on his back, this far ahead of his middle (blocks), just behind his head. */
-	public static final double SEAT_AHEAD = 0.1;
+	public static final float BACK = 48.0F / 16.0F;
+	/** Where the rider stands: on the middle of his back, this far ahead of his middle (blocks; behind it). */
+	public static final double SEAT_AHEAD = -0.5;
 	/** One full cycle of his gait covers this much ground (blocks): the gait's phase advances with the distance he goes. */
-	public static final float STRIDE = 4.4F;
+	public static final float STRIDE = 5.5F;
 	/** How high he steps up in one go (blocks): a block or two of what is in his way. */
 	private static final float STEP = 2.0F;
 	/** How many ticks the clients are told of his place ahead, so they glide him there between the server's word. */
