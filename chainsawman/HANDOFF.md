@@ -77,24 +77,27 @@ first looked nothing like Beam and was useless, so this one is his real look and
 it yet: judge it from the photographs). The ult key (B, `ChainsawManClient.FRENZY`, `FormActionPayload.FRENZY`, "Beam (ult)"
 in the lang file) summons **Beam, the shark fiend in his big shark form** (the Reze arc), for `Blood.BEAM` = 60 (the blood
 bar's mark moved to it; `Frenzy.java`, its game test and `Blood.FRENZY` stay as dormant code). In the form and able to fight,
-he bursts up out of the ground under you in a spray of the ground's own blocks (he needs a clear space about 1.9 wide and 2.2
+he bursts up out of the ground under you in a spray of the ground's own blocks (he needs a clear space about 2 wide and 2.4
 tall within 3 blocks of you, else the action bar says so and nothing is spent) and you stand on his back; one to a player,
 20 seconds (`Beam.LASTS`), gone when you leave the form or go down, and he dives back into the ground when he goes.
 
 - **His look** (`client/BeamModel.java`, `BeamRenderer.java`, texture `textures/entity/beam.png` painted by
-  `tools/gen_chainsaw_textures.py`'s `beam_entity`, 128x144, box corners in `BEAM_BOXES` mirroring `BeamModel.corner`; the
-  layout was packed by a throwaway script, change both together): Minecraft boxes at Pochita's pixel density, about 3.75 blocks
-  long, his back 2.56 blocks off the ground, from kortev's own still and the Prime 1 statue. **Four long jointed crab legs**
-  (upper part out and up from his side, shin down to the ground, three boxes narrowing to a point) that walk a gait from the
-  ground he covers (diagonal pairs), tuck in the air; cobalt on top and mint white underneath with a sawtooth line between;
-  **three bulging boxed eyes up each side** (white, big black pupil); a huge open mouth (red inside, pink gums, cream teeth as
-  flat sawtooth rows along both jaws plus boxes at the front) over a **lower jaw that snaps** on a bite; a row of five dark
-  back spikes (flat triangles, the front one biggest); gill lines; crescent tail (upper lobe longer) that sways; small
-  pectorals. **The chain is his reins**: `ChainRender.reins` draws two strips of the form's chain from the rider's hands (low
-  in front of you in your own eyes) to the corners of his mouth. The rider stands (`SawPose.ride`: knees bent, feet apart,
-  arms forward on the reins, or held out grinding).
+  `tools/gen_chainsaw_textures.py`'s `beam_entity`, 256x160, box corners in `BEAM_BOXES` mirroring `BeamModel.corner`; the
+  layout was packed by a throwaway script, change both together; third pass 2026-10-22 from kortev's review of the stills): Minecraft
+  boxes at Pochita's pixel density, a huge heavy torpedo about 5 blocks long, 2.2 deep and 2 wide, stepped boxes (narrow
+  back and belly, wide middle, head tapering to a blunt snout), slung low: his belly 0.8 blocks off the ground, his back 3.
+  **Four thin crab legs** out of the lower sides of his body (front pair just behind the head, back pair in the rear third):
+  the upper part out sideways and up past his flank to a high knee, the shin down and in to a point on the ground (feet 1.5
+  times his body width apart), that walk a gait from the ground he covers (diagonal pairs) and tuck in the air. Navy on top,
+  mint white over the whole lower half of body and head (up almost to the eyes) with a sawtooth line from snout to tail; a head
+  two fifths of him with a huge gape (dark red inside, pink gums, many small cream sawtooth teeth painted as flat rows along both
+  jaws) over a **lower jaw that snaps** on a bite; **three eyes** (white, big black pupil, a pixel proud) in a diagonal row up each
+  side above the back corner of the mouth; five dark back spikes, gill lines, a crescent tail that sways, small pectorals.
+  **The chain is his reins**: `ChainRender.reins` draws two strips of the form's chain from the rider's hands (low in front of you
+  in your own eyes) to the corners of his mouth. The rider stands on the middle of his back (`SawPose.ride`: knees bent, feet
+  apart, arms forward on the reins, or held out grinding).
 - **Riding** (`form/Beam.java`; `BeamEntity` is a plain `Entity`, not saved, server-driven: `getControllingPassenger()` is
-  nobody; hitbox 1.9 x 2.2; the game's own collision, `getStepHeight()` 2, and his own gravity): the forward key walks him the
+  nobody; hitbox 2 x 2.4; the game's own collision, `getStepHeight()` 2, and his own gravity): the forward key walks him the
   way you look (turning 12 degrees a tick, up to 0.6 blocks a tick, back stops, strafe nudges); he steps up a block or two and
   stops at a wall. Your keys while riding (an action-bar line shows them with your own key names, at the start and again at
   2.5 s):
@@ -117,10 +120,11 @@ tall within 3 blocks of you, else the action bar says so and nothing is spent) a
   front, behind, mouth with a husk in front, two bites, the charge, the leap, walking, your own eyes).
 - **Not verified**: the sounds by ear; how his motion *feels* (the glide between the server's positions, turn rate, stepping up
   over trees and buildings, the camera on his back in first person: only photographed and logged); multiplayer; a shader pack.
-  **Not like the stills**: his head and teeth are boxes (the stills' head is rounded, the white spreads much further up it, the
-  mouth gapes wider with many more teeth, the legs are thinner and end in blades), and the reel `beam` in `ShowcaseSelfTest`
-  still expects the old automatic bites (he now bites only when the attack key is pressed), so it needs its script changed
-  (a `Saw.slash` call per bite) before it is filmed again.
+  **Not like the stills**: his head and teeth are boxes (the stills' head is smoothly rounded; the lower jaw is three steps, so it
+  reads as a staircase when open), the white is flat mint without the stills' shading, the legs have no flat blade tips, the
+  rider is as tall as he is deep (the stills have a smaller rider), and the reins run steeply down to the mouth corners. The reel
+  `beam` in `ShowcaseSelfTest` still expects the old automatic bites (he now bites only when the attack key is pressed), so it
+  needs a `Saw.slash` call per bite before it is filmed again, and its cameras were set for the smaller Beam.
 
 **Waiting on kortev**: nothing on reel 1 any more (dropped for the showcases).
 
