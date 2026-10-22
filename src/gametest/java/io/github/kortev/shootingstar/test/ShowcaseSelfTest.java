@@ -5,6 +5,7 @@ import io.github.kortev.chainsawman.form.Form;
 import io.github.kortev.chainsawman.form.FormTimeline;
 import io.github.kortev.chainsawman.form.Grapple;
 import io.github.kortev.chainsawman.form.Heart;
+import io.github.kortev.chainsawman.form.Limbs;
 import io.github.kortev.chainsawman.form.Saw;
 import io.github.kortev.shootingstar.ShootingStar;
 import java.util.ArrayList;
@@ -22,7 +23,14 @@ import net.minecraft.client.option.Perspective;
 import net.minecraft.client.util.ScreenshotRecorder;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
+import net.minecraft.entity.EquipmentSlot;
+import net.minecraft.entity.mob.VindicatorEntity;
 import net.minecraft.entity.mob.ZombieEntity;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.sound.SoundCategory;
+import net.minecraft.sound.SoundEvents;
+import net.minecraft.util.Hand;
 import net.minecraft.entity.passive.VillagerEntity;
 import net.minecraft.registry.tag.StructureTags;
 import net.minecraft.server.integrated.IntegratedServer;
@@ -110,6 +118,17 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 	private static final int ON_TOWER = 68;
 	private static final int CHAIN_END = 118;
 	private static final int[] CHAIN_SCREENS = {2, 8, 12, 16, 18, 24, 30, 36, 40, 48, 53, 57, 62, 70, 84, 112};
+
+	// The arms reel. The two with axes (angles from the way you face, how far off); when each swings, and your arm comes
+	// off; armless a while; when you cut each down with the head's saw (each kill's blood growing an arm back); the end.
+	private static final float[] AXES = {38.0F, -38.0F};
+	private static final double AXE_OFF = 2.1;
+	private static final int[] CHOPS = {14, 40};
+	private static final int ARMLESS = 54;
+	private static final int[] HEADBUTTS = {84, 112};
+	private static final int ARMS_HERO = 126;
+	private static final int ARMS_END = 186;
+	private static final int[] ARMS_SCREENS = {6, 14, 18, 26, 40, 44, 58, 70, 80, 86, 92, 100, 114, 120, 130, 180};
 
 	/** Where you landed. */
 	private static Vec3d landed;
@@ -203,6 +222,8 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 					saws(client, server, ticks);
 				} else if ("chain".equals(target())) {
 					chain(client, server, ticks);
+				} else if ("arms".equals(target())) {
+					arms(client, server, ticks);
 				} else {
 					transform(client, server, ticks);
 				}
@@ -487,6 +508,86 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		}
 	}
 
+	// The arms reel.
+
+	private static void arms(MinecraftClient client, IntegratedServer server, int f) {
+		if (f == 1) {
+			client.options.hudHidden = false;
+			if (capturing()) {
+				Capture.start(client, client.runDirectory.toPath().resolve("capture"));
+			}
+		}
+		if (client.options.getPerspective() != Perspective.THIRD_PERSON_BACK) {
+			client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
+		}
+		for (int i = 0; i < CHOPS.length; i++) {
+			// On you and the one about to strike, from the far side of you: the arm it takes flies toward the camera.
+			int from = i == 0 ? 1 : CHOPS[i - 1] + 12;
+			if (f == from) {
+				Vec3d it = origin.add(way(AXES[i]).multiply(AXE_OFF)).add(0.0, 1.2, 0.0);
+				Vec3d chest = origin.add(0.0, 1.3, 0.0);
+				Vec3d at = framed(origin.add(way(AXES[i] + (i == 0 ? -110.0F : 110.0F)).multiply(3.6)).add(0.0, 1.9, 0.0), chest);
+				fixed(at, chest.lerp(it, 0.4));
+			}
+			if (f >= from && f < CHOPS[i]) {
+				face(client, turn(i == 0 ? facing : facing + AXES[0], facing + AXES[i], ease(span(f, from, CHOPS[i] - 4))), 0.0F);
+			}
+			if (f == CHOPS[i] - 3) {
+				int id = ZOMBIES.get(i);
+				server.execute(() -> {
+					if (server.getOverworld().getEntityById(id) instanceof VindicatorEntity v) {
+						v.swingHand(Hand.MAIN_HAND);
+					}
+				});
+			}
+			if (f == CHOPS[i]) {
+				server.execute(() -> {
+					ServerPlayerEntity p = player(server);
+					p.getServerWorld().playSound(null, p.getBlockPos(), SoundEvents.ENTITY_PLAYER_ATTACK_CRIT, SoundCategory.HOSTILE, 1.0F, 0.8F);
+					Limbs.lose(p);
+				});
+			}
+		}
+		// Armless: close and low on you from between the two of them (you turned a little off it), the stubs spurting.
+		if (f == ARMLESS) {
+			fixed(framed(local(2.7, 1.1, 0.0), origin.add(0.0, 1.4, 0.0)), origin.add(0.0, 1.45, 0.0));
+		}
+		if (f >= ARMLESS && f < ARMLESS + 20) {
+			face(client, turn(facing + AXES[1], facing - 25.0F, ease(span(f, ARMLESS, ARMLESS + 8))), 0.0F);
+		}
+		// The head's saw: each in turn, its kill's blood growing an arm back.
+		for (int i = 0; i < HEADBUTTS.length; i++) {
+			int from = i == 0 ? ARMLESS + 20 : HEADBUTTS[i - 1] + 4;
+			if (f == from) {
+				// Side on to you and it, a little back, so the arm growing out shows.
+				Vec3d mid = origin.add(way(AXES[i]).multiply(AXE_OFF * 0.5)).add(0.0, 1.3, 0.0);
+				Vec3d at = framed(origin.add(way(AXES[i] + (i == 0 ? 90.0F : -90.0F)).multiply(4.2)).add(0.0, 1.8, 0.0), mid);
+				fixed(at, mid);
+			}
+			if (f > from && f <= HEADBUTTS[i] - 2) {
+				face(client, turn(i == 0 ? facing - 25.0F : facing + AXES[0], facing + AXES[i], ease(span(f, from, HEADBUTTS[i] - 4))), 0.0F);
+			}
+			if (f == HEADBUTTS[i]) {
+				int id = ZOMBIES.get(i);
+				server.execute(() -> Saw.slash(player(server), id));
+			}
+		}
+		// Whole again: low, three quarters on, the sunset behind.
+		if (f == ARMS_HERO) {
+			fixed(framed(local(3.2, 0.7, -2.0), origin.add(0.0, 1.3, 0.0)), origin.add(0.0, 1.5, 0.0));
+		}
+		if (f >= ARMS_HERO) {
+			face(client, turn(facing + AXES[1], facing + 15.0F, ease(span(f, ARMS_HERO, ARMS_HERO + 10))), 6.0F);
+		}
+		if (shots < ARMS_SCREENS.length && f == ARMS_SCREENS[shots]) {
+			shot(client, target() + "_" + f);
+			shots++;
+		}
+		if (f >= ARMS_END) {
+			stage = Stage.DONE;
+		}
+	}
+
 	/**
 	 * A stone lookout tower {@link #TOWER_NEAR} ahead of {@code feet}, 3 by 3 and {@link #TOWER_HIGH} high: cobblestone
 	 * with log corners, a plank top.
@@ -703,7 +804,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 			ShootingStar.LOGGER.error("[selftest] showcase: no village found");
 			village = player.getBlockPos();
 		}
-		boolean saws = "saws".equals(target()) || "chain".equals(target());
+		boolean saws = "saws".equals(target()) || "chain".equals(target()) || "arms".equals(target());
 		facing = FACING;
 		BlockPos spot = open(world, village, saws ? ShowcaseSelfTest::runway : ShowcaseSelfTest::roomy);
 		ShootingStar.LOGGER.info("[selftest] showcase: village at {}, standing at {}", village, spot);
@@ -739,6 +840,30 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 						z.setAiDisabled(false);
 						z.getAttributeInstance(net.minecraft.entity.attribute.EntityAttributes.GENERIC_MOVEMENT_SPEED).setBaseValue(0.0);
 					}
+				}
+			} else if ("arms".equals(target())) {
+				// Hurt only by the script: a hurt flashes you red, and enough of it would take the arms off out of turn.
+				player.getAbilities().invulnerable = true;
+				player.sendAbilitiesUpdate();
+				Limbs.whole(player);
+				// The two with axes in front of you, either side, raised to strike.
+				for (float angle : AXES) {
+					VindicatorEntity v = EntityType.VINDICATOR.create(world);
+					if (v == null) {
+						continue;
+					}
+					Vec3d at = origin.add(way(angle).multiply(AXE_OFF));
+					float yaw = facing + angle + 180.0F;
+					v.refreshPositionAndAngles(at.x, origin.y, at.z, yaw, 0.0F);
+					v.setHeadYaw(yaw);
+					v.setBodyYaw(yaw);
+					v.equipStack(EquipmentSlot.MAINHAND, new ItemStack(Items.IRON_AXE));
+					v.setAiDisabled(true);
+					v.setPersistent();
+					v.setAttacking(true);
+					v.setHealth(6.0F);
+					world.spawnEntity(v);
+					ZOMBIES.add(v.getId());
 				}
 			} else {
 				hut(world, spot);
