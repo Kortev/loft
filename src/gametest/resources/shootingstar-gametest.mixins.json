@@ -8,7 +8,14 @@
 		"RenderTickCounterMixin",
 		"SoundManagerMixin",
 		"WorldRendererAccessor",
-		"BuiltChunkStorageAccessor"
+		"BuiltChunkStorageAccessor",
+		"FilmSkinMixin",
+		"FilmFrameMixin",
+		"FilmPreviewMixin",
+		"FilmMouseAccessor",
+		"FilmClickInvoker",
+		"FilmLookMixin",
+		"FilmHandMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

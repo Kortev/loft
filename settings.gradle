@@ -12,3 +12,4 @@ pluginManagement {
 rootProject.name = 'shooting-star'
 
 include 'chitty'
+include 'gojolander'

@@ -7,7 +7,9 @@
 		"CameraMixin",
 		"EntityLookMixin",
 		"GameRendererMixin",
+		"HeldItemFeatureRendererMixin",
 		"HeldItemRendererMixin",
+		"LensMixin",
 		"MusicTrackerMixin",
 		"PlayerArmPoseMixin",
 		"VoidCameraMixin",
@@ -15,7 +17,8 @@
 		"VoidPlayerMixin",
 		"VoidSoundMixin",
 		"VoidToastMixin",
-		"WorldRendererMixin"
+		"WorldRendererMixin",
+		"WorldWeatherMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

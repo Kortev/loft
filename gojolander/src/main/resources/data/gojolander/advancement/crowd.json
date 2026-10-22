@@ -1,0 +1,31 @@
+{
+  "parent": "gojolander:domain",
+  "display": {
+    "icon": {
+      "id": "gojolander:blindfold"
+    },
+    "title": {
+      "translate": "advancements.gojolander.crowd.title"
+    },
+    "description": {
+      "translate": "advancements.gojolander.crowd.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "criteria": {
+    "crowd": {
+      "trigger": "shootingstar:event",
+      "conditions": {
+        "event": "unlimited_void_crowd"
+      }
+    }
+  },
+  "requirements": [
+    [
+      "crowd"
+    ]
+  ]
+}

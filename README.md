@@ -93,17 +93,34 @@ the feed and the camera shots. Press **Backspace** (rebindable) to skip the feed
 Look at a block at least 24 blocks away and use the key. Bifröst, a gate in orbit over the target,
 opens onto the void between universes, where they hang in a lattice, each in a block of dark glass. The
 feed dives through into universe 4,096,113, beside one of its galaxies, then pulls back out past the cosmic
-web of its two trillion galaxies until the whole of it is one block among the others, and it is selected.
-The gate draws that block through and drops it down a bridge of light onto the target.
-It bursts, and the black takes the whole world: everyone in it is left in nothing, free to walk, seeing
-only each other, unable to touch anything or be touched. Everything within `ginnungagapRadius` of the target
-is erased for good: a ragged shaft down through bedrock, fissures split out across the ground from its rim.
+web of its two trillion galaxies until the whole of it is one block among the others, holds there a
+moment on the lattice, and it is selected. The gate draws that block through and drops it down a bridge
+of light onto the target.
+
+It bursts. The universe inside swells up out of the ground as a giant block, and anyone it reaches is
+swallowed by it. When it falls back in on itself, the black comes out over the zone and anyone still
+standing within `ginnungagapRadius` of the target is erased from reality, along with everything they
+carried. The shooter is spared, and so is anyone in creative or spectator mode. Everything in the zone
+is erased for good: a ragged shaft down through bedrock, fissures split out across the ground from its
+rim.
+
+Then the black takes the whole world, and everyone on the server is in it together, like a live event.
+Wherever they are, the Nether and the End included, everyone is carried to the rim of the hole in a
+group round the shooter; anyone who was killed joins them there after respawning. There they stand
+in nothing, all on one floor level with the roots of the tree to come. They are free to walk and pass
+through whatever lies unseen in the dark. Nothing can hurt them or come after them, they can't touch
+anything, the world's sounds fall silent and hunger stands still.
+
 The first turn cracks the key, and only the cracked key brings the world back: turned in the black, it
 shatters, Yggdrasil grows out of the hole, and the world is put back along its roots, block by block, for
-everyone. (If whoever holds the cracked key is gone for five minutes, the world comes back by itself;
-`/ginnungagap release` brings it back at once.) Skipping the feed shows all of it from your own eyes, free
-to move, as any other player sees it.
-The feed, and the rebuild, can be hurried with the same key as Gungnir's skip (Backspace).
+everyone. When it is all back, everyone is carried home to the solid ground nearest to where they were.
+If whoever holds the cracked key is gone for five minutes, the world comes back by itself, and
+`/ginnungagap release` brings it back at once. If the server stops or crashes partway through, the
+hole is finished when it next starts and everyone is sent home as they come back.
+Only one Genesis Key can be turning at a time.
+
+Skipping the feed shows all of it from your own eyes, free to move, as any other player sees it. The
+feed, and the rebuild, can be hurried with the same key as Gungnir's skip (Backspace).
 
 - **Try it:** `/give @s shootingstar:genesis_key`, or `/ginnungagap open <pos>` (operators).
 - **Craft it:**
@@ -112,6 +129,83 @@ The feed, and the rebuild, can be hurried with the same key as Gungnir's skip (B
     R       R = Recovery Compass   E = Echo Shard
   E S E     S = Nether Star        H = Heavy Core
     H
+  ```
+
+## Þ-01 Mjölnir
+
+The Shooting Star's own strike: as strong as Gungnir, but nothing like it. Raise the hammer at any block 96–640
+blocks away and a bolt leaps from its head into the sky over the target, and the storm comes. The feed follows the
+charge of the whole planet's thunderstorms, the global circuit, as it is drawn in to that one spot; the storm over
+the target winds up into a vortex; the stepped leader feels its way down out of it; and the bolt comes down.
+
+The feed is real-time 3D with its own shaders, like Gungnir's: the night side of Earth from orbit with every
+thunderstorm on it flickering inside its clouds and red sprites leaping above them, the charge relayed in to the
+target storm to storm as megaflashes (lightning hundreds of kilometres long, crawling through the cloud tops) along
+lines that draw together on it from all round the planet, each storm going dark as its charge passes on, the supercell
+winding into one vortex lit by lightning that never stops, and the leader stepping down out of the storm's base over
+the dark country under it. The sound under it is the planet's own radio noise of lightning (the clicks of sferics, the pings of
+tweeks and the falling whistles of whistlers) over a drone breathing with the Earth-ionosphere cavity's 7.83 Hz.
+
+In the world everyone sees the storm boil out of the sky where the call went into it and wind up overhead: decks of
+cloud turning over the target, a wall cloud lowering out of the middle, lightning flickering through it and now and
+then a bolt down to the ground out under its edge. Under it the sky goes slate, the light goes and rain comes. Rings
+of light on the ground mark the zone (and, fainter, the edge of the arcs); whoever called it stands with the hammer
+held up; the leader steps down out of the wall cloud, sparks reach up off everyone standing under it, and the stroke
+comes: a blinding channel with its branches, three restrikes down the same path, the channel breaking up into beads
+of violet light as it dies, a ring of dust thrown up and racing out across the ground, spider lightning racing across
+the storm's base, the scar burning out across the ground and steam boiling off the crater. Thunder reaches you at the
+speed of sound.
+
+### What happens when you raise it
+
+| Time    | What you see                                                                                 |
+|---------|----------------------------------------------------------------------------------------------|
+| 0 s     | **The hammer goes up** over your head and lights up, trembling as the charge builds in it.   |
+| 0.8 s   | **The call**: a bolt leaps from the hammer up into the sky over the target, with a crack and a clap of thunder; your eyes follow it up as the storm boils out where it went in. Everyone can see who called it. |
+| 1.5 s   | Your camera climbs out over the target, looking up into the storm as it turns, and rises into its dark base. |
+| 2.7 s   | **The feed** comes out of the storm cloud into orbit over the night side: `[ Þ-01 MJÖLNIR · GLOBAL CIRCUIT ]`, `THUNDERSTORMS · 1,812 ACTIVE`. |
+| 5.8 s   | `[ EVERY STORM ON EARTH · RELAYING ]`: megaflashes leap storm to storm from the limb in to the target along lines from all round it, the storms behind going dark, `CHARGE · POTENTIAL · MEGAFLASH RELAY` counting up. |
+| 10.3 s  | `[ SUPERCELL · TARGET ]`: down onto the storm over the target as it winds into one vortex: **MJÖLNIR**, struck like an anvil. |
+| 13.8 s  | `[ STEPPED LEADER ]`: the leader stepping down out of the storm's base, seen from kilometres off over the dark country under it, `LEADER ALTITUDE` counting down. |
+| 16.3 s  | Back in the world on you, from over your shoulder, hammer held up, the storm looming over the target far off; then low at the edge of the zone as the leader comes on down out of the wall cloud, streamers rise off everything under it and the air buzzes. |
+| 18.3 s  | **The stroke**: the flash, then impact frames cut between drawn styles (a blue photographic negative, the strobe silhouette, ink on pale paper, posterised violet), cutting back to white with each restrike. |
+| 19.6 s  | Cut to high over the strike, looking straight down as the dust races out and the scar burns out across the ground, then craning down and round to the crater, steaming, the bolt left standing in it: `[ STROKE CONFIRMED ]`. |
+| 25.5 s  | Back to your own eyes. The storm unwinds and the sky clears.                                 |
+
+Only the player who raised the hammer gets the feed and the camera shots. **Backspace** skips the feed, as for
+Gungnir.
+
+### What the stroke does to the world
+
+- **Crater:** where the channel lands, a bowl about 54 blocks across and 14 deep at the default size is blown out
+  (everything above it, up to 120 blocks of hillside, goes) and fused to **Fulgurite**, still charged here and there.
+- **The petrified bolt:** the bolt is left standing in its crater as a jagged column of fulgurite, kinked the way the
+  channel was, forking near the top and still charged at its heart: about 96 blocks tall by default.
+- **Burn zone:** out to the strike radius (`mjolnirRadius`, 64 by default), every leaf burns off, every trunk is left
+  a black **Charred Log**, anything wooden burns to ash (chests and other containers ride it out), grass burns to bare
+  earth, sand fuses to glass, snow and ice go, and a few fires are left burning.
+- **The scar:** a Lichtenberg figure burned out through the ground to 1.5× the radius, the fern of branching channels
+  the current leaves: trenches up to four deep near the middle, every one lined with fulgurite, the main channels
+  still charged along stretches of them, glowing brightest where the channel was widest.
+- **Charged Fulgurite** glows white-blue, current running through its veins, and spits sparks; it bleeds its charge
+  away over about a quarter of an hour into dark **Fulgurite**. Water earths it at once, and standing on it gives you a
+  shock (a charged creeper stands on it unharmed).
+- **Creatures:** everything inside the strike radius dies. Everything in the ring beyond it, out to the edge of the
+  scar, is hit by an arc off the bolt (weaker farther out), set on fire and thrown; and each arc jumps on to the
+  nearest creature it has not hit within 14 blocks, up to three times. Arcs are lightning, so they turn pigs into
+  zombified piglins and villagers into witches; a creeper they charge, and leave unharmed. The arcs never touch whoever raised the hammer.
+  Kills count as theirs.
+- Unbreakable blocks (bedrock, command blocks, barriers) are never touched.
+
+### Getting it
+
+- **Creative:** the Combat tab (the hammer) and the Building Blocks tab (fulgurite, charred log).
+- **Survival:** craft it. The recipe unlocks once you have a Nether Star.
+
+  ```
+  N H N     N = Netherite Ingot   H = Heavy Core
+  L S L     L = Lightning Rod     S = Nether Star
+    B       B = Breeze Rod
   ```
 
 ## Chitty Chitty Bang Bang
@@ -123,10 +217,12 @@ GEN 11, the car from the film, is a mod of its own, built here beside this one a
 
 - `/gungnir strike <pos>`: call a strike on a position (operators).
 - `/gungnir cancel`: call off every strike that has not landed yet.
-- `/ginnungagap open <pos>`: open a Ginnungagap on a position (operators).
+- `/ginnungagap open <pos>`: open a Ginnungagap on a position (operators), unless one is already running.
   From a command block or the console there is no shooter: everyone watches from outside, and the world
   comes back by itself at the end.
 - `/ginnungagap release`: end every Ginnungagap and let reality back in.
+- `/mjolnir strike <pos>`: raise Mjölnir at a position (operators).
+- `/mjolnir cancel`: call off every Mjölnir strike whose bolt has not come down yet.
 
 | Game rule              | Default | Meaning                                                  |
 |------------------------|---------|----------------------------------------------------------|
@@ -135,6 +231,10 @@ GEN 11, the car from the film, is a mod of its own, built here beside this one a
 | `gungnirSpire`         | `true`  | Whether the spent round is left standing as a spire.     |
 | `ginnungagapRadius`    | `96`    | Radius erased by a Ginnungagap, 16–256.                  |
 | `ginnungagapTerrainDamage` | `true` | `false` leaves the blocks in place.                  |
+| `ginnungagapLethal`    | `true`  | `false` and nobody in the zone dies; everyone is still carried to the rim. |
+| `mjolnirRadius`        | `64`    | Radius of the zone Mjölnir kills everything in, 8–160; the scar and arcs reach 1.5×. |
+| `mjolnirTerrainDamage` | `true`  | `false` keeps terrain intact (creatures are still hit).  |
+| `mjolnirPetrifiedBolt` | `true`  | Whether the bolt is left standing in its crater.         |
 
 ## Client options
 
@@ -164,14 +264,24 @@ IDE and both are there to edit together. CI's `mods` download has both jars.
 
 ```sh
 ./gradlew build            # jars in build/libs/ and chitty/build/libs/
-./gradlew runGametest      # server game tests for both mods: targeting, crust cooling, a full strike, Chitty
+./gradlew runGametest      # server game tests for both mods: targeting, crust cooling, a full strike, a whole
+                           # Ginnungagap with players (deaths, gathering, going home), stopping mid-event, Chitty
 ./gradlew runClient        # play in a dev client with both mods
 ```
 
-The `selftest` workflow (choose `gap`, `true` for a Gungnir strike, or `chitty` for the car) plays a full strike in a real client under a virtual display and records it
-as a video. The client and the integrated server run in lockstep and every frame is rendered at an
-exact game time, so the result is a smooth 30 fps video even on a software renderer. The mod's
-sounds are mixed in, and a screenshot of every phase is saved alongside.
+The `selftest` workflow (choose `gap`, `true` for a Gungnir strike, `mjolnir` for a Mjölnir strike, or `chitty` for the
+car) plays a whole event in a real client under a virtual display and records it as a video. The client and the
+integrated server run in lockstep and every frame is rendered at an exact game time, so the result is a smooth 30 fps
+video even on a software renderer. The mod's sounds are mixed in, and a screenshot of every phase is saved alongside.
+The Ginnungagap test fails if any camera shot goes into the ground. Locally:
+
+```sh
+./gradlew runGenworld      # once: the test world, in build/selftest-server (see .github/workflows/selftest.yml)
+./gradlew runSelftest      # the video in build/selftest/capture; -Pselftest=gap-skip skips the feed and hurries the rebuild
+                           # -Ptarget=x,y,z aims the key at a given block instead of the smoothest ground 64 blocks out
+bash tools/mptest.sh       # a dedicated server and three clients play one Ginnungagap together (build/mp)
+bash tools/crashtest.sh    # the server killed mid-event, then restarted and checked (build/crash)
+```
 
 The block and GUI textures and the sounds are generated by `tools/gen_textures.py` and
 `tools/gen_sounds.py` (Python 3 with Pillow and NumPy, plus ffmpeg for the sounds). The feed's

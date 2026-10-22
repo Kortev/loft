@@ -1,0 +1,101 @@
+{
+  "vertex": "shootingstar:ss_dust",
+  "fragment": "shootingstar:ss_dust",
+  "samplers": [
+    {
+      "name": "Sampler0"
+    },
+    {
+      "name": "Sampler1"
+    }
+  ],
+  "uniforms": [
+    {
+      "name": "ModelViewMat",
+      "type": "matrix4x4",
+      "count": 16,
+      "values": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ]
+    },
+    {
+      "name": "ProjMat",
+      "type": "matrix4x4",
+      "count": 16,
+      "values": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ]
+    },
+    {
+      "name": "ScreenSize",
+      "type": "float",
+      "count": 2,
+      "values": [
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "name": "ProjA",
+      "type": "float",
+      "count": 1,
+      "values": [
+        -1.0
+      ]
+    },
+    {
+      "name": "ProjB",
+      "type": "float",
+      "count": 1,
+      "values": [
+        -0.1
+      ]
+    },
+    {
+      "name": "Softness",
+      "type": "float",
+      "count": 1,
+      "values": [
+        1.5
+      ]
+    },
+    {
+      "name": "Flash",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0.0
+      ]
+    }
+  ]
+}

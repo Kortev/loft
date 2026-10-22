@@ -16,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class VoidCameraMixin {
 	@Inject(method = "clipToSpace", at = @At("HEAD"), cancellable = true)
 	private void shootingstar$unclipped(float distance, CallbackInfoReturnable<Float> cir) {
-		if (ClientGaps.floating()) {
+		if (ClientGaps.passingThrough()) {
 			cir.setReturnValue(distance);
 		}
 	}

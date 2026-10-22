@@ -3,6 +3,7 @@ package io.github.kortev.shootingstar.client.camera;
 import io.github.kortev.shootingstar.client.ClientStrike;
 import io.github.kortev.shootingstar.client.ClientStrikes;
 import io.github.kortev.shootingstar.client.gap.GapCamera;
+import io.github.kortev.shootingstar.client.thunder.ThunderCamera;
 import io.github.kortev.shootingstar.strike.StrikeTimeline;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
@@ -32,6 +33,10 @@ public final class CameraDirector {
 		Shot gap = GapCamera.current(tickDelta);
 		if (gap != null) {
 			return gap;
+		}
+		Shot thunder = ThunderCamera.current(tickDelta);
+		if (thunder != null) {
+			return thunder;
 		}
 		MinecraftClient client = MinecraftClient.getInstance();
 		ClientPlayerEntity player = client.player;

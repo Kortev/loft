@@ -1,6 +1,7 @@
 package io.github.kortev.shootingstar.client.mixin;
 
 import io.github.kortev.shootingstar.client.gap.KeyTurn;
+import io.github.kortev.shootingstar.client.thunder.HammerRaise;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.item.HeldItemRenderer;
@@ -12,13 +13,14 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/** Lets the Genesis Key turn in the air in front of the shooter as their event starts. */
+/** Lets the Genesis Key turn in the air in front of the shooter as their event starts, and Mjölnir go up to call the storm. */
 @Mixin(HeldItemRenderer.class)
 public abstract class HeldItemRendererMixin {
 	@Inject(method = "renderFirstPersonItem", at = @At("HEAD"), cancellable = true)
 	private void shootingstar$turnKey(AbstractClientPlayerEntity player, float tickDelta, float pitch, Hand hand, float swingProgress,
 			ItemStack item, float equipProgress, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, CallbackInfo ci) {
-		if (KeyTurn.render((HeldItemRenderer) (Object) this, player, tickDelta, item, matrices, vertexConsumers, light)) {
+		if (KeyTurn.render((HeldItemRenderer) (Object) this, player, tickDelta, item, matrices, vertexConsumers, light)
+				|| HammerRaise.render((HeldItemRenderer) (Object) this, player, tickDelta, item, matrices, vertexConsumers, light)) {
 			ci.cancel();
 		}
 	}

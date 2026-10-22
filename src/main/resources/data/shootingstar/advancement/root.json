@@ -35,12 +35,23 @@
           }
         ]
       }
+    },
+    "hammer": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "shootingstar:mjolnir"
+          }
+        ]
+      }
     }
   },
   "requirements": [
     [
       "uplink",
-      "key"
+      "key",
+      "hammer"
     ]
   ]
 }

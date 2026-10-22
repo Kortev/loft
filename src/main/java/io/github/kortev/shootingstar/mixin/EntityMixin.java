@@ -28,7 +28,8 @@ public abstract class EntityMixin {
 	private void shootingstar$floor(Vec3d movement, CallbackInfoReturnable<Vec3d> cir) {
 		Entity self = (Entity) (Object) this;
 		double floor = VoidFloor.floorFor(self);
-		if (!Double.isNaN(floor)) {
+		// Well under it, they have just been given the floor where they are about to be carried: not hauled up to it here.
+		if (!Double.isNaN(floor) && self.getBoundingBox().minY > floor - 1.5) {
 			double y = movement.y;
 			double feet = self.getBoundingBox().minY;
 			if (feet + y < floor) {

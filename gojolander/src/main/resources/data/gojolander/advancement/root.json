@@ -1,0 +1,35 @@
+{
+  "display": {
+    "icon": {
+      "id": "gojolander:blindfold"
+    },
+    "title": {
+      "translate": "advancements.gojolander.root.title"
+    },
+    "description": {
+      "translate": "advancements.gojolander.root.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false,
+    "background": "minecraft:textures/block/black_concrete.png"
+  },
+  "criteria": {
+    "blindfold": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "gojolander:blindfold"
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "blindfold"
+    ]
+  ]
+}

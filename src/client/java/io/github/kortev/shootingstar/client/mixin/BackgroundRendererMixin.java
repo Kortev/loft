@@ -3,6 +3,7 @@ package io.github.kortev.shootingstar.client.mixin;
 import com.mojang.blaze3d.systems.RenderSystem;
 import io.github.kortev.shootingstar.client.camera.AerialHaze;
 import io.github.kortev.shootingstar.client.render.Dust;
+import io.github.kortev.shootingstar.client.thunder.ThunderRender;
 import net.minecraft.client.render.BackgroundRenderer;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.world.ClientWorld;
@@ -13,7 +14,10 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/** The rise's aerial haze and cloud deck (see {@link AerialHaze}), and the dust hanging over a fresh crater ({@link Dust}). */
+/**
+ * The rise's aerial haze and cloud deck (see {@link AerialHaze}), the dust hanging over a fresh crater ({@link Dust}), and
+ * the gloom under Mjölnir's storm.
+ */
 @Mixin(BackgroundRenderer.class)
 public abstract class BackgroundRendererMixin {
 	@Shadow
@@ -36,6 +40,14 @@ public abstract class BackgroundRendererMixin {
 			red = MathHelper.lerp(k, red, Dust.RED * light);
 			green = MathHelper.lerp(k, green, Dust.GREEN * light);
 			blue = MathHelper.lerp(k, blue, Dust.BLUE * light);
+			RenderSystem.clearColor(red, green, blue, 0.0F);
+		}
+		float gloom = ThunderRender.gloom(camera.getPos(), tickDelta);
+		if (gloom > 0.0F) {
+			// The sky under the storm goes a dark slate blue.
+			red = MathHelper.lerp(gloom, red, red * 0.25F + 0.03F);
+			green = MathHelper.lerp(gloom, green, green * 0.28F + 0.035F);
+			blue = MathHelper.lerp(gloom, blue, blue * 0.35F + 0.05F);
 			RenderSystem.clearColor(red, green, blue, 0.0F);
 		}
 		AerialHaze.State haze = AerialHaze.get(tickDelta);

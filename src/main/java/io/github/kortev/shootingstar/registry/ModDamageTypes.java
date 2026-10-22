@@ -16,6 +16,14 @@ public final class ModDamageTypes {
 	public static final RegistryKey<DamageType> ERASED = RegistryKey.of(RegistryKeys.DAMAGE_TYPE, ShootingStar.id("erased"));
 	/** Swallowed by the universe in the block as it bursts out of the ground. */
 	public static final RegistryKey<DamageType> SWALLOWED = RegistryKey.of(RegistryKeys.DAMAGE_TYPE, ShootingStar.id("swallowed"));
+	/** The same two, put down to whoever turned the key (their messages name them). */
+	public static final RegistryKey<DamageType> SWALLOWED_BY = RegistryKey.of(RegistryKeys.DAMAGE_TYPE, ShootingStar.id("swallowed_by"));
+	public static final RegistryKey<DamageType> ERASED_BY = RegistryKey.of(RegistryKeys.DAMAGE_TYPE, ShootingStar.id("erased_by"));
+
+	/** Mjölnir's stroke: the bolt itself and the current through the ground under it. */
+	public static final RegistryKey<DamageType> THUNDERSTRUCK = RegistryKey.of(RegistryKeys.DAMAGE_TYPE, ShootingStar.id("thunderstruck"));
+	/** An arc that jumped off Mjölnir's bolt, or off someone it had already hit. */
+	public static final RegistryKey<DamageType> ARCED = RegistryKey.of(RegistryKeys.DAMAGE_TYPE, ShootingStar.id("arced"));
 
 	private ModDamageTypes() {
 	}
@@ -24,17 +32,27 @@ public final class ModDamageTypes {
 		return new DamageSource(world.getRegistryManager().get(RegistryKeys.DAMAGE_TYPE).entryOf(ERASED));
 	}
 
-	/** Erased by whoever turned the key ({@code by}, if they are about). */
+	/** Erased by whoever turned the key ({@code by}, if they are about and it is put down to them). */
 	public static DamageSource erased(World world, @Nullable Entity by) {
-		return new DamageSource(world.getRegistryManager().get(RegistryKeys.DAMAGE_TYPE).entryOf(ERASED), by);
+		return new DamageSource(world.getRegistryManager().get(RegistryKeys.DAMAGE_TYPE).entryOf(by == null ? ERASED : ERASED_BY), by);
 	}
 
 	/** Swallowed by the universe that {@code by} brought down (if they are about). */
 	public static DamageSource swallowed(World world, @Nullable Entity by) {
-		return new DamageSource(world.getRegistryManager().get(RegistryKeys.DAMAGE_TYPE).entryOf(SWALLOWED), by);
+		return new DamageSource(world.getRegistryManager().get(RegistryKeys.DAMAGE_TYPE).entryOf(by == null ? SWALLOWED : SWALLOWED_BY), by);
 	}
 
 	public static DamageSource kineticStrike(World world) {
 		return new DamageSource(world.getRegistryManager().get(RegistryKeys.DAMAGE_TYPE).entryOf(KINETIC_STRIKE));
+	}
+
+	/** Struck down by the bolt whoever raised Mjölnir ({@code by}, if they are about) called down. */
+	public static DamageSource thunderstruck(World world, @Nullable Entity by) {
+		return new DamageSource(world.getRegistryManager().get(RegistryKeys.DAMAGE_TYPE).entryOf(THUNDERSTRUCK), by);
+	}
+
+	/** Hit by an arc off the bolt {@code by} called down. */
+	public static DamageSource arced(World world, @Nullable Entity by) {
+		return new DamageSource(world.getRegistryManager().get(RegistryKeys.DAMAGE_TYPE).entryOf(ARCED), by);
 	}
 }

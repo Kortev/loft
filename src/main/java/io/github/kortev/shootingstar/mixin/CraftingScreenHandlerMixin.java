@@ -19,8 +19,9 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
 /**
- * Only the owner can craft this mod's things ({@link OwnerOnly}): for anyone else, a crafting grid (a table's or their
- * own inventory's) with one of its recipes laid out in it makes nothing.
+ * Only the owner can craft this mod's things, and each other player's mod beside it only its own owner
+ * ({@link OwnerOnly}): for anyone else, a crafting grid (a table's or their own inventory's) with one of their recipes
+ * laid out in it makes nothing.
  */
 @Mixin(CraftingScreenHandler.class)
 public abstract class CraftingScreenHandlerMixin {
@@ -30,6 +31,6 @@ public abstract class CraftingScreenHandlerMixin {
 			Operation<ItemStack> original, ScreenHandler handler, World world, PlayerEntity player, RecipeInputInventory craftingInventory,
 			CraftingResultInventory resultInventory, @Nullable RecipeEntry<CraftingRecipe> last) {
 		ItemStack made = original.call(recipe, input, lookup);
-		return OwnerOnly.isOurs(made) && !OwnerOnly.mayCraft(player) ? ItemStack.EMPTY : made;
+		return OwnerOnly.mayCraft(player, made) ? made : ItemStack.EMPTY;
 	}
 }

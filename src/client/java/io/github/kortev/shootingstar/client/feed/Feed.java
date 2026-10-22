@@ -22,7 +22,8 @@ import org.joml.Matrix4fStack;
 import org.lwjgl.opengl.GL11;
 
 /**
- * The uplink feed: the shooter's cut of the shot from Jupiter (or of Bifröst in orbit, for the Genesis Key),
+ * The uplink feed: the shooter's cut of the shot from Jupiter (or of Bifröst in orbit, for the Genesis Key, or of the
+ * planet's thunderstorms, for Mjölnir),
  * drawn full-screen over the HUD. The 3D shots render offscreen, then bloom and grading go to the screen and
  * the HUD text goes on top.
  */
@@ -41,10 +42,16 @@ public final class Feed {
 		/** How long the frame being drawn lasts, in ticks. */
 		default void frameTicks(float ticks) {
 		}
+
+		/** Whether every program this sequence draws with has loaded. */
+		default boolean ready() {
+			return Shaders.ready();
+		}
 	}
 
 	private static final Shots SHOTS = new Shots();
 	private static final GapShots GAP_SHOTS = new GapShots();
+	private static final ThunderShots THUNDER_SHOTS = new ThunderShots();
 	private static final Target SCENE = new Target(true, true);
 	private static final Target SHUTTER = new Target(false, true);
 	private static final int SHUTTER_SAMPLES = 6;
@@ -65,6 +72,11 @@ public final class Feed {
 		draw(ctx, GAP_SHOTS, t);
 	}
 
+	/** Mjölnir's storm feed at {@code t} ticks after the hammer was raised. */
+	public static void renderThunder(DrawContext ctx, double t) {
+		draw(ctx, THUNDER_SHOTS, t);
+	}
+
 	/** Binds the feed's picture to draw on again, after a shot has drawn something into a target of its own. */
 	static void bindScene() {
 		SCENE.bind();
@@ -78,7 +90,7 @@ public final class Feed {
 		ctx.draw();
 
 		Overlay overlay;
-		if (Shaders.ready()) {
+		if (shots.ready()) {
 			overlay = renderScene(client, shots, t, w, h);
 		} else {
 			// Shaders still loading (or failed): a plain black feed so the text still reads.
@@ -127,7 +139,7 @@ public final class Feed {
 		Shaders.set(Shaders.composite, "Aberration", overlay.aberration + 0.0015F);
 		Shaders.set(Shaders.composite, "Flash", Math.max(overlay.flash, shots == SHOTS ? cutFlash(t) : 0.0F));
 		Shaders.set(Shaders.composite, "FlashColor", overlay.flashColor);
-		Shaders.set(Shaders.composite, "Scanlines", 1.0F);
+		Shaders.set(Shaders.composite, "Scanlines", overlay.scanlines);
 		Shaders.set(Shaders.composite, "Fade", overlay.fade);
 		Shaders.set(Shaders.composite, "ScreenSize", fw, fh);
 		Shaders.set(Shaders.composite, "ZoomBlur", overlay.zoomBlur);

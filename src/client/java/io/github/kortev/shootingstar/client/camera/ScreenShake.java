@@ -6,9 +6,12 @@ import io.github.kortev.shootingstar.client.ClientStrikes;
 import io.github.kortev.shootingstar.client.gap.ClientGap;
 import io.github.kortev.shootingstar.client.gap.ClientGaps;
 import io.github.kortev.shootingstar.client.gap.GapCamera;
+import io.github.kortev.shootingstar.client.thunder.ClientThunder;
+import io.github.kortev.shootingstar.client.thunder.ClientThunders;
 import io.github.kortev.shootingstar.client.world.ImpactScene;
 import io.github.kortev.shootingstar.gap.GapTimeline;
 import io.github.kortev.shootingstar.strike.StrikeTimeline;
+import io.github.kortev.shootingstar.thunder.ThunderTimeline;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.MathHelper;
@@ -54,6 +57,30 @@ public final class ScreenShake {
 				double rumble = near * 0.45 * Math.exp(-Math.max(0.0, e) / 90.0);
 				amplitude = Math.max(amplitude, Math.max(hit, Math.max(wave, rumble)));
 			}
+			time = Math.max(time, t);
+		}
+		// Mjölnir: the ground humming as the leader comes down, the crack of the stroke and a jolt with each restrike, and
+		// the thunderclap rolling over you at the speed of sound.
+		for (ClientThunder thunder : ClientThunders.all()) {
+			double t = thunder.time(tickDelta);
+			double distance = eye.distanceTo(thunder.center);
+			double near = MathHelper.clamp(1.0 - distance / (thunder.radius * 10.0 + 200.0), 0.0, 1.0);
+			double felt = thunder.cinematic() ? Math.max(near, 0.6) : near;
+			double a = 0.0;
+			if (t >= ThunderTimeline.INBOUND && t < ThunderTimeline.STROKE) {
+				double p = (t - ThunderTimeline.INBOUND) / (ThunderTimeline.STROKE - ThunderTimeline.INBOUND);
+				a = 0.35 * p * p;
+			} else if (thunder.struck && t >= ThunderTimeline.STROKE) {
+				double e = t - ThunderTimeline.STROKE;
+				a = 2.6 * ThunderTimeline.channelFlash(e);
+				double late = e - distance / 17.0;
+				if (late >= 0) {
+					double close = MathHelper.clamp(1.0 - distance / (thunder.radius * 5.0), 0.0, 1.0);
+					a = Math.max(a, (0.5 + 3.5 * close * close) * Math.exp(-late / 12.0));
+				}
+				a = Math.max(a, 0.35 * Math.exp(-e / 80.0));
+			}
+			amplitude = Math.max(amplitude, a * felt);
 			time = Math.max(time, t);
 		}
 		// Ginnungagap, felt from one's own eyes (the shooter's camera shots shake themselves): a rumble building as the

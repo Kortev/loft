@@ -1,0 +1,21 @@
+{
+	"required": true,
+	"package": "io.github.kortev.gojolander.client.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"client": [
+		"AfterWorldMixin",
+		"BipedKneelMixin",
+		"DomainCameraMixin",
+		"DomainFovMixin",
+		"DomainLookMixin",
+		"HeadItemMixin",
+		"HeldTrembleMixin",
+		"KneelParticlesMixin",
+		"PlayerModelMixin",
+		"SixEyesColorMixin",
+		"SixEyesMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "W": {
+      "item": "minecraft:black_wool"
+    },
+    "E": {
+      "item": "minecraft:echo_shard"
+    },
+    "S": {
+      "item": "minecraft:nether_star"
+    }
+  },
+  "pattern": [
+    " E ",
+    "WSW",
+    " E "
+  ],
+  "result": {
+    "count": 1,
+    "id": "gojolander:blindfold"
+  }
+}

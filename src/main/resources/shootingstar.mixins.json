@@ -6,6 +6,7 @@
 		"CrafterBlockMixin",
 		"CraftingScreenHandlerMixin",
 		"EntityMixin",
+		"HungerManagerMixin",
 		"LivingEntityMixin",
 		"PlayerEntityMixin",
 		"ServerPlayNetworkHandlerMixin",

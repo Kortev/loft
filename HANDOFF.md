@@ -14,12 +14,16 @@ Fabric mods for Minecraft Java **1.21.1** (Yarn mappings), repo `Kortev/loft`. T
 SMP** where every player gets a custom mod of their own, with a story and PvP. Only `kortev` can craft their things
 (`OwnerOnly`); everyone can use, ride and break them once made.
 
-One Gradle build makes two jars, so all of it is edited, built and tested together:
+One Gradle build makes every jar, so all of it is edited, built and tested together:
 
 - **The Shooting Star** (id `shootingstar`, the root project, `src/`): the weapons, plus what both mods share
   (`ShootingStar.id`, `OwnerOnly`, `ModCriteria`) and the game-test harness for both.
 - **Chitty Chitty Bang Bang** (id `chitty`, the `chitty/` subproject): the film's vehicles. It needs The Shooting
   Star. Its things keep the `shootingstar` namespace, so Chittys made before the split survived it.
+- **The friends' mods**, one jar each, beside kortev's: every other player on the SMP gets a mod of their own. Each is
+  its own subproject and namespace, needs The Shooting Star, and registers its owner with `OwnerOnly.register` (only
+  they craft its things). The first is **Gojolander** (id `gojolander`, the `gojolander/` subproject): see
+  [gojolander/README.md](gojolander/README.md).
 
 The root `build.gradle` sets up every mod at once (`allprojects`); `./gradlew build` makes both jars, and the dev
 runs (`runGametest`, `runSelftest`, `runGenworld`) load both.
@@ -33,12 +37,37 @@ built in Blender by a script, the effects are real shaders, and everything has g
 |---|---|---|
 | **SS-03 Gungnir**: orbital kinetic strike with a 22 s cinematic uplink feed, a 128-block crater, molten crust and a spire | `gungnir_uplink` | Done. kortev has more edits planned (not yet specified). |
 | **Ω-00 Ginnungagap**: the Genesis Key erases the world round a target; everyone waits in the void; the cracked key rebuilds it | `genesis_key` | Done. kortev has more edits planned (not yet specified). |
+| **Þ-01 Mjölnir**: the planet's thunderstorms in one bolt; a storm over the target, a fused crater with the bolt left standing petrified, the zone burned, a Lichtenberg scar, arcs through the ring | `mjolnir` | New: made as kortev's own answer to Gungnir, which they can't keep in their mod. Shares no class with Gungnir. |
 | **Chitty Chitty Bang Bang**: drivable, flying, floating car from the film | `chitty` | Done and polished (pleated wings, raft, ejector seat, hamper, dials, lamps, live metal shine, banking view). In her own jar. |
 | **The Vulgarian airship**: Baron Bomburst's airship, to fly, with a grapple, a rope ladder and bombs | `airship`, `airship_bomb` | In game (Chitty's jar), waiting on kortev's in-game test. Map: `.claude/skills/film-vehicle/references/airship.md`. |
 | **Owner-only crafting** | all recipes | Done: `OwnerOnly.OWNER = "kortev"`; crafters never make the mods' items. It covers everything in the `shootingstar` namespace, whichever jar it is in. |
 
 The latest work is on branch **`claude/gallant-brahmagupta-qi9mw3`** (it carries everything from
 `claude/happy-brahmagupta-ueara3`). No PR is open; ask kortev before opening one.
+
+## The friends' mods
+
+The SMP after the Shorts is real players (the Shorts' Woomerd and gerald_2009 are skit characters, not players). Each
+friend gets their own mod, presented on the server as things that exist there, never named publicly.
+
+- **Gojolander** (`gojolander/`): the first friend, kortev's rival, who wants to be Gojo (Jujutsu Kaisen) and Homelander
+  (The Boys) at once. Built so far: the blindfold, the **Six Eyes** (with it on he sees living things through walls,
+  24 blocks) and his ult, **Domain Expansion: Unlimited Void** (a 4 s cast cinematic, a 32-block sphere, 10 s of void
+  with the caught held still and flooded, the barrier nobody crosses, then it fading away as in the show, or
+  shattering if cut short, and the caught left at half a heart; 15-minute cooldown, no cost, as kortev chose), its
+  sounds, recipe, advancements, commands, game rules for balance, game tests (`DomainGameTests`), a client self test
+  with screenshots (`-Pselftest=domain`) and a three-player test (`tools/mptest.sh domain`). It works with Sodium, Iris
+  and shader packs. Branch `claude/gojolander-domain`.
+  - kortev's rule for it: **everything should match the show** (so no counter item; it fades at its end).
+  - It is nobody's until kortev has the friend's Minecraft name, and while it is nobody's anyone can craft and cast
+    it (kortev wanted to test it). `/gojolander owner <name>` on the server makes it the friend's alone (kortev's
+    choice for the SMP: on anyone else the blindfold is just cloth).
+  - Next, as kortev and the friend decide: Infinity (the friend has his own idea for how it treats kortev's weapons),
+    Blue, Red and Hollow Purple, and Homelander's cape (flight) and heat vision. Keep everything balanced against the
+    other friends' mods (game rules for the numbers).
+  - To see any of it with other players' mods in the dev game: `./gradlew runClient -PextraMods="a.jar;b.jar"` (never
+    part of a build). Sodium itself will not load in the dev game (it is built with a newer Loom); try it with the
+    built jars in a normal Fabric install instead.
 
 ## What to build next
 
@@ -168,7 +197,7 @@ kortev tests in game themselves and reports back. Don't spend usage on the self-
   - Long plain-English Javadoc that describes what a thing *is* and *does* in the world.
   - Constants named for what they mean.
   - Mixin handler methods prefixed `shootingstar$`.
-- **Self test (video)**: Actions → `selftest`, input `test` = `gap` | `true` (Gungnir) | `chitty`. Set `publish` to
+- **Self test (video)**: Actions → `selftest`, input `test` = `gap` | `true` (Gungnir) | `mjolnir` | `chitty`. Set `publish` to
   push screenshots and video to the `selftest-output` branch. It's slow and expensive, so only run it when kortev
   wants it.
 
