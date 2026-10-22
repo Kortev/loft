@@ -142,8 +142,11 @@ tall within 3 blocks of you, else the action bar says so and nothing is spent) a
   Blender model (`tools/beam_model.py`, renders in the scratchpad `beam_v4_*`) got "I like the idea, but it should match
   the box head and Pochita". **Now: v5 = that design rebuilt in boxes**, proportions fixed against kortev's movie still
   (bulkier body, heavier head, thick curved blade legs), **mouth open ~38°**, and **more snout/nose above the mouth**.
-  References (with sources) in the scratchpad `beam_refs/`: kortev's still, the official IMAX poster, Prime 1 Studio's
-  Reze Arc statue. Show kortev side-by-sides (reference | blueprint | game) before filming Beam's reel; his old reel is
+  References in **`work/beam_refs/`** at the repo root (git-ignored, on GraehamsPC): kortev's still, the official IMAX
+  poster (anitrendz.com), Prime 1 Studio's Reze Arc statue (product photos). The briefs Sonnet worked from are in
+  `work/briefs/`, the v4 comparisons in `work/beam_v4_compare/`, and the helper scripts in `work/tools/`
+  (`film_all.sh` films reels in a row; `mux-audio-noprobe.py` mixes a capture's sound without ffprobe). ffmpeg: Python's
+  imageio-ffmpeg exe copied in as `ffmpeg.exe`, first on the PATH. Show kortev side-by-sides (reference | blueprint | game) before filming Beam's reel; his old reel is
   `OLD_beam_being_rebuilt.mp4`, not to be posted.
 - **Usage setup**: prompt suggestions off; `.claude/settings.json` has a SessionStart "compact" hook that re-prints
   this section after a compaction. Third-party compaction plugins were checked and skipped (unverifiable).
