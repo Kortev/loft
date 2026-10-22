@@ -57,7 +57,7 @@ kortev: comment-farm on all of them, not one); `transform` is now **your own eye
 mod's own transformation camera, then three kills with the real attack key, then both saws revving), as the merge
 already shows it from outside; endings differ (saws: one ground down, no combo; arms: both saws revving; chain: a
 third flung up from the ground below and cut at the tower's edge); Pochita starts nearer him. All reshot with the eased
-head turns. Not yet seen by kortev: this second pass. `held` photographs Pochita held (with `-Pcapture=true`, a video of
+head turns. kortev approved the second pass to post (2026-10-22). `held` photographs Pochita held (with `-Pcapture=true`, a video of
 him in use with the real attack key). kortev: the head must move like a real person's, especially in first person (no
 snapping round: eased turns, the body lagging the head, a little sway). Lessons: a camera straight in front makes
 the head's saw a spike at the lens (always three quarters on); cameras closer than ~2.6 blocks drop into first
