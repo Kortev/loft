@@ -1,41 +1,38 @@
-# Handoff: kortev's Chainsaw Man mod (state on 2026-10-20)
+# Handoff: kortev's Chainsaw Man mod (state on 2026-10-21)
 
 You are picking this up with nothing but this GitHub repository (`Kortev/loft`). No chat history, no files from
 kortev's PC, and none of the reference images they sent come with it. Everything you need is in this file and the
 repo. Read it all before doing anything, then read the repo's own `HANDOFF.md` at the root for the wider project.
 
-## Start here: where things stand (2026-10-20, late)
+## Start here: where things stand (2026-10-21)
 
 kortev moves between Claude accounts when one runs out; this section is what the next session needs first. The rest
 of the file is the full record.
 
-**In progress: Pochita's spot in the world, redone** (kortev: "this hollowed log looks like shit"; for the mod itself,
-not for a reel). kortev picked, from three options: **a big fallen tree** (over a den under a rock, or a junk pile), with
-**a blood trail leading to him** and **signs of a fight** round it. Where it stands:
+**Done (2026-10-21): Pochita's spot in the world, redone** (kortev: "this hollowed log looks like shit"; for the mod
+itself, not for a reel). kortev picked **a big fallen tree** (over a den under a rock, or a junk pile), with **a blood
+trail leading to him** and **signs of a fight** round it; they approved the second pass from photos.
 
-- `PochitaPlace.den` (replacing the old `log`) builds it, used by `choose` (the world's own Pochita, placed once per
-  world) and by `waiting` (`/chainsaw pochita`, `/chainsaw scene`). First version: a small clearing levelled and
-  cleared; the roots torn up at one end, standing on edge over the hole they left (dirt, rooted dirt, mangrove roots,
-  hanging roots); a 2x2 trunk raised a block off the ground so he lies in the gap under it, moss carpet on top, vines
-  down its sides; a broken limb under it; a jagged snapped-off end with stripped-log splinters; the crown down in a heap
-  of persistent leaves past the break; broken branches, scattered leaves and streaks of coarse dirt (the fight); a
-  trail of redstone-dust drops in from the clearing's edge to him (placed without block updates, so they stay dots).
-- **Photograph it** with `./gradlew runSelftest -Pselftest=reel1 -Pusername=Denji -Ptarget=den`: it builds the spot
-  on the test world's own ground 40 blocks from spawn and saves `build/selftest/screenshots/reel_den_*.png` (wide,
-  along the trail, under the trunk, the roots, the break, the other side).
-- **What the first photos showed, and the fixes planned** (not done yet):
-  - It landed on a badlands mesa: the levelling cut steps into the terracotta, and the biome tinted the grass and
-    leaves brown. `choose` should take only a forest, plains, meadow or taiga spot (`BiomeTags.IS_FOREST`,
-    `IS_TAIGA`, `BiomeKeys.PLAINS`, `MEADOW`, ...) that's fairly flat (sample the ground round the footprint; reject a
-    spread of more than about 4 blocks), trying more spots (about 32), falling back to any dry flat one, then to spawn.
-  - The 2x2 trunk reads as a wooden wall. Give it a round profile (a plus-shaped slice, corners empty, moss carpet on
-    the side shoulders), raised at the root end with him under it, tapering and resting on the ground at the broken end.
-  - The stripped-log splinters read as pale boxes: use one or two oak fence posts (unconnected) as splinters instead.
-  - The root plate is too much mangrove roots: fewer behind it.
-  - kortev's own survival world (`run/saves/New World (23)`, Pochita at x 123, y 118, z 379, the old log) was placed
-    before this. Plan: a version number in the saved state (`Built`, 0 for old saves); on server start, an old one is
-    rebuilt once round the same spot (only blocks; Pochita stays where he lies), unless he's already someone's heart.
-  - Then photograph again and **send kortev the pictures before calling it done** (rule 4).
+- `PochitaPlace.den` builds it, used by `choose` (the world's own Pochita, placed once per world) and by `waiting`
+  (`/chainsaw pochita`, `/chainsaw scene`): a clearing levelled and cleared in among the trees; the roots torn up at
+  one end, standing on edge over the hole they left (packed dirt in the middle, mangrove roots through the ring round
+  it, a ragged rim, hanging roots under); a round trunk (a plus-shaped slice) raised a block off the ground from the
+  roots to near its middle, so he lies in the gap under it, then down on the ground to the break; moss carpet over
+  it, vines down its sides; a jagged snapped-off end with bare oak fence posts as splinters (placed last with
+  `FORCE_STATE`, or they join up into a fence); the crown down in a heap of persistent leaves past the break; broken
+  branches, scattered leaves and streaks of coarse dirt (the fight); a trail of redstone-dust drops in to him.
+- **Where** (`choose`): 32 tries 250-450 blocks from spawn for dirt ground in a forest, taiga, plains or meadow
+  (`wooded`) that's level (`level`: 8 samples round the footprint, at most 2 more than 4 blocks off); if none,
+  `woods` asks the world for the nearest such biome (`locateBiome`, 3200 blocks) from a point in that ring and looks
+  round in it for a level spot (its nearest edge is often hilly); then any dry level spot from the ring; then spawn.
+- **Old worlds**: the saved state has `Built` (0 for the old log) and `Axis`; on server start an old one is made over
+  into the fallen tree once round the same spot (blocks only; Pochita stays), unless he's already someone's heart.
+  kortev's survival world (`run/saves/New World (23)`, Pochita at x 123, y 118, z 379) will get this the next time
+  it's opened: **not yet seen working** (the test world's Pochita is already a heart, so the test can't show it).
+- **Photograph it** with `./gradlew runSelftest -Pselftest=reel1 -Pusername=Denji -Ptarget=den`: it uses the world's
+  own tree if it has one, or builds one with `woods` near the test player (who moves 40 blocks on each run, since the
+  test world keeps everything) and saves `build/selftest/screenshots/reel_den_*.png` (wide, along the trail, under
+  the trunk, the roots, the break, the other side). The cameras stand inside the clearing: further out is in the trees.
 
 **Waiting on kortev**: their notes on reel 1 (sent: a 96 s cut; see "Reels" below), and whether its chainsaw ending
 stays (they said keep it, worst case cut it later). No music in it (they let that go).
@@ -297,7 +294,7 @@ one go crashed libsndfile here without a word; the script writes in chunks.)
   it with the HUD on to show that.
 - **Trying it all in the game** (`ChainsawCommand`, operators): in a new world with cheats on (superflat is best:
   it flattens and clears a 33-block square round you), `/chainsaw scene` builds a test ground (a row of mobs standing
-  still in front of you, a wild Pochita fainted in a log to your right), puts you in survival with full blood and
+  still in front of you, a wild Pochita fainted under a fallen tree to your right), puts you in survival with full blood and
   without Pochita's heart, and lists what to try. Then `/chainsaw mobs | pochita | heart | reset | blood | down | up`;
   and `/chainsawhead boxes | mesh` (client) switches between the two heads. Film it with `-Ptarget=scene`.
 - Yarn 1.21.1 names differ from Mojang's; check a doubtful one against the mappings before pushing.
@@ -346,7 +343,7 @@ tuning the numbers.
 
 ### Pochita, settled with kortev (2026-10-20)
 
-- **One per world** (`PochitaPlace`): placed once, fainted in a hollow fallen log 250-450 blocks from spawn; kortev
+- **One per world** (`PochitaPlace`): placed once, fainted under a big fallen tree in woods or grassland 250-450 blocks from spawn (see "Start here"); kortev
   hears him whimpering within 40 blocks; lost for real (void, /kill), he's back there 2 minutes later; never again
   once he's someone's heart. No natural spawns, no recipe.
 - **Can't die**: faints (on his side) until kortev gives him blood again (`PochitaEntity.WAKE`).
@@ -526,8 +523,8 @@ cut in two), walks in, leaps and cuts the Zombie Devil in two in a rain of its b
   takes the body away with its burst of gore, but the client keeps it a moment and draws it as two halves, split
   where the model's parts hang from (the legs below the middle, the rest above): the top sliced off sideways, tipping
   and falling, the legs folding a beat later, blood pouring out of the cut, then a puff. A mob in one piece just
-  falls. Film it with `-Ptarget=kill` (a husk through the whole combo, then a cow). The wild Pochita lies fainted in
-  his log; taming him, or bringing him round, plays `pochita_tame`.
+  falls. Film it with `-Ptarget=kill` (a husk through the whole combo, then a cow). The wild Pochita lies fainted
+  under his fallen tree; taming him, or bringing him round, plays `pochita_tame`.
 
 ### Later ideas kortev has had (not designed; ask before building)
 

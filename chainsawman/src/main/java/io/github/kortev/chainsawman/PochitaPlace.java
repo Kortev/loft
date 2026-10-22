@@ -12,6 +12,9 @@ import net.minecraft.block.VineBlock;
 import net.minecraft.entity.SpawnReason;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.registry.RegistryWrapper;
+import net.minecraft.registry.entry.RegistryEntry;
+import net.minecraft.registry.tag.BiomeTags;
+import net.minecraft.registry.tag.BlockTags;
 import net.minecraft.registry.tag.FluidTags;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -24,6 +27,8 @@ import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.random.Random;
 import net.minecraft.world.Heightmap;
 import net.minecraft.world.PersistentState;
+import net.minecraft.world.biome.Biome;
+import net.minecraft.world.biome.BiomeKeys;
 
 /**
  * There's one Pochita in a world, and he's waiting somewhere: fainted under a big fallen tree ({@link #den}), {@link #NEAR} to
@@ -39,8 +44,17 @@ public final class PochitaPlace extends PersistentState {
 	private static final int BACK_AFTER = 2400;
 	private static final Type<PochitaPlace> TYPE = new Type<>(PochitaPlace::new, PochitaPlace::fromNbt, null);
 
+	/** How many places to try for him, and how far up or down the ground there can go. */
+	private static final int TRIES = 32;
+	private static final int LEVEL = 4;
+	/** What's built where he waits: 0 the hollow log of the first worlds, {@link #DEN} the fallen tree. */
+	private static final int DEN = 2;
+
 	private boolean placed;
+	private int built;
 	private BlockPos at = BlockPos.ORIGIN;
+	/** The way the fallen tree lies. */
+	private Direction.Axis axis = Direction.Axis.X;
 	/** When he was lost (world time), or -1. */
 	private long lost = -1;
 	private boolean merged;
@@ -54,6 +68,14 @@ public final class PochitaPlace extends PersistentState {
 			PochitaPlace place = of(server);
 			if (!place.placed) {
 				place.choose(server.getOverworld());
+			} else if (place.built < DEN && !place.merged) {
+				// A world from before the fallen tree: his old log made over into it, round where he lies.
+				ServerWorld world = server.getOverworld();
+				place.axis = Random.create(place.at.asLong()).nextBoolean() ? Direction.Axis.X : Direction.Axis.Z;
+				den(world, place.at, place.axis);
+				place.built = DEN;
+				place.markDirty();
+				ChainsawMan.LOGGER.info("Pochita's place made over as a fallen tree at {}", place.at);
 			}
 		});
 		ServerTickEvents.END_SERVER_TICK.register(server -> {
@@ -83,6 +105,18 @@ public final class PochitaPlace extends PersistentState {
 		});
 	}
 
+	/** Where the world's own Pochita waits under his fallen tree, if it's built yet (null if not): for a test to look at. */
+	@org.jetbrains.annotations.Nullable
+	public static BlockPos tree(MinecraftServer server) {
+		PochitaPlace place = of(server);
+		return place.placed && place.built >= DEN ? place.at : null;
+	}
+
+	/** The way the world's own fallen tree lies. */
+	public static Direction.Axis treeAxis(MinecraftServer server) {
+		return of(server).axis;
+	}
+
 	/** He's really gone: he'll be back at his place before long. */
 	public static void lost(MinecraftServer server) {
 		PochitaPlace place = of(server);
@@ -90,34 +124,115 @@ public final class PochitaPlace extends PersistentState {
 		place.markDirty();
 	}
 
-	/** Somewhere dry and open some way from spawn, the fallen tree laid there, and him under it. */
+	/**
+	 * Somewhere some way from spawn for the fallen tree, and him under it: in a forest, a taiga, a plains or a meadow if
+	 * there's one, on ground level enough for it; failing that any dry level ground; failing that, by spawn.
+	 */
 	private void choose(ServerWorld world) {
 		Random random = Random.create(world.getSeed() ^ 0x5EED_C4A1L);
 		BlockPos spawn = world.getSpawnPos();
-		for (int tries = 0; tries < 12; tries++) {
+		BlockPos dry = null;
+		for (int tries = 0; tries < TRIES; tries++) {
 			float angle = random.nextFloat() * MathHelper.TAU;
 			int distance = NEAR + random.nextInt(FAR - NEAR);
-			int x = spawn.getX() + (int) (MathHelper.cos(angle) * distance);
-			int z = spawn.getZ() + (int) (MathHelper.sin(angle) * distance);
-			world.getChunk(x >> 4, z >> 4);
-			int y = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z);
-			BlockPos ground = new BlockPos(x, y - 1, z);
-			if (y <= world.getBottomY() + 1 || !world.getFluidState(ground).isEmpty() || world.getFluidState(ground.up()).isIn(FluidTags.WATER)) {
+			BlockPos spot = fits(world, spawn.getX() + (int) (MathHelper.cos(angle) * distance), spawn.getZ() + (int) (MathHelper.sin(angle) * distance));
+			if (spot == null) {
 				continue;
 			}
-			at = ground.up();
-			den(world, at, random.nextBoolean() ? Direction.Axis.X : Direction.Axis.Z);
-			spawn(world);
-			placed = true;
-			markDirty();
-			ChainsawMan.LOGGER.info("Pochita is waiting at {}", at);
+			if (wooded(world.getBiome(spot.down()))) {
+				place(world, spot, random);
+				return;
+			}
+			if (dry == null) {
+				dry = spot;
+			}
+		}
+		// None in the ring (a world that starts in a desert or badlands, say): the woods nearest a place in it.
+		float angle = random.nextFloat() * MathHelper.TAU;
+		int distance = (NEAR + FAR) / 2;
+		BlockPos woods = woods(world, spawn.add((int) (MathHelper.cos(angle) * distance), 0, (int) (MathHelper.sin(angle) * distance)), random);
+		if (woods != null) {
+			place(world, woods, random);
+			return;
+		}
+		if (dry != null) {
+			place(world, dry, random);
 			return;
 		}
 		// Nowhere good: by spawn, then.
 		at = world.getTopPosition(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, spawn);
 		spawn(world);
 		placed = true;
+		built = DEN;
 		markDirty();
+	}
+
+	private void place(ServerWorld world, BlockPos spot, Random random) {
+		at = spot;
+		axis = random.nextBoolean() ? Direction.Axis.X : Direction.Axis.Z;
+		den(world, at, axis);
+		spawn(world);
+		placed = true;
+		built = DEN;
+		markDirty();
+		ChainsawMan.LOGGER.info("Pochita is waiting at {}", at);
+	}
+
+	/**
+	 * A place for the fallen tree in the woods or grassland nearest {@code from} (within a few thousand blocks), on
+	 * level ground: where he'd lie, or null if there's none.
+	 */
+	@org.jetbrains.annotations.Nullable
+	public static BlockPos woods(ServerWorld world, BlockPos from, Random random) {
+		var found = world.locateBiome(PochitaPlace::wooded, from, 3200, 32, 64);
+		ChainsawMan.LOGGER.info("Woods nearest {} for Pochita: {}", from, found == null ? "none" : found.getFirst() + " " + found.getSecond().getIdAsString());
+		if (found == null) {
+			return null;
+		}
+		BlockPos near = found.getFirst();
+		// (Its nearest edge is often hilly, against whatever it borders: look round further in.)
+		for (int tries = 0; tries < TRIES * 3; tries++) {
+			int r = tries < 2 ? 0 : 8 + random.nextInt(8 + tries * 2);
+			float angle = random.nextFloat() * MathHelper.TAU;
+			BlockPos spot = fits(world, near.getX() + (int) (MathHelper.cos(angle) * r), near.getZ() + (int) (MathHelper.sin(angle) * r));
+			if (spot != null && wooded(world.getBiome(spot.down()))) {
+				return spot;
+			}
+		}
+		return null;
+	}
+
+	/** Where he'd lie at ({@code x}, {@code z}), if the fallen tree fits there: dry, earthy, level ground; else null. */
+	@org.jetbrains.annotations.Nullable
+	private static BlockPos fits(ServerWorld world, int x, int z) {
+		world.getChunk(x >> 4, z >> 4);
+		int y = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z);
+		BlockPos ground = new BlockPos(x, y - 1, z);
+		if (y <= world.getBottomY() + 1 || !world.getBlockState(ground).isIn(BlockTags.DIRT) || !world.getFluidState(ground).isEmpty()
+				|| world.getFluidState(ground.up()).isIn(FluidTags.WATER) || !level(world, x, y, z)) {
+			return null;
+		}
+		return ground.up();
+	}
+
+	/**
+	 * Whether the ground round ({@code x}, {@code z}) is level enough for the fallen tree: no more than {@link #LEVEL}
+	 * blocks above or below {@code y} across it (a tree's trunk can stand in one or two of the places looked at).
+	 */
+	private static boolean level(ServerWorld world, int x, int y, int z) {
+		int off = 0;
+		for (int[] d : new int[][] {{10, 0}, {-10, 0}, {0, 7}, {0, -7}, {7, 5}, {-7, -5}, {7, -5}, {-7, 5}}) {
+			if (Math.abs(world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x + d[0], z + d[1]) - y) > LEVEL) {
+				off++;
+			}
+		}
+		return off <= 2;
+	}
+
+	/** Whether {@code biome} is woods or grassland, where a fallen tree belongs. */
+	private static boolean wooded(RegistryEntry<Biome> biome) {
+		return biome.isIn(BiomeTags.IS_FOREST) || biome.isIn(BiomeTags.IS_TAIGA) || biome.matchesKey(BiomeKeys.PLAINS)
+				|| biome.matchesKey(BiomeKeys.SUNFLOWER_PLAINS) || biome.matchesKey(BiomeKeys.MEADOW);
 	}
 
 	/** A wild Pochita fainted under a fallen tree at {@code at} lying along {@code axis}, apart from the world's own (for trying him out). */
@@ -135,10 +250,10 @@ public final class PochitaPlace extends PersistentState {
 	/**
 	 * Where he lies (kortev's pick, 2026-10-20, the hollow log looking poor): a big old tree fallen across a little
 	 * clearing, along {@code axis}. Its roots torn up out of the ground at one end, standing on edge over the hole
-	 * they left; the trunk thick, mossy, vined, held up off the ground by its roots and a broken limb, so there's a gap
-	 * under it where he lies, to be seen from either side; snapped off at the other end, splinters standing, its crown
-	 * down in a heap of leaves beyond. Round it the signs of a fight (scratched-up ground, broken branches, leaves torn
-	 * off), and a trail of his blood leading in to him. {@code at} is where he lies, on the ground.
+	 * they left; the trunk round, mossy, vined, held up off the ground by its roots so there's a gap under it where he
+	 * lies, to be seen from either side, and down on the ground at its other end, snapped off there, splinters standing;
+	 * its crown down in a heap of leaves beyond. Round it the signs of a fight (scratched-up ground, broken branches,
+	 * leaves torn off), and a trail of his blood leading in to him. {@code at} is where he lies, on the ground.
 	 */
 	private static void den(ServerWorld world, BlockPos at, Direction.Axis axis) {
 		Random random = Random.create(at.asLong());
@@ -147,9 +262,8 @@ public final class PochitaPlace extends PersistentState {
 		Den den = new Den(world, at, along, across);
 		// The clearing: levelled (holes filled, bumps and undergrowth cleared), grass, the ground under the tree mossy.
 		for (int i = -12; i <= 12; i++) {
-			for (int j = -7; j <= 8; j++) {
-				double r = i * i / 156.0 + (j - 0.5) * (j - 0.5) / 60.0;
-				if (r > 1.0) {
+			for (int j = -9; j <= 9; j++) {
+				if (i * i / 156.0 + j * j / 90.0 > 1.0) {
 					continue;
 				}
 				for (int k = 0; k <= 12; k++) {
@@ -160,7 +274,7 @@ public final class PochitaPlace extends PersistentState {
 						den.set(i, j, k, Blocks.DIRT.getDefaultState());
 					}
 				}
-				boolean shade = Math.abs(i) <= 6 && j >= -1 && j <= 2;
+				boolean shade = Math.abs(i) <= 6 && Math.abs(j) <= 2;
 				float f = random.nextFloat();
 				BlockState ground = shade ? (f < 0.5F ? Blocks.MOSS_BLOCK : f < 0.8F ? Blocks.PODZOL : Blocks.COARSE_DIRT).getDefaultState()
 						: (f < 0.85F ? Blocks.GRASS_BLOCK : f < 0.93F ? Blocks.PODZOL : Blocks.COARSE_DIRT).getDefaultState();
@@ -169,81 +283,88 @@ public final class PochitaPlace extends PersistentState {
 		}
 		// The hole the roots tore out of, at the foot of the tree.
 		for (int i = -8; i <= -7; i++) {
-			for (int j = -1; j <= 2; j++) {
+			for (int j = -1; j <= 1; j++) {
 				den.set(i, j, -1, Blocks.AIR.getDefaultState());
 				den.set(i, j, -2, (random.nextBoolean() ? Blocks.ROOTED_DIRT : Blocks.COARSE_DIRT).getDefaultState());
 			}
 		}
-		// Its roots, torn up and standing on edge: a plate of earth and roots, roots sticking out round it, hanging under.
-		for (int j = -3; j <= 4; j++) {
+		// Its roots, torn up and standing on edge: a plate of earth, roots sticking out round its rim and hanging under it.
+		for (int j = -3; j <= 3; j++) {
 			for (int k = -1; k <= 5; k++) {
-				double d = (j - 0.5) * (j - 0.5) + (k - 1.5) * (k - 1.5);
-				if (d > 12.5) {
+				double d = j * j + (k - 2.0) * (k - 2.0);
+				if (d > 11.5) {
 					continue;
 				}
-				BlockState earth = d > 8.5 ? Blocks.MANGROVE_ROOTS.getDefaultState()
-						: (random.nextFloat() < 0.4F ? Blocks.ROOTED_DIRT : random.nextFloat() < 0.6F ? Blocks.DIRT : Blocks.COARSE_DIRT).getDefaultState();
+				if (d > 7.5 && random.nextFloat() < 0.6F) {
+					// The rim ragged: a root sticking out here and there, not a fringe all round.
+					continue;
+				}
+				// Earth packed in the middle; out from it, roots through the earth; past that, roots alone.
+				float f = random.nextFloat();
+				BlockState earth = d > 7.5 ? Blocks.MANGROVE_ROOTS.getDefaultState()
+						: d > 3.5 ? (f < 0.45F ? Blocks.MANGROVE_ROOTS : f < 0.8F ? Blocks.ROOTED_DIRT : Blocks.COARSE_DIRT).getDefaultState()
+						: (f < 0.4F ? Blocks.ROOTED_DIRT : f < 0.7F ? Blocks.DIRT : Blocks.COARSE_DIRT).getDefaultState();
 				den.set(-6, j, k, earth);
-				if (d <= 8.5 && random.nextFloat() < 0.5F) {
+				if (d <= 7.5 && random.nextFloat() < 0.08F) {
 					den.set(-7, j, k, Blocks.MANGROVE_ROOTS.getDefaultState());
 				}
 			}
 		}
-		for (int j = -2; j <= 3; j++) {
+		for (int j = -2; j <= 2; j++) {
 			if (den.get(-6, j, 0).isOpaqueFullCube(world, den.at(-6, j, 0)) && den.get(-6, j, -1).isAir()) {
 				den.set(-6, j, -1, Blocks.HANGING_ROOTS.getDefaultState());
 			}
 		}
-		// The trunk, two thick, raised a block off the ground; bark-knotted here and there.
+		// The trunk: round (a plus through it, its corners open), raised a block off the ground from the roots to near
+		// its middle, then down on the ground to the break; bark here and there, moss over it, vines down its sides.
 		BlockState log = Blocks.OAK_LOG.getDefaultState().with(PillarBlock.AXIS, axis);
 		BlockState bark = Blocks.OAK_WOOD.getDefaultState().with(PillarBlock.AXIS, axis);
+		BlockState moss = Blocks.MOSS_CARPET.getDefaultState();
 		for (int i = -5; i <= 4; i++) {
-			for (int j = 0; j <= 1; j++) {
-				for (int k = 1; k <= 2; k++) {
-					den.set(i, j, k, random.nextFloat() < 0.2F ? bark : log);
-				}
-				// Moss over its top; vines down its sides.
-				if (random.nextFloat() < 0.65F) {
-					den.set(i, j, 3, Blocks.MOSS_CARPET.getDefaultState());
-				}
+			int b = i <= 1 ? 1 : 0;
+			for (int[] part : new int[][] {{0, 0}, {-1, 1}, {0, 1}, {1, 1}, {0, 2}}) {
+				den.set(i, part[0], b + part[1], random.nextFloat() < 0.25F ? bark : log);
 			}
-			for (int k = 1; k <= 2; k++) {
-				if (random.nextFloat() < 0.3F) {
-					den.set(i, -1, k, Blocks.VINE.getDefaultState().with(VineBlock.getFacingProperty(across), true));
+			if (random.nextFloat() < 0.7F) {
+				den.set(i, 0, b + 3, moss);
+			}
+			for (int j : new int[] {-1, 1}) {
+				if (random.nextFloat() < 0.55F) {
+					den.set(i, j, b + 2, moss);
 				}
-				if (random.nextFloat() < 0.3F) {
-					den.set(i, 2, k, Blocks.VINE.getDefaultState().with(VineBlock.getFacingProperty(across.getOpposite()), true));
+				if (random.nextFloat() < 0.35F) {
+					// Hanging off its side, down toward the ground.
+					Direction to = j < 0 ? across : across.getOpposite();
+					den.set(i, j * 2, b + 1, Blocks.VINE.getDefaultState().with(VineBlock.getFacingProperty(to), true));
+					if (b > 0 && random.nextBoolean()) {
+						den.set(i, j * 2, b, Blocks.VINE.getDefaultState().with(VineBlock.getFacingProperty(to), true));
+					}
 				}
 			}
 		}
-		// The broken limb it rests on, near the break, down into the ground.
-		den.set(3, -1, 0, Blocks.OAK_LOG.getDefaultState());
-		den.set(3, -1, 1, Blocks.OAK_WOOD.getDefaultState());
-		// Snapped off: a jagged end, pale splinters standing out of it.
-		BlockState splinter = Blocks.STRIPPED_OAK_LOG.getDefaultState().with(PillarBlock.AXIS, axis);
+		// Snapped off: a jagged end, splinters standing out of it.
+		den.set(5, 0, 0, log);
 		den.set(5, 0, 1, log);
-		den.set(5, 1, 2, log);
-		den.set(5, 1, 1, splinter);
-		den.set(6, 0, 1, splinter);
-		den.set(6, 1, 2, Blocks.STRIPPED_OAK_LOG.getDefaultState());
-		den.set(6, 1, 3, Blocks.STRIPPED_OAK_LOG.getDefaultState());
+		den.set(5, 1, 1, log);
+		den.set(6, 0, 0, log);
+		// (The splinters themselves are put in last, below, so nothing joins them up into a fence.)
 		// Its crown, down in a heap of leaves past the break, a couple of its boughs through it.
 		BlockState leaves = Blocks.OAK_LEAVES.getDefaultState().with(LeavesBlock.PERSISTENT, true);
 		for (int i = 8; i <= 12; i++) {
-			for (int j = -2; j <= 4; j++) {
+			for (int j = -3; j <= 3; j++) {
 				for (int k = 0; k <= 3; k++) {
-					double d = (i - 10.0) * (i - 10.0) / 6.0 + (j - 1.0) * (j - 1.0) / 9.0 + k * k / 7.0;
+					double d = (i - 10.0) * (i - 10.0) / 6.0 + j * j / 9.0 + k * k / 7.0;
 					if (d <= 1.0 && random.nextFloat() < 0.85F) {
 						den.set(i, j, k, leaves);
 					}
 				}
 			}
 		}
-		for (int i = 7; i <= 11; i++) {
-			den.set(i, 1, 0, log);
+		for (int i = 8; i <= 11; i++) {
+			den.set(i, 0, 0, log);
 		}
-		den.set(9, -1, 1, Blocks.OAK_LOG.getDefaultState().with(PillarBlock.AXIS, across.getAxis()));
-		den.set(10, 3, 1, Blocks.OAK_LOG.getDefaultState().with(PillarBlock.AXIS, across.getAxis()));
+		den.set(9, -2, 1, Blocks.OAK_LOG.getDefaultState().with(PillarBlock.AXIS, across.getAxis()));
+		den.set(10, 2, 1, Blocks.OAK_LOG.getDefaultState().with(PillarBlock.AXIS, across.getAxis()));
 		// The fight: broken branches about, leaves torn off and scattered, the ground scratched up in streaks.
 		den.set(2, -4, 0, Blocks.OAK_LOG.getDefaultState().with(PillarBlock.AXIS, across.getAxis()));
 		den.set(2, -5, 0, Blocks.OAK_LOG.getDefaultState().with(PillarBlock.AXIS, across.getAxis()));
@@ -263,8 +384,7 @@ public final class PochitaPlace extends PersistentState {
 			if (!den.get(i, j, 0).isAir() || !den.get(i, j, -1).isOpaqueFullCube(world, den.at(i, j, -1))) {
 				continue;
 			}
-			boolean podzol = den.get(i, j, -1).isOf(Blocks.PODZOL);
-			if (podzol) {
+			if (den.get(i, j, -1).isOf(Blocks.PODZOL)) {
 				den.set(i, j, 0, (random.nextBoolean() ? Blocks.BROWN_MUSHROOM : Blocks.RED_MUSHROOM).getDefaultState());
 			} else if (den.get(i, j, -1).isOf(Blocks.GRASS_BLOCK) || den.get(i, j, -1).isOf(Blocks.MOSS_BLOCK)) {
 				den.set(i, j, 0, (random.nextFloat() < 0.7F ? Blocks.FERN : Blocks.SHORT_GRASS).getDefaultState());
@@ -275,14 +395,23 @@ public final class PochitaPlace extends PersistentState {
 		for (double[] drop : trail) {
 			BlockPos p = den.at((int) Math.round(drop[0]), (int) Math.round(drop[1]), 0);
 			p = world.getTopPosition(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, p);
-			if (Math.abs(p.getY() - at.getY()) <= 3 && (world.getBlockState(p).isAir() || world.getBlockState(p).isReplaceable())
-					&& world.getBlockState(p.down()).isOpaqueFullCube(world, p.down())) {
-				world.setBlockState(p, Blocks.REDSTONE_WIRE.getDefaultState(), Block.NOTIFY_LISTENERS);
+			if (Math.abs(p.getY() - at.getY()) > 3) {
+				continue;
+			}
+			// (Under the trunk, the top is the trunk: the drop goes on the ground under it.)
+			BlockPos under = den.at((int) Math.round(drop[0]), (int) Math.round(drop[1]), 0);
+			BlockPos onto = world.getBlockState(under).isAir() ? under : p;
+			if ((world.getBlockState(onto).isAir() || world.getBlockState(onto).isReplaceable())
+					&& world.getBlockState(onto.down()).isOpaqueFullCube(world, onto.down())) {
+				world.setBlockState(onto, Blocks.REDSTONE_WIRE.getDefaultState(), Block.NOTIFY_LISTENERS);
 			}
 		}
 		// And the gap under the trunk where he lies, clear.
 		den.set(0, 0, 0, Blocks.AIR.getDefaultState());
-		den.set(0, 1, 0, Blocks.AIR.getDefaultState());
+		// Splinters: bare fence posts, put in without touching their neighbours (or each other), so they stay posts.
+		for (int[] post : new int[][] {{5, 0, 2}, {5, 1, 2}, {6, 0, 1}, {-2, 5, 0}}) {
+			world.setBlockState(den.at(post[0], post[1], post[2]), Blocks.OAK_FENCE.getDefaultState(), Block.NOTIFY_LISTENERS | Block.FORCE_STATE);
+		}
 	}
 
 	/** Blocks placed round {@code at}: {@code i} along the tree, {@code j} across it, {@code k} up. */
@@ -317,8 +446,10 @@ public final class PochitaPlace extends PersistentState {
 	public NbtCompound writeNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registries) {
 		nbt.putBoolean("Placed", placed);
 		nbt.putLong("At", at.asLong());
+		nbt.putString("Axis", axis.asString());
 		nbt.putLong("Lost", lost);
 		nbt.putBoolean("Merged", merged);
+		nbt.putInt("Built", built);
 		return nbt;
 	}
 
@@ -326,8 +457,11 @@ public final class PochitaPlace extends PersistentState {
 		PochitaPlace place = new PochitaPlace();
 		place.placed = nbt.getBoolean("Placed");
 		place.at = BlockPos.fromLong(nbt.getLong("At"));
+		Direction.Axis axis = Direction.Axis.fromName(nbt.getString("Axis"));
+		place.axis = axis != null && axis != Direction.Axis.Y ? axis : Direction.Axis.X;
 		place.lost = nbt.contains("Lost") ? nbt.getLong("Lost") : -1;
 		place.merged = nbt.getBoolean("Merged");
+		place.built = nbt.getInt("Built");
 		return place;
 	}
 }

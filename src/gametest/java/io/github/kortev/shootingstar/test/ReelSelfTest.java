@@ -259,7 +259,11 @@ public class ReelSelfTest implements ClientModInitializer {
 		ticks++;
 		IntegratedServer server = client.getServer();
 		client.options.pauseOnLostFocus = false;
-		if (stage != Stage.WAIT_WORLD && stage != null && client.currentScreen != null) {
+		if (stage == null) {
+			// Done, the game stopping.
+			return;
+		}
+		if (stage != Stage.WAIT_WORLD && client.currentScreen != null) {
 			client.setScreen(null);
 		}
 		switch (stage) {
@@ -1543,7 +1547,8 @@ public class ReelSelfTest implements ClientModInitializer {
 	 * and from the other side.
 	 */
 	private static void den(MinecraftClient client, int f) {
-		double[][][] shots = {{{-9.0, 5.0, -13.0}, {1.0, 0.5, 0.5}}, {{3.5, 1.2, -13.0}, {0.0, 0.3, 0.0}}, {{0.6, 0.5, -2.6}, {0.0, 0.3, 0.3}},
+		// (The wide shots from inside the clearing's edge: in woods, any further out is in among the trees.)
+		double[][][] shots = {{{-8.0, 6.0, -7.0}, {1.0, 0.5, 0.5}}, {{6.0, 2.0, -7.0}, {0.0, 0.3, 0.0}}, {{0.6, 0.5, -2.6}, {0.0, 0.3, 0.3}},
 				{{-11.0, 2.0, -4.0}, {-6.0, 1.5, 0.5}}, {{9.0, 3.0, -6.0}, {5.0, 1.0, 0.5}}, {{-2.0, 1.4, 6.0}, {0.0, 0.6, 0.0}}};
 		String[] names = {"den_wide", "den_trail", "den_under", "den_roots", "den_break", "den_other_side"};
 		if (f == 1) {
@@ -1551,8 +1556,7 @@ public class ReelSelfTest implements ClientModInitializer {
 		}
 		int shot = (f - 1) / 30;
 		if (shot < shots.length && (f - 1) % 30 == 0) {
-			camera(origin.add(shots[shot][0][0], shots[shot][0][1], shots[shot][0][2]), origin.add(shots[shot][1][0], shots[shot][1][1],
-					shots[shot][1][2]));
+			camera(origin.add(alongTree(shots[shot][0])), origin.add(alongTree(shots[shot][1])));
 		}
 		if (shot < shots.length && (f - 1) % 30 == 25) {
 			shot(client, names[shot]);
@@ -1560,6 +1564,14 @@ public class ReelSelfTest implements ClientModInitializer {
 		if (shot >= shots.length) {
 			stage = Stage.DONE;
 		}
+	}
+
+	/** The way the tree photographed lies. */
+	private static net.minecraft.util.math.Direction.Axis denAxis = net.minecraft.util.math.Direction.Axis.X;
+
+	/** {@code d}, given along the tree (x), up (y) and across it (z), turned to the way it lies. */
+	private static Vec3d alongTree(double[] d) {
+		return denAxis == net.minecraft.util.math.Direction.Axis.X ? new Vec3d(d[0], d[1], d[2]) : new Vec3d(-d[2], d[1], d[0]);
 	}
 
 	/** The camera fixed at {@code at}, looking at {@code look} (through the capture's camera, filming or not). */
@@ -1588,8 +1600,20 @@ public class ReelSelfTest implements ClientModInitializer {
 			world.setTimeOfDay(2500);
 			world.setWeather(12000, 0, false, false);
 			server.getGameRules().get(GameRules.DO_DAYLIGHT_CYCLE).set(false, server);
-			BlockPos spot = world.getTopPosition(net.minecraft.world.Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, player.getBlockPos().add(40, 0, 12));
-			io.github.kortev.chainsawman.PochitaPlace.waiting(world, spot, net.minecraft.util.math.Direction.Axis.X);
+			// The world's own, if it has one (a copy of a world played in); else one built in woods or grassland near spawn,
+			// where the world's own would be put (PochitaPlace.choose).
+			BlockPos own = io.github.kortev.chainsawman.PochitaPlace.tree(server);
+			BlockPos spot = own != null ? null
+					: io.github.kortev.chainsawman.PochitaPlace.woods(world, player.getBlockPos().add(40, 0, 12), net.minecraft.util.math.random.Random.create(7));
+			if (spot == null) {
+				spot = world.getTopPosition(net.minecraft.world.Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, player.getBlockPos().add(40, 0, 12));
+			}
+			if (own != null) {
+				spot = own;
+				denAxis = io.github.kortev.chainsawman.PochitaPlace.treeAxis(server);
+			} else {
+				io.github.kortev.chainsawman.PochitaPlace.waiting(world, spot, net.minecraft.util.math.Direction.Axis.X);
+			}
 			player.changeGameMode(GameMode.SPECTATOR);
 			player.teleport(world, spot.getX() + 0.5, spot.getY() + 4.0, spot.getZ() - 8.0, 0.0F, 0.0F);
 			origin = Vec3d.ofBottomCenter(spot);
