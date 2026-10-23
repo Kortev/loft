@@ -302,13 +302,13 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 			case SETTLE -> {
 				if ("beam".equals(target()) && client.player != null) {
 					// Your own eyes from the very first frame, already looking the way he will go.
-					client.options.setPerspective(Perspective.FIRST_PERSON);
+					client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
 					client.player.setYaw(facing);
-					client.player.setPitch(18.0F);
+					client.player.setPitch(12.0F);
 					headYaw = facing;
-					headPitch = 18.0F;
+					headPitch = 12.0F;
 					wantYaw = facing;
-					wantPitch = 18.0F;
+					wantPitch = 12.0F;
 				}
 				// Long enough for the village round you to be drawn.
 				if (ticks > 100 && origin != null && (!"beam".equals(target()) || ticks > 600 || Form.fighting(player(server)))) {
@@ -905,8 +905,10 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 	/** The ones the leap comes down on, ahead of where he leaps from (put there as the camera cuts to the leap). */
 	private static final double[][] BEAM_CRASHED = {{6.9, 0.3, 20.0, 0}, {5.4, -1.7, 18.0, 1}, {8.3, 1.6, 16.0, 0}};
 	/** When he is called (the reel's tick), when the forward key goes down. */
-	private static final int BEAM_CALL = 4;
+	private static final int BEAM_CALL = 6;
 	private static final int BEAM_RIDES = 44;
+	/** When the opening cuts from the third person shot of him bursting up to your own eyes on his back. */
+	private static final int BEAM_EYES = 27;
 	/** A bite when the next one is this near his middle (blocks), and no sooner than this many ticks after the last. */
 	private static final double BEAM_BITE_AT = 5.1;
 	private static final int BEAM_BITE_GAP = 13;
@@ -990,21 +992,60 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 			if (capturing()) {
 				Capture.start(client, client.runDirectory.toPath().resolve("capture"));
 			}
-			// The hook is a POV: your own eyes, on the open sand, the ground bursting up under you and him rising with you on his
-			// back (the head looks down at the sand, then lifts to the patrol ahead as it rises).
+			// Third person first, low and close, three quarters on from the front and the side: you standing on the open sand, the
+			// ground bursting up under you in a spray of sand and him rising with you on his back (his head, his eyes, his open
+			// jaw and teeth); slowly round toward his side. Then, from BEAM_EYES, your own eyes on his back (the hook is a POV).
+			beamLens = 64.0F;
+			client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
+			Vec3d centre = rel(origin, ahead, side, 0.8, 2.7, 0.0);
+			Capture.camera = t -> {
+				double k = ease(span(t, 0.0, BEAM_EYES));
+				double angle = Math.toRadians(MathHelper.lerp(k, 36.0, 52.0));
+				double radius = MathHelper.lerp(k, 12.0, 10.5);
+				Vec3d out = ahead.multiply(Math.cos(angle)).add(side.multiply(-Math.sin(angle))).multiply(radius);
+				return look(framed(centre.add(out).add(0.0, MathHelper.lerp(k, -1.6, -1.2), 0.0), centre), centre);
+			};
+		}
+		if (f == BEAM_EYES) {
 			beamLens = 0.0F;
 			client.options.setPerspective(Perspective.FIRST_PERSON);
-			Capture.camera = null;
+			// Leant forward a little over his back, so the patrol is ahead of you past his head and his spikes are under you.
+			double[] from = new double[] {Double.NaN};
+			Capture.camera = t -> {
+				if (Double.isNaN(from[0])) {
+					from[0] = t;
+				}
+				Vec3d p = client.player.getLerpedPos((float) (t - Math.floor(t)));
+				double k = ease(span(t, from[0], from[0] + 14));
+				double sway = 0.6 * Math.sin(t * 0.11);
+				return new Capture.Pose(p.x + ahead.x * 1.0, p.y + 1.62, p.z + ahead.z * 1.0, (float) (facing + sway), (float) MathHelper.lerp(k, 12.0, 24.0));
+			};
 		}
 		BeamEntity beam = client.world == null ? null : client.world.getEntitiesByClass(BeamEntity.class, new net.minecraft.util.math.Box(origin, origin).expand(80.0), b -> !b.diving())
 				.stream().findFirst().orElse(null);
-		face(client, facing, f < BEAM_RIDES - 3 ? (float) MathHelper.lerp(ease(span(f, BEAM_CALL, BEAM_RIDES - 8)), 18.0, 4.0) : 0.0F);
+		face(client, facing, f < BEAM_RIDES - 3 ? 12.0F : 0.0F);
 		if (f == BEAM_CALL) {
 			// The key's own path (Beam.summon: the blood, the burst, you on his back).
 			server.execute(() -> {
 				boolean came = Beam.summon(player(server));
 				ShootingStar.LOGGER.info("[selftest] beam reel: summoned: {}, fighting {}, blood {}, on ground {}, at {}", came, Form.fighting(player(server)),
 						Blood.get(player(server)), player(server).isOnGround(), player(server).getPos());
+			});
+		}
+		if (f >= BEAM_CALL && f < BEAM_CALL + 12) {
+			// Extra sand thrown up round him and in front of him as he comes up, so the burst is plain on camera.
+			Vec3d at = origin;
+			Vec3d front = rel(origin, ahead, side, 3.5, 0.0, 0.0);
+			server.execute(() -> {
+				net.minecraft.particle.BlockStateParticleEffect sand = new net.minecraft.particle.BlockStateParticleEffect(net.minecraft.particle.ParticleTypes.BLOCK,
+						Blocks.SAND.getDefaultState());
+				ServerWorld world = server.getOverworld();
+				world.spawnParticles(sand, at.x, at.y + 0.3, at.z, 160, 2.2, 0.2, 2.2, 0.9);
+				world.spawnParticles(sand, front.x, front.y + 0.3, front.z, 200, 2.6, 0.2, 2.0, 1.0);
+				// (Big puffs of sand-coloured dust too: the block specks alone are tiny on camera.)
+				net.minecraft.particle.DustParticleEffect dust = new net.minecraft.particle.DustParticleEffect(new org.joml.Vector3f(0.86F, 0.76F, 0.5F), 3.5F);
+				world.spawnParticles(dust, at.x, at.y + 0.5, at.z, 40, 2.0, 0.5, 2.0, 0.2);
+				world.spawnParticles(dust, front.x, front.y + 0.5, front.z, 50, 2.4, 0.6, 1.8, 0.25);
 			});
 		}
 		if (f == BEAM_RIDES - 3) {
@@ -2208,6 +2249,9 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 
 	/** Where the test world's big desert is (found by the earlier takes: it runs from about x 700 to 860, z 30 to 260). */
 	private static final BlockPos BEAM_DESERT = new BlockPos(780, 80, 140);
+	/** The spot the search found (open sand, the temple on the horizon ahead), and the way it faces; null to search again. */
+	private static final BlockPos BEAM_SPOT = new BlockPos(868, 67, 196);
+	private static final float BEAM_SPOT_FACING = 90.0F;
 
 	/**
 	 * A spot in the big desert for the Beam reel, facing east: the lane (from 4 behind to 50 ahead, 16 either side) must be
@@ -2215,6 +2259,11 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 	 * sand (sea, beach, trees, a temple, a village). The best of a grid of candidates as the world really is.
 	 */
 	private static BlockPos desertOpen(ServerWorld world, BlockPos near) {
+		if (BEAM_SPOT != null) {
+			// (The spot the search found for the filmed take, facing west: the search itself is thrown off by what a take builds.)
+			facing = BEAM_SPOT_FACING;
+			return BEAM_SPOT;
+		}
 		BlockPos centre = BEAM_DESERT;
 		BlockPos best = null;
 		float bestFacing = FACING;
@@ -2293,7 +2342,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 					}
 				}
 				world.setBlockState(c.down(), Blocks.SAND.getDefaultState(), flags);
-				for (int y = 0; y <= 10; y++) {
+				for (int y = 0; y <= 24; y++) {
 					if (!world.getBlockState(c.up(y)).isAir()) {
 						world.setBlockState(c.up(y), Blocks.AIR.getDefaultState(), flags);
 					}
@@ -2316,7 +2365,9 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 					}
 					int height = (int) Math.round(d[4] * Math.pow(k, 0.9));
 					BlockPos c = cell(spot, d[0] + dx, 0, d[1] + dz);
-					int top = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, c.getX(), c.getZ());
+					// (From the ground as the world made it, so that a second take does not stack on the first's.)
+					int top = world.getChunkManager().getChunkGenerator().getHeight(c.getX(), c.getZ(), Heightmap.Type.WORLD_SURFACE_WG, world,
+							world.getChunkManager().getNoiseConfig());
 					for (int y = 0; y < height; y++) {
 						world.setBlockState(new BlockPos(c.getX(), top + y, c.getZ()), Blocks.SAND.getDefaultState(), flags);
 					}
