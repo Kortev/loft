@@ -1,6 +1,7 @@
 package io.github.kortev.chainsawman;
 
 import io.github.kortev.chainsawman.form.Beam;
+import io.github.kortev.chainsawman.form.Felling;
 import io.github.kortev.chainsawman.form.Form;
 import io.github.kortev.chainsawman.form.Frenzy;
 import io.github.kortev.chainsawman.form.Grapple;
@@ -93,5 +94,6 @@ public final class ChainsawMan implements ModInitializer {
 			}
 		});
 		Form.init();
+		Felling.init();
 	}
 }
