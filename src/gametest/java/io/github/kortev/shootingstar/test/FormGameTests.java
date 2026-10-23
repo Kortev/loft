@@ -27,6 +27,7 @@ import net.minecraft.network.NetworkSide;
 import net.minecraft.server.network.ConnectedClientData;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.registry.tag.BlockTags;
 import net.minecraft.test.GameTest;
 import net.minecraft.test.TestContext;
 import net.minecraft.util.hit.HitResult;
@@ -160,6 +161,60 @@ public class FormGameTests implements FabricGameTest {
 			done(context, player);
 		}
 		context.complete();
+	}
+
+	/**
+	 * Sawing through a tree's trunk in the form brings the whole tree down, and it bursts into drops where it lands (none of it
+	 * set back down as blocks); a log wall without leaves of its own is cut a block at a time.
+	 */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_fell", tickLimit = 140)
+	public void sawsFellTrees(TestContext context) {
+		ServerPlayerEntity player = fighter(context, "feller", 0.0);
+		ServerWorld world = context.getWorld();
+		BlockPos base = BlockPos.ofFloored(spot(context)).add(0, 0, 3);
+		BlockPos wall = base.add(5, 0, 0);
+		for (BlockPos p : BlockPos.iterate(base.add(-12, -1, -12), base.add(12, -1, 12))) {
+			world.setBlockState(p, Blocks.STONE.getDefaultState());
+		}
+		for (int y = 0; y < 6; y++) {
+			world.setBlockState(base.up(y), Blocks.OAK_LOG.getDefaultState());
+		}
+		for (BlockPos p : BlockPos.iterate(base.add(-2, 3, -2), base.add(2, 6, 2))) {
+			if (world.isAir(p)) {
+				world.setBlockState(p, Blocks.OAK_LEAVES.getDefaultState());
+			}
+		}
+		for (int y = 0; y < 3; y++) {
+			world.setBlockState(wall.up(y), Blocks.OAK_LOG.getDefaultState());
+		}
+		try {
+			context.assertTrue(player.interactionManager.tryBreakBlock(base), "the trunk's bottom log didn't break");
+			for (int y = 1; y < 6; y++) {
+				context.assertTrue(!world.getBlockState(base.up(y)).isIn(BlockTags.LOGS), "the trunk still stands " + y + " up");
+			}
+			context.assertTrue(player.interactionManager.tryBreakBlock(wall), "the wall's log didn't break");
+			context.assertTrue(world.getBlockState(wall.up()).isOf(Blocks.OAK_LOG), "a log wall came down like a tree");
+		} catch (RuntimeException e) {
+			done(context, player);
+			throw e;
+		}
+		context.waitAndRun(110, () -> {
+			try {
+				int logs = 0;
+				for (BlockPos p : BlockPos.iterate(base.add(-12, 0, -12), base.add(12, 10, 12))) {
+					if (world.getBlockState(p).isIn(BlockTags.LOGS) || world.getBlockState(p).isIn(BlockTags.LEAVES)) {
+						logs++;
+					}
+				}
+				context.assertTrue(logs == 2, "the tree was set back down as blocks (" + logs + " logs and leaves about, not the wall's 2)");
+			} finally {
+				done(context, player);
+				for (BlockPos p : BlockPos.iterate(base.add(-12, -1, -12), base.add(12, 10, 12))) {
+					world.setBlockState(p, Blocks.AIR.getDefaultState());
+				}
+			}
+			context.complete();
+		});
 	}
 
 	/** A kill drinks deep: the hit's heal and the kill's. */

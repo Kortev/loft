@@ -133,6 +133,16 @@ tall within 3 blocks of you, else the action bar says so and nothing is spent) a
   attack key): it needs a `Saw.slash` per bite and cameras for his 9 blocks before it is filmed again.
 
 **Latest (2026-10-22, afternoon) — read this first:**
+- **Tree felling (2026-10-23, kortev asked for it):** in the form, sawing through a tree's trunk brings the whole tree
+  down (`form/Felling.java`, on `PlayerBlockBreakEvents.AFTER`): the logs above the cut joined to it and the tree's own
+  (non-persistent) leaves topple away from you as falling blocks, faster the higher up, and burst into their drops where they
+  land. A trunk with fewer than 6 of its own leaves isn't a tree (a log cabin's wall still cuts a block at a time). Game
+  test `sawsFellTrees` (87 tests).
+- **The reels are being made different from each other** (kortev's friend: they all looked alike): Saws in a daytime
+  forest (diamond axe vs the saws, now with felling), Chain on a cliff at night (action first), Arms against the Warden
+  in the Deep Dark, Beam in a desert at sunset against pillagers; each its own hook and question (`hook()`, `ask()`,
+  `hookFrom()`). Filmed on branch `claude/reels-redo` (worktree `../loft-reels`) and, for Beam, here. Posting: Transformation
+  Sat Oct 24, Saws Sun Oct 25.
 - **How kortev wants the work done**: Opus (the main session) plans and reviews; **Sonnet 5.5 subagents execute** from
   briefs written to files (the briefs are in the session scratchpad; write new ones the same way). Keep usage down:
   review videos/photos as small contact sheets, not full-size images.
