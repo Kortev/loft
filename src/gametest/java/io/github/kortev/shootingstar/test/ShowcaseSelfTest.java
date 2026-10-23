@@ -326,11 +326,19 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		if (f < SLASHES[0] - 12) {
 			face(client, FACING, 0.0F);
 		}
+		// The zombies round you come at you as you change (kortev: the reels mustn't look fake), slowly enough to be there to
+		// cut when you turn on them.
+		if (f == SLASHES[0] - 40) {
+			server.execute(() -> wake(server, 0.14));
+		}
 		// Then on them, each in turn, as you'd play it: turned on it, the crosshair on it, the attack key.
 		for (int i = 0; i < SLASHES.length; i++) {
 			int from = i == 0 ? SLASHES[0] - 12 : SLASHES[i - 1] + 2;
 			if (f > from && f <= SLASHES[i] && client.player != null) {
 				Vec3d it = origin.add(around(i).multiply(OFF)).add(0.0, 1.0, 0.0);
+				if (i < ZOMBIES.size() && client.world.getEntityById(ZOMBIES.get(i)) instanceof ZombieEntity z && z.isAlive()) {
+					it = z.getPos().add(0.0, 1.2, 0.0);
+				}
 				Capture.Pose aim = look(client.player.getEyePos(), it);
 				face(client, aim.yaw(), aim.pitch());
 			}
@@ -2138,22 +2146,24 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 			Vec3d tree = local(0.0, 0.0, 0.0);
 			fixed(framed(out.squaredDistanceTo(tree) > other.squaredDistanceTo(tree) ? out : other, mid), mid);
 			float yaw = look(at, you).yaw();
-			// A husk: the sun's not down here yet, and a zombie would burn up before it got to you.
-			server.execute(() -> zombie(server.getOverworld(), EntityType.HUSK, at, yaw, 12.0F));
+			// A husk: the sun's not down here yet, and a zombie would burn up before it got to you. It comes at you on its
+			// own (kortev: the reels mustn't look fake), from near enough to reach you as he revs.
+			Vec3d from = you.add(way.multiply(3.2));
+			server.execute(() -> {
+				zombie(server.getOverworld(), EntityType.HUSK, from, yaw, 12.0F);
+				wake(server, 0.36);
+			});
 		}
 		if (f > ZOMBIE_IN && f <= CUT_IT && client.player != null && client.world != null && !ZOMBIES.isEmpty() && huskFrom != null) {
-			// It shambles at you, and you turn to it.
-			Vec3d next = huskFrom.lerp(huskTo, span(f, ZOMBIE_IN, CUT_IT - 2));
-			int id = ZOMBIES.get(0);
-			server.execute(() -> {
-				if (server.getOverworld().getEntityById(id) instanceof ZombieEntity z && z.isAlive()) {
-					z.requestTeleport(next.x, next.y, next.z);
-				}
-			});
-			face(client, look(client.player.getEyePos(), next.add(0.0, 1.0, 0.0)).yaw(), 8.0F);
+			// It comes at you, and you turn to it.
+			if (client.world.getEntityById(ZOMBIES.get(0)) instanceof ZombieEntity z) {
+				face(client, look(client.player.getEyePos(), z.getPos().add(0.0, 1.0, 0.0)).yaw(), 8.0F);
+			}
 		}
 		// The attack key held as it comes: he revs, and cuts into it as it reaches you.
-		client.options.attackKey.setPressed(f >= CUT_IT - 10 && f < CUT_IT + 18);
+		// (Held on till it's down, however long it took to reach you: it walks on its own.)
+		boolean standing = !ZOMBIES.isEmpty() && client.world != null && client.world.getEntityById(ZOMBIES.get(0)) instanceof ZombieEntity z && z.isAlive();
+		client.options.attackKey.setPressed(f >= CUT_IT - 10 && (f < CUT_IT + 18 || standing && f < POCHITA_HERO));
 		// The end: low, three quarters on, him in your hand, the light in the trees behind.
 		if (f == POCHITA_HERO && client.player != null) {
 			Vec3d you = client.player.getPos().add(0.0, 1.2, 0.0);
@@ -2514,6 +2524,18 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 	}
 
 	/** A zombie standing still on the ground at {@code at}, facing {@code yaw}, with {@code health}. */
+	/** The reel's zombies brought to life: their own AI, after you, at {@code speed} (the attribute; a zombie's own is 0.23). */
+	private static void wake(IntegratedServer server, double speed) {
+		ServerPlayerEntity you = player(server);
+		for (int id : ZOMBIES) {
+			if (server.getOverworld().getEntityById(id) instanceof ZombieEntity z && z.isAlive()) {
+				z.setAiDisabled(false);
+				z.getAttributeInstance(net.minecraft.entity.attribute.EntityAttributes.GENERIC_MOVEMENT_SPEED).setBaseValue(speed);
+				z.setTarget(you);
+			}
+		}
+	}
+
 	private static void zombie(ServerWorld world, Vec3d at, float yaw, float health) {
 		zombie(world, EntityType.ZOMBIE, at, yaw, health);
 	}
@@ -2826,7 +2848,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		} else {
 			for (int i = 0; i < AROUND.length; i++) {
 				// One cut each, whatever the combo's step.
-				zombie(world, feet.add(around(i).multiply(OFF)), FACING + AROUND[i] + 180.0F, 6.0F);
+				zombie(world, feet.add(around(i).multiply(OFF + 1.4)), FACING + AROUND[i] + 180.0F, 6.0F);
 			}
 		}
 		origin = feet;
