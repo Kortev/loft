@@ -1,85 +1,129 @@
-"""Beam the shark fiend of the Reze arc in Minecraft model boxes: the layout both the game and the texture painter use.
+"""Beam the shark fiend of the Reze arc in Minecraft model boxes, built from the two pixel-art drawings kortev approved.
 
-kortev wanted the smooth Blender Beam (tools/beam_model.py, the blueprint) in the same style as the chainsaw head and
-Pochita: model boxes, flat colours painted pixel by pixel. So this module builds him from many boxes (slices along his body,
-each a short stack of boxes narrowing toward its top and bottom, so the outline steps smoothly round) sized to the
-blueprint's measured sections, and is the one place the boxes are written down:
+The drawings are the spec (tools/beam_profile.py is the side, tools/beam_front.py the front; both at game resolution, one
+drawing pixel = 1/16 block = one model pixel). This module measures them and builds the boxes:
+
+* a side silhouette (the body's outline polygon) and a front one (the half width at each height) give every slice along his
+  length its top, its bottom and, by the front view's profile, its width; each slice is stacked as a centre box plus narrower
+  steps toward its top and bottom, so he reads round from the front as Pochita's stepped bean does;
+* the head is the dome above the mouth (a part of its own, hinged at the mouth's corner), the lower jaw a part hinged at the
+  same corner, built in a frame turned along its rim, so the bite can animate; the mouth's walls are a thin dark plate between
+  them, and the teeth are rows of planes along the lips painted from the drawings;
+* the legs are chains of angled boxes through the drawn hip, knee and foot (the side gives their length and height, the front
+  their sideways splay).
 
     python tools/beam_boxes.py --java      writes chainsawman/src/client/java/.../client/BeamLayout.java (the game's boxes)
-    python tools/beam_boxes.py --report    prints the sizes, the box count and the texture
+    python tools/beam_boxes.py --report    prints the parts, the box count and the texture
 
-tools/gen_chainsaw_textures.py (beam_entity) imports this and paints each box from where it is on him; tools/beam_preview.py
-(Blender) draws the boxes with that texture to look at them without the game. Pure Python + numpy.
+tools/gen_chainsaw_textures.py (beam_entity) imports this and paints every box from the drawings (projected onto the boxes
+from the side and from the front); tools/beam_check.py lays the boxes' silhouettes over the drawings' and prints the overlap.
+Pure Python + numpy + Pillow.
 
-Space, as the game's models have it, in pixels (16 to a block): x his +x side, y DOWN, the top of his back at y = 0 and the
-soles of his feet at y = HEIGHT, z along him: his front toward -z, the middle of his length at z = 0. In the tables below
-'u' is the distance back from the tip of his nose and 'h' a height above the ground, which is how the blueprint's sections
-were measured (the blueprint's blocks times 16, its u shifted by NOSE: the blueprint's mouth sits at the very front of the
-head, kortev wants "more nose on top of it", so the nose carries on NOSE pixels past the front teeth).
+Space, as the game's models have it, in pixels (16 to a block): x his +x side, y DOWN, z along him: his front toward -z, the
+middle of him at z = 0 (the drawing's x = XM). y is the drawing's body layer's y (the top of his back at about 7, the spike
+tips at 1) and the soles of his feet are at y = HEIGHT: the drawing's ground line (82) is LIFT (12) below the body layer's top.
 """
 import math
 import os
 import sys
 
 import numpy as np
+from PIL import Image, ImageDraw
 
-HEIGHT = 54            # the top of his back above the ground (pixels): 3.4 blocks
-Z0 = 46                # u of the middle of him
-NOSE = 12              # how far the nose carries on past the front teeth
-U_WALL = 44            # where the head ends and the trunk (the chest, the throat's wall) begins
-U_HINGE = 43           # the back corner of the mouth, where the lower jaw hinges
-HINGE_H = 31           # its height above the ground
-JAW_LEN = 30           # the lower jaw, from the hinge to its tip
-OPEN_DEG = 38.0        # how far the mouth hangs open (kortev: a bit less than the blueprint's 46)
-U_REAR = 70            # where the trunk ends and the rear of his body (which sways) begins
-U_STALK = 77           # the stalk of the tail
-U_FIN = 82             # the crescent tail fin's hinge
-LENGTH = 92            # snout tip to the tail's tip
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import beam_front as bf  # noqa: E402
+import beam_profile as bp  # noqa: E402
 
-# --- the body's sections: u, top height, bottom height, half width (pixels) -------------------------------------------------
-# In the head the bottom is the lip (the roof of the mouth): from the front teeth at u = NOSE it slopes down to the hinge;
-# ahead of that the nose's own underside. The chest (behind the wall) has the belly 13 up.
-TOP = [(0, 44), (1, 45.5), (2.5, 48), (5, 50.5), (9, 52.5), (16, 53.5), (26, 54), (30, 54), (44, 54), (50, 54), (58, 52), (63, 48.5),
-       (68, 44), (72, 40), (76, 36), (80, 32.5), (84, 29.5), (88, 27.5), (92, 27)]
-BOTTOM = [(0, 45), (1, 43.4), (2.5, 42.6), (NOSE, 42.5), (U_HINGE, HINGE_H), (U_WALL - 0.01, HINGE_H), (U_WALL, 15), (48, 13.5),
-          (52, 13), (63, 12.5), (68, 13), (72, 14.5), (76, 17), (80, 19.5), (84, 22), (88, 23.5), (92, 24)]
-HALF = [(0, 3), (1, 6), (2, 8), (4, 10.5), (7, 12.5), (NOSE, 14.5), (20, 16.5), (30, 17.8), (U_HINGE, 18.7), (50, 19.2),
-        (58, 19), (66, 16.5), (72, 13), (76, 10), (80, 7), (84, 4.5), (88, 3), (92, 2)]
-SEC_EXP = 2.2          # the sections are superellipses of this exponent, a little squarer than an ellipse
-
-# The lower jaw's sections: distance along it from the hinge, half width, depth below the rim (the blueprint's, in pixels).
-JAW = [(0, 15.7, 16.8), (4.8, 16.3, 15.4), (14.4, 14.0, 11.5), (22.4, 10.0, 7.4), (27, 5.4, 4.5), (30, 2.4, 1.9)]
-
-# The line between navy above and mint below on his side (u, height): the blueprint's, in pixels. On the head the line is
-# taken a fraction of the way from the lip up to the top, so it rises toward the eyes as the stills have it.
-BOUNDARY = [(0, 44.5), (6, 45), (12, 45.5), (20, 45), (30, 44.5), (38, 44), (44, 41), (50, 37), (58, 31), (66, 27), (74, 25),
-            (84, 24), (92, 23.5)]
-# Eyes: u, height, size (pixels), the front one biggest, in a diagonal up and back from above the corner of the mouth.
-EYES = [(35, 45, 7), (42, 49, 6), (49, 51.5, 5)]
-EYE_OUT = 2            # how far an eye stands out of his side
-# The back's spikes: u of the front of the base, height, length of the base.
-SPIKES = [(36, 13, 11), (45, 11, 9), (54, 9, 8), (62, 7, 7), (69, 5.5, 6)]
-# The legs, in the order front right, front left, back right, back left: hip u, the knee (out, u, height), the foot (out, u).
-LEG_HIP_OUT = 9
-LEG_HIP_H = 21
-LEGS = {'front': dict(hip_u=51, knee=(35, 48, 44), foot=(29, 43)), 'back': dict(hip_u=66, knee=(35, 71, 44), foot=(29, 76))}
-TEXTURE_W = 512
+LIFT = bp.LIFT
+HEIGHT = bp.GROUND - LIFT      # the soles of his feet in the body layer's y (70): the model's y = 0 is this high above the ground
+XM = 75                        # the drawing's x of the middle of him: model z = XM - x
+CX = bf.CX                     # the front drawing's centre: model x = front x - CX
+X_NOSE = 147                   # one past the snout's last column
+X_CORNER = int(bp.CORNER[0])   # the mouth's corner (the drawing's x), where the head and the jaw hinge
+Y_CORNER = int(bp.CORNER[1])
+X_REAR = 62                    # where the trunk ends and the rear of his body (which sways) begins
+X_STALK = 23                   # the tail's stalk begins
+X_FIN = 12                     # the crescent fin's hinge
+TEXTURE_W = 1024
+TOL = 1.4                      # how far a row of a slice may stray from its true width (pixels)
+JAW_STEP = 1                   # the jaw is cut into slices this deep (it is turned 21 degrees, so its steps show; fine ones show least)
+WBIAS = 0.4                    # boxes are this much narrower than the true width (rounding up showed as a pixel too wide)
 
 
-def Z(u):
-    return u - Z0
+def Zd(x):
+    """Model z of the drawing's x."""
+    return XM - x
 
 
-def Yh(h):
-    return HEIGHT - h
+# --- the drawings, as masks and pictures ---------------------------------------------------------------------------------------
+
+def _poly(points, size):
+    im = Image.new('L', size, 0)
+    ImageDraw.Draw(im).polygon(points, fill=255)
+    return np.array(im) > 0
 
 
-def interp(table, u):
-    return float(np.interp(u, [p[0] for p in table], [p[1] for p in table]))
+SIDE_SIL = _poly(bp.outline(), (bp.W, bp.H))     # [y, x] in the body layer: the body without the open mouth
+GAPE = _poly(bp.gape(), (bp.W, bp.H))
+_SIDE_IMG = None
+_FRONT_IMG = None
 
 
-def sections_at(u):
-    return interp(TOP, u), interp(BOTTOM, u), interp(HALF, u)
+def side_img():
+    """The body layer of the side drawing, RGBA, [y, x]."""
+    global _SIDE_IMG
+    if _SIDE_IMG is None:
+        _SIDE_IMG = np.array(bp.body())
+    return _SIDE_IMG
+
+
+def front_img():
+    global _FRONT_IMG
+    if _FRONT_IMG is None:
+        _FRONT_IMG = np.array(bf.body())
+    return _FRONT_IMG
+
+
+def _front_half():
+    a = np.array(bf.body(extras=False))[:, :, 3] > 0
+    out = np.zeros(bf.H)
+    for y in range(bf.H):
+        xs = np.nonzero(a[y])[0]
+        if len(xs):
+            out[y] = (xs.max() - xs.min() + 1) / 2.0
+    return out
+
+
+FRONT_HALF = _front_half()
+F_TOP, F_BOT = 7.0, 67.0       # the front view's body spans these rows
+F_WIDEST = 41.0                # and is widest here
+
+
+def front_half(y):
+    """The front view's half width at layer row y (a float: interpolated between rows' centres)."""
+    return float(np.interp(y - 0.5, np.arange(bf.H), FRONT_HALF))
+
+
+def smooth(t):
+    t = min(1.0, max(0.0, t))
+    return t * t * (3 - 2 * t)
+
+
+def taper(x):
+    """How much of the front view's width a slice at the drawing's x has: the full width through the shoulders, narrowing to
+    the tail's stalk behind, and toward the head ahead (the mouth is about 18 either side of the middle, the shoulders 25),
+    the snout rounding off at its tip."""
+    if x < X_STALK:
+        return 0.26 - 0.06 * (X_STALK - x) / 11.0
+    if x < 70:
+        return 0.26 + 0.74 * smooth((x - X_STALK) / (70.0 - X_STALK))
+    if x <= 84:
+        return 1.0
+    if x <= X_CORNER:
+        return 1.0 - 0.26 * (x - 84) / (X_CORNER - 84.0)
+    u = (x - X_CORNER) / float(X_NOSE - X_CORNER)
+    tip = max(0.0, (x - 134.0) / 13.0)
+    return (0.74 - 0.06 * u) * math.sqrt(max(0.05, 1.0 - tip * tip))
 
 
 # --- boxes and parts ------------------------------------------------------------------------------------------------------
@@ -91,7 +135,6 @@ class Box:
         self.x, self.y, self.z = x, y, z   # the min corner, in the part's own frame (relative to its pivot)
         self.w, self.h, self.d = int(round(w)), int(round(h)), int(round(d))
         self.meta = meta
-        self.name = None
         self.u = self.v = None             # the texture corner, set by pack()
 
     @property
@@ -101,26 +144,27 @@ class Box:
 
 class Part:
     def __init__(self, name, parent, pivot, rot=(0.0, 0.0, 0.0)):
-        self.name, self.parent, self.pivot, self.rot = name, parent, pivot, rot  # rot: pitch, yaw, roll at rest
+        self.name, self.parent, self.pivot, self.rot = name, parent, tuple(pivot), tuple(rot)  # rot: pitch, yaw, roll at rest
         self.boxes = []
 
 
 PARTS = {}
 BOXES = []
 _ORDER = []
+STATS = {}
 
 
 def part(name, parent, pivot, rot=(0.0, 0.0, 0.0)):
-    """A part hinged at {pivot} (pixels, in the parent's frame). Given as absolute model coordinates when the chain above it
-    has no rotation: the pivot is turned into the parent's frame here."""
-    p = Part(name, parent, tuple(pivot), rot)
+    """A part hinged at {pivot} (pixels, in the parent's frame)."""
+    p = Part(name, parent, pivot, rot)
     PARTS[name] = p
     _ORDER.append(name)
     return p
 
 
 def absolute_pivot(name):
-    """Where a part's pivot is in model space (the chain's translations only: for placing boxes by their model position)."""
+    """Where a part's pivot is in model space (the chain's translations only: for placing boxes by their model position, so
+    only for parts whose parents are not turned)."""
     p = PARTS[name]
     x, y, z = p.pivot
     if p.parent:
@@ -140,278 +184,83 @@ def add_box(part_name, kind, x, y, z, w, h, d, local=False, **meta):
     return b
 
 
-# --- sections cut into stacks of boxes -------------------------------------------------------------------------------------
+# --- slices cut into stacks of boxes --------------------------------------------------------------------------------------
 
-def swidth(t):
-    """Half width, as a share of the full, of the superellipse at normalised height t (-1 to 1)."""
-    t = min(1.0, abs(t))
-    return (1.0 - t ** SEC_EXP) ** (1.0 / SEC_EXP)
+def rows_for(y0, y1, half_of):
+    """A slice between rows y0 and y1 (integers, y down) as a stack of rows: [(ya, yb, w)]. {half_of(y)} is the true half width
+    at row-centre y; a row runs on while the true width stays within TOL of itself, and its box is as wide as their mean."""
+    out = []
+    y = y0
+    while y < y1:
+        lo = hi = half_of(y + 0.5)
+        ye = y + 1
+        while ye < y1:
+            v = half_of(ye + 0.5)
+            if max(hi, v) - min(lo, v) > TOL:
+                break
+            lo, hi = min(lo, v), max(hi, v)
+            ye += 1
+        w = max(2, int(round((lo + hi) - WBIAS)))
+        out.append((y, ye, w))
+        y = ye
+    return out
 
 
-def rows(bottom, top, half, round_top=True, round_bottom=True):
-    """A rounded section as a stack of rows: [(y_bottom, y_top, half_width)] in heights above the ground, integers, widths in
-    halves of pixels. The section is a superellipse; where a side isn't rounded (a flat floor, a flat roof) its rows go full
-    width to that side."""
-    bottom, top = int(round(bottom)), int(round(top))
-    h = top - bottom
-    if h <= 0:
+def merge(rows):
+    out = []
+    for ya, yb, w in rows:
+        if out and out[-1][2] == w and out[-1][1] == ya:
+            out[-1] = (out[-1][0], yb, w)
+        else:
+            out.append((ya, yb, w))
+    return out
+
+
+def column_runs(x):
+    col = np.nonzero(SIDE_SIL[:, x])[0]
+    if not len(col):
         return []
-    mid = (top + bottom) / 2.0
-    a = h / 2.0
-    # the row boundaries as shares of the half height, from the centre; fewer for a thin section
-    if h >= 30:
-        cuts = [0.0, 0.38, 0.66, 0.86, 1.0]
-    elif h >= 20:
-        cuts = [0.0, 0.46, 0.80, 1.0]
-    elif h >= 9:
-        cuts = [0.0, 0.55, 1.0]
-    else:
-        cuts = [0.0, 1.0]
-    out = []
-    # the upper half
-    ys_top = [mid + a * c for c in cuts]
-    ys_bot = [mid - a * c for c in cuts]
-    if not round_top:
-        ys_top = [mid, top]
-    if not round_bottom:
-        ys_bot = [mid, bottom]
-    # unify: boundaries bottom..top
-    bounds = sorted(set([round(y) for y in ys_bot + ys_top]))
-    bounds[0], bounds[-1] = bottom, top
-    bounds = sorted(set(bounds))
-    for lo, hi in zip(bounds[:-1], bounds[1:]):
-        if hi <= lo:
-            continue
-        # the row's width: the section's width at the row's middle, but a row that holds the centre is full width
-        t0, t1 = (lo - mid) / a, (hi - mid) / a
-        if (t0 <= 0.0 <= t1) or (not round_top and t0 >= 0) or (not round_bottom and t1 <= 0):
-            share = 1.0
-        else:
-            near = min(abs(t0), abs(t1))
-            far = max(abs(t0), abs(t1))
-            share = 0.5 * (swidth(near) + swidth(far))
-            if not round_top and t0 >= 0:
-                share = 1.0
-        w = max(0.5, round(half * share * 2) / 2.0)
-        out.append((lo, hi, w))
+    return [(int(r[0]), int(r[-1]) + 1) for r in np.split(col, np.where(np.diff(col) > 1)[0] + 1)]
+
+
+def slice_extent(xa, xb, run=0):
+    """The top and bottom (exclusive) of the body's {run}-th run of columns over x in [xa, xb), averaged and rounded."""
+    tops, bots = [], []
+    for x in range(xa, xb):
+        runs = column_runs(x)
+        if len(runs) > run:
+            tops.append(runs[run][0])
+            bots.append(runs[run][1])
+    return int(round(np.mean(tops))), int(round(np.mean(bots)))
+
+
+def slice_rows(xa, xb, top, bot, span):
+    """The rows of a slice from {top} to {bot} using the front view's profile over its span of rows (a pair (y_top, y_bottom) in
+    the front view that the slice's own height is stretched over), at the slice's taper."""
+    f = taper((xa + xb) / 2.0)
+    t0, t1 = span
+
+    def half_of(y):
+        t = (y - top) / float(max(1, bot - top))
+        return f * front_half(t0 + t * (t1 - t0))
+    return merge(rows_for(top, bot, half_of))
+
+
+def add_slice(part_name, kind, xa, xb, top, bot, span, **meta):
+    rows = slice_rows(xa, xb, top, bot, span)
+    for ya, yb, w in rows:
+        add_box(part_name, kind, -w / 2.0, ya, Zd(xb), w, yb - ya, xb - xa, slice=(xa, xb), row=(ya, yb), **meta)
+    return rows
+
+
+def edges(lo, hi, step):
+    out = list(range(lo, hi, step)) + [hi]
     return out
-
-
-def merge(rows_):
-    """Adjacent rows with the same width are one."""
-    out = []
-    for lo, hi, w in rows_:
-        if out and out[-1][2] == w and out[-1][1] == lo:
-            out[-1] = (out[-1][0], hi, w)
-        else:
-            out.append((lo, hi, w))
-    return out
-
-
-def depth_for(u, lo=2, hi=4):
-    """How deep a slice of the body is at u: shallow where the sections change quickly (so the outline steps no more than a
-    pixel or two), deeper where they hardly change."""
-    best = 0.0
-    for table in (TOP, BOTTOM, HALF):
-        best = max(best, abs(interp(table, u + 1.0) - interp(table, u - 1.0)) / 2.0)
-    return int(max(lo, min(hi, round(1.6 / max(best, 1e-6)))))
-
-
-def slices(u0, u1, step_of, fn):
-    """Cuts u0..u1 into slices (their depth from {step_of(u)}), each described by fn(u_mid) -> rows (or None), merging
-    neighbours that come out the same. Returns [(ua, ub, rows)]."""
-    out = []
-    u = u0
-    while u < u1 - 1e-9:
-        d = min(step_of(u), u1 - u)
-        r = tuple(merge(fn(u + d / 2.0)))
-        if out and out[-1][2] == r and out[-1][1] - out[-1][0] + d <= 8:
-            out[-1] = (out[-1][0], u + d, r)
-        else:
-            out.append((u, u + d, r))
-        u += d
-    return out
-
-
-def stack(part_name, kind, ua, ub, rows_, **meta):
-    """The boxes of one slice: a row each, centred on x = 0, between u = ua and ub."""
-    for lo, hi, w in rows_:
-        add_box(part_name, kind, -w, Yh(hi), Z(ua), 2 * w, hi - lo, ub - ua, slice_u=(ua + ub) / 2.0, row=(lo, hi), **meta)
 
 
 # --- building him ----------------------------------------------------------------------------------------------------------
 
-def build():
-    PARTS.clear()
-    BOXES.clear()
-    _ORDER.clear()
-    part('trunk', None, (0.0, 0.0, 0.0))
-    part('head', 'trunk', (0.0, Yh(36.0), Z(U_WALL)))
-    jaw_tilt = math.atan2(interp(BOTTOM, NOSE) - HINGE_H, U_HINGE - NOSE)  # how far the lip rises toward the front
-    part('jaw', 'head', (0.0, Yh(HINGE_H) - Yh(36.0), Z(U_HINGE) - Z(U_WALL)))
-    part('pectoral_r', 'trunk', (17.0, Yh(30.0), Z(50)))
-    part('pectoral_l', 'trunk', (-17.0, Yh(30.0), Z(50)))
-    part('rear', 'trunk', (0.0, Yh(34.0), Z(U_REAR)))
-    part('stalk', 'rear', (0.0, 0.0, U_STALK - U_REAR))
-    part('tail', 'stalk', (0.0, 0.0, U_FIN - U_STALK))
-
-    # The head: from the nose to the wall, a slice at a time; its underside the lip (flat, the roof of his mouth) from the
-    # front teeth back, the nose rounded all round ahead of that.
-    def head_rows(u):
-        top, bot, half = sections_at(u)
-        return rows(bot, top, half, round_top=True, round_bottom=u < NOSE)
-    for ua, ub, r in slices(0, U_WALL, lambda u: depth_for(u, 2, 3), head_rows):
-        stack('head', 'head', ua, ub, r)
-    # The trunk: the chest and back, the wall of the throat at its front.
-    def trunk_rows(u):
-        top, bot, half = sections_at(u)
-        return rows(bot, top, half)
-    for ua, ub, r in slices(U_WALL, U_REAR, lambda u: depth_for(u, 2, 4), trunk_rows):
-        stack('trunk', 'trunk', ua, ub, r)
-    # The rear of the body, narrowing; then the stalk.
-    for ua, ub, r in slices(U_REAR, U_STALK, lambda u: depth_for(u, 2, 3), trunk_rows):
-        stack('rear', 'rear', ua, ub, r)
-    for ua, ub, r in slices(U_STALK, U_FIN, lambda u: 3, trunk_rows):
-        stack('stalk', 'stalk', ua, ub, r)
-
-    # The lower jaw: built straight out from its hinge (its rim at y = 0 of the part, forward along -z), turned down at the
-    # hinge by the animation; a flat top (the gums and teeth) and a rounded bowl below.
-    st = np.array(JAW)
-    jaw_u = 0.0
-    while jaw_u < JAW_LEN - 1e-9:
-        d = min(3.0, JAW_LEN - jaw_u)
-        mid = jaw_u + d / 2.0
-        hw = float(np.interp(mid, st[:, 0], st[:, 1]))
-        dep = float(np.interp(mid, st[:, 0], st[:, 2]))
-        for lo, hi, w in merge(rows(-dep, 0, hw, round_top=False, round_bottom=True)):
-            add_box('jaw', 'jaw', -w, -hi, -(jaw_u + d), 2 * w, hi - lo, d, local=True, v=mid, row=(lo, hi), depth=dep, hw=hw)
-        jaw_u += d
-    build_extras(jaw_tilt)
-    return jaw_tilt
-
-
-# How the legs, the jaw, the pectorals stand when he is still (radians): the game's animation adds the stride, the bite and the
-# sway to these. Right-hand values; the left is the mirror.
-LEG_UP = 0.72          # the upper part's angle up from horizontal at the hip
-LEG_BOW = 0.20         # the upper part curves: steeper at the hip by this, flatter at the knee
-LEG_SPLAY = {'front': 0.092, 'back': -0.153}   # fore-aft lean of the upper part (yaw), toward the front for the front pair
-SHIN_IN = 0.10         # the shin leans in toward the foot
-SHIN_FORE = {'front': -0.203, 'back': 0.257}   # and fore or aft (pitch), the feet a little outside the hips
-SHIN_BEND = (-0.04, 0.05, 0.08, 0.08, 0.10)   # each shin piece's turn from the last (toward the inside is +): bows out, then hooks in
-HEAD_TILT = 0.12       # his head is carried a little up (radians): the snout tilted up, as in the stills
-PECTORAL_DOWN = 0.45
-PECTORAL_BACK = 0.64
-LEG_NAMES = [('leg_fr', 1, 'front'), ('leg_fl', -1, 'front'), ('leg_br', 1, 'back'), ('leg_bl', -1, 'back')]
-UPPER = [(18, 8, 10), (16, 6, 8)]                    # the upper part's two boxes: length, thickness, fore-aft width
-SHIN = [(5, 11, 10), (4, 10, 8), (3, 9, 6), (3, 7, 4), (2, 5, 2), (1, 2, 1)]   # the shin's four: thickness (in-out), length, fore-aft width
-UPPER_LEN = sum(b[0] for b in UPPER)
-
-
-def build_extras(jaw_tilt):
-    # The crab legs: the upper part out sideways and up (two boxes, curving), the shin down and in to a point (four boxes,
-    # narrowing to a claw).
-    for name, s, end in LEG_NAMES:
-        spec = LEGS[end]
-        hip = part(name, 'trunk', (s * LEG_HIP_OUT, Yh(LEG_HIP_H), Z(spec['hip_u'])))
-        x = 0.0
-        parent = name
-        for i, (ln, th, wd) in enumerate(UPPER):
-            nm = name if i == 0 else name + '_u2'
-            if i == 1:
-                part(nm, parent, (s * UPPER[0][0], 0.0, 0.0))
-            add_box(nm, 'leg_up', 0.0 if s > 0 else -ln, -th / 2.0, -wd / 2.0, ln, th, wd, local=True, side=s, piece=i)
-        parent = name + '_u2'
-        part(name + "_shin", parent, (s * UPPER[1][0], 0.0, 0.0))
-        py = 0.0
-        pname = name + '_shin'
-        for i, (th, ln, wd) in enumerate(SHIN):
-            if i > 0:
-                pname = part(name + '_s%d' % (i + 1), pname, (0.0, SHIN[i - 1][1], 0.0)).name
-            add_box(pname, 'leg_shin', -th / 2.0, 0.0, -wd / 2.0, th, ln, wd, local=True, side=s, piece=i)
-
-    # The pectoral fins: down and out of his lower sides, swept back, a smaller piece at each tip.
-    for name, s in (('pectoral_r', 1), ('pectoral_l', -1)):
-        add_box(name, 'pect', 0.0 if s > 0 else -10, 0, -2.5, 10, 1, 5, local=True, side=s)
-        part(name + '_tip', name, (s * 10.0, 0.0, 0.0))
-        add_box(name + '_tip', 'pect_tip', 0.0 if s > 0 else -6, 0, -1.5, 6, 1, 3, local=True, side=s)
-
-    # The eyes: thin boxes standing out of his side, found where the surface is at that height, painted round.
-    for i, (u, h, size) in enumerate(EYES):  # each eye two boxes crossed, so it reads round
-        for s in (1, -1):
-            width = surface_half(u, h, size)
-            depth = EYE_OUT + 1
-            x = (width - 1.0) if s > 0 else -(width - 1.0) - depth
-            add_box('head', 'eye', x, Yh(h) - size / 2.0, Z(u) - (size - 2) / 2.0, depth, size, size - 2, side=s, size=size, index=i, shape='tall')
-            add_box('head', 'eye', x, Yh(h) - (size - 2) / 2.0, Z(u) - size / 2.0, depth, size - 2, size, side=s, size=size, index=i, shape='wide')
-
-    # The row of dark spikes down his back: flat triangles swept back.
-    for i, (u, ht, ln) in enumerate(SPIKES):
-        part_name = 'trunk' if u < U_REAR else ('rear' if u < U_STALK else 'stalk')
-        top = interp(TOP, u + ln / 2.0)
-        add_box(part_name, 'spike', 0.0, Yh(top) - ht + 1, Z(u), 0, ht, ln, index=i)
-
-    # The crescent tail fin, in rows from its lower tip to its upper tip, thin across.
-    lead = [(91.2, 9.6), (83.2, 15.2), (77.9, 24.8), (79.5, 36.8), (92.0, 51.2)]
-    trail = [(91.2, 9.6), (87.5, 16.0), (85.6, 25.3), (86.6, 36.8), (92.0, 51.2)]
-    hs = [p[1] for p in lead]
-    h = 10
-    while h < 51:
-        top = min(h + 3, 51)
-        mid = (h + top) / 2.0
-        a = float(np.interp(mid, hs, [p[0] for p in lead]))
-        b = float(np.interp(mid, [p[1] for p in trail], [p[0] for p in trail]))
-        ua, ub = int(round(a)), max(int(round(b)), int(round(a)) + 1)
-        add_box('tail', 'fin', -1.0, Yh(top), Z(ua), 2, top - h, ub - ua, row=(h, top))
-        h = top
-
-    # Teeth: rows of small cream triangles painted on flat planes along the lips (the upper hanging from the roof's edge, the
-    # lower rising from the jaw's), and across the front of each jaw.
-    lip_h = interp(BOTTOM, NOSE)
-    for s in (1, -1):
-        zs = [NOSE, 22.5, 33, U_HINGE]
-        for a, b in zip(zs[:-1], zs[1:]):
-            ln = b - a
-            hw_a, hw_b = interp(HALF, a), interp(HALF, b)
-            yaw = math.atan2(hw_a - hw_b, ln) * (1 if s > 0 else -1)
-            name = 'teeth_up_%s_%d' % ('r' if s > 0 else 'l', int(a))
-            lip_b = interp(BOTTOM, b)
-            # a part at the back end of the stretch, turned to follow the lip, the plane running forward from it
-            part(name, 'head', (s * (hw_b - 1.5), Yh(lip_b) - Yh(36.0), Z(b) - Z(U_WALL)), rot=(-jaw_tilt, yaw, 0.0))
-            add_box(name, 'teeth_up', 0.0, 0.0, -ln / math.cos(jaw_tilt), 0, 5, ln / math.cos(jaw_tilt), local=True, side=s)
-    add_box('head', 'teeth_front_up', -(interp(HALF, NOSE) - 2.5), Yh(lip_h) , Z(NOSE) + 0.5, 2 * (interp(HALF, NOSE) - 2.5), 4, 0, local=False)
-    st = np.array(JAW)
-    for s in (1, -1):
-        vs = [0, 10, 20, 30]
-        for a, b in zip(vs[:-1], vs[1:]):
-            hw_a = float(np.interp(a, st[:, 0], st[:, 1]))
-            hw_b = float(np.interp(b, st[:, 0], st[:, 1]))
-            yaw = math.atan2(hw_a - hw_b, b - a) * (1 if s > 0 else -1)
-            name = 'teeth_low_%s_%d' % ('r' if s > 0 else 'l', a)
-            part(name, 'jaw', (s * (hw_a - 1.5), 0.0, -a), rot=(0.0, yaw, 0.0))
-            add_box(name, 'teeth_low', 0.0, -5.0, -(b - a), 0, 5, b - a, local=True, side=s)
-    add_box('jaw', 'teeth_front_low', -3.0, -4.0, -JAW_LEN - 0.5, 6, 4, 0, local=True)
-
-
-def standing(paint=False):
-    """The rotations (pitch, yaw, roll) every part has when he stands still, the game's animation at rest (the jaw hanging open
-    the rest angle, the legs in their stance); parts not named keep their rest rotation (the teeth's slants, nothing)."""
-    tilt = math.atan2(interp(BOTTOM, NOSE) - HINGE_H, U_HINGE - NOSE)
-    pose = {name: PARTS[name].rot for name in PARTS}
-    pose['jaw'] = (-tilt + math.radians(OPEN_DEG), 0.0, 0.0)
-    if not paint:
-        pose['head'] = (-HEAD_TILT, 0.0, 0.0)
-    for name, s, end in LEG_NAMES:
-        pose[name] = (0.0, s * LEG_SPLAY[end], -s * (LEG_UP + LEG_BOW))
-        pose[name + '_u2'] = (0.0, 0.0, s * 2 * LEG_BOW)
-        pose[name + '_shin'] = (SHIN_FORE[end], 0.0, s * (LEG_UP - LEG_BOW + SHIN_IN))
-        for i in range(1, len(SHIN)):
-            pose[name + '_s%d' % (i + 1)] = (0.0, 0.0, s * SHIN_BEND[i - 1])
-    for name, s in (('pectoral_r', 1), ('pectoral_l', -1)):
-        pose[name] = (0.0, -s * PECTORAL_BACK, s * PECTORAL_DOWN)
-    return pose
-
-
-def rot_matrix(pitch, yaw, roll):
+def rotation(pitch, yaw, roll):
     """The game's order: rotationZYX(roll, yaw, pitch), Rz * Ry * Rx."""
     cx, sx, cy, sy, cz, sz = math.cos(pitch), math.sin(pitch), math.cos(yaw), math.sin(yaw), math.cos(roll), math.sin(roll)
     rx = np.array([[1, 0, 0], [0, cx, -sx], [0, sx, cx]])
@@ -420,13 +269,381 @@ def rot_matrix(pitch, yaw, roll):
     return rz @ ry @ rx
 
 
+rot_matrix = rotation
+
+
+def euler(R):
+    """The (pitch, yaw, roll) whose rotation() is R."""
+    yaw = -math.asin(max(-1.0, min(1.0, R[2, 0])))
+    return (math.atan2(R[2, 1], R[2, 2]), yaw, math.atan2(R[1, 0], R[0, 0]))
+
+
+def along(d):
+    """The (pitch, yaw, roll) that turns a part's +y axis (the way its boxes run) onto the unit vector d, without yaw."""
+    d = np.array(d, float)
+    d = d / np.linalg.norm(d)
+    return (math.asin(max(-1.0, min(1.0, d[2]))), 0.0, math.atan2(-d[0], d[1]))
+
+
+def fit_jaw():
+    """The jaw's rim: the line from the corner through the drawn lower rim, as a direction in the drawing's (x, y)."""
+    pts = np.array([p for p in bp.spline(bp.LOWER_RIM) if p[0] >= X_CORNER + 2])
+    d = pts - np.array(bp.CORNER)
+    slope = float((d[:, 0] * d[:, 1]).sum() / (d[:, 0] ** 2).sum())
+    return math.atan(slope)
+
+
+def build():
+    PARTS.clear()
+    BOXES.clear()
+    _ORDER.clear()
+    STATS.clear()
+    part('trunk', None, (0.0, 0.0, 0.0))
+    part('head', 'trunk', (0.0, float(Y_CORNER), Zd(X_CORNER)))
+    theta = fit_jaw()
+    STATS['jaw_theta'] = theta
+    part('jaw', 'head', (0.0, 0.0, 0.0), rot=(theta, 0.0, 0.0))
+    part('rear', 'trunk', (0.0, 34.0, Zd(X_REAR)))
+    part('stalk', 'rear', (0.0, 0.0, Zd(X_STALK) - Zd(X_REAR)))
+    part('tail', 'stalk', (0.0, 0.0, Zd(X_FIN) - Zd(X_STALK)))
+
+    # The rear of the body, narrowing toward the stalk; the trunk, the chest and back, up to the mouth's corner.
+    for xa, xb in zip(edges(X_STALK, X_REAR, 3)[:-1], edges(X_STALK, X_REAR, 3)[1:]):
+        top, bot = slice_extent(xa, xb)
+        add_slice('rear', 'rear', xa, xb, top, bot, (F_TOP, F_BOT))
+    # (the rear's first slice and the head's last carry on 2 px into their neighbours, so a turn at the joint opens no crack)
+    top, bot = slice_extent(X_REAR, X_REAR + 2)
+    add_slice('rear', 'rear', X_REAR, X_REAR + 2, top, bot, (F_TOP, F_BOT), overlap=True)
+    tr = list(range(X_REAR, 104, 3)) + [104, X_CORNER]
+    for xa, xb in zip(tr[:-1], tr[1:]):
+        top, bot = slice_extent(xa, xb)
+        add_slice('trunk', 'trunk', xa, xb, top, bot, (F_TOP, F_BOT))
+
+    # The head: the dome over the mouth, the snout carrying on past it, rounded off at the tip. Its bottom is the roof of the
+    # mouth: full width there, so the front view's profile is stretched over the rows from the top to the widest.
+    top, bot = slice_extent(X_CORNER - 2, X_CORNER)
+    add_slice('head', 'head', X_CORNER - 2, X_CORNER, top, Y_CORNER + 2, (F_TOP, F_WIDEST), overlap=True)
+    he = list(range(X_CORNER, 138, 2)) + [138, 140, 142, 144, 146, X_NOSE]
+    for xa, xb in zip(he[:-1], he[1:]):
+        top, bot = slice_extent(xa, xb)
+        add_slice('head', 'head', xa, xb, top, bot, (F_TOP, F_WIDEST))
+    build_stalk_and_fin()
+    build_jaw(theta)
+    build_plate()
+    build_eyes()
+    build_spikes()
+    build_legs()
+    build_pectorals()
+    build_teeth(theta)
+    return theta
+
+
+def build_stalk_and_fin():
+    """The stalk: a short tapering block; the crescent fin: its rows from the drawn polygon, thin across."""
+    stalk = _poly(bp.TAIL_STALK, (bp.W, bp.H))
+    for xa, xb in ((12, 16), (16, 20), (20, X_STALK + 1)):
+        tops, bots = [], []
+        for x in range(xa, xb):
+            ys = np.nonzero(stalk[:, x])[0]
+            if len(ys):
+                tops.append(ys.min())
+                bots.append(ys.max() + 1)
+        top, bot = int(round(np.mean(tops))), int(round(np.mean(bots)))
+        w = max(4, int(round(2.0 * taper(xa) * front_half(34.0) * 0.9)))
+        add_box('stalk', 'stalk', -w / 2.0, top, Zd(xb), w, bot - top, xb - xa, slice=(xa, xb), row=(top, bot))
+    fin = _poly(bp.TAIL_FIN, (bp.W, bp.H))
+    ys = np.nonzero(fin.any(axis=1))[0]
+    y = int(ys.min())
+    while y <= ys.max():
+        ye = min(y + 3, int(ys.max()) + 1)
+        xs = np.nonzero(fin[y:ye].any(axis=0))[0]
+        if len(xs):
+            xa, xb = int(xs.min()), int(xs.max()) + 1
+            add_box('tail', 'fin', -1.0, y, Zd(xb), 2, ye - y, xb - xa, slice=(xa, xb), row=(y, ye))
+        y = ye
+
+
+def build_jaw(theta):
+    """The lower jaw, built in a frame turned along its rim: z runs forward along the rim from the corner (local -z), y down
+    away from it, so the boxes stand straight in it. Its sections are the drawing's mask sampled along and across that frame; a
+    flat top (the gums and teeth) and a rounded bowl below."""
+    dirx, diry = math.cos(theta), math.sin(theta)      # forward along the rim, in the drawing's (x, y)
+    nx, ny = -math.sin(theta), math.cos(theta)         # down, away from the rim
+    hx, hy = bp.CORNER
+
+    def inside(s, dd):
+        x, y = hx + s * dirx + dd * nx, hy + s * diry + dd * ny
+        xi, yi = int(math.floor(x)), int(math.floor(y))
+        return 0 <= xi < bp.W and 0 <= yi < bp.H and SIDE_SIL[yi, xi] and not GAPE[yi, xi]
+
+    def in_gape(s, dd):
+        x, y = hx + s * dirx + dd * nx, hy + s * diry + dd * ny
+        xi, yi = int(math.floor(x)), int(math.floor(y))
+        return 0 <= xi < bp.W and 0 <= yi < bp.H and GAPE[yi, xi]
+
+    def extent(s):
+        """Where the mask is along the normal at s: from the rim (the first inside) to the chin (the last)."""
+        dd = -3.0
+        while dd < 8.0 and not in_gape(s, dd):
+            dd += 0.5
+        if dd >= 8.0:
+            dd = -1.0
+        while dd < 14.0 and not inside(s, dd):
+            dd += 0.5
+        if dd >= 14.0:
+            return 0.0, 0.0
+        top = dd
+        while dd < 60 and inside(s, dd + 0.5):
+            dd += 0.5
+        return top, dd + 0.5
+    length = 0
+    while extent(length + 0.5)[1] > 0 and length < 60:
+        length += 1
+    STATS['jaw_len'] = length
+    ss = list(range(0, length, JAW_STEP)) + [length]
+    # the mask's edges are pixel art (stairs of a pixel along a turned frame): smooth the rim and the chin along the jaw so the
+    # boxes do not copy that jitter
+    raw = np.array([extent(s + 0.5) for s in range(length)])
+    pad = np.pad(raw, ((3, 3), (0, 0)), mode='edge')
+    smooth_ex = np.array([pad[i:i + 7].mean(axis=0) for i in range(length)])
+    for sa, sb in zip(ss[:-1], ss[1:]):
+        if sb - sa < 1:
+            continue
+        ex = smooth_ex[sa:sb]
+        top = int(round(np.mean([e[0] for e in ex])))
+        bot = int(round(np.mean([e[1] for e in ex])))
+        if bot - top < 1:
+            continue
+        dep = bot - top
+        xm = hx + (sa + sb) / 2.0 * dirx
+        # in plan the jaw narrows to a rounded front (so, from the front, the lip hangs in a U, lowest at the middle)
+        cap = math.sqrt(max(0.05, 1.0 - 0.72 * ((sa + sb) / 2.0 / length) ** 2))
+        f = taper(xm) * cap
+
+        def half_of(y, top=top, dep=dep, f=f):
+            return f * front_half(F_WIDEST + ((y - top) / float(dep)) * (F_BOT - F_WIDEST))
+        for ya, yb, w in merge(rows_for(top, bot, half_of)):
+            add_box('jaw', 'jaw', -w / 2.0, ya, -sb, w, yb - ya, sb - sa, local=True, s=(sa, sb), row=(ya, yb), top=top, depth=dep, hw=w / 2.0)
+
+
+def build_plate():
+    """The mouth's inner wall: a thin plate down the middle of the open mouth, so he is not hollow when seen from the side (the
+    drawing shows the red inside between the lips). It runs rim to rim, a slice at a time, in the head's frame."""
+    xs = list(range(X_CORNER + 1, 137, 3)) + [137]
+    for xa, xb in zip(xs[:-1], xs[1:]):
+        tops, bots = [], []
+        for x in range(xa, xb):
+            ys = np.nonzero(GAPE[:, x])[0]
+            if len(ys):
+                tops.append(ys.min())
+                bots.append(ys.max() + 1)
+        if not tops:
+            continue
+        top, bot = int(round(np.mean(tops))), int(round(np.mean(bots)))
+        if bot - top < 1:
+            continue
+        add_box('head', 'plate', -1.0, top, Zd(xb), 2, bot - top, xb - xa, slice=(xa, xb))
+
+
+def surface_half(x, y, size):
+    """The half width of the body's side where an eye of {size} sits at the drawing's (x, y): the narrowest row it covers."""
+    z = Zd(x)
+    best = 99.0
+    for name in ('head', 'trunk'):
+        ox, oy, oz = absolute_pivot(name)
+        for b in PARTS[name].boxes:
+            if b.kind not in ('head', 'trunk') or b.meta.get('overlap') or not b.z + oz <= z <= b.z + oz + b.d:
+                continue
+            by = b.y + oy
+            if by + b.h > y - size / 2.0 and by < y + size / 2.0:
+                best = min(best, b.w / 2.0)
+    return best
+
+
+EYE_OUT = 3
+EYE_EXTRA = 1.0       # how far an eye box sinks into the head
+
+
+def build_eyes():
+    """Three eyes a side at the drawn places, each two crossed boxes standing out of the head's side so it reads round; they are
+    painted from the drawing's discs."""
+    for i, (ex, ey, r) in enumerate(bp.EYES):
+        size = int(round(2 * r + 1.4))
+        surf = surface_half(ex, ey, size)
+        owner = 'head' if ex >= X_CORNER else 'trunk'
+        for s in (1, -1):
+            x = (surf - EYE_EXTRA) if s > 0 else -(surf - EYE_EXTRA) - EYE_OUT
+            z0 = Zd(ex)
+            add_box(owner, 'eye', x, ey - size / 2.0, z0 - (size - 2) / 2.0 - 0.0, EYE_OUT, size, size - 2, side=s, size=size, index=i, shape='tall',
+                    centre=(ex, ey))
+            add_box(owner, 'eye', x, ey - (size - 2) / 2.0, z0 - size / 2.0, EYE_OUT, size - 2, size, side=s, size=size, index=i, shape='wide',
+                    centre=(ex, ey))
+
+
+def build_spikes():
+    """The back's five spikes, the front one biggest: stacked boxes, narrowing to the tip, swept back as drawn."""
+    for i, (spx, h) in enumerate(bp.SPIKES):
+        y = 8 + i * 1.6
+        cx = bp.sx(spx)
+        tri = _poly([(cx - 3, y + 1), (cx + 3, y + 1), (cx - 2, y - h)], (bp.W, bp.H))
+        ys = np.nonzero(tri.any(axis=1))[0]
+        part_name = 'trunk' if cx >= X_REAR else 'rear'
+        rows = []
+        yb = int(ys.max()) + 1
+        while yb > int(ys.min()):
+            ya = max(int(ys.min()), yb - 2)
+            xs = np.nonzero(tri[ya:yb].any(axis=0))[0]
+            rows.append((ya, yb, int(xs.min()), int(xs.max()) + 1))
+            yb = ya
+        for k, (ya, yb, xa, xb) in enumerate(rows):
+            w = max(1, 5 - k)
+            add_box(part_name, 'spike', -w / 2.0, ya, Zd(xb), w, yb - ya, xb - xa, index=i, slice=(xa, xb), row=(ya, yb))
+
+
+# --- legs -------------------------------------------------------------------------------------------------------------------
+
+# The drawn hip, knee and foot of each leg in model space (right side; the left mirrors it): the side drawing gives the
+# position along him and the height, the front drawing how far out.
+def _leg_points(side_leg, front_leg):
+    (hip, knee, foot, wh, wk) = side_leg
+    (fh, fk, ff, _, _) = front_leg
+    out = []
+    for sp, fp in ((hip, fh), (knee, fk), (foot, ff)):
+        out.append((float(fp[0]), (sp[1] + fp[1]) / 2.0 - LIFT, Zd(sp[0])))
+    return out, wh, wk
+
+
+LEG_SPECS = {'front': _leg_points(bp.NEAR_LEGS[0], bf.FRONT_LEGS), 'back': _leg_points(bp.NEAR_LEGS[1], bf.BACK_LEGS)}
+LEG_NAMES = [('leg_fr', 1, 'front'), ('leg_fl', -1, 'front'), ('leg_br', 1, 'back'), ('leg_bl', -1, 'back')]
+UPPER_STEPS = 4
+SHIN_THICK = [6.0, 5.0, 4.0, 3.0, 2.0, 1.0]     # the shin's boxes, from the knee to the claw (times SHIN_SCALE)
+UPPER_ADD = 1.0         # the upper blade is this much thicker than the drawing's capsule (a box is square, a capsule round)
+SHIN_SCALE = 1.4
+
+
+def build_legs():
+    """Each leg: a hip part (turned by the stride), the upper segment (a chain of angled boxes, hip to knee, broad), the shin
+    (hip's child at the knee: a chain narrowing to a point)."""
+    legs = {}
+    for name, s, end in LEG_NAMES:
+        (hip, knee, foot), wh, wk = LEG_SPECS[end]
+        H = np.array([s * hip[0], hip[1], hip[2]])
+        K = np.array([s * knee[0], knee[1], knee[2]])
+        F = np.array([s * foot[0], foot[1], foot[2]])
+        part(name, 'trunk', tuple(H))
+        up = K - H
+        ru = rotation(*along(up))
+        lu = float(np.linalg.norm(up))
+        part(name + '_up', name, (0.0, 0.0, 0.0), rot=euler(ru))
+        sh = F - K
+        rs = rotation(*along(sh))
+        ls = float(np.linalg.norm(sh))
+        rk = ru.T @ rs
+        part(name + '_shin', name + '_up', (0.0, lu, 0.0), rot=euler(rk))
+        legs[name] = (lu, ls)
+        # the upper segment: boxes down its length, thickness wh -> wk
+        n = UPPER_STEPS
+        for i in range(n):
+            y0, y1 = lu * i / n, lu * (i + 1) / n
+            t = wh + UPPER_ADD + (wk - wh) * (i + 0.5) / n
+            _leg_box(name + '_up', y0, y1 + 0.5 if i < n - 1 else y1, t, 'leg_up', s, i)
+        # the shin: its boxes' lengths in steps, each thinner
+        n = len(SHIN_THICK)
+        for i in range(n):
+            y0, y1 = ls * i / n, ls * (i + 1) / n
+            _leg_box(name + '_shin', y0, y1 + (0.5 if i < n - 1 else 0.0), SHIN_THICK[i] * SHIN_SCALE * (wk / 6.0), 'leg_shin', s, i)
+    STATS['legs'] = legs
+
+
+def _leg_box(part_name, y0, y1, t, kind, s, i):
+    tx, tz = max(1, int(round(t * 0.85))), max(1, int(round(t)))
+    add_box(part_name, kind, -tx / 2.0, y0, -tz / 2.0, tx, y1 - y0, tz, local=True, side=s, piece=i)
+
+
+def build_pectorals():
+    """The small low fins out of his lower flank: a thin blade from the drawn base out and down and back to its tip, three boxes
+    narrowing (fore-aft width 7, 5, 3), laid along the part's x axis and turned out, down and back."""
+    for s in (1, -1):
+        name = 'pectoral_r' if s > 0 else 'pectoral_l'
+        A = np.array([s * 22.0, 54.0, Zd(84.0)])
+        B = np.array([s * 31.0, 60.5, Zd(70.0)])
+        d = B - A
+        L = float(np.linalg.norm(d))
+        d = d / L
+        part(name, 'trunk', tuple(A), rot=(0.0, -math.asin(d[2]), math.atan2(d[1], d[0])))
+        for i, (wz, th) in enumerate(((7, 2), (5, 1), (3, 1))):
+            x0, x1 = L * i / 3, L * (i + 1) / 3
+            add_box(name, 'pect', x0, -th / 2.0, -wz / 2.0, (x1 - x0) + (0.5 if i < 2 else 0.0), th, wz, local=True, side=s, piece=i)
+
+
+# --- teeth -----------------------------------------------------------------------------------------------------------------
+
+TOOTH = 4   # a tooth's height (pixels)
+
+
+def lip_half(kind, x):
+    """Half the width of the lip near {x}: the roof's bottom row (the drawing's x), or the jaw's top row ({x} the distance
+    along the rim from the corner)."""
+    best = None
+    if kind == 'roof':
+        for b in PARTS['head'].boxes:
+            if b.kind == 'head' and b.meta['slice'][0] <= x < b.meta['slice'][1]:
+                if best is None or b.meta['row'][1] > best[0]:
+                    best = (b.meta['row'][1], b.w / 2.0)
+    else:
+        for b in PARTS['jaw'].boxes:
+            if b.kind == 'jaw' and b.meta['row'][0] == b.meta['top'] and b.meta['s'][0] <= x < b.meta['s'][1] + 0.001:
+                best = (0, b.w / 2.0)
+    return best[1] if best else 12.0
+
+
+def jaw_top(sv):
+    """The jaw's rim height (its frame's y) near {sv} along it."""
+    for b in PARTS['jaw'].boxes:
+        if b.kind == 'jaw' and b.meta['s'][0] <= sv < b.meta['s'][1] + 0.001:
+            return b.meta['top']
+    return 0
+
+
+def build_teeth(theta):
+    """Rows of teeth as planes along the lips (thin boxes without width, seen from the side) and across the front of each jaw
+    (seen from the front); painted from the drawings."""
+    # upper lips: planes hanging from the roof, one stretch at a time
+    xs = [X_CORNER + 4, 117, 128, 138]
+    for s in (1, -1):
+        for xa, xb in zip(xs[:-1], xs[1:]):
+            top, bot = slice_extent(xa, xb)
+            hw = lip_half('roof', (xa + xb) / 2.0) - 1.2
+            add_box('head', 'teeth_up', s * hw, bot - 0.5, Zd(xb), 0, TOOTH + 0.5, xb - xa, side=s, slice=(xa, xb))
+    jl = STATS['jaw_len']
+    ss = [3, 12, 21, jl - 1]
+    for s in (1, -1):
+        for sa, sb in zip(ss[:-1], ss[1:]):
+            hw = lip_half('jaw', (sa + sb) / 2.0) - 1.2
+            tp = jaw_top((sa + sb) / 2.0)
+            add_box('jaw', 'teeth_low', s * hw, tp - TOOTH, -sb, 0, TOOTH + 0.5, sb - sa, local=True, side=s, s=(sa, sb))
+    # across the front of each jaw
+    hw = lip_half('roof', 138) - 1.0
+    top, bot = slice_extent(136, 139)
+    add_box('head', 'teeth_front_up', -hw, bot - 0.5, Zd(138.5), 2 * hw, TOOTH + 0.5, 0, centre=(138.5, bot))
+    hwj = lip_half('jaw', jl - 2) - 1.0
+    add_box('jaw', 'teeth_front_low', -hwj, jaw_top(jl - 2) - TOOTH, -(jl - 0.5), 2 * hwj, TOOTH, 0, local=True)
+
+
+# --- the pose and the part matrices -----------------------------------------------------------------------------------------
+
+def standing(paint=False):
+    """The rotations (pitch, yaw, roll) every part has when he stands still: the parts' rest rotations."""
+    return {name: PARTS[name].rot for name in PARTS}
+
+
 def part_matrices(pose):
     """Each part's 4x4 matrix, its own frame to model space, for the given rotations."""
     out = {}
     for name in _ORDER:
         p = PARTS[name]
         m = np.eye(4)
-        m[:3, :3] = rot_matrix(*pose[name])
+        m[:3, :3] = rotation(*pose[name])
         m[:3, 3] = p.pivot
         out[name] = (out[p.parent] @ m) if p.parent else m
     return out
@@ -442,15 +659,50 @@ def corners(box, matrix):
     return (matrix @ np.array(pts).T).T[:, :3]
 
 
-def surface_half(u, h, size):
-    """The half width of the head's side where an eye of {size} sits at (u, h): the narrowest of its rows it covers."""
-    top, bot, half = sections_at(u)
-    best = half
-    for lo, hi, w in rows(bot, top, half, round_top=True, round_bottom=u < NOSE):
-        if hi > h - size / 2.0 and lo < h + size / 2.0:
-            best = min(best, w)
-    return best
+# --- silhouettes -----------------------------------------------------------------------------------------------------------
 
+def _hull(pts):
+    pts = sorted(set(map(tuple, np.round(pts, 4))))
+    if len(pts) < 3:
+        return pts
+
+    def cross(o, a, b):
+        return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+    lower, upper = [], []
+    for p in pts:
+        while len(lower) >= 2 and cross(lower[-2], lower[-1], p) <= 0:
+            lower.pop()
+        lower.append(p)
+    for p in reversed(pts):
+        while len(upper) >= 2 and cross(upper[-2], upper[-1], p) <= 0:
+            upper.pop()
+        upper.append(p)
+    return lower[:-1] + upper[:-1]
+
+
+def silhouette(view, pose=None, scale=1, only=None):
+    """The boxes' silhouette from the side or the front as a boolean array in the drawing's own pixels (the body layer's y,
+    shifted by LIFT to the picture's), at {scale} times finer (then True where the pixel is mostly covered)."""
+    pose = pose or standing()
+    mats = part_matrices(pose)
+    W, H = (bp.W, bp.H) if view == 'side' else (bf.W, bf.H)
+    ss = 4
+    img = Image.new('L', (W * ss, H * ss), 0)
+    dr = ImageDraw.Draw(img)
+    for b in BOXES:
+        if only and not only(b):
+            continue
+        c = corners(b, mats[b.part])
+        x, y, z = c[:, 0], c[:, 1] + LIFT, c[:, 2]
+        if view == 'side':
+            col, row = (XM - z) * ss, y * ss
+        else:
+            col, row = (CX + x) * ss, y * ss
+        poly = _hull(list(zip(col, row)))
+        if len(poly) >= 3:
+            dr.polygon(poly, fill=255)
+    a = np.array(img).reshape(H, ss, W, ss).mean(axis=(1, 3)) > 127
+    return a
 
 
 # --- the texture's layout and the box faces' pixels -------------------------------------------------------------------------
@@ -501,6 +753,14 @@ def fmt(x):
     return ('%d' % x if x == int(x) else '%s' % x) + 'F'
 
 
+def mouth_open():
+    """How far the mouth hangs open in the drawing (radians): the angle between the roof's rim and the jaw's."""
+    up = np.array([p for p in bp.spline(bp.UPPER_RIM) if p[0] >= X_CORNER + 2])
+    d = up - np.array(bp.CORNER)
+    slope = float((d[:, 0] * d[:, 1]).sum() / (d[:, 0] ** 2).sum())
+    return fit_jaw() - math.atan(slope)
+
+
 def java():
     height = pack()
     o = []
@@ -512,27 +772,31 @@ def java():
     o.append('')
     o.append('/**')
     o.append(" * Beam's boxes: GENERATED by {@code tools/beam_boxes.py --java}, do not edit (change the script and run it again).")
-    o.append(" * The script builds him from the smooth blueprint's measured sections as slices along his body, each a short stack of")
-    o.append(' * boxes narrowing toward its top and bottom, and lays the texture out for them; {@code tools/gen_chainsaw_textures.py}')
-    o.append(" * ({@code beam_entity}) paints it from the same layout. The part tree, each part's pivot and its boxes (texture")
-    o.append(" * corner, then the box's corner and size) are all here; {@link BeamModel} poses the parts.")
+    o.append(" * The script measures the two drawings kortev approved ({@code tools/beam_profile.py}, {@code tools/beam_front.py}) and")
+    o.append(' * builds him from them: slices along his body each a stack of boxes narrowing toward its top and bottom, the head and the')
+    o.append(' * lower jaw hinged at the mouth\'s corner, legs of angled boxes through the drawn hip, knee and foot; it lays the texture')
+    o.append(" * out for them, and {@code tools/gen_chainsaw_textures.py} ({@code beam_entity}) paints it from the same layout. The part")
+    o.append(" * tree, each part's pivot and rest turn and its boxes (texture corner, then the box's corner and size) are all here;")
+    o.append(' * {@link BeamModel} poses the parts.')
     o.append(' */')
     o.append('final class BeamLayout {')
     o.append('\tstatic final int TEXTURE_WIDTH = %d;' % TEXTURE_W)
     o.append('\tstatic final int TEXTURE_HEIGHT = %d;' % height)
-    o.append('\t/** Pixels: how high the top of his back is above the soles of his feet. */')
+    o.append('\t/** Pixels: how high the model\'s y = 0 (the spike tips) is above the soles of his feet. */')
     o.append('\tstatic final float HEIGHT = %s;' % fmt(HEIGHT))
-    o.append("\t/** The lip's slope up toward the front (radians): the jaw, closed, lies along it. */")
-    o.append('\tstatic final float LIP_TILT = %s;' % fmt(math.atan2(interp(BOTTOM, NOSE) - HINGE_H, U_HINGE - NOSE)))
-    o.append("\t/** How the mouth hangs open, and how the legs and the pectorals stand when he is still (radians; the right-hand values, the left mirrors them). */")
-    for name, val in (('MOUTH_OPEN', math.radians(OPEN_DEG)), ('LEG_UP', LEG_UP), ('LEG_BOW', LEG_BOW), ('SHIN_IN', SHIN_IN),
-                      ('PECTORAL_DOWN', PECTORAL_DOWN), ('PECTORAL_BACK', PECTORAL_BACK), ('HEAD_TILT', HEAD_TILT)):
-        o.append('\tstatic final float %s = %s;' % (name, fmt(val)))
-    o.append('\t/** Index 0 the front pair, 1 the back pair. */')
-    o.append('\tstatic final float[] LEG_SPLAY = {%s, %s};' % (fmt(LEG_SPLAY['front']), fmt(LEG_SPLAY['back'])))
-    o.append('\tstatic final float[] SHIN_FORE = {%s, %s};' % (fmt(SHIN_FORE['front']), fmt(SHIN_FORE['back'])))
-    o.append('\t/** Each shin piece\'s turn from the last, toward the inside. */')
-    o.append('\tstatic final float[] SHIN_BEND = {%s};' % ', '.join(fmt(x) for x in SHIN_BEND))
+    o.append("\t/** How far the mouth hangs open in the drawing (radians): the jaw's rest turn is its frame's turn and this is what it opens from shut. */")
+    o.append('\tstatic final float MOUTH_OPEN = %s;' % fmt(mouth_open()))
+    o.append("\t/** The jaw's rest turn (radians, its front down), as drawn. */")
+    o.append('\tstatic final float JAW_REST = %s;' % fmt(STATS['jaw_theta']))
+    o.append("\t/** Each leg's rest turns (pitch, yaw, roll): the upper segment, then the shin from the upper's frame; order front right, front left, back right, back left. */")
+    for key, suffix in (('_up', 'UPPER_REST'), ('_shin', 'SHIN_REST')):
+        rows = []
+        for name, s, end in LEG_NAMES:
+            r = PARTS[name + key].rot
+            rows.append('{%s, %s, %s}' % (fmt(r[0]), fmt(r[1]), fmt(r[2])))
+        o.append('\tstatic final float[][] %s = {%s};' % (suffix, ', '.join(rows)))
+    o.append("\t/** The right pectoral fin's rest roll (radians; the left mirrors it): the animation flaps it about this. */")
+    o.append('\tstatic final float PECTORAL_ROLL = %s;' % fmt(PARTS['pectoral_r'].rot[2]))
     o.append('')
     o.append('\tprivate BeamLayout() {')
     o.append('\t}')
@@ -565,10 +829,11 @@ LAYOUT_JAVA = os.path.join('chainsawman', 'src', 'client', 'java', 'io', 'github
 
 
 def main():
-    tilt = build()
+    theta = build()
     height = pack()
     if '--report' in sys.argv:
-        print('lip tilt %.1f deg; %d boxes in %d parts; texture %d x %d' % (math.degrees(tilt), len(BOXES), len(PARTS), TEXTURE_W, height))
+        print('jaw rim %.1f deg below the horizontal; mouth open %.1f deg; %d boxes in %d parts; texture %d x %d' % (
+            math.degrees(theta), math.degrees(mouth_open()), len(BOXES), len(PARTS), TEXTURE_W, height))
         for p in _ORDER:
             if PARTS[p].boxes:
                 print('  %-16s %3d boxes' % (p, len(PARTS[p].boxes)))

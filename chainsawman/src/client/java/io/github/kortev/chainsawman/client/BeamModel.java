@@ -10,23 +10,23 @@ import net.minecraft.util.math.MathHelper;
 
 /**
  * Beam the shark fiend as he is in the Reze arc, in Minecraft's own way of making animals, like Pochita and the chainsaw
- * head: boxes, painted pixel by pixel. kortev liked the smooth Blender Beam ({@code tools/beam_model.py}) as the design but
- * wanted it in the same style as those, so this is that design in boxes: a heavy, deep, rounded torpedo of a shark about 5
- * blocks long, the body a run of slices along his length, each a short stack of boxes narrowing toward its top and bottom so
- * the outline steps smoothly round, sized to the blueprint's measured sections ({@code tools/beam_boxes.py} measures and
- * writes {@link BeamLayout}, every box, part and texture corner; {@code tools/gen_chainsaw_textures.py}, {@code beam_entity},
- * paints the texture from the same layout). A big blunt head with a long rounded nose carrying on well past and above the
- * mouth, the mouth hanging open about 38 degrees over a lower jaw that snaps shut to bite, rows of small cream teeth painted
- * along both jaws, three round eyes up each side in a diagonal, a row of dark spikes down his back, the rear of the body and
- * the tail's stalk and crescent fin hinged one to the next so the tail sways, small pectoral fins, and four crab legs out of
- * the lower sides of his body: the upper part, two boxes that curve, out sideways and up past his flank to a high knee, then
- * a shin of four boxes narrowing down and in to a claw on the ground.
+ * head: boxes, painted pixel by pixel. This is the shape kortev approved as two pixel-art drawings (the side and the front,
+ * {@code tools/beam_profile.py} and {@code tools/beam_front.py}), built in boxes from them: a huge heavy shark about 9 blocks
+ * from snout to tail and 4 tall, the body a run of slices along his length, each a stack of boxes narrowing toward its top
+ * and bottom so the outline steps smoothly round ({@code tools/beam_boxes.py} measures the drawings and writes
+ * {@link BeamLayout}, every box, part and texture corner; {@code tools/beam_paint.py}, through
+ * {@code tools/gen_chainsaw_textures.py}, paints the texture by projecting the drawings onto those boxes). A big blunt head with
+ * a snout dome overhanging the wide open mouth, the corner of the mouth under the front eye, the lower jaw (its own part)
+ * dropped from that corner over a big round chin, teeth along both lips, three round eyes up each side, five spikes down his
+ * back, the rear of the body and the tail's stalk and crescent fin hinged one to the next so the tail sways, small pectoral
+ * fins, and four crab legs: the upper blade out of the lower side of his body, sideways and up to a high knee, the shin a
+ * tapering blade down and in to a point on the ground.
  *
- * <p>Pixels in the model's space: y down, the top of his back at 0 (the renderer puts that {@link #BACK} above the ground, and
- * the soles of his feet at {@link BeamLayout#HEIGHT} pixels), the middle of him at x 0, z 0, his front toward -z.
+ * <p>Pixels in the model's space: y down, the model's y = 0 {@link #BACK} above the ground (the spike tips), the soles of
+ * his feet at {@link BeamLayout#HEIGHT} pixels, the middle of him at x 0, z 0, his front toward -z.
  */
 public class BeamModel {
-	/** How high the top of his back is above the ground (pixels): his belly clears it by 13. */
+	/** How high the model's y = 0 is above the ground (blocks). */
 	public static final float HEIGHT = BeamLayout.HEIGHT;
 	public static final float BACK = HEIGHT / 16.0F;
 
@@ -39,22 +39,17 @@ public class BeamModel {
 	private final ModelPart jaw;
 	private final ModelPart rightPectoral;
 	private final ModelPart leftPectoral;
-	/**
-	 * The four legs, front right, front left, back right, back left: the hip (the upper part, turned out and up), the second
-	 * piece of the upper part (the bow), the knee (the shin) and the shin's three lower pieces.
-	 */
+	/** The four legs, front right, front left, back right, back left: the hip (turned by the stride), the upper blade, the shin. */
 	private final ModelPart[] hips = new ModelPart[4];
-	private final ModelPart[] bows = new ModelPart[4];
-	private final ModelPart[] knees = new ModelPart[4];
-	private final ModelPart[][] claws = new ModelPart[4][BeamLayout.SHIN_BEND.length];
+	private final ModelPart[] uppers = new ModelPart[4];
+	private final ModelPart[] shins = new ModelPart[4];
 
 	/** How far the mouth is open when he is not biting (radians, from shut), and open wide for a bite. */
 	private static final float OPEN_REST = BeamLayout.MOUTH_OPEN;
 	private static final float OPEN_WIDE = BeamLayout.MOUTH_OPEN + 0.42F;
-	/** A stride: how far a leg swings at its hip, and at its knee (radians), and how high it lifts its knee going forward. */
-	private static final float STRIDE_HIP = 0.3F;
-	private static final float STRIDE_KNEE = 0.4F;
-	private static final float LIFT = 0.4F;
+	/** A stride: how far a leg swings at its hip (radians), and how far it lifts (a roll at the hip). */
+	private static final float STRIDE_HIP = 0.4F;
+	private static final float LIFT = 0.45F;
 
 	public BeamModel(ModelPart root) {
 		this.root = root;
@@ -69,13 +64,8 @@ public class BeamModel {
 		String[] names = {"leg_fr", "leg_fl", "leg_br", "leg_bl"};
 		for (int i = 0; i < 4; i++) {
 			hips[i] = trunk.getChild(names[i]);
-			bows[i] = hips[i].getChild(names[i] + "_u2");
-			knees[i] = bows[i].getChild(names[i] + "_shin");
-			ModelPart last = knees[i];
-			for (int k = 0; k < BeamLayout.SHIN_BEND.length; k++) {
-				last = last.getChild(names[i] + "_s" + (k + 2));
-				claws[i][k] = last;
-			}
+			uppers[i] = hips[i].getChild(names[i] + "_up");
+			shins[i] = uppers[i].getChild(names[i] + "_shin");
 		}
 	}
 
@@ -101,57 +91,44 @@ public class BeamModel {
 			lifting[i] = Math.max(0.0F, MathHelper.cos(p)) * pace;
 		}
 		for (int i = 0; i < 4; i++) {
-			int end = i < 2 ? 0 : 1;
 			float side = i % 2 == 0 ? 1.0F : -1.0F;
-			float lift = LIFT * lifting[i] + 0.5F * air;
-			// The upper part: angled up from the side (the left one the other way round), curving (steeper at the hip, flatter
-			// at the knee); yawed forward or back, swinging.
-			float yaw = BeamLayout.LEG_SPLAY[end] + STRIDE_HIP * forward[i] * (1.0F - air);
-			hips[i].yaw = side * yaw;
-			float up = BeamLayout.LEG_UP + lift;
-			hips[i].roll = -side * (up + BeamLayout.LEG_BOW);
-			bows[i].roll = side * 2.0F * BeamLayout.LEG_BOW;
-			// The shin: hangs from the knee, angled in at the foot (so it keeps its slant however the knee lifts); swinging
-			// forward and back with the stride, its claw hooking in.
-			knees[i].roll = side * (up - BeamLayout.LEG_BOW + BeamLayout.SHIN_IN);
-			knees[i].pitch = BeamLayout.SHIN_FORE[end] - STRIDE_KNEE * forward[i] * (1.0F - air) - 0.3F * air;
-			for (int k = 0; k < BeamLayout.SHIN_BEND.length; k++) {
-				claws[i][k].roll = side * BeamLayout.SHIN_BEND[k];
-			}
+			// The legs stand as drawn (the parts' own turns); the hip swings the whole leg about the vertical through it, and
+			// rolls it up to lift the foot (the right-hand legs one way, the left the other).
+			hips[i].yaw = side * STRIDE_HIP * forward[i] * (1.0F - air);
+			hips[i].roll = -side * (LIFT * lifting[i] + 0.7F * air);
+			shins[i].pitch = BeamLayout.SHIN_REST[i][0] - 0.5F * air;
 		}
 		// The body rocks a little with his steps and rises and falls with them.
-		trunk.roll = MathHelper.sin(walk) * 0.02F * pace;
+		trunk.roll = MathHelper.sin(walk) * 0.015F * pace;
 		trunk.pivotY = -Math.abs(MathHelper.sin(walk)) * 1.0F * pace;
 		float sway = 0.35F + 0.65F * pace;
-		trunk.yaw = MathHelper.sin(time) * 0.025F * sway;
-		rear.yaw = MathHelper.sin(time - 0.9F) * 0.12F * sway;
-		stalk.yaw = MathHelper.sin(time - 1.8F) * 0.2F * sway;
-		tail.yaw = MathHelper.sin(time - 2.7F) * 0.28F * sway;
+		trunk.yaw = MathHelper.sin(time) * 0.02F * sway;
+		rear.yaw = MathHelper.sin(time - 0.9F) * 0.05F * sway;
+		stalk.yaw = MathHelper.sin(time - 1.8F) * 0.12F * sway;
+		tail.yaw = MathHelper.sin(time - 2.7F) * 0.22F * sway;
 		// The bite: the jaw opens wide, snaps shut and falls back open; the head lifts with it.
-		float open = OPEN_REST + 0.05F * MathHelper.sin(time * 0.5F);
+		float open = OPEN_REST + 0.04F * MathHelper.sin(time * 0.5F);
 		float lift = 0.0F;
 		if (bite < 9.0F) {
 			if (bite < 1.5F) {
 				float k = bite / 1.5F;
 				open = MathHelper.lerp(k, OPEN_REST, OPEN_WIDE);
-				lift = k * 0.2F;
+				lift = k * 0.12F;
 			} else if (bite < 3.5F) {
 				float k = (bite - 1.5F) / 2.0F;
 				open = MathHelper.lerp(k, OPEN_WIDE, 0.03F);
-				lift = MathHelper.lerp(k, 0.2F, 0.08F);
+				lift = MathHelper.lerp(k, 0.12F, 0.04F);
 			} else {
 				float k = MathHelper.clamp((bite - 3.5F) / 5.5F, 0.0F, 1.0F);
 				open = MathHelper.lerp(k, 0.03F, open);
-				lift = MathHelper.lerp(k, 0.08F, 0.0F);
+				lift = MathHelper.lerp(k, 0.04F, 0.0F);
 			}
 		}
-		// The jaw lies along the lip when shut: its rest turn is the lip's slope up toward the front, the opening on top of it.
-		jaw.pitch = -BeamLayout.LIP_TILT + open;
-		head.pitch = -BeamLayout.HEAD_TILT - lift - 0.1F * air;
-		rightPectoral.roll = BeamLayout.PECTORAL_DOWN + MathHelper.sin(time + 1.0F) * 0.06F;
-		leftPectoral.roll = -BeamLayout.PECTORAL_DOWN - MathHelper.sin(time + 1.0F) * 0.06F;
-		rightPectoral.yaw = -BeamLayout.PECTORAL_BACK;
-		leftPectoral.yaw = BeamLayout.PECTORAL_BACK;
+		// The jaw is built as drawn (open by MOUTH_OPEN, its frame turned along the rim by JAW_REST): shut is MOUTH_OPEN less.
+		jaw.pitch = BeamLayout.JAW_REST - BeamLayout.MOUTH_OPEN + open;
+		head.pitch = -lift - 0.08F * air;
+		rightPectoral.roll = BeamLayout.PECTORAL_ROLL + MathHelper.sin(time + 1.0F) * 0.06F;
+		leftPectoral.roll = -BeamLayout.PECTORAL_ROLL - MathHelper.sin(time + 1.0F) * 0.06F;
 	}
 
 	public void render(MatrixStack matrices, VertexConsumer vertices, int light) {
