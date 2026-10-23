@@ -237,6 +237,12 @@ public final class FormCinematic {
 		return amplitude;
 	}
 
+	/** The offset a shake of strength {@code shake} (blocks) puts on the camera's place at time {@code t} (ticks): a quick shudder, different on each axis. */
+	public static net.minecraft.util.math.Vec3d jitter(double shake, double t) {
+		return new net.minecraft.util.math.Vec3d(shake * (Math.sin(t * 7.3) + Math.sin(t * 13.1) * 0.5), shake * (Math.sin(t * 9.7 + 1.0) + Math.sin(t * 17.3) * 0.5),
+				shake * (Math.sin(t * 8.1 + 2.0) + Math.sin(t * 11.9) * 0.5));
+	}
+
 	private static double pulse(float t, int at, double height, double fade) {
 		return t >= at ? height * Math.exp(-(t - at) / fade) : 0.0;
 	}
@@ -246,6 +252,10 @@ public final class FormCinematic {
 		int merge = MergeCinematic.impactStyle(tickDelta);
 		if (merge != 0) {
 			return merge;
+		}
+		int beam = BeamClient.impactStyle();
+		if (beam != 0) {
+			return beam;
 		}
 		float t = mine(tickDelta);
 		if (t < FormTimeline.ROAR || t >= FormTimeline.ROAR + FormTimeline.IMPACT) {

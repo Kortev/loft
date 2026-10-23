@@ -38,12 +38,21 @@ public abstract class FormCameraMixin {
 				this.thirdPerson = true;
 			}
 		}
+		if (shot == null && !this.thirdPerson) {
+			// Riding Beam in your own eyes: raised and drawn back, so his head is ahead of you and not just his back under you.
+			Vec3d eyes = io.github.kortev.chainsawman.client.BeamClient.eyes(tickDelta);
+			if (eyes != null) {
+				Vec3d at = camera.getPos();
+				setPos(at.x + eyes.x, at.y + eyes.y, at.z + eyes.z);
+				setRotation(camera.getYaw(), camera.getPitch() + io.github.kortev.chainsawman.client.BeamClient.eyeDown);
+			}
+		}
 		double shake = FormCinematic.shake(tickDelta);
 		if (shake > 0.001) {
 			double t = (focusedEntity != null ? focusedEntity.age : 0) + tickDelta;
 			Vec3d at = camera.getPos();
-			setPos(at.x + shake * (Math.sin(t * 7.3) + Math.sin(t * 13.1) * 0.5), at.y + shake * (Math.sin(t * 9.7 + 1.0) + Math.sin(t * 17.3) * 0.5),
-					at.z + shake * (Math.sin(t * 8.1 + 2.0) + Math.sin(t * 11.9) * 0.5));
+			Vec3d jitter = FormCinematic.jitter(shake, t);
+			setPos(at.x + jitter.x, at.y + jitter.y, at.z + jitter.z);
 		}
 	}
 }

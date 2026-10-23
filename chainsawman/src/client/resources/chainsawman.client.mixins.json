@@ -4,6 +4,7 @@
 	"compatibilityLevel": "JAVA_21",
 	"client": [
 		"AnimalModelInvoker",
+		"BeamHoldMixin",
 		"CutInTwoMixin",
 		"DownedBodyMixin",
 		"DreamHearingMixin",

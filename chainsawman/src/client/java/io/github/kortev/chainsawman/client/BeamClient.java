@@ -3,13 +3,17 @@ package io.github.kortev.chainsawman.client;
 import io.github.kortev.chainsawman.BeamEntity;
 import io.github.kortev.chainsawman.ChainsawSounds;
 import io.github.kortev.chainsawman.form.Beam;
+import io.github.kortev.chainsawman.network.FormEventPayload;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.Vec3d;
 
 /**
  * What every client hears of Beam besides what he does once ({@link BeamRenderer} draws him): the churning of the ground
@@ -27,6 +31,33 @@ public final class BeamClient {
 	private static final double RUMBLE = 0.009;
 	private static final double CRASH = 0.07;
 	private static final double CRASH_FADES = 5.0;
+	/**
+	 * Hits that land hard (phase 2). By their level (1 to 4): how hard the camera is shaken (blocks, fading with the time constant
+	 * {@link #HIT_FADES} in ticks) and how many frames the picture is held still (a hit-stop: your view and everything in it, on your
+	 * client alone, the server never stops). The big ones (a flash) get the anime's impact frames on the first two held frames, and a
+	 * word lettered over the screen.
+	 */
+	private static final double[] HIT_SHAKE = {0.0, 0.03, 0.055, 0.1, 0.16};
+	private static final int[] HIT_HOLD = {0, 1, 1, 3, 4};
+	private static final double HIT_FADES = 3.0;
+	/**
+	 * Your eyes on his back (phase 2): your view is raised and drawn back along him, so his head, eyes and mouth are ahead of you in the
+	 * lower part of the picture and the ground rushes past beyond them, not a flat slab of his back.
+	 */
+	public static double eyeUp = 1.2;
+	public static double eyeBack = 3.5;
+	/** And tilted this many degrees down (the crosshair is where your look says it is: only a little). */
+	public static float eyeDown = 6.0F;
+
+	private record Hit(long at, double size) {
+	}
+
+	private static final List<Hit> HITS = new CopyOnWriteArrayList<>();
+	/** The hit-stop: frames left to hold still, how many have been held for this hit, which one is being drawn (-1 when none), and whether this hit has impact frames. */
+	private static volatile int holdLeft;
+	private static int heldCount;
+	private static volatile int heldNow = -1;
+	private static boolean flash;
 
 	private BeamClient() {
 	}
@@ -55,6 +86,59 @@ public final class BeamClient {
 
 	static void clear() {
 		NEXT.clear();
+		HITS.clear();
+		holdLeft = 0;
+		heldCount = 0;
+		heldNow = -1;
+		flash = false;
+	}
+
+	/** One of his hits landing, as the server tells it ({@link FormEventPayload#BEAM_HIT}): the screen shakes, holds still a few frames, and for the big ones flashes and is lettered. */
+	public static void hit(int code, long now) {
+		int level = MathHelper.clamp(code & 7, 1, 4);
+		HITS.removeIf(h -> now - h.at() > 40);
+		HITS.add(new Hit(now, HIT_SHAKE[level]));
+		if (HIT_HOLD[level] > holdLeft) {
+			holdLeft = HIT_HOLD[level];
+			heldCount = 0;
+		}
+		if ((code & FormEventPayload.BEAM_FLASH) != 0) {
+			flash = true;
+			Sfx.show((code & FormEventPayload.BEAM_CHOP) != 0 ? Sfx.CHOP : Sfx.KILL, 0.15F, 14, now);
+		}
+	}
+
+	/**
+	 * Called at the start of every frame drawn: whether this one is to be held still (the clock of the world, the particles, the mobs and
+	 * your own camera are not advanced). Per player: it is your own client only.
+	 */
+	public static boolean hold() {
+		if (holdLeft > 0) {
+			holdLeft--;
+			heldNow = heldCount++;
+			return true;
+		}
+		heldNow = -1;
+		flash = false;
+		return false;
+	}
+
+	/** The impact frame showing now, if any: 1 red and black, 2 its negative; 0 none. */
+	public static int impactStyle() {
+		return flash && heldNow >= 0 && heldNow < 2 ? 1 + heldNow : 0;
+	}
+
+	/**
+	 * How far your eyes are moved from where the game puts them while you ride him in first person: up and back along him (world space),
+	 * or null when you do not ride him.
+	 */
+	public static Vec3d eyes(float tickDelta) {
+		BeamEntity beam = mount();
+		if (beam == null) {
+			return null;
+		}
+		double yaw = Math.toRadians(MathHelper.lerpAngleDegrees(tickDelta, beam.prevYaw, beam.getYaw()));
+		return new Vec3d(Math.sin(yaw) * eyeBack, eyeUp, -Math.cos(yaw) * eyeBack);
 	}
 
 	/** The Beam you are riding, if you are. */
@@ -74,13 +158,24 @@ public final class BeamClient {
 
 	/** How hard your camera is shaken now by riding him (blocks): a low rumble while he swims fast, a jolt as he crashes back in. */
 	public static double shake(float tickDelta) {
+		double hits = 0.0;
+		MinecraftClient client = MinecraftClient.getInstance();
+		if (client.world != null) {
+			long now = client.world.getTime();
+			for (Hit h : HITS) {
+				double age = now - h.at() + tickDelta;
+				if (age >= 0.0 && age < 40.0) {
+					hits = Math.max(hits, h.size() * Math.exp(-age / HIT_FADES));
+				}
+			}
+		}
 		BeamEntity beam = mount();
 		if (beam == null) {
-			return 0.0;
+			return hits;
 		}
 		double rumble = RUMBLE * beam.pace() * beam.pace() * beam.swim(tickDelta);
 		float since = beam.sinceLand(tickDelta);
 		double crash = since >= 0.0F && since < 40.0F ? CRASH * Math.exp(-since / CRASH_FADES) : 0.0;
-		return Math.max(rumble, crash);
+		return Math.max(hits, Math.max(rumble, crash));
 	}
 }

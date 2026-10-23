@@ -150,6 +150,22 @@ public class BeamModel {
 		rearYaw += wiggle * 0.22F * MathHelper.sin(pleased * 1.2F - 0.8F);
 		stalkYaw += wiggle * 0.35F * MathHelper.sin(pleased * 1.2F - 1.6F);
 		tailYaw += wiggle * 0.6F * MathHelper.sin(pleased * 1.2F - 2.4F);
+		// Holding something in his jaws: his head whips side to side and the rest of him follows against it, the tail last.
+		float grab = e.sinceGrab(d);
+		float gripped = grab >= 0.0F && grab <= BeamEntity.GRAB_TICKS ? 1.0F : 0.0F;
+		float swing = BeamEntity.shake(grab) / 0.8F;
+		if (gripped > 0.0F) {
+			trunkYaw -= 0.12F * swing;
+			rearYaw -= 0.5F * BeamEntity.shake(grab - 1.5F) / 0.8F;
+			stalkYaw -= 0.75F * BeamEntity.shake(grab - 3.0F) / 0.8F;
+			tailYaw -= 1.0F * BeamEntity.shake(grab - 4.5F) / 0.8F;
+		}
+		// Bursting up under a mob, and throwing his rider: the tail cracks like a whip behind the head.
+		float ambush = e.sinceAmbush(d);
+		float launch = e.sinceLaunch(d);
+		float cracked = Math.max(ambush < 16.0F ? 1.0F - ambush / 16.0F : 0.0F, launch < 12.0F ? 1.0F - launch / 12.0F : 0.0F);
+		tailYaw += cracked * 0.9F * MathHelper.sin(Math.min(ambush, launch) * 1.1F - 2.4F);
+		stalkYaw += cracked * 0.5F * MathHelper.sin(Math.min(ambush, launch) * 1.1F - 1.6F);
 		trunk.yaw = trunkYaw;
 		rear.yaw = rearYaw;
 		stalk.yaw = stalkYaw;
@@ -189,12 +205,35 @@ public class BeamModel {
 			open = MathHelper.lerp(screech, open, OPEN_WIDE + 0.15F + 0.07F * MathHelper.sin(lived * 2.6F));
 			lift += screech * 0.1F;
 		}
+		// The grab: the jaws shut on it, gripping, and thrown open when it is flung; the ambush: flung wide as he bursts up, snapping shut
+		// at the top; the throw: the head flicks up and snaps down, the jaw open for it.
+		float flung = grab > BeamEntity.GRAB_TICKS ? Math.max(0.0F, 1.0F - (grab - BeamEntity.GRAB_TICKS) / 9.0F) : 0.0F;
+		if (gripped > 0.0F) {
+			open = 0.07F + 0.03F * MathHelper.sin(grab * 1.7F);
+			lift += 0.12F;
+		}
+		if (flung > 0.0F) {
+			open = MathHelper.lerp(flung, open, OPEN_WIDE + 0.3F);
+			lift += 0.35F * flung;
+		}
+		if (ambush < 20.0F) {
+			float wide = 1.0F - smooth(ambush, 11.0F, 14.0F);
+			float snap = smooth(ambush, 11.0F, 13.0F) * (1.0F - smooth(ambush, 14.0F, 20.0F));
+			open = MathHelper.lerp(wide, MathHelper.lerp(snap, open, 0.03F), OPEN_WIDE + 0.32F + 0.05F * MathHelper.sin(ambush * 2.4F));
+			lift += 0.4F * wide;
+		}
+		if (launch < 12.0F) {
+			float up = smooth(launch, 0.0F, 2.5F) * (1.0F - smooth(launch, 3.0F, 5.0F));
+			float down = smooth(launch, 3.0F, 5.0F) * (1.0F - smooth(launch, 6.0F, 12.0F));
+			lift += 0.65F * up - 0.35F * down;
+			open = MathHelper.lerp(up, MathHelper.lerp(down, open, 0.03F), OPEN_WIDE + 0.25F);
+		}
 		// The jaw is built as drawn (open by MOUTH_OPEN, its frame turned along the rim by JAW_REST): shut is MOUTH_OPEN less.
 		jaw.pitch = BeamLayout.JAW_REST - BeamLayout.MOUTH_OPEN + open;
 		// His head: it looks where he is looking (a mob he has noticed; the rider, at the summoning), nodding with his porpoise.
 		float nod = 0.1F * MathHelper.sin(time * 0.5F - 0.6F) * swim * pace;
 		head.pitch = -lift - 0.08F * air - e.lookPitch(d) - back * 0.85F + nod;
-		head.yaw = -trunkYaw * 0.7F + e.lookYaw(d) + back * 0.45F;
+		head.yaw = -trunkYaw * 0.7F + e.lookYaw(d) + back * 0.45F + BeamEntity.shake(grab);
 		// His eyes dart.
 		for (int i = 0; i < 3; i++) {
 			float yaw = e.eyeYaw(i, d);

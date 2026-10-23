@@ -205,6 +205,7 @@ public final class ClientCombat {
 					kickSize = IMPACT_KICK * 0.7;
 				}
 			}
+			case FormEventPayload.BEAM_HIT -> BeamClient.hit(event.value(), now);
 			case FormEventPayload.GRIND -> {
 				if (event.value() != 0) {
 					GRINDING.add(id);
