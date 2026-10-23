@@ -98,11 +98,10 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 
 	/** From when the hook is up (the chain reel shows the grab first and names it after), until when, and from when the question's there (reel ticks). */
 	private static int hookFrom() {
-		return "chain".equals(target()) ? CHAIN_HOOK_FROM : 0;
+		return "chain".equals(target()) ? chainHookAt : 0;
 	}
 
 	/** (Retuned by the chain reel to just after its first grab lands.) */
-	private static final int CHAIN_HOOK_FROM = 20;
 
 	private static int hookUntil() {
 		if ("saws".equals(target())) {
@@ -115,7 +114,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 	private static int askedAt() {
 		return switch (target()) {
 			case "saws" -> sawsAsk;
-			case "chain" -> CHAIN_ASK;
+			case "chain" -> chainAsk;
 			case "arms" -> armsAsk;
 			case "pochita" -> POCHITA_HERO + 10;
 			case "merge" -> REVENGE_CUTS[REVENGE_CUTS.length - 1] + 6;
@@ -917,29 +916,29 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 
 	// The chain reel, on a mountain cliff at night (kortev, 2026-10-23: the action first, then "Grab mobs with your chain"). Facing
 	// south (so "ahead" is south, and across is west): the rock of the cliff ahead with a ledge six up and a skeleton on its lip,
-	// you on a shelf of the mountain, east of you a drop with a pillar standing in it and a creeper on top, a phantom in the sky.
-	// The chain's fired at each in turn, it's flung to you and cut down; then low in front of you, the moon over your shoulder.
+	// you on a shelf of the mountain, east of you a drop with a pillar standing in it and a creeper on top. Real mobs (their AI on, at
+	// their own speed, after you): the test only says where and when each spawns, how much health it has (so one slash kills it), and
+	// where the camera is. You aim and fire the chain with the chain key, and slash with the attack key, as a player does.
 
 	private static final int LEDGE = 6;
-	/** Where each stands (along, up, across), and what it is. */
-	private static final Vec3d SKELETON_AT = new Vec3d(4.4, LEDGE + 1.0, 0.5);
-	private static final Vec3d PHANTOM_AT = new Vec3d(-0.5, 5.2, 2.0);
-	private static final Vec3d CREEPER_AT = new Vec3d(3.0, 0.0, -7.0);
-	/** When the chain's fired at each, how long one takes to fly in, and the arc's height. */
-	private static final int[] FIRES = {6, 48, 86};
-	private static final int FLY = 8;
-	private static final double[] ARC = {1.4, 1.0, 2.2};
-	private static final int HERO_FROM = 112;
-	private static final int CHAIN_ASK = HERO_FROM + 8;
-	private static final int CHAIN_END = HERO_FROM + 56;
-	private static final List<Integer> CHAIN_IDS = new ArrayList<>();
-	/** Where each was when the chain was fired at it, and where it is flung to. */
-	private static final Vec3d[] FLUNG_FROM = new Vec3d[3];
-	private static final Vec3d[] FLUNG_TO = new Vec3d[3];
-
-	private static int cutAt(int i) {
-		return FIRES[i] + FLY + 3;
-	}
+	/** Where each is put (along, across; the height is the top of the rock there), in the order you take them. */
+	private static final double[][] GRAB_AT = {{4.9, 0.5}, {3.0, -7.0}, {4.9, -2.0}};
+	private static final int GRABS = GRAB_AT.length;
+	/** How long (ticks) between one being cut down and the next spawning, and how long one may take before the take gives up on it. */
+	private static final int GRAB_GAP = 20;
+	private static final int GRAB_LONGEST = 220;
+	private static final int CHAIN_END_AFTER = 70;
+	private static int grab;
+	private static int grabStart = 1;
+	private static int grabSeen;
+	private static int grabLastFire = -100;
+	private static int grabLastSlash = -100;
+	private static boolean grabPulled;
+	private static volatile int chainMobId = -1;
+	private static int chainHookAt = Integer.MAX_VALUE;
+	private static int chainAsk = Integer.MAX_VALUE;
+	private static int chainEnd = Integer.MAX_VALUE;
+	private static int chainHeroAt = Integer.MAX_VALUE;
 
 	private static void chain(MinecraftClient client, IntegratedServer server, int f) {
 		if (f == 1) {
@@ -948,8 +947,13 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 			if (capturing()) {
 				Capture.start(client, client.runDirectory.toPath().resolve("capture"));
 			}
-			// The action at once: you at the foot of the cliff, the skeleton on its ledge over you, the camera beside you looking up.
-			fixed(framed(local(1.0, 1.0, 6.4), local(1.9, 3.1, 0.0)), local(1.9, 3.1, 0.2));
+			grab = 0;
+			grabStart = 1;
+			chainHookAt = Integer.MAX_VALUE;
+			chainAsk = Integer.MAX_VALUE;
+			chainEnd = Integer.MAX_VALUE;
+			chainHeroAt = Integer.MAX_VALUE;
+			chainCamera(0, false);
 		}
 		if (client.options.getPerspective() != Perspective.THIRD_PERSON_BACK) {
 			client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
@@ -958,114 +962,135 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 			return;
 		}
 		Vec3d eye = client.player.getEyePos();
-		for (int i = 0; i < FIRES.length; i++) {
-			int id = CHAIN_IDS.size() > i ? CHAIN_IDS.get(i) : -1;
-			int from = i == 0 ? 1 : cutAt(i - 1) + 2;
-			Entity mob = id < 0 ? null : client.world.getEntityById(id);
-			// Turned on it (looking at it), the chain at it; then level again for the cut as it comes flying in.
-			if (f >= from && f <= FIRES[i]) {
-				Vec3d it = mobAt(i);
-				Capture.Pose aim = look(eye, it);
-				face(client, aim.yaw(), aim.pitch());
+		if (grab < GRABS) {
+			if (f == grabStart) {
+				// The next one put where it stands; it does the rest itself.
+				chainMobId = -1;
+				grabSeen = -1;
+				grabPulled = false;
+				grabLastFire = -100;
+				int which = grab;
+				server.execute(() -> spawnReal(server, which == 1 ? EntityType.CREEPER : EntityType.SKELETON, GRAB_AT[which][0], GRAB_AT[which][1], 6.0F));
+				chainCamera(grab, false);
 			}
-			if (f == FIRES[i] - 1) {
-				// Whatever the chain still holds let go, or firing it again only lets go.
-				server.execute(() -> Grapple.release(player(server)));
-			}
-			if (f == FIRES[i]) {
-				Vec3d you = client.player.getPos();
-				Vec3d start = mobAt(i);
-				FLUNG_FROM[i] = start;
-				Vec3d flat = new Vec3d(start.x - you.x, 0.0, start.z - you.z).normalize();
-				FLUNG_TO[i] = you.add(flat.multiply(2.0));
-				server.execute(() -> Grapple.fire(player(server)));
-			}
-			// Flung to you in an arc (left to the game the yank is only a push, and a mob's own AI would fight it).
-			if (f > FIRES[i] && f <= FIRES[i] + FLY && FLUNG_FROM[i] != null) {
-				double k = (f - FIRES[i]) / (double) FLY;
-				Vec3d at = FLUNG_FROM[i].lerp(FLUNG_TO[i], k).add(0.0, Math.sin(k * Math.PI) * ARC[i], 0.0);
-				server.execute(() -> {
-					if (server.getOverworld().getEntityById(id) instanceof net.minecraft.entity.LivingEntity m && m.isAlive()) {
-						m.requestTeleport(at.x, at.y, at.z);
-						m.setVelocity(Vec3d.ZERO);
-						m.fallDistance = 0.0F;
+			Entity mob = chainMobId < 0 ? null : client.world.getEntityById(chainMobId);
+			if (f >= grabStart && mob != null && mob.isAlive()) {
+				if (grabSeen < 0) {
+					grabSeen = f;
+				}
+				Vec3d at = mob.getBoundingBox().getCenter();
+				Capture.Pose aim = look(eye, at);
+				double far = eye.distanceTo(at);
+				if (far > 4.0 && !grabPulled) {
+					// Turned on it and, once the head's there and it can be seen, the chain.
+					face(client, aim.yaw(), aim.pitch());
+					if (f - grabStart >= 5 && f - grabLastFire >= 12 && far < 22.0 && aimedAt(aim) && client.player.canSee(mob)) {
+						grabLastFire = f;
+						net.minecraft.client.option.KeyBinding.onKeyPressed(net.minecraft.client.util.InputUtil.fromTranslationKey(io.github.kortev.chainsawman.client.ChainsawManClient.CHAIN.getBoundKeyTranslationKey()));
+						chainCameraAt = f + 3;
 					}
-				});
+				} else {
+					// It's here, pulled in: the saws at it.
+					if (!grabPulled) {
+						grabPulled = true;
+						if (chainHookAt == Integer.MAX_VALUE) {
+							chainHookAt = f + 3;
+						}
+					}
+					face(client, aim.yaw(), MathHelper.clamp(aim.pitch(), -20.0F, 20.0F));
+					if (far < 3.4 && f - grabLastSlash >= 13) {
+						grabLastSlash = f;
+						io.github.kortev.chainsawman.client.ClientCombat.attack(client);
+					}
+				}
+			} else if (grabSeen >= 0 && f > grabSeen + 2) {
+				// Cut down: on to the next.
+				grabSeen = -1;
+				chainMobId = -1;
+				grab++;
+				grabStart = f + GRAB_GAP;
+				chainCameraAt = Integer.MAX_VALUE;
+				if (grab >= GRABS) {
+					chainHeroAt = f + 10;
+					chainAsk = chainHeroAt + 12;
+					chainEnd = chainAsk + 54;
+				}
+			} else if (f - grabStart > GRAB_LONGEST) {
+				ShootingStar.LOGGER.warn("[selftest] showcase: grab {} took too long", grab);
+				grabSeen = -1;
+				chainMobId = -1;
+				grab++;
+				grabStart = f + GRAB_GAP;
 			}
-			// Turned on it as it comes in, for the cut.
-			if (f > FIRES[i] + 1 && f <= cutAt(i) && mob != null) {
-				Capture.Pose aim = look(eye, mob.getBoundingBox().getCenter());
-				face(client, turn(client.player.getYaw(), aim.yaw(), 0.6), MathHelper.clamp(aim.pitch(), -20.0F, 20.0F));
-			}
-			if (f == cutAt(i)) {
-				server.execute(() -> Saw.slash(player(server), id));
-			}
 		}
-		// The cameras: each grab's own, then close on the cut.
-		if (f == 13) {
-			fixed(framed(local(1.0, 1.2, 4.2), local(1.4, 1.2, 0.0)), local(1.4, 1.2, 0.0));
+		if (f == chainCameraAt) {
+			chainCamera(grab, true);
 		}
-		if (f == 30) {
-			// The sky: low, looking up, you and the phantom over you.
-			fixed(framed(local(-0.5, 0.45, 4.8), local(0.0, 3.6, 0.3)), local(-0.4, 3.4, 0.8));
-		}
-		if (f == FIRES[1] + 4) {
-			fixed(framed(local(0.2, 1.1, 4.0), local(0.2, 1.3, 0.0)), local(0.2, 1.4, 0.0));
-		}
-		if (f == cutAt(1) + 8) {
-			// Across the drop: from behind your shoulder, the creeper on its pillar ahead, the moon beyond.
-			fixed(framed(local(-2.0, 1.8, 2.4), local(0.0, 1.3, 0.0)), local(0.3, 1.2, -3.2));
-		}
-		if (f == FIRES[2] + 4) {
-			fixed(framed(local(-2.2, 1.2, 2.6), local(0.0, 1.3, -1.0)), local(0.0, 1.4, -1.6));
-		}
-		if (f == HERO_FROM) {
+		if (f == chainHeroAt) {
 			// Low in front of you, the moon over your shoulder.
 			fixed(framed(local(0.6, 0.5, 4.0), local(0.0, 1.4, 0.0)), local(0.0, 1.9, 0.0));
 			server.execute(() -> Saw.grind(player(server), true));
 		}
-		if (f > cutAt(2) + 4 && f < HERO_FROM) {
-			face(client, turn(client.player.getYaw(), look(eye, local(0.0, 1.5, 4.0)).yaw(), 0.2), 4.0F);
-		}
-		if (f >= HERO_FROM) {
+		if (f >= chainHeroAt) {
 			face(client, look(eye, local(0.6, 1.5, 4.0)).yaw() + 15.0F, -2.0F);
 		}
 		if (shots < CHAIN_SCREENS.length && f == CHAIN_SCREENS[shots]) {
 			shot(client, target() + "_" + f);
 			shots++;
 		}
-		if (f >= CHAIN_END) {
+		if (f >= chainEnd || f > 900) {
 			server.execute(() -> Saw.grind(player(server), false));
 			stage = Stage.DONE;
 		}
 	}
 
-	private static final int[] CHAIN_SCREENS = {2, 8, 12, 16, 22, 34, 46, 52, 58, 64, 80, 90, 96, 102, 108, 120, 150};
+	private static int chainCameraAt = Integer.MAX_VALUE;
+	private static final int[] CHAIN_SCREENS = {2, 8, 12, 16, 22, 34, 46, 52, 58, 64, 80, 90, 96, 102, 108, 120, 150, 180, 210};
 
-	/** The middle of what the chain is fired at, the ith. */
-	private static Vec3d mobAt(int i) {
-		MinecraftClient client = MinecraftClient.getInstance();
-		if (client.world != null && CHAIN_IDS.size() > i && client.world.getEntityById(CHAIN_IDS.get(i)) != null) {
-			return client.world.getEntityById(CHAIN_IDS.get(i)).getBoundingBox().getCenter();
+	/** The camera for the {@code which}th: wide as it's taken aim at, or close once the chain's pulled it in. */
+	private static void chainCamera(int which, boolean close) {
+		if (which == 2) {
+			// The last: the same ledge, from nearer and lower.
+			if (close) {
+				fixed(framed(local(1.0, 1.2, 4.2), local(1.4, 1.2, 0.0)), local(1.4, 1.2, 0.0));
+			} else {
+				fixed(framed(local(0.4, 0.8, 5.4), local(1.9, 3.0, -0.8)), local(1.9, 3.2, -0.6));
+			}
+		} else if (which == 0) {
+			if (close) {
+				fixed(framed(local(1.0, 1.2, 4.2), local(1.4, 1.2, 0.0)), local(1.4, 1.2, 0.0));
+			} else {
+				fixed(framed(local(1.0, 1.0, 6.4), local(1.9, 3.1, 0.0)), local(1.9, 3.1, 0.2));
+			}
+		} else if (close) {
+			fixed(framed(local(-2.2, 1.2, 2.6), local(0.0, 1.3, 0.0)), local(0.0, 1.4, -1.6));
+		} else {
+			fixed(framed(local(-2.0, 1.8, 2.4), local(0.0, 1.3, 0.0)), local(0.3, 1.2, -3.2));
 		}
-		Vec3d at = i == 0 ? SKELETON_AT : i == 1 ? PHANTOM_AT : CREEPER_AT;
-		return local(at.x, at.y + 0.9, at.z);
 	}
 
-	/** A mob standing still where it is put, nothing it does hurting you: the chain's to move it. */
-	private static void chainMob(ServerWorld world, EntityType<? extends net.minecraft.entity.mob.MobEntity> type, Vec3d at, float yaw, float health) {
+	/** A real mob of {@code type} put at ({@code along}, {@code across}) on the top of the rock there, after you, with {@code health}. */
+	private static void spawnReal(IntegratedServer server, EntityType<? extends net.minecraft.entity.mob.MobEntity> type, double along, double across, float health) {
+		ServerWorld world = server.getOverworld();
+		Vec3d at = local(along, 0.0, across);
+		int y = world.getTopY(Heightmap.Type.MOTION_BLOCKING, MathHelper.floor(at.x), MathHelper.floor(at.z));
 		net.minecraft.entity.mob.MobEntity mob = type.create(world);
 		if (mob == null) {
 			return;
 		}
-		mob.refreshPositionAndAngles(at.x, at.y, at.z, yaw, 0.0F);
-		mob.setHeadYaw(yaw);
-		mob.setBodyYaw(yaw);
-		mob.setAiDisabled(true);
-		mob.setPersistent();
+		Vec3d you = player(server).getPos();
+		mob.refreshPositionAndAngles(at.x, y, at.z, look(new Vec3d(at.x, y, at.z), you).yaw(), 0.0F);
+		mob.initialize(world, world.getLocalDifficulty(mob.getBlockPos()), net.minecraft.entity.SpawnReason.COMMAND, null);
+		var max = mob.getAttributeInstance(net.minecraft.entity.attribute.EntityAttributes.GENERIC_MAX_HEALTH);
+		if (max != null) {
+			max.setBaseValue(health);
+		}
 		mob.setHealth(health);
+		mob.setPersistent();
+		mob.setTarget(player(server));
 		world.spawnEntity(mob);
-		CHAIN_IDS.add(mob.getId());
+		chainMobId = mob.getId();
+		ShootingStar.LOGGER.info("[selftest] showcase: {} put at {} {} {}", type.getUntranslatedName(), at.x, y, at.z);
 	}
 
 	private static int rockHash(int x, int z) {
@@ -1209,24 +1234,28 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		origin = feet;
 		Form.end(player);
 		player.changeGameMode(GameMode.SURVIVAL);
-		player.getAbilities().invulnerable = true;
+		// (Real mobs after you, so the blows they land are real: plenty of health to take them, easy, and no craters from a creeper.)
+		player.getAbilities().invulnerable = false;
 		player.sendAbilitiesUpdate();
+		server.setDifficulty(net.minecraft.world.Difficulty.EASY, true);
+		server.getGameRules().get(GameRules.DO_MOB_GRIEFING).set(false, server);
+		var health = player.getAttributeInstance(net.minecraft.entity.attribute.EntityAttributes.GENERIC_MAX_HEALTH);
+		if (health != null) {
+			health.setBaseValue(400.0);
+		}
 		player.getInventory().clear();
 		player.setHealth(player.getMaxHealth());
 		player.getHungerManager().setFoodLevel(20);
 		player.setAttached(Heart.MERGED, true);
 		Blood.set(player, Blood.MAX);
-		Capture.Pose aim = look(feet.add(0.0, 1.6, 0.0), local(SKELETON_AT.x, SKELETON_AT.y + 0.9, SKELETON_AT.z));
+		Capture.Pose aim = look(feet.add(0.0, 1.6, 0.0), local(GRAB_AT[0][0], LEDGE + 1.5, GRAB_AT[0][1]));
 		player.teleport(world, feet.x, feet.y, feet.z, aim.yaw(), aim.pitch());
 		Form.start(player);
 		// (So the rock and the mobs can be seen at night.)
 		player.addStatusEffect(new net.minecraft.entity.effect.StatusEffectInstance(net.minecraft.entity.effect.StatusEffects.NIGHT_VISION, 20 * 600, 0, true,
 				false, false));
+		Limbs.whole(player);
 		ZOMBIES.clear();
-		CHAIN_IDS.clear();
-		chainMob(world, EntityType.SKELETON, local(SKELETON_AT.x, SKELETON_AT.y, SKELETON_AT.z), 180.0F, 6.0F);
-		chainMob(world, EntityType.PHANTOM, local(PHANTOM_AT.x, PHANTOM_AT.y, PHANTOM_AT.z), 0.0F, 6.0F);
-		chainMob(world, EntityType.CREEPER, local(CREEPER_AT.x, CREEPER_AT.y, CREEPER_AT.z), 90.0F, 6.0F);
 		origin = feet;
 	}
 
@@ -2153,26 +2182,25 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 	}
 
 	// The arms reel, in the Deep Dark against the Warden (kortev, 2026-10-23: "Can Chainsaw Man survive the Warden?"). A hall of
-	// sculk and deepslate lit blue by soul lanterns, you in the form facing the Warden three blocks off; its hit takes your
-	// right arm off, its next your left; then you grind into it with the head's saw, and each bite's blood grows an arm back (the
-	// game's own), till you have both; and a low shot of you facing it, the question over it.
+	// sculk and deepslate lit by soul lanterns. The Warden is real (its AI on, its own speed): the test only says where and when it
+	// appears, that you're who it's angry at, and how much health it has (so the saws can finish it); it roars, walks at you, and its
+	// own blows take your arms off by the game's own rule for them (easy, so a blow takes one). You face it and slash with the attack
+	// key; every hit's blood, and the kill's, grows the arms back.
 
-	/** Where the Warden stands (along, up, across). */
-	private static final Vec3d WARDEN_AT = new Vec3d(3.0, 0.0, 0.0);
-	/** When each blow lands, how long before it its swing starts. */
-	private static final int[] WARDEN_BLOWS = {28, 58};
-	private static final int WARDEN_WINDUP = 7;
-	private static final int ARMS_GRIND = 70;
-	/** How many slashes into the Warden, how far apart (ticks): far enough that its hurt flash wears off between. */
-	private static final int ARMS_SLASHES = 7;
-	private static final int ARMS_EVERY = 16;
-	private static final int ARMS_CAP = 330;
-	private static final int ARMS_HOLD = 52;
+	/** Where it appears (along, across), and its health. */
+	private static final double WARDEN_AT = 7.0;
+	private static final float WARDEN_HEALTH = 36.0F;
+	private static final int ARMS_CAP = 700;
+	private static final int ARMS_HOLD = 56;
 	private static int armsAsk = Integer.MAX_VALUE;
 	private static int armsEnd = Integer.MAX_VALUE;
 	private static int wardenId = -1;
-	private static final int[] ARMS_SCREENS = {4, 10, 16, 22, 26, 30, 36, 44, 54, 60, 66, 72, 80, 90, 100, 110, 120, 130, 140, 150, 160, 180, 200};
-	/** The hall, along the way you face: its two ends, half its width, its height; the floor level in the world. */
+	private static int wardenSeen = -1;
+	private static int wardenLastSlash = -100;
+	private static int armsMood;
+	private static boolean armLost;
+	private static final int[] ARMS_SCREENS = {4, 20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220, 240, 260, 280, 300, 320};
+	/** The hall's place: its floor level in the world. */
 	private static final BlockPos ARMS_SPOT = new BlockPos(2000, -43, 2000);
 
 	private static void arms(MinecraftClient client, IntegratedServer server, int f) {
@@ -2184,8 +2212,31 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 			}
 			armsAsk = Integer.MAX_VALUE;
 			armsEnd = Integer.MAX_VALUE;
-			// Both of you from the side, close: you and the Warden over you.
-			fixed(framed(local(1.7, 1.6, -6.0), local(1.7, 1.6, 0.0)), local(1.7, 1.7, 0.0));
+			wardenSeen = -1;
+			armsMood = -1;
+			armLost = false;
+			// It appears, and is angry at you: the rest is its own.
+			server.execute(() -> {
+				ServerWorld world = server.getOverworld();
+				ServerPlayerEntity p = player(server);
+				net.minecraft.entity.mob.WardenEntity warden = EntityType.WARDEN.create(world);
+				if (warden == null) {
+					return;
+				}
+				Vec3d at = local(WARDEN_AT, 0.0, 0.0);
+				warden.refreshPositionAndAngles(at.x, at.y, at.z, facing + 180.0F, 0.0F);
+				warden.initialize(world, world.getLocalDifficulty(warden.getBlockPos()), net.minecraft.entity.SpawnReason.COMMAND, null);
+				var max = warden.getAttributeInstance(net.minecraft.entity.attribute.EntityAttributes.GENERIC_MAX_HEALTH);
+				if (max != null) {
+					max.setBaseValue(WARDEN_HEALTH);
+				}
+				warden.setHealth(WARDEN_HEALTH);
+				warden.setPersistent();
+				world.spawnEntity(warden);
+				warden.increaseAngerAt(p, 150, false);
+				wardenId = warden.getId();
+			});
+			armsCamera(0);
 		}
 		if (client.options.getPerspective() != Perspective.THIRD_PERSON_BACK) {
 			client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
@@ -2197,88 +2248,86 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 			// (Its darkness, should it come: the hall is to be seen.)
 			server.execute(() -> player(server).removeStatusEffect(net.minecraft.entity.effect.StatusEffects.DARKNESS));
 		}
-		// Facing it, the head turned on it.
+		Vec3d eye = client.player.getEyePos();
+		Entity warden = wardenId < 0 ? null : client.world.getEntityById(wardenId);
 		if (armsEnd == Integer.MAX_VALUE) {
-			face(client, facing, 6.0F);
-		}
-		for (int i = 0; i < WARDEN_BLOWS.length; i++) {
-			if (f == WARDEN_BLOWS[i] - WARDEN_WINDUP) {
-				// Its arm comes up.
-				int id = wardenId;
-				server.execute(() -> {
-					if (server.getOverworld().getEntityById(id) instanceof net.minecraft.entity.mob.WardenEntity w) {
-						w.getWorld().sendEntityStatus(w, (byte) 4);
-					}
-				});
+			if (warden != null && warden.isAlive()) {
+				if (wardenSeen < 0) {
+					wardenSeen = f;
+				}
+				Vec3d at = warden.getBoundingBox().getCenter();
+				Capture.Pose aim = look(eye, at);
+				double far = eye.distanceTo(at);
+				// Facing it, the head turned on it; the saws at it whenever it's near enough (the game's own limit on how often).
+				face(client, aim.yaw(), MathHelper.clamp(aim.pitch(), -25.0F, 25.0F));
+				// Walking at it once it's come near (the forward key held), as a player would, and no closer than a saw's reach.
+				client.options.forwardKey.setPressed(far > 2.3 && far < 7.5 && f - wardenSeen > 100);
+				if (far < 4.1 && f - wardenLastSlash >= 13) {
+					wardenLastSlash = f;
+					io.github.kortev.chainsawman.client.ClientCombat.attack(client);
+				}
+				// The cameras: wide while it comes, closer when it's on you, the arm's side when one goes.
+				boolean right = Limbs.has(client.player, Limbs.RIGHT);
+				boolean left = Limbs.has(client.player, Limbs.LEFT);
+				if (f - wardenSeen == 34) {
+					// Its roar: low and close on it, you small in front of it.
+					Capture.camera = null;
+					fixed(framed(local(3.8, 0.9, -4.4), local(6.8, 1.8, 0.0)), local(6.6, 2.0, 0.0));
+					armsMood = 5;
+				}
+				if (!armLost && (!right || !left)) {
+					armLost = true;
+					armsCamera(!right ? 2 : 3);
+				} else if (armsMood == 5 && far < 6.4) {
+					armsCamera(0);
+				} else if (armsMood == 0 && far < 4.6) {
+					armsCamera(1);
+				}
+			} else if (wardenSeen >= 0 && f > wardenSeen + 2) {
+				// It's down: you, whole again, and the question.
+				client.options.forwardKey.setPressed(false);
+				armsAsk = f + 22;
+				armsEnd = armsAsk + ARMS_HOLD;
+				ShootingStar.LOGGER.info("[selftest] showcase: the Warden's down at {}, arms right {} left {}", f, Limbs.has(client.player, Limbs.RIGHT), Limbs.has(client.player, Limbs.LEFT));
+				Vec3d you = client.player.getPos();
+				fixed(framed(rel(you, 0.6, 0.7, -4.6), you.add(0.0, 1.2, 0.0)), you.add(0.5, 1.5, 0.0));
+				armsMood = 9;
 			}
-			if (f == WARDEN_BLOWS[i]) {
-				// The blow: its own damage, its own knock, the game's rule for an arm.
-				int id = wardenId;
-				server.execute(() -> {
-					ServerPlayerEntity p = player(server);
-					if (server.getOverworld().getEntityById(id) instanceof net.minecraft.entity.mob.WardenEntity w) {
-						p.getServerWorld().playSound(null, p.getBlockPos(), SoundEvents.ENTITY_WARDEN_ATTACK_IMPACT, SoundCategory.HOSTILE, 5.0F, 1.0F);
-						p.damage(w.getDamageSources().mobAttack(w), (float) w.getAttributeValue(net.minecraft.entity.attribute.EntityAttributes.GENERIC_ATTACK_DAMAGE));
-						Vec3d push = p.getPos().subtract(w.getPos()).multiply(1.0, 0.0, 1.0).normalize();
-						p.takeKnockback(1.2, -push.x, -push.z);
-						p.velocityModified = true;
-					}
-				});
-			}
-			// Staggered by it, then back at it.
-			if (f > WARDEN_BLOWS[i] + 6 && f <= WARDEN_BLOWS[i] + 20) {
-				Vec3d now = client.player.getPos();
-				Vec3d want = local(0.0, -0.08, 0.0);
-				go(client, now.lerp(want, 0.22));
-			}
-		}
-		// The cameras: the arm's side for each blow, then back to both.
-		if (f == WARDEN_BLOWS[0] - WARDEN_WINDUP - 2) {
-			fixed(framed(local(1.0, 1.5, 5.4), local(1.7, 1.5, 0.0)), local(1.7, 1.6, 0.0));
-		}
-		if (f == WARDEN_BLOWS[0] + 14) {
-			fixed(framed(local(1.7, 1.6, -6.0), local(1.7, 1.6, 0.0)), local(1.7, 1.7, 0.0));
-		}
-		if (f == WARDEN_BLOWS[1] - WARDEN_WINDUP - 2) {
-			fixed(framed(local(1.0, 1.5, -5.4), local(1.7, 1.5, 0.0)), local(1.7, 1.6, 0.0));
-		}
-		if (f == WARDEN_BLOWS[1] + 14) {
-			// Armless: close and low on you from the Warden's side, the stumps spurting.
-			fixed(framed(local(2.4, 1.0, 4.8), local(0.0, 1.4, 0.0)), local(0.8, 1.5, 0.0));
-		}
-		// The head's saw into it, held: bite by bite the blood grows the arms back.
-		// (Not a long grind: that hurts it every few ticks and it never stops flashing red. A slash at a time, the Warden's own look coming
-		// back between; each hit's blood counts toward the arms, the game's own rule.)
-		for (int k = 0; k < ARMS_SLASHES; k++) {
-			if (f == ARMS_GRIND + k * ARMS_EVERY) {
-				server.execute(() -> Saw.slash(player(server)));
-			}
-		}
-		if (f == ARMS_GRIND + 6) {
-			fixed(framed(local(1.7, 1.2, -5.0), local(1.7, 1.6, 0.0)), local(1.7, 1.6, 0.0));
-		}
-		boolean whole = Limbs.has(client.player, Limbs.RIGHT) && Limbs.has(client.player, Limbs.LEFT);
-		if (f >= ARMS_GRIND + (ARMS_SLASHES - 1) * ARMS_EVERY + 22 && armsEnd == Integer.MAX_VALUE) {
-			armsAsk = f + 18;
-			armsEnd = f + 18 + ARMS_HOLD;
-			ShootingStar.LOGGER.info("[selftest] showcase: slashes done at {}, both arms back: {}", f, whole);
-		}
-		if (armsEnd != Integer.MAX_VALUE) {
-			// Low behind your shoulder, facing it: both saws out and revving, the Warden over you.
-			if (f == armsAsk - 16) {
-				fixed(framed(local(-3.0, 0.55, -3.2), local(0.0, 1.4, 0.0)), local(2.0, 1.7, 0.2));
-				face(client, facing, 4.0F);
-			}
-			face(client, facing, 4.0F);
+		} else {
+			face(client, facing, -2.0F);
 		}
 		if (shots < ARMS_SCREENS.length && f == ARMS_SCREENS[shots]) {
 			shot(client, target() + "_" + f);
 			shots++;
 		}
 		if (f >= armsEnd || f >= ARMS_CAP) {
-			server.execute(() -> Saw.grind(player(server), false));
+			client.options.forwardKey.setPressed(false);
 			stage = Stage.DONE;
 		}
+	}
+
+	/** A point {@code x} ahead of, {@code y} above and {@code z} to the side of {@code you}, the way you first faced. */
+	private static Vec3d rel(Vec3d you, double x, double y, double z) {
+		double fx = -Math.sin(Math.toRadians(facing));
+		double fz = Math.cos(Math.toRadians(facing));
+		return you.add(fx * x - fz * z, y, fz * x + fx * z);
+	}
+
+	/** The camera that goes with you (eased), for the Warden coming, close on you, or on the arm's side when one goes. */
+	private static void armsCamera(int which) {
+		armsMood = which;
+		boolean first = which == 0 || which >= 2;
+		camWant = switch (which) {
+			case 0 -> new double[] {2.8, 1.5, -7.0, 2.8, 1.6, 0.0};
+			case 1 -> new double[] {1.7, 1.6, -6.0, 1.7, 1.7, 0.0};
+			case 2 -> new double[] {1.0, 1.5, 5.4, 1.7, 1.6, 0.0};
+			default -> new double[] {1.0, 1.5, -5.4, 1.7, 1.6, 0.0};
+		};
+		if (first) {
+			// (A cut, not a drift.)
+			camEye = null;
+		}
+		Capture.camera = trackingCamera(MinecraftClient.getInstance());
 	}
 
 	/** The hall: sculk floor, deepslate walls and ceiling (a shell, so no water or lava can get in), soul lanterns on low posts, catalysts and sensors. */
@@ -2362,19 +2411,6 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		player.addStatusEffect(new net.minecraft.entity.effect.StatusEffectInstance(net.minecraft.entity.effect.StatusEffects.NIGHT_VISION, 20 * 600, 0, true,
 				false, false));
 		ZOMBIES.clear();
-		net.minecraft.entity.mob.WardenEntity warden = EntityType.WARDEN.create(world);
-		if (warden != null) {
-			Vec3d at = local(WARDEN_AT.x, 0.0, WARDEN_AT.z);
-			warden.refreshPositionAndAngles(at.x, at.y, at.z, facing + 180.0F, 0.0F);
-			warden.setHeadYaw(facing + 180.0F);
-			warden.setBodyYaw(facing + 180.0F);
-			warden.setAiDisabled(true);
-			warden.setPersistent();
-			// (A little harder than the game's, so the blow, once the form's armour has taken its share, still takes an arm.)
-			warden.getAttributeInstance(net.minecraft.entity.attribute.EntityAttributes.GENERIC_ATTACK_DAMAGE).setBaseValue(34.0);
-			world.spawnEntity(warden);
-			wardenId = warden.getId();
-		}
 		origin = feet;
 	}
 
