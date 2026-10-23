@@ -141,6 +141,8 @@ public final class ClientCombat {
 	/** Your own attack key: how long it has been held, whether you are grinding, and when you last slashed. */
 	private static int held;
 	private static boolean grindSent;
+	/** Whether the server has been told you are sprinting on Beam's back (the game sends no sprint for a rider of a mount it does not steer). */
+	private static boolean sprintSent;
 	private static long lastSlash = NEVER;
 
 	private ClientCombat() {
@@ -697,6 +699,11 @@ public final class ClientCombat {
 			grindSent = grind;
 			send(FormActionPayload.GRIND, grind);
 		}
+		boolean sprint = self.getVehicle() instanceof io.github.kortev.chainsawman.BeamEntity && self.isSprinting() && fighting(self);
+		if (sprint != sprintSent) {
+			sprintSent = sprint;
+			send(FormActionPayload.SPRINT, sprint);
+		}
 		if (Downed.is(self) || MergeCinematic.merging(self)) {
 			holdStill(client.options);
 		}
@@ -907,6 +914,7 @@ public final class ClientCombat {
 		FRENZY_SOUNDS.clear();
 		held = 0;
 		grindSent = false;
+		sprintSent = false;
 		lastSlash = NEVER;
 		queuedSlash = NEVER;
 		predicted = null;

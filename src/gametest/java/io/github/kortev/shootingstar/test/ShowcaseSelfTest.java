@@ -3074,7 +3074,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 				ShootingStar.LOGGER.info("[selftest] beamswim: summoned {}; fighting {}, blood {}, at {}", Beam.summon(you), Form.fighting(you), Blood.get(you), you.getPos());
 			});
 		}
-		client.options.forwardKey.setPressed(f >= SW_FORWARD && f < SW_STOP);
+		swimKeys(client, f >= SW_FORWARD && f < SW_STOP);
 		client.options.jumpKey.setPressed(f >= SW_JUMP && f < SW_JUMP + 2);
 		Vec3d here = beam == null ? origin : beam.getPos();
 		if (f == SW_FORWARD) {
@@ -3162,7 +3162,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 			}
 		}
 		if (f >= SW_END) {
-			client.options.forwardKey.setPressed(false);
+			swimKeys(client, false);
 			ShootingStar.LOGGER.info("[selftest] beamswim: the end at f={}", f);
 			stage = Stage.DONE;
 		}
@@ -3174,8 +3174,9 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		}
 		if (f % 10 == 0 && beam != null) {
 			Vec3d rel = beam.getPos().subtract(origin);
-			ShootingStar.LOGGER.info("[selftest] beamswim f={} he is {} along, {} across, y {} (ground {}), swim {}, pace {}, pitch {}, you on him: {}", f, rel.dotProduct(ahead),
-					-rel.dotProduct(side), rel.y, beam.getY() - origin.y, beam.swim(0.0F), beam.pace(), beam.getPitch(), client.player.getVehicle() == beam);
+			ShootingStar.LOGGER.info("[selftest] beamswim f={} he is {} along, {} across, y {} (ground {}), swim {}, pace {}, pitch {}, you on him: {}; sprinting {}, sprint key {}, forward {}, on ground {}", f, rel.dotProduct(ahead),
+					-rel.dotProduct(side), rel.y, beam.getY() - origin.y, beam.swim(0.0F), beam.pace(), beam.getPitch(), client.player.getVehicle() == beam,
+					client.player.isSprinting(), client.options.sprintKey.isPressed(), client.player.input.movementForward, beam.isOnGround());
 		}
 	}
 
@@ -3217,7 +3218,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 			server.execute(() -> ShootingStar.LOGGER.info("[selftest] beamfp: summoned {}", Beam.summon(player(server))));
 		}
 		if (f == 30) {
-			client.options.forwardKey.setPressed(true);
+			swimKeys(client, true);
 		}
 		for (int k = 0; k < FP_SET.length; k++) {
 			int at = 56 + 9 * k;
@@ -3231,7 +3232,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 			}
 		}
 		if (f >= 56 + 9 * FP_SET.length + 10) {
-			client.options.forwardKey.setPressed(false);
+			swimKeys(client, false);
 			stage = Stage.DONE;
 		}
 	}
@@ -3401,7 +3402,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 			});
 		}
 		if (f == 30) {
-			client.options.forwardKey.setPressed(true);
+			swimKeys(client, true);
 		}
 		if (f == ACT_START) {
 			if (capturing()) {
@@ -3467,7 +3468,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		if (actPhase == 2 && actKeyPhase == 2 && beam != null) {
 			actPhase = 3;
 			actBiteAt = f;
-			client.options.forwardKey.setPressed(false);
+			swimKeys(client, false);
 			// Shot 3: beside him and ahead, low, at his jaws as he slows and holds it.
 			Vec3d b = beam.getPos();
 			Vec3d at = rel(new Vec3d(b.x, origin.y, b.z), dir, left, 9.0, 3.0, 6.5);
@@ -3492,7 +3493,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		}
 		// Phase 4: he turns about; the forward key down; a pack of husks down the lane, running at him.
 		if (actPhase == 4 && f == actFlungAt + 10) {
-			client.options.forwardKey.setPressed(true);
+			swimKeys(client, true);
 		}
 		if (actPhase == 4 && f == actFlungAt + 12 && beam != null) {
 			actPhase = 5;
@@ -3516,7 +3517,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		if (actPhase == 5 && actKeyPhase == 5 && beam != null) {
 			actPhase = 6;
 			actLaunchAt = f;
-			client.options.forwardKey.setPressed(false);
+			swimKeys(client, false);
 			// Shot 5a: the throw from beside him; then 5b from the side of where it ends.
 			Vec3d b = actKeyAt;
 			Vec3d launched = new Vec3d(b.x, origin.y, b.z);
@@ -3538,7 +3539,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		if (actPhase == 6 && beam != null && f > actLaunchAt + 12 && client.player.getVehicle() == beam) {
 			actPhase = 7;
 			actPickedAt = f;
-			client.options.forwardKey.setPressed(true);
+			swimKeys(client, true);
 			Vec3d base = beam.getPos().add(dir.multiply(60.0));
 			server.execute(() -> raider(server.getOverworld(), new Vec3d(base.x, origin.y, base.z), yaw + 180.0F, 100.0F, 2));
 			actEyes(client);
@@ -3559,7 +3560,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		}
 		if (actPhase == 9 && actKeyPhase == 9) {
 			actPhase = 10;
-			client.options.forwardKey.setPressed(false);
+			swimKeys(client, false);
 			actBiteAt = f;
 		}
 		if (actPhase == 10 && beam != null && beam.sinceGrab(0.0F) > BeamEntity.GRAB_TICKS + 1 && beam.sinceGrab(0.0F) < 200.0F) {
@@ -3569,10 +3570,10 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		// (The field is only so long: he is not to swim off the end of it.)
 		double along = beam == null ? 0.0 : beam.getPos().subtract(origin).dotProduct(Vec3d.fromPolar(0.0F, facing));
 		if (actPhase < 4 && along > 104.0 || actPhase >= 5 && along < -98.0) {
-			client.options.forwardKey.setPressed(false);
+			swimKeys(client, false);
 		}
 		if (c >= ACT_LENGTH || f > 900 || actPhase == 11 && f > actFlungAt + 26) {
-			client.options.forwardKey.setPressed(false);
+			swimKeys(client, false);
 			ShootingStar.LOGGER.info("[selftest] beamaction: the end at f={} (phase {})", f, actPhase);
 			stage = Stage.DONE;
 		}
@@ -3583,6 +3584,12 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 							.map(id -> client.world.getEntityById(id)).filter(e -> e != null && e.isAlive()).map(e -> e.getType().getUntranslatedName() + "@"
 									+ String.format("%.0f", e.getPos().subtract(origin).dotProduct(Vec3d.fromPolar(0.0F, facing))) + "," + String.format("%.0f", e.getY() - origin.y)).toList());
 		}
+	}
+
+	/** Forward, and sprint with it: Beam walks on his legs on forward alone and dives to swim when the rider sprints (the real client keys, so the game's own sprint reaches the server). */
+	private static void swimKeys(MinecraftClient client, boolean on) {
+		client.options.forwardKey.setPressed(on);
+		client.options.sprintKey.setPressed(on);
 	}
 
 	private static boolean phaseIs(int phase) {

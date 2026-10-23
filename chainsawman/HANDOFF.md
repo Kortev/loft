@@ -121,13 +121,16 @@ tall within 3 blocks of you, else the action bar says so and nothing is spent) a
     dive in (`ride.swim` past 0.12) and the surfacing (below 0.45), in `Beam.pose`. The charge, the rush under a mob, the breach and swimming
     to a thrown rider dive on their own (`dive` true), whatever the sprint; the legs fold up while he swims or is in the air
     (`BeamModel.animate`, the entity's tracked `SWIM`). Water counts as ground (he swims along a lake's top).
-  - **How the sprint reaches the server**: vanilla stops a rider sprinting unless the mount is one they steer and it stands on the ground
-    (`ClientPlayerEntity.canVehicleSprint`, `Entity.isOnGround`). Beam is server-driven and is no ground, so by default **sprint did nothing
-    on his back**. `client/mixin/BeamSprintMixin` makes `canVehicleSprint` true for a `BeamEntity`, and `BeamEntity.isOnGround()` is true
-    unless he is airborne; then the game's own sprint (the sprint key, or a double tap of forward, kept while forward is held) and its own
-    `START_SPRINTING` / `STOP_SPRINTING` packet set `isSprinting()` on the server player, which `Beam.tick` reads. In the tests
-    `player.setSprinting(true)` + `updateInput(0, 1, ...)` stand in for it (`sprintAhead` / `walkAhead` in `FormGameTests`); in the
-    showcase the real client keys (`forwardKey`, `sprintKey`) are pressed.
+  - **How the sprint reaches the server**: two things stop it on a real client. (1) Vanilla stops a rider sprinting unless the mount is one they
+    steer and it stands on the ground (`ClientPlayerEntity.canVehicleSprint`, `Entity.isOnGround`): `client/mixin/BeamSprintMixin` makes
+    `canVehicleSprint` true for a `BeamEntity` and `BeamEntity.isOnGround()` is true unless he is airborne, so the game's own sprint (the sprint
+    key, or a double tap of forward, kept while forward is held) works on his back. (2) But the game then sends **no sprint packet** for a
+    rider (`ClientPlayerEntity.tick` calls `sendSprintingPacket` only if the root vehicle is the one they steer), so the server never saw
+    it (found by filming `beamswim` with real keys: the client sprinted, Beam walked). `ClientCombat.tick` sends `FormActionPayload.SPRINT`
+    (on / off, on every change of `isSprinting()` while riding), `Beam.sprint` keeps it in `Ride.sprint`, and `Beam.tick` dives when that
+    or the server player's own `isSprinting()` is set with forward held. In the tests `player.setSprinting(true)` + `updateInput(0, 1, ...)`
+    stand in (`sprintAhead` / `walkAhead` in `FormGameTests`); in the showcase the real client keys (`forwardKey`, `sprintKey`, `swimKeys`)
+    are pressed, so the whole path is exercised.
   - **The gait** (`BeamModel.animate`, from the entity's client `gait`, 0 to 1 of the walking speed): diagonal pairs stepping (front right
     with back left), a bounce twice a cycle, the body rocking and nodding, the hindquarters, stalk and tail whipping on a beat late, the head
     bobbing and swaying and still looking at the nearest mob; each footfall is a thud (`BeamClient.footfalls`, the iron golem's step low) and

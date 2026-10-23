@@ -21,6 +21,8 @@ public record FormActionPayload(byte action, boolean on, int target) implements 
 	public static final byte LUNGE = 4;
 	public static final byte RELEASE = 5;
 	public static final byte KICK = 6;
+	/** The rider of Beam sprinting (on) or not: the game sends no sprint for a rider of a mount it does not steer. */
+	public static final byte SPRINT = 7;
 
 	public static final CustomPayload.Id<FormActionPayload> ID = new CustomPayload.Id<>(ChainsawMan.id("form_action"));
 	public static final PacketCodec<RegistryByteBuf, FormActionPayload> CODEC = PacketCodec.tuple(PacketCodecs.BYTE, FormActionPayload::action,

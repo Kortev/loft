@@ -4,6 +4,7 @@ import io.github.kortev.chainsawman.BeamEntity;
 import io.github.kortev.chainsawman.ChainsawMan;
 import io.github.kortev.chainsawman.ChainsawSounds;
 import io.github.kortev.chainsawman.mixin.LivingEntityAccessor;
+import io.github.kortev.chainsawman.network.FormActionPayload;
 import io.github.kortev.chainsawman.network.FormEventPayload;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -270,6 +271,8 @@ public final class Beam {
 		/** Whether the last tick had him out of the ground; whether he was diving in (sunk past a part of the way) at the last tick, for the spray when that changes. */
 		boolean out;
 		boolean diving;
+		/** Whether the rider's client says they are sprinting (the game sends no sprint for a rider of a mount it does not steer: {@link FormActionPayload#SPRINT}). */
+		boolean sprint;
 		/** The ambush in progress (-1 none, 0 rushing under the prey, 1 erupting), its prey, ticks into it, how deep he has dug in (eased), his lift over the hole and its speed, whether it has crashed, and when the last erupted. */
 		int amb = -1;
 		UUID prey;
@@ -398,6 +401,13 @@ public final class Beam {
 		return beam != null && beam.isAlive() && !beam.diving() ? beam : null;
 	}
 
+	/** The rider's client says they are sprinting (or no longer): {@code on}. Told on every change; ignored if they do not ride him. */
+	public static void sprint(ServerPlayerEntity player, boolean on) {
+		if (player.getVehicle() instanceof BeamEntity beam && player.getUuid().equals(beam.owner())) {
+			beam.ride().sprint = on;
+		}
+	}
+
 	/** Whether {@code player} is riding Beam. */
 	public static boolean riding(Entity player) {
 		return player.getVehicle() instanceof BeamEntity;
@@ -477,7 +487,7 @@ public final class Beam {
 			leap(rider);
 		}
 		// Sprinting (the sprint key, or a double tap of forward, as the game sends it) he dives and swims; otherwise he walks on his legs.
-		boolean sprint = rider.isSprinting() && rider.forwardSpeed > 0.0F;
+		boolean sprint = (ride.sprint || rider.isSprinting()) && rider.forwardSpeed > 0.0F;
 		double wanted = rider.forwardSpeed > 0.0F ? (sprint ? SPEED : WALK) * Math.min(1.0F, rider.forwardSpeed) : 0.0;
 		boolean key = sprint || ride.charge >= 0 || ride.leap >= 0 && ride.swim > 0.5;
 		if (step != null) {
