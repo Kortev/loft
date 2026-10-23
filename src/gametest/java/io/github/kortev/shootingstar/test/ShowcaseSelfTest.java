@@ -57,9 +57,9 @@ import net.minecraft.world.RaycastContext;
  * filmed tall in a village at dusk, "Chainsaw Man mod" over each). -Ptarget= picks the reel; the first, and the default,
  * is {@code transform}: you, surrounded by zombies in the street, pull the cord (the mod's own transformation, its own
  * camera), cut the three of them down in the combo, and turn to the camera as it eases in, "What should I add next?"
- * over it. {@code saws}: already Chainsaw Man, you grind out through the wall of a hut, lunge into the first zombie
- * outside, take three more in the combo (across, back, the overhead finisher) and grind the last one down; it ends on
- * that kill, to loop. {@code beamlook}: photographs of Beam (the ult) from several sides, riding and leaping, and a bite on a
+ * over it. {@code saws}: a forest in daylight, a diamond axe against the saws: you chop one log out of a tree, then (a cut) as Chainsaw
+ * Man tear through the tree and the front of a log cabin with the attack key held on each block, and end low among the wreckage.
+ * {@code beamlook}: photographs of Beam (the ult) from several sides, riding and leaping, and a bite on a
  * zombie (beamlook_*.png; no reel). Play as kortev (-Pusername=Kortev) to wear their skin. With -Pcapture=true it's recorded with its sounds
  * (Capture) into build/selftest/capture; either way a few frames are saved as pictures (showcase_*.png).
  */
@@ -98,21 +98,24 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 
 	/** From when the hook is up (the chain reel shows the grab first and names it after), until when, and from when the question's there (reel ticks). */
 	private static int hookFrom() {
-		return "chain".equals(target()) ? CHAIN_HOOK_FROM : 0;
+		return "chain".equals(target()) ? chainHookAt : 0;
 	}
 
 	/** (Retuned by the chain reel to just after its first grab lands.) */
-	private static final int CHAIN_HOOK_FROM = 30;
 
 	private static int hookUntil() {
+		if ("saws".equals(target())) {
+			// (Over the axe's half only: it goes at the hard cut.)
+			return AXE_CUT;
+		}
 		return "merge".equals(target()) ? MERGE_AT + 12 : hookFrom() + 44;
 	}
 
 	private static int askedAt() {
 		return switch (target()) {
-			case "saws" -> GRIND_TO - 4;
-			case "chain" -> THIRD_CUT + 6;
-			case "arms" -> ARMS_HERO + 16;
+			case "saws" -> sawsAsk;
+			case "chain" -> chainAsk;
+			case "arms" -> armsAsk;
 			case "pochita" -> POCHITA_HERO + 10;
 			case "merge" -> REVENGE_CUTS[REVENGE_CUTS.length - 1] + 6;
 			case "beam" -> beamAsked;
@@ -132,63 +135,6 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 	private static final int ASKED = 118;
 	private static final int END = 180;
 	private static final int[] SCREENS = {12, 30, 40, 48, 58, 70, 79, 93, 107, 120, 170};
-
-	// The saws reel. The hut you're in (east of you its front wall, the way out), the hole cut through it (across, up)
-	// a block at a time; where you stand clear of it, and lunge from; where you end up, the zombies round there (angles
-	// from east) and when you cut each.
-	private static final int HUT_FRONT = 2;
-	private static final int[][] HOLE = {{0, 1}, {0, 2}, {1, 1}, {-1, 1}, {0, 0}, {1, 2}, {-1, 2}};
-	private static final int CUT_FROM = 4;
-	private static final int CUT_EVERY = 5;
-	private static final int OUT_SHOT = 30;
-	private static final int OUT_FROM = 38;
-	private static final int OUT_AT = 54;
-	private static final Vec3d OUTSIDE = new Vec3d(3.6, 0.0, 0.0);
-	/** The lunge (it carries about six blocks), at the one waiting outside. */
-	private static final int LUNGE = 58;
-	private static final Vec3d WAITING = new Vec3d(5.8, 0.0, 0.0);
-	/**
-	 * Where you've landed: the rest round you there, put there as the camera cuts away (anywhere near the lunge's way
-	 * it would cut them down too). Spread so each slash takes only its own (the finisher's narrower); the last, ground
-	 * down, tougher, in case a slash catches it.
-	 */
-	private static final int LANDED = 67;
-	private static final float[] RING = {-150.0F};
-	private static final double RING_OFF = 2.2;
-	private static final int GRIND_FROM = LANDED + 16;
-	private static final int GRIND_TO = GRIND_FROM + 28;
-	private static final int SAW_END = GRIND_TO + 56;
-	private static final int[] SAW_SCREENS = {2, 12, 24, 36, 46, 56, 62, 72, 84, 96, 108, 120, 150};
-	// The chain reel. A lookout tower ahead of you (its near face, across, its height), the two on top of it; when the
-	// chain's fired at each and when each is cut down; the chain at the tower and you up it, onto the top.
-	private static final int TOWER_NEAR = 11;
-	private static final int TOWER_HIGH = 5;
-	private static final Vec3d[] ON_TOP = {new Vec3d(11.9, TOWER_HIGH, -0.7), new Vec3d(12.9, TOWER_HIGH, 0.8)};
-	private static final int[] YANKS = {8, 28};
-	private static final int[] YANK_CUTS = {17, 37};
-	/** How long one takes to come flying down to you. */
-	private static final int FLY = 7;
-	private static final int AIM_UP = 44;
-	private static final int ZIP = 50;
-	private static final int CLIMB = 60;
-	private static final int ON_TOWER = 68;
-	/** From the top: one on the ground below, chained, flung up to you and cut down at the edge. */
-	private static final Vec3d BELOW = new Vec3d(5.0, 0.0, 2.2);
-	private static final int THIRD_YANK = 88;
-	private static final int THIRD_CUT = THIRD_YANK + FLY + 3;
-	private static final int CHAIN_END = THIRD_CUT + 64;
-	private static final int[] CHAIN_SCREENS = {2, 8, 12, 16, 18, 24, 30, 36, 40, 48, 53, 57, 62, 70, 84, 90, 94, 98, 104, 150};
-
-	// The arms reel. The two with axes (angles from the way you face, how far off); when each swings, and your arm comes
-	// off; armless a while; when you cut each down with the head's saw (each kill's blood growing an arm back); the end.
-	private static final float[] AXES = {38.0F, -38.0F};
-	private static final double AXE_OFF = 2.1;
-	private static final int[] CHOPS = {14, 40};
-	private static final int ARMLESS = 54;
-	private static final int[] HEADBUTTS = {84, 112};
-	private static final int ARMS_HERO = 126;
-	private static final int ARMS_END = 186;
-	private static final int[] ARMS_SCREENS = {6, 14, 18, 26, 40, 44, 58, 70, 80, 86, 92, 100, 114, 120, 130, 180};
 
 	// The Pochita reel (in his fallen tree's own coordinates: along it, across it). Along his blood's trail to him; down
 	// by him; your blood into him (twice the game's pace: two feeds a tick); his waking; picked up, the chainsaw; the
@@ -235,6 +181,8 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 	private static Vec3d origin;
 	private static final List<Integer> ZOMBIES = new ArrayList<>();
 	private static int shots;
+	/** When (the settling tick) the set was seen to be built, and the place you stand at: a long search for it must not eat the time the world needs to be drawn. */
+	private static int originSeen = -1;
 
 	public static boolean active() {
 		return "showcase".equals(System.getProperty("shootingstar.selftest"));
@@ -315,7 +263,10 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 					wantPitch = 12.0F;
 				}
 				// Long enough for the village round you to be drawn.
-				if (ticks > 100 && origin != null && (!"beam".equals(target()) || ticks > 600 || Form.fighting(player(server)))) {
+				if (origin != null && originSeen < 0) {
+					originSeen = ticks;
+				}
+				if (ticks > 100 && originSeen >= 0 && ticks - originSeen > 100 && (!"beam".equals(target()) || ticks > 600 || Form.fighting(player(server)))) {
 					stage = Stage.RUN;
 					ticks = 0;
 				}
@@ -327,7 +278,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 					server.execute(() -> strays(server));
 				}
 				if ("saws".equals(target())) {
-					saws(client, server, ticks);
+					sawsInWoods(client, server, ticks);
 				} else if ("chain".equals(target())) {
 					chain(client, server, ticks);
 				} else if ("arms".equals(target())) {
@@ -406,229 +357,910 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		}
 	}
 
-	// The saws reel.
+	// The saws reel, in a forest in full daylight (kortev, 2026-10-23: a comparison, "Diamond axe vs Chainsaw Man"). First half:
+	// you, yourself, chop one log out of a tree with a diamond axe (the attack key held on it, the game's own mining), close, the
+	// crack growing, and that's all you get. A hard cut: in the form, the attack key held on one block after another, the saws
+	// tear through two tree trunks in a row and straight through the front of a log cabin, the camera low and close, going with
+	// you. Then from inside the cabin, you stood in the hole you made, the daylight behind you.
 
-	private static void saws(MinecraftClient client, IntegratedServer server, int f) {
+	/** Across, the line you walk the trees and the cabin along (the axe's tree is off it, its trunk hanging in the way). */
+	private static final int LINE = 3;
+	/** Across, where the axe's tree stands, away from the line (its crown and its hanging trunk out of the saws' shots). */
+	private static final int AXE_Z = 9;
+	/** Where the trees stand ahead of you (along, across, logs high): the first is the axe's, the next two the saws', the rest scenery. */
+	private static final int[][] TREES = {{2, AXE_Z, 4}, {5, LINE, 6}, {12, LINE, 6}, {4, 10, 5}, {15, 11, 5}, {22, 10, 4}};
+	/** The cabin's front wall (along), and its depth. */
+	private static final int CABIN = 19;
+	/** The clearing: an oval, its middle along, its half length and half width. */
+	private static final double CLEAR_CX = 11.0;
+	private static final double CLEAR_RX = 16.0;
+	private static final double CLEAR_RZ = 12.0;
+	private static final int CABIN_DEEP = 7;
+	/** Where you stand to cut each (along): the two trunks, the wall, and in its hole. */
+	private static final double[] STANDS = {3.0, 10.0, 16.9, 19.0};
+	/** Where you start, along. */
+	private static final double START = 0.5;
+	/** The cut to the form; how long each walk on between them takes. */
+	private static final int AXE_CUT = 46;
+	/** How long the camera lingers on each tree coming down before you walk on (ticks). */
+	private static final int[] LINGER = {26, 30, 0};
+	private static final int WALK = 12;
+	private static final int SAWS_CAP = 600;
+	private static final int SAWS_HOLD = 38;
+	/** The camera going with you: where it is from you (along, up, across) and what it looks at, for each part of the saws. */
+	private static final double[][] SAW_CAMS = {
+			// close on the cut at a tree's foot
+			{1.0, 0.9, -3.4, 1.4, 1.2, 0.0},
+			// wide on it coming down, side on
+			{1.6, 2.4, -10.5, 1.6, 4.2, 0.0},
+			// behind you and to the side at the wall
+			{-1.5, 1.1, -4.6, 2.2, 1.3, 0.4}};
+	/** When the question goes up (the shot from inside the cabin), and the reel ends: set when you're in the hole. */
+	private static int sawsAsk = Integer.MAX_VALUE;
+	private static int sawsEnd = Integer.MAX_VALUE;
+	private static final int[] sawsGoneAt = {-1, -1, -1};
+	private static List<List<BlockPos>> sawTargets;
+	private static int sawsPhase = -1;
+	private static int sawsPhaseAt;
+	private static int sawsTarget = -1;
+	private static int sawsTargetAt;
+	/** The camera going with you, eased: where it is and what it looks at, from you. */
+	private static Vec3d camEye;
+	private static Vec3d camLook;
+	private static double[] camWant = SAW_CAMS[0];
+
+	private static void sawsInWoods(MinecraftClient client, IntegratedServer server, int f) {
+		BlockPos base = BlockPos.ofFloored(origin);
 		if (f == 1) {
 			client.options.hudHidden = false;
 			if (capturing()) {
 				Capture.start(client, client.runDirectory.toPath().resolve("capture"));
 			}
-			// In the dark of the hut over your shoulder, the saws tearing into the wall, the sunset pouring in through it.
-			fixed(local(-1.9, 2.3, 0.85), local(HUT_FRONT, 1.2, -0.1));
-			server.execute(() -> Saw.grind(player(server), true));
+			sawTargets = new ArrayList<>();
+			for (int tree = 1; tree <= 2; tree++) {
+				List<BlockPos> logs = new ArrayList<>();
+				// (One cut at the foot: the game's own felling brings the rest of the tree down.)
+				logs.add(cell(base, TREES[tree][0], 0, TREES[tree][1]));
+				sawTargets.add(logs);
+			}
+			List<BlockPos> wall = new ArrayList<>();
+			for (int y = 0; y <= 1; y++) {
+				for (int z = 0; z <= 1; z++) {
+					wall.add(cell(base, CABIN, y, LINE + z));
+				}
+			}
+			sawTargets.add(wall);
+			sawsPhase = -1;
+			java.util.Arrays.fill(sawsGoneAt, -1);
+			sawsAsk = Integer.MAX_VALUE;
+			sawsEnd = Integer.MAX_VALUE;
+			// You at the first tree with the diamond axe, close from the side: the log, the crack growing in it.
+			fixed(framed(local(1.4, 1.15, AXE_Z - 3.0), local(1.4, 1.0, AXE_Z)), local(1.4, 1.0, AXE_Z));
 		}
-		if (f == OUT_SHOT) {
-			// Outside, off to one side, as you come through it.
-			fixed(framed(local(7.0, 1.8, 2.4), local(HUT_FRONT + 0.5, 1.3, 0.0)), local(HUT_FRONT, 1.2, 0.0));
-		}
+		// (The held attack key mines only with the mouse captured, as far as the game knows.)
+		TestWindow.mining(client, true);
 		if (client.options.getPerspective() != Perspective.THIRD_PERSON_BACK) {
-			// (Never your own hands: the camera's always the film's.)
 			client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
 		}
-		if (f < LUNGE) {
-			face(client, facing, 0.0F);
+		if (client.player == null || client.world == null) {
+			return;
 		}
-		// The wall cut through, a block at a time, as fast as the form's saws cut.
-		for (int i = 0; i < HOLE.length; i++) {
-			if (f == CUT_FROM + i * CUT_EVERY) {
-				BlockPos p = cell(BlockPos.ofFloored(origin), HUT_FRONT, HOLE[i][1], HOLE[i][0]);
-				server.execute(() -> player(server).getServerWorld().breakBlock(p, false, player(server)));
-			}
-		}
-		if (f == OUT_FROM - 1) {
-			server.execute(() -> Saw.grind(player(server), false));
-		}
-		if (f >= OUT_FROM && f <= OUT_AT) {
-			go(client, local(OUTSIDE.x * ease(span(f, OUT_FROM, OUT_AT)), 0.0, 0.0));
-		}
-		// The lunge, seen from the side, wide.
-		if (f == LUNGE - 4) {
-			fixed(framed(local(5.5, 2.2, -7.5), local(6.5, 1.0, 0.0)), local(7.0, 1.0, 0.0));
-		}
-		if (f == LUNGE) {
-			server.execute(() -> Saw.lunge(player(server)));
-		}
-		if (f == LANDED && client.player != null) {
-			landed = client.player.getPos();
-			Vec3d at = landed;
+		if (f % 10 == 3) {
+			// The litter of a tree's bursting, not left lying (it would be picked up, and bury the shot).
+			Vec3d at = origin;
 			server.execute(() -> {
-				for (int i = 0; i < RING.length; i++) {
-					zombie(server.getOverworld(), at.add(way(RING[i]).multiply(RING_OFF)), facing + RING[i] + 180.0F, 16.0F);
+				for (Entity e : server.getOverworld().getOtherEntities(player(server), new net.minecraft.util.math.Box(at, at).expand(50.0, 30.0, 50.0),
+						e -> e instanceof net.minecraft.entity.ItemEntity item && item.getItemAge() > 25)) {
+					e.discard();
 				}
 			});
 		}
-		if (f >= LANDED && landed != null) {
-			go(client, landed);
+		if (f % 4 == 1) {
+			// Nothing alive but you in the woods (the animals of the chunks that load in after the set was cleared).
+			Vec3d at = origin;
+			server.execute(() -> {
+				for (Entity e : server.getOverworld().getOtherEntities(player(server), new net.minecraft.util.math.Box(at, at).expand(48.0, 30.0, 48.0),
+						e -> e instanceof net.minecraft.entity.LivingEntity)) {
+					e.discard();
+				}
+			});
 		}
-		// The one waiting where you land, ground down: from its other side (closer in, the bar fills the picture).
-		if (f == LANDED + 2 && landed != null) {
-			victimShot(landed, RING[0], -60.0, 4.6, 1.9);
+		Vec3d eye = client.player.getEyePos();
+		if (f < AXE_CUT) {
+			// The axe: the log at the foot of the tree, the attack key held on it; when it's out, a look up the stump's trunk,
+			// then to the camera, as flat as a man can be about it.
+			BlockPos log = cell(base, TREES[0][0], 0, TREES[0][1]);
+			if (!client.world.getBlockState(log).isAir()) {
+				Capture.Pose aim = look(eye, log.toCenterPos());
+				face(client, aim.yaw(), aim.pitch());
+				client.options.attackKey.setPressed(f >= 6 && aimedAt(aim));
+				sawsAxedAt = f;
+			} else {
+				client.options.attackKey.setPressed(false);
+				int since = f - sawsAxedAt;
+				if (since < 10) {
+					face(client, facing, -24.0F);
+				} else {
+					Capture.Pose toCamera = look(eye, local(1.4, 1.15, AXE_Z - 3.0));
+					face(client, toCamera.yaw(), 6.0F);
+				}
+			}
+			shotAt(client, f);
+			return;
 		}
-		if (f > LANDED && f <= GRIND_FROM - 2) {
-			face(client, facing + RING[0], 0.0F);
+		if (f == AXE_CUT) {
+			client.options.attackKey.setPressed(false);
+			Vec3d at = local(START, 0.0, LINE);
+			server.execute(() -> {
+				ServerPlayerEntity p = player(server);
+				// (The tree's drops are left; the wall's are not.)
+				server.getGameRules().get(GameRules.DO_TILE_DROPS).set(false, server);
+								p.getInventory().clear();
+				// (Off to the line of trees, out of the camera's sight: the axe's trunk hangs where you stood.)
+				Vec3d line = at;
+				p.teleport(p.getServerWorld(), line.x, line.y, line.z, facing, 0.0F);
+				Form.play(p, io.github.kortev.chainsawman.ChainsawSounds.START, 1.0F);
+				Form.start(p);
+				// (The saws' own speed through wood and stone, and a faster hand: a tree trunk in a second, as he tears through a building.)
+				p.addStatusEffect(new net.minecraft.entity.effect.StatusEffectInstance(net.minecraft.entity.effect.StatusEffects.HASTE, 600, 6, true, false,
+						false));
+			});
 		}
-		if (f == GRIND_FROM) {
+		if (f < AXE_CUT + 3) {
+			// The hard cut: the same spot from the front, you in the form, standing among the trees.
+			if (f == AXE_CUT) {
+				camEye = null;
+				camWant = SAW_CAMS[0];
+			}
+			shotAt(client, f);
+			Capture.camera = trackingCamera(client);
+			face(client, facing, 0.0F);
+			return;
+		}
+		// The saws: one trunk after the next and the wall, the attack key held on each block in turn.
+		int phase = 0;
+		while (phase < sawTargets.size()) {
+			if (!allGone(client, sawTargets.get(phase))) {
+				break;
+			}
+			if (sawsGoneAt[phase] < 0) {
+				sawsGoneAt[phase] = f;
+			}
+			if (f - sawsGoneAt[phase] < LINGER[phase]) {
+				break;
+			}
+			phase++;
+		}
+		if (phase < 2) {
+			// Close on the cut; once it's through, wide on the tree coming down.
+			camWant = allGone(client, sawTargets.get(phase)) ? SAW_CAMS[1] : SAW_CAMS[0];
+		} else {
+			camWant = SAW_CAMS[2];
+		}
+		if (phase != sawsPhase) {
+			sawsPhase = phase;
+			sawsPhaseAt = f;
+			sawsTarget = -1;
+			if (phase == 2) {
+				// To the wall: another angle, behind you and to the side, so the hole can be seen going through.
+				camEye = null;
+			}
+		}
+		if (phase < sawTargets.size()) {
+			double from = phase == 0 ? START : STANDS[phase - 1];
+			double along = MathHelper.lerp(ease(span(f, sawsPhaseAt, sawsPhaseAt + WALK)), from, STANDS[phase]);
+			// (Held a little down, or you are never on the ground, and the game digs a fifth as fast.)
+			go(client, local(along, -0.08, phase == 2 ? LINE + 0.5 : LINE));
+			BlockPos next = null;
+			for (BlockPos p : sawTargets.get(phase)) {
+				if (!client.world.getBlockState(p).isAir()) {
+					next = p;
+					break;
+				}
+			}
+			if (next == null) {
+				return;
+			}
+			int index = next.hashCode();
+			if (index != sawsTarget) {
+				sawsTarget = index;
+				sawsTargetAt = f;
+				ShootingStar.LOGGER.info("[selftest] showcase: saws on {} at {}", next, f);
+			}
+			Capture.Pose aim = look(eye, next.toCenterPos());
+			face(client, aim.yaw(), aim.pitch());
+			boolean there = f >= sawsPhaseAt + WALK - 4;
+			client.options.attackKey.setPressed(there && aimedAt(aim));
+			if (f - sawsTargetAt > 70) {
+				// (Stuck on it: the block goes, so the reel goes on; said, so the take can be judged.)
+				ShootingStar.LOGGER.warn("[selftest] showcase: the saws did not cut {} in time", next);
+				BlockPos stuck = next;
+				server.execute(() -> player(server).getServerWorld().breakBlock(stuck, false, player(server)));
+			}
+			shotAt(client, f);
+			return;
+		}
+		// Through: on into the hole, the saws revving. Then from inside the cabin, looking out at you in it, the daylight behind.
+		client.options.attackKey.setPressed(false);
+		if (sawsEnd == Integer.MAX_VALUE) {
+			sawsPhaseAt = f;
+			sawsEnd = f + WALK + 12 + SAWS_HOLD;
+			sawsAsk = f + WALK + 12;
+			ShootingStar.LOGGER.info("[selftest] showcase: saws done at {}", f);
+			// Straight to the shot from inside the cabin (the tracking camera never goes through the logs): you walk into the hole in front of it.
+			Vec3d at = local(STANDS[3] + 3.4, 1.25, LINE + 0.5);
+			fixed(framed(at, local(STANDS[3], 1.2, LINE + 0.5)), local(STANDS[3] - 0.5, 1.15, LINE + 0.5));
+		}
+		if (f < sawsPhaseAt + WALK + 8) {
+			double along = MathHelper.lerp(ease(span(f, sawsPhaseAt, sawsPhaseAt + WALK)), STANDS[2], STANDS[3]);
+			go(client, local(along, -0.08, LINE + 0.5));
+			face(client, facing, 0.0F);
+		} else {
+			go(client, local(STANDS[3], -0.08, LINE + 0.5));
+			face(client, facing, -2.0F);
+		}
+		if (f == sawsPhaseAt + WALK + 8) {
 			server.execute(() -> Saw.grind(player(server), true));
 		}
-		if (f == GRIND_TO) {
+		shotAt(client, f);
+		if (f >= sawsEnd || f >= SAWS_CAP) {
 			server.execute(() -> Saw.grind(player(server), false));
-		}
-		if (shots < SAW_SCREENS.length && f == SAW_SCREENS[shots]) {
-			shot(client, target() + "_" + f);
-			shots++;
-		}
-		if (f >= SAW_END) {
 			stage = Stage.DONE;
 		}
 	}
 
-	// The chain reel.
+	/** When the log of the axe's tree went (reel ticks). */
+	private static int sawsAxedAt;
+
+	/**
+	 * A camera low and close that goes with you: held {@link #camWant} (along, up, across from you; what it looks at) and eased
+	 * toward it, so it keeps up with a walk and only its framing drifts; never inside a block.
+	 */
+	private static java.util.function.DoubleFunction<Capture.Pose> trackingCamera(MinecraftClient client) {
+		return time -> {
+			if (client.player == null) {
+				return new Capture.Pose(0, 0, 0, 0, 0);
+			}
+			float delta = client.getRenderTickCounter().getTickDelta(true);
+			Vec3d you = client.player.getLerpedPos(delta);
+			double fx = -Math.sin(Math.toRadians(facing));
+			double fz = Math.cos(Math.toRadians(facing));
+			Vec3d eyeWant = new Vec3d(fx * camWant[0] - fz * camWant[2], camWant[1], fz * camWant[0] + fx * camWant[2]);
+			Vec3d lookWant = new Vec3d(fx * camWant[3] - fz * camWant[5], camWant[4], fz * camWant[3] + fx * camWant[5]);
+			boolean fresh = camEye == null || camLook == null;
+			camEye = fresh ? eyeWant : camEye.lerp(eyeWant, 0.1);
+			camLook = fresh ? lookWant : camLook.lerp(lookWant, 0.1);
+			Vec3d at = framed(you.add(camEye), you.add(0.0, 1.0, 0.0));
+			return look(at, you.add(camLook));
+		};
+	}
+
+	/** Whether the crosshair is on {@code aim}, near enough that the attack key held now lands on it. */
+	private static boolean aimedAt(Capture.Pose aim) {
+		return !Float.isNaN(headYaw) && Math.abs(MathHelper.wrapDegrees(aim.yaw() - headYaw)) < 7.0F && Math.abs(aim.pitch() - headPitch) < 11.0F;
+	}
+
+	private static boolean allGone(MinecraftClient client, List<BlockPos> blocks) {
+		for (BlockPos p : blocks) {
+			if (!client.world.getBlockState(p).isAir()) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/** A still every so often, to judge the take by. */
+	private static void shotAt(MinecraftClient client, int f) {
+		if (f % 15 == 0) {
+			shot(client, target() + "_" + f);
+		}
+	}
+
+	/**
+	 * The saws reel's set: a forest in daylight, a clearing cut in it with two oak trees and a log cabin, you at the first tree
+	 * with a diamond axe, yourself (Pochita your heart, not in the form).
+	 */
+	private static void sawsSet(IntegratedServer server, ServerPlayerEntity player, ServerWorld world) {
+		world.setTimeOfDay(6000);
+		server.getGameRules().get(GameRules.DO_TILE_DROPS).set(true, server);
+		server.getGameRules().get(GameRules.RANDOM_TICK_SPEED).set(3, server);
+		facing = FACING;
+		BlockPos spot = forestClearing(world, BlockPos.ORIGIN);
+		Vec3d feet = Vec3d.ofBottomCenter(spot);
+		ShootingStar.LOGGER.info("[selftest] showcase: the saws' forest, standing at {}, biome {}", spot, world.getBiome(spot).getIdAsString());
+		for (Entity e : world.getOtherEntities(player, new net.minecraft.util.math.Box(spot).expand(40.0, 30.0, 40.0))) {
+			if (!(e instanceof ServerPlayerEntity)) {
+				e.discard();
+			}
+		}
+		clearing(world, spot);
+		for (int[] tree : TREES) {
+			oak(world, cell(spot, tree[0], 0, tree[1]), tree[2]);
+		}
+		cabin(world, cell(spot, 0, 0, LINE));
+		Form.end(player);
+		player.changeGameMode(GameMode.SURVIVAL);
+		player.getAbilities().invulnerable = true;
+		player.sendAbilitiesUpdate();
+		player.getInventory().clear();
+		player.getInventory().setStack(0, new ItemStack(Items.DIAMOND_AXE));
+		player.getInventory().selectedSlot = 0;
+		player.setHealth(player.getMaxHealth());
+		player.getHungerManager().setFoodLevel(20);
+		player.setAttached(Heart.MERGED, true);
+		Blood.set(player, Blood.MAX);
+		player.teleport(world, feet.x + START, feet.y, feet.z + AXE_Z, facing, 25.0F);
+		ZOMBIES.clear();
+		origin = feet;
+	}
+
+	/** The top block of the ground at ({@code x}, {@code z}), under whatever grows on it. */
+	private static int groundY(ServerWorld world, int x, int z) {
+		world.getChunk(x >> 4, z >> 4);
+		int y = world.getTopY(Heightmap.Type.WORLD_SURFACE, x, z) - 1;
+		while (y > world.getBottomY()) {
+			BlockState s = world.getBlockState(new BlockPos(x, y, z));
+			if (s.isAir() || s.isIn(net.minecraft.registry.tag.BlockTags.LEAVES) || s.isIn(net.minecraft.registry.tag.BlockTags.LOGS)
+					|| s.isReplaceable() && s.getFluidState().isEmpty() || s.isIn(net.minecraft.registry.tag.BlockTags.FLOWERS)
+					|| s.isOf(Blocks.MOSS_CARPET) || s.isOf(Blocks.VINE) || s.isOf(Blocks.BROWN_MUSHROOM) || s.isOf(Blocks.RED_MUSHROOM)) {
+				y--;
+			} else {
+				break;
+			}
+		}
+		return y;
+	}
+
+	private static boolean earthy(BlockState ground) {
+		return ground.isOf(Blocks.GRASS_BLOCK) || ground.isOf(Blocks.DIRT) || ground.isOf(Blocks.PODZOL) || ground.isOf(Blocks.COARSE_DIRT);
+	}
+
+	/**
+	 * How thick the forest is round a clearing's place (columns whose top is leaves, in the ring outside it), or -1 if its ground
+	 * is wet or too hilly (its coarse grid: every third block).
+	 */
+	private static int forestScore(ServerWorld world, int x, int z) {
+		int low = Integer.MAX_VALUE;
+		int high = Integer.MIN_VALUE;
+		for (int dx = -5; dx <= 28; dx += 3) {
+			for (int dz = -13; dz <= 13; dz += 3) {
+				double e = Math.pow((dx - CLEAR_CX) / CLEAR_RX, 2) + Math.pow(dz / CLEAR_RZ, 2);
+				if (e > 1.0) {
+					continue;
+				}
+				int y = groundY(world, x + dx, z + dz);
+				if (!earthy(world.getBlockState(new BlockPos(x + dx, y, z + dz))) || !world.getFluidState(new BlockPos(x + dx, y + 1, z + dz)).isEmpty()) {
+					return -1;
+				}
+				low = Math.min(low, y);
+				high = Math.max(high, y);
+			}
+		}
+		if (high - low > 4) {
+			return -1;
+		}
+		int trees = 0;
+		for (int dx = -14; dx <= 40; dx += 2) {
+			for (int dz = -22; dz <= 22; dz += 2) {
+				double e = Math.pow((dx - CLEAR_CX) / CLEAR_RX, 2) + Math.pow(dz / CLEAR_RZ, 2);
+				if (e <= 1.3) {
+					continue;
+				}
+				world.getChunk((x + dx) >> 4, (z + dz) >> 4);
+				BlockPos top = new BlockPos(x + dx, world.getTopY(Heightmap.Type.WORLD_SURFACE, x + dx, z + dz) - 1, z + dz);
+				if (world.getBlockState(top).isIn(net.minecraft.registry.tag.BlockTags.LEAVES)) {
+					trees++;
+				}
+			}
+		}
+		// (Level ground first: a clearing cut into a hillside has a bank of bare earth for a backdrop.)
+		return trees - 40 * (high - low);
+	}
+
+	/**
+	 * Where to stand: the middle of a forest (its biome a good way round in every direction), nearest {@code from}, with level
+	 * dry ground for the clearing and trees thick round it.
+	 */
+	private static BlockPos forestClearing(ServerWorld world, BlockPos from) {
+		List<BlockPos> inside = new ArrayList<>();
+		for (int x = -FOREST_SEARCH; x <= FOREST_SEARCH; x += 16) {
+			for (int z = -FOREST_SEARCH; z <= FOREST_SEARCH; z += 16) {
+				boolean all = wooded(world, x, z);
+				for (int k = 0; all && k < 8; k++) {
+					double a = k * Math.PI / 4.0;
+					all = wooded(world, x + (int) Math.round(Math.cos(a) * 40.0), z + (int) Math.round(Math.sin(a) * 40.0));
+				}
+				if (all) {
+					inside.add(new BlockPos(x, 70, z));
+				}
+			}
+		}
+		inside.sort(java.util.Comparator.comparingDouble(p -> p.getSquaredDistance(from)));
+		ShootingStar.LOGGER.info("[selftest] showcase: {} places inside a forest", inside.size());
+		int bestScore = -1;
+		BlockPos best = null;
+		int tried = 0;
+		for (BlockPos p : inside) {
+			if (tried++ >= 120 || bestScore >= 190) {
+				break;
+			}
+			for (int[] off : new int[][] {{0, 0}, {-10, 0}, {10, 0}, {0, -10}, {0, 10}}) {
+				int x = p.getX() + off[0];
+				int z = p.getZ() + off[1];
+				int score = forestScore(world, x, z);
+				if (score > bestScore) {
+					bestScore = score;
+					best = new BlockPos(x, groundY(world, x, z) + 1, z);
+				}
+			}
+		}
+		ShootingStar.LOGGER.info("[selftest] showcase: clearing at {}, {} tree columns round it (tried {})", best, bestScore, tried);
+		return best != null ? best : world.getTopPosition(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, from);
+	}
+
+	private static final int FOREST_SEARCH = 1600;
+
+	private static boolean wooded(ServerWorld world, int x, int z) {
+		var biome = world.getBiome(new BlockPos(x, 70, z));
+		return biome.matchesKey(net.minecraft.world.biome.BiomeKeys.FOREST) || biome.matchesKey(net.minecraft.world.biome.BiomeKeys.DARK_FOREST);
+	}
+
+	/**
+	 * An oval of the forest cleared to the level of {@code spot} and grassed, the sky open over it; round it the ground blends back into
+	 * the hillside by a gentle slope (a cut face of bare earth would be the backdrop of every shot).
+	 */
+	private static void clearing(ServerWorld world, BlockPos spot) {
+		int flags = Block.NOTIFY_LISTENERS | Block.FORCE_STATE;
+		int ground = spot.getY() - 1;
+		for (int x = -11; x <= 35; x++) {
+			for (int z = -20; z <= 20; z++) {
+				double e = Math.pow((x - CLEAR_CX) / CLEAR_RX, 2) + Math.pow(z / CLEAR_RZ, 2);
+				if (e > 1.9) {
+					continue;
+				}
+				BlockPos c = cell(spot, x, 0, z);
+				int natural = groundY(world, c.getX(), c.getZ());
+				double blend = e <= 1.0 ? 0.0 : Math.min(1.0, (e - 1.0) / 0.9);
+				int target = (int) Math.round(MathHelper.lerp(blend * blend * (3.0 - 2.0 * blend), ground, natural));
+				BlockPos top = new BlockPos(c.getX(), target, c.getZ());
+				for (int y = target + 1; y <= Math.max(natural, target) + 30; y++) {
+					BlockPos p = new BlockPos(c.getX(), y, c.getZ());
+					if (!world.getBlockState(p).isAir()) {
+						world.setBlockState(p, Blocks.AIR.getDefaultState(), flags);
+					}
+				}
+				for (int y = target; y >= target - 8; y--) {
+					BlockPos p = new BlockPos(c.getX(), y, c.getZ());
+					BlockState state = world.getBlockState(p);
+					boolean solid = state.isOpaqueFullCube(world, p) && !state.isIn(net.minecraft.registry.tag.BlockTags.LEAVES)
+							&& !state.isIn(net.minecraft.registry.tag.BlockTags.LOGS);
+					if (y == target) {
+						world.setBlockState(p, Blocks.GRASS_BLOCK.getDefaultState(), flags);
+					} else if (!solid) {
+						world.setBlockState(p, Blocks.DIRT.getDefaultState(), flags);
+					} else if (y < target - 2) {
+						break;
+					}
+				}
+			}
+		}
+	}
+
+	/** An oak {@code logs} high, its crown of leaves (natural ones: they fall away with the last log). */
+	private static void oak(ServerWorld world, BlockPos foot, int logs) {
+		int top = logs - 1;
+		for (int y = Math.max(2, top - 2); y <= top + 2; y++) {
+			int dy = y - top;
+			int r = dy == -2 ? 2 : dy <= 0 ? 3 : dy == 1 ? 2 : 1;
+			for (int dx = -r; dx <= r; dx++) {
+				for (int dz = -r; dz <= r; dz++) {
+					boolean corner = Math.abs(dx) == r && Math.abs(dz) == r;
+					if (corner && r >= 2) {
+						continue;
+					}
+					// (How far from a log it is, as the game works it out, or it would fall away at the first tick of the cut.)
+					int distance = MathHelper.clamp(Math.abs(dx) + Math.abs(dz) + Math.max(0, y - top), 1, 7);
+					world.setBlockState(foot.add(dx, y, dz), Blocks.OAK_LEAVES.getDefaultState().with(net.minecraft.block.LeavesBlock.DISTANCE, distance));
+				}
+			}
+		}
+		for (int y = 0; y < logs; y++) {
+			world.setBlockState(foot.up(y), Blocks.OAK_LOG.getDefaultState());
+		}
+	}
+
+	/** A small log cabin: its front wall {@link #CABIN} ahead, {@link #CABIN_DEEP} deep and seven wide, three high, spruce logs and planks, a stepped roof. */
+	private static void cabin(ServerWorld world, BlockPos spot) {
+		net.minecraft.block.BlockState planks = Blocks.SPRUCE_PLANKS.getDefaultState();
+		int back = CABIN + CABIN_DEEP - 1;
+		for (int x = CABIN; x <= back; x++) {
+			for (int z = -3; z <= 3; z++) {
+				boolean front = x == CABIN || x == back;
+				boolean edge = front || Math.abs(z) == 3;
+				boolean corner = front && Math.abs(z) == 3;
+				world.setBlockState(cell(spot, x, -1, z), planks);
+				for (int y = 0; y <= 2; y++) {
+					BlockState s;
+					if (!edge) {
+						s = Blocks.AIR.getDefaultState();
+					} else if (corner) {
+						s = Blocks.STRIPPED_SPRUCE_LOG.getDefaultState();
+					} else if (front && y == 1) {
+						s = Math.abs(z) == 2 && x == back ? Blocks.GLASS_PANE.getDefaultState() : planks;
+					} else {
+						s = Blocks.SPRUCE_LOG.getDefaultState().with(net.minecraft.block.PillarBlock.AXIS,
+								front ? net.minecraft.util.math.Direction.Axis.Z : net.minecraft.util.math.Direction.Axis.X);
+					}
+					world.setBlockState(cell(spot, x, y, z), s);
+				}
+				world.setBlockState(cell(spot, x, 3, z), planks);
+				if (x >= CABIN + 1 && x <= back - 1) {
+					world.setBlockState(cell(spot, x, 4, z), planks);
+				}
+				if (x >= CABIN + 2 && x <= back - 2) {
+					world.setBlockState(cell(spot, x, 5, z), planks);
+				}
+				if (x == CABIN + 3) {
+					world.setBlockState(cell(spot, x, 6, z), planks);
+				}
+			}
+		}
+		// A door in the side, a table and a barrel, lanterns.
+		BlockPos door = cell(spot, CABIN + 3, 0, -3);
+		world.setBlockState(door, Blocks.SPRUCE_DOOR.getDefaultState().with(net.minecraft.block.DoorBlock.FACING, net.minecraft.util.math.Direction.NORTH));
+		world.setBlockState(door.up(), Blocks.SPRUCE_DOOR.getDefaultState().with(net.minecraft.block.DoorBlock.FACING, net.minecraft.util.math.Direction.NORTH)
+				.with(net.minecraft.block.DoorBlock.HALF, net.minecraft.block.enums.DoubleBlockHalf.UPPER));
+		world.setBlockState(cell(spot, back - 1, 0, 2), Blocks.CRAFTING_TABLE.getDefaultState());
+		world.setBlockState(cell(spot, back - 1, 0, -2), Blocks.BARREL.getDefaultState());
+		world.setBlockState(cell(spot, back - 1, 0, 0), Blocks.CHEST.getDefaultState());
+		for (int[] at : new int[][] {{CABIN + 2, 1}, {CABIN + 2, -1}, {CABIN + 4, 0}}) {
+			world.setBlockState(cell(spot, at[0], 2, at[1]), Blocks.LANTERN.getDefaultState().with(net.minecraft.block.LanternBlock.HANGING, true));
+		}
+	}
+
+	// The chain reel, on a mountain cliff at night (kortev, 2026-10-23: the action first, then "Grab mobs with your chain"). Facing
+	// south (so "ahead" is south, and across is west): the rock of the cliff ahead with a ledge six up and a skeleton on its lip,
+	// you on a shelf of the mountain, east of you a drop with a pillar standing in it and a creeper on top. Real mobs (their AI on, at
+	// their own speed, after you): the test only says where and when each spawns, how much health it has (so one slash kills it), and
+	// where the camera is. You aim and fire the chain with the chain key, and slash with the attack key, as a player does.
+
+	private static final int LEDGE = 6;
+	/** Where each is put (along, across; the height is the top of the rock there), in the order you take them. */
+	private static final double[][] GRAB_AT = {{4.9, 0.5}, {3.0, -7.0}, {4.9, -2.0}};
+	private static final int GRABS = GRAB_AT.length;
+	/** How long (ticks) between one being cut down and the next spawning, and how long one may take before the take gives up on it. */
+	private static final int GRAB_GAP = 20;
+	private static final int GRAB_LONGEST = 220;
+	private static final int CHAIN_END_AFTER = 70;
+	private static int grab;
+	private static int grabStart = 1;
+	private static int grabSeen;
+	private static int grabLastFire = -100;
+	private static int grabLastSlash = -100;
+	private static boolean grabPulled;
+	private static volatile int chainMobId = -1;
+	private static int chainHookAt = Integer.MAX_VALUE;
+	private static int chainAsk = Integer.MAX_VALUE;
+	private static int chainEnd = Integer.MAX_VALUE;
+	private static int chainHeroAt = Integer.MAX_VALUE;
 
 	private static void chain(MinecraftClient client, IntegratedServer server, int f) {
 		if (f == 1) {
 			client.options.hudHidden = false;
+			client.options.getGamma().setValue(1.0);
 			if (capturing()) {
 				Capture.start(client, client.runDirectory.toPath().resolve("capture"));
 			}
-			// Low behind you and off to one side: you in front, the tower and the two on it over your shoulder.
-			fixed(local(-4.0, 0.9, 3.4), local(7.5, 3.4, -0.3));
+			grab = 0;
+			grabStart = 1;
+			chainHookAt = Integer.MAX_VALUE;
+			chainAsk = Integer.MAX_VALUE;
+			chainEnd = Integer.MAX_VALUE;
+			chainHeroAt = Integer.MAX_VALUE;
+			chainCamera(0, false);
 		}
 		if (client.options.getPerspective() != Perspective.THIRD_PERSON_BACK) {
 			client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
 		}
-		for (int i = 0; i < YANKS.length; i++) {
-			int from = i == 0 ? 1 : YANK_CUTS[i - 1] + 3;
-			// Turned on it, looking up at it; the chain at it; then level again for the cut as it comes flying in.
-			if (f >= from && f <= YANKS[i]) {
-				Vec3d it = local(ON_TOP[i].x, ON_TOP[i].y + 1.0, ON_TOP[i].z);
-				Vec3d eye = client.player != null ? client.player.getEyePos() : origin.add(0.0, 1.6, 0.0);
-				Capture.Pose aim = look(eye, it);
-				float yaw = i == 0 ? aim.yaw() : turn(facing, aim.yaw(), ease(span(f, from, YANKS[i] - 2)));
-				face(client, yaw, aim.pitch());
+		if (client.player == null || client.world == null) {
+			return;
+		}
+		Vec3d eye = client.player.getEyePos();
+		if (grab < GRABS) {
+			if (f == grabStart) {
+				// The next one put where it stands; it does the rest itself.
+				chainMobId = -1;
+				grabSeen = -1;
+				grabPulled = false;
+				grabLastFire = -100;
+				int which = grab;
+				server.execute(() -> spawnReal(server, which == 1 ? EntityType.CREEPER : EntityType.SKELETON, GRAB_AT[which][0], GRAB_AT[which][1], 6.0F));
+				chainCamera(grab, false);
 			}
-			if (f == YANKS[i] - 1) {
-				// Whatever the chain still holds let go, or firing it again only lets go.
-				server.execute(() -> Grapple.release(player(server)));
-			}
-			if (f == YANKS[i]) {
-				server.execute(() -> Grapple.fire(player(server)));
-			}
-			// Flung off the tower to land in front of you: carried there in an arc (left to the game it might not
-			// come off the edge at all, as the yank is only a push).
-			if (f > YANKS[i] && f <= YANKS[i] + FLY) {
-				int id = ZOMBIES.size() > i ? ZOMBIES.get(i) : -1;
-				Vec3d top = local(ON_TOP[i].x, ON_TOP[i].y, ON_TOP[i].z);
-				Vec3d flat = new Vec3d(top.x - origin.x, 0.0, top.z - origin.z).normalize();
-				Vec3d to = origin.add(flat.multiply(2.0));
-				double k = (f - YANKS[i]) / (double) FLY;
-				Vec3d at = top.lerp(to, k).add(0.0, Math.sin(k * Math.PI) * 1.5, 0.0);
-				server.execute(() -> {
-					if (server.getOverworld().getEntityById(id) instanceof ZombieEntity z && z.isAlive()) {
-						z.requestTeleport(at.x, at.y, at.z);
-						z.setVelocity(Vec3d.ZERO);
-						z.fallDistance = 0.0F;
+			Entity mob = chainMobId < 0 ? null : client.world.getEntityById(chainMobId);
+			if (f >= grabStart && mob != null && mob.isAlive()) {
+				if (grabSeen < 0) {
+					grabSeen = f;
+				}
+				Vec3d at = mob.getBoundingBox().getCenter();
+				Capture.Pose aim = look(eye, at);
+				double far = eye.distanceTo(at);
+				if (far > 4.0 && !grabPulled) {
+					// Turned on it and, once the head's there and it can be seen, the chain.
+					face(client, aim.yaw(), aim.pitch());
+					if (f - grabStart >= 5 && f - grabLastFire >= 12 && far < 22.0 && aimedAt(aim) && client.player.canSee(mob)) {
+						grabLastFire = f;
+						net.minecraft.client.option.KeyBinding.onKeyPressed(net.minecraft.client.util.InputUtil.fromTranslationKey(io.github.kortev.chainsawman.client.ChainsawManClient.CHAIN.getBoundKeyTranslationKey()));
+						chainCameraAt = f + 3;
 					}
-				});
-			}
-			// Turned on it as it comes flying in (it overshoots, and the chain brings it back), for the cut.
-			if (f > YANKS[i] + 1 && f <= YANK_CUTS[i] && client.player != null && client.world != null) {
-				Entity it = ZOMBIES.size() > i ? client.world.getEntityById(ZOMBIES.get(i)) : null;
-				if (it != null) {
-					Capture.Pose aim = look(client.player.getEyePos(), it.getBoundingBox().getCenter());
-					face(client, turn(client.player.getYaw(), aim.yaw(), 0.6), MathHelper.clamp(aim.pitch(), -20.0F, 20.0F));
+				} else {
+					// It's here, pulled in: the saws at it.
+					if (!grabPulled) {
+						grabPulled = true;
+						if (chainHookAt == Integer.MAX_VALUE) {
+							chainHookAt = f + 3;
+						}
+					}
+					face(client, aim.yaw(), MathHelper.clamp(aim.pitch(), -20.0F, 20.0F));
+					if (far < 3.4 && f - grabLastSlash >= 13) {
+						grabLastSlash = f;
+						io.github.kortev.chainsawman.client.ClientCombat.attack(client);
+					}
 				}
-			}
-			if (f == YANKS[i] + 4) {
-				// Side on, close, as it comes in and is cut down.
-				double side = i == 0 ? -4.4 : 4.4;
-				fixed(local(1.6, 1.5, side), local(2.0, 1.2, 0.0));
-			}
-			if (f == YANK_CUTS[i]) {
-				int id = ZOMBIES.size() > i ? ZOMBIES.get(i) : -1;
-				server.execute(() -> Saw.slash(player(server), id));
-			}
-			if (f == YANK_CUTS[i] + 4 && i == 0) {
-				// Back for the next: the same as the start, a little wider.
-				fixed(local(-4.5, 1.0, -3.6), local(7.5, 3.4, 0.3));
-			}
-		}
-		// Up the tower on the chain, seen wide from the side.
-		if (f == AIM_UP) {
-			fixed(local(5.0, 2.4, -10.0), local(6.5, 3.0, 0.0));
-		}
-		if (f >= AIM_UP && f <= ZIP) {
-			Vec3d at = local(TOWER_NEAR, TOWER_HIGH - 0.7, 0.0);
-			Vec3d eye = client.player != null ? client.player.getEyePos() : origin.add(0.0, 1.6, 0.0);
-			Capture.Pose aim = look(eye, at);
-			face(client, aim.yaw(), aim.pitch());
-		}
-		if (f == ZIP - 1) {
-			server.execute(() -> Grapple.release(player(server)));
-		}
-		if (f == ZIP) {
-			server.execute(() -> Grapple.fire(player(server)));
-		}
-		// At the top of the chain: over the edge and onto the top.
-		if (f >= CLIMB && f < CLIMB + 4) {
-			go(client, local(TOWER_NEAR - 0.6, TOWER_HIGH + 0.6, 0.0));
-		}
-		if (f >= CLIMB + 4 && f < ON_TOWER) {
-			go(client, local(TOWER_NEAR + 1.2, TOWER_HIGH, 0.0));
-		}
-		// On top, turned back to the way you came, the sunset behind you, the camera low on the ground looking up.
-		if (f == ON_TOWER) {
-			fixed(local(3.6, 2.6, 5.4), local(TOWER_NEAR + 1.0, TOWER_HIGH + 1.2, 0.0));
-		}
-		if (f >= ON_TOWER) {
-			go(client, local(TOWER_NEAR + 1.2, TOWER_HIGH, 0.0));
-		}
-		if (f >= ON_TOWER && f < THIRD_YANK - 8) {
-			face(client, facing + 150.0F, 10.0F);
-		}
-		// The one below: aimed down at it, the chain, and up it comes in an arc to the edge in front of you.
-		Vec3d below = local(BELOW.x, 0.0, BELOW.z);
-		Vec3d edge = local(TOWER_NEAR + 0.2, TOWER_HIGH, -0.1);
-		if (f >= THIRD_YANK - 8 && f <= THIRD_YANK && client.player != null) {
-			Capture.Pose aim = look(client.player.getEyePos(), below.add(0.0, 1.0, 0.0));
-			face(client, aim.yaw(), aim.pitch());
-		}
-		if (f == THIRD_YANK - 1) {
-			server.execute(() -> Grapple.release(player(server)));
-		}
-		if (f == THIRD_YANK) {
-			server.execute(() -> Grapple.fire(player(server)));
-		}
-		if (f > THIRD_YANK && f <= THIRD_YANK + FLY && ZOMBIES.size() > 2) {
-			int id = ZOMBIES.get(2);
-			double k = (f - THIRD_YANK) / (double) FLY;
-			Vec3d at = below.lerp(edge, k).add(0.0, Math.sin(k * Math.PI) * 2.0, 0.0);
-			server.execute(() -> {
-				if (server.getOverworld().getEntityById(id) instanceof ZombieEntity z && z.isAlive()) {
-					z.requestTeleport(at.x, at.y, at.z);
-					z.setVelocity(Vec3d.ZERO);
-					z.fallDistance = 0.0F;
+			} else if (grabSeen >= 0 && f > grabSeen + 2) {
+				// Cut down: on to the next.
+				grabSeen = -1;
+				chainMobId = -1;
+				grab++;
+				grabStart = f + GRAB_GAP;
+				chainCameraAt = Integer.MAX_VALUE;
+				if (grab >= GRABS) {
+					chainHeroAt = f + 10;
+					chainAsk = chainHeroAt + 12;
+					chainEnd = chainAsk + 54;
 				}
-			});
+			} else if (f - grabStart > GRAB_LONGEST) {
+				ShootingStar.LOGGER.warn("[selftest] showcase: grab {} took too long", grab);
+				grabSeen = -1;
+				chainMobId = -1;
+				grab++;
+				grabStart = f + GRAB_GAP;
+			}
 		}
-		if (f > THIRD_YANK && f <= THIRD_CUT && client.player != null) {
-			Capture.Pose aim = look(client.player.getEyePos(), edge.add(0.0, 1.0, 0.0));
-			face(client, aim.yaw(), MathHelper.clamp(aim.pitch(), -20.0F, 20.0F));
+		if (f == chainCameraAt) {
+			chainCamera(grab, true);
 		}
-		if (f == THIRD_CUT && ZOMBIES.size() > 2) {
-			int id = ZOMBIES.get(2);
-			server.execute(() -> Saw.slash(player(server), id));
+		if (f == chainHeroAt) {
+			// Low in front of you, the moon over your shoulder.
+			fixed(framed(local(0.6, 0.5, 4.0), local(0.0, 1.4, 0.0)), local(0.0, 1.9, 0.0));
+			server.execute(() -> Saw.grind(player(server), true));
 		}
-		if (f > THIRD_CUT + 4) {
-			face(client, facing + 150.0F, 10.0F);
+		if (f >= chainHeroAt) {
+			face(client, look(eye, local(0.6, 1.5, 4.0)).yaw() + 15.0F, -2.0F);
 		}
 		if (shots < CHAIN_SCREENS.length && f == CHAIN_SCREENS[shots]) {
 			shot(client, target() + "_" + f);
 			shots++;
 		}
-		if (f >= CHAIN_END) {
+		if (f >= chainEnd || f > 900) {
+			server.execute(() -> Saw.grind(player(server), false));
 			stage = Stage.DONE;
 		}
+	}
+
+	private static int chainCameraAt = Integer.MAX_VALUE;
+	private static final int[] CHAIN_SCREENS = {2, 8, 12, 16, 22, 34, 46, 52, 58, 64, 80, 90, 96, 102, 108, 120, 150, 180, 210};
+
+	/** The camera for the {@code which}th: wide as it's taken aim at, or close once the chain's pulled it in. */
+	private static void chainCamera(int which, boolean close) {
+		if (which == 2) {
+			// The last: the same ledge, from nearer and lower.
+			if (close) {
+				fixed(framed(local(1.0, 1.2, 4.2), local(1.4, 1.2, 0.0)), local(1.4, 1.2, 0.0));
+			} else {
+				fixed(framed(local(0.4, 0.8, 5.4), local(1.9, 3.0, -0.8)), local(1.9, 3.2, -0.6));
+			}
+		} else if (which == 0) {
+			if (close) {
+				fixed(framed(local(1.0, 1.2, 4.2), local(1.4, 1.2, 0.0)), local(1.4, 1.2, 0.0));
+			} else {
+				fixed(framed(local(1.0, 1.0, 6.4), local(1.9, 3.1, 0.0)), local(1.9, 3.1, 0.2));
+			}
+		} else if (close) {
+			fixed(framed(local(-2.2, 1.2, 2.6), local(0.0, 1.3, 0.0)), local(0.0, 1.4, -1.6));
+		} else {
+			fixed(framed(local(-2.0, 1.8, 2.4), local(0.0, 1.3, 0.0)), local(0.3, 1.2, -3.2));
+		}
+	}
+
+	/** A real mob of {@code type} put at ({@code along}, {@code across}) on the top of the rock there, after you, with {@code health}. */
+	private static void spawnReal(IntegratedServer server, EntityType<? extends net.minecraft.entity.mob.MobEntity> type, double along, double across, float health) {
+		ServerWorld world = server.getOverworld();
+		Vec3d at = local(along, 0.0, across);
+		int y = world.getTopY(Heightmap.Type.MOTION_BLOCKING, MathHelper.floor(at.x), MathHelper.floor(at.z));
+		net.minecraft.entity.mob.MobEntity mob = type.create(world);
+		if (mob == null) {
+			return;
+		}
+		Vec3d you = player(server).getPos();
+		mob.refreshPositionAndAngles(at.x, y, at.z, look(new Vec3d(at.x, y, at.z), you).yaw(), 0.0F);
+		mob.initialize(world, world.getLocalDifficulty(mob.getBlockPos()), net.minecraft.entity.SpawnReason.COMMAND, null);
+		var max = mob.getAttributeInstance(net.minecraft.entity.attribute.EntityAttributes.GENERIC_MAX_HEALTH);
+		if (max != null) {
+			max.setBaseValue(health);
+		}
+		mob.setHealth(health);
+		mob.setPersistent();
+		mob.setTarget(player(server));
+		world.spawnEntity(mob);
+		chainMobId = mob.getId();
+		ShootingStar.LOGGER.info("[selftest] showcase: {} put at {} {} {}", type.getUntranslatedName(), at.x, y, at.z);
+	}
+
+	private static int rockHash(int x, int z) {
+		return ((x * 73856093) ^ (z * 19349663)) & 0x7fffffff;
+	}
+
+	private static BlockState rock(int x, int y, int z) {
+		return switch (rockHash(x + y * 7, z + y * 13) % 11) {
+			case 0, 1 -> Blocks.ANDESITE.getDefaultState();
+			case 2 -> Blocks.COBBLESTONE.getDefaultState();
+			case 3 -> Blocks.DIORITE.getDefaultState();
+			case 4 -> Blocks.CALCITE.getDefaultState();
+			default -> Blocks.STONE.getDefaultState();
+		};
+	}
+
+	private static final java.util.List<net.minecraft.registry.RegistryKey<net.minecraft.world.biome.Biome>> MOUNTAINS = java.util.List.of(
+			net.minecraft.world.biome.BiomeKeys.JAGGED_PEAKS, net.minecraft.world.biome.BiomeKeys.FROZEN_PEAKS,
+			net.minecraft.world.biome.BiomeKeys.STONY_PEAKS, net.minecraft.world.biome.BiomeKeys.WINDSWEPT_HILLS,
+			net.minecraft.world.biome.BiomeKeys.WINDSWEPT_GRAVELLY_HILLS);
+
+	private static boolean mountain(ServerWorld world, int x, int z) {
+		var biome = world.getBiome(new BlockPos(x, 120, z));
+		for (var key : MOUNTAINS) {
+			if (biome.matchesKey(key)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** The highest ground among the middles of the mountains nearest the world's origin. */
+	private static BlockPos peak(ServerWorld world) {
+		if (mountain(world, PEAK_X, PEAK_Z)) {
+			// The one found for the test world (the same place every take: its shelf stays where it was built, its ground the same).
+			return new BlockPos(PEAK_X, groundY(world, PEAK_X, PEAK_Z) + 1, PEAK_Z);
+		}
+		List<BlockPos> inside = new ArrayList<>();
+		for (int x = -MOUNTAIN_SEARCH; x <= MOUNTAIN_SEARCH; x += 24) {
+			for (int z = -MOUNTAIN_SEARCH; z <= MOUNTAIN_SEARCH; z += 24) {
+				boolean all = mountain(world, x, z);
+				for (int k = 0; all && k < 8; k++) {
+					double a = k * Math.PI / 4.0;
+					all = mountain(world, x + (int) Math.round(Math.cos(a) * 24.0), z + (int) Math.round(Math.sin(a) * 24.0));
+				}
+				if (all) {
+					inside.add(new BlockPos(x, 120, z));
+				}
+			}
+		}
+		inside.sort(java.util.Comparator.comparingDouble(p -> p.getSquaredDistance(BlockPos.ORIGIN)));
+		ShootingStar.LOGGER.info("[selftest] showcase: {} places inside the mountains", inside.size());
+		BlockPos best = null;
+		int bestHeight = -1;
+		for (int i = 0; i < Math.min(40, inside.size()); i++) {
+			BlockPos p = inside.get(i);
+
+			for (int[] off : new int[][] {{0, 0}, {-12, 0}, {12, 0}, {0, -12}, {0, 12}}) {
+				int h = groundY(world, p.getX() + off[0], p.getZ() + off[1]);
+				if (h > bestHeight) {
+					bestHeight = h;
+					best = new BlockPos(p.getX() + off[0], h + 1, p.getZ() + off[1]);
+				}
+			}
+		}
+		ShootingStar.LOGGER.info("[selftest] showcase: the peak at {}", best);
+		return best != null ? best : world.getTopPosition(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, BlockPos.ORIGIN);
+	}
+
+	private static final int MOUNTAIN_SEARCH = 3200;
+	/** A shelf in the jagged peaks of the test world (seed "shootingstar"): found by {@link #peak}'s search, kept. */
+	private static final int PEAK_X = 1384;
+	private static final int PEAK_Z = 2188;
+
+	/**
+	 * A shelf of rock levelled to {@code spot}'s ground, a cliff ahead of it (south) with a ledge {@link #LEDGE} up and the peak rising
+	 * behind, a drop to the east of it with a pillar standing in the drop at the creeper's place; the sky open over all.
+	 */
+	private static void cliff(ServerWorld world, BlockPos spot) {
+		int flags = Block.NOTIFY_LISTENERS | Block.FORCE_STATE;
+		int ground = spot.getY() - 1;
+		for (int x = -16; x <= 28; x++) {
+			for (int z = -48; z <= 18; z++) {
+				BlockPos c = cell(spot, x, 0, z);
+				world.getChunk(c.getX() >> 4, c.getZ() >> 4);
+				boolean drop = z <= -5 - rockHash(x, 3) % 2;
+				boolean pillar = x >= 2 && x <= 4 && z >= -8 && z <= -6;
+				int top;
+				if (drop && !pillar) {
+					top = ground - 70;
+				} else if (x < 5) {
+					top = ground;
+				} else if (z >= -3 && z <= 4 && x <= 9) {
+					top = ground + LEDGE;
+				} else if (x <= 9) {
+					top = ground + 2 + rockHash(x, z) % 6;
+				} else {
+					top = ground + LEDGE + (int) ((x - 9) * 1.1) + rockHash(x, z) % 2;
+				}
+				if (x < -4 && !drop) {
+					top = ground - 1 - (-4 - x) / 3;
+				}
+				int natural = world.getTopY(Heightmap.Type.WORLD_SURFACE, c.getX(), c.getZ());
+				int clearTo = Math.max(natural, Math.max(top, ground) + 6) + 30;
+				for (int y = Math.max(top, ground - 70) + 1; y <= clearTo; y++) {
+					BlockPos p = new BlockPos(c.getX(), y, c.getZ());
+					if (!world.getBlockState(p).isAir()) {
+						world.setBlockState(p, Blocks.AIR.getDefaultState(), flags);
+					}
+				}
+				if (top >= ground - 40) {
+					// (Down to the hillside it stands on, or a shelf over a slope would hang in the air.)
+					for (int y = top; y >= Math.min(top - 8, natural - 1) && y > world.getBottomY(); y--) {
+						world.setBlockState(new BlockPos(c.getX(), y, c.getZ()), rock(c.getX(), y, c.getZ()), flags);
+					}
+				}
+				if (pillar) {
+					for (int y = ground; y >= ground - 60 && y > world.getBottomY(); y--) {
+						world.setBlockState(new BlockPos(c.getX(), y, c.getZ()), rock(c.getX(), y, c.getZ()), flags);
+					}
+				}
+			}
+		}
+	}
+
+	/** The chain reel's set. */
+	private static void chainSet(IntegratedServer server, ServerPlayerEntity player, ServerWorld world) {
+		// (Full moon, a little after it's risen over the east.)
+		world.setTimeOfDay(8 * 24000L + 14000L);
+		server.getGameRules().get(GameRules.DO_TILE_DROPS).set(false, server);
+		facing = 0.0F;
+		BlockPos spot = peak(world);
+		Vec3d feet = Vec3d.ofBottomCenter(spot);
+		ShootingStar.LOGGER.info("[selftest] showcase: the chain's cliff, standing at {}, biome {}", spot, world.getBiome(spot).getIdAsString());
+		for (Entity e : world.getOtherEntities(player, new net.minecraft.util.math.Box(spot).expand(50.0, 60.0, 50.0))) {
+			if (!(e instanceof ServerPlayerEntity)) {
+				e.discard();
+			}
+		}
+		cliff(world, spot);
+		origin = feet;
+		Form.end(player);
+		player.changeGameMode(GameMode.SURVIVAL);
+		// (Real mobs after you, so the blows they land are real: plenty of health to take them, easy, and no craters from a creeper.)
+		player.getAbilities().invulnerable = false;
+		player.sendAbilitiesUpdate();
+		server.setDifficulty(net.minecraft.world.Difficulty.EASY, true);
+		server.getGameRules().get(GameRules.DO_MOB_GRIEFING).set(false, server);
+		var health = player.getAttributeInstance(net.minecraft.entity.attribute.EntityAttributes.GENERIC_MAX_HEALTH);
+		if (health != null) {
+			health.setBaseValue(400.0);
+		}
+		player.getInventory().clear();
+		player.setHealth(player.getMaxHealth());
+		player.getHungerManager().setFoodLevel(20);
+		player.setAttached(Heart.MERGED, true);
+		Blood.set(player, Blood.MAX);
+		Capture.Pose aim = look(feet.add(0.0, 1.6, 0.0), local(GRAB_AT[0][0], LEDGE + 1.5, GRAB_AT[0][1]));
+		player.teleport(world, feet.x, feet.y, feet.z, aim.yaw(), aim.pitch());
+		Form.start(player);
+		// (So the rock and the mobs can be seen at night.)
+		player.addStatusEffect(new net.minecraft.entity.effect.StatusEffectInstance(net.minecraft.entity.effect.StatusEffects.NIGHT_VISION, 20 * 600, 0, true,
+				false, false));
+		Limbs.whole(player);
+		ZOMBIES.clear();
+		origin = feet;
 	}
 
 	/**
@@ -1629,119 +2261,237 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		}
 	}
 
-	// The arms reel.
+	// The arms reel, in the Deep Dark against the Warden (kortev, 2026-10-23: "Can Chainsaw Man survive the Warden?"). A hall of
+	// sculk and deepslate lit by soul lanterns. The Warden is real (its AI on, its own speed): the test only says where and when it
+	// appears, that you're who it's angry at, and how much health it has (so the saws can finish it); it roars, walks at you, and its
+	// own blows take your arms off by the game's own rule for them (easy, so a blow takes one). You face it and slash with the attack
+	// key; every hit's blood, and the kill's, grows the arms back.
+
+	/** Where it appears (along, across), and its health. */
+	private static final double WARDEN_AT = 7.0;
+	private static final float WARDEN_HEALTH = 36.0F;
+	private static final int ARMS_CAP = 700;
+	private static final int ARMS_HOLD = 56;
+	private static int armsAsk = Integer.MAX_VALUE;
+	private static int armsEnd = Integer.MAX_VALUE;
+	private static int wardenId = -1;
+	private static int wardenSeen = -1;
+	private static int wardenLastSlash = -100;
+	private static int armsMood;
+	private static boolean armLost;
+	private static final int[] ARMS_SCREENS = {4, 20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220, 240, 260, 280, 300, 320};
+	/** The hall's place: its floor level in the world. */
+	private static final BlockPos ARMS_SPOT = new BlockPos(2000, -43, 2000);
 
 	private static void arms(MinecraftClient client, IntegratedServer server, int f) {
 		if (f == 1) {
 			client.options.hudHidden = false;
+			client.options.getGamma().setValue(1.0);
 			if (capturing()) {
 				Capture.start(client, client.runDirectory.toPath().resolve("capture"));
 			}
+			armsAsk = Integer.MAX_VALUE;
+			armsEnd = Integer.MAX_VALUE;
+			wardenSeen = -1;
+			armsMood = -1;
+			armLost = false;
+			// It appears, and is angry at you: the rest is its own.
+			server.execute(() -> {
+				ServerWorld world = server.getOverworld();
+				ServerPlayerEntity p = player(server);
+				net.minecraft.entity.mob.WardenEntity warden = EntityType.WARDEN.create(world);
+				if (warden == null) {
+					return;
+				}
+				Vec3d at = local(WARDEN_AT, 0.0, 0.0);
+				warden.refreshPositionAndAngles(at.x, at.y, at.z, facing + 180.0F, 0.0F);
+				warden.initialize(world, world.getLocalDifficulty(warden.getBlockPos()), net.minecraft.entity.SpawnReason.COMMAND, null);
+				var max = warden.getAttributeInstance(net.minecraft.entity.attribute.EntityAttributes.GENERIC_MAX_HEALTH);
+				if (max != null) {
+					max.setBaseValue(WARDEN_HEALTH);
+				}
+				warden.setHealth(WARDEN_HEALTH);
+				warden.setPersistent();
+				world.spawnEntity(warden);
+				warden.increaseAngerAt(p, 150, false);
+				wardenId = warden.getId();
+			});
+			armsCamera(0);
 		}
 		if (client.options.getPerspective() != Perspective.THIRD_PERSON_BACK) {
 			client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
 		}
-		for (int i = 0; i < CHOPS.length; i++) {
-			// On you and the one about to strike, from the far side of you: the arm it takes flies toward the camera.
-			int from = i == 0 ? 1 : CHOPS[i - 1] + 12;
-			if (f == from) {
-				Vec3d it = origin.add(way(AXES[i]).multiply(AXE_OFF)).add(0.0, 1.2, 0.0);
-				Vec3d chest = origin.add(0.0, 1.3, 0.0);
-				Vec3d at = framed(origin.add(way(AXES[i] + (i == 0 ? -110.0F : 110.0F)).multiply(3.6)).add(0.0, 1.9, 0.0), chest);
-				fixed(at, chest.lerp(it, 0.4));
-			}
-			if (f >= from && f < CHOPS[i]) {
-				face(client, turn(i == 0 ? facing : facing + AXES[0], facing + AXES[i], ease(span(f, from, CHOPS[i] - 4))), 0.0F);
-			}
-			if (f == CHOPS[i] - 3) {
-				int id = ZOMBIES.get(i);
-				server.execute(() -> {
-					if (server.getOverworld().getEntityById(id) instanceof VindicatorEntity v) {
-						v.swingHand(Hand.MAIN_HAND);
-					}
-				});
-			}
-			if (f == CHOPS[i]) {
-				server.execute(() -> {
-					ServerPlayerEntity p = player(server);
-					p.getServerWorld().playSound(null, p.getBlockPos(), SoundEvents.ENTITY_PLAYER_ATTACK_CRIT, SoundCategory.HOSTILE, 1.0F, 0.8F);
-					Limbs.lose(p);
-				});
-			}
+		if (client.player == null || client.world == null) {
+			return;
 		}
-		// Armless: close and low on you from between the two of them (you turned a little off it), the stubs spurting.
-		if (f == ARMLESS) {
-			fixed(framed(local(2.7, 1.1, 0.0), origin.add(0.0, 1.4, 0.0)), origin.add(0.0, 1.45, 0.0));
+		if (f % 5 == 0) {
+			// (Its darkness, should it come: the hall is to be seen.)
+			server.execute(() -> player(server).removeStatusEffect(net.minecraft.entity.effect.StatusEffects.DARKNESS));
 		}
-		if (f >= ARMLESS && f < ARMLESS + 20) {
-			face(client, turn(facing + AXES[1], facing - 25.0F, ease(span(f, ARMLESS, ARMLESS + 8))), 0.0F);
-		}
-		// The head's saw: each in turn, its kill's blood growing an arm back.
-		for (int i = 0; i < HEADBUTTS.length; i++) {
-			int from = i == 0 ? ARMLESS + 20 : HEADBUTTS[i - 1] + 4;
-			if (f == from) {
-				// Side on to you and it, a little back, so the arm growing out shows.
-				Vec3d mid = origin.add(way(AXES[i]).multiply(AXE_OFF * 0.5)).add(0.0, 1.3, 0.0);
-				Vec3d at = framed(origin.add(way(AXES[i] + (i == 0 ? 90.0F : -90.0F)).multiply(4.2)).add(0.0, 1.8, 0.0), mid);
-				fixed(at, mid);
+		Vec3d eye = client.player.getEyePos();
+		Entity warden = wardenId < 0 ? null : client.world.getEntityById(wardenId);
+		if (armsEnd == Integer.MAX_VALUE) {
+			if (warden != null && warden.isAlive()) {
+				if (wardenSeen < 0) {
+					wardenSeen = f;
+				}
+				Vec3d at = warden.getBoundingBox().getCenter();
+				Capture.Pose aim = look(eye, at);
+				double far = eye.distanceTo(at);
+				// Facing it, the head turned on it; the saws at it whenever it's near enough (the game's own limit on how often).
+				face(client, aim.yaw(), MathHelper.clamp(aim.pitch(), -25.0F, 25.0F));
+				// Walking at it once it's come near (the forward key held), as a player would, and no closer than a saw's reach.
+				client.options.forwardKey.setPressed(far > 2.3 && far < 7.5 && f - wardenSeen > 100);
+				if (far < 4.1 && f - wardenLastSlash >= 13) {
+					wardenLastSlash = f;
+					io.github.kortev.chainsawman.client.ClientCombat.attack(client);
+				}
+				// The cameras: wide while it comes, closer when it's on you, the arm's side when one goes.
+				boolean right = Limbs.has(client.player, Limbs.RIGHT);
+				boolean left = Limbs.has(client.player, Limbs.LEFT);
+				if (f - wardenSeen == 34) {
+					// Its roar: low and close on it, you small in front of it.
+					Capture.camera = null;
+					fixed(framed(local(3.8, 0.9, -4.4), local(6.8, 1.8, 0.0)), local(6.6, 2.0, 0.0));
+					armsMood = 5;
+				}
+				if (!armLost && (!right || !left)) {
+					armLost = true;
+					armsCamera(!right ? 2 : 3);
+				} else if (armsMood == 5 && far < 6.4) {
+					armsCamera(0);
+				} else if (armsMood == 0 && far < 4.6) {
+					armsCamera(1);
+				}
+			} else if (wardenSeen >= 0 && f > wardenSeen + 2) {
+				// It's down: you, whole again, and the question.
+				client.options.forwardKey.setPressed(false);
+				armsAsk = f + 22;
+				armsEnd = armsAsk + ARMS_HOLD;
+				ShootingStar.LOGGER.info("[selftest] showcase: the Warden's down at {}, arms right {} left {}", f, Limbs.has(client.player, Limbs.RIGHT), Limbs.has(client.player, Limbs.LEFT));
+				Vec3d you = client.player.getPos();
+				fixed(framed(rel(you, 0.6, 0.7, -4.6), you.add(0.0, 1.2, 0.0)), you.add(0.5, 1.5, 0.0));
+				armsMood = 9;
 			}
-			if (f > from && f <= HEADBUTTS[i] - 2) {
-				face(client, turn(i == 0 ? facing - 25.0F : facing + AXES[0], facing + AXES[i], ease(span(f, from, HEADBUTTS[i] - 4))), 0.0F);
-			}
-			if (f == HEADBUTTS[i]) {
-				int id = ZOMBIES.get(i);
-				server.execute(() -> Saw.slash(player(server), id));
-			}
-		}
-		// Whole again: low, three quarters on, the sunset behind.
-		if (f == ARMS_HERO) {
-			fixed(framed(local(3.2, 0.7, -2.0), origin.add(0.0, 1.3, 0.0)), origin.add(0.0, 1.5, 0.0));
-		}
-		if (f >= ARMS_HERO) {
-			face(client, facing + 15.0F, 6.0F);
-		}
-		// Both arms back: both saws held out, revving, shaking (the grind, at nothing).
-		if (f == ARMS_HERO + 8) {
-			server.execute(() -> Saw.grind(player(server), true));
-		}
-		if (f == ARMS_END - 2) {
-			server.execute(() -> Saw.grind(player(server), false));
+		} else {
+			face(client, facing, -2.0F);
 		}
 		if (shots < ARMS_SCREENS.length && f == ARMS_SCREENS[shots]) {
 			shot(client, target() + "_" + f);
 			shots++;
 		}
-		if (f >= ARMS_END) {
+		if (f >= armsEnd || f >= ARMS_CAP) {
+			client.options.forwardKey.setPressed(false);
 			stage = Stage.DONE;
 		}
 	}
 
-	/**
-	 * A stone lookout tower {@link #TOWER_NEAR} ahead of {@code feet}, 3 by 3 and {@link #TOWER_HIGH} high: cobblestone
-	 * with log corners, a plank top.
-	 */
-	private static void tower(ServerWorld world, BlockPos feet) {
-		for (int x = TOWER_NEAR; x <= TOWER_NEAR + 2; x++) {
-			for (int z = -1; z <= 1; z++) {
-				boolean corner = x != TOWER_NEAR + 1 && z != 0;
-				for (int y = -1; y < TOWER_HIGH; y++) {
-					BlockState state = y == TOWER_HIGH - 1 ? Blocks.OAK_PLANKS.getDefaultState()
-							: corner ? Blocks.OAK_LOG.getDefaultState() : Blocks.COBBLESTONE.getDefaultState();
-					world.setBlockState(cell(feet, x, y, z), state);
+	/** A point {@code x} ahead of, {@code y} above and {@code z} to the side of {@code you}, the way you first faced. */
+	private static Vec3d rel(Vec3d you, double x, double y, double z) {
+		double fx = -Math.sin(Math.toRadians(facing));
+		double fz = Math.cos(Math.toRadians(facing));
+		return you.add(fx * x - fz * z, y, fz * x + fx * z);
+	}
+
+	/** The camera that goes with you (eased), for the Warden coming, close on you, or on the arm's side when one goes. */
+	private static void armsCamera(int which) {
+		armsMood = which;
+		boolean first = which == 0 || which >= 2;
+		camWant = switch (which) {
+			case 0 -> new double[] {2.8, 1.5, -7.0, 2.8, 1.6, 0.0};
+			case 1 -> new double[] {1.7, 1.6, -6.0, 1.7, 1.7, 0.0};
+			case 2 -> new double[] {1.0, 1.5, 5.4, 1.7, 1.6, 0.0};
+			default -> new double[] {1.0, 1.5, -5.4, 1.7, 1.6, 0.0};
+		};
+		if (first) {
+			// (A cut, not a drift.)
+			camEye = null;
+		}
+		Capture.camera = trackingCamera(MinecraftClient.getInstance());
+	}
+
+	/** The hall: sculk floor, deepslate walls and ceiling (a shell, so no water or lava can get in), soul lanterns on low posts, catalysts and sensors. */
+	private static void hall(ServerWorld world, BlockPos spot) {
+		int flags = Block.NOTIFY_LISTENERS | Block.FORCE_STATE;
+		for (int x = -10; x <= 24; x++) {
+			for (int z = -12; z <= 12; z++) {
+				BlockPos column = cell(spot, x, 0, z);
+				world.getChunk(column.getX() >> 4, column.getZ() >> 4);
+				for (int y = -2; y <= 16; y++) {
+					boolean inside = x >= -9 && x <= 23 && Math.abs(z) <= 11 && y >= 0 && y <= 15;
+					BlockState state;
+					if (inside) {
+						state = Blocks.AIR.getDefaultState();
+					} else if (y == -1 && x >= -9 && x <= 23 && Math.abs(z) <= 11) {
+						state = rockHash(x, z) % 9 == 0 ? Blocks.DEEPSLATE_TILES.getDefaultState() : Blocks.SCULK.getDefaultState();
+					} else {
+						state = switch (rockHash(x + y, z) % 6) {
+							case 0, 1 -> Blocks.SCULK.getDefaultState();
+							case 2 -> Blocks.DEEPSLATE.getDefaultState();
+							case 3 -> Blocks.DEEPSLATE_TILES.getDefaultState();
+							case 4 -> Blocks.COBBLED_DEEPSLATE.getDefaultState();
+							default -> Blocks.POLISHED_DEEPSLATE.getDefaultState();
+						};
+					}
+					world.setBlockState(cell(spot, x, y, z), state, flags);
 				}
 			}
 		}
+		// Low posts with a soul lantern on each, round the floor; sculk catalysts and sensors among the sculk; lanterns hanging overhead.
+		for (int[] at : new int[][] {{-4, 6}, {-4, -6}, {4, 7}, {4, -7}, {10, 6}, {10, -6}, {16, 7}, {16, -7}, {21, 5}, {21, -5}}) {
+			world.setBlockState(cell(spot, at[0], 0, at[1]), Blocks.DEEPSLATE_BRICK_WALL.getDefaultState(), flags);
+			world.setBlockState(cell(spot, at[0], 1, at[1]), Blocks.DEEPSLATE_BRICK_WALL.getDefaultState(), flags);
+			world.setBlockState(cell(spot, at[0], 2, at[1]), Blocks.SOUL_LANTERN.getDefaultState(), flags);
+		}
+		for (int[] at : new int[][] {{7, 9}, {13, -9}, {19, 9}, {-6, -9}}) {
+			world.setBlockState(cell(spot, at[0], 0, at[1]), Blocks.SCULK_CATALYST.getDefaultState(), flags);
+		}
+		for (int[] at : new int[][] {{-2, 4}, {8, -4}, {12, 4}, {18, -3}, {1, -8}}) {
+			world.setBlockState(cell(spot, at[0], 0, at[1]), Blocks.SCULK_SENSOR.getDefaultState(), flags);
+		}
+		for (int[] at : new int[][] {{3, 0}, {9, 0}, {15, 0}}) {
+			world.setBlockState(cell(spot, at[0], 14, at[1]), Blocks.SOUL_LANTERN.getDefaultState().with(net.minecraft.block.LanternBlock.HANGING, true), flags);
+		}
 	}
 
-	/**
-	 * The camera on you turning on the one {@code angle} from east of {@code you}: off to one side ({@code side} degrees
-	 * round from it), {@code far} out and {@code high} up, looking past you at it.
-	 */
-	private static void victimShot(Vec3d you, float angle, double side, double far, double high) {
-		Vec3d chest = you.add(0.0, 1.1, 0.0);
-		Vec3d it = you.add(way(angle).multiply(RING_OFF)).add(0.0, 1.0, 0.0);
-		Vec3d at = framed(you.add(way(angle).rotateY((float) Math.toRadians(side)).multiply(far)).add(0.0, high, 0.0), chest);
-		fixed(at, chest.lerp(it, 0.45));
+	/** The arms reel's set: the hall, you in the form facing the Warden. */
+	private static void armsSet(IntegratedServer server, ServerPlayerEntity player, ServerWorld world) {
+		world.setTimeOfDay(6000);
+		server.getGameRules().get(GameRules.DO_TILE_DROPS).set(false, server);
+		// (Easy: a blow of the Warden's takes one arm, not both.)
+		server.setDifficulty(net.minecraft.world.Difficulty.EASY, true);
+		facing = FACING;
+		BlockPos spot = ARMS_SPOT;
+		Vec3d feet = Vec3d.ofBottomCenter(spot);
+		for (Entity e : world.getOtherEntities(player, new net.minecraft.util.math.Box(spot).expand(40.0, 30.0, 40.0))) {
+			if (!(e instanceof ServerPlayerEntity)) {
+				e.discard();
+			}
+		}
+		origin = feet;
+		hall(world, spot);
+		Form.end(player);
+		player.changeGameMode(GameMode.SURVIVAL);
+		// (Hurt only by the script, and able to take a blow of the Warden's.)
+		player.getAbilities().invulnerable = false;
+		player.sendAbilitiesUpdate();
+		var health = player.getAttributeInstance(net.minecraft.entity.attribute.EntityAttributes.GENERIC_MAX_HEALTH);
+		if (health != null) {
+			health.setBaseValue(400.0);
+		}
+		player.getInventory().clear();
+		player.setHealth(player.getMaxHealth());
+		player.getHungerManager().setFoodLevel(20);
+		player.setAttached(Heart.MERGED, true);
+		Blood.set(player, Blood.MAX);
+		player.teleport(world, feet.x, feet.y, feet.z, facing, 6.0F);
+		Form.start(player);
+		Limbs.whole(player);
+		// (So the hall can be seen.)
+		player.addStatusEffect(new net.minecraft.entity.effect.StatusEffectInstance(net.minecraft.entity.effect.StatusEffects.NIGHT_VISION, 20 * 600, 0, true,
+				false, false));
+		ZOMBIES.clear();
+		origin = feet;
 	}
 
 	private static void fixed(Vec3d at, Vec3d look) {
@@ -1782,32 +2532,6 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		zombie.setHealth(health);
 		world.spawnEntity(zombie);
 		ZOMBIES.add(zombie.getId());
-	}
-
-	/**
-	 * A little village hut round {@code feet} (you in it, its front wall {@link #HUT_FRONT} east of you): a cobblestone
-	 * course, oak plank walls between log corners, a plank roof.
-	 */
-	private static void hut(ServerWorld world, BlockPos feet) {
-		for (int x = -3; x <= HUT_FRONT; x++) {
-			for (int z = -2; z <= 2; z++) {
-				boolean edge = x == -3 || x == HUT_FRONT || Math.abs(z) == 2;
-				boolean corner = (x == -3 || x == HUT_FRONT) && Math.abs(z) == 2;
-				world.setBlockState(cell(feet, x, -1, z), Blocks.COBBLESTONE.getDefaultState());
-				for (int y = 0; y <= 3; y++) {
-					BlockState state = !edge ? Blocks.AIR.getDefaultState()
-							: corner ? Blocks.OAK_LOG.getDefaultState()
-							: y == 0 ? Blocks.COBBLESTONE.getDefaultState() : Blocks.OAK_PLANKS.getDefaultState();
-					world.setBlockState(cell(feet, x, y, z), state);
-				}
-				world.setBlockState(cell(feet, x, 4, z), Blocks.OAK_PLANKS.getDefaultState());
-			}
-		}
-		// A window each side, a torch inside.
-		world.setBlockState(cell(feet, -1, 2, 2), Blocks.GLASS_PANE.getDefaultState());
-		world.setBlockState(cell(feet, -1, 2, -2), Blocks.GLASS_PANE.getDefaultState());
-		world.setBlockState(cell(feet, -2, 2, 0), Blocks.WALL_TORCH.getDefaultState().with(net.minecraft.block.WallTorchBlock.FACING,
-				net.minecraft.util.math.Direction.fromRotation(facing)));
 	}
 
 	/** The way to the {@code i}th zombie from you, flat. */
@@ -1999,6 +2723,18 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 			pochitaSet(server, player, world);
 			return;
 		}
+		if ("saws".equals(target())) {
+			sawsSet(server, player, world);
+			return;
+		}
+		if ("chain".equals(target())) {
+			chainSet(server, player, world);
+			return;
+		}
+		if ("arms".equals(target())) {
+			armsSet(server, player, world);
+			return;
+		}
 		BlockPos village = "beam".equals(target()) ? desert(world, player) : world.locateStructure(StructureTags.VILLAGE, player.getBlockPos(), 100, false);
 		if (village == null) {
 			ShootingStar.LOGGER.error("[selftest] showcase: no village found");
@@ -2050,45 +2786,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 			ShootingStar.LOGGER.info("[selftest] showcase: the cord pulled: pulling {}, on {}, turning {}, heart {}, blood {}, merging {}, downed {}, alive {}", Form.pulling(player),
 					Form.on(player), Form.turning(player), Heart.has(player), Blood.get(player), io.github.kortev.chainsawman.form.Merge.is(player),
 					io.github.kortev.chainsawman.form.Downed.is(player), player.isAlive());
-			if ("chain".equals(target())) {
-				// Nothing they do hurts you (a hurt flashes you red).
-				player.getAbilities().invulnerable = true;
-				player.sendAbilitiesUpdate();
-				// The tower, the two on it facing you, free to be flung (their AI on, but going nowhere).
-				tower(world, spot);
-				// (And one on the ground below, for the last.)
-				for (Vec3d top : new Vec3d[] {ON_TOP[0], ON_TOP[1], BELOW}) {
-					zombie(world, local(top.x, 0.0, top.z), facing + 180.0F, 6.0F);
-					if (world.getEntityById(ZOMBIES.get(ZOMBIES.size() - 1)) instanceof ZombieEntity z) {
-						z.setAiDisabled(false);
-						z.getAttributeInstance(net.minecraft.entity.attribute.EntityAttributes.GENERIC_MOVEMENT_SPEED).setBaseValue(0.0);
-					}
-				}
-			} else if ("arms".equals(target())) {
-				// Hurt only by the script: a hurt flashes you red, and enough of it would take the arms off out of turn.
-				player.getAbilities().invulnerable = true;
-				player.sendAbilitiesUpdate();
-				Limbs.whole(player);
-				// The two with axes in front of you, either side, raised to strike.
-				for (float angle : AXES) {
-					VindicatorEntity v = EntityType.VINDICATOR.create(world);
-					if (v == null) {
-						continue;
-					}
-					Vec3d at = origin.add(way(angle).multiply(AXE_OFF));
-					float yaw = facing + angle + 180.0F;
-					v.refreshPositionAndAngles(at.x, origin.y, at.z, yaw, 0.0F);
-					v.setHeadYaw(yaw);
-					v.setBodyYaw(yaw);
-					v.equipStack(EquipmentSlot.MAINHAND, new ItemStack(Items.IRON_AXE));
-					v.setAiDisabled(true);
-					v.setPersistent();
-					v.setAttacking(true);
-					v.setHealth(6.0F);
-					world.spawnEntity(v);
-					ZOMBIES.add(v.getId());
-				}
-			} else if ("beamlook".equals(target()) || "beam".equals(target())) {
+			if ("beamlook".equals(target()) || "beam".equals(target())) {
 				// Just the open, level ground (Beam is called up by the script, in front of the camera).
 				if ("beam".equals(target())) {
 					// Not invulnerable (the game's mobs will not go for someone who is), but with so much health that nothing they
@@ -2110,9 +2808,6 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 						}
 					}
 				}
-			} else {
-				hut(world, spot);
-				zombie(world, local(WAITING.x, 0.0, WAITING.z), facing + 180.0F, 6.0F);
 			}
 		} else if ("held".equals(target())) {
 			// Pochita in your hands, yourself (not your heart yet).

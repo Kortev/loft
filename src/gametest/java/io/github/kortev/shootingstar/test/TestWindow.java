@@ -10,6 +10,23 @@ import org.lwjgl.glfw.GLFW;
  */
 final class TestWindow {
 	private static boolean sealed;
+	/**
+	 * Set by a reel that digs with the game's own mining (a held attack key breaks blocks only while the game thinks the mouse is
+	 * captured): the flag is set in the game, never the real cursor, so it's left alone.
+	 */
+	static boolean mining;
+
+	/** The game told the mouse is captured, without capturing anything: only mining reads it. */
+	static void mining(MinecraftClient client, boolean on) {
+		mining = on;
+		try {
+			java.lang.reflect.Field field = net.minecraft.client.Mouse.class.getDeclaredField("cursorLocked");
+			field.setAccessible(true);
+			field.setBoolean(client.mouse, on);
+		} catch (ReflectiveOperationException e) {
+			throw new IllegalStateException("the mouse's capture flag", e);
+		}
+	}
 
 	private TestWindow() {
 	}
@@ -27,7 +44,7 @@ final class TestWindow {
 			GLFW.glfwSetScrollCallback(handle, null);
 			GLFW.glfwSetDropCallback(handle, null);
 		}
-		if (client.mouse.isCursorLocked()) {
+		if (client.mouse.isCursorLocked() && !mining) {
 			client.mouse.unlockCursor();
 		}
 	}
