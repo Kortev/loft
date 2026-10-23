@@ -17,7 +17,8 @@ All are mono: the game places them on whoever makes them, and they are heard by 
 - Beam the shark (the ult): bursting up out of the ground (the earth cracking, a heavy whoosh of stone and a low thump),
   swimming through it (a short churn of earth, grit rattling, played again and again), his bite (a wet, heavy chomp, bone cracking under
   it), the dive (the earth closing over him, a sinking whoosh, debris trickling), his screech of joy when he is called
-  up (a shrill whoop, a yip and a mad cackle) and his teeth chattering.
+  up (a shrill whoop, a yip and a mad cackle) and his teeth chattering; phase 2: the ambush's slam (a huge boom, ground splitting,
+  rubble) and the throw (a snap and a whip of air).
 
 A two-stroke engine is built the way it sounds: one sharp pop of exhaust at every firing, rung through the muffler and
 the body, as fast as the engine turns, with no two pops quite alike; and over it the buzz of the metal and the chain.
@@ -616,6 +617,50 @@ def beam_chatter():
     return x
 
 
+def beam_slam():
+    """The ambush: Beam erupting from under a mob. A huge low boom, the ground splitting wide, a wet smash of the mob going up
+    on his snout, a swelling roar of earth thrown into the air and a long clatter of rubble coming down."""
+    n = ns(2.2)
+    t = np.arange(n) / SR
+    x = np.zeros(n)
+    # The boom: a very low sweep down from 85 to 24 Hz, driven hard, long.
+    f = curve(n, [(0.0, 85.0), (0.1, 50.0), (0.5, 30.0), (2.2, 22.0)])
+    x += sat(np.sin(2 * np.pi * np.cumsum(f) / SR) * np.exp(-t / 0.4) * 2.8, 1.8)
+    # The crack: the ground splitting, broad, and a scatter of ringing clicks.
+    crack = bp(white(n), 500.0, 6500.0) * np.exp(-t / 0.045)
+    clicks = (g.rng.random(n) < 420.0 / SR) * g.rng.uniform(-1, 1, n) * np.exp(-t / 0.25)
+    x += crack * 2.0 + hp(np.convolve(clicks, np.exp(-np.arange(ns(0.004)) / ns(0.0009)))[:n], 900.0) * 3.2
+    # The smash: flesh and bone, the mob taking the whole of his head.
+    x += np.roll(flesh(n, 0.5, wet=1.6), ns(0.012)) * 1.3
+    for at in (0.02, 0.05, 0.09, 0.15):
+        k = ns(0.025)
+        snap = bp(white(k), 1200.0, 6000.0) * np.exp(-np.arange(k) / ns(0.005)) * g.rng.uniform(0.7, 1.2)
+        x = place(x, at, snap * 1.8)
+    # The earth thrown up: a roar swelling at once and sinking away.
+    swell = np.minimum(t / 0.05, 1.0) * np.exp(-t / 0.8)
+    x += g.sweep_filter(white(n), 'bandpass', curve(n, [(0.0, 2600.0), (0.3, 900.0), (1.5, 220.0), (2.2, 150.0)]), order=2, width=1.6) * swell * 2.8
+    x += lp(white(n), 180.0) * swell * 3.4
+    # The rubble coming down.
+    x += debris(n, 0.18, 1.9, 95.0, size=1.3, level=1.0)
+    return x
+
+
+def beam_launch():
+    """Throwing the rider, or flinging a mob: the snap of his head, a hard crack, and a whip of air tearing past, high to low."""
+    n = ns(0.9)
+    t = np.arange(n) / SR
+    x = np.zeros(n)
+    # The flick: a crack and a low thump under it.
+    x += bp(white(n), 1500.0, 8500.0) * np.exp(-t / 0.014) * 2.4
+    f = curve(n, [(0.0, 170.0), (0.1, 65.0), (0.9, 50.0)])
+    x += sat(np.sin(2 * np.pi * np.cumsum(f) / SR) * np.exp(-t / 0.13) * 1.8, 1.4)
+    # The air tearing past: a band of noise swept from high to low, swelling in a moment and dying away.
+    air = np.minimum(t / 0.1, 1.0) * np.exp(-np.maximum(t - 0.1, 0.0) / 0.28)
+    x += g.sweep_filter(white(n), 'bandpass', curve(n, [(0.0, 6000.0), (0.25, 2800.0), (0.9, 500.0)]), order=2, width=1.3) * air * 3.2
+    x += bp(white(n), 300.0, 1400.0) * air * 0.6
+    return x
+
+
 SOUNDS = {
     'pochita_tame': pochita_tame,
     'beam_burst': beam_burst,
@@ -624,6 +669,8 @@ SOUNDS = {
     'beam_dive': beam_dive,
     'beam_screech': beam_screech,
     'beam_chatter': beam_chatter,
+    'beam_slam': beam_slam,
+    'beam_launch': beam_launch,
     'form_merge': form_merge,
     'form_cord': form_cord,
     'form_start': form_start,
@@ -643,7 +690,7 @@ LOOPS = ('form_idle', 'form_grind', 'form_frenzy_loop')
 # Loudness (loudest 400 ms, dB).
 LEVELS = {'form_crunch': -10, 'pochita_tame': -14, 'form_merge': -12, 'form_cord': -14, 'form_start': -10, 'form_idle': -20, 'form_stop': -16, 'form_slash': -13, 'form_hit': -12,
           'form_grind': -15, 'form_chain': -14, 'form_frenzy': -10, 'form_frenzy_loop': -17, 'form_down': -13,
-          'form_revive': -14, 'beam_burst': -9, 'beam_swim': -12, 'beam_bite': -10, 'beam_dive': -13, 'beam_screech': -9, 'beam_chatter': -13}
+          'form_revive': -14, 'beam_burst': -9, 'beam_swim': -12, 'beam_bite': -10, 'beam_dive': -13, 'beam_screech': -9, 'beam_chatter': -13, 'beam_slam': -6, 'beam_launch': -10}
 
 
 def make(name):

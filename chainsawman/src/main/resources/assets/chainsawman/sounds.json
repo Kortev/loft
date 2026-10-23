@@ -206,5 +206,21 @@
         "name": "chainsawman:beam_chatter"
       }
     ]
+  },
+  "beam.slam": {
+    "subtitle": "subtitles.chainsawman.beam.slam",
+    "sounds": [
+      {
+        "name": "chainsawman:beam_slam"
+      }
+    ]
+  },
+  "beam.launch": {
+    "subtitle": "subtitles.chainsawman.beam.launch",
+    "sounds": [
+      {
+        "name": "chainsawman:beam_launch"
+      }
+    ]
   }
 }

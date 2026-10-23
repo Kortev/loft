@@ -56,6 +56,10 @@ public final class ChainsawSounds {
 	public static final SoundEvent BEAM_SCREECH = register("beam.screech");
 	/** Beam's teeth chattering when he stands about. */
 	public static final SoundEvent BEAM_CHATTER = register("beam.chatter");
+	/** Beam bursting up under a mob: the heavy slam of the ambush, rock cracking and the ground thrown up. */
+	public static final SoundEvent BEAM_SLAM = register("beam.slam");
+	/** Beam throwing his rider, and flinging what he held: a whip of air and a crack. */
+	public static final SoundEvent BEAM_LAUNCH = register("beam.launch");
 
 	private ChainsawSounds() {
 	}
