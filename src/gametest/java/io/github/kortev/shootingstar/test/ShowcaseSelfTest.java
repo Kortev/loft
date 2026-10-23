@@ -622,6 +622,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 	private static final int BEAM_TAIL = 26;
 	private static final int BEAM_LOW = 30;
 	private static final int BEAM_FRONT = 34;
+	private static final int BEAM_FLAT = 38;
 	private static final int BEAM_BEHIND = 44;
 	private static final int BEAM_HUSK = 54;
 	private static final int BEAM_BITE = 70;
@@ -634,8 +635,10 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 	private static final int BEAM_WALK = 222 + 16 + 6;
 	private static final int BEAM_END = 222 + 50;
 	/** How far ahead of Beam the husk stands for the bite (blocks from his middle: just in front of his mouth). */
-	private static final double BEAM_HUSK_AHEAD = 4.3;
+	private static final double BEAM_HUSK_AHEAD = 5.2;
 	private static Vec3d beamFrom = Vec3d.ZERO;
+	/** The lens (vertical field of view, degrees) the beamlook shot is taken through: narrow from far off for the flat side and front views (so they are near enough orthographic to lay over the drawings), 0 for the game's own. */
+	private static float beamLookLens;
 	private static boolean bitShot;
 	private static boolean chargeShot;
 	private static boolean leapShot;
@@ -685,23 +688,27 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		Vec3d ahead = Vec3d.fromPolar(0.0F, facing);
 		Vec3d side = new Vec3d(ahead.z, 0.0, -ahead.x);
 		if (f == BEAM_SIDE - 1) {
-			// From the front and the side, a little above his middle, as the blueprint's side render is framed: the whole of him,
-			// the legs, the rider with the reins.
-			fixed(rel(origin, ahead, side, 5.4, 3.0, -9.0), rel(origin, ahead, side, 0.3, 2.2, 0.0));
+			// Exactly from his side, 48 blocks off through a narrow lens (22.6 degrees tall: the window is a tall one, so about 11 blocks wide), level with the
+			// middle of the drawing (which has no rider: he is made invisible for this and the front shot).
+			server.execute(() -> player(server).setInvisible(true));
+			beamLookLens = 22.6F;
+			fixed(rel(origin, ahead, side, 0.25, 2.4, -48.0), rel(origin, ahead, side, 0.25, 2.4, 0.0));
 		}
 		if (f == BEAM_SIDE) {
 			shot(client, "beamlook_side");
 		}
 		if (f == BEAM_TAIL - 1) {
+			beamLookLens = 0.0F;
+			server.execute(() -> player(server).setInvisible(false));
 			// From behind and the side, low: the tail, the back legs, the spikes down his back.
-			fixed(rel(origin, ahead, side, -6.5, 2.2, -6.0), rel(origin, ahead, side, -1.2, 1.9, 0.0));
+			fixed(rel(origin, ahead, side, -11.0, 2.4, -8.0), rel(origin, ahead, side, -2.5, 2.2, 0.0));
 		}
 		if (f == BEAM_TAIL) {
 			shot(client, "beamlook_tail");
 		}
 		if (f == BEAM_LOW - 1) {
 			// Low in front, looking up at him, as kortev's still of the movie is framed.
-			fixed(rel(origin, ahead, side, 6.5, 1.3, -6.0), rel(origin, ahead, side, 0.3, 2.7, 0.0));
+			fixed(rel(origin, ahead, side, 11.5, 1.3, -8.0), rel(origin, ahead, side, 0.3, 2.7, 0.0));
 		}
 		if (f == BEAM_LOW) {
 			shot(client, "beamlook_low");
@@ -709,14 +716,25 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		if (f == BEAM_FRONT - 1) {
 			// Three quarters from the front, close, as the blueprint's render and the statue's head are framed: the eyes, the
 			// mouth, the teeth, the white jaw.
-			fixed(rel(origin, ahead, side, 5.6, 3.0, -4.0), rel(origin, ahead, side, 1.0, 2.4, 0.0));
+			fixed(rel(origin, ahead, side, 10.0, 3.4, -6.5), rel(origin, ahead, side, 2.0, 2.4, 0.0));
 		}
 		if (f == BEAM_FRONT) {
 			shot(client, "beamlook_front");
 		}
+		if (f == BEAM_FLAT - 1) {
+			// Exactly from the front, far off through the same narrow lens, level with the middle of the front drawing.
+			server.execute(() -> player(server).setInvisible(true));
+			beamLookLens = 22.6F;
+			fixed(rel(origin, ahead, side, 48.0, 2.4, 0.0), rel(origin, ahead, side, 0.0, 2.4, 0.0));
+		}
+		if (f == BEAM_FLAT) {
+			shot(client, "beamlook_front_flat");
+			beamLookLens = 0.0F;
+			server.execute(() -> player(server).setInvisible(false));
+		}
 		if (f == BEAM_BEHIND - 1) {
 			// From behind, riding: Chainsaw Man on his back.
-			fixed(rel(origin, ahead, side, -9.5, 5.4, 2.2), rel(origin, ahead, side, -0.5, 3.8, 0.0));
+			fixed(rel(origin, ahead, side, -13.0, 6.0, 3.0), rel(origin, ahead, side, 0.5, 4.0, 0.0));
 		}
 		if (f == BEAM_BEHIND) {
 			shot(client, "beamlook_behind");
@@ -724,14 +742,14 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		if (f == BEAM_HUSK - 1) {
 			// A husk in front of his mouth (the jaw hanging open), from three quarters in front.
 			server.execute(() -> beamHusk(server.getOverworld(), origin, ahead, side, BEAM_HUSK_AHEAD, 0.0));
-			fixed(rel(origin, ahead, side, 5.8, 2.9, -4.6), rel(origin, ahead, side, 2.6, 2.1, 0.0));
+			fixed(rel(origin, ahead, side, 9.8, 2.9, -5.6), rel(origin, ahead, side, 4.2, 2.0, 0.0));
 		}
 		if (f == BEAM_HUSK + 6) {
 			shot(client, "beamlook_mouth");
 		}
 		if (f == BEAM_BITE - 1) {
 			// The bite itself, from his side: his head, the jaw, and what he bites.
-			fixed(rel(origin, ahead, side, 3.0, 2.0, -9.0), rel(origin, ahead, side, 3.0, 1.8, 0.0));
+			fixed(rel(origin, ahead, side, 3.5, 2.4, -14.0), rel(origin, ahead, side, 3.5, 2.1, 0.0));
 		}
 		if (f == BEAM_BITE) {
 			server.execute(() -> Saw.slash(player(server)));
@@ -746,7 +764,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 				beamClear(server);
 				beamHusk(server.getOverworld(), origin, ahead, side, BEAM_HUSK_AHEAD, 0.0);
 			});
-			fixed(rel(origin, ahead, side, 8.6, 2.6, -4.0), rel(origin, ahead, side, 2.4, 2.0, 0.0));
+			fixed(rel(origin, ahead, side, 11.5, 2.8, -5.5), rel(origin, ahead, side, 4.0, 2.0, 0.0));
 		}
 		if (f == BEAM_BITE_AGAIN) {
 			server.execute(() -> Saw.slash(player(server)));
@@ -765,7 +783,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 				beamHusk(server.getOverworld(), origin, ahead, side, 8.5, 1.2);
 				beamHusk(server.getOverworld(), origin, ahead, side, 9.0, -1.0);
 			});
-			fixed(rel(origin, ahead, side, 4.4, 2.6, -10.0), rel(origin, ahead, side, 4.4, 2.4, 0.0));
+			fixed(rel(origin, ahead, side, 6.0, 3.0, -16.0), rel(origin, ahead, side, 6.0, 2.4, 0.0));
 		}
 		if (f == BEAM_CHARGE) {
 			server.execute(() -> Saw.lunge(player(server)));
@@ -786,7 +804,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 			Vec3d back = ahead.negate();
 			Vec3d across = side.negate();
 			// By the middle of the leap, a little in front, level with the top of it.
-			fixed(rel(here, back, across, 2.6, 3.4, -12.5), rel(here, back, across, 2.8, 3.0, 0.0));
+			fixed(rel(here, back, across, 2.6, 3.6, -19.0), rel(here, back, across, 2.8, 3.0, 0.0));
 		}
 		if (f == BEAM_LEAP) {
 			client.options.jumpKey.setPressed(true);
@@ -823,7 +841,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 			client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
 			face(client, facing, 4.0F);
 			// Walking, from his side: a camera beside the path a little ahead of him, taking him as he passes.
-			fixed(rel(beam.getPos(), ahead, side, 4.4, 2.6, -10.0), rel(beam.getPos(), ahead, side, 4.4, 2.4, 0.0));
+			fixed(rel(beam.getPos(), ahead, side, 6.0, 3.0, -16.0), rel(beam.getPos(), ahead, side, 6.0, 2.4, 0.0));
 		}
 		if (f == BEAM_WALK) {
 			shot(client, "beamlook_walk");
@@ -876,7 +894,13 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 
 	/** The lens the reel is shot through at the moment (read by the lens mixin), or 0. */
 	public static float lens() {
-		return active() && stage == Stage.RUN && "beam".equals(target()) ? beamLens : 0.0F;
+		if (!active() || stage != Stage.RUN) {
+			return 0.0F;
+		}
+		if ("beam".equals(target())) {
+			return beamLens;
+		}
+		return "beamlook".equals(target()) ? beamLookLens : 0.0F;
 	}
 
 	private static void beam(MinecraftClient client, IntegratedServer server, int f) {
