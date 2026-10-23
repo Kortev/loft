@@ -54,6 +54,18 @@ public class BeamEntity extends Entity {
 	private static final float LOOK_PITCH = 0.45F;
 	/** How long a chatter of his jaw lasts (ticks). */
 	public static final int CHATTER = 14;
+	/**
+	 * The grab (phase 2): how long he thrashes what he holds (ticks) before flinging it; how far ahead of his middle and how high above
+	 * his feet his head turns (blocks: the pivot of the model's head), how far from that his jaws hold what they have, and how high
+	 * their grip is; the sideways swing of his head (radians) and how many ticks a shake takes.
+	 */
+	public static final int GRAB_TICKS = 22;
+	private static final double HEAD_AHEAD = 1.94;
+	private static final double HEAD_UP = 1.94;
+	private static final double HOLD_REACH = 2.0;
+	private static final double HOLD_UP = 1.5;
+	private static final float SHAKE_ANGLE = 0.8F;
+	public static final float SHAKE_TICKS = 7.0F;
 
 	/** The world time (as an int) of his last bite, his leap, his charge and the start of his dive; -1 for never. */
 	private static final TrackedData<Integer> BITE_AT = DataTracker.registerData(BeamEntity.class, TrackedDataHandlerRegistry.INTEGER);
@@ -63,6 +75,10 @@ public class BeamEntity extends Entity {
 	/** When he last came down from a breach, and when he last killed something (world time); -1 for never. */
 	private static final TrackedData<Integer> LAND_AT = DataTracker.registerData(BeamEntity.class, TrackedDataHandlerRegistry.INTEGER);
 	private static final TrackedData<Integer> HAPPY_AT = DataTracker.registerData(BeamEntity.class, TrackedDataHandlerRegistry.INTEGER);
+	/** When (world time as an int) he began to hold something in his jaws, to burst up under a mob, and to throw his rider; -1 for never. */
+	private static final TrackedData<Integer> GRAB_AT = DataTracker.registerData(BeamEntity.class, TrackedDataHandlerRegistry.INTEGER);
+	private static final TrackedData<Integer> AMBUSH_AT = DataTracker.registerData(BeamEntity.class, TrackedDataHandlerRegistry.INTEGER);
+	private static final TrackedData<Integer> LAUNCH_AT = DataTracker.registerData(BeamEntity.class, TrackedDataHandlerRegistry.INTEGER);
 	/** Whether he is off the ground (leaping or falling): the clients draw his legs drawn up. */
 	private static final TrackedData<Boolean> AIRBORNE = DataTracker.registerData(BeamEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
 	/** How far he has sunk into swimming (0 standing on his legs, 1 swimming in the ground): his legs fold up with it. */
@@ -128,6 +144,9 @@ public class BeamEntity extends Entity {
 		builder.add(CHARGE_AT, -1);
 		builder.add(LAND_AT, -1);
 		builder.add(HAPPY_AT, -1);
+		builder.add(GRAB_AT, -1);
+		builder.add(AMBUSH_AT, -1);
+		builder.add(LAUNCH_AT, -1);
 		builder.add(AIRBORNE, false);
 		builder.add(SWIM, 0.0F);
 	}
@@ -160,6 +179,34 @@ public class BeamEntity extends Entity {
 	/** How long since he last killed something (he is pleased), in ticks; a long time if never. */
 	public float sinceHappy(float delta) {
 		return since(HAPPY_AT, delta);
+	}
+
+	/** How long since he caught something in his jaws, in ticks; a long time if never. */
+	public float sinceGrab(float delta) {
+		return since(GRAB_AT, delta);
+	}
+
+	/** How long since he burst up out of the ground under a mob, in ticks; a long time if never. */
+	public float sinceAmbush(float delta) {
+		return since(AMBUSH_AT, delta);
+	}
+
+	/** How long since he threw his rider, in ticks; a long time if never. */
+	public float sinceLaunch(float delta) {
+		return since(LAUNCH_AT, delta);
+	}
+
+	/**
+	 * How far his head is turned to his right (radians) {@code t} ticks after he caught something: swinging side to side, quickly
+	 * up to its swing and easing away at the end. The jaws and what they hold go by this on the server and on every client.
+	 */
+	public static float shake(float t) {
+		if (t < 0.0F || t > GRAB_TICKS) {
+			return 0.0F;
+		}
+		float in = Math.min(1.0F, t / 1.5F);
+		float out = Math.min(1.0F, (GRAB_TICKS - t) / 2.0F);
+		return SHAKE_ANGLE * in * out * MathHelper.sin(t / SHAKE_TICKS * MathHelper.PI * 2.0F);
 	}
 
 	/** How long since he began to dive, in ticks; a long time if he has not. */
@@ -199,6 +246,18 @@ public class BeamEntity extends Entity {
 
 	public void pleased() {
 		dataTracker.set(HAPPY_AT, (int) getWorld().getTime());
+	}
+
+	public void grabbed() {
+		dataTracker.set(GRAB_AT, (int) getWorld().getTime());
+	}
+
+	public void ambushed() {
+		dataTracker.set(AMBUSH_AT, (int) getWorld().getTime());
+	}
+
+	public void launched() {
+		dataTracker.set(LAUNCH_AT, (int) getWorld().getTime());
 	}
 
 	/** How far he has sunk into swimming (the server's word, 0 to 1). */
@@ -436,10 +495,29 @@ public class BeamEntity extends Entity {
 		super.onRemoved();
 	}
 
-	/** The rider stands on his back, a little ahead of his middle, their feet on the top of it (not sat: the game's seat is not used). */
+	/**
+	 * The rider stands on his back, a little ahead of his middle, their feet on the top of it (not sat: the game's seat is not
+	 * used). What he holds in his jaws (a passenger too, as a chicken jockey's zombie is) hangs at his mouth, swung from side to
+	 * side with his head ({@link #shake}), the same on the server and every client, so it is smooth.
+	 */
 	@Override
 	protected void updatePassengerPosition(Entity passenger, Entity.PositionUpdater updater) {
 		if (!hasPassenger(passenger)) {
+			return;
+		}
+		if (!(passenger instanceof PlayerEntity)) {
+			float swing = shake(sinceGrab(0.0F));
+			float yaw = getYaw() + swing * MathHelper.DEGREES_PER_RADIAN;
+			Vec3d head = heading().multiply(HEAD_AHEAD);
+			Vec3d out = Vec3d.fromPolar(0.0F, yaw).multiply(HOLD_REACH);
+			double hang = 0.12 * MathHelper.sin(sinceGrab(0.0F) * 0.9F);
+			updater.accept(passenger, getX() + head.x + out.x, getY() + HOLD_UP - passenger.getHeight() * 0.45 + hang, getZ() + head.z + out.z);
+			// Hung side on, its head thrown about with the shake.
+			passenger.setYaw(yaw + 90.0F);
+			if (passenger instanceof LivingEntity living) {
+				living.setBodyYaw(yaw + 90.0F);
+				living.setHeadYaw(yaw + 90.0F + swing * 40.0F);
+			}
 			return;
 		}
 		Vec3d ahead = heading().multiply(SEAT_AHEAD);
@@ -459,9 +537,10 @@ public class BeamEntity extends Entity {
 		return null;
 	}
 
+	/** His rider, and one thing in his jaws at a time. */
 	@Override
 	protected boolean canAddPassenger(Entity passenger) {
-		return getPassengerList().isEmpty();
+		return getPassengerList().size() < 2;
 	}
 
 	/** Under water the rider stays on: he wades. */

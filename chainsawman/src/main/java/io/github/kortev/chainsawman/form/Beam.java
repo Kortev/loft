@@ -4,6 +4,7 @@ import io.github.kortev.chainsawman.BeamEntity;
 import io.github.kortev.chainsawman.ChainsawMan;
 import io.github.kortev.chainsawman.ChainsawSounds;
 import io.github.kortev.chainsawman.mixin.LivingEntityAccessor;
+import io.github.kortev.chainsawman.network.FormEventPayload;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -13,6 +14,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
@@ -22,6 +24,7 @@ import net.minecraft.entity.FallingBlockEntity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageTypes;
 import net.minecraft.entity.decoration.ArmorStandEntity;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.particle.BlockStateParticleEffect;
 import net.minecraft.particle.DustParticleEffect;
 import net.minecraft.particle.ParticleEffect;
@@ -30,6 +33,7 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.text.Text;
+import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
@@ -163,6 +167,62 @@ public final class Beam {
 	public static final int DEBRIS_LASTS = 24;
 	private static final float TOO_HARD = 20.0F;
 
+	/**
+	 * The ambush (phase 2; the attack key while he swims, with a mob ahead that is too far to bite): the least time between ambushes
+	 * (ticks, from the eruption), how far ahead of his mouth a mob can be marked (blocks) and how near to the way you look (the
+	 * cosine of the half angle). He dips {@link #AMBUSH_DIP} blocks deeper and rushes under it at {@link #AMBUSH_SPEED} (turning up to
+	 * {@link #AMBUSH_TURN} degrees a tick), at least {@link #AMBUSH_MIN} ticks and at most {@link #AMBUSH_MAX}, until his head is
+	 * {@link #AMBUSH_UNDER} blocks short of its middle; then he erupts: {@link #AMBUSH_DAMAGE} to everything within {@link
+	 * #AMBUSH_RADIUS} of it, the mob thrown {@link #AMBUSH_LAUNCH} blocks a tick straight up (the others less), a ring of {@link
+	 * #RING_PIECES} blocks of the ground thrown up, and he rises {@link #AMBUSH_LIFT} (a speed, blocks a tick) over the hole and
+	 * comes down on {@link #AMBUSH_G}.
+	 */
+	public static final int AMBUSH_EVERY = 30;
+	public static final double AMBUSH_REACH = 8.5;
+	private static final double AMBUSH_CONE = 0.7;
+	private static final double AMBUSH_DIP = 1.3;
+	private static final double AMBUSH_SPEED = 1.5;
+	private static final float AMBUSH_TURN = 45.0F;
+	private static final int AMBUSH_MIN = 3;
+	private static final int AMBUSH_MAX = 14;
+	private static final double AMBUSH_UNDER = 3.0;
+	public static final float AMBUSH_DAMAGE = 24.0F;
+	public static final double AMBUSH_LAUNCH = 2.1;
+	private static final double AMBUSH_RADIUS = 2.6;
+	private static final double AMBUSH_LIFT = 1.15;
+	private static final double AMBUSH_G = 0.16;
+	private static final int RING_PIECES = 16;
+	private static final int RING_LASTS = 30;
+	/**
+	 * The grab (the bite on a mob no bigger than a Ravager): his jaws hold it, he shakes it for {@link BeamEntity#GRAB_TICKS} ticks (it
+	 * takes {@link #SHAKE_DAMAGE} at the end of each swing of his head, six in all) and flings it the way you look at {@link
+	 * #FLING_SPEED} blocks a tick for {@link #FLING_DAMAGE}. Bigger than this it is only bitten.
+	 */
+	public static final float GRAB_WIDTH = 2.0F;
+	public static final float GRAB_HEIGHT = 2.4F;
+	public static final float SHAKE_DAMAGE = 3.0F;
+	public static final float FLING_DAMAGE = 6.0F;
+	public static final double FLING_SPEED = 2.1;
+	private static final double GRAB_RISE = 0.85;
+	private static final int[] SHAKES_AT = {2, 5, 9, 12, 16, 19};
+	/**
+	 * The rider launch (the chain key while you ride): you are thrown {@link #LAUNCH_SPEED} blocks a tick the way you look for {@link
+	 * #LAUNCH_TICKS} ticks (about twenty blocks), cutting everything in a wide path for the saws' finisher damage, and Beam swims to
+	 * wherever you land and takes you back up if he gets to you within {@link #FETCH_TICKS} ticks. No more often than every {@link
+	 * #LAUNCH_EVERY} ticks.
+	 */
+	public static final int LAUNCH_EVERY = 60;
+	public static final double LAUNCH_SPEED = 2.3;
+	public static final int LAUNCH_TICKS = 9;
+	private static final double LAUNCH_WIDE = 1.4;
+	public static final int FETCH_TICKS = 100;
+	private static final double FETCH_SPEED = 1.5;
+	private static final double FETCH_RANGE = 70.0;
+	private static final double PICK_UP = 2.4;
+	/** How hard a hit lands on his rider's screen (levels 1 to 4) and which extras come with it: the impact frames and lettering (told to the client, {@link FormEventPayload#BEAM_HIT}). */
+	private static final int FLASH = FormEventPayload.BEAM_FLASH;
+	private static final int CHOP = FormEventPayload.BEAM_CHOP;
+
 	private static final BlockStateParticleEffect DIRT = new BlockStateParticleEffect(ParticleTypes.BLOCK, Blocks.DIRT.getDefaultState());
 
 	/** Whose Beam is out (until he is gone). */
@@ -206,12 +266,62 @@ public final class Beam {
 		double diveFrom;
 		/** Whether the last tick had him out of the ground. */
 		boolean out;
+		/** The ambush in progress (-1 none, 0 rushing under the prey, 1 erupting), its prey, ticks into it, how deep he has dug in (eased), his lift over the hole and its speed, whether it has crashed, and when the last erupted. */
+		int amb = -1;
+		UUID prey;
+		int ambTicks;
+		double dip;
+		double ambLift;
+		double ambV;
+		boolean ambCrashed;
+		long lastAmbush = -1000L;
+		/** What he holds in his jaws (or null), ticks into the thrash, and how far he has risen to hold it up (0 to 1). */
+		UUID held;
+		int grabTicks;
+		double rise;
+		/** The rider thrown: the rider is off him and he is swimming to fetch them; the flight (ticks in, or -1), its way, where the rider is on it, what it has cut, whether they had gravity off before, since when, and when the last began. */
+		boolean loose;
+		int launch = -1;
+		Vec3d launchWay = Vec3d.ZERO;
+		Vec3d launchPos = Vec3d.ZERO;
+		final Set<UUID> sliced = new HashSet<>();
+		boolean hadNoGravity;
+		long looseSince;
+		long lastLaunch = -1000L;
+		/** How many hits he has told his rider of, and the hardest (for the tests). */
+		int hits;
+		int hardest;
 		/** The debris about. */
 		final List<Debris> debris = new ArrayList<>();
 
 		/** The height of the ground he is on, or {@code fallback} if it is not known yet. */
 		public double surface(double fallback) {
 			return Double.isNaN(surf) ? fallback : surf;
+		}
+
+		/** For the tests: whether he rushes (0) or erupts (1) or neither (-1), what he holds, whether his rider is thrown, the flight's tick, and the hits told to the rider and the hardest. */
+		public int ambush() {
+			return amb;
+		}
+
+		public boolean holding() {
+			return held != null;
+		}
+
+		public boolean loose() {
+			return loose;
+		}
+
+		public int flying() {
+			return launch;
+		}
+
+		public int hits() {
+			return hits;
+		}
+
+		public int hardest() {
+			return hardest;
 		}
 	}
 
@@ -275,7 +385,7 @@ public final class Beam {
 	/** The line on the action bar that says what your keys do now (with your own keys' names). */
 	private static void showKeys(ServerPlayerEntity player) {
 		player.sendMessage(Text.translatable("chainsawman.beam.keys", Text.keybind("key.attack"), Text.keybind("key.use"), Text.keybind("key.jump"),
-				Text.keybind("key.sneak")), true);
+				Text.keybind("key.sneak"), Text.keybind("key.chainsawman.chain")), true);
 	}
 
 	/** {@code player}'s Beam, if he is out and not on his way down; otherwise null. */
@@ -334,6 +444,10 @@ public final class Beam {
 			diveTick(beam, world, ride);
 			return;
 		}
+		if (ride.loose) {
+			looseTick(beam, world, ride);
+			return;
+		}
 		ServerPlayerEntity rider = beam.rider();
 		if (!stays(beam, rider)) {
 			dive(beam, world, rider);
@@ -347,19 +461,27 @@ public final class Beam {
 			return;
 		}
 		long now = world.getTime();
-		// While he charges he goes straight; otherwise he turns to the way you look.
-		if (ride.charge < 0) {
+		// While he charges or rushes under a mob he goes straight; otherwise he turns to the way you look.
+		if (ride.charge < 0 && ride.amb < 0) {
 			float yaw = beam.getYaw() + MathHelper.clamp(MathHelper.wrapDegrees(rider.getYaw() - beam.getYaw()), -TURN, TURN);
 			beam.setYaw(yaw);
 		}
+		Vec3d step = ride.amb == 0 ? rushStep(beam, world, ride, rider) : null;
 		Vec3d ahead = beam.heading();
 		Vec3d left = new Vec3d(ahead.z, 0.0, -ahead.x);
-		if (ride.charge < 0 && ride.leap < 0 && ((LivingEntityAccessor) rider).chainsawman$jumping()) {
+		if (ride.charge < 0 && ride.leap < 0 && ride.amb < 0 && ((LivingEntityAccessor) rider).chainsawman$jumping()) {
 			leap(rider);
 		}
 		double wanted = rider.forwardSpeed > 0.0F ? SPEED * Math.min(1.0F, rider.forwardSpeed) : 0.0;
-		Vec3d step;
-		if (ride.leap >= 0) {
+		boolean key = wanted > 0.0 || rider.sidewaysSpeed != 0.0F;
+		if (step != null) {
+			key = true;
+		} else if (ride.amb == 1) {
+			// Over the hole he drifts on a little the way he faces.
+			ride.speed *= 0.8;
+			step = ahead.multiply(Math.max(ride.speed, 0.2));
+			key = true;
+		} else if (ride.leap >= 0) {
 			// In the air of a breach he carries on at least as fast as he was going.
 			ride.speed = Math.max(ride.speed, LEAP_FORWARD);
 			step = ahead.multiply(ride.speed);
@@ -370,12 +492,18 @@ public final class Beam {
 			ride.speed += MathHelper.clamp(wanted - ride.speed, -BRAKE, ACCELERATE);
 			step = ahead.multiply(ride.speed).add(left.multiply(rider.sidewaysSpeed * STRAFE));
 		}
-		travel(beam, world, ride, step, wanted > 0.0 || rider.sidewaysSpeed != 0.0F);
+		travel(beam, world, ride, step, key);
 		if (ride.charge >= 0) {
 			chargeBites(beam, world, ride, rider);
 		}
 		if (ride.leap >= 0) {
 			leapTick(beam, world, ride, rider);
+		}
+		if (ride.amb >= 0) {
+			ambushTick(beam, world, ride, rider);
+		}
+		if (ride.held != null) {
+			grabTick(beam, world, ride, rider);
 		}
 		pose(beam, world, ride, now);
 		wake(beam, world, ride);
@@ -520,7 +648,8 @@ public final class Beam {
 			sum += s2 * 0.25;
 			weight += 0.25;
 		}
-		if (weight > 0.0) {
+		// (Over the hole he has just blown in the ground he keeps the height he left it at.)
+		if (weight > 0.0 && ride.amb != 1) {
 			double target = sum / weight;
 			ride.surf += MathHelper.clamp((target - ride.surf) * 0.3, -0.7, 0.5);
 		}
@@ -663,7 +792,7 @@ public final class Beam {
 		// At full speed, now and then, an arc out of the ground and back in.
 		double arcUp = 0.0;
 		double arcSlope = 0.0;
-		if (ride.arc < 0 && ride.leap < 0 && ride.charge < 0 && sunk > 0.99 && frac > 0.85 && now >= ride.nextArc) {
+		if (ride.arc < 0 && ride.leap < 0 && ride.charge < 0 && ride.amb < 0 && ride.held == null && sunk > 0.99 && frac > 0.85 && now >= ride.nextArc) {
 			if (ride.nextArc == 0L) {
 				ride.nextArc = now + 25;
 			} else {
@@ -692,8 +821,13 @@ public final class Beam {
 		if (ride.charge >= 0) {
 			lunge = Math.max(lunge, Math.sin(Math.PI * Math.min(1.0, (ride.charge + 1.0) / CHARGE_TICKS)) * 0.7);
 		}
-		double depth = SINK * sunk * (1.0 - lunge) + 0.9 * ride.under * sunk;
-		double leapUp = ride.leap >= 0 ? ride.lift : 0.0;
+		// Holding something up in his jaws he rises out of the ground to do it.
+		ride.rise += ((ride.held != null ? 1.0 : 0.0) - ride.rise) * 0.4;
+		lunge = Math.max(lunge, GRAB_RISE * ride.rise);
+		// Digging in to rush under a mob, or bursting up out of the hole he made.
+		ride.dip += ((ride.amb == 0 ? AMBUSH_DIP : 0.0) - ride.dip) * (ride.amb == 0 ? 0.5 : 0.6);
+		double depth = SINK * sunk * (1.0 - lunge) + 0.9 * ride.under * sunk + ride.dip * sunk;
+		double leapUp = ride.leap >= 0 ? ride.lift : ride.amb == 1 ? ride.ambLift : 0.0;
 		double y = ride.surf - depth + bob + arcUp + leapUp;
 		beam.setPosition(beam.getX(), y, beam.getZ());
 		// Tilted: up the slope of the ground, with the rise of his porpoise and his arc, and in a breach along the way he flies.
@@ -701,14 +835,19 @@ public final class Beam {
 		double tilt = -slope - Math.toDegrees(Math.atan2(bobSlope + arcSlope, Math.max(0.4, ride.speed)));
 		if (ride.leap >= 0) {
 			tilt = -Math.toDegrees(Math.atan2(ride.liftV, Math.max(0.3, ride.speed))) * 0.85;
+		} else if (ride.amb == 1) {
+			// Nose up out of the hole, and over and down into it.
+			tilt = -Math.toDegrees(Math.atan2(ride.ambV, 0.5)) * 0.75;
+		} else if (ride.amb == 0) {
+			tilt = 12.0;
 		}
 		beam.setPitch(beam.getPitch() + (float) (MathHelper.clamp(tilt, -48.0, 48.0) - beam.getPitch()) * 0.45F);
 		beam.setSwimming((float) ride.swim);
 		double above = y - ride.surf;
-		beam.setAirborne(above > 0.4 || ride.leap >= 0);
+		beam.setAirborne(above > 0.4 || ride.leap >= 0 || ride.amb == 1);
 		// Out of the ground: a spray where the head comes out, and again where he goes back in.
 		boolean out = above > -0.5;
-		if (out != ride.out && sunk > 0.5 && ride.leap < 0) {
+		if (out != ride.out && sunk > 0.5 && ride.leap < 0 && ride.amb < 0) {
 			double x = beam.getX() + beam.heading().x * (out ? 3.0 : -1.0);
 			double z = beam.getZ() + beam.heading().z * (out ? 3.0 : -1.0);
 			burst(world, x, ride.surf, z, out ? 40 : 55, 1.0, 0.4);
@@ -724,7 +863,7 @@ public final class Beam {
 	private static void wake(BeamEntity beam, ServerWorld world, Ride ride) {
 		double frac = MathHelper.clamp(ride.speed / SPEED, 0.0, 1.0);
 		double sunk = ride.swim;
-		if (sunk < 0.4 || frac < 0.1 || ride.leap >= 0 || Double.isNaN(ride.surf)) {
+		if (sunk < 0.4 || frac < 0.1 || ride.leap >= 0 || ride.amb == 1 || Double.isNaN(ride.surf)) {
 			return;
 		}
 		double amount = sunk * frac;
@@ -811,8 +950,9 @@ public final class Beam {
 
 	/**
 	 * His bite (the attack key, from his back): he lunges up out of the ground and his jaw snaps shut on everything in a cone
-	 * in front of his mouth, for {@link #BITE_DAMAGE} of the rider's damage, in a spray of blood; what survives is flung up
-	 * and forward. No more often than every {@link #BITE_EVERY} ticks. Whether it came.
+	 * in front of his mouth, for {@link #BITE_DAMAGE} of the rider's damage, in a spray of blood. A mob no bigger than a Ravager that
+	 * he catches is held and thrashed ({@link #grab}); the rest are flung up and forward. Swimming, with a mob too far ahead to
+	 * bite, it is the ambush instead ({@link #ambush}). No more often than every {@link #BITE_EVERY} ticks. Whether it came.
 	 */
 	public static boolean bite(ServerPlayerEntity player) {
 		BeamEntity beam = mount(player);
@@ -822,24 +962,57 @@ public final class Beam {
 		ServerWorld world = player.getServerWorld();
 		long now = world.getTime();
 		Ride ride = beam.ride();
-		if (now - ride.lastBite < BITE_EVERY - LAG_SLACK) {
+		if (now - ride.lastBite < BITE_EVERY - LAG_SLACK || ride.held != null || ride.amb >= 0) {
 			return false;
+		}
+		Vec3d mouth = mouth(beam);
+		List<LivingEntity> victims = within(beam, world, player, mouth, BITE_REACH, true);
+		if (victims.isEmpty() && ride.swim > 0.5 && ride.leap < 0 && ride.charge < 0 && now - ride.lastAmbush >= AMBUSH_EVERY) {
+			LivingEntity prey = ambushPrey(beam, world, player);
+			if (prey != null) {
+				ambush(beam, world, ride, player, prey);
+				return true;
+			}
 		}
 		ride.lastBite = now;
 		ride.lunge = 0;
 		beam.bit();
-		Vec3d mouth = mouth(beam);
-		List<LivingEntity> victims = within(beam, world, player, mouth, BITE_REACH, true);
 		hurt(world, player, victims, BITE_DAMAGE);
 		Vec3d ahead = beam.heading();
+		LivingEntity caught = null;
 		for (LivingEntity victim : victims) {
-			if (victim.isAlive()) {
+			if (victim.isAlive() && grabbable(victim) && (caught == null || victim.squaredDistanceTo(mouth) < caught.squaredDistanceTo(mouth))) {
+				caught = victim;
+			}
+		}
+		for (LivingEntity victim : victims) {
+			if (victim.isAlive() && victim != caught) {
 				fling(victim, ahead.x * FLING_AHEAD, FLING_UP, ahead.z * FLING_AHEAD);
 			}
 		}
+		if (caught != null) {
+			grab(beam, ride, caught);
+		}
 		world.playSound(null, mouth.x, mouth.y, mouth.z, ChainsawSounds.BEAM_BITE, SoundCategory.PLAYERS, victims.isEmpty() ? 0.9F : 1.3F,
 				0.9F + world.random.nextFloat() * 0.2F);
+		if (!victims.isEmpty()) {
+			hit(ride, player, caught != null ? 2 : 1, 0, mouth);
+		}
 		return true;
+	}
+
+	/** Whether his jaws can hold it: a mob (not a player) no bigger than a Ravager. */
+	public static boolean grabbable(LivingEntity target) {
+		return !(target instanceof PlayerEntity) && target.getWidth() <= GRAB_WIDTH && target.getHeight() <= GRAB_HEIGHT && !target.hasPassengers();
+	}
+
+	/** {@code rider} told that a hit of {@code level} (1 to 4) landed at {@code at}, with the {@code extras} ({@link #FLASH}, {@link #CHOP}): their screen shakes and holds still a frame or more. */
+	private static void hit(Ride ride, ServerPlayerEntity rider, int level, int extras, Vec3d at) {
+		ride.hits++;
+		ride.hardest = Math.max(ride.hardest, level);
+		if (rider != null && ServerPlayNetworking.canSend(rider, FormEventPayload.ID)) {
+			ServerPlayNetworking.send(rider, new FormEventPayload(rider.getUuid(), FormEventPayload.BEAM_HIT, level | extras, at.x, at.y, at.z));
+		}
 	}
 
 	/** {@code damage} to each of {@code victims} from {@code rider}: as the player's own attack, so the kills are theirs. */
@@ -858,6 +1031,426 @@ public final class Beam {
 		target.velocityModified = true;
 	}
 
+	// The ambush.
+
+	/**
+	 * The mob he rushes under: the nearest to the way you look among those too far for a bite (up to {@link #AMBUSH_REACH} blocks
+	 * from his mouth, within about 45 degrees of your look), standing on the ground (not flying). Null if there is none.
+	 */
+	private static LivingEntity ambushPrey(BeamEntity beam, ServerWorld world, ServerPlayerEntity rider) {
+		Vec3d mouth = mouth(beam);
+		Vec3d look = rider.getRotationVec(1.0F);
+		Vec3d flat = new Vec3d(look.x, 0.0, look.z);
+		flat = flat.lengthSquared() < 1.0E-4 ? beam.heading() : flat.normalize();
+		LivingEntity best = null;
+		double bestScore = Double.MAX_VALUE;
+		for (LivingEntity e : within(beam, world, rider, mouth, AMBUSH_REACH, false)) {
+			Vec3d to = e.getPos().subtract(mouth).multiply(1.0, 0.0, 1.0);
+			double distance = to.length();
+			if (distance < BITE_REACH - 0.6 || distance > AMBUSH_REACH) {
+				continue;
+			}
+			double cos = to.normalize().dotProduct(flat);
+			if (cos < AMBUSH_CONE) {
+				continue;
+			}
+			double ground = surfaceAt(world, e.getX(), e.getZ(), e.getY());
+			if (Double.isNaN(ground) || Math.abs(e.getY() - ground) > 1.3) {
+				continue;
+			}
+			double score = (1.0 - cos) * 10.0 + distance * 0.2;
+			if (score < bestScore) {
+				bestScore = score;
+				best = e;
+			}
+		}
+		return best;
+	}
+
+	/** The ambush begun: he dips deeper and rushes under {@code prey}. */
+	private static void ambush(BeamEntity beam, ServerWorld world, Ride ride, ServerPlayerEntity rider, LivingEntity prey) {
+		long now = world.getTime();
+		ride.amb = 0;
+		ride.prey = prey.getUuid();
+		ride.ambTicks = 0;
+		ride.ambCrashed = false;
+		ride.lastAmbush = now;
+		ride.lastBite = now;
+		ride.lunge = -1;
+		ride.arc = -1;
+		world.playSound(null, beam.getX(), ride.surface(beam.getY()), beam.getZ(), ChainsawSounds.BEAM_DIVE, SoundCategory.PLAYERS, 1.2F, 1.6F);
+		burst(world, beam.getX(), ride.surface(beam.getY()), beam.getZ(), 30, 1.0, 0.35);
+	}
+
+	/** One tick of the rush: turned to the prey and sent at it, the way it moves this tick; he erupts when his head is under it. Null if the ambush is over (the prey gone or too far). */
+	private static Vec3d rushStep(BeamEntity beam, ServerWorld world, Ride ride, ServerPlayerEntity rider) {
+		ride.ambTicks++;
+		LivingEntity prey = ride.prey != null && world.getEntity(ride.prey) instanceof LivingEntity l && l.isAlive() ? l : null;
+		if (prey == null || ride.ambTicks > AMBUSH_MAX) {
+			ride.amb = -1;
+			ride.prey = null;
+			return null;
+		}
+		Vec3d to = prey.getPos().subtract(beam.getPos()).multiply(1.0, 0.0, 1.0);
+		double distance = to.length();
+		if (distance > 1.0E-3) {
+			float want = (float) Math.toDegrees(Math.atan2(-to.x, to.z));
+			beam.setYaw(beam.getYaw() + MathHelper.clamp(MathHelper.wrapDegrees(want - beam.getYaw()), -AMBUSH_TURN, AMBUSH_TURN));
+		}
+		double gap = distance - AMBUSH_UNDER;
+		ride.speed = AMBUSH_SPEED;
+		if (gap <= AMBUSH_SPEED * 0.4 && ride.ambTicks >= AMBUSH_MIN) {
+			erupt(beam, world, ride, rider, prey);
+			return beam.heading().multiply(0.3);
+		}
+		return beam.heading().multiply(Math.min(AMBUSH_SPEED, Math.max(gap, 0.3)));
+	}
+
+	/**
+	 * He bursts up out of the ground under {@code prey}: it and everything near it hurt and thrown sky-high, a ring of the ground
+	 * thrown up round the hole, and he rises over it on the same burst.
+	 */
+	private static void erupt(BeamEntity beam, ServerWorld world, Ride ride, ServerPlayerEntity rider, LivingEntity prey) {
+		long now = world.getTime();
+		Vec3d at = prey.getPos();
+		double ground = Double.isNaN(surfaceAt(world, at.x, at.z, at.y)) ? at.y : surfaceAt(world, at.x, at.z, at.y);
+		ride.amb = 1;
+		ride.ambTicks = 0;
+		ride.ambLift = 0.0;
+		ride.ambV = AMBUSH_LIFT;
+		ride.ambCrashed = false;
+		ride.lastAmbush = now;
+		ride.lastBite = now;
+		ride.prey = null;
+		beam.ambushed();
+		beam.bit();
+		Vec3d ahead = beam.heading();
+		List<LivingEntity> victims = within(beam, world, rider, at.add(0.0, 0.4, 0.0), AMBUSH_RADIUS, false);
+		if (!victims.contains(prey)) {
+			victims.add(prey);
+		}
+		hurt(world, rider, victims, AMBUSH_DAMAGE);
+		for (LivingEntity victim : victims) {
+			if (victim.isAlive()) {
+				double weight = victim == prey ? 1.0 : 0.75;
+				fling(victim, ahead.x * 0.3, AMBUSH_LAUNCH * weight, ahead.z * 0.3);
+			}
+			Saw.bleed(world, victim, 50);
+		}
+		ringDebris(world, ride, new Vec3d(at.x, ground, at.z));
+		ring(world, new Vec3d(at.x, ground, at.z), 3.6);
+		burst(world, at.x, ground, at.z, 160, 1.8, 0.7);
+		world.playSound(null, at.x, ground, at.z, ChainsawSounds.BEAM_SLAM, SoundCategory.PLAYERS, 2.2F, 1.0F);
+		world.playSound(null, at.x, ground, at.z, ChainsawSounds.BEAM_BURST, SoundCategory.PLAYERS, 1.6F, 0.8F);
+		world.playSound(null, at.x, ground + 1.0, at.z, ChainsawSounds.BEAM_BITE, SoundCategory.PLAYERS, 1.5F, 0.75F);
+		hit(ride, rider, 4, FLASH, at.add(0.0, 1.0, 0.0));
+	}
+
+	/** One tick of the ambush after he has moved: over the hole he flies up and comes down, crashing in and diving on. */
+	private static void ambushTick(BeamEntity beam, ServerWorld world, Ride ride, ServerPlayerEntity rider) {
+		if (ride.amb != 1) {
+			return;
+		}
+		ride.ambTicks++;
+		ride.ambLift += ride.ambV;
+		ride.ambV -= AMBUSH_G;
+		double y = ride.surf - SINK * ride.swim * ride.swim * (3.0 - 2.0 * ride.swim) + ride.ambLift;
+		if (!ride.ambCrashed && ride.ambV < 0.0 && y < ride.surf + 0.2) {
+			ride.ambCrashed = true;
+			land(beam, world, rider);
+		}
+		if (ride.ambLift <= 0.0 && ride.ambV < 0.0 || ride.ambTicks > 80) {
+			ride.amb = -1;
+			ride.ambLift = 0.0;
+			if (!ride.ambCrashed) {
+				ride.ambCrashed = true;
+				land(beam, world, rider);
+			}
+		}
+	}
+
+	/**
+	 * A ring of the ground's blocks thrown up round {@code at} as flying debris (where {@code mobGriefing} lets them be torn up; else
+	 * only the ground's particles, which {@code ring} throws), each landing and gone in a moment.
+	 */
+	private static void ringDebris(ServerWorld world, Ride ride, Vec3d at) {
+		if (!world.getGameRules().getBoolean(GameRules.DO_MOB_GRIEFING)) {
+			return;
+		}
+		var random = world.random;
+		BlockPos.Mutable pos = new BlockPos.Mutable();
+		for (int i = 0; i < RING_PIECES; i++) {
+			double angle = Math.PI * 2.0 * (i + random.nextDouble() * 0.7) / RING_PIECES;
+			double radius = 1.5 + random.nextDouble() * 1.7;
+			double dx = Math.cos(angle);
+			double dz = Math.sin(angle);
+			int bx = MathHelper.floor(at.x + dx * radius);
+			int bz = MathHelper.floor(at.z + dz * radius);
+			if (!world.isChunkLoaded(bx >> 4, bz >> 4)) {
+				continue;
+			}
+			BlockPos found = null;
+			for (int y = MathHelper.floor(at.y) + 1; y >= MathHelper.floor(at.y) - 2; y--) {
+				pos.set(bx, y, bz);
+				if (!world.getBlockState(pos).isAir() && world.getBlockState(pos.up()).isAir()) {
+					found = pos.toImmutable();
+					break;
+				}
+			}
+			if (found == null) {
+				continue;
+			}
+			BlockState state = world.getBlockState(found);
+			if (!breakable(world, found, state) || state.hasBlockEntity() || !state.isFullCube(world, found) || state.getBlock() instanceof net.minecraft.block.FallingBlock) {
+				continue;
+			}
+			world.syncWorldEvent(2001, found, Block.getRawIdFromState(state));
+			FallingBlockEntity piece = FallingBlockEntity.spawnFromBlock(world, found, state);
+			piece.dropItem = false;
+			piece.setDestroyedOnLanding();
+			double out = 0.18 + random.nextDouble() * 0.32;
+			piece.setVelocity(dx * out, 0.55 + random.nextDouble() * 0.55, dz * out);
+			piece.velocityModified = true;
+			ride.debris.add(new Debris(piece, world.getTime() + RING_LASTS));
+		}
+	}
+
+	// The grab.
+
+	/** His jaws hold {@code prey}: it rides at his mouth (a passenger, swung with his head) for the thrash. */
+	private static void grab(BeamEntity beam, Ride ride, LivingEntity prey) {
+		prey.startRiding(beam, true);
+		ride.held = prey.getUuid();
+		ride.grabTicks = 0;
+		beam.grabbed();
+		beam.bit();
+	}
+
+	/**
+	 * One tick of the thrash: at the end of each swing of his head what he holds takes {@link #SHAKE_DAMAGE} in a spray of blood;
+	 * when the {@link BeamEntity#GRAB_TICKS} are up he flings it the way you look.
+	 */
+	private static void grabTick(BeamEntity beam, ServerWorld world, Ride ride, ServerPlayerEntity rider) {
+		LivingEntity prey = world.getEntity(ride.held) instanceof LivingEntity l && l.isAlive() && l.getVehicle() == beam ? l : null;
+		if (prey == null) {
+			releaseHeld(beam, ride);
+			return;
+		}
+		int t = (int) beam.sinceGrab(0.0F);
+		for (int k = ride.grabTicks; k <= t; k++) {
+			for (int at : SHAKES_AT) {
+				if (k == at && prey.isAlive()) {
+					hurt(world, rider, List.of(prey), SHAKE_DAMAGE);
+					Saw.bleed(world, prey, 36);
+					Vec3d mid = prey.getBoundingBox().getCenter();
+					world.playSound(null, mid.x, mid.y, mid.z, ChainsawSounds.BEAM_BITE, SoundCategory.PLAYERS, 1.1F, 0.65F + world.random.nextFloat() * 0.2F);
+					world.playSound(null, mid.x, mid.y, mid.z, ChainsawSounds.CRUNCH, SoundCategory.PLAYERS, 0.9F, 0.8F + world.random.nextFloat() * 0.3F);
+					hit(ride, rider, 2, 0, mid);
+				}
+			}
+		}
+		ride.grabTicks = t + 1;
+		if (!prey.isAlive()) {
+			releaseHeld(beam, ride);
+			return;
+		}
+		if (t >= BeamEntity.GRAB_TICKS) {
+			throwPrey(beam, world, ride, rider, prey);
+		}
+	}
+
+	/** Lets go of what he holds (if he holds anything). */
+	private static void releaseHeld(BeamEntity beam, Ride ride) {
+		if (ride.held != null && beam.getWorld() instanceof ServerWorld world && world.getEntity(ride.held) instanceof LivingEntity held && held.getVehicle() == beam) {
+			held.stopRiding();
+		}
+		ride.held = null;
+		ride.grabTicks = 0;
+	}
+
+	/** The end of the thrash: he throws it the way {@code rider} looks, far, for {@link #FLING_DAMAGE}. */
+	private static void throwPrey(BeamEntity beam, ServerWorld world, Ride ride, ServerPlayerEntity rider, LivingEntity prey) {
+		releaseHeld(beam, ride);
+		ride.lastBite = world.getTime();
+		beam.bit();
+		hurt(world, rider, List.of(prey), FLING_DAMAGE);
+		Vec3d look = rider.getRotationVec(1.0F);
+		Vec3d way = new Vec3d(look.x, look.y * 0.7 + 0.16, look.z).normalize().multiply(FLING_SPEED);
+		if (prey.isAlive()) {
+			fling(prey, way.x, way.y, way.z);
+		}
+		Vec3d mid = prey.getBoundingBox().getCenter();
+		Saw.bleed(world, prey, 60);
+		Saw.impact(rider, prey);
+		world.playSound(null, mid.x, mid.y, mid.z, ChainsawSounds.BEAM_BITE, SoundCategory.PLAYERS, 1.6F, 0.6F);
+		world.playSound(null, mid.x, mid.y, mid.z, ChainsawSounds.BEAM_LAUNCH, SoundCategory.PLAYERS, 1.4F, 1.2F);
+		hit(ride, rider, 3, FLASH, mid);
+	}
+
+	// The rider launch.
+
+	/**
+	 * The chain key while you ride: he flicks his head and throws you like a missile the way you look ({@link #LAUNCH_SPEED} blocks a
+	 * tick for {@link #LAUNCH_TICKS} ticks, saws out), and swims to wherever you land. Whether it came.
+	 */
+	public static boolean launch(ServerPlayerEntity player) {
+		BeamEntity beam = mount(player);
+		if (beam == null || beam.age < POP_TICKS) {
+			return false;
+		}
+		ServerWorld world = player.getServerWorld();
+		long now = world.getTime();
+		Ride ride = beam.ride();
+		if (now - ride.lastLaunch < LAUNCH_EVERY || ride.held != null || ride.amb >= 0 || ride.charge >= 0 || ride.leap >= 0) {
+			return false;
+		}
+		Vec3d look = player.getRotationVec(1.0F);
+		Vec3d way = new Vec3d(look.x, look.y * 0.75, look.z).normalize();
+		ride.lastLaunch = now;
+		ride.loose = true;
+		ride.looseSince = now;
+		ride.launch = 0;
+		ride.launchWay = way;
+		ride.launchPos = player.getPos();
+		ride.sliced.clear();
+		ride.hadNoGravity = player.hasNoGravity();
+		beam.launched();
+		beam.bit();
+		player.stopRiding();
+		player.setNoGravity(true);
+		player.setVelocity(way.multiply(LAUNCH_SPEED));
+		player.velocityModified = true;
+		player.fallDistance = 0.0F;
+		SAFE.put(player.getUuid(), now + SAFE_FOR + LAUNCH_TICKS);
+		world.playSound(null, player.getX(), player.getY() + 1.0, player.getZ(), ChainsawSounds.BEAM_LAUNCH, SoundCategory.PLAYERS, 1.8F, 1.0F);
+		world.playSound(null, player.getX(), player.getY() + 1.0, player.getZ(), ChainsawSounds.SLASH, SoundCategory.PLAYERS, 1.2F, 0.8F);
+		burst(world, beam.getX(), ride.surface(beam.getY()), beam.getZ(), 40, 1.0, 0.4);
+		Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.SWING, 3));
+		return true;
+	}
+
+	/**
+	 * One tick of Beam with his rider off him: the rider's flight goes on (cutting what it hits), and he swims to them; once they are down
+	 * and he is under them he takes them back up. If it takes too long, or they are too far, or they have left the form, he dives.
+	 */
+	private static void looseTick(BeamEntity beam, ServerWorld world, Ride ride) {
+		long now = world.getTime();
+		ServerPlayerEntity owner = beam.owner() == null ? null : world.getServer().getPlayerManager().getPlayer(beam.owner());
+		boolean gone = owner == null || !owner.isAlive() || owner.isSpectator() || !Form.fighting(owner) || beam.age >= LASTS || owner.getWorld() != world
+				|| now - ride.looseSince > FETCH_TICKS || owner.getPos().distanceTo(beam.getPos()) > FETCH_RANGE;
+		if (gone) {
+			if (owner != null) {
+				endFlight(ride, owner);
+			}
+			ride.loose = false;
+			dive(beam, world, null);
+			return;
+		}
+		if (ride.launch >= 0) {
+			flightTick(beam, world, ride, owner);
+		}
+		// Swimming to them.
+		Vec3d to = owner.getPos().subtract(beam.getPos()).multiply(1.0, 0.0, 1.0);
+		double distance = to.length();
+		if (distance > 1.0E-3) {
+			float want = (float) Math.toDegrees(Math.atan2(-to.x, to.z));
+			beam.setYaw(beam.getYaw() + MathHelper.clamp(MathHelper.wrapDegrees(want - beam.getYaw()), -TURN * 2.0F, TURN * 2.0F));
+		}
+		boolean near = distance < 3.0;
+		ride.speed += MathHelper.clamp((near ? Math.min(FETCH_SPEED, distance * 0.5) : FETCH_SPEED) - ride.speed, -BRAKE * 2.0, ACCELERATE * 2.0);
+		// (Close in he goes straight at them, however he faces, so he cannot circle.)
+		Vec3d step = distance < 10.0 && distance > 1.0E-3 ? to.multiply(Math.min(ride.speed, distance) / distance)
+				: beam.heading().multiply(Math.min(ride.speed, Math.max(distance, 0.2)));
+		travel(beam, world, ride, step, true);
+		pose(beam, world, ride, now);
+		wake(beam, world, ride);
+		if (ride.launch < 0 && distance <= PICK_UP && owner.getY() - ride.surf > -2.0 && owner.getY() - ride.surf < 4.0 && !owner.hasVehicle()) {
+			pickUp(beam, world, ride, owner);
+		}
+	}
+
+	/**
+	 * The flight of the thrown rider: along the way they were sent at {@link #LAUNCH_SPEED}, the saws cutting everything in a wide
+	 * path (once each, for the finisher's damage), stopped by a wall; over after {@link #LAUNCH_TICKS}. The path is followed here as well
+	 * as by the rider's own game, so the cut does not depend on lag.
+	 */
+	private static void flightTick(BeamEntity beam, ServerWorld world, Ride ride, ServerPlayerEntity owner) {
+		ride.launch++;
+		Vec3d from = ride.launchPos;
+		Vec3d to = from.add(ride.launchWay.multiply(LAUNCH_SPEED));
+		boolean stopped = false;
+		BlockHitResult wall = world.raycast(new RaycastContext(from.add(0.0, 0.9, 0.0), to.add(0.0, 0.9, 0.0), RaycastContext.ShapeType.COLLIDER,
+				RaycastContext.FluidHandling.NONE, owner));
+		if (wall.getType() != HitResult.Type.MISS) {
+			to = wall.getPos().subtract(0.0, 0.9, 0.0).subtract(ride.launchWay.multiply(0.4));
+			stopped = true;
+		}
+		Box path = new Box(from, to).expand(LAUNCH_WIDE, 0.0, LAUNCH_WIDE).stretch(0.0, 1.8, 0.0).expand(0.0, 0.5, 0.0);
+		List<LivingEntity> cut = new ArrayList<>();
+		for (Entity e : world.getOtherEntities(owner, path, e -> e instanceof LivingEntity l && l.isAlive() && !e.isSpectator() && !(e instanceof ArmorStandEntity)
+				&& !ride.sliced.contains(e.getUuid()))) {
+			if (e instanceof ServerPlayerEntity other && Downed.is(other)) {
+				continue;
+			}
+			cut.add((LivingEntity) e);
+		}
+		float damage = Saw.FINISHER_DAMAGE * Frenzy.damage(owner) * Limbs.damage(owner);
+		for (LivingEntity target : cut) {
+			ride.sliced.add(target.getUuid());
+			Saw.breakGuard(target);
+			Saw.impact(owner, target);
+			target.timeUntilRegen = 0;
+			target.damage(owner.getDamageSources().playerAttack(owner), damage);
+			Saw.bleed(world, target, 50);
+			if (target.isAlive()) {
+				fling(target, ride.launchWay.x * 1.0, 0.5, ride.launchWay.z * 1.0);
+			}
+			Vec3d mid = target.getBoundingBox().getCenter();
+			hit(ride, owner, 3, FLASH | CHOP, mid);
+		}
+		if (!cut.isEmpty()) {
+			Form.play(owner, ChainsawSounds.HIT, 1.0F);
+			Form.broadcast(owner.server, new FormEventPayload(owner.getUuid(), FormEventPayload.HIT, cut.size()));
+		}
+		ride.launchPos = to;
+		owner.setVelocity(ride.launchWay.multiply(LAUNCH_SPEED));
+		owner.velocityModified = true;
+		owner.fallDistance = 0.0F;
+		if (ride.launch >= LAUNCH_TICKS || stopped) {
+			endFlight(ride, owner);
+		}
+	}
+
+	/** The flight over: gravity is theirs again, and a little of the speed. */
+	private static void endFlight(Ride ride, ServerPlayerEntity owner) {
+		if (ride.launch < 0) {
+			return;
+		}
+		ride.launch = -1;
+		owner.setNoGravity(ride.hadNoGravity);
+		owner.setVelocity(ride.launchWay.multiply(0.5));
+		owner.velocityModified = true;
+		owner.fallDistance = 0.0F;
+	}
+
+	/** He is under them: he comes up through the ground with them on his back again. */
+	private static void pickUp(BeamEntity beam, ServerWorld world, Ride ride, ServerPlayerEntity owner) {
+		Vec3d ahead = beam.heading();
+		beam.setPosition(owner.getX() - ahead.x * BeamEntity.SEAT_AHEAD, owner.getY() - BeamEntity.BACK + 0.05, owner.getZ() - ahead.z * BeamEntity.SEAT_AHEAD);
+		ride.loose = false;
+		ride.speed *= 0.5;
+		owner.setVelocity(Vec3d.ZERO);
+		owner.velocityModified = true;
+		owner.startRiding(beam, true);
+		owner.fallDistance = 0.0F;
+		SAFE.put(owner.getUuid(), world.getTime() + SAFE_FOR);
+		double surf = ride.surface(beam.getY());
+		world.playSound(null, owner.getX(), surf, owner.getZ(), ChainsawSounds.BEAM_BURST, SoundCategory.PLAYERS, 1.4F, 1.1F);
+		burst(world, owner.getX(), surf, owner.getZ(), 90, 1.3, 0.5);
+		ring(world, new Vec3d(owner.getX(), surf, owner.getZ()), 2.4);
+		hit(ride, owner, 2, 0, owner.getPos());
+	}
+
 	// The charge.
 
 	/**
@@ -873,7 +1466,7 @@ public final class Beam {
 		ServerWorld world = player.getServerWorld();
 		long now = world.getTime();
 		Ride ride = beam.ride();
-		if (now - ride.lastCharge < CHARGE_EVERY || ride.leap >= 0 || ride.charge >= 0) {
+		if (now - ride.lastCharge < CHARGE_EVERY || ride.leap >= 0 || ride.charge >= 0 || ride.amb >= 0) {
 			return false;
 		}
 		ride.lastCharge = now;
@@ -907,6 +1500,7 @@ public final class Beam {
 		if (any) {
 			beam.bit();
 			world.playSound(null, mouth.x, mouth.y, mouth.z, ChainsawSounds.BEAM_BITE, SoundCategory.PLAYERS, 1.3F, 0.85F + world.random.nextFloat() * 0.2F);
+			hit(ride, rider, 2, 0, mouth);
 		}
 		if (ride.charge >= CHARGE_TICKS) {
 			ride.charge = -1;
@@ -925,7 +1519,7 @@ public final class Beam {
 		ServerWorld world = player.getServerWorld();
 		long now = world.getTime();
 		Ride ride = beam.ride();
-		if (now - ride.lastLeap < LEAP_EVERY || ride.leap >= 0 || ride.charge >= 0) {
+		if (now - ride.lastLeap < LEAP_EVERY || ride.leap >= 0 || ride.charge >= 0 || ride.amb >= 0) {
 			return false;
 		}
 		ride.leap = 0;
@@ -984,6 +1578,7 @@ public final class Beam {
 			beam.bit();
 		}
 		beam.landed();
+		hit(ride, rider, victims.isEmpty() ? 2 : 3, 0, at);
 		world.playSound(null, at.x, at.y, at.z, ChainsawSounds.BEAM_BURST, SoundCategory.PLAYERS, 1.6F, 0.7F);
 		world.playSound(null, at.x, at.y, at.z, ChainsawSounds.BEAM_DIVE, SoundCategory.PLAYERS, 1.4F, 0.9F);
 		ring(world, at, LEAP_REACH * 0.9);
@@ -1001,8 +1596,14 @@ public final class Beam {
 		}
 		beam.dived();
 		Ride ride = beam.ride();
+		releaseHeld(beam, ride);
+		if (ride.launch >= 0 && rider != null) {
+			endFlight(ride, rider);
+		}
+		ride.loose = false;
 		ride.leap = -1;
 		ride.charge = -1;
+		ride.amb = -1;
 		ride.diveFrom = beam.getY();
 		beam.setAirborne(false);
 		beam.setSwimming(1.0F);
@@ -1020,6 +1621,8 @@ public final class Beam {
 	public static void end(ServerPlayerEntity player) {
 		BeamEntity beam = BEAMS.remove(player.getUuid());
 		if (beam != null) {
+			releaseHeld(beam, beam.ride());
+			endFlight(beam.ride(), player);
 			sweepAll(beam.ride());
 			beam.removeAllPassengers();
 			beam.discard();

@@ -266,7 +266,7 @@ public final class Saw {
 	}
 
 	/** A saw biting hard into {@code target}: everyone sees the sparks and hears the crunch; the one swinging feels it. */
-	private static void impact(ServerPlayerEntity player, LivingEntity target) {
+	static void impact(ServerPlayerEntity player, LivingEntity target) {
 		Box b = target.getBoundingBox();
 		// On the near side of it, at the slasher's chest height (within it).
 		Vec3d mid = b.getCenter();

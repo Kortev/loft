@@ -84,7 +84,14 @@ public final class ChainsawMan implements ModInitializer {
 			switch (payload.action()) {
 				case FormActionPayload.SLASH -> Saw.slash(context.player(), payload.target());
 				case FormActionPayload.GRIND -> Saw.grind(context.player(), payload.on());
-				case FormActionPayload.CHAIN -> Grapple.fire(context.player());
+				case FormActionPayload.CHAIN -> {
+					if (Beam.riding(context.player())) {
+						// While you ride him the chain key throws you.
+						Beam.launch(context.player());
+					} else {
+						Grapple.fire(context.player());
+					}
+				}
 				case FormActionPayload.FRENZY -> Beam.summon(context.player());
 				case FormActionPayload.LUNGE -> Saw.lunge(context.player());
 				case FormActionPayload.RELEASE -> Grapple.release(context.player());

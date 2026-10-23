@@ -38,6 +38,13 @@ public record FormEventPayload(UUID player, byte kind, int value, double x, doub
 	public static final byte FAINT = 13;
 	/** A saw biting into a player (or a finisher into anything): {@code value} what was hit (its id), {@code x y z} where. */
 	public static final byte IMPACT = 14;
+	/**
+	 * One of Beam's hits landing, to his rider alone: {@code value} how hard (1 to 4) with {@code BEAM_FLASH} added when it is
+	 * one of the big ones that gets the anime's impact frames and its lettering, {@code x y z} where.
+	 */
+	public static final byte BEAM_HIT = 15;
+	public static final int BEAM_FLASH = 8;
+	public static final int BEAM_CHOP = 16;
 
 	public static final CustomPayload.Id<FormEventPayload> ID = new CustomPayload.Id<>(ChainsawMan.id("form_event"));
 	public static final PacketCodec<RegistryByteBuf, FormEventPayload> CODEC = PacketCodec.tuple(Uuids.PACKET_CODEC, FormEventPayload::player,
