@@ -81,29 +81,25 @@ he bursts up out of the ground under you in a spray of the ground's own blocks (
 tall within 3 blocks of you, else the action bar says so and nothing is spent) and you stand on his back; one to a player,
 20 seconds (`Beam.LASTS`), gone when you leave the form or go down, and he dives back into the ground when he goes.
 
-- **His look** (v6, 2026-10-23: built in boxes **exactly from two pixel-art drawings kortev approved**; v1-v5 were rejected, v5
-  with "honestly worse, the shape is still wrong, especially in the mouth"). The drawings are the spec, not the Blender blueprint:
-  `tools/beam_profile.py` (side) and `tools/beam_front.py` (front), at game resolution (1 drawing px = 1/16 block = 1 model px;
-  copies of Opus's `work/tools/` originals with the control points pulled out as constants and `body(extras=False)` / `scene()`
-  added; run them to see the drawings). **Everything is generated from them**: `tools/beam_boxes.py` measures the side outline and
-  the front's half widths and builds the boxes (slices along his length 1-3 px deep, each a stack of rows narrowing top and
-  bottom by the front view's profile, tapering to the tail and toward the head; the head dome over the mouth hinged at the mouth's
-  corner; the **lower jaw a part of its own built in a frame turned along its rim (rest turn `JAW_REST` 21.6 degrees, the mouth open
-  `MOUTH_OPEN` 33.5 degrees as drawn)**, plan narrowing to a U; a thin dark red plate down the middle of the open mouth so the side
-  view is not hollow; teeth as painted planes along the lips plus cream points on the jaw's risers; eyes of two crossed boxes
-  placed on the surface; spikes as stepped boxes; legs as chains of angled boxes through the drawn hip/knee/foot (side gives
-  along/up, front gives the splay), hip part -> upper blade -> shin; pectorals; stalk and crescent fin); `python tools/beam_boxes.py
-  --java` writes `client/BeamLayout.java` (do not edit); `tools/beam_paint.py` (called by `gen_chainsaw_textures.py`'s `beam_entity`)
-  **paints `textures/entity/beam.png` (1024 x 304) by projecting the drawings onto the boxes** (side drawing onto the faces that
-  face his sides, front drawing onto those facing forward, so the navy/mint line, shade, gill lines, gums, teeth, eyes land as
-  drawn in the drawings' exact RGB; ink round the boxes' own silhouette); `BeamModel.java` only poses the parts (hip yaw = stride,
-  hip roll = lift, jaw pitch = `JAW_REST - MOUTH_OPEN + open`). About 810 boxes. **Checks without the game**:
-  `python tools/beam_check.py OUT` lays the boxes' side and front silhouettes over the drawings (IoU side 0.97, front 0.95, head
-  0.97) and `python tools/beam_preview.py OUT [tex]` renders him from any side in Python. He is now **9 blocks long, 4.4 to the
-  spike tips, 3.1 wide at the shoulders, feet 5 blocks apart**; `BeamEntity.BACK` is 62/16 (the rider stands just behind the first
-  spike, `SEAT_AHEAD` 0.95), `STRIDE` 8; the hitbox is still 2 x 2.4 and the bite's `MOUTH` 2.2 / reach 3.5 (gameplay left alone; the
-  gape is really about 2.8 ahead of his middle). `BeamRenderer`'s `MIDDLE`, mouth corners for the reins and shadow were retuned.
-  The game's own lighting makes the colours about 25% darker than the drawings' (the texture holds the exact values).
+- **His look** (v8, 2026-10-23, **approved: "Beam v8 looks good"**; built by Opus after Sonnet's v1-v7 were all rejected). The
+  proportions are the two pixel-art drawings kortev approved, `tools/beam_profile.py` (side) and `tools/beam_front.py` (front)
+  (1 drawing px = 1/16 block = 1 model px), **read off them by eye into a handful of big boxes, Pochita's way**:
+  `tools/beam_mob.py` lists every box as X along him (the side drawing's x) and h above the ground: the chest and middle each a
+  big box with narrower steps on top (rounding his back) and under; the head a dome stepped down to the snout, hinged at the
+  mouth's corner; the roof of the mouth set in under it (gum and upper teeth painted round it); the lower jaw its own part
+  hanging open `JAW_REST` 0.5 rad (shut is 0, `MOUTH_OPEN` = `JAW_REST`), a chin step under it and the lower teeth stood up round
+  its top; the rear and the tail's stalk narrowing, hinged so they sway; the crescent tail fin, five back spikes and the two
+  pectoral fins are **flat cut-out planes** (no thickness, painted, the rest clear: the renderer is cutout no-cull); three eyes
+  a side are boxes standing 4 px out, painted round; legs are a thigh box and a shin plus a dark claw box through the drawn
+  hip/knee/foot (`beam_boxes.LEG_SPECS`). **47 boxes**, texture 512 x 256. Paint is **flat, Pochita-style**: navy above a
+  zigzag line (6 px teeth, 3 high; the line's height along him and across his front follows the drawings), mint below, mint
+  shade underneath, gill slits, the throat dark red down the open mouth, no outlines; colours a shade lighter than the
+  drawings' (the game darkens a mob's sides). `python tools/beam_mob.py --java` writes `client/BeamLayout.java` (do not edit)
+  and `textures/entity/beam.png` (`gen_chainsaw_textures.py`'s `beam_entity` paints the same); `--preview DIR` renders it in
+  Python (rough; the game is the check: `beamlook`). It reuses `beam_boxes.py`'s part/box/texture-layout/Java machinery;
+  v6's slice builder in that file and `beam_paint.py`/`beam_check.py` are no longer used for the game. He is **about 9 blocks
+  long, 4.4 to the spike tips, 3 wide**; `BeamEntity.BACK` is 62/16, the hitbox still 2 x 2.4 and the bite's `MOUTH` 2.2 /
+  reach 3.5 (gameplay left alone). `BeamModel.java` only poses the parts.
   **The chain is his reins**: `ChainRender.reins` draws two strips of the form's chain from the rider's hands (low in front of you
   in your own eyes) to the corners of his mouth. The rider stands on the middle of his back (`SawPose.ride`: knees bent, feet
   apart, arms forward on the reins, or held out grinding).
@@ -133,14 +129,8 @@ tall within 3 blocks of you, else the action bar says so and nothing is spent) a
   orthographic and lay over the drawings (the test window is 1080 x 1920, tall: the lens is the vertical field).
 - **Not verified**: the sounds by ear; how his motion *feels* (the glide between the server's positions, turn rate, stepping up
   over trees and buildings, the camera on his back in first person: only photographed and logged); multiplayer; a shader pack.
-  **Where v6 still differs from the drawings** (honest list, from `work/beam_v6_compare/`): the colours are ~25% darker in game
-  (lighting); the legs are boxier and a bit thinner than the drawn rounded blades (front-leg silhouette overlap 0.85); the eyes
-  from the front are narrow slivers on his sides (the drawing's are bigger ovals); the jaw is turned 21 degrees so its underside
-  and chin outline show 1 px steps and the ink there is dotted; the mouth's inside is a flat dark red with a 2 px plate down the
-  middle (seen from the front as a dark bar), the lower teeth read as small clusters at the sides of the U, not a full ring; the
-  mouth is open 33.5 degrees as measured from the drawing, not 38. The rider (a player, 1.8 tall) is small on him. The reel
-  `beam` in `ShowcaseSelfTest` still expects the old automatic bites (he now bites only when the attack key is pressed), so it
-  needs a `Saw.slash` call per bite before it is filmed again, and its cameras were set for the smaller Beam (he is now 9 blocks long).
+  The reel `beam` in `ShowcaseSelfTest` was set for an older, smaller Beam with automatic bites (he now bites only on the
+  attack key): it needs a `Saw.slash` per bite and cameras for his 9 blocks before it is filmed again.
 
 **Latest (2026-10-22, afternoon) — read this first:**
 - **How kortev wants the work done**: Opus (the main session) plans and reviews; **Sonnet 5.5 subagents execute** from
@@ -156,8 +146,9 @@ tall within 3 blocks of you, else the action bar says so and nothing is spent) a
 - **Beam (the ult) is being redesigned.** Moveset is built and approved in principle (bite LMB, saw hold, charge RMB,
   leap Space, Shift off; 60 blood, 20 s). The look: three box versions were rejected (didn't look like Beam); a smooth
   Blender model (`tools/beam_model.py`, renders in the scratchpad `beam_v4_*`) got "I like the idea, but it should match
-  the box head and Pochita". v5 (that design in boxes) was "honestly worse"; **now v6 = built in boxes exactly from the two pixel-art
-  drawings kortev approved** (`tools/beam_profile.py`, `tools/beam_front.py`; see "His look").
+  the box head and Pochita". v5 (that design in boxes) was "honestly worse"; v6 (810 thin slices traced from two pixel-art drawings kortev approved)
+  "too many small boxes, looks like ass"; v7 (Sonnet, 43 boxes) "horrible"; **v8 (Opus, 47 big boxes, flat paint, see "His
+  look") is approved.** Next: film his showcase reel.
   References in **`work/beam_refs/`** at the repo root (git-ignored, on GraehamsPC): kortev's still, the official IMAX
   poster (anitrendz.com), Prime 1 Studio's Reze Arc statue (product photos). The briefs Sonnet worked from are in
   `work/briefs/`, the v4 comparisons in `work/beam_v4_compare/`, and the helper scripts in `work/tools/`
@@ -167,7 +158,7 @@ tall within 3 blocks of you, else the action bar says so and nothing is spent) a
 - **Usage setup**: prompt suggestions off; `.claude/settings.json` has a SessionStart "compact" hook that re-prints
   this section after a compaction. Third-party compaction plugins were checked and skipped (unverifiable).
 
-**Waiting on kortev**: their verdict on Beam v6's look (built; side-by-sides drawing | game photo are in `work/beam_v6_compare/` (git-ignored, on GraehamsPC), the photos in `work/beam_v6_photos/`; 86 game tests pass). The drawing scripts are in `tools/`; the briefs in `work/briefs/`.
+**Next**: film Beam's showcase reel (v8 look approved 2026-10-23).
 
 **kortev's queue of ideas** (ask before building any): the ult is Beam now (above; the frenzy was dropped for looking the
 same as normal attacks); the merge dead

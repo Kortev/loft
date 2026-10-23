@@ -11,11 +11,10 @@ import net.minecraft.util.math.MathHelper;
 /**
  * Beam the shark fiend as he is in the Reze arc, in Minecraft's own way of making animals, like Pochita and the chainsaw
  * head: boxes, painted pixel by pixel. This is the shape kortev approved as two pixel-art drawings (the side and the front,
- * {@code tools/beam_profile.py} and {@code tools/beam_front.py}), built in boxes from them: a huge heavy shark about 9 blocks
- * from snout to tail and 4 tall, the body a run of slices along his length, each a stack of boxes narrowing toward its top
- * and bottom so the outline steps smoothly round ({@code tools/beam_boxes.py} measures the drawings and writes
- * {@link BeamLayout}, every box, part and texture corner; {@code tools/beam_paint.py}, through
- * {@code tools/gen_chainsaw_textures.py}, paints the texture by projecting the drawings onto those boxes). A big blunt head with
+ * {@code tools/beam_profile.py} and {@code tools/beam_front.py}), built from them in a handful of big boxes the way Pochita is: a
+ * huge heavy shark about 9 blocks from snout to tail and 4 tall, each mass of him one big box with narrower steps on top and
+ * under, painted flat ({@code tools/beam_mob.py} lists the boxes, writes {@link BeamLayout}, every box, part and texture
+ * corner, and paints the texture; fins and spikes are flat cut-out planes). A big blunt head with
  * a snout dome overhanging the wide open mouth, the corner of the mouth under the front eye, the lower jaw (its own part)
  * dropped from that corner over a big round chin, teeth along both lips, three round eyes up each side, five spikes down his
  * back, the rear of the body and the tail's stalk and crescent fin hinged one to the next so the tail sways, small pectoral

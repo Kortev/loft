@@ -237,8 +237,9 @@ def pochita_entity():
 # teeth, the gill lines, the spikes, the fins, the legs. tools/beam_paint.py does the painting.
 def beam_entity():
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    import beam_paint
-    return beam_paint.paint_beam()
+    import beam_mob
+    beam_mob.setup()
+    return beam_mob.paint()
 
 
 # The pool of blood spreading from under you as you die (MergeCinematic): flat, ragged at its edge, a darker heart,
