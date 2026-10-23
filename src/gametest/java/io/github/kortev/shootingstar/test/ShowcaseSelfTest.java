@@ -113,7 +113,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		return switch (target()) {
 			case "saws" -> sawsAsk;
 			case "chain" -> CHAIN_ASK;
-			case "arms" -> ARMS_HERO + 16;
+			case "arms" -> armsAsk;
 			case "pochita" -> POCHITA_HERO + 10;
 			case "merge" -> REVENGE_CUTS[REVENGE_CUTS.length - 1] + 6;
 			case "beam" -> beamAsked;
@@ -133,17 +133,6 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 	private static final int ASKED = 118;
 	private static final int END = 180;
 	private static final int[] SCREENS = {12, 30, 40, 48, 58, 70, 79, 93, 107, 120, 170};
-
-	// The arms reel. The two with axes (angles from the way you face, how far off); when each swings, and your arm comes
-	// off; armless a while; when you cut each down with the head's saw (each kill's blood growing an arm back); the end.
-	private static final float[] AXES = {38.0F, -38.0F};
-	private static final double AXE_OFF = 2.1;
-	private static final int[] CHOPS = {14, 40};
-	private static final int ARMLESS = 54;
-	private static final int[] HEADBUTTS = {84, 112};
-	private static final int ARMS_HERO = 126;
-	private static final int ARMS_END = 186;
-	private static final int[] ARMS_SCREENS = {6, 14, 18, 26, 40, 44, 58, 70, 80, 86, 92, 100, 114, 120, 130, 180};
 
 	// The Pochita reel (in his fallen tree's own coordinates: along it, across it). Along his blood's trail to him; down
 	// by him; your blood into him (twice the game's pace: two feeds a tick); his waking; picked up, the chainsaw; the
@@ -2002,91 +1991,223 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		}
 	}
 
-	// The arms reel.
+	// The arms reel, in the Deep Dark against the Warden (kortev, 2026-10-23: "Can Chainsaw Man survive the Warden?"). A hall of
+	// sculk and deepslate lit blue by soul lanterns, you in the form facing the Warden three blocks off; its hit takes your
+	// right arm off, its next your left; then you grind into it with the head's saw, and each bite's blood grows an arm back (the
+	// game's own), till you have both; and a low shot of you facing it, the question over it.
+
+	/** Where the Warden stands (along, up, across). */
+	private static final Vec3d WARDEN_AT = new Vec3d(3.0, 0.0, 0.0);
+	/** When each blow lands, how long before it its swing starts. */
+	private static final int[] WARDEN_BLOWS = {28, 58};
+	private static final int WARDEN_WINDUP = 7;
+	private static final int ARMS_GRIND = 70;
+	private static final int ARMS_CAP = 250;
+	private static final int ARMS_HOLD = 52;
+	private static int armsAsk = Integer.MAX_VALUE;
+	private static int armsEnd = Integer.MAX_VALUE;
+	private static int wardenId = -1;
+	private static final int[] ARMS_SCREENS = {4, 10, 16, 22, 26, 30, 36, 44, 54, 60, 66, 72, 80, 90, 100, 110, 120, 130, 140, 150, 160, 180, 200};
+	/** The hall, along the way you face: its two ends, half its width, its height; the floor level in the world. */
+	private static final BlockPos ARMS_SPOT = new BlockPos(2000, -43, 2000);
 
 	private static void arms(MinecraftClient client, IntegratedServer server, int f) {
 		if (f == 1) {
 			client.options.hudHidden = false;
+			client.options.getGamma().setValue(1.0);
 			if (capturing()) {
 				Capture.start(client, client.runDirectory.toPath().resolve("capture"));
 			}
+			armsAsk = Integer.MAX_VALUE;
+			armsEnd = Integer.MAX_VALUE;
+			// Both of you from the side, close: you and the Warden over you.
+			fixed(framed(local(1.7, 1.6, -6.0), local(1.7, 1.6, 0.0)), local(1.7, 1.7, 0.0));
 		}
 		if (client.options.getPerspective() != Perspective.THIRD_PERSON_BACK) {
 			client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
 		}
-		for (int i = 0; i < CHOPS.length; i++) {
-			// On you and the one about to strike, from the far side of you: the arm it takes flies toward the camera.
-			int from = i == 0 ? 1 : CHOPS[i - 1] + 12;
-			if (f == from) {
-				Vec3d it = origin.add(way(AXES[i]).multiply(AXE_OFF)).add(0.0, 1.2, 0.0);
-				Vec3d chest = origin.add(0.0, 1.3, 0.0);
-				Vec3d at = framed(origin.add(way(AXES[i] + (i == 0 ? -110.0F : 110.0F)).multiply(3.6)).add(0.0, 1.9, 0.0), chest);
-				fixed(at, chest.lerp(it, 0.4));
-			}
-			if (f >= from && f < CHOPS[i]) {
-				face(client, turn(i == 0 ? facing : facing + AXES[0], facing + AXES[i], ease(span(f, from, CHOPS[i] - 4))), 0.0F);
-			}
-			if (f == CHOPS[i] - 3) {
-				int id = ZOMBIES.get(i);
+		if (client.player == null || client.world == null) {
+			return;
+		}
+		if (f % 5 == 0) {
+			// (Its darkness, should it come: the hall is to be seen.)
+			server.execute(() -> player(server).removeStatusEffect(net.minecraft.entity.effect.StatusEffects.DARKNESS));
+		}
+		// Facing it, the head turned on it.
+		if (armsEnd == Integer.MAX_VALUE) {
+			face(client, facing, 6.0F);
+		}
+		for (int i = 0; i < WARDEN_BLOWS.length; i++) {
+			if (f == WARDEN_BLOWS[i] - WARDEN_WINDUP) {
+				// Its arm comes up.
+				int id = wardenId;
 				server.execute(() -> {
-					if (server.getOverworld().getEntityById(id) instanceof VindicatorEntity v) {
-						v.swingHand(Hand.MAIN_HAND);
+					if (server.getOverworld().getEntityById(id) instanceof net.minecraft.entity.mob.WardenEntity w) {
+						w.getWorld().sendEntityStatus(w, (byte) 4);
 					}
 				});
 			}
-			if (f == CHOPS[i]) {
+			if (f == WARDEN_BLOWS[i]) {
+				// The blow: its own damage, its own knock, the game's rule for an arm.
+				int id = wardenId;
 				server.execute(() -> {
 					ServerPlayerEntity p = player(server);
-					p.getServerWorld().playSound(null, p.getBlockPos(), SoundEvents.ENTITY_PLAYER_ATTACK_CRIT, SoundCategory.HOSTILE, 1.0F, 0.8F);
-					Limbs.lose(p);
+					if (server.getOverworld().getEntityById(id) instanceof net.minecraft.entity.mob.WardenEntity w) {
+						p.getServerWorld().playSound(null, p.getBlockPos(), SoundEvents.ENTITY_WARDEN_ATTACK_IMPACT, SoundCategory.HOSTILE, 5.0F, 1.0F);
+						p.damage(w.getDamageSources().mobAttack(w), (float) w.getAttributeValue(net.minecraft.entity.attribute.EntityAttributes.GENERIC_ATTACK_DAMAGE));
+						Vec3d push = p.getPos().subtract(w.getPos()).multiply(1.0, 0.0, 1.0).normalize();
+						p.takeKnockback(1.2, -push.x, -push.z);
+						p.velocityModified = true;
+					}
 				});
 			}
-		}
-		// Armless: close and low on you from between the two of them (you turned a little off it), the stubs spurting.
-		if (f == ARMLESS) {
-			fixed(framed(local(2.7, 1.1, 0.0), origin.add(0.0, 1.4, 0.0)), origin.add(0.0, 1.45, 0.0));
-		}
-		if (f >= ARMLESS && f < ARMLESS + 20) {
-			face(client, turn(facing + AXES[1], facing - 25.0F, ease(span(f, ARMLESS, ARMLESS + 8))), 0.0F);
-		}
-		// The head's saw: each in turn, its kill's blood growing an arm back.
-		for (int i = 0; i < HEADBUTTS.length; i++) {
-			int from = i == 0 ? ARMLESS + 20 : HEADBUTTS[i - 1] + 4;
-			if (f == from) {
-				// Side on to you and it, a little back, so the arm growing out shows.
-				Vec3d mid = origin.add(way(AXES[i]).multiply(AXE_OFF * 0.5)).add(0.0, 1.3, 0.0);
-				Vec3d at = framed(origin.add(way(AXES[i] + (i == 0 ? 90.0F : -90.0F)).multiply(4.2)).add(0.0, 1.8, 0.0), mid);
-				fixed(at, mid);
-			}
-			if (f > from && f <= HEADBUTTS[i] - 2) {
-				face(client, turn(i == 0 ? facing - 25.0F : facing + AXES[0], facing + AXES[i], ease(span(f, from, HEADBUTTS[i] - 4))), 0.0F);
-			}
-			if (f == HEADBUTTS[i]) {
-				int id = ZOMBIES.get(i);
-				server.execute(() -> Saw.slash(player(server), id));
+			// Staggered by it, then back at it.
+			if (f > WARDEN_BLOWS[i] + 6 && f <= WARDEN_BLOWS[i] + 20) {
+				Vec3d now = client.player.getPos();
+				Vec3d want = local(0.0, -0.08, 0.0);
+				go(client, now.lerp(want, 0.22));
 			}
 		}
-		// Whole again: low, three quarters on, the sunset behind.
-		if (f == ARMS_HERO) {
-			fixed(framed(local(3.2, 0.7, -2.0), origin.add(0.0, 1.3, 0.0)), origin.add(0.0, 1.5, 0.0));
+		// The cameras: the arm's side for each blow, then back to both.
+		if (f == WARDEN_BLOWS[0] - WARDEN_WINDUP - 2) {
+			fixed(framed(local(1.0, 1.5, 5.4), local(1.7, 1.5, 0.0)), local(1.7, 1.6, 0.0));
 		}
-		if (f >= ARMS_HERO) {
-			face(client, facing + 15.0F, 6.0F);
+		if (f == WARDEN_BLOWS[0] + 14) {
+			fixed(framed(local(1.7, 1.6, -6.0), local(1.7, 1.6, 0.0)), local(1.7, 1.7, 0.0));
 		}
-		// Both arms back: both saws held out, revving, shaking (the grind, at nothing).
-		if (f == ARMS_HERO + 8) {
+		if (f == WARDEN_BLOWS[1] - WARDEN_WINDUP - 2) {
+			fixed(framed(local(1.0, 1.5, -5.4), local(1.7, 1.5, 0.0)), local(1.7, 1.6, 0.0));
+		}
+		if (f == WARDEN_BLOWS[1] + 14) {
+			// Armless: close and low on you from the Warden's side, the stumps spurting.
+			fixed(framed(local(2.4, 1.0, 4.8), local(0.0, 1.4, 0.0)), local(0.8, 1.5, 0.0));
+		}
+		// The head's saw into it, held: bite by bite the blood grows the arms back.
+		if (f == ARMS_GRIND) {
 			server.execute(() -> Saw.grind(player(server), true));
 		}
-		if (f == ARMS_END - 2) {
-			server.execute(() -> Saw.grind(player(server), false));
+		if (f == ARMS_GRIND + 6) {
+			fixed(framed(local(1.7, 1.2, -5.0), local(1.7, 1.6, 0.0)), local(1.7, 1.6, 0.0));
+		}
+		boolean whole = Limbs.has(client.player, Limbs.RIGHT) && Limbs.has(client.player, Limbs.LEFT);
+		if (f > ARMS_GRIND + 10 && whole && armsEnd == Integer.MAX_VALUE) {
+			armsAsk = f + 18;
+			armsEnd = f + 18 + ARMS_HOLD;
+			ShootingStar.LOGGER.info("[selftest] showcase: both arms back at {}", f);
+		}
+		if (armsEnd != Integer.MAX_VALUE) {
+			// Low behind your shoulder, facing it: both saws out and revving, the Warden over you.
+			if (f == armsAsk - 16) {
+				fixed(framed(local(-3.0, 0.55, -3.2), local(0.0, 1.4, 0.0)), local(2.0, 1.7, 0.2));
+				face(client, facing, 4.0F);
+			}
+			face(client, facing, 4.0F);
 		}
 		if (shots < ARMS_SCREENS.length && f == ARMS_SCREENS[shots]) {
 			shot(client, target() + "_" + f);
 			shots++;
 		}
-		if (f >= ARMS_END) {
+		if (f >= armsEnd || f >= ARMS_CAP) {
+			server.execute(() -> Saw.grind(player(server), false));
 			stage = Stage.DONE;
 		}
+	}
+
+	/** The hall: sculk floor, deepslate walls and ceiling (a shell, so no water or lava can get in), soul lanterns on low posts, catalysts and sensors. */
+	private static void hall(ServerWorld world, BlockPos spot) {
+		int flags = Block.NOTIFY_LISTENERS | Block.FORCE_STATE;
+		for (int x = -10; x <= 24; x++) {
+			for (int z = -12; z <= 12; z++) {
+				BlockPos column = cell(spot, x, 0, z);
+				world.getChunk(column.getX() >> 4, column.getZ() >> 4);
+				for (int y = -2; y <= 16; y++) {
+					boolean inside = x >= -9 && x <= 23 && Math.abs(z) <= 11 && y >= 0 && y <= 15;
+					BlockState state;
+					if (inside) {
+						state = Blocks.AIR.getDefaultState();
+					} else if (y == -1 && x >= -9 && x <= 23 && Math.abs(z) <= 11) {
+						state = rockHash(x, z) % 9 == 0 ? Blocks.DEEPSLATE_TILES.getDefaultState() : Blocks.SCULK.getDefaultState();
+					} else {
+						state = switch (rockHash(x + y, z) % 6) {
+							case 0, 1 -> Blocks.SCULK.getDefaultState();
+							case 2 -> Blocks.DEEPSLATE.getDefaultState();
+							case 3 -> Blocks.DEEPSLATE_TILES.getDefaultState();
+							case 4 -> Blocks.COBBLED_DEEPSLATE.getDefaultState();
+							default -> Blocks.POLISHED_DEEPSLATE.getDefaultState();
+						};
+					}
+					world.setBlockState(cell(spot, x, y, z), state, flags);
+				}
+			}
+		}
+		// Low posts with a soul lantern on each, round the floor; sculk catalysts and sensors among the sculk; lanterns hanging overhead.
+		for (int[] at : new int[][] {{-4, 6}, {-4, -6}, {4, 7}, {4, -7}, {10, 6}, {10, -6}, {16, 7}, {16, -7}, {21, 5}, {21, -5}}) {
+			world.setBlockState(cell(spot, at[0], 0, at[1]), Blocks.DEEPSLATE_BRICK_WALL.getDefaultState(), flags);
+			world.setBlockState(cell(spot, at[0], 1, at[1]), Blocks.DEEPSLATE_BRICK_WALL.getDefaultState(), flags);
+			world.setBlockState(cell(spot, at[0], 2, at[1]), Blocks.SOUL_LANTERN.getDefaultState(), flags);
+		}
+		for (int[] at : new int[][] {{7, 9}, {13, -9}, {19, 9}, {-6, -9}}) {
+			world.setBlockState(cell(spot, at[0], 0, at[1]), Blocks.SCULK_CATALYST.getDefaultState(), flags);
+		}
+		for (int[] at : new int[][] {{-2, 4}, {8, -4}, {12, 4}, {18, -3}, {1, -8}}) {
+			world.setBlockState(cell(spot, at[0], 0, at[1]), Blocks.SCULK_SENSOR.getDefaultState(), flags);
+		}
+		for (int[] at : new int[][] {{3, 0}, {9, 0}, {15, 0}}) {
+			world.setBlockState(cell(spot, at[0], 14, at[1]), Blocks.SOUL_LANTERN.getDefaultState().with(net.minecraft.block.LanternBlock.HANGING, true), flags);
+		}
+	}
+
+	/** The arms reel's set: the hall, you in the form facing the Warden. */
+	private static void armsSet(IntegratedServer server, ServerPlayerEntity player, ServerWorld world) {
+		world.setTimeOfDay(6000);
+		server.getGameRules().get(GameRules.DO_TILE_DROPS).set(false, server);
+		// (Easy: a blow of the Warden's takes one arm, not both.)
+		server.setDifficulty(net.minecraft.world.Difficulty.EASY, true);
+		facing = FACING;
+		BlockPos spot = ARMS_SPOT;
+		Vec3d feet = Vec3d.ofBottomCenter(spot);
+		for (Entity e : world.getOtherEntities(player, new net.minecraft.util.math.Box(spot).expand(40.0, 30.0, 40.0))) {
+			if (!(e instanceof ServerPlayerEntity)) {
+				e.discard();
+			}
+		}
+		origin = feet;
+		hall(world, spot);
+		Form.end(player);
+		player.changeGameMode(GameMode.SURVIVAL);
+		// (Hurt only by the script, and able to take a blow of the Warden's.)
+		player.getAbilities().invulnerable = false;
+		player.sendAbilitiesUpdate();
+		var health = player.getAttributeInstance(net.minecraft.entity.attribute.EntityAttributes.GENERIC_MAX_HEALTH);
+		if (health != null) {
+			health.setBaseValue(400.0);
+		}
+		player.getInventory().clear();
+		player.setHealth(player.getMaxHealth());
+		player.getHungerManager().setFoodLevel(20);
+		player.setAttached(Heart.MERGED, true);
+		Blood.set(player, Blood.MAX);
+		player.teleport(world, feet.x, feet.y, feet.z, facing, 6.0F);
+		Form.start(player);
+		Limbs.whole(player);
+		// (So the hall can be seen.)
+		player.addStatusEffect(new net.minecraft.entity.effect.StatusEffectInstance(net.minecraft.entity.effect.StatusEffects.NIGHT_VISION, 20 * 600, 0, true,
+				false, false));
+		ZOMBIES.clear();
+		net.minecraft.entity.mob.WardenEntity warden = EntityType.WARDEN.create(world);
+		if (warden != null) {
+			Vec3d at = local(WARDEN_AT.x, 0.0, WARDEN_AT.z);
+			warden.refreshPositionAndAngles(at.x, at.y, at.z, facing + 180.0F, 0.0F);
+			warden.setHeadYaw(facing + 180.0F);
+			warden.setBodyYaw(facing + 180.0F);
+			warden.setAiDisabled(true);
+			warden.setPersistent();
+			// (A little harder than the game's, so the blow, once the form's armour has taken its share, still takes an arm.)
+			warden.getAttributeInstance(net.minecraft.entity.attribute.EntityAttributes.GENERIC_ATTACK_DAMAGE).setBaseValue(34.0);
+			world.spawnEntity(warden);
+			wardenId = warden.getId();
+		}
+		origin = feet;
 	}
 
 	private static void fixed(Vec3d at, Vec3d look) {
@@ -2322,6 +2443,10 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 			chainSet(server, player, world);
 			return;
 		}
+		if ("arms".equals(target())) {
+			armsSet(server, player, world);
+			return;
+		}
 		BlockPos village = world.locateStructure(StructureTags.VILLAGE, player.getBlockPos(), 100, false);
 		if (village == null) {
 			ShootingStar.LOGGER.error("[selftest] showcase: no village found");
@@ -2360,31 +2485,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 				level(world, spot);
 			}
 			Form.pullCord(player);
-			if ("arms".equals(target())) {
-				// Hurt only by the script: a hurt flashes you red, and enough of it would take the arms off out of turn.
-				player.getAbilities().invulnerable = true;
-				player.sendAbilitiesUpdate();
-				Limbs.whole(player);
-				// The two with axes in front of you, either side, raised to strike.
-				for (float angle : AXES) {
-					VindicatorEntity v = EntityType.VINDICATOR.create(world);
-					if (v == null) {
-						continue;
-					}
-					Vec3d at = origin.add(way(angle).multiply(AXE_OFF));
-					float yaw = facing + angle + 180.0F;
-					v.refreshPositionAndAngles(at.x, origin.y, at.z, yaw, 0.0F);
-					v.setHeadYaw(yaw);
-					v.setBodyYaw(yaw);
-					v.equipStack(EquipmentSlot.MAINHAND, new ItemStack(Items.IRON_AXE));
-					v.setAiDisabled(true);
-					v.setPersistent();
-					v.setAttacking(true);
-					v.setHealth(6.0F);
-					world.spawnEntity(v);
-					ZOMBIES.add(v.getId());
-				}
-			} else if ("beamlook".equals(target()) || "beam".equals(target())) {
+			if ("beamlook".equals(target()) || "beam".equals(target())) {
 				// Just the open, level ground (Beam is called up by the script, in front of the camera).
 				player.getAbilities().invulnerable = true;
 				player.sendAbilitiesUpdate();
