@@ -67,28 +67,42 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 
 	private static final String TITLE = "CHAINSAW MAN MOD";
 
-	/** Each reel's hook over its first moments (kortev: a question hook works), and the question it ends on (for comments). */
+	/**
+	 * Each reel's hook over its first moments, and the question it ends on (for comments). kortev (2026-10-23, from a friend):
+	 * the reels can't all be the same, so each has its own kind of hook (a comparison, a challenge, a POV, the action first
+	 * and the caption after it) and its own question; each still says plainly what the feature is.
+	 */
 	private static String[] hook() {
 		return switch (target()) {
-			// (kortev: a showcase, so each says plainly what the feature is.)
-			case "saws" -> new String[] {"Saws that cut", "through walls"};
+			case "saws" -> new String[] {"Diamond axe vs", "Chainsaw Man"};
 			case "chain" -> new String[] {"Grab mobs", "with your chain"};
-			case "arms" -> new String[] {"Regrow lost arms", "with blood"};
+			case "arms" -> new String[] {"Can Chainsaw Man", "survive the Warden?"};
 			case "pochita" -> new String[] {"Find and tame", "Pochita"};
 			case "merge" -> new String[] {"Die holding Pochita to", "become Chainsaw Man"};
-			case "beam" -> new String[] {"Summon Beam", "and ride him"};
+			case "beam" -> new String[] {"POV: you", "summon Beam"};
 			default -> new String[] {"Pull the cord", "to transform"};
 		};
 	}
 
-	/** The same question on every reel: the series' catchphrase (kortev, 2026-10-22). */
 	private static String ask() {
-		return "What should I add next?";
+		return switch (target()) {
+			case "saws" -> "Should I release this mod?";
+			case "chain" -> "Which devil should I add next?";
+			case "beam" -> "Who wins: Beam or the Warden?";
+			default -> "What should I add next?";
+		};
 	}
 
-	/** Until when the hook stays up, and from when the question's there (reel ticks). */
+	/** From when the hook is up (the chain reel shows the grab first and names it after), until when, and from when the question's there (reel ticks). */
+	private static int hookFrom() {
+		return "chain".equals(target()) ? CHAIN_HOOK_FROM : 0;
+	}
+
+	/** (Retuned by the chain reel to just after its first grab lands.) */
+	private static final int CHAIN_HOOK_FROM = 30;
+
 	private static int hookUntil() {
-		return "merge".equals(target()) ? MERGE_AT + 12 : 44;
+		return "merge".equals(target()) ? MERGE_AT + 12 : hookFrom() + 44;
 	}
 
 	private static int askedAt() {
@@ -1617,7 +1631,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		int w = context.getScaledWindowWidth();
 		int h = context.getScaledWindowHeight();
 		outlined(context, font, TITLE, w / 2.0, h * 0.14, w * 0.78 / font.getWidth(TITLE), 0xFFFF8A1E);
-		if (t < hookUntil() && !"held".equals(target())) {
+		if (t >= hookFrom() && t < hookUntil() && !"held".equals(target())) {
 			// The hook, from the first frame: its first line white, its second orange, both the width of the longer.
 			String[] hook = hook();
 			double scale = w * 0.86 / Math.max(font.getWidth(hook[0]), font.getWidth(hook[1]));
