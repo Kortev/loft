@@ -138,11 +138,16 @@ tall within 3 blocks of you, else the action bar says so and nothing is spent) a
   (non-persistent) leaves topple away from you as falling blocks, faster the higher up, and burst into their drops where they
   land. A trunk with fewer than 6 of its own leaves isn't a tree (a log cabin's wall still cuts a block at a time). Game
   test `sawsFellTrees` (87 tests).
-- **The reels are being made different from each other** (kortev's friend: they all looked alike): Saws in a daytime
-  forest (diamond axe vs the saws, now with felling), Chain on a cliff at night (action first), Arms against the Warden
-  in the Deep Dark, Beam in a desert at sunset against pillagers; each its own hook and question (`hook()`, `ask()`,
-  `hookFrom()`). Filmed on branch `claude/reels-redo` (worktree `../loft-reels`) and, for Beam, here. Posting: Transformation
-  Sat Oct 24, Saws Sun Oct 25.
+- **All seven reels are final** (2026-10-23) in `showcase-reels/` with `POSTING_PLAN.md` (titles, descriptions, tags,
+  schedule Thu Oct 22 to Wed Oct 28). kortev's rules, on top of the showcase style: **each reel looks different** (a
+  friend's advice: its own place, mobs, kind of hook and question: Saws a daytime forest, diamond axe vs the saws with
+  felling; Chain a night cliff, the grab before the caption; Arms the Deep Dark against a real Warden; Beam a desert at
+  sunset against a real pillager patrol; `hook()`, `ask()`, `hookFrom()`), and **nothing may look fake**: mobs have their
+  own AI and come at you (`wake()` in ShowcaseSelfTest), the player's moves go through the real keys and paths, no
+  frozen, teleported or carried mobs and no damage put on by the test; staging is only spawn spots, timing, targets,
+  health and the camera. Files named `OLD_...` are superseded versions. Open: the Arms Warden has 36 health so the saws
+  finish it (kortev asked whether to keep it at full strength); in the Beam reel the client once replayed the
+  transformation's roar mid-ride (cause not found; the test clears `ClientForms.PULLED` each tick; may be a real bug).
 - **How kortev wants the work done**: Opus (the main session) plans and reviews; **Sonnet 5.5 subagents execute** from
   briefs written to files (the briefs are in the session scratchpad; write new ones the same way). Keep usage down:
   review videos/photos as small contact sheets, not full-size images.
