@@ -190,5 +190,21 @@
         "name": "chainsawman:beam_dive"
       }
     ]
+  },
+  "beam.screech": {
+    "subtitle": "subtitles.chainsawman.beam.screech",
+    "sounds": [
+      {
+        "name": "chainsawman:beam_screech"
+      }
+    ]
+  },
+  "beam.chatter": {
+    "subtitle": "subtitles.chainsawman.beam.chatter",
+    "sounds": [
+      {
+        "name": "chainsawman:beam_chatter"
+      }
+    ]
   }
 }

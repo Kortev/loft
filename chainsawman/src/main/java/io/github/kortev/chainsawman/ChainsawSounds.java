@@ -46,12 +46,16 @@ public final class ChainsawSounds {
 
 	/** Beam bursting up out of the ground (and leaping, and crashing down): the earth cracking and a heavy whoosh of stone. */
 	public static final SoundEvent BEAM_BURST = register("beam.burst");
-	/** Beam swimming through the ground, a loop: a low churning of earth. */
+	/** Beam swimming through the ground: a short churn of earth, played again every few ticks. */
 	public static final SoundEvent BEAM_SWIM = register("beam.swim");
 	/** Beam's bite: a wet, heavy chomp. */
 	public static final SoundEvent BEAM_BITE = register("beam.bite");
 	/** Beam diving: the earth closing over him. */
 	public static final SoundEvent BEAM_DIVE = register("beam.dive");
+	/** Beam's screech of joy when he is called up: excited, a bit unhinged. */
+	public static final SoundEvent BEAM_SCREECH = register("beam.screech");
+	/** Beam's teeth chattering when he stands about. */
+	public static final SoundEvent BEAM_CHATTER = register("beam.chatter");
 
 	private ChainsawSounds() {
 	}

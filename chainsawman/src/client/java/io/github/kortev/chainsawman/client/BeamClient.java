@@ -6,22 +6,27 @@ import io.github.kortev.chainsawman.form.Beam;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.sound.MovingSoundInstance;
-import net.minecraft.client.sound.SoundInstance;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
 import net.minecraft.sound.SoundCategory;
-import net.minecraft.util.math.random.Random;
+import net.minecraft.util.math.MathHelper;
 
 /**
- * What every client hears of Beam besides what he does once ({@link BeamRenderer} draws him): the low pounding of his
- * feet that loops while he walks, louder the faster he goes, silent when he stands.
+ * What every client hears of Beam besides what he does once ({@link BeamRenderer} draws him): the churning of the ground
+ * while he swims through it, louder and higher the faster he goes, silent when he stands; and what the rider feels
+ * of his speed: the view widening a little, the camera shaking slightly while he swims fast and harder when he crashes
+ * back into the ground. Both are kept gentle, so it is not sickening in your own eyes.
  */
 public final class BeamClient {
-	/** The walking loop on each Beam (by entity id). */
-	private static final Map<Integer, SoundInstance> LOOPS = new ConcurrentHashMap<>();
-	/** The loop's volume at his top speed. */
-	private static final float LOUD = 1.0F;
+	/** When (his age on the client) each Beam's churn is next to sound (by entity id), how loud it is at his top speed, and how often it sounds (ticks). */
+	private static final Map<Integer, Integer> NEXT = new ConcurrentHashMap<>();
+	private static final float LOUD = 1.5F;
+	private static final int EVERY = 6;
+	/** How far the view widens at his top speed (a part of it), and how much the camera shakes at it, and as he crashes in from a breach (blocks); how fast the crash dies away (ticks). */
+	private static final float WIDEN = 0.11F;
+	private static final double RUMBLE = 0.009;
+	private static final double CRASH = 0.07;
+	private static final double CRASH_FADES = 5.0;
 
 	private BeamClient() {
 	}
@@ -29,57 +34,53 @@ public final class BeamClient {
 	static void tick(MinecraftClient client) {
 		ClientWorld world = client.world;
 		if (world == null) {
-			LOOPS.clear();
+			NEXT.clear();
 			return;
 		}
 		for (Entity e : world.getEntities()) {
-			if (!(e instanceof BeamEntity beam) || beam.diving() && beam.sinceDive(0.0F) > Beam.DIVE_TICKS) {
+			if (!(e instanceof BeamEntity beam) || beam.diving()) {
 				continue;
 			}
-			SoundInstance playing = LOOPS.get(beam.getId());
-			if (playing == null || !client.getSoundManager().isPlaying(playing)) {
-				SwimSound loop = new SwimSound(beam);
-				LOOPS.put(beam.getId(), loop);
-				client.getSoundManager().play(loop);
+			// The churn of the ground, again every few ticks while he swims, louder and higher the faster he goes.
+			float pace = beam.pace();
+			float swim = beam.swim(1.0F);
+			if (swim > 0.4F && pace > 0.08F && beam.age >= NEXT.getOrDefault(beam.getId(), 0)) {
+				NEXT.put(beam.getId(), beam.age + EVERY);
+				world.playSound(beam.getX(), beam.getY() + 2.0, beam.getZ(), ChainsawSounds.BEAM_SWIM, SoundCategory.PLAYERS,
+						LOUD * MathHelper.clamp(0.25F + 0.75F * pace, 0.0F, 1.0F), 0.8F + 0.45F * pace, false);
 			}
 		}
-		LOOPS.keySet().removeIf(id -> !(world.getEntityById(id) instanceof BeamEntity));
+		NEXT.keySet().removeIf(id -> !(world.getEntityById(id) instanceof BeamEntity));
 	}
 
 	static void clear() {
-		LOOPS.clear();
+		NEXT.clear();
 	}
 
-	/** The pounding of his feet, a loop on him: louder as he speeds up, gone when he dives. */
-	private static final class SwimSound extends MovingSoundInstance {
-		private final BeamEntity beam;
+	/** The Beam you are riding, if you are. */
+	private static BeamEntity mount() {
+		MinecraftClient client = MinecraftClient.getInstance();
+		return client.player != null && client.player.getVehicle() instanceof BeamEntity beam ? beam : null;
+	}
 
-		SwimSound(BeamEntity beam) {
-			super(ChainsawSounds.BEAM_SWIM, SoundCategory.PLAYERS, Random.create());
-			this.beam = beam;
-			this.repeat = true;
-			this.repeatDelay = 0;
-			this.volume = 0.0F;
-			this.attenuationType = SoundInstance.AttenuationType.LINEAR;
-			follow();
+	/** How far your view is widened by his speed (1 for not at all). */
+	public static float fov(float tickDelta) {
+		BeamEntity beam = mount();
+		if (beam == null) {
+			return 1.0F;
 		}
+		return 1.0F + WIDEN * beam.pace() * beam.swim(tickDelta);
+	}
 
-		@Override
-		public void tick() {
-			if (beam.isRemoved() || beam.diving()) {
-				setDone();
-				return;
-			}
-			float pace = beam.pace();
-			this.volume = LOUD * pace;
-			this.pitch = 0.85F + 0.35F * pace;
-			follow();
+	/** How hard your camera is shaken now by riding him (blocks): a low rumble while he swims fast, a jolt as he crashes back in. */
+	public static double shake(float tickDelta) {
+		BeamEntity beam = mount();
+		if (beam == null) {
+			return 0.0;
 		}
-
-		private void follow() {
-			x = beam.getX();
-			y = beam.getY();
-			z = beam.getZ();
-		}
+		double rumble = RUMBLE * beam.pace() * beam.pace() * beam.swim(tickDelta);
+		float since = beam.sinceLand(tickDelta);
+		double crash = since >= 0.0F && since < 40.0F ? CRASH * Math.exp(-since / CRASH_FADES) : 0.0;
+		return Math.max(rumble, crash);
 	}
 }

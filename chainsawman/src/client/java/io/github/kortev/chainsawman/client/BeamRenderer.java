@@ -12,6 +12,7 @@ import net.minecraft.client.render.entity.model.EntityModelLayer;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.Entity;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.RotationAxis;
 import net.minecraft.util.math.Vec3d;
@@ -26,6 +27,9 @@ public class BeamRenderer extends EntityRenderer<BeamEntity> {
 	private static final Identifier TEXTURE = ChainsawMan.id("textures/entity/beam.png");
 	/** Where his body turns when he pitches: this far under the top of his back (blocks). */
 	private static final float MIDDLE = 2.2F;
+	/** How far he leans into a turn: degrees for each degree a tick he turns at full speed, and the most (degrees). */
+	private static final float LEAN = 1.6F;
+	private static final float MAX_LEAN = 24.0F;
 	/** The corners of his mouth, from his middle: how far out to the sides, ahead of it, and above his feet (blocks). */
 	private static final double CORNER_OUT = 1.15;
 	private static final double CORNER_AHEAD = 1.9;
@@ -54,13 +58,34 @@ public class BeamRenderer extends EntityRenderer<BeamEntity> {
 		matrices.translate(0.0F, BeamModel.BACK - MIDDLE, 0.0F);
 		matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180.0F - bodyYaw));
 		matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(-pitch));
+		// He leans into his turns, the faster the more.
+		float lean = -MathHelper.clamp(beam.turn() * beam.pace() * LEAN, -MAX_LEAN, MAX_LEAN);
+		matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(lean));
 		matrices.translate(0.0F, MIDDLE, 0.0F);
 		matrices.scale(-1.0F, -1.0F, 1.0F);
-		model.animate(beam.walk(tickDelta), beam.time(tickDelta), beam.pace(), beam.sinceBite(tickDelta), beam.air(tickDelta));
+		model.animate(beam, tickDelta);
 		VertexConsumer vertices = consumers.getBuffer(RenderLayer.getEntityCutoutNoCull(TEXTURE));
 		model.render(matrices, vertices, light);
 		matrices.pop();
 		super.render(beam, yaw, tickDelta, matrices, consumers, light);
+	}
+
+	/**
+	 * Lit where his back is, not where he is: swimming he is in the ground, and a thing inside solid blocks is drawn black. (The
+	 * game lights an entity by the block at its eyes.)
+	 */
+	@Override
+	protected int getBlockLight(BeamEntity beam, BlockPos pos) {
+		return super.getBlockLight(beam, lit(beam, pos));
+	}
+
+	@Override
+	protected int getSkyLight(BeamEntity beam, BlockPos pos) {
+		return super.getSkyLight(beam, lit(beam, pos));
+	}
+
+	private static BlockPos lit(BeamEntity beam, BlockPos pos) {
+		return new BlockPos(pos.getX(), MathHelper.floor(beam.getY() + BeamEntity.BACK + 0.4), pos.getZ());
 	}
 
 	/** The reins: from where the rider's hands are (in your own view, low in front of you) to the corners of his mouth. */
