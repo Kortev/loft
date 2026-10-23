@@ -8,10 +8,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import net.minecraft.block.BlockState;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
+import net.minecraft.particle.BlockStateParticleEffect;
+import net.minecraft.particle.ParticleTypes;
 import net.minecraft.sound.SoundCategory;
+import net.minecraft.sound.SoundEvents;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 
@@ -24,6 +29,8 @@ import net.minecraft.util.math.Vec3d;
 public final class BeamClient {
 	/** When (his age on the client) each Beam's churn is next to sound (by entity id), how loud it is at his top speed, and how often it sounds (ticks). */
 	private static final Map<Integer, Integer> NEXT = new ConcurrentHashMap<>();
+	/** Which step of his gait each Beam is on (by entity id): a footfall sounds and kicks up the ground each time it changes. */
+	private static final Map<Integer, Integer> STEPS = new ConcurrentHashMap<>();
 	private static final float LOUD = 1.5F;
 	private static final int EVERY = 6;
 	/** How far the view widens at his top speed (a part of it), and how much the camera shakes at it, and as he crashes in from a breach (blocks); how fast the crash dies away (ticks). */
@@ -66,6 +73,7 @@ public final class BeamClient {
 		ClientWorld world = client.world;
 		if (world == null) {
 			NEXT.clear();
+			STEPS.clear();
 			return;
 		}
 		for (Entity e : world.getEntities()) {
@@ -82,10 +90,49 @@ public final class BeamClient {
 			}
 		}
 		NEXT.keySet().removeIf(id -> !(world.getEntityById(id) instanceof BeamEntity));
+		for (Entity e : world.getEntities()) {
+			if (e instanceof BeamEntity beam && !beam.diving()) {
+				footfalls(world, beam);
+			}
+		}
+		STEPS.keySet().removeIf(id -> !(world.getEntityById(id) instanceof BeamEntity));
+	}
+
+	/** On his legs, each time a pair of feet comes down (twice in a cycle of his gait) a heavy thud and the ground kicked up under them. */
+	private static void footfalls(ClientWorld world, BeamEntity beam) {
+		int step = MathHelper.floor(beam.walk(1.0F) / MathHelper.PI);
+		Integer last = STEPS.put(beam.getId(), step);
+		float walking = beam.gait() * (1.0F - Math.max(beam.swim(1.0F), beam.air(1.0F)));
+		if (last == null || last == step || walking < 0.35F) {
+			return;
+		}
+		Vec3d ahead = beam.heading();
+		Vec3d left = new Vec3d(ahead.z, 0.0, -ahead.x);
+		double side = (step & 1) == 0 ? 1.0 : -1.0;
+		// (The pair that lands: the front foot on its side, the back foot on the other.)
+		double[][] feet = {{1.0, side}, {-1.2, -side}};
+		BlockPos ground = BlockPos.ofFloored(beam.getX(), beam.getY() - 0.2, beam.getZ());
+		BlockState state = world.getBlockState(ground);
+		if (state.isAir()) {
+			state = world.getBlockState(ground.down());
+		}
+		for (double[] foot : feet) {
+			double fx = beam.getX() + ahead.x * foot[0] * 1.4 + left.x * foot[1] * 1.5;
+			double fz = beam.getZ() + ahead.z * foot[0] * 1.4 + left.z * foot[1] * 1.5;
+			if (!state.isAir()) {
+				for (int i = 0; i < 4; i++) {
+					world.addParticle(new BlockStateParticleEffect(ParticleTypes.BLOCK, state), fx, beam.getY() + 0.1, fz, (world.random.nextDouble() - 0.5) * 0.25,
+							0.12 + world.random.nextDouble() * 0.15, (world.random.nextDouble() - 0.5) * 0.25);
+				}
+			}
+		}
+		world.playSound(beam.getX(), beam.getY(), beam.getZ(), SoundEvents.ENTITY_IRON_GOLEM_STEP, SoundCategory.PLAYERS, 1.1F * walking,
+				0.65F + 0.15F * world.random.nextFloat(), false);
 	}
 
 	static void clear() {
 		NEXT.clear();
+		STEPS.clear();
 		HITS.clear();
 		holdLeft = 0;
 		heldCount = 0;

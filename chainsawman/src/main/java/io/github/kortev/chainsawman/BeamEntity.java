@@ -44,7 +44,7 @@ public class BeamEntity extends Entity {
 	/** Where the rider stands: on his back just behind the first spike, this far ahead of his middle (blocks). */
 	public static final double SEAT_AHEAD = 0.95;
 	/** One full cycle of his gait covers this much ground (blocks): the gait's phase advances with the distance he goes. */
-	public static final float STRIDE = 8.0F;
+	public static final float STRIDE = 5.2F;
 	/** How many ticks the clients are told of his place ahead, so they glide him there between the server's word. */
 	private static final int GLIDE = 2;
 	/** How far off (blocks) he notices a mob to look at, when he is idle. */
@@ -100,6 +100,8 @@ public class BeamEntity extends Entity {
 	private float time;
 	private float prevTime;
 	private float pace;
+	/** The client's: how fast he is walking, 0 to 1 of his walking speed (more than that is swimming), smoothed. */
+	private float gait;
 	/** The client's: how far his legs are drawn up for the air (0 to 1), smoothed, and the last tick's. */
 	private float air;
 	private float prevAir;
@@ -324,6 +326,11 @@ public class BeamEntity extends Entity {
 		return pace;
 	}
 
+	/** How fast he is walking now, 0 to 1 of his walking speed (the client's). */
+	public float gait() {
+		return gait;
+	}
+
 	/** How far he is sunk into swimming, 0 (on his legs) to 1 (swimming in the ground), {@code delta} of the way through the tick (the client's). */
 	public float swim(float delta) {
 		return MathHelper.lerp(delta, prevSwim, swim);
@@ -380,6 +387,7 @@ public class BeamEntity extends Entity {
 			glide();
 			double moved = Math.hypot(getX() - prevX, getZ() - prevZ);
 			pace += (MathHelper.clamp((float) (moved / Beam.SPEED), 0.0F, 1.0F) - pace) * 0.3F;
+			gait += (MathHelper.clamp((float) (moved / Beam.WALK), 0.0F, 1.0F) - gait) * 0.3F;
 			prevWalk = walk;
 			walk += (float) (moved / STRIDE * (2.0F * MathHelper.PI));
 			prevTime = time;
@@ -406,7 +414,7 @@ public class BeamEntity extends Entity {
 		prevLookPitch = lookPitch;
 		float wantYaw = 0.0F;
 		float wantPitch = 0.0F;
-		float idle = MathHelper.clamp(1.0F - swim * 1.4F - pace, 0.0F, 1.0F);
+		float idle = MathHelper.clamp(1.0F - swim * 1.4F - pace * 0.5F, 0.0F, 1.0F);
 		if (idle > 0.0F && !diving() && age > 28) {
 			if (--lookScan <= 0) {
 				lookScan = 8;
@@ -528,6 +536,12 @@ public class BeamEntity extends Entity {
 	@Override
 	public Vec3d updatePassengerForDismount(LivingEntity passenger) {
 		return new Vec3d(getX(), Math.max(getY(), ride.surface(getY())) + 0.05, getZ());
+	}
+
+	/** On his legs he stands on the ground (so his rider can sprint: the game only lets a rider sprint when the mount is on the ground). */
+	@Override
+	public boolean isOnGround() {
+		return !airborne();
 	}
 
 	/** The game steers nothing of him: the server moves him. */

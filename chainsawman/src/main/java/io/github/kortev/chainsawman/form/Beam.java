@@ -78,15 +78,18 @@ public final class Beam {
 	public static final double SPEED = 1.2;
 	private static final double ACCELERATE = 0.24;
 	private static final double BRAKE = 0.16;
+	/** On his legs (not sprinting) he walks at this speed (blocks a tick: 12 a second, as he did before he swam), picking it up this fast. */
+	public static final double WALK = 0.6;
+	private static final double WALK_ACCELERATE = 0.14;
+	/** Walking he is stopped by what he cannot step up: his feet are this far from his middle (blocks, to each side), and his snout this far ahead of it. */
+	private static final double FOOT = 1.0;
+	private static final double SNOUT = 3.4;
 	/** How fast the strafe keys move him sideways (blocks a tick), and how fast he turns to where you look (degrees a tick). */
 	private static final double STRAFE = 0.3;
 	public static final float TURN = 11.0F;
 	/** How deep he swims (blocks below the ground: only his back, spikes and the rider show), and how fast he sinks or rises (a part of it a tick). */
 	public static final double SINK = 2.7;
 	private static final double SWIM_RATE = 0.1;
-	/** Slower than this he is not swimming but standing on his legs (blocks a tick); faster than {@link #SWIM_FROM}, or with a key down, he sinks. */
-	private static final double STAND_BELOW = 0.05;
-	private static final double SWIM_FROM = 0.12;
 	/** How high a step of the ground he follows up (blocks); how far down he looks for it. */
 	private static final int CLIMB = 2;
 	private static final int FALL_TO = 8;
@@ -264,8 +267,9 @@ public final class Beam {
 		/** When he last bit, and where his feet were when he began to dive. */
 		long lastBite = -1000L;
 		double diveFrom;
-		/** Whether the last tick had him out of the ground. */
+		/** Whether the last tick had him out of the ground; whether he was diving in (sunk past a part of the way) at the last tick, for the spray when that changes. */
 		boolean out;
+		boolean diving;
 		/** The ambush in progress (-1 none, 0 rushing under the prey, 1 erupting), its prey, ticks into it, how deep he has dug in (eased), his lift over the hole and its speed, whether it has crashed, and when the last erupted. */
 		int amb = -1;
 		UUID prey;
@@ -385,7 +389,7 @@ public final class Beam {
 	/** The line on the action bar that says what your keys do now (with your own keys' names). */
 	private static void showKeys(ServerPlayerEntity player) {
 		player.sendMessage(Text.translatable("chainsawman.beam.keys", Text.keybind("key.attack"), Text.keybind("key.use"), Text.keybind("key.jump"),
-				Text.keybind("key.sneak"), Text.keybind("key.chainsawman.chain")), true);
+				Text.keybind("key.sneak"), Text.keybind("key.chainsawman.chain"), Text.keybind("key.sprint")), true);
 	}
 
 	/** {@code player}'s Beam, if he is out and not on his way down; otherwise null. */
@@ -472,8 +476,10 @@ public final class Beam {
 		if (ride.charge < 0 && ride.leap < 0 && ride.amb < 0 && ((LivingEntityAccessor) rider).chainsawman$jumping()) {
 			leap(rider);
 		}
-		double wanted = rider.forwardSpeed > 0.0F ? SPEED * Math.min(1.0F, rider.forwardSpeed) : 0.0;
-		boolean key = wanted > 0.0 || rider.sidewaysSpeed != 0.0F;
+		// Sprinting (the sprint key, or a double tap of forward, as the game sends it) he dives and swims; otherwise he walks on his legs.
+		boolean sprint = rider.isSprinting() && rider.forwardSpeed > 0.0F;
+		double wanted = rider.forwardSpeed > 0.0F ? (sprint ? SPEED : WALK) * Math.min(1.0F, rider.forwardSpeed) : 0.0;
+		boolean key = sprint || ride.charge >= 0 || ride.leap >= 0 && ride.swim > 0.5;
 		if (step != null) {
 			key = true;
 		} else if (ride.amb == 1) {
@@ -489,7 +495,7 @@ public final class Beam {
 			ride.speed = CHARGE_BLOCKS / CHARGE_TICKS;
 			step = ride.chargeWay.multiply(ride.speed);
 		} else {
-			ride.speed += MathHelper.clamp(wanted - ride.speed, -BRAKE, ACCELERATE);
+			ride.speed += MathHelper.clamp(wanted - ride.speed, -BRAKE, wanted > WALK ? ACCELERATE : WALK_ACCELERATE);
 			step = ahead.multiply(ride.speed).add(left.multiply(rider.sidewaysSpeed * STRAFE));
 		}
 		travel(beam, world, ride, step, key);
@@ -607,11 +613,12 @@ public final class Beam {
 	}
 
 	/**
-	 * One tick of his travel by {@code step} (blocks, flat): he tears through what is in the lane ({@link #plow}), the ground's
-	 * height is followed, and he sinks into swimming when he moves or rises on to his legs when he stops. He walks into no
-	 * wall: whatever he cannot break he swims under.
+	 * One tick of his travel by {@code step} (blocks, flat): the ground's height is followed. With {@code dive} (the rider sprints, or
+	 * he charges, rushes under a mob, or swims to a rider thrown) he sinks into swimming and tears through what is in the lane
+	 * ({@link #plow}; whatever he cannot break he swims under); without it he rises on to his legs and walks on top of the ground, stepping
+	 * up what he can ({@link #CLIMB} blocks) and stopped by the rest.
 	 */
-	private static void travel(BeamEntity beam, ServerWorld world, Ride ride, Vec3d step, boolean keyDown) {
+	private static void travel(BeamEntity beam, ServerWorld world, Ride ride, Vec3d step, boolean dive) {
 		double x = beam.getX() + step.x;
 		double z = beam.getZ() + step.z;
 		if (!world.isChunkLoaded(MathHelper.floor(x) >> 4, MathHelper.floor(z) >> 4)) {
@@ -627,7 +634,20 @@ public final class Beam {
 			ride.surf = beam.getY();
 		}
 		boolean blocked = false;
-		if (step.lengthSquared() > 1.0E-6) {
+		// On his legs (not diving, not sunk far, not in a breach) he walks: stopped at what he cannot step up, and nothing is broken.
+		boolean walking = !dive && ride.swim < 0.5 && ride.leap < 0 && ride.charge < 0 && ride.amb < 0;
+		if (walking && step.lengthSquared() > 1.0E-6) {
+			Vec3d allowed = walkStep(world, ride, beam.getX(), beam.getZ(), step, ahead);
+			double wanted = Math.hypot(step.x, step.z);
+			double got = Math.hypot(allowed.x, allowed.z);
+			if (got < wanted * 0.5) {
+				// Against a wall his speed is what he got: he does not wind up against it.
+				ride.speed = Math.min(ride.speed, got);
+			}
+			step = allowed;
+			x = beam.getX() + step.x;
+			z = beam.getZ() + step.z;
+		} else if (step.lengthSquared() > 1.0E-6) {
 			blocked = plow(beam, world, ride, x, z, ahead);
 		}
 		// The ground under his middle, ahead of him and behind him, averaged and followed smoothly.
@@ -655,18 +675,47 @@ public final class Beam {
 		}
 		double rise = !Double.isNaN(s1) && !Double.isNaN(s2) ? (s1 - s2) / 6.0 : ride.slope;
 		ride.slope += (rise - ride.slope) * 0.25;
-		// Swimming or standing.
-		boolean moving = ride.speed > SWIM_FROM || keyDown || ride.charge >= 0;
-		boolean still = ride.speed < STAND_BELOW && !keyDown && ride.charge < 0;
+		// Diving or walking.
 		if (ride.leap < 0) {
-			if (moving) {
+			if (dive) {
 				ride.swim = Math.min(1.0, ride.swim + SWIM_RATE);
-			} else if (still) {
+			} else {
 				ride.swim = Math.max(0.0, ride.swim - SWIM_RATE);
 			}
 		}
 		ride.under += ((blocked ? 1.0 : 0.0) - ride.under) * 0.2;
 		beam.setPosition(x, there, z);
+	}
+
+	/** Whether he could stand with his middle at {@code x}, {@code z}: every column under his feet there, and under his snout, has ground he can reach (a step up of {@link #CLIMB} blocks at most), not a wall. */
+	private static boolean footing(ServerWorld world, Ride ride, double x, double z, Vec3d ahead) {
+		Vec3d left = new Vec3d(ahead.z, 0.0, -ahead.x);
+		double[][] probes = {{0.0, 0.0}, {FOOT, FOOT}, {FOOT, -FOOT}, {-FOOT, FOOT}, {-FOOT, -FOOT}, {SNOUT, 0.0}, {SNOUT, 0.8}, {SNOUT, -0.8}};
+		for (double[] p : probes) {
+			if (Double.isNaN(surfaceAt(world, x + ahead.x * p[0] + left.x * p[1], z + ahead.z * p[0] + left.z * p[1], ride.surf))) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * How far of {@code step} he can walk from {@code x}, {@code z} on his legs: all of it, or the part that slides along a wall (one axis
+	 * of it), or none. A column he already stands in that has no footing (he is in a wall) does not hold him.
+	 */
+	private static Vec3d walkStep(ServerWorld world, Ride ride, double x, double z, Vec3d step, Vec3d ahead) {
+		if (!footing(world, ride, x, z, ahead) || footing(world, ride, x + step.x, z + step.z, ahead)) {
+			return step;
+		}
+		boolean alongX = Math.abs(step.x) > 1.0E-4 && footing(world, ride, x + step.x, z, ahead);
+		boolean alongZ = Math.abs(step.z) > 1.0E-4 && footing(world, ride, x, z + step.z, ahead);
+		if (alongX && (!alongZ || Math.abs(step.x) >= Math.abs(step.z))) {
+			return new Vec3d(step.x, 0.0, 0.0);
+		}
+		if (alongZ) {
+			return new Vec3d(0.0, 0.0, step.z);
+		}
+		return Vec3d.ZERO;
 	}
 
 	/**
@@ -854,6 +903,17 @@ public final class Beam {
 			world.playSound(null, x, ride.surf, z, ChainsawSounds.BEAM_DIVE, SoundCategory.PLAYERS, 0.8F, out ? 1.5F : 1.3F);
 		}
 		ride.out = out;
+		// Diving in from his legs, and coming up onto them: the ground thrown up round him, and its sound.
+		boolean under = ride.swim > (ride.diving ? 0.45 : 0.12);
+		if (under != ride.diving && ride.leap < 0 && ride.amb < 0 && ride.charge < 0) {
+			Vec3d heading = beam.heading();
+			double x = beam.getX() + heading.x * 2.4;
+			double z = beam.getZ() + heading.z * 2.4;
+			burst(world, x, ride.surf, z, under ? 110 : 90, 1.5, under ? 0.55 : 0.5);
+			ring(world, new Vec3d(beam.getX(), ride.surf, beam.getZ()), under ? 2.6 : 3.0);
+			world.playSound(null, x, ride.surf, z, ChainsawSounds.BEAM_DIVE, SoundCategory.PLAYERS, 1.3F, under ? 1.0F : 1.45F);
+		}
+		ride.diving = under;
 	}
 
 	/**

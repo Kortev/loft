@@ -107,14 +107,31 @@ tall within 3 blocks of you, else the action bar says so and nothing is spent) a
   looks dumb, it's not the crazy action stuff we see in the movie, it feels soulless"). `form/Beam.java`; `BeamEntity` is a plain `Entity`,
   not saved, server-driven: `getControllingPassenger()` is nobody; hitbox 2 x 2.4; **no game collision at all now**: `Beam.travel` sets
   his place from his own rules. Your keys while riding (an action-bar line shows them with your own key names, at the start and again at
-  2.5 s):
-  - **Moving = swimming.** The forward key sends him the way you look (turning 11 degrees a tick; up to `Beam.SPEED` = 1.2 blocks a tick,
-    24 a second, reached with a surge of 0.24 a tick; back stops, strafe nudges). Moving he **sinks `SINK` = 2.7 blocks** into the ground
-    (only his back, spikes and you above it; `ride.swim` 0 to 1 at 0.1 a tick, so half a second each way) and **follows the ground**:
-    `surfaceAt` finds the standable top within 2 up and 8 down (a wall column has none; where the ground has dropped away it looks 48
-    down) under his middle and 3 ahead and behind, averaged, the height eased a tick at a time (never a step), the pitch from the slope.
-    Stopped (speed under 0.05, no key) he **rises onto his crab legs**; the legs fold up while he swims or is in the air
+  2.5 s: "Walk on his legs   [Sprint] Dive and swim   [Attack] Bite ...", `chainsawman.beam.keys`):
+  - **Walk on his legs, sprint to swim** (2026-10-23, kortev: "we can walk with legs and swim with sprint"). The forward key alone **walks** him
+    on top of the ground on his crab legs (`Beam.WALK` = 0.6 blocks a tick, the old walking speed; he turns 11 degrees a tick; back
+    stops, strafe nudges): `Beam.travel` with `dive` false. He follows the ground (`surfaceAt` finds the standable top within 2 up and 8
+    down, a wall column has none; where the ground has dropped away it looks 48 down) under his middle and 3 ahead and behind, averaged, the
+    height eased a tick at a time, so he **steps up 2 blocks** and a long step is climbed at its middle; he is **stopped at a wall** (`walkStep`:
+    eight probe columns, his feet 1 either side and his snout 3.4 ahead, must all have ground he can reach; it slides along a wall; if the
+    column he stands in has none he is let out) and **breaks nothing**. **Sprinting** (the rider's `isSprinting()` and forward held) he
+    **dives**: `ride.swim` 0 to 1 at 0.1 a tick (half a second each way), he **sinks `SINK` = 2.7 blocks** into the ground (only his back,
+    spikes and you above it), speeds to `Beam.SPEED` = 1.2 (a surge of 0.24 a tick) and tears through walls as below, with the wake. Let go of
+    sprint (or forward) and he **surfaces** back onto his legs and slows to a walk. A spray of the ground, a ring and `beam_dive` mark the
+    dive in (`ride.swim` past 0.12) and the surfacing (below 0.45), in `Beam.pose`. The charge, the rush under a mob, the breach and swimming
+    to a thrown rider dive on their own (`dive` true), whatever the sprint; the legs fold up while he swims or is in the air
     (`BeamModel.animate`, the entity's tracked `SWIM`). Water counts as ground (he swims along a lake's top).
+  - **How the sprint reaches the server**: vanilla stops a rider sprinting unless the mount is one they steer and it stands on the ground
+    (`ClientPlayerEntity.canVehicleSprint`, `Entity.isOnGround`). Beam is server-driven and is no ground, so by default **sprint did nothing
+    on his back**. `client/mixin/BeamSprintMixin` makes `canVehicleSprint` true for a `BeamEntity`, and `BeamEntity.isOnGround()` is true
+    unless he is airborne; then the game's own sprint (the sprint key, or a double tap of forward, kept while forward is held) and its own
+    `START_SPRINTING` / `STOP_SPRINTING` packet set `isSprinting()` on the server player, which `Beam.tick` reads. In the tests
+    `player.setSprinting(true)` + `updateInput(0, 1, ...)` stand in for it (`sprintAhead` / `walkAhead` in `FormGameTests`); in the
+    showcase the real client keys (`forwardKey`, `sprintKey`) are pressed.
+  - **The gait** (`BeamModel.animate`, from the entity's client `gait`, 0 to 1 of the walking speed): diagonal pairs stepping (front right
+    with back left), a bounce twice a cycle, the body rocking and nodding, the hindquarters, stalk and tail whipping on a beat late, the head
+    bobbing and swaying and still looking at the nearest mob; each footfall is a thud (`BeamClient.footfalls`, the iron golem's step low) and
+    kicked-up ground. `BeamEntity.STRIDE` 5.2 blocks a cycle.
   - **Through walls**: `Beam.plow` breaks, every tick, the solid blocks of his lane (from 2 behind to 5.2 ahead of his middle, 1.75 each
     side, from the ground up to the rider's head, 2 high at the snout) that are not in a column he can climb (`surfaceAt` not NaN: steps,
     hills, low walls are ground, not obstacles) and not too hard (`TOO_HARD`, hardness 20: obsidian, bedrock and the like are swum
@@ -163,7 +180,8 @@ tall within 3 blocks of you, else the action bar says so and nothing is spent) a
 - **Sounds** (synthesised, `tools/gen_chainsaw_sounds.py`; **only checked as files and by the numbers, not by ear**): `beam_burst`,
   `beam_swim` (the 0.6 s churn above), `beam_bite`, `beam_dive`, and new `beam_screech` (a shrill whoop, a yip and a cackle) and
   `beam_chatter` (five clacks).
-- **Tests**: 15 Beam game tests in `FormGameTests` (92 in all, all passing): summon, refused, **sinks when moving (fast, the rider above
+- **Tests**: Beam game tests in `FormGameTests` (101 in all; the riding tests that swim now sprint: `sprintAhead`; new: **walks on his legs
+  above the ground at the walking speed, steps up a block and is stopped at a wall breaking nothing, sprint dives and letting go surfaces**; also): summon, refused, **sinks when sprinting (fast, the rider above
   the ground) and rises when stopped**, **tears through a wall with `mobGriefing` on** (his lane broken, the wall beside it not, the
   debris gone later), **swims under it with the rule off, and under obsidian with it on**, follows a hill (never a step of a block in a
   tick), the slash becomes a bite (16 damage, flung, behind untouched, no second at once), **a kill pleases him**, the lunge becomes a

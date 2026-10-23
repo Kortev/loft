@@ -52,8 +52,8 @@ public class BeamModel {
 	private static final float OPEN_REST = BeamLayout.MOUTH_OPEN;
 	private static final float OPEN_WIDE = BeamLayout.MOUTH_OPEN + 0.42F;
 	/** A stride: how far a leg swings at its hip (radians), and how far it lifts (a roll at the hip). */
-	private static final float STRIDE_HIP = 0.4F;
-	private static final float LIFT = 0.45F;
+	private static final float STRIDE_HIP = 0.55F;
+	private static final float LIFT = 0.8F;
 
 	public BeamModel(ModelPart root) {
 		this.root = root;
@@ -105,7 +105,7 @@ public class BeamModel {
 		float[] forward = new float[4];
 		float[] lifting = new float[4];
 		float[] phases = {0.0F, MathHelper.PI, MathHelper.PI, 0.0F};
-		float walking = pace * (1.0F - fold);
+		float walking = e.gait() * (1.0F - fold);
 		for (int i = 0; i < 4; i++) {
 			float p = walk + phases[i];
 			forward[i] = MathHelper.sin(p) * walking;
@@ -119,9 +119,12 @@ public class BeamModel {
 			hips[i].roll = -side * (LIFT * lifting[i] + 0.8F * fold);
 			shins[i].pitch = BeamLayout.SHIN_REST[i][0] - 0.6F * fold;
 		}
-		// The body rocks a little with his steps and rises and falls with them.
-		trunk.roll = MathHelper.sin(walk) * 0.015F * walking;
-		trunk.pivotY = -Math.abs(MathHelper.sin(walk)) * 1.0F * walking;
+		// The body is lively on his legs: it bounces with every step (twice a cycle, up as each pair pushes off), rocks from side to side
+		// and rolls its shoulders, and dips its nose with each landing.
+		float bounce = Math.abs(MathHelper.sin(walk));
+		trunk.roll = MathHelper.sin(walk) * 0.045F * walking;
+		trunk.pivotY = -(bounce * 2.6F - 0.5F) * walking;
+		trunk.pitch = MathHelper.sin(walk * 2.0F + 0.6F) * 0.025F * walking;
 		// Swimming: an S travelling down him, the tail swinging most; it grows with his speed.
 		float ripple = swim * (0.3F + 0.7F * pace);
 		float trunkYaw = MathHelper.sin(time) * 0.08F * ripple;
@@ -129,9 +132,14 @@ public class BeamModel {
 		float stalkYaw = MathHelper.sin(time - 1.8F) * 0.45F * ripple;
 		float tailYaw = MathHelper.sin(time - 2.7F) * 0.7F * ripple;
 		trunk.roll += MathHelper.sin(time + 0.5F) * 0.05F * ripple;
+		// Scuttling: his hindquarters swing against his shoulders with each step and the tail whips along behind, a beat late.
+		trunkYaw += walking * 0.05F * MathHelper.sin(walk + 0.4F);
+		rearYaw += walking * 0.16F * MathHelper.sin(walk - 0.4F);
+		stalkYaw += walking * 0.28F * MathHelper.sin(walk - 1.2F);
+		tailYaw += walking * 0.42F * MathHelper.sin(walk - 2.0F);
 		// Standing about: the tail wags, like a dog's, all of the rear of him swinging.
 		float wag = e.wag(d);
-		float glad = (1.0F - swim) * (1.0F - air) * (1.0F - MathHelper.clamp(pace * 3.0F, 0.0F, 1.0F));
+		float glad = (1.0F - swim) * (1.0F - air) * (1.0F - MathHelper.clamp(e.gait() * 3.0F, 0.0F, 1.0F));
 		trunkYaw += glad * 0.03F * MathHelper.sin(wag * 0.5F);
 		rearYaw += glad * 0.1F * MathHelper.sin(wag - 0.5F);
 		stalkYaw += glad * 0.25F * MathHelper.sin(wag - 1.0F);
@@ -232,8 +240,11 @@ public class BeamModel {
 		jaw.pitch = BeamLayout.JAW_REST - BeamLayout.MOUTH_OPEN + open;
 		// His head: it looks where he is looking (a mob he has noticed; the rider, at the summoning), nodding with his porpoise.
 		float nod = 0.1F * MathHelper.sin(time * 0.5F - 0.6F) * swim * pace;
-		head.pitch = -lift - 0.08F * air - e.lookPitch(d) - back * 0.85F + nod;
-		head.yaw = -trunkYaw * 0.7F + e.lookYaw(d) + back * 0.45F + BeamEntity.shake(grab);
+		// (On his legs it bobs with every step, and sways from side to side a little as he looks about.)
+		float bob = 0.09F * MathHelper.sin(walk * 2.0F - 0.5F) * walking;
+		float sway = 0.1F * MathHelper.sin(walk * 0.5F + 1.0F) * walking;
+		head.pitch = -lift - 0.08F * air - e.lookPitch(d) - back * 0.85F + nod + bob;
+		head.yaw = -trunkYaw * 0.7F + e.lookYaw(d) + back * 0.45F + BeamEntity.shake(grab) + sway;
 		// His eyes dart.
 		for (int i = 0; i < 3; i++) {
 			float yaw = e.eyeYaw(i, d);

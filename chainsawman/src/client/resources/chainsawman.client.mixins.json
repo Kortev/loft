@@ -5,6 +5,7 @@
 	"client": [
 		"AnimalModelInvoker",
 		"BeamHoldMixin",
+		"BeamSprintMixin",
 		"CutInTwoMixin",
 		"DownedBodyMixin",
 		"DreamHearingMixin",
