@@ -1164,6 +1164,17 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 			client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
 		}
 		Vec3d him = local(0.5, 0.3, 0.5);
+		// Only him: an earlier take's Pochita, under its own tree nearby, loads in after the set was cleared.
+		if (f % 5 == 0) {
+			int keep = pochitaId;
+			Vec3d at = origin;
+			server.execute(() -> {
+				for (io.github.kortev.chainsawman.PochitaEntity e : server.getOverworld().getEntitiesByClass(io.github.kortev.chainsawman.PochitaEntity.class,
+						new net.minecraft.util.math.Box(at, at).expand(80.0), e -> e.getId() != keep)) {
+					e.discard();
+				}
+			});
+		}
 		if ((f == 1 || f == WALK_TO || f == PICKED_UP || f == POCHITA_HERO) && client.player != null) {
 			ShootingStar.LOGGER.info("[selftest] showcase: pochita f={} you at {} (origin {})", f, client.player.getPos(), origin);
 		}
