@@ -54,9 +54,9 @@ import net.minecraft.world.RaycastContext;
  * filmed tall in a village at dusk, "Chainsaw Man mod" over each). -Ptarget= picks the reel; the first, and the default,
  * is {@code transform}: you, surrounded by zombies in the street, pull the cord (the mod's own transformation, its own
  * camera), cut the three of them down in the combo, and turn to the camera as it eases in, "What should I add next?"
- * over it. {@code saws}: already Chainsaw Man, you grind out through the wall of a hut, lunge into the first zombie
- * outside, take three more in the combo (across, back, the overhead finisher) and grind the last one down; it ends on
- * that kill, to loop. {@code beamlook}: photographs of Beam (the ult) from several sides, riding and leaping, and a bite on a
+ * over it. {@code saws}: a forest in daylight, a diamond axe against the saws: you chop one log out of a tree, then (a cut) as Chainsaw
+ * Man tear through the tree and the front of a log cabin with the attack key held on each block, and end low among the wreckage.
+ * {@code beamlook}: photographs of Beam (the ult) from several sides, riding and leaping, and a bite on a
  * zombie (beamlook_*.png; no reel). Play as kortev (-Pusername=Kortev) to wear their skin. With -Pcapture=true it's recorded with its sounds
  * (Capture) into build/selftest/capture; either way a few frames are saved as pictures (showcase_*.png).
  */
@@ -102,12 +102,16 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 	private static final int CHAIN_HOOK_FROM = 30;
 
 	private static int hookUntil() {
+		if ("saws".equals(target())) {
+			// (The comparison all through, till the question takes its place.)
+			return sawsAsk;
+		}
 		return "merge".equals(target()) ? MERGE_AT + 12 : hookFrom() + 44;
 	}
 
 	private static int askedAt() {
 		return switch (target()) {
-			case "saws" -> GRIND_TO - 4;
+			case "saws" -> sawsAsk;
 			case "chain" -> THIRD_CUT + 6;
 			case "arms" -> ARMS_HERO + 16;
 			case "pochita" -> POCHITA_HERO + 10;
@@ -130,32 +134,6 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 	private static final int END = 180;
 	private static final int[] SCREENS = {12, 30, 40, 48, 58, 70, 79, 93, 107, 120, 170};
 
-	// The saws reel. The hut you're in (east of you its front wall, the way out), the hole cut through it (across, up)
-	// a block at a time; where you stand clear of it, and lunge from; where you end up, the zombies round there (angles
-	// from east) and when you cut each.
-	private static final int HUT_FRONT = 2;
-	private static final int[][] HOLE = {{0, 1}, {0, 2}, {1, 1}, {-1, 1}, {0, 0}, {1, 2}, {-1, 2}};
-	private static final int CUT_FROM = 4;
-	private static final int CUT_EVERY = 5;
-	private static final int OUT_SHOT = 30;
-	private static final int OUT_FROM = 38;
-	private static final int OUT_AT = 54;
-	private static final Vec3d OUTSIDE = new Vec3d(3.6, 0.0, 0.0);
-	/** The lunge (it carries about six blocks), at the one waiting outside. */
-	private static final int LUNGE = 58;
-	private static final Vec3d WAITING = new Vec3d(5.8, 0.0, 0.0);
-	/**
-	 * Where you've landed: the rest round you there, put there as the camera cuts away (anywhere near the lunge's way
-	 * it would cut them down too). Spread so each slash takes only its own (the finisher's narrower); the last, ground
-	 * down, tougher, in case a slash catches it.
-	 */
-	private static final int LANDED = 67;
-	private static final float[] RING = {-150.0F};
-	private static final double RING_OFF = 2.2;
-	private static final int GRIND_FROM = LANDED + 16;
-	private static final int GRIND_TO = GRIND_FROM + 28;
-	private static final int SAW_END = GRIND_TO + 56;
-	private static final int[] SAW_SCREENS = {2, 12, 24, 36, 46, 56, 62, 72, 84, 96, 108, 120, 150};
 	// The chain reel. A lookout tower ahead of you (its near face, across, its height), the two on top of it; when the
 	// chain's fired at each and when each is cut down; the chain at the tower and you up it, onto the top.
 	private static final int TOWER_NEAR = 11;
@@ -232,6 +210,8 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 	private static Vec3d origin;
 	private static final List<Integer> ZOMBIES = new ArrayList<>();
 	private static int shots;
+	/** When (the settling tick) the set was seen to be built, and the place you stand at: a long search for it must not eat the time the world needs to be drawn. */
+	private static int originSeen = -1;
 
 	public static boolean active() {
 		return "showcase".equals(System.getProperty("shootingstar.selftest"));
@@ -298,7 +278,10 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 			}
 			case SETTLE -> {
 				// Long enough for the village round you to be drawn.
-				if (ticks > 100 && origin != null) {
+				if (origin != null && originSeen < 0) {
+					originSeen = ticks;
+				}
+				if (ticks > 100 && originSeen >= 0 && ticks - originSeen > 100) {
 					stage = Stage.RUN;
 					ticks = 0;
 				}
@@ -310,7 +293,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 					server.execute(() -> strays(server));
 				}
 				if ("saws".equals(target())) {
-					saws(client, server, ticks);
+					sawsInWoods(client, server, ticks);
 				} else if ("chain".equals(target())) {
 					chain(client, server, ticks);
 				} else if ("arms".equals(target())) {
@@ -389,81 +372,451 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		}
 	}
 
-	// The saws reel.
+	// The saws reel, in a forest in full daylight (kortev, 2026-10-23: a comparison, "Diamond axe vs Chainsaw Man"). First half:
+	// you, yourself, chop one log out of a tree with a diamond axe (the attack key held on it, the game's own mining), and
+	// that's all you get. A hard cut: in the form, the same spot, the attack key held on one block after another, the saws
+	// tear through the tree and the next and the front of a log cabin.
 
-	private static void saws(MinecraftClient client, IntegratedServer server, int f) {
+	/** Where the trees stand ahead of you (along, across, logs high), and the cabin's front wall (along). */
+	private static final int[][] TREES = {{2, 0, 4}, {5, -8, 5}, {-3, 6, 5}, {7, 6, 4}};
+	private static final int CABIN = 7;
+	/** Where you stand to cut each (along), and the logs the saws are to take, in order. */
+	private static final double[] STANDS = {0.0, 4.7};
+	/** The cut to the form; how long each walk on between them takes; the cameras for each (camera, then what it looks at: along, up, across). */
+	private static final int AXE_CUT = 50;
+	private static final int WALK = 14;
+	private static final double[][] SAW_CAMS = {
+			{1.0, 1.0, 7.0, 1.0, 0.8, 0.0},
+			{3.0, 1.0, -6.6, 5.4, 0.8, 0.3}};
+	private static final int SAWS_CAP = 520;
+	private static final int SAWS_HOLD = 44;
+	/** When the question goes up (the shot of you in the wreckage), and the reel ends: set when the last block is gone. */
+	private static int sawsAsk = Integer.MAX_VALUE;
+	private static int sawsEnd = Integer.MAX_VALUE;
+	private static List<List<BlockPos>> sawTargets;
+	private static int sawsPhase = -1;
+	private static int sawsPhaseAt;
+	private static int sawsTarget = -1;
+	private static int sawsTargetAt;
+
+	private static void sawsInWoods(MinecraftClient client, IntegratedServer server, int f) {
+		BlockPos base = BlockPos.ofFloored(origin);
 		if (f == 1) {
 			client.options.hudHidden = false;
 			if (capturing()) {
 				Capture.start(client, client.runDirectory.toPath().resolve("capture"));
 			}
-			// In the dark of the hut over your shoulder, the saws tearing into the wall, the sunset pouring in through it.
-			fixed(local(-1.9, 2.3, 0.85), local(HUT_FRONT, 1.2, -0.1));
-			server.execute(() -> Saw.grind(player(server), true));
+			sawTargets = new ArrayList<>();
+			List<BlockPos> first = new ArrayList<>();
+			for (int y = 1; y < TREES[0][2]; y++) {
+				first.add(cell(base, TREES[0][0], y, TREES[0][1]));
+			}
+			List<BlockPos> wall = new ArrayList<>();
+			for (int y = 0; y <= 1; y++) {
+				for (int z = 0; z <= 1; z++) {
+					wall.add(cell(base, CABIN, y, z));
+				}
+			}
+			sawTargets.add(first);
+			sawTargets.add(wall);
+			sawsPhase = -1;
+			sawsAsk = Integer.MAX_VALUE;
+			sawsEnd = Integer.MAX_VALUE;
+			// You, with the diamond axe, at the first tree, from the side: you and its trunk both.
+			fixed(framed(local(1.0, 1.0, -7.0), local(1.0, 0.8, 0.0)), local(1.0, 0.8, 0.0));
 		}
-		if (f == OUT_SHOT) {
-			// Outside, off to one side, as you come through it.
-			fixed(framed(local(7.0, 1.8, 2.4), local(HUT_FRONT + 0.5, 1.3, 0.0)), local(HUT_FRONT, 1.2, 0.0));
-		}
+		// (The held attack key mines only with the mouse captured, as far as the game knows.)
+		TestWindow.mining(client, true);
 		if (client.options.getPerspective() != Perspective.THIRD_PERSON_BACK) {
-			// (Never your own hands: the camera's always the film's.)
 			client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
 		}
-		if (f < LUNGE) {
-			face(client, facing, 0.0F);
+		if (client.player == null || client.world == null) {
+			return;
 		}
-		// The wall cut through, a block at a time, as fast as the form's saws cut.
-		for (int i = 0; i < HOLE.length; i++) {
-			if (f == CUT_FROM + i * CUT_EVERY) {
-				BlockPos p = cell(BlockPos.ofFloored(origin), HUT_FRONT, HOLE[i][1], HOLE[i][0]);
-				server.execute(() -> player(server).getServerWorld().breakBlock(p, false, player(server)));
-			}
-		}
-		if (f == OUT_FROM - 1) {
-			server.execute(() -> Saw.grind(player(server), false));
-		}
-		if (f >= OUT_FROM && f <= OUT_AT) {
-			go(client, local(OUTSIDE.x * ease(span(f, OUT_FROM, OUT_AT)), 0.0, 0.0));
-		}
-		// The lunge, seen from the side, wide.
-		if (f == LUNGE - 4) {
-			fixed(framed(local(5.5, 2.2, -7.5), local(6.5, 1.0, 0.0)), local(7.0, 1.0, 0.0));
-		}
-		if (f == LUNGE) {
-			server.execute(() -> Saw.lunge(player(server)));
-		}
-		if (f == LANDED && client.player != null) {
-			landed = client.player.getPos();
-			Vec3d at = landed;
+		if (f % 4 == 1) {
+			// Nothing alive but you in the woods (the animals of the chunks that load in after the set was cleared).
+			Vec3d at = origin;
 			server.execute(() -> {
-				for (int i = 0; i < RING.length; i++) {
-					zombie(server.getOverworld(), at.add(way(RING[i]).multiply(RING_OFF)), facing + RING[i] + 180.0F, 16.0F);
+				for (Entity e : server.getOverworld().getOtherEntities(player(server), new net.minecraft.util.math.Box(at, at).expand(48.0, 30.0, 48.0),
+						e -> e instanceof net.minecraft.entity.LivingEntity)) {
+					e.discard();
 				}
 			});
 		}
-		if (f >= LANDED && landed != null) {
-			go(client, landed);
+		Vec3d eye = client.player.getEyePos();
+		if (f < AXE_CUT) {
+			// The axe: the log at the foot of the tree, the attack key held on it, and when it's out, a look up the trunk.
+			BlockPos log = cell(base, TREES[0][0], 0, TREES[0][1]);
+			if (!client.world.getBlockState(log).isAir()) {
+				Capture.Pose aim = look(eye, log.toCenterPos());
+				face(client, aim.yaw(), aim.pitch());
+				client.options.attackKey.setPressed(f >= 8 && aimedAt(aim));
+			} else {
+				client.options.attackKey.setPressed(false);
+				face(client, facing, -22.0F);
+			}
+			shotAt(client, f);
+			return;
 		}
-		// The one waiting where you land, ground down: from its other side (closer in, the bar fills the picture).
-		if (f == LANDED + 2 && landed != null) {
-			victimShot(landed, RING[0], -60.0, 4.6, 1.9);
+		if (f == AXE_CUT) {
+			client.options.attackKey.setPressed(false);
+			server.execute(() -> {
+				ServerPlayerEntity p = player(server);
+				server.getGameRules().get(GameRules.DO_TILE_DROPS).set(false, server);
+				// (The leaves that lose their logs fall away in a moment.)
+				server.getGameRules().get(GameRules.RANDOM_TICK_SPEED).set(300, server);
+				p.getInventory().clear();
+				Form.play(p, io.github.kortev.chainsawman.ChainsawSounds.START, 1.0F);
+				Form.start(p);
+			});
 		}
-		if (f > LANDED && f <= GRIND_FROM - 2) {
-			face(client, facing + RING[0], 0.0F);
+		if (f < AXE_CUT + 3) {
+			shotAt(client, f);
+			return;
 		}
-		if (f == GRIND_FROM) {
+		// The saws: one tree after the next and the wall, the attack key held on each block in turn.
+		int phase = 0;
+		while (phase < sawTargets.size() && allGone(client, sawTargets.get(phase))) {
+			phase++;
+		}
+		if (phase != sawsPhase) {
+			sawsPhase = phase;
+			sawsPhaseAt = f;
+			sawsTarget = -1;
+			if (phase < SAW_CAMS.length) {
+				double[] c = SAW_CAMS[phase];
+				fixed(framed(local(c[0], c[1], c[2]), local(STANDS[phase], 1.4, 0.0)), local(c[3], c[4], c[5]));
+			}
+		}
+		if (phase < sawTargets.size()) {
+			double from = STANDS[Math.max(phase - 1, 0)];
+			double along = phase == 0 ? STANDS[0] : MathHelper.lerp(ease(span(f, sawsPhaseAt, sawsPhaseAt + WALK)), from, STANDS[phase]);
+			// (Held a little down, or you are never on the ground, and the game digs a fifth as fast.)
+			go(client, local(along, -0.08, 0.0));
+			BlockPos next = null;
+			for (BlockPos p : sawTargets.get(phase)) {
+				if (!client.world.getBlockState(p).isAir()) {
+					next = p;
+					break;
+				}
+			}
+			if (next == null) {
+				return;
+			}
+			int index = next.hashCode();
+			if (index != sawsTarget) {
+				sawsTarget = index;
+				sawsTargetAt = f;
+				ShootingStar.LOGGER.info("[selftest] showcase: saws on {} at {}", next, f);
+			}
+			Capture.Pose aim = look(eye, next.toCenterPos());
+			face(client, aim.yaw(), aim.pitch());
+			boolean there = f >= sawsPhaseAt + WALK;
+			client.options.attackKey.setPressed(there && aimedAt(aim));
+			if (f - sawsTargetAt > 70) {
+				// (Stuck on it: the log goes, so the reel goes on; said, so the take can be judged.)
+				ShootingStar.LOGGER.warn("[selftest] showcase: the saws did not cut {} in time", next);
+				BlockPos stuck = next;
+				server.execute(() -> player(server).getServerWorld().breakBlock(stuck, false, player(server)));
+			}
+			shotAt(client, f);
+			return;
+		}
+		// Done: a beat, then low in the wreckage, turned to the camera, the saws revving.
+		client.options.attackKey.setPressed(false);
+		if (sawsEnd == Integer.MAX_VALUE) {
+			sawsAsk = f + 14;
+			sawsEnd = f + SAWS_HOLD + 14;
+			int at = f;
+			ShootingStar.LOGGER.info("[selftest] showcase: saws done at {}", at);
+		}
+		if (f == sawsAsk - 10) {
+			Vec3d you = client.player.getPos().add(0.0, 1.0, 0.0);
+			fixed(framed(local(1.5, 0.5, -4.8), you), you.add(0.0, 0.25, 0.0));
+		}
+		if (f >= sawsAsk - 10) {
+			Capture.Pose toCamera = look(client.player.getEyePos(), local(1.5, 0.5, -4.8));
+			face(client, toCamera.yaw() + 25.0F, -4.0F);
+			go(client, local(STANDS[1], -0.08, 0.0));
+		}
+		if (f == sawsAsk - 8) {
 			server.execute(() -> Saw.grind(player(server), true));
 		}
-		if (f == GRIND_TO) {
+		shotAt(client, f);
+		if (f >= sawsEnd || f >= SAWS_CAP) {
 			server.execute(() -> Saw.grind(player(server), false));
-		}
-		if (shots < SAW_SCREENS.length && f == SAW_SCREENS[shots]) {
-			shot(client, target() + "_" + f);
-			shots++;
-		}
-		if (f >= SAW_END) {
 			stage = Stage.DONE;
 		}
+	}
+
+	/** Whether the crosshair is on {@code aim}, near enough that the attack key held now lands on it. */
+	private static boolean aimedAt(Capture.Pose aim) {
+		return !Float.isNaN(headYaw) && Math.abs(MathHelper.wrapDegrees(aim.yaw() - headYaw)) < 7.0F && Math.abs(aim.pitch() - headPitch) < 7.0F;
+	}
+
+	private static boolean allGone(MinecraftClient client, List<BlockPos> blocks) {
+		for (BlockPos p : blocks) {
+			if (!client.world.getBlockState(p).isAir()) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/** A still every so often, to judge the take by. */
+	private static void shotAt(MinecraftClient client, int f) {
+		if (f % 15 == 0) {
+			shot(client, target() + "_" + f);
+		}
+	}
+
+	/**
+	 * The saws reel's set: a forest in daylight, a clearing cut in it with two oak trees and a log cabin, you at the first tree
+	 * with a diamond axe, yourself (Pochita your heart, not in the form).
+	 */
+	private static void sawsSet(IntegratedServer server, ServerPlayerEntity player, ServerWorld world) {
+		world.setTimeOfDay(6000);
+		server.getGameRules().get(GameRules.DO_TILE_DROPS).set(true, server);
+		server.getGameRules().get(GameRules.RANDOM_TICK_SPEED).set(3, server);
+		facing = FACING;
+		BlockPos spot = forestClearing(world, BlockPos.ORIGIN);
+		Vec3d feet = Vec3d.ofBottomCenter(spot);
+		ShootingStar.LOGGER.info("[selftest] showcase: the saws' forest, standing at {}, biome {}", spot, world.getBiome(spot).getIdAsString());
+		for (Entity e : world.getOtherEntities(player, new net.minecraft.util.math.Box(spot).expand(40.0, 30.0, 40.0))) {
+			if (!(e instanceof ServerPlayerEntity)) {
+				e.discard();
+			}
+		}
+		clearing(world, spot);
+		for (int[] tree : TREES) {
+			oak(world, cell(spot, tree[0], 0, tree[1]), tree[2]);
+		}
+		cabin(world, spot);
+		Form.end(player);
+		player.changeGameMode(GameMode.SURVIVAL);
+		player.getAbilities().invulnerable = true;
+		player.sendAbilitiesUpdate();
+		player.getInventory().clear();
+		player.getInventory().setStack(0, new ItemStack(Items.DIAMOND_AXE));
+		player.getInventory().selectedSlot = 0;
+		player.setHealth(player.getMaxHealth());
+		player.getHungerManager().setFoodLevel(20);
+		player.setAttached(Heart.MERGED, true);
+		Blood.set(player, Blood.MAX);
+		player.teleport(world, feet.x, feet.y, feet.z, facing, 25.0F);
+		ZOMBIES.clear();
+		origin = feet;
+	}
+
+	/** The top block of the ground at ({@code x}, {@code z}), under whatever grows on it. */
+	private static int groundY(ServerWorld world, int x, int z) {
+		world.getChunk(x >> 4, z >> 4);
+		int y = world.getTopY(Heightmap.Type.WORLD_SURFACE, x, z) - 1;
+		while (y > world.getBottomY()) {
+			BlockState s = world.getBlockState(new BlockPos(x, y, z));
+			if (s.isAir() || s.isIn(net.minecraft.registry.tag.BlockTags.LEAVES) || s.isIn(net.minecraft.registry.tag.BlockTags.LOGS)
+					|| s.isReplaceable() && s.getFluidState().isEmpty() || s.isIn(net.minecraft.registry.tag.BlockTags.FLOWERS)
+					|| s.isOf(Blocks.MOSS_CARPET) || s.isOf(Blocks.VINE) || s.isOf(Blocks.BROWN_MUSHROOM) || s.isOf(Blocks.RED_MUSHROOM)) {
+				y--;
+			} else {
+				break;
+			}
+		}
+		return y;
+	}
+
+	private static boolean earthy(BlockState ground) {
+		return ground.isOf(Blocks.GRASS_BLOCK) || ground.isOf(Blocks.DIRT) || ground.isOf(Blocks.PODZOL) || ground.isOf(Blocks.COARSE_DIRT);
+	}
+
+	/**
+	 * How thick the forest is round a clearing's place (columns whose top is leaves, in the ring outside it), or -1 if its ground
+	 * is wet or too hilly (its coarse grid: every third block).
+	 */
+	private static int forestScore(ServerWorld world, int x, int z) {
+		int low = Integer.MAX_VALUE;
+		int high = Integer.MIN_VALUE;
+		for (int dx = -7; dx <= 22; dx += 3) {
+			for (int dz = -11; dz <= 11; dz += 3) {
+				double e = Math.pow((dx - 8.0) / 15.0, 2) + Math.pow(dz / 10.0, 2);
+				if (e > 1.0) {
+					continue;
+				}
+				int y = groundY(world, x + dx, z + dz);
+				if (!earthy(world.getBlockState(new BlockPos(x + dx, y, z + dz))) || !world.getFluidState(new BlockPos(x + dx, y + 1, z + dz)).isEmpty()) {
+					return -1;
+				}
+				low = Math.min(low, y);
+				high = Math.max(high, y);
+			}
+		}
+		if (high - low > 5) {
+			return -1;
+		}
+		int trees = 0;
+		for (int dx = -16; dx <= 32; dx += 2) {
+			for (int dz = -20; dz <= 20; dz += 2) {
+				double e = Math.pow((dx - 8.0) / 15.0, 2) + Math.pow(dz / 10.0, 2);
+				if (e <= 1.3) {
+					continue;
+				}
+				world.getChunk((x + dx) >> 4, (z + dz) >> 4);
+				BlockPos top = new BlockPos(x + dx, world.getTopY(Heightmap.Type.WORLD_SURFACE, x + dx, z + dz) - 1, z + dz);
+				if (world.getBlockState(top).isIn(net.minecraft.registry.tag.BlockTags.LEAVES)) {
+					trees++;
+				}
+			}
+		}
+		return trees;
+	}
+
+	/**
+	 * Where to stand: the middle of a forest (its biome a good way round in every direction), nearest {@code from}, with level
+	 * dry ground for the clearing and trees thick round it.
+	 */
+	private static BlockPos forestClearing(ServerWorld world, BlockPos from) {
+		List<BlockPos> inside = new ArrayList<>();
+		for (int x = -FOREST_SEARCH; x <= FOREST_SEARCH; x += 16) {
+			for (int z = -FOREST_SEARCH; z <= FOREST_SEARCH; z += 16) {
+				boolean all = wooded(world, x, z);
+				for (int k = 0; all && k < 8; k++) {
+					double a = k * Math.PI / 4.0;
+					all = wooded(world, x + (int) Math.round(Math.cos(a) * 40.0), z + (int) Math.round(Math.sin(a) * 40.0));
+				}
+				if (all) {
+					inside.add(new BlockPos(x, 70, z));
+				}
+			}
+		}
+		inside.sort(java.util.Comparator.comparingDouble(p -> p.getSquaredDistance(from)));
+		ShootingStar.LOGGER.info("[selftest] showcase: {} places inside a forest", inside.size());
+		int bestScore = -1;
+		BlockPos best = null;
+		int tried = 0;
+		for (BlockPos p : inside) {
+			if (tried++ >= 60 || bestScore >= 150) {
+				break;
+			}
+			for (int[] off : new int[][] {{0, 0}, {-10, 0}, {10, 0}, {0, -10}, {0, 10}}) {
+				int x = p.getX() + off[0];
+				int z = p.getZ() + off[1];
+				int score = forestScore(world, x, z);
+				if (score > bestScore) {
+					bestScore = score;
+					best = new BlockPos(x, groundY(world, x, z) + 1, z);
+				}
+			}
+		}
+		ShootingStar.LOGGER.info("[selftest] showcase: clearing at {}, {} tree columns round it (tried {})", best, bestScore, tried);
+		return best != null ? best : world.getTopPosition(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, from);
+	}
+
+	private static final int FOREST_SEARCH = 1600;
+
+	private static boolean wooded(ServerWorld world, int x, int z) {
+		var biome = world.getBiome(new BlockPos(x, 70, z));
+		return biome.matchesKey(net.minecraft.world.biome.BiomeKeys.FOREST) || biome.matchesKey(net.minecraft.world.biome.BiomeKeys.DARK_FOREST);
+	}
+
+	/** An oval of the forest cleared to the level of {@code spot}, grass, a few tufts, the sky open over it. */
+	private static void clearing(ServerWorld world, BlockPos spot) {
+		int flags = Block.NOTIFY_LISTENERS | Block.FORCE_STATE;
+		net.minecraft.util.math.random.Random random = net.minecraft.util.math.random.Random.create(5);
+		for (int x = -7; x <= 23; x++) {
+			for (int z = -11; z <= 11; z++) {
+				double e = Math.pow((x - 8.0) / 15.0, 2) + Math.pow(z / 10.0, 2);
+				if (e > 1.0) {
+					continue;
+				}
+				BlockPos c = cell(spot, x, 0, z);
+				world.getChunk(c.getX() >> 4, c.getZ() >> 4);
+				for (int y = 0; y <= 26; y++) {
+					BlockPos p = c.up(y);
+					if (!world.getBlockState(p).isAir()) {
+						world.setBlockState(p, Blocks.AIR.getDefaultState(), flags);
+					}
+				}
+				for (int y = -1; y >= -8; y--) {
+					BlockPos p = c.up(y);
+					BlockState s = world.getBlockState(p);
+					boolean solid = s.isOpaqueFullCube(world, p) && !s.isIn(net.minecraft.registry.tag.BlockTags.LEAVES) && !s.isIn(net.minecraft.registry.tag.BlockTags.LOGS);
+					if (y == -1) {
+						world.setBlockState(p, Blocks.GRASS_BLOCK.getDefaultState(), flags);
+					} else if (!solid) {
+						world.setBlockState(p, Blocks.DIRT.getDefaultState(), flags);
+					} else {
+						break;
+					}
+				}
+				if (x > 4 && random.nextInt(9) == 0 && e < 0.95) {
+					world.setBlockState(c, (random.nextInt(5) == 0 ? Blocks.FERN : Blocks.SHORT_GRASS).getDefaultState(), flags);
+				}
+			}
+		}
+	}
+
+	/** An oak {@code logs} high, its crown of leaves (natural ones: they fall away with the last log). */
+	private static void oak(ServerWorld world, BlockPos foot, int logs) {
+		int top = logs - 1;
+		for (int y = top - 1; y <= top + 2; y++) {
+			int r = y <= top ? 2 : 1;
+			for (int dx = -r; dx <= r; dx++) {
+				for (int dz = -r; dz <= r; dz++) {
+					boolean corner = Math.abs(dx) == r && Math.abs(dz) == r;
+					if (corner && (r == 2 || y == top + 2)) {
+						continue;
+					}
+					// (How far from a log it is, as the game works it out, or it would fall away at the first tick of the cut.)
+					int distance = MathHelper.clamp(Math.abs(dx) + Math.abs(dz) + Math.max(0, y - top), 1, 7);
+					world.setBlockState(foot.add(dx, y, dz), Blocks.OAK_LEAVES.getDefaultState().with(net.minecraft.block.LeavesBlock.DISTANCE, distance));
+				}
+			}
+		}
+		for (int y = 0; y < logs; y++) {
+			world.setBlockState(foot.up(y), Blocks.OAK_LOG.getDefaultState());
+		}
+	}
+
+	/** A small log cabin: its front wall {@link #CABIN} ahead, five deep and seven wide, three high, spruce logs and planks, a stepped roof. */
+	private static void cabin(ServerWorld world, BlockPos spot) {
+		net.minecraft.block.BlockState planks = Blocks.SPRUCE_PLANKS.getDefaultState();
+		for (int x = CABIN; x <= CABIN + 4; x++) {
+			for (int z = -3; z <= 3; z++) {
+				boolean front = x == CABIN || x == CABIN + 4;
+				boolean edge = front || Math.abs(z) == 3;
+				boolean corner = front && Math.abs(z) == 3;
+				world.setBlockState(cell(spot, x, -1, z), planks);
+				for (int y = 0; y <= 2; y++) {
+					BlockState s;
+					if (!edge) {
+						s = Blocks.AIR.getDefaultState();
+					} else if (corner) {
+						s = Blocks.STRIPPED_SPRUCE_LOG.getDefaultState();
+					} else if (x == CABIN && y == 1) {
+						s = Math.abs(z) == 2 ? Blocks.GLASS_PANE.getDefaultState() : planks;
+					} else {
+						s = Blocks.SPRUCE_LOG.getDefaultState().with(net.minecraft.block.PillarBlock.AXIS,
+								front ? net.minecraft.util.math.Direction.Axis.Z : net.minecraft.util.math.Direction.Axis.X);
+					}
+					world.setBlockState(cell(spot, x, y, z), s);
+				}
+				world.setBlockState(cell(spot, x, 3, z), planks);
+				if (x >= CABIN + 1 && x <= CABIN + 3) {
+					world.setBlockState(cell(spot, x, 4, z), planks);
+				}
+				if (x == CABIN + 2) {
+					world.setBlockState(cell(spot, x, 5, z), planks);
+				}
+			}
+		}
+		// A door in the north side, a table and a chest, a lantern.
+		BlockPos door = cell(spot, CABIN + 2, 0, -3);
+		world.setBlockState(door, Blocks.SPRUCE_DOOR.getDefaultState().with(net.minecraft.block.DoorBlock.FACING, net.minecraft.util.math.Direction.NORTH));
+		world.setBlockState(door.up(), Blocks.SPRUCE_DOOR.getDefaultState().with(net.minecraft.block.DoorBlock.FACING, net.minecraft.util.math.Direction.NORTH)
+				.with(net.minecraft.block.DoorBlock.HALF, net.minecraft.block.enums.DoubleBlockHalf.UPPER));
+		world.setBlockState(cell(spot, CABIN + 3, 0, 2), Blocks.CRAFTING_TABLE.getDefaultState());
+		world.setBlockState(cell(spot, CABIN + 3, 0, -2), Blocks.BARREL.getDefaultState());
+		world.setBlockState(cell(spot, CABIN + 2, 2, 0), Blocks.LANTERN.getDefaultState().with(net.minecraft.block.LanternBlock.HANGING, true));
 	}
 
 	// The chain reel.
@@ -1491,17 +1844,6 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		}
 	}
 
-	/**
-	 * The camera on you turning on the one {@code angle} from east of {@code you}: off to one side ({@code side} degrees
-	 * round from it), {@code far} out and {@code high} up, looking past you at it.
-	 */
-	private static void victimShot(Vec3d you, float angle, double side, double far, double high) {
-		Vec3d chest = you.add(0.0, 1.1, 0.0);
-		Vec3d it = you.add(way(angle).multiply(RING_OFF)).add(0.0, 1.0, 0.0);
-		Vec3d at = framed(you.add(way(angle).rotateY((float) Math.toRadians(side)).multiply(far)).add(0.0, high, 0.0), chest);
-		fixed(at, chest.lerp(it, 0.45));
-	}
-
 	private static void fixed(Vec3d at, Vec3d look) {
 		Capture.Pose pose = look(at, look);
 		Capture.camera = t -> pose;
@@ -1540,32 +1882,6 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		zombie.setHealth(health);
 		world.spawnEntity(zombie);
 		ZOMBIES.add(zombie.getId());
-	}
-
-	/**
-	 * A little village hut round {@code feet} (you in it, its front wall {@link #HUT_FRONT} east of you): a cobblestone
-	 * course, oak plank walls between log corners, a plank roof.
-	 */
-	private static void hut(ServerWorld world, BlockPos feet) {
-		for (int x = -3; x <= HUT_FRONT; x++) {
-			for (int z = -2; z <= 2; z++) {
-				boolean edge = x == -3 || x == HUT_FRONT || Math.abs(z) == 2;
-				boolean corner = (x == -3 || x == HUT_FRONT) && Math.abs(z) == 2;
-				world.setBlockState(cell(feet, x, -1, z), Blocks.COBBLESTONE.getDefaultState());
-				for (int y = 0; y <= 3; y++) {
-					BlockState state = !edge ? Blocks.AIR.getDefaultState()
-							: corner ? Blocks.OAK_LOG.getDefaultState()
-							: y == 0 ? Blocks.COBBLESTONE.getDefaultState() : Blocks.OAK_PLANKS.getDefaultState();
-					world.setBlockState(cell(feet, x, y, z), state);
-				}
-				world.setBlockState(cell(feet, x, 4, z), Blocks.OAK_PLANKS.getDefaultState());
-			}
-		}
-		// A window each side, a torch inside.
-		world.setBlockState(cell(feet, -1, 2, 2), Blocks.GLASS_PANE.getDefaultState());
-		world.setBlockState(cell(feet, -1, 2, -2), Blocks.GLASS_PANE.getDefaultState());
-		world.setBlockState(cell(feet, -2, 2, 0), Blocks.WALL_TORCH.getDefaultState().with(net.minecraft.block.WallTorchBlock.FACING,
-				net.minecraft.util.math.Direction.fromRotation(facing)));
 	}
 
 	/** The way to the {@code i}th zombie from you, flat. */
@@ -1753,6 +2069,10 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 			pochitaSet(server, player, world);
 			return;
 		}
+		if ("saws".equals(target())) {
+			sawsSet(server, player, world);
+			return;
+		}
 		BlockPos village = world.locateStructure(StructureTags.VILLAGE, player.getBlockPos(), 100, false);
 		if (village == null) {
 			ShootingStar.LOGGER.error("[selftest] showcase: no village found");
@@ -1841,9 +2161,6 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 						}
 					}
 				}
-			} else {
-				hut(world, spot);
-				zombie(world, local(WAITING.x, 0.0, WAITING.z), facing + 180.0F, 6.0F);
 			}
 		} else if ("held".equals(target())) {
 			// Pochita in your hands, yourself (not your heart yet).
