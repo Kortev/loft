@@ -89,10 +89,16 @@ def build():
     for X, base, s, part in ((97, 63, 9, 'trunk'), (84, 63, 8, 'trunk'), (70, 60, 7, 'trunk'), (50, 54, 6, 'rear'), (39, 54, 5, 'rear')):
         plane(part, 'fin', X - s * 0.7, X + s * 0.6, base - 1, base + s, [(X - s * 0.7, base - 1), (X + s * 0.6, base - 1), (X - s * 0.55, base + s)])
     # Three eyes up each side, the front one biggest and lowest: a box standing out of his side, painted round.
-    for X, h, s, side in ((114, 42, 9, 20), (102, 48, 8, 24), (92, 52, 7, 24)):
+    # (Each eye is a part of its own, hinged at its middle, so the game can roll it: the boxes are just where they were.)
+    for n, (X, h, s, side) in enumerate(((114, 42, 9, 20), (102, 48, 8, 24), (92, 52, 7, 24))):
         for sign in (1, -1):
             x0 = side - 1 if sign > 0 else -side - 3
-            bb.add_box('head' if X > 106 else 'trunk', 'eye', x0, Y(h + s / 2.0), Z(X + s / 2.0), 4, s, s, side=sign)
+            parent = 'head' if X > 106 else 'trunk'
+            ox, oy, oz = bb.absolute_pivot(parent)
+            mid = (x0 + 2.0 - ox, Y(h + s / 2.0) + s / 2.0 - oy, Z(X + s / 2.0) + s / 2.0 - oz)
+            name = 'eye_%d_%s' % (n, 'r' if sign > 0 else 'l')
+            bb.part(name, parent, mid)
+            bb.add_box(name, 'eye', -2.0, -s / 2.0, -s / 2.0, 4, s, s, local=True, side=sign)
     # The small fins low on his flanks, out and back.
     for sign in (1, -1):
         name = 'pectoral_r' if sign > 0 else 'pectoral_l'

@@ -44,10 +44,6 @@ final class BeamLayout {
 				.uv(48, 215).cuboid(0F, -2F, -27.4F, 0, 10, 12)
 				.uv(356, 215).cuboid(0F, -1F, -13.8F, 0, 9, 10)
 				.uv(428, 215).cuboid(0F, 3F, 0.8F, 0, 8, 9)
-				.uv(446, 215).cuboid(23F, 18F, -31F, 4, 8, 8)
-				.uv(470, 215).cuboid(-27F, 18F, -31F, 4, 8, 8)
-				.uv(0, 238).cuboid(23F, 14.5F, -20.5F, 4, 7, 7)
-				.uv(22, 238).cuboid(-27F, 14.5F, -20.5F, 4, 7, 7)
 				, ModelTransform.pivot(0F, 0F, 0F));
 		ModelPartData head = trunk.addChild("head", ModelPartBuilder.create()
 				.uv(0, 74).cuboid(-20F, -25F, -26F, 40, 25, 26)
@@ -56,8 +52,6 @@ final class BeamLayout {
 				.uv(198, 125).cuboid(-19F, -25F, -36F, 38, 23, 10)
 				.uv(286, 215).cuboid(-15F, -19F, -41F, 30, 14, 5)
 				.uv(0, 125).cuboid(-17F, 0F, -34F, 34, 3, 33)
-				.uv(376, 215).cuboid(19F, -15.5F, -12.5F, 4, 9, 9)
-				.uv(402, 215).cuboid(-23F, -15.5F, -12.5F, 4, 9, 9)
 				, ModelTransform.pivot(0F, 39F, -31F));
 		ModelPartData jaw = head.addChild("jaw", ModelPartBuilder.create()
 				.uv(132, 74).cuboid(-17F, 0F, -31F, 34, 15, 31)
@@ -73,6 +67,12 @@ final class BeamLayout {
 				, ModelTransform.pivot(0F, 34F, 19F));
 		ModelPartData stalk = rear.addChild("stalk", ModelPartBuilder.create().uv(466, 190).cuboid(-5F, -5F, 0F, 10, 10, 13), ModelTransform.pivot(0F, 0F, 28F));
 		ModelPartData tail = stalk.addChild("tail", ModelPartBuilder.create().uv(284, 0).cuboid(0F, -27F, -1F, 0, 45, 16), ModelTransform.pivot(0F, 0F, 12F));
+		ModelPartData eye_0_r = head.addChild("eye_0_r", ModelPartBuilder.create().uv(376, 215).cuboid(-2F, -4.5F, -4.5F, 4, 9, 9), ModelTransform.pivot(21F, -11F, -8F));
+		ModelPartData eye_0_l = head.addChild("eye_0_l", ModelPartBuilder.create().uv(402, 215).cuboid(-2F, -4.5F, -4.5F, 4, 9, 9), ModelTransform.pivot(-21F, -11F, -8F));
+		ModelPartData eye_1_r = trunk.addChild("eye_1_r", ModelPartBuilder.create().uv(446, 215).cuboid(-2F, -4F, -4F, 4, 8, 8), ModelTransform.pivot(25F, 22F, -27F));
+		ModelPartData eye_1_l = trunk.addChild("eye_1_l", ModelPartBuilder.create().uv(470, 215).cuboid(-2F, -4F, -4F, 4, 8, 8), ModelTransform.pivot(-25F, 22F, -27F));
+		ModelPartData eye_2_r = trunk.addChild("eye_2_r", ModelPartBuilder.create().uv(0, 238).cuboid(-2F, -3.5F, -3.5F, 4, 7, 7), ModelTransform.pivot(25F, 18F, -17F));
+		ModelPartData eye_2_l = trunk.addChild("eye_2_l", ModelPartBuilder.create().uv(22, 238).cuboid(-2F, -3.5F, -3.5F, 4, 7, 7), ModelTransform.pivot(-25F, 18F, -17F));
 		ModelPartData pectoral_r = trunk.addChild("pectoral_r", ModelPartBuilder.create().uv(306, 190).cuboid(0F, 0F, 0F, 0, 9, 15), ModelTransform.of(23F, 52F, -11F, 0F, 0F, -0.7F));
 		ModelPartData pectoral_l = trunk.addChild("pectoral_l", ModelPartBuilder.create().uv(336, 190).cuboid(0F, 0F, 0F, 0, 9, 15), ModelTransform.of(-23F, 52F, -11F, 0F, 0F, 0.7F));
 		ModelPartData leg_fr = trunk.addChild("leg_fr", ModelPartBuilder.create(), ModelTransform.pivot(18F, 60F, -27F));
