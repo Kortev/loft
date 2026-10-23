@@ -140,6 +140,10 @@ loom {
 			vmArg "-Dshootingstar.selftest.target=${project.findProperty('target') ?: ''}"
 			// -Pcapture=true: the form self test's part also as a video (FormSelfTest).
 			vmArg "-Dshootingstar.selftest.capture=${project.findProperty('capture') ?: ''}"
+			// -Pjvmargs="-Xmx2500m ...": more JVM flags, for a PC short of memory (the game's own heap would otherwise grow to a quarter of it).
+			if (project.findProperty('jvmargs')) {
+				project.findProperty('jvmargs').toString().split(' ').each { vmArg it }
+			}
 			runDir "build/selftest"
 			source sourceSets.gametest
 			// The window's size (-Pwidth, -Pheight: the film self tests are 1080x1920, for Shorts) and who plays (-Pusername).

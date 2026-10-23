@@ -103,34 +103,94 @@ tall within 3 blocks of you, else the action bar says so and nothing is spent) a
   **The chain is his reins**: `ChainRender.reins` draws two strips of the form's chain from the rider's hands (low in front of you
   in your own eyes) to the corners of his mouth. The rider stands on the middle of his back (`SawPose.ride`: knees bent, feet
   apart, arms forward on the reins, or held out grinding).
-- **Riding** (`form/Beam.java`; `BeamEntity` is a plain `Entity`, not saved, server-driven: `getControllingPassenger()` is
-  nobody; hitbox 2 x 2.4; the game's own collision, `getStepHeight()` 2, and his own gravity): the forward key walks him the
-  way you look (turning 12 degrees a tick, up to 0.6 blocks a tick, back stops, strafe nudges); he steps up a block or two and
-  stops at a wall. Your keys while riding (an action-bar line shows them with your own key names, at the start and again at
+- **Riding, second version: he swims through the ground** (2026-10-23, phase 1 of "Beam with a soul"; kortev on the first reel: "it just
+  looks dumb, it's not the crazy action stuff we see in the movie, it feels soulless"). `form/Beam.java`; `BeamEntity` is a plain `Entity`,
+  not saved, server-driven: `getControllingPassenger()` is nobody; hitbox 2 x 2.4; **no game collision at all now**: `Beam.travel` sets
+  his place from his own rules. Your keys while riding (an action-bar line shows them with your own key names, at the start and again at
   2.5 s):
-  **attack = bite** (`FormActionPayload.SLASH` goes to `Beam.bite` through `Saw.slash`; no swing is predicted on the client):
-  everything in a cone about 3.5 blocks in front of his mouth takes 16 of **your** `playerAttack` damage (kills are yours
-  through `Saw.init`'s `AFTER_DEATH`), survivors are flung (1.2 up, 1.5 forward as velocity), at most every 12 ticks (a click up
-  to 2 ticks early still counts, as for the slash); **hold attack = your saws grind** from his back as before;
-  **use = charge** (`LUNGE` goes to `Beam.charge` through `Saw.lunge`): 9 blocks in 8 ticks, 12 damage once to each thing in
-  the way, flung aside, every 30 ticks, with the lunge's speed lines and wider view (`ClientCombat.lunging` reads his
-  `sinceCharge`); **jump = leap**: about 4 up and 8 forward on ballistic physics, crashing down in a ring of the ground's
-  blocks with 16 damage to everything within 3 blocks (every 40 ticks); **sneak = get off** (he dives). The chain key is off
-  while you ride. A rider spared the fall of getting off in the air (`SAFE`), and the `IN_WALL` damage of his head in a roof.
-- **Sounds** (synthesised, `tools/gen_chainsaw_sounds.py`, unchanged from the first version): `beam_burst`, `beam_swim` (now
-  his pounding feet, looped, louder with his speed, silent standing), `beam_bite`, `beam_dive`. **Only checked as files, not by
-  ear.**
-- **Tests**: ten Beam game tests in `FormGameTests` (86 in all, all passing, also after v6): summon, refused, walks the way you look,
-  stops at a wall, the slash becomes a bite (16 damage, flung, behind untouched, no second at once), the lunge becomes a charge
-  (dashes, 12 once, flung aside), leap, dives on sneak, on leaving the form, after 20 s. `./gradlew runSelftest -Pselftest=showcase
-  -Ptarget=beamlook -Pusername=Kortev` photographs him in daylight (`build/selftest/screenshots/showcase_beamlook_*.png`: side,
-  front (three quarters), front_flat, low (framed as kortev's still), tail, behind, mouth with a husk in front, two bites, the charge, the
-  leap, walking, your own eyes). `side` and `front_flat` are taken 48 blocks off through a 22.6 degree lens so they are near
-  orthographic and lay over the drawings (the test window is 1080 x 1920, tall: the lens is the vertical field).
-- **Not verified**: the sounds by ear; how his motion *feels* (the glide between the server's positions, turn rate, stepping up
-  over trees and buildings, the camera on his back in first person: only photographed and logged); multiplayer; a shader pack.
-  The reel `beam` in `ShowcaseSelfTest` was set for an older, smaller Beam with automatic bites (he now bites only on the
-  attack key): it needs a `Saw.slash` per bite and cameras for his 9 blocks before it is filmed again.
+  - **Moving = swimming.** The forward key sends him the way you look (turning 11 degrees a tick; up to `Beam.SPEED` = 1.2 blocks a tick,
+    24 a second, reached with a surge of 0.24 a tick; back stops, strafe nudges). Moving he **sinks `SINK` = 2.7 blocks** into the ground
+    (only his back, spikes and you above it; `ride.swim` 0 to 1 at 0.1 a tick, so half a second each way) and **follows the ground**:
+    `surfaceAt` finds the standable top within 2 up and 8 down (a wall column has none; where the ground has dropped away it looks 48
+    down) under his middle and 3 ahead and behind, averaged, the height eased a tick at a time (never a step), the pitch from the slope.
+    Stopped (speed under 0.05, no key) he **rises onto his crab legs**; the legs fold up while he swims or is in the air
+    (`BeamModel.animate`, the entity's tracked `SWIM`). Water counts as ground (he swims along a lake's top).
+  - **Through walls**: `Beam.plow` breaks, every tick, the solid blocks of his lane (from 2 behind to 5.2 ahead of his middle, 1.75 each
+    side, from the ground up to the rider's head, 2 high at the snout) that are not in a column he can climb (`surfaceAt` not NaN: steps,
+    hills, low walls are ground, not obstacles) and not too hard (`TOO_HARD`, hardness 20: obsidian, bedrock and the like are swum
+    under), nearest first, at most `PLOW_CAP` = 36 a tick: `world.breakBlock(pos, false)` (the break sound and particles, no drops), and
+    about one in three (at most 4 a tick) becomes a `FallingBlockEntity` thrown ahead and up, destroyed on landing and after
+    `DEBRIS_LASTS` = 24 ticks (`Ride.debris`, `sweep`). **`mobGriefing` off: nothing is broken**; he swims under, pushed 0.9 lower
+    (`ride.under`) while a wall is in his lane, and the rider clips through it (the `IN_WALL` damage of a rider on Beam is cancelled).
+  - **The wake** (`Beam.wake`, server particles): the ground's own block particles (`spray`) thrown up and out in a V from either side of
+    his head, along his flank, his fin and behind his tail, plus dust clouds of the ground's colour: up to about 35 packets a tick at full
+    speed. The churn sound is `beam_swim`, a 0.6 s one-shot that `BeamClient` plays every 6 ticks while he swims (volume and pitch from
+    his speed): **not a loop, because `Capture` logs a sound once, at its start, and could not mix a loop into a test clip.**
+  - **Shape of the motion**: the tail beats an S (trunk, rear, stalk, tail yaw as a travelling wave, amplitudes 0.08 / 0.28 / 0.45 / 0.7 rad
+    times his speed), he leans into turns (`BeamRenderer` rolls the model by his turn rate; checked from inside a U-turn: the inner side
+    goes down), **porpoises** (`BOB` 0.36 blocks, his pitch with it, from `ride.wave`) and at full speed, every 36 to 66 ticks, **arcs out
+    of the ground and back in** (`ARC_UP` 1.7, 18 ticks, a spray each end). His pitch and height go to the clients in his place (the
+    glide is 2 ticks).
+  - **attack = bite** (`FormActionPayload.SLASH` goes to `Beam.bite` through `Saw.slash`; no swing is predicted on the client): he
+    **lunges up out of the ground** (`ride.lunge`, 10 ticks) and everything in a cone about 3.5 blocks in front of his mouth takes 16 of
+    **your** `playerAttack` damage (kills are yours through `Saw.init`'s `AFTER_DEATH`), survivors are flung (1.2 up, 1.5 forward as
+    velocity), at most every 12 ticks (a click up to 2 ticks early still counts, as for the slash). The mouth (`Beam.mouth`) is measured as
+    if he stood on the ground. **hold attack = your saws grind** from his back as before.
+  - **use = charge** (`LUNGE` goes to `Beam.charge` through `Saw.lunge`): now `CHARGE_BLOCKS` = 12 in 8 ticks (faster than his cruise),
+    12 damage once to each thing in the way, flung aside, every 30 ticks, rising to the surface as it goes, with the lunge's speed lines
+    and wider view (`ClientCombat.lunging` reads his `sinceCharge`).
+  - **jump = breach**: out of the ground `LEAP_UP` 5.2 blocks above the level he swims at (so about 2.5 above the ground), `LEAP_LONG` 14
+    forward (at least as fast as he was going) on ballistic physics (16 ticks), nose up then down; **where he goes back in** (`land`) a
+    ring and two big sprays of the ground and 16 damage to everything within 3.2 blocks, every 40 ticks. The clients get `LAND_AT` (the
+    camera jolt).
+  - **sneak = get off** (he dives from where he is and you are put on the ground above him; not while he is in the air). The chain key is
+    off while you ride. A rider is spared the fall of getting off in the air (`SAFE`), and the `IN_WALL` damage of his head in a roof.
+  - **Summoning** (`POP_TICKS` = 26; your keys are his after that): he comes up from 3 blocks down, flies out of the ground, lands on his
+    legs and hops once for joy; the clients (all on `BeamEntity.age`, in `BeamModel.animate`) thrash his body and tail, curl his head up
+    and back to look at you with his jaw flung wide, and `beam_screech` sounds at tick 7.
+  - **Personality** (all the client's, `BeamEntity.look` and `BeamModel`): standing, **his tail wags** like a dog's (`wag`), **his three
+    eyes dart** (each eye is now **its own part, hinged at its middle**: `tools/beam_mob.py` makes them parts with the same boxes, the
+    same places and the same texture, so his look is unchanged; the model rolls and slides them a hair: `eyes[][]`), **his jaw chatters**
+    (a run of five snaps every 3 to 5 seconds, with `beam_chatter`), and **his head turns to the nearest `MobEntity` within 16 blocks**
+    (re-chosen every 8 ticks, eased; with nothing near, a slow glance about). **After a kill from his back** (`AFTER_DEATH` in
+    `Beam.init`; tracked `HAPPY_AT`) a happy chomp (two quick snaps and `beam_bite` pitched up) and a wiggle of his rear.
+  - **Feel for the rider** (`BeamClient`): the view widens up to 11 percent with his speed (`fov`, through `ClientCombat.fov`), and the
+    camera shakes a little (`shake`, through `FormCinematic.shake`: 0.009 blocks at full speed, 0.07 at the breach's crash, fading in 5
+    ticks). Only seen on the test clip, not judged in a real ride.
+  - He is **lit where his back is** (`BeamRenderer.getBlockLight` / `getSkyLight`): the game lights an entity by the block at its eyes,
+    which inside the ground is dark (he drew black). `Beam.room` now tests a tenth up, not a hundredth: a dirt path is a sixteenth lower
+    than the grass beside it, and the summoning was refused standing on one.
+- **Sounds** (synthesised, `tools/gen_chainsaw_sounds.py`; **only checked as files and by the numbers, not by ear**): `beam_burst`,
+  `beam_swim` (the 0.6 s churn above), `beam_bite`, `beam_dive`, and new `beam_screech` (a shrill whoop, a yip and a cackle) and
+  `beam_chatter` (five clacks).
+- **Tests**: 15 Beam game tests in `FormGameTests` (92 in all, all passing): summon, refused, **sinks when moving (fast, the rider above
+  the ground) and rises when stopped**, **tears through a wall with `mobGriefing` on** (his lane broken, the wall beside it not, the
+  debris gone later), **swims under it with the rule off, and under obsidian with it on**, follows a hill (never a step of a block in a
+  tick), the slash becomes a bite (16 damage, flung, behind untouched, no second at once), **a kill pleases him**, the lunge becomes a
+  charge, leap, **breaches while swimming**, dives on sneak (and the rider is put on the ground), on leaving the form, after 20 s. The
+  test floor is `ground(context, on, length)` and keeps its chunks loaded (he stops at the edge of what is). `./gradlew runSelftest
+  -Pselftest=showcase -Ptarget=beamlook -Pusername=Kortev` photographs him in daylight as before (the shots predate swimming: they show
+  him standing).
+- **The test clip `beamswim`** (not a reel: no captions, no title; a clip for kortev to judge how he moves): `./gradlew runSelftest
+  -Pselftest=showcase -Ptarget=beamswim -Pusername=Kortev -Pcapture=true "-Pjvmargs=-Xmx2600m -XX:TieredStopAtLevel=1"` (the `jvmargs`
+  is for a PC short of memory: the game died with "insufficient memory" twice with its default 8 GB heap, with the machine's commit
+  nearly full), then `python work/tools/mux-audio-noprobe.py build/selftest/capture work/beam_soul/clip.mp4` and a gain of 1.8 dB with a
+  limiter, for a mean of about -17 dB. 1080 x 1920, 15.9 s. The set (`swimSet`): a flat green field made at a fixed place in the test
+  world (`SW_SPOT`, running east at 376 73 -424; everything on it up to 14 blocks above the ground is cleared), two dirt paths (the way
+  out and the way back), fence posts with lanterns, trees, a built house across the way out. The route is a loop: out 100 blocks,
+  **through the house**, a half circle to the left, back on a parallel line. The beats: the summoning (a camera low in front: the burst,
+  the thrash, the look back, the screech), the surge away (from behind), alongside and low, **above and behind** (his back, the S, the V
+  of the ground), the house from the side and from beyond it, the U-turn from its middle (leaning), the breach (the real jump key) from
+  low between the ways, **your own eyes** on his back (2.6 s), then he stops, rises on his legs and idles in a broadside shot (tail,
+  eyes, chatter, head on two real husks coming at him with their own AI), and in a close shot bites one dead with the real attack key and
+  chomps. Nothing is faked but spawn spots, timing and cameras (your keys are the real ones).
+- **Not verified**: the sounds by ear; how his motion *feels* in a real game (the glide between the server's positions at 24 blocks a
+  second, the camera shake and wider view in first person: only photographed); multiplayer; a shader pack; riding over water, lava,
+  trees, a real village, caves and cliffs (the tests are a flat floor, a wall and a hill). **What still looks stiff** (from the clip): in
+  your own eyes his back is a flat blue slab filling the bottom of the picture (the model is big flat boxes; only the spray and the
+  passing ground show speed); only the top 1.2 blocks of him show while he swims, so the S of his body is read from the tail's swing and
+  from above, not from a low side camera; the burst-up at the summoning is a fixed ballistic hop, the same every time. The old `beam`
+  reel in `ShowcaseSelfTest` (and `beamlook`'s walking shots) were set for the walking Beam and are not refilmed.
 
 **Latest (2026-10-22, afternoon) — read this first:**
 - **Tree felling (2026-10-23, kortev asked for it):** in the form, sawing through a tree's trunk brings the whole tree
@@ -173,7 +233,7 @@ tall within 3 blocks of you, else the action bar says so and nothing is spent) a
 - **Usage setup**: prompt suggestions off; `.claude/settings.json` has a SessionStart "compact" hook that re-prints
   this section after a compaction. Third-party compaction plugins were checked and skipped (unverifiable).
 
-**Next**: film Beam's showcase reel (v8 look approved 2026-10-23).
+**Next**: kortev judges the `beamswim` test clip (2026-10-23; `work/beam_soul/clip.mp4`, git-ignored, on GraehamsPC); then phase 2 of "Beam with a soul" (the big moves: a burst-up ambush, the rider launch, grab and thrash, impacts); then film Beam's showcase reel again.
 
 **kortev's queue of ideas** (ask before building any): the ult is Beam now (above; the frenzy was dropped for looking the
 same as normal attacks); the merge dead

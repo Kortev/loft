@@ -220,7 +220,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		// The Beam reel's raiders really do shoot at you (and must be able to target you, so you are not invulnerable); what they
 		// hit you with does you no harm and sets nothing off (the mod answers a hurt player in its own ways).
 		net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) ->
-				!("beam".equals(target()) && stage != null && entity instanceof ServerPlayerEntity));
+				!(("beam".equals(target()) || swim()) && stage != null && entity instanceof ServerPlayerEntity));
 		ClientTickEvents.END_CLIENT_TICK.register(ShowcaseSelfTest::tick);
 		HudRenderCallback.EVENT.register((context, counter) -> {
 			if (stage == Stage.RUN) {
@@ -252,7 +252,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 				ticks = 0;
 			}
 			case SETTLE -> {
-				if ("beam".equals(target()) && client.player != null) {
+				if (("beam".equals(target()) || swim()) && client.player != null) {
 					// Your own eyes from the very first frame, already looking the way he will go.
 					client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
 					client.player.setYaw(facing);
@@ -266,7 +266,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 				if (origin != null && originSeen < 0) {
 					originSeen = ticks;
 				}
-				if (ticks > 100 && originSeen >= 0 && ticks - originSeen > 100 && (!"beam".equals(target()) || ticks > 600 || Form.fighting(player(server)))) {
+				if (ticks > 100 && originSeen >= 0 && ticks - originSeen > 100 && (!("beam".equals(target()) || swim()) || ticks > 600 || Form.fighting(player(server)))) {
 					stage = Stage.RUN;
 					ticks = 0;
 				}
@@ -291,6 +291,8 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 					beamlook(client, server, ticks);
 				} else if ("beam".equals(target())) {
 					beam(client, server, ticks);
+				} else if (swim()) {
+					beamswim(client, server, ticks);
 				} else if ("merge".equals(target())) {
 					merge(client, server, ticks);
 				} else {
@@ -1592,7 +1594,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		if (!active() || stage != Stage.RUN) {
 			return 0.0F;
 		}
-		if ("beam".equals(target())) {
+		if ("beam".equals(target()) || swim()) {
 			return beamLens;
 		}
 		return "beamlook".equals(target()) ? beamLookLens : 0.0F;
@@ -2667,7 +2669,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 	// captions don't cover it.
 
 	private static void lettering(DrawContext context, double t) {
-		if ("beamlook".equals(target())) {
+		if ("beamlook".equals(target()) || swim()) {
 			// (Photographs of Beam, nothing written over them.)
 			return;
 		}
@@ -2721,6 +2723,457 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		}
 		context.drawText(font, text, left, top, color, false);
 		context.getMatrices().pop();
+	}
+
+	// The beamswim test clip (kortev, 2026-10-23: Beam "feels soulless"; this shows how he moves now, for kortev to judge, not a reel:
+	// no captions, no title). A village field in daylight made level, a house in the way: you are already Chainsaw Man; Beam is
+	// called up (the burst, the thrash for joy, the look back, the screech), swims off fast (the forward key), straight through the
+	// house, round a U-turn (leaning), breaches once (the jump key), runs on with you in your own eyes, then stops and rises onto his
+	// legs and idles with two husks coming at you (their own AI), one of which he bites (the attack key) for the kill and the
+	// happy chomp. The route is a loop: out along the field's length, a half circle to the left, back on a parallel line.
+
+	/** The ticks of it: the forward key down, the U-turn's start and end, the jump key, the forward key up, the end. */
+	private static final int SW_FORWARD = 40;
+	private static final int SW_TURN = 126;
+	private static final int SW_TURN_END = 152;
+	private static final int SW_JUMP = 152;
+	private static final int SW_STOP = 222;
+	private static final int SW_END = 318;
+	/** The house's front wall is this far from where you start; the outward leg is this long; the half circle's radius (blocks). */
+	private static final int SW_HOUSE = 60;
+	private static final int SW_LEG = 100;
+	private static final double SW_R = 8.6;
+	/** Where the field is (a flat stretch of the test world's grass near its village), and the way it runs; null to search for it again. */
+	private static final BlockPos SW_SPOT = new BlockPos(376, 73, -424);
+	private static final float SW_FACING = -90.0F;
+	private static int swimBites;
+	private static int swimLastBite;
+	private static boolean swimHusks;
+	private static Vec3d swimStopped;
+
+	private static boolean swim() {
+		return "beamswim".equals(target());
+	}
+
+	/** How many of a grid of samples over the field (every 6 blocks, 110 long, 24 to the right and 40 to the left) are not dry ground within 3 of {@code spot}'s height, facing {@link #facing}. */
+	private static int swimBad(ServerWorld world, BlockPos spot) {
+		int bad = 0;
+		for (int x = -6; x <= 112; x += 6) {
+			for (int z = -24; z <= 40; z += 8) {
+				BlockPos c = cell(spot, x, 0, z);
+				world.getChunk(c.getX() >> 4, c.getZ() >> 4);
+				// (The ground under the leaves: a tree here and there is no matter, a roof or a lake is.)
+				BlockPos top = world.getTopPosition(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, c);
+				BlockState ground = world.getBlockState(top.down());
+				boolean grass = ground.isOf(Blocks.GRASS_BLOCK) || ground.isOf(Blocks.DIRT) || ground.isOf(Blocks.COARSE_DIRT) || ground.isOf(Blocks.PODZOL);
+				if (!grass) {
+					bad += 3;
+				} else if (Math.abs(top.getY() - spot.getY()) > 4) {
+					bad += 2;
+				}
+			}
+		}
+		return bad;
+	}
+
+	/** The best place near {@code near} for the clip's field (the flattest, driest and clearest), facing the best way; it sets {@link #facing}. */
+	private static BlockPos swimSpot(ServerWorld world, BlockPos near) {
+		BlockPos best = null;
+		float bestFacing = FACING;
+		int bestBad = Integer.MAX_VALUE;
+		search:
+		for (int r = 0; r <= 5; r++) {
+			for (int dx = -r; dx <= r; dx++) {
+				for (int dz = -r; dz <= r; dz++) {
+					if (Math.max(Math.abs(dx), Math.abs(dz)) != r) {
+						continue;
+					}
+					BlockPos spot = standing(world, near.getX() + dx * 40, near.getZ() + dz * 40);
+					if (spot == null) {
+						continue;
+					}
+					for (int turn = 0; turn < 4; turn++) {
+						facing = FACING + 90.0F * turn;
+						int bad = swimBad(world, spot);
+						if (bad < bestBad) {
+							bestBad = bad;
+							best = spot;
+							bestFacing = facing;
+							ShootingStar.LOGGER.info("[selftest] beamswim: candidate {} facing {}: {} bad", spot, facing, bad);
+						}
+						if (bestBad <= 40) {
+							break search;
+						}
+					}
+				}
+			}
+		}
+		facing = bestFacing;
+		return best != null ? best : near;
+	}
+
+	/** A block {@code x} ahead of {@code spot} and {@code left} to the left of the route (the other way round to {@link #cell}). */
+	private static BlockPos at(BlockPos spot, int x, int y, int left) {
+		return cell(spot, x, y, -left);
+	}
+
+	/**
+	 * The field: levelled, two paths (the way out and the way back), fence posts with lanterns beside them, and a house across the
+	 * way out ({@link #SW_HOUSE} ahead): cobblestone and planks, a gabled roof of stairs, doorways front and back, windows, a table.
+	 */
+	private static void swimBuild(ServerWorld world, BlockPos spot) {
+		swimLevel(world, spot);
+		BlockState path = Blocks.DIRT_PATH.getDefaultState();
+		int back = (int) Math.round(2 * SW_R);
+		for (int x = -6; x <= SW_LEG; x++) {
+			world.setBlockState(at(spot, x, -1, 0), path);
+			world.setBlockState(at(spot, x, -1, back), path);
+			if (x % 9 == 0 && x >= 18 && x < SW_HOUSE - 18) {
+				for (int side : new int[] {-5, back + 5}) {
+					BlockPos post = at(spot, x, 0, side);
+					world.setBlockState(post, Blocks.OAK_FENCE.getDefaultState());
+					world.setBlockState(post.up(), Blocks.OAK_FENCE.getDefaultState());
+					world.setBlockState(post.up(2), Blocks.LANTERN.getDefaultState());
+				}
+			}
+		}
+		int fx = (int) Math.round(-Math.sin(Math.toRadians(facing)));
+		int fz = (int) Math.round(Math.cos(Math.toRadians(facing)));
+		net.minecraft.util.math.Direction ahead = net.minecraft.util.math.Direction.fromVector(fx, 0, fz);
+		net.minecraft.util.math.Direction right = ahead.rotateYClockwise();
+		net.minecraft.util.math.Direction leftSide = ahead.rotateYCounterclockwise();
+		BlockState planks = Blocks.OAK_PLANKS.getDefaultState();
+		BlockState cobble = Blocks.COBBLESTONE.getDefaultState();
+		BlockState log = Blocks.OAK_LOG.getDefaultState();
+		BlockState air = Blocks.AIR.getDefaultState();
+		int h0 = SW_HOUSE;
+		int length = 10;
+		for (int x = h0; x < h0 + length; x++) {
+			for (int z = -3; z <= 3; z++) {
+				boolean end = x == h0 || x == h0 + length - 1;
+				boolean side = Math.abs(z) == 3;
+				boolean corner = end && side;
+				world.setBlockState(at(spot, x, -1, z), end || side ? cobble : Blocks.SPRUCE_PLANKS.getDefaultState());
+				for (int y = 0; y <= 3; y++) {
+					BlockState s = air;
+					if (corner) {
+						s = log;
+					} else if (end || side) {
+						s = y == 0 ? cobble : planks;
+						boolean doorway = end && z == 0 && y <= 1;
+						boolean window = side && (x == h0 + 2 || x == h0 + 3 || x == h0 + 6 || x == h0 + 7) && (y == 1 || y == 2);
+						if (doorway) {
+							s = air;
+						} else if (window) {
+							s = Blocks.GLASS_PANE.getDefaultState();
+						}
+					}
+					world.setBlockState(at(spot, x, y, z), s);
+				}
+				world.setBlockState(at(spot, x, 4, z), planks);
+			}
+		}
+		// The gabled roof: planks under, stairs on the slopes, a little overhang each end.
+		for (int k = 0; k <= 3; k++) {
+			int y = 4 + k;
+			int solid = 3 - k;
+			for (int x = h0 - 1; x <= h0 + length; x++) {
+				for (int z = -solid; z <= solid; z++) {
+					if (x >= h0 && x < h0 + length) {
+						world.setBlockState(at(spot, x, y, z), planks);
+					}
+				}
+				BlockState stairR = Blocks.OAK_STAIRS.getDefaultState().with(net.minecraft.block.StairsBlock.FACING, right);
+				BlockState stairL = Blocks.OAK_STAIRS.getDefaultState().with(net.minecraft.block.StairsBlock.FACING, leftSide);
+				world.setBlockState(at(spot, x, y, -(solid + 1)), stairR);
+				world.setBlockState(at(spot, x, y, solid + 1), stairL);
+			}
+		}
+		world.setBlockState(at(spot, h0 + length - 3, 0, 2), Blocks.CRAFTING_TABLE.getDefaultState());
+		world.setBlockState(at(spot, h0 + length - 3, 0, -2), Blocks.CHEST.getDefaultState());
+		world.setBlockState(at(spot, h0 + 4, 3, 0), Blocks.LANTERN.getDefaultState().with(net.minecraft.block.LanternBlock.HANGING, true));
+	}
+
+	/**
+	 * The field made flat and green whatever was there: everything from the ground up to 14 blocks above it taken away (hills, trees,
+	 * houses, water), grass on top, dirt under, from 8 behind you to the end of the way out and round the half circle, 16 to your
+	 * right and 40 to your left.
+	 */
+	private static void swimLevel(ServerWorld world, BlockPos spot) {
+		BlockState air = Blocks.AIR.getDefaultState();
+		int flags = Block.NOTIFY_LISTENERS | Block.FORCE_STATE;
+		for (int x = -10; x <= SW_LEG + 16; x++) {
+			for (int left = -18; left <= 40; left++) {
+				BlockPos c = at(spot, x, 0, left);
+				world.getChunk(c.getX() >> 4, c.getZ() >> 4);
+				for (int y = 14; y >= 0; y--) {
+					BlockPos p = c.up(y);
+					if (!world.getBlockState(p).isAir()) {
+						world.setBlockState(p, air, flags);
+					}
+				}
+				world.setBlockState(c.down(), Blocks.GRASS_BLOCK.getDefaultState(), flags);
+				for (int y = -2; y >= -5; y--) {
+					BlockState below = world.getBlockState(c.up(y));
+					if (!below.isOpaque() || !below.getFluidState().isEmpty() || below.isOf(Blocks.SAND) || below.isOf(Blocks.SANDSTONE)) {
+						world.setBlockState(c.up(y), Blocks.DIRT.getDefaultState(), flags);
+					}
+				}
+			}
+		}
+		// A few trees in the field, off the way, for the ground to go past.
+		for (int[] at : new int[][] {{12, -10}, {30, -14}, {44, -11}, {76, -13}, {94, -12}, {18, 29}, {52, 30}, {84, 29}, {28, 8}, {68, 9}}) {
+			oak(world, at(spot, at[0], 0, at[1]), 5);
+		}
+	}
+
+	/** The clip's set: the field made, you there already Chainsaw Man (done before the filming starts), nothing else about but the villagers. */
+	private static void swimSet(IntegratedServer server, ServerPlayerEntity player, ServerWorld world) {
+		world.setTimeOfDay(6000);
+		BlockPos spot;
+		if (SW_SPOT != null) {
+			// (The place the search found for the filmed takes, running east: the search itself is thrown off by what a take builds.)
+			spot = SW_SPOT;
+			facing = SW_FACING;
+		} else {
+			// (From the world's spawn, not from where you happen to be: the test world keeps where an earlier take left you.)
+			BlockPos village = world.locateStructure(StructureTags.VILLAGE, world.getSpawnPos(), 100, false);
+			if (village == null) {
+				ShootingStar.LOGGER.error("[selftest] beamswim: no village found");
+				village = player.getBlockPos();
+			}
+			spot = swimSpot(world, village);
+		}
+		ShootingStar.LOGGER.info("[selftest] beamswim: the field at {} facing {}", spot, facing);
+		Vec3d feet = Vec3d.ofBottomCenter(spot);
+		for (Entity e : world.getOtherEntities(player, new net.minecraft.util.math.Box(spot).expand(130.0, 24.0, 130.0))) {
+			if (!(e instanceof ServerPlayerEntity) && !(e instanceof VillagerEntity)) {
+				e.discard();
+			}
+		}
+		if (io.github.kortev.chainsawman.form.Downed.is(player)) {
+			io.github.kortev.chainsawman.form.Downed.up(player);
+		}
+		Form.end(player);
+		player.changeGameMode(GameMode.SURVIVAL);
+		player.getInventory().clear();
+		swimBuild(world, spot);
+		// Not invulnerable (the husks will not go for someone who is), but with so much health that nothing they do could down you.
+		player.getAbilities().invulnerable = false;
+		player.sendAbilitiesUpdate();
+		player.getAttributeInstance(net.minecraft.entity.attribute.EntityAttributes.GENERIC_MAX_HEALTH).setBaseValue(4000.0);
+		player.setHealth(4000.0F);
+		player.getHungerManager().setFoodLevel(20);
+		player.setAttached(Heart.MERGED, true);
+		Blood.set(player, Blood.MAX);
+		player.teleport(world, feet.x, feet.y, feet.z, facing, 5.0F);
+		origin = feet;
+		ZOMBIES.clear();
+		Form.pullCord(player);
+	}
+
+	/** A husk (no burning in the daylight) with its own AI at its own speed, going for you, with {@code health}. */
+	private static void swimHusk(ServerWorld world, Vec3d at, float yaw, float health) {
+		net.minecraft.entity.mob.HuskEntity husk = EntityType.HUSK.create(world);
+		if (husk == null) {
+			return;
+		}
+		int y = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, MathHelper.floor(at.x), MathHelper.floor(at.z));
+		husk.refreshPositionAndAngles(at.x, y, at.z, yaw, 0.0F);
+		husk.setHeadYaw(yaw);
+		husk.setBodyYaw(yaw);
+		husk.initialize(world, world.getLocalDifficulty(husk.getBlockPos()), net.minecraft.entity.SpawnReason.EVENT, null);
+		husk.setPersistent();
+		husk.setHealth(health);
+		world.spawnEntity(husk);
+		ZOMBIES.add(husk.getId());
+	}
+
+	/** Your own eyes on his back, as he swims: the sway of a rider, looking where you look. */
+	private static void swimEyes(MinecraftClient client) {
+		client.options.setPerspective(Perspective.FIRST_PERSON);
+		beamLens = 0.0F;
+		Capture.camera = t -> {
+			float partial = (float) (t - Math.floor(t));
+			Vec3d p = client.player.getLerpedPos(partial);
+			return new Capture.Pose(p.x, p.y + 1.62, p.z, client.player.getYaw(partial), client.player.getPitch(partial));
+		};
+	}
+
+	/** A camera standing where it is put, looking at him wherever he goes (at you on his back, {@code lookHigh} up from your feet). */
+	private static void swimStand(MinecraftClient client, Vec3d at, double lookHigh, float lens) {
+		client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
+		beamLens = lens;
+		Capture.camera = t -> look(at, client.player.getLerpedPos((float) (t - Math.floor(t))).add(0.0, lookHigh, 0.0));
+	}
+
+	/**
+	 * A camera alongside him as he swims: {@code out} to his right, {@code high} above the ground (the field is flat), {@code lead} ahead of
+	 * you on his back, looking at the point {@code lookAhead} ahead of you and {@code lookHigh} above the ground. It goes with you at {@code
+	 * follow} of your speed (a little under all of it, so he drifts across the picture).
+	 */
+	private static void swimAlong(MinecraftClient client, Vec3d ahead, Vec3d side, double out, double high, double lead, double lookAhead, double lookHigh,
+			double follow) {
+		Vec3d[] start = new Vec3d[1];
+		client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
+		Capture.camera = t -> {
+			Vec3d now = client.player.getLerpedPos((float) (t - Math.floor(t)));
+			if (start[0] == null) {
+				start[0] = now;
+			}
+			Vec3d base = start[0].add(now.subtract(start[0]).multiply(follow));
+			Vec3d at = new Vec3d(base.x, origin.y + high, base.z).add(ahead.multiply(lead)).add(side.multiply(-out));
+			Vec3d to = new Vec3d(now.x, origin.y + lookHigh, now.z).add(ahead.multiply(lookAhead));
+			return look(at, to);
+		};
+	}
+
+	private static void beamswim(MinecraftClient client, IntegratedServer server, int f) {
+		Vec3d ahead = Vec3d.fromPolar(0.0F, facing);
+		Vec3d side = new Vec3d(ahead.z, 0.0, -ahead.x);
+		if (f == 1) {
+			client.options.hudHidden = false;
+			swimBites = 0;
+			swimLastBite = -100;
+			swimHusks = false;
+			swimStopped = null;
+			if (capturing()) {
+				Capture.start(client, client.runDirectory.toPath().resolve("capture"));
+			}
+			// Shot 1: low and close in front of where he will come up, to his right: the ground bursts, he flies out, thrashes, looks back.
+			client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
+			beamLens = 76.0F;
+			Vec3d at = rel(origin, ahead, side, 8.5, 1.0, -6.8);
+			Capture.camera = t -> {
+				double k = ease(span(t, 0.0, 40.0));
+				return look(rel(at, ahead, side, -1.4 * k, 0.5 * k, 0.8 * k), rel(origin, ahead, side, 1.2, 2.3, 0.0));
+			};
+		}
+		BeamEntity beam = client.world == null ? null : client.world.getEntitiesByClass(BeamEntity.class, new net.minecraft.util.math.Box(origin, origin).expand(160.0), b -> !b.diving())
+				.stream().findFirst().orElse(null);
+		forgetPull();
+		// Where you look, so where he goes: along the field, round the half circle, back along it.
+		float yaw = facing;
+		if (f >= SW_TURN) {
+			yaw = facing - (float) Math.min(180.0, 8.0 * (f - SW_TURN + 1));
+		}
+		face(client, yaw, f < SW_STOP ? (f >= 169 ? 15.0F : 8.0F) : 12.0F);
+		if (f == 6) {
+			server.execute(() -> {
+				ServerPlayerEntity you = player(server);
+				net.minecraft.entity.EntityDimensions size = io.github.kortev.chainsawman.ChainsawMan.BEAM_ENTITY.getDimensions();
+				net.minecraft.util.math.Box box = size.getBoxAt(you.getX(), you.getY() + 0.01, you.getZ());
+				StringBuilder hits = new StringBuilder();
+				for (net.minecraft.util.shape.VoxelShape shape : server.getOverworld().getBlockCollisions(null, box)) {
+					hits.append(shape.getBoundingBox()).append(' ');
+				}
+				ShootingStar.LOGGER.info("[selftest] beamswim: you on the ground {}, vehicle {}, collisions here: {}", you.isOnGround(), you.getVehicle(), hits);
+				ShootingStar.LOGGER.info("[selftest] beamswim: summoned {}; fighting {}, blood {}, at {}", Beam.summon(you), Form.fighting(you), Blood.get(you), you.getPos());
+			});
+		}
+		client.options.forwardKey.setPressed(f >= SW_FORWARD && f < SW_STOP);
+		client.options.jumpKey.setPressed(f >= SW_JUMP && f < SW_JUMP + 2);
+		Vec3d here = beam == null ? origin : beam.getPos();
+		if (f == SW_FORWARD) {
+			// Shot 2: on the ground behind him, to his right: he surges away from the lens in a spray of the ground.
+			swimStand(client, rel(origin, ahead, side, -9.5, 1.3, -5.0), 0.6, 66.0F);
+		}
+		if (f == 54) {
+			// Shot 3: alongside him as he goes, low, to his right, at about his head: the ground streaks, the wake sprays.
+			beamLens = 70.0F;
+			swimAlong(client, ahead, side, 7.0, 1.4, 1.0, 1.0, 1.3, 0.93);
+		}
+		if (f == 70) {
+			// Shot 3b: behind him and above, going with him: his back, the S of his body, the V of the ground thrown up from his head.
+			beamLens = 72.0F;
+			swimAlong(client, ahead, side, 0.0, 5.0, -9.5, 3.0, 0.8, 1.0);
+		}
+		if (f == 82) {
+			// Shot 4: low, off to his right, just short of the house: he rushes past the lens and goes into the house (the wall bursts, the rubble flies).
+			swimStand(client, rel(origin, ahead, side, SW_HOUSE - 5.0, 1.4, -5.5), 0.9, 64.0F);
+		}
+		if (f == 99) {
+			// Shot 4b: from beyond the house, low, to his right: the back wall bursts and he comes out of it past the lens.
+			swimStand(client, rel(origin, ahead, side, SW_HOUSE + 17.0, 1.2, -6.5), 0.9, 62.0F);
+		}
+		if (f == 121) {
+			// Shot 5: from the middle of the half circle, close: he sweeps round it leaning in.
+			swimStand(client, rel(origin, ahead, side, SW_LEG, 1.2, SW_R), 1.2, 84.0F);
+		}
+		if (f == 148) {
+			// Shot 6: low between the two ways, as he breaches: out of the ground, over, and back in with a great spray.
+			swimStand(client, rel(origin, ahead, side, 78.0, 0.9, 11.5), 1.8, 70.0F);
+		}
+		if (f == 169) {
+			// Shot 7: your own eyes on his back at speed.
+			swimEyes(client);
+		}
+		if (f == SW_STOP - 6 && beam != null) {
+			// The husks, put well ahead of where he will stop (their own AI at their own speed, going for you).
+			swimHusks = true;
+			Vec3d h = beam.heading();
+			Vec3d l = new Vec3d(h.z, 0.0, -h.x);
+			Vec3d base = beam.getPos().add(h.multiply(19.0));
+			server.execute(() -> {
+				swimHusk(server.getOverworld(), base.add(l.multiply(5.0)), facing + 180.0F + 20.0F, 14.0F);
+				swimHusk(server.getOverworld(), base.add(l.multiply(-6.0)), facing + 180.0F - 20.0F, 14.0F);
+				wake(server, 0.25);
+			});
+		}
+		if (f == SW_STOP + 14 && beam != null) {
+			// Shot 8: from his side at a little distance: he has come up on to his legs; his tail wags, his eyes dart, his teeth chatter, his
+			// head follows the husks coming at him.
+			Vec3d h = beam.heading();
+			Vec3d l = new Vec3d(h.z, 0.0, -h.x);
+			// (The ground where he is: he is still rising out of it.)
+			Vec3d base = new Vec3d(beam.getX(), origin.y, beam.getZ());
+			swimStopped = base;
+			client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
+			beamLens = 58.0F;
+			Capture.camera = t -> {
+				double k = ease(span(t, SW_STOP + 14, SW_STOP + 54));
+				Vec3d cam = base.add(h.multiply(MathHelper.lerp(k, 4.0, 2.0))).add(l.multiply(-14.5)).add(0.0, MathHelper.lerp(k, 1.5, 1.9), 0.0);
+				return look(cam, base.add(h.multiply(0.3)).add(0.0, 1.7, 0.0));
+			};
+		}
+		if (f == SW_STOP + 54 && beam != null) {
+			// Shot 9: closer, three quarters in front of him, low: the husks reach him; he bites one (the attack key) and chomps happily.
+			Vec3d h = beam.heading();
+			Vec3d l = new Vec3d(h.z, 0.0, -h.x);
+			Vec3d base = new Vec3d(beam.getX(), origin.y, beam.getZ());
+			beamLens = 62.0F;
+			Capture.camera = t -> {
+				double k = ease(span(t, SW_STOP + 54, SW_END));
+				Vec3d cam = base.add(h.multiply(MathHelper.lerp(k, 11.0, 9.0))).add(l.multiply(MathHelper.lerp(k, -5.5, -4.5))).add(0.0, MathHelper.lerp(k, 1.2, 1.6), 0.0);
+				return look(framed(cam, base.add(0.0, 1.0, 0.0)), base.add(h.multiply(2.5)).add(0.0, 1.9, 0.0));
+			};
+		}
+		// His bite, with the real attack key's path, on the first husk that comes into his jaws, once he is standing.
+		if (swimHusks && beam != null && f > SW_STOP + 24 && swimBites < 2 && f >= swimLastBite + 16) {
+			Entity victim = inJaws(client, beam, beam.heading(), false);
+			if (victim != null) {
+				swimBites++;
+				swimLastBite = f;
+				server.execute(() -> Saw.slash(player(server)));
+				ShootingStar.LOGGER.info("[selftest] beamswim: bite {} at f={}", swimBites, f);
+			}
+		}
+		if (f >= SW_END) {
+			client.options.forwardKey.setPressed(false);
+			ShootingStar.LOGGER.info("[selftest] beamswim: the end at f={}", f);
+			stage = Stage.DONE;
+		}
+		if (f > 700) {
+			stage = Stage.DONE;
+		}
+		if (f % 10 == 0 && beam == null) {
+			ShootingStar.LOGGER.info("[selftest] beamswim f={} no Beam; you at {}", f, client.player.getPos());
+		}
+		if (f % 10 == 0 && beam != null) {
+			Vec3d rel = beam.getPos().subtract(origin);
+			ShootingStar.LOGGER.info("[selftest] beamswim f={} he is {} along, {} across, y {} (ground {}), swim {}, pace {}, pitch {}, you on him: {}", f, rel.dotProduct(ahead),
+					-rel.dotProduct(side), rel.y, beam.getY() - origin.y, beam.swim(0.0F), beam.pace(), beam.getPitch(), client.player.getVehicle() == beam);
+		}
 	}
 
 	// Helpers.
@@ -2796,6 +3249,10 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		if ("beamlook".equals(target())) {
 			// (Broad daylight, to judge his colours by: a husk, not a zombie, takes his bites, as it does not burn.)
 			world.setTimeOfDay(6000);
+		}
+		if (swim()) {
+			swimSet(server, player, world);
+			return;
 		}
 		if ("pochita".equals(target())) {
 			pochitaSet(server, player, world);
