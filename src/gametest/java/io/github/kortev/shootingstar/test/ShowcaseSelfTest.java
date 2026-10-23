@@ -571,6 +571,9 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 			sawsEnd = f + WALK + 12 + SAWS_HOLD;
 			sawsAsk = f + WALK + 12;
 			ShootingStar.LOGGER.info("[selftest] showcase: saws done at {}", f);
+			// Straight to the shot from inside the cabin (the tracking camera never goes through the logs): you walk into the hole in front of it.
+			Vec3d at = local(STANDS[3] + 3.4, 1.25, LINE + 0.5);
+			fixed(framed(at, local(STANDS[3], 1.2, LINE + 0.5)), local(STANDS[3] - 0.5, 1.15, LINE + 0.5));
 		}
 		if (f < sawsPhaseAt + WALK + 8) {
 			double along = MathHelper.lerp(ease(span(f, sawsPhaseAt, sawsPhaseAt + WALK)), STANDS[2], STANDS[3]);
@@ -581,11 +584,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 			face(client, facing, -2.0F);
 		}
 		if (f == sawsPhaseAt + WALK + 8) {
-			Vec3d at = local(STANDS[3] + 3.4, 1.25, LINE + 0.5);
-			fixed(framed(at, local(STANDS[3], 1.2, LINE + 0.5)), local(STANDS[3] - 0.5, 1.15, LINE + 0.5));
 			server.execute(() -> Saw.grind(player(server), true));
-		} else if (f < sawsPhaseAt + WALK + 8) {
-			Capture.camera = trackingCamera(client);
 		}
 		shotAt(client, f);
 		if (f >= sawsEnd || f >= SAWS_CAP) {
@@ -2002,7 +2001,10 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 	private static final int[] WARDEN_BLOWS = {28, 58};
 	private static final int WARDEN_WINDUP = 7;
 	private static final int ARMS_GRIND = 70;
-	private static final int ARMS_CAP = 250;
+	/** How many slashes into the Warden, how far apart (ticks): far enough that its hurt flash wears off between. */
+	private static final int ARMS_SLASHES = 7;
+	private static final int ARMS_EVERY = 16;
+	private static final int ARMS_CAP = 330;
 	private static final int ARMS_HOLD = 52;
 	private static int armsAsk = Integer.MAX_VALUE;
 	private static int armsEnd = Integer.MAX_VALUE;
@@ -2083,17 +2085,21 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 			fixed(framed(local(2.4, 1.0, 4.8), local(0.0, 1.4, 0.0)), local(0.8, 1.5, 0.0));
 		}
 		// The head's saw into it, held: bite by bite the blood grows the arms back.
-		if (f == ARMS_GRIND) {
-			server.execute(() -> Saw.grind(player(server), true));
+		// (Not a long grind: that hurts it every few ticks and it never stops flashing red. A slash at a time, the Warden's own look coming
+		// back between; each hit's blood counts toward the arms, the game's own rule.)
+		for (int k = 0; k < ARMS_SLASHES; k++) {
+			if (f == ARMS_GRIND + k * ARMS_EVERY) {
+				server.execute(() -> Saw.slash(player(server)));
+			}
 		}
 		if (f == ARMS_GRIND + 6) {
 			fixed(framed(local(1.7, 1.2, -5.0), local(1.7, 1.6, 0.0)), local(1.7, 1.6, 0.0));
 		}
 		boolean whole = Limbs.has(client.player, Limbs.RIGHT) && Limbs.has(client.player, Limbs.LEFT);
-		if (f > ARMS_GRIND + 10 && whole && armsEnd == Integer.MAX_VALUE) {
+		if (f >= ARMS_GRIND + (ARMS_SLASHES - 1) * ARMS_EVERY + 22 && armsEnd == Integer.MAX_VALUE) {
 			armsAsk = f + 18;
 			armsEnd = f + 18 + ARMS_HOLD;
-			ShootingStar.LOGGER.info("[selftest] showcase: both arms back at {}", f);
+			ShootingStar.LOGGER.info("[selftest] showcase: slashes done at {}, both arms back: {}", f, whole);
 		}
 		if (armsEnd != Integer.MAX_VALUE) {
 			// Low behind your shoulder, facing it: both saws out and revving, the Warden over you.
