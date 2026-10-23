@@ -99,7 +99,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 	}
 
 	/** (Retuned by the chain reel to just after its first grab lands.) */
-	private static final int CHAIN_HOOK_FROM = 30;
+	private static final int CHAIN_HOOK_FROM = 20;
 
 	private static int hookUntil() {
 		if ("saws".equals(target())) {
@@ -112,7 +112,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 	private static int askedAt() {
 		return switch (target()) {
 			case "saws" -> sawsAsk;
-			case "chain" -> THIRD_CUT + 6;
+			case "chain" -> CHAIN_ASK;
 			case "arms" -> ARMS_HERO + 16;
 			case "pochita" -> POCHITA_HERO + 10;
 			case "merge" -> REVENGE_CUTS[REVENGE_CUTS.length - 1] + 6;
@@ -133,26 +133,6 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 	private static final int ASKED = 118;
 	private static final int END = 180;
 	private static final int[] SCREENS = {12, 30, 40, 48, 58, 70, 79, 93, 107, 120, 170};
-
-	// The chain reel. A lookout tower ahead of you (its near face, across, its height), the two on top of it; when the
-	// chain's fired at each and when each is cut down; the chain at the tower and you up it, onto the top.
-	private static final int TOWER_NEAR = 11;
-	private static final int TOWER_HIGH = 5;
-	private static final Vec3d[] ON_TOP = {new Vec3d(11.9, TOWER_HIGH, -0.7), new Vec3d(12.9, TOWER_HIGH, 0.8)};
-	private static final int[] YANKS = {8, 28};
-	private static final int[] YANK_CUTS = {17, 37};
-	/** How long one takes to come flying down to you. */
-	private static final int FLY = 7;
-	private static final int AIM_UP = 44;
-	private static final int ZIP = 50;
-	private static final int CLIMB = 60;
-	private static final int ON_TOWER = 68;
-	/** From the top: one on the ground below, chained, flung up to you and cut down at the edge. */
-	private static final Vec3d BELOW = new Vec3d(5.0, 0.0, 2.2);
-	private static final int THIRD_YANK = 88;
-	private static final int THIRD_CUT = THIRD_YANK + FLY + 3;
-	private static final int CHAIN_END = THIRD_CUT + 64;
-	private static final int[] CHAIN_SCREENS = {2, 8, 12, 16, 18, 24, 30, 36, 40, 48, 53, 57, 62, 70, 84, 90, 94, 98, 104, 150};
 
 	// The arms reel. The two with axes (angles from the way you face, how far off); when each swings, and your arm comes
 	// off; armless a while; when you cut each down with the head's saw (each kill's blood growing an arm back); the end.
@@ -904,152 +884,319 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		}
 	}
 
-	// The chain reel.
+	// The chain reel, on a mountain cliff at night (kortev, 2026-10-23: the action first, then "Grab mobs with your chain"). Facing
+	// south (so "ahead" is south, and across is west): the rock of the cliff ahead with a ledge six up and a skeleton on its lip,
+	// you on a shelf of the mountain, east of you a drop with a pillar standing in it and a creeper on top, a phantom in the sky.
+	// The chain's fired at each in turn, it's flung to you and cut down; then low in front of you, the moon over your shoulder.
+
+	private static final int LEDGE = 6;
+	/** Where each stands (along, up, across), and what it is. */
+	private static final Vec3d SKELETON_AT = new Vec3d(4.4, LEDGE + 1.0, 0.5);
+	private static final Vec3d PHANTOM_AT = new Vec3d(-0.5, 5.2, 2.0);
+	private static final Vec3d CREEPER_AT = new Vec3d(3.0, 0.0, -7.0);
+	/** When the chain's fired at each, how long one takes to fly in, and the arc's height. */
+	private static final int[] FIRES = {6, 48, 86};
+	private static final int FLY = 8;
+	private static final double[] ARC = {1.4, 1.0, 2.2};
+	private static final int HERO_FROM = 112;
+	private static final int CHAIN_ASK = HERO_FROM + 8;
+	private static final int CHAIN_END = HERO_FROM + 56;
+	private static final List<Integer> CHAIN_IDS = new ArrayList<>();
+	/** Where each was when the chain was fired at it, and where it is flung to. */
+	private static final Vec3d[] FLUNG_FROM = new Vec3d[3];
+	private static final Vec3d[] FLUNG_TO = new Vec3d[3];
+
+	private static int cutAt(int i) {
+		return FIRES[i] + FLY + 3;
+	}
 
 	private static void chain(MinecraftClient client, IntegratedServer server, int f) {
 		if (f == 1) {
 			client.options.hudHidden = false;
+			client.options.getGamma().setValue(1.0);
 			if (capturing()) {
 				Capture.start(client, client.runDirectory.toPath().resolve("capture"));
 			}
-			// Low behind you and off to one side: you in front, the tower and the two on it over your shoulder.
-			fixed(local(-4.0, 0.9, 3.4), local(7.5, 3.4, -0.3));
+			// The action at once: you at the foot of the cliff, the skeleton on its ledge over you, the camera beside you looking up.
+			fixed(framed(local(1.0, 1.0, 6.4), local(1.9, 3.1, 0.0)), local(1.9, 3.1, 0.2));
 		}
 		if (client.options.getPerspective() != Perspective.THIRD_PERSON_BACK) {
 			client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
 		}
-		for (int i = 0; i < YANKS.length; i++) {
-			int from = i == 0 ? 1 : YANK_CUTS[i - 1] + 3;
-			// Turned on it, looking up at it; the chain at it; then level again for the cut as it comes flying in.
-			if (f >= from && f <= YANKS[i]) {
-				Vec3d it = local(ON_TOP[i].x, ON_TOP[i].y + 1.0, ON_TOP[i].z);
-				Vec3d eye = client.player != null ? client.player.getEyePos() : origin.add(0.0, 1.6, 0.0);
+		if (client.player == null || client.world == null) {
+			return;
+		}
+		Vec3d eye = client.player.getEyePos();
+		for (int i = 0; i < FIRES.length; i++) {
+			int id = CHAIN_IDS.size() > i ? CHAIN_IDS.get(i) : -1;
+			int from = i == 0 ? 1 : cutAt(i - 1) + 2;
+			Entity mob = id < 0 ? null : client.world.getEntityById(id);
+			// Turned on it (looking at it), the chain at it; then level again for the cut as it comes flying in.
+			if (f >= from && f <= FIRES[i]) {
+				Vec3d it = mobAt(i);
 				Capture.Pose aim = look(eye, it);
-				float yaw = i == 0 ? aim.yaw() : turn(facing, aim.yaw(), ease(span(f, from, YANKS[i] - 2)));
-				face(client, yaw, aim.pitch());
+				face(client, aim.yaw(), aim.pitch());
 			}
-			if (f == YANKS[i] - 1) {
+			if (f == FIRES[i] - 1) {
 				// Whatever the chain still holds let go, or firing it again only lets go.
 				server.execute(() -> Grapple.release(player(server)));
 			}
-			if (f == YANKS[i]) {
+			if (f == FIRES[i]) {
+				Vec3d you = client.player.getPos();
+				Vec3d start = mobAt(i);
+				FLUNG_FROM[i] = start;
+				Vec3d flat = new Vec3d(start.x - you.x, 0.0, start.z - you.z).normalize();
+				FLUNG_TO[i] = you.add(flat.multiply(2.0));
 				server.execute(() -> Grapple.fire(player(server)));
 			}
-			// Flung off the tower to land in front of you: carried there in an arc (left to the game it might not
-			// come off the edge at all, as the yank is only a push).
-			if (f > YANKS[i] && f <= YANKS[i] + FLY) {
-				int id = ZOMBIES.size() > i ? ZOMBIES.get(i) : -1;
-				Vec3d top = local(ON_TOP[i].x, ON_TOP[i].y, ON_TOP[i].z);
-				Vec3d flat = new Vec3d(top.x - origin.x, 0.0, top.z - origin.z).normalize();
-				Vec3d to = origin.add(flat.multiply(2.0));
-				double k = (f - YANKS[i]) / (double) FLY;
-				Vec3d at = top.lerp(to, k).add(0.0, Math.sin(k * Math.PI) * 1.5, 0.0);
+			// Flung to you in an arc (left to the game the yank is only a push, and a mob's own AI would fight it).
+			if (f > FIRES[i] && f <= FIRES[i] + FLY && FLUNG_FROM[i] != null) {
+				double k = (f - FIRES[i]) / (double) FLY;
+				Vec3d at = FLUNG_FROM[i].lerp(FLUNG_TO[i], k).add(0.0, Math.sin(k * Math.PI) * ARC[i], 0.0);
 				server.execute(() -> {
-					if (server.getOverworld().getEntityById(id) instanceof ZombieEntity z && z.isAlive()) {
-						z.requestTeleport(at.x, at.y, at.z);
-						z.setVelocity(Vec3d.ZERO);
-						z.fallDistance = 0.0F;
+					if (server.getOverworld().getEntityById(id) instanceof net.minecraft.entity.LivingEntity m && m.isAlive()) {
+						m.requestTeleport(at.x, at.y, at.z);
+						m.setVelocity(Vec3d.ZERO);
+						m.fallDistance = 0.0F;
 					}
 				});
 			}
-			// Turned on it as it comes flying in (it overshoots, and the chain brings it back), for the cut.
-			if (f > YANKS[i] + 1 && f <= YANK_CUTS[i] && client.player != null && client.world != null) {
-				Entity it = ZOMBIES.size() > i ? client.world.getEntityById(ZOMBIES.get(i)) : null;
-				if (it != null) {
-					Capture.Pose aim = look(client.player.getEyePos(), it.getBoundingBox().getCenter());
-					face(client, turn(client.player.getYaw(), aim.yaw(), 0.6), MathHelper.clamp(aim.pitch(), -20.0F, 20.0F));
-				}
+			// Turned on it as it comes in, for the cut.
+			if (f > FIRES[i] + 1 && f <= cutAt(i) && mob != null) {
+				Capture.Pose aim = look(eye, mob.getBoundingBox().getCenter());
+				face(client, turn(client.player.getYaw(), aim.yaw(), 0.6), MathHelper.clamp(aim.pitch(), -20.0F, 20.0F));
 			}
-			if (f == YANKS[i] + 4) {
-				// Side on, close, as it comes in and is cut down.
-				double side = i == 0 ? -4.4 : 4.4;
-				fixed(local(1.6, 1.5, side), local(2.0, 1.2, 0.0));
-			}
-			if (f == YANK_CUTS[i]) {
-				int id = ZOMBIES.size() > i ? ZOMBIES.get(i) : -1;
+			if (f == cutAt(i)) {
 				server.execute(() -> Saw.slash(player(server), id));
 			}
-			if (f == YANK_CUTS[i] + 4 && i == 0) {
-				// Back for the next: the same as the start, a little wider.
-				fixed(local(-4.5, 1.0, -3.6), local(7.5, 3.4, 0.3));
-			}
 		}
-		// Up the tower on the chain, seen wide from the side.
-		if (f == AIM_UP) {
-			fixed(local(5.0, 2.4, -10.0), local(6.5, 3.0, 0.0));
+		// The cameras: each grab's own, then close on the cut.
+		if (f == 13) {
+			fixed(framed(local(1.0, 1.2, 4.2), local(1.4, 1.2, 0.0)), local(1.4, 1.2, 0.0));
 		}
-		if (f >= AIM_UP && f <= ZIP) {
-			Vec3d at = local(TOWER_NEAR, TOWER_HIGH - 0.7, 0.0);
-			Vec3d eye = client.player != null ? client.player.getEyePos() : origin.add(0.0, 1.6, 0.0);
-			Capture.Pose aim = look(eye, at);
-			face(client, aim.yaw(), aim.pitch());
+		if (f == 30) {
+			// The sky: low, looking up, you and the phantom over you.
+			fixed(framed(local(-0.5, 0.45, 4.8), local(0.0, 3.6, 0.3)), local(-0.4, 3.4, 0.8));
 		}
-		if (f == ZIP - 1) {
-			server.execute(() -> Grapple.release(player(server)));
+		if (f == FIRES[1] + 4) {
+			fixed(framed(local(0.2, 1.1, 4.0), local(0.2, 1.3, 0.0)), local(0.2, 1.4, 0.0));
 		}
-		if (f == ZIP) {
-			server.execute(() -> Grapple.fire(player(server)));
+		if (f == cutAt(1) + 8) {
+			// Across the drop: from behind your shoulder, the creeper on its pillar ahead, the moon beyond.
+			fixed(framed(local(-2.0, 1.8, 2.4), local(0.0, 1.3, 0.0)), local(0.3, 1.2, -3.2));
 		}
-		// At the top of the chain: over the edge and onto the top.
-		if (f >= CLIMB && f < CLIMB + 4) {
-			go(client, local(TOWER_NEAR - 0.6, TOWER_HIGH + 0.6, 0.0));
+		if (f == FIRES[2] + 4) {
+			fixed(framed(local(-2.2, 1.2, 2.6), local(0.0, 1.3, -1.0)), local(0.0, 1.4, -1.6));
 		}
-		if (f >= CLIMB + 4 && f < ON_TOWER) {
-			go(client, local(TOWER_NEAR + 1.2, TOWER_HIGH, 0.0));
+		if (f == HERO_FROM) {
+			// Low in front of you, the moon over your shoulder.
+			fixed(framed(local(0.6, 0.5, 4.0), local(0.0, 1.4, 0.0)), local(0.0, 1.9, 0.0));
+			server.execute(() -> Saw.grind(player(server), true));
 		}
-		// On top, turned back to the way you came, the sunset behind you, the camera low on the ground looking up.
-		if (f == ON_TOWER) {
-			fixed(local(3.6, 2.6, 5.4), local(TOWER_NEAR + 1.0, TOWER_HIGH + 1.2, 0.0));
+		if (f > cutAt(2) + 4 && f < HERO_FROM) {
+			face(client, turn(client.player.getYaw(), look(eye, local(0.0, 1.5, 4.0)).yaw(), 0.2), 4.0F);
 		}
-		if (f >= ON_TOWER) {
-			go(client, local(TOWER_NEAR + 1.2, TOWER_HIGH, 0.0));
-		}
-		if (f >= ON_TOWER && f < THIRD_YANK - 8) {
-			face(client, facing + 150.0F, 10.0F);
-		}
-		// The one below: aimed down at it, the chain, and up it comes in an arc to the edge in front of you.
-		Vec3d below = local(BELOW.x, 0.0, BELOW.z);
-		Vec3d edge = local(TOWER_NEAR + 0.2, TOWER_HIGH, -0.1);
-		if (f >= THIRD_YANK - 8 && f <= THIRD_YANK && client.player != null) {
-			Capture.Pose aim = look(client.player.getEyePos(), below.add(0.0, 1.0, 0.0));
-			face(client, aim.yaw(), aim.pitch());
-		}
-		if (f == THIRD_YANK - 1) {
-			server.execute(() -> Grapple.release(player(server)));
-		}
-		if (f == THIRD_YANK) {
-			server.execute(() -> Grapple.fire(player(server)));
-		}
-		if (f > THIRD_YANK && f <= THIRD_YANK + FLY && ZOMBIES.size() > 2) {
-			int id = ZOMBIES.get(2);
-			double k = (f - THIRD_YANK) / (double) FLY;
-			Vec3d at = below.lerp(edge, k).add(0.0, Math.sin(k * Math.PI) * 2.0, 0.0);
-			server.execute(() -> {
-				if (server.getOverworld().getEntityById(id) instanceof ZombieEntity z && z.isAlive()) {
-					z.requestTeleport(at.x, at.y, at.z);
-					z.setVelocity(Vec3d.ZERO);
-					z.fallDistance = 0.0F;
-				}
-			});
-		}
-		if (f > THIRD_YANK && f <= THIRD_CUT && client.player != null) {
-			Capture.Pose aim = look(client.player.getEyePos(), edge.add(0.0, 1.0, 0.0));
-			face(client, aim.yaw(), MathHelper.clamp(aim.pitch(), -20.0F, 20.0F));
-		}
-		if (f == THIRD_CUT && ZOMBIES.size() > 2) {
-			int id = ZOMBIES.get(2);
-			server.execute(() -> Saw.slash(player(server), id));
-		}
-		if (f > THIRD_CUT + 4) {
-			face(client, facing + 150.0F, 10.0F);
+		if (f >= HERO_FROM) {
+			face(client, look(eye, local(0.6, 1.5, 4.0)).yaw() + 15.0F, -2.0F);
 		}
 		if (shots < CHAIN_SCREENS.length && f == CHAIN_SCREENS[shots]) {
 			shot(client, target() + "_" + f);
 			shots++;
 		}
 		if (f >= CHAIN_END) {
+			server.execute(() -> Saw.grind(player(server), false));
 			stage = Stage.DONE;
 		}
+	}
+
+	private static final int[] CHAIN_SCREENS = {2, 8, 12, 16, 22, 34, 46, 52, 58, 64, 80, 90, 96, 102, 108, 120, 150};
+
+	/** The middle of what the chain is fired at, the ith. */
+	private static Vec3d mobAt(int i) {
+		MinecraftClient client = MinecraftClient.getInstance();
+		if (client.world != null && CHAIN_IDS.size() > i && client.world.getEntityById(CHAIN_IDS.get(i)) != null) {
+			return client.world.getEntityById(CHAIN_IDS.get(i)).getBoundingBox().getCenter();
+		}
+		Vec3d at = i == 0 ? SKELETON_AT : i == 1 ? PHANTOM_AT : CREEPER_AT;
+		return local(at.x, at.y + 0.9, at.z);
+	}
+
+	/** A mob standing still where it is put, nothing it does hurting you: the chain's to move it. */
+	private static void chainMob(ServerWorld world, EntityType<? extends net.minecraft.entity.mob.MobEntity> type, Vec3d at, float yaw, float health) {
+		net.minecraft.entity.mob.MobEntity mob = type.create(world);
+		if (mob == null) {
+			return;
+		}
+		mob.refreshPositionAndAngles(at.x, at.y, at.z, yaw, 0.0F);
+		mob.setHeadYaw(yaw);
+		mob.setBodyYaw(yaw);
+		mob.setAiDisabled(true);
+		mob.setPersistent();
+		mob.setHealth(health);
+		world.spawnEntity(mob);
+		CHAIN_IDS.add(mob.getId());
+	}
+
+	private static int rockHash(int x, int z) {
+		return ((x * 73856093) ^ (z * 19349663)) & 0x7fffffff;
+	}
+
+	private static BlockState rock(int x, int y, int z) {
+		return switch (rockHash(x + y * 7, z + y * 13) % 11) {
+			case 0, 1 -> Blocks.ANDESITE.getDefaultState();
+			case 2 -> Blocks.COBBLESTONE.getDefaultState();
+			case 3 -> Blocks.DIORITE.getDefaultState();
+			case 4 -> Blocks.CALCITE.getDefaultState();
+			default -> Blocks.STONE.getDefaultState();
+		};
+	}
+
+	private static final java.util.List<net.minecraft.registry.RegistryKey<net.minecraft.world.biome.Biome>> MOUNTAINS = java.util.List.of(
+			net.minecraft.world.biome.BiomeKeys.JAGGED_PEAKS, net.minecraft.world.biome.BiomeKeys.FROZEN_PEAKS,
+			net.minecraft.world.biome.BiomeKeys.STONY_PEAKS, net.minecraft.world.biome.BiomeKeys.WINDSWEPT_HILLS,
+			net.minecraft.world.biome.BiomeKeys.WINDSWEPT_GRAVELLY_HILLS);
+
+	private static boolean mountain(ServerWorld world, int x, int z) {
+		var biome = world.getBiome(new BlockPos(x, 120, z));
+		for (var key : MOUNTAINS) {
+			if (biome.matchesKey(key)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** The highest ground among the middles of the mountains nearest the world's origin. */
+	private static BlockPos peak(ServerWorld world) {
+		if (mountain(world, PEAK_X, PEAK_Z)) {
+			// The one found for the test world (the same place every take: its shelf stays where it was built, its ground the same).
+			return new BlockPos(PEAK_X, groundY(world, PEAK_X, PEAK_Z) + 1, PEAK_Z);
+		}
+		List<BlockPos> inside = new ArrayList<>();
+		for (int x = -MOUNTAIN_SEARCH; x <= MOUNTAIN_SEARCH; x += 24) {
+			for (int z = -MOUNTAIN_SEARCH; z <= MOUNTAIN_SEARCH; z += 24) {
+				boolean all = mountain(world, x, z);
+				for (int k = 0; all && k < 8; k++) {
+					double a = k * Math.PI / 4.0;
+					all = mountain(world, x + (int) Math.round(Math.cos(a) * 24.0), z + (int) Math.round(Math.sin(a) * 24.0));
+				}
+				if (all) {
+					inside.add(new BlockPos(x, 120, z));
+				}
+			}
+		}
+		inside.sort(java.util.Comparator.comparingDouble(p -> p.getSquaredDistance(BlockPos.ORIGIN)));
+		ShootingStar.LOGGER.info("[selftest] showcase: {} places inside the mountains", inside.size());
+		BlockPos best = null;
+		int bestHeight = -1;
+		for (int i = 0; i < Math.min(40, inside.size()); i++) {
+			BlockPos p = inside.get(i);
+
+			for (int[] off : new int[][] {{0, 0}, {-12, 0}, {12, 0}, {0, -12}, {0, 12}}) {
+				int h = groundY(world, p.getX() + off[0], p.getZ() + off[1]);
+				if (h > bestHeight) {
+					bestHeight = h;
+					best = new BlockPos(p.getX() + off[0], h + 1, p.getZ() + off[1]);
+				}
+			}
+		}
+		ShootingStar.LOGGER.info("[selftest] showcase: the peak at {}", best);
+		return best != null ? best : world.getTopPosition(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, BlockPos.ORIGIN);
+	}
+
+	private static final int MOUNTAIN_SEARCH = 3200;
+	/** A shelf in the jagged peaks of the test world (seed "shootingstar"): found by {@link #peak}'s search, kept. */
+	private static final int PEAK_X = 1384;
+	private static final int PEAK_Z = 2188;
+
+	/**
+	 * A shelf of rock levelled to {@code spot}'s ground, a cliff ahead of it (south) with a ledge {@link #LEDGE} up and the peak rising
+	 * behind, a drop to the east of it with a pillar standing in the drop at the creeper's place; the sky open over all.
+	 */
+	private static void cliff(ServerWorld world, BlockPos spot) {
+		int flags = Block.NOTIFY_LISTENERS | Block.FORCE_STATE;
+		int ground = spot.getY() - 1;
+		for (int x = -16; x <= 28; x++) {
+			for (int z = -48; z <= 18; z++) {
+				BlockPos c = cell(spot, x, 0, z);
+				world.getChunk(c.getX() >> 4, c.getZ() >> 4);
+				boolean drop = z <= -5 - rockHash(x, 3) % 2;
+				boolean pillar = x >= 2 && x <= 4 && z >= -8 && z <= -6;
+				int top;
+				if (drop && !pillar) {
+					top = ground - 70;
+				} else if (x < 5) {
+					top = ground;
+				} else if (z >= -3 && z <= 4 && x <= 9) {
+					top = ground + LEDGE;
+				} else if (x <= 9) {
+					top = ground + 2 + rockHash(x, z) % 6;
+				} else {
+					top = ground + LEDGE + (int) ((x - 9) * 1.1) + rockHash(x, z) % 2;
+				}
+				if (x < -4 && !drop) {
+					top = ground - 1 - (-4 - x) / 3;
+				}
+				int natural = world.getTopY(Heightmap.Type.WORLD_SURFACE, c.getX(), c.getZ());
+				int clearTo = Math.max(natural, Math.max(top, ground) + 6) + 30;
+				for (int y = Math.max(top, ground - 70) + 1; y <= clearTo; y++) {
+					BlockPos p = new BlockPos(c.getX(), y, c.getZ());
+					if (!world.getBlockState(p).isAir()) {
+						world.setBlockState(p, Blocks.AIR.getDefaultState(), flags);
+					}
+				}
+				if (top >= ground - 40) {
+					// (Down to the hillside it stands on, or a shelf over a slope would hang in the air.)
+					for (int y = top; y >= Math.min(top - 8, natural - 1) && y > world.getBottomY(); y--) {
+						world.setBlockState(new BlockPos(c.getX(), y, c.getZ()), rock(c.getX(), y, c.getZ()), flags);
+					}
+				}
+				if (pillar) {
+					for (int y = ground; y >= ground - 60 && y > world.getBottomY(); y--) {
+						world.setBlockState(new BlockPos(c.getX(), y, c.getZ()), rock(c.getX(), y, c.getZ()), flags);
+					}
+				}
+			}
+		}
+	}
+
+	/** The chain reel's set. */
+	private static void chainSet(IntegratedServer server, ServerPlayerEntity player, ServerWorld world) {
+		// (Full moon, a little after it's risen over the east.)
+		world.setTimeOfDay(8 * 24000L + 14000L);
+		server.getGameRules().get(GameRules.DO_TILE_DROPS).set(false, server);
+		facing = 0.0F;
+		BlockPos spot = peak(world);
+		Vec3d feet = Vec3d.ofBottomCenter(spot);
+		ShootingStar.LOGGER.info("[selftest] showcase: the chain's cliff, standing at {}, biome {}", spot, world.getBiome(spot).getIdAsString());
+		for (Entity e : world.getOtherEntities(player, new net.minecraft.util.math.Box(spot).expand(50.0, 60.0, 50.0))) {
+			if (!(e instanceof ServerPlayerEntity)) {
+				e.discard();
+			}
+		}
+		cliff(world, spot);
+		origin = feet;
+		Form.end(player);
+		player.changeGameMode(GameMode.SURVIVAL);
+		player.getAbilities().invulnerable = true;
+		player.sendAbilitiesUpdate();
+		player.getInventory().clear();
+		player.setHealth(player.getMaxHealth());
+		player.getHungerManager().setFoodLevel(20);
+		player.setAttached(Heart.MERGED, true);
+		Blood.set(player, Blood.MAX);
+		Capture.Pose aim = look(feet.add(0.0, 1.6, 0.0), local(SKELETON_AT.x, SKELETON_AT.y + 0.9, SKELETON_AT.z));
+		player.teleport(world, feet.x, feet.y, feet.z, aim.yaw(), aim.pitch());
+		Form.start(player);
+		// (So the rock and the mobs can be seen at night.)
+		player.addStatusEffect(new net.minecraft.entity.effect.StatusEffectInstance(net.minecraft.entity.effect.StatusEffects.NIGHT_VISION, 20 * 600, 0, true,
+				false, false));
+		ZOMBIES.clear();
+		CHAIN_IDS.clear();
+		chainMob(world, EntityType.SKELETON, local(SKELETON_AT.x, SKELETON_AT.y, SKELETON_AT.z), 180.0F, 6.0F);
+		chainMob(world, EntityType.PHANTOM, local(PHANTOM_AT.x, PHANTOM_AT.y, PHANTOM_AT.z), 0.0F, 6.0F);
+		chainMob(world, EntityType.CREEPER, local(CREEPER_AT.x, CREEPER_AT.y, CREEPER_AT.z), 90.0F, 6.0F);
+		origin = feet;
 	}
 
 	/**
@@ -1912,23 +2059,6 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		}
 	}
 
-	/**
-	 * A stone lookout tower {@link #TOWER_NEAR} ahead of {@code feet}, 3 by 3 and {@link #TOWER_HIGH} high: cobblestone
-	 * with log corners, a plank top.
-	 */
-	private static void tower(ServerWorld world, BlockPos feet) {
-		for (int x = TOWER_NEAR; x <= TOWER_NEAR + 2; x++) {
-			for (int z = -1; z <= 1; z++) {
-				boolean corner = x != TOWER_NEAR + 1 && z != 0;
-				for (int y = -1; y < TOWER_HIGH; y++) {
-					BlockState state = y == TOWER_HIGH - 1 ? Blocks.OAK_PLANKS.getDefaultState()
-							: corner ? Blocks.OAK_LOG.getDefaultState() : Blocks.COBBLESTONE.getDefaultState();
-					world.setBlockState(cell(feet, x, y, z), state);
-				}
-			}
-		}
-	}
-
 	private static void fixed(Vec3d at, Vec3d look) {
 		Capture.Pose pose = look(at, look);
 		Capture.camera = t -> pose;
@@ -2158,6 +2288,10 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 			sawsSet(server, player, world);
 			return;
 		}
+		if ("chain".equals(target())) {
+			chainSet(server, player, world);
+			return;
+		}
 		BlockPos village = world.locateStructure(StructureTags.VILLAGE, player.getBlockPos(), 100, false);
 		if (village == null) {
 			ShootingStar.LOGGER.error("[selftest] showcase: no village found");
@@ -2196,21 +2330,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 				level(world, spot);
 			}
 			Form.pullCord(player);
-			if ("chain".equals(target())) {
-				// Nothing they do hurts you (a hurt flashes you red).
-				player.getAbilities().invulnerable = true;
-				player.sendAbilitiesUpdate();
-				// The tower, the two on it facing you, free to be flung (their AI on, but going nowhere).
-				tower(world, spot);
-				// (And one on the ground below, for the last.)
-				for (Vec3d top : new Vec3d[] {ON_TOP[0], ON_TOP[1], BELOW}) {
-					zombie(world, local(top.x, 0.0, top.z), facing + 180.0F, 6.0F);
-					if (world.getEntityById(ZOMBIES.get(ZOMBIES.size() - 1)) instanceof ZombieEntity z) {
-						z.setAiDisabled(false);
-						z.getAttributeInstance(net.minecraft.entity.attribute.EntityAttributes.GENERIC_MOVEMENT_SPEED).setBaseValue(0.0);
-					}
-				}
-			} else if ("arms".equals(target())) {
+			if ("arms".equals(target())) {
 				// Hurt only by the script: a hurt flashes you red, and enough of it would take the arms off out of turn.
 				player.getAbilities().invulnerable = true;
 				player.sendAbilitiesUpdate();
