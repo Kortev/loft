@@ -158,7 +158,10 @@ public final class Capture {
 		if (!active) {
 			return -1;
 		}
-		double step = slowFrames > 0 ? STEP * slowScale : STEP;
+		// A hit-stop on Beam's big hits (chainsawman): the picture is held still, so the clock does not move for those frames (the video's
+		// time does, and with it the sounds).
+		boolean held = io.github.kortev.chainsawman.client.BeamClient.hold();
+		double step = held ? 0.0 : slowFrames > 0 ? STEP * slowScale : STEP;
 		double next = clock + step;
 		long need = (long) Math.floor(next) - clientTicks;
 		// The client may run tick c+1 only once the server has finished tick c+2, so every packet for it is in.

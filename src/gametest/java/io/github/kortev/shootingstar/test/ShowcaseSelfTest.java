@@ -291,6 +291,10 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 					beamlook(client, server, ticks);
 				} else if ("beam".equals(target())) {
 					beam(client, server, ticks);
+				} else if (action()) {
+					beamaction(client, server, ticks);
+				} else if ("beamfp".equals(target())) {
+					beamfp(client, server, ticks);
 				} else if (swim()) {
 					beamswim(client, server, ticks);
 				} else if ("merge".equals(target())) {
@@ -2752,7 +2756,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 	private static Vec3d swimStopped;
 
 	private static boolean swim() {
-		return "beamswim".equals(target());
+		return "beamswim".equals(target()) || "beamaction".equals(target()) || "beamfp".equals(target());
 	}
 
 	/** How many of a grid of samples over the field (every 6 blocks, 110 long, 24 to the right and 40 to the left) are not dry ground within 3 of {@code spot}'s height, facing {@link #facing}. */
@@ -2902,7 +2906,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 	private static void swimLevel(ServerWorld world, BlockPos spot) {
 		BlockState air = Blocks.AIR.getDefaultState();
 		int flags = Block.NOTIFY_LISTENERS | Block.FORCE_STATE;
-		for (int x = -10; x <= SW_LEG + 16; x++) {
+		for (int x = action() ? -105 : -10; x <= SW_LEG + 16; x++) {
 			for (int left = -18; left <= 40; left++) {
 				BlockPos c = at(spot, x, 0, left);
 				world.getChunk(c.getX() >> 4, c.getZ() >> 4);
@@ -2946,6 +2950,11 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		}
 		ShootingStar.LOGGER.info("[selftest] beamswim: the field at {} facing {}", spot, facing);
 		Vec3d feet = Vec3d.ofBottomCenter(spot);
+		if (action() || "beamfp".equals(target())) {
+			// (The action clip runs along the lane to the left of the house.)
+			Vec3d ahead = Vec3d.fromPolar(0.0F, facing);
+			feet = feet.add(new Vec3d(ahead.z, 0.0, -ahead.x).multiply(ACT_LANE));
+		}
 		for (Entity e : world.getOtherEntities(player, new net.minecraft.util.math.Box(spot).expand(130.0, 24.0, 130.0))) {
 			if (!(e instanceof ServerPlayerEntity) && !(e instanceof VillagerEntity)) {
 				e.discard();
@@ -2991,13 +3000,7 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 
 	/** Your own eyes on his back, as he swims: the sway of a rider, looking where you look. */
 	private static void swimEyes(MinecraftClient client) {
-		client.options.setPerspective(Perspective.FIRST_PERSON);
-		beamLens = 0.0F;
-		Capture.camera = t -> {
-			float partial = (float) (t - Math.floor(t));
-			Vec3d p = client.player.getLerpedPos(partial);
-			return new Capture.Pose(p.x, p.y + 1.62, p.z, client.player.getYaw(partial), client.player.getPitch(partial));
-		};
+		actEyes(client);
 	}
 
 	/** A camera standing where it is put, looking at him wherever he goes (at you on his back, {@code lookHigh} up from your feet). */
@@ -3174,6 +3177,443 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 			ShootingStar.LOGGER.info("[selftest] beamswim f={} he is {} along, {} across, y {} (ground {}), swim {}, pace {}, pitch {}, you on him: {}", f, rel.dotProduct(ahead),
 					-rel.dotProduct(side), rel.y, beam.getY() - origin.y, beam.swim(0.0F), beam.pace(), beam.getPitch(), client.player.getVehicle() == beam);
 		}
+	}
+
+	// The beamaction test clip (kortev, 2026-10-23, "Beam with a soul" phase 2: the big moves; a clip for kortev to judge, not a reel: no captions,
+	// no title). The same field as beamswim, daylight, along the lane 18 blocks to its left (clear of the house): Beam is called up and swims off;
+	// a Ravager runs at him and he rushes under it and bursts up (the attack key); a second runs at him and his jaws catch it, he thrashes it and
+	// flings it (the attack key again); a pack of husks comes at him and he throws you into them like a missile (the chain key) and swims to where
+	// you land and takes you back; then your own eyes on his back at speed, and a third Ravager is ambushed from there. All the mobs are real, with
+	// their own AI; the test spawns them, presses the real keys when they are in reach, and puts the cameras.
+
+	private static final int ACT_START = 44;
+	private static final double ACT_LANE = 18.0;
+	private static final int ACT_LENGTH = 300;
+	private static int actPhase;
+	private static int actFireAt;
+	private static int actEruptAt;
+	private static int actBiteAt;
+	private static int actFlungAt;
+	private static int actLaunchAt;
+	private static int actPickedAt;
+	private static int actPreyId;
+	private static int actCEruptAt;
+	/** Where the camera stands for the shot of the ambush, the grab and the throw (set when the shot is cut to). */
+	private static Vec3d actAt = Vec3d.ZERO;
+	private static Vec3d actMark = Vec3d.ZERO;
+
+	/** The settings tried for your eyes on his back: how far up, how far back (blocks) and how far tilted down (degrees). */
+	private static final double[][] FP_SET = {{0.0, 0.0, 0.0}, {0.75, 1.0, 0.0}, {1.5, 2.5, 0.0}, {2.0, 0.5, 8.0}, {1.2, 3.5, 6.0}, {2.5, 2.5, 12.0}, {0.4, -0.8, 0.0}, {1.0, 2.0, 8.0}};
+
+	/** Stills of your own eyes on his back at several settings of the view ({@code showcase_fp_N.png}), swimming at speed; to choose how the view sits. */
+	private static void beamfp(MinecraftClient client, IntegratedServer server, int f) {
+		if (f == 1) {
+			client.options.hudHidden = false;
+			client.options.setPerspective(Perspective.FIRST_PERSON);
+		}
+		forgetPull();
+		face(client, facing, 6.0F);
+		if (f == 6) {
+			server.execute(() -> ShootingStar.LOGGER.info("[selftest] beamfp: summoned {}", Beam.summon(player(server))));
+		}
+		if (f == 30) {
+			client.options.forwardKey.setPressed(true);
+		}
+		for (int k = 0; k < FP_SET.length; k++) {
+			int at = 56 + 9 * k;
+			if (f == at) {
+				io.github.kortev.chainsawman.client.BeamClient.eyeUp = FP_SET[k][0];
+				io.github.kortev.chainsawman.client.BeamClient.eyeBack = FP_SET[k][1];
+				io.github.kortev.chainsawman.client.BeamClient.eyeDown = (float) FP_SET[k][2];
+			}
+			if (f == at + 5) {
+				shot(client, "fp_" + k);
+			}
+		}
+		if (f >= 56 + 9 * FP_SET.length + 10) {
+			client.options.forwardKey.setPressed(false);
+			stage = Stage.DONE;
+		}
+	}
+
+	private static boolean action() {
+		return "beamaction".equals(target());
+	}
+
+	/** The nearest of the test's mobs, alive, {@code from} to {@code to} blocks ahead of {@code from} along {@code ahead} and within {@code across} of its line, or null. */
+	private static Entity actMob(MinecraftClient client, Vec3d from, Vec3d ahead, Vec3d side, double min, double max, double across, EntityType<?> kind) {
+		Entity best = null;
+		double bestAhead = Double.MAX_VALUE;
+		for (int id : ZOMBIES) {
+			Entity e = client.world.getEntityById(id);
+			if (e == null || !e.isAlive() || kind != null && e.getType() != kind) {
+				continue;
+			}
+			Vec3d at = e.getPos().subtract(from);
+			double d = at.dotProduct(ahead);
+			if (d >= min && d <= max && Math.abs(at.dotProduct(side)) <= across && at.y > -2.5 && at.y < 2.0 && d < bestAhead) {
+				best = e;
+				bestAhead = d;
+			}
+		}
+		return best;
+	}
+
+	/** Where he is at capture time {@code t}, with the part of the tick. */
+	private static Vec3d actBeam(MinecraftClient client, double t) {
+		float partial = (float) (t - Math.floor(t));
+		BeamEntity beam = client.world == null ? null : client.world.getEntitiesByClass(BeamEntity.class, new net.minecraft.util.math.Box(origin, origin).expand(200.0), b -> !b.diving())
+				.stream().findFirst().orElse(null);
+		return beam != null ? beam.getLerpedPos(partial) : client.player.getLerpedPos(partial);
+	}
+
+	/** {@code pose} shaken as the rider's camera would be by his hits (the test's camera stands in for the game's, which the capture overrides). */
+	private static Capture.Pose actShaken(Capture.Pose pose, double t, double scale) {
+		double shake = io.github.kortev.chainsawman.client.BeamClient.shake((float) (t - Math.floor(t))) * scale;
+		if (shake < 0.001) {
+			return pose;
+		}
+		Vec3d j = io.github.kortev.chainsawman.client.FormCinematic.jitter(shake, t);
+		return new Capture.Pose(pose.x() + j.x, pose.y() + j.y, pose.z() + j.z, pose.yaw(), pose.pitch());
+	}
+
+	private static void actCamera(MinecraftClient client, java.util.function.DoubleFunction<Capture.Pose> camera) {
+		Capture.camera = t -> actShaken(camera.apply(t), t, 1.0);
+	}
+
+	/** Your own eyes on his back (the game's own placing of them: raised and drawn back along him), shaken by his hits. */
+	private static void actEyes(MinecraftClient client) {
+		client.options.setPerspective(Perspective.FIRST_PERSON);
+		beamLens = 0.0F;
+		Capture.camera = t -> {
+			float partial = (float) (t - Math.floor(t));
+			Vec3d p = client.player.getLerpedPos(partial).add(0.0, 1.62, 0.0);
+			Vec3d eyes = io.github.kortev.chainsawman.client.BeamClient.eyes(partial);
+			if (eyes != null) {
+				p = p.add(eyes);
+			}
+			double shake = io.github.kortev.chainsawman.client.BeamClient.shake(partial);
+			if (shake > 0.001) {
+				p = p.add(io.github.kortev.chainsawman.client.FormCinematic.jitter(shake, t));
+			}
+			return new Capture.Pose(p.x, p.y, p.z, client.player.getYaw(partial), client.player.getPitch(partial) + (eyes != null ? io.github.kortev.chainsawman.client.BeamClient.eyeDown : 0.0F));
+		};
+	}
+
+	/** What the server-side keys have done (set on the server thread, read by the frames): the ambush key that started a rush, the bite that caught something, the throw. */
+	private static volatile int actKeyPhase = -1;
+	private static volatile int actKeyPrey = -1;
+	private static final java.util.List<Integer> ACT_USED = new java.util.concurrent.CopyOnWriteArrayList<>();
+	private static volatile Vec3d actKeyAt = Vec3d.ZERO;
+
+	/**
+	 * The player's keys, pressed on the server at the instant a real player would (the mob is where the server has it, not where the picture
+	 * of it was a few ticks ago): the attack key with a Ravager ahead and in the ambush's range, the attack key with one in his jaws, the chain
+	 * key with the husks close. A key that does nothing (a bite that missed) is pressed again a moment later.
+	 */
+	private static void actKeys(IntegratedServer server, int phase, Vec3d dir) {
+		ServerPlayerEntity you = player(server);
+		BeamEntity b = Beam.active(you);
+		if (b == null || actKeyPhase >= phase) {
+			return;
+		}
+		ServerWorld world = server.getOverworld();
+		Vec3d mid = new Vec3d(b.getX(), origin.y, b.getZ());
+		Vec3d left = new Vec3d(dir.z, 0.0, -dir.x);
+		for (int id : ZOMBIES) {
+			Entity e = world.getEntityById(id);
+			if (e == null || !e.isAlive() || e.getY() - origin.y > 1.5 || e.hasVehicle()) {
+				continue;
+			}
+			Vec3d at = e.getPos().subtract(mid);
+			double d = at.dotProduct(dir) - Beam.MOUTH;
+			if (Math.abs(at.dotProduct(left)) > 4.0) {
+				continue;
+			}
+			if ((phase == 0 || phase == 7) && e.getType() == EntityType.RAVAGER && d >= 4.8 && d <= 7.4 && !ACT_USED.contains(id)) {
+				Saw.slash(you);
+				if (b.ride().ambush() >= 0) {
+					actKeyAt = e.getPos();
+					actKeyPrey = id;
+					actKeyPhase = phase;
+					ACT_USED.add(id);
+					return;
+				}
+			}
+			if ((phase == 2 || phase == 9) && e.getType() == EntityType.RAVAGER && !ACT_USED.contains(id) && d >= -1.0 && d <= 1.4) {
+				Saw.slash(you);
+				if (b.ride().holding()) {
+					actKeyAt = e.getPos();
+					actKeyPrey = id;
+					actKeyPhase = phase;
+					ACT_USED.add(id);
+					return;
+				}
+			}
+			if (phase == 5 && e.getType() == EntityType.HUSK && d >= 12.0 && d <= 17.5) {
+				if (Beam.launch(you)) {
+					actKeyAt = mid;
+					actKeyPrey = id;
+					actKeyPhase = phase;
+					return;
+				}
+			}
+		}
+	}
+
+	private static void beamaction(MinecraftClient client, IntegratedServer server, int f) {
+		// The way he runs: along the field for the first half, back along it for the second (the field is only so long).
+		float yaw = actPhase >= 4 ? facing + 180.0F : facing;
+		Vec3d dir = Vec3d.fromPolar(0.0F, yaw);
+		Vec3d left = new Vec3d(dir.z, 0.0, -dir.x);
+		if (f == 1) {
+			client.options.hudHidden = false;
+			actPhase = 0;
+			actFireAt = actEruptAt = actBiteAt = actFlungAt = actLaunchAt = actPickedAt = actCEruptAt = 0;
+			actPreyId = -1;
+			actKeyPhase = -1;
+			ACT_USED.clear();
+			client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
+			beamLens = 74.0F;
+		}
+		BeamEntity beam = client.world == null ? null : client.world.getEntitiesByClass(BeamEntity.class, new net.minecraft.util.math.Box(origin, origin).expand(200.0), b -> !b.diving())
+				.stream().findFirst().orElse(null);
+		forgetPull();
+		int c = f - ACT_START;
+		face(client, yaw, actPhase >= 5 && actPhase < 7 ? 3.0F : 6.0F);
+		if (f == 6) {
+			server.execute(() -> ShootingStar.LOGGER.info("[selftest] beamaction: summoned {}", Beam.summon(player(server))));
+		}
+		// The first Ravager waits down the lane; the mobs' own AI takes them for you (set on them when they are in its range, as the game's own would).
+		if (f == 20) {
+			server.execute(() -> raider(server.getOverworld(), rel(origin, dir, left, 46.0, 0.0, 0.0), yaw + 180.0F, 100.0F, 2));
+		}
+		if (f % 4 == 0 && beam != null) {
+			Vec3d at = beam.getPos();
+			server.execute(() -> {
+				ServerPlayerEntity you = player(server);
+				for (int id : ZOMBIES) {
+					if (server.getOverworld().getEntityById(id) instanceof net.minecraft.entity.mob.MobEntity m && m.isAlive() && m.getTarget() == null && m.getVehicle() == null
+							&& m.squaredDistanceTo(at.x, m.getY(), at.z) < 31.0 * 31.0) {
+						m.setTarget(you);
+					}
+				}
+			});
+		}
+		if (f == 30) {
+			client.options.forwardKey.setPressed(true);
+		}
+		if (f == ACT_START) {
+			if (capturing()) {
+				Capture.start(client, client.runDirectory.toPath().resolve("capture"));
+			}
+			// Shot 1: behind him and to his left, low, going with him: the lane ahead, the Ravager coming.
+			beamLens = 74.0F;
+			actCamera(client, t -> {
+				Vec3d b = actBeam(client, t);
+				Vec3d at = rel(new Vec3d(b.x, origin.y, b.z), dir, left, -7.0, 1.3, 4.0);
+				return look(at, new Vec3d(b.x, origin.y + 1.2, b.z).add(dir.multiply(8.0)));
+			});
+		}
+		// The keys: on the server, at the right instant.
+		if ((actPhase == 0 && f > ACT_START || actPhase == 2 || actPhase == 5 || actPhase == 7 || actPhase == 9) && beam != null) {
+			int phase = actPhase;
+			if (actPhase == 2 && beam.sinceAmbush(0.0F) < 14.0F) {
+				phase = -1;
+			}
+			if (phase >= 0) {
+				int ph = phase;
+				server.execute(() -> actKeys(server, ph, dir));
+			}
+		}
+		// Phase 0: the ambush key took: cut to the ground beside where they meet, low: Beam comes in from the left of the picture, the Ravager from the right, and it goes up.
+		if (actPhase == 0 && actKeyPhase == 0) {
+			actPhase = 1;
+			actFireAt = f;
+			actPreyId = actKeyPrey;
+			Vec3d meet = actKeyAt.subtract(dir.multiply(2.2));
+			Vec3d mark = new Vec3d(meet.x, origin.y + 0.9, meet.z);
+			Vec3d at = rel(new Vec3d(meet.x, origin.y, meet.z), dir, left, -2.0, 1.0, -11.0);
+			beamLens = 80.0F;
+			int preyId = actKeyPrey;
+			int cutAt = c;
+			actCamera(client, t -> {
+				if (t > cutAt + 28) {
+					// Then behind him again, low, going on to the next.
+					Vec3d b = actBeam(client, t);
+					Vec3d back = rel(new Vec3d(b.x, origin.y, b.z), dir, left, -8.0, 1.4, -5.0);
+					return look(back, new Vec3d(b.x, origin.y + 1.3, b.z).add(dir.multiply(8.0)));
+				}
+				Entity p = client.world.getEntityById(preyId);
+				double up = p != null && p.isAlive() ? ease(span(t, cutAt + 4.0, cutAt + 11.0)) : 0.0;
+				Vec3d target = p != null ? p.getLerpedPos((float) (t - Math.floor(t))).add(0.0, 1.0, 0.0) : mark;
+				// (Looking up after it, but never so far that the ground and the hole are lost.)
+				Vec3d aim = mark.add(target.subtract(mark).multiply(up * 0.7));
+				return look(at, aim);
+			});
+			ShootingStar.LOGGER.info("[selftest] beamaction: ambush key took at f={}", f);
+		}
+		if (actPhase == 1 && beam != null && actEruptAt == 0 && beam.sinceAmbush(0.0F) < 3.0F) {
+			actEruptAt = f;
+			ShootingStar.LOGGER.info("[selftest] beamaction: the eruption at f={} ({} ticks after the key)", f, f - actFireAt);
+		}
+		// Phase 1 to 2: a second Ravager a little after the first is thrown, down the lane, running at him.
+		if (actPhase == 1 && actEruptAt > 0 && f == actEruptAt + 8 && beam != null) {
+			actPhase = 2;
+			Vec3d base = beam.getPos().add(dir.multiply(26.0));
+			server.execute(() -> raider(server.getOverworld(), new Vec3d(base.x, origin.y, base.z), yaw + 180.0F, 100.0F, 2));
+		}
+		// Phase 2: it reached his jaws and the attack key caught it; the forward key up, so he slows to hold it.
+		if (actPhase == 2 && actKeyPhase == 2 && beam != null) {
+			actPhase = 3;
+			actBiteAt = f;
+			client.options.forwardKey.setPressed(false);
+			// Shot 3: beside him and ahead, low, at his jaws as he slows and holds it.
+			Vec3d b = beam.getPos();
+			Vec3d at = rel(new Vec3d(b.x, origin.y, b.z), dir, left, 9.0, 3.0, 6.5);
+			beamLens = 70.0F;
+			int preyId = actKeyPrey;
+			int cutAt = c;
+			actCamera(client, t -> {
+				Vec3d p = actBeam(client, t);
+				Vec3d jaws = new Vec3d(p.x, origin.y + 1.7, p.z).add(dir.multiply(3.2));
+				Entity prey = client.world.getEntityById(preyId);
+				// (After the fling, with it.)
+				double follow = prey != null && t > cutAt + BeamEntity.GRAB_TICKS + 4 ? ease(span(t, cutAt + BeamEntity.GRAB_TICKS + 4, cutAt + BeamEntity.GRAB_TICKS + 12)) * 0.8 : 0.0;
+				Vec3d aim = prey == null ? jaws : jaws.add(prey.getLerpedPos((float) (t - Math.floor(t))).add(0.0, 1.0, 0.0).subtract(jaws).multiply(follow));
+				return look(at, aim);
+			});
+			ShootingStar.LOGGER.info("[selftest] beamaction: the grab at f={}", f);
+		}
+		if (actPhase == 3 && beam != null && beam.sinceGrab(0.0F) > BeamEntity.GRAB_TICKS + 1 && beam.sinceGrab(0.0F) < 200.0F) {
+			actPhase = 4;
+			actFlungAt = f;
+			ShootingStar.LOGGER.info("[selftest] beamaction: flung at f={} ({} ticks after the bite)", f, f - actBiteAt);
+		}
+		// Phase 4: he turns about; the forward key down; a pack of husks down the lane, running at him.
+		if (actPhase == 4 && f == actFlungAt + 10) {
+			client.options.forwardKey.setPressed(true);
+		}
+		if (actPhase == 4 && f == actFlungAt + 12 && beam != null) {
+			actPhase = 5;
+			Vec3d base = beam.getPos().add(dir.multiply(24.0));
+			server.execute(() -> {
+				double[][] spots = {{0.0, 0.0}, {3.0, 2.0}, {5.0, -2.0}, {8.0, 1.0}, {10.0, -1.5}};
+				for (double[] s : spots) {
+					swimHusk(server.getOverworld(), new Vec3d(base.x, origin.y, base.z).add(dir.multiply(s[0])).add(left.multiply(s[1])), yaw + 180.0F, 20.0F);
+				}
+				wake(server, 0.27);
+			});
+			// Shot 4: behind him and above, going with him: the pack ahead.
+			beamLens = 72.0F;
+			actCamera(client, t -> {
+				Vec3d b = actBeam(client, t);
+				Vec3d at = rel(new Vec3d(b.x, origin.y, b.z), dir, left, -10.0, 2.6, 6.0);
+				return look(at, new Vec3d(b.x, origin.y + 1.2, b.z).add(dir.multiply(9.0)));
+			});
+		}
+		// Phase 5: the pack close enough, the chain key threw you into it; the forward key up.
+		if (actPhase == 5 && actKeyPhase == 5 && beam != null) {
+			actPhase = 6;
+			actLaunchAt = f;
+			client.options.forwardKey.setPressed(false);
+			// Shot 5a: the throw from beside him; then 5b from the side of where it ends.
+			Vec3d b = actKeyAt;
+			Vec3d launched = new Vec3d(b.x, origin.y, b.z);
+			Vec3d at = rel(launched, dir, left, 3.0, 1.8, 7.0);
+			beamLens = 66.0F;
+			int cutAt = c;
+			actCamera(client, t -> {
+				if (t < cutAt + 7) {
+					Vec3d p = actBeam(client, t);
+					return look(at, new Vec3d(p.x, origin.y + 2.2, p.z).add(dir.multiply(1.5)));
+				}
+				Vec3d end = rel(launched, dir, left, 17.5, 1.4, 8.5);
+				Vec3d mark = rel(launched, dir, left, 17.0, 1.2, 0.0);
+				return look(end, mark);
+			});
+			ShootingStar.LOGGER.info("[selftest] beamaction: the throw at f={}", f);
+		}
+		// The rider is back on him: the forward key down, your own eyes, and a third Ravager down the lane.
+		if (actPhase == 6 && beam != null && f > actLaunchAt + 12 && client.player.getVehicle() == beam) {
+			actPhase = 7;
+			actPickedAt = f;
+			client.options.forwardKey.setPressed(true);
+			Vec3d base = beam.getPos().add(dir.multiply(60.0));
+			server.execute(() -> raider(server.getOverworld(), new Vec3d(base.x, origin.y, base.z), yaw + 180.0F, 100.0F, 2));
+			actEyes(client);
+			ShootingStar.LOGGER.info("[selftest] beamaction: back on him at f={}", f);
+		}
+		if (actPhase == 7 && actKeyPhase == 7) {
+			actPhase = 8;
+			ShootingStar.LOGGER.info("[selftest] beamaction: the second ambush key took at f={}", f);
+		}
+		if (actPhase == 8 && actCEruptAt == 0 && beam != null && beam.sinceAmbush(0.0F) < 3.0F) {
+			actCEruptAt = f;
+		}
+		// Then a fourth Ravager, and his jaws catch it from your own eyes: the thrash and the fling.
+		if (actPhase == 8 && actCEruptAt > 0 && f == actCEruptAt + 16 && beam != null) {
+			actPhase = 9;
+			Vec3d base = beam.getPos().add(dir.multiply(30.0));
+			server.execute(() -> raider(server.getOverworld(), new Vec3d(base.x, origin.y, base.z), yaw + 180.0F, 100.0F, 2));
+		}
+		if (actPhase == 9 && actKeyPhase == 9) {
+			actPhase = 10;
+			client.options.forwardKey.setPressed(false);
+			actBiteAt = f;
+		}
+		if (actPhase == 10 && beam != null && beam.sinceGrab(0.0F) > BeamEntity.GRAB_TICKS + 1 && beam.sinceGrab(0.0F) < 200.0F) {
+			actPhase = 11;
+			actFlungAt = f;
+		}
+		// (The field is only so long: he is not to swim off the end of it.)
+		double along = beam == null ? 0.0 : beam.getPos().subtract(origin).dotProduct(Vec3d.fromPolar(0.0F, facing));
+		if (actPhase < 4 && along > 104.0 || actPhase >= 5 && along < -98.0) {
+			client.options.forwardKey.setPressed(false);
+		}
+		if (c >= ACT_LENGTH || f > 900 || actPhase == 11 && f > actFlungAt + 26) {
+			client.options.forwardKey.setPressed(false);
+			ShootingStar.LOGGER.info("[selftest] beamaction: the end at f={} (phase {})", f, actPhase);
+			stage = Stage.DONE;
+		}
+		if (f % 10 == 0) {
+			ShootingStar.LOGGER.info("[selftest] beamaction f={} c={} phase={} he is {} along, y {}, swim {}, riding {}; mobs {}", f, c, actPhase,
+					beam == null ? "-" : String.format("%.1f", along), beam == null ? "-" : String.format("%.1f", beam.getY() - origin.y),
+					beam == null ? "-" : String.format("%.2f", beam.swim(0.0F)), client.player.getVehicle() != null, ZOMBIES.stream()
+							.map(id -> client.world.getEntityById(id)).filter(e -> e != null && e.isAlive()).map(e -> e.getType().getUntranslatedName() + "@"
+									+ String.format("%.0f", e.getPos().subtract(origin).dotProduct(Vec3d.fromPolar(0.0F, facing))) + "," + String.format("%.0f", e.getY() - origin.y)).toList());
+		}
+	}
+
+	private static boolean phaseIs(int phase) {
+		return actPhase == phase;
+	}
+
+	/**
+	 * The Ravager that his jaw would take if he bit now (the way the server judges it: the nearest point of it within 3 of his mouth, and in
+	 * the cone in front of it), the nearest; or null. (He is swimming here, his feet well under the ground: the mouth is measured as if he
+	 * stood on it.)
+	 */
+	private static Entity actJaws(MinecraftClient client, BeamEntity beam) {
+		Vec3d ahead = beam.heading();
+		Vec3d mouth = new Vec3d(beam.getX(), origin.y + Beam.MOUTH_HEIGHT, beam.getZ()).add(ahead.multiply(Beam.MOUTH));
+		Entity best = null;
+		double bestFar = Double.MAX_VALUE;
+		for (int id : ZOMBIES) {
+			Entity z = client.world.getEntityById(id);
+			if (z == null || !z.isAlive() || z.getType() != EntityType.RAVAGER || z.getY() - origin.y > 1.5) {
+				continue;
+			}
+			net.minecraft.util.math.Box b = z.getBoundingBox();
+			Vec3d near = new Vec3d(MathHelper.clamp(mouth.x, b.minX, b.maxX), MathHelper.clamp(mouth.y, b.minY, b.maxY), MathHelper.clamp(mouth.z, b.minZ, b.maxZ));
+			double far = near.distanceTo(mouth);
+			if (far > 2.9 || far > 1.2 && near.subtract(mouth).multiply(1.0, 0.0, 1.0).normalize().dotProduct(ahead) < 0.62 || far >= bestFar) {
+				continue;
+			}
+			best = z;
+			bestFar = far;
+		}
+		return best;
 	}
 
 	// Helpers.

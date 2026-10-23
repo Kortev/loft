@@ -31,7 +31,8 @@ public abstract class CaptureCameraMixin {
 			Capture.Pose pose = camera.apply(Capture.time());
 			setRotation(pose.yaw(), pose.pitch());
 			setPos(pose.x(), pose.y(), pose.z());
-			if (focusedEntity != null
+			// (Your own eyes on Beam's back are raised and drawn back by the mod, and are still your own eyes.)
+			if (focusedEntity != null && !(!thirdPerson && focusedEntity.getVehicle() instanceof io.github.kortev.chainsawman.BeamEntity)
 					&& focusedEntity.getCameraPosVec(tickDelta).squaredDistanceTo(pose.x(), pose.y(), pose.z()) > 6.0) {
 				this.thirdPerson = true;
 			}

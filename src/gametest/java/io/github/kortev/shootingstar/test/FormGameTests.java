@@ -20,7 +20,9 @@ import java.util.UUID;
 import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
 import net.minecraft.block.Blocks;
 import net.minecraft.entity.EntityType;
+import net.minecraft.entity.FallingBlockEntity;
 import net.minecraft.entity.mob.HuskEntity;
+import net.minecraft.entity.passive.IronGolemEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.network.ClientConnection;
 import net.minecraft.network.NetworkSide;
@@ -842,15 +844,15 @@ public class FormGameTests implements FabricGameTest {
 
 	/**
 	 * The attack key is his bite while you ride (the slash action becomes {@code Beam.bite}): what is in front of his mouth
-	 * takes {@link Beam#BITE_DAMAGE} (not a slash's), is flung up and forward, and what is behind him is left alone; a second
-	 * bite straight after is refused.
+	 * takes {@link Beam#BITE_DAMAGE} (not a slash's), is flung up and forward (an iron golem here: a mob too big to be held, which is
+	 * only bitten), and what is behind him is left alone; a second bite straight after is refused.
 	 */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_beam_bite", tickLimit = 40)
 	public void slashBecomesABiteOnBeam(TestContext context) {
 		ServerPlayerEntity player = fighter(context, "biter", 0.0);
 		ground(context, true);
 		Blood.set(player, Blood.MAX);
-		HuskEntity front = husk(context, 0.0, 2.2);
+		IronGolemEntity front = golem(context, 0.0, 2.6);
 		HuskEntity behind = husk(context, 0.0, -2.5);
 		Beam.summon(player);
 		BeamEntity beam = (BeamEntity) player.getVehicle();
@@ -870,8 +872,9 @@ public class FormGameTests implements FabricGameTest {
 				float lost = front.getMaxHealth() - front.getHealth();
 				context.assertTrue(lost >= Beam.BITE_DAMAGE - 0.5F && lost <= Beam.BITE_DAMAGE + 0.5F, "the bite did " + lost + ", not " + Beam.BITE_DAMAGE);
 				context.assertTrue(behind.getHealth() == behind.getMaxHealth(), "the husk behind was bitten");
-				context.assertTrue(flung[0] > Beam.FLING_AHEAD * 0.7, "the husk was not flung forward: " + flung[0]);
-				context.assertTrue(flung[1] > Beam.FLING_UP * 0.7, "the husk was not flung up: " + flung[1]);
+				context.assertTrue(flung[0] > Beam.FLING_AHEAD * 0.7, "the golem was not flung forward: " + flung[0]);
+				context.assertTrue(flung[1] > Beam.FLING_UP * 0.7, "the golem was not flung up: " + flung[1]);
+				context.assertTrue(front.getVehicle() == null && !beam.ride().holding(), "a golem too big to be held was grabbed");
 			} finally {
 				done(context, player);
 				front.discard();
@@ -1011,6 +1014,296 @@ public class FormGameTests implements FabricGameTest {
 		});
 	}
 
+
+	/** A big mob (an iron golem and up) is only bitten: no grab. (The slash test above checks the damage and the fling.) */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_beam_big", tickLimit = 40)
+	public void bigMobsAreJustBitten(TestContext context) {
+		ServerPlayerEntity player = fighter(context, "bigbiter", 0.0);
+		ground(context, true);
+		Blood.set(player, Blood.MAX);
+		IronGolemEntity golem = golem(context, 0.0, 2.6);
+		Beam.summon(player);
+		BeamEntity beam = (BeamEntity) player.getVehicle();
+		context.runAtTick(Beam.POP_TICKS + 2, () -> context.assertTrue(Saw.slash(player), "the bite did not come"));
+		context.runAtTick(Beam.POP_TICKS + 12, () -> {
+			try {
+				context.assertTrue(!beam.ride().holding() && golem.getVehicle() == null, "he grabbed a mob too big for his jaws");
+				context.assertTrue(golem.getHealth() < golem.getMaxHealth() - Beam.BITE_DAMAGE + 0.5F, "the golem was not bitten: " + golem.getHealth());
+				context.assertTrue(beam.sinceGrab(0.0F) > 1000.0F, "the clients were told of a grab");
+			} finally {
+				done(context, player);
+				golem.discard();
+				ground(context, false);
+			}
+			context.complete();
+		});
+	}
+
+	/** Where his jaws hold what they have: ahead of his middle and above his feet (blocks), as the model's head is. */
+	private static Vec3d jaws(BeamEntity beam) {
+		return beam.getPos().add(beam.heading().multiply(1.94)).add(0.0, 1.5, 0.0);
+	}
+
+	/**
+	 * The bite on a mob no bigger than a Ravager catches it: it rides at his mouth (a passenger), and for a second it is shaken, hurt
+	 * at the end of each swing, while his riding keys go on working; then it is flung far the way you look. (A husk with plenty of health.)
+	 */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_beam_grab", tickLimit = 90)
+	public void beamGrabsThrashesAndFlings(TestContext context) {
+		ServerPlayerEntity player = fighter(context, "grabber", 0.0);
+		ground(context, true, 40);
+		Blood.set(player, Blood.MAX);
+		HuskEntity prey = husk(context, 0.0, 2.6);
+		prey.getAttributeInstance(net.minecraft.entity.attribute.EntityAttributes.GENERIC_MAX_HEALTH).setBaseValue(200.0);
+		prey.setHealth(200.0F);
+		Beam.summon(player);
+		BeamEntity beam = (BeamEntity) player.getVehicle();
+		int go = Beam.POP_TICKS + 2;
+		double[] from = new double[1];
+		float[] caught = new float[1];
+		context.runAtTick(go, () -> {
+			from[0] = beam.getZ();
+			context.assertTrue(Saw.slash(player), "the bite did not come");
+			context.assertTrue(prey.getVehicle() == beam && beam.ride().holding(), "his jaws did not catch it");
+			caught[0] = prey.getHealth();
+			context.assertTrue(!Saw.slash(player), "a second bite came while he held it");
+		});
+		// His riding keys go on working: the forward key sends him on while he thrashes.
+		context.runAtTick(go + 3, () -> player.updateInput(0.0F, 1.0F, false, false));
+		context.runAtTick(go + BeamEntity.GRAB_TICKS - 2, () -> {
+			context.assertTrue(prey.getVehicle() == beam, "it was let go before the thrash was over");
+			context.assertTrue(beam.getZ() - from[0] > 6.0, "he did not go on swimming while he thrashed: " + (beam.getZ() - from[0]));
+			context.assertTrue(prey.getPos().distanceTo(jaws(beam)) < 3.5, "what he held was not at his mouth: " + prey.getPos().distanceTo(jaws(beam)));
+			context.assertTrue(caught[0] - prey.getHealth() > Beam.SHAKE_DAMAGE * 3 - 0.5F, "the shakes did not hurt it: " + (caught[0] - prey.getHealth()));
+		});
+		context.runAtTick(go + BeamEntity.GRAB_TICKS + 3, () -> {
+			try {
+				context.assertTrue(prey.getVehicle() == null && !beam.ride().holding(), "it was not let go");
+				float lost = 200.0F - prey.getHealth();
+				context.assertTrue(lost > Beam.BITE_DAMAGE + Beam.SHAKE_DAMAGE * 5 + Beam.FLING_DAMAGE - 1.0F, "the grab hurt it only " + lost);
+				context.assertTrue(prey.getVelocity().z > Beam.FLING_SPEED * 0.6, "it was not flung the way the rider looks: " + prey.getVelocity());
+				context.assertTrue(beam.ride().hardest() >= 3, "the rider was not told of the fling: " + beam.ride().hardest());
+				context.assertTrue(beam.ride().hits() >= 7, "the rider felt only " + beam.ride().hits() + " hits");
+				context.assertTrue(beam.sinceGrab(0.0F) < 40.0F, "the clients were not told of the grab");
+			} finally {
+				done(context, player);
+				prey.discard();
+				ground(context, false, 40);
+			}
+			context.complete();
+		});
+	}
+
+	/**
+	 * The ambush: swimming, the attack key with a mob ahead too far to bite sends him under it; he erupts straight up beneath it, and it is
+	 * thrown far higher than a bite's fling and hurt, a ring of the ground bursts up round the hole as debris, the rider is told it is the
+	 * hardest hit, he comes down and swims on.
+	 */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_beam_ambush", tickLimit = 100)
+	public void beamBurstsUpUnderAMob(TestContext context) {
+		ServerPlayerEntity player = fighter(context, "ambusher", 0.0);
+		ground(context, true, 60);
+		Blood.set(player, Blood.MAX);
+		HuskEntity prey = husk(context, 0.0, 34.0);
+		prey.getAttributeInstance(net.minecraft.entity.attribute.EntityAttributes.GENERIC_MAX_HEALTH).setBaseValue(200.0);
+		prey.setHealth(200.0F);
+		Beam.summon(player);
+		BeamEntity beam = (BeamEntity) player.getVehicle();
+		double ground = spot(context).y;
+		int go = Beam.POP_TICKS + 1;
+		context.runAtTick(go, () -> player.updateInput(0.0F, 1.0F, false, false));
+		int[] fired = {-1};
+		double[] launched = new double[1];
+		double[] top = {-100.0};
+		int[] pieces = new int[1];
+		for (int t = go + 8; t < go + 50; t++) {
+			int tick = t;
+			context.runAtTick(t, () -> {
+				double gap = prey.getZ() - (beam.getZ() + 2.2);
+				if (fired[0] < 0 && gap < 7.5 && gap > 5.0) {
+					context.assertTrue(Saw.slash(player), "the attack key did nothing with a mob ahead");
+					fired[0] = tick;
+					context.assertTrue(beam.ride().ambush() == 0, "he did not begin the rush: " + beam.ride().ambush());
+				}
+				if (fired[0] >= 0) {
+					top[0] = Math.max(top[0], beam.getY() - ground);
+					launched[0] = Math.max(launched[0], prey.getVelocity().y);
+					if (beam.ride().ambush() == 1 && pieces[0] == 0) {
+						pieces[0] = context.getWorld().getEntitiesByClass(FallingBlockEntity.class, new net.minecraft.util.math.Box(prey.getBlockPos()).expand(8.0), b -> true).size();
+					}
+				}
+			});
+		}
+		context.runAtTick(go + 52, () -> {
+			try {
+				context.assertTrue(fired[0] >= 0, "no ambush began");
+				context.assertTrue(launched[0] > 1.6, "the mob was not thrown sky-high: " + launched[0]);
+				context.assertTrue(prey.getMaxHealth() - prey.getHealth() > Beam.AMBUSH_DAMAGE - 1.0F, "it was not hurt: " + prey.getHealth());
+				context.assertTrue(top[0] > -1.0, "he did not come up out of the ground: " + top[0]);
+				context.assertTrue(pieces[0] >= 6, "the ground did not burst up round the hole: " + pieces[0]);
+				context.assertTrue(beam.ride().hardest() == 4, "the rider was not told it was the hardest hit: " + beam.ride().hardest());
+				context.assertTrue(beam.sinceAmbush(0.0F) < 100.0F, "the clients were not told");
+				context.assertTrue(player.getVehicle() == beam, "the rider was thrown");
+				context.assertTrue(beam.getY() < ground - 0.3, "he did not dive back in: " + (beam.getY() - ground));
+				context.assertTrue(beam.ride().ambush() == -1, "the ambush did not end");
+			} finally {
+				done(context, player);
+				prey.discard();
+				ground(context, false, 60);
+			}
+			context.complete();
+		});
+	}
+
+	/** Cooldown: a second ambush straight after the first is not begun (the key is a plain bite then). */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_beam_ambush_cool", tickLimit = 140)
+	public void ambushesComeNoFasterThanTheirCooldown(TestContext context) {
+		ServerPlayerEntity player = fighter(context, "twice", 0.0);
+		ground(context, true, 60);
+		Blood.set(player, Blood.MAX);
+		HuskEntity first = husk(context, 0.0, 30.0);
+		HuskEntity second = husk(context, 0.0, 33.0);
+		for (HuskEntity h : new HuskEntity[] {first, second}) {
+			h.getAttributeInstance(net.minecraft.entity.attribute.EntityAttributes.GENERIC_MAX_HEALTH).setBaseValue(200.0);
+			h.setHealth(200.0F);
+		}
+		Beam.summon(player);
+		BeamEntity beam = (BeamEntity) player.getVehicle();
+		int go = Beam.POP_TICKS + 1;
+		context.runAtTick(go, () -> player.updateInput(0.0F, 1.0F, false, false));
+		int[] fired = {-1, -1};
+		for (int t = go + 8; t < go + 60; t++) {
+			int tick = t;
+			context.runAtTick(t, () -> {
+				double gap = first.getZ() - (beam.getZ() + 2.2);
+				if (fired[0] < 0 && gap < 7.5 && gap > 5.0) {
+					Saw.slash(player);
+					fired[0] = tick;
+				}
+				if (fired[0] >= 0 && fired[1] < 0 && tick >= fired[0] + 14 && beam.ride().ambush() == -1) {
+					// Straight after the eruption, with the other mob ahead and too far to bite: the key must not start another.
+					double gap2 = second.getZ() - (beam.getZ() + 2.2);
+					if (gap2 > 4.5 && gap2 < 8.0) {
+						Saw.slash(player);
+						fired[1] = tick;
+						context.assertTrue(beam.ride().ambush() == -1, "a second ambush began inside the cooldown (" + (tick - fired[0]) + " ticks after the first)");
+					}
+				}
+			});
+		}
+		context.runAtTick(go + 70, () -> {
+			try {
+				context.assertTrue(fired[0] >= 0, "no ambush began");
+				context.assertTrue(fired[1] < 0 || fired[1] - fired[0] < Beam.AMBUSH_EVERY, "the cooldown test did not run");
+			} finally {
+				done(context, player);
+				first.discard();
+				second.discard();
+				ground(context, false, 60);
+			}
+			context.complete();
+		});
+	}
+
+	/** A mob close enough to bite is bitten (and held), not ambushed. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_beam_ambush_close", tickLimit = 90)
+	public void aCloseMobIsBittenNotAmbushed(TestContext context) {
+		ServerPlayerEntity player = fighter(context, "closer", 0.0);
+		ground(context, true, 40);
+		Blood.set(player, Blood.MAX);
+		HuskEntity prey = husk(context, 0.0, 14.0);
+		Beam.summon(player);
+		BeamEntity beam = (BeamEntity) player.getVehicle();
+		int go = Beam.POP_TICKS + 1;
+		context.runAtTick(go, () -> player.updateInput(0.0F, 1.0F, false, false));
+		boolean[] bit = new boolean[1];
+		for (int t = go + 4; t < go + 24; t++) {
+			context.runAtTick(t, () -> {
+				double gap = prey.getZ() - (beam.getZ() + 2.2);
+				if (!bit[0] && gap < 2.5 && gap > 0.0) {
+					bit[0] = Saw.slash(player);
+				}
+			});
+		}
+		context.runAtTick(go + 26, () -> {
+			try {
+				context.assertTrue(bit[0], "no bite came");
+				context.assertTrue(beam.sinceAmbush(0.0F) > 1000.0F, "he ambushed a mob he could bite");
+				context.assertTrue(prey.getHealth() <= prey.getMaxHealth() - Beam.BITE_DAMAGE + 0.5F, "it was not bitten");
+			} finally {
+				done(context, player);
+				prey.discard();
+				ground(context, false, 40);
+			}
+			context.complete();
+		});
+	}
+
+	/**
+	 * The chain key while you ride throws you like a missile the way you look: off his back, fast and flat, saws out; what is on the way is cut
+	 * (a wide cut with the real saw damage); you land unhurt, Beam swims to where you came down and you are on his back again; the next throw is
+	 * refused for a moment, and out of the form he simply dives.
+	 */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_beam_launch", tickLimit = 160)
+	public void beamThrowsHisRiderAndFetchesThem(TestContext context) {
+		ServerPlayerEntity player = fighter(context, "missile", 0.0);
+		ground(context, true, 64);
+		Blood.set(player, Blood.MAX);
+		HuskEntity inWay = husk(context, 0.0, 32.0);
+		inWay.getAttributeInstance(net.minecraft.entity.attribute.EntityAttributes.GENERIC_MAX_HEALTH).setBaseValue(200.0);
+		inWay.setHealth(200.0F);
+		Beam.summon(player);
+		BeamEntity beam = (BeamEntity) player.getVehicle();
+		// (Swimming, so the rider is low on his back, near the ground the husk stands on.)
+		context.runAtTick(Beam.POP_TICKS + 1, () -> player.updateInput(0.0F, 1.0F, false, false));
+		int go = Beam.POP_TICKS + 14;
+		float[] before = new float[1];
+		context.runAtTick(go, () -> {
+			before[0] = player.getHealth();
+			context.assertTrue(Beam.launch(player), "the chain key did not throw the rider");
+			context.assertTrue(!player.hasVehicle() && beam.ride().loose(), "the rider is still on his back");
+			context.assertTrue(player.getVelocity().z > Beam.LAUNCH_SPEED * 0.9, "they were not thrown the way they look: " + player.getVelocity());
+			context.assertTrue(!Beam.launch(player), "a second throw came at once");
+			context.assertTrue(beam.sinceLaunch(0.0F) < 3.0F, "the clients were not told of the throw");
+		});
+		context.runAtTick(go + 1, () -> {
+			// Where they come down: well ahead of him, as the throw takes them (the test player is not moved by a client).
+			Vec3d landed = player.getPos().add(0.0, 0.0, 18.0);
+			player.teleport(context.getWorld(), landed.x, landed.y, landed.z, 0.0F, 0.0F);
+			player.onTeleportationDone();
+		});
+		context.runAtTick(go + Beam.LAUNCH_TICKS + 1, () -> {
+			context.assertTrue(beam.ride().flying() == -1, "the flight did not end");
+			float lost = inWay.getMaxHealth() - inWay.getHealth();
+			context.assertTrue(lost > Saw.FINISHER_DAMAGE - 1.0F, "the missile cut only " + lost);
+			context.assertTrue(beam.ride().hardest() >= 3, "the slash was not felt as a hard hit: " + beam.ride().hardest());
+			context.assertTrue(player.getHealth() >= before[0], "the rider was hurt");
+			context.assertTrue(beam.ride().loose() && beam.isAlive(), "Beam was not swimming to them");
+		});
+		// (Back on him, the forward key up: the floor here is short.)
+		context.runAtTick(go + Beam.LAUNCH_TICKS + 16, () -> player.updateInput(0.0F, 0.0F, false, false));
+		context.runAtTick(go + Beam.LAUNCH_TICKS + 40, () -> {
+			context.assertTrue(player.getVehicle() == beam && !beam.ride().loose(), "Beam did not take the rider back: " + beam.ride().loose() + " at " + beam.getPos() + " for " + player.getPos());
+			context.assertTrue(player.getY() > spot(context).y + 0.3, "the rider is not on his back: " + (player.getY() - spot(context).y) + ", he is at " + (beam.getY() - spot(context).y) + " swim " + beam.swimming());
+			context.assertTrue(!Beam.launch(player), "a throw came inside the cooldown");
+		});
+		context.runAtTick(go + Beam.LAUNCH_EVERY + 8, () -> {
+			context.assertTrue(player.getVehicle() == beam && Beam.launch(player), "no second throw after the cooldown");
+			// Out of the form, with him fetching: he dives.
+			Form.end(player);
+		});
+		context.runAtTick(go + Beam.LAUNCH_EVERY + 12, () -> {
+			try {
+				context.assertTrue(beam.diving(), "he did not dive when the rider left the form");
+			} finally {
+				done(context, player);
+				inWay.discard();
+				ground(context, false, 64);
+			}
+			context.complete();
+		});
+	}
+
 	/** Sneaking gets you off: he dives, is gone, and you are left standing. */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_beam_sneak", tickLimit = Beam.POP_TICKS + Beam.DIVE_TICKS + 40)
 	public void beamDivesWhenYouSneak(TestContext context) {
@@ -1123,6 +1416,17 @@ public class FormGameTests implements FabricGameTest {
 		player.onTeleportationDone();
 		player.setNoGravity(true);
 		return player;
+	}
+
+	/** An iron golem standing still (no mind, no gravity), {@code z} blocks ahead of the test's spot. */
+	private static IronGolemEntity golem(TestContext context, double x, double z) {
+		Vec3d at = spot(context).add(x, 0.0, z);
+		IronGolemEntity golem = new IronGolemEntity(EntityType.IRON_GOLEM, context.getWorld());
+		golem.refreshPositionAndAngles(at.x, at.y, at.z, 180.0F, 0.0F);
+		golem.setAiDisabled(true);
+		golem.setNoGravity(true);
+		context.getWorld().spawnEntity(golem);
+		return golem;
 	}
 
 	/** A husk standing still (no mind, no gravity), {@code z} blocks ahead of the test's spot. */
