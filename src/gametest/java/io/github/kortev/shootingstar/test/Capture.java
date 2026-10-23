@@ -59,6 +59,15 @@ public final class Capture {
 	}
 
 	private static volatile boolean active;
+	/**
+	 * Slow motion: for the next {@code slowFrames} recorded frames the game runs at {@code slowScale} of its speed (the video's
+	 * frames come that much closer together in game time, so everything eases through them: the world, the particles, the
+	 * mobs), and sounds are placed by video time. (The server's own tick rate is not changed: the capture steps it in lockstep.)
+	 */
+	private static volatile double slowScale = 1.0;
+	private static volatile int slowFrames;
+	/** Video time of the frame being drawn, in seconds (game time when nothing is slowed). */
+	private static double videoSeconds;
 	/** Render time of the frame being drawn, in ticks since the capture started. */
 	private static double clock;
 	private static long clientTicks;
@@ -83,6 +92,12 @@ public final class Capture {
 		return active;
 	}
 
+	/** From the next frame on, {@code frames} frames of the video at {@code scale} of game speed (0.25: a quarter). */
+	public static void slow(double scale, int frames) {
+		slowScale = scale;
+		slowFrames = frames;
+	}
+
 	/** Capture time of the frame being drawn, in ticks. */
 	public static double time() {
 		return clock;
@@ -103,6 +118,9 @@ public final class Capture {
 			encoder = null;
 		}
 		clock = client.getRenderTickCounter().getTickDelta(true);
+		videoSeconds = clock / 20.0;
+		slowFrames = 0;
+		slowScale = 1.0;
 		clientTicks = 0;
 		clientTicksShared = 0;
 		SERVER_TICKS.set(0);
@@ -140,7 +158,8 @@ public final class Capture {
 		if (!active) {
 			return -1;
 		}
-		double next = clock + STEP;
+		double step = slowFrames > 0 ? STEP * slowScale : STEP;
+		double next = clock + step;
 		long need = (long) Math.floor(next) - clientTicks;
 		// The client may run tick c+1 only once the server has finished tick c+2, so every packet for it is in.
 		if (need > 0 && SERVER_TICKS.get() < clientTicks + need + 1) {
@@ -152,6 +171,10 @@ public final class Capture {
 			return 0;
 		}
 		clock = next;
+		videoSeconds += 1.0 / 30.0;
+		if (slowFrames > 0) {
+			slowFrames--;
+		}
 		clientTicks += need;
 		clientTicksShared = clientTicks;
 		recordFrame = true;
@@ -235,7 +258,7 @@ public final class Capture {
 		}
 		if (song) {
 			// It starts silent and fades itself up, so log it at full with its start point and fade.
-			SOUNDS.add(new Played((clock + delay) / 20.0, file, 1.0F, 1.0F, VoidMusic.FROM_SECONDS, VoidMusic.FADE_SECONDS));
+			SOUNDS.add(new Played(videoSeconds + delay / 20.0, file, 1.0F, 1.0F, VoidMusic.FROM_SECONDS, VoidMusic.FADE_SECONDS));
 			return;
 		}
 		float volume = instance.getVolume();
@@ -253,7 +276,7 @@ public final class Capture {
 		if (gain <= 0.01F) {
 			return;
 		}
-		SOUNDS.add(new Played((clock + delay) / 20.0, file, gain, instance.getPitch(), 0.0, 0.0));
+		SOUNDS.add(new Played(videoSeconds + delay / 20.0 / (slowFrames > 0 ? slowScale : 1.0), file, gain, instance.getPitch(), 0.0, 0.0));
 	}
 
 	@Nullable
