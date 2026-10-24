@@ -245,6 +245,10 @@ tall within 3 blocks of you, else the action bar says so and nothing is spent) a
   (non-persistent) leaves topple away from you as falling blocks, faster the higher up, and burst into their drops where they
   land. A trunk with fewer than 6 of its own leaves isn't a tree (a log cabin's wall still cuts a block at a time). Game
   test `sawsFellTrees` (87 tests).
+- **Beam's new reel approved** (2026-10-23, kortev: "good to post Wednesday"): `showcase-reels/Post7_Wed_Beam.mp4` (the
+  walking/swimming Beam, from `work/beam_reel/beam_v2.mp4`). kortev keeps first person on his back as it is ("I like
+  seeing that you're riding him"). Ideas for more Beam reels later, spaced out: one built round the rider throw, and
+  "Beam vs the Warden" as the answer to the first reel's question if the comments argue it.
 - **All seven reels are final** (2026-10-23) in `showcase-reels/` with `POSTING_PLAN.md` (titles, descriptions, tags,
   schedule Thu Oct 22 to Wed Oct 28). kortev's rules, on top of the showcase style: **each reel looks different** (a
   friend's advice: its own place, mobs, kind of hook and question: Saws a daytime forest, diamond axe vs the saws with
