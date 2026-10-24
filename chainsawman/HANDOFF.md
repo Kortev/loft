@@ -249,7 +249,16 @@ tall within 3 blocks of you, else the action bar says so and nothing is spent) a
   walking/swimming Beam, from `work/beam_reel/beam_v2.mp4`). kortev keeps first person on his back as it is ("I like
   seeing that you're riding him"). Ideas for more Beam reels later, spaced out: one built round the rider throw, and
   "Beam vs the Warden" as the answer to the first reel's question if the comments argue it.
-- **All seven reels are final** (2026-10-23) in `showcase-reels/` with `POSTING_PLAN.md` (titles, descriptions, tags,
+- **Arms reel redone (2026-10-23, not yet seen by kortev; `work/reels_v3/arms_v2.mp4`, git-ignored, 14.8 s):** the Warden is
+full strength (500, its own AI). Its real blows take both arms (Easy: 16 a blow, one arm each); the head's saw slashes it twice
+(real attack key) while it does; he looks at it, then up, and fires the real chain key at a band of carved stone above a one-block
+ledge (4 up, along the north wall) and is pulled up; the Warden walks to the foot and its sonic boom (6 a hit) throws him up each
+~104 ticks; he holds the attack key down on its head from the ledge (out of its claws) and the blood drunk regrows both arms
+(`Limbs.drank`: 25 blood an arm). **Order differs from the first plan** (regrow, then escape): on the floor the Warden's blow
+every 20 ticks retakes a regrown arm at once (`Limbs` keeps counting damage while both are gone), so no regrowth can finish there.
+Boom 2 (6 more) leaves the arms (damage count under 12) but a third would take one: the reel ends before it. Staging: spawn spot,
+anger, the set (ledge, band), keys, cameras; difficulty Easy; 400 max health. Nothing else touched.
+**All seven reels are final** (2026-10-23) in `showcase-reels/` with `POSTING_PLAN.md` (titles, descriptions, tags,
   schedule Thu Oct 22 to Wed Oct 28). kortev's rules, on top of the showcase style: **each reel looks different** (a
   friend's advice: its own place, mobs, kind of hook and question: Saws a daytime forest, diamond axe vs the saws with
   felling; Chain a night cliff, the grab before the caption; Arms the Deep Dark against a real Warden; Beam a desert at

@@ -2802,11 +2802,10 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 	// own blows take your arms off by the game's own rule for them (easy, so a blow takes one). You face it and slash with the attack
 	// key; every hit's blood, and the kill's, grows the arms back.
 
-	/** Where it appears (along, across), and its health. */
-	private static final double WARDEN_AT = 7.0;
-	private static final float WARDEN_HEALTH = 36.0F;
+	/** Where it appears (along, across). Its health is its own: 500. */
+	private static final double WARDEN_AT = 6.0;
 	private static final int ARMS_CAP = 700;
-	private static final int ARMS_HOLD = 56;
+	private static final int ARMS_HOLD = 30;
 	private static int armsAsk = Integer.MAX_VALUE;
 	private static int armsEnd = Integer.MAX_VALUE;
 	private static int wardenId = -1;
@@ -2814,9 +2813,18 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 	private static int wardenLastSlash = -100;
 	private static int armsMood;
 	private static boolean armLost;
+	private static int armsPhase;
+	private static int armsAt;
+	private static int armsGot;
+	private static int armsFired;
+	private static int armsLast;
 	private static final int[] ARMS_SCREENS = {4, 20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220, 240, 260, 280, 300, 320};
 	/** The hall's place: its floor level in the world. */
 	private static final BlockPos ARMS_SPOT = new BlockPos(2000, -43, 2000);
+	/** The ledge: it runs along the north wall (across -11, one block deep), this high; the band of carved stone on the wall above it. */
+	private static final int LEDGE_HIGH = 4;
+	private static final double LEDGE_EDGE = -10.5;
+	private static final double BAND_HIGH = 7.5;
 
 	private static void arms(MinecraftClient client, IntegratedServer server, int f) {
 		if (f == 1) {
@@ -2830,6 +2838,10 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 			wardenSeen = -1;
 			armsMood = -1;
 			armLost = false;
+			armsPhase = 0;
+			armsAt = 0;
+			armsGot = -1;
+			armsFired = -1;
 			// It appears, and is angry at you: the rest is its own.
 			server.execute(() -> {
 				ServerWorld world = server.getOverworld();
@@ -2841,17 +2853,12 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 				Vec3d at = local(WARDEN_AT, 0.0, 0.0);
 				warden.refreshPositionAndAngles(at.x, at.y, at.z, facing + 180.0F, 0.0F);
 				warden.initialize(world, world.getLocalDifficulty(warden.getBlockPos()), net.minecraft.entity.SpawnReason.COMMAND, null);
-				var max = warden.getAttributeInstance(net.minecraft.entity.attribute.EntityAttributes.GENERIC_MAX_HEALTH);
-				if (max != null) {
-					max.setBaseValue(WARDEN_HEALTH);
-				}
-				warden.setHealth(WARDEN_HEALTH);
 				warden.setPersistent();
 				world.spawnEntity(warden);
 				warden.increaseAngerAt(p, 150, false);
 				wardenId = warden.getId();
 			});
-			armsCamera(0);
+			armsCamera(7);
 		}
 		if (client.options.getPerspective() != Perspective.THIRD_PERSON_BACK) {
 			client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
@@ -2859,66 +2866,169 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		if (client.player == null || client.world == null) {
 			return;
 		}
+		if (f % 8 == 0) {
+			server.execute(() -> {
+				ServerPlayerEntity p = player(server);
+				Entity w = server.getOverworld().getEntityById(wardenId);
+				ShootingStar.LOGGER.info("[arms] f={} ph={} dist={} wardenHp={} pose={} lost={} blood={} hp={} pos={} wpos={}", f, armsPhase,
+						w == null ? "-" : String.format("%.1f", w.distanceTo(p)), w instanceof net.minecraft.entity.LivingEntity l ? l.getHealth() : -1,
+						w == null ? "-" : w.getPose(), Limbs.lost(p), Blood.get(p), p.getHealth(), p.getPos().subtract(origin),
+						w == null ? "-" : w.getPos().subtract(origin));
+			});
+		}
 		if (f % 5 == 0) {
 			// (Its darkness, should it come: the hall is to be seen.)
 			server.execute(() -> player(server).removeStatusEffect(net.minecraft.entity.effect.StatusEffects.DARKNESS));
 		}
 		Vec3d eye = client.player.getEyePos();
 		Entity warden = wardenId < 0 ? null : client.world.getEntityById(wardenId);
-		if (armsEnd == Integer.MAX_VALUE) {
-			if (warden != null && warden.isAlive()) {
-				if (wardenSeen < 0) {
-					wardenSeen = f;
-				}
-				Vec3d at = warden.getBoundingBox().getCenter();
-				Capture.Pose aim = look(eye, at);
-				double far = eye.distanceTo(at);
-				// Facing it, the head turned on it; the saws at it whenever it's near enough (the game's own limit on how often).
+		boolean right = Limbs.has(client.player, Limbs.RIGHT);
+		boolean left = Limbs.has(client.player, Limbs.LEFT);
+		Vec3d you = client.player.getPos().subtract(origin);
+		if (warden != null && warden.isAlive() && wardenSeen < 0) {
+			wardenSeen = f;
+		}
+		Vec3d wardenAt = warden == null ? local(WARDEN_AT, 1.4, 0.0) : warden.getBoundingBox().getCenter();
+		client.options.forwardKey.setPressed(false);
+		client.options.attackKey.setPressed(false);
+		switch (armsPhase) {
+			case 0 -> {
+				// The Warden: roaring, then walking at you. You face it and, once it is near, slash at it with the attack key, as one would.
+				Capture.Pose aim = look(eye, wardenAt);
 				face(client, aim.yaw(), MathHelper.clamp(aim.pitch(), -25.0F, 25.0F));
-				// Walking at it once it's come near (the forward key held), as a player would, and no closer than a saw's reach.
-				client.options.forwardKey.setPressed(far > 2.3 && far < 7.5 && f - wardenSeen > 100);
-				if (far < 4.1 && f - wardenLastSlash >= 13) {
+				double far = eye.distanceTo(wardenAt);
+				if (far < 4.6 && f - wardenLastSlash >= 13) {
 					wardenLastSlash = f;
 					io.github.kortev.chainsawman.client.ClientCombat.attack(client);
 				}
-				// The cameras: wide while it comes, closer when it's on you, the arm's side when one goes.
-				boolean right = Limbs.has(client.player, Limbs.RIGHT);
-				boolean left = Limbs.has(client.player, Limbs.LEFT);
-				if (f - wardenSeen == 34) {
+				if (f == 30) {
 					// Its roar: low and close on it, you small in front of it.
 					Capture.camera = null;
 					fixed(framed(local(3.8, 0.9, -4.4), local(6.8, 1.8, 0.0)), local(6.6, 2.0, 0.0));
 					armsMood = 5;
-				}
-				if (!armLost && (!right || !left)) {
-					armLost = true;
-					armsCamera(!right ? 2 : 3);
-				} else if (armsMood == 5 && far < 6.4) {
+				} else if (armsMood == 5 && warden != null && warden.getPose() != net.minecraft.entity.EntityPose.ROARING && f > 40) {
 					armsCamera(0);
 				} else if (armsMood == 0 && far < 4.6) {
 					armsCamera(1);
 				}
-			} else if (wardenSeen >= 0 && f > wardenSeen + 2) {
-				// It's down: you, whole again, and the question.
-				client.options.forwardKey.setPressed(false);
-				armsAsk = f + 22;
-				armsEnd = armsAsk + ARMS_HOLD;
-				ShootingStar.LOGGER.info("[selftest] showcase: the Warden's down at {}, arms right {} left {}", f, Limbs.has(client.player, Limbs.RIGHT), Limbs.has(client.player, Limbs.LEFT));
-				Vec3d you = client.player.getPos();
-				fixed(framed(rel(you, 0.6, 0.7, -4.6), you.add(0.0, 1.2, 0.0)), you.add(0.5, 1.5, 0.0));
-				armsMood = 9;
+				if (!armLost && (!right || !left)) {
+					armLost = true;
+					armsCamera(!right ? 2 : 3);
+				}
+				if (!right && !left) {
+					armsPhase = 1;
+					armsAt = f;
+					armsCamera(8);
+				}
 			}
-		} else {
-			face(client, facing, -2.0F);
+			case 1 -> {
+				// Both arms gone. A beat: it is still on you; he looks at it, then up at the ledge.
+				Capture.Pose at = look(eye, wardenAt);
+				Vec3d band = local(you.x, BAND_HIGH, -11.5);
+				Capture.Pose up = look(eye, band);
+				if (eye.distanceTo(wardenAt) < 4.6 && f - wardenLastSlash >= 13 && f - armsAt < 4) {
+					wardenLastSlash = f;
+					io.github.kortev.chainsawman.client.ClientCombat.attack(client);
+				}
+				if (f - armsAt < 4) {
+					face(client, at.yaw(), MathHelper.clamp(at.pitch(), -25.0F, 25.0F));
+				} else {
+					face(client, up.yaw(), up.pitch());
+				}
+				if (f - armsAt >= 8 && aimedAt(up)) {
+					armsPhase = 2;
+					armsAt = f;
+				}
+			}
+			case 2 -> {
+				// The chain, the real key, at the band of stone high up on the wall over the ledge.
+				Vec3d band = local(you.x, BAND_HIGH, -11.5);
+				Capture.Pose up = look(eye, band);
+				face(client, up.yaw(), up.pitch());
+				if (f - armsAt >= 1 && aimedAt(up) && f - armsFired >= 12) {
+					armsFired = f;
+					// The chain shot: from the side, the wall and the way up it in the frame.
+					armsCamera(4);
+					net.minecraft.client.option.KeyBinding.onKeyPressed(net.minecraft.client.util.InputUtil.fromTranslationKey(
+							io.github.kortev.chainsawman.client.ChainsawManClient.CHAIN.getBoundKeyTranslationKey()));
+				}
+				if (client.player.getY() > origin.y + 1.8 || f - armsAt > 60) {
+					armsPhase = 3;
+					armsAt = f;
+				}
+			}
+			case 3 -> {
+				// Carried up on the chain; then on the ledge.
+				Vec3d band = local(you.x, BAND_HIGH, -11.5);
+				Capture.Pose up = look(eye, band);
+				if (client.player.getY() > origin.y + 5.5 || client.player.getVelocity().y < -0.1) {
+					Capture.Pose down = look(eye, wardenAt);
+					face(client, down.yaw(), MathHelper.clamp(down.pitch(), -10.0F, 80.0F));
+				} else {
+					face(client, up.yaw(), up.pitch());
+				}
+				if (client.player.isOnGround() && client.player.getY() > origin.y + LEDGE_HIGH - 0.5) {
+					armsPhase = 5;
+					armsAt = f;
+					armsCamera(5);
+				} else if (f - armsAt > 100) {
+					ShootingStar.LOGGER.warn("[selftest] showcase: arms: never reached the ledge, y {}", client.player.getY() - origin.y);
+					armsPhase = 5;
+					armsAt = f;
+				}
+			}
+			case 4 -> {
+				// Walks to the edge and looks down at it.
+				face(client, facing + 90.0F, 25.0F);
+				boolean there = you.z >= LEDGE_EDGE - 0.35;
+				client.options.forwardKey.setPressed(!there && headYawNear(facing + 90.0F));
+				if (there || f - armsAt > 60) {
+					armsPhase = 5;
+					armsAt = f;
+				}
+			}
+			case 5 -> {
+				// The head's saw at it, held down on it, drinking: until the arms are back. (Back to the edge after every blast.)
+				Capture.Pose aim = look(eye, wardenAt);
+				face(client, aim.yaw(), MathHelper.clamp(aim.pitch(), -10.0F, 80.0F));
+				boolean there = you.z >= LEDGE_EDGE - 0.45;
+				client.options.forwardKey.setPressed(!there && client.player.isOnGround() && headYawNear(aim.yaw()));
+				client.options.attackKey.setPressed(f - armsAt >= 2);
+				int arms = (right ? 1 : 0) + (left ? 1 : 0);
+				if (arms >= 1 && armsGot == -1) {
+					armsGot = -2;
+					armsCamera(9);
+				}
+				if (arms == 2 || f - armsAt > 300) {
+					armsPhase = 6;
+					armsAt = f;
+					armsAsk = f + 10;
+					armsEnd = armsAsk + ARMS_HOLD;
+					armsCamera(6);
+				}
+			}
+			default -> {
+				Capture.Pose aim = look(eye, wardenAt);
+				face(client, aim.yaw(), MathHelper.clamp(aim.pitch(), -10.0F, 60.0F));
+				if (!right || !left) {
+					// (Its next blast took an arm again: no good as a take.)
+					ShootingStar.LOGGER.warn("[selftest] showcase: arms: an arm lost again at {}, {} after the arms were back", f, f - armsAt);
+					stage = Stage.DONE;
+				}
+			}
 		}
 		if (shots < ARMS_SCREENS.length && f == ARMS_SCREENS[shots]) {
 			shot(client, target() + "_" + f);
 			shots++;
 		}
 		if (f >= armsEnd || f >= ARMS_CAP) {
-			client.options.forwardKey.setPressed(false);
 			stage = Stage.DONE;
 		}
+	}
+
+	/** Whether your head has turned most of the way to {@code yaw}. */
+	private static boolean headYawNear(float yaw) {
+		return !Float.isNaN(headYaw) && Math.abs(MathHelper.wrapDegrees(yaw - headYaw)) < 25.0F;
 	}
 
 	/** A point {@code x} ahead of, {@code y} above and {@code z} to the side of {@code you}, the way you first faced. */
@@ -2928,18 +3038,23 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		return you.add(fx * x - fz * z, y, fz * x + fx * z);
 	}
 
-	/** The camera that goes with you (eased), for the Warden coming, close on you, or on the arm's side when one goes. */
+	/** The camera that goes with you (eased): for the Warden coming, close on you, on the arm's side when one goes, up the chain, on the ledge. */
 	private static void armsCamera(int which) {
+		boolean cut = which != 1;
 		armsMood = which;
-		boolean first = which == 0 || which >= 2;
 		camWant = switch (which) {
-			case 0 -> new double[] {2.8, 1.5, -7.0, 2.8, 1.6, 0.0};
-			case 1 -> new double[] {1.7, 1.6, -6.0, 1.7, 1.7, 0.0};
-			case 2 -> new double[] {1.0, 1.5, 5.4, 1.7, 1.6, 0.0};
-			default -> new double[] {1.0, 1.5, -5.4, 1.7, 1.6, 0.0};
+			case 0 -> new double[] {2.8, 1.5, 7.0, 2.8, 1.6, 0.0};
+			case 1 -> new double[] {1.7, 1.6, 6.0, 1.7, 1.7, 0.0};
+			case 2 -> new double[] {0.8, 1.5, 3.4, 0.0, 1.5, 0.0};
+			case 3 -> new double[] {0.8, 1.5, -3.4, 0.0, 1.5, 0.0};
+			case 4 -> new double[] {4.5, 1.0, 5.5, 0.0, 0.8, -1.5};
+			case 5 -> new double[] {6.0, 1.0, 3.5, 0.0, -0.3, 0.8};
+			case 6 -> new double[] {3.0, 0.4, 5.0, 0.0, 1.3, 0.0};
+			case 9 -> new double[] {1.8, 1.0, 4.8, 0.0, 0.3, 0.0};
+			case 7 -> new double[] {9.0, 6.0, 10.0, 1.5, 0.0, -6.0};
+			default -> new double[] {-3.0, 1.2, 5.0, 0.0, 1.5, 0.0};
 		};
-		if (first) {
-			// (A cut, not a drift.)
+		if (cut) {
 			camEye = null;
 		}
 		Capture.camera = trackingCamera(MinecraftClient.getInstance());
@@ -2973,19 +3088,35 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 			}
 		}
 		// Low posts with a soul lantern on each, round the floor; sculk catalysts and sensors among the sculk; lanterns hanging overhead.
-		for (int[] at : new int[][] {{-4, 6}, {-4, -6}, {4, 7}, {4, -7}, {10, 6}, {10, -6}, {16, 7}, {16, -7}, {21, 5}, {21, -5}}) {
+		for (int[] at : new int[][] {{-4, 6}, {-4, -5}, {4, 7}, {4, -5}, {10, 6}, {10, -5}, {16, 7}, {16, -7}, {21, 5}, {21, -5}}) {
 			world.setBlockState(cell(spot, at[0], 0, at[1]), Blocks.DEEPSLATE_BRICK_WALL.getDefaultState(), flags);
 			world.setBlockState(cell(spot, at[0], 1, at[1]), Blocks.DEEPSLATE_BRICK_WALL.getDefaultState(), flags);
 			world.setBlockState(cell(spot, at[0], 2, at[1]), Blocks.SOUL_LANTERN.getDefaultState(), flags);
 		}
-		for (int[] at : new int[][] {{7, 9}, {13, -9}, {19, 9}, {-6, -9}}) {
+		for (int[] at : new int[][] {{7, 9}, {13, 9}, {19, 9}, {-6, 9}}) {
 			world.setBlockState(cell(spot, at[0], 0, at[1]), Blocks.SCULK_CATALYST.getDefaultState(), flags);
 		}
-		for (int[] at : new int[][] {{-2, 4}, {8, -4}, {12, 4}, {18, -3}, {1, -8}}) {
+		for (int[] at : new int[][] {{-2, 4}, {8, -4}, {12, 4}, {18, -3}, {1, 9}}) {
 			world.setBlockState(cell(spot, at[0], 0, at[1]), Blocks.SCULK_SENSOR.getDefaultState(), flags);
 		}
 		for (int[] at : new int[][] {{3, 0}, {9, 0}, {15, 0}}) {
 			world.setBlockState(cell(spot, at[0], 14, at[1]), Blocks.SOUL_LANTERN.getDefaultState().with(net.minecraft.block.LanternBlock.HANGING, true), flags);
+		}
+		// The ledge: a gallery of polished deepslate along the north wall, four blocks up, open at the front and no stair up to it; a band of carved
+		// stone on the wall over it; soul lanterns on it so it is the first thing the eye finds.
+		for (int x = -9; x <= 23; x++) {
+			for (int z = -11; z <= -11; z++) {
+				for (int y = 0; y < 4; y++) {
+					world.setBlockState(cell(spot, x, y, z), y == 3 ? Blocks.POLISHED_TUFF.getDefaultState() : Blocks.TUFF_BRICKS.getDefaultState(), flags);
+				}
+				world.setBlockState(cell(spot, x, 4, z), Blocks.AIR.getDefaultState(), flags);
+			}
+			for (int y = 7; y <= 8; y++) {
+				world.setBlockState(cell(spot, x, y, -12), Blocks.CHISELED_TUFF_BRICKS.getDefaultState(), flags);
+			}
+		}
+		for (int x : new int[] {-8, 8, 12, 16, 20}) {
+			world.setBlockState(cell(spot, x, 4, -11), Blocks.SOUL_LANTERN.getDefaultState(), flags);
 		}
 	}
 
