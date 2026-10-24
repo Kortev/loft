@@ -218,8 +218,26 @@ tall within 3 blocks of you, else the action bar says so and nothing is spent) a
   trees, a real village, caves and cliffs (the tests are a flat floor, a wall and a hill). **What still looks stiff** (from the clip): in
   your own eyes his back is a flat blue slab filling the bottom of the picture (the model is big flat boxes; only the spray and the
   passing ground show speed); only the top 1.2 blocks of him show while he swims, so the S of his body is read from the tail's swing and
-  from above, not from a low side camera; the burst-up at the summoning is a fixed ballistic hop, the same every time. The old `beam`
-  reel in `ShowcaseSelfTest` (and `beamlook`'s walking shots) were set for the walking Beam and are not refilmed.
+  from above, not from a low side camera; the burst-up at the summoning is a fixed ballistic hop, the same every time. (`beamlook`'s shots were set for the old walking Beam and are not refilmed.)
+- **Beam's reel, refilmed** (2026-10-23, after walk-and-sprint; `-Ptarget=beam`, in `ShowcaseSelfTest`: `beam()`, `reelKeys`, `beamSet`/`campBuild`; **not yet seen by kortev**:
+  `work/beam_reel/beam_v2.mp4`, git-ignored, on GraehamsPC; 12.7 s, 1080 x 1920, mean about -17 dB, the first 2 s about -17 dB). Film with
+  `-Pcapture=true "-Pjvmargs=-Xmx2600m -XX:TieredStopAtLevel=1"` and the ffmpeg folder on the PATH, then `python work/tools/mux-audio-noprobe.py
+  build/selftest/capture out.mp4` and `-af "volume=-1dB,alimiter=limit=0.97"`. The set is a camp at sunset on the clip's flat field run from its east
+  end west toward the sun (215 blocks, chunks forced so the far raiders do not fall through): a lane, fence posts and lanterns, a house on the lane
+  to swim through, a well, hay, tents, campfires, two more houses. The beats (ticks / 20): 0 to 1.4 s the summoning (ground-level close shot, then
+  the front of his head as he screeches); 1.5 s walks (past the lens; from behind, low, with the raiders at the sides of the lane running in);
+  2.9 s the sprint, a dive under them at the lens, then above and behind; 4.2 s the house bursting (from the side, from beyond it); 5 s first person
+  (0.7 s); 5.6 s the ambush under a Ravager (ground-level, then a tilt up after it, the sky); 7 s he surfaces and walks on to the vindicators; 8 s
+  a vindicator caught (close at the jaws, low in front), shaken, flung (wide shot following it); 9.6 s the chain key throws you into a pack
+  (from beside, then following you through it); 10.5 s he is under you again; the hero shot low and close at his open mouth, the question.
+  Real mobs with their own AI (the test only spawns them, sets their target and health, and presses the keys at the instants a player would:
+  the attack key for the ambush within its own rule, for the bite when one is in the jaws, the chain key with the pack 11 to 20 blocks ahead),
+  the real client keys for walking and sprinting (forward, then sprint; to surface the forward key is let go for two ticks, because the game
+  keeps a sprint going while forward is held). **Timing varies from run to run** with the mobs' AI (the ambush key came at f 122 every time, the
+  rest within a few ticks; once the far vindicators fell through unloaded chunks, which the forced chunks now prevent); if a run gives up
+  ("gave up at f=601 in phase N" in the log) just film it again. **What does not read well**: in your own eyes his back is still a blue slab; the
+  flung vindicator is a small dark figure in a big sky (it reads best from the take where the camera is ahead of him, not always); the dive
+  itself (legs folding, sinking) happens as he passes the lens, so mostly the spray shows it; the raiders' clothes are dark against his blue.
 
 **Latest (2026-10-22, afternoon) — read this first:**
 - **Tree felling (2026-10-23, kortev asked for it):** in the form, sawing through a tree's trunk brings the whole tree
@@ -262,7 +280,7 @@ tall within 3 blocks of you, else the action bar says so and nothing is spent) a
 - **Usage setup**: prompt suggestions off; `.claude/settings.json` has a SessionStart "compact" hook that re-prints
   this section after a compaction. Third-party compaction plugins were checked and skipped (unverifiable).
 
-**Next**: kortev judges the `beamswim` test clip (2026-10-23; `work/beam_soul/clip.mp4`, git-ignored, on GraehamsPC); then kortev judges phase 2 of "Beam with a soul" (built 2026-10-23: `work/beam_soul/action.mp4`); then film Beam's showcase reel again.
+**Next**: kortev judges the `beamswim` test clip (2026-10-23; `work/beam_soul/clip.mp4`, git-ignored, on GraehamsPC); then kortev judges phase 2 of "Beam with a soul" (built 2026-10-23: `work/beam_soul/action.mp4`); then kortev judges the refilmed Beam reel (`work/beam_reel/beam_v2.mp4`) and Beam walking on his legs / swimming on sprint.
 
 **kortev's queue of ideas** (ask before building any): the ult is Beam now (above; the frenzy was dropped for looking the
 same as normal attacks); the merge dead

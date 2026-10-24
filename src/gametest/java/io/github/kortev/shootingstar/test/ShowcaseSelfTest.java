@@ -1575,8 +1575,8 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 	private static final int BEAM_LANDS = 16;
 	private static final int BEAM_HERO_AFTER = 12;
 	/** The hero shot: the question comes in this long into it, and the reel ends this long after the question. */
-	private static final int BEAM_ASKED_AT = 16;
-	private static final int BEAM_ASKED_FOR = 44;
+	private static final int BEAM_ASKED_AT = 10;
+	private static final int BEAM_ASKED_FOR = 26;
 	/** The lens (vertical field of view, degrees) the reel is shot through now: 0 is the game's own. */
 	private static float beamLens;
 	private static int beamAsked = 100000;
@@ -1634,6 +1634,10 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 			r.equipStack(EquipmentSlot.MAINHAND, new ItemStack(pillager ? Items.CROSSBOW : Items.IRON_AXE));
 		}
 		r.setPersistent();
+		if (health > r.getMaxHealth()) {
+			// (More than the game gives it, so the thrash and the fling are not wasted on a corpse.)
+			r.getAttributeInstance(net.minecraft.entity.attribute.EntityAttributes.GENERIC_MAX_HEALTH).setBaseValue(health);
+		}
 		r.setHealth(health);
 		boolean spawned = world.spawnEntity(r);
 		ZOMBIES.add(r.getId());
@@ -1744,231 +1748,690 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		return best;
 	}
 
+	// Beam's reel (kortev, 2026-10-23, after "Beam walks on his legs and swims when you sprint"): a camp at sunset, filmed with the real keys and the real
+	// mobs. You call him up (he bursts out of the ground, thrashes, looks back and screeches), he scuttles toward a raid on his legs, then you sprint and he
+	// dives; he swims straight through a house, rushes under a Ravager and sends it sky-high, surfaces onto his legs and catches a vindicator, shakes
+	// it and flings it; the chain key throws you into a pack, saws first, and he swims back for you; then low and close on him, mouth open, with you
+	// on his back and the question. Every mob has its own AI (the test spawns them, sets their target when they are near, and presses the keys at
+	// the instants a player would); cuts about every second.
+
+	/** Where he starts walking and when the sprint comes (reel ticks), and the camp: the house is this far ahead and this long (blocks). */
+	private static final int RL_WALK = 30;
+	private static final int RL_SPRINT = 58;
+	private static final int RL_HOUSE = 58;
+	private static final int RL_HOUSE_LONG = 10;
+	/** The reel's own state. */
+	private static int rlPhase;
+	private static int rlKeyPhase = -1;
+	private static int rlKeyPrey = -1;
+	private static Vec3d rlKeyAt = Vec3d.ZERO;
+	private static final java.util.List<Integer> RL_USED = new java.util.concurrent.CopyOnWriteArrayList<>();
+	private static int rlCutAt;
+	private static int rlEruptAt;
+	private static int rlGrabAt;
+	private static int rlFlungAt;
+	private static int rlLaunchAt;
+	private static int rlPickedAt;
+	private static int rlFpAt;
+	private static boolean rlPack;
+	private static int rlPreyId = -1;
+
+	/** A point of the camp: {@code x} ahead of where you start, {@code y} up from the ground, {@code left} to the left. */
+	private static Vec3d camp(double x, double y, double left) {
+		Vec3d dir = Vec3d.fromPolar(0.0F, facing);
+		return rel(origin, dir, new Vec3d(dir.z, 0.0, -dir.x), x, y, left);
+	}
+
+	/** How far ahead of where you started the point is. */
+	private static double alongCamp(Vec3d p) {
+		return p.subtract(origin).dotProduct(Vec3d.fromPolar(0.0F, facing));
+	}
+
+	/** Spawns a raider (0 vindicator, 1 pillager, 2 Ravager) {@code x} ahead of Beam's start and {@code left} to the left, facing him, and remembers it. */
+	private static void campRaider(ServerWorld world, double x, double left, float health, int kind) {
+		Vec3d at = camp(x, 0.0, left);
+		raider(world, new Vec3d(at.x, origin.y, at.z), facing + 180.0F, health, kind);
+	}
+
+	/** The camera shot to, the lens, and from which eyes. */
+	private static void reelShot(MinecraftClient client, float lens, java.util.function.DoubleFunction<Capture.Pose> camera) {
+		client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
+		beamLens = lens;
+		actCamera(client, camera);
+	}
+
+	/** The keys: held down every tick (a single press is sometimes lost). */
+	private static void reelWalk(MinecraftClient client, boolean forward, boolean sprint) {
+		client.options.forwardKey.setPressed(forward);
+		client.options.sprintKey.setPressed(sprint && forward);
+	}
+
 	private static void beam(MinecraftClient client, IntegratedServer server, int f) {
-		Vec3d ahead = Vec3d.fromPolar(0.0F, facing);
-		Vec3d side = new Vec3d(ahead.z, 0.0, -ahead.x);
+		Vec3d dir = Vec3d.fromPolar(0.0F, facing);
+		Vec3d left = new Vec3d(dir.z, 0.0, -dir.x);
 		if (f == 1) {
 			client.options.hudHidden = false;
-			beamBites = 0;
-			beamLastBite = -100;
-			beamChargeAt = 0;
-			beamDecideAt = 0;
-			beamLeapAt = 0;
-			beamHeroAt = 0;
-			beamCut4 = false;
-			beamCut5At = 0;
-			beamCut5 = false;
-			beamCut6 = false;
+			rlPhase = 0;
+			rlKeyPhase = -1;
+			rlKeyPrey = -1;
+			RL_USED.clear();
+			rlCutAt = rlEruptAt = rlGrabAt = rlFlungAt = rlLaunchAt = rlPickedAt = rlFpAt = 0;
+			rlPack = false;
+			rlPreyId = -1;
 			beamAsked = 100000;
 			beamReelEnd = 100000;
 			if (capturing()) {
 				Capture.start(client, client.runDirectory.toPath().resolve("capture"));
 			}
-			// Shot 1: on the ground, close and low, in front of where he will come up and to the side: the sand bursts up in the lens
-			// and he rises out of it, filling the frame (his head, his eyes, his open jaw), Chainsaw Man on his back.
-			client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
-			beamLens = 78.0F;
-			Vec3d at = rel(origin, ahead, side, 6.6, 0.9, -4.6);
-			Capture.camera = t -> {
-				double k = ease(span(t, 0.0, BEAM_EYES));
-				return look(rel(at, ahead, side, -0.9 * k, 0.5 * k, 0.0), rel(origin, ahead, side, 1.0, MathHelper.lerp(k, 1.0, 2.6), 0.0));
-			};
+			// Shot 1: low and close in front of where he comes up, to the near side: the ground bursts and he flies out, thrashing.
+			reelShot(client, 82.0F, t -> {
+				double k = ease(span(t, 0.0, 14.0));
+				return look(camp(5.4 - 0.9 * k, 0.6 + 0.2 * k, -3.2 + 0.4 * k), camp(0.8, MathHelper.lerp(k, 0.8, 2.0), 0.0));
+			});
 		}
-		BeamEntity beam = client.world == null ? null : client.world.getEntitiesByClass(BeamEntity.class, new net.minecraft.util.math.Box(origin, origin).expand(80.0), b -> !b.diving())
+		BeamEntity beam = client.world == null ? null : client.world.getEntitiesByClass(BeamEntity.class, new net.minecraft.util.math.Box(origin, origin).expand(260.0), b -> !b.diving())
 				.stream().findFirst().orElse(null);
-		face(client, facing, f < BEAM_RIDES - 3 ? 12.0F : 0.0F);
-		if (f >= 1) {
-			forgetPull();
-		}
-		if (f == BEAM_CALL) {
-			// The key's own path (Beam.summon: the blood, the burst, you on his back).
+		forgetPull();
+		double along = beam == null ? 0.0 : alongCamp(beam.getPos());
+		float pitch = rlPhase >= 4 && rlPhase < 6 ? 6.0F : 10.0F;
+		face(client, facing, pitch);
+		// Calling him up: the key's own path (the blood, the burst, you on his back).
+		if (f == 2) {
 			server.execute(() -> Beam.summon(player(server)));
 		}
-		if (f >= BEAM_CALL && f < BEAM_CALL + 12) {
-			// Extra sand thrown up round him and in front of him as he comes up, so the burst is plain on camera.
+		if (f >= 2 && f < 14) {
+			// Extra ground thrown up as he comes, so the burst is plain on camera.
 			Vec3d at = origin;
-			Vec3d front = rel(origin, ahead, side, 3.5, 0.0, 0.0);
+			Vec3d front = camp(3.0, 0.0, 0.0);
 			server.execute(() -> {
-				net.minecraft.particle.BlockStateParticleEffect sand = new net.minecraft.particle.BlockStateParticleEffect(net.minecraft.particle.ParticleTypes.BLOCK,
-						Blocks.SAND.getDefaultState());
+				net.minecraft.particle.BlockStateParticleEffect dirt = new net.minecraft.particle.BlockStateParticleEffect(net.minecraft.particle.ParticleTypes.BLOCK,
+						Blocks.GRASS_BLOCK.getDefaultState());
 				ServerWorld world = server.getOverworld();
-				world.spawnParticles(sand, at.x, at.y + 0.3, at.z, 160, 2.2, 0.2, 2.2, 0.9);
-				world.spawnParticles(sand, front.x, front.y + 0.3, front.z, 200, 2.6, 0.2, 2.0, 1.0);
-				// (Big puffs of sand-coloured dust too: the block specks alone are tiny on camera.)
-				net.minecraft.particle.DustParticleEffect dust = new net.minecraft.particle.DustParticleEffect(new org.joml.Vector3f(0.86F, 0.76F, 0.5F), 3.5F);
-				world.spawnParticles(dust, at.x, at.y + 0.5, at.z, 40, 2.0, 0.5, 2.0, 0.2);
-				world.spawnParticles(dust, front.x, front.y + 0.5, front.z, 50, 2.4, 0.6, 1.8, 0.25);
+				world.spawnParticles(dirt, at.x, at.y + 0.3, at.z, 140, 2.0, 0.2, 2.0, 0.9);
+				world.spawnParticles(dirt, front.x, front.y + 0.3, front.z, 160, 2.4, 0.2, 1.8, 1.0);
 			});
 		}
-		if (f == BEAM_EYES) {
-			// Shot 2: your own eyes on his back, the patrol and the Ravager coming over the sand ahead.
-			beamEyes(client, ahead, 1.0, 12.0, 22.0, 14);
+		// The raid, far down the field, running in: a Ravager and some raiders behind it (their own AI; they are set on you when they are near).
+		if (f == 20) {
+			server.execute(() -> {
+				ServerWorld world = server.getOverworld();
+				campRaider(world, 102.0, 0.0, 100.0F, 2);
+				campRaider(world, 124.0, 2.5, 300.0F, 0);
+				campRaider(world, 128.0, -2.5, 300.0F, 0);
+				campRaider(world, 134.0, 0.0, 40.0F, 1);
+			});
 		}
-		if (f == BEAM_TRACK && beam != null) {
-			// Shot 3: alongside him at his head, close and low, going with him all the way: the ground streams past.
-			client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
-			beamLens = 76.0F;
-			beamRide(client, ahead, side, 6.0, 1.5, 3.4, 3.2, 2.4, 1.0);
+		// The raiders at the side of the lane, running in as he walks: he dives right under them.
+		if (f == 40) {
+			server.execute(() -> {
+				ServerWorld world = server.getOverworld();
+				campRaider(world, 36.0, -9.0, 60.0F, 0);
+				campRaider(world, 39.0, 10.0, 60.0F, 0);
+				campRaider(world, 42.0, -12.0, 40.0F, 1);
+				campRaider(world, 44.0, 8.0, 60.0F, 0);
+			});
 		}
-		if (f >= BEAM_RIDES && (beamBites < 1 || beamBites == 1 && f > beamLastBite + 70)) {
-			// (Held down every tick: a single press is sometimes lost.)
-			client.options.forwardKey.setPressed(true);
-		}
-		double along = beam == null ? 0.0 : beam.getPos().subtract(origin).dotProduct(ahead);
-		// Shot 4: on the ground ahead of him, off his path, as the first of them comes at his jaws: the mob big as he snaps it and
-		// it is flung past (over) the lens.
-		if (beam != null && beamBites == 0 && !beamCut4 && f > BEAM_RIDES + 4 && nearest(client, beam, ahead, side, 5.5, 13.0, 4.5) != null) {
-			beamCut4 = true;
-			client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
-			beamLens = 80.0F;
-			beamStand(client, beam, ahead, side, 11.0, -4.0, 0.5, 3.4, 1.6);
-		}
-		// His bites, with the real attack path, when one of them is in front of his mouth (the second only for the Ravager, if it
-		// has not come within a while).
-		if (beam != null && beamBites < 2 && f > BEAM_RIDES + 2 && f >= beamLastBite + BEAM_BITE_GAP) {
-			Entity victim = inJaws(client, beam, ahead, beamBites == 1 && f < beamLastBite + 90);
-			if (victim != null) {
-				beamBites++;
-				beamLastBite = f;
-				if (beamBites == 2) {
-					// The best bite, in slow motion for the half second it takes to close and throw.
-					Capture.slow(0.25, 22);
-				}
-				server.execute(() -> {
-					boolean bit = Saw.slash(player(server));
-					StringBuilder who = new StringBuilder();
-					for (int id : ZOMBIES) {
-						Entity z = server.getOverworld().getEntityById(id);
-						who.append(z == null ? " gone" : String.format(" %s(%.1f %.1f, hp %.0f)", z.getType().getUntranslatedName(),
-								z.getPos().subtract(origin).dotProduct(ahead), z.getY() - origin.y, z instanceof net.minecraft.entity.LivingEntity l ? l.getHealth() : -1.0F));
+		if (f % 4 == 0 && beam != null) {
+			Vec3d at = beam.getPos();
+			server.execute(() -> {
+				ServerPlayerEntity you = player(server);
+				for (int id : ZOMBIES) {
+					if (server.getOverworld().getEntityById(id) instanceof net.minecraft.entity.mob.MobEntity m && m.isAlive() && m.getTarget() == null && m.getVehicle() == null
+							&& m.squaredDistanceTo(at.x, m.getY(), at.z) < 60.0 * 60.0) {
+						m.setTarget(you);
 					}
-					ShootingStar.LOGGER.info("[selftest] beam reel: server: the bite came: {}; the patrol:{}", bit, who);
-				});
-				ShootingStar.LOGGER.info("[selftest] beam reel: bite {} at f={}, he is {} ahead, a {} {} from his middle", beamBites, f, along, victim.getType().getUntranslatedName(),
-						victim.getPos().subtract(beam.getPos()).dotProduct(ahead));
-				if (beamBites == 1) {
-					beamCut5At = f + 12;
-				} else {
-					beamDecideAt = f + BEAM_CHARGE_AFTER;
 				}
-			}
+			});
 		}
-		if (beamBites >= 1 && f >= beamLastBite + 1 && !(beamBites == 1 && f > beamLastBite + 70)) {
-			// (He stops after the first bite: the rest of them run at him, and the second bite waits for the Ravager.)
-			client.options.forwardKey.setPressed(false);
+		// Shot 2: close on his head as he looks back at you and screeches.
+		if (f == 13) {
+			reelShot(client, 64.0F, t -> {
+				BeamEntity b = client.world.getEntitiesByClass(BeamEntity.class, new net.minecraft.util.math.Box(origin, origin).expand(60.0), x -> !x.diving()).stream().findFirst().orElse(null);
+				Vec3d p = b != null ? b.getLerpedPos((float) (t - Math.floor(t))) : origin;
+				double k = ease(span(t, 13.0, 30.0));
+				Vec3d base = new Vec3d(p.x, origin.y, p.z);
+				return look(rel(base, dir, left, 8.4 - 0.9 * k, 1.7, -3.4), rel(base, dir, left, 2.2, 2.4, 0.0));
+			});
 		}
-		if (beamBites > 0 && f == beamLastBite + 8) {
-			StringBuilder left = new StringBuilder();
+		if (f == RL_WALK) {
+			reelWalk(client, true, false);
+		}
+		// Shot 3: on the ground, he scuttles past the lens on his legs.
+		if (f == 30) {
+			Vec3d at = camp(8.0, 0.8, -4.6);
+			reelShot(client, 74.0F, t -> {
+				BeamEntity b = client.world.getEntitiesByClass(BeamEntity.class, new net.minecraft.util.math.Box(origin, origin).expand(60.0), x -> !x.diving()).stream().findFirst().orElse(null);
+				Vec3d p = b != null ? b.getLerpedPos((float) (t - Math.floor(t))) : origin;
+				return look(at, new Vec3d(p.x, origin.y + 1.6, p.z).add(dir.multiply(-0.5)));
+			});
+		}
+		// Shot 4: from behind and low, the raid ahead of him over his tail.
+		if (f == 43) {
+			reelShot(client, 66.0F, t -> {
+				Vec3d p = actBeam(client, t);
+				Vec3d base = new Vec3d(p.x, origin.y, p.z);
+				return look(rel(base, dir, left, -7.4, 0.9, -1.6), rel(base, dir, left, 12.0, 2.0, 0.0));
+			});
+		}
+		// The sprint: he dives. Shot 5: the dive, low in front of him, the ground bursting at the lens.
+		if (f == RL_SPRINT) {
+			reelWalk(client, true, true);
+			rlPhase = 1;
+			Vec3d b = beam != null ? beam.getPos() : origin;
+			Vec3d at = new Vec3d(b.x, origin.y, b.z);
+			Vec3d cam = rel(at, dir, left, 8.0, 0.7, -3.4);
+			reelShot(client, 84.0F, t -> {
+				Vec3d p = actBeam(client, t);
+				return look(cam, new Vec3d(p.x, origin.y + 1.0, p.z).add(dir.multiply(1.0)));
+			});
+		}
+		// Shot 6: above and behind, his back, you on it, the V of the ground and the wake.
+		if (rlPhase == 1 && f == RL_SPRINT + 18) {
+			rlPhase = 2;
+			reelShot(client, 74.0F, t -> {
+				Vec3d p = actBeam(client, t);
+				Vec3d base = new Vec3d(p.x, origin.y, p.z);
+				return look(rel(base, dir, left, -9.0, 5.2, 3.6), rel(base, dir, left, 5.0, 0.4, 0.0));
+			});
+		}
+		// Shot 7: the house, from the side and a little way off, as he comes into it: the walls burst.
+		if (rlPhase == 2 && along >= RL_HOUSE - 6.0) {
+			rlPhase = 3;
+			reelShot(client, 82.0F, t -> look(camp(RL_HOUSE + 4.0, 2.8, -15.0), camp(RL_HOUSE + 3.0, 1.8, 0.0)));
+		}
+		// Shot 8: from beyond the house, low, as he bursts out of the far wall toward the lens.
+		if (rlPhase == 3 && along >= RL_HOUSE + 4.0) {
+			rlPhase = 4;
+			rlCutAt = f;
+			reelShot(client, 82.0F, t -> look(camp(RL_HOUSE + RL_HOUSE_LONG + 9.0, 1.2, 4.5), camp(RL_HOUSE + RL_HOUSE_LONG - 2.0, 1.6, 0.0)));
+		}
+		// Shot 9: your own eyes on his back, the Ravager coming at you over the field: a second or so, till the key.
+		if (rlPhase == 4 && along >= RL_HOUSE + RL_HOUSE_LONG + 3.0) {
+			rlPhase = 5;
+			rlFpAt = f;
+			actEyes(client);
+		}
+		if ((rlPhase == 4 || rlPhase == 5) && beam != null && f >= RL_SPRINT + 20) {
+			server.execute(() -> reelKeys(server, 0, dir));
+		}
+		if ((rlPhase == 4 || rlPhase == 5) && rlKeyPhase == 0) {
+			// The ambush key took: cut to the ground beside where they meet, low: Beam comes in from the left of the picture, the Ravager from the right, and it goes up.
+			rlPhase = 6;
+			rlCutAt = f;
+			rlPreyId = rlKeyPrey;
+			Vec3d meet = rlKeyAt.subtract(dir.multiply(2.2));
+			Vec3d mark = new Vec3d(meet.x, origin.y + 0.9, meet.z);
+			Vec3d cam = rel(new Vec3d(meet.x, origin.y, meet.z), dir, left, -2.0, 1.0, -11.0);
+			int preyId = rlKeyPrey;
+			int cutAt = f - 0;
+			reelShot(client, 80.0F, t -> {
+				Entity p = client.world.getEntityById(preyId);
+				double up = p != null && p.isAlive() ? ease(span(t, cutAt + 5.0, cutAt + 12.0)) : 0.0;
+				Vec3d target = p != null ? p.getLerpedPos((float) (t - Math.floor(t))).add(0.0, 1.0, 0.0) : mark;
+				Vec3d aim = mark.add(target.subtract(mark).multiply(up * 0.7));
+				return look(cam, aim);
+			});
+			ShootingStar.LOGGER.info("[selftest] beam reel: ambush key took at f={} (along {})", f, along);
+		}
+		if (rlPhase == 6 && beam != null && rlEruptAt == 0 && beam.sinceAmbush(0.0F) < 3.0F) {
+			rlEruptAt = f;
+			// He lets go of sprint as he rises: when he is down he surfaces and walks on his legs.
+			ShootingStar.LOGGER.info("[selftest] beam reel: the eruption at f={}", f);
+		}
+		// (The game keeps a sprint going while forward is held: to surface he lets go of forward for a moment and walks on.)
+		if (rlPhase == 6 && rlEruptAt > 0 && f == rlEruptAt + 3) {
+			reelWalk(client, false, false);
+		}
+		if (rlPhase == 6 && rlEruptAt > 0 && f == rlEruptAt + 5) {
+			reelWalk(client, true, false);
+		}
+		// Shot 10: wide and low from the side, looking up at him arcing out of the hole and the Ravager far above.
+		if (rlPhase == 6 && rlEruptAt > 0 && f == rlEruptAt + 8 && beam != null) {
+			rlPhase = 7;
+			Vec3d hole = rlKeyAt;
+			Vec3d cam = rel(new Vec3d(hole.x, origin.y, hole.z), dir, left, 6.0, 1.0, -8.5);
+			int preyId = rlPreyId;
+			reelShot(client, 86.0F, t -> {
+				Entity p = client.world.getEntityById(preyId);
+				Vec3d up = p != null && p.isAlive() ? p.getLerpedPos((float) (t - Math.floor(t))) : hole.add(0.0, 8.0, 0.0);
+				Vec3d aim = new Vec3d(hole.x, origin.y + 2.5 + Math.max(0.0, Math.min(18.0, (up.y - origin.y) * 0.85)), hole.z);
+				return look(cam, aim);
+			});
+		}
+		// Shot 10b: low on the ground to the side as he lands, rises onto his legs and walks on; the vindicators run in at him.
+		if (rlPhase == 7 && f == rlEruptAt + 17 && beam != null) {
+			Vec3d b = beam.getPos();
+			Vec3d cam = rel(new Vec3d(b.x, origin.y, b.z), dir, left, 10.0, 0.8, -5.5);
+			reelShot(client, 76.0F, t -> {
+				Vec3d p = actBeam(client, t);
+				return look(cam, new Vec3d(p.x, origin.y + 1.2, p.z).add(dir.multiply(1.0)));
+			});
+		}
+		// The vindicators run in; he walks on to them and holds still when one is close (so it comes to his jaws): the attack key when one is in them.
+		if (rlPhase == 7 && f >= rlEruptAt + 12 && beam != null) {
+			Vec3d mouth = beam.getPos().add(dir.multiply(Beam.MOUTH));
+			boolean close = false;
 			for (int id : ZOMBIES) {
 				Entity z = client.world.getEntityById(id);
-				left.append(z == null || !z.isAlive() ? " dead" : String.format(" %s(%.1f, y %.1f)", z.getType() == EntityType.RAVAGER ? "R" : "", z.getPos().subtract(origin).dotProduct(ahead),
-						z.getY() - origin.y));
+				if (z != null && z.isAlive() && z.getType() != EntityType.RAVAGER && !z.hasVehicle() && z.getY() - origin.y < 1.5) {
+					Vec3d at = z.getPos().subtract(mouth);
+					double d = at.dotProduct(dir);
+					if (d > -2.0 && d < 7.0 && Math.abs(at.dotProduct(left)) < 5.0) {
+						close = true;
+					}
+				}
 			}
-			ShootingStar.LOGGER.info("[selftest] beam reel: 8 ticks after bite {}, the patrol:{}", beamBites, left);
+			reelWalk(client, !close, false);
 		}
-		// Shot 5: high and wide, looking down on him and the raid coming (the Ravager charging in), to show how big it is.
-		if (beam != null && beamBites == 1 && !beamCut5 && beamCut5At != 0 && f >= beamCut5At && ravagerAhead(client, beam, ahead, 11.0) == null) {
-			beamCut5 = true;
-			client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
-			beamLens = 68.0F;
-			Vec3d at = rel(beam.getPos(), ahead, side, 3.0, 9.0, -15.5);
-			Vec3d looking = rel(beam.getPos(), ahead, side, 6.0, 0.8, 0.0);
-			Capture.camera = t -> look(at, looking);
+		if (rlPhase == 7 && f >= rlEruptAt + 20 && beam != null) {
+			server.execute(() -> reelKeys(server, 2, dir));
 		}
-		// Shot 6: the Ravager comes: low at his mouth from the far side, close, as he snaps it and throws it over the lens.
-		if (beam != null && beamBites == 1 && !beamCut6 && ravagerAhead(client, beam, ahead, 11.0) != null && f >= beamLastBite + 6) {
-			beamCut6 = true;
-			beamCut5 = true;
-			client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
-			beamLens = 78.0F;
-			beamStand(client, beam, ahead, side, 9.4, 3.6, 0.5, 3.6, 1.7);
+		// Shot 11, 12, 13: the catch close on his jaws, then high over him as he shakes it, then after it as it is flung.
+		if (rlPhase == 7 && rlKeyPhase == 2 && beam != null) {
+			rlPhase = 8;
+			rlGrabAt = f;
+			reelWalk(client, false, false);
+			rlPreyId = rlKeyPrey;
+			Vec3d b = beam.getPos();
+			Vec3d base = new Vec3d(b.x, origin.y, b.z);
+			reelShot(client, 56.0F, t -> {
+				Vec3d p = actBeam(client, t);
+				Vec3d jaws = new Vec3d(p.x, origin.y + 1.8, p.z).add(dir.multiply(2.6));
+				return look(rel(new Vec3d(p.x, origin.y, p.z), dir, left, 3.0, 1.8, -6.6), jaws);
+			});
+			ShootingStar.LOGGER.info("[selftest] beam reel: the grab at f={} (along {})", f, along);
 		}
-		// Shot 7: your own eyes on his back for the charge, the speed lines the mod's own: the nine blocks through the pillagers.
-		if (beamDecideAt != 0 && beamChargeAt == 0 && f >= beamDecideAt && beam != null
-				&& (nearest(client, beam, ahead, side, 4.0, 10.5, 3.5) != null || f >= beamDecideAt + 40)) {
-			// The charge, once some of them are in front of him within the nine blocks of it (or, if none have come, anyway).
-			beamChargeAt = f + 4;
-			beamLeapAt = beamChargeAt + BEAM_LEAP_AFTER;
-			beamHeroAt = beamLeapAt + BEAM_LANDS + BEAM_HERO_AFTER;
-			beamEyes(client, ahead, 1.2, 8.0, 12.0, 14);
+		if (rlPhase == 8 && f == rlGrabAt + 8 && beam != null) {
+			reelShot(client, 70.0F, t -> {
+				Vec3d p = actBeam(client, t);
+				Vec3d jaws = new Vec3d(p.x, origin.y + 1.9, p.z).add(dir.multiply(3.0));
+				return look(rel(new Vec3d(p.x, origin.y, p.z), dir, left, 9.0, 0.7, -2.0), jaws);
+			});
 		}
-		if (beamChargeAt != 0 && f == beamChargeAt) {
-			beamFrom = beam != null ? beam.getPos() : origin;
-			server.execute(() -> Saw.lunge(player(server)));
-			ShootingStar.LOGGER.info("[selftest] beam reel: the charge at f={} from {} ahead", f, along);
+		if (rlPhase == 8 && f == rlGrabAt + 15 && beam != null) {
+			int preyId = rlPreyId;
+			Vec3d b = beam.getPos();
+			Vec3d cam = rel(new Vec3d(b.x, origin.y, b.z), dir, left, 15.0, 1.3, -5.5);
+			reelShot(client, 80.0F, t -> {
+				Vec3d p = actBeam(client, t);
+				Entity prey = client.world.getEntityById(preyId);
+				Vec3d jaws = new Vec3d(p.x, origin.y + 1.8, p.z).add(dir.multiply(3.0));
+				Vec3d aim = prey == null || !prey.isAlive() ? jaws : prey.getLerpedPos((float) (t - Math.floor(t))).add(0.0, 1.0, 0.0);
+				return look(cam, aim);
+			});
 		}
-		if (beamChargeAt != 0 && f == beamChargeAt + 12) {
-			ShootingStar.LOGGER.info("[selftest] beam reel: the charge took him {} blocks", beam == null ? Double.NaN : beam.getPos().distanceTo(beamFrom));
+		if (rlPhase == 8 && beam != null && rlFlungAt == 0 && beam.sinceGrab(0.0F) > BeamEntity.GRAB_TICKS + 1 && beam.sinceGrab(0.0F) < 200.0F) {
+			rlFlungAt = f;
+			reelWalk(client, true, false);
+			ShootingStar.LOGGER.info("[selftest] beam reel: flung at f={}", f);
 		}
-		if (beamLeapAt != 0 && f == beamLeapAt - 10 && beam != null) {
-			// The ones he is to come down on, ahead of where he will land (running at him from out of the picture).
-			Vec3d from = beam.getPos();
+		// The pack: down the field, running in, once he has the vindicator.
+		if (rlPhase == 8 && !rlPack && f == rlGrabAt + 1 && beam != null) {
+			rlPack = true;
+			double base = along + 27.0;
 			server.execute(() -> {
-				for (double[] at : BEAM_CRASHED) {
-					beamZombie(server.getOverworld(), from, ahead, side, at);
+				ServerWorld world = server.getOverworld();
+				double[][] spots = {{0.0, 0.3, 0}, {2.5, -0.9, 0}, {5.0, 1.0, 1}, {7.5, -0.6, 0}, {10.0, 0.5, 0}, {12.5, -0.8, 1}};
+				for (double[] s : spots) {
+					campRaider(world, base + s[0], s[1], 20.0F, (int) s[2]);
 				}
 			});
 		}
-		if (beamLeapAt != 0 && f == beamLeapAt - 6 && beam != null) {
-			// Shot 8: on the ground in his path, looking up as he flies over, then the crash and the ring of sand in front of the lens.
-			client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
-			beamLens = 80.0F;
-			beamStand(client, beam, ahead, side, 4.0, -4.4, 0.4, 0.0, 2.4);
-			beamFrom = beam.getPos();
+		// The chain key: the pack close enough, he throws you into it, saws first.
+		if (rlPhase == 8 && rlFlungAt > 0 && f >= rlFlungAt + 8 && beam != null) {
+			server.execute(() -> reelKeys(server, 5, dir));
 		}
-		if (beamLeapAt != 0 && f == beamLeapAt) {
-			client.options.jumpKey.setPressed(true);
+		if (rlPhase == 8 && rlKeyPhase == 5 && beam != null) {
+			rlPhase = 9;
+			rlLaunchAt = f;
+			reelWalk(client, false, false);
+			Vec3d b = rlKeyAt;
+			Vec3d launched = new Vec3d(b.x, origin.y, b.z);
+			// Shot 14: the throw from beside him, low, as you leave his back; Shot 15: from the side of where it ends, the pack cut.
+			Vec3d at = rel(launched, dir, left, 3.0, 1.4, 7.0);
+			int cutAt = f;
+			reelShot(client, 68.0F, t -> {
+				if (t < cutAt + 7) {
+					Vec3d p = actBeam(client, t);
+					return look(at, new Vec3d(p.x, origin.y + 2.4, p.z).add(dir.multiply(1.5)));
+				}
+				Vec3d end = rel(launched, dir, left, 15.0, 1.2, 4.6);
+				Vec3d you = client.player.getLerpedPos((float) (t - Math.floor(t)));
+				return look(end, you.add(0.0, 0.8, 0.0));
+			});
+			ShootingStar.LOGGER.info("[selftest] beam reel: the throw at f={} (along {})", f, along);
 		}
-		if (beamLeapAt != 0 && f == beamLeapAt + 2) {
-			client.options.jumpKey.setPressed(false);
+		// Shot 16: he swims back for you: low in front of him as he comes up under you.
+		if (rlPhase == 9 && f == rlLaunchAt + 16 && beam != null) {
+			reelShot(client, 80.0F, t -> {
+				Vec3d you = client.player.getLerpedPos((float) (t - Math.floor(t)));
+				Vec3d p = actBeam(client, t);
+				Vec3d towards = new Vec3d(you.x - p.x, 0.0, you.z - p.z);
+				Vec3d side = towards.lengthSquared() < 1.0E-3 ? left : new Vec3d(towards.z, 0.0, -towards.x).normalize();
+				Vec3d from = new Vec3d(you.x, origin.y + 0.7, you.z).add(side.multiply(-3.8));
+				return look(from, new Vec3d(you.x, origin.y + 0.9, you.z));
+			});
 		}
-		if (beamLeapAt != 0 && f == beamLeapAt + BEAM_LANDS) {
-			ShootingStar.LOGGER.info("[selftest] beam reel: the leap took him {} blocks, y {}", beam == null ? Double.NaN : beam.getPos().distanceTo(beamFrom),
-					beam == null ? Double.NaN : beam.getY() - origin.y);
-		}
-		// Shot 9, the hero shot: close and low on his open mouth, filling the frame, Chainsaw Man on top of him, slowly pushing in.
-		if (beamHeroAt != 0 && f == beamHeroAt && beam != null) {
+		// Back on him: stop, stand up on his legs; the hero shot, low and close at his open mouth, you on his back; the question.
+		if (rlPhase == 9 && beam != null && f > rlLaunchAt + 12 && client.player.getVehicle() == beam) {
+			rlPhase = 10;
+			rlPickedAt = f;
+			reelWalk(client, false, false);
 			beamAsked = f + BEAM_ASKED_AT;
 			beamReelEnd = beamAsked + BEAM_ASKED_FOR;
-			client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
-			beamLens = 70.0F;
-			Vec3d base = beam.getPos();
-			Vec3d look = rel(base, ahead, side, 3.4, 3.0, 0.0);
-			double[] start = new double[] {Double.NaN};
-			Capture.camera = t -> {
-				if (Double.isNaN(start[0])) {
-					start[0] = t;
-				}
-				double k = ease(span(t, start[0], start[0] + BEAM_ASKED_AT + BEAM_ASKED_FOR + 12));
-				double dist = MathHelper.lerp(k, 7.2, 5.8);
-				return look(rel(base, ahead, side, 4.5 + dist, 1.3, MathHelper.lerp(k, -3.4, -2.2)), look);
-			};
+			Vec3d b = beam.getPos();
+			Vec3d base = new Vec3d(b.x, origin.y, b.z);
+			Vec3d look = rel(base, dir, left, 3.4, 3.0, 0.0);
+			int start = f;
+			reelShot(client, 70.0F, t -> {
+				Vec3d p = actBeam(client, t);
+				double k = ease(span(t, start, start + BEAM_ASKED_AT + BEAM_ASKED_FOR + 12));
+				double dist = MathHelper.lerp(k, 7.4, 5.8);
+				Vec3d now = new Vec3d(p.x, origin.y, p.z);
+				return look(rel(now, dir, left, MathHelper.lerp(k, 6.6, 5.4), 0.7, MathHelper.lerp(k, -4.8, -3.8)), rel(now, dir, left, 2.6, 2.7, 0.0));
+			});
+			ShootingStar.LOGGER.info("[selftest] beam reel: back on him at f={}", f);
 		}
 		if (f >= beamReelEnd) {
-			client.options.forwardKey.setPressed(false);
+			reelWalk(client, false, false);
 			ShootingStar.LOGGER.info("[selftest] beam reel: the end at f={}", f);
 			stage = Stage.DONE;
 		}
 		if (f > 600) {
-			// (Something went wrong: do not run for ever.)
+			reelWalk(client, false, false);
+			ShootingStar.LOGGER.info("[selftest] beam reel: gave up at f={} in phase {}", f, rlPhase);
 			stage = Stage.DONE;
 		}
-		if (f % 10 == 0 && f >= 40 && beam != null) {
-			StringBuilder who = new StringBuilder();
-			for (int id : ZOMBIES) {
-				Entity z = client.world.getEntityById(id);
-				if (z != null && z.isAlive()) {
-					Vec3d at = z.getPos().subtract(beam.getPos());
-					who.append(String.format(" %s(%.1f,%.1f,y%.1f)", z.getType() == EntityType.PILLAGER ? "P" : z.getType() == EntityType.RAVAGER ? "R" : "V", at.dotProduct(ahead),
-							at.dotProduct(side), z.getY() - origin.y));
+		if (f % 5 == 0) {
+			ShootingStar.LOGGER.info("[selftest] beam reel f={} phase={} he is {} along, y {}, swim {}, sprint {}, riding {}, mobs {}", f, rlPhase,
+					beam == null ? "-" : String.format("%.1f", along), beam == null ? "-" : String.format("%.1f", beam.getY() - origin.y), beam == null ? "-" : String.format("%.2f", beam.swim(0.0F)),
+					client.player.isSprinting(), client.player.getVehicle() != null, ZOMBIES.stream().map(id -> client.world.getEntityById(id)).filter(e -> e != null && e.isAlive())
+							.map(e -> e.getType().getUntranslatedName().substring(0, 2) + "@" + String.format("%.0f", alongCamp(e.getPos())) + "," + String.format("%.0f", e.getY() - origin.y) + "," + String.format("%.1f", e.getPos().subtract(origin).dotProduct(left))).toList());
+		}
+	}
+
+	/**
+	 * The player's keys for the reel, pressed on the server at the instant a real player would: the attack key at a Ravager ahead and in the
+	 * ambush's range (phase 0), at a raider in his jaws (phase 2), the chain key with the pack ahead (phase 5). A key that does nothing (a bite that
+	 * missed) is pressed again a moment later.
+	 */
+	private static boolean inBite(BeamEntity b, Entity e) {
+		Vec3d ahead = b.heading();
+		Vec3d mouth = new Vec3d(b.getX(), origin.y + Beam.MOUTH_HEIGHT, b.getZ()).add(ahead.multiply(Beam.MOUTH));
+		net.minecraft.util.math.Box box = e.getBoundingBox();
+		Vec3d near = new Vec3d(MathHelper.clamp(mouth.x, box.minX, box.maxX), MathHelper.clamp(mouth.y, box.minY, box.maxY), MathHelper.clamp(mouth.z, box.minZ, box.maxZ));
+		double far = near.distanceTo(mouth);
+		if (far > 3.2) {
+			return false;
+		}
+		return far <= 1.2 || near.subtract(mouth).multiply(1.0, 0.0, 1.0).normalize().dotProduct(ahead) >= 0.62;
+	}
+
+	private static void reelKeys(IntegratedServer server, int phase, Vec3d dir) {
+		ServerPlayerEntity you = player(server);
+		BeamEntity b = Beam.active(you);
+		if (b == null || rlKeyPhase >= phase) {
+			return;
+		}
+		ServerWorld world = server.getOverworld();
+		Vec3d mid = new Vec3d(b.getX(), origin.y, b.getZ());
+		Vec3d left = new Vec3d(dir.z, 0.0, -dir.x);
+		int pack = 0;
+		double packNear = Double.MAX_VALUE;
+		int packId = -1;
+		for (int id : ZOMBIES) {
+			Entity e = world.getEntityById(id);
+			if (e == null || !e.isAlive() || e.getY() - origin.y > 1.5 || e.hasVehicle()) {
+				continue;
+			}
+			Vec3d at = e.getPos().subtract(mid);
+			double d = at.dotProduct(dir) - Beam.MOUTH;
+			if (phase != 0 && Math.abs(at.dotProduct(left)) > 4.5) {
+				continue;
+			}
+			// (The ambush's own rule: on the ground, 3 to 8.5 blocks from his mouth, within about 45 degrees of the way you look.)
+			Vec3d flat = new Vec3d(at.x, 0.0, at.z).subtract(dir.multiply(Beam.MOUTH));
+			double flatFar = flat.length();
+			if (phase == 0 && e.getType() == EntityType.RAVAGER && flatFar >= 3.3 && flatFar <= 8.2 && flat.normalize().dotProduct(dir) >= 0.74 && !RL_USED.contains(id)) {
+				boolean bit = Saw.slash(you);
+				ShootingStar.LOGGER.info("[selftest] beam reel: the ambush key: {} (a {} {} from his mouth, he faces {}, you {}, swim {}, amb {})", bit, e.getType().getUntranslatedName(), flatFar,
+						b.getYaw(), you.getYaw(), b.ride().ambush(), b.swimming());
+				if (b.ride().ambush() >= 0) {
+					rlKeyAt = e.getPos();
+					rlKeyPrey = id;
+					rlKeyPhase = phase;
+					RL_USED.add(id);
+					return;
 				}
 			}
-			ShootingStar.LOGGER.info("[selftest] beam reel f={} the patrol, from his middle (ahead, across):{}", f, who);
+			if (phase == 2 && e.getType() != EntityType.RAVAGER && !RL_USED.contains(id) && b.ride().ambush() < 0 && inBite(b, e)) {
+				Saw.slash(you);
+				if (b.ride().holding()) {
+					rlKeyAt = e.getPos();
+					rlKeyPrey = id;
+					rlKeyPhase = phase;
+					RL_USED.add(id);
+					return;
+				}
+			}
+			if (phase == 5 && e.getType() != EntityType.RAVAGER && d >= 11.0 && d <= 20.0 && d < packNear && !RL_USED.contains(id)) {
+				pack++;
+				packNear = d;
+				packId = id;
+			}
 		}
-		if (f % 10 == 0) {
-			ShootingStar.LOGGER.info("[selftest] beam reel f={} he is {} ahead, y {}; you {}", f, along, beam == null ? Double.NaN : beam.getY(),
-					client.player == null ? null : client.player.getPos());
+		if (phase == 5 && pack >= 1 && Beam.launch(you)) {
+			rlKeyAt = mid;
+			rlKeyPrey = packId;
+			rlKeyPhase = phase;
 		}
+	}
+
+	/**
+	 * The Beam reel's set: the test world's flat field (the clip's) made again, but run from its east end to the west, toward the sunset, 215
+	 * blocks of it: a dirt lane with fence posts and lanterns, a house across the lane to swim through, a well, hay, tents, campfires and a
+	 * couple of houses off to the sides; you there already Chainsaw Man with so much health that nothing could down you (the raiders really
+	 * do shoot at you, so you cannot be invulnerable), nothing else about.
+	 */
+	private static void beamSet(IntegratedServer server, ServerPlayerEntity player, ServerWorld world) {
+		world.setTimeOfDay(12150);
+		facing = 90.0F;
+		BlockPos spot = SW_SPOT.add(112, 0, 0);
+		ShootingStar.LOGGER.info("[selftest] beam reel: the camp at {} facing {}", spot, facing);
+		Vec3d feet = Vec3d.ofBottomCenter(spot);
+		for (Entity e : world.getOtherEntities(player, new net.minecraft.util.math.Box(spot).expand(140.0, 24.0, 60.0))) {
+			if (!(e instanceof ServerPlayerEntity)) {
+				e.discard();
+			}
+		}
+		if (io.github.kortev.chainsawman.form.Downed.is(player)) {
+			io.github.kortev.chainsawman.form.Downed.up(player);
+		}
+		Form.end(player);
+		player.changeGameMode(GameMode.SURVIVAL);
+		player.getInventory().clear();
+		campBuild(world, spot);
+		player.getAbilities().invulnerable = false;
+		player.sendAbilitiesUpdate();
+		player.getAttributeInstance(net.minecraft.entity.attribute.EntityAttributes.GENERIC_MAX_HEALTH).setBaseValue(4000.0);
+		player.setHealth(4000.0F);
+		player.getHungerManager().setFoodLevel(20);
+		player.setAttached(Heart.MERGED, true);
+		Blood.set(player, Blood.MAX);
+		player.teleport(world, feet.x, feet.y, feet.z, facing, 5.0F);
+		origin = feet;
+		ZOMBIES.clear();
+		Form.pullCord(player);
+	}
+
+	/** The camp, along the lane running {@code facing} from {@code spot}: levelled, the lane, the house, the rest. */
+	private static void campBuild(ServerWorld world, BlockPos spot) {
+		BlockState air = Blocks.AIR.getDefaultState();
+		int flags = Block.NOTIFY_LISTENERS | Block.FORCE_STATE;
+		for (int x = -14; x <= 215; x++) {
+			for (int left = -26; left <= 26; left++) {
+				BlockPos c = at(spot, x, 0, left);
+				world.getChunk(c.getX() >> 4, c.getZ() >> 4);
+				for (int y = 14; y >= 0; y--) {
+					BlockPos p = c.up(y);
+					if (!world.getBlockState(p).isAir()) {
+						world.setBlockState(p, air, flags);
+					}
+				}
+				world.setBlockState(c.down(), Blocks.GRASS_BLOCK.getDefaultState(), flags);
+				for (int y = -2; y >= -5; y--) {
+					BlockState below = world.getBlockState(c.up(y));
+					if (!below.isOpaque() || !below.getFluidState().isEmpty() || below.isOf(Blocks.SAND) || below.isOf(Blocks.SANDSTONE)) {
+						world.setBlockState(c.up(y), Blocks.DIRT.getDefaultState(), flags);
+					}
+				}
+			}
+		}
+		// (Kept loaded: the raiders far down it fall through a chunk that is not, and Beam stops at the edge of what is.)
+		for (int x = -14; x <= 215; x += 8) {
+			for (int left = -26; left <= 26; left += 13) {
+				BlockPos c = at(spot, x, 0, left);
+				world.setChunkForced(c.getX() >> 4, c.getZ() >> 4, true);
+			}
+		}
+		BlockState path = Blocks.DIRT_PATH.getDefaultState();
+		for (int x = -8; x <= 215; x++) {
+			world.setBlockState(at(spot, x, -1, 0), path);
+			world.setBlockState(at(spot, x, -1, 1), path);
+			if (x % 9 == 0 && x >= 14 && x < 56) {
+				for (int side : new int[] {-6, 6}) {
+					BlockPos post = at(spot, x, 0, side);
+					world.setBlockState(post, Blocks.OAK_FENCE.getDefaultState());
+					world.setBlockState(post.up(), Blocks.OAK_FENCE.getDefaultState());
+					world.setBlockState(post.up(2), Blocks.LANTERN.getDefaultState());
+				}
+			}
+		}
+		campHouse(world, spot, RL_HOUSE, RL_HOUSE_LONG, 0);
+		// Two houses off the lane, and the rest of the camp: a well, hay, tents, campfires, barrels, trees at the edges.
+		campHouse(world, spot, 150, 8, 14);
+		campHouse(world, spot, 84, 7, -15);
+		well(world, spot, 30, -10);
+		for (int[] hay : new int[][] {{76, 11}, {77, 11}, {76, 12}, {78, -11}, {79, -11}, {111, 12}, {112, 12}, {112, -12}, {130, -11}, {130, 11}, {131, 11}}) {
+			world.setBlockState(at(spot, hay[0], 0, hay[1]), Blocks.HAY_BLOCK.getDefaultState());
+		}
+		for (int[] hay : new int[][] {{76, 11}, {130, 11}}) {
+			world.setBlockState(at(spot, hay[0], 1, hay[1]), Blocks.HAY_BLOCK.getDefaultState());
+		}
+		for (int[] fire : new int[][] {{44, 8}, {94, -13}, {118, 13}, {140, -13}, {170, 13}}) {
+			world.setBlockState(at(spot, fire[0], -1, fire[1]), Blocks.DIRT.getDefaultState());
+			world.setBlockState(at(spot, fire[0], 0, fire[1]), Blocks.CAMPFIRE.getDefaultState());
+		}
+		for (int[] tent : new int[][] {{100, 17, 0}, {122, -17, 1}, {160, 17, 0}, {180, -17, 1}}) {
+			tent(world, spot, tent[0], tent[1], tent[2] == 1);
+		}
+		for (int[] barrel : new int[][] {{44, 6}, {45, 6}, {94, -11}, {118, 11}}) {
+			world.setBlockState(at(spot, barrel[0], 0, barrel[1]), Blocks.BARREL.getDefaultState());
+		}
+		for (int[] tree : new int[][] {{14, -16}, {36, 17}, {60, -20}, {70, 20}, {96, 19}, {110, -19}, {134, 18}, {146, -18}, {172, -19}, {190, 18}, {-6, 14}, {-6, -15}}) {
+			oak(world, at(spot, tree[0], 0, tree[1]), 5);
+		}
+	}
+
+	/** A house like the clip's (cobblestone and planks, a gabled roof of stairs, doorways front and back, windows): its front wall {@code h0} ahead, {@code length} long, {@code off} to the left of the lane. */
+	private static void campHouse(ServerWorld world, BlockPos spot, int h0, int length, int off) {
+		net.minecraft.util.math.Direction ahead = net.minecraft.util.math.Direction.fromVector((int) Math.round(-Math.sin(Math.toRadians(facing))), 0,
+				(int) Math.round(Math.cos(Math.toRadians(facing))));
+		net.minecraft.util.math.Direction right = ahead.rotateYClockwise();
+		net.minecraft.util.math.Direction leftSide = ahead.rotateYCounterclockwise();
+		BlockState planks = Blocks.OAK_PLANKS.getDefaultState();
+		BlockState cobble = Blocks.COBBLESTONE.getDefaultState();
+		BlockState log = Blocks.OAK_LOG.getDefaultState();
+		BlockState air = Blocks.AIR.getDefaultState();
+		for (int x = h0; x < h0 + length; x++) {
+			for (int z = -3; z <= 3; z++) {
+				boolean end = x == h0 || x == h0 + length - 1;
+				boolean side = Math.abs(z) == 3;
+				boolean corner = end && side;
+				world.setBlockState(at(spot, x, -1, off + z), end || side ? cobble : Blocks.SPRUCE_PLANKS.getDefaultState());
+				for (int y = 0; y <= 3; y++) {
+					BlockState s = air;
+					if (corner) {
+						s = log;
+					} else if (end || side) {
+						s = y == 0 ? cobble : planks;
+						boolean doorway = end && z == 0 && y <= 1;
+						boolean window = side && (x == h0 + 2 || x == h0 + 3 || x == h0 + 6 || x == h0 + 7) && (y == 1 || y == 2) && x < h0 + length - 1;
+						if (doorway) {
+							s = air;
+						} else if (window) {
+							s = Blocks.GLASS_PANE.getDefaultState();
+						}
+					}
+					world.setBlockState(at(spot, x, y, off + z), s);
+				}
+				world.setBlockState(at(spot, x, 4, off + z), planks);
+			}
+		}
+		for (int k = 0; k <= 3; k++) {
+			int y = 4 + k;
+			int solid = 3 - k;
+			for (int x = h0 - 1; x <= h0 + length; x++) {
+				for (int z = -solid; z <= solid; z++) {
+					if (x >= h0 && x < h0 + length) {
+						world.setBlockState(at(spot, x, y, off + z), planks);
+					}
+				}
+				BlockState stairR = Blocks.OAK_STAIRS.getDefaultState().with(net.minecraft.block.StairsBlock.FACING, right);
+				BlockState stairL = Blocks.OAK_STAIRS.getDefaultState().with(net.minecraft.block.StairsBlock.FACING, leftSide);
+				world.setBlockState(at(spot, x, y, off - (solid + 1)), stairR);
+				world.setBlockState(at(spot, x, y, off + solid + 1), stairL);
+			}
+		}
+		world.setBlockState(at(spot, h0 + length - 3, 0, off + 2), Blocks.CRAFTING_TABLE.getDefaultState());
+		world.setBlockState(at(spot, h0 + length - 3, 0, off - 2), Blocks.CHEST.getDefaultState());
+		world.setBlockState(at(spot, h0 + 4, 3, off), Blocks.LANTERN.getDefaultState().with(net.minecraft.block.LanternBlock.HANGING, true));
+	}
+
+	/** A well: a ring of cobblestone round water, posts and a roof, at {@code x} ahead and {@code left} to the left. */
+	private static void well(ServerWorld world, BlockPos spot, int x, int left) {
+		for (int dx = -1; dx <= 1; dx++) {
+			for (int dz = -1; dz <= 1; dz++) {
+				BlockPos p = at(spot, x + dx, -1, left + dz);
+				world.setBlockState(p, dx == 0 && dz == 0 ? Blocks.WATER.getDefaultState() : Blocks.COBBLESTONE.getDefaultState());
+				if (dx != 0 || dz != 0) {
+					world.setBlockState(p.up(), Blocks.COBBLESTONE.getDefaultState());
+				}
+			}
+		}
+		for (int[] post : new int[][] {{-1, -1}, {1, 1}, {-1, 1}, {1, -1}}) {
+			for (int y = 1; y <= 3; y++) {
+				world.setBlockState(at(spot, x + post[0], y, left + post[1]), Blocks.OAK_FENCE.getDefaultState());
+			}
+		}
+		for (int dx = -1; dx <= 1; dx++) {
+			for (int dz = -1; dz <= 1; dz++) {
+				world.setBlockState(at(spot, x + dx, 4, left + dz), Blocks.OAK_PLANKS.getDefaultState());
+			}
+		}
+	}
+
+	/** A tent of wool: a three-sided ridge 5 long, red or white, with a post at each end and a banner of its colour. */
+	private static void tent(ServerWorld world, BlockPos spot, int x, int left, boolean red) {
+		BlockState wool = red ? Blocks.RED_WOOL.getDefaultState() : Blocks.WHITE_WOOL.getDefaultState();
+		for (int dx = 0; dx < 5; dx++) {
+			world.setBlockState(at(spot, x + dx, 0, left - 2), wool);
+			world.setBlockState(at(spot, x + dx, 0, left + 2), wool);
+			world.setBlockState(at(spot, x + dx, 1, left - 1), wool);
+			world.setBlockState(at(spot, x + dx, 1, left + 1), wool);
+			world.setBlockState(at(spot, x + dx, 2, left), wool);
+		}
+		for (int dz = -1; dz <= 1; dz++) {
+			for (int dx : new int[] {0, 4}) {
+				if (dz != 0) {
+					world.setBlockState(at(spot, x + dx, 1, left + dz), wool);
+				}
+			}
+		}
+		world.setBlockState(at(spot, x - 1, 0, left), Blocks.OAK_FENCE.getDefaultState());
+		world.setBlockState(at(spot, x - 1, 1, left), Blocks.OAK_FENCE.getDefaultState());
+		world.setBlockState(at(spot, x - 1, 2, left), Blocks.OAK_FENCE.getDefaultState());
+		world.setBlockState(at(spot, x - 1, 3, left), red ? Blocks.RED_WOOL.getDefaultState() : Blocks.WHITE_WOOL.getDefaultState());
 	}
 
 	/**
@@ -3696,6 +4159,10 @@ public class ShowcaseSelfTest implements ClientModInitializer {
 		if ("beamlook".equals(target())) {
 			// (Broad daylight, to judge his colours by: a husk, not a zombie, takes his bites, as it does not burn.)
 			world.setTimeOfDay(6000);
+		}
+		if ("beam".equals(target())) {
+			beamSet(server, player, world);
+			return;
 		}
 		if (swim()) {
 			swimSet(server, player, world);
