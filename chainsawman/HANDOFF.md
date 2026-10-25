@@ -245,6 +245,14 @@ tall within 3 blocks of you, else the action bar says so and nothing is spent) a
   (non-persistent) leaves topple away from you as falling blocks, faster the higher up, and burst into their drops where they
   land. A trunk with fewer than 6 of its own leaves isn't a tree (a log cabin's wall still cuts a block at a time). Game
   test `sawsFellTrees` (87 tests).
+- **Next reels: the "Chainsaw Man vs ___" series** (kortev, 2026-10-25): crossovers with kortev's own other mods in this
+  repo, 20-40 s each, a real fight with a story (the opponent arrives, he's nearly beaten, fights back with his
+  abilities, a big finish), every beat bigger than the last, ending on "Who should he fight next?" so the comments pick
+  the next episode. Order: **vs the Genesis Key** (Thursday Oct 29; ties to kortev's best reel, the Genesis Key showcase:
+  8k views, 400 likes, 30 comments), then vs Mjölnir, vs Gungnir (dodging on Beam), Beam vs Chitty (a chase), and vs Gojo
+  once kortev finishes the Gojo mod (not done; don't use it yet). The other mod's weapon is used by a second (test) player
+  through its real paths; same rules as all reels (nothing fake). Research and kortev's numbers say short (10 s) reels
+  get little engagement; aim at 20-40 s that still hold (see the memory notes).
 - **Next big thing: a long-form devlog** (kortev's pick, 2026-10-25): "I made a Chainsaw Man mod for Minecraft", about 6-10
   min, every feature plus the story of building it (Beam took eight tries, from the voxel blob to the swimming shark: the
   pictures of every version are in `work/`). Claude films and edits all of it (gameplay through the showcase self tests,
