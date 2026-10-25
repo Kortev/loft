@@ -15,7 +15,6 @@ import net.minecraft.entity.Entity;
 import net.minecraft.particle.BlockStateParticleEffect;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
@@ -126,7 +125,7 @@ public final class BeamClient {
 				}
 			}
 		}
-		world.playSound(beam.getX(), beam.getY(), beam.getZ(), SoundEvents.ENTITY_IRON_GOLEM_STEP, SoundCategory.PLAYERS, 1.1F * walking,
+		world.playSound(beam.getX(), beam.getY(), beam.getZ(), ChainsawSounds.BEAM_STEP, SoundCategory.PLAYERS, 1.1F * walking,
 				0.65F + 0.15F * world.random.nextFloat(), false);
 	}
 

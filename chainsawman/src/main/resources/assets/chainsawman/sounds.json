@@ -167,6 +167,14 @@
       }
     ]
   },
+  "beam.step": {
+    "subtitle": "subtitles.chainsawman.beam.step",
+    "sounds": [
+      {
+        "name": "chainsawman:beam_step"
+      }
+    ]
+  },
   "beam.swim": {
     "subtitle": "subtitles.chainsawman.beam.swim",
     "sounds": [

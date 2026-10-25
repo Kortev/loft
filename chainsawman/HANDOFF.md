@@ -133,7 +133,7 @@ tall within 3 blocks of you, else the action bar says so and nothing is spent) a
     are pressed, so the whole path is exercised.
   - **The gait** (`BeamModel.animate`, from the entity's client `gait`, 0 to 1 of the walking speed): diagonal pairs stepping (front right
     with back left), a bounce twice a cycle, the body rocking and nodding, the hindquarters, stalk and tail whipping on a beat late, the head
-    bobbing and swaying and still looking at the nearest mob; each footfall is a thud (`BeamClient.footfalls`, the iron golem's step low) and
+    bobbing and swaying and still looking at the nearest mob; each footfall is a thud (`BeamClient.footfalls`, `beam_step`) and
     kicked-up ground. `BeamEntity.STRIDE` 5.2 blocks a cycle.
   - **Through walls**: `Beam.plow` breaks, every tick, the solid blocks of his lane (from 2 behind to 5.2 ahead of his middle, 1.75 each
     side, from the ground up to the rider's head, 2 high at the snout) that are not in a column he can climb (`surfaceAt` not NaN: steps,
@@ -180,9 +180,22 @@ tall within 3 blocks of you, else the action bar says so and nothing is spent) a
   - He is **lit where his back is** (`BeamRenderer.getBlockLight` / `getSkyLight`): the game lights an entity by the block at its eyes,
     which inside the ground is dark (he drew black). `Beam.room` now tests a tenth up, not a hundredth: a dirt path is a sixteenth lower
     than the grass beside it, and the summoning was refused standing on one.
-- **Sounds** (synthesised, `tools/gen_chainsaw_sounds.py`; **only checked as files and by the numbers, not by ear**): `beam_burst`,
-  `beam_swim` (the 0.6 s churn above), `beam_bite`, `beam_dive`, and new `beam_screech` (a shrill whoop, a yip and a cackle) and
-  `beam_chatter` (five clacks).
+- **Sounds, remade (2026-10-25; kortev: "I think we need to fix Beam's sounds"; not yet judged by kortev: the audition
+  `work/beam_sounds/audition.mp3` / `.mp4` and the clips `beamaction.mp4` / `beamswim.mp4` there, git-ignored, were sent)**:
+  `tools/gen_chainsaw_sounds.py` now layers pitched, low-passed vanilla Minecraft sounds (read from the loom asset cache
+  `~/.gradle/caches/fabric-loom/assets`, index `1.21.1-17.json`, at generation time only: the mod's own `.ogg` files are baked, nothing
+  vanilla is read at runtime; the helper `vanilla(key)`) over the synth sub-bass, impacts and debris: `beam_burst` (stone, deepslate and
+  dripstone breaks, an explosion and a big fall pitched down, a sub sweep, a throw of earth), new **`beam_step`** (`ChainsawSounds.BEAM_STEP`,
+  `beam.step`: the iron golem walk at 0.55, a sub thud, dirt and gravel; `BeamClient.footfalls` plays it instead of the vanilla golem
+  step), `beam_swim` (dragon and warden growls at about 0.5, brown rumble, gravel; a sine envelope so the 0.3 s retriggers run together,
+  about 1 dB of ripple), `beam_bite` (ravager bite, golem hit, dolphin eat, bone crunch, cut short for the thrash), `beam_dive` (warden dig
+  pitched down, mud and rooted dirt, a sinking sweep), `beam_screech` (a breath, the ravager roar pitched up with dolphin, hoglin, warden
+  and wolf, then a seven-cry cackle of ravager, zoglin and hoglin bits at 1.6 to 2.3, a gravel throat under it), `beam_chatter` (bone-block
+  clacks, quieter at -16 dB), `beam_slam` (two explosions, a big fall, deepslate and stone breaks, a hoglin hit, a sub drop, a long rain of
+  stone; the loudest at about -7 dB) and `beam_launch` (the golem throw, a hoglin hit, a whip of air). Levels: burst and screech -9, bite and
+  launch -10, step -12, swim and dive -13. `make` raises the gain until the limited sound reaches its level. The scratch scripts to rebuild
+  the audition are in `work/beam_sounds/` (`run.sh` needs ffmpeg on PATH or `FFMPEG_DIR`). Still only checked by the numbers and the
+  spectrograms, not by ear: if kortev says a sound is wrong, that is the one to redo.
 - **Tests**: Beam game tests in `FormGameTests` (101 in all; the riding tests that swim now sprint: `sprintAhead`; new: **walks on his legs
   above the ground at the walking speed, steps up a block and is stopped at a wall breaking nothing, sprint dives and letting go surfaces**; also): summon, refused, **sinks when sprinting (fast, the rider above
   the ground) and rises when stopped**, **tears through a wall with `mobGriefing` on** (his lane broken, the wall beside it not, the

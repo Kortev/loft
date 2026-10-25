@@ -14,16 +14,22 @@ All are mono: the game places them on whoever makes them, and they are heard by 
   out of the arm (links rattling out fast, the hook biting), the frenzy kicking in (the engine shrieking up into a
   roar) and its loop (flat out, screaming), going down (a wet collapse as the engine splutters out), and coming back
   up (a gulp of blood, the heart and the engine catching).
-- Beam the shark (the ult): bursting up out of the ground (the earth cracking, a heavy whoosh of stone and a low thump),
-  swimming through it (a short churn of earth, grit rattling, played again and again), his bite (a wet, heavy chomp, bone cracking under
-  it), the dive (the earth closing over him, a sinking whoosh, debris trickling), his screech of joy when he is called
-  up (a shrill whoop, a yip and a mad cackle) and his teeth chattering; phase 2: the ambush's slam (a huge boom, ground splitting,
-  rubble) and the throw (a snap and a whip of air).
+- Beam the shark (the ult), a huge wild shark fiend, heavy, wet and animal. These are built on pitched, filtered and layered
+  vanilla Minecraft sounds (the loom asset cache, read at generation time only: the .ogg files are our own and nothing
+  reads a vanilla file at runtime), with synthesised sub-bass, impacts and debris under them: bursting up out of the ground
+  (stone and deepslate cracking, an explosion pulled down low, the throw of earth, rubble raining; pitched low it is the breach
+  crash), his footfall (an iron step dropped an octave, a thud, dirt and gravel), swimming through the ground (a deep rumble,
+  a dragon's growl dropped and levelled, dirt ripping past; made to overlap into a smooth roar), his bite (a ravager's jaws, an
+  iron fist, wet flesh, crunching bone, a thump), the dive (the earth closing over him, mud and debris trickling), his screech of joy
+  when he is called up (a breath in, a ravager's roar with dolphin, hoglin, warden and wolf in it, a mad cackle, a gravel throat),
+  his teeth chattering (clacks, a little wet), the ambush's slam (the loudest: explosions, a heavy fall, deepslate, a
+  sub-bass drop, a long rain of stone) and the throw (a snap, a wet crack, a whip of air, a thump).
 
 A two-stroke engine is built the way it sounds: one sharp pop of exhaust at every firing, rung through the muffler and
 the body, as fast as the engine turns, with no two pops quite alike; and over it the buzz of the metal and the chain.
 
 Usage: py tools/gen_chainsaw_sounds.py [--wav DIR] [name ...]
+The Beam sounds need ffmpeg (on PATH, or its folder in FFMPEG_DIR) and the loom asset cache (~/.gradle/caches/fabric-loom/assets).
 """
 import os
 import sys
@@ -488,182 +494,325 @@ def debris(n, at, length, rate, size=1.0, level=1.0):
     return out
 
 
-def beam_burst():
-    """The ground cracking and bursting: a crack of stone, a heavy thump, a whoosh of earth thrown up, rubble falling."""
-    n = ns(1.6)
+# ---------------------------------------------------------------------------------------------------------------
+# Vanilla material. Beam's sounds are built on pitched, filtered and layered Minecraft sounds, decoded here from the
+# loom asset cache and baked into our own .ogg files: nothing in the game reads a vanilla file for them at runtime.
+# ---------------------------------------------------------------------------------------------------------------
+ASSETS = os.path.join(os.path.expanduser('~'), '.gradle', 'caches', 'fabric-loom', 'assets')
+ASSET_INDEX = '1.21.1-17.json'
+VANILLA_CACHE = os.path.join(os.path.dirname(__file__), '..', 'work', 'beam_sounds', '_vanilla')
+_vanilla = {}
+_index = []
+
+
+def _ffmpeg_on_path():
+    import shutil
+    if shutil.which('ffmpeg') is None:
+        scratch = os.environ.get('FFMPEG_DIR')
+        if scratch:
+            os.environ['PATH'] = scratch + os.pathsep + os.environ['PATH']
+
+
+def vanilla(key):
+    """The vanilla sound {key} (like 'mob/ravager/roar1', under minecraft/sounds, without .ogg) as mono floats at SR, decoded on demand
+    with ffmpeg and cached on disk (work/beam_sounds/_vanilla)."""
+    if key in _vanilla:
+        return _vanilla[key]
+    import json
+    import subprocess
+    import wave
+    os.makedirs(VANILLA_CACHE, exist_ok=True)
+    path = os.path.join(VANILLA_CACHE, key.replace('/', '__') + '.wav')
+    if not os.path.exists(path):
+        if not _index:
+            with open(os.path.join(ASSETS, 'indexes', ASSET_INDEX)) as f:
+                _index.append(json.load(f)['objects'])
+        h = _index[0]['minecraft/sounds/' + key + '.ogg']['hash']
+        _ffmpeg_on_path()
+        subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', os.path.join(ASSETS, 'objects', h[:2], h), '-ac', '1', '-ar', str(SR), path], check=True)
+    with wave.open(path) as w:
+        x = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16).astype(float) / 32768.0
+    _vanilla[key] = x / max(np.abs(x).max(), 1e-6)
+    return _vanilla[key]
+
+
+def vclip(key, pitch=1.0, hi=None, lo=None, gain=1.0, start=0.0, length=None, onset=False, fin=0.003, fout=0.03):
+    """A piece of a vanilla sound: from {start} s (or from where it first gets loud, {onset}) for {length} s of the result, pitched by
+    {pitch} (resampled: lower is slower and deeper), low-passed at {hi} Hz (so what is pitched up is not fizzy), high-passed at {lo}."""
+    x = vanilla(key)
+    if onset:
+        start += np.argmax(np.abs(x) > 0.1) / SR
+    x = x[ns(start):]
+    if len(x) < 8:
+        return np.zeros(8)
+    x = np.interp(np.arange(0, len(x) - 1, pitch), np.arange(len(x)), x)
+    if length is not None:
+        x = x[:ns(length)]
+    if hi:
+        x = lp(x, hi)
+    if lo:
+        x = hp(x, lo)
+    m = len(x)
+    a, b = min(ns(fin), m // 2), min(ns(fout), m // 2)
+    if a:
+        x[:a] *= np.linspace(0.0, 1.0, a)
+    if b:
+        x[m - b:] *= np.linspace(1.0, 0.0, b) ** 1.5
+    return x * gain
+
+
+def pick(*keys):
+    return keys[g.rng.integers(len(keys))]
+
+
+def flat(x, win=0.06):
+    """x with its loudness evened out, so a growl keeps its voice but does not pulse (for sounds that are played over and over)."""
+    env = lp(np.abs(x), 1.0 / win)
+    env = np.maximum(env, 0.15 * env.max())
+    y = x / env
+    return y / max(np.abs(y).max(), 1e-6)
+
+
+def drift(n, rate=5.0, depth=0.25):
+    """A slow, random wobble around 1, for loudness that never repeats a beat."""
+    w = lp(g.rng.normal(0.0, 1.0, n), rate)
+    return 1.0 + depth * w / max(np.abs(w).max(), 1e-6)
+
+
+def trickle(n, at, length, rate, level=1.0, pitch=(0.6, 1.1)):
+    """Earth and stone raining down: {rate} bits a second for {length} s from {at} s, thinning out, each a vanilla clip of gravel, dirt
+    or stone pitched down, a few of our own pebbles among them."""
+    out = np.zeros(n)
+    t = at
+    while True:
+        t += g.rng.exponential(1.0 / rate)
+        if t >= at + length:
+            break
+        k = (1.0 - (t - at) / length) ** 1.4
+        if g.rng.random() < 0.25:
+            out = place(out, t, g.rock(g.rng.uniform(0.6, 1.4)) * k * level * 0.7)
+            continue
+        key = pick('dig/gravel1', 'dig/gravel2', 'dig/gravel3', 'dig/gravel4', 'block/rooted_dirt/break1', 'block/rooted_dirt/break2',
+                   'block/rooted_dirt/step1', 'block/rooted_dirt/step2', 'dig/stone1', 'dig/stone2', 'block/mud/break1', 'block/mud/break2')
+        p = g.rng.uniform(*pitch)
+        out = place(out, t, vclip(key, pitch=p, hi=3800, length=0.22, gain=k * level * g.rng.uniform(0.35, 0.9), fout=0.05))
+    return out
+
+
+def sub(n, points, tau, drive=2.0, at=0.0):
+    """A sub-bass thump: a sine sweeping through {points} (time, Hz) dying with time constant {tau} s, driven by {drive}."""
     t = np.arange(n) / SR
-    x = np.zeros(n)
-    # The thump: a low sweep down from 90 to 32 Hz, dying over a third of a second, driven hard.
-    f = curve(n, [(0.0, 95.0), (0.12, 55.0), (0.4, 32.0), (1.6, 28.0)])
-    x += sat(np.sin(2 * np.pi * np.cumsum(f) / SR) * np.exp(-t / 0.22) * 2.2, 1.6) * 0.9
-    # The crack: stone splitting, a sharp burst of noise with a few ringing clicks in it.
-    crack = bp(white(n), 700.0, 5200.0) * np.exp(-t / 0.05)
-    clicks = (g.rng.random(n) < 260.0 / SR) * g.rng.uniform(-1, 1, n) * np.exp(-t / 0.2)
-    x += crack * 1.5 + hp(np.convolve(clicks, np.exp(-np.arange(ns(0.004)) / ns(0.0009)))[:n], 900.0) * 3.0
-    # The earth thrown up: a rumbling roar swelling at once and sinking away, sweeping down through the low mids.
-    swell = np.minimum(t / 0.06, 1.0) * np.exp(-t / 0.55)
-    x += g.sweep_filter(white(n), 'bandpass', curve(n, [(0.0, 1800.0), (0.25, 600.0), (1.2, 180.0), (1.6, 140.0)]), order=2, width=1.6) * swell * 2.4
-    x += lp(white(n), 160.0) * swell * 3.0
-    # Rubble falling back.
-    x += debris(n, 0.25, 1.2, 70.0, size=1.0, level=0.8)
+    f = curve(n, points)
+    x = np.sin(2 * np.pi * np.cumsum(f) / SR) * np.exp(-np.maximum(t - at, 0.0) / tau) * (t >= at)
+    return sat(x * drive, 1.6)
+
+
+def taper(x, seconds, power=1.0):
+    """x faded to nothing over its last {seconds} s."""
+    k = min(ns(seconds), len(x))
+    x[len(x) - k:] *= np.linspace(1.0, 0.0, k) ** power
     return x
 
 
+def beam_burst():
+    """The summon: the earth cracks and a huge shark throws himself up out of it. A crack of stone and deepslate, a boom of explosion
+    pulled down low, the thud of something enormous, a heavy throw of earth and then rubble raining back. Played low (pitch 0.7) with
+    the dive it is the crash of him landing."""
+    n = ns(1.6)
+    t = np.arange(n) / SR
+    x = np.zeros(n)
+    x += sub(n, [(0.0, 95.0), (0.12, 55.0), (0.4, 34.0), (1.6, 28.0)], 0.2, drive=2.0) * 0.85
+    # The earth splitting: stone and deepslate breaking, dripstone snapping, a hard crack on top.
+    x = place(x, 0.0, vclip(pick('dig/stone1', 'dig/stone2', 'dig/stone3'), pitch=0.7, hi=5000, gain=1.0, onset=True, length=0.5))
+    x = place(x, 0.0, vclip(pick('block/deepslate/break1', 'block/deepslate/break2'), pitch=0.8, hi=5500, gain=0.9, onset=True, length=0.9, fout=0.15))
+    x = place(x, 0.01, vclip('block/dripstone/break2', pitch=0.75, hi=5000, gain=0.6, onset=True, length=0.4))
+    x += bp(white(n), 800.0, 5200.0) * np.exp(-t / 0.035) * 0.9
+    # The boom: an explosion with the top taken off, and a heavy fall under it.
+    x = place(x, 0.0, vclip('random/explode1', pitch=0.7, hi=700, gain=1.1, onset=True, length=1.3, fout=0.4))
+    x = place(x, 0.0, vclip('damage/fallbig', pitch=0.5, hi=400, gain=1.2, length=0.4))
+    # The throw of earth: a rumbling roar swelling at once and sinking away.
+    swell = np.minimum(t / 0.05, 1.0) * np.exp(-t / 0.5)
+    x += g.sweep_filter(white(n), 'bandpass', curve(n, [(0.0, 1500.0), (0.25, 550.0), (1.2, 170.0), (1.6, 140.0)]), order=2, width=1.6) * swell * 1.8
+    x += lp(white(n), 150.0) * swell * 2.4
+    # The rubble coming down.
+    x += trickle(n, 0.2, 1.3, 36.0, level=0.9, pitch=(0.55, 1.0))
+    return taper(x, 0.3)
+
+
+def beam_step():
+    """One footfall of a huge animal: a big iron step dropped an octave and more, a low thud, dirt and gravel scattering, over in
+    four tenths of a second (it plays about three times a second while he walks)."""
+    n = ns(0.42)
+    t = np.arange(n) / SR
+    x = np.zeros(n)
+    x = place(x, 0.0, vclip(pick('mob/irongolem/walk1', 'mob/irongolem/walk2', 'mob/irongolem/walk3', 'mob/irongolem/walk4'), pitch=0.55,
+                            hi=1200, gain=1.0, onset=True, length=0.4, fout=0.12))
+    x += sub(n, [(0.0, 90.0), (0.06, 60.0), (0.4, 40.0)], 0.07, drive=2.2) * 1.1
+    x += lp(g.brown(n), 160.0) * np.exp(-t / 0.05) * 1.2
+    # The ground giving way under the weight: dirt and gravel thrown about.
+    x = place(x, 0.005, vclip(pick('block/rooted_dirt/step1', 'block/rooted_dirt/step2', 'block/rooted_dirt/step3', 'block/mud/step1'), pitch=0.7,
+                              hi=3200, gain=0.8, onset=True, length=0.3, fout=0.1))
+    x = place(x, 0.02, vclip(pick('dig/gravel1', 'dig/gravel2', 'dig/gravel3', 'dig/gravel4'), pitch=0.85, hi=3800, gain=0.55, onset=True,
+                             length=0.3, fout=0.1))
+    return taper(x, 0.12, 1.5)
+
+
 def beam_swim():
-    """Swimming through the ground: one short churn of earth, a low rumble under it, grit rattling along his sides. The game plays it
-    again every few ticks while he swims (the loudness and pitch of each following his speed), each over the end of the one before."""
+    """Swimming through the ground, played again every 0.3 s (pitch and loudness following his speed), each over the end of the one
+    before: a deep thick rumble of earth, a dragon's growl dropped far down and levelled out, dirt and gravel ripping past. Every layer
+    is steady and the whole fades up and down in a sine, so the overlapping copies run into one smooth roar with no beat."""
     seconds = 0.6
     n = ns(seconds)
     t = np.arange(n) / SR
-    env = np.sin(np.pi * t / seconds) ** 2
-    # The churn: low noise opened and shut a few times a second.
-    pulse = 0.55 + 0.45 * np.sin(2 * np.pi * (3.4 * t + 0.2)) ** 2
-    x = lp(white(n), 330.0) * pulse * 3.2
-    x += lp(g.brown(n), 90.0) * 4.0
-    # The grit: a gravel of small clicks, ceaseless, a little uneven.
-    gravel = (g.rng.random(n) < 520.0 / SR) * g.rng.uniform(-1, 1, n)
-    gravel = np.convolve(gravel, np.exp(-np.arange(ns(0.006)) / ns(0.0014)))[:n]
-    x += bp(gravel, 500.0, 3200.0) * (0.5 + 0.5 * pulse) * 1.4
-    # Now and then a bigger stone knocked loose.
-    x += debris(n, 0.0, seconds, 9.0, size=1.3, level=0.7)
+    env = np.sin(np.pi * t / seconds)
+    x = lp(g.brown(n), 110.0) * 3.4 * drift(n, 4.0, 0.08)
+    x += lp(white(n), 240.0) * 1.3 * drift(n, 6.0, 0.1)
+    # The growl: steady, deep, with the grain of a big throat.
+    growl = vclip(pick('mob/enderdragon/growl1', 'mob/enderdragon/growl2'), pitch=0.5, hi=520, lo=40, length=seconds, start=0.4, fin=0.0, fout=0.0)
+    growl2 = vclip('mob/warden/angry_1', pitch=0.55, hi=480, lo=40, length=seconds, start=0.5, fin=0.0, fout=0.0)
+    for gr, k in ((growl, 1.5), (growl2, 1.1)):
+        gr = np.pad(flat(gr), (0, max(0, n - len(gr))))[:n]
+        x += gr * k
+    # Dirt and gravel torn past: dense, small, even.
+    dirt = np.zeros(n)
+    tt = 0.0
+    while tt < seconds:
+        tt += g.rng.exponential(1.0 / 45.0)
+        dirt = place(dirt, tt, vclip(pick('dig/gravel1', 'dig/gravel2', 'dig/gravel3', 'dig/gravel4', 'block/rooted_dirt/step1', 'block/rooted_dirt/step2',
+                                          'block/mud/step2'), pitch=g.rng.uniform(0.7, 1.0), hi=2600, length=0.2, gain=g.rng.uniform(0.12, 0.35), fout=0.06))
+    x += dirt * 0.9 * drift(n, 5.0, 0.08)
     return x * env
 
 
 def beam_bite():
-    """A wet, heavy chomp: the jaws slamming shut, flesh giving, bone cracking, a deep thump through all of it."""
-    n = ns(0.75)
+    """A big wet chomp: jaws as wide as a door slamming shut (a ravager's bite and an iron fist, dropped low), wet flesh and crunching
+    bone, a deep thump. Under 0.6 s, with no tail, so it can come six times in a second."""
+    n = ns(0.58)
     t = np.arange(n) / SR
     x = np.zeros(n)
-    # The jaws meeting: a hard knock and the thump after it.
-    f = curve(n, [(0.0, 140.0), (0.08, 70.0), (0.4, 45.0), (0.75, 40.0)])
-    x += sat(np.sin(2 * np.pi * np.cumsum(f) / SR) * np.exp(-t / 0.12) * 2.0, 1.5)
-    x += bp(white(n), 900.0, 3500.0) * np.exp(-t / 0.012) * 1.6
-    # The flesh: a wet rip under it, and two or three bones cracking.
-    x += np.roll(flesh(n, 0.4, wet=1.4), ns(0.015)) * 0.9
-    for at in (0.03, 0.07, 0.13):
-        k = ns(0.02)
-        crack = bp(white(k), 1500.0, 6000.0) * np.exp(-np.arange(k) / ns(0.004)) * g.rng.uniform(0.6, 1.1)
-        x = place(x, at, crack * 1.6)
-    # The squelch after: liquid, low, sinking.
-    x += lp(white(n), 420.0) * np.exp(-np.maximum(t - 0.05, 0.0) / 0.18) * 1.6 * (t > 0.05)
-    return x
+    x = place(x, 0.0, vclip(pick('mob/ravager/bite1', 'mob/ravager/bite2', 'mob/ravager/bite3'), pitch=0.85, hi=4800, gain=1.0, onset=True, length=0.5, fout=0.1))
+    x = place(x, 0.0, vclip(pick('mob/irongolem/hit1', 'mob/irongolem/hit2', 'mob/irongolem/hit3'), pitch=0.7, hi=3000, gain=0.7, onset=True, length=0.35, fout=0.1))
+    x = place(x, 0.015, vclip(pick('mob/dolphin/eat1', 'mob/dolphin/eat2', 'mob/dolphin/eat3'), pitch=0.8, hi=4500, gain=0.9, onset=True, length=0.4, fout=0.1))
+    x = place(x, 0.03, vclip(pick('block/bone_block/break1', 'block/bone_block/break2', 'block/bone_block/break3'), pitch=0.9, hi=5200, gain=0.6, onset=True,
+                             length=0.2, fout=0.06))
+    x += sub(n, [(0.0, 120.0), (0.08, 65.0), (0.4, 45.0)], 0.09, drive=2.0) * 1.0
+    x += np.roll(flesh(n, 0.3, wet=1.4), ns(0.02)) * 0.45
+    x += lp(white(n), 420.0) * np.exp(-np.maximum(t - 0.04, 0.0) / 0.1) * 0.9 * (t > 0.04)
+    return taper(x, 0.16, 1.4)
 
 
 def beam_dive():
-    """The dive: a sinking whoosh of earth closing over him, a rumble going down into the ground, debris trickling after."""
+    """The earth closing over him: a sinking rumble of mud and dirt, the ground heaving shut (a warden's burrowing, lowered), debris
+    trickling in behind. Clean when played up a fifth or more for coming out of the ground."""
     n = ns(1.5)
     t = np.arange(n) / SR
-    env = np.minimum(t / 0.08, 1.0) * np.exp(-t / 0.5)
-    x = g.sweep_filter(white(n), 'bandpass', curve(n, [(0.0, 1500.0), (0.3, 500.0), (1.0, 130.0), (1.5, 100.0)]), order=2, width=1.4) * env * 2.4
-    f = curve(n, [(0.0, 70.0), (0.5, 42.0), (1.5, 30.0)])
-    x += sat(np.sin(2 * np.pi * np.cumsum(f) / SR) * np.exp(-t / 0.5) * 1.6, 1.4) * 0.8
-    x += lp(white(n), 140.0) * env * 2.5
-    x += debris(n, 0.05, 1.3, 55.0, size=0.9, level=0.7)
-    return x
-
-
-def cry(n, at, length, f0, f1, vib=0.05, vib_rate=26.0, bright=1.0, jitter=0.02, level=1.0):
-    """A shrill cry: a rasping, harmonic-rich voice sweeping {f0} to {f1} Hz over {length} s from {at} s, a quick wobble in its
-    pitch, a little breath in it."""
-    m = ns(length)
-    t = np.arange(m) / SR
-    k = t / length
-    f = np.linspace(f0, f1, m) * (1.0 + vib * np.sin(2 * np.pi * vib_rate * t + g.rng.uniform(0, 6.28)))
-    f *= 1.0 + jitter * lp(g.rng.normal(0.0, 1.0, m), 90.0) * 8.0
-    ph = np.cumsum(f) / SR
-    voice = np.zeros(m)
-    for h in range(1, 14):
-        voice += np.sin(2 * np.pi * h * ph) / (h ** (0.9 / bright))
-    voice = sat(voice * 0.9, 2.4)
-    env = np.minimum(k / 0.08, 1.0) * np.minimum((1.0 - k) / 0.18, 1.0) ** 0.7
-    breath = bp(white(m), 2500.0, 7000.0) * 0.5
-    out = np.zeros(n)
-    out = place(out, at, (voice + breath * 0.5) * env * level)
-    return out
+    env = np.minimum(t / 0.06, 1.0) * np.exp(-t / 0.55)
+    x = np.zeros(n)
+    x = place(x, 0.0, vclip('mob/warden/dig', pitch=0.8, hi=1500, lo=45, gain=1.0, start=0.6, length=1.4, fout=0.5))
+    x = place(x, 0.0, vclip(pick('block/mud/break1', 'block/mud/break2', 'block/mud/break3'), pitch=0.7, hi=2800, gain=0.9, onset=True, length=0.5))
+    x = place(x, 0.04, vclip(pick('block/rooted_dirt/break1', 'block/rooted_dirt/break2'), pitch=0.65, hi=2800, gain=0.8, onset=True, length=0.5))
+    x += g.sweep_filter(white(n), 'bandpass', curve(n, [(0.0, 1300.0), (0.3, 480.0), (1.0, 140.0), (1.5, 100.0)]), order=2, width=1.4) * env * 1.4
+    x += sub(n, [(0.0, 70.0), (0.5, 42.0), (1.5, 30.0)], 0.45, drive=1.6) * 0.8
+    x += lp(white(n), 150.0) * env * 1.6
+    x += trickle(n, 0.1, 1.3, 26.0, level=0.8, pitch=(0.65, 1.0))
+    return taper(x, 0.25)
 
 
 def beam_screech():
-    """Beam's cry of joy when he is called up: a long shrill whoop sweeping up, a yip, a bark, and a mad cackle of short cries,
-    a little unhinged."""
-    n = ns(1.9)
-    x = np.zeros(n)
-    x += cry(n, 0.0, 0.62, 650.0, 2300.0, vib=0.07, vib_rate=31.0, bright=1.1, level=1.0)
-    x += cry(n, 0.66, 0.2, 2500.0, 1500.0, vib=0.03, level=0.9)
-    x += cry(n, 0.9, 0.16, 1100.0, 2600.0, vib=0.04, level=0.9)
-    for i in range(6):
-        x += cry(n, 1.12 + i * 0.115, 0.09, 1900.0 - i * 90.0, 1200.0 - i * 60.0, vib=0.02, level=0.8 - i * 0.05)
-    # The low rasp under it: a snarl of his big throat.
+    """Beam's cry of joy when he is called up: a big breath in, then a roar from a thing with too many lungs. A ravager's roar pitched up
+    with a dolphin's whoop, a hoglin's squeal and a warden's rage riding it, a mad cackle of short cries after, a gravel throat and a
+    wolf's snarl under all of it."""
+    n = ns(1.85)
     t = np.arange(n) / SR
-    f = 95.0 + 25.0 * np.sin(2 * np.pi * 7.0 * t)
-    snarl = sat(np.sin(2 * np.pi * np.cumsum(f) / SR) + 0.5 * np.sin(4 * np.pi * np.cumsum(f) / SR), 2.0)
-    x += bp(white(n), 300.0, 1500.0) * 0.12 * np.minimum(t / 0.1, 1.0) * np.exp(-t / 1.1)
-    x += snarl * 0.18 * np.exp(-t / 1.0)
-    # The ground shaking as it comes out.
-    x += lp(white(n), 120.0) * np.exp(-t / 0.35) * 1.2
-    return x
+    x = np.zeros(n)
+    # The breath in, then the cry.
+    inhale = bp(white(n), 700.0, 4200.0) * np.minimum(t / 0.16, 1.0) ** 2 * (t < 0.17) * 0.5
+    x += inhale * np.minimum((0.17 - t) / 0.02, 1.0).clip(0.0, 1.0)
+    x = place(x, 0.16, vclip(pick('mob/ravager/roar1', 'mob/ravager/roar2'), pitch=1.55, hi=6500, gain=1.0, start=0.05, length=1.0, fout=0.12))
+    x = place(x, 0.2, vclip('mob/warden/agitated_2', pitch=1.1, hi=3500, gain=0.65, start=0.1, length=0.9, fout=0.15))
+    x = place(x, 0.3, vclip('mob/dolphin/jump1', pitch=1.35, hi=7500, gain=0.6, onset=True, length=0.75, fout=0.15))
+    x = place(x, 0.55, vclip('mob/hoglin/angry2', pitch=1.45, hi=6000, gain=0.7, onset=True, length=0.6, fout=0.1))
+    x = place(x, 0.16, vclip('mob/wolf/growl1', pitch=0.9, hi=3000, gain=0.45, start=0.1, length=1.0, fout=0.2))
+    # The cackle: short ravager, zoglin and hoglin cries, tumbling over each other and pitched wildly.
+    for i in range(7):
+        key = pick('mob/ravager/hurt1', 'mob/ravager/hurt2', 'mob/ravager/idle2', 'mob/zoglin/angry1', 'mob/zoglin/hurt1', 'mob/hoglin/hurt2')
+        x = place(x, 1.06 + i * 0.1 + g.rng.uniform(-0.01, 0.01), vclip(key, pitch=g.rng.uniform(1.6, 2.3), hi=6500, gain=0.75 - i * 0.05, onset=True, length=0.13,
+                                                                   fout=0.04))
+    # The throat: gravel and grit dragged along under the voice, and the ground shaking as he comes out.
+    x += trickle(n, 0.1, 1.6, 22.0, level=0.5, pitch=(0.5, 0.8))
+    x += lp(white(n), 130.0) * np.exp(-t / 0.4) * 1.0 * (t > 0.05)
+    x += bp(white(n), 250.0, 1400.0) * 0.12 * np.minimum(t / 0.2, 1.0) * np.exp(-t / 1.0)
+    x = lp(x, 8500.0)
+    return taper(sat(x * 0.8, 1.4), 0.25)
 
 
 def beam_chatter():
-    """His teeth clattering, a quick run of hard clacks."""
-    n = ns(0.6)
+    """His teeth clattering, a quick run of hard clacks, bony and sharp, with a little wet of his mouth under them. Quiet and short:
+    it comes every few seconds while he stands about."""
+    n = ns(0.5)
     x = np.zeros(n)
     for i in range(5):
-        at = 0.02 + i * 0.1 + g.rng.uniform(-0.008, 0.008)
-        k = ns(0.05)
+        at = 0.015 + i * 0.085 + g.rng.uniform(-0.007, 0.007)
+        k = ns(0.04)
         tt = np.arange(k) / SR
-        clack = bp(white(k), 1200.0, 6500.0) * np.exp(-tt / 0.006) * 1.6
-        clack += np.sin(2 * np.pi * (700.0 + 120.0 * g.rng.random()) * tt) * np.exp(-tt / 0.012) * 0.9
+        clack = bp(white(k), 1500.0, 6500.0) * np.exp(-tt / 0.005) * 1.1
         x = place(x, at, clack * g.rng.uniform(0.7, 1.1))
-    return x
+        x = place(x, at, vclip(pick('block/bone_block/step1', 'block/bone_block/step2', 'block/bone_block/step3', 'block/bone_block/step4'), pitch=g.rng.uniform(1.15, 1.5),
+                               hi=6000, gain=g.rng.uniform(0.7, 1.0), onset=True, length=0.07, fout=0.02))
+    x = place(x, 0.0, vclip('mob/dolphin/eat2', pitch=1.1, hi=3000, gain=0.35, onset=True, length=0.45, fout=0.2))
+    return taper(x, 0.12, 1.5)
 
 
 def beam_slam():
-    """The ambush: Beam erupting from under a mob. A huge low boom, the ground splitting wide, a wet smash of the mob going up
-    on his snout, a swelling roar of earth thrown into the air and a long clatter of rubble coming down."""
-    n = ns(2.2)
+    """The ambush: Beam erupting from under a mob, the loudest sound he makes. A long boom with the ground splitting on top of it,
+    a heavy fall, deepslate and stone breaking, a sub-bass drop, a roar of earth flung into the air and a long rain of gravel and stone."""
+    n = ns(2.3)
     t = np.arange(n) / SR
     x = np.zeros(n)
-    # The boom: a very low sweep down from 85 to 24 Hz, driven hard, long.
-    f = curve(n, [(0.0, 85.0), (0.1, 50.0), (0.5, 30.0), (2.2, 22.0)])
-    x += sat(np.sin(2 * np.pi * np.cumsum(f) / SR) * np.exp(-t / 0.4) * 2.8, 1.8)
-    # The crack: the ground splitting, broad, and a scatter of ringing clicks.
-    crack = bp(white(n), 500.0, 6500.0) * np.exp(-t / 0.045)
-    clicks = (g.rng.random(n) < 420.0 / SR) * g.rng.uniform(-1, 1, n) * np.exp(-t / 0.25)
-    x += crack * 2.0 + hp(np.convolve(clicks, np.exp(-np.arange(ns(0.004)) / ns(0.0009)))[:n], 900.0) * 3.2
-    # The smash: flesh and bone, the mob taking the whole of his head.
-    x += np.roll(flesh(n, 0.5, wet=1.6), ns(0.012)) * 1.3
-    for at in (0.02, 0.05, 0.09, 0.15):
-        k = ns(0.025)
-        snap = bp(white(k), 1200.0, 6000.0) * np.exp(-np.arange(k) / ns(0.005)) * g.rng.uniform(0.7, 1.2)
-        x = place(x, at, snap * 1.8)
-    # The earth thrown up: a roar swelling at once and sinking away.
+    x += sub(n, [(0.0, 85.0), (0.1, 50.0), (0.5, 30.0), (2.3, 22.0)], 0.4, drive=2.6) * 1.0
+    # The boom: two explosions, one slowed right down.
+    x = place(x, 0.0, vclip('random/explode2', pitch=0.55, hi=650, gain=1.2, onset=True, length=2.0, fout=0.6))
+    x = place(x, 0.0, vclip('random/explode1', pitch=0.85, hi=2600, gain=0.7, onset=True, length=1.2, fout=0.4))
+    x = place(x, 0.0, vclip('damage/fallbig', pitch=0.4, hi=350, gain=1.3, length=0.5))
+    # The ground splitting: stone, deepslate and dripstone, broad and hard.
+    x = place(x, 0.0, vclip('block/deepslate/break1', pitch=0.65, hi=5500, gain=1.0, onset=True, length=1.0, fout=0.2))
+    x = place(x, 0.03, vclip('block/deepslate/break3', pitch=0.55, hi=5000, gain=0.9, onset=True, length=1.0, fout=0.2))
+    x = place(x, 0.0, vclip('dig/stone2', pitch=0.6, hi=5500, gain=1.0, onset=True, length=0.6))
+    x = place(x, 0.05, vclip('block/dripstone/break1', pitch=0.7, hi=5500, gain=0.7, onset=True, length=0.4))
+    crack = bp(white(n), 500.0, 6500.0) * np.exp(-t / 0.04)
+    x += crack * 1.1
+    # The smash: flesh and bone taking the whole of his head.
+    x = place(x, 0.01, vclip('mob/hoglin/attack1', pitch=0.6, hi=3500, gain=0.6, onset=True, length=0.5))
+    x += np.roll(flesh(n, 0.5, wet=1.6), ns(0.012)) * 0.8
+    # The earth flung up and falling back.
     swell = np.minimum(t / 0.05, 1.0) * np.exp(-t / 0.8)
-    x += g.sweep_filter(white(n), 'bandpass', curve(n, [(0.0, 2600.0), (0.3, 900.0), (1.5, 220.0), (2.2, 150.0)]), order=2, width=1.6) * swell * 2.8
-    x += lp(white(n), 180.0) * swell * 3.4
-    # The rubble coming down.
-    x += debris(n, 0.18, 1.9, 95.0, size=1.3, level=1.0)
-    return x
+    x += g.sweep_filter(white(n), 'bandpass', curve(n, [(0.0, 2400.0), (0.3, 850.0), (1.5, 210.0), (2.3, 150.0)]), order=2, width=1.6) * swell * 1.8
+    x += lp(white(n), 170.0) * swell * 2.6
+    x += trickle(n, 0.2, 2.0, 48.0, level=1.1, pitch=(0.5, 1.0))
+    return taper(x, 0.4)
 
 
 def beam_launch():
-    """Throwing the rider, or flinging a mob: the snap of his head, a hard crack, and a whip of air tearing past, high to low."""
+    """Throwing the rider, or flinging a mob: the snap of his head with a wet crack and a low thump behind it, and a whip of air
+    tearing past, high to low."""
     n = ns(0.9)
     t = np.arange(n) / SR
     x = np.zeros(n)
-    # The flick: a crack and a low thump under it.
-    x += bp(white(n), 1500.0, 8500.0) * np.exp(-t / 0.014) * 2.4
-    f = curve(n, [(0.0, 170.0), (0.1, 65.0), (0.9, 50.0)])
-    x += sat(np.sin(2 * np.pi * np.cumsum(f) / SR) * np.exp(-t / 0.13) * 1.8, 1.4)
-    # The air tearing past: a band of noise swept from high to low, swelling in a moment and dying away.
-    air = np.minimum(t / 0.1, 1.0) * np.exp(-np.maximum(t - 0.1, 0.0) / 0.28)
-    x += g.sweep_filter(white(n), 'bandpass', curve(n, [(0.0, 6000.0), (0.25, 2800.0), (0.9, 500.0)]), order=2, width=1.3) * air * 3.2
-    x += bp(white(n), 300.0, 1400.0) * air * 0.6
-    return x
+    x = place(x, 0.0, vclip('mob/irongolem/throw', pitch=0.85, hi=6500, gain=1.0, onset=True, length=0.3, fout=0.08))
+    x = place(x, 0.0, vclip('mob/hoglin/attack1', pitch=0.75, hi=4500, gain=0.65, onset=True, length=0.35, fout=0.1))
+    x += bp(white(n), 1500.0, 7500.0) * np.exp(-t / 0.012) * 1.3
+    x += np.roll(flesh(n, 0.2, wet=1.2), ns(0.01)) * 0.5
+    x += sub(n, [(0.0, 150.0), (0.1, 62.0), (0.9, 48.0)], 0.12, drive=1.9) * 1.0
+    air = np.minimum(t / 0.1, 1.0) * np.exp(-np.maximum(t - 0.1, 0.0) / 0.26)
+    x += g.sweep_filter(white(n), 'bandpass', curve(n, [(0.0, 5500.0), (0.25, 2600.0), (0.9, 500.0)]), order=2, width=1.3) * air * 2.4
+    x += bp(white(n), 300.0, 1400.0) * air * 0.5
+    return taper(x, 0.25)
 
 
 SOUNDS = {
     'pochita_tame': pochita_tame,
     'beam_burst': beam_burst,
+    'beam_step': beam_step,
     'beam_swim': beam_swim,
     'beam_bite': beam_bite,
     'beam_dive': beam_dive,
@@ -690,7 +839,7 @@ LOOPS = ('form_idle', 'form_grind', 'form_frenzy_loop')
 # Loudness (loudest 400 ms, dB).
 LEVELS = {'form_crunch': -10, 'pochita_tame': -14, 'form_merge': -12, 'form_cord': -14, 'form_start': -10, 'form_idle': -20, 'form_stop': -16, 'form_slash': -13, 'form_hit': -12,
           'form_grind': -15, 'form_chain': -14, 'form_frenzy': -10, 'form_frenzy_loop': -17, 'form_down': -13,
-          'form_revive': -14, 'beam_burst': -9, 'beam_swim': -12, 'beam_bite': -10, 'beam_dive': -13, 'beam_screech': -9, 'beam_chatter': -13, 'beam_slam': -6, 'beam_launch': -10}
+          'form_revive': -14, 'beam_burst': -9, 'beam_step': -12, 'beam_swim': -13, 'beam_bite': -10, 'beam_dive': -13, 'beam_screech': -9, 'beam_chatter': -16, 'beam_slam': -6, 'beam_launch': -10}
 
 
 def make(name):
@@ -699,7 +848,16 @@ def make(name):
     x = x * 10 ** ((LEVELS[name] - loudness(x)) / 20)
     if name in LOOPS:
         return np.clip(x, -0.95, 0.95)
-    return limit(x)
+    y = limit(x)
+    if name.startswith('beam_'):
+        # The limiter shaves the peaks of a sound brought up to its level: bring it up more until what is left reaches the level.
+        gain = 1.0
+        for _ in range(6):
+            gain *= 10 ** ((LEVELS[name] - loudness(y)) / 20)
+            y = limit(x * gain)
+            if abs(loudness(y) - LEVELS[name]) < 0.3:
+                break
+    return y
 
 
 def main():

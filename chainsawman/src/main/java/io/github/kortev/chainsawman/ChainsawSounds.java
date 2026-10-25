@@ -44,21 +44,23 @@ public final class ChainsawSounds {
 	public static final SoundEvent[] MERGE_VOICES = {register("form.merge.voice.1"), register("form.merge.voice.2"),
 			register("form.merge.voice.3"), register("form.merge.voice.4"), register("form.merge.voice.5")};
 
-	/** Beam bursting up out of the ground (and leaping, and crashing down): the earth cracking and a heavy whoosh of stone. */
+	/** Beam bursting up out of the ground (and leaping, and crashing down when pitched low): stone and deepslate cracking, a deep boom, a heavy throw of earth, rubble raining back. */
 	public static final SoundEvent BEAM_BURST = register("beam.burst");
-	/** Beam swimming through the ground: a short churn of earth, played again every few ticks. */
+	/** One footfall of Beam: a huge animal's foot slamming the earth, a heavy thud with dirt and gravel scattering; short, as it comes about three times a second. */
+	public static final SoundEvent BEAM_STEP = register("beam.step");
+	/** Beam swimming through the ground: a deep, thick rumble of earth and a dropped growl with dirt ripping past, played again every few ticks to run into one smooth roar. */
 	public static final SoundEvent BEAM_SWIM = register("beam.swim");
-	/** Beam's bite: a wet, heavy chomp. */
+	/** Beam's bite: a big wet chomp, jaws slamming, flesh and crunching bone, a low thump; tight enough to come several times a second. */
 	public static final SoundEvent BEAM_BITE = register("beam.bite");
-	/** Beam diving: the earth closing over him. */
+	/** Beam diving (or surfacing, pitched up): the earth closing over him, a sinking rumble of mud and dirt with debris trickling. */
 	public static final SoundEvent BEAM_DIVE = register("beam.dive");
-	/** Beam's screech of joy when he is called up: excited, a bit unhinged. */
+	/** Beam's screech of joy when he is called up: a big breath and an unhinged animal roar and cackle, with a gravel throat under it. */
 	public static final SoundEvent BEAM_SCREECH = register("beam.screech");
-	/** Beam's teeth chattering when he stands about. */
+	/** Beam's teeth chattering when he stands about: hard, bony clacks with a little wet under them, quiet and short. */
 	public static final SoundEvent BEAM_CHATTER = register("beam.chatter");
-	/** Beam bursting up under a mob: the heavy slam of the ambush, rock cracking and the ground thrown up. */
+	/** Beam bursting up under a mob: the ambush's slam, the loudest he makes, an earth-shaking boom with a long rain of stone. */
 	public static final SoundEvent BEAM_SLAM = register("beam.slam");
-	/** Beam throwing his rider, and flinging what he held: a whip of air and a crack. */
+	/** Beam throwing his rider, and flinging what he held: the snap of his head, a wet crack, a whip of air and a low thump. */
 	public static final SoundEvent BEAM_LAUNCH = register("beam.launch");
 
 	private ChainsawSounds() {
