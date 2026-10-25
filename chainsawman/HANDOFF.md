@@ -245,6 +245,13 @@ tall within 3 blocks of you, else the action bar says so and nothing is spent) a
   (non-persistent) leaves topple away from you as falling blocks, faster the higher up, and burst into their drops where they
   land. A trunk with fewer than 6 of its own leaves isn't a tree (a log cabin's wall still cuts a block at a time). Game
   test `sawsFellTrees` (87 tests).
+- **Next big thing: a long-form devlog** (kortev's pick, 2026-10-25): "I made a Chainsaw Man mod for Minecraft", about 6-10
+  min, every feature plus the story of building it (Beam took eight tries, from the voxel blob to the swimming shark: the
+  pictures of every version are in `work/`). Claude films and edits all of it (gameplay through the showcase self tests,
+  captions, sound); kortev records a voiceover over it (they'd rather not do first-person commentary for the boss-fight
+  idea). Plan the edit and a script draft for the voiceover first and show kortev.
+- **Reels engagement** (kortev, 2026-10-25): retention is good, especially the latest two, but almost no likes or
+  comments. Ideas to try are in the session's last messages; see `showcase-reels/POSTING_PLAN.md`.
 - **Beam's new reel approved** (2026-10-23, kortev: "good to post Wednesday"): `showcase-reels/Post7_Wed_Beam.mp4` (the
   walking/swimming Beam, from `work/beam_reel/beam_v2.mp4`). kortev keeps first person on his back as it is ("I like
   seeing that you're riding him"). Ideas for more Beam reels later, spaced out: one built round the rider throw, and
