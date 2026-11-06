@@ -2,6 +2,7 @@ package io.github.kortev.gojolander;
 
 import com.mojang.brigadier.arguments.StringArgumentType;
 import io.github.kortev.gojolander.domain.DomainManager;
+import io.github.kortev.gojolander.purple.PurpleManager;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.command.argument.EntityArgumentType;
 import net.minecraft.command.argument.Vec3ArgumentType;
@@ -45,6 +46,9 @@ public final class GojoCommand {
 						.then(CommandManager.literal("ready")
 								.then(CommandManager.argument("player", EntityArgumentType.player())
 										.executes(context -> ready(context.getSource(), EntityArgumentType.getPlayer(context, "player")))))
+						.then(CommandManager.literal("purple")
+								.then(CommandManager.argument("player", EntityArgumentType.player())
+										.executes(context -> purple(context.getSource(), EntityArgumentType.getPlayer(context, "player")))))
 						.then(CommandManager.literal("cast")
 								.then(CommandManager.argument("player", EntityArgumentType.player())
 										.executes(context -> cast(context.getSource(), EntityArgumentType.getPlayer(context, "player")))))));
@@ -55,6 +59,15 @@ public final class GojoCommand {
 		boolean cast = DomainManager.cast(player);
 		if (cast) {
 			source.sendFeedback(() -> Text.translatable("commands.gojolander.cast", player.getDisplayName()), true);
+		}
+		return cast ? 1 : 0;
+	}
+
+	/** As if {@code player} had pressed the Hollow Purple key: the same rules hold. */
+	private static int purple(ServerCommandSource source, ServerPlayerEntity player) {
+		boolean cast = PurpleManager.cast(player);
+		if (cast) {
+			source.sendFeedback(() -> Text.translatable("commands.gojolander.purple", player.getDisplayName()), true);
 		}
 		return cast ? 1 : 0;
 	}
@@ -73,6 +86,7 @@ public final class GojoCommand {
 
 	private static int ready(ServerCommandSource source, ServerPlayerEntity player) {
 		DomainManager.ready(player);
+		PurpleManager.ready(player);
 		source.sendFeedback(() -> Text.translatable("commands.gojolander.ready", player.getDisplayName()), true);
 		return 1;
 	}

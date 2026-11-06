@@ -53,6 +53,29 @@ public final class GojoSounds {
 	/** Not now: a soft dead click. */
 	public static final SoundEvent DENIED = register("domain.denied");
 
+	/**
+	 * Hollow Purple. Heard by the caster (and whoever the shots are for) as they are, stereo; the ".world" ones, mono,
+	 * for everyone else, from where it happens: Blue sucking in, Red bursting out, the merge (hum, flash, crack), the
+	 * release boom, the roar as it carves, and its collapse.
+	 */
+	public static final SoundEvent PURPLE_BLUE = register("purple.blue");
+	public static final SoundEvent PURPLE_BLUE_WORLD = register("purple.blue.world");
+	public static final SoundEvent PURPLE_RED = register("purple.red");
+	public static final SoundEvent PURPLE_RED_WORLD = register("purple.red.world");
+	public static final SoundEvent PURPLE_MERGE = register("purple.merge");
+	public static final SoundEvent PURPLE_MERGE_WORLD = register("purple.merge.world");
+	public static final SoundEvent PURPLE_RELEASE = register("purple.release");
+	public static final SoundEvent PURPLE_RELEASE_WORLD = register("purple.release.world");
+	public static final SoundEvent PURPLE_ROAR = register("purple.roar");
+	public static final SoundEvent PURPLE_ROAR_WORLD = register("purple.roar.world");
+	public static final SoundEvent PURPLE_FADE = register("purple.fade");
+	public static final SoundEvent PURPLE_FADE_WORLD = register("purple.fade.world");
+	/**
+	 * A slot for his voice line ("Hollow Technique: Purple"), played as the orbs meet. Nothing is in it: kortev supplies
+	 * the clip as sounds/purple_voice.ogg and adds a purple.voice entry to sounds.json; until then it is not played.
+	 */
+	public static final SoundEvent PURPLE_VOICE = register("purple.voice");
+
 	private GojoSounds() {
 	}
 

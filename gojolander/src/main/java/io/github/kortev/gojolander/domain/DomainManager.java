@@ -10,6 +10,7 @@ import io.github.kortev.gojolander.Owner;
 import io.github.kortev.gojolander.network.DomainCaughtPayload;
 import io.github.kortev.gojolander.network.DomainEndPayload;
 import io.github.kortev.gojolander.network.DomainLockPayload;
+import io.github.kortev.gojolander.purple.PurpleManager;
 import io.github.kortev.shootingstar.gap.GapManager;
 import io.github.kortev.shootingstar.network.ModNetworking;
 import io.github.kortev.shootingstar.registry.ModCriteria;
@@ -214,7 +215,7 @@ public final class DomainManager {
 			deny(player, Text.translatable("message.gojolander.domain.gap").formatted(Formatting.DARK_PURPLE));
 			return false;
 		}
-		if (busy(player)) {
+		if (busy(player) || PurpleManager.busy(player)) {
 			deny(player, Text.translatable("message.gojolander.domain.busy").formatted(Formatting.AQUA));
 			return false;
 		}
@@ -556,13 +557,13 @@ public final class DomainManager {
 		}
 	}
 
-	private static void deny(ServerPlayerEntity player, Text message) {
+	public static void deny(ServerPlayerEntity player, Text message) {
 		player.sendMessage(message, true);
 		player.playSoundToPlayer(GojoSounds.DENIED, SoundCategory.PLAYERS, 0.8F, 1.0F);
 	}
 
 	/** Ticks as minutes and seconds, rounded up: {@code 4:05}. */
-	static String clock(long ticks) {
+	public static String clock(long ticks) {
 		long seconds = (ticks + 19L) / 20L;
 		return String.format("%d:%02d", seconds / 60L, seconds % 60L);
 	}

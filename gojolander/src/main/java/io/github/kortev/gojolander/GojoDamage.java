@@ -15,10 +15,17 @@ import net.minecraft.world.World;
 public final class GojoDamage {
 	public static final RegistryKey<DamageType> UNLIMITED_VOID = RegistryKey.of(RegistryKeys.DAMAGE_TYPE, Gojolander.id("unlimited_void"));
 
+	/** What Hollow Purple does to whoever it passes through: they are erased. Tagged like the void: nothing stops it. */
+	public static final RegistryKey<DamageType> HOLLOW_PURPLE = RegistryKey.of(RegistryKeys.DAMAGE_TYPE, Gojolander.id("hollow_purple"));
+
 	private GojoDamage() {
 	}
 
 	public static DamageSource unlimitedVoid(World world) {
 		return new DamageSource(world.getRegistryManager().get(RegistryKeys.DAMAGE_TYPE).entryOf(UNLIMITED_VOID));
+	}
+
+	public static DamageSource hollowPurple(World world) {
+		return new DamageSource(world.getRegistryManager().get(RegistryKeys.DAMAGE_TYPE).entryOf(HOLLOW_PURPLE));
 	}
 }

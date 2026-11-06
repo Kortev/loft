@@ -22,6 +22,7 @@ public final class GojoState extends PersistentState {
 	@Nullable
 	private String owner;
 	private final Map<UUID, Long> readyAt = new HashMap<>();
+	private final Map<UUID, Long> purpleReadyAt = new HashMap<>();
 
 	public static GojoState get(MinecraftServer server) {
 		return server.getOverworld().getPersistentStateManager().getOrCreate(TYPE, ID);
@@ -50,6 +51,20 @@ public final class GojoState extends PersistentState {
 		markDirty();
 	}
 
+	/** The overworld time at which {@code caster} may cast Hollow Purple again (0 if they may now). */
+	public long purpleReadyAt(UUID caster) {
+		return purpleReadyAt.getOrDefault(caster, 0L);
+	}
+
+	public void setPurpleReadyAt(UUID caster, long time) {
+		if (time <= 0L) {
+			purpleReadyAt.remove(caster);
+		} else {
+			purpleReadyAt.put(caster, time);
+		}
+		markDirty();
+	}
+
 	@Override
 	public NbtCompound writeNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
 		if (owner != null) {
@@ -63,6 +78,14 @@ public final class GojoState extends PersistentState {
 			list.add(entry);
 		});
 		nbt.put("Ready", list);
+		NbtList purple = new NbtList();
+		purpleReadyAt.forEach((id, time) -> {
+			NbtCompound entry = new NbtCompound();
+			entry.putUuid("Caster", id);
+			entry.putLong("ReadyAt", time);
+			purple.add(entry);
+		});
+		nbt.put("PurpleReady", purple);
 		return nbt;
 	}
 
@@ -75,6 +98,11 @@ public final class GojoState extends PersistentState {
 		for (int i = 0; i < list.size(); i++) {
 			NbtCompound entry = list.getCompound(i);
 			state.readyAt.put(entry.getUuid("Caster"), entry.getLong("ReadyAt"));
+		}
+		NbtList purple = nbt.getList("PurpleReady", NbtElement.COMPOUND_TYPE);
+		for (int i = 0; i < purple.size(); i++) {
+			NbtCompound entry = purple.getCompound(i);
+			state.purpleReadyAt.put(entry.getUuid("Caster"), entry.getLong("ReadyAt"));
 		}
 		return state;
 	}

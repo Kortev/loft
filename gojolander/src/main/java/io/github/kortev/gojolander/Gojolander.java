@@ -5,6 +5,10 @@ import io.github.kortev.gojolander.network.DomainCastPayload;
 import io.github.kortev.gojolander.network.DomainCaughtPayload;
 import io.github.kortev.gojolander.network.DomainEndPayload;
 import io.github.kortev.gojolander.network.DomainLockPayload;
+import io.github.kortev.gojolander.network.PurpleCastPayload;
+import io.github.kortev.gojolander.network.PurpleEndPayload;
+import io.github.kortev.gojolander.network.PurpleLaunchPayload;
+import io.github.kortev.gojolander.purple.PurpleManager;
 import io.github.kortev.gojolander.network.SixEyesPayload;
 import io.github.kortev.gojolander.sight.SixEyes;
 import net.fabricmc.api.ModInitializer;
@@ -51,10 +55,15 @@ public final class Gojolander implements ModInitializer {
 		PayloadTypeRegistry.playS2C().register(DomainLockPayload.ID, DomainLockPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(DomainCaughtPayload.ID, DomainCaughtPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(DomainEndPayload.ID, DomainEndPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(PurpleLaunchPayload.ID, PurpleLaunchPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(PurpleEndPayload.ID, PurpleEndPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(SixEyesPayload.ID, SixEyesPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(DomainCastPayload.ID, DomainCastPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(PurpleCastPayload.ID, PurpleCastPayload.CODEC);
+		ServerPlayNetworking.registerGlobalReceiver(PurpleCastPayload.ID, (payload, context) -> PurpleManager.cast(context.player()));
 		ServerPlayNetworking.registerGlobalReceiver(DomainCastPayload.ID, (payload, context) -> DomainManager.cast(context.player()));
 		DomainManager.init();
+		PurpleManager.init();
 		SixEyes.init();
 		GojoCommand.init();
 	}

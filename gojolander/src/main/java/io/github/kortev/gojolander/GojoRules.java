@@ -35,6 +35,22 @@ public final class GojoRules {
 	public static final GameRules.Key<GameRules.IntRule> SIX_EYES_RANGE = GameRuleRegistry.register(
 			"sixEyesRange", GameRules.Category.MISC, GameRuleFactory.createIntRule(24, 0, 64));
 
+	/** How far Hollow Purple flies from where it is released, in blocks, erasing everything in its way. */
+	public static final GameRules.Key<GameRules.IntRule> PURPLE_RANGE = GameRuleRegistry.register(
+			"hollowPurpleRange", GameRules.Category.MISC, GameRuleFactory.createIntRule(200, 10, 1000));
+
+	/** The radius of the tunnel Hollow Purple erases, in blocks (its sphere is the same size). */
+	public static final GameRules.Key<GameRules.IntRule> PURPLE_RADIUS = GameRuleRegistry.register(
+			"hollowPurpleRadius", GameRules.Category.MISC, GameRuleFactory.createIntRule(3, 1, 16));
+
+	/** Whether Hollow Purple erases blocks. Off, it still kills whatever is in its way but leaves the world alone. */
+	public static final GameRules.Key<GameRules.BooleanRule> PURPLE_ERASES = GameRuleRegistry.register(
+			"hollowPurpleErases", GameRules.Category.MISC, GameRuleFactory.createBooleanRule(true));
+
+	/** How long after casting Hollow Purple before he can cast it again, in seconds. */
+	public static final GameRules.Key<GameRules.IntRule> PURPLE_COOLDOWN = GameRuleRegistry.register(
+			"hollowPurpleCooldownSeconds", GameRules.Category.MISC, GameRuleFactory.createIntRule(300, 0, 7200));
+
 	private GojoRules() {
 	}
 
