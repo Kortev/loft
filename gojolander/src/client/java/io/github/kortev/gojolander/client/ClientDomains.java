@@ -91,7 +91,7 @@ public final class ClientDomains {
 	 * the black and the void opening out of it.
 	 */
 	public static boolean cinematic(MinecraftClient client) {
-		if (shooting()) {
+		if (shooting() || ClientPurples.shooting()) {
 			return true;
 		}
 		for (ClientDomain domain : DOMAINS.values()) {
@@ -160,7 +160,7 @@ public final class ClientDomains {
 	 * come to), or casting with the camera taken.
 	 */
 	public static boolean locked() {
-		if (holding() != null || shooting()) {
+		if (holding() != null || shooting() || ClientPurples.shooting()) {
 			return true;
 		}
 		MinecraftClient client = MinecraftClient.getInstance();

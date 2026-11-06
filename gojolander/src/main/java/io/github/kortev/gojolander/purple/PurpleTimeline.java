@@ -28,8 +28,8 @@ public final class PurpleTimeline {
 	public static final double SPEED = 3.5;
 	/** How long it takes to collapse in light where it ends. */
 	public static final int FADE = 14;
-	/** How long after the release the caster's shots run (ride behind it, then cut wide): then his own eyes are back. */
-	public static final int RIDE = 20;
+	/** How long the camera rides behind the sphere after the release, in ticks (then it cuts wide); and how long all his shots run: then his own eyes are back. */
+	public static final int RIDE = 46;
 	public static final int CINEMA = 74;
 	/** Seconds the client keeps one a little longer for its dust and sounds to finish, in ticks. */
 	public static final int KEEP = 60;

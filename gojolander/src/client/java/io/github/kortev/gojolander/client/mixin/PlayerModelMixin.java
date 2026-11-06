@@ -3,6 +3,9 @@ package io.github.kortev.gojolander.client.mixin;
 import io.github.kortev.gojolander.client.ClientDomain;
 import io.github.kortev.gojolander.client.ClientDomains;
 import io.github.kortev.gojolander.client.HandSign;
+import io.github.kortev.gojolander.client.ClientPurple;
+import io.github.kortev.gojolander.client.ClientPurples;
+import io.github.kortev.gojolander.client.PurplePose;
 import io.github.kortev.gojolander.domain.DomainTimeline;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.entity.model.PlayerEntityModel;
@@ -47,6 +50,10 @@ public abstract class PlayerModelMixin {
 			if (sign > 0.0F) {
 				HandSign.pose(model, sign);
 			}
+		}
+		ClientPurple purple = ClientPurples.casting(player.getUuid());
+		if (purple != null) {
+			PurplePose.pose(model, purple, purple.time(tickDelta));
 		}
 		ClientDomain held = ClientDomains.holdingEntity(player);
 		if (held != null) {

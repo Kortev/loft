@@ -6,7 +6,7 @@ rival. It needs The Shooting Star installed: it is under that mod's rule that on
 not make it at all), and only for **him**. Here, his things work for him alone too: on anyone else the blindfold is a
 strip of black cloth. (Until he is made its owner, it is open to everyone: see below.)
 
-For now he has one thing, the blindfold: what he sees through it, and what he casts with it.
+For now he has one thing, the blindfold: what he sees through it, and what he casts with it: his Domain, and Hollow Purple.
 
 ## The blindfold
 
@@ -109,6 +109,61 @@ the world into its own pictures and lays them over the screen only at the very e
 drawn after the pack has finished each frame (shootingstar's `WorldPasses`, which kortev's own effects use too) instead
 of at the end of the world's drawing.
 
+## Hollow Purple
+
+His second power, and the one people replay. With the blindfold on (his, by the same owner rule), he presses **N**
+(rebindable: Hollow Purple; not X, which is Chitty's eject key and vanilla's Load Hotbar key: only one binding on a key hears it). About 4 s of cast, then the world is erased in a line.
+
+- **0 to 1.2 s, Blue.** The camera cuts low in front of him to his left hand: his arm out, a blue orb forms at his
+  fingertips, crackling, pulling dust, sparks and loose blocks into it, rings of light drawing in round it, the
+  picture bending towards it, its light on the ground and on him.
+- **1.2 to 2.4 s, Red.** A hard cut to the other side: his right arm out, a red orb throwing shock rings out, sparks and
+  heat thrown off it, the picture bending away from it.
+- **2.4 to 2.8 s, the sweep.** Front and centre, close: his hands sweep together across in front of him.
+- **2.8 s, the merge.** The orbs meet: a white flash over the whole screen, a crack and a deep boom, a shell of light
+  thrown out, the picture rumbling. **A huge violet sphere** (as big as its radius, 6 blocks across by default) with a
+  hard white core swells out of it and is pushed ahead of his hands, its skin churning, arcs crawling over it, its violet
+  light on everything near. HOLLOW PURPLE comes up on the screen, and 虚式「茈」 brushed under it.
+- **3.8 s, the release.** He flicks it forward. A violet flash, a huge deep blow; the camera rides behind the sphere,
+  in the tunnel it is cutting, the world tearing past; then cuts high over him, looking down the whole length of its
+  path as the trench opens behind it.
+- **What it does.** The sphere flies straight along where he looked, **3.5 blocks a tick** (70 a second), for
+  **200 blocks** (`hollowPurpleRange`), then collapses in a flash.
+  - **Blocks are erased**: no drops, no neighbour updates, nothing left of what a chest held, a clean round tunnel
+    of `hollowPurpleRadius` through hills, forests, houses and water. Not what cannot be broken: bedrock, the end portal
+    frame, barriers, command blocks (anything of negative hardness). Plants and torches on the rim of the cut, which
+    would hang in the air, are taken too. With `hollowPurpleErases` off it kills but leaves the world alone.
+  - **Everything living in it dies**, players too (as in the show), but not players in creative or spectator, and not
+    him. **Bosses** (the `c:bosses` tag: the Wither, the Ender Dragon) are not killed: they take 150 damage once per
+    cast, which is a very heavy blow and not the end of them. Whatever else is in it (items, experience, arrows,
+    paintings) is simply erased.
+  - It is done **a slice a tick, behind the sphere**, within a budget of about 60 000 blocks looked at a tick (the
+    slice is cut shorter to fit), so it does not lag: a 200-block run through a mountain at radius 3 is 1 to 3 ms a
+    tick, and a radius of 16 stays inside the budget.
+- **Fits the other rules:** not cast while a Genesis Key event is going on; not while he is in his Domain (nor a Domain
+  while a Purple is going: "Already casting"); the cooldown (**5 minutes**, `hollowPurpleCooldownSeconds`) shows on the
+  blindfold as the Domain's does (one overlay for both, whichever is further from ready, and each power keeps its own
+  time). It is cut short, with nothing erased, if he dies or leaves before the release.
+- **Sound** is all made by `tools/gen_gojolander_sounds.py`, none of it recorded (`purple_blue`, `purple_red`,
+  `purple_merge`, `purple_release`, `purple_roar`, `purple_fade`, each with a mono ".world" version for everyone who is
+  not the caster). The deep parts carry their own overtones so a phone speaker plays them. **His voice line** has a
+  slot, `purple.voice` (played as the orbs meet, for the caster and for those in reach): it is empty. To fill it,
+  put a clip at `gojolander/src/main/resources/assets/gojolander/sounds/purple_voice.ogg` and add a `purple.voice`
+  entry to `sounds.json` naming `gojolander:purple_voice`.
+- **Works with Sodium and Iris**, like the Domain: it is drawn in the same way (shootingstar's `WorldPasses`).
+
+### Game rules for Hollow Purple
+
+| Rule | Default | Range | What it is |
+|---|---|---|---|
+| `hollowPurpleRange` | 200 | 10 to 1000 | How far the sphere flies from where it is released, in blocks. |
+| `hollowPurpleRadius` | 3 | 1 to 16 | The radius of the tunnel (and of the sphere), in blocks. |
+| `hollowPurpleErases` | true | | Whether it erases blocks. Off, it still kills what is in its way. |
+| `hollowPurpleCooldownSeconds` | 300 | 0 to 7200 | How long before he can cast it again. |
+
+`/gojolander purple <player>` casts it as if they had pressed the key (the same rules hold); `/gojolander ready
+<player>` makes both of their powers ready.
+
 ## How it is made
 
 - `gojolander/` is its own Gradle subproject and jar (`gojolander-<version>.jar`), set up like `chitty/`. Its tests
@@ -131,6 +186,13 @@ of at the end of the world's drawing.
   `sight/SixEyes` and `SixEyesClient` with `SixEyesMixin` and `SixEyesColorMixin` (the Six Eyes, drawn as the
   game's own outlines). The self
   test logs the frame rate and each pass's cost once a second (`[perf]` in the log).
+- Hollow Purple: server `purple/PurpleManager` (casting, the carving slice by slice, what dies) against
+  `purple/PurpleTimeline`; client `ClientPurples` (state, sounds, dust), `PurpleRender` with `gl_purple.fsh` (Blue, Red,
+  the merge and the sphere, in one full-screen pass), `PurpleCamera` (its shots), `PurplePose` (his arms, and where his
+  hands are for the orbs), `PurpleHud` (the flash, the name). Its tests are `PurpleGameTests`; its film is `FilmPurple`
+  (`bash work/tools/film_purple.sh`: a 12 to 15 s tall test clip, the friend on a hill, a forest, a village and a
+  mountain before him). Its name's brushed texture: `python tools/gen_gojolander_textures.py purple`; its sounds are
+  made with the others (`python tools/gen_gojolander_sounds.py purple_blue ...`: name them, so the old ones stay as they are).
 - Sounds: `python tools/gen_gojolander_sounds.py` (all of them in one run: each run builds its reverbs from its first
   sound, so one made alone comes out a little different); textures: `python tools/gen_gojolander_textures.py`. The deep
   sounds carry their own overtones so a phone's or laptop's speaker still plays them.

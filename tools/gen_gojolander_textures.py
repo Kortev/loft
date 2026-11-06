@@ -14,6 +14,7 @@ and the Six Eyes that show, burning, when it is pushed up.
 Usage: python tools/gen_gojolander_textures.py
 """
 import os
+import sys
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
@@ -107,12 +108,12 @@ def six_eyes():
     return Image.fromarray(img, 'RGBA')
 
 
-def kanji():
+def kanji(text='無量空処', size=196, gap=34, top=16):
     w, h = 1024, 256
     font = None
     for name in ('YuGothB.ttc', 'msgothic.ttc', 'simsun.ttc'):
         try:
-            font = ImageFont.truetype(os.path.join(os.environ.get('WINDIR', r'C:\Windows'), 'Fonts', name), 196)
+            font = ImageFont.truetype(os.path.join(os.environ.get('WINDIR', r'C:\Windows'), 'Fonts', name), size)
             break
         except OSError:
             continue
@@ -120,13 +121,11 @@ def kanji():
         raise SystemExit('no font with the kanji in it')
     mask = Image.new('L', (w, h), 0)
     draw = ImageDraw.Draw(mask)
-    text = '\u7121\u91cf\u7a7a\u51e6'
     # Spread out, a little apart, as a title.
     widths = [draw.textlength(ch, font=font) for ch in text]
-    gap = 34
     x = (w - sum(widths) - gap * (len(text) - 1)) / 2
     for ch, cw in zip(text, widths):
-        draw.text((x, 16), ch, font=font, fill=255)
+        draw.text((x, top), ch, font=font, fill=255)
         x += cw + gap
     m = np.asarray(mask.filter(ImageFilter.GaussianBlur(1.6)), np.float64) / 255.0
     # Ragged edges: the ink's edge eaten into by the paper.
@@ -146,6 +145,11 @@ def kanji():
 
 
 def main():
+    # Hollow Purple's name alone (python tools/gen_gojolander_textures.py purple): the others are made from the one
+    # random stream and so come out the same only when all are made together.
+    if sys.argv[1:] == ['purple']:
+        save(kanji('\u865a\u5f0f\u300c\u830a\u300d', 156, 22, 34), CLIENT, 'textures', 'gui', 'hollow_purple.png')
+        return
     save(icon(), ROOT, 'textures', 'item', 'blindfold.png')
     save(entity(), CLIENT, 'textures', 'entity', 'blindfold.png')
     save(six_eyes(), CLIENT, 'textures', 'entity', 'six_eyes.png')

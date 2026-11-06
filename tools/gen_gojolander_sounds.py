@@ -43,7 +43,7 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(__file__))
 import gen_sounds as g  # noqa: E402
-from gen_sounds import (SR, attack_decay, bp, chime, crush, curve, decorrelated, hp, limit, loudness, lp, master,  # noqa: E402
+from gen_sounds import (SR, attack_decay, bp, chime, crush, curve, decay, decorrelated, grains, hp, limit, loudness, lp, master,  # noqa: E402
                         mono, ns, pan, pink, reverb, sat, saw, sine, spaces, stereo, sweep_filter, white)
 
 g.OUT = os.path.join(os.path.dirname(__file__), '..', 'gojolander', 'src', 'main', 'resources', 'assets', 'gojolander',
@@ -572,6 +572,280 @@ def domain_denied():
     return master(thunk + tick, peak=0.9)
 
 
+# =============================================================================================
+# Hollow Purple (PurpleTimeline, ticks of 1/20 s: BLUE 0, RED 24, SWEEP 48, MERGE 56, RELEASE 76).
+# All made here, none from a recording; his voice has a slot in the game (purple.voice) and nothing in it.
+#
+# - blue (from tick 0): the air pulled in towards his hand, faster and higher, an electric whine and crackle climbing,
+#   and a deep swell under it; held at its top as the orb sits there pulling;
+# - red (from tick 24): a hot blow outward and rings of it thrown out, one pulse after another, a fire's crackle and
+#   a low, heavy beat under it;
+# - merge (from tick 42, MERGE - 14; its crack at 0.7 s): blue's whine and red's roar drawn together into one rising
+#   hum (two notes closing to a fifth), a riser of air, and at 0.7 s the crack: a huge broadband impact, a deep boom
+#   and glass breaking, then the violet sphere's own hum, low and wide and beating, swelling;
+# - release (tick 76): the flick, a hard whoosh and a huge deep boom, thunder rolling off it;
+# - roar (tick 76 on): the rolling roar of it carving, crumbling and crashing under a deep rumble, building as it
+#   goes and letting go at the end of the 3.4 s;
+# - fade (where it ends): light collapsing in on itself, a hard implosion and a glassy shimmer ringing out.
+#
+# The deep parts carry their own overtones (presence) so a phone's or laptop's small speaker plays them too.
+# =============================================================================================
+
+MERGE_CRACK = 14 / 20.0
+
+
+def crackle(n, start, length, rate, level=1.0):
+    """Electric crackle: sparse clicks, mostly high, scattered through the stretch (mono)."""
+    out = np.zeros(n)
+    for _ in range(int(rate * length)):
+        at = ns(start + g.rng.uniform(0.0, length))
+        dur = ns(g.rng.uniform(0.0015, 0.008))
+        if at + dur >= n:
+            continue
+        click = g.rng.standard_normal(dur) * np.exp(-np.arange(dur) / (dur * 0.3))
+        out[at:at + dur] += np.diff(click, prepend=0.0) * g.rng.uniform(0.3, 1.0) * level
+    return out
+
+
+def boom(n, at, f0=44.0, f1=20.0, tau=1.2, body=0.5):
+    """A huge deep blow at {at}: a falling sub tone, a thump of low noise, and the knock that a small speaker carries."""
+    t = np.arange(n) / SR - at
+    on = t >= 0
+    tt = np.maximum(t, 0.0)
+    sub = np.sin(2 * np.pi * (f1 * tt + (f0 - f1) * 0.12 * (1 - np.exp(-tt / 0.12)))) * np.exp(-tt / tau) * on
+    thump = lp(white(n), 220) * np.exp(-tt / 0.22) * on * body
+    knock = bp(white(n), 120.0, 900.0) * np.exp(-tt / 0.07) * on * 0.5
+    out = sub * 1.1 + thump * 1.2
+    return out + presence(out, 1.6) + knock
+
+
+def rolling(n, start, end, level_curve, low=260.0):
+    """A rolling roar: heavy low noise churned by slow, uneven swells, with a rasp in it (mono)."""
+    t = np.arange(n) / SR
+    body = lp(g.brown(n), low) * 6.0
+    churn = 0.65 + 0.35 * np.sin(2 * np.pi * 7.3 * t + 1.0) * np.sin(2 * np.pi * 2.9 * t) + 0.2 * np.sin(2 * np.pi * 13.1 * t)
+    rasp = bp(white(n), 500.0, 3200.0) * 0.35 * (0.6 + 0.4 * np.sin(2 * np.pi * 11.0 * t + 2.0))
+    return (body + rasp) * churn * level_curve
+
+
+def debris(rate_curve, n, start, end):
+    """Crumbling and crashing: grains of low rock, cracks and falling stones (stereo)."""
+    def grain():
+        m = ns(g.rng.uniform(0.02, 0.18))
+        tt = np.arange(m) / SR
+        f = g.rng.uniform(70.0, 480.0)
+        y = bp(white(m + 64), f * 0.7, f * 1.6)[:m] * np.exp(-tt / g.rng.uniform(0.01, 0.06))
+        return y * g.rng.uniform(0.4, 1.4) * 4.0
+    return grains(n, rate_curve, grain, start=start, end=end, spread=0.9)
+
+
+def purple_blue():
+    n = ns(2.6)
+    t = np.arange(n) / SR
+    out = np.zeros((2, n))
+    out += decorrelated(n, lambda m: suck(m, 1.3), 0.9) * 0.8
+    f = curve(n, [(0.0, 200.0), (1.3, 1500.0), (2.6, 1500.0)], 'log')
+    whine = (sine(f) + 0.5 * sine(f * 2.01) + 0.3 * sine(f * 3.02)) * curve(n, [(0.0, 0.0), (0.25, 0.12), (1.3, 0.55), (1.5, 0.4), (2.6, 0.0)])
+    out += pan(whine, 0.0) * 0.4
+    out += decorrelated(n, lambda m: crackle(m, 0.05, 2.3, 110, 0.5) * curve(m, [(0.0, 0.3), (1.3, 1.0), (2.6, 0.5)]), 0.9) * 0.9
+    low = swell(n, 36.0, 74.0, 0.0, 1.3, 1.3) * 1.1
+    out += pan(low, 0.0) + presence(low, 5.2)
+    # Held at the top: the orb sitting there pulling, a buzz with a beat in it.
+    buzz = (saw(233.0, n) + saw(233.0 * 1.012, n)) * 0.2
+    buzz = bp(buzz, 200.0, 2400.0) * curve(n, [(0.0, 0.0), (1.2, 0.0), (1.5, 1.0), (2.6, 0.3)]) * (0.75 + 0.25 * np.sin(2 * np.pi * 9.0 * t))
+    out += decorrelated(n, lambda m: buzz[:m], 0.0) * 0.35
+    _, hall, _, space = spaces()
+    return master(reverb(out, space, wet=0.3), peak=0.95)
+
+
+def purple_blue_world():
+    n = ns(2.6)
+    y = suck(n, 1.3) * 0.6 + crackle(n, 0.05, 2.3, 110, 0.45) * 0.8
+    low = swell(n, 38.0, 76.0, 0.0, 1.3, 1.3)
+    y = y + low + presence(low, 5.0)
+    outdoor, _, _, _ = spaces()
+    return master(reverb(y, outdoor, wet=0.3), peak=0.95)
+
+
+def purple_red():
+    n = ns(2.6)
+    t = np.arange(n) / SR
+    out = np.zeros((2, n))
+    # The blow outward, and rings of it thrown out one after another.
+    out += pan(boom(n, 0.02, 52.0, 24.0, 0.9, 0.7), 0.0) * 0.9
+    for k, at in enumerate((0.55, 1.05, 1.55)):
+        ring = boom(n, at, 46.0 - 4 * k, 26.0, 0.5, 0.4) * (0.6 - 0.12 * k)
+        out += pan(ring, 0.0)
+    hot = sweep_filter(white(n), 'bandpass', curve(n, [(0.0, 5200.0), (1.0, 900.0), (2.6, 500.0)], 'log'), order=2, width=1.2)
+    hot *= attack_decay(n, 0.02, 0.5)
+    out += decorrelated(n, lambda m: hot[:m], 0.0) * 0.7
+    out += decorrelated(n, lambda m: crackle(m, 0.0, 2.4, 70, 0.7) * decay(m, 1.4), 0.9) * 0.8
+    out += decorrelated(n, lambda m: lp(pink(m), 900) * decay(m, 0.9) * 0.9, 0.8)
+    _, hall, _, space = spaces()
+    return master(reverb(out, space, wet=0.3), peak=0.95)
+
+
+def purple_red_world():
+    n = ns(2.6)
+    y = boom(n, 0.02, 52.0, 24.0, 0.9, 0.7) + sum(boom(n, at, 46.0, 26.0, 0.5, 0.4) * 0.5 for at in (0.55, 1.05, 1.55))
+    y += sweep_filter(white(n), 'bandpass', curve(n, [(0.0, 5000.0), (1.0, 900.0), (2.6, 500.0)], 'log'), order=2, width=1.2) * attack_decay(n, 0.02, 0.5) * 0.5
+    outdoor, _, _, _ = spaces()
+    return master(reverb(y, outdoor, wet=0.3), peak=0.95)
+
+
+def merge_core(n):
+    """The sphere's own hum from the crack on: low and wide, a stack of harmonics beating slowly, swelling and holding."""
+    t = np.arange(n) / SR - MERGE_CRACK
+    on = t >= 0
+    out = np.zeros((2, n))
+    base = 55.0
+    swellc = curve(n, [(0.0, 0.0), (MERGE_CRACK, 0.0), (MERGE_CRACK + 0.25, 1.0), (MERGE_CRACK + 2.4, 0.8), (n / SR, 0.0)])
+    for k, (ratio, gain) in enumerate(((1.0, 1.0), (2.0, 0.6), (3.0, 0.38), (4.01, 0.3), (6.0, 0.18), (8.02, 0.12))):
+        for d in (-0.004, 0.004):
+            y = sine(base * ratio * (1.0 + d), n) * gain * 0.5
+            out += pan(y * swellc, d * 120 * (1 if k % 2 else -1))
+    out += decorrelated(n, lambda m: bp(white(m), 200.0, 2800.0) * 0.12 * (0.6 + 0.4 * np.sin(2 * np.pi * 5.0 * np.arange(m) / SR)), 1.0) * swellc
+    low = pan(sine(base * 0.5, n), 0.0) * swellc * 0.9
+    return out + low + presence(low, 5.0)
+
+
+def purple_merge():
+    n = ns(4.4)
+    t = np.arange(n) / SR
+    out = np.zeros((2, n))
+    # Two notes, blue's and red's, drawn together into a rising hum until they are a fifth apart (a clash, then a chord).
+    rise = curve(n, [(0.0, 90.0), (MERGE_CRACK, 330.0)], 'log')
+    fa = rise
+    fb = rise * curve(n, [(0.0, 1.07), (MERGE_CRACK, 1.5)])
+    env = curve(n, [(0.0, 0.0), (MERGE_CRACK * 0.8, 1.0), (MERGE_CRACK, 1.0), (MERGE_CRACK + 0.05, 0.0)]) ** 1.5
+    hum = (sine(fa) + 0.5 * sine(fa * 2.0) + sine(fb) + 0.5 * sine(fb * 2.0)) * env * 0.35
+    hum_s = hum + presence(hum, 2.0, cutoff=300.0, lo=500.0)
+    out += pan(hum_s, 0.0)
+    riser = sweep_filter(white(n), 'bandpass', curve(n, [(0.0, 500.0), (MERGE_CRACK, 9000.0)], 'log'), order=2, width=1.2) * env
+    out += decorrelated(n, lambda m: riser[:m], 0.0) * 0.9
+    out += decorrelated(n, lambda m: crackle(m, 0.0, MERGE_CRACK, 160, 0.6), 0.9) * 0.6
+    swl = swell(n, 30.0, 60.0, 0.0, MERGE_CRACK, 0.0) * (env > 0)
+    out += pan(swl, 0.0) * 0.9
+    # The crack.
+    c = np.maximum(t - MERGE_CRACK, 0.0)
+    on = t >= MERGE_CRACK
+    crack = (hp(white(n), 600) * np.exp(-c / 0.05) + bp(white(n), 120.0, 3000.0) * np.exp(-c / 0.25)) * on
+    def cr(m):
+        k = np.maximum(np.arange(m) / SR - MERGE_CRACK, 0.0)
+        return (hp(white(m), 600) * np.exp(-k / 0.05) + bp(white(m), 120.0, 3000.0) * np.exp(-k / 0.25)) * (np.arange(m) / SR >= MERGE_CRACK)
+    out += decorrelated(n, cr, 0.6) * 1.6
+    out += pan(boom(n, MERGE_CRACK, 58.0, 18.0, 1.6, 0.9), 0.0) * 1.5
+    glass = np.zeros(n)
+    for f in (1318.0, 1976.0, 2793.0, 3951.0, 5274.0):
+        glass += chime(f * (1.0 + g.rng.normal(0, 0.002)), n, tau=1.4, bright=0.4) * on
+    out += decorrelated(n, lambda m: glass[:m] * 0.07, 0.8)
+    out += merge_core(n) * 0.85
+    _, hall, _, space = spaces()
+    out = reverb(out, space, wet=0.32)
+    return master(out, peak=0.95)
+
+
+def purple_merge_world():
+    n = ns(4.4)
+    t = np.arange(n) / SR
+    rise = curve(n, [(0.0, 90.0), (MERGE_CRACK, 330.0)], 'log')
+    env = curve(n, [(0.0, 0.0), (MERGE_CRACK * 0.8, 1.0), (MERGE_CRACK, 1.0), (MERGE_CRACK + 0.05, 0.0)]) ** 1.5
+    hum = (sine(rise) + 0.5 * sine(rise * 2.0) + sine(rise * 1.5) + 0.5 * sine(rise * 3.0)) * env * 0.3
+    c = np.maximum(t - MERGE_CRACK, 0.0)
+    on = t >= MERGE_CRACK
+    crack = (hp(white(n), 600) * np.exp(-c / 0.05) + bp(white(n), 120.0, 3000.0) * np.exp(-c / 0.25)) * on
+    y = hum + presence(hum, 2.0, cutoff=300.0, lo=500.0) + crack * 1.4 + boom(n, MERGE_CRACK, 58.0, 18.0, 1.6, 0.9) * 1.4
+    y += mono(merge_core(n)) * 0.7
+    outdoor, _, _, _ = spaces()
+    return master(reverb(y, outdoor, wet=0.3), peak=0.95)
+
+
+def purple_release():
+    n = ns(3.4)
+    t = np.arange(n) / SR
+    out = np.zeros((2, n))
+    # The flick, a hard whoosh up, and the huge blow with thunder rolling off it.
+    whoosh = sweep_filter(white(n), 'bandpass', curve(n, [(0.0, 300.0), (0.18, 7000.0), (0.6, 1500.0)], 'log'), order=2, width=1.0) * attack_decay(n, 0.05, 0.22)
+    out += decorrelated(n, lambda m: whoosh[:m], 0.0) * 0.9
+    out += pan(boom(n, 0.08, 62.0, 17.0, 2.0, 1.0), 0.0) * 1.7
+    thunder = lp(pink(n), 180.0) * 5.0 * attack_decay(n, 0.1, 0.9, 0.1) * (0.6 + 0.4 * np.sin(2 * np.pi * 4.7 * t))
+    out += decorrelated(n, lambda m: thunder[:m] * g.rng.uniform(0.9, 1.1), 0.8) + presence(pan(thunder, 0.0), 2.0)
+    out += decorrelated(n, lambda m: crackle(m, 0.08, 1.2, 140, 0.6) * decay(m, 0.6, 0.08), 0.9) * 0.6
+    _, hall, _, space = spaces()
+    return master(reverb(out, space, wet=0.3), peak=0.95)
+
+
+def purple_release_world():
+    n = ns(3.4)
+    t = np.arange(n) / SR
+    whoosh = sweep_filter(white(n), 'bandpass', curve(n, [(0.0, 300.0), (0.18, 7000.0), (0.6, 1500.0)], 'log'), order=2, width=1.0) * attack_decay(n, 0.05, 0.22)
+    thunder = lp(pink(n), 180.0) * 5.0 * attack_decay(n, 0.1, 0.9, 0.1) * (0.6 + 0.4 * np.sin(2 * np.pi * 4.7 * t))
+    y = whoosh * 0.7 + boom(n, 0.08, 62.0, 17.0, 2.0, 1.0) * 1.6 + thunder + presence(thunder, 2.0)
+    outdoor, _, _, _ = spaces()
+    return master(reverb(y, outdoor, wet=0.35), peak=0.95)
+
+
+def roar_core(n, stereo_out=True):
+    t = np.arange(n) / SR
+    # Builds fast, is at its biggest as it goes through the mountain, lets go at the end.
+    lvl = curve(n, [(0.0, 0.0), (0.12, 1.0), (0.9, 0.85), (2.4, 1.0), (3.2, 0.7), (4.6, 0.0)])
+    out = np.zeros((2, n))
+    out += decorrelated(n, lambda m: rolling(m, 0.0, 4.6, lvl[:m]), 0.9)
+    beat = (sine(46.0, n) + sine(47.3, n)) * 0.5 * lvl
+    low = pan(beat, 0.0) * 1.2
+    out += low + presence(low, 5.0)
+    # Crumbling: the world coming apart round it.
+    out += debris(lambda tt: 90.0 * (0.4 + 0.6 * np.sin(np.pi * min(1.0, tt / 3.4))), n, 0.1, 3.8)
+    # The jet of it: a hard band of air tearing past.
+    jet = sweep_filter(white(n), 'bandpass', curve(n, [(0.0, 700.0), (1.0, 1900.0), (3.4, 1100.0)], 'log'), order=2, width=0.9) * lvl * 0.35
+    out += decorrelated(n, lambda m: jet[:m], 0.0)
+    # A cry of the violet energy itself: a falling shriek of glass, high and thin.
+    shriek = sine(curve(n, [(0.0, 2400.0), (3.0, 1500.0)]), n) * lvl * 0.04
+    out += pan(shriek, 0.0)
+    return out
+
+
+def purple_roar():
+    n = ns(4.6)
+    return master(reverb(roar_core(n), spaces()[3], wet=0.25), peak=0.95)
+
+
+def purple_roar_world():
+    n = ns(4.6)
+    y = mono(roar_core(n))
+    return master(reverb(y, spaces()[0], wet=0.3), peak=0.95)
+
+
+def purple_fade():
+    n = ns(3.2)
+    t = np.arange(n) / SR
+    out = np.zeros((2, n))
+    # Light pulled in on itself: a reversed rush, a hard implosion at 0.55 s, a glassy shimmer ringing out.
+    rush = sweep_filter(white(n), 'bandpass', curve(n, [(0.0, 8000.0), (0.55, 400.0)], 'log'), order=2, width=1.0) * curve(n, [(0.0, 0.0), (0.5, 1.0), (0.56, 0.0)]) ** 2
+    out += decorrelated(n, lambda m: rush[:m], 0.0) * 0.9
+    out += pan(boom(n, 0.55, 54.0, 20.0, 1.5, 0.8), 0.0) * 1.4
+    def snap(m):
+        k = np.maximum(np.arange(m) / SR - 0.55, 0.0)
+        return hp(white(m), 800) * np.exp(-k / 0.04) * (np.arange(m) / SR >= 0.55)
+    out += decorrelated(n, snap, 0.5) * 0.9
+    glass = np.zeros(n)
+    for f in (1568.0, 2349.0, 3136.0, 4699.0):
+        glass += chime(f * (1.0 + g.rng.normal(0, 0.002)), n, tau=1.5, bright=0.4) * (t >= 0.55)
+    out += decorrelated(n, lambda m: glass[:m] * 0.08, 0.8)
+    out += shimmer(n, 0.6, 1.4) * 0.8
+    _, hall, _, space = spaces()
+    return master(reverb(out, space, wet=0.35), peak=0.95)
+
+
+def purple_fade_world():
+    n = ns(3.2)
+    t = np.arange(n) / SR
+    rush = sweep_filter(white(n), 'bandpass', curve(n, [(0.0, 8000.0), (0.55, 400.0)], 'log'), order=2, width=1.0) * curve(n, [(0.0, 0.0), (0.5, 1.0), (0.56, 0.0)]) ** 2
+    y = rush * 0.8 + boom(n, 0.55, 54.0, 20.0, 1.5, 0.8) * 1.4 + mono(shimmer(n, 0.6, 1.4)) * 0.7
+    outdoor, _, _, _ = spaces()
+    return master(reverb(y, outdoor, wet=0.3), peak=0.95)
+
+
 # Each: its recipe and whether it is stereo (heard as it is) or mono (placed in the world).
 SOUNDS = {
     'domain_sign': (domain_sign, True),
@@ -592,6 +866,19 @@ SOUNDS = {
     'domain_break': (domain_break, True),
     'domain_break_world': (domain_break_world, False),
     'domain_heartbeat': (domain_heartbeat, True),
+    # Hollow Purple (made on their own: python tools/gen_gojolander_sounds.py purple_blue purple_red ...).
+    'purple_blue': (purple_blue, True),
+    'purple_blue_world': (purple_blue_world, False),
+    'purple_red': (purple_red, True),
+    'purple_red_world': (purple_red_world, False),
+    'purple_merge': (purple_merge, True),
+    'purple_merge_world': (purple_merge_world, False),
+    'purple_release': (purple_release, True),
+    'purple_release_world': (purple_release_world, False),
+    'purple_roar': (purple_roar, True),
+    'purple_roar_world': (purple_roar_world, False),
+    'purple_fade': (purple_fade, True),
+    'purple_fade_world': (purple_fade_world, False),
 }
 LOOPS = ('domain_void', 'domain_flood')
 # Loudness (loudest 400 ms, dB).
@@ -599,11 +886,17 @@ LOOPS = ('domain_void', 'domain_flood')
 LENGTHS = {'domain_sign': 4.6, 'domain_sign_world': 4.8, 'domain_close': 3.2, 'domain_close_world': 5.0,
            'domain_reveal': 6.0, 'domain_fade': 4.0, 'domain_fade_world': 4.0, 'domain_collapse': 4.0, 'domain_collapse_world': 5.0, 'domain_denied': 0.35,
            'domain_pulse': 1.6, 'domain_pulse_world': 1.2, 'domain_break': 3.2, 'domain_break_world': 2.0,
-           'domain_heartbeat': 0.9}
+           'domain_heartbeat': 0.9,
+           'purple_blue': 2.6, 'purple_blue_world': 2.6, 'purple_red': 2.6, 'purple_red_world': 2.6, 'purple_merge': 4.4,
+           'purple_merge_world': 4.4, 'purple_release': 3.4, 'purple_release_world': 3.4, 'purple_roar': 4.6,
+           'purple_roar_world': 4.6, 'purple_fade': 3.2, 'purple_fade_world': 3.2}
 LEVELS = {'domain_fade': -15, 'domain_fade_world': -16, 'domain_reveal': -14, 'domain_sign': -16, 'domain_sign_world': -18, 'domain_close': -12, 'domain_close_world': -13, 'domain_void': -21,
           'domain_flood': -17, 'domain_collapse': -12, 'domain_collapse_world': -13, 'domain_denied': -20,
           'domain_pulse': -14, 'domain_pulse_world': -17, 'domain_break': -12, 'domain_break_world': -15,
-          'domain_heartbeat': -16}
+          'domain_heartbeat': -16,
+          'purple_blue': -13, 'purple_blue_world': -14, 'purple_red': -13, 'purple_red_world': -14, 'purple_merge': -11,
+          'purple_merge_world': -12, 'purple_release': -11, 'purple_release_world': -12, 'purple_roar': -12,
+          'purple_roar_world': -13, 'purple_fade': -12, 'purple_fade_world': -13}
 
 
 def make(name):

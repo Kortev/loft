@@ -8,6 +8,9 @@ import io.github.kortev.gojolander.network.DomainCastPayload;
 import io.github.kortev.gojolander.network.DomainCaughtPayload;
 import io.github.kortev.gojolander.network.DomainEndPayload;
 import io.github.kortev.gojolander.network.DomainLockPayload;
+import io.github.kortev.gojolander.network.PurpleCastPayload;
+import io.github.kortev.gojolander.network.PurpleEndPayload;
+import io.github.kortev.gojolander.network.PurpleLaunchPayload;
 import io.github.kortev.gojolander.network.SixEyesPayload;
 import io.github.kortev.shootingstar.client.gfx.WorldPasses;
 import net.fabricmc.api.ClientModInitializer;
@@ -34,12 +37,20 @@ import org.lwjgl.glfw.GLFW;
 public final class GojolanderClient implements ClientModInitializer {
 	/** Domain Expansion: cast with the blindfold on. */
 	public static KeyBinding DOMAIN;
+	/**
+	 * Hollow Purple: cast with the blindfold on. N, not X as first asked: X is Chitty's eject key and vanilla's Load Hotbar
+	 * Activator (C is Save Hotbar), and only one of the bindings on a key hears it.
+	 */
+	public static KeyBinding PURPLE;
 
 	@Override
 	public void onInitializeClient() {
 		DOMAIN = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.gojolander.domain", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_Z,
 				"key.categories.gojolander"));
+		PURPLE = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.gojolander.purple", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_N,
+				"key.categories.gojolander"));
 		CoreShaderRegistrationCallback.EVENT.register(context -> {
+			context.register(Gojolander.id("gl_purple"), VertexFormats.BLIT_SCREEN, program -> PurpleRender.purple = program);
 			context.register(Gojolander.id("gl_domain"), VertexFormats.BLIT_SCREEN, program -> DomainRender.domain = program);
 			context.register(Gojolander.id("gl_flood"), VertexFormats.BLIT_SCREEN, program -> DomainHud.flood = program);
 			context.register(Gojolander.id("gl_rim"), VertexFormats.BLIT_SCREEN, program -> DomainRender.rim = program);
@@ -57,10 +68,16 @@ public final class GojolanderClient implements ClientModInitializer {
 		ClientPlayNetworking.registerGlobalReceiver(DomainCaughtPayload.ID,
 				(payload, context) -> ClientDomains.onCaught(payload, context.client()));
 		ClientPlayNetworking.registerGlobalReceiver(DomainEndPayload.ID, (payload, context) -> ClientDomains.onEnd(payload, context.client()));
+		ClientPlayNetworking.registerGlobalReceiver(PurpleLaunchPayload.ID, (payload, context) -> ClientPurples.onLaunch(payload, context.client()));
+		ClientPlayNetworking.registerGlobalReceiver(PurpleEndPayload.ID, (payload, context) -> ClientPurples.onEnd(payload, context.client()));
 		ClientPlayNetworking.registerGlobalReceiver(SixEyesPayload.ID, (payload, context) -> SixEyesClient.set(payload.range()));
-		ClientWorldEvents.AFTER_CLIENT_WORLD_CHANGE.register((client, world) -> ClientDomains.clear(client));
+		ClientWorldEvents.AFTER_CLIENT_WORLD_CHANGE.register((client, world) -> {
+			ClientDomains.clear(client);
+			ClientPurples.clear();
+		});
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
 			ClientDomains.clear(client);
+			ClientPurples.clear();
 			SixEyesClient.clear();
 		});
 
@@ -70,16 +87,29 @@ public final class GojolanderClient implements ClientModInitializer {
 			while (DOMAIN.wasPressed()) {
 				cast(client);
 			}
+			while (PURPLE.wasPressed()) {
+				castPurple(client);
+			}
 			ClientDomains.tick(client);
+			ClientPurples.tick(client);
 		});
 		WorldPasses.register(DomainRender::render);
+		WorldPasses.register(PurpleRender::render);
 		HudRenderCallback.EVENT.register(DomainHud::render);
+		HudRenderCallback.EVENT.register(PurpleHud::render);
 	}
 
 	/** The Domain key: only worth asking the server with the blindfold on; the server says whether it is theirs to cast. */
 	private static void cast(MinecraftClient client) {
 		if (client.player != null && BlindfoldItem.wearing(client.player) && ClientPlayNetworking.canSend(DomainCastPayload.ID)) {
 			ClientPlayNetworking.send(new DomainCastPayload());
+		}
+	}
+
+	/** The Hollow Purple key: the same, asked of the server only with the blindfold on. */
+	private static void castPurple(MinecraftClient client) {
+		if (client.player != null && BlindfoldItem.wearing(client.player) && ClientPlayNetworking.canSend(PurpleCastPayload.ID)) {
+			ClientPlayNetworking.send(new PurpleCastPayload());
 		}
 	}
 }

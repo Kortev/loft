@@ -67,8 +67,16 @@ fine: kortev dropped the old rule against it on 2026-10-20.)
   - It is nobody's until kortev has the friend's Minecraft name, and while it is nobody's anyone can craft and cast
     it (kortev wanted to test it). `/gojolander owner <name>` on the server makes it the friend's alone (kortev's
     choice for the SMP: on anyone else the blindfold is just cloth).
+  - **Hollow Purple** (built 2026-11-06, branch `claude/chainsaw-man`; kortev asked for it as a viral reel): key **N**
+    (not X: X is Chitty's eject key and vanilla's Load Hotbar key, and only one binding on a key hears it; change it back in
+    `GojolanderClient` if kortev prefers). About 4 s of cast (Blue in his left hand, Red in his right, the merge, a huge
+    violet sphere, the flick), then the sphere flies 200 blocks at 3.5 a tick erasing everything: blocks gone with no
+    drops, the living dead (bosses take 150 once), a clean round tunnel. Four game rules (`hollowPurpleRange`,
+    `hollowPurpleRadius`, `hollowPurpleErases`, `hollowPurpleCooldownSeconds`), synthesized sounds, `PurpleGameTests`, and a
+    12 to 15 s tall test clip (`bash work/tools/film_purple.sh`, `FilmPurple`). His voice line has an empty slot
+    (`purple.voice`: see the README); no clip from the show is used. The README has its section.
   - Next, as kortev and the friend decide: Infinity (the friend has his own idea for how it treats kortev's weapons),
-    Blue, Red and Hollow Purple, and Homelander's cape (flight) and heat vision. Keep everything balanced against the
+    Blue and Red as powers of their own, and Homelander's cape (flight) and heat vision. Keep everything balanced against the
     other friends' mods (game rules for the numbers).
   - To see any of it with other players' mods in the dev game: `./gradlew runClient -PextraMods="a.jar;b.jar"` (never
     part of a build). Sodium itself will not load in the dev game (it is built with a newer Loom); try it with the

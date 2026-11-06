@@ -152,5 +152,105 @@
         "name": "gojolander:domain_voice_void"
       }
     ]
+  },
+  "purple.blue": {
+    "subtitle": "subtitles.gojolander.purple.blue",
+    "sounds": [
+      {
+        "name": "gojolander:purple_blue"
+      }
+    ]
+  },
+  "purple.blue.world": {
+    "subtitle": "subtitles.gojolander.purple.blue.world",
+    "sounds": [
+      {
+        "name": "gojolander:purple_blue_world"
+      }
+    ]
+  },
+  "purple.red": {
+    "subtitle": "subtitles.gojolander.purple.red",
+    "sounds": [
+      {
+        "name": "gojolander:purple_red"
+      }
+    ]
+  },
+  "purple.red.world": {
+    "subtitle": "subtitles.gojolander.purple.red.world",
+    "sounds": [
+      {
+        "name": "gojolander:purple_red_world"
+      }
+    ]
+  },
+  "purple.merge": {
+    "subtitle": "subtitles.gojolander.purple.merge",
+    "sounds": [
+      {
+        "name": "gojolander:purple_merge"
+      }
+    ]
+  },
+  "purple.merge.world": {
+    "subtitle": "subtitles.gojolander.purple.merge.world",
+    "sounds": [
+      {
+        "name": "gojolander:purple_merge_world"
+      }
+    ]
+  },
+  "purple.release": {
+    "subtitle": "subtitles.gojolander.purple.release",
+    "sounds": [
+      {
+        "name": "gojolander:purple_release"
+      }
+    ]
+  },
+  "purple.release.world": {
+    "subtitle": "subtitles.gojolander.purple.release.world",
+    "sounds": [
+      {
+        "name": "gojolander:purple_release_world"
+      }
+    ]
+  },
+  "purple.roar": {
+    "subtitle": "subtitles.gojolander.purple.roar",
+    "sounds": [
+      {
+        "name": "gojolander:purple_roar"
+      }
+    ]
+  },
+  "purple.roar.world": {
+    "subtitle": "subtitles.gojolander.purple.roar.world",
+    "sounds": [
+      {
+        "name": "gojolander:purple_roar_world"
+      }
+    ]
+  },
+  "purple.fade": {
+    "subtitle": "subtitles.gojolander.purple.fade",
+    "sounds": [
+      {
+        "name": "gojolander:purple_fade"
+      }
+    ]
+  },
+  "purple.fade.world": {
+    "subtitle": "subtitles.gojolander.purple.fade.world",
+    "sounds": [
+      {
+        "name": "gojolander:purple_fade_world"
+      }
+    ]
+  },
+  "purple.voice": {
+    "subtitle": "subtitles.gojolander.purple.voice",
+    "sounds": []
   }
 }

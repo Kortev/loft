@@ -4,6 +4,7 @@ import io.github.kortev.gojolander.client.ClientDomain;
 import io.github.kortev.gojolander.client.ClientDomains;
 import io.github.kortev.gojolander.client.DomainCamera;
 import io.github.kortev.gojolander.client.HandSign;
+import io.github.kortev.gojolander.client.PurpleCamera;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.Camera;
 import net.minecraft.entity.Entity;
@@ -37,6 +38,9 @@ public abstract class DomainCameraMixin {
 	private void gojolander$shot(BlockView area, Entity focusedEntity, boolean thirdPerson, boolean inverseView, float tickDelta,
 			CallbackInfo ci) {
 		DomainCamera.Shot shot = DomainCamera.current(tickDelta);
+		if (shot == null) {
+			shot = PurpleCamera.current(tickDelta);
+		}
 		if (shot != null) {
 			setRotation(shot.yaw(), shot.pitch());
 			setPos(shot.x(), shot.y(), shot.z());

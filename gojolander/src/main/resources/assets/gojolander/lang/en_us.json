@@ -84,5 +84,6 @@
   "subtitles.gojolander.purple.roar.world": "The world is erased",
   "subtitles.gojolander.purple.fade": "Hollow Purple collapses",
   "subtitles.gojolander.purple.fade.world": "Hollow Purple collapses",
-  "death.attack.gojolander.hollow_purple": "%1$s was erased by Hollow Purple"
+  "death.attack.gojolander.hollow_purple": "%1$s was erased by Hollow Purple",
+  "subtitles.gojolander.purple.voice": "\"Hollow Technique: Purple\""
 }

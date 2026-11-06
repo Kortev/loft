@@ -173,6 +173,7 @@ public final class PurpleManager {
 	 * Returns whether it was cast.
 	 */
 	public static boolean cast(ServerPlayerEntity player) {
+		Gojolander.LOGGER.debug("Hollow Purple key from {}", player.getGameProfile().getName());
 		if (player.isSpectator() || !player.isAlive() || !BlindfoldItem.wearing(player)) {
 			return false;
 		}
