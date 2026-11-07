@@ -102,7 +102,8 @@ public final class ChainsawManClient implements ClientModInitializer {
 		ClientPlayNetworking.registerGlobalReceiver(FormPullPayload.ID, (payload, context) -> {
 			if (context.client().world != null) {
 				PlayerEntity puller = context.client().world.getPlayerByUuid(payload.player());
-				ClientForms.pulled(payload.player(), context.client().world.getTime(), puller != null ? puller.getYaw() : 0.0F);
+				// (A friend's yank on someone who was down starts the transformation partway in.)
+				ClientForms.pulled(payload.player(), context.client().world.getTime() - payload.skip(), puller != null ? puller.getYaw() : 0.0F);
 			}
 		});
 		ClientPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.ContractPayload.ID,
@@ -138,6 +139,7 @@ public final class ChainsawManClient implements ClientModInitializer {
 			ClientCombat.tick(client);
 			DreamHud.tick(client);
 			FormCinematic.tick(client);
+			ReviveCord.tick(client);
 			BeamClient.tick(client);
 			ClientEcho.tick(client);
 			EchoHud.tick(client);

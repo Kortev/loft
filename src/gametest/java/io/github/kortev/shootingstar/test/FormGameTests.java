@@ -342,6 +342,103 @@ public class FormGameTests implements FabricGameTest {
 		});
 	}
 
+	/** A friend's pull on a downed player's cord, through the game's own "use on a player" path, every 4 ticks (as a held use repeats) from tick {@code from} to {@code to}. */
+	private static void pull(TestContext context, ServerPlayerEntity friend, ServerPlayerEntity down, int from, int to) {
+		for (int t = from; t <= to; t += 4) {
+			context.runAtTick(t, () -> net.fabricmc.fabric.api.event.player.UseEntityCallback.EVENT.invoker().interact(friend, context.getWorld(),
+					net.minecraft.util.Hand.MAIN_HAND, down, null));
+		}
+	}
+
+	/** A downed human, their cord pulled by a friend, comes up as Chainsaw Man; the friend pays three hearts. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_revive_human", tickLimit = Downed.FEED + 70)
+	public void friendsPullBringsHumanBackAsChainsawMan(TestContext context) {
+		ServerPlayerEntity down = player(context, "fallen_human", 0.0);
+		down.setAttached(Heart.MERGED, true);
+		ServerPlayerEntity friend = player(context, "friend_human", 1.2);
+		Downed.down(down);
+		context.assertTrue(!Form.on(down), "a downed human was in the form");
+		friend.setSneaking(true);
+		float before = friend.getHealth();
+		pull(context, friend, down, 1, Downed.FEED + 8);
+		context.runAtTick(Downed.FEED / 2, () -> {
+			context.assertTrue(Downed.is(down) && Downed.pulled(down), "halfway through the pull they were not down with the cord held");
+			context.assertTrue(!Form.on(down) && !Form.pulling(down), "halfway through, the form had come");
+		});
+		context.runAtTick(Downed.FEED + 8, () -> {
+			context.assertTrue(!Downed.is(down), "after the yank they were still down");
+			context.assertTrue(Form.pulling(down) || Form.on(down), "after the yank they were not transforming");
+			context.assertTrue(down.getHealth() == Downed.GIVEN, "they came back with " + down.getHealth());
+			context.assertTrue(friend.getHealth() <= before - Downed.GIVEN + 0.01F, "the friend paid nothing: " + friend.getHealth());
+		});
+		context.runAtTick(Downed.FEED + 50, () -> {
+			try {
+				context.assertTrue(Form.on(down), "they did not come up in the form");
+				context.assertTrue(!Form.pulling(down), "they were still transforming long after");
+				context.assertTrue(Form.fighting(down), "they could not fight once up");
+			} finally {
+				done(context, down);
+				done(context, friend);
+			}
+			context.complete();
+		});
+	}
+
+	/** Someone who was already Chainsaw Man when they went down comes back as Chainsaw Man all the same (the engine died when they fell). */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_revive_form", tickLimit = Downed.FEED + 70)
+	public void friendsPullBringsChainsawManBack(TestContext context) {
+		ServerPlayerEntity down = fighter(context, "fallen_form", 0.0);
+		ServerPlayerEntity friend = player(context, "friend_form", 1.2);
+		context.assertTrue(Form.on(down), "they were not in the form to begin with");
+		Downed.down(down);
+		friend.setSneaking(true);
+		float before = friend.getHealth();
+		pull(context, friend, down, 1, Downed.FEED + 8);
+		context.runAtTick(Downed.FEED + 50, () -> {
+			try {
+				context.assertTrue(!Downed.is(down), "they were still down");
+				context.assertTrue(Form.on(down) && Form.fighting(down), "they did not come up in the form");
+				context.assertTrue(friend.getHealth() <= before - Downed.GIVEN + 0.01F, "the friend paid nothing: " + friend.getHealth());
+				context.assertTrue(Limbs.has(down, Limbs.RIGHT) && Limbs.has(down, Limbs.LEFT), "their arms had not grown back");
+			} finally {
+				done(context, down);
+				done(context, friend);
+			}
+			context.complete();
+		});
+	}
+
+	/** Letting go before the yank: still down, still human, no form begun, the friend has paid nothing; they can take hold again and finish it. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_revive_cancel", tickLimit = Downed.FEED * 2 + 60)
+	public void lettingGoCancelsThePull(TestContext context) {
+		ServerPlayerEntity down = player(context, "fallen_cancel", 0.0);
+		down.setAttached(Heart.MERGED, true);
+		ServerPlayerEntity friend = player(context, "friend_cancel", 1.2);
+		Downed.down(down);
+		friend.setSneaking(true);
+		float before = friend.getHealth();
+		pull(context, friend, down, 1, 33);
+		context.runAtTick(50, () -> {
+			context.assertTrue(Downed.is(down), "they were not down after the friend let go");
+			context.assertTrue(!Downed.pulled(down), "the cord was still being pulled after the friend let go");
+			context.assertTrue(!Form.on(down) && !Form.pulling(down), "letting go still changed their form");
+			context.assertTrue(friend.getHealth() >= before, "the friend paid for a pull they let go of: " + friend.getHealth());
+			context.assertTrue(down.getAttachedOrElse(Downed.LEFT, 0) > 0, "their time down was gone");
+		});
+		// Taking hold again starts the three seconds over.
+		pull(context, friend, down, 60, 60 + Downed.FEED + 8);
+		context.runAtTick(60 + Downed.FEED / 2, () -> context.assertTrue(Downed.is(down), "the second pull finished early"));
+		context.runAtTick(60 + Downed.FEED + 40, () -> {
+			try {
+				context.assertTrue(!Downed.is(down) && Form.on(down), "the second pull did not bring them back in the form");
+			} finally {
+				done(context, down);
+				done(context, friend);
+			}
+			context.complete();
+		});
+	}
+
 	/** Left alone long enough, you come back by yourself. */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_alone", tickLimit = 20)
 	public void aloneYouComeBack(TestContext context) {
@@ -352,6 +449,7 @@ public class FormGameTests implements FabricGameTest {
 			try {
 				context.assertTrue(!Downed.is(down), "they were still down");
 				context.assertTrue(down.getHealth() == Downed.GIVEN, "they came back with " + down.getHealth());
+				context.assertTrue(!Form.on(down) && !Form.pulling(down), "alone, they came back in the form");
 			} finally {
 				done(context, down);
 			}

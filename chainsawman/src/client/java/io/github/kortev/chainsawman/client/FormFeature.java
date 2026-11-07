@@ -15,7 +15,9 @@ import net.minecraft.client.render.entity.feature.FeatureRenderer;
 import net.minecraft.client.render.entity.feature.FeatureRendererContext;
 import net.minecraft.client.render.entity.model.PlayerEntityModel;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerModelPart;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.RotationAxis;
@@ -79,6 +81,7 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 		PlayerEntityModel<AbstractClientPlayerEntity> model = getContextModel();
 		float t = ClientForms.pullAge(player, tickDelta);
 		int overlay = LivingEntityRenderer.getOverlay(player, 0.0F);
+		reviveCord(matrices, consumers, light, model, player, tickDelta);
 		if (Downed.is(player)) {
 			// Down: no saws, only where the arms and legs were.
 			stumps(matrices, consumers, light, overlay, model.body, true, true, true);
@@ -529,6 +532,72 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 		Vector3f thick = new Vector3f(d).normalize(0.05F);
 		quad(out, light, uv, new Vector3f(hand).sub(across).sub(thick), new Vector3f(hand).add(across).sub(thick),
 				new Vector3f(hand).add(across).add(thick), new Vector3f(hand).sub(across).add(thick));
+	}
+
+	/** How thick the revive cord is (half a strip's width, blocks), how many pieces it is drawn in, and how far it sags slack (blocks). */
+	private static final float REVIVE_HALF = 0.055F;
+	private static final int REVIVE_PIECES = 10;
+	private static final float SAG = 0.32F;
+
+	/**
+	 * A friend pulling the cord of {@code down} ({@link ReviveCord}): from the root on the chest to the friend's hand, slack at
+	 * first and hanging, then taut and humming as they draw back; sliding in if they let go, snapping in at the yank, the
+	 * handle across the hand's end.
+	 */
+	private static void reviveCord(MatrixStack matrices, VertexConsumerProvider consumers, int light, PlayerEntityModel<?> model,
+			AbstractClientPlayerEntity down, float tickDelta) {
+		ReviveCord.Pull pull = ReviveCord.of(down);
+		MinecraftClient client = MinecraftClient.getInstance();
+		FormMesh mesh = FormMesh.get();
+		if (pull == null || mesh == null || client.world == null) {
+			return;
+		}
+		long now = client.world.getTime();
+		PlayerEntity friend = ReviveCord.player(client.world, pull.puller());
+		if (friend == null || !ReviveCord.showing(pull, now, tickDelta)) {
+			return;
+		}
+		Vector3f root = at(matrices, model.body, CORD_ROOT);
+		Vec3d shoulder = ReviveCord.shoulder(friend, tickDelta);
+		Vec3d hand = ReviveCord.hand(shoulder, ReviveCord.aim(shoulder, ReviveCord.root(down, tickDelta), ReviveCord.draw(pull, now, tickDelta)));
+		Vec3d camera = client.gameRenderer.getCamera().getPos();
+		Vector3f end = new Vector3f((float) (hand.x - camera.x), (float) (hand.y - camera.y), (float) (hand.z - camera.z));
+		float out = ReviveCord.out(pull, now, tickDelta);
+		end.set(new Vector3f(root).lerp(end, out));
+		float taut = ReviveCord.taut(pull, now, tickDelta);
+		float sag = SAG * (1.0F - taut) * out;
+		float hum = taut > 0.7F ? 0.012F * MathHelper.sin((now + tickDelta) * 2.7F) * (taut - 0.7F) / 0.3F : 0.0F;
+		float[] uv = mesh.ropeUv();
+		VertexConsumer buffer = consumers.getBuffer(RenderLayer.getEntityCutoutNoCull(TEXTURE));
+		Vector3f look = client.gameRenderer.getCamera().getHorizontalPlane();
+		Vector3f previous = new Vector3f(root);
+		Vector3f first = new Vector3f();
+		for (int i = 1; i <= REVIVE_PIECES; i++) {
+			float k = i / (float) REVIVE_PIECES;
+			Vector3f next = new Vector3f(root).lerp(end, k);
+			next.y -= sag * 4.0F * k * (1.0F - k);
+			next.y += hum * MathHelper.sin(k * MathHelper.PI);
+			Vector3f d = new Vector3f(next).sub(previous);
+			Vector3f side = new Vector3f(d).cross(look);
+			if (side.lengthSquared() > 1.0E-10F) {
+				side.normalize(REVIVE_HALF);
+				quad(buffer, light, uv, new Vector3f(previous).sub(side), new Vector3f(previous).add(side), new Vector3f(next).add(side),
+						new Vector3f(next).sub(side));
+				first.set(d);
+			}
+			previous = next;
+		}
+		if (first.lengthSquared() > 1.0E-10F && out > 0.3F) {
+			// The handle across the hand's end.
+			Vector3f side = new Vector3f(first).cross(look);
+			if (side.lengthSquared() > 1.0E-10F) {
+				Vector3f across = side.normalize(0.16F);
+				Vector3f thick = new Vector3f(first).normalize(0.06F);
+				Vector3f h = previous;
+				quad(buffer, light, uv, new Vector3f(h).sub(across).sub(thick), new Vector3f(h).add(across).sub(thick), new Vector3f(h).add(across).add(thick),
+						new Vector3f(h).sub(across).add(thick));
+			}
+		}
 	}
 
 	/** Where {@code point} (pixels in {@code bone}'s space) is, in the stack's space. */

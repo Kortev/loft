@@ -43,9 +43,12 @@ import org.joml.Vector3f;
 
 /**
  * With Pochita carried you never die. What would have killed you leaves you down instead: on the ground, your arms and
- * legs gone, unable to move, fight or use anything, and nothing more can hurt you. Someone has to give you blood: crouch
- * beside you and hold use on you for {@link #FEED} ticks, and {@link #GIVEN} of their own health comes into you and you
- * are back up. If nobody comes, after {@link #ALONE} ticks you come back by yourself. (Out of the world, or killed by a
+ * legs gone, unable to move, fight or use anything, and nothing more can hurt you. A friend can bring you back: crouch
+ * beside you and hold use on you for {@link #FEED} ticks and they pull your cord out of your chest (it stretches out
+ * toward their hand, the engine coughing and sputtering), then yank it: it snaps back, your arms and legs grow back in
+ * blood, {@link #GIVEN} of their own health comes into you and you burst up already in the form (from either form you
+ * were in; {@link Form#revived}). Letting go early lets the cord slide back in. If nobody comes, after {@link #ALONE}
+ * ticks you come back by yourself, as you were (human). (Out of the world, or killed by a
  * command, you still die.) Being down is saved with you, so leaving does not get you out of it.
  */
 public final class Downed {
@@ -156,8 +159,12 @@ public final class Downed {
 		Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.DOWNED, 1));
 	}
 
-	/** Back up, with {@link #GIVEN} health: given blood, or after lying there long enough. */
+	/** Back up, with {@link #GIVEN} health, as you were (human): after lying there long enough, or by a command. */
 	public static void up(ServerPlayerEntity player) {
+		up(player, false);
+	}
+
+	private static void up(ServerPlayerEntity player, boolean pulled) {
 		if (!DOWN.remove(player.getUuid())) {
 			return;
 		}
@@ -167,9 +174,46 @@ public final class Downed {
 		RISING.put(player.getUuid(), player.getServerWorld().getTime() + RISE);
 		Limbs.whole(player);
 		player.setHealth(GIVEN);
-		Form.play(player, ChainsawSounds.REVIVE, 1.0F);
+		if (!pulled) {
+			Form.play(player, ChainsawSounds.REVIVE, 1.0F);
+		}
 		player.sendMessage(Text.translatable("message.chainsawman.revived").formatted(Formatting.RED), true);
 		Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.DOWNED, 0));
+	}
+
+	/**
+	 * {@code by} yanked {@code down}'s cord: they pay {@link #GIVEN} of their own health, and {@code down} bursts up already
+	 * in the form ({@link Form#revived}), whichever form they were in when they went down; without Pochita's heart they are just
+	 * back up.
+	 */
+	public static void revive(ServerPlayerEntity by, ServerPlayerEntity down) {
+		if (!DOWN.contains(down.getUuid())) {
+			return;
+		}
+		by.damage(by.getDamageSources().magic(), GIVEN);
+		Form.broadcast(down.server, new FormEventPayload(down.getUuid(), FormEventPayload.REVIVE, -1));
+		up(down, true);
+		if (Heart.has(down)) {
+			Form.revived(down);
+		}
+	}
+
+	/** Whether someone is pulling {@code down}'s cord now. */
+	public static boolean pulled(ServerPlayerEntity down) {
+		return FED.containsKey(down.getUuid());
+	}
+
+	/** {@code by} takes hold of {@code down}'s cord: everyone sees it stretch, and hears the engine sputter. */
+	private static void grip(ServerPlayerEntity by, ServerPlayerEntity down) {
+		Form.broadcast(down.server, new FormEventPayload(down.getUuid(), FormEventPayload.REVIVE, by.getId()));
+		Form.play(down, ChainsawSounds.REVIVE_PULL, 1.0F);
+	}
+
+	/** The cord let go before the yank: it slides back in, the sputtering cut short. */
+	private static void slack(ServerPlayerEntity down) {
+		Form.broadcast(down.server, new FormEventPayload(down.getUuid(), FormEventPayload.REVIVE, 0));
+		down.server.getPlayerManager().sendToAll(new net.minecraft.network.packet.s2c.play.StopSoundS2CPacket(ChainsawSounds.REVIVE_PULL.getId(),
+				net.minecraft.sound.SoundCategory.PLAYERS));
 	}
 
 	/** {@code by} holding use on {@code down}: another tick or so of giving them blood. */
@@ -180,7 +224,11 @@ public final class Downed {
 		long now = by.getServerWorld().getTime();
 		Feed feed = FED.get(down.getUuid());
 		if (feed == null || !feed.by().equals(by.getUuid()) || now - feed.last() > FEED_GAP) {
+			if (feed != null) {
+				slack(down);
+			}
 			feed = new Feed(by.getUuid(), 0, now);
+			grip(by, down);
 		}
 		FED.put(down.getUuid(), new Feed(by.getUuid(), feed.done(), now));
 	}
@@ -234,16 +282,16 @@ public final class Downed {
 			if (feed != null && (by == null || now - feed.last() > FEED_GAP || !by.isSneaking() || by.squaredDistanceTo(player) > FEED_REACH * FEED_REACH)) {
 				FED.remove(id);
 				feed = null;
+				slack(player);
 			}
 			if (feed != null) {
 				int done = feed.done() + 1;
 				FED.put(id, new Feed(feed.by(), done, feed.last()));
 				if (done % 10 == 0) {
-					by.sendMessage(Text.translatable("message.chainsawman.feeding", done * 100 / FEED).formatted(Formatting.DARK_RED), true);
+					by.sendMessage(Text.translatable("message.chainsawman.pulling", done * 100 / FEED).formatted(Formatting.DARK_RED), true);
 				}
 				if (done >= FEED) {
-					by.damage(by.getDamageSources().magic(), GIVEN);
-					up(player);
+					revive(by, player);
 					continue;
 				}
 			}

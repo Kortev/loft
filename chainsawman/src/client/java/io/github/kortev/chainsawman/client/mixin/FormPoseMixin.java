@@ -41,7 +41,22 @@ public abstract class FormPoseMixin {
 		float merge = io.github.kortev.chainsawman.client.MergeCinematic.age(player, tickDelta);
 		float back = ClientForms.turnAge(player, tickDelta);
 		float up = io.github.kortev.chainsawman.client.ClientCombat.gettingUp(player, tickDelta);
-		if (up >= 0.0F) {
+		java.util.UUID[] pulled = new java.util.UUID[1];
+		io.github.kortev.chainsawman.client.ReviveCord.Pull revive = io.github.kortev.chainsawman.client.ReviveCord.by(player, pulled);
+		net.minecraft.entity.player.PlayerEntity down = revive != null && client.world != null ? client.world.getPlayerByUuid(pulled[0]) : null;
+		if (down != null && up < 0.0F) {
+			// Pulling a friend's cord out of their chest: the arm reaches to it and draws back with it.
+			long now = client.world.getTime();
+			net.minecraft.util.math.Vec3d shoulder = io.github.kortev.chainsawman.client.ReviveCord.shoulder(player, tickDelta);
+			net.minecraft.util.math.Vec3d aim = io.github.kortev.chainsawman.client.ReviveCord.aim(shoulder,
+					io.github.kortev.chainsawman.client.ReviveCord.root(down, tickDelta), io.github.kortev.chainsawman.client.ReviveCord.draw(revive, now, tickDelta));
+			float yaw = net.minecraft.util.math.MathHelper.lerpAngleDegrees(tickDelta, player.prevBodyYaw, player.bodyYaw);
+			float[] arm = io.github.kortev.chainsawman.client.ReviveCord.angles(aim, yaw);
+			float strain = io.github.kortev.chainsawman.client.ReviveCord.taut(revive, now, tickDelta);
+			model.rightArm.pitch = arm[0] + 0.03F * strain * net.minecraft.util.math.MathHelper.sin((now + tickDelta) * 2.3F);
+			model.rightArm.yaw = arm[1];
+			model.rightArm.roll = 0.0F;
+		} else if (up >= 0.0F) {
 			// Back up after being down: the limbs growing out of their stumps as you push yourself up.
 			io.github.kortev.chainsawman.client.GetUp.limbs(model, false, up, 0.0F);
 			float g = io.github.kortev.chainsawman.client.GetUp.regrown(up);

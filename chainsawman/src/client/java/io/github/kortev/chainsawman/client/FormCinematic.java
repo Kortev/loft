@@ -210,6 +210,7 @@ public final class FormCinematic {
 	public static double shake(float tickDelta) {
 		MinecraftClient client = MinecraftClient.getInstance();
 		double amplitude = Math.max(Math.max(ClientCombat.kick(tickDelta), MergeCinematic.shake(tickDelta)), BeamClient.shake(tickDelta));
+		amplitude = Math.max(amplitude, ReviveCord.shake(tickDelta));
 		float t = mine(tickDelta);
 		if (t >= 0.0F) {
 			if (t > FormTimeline.REACH && t < FormTimeline.YANK) {

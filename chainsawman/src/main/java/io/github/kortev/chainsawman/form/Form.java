@@ -133,6 +133,21 @@ public final class Form {
 	}
 
 	/**
+	 * Brought back by a friend pulling the cord ({@link Downed#revive}): up from the ground straight into the form, no blood
+	 * spent (the friend paid theirs), the transformation from {@link FormTimeline#REVIVE_SKIP} on, as the yank was theirs.
+	 */
+	public static void revived(ServerPlayerEntity player) {
+		UUID id = player.getUuid();
+		TURNING.remove(id);
+		if (on(player) || !player.isAlive()) {
+			return;
+		}
+		PULLING.put(id, FormTimeline.REVIVE_SKIP);
+		play(player, ChainsawSounds.REVIVE_START, 1.4F);
+		broadcast(player.server, new FormPullPayload(id, FormTimeline.REVIVE_SKIP));
+	}
+
+	/**
 	 * The cord pulled: into the form if they have Pochita's heart ({@link Heart}) and the blood for it ({@link
 	 * Blood#TRANSFORM}), or back out of it.
 	 */

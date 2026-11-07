@@ -95,6 +95,22 @@
       }
     ]
   },
+  "form.revive_pull": {
+    "subtitle": "subtitles.chainsawman.form.revive_pull",
+    "sounds": [
+      {
+        "name": "chainsawman:form_revive_pull"
+      }
+    ]
+  },
+  "form.revive_start": {
+    "subtitle": "subtitles.chainsawman.form.revive_start",
+    "sounds": [
+      {
+        "name": "chainsawman:form_revive_start"
+      }
+    ]
+  },
   "form.merge": {
     "subtitle": "subtitles.chainsawman.form.merge",
     "sounds": [

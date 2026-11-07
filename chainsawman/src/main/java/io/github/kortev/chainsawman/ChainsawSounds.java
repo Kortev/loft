@@ -33,6 +33,10 @@ public final class ChainsawSounds {
 	public static final SoundEvent DOWN = register("form.down");
 	/** Back up: a gulp of blood and the heart catching. */
 	public static final SoundEvent REVIVE = register("form.revive");
+	/** A friend pulling the cord of someone who is down, three seconds: the cord stretching, the engine coughing and sputtering with rising tension. */
+	public static final SoundEvent REVIVE_PULL = register("form.revive_pull");
+	/** The friend's yank: the cord snapping back, the engine catching and roaring up, the saws bursting out (the transformation's start, from tick 10 on). */
+	public static final SoundEvent REVIVE_START = register("form.revive_start");
 	/** Pochita becoming your heart, cut to {@code MergeTimeline}: ringing silence, his steps, the sink, the heart starting. */
 	public static final SoundEvent MERGE = register("form.merge");
 	/** Pochita yours (and brought round): two happy yips and his engine's purr. */

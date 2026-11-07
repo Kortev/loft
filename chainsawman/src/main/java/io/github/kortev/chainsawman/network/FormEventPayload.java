@@ -45,6 +45,11 @@ public record FormEventPayload(UUID player, byte kind, int value, double x, doub
 	public static final byte BEAM_HIT = 15;
 	public static final int BEAM_FLASH = 8;
 	public static final int BEAM_CHOP = 16;
+	/**
+	 * A friend pulling the cord of {@code player}, who is down: {@code value} the puller's entity id as they take hold, 0 when
+	 * they let go (the cord slides back in), -1 when they yank it (the cord snaps back, the limbs grow, the form comes).
+	 */
+	public static final byte REVIVE = 16;
 
 	public static final CustomPayload.Id<FormEventPayload> ID = new CustomPayload.Id<>(ChainsawMan.id("form_event"));
 	public static final PacketCodec<RegistryByteBuf, FormEventPayload> CODEC = PacketCodec.tuple(Uuids.PACKET_CODEC, FormEventPayload::player,

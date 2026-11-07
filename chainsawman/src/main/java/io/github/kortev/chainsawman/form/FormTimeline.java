@@ -52,6 +52,12 @@ public final class FormTimeline {
 	public static final int BACK_SPLASH = 14;
 	public static final int BACK_END = 24;
 
+	/**
+	 * A friend pulling the cord of someone who is down ({@link Downed}) does the yank for them: the transformation starts
+	 * this many ticks in (the yank nearly done), so the snap, the engine catching, the burst and the roar follow at once.
+	 */
+	public static final int REVIVE_SKIP = 10;
+
 	private FormTimeline() {
 	}
 }

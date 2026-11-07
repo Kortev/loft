@@ -346,6 +346,7 @@ public final class ClientCombat {
 					UP.put(id, now);
 				}
 			}
+			case FormEventPayload.REVIVE -> ReviveCord.event(world, id, event.value(), now);
 			case FormEventPayload.FRENZY -> {
 				if (event.value() > 0) {
 					FRENZY.put(id, now + event.value());
@@ -885,6 +886,7 @@ public final class ClientCombat {
 	}
 
 	static void clear() {
+		ReviveCord.clear();
 		SWINGS.clear();
 		GRINDING.clear();
 		CHAINS.clear();
