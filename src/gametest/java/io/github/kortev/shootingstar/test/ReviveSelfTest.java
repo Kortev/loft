@@ -76,7 +76,7 @@ public class ReviveSelfTest implements ClientModInitializer {
 	private static final int FRIEND_RUNS = 50;
 	/** Where the friend starts (blocks from the middle), how far from the body he kneels, and how fast he sprints (blocks a tick). */
 	private static final double FRIEND_FROM = 22.0;
-	private static final double FRIEND_KNEELS = 0.95;
+	private static final double FRIEND_KNEELS = 0.7;
 	private static final double SPRINT = 0.3;
 
 	private static Stage stage = Stage.WAIT_WORLD;
@@ -502,7 +502,7 @@ public class ReviveSelfTest implements ClientModInitializer {
 			} else if (c < 42) {
 				// Low by his chest, side on, held: the cord taut from the chest to the fist, the friend leaning back.
 				if (installs("c2")) {
-					pull(4.0, 100.0, 0.55, 44.0F, 0.5);
+					pull(4.0, 100.0, 1.0, 44.0F, 0.5);
 				}
 			} else if (installs("c3")) {
 				pull(4.8, -150.0, 1.4, 44.0F, 0.8);
@@ -514,7 +514,7 @@ public class ReviveSelfTest implements ClientModInitializer {
 			int d = f - downAt;
 			if (d < 26) {
 				if (installs("b1")) {
-					orbit(() -> you.get().add(0.0, 0.25, 0.0), 3.6, 120.0, -24.0, 0.9, 0.0, 46.0F);
+					orbit(() -> you.get().add(0.0, 0.25, 0.0), 4.4, 120.0, -24.0, 1.3, 0.0, 46.0F);
 				}
 			} else if (gripAt < 0 && d < 60) {
 				if (installs("b2")) {

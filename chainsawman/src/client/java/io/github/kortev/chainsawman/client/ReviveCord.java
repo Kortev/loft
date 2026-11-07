@@ -171,7 +171,7 @@ public final class ReviveCord {
 
 	/** The way {@code friend}'s arm points (a unit vector): at the chest, drawing away up and back by {@code draw}. */
 	public static Vec3d aim(Vec3d shoulder, Vec3d root, float draw) {
-		Vec3d toward = near(root, shoulder).subtract(shoulder).normalize();
+		Vec3d toward = root.subtract(shoulder).normalize();
 		Vec3d flat = shoulder.subtract(root).multiply(1.0, 0.0, 1.0);
 		Vec3d back = flat.lengthSquared() < 1.0E-6 ? new Vec3d(0.0, 0.0, 0.0) : flat.normalize();
 		Vec3d away = new Vec3d(0.0, 0.9, 0.0).add(back.multiply(0.5)).normalize();

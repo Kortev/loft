@@ -37,8 +37,6 @@ import org.joml.Vector3f;
  */
 public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntity, PlayerEntityModel<AbstractClientPlayerEntity>> {
 	public static final Identifier TEXTURE = ChainsawMan.id("textures/entity/form.png");
-	/** The revive cord: a pull-start rope, tan, with a dark handle (two pixels: rope, handle). */
-	private static final Identifier REVIVE_CORD = ChainsawMan.id("textures/entity/revive_cord.png");
 	/** The inside of their own head, on the cut faces of its halves as it splits open. */
 	private static final Identifier FLESH = ChainsawMan.id("textures/entity/form_flesh.png");
 	/** The flare of the eyes catching light at the roar, drawn added onto the picture. */
@@ -536,15 +534,15 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 				new Vector3f(hand).add(across).add(thick), new Vector3f(hand).sub(across).add(thick));
 	}
 
-	/** How thick the revive cord is (half a strip's width, blocks), how many pieces it is drawn in, and how far it sags slack (blocks). */
-	private static final float REVIVE_HALF = 0.09F;
-	private static final int REVIVE_PIECES = 10;
-	private static final float SAG = 0.32F;
+	/** The revive cord is the transformation's own (its rope, thickness and handle), drawn in this many short pieces, sagging this far (blocks) when slack. */
+	private static final int REVIVE_PIECES = 28;
+	private static final float SAG = 0.4F;
 
 	/**
-	 * A friend pulling the cord of {@code down} ({@link ReviveCord}): from the root on the chest to the friend's hand, slack at
-	 * first and hanging, then taut and humming as they draw back; sliding in if they let go, snapping in at the yank, the
-	 * handle across the hand's end.
+	 * A friend pulling the cord of {@code down} ({@link ReviveCord}): the transformation's own cord ({@link #cord}: the rope from the
+	 * root on the chest, the handle across the fist) stretched to the friend's hand. A rope, not a rod: slack it hangs in a curve;
+	 * pulled it is nearly straight but a thin flexible line, trembling, bouncing a little as the friend leans back; sliding in if they
+	 * let go, snapping in at the yank.
 	 */
 	private static void reviveCord(MatrixStack matrices, VertexConsumerProvider consumers, int light, PlayerEntityModel<?> model,
 			AbstractClientPlayerEntity down, float tickDelta) {
@@ -561,35 +559,38 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 		}
 		Vector3f root = at(matrices, model.body, CORD_ROOT);
 		Vec3d shoulder = ReviveCord.shoulder(friend, tickDelta);
-		Vec3d eye = client.gameRenderer.getCamera().getPos();
 		Vec3d hand = ReviveCord.hand(shoulder, ReviveCord.aim(shoulder, ReviveCord.root(down, tickDelta), ReviveCord.draw(pull, now, tickDelta)));
-		Vec3d camera = eye;
+		Vec3d camera = client.gameRenderer.getCamera().getPos();
 		Vector3f end = new Vector3f((float) (hand.x - camera.x), (float) (hand.y - camera.y), (float) (hand.z - camera.z));
-		// The cord comes out from under the body's side nearest the hand.
-		Vector3f aside = new Vector3f(end.x - root.x, 0.0F, end.z - root.z);
-		if (aside.lengthSquared() > 1.0E-6F) {
-			root.add(aside.normalize((float) ReviveCord.EDGE)).add(0.0F, 0.04F, 0.0F);
-		}
 		float out = ReviveCord.out(pull, now, tickDelta);
 		end.set(new Vector3f(root).lerp(end, out));
 		float taut = ReviveCord.taut(pull, now, tickDelta);
-		float sag = SAG * (1.0F - taut) * out;
-		float hum = taut > 0.7F ? 0.012F * MathHelper.sin((now + tickDelta) * 2.7F) * (taut - 0.7F) / 0.3F : 0.0F;
-		float[] uv = {0.25F, 0.5F};
-		float[] dark = {0.75F, 0.5F};
-		VertexConsumer buffer = consumers.getBuffer(RenderLayer.getEntityCutoutNoCull(REVIVE_CORD));
+		float t = now + tickDelta;
+		// Slack hangs; taut is nearly straight, with the stretch's bounce as the friend leans back.
+		float sag = (SAG * (1.0F - taut) * (1.0F - taut) + 0.03F * taut * MathHelper.sin(t * 0.8F) * (float) Math.exp(-0.03 * Math.max(0.0, t - now))) * out;
+		float tremble = 0.012F * taut;
+		float[] uv = mesh.ropeUv();
+		VertexConsumer buffer = consumers.getBuffer(RenderLayer.getEntityCutoutNoCull(TEXTURE));
 		Vector3f look = client.gameRenderer.getCamera().getHorizontalPlane();
+		Vector3f chord = new Vector3f(end).sub(root);
+		Vector3f lateral = new Vector3f(chord).cross(0.0F, 1.0F, 0.0F);
+		if (lateral.lengthSquared() > 1.0E-10F) {
+			lateral.normalize();
+		}
 		Vector3f previous = new Vector3f(root);
-		Vector3f first = new Vector3f();
+		Vector3f first = new Vector3f(chord);
 		for (int i = 1; i <= REVIVE_PIECES; i++) {
 			float k = i / (float) REVIVE_PIECES;
 			Vector3f next = new Vector3f(root).lerp(end, k);
-			next.y -= sag * 4.0F * k * (1.0F - k);
-			next.y += hum * MathHelper.sin(k * MathHelper.PI);
+			float bell = k * (1.0F - k) * 4.0F;
+			next.y -= sag * bell;
+			// A thin line's tremble: a wave running along it.
+			next.add(new Vector3f(lateral).mul(tremble * bell * MathHelper.sin(k * 9.0F - t * 1.9F)));
+			next.y += tremble * 0.6F * bell * MathHelper.sin(k * 7.0F - t * 2.3F + 1.0F);
 			Vector3f d = new Vector3f(next).sub(previous);
 			Vector3f side = new Vector3f(d).cross(look);
 			if (side.lengthSquared() > 1.0E-10F) {
-				side.normalize(REVIVE_HALF);
+				side.normalize(CORD_HALF * 1.4F);
 				quad(buffer, light, uv, new Vector3f(previous).sub(side), new Vector3f(previous).add(side), new Vector3f(next).add(side),
 						new Vector3f(next).sub(side));
 				first.set(d);
@@ -597,13 +598,14 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 			previous = next;
 		}
 		if (first.lengthSquared() > 1.0E-10F && out > 0.3F) {
-			// The handle across the hand's end.
+			// The handle: the same T-grip across the fist as the transformation's.
 			Vector3f side = new Vector3f(first).cross(look);
 			if (side.lengthSquared() > 1.0E-10F) {
-				Vector3f across = side.normalize(0.2F);
-				Vector3f thick = new Vector3f(first).normalize(0.08F);
+				side.normalize(CORD_HALF * 1.4F);
+				Vector3f across = new Vector3f(side).normalize(0.17F);
+				Vector3f thick = new Vector3f(first).normalize(0.06F);
 				Vector3f h = previous;
-				quad(buffer, light, dark, new Vector3f(h).sub(across).sub(thick), new Vector3f(h).add(across).sub(thick), new Vector3f(h).add(across).add(thick),
+				quad(buffer, light, uv, new Vector3f(h).sub(across).sub(thick), new Vector3f(h).add(across).sub(thick), new Vector3f(h).add(across).add(thick),
 						new Vector3f(h).sub(across).add(thick));
 			}
 		}
