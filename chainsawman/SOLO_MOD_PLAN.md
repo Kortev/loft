@@ -67,6 +67,11 @@ hybrid can't make contracts (a devil offering one to a hybrid is refused), and t
 hybrid devil. That makes the first big choice in the mod. Contracts come from devils you beat down and spare; killing
 a devil gives loot, not its contract.
 
+**How many people per devil:** by default a devil can have contracts with any number of players (each player beats
+and spares their own). A game rule `oneContractPerDevil` (default false) makes each devil's contract belong to one
+player per world, first come, until they die or end it: for servers that want each player's powers to be their own.
+The hybrids could take the same rule later.
+
 ## Later phases (one devil each, each its own reel; all season 1 / Reze arc)
 
 1. **Fox Devil** (Aki's): a giant fox head bursts out and bites the target. Very recognisable.
