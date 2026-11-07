@@ -230,5 +230,53 @@
         "name": "chainsawman:beam_launch"
       }
     ]
+  },
+  "echo.burst": {
+    "subtitle": "subtitles.chainsawman.echo.burst",
+    "sounds": [
+      {
+        "name": "chainsawman:echo_burst"
+      }
+    ]
+  },
+  "echo.gather": {
+    "subtitle": "subtitles.chainsawman.echo.gather",
+    "sounds": [
+      {
+        "name": "chainsawman:echo_gather"
+      }
+    ]
+  },
+  "echo.streak": {
+    "subtitle": "subtitles.chainsawman.echo.streak",
+    "sounds": [
+      {
+        "name": "chainsawman:echo_streak"
+      }
+    ]
+  },
+  "echo.finale": {
+    "subtitle": "subtitles.chainsawman.echo.finale",
+    "sounds": [
+      {
+        "name": "chainsawman:echo_finale"
+      }
+    ]
+  },
+  "echo.hum": {
+    "subtitle": "subtitles.chainsawman.echo.hum",
+    "sounds": [
+      {
+        "name": "chainsawman:echo_hum"
+      }
+    ]
+  },
+  "echo.whisper": {
+    "subtitle": "subtitles.chainsawman.echo.whisper",
+    "sounds": [
+      {
+        "name": "chainsawman:echo_whisper"
+      }
+    ]
   }
 }

@@ -117,7 +117,10 @@ public final class ChainsawManClient implements ClientModInitializer {
 		});
 		CoreShaderRegistrationCallback.EVENT.register(context -> context.register(ChainsawMan.id("csm_impact"), VertexFormats.BLIT_SCREEN,
 				program -> FormHud.impact = program));
+		CoreShaderRegistrationCallback.EVENT.register(context -> context.register(ChainsawMan.id("csm_warp"), VertexFormats.BLIT_SCREEN,
+				program -> EchoHud.warp = program));
 		HudRenderCallback.EVENT.register(FormHud::render);
+		HudRenderCallback.EVENT.register(EchoHud::render);
 		HudRenderCallback.EVENT.register(BloodHud::render);
 		HudRenderCallback.EVENT.register(LensBlood::render);
 		HudRenderCallback.EVENT.register(Sfx::render);
@@ -137,6 +140,7 @@ public final class ChainsawManClient implements ClientModInitializer {
 			FormCinematic.tick(client);
 			BeamClient.tick(client);
 			ClientEcho.tick(client);
+			EchoHud.tick(client);
 		});
 	}
 

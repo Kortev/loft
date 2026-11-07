@@ -46,8 +46,11 @@ public final class ClientEcho {
 	/** Whether {@code player} is drawn as one of their copies (not the player looking: they know which one they are). */
 	public static boolean disguised(PlayerEntity player) {
 		MinecraftClient client = MinecraftClient.getInstance();
-		return OWNERS.containsKey(player.getUuid()) && player != client.player;
+		return OWNERS.containsKey(player.getUuid()) && (player != client.player || seeOwnDisguise);
 	}
+
+	/** For the tests' photographs: draw this client's own player as everyone else sees them. */
+	public static boolean seeOwnDisguise;
 
 	/** How strong the time-warp look is for the player here: 1 for the owner of an echo, a little for anyone near one, else 0. */
 	public static float strength(MinecraftClient client) {

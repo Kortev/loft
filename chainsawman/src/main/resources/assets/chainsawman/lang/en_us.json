@@ -81,5 +81,11 @@
   "chainsawman.echo.human_only": "Echo works in human form only.",
   "chainsawman.echo.cooldown": "Echo again in %s s",
   "chainsawman.echo.no_room": "No room for the crowd here.",
-  "chainsawman.echo.no_contract": "You hold no contract."
+  "chainsawman.echo.no_contract": "You hold no contract.",
+  "subtitles.chainsawman.echo.burst": "A crowd of echoes bursts out",
+  "subtitles.chainsawman.echo.gather": "The echoes gather",
+  "subtitles.chainsawman.echo.streak": "The echoes rush back",
+  "subtitles.chainsawman.echo.finale": "The echoes collapse",
+  "subtitles.chainsawman.echo.hum": "Time hums",
+  "subtitles.chainsawman.echo.whisper": "Echoes whisper"
 }

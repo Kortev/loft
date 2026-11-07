@@ -18,6 +18,9 @@ public abstract class ReelLensMixin {
 		if (lens <= 0.0F) {
 			lens = ShowcaseSelfTest.lens();
 		}
+		if (lens <= 0.0F) {
+			lens = io.github.kortev.shootingstar.test.EchoSelfTest.lens();
+		}
 		if (lens > 0.0F) {
 			cir.setReturnValue((double) lens);
 		}

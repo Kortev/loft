@@ -44,6 +44,14 @@ public final class ChainsawSounds {
 	public static final SoundEvent[] MERGE_VOICES = {register("form.merge.voice.1"), register("form.merge.voice.2"),
 			register("form.merge.voice.3"), register("form.merge.voice.4"), register("form.merge.voice.5")};
 
+	/** Echo (the Eternity contract's power): the burst of copies, the finale's held beat, the copies rushing back, the collapse, the time-warp's drone with its clock (a one-shot, played again every 2.4 s) and the whispers when you swing. */
+	public static final SoundEvent ECHO_BURST = register("echo.burst");
+	public static final SoundEvent ECHO_GATHER = register("echo.gather");
+	public static final SoundEvent ECHO_STREAK = register("echo.streak");
+	public static final SoundEvent ECHO_FINALE = register("echo.finale");
+	public static final SoundEvent ECHO_HUM = register("echo.hum");
+	public static final SoundEvent ECHO_WHISPER = register("echo.whisper");
+
 	/** Beam bursting up out of the ground (and leaping, and crashing down when pitched low): stone and deepslate cracking, a deep boom, a heavy throw of earth, rubble raining back. */
 	public static final SoundEvent BEAM_BURST = register("beam.burst");
 	/** One footfall of Beam: a huge animal's foot slamming the earth, a heavy thud with dirt and gravel scattering; short, as it comes about three times a second. */

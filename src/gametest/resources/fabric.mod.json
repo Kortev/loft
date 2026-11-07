@@ -40,7 +40,8 @@
 			"io.github.kortev.shootingstar.test.DomainSelfTest",
 			"io.github.kortev.shootingstar.test.FormSelfTest",
 			"io.github.kortev.shootingstar.test.ReelSelfTest",
-			"io.github.kortev.shootingstar.test.ShowcaseSelfTest"
+			"io.github.kortev.shootingstar.test.ShowcaseSelfTest",
+			"io.github.kortev.shootingstar.test.EchoSelfTest"
 		]
 	},
 	"depends": {

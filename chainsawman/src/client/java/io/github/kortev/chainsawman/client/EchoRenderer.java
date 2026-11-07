@@ -69,9 +69,13 @@ public class EchoRenderer extends LivingEntityRenderer<EchoEntity, PlayerEntityM
 			float k = MathHelper.clamp((now - back) / EchoEntity.STREAK_IN, 0.0F, 1.0F);
 			Vec3d from = entity.returnFrom();
 			Vec3d to = owner.getLerpedPos(delta);
-			body = path(from, to, k).subtract(cur);
+			// Past ones swing in from one side, future ones from the other.
+			Vec3d way = to.subtract(from);
+			Vec3d side = new Vec3d(-way.z, 0.0, way.x).normalize().multiply(entity.future() ? -1.0 : 1.0);
+			double bow = Math.min(2.4, way.horizontalLength() * 0.3);
+			body = curved(from, to, side, bow, k).subtract(cur);
 			for (int i = 1; i <= 5; i++) {
-				behind.add(path(from, to, Math.max(0.0F, k - 0.11F * i)).subtract(cur));
+				behind.add(curved(from, to, side, bow, Math.max(0.0F, k - 0.11F * i)).subtract(cur));
 			}
 			streak = true;
 		} else if (sinceBorn >= 0 && sinceBorn < EchoEntity.STREAK_OUT) {
@@ -94,6 +98,12 @@ public class EchoRenderer extends LivingEntityRenderer<EchoEntity, PlayerEntityM
 		boolean flicker = now - entity.hurtAt() < 8.0F && (int) (now * 1.5F) % 2 == 0;
 		EchoLook.draw(entity.future(), skin.texture(), flicker, streak, body, behind, heading, matrices, provider, light,
 				(m, p, l) -> EchoRenderer.super.render(entity, yaw, delta, m, p, l));
+	}
+
+	/** From {@code from} to {@code to} bowed out to {@code side} by up to {@code bow} blocks, {@code k} of the way. */
+	private static Vec3d curved(Vec3d from, Vec3d to, Vec3d side, double bow, float k) {
+		double e = k * k * (3.0 - 2.0 * k);
+		return from.lerp(to, e).add(side.multiply(bow * Math.sin(Math.PI * e)));
 	}
 
 	/** From {@code from} to {@code to}, {@code k} of the way, quickly at first. */

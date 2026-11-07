@@ -76,7 +76,7 @@ public final class Echo {
 	public static final float FINALE_EACH = 0.5F;
 	public static final float FINALE_MAX = 10.0F;
 	/** The ring never closes tighter than this round the target (blocks). */
-	private static final double CLOSEST = 1.5;
+	private static final double CLOSEST = 1.8;
 	/** How often (ticks) a mob after you may switch, and how likely: one in this many. */
 	private static final int SWITCH_EVERY = 10;
 	private static final int SWITCH_ODDS = 4;
