@@ -6,6 +6,9 @@ All are mono: the game places them on whoever makes them, and they are heard by 
   tearing at the start where it comes out of him, and the rope snapping back in;
 - the start: the engine catching off the pull, a few coughing strokes, then firing and roaring up to a scream as the
   saws burst out (a wet tearing burst of flesh and wire in the middle of it), and dropping back to its idle;
+- the revive: a friend pulling the cord of someone who is down (the cord creaking out of the chest, the pawls clicking, the
+  engine coughing and sputtering with rising tension) and then the yank (the start's sound from tick 10 on, with the rope's
+  crack in front and a wet spray: the limbs growing back);
 - the idle: what he sounds like while the form is on, a loop: a two-stroke engine putting along unevenly, the chains
   ticking round slack on their bars;
 - the stop: the engine coughing, stumbling and dying as he turns back;
@@ -166,6 +169,64 @@ def form_start():
     # The saws tearing out of him: the head, then the arms.
     x += np.roll(flesh(n, 0.6, wet=1.4), ns(BURST_AT - 0.03)) * 1.3
     x += np.roll(flesh(n, 0.45, wet=1.2), ns(ARMS_AT - 0.03)) * 1.0
+    return x
+
+
+def form_revive_pull():
+    """A friend pulling the cord of someone who is down (Downed.FEED, 3 s): the cord paid out of the chest, creaking and
+    stretching tighter, the pawls clicking over it, and the engine inside trying to catch: coughs and sputters, firing
+    more often and for longer each time, never quite catching, the tension rising to the yank."""
+    length = 3.0
+    n = ns(length)
+    t = np.arange(n) / SR
+    # The engine: coughing attempts (a few firings, a stumble, silence), closer together and longer as it goes.
+    tries = [(0.25, 0.10, 9.0), (0.85, 0.14, 11.0), (1.35, 0.20, 14.0), (1.80, 0.28, 17.0), (2.20, 0.42, 22.0),
+             (2.68, 0.60, 30.0), (2.93, 0.10, 44.0)]
+    pts = [(0.0, 0.0)]
+    lvl = [(0.0, 0.0)]
+    for at, dur, hz in tries:
+        pts += [(at - 0.005, 0.0), (at, hz * 0.6), (at + dur * 0.5, hz), (at + dur, hz * 0.3), (at + dur + 0.005, 0.0)]
+        lvl += [(at - 0.005, 0.0), (at, 0.5 + at * 0.25), (at + dur, 0.35 + at * 0.2), (at + dur + 0.005, 0.0)]
+    pts.append((length, 0.0))
+    lvl.append((length, 0.0))
+    x = engine(n, curve(n, pts), curve(n, lvl), skip=0.28, jitter=0.35)
+    # The cord: fibre zipping over metal and creaking as it stretches, a rubbery moan rising in pitch.
+    grow = curve(n, [(0.0, 0.0), (0.1, 0.35), (2.9, 1.0), (length, 1.0)])
+    zip_ = g.sweep_filter(white(n), 'bandpass', curve(n, [(0.0, 700.0), (length, 3200.0)]), order=2, width=0.8)
+    x += zip_ * grow * (0.35 + 0.25 * np.sin(2 * np.pi * (3.0 + 5.0 * t / length) * t) ** 2)
+    freq = 160.0 + 520.0 * (t / length) ** 1.6
+    moan = np.sin(2 * np.pi * np.cumsum(freq * (1.0 + 0.015 * np.sin(2 * np.pi * 7.0 * t)) / SR))
+    x += moan * grow * 0.10 * np.minimum(t / 0.4, 1.0)
+    # The pawls clicking over their ratchet as the rope pays out, slowing as it goes taut, then a rattle at the end.
+    x += ratchet(n, 0.05, 2.6, 34.0, 12.0) * 0.6
+    x += ratchet(n, 2.7, 0.3, 90.0, 140.0) * 0.5
+    # Out of his chest, wet.
+    x += np.roll(flesh(n, 0.3, wet=1.0), ns(0.02)) * 0.6
+    x += np.roll(flesh(n, 0.2, wet=0.8), ns(1.6)) * 0.3
+    return x * np.minimum(1.0, (n - np.arange(n)) / ns(0.04))
+
+
+def form_revive_start():
+    """The friend's yank: the transformation's start from tick FormTimeline.REVIVE_SKIP on (the engine catching, coughing,
+    bursting out and roaring), with a hard crack of the cord snapping back and a wet spray at the front of it: the limbs
+    growing back in blood."""
+    skip = 10 / 20.0
+    body = form_start()
+    x = body[ns(skip):].copy()
+    n = len(x)
+    # The crack of the rope letting go, the handle knocking back against him.
+    snap = np.zeros(n)
+    snap[:ns(0.012)] = white(ns(0.012)) * np.linspace(1.0, 0.0, ns(0.012))
+    x += hp(snap, 800.0) * 1.8
+    back = curve(n, [(0.0, 0.0), (0.004, 1.0), (0.18, 0.0), (n / SR, 0.0)])
+    x += bp(white(n), 1200.0, 4200.0) * back * 0.9
+    knock = np.zeros(n)
+    knock[ns(0.16)] = 1.0
+    x += lp(np.convolve(knock, np.sin(2 * np.pi * 180 * np.arange(ns(0.05)) / SR) * np.exp(-np.arange(ns(0.05)) / ns(0.01)))[:n], 1200.0) * 0.7
+    # The limbs coming back out of their stumps in a spray of blood.
+    x += np.roll(flesh(n, 0.7, wet=1.6), ns(0.04)) * 1.2
+    x += np.roll(flesh(n, 0.4, wet=1.3), ns(0.2)) * 0.7
+    x[:ns(0.002)] *= np.linspace(0.0, 1.0, ns(0.002))
     return x
 
 
@@ -981,6 +1042,8 @@ SOUNDS = {
     'form_merge': form_merge,
     'form_cord': form_cord,
     'form_start': form_start,
+    'form_revive_pull': form_revive_pull,
+    'form_revive_start': form_revive_start,
     'form_idle': form_idle,
     'form_stop': form_stop,
     'form_slash': form_slash,
@@ -995,7 +1058,7 @@ SOUNDS = {
 }
 LOOPS = ('form_idle', 'form_grind', 'form_frenzy_loop')
 # Loudness (loudest 400 ms, dB).
-LEVELS = {'echo_burst': -10, 'echo_gather': -16, 'echo_streak': -12, 'echo_finale': -7, 'echo_hum': -23, 'echo_whisper': -27, 'form_crunch': -10, 'pochita_tame': -14, 'form_merge': -12, 'form_cord': -14, 'form_start': -10, 'form_idle': -20, 'form_stop': -16, 'form_slash': -13, 'form_hit': -12,
+LEVELS = {'echo_burst': -10, 'echo_gather': -16, 'echo_streak': -12, 'echo_finale': -7, 'echo_hum': -23, 'echo_whisper': -27, 'form_crunch': -10, 'pochita_tame': -14, 'form_merge': -12, 'form_cord': -14, 'form_start': -10, 'form_revive_pull': -14, 'form_revive_start': -10, 'form_idle': -20, 'form_stop': -16, 'form_slash': -13, 'form_hit': -12,
           'form_grind': -15, 'form_chain': -14, 'form_frenzy': -10, 'form_frenzy_loop': -17, 'form_down': -13,
           'form_revive': -14, 'beam_burst': -9, 'beam_step': -12, 'beam_swim': -13, 'beam_bite': -10, 'beam_dive': -13, 'beam_screech': -9, 'beam_chatter': -16, 'beam_slam': -6, 'beam_launch': -10}
 
