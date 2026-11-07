@@ -51,6 +51,10 @@ public final class ChainsawMan implements ModInitializer {
 	public static final EntityType<BeamEntity> BEAM_ENTITY = Registry.register(Registries.ENTITY_TYPE, id("beam"),
 			EntityType.Builder.<BeamEntity>create(BeamEntity::new, SpawnGroup.MISC).dimensions(BeamEntity.WIDTH, BeamEntity.HEIGHT).maxTrackingRange(10)
 					.trackingTickInterval(1).disableSummon().disableSaving().makeFireImmune().build("beam"));
+	/** One copy of a player in Echo, the Eternity contract's power: never saved or summoned, made and unmade by the power. */
+	public static final EntityType<io.github.kortev.chainsawman.contract.EchoEntity> ECHO_ENTITY = Registry.register(Registries.ENTITY_TYPE, id("echo"),
+			EntityType.Builder.<io.github.kortev.chainsawman.contract.EchoEntity>create(io.github.kortev.chainsawman.contract.EchoEntity::new, SpawnGroup.MISC)
+					.dimensions(0.6F, 1.8F).maxTrackingRange(8).trackingTickInterval(1).disableSummon().disableSaving().makeFireImmune().build("echo"));
 	public static final Item POCHITA_SPAWN_EGG = Registry.register(Registries.ITEM, id("pochita_spawn_egg"),
 			new SpawnEggItem(POCHITA_ENTITY, 0xEC8026, 0x9A9EA6, new Item.Settings()));
 
@@ -64,6 +68,7 @@ public final class ChainsawMan implements ModInitializer {
 		ItemGroupEvents.modifyEntriesEvent(ItemGroups.COMBAT).register(entries -> entries.add(POCHITA));
 		ItemGroupEvents.modifyEntriesEvent(ItemGroups.SPAWN_EGGS).register(entries -> entries.add(POCHITA_SPAWN_EGG));
 		FabricDefaultAttributeRegistry.register(POCHITA_ENTITY, PochitaEntity.createAttributes());
+		FabricDefaultAttributeRegistry.register(ECHO_ENTITY, io.github.kortev.chainsawman.contract.EchoEntity.createAttributes());
 		SpawnRestriction.register(POCHITA_ENTITY, SpawnLocationTypes.ON_GROUND, Heightmap.Type.MOTION_BLOCKING_NO_LEAVES,
 				AnimalEntity::isValidNaturalSpawn);
 		// One in a world, waiting where he was put.
@@ -73,6 +78,7 @@ public final class ChainsawMan implements ModInitializer {
 		PayloadTypeRegistry.playS2C().register(FormPayload.ID, FormPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(FormPullPayload.ID, FormPullPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(FormEventPayload.ID, FormEventPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(io.github.kortev.chainsawman.network.EchoPayload.ID, io.github.kortev.chainsawman.network.EchoPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(io.github.kortev.chainsawman.network.ContractPayload.ID, io.github.kortev.chainsawman.network.ContractPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(io.github.kortev.chainsawman.network.UseContractPayload.ID, io.github.kortev.chainsawman.network.UseContractPayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.UseContractPayload.ID, (payload, context) -> io.github.kortev.chainsawman.contract.Echo.use(context.player()));

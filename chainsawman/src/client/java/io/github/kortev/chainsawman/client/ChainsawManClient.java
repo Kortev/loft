@@ -72,6 +72,8 @@ public final class ChainsawManClient implements ClientModInitializer {
 						}))));
 		EntityModelLayerRegistry.registerModelLayer(PochitaRenderer.LAYER, PochitaModel::texturedModelData);
 		EntityRendererRegistry.register(ChainsawMan.POCHITA_ENTITY, PochitaRenderer::new);
+		EntityRendererRegistry.register(ChainsawMan.ECHO_ENTITY, EchoRenderer::new);
+		ClientPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.EchoPayload.ID, (payload, context) -> ClientEcho.told(payload));
 		EntityModelLayerRegistry.registerModelLayer(BeamRenderer.LAYER, BeamModel::texturedModelData);
 		EntityRendererRegistry.register(ChainsawMan.BEAM_ENTITY, BeamRenderer::new);
 		WorldRenderEvents.AFTER_ENTITIES.register(MergeCinematic::render);
@@ -110,6 +112,7 @@ public final class ChainsawManClient implements ClientModInitializer {
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
 			ClientForms.clear();
 			ClientContracts.clear();
+			ClientEcho.clear();
 			BeamClient.clear();
 		});
 		CoreShaderRegistrationCallback.EVENT.register(context -> context.register(ChainsawMan.id("csm_impact"), VertexFormats.BLIT_SCREEN,
@@ -133,6 +136,7 @@ public final class ChainsawManClient implements ClientModInitializer {
 			DreamHud.tick(client);
 			FormCinematic.tick(client);
 			BeamClient.tick(client);
+			ClientEcho.tick(client);
 		});
 	}
 
