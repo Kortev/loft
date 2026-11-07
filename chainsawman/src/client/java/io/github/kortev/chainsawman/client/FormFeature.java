@@ -37,6 +37,8 @@ import org.joml.Vector3f;
  */
 public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntity, PlayerEntityModel<AbstractClientPlayerEntity>> {
 	public static final Identifier TEXTURE = ChainsawMan.id("textures/entity/form.png");
+	/** The revive cord: a pull-start rope, tan, with a dark handle (two pixels: rope, handle). */
+	private static final Identifier REVIVE_CORD = ChainsawMan.id("textures/entity/revive_cord.png");
 	/** The inside of their own head, on the cut faces of its halves as it splits open. */
 	private static final Identifier FLESH = ChainsawMan.id("textures/entity/form_flesh.png");
 	/** The flare of the eyes catching light at the roar, drawn added onto the picture. */
@@ -535,7 +537,7 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 	}
 
 	/** How thick the revive cord is (half a strip's width, blocks), how many pieces it is drawn in, and how far it sags slack (blocks). */
-	private static final float REVIVE_HALF = 0.075F;
+	private static final float REVIVE_HALF = 0.09F;
 	private static final int REVIVE_PIECES = 10;
 	private static final float SAG = 0.32F;
 
@@ -573,8 +575,9 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 		float taut = ReviveCord.taut(pull, now, tickDelta);
 		float sag = SAG * (1.0F - taut) * out;
 		float hum = taut > 0.7F ? 0.012F * MathHelper.sin((now + tickDelta) * 2.7F) * (taut - 0.7F) / 0.3F : 0.0F;
-		float[] uv = mesh.ropeUv();
-		VertexConsumer buffer = consumers.getBuffer(RenderLayer.getEntityCutoutNoCull(TEXTURE));
+		float[] uv = {0.25F, 0.5F};
+		float[] dark = {0.75F, 0.5F};
+		VertexConsumer buffer = consumers.getBuffer(RenderLayer.getEntityCutoutNoCull(REVIVE_CORD));
 		Vector3f look = client.gameRenderer.getCamera().getHorizontalPlane();
 		Vector3f previous = new Vector3f(root);
 		Vector3f first = new Vector3f();
@@ -600,7 +603,7 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 				Vector3f across = side.normalize(0.2F);
 				Vector3f thick = new Vector3f(first).normalize(0.08F);
 				Vector3f h = previous;
-				quad(buffer, light, uv, new Vector3f(h).sub(across).sub(thick), new Vector3f(h).add(across).sub(thick), new Vector3f(h).add(across).add(thick),
+				quad(buffer, light, dark, new Vector3f(h).sub(across).sub(thick), new Vector3f(h).add(across).sub(thick), new Vector3f(h).add(across).add(thick),
 						new Vector3f(h).sub(across).add(thick));
 			}
 		}

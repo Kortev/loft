@@ -91,9 +91,13 @@ public class ReviveSelfTest implements ClientModInitializer {
 	private static volatile int friendRanFor;
 	private static volatile Vec3d friendFrom = Vec3d.ZERO;
 	private static volatile Vec3d friendTo = Vec3d.ZERO;
-	private static final List<Integer> MOBS = new ArrayList<>();
+	private static final List<Integer> MOBS = new java.util.concurrent.CopyOnWriteArrayList<>();
 
+	/** The first wave's ids. */
+	private static final java.util.Set<Integer> NEAR = java.util.concurrent.ConcurrentHashMap.newKeySet();
+	private static volatile int yankedAtTick = -1;
 	private static int downAt = -1;
+	private static int slowAt = Integer.MAX_VALUE;
 	private static int gripAt = -1;
 	private static int yankAt = -1;
 	private static int askAt = Integer.MAX_VALUE;
@@ -147,6 +151,12 @@ public class ReviveSelfTest implements ClientModInitializer {
 			ServerTickEvents.END_SERVER_TICK.register(server -> Capture.serverTickEnd());
 		}
 		ServerTickEvents.END_SERVER_TICK.register(ReviveSelfTest::friendTick);
+		net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
+			if (entity == friend) {
+				ShootingStar.LOGGER.info("[selftest] revive: friend hurt {} by {} at tick {}", amount, source.getName(), ticks);
+			}
+			return true;
+		});
 		ClientTickEvents.END_CLIENT_TICK.register(ReviveSelfTest::tick);
 		HudRenderCallback.EVENT.register((context, counter) -> {
 			if (stage == Stage.RUN) {
@@ -212,7 +222,7 @@ public class ReviveSelfTest implements ClientModInitializer {
 			client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
 			headYaw = client.player.getYaw();
 			headPitch = client.player.getPitch();
-			server.execute(() -> horde(server, 3, 7, 4.5, 9.0, 99, 25.0));
+			server.execute(() -> firstWave(server));
 			if (capturing()) {
 				Capture.start(client, client.runDirectory.toPath().resolve("capture"));
 			}
@@ -221,6 +231,15 @@ public class ReviveSelfTest implements ClientModInitializer {
 		if (down && downAt < 0) {
 			downAt = f;
 			ShootingStar.LOGGER.info("[selftest] revive: down at f={}", f);
+			slowAt = f + 14;
+			// The strays have shot their last (their bows are empty-handed from here, so nothing is loosed at the friend as he comes).
+			server.execute(() -> {
+				for (net.minecraft.entity.mob.StrayEntity stray : server.getOverworld().getEntitiesByClass(net.minecraft.entity.mob.StrayEntity.class,
+						new Box(centre).expand(40.0, 20.0, 40.0), m -> NEAR.contains(m.getId()))) {
+					stray.equipStack(net.minecraft.entity.EquipmentSlot.MAINHAND, ItemStack.EMPTY);
+					stray.setTarget(null);
+				}
+			});
 		}
 		ReviveCord.Pull pull = ReviveCord.of(client.player);
 		if (pull != null && pull.how() == ReviveCord.PULLING && gripAt < 0) {
@@ -229,9 +248,14 @@ public class ReviveSelfTest implements ClientModInitializer {
 		}
 		if (pull != null && pull.how() == ReviveCord.YANKED && yankAt < 0) {
 			yankAt = f;
+			yankedAtTick = f;
 			ShootingStar.LOGGER.info("[selftest] revive: yanked at f={}", f);
 			// Up, with the horde round him: whole again for the transformation (the friend's blood is three hearts; the rest is staging).
 			server.execute(() -> {
+				for (net.minecraft.entity.mob.MobEntity mob : server.getOverworld().getEntitiesByClass(net.minecraft.entity.mob.MobEntity.class,
+						new Box(centre).expand(40.0, 20.0, 40.0), m -> true)) {
+					mob.removeStatusEffect(net.minecraft.entity.effect.StatusEffects.SLOWNESS);
+				}
 				ServerPlayerEntity you = player(server);
 				you.getAttributeInstance(net.minecraft.entity.attribute.EntityAttributes.GENERIC_MAX_HEALTH).setBaseValue(20.0);
 				you.setHealth(20.0F);
@@ -240,6 +264,9 @@ public class ReviveSelfTest implements ClientModInitializer {
 		if (yankAt >= 0 && f == yankAt + 14) {
 			// The rest of the horde, from the edge of the clearing: it is on him as the transformation ends.
 			server.execute(() -> horde(server, 9, 2, 7.0, 11.0, 11, 70.0));
+		}
+		if (f == slowAt) {
+			server.execute(() -> slowHusks(server));
 		}
 		if (f == FRIEND_RUNS) {
 			server.execute(() -> {
@@ -279,9 +306,9 @@ public class ReviveSelfTest implements ClientModInitializer {
 			still(client, "2_down");
 		} else if (downAt >= 0 && f == downAt + 38) {
 			still(client, "3_friend_runs");
-		} else if (gripAt >= 0 && f == gripAt + 12) {
+		} else if (gripAt >= 0 && f == gripAt + 10) {
 			still(client, "4_grip");
-		} else if (gripAt >= 0 && f == gripAt + 36) {
+		} else if (gripAt >= 0 && f == gripAt + 30) {
 			still(client, "5_stretch");
 		} else if (gripAt >= 0 && f == gripAt + 56) {
 			still(client, "6_taut");
@@ -436,12 +463,7 @@ public class ReviveSelfTest implements ClientModInitializer {
 			// The yank in my own shot (the cord snapping back, the blood), then the mod's own transformation camera.
 			if (since < 9) {
 				if (installs("yank")) {
-					Vec3d at = friendPos(client);
-					Vec3d body = bodyPos(client);
-					Vec3d across = flat(body.subtract(at)).normalize();
-					Vec3d side = new Vec3d(-across.z, 0.0, across.x);
-					fixed(body.add(side.multiply(4.0)).add(across.multiply(1.0)).add(0.0, 1.0, 0.0), body.lerp(at, 0.45).add(0.0, 0.7, 0.0));
-					lens = 50.0F;
+					pull(4.6, 150.0, 1.7, 46.0F, 0.2);
 				}
 			} else if (installs("mod")) {
 				Capture.camera = null;
@@ -473,25 +495,26 @@ public class ReviveSelfTest implements ClientModInitializer {
 		if (gripAt >= 0) {
 			// C: the pull: close on the grip and the cord leaving the chest, then the cord from the other side, then the strain.
 			int c = f - gripAt;
-			if (c < 22) {
+			if (c < 16) {
 				if (installs("c1")) {
-					pull(4.2, 90.0, 1.3, 44.0F, 0.0);
+					pull(4.6, 150.0, 1.5, 46.0F, 0.2);
 				}
 			} else if (c < 42) {
+				// Low by his chest, side on, held: the cord taut from the chest to the fist, the friend leaning back.
 				if (installs("c2")) {
-					pull(4.6, -60.0, 1.5, 44.0F, 0.5);
+					pull(4.0, 100.0, 0.55, 44.0F, 0.5);
 				}
 			} else if (installs("c3")) {
-				pull(4.0, 20.0, 1.2, 42.0F, 0.9);
+				pull(4.8, -150.0, 1.4, 44.0F, 0.8);
 			}
 			return;
 		}
 		if (downAt >= 0) {
 			// B: the body, the horde turning on the friend running in.
 			int d = f - downAt;
-			if (d < 20) {
+			if (d < 26) {
 				if (installs("b1")) {
-					orbit(() -> you.get().add(0.0, 0.3, 0.0), 4.6, 120.0, -30.0, 1.4, 0.0, 55.0F);
+					orbit(() -> you.get().add(0.0, 0.25, 0.0), 3.6, 120.0, -24.0, 0.9, 0.0, 46.0F);
 				}
 			} else if (gripAt < 0 && d < 60) {
 				if (installs("b2")) {
@@ -722,6 +745,13 @@ public class ReviveSelfTest implements ClientModInitializer {
 		}
 		ServerPlayerEntity you = server.getPlayerManager().getPlayerList().get(0);
 		ServerWorld world = friend.getServerWorld();
+		if (yankedAtTick < 0) {
+			// The first wave (the strays that shot him down, the husks he left) has done its work: it does not turn on the friend while he pulls (their target is left empty).
+			for (net.minecraft.entity.mob.MobEntity mob : world.getEntitiesByClass(net.minecraft.entity.mob.MobEntity.class,
+					new Box(you.getBlockPos()).expand(48.0, 24.0, 48.0), m -> NEAR.contains(m.getId()) && m.getTarget() == friend)) {
+				mob.setTarget(null);
+			}
+		}
 		if (friendMode == 0) {
 			friend.refreshPositionAndAngles(friendFrom.x, friendFrom.y, friendFrom.z, yawTo(friendFrom, middle), 0.0F);
 			return;
@@ -745,6 +775,19 @@ public class ReviveSelfTest implements ClientModInitializer {
 				friendMode = 2;
 				friendRanFor = 0;
 			}
+			return;
+		}
+		if (!Downed.is(you) && friendRanFor > 14) {
+			// The pull is done: he steps back out of the way (the saws are about to swing).
+			Vec3d out = friendFrom.subtract(you.getPos()).multiply(1.0, 0.0, 1.0).normalize();
+			Vec3d at = friend.getPos().add(out.multiply(0.25));
+			if (at.distanceTo(you.getPos()) < 7.0) {
+				friend.refreshPositionAndAngles(at.x, groundAt(world, at), at.z, friend.getYaw(), 8.0F);
+				friend.setSprinting(true);
+				friendRanFor++;
+				return;
+			}
+			friend.setSprinting(false);
 			return;
 		}
 		// Kneeling.
@@ -805,6 +848,49 @@ public class ReviveSelfTest implements ClientModInitializer {
 			}
 			world.spawnEntity(mob);
 			MOBS.add(mob.getId());
+		}
+	}
+
+	/** One mob on the ring: {@code r} blocks from the middle at {@code deg} degrees round, facing the middle; {@code health} 0 for its own; a stray gets its bow. */
+	private static void spawn(ServerWorld world, EntityType<? extends HostileEntity> type, double r, double deg, float health, int slow) {
+		double angle = Math.toRadians(deg);
+		Vec3d at = middle.add(Math.cos(angle) * r, 0.0, Math.sin(angle) * r);
+		HostileEntity mob = type.create(world);
+		if (mob == null || bare()) {
+			return;
+		}
+		mob.refreshPositionAndAngles(at.x, groundAt(world, at), at.z, (float) Math.toDegrees(angle) + 90.0F, 0.0F);
+		mob.setPersistent();
+		if (health > 0.0F) {
+			mob.setHealth(health);
+		}
+		if (type == EntityType.STRAY) {
+			mob.equipStack(net.minecraft.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.BOW));
+		}
+		if (slow > 0) {
+			mob.addStatusEffect(new net.minecraft.entity.effect.StatusEffectInstance(net.minecraft.entity.effect.StatusEffects.SLOWNESS, 20 * 60, slow - 1, true, false, false));
+		}
+		world.spawnEntity(mob);
+		MOBS.add(mob.getId());
+	}
+
+	/** The first wave: husks close round him (a little health: a cut kills), strays far off on the side away from where the friend will come, shooting. */
+	private static void firstWave(IntegratedServer server) {
+		ServerWorld world = server.getOverworld();
+		for (int i = 0; i < 4; i++) {
+			spawn(world, EntityType.HUSK, 3.8 + (i % 2) * 1.4, 25.0 + i * 90.0, 3.0F, 0);
+		}
+		for (int i = 0; i < 6; i++) {
+			spawn(world, EntityType.STRAY, 14.0 + (i % 2) * 0.8, 25.0 - 45.0 + i * 18.0, 0.0F, 0);
+		}
+		NEAR.addAll(MOBS);
+	}
+
+	/** Slow husks (slowness) closing in from the far side of the clearing: they walk at him, but are too slow to reach before the yank. */
+	private static void slowHusks(IntegratedServer server) {
+		ServerWorld world = server.getOverworld();
+		for (int i = 0; i < 6; i++) {
+			spawn(world, EntityType.HUSK, 15.5 + (i % 2) * 1.5, 110.0 + i * 36.0, 8.0F, 4);
 		}
 	}
 

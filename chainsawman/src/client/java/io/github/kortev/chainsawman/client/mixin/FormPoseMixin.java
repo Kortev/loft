@@ -56,6 +56,9 @@ public abstract class FormPoseMixin {
 			model.rightArm.pitch = arm[0] + 0.03F * strain * net.minecraft.util.math.MathHelper.sin((now + tickDelta) * 2.3F);
 			model.rightArm.yaw = arm[1];
 			model.rightArm.roll = 0.0F;
+			// Leaning back into the pull.
+			model.body.pitch = 0.5F - 0.75F * io.github.kortev.chainsawman.client.ReviveCord.draw(revive, now, tickDelta);
+			model.head.pitch -= 0.3F * strain;
 		} else if (up >= 0.0F) {
 			// Back up after being down: the limbs growing out of their stumps as you push yourself up.
 			io.github.kortev.chainsawman.client.GetUp.limbs(model, false, up, 0.0F);
