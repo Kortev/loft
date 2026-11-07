@@ -15,12 +15,13 @@ brief files.
 Two ways to be strong, both from the show: **find Pochita and become Chainsaw Man**, or **beat devils and make
 contracts with them** like the Public Safety devil hunters. Every contract has a power and a price.
 
-## Phase 0: stand alone (small, do first)
+## Phase 0: stand alone (DONE 2026-11-06)
 
 - Drop the `shootingstar` dependency from `chainsawman/src/main/resources/fabric.mod.json`. The mod only uses
   `OwnerOnly` (Pochita's crafting lock) and the gfx helpers `Post`, `Shaders`, `Target`. Copy those three helpers into
   the chainsawman client package; drop the owner lock (anyone can craft or find Pochita). Update the description.
 - The game tests can stay in the shared harness; the published jar must run with only Fabric API.
+- Done: helpers copied to `client/gfx` (Post and Target as they were, Shaders cut to its uniform setters; the `csm_screen` vertex shader), no gradle dependency on the root. Still owner-only: `ChainsawMan.OWNER` gates feeding Pochita (merge) and the den (`Merge`, `PochitaEntity`, `PochitaPlace`); phase 1 should decide those.
 - Check: the chainsawman jar alone in a clean Fabric instance loads, finds Pochita's den, transforms.
 
 ## Phase 1: devil contracts, starting with the Eternity Devil

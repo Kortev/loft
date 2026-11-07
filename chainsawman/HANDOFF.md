@@ -7,7 +7,7 @@ repo. Read it all before doing anything, then read the repo's own `HANDOFF.md` a
 ## Start here: where things stand (2026-10-22)
 
 **Next (decided 2026-11-06): make this a full solo Chainsaw Man mod.** Read `chainsawman/SOLO_MOD_PLAN.md` first:
-phase 0 drops the Shooting Star dependency; phase 1 adds devil contracts, starting with the Eternity Devil (its looping
+phase 0 (the Shooting Star dependency dropped) is done; phase 1 adds devil contracts, starting with the Eternity Devil (its looping
 hotel hallway, the fight, the contract it offers). Its first reel replies to a viewer's comment. Also done since this
 section was written: the Gojo mod's Hollow Purple (see the root `HANDOFF.md`; kortev hasn't judged its test clip yet).
 
@@ -375,7 +375,7 @@ stray entity: log the entities near it before chasing one.
 SMP, each its own subproject and jar: **The Shooting Star** (root, `src/`, id `shootingstar`: kortev's weapons, plus
 everything shared: `OwnerOnly`, `ModCriteria`, the `client/gfx` helpers `Post`, `Target`, `Shaders`, `WorldPasses`,
 and the game-test harness), **Chitty Chitty Bang Bang** (`chitty/`), the friend's **Gojolander** (`gojolander/`, the
-Domain Expansion), and now **Chainsaw Man** (`chainsawman/`, id `chainsawman`): kortev's own powers. Every SMP player
+Domain Expansion), and now **Chainsaw Man** (`chainsawman/`, id `chainsawman`): kortev's own powers, a public mod that needs only Fabric API (since 2026-11-06 it has its own copies of the `Post`, `Target` and `Shaders` helpers in `client/gfx` and no code from the root; the game-test harness in the root still loads it). Every SMP player
 gets a mod of their own; this one is kortev's.
 
 ## Rules kortev has set (follow them every time)
@@ -398,8 +398,9 @@ fine.)
 
 ## What the mod does now (all pushed)
 
-- **Pochita** (`chainsawman:pochita`): an item, carried anywhere in the inventory. Only kortev can craft it
-  (`OwnerOnly.register(MOD_ID, () -> "kortev")`). Recipe: chains, orange wool, a nether star.
+- **Pochita** (`chainsawman:pochita`): an item, carried anywhere in the inventory. Anyone can craft it (the owner lock
+  was removed in phase 0; the world's own Pochita den and feeding him until he merges are still kortev's alone via
+  `ChainsawMan.OWNER`). Recipe: chains, orange wool, a nether star.
 - **The cord key (G)**: with Pochita carried, pulling the cord transforms you; pulling it again turns you back (the
   engine sputters and dies). Losing Pochita, dying or leaving also turns you back. The server owns the state
   (`form/Form.java`) and tells every client (`FormPayload`, `FormPullPayload`).
