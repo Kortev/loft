@@ -72,6 +72,10 @@ and spares their own). A game rule `oneContractPerDevil` (default false) makes e
 player per world, first come, until they die or end it: for servers that want each player's powers to be their own.
 The hybrids could take the same rule later.
 
+**Devils come back:** a devil's home (the Eternity Devil's hotel and the like) gets its devil back some in-game days
+after it was killed or spared (game rule `devilRespawnDays`, default 3), so it can be fought again for loot, by other
+players for their own contracts, or by you to switch contracts. Each new hotel in the world has its own devil too.
+
 ## Later phases (one devil each, each its own reel; all season 1 / Reze arc)
 
 1. **Fox Devil** (Aki's): a giant fox head bursts out and bites the target. Very recognisable.
