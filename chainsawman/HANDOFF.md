@@ -392,6 +392,10 @@ gets a mod of their own; this one is kortev's.
 4. **Show renders/screenshots before baking or shipping a look**, and match the anime. kortev reacts strongly to
    things that look invented instead of matched; when they send references, follow them exactly.
 5. **End a round of work with a numbered list of what to test in game.**
+6. **The show's world, not its story** (kortev, 2026-11-06). Take the world building from the show: the devils and
+   what they are (a devil is the fear of its name), how contracts and devil hunters work, the looks. The quests,
+   encounters and events in the mod are our own and don't have to replay the anime's plot (the Eternity Devil keeps
+   its hotel as a lair and boss arena, but the quest round it and its contract power are new).
 
 (There was once a rule against naming the mods in public content; kortev dropped it on 2026-10-20: naming them is
 fine.)

@@ -61,12 +61,19 @@ contracts with them** like the Public Safety devil hunters. Every contract has a
 the loop from above) at 1 px = 1/16 block. Sent to kortev; waiting on their verdict. Drawn from text descriptions only
 (the wikis block fetching), so kortev's own stills would beat it.
 
-**The contract: still open (2026-11-06).** kortev turned down the first options: they want a better power thought
-through, and **no max-heart prices** (worried several contracts would stack down to one heart; they can't, since a
-player holds one contract at a time, but kortev still wants prices that aren't hearts). Ideas to put to them:
-powers: drag one target into the looping hallway *with you* (a 1v1 neither can leave until one is down or 30 s),
-trap a target alone, or regrow by eating flesh; prices: no sleep (beds don't work, phantoms come), hunger drains
-faster, or a body part like the show's contracts (an eye: half the screen dark).
+**The contract: still open (2026-11-06).** kortev's points so far (HANDOFF rule 6: the show's world, not its story):
+- The hotel stays as the devil's lair and boss arena, but **the quest round it is our own**, not the anime's plot.
+- **The power is not the loop.** The devil's power is eternity in general; it just happened to take over a hotel.
+  Ideas put to kortev, none picked yet: **Echo** (Opus's pick: your last 5 s replay as an afterimage, again and
+  again, for ~15 s), frozen moment (5 s, stored hits land at once), rewind (snap back to a marked moment and its
+  health), undying (10 s on half a heart, some damage catches up after), endless wound (the target can't heal for 20 s).
+- **No max-heart prices** (kortev worried they'd stack; they can't, one contract at a time, but still no hearts).
+  The price is what the devil asks for; ideas: beds stop working for you, faster hunger.
+- **Killing and getting a contract must be different things** (beating a devil down until it offers one doesn't fit
+  the show). Killing gives loot (its flesh and blood; blood could refill Chainsaw Man's blood bar); a contract is a
+  deal the devil offers with its price. Exactly how is undecided, so the contract-system bullets above are out of date.
+- A quest idea put to kortev: the hotel shows up only at night, lit and empty; each floor you climb is more wrong;
+  on 8F the loop closes and the boss is there.
 
 **First reel (a reply to @Dreclo's comment):** a normal hallway → it loops back → "wait..." → flesh pushes out of the
 walls → the fight → it offers the contract → accept → use Eternity on a mob. Real mob AI, real keys, every beat bigger.
