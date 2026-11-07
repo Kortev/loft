@@ -38,7 +38,7 @@ public final class ReviveCord {
 	public static final int YANKED = 2;
 	/** How long the cord takes to slide back in, to snap back (ticks), how long the friend's arm takes to fall, and how long a finished pull is kept. */
 	public static final int SLIDE = 6;
-	public static final int SNAP = 2;
+	public static final int SNAP = 3;
 	private static final int FALL = 8;
 	private static final int KEEP = 20;
 	/** How far the hand is from the shoulder (blocks): the arm's length to the grip. */
@@ -145,6 +145,18 @@ public final class ReviveCord {
 		return down.getLerpedPos(tickDelta).add(Vec3d.fromPolar(0.0F, yaw).multiply(0.3)).add(0.0, 0.2, 0.0);
 	}
 
+	/**
+	 * Where the cord leaves the body for a hand at {@code from}: the chest's root slid out to the body's near edge (the body lies
+	 * face down, so the cord comes out from under its side, toward the friend).
+	 */
+	public static Vec3d near(Vec3d root, Vec3d from) {
+		Vec3d flat = from.subtract(root).multiply(1.0, 0.0, 1.0);
+		return flat.lengthSquared() < 1.0E-6 ? root : root.add(flat.normalize().multiply(EDGE));
+	}
+
+	/** How far the cord's root is slid out to the edge of the body (blocks). */
+	public static final double EDGE = 0.3;
+
 	/** Where {@code friend}'s right shoulder is (world), as the player model puts it. */
 	public static Vec3d shoulder(PlayerEntity friend, float tickDelta) {
 		float yaw = MathHelper.lerpAngleDegrees(tickDelta, friend.prevBodyYaw, friend.bodyYaw) * MathHelper.RADIANS_PER_DEGREE;
@@ -159,7 +171,7 @@ public final class ReviveCord {
 
 	/** The way {@code friend}'s arm points (a unit vector): at the chest, drawing away up and back by {@code draw}. */
 	public static Vec3d aim(Vec3d shoulder, Vec3d root, float draw) {
-		Vec3d toward = root.subtract(shoulder).normalize();
+		Vec3d toward = near(root, shoulder).subtract(shoulder).normalize();
 		Vec3d flat = shoulder.subtract(root).multiply(1.0, 0.0, 1.0);
 		Vec3d back = flat.lengthSquared() < 1.0E-6 ? new Vec3d(0.0, 0.0, 0.0) : flat.normalize();
 		Vec3d away = new Vec3d(0.0, 0.9, 0.0).add(back.multiply(0.5)).normalize();

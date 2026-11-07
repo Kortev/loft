@@ -43,6 +43,12 @@ public final class DreamHud {
 			return;
 		}
 		long now = self.getWorld().getTime();
+		if (ReviveCord.of(self) != null) {
+			// A friend has your cord: the dark gives way to them.
+			dreaming = -1;
+			next = now + 200;
+			return;
+		}
 		if (next < 0) {
 			next = now + 120 + RANDOM.nextInt(160);
 		}

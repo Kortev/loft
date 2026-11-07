@@ -535,7 +535,7 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 	}
 
 	/** How thick the revive cord is (half a strip's width, blocks), how many pieces it is drawn in, and how far it sags slack (blocks). */
-	private static final float REVIVE_HALF = 0.055F;
+	private static final float REVIVE_HALF = 0.075F;
 	private static final int REVIVE_PIECES = 10;
 	private static final float SAG = 0.32F;
 
@@ -559,9 +559,15 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 		}
 		Vector3f root = at(matrices, model.body, CORD_ROOT);
 		Vec3d shoulder = ReviveCord.shoulder(friend, tickDelta);
+		Vec3d eye = client.gameRenderer.getCamera().getPos();
 		Vec3d hand = ReviveCord.hand(shoulder, ReviveCord.aim(shoulder, ReviveCord.root(down, tickDelta), ReviveCord.draw(pull, now, tickDelta)));
-		Vec3d camera = client.gameRenderer.getCamera().getPos();
+		Vec3d camera = eye;
 		Vector3f end = new Vector3f((float) (hand.x - camera.x), (float) (hand.y - camera.y), (float) (hand.z - camera.z));
+		// The cord comes out from under the body's side nearest the hand.
+		Vector3f aside = new Vector3f(end.x - root.x, 0.0F, end.z - root.z);
+		if (aside.lengthSquared() > 1.0E-6F) {
+			root.add(aside.normalize((float) ReviveCord.EDGE)).add(0.0F, 0.04F, 0.0F);
+		}
 		float out = ReviveCord.out(pull, now, tickDelta);
 		end.set(new Vector3f(root).lerp(end, out));
 		float taut = ReviveCord.taut(pull, now, tickDelta);
@@ -591,8 +597,8 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 			// The handle across the hand's end.
 			Vector3f side = new Vector3f(first).cross(look);
 			if (side.lengthSquared() > 1.0E-10F) {
-				Vector3f across = side.normalize(0.16F);
-				Vector3f thick = new Vector3f(first).normalize(0.06F);
+				Vector3f across = side.normalize(0.2F);
+				Vector3f thick = new Vector3f(first).normalize(0.08F);
 				Vector3f h = previous;
 				quad(buffer, light, uv, new Vector3f(h).sub(across).sub(thick), new Vector3f(h).add(across).sub(thick), new Vector3f(h).add(across).add(thick),
 						new Vector3f(h).sub(across).add(thick));
