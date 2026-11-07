@@ -56,6 +56,18 @@ contracts with them** like the Public Safety devil hunters. Every contract has a
   contract and price; killing drops loot and frees the player; contract power traps and returns a mob; one contract at
   a time; contracts blocked in Chainsaw Man form.
 
+**The look, first pass (2026-11-06):** `python tools/eternity_drawings.py work/eternity_look` draws
+`eternity_devil.png` (front, side, the heart) and `eternity_hallway.png` (your view, the devil grown out of the walls,
+the loop from above) at 1 px = 1/16 block. Sent to kortev; waiting on their verdict. Drawn from text descriptions only
+(the wikis block fetching), so kortev's own stills would beat it.
+
+**The contract: still open (2026-11-06).** kortev turned down the first options: they want a better power thought
+through, and **no max-heart prices** (worried several contracts would stack down to one heart; they can't, since a
+player holds one contract at a time, but kortev still wants prices that aren't hearts). Ideas to put to them:
+powers: drag one target into the looping hallway *with you* (a 1v1 neither can leave until one is down or 30 s),
+trap a target alone, or regrow by eating flesh; prices: no sleep (beds don't work, phantoms come), hunger drains
+faster, or a body part like the show's contracts (an eye: half the screen dark).
+
 **First reel (a reply to @Dreclo's comment):** a normal hallway → it loops back → "wait..." → flesh pushes out of the
 walls → the fight → it offers the contract → accept → use Eternity on a mob. Real mob AI, real keys, every beat bigger.
 
