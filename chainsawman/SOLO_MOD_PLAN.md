@@ -74,6 +74,14 @@ the loop from above) at 1 px = 1/16 block. Sent to kortev; waiting on their verd
   you within ~20 blocks; at the end (~20 s) every copy turns to the target and strikes at once, then fades. Each
   copy hits weakly and a target takes echo hits only a few times a second. Copies are render-only ghosts, with only
   their hits worked out on the server. kortev: big visuals are how the mod should stand apart from other mods.
+  **kortev's next step (2026-11-06): a crowd of you all around at once** (they likened it to a hero who duplicates
+  himself; make it our own, not that scene). Current shape: press and you shatter into ~12-16 copies ringing the
+  target (some on blocks above), each **you from a different moment in eternity**: **past** copies faded and
+  greyish with trails behind them (where they've been), **future** copies bright and outlined with a faint ghost
+  path ahead of them (where they're going), you in the middle in full colour. They copy your moves in a ripple round
+  the ring; the ring closes in or widens as you step; after ~15 s it collapses back into you with one last hit from
+  every copy. Open: ripple-copy (Opus's pick) or each fighting on its own; the multiplying 1→2→4 version could be
+  the build-up to it. Next: a storyboard of the visual for kortev before any code.
 - **No max-heart prices** (kortev worried they'd stack; they can't, one contract at a time, but still no hearts).
   The price is what the devil asks for; ideas: beds stop working for you, faster hunger.
 - **Killing and getting a contract must be different things** (beating a devil down until it offers one doesn't fit
