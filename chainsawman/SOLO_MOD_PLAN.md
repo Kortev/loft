@@ -86,6 +86,20 @@ the loop from above) at 1 px = 1/16 block. Sent to kortev; waiting on their verd
   like one more copy; mobs lose track of you). The copies stand on real ground at different heights, jump, step up,
   and never sit inside blocks. Lots of visuals and atmosphere: it's for videos. Brief: `work/briefs/eternity_echo.md`
   (on GraehamsPC). The price and how the contract is gained are still open; a test command grants it for now.
+  **Echo replaced (kortev, 2026-11-07).** Echo v1 was built (see HANDOFF); kortev: too easy to tell who's who, not
+  cool, and a ring round one target fails with several enemies or a target that walks out. A v2 (copies spread to
+  every enemy and chase) was briefed (`work/briefs/eternity_echo_v2.md`) then shelved: kortev asked what a contract
+  with this devil would really be. In the show (to the Reze arc) a contract either calls the devil down on someone
+  (Fox bites, Ghost grabs, Curse kills) or, for an idea devil like Future, the devil lives in you and gives you a piece
+  of what it is; prices are a fee per use (Fox), lifespan (Curse), an eye (Ghost). Contract powers come from the devil
+  itself (its idea), not the show's scenes; the show's scenes are for the boss fight.
+  **Now (kortev agreed, 2026-11-07): "Forever", lock a target in an endless moment.** Call it on a target: it freezes
+  in one instant and every moment of it shows at once (a fading line of copies back along where it came from and on
+  to where it would have gone); every hit you land is stored and all of them go off together when the moment ends.
+  Starting numbers: 3 s (shorter on bosses), stored hits at ~1.5x with a cap, ~30 s cooldown. kortev: "the visuals
+  have to make sense for the Eternity Devil", so the devil itself shows up when it's used (its flesh, its many eyes
+  and mouths, its crowd voice), the way the Fox contract shows the fox's head. Price proposed, not confirmed: a fee
+  per use, it eats a few XP levels (your time). Storyboard first: `tools/eternity_contract_drawings.py`.
 - **No max-heart prices** (kortev worried they'd stack; they can't, one contract at a time, but still no hearts).
   The price is what the devil asks for; ideas: beds stop working for you, faster hunger.
 - **Killing and getting a contract must be different things** (beating a devil down until it offers one doesn't fit
