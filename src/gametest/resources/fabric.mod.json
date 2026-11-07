@@ -22,7 +22,8 @@
 			"io.github.kortev.shootingstar.test.AirshipGameTests",
 			"io.github.kortev.shootingstar.test.DomainGameTests",
 			"io.github.kortev.shootingstar.test.PurpleGameTests",
-			"io.github.kortev.shootingstar.test.FormGameTests"
+			"io.github.kortev.shootingstar.test.FormGameTests",
+			"io.github.kortev.shootingstar.test.EchoGameTests"
 		],
 		"client": [
 			"io.github.kortev.shootingstar.test.ClientSelfTest",

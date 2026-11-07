@@ -41,6 +41,8 @@ public final class ChainsawManClient implements ClientModInitializer {
 	public static KeyBinding FRENZY;
 	/** The kick. */
 	public static KeyBinding KICK;
+	/** Use the power of the devil contract you hold (Echo, for the Eternity Devil's). */
+	public static KeyBinding USE_CONTRACT;
 
 	@Override
 	public void onInitializeClient() {
@@ -51,6 +53,8 @@ public final class ChainsawManClient implements ClientModInitializer {
 		FRENZY = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.chainsawman.frenzy", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_B,
 				"key.categories.chainsawman"));
 		KICK = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.chainsawman.kick", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_V,
+				"key.categories.chainsawman"));
+		USE_CONTRACT = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.chainsawman.use_contract", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_U,
 				"key.categories.chainsawman"));
 		ClientCombat.init();
 		// /chainsawhead boxes|mesh: the two heads to choose between, here on this client.
@@ -99,10 +103,13 @@ public final class ChainsawManClient implements ClientModInitializer {
 				ClientForms.pulled(payload.player(), context.client().world.getTime(), puller != null ? puller.getYaw() : 0.0F);
 			}
 		});
+		ClientPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.ContractPayload.ID,
+				(payload, context) -> ClientContracts.set(payload.player(), io.github.kortev.chainsawman.contract.Contract.byOrdinal(payload.contract())));
 		ClientPlayNetworking.registerGlobalReceiver(FormEventPayload.ID, (payload, context) -> ClientCombat.event(payload));
 		WorldRenderEvents.AFTER_ENTITIES.register(ChainRender::render);
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
 			ClientForms.clear();
+			ClientContracts.clear();
 			BeamClient.clear();
 		});
 		CoreShaderRegistrationCallback.EVENT.register(context -> context.register(ChainsawMan.id("csm_impact"), VertexFormats.BLIT_SCREEN,
@@ -115,6 +122,11 @@ public final class ChainsawManClient implements ClientModInitializer {
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
 			while (PULL_CORD.wasPressed()) {
 				pullCord(client);
+			}
+			while (USE_CONTRACT.wasPressed()) {
+				if (client.player != null && ClientPlayNetworking.canSend(io.github.kortev.chainsawman.network.UseContractPayload.ID)) {
+					ClientPlayNetworking.send(new io.github.kortev.chainsawman.network.UseContractPayload());
+				}
 			}
 			ClientForms.tick(client);
 			ClientCombat.tick(client);

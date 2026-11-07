@@ -39,6 +39,7 @@ public final class Heart {
 
 	/** Pochita's heart given to {@code player} straight off, no merge (to try things out). */
 	public static void give(ServerPlayerEntity player) {
+		io.github.kortev.chainsawman.contract.Contracts.clear(player);
 		player.setAttached(MERGED, true);
 		told(player);
 	}

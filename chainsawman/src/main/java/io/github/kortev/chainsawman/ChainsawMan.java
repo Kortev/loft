@@ -73,6 +73,9 @@ public final class ChainsawMan implements ModInitializer {
 		PayloadTypeRegistry.playS2C().register(FormPayload.ID, FormPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(FormPullPayload.ID, FormPullPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(FormEventPayload.ID, FormEventPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(io.github.kortev.chainsawman.network.ContractPayload.ID, io.github.kortev.chainsawman.network.ContractPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(io.github.kortev.chainsawman.network.UseContractPayload.ID, io.github.kortev.chainsawman.network.UseContractPayload.CODEC);
+		ServerPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.UseContractPayload.ID, (payload, context) -> io.github.kortev.chainsawman.contract.Echo.use(context.player()));
 		PayloadTypeRegistry.playC2S().register(PullCordPayload.ID, PullCordPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(FormActionPayload.ID, FormActionPayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(PullCordPayload.ID, (payload, context) -> Form.pullCord(context.player()));
@@ -98,6 +101,7 @@ public final class ChainsawMan implements ModInitializer {
 			}
 		});
 		Form.init();
+		io.github.kortev.chainsawman.contract.Contracts.init();
 		Felling.init();
 	}
 }

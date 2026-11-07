@@ -65,6 +65,10 @@ public final class ChainsawCommand {
 									context.getSource().sendFeedback(() -> Text.translatable("commands.chainsaw.owner.set", name), true);
 									return 1;
 								})))
+						.then(CommandManager.literal("contract")
+								.then(CommandManager.argument("player", net.minecraft.command.argument.EntityArgumentType.player())
+										.then(CommandManager.literal("eternity").executes(context -> contract(context, io.github.kortev.chainsawman.contract.Contract.ETERNITY)))
+										.then(CommandManager.literal("clear").executes(context -> contract(context, io.github.kortev.chainsawman.contract.Contract.NONE)))))
 						.then(CommandManager.literal("scene").executes(context -> scene(context)))
 						.then(CommandManager.literal("mobs").executes(context -> {
 							mobs(context.getSource().getPlayerOrThrow());
@@ -99,6 +103,22 @@ public final class ChainsawCommand {
 							Downed.up(context.getSource().getPlayerOrThrow());
 							return done(context, "up");
 						}))));
+	}
+
+	/** {@code /chainsaw contract <player> eternity|clear}: grants or clears a devil contract (a hybrid cannot hold one). */
+	private static int contract(CommandContext<ServerCommandSource> context, io.github.kortev.chainsawman.contract.Contract contract) throws CommandSyntaxException {
+		ServerPlayerEntity target = net.minecraft.command.argument.EntityArgumentType.getPlayer(context, "player");
+		if (contract == io.github.kortev.chainsawman.contract.Contract.NONE) {
+			io.github.kortev.chainsawman.contract.Contracts.clear(target);
+			context.getSource().sendFeedback(() -> Text.translatable("commands.chainsaw.contract.cleared", target.getDisplayName()), true);
+			return 1;
+		}
+		if (io.github.kortev.chainsawman.contract.Contracts.grant(target, contract) == io.github.kortev.chainsawman.contract.Contracts.Result.HYBRID) {
+			context.getSource().sendError(Text.translatable("commands.chainsaw.contract.hybrid", target.getDisplayName()));
+			return 0;
+		}
+		context.getSource().sendFeedback(() -> Text.translatable("commands.chainsaw.contract.granted", target.getDisplayName(), Text.translatable("contract.chainsawman." + contract.id)), true);
+		return 1;
 	}
 
 	private static int done(CommandContext<ServerCommandSource> context, String what) {

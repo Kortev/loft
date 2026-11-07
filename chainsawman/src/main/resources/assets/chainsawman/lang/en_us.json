@@ -72,5 +72,13 @@
   "commands.chainsawhead.boxes": "The head as boxes and pixels (the proposal).",
   "commands.chainsawhead.mesh": "The head as it is now.",
   "dream.chainsawman.door": "Denji... don't open that door.",
-  "key.chainsawman.kick": "Kick"
+  "key.chainsawman.kick": "Kick",
+  "key.chainsawman.use_contract": "Use contract",
+  "commands.chainsaw.contract.granted": "%s now holds the %s contract.",
+  "commands.chainsaw.contract.cleared": "%s no longer holds a contract.",
+  "commands.chainsaw.contract.hybrid": "%s is a hybrid (Pochita's heart) and cannot hold a contract.",
+  "contract.chainsawman.eternity": "Eternity",
+  "chainsawman.echo.human_only": "Echo works in human form only.",
+  "chainsawman.echo.cooldown": "Echo again in %s s",
+  "chainsawman.echo.no_contract": "You hold no contract."
 }
