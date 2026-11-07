@@ -41,7 +41,7 @@ public final class ChainsawManClient implements ClientModInitializer {
 	public static KeyBinding FRENZY;
 	/** The kick. */
 	public static KeyBinding KICK;
-	/** Use the power of the devil contract you hold (Echo, for the Eternity Devil's). */
+	/** Use the power of the devil contract you hold (Forever, for the Eternity Devil's). */
 	public static KeyBinding USE_CONTRACT;
 
 	@Override
@@ -72,8 +72,9 @@ public final class ChainsawManClient implements ClientModInitializer {
 						}))));
 		EntityModelLayerRegistry.registerModelLayer(PochitaRenderer.LAYER, PochitaModel::texturedModelData);
 		EntityRendererRegistry.register(ChainsawMan.POCHITA_ENTITY, PochitaRenderer::new);
-		EntityRendererRegistry.register(ChainsawMan.ECHO_ENTITY, EchoRenderer::new);
-		ClientPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.EchoPayload.ID, (payload, context) -> ClientEcho.told(payload));
+		EntityRendererRegistry.register(ChainsawMan.FOREVER_HUB, ForeverHubRenderer::new);
+		EntityRendererRegistry.register(ChainsawMan.FOREVER_COPY, ForeverCopyRenderer::new);
+		ClientPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.ForeverLockPayload.ID, (payload, context) -> ClientForever.told(payload));
 		EntityModelLayerRegistry.registerModelLayer(BeamRenderer.LAYER, BeamModel::texturedModelData);
 		EntityRendererRegistry.register(ChainsawMan.BEAM_ENTITY, BeamRenderer::new);
 		WorldRenderEvents.AFTER_ENTITIES.register(MergeCinematic::render);
@@ -113,15 +114,12 @@ public final class ChainsawManClient implements ClientModInitializer {
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
 			ClientForms.clear();
 			ClientContracts.clear();
-			ClientEcho.clear();
+			ClientForever.clear();
 			BeamClient.clear();
 		});
 		CoreShaderRegistrationCallback.EVENT.register(context -> context.register(ChainsawMan.id("csm_impact"), VertexFormats.BLIT_SCREEN,
 				program -> FormHud.impact = program));
-		CoreShaderRegistrationCallback.EVENT.register(context -> context.register(ChainsawMan.id("csm_warp"), VertexFormats.BLIT_SCREEN,
-				program -> EchoHud.warp = program));
 		HudRenderCallback.EVENT.register(FormHud::render);
-		HudRenderCallback.EVENT.register(EchoHud::render);
 		HudRenderCallback.EVENT.register(BloodHud::render);
 		HudRenderCallback.EVENT.register(LensBlood::render);
 		HudRenderCallback.EVENT.register(Sfx::render);
@@ -141,8 +139,6 @@ public final class ChainsawManClient implements ClientModInitializer {
 			FormCinematic.tick(client);
 			ReviveCord.tick(client);
 			BeamClient.tick(client);
-			ClientEcho.tick(client);
-			EchoHud.tick(client);
 		});
 	}
 

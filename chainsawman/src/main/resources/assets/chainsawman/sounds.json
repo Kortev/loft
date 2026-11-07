@@ -247,51 +247,27 @@
       }
     ]
   },
-  "echo.burst": {
-    "subtitle": "subtitles.chainsawman.echo.burst",
+  "forever.lock": {
+    "subtitle": "subtitles.chainsawman.forever.lock",
     "sounds": [
       {
-        "name": "chainsawman:echo_burst"
+        "name": "chainsawman:forever_lock"
       }
     ]
   },
-  "echo.gather": {
-    "subtitle": "subtitles.chainsawman.echo.gather",
+  "forever.hit": {
+    "subtitle": "subtitles.chainsawman.forever.hit",
     "sounds": [
       {
-        "name": "chainsawman:echo_gather"
+        "name": "chainsawman:forever_hit"
       }
     ]
   },
-  "echo.streak": {
-    "subtitle": "subtitles.chainsawman.echo.streak",
+  "forever.release": {
+    "subtitle": "subtitles.chainsawman.forever.release",
     "sounds": [
       {
-        "name": "chainsawman:echo_streak"
-      }
-    ]
-  },
-  "echo.finale": {
-    "subtitle": "subtitles.chainsawman.echo.finale",
-    "sounds": [
-      {
-        "name": "chainsawman:echo_finale"
-      }
-    ]
-  },
-  "echo.hum": {
-    "subtitle": "subtitles.chainsawman.echo.hum",
-    "sounds": [
-      {
-        "name": "chainsawman:echo_hum"
-      }
-    ]
-  },
-  "echo.whisper": {
-    "subtitle": "subtitles.chainsawman.echo.whisper",
-    "sounds": [
-      {
-        "name": "chainsawman:echo_whisper"
+        "name": "chainsawman:forever_release"
       }
     ]
   }

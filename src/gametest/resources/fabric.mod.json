@@ -23,7 +23,7 @@
 			"io.github.kortev.shootingstar.test.DomainGameTests",
 			"io.github.kortev.shootingstar.test.PurpleGameTests",
 			"io.github.kortev.shootingstar.test.FormGameTests",
-			"io.github.kortev.shootingstar.test.EchoGameTests"
+			"io.github.kortev.shootingstar.test.ForeverGameTests"
 		],
 		"client": [
 			"io.github.kortev.shootingstar.test.ClientSelfTest",
@@ -41,7 +41,7 @@
 			"io.github.kortev.shootingstar.test.FormSelfTest",
 			"io.github.kortev.shootingstar.test.ReelSelfTest",
 			"io.github.kortev.shootingstar.test.ShowcaseSelfTest",
-			"io.github.kortev.shootingstar.test.EchoSelfTest",
+			"io.github.kortev.shootingstar.test.ForeverSelfTest",
 			"io.github.kortev.shootingstar.test.ReviveSelfTest"
 		]
 	},

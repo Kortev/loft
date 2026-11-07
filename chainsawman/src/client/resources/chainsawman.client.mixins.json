@@ -12,7 +12,6 @@
 		"DreamEntitiesMixin",
 		"DreamFogMixin",
 		"DreamSkyMixin",
-		"EchoDisguiseMixin",
 		"FirstPersonFormMixin",
 		"FirstPersonSawMixin",
 		"FormAttackMixin",

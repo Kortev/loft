@@ -37,7 +37,7 @@ public final class Contracts {
 				told(handler.player);
 			}
 		});
-		Echo.init();
+		Forever.init();
 	}
 
 	public static Contract get(PlayerEntity player) {
@@ -62,16 +62,12 @@ public final class Contracts {
 		if (Heart.has(player)) {
 			return Result.HYBRID;
 		}
-		if (get(player) != contract) {
-			Echo.end(player, false);
-		}
 		player.setAttached(HELD, contract.id);
 		told(player);
 		return Result.GRANTED;
 	}
 
 	public static void clear(ServerPlayerEntity player) {
-		Echo.end(player, false);
 		player.removeAttached(HELD);
 		told(player);
 	}

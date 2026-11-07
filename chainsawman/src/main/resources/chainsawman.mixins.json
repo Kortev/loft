@@ -6,8 +6,10 @@
 		"DownedPoseMixin",
 		"DownedUnseenMixin",
 		"EatBloodMixin",
-		"EchoSwingMixin",
 		"FormDigMixin",
+		"ForeverAttackMixin",
+		"ForeverFreezeMixin",
+		"ForeverMoveMixin",
 		"FrenzySlowMixin",
 		"LivingEntityAccessor"
 	],

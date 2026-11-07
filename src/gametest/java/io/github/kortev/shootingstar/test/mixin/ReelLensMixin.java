@@ -19,7 +19,7 @@ public abstract class ReelLensMixin {
 			lens = ShowcaseSelfTest.lens();
 		}
 		if (lens <= 0.0F) {
-			lens = io.github.kortev.shootingstar.test.EchoSelfTest.lens();
+			lens = io.github.kortev.shootingstar.test.ForeverSelfTest.lens();
 		}
 		if (lens <= 0.0F) {
 			lens = io.github.kortev.shootingstar.test.ReviveSelfTest.lens();
