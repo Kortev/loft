@@ -1,9 +1,9 @@
 package io.github.kortev.chainsawman.client;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import io.github.kortev.shootingstar.client.gfx.Post;
-import io.github.kortev.shootingstar.client.gfx.Shaders;
-import io.github.kortev.shootingstar.client.gfx.Target;
+import io.github.kortev.chainsawman.client.gfx.Post;
+import io.github.kortev.chainsawman.client.gfx.Shaders;
+import io.github.kortev.chainsawman.client.gfx.Target;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.Framebuffer;
 import net.minecraft.client.gl.ShaderProgram;

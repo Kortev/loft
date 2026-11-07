@@ -11,7 +11,6 @@ import io.github.kortev.chainsawman.network.FormEventPayload;
 import io.github.kortev.chainsawman.network.FormPayload;
 import io.github.kortev.chainsawman.network.FormPullPayload;
 import io.github.kortev.chainsawman.network.PullCordPayload;
-import io.github.kortev.shootingstar.OwnerOnly;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
@@ -34,10 +33,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * kortev's own powers on the SMP, beside The Shooting Star: Pochita, carried, and the cord on the chest that turns
+ * Chainsaw Man, needing only Fabric API: Pochita, carried, and the cord on the chest that turns
  * whoever carries him into Chainsaw Man ({@link Form}): the saws to fight with ({@link Saw}), the chain ({@link Grapple}),
- * Beam the shark, the ult ({@link Beam}; the blood frenzy, {@link Frenzy}, is kept dormant), and never dying while Pochita is with you ({@link io.github.kortev.chainsawman.form.Downed}). Its things are kortev's alone to craft, under The Shooting
- * Star's owner-only rule.
+ * Beam the shark, the ult ({@link Beam}; the blood frenzy, {@link Frenzy}, is kept dormant), and never dying while Pochita is with you ({@link io.github.kortev.chainsawman.form.Downed}).
  */
 public final class ChainsawMan implements ModInitializer {
 	public static final String MOD_ID = "chainsawman";
@@ -64,7 +62,6 @@ public final class ChainsawMan implements ModInitializer {
 
 	@Override
 	public void onInitialize() {
-		OwnerOnly.register(MOD_ID, () -> OWNER);
 		ChainsawSounds.init();
 		ItemGroupEvents.modifyEntriesEvent(ItemGroups.COMBAT).register(entries -> entries.add(POCHITA));
 		ItemGroupEvents.modifyEntriesEvent(ItemGroups.SPAWN_EGGS).register(entries -> entries.add(POCHITA_SPAWN_EGG));

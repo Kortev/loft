@@ -1,5 +1,5 @@
 {
-  "vertex": "shootingstar:ss_screen",
+  "vertex": "chainsawman:csm_screen",
   "fragment": "chainsawman:csm_impact",
   "samplers": [
     {

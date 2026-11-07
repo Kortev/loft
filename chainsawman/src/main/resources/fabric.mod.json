@@ -3,7 +3,7 @@
 	"id": "chainsawman",
 	"version": "${version}",
 	"name": "Chainsaw Man",
-	"description": "Pochita, and what pulling the cord makes of whoever carries him. Built beside The Shooting Star and needs it.",
+	"description": "Pochita, and what pulling the cord makes of whoever carries him. Needs only Fabric API.",
 	"authors": [
 		"Kortev"
 	],
@@ -25,8 +25,7 @@
 		"fabricloader": ">=0.16.0",
 		"minecraft": "~1.21.1",
 		"java": ">=21",
-		"fabric-api": "*",
-		"shootingstar": "*"
+		"fabric-api": "*"
 	},
 	"mixins": [
 		"chainsawman.mixins.json",
