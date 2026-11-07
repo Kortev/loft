@@ -59,6 +59,14 @@ contracts with them** like the Public Safety devil hunters. Every contract has a
 **First reel (a reply to @Dreclo's comment):** a normal hallway → it loops back → "wait..." → flesh pushes out of the
 walls → the fight → it offers the contract → accept → use Eternity on a mob. Real mob AI, real keys, every beat bigger.
 
+## Hybrid or contracts, never both (kortev, 2026-11-06)
+
+A player is either a **hybrid** (a devil inside you, transformed by a trigger: Chainsaw Man's cord now, later the
+**Bomb** hybrid's pin (Reze's) and the **Katana** hybrid (Katana Man's)) or a **devil hunter with a contract**. A
+hybrid can't make contracts (a devil offering one to a hybrid is refused), and taking a contract means giving up your
+hybrid devil. That makes the first big choice in the mod. Contracts come from devils you beat down and spare; killing
+a devil gives loot, not its contract.
+
 ## Later phases (one devil each, each its own reel; all season 1 / Reze arc)
 
 1. **Fox Devil** (Aki's): a giant fox head bursts out and bites the target. Very recognisable.
