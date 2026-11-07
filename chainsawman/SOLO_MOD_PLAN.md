@@ -80,8 +80,12 @@ the loop from above) at 1 px = 1/16 block. Sent to kortev; waiting on their verd
   greyish with trails behind them (where they've been), **future** copies bright and outlined with a faint ghost
   path ahead of them (where they're going), you in the middle in full colour. They copy your moves in a ripple round
   the ring; the ring closes in or widens as you step; after ~15 s it collapses back into you with one last hit from
-  every copy. Open: ripple-copy (Opus's pick) or each fighting on its own; the multiplying 1→2→4 version could be
-  the build-up to it. Next: a storyboard of the visual for kortev before any code.
+  every copy.
+  **Decided (kortev, 2026-11-06): Echo is the Eternity contract's power; build it.** The copies **mirror your moves**
+  (a ripple round the ring); a mix of past and future you, and **you're disguised among them** (to others you look
+  like one more copy; mobs lose track of you). The copies stand on real ground at different heights, jump, step up,
+  and never sit inside blocks. Lots of visuals and atmosphere: it's for videos. Brief: `work/briefs/eternity_echo.md`
+  (on GraehamsPC). The price and how the contract is gained are still open; a test command grants it for now.
 - **No max-heart prices** (kortev worried they'd stack; they can't, one contract at a time, but still no hearts).
   The price is what the devil asks for; ideas: beds stop working for you, faster hunger.
 - **Killing and getting a contract must be different things** (beating a devil down until it offers one doesn't fit
