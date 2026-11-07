@@ -6,6 +6,11 @@ repo. Read it all before doing anything, then read the repo's own `HANDOFF.md` a
 
 ## Start here: where things stand (2026-10-22)
 
+**Next (decided 2026-11-06): make this a full solo Chainsaw Man mod.** Read `chainsawman/SOLO_MOD_PLAN.md` first:
+phase 0 drops the Shooting Star dependency; phase 1 adds devil contracts, starting with the Eternity Devil (its looping
+hotel hallway, the fight, the contract it offers). Its first reel replies to a viewer's comment. Also done since this
+section was written: the Gojo mod's Hollow Purple (see the root `HANDOFF.md`; kortev hasn't judged its test clip yet).
+
 kortev moves between Claude accounts when one runs out; this section is what the next session needs first. The rest
 of the file is the full record.
 
