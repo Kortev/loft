@@ -136,21 +136,23 @@ def legs(d, s, col_a, col_b):
         d.polygon([(x0, 28), (x0 + 3.99, 28), (x0 + 3.99 + dx, 39.99), (x0 + dx, 39.99)], fill=col + (255,))
 
 
-def zombie(phase=1.0, arm=6.0):
-    """Side-on, facing left, arms out in front. phase: where it is in its walk; arm: how high the arms reach."""
+def zombie(phase=1.0, arm=0.0):
+    """A Minecraft zombie side-on, facing left: 8 x 8 square head with an eye and a mouth line, both arms straight
+    out forward from the shoulder (one in front of the other), blue shirt, purple trousers, legs in a stride."""
     im = Image.new('RGBA', (CW, CH), (0, 0, 0, 0))
     d = ImageDraw.Draw(im)
-    s = 5 * math.sin(phase)
-    limb(d, CXC, 18, 180 + arm, 12, 4, ZSHIRT_DK, ZSKIN_DK, 4)            # far arm
+    s = 6 * math.sin(phase)
+    limb(d, 31, 18, 180 + arm, 13, 4, ZSHIRT_DK, ZSKIN_DK, 6)             # far arm
     d.polygon([(30, 28), (33.99, 28), (33.99 + s, 39.99), (30 + s, 39.99)], fill=ZPANTS_DK + (255,))   # far leg
     d.rectangle([30, 16, 33, 27], fill=ZSHIRT + (255,))
     d.line([(33, 16), (33, 27)], fill=ZSHIRT_DK + (255,))
     d.polygon([(30, 28), (33.99, 28), (33.99 - s, 39.99), (30 - s, 39.99)], fill=ZPANTS + (255,))     # near leg
     d.rectangle([28, 8, 35, 15], fill=ZSKIN + (255,))
     d.rectangle([28, 8, 35, 9], fill=ZSKIN_DK + (255,))
-    d.rectangle([29, 11, 30, 12], fill=(28, 44, 30, 255))
-    d.line([(29, 14), (31, 14)], fill=ZSKIN_DK + (255,))
-    limb(d, CXC + 1, 19, 180 + arm * 0.7, 12, 4, ZSHIRT, ZSKIN, 4)        # near arm
+    d.line([(28, 15), (35, 15)], fill=ZSKIN_DK + (255,))
+    d.rectangle([29, 11, 30, 12], fill=(24, 40, 28, 255))
+    d.line([(29, 14), (32, 14)], fill=(52, 88, 44, 255))
+    limb(d, 31, 19.5, 180 + arm, 13, 4, ZSHIRT, ZSKIN, 6)                  # near arm
     return ink_out(im)
 
 
@@ -196,57 +198,68 @@ def put(img, sprite, foot_x, dy=0, dx=0):
 
 # ------------------------------------------------------------------ the devil through the ground
 
+SPACING = 16                    # between the copies, and between the seams of the devil
+RED_FL, RED_DK = (178, 44, 58), (112, 24, 40)
+
+
 def build_lumps():
+    """Flesh lumps in the grass between the copies' feet. Every other one has a big eye, the rest a mouth."""
     r = random.Random(7)
     out = []
-    for j in range(-4, 5):
-        near = 1 - abs(j) / 5
-        x = ZX + j * 17 + r.randint(-2, 2)
-        y = r.choice((75, 77, 78, 76))
-        eyed = (j % 2 == 0) or r.random() < 0.5
-        out.append(dict(j=j, x=x, y=y, rx=5 + near * 2.5 + r.random(), ry=2.6 + near * 1.2 + r.random() * 0.6,
-                        eye=(round(7 + near * 2 + r.random()), round(4 + near * 1.5)) if eyed else None,
+    for j in range(-4, 4):
+        near = 1 - abs(j + 0.5) / 4.5
+        eyed = j % 2 == 0
+        out.append(dict(j=j, x=ZX + (j + 0.5) * SPACING + r.randint(-1, 1), y=77 + r.choice((-1, 0, 1)),
+                        rx=(8 + near * 2) if eyed else 6.5, ry=(4.2 + near) if eyed else 3.2,
+                        eye=(round(12 + near * 3), round(7 + near * 1.5)) if eyed else None, mouth=not eyed,
                         wake=r.choice((0.55, 0.3, 0.0, 0.7)), seed=r.randrange(1000)))
     return out
 
 
 LUMPS = build_lumps()
-MOUTHS = [(88, 11), (114, 13), (140, 14), (166, 13), (192, 11)]   # (x, width) of the mouths in the front face
 
 
-def crack_line(d, pts, wide, flesh=True):
-    d.line(pts, fill=INK + (255,), width=wide + 2 if wide > 1 else 1)
-    if wide > 1 and flesh:
-        d.line(pts, fill=FLESH_DK + (255,), width=wide)
+def jag(x0, y0, x1, y1, r, amp=2.5, step=3):
+    pts = [(x0, y0)]
+    n = max(2, int(math.hypot(x1 - x0, y1 - y0) / step))
+    for i in range(1, n):
+        t = i / n
+        pts.append((x0 + (x1 - x0) * t + r.choice((-1, 1)) * r.uniform(0.8, amp),
+                    y0 + (y1 - y0) * t + r.uniform(-1, 1)))
+    pts.append((x1, y1))
+    return pts
 
 
-def draw_cracks(img, lumps, wide, face_open, seed=3):
+def crack_line(d, pts, wide):
+    """A jagged crack in the ground, with red flesh showing inside it."""
+    d.line(pts, fill=INK + (255,), width=wide + 1 if wide > 1 else 1)
+    if wide > 1:
+        d.line(pts, fill=RED_FL + (255,), width=wide - 1)
+
+
+N_COPY = 4
+
+
+def draw_cracks(img, lumps, wide, seed=3):
     r = random.Random(seed)
     layer = Image.new('RGBA', img.size, (0, 0, 0, 0))
     d = ImageDraw.Draw(layer)
-    for a, b in zip(lumps, lumps[1:]):                                     # seams along the grass between lumps
-        pts = [(a['x'], a['y'])]
-        n = max(2, int(abs(b['x'] - a['x']) / 3))
-        for i in range(1, n):
-            t = i / n
-            pts.append((a['x'] + (b['x'] - a['x']) * t, a['y'] + (b['y'] - a['y']) * t + r.choice((-2, -1, 0, 1, 2))))
-        pts.append((b['x'], b['y']))
-        crack_line(d, pts, wide)
-    for lump in lumps[::2]:                                                # short splits running off across the grass
-        x, y = lump['x'], lump['y']
-        for sgn in (-1, 1):
-            if r.random() < 0.6:
-                pts = [(x, y)]
-                for i in range(1, 4):
-                    pts.append((x + sgn * i * 4, y + r.choice((-3, -2, 2, 3)) * (1 if i % 2 else -1) * 0.7))
-                crack_line(d, pts, max(1, wide - 1))
-    for mx, mw in MOUTHS:                                                  # splits down the front face
-        if not any(abs(lump['x'] - mx) < 24 for lump in lumps):
+    for a, b in zip(lumps, lumps[1:]):                                     # along the grass, lump to lump
+        crack_line(d, jag(a['x'], a['y'], b['x'], b['y'], r, 1.6), wide)
+    for lump in (lumps[0], lumps[-1]):                                     # running off across the grass
+        sgn = -1 if lump is lumps[0] else 1
+        crack_line(d, jag(lump['x'], lump['y'], lump['x'] + sgn * 14, lump['y'] + r.choice((-3, 2)), r, 1.6), wide)
+    for n, lump in enumerate(lumps):                                       # splits in the dirt blocks, uneven
+        if n % 3 == 1:
             continue
-        pts = [(mx, FACE - 1)]
-        for i in range(1, 6):
-            pts.append((mx + r.choice((-3, -2, 2, 3)) * (1 if i % 2 else -1) * 0.8, FACE - 1 + i * 3.2))
-        crack_line(d, pts, wide if face_open else 1)
+        x = lump['x'] + r.uniform(-6, 6)
+        ln = r.uniform(5, 14)
+        x1 = x + r.choice((-1, 1)) * r.uniform(2, 8)
+        pts = jag(x, FACE - 1, x1, FACE - 1 + ln, r, 2.2, 3)
+        crack_line(d, pts, wide)
+        if ln > 9 and wide >= 2:                                           # a fork
+            mx, my = pts[len(pts) // 2]
+            crack_line(d, jag(mx, my, mx + r.choice((-1, 1)) * 6, my + 4, r, 1.5, 3), max(1, wide - 1))
     img.alpha_composite(layer)
 
 
@@ -260,74 +273,75 @@ def draw_lump(img, lump, scale, eye_mode, eyes_scale=1.0):
     lobe(img, lump['x'], lump['y'], lump['rx'] * scale, lump['ry'] * scale, seed=lump['seed'])
     if lump['eye'] and eye_mode != 'none':
         w, h = lump['eye']
-        w, h = max(4, round(w * eyes_scale)), max(3, round(h * eyes_scale))
-        lid = {'wake': lump['wake'], 'stare': 0.0, 'shut': 1.0, 'sleepy': 0.8}[eye_mode]
-        eye(img, lump['x'], lump['y'] - 1, w, h, look_at(lump['x'], lump['y']), lid)
+        w, h = max(5, round(w * eyes_scale)), max(4, round(h * eyes_scale))
+        lid = {'wake': lump['wake'], 'stare': 0.0, 'shut': 1.0, 'sleepy': 0.7}[eye_mode]
+        eye(img, lump['x'], lump['y'] - 2, w, h, look_at(lump['x'], lump['y']), lid)
 
 
-def draw_mouths(img, mode):
-    """Mouths of uneven human teeth in the front face: 'open', 'shut' (bitten), 'small'."""
-    for mx, mw in MOUTHS:
+def draw_mouths(img, lumps, mode):
+    """Mouths of uneven human teeth in the seams at ground level: lens-shaped gapes in fleshy lips. 'open' grins,
+    'shut' has bitten."""
+    for lump in lumps:
+        if not lump['mouth']:
+            continue
+        x = lump['x']
         if mode == 'open':
-            lobe(img, mx, 89, mw / 2 + 3, 6.5, seed=mx)
-            grin(img, mx, 88, mw, 7, tooth=2, tongue=False, seed=mx)
+            lobe(img, x, 79, 10, 5.5, seed=lump['seed'])
+            grin(img, x, 79, 14, 7, tooth=2, tongue=False, seed=lump['seed'])
         elif mode == 'shut':
-            lobe(img, mx, 89, mw / 2 + 3, 5, seed=mx)
-            grin(img, mx, 89, mw, 2, tooth=3 if mw > 12 else 2, tongue=False, seed=mx)
-        elif mode == 'small' and mx in (112, 168):
-            lobe(img, mx, 90, 4, 2, seed=mx)
+            lobe(img, x, 79, 9, 4.2, seed=lump['seed'])
+            grin(img, x, 79, 14, 2, tooth=3, tongue=False, seed=lump['seed'])
 
 
-def strand(layer, x0, y0, x1, y1, r, bulge=3.0):
-    """A thin strand of flesh from a seam up to a copy, wobbling a little."""
+def sinew(layer, x_root, y_root, cx, y_top, wraps, r, th=1.1):
+    """A thick sinew of flesh rising from a lump and winding round a leg: the devil gripping that moment."""
     d = ImageDraw.Draw(layer)
+    n = 30
     pts = []
-    n = 16
-    ph = r.random() * 6
     for i in range(n + 1):
         t = i / n
-        pts.append((x0 + (x1 - x0) * t + math.sin(t * 5 + ph) * bulge * math.sin(t * math.pi),
-                    y0 + (y1 - y0) * t))
-    d.line(pts, fill=INK + (255,), width=3)
-    d.line(pts, fill=FLESH + (255,), width=1)
-    d.ellipse([x1 - 2.5, y1 - 2.5, x1 + 2.5, y1 + 2.5], fill=INK + (255,))
-    d.ellipse([x1 - 1.5, y1 - 1.5, x1 + 1.5, y1 + 1.5], fill=FLESH + (255,))
+        k = min(1.0, t * 4)
+        x = x_root + (cx - x_root) * k + math.sin(t * wraps * math.tau) * 2.4 * k
+        y = y_root + (y_top - y_root) * t
+        pts.append((x, y, th * (1 - 0.45 * t)))
+    for x, y, rr in pts:
+        d.ellipse([x - rr - 1, y - rr - 1, x + rr + 1, y + rr + 1], fill=INK + (255,))
+    for x, y, rr in pts:
+        d.ellipse([x - rr, y - rr, x + rr, y + rr], fill=FLESH + (255,))
+    for x, y, rr in pts[::2]:
+        d.ellipse([x - rr * 0.2, y - rr * 0.2 + rr * 0.45, x + rr * 0.8, y + rr * 0.9], fill=FLESH_SH + (255,))
+    for x, y, rr in pts[1::4]:
+        d.point((x - rr * 0.4, y - rr * 0.4), fill=FLESH_HI + (255,))
 
 
 # ------------------------------------------------------------------ marks: stored hits, the burst, dust
 
-def slash(img, cx, cy, ang, length, glow=True):
-    """A red slash that hangs on the target and glows."""
+def slash(img, cx, cy, ang, length, hw=1.3):
+    """A thin red slash that hangs on the target and glows."""
     a = math.radians(ang)
     dx, dy = math.cos(a), math.sin(a)
     n = 14
     left, right = [], []
     for i in range(n + 1):
         t = i / n
-        hw = math.sin(t * math.pi) ** 0.8 * 2.0
+        w = math.sin(t * math.pi) ** 0.8 * hw
         px, py = cx + dx * length * (t - 0.5), cy + dy * length * (t - 0.5)
-        left.append((px - dy * hw, py + dx * hw))
-        right.append((px + dy * hw, py - dx * hw))
+        left.append((px - dy * w, py + dx * w))
+        right.append((px + dy * w, py - dx * w))
     poly = left + right[::-1]
-    if glow:
-        g = Image.new('RGBA', img.size, (0, 0, 0, 0))
-        ImageDraw.Draw(g).polygon(poly, fill=(255, 70, 70, 255))
-        ImageDraw.Draw(g).line([poly[0], poly[n]], fill=(255, 90, 90, 255), width=3)
-        g = g.filter(ImageFilter.GaussianBlur(3.2))
-        g.putalpha(g.getchannel('A').point(lambda v: min(255, v * 2)))
-        img.alpha_composite(g)
+    g = Image.new('RGBA', img.size, (0, 0, 0, 0))
+    gd = ImageDraw.Draw(g)
+    gd.polygon(poly, fill=(255, 60, 60, 255))
+    gd.line([poly[0], poly[n]], fill=(255, 60, 60, 255), width=3)
+    g = g.filter(ImageFilter.GaussianBlur(2.0))
+    g.putalpha(g.getchannel('A').point(lambda v: min(200, v * 2)))
+    img.alpha_composite(g)
     layer = Image.new('RGBA', img.size, (0, 0, 0, 0))
     d = ImageDraw.Draw(layer)
-    d.polygon([(x + (x - cx) * 0.0, y) for x, y in poly], fill=INK + (255,))
-    d.line([left[0], left[n // 2], left[n]], fill=INK + (255,), width=4)
-    d.polygon(poly, fill=RED + (255,))
-    d.line([(cx + dx * length * (t - 0.5), cy + dy * length * (t - 0.5)) for t in (0.12, 0.88)], fill=RED_HI + (255,),
+    d.polygon(poly, fill=RED + (255,), outline=INK + (255,))
+    d.line([(cx + dx * length * (t - 0.5), cy + dy * length * (t - 0.5)) for t in (0.15, 0.85)], fill=RED_HI + (255,),
            width=1)
     img.alpha_composite(layer)
-    d = ImageDraw.Draw(img)
-    for t, side in ((0.3, 1), (0.65, -1)):                                 # two hairline cracks off the slash
-        px, py = cx + dx * length * (t - 0.5), cy + dy * length * (t - 0.5)
-        d.line([(px, py), (px - dy * side * 4 + dx * 2, py + dx * side * 4 + dy * 2)], fill=RED + (255,))
 
 
 def star(d, cx, cy, r_out, r_in, n, fill, rot=0.0, seed=1):
@@ -393,24 +407,33 @@ def dizzy(img, cx, cy):
 # ------------------------------------------------------------------ the five panels
 
 N_COPY = 4
-SPACING = 15
-FADE = (0.8, 0.58, 0.36, 0.17)
-WALK = 1.25                     # the zombie's pose when locked: mid-stride
-STEP = 0.9                      # one copy = this much further through the walk cycle
+FADE = (0.85, 0.62, 0.42, 0.22)
+WALK = 1.25                     # the zombie's pose when locked: mid-stride, legs apart
+STEP = 1.3                      # one copy = this much further through the walk cycle
 
 
-def copy_sprite(phase, k):
-    s = grade(zombie(phase, 6 + 2 * math.sin(phase * 2)), sat=0.3, sepia=0.6, alpha=FADE[abs(k) - 1],
-              tint=(170, 205, 235), tint_amt=0.3)
-    return s
+def copy_sprite(phase, k, alpha_boost=0.0):
+    """The same zombie in another stride, drained to a grey-green and fading with distance."""
+    return grade(zombie(phase, 0), sat=0.5, sepia=0.35, alpha=min(1.0, FADE[abs(k) - 1] + alpha_boost),
+                 tint=(122, 150, 112), tint_amt=0.3)
 
 
-def line_of_copies(img, centre=ZX, spacing=SPACING, phase0=WALK, streaks=False):
-    """Moments of the zombie's walk, earlier ones behind it (right) and later ones ahead (left)."""
+def locked_zombie():
+    return grade(zombie(WALK, 0), sat=0.55, sepia=0.4)
+
+
+def line_of_copies(img, centre=ZX, phase0=WALK):
+    """Moments of one walk, earlier ones behind it (right) and later ones ahead (left), each in its own stride."""
     for k in range(N_COPY, 0, -1):
         for sgn in (1, -1):                                                # sgn +1 is the past, -1 is the future
-            x = centre + sgn * k * spacing
-            put(img, copy_sprite(phase0 - sgn * k * STEP, k), x)
+            put(img, copy_sprite(phase0 - sgn * k * STEP, k), centre + sgn * k * SPACING)
+
+
+def stretched(sprite, f):
+    im = sprite.resize((round(sprite.width * f), sprite.height), Image.NEAREST)
+    out = Image.new('RGBA', sprite.size, (0, 0, 0, 0))
+    out.paste(im, (round(CXC - im.width / 2), 0))
+    return out
 
 
 def stage_scene(stage):
@@ -419,107 +442,90 @@ def stage_scene(stage):
     if stage in (2, 3):
         bg = drain(bg, ZX, 56, 96, 62, 0.92)
     img = bg
-    near = [lump for lump in LUMPS if abs(lump['j']) <= 2]
     p_x = 28 if stage <= 2 else 108
+    mid = ZX + 6
 
     if stage == 1:
-        lumps, wide, scale, eye_mode = near, 2, 0.85, 'wake'
+        lumps, wide, scale, eye_mode, es = [lu for lu in LUMPS if abs(lu['j'] + 0.5) <= 2.6], 2, 0.9, 'wake', 1.0
     elif stage in (2, 3):
-        lumps, wide, scale, eye_mode = LUMPS, 3, 1.0, 'stare'
+        lumps, wide, scale, eye_mode, es = LUMPS, 3, 1.0, 'stare', 1.0
     elif stage == 4:
-        lumps, wide, scale, eye_mode = LUMPS, 3, 0.9, 'shut'
+        lumps, wide, scale, eye_mode, es = LUMPS, 3, 0.9, 'shut', 1.0
     else:
-        lumps = [lump for lump in LUMPS if lump['j'] in (-3, -1, 2)]
-        wide, scale, eye_mode = 1, 0.38, 'sleepy'
-    draw_cracks(img, lumps, wide, stage in (1, 2, 3, 4))
-    back = list(lumps)
-    front = []
-    es = 0.5 if stage == 5 else 1.0
-    for lump in sorted(back, key=lambda lu: lu['y']):
+        keep = dict(next(lu for lu in LUMPS if lu['j'] == -2))
+        lumps, wide, scale, eye_mode, es = [keep], 1, 0.5, 'sleepy', 0.75
+    draw_cracks(img, lumps, wide)
+    for lump in sorted(lumps, key=lambda lu: lu['y']):
         draw_lump(img, lump, scale, eye_mode, es)
 
     # ---------------------------------------------------------------- the people
     if stage == 1:
         put(img, player(-6), p_x)
-        put(img, zombie(WALK, 6), ZX)
+        put(img, zombie(WALK, 0), ZX)
         chips(img, ZX, 74, 40, 24)
     elif stage == 2:
         put(img, player(-6), p_x)
         line_of_copies(img)
-        put(img, grade(zombie(WALK, 6), sat=0.4, sepia=0.5), ZX)
+        put(img, locked_zombie(), ZX)
     elif stage == 3:
         line_of_copies(img)
-        put(img, grade(zombie(WALK, 6), sat=0.4, sepia=0.5), ZX)
+        put(img, locked_zombie(), ZX)
         put(img, player(-38, blade=True, step=2), p_x)
-        # the swing's trail
         d = ImageDraw.Draw(img)
         d.arc([p_x - 22, 18, p_x + 26, 66], 285, 345, fill=(255, 255, 255, 255), width=2)
         d.arc([p_x - 18, 22, p_x + 22, 62], 292, 340, fill=(255, 255, 255, 255), width=1)
     elif stage == 4:
-        line_of_copies(img, centre=ZX + 6, spacing=4)
         d = ImageDraw.Draw(img)
-        for k in range(1, N_COPY + 1):                                     # the line snapping inward: speed streaks
+        for k in range(N_COPY, 0, -1):                                     # the line snapping inward, stretched
             for sgn in (1, -1):
-                x_far = ZX + 6 + sgn * (k * SPACING + 8)
-                x_near = ZX + 6 + sgn * (k * 4 + 3)
-                y = 46 + (k * 5) % 22
-                d.line([(x_far, y), (x_near, y)], fill=(255, 255, 255, 255), width=1)
-                d.line([(x_far - sgn * 4, y + 1), (x_near + sgn * 6, y + 1)], fill=(255, 255, 255, 255), width=1)
-        burst(img, ZX + 8, 56, 0.72)
+                x_far = mid + sgn * k * SPACING
+                x_near = mid + sgn * k * 6
+                y = 50 + (k * 7 + (sgn > 0) * 4) % 22
+                d.line([(x_far, y), (x_near + sgn * 8, y)], fill=(255, 255, 255, 255), width=1)
+                d.line([(x_far - sgn * 6, y + 3), (x_near + sgn * 12, y + 3)], fill=(255, 255, 255, 255), width=1)
+                put(img, stretched(copy_sprite(WALK - sgn * k * STEP, k, 0.15), 1.7), x_near)
+        burst(img, mid, 56, 0.6)
         put(img, player(0, blade=True, step=-2), p_x)
-        zs = zombie(0.5, 12).rotate(-30, resample=Image.BICUBIC, center=(CXC, FOOT))
-        zs = grade(zs, tint=(255, 255, 255), tint_amt=0.28)
-        put(img, zs, ZX + 34, dy=-8)
-        chips(img, ZX + 8, 58, 60, 36)
+        zs = zombie(0.4, 32).rotate(-50, resample=Image.NEAREST, center=(CXC, FOOT))
+        zs = grade(zs, tint=(255, 255, 255), tint_amt=0.1)
+        put(img, zs, ZX + 30, dy=-12)
+        chips(img, mid, 58, 60, 36)
     else:
         put(img, player(60, blade=False, point=False, back=90), p_x)
         lying = zombie(1.0, 20).rotate(-90, resample=Image.NEAREST, expand=True)
         bb = lying.getbbox()
-        lx = round(ZX + 36 - lying.width / 2)
-        ly = 78 - bb[3]
         layer = Image.new('RGBA', img.size, (0, 0, 0, 0))
-        layer.paste(lying, (lx, ly))
+        layer.paste(lying, (round(ZX + 36 - lying.width / 2), 78 - bb[3]))
         img.alpha_composite(layer)
-        dizzy(img, lx + bb[2] - 4, ly + bb[1] - 6)
-        for x, y, rr in ((ZX - 6, 73, 4), (ZX + 2, 75, 3), (ZX - 14, 74, 3), (ZX + 78, 73, 4)):
-            puff(img, x, y, rr)
-    for lump in sorted(front, key=lambda lu: lu['y']):
-        draw_lump(img, lump, scale, eye_mode, es)
+        chips(img, ZX + 20, 72, 22, 8, seed=9)
 
-    # ---------------------------------------------------------------- the line held in place; the stored hits; mouths
+    # ---------------------------------------------------------------- the line gripped; the stored hits; mouths
     if stage == 2:
         sl = Image.new('RGBA', img.size, (0, 0, 0, 0))
         for k in range(-N_COPY, N_COPY + 1):
-            x = ZX - k * SPACING
-            for tx, ty in ((x - 6, 60),):
-                strand(sl, x + r.uniform(-2, 2), 77, tx, ty, r, 2.0)
-        fade = Image.new('RGBA', img.size, (255, 255, 255, 255))
+            cx = ZX - k * SPACING
+            sinew(sl, cx - 5, 80, cx - 1, 60, 1.5, r)
         mask = Image.new('L', img.size, 0)
         md = ImageDraw.Draw(mask)
         for k in range(-N_COPY, N_COPY + 1):
-            a = 255 if k == 0 else int(255 * min(1.0, FADE[abs(k) - 1] + 0.4))
+            a = 255 if k == 0 else int(255 * min(1.0, FADE[abs(k) - 1] + 0.45))
             md.rectangle([ZX - k * SPACING - SPACING / 2, 0, ZX - k * SPACING + SPACING / 2, H], fill=a)
         sl.putalpha(ImageChops.multiply(sl.getchannel('A'), mask))
         img.alpha_composite(sl)
-        del fade
     if stage == 3:
-        for dx, dy, ang, ln in ((-1, -28, -40, 15), (2, -20, 28, 17), (-3, -14, -8, 20), (1, -9, 62, 15),
-                                (-2, -23, 8, 12)):
-            slash(img, ZX + dx, FEET + dy, ang, ln + 6)
-        sl = Image.new('RGBA', img.size, (0, 0, 0, 0))
-        for lump in LUMPS:                                                  # seam strands hold the line still
-            pass
-        draw_mouths(img, 'open')
+        for dx, dy, ang, ln in ((0, -29, -50, 12), (0, -19, 35, 13), (-8, -21, 70, 11), (-1, -8, -40, 12),
+                                (1, -3, 55, 10)):
+            slash(img, ZX + dx, FEET + dy, ang, ln + 3)
+        draw_mouths(img, lumps, 'open')
     elif stage == 4:
-        draw_mouths(img, 'shut')
+        draw_mouths(img, lumps, 'shut')
         d = ImageDraw.Draw(img)
-        for mx, mw in MOUTHS:                                               # the snap of each bite
-            for sgn in (-1, 1):
-                x = mx + sgn * (mw / 2 + 7)
-                d.line([(x, 84), (x + sgn * 4, 82)], fill=(255, 255, 255, 255), width=1)
-                d.line([(x, 89), (x + sgn * 5, 89)], fill=(255, 255, 255, 255), width=1)
-    elif stage == 5:
-        draw_mouths(img, 'small')
+        for lump in lumps:                                                  # the snap of each bite
+            if lump['mouth']:
+                for sgn in (-1, 1):
+                    x = lump['x'] + sgn * 11
+                    d.line([(x, 77), (x + sgn * 4, 74)], fill=(255, 255, 255, 255), width=1)
+                    d.line([(x, 80), (x + sgn * 5, 80)], fill=(255, 255, 255, 255), width=1)
     return img
 
 
@@ -528,13 +534,13 @@ CAPTIONS = [
      'cracks in low lumps. Eyes open in it, all turning to stare at the zombie.'),
     ('2  LOCKED', 'Colour drains from the zombie and the air round it, and it freezes mid-step. Every moment of its '
      'walk shows at once: copies trailing back the way it came and on ahead toward you, fading into nothing. '
-     'Strands of flesh hold the line in place. The eyes never blink.'),
+     'Sinews of flesh wind round the legs and hold each moment in place. The eyes never blink.'),
     ('3  STORED HITS', 'Each hit you land does not land. It hangs on the zombie as a glowing red mark that stays. '
      'The devil\'s mouths open along the seams, grinning, as if counting.'),
     ('4  THE MOMENT ENDS', 'After 3 seconds the eyes snap shut, the mouths bite shut, the whole line of copies '
      'snaps into the zombie, and every stored hit goes off at once. The zombie is thrown back.'),
     ('5  GONE', 'The flesh sinks back into the ground, the cracks close, the colour comes back. '
-     'The zombie is down, dizzy.'),
+     'The zombie is down.'),
 ]
 
 
@@ -585,28 +591,16 @@ def scene_cache(stage):
 # ------------------------------------------------------------------ the close-ups
 
 def seam_closeup():
-    """One flesh seam in the grass at game size: two or three eyes and a grinning mouth."""
+    """One flesh seam in the grass at game size: two eyes and a grinning mouth, in cracked ground."""
     img = backdrop()
-    # one seam, three lumps, eyes all looking the same way
-    lumps = [dict(x=112, y=76, rx=9, ry=4.6, eye=(10, 6), seed=3, wake=0.0, j=0),
-             dict(x=128, y=77, rx=8, ry=4.2, eye=(8, 5), seed=4, wake=0.0, j=1),
-             dict(x=143, y=75, rx=7, ry=4, eye=(8, 5), seed=5, wake=0.0, j=2)]
-    layer = Image.new('RGBA', img.size, (0, 0, 0, 0))
-    d = ImageDraw.Draw(layer)
-    r = random.Random(1)
-    pts = [(96, 74)]
-    for x in range(99, 164, 3):
-        pts.append((x, 76 + r.choice((-2, -1, 0, 1, 2))))
-    crack_line(d, pts, 3)
-    for sx in (123, 135):                                                  # the seam splits the front face too
-        crack_line(d, [(sx, FACE - 1)] + [(sx + r.choice((-3, 3)), FACE + 3 * i) for i in range(1, 6)], 3)
-    img.alpha_composite(layer)
+    lumps = [dict(x=104, y=77, rx=8, ry=4.2, eye=(11, 6), seed=3, wake=0.0, j=0, mouth=False),
+             dict(x=122, y=77, rx=10, ry=5, eye=(14, 8), seed=4, wake=0.0, j=1, mouth=False),
+             dict(x=140, y=77, rx=7, ry=3.4, eye=None, seed=5, wake=0.0, j=2, mouth=True),
+             dict(x=156, y=77, rx=8, ry=4, eye=None, seed=6, wake=0.0, j=3, mouth=False)]
+    draw_cracks(img, lumps, 3)
     for lump in lumps:
-        lobe(img, lump['x'], lump['y'], lump['rx'], lump['ry'], seed=lump['seed'])
-        w, h = lump['eye']
-        eye(img, lump['x'], lump['y'] - 1, w, h, (-0.8, 0.5), 0.0)
-    lobe(img, 129, 89, 12, 6, seed=9)
-    grin(img, 129, 88, 17, 8, tooth=3, tongue=True, seed=9)
+        draw_lump(img, lump, 1.0, 'stare')
+    draw_mouths(img, lumps, 'open')
     return img.crop((88, 54, 168, 96))
 
 
@@ -619,7 +613,7 @@ def closeups():
     pa = a.resize((a.width * S1, a.height * S1), Image.NEAREST).convert('RGB')
     pb = b.resize((b.width * S2, b.height * S2), Image.NEAREST).convert('RGB')
     w = max(pa.width, pb.width) + 2 * pad
-    h = pad + 50 + pa.height + 90 + 50 + pb.height + 70
+    h = pad + 50 + pa.height + 90 + 50 + pb.height + 110
     out = Image.new('RGB', (w, h), PAPER)
     d = ImageDraw.Draw(out)
     y = pad
@@ -632,7 +626,7 @@ def closeups():
     d.line([(pad, y + 6), (pad + blk, y + 6)], fill=LABEL, width=4)
     d.line([(pad, y), (pad, y + 12)], fill=LABEL, width=3)
     d.line([(pad + blk, y), (pad + blk, y + 12)], fill=LABEL, width=3)
-    d.text((pad + blk + 14, y + 6), '= 1 block. The big eye is 0.6 of a block wide, the mouth about one block.',
+    d.text((pad + blk + 14, y + 6), '= 1 block. The big eye is almost a block wide, the mouth about one block.',
            fill=LABEL, font=f_s, anchor='lm')
     y += 70
     d.text((pad, y), 'THE LOCKED ZOMBIE\'S LINE OF COPIES, 8 times up', fill=LABEL, font=f_t)
@@ -640,8 +634,10 @@ def closeups():
     out.paste(pb, (pad, y))
     d.rectangle([pad - 2, y - 2, pad + pb.width + 1, y + pb.height + 1], outline=LABEL, width=2)
     y += pb.height + 12
-    d.text((pad, y), 'Real zombie in the middle, four moments behind it (right) and four ahead (left), each one '
-           'step further through the walk and more see-through.', fill=LABEL, font=f_s)
+    for line in wrap(d, 'Real zombie in the middle, four moments behind it (right) and four ahead (left), each '
+                     'one step further through the walk and more see-through.', f_s, w - 2 * pad):
+        d.text((pad, y), line, fill=LABEL, font=f_s)
+        y += 32
     return out
 
 
