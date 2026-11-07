@@ -25,7 +25,7 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.GameMode;
 
 /**
- * {@code /chainsaw}, for operators, to try everything out: {@code scene} builds a test ground round you (a flat floor,
+ * {@code /chainsaw}, for operators, to try everything out: {@code owner [<player>|clear]} shows, sets or clears whose Pochita is ({@link Owner}); {@code scene} builds a test ground round you (a flat floor,
  * a row of mobs standing still in front of you to cut down, a wild Pochita fainted in a log to your right) and sets you
  * up to go through it all from the taming to the merge; {@code mobs} puts the row of mobs back; {@code pochita} a
  * fainted Pochita in a log beside you; {@code heart} gives you Pochita's heart now (no merge), {@code reset} takes it
@@ -48,6 +48,23 @@ public final class ChainsawCommand {
 		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(
 				CommandManager.literal("chainsaw")
 						.requires(source -> source.hasPermissionLevel(2))
+						.then(CommandManager.literal("owner")
+								.executes(context -> {
+									context.getSource().sendFeedback(() -> Owner.claimed() ? Text.translatable("commands.chainsaw.owner", Owner.get())
+											: Text.translatable("commands.chainsaw.owner.none"), false);
+									return 1;
+								})
+								.then(CommandManager.literal("clear").executes(context -> {
+									Owner.set(context.getSource().getServer(), null);
+									context.getSource().sendFeedback(() -> Text.translatable("commands.chainsaw.owner.cleared"), true);
+									return 1;
+								}))
+								.then(CommandManager.argument("player", com.mojang.brigadier.arguments.StringArgumentType.word()).executes(context -> {
+									String name = com.mojang.brigadier.arguments.StringArgumentType.getString(context, "player");
+									Owner.set(context.getSource().getServer(), name);
+									context.getSource().sendFeedback(() -> Text.translatable("commands.chainsaw.owner.set", name), true);
+									return 1;
+								})))
 						.then(CommandManager.literal("scene").executes(context -> scene(context)))
 						.then(CommandManager.literal("mobs").executes(context -> {
 							mobs(context.getSource().getPlayerOrThrow());

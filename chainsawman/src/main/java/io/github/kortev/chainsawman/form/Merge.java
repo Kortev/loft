@@ -3,6 +3,7 @@ package io.github.kortev.chainsawman.form;
 import io.github.kortev.chainsawman.ChainsawMan;
 import io.github.kortev.chainsawman.ChainsawSounds;
 import io.github.kortev.chainsawman.PochitaEntity;
+import io.github.kortev.chainsawman.Owner;
 import io.github.kortev.chainsawman.PochitaItem;
 import io.github.kortev.chainsawman.network.FormEventPayload;
 import java.util.List;
@@ -56,9 +57,9 @@ public final class Merge {
 		});
 	}
 
-	/** Whether {@code player}, dying now, becomes Chainsaw Man: kortev, not yet merged, Pochita carried or near. */
+	/** Whether {@code player}, dying now, becomes Chainsaw Man: the owner (anyone while there is none), not yet merged, Pochita carried or near. */
 	public static boolean comes(ServerPlayerEntity player) {
-		return !Heart.merged(player) && player.getGameProfile().getName().equalsIgnoreCase(ChainsawMan.OWNER)
+		return !Heart.merged(player) && Owner.is(player)
 				&& (PochitaItem.carried(player) || near(player) != null);
 	}
 

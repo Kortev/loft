@@ -40,8 +40,6 @@ import org.slf4j.LoggerFactory;
 public final class ChainsawMan implements ModInitializer {
 	public static final String MOD_ID = "chainsawman";
 	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
-	/** Whose these powers are. */
-	public static final String OWNER = "kortev";
 
 	/** Pochita picked up: a chainsaw in your hands, and carried when you die, your heart. */
 	public static final Item POCHITA = Registry.register(Registries.ITEM, id("pochita"),
@@ -69,6 +67,7 @@ public final class ChainsawMan implements ModInitializer {
 		SpawnRestriction.register(POCHITA_ENTITY, SpawnLocationTypes.ON_GROUND, Heightmap.Type.MOTION_BLOCKING_NO_LEAVES,
 				AnimalEntity::isValidNaturalSpawn);
 		// One in a world, waiting where he was put.
+		Owner.init();
 		PochitaPlace.init();
 		ChainsawCommand.init();
 		PayloadTypeRegistry.playS2C().register(FormPayload.ID, FormPayload.CODEC);

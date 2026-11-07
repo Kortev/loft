@@ -399,8 +399,9 @@ fine.)
 ## What the mod does now (all pushed)
 
 - **Pochita** (`chainsawman:pochita`): an item, carried anywhere in the inventory. Anyone can craft it (the owner lock
-  was removed in phase 0; the world's own Pochita den and feeding him until he merges are still kortev's alone via
-  `ChainsawMan.OWNER`). Recipe: chains, orange wool, a nether star.
+  was removed in phase 0). Feeding him, merging and the den hint are open to everyone unless an owner is set:
+  `/chainsaw owner <player>` (op only, kept with the world; `clear` unsets; `Owner.java`). **kortev's SMP needs
+  `/chainsaw owner kortev` run once.** Recipe: chains, orange wool, a nether star.
 - **The cord key (G)**: with Pochita carried, pulling the cord transforms you; pulling it again turns you back (the
   engine sputters and dies). Losing Pochita, dying or leaving also turns you back. The server owns the state
   (`form/Form.java`) and tells every client (`FormPayload`, `FormPullPayload`).

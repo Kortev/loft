@@ -185,7 +185,7 @@ public class PochitaEntity extends TameableEntity {
 
 	/** {@code player} holding use on him: more of their blood into him, and once it's enough, he's theirs. */
 	public void feed(ServerPlayerEntity player) {
-		if (!player.getGameProfile().getName().equalsIgnoreCase(ChainsawMan.OWNER)) {
+		if (!Owner.is(player)) {
 			player.sendMessage(Text.translatable("message.chainsawman.pochita_wary").formatted(Formatting.GRAY), true);
 			return;
 		}

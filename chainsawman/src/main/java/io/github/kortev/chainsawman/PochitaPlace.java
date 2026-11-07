@@ -58,9 +58,21 @@ public final class PochitaPlace extends PersistentState {
 	/** When he was lost (world time), or -1. */
 	private long lost = -1;
 	private boolean merged;
+	/** Whose Pochita is on this world ({@link Owner}), or null. */
+	private String owner;
 
 	private static PochitaPlace of(MinecraftServer server) {
 		return server.getOverworld().getPersistentStateManager().getOrCreate(TYPE, "chainsawman_pochita");
+	}
+
+	static String owner(MinecraftServer server) {
+		return of(server).owner;
+	}
+
+	static void setOwner(MinecraftServer server, String name) {
+		PochitaPlace place = of(server);
+		place.owner = name;
+		place.markDirty();
 	}
 
 	public static void init() {
@@ -92,7 +104,7 @@ public final class PochitaPlace extends PersistentState {
 					}
 					continue;
 				}
-				if (player.getGameProfile().getName().equalsIgnoreCase(ChainsawMan.OWNER) && player.getWorld() == world
+				if (Owner.is(player) && player.getWorld() == world
 						&& !world.getEntitiesByClass(PochitaEntity.class, player.getBoundingBox().expand(HEAR), p -> !p.isTamed()).isEmpty()) {
 					player.sendMessage(Text.translatable("message.chainsawman.pochita_near").formatted(Formatting.GRAY, Formatting.ITALIC), true);
 				}
@@ -450,6 +462,9 @@ public final class PochitaPlace extends PersistentState {
 		nbt.putLong("Lost", lost);
 		nbt.putBoolean("Merged", merged);
 		nbt.putInt("Built", built);
+		if (owner != null) {
+			nbt.putString("Owner", owner);
+		}
 		return nbt;
 	}
 
@@ -462,6 +477,7 @@ public final class PochitaPlace extends PersistentState {
 		place.lost = nbt.contains("Lost") ? nbt.getLong("Lost") : -1;
 		place.merged = nbt.getBoolean("Merged");
 		place.built = nbt.getInt("Built");
+		place.owner = nbt.contains("Owner") ? nbt.getString("Owner") : null;
 		return place;
 	}
 }

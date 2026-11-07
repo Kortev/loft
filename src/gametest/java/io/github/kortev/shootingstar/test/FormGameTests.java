@@ -47,6 +47,9 @@ import net.minecraft.world.GameRules;
  * bites what is in front of him, leaps, and dives away.
  */
 public class FormGameTests implements FabricGameTest {
+	/** Who the merge and taming tests play as; the mod itself has no fixed owner. */
+	private static final String KORTEV = "kortev";
+
 	/** How long a player who has just joined can't be hurt (ticks), as the game keeps them. */
 	private static final int JOINED = 61;
 
@@ -482,7 +485,7 @@ public class FormGameTests implements FabricGameTest {
 	 */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_merge", tickLimit = JOINED + MergeTimeline.END + 30)
 	public void pochitaBecomesYourHeart(TestContext context) {
-		ServerPlayerEntity player = player(context, ChainsawMan.OWNER, 0.0);
+		ServerPlayerEntity player = player(context, KORTEV, 0.0);
 		player.getInventory().insertStack(new ItemStack(ChainsawMan.POCHITA));
 		context.waitAndRun(JOINED, () -> {
 			try {
@@ -513,10 +516,35 @@ public class FormGameTests implements FabricGameTest {
 		});
 	}
 
+	/** Nobody's by default: anyone merges and feeds Pochita. Once an owner is set, only they do; cleared, anyone again. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_owner", tickLimit = 20)
+	public void ownerGatesTheMerge(TestContext context) {
+		ServerPlayerEntity stranger = player(context, "stranger", 0.0);
+		ServerPlayerEntity owner = player(context, KORTEV, 2.0);
+		net.minecraft.server.MinecraftServer server = context.getWorld().getServer();
+		try {
+			io.github.kortev.chainsawman.Owner.set(server, null);
+			stranger.getInventory().insertStack(new ItemStack(ChainsawMan.POCHITA));
+			owner.getInventory().insertStack(new ItemStack(ChainsawMan.POCHITA));
+			context.assertTrue(Merge.comes(stranger) && Merge.comes(owner), "with no owner, not everyone could merge");
+			io.github.kortev.chainsawman.Owner.set(server, KORTEV);
+			context.assertTrue(Merge.comes(owner) && !Merge.comes(stranger), "with an owner set, only they could merge");
+			context.assertTrue(io.github.kortev.chainsawman.Owner.is(owner) && !io.github.kortev.chainsawman.Owner.is(stranger), "Owner.is disagreed");
+			io.github.kortev.chainsawman.Owner.set(server, null);
+			context.assertTrue(Merge.comes(stranger), "clearing the owner didn't open it to everyone");
+		} finally {
+			io.github.kortev.chainsawman.Owner.set(server, null);
+			done(context, stranger);
+			done(context, owner);
+		}
+		context.complete();
+	}
+
 	/** Pochita takes kortev's blood until he's theirs; anyone else's he won't. */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_tame", tickLimit = PochitaEntity.FEED + 40)
 	public void bloodTamesPochita(TestContext context) {
-		ServerPlayerEntity owner = player(context, ChainsawMan.OWNER, 0.0);
+		io.github.kortev.chainsawman.Owner.set(context.getWorld().getServer(), KORTEV);
+		ServerPlayerEntity owner = player(context, KORTEV, 0.0);
 		ServerPlayerEntity other = player(context, "stranger", 2.0);
 		PochitaEntity pochita = new PochitaEntity(ChainsawMan.POCHITA_ENTITY, context.getWorld());
 		Vec3d at = spot(context).add(0.0, 0.0, 1.5);
@@ -538,6 +566,7 @@ public class FormGameTests implements FabricGameTest {
 				context.assertTrue(pochita.isTamed() && pochita.isOwner(owner), "kortev's blood didn't tame him");
 			} finally {
 				pochita.discard();
+				io.github.kortev.chainsawman.Owner.set(context.getWorld().getServer(), null);
 				done(context, owner);
 				done(context, other);
 			}
@@ -548,7 +577,7 @@ public class FormGameTests implements FabricGameTest {
 	/** Pochita doesn't die: he faints, and kortev's blood brings him round. */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_faint", tickLimit = PochitaEntity.WAKE + 40)
 	public void pochitaFaints(TestContext context) {
-		ServerPlayerEntity owner = player(context, ChainsawMan.OWNER, 0.0);
+		ServerPlayerEntity owner = player(context, KORTEV, 0.0);
 		PochitaEntity pochita = new PochitaEntity(ChainsawMan.POCHITA_ENTITY, context.getWorld());
 		Vec3d at = spot(context).add(0.0, 0.0, 1.5);
 		pochita.refreshPositionAndAngles(at.x, at.y, at.z, 0.0F, 0.0F);
