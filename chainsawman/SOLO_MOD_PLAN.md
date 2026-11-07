@@ -67,6 +67,13 @@ the loop from above) at 1 px = 1/16 block. Sent to kortev; waiting on their verd
   Ideas put to kortev, none picked yet: **Echo** (Opus's pick: your last 5 s replay as an afterimage, again and
   again, for ~15 s), frozen moment (5 s, stored hits land at once), rewind (snap back to a marked moment and its
   health), undying (10 s on half a heart, some damage catches up after), endless wound (the target can't heal for 20 s).
+  A second round: endless fall, stuck in a loop (the target replays its own last 3 s), one more time (cheat death
+  once a day), everlasting shots (projectiles orbit you), make it eternal.
+  **Leading (kortev likes it, not locked in): Echo as a multiplying crowd.** A see-through copy replays your last
+  5 s; each copy splits in two when its replay ends (1→2→4→…→32, each a moment behind the last), a rolling wave of
+  you within ~20 blocks; at the end (~20 s) every copy turns to the target and strikes at once, then fades. Each
+  copy hits weakly and a target takes echo hits only a few times a second. Copies are render-only ghosts, with only
+  their hits worked out on the server. kortev: big visuals are how the mod should stand apart from other mods.
 - **No max-heart prices** (kortev worried they'd stack; they can't, one contract at a time, but still no hearts).
   The price is what the devil asks for; ideas: beds stop working for you, faster hunger.
 - **Killing and getting a contract must be different things** (beating a devil down until it offers one doesn't fit
