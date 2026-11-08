@@ -70,7 +70,9 @@ public final class ChainsawMan implements ModInitializer {
 	/** The Eternity Devil grown out of its hotel's walls (the boss), and flesh creeping across the floor from it. */
 	public static final EntityType<io.github.kortev.chainsawman.hotel.EternityDevilEntity> ETERNITY_DEVIL = Registry.register(Registries.ENTITY_TYPE, id("eternity_devil"),
 			EntityType.Builder.<io.github.kortev.chainsawman.hotel.EternityDevilEntity>create(io.github.kortev.chainsawman.hotel.EternityDevilEntity::new, SpawnGroup.MONSTER)
-					.dimensions(io.github.kortev.chainsawman.hotel.EternityDevilEntity.WIDTH, io.github.kortev.chainsawman.hotel.EternityDevilEntity.HEIGHT).maxTrackingRange(8)
+					.dimensions(io.github.kortev.chainsawman.hotel.EternityDevilEntity.WIDTH, io.github.kortev.chainsawman.hotel.EternityDevilEntity.HEIGHT)
+					// (Its eyes are low in the mass, in the corridor's air: the top of its box is in the ceiling, and those looking along the corridor must be able to see it to hit it.)
+					.eyeHeight(1.5F).maxTrackingRange(8)
 					.trackingTickInterval(2).disableSummon().disableSaving().makeFireImmune().build("eternity_devil"));
 	/** Flesh growing at the corners of the loop floor with the laps: only drawn. */
 	public static final EntityType<io.github.kortev.chainsawman.hotel.FleshGrowthEntity> FLESH_GROWTH = Registry.register(Registries.ENTITY_TYPE, id("flesh_growth"),

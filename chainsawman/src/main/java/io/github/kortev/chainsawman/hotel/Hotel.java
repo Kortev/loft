@@ -81,6 +81,8 @@ public final class Hotel {
 		/** An offer is out or was made (so not made again) while this hotel's devil waits. */
 		public Deal deal;
 		public boolean dealt;
+		/** Ticks this hotel gives to answer, if not the default (the tests give a short time). */
+		public int answerTicks = -1;
 		/** The tick the devil died, while the lights die after it; -1 when not. */
 		public long dyingAt = -1;
 
@@ -313,18 +315,14 @@ public final class Hotel {
 			int m = x % HotelPlan.PERIOD;
 			if (level >= 1 && (m == 3 || m == 9)) {
 				out.add(new G(FleshGrowthEntity.FLOOR, x + 0.5, 29.0, 5.0, true));
-				out.add(new G(FleshGrowthEntity.CEILING, x + 0.5, 32.0, 8.0, false));
+				out.add(new G(FleshGrowthEntity.FLOOR, x + 0.5, 29.0, 8.0, false));
 			}
 			if (level >= 2 && (m == 2 || m == 4 || m == 8 || m == 10)) {
-				out.add(new G(FleshGrowthEntity.FLOOR, x + 0.5, 29.0, 8.0, false));
-				out.add(new G(FleshGrowthEntity.CEILING, x + 0.5, 32.0, 5.0, true));
+				out.add(new G(FleshGrowthEntity.FLOOR, x + 0.5, 29.0, m % 4 == 0 ? 8.0 : 5.0, m % 4 != 0));
 			}
 			if (level >= 3 && (m == 6 || m == 0)) {
-				out.add(new G(FleshGrowthEntity.WALL, x + 0.5, 30.3, 5.0, true));
-				out.add(new G(FleshGrowthEntity.WALL, x + 0.5, 30.8, 8.0, false));
-			}
-			if (level >= 3 && (m == 3 || m == 9)) {
-				out.add(new G(FleshGrowthEntity.HANGING, x + 0.5, 32.0, 6.5, true));
+				out.add(new G(FleshGrowthEntity.WALL, x + 0.5, 30.0, 5.0, true));
+				out.add(new G(FleshGrowthEntity.WALL, x + 0.5, 30.5, 8.0, false));
 			}
 		}
 		return out;
@@ -415,8 +413,8 @@ public final class Hotel {
 
 	/** Ticks a player has to answer the offer (20 seconds), and when its words and its screen come (ticks after it starts). */
 	public static int answerTicks = 400;
-	public static final int[] SPEECH_AT = {0, 34, 70};
-	public static final int OPENS_AT = 108;
+	public static final int[] SPEECH_AT = {0, 26, 54};
+	public static final int OPENS_AT = 84;
 	private static final String[] SPEECH = {"message.chainsawman.devil.deal.1", "message.chainsawman.devil.deal.2", "message.chainsawman.devil.deal.3"};
 
 	/** The Eternity Devil speaks to those in the loop once someone has walked three laps or been on the floor for a minute. */
@@ -487,10 +485,11 @@ public final class Hotel {
 		if (!d.open && t >= OPENS_AT) {
 			d.open = true;
 			for (UUID id : d.players) {
-				d.deadline.put(id, now + answerTicks);
+				int give = r.answerTicks > 0 ? r.answerTicks : answerTicks;
+				d.deadline.put(id, now + give);
 				ServerPlayerEntity p = world.getServer().getPlayerManager().getPlayer(id);
 				if (p != null && ServerPlayNetworking.canSend(p, HotelPayloads.Offer.ID)) {
-					ServerPlayNetworking.send(p, new HotelPayloads.Offer(answerTicks));
+					ServerPlayNetworking.send(p, new HotelPayloads.Offer(give));
 				}
 			}
 		}

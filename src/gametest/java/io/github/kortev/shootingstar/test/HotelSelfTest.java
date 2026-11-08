@@ -160,6 +160,8 @@ public class HotelSelfTest implements ClientModInitializer {
 				client.options.hudHidden = false;
 				if ("look".equals(target())) {
 					look(client, server, ticks);
+				} else if (target().isEmpty()) {
+					clip(client, server, ticks);
 				} else {
 					ShootingStar.LOGGER.error("[selftest] hotel: no such target {}", target());
 					stage = Stage.DONE;
@@ -357,6 +359,386 @@ public class HotelSelfTest implements ClientModInitializer {
 		Vec3d at = world(19.5, 1.0, -10.5);
 		you.teleport(world, at.x, at.y, at.z, 0.0F, 0.0F);
 		ShootingStar.LOGGER.info("[selftest] hotel: origin {} (ground {})", origin, ground);
+	}
+
+	// ------------------------------------------------------------------ the clip
+
+	/** One shot: its length (ticks), what starts it, what runs every tick of it, its camera (local capture time in ticks), and the lens. */
+	private static final class Shot {
+		final String name;
+		final int ticks;
+		Runnable start = () -> {
+		};
+		Consumer<Integer> each = t -> {
+		};
+		DoubleFunction<Capture.Pose> cam;
+		float fov = 70.0F;
+		boolean firstPerson;
+		/** Slow motion for the shot (1 none). */
+		double slow = 1.0;
+
+		Shot(String name, int ticks) {
+			this.name = name;
+			this.ticks = ticks;
+		}
+	}
+
+	private static final List<Shot> SHOTS = new ArrayList<>();
+	private static int shotIndex = -1;
+	private static int shotAt;
+	private static double shotCaptureAt;
+	private static int clipF0 = -1;
+	private static IntegratedServer serverRef;
+	private static Vec3d glance;
+	private static boolean formOn;
+	private static int slashedAt = -100;
+	private static int devilDiedAt = -1;
+
+	private static MinecraftClient mc() {
+		return MinecraftClient.getInstance();
+	}
+
+	private static Shot shot(String name, int ticks) {
+		Shot s = new Shot(name, ticks);
+		SHOTS.add(s);
+		return s;
+	}
+
+	/** Where you are, smoothed over the frame (as the capture draws it). */
+	private static Vec3d you(double t) {
+		float part = (float) (t - Math.floor(t));
+		return mc().player.getLerpedPos(part);
+	}
+
+	/** The local point {@code p} in a shot's own frame. */
+	private static Vec3d L(double x, double y, double z) {
+		return world(x, y, z);
+	}
+
+	/** A camera that stays {@code behind} blocks behind you (along the way you face), {@code up} over your feet and {@code side} to your right, looking at a point {@code lead} ahead of you at {@code at} over your feet. */
+	private static DoubleFunction<Capture.Pose> follow(double behind, double up, double side, double lead, double at) {
+		return t -> {
+			Vec3d p = you(Capture.time());
+			float yaw = wantYaw;
+			double rad = Math.toRadians(yaw);
+			Vec3d dir = new Vec3d(-Math.sin(rad), 0.0, Math.cos(rad));
+			Vec3d right = new Vec3d(-dir.z, 0.0, dir.x).multiply(-1.0);
+			Vec3d from = p.subtract(dir.multiply(behind)).add(right.multiply(side)).add(0.0, up, 0.0);
+			Vec3d to = p.add(dir.multiply(lead)).add(0.0, at, 0.0);
+			return look(from, to);
+		};
+	}
+
+	/** The same, but {@code ahead} of you, looking back at you. */
+	private static DoubleFunction<Capture.Pose> facing(double ahead, double up, double side, double at) {
+		return t -> {
+			Vec3d p = you(Capture.time());
+			double rad = Math.toRadians(wantYaw);
+			Vec3d dir = new Vec3d(-Math.sin(rad), 0.0, Math.cos(rad));
+			Vec3d right = new Vec3d(-dir.z, 0.0, dir.x).multiply(-1.0);
+			Vec3d from = p.add(dir.multiply(ahead)).add(right.multiply(side)).add(0.0, up, 0.0);
+			return look(from, p.add(0.0, at, 0.0));
+		};
+	}
+
+	/** Through your own eyes, the head turning to {@link #glance} when there is a point to look at. */
+	private static final DoubleFunction<Capture.Pose> EYES = t -> {
+		Vec3d p = you(Capture.time());
+		Vec3d eye = p.add(0.0, 1.62, 0.0);
+		float yaw = wantYaw;
+		float pitch = wantPitch;
+		if (glance != null) {
+			float gy = yawTo(eye, glance);
+			float gp = pitchTo(eye, glance);
+			yaw += MathHelper.clamp(MathHelper.wrapDegrees(gy - yaw), -50.0F, 50.0F);
+			pitch = MathHelper.clamp(gp, -30.0F, 30.0F);
+		}
+		return new Capture.Pose(eye.x, eye.y, eye.z, yaw, pitch);
+	};
+
+	private static void keys(boolean fwd, boolean run) {
+		forward = fwd;
+		sprint = run;
+	}
+
+	private static void server(Consumer<ServerWorld> r) {
+		serverRef.execute(() -> r.accept(serverRef.getOverworld()));
+	}
+
+	private static void tp(double lx, double ly, double lz, float yaw) {
+		put(serverRef, lx, ly, lz, yaw);
+	}
+
+	private static void pressG() {
+		KeyBinding.onKeyPressed(InputUtil.fromTranslationKey(io.github.kortev.chainsawman.client.ChainsawManClient.PULL_CORD.getBoundKeyTranslationKey()));
+	}
+
+	private static void shots() {
+		if (!SHOTS.isEmpty()) {
+			return;
+		}
+		final float EAST = -90.0F;
+		// ---- 1. Outside, lit: kortev walks up the plaza to the doors.
+		Shot s = shot("outside", 58);
+		s.start = () -> {
+			tp(23.0, 1.0, -12.5, 0.0F);
+			wantYaw = 0.0F;
+			keys(true, false);
+		};
+		s.each = t -> {
+			Vec3d eye = world(27.5, 2.6, 4.0);
+			wantYaw = MathHelper.clamp(yawTo(you(0.0), eye), -40.0F, 40.0F);
+		};
+		s.cam = cam(9.0, 2.3, -17.0, 24.5, 3.0, -4.0);
+		// ---- 2. The lobby: in at the doors, past the desk and its bell, along to the stairwell.
+		s = shot("lobby", 52);
+		s.start = () -> {
+			tp(28.0, 1.0, 1.2, 0.0F);
+			wantYaw = EAST + 180.0F;
+			keys(true, false);
+		};
+		s.each = t -> {
+			Vec3d p = you(0.0);
+			Vec3d goal = p.x > 30.0 ? world(27.0, 1.0, 5.6) : world(15.0, 1.0, 6.2);
+			wantYaw = yawTo(p, goal);
+			if (t > 6) {
+				wantYaw = yawTo(p, world(14.0, 1.0, 6.4));
+			}
+		};
+		s.cam = follow(4.3, 2.2, 0.9, 3.0, 1.2);
+		// ---- 3. The climb: one wrong thing a floor (you are put on each floor, at the stairwell door, walking out of it).
+		climb(shot("f2_a", 15), 1, 11.3, 5.15, 10.5, 7.7, 40.0F, 6.0, 7.2);
+		climb(shot("f2_b", 13), 1, 17.2, 5.15, 16.5, 7.7, 40.0F, 12.0, 7.2);
+		s = shot("f3_paintings", 22);
+		s.start = () -> {
+			tp(15.0, floorY(2), 6.5, EAST);
+			wantYaw = EAST;
+			keys(true, false);
+		};
+		s.cam = follow(4.0, 1.5, 0.5, 8.0, 1.0);
+		s = shot("f4_stain", 26);
+		s.start = () -> {
+			tp(15.0, floorY(3), 7.3, EAST);
+			wantYaw = EAST;
+			keys(true, false);
+		};
+		s.cam = cam(12.5, floorY(3) + 1.6, 6.0, 30.0, floorY(3) + 0.3, 6.5);
+		s = shot("f5_eyes", 22);
+		s.start = () -> {
+			tp(14.0, floorY(4), 6.5, EAST);
+			wantYaw = EAST;
+			keys(true, false);
+		};
+		s.cam = follow(3.4, 1.7, 0.0, 8.0, 0.8);
+		s = shot("f6_door", 30);
+		s.start = () -> {
+			tp(19.5, floorY(5), 6.5, 0.0F);
+			wantYaw = EAST;
+			keys(false, false);
+			server(w -> home(serverRef).run.breathAt = -100000L);
+		};
+		s.each = t -> {
+			wantYaw = EAST;
+		};
+		s.cam = cam(25.8, eye(5), 5.4, 22.0, eye(5) - 0.2, 8.0);
+		s = shot("f7_phone", 30);
+		s.start = () -> {
+			tp(17.0, floorY(6), 6.5, EAST);
+			wantYaw = EAST;
+			keys(true, false);
+			server(w -> home(serverRef).run.phoneAt = -100000L);
+		};
+		s.cam = cam(24.0, eye(6) - 0.2, 1.4, 20.0, eye(6) - 0.5, 2.4);
+		// ---- 4. Floor 8: the loop. Out of the stairwell door and along; the corridor comes round again.
+		s = shot("f8_run", 44);
+		s.start = () -> {
+			tp(14.2, floorY(7), 6.5, EAST);
+			wantYaw = EAST;
+			wantPitch = 0.0F;
+			keys(true, true);
+		};
+		s.cam = follow(3.2, 1.9, 0.0, 9.0, 1.1);
+		s = shot("f8_eyes", 68);
+		s.firstPerson = true;
+		s.each = t -> {
+			double x = world(0, 0, 0).x;
+			Vec3d here = you(0.0);
+			Vec3d sign = world(16.0, floorY(7) + 2.3, 7.0);
+			Vec3d p = HotelBuilder.local(origin, ROT, here);
+			glance = Math.abs(p.x - 16.0) < 5.0 && p.x < 17.5 ? sign : null;
+		};
+		s.cam = EYES;
+		s.fov = 74.0F;
+		s = shot("f8_flesh", 42);
+		s.start = () -> glance = null;
+		s.cam = facing(3.4, 1.8, 0.0, 1.1);
+		// ---- 5. The offer: its words, the contract, and refusing.
+		s = shot("offer_words", 58);
+		s.start = () -> {
+			keys(false, false);
+		};
+		s.each = t -> {
+			wantYaw = EAST;
+		};
+		s.cam = follow(3.4, 1.7, 0.4, 5.0, 1.0);
+		s = shot("offer_screen", 44);
+		s.each = t -> {
+			MinecraftClient c = mc();
+			if (c.currentScreen instanceof ContractScreen screen && t == 24) {
+				double[] at = screen.centre(false);
+				screen.mouseClicked(at[0], at[1], 0);
+			}
+		};
+		s.cam = follow(3.4, 1.7, 0.4, 5.0, 1.0);
+		// ---- 6. The walls bleed and it grows; kortev pulls the cord.
+		s = shot("bleed", 46);
+		s.start = () -> {
+			pressG();
+		};
+		s.each = t -> {
+			wantYaw = EAST;
+		};
+		s.cam = follow(3.6, 1.8, -0.5, 9.0, 1.4);
+		s = shot("grow", 40);
+		s.cam = follow(4.2, 1.9, 0.5, 9.0, 1.7);
+		// ---- 7. The fight.
+		s = shot("fight_a", 56);
+		s.start = () -> {
+			server(w -> {
+				for (EternityDevilEntity d : w.getEntitiesByType(io.github.kortev.chainsawman.ChainsawMan.ETERNITY_DEVIL, e -> true)) {
+					d.setHealth(150.0F);
+				}
+			});
+			keys(true, true);
+		};
+		s.each = HotelSelfTest::fightTick;
+		s.cam = follow(3.3, 1.9, 0.6, 6.0, 1.5);
+		s = shot("fight_b", 56);
+		s.each = HotelSelfTest::fightTick;
+		s.cam = follow(3.0, 1.7, -0.7, 6.0, 1.5);
+		s = shot("dying", 56);
+		s.each = HotelSelfTest::fightTick;
+		s.slow = 0.5;
+		s.cam = cam(22.5, eye(7) + 0.1, 5.9, 33.5, floorY(7) + 1.5, 6.6);
+		s = shot("loot", 40);
+		s.start = () -> keys(false, false);
+		s.cam = cam(23.5, eye(7) - 0.1, 5.9, 30.5, floorY(7) + 0.4, 6.6);
+	}
+
+	/** A climb shot: you walk out at the stairwell end; the camera is fixed. */
+	private static void climb(Shot s, int floor, double cx, double cz, double ax, double az, float fov, double fromX, double zLane) {
+		s.start = () -> {
+			tp(fromX, floorY(floor), zLane, -90.0F);
+			wantYaw = -90.0F;
+			keys(true, false);
+		};
+		s.cam = cam(cx, floorY(floor) + 1.55, cz, ax, floorY(floor) + 2.2, az);
+		s.fov = fov;
+	}
+
+	/** Every tick of the fight: close on the devil's front, looking at its heart (or its mouth), slashing as the saws reach. */
+	private static void fightTick(int t) {
+		MinecraftClient c = mc();
+		if (c.player == null) {
+			return;
+		}
+		Vec3d p = HotelBuilder.local(origin, ROT, c.player.getPos());
+		Vec3d eye = c.player.getEyePos();
+		Vec3d heart = world(EternityDevilEntity.HEART_X, EternityDevilEntity.HEART_Y, EternityDevilEntity.LOCAL_Z);
+		wantYaw = yawTo(eye, heart);
+		wantPitch = MathHelper.clamp(pitchTo(eye, heart), -20.0F, 20.0F);
+		boolean near = p.x > 28.7;
+		keys(!near, !near);
+		if (t % 10 == 0) {
+			ShootingStar.LOGGER.info("[selftest] hotel fight t={} you at local {} form {} near {}", t, p, formOn, near);
+		}
+		if (formOn && near && ticks - slashedAt >= 13) {
+			slashedAt = ticks;
+			Entity devil = null;
+			for (Entity e : c.world.getEntities()) {
+				if (e instanceof EternityDevilEntity) {
+					devil = e;
+				}
+			}
+			if (devil != null && devil.isAlive()) {
+				int id = devil.getId();
+				float hp = ((EternityDevilEntity) devil).getHealth();
+				serverRef.execute(() -> {
+					ServerPlayerEntity you = you(serverRef);
+					boolean did = Saw.slash(you, id);
+					ShootingStar.LOGGER.info("[selftest] hotel slash {} (devil {} heart {}, you at {})", did, hp, ((EternityDevilEntity) serverRef.getOverworld().getEntityById(id)).heartOut(), you.getPos());
+				});
+				c.player.swingHand(net.minecraft.util.Hand.MAIN_HAND);
+			}
+		}
+	}
+
+	private static void clip(MinecraftClient client, IntegratedServer server, int f) {
+		if (client.player == null || client.world == null) {
+			return;
+		}
+		serverRef = server;
+		if (f == 1) {
+			shots();
+			client.options.hudHidden = false;
+			client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
+			server.execute(() -> {
+				ServerPlayerEntity you = you(server);
+				Heart.give(you);
+				Blood.set(you, Blood.MAX);
+			});
+			clipF0 = 100;
+		}
+		if (f < clipF0) {
+			// Warm-up: the first shot's view held where it will be, so the chunks under it are built before the recording starts.
+			Capture.camera = cam(9.0, 2.3, -17.0, 24.5, 3.0, -4.0);
+			lens = 70.0F;
+			return;
+		}
+		if (f == clipF0 && capturing()) {
+			Capture.start(client, client.runDirectory.toPath().resolve("capture"));
+		}
+		formOn = io.github.kortev.chainsawman.client.ClientForms.on(client.player);
+		int e = f - clipF0;
+		int starts = 0;
+		for (int i = 0; i < SHOTS.size(); i++) {
+			Shot sh = SHOTS.get(i);
+			if (e >= starts && e < starts + sh.ticks) {
+				if (shotIndex != i) {
+					shotIndex = i;
+					shotAt = f;
+					shotCaptureAt = Capture.active() ? Capture.time() : 0.0;
+					ShootingStar.LOGGER.info("[selftest] hotel shot {} at clip tick {}", sh.name, e);
+					client.options.setPerspective(sh.firstPerson ? Perspective.FIRST_PERSON : Perspective.THIRD_PERSON_BACK);
+					lens = sh.fov;
+					if (sh.slow < 1.0 && Capture.active()) {
+						Capture.slow(sh.slow, (int) (sh.ticks * 1.5 * sh.slow));
+					}
+					sh.start.run();
+					final Shot current = sh;
+					final double at = shotCaptureAt;
+					Capture.camera = tt -> current.cam.apply(Math.max(0.0, Capture.time() - at));
+				}
+				int local = f - shotAt;
+				sh.each.accept(local);
+				if (local == 2) {
+					still(client, String.format("clip_%02d_%s_a", i, sh.name));
+				} else if (local == sh.ticks / 2) {
+					still(client, String.format("clip_%02d_%s_b", i, sh.name));
+				} else if (local == sh.ticks - 2) {
+					still(client, String.format("clip_%02d_%s_c", i, sh.name));
+				}
+				break;
+			}
+			starts += sh.ticks;
+		}
+		int total = 0;
+		for (Shot sh : SHOTS) {
+			total += sh.ticks;
+		}
+		if (e >= total + 6) {
+			stage = Stage.DONE;
+		}
 	}
 
 	// ------------------------------------------------------------------ the stills

@@ -176,7 +176,7 @@ public final class HotelPlan {
 		}
 		// The walls round the corridor, and between the rooms: wallpaper in stripes over a dark skirting.
 		for (int y = y0 + 1; y <= y0 + 3; y++) {
-			for (int x = 0; x < SX; x++) {
+			for (int x = 1; x < SX - 1; x++) {
 				BlockState paper = y == y0 + 1 ? SKIRT : (x % 3 == 0 ? CREAM2 : CREAM);
 				set(x, y, 4, paper);
 				set(x, y, 8, paper);

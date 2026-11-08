@@ -481,7 +481,7 @@ public class HotelGameTests implements FabricGameTest {
 				HomeBlockEntity h = hh[0];
 				// Three laps: the flesh is at the corners (level 3: all of it), the same at every period.
 				context.assertTrue(h.run.flesh == 3, "turn " + turn + ": the flesh is at level " + h.run.flesh);
-				context.assertTrue(h.run.growths.size() >= 40, "turn " + turn + ": only " + h.run.growths.size() + " lumps of flesh");
+				context.assertTrue(h.run.growths.size() >= 30, "turn " + turn + ": only " + h.run.growths.size() + " lumps of flesh");
 				int found = 0;
 				for (java.util.UUID id : h.run.growths) {
 					found += world.getEntity(id) != null ? 1 : 0;
@@ -673,10 +673,10 @@ public class HotelGameTests implements FabricGameTest {
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_silence", tickLimit = 330)
 	public void silenceStartsTheFight(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 9);
-		Hotel.answerTicks = 40;
+		h.run.answerTicks = 40;
 		ServerPlayerEntity p = walker(context, h, "mute", 20.5);
 		context.runAtTick(25, () -> h.run.laps.put(p.getUuid(), 3));
-		context.runAtTick(155, () -> context.assertTrue(h.run.deal != null && h.run.deal.open && !h.run.fight, "the offer was not waiting, or the fight came early"));
+		context.runAtTick(135, () -> context.assertTrue(h.run.deal != null && h.run.deal.open && !h.run.fight, "the offer was not waiting, or the fight came early"));
 		context.runAtTick(230, () -> {
 			context.assertTrue(h.run.fight, "silence did not start the fight");
 			context.assertTrue(h.run.devil != null, "no devil grew");
@@ -868,6 +868,46 @@ public class HotelGameTests implements FabricGameTest {
 			});
 			later(context, 100, () -> {
 				context.assertTrue(!d[0].heartOut(), "the heart stayed out after the flesh grew back");
+				tidy(context, h, p);
+				context.complete();
+			});
+		});
+	}
+
+	/** Chainsaw Man's saws cut it (the slash the attack key makes), a slash looking at its heart most of all. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_saws", tickLimit = 500)
+	public void theSawsCutTheDevil(TestContext context) {
+		HomeBlockEntity h = hotel(context, 0, 18);
+		ServerPlayerEntity p = walker(context, h, "saw_hand", 29.0);
+		armed(p, 5000.0);
+		io.github.kortev.chainsawman.form.Heart.give(p);
+		io.github.kortev.chainsawman.form.Blood.set(p, io.github.kortev.chainsawman.form.Blood.MAX);
+		io.github.kortev.chainsawman.hotel.EternityDevilEntity[] d = new io.github.kortev.chainsawman.hotel.EternityDevilEntity[1];
+		ready(context, h, () -> {
+			io.github.kortev.chainsawman.form.Form.start(p);
+			d[0] = fightAt(context, h);
+			later(context, 100, () -> {
+				context.assertTrue(io.github.kortev.chainsawman.form.Form.fighting(p), "the saws are not out");
+				put(p, h, 29.2, 29.0, 6.5, -90.0F, 0.0F);
+				p.setHeadYaw(-90.0F);
+				d[0].setHealth(300.0F);
+				float before = d[0].getHealth();
+				boolean cut = io.github.kortev.chainsawman.form.Saw.slash(p, d[0].getId());
+				context.assertTrue(cut, "the saws did not slash");
+				context.assertTrue(d[0].getHealth() < before - 5.0F, "a slash took only " + (before - d[0].getHealth()) + " off the devil");
+				// With the heart showing and the saws on it a slash does three times as much.
+				d[0].setHealth(100.0F);
+			});
+			later(context, 104, () -> context.assertTrue(d[0].heartOut(), "the heart is hidden at a third of its health"));
+			later(context, 120, () -> {
+				Vec3d eye = p.getEyePos();
+				Vec3d to = d[0].heartAt().subtract(eye);
+				float yaw = (float) Math.toDegrees(Math.atan2(-to.x, to.z));
+				p.updatePositionAndAngles(p.getX(), p.getY(), p.getZ(), yaw, (float) -Math.toDegrees(Math.atan2(to.y, Math.hypot(to.x, to.z))));
+				p.setHeadYaw(yaw);
+				float before = d[0].getHealth();
+				io.github.kortev.chainsawman.form.Saw.slash(p, d[0].getId());
+				context.assertTrue(before - d[0].getHealth() >= 25.0F, "a slash on the heart took only " + (before - d[0].getHealth()));
 				tidy(context, h, p);
 				context.complete();
 			});
