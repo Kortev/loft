@@ -234,7 +234,12 @@ public class EternityDevilRenderer extends EntityRenderer<EternityDevilEntity> {
 
 		// ---- The lumps.
 		ForeverGeo.Pen flesh = new ForeverGeo.Pen(provider.getBuffer(RenderLayer.getEntityCutoutNoCull(FLESH)), matrices.peek(), lit);
+		float cut = 1.0F - frac;
 		for (Lump p : layout.lumps) {
+			// Flesh cut away: the more it is hurt the more of the front is gone (it grows back as it regenerates).
+			if (p.kind == 0 && p.z > 0.8 && !dead && ((p.seed >>> 3) % 100) / 100.0F < cut * 0.5F) {
+				continue;
+			}
 			double dx = 0.0;
 			double dy = 0.0;
 			double dz = 0.0;
@@ -267,6 +272,9 @@ public class EternityDevilRenderer extends EntityRenderer<EternityDevilEntity> {
 		}
 		// ---- Eyes: all on the one that looks.
 		for (ForeverLayout.Eye e : layout.eyes) {
+			if (!dead && e.index > 0 && (e.index * 37 % 100) / 100.0F < cut * 0.4F) {
+				continue;
+			}
 			double slide = (1.0 - grown) * 2.6;
 			double wake = grown < 0.5F ? 0.0 : ease((grown - 0.5F) * 2.0F - (float) e.index * 0.02F);
 			float lidOpen = (float) wake * (dead ? 1.0F - death : 1.0F);

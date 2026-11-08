@@ -100,6 +100,28 @@ public final class Hotel {
 	}
 
 	/** Dusk to dawn, by the clock: hotels wake in it. */
+	/** The devil goes away for {@code devilRespawnDays} days of game time (24000 ticks each: a clock that is set back or stopped does not hold it). */
+	static void sendAway(ServerWorld world, HomeBlockEntity h) {
+		int days = world.getGameRules().getInt(HotelRules.DEVIL_RESPAWN_DAYS);
+		h.away = true;
+		h.awayUntilDay = day(world) + days;
+		h.awayUntilTick = world.getTime() + days * 24000L;
+		h.markDirty();
+	}
+
+	/** Whether every chunk of the hotel is loaded (it is not woken, or changed, at the edge of the range with half of it unloaded). */
+	static boolean loaded(ServerWorld world, HomeBlockEntity h) {
+		net.minecraft.util.math.BlockBox box = HotelBuilder.box(h.origin, h.rot);
+		for (int cx = box.getMinX() >> 4; cx <= box.getMaxX() >> 4; cx++) {
+			for (int cz = box.getMinZ() >> 4; cz <= box.getMaxZ() >> 4; cz++) {
+				if (!world.isChunkLoaded(net.minecraft.util.math.ChunkPos.toLong(cx, cz))) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
 	public static boolean isNightTime(ServerWorld world) {
 		long t = world.getTimeOfDay() % 24000L;
 		return t >= 12500L && t < 23500L;
@@ -108,8 +130,12 @@ public final class Hotel {
 	public static void tick(ServerWorld world, HomeBlockEntity h) {
 		Run r = h.run;
 		long now = world.getTime();
-		if (h.away && !r.fighting() && day(world) >= h.awayUntilDay) {
+		if (!loaded(world, h)) {
+			return;
+		}
+		if (h.away && !r.fighting() && (h.awayUntilTick > 0 ? now >= h.awayUntilTick : day(world) >= h.awayUntilDay)) {
 			h.away = false;
+			h.awayUntilTick = 0;
 			h.markDirty();
 		}
 		Vec3d centre = HotelBuilder.world(h.origin, h.rot, HotelPlan.SX / 2.0, 0.0, HotelPlan.SZ / 2.0);
@@ -182,6 +208,8 @@ public final class Hotel {
 		r.since.clear();
 		r.top.clear();
 		r.freed.clear();
+		r.dealt = false;
+		r.deal = null;
 		if (r.flesh != 0) {
 			r.flesh = 0;
 			growths(world, h, 0);
@@ -252,6 +280,7 @@ public final class Hotel {
 			} else if (lp.y < 24.0) {
 				r.top.remove(id);
 				r.since.remove(id);
+				r.laps.remove(id);
 			}
 			boolean free = r.freed.contains(id) || r.fighting() || h.away;
 			boolean corridor = lp.y >= 28.5 && lp.y < 32.0 && lp.x >= 1.0 && lp.x <= HotelPlan.SX - 1.0 && lp.z >= HotelPlan.CORR_Z0 && lp.z <= HotelPlan.CORR_Z1 + 1.0;
@@ -273,6 +302,7 @@ public final class Hotel {
 			} else if (shaft && lp.y < 28.0 && lp.y > 24.0) {
 				// Down the stairs: back at the start of the corridor.
 				Vec3d to = HotelBuilder.world(h.origin, h.rot, HotelPlan.WINDOW_LO + 1.0, 29.0, 6.5);
+				p.stopRiding();
 				p.networkHandler.requestTeleport(to.x, to.y, to.z, HotelBuilder.alongYaw(h.rot), 0.0F);
 				p.setVelocity(Vec3d.ZERO);
 				lap(r, id);
@@ -385,6 +415,8 @@ public final class Hotel {
 	 */
 	public static void shift(HomeBlockEntity h, ServerPlayerEntity p, double dx) {
 		Vec3d d = HotelBuilder.world(BlockPos.ORIGIN, h.rot, dx, 0.0, 0.0);
+		// (A rider is put off: the mount would stay behind.)
+		p.stopRiding();
 		// (The call takes the place to end up at; with every axis marked relative it tells the client the difference.)
 		p.networkHandler.requestTeleport(p.getX() + d.x, p.getY(), p.getZ() + d.z, p.getYaw(), p.getPitch(), Set.of(PositionFlag.X, PositionFlag.Y, PositionFlag.Z, PositionFlag.Y_ROT, PositionFlag.X_ROT));
 	}
@@ -475,9 +507,22 @@ public final class Hotel {
 				there.add(in.player().getUuid());
 			}
 		}
+		for (UUID gone : new ArrayList<>(d.players)) {
+			if (!there.contains(gone)) {
+				ServerPlayerEntity left = world.getServer().getPlayerManager().getPlayer(gone);
+				if (left != null) {
+					close(left);
+				}
+			}
+		}
 		d.players.retainAll(there);
 		if (d.players.isEmpty()) {
-			r.deal = null;
+			if (!d.accepted.isEmpty()) {
+				// Someone took it and everyone has since gone: the devil has gone with its contract all the same.
+				resolve(world, h, now);
+			} else {
+				r.deal = null;
+			}
 			r.dealt = false;
 			return;
 		}
@@ -529,10 +574,9 @@ public final class Hotel {
 		boolean anyAccepted = !d.accepted.isEmpty();
 		if (anyAccepted) {
 			// The devil goes with its contract: it is away for a few days.
-			h.away = true;
-			h.awayUntilDay = day(world) + world.getGameRules().getInt(HotelRules.DEVIL_RESPAWN_DAYS);
-			h.markDirty();
+			sendAway(world, h);
 		}
+		r.dealt = false;
 		Set<UUID> left = new HashSet<>();
 		for (UUID id : d.players) {
 			if (!d.accepted.contains(id)) {
@@ -559,7 +603,12 @@ public final class Hotel {
 			d.answered.add(id);
 			close(player);
 			if (!accept) {
-				speak(world, Set.of(id), "message.chainsawman.devil.refused", 70, 0);
+				speak(world, Set.of(id), "message.chainsawman.devil.refused", 22, 0);
+				return;
+			}
+			if (world.getGameRules().getBoolean(HotelRules.ONE_CONTRACT_PER_DEVIL) && h.holder != null && !h.holder.equals(id) && holderStillHolds(world, h)) {
+				// Another player holds it already (they answered first): it is not given twice.
+				speak(world, Set.of(id), "message.chainsawman.devil.held", 90, 0);
 				return;
 			}
 			if (Contracts.grant(player, Contract.ETERNITY) == Contracts.Result.HYBRID) {
@@ -571,7 +620,7 @@ public final class Hotel {
 			h.holder = id;
 			h.markDirty();
 			world.playSound(null, player.getX(), player.getY(), player.getZ(), ChainsawSounds.HOTEL_SEAL, SoundCategory.HOSTILE, 1.5F, 1.0F);
-			speak(world, Set.of(id), "message.chainsawman.devil.deal.done", 90, 0);
+			speak(world, Set.of(id), "message.chainsawman.devil.deal.done", 40, 0);
 			h.run.fogged.remove(id);
 			fog(world, id, 0.0F);
 			return;
@@ -628,6 +677,7 @@ public final class Hotel {
 		for (ServerPlayerEntity p : world.getPlayers()) {
 			Vec3d lp = HotelBuilder.local(h.origin, h.rot, p.getPos());
 			if (lp.x > EternityDevilEntity.LOCAL_X - EternityDevilEntity.WIDTH / 2.0 - 0.3 && lp.x < HotelPlan.SX && lp.y > 28.0 && lp.y < 33.0 && lp.z > 4.0 && lp.z < 9.0) {
+				p.stopRiding();
 				p.networkHandler.requestTeleport(front.x, front.y, front.z, p.getYaw(), p.getPitch());
 			}
 		}
@@ -696,9 +746,8 @@ public final class Hotel {
 		r.laps.clear();
 		r.since.clear();
 		r.dyingAt = now;
-		h.away = true;
-		h.awayUntilDay = day(world) + world.getGameRules().getInt(HotelRules.DEVIL_RESPAWN_DAYS);
-		h.markDirty();
+		sendAway(world, h);
+		r.dealt = false;
 		HotelBuilder.bleed(world, h.origin, h.rot, 0.0F);
 		r.bleedShown = 0.0F;
 		if (r.flesh != 0) {
@@ -716,7 +765,7 @@ public final class Hotel {
 		}
 		for (ServerPlayerEntity p : world.getPlayers()) {
 			if (p.squaredDistanceTo(devil) < 40.0 * 40.0) {
-				speak(world, Set.of(p.getUuid()), "message.chainsawman.devil.last", 80, 1);
+				speak(world, Set.of(p.getUuid()), "message.chainsawman.devil.last", 30, 1);
 			}
 		}
 	}
@@ -763,7 +812,7 @@ public final class Hotel {
 	}
 
 	/** How long the lights take to die after the kill (ticks). */
-	public static final int DYING_TICKS = 160;
+	public static final int DYING_TICKS = 110;
 
 	/** Puts a hotel down at {@code origin} turned {@code rot}: its home, or null if the home could not be found. */
 	public static HomeBlockEntity place(ServerWorld world, BlockPos origin, int rot) {

@@ -44,7 +44,7 @@ public class EternityDevilEntity extends MobEntity {
 	/** Ticks it takes to grow out of the walls, during which it cannot be hurt or hurt anyone. */
 	public static final int GROW_TICKS = 80;
 	/** How long it takes to collapse when it dies (ticks); its loot is on the floor where it stood when it is gone. */
-	public static final int DEATH_TICKS = 70;
+	public static final int DEATH_TICKS = 40;
 	/** Not hit for this long (ticks) and it starts to regenerate; it gains {@link #REGEN} health a half second. */
 	public static final int REGEN_DELAY = 80;
 	public static final float REGEN = 3.0F;

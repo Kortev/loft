@@ -492,9 +492,9 @@ public class HotelSelfTest implements ClientModInitializer {
 		}
 		final float EAST = -90.0F;
 		// ---- 1. Outside, lit: kortev walks up the plaza to the doors.
-		Shot s = shot("outside", 58);
+		Shot s = shot("outside", 44);
 		s.start = () -> {
-			tp(23.0, 1.0, -12.5, 0.0F);
+			tp(24.5, 1.0, -9.5, 0.0F);
 			wantYaw = 0.0F;
 			keys(true, false);
 		};
@@ -502,7 +502,8 @@ public class HotelSelfTest implements ClientModInitializer {
 			Vec3d eye = world(27.5, 2.6, 4.0);
 			wantYaw = MathHelper.clamp(yawTo(you(0.0), eye), -40.0F, 40.0F);
 		};
-		s.cam = cam(17.0, 2.0, -11.5, 26.0, 4.2, -2.0);
+		// (The camera dollies in toward the lit doors as he walks up to them.)
+		s.cam = t -> look(world(17.0 + 8.0 * Math.min(1.0, t / 44.0), 2.0, -11.5 + 5.0 * Math.min(1.0, t / 44.0)), world(26.5, 3.4, -1.0));
 		// ---- 2. The lobby: in at the doors, past the desk and its bell, along to the stairwell.
 		s = shot("lobby", 52);
 		s.start = () -> {
@@ -577,35 +578,34 @@ public class HotelSelfTest implements ClientModInitializer {
 		s = shot("f8_flesh", 42);
 		s.start = () -> glance = null;
 		s.cam = facing(3.4, 1.8, 0.0, 1.1);
-		// ---- 5. The offer: its words, the contract, and refusing.
-		s = shot("offer_words", 52);
+		// ---- 5. The offer: its words, the contract held long enough to read, the cursor going to REFUSE and clicking.
+		s = shot("offer_words", 90);
 		s.start = () -> {
 			keys(false, false);
+			ContractScreen.showCursor = true;
 		};
 		s.each = t -> {
 			wantYaw = EAST;
-		};
-		s.cam = follow(3.4, 1.7, 0.4, 5.0, 1.0);
-		s = shot("offer_screen", 44);
-		s.each = t -> {
-			MinecraftClient c = mc();
-			if (c.currentScreen instanceof ContractScreen screen && t == 24) {
-				double[] at = screen.centre(false);
-				screen.mouseClicked(at[0], at[1], 0);
+			if (mc().currentScreen instanceof ContractScreen && t > 4) {
+				endShot = true;
 			}
 		};
 		s.cam = follow(3.4, 1.7, 0.4, 5.0, 1.0);
-		// ---- 6. The walls bleed and it grows; kortev pulls the cord.
-		s = shot("bleed", 46);
+		s = shot("offer_screen", 76);
+		s.each = t -> cursorTo(false, t);
+		s.cam = follow(3.4, 1.7, 0.4, 5.0, 1.0);
+		// ---- 6. The cord, seen from in front (the transformation), the walls bleeding behind.
+		s = shot("bleed", 66);
 		s.start = () -> {
+			ContractScreen.showCursor = false;
 			pressG();
 		};
 		s.each = t -> {
 			wantYaw = EAST;
 		};
-		s.cam = follow(3.6, 1.8, -0.5, 9.0, 1.4);
-		s = shot("grow", 40);
-		s.cam = follow(4.2, 1.9, 0.5, 9.0, 1.7);
+		s.cam = facing(3.0, 1.7, 0.5, 1.2);
+		s = shot("grow", 36);
+		s.cam = cam(25.5, floorY(7) + 1.4, 7.6, 32.5, floorY(7) + 1.7, 6.4);
 		fightShots();
 	}
 
@@ -613,18 +613,25 @@ public class HotelSelfTest implements ClientModInitializer {
 	private static void fightShots() {
 		final float EAST = -90.0F;
 		Shot s;
-		s = shot("fight_a", 56);
+		// A low three-quarter view from the side: its face (eyes, mouths) and the saws both in it, each beat nearer the heart.
+		s = shot("fight_a", 70);
 		s.start = () -> {
 			server(w -> {
 				for (EternityDevilEntity d : w.getEntitiesByType(io.github.kortev.chainsawman.ChainsawMan.ETERNITY_DEVIL, e -> true)) {
-					d.setHealth(150.0F);
+					d.setHealth(235.0F);
 				}
 			});
+			// He runs at it along the north side, so the camera on the south one is never near him.
+			Vec3d here = HotelBuilder.local(origin, ROT, mc().player.getPos());
+			tp(here.x, floorY(7), 5.7, EAST);
 			keys(true, true);
 		};
 		s.each = HotelSelfTest::fightTick;
-		s.cam = follow(3.3, 1.9, 0.6, 6.0, 1.5);
-		s = shot("fight_b", 130);
+		s.cam = cam(26.0, floorY(7) + 1.25, 7.65, 32.6, floorY(7) + 1.7, 6.3);
+		s = shot("fight_b", 60);
+		s.each = HotelSelfTest::fightTick;
+		s.cam = cam(27.4, floorY(7) + 1.2, 7.7, 32.4, floorY(7) + 1.6, 6.4);
+		s = shot("fight_c", 120);
 		s.each = t -> {
 			fightTick(t);
 			for (Entity e : mc().world.getEntities()) {
@@ -633,9 +640,10 @@ public class HotelSelfTest implements ClientModInitializer {
 				}
 			}
 		};
-		s.cam = follow(3.0, 1.7, -0.7, 6.0, 1.5);
-		s = shot("dying", 110);
-		s.slow = 0.6;
+		s.cam = cam(29.4, floorY(7) + 1.25, 7.8, 32.4, floorY(7) + 1.45, 6.2);
+		// The collapse, from the front and the side: it sinks, the eyes shut, the mouths go slack.
+		s = shot("dying", 80);
+		s.slow = 0.8;
 		s.start = () -> keys(false, false);
 		s.each = t -> {
 			for (Entity e : mc().world.getEntities()) {
@@ -645,20 +653,30 @@ public class HotelSelfTest implements ClientModInitializer {
 				}
 			}
 		};
-		s.cam = follow(2.7, 1.8, 1.0, 6.0, 1.7);
-		s = shot("loot", 52);
-		s.start = () -> {
-			wantYaw = EAST;
-			wantPitch = 20.0F;
-			keys(true, false);
-		};
-		s.each = t -> {
-			Vec3d p = HotelBuilder.local(origin, ROT, you(0.0));
-			if (p.x > 31.2) {
-				keys(false, false);
-			}
-		};
-		s.cam = cam(34.3, floorY(7) + 1.4, 5.7, 30.4, floorY(7) + 0.7, 6.6);
+		s.cam = cam(26.2, floorY(7) + 1.25, 7.7, 33.4, floorY(7) + 1.6, 6.2);
+		// The loot, low and close.
+		s = shot("loot", 44);
+		s.start = () -> keys(false, false);
+		s.cam = cam(30.5, floorY(7) + 0.95, 7.4, 31.7, floorY(7) + 0.25, 6.4);
+		// The lights dying, along the corridor.
+		s = shot("lights", 56);
+		s.cam = cam(34.0, floorY(7) + 1.6, 6.5, 12.0, floorY(7) + 1.6, 6.5);
+	}
+
+	/** The scripted mouse on the contract screen: from the top, onto ACCEPT or REFUSE over {@code t} 14 to 46, holding, and the click at 62. */
+	private static void cursorTo(boolean accept, int t) {
+		if (!(mc().currentScreen instanceof ContractScreen screen)) {
+			return;
+		}
+		double[] to = screen.centre(accept);
+		double fromX = mc().getWindow().getScaledWidth() * 0.5;
+		double fromY = mc().getWindow().getScaledHeight() * 0.22;
+		double k = MathHelper.clamp((t - 14) / 32.0, 0.0, 1.0);
+		k = k * k * (3.0 - 2.0 * k);
+		screen.mouseMoved(MathHelper.lerp(k, fromX, to[0]), MathHelper.lerp(k, fromY, to[1]));
+		if (t == 62) {
+			screen.mouseClicked(to[0], to[1], 0);
+		}
 	}
 
 	/**
@@ -689,22 +707,25 @@ public class HotelSelfTest implements ClientModInitializer {
 		s = shot("a_flesh", 40);
 		s.start = () -> glance = null;
 		s.cam = facing(3.4, 1.8, 0.0, 1.1);
-		s = shot("a_words", 54);
-		s.start = () -> keys(false, false);
-		s.each = t -> wantYaw = EAST;
-		s.cam = follow(3.4, 1.7, 0.4, 5.0, 1.0);
-		s = shot("a_screen", 44);
+		s = shot("a_words", 90);
+		s.start = () -> {
+			keys(false, false);
+			ContractScreen.showCursor = true;
+		};
 		s.each = t -> {
-			MinecraftClient c = mc();
-			if (c.currentScreen instanceof ContractScreen screen && t == 24) {
-				double[] at = screen.centre(true);
-				screen.mouseClicked(at[0], at[1], 0);
+			wantYaw = EAST;
+			if (mc().currentScreen instanceof ContractScreen && t > 4) {
+				endShot = true;
 			}
 		};
 		s.cam = follow(3.4, 1.7, 0.4, 5.0, 1.0);
+		s = shot("a_screen", 76);
+		s.each = t -> cursorTo(true, t);
+		s.cam = follow(3.4, 1.7, 0.4, 5.0, 1.0);
 		// The loop opens: walk on past where it would have put you back.
-		s = shot("a_open", 56);
+		s = shot("a_open", 40);
 		s.start = () -> {
+			ContractScreen.showCursor = false;
 			keys(true, true);
 		};
 		s.each = t -> wantYaw = EAST;
@@ -749,17 +770,15 @@ public class HotelSelfTest implements ClientModInitializer {
 			wantYaw = yawTo(p, world(27.5, 1.0, -2.0));
 		};
 		s.cam = follow(4.2, 2.1, 0.8, 3.0, 1.2);
-		s = shot("a_out", 56);
+		// Out of the doors; the windows go from lit to dark as he leaves.
+		s = shot("a_out", 62);
 		s.start = () -> {
-			tp(27.5, 1.0, -0.5, 180.0F);
+			tp(27.5, 1.0, 0.8, 180.0F);
 			wantYaw = 180.0F;
 			keys(true, false);
 		};
 		s.each = t -> wantYaw = 180.0F;
-		s.cam = cam(36.0, 2.2, -16.0, 24.0, 4.0, 0.0);
-		s = shot("a_dark", 20);
-		s.start = () -> keys(false, false);
-		s.cam = cam(36.0, 2.2, -16.0, 24.0, 4.0, 0.0);
+		s.cam = cam(32.0, 2.0, -13.5, 21.0, 4.8, 0.0);
 	}
 
 	/** A climb shot: you walk out at the stairwell end; the camera is fixed. */

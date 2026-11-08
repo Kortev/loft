@@ -26,6 +26,10 @@ public class ContractScreen extends Screen {
 	private final int[] accept = new int[4];
 	private final int[] refuse = new int[4];
 	private int hover = -1;
+	/** For films only: draw a pointer where the (scripted) mouse is, since a capture has no cursor of its own. */
+	public static boolean showCursor;
+	private double curX = -1;
+	private double curY = -1;
 
 	public ContractScreen(int ticks) {
 		super(Text.translatable("contract.chainsawman.screen.title"));
@@ -91,6 +95,8 @@ public class ContractScreen extends Screen {
 	@Override
 	public void mouseMoved(double mouseX, double mouseY) {
 		hover = boxAt(mouseX, mouseY) - 1;
+		curX = mouseX;
+		curY = mouseY;
 	}
 
 	@Override
@@ -151,6 +157,17 @@ public class ContractScreen extends Screen {
 		outline(context, refuse, 0xFF000000);
 		centred(context, font, Text.translatable("contract.chainsawman.screen.accept"), accept[0] + accept[2] / 2, accept[1] + accept[3] / 2 - (int) (5 * s), 1.6F * s, 0xFFF4EBDD);
 		centred(context, font, Text.translatable("contract.chainsawman.screen.refuse"), refuse[0] + refuse[2] / 2, refuse[1] + refuse[3] / 2 - (int) (5 * s), 1.6F * s, 0xFFF4EBDD);
+		if (showCursor && curX >= 0.0) {
+			int cx0 = (int) curX;
+			int cy0 = (int) curY;
+			for (int i = 0; i < 12; i++) {
+				int w = i / 2 + 2;
+				context.fill(cx0 - 1, cy0 + i - 1, cx0 + w + 1, cy0 + i + 1, 0xFF000000);
+			}
+			for (int i = 0; i < 12; i++) {
+				context.fill(cx0, cy0 + i, cx0 + i / 2 + 1, cy0 + i + 1, 0xFFFFFFFF);
+			}
+		}
 	}
 
 	private static void box(int[] b, int x, int y, int w, int h) {

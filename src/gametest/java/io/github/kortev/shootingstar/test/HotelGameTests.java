@@ -5,6 +5,8 @@ import io.github.kortev.chainsawman.hotel.HomeBlockEntity;
 import io.github.kortev.chainsawman.hotel.HotelBuilder;
 import io.github.kortev.chainsawman.hotel.HotelPlan;
 import io.github.kortev.chainsawman.hotel.HotelRules;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.ArrayDeque;
 import java.util.HashSet;
 import java.util.Set;
@@ -390,36 +392,38 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** By day it is dead (shut, chained, dark); at night with a player near it wakes (open, lit, the chains gone); with nobody near it stays dead; by day again it sleeps. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_night", tickLimit = 160)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_night", tickLimit = 700)
 	public void hotelWakesAtNightAndSleepsByDay(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 1);
 		ServerWorld world = context.getWorld();
 		ServerPlayerEntity p = ForeverGameTests.player(context, "night_walker");
 		world.setTimeOfDay(3000);
 		put(p, h, 20.5, 1.0, 3.5, 0.0F, 0.0F);
-		context.runAtTick(25, () -> {
-			assertDead(context, h, "day");
-			world.setTimeOfDay(14000);
-		});
-		context.runAtTick(55, () -> {
-			assertNight(context, h);
-			world.setTimeOfDay(3000);
-		});
-		context.runAtTick(85, () -> {
-			assertDead(context, h, "dawn");
-			put(p, h, 400.0, 1.0, 3.5, 0.0F, 0.0F);
-			world.setTimeOfDay(14000);
-		});
-		context.runAtTick(115, () -> {
-			assertDead(context, h, "night with nobody near");
-			leaveHotel(context, h, p);
-			world.setTimeOfDay(3000);
-			context.complete();
+		ready(context, h, () -> {
+			later(context, 25, () -> {
+				assertDead(context, h, "day");
+				world.setTimeOfDay(14000);
+			});
+			later(context, 55, () -> {
+				assertNight(context, h);
+				world.setTimeOfDay(3000);
+			});
+			later(context, 85, () -> {
+				assertDead(context, h, "dawn");
+				put(p, h, 400.0, 1.0, 3.5, 0.0F, 0.0F);
+				world.setTimeOfDay(14000);
+			});
+			later(context, 115, () -> {
+				assertDead(context, h, "night with nobody near");
+				leaveHotel(context, h, p);
+				world.setTimeOfDay(3000);
+				context.complete();
+			});
 		});
 	}
 
 	/** The wrong things heard: the lobby hums, floor 6's door breathes (it opens and shuts by itself), floor 7's phone rings. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_floors", tickLimit = 320)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_floors", tickLimit = 800)
 	public void eachFloorIsStranger(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 2);
 		ServerWorld world = context.getWorld();
@@ -427,35 +431,37 @@ public class HotelGameTests implements FabricGameTest {
 		world.setTimeOfDay(14000);
 		put(p, h, 28.5, 1.0, 3.5, 0.0F, 0.0F);
 		boolean[] opens = new boolean[2];
-		context.runAtTick(45, () -> {
-			context.assertTrue(h.run.humAt > 0, "the lobby did not hum: night " + h.run.night + " player " + p.getPos() + " origin " + h.origin + " local " + local(h, p));
-			put(p, h, 20.5, 21.0, 6.5, 0.0F, 0.0F);
-			HotelPlan.P d = HotelPlan.get().breathDoor;
-			opens[0] = at(context, h, d.x(), d.y(), d.z()).get(DoorBlock.OPEN);
-		});
-		context.runAtTick(130, () -> {
-			HotelPlan.P d = HotelPlan.get().breathDoor;
-			opens[1] = at(context, h, d.x(), d.y(), d.z()).get(DoorBlock.OPEN);
-			context.assertTrue(h.run.breathAt > 0, "the door on floor 6 did not breathe");
-			context.assertTrue(opens[1] == h.run.breathOpen, "the breathing door is not where the hotel says it is");
-			put(p, h, 20.5, 25.0, 6.5, 0.0F, 0.0F);
-		});
-		context.runAtTick(210, () -> {
-			context.assertTrue(h.run.phoneAt > 0, "the phone on floor 7 did not ring");
-			context.assertTrue(HotelPlan.get().phone != null, "no phone");
-			// Floor 2's repeated number and floor 3's painting are in the plan.
-			int found = 0;
-			for (HotelPlan.Sign s : HotelPlan.get().signs) {
-				if (s.lines()[1].equals("202")) {
-					found++;
+		ready(context, h, () -> {
+			later(context, 45, () -> {
+				context.assertTrue(h.run.humAt > 0, "the lobby did not hum: night " + h.run.night + " player " + p.getPos() + " origin " + h.origin + " local " + local(h, p));
+				put(p, h, 20.5, 21.0, 6.5, 0.0F, 0.0F);
+				HotelPlan.P d = HotelPlan.get().breathDoor;
+				opens[0] = at(context, h, d.x(), d.y(), d.z()).get(DoorBlock.OPEN);
+			});
+			later(context, 130, () -> {
+				HotelPlan.P d = HotelPlan.get().breathDoor;
+				opens[1] = at(context, h, d.x(), d.y(), d.z()).get(DoorBlock.OPEN);
+				context.assertTrue(h.run.breathAt > 0, "the door on floor 6 did not breathe");
+				context.assertTrue(opens[1] == h.run.breathOpen, "the breathing door is not where the hotel says it is");
+				put(p, h, 20.5, 25.0, 6.5, 0.0F, 0.0F);
+			});
+			later(context, 210, () -> {
+				context.assertTrue(h.run.phoneAt > 0, "the phone on floor 7 did not ring");
+				context.assertTrue(HotelPlan.get().phone != null, "no phone");
+				// Floor 2's repeated number and floor 3's painting are in the plan.
+				int found = 0;
+				for (HotelPlan.Sign s : HotelPlan.get().signs) {
+					if (s.lines()[1].equals("202")) {
+						found++;
+					}
 				}
-			}
-			context.assertTrue(found == 2, "floor 2 should have the number 202 twice, has it " + found + " times");
-			context.assertTrue(at(context, h, 7, 11, 8).isOf(Blocks.YELLOW_WOOL), "floor 3 is missing its painting");
-			context.assertTrue(at(context, h, 13, 11, 8).isOf(Blocks.YELLOW_WOOL), "floor 3's painting does not come again");
-			leaveHotel(context, h, p);
-			world.setTimeOfDay(3000);
-			context.complete();
+				context.assertTrue(found == 2, "floor 2 should have the number 202 twice, has it " + found + " times");
+				context.assertTrue(at(context, h, 7, 11, 8).isOf(Blocks.YELLOW_WOOL), "floor 3 is missing its painting");
+				context.assertTrue(at(context, h, 13, 11, 8).isOf(Blocks.YELLOW_WOOL), "floor 3's painting does not come again");
+				leaveHotel(context, h, p);
+				world.setTimeOfDay(3000);
+				context.complete();
+			});
 		});
 	}
 
@@ -464,99 +470,102 @@ public class HotelGameTests implements FabricGameTest {
 	 * corridor and height, their look and their speed are kept; each time is a lap. A player who has taken the deal is not put back; nor is
 	 * one on another floor; and down the stairs from the loop floor is back at the corridor's start.
 	 */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_loop", tickLimit = 340)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_loop", tickLimit = 900)
 	public void theLoopPutsYouBackSeamlesslyAtEveryTurn(TestContext context) {
 		ServerWorld world = context.getWorld();
 		ServerPlayerEntity p = ForeverGameTests.player(context, "walker");
 		HomeBlockEntity[] hh = new HomeBlockEntity[1];
-		for (int rot = 0; rot < 4; rot++) {
-			int base = 1 + rot * 80;
-			int turn = rot;
-			context.runAtTick(base, () -> {
-				hh[0] = hotel(context, turn, 3);
-				world.setTimeOfDay(14000);
-				put(p, hh[0], 24.0, 29.0, 6.5, 40.0F, 12.0F);
-			});
-			context.runAtTick(base + 30, () -> {
-				HomeBlockEntity h = hh[0];
-				context.assertTrue(h.run.night, "turn " + turn + ": the hotel is asleep");
-				// Out of the east end of the window.
-				put(p, h, 25.3, 29.0, 6.1, 33.0F, 12.0F);
-				Vec3d v = HotelBuilder.world(BlockPos.ORIGIN, turn, 0.21, 0.0, 0.05);
-				p.setVelocity(v);
-			});
-			context.runAtTick(base + 33, () -> {
-				HomeBlockEntity h = hh[0];
-				Vec3d lp = local(h, p);
-				context.assertTrue(Math.abs(lp.x - 13.3) < 0.02 && Math.abs(lp.z - 6.1) < 0.02 && Math.abs(lp.y - 29.0) < 0.02, "turn " + turn + ": put back at " + lp + ", not (13.3, 29, 6.1); player at " + p.getPos() + " origin " + h.origin + " night " + h.run.night + " top " + h.run.top.size());
-				context.assertTrue(p.getYaw() == 33.0F && p.getPitch() == 12.0F, "turn " + turn + ": the look changed: " + p.getYaw() + ", " + p.getPitch());
-				Vec3d want = HotelBuilder.world(BlockPos.ORIGIN, turn, 0.21, 0.0, 0.05);
-				context.assertTrue(p.getVelocity().squaredDistanceTo(want) < 1.0E-8, "turn " + turn + ": the speed changed: " + p.getVelocity());
-				context.assertTrue(h.run.laps.getOrDefault(p.getUuid(), 0) == 1, "turn " + turn + ": that was not a lap");
-				// And out of the west end.
-				put(p, h, 12.8, 29.0, 6.1, 33.0F, 12.0F);
-			});
-			context.runAtTick(base + 36, () -> {
-				HomeBlockEntity h = hh[0];
-				Vec3d lp = local(h, p);
-				context.assertTrue(Math.abs(lp.x - 24.8) < 0.02 && Math.abs(lp.z - 6.1) < 0.02, "turn " + turn + ": west end put back at " + lp);
-				context.assertTrue(h.run.laps.getOrDefault(p.getUuid(), 0) == 2, "turn " + turn + ": the second was not a lap");
-				// A player who has taken the deal is let walk off.
-				h.run.freed.add(p.getUuid());
-				put(p, h, 25.5, 29.0, 6.1, 33.0F, 12.0F);
-			});
-			context.runAtTick(base + 40, () -> {
-				HomeBlockEntity h = hh[0];
-				context.assertTrue(Math.abs(local(h, p).x - 25.5) < 0.02, "turn " + turn + ": a freed player was put back");
-				h.run.freed.remove(p.getUuid());
-				// On the floor below the corridor is a corridor and nothing more.
-				put(p, h, 25.5, 25.0, 6.1, 33.0F, 12.0F);
-			});
-			context.runAtTick(base + 44, () -> {
-				HomeBlockEntity h = hh[0];
-				context.assertTrue(Math.abs(local(h, p).x - 25.5) < 0.02, "turn " + turn + ": a player on floor 7 was put back");
-				// Up on the loop floor in the stairwell, then down the stairs.
-				put(p, h, 17.5, 29.0, 3.5, 33.0F, 12.0F);
-			});
-			context.runAtTick(base + 48, () -> {
-				HomeBlockEntity h = hh[0];
-				put(p, h, 16.5, 27.4, 3.5, 33.0F, 12.0F);
-			});
-			context.runAtTick(base + 52, () -> {
-				HomeBlockEntity h = hh[0];
-				Vec3d lp = local(h, p);
-				context.assertTrue(Math.abs(lp.x - 14.0) < 0.05 && Math.abs(lp.y - 29.0) < 0.05 && Math.abs(lp.z - 6.5) < 0.05, "turn " + turn + ": down the stairs ended at " + lp + ", not the corridor's start");
-				context.assertTrue(p.getYaw() == HotelBuilder.alongYaw(turn), "turn " + turn + ": the stairs left you looking " + p.getYaw());
-				context.assertTrue(h.run.laps.getOrDefault(p.getUuid(), 0) == 3, "turn " + turn + ": the stairs were not a lap");
-			});
-			context.runAtTick(base + 55, () -> {
-				HomeBlockEntity h = hh[0];
-				// Three laps: the flesh is at the corners (level 3: all of it), the same at every period.
-				context.assertTrue(h.run.flesh == 3, "turn " + turn + ": the flesh is at level " + h.run.flesh);
-				context.assertTrue(h.run.growths.size() >= 30, "turn " + turn + ": only " + h.run.growths.size() + " lumps of flesh");
-				int found = 0;
-				for (java.util.UUID id : h.run.growths) {
-					found += world.getEntity(id) != null ? 1 : 0;
-				}
-				context.assertTrue(found > 0, "turn " + turn + ": none of the " + h.run.growths.size() + " lumps are in the world");
-			});
-			context.runAtTick(base + 56, () -> {
-				// Day comes while nobody is on the loop floor: the flesh goes with the night.
-				HomeBlockEntity h = hh[0];
-				put(p, h, 20.5, 1.0, 3.5, 0.0F, 0.0F);
-				world.setTimeOfDay(3000);
-			});
-			context.runAtTick(base + 72, () -> {
-				HomeBlockEntity h = hh[0];
-				context.assertTrue(!h.run.night && h.run.flesh == 0, "turn " + turn + ": the flesh stayed through the day");
-				context.assertTrue(h.run.growths.isEmpty(), "turn " + turn + ": the flesh was left");
-				context.assertTrue(h.run.laps.isEmpty(), "turn " + turn + ": the laps were kept through the day");
-				if (turn == 3) {
-					leaveHotel(context, h, p);
-					context.complete();
-				}
-			});
-		}
+		HomeBlockEntity first = hotel(context, 0, 3);
+		ready(context, first, () -> {
+			for (int rot = 0; rot < 4; rot++) {
+				int base = 1 + rot * 80;
+				int turn = rot;
+				later(context, base, () -> {
+					hh[0] = hotel(context, turn, 3);
+					world.setTimeOfDay(14000);
+					put(p, hh[0], 24.0, 29.0, 6.5, 40.0F, 12.0F);
+				});
+				later(context, base + 30, () -> {
+					HomeBlockEntity h = hh[0];
+					context.assertTrue(h.run.night, "turn " + turn + ": the hotel is asleep");
+					// Out of the east end of the window.
+					put(p, h, 25.3, 29.0, 6.1, 33.0F, 12.0F);
+					Vec3d v = HotelBuilder.world(BlockPos.ORIGIN, turn, 0.21, 0.0, 0.05);
+					p.setVelocity(v);
+				});
+				later(context, base + 33, () -> {
+					HomeBlockEntity h = hh[0];
+					Vec3d lp = local(h, p);
+					context.assertTrue(Math.abs(lp.x - 13.3) < 0.02 && Math.abs(lp.z - 6.1) < 0.02 && Math.abs(lp.y - 29.0) < 0.02, "turn " + turn + ": put back at " + lp + ", not (13.3, 29, 6.1); player at " + p.getPos() + " origin " + h.origin + " night " + h.run.night + " top " + h.run.top.size());
+					context.assertTrue(p.getYaw() == 33.0F && p.getPitch() == 12.0F, "turn " + turn + ": the look changed: " + p.getYaw() + ", " + p.getPitch());
+					Vec3d want = HotelBuilder.world(BlockPos.ORIGIN, turn, 0.21, 0.0, 0.05);
+					context.assertTrue(p.getVelocity().squaredDistanceTo(want) < 1.0E-8, "turn " + turn + ": the speed changed: " + p.getVelocity());
+					context.assertTrue(h.run.laps.getOrDefault(p.getUuid(), 0) == 1, "turn " + turn + ": that was not a lap");
+					// And out of the west end.
+					put(p, h, 12.8, 29.0, 6.1, 33.0F, 12.0F);
+				});
+				later(context, base + 36, () -> {
+					HomeBlockEntity h = hh[0];
+					Vec3d lp = local(h, p);
+					context.assertTrue(Math.abs(lp.x - 24.8) < 0.02 && Math.abs(lp.z - 6.1) < 0.02, "turn " + turn + ": west end put back at " + lp);
+					context.assertTrue(h.run.laps.getOrDefault(p.getUuid(), 0) == 2, "turn " + turn + ": the second was not a lap");
+					// A player who has taken the deal is let walk off.
+					h.run.freed.add(p.getUuid());
+					put(p, h, 25.5, 29.0, 6.1, 33.0F, 12.0F);
+				});
+				later(context, base + 40, () -> {
+					HomeBlockEntity h = hh[0];
+					context.assertTrue(Math.abs(local(h, p).x - 25.5) < 0.02, "turn " + turn + ": a freed player was put back");
+					h.run.freed.remove(p.getUuid());
+					// On the floor below the corridor is a corridor and nothing more.
+					put(p, h, 25.5, 25.0, 6.1, 33.0F, 12.0F);
+				});
+				later(context, base + 44, () -> {
+					HomeBlockEntity h = hh[0];
+					context.assertTrue(Math.abs(local(h, p).x - 25.5) < 0.02, "turn " + turn + ": a player on floor 7 was put back");
+					// Up on the loop floor in the stairwell, then down the stairs.
+					put(p, h, 17.5, 29.0, 3.5, 33.0F, 12.0F);
+				});
+				later(context, base + 48, () -> {
+					HomeBlockEntity h = hh[0];
+					put(p, h, 16.5, 27.4, 3.5, 33.0F, 12.0F);
+				});
+				later(context, base + 52, () -> {
+					HomeBlockEntity h = hh[0];
+					Vec3d lp = local(h, p);
+					context.assertTrue(Math.abs(lp.x - 14.0) < 0.05 && Math.abs(lp.y - 29.0) < 0.05 && Math.abs(lp.z - 6.5) < 0.05, "turn " + turn + ": down the stairs ended at " + lp + ", not the corridor's start");
+					context.assertTrue(p.getYaw() == HotelBuilder.alongYaw(turn), "turn " + turn + ": the stairs left you looking " + p.getYaw());
+					context.assertTrue(h.run.laps.getOrDefault(p.getUuid(), 0) == 3, "turn " + turn + ": the stairs were not a lap");
+				});
+				later(context, base + 55, () -> {
+					HomeBlockEntity h = hh[0];
+					// Three laps: the flesh is at the corners (level 3: all of it), the same at every period.
+					context.assertTrue(h.run.flesh == 3, "turn " + turn + ": the flesh is at level " + h.run.flesh);
+					context.assertTrue(h.run.growths.size() >= 30, "turn " + turn + ": only " + h.run.growths.size() + " lumps of flesh");
+					int found = 0;
+					for (java.util.UUID id : h.run.growths) {
+						found += world.getEntity(id) != null ? 1 : 0;
+					}
+					context.assertTrue(found > 0, "turn " + turn + ": none of the " + h.run.growths.size() + " lumps are in the world");
+				});
+				later(context, base + 56, () -> {
+					// Day comes while nobody is on the loop floor: the flesh goes with the night.
+					HomeBlockEntity h = hh[0];
+					put(p, h, 20.5, 1.0, 3.5, 0.0F, 0.0F);
+					world.setTimeOfDay(3000);
+				});
+				later(context, base + 72, () -> {
+					HomeBlockEntity h = hh[0];
+					context.assertTrue(!h.run.night && h.run.flesh == 0, "turn " + turn + ": the flesh stayed through the day");
+					context.assertTrue(h.run.growths.isEmpty(), "turn " + turn + ": the flesh was left");
+					context.assertTrue(h.run.laps.isEmpty(), "turn " + turn + ": the laps were kept through the day");
+					if (turn == 3) {
+						leaveHotel(context, h, p);
+						context.complete();
+					}
+				});
+			}
+		});
 	}
 
 	// ---- The deal, the fight, the loot and the devil coming back.
@@ -627,6 +636,12 @@ public class HotelGameTests implements FabricGameTest {
 			later(context, 30, () -> context.assertTrue(h.run.deal == null, "the deal came before the minute was up"));
 			later(context, 60, () -> {
 				context.assertTrue(h.run.deal != null, "the deal did not come after a minute on the floor");
+				// Review fix: the laps are forgotten when you leave the loop floor.
+				h.run.laps.put(p.getUuid(), 2);
+			});
+			later(context, 64, () -> put(p, h, 20.5, 21.0, 6.5, 0.0F, 0.0F));
+			later(context, 76, () -> {
+				context.assertTrue(!h.run.laps.containsKey(p.getUuid()), "the laps were kept after going down a floor");
 				tidy(context, h, p);
 				context.complete();
 			});
@@ -830,9 +845,36 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** {@code r} in {@code delta} ticks from now (inside a {@link #ready} scenario). */
+	/**
+	 * Runs {@code r} {@code delta} ticks on. It is not handed to runAtTick at once: adding to the test's tick map while the
+	 * server is walking it can crash the whole test server, so it is added when the tick is over.
+	 */
 	static void later(TestContext context, int delta, Runnable r) {
-		context.runAtTick(context.getTick() + delta, r);
+		synchronized (PENDING) {
+			if (!hooked) {
+				hooked = true;
+				net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents.END_SERVER_TICK.register(server -> {
+					List<Object[]> due;
+					synchronized (PENDING) {
+						due = new ArrayList<>(PENDING);
+						PENDING.clear();
+					}
+					for (Object[] e : due) {
+						TestContext c = (TestContext) e[0];
+						try {
+							c.runAtTick(Math.max((Long) e[1], c.getTick() + 1L), (Runnable) e[2]);
+						} catch (Throwable t) {
+							t.printStackTrace();
+						}
+					}
+				});
+			}
+			PENDING.add(new Object[] {context, context.getTick() + delta, r});
+		}
 	}
+
+	private static final List<Object[]> PENDING = new ArrayList<>();
+	private static boolean hooked;
 
 	private static io.github.kortev.chainsawman.hotel.EternityDevilEntity fightAt(TestContext context, HomeBlockEntity h) {
 		Hotel.startFight(context.getWorld(), h, context.getWorld().getTime());
@@ -1011,12 +1053,12 @@ public class HotelGameTests implements FabricGameTest {
 				context.assertTrue(bled >= 3, "only " + bled + " blocks bled");
 				d[0].damage(p.getDamageSources().playerAttack(p), 10000.0F);
 				context.assertTrue(d[0].isDead(), "the devil did not die");
-				// It collapses for 70 ticks before it is gone, not at once.
+				// It collapses for 40 ticks before it is gone, not at once.
 				int diedAt = (int) context.getTick();
 				for (int t = 1; t < 140; t++) {
 					int tt = t;
 					context.runAtTick(context.getTick() + t, () -> {
-						if (tt < 65 && d[0].isRemoved()) {
+						if (tt < 35 && d[0].isRemoved()) {
 							context.throwGameTestException("the dead devil was gone after " + tt + " ticks (death time " + d[0].deathTime + ")");
 						}
 					});
@@ -1102,14 +1144,16 @@ public class HotelGameTests implements FabricGameTest {
 			});
 			later(context, 110, () -> {
 				context.assertTrue(h.away && h.awayUntilDay == day[0] + 3, "the dead devil is not away for 3 days");
+				context.assertTrue(h.awayUntilTick - world.getTime() > 3 * 24000L - 400L, "the away clock is not 3 days of game ticks");
 				context.assertTrue(!other.away, "another hotel's devil went away with it");
-				// Two days on, at night: still away, and the hotel does not wake.
-				world.setTimeOfDay((day[0] + 2) * 24000L + 14000L);
+				// The clock of the day is set about: the devil is still away, and the hotel does not wake.
+				world.setTimeOfDay((day[0] + 9) * 24000L + 14000L);
 			});
 			later(context, 280, () -> {
 				context.assertTrue(h.away && !h.run.night, "the devil came back early (or the hotel woke while it was away)");
-				// The third day at night: it is back, and the hotel wakes.
-				world.setTimeOfDay((day[0] + 3) * 24000L + 14000L);
+				// The three days of game time pass, at night: it is back, and the hotel wakes.
+				world.setTimeOfDay(14000L);
+				h.awayUntilTick = world.getTime();
 			});
 			later(context, 320, () -> {
 				context.assertTrue(!h.away, "the devil did not come back after 3 days");
@@ -1117,6 +1161,62 @@ public class HotelGameTests implements FabricGameTest {
 				tidy(context, h, p);
 				forced(context, other.origin, false);
 				ForeverGameTests.leave(context, q);
+				context.complete();
+			});
+		});
+	}
+
+	/** Review fix: after a deal the devil is away; once it is back (the days passed) the next player in the loop is offered the deal again. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_again", tickLimit = 900)
+	public void theDealIsOfferedAgainWhenTheDevilIsBack(TestContext context) {
+		HomeBlockEntity h = hotel(context, 0, 20);
+		ServerPlayerEntity a = walker(context, h, "first_taker", 20.5);
+		ServerPlayerEntity b = ForeverGameTests.player(context, "next_comer");
+		ready(context, h, () -> {
+			later(context, 1, () -> h.run.laps.put(a.getUuid(), 3));
+			later(context, 160, () -> {
+				context.assertTrue(h.run.deal != null && h.run.deal.open, "no offer for the first");
+				Hotel.answer(a, true);
+			});
+			later(context, 170, () -> {
+				context.assertTrue(h.away && !h.run.dealt, "after the deal the devil is not away, or the offer is still marked made (" + h.away + ", " + h.run.dealt + ")");
+				context.assertTrue(h.awayUntilTick > context.getWorld().getTime() + 24000L, "the away clock is not in game ticks");
+				put(b, h, 22.5, 29.0, 6.5, 90.0F, 0.0F);
+				put(a, h, 20.5, 1.0, 3.5, 0.0F, 0.0F);
+				// The days pass.
+				h.awayUntilTick = context.getWorld().getTime();
+			});
+			later(context, 185, () -> {
+				context.assertTrue(!h.away, "the devil did not come back");
+				put(b, h, 22.5, 29.0, 6.5, 90.0F, 0.0F);
+				h.run.laps.put(b.getUuid(), 3);
+			});
+			later(context, 215, () -> {
+				context.assertTrue(h.run.deal != null && h.run.deal.players.contains(b.getUuid()), "the next player in the loop was not offered the deal");
+				ForeverGameTests.leave(context, b);
+				tidy(context, h, a);
+				context.complete();
+			});
+		});
+	}
+
+	/** Review fix: with oneContractPerDevil on, two who both accept do not both get it: the first does, the second is turned down. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_once", tickLimit = 900)
+	public void oneContractIsNotGivenTwiceInOneOffer(TestContext context) {
+		HomeBlockEntity h = hotel(context, 0, 21);
+		ServerPlayerEntity a = walker(context, h, "quick_one", 20.5);
+		ServerPlayerEntity b = walker(context, h, "slow_one", 22.5);
+		context.getWorld().getGameRules().get(HotelRules.ONE_CONTRACT_PER_DEVIL).set(true, context.getWorld().getServer());
+		ready(context, h, () -> {
+			later(context, 1, () -> h.run.laps.put(a.getUuid(), 3));
+			later(context, 160, () -> {
+				context.assertTrue(h.run.deal != null && h.run.deal.open && h.run.deal.players.size() == 2, "both are not in the offer");
+				Hotel.answer(a, true);
+				Hotel.answer(b, true);
+				context.assertTrue(io.github.kortev.chainsawman.contract.Contracts.has(a, io.github.kortev.chainsawman.contract.Contract.ETERNITY), "the first got no contract");
+				context.assertTrue(!io.github.kortev.chainsawman.contract.Contracts.has(b, io.github.kortev.chainsawman.contract.Contract.ETERNITY), "the second was given it too");
+				context.assertTrue(a.getUuid().equals(h.holder), "the holder is not the first");
+				tidy(context, h, a, b);
 				context.complete();
 			});
 		});

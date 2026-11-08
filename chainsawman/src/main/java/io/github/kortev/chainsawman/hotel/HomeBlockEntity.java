@@ -23,6 +23,8 @@ public class HomeBlockEntity extends BlockEntity {
 	/** The devil is away until this in-game day (the day number is {@code timeOfDay / 24000}), if {@link #away}. */
 	public boolean away;
 	public long awayUntilDay;
+	/** The same, in game ticks (which only go forward: a changed clock does not move it); 0 if it was saved before this was kept (then the day above is used). */
+	public long awayUntilTick;
 	public UUID holder;
 	public final Hotel.Run run = new Hotel.Run();
 
@@ -45,13 +47,16 @@ public class HomeBlockEntity extends BlockEntity {
 	@Override
 	public void cancelRemoval() {
 		super.cancelRemoval();
-		LOADED.add(this);
+		if (this.world instanceof net.minecraft.server.world.ServerWorld) {
+			LOADED.add(this);
+		}
 	}
 
 	@Override
 	public void setWorld(net.minecraft.world.World world) {
 		super.setWorld(world);
-		if (!world.isClient) {
+		// (Only a real server world: while the world is being made the block entity is in a chunk being generated.)
+		if (world instanceof net.minecraft.server.world.ServerWorld) {
 			LOADED.add(this);
 		}
 	}
@@ -65,6 +70,7 @@ public class HomeBlockEntity extends BlockEntity {
 		nbt.putInt("Rot", rot);
 		nbt.putBoolean("Away", away);
 		nbt.putLong("AwayUntil", awayUntilDay);
+		nbt.putLong("AwayUntilTick", awayUntilTick);
 		if (holder != null) {
 			nbt.putUuid("Holder", holder);
 		}
@@ -77,6 +83,7 @@ public class HomeBlockEntity extends BlockEntity {
 		rot = nbt.getInt("Rot") & 3;
 		away = nbt.getBoolean("Away");
 		awayUntilDay = nbt.getLong("AwayUntil");
+		awayUntilTick = nbt.getLong("AwayUntilTick");
 		holder = nbt.containsUuid("Holder") ? nbt.getUuid("Holder") : null;
 	}
 }
