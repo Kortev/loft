@@ -62,6 +62,8 @@ public final class Hotel {
 		/** Players the fog has been switched on for. */
 		public final Set<UUID> fogged = new HashSet<>();
 		public int flesh;
+		/** The flesh at the corners (entities made for the level reached), to take away again. */
+		public final List<UUID> growths = new ArrayList<>();
 		public int flickerPhase = -1;
 		public long flickerUntil;
 		public long humAt = -100000;
@@ -176,7 +178,7 @@ public final class Hotel {
 		r.freed.clear();
 		if (r.flesh != 0) {
 			r.flesh = 0;
-			HotelBuilder.setFlesh(world, h.origin, h.rot, 0);
+			growths(world, h, 0);
 		}
 		if (r.flickerPhase >= 0) {
 			r.flickerPhase = -1;
@@ -277,7 +279,7 @@ public final class Hotel {
 		int level = Math.min(3, maxLaps);
 		if (level != r.flesh && !r.fighting()) {
 			r.flesh = level;
-			HotelBuilder.setFlesh(world, h.origin, h.rot, level);
+			growths(world, h, level);
 		}
 		if (!here.isEmpty() && !r.fighting()) {
 			flicker(world, h, maxLaps, now);
@@ -298,6 +300,55 @@ public final class Hotel {
 				r.fogged.remove(id);
 				fog(world, id, 0.0F);
 			}
+		}
+	}
+
+	private record G(int kind, double x, double y, double z, boolean north) {
+	}
+
+	/** Where the flesh grows at each level: level 1 the corners every period, 2 more of them, 3 bulges out of the walls and hangs from the ceiling. */
+	private static List<G> growthPlaces(int level) {
+		List<G> out = new ArrayList<>();
+		for (int x = HotelPlan.CORR_X0; x <= HotelPlan.CORR_X1; x++) {
+			int m = x % HotelPlan.PERIOD;
+			if (level >= 1 && (m == 3 || m == 9)) {
+				out.add(new G(FleshGrowthEntity.FLOOR, x + 0.5, 29.0, 5.0, true));
+				out.add(new G(FleshGrowthEntity.CEILING, x + 0.5, 32.0, 8.0, false));
+			}
+			if (level >= 2 && (m == 2 || m == 4 || m == 8 || m == 10)) {
+				out.add(new G(FleshGrowthEntity.FLOOR, x + 0.5, 29.0, 8.0, false));
+				out.add(new G(FleshGrowthEntity.CEILING, x + 0.5, 32.0, 5.0, true));
+			}
+			if (level >= 3 && (m == 6 || m == 0)) {
+				out.add(new G(FleshGrowthEntity.WALL, x + 0.5, 30.3, 5.0, true));
+				out.add(new G(FleshGrowthEntity.WALL, x + 0.5, 30.8, 8.0, false));
+			}
+			if (level >= 3 && (m == 3 || m == 9)) {
+				out.add(new G(FleshGrowthEntity.HANGING, x + 0.5, 32.0, 6.5, true));
+			}
+		}
+		return out;
+	}
+
+	/** The flesh at {@code level} (0 none): the old taken away and the new made (the same places every period, so the loop stays seamless). */
+	static void growths(ServerWorld world, HomeBlockEntity h, int level) {
+		Run r = h.run;
+		for (UUID id : r.growths) {
+			net.minecraft.entity.Entity e = world.getEntity(id);
+			if (e != null) {
+				e.discard();
+			}
+		}
+		r.growths.clear();
+		int n = 0;
+		for (G g : growthPlaces(level)) {
+			FleshGrowthEntity e = new FleshGrowthEntity(ChainsawMan.FLESH_GROWTH, world);
+			Vec3d at = HotelBuilder.world(h.origin, h.rot, g.x(), g.y(), g.z());
+			float yaw = HotelBuilder.alongYaw(h.rot) + (g.north() ? 90.0F : -90.0F);
+			e.refreshPositionAndAngles(at.x, at.y, at.z, yaw, 0.0F);
+			e.set(g.kind(), (n++ * 7919 + g.kind() * 31) ^ (int) (g.x() * 13));
+			world.spawnEntity(e);
+			r.growths.add(e.getUuid());
 		}
 	}
 
@@ -364,8 +415,8 @@ public final class Hotel {
 
 	/** Ticks a player has to answer the offer (20 seconds), and when its words and its screen come (ticks after it starts). */
 	public static int answerTicks = 400;
-	public static final int[] SPEECH_AT = {0, 45, 95};
-	public static final int OPENS_AT = 140;
+	public static final int[] SPEECH_AT = {0, 34, 70};
+	public static final int OPENS_AT = 108;
 	private static final String[] SPEECH = {"message.chainsawman.devil.deal.1", "message.chainsawman.devil.deal.2", "message.chainsawman.devil.deal.3"};
 
 	/** The Eternity Devil speaks to those in the loop once someone has walked three laps or been on the floor for a minute. */
@@ -625,7 +676,7 @@ public final class Hotel {
 		HotelBuilder.bleed(world, h.origin, h.rot, 0.0F);
 		if (r.flesh != 0) {
 			r.flesh = 0;
-			HotelBuilder.setFlesh(world, h.origin, h.rot, 0);
+			growths(world, h, 0);
 		}
 	}
 
@@ -649,7 +700,7 @@ public final class Hotel {
 		r.bleedShown = 0.0F;
 		if (r.flesh != 0) {
 			r.flesh = 0;
-			HotelBuilder.setFlesh(world, h.origin, h.rot, 0);
+			growths(world, h, 0);
 		}
 		for (UUID id : new ArrayList<>(r.fogged)) {
 			fog(world, id, 0.0F);

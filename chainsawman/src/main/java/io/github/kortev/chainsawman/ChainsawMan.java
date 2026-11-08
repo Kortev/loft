@@ -72,6 +72,10 @@ public final class ChainsawMan implements ModInitializer {
 			EntityType.Builder.<io.github.kortev.chainsawman.hotel.EternityDevilEntity>create(io.github.kortev.chainsawman.hotel.EternityDevilEntity::new, SpawnGroup.MONSTER)
 					.dimensions(io.github.kortev.chainsawman.hotel.EternityDevilEntity.WIDTH, io.github.kortev.chainsawman.hotel.EternityDevilEntity.HEIGHT).maxTrackingRange(8)
 					.trackingTickInterval(2).disableSummon().disableSaving().makeFireImmune().build("eternity_devil"));
+	/** Flesh growing at the corners of the loop floor with the laps: only drawn. */
+	public static final EntityType<io.github.kortev.chainsawman.hotel.FleshGrowthEntity> FLESH_GROWTH = Registry.register(Registries.ENTITY_TYPE, id("flesh_growth"),
+			EntityType.Builder.<io.github.kortev.chainsawman.hotel.FleshGrowthEntity>create(io.github.kortev.chainsawman.hotel.FleshGrowthEntity::new, SpawnGroup.MISC)
+					.dimensions(0.5F, 0.5F).maxTrackingRange(6).trackingTickInterval(20).alwaysUpdateVelocity(false).disableSummon().disableSaving().makeFireImmune().build("flesh_growth"));
 	public static final EntityType<io.github.kortev.chainsawman.hotel.FleshPatchEntity> FLESH_PATCH = Registry.register(Registries.ENTITY_TYPE, id("flesh_patch"),
 			EntityType.Builder.<io.github.kortev.chainsawman.hotel.FleshPatchEntity>create(io.github.kortev.chainsawman.hotel.FleshPatchEntity::new, SpawnGroup.MISC)
 					.dimensions(2.2F, 0.4F).maxTrackingRange(8).trackingTickInterval(20).alwaysUpdateVelocity(false).disableSummon().disableSaving().makeFireImmune().build("flesh_patch"));

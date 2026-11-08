@@ -220,21 +220,6 @@ public final class HotelBuilder {
 		}
 	}
 
-	/** The flesh of the loop floor at {@code level} (0 none, 1 to 3 growing): the corners first, then along the walls, then over the ceiling. */
-	public static void setFlesh(net.minecraft.server.world.ServerWorld world, BlockPos origin, int rot, int level) {
-		HotelPlan plan = HotelPlan.get();
-		BlockRotation turn = turn(rot);
-		for (int l = 0; l < plan.flesh.size(); l++) {
-			for (HotelPlan.P p : plan.flesh.get(l)) {
-				BlockPos at = world(origin, rot, p.x(), p.y(), p.z());
-				BlockState want = l < level ? Blocks.NETHER_WART_BLOCK.getDefaultState() : plan.at(p.x(), p.y(), p.z()).rotate(turn);
-				if (world.getBlockState(at) != want) {
-					world.setBlockState(at, want, Block.NOTIFY_LISTENERS);
-				}
-			}
-		}
-	}
-
 	/**
 	 * The walls bleeding at the loop floor's east end: {@code amount} 0 to 1 turns more of the wallpaper there into flesh and red, the nearer
 	 * the end the sooner; 0 puts the walls back.
@@ -251,10 +236,10 @@ public final class HotelBuilder {
 					}
 					double near = (x - 24) / 12.0;
 					double h = ((x * 73856093) ^ (y * 19349663) ^ (z * 83492791)) & 255;
-					boolean red = amount > 0.0F && h / 255.0 < amount * (0.35 + 0.9 * near);
+					boolean red = amount > 0.0F && h / 255.0 < amount * (0.12 + 0.5 * near);
 					BlockPos at = world(origin, rot, x, y, z);
-					BlockState want = red ? ((h % 3 == 0) ? Blocks.RED_CONCRETE.getDefaultState()
-							: (h % 3 == 1 ? Blocks.NETHER_WART_BLOCK.getDefaultState() : Blocks.CRIMSON_HYPHAE.getDefaultState())) : plan.at(x, y, z).rotate(turn);
+					BlockState want = red ? ((h % 3 == 0) ? Blocks.RED_TERRACOTTA.getDefaultState()
+							: (h % 3 == 1 ? Blocks.NETHER_WART_BLOCK.getDefaultState() : Blocks.PINK_TERRACOTTA.getDefaultState())) : plan.at(x, y, z).rotate(turn);
 					if (world.getBlockState(at) != want) {
 						world.setBlockState(at, want, Block.NOTIFY_LISTENERS);
 					}

@@ -320,7 +320,7 @@ public class ForeverHubRenderer extends EntityRenderer<ForeverHubEntity> {
 	}
 
 	/** A frame whose +z is {@code normal} and whose x is horizontal. */
-	private static Quaternionf frame(Vec3d normal) {
+	static Quaternionf frame(Vec3d normal) {
 		Vec3d z = normal.normalize();
 		Vec3d up = Math.abs(z.y) > 0.97 ? new Vec3d(1.0, 0.0, 0.0) : new Vec3d(0.0, 1.0, 0.0);
 		Vec3d x = up.crossProduct(z).normalize();
@@ -358,7 +358,7 @@ public class ForeverHubRenderer extends EntityRenderer<ForeverHubEntity> {
 	}
 
 	/** One mouth in its own frame (x along it, y up, z out of the flesh): lips, a dark throat, a tongue, and rows of uneven teeth. */
-	private static void mouth(ForeverGeo.Pen pen, ForeverLayout.Mouth m, float opening, float size) {
+	static void mouth(ForeverGeo.Pen pen, ForeverLayout.Mouth m, float opening, float size) {
 		double w = m.width * size;
 		double h = 0.035 + w * 0.5 * opening;
 		int segs = 14;

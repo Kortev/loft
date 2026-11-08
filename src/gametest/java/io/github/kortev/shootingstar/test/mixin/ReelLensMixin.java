@@ -24,6 +24,9 @@ public abstract class ReelLensMixin {
 		if (lens <= 0.0F) {
 			lens = io.github.kortev.shootingstar.test.ReviveSelfTest.lens();
 		}
+		if (lens <= 0.0F) {
+			lens = io.github.kortev.shootingstar.test.HotelSelfTest.lens();
+		}
 		if (lens > 0.0F) {
 			cir.setReturnValue((double) lens);
 		}

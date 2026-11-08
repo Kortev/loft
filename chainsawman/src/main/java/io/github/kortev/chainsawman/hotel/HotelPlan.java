@@ -85,8 +85,6 @@ public final class HotelPlan {
 	public P breathDoor;
 	public P phone;
 	public P bell;
-	/** The corridor's ends of the loop floor, where flesh grows as the laps go on: level 1, 2, 3. */
-	public final List<List<P>> flesh = new ArrayList<>();
 	public int groups = 1;
 
 	private static HotelPlan instance;
@@ -150,7 +148,6 @@ public final class HotelPlan {
 		lobby();
 		stairs();
 		wrongThings();
-		bleedAndFlesh();
 	}
 
 	// ---- The shell, floor by floor.
@@ -234,7 +231,7 @@ public final class HotelPlan {
 	}
 
 	private boolean roomLit(int i, int side, int j) {
-		return i < FLOORS - 1 && (i * 7 + j * 3 + side * 5) % 10 < 3;
+		return i < FLOORS - 1 && (i * 7 + j * 3 + side * 5) % 10 < 4;
 	}
 
 	/** Room {@code j} on {@code side} (0 front, 1 back) of storey {@code i}: its door, its window, its bed. */
@@ -392,6 +389,18 @@ public final class HotelPlan {
 			}
 		}
 		litGroups.add(0);
+		// Floodlights over the plaza at night, so the front shows from the street.
+		for (int x = 4; x <= 34; x += 10) {
+			lights.add(new Glass(x, 5, -3, 0));
+		}
+		// ... and up the front, every few floors.
+		for (int y = 12; y <= 28; y += 8) {
+			for (int x = 6; x <= 32; x += 13) {
+				lights.add(new Glass(x, y, -2, 0));
+			}
+		}
+		lights.add(new Glass(-3, 6, 3, 0));
+		lights.add(new Glass(40, 6, 3, 0));
 		lights.add(new Glass(23, 3, 3, 0));
 		lights.add(new Glass(33, 3, 3, 0));
 		lights.add(new Glass(28, 3, 3, 0));
@@ -563,34 +572,5 @@ public final class HotelPlan {
 				signs.set(k, new Sign(s.x(), s.y(), s.z(), s.facing(), new String[] {"", text, "", ""}));
 			}
 		}
-	}
-
-	// ---- The corridor's flesh and bleeding, laid out for later (the builder puts them down and takes them away).
-
-	private void bleedAndFlesh() {
-		int y8 = floorY(FLOORS - 1);
-		// Level 1 at the corners where the wall meets the floor and the ceiling, every period; 2 spreads along the walls; 3 reaches over the ceiling.
-		List<P> one = new ArrayList<>();
-		List<P> two = new ArrayList<>();
-		List<P> three = new ArrayList<>();
-		for (int x = CORR_X0; x <= CORR_X1; x++) {
-			int m = x % PERIOD;
-			if (m == 3 || m == 9) {
-				one.add(new P(x, y8 + 1, 5));
-				one.add(new P(x, y8 + 3, 7));
-			}
-			if (m == 2 || m == 3 || m == 4 || m == 8 || m == 9 || m == 10) {
-				two.add(new P(x, y8 + 1, 7));
-				two.add(new P(x, y8 + 3, 5));
-			}
-			if (m == 3 || m == 9 || m == 6 || m == 0) {
-				three.add(new P(x, y8 + 2, 5));
-				three.add(new P(x, y8 + 2, 7));
-				three.add(new P(x, y8 + 3, 6));
-			}
-		}
-		flesh.add(one);
-		flesh.add(two);
-		flesh.add(three);
 	}
 }

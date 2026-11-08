@@ -43,7 +43,8 @@
 			"io.github.kortev.shootingstar.test.ReelSelfTest",
 			"io.github.kortev.shootingstar.test.ShowcaseSelfTest",
 			"io.github.kortev.shootingstar.test.ForeverSelfTest",
-			"io.github.kortev.shootingstar.test.ReviveSelfTest"
+			"io.github.kortev.shootingstar.test.ReviveSelfTest",
+			"io.github.kortev.shootingstar.test.HotelSelfTest"
 		]
 	},
 	"depends": {

@@ -134,5 +134,6 @@
   "contract.chainsawman.screen.accept": "ACCEPT",
   "contract.chainsawman.screen.refuse": "REFUSE",
   "contract.chainsawman.screen.time": "%s s",
-  "message.chainsawman.too_weak": "Too hurt to give them your blood"
+  "message.chainsawman.too_weak": "Too hurt to give them your blood",
+  "entity.chainsawman.flesh_growth": "Eternity flesh"
 }

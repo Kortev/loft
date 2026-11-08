@@ -60,9 +60,9 @@ public class EternityDevilEntity extends MobEntity {
 	public static final double LOCAL_X = 34.4;
 	public static final double LOCAL_Y = 29.0;
 	public static final double LOCAL_Z = 6.5;
-	/** Where its heart is, deep in the mass. */
-	public static final double HEART_X = 35.2;
-	public static final double HEART_Y = 30.7;
+	/** Where its heart is: in the big mouth, just inside the teeth, when the flesh has been cut away enough to show it. */
+	public static final double HEART_X = 32.8;
+	public static final double HEART_Y = 30.3;
 
 	private static final TrackedData<Boolean> HEART = DataTracker.registerData(EternityDevilEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
 	private static final TrackedData<Float> FACING = DataTracker.registerData(EternityDevilEntity.class, TrackedDataHandlerRegistry.FLOAT);
@@ -104,11 +104,11 @@ public class EternityDevilEntity extends MobEntity {
 	public static EternityDevilEntity spawn(ServerWorld world, HomeBlockEntity home) {
 		EternityDevilEntity devil = new EternityDevilEntity(ChainsawMan.ETERNITY_DEVIL, world);
 		Vec3d at = HotelBuilder.world(home.origin, home.rot, LOCAL_X, LOCAL_Y, LOCAL_Z);
-		devil.refreshPositionAndAngles(at.x, at.y, at.z, HotelBuilder.alongYaw(home.rot) + 90.0F, 0.0F);
+		devil.refreshPositionAndAngles(at.x, at.y, at.z, HotelBuilder.alongYaw(home.rot) + 180.0F, 0.0F);
 		devil.homePos = home.getPos();
 		devil.origin = home.origin;
 		devil.rot = home.rot;
-		devil.dataTracker.set(FACING, HotelBuilder.alongYaw(home.rot) + 90.0F);
+		devil.dataTracker.set(FACING, HotelBuilder.alongYaw(home.rot) + 180.0F);
 		devil.dataTracker.set(BORN, (int) world.getTime());
 		devil.setHealth(MAX_HEALTH);
 		world.spawnEntity(devil);
