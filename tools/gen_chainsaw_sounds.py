@@ -17,9 +17,9 @@ All are mono: the game places them on whoever makes them, and they are heard by 
   out of the arm (links rattling out fast, the hook biting), the frenzy kicking in (the engine shrieking up into a
   roar) and its loop (flat out, screaming), going down (a wet collapse as the engine splutters out), and coming back
   up (a gulp of blood, the heart and the engine catching).
-- Echo (the Eternity contract's power), all synthesised: the burst (a reversed whoosh swelling into a bright chime, a skipping record's stutter), the
-  finale's held beat, the streak in, the finale (a heavy boom with a chime ringing out of it), the time-warp's drone with a clock ticking (a one-shot
-  played again every 2.4 s) and the whispers when you swing.
+- Forever (the Eternity contract's power), all synthesised: the lock (wet squelches as the eyes open, a crowd of many whispering voices, detuned and
+  formant-filtered with no words, over a deep clock tick that stops), a stored hit (a muffled thud with a ticking echo) and the release (teeth biting
+  shut, the line rushing in, a heavy boom, time rushing back as a reversed whoosh).
 - Beam the shark (the ult), a huge wild shark fiend, heavy, wet and animal. These are built on pitched, filtered and layered
   vanilla Minecraft sounds (the loom asset cache, read at generation time only: the .ogg files are our own and nothing
   reads a vanilla file at runtime), with synthesised sub-bass, impacts and debris under them: bursting up out of the ground
@@ -880,8 +880,10 @@ def beam_launch():
 
 
 
-# ---- Echo, the Eternity contract's power: time itself. A reversed whoosh swelling into a bright chime, a stuttering record, a low
-# drone with a clock ticking under it, whispers that repeat. Nothing vanilla and nothing ripped: all synthesised.
+# ---- Forever, the Eternity contract's power: the Eternity Devil. The anime gives it a voice of many people speaking at once, so the
+# lock is a crowd of whispered voices (many detuned, formant-filtered, breath with no words) over a deep clock tick that stops, with wet
+# squelches as its eyes open; a stored hit is a muffled thud with a ticking echo; the release is teeth biting shut, a heavy boom and
+# time rushing back (a reversed whoosh). Nothing vanilla and nothing ripped: all synthesised.
 
 def reversed_swell(n, at, length, lo=120.0, hi=3800.0, level=1.0):
     """Air sucked backwards: noise sweeping up through a band and swelling into its end (a whoosh played in reverse)."""
@@ -895,147 +897,122 @@ def reversed_swell(n, at, length, lo=120.0, hi=3800.0, level=1.0):
     return out
 
 
-def bright_chime(n, at, freq, tau=0.9, level=1.0):
-    """A glassy chime with a shimmer: a few inharmonic partials, a slow beating pair on the top."""
-    m = n - ns(at)
-    t = np.arange(m) / SR
-    y = np.zeros(m)
-    for k, (r, a) in enumerate(((1.0, 1.0), (2.0, 0.55), (2.76, 0.4), (4.07, 0.28), (5.4, 0.18))):
-        f = freq * r
-        if f < 16000:
-            y += a * np.sin(2 * np.pi * f * t + g.rng.uniform(0, 6.28)) * np.exp(-t / (tau / (1 + 0.9 * k)))
-    y += 0.25 * np.sin(2 * np.pi * freq * 2.0 * 1.004 * t) * np.exp(-t / tau)
-    y *= np.clip(t / 0.0008, 0, 1)
+VOWELS = ((800.0, 1200.0, 2500.0), (450.0, 1900.0, 2600.0), (300.0, 2200.0, 3000.0), (500.0, 900.0, 2500.0), (320.0, 800.0, 2400.0), (650.0, 1700.0, 2500.0))
+
+
+def whisper_voice(n, start, length, level):
+    """One whispering voice: breath through three vowel formants (each syllable another vowel, the formants shifted for this voice), in
+    syllables of a speaking pace with small gaps. No words."""
     out = np.zeros(n)
-    out[ns(at):] = y * level
+    shift = g.rng.uniform(0.82, 1.25)
+    pos = start
+    while pos < start + length:
+        syl = g.rng.uniform(0.07, 0.2)
+        gap = g.rng.uniform(0.015, 0.11)
+        f1, f2, f3 = VOWELS[g.rng.integers(len(VOWELS))]
+        m = ns(syl)
+        noise = white(m)
+        y = bp(noise, f1 * shift * 0.85, f1 * shift * 1.17) * 1.0 + bp(noise, f2 * shift * 0.88, f2 * shift * 1.13) * 0.9 + bp(noise, f3 * shift * 0.9, f3 * shift * 1.1) * 0.5
+        y *= np.sin(np.pi * np.arange(m) / m) ** 1.4
+        out = place(out, pos, y * level * g.rng.uniform(0.6, 1.0))
+        pos += syl + gap
     return out
 
 
-def stutter(x, at, grain, gaps, level=1.0):
-    """A skipping record: a short slice of x (starting {at} s in, {grain} s long) repeated at the given gaps, each a little duller."""
-    i = ns(at)
-    piece = x[i:i + ns(grain)].copy()
-    piece *= np.hanning(len(piece) * 2)[len(piece):] ** 0.3 * np.minimum(np.arange(len(piece)) / 40.0, 1.0)
-    out = np.zeros(len(x))
-    pos = at + grain
-    for k, gap in enumerate(gaps):
-        pos += gap
-        out = place(out, pos, lp(piece, 9000.0 - k * 1300.0) * level * (0.9 ** k))
+def clock_tick(n, at, level=1.0, pitch=1.0):
+    """A deep clock's tick: a dry knock and a low ring."""
+    m = ns(0.22)
+    t = np.arange(m) / SR
+    y = np.sin(2 * np.pi * 86.0 * pitch * t) * np.exp(-t / 0.06) * 1.6
+    y += np.sin(2 * np.pi * 172.0 * pitch * t) * np.exp(-t / 0.03) * 0.6
+    y += bp(white(m), 500.0, 2400.0) * np.exp(-t / 0.006) * 1.4
+    y *= np.minimum(t / 0.0008, 1.0)
+    out = np.zeros(n)
+    k = min(m, n - ns(at))
+    out[ns(at):ns(at) + k] = (y * level)[:k]
     return out
 
 
-def echo_burst():
-    """The burst: a deep reversed whoosh, a bright chime as the copies land, a skipping record's stutter, a hollow ring under it."""
-    n = ns(2.1)
-    t = np.arange(n) / SR
-    x = reversed_swell(n, 0.0, 0.62, 80.0, 3400.0, 1.7)
-    x += reversed_swell(n, 0.04, 0.58, 400.0, 6500.0, 0.8)
-    # Deep underneath: a sine climbing, then falling away as the chime comes in.
-    x += np.sin(2 * np.pi * np.cumsum(curve(n, [(0.0, 38.0), (0.6, 120.0), (0.62, 62.0), (1.6, 44.0)])) / SR) * attack_decay_env(n, 0.55, 0.9, 0.62) * 1.2
-    chime = bright_chime(n, 0.62, 1175.0, 0.8, 1.0) + bright_chime(n, 0.64, 1568.0, 0.7, 0.7) + bright_chime(n, 0.66, 2349.0, 0.6, 0.5)
-    x += chime
-    # A flicker of copies landing: seven small ticks of glass in the first 0.2 s after.
-    for k in range(7):
-        x += bright_chime(n, 0.62 + 0.03 * k + g.rng.uniform(0, 0.015), g.rng.choice([1760.0, 2093.0, 2637.0, 3136.0]), 0.18, 0.28)
-    x += stutter(chime, 0.62, 0.075, [0.07, 0.09, 0.05, 0.12, 0.06, 0.16, 0.08], 0.9)
-    x += lp(white(n), 700.0) * np.exp(-np.maximum(t - 0.62, 0.0) / 0.12) * (t >= 0.62) * 0.8
-    return taper(x, 0.5)
-
-
-def attack_decay_env(n, rise_end, tau, peak_at):
-    """Climbs to 1 at {peak_at} s (from {rise_end} s earlier it is already audible), then dies away with time constant {tau} s."""
-    t = np.arange(n) / SR
-    up = np.clip(t / max(peak_at, 1e-3), 0.0, 1.0) ** 2
-    down = np.exp(-np.maximum(t - peak_at, 0.0) / tau)
-    return up * down
-
-
-def echo_gather():
-    """The finale's held beat: a pad swelling backwards, a rising shimmer, a clock's tick, the room holding its breath."""
-    n = ns(0.62)
-    t = np.arange(n) / SR
-    env = (t / 0.62) ** 1.8
-    x = np.zeros(n)
-    for f, a in ((110.0, 1.0), (165.0, 0.7), (220.0, 0.6), (330.0, 0.4)):
-        x += a * np.sin(2 * np.pi * np.cumsum(f * (0.9 + 0.2 * t / 0.62) + 3.0 * np.sin(2 * np.pi * 5.0 * t)) / SR)
-    x *= env
-    x += reversed_swell(n, 0.0, 0.62, 300.0, 5200.0, 1.3)
-    x += bp(white(n), 2500.0, 7500.0) * (np.sin(2 * np.pi * 18.0 * t) > 0.8) * env * 0.5
-    return taper(x, 0.04)
-
-
-def echo_streak():
-    """Every copy streaking back into you at once: a big hard whoosh rushing inward, glass dust, a sub rising."""
-    n = ns(0.55)
-    t = np.arange(n) / SR
-    x = reversed_swell(n, 0.0, 0.5, 200.0, 7000.0, 2.0)
-    x += reversed_swell(n, 0.0, 0.45, 80.0, 1800.0, 1.2)
-    x += np.sin(2 * np.pi * np.cumsum(curve(n, [(0.0, 50.0), (0.5, 140.0)])) / SR) * (t / 0.5) ** 2 * 1.0
-    x += bp(white(n), 4000.0, 11000.0) * (t / 0.5) ** 3 * 0.8
-    return taper(x, 0.06)
-
-
-def echo_finale():
-    """The collapse: a heavy boom (sub drop, a thunder of low noise), a bright chime ringing out of it, the record skipping once as it ends."""
-    n = ns(2.8)
-    t = np.arange(n) / SR
-    x = sub(n, [(0.0, 130.0), (0.1, 52.0), (1.4, 34.0)], 0.55, drive=2.4) * 1.6
-    x += lp(g.brown(n), 160.0) * np.exp(-t / 0.5) * 3.2
-    x += lp(white(n), 1500.0) * np.exp(-t / 0.09) * 1.4
-    x += hp(white(n), 5000.0) * np.exp(-t / 0.03) * 0.8
-    chime = bright_chime(n, 0.03, 880.0, 1.4, 0.9) + bright_chime(n, 0.05, 1320.0, 1.2, 0.6) + bright_chime(n, 0.04, 1760.0, 1.0, 0.45) + bright_chime(n, 0.06, 2637.0, 0.9, 0.3)
-    x += chime
-    x += stutter(chime, 0.03, 0.09, [0.1, 0.13, 0.2], 0.55)
-    # A tail: the ring of a very big room.
-    x += lp(white(n), 3200.0) * np.exp(-t / 0.55) * 0.18
-    return taper(x, 0.8)
-
-
-def echo_hum():
-    """The drone of the time-warp with a clock ticking under it, played again every 2.4 s over the end of itself: every layer steady,
-    the whole fading in and out in a sine, so the copies run together."""
-    seconds = 2.4
+def forever_lock():
+    """The lock: wet squelches as the eyes open, then a crowd of voices whispering together over a deep clock tick that stops; 3 s of it."""
+    seconds = 3.2
     n = ns(seconds)
     t = np.arange(n) / SR
-    env = np.sin(np.pi * t / seconds) ** 1.2
     x = np.zeros(n)
-    for f, a in ((55.0, 1.0), (82.5, 0.7), (110.5, 0.55), (165.0, 0.25)):
-        x += a * np.sin(2 * np.pi * (f * t + 0.6 * np.sin(2 * np.pi * 0.5 * t + f)))
-    x += 0.35 * np.sin(2 * np.pi * 220.0 * t + 1.2 * np.sin(2 * np.pi * 0.27 * t))
-    x = x * drift(n, 3.0, 0.1)
-    # The clock: a tick and a tock a beat apart, twice a second, each a dry knock and a little ring.
-    for k in range(int(seconds / 0.5)):
-        at = 0.05 + 0.5 * k
-        f = 1500.0 if k % 2 == 0 else 1050.0
-        tick = bp(white(ns(0.04)), f * 0.7, f * 1.8) * np.exp(-np.arange(ns(0.04)) / SR / 0.006) * 2.2
-        tick += np.sin(2 * np.pi * f * 0.5 * np.arange(ns(0.04)) / SR) * np.exp(-np.arange(ns(0.04)) / SR / 0.012) * 0.8
-        x = place(x, at, tick * 0.55)
-    return x * env
+    # Eyes opening one after another (eight): a wet suck and a slap each.
+    for j in range(8):
+        at = 0.1 + 0.07 * j + g.rng.uniform(0.0, 0.02)
+        x = place(x, at, flesh(ns(0.3), 0.2, 1.2)[:ns(0.3)] * g.rng.uniform(0.35, 0.6))
+        x = place(x, at, np.sin(2 * np.pi * np.cumsum(curve(ns(0.1), [(0.0, 190.0), (0.1, 70.0)])) / SR) * np.exp(-np.arange(ns(0.1)) / SR / 0.025) * 0.5)
+    # The crowd.
+    crowd = np.zeros(n)
+    for v in range(34):
+        crowd += whisper_voice(n, g.rng.uniform(0.0, 0.5), seconds - 0.2, 0.55)
+    swell = np.minimum(t / 0.7, 1.0) ** 1.5 * np.clip((seconds - t) / 0.25, 0.0, 1.0)
+    x += crowd * swell * 1.9
+    # The clock, until it stops: ticks a little slower than a second hand, then nothing.
+    at = 0.12
+    gap = 0.55
+    while at < 2.55:
+        x += clock_tick(n, at, 0.85)
+        at += gap
+        gap *= 1.012
+    return taper(x, 0.05)
 
 
-def echo_whisper():
-    """Whispered echoes when you swing: breath in words, then the same breath again further off, softer and lower."""
-    n = ns(1.1)
+def forever_hit():
+    """A stored hit: a muffled thud, and a ticking echo that dies away behind it."""
+    n = ns(0.9)
     t = np.arange(n) / SR
-    breath = np.zeros(n)
-    for start, length, lo, hi in ((0.0, 0.11, 2200.0, 5200.0), (0.13, 0.09, 1500.0, 4200.0), (0.25, 0.14, 2600.0, 6200.0)):
-        m = ns(length)
-        syl = bp(white(m), lo, hi) * np.sin(np.pi * np.arange(m) / m) ** 1.5
-        breath = place(breath, start, syl)
-    x = breath.copy()
-    for k, (delay, level, tone) in enumerate(((0.27, 0.55, 4200.0), (0.52, 0.32, 3000.0), (0.8, 0.18, 2200.0))):
-        x = place(x, delay, lp(breath, tone)[:n - ns(delay)] * level)
-    return taper(x, 0.2)
+    x = np.sin(2 * np.pi * np.cumsum(curve(n, [(0.0, 120.0), (0.12, 55.0)])) / SR) * np.exp(-t / 0.07) * 1.8
+    x += lp(white(n), 420.0) * np.exp(-t / 0.05) * 2.2
+    x *= np.minimum(t / 0.001, 1.0)
+    for k, (at, level) in enumerate(((0.16, 0.5), (0.3, 0.32), (0.46, 0.2), (0.64, 0.1))):
+        tick = bp(white(ns(0.03)), 900.0 - 80.0 * k, 3200.0 - 400.0 * k) * np.exp(-np.arange(ns(0.03)) / SR / 0.006) * 2.0
+        x = place(x, at, tick * level)
+    return taper(x, 0.15)
+
+
+def forever_release():
+    """The release: teeth biting shut all at once (a crunch and a clack), the line rushing in, a heavy boom, and time rushing back (a
+    reversed whoosh) with a clock speeding up and stopping in it."""
+    n = ns(3.0)
+    t = np.arange(n) / SR
+    x = np.zeros(n)
+    # Teeth: a hail of dry clacks and a wet crunch.
+    for k in range(26):
+        at = g.rng.uniform(0.0, 0.07)
+        clack = bp(white(ns(0.03)), 1800.0, 7500.0) * np.exp(-np.arange(ns(0.03)) / SR / 0.004) * g.rng.uniform(0.5, 1.0)
+        x = place(x, at, clack * 1.2)
+    crunch = bp(white(ns(0.25)), 300.0, 2600.0) * np.exp(-np.arange(ns(0.25)) / SR / 0.05) * 2.2
+    x = place(x, 0.0, crunch)
+    # The line snapping in (the first 0.2 s), a sub swelling into the boom.
+    x += reversed_swell(n, 0.0, 0.22, 200.0, 7500.0, 2.0)
+    x += reversed_swell(n, 0.0, 0.2, 80.0, 1600.0, 1.2)
+    # The boom at the blow (0.2 s).
+    b = 0.2
+    after = np.maximum(t - b, 0.0)
+    x += sub(n, [(0.0, 150.0), (b, 130.0), (b + 0.1, 52.0), (b + 1.6, 34.0)], 0.7, drive=2.4) * 1.5 * (t >= b)
+    x += lp(g.brown(n), 170.0) * np.exp(-after / 0.45) * 3.0 * (t >= b)
+    x += lp(white(n), 1700.0) * np.exp(-after / 0.08) * 1.6 * (t >= b)
+    x += hp(white(n), 4500.0) * np.exp(-after / 0.025) * 0.9 * (t >= b)
+    # Time rushing back: a long reversed whoosh from the blow.
+    x += reversed_swell(n, b + 0.15, 1.5, 150.0, 4200.0, 0.9)
+    # A clock speeding up, then stopped.
+    at = b + 0.5
+    gap = 0.32
+    for k in range(7):
+        x += clock_tick(n, at, 0.5 * (1.0 - 0.05 * k), 1.0 + 0.04 * k)
+        at += gap
+        gap *= 0.72
+    return taper(x, 0.6)
 
 
 SOUNDS = {
     'pochita_tame': pochita_tame,
-    'echo_burst': echo_burst,
-    'echo_gather': echo_gather,
-    'echo_streak': echo_streak,
-    'echo_finale': echo_finale,
-    'echo_hum': echo_hum,
-    'echo_whisper': echo_whisper,
+    'forever_lock': forever_lock,
+    'forever_hit': forever_hit,
+    'forever_release': forever_release,
     'beam_burst': beam_burst,
     'beam_step': beam_step,
     'beam_swim': beam_swim,
@@ -1064,7 +1041,7 @@ SOUNDS = {
 }
 LOOPS = ('form_idle', 'form_grind', 'form_frenzy_loop')
 # Loudness (loudest 400 ms, dB).
-LEVELS = {'echo_burst': -10, 'echo_gather': -16, 'echo_streak': -12, 'echo_finale': -7, 'echo_hum': -23, 'echo_whisper': -27, 'form_crunch': -10, 'pochita_tame': -14, 'form_merge': -12, 'form_cord': -14, 'form_start': -10, 'form_revive_pull': -14, 'form_revive_start': -10, 'form_idle': -20, 'form_stop': -16, 'form_slash': -13, 'form_hit': -12,
+LEVELS = {'forever_lock': -13, 'forever_hit': -12, 'forever_release': -7, 'form_crunch': -10, 'pochita_tame': -14, 'form_merge': -12, 'form_cord': -14, 'form_start': -10, 'form_revive_pull': -14, 'form_revive_start': -10, 'form_idle': -20, 'form_stop': -16, 'form_slash': -13, 'form_hit': -12,
           'form_grind': -15, 'form_chain': -14, 'form_frenzy': -10, 'form_frenzy_loop': -17, 'form_down': -13,
           'form_revive': -14, 'beam_burst': -9, 'beam_step': -12, 'beam_swim': -13, 'beam_bite': -10, 'beam_dive': -13, 'beam_screech': -9, 'beam_chatter': -16, 'beam_slam': -6, 'beam_launch': -10}
 
