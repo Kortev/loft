@@ -141,14 +141,14 @@ def crack():
     d = ImageDraw.Draw(img)
     for y in range(16):
         t = abs(y - 7.5) / 7.5
-        if t > 0.55:
+        if t > 0.5:
             c = ed.INK + (255,)
-        elif t > 0.32:
-            c = (70, 16, 26, 255)
-        elif t > 0.12:
-            c = (150, 34, 46, 255)
+        elif t > 0.3:
+            c = (46, 12, 20, 255)
+        elif t > 0.1:
+            c = (88, 22, 32, 255)
         else:
-            c = (182, 52, 58, 255)
+            c = (128, 34, 40, 255)
         d.line([(0, y), (15, y)], fill=c)
     return img
 

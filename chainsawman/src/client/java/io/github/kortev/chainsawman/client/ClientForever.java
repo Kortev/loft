@@ -108,11 +108,26 @@ public final class ClientForever {
 	}
 
 	static ForeverLayout layout(ForeverHubEntity hub) {
+		net.minecraft.client.world.ClientWorld world = (net.minecraft.client.world.ClientWorld) hub.getWorld();
+		List<ForeverCopyEntity> cs = copies(hub.getId());
 		ForeverLayout l = LAYOUTS.get(hub.getId());
-		if (l == null || l.seed != hub.seed()) {
-			l = new ForeverLayout((net.minecraft.client.world.ClientWorld) hub.getWorld(), hub);
-			LAYOUTS.put(hub.getId(), l);
+		if (l != null && l.seed == hub.seed() && (cs.isEmpty() || cs.size() + 1 == l.moments)) {
+			return l;
 		}
+		// One lump for the held thing and one for each moment of it, nearest the middle first.
+		List<ForeverCopyEntity> sorted = new ArrayList<>(cs);
+		sorted.sort((x, y) -> Integer.compare(Math.abs(x.slot()), Math.abs(y.slot())));
+		List<net.minecraft.util.math.Vec3d> feet = new ArrayList<>();
+		feet.add(net.minecraft.util.math.Vec3d.ZERO);
+		for (ForeverCopyEntity c : sorted) {
+			feet.add(c.getPos().subtract(hub.getPos()));
+		}
+		double scale = 1.0;
+		if (world.getEntityById(hub.targetId()) instanceof net.minecraft.entity.LivingEntity t) {
+			scale = Math.max(1.0, t.getWidth() / 0.6 * 0.8);
+		}
+		l = new ForeverLayout(world, hub, feet, scale);
+		LAYOUTS.put(hub.getId(), l);
 		return l;
 	}
 

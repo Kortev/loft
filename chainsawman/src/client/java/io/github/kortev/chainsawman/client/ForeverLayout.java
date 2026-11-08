@@ -13,10 +13,11 @@ import net.minecraft.util.math.random.Random;
 import net.minecraft.util.shape.VoxelShape;
 
 /**
- * Where the Eternity Devil's flesh comes up round a locked target: five to seven low lumps (each a main mass with two lesser ones
- * against it) two to three and a half blocks out, on the real ground there (the client's own look at the world), eyes on about half
- * of them, a mouth on each, cracks running out from each. Everything is worked out from the hub's seed, so every client draws the same
- * devil without being told, and positions are relative to the hub (where the target froze).
+ * Where the Eternity Devil's flesh comes up round a locked target, as in kortev's storyboard: one small low lump (about a block across,
+ * half a block high, a cluster of lobes) at the feet of the held thing and of each moment of it, with the sinews rising from it up
+ * that moment's legs; an eye on each (they all turn to the held one) and a mouth on each facing out sideways from the line; cracks in the
+ * ground round them. Worked out from the hub's seed and where the copies stand, so every client draws the same devil without being told;
+ * positions are relative to the hub (where the target froze).
  */
 final class ForeverLayout {
 	static final class Part {
@@ -65,6 +66,8 @@ final class ForeverLayout {
 	}
 
 	final int seed;
+	/** What it was made from: the number of moments (to remake it when they change). */
+	final int moments;
 	final List<Lump> lumps = new ArrayList<>();
 	final List<Eye> eyes = new ArrayList<>();
 	final List<Mouth> mouths = new ArrayList<>();
@@ -72,96 +75,101 @@ final class ForeverLayout {
 	/** How high the ground under the hub is, relative to the hub (negative: the target hangs in the air). */
 	double centreGround;
 
-	ForeverLayout(ClientWorld world, ForeverHubEntity hub) {
+	/**
+	 * @param feet where the held thing (first) and each moment of it stand, relative to the hub
+	 * @param scale 1 for something the size of a person, more for something bigger
+	 */
+	ForeverLayout(ClientWorld world, ForeverHubEntity hub, List<Vec3d> feet, double scale) {
 		this.seed = hub.seed();
+		this.moments = feet.size();
 		Random random = Random.create(seed);
 		double hy = hub.getY();
 		centreGround = groundBelow(world, hub.getX(), hy, hub.getZ()) - hy;
-		int count = 5 + random.nextInt(3);
-		double base = random.nextDouble() * Math.PI * 2.0;
-		for (int i = 0; i < count; i++) {
+		// The line's way: from the farthest pair.
+		Vec3d axis = new Vec3d(1.0, 0.0, 0.0);
+		double far = 0.0;
+		for (Vec3d a : feet) {
+			for (Vec3d b : feet) {
+				double d = (a.x - b.x) * (a.x - b.x) + (a.z - b.z) * (a.z - b.z);
+				if (d > far) {
+					far = d;
+					axis = new Vec3d(a.x - b.x, 0.0, a.z - b.z).normalize();
+				}
+			}
+		}
+		Vec3d across = new Vec3d(-axis.z, 0.0, axis.x);
+		double size = Math.min(2.6, Math.max(1.0, scale));
+		for (int i = 0; i < feet.size(); i++) {
+			Vec3d p = feet.get(i);
 			Lump l = new Lump();
-			double ang = base + i * Math.PI * 2.0 / count + (random.nextDouble() - 0.5) * 0.5;
-			double dist = 2.0 + random.nextDouble() * 1.5;
-			l.x = Math.cos(ang) * dist;
-			l.z = Math.sin(ang) * dist;
-			l.rx = 0.95 + random.nextDouble() * 0.5;
-			l.rz = 0.9 + random.nextDouble() * 0.45;
-			l.ry = 0.55 + random.nextDouble() * 0.35;
-			l.delay = i * 0.6;
-			l.ground = groundNear(world, hub.getX() + l.x, hy + centreGround, hub.getZ() + l.z) - hy;
+			l.x = p.x;
+			l.z = p.z;
+			l.rx = 0.5 * size * (0.9 + random.nextDouble() * 0.25);
+			l.rz = 0.48 * size * (0.9 + random.nextDouble() * 0.25);
+			l.ry = 0.3 * size * (0.9 + random.nextDouble() * 0.2);
+			l.delay = i * 0.5;
+			l.ground = groundBelow(world, hub.getX() + p.x, hy + Math.max(p.y, centreGround) + 1.0, hub.getZ() + p.z) - hy;
 			Part main = new Part();
 			main.x = l.x;
 			main.z = l.z;
-			main.y = l.ground + 0.02;
+			main.y = l.ground - 0.05;
 			main.rx = l.rx;
 			main.ry = l.ry;
 			main.rz = l.rz;
 			main.seed = random.nextInt();
 			l.parts.add(main);
-			// A cluster: lobes of different sizes round and over the main one (not one smooth shape).
-			int lobes = 4;
-			for (int k = 0; k < lobes; k++) {
+			// A small cluster: lobes of different sizes round the main one.
+			for (int k = 0; k < 3; k++) {
 				Part s = new Part();
-				double a2 = k * Math.PI * 2.0 / lobes + random.nextDouble() * 1.2;
-				double size = 0.34 + random.nextDouble() * 0.36;
-				s.rx = l.rx * size;
-				s.rz = l.rz * size;
-				s.ry = l.ry * (0.55 + random.nextDouble() * 0.5);
-				s.x = l.x + Math.cos(a2) * l.rx * (0.62 + random.nextDouble() * 0.3);
-				s.z = l.z + Math.sin(a2) * l.rz * (0.62 + random.nextDouble() * 0.3);
-				s.y = groundNear(world, hub.getX() + s.x, hy + centreGround, hub.getZ() + s.z) - hy - 0.04 + (k >= 2 ? l.ry * 0.35 : 0.0);
+				double a2 = k * Math.PI * 2.0 / 3.0 + random.nextDouble() * 1.4;
+				double sz = 0.38 + random.nextDouble() * 0.34;
+				s.rx = l.rx * sz;
+				s.rz = l.rz * sz;
+				s.ry = l.ry * (0.6 + random.nextDouble() * 0.4);
+				s.x = l.x + Math.cos(a2) * l.rx * (0.6 + random.nextDouble() * 0.3);
+				s.z = l.z + Math.sin(a2) * l.rz * (0.6 + random.nextDouble() * 0.3);
+				s.y = l.ground - 0.06;
 				s.seed = random.nextInt();
 				l.parts.add(s);
 			}
 			lumps.add(l);
-		}
-		int eyeIndex = 0;
-		for (int i = 0; i < count; i++) {
-			Lump l = lumps.get(i);
-			Part m = l.parts.get(0);
-			// A mouth on every lump, low, looking out.
+			// An eye on it, up on the side that looks in at the held one.
+			Eye eye = new Eye();
+			eye.lump = i;
+			eye.index = i;
+			Vec3d inward = new Vec3d(-p.x, 0.0, -p.z);
+			double az = inward.lengthSquared() < 0.04 ? random.nextDouble() * Math.PI * 2.0 : Math.atan2(inward.z, inward.x) + (random.nextDouble() - 0.5) * 0.5;
+			Vec3d hh = new Vec3d(Math.cos(az), 0.0, Math.sin(az));
+			eye.radius = 0.2 * Math.min(size, 1.7);
+			double el = 0.55 + random.nextDouble() * 0.35;
+			eye.normal = normal(main, hh, el);
+			eye.pos = surface(main, hh, el).add(eye.normal.multiply(eye.radius * 0.45));
+			eyes.add(eye);
+			// A mouth on it, facing out sideways from the line, alternate sides.
 			Mouth mouth = new Mouth();
 			mouth.lump = i;
-			double outward = Math.atan2(l.z, l.x) + (random.nextDouble() - 0.5) * 1.3;
-			double e = 0.34 + random.nextDouble() * 0.16;
-			Vec3d h = new Vec3d(Math.cos(outward), 0.0, Math.sin(outward));
-			mouth.pos = surface(m, h, e);
-			mouth.normal = normal(m, h, e);
-			mouth.width = 1.0 + random.nextDouble() * 0.4;
+			Vec3d out = across.multiply(i % 2 == 0 ? 1.0 : -1.0).add(axis.multiply((random.nextDouble() - 0.5) * 0.5)).normalize();
+			double me = 0.22 + random.nextDouble() * 0.18;
+			mouth.pos = surface(main, out, me);
+			mouth.normal = normal(main, out, me);
+			mouth.width = 0.62 * Math.pow(size, 0.8) * (0.9 + random.nextDouble() * 0.3);
 			mouth.seed = random.nextInt();
-			mouth.teeth = 12 + random.nextInt(4);
+			mouth.teeth = 10 + random.nextInt(3);
 			mouths.add(mouth);
-			{
-				int n = 1 + random.nextInt(2);
-				for (int k = 0; k < n; k++) {
-					Eye eye = new Eye();
-					eye.lump = i;
-					eye.index = eyeIndex++;
-					double inward = Math.atan2(-l.z, -l.x) + (random.nextDouble() - 0.5) * 0.9 + (k == 0 ? -0.35 : 0.45);
-					double el = 0.3 + random.nextDouble() * 0.45;
-					Vec3d hh = new Vec3d(Math.cos(inward), 0.0, Math.sin(inward));
-					eye.radius = 0.26 + random.nextDouble() * 0.06;
-					Vec3d surf = surface(m, hh, el);
-					eye.normal = normal(m, hh, el);
-					eye.pos = surf.add(eye.normal.multiply(eye.radius * 0.4));
-					eyes.add(eye);
-				}
-			}
-			// Cracks in the ground, out from the lump.
-			int strands = 4 + random.nextInt(2);
+			// Cracks in the ground, short, out from the lump.
+			int strands = 2 + random.nextInt(2);
 			for (int k = 0; k < strands; k++) {
 				Crack c = new Crack();
 				c.lump = i;
 				double ang = random.nextDouble() * Math.PI * 2.0;
 				double x = l.x + Math.cos(ang) * l.rx * 0.8;
 				double z = l.z + Math.sin(ang) * l.rz * 0.8;
-				int segs = 5 + random.nextInt(3);
+				int segs = 3 + random.nextInt(3);
 				for (int s = 0; s <= segs; s++) {
-					double y = groundNear(world, hub.getX() + x, hy + centreGround, hub.getZ() + z) - hy + 0.03;
+					double y = groundNear(world, hub.getX() + x, hy + l.ground, hub.getZ() + z) - hy + 0.03;
 					c.pts.add(new Vec3d(x, y, z));
-					ang += (random.nextDouble() - 0.5) * 1.3;
-					double len = 0.35 + random.nextDouble() * 0.4;
+					ang += (random.nextDouble() - 0.5) * 1.5;
+					double len = (0.25 + random.nextDouble() * 0.3) * size;
 					x += Math.cos(ang) * len;
 					z += Math.sin(ang) * len;
 				}

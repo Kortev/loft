@@ -116,8 +116,8 @@ public class ForeverHubRenderer extends EntityRenderer<ForeverHubEntity> {
 				}
 				Vec3d a = c.pts.get(s);
 				Vec3d b = a.lerp(c.pts.get(s + 1), part);
-				double w0 = 0.36 * (1.0 - s / (double) c.pts.size() * 0.65);
-				double w1 = 0.36 * (1.0 - (s + part) / c.pts.size() * 0.65);
+				double w0 = 0.13 * (1.0 - s / (double) c.pts.size() * 0.6);
+				double w1 = 0.13 * (1.0 - (s + part) / c.pts.size() * 0.6);
 				ForeverGeo.strip(crackPen, a, b, w0, w1, 0.0F, 1.0F);
 			}
 		}
@@ -278,7 +278,7 @@ public class ForeverHubRenderer extends EntityRenderer<ForeverHubEntity> {
 		if (phase == ForeverHubEntity.SINKING && since < 12.0F) {
 			float k = since / 12.0F;
 			double h = target != null ? target.getHeight() * 0.5 : 0.9;
-			burst(provider, matrices, new Vec3d(0.0, h, 0.0), 0.6F + 2.1F * (1.0F - (1.0F - k) * (1.0F - k)), 1.0F - k * k, hub.getId() * 0.7F);
+			burst(provider, matrices, new Vec3d(0.0, h, 0.0), 0.5F + 1.5F * (1.0F - (1.0F - k) * (1.0F - k)), 1.0F - k * k, hub.getId() * 0.7F);
 		}
 	}
 
