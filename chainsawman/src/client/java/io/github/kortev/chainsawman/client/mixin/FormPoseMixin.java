@@ -44,21 +44,29 @@ public abstract class FormPoseMixin {
 		java.util.UUID[] pulled = new java.util.UUID[1];
 		io.github.kortev.chainsawman.client.ReviveCord.Pull revive = io.github.kortev.chainsawman.client.ReviveCord.by(player, pulled);
 		net.minecraft.entity.player.PlayerEntity down = revive != null && client.world != null ? client.world.getPlayerByUuid(pulled[0]) : null;
+		if (entity != null && io.github.kortev.chainsawman.form.Downed.is(player)) {
+			// The one whose cord is pulled jolts with each tug.
+			float jolt = io.github.kortev.chainsawman.client.ReviveCord.jolt(player, client.world.getTime(), tickDelta);
+			if (jolt > 0.0F) {
+				model.head.pitch -= 0.5F * jolt;
+				model.head.roll += 0.2F * jolt;
+				model.body.pitch -= 0.15F * jolt;
+			}
+		}
 		if (down != null && up < 0.0F) {
 			// Pulling a friend's cord out of their chest: the arm reaches to it and draws back with it.
 			long now = client.world.getTime();
 			net.minecraft.util.math.Vec3d shoulder = io.github.kortev.chainsawman.client.ReviveCord.shoulder(player, tickDelta);
-			net.minecraft.util.math.Vec3d aim = io.github.kortev.chainsawman.client.ReviveCord.aim(shoulder,
-					io.github.kortev.chainsawman.client.ReviveCord.root(down, tickDelta), io.github.kortev.chainsawman.client.ReviveCord.draw(revive, now, tickDelta));
+			io.github.kortev.chainsawman.client.ReviveCord.Grip grip = io.github.kortev.chainsawman.client.ReviveCord.grip(revive, player, down, now, tickDelta);
 			float yaw = net.minecraft.util.math.MathHelper.lerpAngleDegrees(tickDelta, player.prevBodyYaw, player.bodyYaw);
-			float[] arm = io.github.kortev.chainsawman.client.ReviveCord.angles(aim, yaw);
-			float strain = io.github.kortev.chainsawman.client.ReviveCord.taut(revive, now, tickDelta);
-			model.rightArm.pitch = arm[0] + 0.03F * strain * net.minecraft.util.math.MathHelper.sin((now + tickDelta) * 2.3F);
+			float[] arm = io.github.kortev.chainsawman.client.ReviveCord.angles(grip.hand().subtract(shoulder).normalize(), yaw);
+			model.rightArm.pitch = arm[0];
 			model.rightArm.yaw = arm[1];
 			model.rightArm.roll = 0.0F;
-			// Leaning back into the pull.
-			model.body.pitch = 0.5F - 0.75F * io.github.kortev.chainsawman.client.ReviveCord.draw(revive, now, tickDelta);
-			model.head.pitch -= 0.3F * strain;
+			// Leaning in over the chest between tugs; his whole body rocks back with each tug, hardest with the yank.
+			boolean yanked = revive.how() == io.github.kortev.chainsawman.client.ReviveCord.YANKED;
+			model.body.pitch = 0.65F - (yanked ? 1.1F : 0.6F) * grip.pulse();
+			model.head.pitch += 0.15F - 0.5F * grip.pulse();
 		} else if (up >= 0.0F) {
 			// Back up after being down: the limbs growing out of their stumps as you push yourself up.
 			io.github.kortev.chainsawman.client.GetUp.limbs(model, false, up, 0.0F);

@@ -76,7 +76,7 @@ public class ReviveSelfTest implements ClientModInitializer {
 	private static final int FRIEND_RUNS = 50;
 	/** Where the friend starts (blocks from the middle), how far from the body he kneels, and how fast he sprints (blocks a tick). */
 	private static final double FRIEND_FROM = 22.0;
-	private static final double FRIEND_KNEELS = 0.7;
+	private static final double FRIEND_KNEELS = 0.55;
 	private static final double SPRINT = 0.3;
 
 	private static Stage stage = Stage.WAIT_WORLD;
@@ -462,8 +462,8 @@ public class ReviveSelfTest implements ClientModInitializer {
 		if (since >= 0 && f < rampage) {
 			// The yank in my own shot (the cord snapping back, the blood), then the mod's own transformation camera.
 			if (since < 9) {
-				if (installs("yank")) {
-					pull(4.6, 150.0, 1.7, 46.0F, 0.2);
+				if (installs("c2")) {
+					pull(4.4, 90.0, 1.5, 34.0F, 0.2);
 				}
 			} else if (installs("mod")) {
 				Capture.camera = null;
@@ -495,17 +495,13 @@ public class ReviveSelfTest implements ClientModInitializer {
 		if (gripAt >= 0) {
 			// C: the pull: close on the grip and the cord leaving the chest, then the cord from the other side, then the strain.
 			int c = f - gripAt;
-			if (c < 16) {
+			if (c < 14) {
 				if (installs("c1")) {
-					pull(4.6, 150.0, 1.5, 46.0F, 0.2);
+					pull(4.6, 140.0, 1.6, 40.0F, 0.2);
 				}
-			} else if (c < 42) {
-				// Low by his chest, side on, held: the cord taut from the chest to the fist, the friend leaning back.
-				if (installs("c2")) {
-					pull(4.0, 100.0, 1.0, 44.0F, 0.5);
-				}
-			} else if (installs("c3")) {
-				pull(4.8, -150.0, 1.4, 44.0F, 0.8);
+			} else if (installs("c2")) {
+				// Low by his chest, side on, held through both tugs and the yank.
+				pull(4.4, 90.0, 1.5, 34.0F, 0.2);
 			}
 			return;
 		}
@@ -563,9 +559,10 @@ public class ReviveSelfTest implements ClientModInitializer {
 			return bodyPos(client).add(0.0, 0.5, 0.0);
 		}
 		ReviveCord.Pull pull = ReviveCord.of(client.player);
-		float draw = pull == null ? 0.0F : ReviveCord.draw(pull, client.world.getTime(), td());
-		Vec3d shoulder = ReviveCord.shoulder(friend, td());
-		return ReviveCord.hand(shoulder, ReviveCord.aim(shoulder, ReviveCord.root(client.player, td()), draw));
+		if (pull == null) {
+			return bodyPos(client).add(0.0, 0.5, 0.0);
+		}
+		return ReviveCord.grip(pull, friend, client.player, client.world.getTime(), td()).hand();
 	}
 
 	/** A camera {@code dist} out from the middle of the cord (the body and the friend's hand), {@code angle} degrees round the line between them, {@code high} above it, drifting round. */
@@ -580,11 +577,12 @@ public class ReviveSelfTest implements ClientModInitializer {
 			Vec3d body = bodyPos(m);
 			Vec3d hand = handPos(m);
 			Vec3d aim = body.add(0.0, 0.25, 0.0).lerp(hand, 0.5 + 0.4 * toward);
-			Vec3d axis = flat(hand.subtract(body));
+			Vec3d axis = flat(friendPos(m).subtract(body));
 			double base = axis.lengthSquared() < 1.0E-4 ? 0.0 : Math.atan2(axis.z, axis.x);
 			double a = steer(base + Math.toRadians(angle + 0.9 * (t - t0)), aim, dist, high, aim);
 			Vec3d at = aim.add(Math.cos(a) * dist, high, Math.sin(a) * dist);
-			return look(framed(at, aim), aim);
+			Vec3d shake = io.github.kortev.chainsawman.client.FormCinematic.jitter(io.github.kortev.chainsawman.client.FormCinematic.shake(td()), t);
+			return look(framed(at.add(shake), aim), aim);
 		};
 	}
 
@@ -809,6 +807,7 @@ public class ReviveSelfTest implements ClientModInitializer {
 	/** Where the friend kneels: {@link #FRIEND_KNEELS} from the body, on the side he came from. */
 	private static Vec3d kneel(ServerPlayerEntity you) {
 		Vec3d side = friendFrom.subtract(you.getPos()).multiply(1.0, 0.0, 1.0).normalize();
+		// (Right over the chest, which is a little toward the head from where the body's place is.)
 		return you.getPos().add(side.multiply(FRIEND_KNEELS));
 	}
 

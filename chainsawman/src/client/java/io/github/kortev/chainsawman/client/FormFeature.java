@@ -535,7 +535,7 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 	}
 
 	/** The revive cord is the transformation's own (its rope, thickness and handle), drawn in this many short pieces, sagging this far (blocks) when slack. */
-	private static final int REVIVE_PIECES = 28;
+	private static final int REVIVE_PIECES = 16;
 	private static final float SAG = 0.4F;
 
 	/**
@@ -558,17 +558,16 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 			return;
 		}
 		Vector3f root = at(matrices, model.body, CORD_ROOT);
-		Vec3d shoulder = ReviveCord.shoulder(friend, tickDelta);
-		Vec3d hand = ReviveCord.hand(shoulder, ReviveCord.aim(shoulder, ReviveCord.root(down, tickDelta), ReviveCord.draw(pull, now, tickDelta)));
+		Vec3d hand = ReviveCord.grip(pull, friend, down, now, tickDelta).hand();
 		Vec3d camera = client.gameRenderer.getCamera().getPos();
 		Vector3f end = new Vector3f((float) (hand.x - camera.x), (float) (hand.y - camera.y), (float) (hand.z - camera.z));
 		float out = ReviveCord.out(pull, now, tickDelta);
 		end.set(new Vector3f(root).lerp(end, out));
 		float taut = ReviveCord.taut(pull, now, tickDelta);
 		float t = now + tickDelta;
-		// Slack hangs; taut is nearly straight, with the stretch's bounce as the friend leans back.
-		float sag = (SAG * (1.0F - taut) * (1.0F - taut) + 0.03F * taut * MathHelper.sin(t * 0.8F) * (float) Math.exp(-0.03 * Math.max(0.0, t - now))) * out;
-		float tremble = 0.012F * taut;
+		// Short: it hangs a little slack while he grips the handle, jerks straight in a tug.
+		float sag = 0.3F * new Vector3f(end).sub(root).length() * (1.0F - taut) * out;
+		float tremble = 0.006F * taut;
 		float[] uv = mesh.ropeUv();
 		VertexConsumer buffer = consumers.getBuffer(RenderLayer.getEntityCutoutNoCull(TEXTURE));
 		Vector3f look = client.gameRenderer.getCamera().getHorizontalPlane();

@@ -6,8 +6,8 @@ All are mono: the game places them on whoever makes them, and they are heard by 
   tearing at the start where it comes out of him, and the rope snapping back in;
 - the start: the engine catching off the pull, a few coughing strokes, then firing and roaring up to a scream as the
   saws burst out (a wet tearing burst of flesh and wire in the middle of it), and dropping back to its idle;
-- the revive: a friend pulling the cord of someone who is down (the cord creaking out of the chest, the pawls clicking, the
-  engine coughing and sputtering with rising tension) and then the yank (the start's sound from tick 10 on, with the rope's
+- the revive: a friend pulling the cord of someone who is down (gripping the handle, then a sharp tug and a cough at 1 s, a
+  harder tug and a sputter at 2 s, tension swelling into 3 s) and then the yank (the start's sound from tick 10 on, with the rope's
   crack in front and a wet spray: the limbs growing back);
 - the idle: what he sounds like while the form is on, a loop: a two-stroke engine putting along unevenly, the chains
   ticking round slack on their bars;
@@ -173,37 +173,43 @@ def form_start():
 
 
 def form_revive_pull():
-    """A friend pulling the cord of someone who is down (Downed.FEED, 3 s): the cord paid out of the chest, creaking and
-    stretching tighter, the pawls clicking over it, and the engine inside trying to catch: coughs and sputters, firing
-    more often and for longer each time, never quite catching, the tension rising to the yank."""
+    """A friend pulling the cord of someone who is down (Downed.FEED, 3 s), as a pull-start: he grips the handle (creaks and the
+    pawls ticking), then three pulls, each harder: at 1.0 s a sharp short tug (the rope zipping out and snapping back, a cough of
+    the engine), at 2.0 s a harder one (a louder cough and a sputter), and a swell of tension into 3.0 s, where the yank begins
+    (form_revive_start). The tugs land on ReviveCord.TUGS (ticks 20 and 40)."""
     length = 3.0
     n = ns(length)
     t = np.arange(n) / SR
-    # The engine: coughing attempts (a few firings, a stumble, silence), closer together and longer as it goes.
-    tries = [(0.25, 0.10, 9.0), (0.85, 0.14, 11.0), (1.35, 0.20, 14.0), (1.80, 0.28, 17.0), (2.20, 0.42, 22.0),
-             (2.68, 0.60, 30.0), (2.93, 0.10, 44.0)]
-    pts = [(0.0, 0.0)]
-    lvl = [(0.0, 0.0)]
-    for at, dur, hz in tries:
-        pts += [(at - 0.005, 0.0), (at, hz * 0.6), (at + dur * 0.5, hz), (at + dur, hz * 0.3), (at + dur + 0.005, 0.0)]
-        lvl += [(at - 0.005, 0.0), (at, 0.5 + at * 0.25), (at + dur, 0.35 + at * 0.2), (at + dur + 0.005, 0.0)]
-    pts.append((length, 0.0))
-    lvl.append((length, 0.0))
-    x = engine(n, curve(n, pts), curve(n, lvl), skip=0.28, jitter=0.35)
-    # The cord: fibre zipping over metal and creaking as it stretches, a rubbery moan rising in pitch.
-    grow = curve(n, [(0.0, 0.0), (0.1, 0.35), (2.9, 1.0), (length, 1.0)])
-    zip_ = g.sweep_filter(white(n), 'bandpass', curve(n, [(0.0, 700.0), (length, 3200.0)]), order=2, width=0.8)
-    x += zip_ * grow * (0.35 + 0.25 * np.sin(2 * np.pi * (3.0 + 5.0 * t / length) * t) ** 2)
-    freq = 160.0 + 520.0 * (t / length) ** 1.6
-    moan = np.sin(2 * np.pi * np.cumsum(freq * (1.0 + 0.015 * np.sin(2 * np.pi * 7.0 * t)) / SR))
-    x += moan * grow * 0.10 * np.minimum(t / 0.4, 1.0)
-    # The pawls clicking over their ratchet as the rope pays out, slowing as it goes taut, then a rattle at the end.
-    x += ratchet(n, 0.05, 2.6, 34.0, 12.0) * 0.6
-    x += ratchet(n, 2.7, 0.3, 90.0, 140.0) * 0.5
-    # Out of his chest, wet.
-    x += np.roll(flesh(n, 0.3, wet=1.0), ns(0.02)) * 0.6
-    x += np.roll(flesh(n, 0.2, wet=0.8), ns(1.6)) * 0.3
-    return x * np.minimum(1.0, (n - np.arange(n)) / ns(0.04))
+    x = np.zeros(n)
+
+    def tug(at, hard):
+        # The rope zipping out over the 3 ticks before the top, snapping back over the 2 after: a zip, a crack, a wet start.
+        z = g.sweep_filter(white(n), 'bandpass', curve(n, [(0.0, 900.0), (at - 0.15, 900.0), (at, 3200.0), (length, 3200.0)]), order=2, width=0.8)
+        env = curve(n, [(0.0, 0.0), (at - 0.15, 0.0), (at - 0.14, 0.7 * hard), (at, 1.0 * hard), (at + 0.01, 0.0), (length, 0.0)])
+        out = z * env * 0.9
+        out += ratchet(n, at - 0.15, 0.15, 90.0, 160.0) * hard
+        back = curve(n, [(0.0, 0.0), (at + 0.01, 0.0), (at + 0.012, 1.0), (at + 0.1, 0.0), (length, 0.0)])
+        out += bp(white(n), 1200.0, 4200.0) * back * 0.6 * hard
+        out += np.roll(flesh(n, 0.18, wet=1.0), ns(at - 0.15)) * 0.5 * hard
+        return out
+
+    x += tug(1.0, 0.8)
+    x += tug(2.0, 1.0)
+    # The engine's coughs after each tug: two pops, then a longer stumbling sputter.
+    pts = [(0.0, 0.0), (1.015, 0.0), (1.02, 9.0), (1.2, 12.0), (1.25, 0.0),
+           (2.015, 0.0), (2.02, 11.0), (2.5, 19.0), (2.58, 0.0), (length, 0.0)]
+    lvl = [(0.0, 0.0), (1.015, 0.0), (1.02, 0.8), (1.25, 0.6), (1.26, 0.0), (2.015, 0.0), (2.02, 1.3), (2.58, 1.0), (2.59, 0.0), (length, 0.0)]
+    x += engine(n, curve(n, pts), curve(n, lvl), skip=0.25, jitter=0.4)
+    # Gripping the handle between: the rope creaking, the pawls ticking now and then.
+    x += ratchet(n, 0.05, 0.85, 7.0, 4.0) * 0.4
+    x += ratchet(n, 1.2, 0.7, 6.0, 5.0) * 0.4
+    creak = np.sin(2 * np.pi * np.cumsum((180.0 + 60.0 * np.sin(2 * np.pi * 1.7 * t)) / SR)) * curve(n, [(0.0, 0.0), (0.3, 0.05), (0.85, 0.05), (1.0, 0.0), (1.3, 0.0), (1.6, 0.06), (1.9, 0.0), (length, 0.0)])
+    x += creak * 0.5
+    # The tension swelling into the yank: the starter's pawls racing, a low drone rising.
+    x += ratchet(n, 2.62, 0.38, 20.0, 110.0) * 1.4
+    drone = np.sin(2 * np.pi * np.cumsum((70.0 + 90.0 * np.clip((t - 2.5) / 0.5, 0.0, 1.0)) / SR)) * curve(n, [(0.0, 0.0), (2.5, 0.0), (3.0, 0.6)])
+    x += drone * 0.9
+    return x * np.minimum(1.0, (n - np.arange(n)) / ns(0.02))
 
 
 def form_revive_start():
