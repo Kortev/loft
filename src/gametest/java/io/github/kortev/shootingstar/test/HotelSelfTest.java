@@ -456,7 +456,7 @@ public class HotelSelfTest implements ClientModInitializer {
 			float gy = yawTo(eye, glance);
 			float gp = pitchTo(eye, glance);
 			yaw += MathHelper.clamp(MathHelper.wrapDegrees(gy - yaw), -50.0F, 50.0F);
-			pitch = MathHelper.clamp(gp, -30.0F, 30.0F);
+			pitch = MathHelper.clamp(gp, -22.0F, 22.0F);
 		}
 		return new Capture.Pose(eye.x, eye.y, eye.z, yaw, pitch);
 	};
@@ -709,43 +709,35 @@ public class HotelSelfTest implements ClientModInitializer {
 		};
 		s.each = t -> wantYaw = EAST;
 		s.cam = follow(3.4, 1.9, 0.0, 9.0, 1.1);
-		s = shot("a_turn", 46);
+		s = shot("a_turn", 64);
 		s.start = () -> {
-			tp(18.0, floorY(7), 6.2, 90.0F);
+			tp(19.0, floorY(7), 6.2, 90.0F);
 			wantYaw = 90.0F;
 			keys(true, false);
 		};
 		s.each = t -> {
 			Vec3d p = HotelBuilder.local(origin, ROT, you(0.0));
-			Vec3d door = world(13.6, floorY(7) + 0.9, 5.0);
-			wantYaw = yawTo(you(0.0), door);
-			if (p.x < 15.6) {
-				keys(false, false);
-			}
-			if (t == 20 && p.x < 16.0) {
-				MinecraftClient c = mc();
-				BlockPos pos = HotelBuilder.world(origin, ROT, 13, (int) floorY(7), 4);
-				if (c.interactionManager != null) {
-					c.interactionManager.interactBlock(c.player, net.minecraft.util.Hand.MAIN_HAND,
-							new net.minecraft.util.hit.BlockHitResult(Vec3d.ofCenter(pos).add(0.0, 0.0, 0.45), net.minecraft.util.math.Direction.SOUTH, pos, false));
+			if (t < 34) {
+				// Along to the stairwell door, and stop at it.
+				wantYaw = yawTo(you(0.0), world(13.5, floorY(7) + 0.9, 5.2));
+				if (p.x < 14.4) {
+					keys(false, false);
 				}
+				if (t == 30) {
+					MinecraftClient c = mc();
+					BlockPos pos = HotelBuilder.world(origin, ROT, 13, (int) floorY(7), 4);
+					if (c.interactionManager != null) {
+						c.interactionManager.interactBlock(c.player, net.minecraft.util.Hand.MAIN_HAND,
+								new net.minecraft.util.hit.BlockHitResult(Vec3d.ofCenter(pos).add(0.0, 0.0, 0.45), net.minecraft.util.math.Direction.SOUTH, pos, false));
+					}
+				}
+			} else {
+				// Through it, into the stairwell.
+				wantYaw = 180.0F;
+				keys(true, false);
 			}
 		};
-		s.cam = cam(19.5, floorY(7) + 1.7, 6.5, 13.5, floorY(7) + 1.0, 4.8);
-		s = shot("a_down", 34);
-		s.start = () -> {
-			tp(13.5, floorY(7), 3.4, 180.0F);
-			wantYaw = 180.0F;
-			keys(true, false);
-		};
-		s.each = t -> {
-			Vec3d p = HotelBuilder.local(origin, ROT, you(0.0));
-			wantYaw = 180.0F;
-			if (p.z < 2.3) {
-				wantYaw = -90.0F;
-			}
-		};
-		s.cam = cam(15.0, floorY(7) + 1.8, 1.2, 13.5, floorY(7) + 0.9, 3.0);
+		s.cam = cam(19.5, floorY(7) + 1.6, 6.6, 13.6, floorY(7) + 1.0, 4.8);
 		s = shot("a_lobby", 40);
 		s.start = () -> {
 			tp(24.0, 1.0, 5.6, 0.0F);

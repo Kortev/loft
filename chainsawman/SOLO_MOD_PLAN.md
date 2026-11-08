@@ -32,9 +32,10 @@ contracts with them** like the Public Safety devil hunters. Every contract has a
 - **Contract powers work in human form only.** Chainsaw Man form and contracts stay two different ways to fight.
 - One key, "Use contract" (pick a free default; check conflicts with Chitty, Gojolander and vanilla: the Hollow
   Purple work found X and C already taken).
-- **How you get one:** beat a devil down to low health and it stops fighting and **offers a contract** (a short
-  screen in the show's style: its name, the power, the price, Accept / Kill it). Killing it drops its loot instead.
-  That choice is the hook for reels and comments ("would you take it?").
+- **How you get one (as built for the Eternity Devil, 2026-11-07):** the devil **offers a contract** while it has you
+  in its loop (a short screen in the show's style: its name, the power in one line, the price, Accept / Refuse); refuse
+  and you fight it. Killing it drops its loot (flesh and blood) and gives no contract. That choice is the hook for reels
+  and comments ("would you take it?"). The first plan (beat it down and it offers) was dropped: it did not fit the show.
 - **Prices** are real and permanent while the contract lasts (for example max hearts, hunger, a lifespan-style
   countdown). Shown plainly before you accept.
 
@@ -47,8 +48,8 @@ contracts with them** like the Public Safety devil hunters. Every contract has a
   eyes and mouths, as in the anime.
 - **The fight:** it regenerates and grows; flesh tendrils and mouths attack. Beat it down and it offers its contract.
   Kill it and the loop breaks and you are back in the hotel.
-- **The contract power, Eternity:** trap a target (mob or player) in a looping hallway pocket for a while; they come
-  back where they were taken from. Price: decide and say why (for example 2 max hearts while held).
+- **The contract power, Eternity** (the first idea, a looping hallway pocket for a target, was dropped for **Forever**:
+  see the Forever entry below). Its price is 3 XP levels a use.
 - The look must be **shown to kortev as renders first** (a turnaround of the devil and the hallway) before anything is
   baked. Opus does the look itself if a Sonnet attempt misses, as it did for Beam v8.
 - Sounds synthesized like the others; no ripped audio.
@@ -103,25 +104,36 @@ the loop from above) at 1 px = 1/16 block. Sent to kortev; waiting on their verd
   **Built (2026-11-07), waiting on kortev's verdict:** see the Forever entry in `HANDOFF.md` (price 3 XP levels, 3 s / 1.5 s on bosses, hits x 1.5 capped at 40, 30 s cooldown; clip `work/forever/forever_clip.mp4`). The Echo notes above are history; Echo is removed.
 - **No max-heart prices** (kortev worried they'd stack; they can't, one contract at a time, but still no hearts).
   The price is what the devil asks for; ideas: beds stop working for you, faster hunger.
-- **Killing and getting a contract must be different things** (beating a devil down until it offers one doesn't fit
-  the show). Killing gives loot (its flesh and blood; blood could refill Chainsaw Man's blood bar); a contract is a
-  deal the devil offers with its price. Exactly how is undecided, so the contract-system bullets above are out of date.
-- A quest idea put to kortev: the hotel shows up only at night, lit and empty; each floor you climb is more wrong;
-  on 8F the loop closes and the boss is there.
+- **Killing and getting a contract are different things.** Killing gives loot (its flesh, a lot of hunger and
+  nausea, and its blood, a bottle that refills Chainsaw Man's blood bar completely); a contract is a deal the devil
+  offers with its price, in the loop, to whoever it has trapped.
+- **The hotel quest (built 2026-11-07; the quest is our own, not the anime's plot):** the hotel stands dead by day
+  (dark, chained) and wakes at night when a player is near (lit lobby, open doors, a bell on the desk). Floors 2 to 7
+  are each a little more wrong (a repeated door number, a painting that comes again, a stain that spreads, an eye in
+  the wallpaper, a door that breathes, a phone ringing in an empty room); on 8F the corridor loops, with flesh at the
+  corners growing each lap. After 3 laps (or a minute) the devil speaks and offers: **Accept** and you get the
+  contract and walk out (the devil goes away for `devilRespawnDays`); **Refuse**, a hybrid or silence and the walls
+  bleed and it grows out of them at the corridor's end: 300 health, mouths and tendrils and creeping flesh, it
+  regenerates, its heart shows in its mouth when it is cut open (three times the damage), it begs as it dies. Its death
+  breaks the loop (the lights die). Details, numbers and files: the hotel entry in `HANDOFF.md`.
 
-**First reel (a reply to @Dreclo's comment):** a normal hallway → it loops back → "wait..." → flesh pushes out of the
-walls → the fight → it offers the contract → accept → use Eternity on a mob. Real mob AI, real keys, every beat bigger.
+**First reel (a reply to @Dreclo's comment), as built (2026-11-07), two clips in `work/hotel/`:** the hotel lit at night,
+the lobby, each floor's wrong thing, the 8th floor's corridor that loops (the same door number twice: "wait..."),
+flesh at the corners, the offer, **refuse**, the walls bleed and it grows out of them, the fight as Chainsaw Man, its
+heart, the kill and the loot; or **accept**, the loop opens, walk out (and then use Forever on a mob). Real keys and
+paths, every beat bigger.
 
 ## Hybrid or contracts, never both (kortev, 2026-11-06)
 
 A player is either a **hybrid** (a devil inside you, transformed by a trigger: Chainsaw Man's cord now, later the
 **Bomb** hybrid's pin (Reze's) and the **Katana** hybrid (Katana Man's)) or a **devil hunter with a contract**. A
 hybrid can't make contracts (a devil offering one to a hybrid is refused), and taking a contract means giving up your
-hybrid devil. That makes the first big choice in the mod. Contracts come from devils you beat down and spare; killing
-a devil gives loot, not its contract.
+hybrid devil (as built for the Eternity Devil: it refuses a hybrid with a line and fights them). That makes the first
+big choice in the mod. Contracts come from a devil's offer (the Eternity Devil offers it in its loop); killing a devil
+gives loot, not its contract.
 
-**How many people per devil:** by default a devil can have contracts with any number of players (each player beats
-and spares their own). A game rule `oneContractPerDevil` (default false) makes each devil's contract belong to one
+**How many people per devil:** by default a devil can have contracts with any number of players (each player takes its
+offer themselves). A game rule `oneContractPerDevil` (default false) makes each devil's contract belong to one
 player per world, first come, until they die or end it: for servers that want each player's powers to be their own.
 The hybrids could take the same rule later.
 
