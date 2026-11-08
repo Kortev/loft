@@ -72,6 +72,8 @@ final class ForeverLayout {
 	final List<Eye> eyes = new ArrayList<>();
 	final List<Mouth> mouths = new ArrayList<>();
 	final List<Crack> cracks = new ArrayList<>();
+	/** The render-only copies that carry the line on, far past the near ones: {@code [x, y, z, how far along (0 to 1), which end (-1 past, 1 future), index]} relative to the hub. */
+	final List<double[]> far = new ArrayList<>();
 	/** How high the ground under the hub is, relative to the hub (negative: the target hangs in the air). */
 	double centreGround;
 
@@ -79,7 +81,7 @@ final class ForeverLayout {
 	 * @param feet where the held thing (first) and each moment of it stand, relative to the hub
 	 * @param scale 1 for something the size of a person, more for something bigger
 	 */
-	ForeverLayout(ClientWorld world, ForeverHubEntity hub, List<Vec3d> feet, double scale) {
+	ForeverLayout(ClientWorld world, ForeverHubEntity hub, List<Vec3d> feet, double scale, List<io.github.kortev.chainsawman.contract.ForeverCopyEntity> copies, float width, float height) {
 		this.seed = hub.seed();
 		this.moments = feet.size();
 		Random random = Random.create(seed);
@@ -97,6 +99,7 @@ final class ForeverLayout {
 				}
 			}
 		}
+		carryOn(world, hub, copies, width, height);
 		Vec3d across = new Vec3d(-axis.z, 0.0, axis.x);
 		double size = Math.min(2.6, Math.max(1.0, scale));
 		for (int i = 0; i < feet.size(); i++) {
@@ -174,6 +177,48 @@ final class ForeverLayout {
 					z += Math.sin(ang) * len;
 				}
 				cracks.add(c);
+			}
+		}
+	}
+
+	/** How many render-only copies each way, and how far (blocks) the farthest is from the line's last real copy. */
+	static final int FAR = 11;
+
+	/**
+	 * Carries the line on past its last real copy at each end: straight on along the way the last two copies run, farther apart the farther
+	 * out (about 24 blocks in all), at the same height over the ground, skipping any that would stand in a block.
+	 */
+	private void carryOn(ClientWorld world, ForeverHubEntity hub, List<io.github.kortev.chainsawman.contract.ForeverCopyEntity> copies, float width, float height) {
+		if (copies.size() < 2) {
+			return;
+		}
+		List<io.github.kortev.chainsawman.contract.ForeverCopyEntity> sorted = new ArrayList<>(copies);
+		sorted.sort((a, b) -> Integer.compare(a.slot(), b.slot()));
+		for (int end = -1; end <= 1; end += 2) {
+			io.github.kortev.chainsawman.contract.ForeverCopyEntity last = end < 0 ? sorted.get(0) : sorted.get(sorted.size() - 1);
+			io.github.kortev.chainsawman.contract.ForeverCopyEntity before = end < 0 ? sorted.get(1) : sorted.get(sorted.size() - 2);
+			Vec3d dir = new Vec3d(last.getX() - before.getX(), 0.0, last.getZ() - before.getZ());
+			if (dir.lengthSquared() < 1.0E-4) {
+				continue;
+			}
+			dir = dir.normalize();
+			double hover = Math.max(0.0, last.getY() - groundBelow(world, last.getX(), last.getY() + 0.5, last.getZ()));
+			double along = 0.0;
+			for (int k = 1; k <= FAR; k++) {
+				along += 1.4 + 0.12 * k;
+				double x = last.getX() + dir.x * along;
+				double z = last.getZ() + dir.z * along;
+				double ground = groundBelow(world, x, last.getY() + 2.0, z);
+				if (Math.abs(ground - (last.getY() - hover)) > 3.0) {
+					continue;
+				}
+				double y = ground + hover;
+				net.minecraft.util.math.Box box = new net.minecraft.util.math.Box(x - width / 2.0 + 0.02, y + 0.001, z - width / 2.0 + 0.02, x + width / 2.0 - 0.02, y + height - 0.02,
+						z + width / 2.0 - 0.02);
+				if (world.getBlockCollisions(null, box).iterator().hasNext()) {
+					continue;
+				}
+				far.add(new double[] {x - hub.getX(), y - hub.getY(), z - hub.getZ(), k / (double) FAR, end, k});
 			}
 		}
 	}

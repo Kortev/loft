@@ -4,9 +4,58 @@
   "samplers": [
     {
       "name": "Sampler0"
+    },
+    {
+      "name": "Sampler1"
     }
   ],
   "uniforms": [
+    {
+      "name": "InvProj",
+      "type": "matrix4x4",
+      "count": 16,
+      "values": [1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0]
+    },
+    {
+      "name": "InvView",
+      "type": "matrix4x4",
+      "count": 16,
+      "values": [1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0]
+    },
+    {
+      "name": "CubeCentre",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "name": "CubeHalf",
+      "type": "float",
+      "count": 1,
+      "values": [
+        4.5
+      ]
+    },
+    {
+      "name": "CubeOn",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0.0
+      ]
+    },
+    {
+      "name": "CamInside",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0.0
+      ]
+    },
     {
       "name": "ScreenSize",
       "type": "float",

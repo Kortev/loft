@@ -55,6 +55,9 @@ public final class ChainsawMan implements ModInitializer {
 	public static final EntityType<io.github.kortev.chainsawman.contract.ForeverHubEntity> FOREVER_HUB = Registry.register(Registries.ENTITY_TYPE, id("forever_hub"),
 			EntityType.Builder.<io.github.kortev.chainsawman.contract.ForeverHubEntity>create(io.github.kortev.chainsawman.contract.ForeverHubEntity::new, SpawnGroup.MISC)
 					.dimensions(0.4F, 0.4F).maxTrackingRange(8).trackingTickInterval(20).alwaysUpdateVelocity(false).disableSummon().disableSaving().makeFireImmune().build("forever_hub"));
+	public static final EntityType<io.github.kortev.chainsawman.contract.ForeverCubeEntity> FOREVER_CUBE = Registry.register(Registries.ENTITY_TYPE, id("forever_cube"),
+			EntityType.Builder.<io.github.kortev.chainsawman.contract.ForeverCubeEntity>create(io.github.kortev.chainsawman.contract.ForeverCubeEntity::new, SpawnGroup.MISC)
+					.dimensions(0.4F, 0.4F).maxTrackingRange(10).trackingTickInterval(20).alwaysUpdateVelocity(false).disableSummon().disableSaving().makeFireImmune().build("forever_cube"));
 	public static final EntityType<io.github.kortev.chainsawman.contract.ForeverCopyEntity> FOREVER_COPY = Registry.register(Registries.ENTITY_TYPE, id("forever_copy"),
 			EntityType.Builder.<io.github.kortev.chainsawman.contract.ForeverCopyEntity>create(io.github.kortev.chainsawman.contract.ForeverCopyEntity::new, SpawnGroup.MISC)
 					.dimensions(0.6F, 1.8F).maxTrackingRange(8).trackingTickInterval(20).alwaysUpdateVelocity(false).disableSummon().disableSaving().makeFireImmune().build("forever_copy"));

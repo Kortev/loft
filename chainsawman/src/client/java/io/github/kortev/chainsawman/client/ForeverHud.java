@@ -24,6 +24,7 @@ public final class ForeverHud {
 	public static ShaderProgram drain;
 	private static final Identifier EYE = Identifier.of("chainsawman", "textures/gui/forever_eye.png");
 	private static final Target COPY = new Target(false, false);
+	private static final Target DEPTH = new Target(true, false);
 	/** How drained the screen is now (eased toward what it should be), and a tick ago. */
 	private static float level;
 	private static float previous;
@@ -48,7 +49,7 @@ public final class ForeverHud {
 		for (ForeverHubEntity hub : ClientForever.hubs()) {
 			float d = (float) hub.getPos().distanceTo(client.player.getPos());
 			boolean mine = hub.targetId() == client.player.getId() || hub.ownerId() == client.player.getId();
-			float s = mine ? 1.0F : d > 24.0F ? 0.0F : 0.9F - 0.62F * MathHelper.clamp((d - 6.0F) / 18.0F, 0.0F, 1.0F);
+			float s = mine ? 0.6F : d > 24.0F ? 0.0F : 0.4F - 0.28F * MathHelper.clamp((d - 6.0F) / 18.0F, 0.0F, 1.0F);
 			if (hub.phase() == ForeverHubEntity.SINKING) {
 				s *= 1.0F - MathHelper.clamp((now - hub.phaseAt()) / (Forever.SINK + 8.0F), 0.0F, 1.0F);
 			}
@@ -96,22 +97,53 @@ public final class ForeverHud {
 		float strength = MathHelper.lerp(tickDelta, previous, level);
 		float mine = MathHelper.lerp(tickDelta, heldPrevious, held);
 		float pulse = pulse(client, tickDelta);
-		if (drain != null && (strength > 0.01F || pulse > 0.01F)) {
+		// The cube nearest the camera: the world inside it is drained, and outside it is not.
+		net.minecraft.util.math.Vec3d cam = ClientForever.camera;
+		io.github.kortev.chainsawman.contract.ForeverCubeEntity cube = null;
+		double best = Double.MAX_VALUE;
+		for (io.github.kortev.chainsawman.contract.ForeverCubeEntity c : ClientForever.cubes()) {
+			double d = c.getPos().squaredDistanceTo(cam);
+			if (d < best && d < 120.0 * 120.0) {
+				best = d;
+				cube = c;
+			}
+		}
+		float cubeOn = 0.0F;
+		if (cube != null) {
+			float now = client.world.getTime() + tickDelta;
+			cubeOn = cube.phase() == io.github.kortev.chainsawman.contract.ForeverHubEntity.SINKING ? 1.0F - MathHelper.clamp((now - cube.phaseAt()) / 8.0F, 0.0F, 1.0F)
+					: MathHelper.clamp((now - cube.startedAt()) / 4.0F, 0.0F, 1.0F);
+		}
+		if (drain != null && (strength > 0.01F || pulse > 0.01F || cubeOn > 0.0F)) {
 			ctx.draw();
 			Framebuffer main = client.getFramebuffer();
 			int w = main.textureWidth;
 			int h = main.textureHeight;
 			COPY.ensure(w, h);
 			COPY.copyColorFrom(main);
+			DEPTH.ensure(w, h);
+			DEPTH.copyDepthFrom(main);
 			main.beginWrite(true);
 			Post.begin();
 			RenderSystem.setShaderTexture(0, COPY.color());
+			RenderSystem.setShaderTexture(1, DEPTH.depth());
 			Shaders.set(drain, "ScreenSize", (float) w, (float) h);
 			Shaders.set(drain, "Strength", strength);
 			Shaders.set(drain, "Mine", mine);
 			Shaders.set(drain, "Pulse", pulse);
 			Shaders.set(drain, "Time", (float) (client.world.getTime() % 100000L) + tickDelta);
+			Shaders.set(drain, "InvProj", new org.joml.Matrix4f(ClientForever.projection).invert());
+			Shaders.set(drain, "InvView", new org.joml.Matrix4f(ClientForever.view).invert());
+			Shaders.set(drain, "CubeOn", cubeOn);
+			if (cube != null) {
+				Shaders.set(drain, "CubeCentre", (float) (cube.getX() - cam.x), (float) (cube.getY() - cam.y), (float) (cube.getZ() - cam.z));
+				double half = io.github.kortev.chainsawman.contract.Forever.CUBE_HALF;
+				boolean inside = Math.abs(cam.x - cube.getX()) <= half && Math.abs(cam.y - cube.getY()) <= half && Math.abs(cam.z - cube.getZ()) <= half;
+				Shaders.set(drain, "CubeHalf", (float) half);
+				Shaders.set(drain, "CamInside", inside ? 1.0F : 0.0F);
+			}
 			Post.quad(drain);
+			RenderSystem.setShaderTexture(1, 0);
 			RenderSystem.setShaderTexture(0, 0);
 			RenderSystem.enableBlend();
 			RenderSystem.defaultBlendFunc();

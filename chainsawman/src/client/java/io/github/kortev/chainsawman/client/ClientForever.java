@@ -1,6 +1,7 @@
 package io.github.kortev.chainsawman.client;
 
 import io.github.kortev.chainsawman.contract.ForeverCopyEntity;
+import io.github.kortev.chainsawman.contract.ForeverCubeEntity;
 import io.github.kortev.chainsawman.contract.ForeverFlags;
 import io.github.kortev.chainsawman.contract.ForeverHubEntity;
 import io.github.kortev.chainsawman.network.ForeverLockPayload;
@@ -21,6 +22,13 @@ public final class ClientForever {
 	private static final Map<Integer, ForeverHubEntity> HUBS = new HashMap<>();
 	private static final Map<Integer, List<ForeverCopyEntity>> COPIES = new HashMap<>();
 	private static final Map<Integer, ForeverLayout> LAYOUTS = new HashMap<>();
+	private static final List<ForeverCubeEntity> CUBES = new ArrayList<>();
+	/** Locks told before the thing they hold is known here: put in place as soon as it is. */
+	private static final Map<Integer, ForeverLockPayload> PENDING = new HashMap<>();
+	/** The world render's projection and view (rotation) matrices and where the camera was, for the screen passes. */
+	public static org.joml.Matrix4f projection = new org.joml.Matrix4f();
+	public static org.joml.Matrix4f view = new org.joml.Matrix4f();
+	public static net.minecraft.util.math.Vec3d camera = net.minecraft.util.math.Vec3d.ZERO;
 
 	private ClientForever() {
 	}
@@ -28,9 +36,60 @@ public final class ClientForever {
 	public static void told(ForeverLockPayload payload) {
 		if (payload.on()) {
 			ForeverFlags.CLIENT.add(payload.target());
+			PENDING.put(payload.target(), payload);
+			MinecraftClient client = MinecraftClient.getInstance();
+			if (client.world != null && client.world.getEntityById(payload.target()) != null) {
+				freeze(client.world.getEntityById(payload.target()), payload);
+				PENDING.remove(payload.target());
+			}
 		} else {
 			ForeverFlags.CLIENT.remove(payload.target());
+			PENDING.remove(payload.target());
 		}
+	}
+
+	/**
+	 * Puts a locked thing exactly where the server froze it and holds it: position, facing and stride set once, with the "previous"
+	 * values the same so there is nothing to interpolate between (an entity whose tick is stopped would otherwise be drawn sliding
+	 * from its old place to its new one over and over), the swing and the velocity cleared.
+	 */
+	private static void freeze(Entity e, ForeverLockPayload p) {
+		if (!(e instanceof net.minecraft.entity.LivingEntity living)) {
+			return;
+		}
+		living.refreshPositionAndAngles(p.x(), p.y(), p.z(), p.yaw(), p.pitch());
+		living.updateTrackedPositionAndAngles(p.x(), p.y(), p.z(), p.yaw(), p.pitch(), 0);
+		living.setBodyYaw(p.bodyYaw());
+		living.prevBodyYaw = p.bodyYaw();
+		living.setHeadYaw(p.headYaw());
+		living.prevHeadYaw = p.headYaw();
+		living.prevPitch = p.pitch();
+		living.prevYaw = p.yaw();
+		io.github.kortev.chainsawman.client.mixin.LimbAnimatorAccessor limbs = (io.github.kortev.chainsawman.client.mixin.LimbAnimatorAccessor) (Object) living.limbAnimator;
+		limbs.chainsawman$setPos(p.limbPos());
+		limbs.chainsawman$setSpeed(p.limbSpeed());
+		limbs.chainsawman$setPrevSpeed(p.limbSpeed());
+		living.handSwinging = false;
+		living.handSwingTicks = 0;
+		living.handSwingProgress = 0.0F;
+		living.lastHandSwingProgress = 0.0F;
+		living.setVelocity(net.minecraft.util.math.Vec3d.ZERO);
+	}
+
+	/** The cubes of frozen time in the world here that have not begun to end. */
+	public static List<ForeverCubeEntity> cubes() {
+		return CUBES;
+	}
+
+	/** Whether the point is inside a cube of frozen time (particles there hang still). */
+	public static boolean frozenAt(double x, double y, double z) {
+		for (ForeverCubeEntity c : CUBES) {
+			if (c.phase() != io.github.kortev.chainsawman.contract.ForeverHubEntity.SINKING && Math.abs(x - c.getX()) <= io.github.kortev.chainsawman.contract.Forever.CUBE_HALF
+					&& Math.abs(y - c.getY()) <= io.github.kortev.chainsawman.contract.Forever.CUBE_HALF && Math.abs(z - c.getZ()) <= io.github.kortev.chainsawman.contract.Forever.CUBE_HALF) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	public static void clear() {
@@ -38,6 +97,8 @@ public final class ClientForever {
 		HUBS.clear();
 		COPIES.clear();
 		LAYOUTS.clear();
+		CUBES.clear();
+		PENDING.clear();
 	}
 
 	public static Collection<ForeverHubEntity> hubs() {
@@ -126,7 +187,13 @@ public final class ClientForever {
 		if (world.getEntityById(hub.targetId()) instanceof net.minecraft.entity.LivingEntity t) {
 			scale = Math.max(1.0, t.getWidth() / 0.6 * 0.8);
 		}
-		l = new ForeverLayout(world, hub, feet, scale);
+		float width = 0.6F;
+		float height = 1.8F;
+		if (world.getEntityById(hub.targetId()) instanceof net.minecraft.entity.LivingEntity t2) {
+			width = t2.getWidth();
+			height = t2.getHeight();
+		}
+		l = new ForeverLayout(world, hub, feet, scale, sorted, width, height);
 		LAYOUTS.put(hub.getId(), l);
 		return l;
 	}
@@ -139,12 +206,22 @@ public final class ClientForever {
 	public static void tick(MinecraftClient client) {
 		HUBS.clear();
 		COPIES.clear();
+		CUBES.clear();
 		if (client.world == null) {
 			LAYOUTS.clear();
+			PENDING.clear();
 			return;
 		}
+		for (Integer id : List.copyOf(PENDING.keySet())) {
+			Entity e = client.world.getEntityById(id);
+			if (e != null) {
+				freeze(e, PENDING.remove(id));
+			}
+		}
 		for (Entity e : client.world.getEntities()) {
-			if (e instanceof ForeverHubEntity hub && !hub.isRemoved()) {
+			if (e instanceof ForeverCubeEntity cube && !cube.isRemoved()) {
+				CUBES.add(cube);
+			} else if (e instanceof ForeverHubEntity hub && !hub.isRemoved()) {
 				HUBS.put(hub.getId(), hub);
 			} else if (e instanceof ForeverCopyEntity copy && !copy.isRemoved()) {
 				COPIES.computeIfAbsent(copy.hubId(), k -> new ArrayList<>()).add(copy);

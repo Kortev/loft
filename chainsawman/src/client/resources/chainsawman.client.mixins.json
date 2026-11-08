@@ -16,6 +16,7 @@
 		"ForeverLabelMixin",
 		"ForeverLockedActionMixin",
 		"ForeverLockedLookMixin",
+		"ForeverParticleMixin",
 		"FirstPersonSawMixin",
 		"FormAttackMixin",
 		"FormCameraMixin",

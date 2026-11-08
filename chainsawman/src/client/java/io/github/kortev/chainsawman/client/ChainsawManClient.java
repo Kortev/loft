@@ -74,6 +74,12 @@ public final class ChainsawManClient implements ClientModInitializer {
 		EntityRendererRegistry.register(ChainsawMan.POCHITA_ENTITY, PochitaRenderer::new);
 		EntityRendererRegistry.register(ChainsawMan.FOREVER_HUB, ForeverHubRenderer::new);
 		EntityRendererRegistry.register(ChainsawMan.FOREVER_COPY, ForeverCopyRenderer::new);
+		EntityRendererRegistry.register(ChainsawMan.FOREVER_CUBE, ForeverCubeRenderer::new);
+		WorldRenderEvents.LAST.register(context -> {
+			ClientForever.projection = new org.joml.Matrix4f(context.projectionMatrix());
+			ClientForever.view = new org.joml.Matrix4f(context.positionMatrix());
+			ClientForever.camera = context.camera().getPos();
+		});
 		ClientPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.ForeverLockPayload.ID, (payload, context) -> ClientForever.told(payload));
 		EntityModelLayerRegistry.registerModelLayer(BeamRenderer.LAYER, BeamModel::texturedModelData);
 		EntityRendererRegistry.register(ChainsawMan.BEAM_ENTITY, BeamRenderer::new);

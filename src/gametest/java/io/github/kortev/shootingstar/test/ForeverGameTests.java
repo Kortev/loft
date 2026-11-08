@@ -155,7 +155,7 @@ public class ForeverGameTests implements FabricGameTest {
 				context.assertTrue(Forever.locked(husk), "the husk was not locked");
 				context.assertTrue(player.experienceLevel == 10 - Forever.PRICE, "the price was not taken: " + player.experienceLevel);
 				context.assertTrue(Forever.copies(husk).size() >= 4, "too few copies: " + Forever.copies(husk).size());
-				context.assertTrue(husk.isAiDisabled() && husk.hasNoGravity(), "the husk's AI and gravity were not stopped");
+				context.assertTrue(!husk.isAiDisabled() && !husk.hasNoGravity(), "the lock set flags on the husk (they would be saved with it)");
 			});
 			for (int t = 3; t < 120; t++) {
 				int tick = t;
@@ -687,6 +687,169 @@ public class ForeverGameTests implements FabricGameTest {
 			finish(context, player, husk);
 			throw e;
 		}
+	}
+
+
+	/** One press freezes a cube of time: everything living within 4 blocks of the target, but not you, your own pets or what is farther. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_forever_cube", tickLimit = 140)
+	public void aCubeHoldsEverythingNearTheTargetButYouAndYourPets(TestContext context) {
+		terrain(context);
+		HuskEntity target = husk(context, 0.0, 8.0, 60.0F);
+		HuskEntity near1 = husk(context, 2.0, 8.0, 60.0F);
+		HuskEntity near2 = husk(context, -1.5, 10.5, 60.0F);
+		HuskEntity far = husk(context, 0.0, 14.0, 60.0F);
+		ServerPlayerEntity owner = holder(context, "cuber", 0.0, target);
+		net.minecraft.entity.passive.WolfEntity pet = new net.minecraft.entity.passive.WolfEntity(EntityType.WOLF, context.getWorld());
+		Vec3d petAt = context.getAbsolute(new Vec3d(1.0, 40.0, 6.5));
+		pet.refreshPositionAndAngles(petAt.x, petAt.y, petAt.z, 0.0F, 0.0F);
+		pet.setOwner(owner);
+		pet.setAiDisabled(true);
+		context.getWorld().spawnEntity(pet);
+		ServerPlayerEntity bystander = player(context, "bystander");
+		Vec3d by = context.getAbsolute(new Vec3d(2.5, 40.0, 10.0));
+		bystander.teleport(context.getWorld(), by.x, by.y, by.z, 0.0F, 0.0F);
+		try {
+			Forever.use(owner);
+			context.assertTrue(Forever.locked(target) && Forever.locked(near1) && Forever.locked(near2), "what was near the target was not held");
+			context.assertTrue(Forever.locked(bystander), "a player in the cube was not held");
+			context.assertTrue(!Forever.locked(far), "something outside the cube was held");
+			context.assertTrue(!Forever.locked(owner) && !Forever.locked(pet), "the owner or their pet was held");
+			context.assertTrue(Forever.lockedBy(owner).size() == 4, "the cube holds " + Forever.lockedBy(owner).size());
+			context.assertTrue(Forever.copies(near1).size() >= 4 && Forever.copies(bystander).size() >= 4, "the others have no lines of their own");
+			context.assertTrue(owner.experienceLevel == 10 - Forever.PRICE, "the price was taken " + (10 - owner.experienceLevel) + " times over");
+			Forever.endsIn(target, 6);
+			near1.damage(context.getWorld().getDamageSources().playerAttack(owner), 5.0F);
+			context.assertTrue(near1.getHealth() == 60.0F && Forever.stored(near1) == 1, "a hit on another thing in the cube was not stored on it");
+			context.runAtTick(40, () -> {
+				context.assertTrue(!Forever.locked(target) && !Forever.locked(near1) && !Forever.locked(bystander), "the cube did not end together");
+				context.assertTrue(Math.abs(near1.getHealth() - 52.5F) < 0.01F, "the stored hit did not go off on the second husk: " + near1.getHealth());
+				context.assertTrue(copiesInWorld(context) == 0, "copies were left");
+				context.assertTrue(context.getWorld().getEntitiesByType(ChainsawMan.FOREVER_CUBE, e -> true).isEmpty(), "the cube was left");
+				finish(context, owner, target, near1, near2, far, pet);
+				leave(context, bystander);
+				context.complete();
+			});
+		} catch (RuntimeException e) {
+			finish(context, owner, target, near1, near2, far, pet);
+			leave(context, bystander);
+			throw e;
+		}
+	}
+
+	/** At most eight are held, the nearest to the middle first. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_forever_cap8", tickLimit = 60)
+	public void aCubeHoldsAtMostEight(TestContext context) {
+		terrain(context);
+		HuskEntity target = husk(context, 0.0, 8.0, 60.0F);
+		List<HuskEntity> crowd = new java.util.ArrayList<>();
+		crowd.add(target);
+		for (int i = 0; i < 11; i++) {
+			double angle = i * 0.57;
+			double r = 1.3 + 0.28 * i;
+			crowd.add(husk(context, Math.cos(angle) * r, 8.0 + Math.sin(angle) * r, 60.0F));
+		}
+		ServerPlayerEntity owner = holder(context, "crowder", 0.0, target);
+		try {
+			Forever.use(owner);
+			int held = 0;
+			for (HuskEntity h : crowd) {
+				if (Forever.locked(h)) {
+					held++;
+				}
+			}
+			context.assertTrue(held == Forever.CAP_LOCKS, "the cube held " + held);
+			context.assertTrue(Forever.locked(target), "the target itself was not held");
+			double farthestHeld = 0.0;
+			double nearestLeft = 99.0;
+			for (HuskEntity h : crowd) {
+				double d = h.getPos().distanceTo(target.getPos());
+				if (Forever.locked(h)) {
+					farthestHeld = Math.max(farthestHeld, d);
+				} else {
+					nearestLeft = Math.min(nearestLeft, d);
+				}
+			}
+			context.assertTrue(farthestHeld <= nearestLeft + 0.01, "the nearest were not held first: " + farthestHeld + " vs " + nearestLeft);
+		} finally {
+			crowd.forEach(LivingEntity::discard);
+			finish(context, owner);
+		}
+		context.complete();
+	}
+
+	/** Looking at a block with nothing living on it still freezes the cube round it. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_forever_block", tickLimit = 60)
+	public void aCubeCanBeCalledOnABlock(TestContext context) {
+		terrain(context);
+		HuskEntity a = husk(context, 0.0, 9.5, 60.0F);
+		HuskEntity b = husk(context, 2.0, 11.0, 60.0F);
+		ServerPlayerEntity owner = holder(context, "blocker", 0.0, null);
+		Vec3d floor = context.getAbsolute(new Vec3d(0.5, 40.0, 8.0));
+		Vec3d to = floor.subtract(owner.getEyePos());
+		owner.setYaw((float) Math.toDegrees(Math.atan2(-to.x, to.z)));
+		owner.setPitch((float) -Math.toDegrees(Math.atan2(to.y, Math.hypot(to.x, to.z))));
+		try {
+			Forever.use(owner);
+			context.assertTrue(Forever.locked(a) && Forever.locked(b), "the cube on the block held nothing near it");
+		} finally {
+			finish(context, owner, a, b);
+		}
+		context.complete();
+	}
+
+	/** A player in the cube: held where they are, their hits stored, the release going off on them. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_forever_playerhits", tickLimit = 120)
+	public void aHeldPlayersStoredHitsGoOffAtTheEnd(TestContext context) {
+		terrain(context);
+		context.getWorld().getServer().setPvpEnabled(true);
+		ServerPlayerEntity victim = player(context, "victim2");
+		Vec3d at = context.getAbsolute(new Vec3d(0.5, 40.0, 8.5));
+		victim.teleport(context.getWorld(), at.x, at.y, at.z, 0.0F, 0.0F);
+		// (A player who has just joined takes no damage for a while; this one has been about.)
+		for (int i = 0; i < 70; i++) {
+			victim.tick();
+		}
+		ServerPlayerEntity owner = holder(context, "binder2", 0.0, victim);
+		try {
+			Forever.use(owner);
+			context.assertTrue(Forever.locked(victim), "the player was not locked");
+			Vec3d held = victim.getPos();
+			Forever.endsIn(victim, 8);
+			victim.damage(context.getWorld().getDamageSources().playerAttack(owner), 3.0F);
+			Forever.copies(victim).get(0).damage(context.getWorld().getDamageSources().playerAttack(owner), 5.0F);
+			context.assertTrue(Forever.stored(victim) == 2 && victim.getHealth() == victim.getMaxHealth(), "a hit on a held player was applied or not stored: " + Forever.stored(victim));
+			victim.networkHandler.onPlayerMove(new PlayerMoveC2SPacket.PositionAndOnGround(held.x + 3.0, held.y, held.z, true));
+			context.assertTrue(victim.getPos().squaredDistanceTo(held) < 1.0E-4, "a held player moved");
+			context.runAtTick(40, () -> {
+				context.assertTrue(!Forever.locked(victim), "the player was not let go");
+				context.assertTrue(Math.abs(victim.getHealth() - (victim.getMaxHealth() - 12.0F)) < 0.01F, "the release dealt " + (victim.getMaxHealth() - victim.getHealth()) + ", not 12");
+				finish(context, owner);
+				leave(context, victim);
+				context.complete();
+			});
+		} catch (RuntimeException e) {
+			finish(context, owner);
+			leave(context, victim);
+			throw e;
+		}
+	}
+
+	/** A hub (or copy) that no lock holds removes itself, so a failed lock leaves nothing behind. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_forever_orphan", tickLimit = 60)
+	public void anOrphanedHubRemovesItself(TestContext context) {
+		terrain(context);
+		var hub = ChainsawMan.FOREVER_HUB.create(context.getWorld());
+		Vec3d at = context.getAbsolute(new Vec3d(0.5, 40.0, 5.5));
+		hub.refreshPositionAndAngles(at.x, at.y, at.z, 0.0F, 0.0F);
+		context.getWorld().spawnEntity(hub);
+		var copy = ChainsawMan.FOREVER_COPY.create(context.getWorld());
+		copy.refreshPositionAndAngles(at.x + 1.0, at.y, at.z, 0.0F, 0.0F);
+		context.getWorld().spawnEntity(copy);
+		context.runAtTick(30, () -> {
+			context.assertTrue(hub.isRemoved() && copy.isRemoved(), "an orphaned hub or copy stayed");
+			forced(context, false);
+			context.complete();
+		});
 	}
 
 	// ---- The test ground and helpers.
