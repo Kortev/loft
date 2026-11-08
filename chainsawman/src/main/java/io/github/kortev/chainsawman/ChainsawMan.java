@@ -58,6 +58,12 @@ public final class ChainsawMan implements ModInitializer {
 	public static final EntityType<io.github.kortev.chainsawman.contract.ForeverCopyEntity> FOREVER_COPY = Registry.register(Registries.ENTITY_TYPE, id("forever_copy"),
 			EntityType.Builder.<io.github.kortev.chainsawman.contract.ForeverCopyEntity>create(io.github.kortev.chainsawman.contract.ForeverCopyEntity::new, SpawnGroup.MISC)
 					.dimensions(0.6F, 1.8F).maxTrackingRange(8).trackingTickInterval(20).alwaysUpdateVelocity(false).disableSummon().disableSaving().makeFireImmune().build("forever_copy"));
+	/** The Eternity Devil's home, buried in its hotel, and what it runs. */
+	public static final net.minecraft.block.Block HOME_BLOCK = Registry.register(Registries.BLOCK, id("eternity_home"),
+			new io.github.kortev.chainsawman.hotel.HomeBlock(io.github.kortev.chainsawman.hotel.HomeBlock.settings()));
+	public static final net.minecraft.block.entity.BlockEntityType<io.github.kortev.chainsawman.hotel.HomeBlockEntity> HOME_ENTITY = Registry.register(
+			Registries.BLOCK_ENTITY_TYPE, id("eternity_home"),
+			net.minecraft.block.entity.BlockEntityType.Builder.create(io.github.kortev.chainsawman.hotel.HomeBlockEntity::new, HOME_BLOCK).build(null));
 	public static final Item POCHITA_SPAWN_EGG = Registry.register(Registries.ITEM, id("pochita_spawn_egg"),
 			new SpawnEggItem(POCHITA_ENTITY, 0xEC8026, 0x9A9EA6, new Item.Settings()));
 
@@ -68,6 +74,9 @@ public final class ChainsawMan implements ModInitializer {
 	@Override
 	public void onInitialize() {
 		ChainsawSounds.init();
+		Registry.register(Registries.STRUCTURE_TYPE, id("eternity_hotel"), io.github.kortev.chainsawman.hotel.HotelStructure.TYPE);
+		Registry.register(Registries.STRUCTURE_PIECE, id("eternity_hotel"), io.github.kortev.chainsawman.hotel.HotelStructure.PIECE);
+		io.github.kortev.chainsawman.hotel.HotelRules.init();
 		ItemGroupEvents.modifyEntriesEvent(ItemGroups.COMBAT).register(entries -> entries.add(POCHITA));
 		ItemGroupEvents.modifyEntriesEvent(ItemGroups.SPAWN_EGGS).register(entries -> entries.add(POCHITA_SPAWN_EGG));
 		FabricDefaultAttributeRegistry.register(POCHITA_ENTITY, PochitaEntity.createAttributes());

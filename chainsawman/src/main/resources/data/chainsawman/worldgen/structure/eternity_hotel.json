@@ -1,0 +1,6 @@
+{
+  "type": "chainsawman:eternity_hotel",
+  "biomes": "#chainsawman:has_eternity_hotel",
+  "step": "surface_structures",
+  "spawn_overrides": {}
+}

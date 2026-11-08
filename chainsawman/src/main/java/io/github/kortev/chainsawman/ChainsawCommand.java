@@ -69,6 +69,7 @@ public final class ChainsawCommand {
 								.then(CommandManager.argument("player", net.minecraft.command.argument.EntityArgumentType.player())
 										.then(CommandManager.literal("eternity").executes(context -> contract(context, io.github.kortev.chainsawman.contract.Contract.ETERNITY)))
 										.then(CommandManager.literal("clear").executes(context -> contract(context, io.github.kortev.chainsawman.contract.Contract.NONE)))))
+						.then(CommandManager.literal("eternity").executes(context -> eternity(context)))
 						.then(CommandManager.literal("scene").executes(context -> scene(context)))
 						.then(CommandManager.literal("mobs").executes(context -> {
 							mobs(context.getSource().getPlayerOrThrow());
@@ -119,6 +120,13 @@ public final class ChainsawCommand {
 		}
 		context.getSource().sendFeedback(() -> Text.translatable("commands.chainsaw.contract.granted", target.getDisplayName(), Text.translatable("contract.chainsawman." + contract.id)), true);
 		return 1;
+	}
+
+	/** {@code /chainsaw eternity}: the Eternity Devil's hotel, put down in front of you with its front toward you. */
+	private static int eternity(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
+		ServerPlayerEntity player = context.getSource().getPlayerOrThrow();
+		io.github.kortev.chainsawman.hotel.Hotel.placeInFront(player);
+		return done(context, "eternity");
 	}
 
 	private static int done(CommandContext<ServerCommandSource> context, String what) {

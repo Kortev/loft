@@ -1,0 +1,14 @@
+{
+  "structures": [
+    {
+      "structure": "chainsawman:eternity_hotel",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "spacing": 80,
+    "separation": 36,
+    "salt": 1853471290
+  }
+}
