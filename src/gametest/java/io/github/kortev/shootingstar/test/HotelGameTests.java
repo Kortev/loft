@@ -962,11 +962,13 @@ public class HotelGameTests implements FabricGameTest {
 				io.github.kortev.chainsawman.form.Saw.slash(p, d[0].getId());
 				context.assertTrue(before - d[0].getHealth() >= 25.0F, "a slash on the heart took only " + (before - d[0].getHealth()));
 				// A kill by the saws does not tear it apart: its body stays for its own collapse.
+			});
+			later(context, 140, () -> {
 				d[0].setHealth(1.0F);
 				io.github.kortev.chainsawman.form.Saw.slash(p, d[0].getId());
 				context.assertTrue(d[0].isDead() && !d[0].isRemoved(), "the saws' kill removed the devil at once");
 			});
-			later(context, 150, () -> {
+			later(context, 170, () -> {
 				context.assertTrue(!d[0].isRemoved(), "the dead devil was gone within 30 ticks");
 				tidy(context, h, p);
 				context.complete();
@@ -1007,6 +1009,12 @@ public class HotelGameTests implements FabricGameTest {
 			});
 			later(context, 140, () -> {
 				context.assertTrue(!h.run.fight && h.away && h.awayUntilDay == Hotel.day(context.getWorld()) + 3, "the hotel does not know the devil is dead");
+				context.assertTrue(!io.github.kortev.chainsawman.contract.Contracts.has(p, io.github.kortev.chainsawman.contract.Contract.ETERNITY), "killing it gave a contract");
+				context.assertTrue(h.run.growths.isEmpty() && h.run.flesh == 0, "the flesh was left");
+				// The loop is gone: walking off the end is walking off the end.
+				put(p, h, 25.6, 29.0, 6.5, 90.0F, 0.0F);
+			});
+			later(context, 220, () -> {
 				int flesh = 0;
 				int blood = 0;
 				for (net.minecraft.entity.ItemEntity e : context.getWorld().getEntitiesByType(net.minecraft.entity.EntityType.ITEM, e -> e.getStack().getItem() == io.github.kortev.chainsawman.ChainsawMan.ETERNITY_FLESH
@@ -1020,10 +1028,6 @@ public class HotelGameTests implements FabricGameTest {
 					}
 				}
 				context.assertTrue(flesh == Hotel.FLESH_DROP && blood == Hotel.BLOOD_DROP, "the loot is " + flesh + " flesh and " + blood + " blood");
-				context.assertTrue(!io.github.kortev.chainsawman.contract.Contracts.has(p, io.github.kortev.chainsawman.contract.Contract.ETERNITY), "killing it gave a contract");
-				context.assertTrue(h.run.growths.isEmpty() && h.run.flesh == 0, "the flesh was left");
-				// The loop is gone: walking off the end is walking off the end.
-				put(p, h, 25.6, 29.0, 6.5, 90.0F, 0.0F);
 			});
 			later(context, 146, () -> {
 				context.assertTrue(Math.abs(local(h, p).x - 25.6) < 0.05, "the loop was still there after the kill: " + local(h, p));
