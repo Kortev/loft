@@ -57,21 +57,21 @@ def flesh(size=64):
     for y in range(size):
         for x in range(size):
             v = 0.55 * n1[y][x] + 0.3 * n2[y][x] + 0.15 * n3[y][x]
-            if v < 0.36:
-                c = ed.FLESH_SH
-            elif v < 0.52:
-                c = (184, 100, 98)
-            elif v < 0.66:
-                c = ed.FLESH
+            if v < 0.34:
+                c = (92, 28, 40)
+            elif v < 0.5:
+                c = (132, 46, 56)
+            elif v < 0.64:
+                c = (168, 72, 74)
             elif v < 0.76:
-                c = (218, 138, 126)
+                c = (192, 96, 90)
             else:
-                c = ed.FLESH_HI
+                c = (220, 132, 112)
             px[x, y] = c + (255,)
     rnd = random.Random(7)
     d = ImageDraw.Draw(img)
     # Folds: wandering dark creases (drawn three times over the tile edges so they wrap).
-    for _ in range(9):
+    for _ in range(14):
         x, y = rnd.uniform(0, size), rnd.uniform(0, size)
         ang = rnd.uniform(0, math.tau)
         pts = []
@@ -82,8 +82,8 @@ def flesh(size=64):
             y += math.sin(ang) * rnd.uniform(3, 6)
         for ox in (-size, 0, size):
             for oy in (-size, 0, size):
-                d.line([(a + ox, b + oy) for a, b in pts], fill=ed.FLESH_DK + (255,), width=1)
-                d.line([(a + ox, b + oy + 1) for a, b in pts], fill=ed.FLESH_SH + (255,), width=1)
+                d.line([(a + ox, b + oy) for a, b in pts], fill=(52, 14, 26, 255), width=1)
+                d.line([(a + ox, b + oy + 1) for a, b in pts], fill=(92, 28, 40, 255), width=1)
     # Veins: thin red lines.
     for _ in range(5):
         x, y = rnd.uniform(0, size), rnd.uniform(0, size)
@@ -96,7 +96,7 @@ def flesh(size=64):
             y += math.sin(ang) * rnd.uniform(2, 4)
         for ox in (-size, 0, size):
             for oy in (-size, 0, size):
-                d.line([(a + ox, b + oy) for a, b in pts], fill=(150, 40, 52, 255), width=1)
+                d.line([(a + ox, b + oy) for a, b in pts], fill=(120, 20, 36, 255), width=1)
     for _ in range(40):
         px[rnd.randrange(size), rnd.randrange(size)] = ed.FLESH_DK + (255,)
     return img

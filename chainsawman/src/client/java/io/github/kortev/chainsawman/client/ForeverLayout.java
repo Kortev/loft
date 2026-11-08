@@ -85,29 +85,32 @@ final class ForeverLayout {
 			double dist = 2.0 + random.nextDouble() * 1.5;
 			l.x = Math.cos(ang) * dist;
 			l.z = Math.sin(ang) * dist;
-			l.rx = 0.85 + random.nextDouble() * 0.55;
-			l.rz = 0.8 + random.nextDouble() * 0.5;
-			l.ry = 0.5 + random.nextDouble() * 0.35;
+			l.rx = 0.95 + random.nextDouble() * 0.5;
+			l.rz = 0.9 + random.nextDouble() * 0.45;
+			l.ry = 0.55 + random.nextDouble() * 0.35;
 			l.delay = i * 0.6;
 			l.ground = groundNear(world, hub.getX() + l.x, hy + centreGround, hub.getZ() + l.z) - hy;
 			Part main = new Part();
 			main.x = l.x;
 			main.z = l.z;
-			main.y = l.ground - 0.08;
+			main.y = l.ground + 0.02;
 			main.rx = l.rx;
 			main.ry = l.ry;
 			main.rz = l.rz;
 			main.seed = random.nextInt();
 			l.parts.add(main);
-			for (int k = 0; k < 2; k++) {
+			// A cluster: lobes of different sizes round and over the main one (not one smooth shape).
+			int lobes = 4;
+			for (int k = 0; k < lobes; k++) {
 				Part s = new Part();
-				double a2 = random.nextDouble() * Math.PI * 2.0;
-				s.rx = l.rx * (0.4 + random.nextDouble() * 0.2);
-				s.rz = l.rz * (0.4 + random.nextDouble() * 0.2);
-				s.ry = l.ry * (0.55 + random.nextDouble() * 0.3);
-				s.x = l.x + Math.cos(a2) * l.rx * 0.85;
-				s.z = l.z + Math.sin(a2) * l.rz * 0.85;
-				s.y = groundNear(world, hub.getX() + s.x, hy + centreGround, hub.getZ() + s.z) - hy - 0.06;
+				double a2 = k * Math.PI * 2.0 / lobes + random.nextDouble() * 1.2;
+				double size = 0.34 + random.nextDouble() * 0.36;
+				s.rx = l.rx * size;
+				s.rz = l.rz * size;
+				s.ry = l.ry * (0.55 + random.nextDouble() * 0.5);
+				s.x = l.x + Math.cos(a2) * l.rx * (0.62 + random.nextDouble() * 0.3);
+				s.z = l.z + Math.sin(a2) * l.rz * (0.62 + random.nextDouble() * 0.3);
+				s.y = groundNear(world, hub.getX() + s.x, hy + centreGround, hub.getZ() + s.z) - hy - 0.04 + (k >= 2 ? l.ry * 0.35 : 0.0);
 				s.seed = random.nextInt();
 				l.parts.add(s);
 			}
@@ -121,24 +124,24 @@ final class ForeverLayout {
 			Mouth mouth = new Mouth();
 			mouth.lump = i;
 			double outward = Math.atan2(l.z, l.x) + (random.nextDouble() - 0.5) * 1.3;
-			double e = 0.18 + random.nextDouble() * 0.12;
+			double e = 0.34 + random.nextDouble() * 0.16;
 			Vec3d h = new Vec3d(Math.cos(outward), 0.0, Math.sin(outward));
 			mouth.pos = surface(m, h, e);
 			mouth.normal = normal(m, h, e);
-			mouth.width = 0.75 + random.nextDouble() * 0.35;
+			mouth.width = 1.0 + random.nextDouble() * 0.4;
 			mouth.seed = random.nextInt();
-			mouth.teeth = 9 + random.nextInt(4);
+			mouth.teeth = 12 + random.nextInt(4);
 			mouths.add(mouth);
-			if (i % 2 == 0) {
+			{
 				int n = 1 + random.nextInt(2);
 				for (int k = 0; k < n; k++) {
 					Eye eye = new Eye();
 					eye.lump = i;
 					eye.index = eyeIndex++;
-					double inward = Math.atan2(-l.z, -l.x) + (random.nextDouble() - 0.5) * 1.6 + (k == 0 ? -0.3 : 0.5);
-					double el = 0.55 + random.nextDouble() * 0.5;
+					double inward = Math.atan2(-l.z, -l.x) + (random.nextDouble() - 0.5) * 0.9 + (k == 0 ? -0.35 : 0.45);
+					double el = 0.3 + random.nextDouble() * 0.45;
 					Vec3d hh = new Vec3d(Math.cos(inward), 0.0, Math.sin(inward));
-					eye.radius = 0.2 + random.nextDouble() * 0.1;
+					eye.radius = 0.26 + random.nextDouble() * 0.06;
 					Vec3d surf = surface(m, hh, el);
 					eye.normal = normal(m, hh, el);
 					eye.pos = surf.add(eye.normal.multiply(eye.radius * 0.4));

@@ -746,7 +746,6 @@ public final class Forever {
 	private static void burst(ServerWorld world, Vec3d at, int hits) {
 		world.spawnParticles(new DustParticleEffect(new Vector3f(0.75F, 0.05F, 0.08F), 1.0F), at.x, at.y, at.z, 22 + hits * 2, 0.8, 0.6, 0.8, 0.12);
 		world.spawnParticles(ParticleTypes.CRIT, at.x, at.y, at.z, 30, 0.8, 0.7, 0.8, 0.6);
-		world.spawnParticles(ParticleTypes.EXPLOSION, at.x, at.y, at.z, 1, 0.0, 0.0, 0.0, 0.0);
 	}
 
 	/** Gives back what the freeze took: gravity, the AI, the velocity it had. */

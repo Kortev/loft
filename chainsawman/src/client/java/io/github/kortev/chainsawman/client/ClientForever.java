@@ -74,6 +74,17 @@ public final class ClientForever {
 		return out;
 	}
 
+	/** The lumps of flesh round {@code hub}, each as {@code [x, y, z, radius]} in the world (for keeping a camera out of them). */
+	public static List<double[]> lumps(ForeverHubEntity hub) {
+		List<double[]> out = new ArrayList<>();
+		for (ForeverLayout.Lump l : layout(hub).lumps) {
+			for (ForeverLayout.Part p : l.parts) {
+				out.add(new double[] {hub.getX() + p.x, hub.getY() + p.y + p.ry * 0.5, hub.getZ() + p.z, Math.max(p.rx, p.rz) * 1.05});
+			}
+		}
+		return out;
+	}
+
 	/** How high the target hangs over the ground under it (0 when it stands on it), for filming. */
 	public static double hover(ForeverHubEntity hub) {
 		return Math.max(0.0, -layout(hub).centreGround);

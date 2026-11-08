@@ -72,10 +72,10 @@ public class ForeverCopyRenderer extends EntityRenderer<ForeverCopyEntity> {
 				drawTarget(living, dispatcher, copy.getYaw(), copy.stride(), copy.strideSpeed(), false, tint, false, 1.0F, at, matrices, provider, lit, delta);
 			}
 		}
-		float[] body = {DRAIN[0], DRAIN[1], DRAIN[2], alpha};
-		drawTarget(living, dispatcher, copy.getYaw(), copy.stride(), copy.strideSpeed(), false, body, false, 1.0F, offset, matrices, provider, lit, delta);
-		float[] outline = {0.03F, 0.05F, 0.03F, alpha * 0.32F};
-		drawTarget(living, dispatcher, copy.getYaw(), copy.stride(), copy.strideSpeed(), false, outline, false, 1.045F, offset, matrices, provider, lit, delta);
+		float[] body = {DRAIN[0] * 1.5F, DRAIN[1] * 1.55F, DRAIN[2] * 1.45F, alpha};
+		drawTarget(living, dispatcher, copy.getYaw(), copy.stride(), copy.strideSpeed(), false, body, true, 1.0F, offset, matrices, provider, lit, delta);
+		float[] outline = {0.7F, 1.0F, 0.78F, alpha * 0.3F};
+		drawTarget(living, dispatcher, copy.getYaw(), copy.stride(), copy.strideSpeed(), false, outline, true, 1.07F, offset, matrices, provider, lit, delta);
 		if (hub != null && !snapping) {
 			matrices.push();
 			matrices.translate(offset.x, offset.y, offset.z);

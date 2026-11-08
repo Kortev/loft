@@ -134,9 +134,10 @@ public class ForeverHubRenderer extends EntityRenderer<ForeverHubEntity> {
 				double sunk = (1.0 - r) * p.ry * 1.4;
 				double sx = 0.5 + 0.5 * Math.min(r, 1.15);
 				double sy = (0.3 + 0.7 * r) * squash;
-				ForeverGeo.blob(flesh, p.x, p.y - sunk, p.z, p.rx * sx * (2.0 - squash), p.ry * sy, p.rz * sx * (2.0 - squash), 9, 16, 0.25, p.seed, 0.2, 2.0F, 1.0F);
+				ForeverGeo.blob(flesh, p.x, p.y - sunk, p.z, p.rx * sx * (2.0 - squash), p.ry * sy, p.rz * sx * (2.0 - squash), 9, 16, 0.25, p.seed, 0.3, 2.0F, 1.0F);
 			}
 		}
+		flesh.tint(1.0F, 1.0F, 1.0F, 1.0F);
 		// Sinews up the legs of the target and of every moment of it.
 		List<double[]> holds = new ArrayList<>();
 		if (target != null) {
@@ -415,7 +416,7 @@ public class ForeverHubRenderer extends EntityRenderer<ForeverHubEntity> {
 			int h = ((i + 3) * 0x9E3779B1 >>> 8) & 0xFFFF;
 			float roll = (-0.75F + (h % 97) / 97.0F * 1.5F) + (i % 2 == 0 ? 0.2F : -0.2F);
 			double lateral = ((h >> 4) % 100 / 100.0 - 0.5) * width * 0.7;
-			double size = 0.24 + (h % 13) / 13.0 * 0.1;
+			double size = 0.3 + (h % 13) / 13.0 * 0.12;
 			matrices.push();
 			matrices.translate(0.0, marks[i] * height, 0.0);
 			matrices.multiply(dispatcher.getRotation());

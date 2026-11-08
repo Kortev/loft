@@ -298,30 +298,38 @@ public class ForeverSelfTest implements ClientModInitializer {
 			headYaw = client.player.getYaw();
 			headPitch = client.player.getPitch();
 			server.execute(() -> spawnVindicator(server));
-			if (capturing()) {
-				Capture.start(client, client.runDirectory.toPath().resolve("capture"));
-			}
 		}
 		Entity vind = client.world.getEntityById(vindId);
+		// The video begins once the vindicator is really running at you (it takes a moment to get going after it is made).
+		if (capturing() && !Capture.active() && captureF0 < 0 && vind != null && (flat(vind.getPos().subtract(new Vec3d(middle.x + 10.6, vind.getY(), middle.z))).length() > 1.0 || f > 80)) {
+			captureF0 = f;
+			Capture.start(client, client.runDirectory.toPath().resolve("capture"));
+		}
 		Entity rav = client.world.getEntityById(ravId);
 		ForeverHubEntity hub1 = hubFor(vindId);
 		ForeverHubEntity hub2 = hubFor(ravId);
 		if (hub1 != null && lock1At < 0) {
 			lock1At = f;
+			// The flesh coming up and the eyes opening, slowed a little so they can be seen.
+			Capture.slow(0.5, 36);
 			ShootingStar.LOGGER.info("[selftest] forever: first lock at f={}", f);
 		}
 		if (hub1 != null && hub1.phase() >= ForeverHubEntity.ENDING && end1At < 0) {
 			end1At = f;
+			// The bite, the line snapping in and the burst, slowed so they can be seen.
+			Capture.slow(0.34, 34);
 		}
 		if (hub2 != null && lock2At < 0) {
 			lock2At = f;
+			Capture.slow(0.5, 24);
 			ShootingStar.LOGGER.info("[selftest] forever: second lock at f={}", f);
 		}
 		if (hub2 != null && hub2.phase() >= ForeverHubEntity.ENDING && end2At < 0) {
 			end2At = f;
+			Capture.slow(0.34, 30);
 		}
 		// The ravager comes once the first moment has ended.
-		if (end1At >= 0 && ravSpawned < 0 && f >= end1At + 30) {
+		if (end1At >= 0 && ravSpawned < 0 && f >= end1At + 2) {
 			ravSpawned = f;
 			server.execute(() -> {
 				Forever.ready(server.getPlayerManager().getPlayerList().get(0));
@@ -331,11 +339,11 @@ public class ForeverSelfTest implements ClientModInitializer {
 		// The key, pressed for real while the vindicator is in the air, and again when the ravager is charging at you.
 		if (press1At < 0 && vind != null && vind.isAlive()) {
 			double d = flat(vind.getPos().subtract(client.player.getPos())).length();
-			double air = vind.getY() - groundBelow(client, vind);
-			if (f >= 36 && f <= 70) {
-				ShootingStar.LOGGER.info("[selftest] forever f={} vind y {} onGround {} air {} d {}", f, vind.getY(), vind.isOnGround(), air, d);
+			double air = 0.0;
+			if (f >= 36 && f <= 90) {
+				ShootingStar.LOGGER.info("[selftest] forever f={} vind d {}", f, d);
 			}
-			if (!vind.isOnGround() && air > 3.0 && d < 12.0 && f > 18 || f > 150) {
+			if (d < 9.0 && f > 6 || f > 150) {
 				press1At = f;
 				pressU();
 				server.execute(() -> {
@@ -348,8 +356,9 @@ public class ForeverSelfTest implements ClientModInitializer {
 		}
 		if (press2At < 0 && ravSpawned >= 0 && rav != null && rav.isAlive() && f > ravSpawned + 6) {
 			double d = flat(rav.getPos().subtract(client.player.getPos())).length();
-			if (d < 11.5 || f > ravSpawned + 200) {
+			if (d < 13.0 || f > ravSpawned + 200) {
 				press2At = f;
+				server.execute(() -> Forever.ready(player(server)));
 				pressU();
 				server.execute(() -> {
 					ServerPlayerEntity you = player(server);
@@ -363,16 +372,17 @@ public class ForeverSelfTest implements ClientModInitializer {
 			pressU();
 		}
 		if (press2At >= 0 && lock2At < 0 && f - press2At >= 3 && f - press2At < 40 && f % 3 == 0 && rav != null && rav.isAlive()) {
+			server.execute(() -> Forever.ready(player(server)));
 			pressU();
 		}
 		// The ravager is brought in off the hillside if it has got stuck out of reach (the terrain is natural; the charge is its own).
-		if (ravSpawned >= 0 && press2At < 0 && rav != null && f == ravSpawned + 60 && flat(rav.getPos().subtract(client.player.getPos())).length() > 10.0) {
+		if (ravSpawned >= 0 && press2At < 0 && rav != null && f == ravSpawned + 80 && flat(rav.getPos().subtract(client.player.getPos())).length() > 15.0) {
 			server.execute(() -> relocateRavager(server));
 		}
 		control(client, server, f, vind, rav, hub1, hub2);
 		cameras(client, f);
 		stills(client, f);
-		int end = end2At < 0 ? Integer.MAX_VALUE : end2At + 4 + 92;
+		int end = end2At < 0 ? Integer.MAX_VALUE : end2At + 4 + 96;
 		if (f % 20 == 0) {
 			ShootingStar.LOGGER.info("[selftest] forever f={} vind {} rav {} lock1 {} end1 {} lock2 {} end2 {} hits {} / {} you {} hp {}", f, vind == null ? null : vind.getPos(),
 					rav == null ? null : rav.getPos(), lock1At, end1At, lock2At, end2At, vindHits, ravHits, client.player.getPos(), client.player.getHealth());
@@ -387,6 +397,9 @@ public class ForeverSelfTest implements ClientModInitializer {
 	}
 
 	private static int afterAt = -1;
+	/** The clip tick the recording began at (the clock of the cameras is counted from there). */
+	private static int captureF0 = -1;
+	private static Vec3d lastSubject = Vec3d.ZERO;
 
 	/** After the clip: the second player locks you, and your own screen is photographed (what a locked player sees). */
 	private static void afterClip(MinecraftClient client, IntegratedServer server, int f) {
@@ -471,7 +484,7 @@ public class ForeverSelfTest implements ClientModInitializer {
 			float yaw = (float) Math.toDegrees(Math.atan2(-to.x, to.z));
 			float pitch = (float) -Math.toDegrees(Math.atan2(to.y, Math.hypot(to.x, to.z)));
 			// Waiting to press the key you are looking right at what you will hold (so the server's view of you has it in its sights).
-			boolean sighting = press1At < 0 && aim == vind && f >= 30 || press2At < 0 && aim == rav && ravSpawned >= 0;
+			boolean sighting = press1At < 0 && aim == vind && f >= 6 || press2At < 0 && aim == rav && ravSpawned >= 0;
 			float ease = sighting ? 1.0F : 0.45F;
 			headYaw += MathHelper.clamp(MathHelper.wrapDegrees(yaw - headYaw) * ease, -60.0F, 60.0F);
 			headPitch += MathHelper.clamp((pitch - headPitch) * ease, -45.0F, 45.0F);
@@ -587,42 +600,31 @@ public class ForeverSelfTest implements ClientModInitializer {
 		};
 	}
 
-	private static Capture.Pose shot(MinecraftClient m, double t) {
-		float part = (float) (t - Math.floor(t));
+	private static Capture.Pose shot(MinecraftClient m, double captureT) {
+		float part = (float) (captureT - Math.floor(captureT));
+		double t = captureT + Math.max(0, captureF0);
 		Entity vind = m.world.getEntityById(vindId);
 		Entity rav = m.world.getEntityById(ravId);
 		Vec3d you = m.player.getLerpedPos(part);
-		Entity subject;
-		double rel;
-		String phase;
-		ForeverHubEntity hub;
-		double endRel;
-		if (ravSpawned >= 0 && (end1At >= 0 && t >= end1At + 46 || lock2At >= 0)) {
-			subject = rav;
-			hub = hubFor(ravId);
-			rel = lock2At < 0 ? t - 1.0E6 : t - lock2At;
-			endRel = end2At < 0 ? 1.0E6 : t - end2At;
-			phase = "R";
-			if (lock2At < 0) {
-				rel = -1000;
-				endRel = -1000;
-			}
-		} else {
-			subject = vind;
-			hub = hubFor(vindId);
-			rel = lock1At < 0 ? -1000 : t - lock1At;
-			endRel = end1At < 0 ? -1000 : t - end1At;
-			phase = "V";
-		}
+		boolean boss = ravSpawned >= 0 && (end1At >= 0 && t >= end1At + 30 || lock2At >= 0);
+		Entity subject = boss ? rav : vind;
+		ForeverHubEntity hub = hubFor(boss ? ravId : vindId);
+		double rel = boss ? (lock2At < 0 ? -1000 : t - lock2At) : (lock1At < 0 ? -1000 : t - lock1At);
+		double endRel = boss ? (end2At < 0 ? -1000 : t - end2At) : (end1At < 0 ? -1000 : t - end1At);
+		double v = boss ? 0.5 : 1.0;
+		double big = boss ? 1.3 : 1.0;
+		String phase = boss ? "R" : "V";
 		if (subject == null) {
-			return look(you.add(-3.0, 2.0, 3.0), you);
+			// (Nothing of it left to follow: the last place it was.)
+			subject = rav != null ? rav : m.player;
+		} else {
+			lastSubject = subject.getPos();
 		}
 		Vec3d tp = hub != null ? hub.getPos() : subject.getLerpedPos(part);
-		Vec3d toYou = flat(you.subtract(tp));
-		Vec3d dir = toYou.lengthSquared() < 1.0E-4 ? new Vec3d(-1.0, 0.0, 0.0) : toYou.normalize();
-		Vec3d perp = new Vec3d(-dir.z, 0.0, dir.x);
+		double ground = tp.y;
 		List<ForeverCopyEntity> copies = hub != null ? ClientForever.copiesOf(hub) : List.of();
-		Vec3d axis = perp;
+		// The line's way (from the farthest past copy to the farthest future one), and the side of it away from you.
+		Vec3d axis = flat(tp.subtract(you));
 		if (copies.size() >= 2) {
 			Vec3d lo = null;
 			Vec3d hi = null;
@@ -638,58 +640,53 @@ public class ForeverSelfTest implements ClientModInitializer {
 					hi = c.getPos();
 				}
 			}
-			Vec3d a = flat(hi.subtract(lo));
-			if (a.lengthSquared() > 0.04) {
-				axis = a.normalize();
+			Vec3d a2 = flat(hi.subtract(lo));
+			if (a2.lengthSquared() > 0.04) {
+				axis = a2;
 			}
 		}
+		axis = axis.lengthSquared() < 1.0E-4 ? new Vec3d(1.0, 0.0, 0.0) : axis.normalize();
 		Vec3d across = new Vec3d(-axis.z, 0.0, axis.x);
-		if (across.dotProduct(you.subtract(tp)) < 0.0) {
-			across = across.negate();
-		}
-		double big = phase.equals("R") ? 1.45 : 1.0;
+		Vec3d youSide = across.dotProduct(you.subtract(tp)) >= 0.0 ? across : across.negate();
+		Vec3d nearEnd = axis.dotProduct(you.subtract(tp)) >= 0.0 ? axis : axis.negate();
 		Vec3d at;
 		Vec3d aim;
 		if (rel < -3.0 && endRel < 0.0) {
-			// Before it: the charge, low and off to one side, the mob running at the lens.
+			// The charge: beside you and a little ahead, low, the mob running at the lens.
 			if (installs(phase + "0", t)) {
-				lens = 66.0F;
+				lens = 62.0F;
 			}
 			Vec3d toMob = flat(subject.getPos().subtract(you));
 			Vec3d dirMob = toMob.lengthSquared() < 1.0E-4 ? new Vec3d(1.0, 0.0, 0.0) : toMob.normalize();
 			Vec3d side = new Vec3d(-dirMob.z, 0.0, dirMob.x);
-			double k = phase.equals("V") ? 0.5 : 0.62;
-			Vec3d mid = you.lerp(subject.getLerpedPos(part), k);
-			at = mid.add(side.multiply(3.4)).add(0.0, 1.0, 0.0);
-			aim = subject.getLerpedPos(part).add(0.0, 1.2 * big * 0.8, 0.0);
-		} else if (rel < 20.0 * (phase.equals("R") ? 0.5 : 1.0) && endRel < 0.0) {
-			// The lock: low, from one side of the line, looking across it at a lump on the far side whose eye looks back at the lens.
+			Vec3d sub = subject.getLerpedPos(part);
+			at = you.lerp(sub, 0.55).add(side.multiply(4.2 * big)).add(0.0, 1.5, 0.0);
+			aim = sub.add(0.0, 1.0 * big, 0.0);
+		} else if (endRel < 0.0 && rel < 14.0 * v) {
+			// The lock: three quarters on from a little way off, level with the eyes, the ring of flesh round the held one.
 			if (installs(phase + "1", t)) {
-				lens = 66.0F;
+				lens = 72.0F;
 			}
-			double k = MathHelper.clamp((t - shotT0) / 28.0, 0.0, 1.0);
-			double hov = hub == null ? 0.0 : ClientForever.hover(hub);
-			double ground = tp.y - hov;
-			Vec3d eyeAt = null;
-			if (hub != null) {
-				double bestDot = -2.0;
-				for (Vec3d e : ClientForever.eyes(hub)) {
-					Vec3d rel2 = flat(e.subtract(tp));
-					double d = rel2.lengthSquared() < 1.0E-4 ? 0.0 : -across.dotProduct(rel2.normalize());
-					if (d > bestDot) {
-						bestDot = d;
-						eyeAt = e;
-					}
-				}
+			double k = MathHelper.clamp((t - shotT0) / 20.0, 0.0, 1.0);
+			Vec3d way = youSide.multiply(0.8).add(nearEnd.multiply(0.6)).normalize();
+			at = new Vec3d(tp.x, ground + 1.55, tp.z).add(way.multiply((7.4 + 0.8 * k) * big));
+			aim = tp.add(0.0, 0.95 * big, 0.0);
+		} else if (endRel < 0.0 && rel < 44.0 * v) {
+			// The hero shot: level with the eyes, square on to the line, far enough off for the whole line (the held one in the middle, four
+			// copies each way fading out, the lumps and eyes along the ground) to be in the picture.
+			if (installs(phase + "2", t)) {
+				lens = 96.0F;
 			}
-			Vec3d one = new Vec3d(tp.x, ground + 0.55 * big, tp.z).add(across.multiply((5.8 - 0.5 * k) * big)).add(axis.multiply(1.0));
-			Vec3d two = new Vec3d(tp.x, ground + 0.55 * big, tp.z).add(across.negate().multiply((5.8 - 0.5 * k) * big)).add(axis.multiply(1.0));
-			aim = (eyeAt == null ? tp.add(0.0, 0.8, 0.0) : eyeAt.add(0.0, 0.3 + 0.5 * k, 0.0)).lerp(tp.add(0.0, 0.5 * hov + 0.8, 0.0), 0.25 + 0.25 * k);
+			double k = MathHelper.clamp((t - shotT0) / 30.0, 0.0, 1.0);
+			double d = (8.3 - 0.5 * k) * (boss ? 1.2 : 1.0);
+			Vec3d one = new Vec3d(tp.x, ground + 2.4, tp.z).add(across.multiply(d));
+			Vec3d two = new Vec3d(tp.x, ground + 2.4, tp.z).add(across.negate().multiply(d));
+			aim = tp.add(0.0, 0.7 * big, 0.0);
 			at = clearTo(m, aim, one).distanceTo(aim) >= clearTo(m, aim, two).distanceTo(aim) ? one : two;
-		} else if (rel < 34.0 * (phase.equals("R") ? 0.5 : 1.0) && endRel < 0.0) {
-			// You, running along the line and cutting, from behind and above your shoulder, the copies ahead of you.
+		} else if (endRel < 0.0 && rel < 58.0 * v) {
+			// You, running along the line and cutting: from behind and beside, three or four blocks off, the swing and the marks in view.
 			if (installs(phase + "S", t)) {
-				lens = 70.0F;
+				lens = 68.0F;
 			}
 			Entity ahead = null;
 			double bestD = Double.MAX_VALUE;
@@ -698,68 +695,92 @@ public class ForeverSelfTest implements ClientModInitializer {
 				things.add(subject);
 				for (Entity e : things) {
 					double d = flat(e.getPos().subtract(you)).lengthSquared();
-					if (d > 4.0 && d < bestD && HITS.getOrDefault(e.getId(), 0) < 2) {
+					if (d > 2.0 && d < bestD && HITS.getOrDefault(e.getId(), 0) < 2) {
 						bestD = d;
 						ahead = e;
 					}
 				}
 			}
-			Vec3d toward = ahead == null ? flat(tp.subtract(you)) : flat(ahead.getPos().subtract(you));
-			Vec3d fwd = toward.lengthSquared() < 1.0E-4 ? new Vec3d(1.0, 0.0, 0.0) : toward.normalize();
+			float yaw = m.player.getYaw(part);
+			Vec3d fwd = new Vec3d(-Math.sin(Math.toRadians(yaw)), 0.0, Math.cos(Math.toRadians(yaw)));
 			Vec3d sideways = new Vec3d(-fwd.z, 0.0, fwd.x);
-			at = you.add(fwd.multiply(-2.6)).add(sideways.multiply(1.4)).add(0.0, 1.7, 0.0);
-			aim = (ahead == null ? tp : ahead.getPos()).add(0.0, 1.0, 0.0).lerp(you.add(0.0, 1.2, 0.0), 0.35);
-		} else if (rel < 48.0 * (phase.equals("R") ? 0.5 : 1.0) && endRel < 0.0) {
-			// The key image: down the line of copies from an angle off its near end, every moment of it in the picture, the flesh in front.
-			if (installs(phase + "2", t)) {
-				lens = 60.0F;
-			}
-			double k = MathHelper.clamp((t - shotT0) / 24.0, 0.0, 1.0);
-			double hov = hub == null ? 0.0 : ClientForever.hover(hub);
-			double ground = tp.y - hov;
-			Vec3d nearEnd = axis.dotProduct(you.subtract(tp)) >= 0.0 ? axis : axis.negate();
-			aim = new Vec3d(tp.x, ground + 0.5 * hov + 0.9 * big, tp.z).add(nearEnd.multiply(-0.4));
-			Vec3d one = new Vec3d(tp.x, ground + 0.9 * big, tp.z).add(nearEnd.multiply((5.4 - 0.6 * k) * big)).add(across.multiply((4.2 - 0.6 * k) * big));
-			Vec3d two = new Vec3d(tp.x, ground + 0.9 * big, tp.z).add(nearEnd.multiply((5.4 - 0.6 * k) * big)).add(across.negate().multiply((4.2 - 0.6 * k) * big));
-			at = clearTo(m, aim, one).distanceTo(aim) >= clearTo(m, aim, two).distanceTo(aim) ? one : two;
-		} else if (rel < 60.0 * (phase.equals("R") ? 0.5 : 1.0) && endRel < 0.0) {
-			// A mouth, close, grinning, with the eye above it.
-			if (installs(phase + "3", t)) {
-				lens = 72.0F;
-				eyePick = null;
-			}
-			Vec3d[] ref = hub == null ? null : pickEye(hub, lastCamera);
-			if (ref == null) {
-				at = tp.add(across.multiply(5.0)).add(0.0, 1.2, 0.0);
-				aim = tp.add(0.0, 0.8, 0.0);
-			} else {
-				double k = MathHelper.clamp((t - shotT0) / 16.0, 0.0, 1.0);
-				Vec3d out = ref[1];
-				at = ref[0].add(out.multiply(2.4 - 0.5 * k)).add(0.0, 0.05, 0.0).add(new Vec3d(-out.z, 0.0, out.x).multiply(0.4));
-				aim = ref[0].add(0.0, 0.1, 0.0);
-			}
-		} else if (endRel < 0.0 || endRel < 11.0) {
-			// The release, close: the bite, the line snapping in, the burst.
+			at = you.add(fwd.multiply(-3.3)).add(sideways.multiply(1.7)).add(0.0, 1.9, 0.0);
+			aim = you.add(fwd.multiply(2.6)).add(0.0, 1.1, 0.0);
+		} else if (endRel < 14.0) {
+			// The release: wide, from the side away from you, level, so the copies can be seen streaking in and the burst.
 			if (installs(phase + "4", t)) {
-				lens = 90.0F;
+				lens = 84.0F;
 			}
-			Vec3d sideA = tp.add(across.multiply(4.6 * big)).add(dir.multiply(-1.2 * big)).add(0.0, 0.9 * big, 0.0);
-			Vec3d sideB = tp.add(across.negate().multiply(4.6 * big)).add(dir.multiply(-1.2 * big)).add(0.0, 0.9 * big, 0.0);
-			at = sideA.squaredDistanceTo(you) >= sideB.squaredDistanceTo(you) ? sideA : sideB;
-			aim = tp.add(0.0, 1.0 * big, 0.0);
+			double d = 9.0 * (boss ? 1.25 : 1.0);
+			Vec3d one = new Vec3d(tp.x, ground + 2.4, tp.z).add(across.multiply(d));
+			Vec3d two = new Vec3d(tp.x, ground + 2.4, tp.z).add(across.negate().multiply(d));
+			aim = tp.add(0.0, 0.5 * big, 0.0);
+			at = one.squaredDistanceTo(you) >= two.squaredDistanceTo(you) ? one : two;
 		} else {
-			// After: pulled back and up, the flung mob, the flesh sinking, the colour coming back.
+			// After: pulled back and a little up, the flung mob, the flesh sinking, the colour coming back.
 			if (installs(phase + "5", t)) {
-				lens = 64.0F;
+				lens = 70.0F;
 			}
 			double k = MathHelper.clamp((t - shotT0) / 40.0, 0.0, 1.0);
 			Vec3d sub = subject.getLerpedPos(part);
-			at = tp.add(across.multiply(6.5 + 2.0 * k)).add(dir.multiply(3.5)).add(0.0, 2.6 + 0.8 * k, 0.0);
-			aim = tp.lerp(sub, 0.5).add(0.0, 0.8, 0.0);
+			at = new Vec3d(tp.x, ground + 2.2, tp.z).add(youSide.multiply((7.5 + 1.5 * k) * big)).add(nearEnd.multiply(2.0));
+			aim = tp.lerp(sub, 0.25).add(0.0, 1.1, 0.0);
 		}
-		at = clearTo(m, aim, at);
-		lastCamera = at;
-		return look(at, aim);
+		return frame(m, hub, copies, subject, ground, at, aim);
+	}
+
+	/**
+	 * The rules for every shot: no closer than a block and a half to a lump, a copy, the held one or you; between 1.2 and 2.5 blocks over the ground
+	 * (the charge excepted a little); nothing solid in the way; and never looking more than about 25 degrees up or down.
+	 */
+	private static Capture.Pose frame(MinecraftClient m, ForeverHubEntity hub, List<ForeverCopyEntity> copies, Entity subject, double ground, Vec3d at, Vec3d aim) {
+		List<double[]> keepOut = new ArrayList<>();
+		if (hub != null) {
+			keepOut.addAll(ClientForever.lumps(hub));
+			for (ForeverCopyEntity c : copies) {
+				keepOut.add(new double[] {c.getX(), c.getY() + c.getHeight() * 0.5, c.getZ(), 0.5 + c.getWidth()});
+			}
+		}
+		keepOut.add(new double[] {subject.getX(), subject.getY() + subject.getHeight() * 0.5, subject.getZ(), 0.6 + subject.getWidth()});
+		keepOut.add(new double[] {m.player.getX(), m.player.getY() + 0.9, m.player.getZ(), 1.0});
+		double y = MathHelper.clamp(at.y, ground + 1.2, ground + 2.5);
+		Vec3d c = new Vec3d(at.x, y, at.z);
+		for (int pass = 0; pass < 3; pass++) {
+			for (double[] k : keepOut) {
+				Vec3d centre = new Vec3d(k[0], k[1], k[2]);
+				double need = k[3] + 1.5;
+				Vec3d off = c.subtract(centre);
+				if (off.length() < need) {
+					Vec3d out = off.lengthSquared() < 1.0E-6 ? new Vec3d(1.0, 0.0, 0.0) : off.normalize();
+					c = centre.add(out.multiply(need));
+					c = new Vec3d(c.x, MathHelper.clamp(c.y, ground + 1.2, ground + 2.5), c.z);
+				}
+			}
+		}
+		// And out of anything standing about (a flung mob, the second player, a copy): a block and a half from every body.
+		for (int pass = 0; pass < 3; pass++) {
+			for (Entity e : m.world.getEntities()) {
+				if (!(e instanceof LivingEntity) && !(e instanceof ForeverCopyEntity) || e.squaredDistanceTo(c) > 100.0) {
+					continue;
+				}
+				Vec3d centre = e.getPos().add(0.0, e.getHeight() * 0.5, 0.0);
+				double need = Math.max(e.getWidth(), e.getHeight()) * 0.5 + 1.7;
+				Vec3d off = c.subtract(centre);
+				if (off.length() < need) {
+					Vec3d out = off.lengthSquared() < 1.0E-6 ? new Vec3d(1.0, 0.0, 0.0) : off.normalize();
+					c = centre.add(out.multiply(need));
+				}
+			}
+			c = new Vec3d(c.x, MathHelper.clamp(c.y, ground + 1.2, ground + 2.5), c.z);
+		}
+		c = clearTo(m, aim, c);
+		// The pitch: the aim is lowered or raised until it is within 25 degrees.
+		Vec3d to = aim.subtract(c);
+		double flat = Math.hypot(to.x, to.z);
+		double limit = Math.tan(Math.toRadians(25.0)) * Math.max(flat, 0.5);
+		Vec3d aimed = new Vec3d(aim.x, c.y + MathHelper.clamp(to.y, -limit, limit), aim.z);
+		lastCamera = c;
+		return look(c, aimed);
 	}
 
 	private static Vec3d[] eyePick;
@@ -807,12 +828,12 @@ public class ForeverSelfTest implements ClientModInitializer {
 		return surface(world, MathHelper.floor(at.x), MathHelper.floor(at.z)) + 1.0;
 	}
 
-	/** The vindicator, on the ledge, its own AI after you: it charges off the edge. */
+	/** The vindicator, its own AI after you: it is already running at you when the clip begins. */
 	private static void spawnVindicator(IntegratedServer server) {
 		ServerWorld world = server.getOverworld();
 		MobEntity v = EntityType.VINDICATOR.create(world);
-		Vec3d at = middle.add(LEDGE_TO - 4.0, 0.0, 0.0);
-		v.refreshPositionAndAngles(at.x, centre.getY() + LEDGE_HIGH, at.z, 90.0F, 0.0F);
+		Vec3d at = middle.add(10.6, 0.0, 0.0);
+		v.refreshPositionAndAngles(at.x, groundAt(world, at), at.z, 90.0F, 0.0F);
 		v.equipStack(EquipmentSlot.MAINHAND, new ItemStack(Items.IRON_AXE));
 		v.setPersistent();
 		world.spawnEntity(v);
@@ -825,21 +846,17 @@ public class ForeverSelfTest implements ClientModInitializer {
 		ServerWorld world = server.getOverworld();
 		ServerPlayerEntity you = player(server);
 		MobEntity r = EntityType.RAVAGER.create(world);
-		// Across the clearing, on ground about as high as yours (not in a dip), the way it will charge.
+		// Across the clearing, thirteen blocks off on level open ground, the way it will charge.
 		Vec3d at = null;
 		double bestDy = Double.MAX_VALUE;
-		for (int k = 0; k < 40; k++) {
-			double ang = Math.toRadians(-100.0 + k * 9.0);
-			double dist = 15.0 + (k % 3);
-			Vec3d c = you.getPos().add(Math.cos(ang) * dist, 0.0, Math.sin(ang) * dist);
+		for (int k = 0; k < 36; k++) {
+			double ang = Math.toRadians(110.0 + k * 4.0);
+			Vec3d c = you.getPos().add(Math.cos(ang) * 18.0, 0.0, Math.sin(ang) * 18.0);
 			double dy = Math.abs(groundAt(world, c) - you.getY());
-			if (Math.hypot(c.x - middle.x, c.z - middle.z) < RADIUS - 2 && dy < bestDy) {
+			if (dy < bestDy) {
 				bestDy = dy;
 				at = c;
 			}
-		}
-		if (at == null) {
-			at = you.getPos().add(-2.0, 0.0, -18.0);
 		}
 		r.refreshPositionAndAngles(at.x, groundAt(world, at), at.z, 0.0F, 0.0F);
 		r.setPersistent();
@@ -860,7 +877,7 @@ public class ForeverSelfTest implements ClientModInitializer {
 		double bestDy = Double.MAX_VALUE;
 		for (int k = 0; k < 72; k++) {
 			double ang = Math.toRadians(100.0 + k * 2.5);
-			for (double dist = 8.5; dist <= 9.5; dist += 1.0) {
+			for (double dist = 11.0; dist <= 12.0; dist += 1.0) {
 				Vec3d c = you.getPos().add(Math.cos(ang) * dist, 0.0, Math.sin(ang) * dist);
 				double dy = Math.abs(groundAt(world, c) - you.getY());
 				if (dy < bestDy) {
@@ -1004,7 +1021,7 @@ public class ForeverSelfTest implements ClientModInitializer {
 	private static void setup(IntegratedServer server) {
 		ServerPlayerEntity you = player(server);
 		ServerWorld world = server.getOverworld();
-		world.setTimeOfDay(12520);
+		world.setTimeOfDay(12150);
 		world.setWeather(12000, 0, false, false);
 		server.getGameRules().get(GameRules.DO_DAYLIGHT_CYCLE).set(false, server);
 		server.getGameRules().get(GameRules.DO_WEATHER_CYCLE).set(false, server);
@@ -1062,9 +1079,9 @@ public class ForeverSelfTest implements ClientModInitializer {
 				int x = centre.getX() + dx;
 				int z = centre.getZ() + dz;
 				int natural = surface(world, x, z);
-				double swell = 1.1 * Math.sin(dx * 0.37 + 1.3) * Math.cos(dz * 0.31 - 0.4) + 0.5 * Math.sin(dx * 0.9 + dz * 0.7);
+				double swell = 0.55 * Math.sin(dx * 0.37 + 1.3) * Math.cos(dz * 0.31 - 0.4) + 0.25 * Math.sin(dx * 0.9 + dz * 0.7);
 				double target = centre.getY() - 1 + swell * MathHelper.clamp((d - 3.0) / 3.0, 0.0, 1.0) - 0.0;
-				double w = MathHelper.clamp((d - 15.0) / 9.0, 0.0, 1.0);
+				double w = MathHelper.clamp((d - 11.0) / 13.0, 0.0, 1.0);
 				int want = (int) Math.round(MathHelper.lerp(w * w, target, natural));
 				if (want == natural) {
 					continue;
@@ -1084,26 +1101,6 @@ public class ForeverSelfTest implements ClientModInitializer {
 					if (!world.getBlockState(q).isAir() && world.getBlockState(q).getCollisionShape(world, q).isEmpty()) {
 						world.setBlockState(q, Blocks.AIR.getDefaultState(), Block.NOTIFY_LISTENERS);
 					}
-				}
-			}
-		}
-		// The ledge: a block of earth with an uneven edge, a few blocks high, to the east.
-		java.util.Random rnd = new java.util.Random(77);
-		for (int dx = LEDGE_FROM; dx <= LEDGE_TO; dx++) {
-			for (int dz = -4; dz <= 4; dz++) {
-				boolean edge = dx == LEDGE_FROM && Math.abs(dz) > 2 + rnd.nextInt(2) || Math.abs(dz) == 4 && rnd.nextInt(3) == 0;
-				if (edge) {
-					continue;
-				}
-				int x = centre.getX() + dx;
-				int z = centre.getZ() + dz;
-				int ground = surface(world, x, z);
-				int top = centre.getY() + LEDGE_HIGH - 1;
-				for (int y = ground; y <= top; y++) {
-					world.setBlockState(new BlockPos(x, y, z), y == top ? Blocks.GRASS_BLOCK.getDefaultState() : Blocks.DIRT.getDefaultState(), Block.NOTIFY_LISTENERS);
-				}
-				for (int y = top + 1; y <= top + 6; y++) {
-					world.setBlockState(new BlockPos(x, y, z), Blocks.AIR.getDefaultState(), Block.NOTIFY_LISTENERS);
 				}
 			}
 		}

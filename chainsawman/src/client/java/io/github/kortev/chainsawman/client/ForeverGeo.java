@@ -134,12 +134,35 @@ final class ForeverGeo {
 				Vec3d b = pos[i][j + 1];
 				Vec3d c = pos[i + 1][j + 1];
 				Vec3d d = pos[i + 1][j];
+				shade(p, nor[i][j], a.y - cy, ry, noiseAt(a, cx, cy, cz, rx, ry, rz, seed));
 				p.v(a.x, a.y, a.z, u0, v0, nor[i][j].x, nor[i][j].y, nor[i][j].z);
+				shade(p, nor[i + 1][j], d.y - cy, ry, noiseAt(d, cx, cy, cz, rx, ry, rz, seed));
 				p.v(d.x, d.y, d.z, u0, v1, nor[i + 1][j].x, nor[i + 1][j].y, nor[i + 1][j].z);
+				shade(p, nor[i + 1][j + 1], c.y - cy, ry, noiseAt(c, cx, cy, cz, rx, ry, rz, seed));
 				p.v(c.x, c.y, c.z, u1, v1, nor[i + 1][j + 1].x, nor[i + 1][j + 1].y, nor[i + 1][j + 1].z);
+				shade(p, nor[i][j + 1], b.y - cy, ry, noiseAt(b, cx, cy, cz, rx, ry, rz, seed));
 				p.v(b.x, b.y, b.z, u1, v0, nor[i][j + 1].x, nor[i][j + 1].y, nor[i][j + 1].z);
 			}
 		}
+	}
+
+	/** Dark underneath and in the folds (where the noise sinks), light on top: the vertex colour of a lobe. */
+	private static void shade(Pen p, Vec3d normal, double up, double ry, double bump) {
+		double height = MathHelper.clamp(up / Math.max(ry, 0.1), -0.4, 1.0);
+		double k = 0.55 + 0.45 * MathHelper.clamp(height * 0.9 + 0.35, 0.0, 1.0);
+		k *= 0.72 + 0.4 * MathHelper.clamp(bump, 0.0, 1.0);
+		int c = Math.round(255.0F * (float) MathHelper.clamp(k, 0.4, 1.12));
+		p.r = Math.min(255, c);
+		p.g = Math.min(255, Math.round(c * 0.96F));
+		p.b = Math.min(255, Math.round(c * 0.96F));
+	}
+
+	/** How far out (0 sunk in a fold, 1 a bulge) the surface point {@code pt} of a lobe is. */
+	private static double noiseAt(Vec3d pt, double cx, double cy, double cz, double rx, double ry, double rz, int seed) {
+		double dx = (pt.x - cx) / rx;
+		double dy = (pt.y - cy) / ry;
+		double dz = (pt.z - cz) / rz;
+		return noise(dx * 2.3 + 11.0, dy * 2.3 + 5.0, dz * 2.3 + 3.0, seed);
 	}
 
 	/** An eyeball of radius {@code r} about the origin: the whole sphere, the eye map's front (the iris) towards +z. */
