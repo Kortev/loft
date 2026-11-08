@@ -50,10 +50,14 @@ public class ForeverCubeRenderer extends EntityRenderer<ForeverCubeEntity> {
 		}
 		VertexConsumer vc = provider.getBuffer(RenderLayer.getEntityTranslucentEmissive(ForeverHubRenderer.MOUTH));
 		double h = Forever.CUBE_HALF;
+		net.minecraft.util.math.Vec3d cam = dispatcher.camera.getPos();
+		net.minecraft.util.math.Vec3d at = cube.getLerpedPos(delta);
+		double[] cc = {cam.x - at.x, cam.y - at.y, cam.z - at.z};
 		int n = 9;
 		for (int face = 0; face < 6; face++) {
 			int axis = face / 2;
 			double sign = face % 2 == 0 ? 1.0 : -1.0;
+			float nearFace = MathHelper.clamp((float) (Math.abs(cc[axis] - sign * h) - 0.5) / 2.5F, 0.0F, 1.0F);
 			for (int i = 0; i < n; i++) {
 				for (int j = 0; j < n; j++) {
 					double u0 = -h + 2.0 * h * i / n;
@@ -62,18 +66,37 @@ public class ForeverCubeRenderer extends EntityRenderer<ForeverCubeEntity> {
 					double v1 = -h + 2.0 * h * (j + 1) / n;
 					float wave = 0.5F + 0.5F * MathHelper.sin(now * 0.22F + (i * 0.8F + j * 1.1F) + face * 1.7F);
 					float slide = 0.5F + 0.5F * MathHelper.sin(now * 0.07F - (i + j) * 0.5F);
-					float a = fade * (0.025F + 0.07F * wave * slide);
+					float a = fade * nearFace * (0.025F + 0.07F * wave * slide);
 					quad(vc, matrices, axis, sign * h, u0, v0, u1, v1, a);
 				}
 			}
 		}
-		// The twelve edges, a little brighter.
-		double t = 0.05;
+		// The twelve edges: only a trace, and gone when the camera is within about 3 blocks of one, so none ever sits across the lens.
+		double t = 0.035;
 		for (int axis = 0; axis < 3; axis++) {
 			for (int sa = -1; sa <= 1; sa += 2) {
 				for (int sb = -1; sb <= 1; sb += 2) {
-					float a = fade * (0.16F + 0.08F * MathHelper.sin(now * 0.3F + axis * 2.0F + sa + sb * 2.0F));
-					edge(vc, matrices, axis, sa * h, sb * h, h, t, a);
+					double[] lo = new double[3];
+					lo[(axis + 1) % 3] = sa * h;
+					lo[(axis + 2) % 3] = sb * h;
+					double near = Double.MAX_VALUE;
+					{
+						double cx = cam.x - at.x;
+						double cy = cam.y - at.y;
+						double cz = cam.z - at.z;
+						double[] c = {cx, cy, cz};
+						double sum = 0.0;
+						for (int k = 0; k < 3; k++) {
+							double d = k == axis ? Math.max(0.0, Math.abs(c[k]) - h) : c[k] - lo[k];
+							sum += d * d;
+						}
+						near = Math.sqrt(sum);
+					}
+					float close = MathHelper.clamp((float) (near - 1.0) / 2.0F, 0.0F, 1.0F);
+					float a = fade * close * (0.035F + 0.02F * MathHelper.sin(now * 0.3F + axis * 2.0F + sa + sb * 2.0F));
+					if (a > 0.002F) {
+						edge(vc, matrices, axis, sa * h, sb * h, h, t, a);
+					}
 				}
 			}
 		}

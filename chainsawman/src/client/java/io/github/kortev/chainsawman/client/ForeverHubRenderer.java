@@ -265,14 +265,20 @@ public class ForeverHubRenderer extends EntityRenderer<ForeverHubEntity> {
 			float grow = phase == ForeverHubEntity.HELD ? ease((t - 2.0F) / 8.0F) : 1.0F - MathHelper.clamp(since / 1.5F, 0.0F, 1.0F);
 			Vec3d cam = dispatcher.camera.getPos();
 			Vec3d hubAt = hub.getLerpedPos(delta);
+			int keep = farKeep(ClientForever.hubs().size());
 			for (double[] f : layout.far) {
+				int rank = farRank(f, keep);
+				if (rank < 0) {
+					continue;
+				}
 				double dx = hubAt.x + f[0] - cam.x;
 				double dz = hubAt.z + f[2] - cam.z;
 				if (dx * dx + dz * dz > 48.0 * 48.0) {
 					continue;
 				}
-				float fade = (float) Math.pow(1.0 - f[3], 1.5) * 0.4F * grow;
-				if (fade < 0.015F) {
+				float base = farFade(rank, keep);
+				float fade = base * grow;
+				if (fade < 0.015F || shadowed(hub, hubAt, f, base, keep)) {
 					continue;
 				}
 				float[] tint = {1.2F, 1.4F, 1.2F, fade};
@@ -301,6 +307,59 @@ public class ForeverHubRenderer extends EntityRenderer<ForeverHubEntity> {
 			double h = target != null ? target.getHeight() * 0.5 : 0.9;
 			burst(provider, matrices, new Vec3d(0.0, h, 0.0), 0.5F + 1.5F * (1.0F - (1.0F - k) * (1.0F - k)), 1.0F - k * k, hub.getId() * 0.7F);
 		}
+	}
+
+	// ---- Far copies: fewer with more held things, and where two lines meet the fainter one gives way.
+
+	/** How many render-only copies each way to draw when {@code locks} things are held in the world: all 11 for one or two, 6 for three or four, 4 beyond. */
+	static int farKeep(int locks) {
+		return locks <= 2 ? ForeverLayout.FAR : locks <= 4 ? 6 : 4;
+	}
+
+	/** Which of the {@code keep} copies this one is (1 to keep, spread evenly along the line's 11), or -1 if it is one that is left out. */
+	static int farRank(double[] f, int keep) {
+		int k = (int) f[5];
+		for (int r = 1; r <= keep; r++) {
+			if (Math.round(r * (float) ForeverLayout.FAR / keep) == k) {
+				return r;
+			}
+		}
+		return -1;
+	}
+
+	/** How strongly the {@code rank}th of {@code keep} copies shows (before the line's own growth): nothing past the last. */
+	static float farFade(int rank, int keep) {
+		float denom = keep == ForeverLayout.FAR ? keep : keep + 1;
+		return (float) Math.pow(1.0 - rank / denom, 1.5) * 0.4F;
+	}
+
+	/** Whether another held thing's far copy stands within 0.8 blocks of this one and is stronger (or as strong and from an earlier hub). */
+	private static boolean shadowed(ForeverHubEntity hub, Vec3d hubAt, double[] f, float fade, int keep) {
+		double x = hubAt.x + f[0];
+		double y = hubAt.y + f[1];
+		double z = hubAt.z + f[2];
+		for (ForeverHubEntity other : ClientForever.hubs()) {
+			if (other == hub) {
+				continue;
+			}
+			ForeverLayout ol = ClientForever.layout(other);
+			for (double[] g : ol.far) {
+				int rank = farRank(g, keep);
+				if (rank < 0) {
+					continue;
+				}
+				double dx = other.getX() + g[0] - x;
+				double dz = other.getZ() + g[2] - z;
+				if (dx * dx + dz * dz > 0.64 || Math.abs(other.getY() + g[1] - y) > 1.2) {
+					continue;
+				}
+				float their = farFade(rank, keep);
+				if (their > fade + 1.0E-4F || (Math.abs(their - fade) <= 1.0E-4F && other.getId() < hub.getId())) {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	// ---- Parts.

@@ -171,8 +171,11 @@ public final class ClientForever {
 	static ForeverLayout layout(ForeverHubEntity hub) {
 		net.minecraft.client.world.ClientWorld world = (net.minecraft.client.world.ClientWorld) hub.getWorld();
 		List<ForeverCopyEntity> cs = copies(hub.getId());
+		int holds = HUBS.size();
+		// With several held things the lumps are shared out: about 14 for the whole cube, never fewer than 2 each.
+		int lumpCap = holds <= 1 ? 99 : Math.max(2, 14 / holds);
 		ForeverLayout l = LAYOUTS.get(hub.getId());
-		if (l != null && l.seed == hub.seed() && (cs.isEmpty() || cs.size() + 1 == l.moments)) {
+		if (l != null && l.seed == hub.seed() && l.lumpCap == lumpCap && (cs.isEmpty() || cs.size() + 1 == l.moments)) {
 			return l;
 		}
 		// One lump for the held thing and one for each moment of it, nearest the middle first.
@@ -193,7 +196,7 @@ public final class ClientForever {
 			width = t2.getWidth();
 			height = t2.getHeight();
 		}
-		l = new ForeverLayout(world, hub, feet, scale, sorted, width, height);
+		l = new ForeverLayout(world, hub, feet, scale, sorted, width, height, lumpCap);
 		LAYOUTS.put(hub.getId(), l);
 		return l;
 	}

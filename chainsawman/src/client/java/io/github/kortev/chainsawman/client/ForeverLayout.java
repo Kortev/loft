@@ -68,6 +68,8 @@ final class ForeverLayout {
 	final int seed;
 	/** What it was made from: the number of moments (to remake it when they change). */
 	final int moments;
+	/** How many lumps each held thing is allowed, so a crowded cube keeps ground between them (what it was made with). */
+	final int lumpCap;
 	final List<Lump> lumps = new ArrayList<>();
 	final List<Eye> eyes = new ArrayList<>();
 	final List<Mouth> mouths = new ArrayList<>();
@@ -81,7 +83,8 @@ final class ForeverLayout {
 	 * @param feet where the held thing (first) and each moment of it stand, relative to the hub
 	 * @param scale 1 for something the size of a person, more for something bigger
 	 */
-	ForeverLayout(ClientWorld world, ForeverHubEntity hub, List<Vec3d> feet, double scale, List<io.github.kortev.chainsawman.contract.ForeverCopyEntity> copies, float width, float height) {
+	ForeverLayout(ClientWorld world, ForeverHubEntity hub, List<Vec3d> feet, double scale, List<io.github.kortev.chainsawman.contract.ForeverCopyEntity> copies, float width, float height, int lumpCap) {
+		this.lumpCap = lumpCap;
 		this.seed = hub.seed();
 		this.moments = feet.size();
 		Random random = Random.create(seed);
@@ -102,7 +105,7 @@ final class ForeverLayout {
 		carryOn(world, hub, copies, width, height);
 		Vec3d across = new Vec3d(-axis.z, 0.0, axis.x);
 		double size = Math.min(2.6, Math.max(1.0, scale));
-		for (int i = 0; i < feet.size(); i++) {
+		for (int i = 0; i < Math.min(feet.size(), lumpCap); i++) {
 			Vec3d p = feet.get(i);
 			Lump l = new Lump();
 			l.x = p.x;
