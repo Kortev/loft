@@ -101,7 +101,9 @@ the loop from above) at 1 px = 1/16 block. Sent to kortev; waiting on their verd
   have to make sense for the Eternity Devil", so the devil itself shows up when it's used (its flesh, its many eyes
   and mouths, its crowd voice), the way the Fox contract shows the fox's head. Price proposed, not confirmed: a fee
   per use, it eats a few XP levels (your time). Storyboard first: `tools/eternity_contract_drawings.py`.
-  **Built (2026-11-07), waiting on kortev's verdict:** see the Forever entry in `HANDOFF.md` (price 3 XP levels, 3 s / 1.5 s on bosses, hits x 1.5 capped at 40, 30 s cooldown; clip `work/forever/forever_clip.mp4`). The Echo notes above are history; Echo is removed.
+  **Built (2026-11-07), waiting on kortev's verdict:** see the Forever entry in `HANDOFF.md`. After kortev's first
+  look (v1 locked one target and looked glitchy) it became v2: one press freezes everything in a 9x9x9 cube (up to 8,
+  players too, not you or your pets), each with a line of copies running off about 24 blocks, the stagger fixed (price 3 XP levels, 3 s / 1.5 s on bosses, hits x 1.5 capped at 40, 30 s cooldown; clip `work/forever/forever_clip.mp4`). The Echo notes above are history; Echo is removed.
 - **No max-heart prices** (kortev worried they'd stack; they can't, one contract at a time, but still no hearts).
   The price is what the devil asks for; ideas: beds stop working for you, faster hunger.
 - **Killing and getting a contract are different things.** Killing gives loot (its flesh, a lot of hunger and
