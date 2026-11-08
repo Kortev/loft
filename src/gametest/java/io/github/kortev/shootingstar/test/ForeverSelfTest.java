@@ -86,6 +86,12 @@ public class ForeverSelfTest implements ClientModInitializer {
 	private static volatile Vec3d middle = Vec3d.ZERO;
 	private static volatile int vindId = -1;
 	private static volatile int ravId = -1;
+	/** The mobs of the group (the one in the middle, the one looked at, is {@link #vindId}). */
+	private static volatile int[] groupIds = new int[0];
+	private static volatile Vec3d groupFrom = Vec3d.ZERO;
+	private static int jitterPhase;
+	private static int jitterAt = -1;
+	private static int jitterFrames;
 	private static volatile ServerPlayerEntity friend;
 	private static volatile int friendId = -1;
 	private static float headYaw = Float.NaN;
@@ -106,8 +112,7 @@ public class ForeverSelfTest implements ClientModInitializer {
 	private static double shotT0;
 	private static String shotKey = "";
 	private static Vec3d lastCamera = Vec3d.ZERO;
-	private static int vindHits;
-	private static int ravHits;
+	private static int hitsTotal;
 
 	public static boolean active() {
 		return "forever".equals(System.getProperty("shootingstar.selftest"));
@@ -119,6 +124,10 @@ public class ForeverSelfTest implements ClientModInitializer {
 
 	private static boolean capturing() {
 		return "true".equals(System.getProperty("shootingstar.selftest.capture"));
+	}
+
+	private static boolean jitterOnly() {
+		return "jitter".equals(System.getProperty("shootingstar.selftest.target", ""));
 	}
 
 	private static boolean lookOnly() {
@@ -186,6 +195,8 @@ public class ForeverSelfTest implements ClientModInitializer {
 				client.getToastManager().clear();
 				if (lookOnly()) {
 					look(client, server, ticks);
+				} else if (jitterOnly()) {
+					jitter(client, server, ticks);
 				} else {
 					run(client, server, ticks);
 				}
@@ -279,6 +290,102 @@ public class ForeverSelfTest implements ClientModInitializer {
 
 	// ------------------------------------------------------------------ the clip
 
+	/**
+	 * -Ptarget=jitter: a group charges, one press freezes it, and with the camera fixed a few blocks off a frozen mob (then a frozen player)
+	 * is filmed at the full frame rate for a second, to be stepped through frame by frame: nothing may move.
+	 */
+	private static void jitter(MinecraftClient client, IntegratedServer server, int f) {
+		if (client.player == null || client.world == null) {
+			return;
+		}
+		if (f == 1) {
+			client.options.hudHidden = true;
+			client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
+			headYaw = client.player.getYaw();
+			server.execute(() -> spawnGroup(server));
+		}
+		Entity centreMob = client.world.getEntityById(vindId);
+		ForeverHubEntity hub = hubFor(vindId);
+		if (hub == null && !ClientForever.hubs().isEmpty()) {
+			hub = ClientForever.hubs().iterator().next();
+		}
+		if (centreMob != null && press1At < 0 && (flat(centreMob.getPos().subtract(client.player.getPos())).length() < 9.5 && f > 8 || f > 160)) {
+			press1At = f;
+			pressU();
+			server.execute(() -> {
+				ServerPlayerEntity you = player(server);
+				Entity v = server.getOverworld().getEntityById(vindId);
+				ShootingStar.LOGGER.info("[selftest] forever jitter: pressed U at f={}; held {} you yaw {} pitch {} eye {} mob {}", press1At, Forever.lockedBy(you).size(), you.getYaw(), you.getPitch(),
+						you.getEyePos(), v == null ? null : v.getBoundingBox());
+			});
+		}
+		if (press1At >= 0 && lock1At < 0 && f - press1At >= 3 && f % 3 == 0 && f - press1At < 60) {
+			pressU();
+		}
+		if (hub != null && lock1At < 0) {
+			lock1At = f;
+			server.execute(() -> Forever.extend(server.getOverworld().getEntityById(vindId), 200));
+		}
+		// You stand and look at the mob in the middle.
+		if (centreMob != null && lock1At < 0) {
+			Vec3d moving = centreMob.getPos().subtract(new Vec3d(centreMob.prevX, centreMob.prevY, centreMob.prevZ)).multiply(2.5);
+			Vec3d to = centreMob.getPos().add(moving).add(0.0, 1.0, 0.0).subtract(client.player.getEyePos());
+			client.player.setYaw((float) Math.toDegrees(Math.atan2(-to.x, to.z)));
+			client.player.setHeadYaw(client.player.getYaw());
+			client.player.setPitch((float) -Math.toDegrees(Math.atan2(to.y, Math.hypot(to.x, to.z))));
+		}
+		if (lock1At < 0) {
+			if (f > 400) {
+				ShootingStar.LOGGER.error("[selftest] forever jitter: no cube was made, giving up");
+				stage = Stage.DONE;
+			}
+			return;
+		}
+		int since = f - lock1At;
+		Entity subject = client.world.getEntityById(friendId);
+		if (jitterPhase == 0) {
+			subject = client.world.getEntityById(groupIds[0]);
+			for (int id : groupIds) {
+				if (id != friendId && io.github.kortev.chainsawman.contract.ForeverFlags.CLIENT.contains(id)) {
+					subject = client.world.getEntityById(id);
+					break;
+				}
+			}
+		}
+		if (subject == null) {
+			return;
+		}
+		if (since >= 40 && jitterAt < 0) {
+			jitterAt = f;
+			Vec3d aimAt = subject.getPos().add(0.0, subject.getHeight() * 0.5, 0.0);
+			Vec3d dir = flat(client.player.getPos().subtract(subject.getPos())).normalize();
+			Vec3d side = new Vec3d(-dir.z, 0.0, dir.x);
+			Vec3d at = subject.getPos().add(dir.multiply(5.2)).add(side.multiply(1.8)).add(0.0, 1.7, 0.0);
+			ForeverHubEntity jh = hubFor(subject.getId());
+			Capture.Pose pose = frame(client, jh, jh == null ? List.of() : ClientForever.copiesOf(jh), subject, subject.getY(), at, aimAt);
+			Capture.camera = t -> pose;
+			lens = 60.0F;
+			jitterFrames = 0;
+			if (capturing()) {
+				Capture.start(client, client.runDirectory.toPath().resolve(jitterPhase == 0 ? "capture" : "capture_player"));
+			}
+		}
+		if (jitterAt >= 0 && f - jitterAt >= 32) {
+			Capture.stop();
+			Capture.camera = null;
+			jitterAt = -1;
+			if (jitterPhase == 0) {
+				jitterPhase = 1;
+				server.execute(() -> Forever.extend(server.getOverworld().getEntityById(vindId), 60));
+			} else {
+				stage = Stage.DONE;
+			}
+		}
+		if (f > 700) {
+			stage = Stage.DONE;
+		}
+	}
+
 	private static ForeverHubEntity hubFor(int target) {
 		for (ForeverHubEntity hub : ClientForever.hubs()) {
 			if (hub.targetId() == target) {
@@ -297,100 +404,56 @@ public class ForeverSelfTest implements ClientModInitializer {
 			client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
 			headYaw = client.player.getYaw();
 			headPitch = client.player.getPitch();
-			server.execute(() -> spawnVindicator(server));
+			server.execute(() -> spawnGroup(server));
 		}
-		Entity vind = client.world.getEntityById(vindId);
-		// The video begins once the vindicator is really running at you (it takes a moment to get going after it is made).
-		if (capturing() && !Capture.active() && captureF0 < 0 && vind != null && (flat(vind.getPos().subtract(new Vec3d(middle.x + 10.6, vind.getY(), middle.z))).length() > 1.0 || f > 80)) {
+		Entity mid = client.world.getEntityById(vindId);
+		ForeverHubEntity hub1 = hubFor(vindId);
+		if (hub1 == null && !ClientForever.hubs().isEmpty()) {
+			hub1 = ClientForever.hubs().iterator().next();
+		}
+		// The video begins once the group is really running at you (it takes a moment to get going after it is made).
+		if (capturing() && !Capture.active() && captureF0 < 0 && mid != null && (flat(mid.getPos().subtract(groupFrom)).length() > 0.5 || f > 30)) {
 			captureF0 = f;
 			Capture.start(client, client.runDirectory.toPath().resolve("capture"));
 		}
-		Entity rav = client.world.getEntityById(ravId);
-		ForeverHubEntity hub1 = hubFor(vindId);
-		ForeverHubEntity hub2 = hubFor(ravId);
 		if (hub1 != null && lock1At < 0) {
 			lock1At = f;
 			// The flesh coming up and the eyes opening, slowed a little so they can be seen.
-			Capture.slow(0.5, 36);
-			ShootingStar.LOGGER.info("[selftest] forever: first lock at f={}", f);
+			Capture.slow(0.45, 150);
+			ShootingStar.LOGGER.info("[selftest] forever: the cube at f={}", f);
 		}
 		if (hub1 != null && hub1.phase() >= ForeverHubEntity.ENDING && end1At < 0) {
 			end1At = f;
 			// The bite, the line snapping in and the burst, slowed so they can be seen.
 			Capture.slow(0.34, 34);
 		}
-		if (hub2 != null && lock2At < 0) {
-			lock2At = f;
-			Capture.slow(0.5, 24);
-			ShootingStar.LOGGER.info("[selftest] forever: second lock at f={}", f);
-		}
-		if (hub2 != null && hub2.phase() >= ForeverHubEntity.ENDING && end2At < 0) {
-			end2At = f;
-			Capture.slow(0.34, 30);
-		}
-		// The ravager comes once the first moment has ended.
-		if (lock1At >= 0 && ravSpawned < 0 && f >= lock1At + 44) {
-			ravSpawned = f;
-			server.execute(() -> {
-				Forever.ready(server.getPlayerManager().getPlayerList().get(0));
-				spawnRavager(server);
-			});
-		}
-		// The key, pressed for real while the vindicator is in the air, and again when the ravager is charging at you.
-		if (press1At < 0 && vind != null && vind.isAlive()) {
-			double d = flat(vind.getPos().subtract(client.player.getPos())).length();
-			double air = 0.0;
-			if (f >= 36 && f <= 90) {
-				ShootingStar.LOGGER.info("[selftest] forever f={} vind d {}", f, d);
-			}
-			if (d < 9.0 && f > 6 || f > 150) {
+		// The key, pressed for real when the group is nine blocks off (aim sighted first, pressed again if nothing was in the sights).
+		if (press1At < 0 && mid != null && mid.isAlive()) {
+			double d = flat(mid.getPos().subtract(client.player.getPos())).length();
+			if (d < 9.5 && f > 6 || f > 150) {
 				press1At = f;
 				pressU();
 				server.execute(() -> {
 					ServerPlayerEntity you = player(server);
-					Entity v = server.getOverworld().getEntityById(vindId);
-					ShootingStar.LOGGER.info("[selftest] forever: pressed U at f={}; contract {} levels {} active {} cooldown {} you yaw {} pitch {} eye {} vind {}", press1At, Contracts.get(you),
-							you.experienceLevel, Forever.active(you), Forever.cooldownLeft(you), you.getYaw(), you.getPitch(), you.getEyePos(), v == null ? null : v.getBoundingBox());
+					ShootingStar.LOGGER.info("[selftest] forever: pressed U at f={}; held {} levels {}", press1At, Forever.lockedBy(you).size(), you.experienceLevel);
 				});
 			}
 		}
-		if (press2At < 0 && ravSpawned >= 0 && rav != null && rav.isAlive() && f > ravSpawned + 6) {
-			double d = flat(rav.getPos().subtract(client.player.getPos())).length();
-			if (d < 14.0 || f > ravSpawned + 200) {
-				press2At = f;
-				server.execute(() -> Forever.ready(player(server)));
-				pressU();
-				server.execute(() -> {
-					ServerPlayerEntity you = player(server);
-					ShootingStar.LOGGER.info("[selftest] forever: pressed U (ravager) at f={}; levels {} active {} cooldown {} health {}", press2At, you.experienceLevel,
-							Forever.active(you), Forever.cooldownLeft(you), you.getHealth());
-				});
-			}
-		}
-		// The key again if the first press found nothing in its sights (it is a person pressing it: they would).
-		if (press1At >= 0 && lock1At < 0 && f - press1At >= 3 && f - press1At < 24 && f % 3 == 0 && vind != null && vind.isAlive()) {
+		if (press1At >= 0 && lock1At < 0 && f - press1At >= 3 && f - press1At < 24 && f % 3 == 0 && mid != null && mid.isAlive()) {
 			pressU();
 		}
-		if (press2At >= 0 && lock2At < 0 && f - press2At >= 3 && f - press2At < 40 && f % 3 == 0 && rav != null && rav.isAlive()) {
-			server.execute(() -> Forever.ready(player(server)));
-			pressU();
-		}
-		// The ravager is brought in off the hillside if it has got stuck out of reach (the terrain is natural; the charge is its own).
-		if (ravSpawned >= 0 && press2At < 0 && rav != null && f == ravSpawned + 70 && flat(rav.getPos().subtract(client.player.getPos())).length() > 15.0) {
-			server.execute(() -> relocateRavager(server));
-		}
-		control(client, server, f, vind, rav, hub1, hub2);
+		control(client, server, f);
 		cameras(client, f);
 		stills(client, f);
-		int end = end2At < 0 ? Integer.MAX_VALUE : end2At + 4 + 32;
+		int end = end1At < 0 ? Integer.MAX_VALUE : end1At + 4 + 44;
 		if (f % 20 == 0) {
-			ShootingStar.LOGGER.info("[selftest] forever f={} vind {} rav {} lock1 {} end1 {} lock2 {} end2 {} hits {} / {} you {} hp {}", f, vind == null ? null : vind.getPos(),
-					rav == null ? null : rav.getPos(), lock1At, end1At, lock2At, end2At, vindHits, ravHits, client.player.getPos(), client.player.getHealth());
+			ShootingStar.LOGGER.info("[selftest] forever f={} mid {} lock {} end {} hits {} you {} hp {}", f, mid == null ? null : mid.getPos(), lock1At, end1At, hitsTotal,
+					client.player.getPos(), client.player.getHealth());
 		}
 		if (f >= end) {
 			afterClip(client, server, f);
-		} else if (f > 900) {
-			ShootingStar.LOGGER.error("[selftest] forever: gave up at f={} (lock1 {}, lock2 {})", f, lock1At, lock2At);
+		} else if (f > 600) {
+			ShootingStar.LOGGER.error("[selftest] forever: gave up at f={} (lock {})", f, lock1At);
 			Capture.stop();
 			stage = Stage.DONE;
 		}
@@ -446,20 +509,23 @@ public class ForeverSelfTest implements ClientModInitializer {
 	}
 
 	/**
-	 * What you do, every client tick: look at what you are after (eased, as a person's head turns); while a moment is held, run at the
-	 * nearest thing of it (a copy or the held one) that you have not hit twice, and cut it when you are close, the call the attack key
-	 * makes; otherwise watch the mob that is coming.
+	 * What you do, every client tick: look at what you are after (eased, as a person's head turns); while a cube is held, run at the
+	 * nearest thing in it (a held one or a copy of one) that you have not hit twice, and cut it when you are close, the call the attack key
+	 * makes; otherwise watch the group coming.
 	 */
-	private static void control(MinecraftClient client, IntegratedServer server, int f, Entity vind, Entity rav, ForeverHubEntity hub1, ForeverHubEntity hub2) {
-		ForeverHubEntity hub = hub2 != null && hub2.phase() == ForeverHubEntity.HELD ? hub2 : hub1 != null && hub1.phase() == ForeverHubEntity.HELD ? hub1 : null;
-		Entity watch = rav != null && rav.isAlive() && ravSpawned >= 0 ? rav : vind;
+	private static void control(MinecraftClient client, IntegratedServer server, int f) {
 		Entity goal = null;
-		if (hub != null) {
-			Entity held = client.world.getEntityById(hub.targetId());
-			double best = Double.MAX_VALUE;
+		boolean held = false;
+		double best = Double.MAX_VALUE;
+		for (ForeverHubEntity hub : ClientForever.hubs()) {
+			if (hub.phase() != ForeverHubEntity.HELD) {
+				continue;
+			}
+			held = true;
 			List<Entity> options = new ArrayList<>(ClientForever.copiesOf(hub));
-			if (held != null) {
-				options.add(held);
+			Entity target = client.world.getEntityById(hub.targetId());
+			if (target != null && target != client.player) {
+				options.add(target);
 			}
 			for (Entity e : options) {
 				if (HITS.getOrDefault(e.getId(), 0) >= 2) {
@@ -472,19 +538,19 @@ public class ForeverSelfTest implements ClientModInitializer {
 				}
 			}
 		}
+		Entity watch = client.world.getEntityById(vindId);
 		Entity aim = goal != null ? goal : watch;
 		if (Float.isNaN(headYaw)) {
 			headYaw = client.player.getYaw();
 			headPitch = client.player.getPitch();
 		}
 		if (aim != null) {
-			// (A little ahead of where it is: the server sees you a tick late.)
 			Vec3d moving = aim.getPos().subtract(new Vec3d(aim.prevX, aim.prevY, aim.prevZ)).multiply(2.5);
 			Vec3d to = aim.getPos().add(moving).add(0.0, aim.getHeight() * 0.5, 0.0).subtract(client.player.getEyePos());
 			float yaw = (float) Math.toDegrees(Math.atan2(-to.x, to.z));
 			float pitch = (float) -Math.toDegrees(Math.atan2(to.y, Math.hypot(to.x, to.z)));
 			// Waiting to press the key you are looking right at what you will hold (so the server's view of you has it in its sights).
-			boolean sighting = press1At < 0 && aim == vind && f >= 6 || press2At < 0 && aim == rav && ravSpawned >= 0;
+			boolean sighting = press1At < 0 && aim == watch && f >= 6;
 			float ease = sighting ? 1.0F : 0.45F;
 			headYaw += MathHelper.clamp(MathHelper.wrapDegrees(yaw - headYaw) * ease, -60.0F, 60.0F);
 			headPitch += MathHelper.clamp((pitch - headPitch) * ease, -45.0F, 45.0F);
@@ -493,23 +559,17 @@ public class ForeverSelfTest implements ClientModInitializer {
 		client.player.setHeadYaw(headYaw);
 		client.player.setPitch(MathHelper.clamp(headPitch, -80.0F, 80.0F));
 		boolean run = false;
-		if (goal != null) {
+		if (goal != null && held) {
 			double d = flat(goal.getPos().subtract(client.player.getPos())).length() - goal.getWidth() / 2.0;
 			run = d > 2.2;
 			if (d <= 2.9 && f - lastAttack >= 6) {
-				// Close and looking at it: the cut.
 				float off = Math.abs(MathHelper.wrapDegrees((float) Math.toDegrees(Math.atan2(-(goal.getX() - client.player.getX()), goal.getZ() - client.player.getZ())) - client.player.getYaw()));
 				if (off < 25.0F && client.interactionManager != null) {
 					lastAttack = f;
 					client.interactionManager.attackEntity(client.player, goal);
 					client.player.swingHand(Hand.MAIN_HAND);
-					int n = HITS.merge(goal.getId(), 1, Integer::sum);
-					if (goal == vind || goal instanceof ForeverCopyEntity c && c.targetId() == vindId) {
-						vindHits++;
-					} else {
-						ravHits++;
-					}
-					if (n > 3) {
+					hitsTotal++;
+					if (HITS.merge(goal.getId(), 1, Integer::sum) > 3) {
 						HITS.put(goal.getId(), 3);
 					}
 				}
@@ -536,23 +596,12 @@ public class ForeverSelfTest implements ClientModInitializer {
 	private static void stills(MinecraftClient client, int f) {
 		if (lock1At >= 0) {
 			int r = f - lock1At;
-			if (r == 3) {
-				once(client, "1_lock_rising");
-			}
-			if (r == 12) {
-				once(client, "2_eyes_open");
-			}
-			if (r == 26) {
-				once(client, "3_line_from_the_side");
-			}
-			if (r == 36) {
-				once(client, "3b_line_slashing");
-			}
-			if (r == 50) {
-				once(client, "4_mouth_grin");
-			}
-			if (r == 58) {
-				once(client, "4b_marks_piled");
+			int[] at = {3, 10, 20, 30, 38, 46, 56};
+			String[] names = {"1_lock_rising", "2_eyes_open", "3_hero_down_the_line", "3b_line_and_far_copies", "3c_the_cube_from_outside", "3d_line_slashing", "4_marks_piled"};
+			for (int i = 0; i < at.length; i++) {
+				if (r == at[i]) {
+					once(client, names[i]);
+				}
 			}
 			if (end1At >= 0 && f == end1At + 2) {
 				once(client, "5_bite_snap");
@@ -560,17 +609,8 @@ public class ForeverSelfTest implements ClientModInitializer {
 			if (end1At >= 0 && f == end1At + 5) {
 				once(client, "6_release_burst");
 			}
-			if (end1At >= 0 && f == end1At + 14) {
+			if (end1At >= 0 && f == end1At + 16) {
 				once(client, "7_flung");
-			}
-		}
-		if (lock2At >= 0) {
-			int r = f - lock2At;
-			if (r == 8) {
-				once(client, "8_boss_lock");
-			}
-			if (end2At >= 0 && f == end2At + 5) {
-				once(client, "9_boss_release");
 			}
 		}
 	}
@@ -603,27 +643,35 @@ public class ForeverSelfTest implements ClientModInitializer {
 	private static Capture.Pose shot(MinecraftClient m, double captureT) {
 		float part = (float) (captureT - Math.floor(captureT));
 		double t = captureT + Math.max(0, captureF0);
-		Entity vind = m.world.getEntityById(vindId);
-		Entity rav = m.world.getEntityById(ravId);
+		Entity mid = m.world.getEntityById(vindId);
 		Vec3d you = m.player.getLerpedPos(part);
-		boolean boss = ravSpawned >= 0 && (end1At >= 0 && t >= end1At + 24 || lock2At >= 0);
-		Entity subject = boss ? rav : vind;
-		ForeverHubEntity hub = hubFor(boss ? ravId : vindId);
-		double rel = boss ? (lock2At < 0 ? -1000 : t - lock2At) : (lock1At < 0 ? -1000 : t - lock1At);
-		double endRel = boss ? (end2At < 0 ? -1000 : t - end2At) : (end1At < 0 ? -1000 : t - end1At);
-		double v = boss ? 0.5 : 1.0;
-		double big = boss ? 1.3 : 1.0;
-		String phase = boss ? "R" : "V";
-		if (subject == null) {
-			// (Nothing of it left to follow: the last place it was.)
-			subject = rav != null ? rav : m.player;
-		} else {
-			lastSubject = subject.getPos();
+		ForeverHubEntity hub = hubFor(vindId);
+		if (hub == null && !ClientForever.hubs().isEmpty()) {
+			hub = ClientForever.hubs().iterator().next();
 		}
-		Vec3d tp = hub != null ? hub.getPos() : subject.getLerpedPos(part);
+		double rel = lock1At < 0 ? -1000 : t - lock1At;
+		double endRel = end1At < 0 ? -1000 : t - end1At;
+		// The group (the middle of everything held or charging) and the cube.
+		Vec3d groupAt = Vec3d.ZERO;
+		int n = 0;
+		for (int id : groupIds) {
+			Entity e = m.world.getEntityById(id);
+			if (e != null && e.isAlive()) {
+				groupAt = groupAt.add(e.getLerpedPos(part));
+				n++;
+			}
+		}
+		if (n == 0) {
+			groupAt = lastSubject;
+		} else {
+			groupAt = groupAt.multiply(1.0 / n);
+			lastSubject = groupAt;
+		}
+		Vec3d cubeAt = ClientForever.cubes().isEmpty() ? groupAt : ClientForever.cubes().get(0).getPos();
+		Entity subject = mid != null ? mid : m.player;
+		Vec3d tp = hub != null ? hub.getPos() : mid != null ? mid.getLerpedPos(part) : groupAt;
 		double ground = tp.y;
 		List<ForeverCopyEntity> copies = hub != null ? ClientForever.copiesOf(hub) : List.of();
-		// The line's way (from the farthest past copy to the farthest future one), and the side of it away from you.
 		Vec3d axis = flat(tp.subtract(you));
 		if (copies.size() >= 2) {
 			Vec3d lo = null;
@@ -652,52 +700,57 @@ public class ForeverSelfTest implements ClientModInitializer {
 		Vec3d at;
 		Vec3d aim;
 		if (rel < -3.0 && endRel < 0.0) {
-			// The charge: beside you and a little ahead, low, the mob running at the lens.
-			if (installs(phase + "0", t)) {
+			// The charge: beside you and a little ahead, low, the group running at the lens.
+			if (installs("0", t)) {
 				lens = 62.0F;
 			}
-			Vec3d toMob = flat(subject.getPos().subtract(you));
+			Vec3d toMob = flat(groupAt.subtract(you));
 			Vec3d dirMob = toMob.lengthSquared() < 1.0E-4 ? new Vec3d(1.0, 0.0, 0.0) : toMob.normalize();
 			Vec3d side = new Vec3d(-dirMob.z, 0.0, dirMob.x);
-			Vec3d sub = subject.getLerpedPos(part);
-			at = you.lerp(sub, 0.55).add(side.multiply(4.2 * big)).add(0.0, 1.5, 0.0);
-			aim = sub.add(0.0, 1.0 * big, 0.0);
-		} else if (endRel < 0.0 && rel < 9.0 * v) {
+			at = you.lerp(groupAt, 0.55).add(side.multiply(4.4)).add(0.0, 1.5, 0.0);
+			aim = groupAt.add(0.0, 1.0, 0.0);
+		} else if (endRel < 0.0 && rel < 9.0) {
 			// The lock: three quarters on from a little way off, level with the eyes, the low flesh coming up at the feet of each moment.
-			if (installs(phase + "1", t)) {
+			if (installs("1", t)) {
 				lens = 70.0F;
 			}
 			double k = MathHelper.clamp((t - shotT0) / 14.0, 0.0, 1.0);
 			Vec3d way = youSide.multiply(0.75).add(nearEnd.multiply(0.65)).normalize();
-			at = new Vec3d(tp.x, ground + 1.6, tp.z).add(way.multiply((6.6 + 0.6 * k) * big));
-			aim = tp.add(0.0, 0.7 * big, 0.0);
-		} else if (endRel < 0.0 && rel < 34.0 * v) {
-			// The hero shot: three quarters down the line from just beyond its far end (away from you), a couple of blocks to one side,
-			// at eye height. The near copies are big and the line runs away into the picture toward the held one and beyond.
-			if (installs(phase + "2", t)) {
+			at = new Vec3d(tp.x, ground + 1.6, tp.z).add(way.multiply(7.4 + 0.6 * k));
+			aim = tp.add(0.0, 0.7, 0.0);
+		} else if (endRel < 0.0 && rel < 30.0) {
+			// The hero shot: three quarters down the line from just beyond its far end (away from you), a couple of blocks to one side, at
+			// eye height; the near copies are big and the line runs away into the distance, on past the near copies as pale render-only ones.
+			if (installs("2", t)) {
 				lens = 68.0F;
 			}
 			double k = MathHelper.clamp((t - shotT0) / 24.0, 0.0, 1.0);
 			Vec3d farEnd = nearEnd.negate();
-			double reach = (4.6 + 2.3 - 0.3 * k) * (boss ? 1.5 : 1.0);
+			double reach = 4.6 + 2.3 - 0.3 * k;
 			Vec3d baseAt = new Vec3d(tp.x, ground + 1.75, tp.z).add(farEnd.multiply(reach));
-			Vec3d one = baseAt.add(across.multiply((3.0 + 0.4 * k) * (boss ? 1.5 : 1.0)));
-			Vec3d two = baseAt.add(across.negate().multiply((3.0 + 0.4 * k) * (boss ? 1.5 : 1.0)));
-			aim = tp.add(nearEnd.multiply(0.8 * big)).add(0.0, 0.8 * big, 0.0);
+			Vec3d one = baseAt.add(across.multiply(3.0 + 0.4 * k));
+			Vec3d two = baseAt.add(across.negate().multiply(3.0 + 0.4 * k));
+			aim = tp.add(nearEnd.multiply(0.8)).add(0.0, 0.8, 0.0);
 			at = clearTo(m, aim, one).distanceTo(aim) >= clearTo(m, aim, two).distanceTo(aim) ? one : two;
-		} else if (endRel < 0.0 && rel < 44.0 * v) {
-			// The same mob in different strides: close and square on to three of them, the held one and a copy each side.
-			if (installs(phase + "3", t)) {
+		} else if (endRel < 0.0 && rel < 44.0) {
+			// From outside the cube: the faint shimmering edge where colour meets grey, and the frozen group inside.
+			if (installs("3", t)) {
 				lens = 60.0F;
 			}
-			double d = 4.9 * (boss ? 1.6 : 1.0);
-			Vec3d one = new Vec3d(tp.x, ground + 1.5, tp.z).add(across.multiply(d));
-			Vec3d two = new Vec3d(tp.x, ground + 1.5, tp.z).add(across.negate().multiply(d));
-			aim = tp.add(0.0, 0.9 * big, 0.0);
+			double k = MathHelper.clamp((t - shotT0) / 14.0, 0.0, 1.0);
+			Vec3d away = flat(cubeAt.subtract(you));
+			Vec3d out = away.lengthSquared() < 1.0E-4 ? new Vec3d(1.0, 0.0, 0.0) : away.normalize();
+			Vec3d sideDir = new Vec3d(-out.z, 0.0, out.x);
+			Vec3d dir1 = out.multiply(0.55).add(sideDir.multiply(0.83)).normalize();
+			Vec3d dir2 = out.multiply(0.55).add(sideDir.multiply(-0.83)).normalize();
+			double d = 4.5 + 8.0 - 1.0 * k;
+			Vec3d one = new Vec3d(cubeAt.x, ground + 2.2, cubeAt.z).add(dir1.multiply(d));
+			Vec3d two = new Vec3d(cubeAt.x, ground + 2.2, cubeAt.z).add(dir2.multiply(d));
+			aim = new Vec3d(cubeAt.x, ground + 0.9, cubeAt.z);
 			at = clearTo(m, aim, one).distanceTo(aim) >= clearTo(m, aim, two).distanceTo(aim) ? one : two;
-		} else if (endRel < 0.0 && rel < (boss ? 24.0 : 52.0)) {
-			// You, running along the line and cutting: from behind and beside, three or four blocks off, the swing and the marks in view.
-			if (installs(phase + "S", t)) {
+		} else if (endRel < 0.0 && rel < 52.0) {
+			// You, running through the line and cutting: from behind and beside, three or four blocks off, the swing and the marks in view.
+			if (installs("S", t)) {
 				lens = 68.0F;
 			}
 			float yaw = m.player.getYaw(part);
@@ -706,41 +759,39 @@ public class ForeverSelfTest implements ClientModInitializer {
 			at = you.add(fwd.multiply(-3.3)).add(sideways.multiply(1.7)).add(0.0, 1.9, 0.0);
 			aim = you.add(fwd.multiply(2.6)).add(0.0, 1.1, 0.0);
 		} else if (endRel < 14.0) {
-			// The release: about four blocks off, three quarters on to the line, so the copies can be seen streaking in, and the burst.
-			if (installs(phase + "4", t)) {
+			// The release: about five blocks off, three quarters on to the line, so the copies can be seen streaking in, and the burst.
+			if (installs("4", t)) {
 				lens = 74.0F;
 			}
 			Vec3d way = across.multiply(0.8).add(nearEnd.multiply(0.6)).normalize();
-			Vec3d one = new Vec3d(tp.x, ground + 1.7, tp.z).add(way.multiply(5.3 * big));
-			Vec3d two = new Vec3d(tp.x, ground + 1.7, tp.z).add(new Vec3d(-across.x * 0.8 + nearEnd.x * 0.6, 0.0, -across.z * 0.8 + nearEnd.z * 0.6).normalize().multiply(5.3 * big));
-			aim = tp.add(0.0, 0.8 * big, 0.0);
+			Vec3d one = new Vec3d(tp.x, ground + 1.7, tp.z).add(way.multiply(5.6));
+			Vec3d two = new Vec3d(tp.x, ground + 1.7, tp.z).add(new Vec3d(-across.x * 0.8 + nearEnd.x * 0.6, 0.0, -across.z * 0.8 + nearEnd.z * 0.6).normalize().multiply(5.6));
+			aim = tp.add(0.0, 0.8, 0.0);
 			at = one.squaredDistanceTo(you) >= two.squaredDistanceTo(you) ? one : two;
 		} else {
-			// After: pulled back and a little up, the flung mob, the flesh sinking, the colour coming back.
-			if (installs(phase + "5", t)) {
+			// After: pulled back and a little up, the flung group, the flesh sinking, the colour coming back.
+			if (installs("5", t)) {
 				lens = 70.0F;
 			}
 			double k = MathHelper.clamp((t - shotT0) / 40.0, 0.0, 1.0);
-			Vec3d sub = subject.getLerpedPos(part);
-			at = new Vec3d(tp.x, ground + 2.2, tp.z).add(youSide.multiply((7.5 + 1.5 * k) * big)).add(nearEnd.multiply(2.0));
-			aim = tp.lerp(sub, 0.25).add(0.0, 1.1, 0.0);
+			at = new Vec3d(tp.x, ground + 2.2, tp.z).add(youSide.multiply(8.0 + 1.5 * k)).add(nearEnd.multiply(2.0));
+			aim = groupAt.add(0.0, 1.1, 0.0);
 		}
 		return frame(m, hub, copies, subject, ground, at, aim);
 	}
 
 	/**
-	 * The rules for every shot: no closer than a block and a half to a lump, a copy, the held one or you; between 1.2 and 2.5 blocks over the ground
-	 * (the charge excepted a little); nothing solid in the way; and never looking more than about 25 degrees up or down.
+	 * The rules for every shot: no closer than a block and a half to a lump, a copy, any body or you; between 1.2 and 2.5 blocks over the
+	 * ground; nothing solid in the way; and never looking more than about 25 degrees up or down.
 	 */
 	private static Capture.Pose frame(MinecraftClient m, ForeverHubEntity hub, List<ForeverCopyEntity> copies, Entity subject, double ground, Vec3d at, Vec3d aim) {
 		List<double[]> keepOut = new ArrayList<>();
-		if (hub != null) {
-			keepOut.addAll(ClientForever.lumps(hub));
-			for (ForeverCopyEntity c : copies) {
+		for (ForeverHubEntity h : ClientForever.hubs()) {
+			keepOut.addAll(ClientForever.lumps(h));
+			for (ForeverCopyEntity c : ClientForever.copiesOf(h)) {
 				keepOut.add(new double[] {c.getX(), c.getY() + c.getHeight() * 0.5, c.getZ(), 0.5 + c.getWidth()});
 			}
 		}
-		keepOut.add(new double[] {subject.getX(), subject.getY() + subject.getHeight() * 0.5, subject.getZ(), 0.6 + subject.getWidth()});
 		keepOut.add(new double[] {m.player.getX(), m.player.getY() + 0.9, m.player.getZ(), 1.0});
 		double y = MathHelper.clamp(at.y, ground + 1.2, ground + 2.5);
 		Vec3d c = new Vec3d(at.x, y, at.z);
@@ -756,7 +807,7 @@ public class ForeverSelfTest implements ClientModInitializer {
 				}
 			}
 		}
-		// And out of anything standing about (a flung mob, the second player, a copy): a block and a half from every body.
+		// And out of anything standing about (a mob, a player, a copy): a block and a half from every body.
 		for (int pass = 0; pass < 3; pass++) {
 			for (Entity e : m.world.getEntities()) {
 				if (!(e instanceof LivingEntity) && !(e instanceof ForeverCopyEntity) || e.squaredDistanceTo(c) > 100.0) {
@@ -773,7 +824,6 @@ public class ForeverSelfTest implements ClientModInitializer {
 			c = new Vec3d(c.x, MathHelper.clamp(c.y, ground + 1.2, ground + 2.5), c.z);
 		}
 		c = clearTo(m, aim, c);
-		// The pitch: the aim is lowered or raised until it is within 25 degrees.
 		Vec3d to = aim.subtract(c);
 		double flat = Math.hypot(to.x, to.z);
 		double limit = Math.tan(Math.toRadians(25.0)) * Math.max(flat, 0.5);
@@ -827,69 +877,33 @@ public class ForeverSelfTest implements ClientModInitializer {
 		return surface(world, MathHelper.floor(at.x), MathHelper.floor(at.z)) + 1.0;
 	}
 
-	/** The vindicator, its own AI after you: it is already running at you when the clip begins. */
-	private static void spawnVindicator(IntegratedServer server) {
-		ServerWorld world = server.getOverworld();
-		MobEntity v = EntityType.VINDICATOR.create(world);
-		Vec3d at = middle.add(10.6, 0.0, 0.0);
-		v.refreshPositionAndAngles(at.x, groundAt(world, at), at.z, 90.0F, 0.0F);
-		v.equipStack(EquipmentSlot.MAINHAND, new ItemStack(Items.IRON_AXE));
-		v.setPersistent();
-		world.spawnEntity(v);
-		v.setTarget(player(server));
-		vindId = v.getId();
-	}
-
-	/** The ravager, charging in from the north across the clearing, its own AI after you. */
-	private static void spawnRavager(IntegratedServer server) {
+	/** The group, each with its own AI after you: four vindicators and the second player among them, ten blocks off and charging. */
+	private static void spawnGroup(IntegratedServer server) {
 		ServerWorld world = server.getOverworld();
 		ServerPlayerEntity you = player(server);
-		MobEntity r = EntityType.RAVAGER.create(world);
-		// Across the clearing, thirteen blocks off on level open ground, the way it will charge.
-		Vec3d at = null;
-		double bestDy = Double.MAX_VALUE;
-		for (int k = 0; k < 36; k++) {
-			double ang = Math.toRadians(110.0 + k * 4.0);
-			Vec3d c = you.getPos().add(Math.cos(ang) * 20.0, 0.0, Math.sin(ang) * 20.0);
-			double dy = Math.abs(groundAt(world, c) - you.getY());
-			if (dy < bestDy) {
-				bestDy = dy;
-				at = c;
-			}
+		Vec3d base = middle.add(11.0, 0.0, 0.0);
+		double[][] offsets = {{0.0, 0.0}, {1.3, -1.9}, {-0.5, 2.0}, {2.0, 1.5}};
+		List<Integer> ids = new ArrayList<>();
+		for (int i = 0; i < offsets.length; i++) {
+			MobEntity v = EntityType.VINDICATOR.create(world);
+			Vec3d at = base.add(offsets[i][0], 0.0, offsets[i][1]);
+			v.refreshPositionAndAngles(at.x, groundAt(world, at), at.z, 90.0F, 0.0F);
+			v.equipStack(EquipmentSlot.MAINHAND, new ItemStack(Items.IRON_AXE));
+			v.setPersistent();
+			world.spawnEntity(v);
+			v.setTarget(you);
+			ids.add(v.getId());
 		}
-		r.refreshPositionAndAngles(at.x, groundAt(world, at), at.z, 0.0F, 0.0F);
-		r.setPersistent();
-		world.spawnEntity(r);
-		r.setTarget(you);
-		ravId = r.getId();
-	}
-
-	/** Puts the ravager on level ground about thirteen blocks out, where it will charge from. */
-	private static void relocateRavager(IntegratedServer server) {
-		ServerWorld world = server.getOverworld();
-		ServerPlayerEntity you = player(server);
-		Entity r = world.getEntityById(ravId);
-		if (r == null) {
-			return;
+		Vec3d fat = base.add(2.4, 0.0, -0.7);
+		if (friend == null) {
+			friend = makeFriend(server, world, fat);
+			friendId = friend.getId();
 		}
-		Vec3d best = null;
-		double bestDy = Double.MAX_VALUE;
-		for (int k = 0; k < 72; k++) {
-			double ang = Math.toRadians(100.0 + k * 2.5);
-			for (double dist = 11.0; dist <= 12.0; dist += 1.0) {
-				Vec3d c = you.getPos().add(Math.cos(ang) * dist, 0.0, Math.sin(ang) * dist);
-				double dy = Math.abs(groundAt(world, c) - you.getY());
-				if (dy < bestDy) {
-					bestDy = dy;
-					best = c;
-				}
-			}
-		}
-		if (best != null) {
-			r.refreshPositionAndAngles(best.x, groundAt(world, best), best.z, 0.0F, 0.0F);
-			r.setVelocity(Vec3d.ZERO);
-			ShootingStar.LOGGER.info("[selftest] forever: the ravager brought in to {} (height off {})", best, bestDy);
-		}
+		friend.refreshPositionAndAngles(fat.x, groundAt(world, fat), fat.z, 90.0F, 0.0F);
+		ids.add(friend.getId());
+		groupIds = ids.stream().mapToInt(Integer::intValue).toArray();
+		vindId = ids.get(0);
+		groupFrom = base;
 	}
 
 	/** The second player, a real player on the server, as in the revive reel's friend. */
@@ -903,14 +917,14 @@ public class ForeverSelfTest implements ClientModInitializer {
 		p.teleport(world, at.x, at.y, at.z, 0.0F, 0.0F);
 		p.onTeleportationDone();
 		p.setNoGravity(true);
-		p.getAttributeInstance(net.minecraft.entity.attribute.EntityAttributes.GENERIC_MAX_HEALTH).setBaseValue(1000.0);
-		p.setHealth(1000.0F);
+		p.getAttributeInstance(net.minecraft.entity.attribute.EntityAttributes.GENERIC_MAX_HEALTH).setBaseValue(80.0);
+		p.setHealth(80.0F);
 		p.getInventory().setStack(0, new ItemStack(Items.IRON_SWORD));
 		p.getInventory().selectedSlot = 0;
 		return p;
 	}
 
-	/** The friend's script, every server tick: when a moment is held on the vindicator he stands at the far end of its line and cuts a copy there. */
+	/** The second player's script, every server tick: he runs at you with the group until the cube holds him; your health is kept up. */
 	private static void friendTick(MinecraftServer server) {
 		if (stage != Stage.RUN || server.getPlayerManager().getPlayerList().isEmpty() || lookOnly()) {
 			return;
@@ -921,43 +935,19 @@ public class ForeverSelfTest implements ClientModInitializer {
 			// (You are not left to die before the end of the take: the mobs are after you for real, only the last blow is spared.)
 			you.setHealth(you.getMaxHealth());
 		}
-		if (afterAt >= 0 && ticks > afterAt + 1) {
+		if (friend == null || afterAt >= 0 || Forever.locked(friend) || !friend.isAlive()) {
 			return;
 		}
-		Entity vind = world.getEntityById(vindId);
-		if (!Forever.active(you) || vind == null || !(vind instanceof LivingEntity target) || !Forever.locked(target) || Forever.hub(target) == null) {
-			return;
-		}
-		long since = world.getTime() - Forever.hub(target).startedAt();
-		List<ForeverCopyEntity> copies = Forever.copies(target);
-		ForeverCopyEntity far = null;
-		for (ForeverCopyEntity c : copies) {
-			if (far == null || c.slot() < far.slot()) {
-				far = c;
-			}
-		}
-		if (far == null || ravSpawned >= 0 && ravId >= 0 && Forever.locked(world.getEntityById(ravId))) {
-			return;
-		}
-		if (friend == null) {
-			friend = makeFriend(server, world, far.getPos().add(1.4, 0.0, 0.0));
-			friendId = friend.getId();
-		}
-		Vec3d spot = far.getPos().add(1.1, 0.0, 0.6);
-		if (since < 6) {
-			return;
-		}
-		friend.refreshPositionAndAngles(spot.x, far.getY(), spot.z, (float) Math.toDegrees(Math.atan2(-(far.getX() - spot.x), far.getZ() - spot.z)), 0.0F);
-		friend.setHeadYaw(friend.getYaw());
-		friend.setBodyYaw(friend.getYaw());
-		if (since == 20 || since == 31 || since == 42) {
-			// Cut: his cooldown caught up first (a connection would have ticked it).
-			for (int i = 0; i < 14; i++) {
-				friend.playerTick();
-			}
-			friend.swingHand(Hand.MAIN_HAND, true);
-			friend.attack(far);
-			ShootingStar.LOGGER.info("[selftest] forever: the friend cuts a copy at since={}", since);
+		// Running at you with the others (moved along, sprinting: he is a real player, only his feet are the test's).
+		Vec3d to = you.getPos().subtract(friend.getPos()).multiply(1.0, 0.0, 1.0);
+		if (to.length() > 3.0) {
+			Vec3d step = friend.getPos().add(to.normalize().multiply(0.2));
+			float yaw = (float) Math.toDegrees(Math.atan2(-to.x, to.z));
+			friend.refreshPositionAndAngles(step.x, groundAt(world, step), step.z, yaw, 0.0F);
+			friend.setHeadYaw(yaw);
+			friend.setBodyYaw(yaw);
+			friend.setSprinting(true);
+			friend.limbAnimator.updateLimbs(0.9F, 0.6F);
 		}
 	}
 

@@ -12,6 +12,7 @@ import java.util.function.Predicate;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentRegistry;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentType;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
+import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
@@ -115,6 +116,13 @@ public final class Downed {
 			}
 			return ActionResult.PASS;
 		});
+		// Dying (the void, the kill command) ends it: a respawned player is not downed.
+		ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
+			if (entity instanceof ServerPlayerEntity player) {
+				reset(player);
+			}
+		});
+		ServerPlayerEvents.AFTER_RESPAWN.register((old, player, alive) -> reset(player));
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
 			ServerPlayerEntity player = handler.player;
 			Integer left = player.getAttached(LEFT);
@@ -133,6 +141,20 @@ public final class Downed {
 			DOWN.remove(handler.player.getUuid());
 			FED.remove(handler.player.getUuid());
 		});
+	}
+
+	/** Clears every trace of being down from {@code player}: after dying, and on respawning. */
+	private static void reset(ServerPlayerEntity player) {
+		boolean was = DOWN.remove(player.getUuid());
+		if (FED.remove(player.getUuid()) != null) {
+			slack(player);
+		}
+		RISING.remove(player.getUuid());
+		player.removeAttached(LEFT);
+		hold(player, false);
+		if (was && player.server != null) {
+			Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.DOWNED, 0));
+		}
 	}
 
 	/** What kills you all the same: the void, and the kill command. */
@@ -168,7 +190,9 @@ public final class Downed {
 		if (!DOWN.remove(player.getUuid())) {
 			return;
 		}
-		FED.remove(player.getUuid());
+		if (FED.remove(player.getUuid()) != null) {
+			slack(player);
+		}
 		player.removeAttached(LEFT);
 		// Held a moment more, getting up.
 		RISING.put(player.getUuid(), player.getServerWorld().getTime() + RISE);
@@ -190,7 +214,14 @@ public final class Downed {
 		if (!DOWN.contains(down.getUuid())) {
 			return;
 		}
-		by.damage(by.getDamageSources().magic(), GIVEN);
+		if (by.getHealth() <= GIVEN) {
+			// (Too weak to pay at the yank: the cord slides back.)
+			FED.remove(down.getUuid());
+			slack(down);
+			by.sendMessage(Text.translatable("message.chainsawman.too_weak").formatted(Formatting.DARK_RED), true);
+			return;
+		}
+		by.setHealth(by.getHealth() - GIVEN);
 		Form.broadcast(down.server, new FormEventPayload(down.getUuid(), FormEventPayload.REVIVE, -1));
 		up(down, true);
 		if (Heart.has(down)) {
@@ -212,17 +243,37 @@ public final class Downed {
 	/** The cord let go before the yank: it slides back in, the sputtering cut short. */
 	private static void slack(ServerPlayerEntity down) {
 		Form.broadcast(down.server, new FormEventPayload(down.getUuid(), FormEventPayload.REVIVE, 0));
-		down.server.getPlayerManager().sendToAll(new net.minecraft.network.packet.s2c.play.StopSoundS2CPacket(ChainsawSounds.REVIVE_PULL.getId(),
-				net.minecraft.sound.SoundCategory.PLAYERS));
+		net.minecraft.network.packet.s2c.play.StopSoundS2CPacket stop = new net.minecraft.network.packet.s2c.play.StopSoundS2CPacket(ChainsawSounds.REVIVE_PULL.getId(),
+				net.minecraft.sound.SoundCategory.PLAYERS);
+		for (ServerPlayerEntity p : down.server.getPlayerManager().getPlayerList()) {
+			if (p.getServerWorld() == down.getServerWorld() && p.squaredDistanceTo(down) < 16.0 * 16.0) {
+				p.networkHandler.sendPacket(stop);
+			}
+		}
+	}
+
+	/** Whether {@code feed} is still a pull in progress on {@code down}: the puller there, crouched, in reach, in the same world, recent and well enough to pay. */
+	private static boolean valid(Feed feed, ServerPlayerEntity down, long now) {
+		ServerPlayerEntity by = down.server.getPlayerManager().getPlayer(feed.by());
+		return by != null && by.getServerWorld() == down.getServerWorld() && now - feed.last() <= FEED_GAP && by.isSneaking()
+				&& by.squaredDistanceTo(down) <= FEED_REACH * FEED_REACH && by.getHealth() > GIVEN;
 	}
 
 	/** {@code by} holding use on {@code down}: another tick or so of giving them blood. */
 	public static void feeding(ServerPlayerEntity by, ServerPlayerEntity down) {
-		if (by.squaredDistanceTo(down) > FEED_REACH * FEED_REACH) {
+		if (by.getServerWorld() != down.getServerWorld() || by.squaredDistanceTo(down) > FEED_REACH * FEED_REACH) {
+			return;
+		}
+		if (by.getHealth() <= GIVEN) {
+			by.sendMessage(Text.translatable("message.chainsawman.too_weak").formatted(Formatting.DARK_RED), true);
 			return;
 		}
 		long now = by.getServerWorld().getTime();
 		Feed feed = FED.get(down.getUuid());
+		if (feed != null && !feed.by().equals(by.getUuid()) && valid(feed, down, now)) {
+			// Someone else is pulling it (and is still at it): one at a time, or nobody would finish.
+			return;
+		}
 		if (feed == null || !feed.by().equals(by.getUuid()) || now - feed.last() > FEED_GAP) {
 			if (feed != null) {
 				slack(down);
@@ -279,7 +330,7 @@ public final class Downed {
 			player.setAttached(LEFT, left);
 			Feed feed = FED.get(id);
 			ServerPlayerEntity by = feed != null ? server.getPlayerManager().getPlayer(feed.by()) : null;
-			if (feed != null && (by == null || now - feed.last() > FEED_GAP || !by.isSneaking() || by.squaredDistanceTo(player) > FEED_REACH * FEED_REACH)) {
+			if (feed != null && !valid(feed, player, now)) {
 				FED.remove(id);
 				feed = null;
 				slack(player);

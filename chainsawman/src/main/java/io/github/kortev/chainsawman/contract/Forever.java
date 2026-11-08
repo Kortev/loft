@@ -398,6 +398,9 @@ public final class Forever {
 
 	/** Whether {@code lasts} is a boss's moment. */
 	public static boolean boss(LivingEntity target) {
+		if (target instanceof PlayerEntity) {
+			return false;
+		}
 		return target.getMaxHealth() >= 100.0F || target instanceof WitherEntity || target instanceof EnderDragonEntity || target instanceof WardenEntity;
 	}
 

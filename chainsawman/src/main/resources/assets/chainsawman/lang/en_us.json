@@ -133,5 +133,6 @@
   "contract.chainsawman.screen.offer": "I let you out. You get my power.",
   "contract.chainsawman.screen.accept": "ACCEPT",
   "contract.chainsawman.screen.refuse": "REFUSE",
-  "contract.chainsawman.screen.time": "%s s"
+  "contract.chainsawman.screen.time": "%s s",
+  "message.chainsawman.too_weak": "Too hurt to give them your blood"
 }

@@ -342,6 +342,77 @@ public class FormGameTests implements FabricGameTest {
 		});
 	}
 
+
+	/** Dying while down (the kill command) ends it: respawned, they are not down and not held. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_down_dies", tickLimit = 40)
+	public void dyingWhileDownEndsBeingDown(TestContext context) {
+		ServerPlayerEntity down = player(context, "dies_down", 0.0);
+		down.setAttached(Heart.MERGED, true);
+		Downed.down(down);
+		context.assertTrue(Downed.is(down), "they were not down");
+		try {
+			down.damage(context.getWorld().getDamageSources().genericKill(), Float.MAX_VALUE);
+			context.assertTrue(!Downed.is(down) && down.getAttached(Downed.LEFT) == null, "a player who died was still down");
+		} finally {
+			done(context, down);
+		}
+		context.complete();
+	}
+
+	/** A friend too hurt to pay cannot start a pull, and a friend who pulls pays exactly the blood given. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_weak_friend", tickLimit = Downed.FEED + 40)
+	public void aFriendTooWeakCannotPullAndOneWhoPullsPaysExactly(TestContext context) {
+		ServerPlayerEntity down = player(context, "weak_down", 0.0);
+		ServerPlayerEntity weak = player(context, "weak_friend", 1.2);
+		Downed.down(down);
+		weak.setSneaking(true);
+		weak.setHealth(Downed.GIVEN - 1.0F);
+		Downed.feeding(weak, down);
+		context.assertTrue(!Downed.pulled(down), "a friend with too little health began a pull");
+		weak.setHealth(20.0F);
+		for (int t = 0; t <= Downed.FEED + 8; t += 4) {
+			context.runAtTick(t + 1, () -> Downed.feeding(weak, down));
+		}
+		context.runAtTick(Downed.FEED + 14, () -> {
+			try {
+				context.assertTrue(!Downed.is(down), "they were still down");
+				context.assertTrue(Math.abs(weak.getHealth() - (20.0F - Downed.GIVEN)) < 0.01F, "the friend paid " + (20.0F - weak.getHealth()));
+			} finally {
+				done(context, down);
+				done(context, weak);
+			}
+			context.complete();
+		});
+	}
+
+	/** Two friends pulling: the first keeps the cord; the second is ignored, so the pull finishes. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_two_pullers", tickLimit = Downed.FEED + 40)
+	public void twoFriendsPullingDoNotFightOverTheCord(TestContext context) {
+		ServerPlayerEntity down = player(context, "two_down", 0.0);
+		ServerPlayerEntity first = player(context, "first_puller", 1.2);
+		ServerPlayerEntity second = player(context, "second_puller", -1.2);
+		Downed.down(down);
+		first.setSneaking(true);
+		second.setSneaking(true);
+		for (int t = 0; t <= Downed.FEED + 8; t += 4) {
+			context.runAtTick(t + 1, () -> {
+				Downed.feeding(first, down);
+				Downed.feeding(second, down);
+			});
+		}
+		context.runAtTick(Downed.FEED + 14, () -> {
+			try {
+				context.assertTrue(!Downed.is(down), "with two pullers nobody finished");
+				context.assertTrue(first.getHealth() < 20.0F && second.getHealth() == 20.0F, "the wrong one paid: " + first.getHealth() + " / " + second.getHealth());
+			} finally {
+				done(context, down);
+				done(context, first);
+				done(context, second);
+			}
+			context.complete();
+		});
+	}
+
 	/** A friend's pull on a downed player's cord, through the game's own "use on a player" path, every 4 ticks (as a held use repeats) from tick {@code from} to {@code to}. */
 	private static void pull(TestContext context, ServerPlayerEntity friend, ServerPlayerEntity down, int from, int to) {
 		for (int t = from; t <= to; t += 4) {
