@@ -260,6 +260,27 @@ public class ForeverHubRenderer extends EntityRenderer<ForeverHubEntity> {
 			mouth(new ForeverGeo.Pen(mouthVc, matrices.peek(), lit), m, opening, (float) (0.6 + 0.4 * Math.min(1.0, r)));
 			matrices.pop();
 		}
+		// ---- The line goes on: render-only copies, fainter and paler with distance, like a mirror tunnel.
+		if (target != null && phase != ForeverHubEntity.SINKING && !layout.far.isEmpty()) {
+			float grow = phase == ForeverHubEntity.HELD ? ease((t - 2.0F) / 8.0F) : 1.0F - MathHelper.clamp(since / 1.5F, 0.0F, 1.0F);
+			Vec3d cam = dispatcher.camera.getPos();
+			Vec3d hubAt = hub.getLerpedPos(delta);
+			for (double[] f : layout.far) {
+				double dx = hubAt.x + f[0] - cam.x;
+				double dz = hubAt.z + f[2] - cam.z;
+				if (dx * dx + dz * dz > 48.0 * 48.0) {
+					continue;
+				}
+				float fade = (float) Math.pow(1.0 - f[3], 1.5) * 0.4F * grow;
+				if (fade < 0.015F) {
+					continue;
+				}
+				float[] tint = {1.2F, 1.4F, 1.2F, fade};
+				float stride = target.limbAnimator.getPos() + (float) (f[4] * (4.0 + f[5]) * 0.9);
+				ForeverCopyRenderer.drawTarget(target, dispatcher, target.getBodyYaw(), stride, 0.7F, false, tint, true, 1.0F, new Vec3d(f[0], f[1], f[2]), matrices, provider,
+						ForeverGeo.lit(light, 15, 13), delta);
+			}
+		}
 		// ---- The target: drained, with the slashes of its stored hits.
 		if (target != null) {
 			if (phase != ForeverHubEntity.SINKING) {

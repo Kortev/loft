@@ -35,6 +35,17 @@ public class ForeverHubEntity extends Entity {
 		this.setNoGravity(true);
 	}
 
+	private int alive;
+
+	@Override
+	public void tick() {
+		super.tick();
+		// One that no lock holds any more (it was left behind) goes away by itself.
+		if (!getWorld().isClient && ++alive > 10 && !Forever.holds(this)) {
+			discard();
+		}
+	}
+
 	@Override
 	protected void initDataTracker(DataTracker.Builder builder) {
 		builder.add(TARGET, -1);

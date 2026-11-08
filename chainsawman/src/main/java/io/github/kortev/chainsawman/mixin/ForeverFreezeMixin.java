@@ -20,6 +20,15 @@ public abstract class ForeverFreezeMixin {
 		}
 	}
 
+	/** On a client the whole tick of a locked thing stops: its age, its swing and its pose all stay exactly as they were set. */
+	@Inject(method = "tick", at = @At("HEAD"), cancellable = true)
+	private void chainsawman$tickFrozen(CallbackInfo ci) {
+		LivingEntity self = (LivingEntity) (Object) this;
+		if (self.getWorld().isClient && ForeverFlags.CLIENT.contains(self.getId())) {
+			ci.cancel();
+		}
+	}
+
 	@Inject(method = "updateLimbs(F)V", at = @At("HEAD"), cancellable = true)
 	private void chainsawman$limbsFrozen(float posDelta, CallbackInfo ci) {
 		if (ForeverFlags.locked((LivingEntity) (Object) this)) {
