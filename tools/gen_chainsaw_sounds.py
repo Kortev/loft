@@ -1008,11 +1008,295 @@ def forever_release():
     return taper(x, 0.6)
 
 
+# ---- The Eternity Devil's hotel and the devil itself (all synthesised): the night lobby's hum, the crowd whispering (and speaking), the
+# walls bleeding, a phone ringing in an empty room, a door breathing, the loop breaking, and the devil: growing out of the walls, biting,
+# slamming a tendril down, regrowing, hurt, dying in a collapse of many voices.
+
+def crowd_voice(seconds, voices=14, f0=(95.0, 230.0), level=1.0, bend=(1.0, 1.0), breath=0.25):
+    """Many people speaking at once: one shared rhythm of syllables and vowels, each voice its own pitch (a buzz of a vocal cord shaped by
+    three vowel formants, a little vibrato) and its own breath; {bend} runs the pitch (and the formants) from one multiple to another over
+    the sound (a collapsing groan)."""
+    n = ns(seconds)
+    out = np.zeros(n)
+    sched = []
+    pos = 0.06
+    while pos < seconds - 0.25:
+        syl = g.rng.uniform(0.12, 0.3)
+        sched.append((pos, syl, VOWELS[g.rng.integers(len(VOWELS))]))
+        pos += syl + g.rng.uniform(0.02, 0.1)
+    for v in range(voices):
+        base = g.rng.uniform(*f0)
+        shift = g.rng.uniform(0.85, 1.2)
+        off = g.rng.uniform(0.0, 0.05)
+        for at, syl, (f1, f2, f3) in sched:
+            m = ns(syl)
+            mult = bend[0] + (bend[1] - bend[0]) * min(1.0, (at + syl / 2.0) / seconds)
+            f = base * mult * (1.0 + 0.07 * np.sin(2 * np.pi * np.arange(m) / SR * 5.5 + g.rng.uniform(0.0, 6.28)))
+            src = (np.cumsum(f) / SR) % 1.0 * 2.0 - 1.0
+            src = src + breath * white(m)
+            s = shift * mult
+            y = bp(src, f1 * s * 0.9, f1 * s * 1.12) + bp(src, f2 * s * 0.9, f2 * s * 1.12) * 0.7 + bp(src, f3 * s * 0.92, f3 * s * 1.1) * 0.35
+            y *= np.sin(np.pi * np.arange(m) / m) ** 1.2
+            if at + off + syl < seconds:
+                out = place(out, at + off, y * level * g.rng.uniform(0.6, 1.0))
+    return out
+
+
+def hotel_hum():
+    """The night lobby: a fluorescent tube's hum (the mains and its harmonics, beating a little) over the breath of a ventilation shaft and
+    a tick now and then; loops."""
+    n = ns(6.4)
+    t = np.arange(n) / SR
+    x = np.zeros(n)
+    for k, (f, a) in enumerate(((100.0, 1.0), (200.0, 0.6), (300.0, 0.35), (400.0, 0.2), (600.0, 0.12))):
+        # Whole cycles over the loop so the hum is the same at both ends.
+        f = round(f * 6.0) / 6.0
+        x += np.sin(2 * np.pi * f * t + 0.3 * k) * a * (1.0 + 0.12 * np.sin(2 * np.pi * (k + 1) / 6.0 * t))
+    x = sat(x * 0.8, 1.2)
+    air = lp(white(n), 260.0) * 3.0 + bp(white(n), 700.0, 1500.0) * 0.5
+    air *= 1.0 + 0.3 * np.sin(2 * np.pi * t / 6.0 * 2.0)
+    x = x * 0.7 + air
+    for at in (1.3, 3.9, 4.6):
+        x = place(x, at, bp(white(ns(0.02)), 1200.0, 5000.0) * np.exp(-np.arange(ns(0.02)) / SR / 0.004) * 0.9)
+    return loop(x, 6.0, 0.4)
+
+
+def hotel_whisper():
+    """The crowd's whisper in the corridor: many voices breathing words, swelling and falling away."""
+    seconds = 3.0
+    n = ns(seconds)
+    t = np.arange(n) / SR
+    crowd = np.zeros(n)
+    for v in range(26):
+        crowd += whisper_voice(n, g.rng.uniform(0.0, 0.5), seconds - 0.5, 0.55)
+    swell = np.sin(np.pi * np.clip(t / seconds, 0.0, 1.0)) ** 1.3
+    return crowd * swell * 1.9
+
+
+def hotel_voice():
+    """The devil speaking: a crowd of voices in one rhythm, low and wrong, with wet breath under it."""
+    seconds = 2.6
+    n = ns(seconds)
+    t = np.arange(n) / SR
+    x = crowd_voice(seconds, voices=16, f0=(80.0, 200.0), level=0.9)
+    x += lp(white(n), 500.0) * (0.4 + 0.3 * np.sin(2 * np.pi * 3.0 * t)) * 0.4
+    for j in range(5):
+        x = place(x, g.rng.uniform(0.0, seconds - 0.5), flesh(ns(0.3), 0.2, 1.0)[:ns(0.3)] * 0.2)
+    return taper(x * np.minimum(t / 0.15, 1.0), 0.2)
+
+
+def hotel_bleed():
+    """The walls bleeding: wallpaper tearing, plaster cracking, flesh pushing through with wet squelches, thick dripping, a low groan."""
+    seconds = 3.4
+    n = ns(seconds)
+    t = np.arange(n) / SR
+    x = np.zeros(n)
+    # The groan of the building.
+    x += sub(n, [(0.0, 48.0), (1.5, 62.0), (seconds, 38.0)], 5.0, drive=1.6) * 0.9 * np.minimum(t / 0.5, 1.0)
+    # Paper tearing and plaster cracking along the walls.
+    for j in range(26):
+        at = g.rng.uniform(0.05, seconds - 0.6)
+        m = ns(g.rng.uniform(0.05, 0.3))
+        rip = bp(white(m), 1500.0, 6500.0) * np.exp(-np.arange(m) / m * 4.0) * g.rng.uniform(0.3, 0.9)
+        x = place(x, at, rip)
+        x = place(x, at, lp(white(ns(0.06)), 800.0) * np.exp(-np.arange(ns(0.06)) / SR / 0.012) * g.rng.uniform(0.4, 1.2))
+    # Flesh pushing through.
+    for j in range(14):
+        at = g.rng.uniform(0.2, seconds - 0.8)
+        x = place(x, at, flesh(ns(0.5), g.rng.uniform(0.2, 0.45), 1.3)[:ns(0.5)] * g.rng.uniform(0.3, 0.7))
+    # Drops, falling in pitch.
+    for j in range(22):
+        at = g.rng.uniform(0.6, seconds - 0.2)
+        m = ns(0.07)
+        f0 = g.rng.uniform(300.0, 700.0)
+        drop = np.sin(2 * np.pi * np.cumsum(curve(m, [(0.0, f0), (0.07, f0 * 0.45)])) / SR) * np.exp(-np.arange(m) / SR / 0.02)
+        x = place(x, at, drop * g.rng.uniform(0.15, 0.4))
+    return taper(x, 0.4)
+
+
+def hotel_phone():
+    """An old telephone ringing in a room down the hall: the two-tone bell, rung in bursts, muffled by the door."""
+    n = ns(2.1)
+    x = np.zeros(n)
+    for start in (0.05, 1.05):
+        for k in range(2):
+            at = start + 0.45 * k
+            m = ns(0.38)
+            tt = np.arange(m) / SR
+            ring = (np.sin(2 * np.pi * 1020.0 * tt) + np.sin(2 * np.pi * 1280.0 * tt) * 0.8) * (0.5 + 0.5 * np.sign(np.sin(2 * np.pi * 21.0 * tt)))
+            ring *= np.minimum(tt / 0.004, 1.0) * np.minimum((0.38 - tt) / 0.01, 1.0)
+            x = place(x, at, ring * 0.5)
+    x = lp(sat(x, 1.5), 2600.0) * 1.2 + lp(white(n), 120.0) * 0.1
+    return x
+
+
+def hotel_breath():
+    """A door breathing: a long slow breath in through a gap, a creak of old wood, a long breath out."""
+    n = ns(3.4)
+    t = np.arange(n) / SR
+    x = np.zeros(n)
+    inn = np.exp(-((t - 0.9) / 0.55) ** 2)
+    out = np.exp(-((t - 2.4) / 0.6) ** 2)
+    x += bp(white(n), 350.0, 1300.0) * inn * 1.6
+    x += bp(white(n), 250.0, 900.0) * out * 2.0
+    # The hinge.
+    creak = np.sin(2 * np.pi * np.cumsum(curve(n, [(0.0, 310.0), (1.6, 520.0), (3.4, 300.0)]) * (1.0 + 0.05 * np.sin(2 * np.pi * 38.0 * t))) / SR)
+    x += creak * np.exp(-((t - 1.55) / 0.5) ** 2) * 0.35 * (0.5 + 0.5 * np.sign(np.sin(2 * np.pi * 14.0 * t)))
+    x += sub(n, [(0.0, 60.0), (3.4, 50.0)], 20.0, drive=1.2) * 0.2 * np.minimum(t / 0.4, 1.0)
+    return taper(x, 0.3)
+
+
+def hotel_loop_break():
+    """The loop breaking: a glassy crack, the lights failing (their hum sliding down and out), a deep drop, the room settling."""
+    seconds = 4.0
+    n = ns(seconds)
+    t = np.arange(n) / SR
+    x = np.zeros(n)
+    x += reversed_swell(n, 0.0, 0.35, 300.0, 9000.0, 1.6)
+    for j in range(30):
+        at = 0.32 + g.rng.uniform(0.0, 0.12)
+        m = ns(0.05)
+        x = place(x, at, hp(white(m), 3500.0) * np.exp(-np.arange(m) / SR / 0.008) * g.rng.uniform(0.3, 1.0) * 1.4)
+    x = place(x, 0.32, bp(white(ns(0.5)), 600.0, 5000.0) * np.exp(-np.arange(ns(0.5)) / SR / 0.1) * 1.8)
+    b = 0.32
+    x += sub(n, [(0.0, 140.0), (b, 120.0), (b + 0.15, 45.0), (b + 2.5, 30.0)], 0.9, drive=2.4) * 1.5 * (t >= b)
+    # The lights dying: a hum falling from 100 Hz, stuttering.
+    hum = np.sin(2 * np.pi * np.cumsum(curve(n, [(0.0, 100.0), (b, 100.0), (b + 2.4, 24.0), (seconds, 20.0)])) / SR)
+    stutter = np.clip(np.sin(2 * np.pi * np.cumsum(curve(n, [(0.0, 7.0), (seconds, 2.0)])) / SR) * 3.0 + 1.5, 0.0, 1.0)
+    x += sat(hum * 1.6, 1.4) * np.exp(-np.maximum(t - b, 0.0) / 1.1) * stutter * 0.5 * (t >= b)
+    x += lp(g.brown(n), 160.0) * np.exp(-np.maximum(t - b, 0.0) / 0.9) * 2.0 * (t >= b)
+    return taper(x, 0.8)
+
+
+def devil_grow():
+    """The devil growing out of the walls: plaster and wallpaper giving way, wet flesh pushing out in lumps, a groan of many voices rising
+    out of it and a deep, long thud as it fills the end of the corridor."""
+    seconds = 4.4
+    n = ns(seconds)
+    t = np.arange(n) / SR
+    x = np.zeros(n)
+    x += sub(n, [(0.0, 40.0), (2.0, 58.0), (seconds, 34.0)], 6.0, drive=1.5) * np.minimum(t / 0.6, 1.0) * 0.9
+    for j in range(36):
+        at = g.rng.uniform(0.0, seconds - 1.0)
+        x = place(x, at, flesh(ns(0.6), g.rng.uniform(0.25, 0.55), 1.4)[:ns(0.6)] * g.rng.uniform(0.3, 0.8) * (0.5 + at / seconds))
+    for j in range(20):
+        at = g.rng.uniform(0.0, seconds - 0.5)
+        m = ns(g.rng.uniform(0.05, 0.25))
+        x = place(x, at, bp(white(m), 1200.0, 6000.0) * np.exp(-np.arange(m) / m * 4.0) * g.rng.uniform(0.3, 0.8))
+    voices = crowd_voice(seconds, voices=18, f0=(70.0, 170.0), level=0.8, bend=(0.7, 1.15))
+    x += voices * np.minimum(t / 1.4, 1.0) ** 1.4 * 1.2
+    b = 3.3
+    x += sub(n, [(0.0, 150.0), (b, 120.0), (b + 0.12, 46.0), (b + 1.0, 30.0)], 0.5, drive=2.4) * 1.6 * (t >= b)
+    x += lp(g.brown(n), 160.0) * np.exp(-np.maximum(t - b, 0.0) / 0.4) * 3.0 * (t >= b)
+    return taper(x, 0.7)
+
+
+def devil_bite():
+    """A mouth biting: a wet lunge, a hail of uneven teeth clacking shut, a crunch, a low thump."""
+    n = ns(0.75)
+    t = np.arange(n) / SR
+    x = np.zeros(n)
+    x += reversed_swell(n, 0.0, 0.14, 300.0, 4500.0, 0.9)
+    b = 0.14
+    for k in range(18):
+        at = b + g.rng.uniform(0.0, 0.05)
+        clack = bp(white(ns(0.03)), 1500.0, 7000.0) * np.exp(-np.arange(ns(0.03)) / SR / 0.004) * g.rng.uniform(0.5, 1.0)
+        x = place(x, at, clack * 1.1)
+    x = place(x, b, bp(white(ns(0.3)), 250.0, 2400.0) * np.exp(-np.arange(ns(0.3)) / SR / 0.06) * 2.0)
+    x += sub(n, [(0.0, 130.0), (b, 110.0), (b + 0.08, 60.0), (0.7, 45.0)], 0.1, drive=2.0) * 1.1 * (t >= b)
+    x = place(x, b + 0.02, flesh(ns(0.4), 0.25, 1.4)[:ns(0.4)] * 0.5)
+    return taper(x, 0.2, 1.4)
+
+
+def devil_slam():
+    """A tendril slamming down the corridor: the whip of it, a wet heavy slap on the floor, the boom through the building."""
+    n = ns(1.2)
+    t = np.arange(n) / SR
+    x = np.zeros(n)
+    m = ns(0.25)
+    sw = g.sweep_filter(white(m), 'bandpass', 400.0 * (9.0) ** np.linspace(0.0, 1.0, m), order=2, width=0.8)
+    x = place(x, 0.0, sw * np.hanning(m) * 1.2)
+    b = 0.24
+    x += sub(n, [(0.0, 120.0), (b, 110.0), (b + 0.1, 42.0), (1.2, 30.0)], 0.35, drive=2.4) * 1.5 * (t >= b)
+    x += lp(white(n), 900.0) * np.exp(-np.maximum(t - b, 0.0) / 0.05) * 2.6 * (t >= b)
+    x += lp(g.brown(n), 220.0) * np.exp(-np.maximum(t - b, 0.0) / 0.3) * 2.0 * (t >= b)
+    x = place(x, b, flesh(ns(0.5), 0.3, 1.5)[:ns(0.5)] * 0.9)
+    return taper(x, 0.3)
+
+
+def devil_regen():
+    """Flesh knitting back: a run of wet squelches and clicks that rise in pitch, bubbling."""
+    n = ns(1.5)
+    t = np.arange(n) / SR
+    x = np.zeros(n)
+    for j in range(18):
+        at = 0.05 + j * 0.07 + g.rng.uniform(0.0, 0.03)
+        m = ns(0.12)
+        f0 = 120.0 + 18.0 * j
+        blip = np.sin(2 * np.pi * np.cumsum(curve(m, [(0.0, f0), (0.12, f0 * 1.9)])) / SR) * np.exp(-np.arange(m) / SR / 0.03)
+        x = place(x, at, blip * g.rng.uniform(0.3, 0.7))
+        x = place(x, at, lp(white(m), 900.0) * np.exp(-np.arange(m) / SR / 0.02) * 0.8)
+    x += flesh(n, 1.2, 1.2) * 0.4
+    return taper(x * np.minimum(t / 0.05, 1.0), 0.4)
+
+
+def devil_hurt():
+    """Hit: a wet grunt of many voices and a squelch."""
+    seconds = 0.55
+    n = ns(seconds)
+    t = np.arange(n) / SR
+    x = crowd_voice(seconds, voices=10, f0=(90.0, 220.0), level=0.9, bend=(1.1, 0.8))
+    x += flesh(n, 0.35, 1.4) * 0.7
+    return taper(x * np.minimum(t / 0.01, 1.0), 0.2)
+
+
+def devil_death():
+    """The death: the voices of everyone it ever held sinking into one collapsing groan, flesh deflating, a last long sub as the building
+    exhales."""
+    seconds = 6.0
+    n = ns(seconds)
+    t = np.arange(n) / SR
+    x = crowd_voice(seconds, voices=24, f0=(100.0, 260.0), level=0.8, bend=(1.2, 0.35)) * np.exp(-t / 3.2) * 1.4
+    x += crowd_voice(seconds, voices=12, f0=(60.0, 120.0), level=0.7, bend=(1.0, 0.5)) * np.exp(-t / 2.8)
+    for j in range(24):
+        at = g.rng.uniform(0.2, 4.2)
+        x = place(x, at, flesh(ns(0.7), g.rng.uniform(0.3, 0.6), 1.5)[:ns(0.7)] * g.rng.uniform(0.3, 0.8) * np.exp(-at / 3.0))
+    x += sub(n, [(0.0, 100.0), (2.0, 55.0), (seconds, 28.0)], 2.8, drive=1.8) * 1.2
+    x += lp(g.brown(n), 180.0) * np.exp(-t / 1.6) * 2.0
+    return taper(x, 1.2)
+
+
+def hotel_seal():
+    """A contract sealed: paper rustling, a hard thud of a stamp and a faint long ring after it."""
+    n = ns(1.2)
+    t = np.arange(n) / SR
+    x = bp(white(n), 2000.0, 8000.0) * np.exp(-t / 0.08) * 0.5 * (t < 0.3)
+    b = 0.3
+    x += sub(n, [(0.0, 130.0), (b, 110.0), (b + 0.06, 60.0), (1.2, 50.0)], 0.12, drive=2.0) * 1.4 * (t >= b)
+    x += lp(white(n), 1200.0) * np.exp(-np.maximum(t - b, 0.0) / 0.03) * 1.8 * (t >= b)
+    x += np.sin(2 * np.pi * 440.0 * t) * np.exp(-np.maximum(t - b, 0.0) / 0.35) * 0.1 * (t >= b)
+    return taper(x, 0.2)
+
+
 SOUNDS = {
     'pochita_tame': pochita_tame,
     'forever_lock': forever_lock,
     'forever_hit': forever_hit,
     'forever_release': forever_release,
+    'hotel_hum': hotel_hum,
+    'hotel_whisper': hotel_whisper,
+    'hotel_voice': hotel_voice,
+    'hotel_bleed': hotel_bleed,
+    'hotel_phone': hotel_phone,
+    'hotel_breath': hotel_breath,
+    'hotel_loop_break': hotel_loop_break,
+    'hotel_seal': hotel_seal,
+    'devil_grow': devil_grow,
+    'devil_bite': devil_bite,
+    'devil_slam': devil_slam,
+    'devil_regen': devil_regen,
+    'devil_hurt': devil_hurt,
+    'devil_death': devil_death,
     'beam_burst': beam_burst,
     'beam_step': beam_step,
     'beam_swim': beam_swim,
@@ -1039,9 +1323,10 @@ SOUNDS = {
     'form_down': form_down,
     'form_revive': form_revive,
 }
-LOOPS = ('form_idle', 'form_grind', 'form_frenzy_loop')
+LOOPS = ('form_idle', 'form_grind', 'form_frenzy_loop', 'hotel_hum')
 # Loudness (loudest 400 ms, dB).
-LEVELS = {'forever_lock': -13, 'forever_hit': -12, 'forever_release': -7, 'form_crunch': -10, 'pochita_tame': -14, 'form_merge': -12, 'form_cord': -14, 'form_start': -10, 'form_revive_pull': -14, 'form_revive_start': -10, 'form_idle': -20, 'form_stop': -16, 'form_slash': -13, 'form_hit': -12,
+LEVELS = {'hotel_hum': -27, 'hotel_whisper': -19, 'hotel_voice': -12, 'hotel_bleed': -14, 'hotel_phone': -16, 'hotel_breath': -22, 'hotel_loop_break': -9, 'hotel_seal': -14,
+          'devil_grow': -9, 'devil_bite': -10, 'devil_slam': -8, 'devil_regen': -16, 'devil_hurt': -13, 'devil_death': -8, 'forever_lock': -13, 'forever_hit': -12, 'forever_release': -7, 'form_crunch': -10, 'pochita_tame': -14, 'form_merge': -12, 'form_cord': -14, 'form_start': -10, 'form_revive_pull': -14, 'form_revive_start': -10, 'form_idle': -20, 'form_stop': -16, 'form_slash': -13, 'form_hit': -12,
           'form_grind': -15, 'form_chain': -14, 'form_frenzy': -10, 'form_frenzy_loop': -17, 'form_down': -13,
           'form_revive': -14, 'beam_burst': -9, 'beam_step': -12, 'beam_swim': -13, 'beam_bite': -10, 'beam_dive': -13, 'beam_screech': -9, 'beam_chatter': -16, 'beam_slam': -6, 'beam_launch': -10}
 

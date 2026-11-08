@@ -64,6 +64,20 @@ public final class ChainsawMan implements ModInitializer {
 	public static final net.minecraft.block.entity.BlockEntityType<io.github.kortev.chainsawman.hotel.HomeBlockEntity> HOME_ENTITY = Registry.register(
 			Registries.BLOCK_ENTITY_TYPE, id("eternity_home"),
 			net.minecraft.block.entity.BlockEntityType.Builder.create(io.github.kortev.chainsawman.hotel.HomeBlockEntity::new, HOME_BLOCK).build(null));
+	/** The Eternity Devil grown out of its hotel's walls (the boss), and flesh creeping across the floor from it. */
+	public static final EntityType<io.github.kortev.chainsawman.hotel.EternityDevilEntity> ETERNITY_DEVIL = Registry.register(Registries.ENTITY_TYPE, id("eternity_devil"),
+			EntityType.Builder.<io.github.kortev.chainsawman.hotel.EternityDevilEntity>create(io.github.kortev.chainsawman.hotel.EternityDevilEntity::new, SpawnGroup.MONSTER)
+					.dimensions(io.github.kortev.chainsawman.hotel.EternityDevilEntity.WIDTH, io.github.kortev.chainsawman.hotel.EternityDevilEntity.HEIGHT).maxTrackingRange(8)
+					.trackingTickInterval(2).disableSummon().disableSaving().makeFireImmune().build("eternity_devil"));
+	public static final EntityType<io.github.kortev.chainsawman.hotel.FleshPatchEntity> FLESH_PATCH = Registry.register(Registries.ENTITY_TYPE, id("flesh_patch"),
+			EntityType.Builder.<io.github.kortev.chainsawman.hotel.FleshPatchEntity>create(io.github.kortev.chainsawman.hotel.FleshPatchEntity::new, SpawnGroup.MISC)
+					.dimensions(2.2F, 0.4F).maxTrackingRange(8).trackingTickInterval(20).alwaysUpdateVelocity(false).disableSummon().disableSaving().makeFireImmune().build("flesh_patch"));
+	/** What the Eternity Devil drops: its flesh (a lot of hunger, and sickness) and its blood (a bottle: refills Chainsaw Man's blood bar). */
+	public static final Item ETERNITY_FLESH = Registry.register(Registries.ITEM, id("eternity_flesh"),
+			new Item(new Item.Settings().rarity(Rarity.UNCOMMON).food(new net.minecraft.component.type.FoodComponent.Builder().nutrition(10).saturationModifier(0.8F).alwaysEdible()
+					.statusEffect(new net.minecraft.entity.effect.StatusEffectInstance(net.minecraft.entity.effect.StatusEffects.NAUSEA, 300, 0), 1.0F).build())));
+	public static final Item ETERNITY_BLOOD = Registry.register(Registries.ITEM, id("eternity_blood"),
+			new io.github.kortev.chainsawman.hotel.EternityBloodItem(new Item.Settings().rarity(Rarity.UNCOMMON).maxCount(16)));
 	public static final Item POCHITA_SPAWN_EGG = Registry.register(Registries.ITEM, id("pochita_spawn_egg"),
 			new SpawnEggItem(POCHITA_ENTITY, 0xEC8026, 0x9A9EA6, new Item.Settings()));
 
@@ -79,6 +93,11 @@ public final class ChainsawMan implements ModInitializer {
 		io.github.kortev.chainsawman.hotel.HotelRules.init();
 		ItemGroupEvents.modifyEntriesEvent(ItemGroups.COMBAT).register(entries -> entries.add(POCHITA));
 		ItemGroupEvents.modifyEntriesEvent(ItemGroups.SPAWN_EGGS).register(entries -> entries.add(POCHITA_SPAWN_EGG));
+		ItemGroupEvents.modifyEntriesEvent(ItemGroups.FOOD_AND_DRINK).register(entries -> {
+			entries.add(ETERNITY_FLESH);
+			entries.add(ETERNITY_BLOOD);
+		});
+		FabricDefaultAttributeRegistry.register(ETERNITY_DEVIL, io.github.kortev.chainsawman.hotel.EternityDevilEntity.createAttributes());
 		FabricDefaultAttributeRegistry.register(POCHITA_ENTITY, PochitaEntity.createAttributes());
 		SpawnRestriction.register(POCHITA_ENTITY, SpawnLocationTypes.ON_GROUND, Heightmap.Type.MOTION_BLOCKING_NO_LEAVES,
 				AnimalEntity::isValidNaturalSpawn);
@@ -93,6 +112,13 @@ public final class ChainsawMan implements ModInitializer {
 		PayloadTypeRegistry.playS2C().register(io.github.kortev.chainsawman.network.ContractPayload.ID, io.github.kortev.chainsawman.network.ContractPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(io.github.kortev.chainsawman.network.UseContractPayload.ID, io.github.kortev.chainsawman.network.UseContractPayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.UseContractPayload.ID, (payload, context) -> io.github.kortev.chainsawman.contract.Forever.use(context.player()));
+		PayloadTypeRegistry.playS2C().register(io.github.kortev.chainsawman.network.HotelPayloads.Fog.ID, io.github.kortev.chainsawman.network.HotelPayloads.Fog.CODEC);
+		PayloadTypeRegistry.playS2C().register(io.github.kortev.chainsawman.network.HotelPayloads.Speech.ID, io.github.kortev.chainsawman.network.HotelPayloads.Speech.CODEC);
+		PayloadTypeRegistry.playS2C().register(io.github.kortev.chainsawman.network.HotelPayloads.Offer.ID, io.github.kortev.chainsawman.network.HotelPayloads.Offer.CODEC);
+		PayloadTypeRegistry.playS2C().register(io.github.kortev.chainsawman.network.HotelPayloads.Devil.ID, io.github.kortev.chainsawman.network.HotelPayloads.Devil.CODEC);
+		PayloadTypeRegistry.playC2S().register(io.github.kortev.chainsawman.network.HotelPayloads.Answer.ID, io.github.kortev.chainsawman.network.HotelPayloads.Answer.CODEC);
+		ServerPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.HotelPayloads.Answer.ID,
+				(payload, context) -> io.github.kortev.chainsawman.hotel.Hotel.answer(context.player(), payload.accept()));
 		PayloadTypeRegistry.playC2S().register(PullCordPayload.ID, PullCordPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(FormActionPayload.ID, FormActionPayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(PullCordPayload.ID, (payload, context) -> Form.pullCord(context.player()));

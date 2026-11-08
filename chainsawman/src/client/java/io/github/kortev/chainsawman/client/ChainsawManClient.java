@@ -99,6 +99,7 @@ public final class ChainsawManClient implements ClientModInitializer {
 				FormMesh.reset();
 			}
 		});
+		ClientPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.HotelPayloads.Fog.ID, (payload, context) -> ClientHotel.fog(payload.end()));
 		ClientPlayNetworking.registerGlobalReceiver(FormPayload.ID, (payload, context) -> ClientForms.set(payload.player(), payload.on()));
 		ClientPlayNetworking.registerGlobalReceiver(FormPullPayload.ID, (payload, context) -> {
 			if (context.client().world != null) {
@@ -116,6 +117,7 @@ public final class ChainsawManClient implements ClientModInitializer {
 			ClientContracts.clear();
 			ClientForever.clear();
 			BeamClient.clear();
+			ClientHotel.clear();
 		});
 		CoreShaderRegistrationCallback.EVENT.register(context -> context.register(ChainsawMan.id("csm_impact"), VertexFormats.BLIT_SCREEN,
 				program -> FormHud.impact = program));
@@ -143,6 +145,7 @@ public final class ChainsawManClient implements ClientModInitializer {
 			ReviveCord.tick(client);
 			BeamClient.tick(client);
 			ClientForever.tick(client);
+			ClientHotel.tick();
 			ForeverHud.tick(client);
 		});
 	}

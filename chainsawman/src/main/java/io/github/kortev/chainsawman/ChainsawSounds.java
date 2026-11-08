@@ -76,6 +76,35 @@ public final class ChainsawSounds {
 	/** Beam throwing his rider, and flinging what he held: the snap of his head, a wet crack, a whip of air and a low thump. */
 	public static final SoundEvent BEAM_LAUNCH = register("beam.launch");
 
+	/** The night lobby: a fluorescent hum over the breath of a ventilation shaft (6 s, loops cleanly). */
+	public static final SoundEvent HOTEL_HUM = register("hotel.hum");
+	/** A crowd whispering in the corridor. */
+	public static final SoundEvent HOTEL_WHISPER = register("hotel.whisper");
+	/** The Eternity Devil speaking: a crowd of voices in one rhythm. */
+	public static final SoundEvent HOTEL_VOICE = register("hotel.voice");
+	/** The walls bleeding: paper tearing, plaster cracking, flesh pushing through. */
+	public static final SoundEvent HOTEL_BLEED = register("hotel.bleed");
+	/** A phone ringing in an empty room. */
+	public static final SoundEvent HOTEL_PHONE = register("hotel.phone");
+	/** A door breathing: a long breath in, a creak, a long breath out. */
+	public static final SoundEvent HOTEL_BREATH = register("hotel.breath");
+	/** The loop breaking: a glassy crack, the lights dying, a deep drop. */
+	public static final SoundEvent HOTEL_LOOP_BREAK = register("hotel.loop_break");
+	/** A contract sealed: paper, a stamp, a faint ring. */
+	public static final SoundEvent HOTEL_SEAL = register("hotel.seal");
+	/** The devil growing out of the walls: plaster giving way, wet flesh, a groan of many voices, a thud. */
+	public static final SoundEvent DEVIL_GROW = register("devil.grow");
+	/** A mouth biting: a wet lunge, uneven teeth clacking shut. */
+	public static final SoundEvent DEVIL_BITE = register("devil.bite");
+	/** A flesh tendril slamming down the corridor. */
+	public static final SoundEvent DEVIL_SLAM = register("devil.slam");
+	/** Flesh knitting back: wet squelches rising in pitch. */
+	public static final SoundEvent DEVIL_REGEN = register("devil.regen");
+	/** The devil hit: a wet grunt of many voices. */
+	public static final SoundEvent DEVIL_HURT = register("devil.hurt");
+	/** The devil dying: a collapsing groan of many voices, flesh deflating. */
+	public static final SoundEvent DEVIL_DEATH = register("devil.death");
+
 	private ChainsawSounds() {
 	}
 

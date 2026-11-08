@@ -28,6 +28,7 @@
 		"GetUpMixin",
 		"FormPoseMixin",
 		"HeadHiddenMixin",
+		"HotelFogMixin",
 		"HeadItemHiddenMixin",
 		"HeldItemRendererInvoker",
 		"HelmetHiddenMixin",

@@ -270,5 +270,117 @@
         "name": "chainsawman:forever_release"
       }
     ]
+  },
+  "hotel.hum": {
+    "subtitle": "subtitles.chainsawman.hotel.hum",
+    "sounds": [
+      {
+        "name": "chainsawman:hotel_hum"
+      }
+    ]
+  },
+  "hotel.whisper": {
+    "subtitle": "subtitles.chainsawman.hotel.whisper",
+    "sounds": [
+      {
+        "name": "chainsawman:hotel_whisper"
+      }
+    ]
+  },
+  "hotel.voice": {
+    "subtitle": "subtitles.chainsawman.hotel.voice",
+    "sounds": [
+      {
+        "name": "chainsawman:hotel_voice"
+      }
+    ]
+  },
+  "hotel.bleed": {
+    "subtitle": "subtitles.chainsawman.hotel.bleed",
+    "sounds": [
+      {
+        "name": "chainsawman:hotel_bleed"
+      }
+    ]
+  },
+  "hotel.phone": {
+    "subtitle": "subtitles.chainsawman.hotel.phone",
+    "sounds": [
+      {
+        "name": "chainsawman:hotel_phone"
+      }
+    ]
+  },
+  "hotel.breath": {
+    "subtitle": "subtitles.chainsawman.hotel.breath",
+    "sounds": [
+      {
+        "name": "chainsawman:hotel_breath"
+      }
+    ]
+  },
+  "hotel.loop_break": {
+    "subtitle": "subtitles.chainsawman.hotel.loop_break",
+    "sounds": [
+      {
+        "name": "chainsawman:hotel_loop_break"
+      }
+    ]
+  },
+  "hotel.seal": {
+    "subtitle": "subtitles.chainsawman.hotel.seal",
+    "sounds": [
+      {
+        "name": "chainsawman:hotel_seal"
+      }
+    ]
+  },
+  "devil.grow": {
+    "subtitle": "subtitles.chainsawman.devil.grow",
+    "sounds": [
+      {
+        "name": "chainsawman:devil_grow"
+      }
+    ]
+  },
+  "devil.bite": {
+    "subtitle": "subtitles.chainsawman.devil.bite",
+    "sounds": [
+      {
+        "name": "chainsawman:devil_bite"
+      }
+    ]
+  },
+  "devil.slam": {
+    "subtitle": "subtitles.chainsawman.devil.slam",
+    "sounds": [
+      {
+        "name": "chainsawman:devil_slam"
+      }
+    ]
+  },
+  "devil.regen": {
+    "subtitle": "subtitles.chainsawman.devil.regen",
+    "sounds": [
+      {
+        "name": "chainsawman:devil_regen"
+      }
+    ]
+  },
+  "devil.hurt": {
+    "subtitle": "subtitles.chainsawman.devil.hurt",
+    "sounds": [
+      {
+        "name": "chainsawman:devil_hurt"
+      }
+    ]
+  },
+  "devil.death": {
+    "subtitle": "subtitles.chainsawman.devil.death",
+    "sounds": [
+      {
+        "name": "chainsawman:devil_death"
+      }
+    ]
   }
 }

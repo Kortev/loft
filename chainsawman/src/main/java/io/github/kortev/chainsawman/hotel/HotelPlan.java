@@ -146,6 +146,7 @@ public final class HotelPlan {
 			storey(i);
 		}
 		roof();
+		lamps();
 		lobby();
 		stairs();
 		wrongThings();
@@ -198,13 +199,6 @@ public final class HotelPlan {
 			set(x, y0 + 1, 6, b(Blocks.RED_CARPET));
 			set(x, y0 + 1, 7, x % 4 == 3 ? b(Blocks.YELLOW_CARPET) : b(Blocks.BROWN_CARPET));
 		}
-		// Ceiling lamps every four blocks.
-		for (int x = CORR_X0; x <= CORR_X1; x++) {
-			if (x % 4 == 1) {
-				set(x, y0 + 4, 6, b(Blocks.REDSTONE_LAMP));
-				lamps.add(new Lamp(x, y0 + 4, 6, top ? x % PERIOD : -2, i));
-			}
-		}
 		// Rooms: eleven, and the stairwell in the third at the front.
 		for (int side = 0; side < 2; side++) {
 			for (int j = 0; j < 6; j++) {
@@ -219,6 +213,19 @@ public final class HotelPlan {
 		}
 		if (i == 0) {
 			return;
+		}
+	}
+
+	/** The ceiling lamps over the corridors, every four blocks (after the slabs, which they sit in). */
+	private void lamps() {
+		for (int i = 0; i < FLOORS; i++) {
+			int y = floorY(i) + 4;
+			for (int x = CORR_X0; x <= CORR_X1; x++) {
+				if (x % 4 == 1) {
+					set(x, y, 6, b(Blocks.REDSTONE_LAMP));
+					lamps.add(new Lamp(x, y, 6, i == FLOORS - 1 ? x % PERIOD : -2, i));
+				}
+			}
 		}
 	}
 
