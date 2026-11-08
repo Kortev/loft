@@ -119,7 +119,7 @@ Examples (each devil picks one; all to be tuned with kortev):
   - Chainsaw Man saws and drinks its blood;
   - plain hunters cut its eyes and mouths with katanas.
   Its heart shows when enough flesh is cut away. It regenerates if you stop; it's eternity.
-- **When it's beaten it begs** (that's the leverage): "Let me live, and I'll give you forever." Each player who wants it can take the contract and pay its price (they "spare" it; it goes away for `devilRespawnDays`). Or anyone can finish it: loot, the loop breaks, and Public Safety pays the mission. If one player takes the deal and another wants it dead, the kill wins only if the dealers are refused... **Open question for kortev:** does the kill or the deal win when the group disagrees?
+- **When it's beaten it begs** (that's the leverage): "Let me live, and I'll give you forever." Each player who wants it can take the contract and pay its price (they "spare" it; it goes away for `devilRespawnDays`). Or anyone can finish it: loot, the loop breaks, and Public Safety pays the mission. My suggestion when the group disagrees: whoever takes the deal gets it first (a few seconds to answer), then anyone can still finish the devil for loot, so nobody's choice is taken away. **Open question for kortev.**
 - **The mission reward:** yen, rank, and the squad's last note.
 
 **The devil itself (what looked worst): a real model, not a pile of lumps.**
