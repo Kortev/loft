@@ -205,7 +205,7 @@ public class EternityDevilRenderer extends EntityRenderer<EternityDevilEntity> {
 		float grown = ease((devil.age + delta) / EternityDevilEntity.GROW_TICKS);
 		float frac = MathHelper.clamp(devil.getHealth() / devil.getMaxHealth(), 0.0F, 1.0F);
 		boolean dead = devil.isDead();
-		float death = dead ? ease((devil.deathTime + delta) / 100.0F) : 0.0F;
+		float death = dead ? ease((devil.deathTime + delta) / EternityDevilEntity.DEATH_TICKS) : 0.0F;
 		float[] state = STATE.computeIfAbsent(devil.getId(), k -> new float[] {0.0F, -100.0F, -100.0F});
 		// The heart opens as the flesh is cut away (and shuts as it grows back).
 		float wantOpen = devil.heartOut() ? 1.0F : 0.0F;

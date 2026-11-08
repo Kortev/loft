@@ -129,6 +129,10 @@ public final class Hotel {
 				inside.add(new In(p, lp));
 			}
 		}
+		if (!r.started) {
+			// Loaded afresh: if the world was left in a fight the walls are still bled (the devil and the flesh are not kept): put them right.
+			HotelBuilder.bleed(world, h.origin, h.rot, 0.0F);
+		}
 		if (now % 10 == 0 || !r.started) {
 			r.started = true;
 			updateNight(world, h, near, inside);
@@ -706,15 +710,22 @@ public final class Hotel {
 		}
 		r.fogged.clear();
 		play(world, h, 24.0, 30.0, 6.5, ChainsawSounds.HOTEL_LOOP_BREAK, 3.0F, 1.0F);
-		// Its loot, at its feet.
-		Vec3d at = devil.getPos().add(HotelBuilder.world(BlockPos.ORIGIN, h.rot, -2.8, 0.2, 0.0));
-		drop(world, at, new ItemStack(ChainsawMan.ETERNITY_FLESH, FLESH_DROP));
-		drop(world, at, new ItemStack(ChainsawMan.ETERNITY_BLOOD, BLOOD_DROP));
+		// The flesh creeping on the floor goes with it.
+		for (FleshPatchEntity patch : world.getEntitiesByType(ChainsawMan.FLESH_PATCH, e -> e.squaredDistanceTo(devil) < 40.0 * 40.0)) {
+			patch.discard();
+		}
 		for (ServerPlayerEntity p : world.getPlayers()) {
 			if (p.squaredDistanceTo(devil) < 40.0 * 40.0) {
 				speak(world, Set.of(p.getUuid()), "message.chainsawman.devil.last", 80, 1);
 			}
 		}
+	}
+
+	/** Its loot, on the floor where it stood, when it has collapsed. */
+	public static void dropLoot(ServerWorld world, EternityDevilEntity devil) {
+		Vec3d at = devil.getPos().add(HotelBuilder.world(BlockPos.ORIGIN, devil.rot, -2.8, 0.2, 0.0));
+		drop(world, at, new ItemStack(ChainsawMan.ETERNITY_FLESH, FLESH_DROP));
+		drop(world, at, new ItemStack(ChainsawMan.ETERNITY_BLOOD, BLOOD_DROP));
 	}
 
 	/** What the devil drops: three lumps of its flesh and two bottles of its blood. */
@@ -724,6 +735,8 @@ public final class Hotel {
 	private static void drop(ServerWorld world, Vec3d at, ItemStack stack) {
 		ItemEntity item = new ItemEntity(world, at.x, at.y, at.z, stack);
 		item.setVelocity(world.random.nextGaussian() * 0.05, 0.25, world.random.nextGaussian() * 0.05);
+		// It glows, to be found in the dark of the corridor (the lights are dying).
+		item.setGlowing(true);
 		world.spawnEntity(item);
 	}
 
@@ -732,12 +745,13 @@ public final class Hotel {
 		Run r = h.run;
 		long t = now - r.dyingAt;
 		HotelPlan plan = HotelPlan.get();
-		if (t < 90) {
-			double x = HotelPlan.CORR_X1 + 1.0 - (t / 60.0) * 36.0;
+		if (t < DYING_TICKS) {
+			// The loop floor's lamps go out from the east end back toward the stairs, flickering; then the rest with the hotel.
+			double x = HotelPlan.CORR_X1 + 1.0 - (t / (DYING_TICKS * 0.75)) * 36.0;
 			for (HotelPlan.Lamp l : plan.lamps) {
 				if (l.floor() == HotelPlan.FLOORS - 1) {
-					boolean lit = l.x() < x && (t % 6 < 3 || t > 60);
-					HotelBuilder.lamp(world, HotelBuilder.world(h.origin, h.rot, l.x(), l.y(), l.z()), lit && t < 60);
+					boolean lit = l.x() < x && (t % 8 < 5 || t > DYING_TICKS * 0.6);
+					HotelBuilder.lamp(world, HotelBuilder.world(h.origin, h.rot, l.x(), l.y(), l.z()), lit);
 				}
 			}
 		} else {
@@ -747,6 +761,9 @@ public final class Hotel {
 			reset(world, h);
 		}
 	}
+
+	/** How long the lights take to die after the kill (ticks). */
+	public static final int DYING_TICKS = 160;
 
 	/** Puts a hotel down at {@code origin} turned {@code rot}: its home, or null if the home could not be found. */
 	public static HomeBlockEntity place(ServerWorld world, BlockPos origin, int rot) {

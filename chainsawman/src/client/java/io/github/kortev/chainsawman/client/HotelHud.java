@@ -31,12 +31,7 @@ public final class HotelHud {
 		Text text = Text.translatable(line.key());
 		int width = context.getScaledWindowWidth();
 		int height = context.getScaledWindowHeight();
-		float scale = line.style() == 2 ? 2.3F : (line.style() == 1 ? 2.0F : 2.6F);
-		int textWidth = Math.max(1, font.getWidth(text));
-		if (font.getWidth(text) * scale > width * 0.9F) {
-			// A long line wraps onto two or three; the scale is kept readable.
-			scale = Math.max(1.4F, width * 0.9F / textWidth);
-		}
+		float scale = line.style() == 2 ? 2.3F : (line.style() == 1 ? 2.1F : 2.5F);
 		java.util.List<net.minecraft.text.OrderedText> rows = font.wrapLines(text, (int) (width * 0.9F / scale));
 		float rowHeight = 11.0F * scale;
 		float top = height * 0.58F - rows.size() * rowHeight / 2.0F;

@@ -349,8 +349,12 @@ public final class Saw {
 		world.spawnParticles(DARK_BLOOD, at.x, at.y, at.z, 25, w, h, w, 0.2);
 		world.spawnParticles(FLESH, at.x, at.y, at.z, 14, w, h, w, 0.25);
 		world.spawnParticles(BONE, at.x, at.y, at.z, 6, w, h, w, 0.25);
-		Form.broadcast(killer.server, new FormEventPayload(killer.getUuid(), FormEventPayload.KILL, dead.getId()));
-		if (!(dead instanceof PlayerEntity)) {
+		// (The Eternity Devil is too big to tear apart and falls by its own slow collapse: its body stays while it does.)
+		boolean boss = dead instanceof io.github.kortev.chainsawman.hotel.EternityDevilEntity;
+		if (!boss) {
+			Form.broadcast(killer.server, new FormEventPayload(killer.getUuid(), FormEventPayload.KILL, dead.getId()));
+		}
+		if (!(dead instanceof PlayerEntity) && !boss) {
 			// Nothing left to fall over.
 			dead.discard();
 		}

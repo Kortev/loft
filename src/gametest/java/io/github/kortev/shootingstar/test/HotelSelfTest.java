@@ -69,7 +69,9 @@ public class HotelSelfTest implements ClientModInitializer {
 	/** The hotel's turn: its front faces north (toward -z), where the camera stands. */
 	private static final int ROT = 0;
 	/** Where the site is, found once with locateBiome (a plains) and kept, so every take has the same ground. */
-	private static final BlockPos SITE = null;
+	private static final BlockPos SITE = new BlockPos(288, 62, -256);
+	/** The natural ground there (the hotel's floor goes at this height: looked up each run it would be the roof of the last take's hotel). */
+	private static final int GROUND = 62;
 
 	private static Stage stage = Stage.WAIT_WORLD;
 	private static int ticks;
@@ -160,7 +162,7 @@ public class HotelSelfTest implements ClientModInitializer {
 				client.options.hudHidden = false;
 				if ("look".equals(target())) {
 					look(client, server, ticks);
-				} else if (target().isEmpty()) {
+				} else if (target().isEmpty() || "accept".equals(target()) || "fight".equals(target())) {
 					clip(client, server, ticks);
 				} else {
 					ShootingStar.LOGGER.error("[selftest] hotel: no such target {}", target());
@@ -300,7 +302,7 @@ public class HotelSelfTest implements ClientModInitializer {
 				world.getChunk((x0 + dx) >> 4, (z0 + dz) >> 4);
 			}
 		}
-		int ground = surface(world, x0 + 19, z0 + 7);
+		int ground = GROUND;
 		origin = new BlockPos(x0, ground, z0);
 		for (int cx = (x0 - 64) >> 4; cx <= (x0 + 112) >> 4; cx++) {
 			for (int cz = (z0 - 72) >> 4; cz <= (z0 + 56) >> 4; cz++) {
@@ -393,6 +395,9 @@ public class HotelSelfTest implements ClientModInitializer {
 	private static boolean formOn;
 	private static int slashedAt = -100;
 	private static int devilDiedAt = -1;
+	/** A shot that ends early sets this; the clip's clock then jumps over what was left of it. */
+	private static boolean endShot;
+	private static int skip;
 
 	private static MinecraftClient mc() {
 		return MinecraftClient.getInstance();
@@ -477,6 +482,14 @@ public class HotelSelfTest implements ClientModInitializer {
 		if (!SHOTS.isEmpty()) {
 			return;
 		}
+		if ("accept".equals(target())) {
+			shotsAccept();
+			return;
+		}
+		if ("fight".equals(target())) {
+			fightShots();
+			return;
+		}
 		final float EAST = -90.0F;
 		// ---- 1. Outside, lit: kortev walks up the plaza to the doors.
 		Shot s = shot("outside", 58);
@@ -489,48 +502,40 @@ public class HotelSelfTest implements ClientModInitializer {
 			Vec3d eye = world(27.5, 2.6, 4.0);
 			wantYaw = MathHelper.clamp(yawTo(you(0.0), eye), -40.0F, 40.0F);
 		};
-		s.cam = cam(9.0, 2.3, -17.0, 24.5, 3.0, -4.0);
+		s.cam = cam(17.0, 2.0, -11.5, 26.0, 4.2, -2.0);
 		// ---- 2. The lobby: in at the doors, past the desk and its bell, along to the stairwell.
 		s = shot("lobby", 52);
 		s.start = () -> {
-			tp(28.0, 1.0, 1.2, 0.0F);
-			wantYaw = EAST + 180.0F;
+			tp(30.8, 1.0, 2.6, EAST);
 			keys(true, false);
 		};
-		s.each = t -> {
-			Vec3d p = you(0.0);
-			Vec3d goal = p.x > 30.0 ? world(27.0, 1.0, 5.6) : world(15.0, 1.0, 6.2);
-			wantYaw = yawTo(p, goal);
-			if (t > 6) {
-				wantYaw = yawTo(p, world(14.0, 1.0, 6.4));
-			}
-		};
-		s.cam = follow(4.3, 2.2, 0.9, 3.0, 1.2);
+		s.each = t -> wantYaw = yawTo(you(0.0), world(14.0, 1.0, 6.3));
+		s.cam = follow(4.0, 2.0, 0.8, 3.0, 1.2);
 		// ---- 3. The climb: one wrong thing a floor (you are put on each floor, at the stairwell door, walking out of it).
 		climb(shot("f2_a", 15), 1, 11.3, 5.15, 10.5, 7.7, 40.0F, 6.0, 7.2);
-		climb(shot("f2_b", 13), 1, 17.2, 5.15, 16.5, 7.7, 40.0F, 12.0, 7.2);
-		s = shot("f3_paintings", 22);
+		climb(shot("f2_b", 11), 1, 17.2, 5.15, 16.5, 7.7, 40.0F, 12.0, 7.2);
+		s = shot("f3_paintings", 18);
 		s.start = () -> {
 			tp(15.0, floorY(2), 6.5, EAST);
 			wantYaw = EAST;
 			keys(true, false);
 		};
 		s.cam = follow(4.0, 1.5, 0.5, 8.0, 1.0);
-		s = shot("f4_stain", 26);
+		s = shot("f4_stain", 20);
 		s.start = () -> {
 			tp(15.0, floorY(3), 7.3, EAST);
 			wantYaw = EAST;
 			keys(true, false);
 		};
 		s.cam = cam(12.5, floorY(3) + 1.6, 6.0, 30.0, floorY(3) + 0.3, 6.5);
-		s = shot("f5_eyes", 22);
+		s = shot("f5_eyes", 18);
 		s.start = () -> {
 			tp(14.0, floorY(4), 6.5, EAST);
 			wantYaw = EAST;
 			keys(true, false);
 		};
 		s.cam = follow(3.4, 1.7, 0.0, 8.0, 0.8);
-		s = shot("f6_door", 30);
+		s = shot("f6_door", 26);
 		s.start = () -> {
 			tp(19.5, floorY(5), 6.5, 0.0F);
 			wantYaw = EAST;
@@ -541,7 +546,7 @@ public class HotelSelfTest implements ClientModInitializer {
 			wantYaw = EAST;
 		};
 		s.cam = cam(25.8, eye(5), 5.4, 22.0, eye(5) - 0.2, 8.0);
-		s = shot("f7_phone", 30);
+		s = shot("f7_phone", 24);
 		s.start = () -> {
 			tp(17.0, floorY(6), 6.5, EAST);
 			wantYaw = EAST;
@@ -558,7 +563,7 @@ public class HotelSelfTest implements ClientModInitializer {
 			keys(true, true);
 		};
 		s.cam = follow(3.2, 1.9, 0.0, 9.0, 1.1);
-		s = shot("f8_eyes", 68);
+		s = shot("f8_eyes", 60);
 		s.firstPerson = true;
 		s.each = t -> {
 			double x = world(0, 0, 0).x;
@@ -573,7 +578,7 @@ public class HotelSelfTest implements ClientModInitializer {
 		s.start = () -> glance = null;
 		s.cam = facing(3.4, 1.8, 0.0, 1.1);
 		// ---- 5. The offer: its words, the contract, and refusing.
-		s = shot("offer_words", 58);
+		s = shot("offer_words", 52);
 		s.start = () -> {
 			keys(false, false);
 		};
@@ -601,7 +606,13 @@ public class HotelSelfTest implements ClientModInitializer {
 		s.cam = follow(3.6, 1.8, -0.5, 9.0, 1.4);
 		s = shot("grow", 40);
 		s.cam = follow(4.2, 1.9, 0.5, 9.0, 1.7);
-		// ---- 7. The fight.
+		fightShots();
+	}
+
+
+	private static void fightShots() {
+		final float EAST = -90.0F;
+		Shot s;
 		s = shot("fight_a", 56);
 		s.start = () -> {
 			server(w -> {
@@ -613,16 +624,150 @@ public class HotelSelfTest implements ClientModInitializer {
 		};
 		s.each = HotelSelfTest::fightTick;
 		s.cam = follow(3.3, 1.9, 0.6, 6.0, 1.5);
-		s = shot("fight_b", 56);
-		s.each = HotelSelfTest::fightTick;
+		s = shot("fight_b", 130);
+		s.each = t -> {
+			fightTick(t);
+			for (Entity e : mc().world.getEntities()) {
+				if (e instanceof EternityDevilEntity d && d.isDead() && t > 4) {
+					endShot = true;
+				}
+			}
+		};
 		s.cam = follow(3.0, 1.7, -0.7, 6.0, 1.5);
-		s = shot("dying", 56);
-		s.each = HotelSelfTest::fightTick;
-		s.slow = 0.5;
-		s.cam = cam(22.5, eye(7) + 0.1, 5.9, 33.5, floorY(7) + 1.5, 6.6);
-		s = shot("loot", 40);
+		s = shot("dying", 110);
+		s.slow = 0.6;
 		s.start = () -> keys(false, false);
-		s.cam = cam(23.5, eye(7) - 0.1, 5.9, 30.5, floorY(7) + 0.4, 6.6);
+		s.each = t -> {
+			for (Entity e : mc().world.getEntities()) {
+				if (e instanceof net.minecraft.entity.ItemEntity item && t > 6
+						&& (item.getStack().getItem() == io.github.kortev.chainsawman.ChainsawMan.ETERNITY_FLESH || item.getStack().getItem() == io.github.kortev.chainsawman.ChainsawMan.ETERNITY_BLOOD)) {
+					endShot = true;
+				}
+			}
+		};
+		s.cam = follow(2.7, 1.8, 1.0, 6.0, 1.7);
+		s = shot("loot", 52);
+		s.start = () -> {
+			wantYaw = EAST;
+			wantPitch = 20.0F;
+			keys(true, false);
+		};
+		s.each = t -> {
+			Vec3d p = HotelBuilder.local(origin, ROT, you(0.0));
+			if (p.x > 31.2) {
+				keys(false, false);
+			}
+		};
+		s.cam = cam(34.3, floorY(7) + 1.4, 5.7, 30.4, floorY(7) + 0.7, 6.6);
+	}
+
+	/**
+	 * -Ptarget=accept: the other choice. Three laps, the devil speaks, the contract is accepted (the real click on ACCEPT); the loop opens,
+	 * you walk on past where it would have put you back, to the stairwell door (opened with the real use) and down; staged: you are put at
+	 * the stairwell door, then at the lobby, as in the main clip. The hotel goes dark behind you as you walk out (its own logic).
+	 */
+	private static void shotsAccept() {
+		final float EAST = -90.0F;
+		Shot s = shot("a_run", 40);
+		s.start = () -> {
+			tp(14.2, floorY(7), 6.5, EAST);
+			wantYaw = EAST;
+			wantPitch = 0.0F;
+			keys(true, true);
+			// (The first laps are real; the time on the floor is taken to the edge so the offer comes after two.)
+		};
+		s.cam = follow(3.2, 1.9, 0.0, 9.0, 1.1);
+		s = shot("a_laps", 70);
+		s.firstPerson = true;
+		s.each = t -> {
+			Vec3d p = HotelBuilder.local(origin, ROT, you(0.0));
+			Vec3d sign = world(16.0, floorY(7) + 2.3, 7.0);
+			glance = Math.abs(p.x - 16.0) < 5.0 && p.x < 17.5 ? sign : null;
+		};
+		s.cam = EYES;
+		s.fov = 74.0F;
+		s = shot("a_flesh", 40);
+		s.start = () -> glance = null;
+		s.cam = facing(3.4, 1.8, 0.0, 1.1);
+		s = shot("a_words", 54);
+		s.start = () -> keys(false, false);
+		s.each = t -> wantYaw = EAST;
+		s.cam = follow(3.4, 1.7, 0.4, 5.0, 1.0);
+		s = shot("a_screen", 44);
+		s.each = t -> {
+			MinecraftClient c = mc();
+			if (c.currentScreen instanceof ContractScreen screen && t == 24) {
+				double[] at = screen.centre(true);
+				screen.mouseClicked(at[0], at[1], 0);
+			}
+		};
+		s.cam = follow(3.4, 1.7, 0.4, 5.0, 1.0);
+		// The loop opens: walk on past where it would have put you back.
+		s = shot("a_open", 56);
+		s.start = () -> {
+			keys(true, true);
+		};
+		s.each = t -> wantYaw = EAST;
+		s.cam = follow(3.4, 1.9, 0.0, 9.0, 1.1);
+		s = shot("a_turn", 46);
+		s.start = () -> {
+			tp(18.0, floorY(7), 6.2, 90.0F);
+			wantYaw = 90.0F;
+			keys(true, false);
+		};
+		s.each = t -> {
+			Vec3d p = HotelBuilder.local(origin, ROT, you(0.0));
+			Vec3d door = world(13.6, floorY(7) + 0.9, 5.0);
+			wantYaw = yawTo(you(0.0), door);
+			if (p.x < 15.6) {
+				keys(false, false);
+			}
+			if (t == 20 && p.x < 16.0) {
+				MinecraftClient c = mc();
+				BlockPos pos = HotelBuilder.world(origin, ROT, 13, (int) floorY(7), 4);
+				if (c.interactionManager != null) {
+					c.interactionManager.interactBlock(c.player, net.minecraft.util.Hand.MAIN_HAND,
+							new net.minecraft.util.hit.BlockHitResult(Vec3d.ofCenter(pos).add(0.0, 0.0, 0.45), net.minecraft.util.math.Direction.SOUTH, pos, false));
+				}
+			}
+		};
+		s.cam = cam(19.5, floorY(7) + 1.7, 6.5, 13.5, floorY(7) + 1.0, 4.8);
+		s = shot("a_down", 34);
+		s.start = () -> {
+			tp(13.5, floorY(7), 3.4, 180.0F);
+			wantYaw = 180.0F;
+			keys(true, false);
+		};
+		s.each = t -> {
+			Vec3d p = HotelBuilder.local(origin, ROT, you(0.0));
+			wantYaw = 180.0F;
+			if (p.z < 2.3) {
+				wantYaw = -90.0F;
+			}
+		};
+		s.cam = cam(15.0, floorY(7) + 1.8, 1.2, 13.5, floorY(7) + 0.9, 3.0);
+		s = shot("a_lobby", 40);
+		s.start = () -> {
+			tp(24.0, 1.0, 5.6, 0.0F);
+			wantYaw = 0.0F;
+			keys(true, false);
+		};
+		s.each = t -> {
+			Vec3d p = you(0.0);
+			wantYaw = yawTo(p, world(27.5, 1.0, -2.0));
+		};
+		s.cam = follow(4.2, 2.1, 0.8, 3.0, 1.2);
+		s = shot("a_out", 56);
+		s.start = () -> {
+			tp(27.5, 1.0, -0.5, 180.0F);
+			wantYaw = 180.0F;
+			keys(true, false);
+		};
+		s.each = t -> wantYaw = 180.0F;
+		s.cam = cam(36.0, 2.2, -16.0, 24.0, 4.0, 0.0);
+		s = shot("a_dark", 20);
+		s.start = () -> keys(false, false);
+		s.cam = cam(36.0, 2.2, -16.0, 24.0, 4.0, 0.0);
 	}
 
 	/** A climb shot: you walk out at the stairwell end; the camera is fixed. */
@@ -660,6 +805,9 @@ public class HotelSelfTest implements ClientModInitializer {
 					devil = e;
 				}
 			}
+			if (devil == null || !devil.isAlive()) {
+				ShootingStar.LOGGER.info("[selftest] hotel fight: no devil to slash ({})", devil);
+			}
 			if (devil != null && devil.isAlive()) {
 				int id = devil.getId();
 				float hp = ((EternityDevilEntity) devil).getHealth();
@@ -682,16 +830,28 @@ public class HotelSelfTest implements ClientModInitializer {
 			shots();
 			client.options.hudHidden = false;
 			client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
+			boolean accepting = "accept".equals(target());
+			boolean fightOnly = "fight".equals(target());
 			server.execute(() -> {
 				ServerPlayerEntity you = you(server);
-				Heart.give(you);
+				if (!accepting) {
+					// (In the main clip kortev is Denji, with Pochita's heart: he refuses, and pulls the cord.)
+					Heart.give(you);
+				}
 				Blood.set(you, Blood.MAX);
+				if (fightOnly) {
+					// (-Ptarget=fight: straight to the fight, to look at it: in the form, on the loop floor, the devil growing.)
+					Form.start(you);
+					Vec3d w = world(21.0, 29.0, 6.5);
+					you.teleport(server.getOverworld(), w.x, w.y, w.z, -90.0F, 0.0F);
+					Hotel.startFight(server.getOverworld(), home(server), server.getOverworld().getTime());
+				}
 			});
 			clipF0 = 100;
 		}
 		if (f < clipF0) {
 			// Warm-up: the first shot's view held where it will be, so the chunks under it are built before the recording starts.
-			Capture.camera = cam(9.0, 2.3, -17.0, 24.5, 3.0, -4.0);
+			Capture.camera = cam(17.0, 2.0, -11.5, 26.0, 4.2, -2.0);
 			lens = 70.0F;
 			return;
 		}
@@ -699,7 +859,7 @@ public class HotelSelfTest implements ClientModInitializer {
 			Capture.start(client, client.runDirectory.toPath().resolve("capture"));
 		}
 		formOn = io.github.kortev.chainsawman.client.ClientForms.on(client.player);
-		int e = f - clipF0;
+		int e = f - clipF0 + skip;
 		int starts = 0;
 		for (int i = 0; i < SHOTS.size(); i++) {
 			Shot sh = SHOTS.get(i);
@@ -721,6 +881,10 @@ public class HotelSelfTest implements ClientModInitializer {
 				}
 				int local = f - shotAt;
 				sh.each.accept(local);
+				if (endShot) {
+					endShot = false;
+					skip += Math.max(0, sh.ticks - local - 1);
+				}
 				if (local == 2) {
 					still(client, String.format("clip_%02d_%s_a", i, sh.name));
 				} else if (local == sh.ticks / 2) {

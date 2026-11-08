@@ -235,6 +235,59 @@ public class HotelGameTests implements FabricGameTest {
 		return y - 1 >= 0 && full(plan, x, y - 1, z);
 	}
 
+	/**
+	 * The game itself places it: {@code /place structure} makes the structure start and its piece draws the hotel chunk by chunk (as the
+	 * world's generation does), and the home that results knows where the hotel stands and how it is turned.
+	 */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_structure", tickLimit = 400)
+	public void theGameCanPlaceTheStructure(TestContext context) {
+		ServerWorld world = context.getWorld();
+		BlockPos at = origin(context, 19).add(60, 0, 40);
+		forced(context, at, true);
+		context.runAtTick(2, () -> {
+			// What /place structure does: make the structure start, then draw it chunk by chunk.
+			net.minecraft.world.gen.structure.Structure structure = world.getRegistryManager().get(RegistryKeys.STRUCTURE).get(io.github.kortev.chainsawman.ChainsawMan.id("eternity_hotel"));
+			net.minecraft.world.gen.chunk.ChunkGenerator generator = world.getChunkManager().getChunkGenerator();
+			net.minecraft.structure.StructureStart start = structure.createStructureStart(world.getRegistryManager(), generator, generator.getBiomeSource(),
+					world.getChunkManager().getNoiseConfig(), world.getStructureTemplateManager(), world.getSeed(), new net.minecraft.util.math.ChunkPos(at), 0, world, biome -> true);
+			io.github.kortev.chainsawman.ChainsawMan.LOGGER.info("[hotel-test] structure start has children: " + start.hasChildren());
+			context.assertTrue(start.hasChildren(), "the structure found nowhere to stand (it looks for flat dry ground)");
+			net.minecraft.util.math.BlockBox box = start.getBoundingBox();
+			net.minecraft.util.math.ChunkPos a0 = new net.minecraft.util.math.ChunkPos(box.getMinX() >> 4, box.getMinZ() >> 4);
+			net.minecraft.util.math.ChunkPos a1 = new net.minecraft.util.math.ChunkPos(box.getMaxX() >> 4, box.getMaxZ() >> 4);
+			net.minecraft.util.math.ChunkPos.stream(a0, a1).forEach(c -> start.place(world, world.getStructureAccessor(), generator, world.getRandom(),
+					new net.minecraft.util.math.BlockBox(c.getStartX(), world.getBottomY(), c.getStartZ(), c.getEndX(), world.getTopY(), c.getEndZ()), c));
+		});
+		context.runAtTick(60, () -> {
+			HomeBlockEntity found = null;
+			for (HomeBlockEntity h : HomeBlockEntity.LOADED) {
+				if (h.getWorld() == world && Math.hypot(h.getPos().getX() - at.getX(), h.getPos().getZ() - at.getZ()) < 48.0) {
+					found = h;
+				}
+			}
+			context.assertTrue(found != null, "the structure made no home near " + at);
+			context.assertTrue(found.origin.getX() != 0 || found.origin.getZ() != 0, "the home does not know where the hotel is");
+			// Whole: the plan's blocks are there at the home's own place and turn.
+			HotelPlan plan = HotelPlan.get();
+			int bad = 0;
+			for (int y = 0; y < HotelPlan.SY; y += 3) {
+				for (int z = 1; z < HotelPlan.SZ - 1; z += 2) {
+					for (int x = 1; x < HotelPlan.SX - 1; x += 2) {
+						BlockPos p = HotelBuilder.world(found.origin, found.rot, x, y, z);
+						BlockState want = plan.at(x, y, z).rotate(HotelBuilder.turn(found.rot));
+						BlockState got = world.getBlockState(p);
+						if (got != want && !want.isAir() && !got.isOf(Blocks.CHAIN) && !(want.getBlock() instanceof net.minecraft.block.DoorBlock)) {
+							bad++;
+						}
+					}
+				}
+			}
+			context.assertTrue(bad < 30, bad + " sampled blocks of the placed hotel differ from the plan (turn " + found.rot + ")");
+			forced(context, at, false);
+			context.complete();
+		});
+	}
+
 	/** The hotel is in the world's generation: the structure, its set and the biomes it may stand in; and the game rules are there. */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_worldgen", tickLimit = 20)
 	public void hotelIsInWorldGeneration(TestContext context) {
@@ -908,6 +961,13 @@ public class HotelGameTests implements FabricGameTest {
 				float before = d[0].getHealth();
 				io.github.kortev.chainsawman.form.Saw.slash(p, d[0].getId());
 				context.assertTrue(before - d[0].getHealth() >= 25.0F, "a slash on the heart took only " + (before - d[0].getHealth()));
+				// A kill by the saws does not tear it apart: its body stays for its own collapse.
+				d[0].setHealth(1.0F);
+				io.github.kortev.chainsawman.form.Saw.slash(p, d[0].getId());
+				context.assertTrue(d[0].isDead() && !d[0].isRemoved(), "the saws' kill removed the devil at once");
+			});
+			later(context, 150, () -> {
+				context.assertTrue(!d[0].isRemoved(), "the dead devil was gone within 30 ticks");
 				tidy(context, h, p);
 				context.complete();
 			});
@@ -915,7 +975,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** Killing it: it drops its flesh and blood, the loop breaks (and nobody gets a contract), the flesh and bleeding go, the lights die, and the devil is away for the respawn days. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_kill", tickLimit = 600)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_kill", tickLimit = 700)
 	public void killingTheDevilBreaksTheLoopAndDropsLoot(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 15);
 		ServerPlayerEntity p = walker(context, h, "slayer", 20.5);
@@ -934,6 +994,16 @@ public class HotelGameTests implements FabricGameTest {
 				context.assertTrue(bled >= 3, "only " + bled + " blocks bled");
 				d[0].damage(p.getDamageSources().playerAttack(p), 10000.0F);
 				context.assertTrue(d[0].isDead(), "the devil did not die");
+				// It collapses for 70 ticks before it is gone, not at once.
+				int diedAt = (int) context.getTick();
+				for (int t = 1; t < 140; t++) {
+					int tt = t;
+					context.runAtTick(context.getTick() + t, () -> {
+						if (tt < 65 && d[0].isRemoved()) {
+							context.throwGameTestException("the dead devil was gone after " + tt + " ticks (death time " + d[0].deathTime + ")");
+						}
+					});
+				}
 			});
 			later(context, 140, () -> {
 				context.assertTrue(!h.run.fight && h.away && h.awayUntilDay == Hotel.day(context.getWorld()) + 3, "the hotel does not know the devil is dead");
@@ -959,7 +1029,7 @@ public class HotelGameTests implements FabricGameTest {
 				context.assertTrue(Math.abs(local(h, p).x - 25.6) < 0.05, "the loop was still there after the kill: " + local(h, p));
 				context.assertTrue(h.run.night, "the hotel was dark the instant it died, with no lights dying");
 			});
-			later(context, 260, () -> {
+			later(context, 330, () -> {
 				context.assertTrue(!h.run.night, "the hotel never went dark after the kill");
 				context.assertTrue(at(context, h, 21, 4, 6).get(net.minecraft.block.RedstoneLampBlock.LIT) == false, "a lamp is still lit");
 				tidy(context, h, p);
