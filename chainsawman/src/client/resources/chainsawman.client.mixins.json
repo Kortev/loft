@@ -13,6 +13,9 @@
 		"DreamFogMixin",
 		"DreamSkyMixin",
 		"FirstPersonFormMixin",
+		"ForeverLabelMixin",
+		"ForeverLockedActionMixin",
+		"ForeverLockedLookMixin",
 		"FirstPersonSawMixin",
 		"FormAttackMixin",
 		"FormCameraMixin",
@@ -28,6 +31,7 @@
 		"HeadItemHiddenMixin",
 		"HeldItemRendererInvoker",
 		"HelmetHiddenMixin",
+		"LimbAnimatorAccessor",
 		"HeldStillFovMixin",
 		"MergeLyingMixin",
 		"ModelPartAccessor"

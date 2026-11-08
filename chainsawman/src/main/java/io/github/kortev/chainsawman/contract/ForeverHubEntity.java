@@ -25,6 +25,7 @@ public class ForeverHubEntity extends Entity {
 	private static final TrackedData<Byte> PHASE = DataTracker.registerData(ForeverHubEntity.class, TrackedDataHandlerRegistry.BYTE);
 	private static final TrackedData<Integer> PHASE_AT = DataTracker.registerData(ForeverHubEntity.class, TrackedDataHandlerRegistry.INTEGER);
 	private static final TrackedData<Integer> SEED = DataTracker.registerData(ForeverHubEntity.class, TrackedDataHandlerRegistry.INTEGER);
+	private static final TrackedData<Integer> OWNER = DataTracker.registerData(ForeverHubEntity.class, TrackedDataHandlerRegistry.INTEGER);
 	/** One character for each stored hit: 32 plus its height as a share of the target's height (0 to 90). */
 	private static final TrackedData<String> MARKS = DataTracker.registerData(ForeverHubEntity.class, TrackedDataHandlerRegistry.STRING);
 
@@ -42,10 +43,12 @@ public class ForeverHubEntity extends Entity {
 		builder.add(PHASE, (byte) HELD);
 		builder.add(PHASE_AT, 0);
 		builder.add(SEED, 0);
+		builder.add(OWNER, -1);
 		builder.add(MARKS, "");
 	}
 
-	void begin(int target, int start, int lasts, int seed) {
+	void begin(int target, int owner, int start, int lasts, int seed) {
+		dataTracker.set(OWNER, owner);
 		dataTracker.set(TARGET, target);
 		dataTracker.set(START, start);
 		dataTracker.set(LASTS, lasts);
@@ -67,6 +70,11 @@ public class ForeverHubEntity extends Entity {
 
 	public int targetId() {
 		return dataTracker.get(TARGET);
+	}
+
+	/** The entity id of whoever called it. */
+	public int ownerId() {
+		return dataTracker.get(OWNER);
 	}
 
 	public int startedAt() {

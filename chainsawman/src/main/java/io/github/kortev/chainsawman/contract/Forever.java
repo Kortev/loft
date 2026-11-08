@@ -112,7 +112,7 @@ public final class Forever {
 		final List<ForeverCopyEntity> copies = new ArrayList<>();
 		final List<Hit> hits = new ArrayList<>();
 		final long start;
-		final int lasts;
+		int lasts;
 		final Vec3d at;
 		final float yaw;
 		final float pitch;
@@ -304,6 +304,14 @@ public final class Forever {
 		}
 	}
 
+	/** Makes the moment on {@code target} last {@code ticks} longer (for the tests and for filming). */
+	public static void extend(Entity target, int ticks) {
+		Lock l = target == null ? null : LOCKS.get(target.getUuid());
+		if (l != null) {
+			l.lasts += ticks;
+		}
+	}
+
 	/** Whether {@code lasts} is a boss's moment. */
 	public static boolean boss(LivingEntity target) {
 		return target.getMaxHealth() >= 100.0F || target instanceof WitherEntity || target instanceof EnderDragonEntity || target instanceof WardenEntity;
@@ -332,7 +340,7 @@ public final class Forever {
 		int lasts = boss(target) ? BOSS_LASTS : LASTS;
 		ForeverHubEntity hub = ChainsawMan.FOREVER_HUB.create(world);
 		hub.refreshPositionAndAngles(target.getX(), target.getY(), target.getZ(), target.getYaw(), 0.0F);
-		hub.begin(target.getId(), (int) world.getTime(), lasts, world.getRandom().nextInt());
+		hub.begin(target.getId(), owner.getId(), (int) world.getTime(), lasts, world.getRandom().nextInt());
 		world.spawnEntity(hub);
 		Lock lock = new Lock(owner, target, hub, lasts);
 		makeCopies(lock);
@@ -348,7 +356,7 @@ public final class Forever {
 		target.setVelocity(Vec3d.ZERO);
 		broadcast(world.getServer(), new ForeverLockPayload(target.getId(), true));
 		play(world, target, ChainsawSounds.FOREVER_LOCK, 2.2F);
-		world.spawnParticles(ParticleTypes.LARGE_SMOKE, target.getX(), target.getY() + 0.2, target.getZ(), 24, 1.6, 0.1, 1.6, 0.01);
+		world.spawnParticles(ParticleTypes.SMOKE, target.getX(), target.getY() + 0.1, target.getZ(), 14, 1.8, 0.05, 1.8, 0.01);
 	}
 
 	private static void play(ServerWorld world, Entity at, SoundEvent sound, float volume) {
@@ -429,16 +437,19 @@ public final class Forever {
 			arcsPast[i] = sumP;
 			arcsFuture[i] = sumF;
 		}
-		Vec3d[] pastAt = along(past, arcsPast, behindDir);
-		Vec3d[] futureAt = along(future, arcsFuture, futureDir);
+		boolean[] pastReal = new boolean[SIDE];
+		boolean[] futureReal = new boolean[SIDE];
+		Vec3d[] pastAt = along(past, arcsPast, behindDir, pastReal);
+		Vec3d[] futureAt = along(future, arcsFuture, futureDir, futureReal);
 		for (int i = 0; i < SIDE; i++) {
-			addCopy(lock, pastAt[i], ground, hover, width, height, -(i + 1), stride - 0.9F * (i + 1), speed);
-			addCopy(lock, futureAt[i], ground, hover, width, height, i + 1, stride + 0.9F * (i + 1), speed);
+			// Where it really was (the history) is used as it was, height and all; the rest hangs at its height over the ground.
+			addCopy(lock, pastAt[i], pastReal[i], ground, hover, width, height, -(i + 1), stride - 0.9F * (i + 1), speed);
+			addCopy(lock, futureAt[i], false, ground, hover, width, height, i + 1, stride + 0.9F * (i + 1), speed);
 		}
 	}
 
 	/** Points along the polyline {@code poly} at the arc lengths {@code arcs}, carried on straight along {@code dir} past its end. */
-	private static Vec3d[] along(List<Vec3d> poly, double[] arcs, Vec3d dir) {
+	private static Vec3d[] along(List<Vec3d> poly, double[] arcs, Vec3d dir, boolean[] within) {
 		Vec3d[] out = new Vec3d[arcs.length];
 		for (int k = 0; k < arcs.length; k++) {
 			double left = arcs[k];
@@ -457,6 +468,7 @@ public final class Forever {
 				}
 			}
 			out[k] = found ? at : at.add(dir.multiply(left));
+			within[k] = found;
 		}
 		return out;
 	}
@@ -478,17 +490,23 @@ public final class Forever {
 		return y - 16.0;
 	}
 
-	private static void addCopy(Lock lock, Vec3d at, double refGround, double hover, float width, float height, int slot, float stride, float speed) {
+	private static void addCopy(Lock lock, Vec3d at, boolean real, double refGround, double hover, float width, float height, int slot, float stride, float speed) {
 		ServerWorld world = lock.world;
-		Vec3d spot = standable(world, at.x, at.z, refGround);
-		if (spot == null) {
-			return;
-		}
-		double y = spot.y + hover;
-		if (!fits(world, spot.x, y, spot.z, width, height)) {
-			y = spot.y;
-			if (hover > 0.0 && !fits(world, spot.x, y, spot.z, width, height) || !fits(world, spot.x, y, spot.z, width, height)) {
+		double y;
+		if (real && fits(world, at.x, at.y, at.z, width, height)) {
+			// Where it really was: its own height, in the air if it was in the air.
+			y = at.y;
+		} else {
+			Vec3d spot = standable(world, at.x, at.z, refGround);
+			if (spot == null) {
 				return;
+			}
+			y = spot.y + hover;
+			if (!fits(world, spot.x, y, spot.z, width, height)) {
+				y = spot.y;
+				if (!fits(world, spot.x, y, spot.z, width, height)) {
+					return;
+				}
 			}
 		}
 		ForeverCopyEntity copy = ChainsawMan.FOREVER_COPY.create(world);
@@ -726,10 +744,8 @@ public final class Forever {
 	}
 
 	private static void burst(ServerWorld world, Vec3d at, int hits) {
-		world.spawnParticles(ParticleTypes.FLASH, at.x, at.y, at.z, 1, 0.0, 0.0, 0.0, 0.0);
-		world.spawnParticles(new DustParticleEffect(new Vector3f(0.75F, 0.05F, 0.08F), 2.0F), at.x, at.y, at.z, 40 + hits * 6, 0.9, 0.7, 0.9, 0.1);
+		world.spawnParticles(new DustParticleEffect(new Vector3f(0.75F, 0.05F, 0.08F), 1.0F), at.x, at.y, at.z, 22 + hits * 2, 0.8, 0.6, 0.8, 0.12);
 		world.spawnParticles(ParticleTypes.CRIT, at.x, at.y, at.z, 30, 0.8, 0.7, 0.8, 0.6);
-		world.spawnParticles(ParticleTypes.LARGE_SMOKE, at.x, at.y, at.z, 24, 0.7, 0.6, 0.7, 0.08);
 		world.spawnParticles(ParticleTypes.EXPLOSION, at.x, at.y, at.z, 1, 0.0, 0.0, 0.0, 0.0);
 	}
 
