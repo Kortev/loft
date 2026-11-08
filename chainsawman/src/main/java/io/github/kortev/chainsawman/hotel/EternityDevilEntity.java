@@ -77,6 +77,9 @@ public class EternityDevilEntity extends MobEntity {
 	private int nextAttack = GROW_TICKS + 30;
 	private int begged;
 	private int regenSound;
+	private int attackNo;
+	private static final byte[] ORDER = {HotelPayloads.Devil.BITE, HotelPayloads.Devil.TENDRIL, HotelPayloads.Devil.BITE, HotelPayloads.Devil.CREEP,
+			HotelPayloads.Devil.TENDRIL, HotelPayloads.Devil.BITE};
 	private final List<Pending> pending = new ArrayList<>();
 
 	/** One attack on its way: where (local), what, and when it lands. */
@@ -94,7 +97,7 @@ public class EternityDevilEntity extends MobEntity {
 
 	public static DefaultAttributeContainer.Builder createAttributes() {
 		return MobEntity.createMobAttributes().add(EntityAttributes.GENERIC_MAX_HEALTH, MAX_HEALTH).add(EntityAttributes.GENERIC_KNOCKBACK_RESISTANCE, 1.0)
-				.add(EntityAttributes.GENERIC_MOVEMENT_SPEED, 0.0).add(EntityAttributes.GENERIC_ARMOR, 4.0);
+				.add(EntityAttributes.GENERIC_MOVEMENT_SPEED, 0.0).add(EntityAttributes.GENERIC_ARMOR, 0.0);
 	}
 
 	/** Grows a devil at the end of {@code home}'s corridor; the walls are bleeding already. */
@@ -202,8 +205,6 @@ public class EternityDevilEntity extends MobEntity {
 		boolean hurt = super.damage(source, dealt);
 		if (hurt) {
 			this.lastHurtAge = this.age;
-			// A hit counts at once: the invulnerability a mob has after one is cut short, so the saws' quick bites all land.
-			this.timeUntilRegen = 6;
 			if (this.getWorld() instanceof ServerWorld world) {
 				if (this.age % 3 == 0) {
 					world.playSound(null, this.getX(), this.getY() + 2.0, this.getZ(), ChainsawSounds.DEVIL_HURT, SoundCategory.HOSTILE, 1.0F, heart ? 0.8F : 1.0F);
@@ -307,10 +308,14 @@ public class EternityDevilEntity extends MobEntity {
 		ServerPlayerEntity target = targets.get(this.random.nextInt(targets.size()));
 		Vec3d lp = HotelBuilder.local(origin, rot, target.getPos());
 		double z = Math.max(5.3, Math.min(7.7, lp.z));
-		int roll = this.random.nextInt(100);
-		if (roll < 45) {
+		// A bite, a tendril, a bite, flesh across the floor, a tendril, a bite, and round again (a tendril needs room to be slammed down).
+		byte kind = ORDER[attackNo++ % ORDER.length];
+		if (kind == HotelPayloads.Devil.TENDRIL && lp.x >= LOCAL_X - 4.0) {
+			kind = HotelPayloads.Devil.BITE;
+		}
+		if (kind == HotelPayloads.Devil.BITE) {
 			queue(world, HotelPayloads.Devil.BITE, lp.x, z, BITE_WARN);
-		} else if (roll < 80 && lp.x < LOCAL_X - 4.0) {
+		} else if (kind == HotelPayloads.Devil.TENDRIL) {
 			queue(world, HotelPayloads.Devil.TENDRIL, lp.x, z, TENDRIL_WARN);
 		} else {
 			creep(world, lp.x, z);

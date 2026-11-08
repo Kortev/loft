@@ -505,4 +505,464 @@ public class HotelGameTests implements FabricGameTest {
 			});
 		}
 	}
+
+	// ---- The deal, the fight, the loot and the devil coming back.
+
+	/** A hotel awake at night with {@code name} on its loop floor, at {@code x} along the corridor. */
+	private static ServerPlayerEntity walker(TestContext context, HomeBlockEntity h, String name, double x) {
+		ServerPlayerEntity p = ForeverGameTests.player(context, name);
+		context.getWorld().setTimeOfDay(14000);
+		put(p, h, x, 29.0, 6.5, 90.0F, 0.0F);
+		return p;
+	}
+
+	private static net.minecraft.entity.Entity devilOf(TestContext context, HomeBlockEntity h) {
+		return h.run.devil == null ? null : context.getWorld().getEntity(h.run.devil);
+	}
+
+	private static void tidy(TestContext context, HomeBlockEntity h, ServerPlayerEntity... players) {
+		for (ServerPlayerEntity p : players) {
+			io.github.kortev.chainsawman.contract.Contracts.clear(p);
+			io.github.kortev.chainsawman.form.Heart.take(p);
+		}
+		net.minecraft.entity.Entity d = devilOf(context, h);
+		if (d != null) {
+			d.discard();
+		}
+		leaveHotel(context, h, players);
+		context.getWorld().setTimeOfDay(3000);
+		Hotel.answerTicks = 400;
+		context.getWorld().getGameRules().get(HotelRules.ONE_CONTRACT_PER_DEVIL).set(false, context.getWorld().getServer());
+	}
+
+	/** After three laps the devil speaks and then the offer is out (after its words), once. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_deal_laps", tickLimit = 260)
+	public void theDealIsOfferedAfterThreeLaps(TestContext context) {
+		HomeBlockEntity h = hotel(context, 0, 4);
+		ServerPlayerEntity p = walker(context, h, "three_laps", 20.5);
+		context.runAtTick(25, () -> {
+			context.assertTrue(h.run.deal == null && !h.run.dealt, "an offer was out before anything was walked");
+			h.run.laps.put(p.getUuid(), 2);
+		});
+		context.runAtTick(40, () -> context.assertTrue(h.run.deal == null, "the deal came after two laps"));
+		context.runAtTick(45, () -> h.run.laps.put(p.getUuid(), 3));
+		context.runAtTick(60, () -> {
+			context.assertTrue(h.run.deal != null && !h.run.deal.open, "the devil did not start to speak after three laps");
+			context.assertTrue(h.run.deal.players.contains(p.getUuid()), "the player is not in the offer");
+		});
+		context.runAtTick(220, () -> {
+			context.assertTrue(h.run.deal != null && h.run.deal.open, "the contract was not offered after the devil's words");
+			context.assertTrue(h.run.deal.deadline.get(p.getUuid()) > context.getWorld().getTime(), "no time to answer");
+			context.assertTrue(!h.run.fight, "the fight began before an answer");
+			tidy(context, h, p);
+			context.complete();
+		});
+	}
+
+	/** About a minute on the floor does it too, with no laps. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_deal_time", tickLimit = 100)
+	public void theDealIsOfferedAfterAMinuteOnTheFloor(TestContext context) {
+		HomeBlockEntity h = hotel(context, 0, 5);
+		ServerPlayerEntity p = walker(context, h, "slow_walker", 20.5);
+		context.runAtTick(25, () -> {
+			context.assertTrue(h.run.deal == null, "an offer was out already");
+			h.run.since.put(p.getUuid(), context.getWorld().getTime() - Hotel.FLOOR_TICKS_FOR_DEAL + 8);
+		});
+		context.runAtTick(30, () -> context.assertTrue(h.run.deal == null, "the deal came before the minute was up"));
+		context.runAtTick(60, () -> {
+			context.assertTrue(h.run.deal != null, "the deal did not come after a minute on the floor");
+			tidy(context, h, p);
+			context.complete();
+		});
+	}
+
+	/** Accepting: the contract, the loop opens for them, the devil is away for the respawn days, and an older contract is ended. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_accept", tickLimit = 300)
+	public void acceptingGivesTheContractAndOpensTheLoop(TestContext context) {
+		HomeBlockEntity h = hotel(context, 0, 6);
+		ServerPlayerEntity p = walker(context, h, "acceptor", 20.5);
+		context.runAtTick(25, () -> {
+			// Holding another devil's contract (one this mod does not know yet): it is ended by the new one.
+			p.setAttached(io.github.kortev.chainsawman.contract.Contracts.HELD, "fox");
+			h.run.laps.put(p.getUuid(), 3);
+		});
+		context.runAtTick(215, () -> {
+			context.assertTrue(h.run.deal != null && h.run.deal.open, "no offer to accept");
+			Hotel.answer(p, true);
+			context.assertTrue(io.github.kortev.chainsawman.contract.Contracts.has(p, io.github.kortev.chainsawman.contract.Contract.ETERNITY), "accepting gave no contract");
+			context.assertTrue("eternity".equals(p.getAttachedOrElse(io.github.kortev.chainsawman.contract.Contracts.HELD, "")), "the older contract was not ended");
+			context.assertTrue(h.run.freed.contains(p.getUuid()), "the loop did not open for them");
+			context.assertTrue(p.getUuid().equals(h.holder), "the hotel does not know who holds its contract");
+		});
+		context.runAtTick(220, () -> {
+			context.assertTrue(h.run.deal == null && !h.run.fight, "accepting started a fight");
+			context.assertTrue(h.away && h.awayUntilDay == Hotel.day(context.getWorld()) + 3, "the devil is not away for 3 days after the deal: " + h.awayUntilDay);
+			// They walk out of the end of the corridor and are not put back.
+			put(p, h, 25.6, 29.0, 6.5, 90.0F, 0.0F);
+		});
+		context.runAtTick(226, () -> {
+			context.assertTrue(Math.abs(local(h, p).x - 25.6) < 0.05, "an accepted player was put back: " + local(h, p));
+			tidy(context, h, p);
+			context.complete();
+		});
+	}
+
+	/** A hybrid (Pochita's heart) is refused with a line from the devil, gets no contract, and meets the devil. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_hybrid", tickLimit = 300)
+	public void aHybridIsRefusedAndGetsTheFight(TestContext context) {
+		HomeBlockEntity h = hotel(context, 0, 7);
+		ServerPlayerEntity p = walker(context, h, "hybrid_walker", 20.5);
+		io.github.kortev.chainsawman.form.Heart.give(p);
+		context.runAtTick(25, () -> h.run.laps.put(p.getUuid(), 3));
+		context.runAtTick(215, () -> {
+			context.assertTrue(h.run.deal != null && h.run.deal.open, "no offer for the hybrid to try");
+			Hotel.answer(p, true);
+			context.assertTrue(!io.github.kortev.chainsawman.contract.Contracts.has(p, io.github.kortev.chainsawman.contract.Contract.ETERNITY), "a hybrid got a contract");
+			context.assertTrue(!h.run.freed.contains(p.getUuid()), "a hybrid was let out");
+		});
+		context.runAtTick(225, () -> {
+			context.assertTrue(h.run.fight, "the hybrid did not get the fight");
+			context.assertTrue(devilOf(context, h) instanceof io.github.kortev.chainsawman.hotel.EternityDevilEntity, "no devil grew");
+			context.assertTrue(!h.away, "the devil went away though nobody took the deal");
+			tidy(context, h, p);
+			context.complete();
+		});
+	}
+
+	/** Refusing: the walls bleed and the devil grows out of them at the corridor's end. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_refuse", tickLimit = 360)
+	public void refusingStartsTheFightAndTheWallsBleed(TestContext context) {
+		HomeBlockEntity h = hotel(context, 0, 8);
+		ServerPlayerEntity p = walker(context, h, "refuser", 20.5);
+		context.runAtTick(25, () -> h.run.laps.put(p.getUuid(), 3));
+		context.runAtTick(215, () -> {
+			context.assertTrue(h.run.deal != null && h.run.deal.open, "no offer to refuse");
+			Hotel.answer(p, false);
+		});
+		context.runAtTick(225, () -> {
+			context.assertTrue(h.run.fight, "refusing did not start the fight");
+			net.minecraft.entity.Entity d = devilOf(context, h);
+			context.assertTrue(d instanceof io.github.kortev.chainsawman.hotel.EternityDevilEntity, "no devil grew");
+			Vec3d at = d.getPos();
+			Vec3d lp = HotelBuilder.local(h.origin, h.rot, at);
+			context.assertTrue(Math.abs(lp.x - 34.4) < 0.05 && Math.abs(lp.y - 29.0) < 0.05 && Math.abs(lp.z - 6.5) < 0.05, "the devil is at " + lp + ", not the corridor's end");
+			context.assertTrue(Math.abs(d.getWidth() - 4.6F) < 0.01 && Math.abs(d.getHeight() - 4.0F) < 0.01, "its size is " + d.getWidth() + " x " + d.getHeight());
+			context.assertTrue(!h.away && !h.run.freed.contains(p.getUuid()), "refusing let them out");
+			context.assertTrue(!io.github.kortev.chainsawman.contract.Contracts.has(p, io.github.kortev.chainsawman.contract.Contract.ETERNITY), "refusing gave a contract");
+		});
+		context.runAtTick(310, () -> {
+			// The wallpaper at the corridor's end has bled.
+			int changed = 0;
+			for (int x = 24; x <= 36; x++) {
+				for (int y = 29; y <= 31; y++) {
+					for (int z : new int[] {4, 8}) {
+						if (!HotelPlan.get().at(x, y, z).isAir() && !(HotelPlan.get().at(x, y, z).getBlock() instanceof DoorBlock) && at(context, h, x, y, z) != HotelPlan.get().at(x, y, z)) {
+							changed++;
+						}
+					}
+				}
+			}
+			context.assertTrue(changed >= 10, "only " + changed + " blocks of wall have bled");
+			tidy(context, h, p);
+			context.complete();
+		});
+	}
+
+	/** Not answering within 20 seconds is a refusal. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_silence", tickLimit = 330)
+	public void silenceStartsTheFight(TestContext context) {
+		HomeBlockEntity h = hotel(context, 0, 9);
+		Hotel.answerTicks = 40;
+		ServerPlayerEntity p = walker(context, h, "mute", 20.5);
+		context.runAtTick(25, () -> h.run.laps.put(p.getUuid(), 3));
+		context.runAtTick(190, () -> context.assertTrue(h.run.deal != null && h.run.deal.open && !h.run.fight, "the offer was not waiting, or the fight came early"));
+		context.runAtTick(230, () -> {
+			context.assertTrue(h.run.fight, "silence did not start the fight");
+			context.assertTrue(devilOf(context, h) != null, "no devil grew");
+			tidy(context, h, p);
+			context.complete();
+		});
+	}
+
+	/** With oneContractPerDevil on and a holder who still holds it, the deal is not offered (the fight comes); once they lose it, it is offered again. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_one", tickLimit = 420)
+	public void oneContractPerDevilBlocksASecondDeal(TestContext context) {
+		HomeBlockEntity h = hotel(context, 0, 10);
+		ServerPlayerEntity holder = ForeverGameTests.player(context, "first_holder");
+		ServerPlayerEntity p = walker(context, h, "second_comer", 20.5);
+		context.getWorld().getGameRules().get(HotelRules.ONE_CONTRACT_PER_DEVIL).set(true, context.getWorld().getServer());
+		io.github.kortev.chainsawman.contract.Contracts.grant(holder, io.github.kortev.chainsawman.contract.Contract.ETERNITY);
+		h.holder = holder.getUuid();
+		context.runAtTick(40, () -> {
+			context.assertTrue(Hotel.holderStillHolds(context.getWorld(), h), "the holder does not hold it");
+			h.run.laps.put(p.getUuid(), 3);
+		});
+		context.runAtTick(55, () -> {
+			context.assertTrue(h.run.deal == null && h.run.dealt, "a second deal was offered");
+			context.assertTrue(h.run.fight || h.run.fightAt > 0, "the devil did not turn on the second comer");
+		});
+		context.runAtTick(150, () -> {
+			context.assertTrue(h.run.fight && devilOf(context, h) != null, "no fight");
+			io.github.kortev.chainsawman.contract.Contracts.clear(holder);
+			context.assertTrue(!Hotel.holderStillHolds(context.getWorld(), h) && h.holder == null, "the holder lost it and it is still theirs");
+			ForeverGameTests.leave(context, holder);
+			tidy(context, h, p);
+			context.complete();
+		});
+	}
+
+	/** Two in the loop together: one accepts and is let out, the other refuses and fights. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_two", tickLimit = 300)
+	public void twoInTheLoopAnswerSeparately(TestContext context) {
+		HomeBlockEntity h = hotel(context, 0, 11);
+		ServerPlayerEntity a = walker(context, h, "takes_it", 20.5);
+		ServerPlayerEntity b = walker(context, h, "leaves_it", 22.5);
+		context.runAtTick(25, () -> h.run.laps.put(a.getUuid(), 3));
+		context.runAtTick(215, () -> {
+			context.assertTrue(h.run.deal != null && h.run.deal.open && h.run.deal.players.size() == 2, "both are not in the offer");
+			Hotel.answer(a, true);
+			context.assertTrue(h.run.deal != null && !h.run.fight, "the deal ended before the other answered");
+			Hotel.answer(b, false);
+		});
+		context.runAtTick(225, () -> {
+			context.assertTrue(h.run.fight, "the one who refused did not get the fight");
+			context.assertTrue(h.run.freed.contains(a.getUuid()) && !h.run.freed.contains(b.getUuid()), "the wrong one was let out");
+			context.assertTrue(io.github.kortev.chainsawman.contract.Contracts.has(a, io.github.kortev.chainsawman.contract.Contract.ETERNITY)
+					&& !io.github.kortev.chainsawman.contract.Contracts.has(b, io.github.kortev.chainsawman.contract.Contract.ETERNITY), "the contract went to the wrong one");
+			context.assertTrue(h.away, "the devil is not away after one took the deal");
+			tidy(context, h, a, b);
+			context.complete();
+		});
+	}
+
+	// ---- The devil.
+
+	private static io.github.kortev.chainsawman.hotel.EternityDevilEntity fightAt(TestContext context, HomeBlockEntity h) {
+		Hotel.startFight(context.getWorld(), h, context.getWorld().getTime());
+		return (io.github.kortev.chainsawman.hotel.EternityDevilEntity) devilOf(context, h);
+	}
+
+	/** It cannot be hurt while it grows; then it fights: mouths and tendrils hurt, flesh creeps; the heart is hidden. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_devil", tickLimit = 520)
+	public void theDevilGrowsOutOfTheWallsAndFightsBack(TestContext context) {
+		HomeBlockEntity h = hotel(context, 0, 12);
+		ServerPlayerEntity p = walker(context, h, "fighter", 24.0);
+		p.getAttributeInstance(net.minecraft.entity.attribute.EntityAttributes.GENERIC_MAX_HEALTH).setBaseValue(2000.0);
+		p.setHealth(2000.0F);
+		io.github.kortev.chainsawman.hotel.EternityDevilEntity[] d = new io.github.kortev.chainsawman.hotel.EternityDevilEntity[1];
+		int[] patches = {0};
+		context.runAtTick(40, () -> {
+			d[0] = fightAt(context, h);
+			context.assertTrue(d[0] != null && d[0].getHealth() == 300.0F && d[0].getMaxHealth() == 300.0F, "the devil does not have 300 health");
+			context.assertTrue(!d[0].damage(p.getDamageSources().playerAttack(p), 50.0F), "it was hurt while it grew");
+			context.assertTrue(!d[0].heartOut(), "its heart shows from the start");
+		});
+		for (int t = 45; t < 460; t++) {
+			context.runAtTick(t, () -> patches[0] = Math.max(patches[0], context.getWorld().getEntitiesByType(io.github.kortev.chainsawman.ChainsawMan.FLESH_PATCH, e -> true).size()));
+		}
+		context.runAtTick(140, () -> {
+			context.assertTrue(!d[0].growing(), "it is still growing");
+			context.assertTrue(d[0].damage(p.getDamageSources().playerAttack(p), 10.0F), "it could not be hurt once grown");
+			context.assertTrue(d[0].getHealth() == 290.0F, "a hit of 10 left it at " + d[0].getHealth());
+		});
+		context.runAtTick(470, () -> {
+			context.assertTrue(p.getHealth() < 2000.0F, "the devil never hurt someone standing in its corridor");
+			context.assertTrue(patches[0] > 0, "flesh never crept across the floor");
+			tidy(context, h, p);
+			context.complete();
+		});
+	}
+
+	/** It regenerates while it is not hit, and is held back while it is. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_regen", tickLimit = 420)
+	public void theDevilRegeneratesWhenNotHit(TestContext context) {
+		HomeBlockEntity h = hotel(context, 0, 13);
+		ServerPlayerEntity p = walker(context, h, "slasher", 14.0);
+		io.github.kortev.chainsawman.hotel.EternityDevilEntity[] d = new io.github.kortev.chainsawman.hotel.EternityDevilEntity[1];
+		float[] mark = new float[2];
+		context.runAtTick(40, () -> {
+			d[0] = fightAt(context, h);
+			p.getAttributeInstance(net.minecraft.entity.attribute.EntityAttributes.GENERIC_MAX_HEALTH).setBaseValue(2000.0);
+			p.setHealth(2000.0F);
+		});
+		context.runAtTick(130, () -> {
+			d[0].setHealth(200.0F);
+			mark[0] = 200.0F;
+		});
+		context.runAtTick(220, () -> {
+			context.assertTrue(d[0].getHealth() > 200.0F + 10.0F, "it did not regenerate: " + d[0].getHealth());
+			// Hit it: no regeneration for a few seconds.
+			d[0].damage(p.getDamageSources().playerAttack(p), 20.0F);
+			mark[1] = d[0].getHealth();
+		});
+		context.runAtTick(260, () -> context.assertTrue(d[0].getHealth() <= mark[1] + 0.01F, "it regenerated within " + 40 + " ticks of being hit: " + d[0].getHealth() + " from " + mark[1]));
+		context.runAtTick(360, () -> {
+			context.assertTrue(d[0].getHealth() > mark[1] + 5.0F, "it did not start again after a few seconds: " + d[0].getHealth() + " from " + mark[1]);
+			tidy(context, h, p);
+			context.complete();
+		});
+	}
+
+	/** Cut enough away and the heart shows; a hit looking at it does three times as much, a hit looking elsewhere the usual. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_heart", tickLimit = 300)
+	public void theHeartShowsWhenCutAwayAndTakesMore(TestContext context) {
+		HomeBlockEntity h = hotel(context, 0, 14);
+		ServerPlayerEntity p = walker(context, h, "heart_hunter", 26.0);
+		io.github.kortev.chainsawman.hotel.EternityDevilEntity[] d = new io.github.kortev.chainsawman.hotel.EternityDevilEntity[1];
+		context.runAtTick(40, () -> {
+			d[0] = fightAt(context, h);
+			p.getAttributeInstance(net.minecraft.entity.attribute.EntityAttributes.GENERIC_MAX_HEALTH).setBaseValue(5000.0);
+			p.setHealth(5000.0F);
+		});
+		context.runAtTick(130, () -> {
+			context.assertTrue(!d[0].heartOut(), "the heart shows at full health");
+			d[0].setHealth(300.0F * 0.5F);
+			d[0].timeUntilRegen = 0;
+		});
+		context.runAtTick(134, () -> {
+			context.assertTrue(d[0].heartOut(), "the heart does not show with half the devil gone");
+			// Look straight at it from the corridor.
+			Vec3d eye = p.getEyePos();
+			Vec3d to = d[0].heartAt().subtract(eye);
+			float yaw = (float) Math.toDegrees(Math.atan2(-to.x, to.z));
+			p.updatePositionAndAngles(p.getX(), p.getY(), p.getZ(), yaw, (float) -Math.toDegrees(Math.atan2(to.y, Math.hypot(to.x, to.z))));
+			p.setHeadYaw(yaw);
+			float before = d[0].getHealth();
+			d[0].timeUntilRegen = 0;
+			d[0].damage(p.getDamageSources().playerAttack(p), 4.0F);
+			context.assertTrue(Math.abs(before - d[0].getHealth() - 12.0F) < 0.01F, "a hit on the heart did " + (before - d[0].getHealth()) + ", not 12 (heart at " + d[0].heartAt() + ", eye " + p.getEyePos() + ", look " + p.getRotationVec(1.0F) + ", out " + d[0].heartOut() + ")");
+			// Look at the floor.
+			p.updatePositionAndAngles(p.getX(), p.getY(), p.getZ(), p.getYaw(), 80.0F);
+			p.setHeadYaw(p.getYaw());
+			before = d[0].getHealth();
+			d[0].timeUntilRegen = 0;
+			d[0].damage(p.getDamageSources().playerAttack(p), 4.0F);
+			context.assertTrue(Math.abs(before - d[0].getHealth() - 4.0F) < 0.01F, "a hit elsewhere did " + (before - d[0].getHealth()) + ", not 4");
+			d[0].setHealth(300.0F);
+		});
+		context.runAtTick(140, () -> {
+			context.assertTrue(!d[0].heartOut(), "the heart stayed out after the flesh grew back");
+			tidy(context, h, p);
+			context.complete();
+		});
+	}
+
+	/** Killing it: it drops its flesh and blood, the loop breaks (and nobody gets a contract), the flesh and bleeding go, the lights die, and the devil is away for the respawn days. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_kill", tickLimit = 420)
+	public void killingTheDevilBreaksTheLoopAndDropsLoot(TestContext context) {
+		HomeBlockEntity h = hotel(context, 0, 15);
+		ServerPlayerEntity p = walker(context, h, "slayer", 20.5);
+		io.github.kortev.chainsawman.hotel.EternityDevilEntity[] d = new io.github.kortev.chainsawman.hotel.EternityDevilEntity[1];
+		context.runAtTick(40, () -> {
+			h.run.laps.put(p.getUuid(), 2);
+			d[0] = fightAt(context, h);
+		});
+		context.runAtTick(170, () -> {
+			context.assertTrue(h.run.fight, "no fight to win");
+			int bled = 0;
+			for (int x = 24; x <= 36; x++) {
+				for (int y = 29; y <= 31; y++) {
+					bled += !HotelPlan.get().at(x, y, 8).isAir() && !(HotelPlan.get().at(x, y, 8).getBlock() instanceof DoorBlock) && at(context, h, x, y, 8) != HotelPlan.get().at(x, y, 8) ? 1 : 0;
+				}
+			}
+			context.assertTrue(bled >= 5, "only " + bled + " blocks bled");
+			d[0].damage(p.getDamageSources().playerAttack(p), 10000.0F);
+			context.assertTrue(d[0].isDead(), "the devil did not die");
+		});
+		context.runAtTick(180, () -> {
+			context.assertTrue(!h.run.fight && h.away && h.awayUntilDay == Hotel.day(context.getWorld()) + 3, "the hotel does not know the devil is dead");
+			int flesh = 0;
+			int blood = 0;
+			for (net.minecraft.entity.ItemEntity e : context.getWorld().getEntitiesByType(net.minecraft.entity.EntityType.ITEM, e -> e.getStack().getItem() == io.github.kortev.chainsawman.ChainsawMan.ETERNITY_FLESH
+					|| e.getStack().getItem() == io.github.kortev.chainsawman.ChainsawMan.ETERNITY_BLOOD)) {
+				if (HotelBuilder.local(h.origin, h.rot, e.getPos()).y > 20.0) {
+					if (e.getStack().getItem() == io.github.kortev.chainsawman.ChainsawMan.ETERNITY_FLESH) {
+						flesh += e.getStack().getCount();
+					} else {
+						blood += e.getStack().getCount();
+					}
+				}
+			}
+			context.assertTrue(flesh == Hotel.FLESH_DROP && blood == Hotel.BLOOD_DROP, "the loot is " + flesh + " flesh and " + blood + " blood");
+			context.assertTrue(!io.github.kortev.chainsawman.contract.Contracts.has(p, io.github.kortev.chainsawman.contract.Contract.ETERNITY), "killing it gave a contract");
+			// The walls are plain again and the loop is gone: walking off the end is walking off the end.
+			context.assertTrue(at(context, h, 30, 30, 8) == HotelPlan.get().at(30, 30, 8), "the walls still bleed");
+			put(p, h, 25.6, 29.0, 6.5, 90.0F, 0.0F);
+		});
+		context.runAtTick(186, () -> {
+			context.assertTrue(Math.abs(local(h, p).x - 25.6) < 0.05, "the loop was still there after the kill: " + local(h, p));
+			context.assertTrue(h.run.night, "the hotel was dark the instant it died, with no lights dying");
+		});
+		context.runAtTick(300, () -> {
+			context.assertTrue(!h.run.night, "the hotel never went dark after the kill");
+			context.assertTrue(at(context, h, 21, 4, 6).get(net.minecraft.block.RedstoneLampBlock.LIT) == false, "a lamp is still lit");
+			tidy(context, h, p);
+			context.complete();
+		});
+	}
+
+	/** Eternity flesh restores a lot of hunger and makes you sick; Eternity blood fills Chainsaw Man's blood bar. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_loot", tickLimit = 120)
+	public void eternityFleshAndBlood(TestContext context) {
+		ServerPlayerEntity p = ForeverGameTests.player(context, "eater");
+		try {
+			net.minecraft.item.ItemStack flesh = new net.minecraft.item.ItemStack(io.github.kortev.chainsawman.ChainsawMan.ETERNITY_FLESH);
+			net.minecraft.component.type.FoodComponent food = flesh.get(net.minecraft.component.DataComponentTypes.FOOD);
+			context.assertTrue(food != null && food.nutrition() >= 8, "the flesh is not a lot of food");
+			p.getHungerManager().setFoodLevel(2);
+			p.getHungerManager().setSaturationLevel(0.0F);
+			p.eatFood(context.getWorld(), flesh.copy(), food);
+			context.assertTrue(p.getHungerManager().getFoodLevel() >= 12, "eating it gave only " + p.getHungerManager().getFoodLevel() + " hunger");
+			context.assertTrue(p.hasStatusEffect(net.minecraft.entity.effect.StatusEffects.NAUSEA), "eating it did not make you sick");
+			io.github.kortev.chainsawman.form.Blood.set(p, 7);
+			net.minecraft.item.ItemStack blood = new net.minecraft.item.ItemStack(io.github.kortev.chainsawman.ChainsawMan.ETERNITY_BLOOD);
+			context.assertTrue(blood.getUseAction() == net.minecraft.util.UseAction.DRINK, "the blood is not drunk");
+			net.minecraft.item.ItemStack left = blood.finishUsing(context.getWorld(), p);
+			context.assertTrue(io.github.kortev.chainsawman.form.Blood.get(p) == io.github.kortev.chainsawman.form.Blood.MAX, "drinking it left the blood at " + io.github.kortev.chainsawman.form.Blood.get(p));
+			context.assertTrue(left.getItem() == net.minecraft.item.Items.GLASS_BOTTLE || left.isEmpty(), "the bottle is not given back");
+		} finally {
+			ForeverGameTests.leave(context, p);
+		}
+		context.complete();
+	}
+
+	/** The devil is back after devilRespawnDays: the hotel stays dark while it is away, wakes when it is back, and each hotel's devil is its own. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_back", tickLimit = 440)
+	public void theDevilComesBackAfterTheRespawnDays(TestContext context) {
+		HomeBlockEntity h = hotel(context, 0, 16);
+		HomeBlockEntity other = hotel(context, 2, 17);
+		ServerWorld world = context.getWorld();
+		ServerPlayerEntity p = walker(context, h, "returner", 20.5);
+		ServerPlayerEntity q = walker(context, other, "elsewhere", 20.5);
+		long[] day = new long[1];
+		context.runAtTick(40, () -> {
+			context.assertTrue(h.run.night && other.run.night, "the hotels are not awake");
+			day[0] = Hotel.day(world);
+			io.github.kortev.chainsawman.hotel.EternityDevilEntity d = fightAt(context, h);
+			context.assertTrue(d != null, "no devil");
+		});
+		context.runAtTick(140, () -> {
+			io.github.kortev.chainsawman.hotel.EternityDevilEntity d = (io.github.kortev.chainsawman.hotel.EternityDevilEntity) devilOf(context, h);
+			d.damage(p.getDamageSources().playerAttack(p), 10000.0F);
+		});
+		context.runAtTick(150, () -> {
+			context.assertTrue(h.away && h.awayUntilDay == day[0] + 3, "the dead devil is not away for 3 days");
+			context.assertTrue(!other.away, "another hotel's devil went away with it");
+			// Two days on, at night: still away, and the hotel does not wake.
+			world.setTimeOfDay((day[0] + 2) * 24000L + 14000L);
+		});
+		context.runAtTick(320, () -> {
+			context.assertTrue(h.away && !h.run.night, "the devil came back early (or the hotel woke while it was away)");
+			// The third day at night: it is back, and the hotel wakes.
+			world.setTimeOfDay((day[0] + 3) * 24000L + 14000L);
+		});
+		context.runAtTick(360, () -> {
+			context.assertTrue(!h.away, "the devil did not come back after 3 days");
+			context.assertTrue(h.run.night, "the hotel did not wake with its devil back");
+			tidy(context, h, p);
+			forced(context, other.origin, false);
+			ForeverGameTests.leave(context, q);
+			context.complete();
+		});
+	}
 }

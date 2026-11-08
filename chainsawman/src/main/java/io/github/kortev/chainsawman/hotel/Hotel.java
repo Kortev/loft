@@ -588,7 +588,10 @@ public final class Hotel {
 		}
 		net.minecraft.entity.Entity e = r.devil == null ? null : world.getEntity(r.devil);
 		if (!(e instanceof EternityDevilEntity devil) || devil.isRemoved()) {
-			endFight(world, h, null);
+			// (Not found in the first moments: its chunk may still be coming.)
+			if (now - r.fightAt > 60) {
+				endFight(world, h, null);
+			}
 			return;
 		}
 		if (devil.isDead()) {
