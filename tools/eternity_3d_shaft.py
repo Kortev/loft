@@ -27,6 +27,32 @@ def polar(px, pz):
     return rho, th
 
 
+ZONE = 0.55          # the clear ring round the mouth's ragged outline: no arms, heads, ropes or teeth inside it
+
+
+def zone_overlap(pts, margin, ymin=0.9, ymax=99.0):
+    """How far (blocks) the worst of these points is inside the clear zone (<= 0: all clear). Only points with ymin < y < ymax count."""
+    worst = -9.0
+    for p in pts:
+        if p[1] < ymin or p[1] > ymax:
+            continue
+        rho, th = polar(float(p[0]), float(p[2]))
+        worst = max(worst, float(hole_r(np.array(th))) + margin - rho)
+    return worst
+
+
+def grid_overlap(g, margin, ymin=0.9):
+    idx = np.argwhere(g.solid)
+    if not len(idx):
+        return -9.0
+    c = g.lo + (idx + 0.5) * g.scale
+    c = c[c[:, 1] > ymin]
+    if not len(c):
+        return -9.0
+    rho, th = polar(c[:, 0], c[:, 2])
+    return float(np.max(hole_r(th) + margin - rho))
+
+
 def mass_height(noise, x, z):
     return 1.02 + 0.22 * (noise.fbm(x, 0 * x, z, 0.9) - 0.5) * 2
 
@@ -57,7 +83,13 @@ def mass_fn(noise, lumps, ropes, eyes):
         layers.append(('flesh', d))
         layers.append(('inner', np.maximum(d, np.maximum(carve - 0.12, py - 1.05))))     # the pit's walls
         layers.append(('inner', np.maximum(d, np.maximum(py - 0.45, rho - (rh + 0.2)))))        # the pit's floor: black
-        layers.append(('glow', np.maximum(d, np.maximum(py - 0.3, rho - (0.28 * rh + 0.04)))))   # far below: a dim red, deep inside
+        # far below: a soft dim red light, graded in depth and radius (nested layers, falling emit 0.1..0.45): a faint glow, not a patch
+        reg = np.minimum(np.maximum(d, np.maximum(carve - 0.12, py - 1.05)), np.maximum(d, np.maximum(py - 0.45, rho - (rh + 0.2))))
+        dep = np.clip((1.05 - py) / 0.85, 0, 1)
+        u = np.clip(rho / (rh + 0.2), 0, 1)
+        gl = dep ** 2.0 * (1 - u) ** 1.6
+        for lv, thr in enumerate((0.12, 0.26, 0.44, 0.66)):
+            layers.append(('glow%d' % (lv + 1), np.maximum(reg, thr - gl)))
         for c, sk in zip(eyes, sock):
             layers.append(('inner', np.maximum(d, sk - 0.05)))
             layers.append(('redeye', sphere(px, py, pz, (c[0], c[1] - 0.035, c[2]), 0.075)))
@@ -81,8 +113,8 @@ def build_mass(rng, noise):
     ropes = []
     for i in range(7):                      # draped ropes of flesh over the mass
         a = rng.uniform(0, 2 * math.pi)
-        r0 = rng.uniform(0.8, 1.0)
-        r1 = rng.uniform(1.5, 2.1)
+        r0 = max(rng.uniform(0.8, 1.0), float(hole_r(np.array(a))) + ZONE + 0.1)
+        r1 = max(rng.uniform(1.5, 2.1), r0 + 0.5)
         da = rng.uniform(-0.8, 0.8)
         pts = []
         for k in range(8):
@@ -140,6 +172,32 @@ def arm_spec(rng, ring, tall, thick=1.0, hand=1.0, reach_in=0.0, bend=None):
     return dict(root=root, E=E, W=Wr, fwd=fwd, nrm=nrm, thick=thick, hand=hand, out=out, tang=tang, a=a, h=h)
 
 
+def arm_pts(sp):
+    f = sp['fwd'] / np.linalg.norm(sp['fwd'])
+    return [sp['E'], sp['W'], sp['W'] + f * 0.5 * sp['hand'], sp['W'] + f * 1.0 * sp['hand']]
+
+
+def fit_arm(rng, a, rr, high_ok=None, margin=None, **kw):
+    """An arm_spec whose arm and hand stay out of the clear ring round the mouth (the root is pushed outward until they do).
+    high_ok: above this height only a smaller margin is asked (a hand may lean over the mouth from beyond the ring)."""
+    margin = ZONE + 0.05 if margin is None else margin
+    kw = dict(kw)
+    sp = None
+    for it in range(14):
+        x, z = rr * math.cos(a), rr * math.sin(a)
+        sp = arm_spec(rng, (a, rr), **kw)
+        pts = arm_pts(sp)
+        if high_ok is None:
+            ov = zone_overlap(pts, margin)
+        else:
+            ov = max(zone_overlap(pts, margin, 0.9, high_ok), zone_overlap(pts, margin - 0.3, high_ok, 99.0))
+        if ov <= 0:
+            return sp
+        rr = min(rr + max(ov, 0.08), 1.95)
+        kw['reach_in'] = min(kw.get('reach_in', 0.0), 0.0) - 0.15
+    return sp
+
+
 def build_arm_part(name, sp, noise, scale=S16, spread=None, curl=None):
     pts = [sp['root'], sp['E'], sp['W'], sp['W'] + sp['fwd'] / np.linalg.norm(sp['fwd']) * 1.0 * sp['hand']]
     lo, hi = A.arm_bounds(pts, 0.35)
@@ -151,16 +209,16 @@ def build_arm_part(name, sp, noise, scale=S16, spread=None, curl=None):
     return K.voxelize(name, lo, hi, scale, fn, paint(base=0.66, ramp=COOL if sp['a'] % 2 < 1 else FLESH), noise, keep_specks=True)
 
 
-def build_fused_arms(rng, noise, n=30):
+def build_fused_arms(rng, noise, n=24):
     """Static: many arms and hands fused into the mass, crowding the lip (1/16 block)."""
     specs = []
     for i in range(n):
         a = rng.uniform(0, 2 * math.pi)
         rr = rng.uniform(0.85, 1.9)
         rh = float(hole_r(np.array(a)))
-        rr = max(rr, rh + 0.5)
-        specs.append(arm_spec(rng, (a, rr), tall=rng.uniform(0.55, 0.95), thick=rng.uniform(0.85, 1.1), hand=rng.uniform(0.9, 1.2),
-                              reach_in=rng.uniform(-0.3, 0.6)))
+        rr = max(rr, rh + ZONE + 0.1)
+        specs.append(fit_arm(rng, a, rr, tall=rng.uniform(0.55, 0.9), thick=rng.uniform(0.8, 1.0), hand=rng.uniform(0.9, 1.15),
+                             reach_in=rng.uniform(-0.5, 0.2)))
 
     def fn(px, py, pz):
         d = None
@@ -192,18 +250,19 @@ def build_head_pair(name, c, size, ang, rng, noise, eyes='hollow', open_deg=38):
     lo, hi = A.head_bounds(F)
     sp = {'sclera': lambda c_, m: (K.pick(K.SCLERA, 0.8, None), 0.0)}
     ramp = COOL if rng.random() < 0.7 else FLESH
-    hg = K.voxelize(name, lo, hi, S16, hf, lambda cx: K.standard_paint(cx, ramp=ramp, base=0.72, special=sp), noise, keep_specks=False)
-    jg = K.voxelize(name + '_jaw', lo, hi, S16, jf, lambda cx: K.standard_paint(cx, ramp=ramp, base=0.72), noise, keep_specks=False)
+    hg = K.voxelize(name, lo, hi, S16, hf, A.head_paint(F, ramp, base=0.62, special=sp), noise, keep_specks=False)
+    jg = K.voxelize(name + '_jaw', lo, hi, S16, jf, A.head_paint(F, ramp, base=0.62), noise, keep_specks=False)
     return hg, jg, F
 
 
 # ---------------------------------------------------------------- the lip and its teeth
 
 def lip_fn(rng, noise):
-    t_ang = [0.5, 0.7, 0.95, 2.6, 2.85, 3.0, 4.4, 4.7, 5.6, 5.8, 1.7, 3.8]
+    # a few small broken teeth, kept out of the clear ring: they stand at its outer edge, tipped away from the mouth
+    t_ang = [0.5, 2.7, 3.0, 4.5, 5.7]
     tooth = []
     for a in t_ang:
-        tooth.append((a + rng.uniform(-0.05, 0.05), rng.uniform(0.07, 0.11), rng.uniform(0.07, 0.17), rng.uniform(-8, 8)))
+        tooth.append((a + rng.uniform(-0.05, 0.05), rng.uniform(0.06, 0.09), rng.uniform(0.05, 0.1), rng.uniform(-8, 8)))
 
     def fn(px, py, pz):
         rho, th = polar(px, pz)
@@ -216,12 +275,13 @@ def lip_fn(rng, noise):
         # the mouth side of the lip is dark, wet
         layers.append(('inner', np.maximum(d, rho - (rh + 0.05))))
         for (a, w, h, tilt) in tooth:
-            rt = float(hole_r(np.array(a))) + 0.02
+            rt = float(hole_r(np.array(a))) + ZONE + 0.02
             cx, cz = rt * math.cos(a), rt * math.sin(a)
-            F = K.Frame((cx, yc + 0.06, cz), K.facing((math.cos(a), 0, math.sin(a))), 1.0)
+            yb = float(mass_height(noise, cx, cz)) - 0.02
+            F = K.Frame((cx, yb, cz), K.facing((math.cos(a), 0, math.sin(a))), 1.0)
             lx, ly, lz = F.to_local(px, py, pz)
-            # a tooth is a box standing up, tipped inward; some are snapped short
-            ct, st = math.cos(math.radians(30 + tilt)), math.sin(math.radians(30 + tilt))
+            # a tooth is a box standing up, tipped outward; some are snapped short
+            ct, st = math.cos(math.radians(-25 + tilt)), math.sin(math.radians(-25 + tilt))
             qx, qy = lx * ct - ly * st, lx * st + ly * ct
             dt = box(qx, qy, lz, (0, h * 0.5, 0), (0.045, h * 0.5, w * 0.5), 0.0)
             layers.append(('tooth', dt))
@@ -231,7 +291,7 @@ def lip_fn(rng, noise):
 
 def build_lip(rng, noise):
     fn = lip_fn(rng, noise)
-    return K.voxelize('lip', (-1.5, 0.8, -1.5), (1.5, 1.7, 1.5), S16, fn, paint(base=0.55), noise, keep_specks=False)
+    return K.voxelize('lip', (-2.0, 0.8, -2.0), (2.0, 1.7, 2.0), S16, fn, paint(base=0.55), noise, keep_specks=False)
 
 
 # ---------------------------------------------------------------- grab arms: root, tiling segment, hand
@@ -292,13 +352,14 @@ def build(seed=7):
     m.add(lip, pivot=(0, 1.18, 0), anim=dict(kind='scale', axis=[0, 1, 0], amp=0.1, period=70, phase=0.0), kind='lip',
           note='the fleshy lip ring with its broken teeth: scale on the XZ plane about the pivot to flex open and shut')
     # hero arms (animated), between the heads
-    ring = [(0.2 + k * 0.61 + rng.uniform(-0.1, 0.1), rng.uniform(1.0, 1.8)) for k in range(10)]
+    ring = [(0.2 + k * 0.7 + rng.uniform(-0.1, 0.1), rng.uniform(1.0, 1.8)) for k in range(9)]
     ring += [(math.pi / 4 + k * math.pi / 2, 2.1) for k in range(4)]
     arm_i = 0
     for (a, rr) in ring:
-        rr = max(rr, float(hole_r(np.array(a))) + 0.45)
+        rr = max(rr, float(hole_r(np.array(a))) + ZONE + 0.15)
         tall = rng.uniform(1.9, 2.7) if rr < 2.0 else rng.uniform(2.2, 2.9)
-        sp = arm_spec(rng, (a, rr), tall=tall, thick=rng.uniform(0.8, 0.95), hand=rng.uniform(1.45, 1.8), reach_in=rng.uniform(-0.8, 0.3))
+        sp = fit_arm(rng, a, rr, high_ok=2.0, margin=ZONE + 0.1, tall=tall, thick=rng.uniform(0.8, 0.95), hand=rng.uniform(1.45, 1.8),
+                     reach_in=rng.uniform(-0.8, 0.0))
         g = build_arm_part('arm_%02d' % arm_i, sp, noise, spread=rng.uniform(1.2, 1.6), curl=(rng.uniform(3, 8), rng.uniform(6, 12), 8))
         axis = np.cross([0, 1, 0], sp['out'])
         m.add(g, pivot=sp['root'], anim=dict(kind='sway', axis=[round(float(v), 3) for v in axis], axis2=[0, 1, 0],
@@ -307,6 +368,10 @@ def build(seed=7):
         arm_i += 1
     # grab arms
     for k, (a, rr) in enumerate([(0.8, 1.35), (2.4, 1.3), (3.95, 1.4), (5.4, 1.35)]):
+        # keep each one beyond the clear ring: slide the angle to where the mouth's outline is narrowest, then the radius out
+        best = min((float(hole_r(np.array(a + dd))), dd) for dd in np.linspace(-0.5, 0.5, 21))
+        a = a + best[1]
+        rr = min(max(rr, best[0] + ZONE + 0.1), 1.62)
         rg, hg, root, top = build_grab(rng, noise, k, a, rr)
         m.add(rg, pivot=root, anim=dict(kind='sway', axis=[1, 0, 0], axis2=[0, 0, 1], amp=3.0, period=90, phase=0.25 * k), kind='grab_root')
         m.add(hg, pivot=top, anim=dict(kind='reach', axis=[0, 1, 0], amp=0.0, period=60, phase=0), kind='grab_hand',
@@ -320,11 +385,18 @@ def build(seed=7):
     for hi_, (a, rr, size) in enumerate([(0.1, 1.05, 1.25), (1.1, 1.25, 1.05), (1.85, 1.1, 1.2), (2.9, 1.2, 1.05), (3.5, 1.05, 1.25),
                                          (4.35, 1.2, 1.1), (5.1, 1.1, 1.2), (5.9, 1.3, 1.0), (2.2, 1.85, 1.0), (4.8, 1.9, 1.0)]):
         rh = float(hole_r(np.array(a)))
-        rr = rh + 0.5
-        x, z = rr * math.cos(a), rr * math.sin(a)
-        c = np.array([np.clip(x, -1.3, 1.3), 1.0 + size * 0.38, np.clip(z, -1.3, 1.3)])
-        hg, jg, F = build_head_pair('head_%d' % hi_, c, size, a, rng, noise, eyes='red' if hi_ % 3 == 0 else 'hollow',
-                                    open_deg=float(rng.uniform(34, 46)))
+        rr = rh + ZONE + 0.45 * size
+        seed_h = int(rng.integers(0, 10 ** 6))
+        for it in range(6):                 # push the skull outward until none of it is inside the clear ring (the face tips out over it)
+            x, z = rr * math.cos(a), rr * math.sin(a)
+            c = np.array([np.clip(x, -1.45, 1.45), 1.0 + size * 0.38, np.clip(z, -1.45, 1.45)])
+            hrng = np.random.default_rng(seed_h)
+            hg, jg, F = build_head_pair('head_%d' % hi_, c, size, a, hrng, noise, eyes='red' if hi_ % 3 == 0 else 'hollow',
+                                        open_deg=float(hrng.uniform(34, 46)))
+            ov = max(grid_overlap(hg, ZONE - 0.05), grid_overlap(jg, ZONE - 0.05))
+            if ov <= 0:
+                break
+            rr += max(ov, 0.06)
         m.add(hg, pivot=c, anim=dict(kind='sway', axis=[round(float(v), 3) for v in np.cross([0, 1, 0], [math.cos(a), 0, math.sin(a)])],
                                       axis2=[0, 1, 0], amp=5.0, period=int(rng.integers(60, 110)), phase=round(float(rng.random()), 2)),
               kind='head')
@@ -334,13 +406,19 @@ def build(seed=7):
                                       period=int(rng.integers(50, 90)), phase=round(float(rng.random()), 2)),
               kind='jaw', head=hi_, note='baked open; a positive angle about the axis closes it')
     # swaying ropes
-    for k in range(5):
+    for k in range(4):
         a = rng.uniform(0, 2 * math.pi)
         rr = rng.uniform(1.2, 1.7)
-        x, z = np.clip(rr * math.cos(a), -1.5, 1.5), np.clip(rr * math.sin(a), -1.5, 1.5)
-        p0 = np.array([x, 1.0, z])
-        p2 = p0 + np.array([rng.uniform(-0.5, 0.5), rng.uniform(1.4, 2.2), rng.uniform(-0.5, 0.5)])
-        p1 = p0 + (p2 - p0) * 0.5 + np.array([rng.uniform(-0.4, 0.4), 0, rng.uniform(-0.4, 0.4)])
+        rr = max(rr, float(hole_r(np.array(a))) + ZONE + 0.15)
+        for it in range(10):
+            x, z = np.clip(rr * math.cos(a), -1.55, 1.55), np.clip(rr * math.sin(a), -1.55, 1.55)
+            p0 = np.array([x, 1.0, z])
+            p2 = p0 + np.array([rng.uniform(-0.5, 0.5), rng.uniform(1.4, 2.0), rng.uniform(-0.5, 0.5)])
+            p1 = p0 + (p2 - p0) * 0.5 + np.array([rng.uniform(-0.4, 0.4), 0, rng.uniform(-0.4, 0.4)])
+            ov = zone_overlap([p0, p1, p2], ZONE + 0.1)
+            if ov <= 0:
+                break
+            rr = min(rr + max(ov, 0.1), 1.9)
         pts = K.curve(p0, p1, p2, 10)
 
         def rfn(px, py, pz, pts=pts):

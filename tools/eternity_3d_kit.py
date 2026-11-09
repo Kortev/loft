@@ -284,6 +284,13 @@ def standard_paint(ctx, ramp=FLESH, base=0.55, vein=0.012, noise_f=3.0, special=
         elif m == 'redeye':
             col = np.where(mask[..., None], RED_EYE, col)
             em = np.where(mask, 0.9, em)
+        elif m.startswith('glow') and m[4:].isdigit():
+            # graded dim red glow deep in a pit: glow1 (near black, faint) .. glow4 (dim dark red); never bright
+            lv = int(m[4:]) - 1
+            gc = [hx('#0c0304'), hx('#1c0507'), hx('#2e0809'), hx('#481012')][min(lv, 3)]
+            ge = [0.10, 0.20, 0.32, 0.45][min(lv, 3)]
+            col = np.where(mask[..., None], gc, col)
+            em = np.where(mask, ge, em)
         elif m == 'glow':
             col = np.where(mask[..., None], GLOW, col)
             em = np.where(mask, 1.0, em)

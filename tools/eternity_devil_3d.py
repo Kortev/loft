@@ -101,6 +101,11 @@ def shaft_views(model, tag):
     im2 = K.render(items, cam, LIGHTS, RIMS, ambient=0.5, t_ticks=0, shade_fn=shade)
     K.save(im2, os.path.join(OUT, 'shaft_top_%s.png' % tag), 3)
     out['top'] = im2
+    # a player about 12 blocks over the mass, looking steeply down (360x640)
+    cam = K.Camera((0.0, 13.2, -0.9), (0.0, 1.2, 0.1), up=(0, 0, 1), fov=60, size=(360, 640))
+    im3 = K.render(items, cam, LIGHTS, RIMS, ambient=0.5, t_ticks=0, shade_fn=shade)
+    K.save(im3, os.path.join(OUT, 'shaft_over12_%s.png' % tag), 2)
+    out['over12'] = im3
     # six angles of the mass on its own
     sx = six_angles(faces_of(model), (0.0, 1.7, 0.0), 6.0, fov=48, views=[(0, 60), (40, 28), (130, 20), (210, 16), (290, 35), (0, 88)])
     K.save(sx, os.path.join(OUT, 'shaft_angles_%s.png' % tag), 2)
