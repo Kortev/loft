@@ -1,0 +1,289 @@
+{
+ "note": "The core, a figure 8. Made by tools/eternity_devil_3d.py (eternity_3d_core.py).",
+ "frame": "X toward the players (front), Y up, Z across; origin at the centre of the figure 8",
+ "mesh": "eternity_core_mesh.bin",
+ "quads": 1903,
+ "voxels": 2984,
+ "parts": [
+  {
+   "name": "body",
+   "index": 0,
+   "pivot": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "anim": null,
+   "voxel": 0.0625,
+   "voxels": 2522,
+   "kind": "static",
+   "quads": 1368
+  },
+  {
+   "name": "eye_L",
+   "index": 1,
+   "pivot": [
+    0.3,
+    0.2,
+    -0.36
+   ],
+   "anim": {
+    "kind": "roll",
+    "axis": [
+     0,
+     1,
+     0
+    ],
+    "axis2": [
+     0,
+     0,
+     1
+    ],
+    "amp": 14.0,
+    "period": 140,
+    "phase": 0.3
+   },
+   "voxel": 0.0625,
+   "voxels": 178,
+   "kind": "eye",
+   "note": "the eyeball: the iris looks along +X at rest; roll it by rotating about the pivot",
+   "quads": 145
+  },
+  {
+   "name": "eye_R",
+   "index": 2,
+   "pivot": [
+    0.3,
+    0.2,
+    0.36
+   ],
+   "anim": {
+    "kind": "roll",
+    "axis": [
+     0,
+     1,
+     0
+    ],
+    "axis2": [
+     0,
+     0,
+     1
+    ],
+    "amp": 14.0,
+    "period": 140,
+    "phase": 0.0
+   },
+   "voxel": 0.0625,
+   "voxels": 178,
+   "kind": "eye",
+   "note": "the eyeball: the iris looks along +X at rest; roll it by rotating about the pivot",
+   "quads": 143
+  },
+  {
+   "name": "lid_L",
+   "index": 3,
+   "pivot": [
+    0.3,
+    0.2,
+    -0.36
+   ],
+   "anim": {
+    "kind": "blink",
+    "axis": [
+     0,
+     0,
+     1
+    ],
+    "base": 0.0,
+    "amp": -62.0,
+    "period": 110,
+    "phase": 0.4
+   },
+   "voxel": 0.0625,
+   "voxels": 32,
+   "kind": "lid",
+   "note": "the upper lid: rotate about +Z by a NEGATIVE angle to close it (about -62 degrees shuts it)",
+   "quads": 73
+  },
+  {
+   "name": "lid_R",
+   "index": 4,
+   "pivot": [
+    0.3,
+    0.2,
+    0.36
+   ],
+   "anim": {
+    "kind": "blink",
+    "axis": [
+     0,
+     0,
+     1
+    ],
+    "base": 0.0,
+    "amp": -62.0,
+    "period": 110,
+    "phase": 0.0
+   },
+   "voxel": 0.0625,
+   "voxels": 32,
+   "kind": "lid",
+   "note": "the upper lid: rotate about +Z by a NEGATIVE angle to close it (about -62 degrees shuts it)",
+   "quads": 84
+  },
+  {
+   "name": "tear_L",
+   "index": 5,
+   "pivot": [
+    0.4,
+    -0.08,
+    -0.36
+   ],
+   "anim": {
+    "kind": "fall",
+    "axis": [
+     0,
+     -1,
+     0
+    ],
+    "amp": 0.45,
+    "period": 70,
+    "phase": 0.5
+   },
+   "voxel": 0.0625,
+   "voxels": 1,
+   "kind": "tear",
+   "note": "a tear drop (glowing a little): loops down the cheek",
+   "quads": 6
+  },
+  {
+   "name": "tear_R",
+   "index": 6,
+   "pivot": [
+    0.4,
+    -0.08,
+    0.36
+   ],
+   "anim": {
+    "kind": "fall",
+    "axis": [
+     0,
+     -1,
+     0
+    ],
+    "amp": 0.45,
+    "period": 70,
+    "phase": 0.1
+   },
+   "voxel": 0.0625,
+   "voxels": 1,
+   "kind": "tear",
+   "note": "a tear drop (glowing a little): loops down the cheek",
+   "quads": 6
+  },
+  {
+   "name": "mouth_0",
+   "index": 7,
+   "pivot": [
+    0.31,
+    -0.375,
+    -0.36
+   ],
+   "anim": {
+    "kind": "hinge",
+    "axis": [
+     0,
+     0,
+     1
+    ],
+    "base": 0.0,
+    "amp": -26.0,
+    "period": 70,
+    "phase": 0.0
+   },
+   "voxel": 0.0625,
+   "voxels": 10,
+   "kind": "mouth",
+   "note": "lower lip with its teeth: rotate about +Z by a NEGATIVE angle to open (sobbing)",
+   "quads": 18
+  },
+  {
+   "name": "mouth_1",
+   "index": 8,
+   "pivot": [
+    0.31,
+    -0.375,
+    0.36
+   ],
+   "anim": {
+    "kind": "hinge",
+    "axis": [
+     0,
+     0,
+     1
+    ],
+    "base": 0.0,
+    "amp": -26.0,
+    "period": 85,
+    "phase": 0.2
+   },
+   "voxel": 0.0625,
+   "voxels": 6,
+   "kind": "mouth",
+   "note": "lower lip with its teeth: rotate about +Z by a NEGATIVE angle to open (sobbing)",
+   "quads": 16
+  },
+  {
+   "name": "mouth_2",
+   "index": 9,
+   "pivot": [
+    0.21,
+    0.075,
+    0.0
+   ],
+   "anim": {
+    "kind": "hinge",
+    "axis": [
+     0,
+     0,
+     1
+    ],
+    "base": 0.0,
+    "amp": -26.0,
+    "period": 100,
+    "phase": 0.4
+   },
+   "voxel": 0.0625,
+   "voxels": 12,
+   "kind": "mouth",
+   "note": "lower lip with its teeth: rotate about +Z by a NEGATIVE angle to open (sobbing)",
+   "quads": 23
+  },
+  {
+   "name": "mouth_3",
+   "index": 10,
+   "pivot": [
+    0.21,
+    -0.185,
+    0.0
+   ],
+   "anim": {
+    "kind": "hinge",
+    "axis": [
+     0,
+     0,
+     1
+    ],
+    "base": 0.0,
+    "amp": -26.0,
+    "period": 115,
+    "phase": 0.6000000000000001
+   },
+   "voxel": 0.0625,
+   "voxels": 12,
+   "kind": "mouth",
+   "note": "lower lip with its teeth: rotate about +Z by a NEGATIVE angle to open (sobbing)",
+   "quads": 21
+  }
+ ]
+}

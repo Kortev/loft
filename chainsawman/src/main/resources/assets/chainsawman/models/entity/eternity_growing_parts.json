@@ -1,0 +1,338 @@
+{
+ "note": "The growing mass, stage 2. Made by tools/eternity_devil_3d.py (eternity_3d_stages.py).",
+ "frame": "X toward the players, Y up, Z across; origin on the floor under the middle",
+ "mesh": "eternity_growing_mesh.bin",
+ "quads": 9655,
+ "voxels": 18462,
+ "parts": [
+  {
+   "name": "mass",
+   "index": 0,
+   "pivot": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "anim": null,
+   "voxel": 0.125,
+   "voxels": 6136,
+   "kind": "static",
+   "quads": 2032
+  },
+  {
+   "name": "face_0",
+   "index": 1,
+   "pivot": [
+    1.0,
+    1.65,
+    -0.45
+   ],
+   "anim": {
+    "kind": "sway",
+    "axis": [
+     0,
+     0,
+     1
+    ],
+    "axis2": [
+     0,
+     1,
+     0
+    ],
+    "amp": 3.0,
+    "period": 120,
+    "phase": 0.0
+   },
+   "voxel": 0.0625,
+   "voxels": 6411,
+   "kind": "face",
+   "quads": 2156
+  },
+  {
+   "name": "face_0_jaw",
+   "index": 2,
+   "pivot": [
+    0.931,
+    1.2914,
+    -0.4362
+   ],
+   "anim": {
+    "kind": "hinge",
+    "axis": [
+     0.196,
+     0.0,
+     0.981
+    ],
+    "amp": 12.0,
+    "base": 0.0,
+    "period": 90,
+    "phase": 0.0
+   },
+   "voxel": 0.0625,
+   "voxels": 560,
+   "kind": "jaw",
+   "head": 0,
+   "note": "melted jaw, baked wide open; positive angle closes it",
+   "quads": 645
+  },
+  {
+   "name": "face_1",
+   "index": 3,
+   "pivot": [
+    1.0,
+    0.85,
+    0.85
+   ],
+   "anim": {
+    "kind": "sway",
+    "axis": [
+     0,
+     0,
+     1
+    ],
+    "axis2": [
+     0,
+     1,
+     0
+    ],
+    "amp": 3.0,
+    "period": 120,
+    "phase": 0.3
+   },
+   "voxel": 0.0625,
+   "voxels": 2418,
+   "kind": "face",
+   "quads": 1126
+  },
+  {
+   "name": "face_1_jaw",
+   "index": 4,
+   "pivot": [
+    0.9859,
+    0.5894,
+    0.8458
+   ],
+   "anim": {
+    "kind": "hinge",
+    "axis": [
+     -0.287,
+     0.0,
+     0.958
+    ],
+    "amp": 12.0,
+    "base": 0.0,
+    "period": 110,
+    "phase": 0.2
+   },
+   "voxel": 0.0625,
+   "voxels": 210,
+   "kind": "jaw",
+   "head": 1,
+   "note": "melted jaw, baked wide open; positive angle closes it",
+   "quads": 301
+  },
+  {
+   "name": "hand_0",
+   "index": 5,
+   "pivot": [
+    0.2,
+    2.0,
+    0.5
+   ],
+   "anim": {
+    "kind": "sway",
+    "axis": [
+     0,
+     0,
+     1
+    ],
+    "axis2": [
+     1,
+     0,
+     0
+    ],
+    "amp": 6.0,
+    "period": 90,
+    "phase": 0.0
+   },
+   "voxel": 0.0625,
+   "voxels": 801,
+   "kind": "hand",
+   "quads": 943
+  },
+  {
+   "name": "hand_1",
+   "index": 6,
+   "pivot": [
+    0.2,
+    0.5,
+    -1.0
+   ],
+   "anim": {
+    "kind": "sway",
+    "axis": [
+     0,
+     0,
+     1
+    ],
+    "axis2": [
+     1,
+     0,
+     0
+    ],
+    "amp": 6.0,
+    "period": 107,
+    "phase": 0.3
+   },
+   "voxel": 0.0625,
+   "voxels": 761,
+   "kind": "hand",
+   "quads": 870
+  },
+  {
+   "name": "hand_2",
+   "index": 7,
+   "pivot": [
+    0.3,
+    1.5,
+    1.3
+   ],
+   "anim": {
+    "kind": "sway",
+    "axis": [
+     0,
+     0,
+     1
+    ],
+    "axis2": [
+     1,
+     0,
+     0
+    ],
+    "amp": 6.0,
+    "period": 124,
+    "phase": 0.6
+   },
+   "voxel": 0.0625,
+   "voxels": 773,
+   "kind": "hand",
+   "quads": 860
+  },
+  {
+   "name": "rope_0",
+   "index": 8,
+   "pivot": [
+    0.8,
+    2.6,
+    0.5692
+   ],
+   "anim": {
+    "kind": "sway",
+    "axis": [
+     0,
+     0,
+     1
+    ],
+    "axis2": [
+     1,
+     0,
+     0
+    ],
+    "amp": 8.0,
+    "period": 94,
+    "phase": 0.22
+   },
+   "voxel": 0.0625,
+   "voxels": 83,
+   "kind": "rope",
+   "quads": 180
+  },
+  {
+   "name": "rope_1",
+   "index": 9,
+   "pivot": [
+    0.8,
+    2.6,
+    0.1205
+   ],
+   "anim": {
+    "kind": "sway",
+    "axis": [
+     0,
+     0,
+     1
+    ],
+    "axis2": [
+     1,
+     0,
+     0
+    ],
+    "amp": 8.0,
+    "period": 85,
+    "phase": 0.74
+   },
+   "voxel": 0.0625,
+   "voxels": 101,
+   "kind": "rope",
+   "quads": 188
+  },
+  {
+   "name": "rope_2",
+   "index": 10,
+   "pivot": [
+    0.8,
+    2.6,
+    -0.4303
+   ],
+   "anim": {
+    "kind": "sway",
+    "axis": [
+     0,
+     0,
+     1
+    ],
+    "axis2": [
+     1,
+     0,
+     0
+    ],
+    "amp": 8.0,
+    "period": 103,
+    "phase": 0.48
+   },
+   "voxel": 0.0625,
+   "voxels": 107,
+   "kind": "rope",
+   "quads": 171
+  },
+  {
+   "name": "rope_3",
+   "index": 11,
+   "pivot": [
+    0.8,
+    2.6,
+    -0.9007
+   ],
+   "anim": {
+    "kind": "sway",
+    "axis": [
+     0,
+     0,
+     1
+    ],
+    "axis2": [
+     1,
+     0,
+     0
+    ],
+    "amp": 8.0,
+    "period": 116,
+    "phase": 0.93
+   },
+   "voxel": 0.0625,
+   "voxels": 101,
+   "kind": "rope",
+   "quads": 183
+  }
+ ]
+}

@@ -1,0 +1,223 @@
+{
+ "note": "The lone head, stage 1. Made by tools/eternity_devil_3d.py (eternity_3d_stages.py).",
+ "frame": "X toward the players (the face), Y up, Z across; origin below the head on the floor; neck cords hang to the floor",
+ "mesh": "eternity_head_mesh.bin",
+ "quads": 3534,
+ "voxels": 8947,
+ "parts": [
+  {
+   "name": "head",
+   "index": 0,
+   "pivot": [
+    0.0,
+    1.45,
+    0.0
+   ],
+   "anim": null,
+   "voxel": 0.0625,
+   "voxels": 8074,
+   "kind": "static",
+   "quads": 2400
+  },
+  {
+   "name": "jaw",
+   "index": 1,
+   "pivot": [
+    -0.0297,
+    1.0544,
+    0.0
+   ],
+   "anim": {
+    "kind": "hinge",
+    "axis": [
+     0.0,
+     0.0,
+     1.0
+    ],
+    "amp": 14.0,
+    "base": 0.0,
+    "period": 100,
+    "phase": 0.0
+   },
+   "voxel": 0.0625,
+   "voxels": 581,
+   "kind": "jaw",
+   "note": "the hanging jaw, baked wide open (52 degrees); a positive angle closes it. Let it swing a little as the head moves",
+   "quads": 602
+  },
+  {
+   "name": "cord_0",
+   "index": 2,
+   "pivot": [
+    -0.2667,
+    0.1355,
+    0.0619
+   ],
+   "anim": {
+    "kind": "sway",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axis2": [
+     0,
+     0,
+     1
+    ],
+    "amp": 7.0,
+    "period": 123,
+    "phase": 0.92
+   },
+   "voxel": 0.0625,
+   "voxels": 50,
+   "kind": "cord",
+   "quads": 94
+  },
+  {
+   "name": "cord_1",
+   "index": 3,
+   "pivot": [
+    -0.4228,
+    0.1355,
+    -0.0377
+   ],
+   "anim": {
+    "kind": "sway",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axis2": [
+     0,
+     0,
+     1
+    ],
+    "amp": 7.0,
+    "period": 94,
+    "phase": 0.78
+   },
+   "voxel": 0.0625,
+   "voxels": 53,
+   "kind": "cord",
+   "quads": 89
+  },
+  {
+   "name": "cord_2",
+   "index": 4,
+   "pivot": [
+    -0.2494,
+    0.1355,
+    0.1232
+   ],
+   "anim": {
+    "kind": "sway",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axis2": [
+     0,
+     0,
+     1
+    ],
+    "amp": 7.0,
+    "period": 129,
+    "phase": 0.99
+   },
+   "voxel": 0.0625,
+   "voxels": 41,
+   "kind": "cord",
+   "quads": 83
+  },
+  {
+   "name": "cord_3",
+   "index": 5,
+   "pivot": [
+    0.1529,
+    0.1355,
+    0.2297
+   ],
+   "anim": {
+    "kind": "sway",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axis2": [
+     0,
+     0,
+     1
+    ],
+    "amp": 7.0,
+    "period": 125,
+    "phase": 0.37
+   },
+   "voxel": 0.0625,
+   "voxels": 52,
+   "kind": "cord",
+   "quads": 100
+  },
+  {
+   "name": "cord_4",
+   "index": 6,
+   "pivot": [
+    -0.0752,
+    0.1355,
+    -0.0134
+   ],
+   "anim": {
+    "kind": "sway",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axis2": [
+     0,
+     0,
+     1
+    ],
+    "amp": 7.0,
+    "period": 84,
+    "phase": 0.96
+   },
+   "voxel": 0.0625,
+   "voxels": 59,
+   "kind": "cord",
+   "quads": 94
+  },
+  {
+   "name": "cord_5",
+   "index": 7,
+   "pivot": [
+    -0.3591,
+    0.1355,
+    -0.1643
+   ],
+   "anim": {
+    "kind": "sway",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axis2": [
+     0,
+     0,
+     1
+    ],
+    "amp": 7.0,
+    "period": 82,
+    "phase": 0.76
+   },
+   "voxel": 0.0625,
+   "voxels": 37,
+   "kind": "cord",
+   "quads": 72
+  }
+ ]
+}
