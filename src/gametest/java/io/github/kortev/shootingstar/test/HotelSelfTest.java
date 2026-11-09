@@ -1405,6 +1405,7 @@ public class HotelSelfTest implements ClientModInitializer {
 	private static int shaftStep;
 	private static int shaftSub;
 	private static boolean shaftCaptured;
+	private static boolean shaftTopDone;
 	private static boolean shaftFought;
 
 	private static void shaftNext() {
@@ -1511,7 +1512,22 @@ public class HotelSelfTest implements ClientModInitializer {
 				}
 			}
 			case 3 -> {
-				// The shaft: the flash, the ledge, the look straight down it.
+				// The shaft: first the top of it (the establishing shot), then the flash, the ledge, the look straight down it.
+				if (!shaftTopDone) {
+					if (shaftSub == 2) {
+						put(server, 19.5, io.github.kortev.chainsawman.hotel.Shaft.BASE + io.github.kortev.chainsawman.hotel.Shaft.DEPTH - 1.2, 6.5, 90.0F);
+						wantPitch = 85.0F;
+					} else if (shaftSub == 12) {
+						still(client, "c0_top_of_shaft");
+						ShootingStar.LOGGER.info("[selftest] shaft cost (top of the shaft): {}", io.github.kortev.chainsawman.client.FleshMesh.costReport());
+					} else if (shaftSub == 30) {
+						onServer(server, w -> io.github.kortev.chainsawman.hotel.Shaft.place(you(server), home(server), io.github.kortev.chainsawman.hotel.Shaft.lowLedges().get(0)));
+						wantYaw = Float.NaN;
+						shaftTopDone = true;
+						shaftSub = 0;
+					}
+					return;
+				}
 				switch (shaftSub) {
 					case 5 -> still(client, "c_shaft_arrives");
 					case 30 -> still(client, "d_ledge_view");
@@ -1519,7 +1535,10 @@ public class HotelSelfTest implements ClientModInitializer {
 						wantYaw = client.player.getYaw();
 						wantPitch = 88.0F;
 					}
-					case 48 -> still(client, "e_look_down");
+					case 48 -> {
+						still(client, "e_look_down");
+						ShootingStar.LOGGER.info("[selftest] shaft cost (looking down): {}", io.github.kortev.chainsawman.client.FleshMesh.costReport());
+					}
 					case 52 -> wantPitch = 35.0F;
 					case 56 -> {
 						// (The arm that takes you down: sent now, up the shaft to your ledge.)
@@ -1541,8 +1560,8 @@ public class HotelSelfTest implements ClientModInitializer {
 			}
 			case 4 -> {
 				// The arm rises; it takes you; it pulls you down.
-				boolean rising = sArm && !sHeld && sTipHeight > sLocalY - 14.0 && sTipHeight < sLocalY - 4.0;
-				if (rising && shaftSub % 3 == 0 && !armStill[0]) {
+				boolean rising = sArm && !sHeld && sTipHeight > sLocalY - 8.0 && sTipHeight < sLocalY - 1.0;
+				if (rising && !armStill[0]) {
 					armStill[0] = true;
 					still(client, "f_arm_rising");
 				}
@@ -1570,6 +1589,7 @@ public class HotelSelfTest implements ClientModInitializer {
 				}
 				if (shaftSub == 14) {
 					still(client, "h_on_the_mass");
+					ShootingStar.LOGGER.info("[selftest] shaft cost (on the mass): {}", io.github.kortev.chainsawman.client.FleshMesh.costReport());
 				}
 				if (shaftSub == 40) {
 					onServer(server, w -> {

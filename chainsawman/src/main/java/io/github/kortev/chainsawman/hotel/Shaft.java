@@ -70,6 +70,9 @@ public final class Shaft {
 	public static final int PIT_X = 19;
 	public static final int PIT_Z = 6;
 	public static final int PIT_DEPTH = 4;
+	/** How far above the mass players start (blocks): near enough that looking down the devil is big. */
+	public static final int NEAR_MIN = 10;
+	public static final int NEAR_MAX = 16;
 	/** Where the devil stands: the east end of the chamber's floor, at the pit's bottom (its box is the floor and the pit). */
 	public static final double MASS_X = 24.0;
 	public static final double MASS_Z = 6.5;
@@ -142,7 +145,7 @@ public final class Shaft {
 	/** The mass: dark grey-brown (mud, packed mud, brown and grey terracotta), a few veins of dark red. Never bright red. */
 	static BlockState flesh(int x, int y, int z) {
 		int h = ((x * 73856093) ^ (y * 19349663) ^ (z * 83492791)) & 255;
-		Block b = h < 70 ? Blocks.MUD : h < 125 ? Blocks.PACKED_MUD : h < 170 ? Blocks.BROWN_TERRACOTTA : h < 230 ? Blocks.GRAY_TERRACOTTA : Blocks.NETHER_WART_BLOCK;
+		Block b = h < 40 ? Blocks.MUD : h < 100 ? Blocks.PACKED_MUD : h < 150 ? Blocks.BROWN_TERRACOTTA : h < 238 ? Blocks.GRAY_TERRACOTTA : Blocks.NETHER_WART_BLOCK;
 		return b.getDefaultState();
 	}
 
@@ -175,6 +178,21 @@ public final class Shaft {
 		return out;
 	}
 
+	/**
+	 * The ledges players start on: {@link #NEAR_MIN} to {@link #NEAR_MAX} blocks above the mass, so looking down it is big (the lowest ledges
+	 * when there are none as low as that).
+	 */
+	public static List<Ledge> lowLedges() {
+		List<Ledge> all = ledges();
+		List<Ledge> near = new ArrayList<>();
+		for (Ledge l : all) {
+			if (l.y() - BASE >= NEAR_MIN && l.y() - BASE <= NEAR_MAX) {
+				near.add(l);
+			}
+		}
+		return near.isEmpty() ? all : near;
+	}
+
 	/** Every block of the shaft, by local place: the chamber, the pit, the shaft's four walls with the corridor's own blocks, the alcoves. */
 	public static Map<HotelPlan.P, BlockState> design() {
 		HotelPlan plan = HotelPlan.get();
@@ -201,7 +219,7 @@ public final class Shaft {
 		}
 		// A dim warm light in the chamber (invisible: the lamps above do the rest).
 		for (int[] g : new int[][] {{CX0 + 1, BASE + 3, CZ0 + 1}, {CX0 + 1, BASE + 3, CZ1 - 1}, {CX1 - 1, BASE + 3, CZ0 + 1}, {CX1 - 1, BASE + 3, CZ1 - 1}}) {
-			put(m, g[0], g[1], g[2], light.with(net.minecraft.block.LightBlock.LEVEL_15, 5));
+			put(m, g[0], g[1], g[2], light.with(net.minecraft.block.LightBlock.LEVEL_15, 9));
 		}
 		// The pit: the mouth, straight under the shaft, 3 x 3 and four deep, lined with dark red and faintly lit from the bottom.
 		for (int x = PIT_X - 2; x <= PIT_X + 2; x++) {
@@ -540,15 +558,15 @@ public final class Shaft {
 		for (FleshPatchEntity patch : world.getEntitiesByType(ChainsawMan.FLESH_PATCH, corridor, e -> true)) {
 			patch.discard();
 		}
-		List<Ledge> ledges = ledges();
+		List<Ledge> ledges = lowLedges();
 		int n = ledges.size();
 		int i = 0;
 		for (ServerPlayerEntity p : players) {
-			place(p, h, ledges.get(Math.floorMod(n - 2 - 2 * i, n)));
+			place(p, h, ledges.get(i % n));
 			i++;
 		}
 		for (SquadMemberEntity m : Squad.members(world, h)) {
-			Ledge l = ledges.get(Math.floorMod(n - 2 - 2 * i, n));
+			Ledge l = ledges.get(i % n);
 			Vec3d at = HotelBuilder.world(h.origin, h.rot, 19.5, l.y(), l.wallZ() + (l.wallZ() == 4 ? -1.5 : 1.5));
 			m.refreshPositionAndAngles(at.x, at.y, at.z, 0.0F, 0.0F);
 			i++;
