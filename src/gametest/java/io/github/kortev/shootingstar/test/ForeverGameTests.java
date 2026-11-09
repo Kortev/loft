@@ -53,7 +53,7 @@ public class ForeverGameTests implements FabricGameTest {
 		context.complete();
 	}
 
-	/** One contract at a time: granting again (or another) leaves exactly one, and clearing leaves none. */
+	/** Granting the same contract again leaves exactly one, and granting none clears them. */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_forever_one", tickLimit = 20)
 	public void oneContractAtATime(TestContext context) {
 		ServerPlayerEntity player = player(context, "monogamist");
@@ -86,6 +86,71 @@ public class ForeverGameTests implements FabricGameTest {
 			Heart.take(hunter);
 			leave(context, hybrid);
 			leave(context, hunter);
+		}
+		context.complete();
+	}
+
+	/**
+	 * Three slots: a player holds up to three contracts (ids this mod does not know yet keep a slot), the fourth is refused until they give one
+	 * up (and the one they choose goes), the key's selected slot moves round, and a hybrid's heart fills all three.
+	 */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_forever_slots", tickLimit = 20)
+	public void threeSlotsAndTheFourthAsksWhichToDrop(TestContext context) {
+		ServerPlayerEntity player = player(context, "collector");
+		ServerPlayerEntity hybrid = player(context, "full_heart");
+		try {
+			context.assertTrue(Contracts.SLOTS == 3, "not 3 slots");
+			context.assertTrue(Contracts.grant(player, "fox") == Contracts.Result.GRANTED && Contracts.grant(player, Contract.ETERNITY) == Contracts.Result.GRANTED
+					&& Contracts.grant(player, "ghost") == Contracts.Result.GRANTED, "the first three were not granted");
+			context.assertTrue(Contracts.count(player) == 3 && Contracts.ids(player).equals(java.util.List.of("fox", "eternity", "ghost")), "the slots hold " + Contracts.ids(player));
+			// The same one again takes no slot.
+			context.assertTrue(Contracts.grant(player, Contract.ETERNITY) == Contracts.Result.GRANTED && Contracts.count(player) == 3, "a contract held took a second slot");
+			// The fourth: refused, nothing changed; it asks which to drop.
+			context.assertTrue(Contracts.grant(player, "curse") == Contracts.Result.FULL, "a fourth contract was taken or not asked about");
+			context.assertTrue(Contracts.ids(player).equals(java.util.List.of("fox", "eternity", "ghost")), "a refused fourth changed the slots");
+			context.assertTrue(Contracts.replace(player, 0, "curse") == Contracts.Result.GRANTED, "dropping a contract for the new one failed");
+			context.assertTrue(Contracts.ids(player).equals(java.util.List.of("curse", "eternity", "ghost")) && Contracts.selected(player) == 0, "the dropped one is not the one that went: " + Contracts.ids(player));
+			// The key's selection moves round the held contracts; Eternity is the one the use key works on when selected.
+			Contracts.cycle(player);
+			context.assertTrue(Contracts.selected(player) == 1 && Contracts.get(player) == Contract.ETERNITY, "the switch key did not select the second slot");
+			Contracts.cycle(player);
+			context.assertTrue(Contracts.selected(player) == 2 && Contracts.get(player) == Contract.NONE, "the third slot (a contract this mod does not know) is not selected");
+			Contracts.cycle(player);
+			context.assertTrue(Contracts.selected(player) == 0, "the switch key did not go round");
+			context.assertTrue(Contracts.has(player, Contract.ETERNITY), "has() does not look in every slot");
+			// A hybrid's heart fills all three: every devil is refused.
+			Heart.give(hybrid);
+			context.assertTrue(Contracts.grant(hybrid, "fox") == Contracts.Result.HYBRID && Contracts.grant(hybrid, Contract.ETERNITY) == Contracts.Result.HYBRID
+					&& Contracts.replace(hybrid, 0, "ghost") == Contracts.Result.HYBRID && Contracts.count(hybrid) == 0, "a hybrid has room for a contract");
+			// Taking the heart gives every contract up.
+			Heart.take(hybrid);
+			Contracts.grant(hybrid, "fox");
+			Contracts.grant(hybrid, Contract.ETERNITY);
+			Heart.give(hybrid);
+			context.assertTrue(Contracts.count(hybrid) == 0, "merging with Pochita left contracts");
+		} finally {
+			Heart.take(hybrid);
+			leave(context, player);
+			leave(context, hybrid);
+		}
+		context.complete();
+	}
+
+	/** A save from before the slots held one contract in the old attachment: it loads as the first slot (and is moved over). */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_forever_old_save", tickLimit = 20)
+	public void anOldSaveWithOneContractLoads(TestContext context) {
+		ServerPlayerEntity player = player(context, "old_save");
+		try {
+			player.setAttached(Contracts.HELD, "eternity");
+			context.assertTrue(Contracts.get(player) == Contract.ETERNITY && Contracts.count(player) == 1, "the old contract was not read");
+			context.assertTrue(Contracts.ids(player).equals(java.util.List.of("eternity")) && player.getAttached(Contracts.HELD) == null, "it was not moved into the slots");
+			context.assertTrue(Contracts.grant(player, "fox") == Contracts.Result.GRANTED && Contracts.ids(player).equals(java.util.List.of("eternity", "fox")), "a second contract did not join the old one");
+			Contracts.clear(player);
+			// An old save with no contract at all.
+			player.setAttached(Contracts.HELD, "none");
+			context.assertTrue(Contracts.count(player) == 0 && Contracts.get(player) == Contract.NONE, "the old 'none' held a slot");
+		} finally {
+			leave(context, player);
 		}
 		context.complete();
 	}

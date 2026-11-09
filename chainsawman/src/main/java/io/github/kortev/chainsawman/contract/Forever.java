@@ -936,7 +936,7 @@ public final class Forever {
 		boolean any = false;
 		Set<UUID> seen = new HashSet<>();
 		for (ServerPlayerEntity holder : server.getPlayerManager().getPlayerList()) {
-			if (Contracts.get(holder) != Contract.ETERNITY) {
+			if (!Contracts.has(holder, Contract.ETERNITY)) {
 				continue;
 			}
 			any = true;

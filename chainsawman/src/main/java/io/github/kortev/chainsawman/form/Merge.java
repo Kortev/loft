@@ -52,7 +52,7 @@ public final class Merge {
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
 			if (MERGING.remove(handler.player.getUuid()) != null) {
 				// Gone mid-way: the heart is theirs all the same.
-				handler.player.removeAttached(io.github.kortev.chainsawman.contract.Contracts.HELD);
+				io.github.kortev.chainsawman.contract.Contracts.wipe(handler.player);
 				handler.player.setAttached(Heart.MERGED, true);
 			}
 		});

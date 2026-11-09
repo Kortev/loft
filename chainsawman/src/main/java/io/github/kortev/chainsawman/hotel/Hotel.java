@@ -573,6 +573,8 @@ public final class Hotel {
 		public final Set<UUID> hybrids = new HashSet<>();
 		public final Set<UUID> answered = new HashSet<>();
 		public final Set<UUID> accepted = new HashSet<>();
+		/** Those who accepted with every slot full, and have yet to say which contract they give up. */
+		public final Set<UUID> dropping = new HashSet<>();
 		public long started;
 		public int ticks;
 	}
@@ -611,6 +613,7 @@ public final class Hotel {
 				// Gone (dead, left): out of it.
 				b.players.remove(id);
 				b.hybrids.remove(id);
+				b.dropping.remove(id);
 				ServerPlayerEntity left = world.getServer().getPlayerManager().getPlayer(id);
 				if (left != null) {
 					offer(left, 0, false);
@@ -621,7 +624,7 @@ public final class Hotel {
 		boolean timeout = t >= b.ticks;
 		boolean all = true;
 		for (UUID id : b.players) {
-			if (!b.hybrids.contains(id) && !b.answered.contains(id)) {
+			if (!b.hybrids.contains(id) && !b.answered.contains(id) || b.dropping.contains(id)) {
 				all = false;
 			}
 		}
@@ -686,14 +689,43 @@ public final class Hotel {
 				speak(world, Set.of(id), "message.chainsawman.devil.held", 90, 0);
 				return;
 			}
-			if (Contracts.grant(player, Contract.ETERNITY) == Contracts.Result.HYBRID) {
+			Contracts.Result result = Contracts.grant(player, Contract.ETERNITY);
+			if (result == Contracts.Result.HYBRID) {
 				speak(world, Set.of(id), "message.chainsawman.devil.hybrid", 90, 0);
 				return;
 			}
-			b.accepted.add(id);
-			h.holder = id;
-			h.markDirty();
-			world.playSound(null, player.getX(), player.getY(), player.getZ(), ChainsawSounds.HOTEL_SEAL, SoundCategory.HOSTILE, 1.5F, 1.0F);
+			if (result == Contracts.Result.FULL) {
+				// Every slot is taken: which one do they give up for it?
+				b.dropping.add(id);
+				if (ServerPlayNetworking.canSend(player, HotelPayloads.Drop.ID)) {
+					ServerPlayNetworking.send(player, new HotelPayloads.Drop((int) Math.max(20, b.started + b.ticks - world.getTime()), Contracts.ids(player)));
+				}
+				return;
+			}
+			sealed(world, h, b, player);
+			return;
+		}
+	}
+
+	/** The contract is theirs: the hotel knows who holds it. */
+	private static void sealed(ServerWorld world, HomeBlockEntity h, Beg b, ServerPlayerEntity player) {
+		b.accepted.add(player.getUuid());
+		h.holder = player.getUuid();
+		h.markDirty();
+		world.playSound(null, player.getX(), player.getY(), player.getZ(), ChainsawSounds.HOTEL_SEAL, SoundCategory.HOSTILE, 1.5F, 1.0F);
+	}
+
+	/** The player's answer to "which contract do you give up?": that slot (-1: none, and the new one is not taken). */
+	public static void drop(ServerPlayerEntity player, int slot) {
+		ServerWorld world = player.getServerWorld();
+		for (HomeBlockEntity h : HomeBlockEntity.LOADED) {
+			Beg b = h.run.beg;
+			if (h.getWorld() != world || b == null || !b.dropping.remove(player.getUuid())) {
+				continue;
+			}
+			if (slot >= 0 && slot < Contracts.count(player) && Contracts.replace(player, slot, Contract.ETERNITY.id) == Contracts.Result.GRANTED) {
+				sealed(world, h, b, player);
+			}
 			return;
 		}
 	}

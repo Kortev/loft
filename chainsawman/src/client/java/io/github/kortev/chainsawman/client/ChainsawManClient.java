@@ -43,6 +43,8 @@ public final class ChainsawManClient implements ClientModInitializer {
 	public static KeyBinding KICK;
 	/** Use the power of the devil contract you hold (Forever, for the Eternity Devil's). */
 	public static KeyBinding USE_CONTRACT;
+	/** Switch to the next contract you hold (up to three). */
+	public static KeyBinding SWITCH_CONTRACT;
 
 	@Override
 	public void onInitializeClient() {
@@ -55,6 +57,8 @@ public final class ChainsawManClient implements ClientModInitializer {
 		KICK = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.chainsawman.kick", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_V,
 				"key.categories.chainsawman"));
 		USE_CONTRACT = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.chainsawman.use_contract", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_U,
+				"key.categories.chainsawman"));
+		SWITCH_CONTRACT = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.chainsawman.switch_contract", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_O,
 				"key.categories.chainsawman"));
 		ClientCombat.init();
 		// /chainsawhead boxes|mesh: the two heads to choose between, here on this client.
@@ -112,6 +116,8 @@ public final class ChainsawManClient implements ClientModInitializer {
 		ClientPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.HotelPayloads.Fog.ID, (payload, context) -> ClientHotel.fog(payload.end()));
 		ClientPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.HotelPayloads.Speech.ID, (payload, context) -> ClientHotel.speech(payload));
 		ClientPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.HotelPayloads.Offer.ID, (payload, context) -> ClientHotel.offer(payload.ticks(), payload.hybrid()));
+		ClientPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.HotelPayloads.Drop.ID,
+				(payload, context) -> MinecraftClient.getInstance().setScreen(new DropScreen(payload.held())));
 		ClientPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.HotelPayloads.Devil.ID, (payload, context) -> ClientHotel.devil(payload));
 		HudRenderCallback.EVENT.register(HotelHud::render);
 		ClientPlayNetworking.registerGlobalReceiver(FormPayload.ID, (payload, context) -> ClientForms.set(payload.player(), payload.on()));
@@ -150,6 +156,11 @@ public final class ChainsawManClient implements ClientModInitializer {
 			while (USE_CONTRACT.wasPressed()) {
 				if (client.player != null && ClientPlayNetworking.canSend(io.github.kortev.chainsawman.network.UseContractPayload.ID)) {
 					ClientPlayNetworking.send(new io.github.kortev.chainsawman.network.UseContractPayload());
+				}
+			}
+			while (SWITCH_CONTRACT.wasPressed()) {
+				if (client.player != null && ClientPlayNetworking.canSend(io.github.kortev.chainsawman.network.SwitchContractPayload.ID)) {
+					ClientPlayNetworking.send(new io.github.kortev.chainsawman.network.SwitchContractPayload());
 				}
 			}
 			ClientForms.tick(client);

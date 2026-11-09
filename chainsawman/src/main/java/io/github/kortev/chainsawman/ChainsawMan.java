@@ -127,6 +127,12 @@ public final class ChainsawMan implements ModInitializer {
 		PayloadTypeRegistry.playS2C().register(io.github.kortev.chainsawman.network.ContractPayload.ID, io.github.kortev.chainsawman.network.ContractPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(io.github.kortev.chainsawman.network.UseContractPayload.ID, io.github.kortev.chainsawman.network.UseContractPayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.UseContractPayload.ID, (payload, context) -> io.github.kortev.chainsawman.contract.Forever.use(context.player()));
+		PayloadTypeRegistry.playC2S().register(io.github.kortev.chainsawman.network.SwitchContractPayload.ID, io.github.kortev.chainsawman.network.SwitchContractPayload.CODEC);
+		ServerPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.SwitchContractPayload.ID, (payload, context) -> io.github.kortev.chainsawman.contract.Contracts.cycle(context.player()));
+		PayloadTypeRegistry.playS2C().register(io.github.kortev.chainsawman.network.HotelPayloads.Drop.ID, io.github.kortev.chainsawman.network.HotelPayloads.Drop.CODEC);
+		PayloadTypeRegistry.playC2S().register(io.github.kortev.chainsawman.network.HotelPayloads.DropAnswer.ID, io.github.kortev.chainsawman.network.HotelPayloads.DropAnswer.CODEC);
+		ServerPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.HotelPayloads.DropAnswer.ID,
+				(payload, context) -> io.github.kortev.chainsawman.hotel.Hotel.drop(context.player(), payload.slot()));
 		PayloadTypeRegistry.playS2C().register(io.github.kortev.chainsawman.network.HotelPayloads.Fog.ID, io.github.kortev.chainsawman.network.HotelPayloads.Fog.CODEC);
 		PayloadTypeRegistry.playS2C().register(io.github.kortev.chainsawman.network.HotelPayloads.Speech.ID, io.github.kortev.chainsawman.network.HotelPayloads.Speech.CODEC);
 		PayloadTypeRegistry.playS2C().register(io.github.kortev.chainsawman.network.HotelPayloads.Offer.ID, io.github.kortev.chainsawman.network.HotelPayloads.Offer.CODEC);

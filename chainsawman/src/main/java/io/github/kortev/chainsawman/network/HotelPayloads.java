@@ -48,6 +48,29 @@ public final class HotelPayloads {
 		}
 	}
 
+	/** Slots full: which contract does the player give up for the new one? The ids held (a screen of buttons), and how many ticks they have. */
+	public record Drop(int ticks, java.util.List<String> held) implements CustomPayload {
+		public static final CustomPayload.Id<Drop> ID = new CustomPayload.Id<>(ChainsawMan.id("contract_drop"));
+		public static final PacketCodec<RegistryByteBuf, Drop> CODEC = PacketCodec.tuple(PacketCodecs.VAR_INT, Drop::ticks,
+				PacketCodecs.STRING.collect(PacketCodecs.toList()), Drop::held, Drop::new);
+
+		@Override
+		public CustomPayload.Id<? extends CustomPayload> getId() {
+			return ID;
+		}
+	}
+
+	/** The contract given up (its slot), or -1 for none (the new one is not taken). */
+	public record DropAnswer(int slot) implements CustomPayload {
+		public static final CustomPayload.Id<DropAnswer> ID = new CustomPayload.Id<>(ChainsawMan.id("contract_drop_answer"));
+		public static final PacketCodec<RegistryByteBuf, DropAnswer> CODEC = PacketCodec.tuple(PacketCodecs.VAR_INT, DropAnswer::slot, DropAnswer::new);
+
+		@Override
+		public CustomPayload.Id<? extends CustomPayload> getId() {
+			return ID;
+		}
+	}
+
 	/** The answer to the offer. */
 	public record Answer(boolean accept) implements CustomPayload {
 		public static final CustomPayload.Id<Answer> ID = new CustomPayload.Id<>(ChainsawMan.id("contract_answer"));

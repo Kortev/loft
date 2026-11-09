@@ -1349,6 +1349,39 @@ public class HotelGameTests implements FabricGameTest {
 		});
 	}
 
+	/** Accepting with every slot full asks which contract to give up; the one chosen goes, and the new one is theirs. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_beg_full", tickLimit = 900)
+	public void acceptingWithEverySlotFullAsksWhichToDrop(TestContext context) {
+		HomeBlockEntity h = hotel(context, 0, 41);
+		ServerPlayerEntity p = walker(context, h, "has_three", 26.0);
+		io.github.kortev.chainsawman.contract.Contracts.grant(p, "fox");
+		io.github.kortev.chainsawman.contract.Contracts.grant(p, "ghost");
+		io.github.kortev.chainsawman.contract.Contracts.grant(p, "curse");
+		io.github.kortev.chainsawman.hotel.EternityDevilEntity[] d = new io.github.kortev.chainsawman.hotel.EternityDevilEntity[1];
+		ready(context, h, () -> {
+			later(context, 15, () -> {
+				noSquad(context, h);
+				d[0] = fightAt(context, h);
+			});
+			later(context, 110, () -> toTheLine(p, d[0]));
+			later(context, 116, () -> {
+				Hotel.answer(p, true);
+				context.assertTrue(h.run.beg != null && h.run.beg.dropping.contains(p.getUuid()) && !h.run.beg.accepted.contains(p.getUuid()), "a full hand was not asked which to drop");
+				context.assertTrue(io.github.kortev.chainsawman.contract.Contracts.ids(p).equals(java.util.List.of("fox", "ghost", "curse")), "the slots changed before they chose");
+			});
+			later(context, 140, () -> {
+				context.assertTrue(h.run.beg != null && !d[0].isDead(), "the beg ended while they were choosing");
+				Hotel.drop(p, 1);
+				context.assertTrue(io.github.kortev.chainsawman.contract.Contracts.ids(p).equals(java.util.List.of("fox", "eternity", "curse")), "the one they gave up is not the one that went: " + io.github.kortev.chainsawman.contract.Contracts.ids(p));
+			});
+			later(context, 146, () -> {
+				context.assertTrue(h.run.beg == null && d[0].spared && p.getUuid().equals(h.holder), "the deal did not go through after they chose");
+				tidy(context, h, p);
+				context.complete();
+			});
+		});
+	}
+
 	// ---- The devil.
 
 	/**
