@@ -71,10 +71,10 @@ public final class ClientHotel {
 	}
 
 	/** The contract screen opens ({@code ticks} to answer) or closes (0). */
-	public static void offer(int ticks) {
+	public static void offer(int ticks, boolean hybrid) {
 		MinecraftClient client = MinecraftClient.getInstance();
 		if (ticks > 0) {
-			client.setScreen(new ContractScreen(ticks));
+			client.setScreen(new ContractScreen(ticks, hybrid));
 		} else if (client.currentScreen instanceof ContractScreen) {
 			client.setScreen(null);
 		}

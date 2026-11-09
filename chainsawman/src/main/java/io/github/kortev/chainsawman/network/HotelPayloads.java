@@ -34,10 +34,13 @@ public final class HotelPayloads {
 		}
 	}
 
-	/** The contract screen: to a player in the loop, with how many ticks they have to answer (0 closes it). */
-	public record Offer(int ticks) implements CustomPayload {
+	/**
+	 * The contract screen: to a player inside the hotel, with how many ticks they have to answer (0 closes it). {@code hybrid}: the player has
+	 * Pochita's heart, which leaves no room for another devil, so Accept is greyed out.
+	 */
+	public record Offer(int ticks, boolean hybrid) implements CustomPayload {
 		public static final CustomPayload.Id<Offer> ID = new CustomPayload.Id<>(ChainsawMan.id("contract_offer"));
-		public static final PacketCodec<RegistryByteBuf, Offer> CODEC = PacketCodec.tuple(PacketCodecs.VAR_INT, Offer::ticks, Offer::new);
+		public static final PacketCodec<RegistryByteBuf, Offer> CODEC = PacketCodec.tuple(PacketCodecs.VAR_INT, Offer::ticks, PacketCodecs.BOOL, Offer::hybrid, Offer::new);
 
 		@Override
 		public CustomPayload.Id<? extends CustomPayload> getId() {
@@ -67,6 +70,7 @@ public final class HotelPayloads {
 		public static final byte HEART = 3;
 		public static final byte REGEN = 4;
 		public static final byte DYING = 5;
+		public static final byte BEG = 6;
 		public static final CustomPayload.Id<Devil> ID = new CustomPayload.Id<>(ChainsawMan.id("devil_event"));
 		public static final PacketCodec<RegistryByteBuf, Devil> CODEC = PacketCodec.tuple(PacketCodecs.VAR_INT, Devil::devil, PacketCodecs.BYTE, Devil::kind,
 				PacketCodecs.FLOAT, Devil::x, PacketCodecs.FLOAT, Devil::y, PacketCodecs.FLOAT, Devil::z, PacketCodecs.VAR_INT, Devil::ticks, Devil::new);

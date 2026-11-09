@@ -104,7 +104,7 @@ public final class Hunt {
 		u.sx = spot[0];
 		u.sy = spot[1];
 		u.sz = spot[2];
-		u.beatAt = now;
+		u.beatAt = now - 100;
 		// The eyes (shut until the devil is near): a row of them along each wall.
 		for (int side = 0; side < 2; side++) {
 			for (int k = 0; k < 7; k++) {

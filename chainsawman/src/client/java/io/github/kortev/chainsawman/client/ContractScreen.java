@@ -31,10 +31,18 @@ public class ContractScreen extends Screen {
 	private double curX = -1;
 	private double curY = -1;
 
+	/** A hybrid's heart leaves no room for another devil: the screen is shown with Accept greyed out. */
+	private final boolean hybrid;
+
 	public ContractScreen(int ticks) {
+		this(ticks, false);
+	}
+
+	public ContractScreen(int ticks, boolean hybrid) {
 		super(Text.translatable("contract.chainsawman.screen.title"));
 		this.total = ticks;
 		this.left = ticks;
+		this.hybrid = hybrid;
 	}
 
 	@Override
@@ -64,7 +72,7 @@ public class ContractScreen extends Screen {
 
 	/** Whether {@code (x, y)} is on the ACCEPT (1), the REFUSE (2) or neither (0) (as last drawn). */
 	public int boxAt(double x, double y) {
-		if (in(accept, x, y)) {
+		if (!hybrid && in(accept, x, y)) {
 			return 1;
 		}
 		return in(refuse, x, y) ? 2 : 0;
@@ -106,7 +114,7 @@ public class ContractScreen extends Screen {
 		// The sheet: as wide as the screen allows, tall enough for what is on it.
 		int pw = Math.min(width - 16, 320);
 		float u = pw / 320.0F;
-		int ph = Math.min(height - 12, (int) (292 * u));
+		int ph = Math.min(height - 12, (int) (336 * u));
 		int px = (width - pw) / 2;
 		int py = (height - ph) / 2;
 		context.fill(px - 3, py - 3, px + pw + 3, py + ph + 3, INK);
@@ -132,11 +140,20 @@ public class ContractScreen extends Screen {
 		y += (int) (12 * s);
 		centred(context, font, Text.translatable("contract.chainsawman.screen.devil"), cx, y, 2.0F * s, RED);
 		y += (int) (30 * s);
-		centred(context, font, Text.translatable("contract.chainsawman.screen.offer"), cx, y, 1.15F * s, INK);
-		y += (int) (22 * s);
 		centred(context, font, Text.translatable("contract.chainsawman.screen.power"), cx, y, 1.15F * s, INK);
+		y += (int) (24 * s);
+		// The prices, both of them: what it costs you for good, and what it costs each time.
+		centred(context, font, Text.translatable("contract.chainsawman.screen.lasting.label"), cx, y, 0.8F * s, RED);
+		y += (int) (11 * s);
+		centred(context, font, Text.translatable("contract.chainsawman.screen.lasting"), cx, y, 1.0F * s, INK);
 		y += (int) (22 * s);
-		centred(context, font, Text.translatable("contract.chainsawman.screen.price"), cx, y, 1.15F * s, RED);
+		centred(context, font, Text.translatable("contract.chainsawman.screen.use.label"), cx, y, 0.8F * s, RED);
+		y += (int) (11 * s);
+		centred(context, font, Text.translatable("contract.chainsawman.screen.use"), cx, y, 1.0F * s, INK);
+		if (hybrid) {
+			y += (int) (22 * s);
+			centred(context, font, Text.translatable("contract.chainsawman.screen.hybrid"), cx, y, 1.0F * s, RED);
+		}
 		// The seconds left.
 		int barY = py + ph - m - (int) (84 * s);
 		int bw = pw - 2 * m - 20;
@@ -151,11 +168,11 @@ public class ContractScreen extends Screen {
 		int bwid = (pw - 2 * m - 20 - gap) / 2;
 		box(accept, px + m + 10, by, bwid, bh);
 		box(refuse, px + m + 10 + bwid + gap, by, bwid, bh);
-		context.fill(accept[0], accept[1], accept[0] + accept[2], accept[1] + accept[3], hover == 0 ? 0xFFB8202E : RED);
+		context.fill(accept[0], accept[1], accept[0] + accept[2], accept[1] + accept[3], hybrid ? 0xFF7A7064 : hover == 0 ? 0xFFB8202E : RED);
 		context.fill(refuse[0], refuse[1], refuse[0] + refuse[2], refuse[1] + refuse[3], hover == 1 ? 0xFF3A2A28 : INK);
-		outline(context, accept, 0xFF2A0A0E);
+		outline(context, accept, hybrid ? 0xFF4A443C : 0xFF2A0A0E);
 		outline(context, refuse, 0xFF000000);
-		centred(context, font, Text.translatable("contract.chainsawman.screen.accept"), accept[0] + accept[2] / 2, accept[1] + accept[3] / 2 - (int) (5 * s), 1.6F * s, 0xFFF4EBDD);
+		centred(context, font, Text.translatable("contract.chainsawman.screen.accept"), accept[0] + accept[2] / 2, accept[1] + accept[3] / 2 - (int) (5 * s), 1.6F * s, hybrid ? 0xFFB0A89A : 0xFFF4EBDD);
 		centred(context, font, Text.translatable("contract.chainsawman.screen.refuse"), refuse[0] + refuse[2] / 2, refuse[1] + refuse[3] / 2 - (int) (5 * s), 1.6F * s, 0xFFF4EBDD);
 		if (showCursor && curX >= 0.0) {
 			int cx0 = (int) curX;

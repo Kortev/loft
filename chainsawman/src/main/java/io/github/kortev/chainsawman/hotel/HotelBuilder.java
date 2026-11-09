@@ -149,6 +149,8 @@ public final class HotelBuilder {
 		for (HotelPlan.P c : plan.chains) {
 			set(world, world(origin, rot, c.x(), c.y(), c.z()), Blocks.CHAIN.getDefaultState(), clip);
 		}
+		// The squad's notes, on lecterns in the corridors.
+		Squad.placeNotes(world, origin, rot, clip);
 		// The home, buried.
 		BlockPos home = world(origin, rot, HotelPlan.HOME_X, HotelPlan.HOME_Y, HotelPlan.HOME_Z);
 		if (clip == null || clip.contains(home)) {

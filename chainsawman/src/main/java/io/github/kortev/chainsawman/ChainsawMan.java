@@ -81,6 +81,10 @@ public final class ChainsawMan implements ModInitializer {
 	public static final EntityType<io.github.kortev.chainsawman.hotel.FleshPatchEntity> FLESH_PATCH = Registry.register(Registries.ENTITY_TYPE, id("flesh_patch"),
 			EntityType.Builder.<io.github.kortev.chainsawman.hotel.FleshPatchEntity>create(io.github.kortev.chainsawman.hotel.FleshPatchEntity::new, SpawnGroup.MISC)
 					.dimensions(2.2F, 0.4F).maxTrackingRange(8).trackingTickInterval(20).alwaysUpdateVelocity(false).disableSummon().disableSaving().makeFireImmune().build("flesh_patch"));
+	/** One of the missing squad's hunters, alive in the hotel's loop. */
+	public static final EntityType<io.github.kortev.chainsawman.hotel.SquadMemberEntity> SQUAD_MEMBER = Registry.register(Registries.ENTITY_TYPE, id("squad_member"),
+			EntityType.Builder.<io.github.kortev.chainsawman.hotel.SquadMemberEntity>create(io.github.kortev.chainsawman.hotel.SquadMemberEntity::new, SpawnGroup.MISC)
+					.dimensions(0.6F, 1.8F).maxTrackingRange(10).disableSummon().disableSaving().build("squad_member"));
 	/** What the Eternity Devil drops: its flesh (a lot of hunger, and sickness) and its blood (a bottle: refills Chainsaw Man's blood bar). */
 	public static final Item ETERNITY_FLESH = Registry.register(Registries.ITEM, id("eternity_flesh"),
 			new Item(new Item.Settings().rarity(Rarity.UNCOMMON).food(new net.minecraft.component.type.FoodComponent.Builder().nutrition(10).saturationModifier(0.8F).alwaysEdible()
@@ -107,6 +111,7 @@ public final class ChainsawMan implements ModInitializer {
 			entries.add(ETERNITY_FLESH);
 			entries.add(ETERNITY_BLOOD);
 		});
+		FabricDefaultAttributeRegistry.register(SQUAD_MEMBER, io.github.kortev.chainsawman.hotel.SquadMemberEntity.createAttributes());
 		FabricDefaultAttributeRegistry.register(ETERNITY_DEVIL, io.github.kortev.chainsawman.hotel.EternityDevilEntity.createAttributes());
 		FabricDefaultAttributeRegistry.register(POCHITA_ENTITY, PochitaEntity.createAttributes());
 		SpawnRestriction.register(POCHITA_ENTITY, SpawnLocationTypes.ON_GROUND, Heightmap.Type.MOTION_BLOCKING_NO_LEAVES,

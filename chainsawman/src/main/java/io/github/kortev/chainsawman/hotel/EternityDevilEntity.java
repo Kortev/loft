@@ -79,7 +79,12 @@ public class EternityDevilEntity extends MobEntity {
 	public double baseX = LOCAL_X;
 	private int lastHurtAge = -1000;
 	private int nextAttack = GROW_TICKS + 30;
-	private int begged;
+	/** The beg: it begs at {@link #BEG_AT} of its health, cannot be hurt while it does ({@link #begging}), and after nobody takes its deal it no longer fights ({@link #broken}). */
+	public static final float BEG_AT = 0.15F;
+	public boolean begStarted;
+	public boolean begging;
+	public boolean broken;
+	public boolean spared;
 	private int regenSound;
 	private int attackNo;
 	private static final byte[] ORDER = {HotelPayloads.Devil.BITE, HotelPayloads.Devil.TENDRIL, HotelPayloads.Devil.BITE, HotelPayloads.Devil.CREEP,
@@ -147,6 +152,11 @@ public class EternityDevilEntity extends MobEntity {
 		return this.dataTracker.get(BORN);
 	}
 
+	/** Whether the devil can be fought now (grown out, and not begging). */
+	public boolean fightable() {
+		return !this.growing() && this.isAlive() && !this.begging;
+	}
+
 	public boolean growing() {
 		return this.age < GROW_TICKS;
 	}
@@ -203,7 +213,17 @@ public class EternityDevilEntity extends MobEntity {
 				|| source.isOf(DamageTypes.IN_FIRE) || source.isOf(DamageTypes.ON_FIRE) || source.isOf(DamageTypes.LAVA)) {
 			return false;
 		}
-		if (this.growing() && !source.isOf(DamageTypes.GENERIC_KILL) && !source.isOf(DamageTypes.OUT_OF_WORLD)) {
+		boolean kill = source.isOf(DamageTypes.GENERIC_KILL) || source.isOf(DamageTypes.OUT_OF_WORLD);
+		if (this.growing() && !kill) {
+			return false;
+		}
+		// While it begs it cannot be hurt.
+		if (this.begging && !kill) {
+			return false;
+		}
+		float line = BEG_AT * this.getMaxHealth();
+		if (!this.begStarted && !kill && this.getHealth() <= line + 0.001F && this.getWorld() instanceof ServerWorld world) {
+			startBeg(world);
 			return false;
 		}
 		float dealt = amount;
@@ -211,6 +231,10 @@ public class EternityDevilEntity extends MobEntity {
 		if (heartOut() && source.getAttacker() instanceof LivingEntity attacker && aimsAtHeart(attacker)) {
 			dealt *= HEART_MULT;
 			heart = true;
+		}
+		// A blow that would take it past the line stops there: it begs before it dies.
+		if (!this.begStarted && !kill && this.getHealth() - dealt < line) {
+			dealt = Math.max(0.01F, this.getHealth() - line);
 		}
 		boolean hurt = super.damage(source, dealt);
 		if (hurt) {
@@ -265,6 +289,14 @@ public class EternityDevilEntity extends MobEntity {
 			}
 			return;
 		}
+		if (!this.begStarted && this.getHealth() <= BEG_AT * this.getMaxHealth() + 0.001F) {
+			startBeg(world);
+		}
+		if (this.begging || this.broken) {
+			// It does not fight, and does not heal: it cowers.
+			pending.clear();
+			return;
+		}
 		// Regeneration while it has not been hit for a few seconds.
 		if (this.age - this.lastHurtAge >= REGEN_DELAY && this.getHealth() < this.getMaxHealth() && this.age % 10 == 0) {
 			this.heal(REGEN);
@@ -273,27 +305,38 @@ public class EternityDevilEntity extends MobEntity {
 				announce(world, HotelPayloads.Devil.REGEN, this.getPos(), 20);
 			}
 		}
-		begging(world, frac);
 		attacks(world, frac);
 	}
 
-	private void begging(ServerWorld world, float frac) {
-		if (begged == 0 && frac <= 0.25F) {
-			begged = 1;
-			cry(world, "message.chainsawman.devil.beg.1", 70);
-		} else if (begged == 1 && frac <= 0.1F) {
-			begged = 2;
-			cry(world, "message.chainsawman.devil.beg.2", 70);
-		}
+	/** At the line it stops, cowers and begs: the contract goes to everyone inside ({@link Hotel#beg}). */
+	private void startBeg(ServerWorld world) {
+		this.begStarted = true;
+		this.begging = true;
+		this.pending.clear();
+		this.setTarget(null);
+		announce(world, HotelPayloads.Devil.BEG, this.getPos(), 0);
+		Hotel.beg(world, this);
 	}
 
-	private void cry(ServerWorld world, String key, int ticks) {
-		for (ServerPlayerEntity p : players(world, 48.0)) {
-			if (ServerPlayNetworking.canSend(p, HotelPayloads.Speech.ID)) {
-				ServerPlayNetworking.send(p, new HotelPayloads.Speech(key, ticks, 1));
-			}
-		}
-		world.playSound(null, this.getX(), this.getY() + 2.0, this.getZ(), ChainsawSounds.HOTEL_VOICE, SoundCategory.HOSTILE, 2.0F, 0.85F);
+	/** Nobody took its deal: it is beaten, and does not fight any more; it can be killed. */
+	public void giveUp() {
+		this.begging = false;
+		this.broken = true;
+	}
+
+	/** Someone took the deal: it tears off part of itself and sinks into the walls (the collapse, its loot dropped, and it is gone). */
+	public void spare() {
+		this.spared = true;
+		this.begging = false;
+		this.broken = true;
+		this.kill();
+	}
+
+	/** For the tests and commands: the beg is over without anyone being asked (it is beaten and can be killed). */
+	public void forgo() {
+		this.begStarted = true;
+		this.begging = false;
+		this.broken = true;
 	}
 
 	// ---- Attacks.

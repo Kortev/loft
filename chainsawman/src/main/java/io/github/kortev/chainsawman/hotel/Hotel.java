@@ -54,10 +54,15 @@ public final class Hotel {
 		public final Map<UUID, Integer> laps = new HashMap<>();
 		/** The hotel is sealed (from the first player reaching the loop until the devil is killed or spared, or nobody is left inside), and who is inside it. */
 		public boolean sealed;
-		/** The beg (placeholder until it is built). */
-		public Object beg;
+		/** The devil is begging: the contract is on offer to everyone inside. */
+		public Beg beg;
+		/** Ticks this hotel gives to answer, if not the default (the tests give a short time). */
+		public int begTicks = -1;
 		/** Finding the devil in the walls, while the hotel is sealed and the fight has not begun. */
 		public Hunt hunt;
+		/** The squad's members (ids), and how many were rescued and walked out when the loop broke. */
+		public final List<UUID> squad = new ArrayList<>();
+		public int saved;
 		/** Where along the corridor the devil stands in the fight (local x). */
 		public double fightX = EternityDevilEntity.LOCAL_X;
 		public long sealedAt;
@@ -182,6 +187,9 @@ public final class Hotel {
 		if (r.dyingAt >= 0) {
 			dying(world, h, now);
 		}
+		if (r.beg != null) {
+			begTick(world, h, now);
+		}
 		if (r.fight) {
 			fight(world, h, inside, now);
 		}
@@ -304,6 +312,7 @@ public final class Hotel {
 			play(world, h, 27.0, 2.0, 0.0, ChainsawSounds.HOTEL_SEAL, 2.0F, 0.7F);
 			speak(world, r.inside, "message.chainsawman.hotel.sealed", 70, 0);
 			Hunt.start(world, h, now);
+			Squad.start(world, h);
 			return;
 		}
 		// Those who are no longer in the hotel (dead, gone, out) are no longer inside.
@@ -363,6 +372,7 @@ public final class Hotel {
 		r.sealed = false;
 		r.inside.clear();
 		Hunt.end(world, h);
+		Squad.end(world, h);
 		if (r.night) {
 			HotelBuilder.setNight(world, h.origin, h.rot, true);
 		}
@@ -551,8 +561,148 @@ public final class Hotel {
 
 	// ---- Words and contracts.
 
-	/** Called when a player answers the contract screen (nothing is on offer yet). */
+	// ---- The beg.
+
+	/** How long (ticks) the contract is on offer, and how long the devil begs when there is nobody to answer (only hybrids inside). */
+	public static final int BEG_TICKS = 200;
+	public static final int BEG_QUIET = 60;
+
+	/** The devil's offer: its contract for its life, to everyone inside, and who has answered what. */
+	public static final class Beg {
+		public final Set<UUID> players = new HashSet<>();
+		public final Set<UUID> hybrids = new HashSet<>();
+		public final Set<UUID> answered = new HashSet<>();
+		public final Set<UUID> accepted = new HashSet<>();
+		public long started;
+		public int ticks;
+	}
+
+	/** The devil is at the line: it begs, in its crowd voice, and every player inside gets the contract screen (a hybrid's with Accept greyed out). */
+	static void beg(ServerWorld world, EternityDevilEntity devil) {
+		if (!(world.getBlockEntity(devil.homePos) instanceof HomeBlockEntity h)) {
+			return;
+		}
+		Run r = h.run;
+		Beg b = new Beg();
+		b.started = world.getTime();
+		b.ticks = r.begTicks > 0 ? r.begTicks : BEG_TICKS;
+		r.beg = b;
+		for (UUID id : r.inside) {
+			ServerPlayerEntity p = world.getServer().getPlayerManager().getPlayer(id);
+			if (p == null || !p.isAlive()) {
+				continue;
+			}
+			b.players.add(id);
+			boolean hybrid = io.github.kortev.chainsawman.form.Heart.has(p);
+			if (hybrid) {
+				b.hybrids.add(id);
+			}
+			offer(p, b.ticks, hybrid);
+		}
+		speak(world, b.players, "message.chainsawman.devil.beg", 90, 1);
+		voice(world, b.players);
+	}
+
+	private static void begTick(ServerWorld world, HomeBlockEntity h, long now) {
+		Run r = h.run;
+		Beg b = r.beg;
+		for (UUID id : new ArrayList<>(b.players)) {
+			if (!r.inside.contains(id)) {
+				// Gone (dead, left): out of it.
+				b.players.remove(id);
+				b.hybrids.remove(id);
+				ServerPlayerEntity left = world.getServer().getPlayerManager().getPlayer(id);
+				if (left != null) {
+					offer(left, 0, false);
+				}
+			}
+		}
+		long t = now - b.started;
+		boolean timeout = t >= b.ticks;
+		boolean all = true;
+		for (UUID id : b.players) {
+			if (!b.hybrids.contains(id) && !b.answered.contains(id)) {
+				all = false;
+			}
+		}
+		boolean needed = b.players.size() > b.hybrids.size();
+		if (timeout || all && (needed || t >= BEG_QUIET)) {
+			resolve(world, h);
+		}
+	}
+
+	/**
+	 * Everyone has answered, or run out of time. If anyone took the deal they each hold the contract and the devil tears off part of itself and
+	 * sinks into the walls (its loot for everyone, gone for {@code devilRespawnDays}); if nobody did it fights no more and can be killed.
+	 */
+	private static void resolve(ServerWorld world, HomeBlockEntity h) {
+		Run r = h.run;
+		Beg b = r.beg;
+		r.beg = null;
+		for (UUID id : b.players) {
+			ServerPlayerEntity p = world.getServer().getPlayerManager().getPlayer(id);
+			if (p != null) {
+				offer(p, 0, false);
+			}
+		}
+		EternityDevilEntity devil = r.devil != null && world.getEntity(r.devil) instanceof EternityDevilEntity d ? d : null;
+		if (devil == null || devil.isDead()) {
+			return;
+		}
+		if (!b.accepted.isEmpty()) {
+			speak(world, r.inside, "message.chainsawman.devil.sink", 70, 0);
+			devil.spare();
+		} else {
+			speak(world, r.inside, "message.chainsawman.devil.broken", 70, 1);
+			devil.giveUp();
+		}
+	}
+
+	/** The player's answer to the contract screen. */
 	public static void answer(ServerPlayerEntity player, boolean accept) {
+		ServerWorld world = player.getServerWorld();
+		UUID id = player.getUuid();
+		for (HomeBlockEntity h : HomeBlockEntity.LOADED) {
+			Beg b = h.run.beg;
+			if (h.getWorld() != world || b == null || !b.players.contains(id) || b.answered.contains(id)) {
+				continue;
+			}
+			offer(player, 0, false);
+			if (b.hybrids.contains(id)) {
+				// (A hybrid can only refuse: the screen has no Accept to press.)
+				b.answered.add(id);
+				if (accept) {
+					speak(world, Set.of(id), "message.chainsawman.devil.hybrid", 90, 0);
+				}
+				return;
+			}
+			b.answered.add(id);
+			if (!accept) {
+				speak(world, Set.of(id), "message.chainsawman.devil.refused", 40, 0);
+				return;
+			}
+			if (world.getGameRules().getBoolean(HotelRules.ONE_CONTRACT_PER_DEVIL) && h.holder != null && !h.holder.equals(id) && holderStillHolds(world, h)) {
+				// Another player holds it already (they answered first): it is not given twice.
+				speak(world, Set.of(id), "message.chainsawman.devil.held", 90, 0);
+				return;
+			}
+			if (Contracts.grant(player, Contract.ETERNITY) == Contracts.Result.HYBRID) {
+				speak(world, Set.of(id), "message.chainsawman.devil.hybrid", 90, 0);
+				return;
+			}
+			b.accepted.add(id);
+			h.holder = id;
+			h.markDirty();
+			world.playSound(null, player.getX(), player.getY(), player.getZ(), ChainsawSounds.HOTEL_SEAL, SoundCategory.HOSTILE, 1.5F, 1.0F);
+			return;
+		}
+	}
+
+	/** The contract screen on (ticks to answer) or off (0) for one player. */
+	private static void offer(ServerPlayerEntity p, int ticks, boolean hybrid) {
+		if (ServerPlayNetworking.canSend(p, HotelPayloads.Offer.ID)) {
+			ServerPlayNetworking.send(p, new HotelPayloads.Offer(ticks, hybrid));
+		}
 	}
 
 	/** Whether the player who holds this hotel's contract still holds it (one who is away is taken to). */
@@ -667,6 +817,7 @@ public final class Hotel {
 		}
 		r.fight = false;
 		r.devil = null;
+		r.beg = null;
 		r.bleedShown = 0.0F;
 		r.laps.clear();
 		HotelBuilder.bleed(world, h.origin, h.rot, 0.0F);
@@ -685,9 +836,19 @@ public final class Hotel {
 		long now = world.getTime();
 		r.fight = false;
 		r.devil = null;
+		if (r.beg != null) {
+			for (UUID id : r.beg.players) {
+				ServerPlayerEntity p = world.getServer().getPlayerManager().getPlayer(id);
+				if (p != null) {
+					offer(p, 0, false);
+				}
+			}
+			r.beg = null;
+		}
 		r.laps.clear();
 		r.dyingAt = now;
 		sendAway(world, h);
+		Squad.leave(world, h);
 		open(world, h);
 		HotelBuilder.bleed(world, h.origin, h.rot, 0.0F);
 		r.bleedShown = 0.0F;
