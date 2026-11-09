@@ -93,6 +93,8 @@ public class EternityDevilEntity extends MobEntity {
 	public java.util.UUID coreId;
 	/** The floor is turning (the tilt's two seconds): it does not attack. */
 	public boolean tilting;
+	/** Its core is being cut (a blow that kills it, whoever struck it). */
+	private boolean cutting;
 	/** The home that runs this hotel, and the hotel's place and turn. */
 	public BlockPos homePos = BlockPos.ORIGIN;
 	public BlockPos origin = BlockPos.ORIGIN;
@@ -307,7 +309,7 @@ public class EternityDevilEntity extends MobEntity {
 				|| source.isOf(DamageTypes.IN_FIRE) || source.isOf(DamageTypes.ON_FIRE) || source.isOf(DamageTypes.LAVA)) {
 			return false;
 		}
-		boolean kill = source.isOf(DamageTypes.GENERIC_KILL) || source.isOf(DamageTypes.OUT_OF_WORLD);
+		boolean kill = source.isOf(DamageTypes.GENERIC_KILL) || source.isOf(DamageTypes.OUT_OF_WORLD) || this.cutting;
 		if (this.growing() && !kill) {
 			return false;
 		}
@@ -501,11 +503,20 @@ public class EternityDevilEntity extends MobEntity {
 		coreId = null;
 	}
 
-	/** The core is cut in two: the devil dies (its loot, the loop broken). */
-	public void cutCore() {
+	/** The core is cut in two (by {@code by}, who is credited with the kill): the devil dies (its loot, the loop broken). */
+	public void cutCore(@org.jetbrains.annotations.Nullable net.minecraft.entity.Entity by) {
 		if (this.isAlive()) {
-			this.damage(this.getDamageSources().genericKill(), this.getMaxHealth() * 10.0F);
+			this.cutting = true;
+			try {
+				this.damage(by instanceof net.minecraft.entity.player.PlayerEntity p ? p.getDamageSources().playerAttack(p) : this.getDamageSources().genericKill(), this.getMaxHealth() * 10.0F);
+			} finally {
+				this.cutting = false;
+			}
 		}
+	}
+
+	public void cutCore() {
+		cutCore(null);
 	}
 
 	/** It goes to the bottom of the shaft ({@code at}: the world point it stands at, the middle of the mass's east end). */

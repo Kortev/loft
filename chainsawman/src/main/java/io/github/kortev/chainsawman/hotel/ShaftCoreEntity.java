@@ -111,19 +111,19 @@ public class ShaftCoreEntity extends Entity {
 		world.playSound(null, this.getX(), this.getY() + 0.8, this.getZ(), ChainsawSounds.DEVIL_HURT, SoundCategory.HOSTILE, 1.0F, 1.3F);
 		world.spawnParticles(ParticleTypes.DAMAGE_INDICATOR, this.getX(), this.getY() + 0.8, this.getZ(), 3, 0.4, 0.3, 0.4, 0.1);
 		if (health <= 0.0F) {
-			cut(world);
+			cut(world, source.getAttacker());
 		}
 		return true;
 	}
 
 	/** Cut in two: the halves fall apart, and the devil dies with it. */
-	private void cut(ServerWorld world) {
+	private void cut(ServerWorld world, Entity by) {
 		this.dataTracker.set(CUT_AT, (int) world.getTime());
 		cutTick = this.age;
 		world.playSound(null, this.getX(), this.getY() + 0.8, this.getZ(), ChainsawSounds.HOTEL_CUT, SoundCategory.HOSTILE, 3.0F, 0.7F);
 		world.spawnParticles(ParticleTypes.EXPLOSION, this.getX(), this.getY() + 0.8, this.getZ(), 2, 0.5, 0.3, 0.5, 0.0);
 		if (devil != null && world.getEntity(devil) instanceof EternityDevilEntity d) {
-			d.cutCore();
+			d.cutCore(by);
 		}
 	}
 
