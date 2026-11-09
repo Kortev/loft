@@ -121,11 +121,10 @@ public final class Arena {
 					cells.add(new Cell(x, y, z, state, be == null ? null : be.createNbtWithIdentifyingData(world.getRegistryManager())));
 				}
 			}
-			// The lamps in the floor (the ceiling lamps of the floor below) near the stairs go out: the arena is dark, and moonlit.
+			// The lamps in the floor (the ceiling lamps of the floor below) go out: the arena is dark, and moonlit.
 			BlockPos lamp = HotelBuilder.world(h.origin, h.rot, x, Y0 - 1, 6);
 			BlockState lit = world.getBlockState(lamp);
-			// (The two nearest the devil stay lit: its warm light from below, as painted.)
-			if (x < X1 - 8 && lit.getBlock() instanceof net.minecraft.block.RedstoneLampBlock && lit.get(net.minecraft.block.RedstoneLampBlock.LIT)) {
+			if (lit.getBlock() instanceof net.minecraft.block.RedstoneLampBlock && lit.get(net.minecraft.block.RedstoneLampBlock.LIT)) {
 				cells.add(new Cell(x, Y0 - 1, 6, lit, null));
 			}
 		}
@@ -184,12 +183,22 @@ public final class Arena {
 					world.setBlockState(at, Blocks.AIR.getDefaultState(), FLAGS);
 				}
 				// A burst of the block's own pieces, thickest at the walls and the roof.
-				if (world.random.nextInt(4) == 0) {
-					world.spawnParticles(new BlockStateParticleEffect(ParticleTypes.BLOCK, c.state()), at.getX() + 0.5, at.getY() + 0.5, at.getZ() + 0.5, 3, 0.4, 0.4, 0.4, 0.08);
+				if (world.random.nextInt(9) == 0) {
+					world.spawnParticles(new BlockStateParticleEffect(ParticleTypes.BLOCK, c.state()), at.getX() + 0.5, at.getY() + 0.5, at.getZ() + 0.5, 2, 0.4, 0.4, 0.4, 0.08);
 				}
-				if (world.random.nextInt(3) == 0) {
-					// Plaster dust, thrown off the wall.
-					world.spawnParticles(new net.minecraft.particle.DustParticleEffect(new org.joml.Vector3f(0.78F, 0.72F, 0.58F), 1.6F), at.getX() + 0.5, at.getY() + 0.5, at.getZ() + 0.5, 3, 0.5, 0.5, 0.5, 0.0);
+				if (world.random.nextInt(4) == 0) {
+					// Dust that glows in the dark (these particles are fullbright), thrown off the wall.
+					world.spawnParticles(ParticleTypes.END_ROD, at.getX() + 0.5, at.getY() + 0.5, at.getZ() + 0.5, 1, 0.6, 0.6, 0.6, 0.05);
+				}
+				if (world.random.nextInt(14) == 0 && c.y() >= Y0 + 1) {
+					// A chunk of the wall or ceiling: it falls, lands and is gone.
+					BlockState chunk = c.state().isOf(Blocks.REDSTONE_LAMP) ? Blocks.SMOOTH_SANDSTONE.getDefaultState() : c.state();
+					net.minecraft.entity.FallingBlockEntity f = net.minecraft.entity.FallingBlockEntity.spawnFromBlock(world, at, chunk);
+					f.setDestroyedOnLanding();
+					f.dropItem = false;
+					f.timeFalling = 1;
+					f.setVelocity((world.random.nextDouble() - 0.5) * 0.5, 0.15 + world.random.nextDouble() * 0.3, (world.random.nextDouble() - 0.5) * 0.5);
+					f.velocityModified = true;
 				}
 			}
 			Vec3d col = HotelBuilder.world(h.origin, h.rot, x + 0.5, Y0 + 2.0, 6.5);

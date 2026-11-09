@@ -301,7 +301,12 @@ public class EternityDevilRenderer extends EntityRenderer<EternityDevilEntity> {
 				int[] o = EternityDevilLayout.MAW;
 				mask = (b[1] <= o[0] ? 1 : 0) | (b[2] >= o[0] + o[2] ? 2 : 0) | (b[3] <= o[1] ? 4 : 0) | (b[4] >= o[1] + o[3] ? 8 : 0);
 			}
-			lobeBox(pen, fx(b[1]), fx(b[2]), fy(b[4]) - drop, fy(b[3]) - drop, fz(b[5]), fz(b[6]), uv, b, mask);
+			// Each front is a quarter texel larger every way, so neighbours at different depths overlap and no crack shows the dark behind.
+			double e = TEXEL * 0.25;
+			// The lower lobes take the warm light of the lamps below.
+			float warm = MathHelper.clamp((float) ((2.6 - fy(b[4])) / 2.6), 0.0F, 1.0F);
+			pen.tint(GAIN * (1.0F + 0.13F * warm), GAIN * (1.0F - 0.03F * warm), GAIN * (1.0F - 0.3F * warm), 1.0F);
+			lobeBox(pen, fx(b[1]) - e, fx(b[2]) + e, fy(b[4]) - drop - e, fy(b[3]) - drop + e, fz(b[5]), fz(b[6]), uv, b, mask);
 		}
 		for (float[] s : EternityDevilLayout.SMALL_MOUTHS) {
 			if ((int) s[0] == lobe) {
@@ -375,6 +380,22 @@ public class EternityDevilRenderer extends EntityRenderer<EternityDevilEntity> {
 		double x1 = fx(rx + rw);
 		double y1 = fy(ry);
 		double y0 = fy(ry + rh);
+		if (rw < 6) {
+			// A small eye is drawn bigger and a hair proud of the flesh (its white a rim round the hole), so it reads at 8 blocks.
+			double k = 6.0 / rw;
+			double hw = rw * k / 2.0;
+			double hh = Math.max(2.0, rh * k / 2.0);
+			double zz = fz(zs + 0.3);
+			front(pen, fx(cx - hw), fx(cx + hw), fy(cy + hh), fy(cy - hh), zz, sclera);
+			double iw = iris[2] * k / 2.0;
+			double ih = iris[3] * k / 2.0;
+			front(pen, fx(cx + ox * k - iw), fx(cx + ox * k + iw), fy(cy + oy * k + ih), fy(cy + oy * k - ih), zz + TEXEL * 0.1, iris);
+			if (blink > 0.02F) {
+				int[] part = {lid[0], lid[1], lid[2], Math.max(1, Math.min(lid[3], (int) Math.ceil(lid[3] * blink)))};
+				front(pen, fx(cx - hw), fx(cx + hw), fy(cy + hh - 2.0 * hh * blink), fy(cy - hh), zz + TEXEL * 0.2, part);
+			}
+			return;
+		}
 		// The white sits a texel behind the face, so the hole in the lobe's layer frames it.
 		box(pen, x0, x1, y0, y1, fz(zs - 3.0), fz(zs - 1.0), sclera, tile(EternityDevilLayout.T_SCLERA_SIDE));
 		double ix0 = fx(cx + ox - iris[2] / 2.0);
@@ -455,21 +476,42 @@ public class EternityDevilRenderer extends EntityRenderer<EternityDevilEntity> {
 				dz = c.open * (proud + 16.0);
 			}
 			double drop = upper ? 0.0 : c.jaw;
-			double x0 = fx(rx);
-			double x1 = fx(rx + rw);
-			double y0 = fy(ry + rh) - drop * TEXEL + dy * TEXEL;
-			double y1 = fy(ry) - drop * TEXEL + dy * TEXEL;
+			// Two boxes: a wider root and a narrower tip, a hair crooked, root yellow and tip whiter, a dark gap to the next.
 			double zb = fz(zf - 8.0 - dz);
 			double zt = fz(zf - dz);
-			front(p, x0, x1, y0, y1, zt, uv);
-			// The sides are the tooth's own right edge (its cream shade); the faces toward the gum are dark; a lower tooth's crown is lit.
-			int[] edge = {uv[0] + uv[2] - 1, uv[1], 1, uv[3]};
-			int[] crown = {uv[0], uv[1], uv[2], 1};
-			double dzz = zt - zb;
-			face(p, x0, y0, zb, 0, 0, dzz, 0, y1 - y0, 0, -1, 0, 0, edge, false);
-			face(p, x1, y0, zt, 0, 0, -dzz, 0, y1 - y0, 0, 1, 0, 0, edge, false);
-			face(p, x0, y1, zt, x1 - x0, 0, 0, 0, 0, -dzz, 0, 1, 0, upper ? throat : crown, false);
-			face(p, x0, y0, zb, x1 - x0, 0, 0, 0, 0, dzz, 0, -1, 0, throat, false);
+			double gap = TEXEL * 0.3;
+			int rootH = rh >= 4 ? (int) Math.round(rh * 0.55) : rh;
+			int tipH = rh - rootH;
+			double lean = ((n * 5) % 3 - 1) * 0.4 * TEXEL;
+			for (int part = 0; part < 2; part++) {
+				int h = part == 0 ? rootH : tipH;
+				if (h <= 0) {
+					continue;
+				}
+				// (An upper tooth hangs: its root is the top rows; a lower one stands: its root is the bottom rows.)
+				int top = (upper == (part == 0)) ? 0 : rh - h;
+				int cut = part == 1 && rw >= 4 ? 1 : 0;
+				int[] puv = {uv[0] + cut, uv[1] + top, uv[2] - 2 * cut, h};
+				double x0 = fx(rx + cut) + gap + (part == 1 ? lean : 0.0);
+				double x1 = fx(rx + rw - cut) - gap + (part == 1 ? lean : 0.0);
+				double y1 = fy(ry + top) - drop * TEXEL + dy * TEXEL;
+				double y0 = y1 - h * TEXEL;
+				double zf2 = zt + (part == 1 ? TEXEL * 0.5 : 0.0);
+				if (part == 0) {
+					p.tint(GAIN, GAIN * 0.9F, GAIN * 0.68F, 1.0F);
+				} else {
+					p.tint(GAIN * 1.08F, GAIN * 1.06F, GAIN * 0.98F, 1.0F);
+				}
+				front(p, x0, x1, y0, y1, zf2, puv);
+				int[] edge = {puv[0] + puv[2] - 1, puv[1], 1, h};
+				double dzz = zf2 - zb;
+				face(p, x0, y0, zb, 0, 0, dzz, 0, y1 - y0, 0, -1, 0, 0, edge, false);
+				face(p, x1, y0, zf2, 0, 0, -dzz, 0, y1 - y0, 0, 1, 0, 0, edge, false);
+				int[] topUv = upper ? throat : new int[] {puv[0], puv[1], puv[2], 1};
+				face(p, x0, y1, zf2, x1 - x0, 0, 0, 0, 0, -dzz, 0, 1, 0, topUv, false);
+				face(p, x0, y0, zb, x1 - x0, 0, 0, 0, 0, dzz, 0, -1, 0, throat, false);
+			}
+			p.tint(GAIN, GAIN, GAIN, 1.0F);
 			n++;
 		}
 	}
