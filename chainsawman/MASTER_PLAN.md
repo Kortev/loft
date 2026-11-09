@@ -44,6 +44,7 @@ Everything after that (more devils, more hybrids) is an update, each one a reel.
 | Public Safety (outposts, missions, yen, ranks, weapons, suit) | Not started. |
 | Devils in the world | Not started. |
 | How a new player finds anything | **Not designed until this plan.** |
+| Pochita's den | One den near the world's spawn, with no hint. To be changed to many dens (4.4). |
 | Two real players on one server | **Never tested.** |
 | A public download | Not started. |
 
@@ -78,6 +79,10 @@ So one design, in three layers:
 **pick you up when you go down**. On a server, your buddy is a real player and you get no NPC. That answers the open
 question "is going down alone too harsh?": alone you're never really alone. Later, Power can be a partner you earn.
 
+The partner must never be a chore. Followers in Minecraft get stuck in caves, water and doorways. So the partner
+catches up by appearing next to you like a tamed wolf does, can't die for good (they go down and are back at the
+office next day), never blocks a doorway, and can be told to wait at the office.
+
 **Rules that follow from this:**
 - Nothing in 1.0 may need a second player.
 - Nothing in 1.0 may need Chainsaw Man [decided].
@@ -92,8 +97,10 @@ question "is going down alone too harsh?": alone you're never really alone. Late
 1. **Minute 0.** A normal Minecraft world. Nothing is forced on you.
 2. **The first village.** A Public Safety poster hangs on a wall: "Devil hunters wanted." Reading it gives you a
    **hunter's licence** (a card item) and marks the nearest office on it.
-3. **The first night near a village.** A weak devil attacks. Villagers shout and run. Normal weapons hurt it, but it
-   heals. Kill it anyway and it drops a part. Now you know: devils are real, and they heal.
+3. **The first attack.** The first dusk you spend in or near a village after your first day, a weak devil attacks
+   **you**. It's an event that follows the player, like a raid, so it can't be missed by sleeping or by being in the
+   wrong place. Villagers shout and run; it doesn't kill them, so your first village isn't ruined. A stone or iron
+   sword can kill it, though it heals a little. It drops a part. Now you know: devils are real, and they heal.
 4. **The office.** The captain (our own character) buys the part for yen, signs you on as 4th Class, pairs you with a
    partner, and points at the mission board.
 5. **The first mission.** "A devil was seen near X." The licence shows where. You hunt it, come back, get paid, and
@@ -107,8 +114,17 @@ Safety pays for these. Two ways in, no tutorial screens.
 
 **Mission → hunt → parts and yen → gear and rank → a bigger devil → a deal.** Then again, one step higher.
 
-The licence is the one screen for all of it: your rank, your missions, your contracts and their prices, your partner,
-your power and power resistance. No quest book, no skill tree [decided: no skill tree].
+The licence is the one screen for all of it: your rank, your yen, your missions, your contracts and their prices,
+your partner, your power and power resistance. No quest book, no skill tree [decided: no skill tree].
+
+- **Everything is saved on the player, not in the card.** The card only opens the screen. Lose it and any office
+  gives you a new one for free, and a key opens the screen too.
+- **Yen is a number on the licence, not an item [pick].** Items are lost on death, clutter chests and get copied by
+  bugs. To pay another player you write a yen note at the office.
+- **The guide is Minecraft's own advancements tab:** a Chainsaw Man page that shows the next step (read the poster,
+  sell a part, take a mission, reach 3rd Class, ...). No new screen to learn.
+- **A mission's devil appears when you get there,** not when you take the mission, so it's never lost in chunks
+  nobody has loaded.
 
 ### 4.3 The ladder [pick, numbers to tune]
 
@@ -123,7 +139,14 @@ your power and power resistance. No quest book, no skill tree [decided: no skill
 - Each rank is a jump you can feel and see [decided]: a badge, a new suit look, new missions, more power and more
   power resistance together.
 - A rank costs missions done **and** one rank trial (a harder hunt the captain sets). No grinding the same mission.
-- Pochita's den isn't on the ladder. It's a find [decided: one per world].
+- Pochita isn't on the ladder. He's a find [decided: one Chainsaw Man per world].
+- **The suit goes over your armour, not instead of it [pick].** Nobody takes off enchanted netherite for a suit. So
+  the suit is a look and a power-resistance bonus in its own slot on the licence, and your Minecraft armour keeps
+  doing its job against ordinary damage.
+- **The katana is a real sword [pick]:** it takes sword enchantments, and it upgrades with rank so it's never worse
+  than the vanilla sword you'd have by then. Otherwise players keep their Sharpness V sword and skip it.
+- **Weak devils heal slowly,** so a new player with a stone sword can still kill one. Bleeding only becomes a must
+  from 3rd Class devils up.
 
 ### 4.4 What's in the world, and where
 
@@ -132,9 +155,25 @@ your power and power resistance. No quest book, no skill tree [decided: no skill
 | Poster | Every village | Always |
 | Public Safety office | Near villages | About one per 1000 blocks [decided] |
 | Common devils | Where their fear fits, at night or underground | Rarer than vanilla mobs [decided] |
-| Devil nests | Caves, swamps, ruins | A few per office area, used by missions |
-| Lairs (the hotel first) | Rare structures | Far apart; a mission points you to one |
-| Pochita's den | One place | Once per world [decided] |
+| Devil nests | Caves, swamps, ruins. Devils live here by day too. | A few per office area, used by missions |
+| Lairs (the hotel first) | Rare structures | The hotel is about one per 1280 blocks today (checked in the code), so one is usually within 1000 blocks |
+| Pochita's dens | **Many, in forests all over the world** (kortev, 2026-11-09) | About one per 800 blocks [number to tune] |
+
+**Pochita: many dens, one Pochita** (kortev, 2026-11-09). Today the code makes a single den, 250-450 blocks from the
+world's spawn, and nothing tells you it's there. A player who walks the other way never finds it, and a heart that
+comes back lands 2000 blocks off with no hint at all. So:
+- Dens generate all over the world. **Every den has Pochita in it until someone merges with him.**
+- From that moment every other den is **empty**: the nest is there, he isn't, and you can see someone got to him
+  first. Pochitas already sitting in loaded dens vanish.
+- `chainsawHearts` (default 1) is how many players can merge before the dens go empty.
+- If the heart comes back to the world (given up, or stolen and lost), the dens are live again.
+- While a heart is free, the office has a rumour ("something whimpers in the woods to the east") that points at the
+  nearest den. So he can be found by luck or by asking.
+
+**Night isn't required.** Players sleep through nights, so a mod whose devils only come at night is a mod nobody
+sees. Devils live in nests by day, missions work at any hour, and devils don't burn in the sun.
+
+**The Overworld only, for 1.0.** No devils in the Nether or the End, and no mission ever points there.
 
 - **Old worlds:** everything appears in chunks nobody has loaded yet. A command places each thing for worlds that are
   already explored (the hotel's exists).
@@ -147,6 +186,10 @@ A devil is the fear of its name. Each devil type has a fear score per world: it 
 or villagers, and down when it's hunted. High fear means more health, bigger groups, and its name in chat when it
 shows up. The board posts a bounty on the most feared devil. Alone or on a server, every world ends up with its own
 villain.
+
+**It must not snowball.** A player who keeps dying to one devil would make it stronger, and then die more. So fear
+has a ceiling (about +50%), fades by itself over a few days, and the bounty grows with it: the feared devil is worth
+more, not only harder.
 
 ### 4.6 Dying, difficulty and options
 
@@ -270,10 +313,21 @@ Opus agents can build three things at once. kortev can look at maybe one a day, 
   to kortev.
 - **Opus 5.5 agents:** building, concept art, fact sheets, filming, tests. One brief file each, in `work/briefs/`.
 
+**The four checks** (kortev, 2026-11-09: double, triple, quadruple check that it makes sense). Every design, before
+its brief is written, has to pass all four, written down in the brief:
+1. **The show:** is it true to the wiki and Google? (the fact sheet)
+2. **Minecraft:** does it work with how Minecraft really behaves? Beds skip nights, dropped items vanish in five
+   minutes, chunks unload, worlds are endless, players already have enchanted netherite, followers get stuck.
+3. **Fun:** walk through it as a player, alone, in the first ten minutes and in the tenth hour. Where is it a chore,
+   a dead end, unfair, or something you'd never find?
+4. **Other people:** two friends, and a big server. What if someone is offline, late, greedy or mean?
+For the big pieces (this plan, each milestone's design) the last three are also run by separate checker agents who
+haven't seen Fable's reasoning, so it isn't one mind agreeing with itself.
+
 **One package, start to end**
 1. Fact sheet exists (0.3). If not, that's step one.
-2. Fable writes the brief: the goal, the checked facts with sources, the files it may touch, what done looks like,
-   what to film.
+2. Fable writes the brief: the goal, the checked facts with sources, the four checks, the files it may touch, what
+   done looks like, what to film.
 3. If it has a look: the agent makes the concept, Fable reviews it, kortev says yes.
 4. The agent builds in its own worktree and branch, commits piece by piece, files added by name.
 5. `./gradlew runGametest` all passing, with new tests for the new thing.
@@ -319,13 +373,15 @@ New, from this plan:
 5. **Release early, after the Fox** (M4). Pick: yes.
 6. **The Tomato Devil as the weak first devil.** Pick: yes, if its fact sheet fits.
 7. **Sonnet for rote filming.** Pick: yes.
+8. **Pochita's dens** (4.4): many dens, empty once he's found, a rumour at the office. Your idea; the numbers are mine.
+9. **The suit over your armour, yen as a number, the katana as a real sword** (4.2, 4.3). Pick: yes to all three.
 
 Still open from before:
-8. The hotel textures: yes or changes?
-9. The Public Safety look: yes or changes?
-10. The Zombie and Bat Devil concepts: yes or changes?
-11. May you move during "Not yet"?
-12. Reel sound: an original synthesised track, or game sound only?
+10. The hotel textures: yes or changes?
+11. The Public Safety look: yes or changes?
+12. The Zombie and Bat Devil concepts: yes or changes?
+13. May you move during "Not yet"?
+14. Reel sound: an original synthesised track, or game sound only?
 
 (The old question "is going down alone too harsh?" is answered by the partner, if 2 is a yes.)
 
@@ -364,3 +420,37 @@ Three agents, three lanes, none needing a look decision:
 3. **Public Safety:** the licence's mock screen (2.1), concept only, for kortev's yes.
 
 And Fable: review and land the 3D devil (0.1), then cut the review clips (0.2).
+
+---
+
+## 12. The sense checks so far
+
+Round 1 (Fable, 2026-11-09), after kortev's point about Pochita's den. Checked against the code where the plan said
+something exists.
+
+| Found | Why it fails | Fix, now in the plan |
+|---|---|---|
+| One den per world | Nobody knows where it is; a returned heart lands 2000 blocks off with no hint | Many dens, empty once he's found, a rumour at the office (4.4) |
+| Devils at night only | Players sleep through nights | Nests by day, missions at any hour (4.4) |
+| The first devil "on the first night near a village" | You may not be near one, or asleep | An event that follows the player (4.1) |
+| The first devil kills villagers | Your first village is ruined | It goes for you; villagers only run (4.1) |
+| The suit as armour | Nobody swaps enchanted netherite for it | Worn over your armour, its own slot (4.3) |
+| The katana | Loses to an enchanted netherite sword | A real sword that takes enchantments and grows with rank (4.3) |
+| Devils that heal | A new player with a stone sword can't win | Weak devils heal slowly (4.3) |
+| Yen as an item | Lost on death, clutter, copy bugs | A number on the licence (4.2) |
+| The licence card | Lose it, lose everything | Saved on the player; the card only opens it (4.2) |
+| A new guide screen | One more thing to learn | The advancements tab (4.2) |
+| Fear | Dying makes the devil stronger, so you die more | A ceiling, fading, a growing bounty (4.5) |
+| Mission devils | Spawned in chunks nobody has loaded | They appear when you arrive (4.2) |
+| The partner | Followers get stuck and annoy | Catches up like a wolf, can't die for good, can wait at the office (3) |
+| The Nether and the End | The plan said nothing | The Overworld only for 1.0 (4.4) |
+
+Checked and fine: the Eternity price stops you sleeping but the bed still sets your respawn (`EternityBedMixin`);
+hotels are close enough for a mission to reach (spacing 80 chunks).
+
+**Not checked yet, must be before M1 closes:** the plan says your dropped items stay in the hotel when you die in
+there, but Minecraft deletes dropped items after five minutes and I found no code that keeps them. If so, they should
+go into a lost-property chest at the lobby desk.
+
+Round 2: three separate checker agents (Minecraft, fun, other people) are reading the whole plan. Their findings go
+here.
