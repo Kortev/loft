@@ -259,7 +259,7 @@ public final class Arena {
 
 	// ---- What is kept, as data.
 
-	private static NbtCompound write(List<Cell> cells) {
+	static NbtCompound write(List<Cell> cells) {
 		NbtCompound nbt = new NbtCompound();
 		List<BlockState> palette = new ArrayList<>();
 		int[] flat = new int[cells.size() * 4];
@@ -294,7 +294,7 @@ public final class Arena {
 		return nbt;
 	}
 
-	private static List<Cell> read(NbtCompound nbt, ServerWorld world) {
+	static List<Cell> read(NbtCompound nbt, ServerWorld world) {
 		NbtList pal = nbt.getList("Palette", NbtElement.COMPOUND_TYPE);
 		List<BlockState> palette = new ArrayList<>();
 		for (int i = 0; i < pal.size(); i++) {

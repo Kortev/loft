@@ -28,6 +28,8 @@ public class HomeBlockEntity extends BlockEntity {
 	public UUID holder;
 	/** The arena torn open for the fight (what was there, to put back), or null: kept with the hotel so a restart in the middle of a fight still mends it ({@link Arena}). */
 	public NbtCompound arena;
+	/** The shaft built for the fight (what was in its space, to put back), or null: kept the same way ({@link Shaft}). */
+	public NbtCompound shaft;
 	public final Hotel.Run run = new Hotel.Run();
 
 	public HomeBlockEntity(BlockPos pos, BlockState state) {
@@ -79,6 +81,9 @@ public class HomeBlockEntity extends BlockEntity {
 		if (arena != null) {
 			nbt.put("Arena", arena);
 		}
+		if (shaft != null) {
+			nbt.put("Shaft", shaft);
+		}
 	}
 
 	@Override
@@ -91,5 +96,6 @@ public class HomeBlockEntity extends BlockEntity {
 		awayUntilTick = nbt.getLong("AwayUntilTick");
 		holder = nbt.containsUuid("Holder") ? nbt.getUuid("Holder") : null;
 		arena = nbt.contains("Arena") ? nbt.getCompound("Arena") : null;
+		shaft = nbt.contains("Shaft") ? nbt.getCompound("Shaft") : null;
 	}
 }

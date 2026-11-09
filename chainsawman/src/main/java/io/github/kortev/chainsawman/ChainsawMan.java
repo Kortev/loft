@@ -81,6 +81,18 @@ public final class ChainsawMan implements ModInitializer {
 	public static final EntityType<io.github.kortev.chainsawman.hotel.FleshPatchEntity> FLESH_PATCH = Registry.register(Registries.ENTITY_TYPE, id("flesh_patch"),
 			EntityType.Builder.<io.github.kortev.chainsawman.hotel.FleshPatchEntity>create(io.github.kortev.chainsawman.hotel.FleshPatchEntity::new, SpawnGroup.MISC)
 					.dimensions(2.2F, 0.4F).maxTrackingRange(8).trackingTickInterval(20).alwaysUpdateVelocity(false).disableSummon().disableSaving().makeFireImmune().build("flesh_patch"));
+	/** The shaft fight's parts (see {@link io.github.kortev.chainsawman.hotel.Shaft}): the arms that take players off the ledges, the heads that bite on the mass, and the core it offers. */
+	public static final EntityType<io.github.kortev.chainsawman.hotel.ShaftArmEntity> SHAFT_ARM = Registry.register(Registries.ENTITY_TYPE, id("shaft_arm"),
+			EntityType.Builder.<io.github.kortev.chainsawman.hotel.ShaftArmEntity>create(io.github.kortev.chainsawman.hotel.ShaftArmEntity::new, SpawnGroup.MISC)
+					.dimensions(1.0F, 1.0F).maxTrackingRange(10).trackingTickInterval(1).alwaysUpdateVelocity(false).disableSummon().disableSaving().makeFireImmune().build("shaft_arm"));
+	public static final EntityType<io.github.kortev.chainsawman.hotel.ShaftHeadEntity> SHAFT_HEAD = Registry.register(Registries.ENTITY_TYPE, id("shaft_head"),
+			EntityType.Builder.<io.github.kortev.chainsawman.hotel.ShaftHeadEntity>create(io.github.kortev.chainsawman.hotel.ShaftHeadEntity::new, SpawnGroup.MISC)
+					.dimensions(io.github.kortev.chainsawman.hotel.ShaftHeadEntity.WIDTH, io.github.kortev.chainsawman.hotel.ShaftHeadEntity.HEIGHT).maxTrackingRange(8).trackingTickInterval(2)
+					.alwaysUpdateVelocity(false).disableSummon().disableSaving().makeFireImmune().build("shaft_head"));
+	public static final EntityType<io.github.kortev.chainsawman.hotel.ShaftCoreEntity> SHAFT_CORE = Registry.register(Registries.ENTITY_TYPE, id("shaft_core"),
+			EntityType.Builder.<io.github.kortev.chainsawman.hotel.ShaftCoreEntity>create(io.github.kortev.chainsawman.hotel.ShaftCoreEntity::new, SpawnGroup.MISC)
+					.dimensions(io.github.kortev.chainsawman.hotel.ShaftCoreEntity.WIDTH, io.github.kortev.chainsawman.hotel.ShaftCoreEntity.HEIGHT).maxTrackingRange(10).trackingTickInterval(2)
+					.alwaysUpdateVelocity(false).disableSummon().disableSaving().makeFireImmune().build("shaft_core"));
 	/** One of the missing squad's hunters, alive in the hotel's loop. */
 	public static final EntityType<io.github.kortev.chainsawman.hotel.SquadMemberEntity> SQUAD_MEMBER = Registry.register(Registries.ENTITY_TYPE, id("squad_member"),
 			EntityType.Builder.<io.github.kortev.chainsawman.hotel.SquadMemberEntity>create(io.github.kortev.chainsawman.hotel.SquadMemberEntity::new, SpawnGroup.MISC)
