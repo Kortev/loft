@@ -693,8 +693,85 @@ def leaves(seed=162):
     return t.image()
 
 
+def car_side_plain(seed=170):
+    t = Tex((224, 226, 230), seed)
+    t.noise(0.03, 0.5)
+    t.rect(0, 8, 15, 10, NAVY)
+    t.hline(0, 15, 11, CRIM)
+    t.hline(0, 15, 7, (190, 194, 200))
+    t.rect(0, 14, 15, 15, (70, 72, 78))
+    return t.image()
+
+
+def car_door(seed=171):
+    t = Tex((224, 226, 230), seed)
+    t.noise(0.03, 0.5)
+    t.rect(1, 1, 14, 6, (52, 66, 88))
+    t.line([(3, 5), (6, 2)], (150, 176, 200))
+    t.line([(8, 5), (11, 2)], (130, 156, 182))
+    t.frame(0, 0, 15, 7, (150, 154, 160))
+    t.rect(0, 8, 15, 10, NAVY)
+    t.hline(0, 15, 11, CRIM)
+    emblem_pixels(t, 4, 8, 8) if False else None
+    t.rect(7, 12, 8, 12, (150, 154, 160))      # the door handle
+    t.rect(0, 14, 15, 15, (70, 72, 78))
+    return t.image()
+
+
+def car_glass(seed=172):
+    t = Tex((52, 66, 88), seed)
+    t.line([(2, 6), (6, 2)], (150, 176, 200))
+    t.line([(7, 9), (12, 4)], (130, 156, 182))
+    t.frame(0, 0, 15, 15, (224, 226, 230))
+    return t.image()
+
+
+def car_front(seed=173):
+    t = Tex((224, 226, 230), seed)
+    t.rect(3, 6, 12, 10, (40, 42, 48))
+    t.hline(4, 11, 8, (90, 92, 100))
+    t.rect(1, 6, 2, 8, (255, 238, 180))
+    t.rect(13, 6, 14, 8, (255, 238, 180))
+    t.rect(0, 11, 15, 12, (70, 72, 78))
+    t.rect(0, 13, 15, 15, NAVY)
+    t.rect(6, 1, 9, 3, NAVY)
+    return t.image()
+
+
+def car_roof(seed=174):
+    t = Tex((214, 216, 220), seed)
+    t.noise(0.04, 0.5)
+    t.vline(5, 0, 15, (190, 192, 198))
+    t.vline(10, 0, 15, (190, 192, 198))
+    t.rect(5, 6, 10, 9, CRIM_D)                   # a roof beacon
+    return t.image()
+
+
+def car_wheel(seed=175):
+    t = Tex((24, 24, 28), seed)
+    t.rect(5, 5, 10, 10, (150, 154, 160))
+    t.rect(7, 7, 8, 8, (80, 84, 90))
+    return t.image()
+
+
+def tank_side(seed=176):
+    t = Tex((126, 140, 150), seed)
+    t.noise(0.05, 0.6)
+    t.vline(0, 0, 15, (96, 108, 118))
+    t.hline(0, 15, 4, (92, 104, 114))
+    t.hline(0, 15, 11, (92, 104, 114))
+    return t.image()
+
+
 def build():
     out = {}
+    out['car_side_plain'] = car_side_plain()
+    out['car_door'] = car_door()
+    out['car_glass'] = car_glass()
+    out['car_front'] = car_front()
+    out['car_roof'] = car_roof()
+    out['car_wheel'] = car_wheel()
+    out['tank_side'] = tank_side()
     out['log_side'] = log_side()
     out['log_top'] = log_top()
     out['leaves'] = leaves()
@@ -843,7 +920,8 @@ def knives():
         s.set(10 + ox, 4 + oy, STEEL_HI)
         for (x, y) in ((4, 10), (3, 11), (2, 12)):
             s.set(x + ox, y + oy, (30, 30, 36))
-        s.set(3 + ox, 11 + oy, (150, 30, 38))
+        s.set(3 + ox, 11 + oy, (230, 48, 56))
+        s.set(2 + ox, 12 + oy, (200, 36, 44))
         s.set(1 + ox, 13 + oy, (60, 60, 70))
     s.outline()
     return s.image()
@@ -854,22 +932,22 @@ def pistol():
     rows = [
         '................',
         '................',
-        '..hhhhhhhhhhhh..',
-        '.sSSSSSSSSSSSSS.',
+        '.hhhhhhhhhhhhh..',
+        '.sSSSSSSSSSSSSs.',
         '.SSsSsSsSSSSSSS.',
         '.SSSSSSSSSSSSSS.',
         '.bbbbbbbbbbbbb..',
-        '.bgbgbbbbbbgg...',
-        '.bbbbb.b.gb.....',
-        '.bgbgb.bbb......',
-        '.bbbbb..........',
-        '.bgbgb..........',
-        '.bbbbb..........',
+        '..bgbbbbbbbbb...',
+        '..bbgb.bgb......',
+        '.bgbbb.bbb......',
+        '.bbgbb..........',
+        '.bgbbb..........',
+        '.bbgb...........',
         '................',
         '................',
         '................',
     ]
-    pal = {'s': (112, 116, 128), 'S': (58, 62, 72), 'h': (170, 176, 188), 'b': (44, 46, 56), 'g': (24, 24, 30)}
+    pal = {'s': (112, 116, 128), 'S': (58, 62, 72), 'h': (170, 176, 188), 'b': (84, 88, 102), 'g': (54, 56, 68)}
     s = Sprite()
     for y, row in enumerate(rows):
         for x, ch in enumerate(row):

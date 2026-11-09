@@ -183,17 +183,12 @@ def draw_head(s, p):
     # the outer layer: glasses, a bun
     h2 = s.f('head2', 'front')
     if p.get('glasses'):
-        fr = hexc('#1c1c22')
+        fr = hexc('#2a2a32')                      # thin frames: a rim above each eye and the bridge between; the eyes stay clear
         for x0 in (1, 5):
             h2.rect(x0, 3, x0 + 1, 3, fr)
-            h2.put(x0 - 1 if x0 == 1 else x0 + 2, 4, fr)
-        h2.put(1, 4, fr)
-        h2.put(6, 4, fr)
-        h2.rect(3, 3, 4, 3, fr)
-        h2.put(0, 3, fr)
-        h2.put(7, 3, fr)
-        for sd in (s.f('head2', 'right'), s.f('head2', 'left')):
-            sd.rect(0, 3, 7, 3, fr)
+        h2.rect(3, 4, 4, 4, fr)
+        h2.put(0, 4, fr)
+        h2.put(7, 4, fr)
     if style == 'bun':
         bk2 = s.f('head2', 'back')
         bk2.rect(0, 0, 7, 7, hair)           # long hair down the back of the head to the nape, a pale clip
@@ -206,9 +201,6 @@ def draw_head(s, p):
         t2 = s.f('head2', 'top')
         t2.rect(2, 4, 5, 7, hair)
         t2.rect(3, 5, 4, 6, [hair[1], hair[1]])
-    if style == 'swept':
-        t2 = s.f('head2', 'top')
-        t2.rect(1, 0, 6, 1, hair)
 
 
 def draw_body(s, p):
@@ -425,6 +417,10 @@ def special_extras(s):
         bf.put(6, y, SILVER)
     for y in range(2, 12):
         bf.put(2, y, shade_c(hexc('#14141a'), 1.3)) if False else None
+    for y in range(2, 12):                                 # the crimson lining shows only as piping down the opening's edges
+        bf.put(2, y, CRIMSON)
+        bf.put(5, y, CRIMSON)
+    bf.rect(0, 11, 7, 11, CRIMSON_D)
     # the emblem on the left of the chest (right of the picture): a silver octagon with a red diamond
     for (x, y) in ((5, 3), (6, 3), (5, 4), (6, 4)):
         bf.put(x, y, SILVER)
@@ -456,7 +452,7 @@ def make(name, seed, p, coat=None):
     if coat == 'long':
         draw_long_coat(s, hexc('#2e3340'), hexc('#4a5164'))
     elif coat == 'special':
-        draw_long_coat(s, hexc('#101015'), hexc('#101015'), lining=CRIMSON, special=True)
+        draw_long_coat(s, hexc('#101015'), hexc('#101015'), lining=hexc('#14141a'), special=True)
         special_extras(s)
     s.save(name)
     return s

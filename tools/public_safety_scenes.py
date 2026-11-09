@@ -440,7 +440,7 @@ for _i in range(4):
 EMIT_NIGHT['emblem'] = 0.5
 
 # which window blocks are lit at night
-FRONT_WIN_G = (2, 3, 9, 10)
+FRONT_WIN_G = (1, 2, 10, 11)
 SIDE_WIN = (3, 4, 7, 8)
 FRONT_WIN_U = (2, 3, 5, 6, 7, 9, 10)
 
@@ -466,18 +466,29 @@ def build_outpost(b, night=False, lit_upper=(2, 3, 9, 10), tree=True):
     win_lit = 'window_lit' if night else 'window_day'
     win_off = 'window_dark' if night else 'window_day'
     # the ground: lawn, a pavement in front, the road
-    b.fill(-14, -16, 0, 28, 26, 0, 'grass')
-    b.fill(-14, -10, 0, 28, -6, 0, 'asphalt')
-    b.fill(-3, -5, 0, 15, -1, 0, 'pavement')
-    b.fill(-3, -5, 0, 15, -5, 0, {'all': 'pavement'})
+    b.fill(-14, -16, -1, 28, 26, -1, 'grass')
+    b.fill(-14, -10, -1, 28, -6, -1, 'asphalt')
+    b.fill(-3, -5, -1, 15, -1, -1, 'pavement')
     for x in range(-14, 29):                             # a kerb line
-        b.set(x, -5, 0, {'all': 'wall_concrete_base', 'top': 'pavement'})
+        b.set(x, -5, -1, {'all': 'wall_concrete_base', 'top': 'pavement'})
     # the floor of the ground storey and the steps
     for x in range(W):
         for y in range(D):
             b.set(x, y, 0, {'top': 'floor_vinyl', 'all': 'wall_concrete_base'})
-    for x in (5, 6, 7):
-        b.set(x, -1, 0, {'all': 'wall_concrete_base', 'top': 'pavement'})
+    for x in range(3, 10):                               # the porch: a platform level with the floor, one step down to the pavement
+        for y in (-3, -2, -1):
+            b.set(x, y, 0, {'all': 'wall_concrete_base', 'top': 'pavement'})
+    b.box(3.0, -4.0, 0.0, 10.0, -3.0, 0.5, {'top': 'pavement', 'all': 'wall_concrete_base'})
+    b.box(2.0, -4.0, 0.0, 3.0, -3.0, 0.5, {'top': 'pavement', 'all': 'wall_concrete_base'}) if False else None
+    for x in range(3, 10):                               # the canopy over it, the sign on its front
+        for y in (-3, -2, -1):
+            t = {'all': 'wall_concrete_top', 'top': 'canopy_top', 'bottom': 'canopy_under' if (x, y) in ((4, -2), (8, -2), (6, -2)) else 'wall_concrete_top'}
+            if y == -3:
+                t['north'] = 'sign_main_%d' % (x - 3)
+            b.set(x, y, 3, t)
+    for x in (3, 9):                                     # and two plain pillars
+        b.set(x, -3, 1, {'all': 'wall_concrete'})
+        b.set(x, -3, 2, {'all': 'wall_concrete'})
     for x in (5, 6, 7):
         b.set(x, 0, 0, {'top': 'mat', 'all': 'wall_concrete_base'})
     # walls, two storeys
@@ -486,7 +497,7 @@ def build_outpost(b, night=False, lit_upper=(2, 3, 9, 10), tree=True):
             if not perimeter(x, y):
                 continue
             for z in (1, 2, 3):
-                ext = 'wall_concrete_base' if z == 1 else 'wall_concrete'
+                ext = 'wall_concrete'
                 inn = 'wall_dado' if z == 1 else 'wall_plaster'
                 wall(b, x, y, z, ext, inn)
             for z in (5, 6, 7):
@@ -516,8 +527,6 @@ def build_outpost(b, night=False, lit_upper=(2, 3, 9, 10), tree=True):
         b.set(x, 0, 1, {'all': 'wall_plaster', 'north': 'door_bottom' + lit, 'south': 'door_bottom_lit'})
         b.set(x, 0, 2, {'all': 'wall_plaster', 'north': 'door_top' + lit, 'south': 'door_top_lit'})
     # the sign over the door, the emblem plaques beside it
-    for i, x in enumerate(range(3, 10)):
-        b.set(x, 0, 3, {'all': 'wall_plaster', 'north': 'sign_main_%d' % i})
     b.set(4, 0, 2, {'all': 'wall_plaster', 'north': 'emblem'})
     b.set(8, 0, 2, {'all': 'wall_plaster', 'north': 'emblem'})
     # the slab between the floors, with the stair well, and the roof
@@ -568,18 +577,91 @@ def build_outpost(b, night=False, lit_upper=(2, 3, 9, 10), tree=True):
     # a waiting bench by the door, a rug
     for y in (2, 3):
         b.box(10.1, y + 0.05, 1.0, 11.9, y + 0.95, 1.45, {'top': 'bench_top', 'all': 'bench_side'})
-    # outside: the drinks machine, a lamp, trees, the flag
-    b.box(11.1, -0.9, 1.0, 12.0, -0.1, 3.0, {'north': 'vending_front', 'all': 'pole', 'top': 'roof'})
-    b.box(-1.5, -3.55, 1.0, -1.25, -3.3, 6.0, {'all': 'pole'})
-    b.box(-1.5, -3.55, 6.0, 0.3, -3.3, 6.2, {'all': 'pole'})
-    b.box(-0.3, -3.6, 5.78, 0.4, -3.25, 6.0, {'all': 'lamp_top', 'top': 'pole'}, emit=EMIT_NIGHT['lamp_top'] if night else 0.0)
-    b.box(14.0, -2.5, 1.0, 14.18, -2.32, 9.2, {'all': 'pole'})
-    b.box(11.0, -2.46, 7.4, 14.0, -2.36, 8.9, {'north': 'banner_0', 'south': 'banner_0', 'all': 'banner_0'})
+    # outside: the drinks machine, a lamp, the flag, hedges, a low wall, a bench, a bike rack, the van, trees
+    b.box(11.1, -0.9, 0.0, 12.0, -0.1, 2.0, {'north': 'vending_front', 'all': 'pole', 'top': 'roof'})
+    b.box(-1.5, -3.55, 0.0, -1.25, -3.3, 5.0, {'all': 'pole'})
+    b.box(-1.5, -3.55, 5.0, 0.3, -3.3, 5.2, {'all': 'pole'})
+    b.box(-0.3, -3.6, 4.78, 0.4, -3.25, 5.0, {'all': 'lamp_top', 'top': 'pole'}, emit=EMIT_NIGHT['lamp_top'] if night else 0.0)
+    b.box(14.0, -2.5, 0.0, 14.18, -2.32, 8.2, {'all': 'pole'})
+    b.box(11.0, -2.46, 6.4, 14.0, -2.36, 7.9, {'north': 'banner_0', 'south': 'banner_0', 'all': 'banner_0'})
+    for y in range(1, 10):                               # hedges along both sides, a low wall behind the east one
+        b.set(-1, y, 0, 'leaves')
+        b.set(13, y, 0, 'leaves')
+    for x in range(14, 17):
+        b.set(x, 0, 0, {'all': 'wall_concrete', 'top': 'wall_concrete_top'})
+    for y in range(0, 12):
+        b.set(14, y, 0, {'all': 'wall_concrete', 'top': 'wall_concrete_top'})
+    for x in (-3, -2):                                   # planters by the porch
+        b.set(x, -1, 0, {'all': 'wall_concrete_base', 'top': 'leaves'})
+    b.set(10, -1, 0, {'all': 'wall_concrete_base', 'top': 'leaves'})
+    # a bench on the pavement
+    b.box(0.6, -2.4, 0.35, 2.6, -1.9, 0.45, {'all': 'log_side', 'top': 'log_side'})
+    b.box(0.6, -2.0, 0.45, 2.6, -1.9, 0.95, {'all': 'log_side'})
+    for xx in (0.7, 2.4):
+        b.box(xx, -2.35, 0.0, xx + 0.12, -2.0, 0.35, {'all': 'pole'})
+    # a bike rack with two bicycles
+    b.box(9.9, -3.2, 0.45, 13.0, -3.1, 0.55, {'all': 'pole'})
+    for xx in (9.9, 11.4, 12.9):
+        b.box(xx, -3.2, 0.0, xx + 0.1, -3.1, 0.55, {'all': 'pole'})
+    for xb in (10.5, 12.0):
+        b.box(xb, -4.15, 0.0, xb + 0.07, -3.55, 0.6, {'all': 'car_wheel'})
+        b.box(xb, -2.9, 0.0, xb + 0.07, -2.3, 0.6, {'all': 'car_wheel'})
+        b.box(xb, -3.6, 0.35, xb + 0.07, -2.5, 0.45, {'all': 'pole'})
+        b.box(xb - 0.12, -4.05, 0.62, xb + 0.2, -4.0, 0.68, {'all': 'pole'})
+    # the Public Safety van on the road, facing +X
+    vx, vy = 10.0, -9.2
+    for k in range(2):
+        b.box(vx + k * 1.3, vy, 0.4, vx + (k + 1) * 1.3, vy + 2.0, 1.9, {'north': 'car_side_plain', 'south': 'car_side_plain', 'top': 'car_roof', 'all': 'car_side_plain'})
+    b.box(vx + 2.6, vy, 0.4, vx + 3.6, vy + 2.0, 1.9, {'north': 'car_door', 'south': 'car_door', 'top': 'car_roof', 'east': 'car_glass', 'all': 'car_side_plain'})
+    b.box(vx + 3.6, vy, 0.4, vx + 4.5, vy + 2.0, 1.15, {'north': 'car_side_plain', 'south': 'car_side_plain', 'top': 'car_roof', 'east': 'car_front', 'all': 'car_side_plain'})
+    b.box(vx + 1.5, vy + 0.7, 1.9, vx + 2.1, vy + 1.3, 2.1, {'all': 'car_roof'})
+    for wx in (vx + 0.5, vx + 3.5):
+        for wy in (vy - 0.08, vy + 1.62):
+            b.box(wx, wy, 0.0, wx + 0.8, wy + 0.46, 0.8, {'all': 'car_wheel'})
     if tree:
         for (tx, ty) in ((-5, 6), (17, 8), (-4, -1)):
-            b.fill(tx, ty, 1, tx, ty, 3, {'all': 'log_side', 'top': 'log_top'})
-            b.fill(tx - 1, ty - 1, 4, tx + 1, ty + 1, 5, 'leaves')
-            b.fill(tx, ty, 6, tx, ty, 6, 'leaves')
+            b.fill(tx, ty, 0, tx, ty, 2, {'all': 'log_side', 'top': 'log_top'})
+            b.fill(tx - 1, ty - 1, 3, tx + 1, ty + 1, 4, 'leaves')
+            b.fill(tx, ty, 5, tx, ty, 5, 'leaves')
+    # rooftop: an aerial and a water tank on legs
+    b.box(11.4, 8.4, ROOF + 1.0, 11.5, 8.5, ROOF + 4.6, {'all': 'pole'})
+    for zz, half in ((ROOF + 3.2, 0.6), (ROOF + 3.8, 0.45), (ROOF + 4.3, 0.3)):
+        b.box(11.45 - half, 8.44, zz, 11.45 + half, 8.46, zz + 0.05, {'all': 'pole'})
+    for lx in (5.2, 6.8):
+        for ly in (7.6, 9.0):
+            b.box(lx, ly, ROOF + 1.0, lx + 0.12, ly + 0.12, ROOF + 2.0, {'all': 'pole'})
+    b.box(5.0, 7.4, ROOF + 2.0, 7.2, 9.4, ROOF + 3.4, {'all': 'tank_side', 'top': 'roof'})
+    # windows: set back a block into the wall with a sill under each
+    win = {'window_lit', 'window_day', 'window_dark'}
+    ext_face = lambda x, y: 'north' if y == 0 else 'south' if y == D - 1 else 'west' if x == 0 else 'east' if x == W - 1 else None
+    panes = []
+    for (x, y, z), tiles in list(b.solid.items()):
+        f = ext_face(x, y)
+        if f and z >= 2 and tiles.get(f) in win and (x, y) not in ((0, 0), (0, D - 1), (W - 1, 0), (W - 1, D - 1)):
+            panes.append((x, y, z, f, tiles[f]))
+            del b.solid[(x, y, z)]
+    have = {(x, y, z) for x, y, z, _, _ in panes}
+    for x, y, z, f, t in panes:
+        em = EMIT_NIGHT.get(t, 0.0) if night else 0.0
+        inner = 'window_day'
+        if f == 'north':
+            b.box(x, 0.45, z, x + 1, 0.5, z + 1, {'north': t, 'south': inner}, emit=em)
+        elif f == 'south':
+            b.box(x, D - 0.5, z, x + 1, D - 0.45, z + 1, {'south': t, 'north': inner}, emit=em)
+        elif f == 'west':
+            b.box(0.45, y, z, 0.5, y + 1, z + 1, {'west': t, 'east': inner}, emit=em)
+        else:
+            b.box(W - 0.5, y, z, W - 0.45, y + 1, z + 1, {'east': t, 'west': inner}, emit=em)
+        if (x, y, z - 1) not in have:
+            sill = {'all': 'wall_concrete_top'}
+            if f == 'north':
+                b.box(x - 0.06, -0.2, z, x + 1.06, 0.5, z + 0.13, sill)
+            elif f == 'south':
+                b.box(x - 0.06, D - 0.5, z, x + 1.06, D + 0.2, z + 0.13, sill)
+            elif f == 'west':
+                b.box(-0.2, y - 0.06, z, 0.5, y + 1.06, z + 0.13, sill)
+            else:
+                b.box(W - 0.5, y - 0.06, z, W + 0.2, y + 1.06, z + 0.13, sill)
     return {}
 
 
@@ -665,9 +747,9 @@ def shot_outside_day(w=1400, h=900):
     build_outpost(b, False)
     b.build('outpost', EMIT_DAY)
     # two hunters on the pavement and the captain's van-less street keeps it plain
-    Figure('tier_4th', (3.5, -2.5, 1.0), 25, name='h1')
-    Figure('hunter_rookie', (9.4, -3.0, 1.0), -35, name='h2')
-    camera((-6.0, -15.5, 6.0), (6.4, 2.0, 3.6), 26)
+    Figure('tier_4th', (2.5, -5.0, 0.0), 25, name='h1')
+    Figure('hunter_rookie', (10.6, -1.9, 0.0), -35, name='h2')
+    camera((-2.0, -17.5, 3.2), (6.6, -0.5, 3.9), 22)
     render(os.path.join(OUT, 'shot_outside_day.png'))
 
 
@@ -678,13 +760,13 @@ def shot_outside_night(w=1400, h=900):
     b = Blocks(atlas)
     build_outpost(b, True, lit_upper=(2, 3, 5, 6, 7, 10))
     b.build('outpost', EMIT_NIGHT)
-    Figure('tier_4th', (3.5, -2.5, 1.0), 25, name='h1')
-    Figure('hunter_rookie', (9.4, -3.0, 1.0), -35, name='h2')
-    point((-0.2, -3.4, 5.6), 700, (1.0, 0.86, 0.6), 0.25)
+    Figure('tier_4th', (2.5, -5.0, 0.0), 25, name='h1')
+    Figure('hunter_rookie', (10.6, -1.9, 0.0), -35, name='h2')
+    point((-0.2, -3.4, 4.6), 700, (1.0, 0.86, 0.6), 0.25)
     for (x, z) in ((2.5, 2.5), (9.5, 2.5), (2.5, 6.5), (6.5, 6.5), (9.5, 6.5)):
         point((x, -0.6, z), 70, (1.0, 0.82, 0.55), 0.3)
-    point((6.5, -1.6, 2.4), 180, (1.0, 0.82, 0.55), 0.3)
-    camera((-6.0, -15.5, 6.0), (6.4, 2.0, 3.6), 26)
+    point((6.5, -2.0, 2.9), 260, (1.0, 0.82, 0.55), 0.3)
+    camera((-2.0, -17.5, 3.2), (6.6, -0.5, 3.9), 22)
     render(os.path.join(OUT, 'shot_outside_night.png'))
 
 
