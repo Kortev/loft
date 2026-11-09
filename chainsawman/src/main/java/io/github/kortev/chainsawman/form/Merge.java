@@ -84,6 +84,9 @@ public final class Merge {
 			// He comes from where he was, or from FROM blocks off along the way if further.
 			Vec3d to = pochita.getPos().subtract(body);
 			from = to.length() > MergeTimeline.FROM ? body.add(to.normalize().multiply(MergeTimeline.FROM)) : pochita.getPos();
+			if (pochita.den != null) {
+				player.setAttached(Heart.DEN, pochita.den.asLong());
+			}
 			pochita.discard();
 		} else {
 			// Out of your pack, from beside you.

@@ -106,6 +106,9 @@ public final class Buddies {
 
 	static void init() {
 		UseEntityCallback.EVENT.register((player, world, hand, entity, hit) -> {
+			if (io.github.kortev.chainsawman.contract.Forever.locked(player) || io.github.kortev.chainsawman.contract.Forever.notYet(player)) {
+				return ActionResult.FAIL;
+			}
 			if (!world.isClient && entity instanceof ServerPlayerEntity other && player instanceof ServerPlayerEntity me && player.isSneaking()
 					&& hand == Hand.MAIN_HAND && me.getMainHandStack().isEmpty() && !Fallen.is(me) && !Fallen.is(other) && !Downed.is(me) && !Downed.is(other)) {
 				ask(me, other);

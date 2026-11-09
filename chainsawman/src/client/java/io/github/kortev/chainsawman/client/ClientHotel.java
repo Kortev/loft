@@ -75,7 +75,7 @@ public final class ClientHotel {
 		MinecraftClient client = MinecraftClient.getInstance();
 		if (ticks > 0) {
 			client.setScreen(new ContractScreen(ticks, hybrid));
-		} else if (client.currentScreen instanceof ContractScreen) {
+		} else if (client.currentScreen instanceof ContractScreen || client.currentScreen instanceof DropScreen) {
 			client.setScreen(null);
 		}
 	}

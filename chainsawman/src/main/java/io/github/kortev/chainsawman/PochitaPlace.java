@@ -111,10 +111,12 @@ public final class PochitaPlace extends PersistentState {
 					player.sendMessage(Text.translatable("message.chainsawman.pochita_near").formatted(Formatting.GRAY, Formatting.ITALIC), true);
 				}
 			}
-			if (place.lost >= 0 && !place.merged && world.getTime() - place.lost > BACK_AFTER) {
-				place.lost = -1;
-				place.spawn(world);
-				place.markDirty();
+			// Every den's Pochita, not only the first's, comes back when he is really lost.
+			for (int i = 0; i < place.slots(); i++) {
+				if (place.lostAt(i) >= 0 && !place.slotTaken(i) && world.getTime() - place.lostAt(i) > BACK_AFTER) {
+					place.setLost(i, -1);
+					spawnAt(world, place.slotAt(i));
+				}
 			}
 		});
 	}
@@ -133,9 +135,19 @@ public final class PochitaPlace extends PersistentState {
 
 	/** He's really gone: he'll be back at his place before long. */
 	public static void lost(MinecraftServer server) {
+		lost(server, null);
+	}
+
+	/** He is really gone, he who came from the den at {@code den} (null: the first den's): he will be back at that den before long. */
+	public static void lost(MinecraftServer server, @org.jetbrains.annotations.Nullable BlockPos den) {
 		PochitaPlace place = of(server);
-		place.lost = server.getOverworld().getTime();
-		place.markDirty();
+		int slot = 0;
+		for (int i = 0; den != null && i < place.slots(); i++) {
+			if (place.slotAt(i).equals(den)) {
+				slot = i;
+			}
+		}
+		place.setLost(slot, server.getOverworld().getTime());
 	}
 
 	/**
@@ -457,6 +469,8 @@ public final class PochitaPlace extends PersistentState {
 		pochita.refreshPositionAndAngles(at.getX() + 0.5, at.getY(), at.getZ() + 0.5, world.random.nextFloat() * 360.0F, 0.0F);
 		pochita.initialize(world, world.getLocalDifficulty(at), SpawnReason.STRUCTURE, null);
 		pochita.setPersistent();
+		// Tagged with the den he came from: when he is merged the world knows whose heart that was, and when he is lost where he comes back.
+		pochita.den = at;
 		world.spawnEntity(pochita);
 	}
 
@@ -467,6 +481,8 @@ public final class PochitaPlace extends PersistentState {
 		BlockPos at;
 		Direction.Axis axis;
 		boolean taken;
+		/** When his Pochita was lost (world time), or -1. */
+		long lost = -1;
 
 		Extra(BlockPos at, Direction.Axis axis, boolean taken) {
 			this.at = at;
@@ -492,6 +508,19 @@ public final class PochitaPlace extends PersistentState {
 
 	private boolean slotTaken(int i) {
 		return i == 0 ? merged : extras.get(i - 1).taken;
+	}
+
+	private long lostAt(int i) {
+		return i == 0 ? lost : extras.get(i - 1).lost;
+	}
+
+	private void setLost(int i, long time) {
+		if (i == 0) {
+			lost = time;
+		} else {
+			extras.get(i - 1).lost = time;
+		}
+		markDirty();
 	}
 
 	private void take(int i, boolean taken) {
@@ -532,7 +561,18 @@ public final class PochitaPlace extends PersistentState {
 
 	/** Someone has the heart of the den nearest {@code near} that still has one: it is taken. (None waiting: nothing changes.) */
 	public static void taken(MinecraftServer server, Vec3d near) {
+		taken(server, near, null);
+	}
+
+	/** The same, but if the Pochita that merged is known to have come from {@code den}, that den's heart is the one taken. */
+	public static void taken(MinecraftServer server, Vec3d near, @org.jetbrains.annotations.Nullable BlockPos den) {
 		PochitaPlace place = of(server);
+		for (int i = 0; den != null && i < place.slots(); i++) {
+			if (!place.slotTaken(i) && place.slotAt(i).equals(den)) {
+				place.take(i, true);
+				return;
+			}
+		}
 		int best = -1;
 		double bestD = Double.MAX_VALUE;
 		for (int i = 0; i < place.slots(); i++) {
@@ -571,7 +611,7 @@ public final class PochitaPlace extends PersistentState {
 		}
 		BlockPos old = slot >= 0 ? place.slotAt(slot) : world.getSpawnPos();
 		Random random = Random.create(world.getSeed() ^ (world.getTime() * 31L) ^ old.asLong());
-		BlockPos spot = place.farSpot(server, world, old, FAR_BACK, FROM_DENS, random);
+		BlockPos spot = place.farSpot(server, world, old, FAR_BACK, FROM_DENS, random, LOADS, true);
 		Direction.Axis axis = random.nextBoolean() ? Direction.Axis.X : Direction.Axis.Z;
 		den(world, spot, axis);
 		spawnAt(world, spot);
@@ -586,6 +626,7 @@ public final class PochitaPlace extends PersistentState {
 			extra.at = spot;
 			extra.axis = axis;
 			extra.taken = false;
+			extra.lost = -1;
 		} else {
 			place.extras.add(new Extra(spot, axis, false));
 		}
@@ -599,9 +640,16 @@ public final class PochitaPlace extends PersistentState {
 		PochitaPlace place = of(server);
 		ServerWorld world = server.getOverworld();
 		int added = 0;
-		while (place.placed && place.slots() < hearts && added < 8) {
-			Random random = Random.create(world.getSeed() ^ 0x4EA27L ^ place.slots());
-			BlockPos spot = place.farSpot(server, world, world.getSpawnPos(), NEAR, APART, random);
+		// One den a call, and a call looks at few places: the server thread has the rest of the tick, and the next call tries again.
+		if (place.placed && place.slots() < hearts) {
+			Random random = Random.create(world.getSeed() ^ 0x4EA27L ^ place.slots() ^ (place.ensureTries * 7919L));
+			boolean last = place.ensureTries >= ENSURE_TRIES;
+			BlockPos spot = place.farSpot(server, world, world.getSpawnPos(), NEAR, APART, random, ENSURE_LOADS, last);
+			if (spot == null) {
+				place.ensureTries++;
+				return 0;
+			}
+			place.ensureTries = 0;
 			Direction.Axis axis = random.nextBoolean() ? Direction.Axis.X : Direction.Axis.Z;
 			den(world, spot, axis);
 			spawnAt(world, spot);
@@ -620,11 +668,12 @@ public final class PochitaPlace extends PersistentState {
 	 * if the den fits (each load can make chunks, and this runs on the server thread). Failing woods, dry level land; failing that, the
 	 * ground at the first candidate.
 	 */
-	private BlockPos farSpot(MinecraftServer server, ServerWorld world, BlockPos from, int min, int fromDens, Random random) {
+	@org.jetbrains.annotations.Nullable
+	private BlockPos farSpot(MinecraftServer server, ServerWorld world, BlockPos from, int min, int fromDens, Random random, int maxLoads, boolean fallback) {
 		BlockPos dry = null;
 		BlockPos any = null;
 		int loads = 0;
-		for (int tries = 0; tries < 480 && loads < LOADS; tries++) {
+		for (int tries = 0; tries < 480 && loads < maxLoads; tries++) {
 			float angle = random.nextFloat() * MathHelper.TAU;
 			int distance = min + 8 + random.nextInt(600);
 			int x = from.getX() + (int) (MathHelper.cos(angle) * distance);
@@ -654,6 +703,9 @@ public final class PochitaPlace extends PersistentState {
 		if (dry != null) {
 			return dry;
 		}
+		if (!fallback) {
+			return null;
+		}
 		if (any != null) {
 			return any;
 		}
@@ -662,6 +714,10 @@ public final class PochitaPlace extends PersistentState {
 
 	/** How many candidates are loaded to see if a den fits (each can make chunks). */
 	private static final int LOADS = 6;
+	/** For {@link #ensure}: the candidates one call may load, and how many calls may find nothing before it takes what there is. */
+	private static final int ENSURE_LOADS = 2;
+	private static final int ENSURE_TRIES = 6;
+	private int ensureTries;
 
 	/** Whether ({@code x}, {@code z}) is far enough from every player in the overworld and every den. */
 	private boolean apart(MinecraftServer server, ServerWorld world, int x, int z, int fromDens) {
@@ -693,6 +749,7 @@ public final class PochitaPlace extends PersistentState {
 			c.putLong("At", e.at.asLong());
 			c.putString("Axis", e.axis.asString());
 			c.putBoolean("Taken", e.taken);
+			c.putLong("Lost", e.lost);
 			more.add(c);
 		}
 		nbt.put("Extras", more);
@@ -714,7 +771,9 @@ public final class PochitaPlace extends PersistentState {
 		for (NbtElement e : nbt.getList("Extras", NbtElement.COMPOUND_TYPE)) {
 			NbtCompound c = (NbtCompound) e;
 			Direction.Axis ax = Direction.Axis.fromName(c.getString("Axis"));
-			place.extras.add(new Extra(BlockPos.fromLong(c.getLong("At")), ax != null && ax != Direction.Axis.Y ? ax : Direction.Axis.X, c.getBoolean("Taken")));
+			Extra extra = new Extra(BlockPos.fromLong(c.getLong("At")), ax != null && ax != Direction.Axis.Y ? ax : Direction.Axis.X, c.getBoolean("Taken"));
+			extra.lost = c.contains("Lost") ? c.getLong("Lost") : -1;
+			place.extras.add(extra);
 		}
 		place.owner = nbt.contains("Owner") ? nbt.getString("Owner") : null;
 		return place;

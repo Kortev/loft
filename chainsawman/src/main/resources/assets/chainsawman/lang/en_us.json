@@ -207,5 +207,6 @@
   "chainsawman.heart.level.2": "The heart drinks. It wants more.",
   "chainsawman.heart.level.3": "The heart is hungry no more. It is the devil now.",
   "chainsawman.heart.up": "HEART LEVEL %s",
-  "chainsawman.heart.level": "Heart %s"
+  "chainsawman.heart.level": "Heart %s",
+  "message.chainsawman.theft.contracts": "A heart fills every slot: the contracts you held are over."
 }

@@ -123,12 +123,16 @@ public class PochitaEntity extends TameableEntity {
 	public void writeCustomDataToNbt(NbtCompound nbt) {
 		super.writeCustomDataToNbt(nbt);
 		nbt.putBoolean("Fainted", fainted());
+		if (den != null) {
+			nbt.putLong("Den", den.asLong());
+		}
 	}
 
 	@Override
 	public void readCustomDataFromNbt(NbtCompound nbt) {
 		super.readCustomDataFromNbt(nbt);
 		setFainted(nbt.getBoolean("Fainted"));
+		den = nbt.contains("Den") ? net.minecraft.util.math.BlockPos.fromLong(nbt.getLong("Den")) : null;
 	}
 
 	@Override
@@ -226,6 +230,10 @@ public class PochitaEntity extends TameableEntity {
 		FED.put(getUuid(), new Feed(player.getUuid(), done, now));
 	}
 
+	/** The den he came from (where the world's Pochita waited), or null for one that was never in a den. */
+	@Nullable
+	public net.minecraft.util.math.BlockPos den;
+
 	@Override
 	public void tick() {
 		super.tick();
@@ -239,7 +247,7 @@ public class PochitaEntity extends TameableEntity {
 	public void remove(RemovalReason reason) {
 		if (reason == RemovalReason.KILLED && getWorld() instanceof ServerWorld world) {
 			// Really gone (the void, the kill command): he'll turn up again at his place.
-			PochitaPlace.lost(world.getServer());
+			PochitaPlace.lost(world.getServer(), den);
 		}
 		super.remove(reason);
 	}

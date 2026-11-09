@@ -75,7 +75,13 @@ public final class Hearts {
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
 			ServerPlayerEntity player = handler.player;
 			cancel(player);
-			THEFTS.entrySet().removeIf(e -> e.getValue().by().equals(player.getUuid()));
+			// A thief who leaves stops the tearing too, and everyone's screen of it with them.
+			for (Map.Entry<UUID, Theft> e : Map.copyOf(THEFTS).entrySet()) {
+				if (e.getValue().by().equals(player.getUuid())) {
+					THEFTS.remove(e.getKey());
+					Form.broadcast(server, new FormEventPayload(e.getKey(), FormEventPayload.LIFT, 0, THEFT, 1.0, 0.0));
+				}
+			}
 			CONFIRMING.remove(player.getUuid());
 			if (Heart.has(player)) {
 				TeamState state = TeamState.of(server);
@@ -111,7 +117,8 @@ public final class Hearts {
 	/** {@code player} is a hybrid the world knows of: their den taken, their time kept. */
 	private static void note(MinecraftServer server, TeamState state, ServerPlayerEntity player) {
 		if (state.seen.put(player.getUuid(), server.getOverworld().getTime()) == null) {
-			PochitaPlace.taken(server, player.getPos());
+			Long den = player.getAttached(Heart.DEN);
+			PochitaPlace.taken(server, player.getPos(), den == null ? null : net.minecraft.util.math.BlockPos.fromLong(den));
 		}
 		state.markDirty();
 	}
@@ -255,6 +262,7 @@ public final class Hearts {
 		int heartXp = HeartLevel.xp(victim);
 		Downed.release(victim);
 		strip(victim);
+		boolean hadContracts = io.github.kortev.chainsawman.contract.Contracts.count(by) > 0;
 		Heart.give(by);
 		// The heart's levels go with it.
 		HeartLevel.set(by, heartXp);
@@ -275,6 +283,10 @@ public final class Hearts {
 		}
 		victim.sendMessage(Text.translatable("message.chainsawman.theft.lost", by.getDisplayName()).formatted(Formatting.DARK_RED), false);
 		by.sendMessage(Text.translatable("message.chainsawman.theft.took").formatted(Formatting.GOLD), false);
+		if (hadContracts) {
+			// (A heart fills all three slots: the contracts they held are over, and they are told so.)
+			by.sendMessage(Text.translatable("message.chainsawman.theft.contracts").formatted(Formatting.RED), false);
+		}
 	}
 
 	/** {@code player} is a hybrid no more: the form ended, the heart gone from them, Beam and the frenzy with it. Their contract slots are free. */

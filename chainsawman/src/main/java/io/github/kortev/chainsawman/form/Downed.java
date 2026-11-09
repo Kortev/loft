@@ -109,6 +109,10 @@ public final class Downed {
 		UseBlockCallback.EVENT.register((player, world, hand, hit) -> is(player) ? ActionResult.FAIL : ActionResult.PASS);
 		UseItemCallback.EVENT.register((player, world, hand) -> is(player) ? TypedActionResult.fail(ItemStack.EMPTY) : TypedActionResult.pass(ItemStack.EMPTY));
 		UseEntityCallback.EVENT.register((player, world, hand, entity, hit) -> {
+			if (io.github.kortev.chainsawman.contract.Forever.locked(player) || io.github.kortev.chainsawman.contract.Forever.notYet(player)) {
+				// Locked in an endless moment (or out of time): no lifting, no asking, no pulling.
+				return ActionResult.FAIL;
+			}
 			if (is(player)) {
 				return ActionResult.FAIL;
 			}

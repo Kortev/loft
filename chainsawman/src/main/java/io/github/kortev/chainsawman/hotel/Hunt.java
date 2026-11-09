@@ -268,6 +268,10 @@ public final class Hunt {
 	 * @return whether it was a cut of the corridor's wall
 	 */
 	public static boolean cut(ServerWorld world, HomeBlockEntity h, BlockPos pos, ServerPlayerEntity by) {
+		if (io.github.kortev.chainsawman.form.Fallen.is(by) || io.github.kortev.chainsawman.form.Downed.is(by)) {
+			// Someone lying down cuts nothing.
+			return false;
+		}
 		Hotel.Run r = h.run;
 		int[] c = local(h, pos);
 		BlockState state = world.getBlockState(pos);

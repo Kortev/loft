@@ -234,6 +234,69 @@ public class BondGameTests implements FabricGameTest {
 		}
 	}
 
+	/** Someone lying down (Fallen) cannot use contract powers: not Forever, not Not yet, not the switch key. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_fix_fallen", tickLimit = 60)
+	public void aFallenPlayerCannotUseContractPowers(TestContext context) {
+		floor(context);
+		HuskEntity husk = husk(context, 0.0, 8.0, 60.0F);
+		ServerPlayerEntity player = holder(context, "lying_down", 0.0, husk);
+		try {
+			Contracts.grant(player, "fox");
+			Contracts.grant(player, Contract.ETERNITY);
+			Bond.set(player, Contract.ETERNITY, Bond.THREE);
+			int selected = Contracts.selected(player);
+			io.github.kortev.chainsawman.form.Fallen.fall(player);
+			context.assertTrue(io.github.kortev.chainsawman.form.Fallen.is(player), "the player did not go down");
+			context.runAtTick(3, () -> {
+				Forever.use(player);
+				context.assertTrue(!Forever.locked(husk) && !Forever.active(player), "a fallen player used Forever");
+				context.assertTrue(!Forever.stepOut(player) && !Forever.notYet(player), "a fallen player stepped out of time");
+				Contracts.cycle(player);
+				context.assertTrue(Contracts.selected(player) == selected, "a fallen player switched contract");
+				finish(context, player, husk);
+				context.complete();
+			});
+		} catch (RuntimeException e) {
+			finish(context, player, husk);
+			throw e;
+		}
+	}
+
+	/** A player locked in Forever cannot lift a fallen friend (the other use callbacks run before Forever's own check). */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_fix_locked_lift", tickLimit = 60)
+	public void aLockedPlayerCannotLiftAFriend(TestContext context) {
+		floor(context);
+		ServerPlayerEntity victim = ForeverGameTests.player(context, "held_friend");
+		Vec3d at = context.getAbsolute(new Vec3d(0.5, 40.0, 8.5));
+		victim.teleport(context.getWorld(), at.x, at.y, at.z, 0.0F, 0.0F);
+		victim.setOnGround(true);
+		ServerPlayerEntity owner = holder(context, "locker", 0.0, victim);
+		ServerPlayerEntity down = ForeverGameTests.player(context, "on_the_ground");
+		down.teleport(context.getWorld(), at.x + 1.0, at.y, at.z, 0.0F, 0.0F);
+		try {
+			io.github.kortev.chainsawman.form.Fallen.fall(down);
+			victim.setSneaking(true);
+			context.runAtTick(2, () -> {
+				// (Free, a sneaking friend lifts the one on the ground: the control.)
+				net.minecraft.util.ActionResult free = net.fabricmc.fabric.api.event.player.UseEntityCallback.EVENT.invoker().interact(victim, context.getWorld(), net.minecraft.util.Hand.MAIN_HAND, down, null);
+				context.assertTrue(free == net.minecraft.util.ActionResult.SUCCESS, "the control: a free friend could not lift: " + free);
+				Forever.use(owner);
+				context.assertTrue(Forever.locked(victim), "the friend was not locked");
+				net.minecraft.util.ActionResult held = net.fabricmc.fabric.api.event.player.UseEntityCallback.EVENT.invoker().interact(victim, context.getWorld(), net.minecraft.util.Hand.MAIN_HAND, down, null);
+				context.assertTrue(held == net.minecraft.util.ActionResult.FAIL, "a locked player could lift: " + held);
+				ForeverGameTests.leave(context, down);
+				finish(context, owner);
+				ForeverGameTests.leave(context, victim);
+				context.complete();
+			});
+		} catch (RuntimeException e) {
+			ForeverGameTests.leave(context, down);
+			finish(context, owner);
+			ForeverGameTests.leave(context, victim);
+			throw e;
+		}
+	}
+
 	// ---- The ground and the actors.
 
 	private static void floor(TestContext context) {

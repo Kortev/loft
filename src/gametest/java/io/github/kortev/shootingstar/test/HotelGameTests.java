@@ -1387,6 +1387,79 @@ public class HotelGameTests implements FabricGameTest {
 		});
 	}
 
+	/**
+	 * Someone on the Drop screen (every slot full) has pressed Accept in time: the beg does not time out under them, so choosing a contract to
+	 * give up still gets them the new one.
+	 */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_beg_wait", tickLimit = 900)
+	public void theBegWaitsForSomeoneChoosingWhichToDrop(TestContext context) {
+		HomeBlockEntity h = hotel(context, 0, 43);
+		ServerPlayerEntity p = walker(context, h, "slow_chooser", 26.0);
+		io.github.kortev.chainsawman.contract.Contracts.grant(p, "fox");
+		io.github.kortev.chainsawman.contract.Contracts.grant(p, "ghost");
+		io.github.kortev.chainsawman.contract.Contracts.grant(p, "curse");
+		io.github.kortev.chainsawman.hotel.EternityDevilEntity[] d = new io.github.kortev.chainsawman.hotel.EternityDevilEntity[1];
+		ready(context, h, () -> {
+			later(context, 15, () -> {
+				noSquad(context, h);
+				d[0] = fightAt(context, h);
+			});
+			later(context, 110, () -> toTheLine(p, d[0]));
+			later(context, 116, () -> {
+				Hotel.answer(p, true);
+				context.assertTrue(h.run.beg != null && h.run.beg.dropping.contains(p.getUuid()), "a full hand was not asked which to drop");
+			});
+			// Well past the beg's 10 seconds: still waiting for them.
+			later(context, 116 + Hotel.BEG_TICKS + 60, () -> {
+				context.assertTrue(h.run.beg != null && !d[0].isDead(), "the beg timed out while they were choosing");
+				Hotel.drop(p, 2);
+				context.assertTrue(io.github.kortev.chainsawman.contract.Contracts.ids(p).equals(java.util.List.of("fox", "ghost", "eternity")), "the contract they chose is not theirs: " + io.github.kortev.chainsawman.contract.Contracts.ids(p));
+			});
+			later(context, 116 + Hotel.BEG_TICKS + 66, () -> {
+				context.assertTrue(h.run.beg == null && d[0].spared && p.getUuid().equals(h.holder), "the deal did not go through after the long choice");
+				tidy(context, h, p);
+				context.complete();
+			});
+		});
+	}
+
+	/** With one contract per devil, someone choosing what to drop cannot get the contract another player took meanwhile. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_beg_wait_one", tickLimit = 900)
+	public void aDropChosenAfterAnotherTookItIsTurnedDown(TestContext context) {
+		HomeBlockEntity h = hotel(context, 0, 44);
+		ServerPlayerEntity a = walker(context, h, "choosing", 26.0);
+		ServerPlayerEntity b = walker(context, h, "quick", 27.5);
+		context.getWorld().getGameRules().get(HotelRules.ONE_CONTRACT_PER_DEVIL).set(true, context.getWorld().getServer());
+		io.github.kortev.chainsawman.contract.Contracts.grant(a, "fox");
+		io.github.kortev.chainsawman.contract.Contracts.grant(a, "ghost");
+		io.github.kortev.chainsawman.contract.Contracts.grant(a, "curse");
+		io.github.kortev.chainsawman.hotel.EternityDevilEntity[] d = new io.github.kortev.chainsawman.hotel.EternityDevilEntity[1];
+		ready(context, h, () -> {
+			later(context, 15, () -> {
+				noSquad(context, h);
+				d[0] = fightAt(context, h);
+			});
+			later(context, 110, () -> {
+				toTheLine(a, d[0]);
+				toTheLine(b, d[0]);
+			});
+			later(context, 116, () -> {
+				Hotel.answer(a, true);
+				Hotel.answer(b, true);
+				context.assertTrue(io.github.kortev.chainsawman.contract.Contracts.has(b, io.github.kortev.chainsawman.contract.Contract.ETERNITY) && b.getUuid().equals(h.holder), "the quick one did not get it");
+			});
+			later(context, 140, () -> {
+				Hotel.drop(a, 1);
+				context.assertTrue(!io.github.kortev.chainsawman.contract.Contracts.has(a, io.github.kortev.chainsawman.contract.Contract.ETERNITY)
+						&& io.github.kortev.chainsawman.contract.Contracts.ids(a).equals(java.util.List.of("fox", "ghost", "curse")), "the contract was given twice: " + io.github.kortev.chainsawman.contract.Contracts.ids(a));
+			});
+			later(context, 150, () -> {
+				tidy(context, h, a, b);
+				context.complete();
+			});
+		});
+	}
+
 	// ---- A whole run without Chainsaw Man.
 
 	/**

@@ -565,6 +565,8 @@ public final class Hotel {
 	/** How long (ticks) the contract is on offer, and how long the devil begs when there is nobody to answer (only hybrids inside). */
 	public static final int BEG_TICKS = 200;
 	public static final int BEG_QUIET = 60;
+	/** How many ticks more a beg waits for a player who accepted and is choosing which contract to give up. */
+	public static final int DROP_GRACE = 600;
 
 	/** The devil's offer: its contract for its life, to everyone inside, and who has answered what. */
 	public static final class Beg {
@@ -620,7 +622,8 @@ public final class Hotel {
 			}
 		}
 		long t = now - b.started;
-		boolean timeout = t >= b.ticks;
+		// Someone choosing which contract to give up (the Drop screen) has pressed Accept in time: the beg waits for them, up to DROP_GRACE more.
+		boolean timeout = t >= b.ticks + (b.dropping.isEmpty() ? 0 : DROP_GRACE);
 		boolean all = true;
 		for (UUID id : b.players) {
 			if (!b.hybrids.contains(id) && !b.answered.contains(id) || b.dropping.contains(id)) {
@@ -662,6 +665,9 @@ public final class Hotel {
 
 	/** The player's answer to the contract screen. */
 	public static void answer(ServerPlayerEntity player, boolean accept) {
+		if (io.github.kortev.chainsawman.form.Fallen.is(player) || io.github.kortev.chainsawman.form.Downed.is(player)) {
+			return;
+		}
 		ServerWorld world = player.getServerWorld();
 		UUID id = player.getUuid();
 		for (HomeBlockEntity h : HomeBlockEntity.LOADED) {
@@ -722,7 +728,15 @@ public final class Hotel {
 			if (h.getWorld() != world || b == null || !b.dropping.remove(player.getUuid())) {
 				continue;
 			}
-			if (slot >= 0 && slot < Contracts.count(player) && Contracts.replace(player, slot, Contract.ETERNITY.id) == Contracts.Result.GRANTED) {
+			if (slot < 0 || slot >= Contracts.count(player)) {
+				return;
+			}
+			// (While they chose, another may have taken the one contract this devil gives: it is not given twice.)
+			if (world.getGameRules().getBoolean(HotelRules.ONE_CONTRACT_PER_DEVIL) && h.holder != null && !h.holder.equals(player.getUuid()) && holderStillHolds(world, h)) {
+				speak(world, Set.of(player.getUuid()), "message.chainsawman.devil.held", 90, 0);
+				return;
+			}
+			if (Contracts.replace(player, slot, Contract.ETERNITY.id) == Contracts.Result.GRANTED) {
 				sealed(world, h, b, player);
 			}
 			return;

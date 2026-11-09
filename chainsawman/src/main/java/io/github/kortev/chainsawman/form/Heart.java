@@ -19,6 +19,10 @@ public final class Heart {
 	public static final AttachmentType<Boolean> MERGED = AttachmentRegistry.<Boolean>builder().persistent(Codec.BOOL)
 			.copyOnDeath().buildAndRegister(ChainsawMan.id("heart"));
 
+	/** The den the Pochita that became this heart came from (a block position), so the world takes that den's heart and not another's. */
+	public static final AttachmentType<Long> DEN = AttachmentRegistry.<Long>builder().persistent(Codec.LONG).copyOnDeath()
+			.buildAndRegister(ChainsawMan.id("heart_den"));
+
 	private Heart() {
 	}
 
@@ -49,6 +53,7 @@ public final class Heart {
 	public static void take(ServerPlayerEntity player) {
 		player.removeAttached(MERGED);
 		player.removeAttached(HeartLevel.XP);
+		player.removeAttached(DEN);
 		Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.HEART, 0));
 		Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.HEART_LEVEL, 0));
 	}

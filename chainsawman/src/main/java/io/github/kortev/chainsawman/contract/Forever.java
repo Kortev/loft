@@ -273,7 +273,7 @@ public final class Forever {
 			player.sendMessage(Text.translatable("chainsawman.forever.human_only"), true);
 			return;
 		}
-		if (!player.isAlive() || Downed.is(player) || CUBES.containsKey(player.getUuid()) || locked(player) || notYet(player)) {
+		if (!player.isAlive() || Downed.is(player) || io.github.kortev.chainsawman.form.Fallen.is(player) || CUBES.containsKey(player.getUuid()) || locked(player) || notYet(player)) {
 			return;
 		}
 		if (!player.isCreative() && player.getHungerManager().getFoodLevel() <= 0) {
@@ -360,7 +360,7 @@ public final class Forever {
 			player.sendMessage(Text.translatable("chainsawman.forever.human_only"), true);
 			return false;
 		}
-		if (!player.isAlive() || Downed.is(player) || CUBES.containsKey(player.getUuid()) || locked(player) || notYet(player)) {
+		if (!player.isAlive() || Downed.is(player) || io.github.kortev.chainsawman.form.Fallen.is(player) || CUBES.containsKey(player.getUuid()) || locked(player) || notYet(player)) {
 			return false;
 		}
 		if (!player.isCreative() && player.getHungerManager().getFoodLevel() <= 0) {
@@ -926,6 +926,12 @@ public final class Forever {
 			}
 			SINKING.add(c);
 			COOL.put(c.owner, (long) server.getTicks() + COOLDOWN);
+			// It still cost them: time caught up with them though nothing went off (the target died or left), if they are still here.
+			ServerPlayerEntity owner = server.getPlayerManager().getPlayer(c.owner);
+			if (owner != null) {
+				catchUp(owner);
+				Bond.record(owner, Contract.ETERNITY);
+			}
 			return;
 		}
 		for (Lock l : c.locks) {

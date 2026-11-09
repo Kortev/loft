@@ -348,6 +348,10 @@ public class SquadMemberEntity extends PathAwareEntity {
 		nbt.putInt("Variant", variant());
 		nbt.putBoolean("Mad", isMad());
 		nbt.putBoolean("Rescued", rescued);
+		// The note in his pocket goes with him (it is dropped when he is fed, not lost when he unloads).
+		if (!note.isEmpty()) {
+			nbt.put("Note", note.encode(this.getRegistryManager()));
+		}
 		if (owner != null) {
 			nbt.putUuid("Owner", owner);
 		}
@@ -360,6 +364,7 @@ public class SquadMemberEntity extends PathAwareEntity {
 		setVariant(nbt.getInt("Variant"));
 		setMad(nbt.getBoolean("Mad"));
 		rescued = nbt.getBoolean("Rescued");
+		note = nbt.contains("Note") ? ItemStack.fromNbt(this.getRegistryManager(), nbt.get("Note")).orElse(ItemStack.EMPTY) : ItemStack.EMPTY;
 		owner = nbt.containsUuid("Owner") ? nbt.getUuid("Owner") : null;
 	}
 }

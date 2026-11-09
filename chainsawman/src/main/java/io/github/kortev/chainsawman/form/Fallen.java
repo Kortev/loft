@@ -118,6 +118,10 @@ public final class Fallen {
 		UseBlockCallback.EVENT.register((player, world, hand, hit) -> is(player) ? ActionResult.FAIL : ActionResult.PASS);
 		UseItemCallback.EVENT.register((player, world, hand) -> is(player) ? TypedActionResult.fail(ItemStack.EMPTY) : TypedActionResult.pass(ItemStack.EMPTY));
 		UseEntityCallback.EVENT.register((player, world, hand, entity, hit) -> {
+			if (io.github.kortev.chainsawman.contract.Forever.locked(player) || io.github.kortev.chainsawman.contract.Forever.notYet(player)) {
+				// Locked in an endless moment (or out of time): no lifting, no asking, no pulling.
+				return ActionResult.FAIL;
+			}
 			if (is(player)) {
 				return ActionResult.FAIL;
 			}
@@ -152,9 +156,20 @@ public final class Fallen {
 		});
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
 			UUID id = handler.player.getUuid();
-			FALLEN.remove(id);
+			boolean was = FALLEN.remove(id);
 			LIFTING.remove(id);
 			LAST_HIT.remove(id);
+			// Everyone else's screens forget them: no one is lying there any more, and anyone who was lifting them has let go.
+			if (was) {
+				Form.broadcast(server, new FormEventPayload(id, FormEventPayload.FALLEN, 0));
+				Form.broadcast(server, new FormEventPayload(id, FormEventPayload.LIFT, 0));
+			}
+			for (Map.Entry<UUID, Lift> e : Map.copyOf(LIFTING).entrySet()) {
+				if (e.getValue().by().equals(id)) {
+					LIFTING.remove(e.getKey());
+					Form.broadcast(server, new FormEventPayload(e.getKey(), FormEventPayload.LIFT, 0));
+				}
+			}
 		});
 	}
 

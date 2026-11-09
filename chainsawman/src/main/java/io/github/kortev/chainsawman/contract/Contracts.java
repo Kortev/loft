@@ -152,6 +152,9 @@ public final class Contracts {
 
 	/** The selected slot moves to the next contract held; the action bar says which. */
 	public static void cycle(ServerPlayerEntity player) {
+		if (io.github.kortev.chainsawman.form.Fallen.is(player) || io.github.kortev.chainsawman.form.Downed.is(player)) {
+			return;
+		}
 		int n = count(player);
 		if (n == 0) {
 			player.sendMessage(Text.translatable("chainsawman.forever.no_contract"), true);
