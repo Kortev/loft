@@ -65,6 +65,17 @@ Everyone starts as a plain human. What you become is decided by what you find an
   - the old owner gets their 3 slots back at once, so they can start making contracts.
   It fixes the luck problem: whoever finds Pochita first isn't set for good, and on a server the hybrid becomes
   everyone's target. Solo, it changes nothing.
+- **One Chainsaw Man on a big server: the server's legend** (kortev and Opus, 2026-11-08). That's the show's own
+  premise: there is one Chainsaw Man and everyone wants his heart. Keep one by default, and make him worth it:
+  - **really overpowered:** the strongest thing on the server, a world boss who is a player;
+  - **on the map when he's in the form:** every time he pulls the cord, everyone on the server hears the engine roar
+    and gets his direction (a marker on the map or a compass for a minute). As a human he's hidden. So he chooses:
+    full power and be found, or hide;
+  - **a bounty on the heart:** Public Safety posts it as the top mission, and whoever takes the heart becomes the
+    legend (with `heartTheft` on, and the fairness rules above);
+  - on a big server the other hybrids (Bomb, Katana, later more) are one each too, so a few players are legends, not
+    only one;
+  - **a game rule `chainsawHearts` (default 1)** for servers that want more than one.
 - **Bomb and Katana, later:** each comes from its own quest line's end, one per world. The heart rule applies to them too.
 - **Hybrid or contracts, never both** (kept). Taking a hybrid heart ends your contracts; a hybrid is refused by every devil.
 
