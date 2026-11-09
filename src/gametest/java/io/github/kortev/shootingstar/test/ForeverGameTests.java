@@ -167,13 +167,13 @@ public class ForeverGameTests implements FabricGameTest {
 			Contracts.clear(player);
 			Forever.use(player);
 			context.assertTrue(!Forever.active(player) && !Forever.locked(husk), "Forever started with no contract");
-			context.assertTrue(player.experienceLevel == 10, "a refused use took levels");
+			context.assertTrue(player.experienceLevel == 10 && player.getHungerManager().getFoodLevel() == 20, "a refused use took something");
 			Contracts.grant(player, Contract.ETERNITY);
 			Form.start(player);
 			context.assertTrue(Form.in(player), "the test player is not in the form");
 			Forever.use(player);
 			context.assertTrue(!Forever.active(player) && !Forever.locked(husk), "Forever started in Chainsaw Man form");
-			context.assertTrue(Forever.cooldownLeft(player) == 0 && player.experienceLevel == 10, "a blocked use spent the price or the cooldown");
+			context.assertTrue(Forever.cooldownLeft(player) == 0 && player.getHungerManager().getFoodLevel() == 20, "a blocked use spent the price or the cooldown");
 		} finally {
 			Form.end(player);
 			finish(context, player, husk);
@@ -190,7 +190,7 @@ public class ForeverGameTests implements FabricGameTest {
 		try {
 			Forever.use(player);
 			context.assertTrue(!Forever.active(player), "Forever started with nothing to hold");
-			context.assertTrue(player.experienceLevel == 10 && Forever.cooldownLeft(player) == 0, "a use with no target cost something");
+			context.assertTrue(player.getHungerManager().getFoodLevel() == 20 && Forever.cooldownLeft(player) == 0, "a use with no target cost something");
 		} finally {
 			finish(context, player);
 		}
@@ -218,7 +218,7 @@ public class ForeverGameTests implements FabricGameTest {
 				Forever.use(player);
 				used[0] = 2;
 				context.assertTrue(Forever.locked(husk), "the husk was not locked");
-				context.assertTrue(player.experienceLevel == 10 - Forever.PRICE, "the price was not taken: " + player.experienceLevel);
+				context.assertTrue(player.experienceLevel == 10 && player.getHungerManager().getFoodLevel() == 20, "something was taken at the press (the price comes after the release): levels " + player.experienceLevel + " hunger " + player.getHungerManager().getFoodLevel());
 				context.assertTrue(Forever.copies(husk).size() >= 4, "too few copies: " + Forever.copies(husk).size());
 				context.assertTrue(!husk.isAiDisabled() && !husk.hasNoGravity(), "the lock set flags on the husk (they would be saved with it)");
 			});
@@ -559,24 +559,86 @@ public class ForeverGameTests implements FabricGameTest {
 		context.complete();
 	}
 
-	/** The price is three levels in survival, a refusal with none spent when short, free in creative. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_forever_price", tickLimit = 40)
-	public void foreverCostsThreeLevels(TestContext context) {
+	/**
+	 * Each use: no experience; after the release the hunger drops by 3 (the grey stays on you a moment: the client's), and with 0 hunger a use is
+	 * refused; free in creative.
+	 */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_forever_price", tickLimit = 80)
+	public void eachUseCostsThreeHungerAfterTheRelease(TestContext context) {
 		terrain(context);
 		HuskEntity husk = husk(context, 0.0, 8.0, 60.0F);
-		ServerPlayerEntity poor = holder(context, "poor", -1.0, husk);
-		ServerPlayerEntity rich = holder(context, "rich", 1.0, husk);
+		HuskEntity other = husk(context, 12.0, 8.0, 60.0F);
+		ServerPlayerEntity payer = holder(context, "payer", -1.0, husk);
+		ServerPlayerEntity starving = holder(context, "starving", 1.0, other);
+		ServerPlayerEntity rich = holder(context, "free", 7.0, other);
 		try {
-			poor.setExperienceLevel(2);
-			Forever.use(poor);
-			context.assertTrue(!Forever.locked(husk) && poor.experienceLevel == 2 && Forever.cooldownLeft(poor) == 0, "a use that was too dear went through or cost something");
+			starving.getHungerManager().setFoodLevel(0);
+			Forever.use(starving);
+			context.assertTrue(!Forever.locked(other) && starving.getHungerManager().getFoodLevel() == 0 && Forever.cooldownLeft(starving) == 0, "a use at 0 hunger went through or cost something");
+			Forever.use(payer);
+			context.assertTrue(Forever.locked(husk), "the use did not start");
+			context.assertTrue(payer.getHungerManager().getFoodLevel() == 20 && payer.experienceLevel == 10, "the price was taken before the release: hunger " + payer.getHungerManager().getFoodLevel() + ", levels " + payer.experienceLevel);
 			rich.changeGameMode(GameMode.CREATIVE);
 			Forever.use(rich);
-			context.assertTrue(Forever.locked(husk) && rich.experienceLevel == 10, "creative paid, or did not start: " + rich.experienceLevel);
-			context.assertTrue(Forever.PRICE == 3, "the price changed");
+			context.assertTrue(Forever.locked(other), "creative could not use it");
+			Forever.endsIn(husk, 4);
+			Forever.endsIn(other, 4);
+			context.runAtTick(30, () -> {
+				context.assertTrue(!Forever.locked(husk), "the moment did not end");
+				context.assertTrue(payer.getHungerManager().getFoodLevel() == 20 - Forever.HUNGER && payer.experienceLevel == 10, "the release took hunger " + (20 - payer.getHungerManager().getFoodLevel()) + " and " + (10 - payer.experienceLevel) + " levels");
+				context.assertTrue(rich.getHungerManager().getFoodLevel() == 20, "creative paid hunger");
+				context.assertTrue(Forever.HUNGER == 3, "the price changed");
+				finish(context, payer, husk);
+				finish(context, starving, other);
+				finish(context, rich, other);
+				context.complete();
+			});
+		} catch (RuntimeException e) {
+			finish(context, payer, husk);
+			finish(context, starving, other);
+			finish(context, rich, other);
+			throw e;
+		}
+	}
+
+	/** Eternity's lasting price: beds do not work for its holder (an action bar line, and the time since rest keeps growing). */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_forever_bed", tickLimit = 40)
+	public void bedsRefuseTheHolderOfEternity(TestContext context) {
+		ServerPlayerEntity holder = player(context, "sleepless");
+		try {
+			Contracts.grant(holder, Contract.ETERNITY);
+			net.minecraft.stat.Stat<net.minecraft.util.Identifier> rest = net.minecraft.stat.Stats.CUSTOM.getOrCreateStat(net.minecraft.stat.Stats.TIME_SINCE_REST);
+			holder.getStatHandler().setStat(holder, rest, 5000);
+			net.minecraft.util.math.BlockPos bed = holder.getBlockPos();
+			context.assertTrue(holder.trySleep(bed).left().isPresent(), "a bed worked for a holder of Eternity");
+			context.assertTrue(!holder.isSleeping(), "the holder is asleep");
+			context.assertTrue(holder.getStatHandler().getStat(rest) == 5000, "the time since rest was reset: " + holder.getStatHandler().getStat(rest));
 		} finally {
-			finish(context, poor, husk);
-			finish(context, rich, husk);
+			Contracts.clear(holder);
+			leave(context, holder);
+		}
+		context.complete();
+	}
+
+	/** And it does not count toward the server's sleep vote: the others can skip the night without the holder. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_forever_vote", tickLimit = 40)
+	public void aHolderDoesNotBlockTheNightSkip(TestContext context) {
+		ServerPlayerEntity sleeper = player(context, "sleeper");
+		ServerPlayerEntity holder = player(context, "kept_awake");
+		try {
+			sleeper.setSleepingPosition(sleeper.getBlockPos());
+			net.minecraft.server.world.SleepManager vote = new net.minecraft.server.world.SleepManager();
+			// Without Eternity the second player not sleeping keeps the vote from passing.
+			vote.update(java.util.List.of(sleeper, holder));
+			context.assertTrue(!vote.canSkipNight(100), "the night could be skipped with a player awake (the control)");
+			Contracts.grant(holder, Contract.ETERNITY);
+			vote.update(java.util.List.of(sleeper, holder));
+			context.assertTrue(vote.canSkipNight(100), "a holder of Eternity held up the night skip");
+		} finally {
+			Contracts.clear(holder);
+			sleeper.clearSleepingPosition();
+			leave(context, sleeper);
+			leave(context, holder);
 		}
 		context.complete();
 	}
@@ -781,7 +843,7 @@ public class ForeverGameTests implements FabricGameTest {
 			context.assertTrue(!Forever.locked(owner) && !Forever.locked(pet), "the owner or their pet was held");
 			context.assertTrue(Forever.lockedBy(owner).size() == 4, "the cube holds " + Forever.lockedBy(owner).size());
 			context.assertTrue(Forever.copies(near1).size() >= 4 && Forever.copies(bystander).size() >= 4, "the others have no lines of their own");
-			context.assertTrue(owner.experienceLevel == 10 - Forever.PRICE, "the price was taken " + (10 - owner.experienceLevel) + " times over");
+			context.assertTrue(owner.experienceLevel == 10 && owner.getHungerManager().getFoodLevel() == 20, "something was taken for the cube at the press");
 			Forever.endsIn(target, 6);
 			near1.damage(context.getWorld().getDamageSources().playerAttack(owner), 5.0F);
 			context.assertTrue(near1.getHealth() == 60.0F && Forever.stored(near1) == 1, "a hit on another thing in the cube was not stored on it");
@@ -988,6 +1050,7 @@ public class ForeverGameTests implements FabricGameTest {
 		player.teleport(context.getWorld(), feet.x, feet.y, feet.z, 0.0F, 0.0F);
 		Contracts.grant(player, Contract.ETERNITY);
 		player.setExperienceLevel(10);
+		player.getHungerManager().setFoodLevel(20);
 		player.setOnGround(true);
 		if (at != null) {
 			Vec3d eye = player.getEyePos();

@@ -116,6 +116,7 @@ public final class ChainsawManClient implements ClientModInitializer {
 		ClientPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.HotelPayloads.Fog.ID, (payload, context) -> ClientHotel.fog(payload.end()));
 		ClientPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.HotelPayloads.Speech.ID, (payload, context) -> ClientHotel.speech(payload));
 		ClientPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.HotelPayloads.Offer.ID, (payload, context) -> ClientHotel.offer(payload.ticks(), payload.hybrid()));
+		ClientPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.ForeverCatchUpPayload.ID, (payload, context) -> ForeverHud.catchUp(payload.ticks()));
 		ClientPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.HotelPayloads.Drop.ID,
 				(payload, context) -> MinecraftClient.getInstance().setScreen(new DropScreen(payload.held())));
 		ClientPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.HotelPayloads.Devil.ID, (payload, context) -> ClientHotel.devil(payload));

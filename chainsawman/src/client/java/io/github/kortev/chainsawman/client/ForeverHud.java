@@ -35,6 +35,17 @@ public final class ForeverHud {
 	private ForeverHud() {
 	}
 
+	/** The world tick until which the grey drain stays on this player after the release (time catching up with them). */
+	private static long catchUntil;
+
+	/** Time catches up: the drain stays for {@code ticks} ticks from now. */
+	public static void catchUp(int ticks) {
+		MinecraftClient client = MinecraftClient.getInstance();
+		if (client.world != null) {
+			catchUntil = client.world.getTime() + ticks;
+		}
+	}
+
 	public static void tick(MinecraftClient client) {
 		previous = level;
 		heldPrevious = held;
@@ -57,6 +68,10 @@ public final class ForeverHud {
 			if (hub.targetId() == client.player.getId() && hub.phase() != ForeverHubEntity.SINKING) {
 				locked = true;
 			}
+		}
+		if (now < catchUntil) {
+			// Time has caught up with you: the grey stays, a second, and lets go.
+			want = Math.max(want, 0.6F * MathHelper.clamp((catchUntil - now) / 8.0F, 0.0F, 1.0F));
 		}
 		level += (want - level) * (want > level ? 0.35F : 0.12F);
 		if (level < 0.003F) {

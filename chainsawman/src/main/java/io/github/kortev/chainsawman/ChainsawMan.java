@@ -127,6 +127,7 @@ public final class ChainsawMan implements ModInitializer {
 		PayloadTypeRegistry.playS2C().register(io.github.kortev.chainsawman.network.ContractPayload.ID, io.github.kortev.chainsawman.network.ContractPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(io.github.kortev.chainsawman.network.UseContractPayload.ID, io.github.kortev.chainsawman.network.UseContractPayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.UseContractPayload.ID, (payload, context) -> io.github.kortev.chainsawman.contract.Forever.use(context.player()));
+		PayloadTypeRegistry.playS2C().register(io.github.kortev.chainsawman.network.ForeverCatchUpPayload.ID, io.github.kortev.chainsawman.network.ForeverCatchUpPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(io.github.kortev.chainsawman.network.SwitchContractPayload.ID, io.github.kortev.chainsawman.network.SwitchContractPayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.SwitchContractPayload.ID, (payload, context) -> io.github.kortev.chainsawman.contract.Contracts.cycle(context.player()));
 		PayloadTypeRegistry.playS2C().register(io.github.kortev.chainsawman.network.HotelPayloads.Drop.ID, io.github.kortev.chainsawman.network.HotelPayloads.Drop.CODEC);

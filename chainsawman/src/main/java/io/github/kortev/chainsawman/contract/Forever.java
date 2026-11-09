@@ -71,11 +71,14 @@ import org.joml.Vector3f;
  * by the clients). Every copy is the target: a hit on the target or on any copy is not applied but stored. When the moment ends
  * ({@link #LASTS} ticks, {@link #BOSS_LASTS} for a boss) the line snaps into the target and every stored hit goes off at once:
  * one hit of the total times {@link #MULT} (at most {@link #CAP}), credited to whoever stored the most, flinging the target away
- * from the one who called it. It costs {@link #PRICE} levels of experience (free in creative).
+ * from the one who called it. After the release time catches up with the one who called it: their hunger drops by {@link #HUNGER} (free in
+ * creative) and a use is refused at 0 hunger. Holding the contract also keeps you from sleeping ({@code EternityBedMixin}) and from the sleep vote.
  */
 public final class Forever {
-	/** The price in experience levels (kortev has not confirmed it: change it here), free in creative. */
-	public static final int PRICE = 3;
+	/** The price of each use (kortev has not confirmed it: change it here): after the release the hunger drops by this much (a drumstick and a half), free in creative. */
+	public static final int HUNGER = 3;
+	/** How long the grey drain stays on the one who paid, after the release (ticks). */
+	public static final int CATCH_UP = 22;
 	/** How long the moment lasts (3 s), and for a boss (1.5 s). */
 	public static final int LASTS = 60;
 	public static final int BOSS_LASTS = 30;
@@ -238,6 +241,11 @@ public final class Forever {
 		if (!player.isAlive() || Downed.is(player) || CUBES.containsKey(player.getUuid()) || locked(player)) {
 			return;
 		}
+		if (!player.isCreative() && player.getHungerManager().getFoodLevel() <= 0) {
+			// There is nothing left of you for it to eat.
+			player.sendMessage(Text.translatable("chainsawman.forever.hungry"), true);
+			return;
+		}
 		long now = player.server.getTicks();
 		Long until = COOL.get(player.getUuid());
 		if (until != null && now < until) {
@@ -291,14 +299,7 @@ public final class Forever {
 			player.sendMessage(Text.translatable("chainsawman.forever." + key), true);
 			return;
 		}
-		if (!player.isCreative() && player.experienceLevel < PRICE) {
-			player.sendMessage(Text.translatable("chainsawman.forever.price", PRICE), true);
-			return;
-		}
-		// The price is taken last, once the whole cube is made.
-		if (begin(player, centre, targets) && !player.isCreative()) {
-			player.addExperienceLevels(-PRICE);
-		}
+		begin(player, centre, targets);
 	}
 
 	public static boolean active(ServerPlayerEntity owner) {
@@ -857,6 +858,9 @@ public final class Forever {
 		long ticks = server.getTicks();
 		COOL.put(c.owner, ticks + COOLDOWN);
 		ServerPlayerEntity owner = server.getPlayerManager().getPlayer(c.owner);
+		if (owner != null) {
+			catchUp(owner);
+		}
 		for (Lock l : List.copyOf(c.locks)) {
 			LivingEntity t = l.target;
 			unfreeze(l);
@@ -897,6 +901,17 @@ public final class Forever {
 			}
 		}
 		c.locks.clear();
+	}
+
+	/** The price of a use: time catches up with them. The moment they froze is taken from them (their hunger drops) and the world stays grey round them for a second. */
+	public static void catchUp(ServerPlayerEntity owner) {
+		if (!owner.isCreative()) {
+			owner.getHungerManager().setFoodLevel(Math.max(0, owner.getHungerManager().getFoodLevel() - HUNGER));
+			owner.getHungerManager().setSaturationLevel(0.0F);
+		}
+		if (ServerPlayNetworking.canSend(owner, io.github.kortev.chainsawman.network.ForeverCatchUpPayload.ID)) {
+			ServerPlayNetworking.send(owner, new io.github.kortev.chainsawman.network.ForeverCatchUpPayload(CATCH_UP));
+		}
 	}
 
 	private static void burst(ServerWorld world, Vec3d at, int hits) {
