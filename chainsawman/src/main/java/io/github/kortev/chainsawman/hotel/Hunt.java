@@ -236,17 +236,22 @@ public final class Hunt {
 	static void move(ServerWorld world, HomeBlockEntity h, Hunt u, long now) {
 		Vec3d from = u.inside(h);
 		int[] spot = pick(world, u.sx, u.sz);
-		u.sx = spot[0];
-		u.sy = spot[1];
-		u.sz = spot[2];
+		u.relocate(world, h, spot[0], spot[1], spot[2]);
 		u.moves++;
 		u.cuts = 0;
 		u.lingerTicks = 0;
 		u.beatAt = now;
 		world.playSound(null, from.x, from.y, from.z, ChainsawSounds.HOTEL_BREATH, SoundCategory.HOSTILE, 1.6F, 0.6F);
-		if (u.breath != null && world.getEntity(u.breath) instanceof FleshGrowthEntity b) {
-			Vec3d at = HotelBuilder.world(h.origin, h.rot, u.sx + 0.5, u.sy + 0.5, u.sz == 4 ? 5.0 : 8.0);
-			b.refreshPositionAndAngles(at.x, at.y, at.z, HotelBuilder.alongYaw(h.rot) + (u.sz == 4 ? 90.0F : -90.0F), 0.0F);
+	}
+
+	/** It is at this wall block now (local; z 4 or 8): the wall that breathes goes with it. Used when it slips away, and by the filming. */
+	public void relocate(ServerWorld world, HomeBlockEntity h, int x, int y, int z) {
+		this.sx = x;
+		this.sy = y;
+		this.sz = z;
+		if (breath != null && world.getEntity(breath) instanceof FleshGrowthEntity b) {
+			Vec3d at = HotelBuilder.world(h.origin, h.rot, x + 0.5, y + 0.5, z == 4 ? 5.0 : 8.0);
+			b.refreshPositionAndAngles(at.x, at.y, at.z, HotelBuilder.alongYaw(h.rot) + (z == 4 ? 90.0F : -90.0F), 0.0F);
 		}
 	}
 

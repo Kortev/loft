@@ -55,6 +55,8 @@ import net.minecraft.world.biome.BiomeKeys;
  * growing out of the walls, the fight as Chainsaw Man, the kill and the loot (about 36 s).</li>
  * <li>-Ptarget=accept: the other choice: accept, the loop opens, walk out.</li>
  * <li>-Ptarget=look: stills of everything, for checking it (not a clip).</li>
+ * <li>-Ptarget=hunt: stills of the second version's mechanics: the sealed door, an eye in the wallpaper, a cut wall bleeding, a survivor sitting
+ * and following, the mad one, the devil tearing out, the beg screen and the loot after a spare (the old look: the new one comes later).</li>
  * </ul>
  * Staged: the site (levelled), the floors climbed one after another in a cut each (you are put on each floor; the stairs are real and
  * were walked in the game tests), the laps and the minute (the loop's counters are taken to the edge so the offer comes when the shot is
@@ -160,7 +162,7 @@ public class HotelSelfTest implements ClientModInitializer {
 			case RUN -> {
 				client.getToastManager().clear();
 				client.options.hudHidden = false;
-				if ("look".equals(target())) {
+				if ("look".equals(target()) || "hunt".equals(target())) {
 					look(client, server, ticks);
 				} else if (target().isEmpty() || "accept".equals(target()) || "fight".equals(target())) {
 					clip(client, server, ticks);
@@ -949,8 +951,112 @@ public class HotelSelfTest implements ClientModInitializer {
 		return s -> put(s, lx, ly, lz, yaw);
 	}
 
+	/** The hunt's own server objects, found in the home. */
+	private static io.github.kortev.chainsawman.hotel.Hunt hunt(IntegratedServer s) {
+		return home(s).run.hunt;
+	}
+
+	private static void spot(IntegratedServer s, int x, int y, int z) {
+		onServer(s, w -> {
+			io.github.kortev.chainsawman.hotel.Hunt u = hunt(s);
+			if (u != null) {
+				u.relocate(w, home(s), x, y, z);
+				u.moves = io.github.kortev.chainsawman.hotel.Hunt.MAX_MOVES;
+				u.cuts = 0;
+				u.shutUntil.clear();
+			}
+		});
+	}
+
+	private static void squad(IntegratedServer s, java.util.function.BiConsumer<io.github.kortev.chainsawman.hotel.SquadMemberEntity, ServerPlayerEntity> each) {
+		onServer(s, w -> {
+			for (io.github.kortev.chainsawman.hotel.SquadMemberEntity m : io.github.kortev.chainsawman.hotel.Squad.members(w, home(s))) {
+				each.accept(m, you(s));
+			}
+		});
+	}
+
+	/** The stills of the second version's mechanics (-Ptarget=hunt): the loop closes, and the hunt, the squad, the tear-out, the beg and the loot. */
+	private static void huntLooks() {
+		// 1. The sealed door, seen from outside: someone is up on the loop floor, and it is shut.
+		LOOKS.add(new Look("sealed_door", 90, at(20.5, floorY(7), 6.5, -90.0F), cam(27.5, 2.0, -5.0, 27.5, 2.3, 0.0)));
+		// 2. An eye open in the wallpaper near where it hides (you look away from it: an eye shuts if you look straight at it).
+		LOOKS.add(new Look("eye_open", 50, s -> {
+			spot(s, 18, 30, 4);
+			put(s, 21.0, floorY(7), 6.5, -90.0F);
+		}, cam(13.2, eye(7) + 0.2, 7.0, 18.0, eye(7) - 0.1, 4.9), 85.0F));
+		// 3. A cut that bleeds: the wall at its spot, cut.
+		LOOKS.add(new Look("wall_bleeding", 4, s -> onServer(s, w -> {
+			io.github.kortev.chainsawman.hotel.Hunt u = hunt(s);
+			if (u != null) {
+				io.github.kortev.chainsawman.hotel.Hunt.cut(w, home(s), HotelBuilder.world(origin, ROT, u.sx, u.sy, u.sz), you(s));
+			}
+		}), cam(15.2, eye(7) - 0.1, 6.6, 18.4, eye(7) - 0.1, 4.8), 75.0F));
+		// 4. A survivor sitting against the wall: Yamada and Mori starving, Sato the mad one.
+		LOOKS.add(new Look("survivor_sitting", 25, s -> {
+			put(s, 13.6, floorY(7), 6.5, -90.0F);
+			squad(s, (m, p) -> m.setMad("Sato".equals(m.getName().getString())));
+		}, cam(14.8, eye(7) - 0.2, 6.3, 18.6, floorY(7) + 0.8, 6.9), 75.0F));
+		// 5. Fed, they get up and follow you.
+		LOOKS.add(new Look("survivor_following", 45, s -> {
+			squad(s, (m, p) -> {
+				if (!m.isMad()) {
+					p.getInventory().setStack(1, new ItemStack(Items.BREAD, 16));
+					m.feed(p, 5);
+				}
+			});
+			put(s, 24.8, floorY(7), 6.5, 90.0F);
+		}, cam(27.2, eye(7) - 0.1, 6.5, 19.0, floorY(7) + 1.0, 6.5), 70.0F));
+		// 6. The mad one, on a player on sight.
+		LOOKS.add(new Look("mad_attacking", 22, s -> {
+			put(s, 20.4, floorY(7), 6.5, 90.0F);
+			squad(s, (m, p) -> {
+				if (m.isMad()) {
+					m.refreshPositionAndAngles(world(22.2, floorY(7), 6.5).x, world(22.2, floorY(7), 6.5).y, world(22.2, floorY(7), 6.5).z, 90.0F, 0.0F);
+				} else {
+					m.discard();
+				}
+			});
+		}, cam(17.6, eye(7) - 0.1, 5.7, 21.8, floorY(7) + 1.3, 6.5)));
+		// 7. Cut three times at the last spot: it tears out of the wall.
+		LOOKS.add(new Look("tearing_out", 36, s -> {
+			put(s, 13.8, floorY(7), 6.5, -90.0F);
+			onServer(s, w -> {
+				io.github.kortev.chainsawman.hotel.Hunt u = hunt(s);
+				if (u != null) {
+					u.relocate(w, home(s), 16, 30, 4);
+					u.moves = io.github.kortev.chainsawman.hotel.Hunt.MAX_MOVES;
+					u.cuts = 0;
+					for (int k = 0; k < 3 && home(s).run.hunt != null; k++) {
+						io.github.kortev.chainsawman.hotel.Hunt.cut(w, home(s), HotelBuilder.world(origin, ROT, 16, 30, 4), you(s));
+					}
+				}
+			});
+		}, cam(9.5, eye(7) + 0.2, 6.5, 20.5, floorY(7) + 1.8, 6.5), 80.0F));
+		LOOKS.add(new Look("torn_out", 80, NOTHING, cam(13.8, eye(7) + 0.1, 6.0, 20.5, floorY(7) + 1.8, 6.5)));
+		// 8. At 15% it begs: the contract screen with both prices.
+		LOOKS.add(new Look("beg_screen", 50, s -> onServer(s, w -> {
+			for (EternityDevilEntity d : w.getEntitiesByType(io.github.kortev.chainsawman.ChainsawMan.ETERNITY_DEVIL, e -> true)) {
+				d.setHealth(60.0F);
+				d.timeUntilRegen = 0;
+				d.damage(w.getDamageSources().playerAttack(you(s)), 30.0F);
+			}
+		}), cam(13.8, eye(7) + 0.1, 6.0, 20.5, floorY(7) + 1.8, 6.5)));
+		// 9. Taken (the real click on ACCEPT): it tears off part of itself, sinks, and the loot lies where it stood.
+		LOOKS.add(new Look("loot_after_spare", 75, s -> {
+			MinecraftClient c = MinecraftClient.getInstance();
+			if (c.currentScreen instanceof ContractScreen screen) {
+				screen.answer(true);
+			}
+		}, cam(14.8, eye(7) - 0.2, 5.9, 18.4, floorY(7) + 0.3, 6.5), 75.0F));
+	}
+
 	private static void looks() {
 		if (!LOOKS.isEmpty()) {
+			return;
+		}
+		if ("hunt".equals(target())) {
+			huntLooks();
 			return;
 		}
 		// By day: dead, dark, shut. By night: lit.
@@ -1036,6 +1142,14 @@ public class HotelSelfTest implements ClientModInitializer {
 			lens = LOOKS.get(0).fov();
 		}
 		Look current = LOOKS.get(lookIndex);
+		if ("hunt".equals(target()) && (f - lookAt) % 20 == 5) {
+			server.execute(() -> {
+				HomeBlockEntity h = home(server);
+				net.minecraft.entity.Entity d = h.run.devil == null ? null : server.getOverworld().getEntity(h.run.devil);
+				ShootingStar.LOGGER.info("[selftest] hunt state at {} ({}): sealed {} inside {} hunt {} fight {} beg {} devil {} {} you {}", f, current.name(), h.run.sealed, h.run.inside.size(), h.run.hunt != null, h.run.fight,
+						h.run.beg != null, d == null ? "none" : d.getPos(), d instanceof EternityDevilEntity dd ? dd.getHealth() + (dd.isDead() ? " dead" : "") : "", you(server).getPos());
+			});
+		}
 		if (f - lookAt >= current.waitTicks()) {
 			still(client, String.format("%02d_%s", lookIndex, current.name()));
 			lookIndex++;

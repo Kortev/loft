@@ -1382,6 +1382,58 @@ public class HotelGameTests implements FabricGameTest {
 		});
 	}
 
+	// ---- A whole run without Chainsaw Man.
+
+	/**
+	 * Everything works without Chainsaw Man (the rule of the quest plan): a plain player, with no heart, no form and no contract, and the rescued
+	 * hunters get through the hunt (the cuts that make it flee and then tear it out of the wall), the fight (the hunters cut it too) and the beg
+	 * (the player takes the deal): the contract, its loot, the reward for the two survivors, and the hotel open.
+	 */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_full_run", tickLimit = 1200)
+	public void aPlainPlayerAndSurvivorsFinishTheWholeHotelWithoutChainsawMan(TestContext context) {
+		HomeBlockEntity h = hotel(context, 0, 42);
+		ServerPlayerEntity p = walker(context, h, "plain_hunter", 20.5);
+		context.assertTrue(!io.github.kortev.chainsawman.form.Heart.has(p) && !io.github.kortev.chainsawman.form.Form.in(p), "the test player is not plain");
+		io.github.kortev.chainsawman.hotel.EternityDevilEntity[] d = new io.github.kortev.chainsawman.hotel.EternityDevilEntity[1];
+		java.util.List<io.github.kortev.chainsawman.hotel.SquadMemberEntity> fed = new ArrayList<>();
+		int[] xp = new int[1];
+		ready(context, h, () -> {
+			later(context, 15, () -> {
+				context.assertTrue(h.run.sealed && h.run.hunt != null, "the hunt did not begin");
+				xp[0] = p.totalExperience;
+				// Two of the hunters are fed (the mad one is left to himself).
+				for (int k = 0; k < 2; k++) {
+					io.github.kortev.chainsawman.hotel.SquadMemberEntity m = hungry(context, h, false, 0);
+					feed(p, m);
+					fed.add(m);
+				}
+				// The hunt: cuts at its spot, over and over, until it tears out of the wall.
+				for (int k = 0; k < 8 && h.run.hunt != null; k++) {
+					io.github.kortev.chainsawman.hotel.Hunt.cut(context.getWorld(), h, spotPos(h), p);
+				}
+				context.assertTrue(h.run.hunt == null && h.run.fight && h.run.devil != null, "the hunt did not end in the devil tearing out");
+				d[0] = (io.github.kortev.chainsawman.hotel.EternityDevilEntity) devilOf(context, h);
+			});
+			later(context, 160, () -> {
+				context.assertTrue(d[0].getHealth() < 268.0F, "the hunters did not cut the devil: " + d[0].getHealth());
+				toTheLine(p, d[0]);
+			});
+			later(context, 168, () -> {
+				context.assertTrue(h.run.beg != null && h.run.beg.players.contains(p.getUuid()), "the devil did not beg");
+				Hotel.answer(p, true);
+				context.assertTrue(io.github.kortev.chainsawman.contract.Contracts.has(p, io.github.kortev.chainsawman.contract.Contract.ETERNITY), "no contract");
+			});
+			later(context, 290, () -> {
+				context.assertTrue(d[0].isDead() && d[0].spared && !h.run.sealed && h.away, "the devil was not spared and the hotel opened");
+				context.assertTrue(itemsOf(context, h, io.github.kortev.chainsawman.ChainsawMan.ETERNITY_FLESH) == Hotel.FLESH_DROP && itemsOf(context, h, io.github.kortev.chainsawman.ChainsawMan.ETERNITY_BLOOD) == Hotel.BLOOD_DROP, "no loot");
+				context.assertTrue(p.totalExperience - xp[0] == 2 * io.github.kortev.chainsawman.hotel.Squad.REWARD_XP && h.run.saved == 2, "the two survivors were not paid for: " + (p.totalExperience - xp[0]));
+				context.assertTrue(!io.github.kortev.chainsawman.form.Heart.has(p) && !io.github.kortev.chainsawman.form.Form.in(p), "Chainsaw Man was needed");
+				tidy(context, h, p);
+				context.complete();
+			});
+		});
+	}
+
 	// ---- The devil.
 
 	/**
