@@ -41,14 +41,46 @@ public final class ChainsawCommand {
 	private static final EntityType<?>[] ROW = {EntityType.HUSK, EntityType.VINDICATOR, EntityType.PILLAGER, EntityType.CREEPER, EntityType.SPIDER,
 			EntityType.COW, EntityType.PIG, EntityType.SHEEP};
 
+	/** The subcommands that try things out are for operators; buddy and giveup are for everyone. */
+	private static final java.util.function.Predicate<ServerCommandSource> OP = source -> source.hasPermissionLevel(2);
+
 	private ChainsawCommand() {
+	}
+
+	/** {@code /chainsaw buddy}: who your buddy is. */
+	private static int buddy(ServerPlayerEntity player) {
+		java.util.UUID id = io.github.kortev.chainsawman.form.Buddies.of(player);
+		if (id == null) {
+			player.sendMessage(Text.translatable("commands.chainsaw.buddy.none").formatted(Formatting.GRAY), false);
+			return 0;
+		}
+		ServerPlayerEntity buddy = player.server.getPlayerManager().getPlayer(id);
+		if (buddy != null) {
+			player.sendMessage(Text.translatable("commands.chainsaw.buddy.some", buddy.getDisplayName()).formatted(Formatting.GREEN), false);
+		} else {
+			player.sendMessage(Text.translatable("commands.chainsaw.buddy.away", player.getAttachedOrElse(io.github.kortev.chainsawman.form.Buddies.NAME, "?"))
+					.formatted(Formatting.GRAY), false);
+		}
+		return 1;
 	}
 
 	static void init() {
 		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(
 				CommandManager.literal("chainsaw")
-						.requires(source -> source.hasPermissionLevel(2))
-						.then(CommandManager.literal("owner")
+						.then(CommandManager.literal("buddy")
+								.executes(context -> buddy(context.getSource().getPlayerOrThrow()))
+								.then(CommandManager.literal("end").executes(context -> {
+									io.github.kortev.chainsawman.form.Buddies.end(context.getSource().getPlayerOrThrow());
+									return 1;
+								})))
+						.then(CommandManager.literal("giveup")
+								.executes(context -> {
+									io.github.kortev.chainsawman.form.Hearts.askGiveUp(context.getSource().getPlayerOrThrow());
+									return 1;
+								})
+								.then(CommandManager.literal("confirm").executes(context ->
+										io.github.kortev.chainsawman.form.Hearts.confirmGiveUp(context.getSource().getPlayerOrThrow()) ? 1 : 0)))
+						.then(CommandManager.literal("owner").requires(OP)
 								.executes(context -> {
 									context.getSource().sendFeedback(() -> Owner.claimed() ? Text.translatable("commands.chainsaw.owner", Owner.get())
 											: Text.translatable("commands.chainsaw.owner.none"), false);
@@ -65,42 +97,42 @@ public final class ChainsawCommand {
 									context.getSource().sendFeedback(() -> Text.translatable("commands.chainsaw.owner.set", name), true);
 									return 1;
 								})))
-						.then(CommandManager.literal("contract")
+						.then(CommandManager.literal("contract").requires(OP)
 								.then(CommandManager.argument("player", net.minecraft.command.argument.EntityArgumentType.player())
 										.then(CommandManager.literal("eternity").executes(context -> contract(context, io.github.kortev.chainsawman.contract.Contract.ETERNITY)))
 										.then(CommandManager.literal("clear").executes(context -> contract(context, io.github.kortev.chainsawman.contract.Contract.NONE)))))
-						.then(CommandManager.literal("eternity").executes(context -> eternity(context)))
-						.then(CommandManager.literal("scene").executes(context -> scene(context)))
-						.then(CommandManager.literal("mobs").executes(context -> {
+						.then(CommandManager.literal("eternity").requires(OP).executes(context -> eternity(context)))
+						.then(CommandManager.literal("scene").requires(OP).executes(context -> scene(context)))
+						.then(CommandManager.literal("mobs").requires(OP).executes(context -> {
 							mobs(context.getSource().getPlayerOrThrow());
 							return done(context, "mobs");
 						}))
-						.then(CommandManager.literal("pochita").executes(context -> {
+						.then(CommandManager.literal("pochita").requires(OP).executes(context -> {
 							ServerPlayerEntity player = context.getSource().getPlayerOrThrow();
 							pochita(player, side(player).multiply(4.0).add(player.getPos()));
 							return done(context, "pochita");
 						}))
-						.then(CommandManager.literal("heart").executes(context -> {
+						.then(CommandManager.literal("heart").requires(OP).executes(context -> {
 							ServerPlayerEntity player = context.getSource().getPlayerOrThrow();
 							Heart.give(player);
 							Blood.set(player, Blood.MAX);
 							return done(context, "heart");
 						}))
-						.then(CommandManager.literal("reset").executes(context -> {
+						.then(CommandManager.literal("reset").requires(OP).executes(context -> {
 							reset(context.getSource().getPlayerOrThrow());
 							return done(context, "reset");
 						}))
-						.then(CommandManager.literal("blood").executes(context -> {
+						.then(CommandManager.literal("blood").requires(OP).executes(context -> {
 							Blood.set(context.getSource().getPlayerOrThrow(), Blood.MAX);
 							return done(context, "blood");
 						}))
-						.then(CommandManager.literal("down").executes(context -> {
+						.then(CommandManager.literal("down").requires(OP).executes(context -> {
 							ServerPlayerEntity player = context.getSource().getPlayerOrThrow();
 							Form.end(player);
 							Downed.down(player);
 							return done(context, "down");
 						}))
-						.then(CommandManager.literal("up").executes(context -> {
+						.then(CommandManager.literal("up").requires(OP).executes(context -> {
 							Downed.up(context.getSource().getPlayerOrThrow());
 							return done(context, "up");
 						}))));
