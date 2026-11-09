@@ -1,6 +1,7 @@
 package io.github.kortev.chainsawman;
 
-import io.github.kortev.chainsawman.form.Heart;
+import java.util.ArrayList;
+import java.util.List;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.block.Block;
@@ -11,6 +12,8 @@ import net.minecraft.block.PillarBlock;
 import net.minecraft.block.VineBlock;
 import net.minecraft.entity.SpawnReason;
 import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtElement;
+import net.minecraft.nbt.NbtList;
 import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.registry.tag.BiomeTags;
@@ -24,6 +27,7 @@ import net.minecraft.util.Formatting;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.math.random.Random;
 import net.minecraft.world.Heightmap;
 import net.minecraft.world.PersistentState;
@@ -58,6 +62,8 @@ public final class PochitaPlace extends PersistentState {
 	/** When he was lost (world time), or -1. */
 	private long lost = -1;
 	private boolean merged;
+	/** More dens, when the world has more than one Chainsaw Man heart (game rule chainsawHearts) or a heart has come back to a new place. */
+	private final List<Extra> extras = new ArrayList<>();
 	/** Whose Pochita is on this world ({@link Owner}), or null. */
 	private String owner;
 
@@ -97,11 +103,7 @@ public final class PochitaPlace extends PersistentState {
 			PochitaPlace place = of(server);
 			ServerWorld world = server.getOverworld();
 			for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
-				if (Heart.merged(player)) {
-					if (!place.merged) {
-						place.merged = true;
-						place.markDirty();
-					}
+				if (io.github.kortev.chainsawman.form.Heart.merged(player)) {
 					continue;
 				}
 				if (Owner.is(player) && player.getWorld() == world
@@ -443,6 +445,10 @@ public final class PochitaPlace extends PersistentState {
 
 	/** Him, fainted, under the tree. */
 	private void spawn(ServerWorld world) {
+		spawnAt(world, at);
+	}
+
+	private static void spawnAt(ServerWorld world, BlockPos at) {
 		world.getChunk(at.getX() >> 4, at.getZ() >> 4);
 		PochitaEntity pochita = ChainsawMan.POCHITA_ENTITY.create(world);
 		if (pochita == null) {
@@ -454,6 +460,225 @@ public final class PochitaPlace extends PersistentState {
 		world.spawnEntity(pochita);
 	}
 
+	// ---- More than one heart, and a heart coming back (teams: Hearts).
+
+	/** A den beyond the first: where it is, which way its tree lies, and whether the heart in it has been taken. */
+	private static final class Extra {
+		BlockPos at;
+		Direction.Axis axis;
+		boolean taken;
+
+		Extra(BlockPos at, Direction.Axis axis, boolean taken) {
+			this.at = at;
+			this.axis = axis;
+			this.taken = taken;
+		}
+	}
+
+	/** How far a heart that has come back goes from where it was (blocks), and how far from every player and every other den. */
+	public static final int FAR_BACK = 2000;
+	private static final int FROM_PLAYERS = 1000;
+	private static final int FROM_DENS = 600;
+	/** How far apart the dens of a world with more than one heart are (blocks). */
+	private static final int APART = 250;
+
+	private int slots() {
+		return placed ? 1 + extras.size() : 0;
+	}
+
+	private BlockPos slotAt(int i) {
+		return i == 0 ? at : extras.get(i - 1).at;
+	}
+
+	private boolean slotTaken(int i) {
+		return i == 0 ? merged : extras.get(i - 1).taken;
+	}
+
+	private void take(int i, boolean taken) {
+		if (i == 0) {
+			merged = taken;
+		} else {
+			extras.get(i - 1).taken = taken;
+		}
+		markDirty();
+	}
+
+	/** How many dens the world has (one for each Chainsaw Man heart in it, whoever holds it or not yet). */
+	public static int dens(MinecraftServer server) {
+		return of(server).slots();
+	}
+
+	/** Every den, waiting or not. */
+	public static List<BlockPos> allDens(MinecraftServer server) {
+		PochitaPlace place = of(server);
+		List<BlockPos> list = new ArrayList<>();
+		for (int i = 0; i < place.slots(); i++) {
+			list.add(place.slotAt(i));
+		}
+		return list;
+	}
+
+	/** The dens whose heart has not been taken: where a Pochita waits. */
+	public static List<BlockPos> waitingDens(MinecraftServer server) {
+		PochitaPlace place = of(server);
+		List<BlockPos> list = new ArrayList<>();
+		for (int i = 0; i < place.slots(); i++) {
+			if (!place.slotTaken(i)) {
+				list.add(place.slotAt(i));
+			}
+		}
+		return list;
+	}
+
+	/** Someone has the heart of the den nearest {@code near} that still has one: it is taken. (None waiting: nothing changes.) */
+	public static void taken(MinecraftServer server, Vec3d near) {
+		PochitaPlace place = of(server);
+		int best = -1;
+		double bestD = Double.MAX_VALUE;
+		for (int i = 0; i < place.slots(); i++) {
+			if (!place.slotTaken(i)) {
+				BlockPos p = place.slotAt(i);
+				double d = Math.hypot(p.getX() - near.x, p.getZ() - near.z);
+				if (d < bestD) {
+					bestD = d;
+					best = i;
+				}
+			}
+		}
+		if (best >= 0) {
+			place.take(best, true);
+		}
+	}
+
+	/**
+	 * A heart goes back into the world: a new den is placed at least {@link #FAR_BACK} blocks from where it was (the den it came from, that
+	 * is made over), somewhere valid (dry, level, earthy ground; woods if one is found) and far from every player and every other den,
+	 * and a Pochita fainted in it. The world still has the same number of Pochitas. Returns where, or null if the world is not ready.
+	 */
+	@org.jetbrains.annotations.Nullable
+	public static BlockPos returnHeart(MinecraftServer server) {
+		PochitaPlace place = of(server);
+		ServerWorld world = server.getOverworld();
+		if (!place.placed) {
+			return null;
+		}
+		int slot = -1;
+		for (int i = 0; i < place.slots(); i++) {
+			if (place.slotTaken(i)) {
+				slot = i;
+				break;
+			}
+		}
+		BlockPos old = slot >= 0 ? place.slotAt(slot) : world.getSpawnPos();
+		Random random = Random.create(world.getSeed() ^ (world.getTime() * 31L) ^ old.asLong());
+		BlockPos spot = place.farSpot(server, world, old, FAR_BACK, FROM_DENS, random);
+		Direction.Axis axis = random.nextBoolean() ? Direction.Axis.X : Direction.Axis.Z;
+		den(world, spot, axis);
+		spawnAt(world, spot);
+		if (slot == 0) {
+			place.at = spot;
+			place.axis = axis;
+			place.merged = false;
+			place.lost = -1;
+			place.built = DEN;
+		} else if (slot > 0) {
+			Extra extra = place.extras.get(slot - 1);
+			extra.at = spot;
+			extra.axis = axis;
+			extra.taken = false;
+		} else {
+			place.extras.add(new Extra(spot, axis, false));
+		}
+		place.markDirty();
+		ChainsawMan.LOGGER.info("A Chainsaw Man heart went back to the world: a den at {} (from {})", spot, old);
+		return spot;
+	}
+
+	/** Makes the world have {@code hearts} dens (game rule chainsawHearts): more are placed near the world's spawn if it is raised. Returns how many were added. */
+	public static int ensure(MinecraftServer server, int hearts) {
+		PochitaPlace place = of(server);
+		ServerWorld world = server.getOverworld();
+		int added = 0;
+		while (place.placed && place.slots() < hearts && added < 8) {
+			Random random = Random.create(world.getSeed() ^ 0x4EA27L ^ place.slots());
+			BlockPos spot = place.farSpot(server, world, world.getSpawnPos(), NEAR, APART, random);
+			Direction.Axis axis = random.nextBoolean() ? Direction.Axis.X : Direction.Axis.Z;
+			den(world, spot, axis);
+			spawnAt(world, spot);
+			place.extras.add(new Extra(spot, axis, false));
+			place.markDirty();
+			added++;
+			ChainsawMan.LOGGER.info("Another Chainsaw Man heart: a den at {}", spot);
+		}
+		return added;
+	}
+
+	/**
+	 * A spot for a den at least {@code min} blocks from {@code from} (a little more, up to 600 blocks), fitting ({@link #fits}) and in woods
+	 * if one turns up, at least {@link #FROM_PLAYERS} from every player in the overworld and {@code fromDens} from every den. The biome of a
+	 * candidate is asked of the world's biome source, which makes no chunks: only a few that are woods or at least land are loaded to see
+	 * if the den fits (each load can make chunks, and this runs on the server thread). Failing woods, dry level land; failing that, the
+	 * ground at the first candidate.
+	 */
+	private BlockPos farSpot(MinecraftServer server, ServerWorld world, BlockPos from, int min, int fromDens, Random random) {
+		BlockPos dry = null;
+		BlockPos any = null;
+		int loads = 0;
+		for (int tries = 0; tries < 480 && loads < LOADS; tries++) {
+			float angle = random.nextFloat() * MathHelper.TAU;
+			int distance = min + 8 + random.nextInt(600);
+			int x = from.getX() + (int) (MathHelper.cos(angle) * distance);
+			int z = from.getZ() + (int) (MathHelper.sin(angle) * distance);
+			if (!apart(server, world, x, z, fromDens)) {
+				continue;
+			}
+			RegistryEntry<Biome> biome = world.getBiome(new BlockPos(x, world.getSeaLevel(), z));
+			boolean woods = wooded(biome);
+			// (The first 240 candidates only if they are woods; after that any land.)
+			if (!woods && (tries < 240 || biome.isIn(BiomeTags.IS_OCEAN) || biome.isIn(BiomeTags.IS_RIVER) || biome.isIn(BiomeTags.IS_DEEP_OCEAN))) {
+				continue;
+			}
+			loads++;
+			BlockPos spot = fits(world, x, z);
+			if (spot != null) {
+				if (woods) {
+					return spot;
+				}
+				if (dry == null) {
+					dry = spot;
+				}
+			} else if (any == null) {
+				any = world.getTopPosition(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, new BlockPos(x, 0, z));
+			}
+		}
+		if (dry != null) {
+			return dry;
+		}
+		if (any != null) {
+			return any;
+		}
+		return world.getTopPosition(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, new BlockPos(from.getX() + min + 8, 0, from.getZ()));
+	}
+
+	/** How many candidates are loaded to see if a den fits (each can make chunks). */
+	private static final int LOADS = 6;
+
+	/** Whether ({@code x}, {@code z}) is far enough from every player in the overworld and every den. */
+	private boolean apart(MinecraftServer server, ServerWorld world, int x, int z, int fromDens) {
+		for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+			if (player.getServerWorld() == world && Math.hypot(player.getX() - x, player.getZ() - z) < FROM_PLAYERS) {
+				return false;
+			}
+		}
+		for (int i = 0; i < slots(); i++) {
+			BlockPos p = slotAt(i);
+			if (Math.hypot(p.getX() - x, p.getZ() - z) < fromDens) {
+				return false;
+			}
+		}
+		return true;
+	}
+
 	@Override
 	public NbtCompound writeNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registries) {
 		nbt.putBoolean("Placed", placed);
@@ -462,6 +687,15 @@ public final class PochitaPlace extends PersistentState {
 		nbt.putLong("Lost", lost);
 		nbt.putBoolean("Merged", merged);
 		nbt.putInt("Built", built);
+		NbtList more = new NbtList();
+		for (Extra e : extras) {
+			NbtCompound c = new NbtCompound();
+			c.putLong("At", e.at.asLong());
+			c.putString("Axis", e.axis.asString());
+			c.putBoolean("Taken", e.taken);
+			more.add(c);
+		}
+		nbt.put("Extras", more);
 		if (owner != null) {
 			nbt.putString("Owner", owner);
 		}
@@ -477,6 +711,11 @@ public final class PochitaPlace extends PersistentState {
 		place.lost = nbt.contains("Lost") ? nbt.getLong("Lost") : -1;
 		place.merged = nbt.getBoolean("Merged");
 		place.built = nbt.getInt("Built");
+		for (NbtElement e : nbt.getList("Extras", NbtElement.COMPOUND_TYPE)) {
+			NbtCompound c = (NbtCompound) e;
+			Direction.Axis ax = Direction.Axis.fromName(c.getString("Axis"));
+			place.extras.add(new Extra(BlockPos.fromLong(c.getLong("At")), ax != null && ax != Direction.Axis.Y ? ax : Direction.Axis.X, c.getBoolean("Taken")));
+		}
 		place.owner = nbt.contains("Owner") ? nbt.getString("Owner") : null;
 		return place;
 	}
