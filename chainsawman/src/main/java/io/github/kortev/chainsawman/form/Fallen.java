@@ -306,6 +306,26 @@ public final class Fallen {
 		Form.broadcast(down.server, new FormEventPayload(down.getUuid(), FormEventPayload.LIFT, 0));
 	}
 
+	/** How far from a mob a standing player pulls it off someone who is down (blocks). */
+	public static final double PREFER = 16.0;
+
+	/** Mobs after someone who is down turn on a standing player within {@link #PREFER} blocks of them; with nobody standing near, they keep at the one on the ground. */
+	private static void preferStanding(ServerPlayerEntity down) {
+		for (net.minecraft.entity.mob.MobEntity mob : down.getServerWorld().getEntitiesByClass(net.minecraft.entity.mob.MobEntity.class,
+				down.getBoundingBox().expand(32.0), m -> m.getTarget() == down)) {
+			ServerPlayerEntity best = null;
+			for (ServerPlayerEntity other : down.server.getPlayerManager().getPlayerList()) {
+				if (other != down && other.isAlive() && other.getServerWorld() == mob.getWorld() && !is(other) && !Downed.is(other) && !other.isSpectator()
+						&& !other.isCreative() && other.squaredDistanceTo(mob) <= PREFER * PREFER && (best == null || other.squaredDistanceTo(mob) < best.squaredDistanceTo(mob))) {
+					best = other;
+				}
+			}
+			if (best != null) {
+				mob.setTarget(best);
+			}
+		}
+	}
+
 	static void tick(MinecraftServer server) {
 		long now = server.getOverworld().getTime();
 		for (UUID id : Set.copyOf(FALLEN)) {
@@ -322,6 +342,9 @@ public final class Fallen {
 			}
 			player.setHealth(1.0F);
 			player.setSprinting(false);
+			if (now % 5 == 0) {
+				preferStanding(player);
+			}
 			int left = player.getAttachedOrElse(LEFT, TIMER) - 1;
 			if (left <= 0) {
 				bleedOut(player);

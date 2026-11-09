@@ -215,6 +215,40 @@ public class TeamGameTests implements FabricGameTest {
 		});
 	}
 
+	/** A zombie next to someone down, with a standing player 6 blocks away, goes for the standing one; with nobody standing near, it keeps at the one down. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_team_mobs_prefer", tickLimit = JOINED + 30)
+	public void mobsPreferAStandingPlayerToOneDown(TestContext context) {
+		ServerPlayerEntity down = player(context, "mob_down", 0.0);
+		ServerPlayerEntity standing = player(context, "mob_standing", 6.0);
+		net.minecraft.entity.mob.ZombieEntity zombie = new net.minecraft.entity.mob.ZombieEntity(context.getWorld());
+		Vec3d at = spot(context).add(1.0, 0.0, 0.0);
+		zombie.refreshPositionAndAngles(at.x, at.y, at.z, 0.0F, 0.0F);
+		zombie.setAiDisabled(true);
+		zombie.setNoGravity(true);
+		context.getWorld().spawnEntity(zombie);
+		context.runAtTick(JOINED, () -> {
+			down.damage(down.getDamageSources().generic(), 1000.0F);
+			zombie.setTarget(down);
+			context.assertTrue(Fallen.is(down), "they were not down");
+		});
+		context.runAtTick(JOINED + 8, () -> context.assertTrue(zombie.getTarget() == standing, "the zombie stayed on the one down: " + zombie.getTarget()));
+		// Nobody standing near: it keeps at them.
+		context.runAtTick(JOINED + 10, () -> {
+			standing.teleport(context.getWorld(), at.x + 40.0, at.y, at.z, 0.0F, 0.0F);
+			zombie.setTarget(down);
+		});
+		context.runAtTick(JOINED + 20, () -> {
+			try {
+				context.assertTrue(zombie.getTarget() == down, "with nobody standing near it left the one down: " + zombie.getTarget());
+			} finally {
+				zombie.discard();
+				done(context, down);
+				done(context, standing);
+			}
+			context.complete();
+		});
+	}
+
 	// ------------------------------------------------------------------ the pick-up
 
 	/** A teammate crouched beside them, holding use for three seconds, gets them up with four hearts; the helper pays nothing. */
