@@ -1517,7 +1517,7 @@ public class HotelSelfTest implements ClientModInitializer {
 					case 30 -> still(client, "d_ledge_view");
 					case 34 -> {
 						wantYaw = client.player.getYaw();
-						wantPitch = 80.0F;
+						wantPitch = 88.0F;
 					}
 					case 48 -> still(client, "e_look_down");
 					case 52 -> wantPitch = 35.0F;
@@ -1566,7 +1566,7 @@ public class HotelSelfTest implements ClientModInitializer {
 					});
 				}
 				if (shaftSub < 30) {
-					facing(client, 24.5, base + 0.4, 6.5);
+					facing(client, 19.5, base + 0.2, 6.5);
 				}
 				if (shaftSub == 14) {
 					still(client, "h_on_the_mass");
@@ -1578,7 +1578,7 @@ public class HotelSelfTest implements ClientModInitializer {
 						h.run.shaft.nextPatch = Long.MAX_VALUE;
 						h.run.shaft.nextArm = Long.MAX_VALUE;
 					});
-					put(server, 24.5, base - 3.0, 6.5, 90.0F);
+					put(server, 19.5, base - 3.0, 6.5, 90.0F);
 					wantYaw = Float.NaN;
 					shaftNext();
 				}
@@ -1613,7 +1613,7 @@ public class HotelSelfTest implements ClientModInitializer {
 					still(client, "j2_burst_out");
 				}
 				if (shaftSub == 40) {
-					put(server, 19.5, base, 6.5, 90.0F);
+					put(server, 22.5, base, 6.5, 90.0F);
 					shaftDevil(server, d -> d.addPain(1000.0F));
 					shaftNext();
 				}
@@ -1621,7 +1621,7 @@ public class HotelSelfTest implements ClientModInitializer {
 			case 8 -> {
 				// Full pain: the beg and the core.
 				if (shaftSub % 8 == 0) {
-					keep(server, 19.5, base, 6.5);
+					keep(server, 22.5, base, 6.5);
 				}
 				if (sBegging && sCore) {
 					if (!armStill[2]) {
@@ -1641,9 +1641,9 @@ public class HotelSelfTest implements ClientModInitializer {
 			}
 			case 9 -> {
 				if (shaftSub % 8 == 0) {
-					keep(server, 19.5, base, 6.5);
+					keep(server, 22.5, base, 6.5);
 				}
-				facing(client, 24.5, base + 0.8, 6.5);
+				facing(client, 19.5, base + 1.0, 6.5);
 				if (shaftSub == 6) {
 					still(client, "l_core_offered");
 				}

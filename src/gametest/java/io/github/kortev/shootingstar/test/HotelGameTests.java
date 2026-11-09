@@ -2150,19 +2150,19 @@ public class HotelGameTests implements FabricGameTest {
 				context.assertTrue(at(context, h, 17, B + 20, 6).isOf(Blocks.RED_WOOL), "the carpet is not a wall of the shaft");
 				context.assertTrue(at(context, h, 21, B + 31, 6).isOf(Blocks.REDSTONE_LAMP) && at(context, h, 21, B + 31, 6).get(net.minecraft.block.RedstoneLampBlock.LIT), "the ceiling's lamps are not on the other wall");
 				context.assertTrue(at(context, h, 19, B + 20, 6).isAir() && at(context, h, 19, B + 5, 6).isAir() && at(context, h, 19, B + 2, 6).isAir(), "the shaft is not open from its top to the mass");
-				context.assertTrue(at(context, h, 24, B - 1, 6).isAir() && at(context, h, 24, B - 4, 6).isAir() && !at(context, h, 20, B - 1, 6).isAir(), "the mouth's pit is not in the floor of the mass");
+				context.assertTrue(at(context, h, 19, B - 1, 6).isAir() && at(context, h, 19, B - 3, 6).isAir() && !at(context, h, 16, B - 1, 6).isAir(), "the mouth's pit is not in the floor of the mass");
 				// A player is in a doorway, looking across and down.
 				Vec3d lp = local(h, p);
 				boolean ledge = false;
 				for (io.github.kortev.chainsawman.hotel.Shaft.Ledge l : io.github.kortev.chainsawman.hotel.Shaft.ledges()) {
-					ledge |= Math.abs(lp.y - l.y()) < 0.01 && Math.abs(lp.x - 19.5) < 0.01 && Math.abs(lp.z - (l.wallZ() + 0.5)) < 0.01;
+					ledge |= Math.abs(lp.y - l.y()) < 0.01 && Math.abs(lp.x - 19.5) < 0.01 && Math.abs(lp.z - io.github.kortev.chainsawman.hotel.Shaft.edgeZ(l)) < 0.01;
 				}
 				context.assertTrue(ledge, "the player is not in a doorway of the shaft: " + lp);
 				context.assertTrue(p.getPitch() > 20.0F, "the player is not looking down: " + p.getPitch());
 				// The devil is at the bottom: its box is the mass and the pit.
 				net.minecraft.util.math.Box box = d[0].getBoundingBox();
-				context.assertTrue(box.contains(HotelBuilder.world(h.origin, h.rot, 24.5, B - 2.0, 6.5)) && box.contains(HotelBuilder.world(h.origin, h.rot, 15.0, B + 0.5, 4.0))
-						&& !box.contains(HotelBuilder.world(h.origin, h.rot, 19.5, B + 10.0, 6.5)), "the devil's box is not the mass and the pit: " + box);
+				context.assertTrue(box.contains(HotelBuilder.world(h.origin, h.rot, 19.5, B - 2.0, 6.5)) && box.contains(HotelBuilder.world(h.origin, h.rot, 15.5, B + 0.5, 3.0))
+						&& !box.contains(HotelBuilder.world(h.origin, h.rot, 19.5, B + 10.0, 6.5)) && !at(context, h, 19, B + 7, 6).isOf(Blocks.RED_WOOL), "the devil's box is not the mass and the pit: " + box);
 				context.assertTrue(!d[0].isCollidable(), "the players cannot stand inside the devil's box");
 			});
 			later(context, 190, () -> slay(context, h, d[0], p));
@@ -2223,7 +2223,7 @@ public class HotelGameTests implements FabricGameTest {
 				h.run.shaft.nextHead = Long.MAX_VALUE;
 				h.run.shaft.nextArm = Long.MAX_VALUE;
 				h.run.shaft.nextPatch = Long.MAX_VALUE;
-				put(p, h, 24.5, B - 3.0, 6.5, 0.0F, 30.0F);
+				put(p, h, 19.5, B - 3.0, 6.5, 0.0F, 30.0F);
 				hp[0] = p.getHealth();
 			});
 			later(context, 164, () -> {
@@ -2244,7 +2244,7 @@ public class HotelGameTests implements FabricGameTest {
 			});
 			// (Out of the mouth you cannot be swallowed again for a moment: you have to be able to leave it.)
 			later(context, 205, () -> context.assertTrue(!io.github.kortev.chainsawman.hotel.Shaft.swallowed(h, p), "swallowed again at once on bursting out"));
-			later(context, 240, () -> put(p, h, 24.5, B - 3.0, 6.5, 0.0F, 30.0F));
+			later(context, 240, () -> put(p, h, 19.5, B - 3.0, 6.5, 0.0F, 30.0F));
 			later(context, 246, () -> context.assertTrue(io.github.kortev.chainsawman.hotel.Shaft.swallowed(h, p), "the second fall did not swallow the player"));
 			later(context, 248, () -> {
 				// A sword (7 a blow): six.
@@ -2275,7 +2275,7 @@ public class HotelGameTests implements FabricGameTest {
 				h.run.shaft.nextArm = Long.MAX_VALUE;
 				h.run.shaft.nextPatch = Long.MAX_VALUE;
 				// Down on the mass: blows from there are worth half as much again (30 -> 45).
-				put(p, h, 19.5, B, 6.5, 0.0F, 30.0F);
+				put(p, h, 22.5, B, 6.5, 0.0F, 30.0F);
 				for (int k = 0; k < 5; k++) {
 					d[0].timeUntilRegen = 0;
 					d[0].damage(p.getDamageSources().playerAttack(p), 30.0F);
@@ -2412,7 +2412,7 @@ public class HotelGameTests implements FabricGameTest {
 			inTheShaft(context, h, d, () -> {
 				h.run.shaft.nextArm = Long.MAX_VALUE;
 				h.run.shaft.nextPatch = Long.MAX_VALUE;
-				put(p, h, 19.5, B, 6.5, 0.0F, 30.0F);
+				put(p, h, 22.5, B, 6.5, 0.0F, 30.0F);
 				hp[0] = p.getHealth();
 				for (int t = 1; t < 120; t++) {
 					later(context, t, () -> {
@@ -2441,12 +2441,12 @@ public class HotelGameTests implements FabricGameTest {
 		int B = io.github.kortev.chainsawman.hotel.Shaft.BASE;
 		ready(context, h, () -> {
 			inTheShaft(context, h, d, () -> {
-				put(p, h, 19.5, B, 6.5, 0.0F, 30.0F);
+				put(p, h, 22.5, B, 6.5, 0.0F, 30.0F);
 				// A sword (7 a blow), one blow every 11 ticks, at the devil, and at its core once it is held out: the whole fight.
 				for (int k = 0; k < 160; k++) {
 					later(context, 11 * k, () -> {
 						p.setHealth(Math.max(p.getHealth(), 1000.0F));
-						put(p, h, 19.5, B, 6.5, 0.0F, 30.0F);
+						put(p, h, 22.5, B, 6.5, 0.0F, 30.0F);
 						if (d[0].isDead()) {
 							return;
 						}

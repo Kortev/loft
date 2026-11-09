@@ -983,7 +983,7 @@ public final class Hotel {
 
 	/** Its loot, on the floor where it stood, when it has collapsed. */
 	public static void dropLoot(ServerWorld world, EternityDevilEntity devil) {
-		Vec3d at = devil.shaft() ? HotelBuilder.world(devil.origin, devil.rot, 19.5, Shaft.BASE + 0.5, 6.5)
+		Vec3d at = devil.shaft() ? HotelBuilder.world(devil.origin, devil.rot, 22.0, Shaft.BASE + 0.5, 6.5)
 				: devil.getPos().add(HotelBuilder.world(BlockPos.ORIGIN, devil.rot, -(EternityDevilEntity.BULK + 1.2), 0.2, 0.0));
 		drop(world, at, new ItemStack(ChainsawMan.ETERNITY_FLESH, FLESH_DROP));
 		drop(world, at, new ItemStack(ChainsawMan.ETERNITY_BLOOD, BLOOD_DROP));

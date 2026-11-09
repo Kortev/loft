@@ -184,8 +184,11 @@ public class ShaftArmEntity extends Entity {
 				state = 2;
 			} else {
 				tip -= PULL;
+				// Over the mass's last stretch it swings them out from over the mouth onto the floor beside it.
+				Vec3d beside = HotelBuilder.world(origin, rot, 22.0, 0.0, 6.5);
 				// The hand carries them down: pulled in to its column, dragged at the arm's speed.
-				p.setVelocity((this.getX() - p.getX()) * 0.3, tip - p.getY() - 0.3 < -PULL ? -PULL : (tip - p.getY()) * 0.5, (this.getZ() - p.getZ()) * 0.3);
+				boolean low = tip < floorY + 5.0;
+				p.setVelocity(((low ? beside.x : this.getX()) - p.getX()) * 0.3, -PULL + (tip - 1.0 - p.getY()) * 0.3, ((low ? beside.z : this.getZ()) - p.getZ()) * 0.3);
 				p.velocityModified = true;
 				p.fallDistance = 0.0F;
 				if (tip <= floorY + 1.2) {

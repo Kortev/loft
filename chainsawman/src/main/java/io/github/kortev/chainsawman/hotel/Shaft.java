@@ -61,17 +61,17 @@ public final class Shaft {
 	public static final int IX1 = 20;
 	public static final int IZ0 = 5;
 	public static final int IZ1 = 7;
-	/** The chamber at its foot: inside x 14-26, z 3-9, y BASE to BASE + 4. */
-	public static final int CX0 = 14;
-	public static final int CX1 = 26;
-	public static final int CZ0 = 3;
-	public static final int CZ1 = 9;
-	/** The pit's middle cell (it is 3 x 3 and 4 deep, in the east part of the floor), and its depth. */
-	public static final int PIT_X = 24;
+	/** The mass's floor, wider than the shaft (3 blocks of it all round the pit): inside x 15-23, z 2-10, y BASE to BASE + 4. */
+	public static final int CX0 = 15;
+	public static final int CX1 = 23;
+	public static final int CZ0 = 2;
+	public static final int CZ1 = 10;
+	/** The pit's middle cell: the pit is the shaft's own 3 x 3, straight under it, and 4 deep. */
+	public static final int PIT_X = 19;
 	public static final int PIT_Z = 6;
 	public static final int PIT_DEPTH = 4;
 	/** Where the devil stands: the east end of the chamber's floor, at the pit's bottom (its box is the floor and the pit). */
-	public static final double MASS_X = 27.0;
+	public static final double MASS_X = 24.0;
 	public static final double MASS_Z = 6.5;
 	private static final int FLAGS = Block.NOTIFY_LISTENERS | Block.FORCE_STATE | Block.SKIP_DROPS;
 
@@ -111,6 +111,9 @@ public final class Shaft {
 		public final Map<UUID, Held> swallowed = new HashMap<>();
 		/** Who has just burst out of the mouth, until when (they are still over the pit for a moment, and are not swallowed again). */
 		public final Map<UUID, Long> immune = new HashMap<>();
+		/** The shaft's blocks still to be put down (they go in over the turn, a few hundred a tick), and how many are. */
+		public List<Map.Entry<HotelPlan.P, BlockState>> queue;
+		public int placed;
 		public long nextArm;
 		public long nextHead;
 		public long nextPatch;
@@ -123,6 +126,8 @@ public final class Shaft {
 			down.clear();
 			swallowed.clear();
 			immune.clear();
+			queue = null;
+			placed = 0;
 		}
 	}
 
@@ -133,6 +138,13 @@ public final class Shaft {
 	}
 
 	// ---- The design.
+
+	/** The mass: dark grey-brown (mud, packed mud, brown and grey terracotta), a few veins of dark red. Never bright red. */
+	static BlockState flesh(int x, int y, int z) {
+		int h = ((x * 73856093) ^ (y * 19349663) ^ (z * 83492791)) & 255;
+		Block b = h < 70 ? Blocks.MUD : h < 125 ? Blocks.PACKED_MUD : h < 170 ? Blocks.BROWN_TERRACOTTA : h < 230 ? Blocks.GRAY_TERRACOTTA : Blocks.NETHER_WART_BLOCK;
+		return b.getDefaultState();
+	}
 
 	private static void put(Map<HotelPlan.P, BlockState> m, int x, int y, int z, BlockState s) {
 		m.put(new HotelPlan.P(x, y, z), s);
@@ -171,11 +183,12 @@ public final class Shaft {
 		BlockState glow = Blocks.SHROOMLIGHT.getDefaultState();
 		BlockState cream = plan.at(1, Arena.Y0 + 1, 4);
 		Map<HotelPlan.P, BlockState> m = new LinkedHashMap<>();
-		// The chamber: a shell of flesh, the floor of it six thick, and its inside.
+		// The chamber: the mass, a shell of dark grey-brown flesh with the floor of it six thick, and its inside.
+		BlockState light = Blocks.LIGHT.getDefaultState();
 		for (int x = CX0 - 1; x <= CX1 + 1; x++) {
 			for (int z = CZ0 - 1; z <= CZ1 + 1; z++) {
 				for (int y = BASE - 6; y <= BASE + 5; y++) {
-					put(m, x, y, z, Arena.flesh(x, y, z));
+					put(m, x, y, z, flesh(x, y, z));
 				}
 			}
 		}
@@ -186,20 +199,26 @@ public final class Shaft {
 				}
 			}
 		}
-		// Glowing flesh in its walls and roof: the only light the mass has.
-		for (int[] g : new int[][] {{CX0 - 1, BASE + 3, CZ0 + 1}, {CX0 - 1, BASE + 3, CZ1 - 1}, {CX1 + 1, BASE + 3, CZ0 + 1}, {CX1 + 1, BASE + 3, CZ1 - 1},
-				{CX0 + 2, BASE + 5, 6}, {CX1 - 2, BASE + 5, 6}, {20, BASE + 5, CZ0}, {20, BASE + 5, CZ1}, {16, BASE + 2, CZ0 - 1}, {16, BASE + 2, CZ1 + 1}}) {
-			put(m, g[0], g[1], g[2], glow);
+		// A dim warm light in the chamber (invisible: the lamps above do the rest).
+		for (int[] g : new int[][] {{CX0 + 1, BASE + 3, CZ0 + 1}, {CX0 + 1, BASE + 3, CZ1 - 1}, {CX1 - 1, BASE + 3, CZ0 + 1}, {CX1 - 1, BASE + 3, CZ1 - 1}}) {
+			put(m, g[0], g[1], g[2], light.with(net.minecraft.block.LightBlock.LEVEL_15, 5));
 		}
-		// The pit: the mouth, 3 x 3 and four deep, glowing at the bottom.
-		for (int x = PIT_X - 1; x <= PIT_X + 1; x++) {
-			for (int z = PIT_Z - 1; z <= PIT_Z + 1; z++) {
-				for (int y = BASE - PIT_DEPTH; y <= BASE - 1; y++) {
-					put(m, x, y, z, air);
+		// The pit: the mouth, straight under the shaft, 3 x 3 and four deep, lined with dark red and faintly lit from the bottom.
+		for (int x = PIT_X - 2; x <= PIT_X + 2; x++) {
+			for (int z = PIT_Z - 2; z <= PIT_Z + 2; z++) {
+				boolean rim = x == PIT_X - 2 || x == PIT_X + 2 || z == PIT_Z - 2 || z == PIT_Z + 2;
+				for (int y = BASE - PIT_DEPTH - 1; y <= BASE - 1; y++) {
+					if (rim) {
+						put(m, x, y, z, (x + z + y) % 3 == 0 ? Blocks.NETHER_WART_BLOCK.getDefaultState() : Blocks.RED_TERRACOTTA.getDefaultState());
+					} else if (y == BASE - PIT_DEPTH - 1) {
+						put(m, x, y, z, Blocks.NETHER_WART_BLOCK.getDefaultState());
+					} else {
+						put(m, x, y, z, air);
+					}
 				}
 			}
 		}
-		put(m, PIT_X, BASE - PIT_DEPTH - 1, PIT_Z, glow);
+		put(m, PIT_X, BASE - PIT_DEPTH, PIT_Z, light.with(net.minecraft.block.LightBlock.LEVEL_15, 7));
 		// The way up out of the chamber: the shaft's inside meets its roof.
 		for (int x = IX0; x <= IX1; x++) {
 			for (int z = IZ0; z <= IZ1; z++) {
@@ -236,7 +255,7 @@ public final class Shaft {
 			}
 		}
 		// The alcoves: each room's door opened into a ledge, three deep, three wide, three high, a lamp in its roof.
-		BlockState floor = Blocks.BROWN_WOOL.getDefaultState();
+		BlockState floor = cream;
 		for (Ledge l : ledges()) {
 			int dz = l.wallZ() == 4 ? -1 : 1;
 			for (int x = IX0 - 1; x <= IX1 + 1; x++) {
@@ -273,8 +292,12 @@ public final class Shaft {
 		return h.shaft != null && worldBox(h).contains(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5);
 	}
 
-	/** Builds it, keeping what was there; false if the world is not tall enough above the hotel for it. */
-	public static boolean build(ServerWorld world, HomeBlockEntity h) {
+	/**
+	 * Gets it ready: every block it will replace is kept first (so a restart at any moment puts back the right thing: a block not yet
+	 * replaced is its own old state), and the blocks to put down are queued for {@link #placeSome}. False if the world is not tall enough
+	 * above the hotel for it.
+	 */
+	public static boolean beginBuild(ServerWorld world, HomeBlockEntity h) {
 		if (h.shaft != null) {
 			mend(world, h);
 		}
@@ -295,7 +318,21 @@ public final class Shaft {
 		}
 		h.shaft = Arena.write(cells);
 		h.markDirty();
-		for (Map.Entry<HotelPlan.P, BlockState> e : design.entrySet()) {
+		State st = h.run.shaft;
+		st.queue = new ArrayList<>(design.entrySet());
+		st.placed = 0;
+		return true;
+	}
+
+	/** Puts down up to {@code count} more of the queued blocks (lowest first, so the mass is there first). */
+	public static void placeSome(ServerWorld world, HomeBlockEntity h, int count) {
+		State st = h.run.shaft;
+		if (st.queue == null) {
+			return;
+		}
+		int end = (int) Math.min((long) st.queue.size(), (long) st.placed + count);
+		for (; st.placed < end; st.placed++) {
+			Map.Entry<HotelPlan.P, BlockState> e = st.queue.get(st.placed);
 			HotelPlan.P p = e.getKey();
 			BlockPos at = HotelBuilder.world(h.origin, h.rot, p.x(), p.y(), p.z());
 			if (world.getBlockEntity(at) != null) {
@@ -305,7 +342,9 @@ public final class Shaft {
 				world.setBlockState(at, e.getValue(), FLAGS);
 			}
 		}
-		return true;
+		if (st.placed >= st.queue.size()) {
+			st.queue = null;
+		}
 	}
 
 	/** Where whoever is in the shaft when it goes is put: the corridor's east end, looking back along it. */
@@ -319,6 +358,7 @@ public final class Shaft {
 		st.built = false;
 		st.tiltAt = -1;
 		st.swallowed.clear();
+		st.queue = null;
 		if (h.shaft == null) {
 			return;
 		}
@@ -433,6 +473,11 @@ public final class Shaft {
 	/** The floor begins to turn: the camera rolls, the hotel groans, the players slide down the corridor. */
 	static void startTilt(ServerWorld world, HomeBlockEntity h, EternityDevilEntity devil, List<ServerPlayerEntity> players, long now) {
 		State st = h.run.shaft;
+		if (!beginBuild(world, h)) {
+			// (The world is not tall enough above the hotel: the fight goes on in the corridor, and the fear starts again.)
+			st.fear = 0.5F;
+			return;
+		}
 		st.tiltAt = now;
 		st.fear = 1.0F;
 		devil.tilting = true;
@@ -456,6 +501,10 @@ public final class Shaft {
 			p.addVelocity(slide.x * k, 0.0, slide.z * k);
 			p.velocityModified = true;
 		}
+		// (The shaft goes up over the turn, out of sight above the roof.)
+		if (st.queue != null) {
+			placeSome(world, h, st.queue.size() / Math.max(1, TILT_TICKS - 6 - (int) t) + 1);
+		}
 		if (t % 6 == 0) {
 			Vec3d at = HotelBuilder.world(h.origin, h.rot, 20.0, Arena.Y0 + 1.5, 6.5);
 			world.spawnParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, at.x, at.y, at.z, 4, 6.0, 0.8, 1.2, 0.01);
@@ -471,8 +520,8 @@ public final class Shaft {
 		State st = r.shaft;
 		st.tiltAt = -1;
 		devil.tilting = false;
-		if (!build(world, h)) {
-			// (Not tall enough: the fight goes on in the corridor, and the fear starts again.)
+		placeSome(world, h, Integer.MAX_VALUE);
+		if (h.shaft == null) {
 			st.fear = 0.5F;
 			for (ServerPlayerEntity p : players) {
 				send(p, devil.getId(), HotelPayloads.Devil.SHAFT, 0);
@@ -513,12 +562,17 @@ public final class Shaft {
 		world.playSound(null, mid.x, mid.y, mid.z, ChainsawSounds.DEVIL_GROW, SoundCategory.HOSTILE, 4.0F, 0.6F);
 	}
 
+	/** Where along z someone stands on a ledge: at the lip of the doorway, over the shaft. */
+	public static double edgeZ(Ledge l) {
+		return l.wallZ() == 4 ? 4.95 : 8.05;
+	}
+
 	/** {@code p} in a ledge's doorway, looking across and down the shaft. */
 	public static void place(ServerPlayerEntity p, HomeBlockEntity h, Ledge l) {
-		Vec3d at = HotelBuilder.world(h.origin, h.rot, 19.5, l.y(), l.wallZ() + 0.5);
+		Vec3d at = HotelBuilder.world(h.origin, h.rot, 19.5, l.y(), edgeZ(l));
 		float yaw = HotelBuilder.alongYaw(h.rot) + (l.wallZ() == 4 ? 90.0F : -90.0F);
 		p.stopRiding();
-		p.networkHandler.requestTeleport(at.x, at.y, at.z, yaw, 40.0F);
+		p.networkHandler.requestTeleport(at.x, at.y, at.z, yaw, 55.0F);
 		p.setVelocity(Vec3d.ZERO);
 		p.velocityModified = true;
 		p.fallDistance = 0.0F;

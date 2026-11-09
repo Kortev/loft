@@ -82,9 +82,9 @@ public class EternityDevilEntity extends MobEntity {
 	/** In the shaft: it fills the bottom of it (see {@link Shaft}), its hitbox the floor of the mass and the pit in it. */
 	private static final TrackedData<Boolean> SHAFT = DataTracker.registerData(EternityDevilEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
 	/** Its hitbox in the shaft, in the devil's own frame: across from its middle, how far out from its back plane, and how high from the pit's bottom. */
-	public static final double SHAFT_LEFT = -3.5;
-	public static final double SHAFT_RIGHT = 3.5;
-	public static final double SHAFT_DEPTH = 13.0;
+	public static final double SHAFT_LEFT = -4.5;
+	public static final double SHAFT_RIGHT = 4.5;
+	public static final double SHAFT_DEPTH = 9.0;
 	public static final float SHAFT_HEIGHT = 5.0F;
 
 	/** The boss bar shows its pain filling (it cannot be killed by damage, only made to give up). */
