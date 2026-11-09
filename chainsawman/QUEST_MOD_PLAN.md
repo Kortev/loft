@@ -13,6 +13,10 @@ Chainsaw Man (the merge, the form, saws, chain, arms, Beam, the cord revive) and
 world, not its story (quests are ours); no spoilers past the Reze arc; plan the look before building; one piece at a
 time, each its own reel.
 
+**Rule (kortev, 2026-11-08): everything works without Chainsaw Man.** A hybrid is one per world, and most players in
+the finished mod will never have one. Every quest, boss and mystery must be doable by plain hunters with katanas and
+contracts. Chainsaw Man is a bonus, never a key.
+
 ## 1. Survival with the Chainsaw Man world in it, or a pure Chainsaw Man world?
 
 **Pure Chainsaw Man world:** a custom world (a city, Public Safety, no mining or crafting progression).
@@ -52,8 +56,9 @@ Everyone starts as a plain human. What you become is decided by what you find an
   - on a server, the hybrid hasn't logged in for a set number of days (a game rule, off by default).
   For PvP servers that want the drama, a game rule `heartTheft` (off by default) lets a downed hybrid's heart be torn out by another player (hold use for 5 s, the revive in reverse); then the old hybrid is human and can take contracts straight away.
 - **kortev's idea (2026-11-08, open): being a hybrid takes contract slots, and the heart can be stolen.** Opus likes
-  it, with two changes. First, the heart fills **all 3 slots**: a devil living in you leaves no room for another (the
-  show's rule kept), since one slot would let Chainsaw Man also hold two contracts. Second, stealing needs safeguards:
+  it, with two changes. First, the heart fills **all 3 slots**: a devil living in you leaves no room for another. That is our balance
+  choice, not the show's: the show (to the Reze arc) never says a hybrid can't make a contract; Denji just never does.
+  One slot would let Chainsaw Man also hold two contracts. Second, stealing needs safeguards:
   - only from a hybrid who is downed;
   - a 5 s hold anyone can interrupt;
   - the heart can't change hands again for an in-game day;
@@ -62,6 +67,34 @@ Everyone starts as a plain human. What you become is decided by what you find an
   everyone's target. Solo, it changes nothing.
 - **Bomb and Katana, later:** each comes from its own quest line's end, one per world. The heart rule applies to them too.
 - **Hybrid or contracts, never both** (kept). Taking a hybrid heart ends your contracts; a hybrid is refused by every devil.
+
+## 2b. Balance: no glass cannons (kortev, 2026-11-08; proposals)
+
+- **Is Chainsaw Man strong enough?** He was tuned for a server: a saw slash is 10 (a netherite sword is 8), +10 armour,
+  heals 1 a hit, plus the chain, regrowing arms, Beam and coming back from being downed. A hunter with three contracts
+  (Forever alone releases up to 40) would match or beat him. If he's one per world and can be stolen, he should be
+  **the strongest single player on the server**: he beats any one hunter, and a team of hunters can take him. Proposal:
+  more damage and toughness in the form, faster blood healing, and the saws break through block-type defences.
+- **Why power mods make glass cannons:** damage grows much faster than defence. In vanilla, big single hits mostly go
+  through armour, so netherite helps against mobs and normal swords but not against a 40-damage hit. Netherite alone
+  won't fix it. What will:
+  - **Big hits are telegraphed** (a wind-up you can see and dodge or interrupt), and **power damage against players is
+    scaled down** (a game rule, e.g. half), so fights between players last more than one hit.
+  - **Every path has defence, not only damage:** each contract gives something protective as well (Eternity: you can
+    hold an arrow or a blow in the moment and step out of it), the hunter suit is real armour, and hybrids heal.
+  - **Everyone goes down instead of dying** (the hybrid's downed state for every player, a game rule, on by default):
+    when you'd die you fall, and a teammate can pick you up (hold use, as the revive works now). Alone, you die as
+    usual after a short time. That makes teams strong and one burst much less final.
+  - **Buddies (from the show: Public Safety hunters work in pairs):** pair with one player at the office. Near your buddy
+    you take a little less damage and pick each other up faster.
+  - **No big skill tree to start:** Public Safety ranks give small perks (toughness, a faster pick-up, more food from
+    rations). A tree can come later if the ranks aren't enough.
+- **Is stealing a downed hybrid's heart fair?** Only if downing him is earned and his team can protect him. So:
+  - the thief must have downed him themselves (not a mob);
+  - he can struggle, slowing the hold;
+  - anyone can interrupt;
+  - with buddies and everyone-goes-down, a hybrid with friends near is hard to rob;
+  - it's a server option.
 
 ## 3. Contracts done right
 
@@ -147,15 +180,16 @@ keeps you, and it feeds on the fear of being stuck forever. The quest is getting
   own characters, NPCs, starving, sitting against the walls. Feed one and they get up and follow you, and they fight
   with you later (katanas). One of them has gone mad with fear and attacks you: knock him down, or feed him to calm
   him. Getting them out is what Public Safety pays for.
-- **Finding the devil: a small mystery, not a sign that just grows.** The squad already spent days in here; their notes
-  are spread through the loop's rooms (a new room opens every lap or two), and together they point at the one thing
-  in the loop that breaks its own rule. That's where the devil is. Each hotel picks one of a few mysteries at random,
-  so it isn't solved once for everyone:
-  - **the room that isn't there:** the lift's floor plan shows rooms 801-807, but one lap there's an 808;
-  - **the door that's only there backwards:** walk the loop the other way and a door appears;
-  - **what you change stays:** mark things (a torch, a broken block); one room always resets, and that's where it is;
-  - **the count:** a squad member counted laps, and on lap 13 the corridor is one door longer.
-  Cut into the right wall or door and it tears out: the fight. About 5-10 minutes to solve, with the notes as hints.
+- **Finding the devil: a hunt, because it's alive in there** (replaces the random puzzles, which didn't fit how the
+  devil works: it wouldn't leave clues, and rooms opening when you do things is a game, not a devil). The loop is the
+  devil's own body, so it has to be somewhere inside it, hiding in the walls. A living thing can't hide perfectly:
+  - you hear its **heartbeat**, louder the closer you are;
+  - **eyes open in the wallpaper** and shut when you look at them;
+  - a wall is warm and breathes;
+  - **cut any wall and it bleeds** if the devil is behind it (any weapon or power: a katana, an axe, a contract).
+  The squad's notes are story and hints ("it bleeds when you cut it", "it watches from the walls"), not puzzle keys.
+  Where it hides is random each time, and when you get close or hurt it, it moves. When it's found and cut deep
+  enough, it tears out of the wall: the fight.
 - **Dying in there:** you respawn at your bed, outside, and you can't get back in until the hotel opens again. Your
   dropped items stay inside, where you died.
 - **The fight:** a real boss. Each player has a job:
