@@ -115,7 +115,7 @@ The partner must never be a chore, and must not make you unkillable (round 2):
    partner, and points at the mission board.
 5. **The first mission.** "A devil was seen near X." The licence shows where. You hunt it, come back, get paid, and
    buy a Public Safety katana, which makes devils **bleed** so they stop healing.
-6. **The first deal [pick].** On one of your first missions, a named devil you've beaten begs for its life and
+6. **The first deal [decided: kortev, 2026-11-09].** On one of your first missions, a named devil you've beaten begs for its life and
    offers a small deal: one move, and one small price that lasts. People install this for a devil's power. They get
    to say yes or no to one in the first hour or two, not after two ranks. (A devil only deals when you have
    something over it, and a beaten devil is exactly that.)
@@ -182,7 +182,7 @@ your partner, your power and power resistance. No quest book, no skill tree [dec
 | Thing | Where | How often |
 |---|---|---|
 | Notice board (poster and phone) | Every village | Put up when a player first walks in, so old worlds get it too |
-| Public Safety office | Beside a village | About one village in three [to tune], built when a player first comes near. Minecraft can't generate one structure "near" another, so it's placed while you play. |
+| Public Safety office | **A building in the village** [decided: kortev, 2026-11-09] | It's one of the village's own buildings, so a new village generates with it, joined to the paths. About one village in three [to tune]. A village that was made before the mod gets one built at its edge when a player first walks in. |
 | Common devils | Where their fear fits, at night or underground | Rarer than vanilla mobs [decided] |
 | Devil nests | Caves, swamps, ruins. Devils live here by day too. | A few per office area, used by missions |
 | Lairs (the hotel first) | Rare structures | Today the hotel gets one *try* per 1280 blocks, and a try is thrown out unless it lands in one of 7 biomes on flat dry ground (checked in the code). So the nearest is often 2000-4000 blocks off. M1 fixes and measures this. |
@@ -200,9 +200,8 @@ comes back lands 2000 blocks off with no hint at all. So:
 - **A carried Pochita belongs to whoever tamed him.** Today anyone holding him can merge, so one left in a chest can
   be stolen, and one dropped on the ground is gone for good after five minutes (checked in the code). He's tied to
   his tamer, and if he's lost he goes back to a den.
-- **How you merge has to be shown [pick].** Today you become Chainsaw Man only by dying with him carried or near,
-  and nothing says so. A careful player never dies and never finds out. So once he trusts you, at the next dusk a
-  pack of zombies comes for him. Going down beside him is the merge. The game makes the moment happen.
+- **The merge stays as it is [decided: kortev, 2026-11-09].** Die with Pochita carried or near and you come back as
+  Chainsaw Man. No staged ambush: people who play this know the show, and anyone who keeps him dies sooner or later.
 - If the heart comes back to the world (given up, or stolen and lost), **one** den far from every player gets him,
   and the office tells anyone who asks. Not every den at once: whoever wrote down a den's place would win in
   minutes.
@@ -221,12 +220,17 @@ party on its way up. For a mission it wakes at any hour [pick]; inside, it's alw
 
 **The Overworld only, for 1.0.** No devils in the Nether or the End, and no mission ever points there.
 
-- **Old worlds:** notice boards, offices and the first attack are placed while you play, so they work in a world
-  that's already explored. Hotels and dens appear in chunks nobody has loaded yet, and a mission or the rumour sends
+- **Old worlds:** notice boards and the first attack happen while you play, and a village that's already there gets
+  its office built at its edge, so all of it works in a world that's already explored. Hotels and dens appear in chunks nobody has loaded yet, and a mission or the rumour sends
   you to the nearest one. A command is no answer for a stranger.
 - **Missions pick real places.** A mission looks for a fitting spot near the office and puts its devil there. It
   never sends you 5000 blocks. A lair mission uses the nearest lair it can find, and isn't offered when none is in
   reach.
+- **The hotel is the first devil most players will meet** (kortev, 2026-11-09). It's the first one built and the one
+  in the videos, so people will go looking for it on day one. So: anyone can walk in, with no rank needed. A sign at
+  the door warns you. The notice board in every village says which way the nearest hotel is. It's tuned so iron gear
+  and a friend can finish it [to tune]. The board's hotel mission at 2nd Class is the same place, harder and paid.
+  This is why hotels being far apart matters so much (1.5).
 - **Lairs can't be wrecked.** Today only mining by hand is stopped, and only while the hotel is sealed. TNT, fire
   (it's wool and dark oak), lava, pistons, a portal built inside and chorus fruit all get through, and by day anyone
   can dig into the looping floor (checked in the code). A lair's blocks don't burn, blow up or move. It's rebuilt
@@ -254,11 +258,11 @@ more, not only harder.
   pops and you bleed out holding it (checked in the code; the exact order is still to confirm in a test).
 - **Logging out while down doesn't save you.** Today your body just goes, and you come back when it's safe. Your
   body stays for the rest of the timer.
-- **Dying in the hotel [pick]: the devil keeps you.** Today you're put outside, your things lie on the floor for
-  five minutes, and alone the fight simply ends. Better, and true to the place: you wake against a corridor wall,
-  starving, one more trapped hunter. A friend feeds you (or your partner does, once) and you're back in the fight.
-  If everyone is down, the devil spits you all out, and the hotel holds each player's things at the desk for their
-  owner only.
+- **Dying in a lair throws you out of it [decided: kortev, 2026-11-09].** Lairs are dungeons, and a dungeon kicks
+  you out. ("The devil keeps you" was offered and turned down: cool, but not how a dungeon works.) Fable's picks for
+  the details: you land outside the front door with your things, because today they lie on the floor inside for five
+  minutes and are gone (checked in the code). What you lose is the run. Alone, the lair resets. If friends are still
+  fighting, you wait at the door, and you're still paid if they win.
 - **A contract can be ended at the office, at a cost that hurts [pick]:** the bond lost, a fee, one last price.
   Today the only way out is taking a fourth contract, so "never sleep again" is for life, and most players either
   never sign or regret it and quit.
@@ -311,9 +315,9 @@ Sizes are in agent runs: S is one run, M is two or three, L is four or more.
 | 1.2 | The devil's sound: the crowd voice, the turn's groan, the pit | S | Synthesised |
 | 1.3 | The quest wrapped as a board mission, with the squad's pay | S | Needs M2's board; until then the hotel stays stand-alone |
 | 1.4 | The reel: "The floor turned into its mouth" | S | kortev's yes on the 3D devil |
-| 1.5 | More hotels, and measured | S | More tries, more biomes, a foundation in place of throwing the try out. A test measures the distance to the nearest hotel from 50 random places. |
+| 1.5 | More hotels, and measured | S | More tries, more biomes, a foundation in place of throwing the try out. A test measures the distance to the nearest hotel from 50 random places; the aim is one within 1000 blocks of most of them. Until the notice board exists (M2), `/locate` finds it. |
 | 1.6 | The hotel can't be wrecked or held | M | Protected blocks, rebuilt when the devil returns, no teleporting while sealed, a seal time limit, the fight saved across a restart, awake at any hour for a mission |
-| 1.7 | The devil keeps you (dying inside) | M | kortev's yes (section 8) |
+| 1.7 | Dying inside throws you out the door with your things; the hotel resets when nobody is left | S | |
 
 ### M2. The spine: Public Safety and the loop (the biggest piece)
 
@@ -321,7 +325,7 @@ Sizes are in agent runs: S is one run, M is two or three, L is four or more.
 |---|---|---|---|
 | 2.1 | The licence: item, screen, saved data (rank, yen, missions) | M | A mock screen to kortev first |
 | 2.2 | The notice board (poster and phone), the first attack, the two ways in | M | Uses the weak devil from 3.4 |
-| 2.3 | The office building and the captain, placed beside a village while you play | M | kortev's yes on the Public Safety look (waiting) |
+| 2.3 | The office as a village building (added to the village's own building lists; [to confirm in a test: never two in one village]), the captain, and the office built at the edge of villages that already exist | M | kortev's yes on the Public Safety look (waiting) |
 | 2.4 | The board and missions: hunt, clear a nest, find the missing | L | |
 | 2.5 | Yen, the shop, selling parts | S | |
 | 2.6 | Ranks, the rank trial, the rank-up moment | M | |
@@ -342,7 +346,7 @@ Reel: "I added Public Safety to Minecraft."
 | 3.5 | Nests, spawn rules, parts | M | |
 | 3.6 | Mission kinds, and one trick per devil | S | Fear and the bounty moved to the server legend update |
 | 3.7 | Summoning: the circle, the offering, a weak devil's deal | M | [check: how summoning is shown] |
-| 3.8 | Small deals: a beaten devil begs | M | kortev's yes (section 8); each deal's visual shown first |
+| 3.8 | Small deals: a beaten devil begs | M | kortev said yes (2026-11-09); each deal's visual shown first |
 
 Each devil is its own reel.
 
@@ -461,12 +465,12 @@ New, from this plan:
 8. **Pochita's dens** (4.4): many dens, empty once he's found, a rumour at the office. Your idea; the numbers are mine.
 9. **The suit over your armour, yen as a number, the katana as a real sword** (4.2, 4.3). Pick: yes to all three.
 
-New, from the three checkers (round 2, section 12). The first three matter most:
-10. **Small deals from beaten devils, from the first hour** (4.1). Pick: yes. It's the biggest change: each common
-    devil needs one move with a look worth filming.
-11. **Dying in the hotel: the devil keeps you,** and a friend feeds you back in (4.6). Pick: yes.
+New, from the three checkers (round 2, section 12). kortev answered three on 2026-11-09:
+10. **Small deals from beaten devils, from the first hour** (4.1). **Answered: yes.** Each common devil needs one
+    move with a look worth filming.
+11. **Dying in the hotel: the devil keeps you** (4.6). **Answered: no.** It's a dungeon, so you're thrown out.
 12. **Ending a contract at the office, at a cost** (4.6). Pick: yes.
-13. **The merge is staged:** zombies come for Pochita once he trusts you (4.4). Pick: yes.
+13. **The merge is staged** (4.4). **Answered: no.** It stays as it is; players know the show.
 14. **A phone on every village's notice board** for missions and pay (4.2). Pick: yes.
 15. **Out of 1.0:** fear scores, and the Special Division rank (4.3, 4.5). Pick: yes.
 16. **On a server, a heart whose holder is gone 14 days comes back** (4.4). Pick: yes.
@@ -481,6 +485,9 @@ Still open from before:
 (The old question "is going down alone too harsh?" is answered by the partner, if 2 is a yes.)
 
 Everything else round 2 found is a fix with no choice in it, so it's simply in the plan.
+
+Also from kortev on 2026-11-09: the office is a building in the village, and the hotel will be the first devil most
+players meet, so it's open to anyone and has to be easy to find (4.4).
 
 ---
 
@@ -556,7 +563,7 @@ tested yet, to be confirmed by the package that builds it.
 | Round 1 said | What's true | Now |
 |---|---|---|
 | Hotels are close enough | One *try* per 1280 blocks, most tries thrown out (code) | More hotels, measured (1.5) |
-| A lost-property chest at the desk | A shared chest gets robbed; and alone, dying ends the fight (code) | The devil keeps you; things held per owner (4.6, 1.7) |
+| A lost-property chest at the desk | A shared chest gets robbed; and alone, dying ends the fight (code) | You're thrown out with your things (4.6, 1.7) |
 | The partner catches up like a wolf | That needs ground and loaded chunks, and leaves doubles (memory) | Saved on the player (3) |
 | The first attack "in or near a village" | Golems kill it first; players far from villages never see it (memory) | Wherever you are; golems stay out (4.1) |
 | Old worlds: a command | No help to a stranger | Placed while you play (4.4) |
@@ -565,7 +572,7 @@ tested yet, to be confirmed by the package that builds it.
 
 | Found | How sure | Fix, now in the plan |
 |---|---|---|
-| Offices "near villages" can't be generated; posters only reach new villages | memory | Notice boards and offices placed while you play (4.4) |
+| Offices "near villages" can't be generated; posters only reach new villages | memory | The office is a village building (kortev); boards and old villages are handled while you play (4.4) |
 | A totem never pops when you go down | code | A totem is used first (4.6, 0.7) |
 | The hotel only wakes at night; a skipped night resets a party | code | Any hour for a mission (4.4, 1.6) |
 | The sealed hotel leaks: TNT, fire, lava, pistons, portals, chorus fruit, digging in by day | code | Lairs can't be wrecked (4.4, 1.6) |
@@ -583,9 +590,9 @@ tested yet, to be confirmed by the package that builds it.
 |---|---|
 | No power for hours; the video promised one | Small deals from beaten devils [pick] (4.1, 3.8) |
 | The friend without the heart gets nothing | Small deals; the heart already runs on blood (code) (4.4) |
-| Nothing says you merge by dying | The merge is staged [pick] (4.4) |
+| Nothing says you merge by dying | kortev: leave it. Players know the show, and you'll die with him sooner or later (4.4) |
 | Nothing to do at hour 40; yen runs out of uses | 1.0 stops at 1st Class; late yen uses (4.3) |
-| Dying in the hotel locks you out for half an hour | The devil keeps you [pick] (4.6) |
+| Dying in the hotel locks you out for half an hour | kortev: it's a dungeon, you're thrown out. Your things come with you, and you're paid if your friends win (4.6) |
 | A contract is a life sentence | End it at the office for a cost [pick] (4.6) |
 | The office is a long walk every time | The phone [pick] (4.2) |
 | The Fox is useless in the dark, where devils are | Its fact sheet decides; it can't be useless in caves (M4) |
