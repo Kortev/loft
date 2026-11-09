@@ -111,6 +111,9 @@ public final class ChainsawSounds {
 	/** The devil dying: a collapsing groan of many voices, flesh deflating. */
 	public static final SoundEvent DEVIL_DEATH = register("devil.death");
 
+	/** The legend heard from far off: the engine's start (the same sound), played quiet and low from his direction by {@code Legend}. */
+	public static final SoundEvent LEGEND_ROAR = register("legend.roar");
+
 	private ChainsawSounds() {
 	}
 

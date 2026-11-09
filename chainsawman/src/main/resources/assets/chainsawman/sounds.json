@@ -7,6 +7,14 @@
       }
     ]
   },
+  "legend.roar": {
+    "subtitle": "subtitles.chainsawman.legend.roar",
+    "sounds": [
+      {
+        "name": "chainsawman:form_start"
+      }
+    ]
+  },
   "form.start": {
     "subtitle": "subtitles.chainsawman.form.start",
     "sounds": [
