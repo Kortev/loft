@@ -51,6 +51,15 @@ Everyone starts as a plain human. What you become is decided by what you find an
   - the hybrid chooses to give it up (to take contracts instead); or
   - on a server, the hybrid hasn't logged in for a set number of days (a game rule, off by default).
   For PvP servers that want the drama, a game rule `heartTheft` (off by default) lets a downed hybrid's heart be torn out by another player (hold use for 5 s, the revive in reverse); then the old hybrid is human and can take contracts straight away.
+- **kortev's idea (2026-11-08, open): being a hybrid takes contract slots, and the heart can be stolen.** Opus likes
+  it, with two changes. First, the heart fills **all 3 slots**: a devil living in you leaves no room for another (the
+  show's rule kept), since one slot would let Chainsaw Man also hold two contracts. Second, stealing needs safeguards:
+  - only from a hybrid who is downed;
+  - a 5 s hold anyone can interrupt;
+  - the heart can't change hands again for an in-game day;
+  - the old owner gets their 3 slots back at once, so they can start making contracts.
+  It fixes the luck problem: whoever finds Pochita first isn't set for good, and on a server the hybrid becomes
+  everyone's target. Solo, it changes nothing.
 - **Bomb and Katana, later:** each comes from its own quest line's end, one per world. The heart rule applies to them too.
 - **Hybrid or contracts, never both** (kept). Taking a hybrid heart ends your contracts; a hybrid is refused by every devil.
 
@@ -88,10 +97,19 @@ Examples (each devil picks one; all to be tuned with kortev):
   - "Find the missing squad".
   - Missions scale with how many players take them.
 - **Pay and rank:** missions pay in **yen** (a currency item) and raise your rank: 4th Class, 3rd Class, 2nd Class, 1st Class, Special Division. Yen buys hunter gear, offerings and rations. Rank unlocks bigger missions and the bigger devils that will answer a summons.
-- **Hunter gear:**
-  - the Public Safety katana and suit (armour);
-  - a pistol (the show's hunters carry guns), possibly later;
-  - devil-blood rations (heal hybrids).
+- **Hunter gear and weapons (to plan in full).** In the show, hunters fight with ordinary weapons (katanas, knives,
+  guns), and their real power is their contracts. Kept that way, with one rule so the weapons matter:
+  - **Devils regenerate** unless they're bled. Vanilla weapons hurt them but they heal back; **hunter weapons make
+    them bleed** (no regeneration for a few seconds after a hit). So a plain hunter with a katana is useful, and a
+    contract or Chainsaw Man is stronger again.
+  - The weapons:
+    - the Public Safety katana (the main weapon, bought with yen or given at a rank);
+    - knives (fast, thrown);
+    - a pistol (slow to reload, strong; the show's hunters carry them).
+  - The Public Safety suit (armour).
+  - Devil-blood rations, which heal hybrids.
+  - **Devil parts are worth money** (in the show, Denji pays his debt by selling devil corpses): parts sell for yen.
+    Our own addition, to decide: upgrading a weapon with a devil's part (a Bat fang on a knife), each with a small effect.
 
 ## 5. Devils in the world
 
@@ -121,17 +139,25 @@ Examples (each devil picks one; all to be tuned with kortev):
 kortev (2026-11-08): nobody would ever hand over a friend, and with respawning it would only be annoying (drop
 your items, die, walk back). So there is no demand. A devil that has you trapped has no reason to deal: it just
 keeps you, and it feeds on the fear of being stuck forever. The quest is getting out.
-- **The trap:** the corridor loops (built, seamless). In the loop, **hunger drains faster and food goes bad**
-  (rotten flesh). Nothing kills you quickly; forever does it slowly.
+- **The trap:** the corridor loops (built, seamless). Once the loop closes, **the hotel is sealed**: time stands
+  still inside, so nobody from outside can get in to help until it's over (kortev, 2026-11-08). Hunger is normal, and
+  food does not go bad (kortev: a new rule just for one devil would be pointless). If you run out of food, that's on
+  you; being stuck with nothing to do is reason enough to get out.
 - **The squad (the mission's goal):** two or three of the missing hunters are still alive in the loop. They're our
   own characters, NPCs, starving, sitting against the walls. Feed one and they get up and follow you, and they fight
   with you later (katanas). One of them has gone mad with fear and attacks you: knock him down, or feed him to calm
   him. Getting them out is what Public Safety pays for.
-- **Finding the devil:** it hides inside the walls. Each lap the flesh grows thicker toward where it is: an eye opens
-  in the wallpaper, a wall breathes. Read the signs, then cut into that wall (any weapon), and it tears out
-  through the wall: the fight. There's no timer; your hunger and the squad's are the clock.
-- **Dying in there:** you respawn at your bed as usual. The hotel keeps the others looped, and walking back in takes
-  you back into the loop with them.
+- **Finding the devil: a small mystery, not a sign that just grows.** The squad already spent days in here; their notes
+  are spread through the loop's rooms (a new room opens every lap or two), and together they point at the one thing
+  in the loop that breaks its own rule. That's where the devil is. Each hotel picks one of a few mysteries at random,
+  so it isn't solved once for everyone:
+  - **the room that isn't there:** the lift's floor plan shows rooms 801-807, but one lap there's an 808;
+  - **the door that's only there backwards:** walk the loop the other way and a door appears;
+  - **what you change stays:** mark things (a torch, a broken block); one room always resets, and that's where it is;
+  - **the count:** a squad member counted laps, and on lap 13 the corridor is one door longer.
+  Cut into the right wall or door and it tears out: the fight. About 5-10 minutes to solve, with the notes as hints.
+- **Dying in there:** you respawn at your bed, outside, and you can't get back in until the hotel opens again. Your
+  dropped items stay inside, where you died.
 - **The fight:** a real boss. Each player has a job:
   - contract hunters use their powers;
   - Chainsaw Man saws and drinks its blood;
@@ -144,6 +170,13 @@ keeps you, and it feeds on the fear of being stuck forever. The quest is getting
   - **If nobody takes it,** it dies: loot.
   Either way the loop breaks and nobody's choice costs anyone else anything (Opus's answer to question 5).
 - **The mission reward:** yen and rank for each rescued hunter, and the squad's last note.
+- **Coming back (replay):**
+  - the devil returns after `devilRespawnDays` with a new squad and a new mystery (the same hotel, re-rolled);
+  - there are several hotels in a world;
+  - the loot stays worth having (its blood refills a hybrid, and everything sells to Public Safety for yen);
+  - other players can come for their own contracts;
+  - a devil that keeps winning grows feared and stronger (section 5).
+  Replay mostly comes from the world having many devils and missions, not from one lair.
 
 **The devil itself (what looked worst): a real model, not a pile of lumps.**
 - Build it the way Chitty was built: a Blender model made by a Python script, baked into a game mesh and texture.
