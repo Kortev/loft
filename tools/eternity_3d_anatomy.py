@@ -16,7 +16,7 @@ def unit(v):
 # ---------------------------------------------------------------- hands and arms
 
 def hand_layers(px, py, pz, W, fwd, nrm, size=1.0, spread=1.0, curl=(10, 14, 12), floor=0.045, thumb=True, fingers=4,
-                lens=(0.25, 0.28, 0.25, 0.2)):
+                lens=(0.25, 0.28, 0.25, 0.2), fthick=1.0, palm=1.0):
     """An open, long-fingered, gaunt hand at wrist W. fwd: the way the fingers point; nrm: palm normal (the way the palm faces).
     Returns one distance field (flesh)."""
     fwd, nrm = unit(fwd), unit(nrm)
@@ -29,8 +29,8 @@ def hand_layers(px, py, pz, W, fwd, nrm, size=1.0, spread=1.0, curl=(10, 14, 12)
     u = dx * fwd[0] + dy * fwd[1] + dz * fwd[2]
     v = dx * side[0] + dy * side[1] + dz * side[2]
     w = dx * nrm[0] + dy * nrm[1] + dz * nrm[2]
-    d = np.sqrt((u / (0.105 * s)) ** 2 + (v / (0.1 * s)) ** 2 + (w / (0.04 * s)) ** 2) - 1.0
-    d = d * 0.04 * s
+    d = np.sqrt((u / (0.105 * s * palm)) ** 2 + (v / (0.1 * s * palm)) ** 2 + (w / (0.04 * s * palm)) ** 2) - 1.0
+    d = d * 0.04 * s * palm
     base = W + fwd * 0.17 * s
     offs = np.linspace(-1.5, 1.5, fingers) if fingers == 4 else np.linspace(-1, 1, fingers)
     for i, o in enumerate(offs):
@@ -45,8 +45,8 @@ def hand_layers(px, py, pz, W, fwd, nrm, size=1.0, spread=1.0, curl=(10, 14, 12)
             # curl toward the palm side a little more at each joint, and a small lateral drift for a natural, uneven look
             dirv = rotmat(side, -curl[j] * (1.0 + 0.25 * math.sin(i * 1.7 + j))) @ dirv
             pts.append(pts[-1] + dirv * L * sl)
-        d = np.minimum(d, polyline(px, py, pz, pts, 0.042 * s, 0.03 * s, floor))
-        d = np.minimum(d, sphere(px, py, pz, pts[1], 0.047 * s))      # knuckle
+        d = np.minimum(d, polyline(px, py, pz, pts, 0.042 * s * fthick, 0.03 * s * fthick, floor))
+        d = np.minimum(d, sphere(px, py, pz, pts[1], 0.047 * s * fthick))      # knuckle
     if thumb:
         f0 = rotmat(nrm, -62.0 * spread) @ fwd
         B = W + fwd * 0.06 * s - side * 0.075 * s
