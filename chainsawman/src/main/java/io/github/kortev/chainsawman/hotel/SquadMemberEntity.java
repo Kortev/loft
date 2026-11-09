@@ -63,6 +63,8 @@ public class SquadMemberEntity extends PathAwareEntity {
 	public UUID owner;
 	public boolean rescued;
 	public Vec3d exit;
+	/** A note he carries, and drops when he is fed. */
+	public ItemStack note = ItemStack.EMPTY;
 	private int leaving;
 
 	public SquadMemberEntity(EntityType<? extends PathAwareEntity> type, World world) {
@@ -219,7 +221,10 @@ public class SquadMemberEntity extends PathAwareEntity {
 				getNavigation().startMovingTo(exit.x, exit.y, exit.z, 1.1);
 			}
 			leaving++;
-			if (leaving > 220 || exit != null && squaredDistanceTo(exit) < 4.0) {
+			// They go into the stairwell and are gone once nobody can see them (or, if somebody keeps watching, long after).
+			boolean there = leaving > 220 || exit != null && squaredDistanceTo(exit) < 4.0;
+			boolean seen = world.getPlayers().stream().anyMatch(p -> p.squaredDistanceTo(this) < 64.0 * 64.0 && p.canSee(this));
+			if (there && (!seen || leaving > 450)) {
 				world.spawnParticles(ParticleTypes.POOF, getX(), getY() + 1.0, getZ(), 12, 0.3, 0.6, 0.3, 0.02);
 				discard();
 			}
@@ -234,6 +239,10 @@ public class SquadMemberEntity extends PathAwareEntity {
 		owner = by.getUuid();
 		rescued = true;
 		setTarget(null);
+		if (!note.isEmpty()) {
+			this.dropStack(note);
+			note = ItemStack.EMPTY;
+		}
 		setHealth(Math.min(getMaxHealth(), Math.max(getHealth() + nutrition, was ? getMaxHealth() * 0.6F : 0.0F)));
 		getWorld().playSound(null, getX(), getY(), getZ(), SoundEvents.ENTITY_GENERIC_EAT, SoundCategory.NEUTRAL, 1.0F, 1.0F);
 		if (getWorld() instanceof ServerWorld world) {

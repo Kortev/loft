@@ -26,8 +26,7 @@ import net.minecraft.world.StructureWorldAccess;
 
 /**
  * The missing squad: our own hunters (not the show's), who went into the hotel and did not come out. Two or three of them are alive in the
- * loop when it closes ({@link SquadMemberEntity}: Yamada, Mori and Sato, one of them mad with fear), and their notes lie on lecterns on every
- * floor, one short line each (what happened, and what the devil is: hints, not answers). The ones who were fed and still stand when the loop
+ * loop when it closes ({@link SquadMemberEntity}: Yamada, Mori and Sato, one of them mad with fear), and their notes lie on lecterns on the bedside tables of the rooms below and one is in Yamada's pocket, one short line each (what happened, and what the devil is: hints, not answers). The ones who were fed and still stand when the loop
  * breaks walk to the exit and leave, and pay each player inside ({@link #reward}).
  */
 public final class Squad {
@@ -39,20 +38,23 @@ public final class Squad {
 	public static final int REWARD_XP = 150;
 	public static final int REWARD_GOLD = 4;
 
-	/** One note: the floor (0 for the lobby floor, 7 for the loop floor), where along the corridor it lies, and its words. */
+	/** One note: the floor (0 for the lobby floor to 6), and its words. It lies on the bedside table of one room on that floor. */
 	public record Note(int floor, int x, String text) {
 	}
 
-	/** The notes, one line each, from the squad's first day to their last: what happened, and a hint or two. */
+	/** The notes of floors 1 to 7, one line each, from the squad's first day to their last: what happened, and a hint or two. */
 	public static final List<Note> NOTES = List.of(
-			new Note(0, 4, "Day 1. The doors locked behind us at dusk. Yamada says it is only the wind."),
-			new Note(1, 4, "Day 2. Room 202 twice. We counted. Mori counts everything now."),
-			new Note(2, 4, "Day 3. The painting follows us. Sato will not look at it."),
-			new Note(3, 4, "Day 4. The carpet is stained to one door. We took the other way."),
-			new Note(4, 4, "Day 5. It watches from the walls. The eyes shut when you look at them."),
-			new Note(5, 4, "Day 6. The door breathes. It bleeds when you cut it. Do not cut unless you mean it."),
-			new Note(6, 4, "Day 7. No more bread. The phone will not stop ringing."),
-			new Note(7, 16, "Day 9. The corridor goes on and we do not. The heartbeat is louder by room 805."));
+			new Note(0, 10, "Day 1. The doors locked behind us at dusk. Yamada says it is only the wind."),
+			new Note(1, 10, "Day 2. Room 202 twice. We counted. Mori counts everything now."),
+			new Note(2, 10, "Day 3. The painting follows us. Sato will not look at it."),
+			new Note(3, 10, "Day 4. The carpet is stained to one door. We took the other way."),
+			new Note(4, 10, "Day 5. It watches from the walls. The eyes shut when you look at them."),
+			new Note(5, 10, "Day 6. The door breathes. It bleeds when you cut it. Do not cut unless you mean it."),
+			new Note(6, 10, "Day 7. No more bread. The phone will not stop ringing."));
+	/** The last note, from the loop floor: Yamada carries it, and drops it when he is fed. */
+	public static final Note LAST = new Note(7, 0, "Day 9. The corridor goes on and we do not. The heartbeat is louder by room 805.");
+	/** The back room (side 1, the second from the stairs) and where its bed's table is: x 10, z 12. */
+	public static final int TABLE_Z = 12;
 
 	private Squad() {
 	}
@@ -65,7 +67,7 @@ public final class Squad {
 			if (clip != null && !clip.contains(at)) {
 				continue;
 			}
-			Direction facing = turn.rotate(Direction.SOUTH);
+			Direction facing = turn.rotate(Direction.NORTH);
 			world.setBlockState(at, Blocks.LECTERN.getDefaultState().with(LecternBlock.FACING, facing).with(LecternBlock.HAS_BOOK, true), Block.NOTIFY_LISTENERS);
 			if (world.getBlockEntity(at) instanceof LecternBlockEntity lectern) {
 				lectern.setBook(book(n));
@@ -73,12 +75,12 @@ public final class Squad {
 		}
 	}
 
-	/** Where a note lies: on the corridor's carpet against its north wall. */
+	/** Where a note lies: on the bedside table (a slab) in a room, so it is never in the corridor. */
 	public static BlockPos notePos(BlockPos origin, int rot, Note n) {
-		return HotelBuilder.world(origin, rot, n.x(), HotelPlan.floorY(n.floor()) + 1, HotelPlan.CORR_Z0);
+		return HotelBuilder.world(origin, rot, n.x(), HotelPlan.floorY(n.floor()) + 2, TABLE_Z);
 	}
 
-	private static ItemStack book(Note n) {
+	public static ItemStack book(Note n) {
 		ItemStack stack = new ItemStack(Items.WRITTEN_BOOK);
 		stack.set(DataComponentTypes.WRITTEN_BOOK_CONTENT, new WrittenBookContentComponent(RawFilteredPair.of("The squad's note"), "Squad 4", 0,
 				List.of(RawFilteredPair.of(Text.literal(n.text()))), true));
@@ -101,6 +103,9 @@ public final class Squad {
 			m.setMad(i == mad);
 			m.setHealth(i == mad ? m.getMaxHealth() : 9.0F);
 			m.setState(SquadMemberEntity.HUNGRY);
+			if (i == 0) {
+				m.note = book(LAST);
+			}
 			world.spawnEntity(m);
 			r.squad.add(m.getUuid());
 		}
@@ -130,7 +135,7 @@ public final class Squad {
 	/** The loop has broken: each rescued survivor walks to the exit and leaves, and pays everyone inside. */
 	static void leave(ServerWorld world, HomeBlockEntity h) {
 		int saved = 0;
-		Vec3d exit = HotelBuilder.world(h.origin, h.rot, HotelPlan.SHAFT_X0 + 1.5, 29.0, 3.5);
+		Vec3d exit = HotelBuilder.world(h.origin, h.rot, HotelPlan.SHAFT_X0 + 2.5, 29.0, 2.0);
 		for (SquadMemberEntity m : members(world, h)) {
 			if (m.rescued) {
 				saved++;

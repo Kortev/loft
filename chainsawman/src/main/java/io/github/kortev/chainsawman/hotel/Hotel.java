@@ -303,10 +303,9 @@ public final class Hotel {
 			r.sealed = true;
 			r.sealedAt = now;
 			r.inside.clear();
+			// Everyone already in the building is inside: those on the loop floor are looped at once, those still climbing join the loop when they arrive.
 			for (In in : inside) {
-				if (in.local().y >= 28.5) {
-					r.inside.add(in.player().getUuid());
-				}
+				r.inside.add(in.player().getUuid());
 			}
 			HotelBuilder.shutEntrance(world, h.origin, h.rot);
 			play(world, h, 27.0, 2.0, 0.0, ChainsawSounds.HOTEL_SEAL, 2.0F, 0.7F);

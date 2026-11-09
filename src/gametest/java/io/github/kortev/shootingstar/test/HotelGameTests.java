@@ -627,51 +627,52 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/**
-	 * The first player on the loop floor closes the loop on everyone on that floor: they are inside, the hotel is sealed, the entrance is
-	 * shut, and anyone else in the hotel (a lower floor, the lobby) is put out onto the plaza.
+	 * The first player on the loop floor closes the loop: everyone already in the building is inside (friends still climbing are not thrown out
+	 * and join the loop when they arrive, the hunt, the squad and the beg include them), the entrance is shut, and anyone who is outside, or comes
+	 * in after, is kept out.
 	 */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_seal", tickLimit = 800)
-	public void theHotelSealsWhenSomeoneReachesTheLoop(TestContext context) {
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_seal", tickLimit = 900)
+	public void theHotelSealsButFriendsStillClimbingJoin(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 5);
 		ServerPlayerEntity a = ForeverGameTests.player(context, "first_up");
-		ServerPlayerEntity b = ForeverGameTests.player(context, "also_up");
-		ServerPlayerEntity c = ForeverGameTests.player(context, "on_floor_three");
+		ServerPlayerEntity c = ForeverGameTests.player(context, "still_climbing");
 		ServerPlayerEntity d = ForeverGameTests.player(context, "late_comer");
 		armed(a, 2000.0);
-		armed(b, 2000.0);
+		armed(c, 2000.0);
 		context.getWorld().setTimeOfDay(14000);
 		put(a, h, 20.5, 21.0, 6.5, 90.0F, 0.0F);
-		put(b, h, 22.5, 21.0, 6.5, 90.0F, 0.0F);
-		put(c, h, 20.5, 9.0, 6.5, 90.0F, 0.0F);
+		put(c, h, 20.5, 17.0, 6.5, 90.0F, 0.0F);
 		put(d, h, 400.0, 1.0, 3.5, 0.0F, 0.0F);
+		io.github.kortev.chainsawman.hotel.EternityDevilEntity[] dev = new io.github.kortev.chainsawman.hotel.EternityDevilEntity[1];
 		ready(context, h, () -> {
 			later(context, 15, () -> {
 				context.assertTrue(h.run.night && !h.run.sealed, "sealed before anyone reached the loop floor");
 				context.assertTrue(at(context, h, 27, 1, 0).get(DoorBlock.OPEN), "the entrance is not open at night");
 				put(a, h, 20.5, 29.0, 6.5, 90.0F, 0.0F);
-				put(b, h, 22.5, 29.0, 6.5, 90.0F, 0.0F);
 			});
 			later(context, 25, () -> {
 				context.assertTrue(h.run.sealed, "reaching the loop floor did not seal the hotel");
-				context.assertTrue(h.run.inside.contains(a.getUuid()) && h.run.inside.contains(b.getUuid()), "the two on the loop floor are not inside");
-				context.assertTrue(!h.run.inside.contains(c.getUuid()), "someone on a lower floor is inside");
-				context.assertTrue(local(h, c).z < 0.0, "the one on a lower floor was not put out: " + local(h, c));
+				context.assertTrue(h.run.inside.contains(a.getUuid()) && h.run.inside.contains(c.getUuid()), "the one still climbing is not inside");
+				context.assertTrue(local(h, c).z > 0.0 && local(h, c).y < 20.0, "the one still climbing was put out: " + local(h, c));
 				context.assertTrue(at(context, h, 27, 1, 0).get(DoorBlock.OPEN) == false, "the entrance stayed open");
-				// Someone arriving now, in the lobby or up on the loop floor, is put out.
+				// Someone arriving now, at the lobby, is kept out.
 				put(d, h, 20.5, 1.0, 3.5, 0.0F, 0.0F);
 			});
 			later(context, 32, () -> {
-				context.assertTrue(local(h, d).z < 0.0 && !h.run.inside.contains(d.getUuid()), "an outsider got into the lobby of a sealed hotel: " + local(h, d));
-				put(d, h, 20.5, 29.0, 6.5, 90.0F, 0.0F);
+				context.assertTrue(local(h, d).z < 0.0 && !h.run.inside.contains(d.getUuid()), "an outsider got into a sealed hotel: " + local(h, d));
+				// The climber arrives on the loop floor and is looped like the first.
+				put(c, h, 25.3, 29.0, 6.1, 33.0F, 12.0F);
 			});
-			later(context, 39, () -> {
-				context.assertTrue(local(h, d).z < 0.0 && !h.run.inside.contains(d.getUuid()), "an outsider reached the loop floor of a sealed hotel: " + local(h, d));
-				// The two inside are looped as before.
-				put(a, h, 25.3, 29.0, 6.1, 33.0F, 12.0F);
+			later(context, 38, () -> {
+				context.assertTrue(Math.abs(local(h, c).x - 13.3) < 0.05, "the climber who arrived was not looped: " + local(h, c));
+				context.assertTrue(h.run.inside.contains(c.getUuid()), "the climber is not inside");
+				dev[0] = fightAt(context, h);
+				noSquad(context, h);
 			});
-			later(context, 42, () -> {
-				context.assertTrue(Math.abs(local(h, a).x - 13.3) < 0.05, "the loop does not put the one inside back: " + local(h, a));
-				leaveHotel(context, h, a, b, c, d);
+			later(context, 140, () -> toTheLine(a, dev[0]));
+			later(context, 146, () -> {
+				context.assertTrue(h.run.beg != null && h.run.beg.players.contains(a.getUuid()) && h.run.beg.players.contains(c.getUuid()), "the climber was not offered the beg screen");
+				leaveHotel(context, h, a, c, d);
 				context.getWorld().setTimeOfDay(3000);
 				context.complete();
 			});
@@ -974,6 +975,10 @@ public class HotelGameTests implements FabricGameTest {
 				context.assertTrue(squad.size() == 3, "the squad is " + squad.size() + " hunters, not 3");
 				context.assertTrue(squad.stream().filter(io.github.kortev.chainsawman.hotel.SquadMemberEntity::isMad).count() == 1, "not exactly one is mad");
 				context.assertTrue(squad.stream().map(e -> e.getName().getString()).collect(java.util.stream.Collectors.toSet()).equals(Set.of("Yamada", "Mori", "Sato")), "the names are not Yamada, Mori and Sato");
+				io.github.kortev.chainsawman.hotel.SquadMemberEntity yamada = squad.stream().filter(e -> e.variant() == 0).findFirst().orElseThrow();
+				context.assertTrue(!yamada.note.isEmpty(), "Yamada carries no note");
+				feed(p, yamada);
+				context.assertTrue(yamada.note.isEmpty() && !context.getWorld().getEntitiesByType(net.minecraft.entity.EntityType.ITEM, e -> e.getStack().isOf(net.minecraft.item.Items.WRITTEN_BOOK)).isEmpty(), "Yamada did not drop his note when he was fed");
 				m[0] = hungry(context, h, false, 0);
 				context.assertTrue(m[0].sitting() && m[0].state() == io.github.kortev.chainsawman.hotel.SquadMemberEntity.HUNGRY, "a starving one is not sitting");
 				// Not food: nothing. Food: they get up, the bread is eaten.
@@ -1118,7 +1123,7 @@ public class HotelGameTests implements FabricGameTest {
 				context.assertTrue(h.run.saved == 2, "the hotel counted " + h.run.saved + " saved");
 				context.assertTrue(fed.stream().allMatch(m -> m.state() == io.github.kortev.chainsawman.hotel.SquadMemberEntity.LEAVING), "the rescued are not leaving");
 			});
-			later(context, 400, () -> {
+			later(context, 700, () -> {
 				context.assertTrue(fed.stream().allMatch(net.minecraft.entity.Entity::isRemoved), "the rescued never left");
 				tidy(context, h, p, q);
 				context.complete();
@@ -1126,26 +1131,26 @@ public class HotelGameTests implements FabricGameTest {
 		});
 	}
 
-	/** Eight notes on lecterns, one on each floor, a line each: the squad's story and its hints. */
+	/** Eight notes: seven on lecterns on the bedside tables of rooms (never in a corridor), one carried by Yamada; a line each, the squad's story and its hints. */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_squad_notes", tickLimit = 100)
-	public void theSquadsNotesLieOnEveryFloor(TestContext context) {
+	public void theSquadsNotesLieWhereTheyWouldLeaveThem(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 35);
 		ServerWorld world = context.getWorld();
 		try {
-			context.assertTrue(io.github.kortev.chainsawman.hotel.Squad.NOTES.size() == 8, "not 8 notes");
+			context.assertTrue(io.github.kortev.chainsawman.hotel.Squad.NOTES.size() == 7, "not 7 notes in rooms");
 			java.util.Set<Integer> floors = new HashSet<>();
+			HotelPlan plan = HotelPlan.get();
 			for (io.github.kortev.chainsawman.hotel.Squad.Note n : io.github.kortev.chainsawman.hotel.Squad.NOTES) {
 				BlockPos at = io.github.kortev.chainsawman.hotel.Squad.notePos(h.origin, h.rot, n);
 				context.assertTrue(world.getBlockState(at).isOf(Blocks.LECTERN), "no lectern for the note of floor " + (n.floor() + 1) + " at " + at);
 				context.assertTrue(world.getBlockEntity(at) instanceof net.minecraft.block.entity.LecternBlockEntity l && l.getBook().get(net.minecraft.component.DataComponentTypes.WRITTEN_BOOK_CONTENT) != null, "no book on it");
 				floors.add(n.floor());
-				// Not in front of a door.
-				HotelPlan plan = HotelPlan.get();
-				context.assertTrue(!(plan.at(n.x(), HotelPlan.floorY(n.floor()) + 1, 4).getBlock() instanceof DoorBlock) && !plan.chains.contains(new HotelPlan.P(n.x(), HotelPlan.floorY(n.floor()) + 1, 5)), "the note of floor " + (n.floor() + 1) + " is in front of a door");
+				// In a room (not the corridor, z 5 to 7), on the bedside table.
+				context.assertTrue(io.github.kortev.chainsawman.hotel.Squad.TABLE_Z > 8 && plan.at(n.x(), HotelPlan.floorY(n.floor()) + 1, io.github.kortev.chainsawman.hotel.Squad.TABLE_Z).getBlock() instanceof net.minecraft.block.SlabBlock, "the note of floor " + (n.floor() + 1) + " is not on a bedside table");
 				context.assertTrue(n.text().length() < 110, "a note is long");
 			}
-			context.assertTrue(floors.size() == 8, "not one on every floor");
-			String all = String.join(" ", io.github.kortev.chainsawman.hotel.Squad.NOTES.stream().map(io.github.kortev.chainsawman.hotel.Squad.Note::text).toList());
+			context.assertTrue(floors.size() == 7, "not one on each of the floors below the loop floor");
+			String all = String.join(" ", io.github.kortev.chainsawman.hotel.Squad.NOTES.stream().map(io.github.kortev.chainsawman.hotel.Squad.Note::text).toList()) + " " + io.github.kortev.chainsawman.hotel.Squad.LAST.text();
 			context.assertTrue(all.contains("bleeds when you cut it") && all.contains("watches from the walls") && all.contains("heartbeat is louder"), "the hints are missing");
 		} finally {
 			forced(context, h.origin, false);
