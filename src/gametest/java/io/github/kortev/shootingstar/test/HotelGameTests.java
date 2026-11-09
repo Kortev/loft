@@ -757,6 +757,7 @@ public class HotelGameTests implements FabricGameTest {
 					}
 				}
 				context.assertTrue(changed >= 4, "only " + changed + " blocks of wall have bled");
+				context.assertTrue(h.run.fogged.isEmpty(), "the loop fog was not lifted when the fight started");
 				net.minecraft.entity.Entity d = devilOf(context, h);
 				context.assertTrue(d instanceof io.github.kortev.chainsawman.hotel.EternityDevilEntity, "no devil grew");
 				Vec3d lp = HotelBuilder.local(h.origin, h.rot, d.getPos());

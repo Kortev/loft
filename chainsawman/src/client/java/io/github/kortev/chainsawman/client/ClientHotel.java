@@ -40,7 +40,8 @@ public final class ClientHotel {
 	public static void tick() {
 		fogPrev = fogNow;
 		float to = fogTarget > 0.0F ? 1.0F : 0.0F;
-		fogNow += MathHelper.clamp(to - fogNow, -0.1F, 0.1F);
+		// (It closes in about half a second and lifts over about a second, as when the fight starts.)
+		fogNow += MathHelper.clamp(to - fogNow, -0.05F, 0.1F);
 	}
 
 	/** How closed in the corridor is, 0 to 1. */

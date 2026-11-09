@@ -94,6 +94,8 @@ public final class Hotel {
 		public int torn;
 		public java.util.List<Arena.Cell> arenaCells;
 		public long mendAt = -1;
+		/** Who has been told the fog is lifted for the fight. */
+		public final Set<UUID> fogLifted = new HashSet<>();
 		/** The tick the devil died, while the lights die after it; -1 when not. */
 		public long dyingAt = -1;
 
@@ -462,6 +464,17 @@ public final class Hotel {
 				r.whisperAt = now;
 				play(world, h, HotelPlan.WINDOW_LO + 6.0, 30.5, 6.5, ChainsawSounds.HOTEL_WHISPER, 0.3F + 0.25F * maxLaps, 0.9F + 0.05F * maxLaps);
 			}
+		}
+		// The fight lifts the fog for everyone in the hotel (the arena is torn open: the devil must be seen), once each; the loop's fog comes back only if the loop does.
+		if (r.fighting()) {
+			for (In in : inside) {
+				UUID id = in.player().getUuid();
+				if (r.fogLifted.add(id)) {
+					fog(world, id, 0.0F);
+				}
+			}
+		} else {
+			r.fogLifted.clear();
 		}
 		// The fog that hides the corridor's ends, for those who are looped.
 		for (UUID id : looped) {
