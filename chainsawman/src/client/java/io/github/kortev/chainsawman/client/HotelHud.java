@@ -15,7 +15,23 @@ public final class HotelHud {
 	private HotelHud() {
 	}
 
+	/** The mouth's dark red while swallowed, and the red-black flash as the shaft arrives. */
+	private static void shaft(DrawContext context, float delta) {
+		int width = context.getScaledWindowWidth();
+		int height = context.getScaledWindowHeight();
+		if (ClientHotel.swallowed()) {
+			context.fill(0, 0, width, height, 0xB0300000);
+			context.fillGradient(0, 0, width, height, 0x00000000, 0x90100000);
+		}
+		float flash = ClientHotel.flash(delta);
+		if (flash > 0.0F) {
+			int a = (int) (flash * 235.0F);
+			context.fill(0, 0, width, height, a << 24 | 0x1A0404);
+		}
+	}
+
 	public static void render(DrawContext context, RenderTickCounter counter) {
+		shaft(context, counter.getTickDelta(true));
 		ClientHotel.Line line = ClientHotel.line();
 		MinecraftClient client = MinecraftClient.getInstance();
 		if (line == null || client.world == null || client.options.hudHidden && false) {

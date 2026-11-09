@@ -32,6 +32,7 @@
 		"FormPoseMixin",
 		"HeadHiddenMixin",
 		"HotelFogMixin",
+		"TiltCameraMixin",
 		"HeadItemHiddenMixin",
 		"HeldItemRendererInvoker",
 		"HelmetHiddenMixin",

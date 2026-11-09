@@ -199,6 +199,14 @@ public class EternityDevilRenderer extends EntityRenderer<EternityDevilEntity> {
 		if (!(devil.getWorld() instanceof ClientWorld world)) {
 			return;
 		}
+		if (devil.shaft()) {
+			// At the bottom of the shaft the floor is blocks; only its mouth is drawn.
+			matrices.push();
+			matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-devil.facing()));
+			ShaftMassRenderer.render(devil, delta, matrices, provider, light);
+			matrices.pop();
+			return;
+		}
 		Ctx c = new Ctx();
 		c.matrices = matrices;
 		c.vc = provider.getBuffer(RenderLayer.getEntityCutoutNoCull(ATLAS));
