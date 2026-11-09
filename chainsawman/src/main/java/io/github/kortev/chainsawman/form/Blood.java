@@ -30,9 +30,9 @@ public final class Blood {
 	/** The blood frenzy, now dormant (kept in case kortev wants it back). */
 	public static final int FRENZY = 60;
 	/** What cutting gives: a hit landing, a grinding bite, a kill. */
-	public static final int HIT = 8;
-	public static final int BITE = 3;
-	public static final int KILL = 25;
+	public static final int HIT = 11;
+	public static final int BITE = 4;
+	public static final int KILL = 33;
 	/** Out of the form, a point every so many ticks. */
 	public static final int MAKES_EVERY = 40;
 	/**

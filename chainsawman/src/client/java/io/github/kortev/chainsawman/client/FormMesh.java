@@ -56,6 +56,11 @@ public final class FormMesh {
 			this.glow = new boolean[vertices];
 		}
 
+		/** The texture coordinates of vertex {@code i}. */
+		float[] uvAt(int i) {
+			return new float[] {uv[i * 2], uv[i * 2 + 1]};
+		}
+
 		/** For a saw, how far it runs out from its root along its axis (pixels). */
 		public float reach() {
 			if (growRoot == null) {
@@ -156,6 +161,7 @@ public final class FormMesh {
 
 	/** Forgets the mesh, to be read again (after resources reload). */
 	public static void reset() {
+		SawTeeth.forget();
 		loaded = null;
 		failed = false;
 	}

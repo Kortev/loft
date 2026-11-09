@@ -119,6 +119,11 @@ public final class ClientCombat {
 	private static final Map<UUID, long[]> REGROWN = new ConcurrentHashMap<>();
 	/** Who has Pochita's heart: the cord on their chest. */
 	private static final Set<UUID> HEARTS = ConcurrentHashMap.newKeySet();
+	/** Each hybrid's heart level (2 or 3; absent is 1), told to everyone; your heart's XP; when your heart last levelled up and to what. */
+	private static final Map<UUID, Integer> HEART_LEVELS = new ConcurrentHashMap<>();
+	private static int heartXp;
+	private static long heartUpAt = -1000;
+	private static int heartUpLevel;
 	private static final Map<UUID, Long> FRENZY_FROM = new ConcurrentHashMap<>();
 	private static final Set<UUID> DOWN = ConcurrentHashMap.newKeySet();
 	/** When each got up off the ground after being down (world time). */
@@ -192,6 +197,14 @@ public final class ClientCombat {
 							(RANDOM.nextDouble() - 0.5) * 0.6);
 				}
 				world.playSound(at.x, at.y, at.z, ChainsawSounds.CRUNCH, SoundCategory.PLAYERS, 1.0F, 0.92F + RANDOM.nextFloat() * 0.16F, false);
+				// Blood sprays off the cut; the heart's third level throws it further and wider.
+				PlayerEntity cutter = world.getPlayerByUuid(id);
+				float spray = cutter != null && heartLevel(cutter) >= 3 ? 1.6F : 1.0F;
+				int drops = spray > 1.0F ? 26 : 12;
+				for (int i = 0; i < drops; i++) {
+					world.addParticle(BLOOD, at.x, at.y, at.z, (RANDOM.nextDouble() - 0.5) * 0.9 * spray, RANDOM.nextDouble() * 0.5 * spray,
+							(RANDOM.nextDouble() - 0.5) * 0.9 * spray);
+				}
 				ClientPlayerEntity self = client.player;
 				if (self != null && id.equals(self.getUuid())) {
 					// Yours: the swing held a beat in it, the camera kicked hard.
@@ -247,6 +260,27 @@ public final class ClientCombat {
 					HEARTS.add(id);
 				} else {
 					HEARTS.remove(id);
+					HEART_LEVELS.remove(id);
+				}
+			}
+			case FormEventPayload.HEART_LEVEL -> {
+				if (event.value() >= 2) {
+					HEART_LEVELS.put(id, event.value());
+				} else {
+					HEART_LEVELS.remove(id);
+				}
+			}
+			case FormEventPayload.HEART_XP -> heartXp = event.value();
+			case FormEventPayload.HEART_LEVEL_UP -> {
+				// The moment: blood bursting out of the chest, and on your own screen the line.
+				for (int i = 0; i < 70; i++) {
+					world.addParticle(BLOOD, event.x() + (RANDOM.nextDouble() - 0.5) * 0.8, event.y() + 0.4 + RANDOM.nextDouble() * 1.4,
+							event.z() + (RANDOM.nextDouble() - 0.5) * 0.8, (RANDOM.nextDouble() - 0.5) * 1.6, RANDOM.nextDouble() * 0.9,
+							(RANDOM.nextDouble() - 0.5) * 1.6);
+				}
+				if (client.player != null && id.equals(client.player.getUuid())) {
+					heartUpAt = now;
+					heartUpLevel = event.value();
 				}
 			}
 			case FormEventPayload.LIMBS -> {
@@ -487,6 +521,25 @@ public final class ClientCombat {
 	}
 
 	/** Whether {@code player} has Pochita's heart, as this client has been told. */
+	/** The heart's level of {@code player} (1 to 3; 1 also for no heart). */
+	public static int heartLevel(PlayerEntity player) {
+		return HEART_LEVELS.getOrDefault(player.getUuid(), 1);
+	}
+
+	public static int heartXp() {
+		return heartXp;
+	}
+
+	/** Ticks since your heart last levelled up, and to what level (for the line on screen). */
+	public static float heartUpSince(float tickDelta) {
+		MinecraftClient client = MinecraftClient.getInstance();
+		return client.world == null ? 1000.0F : client.world.getTime() + tickDelta - heartUpAt;
+	}
+
+	public static int heartUpLevel() {
+		return heartUpLevel;
+	}
+
 	public static boolean heart(PlayerEntity player) {
 		return HEARTS.contains(player.getUuid());
 	}
@@ -916,6 +969,8 @@ public final class ClientCombat {
 		LOST_AT.clear();
 		Stumps.clear();
 		HEARTS.clear();
+		HEART_LEVELS.clear();
+		heartXp = 0;
 		BLOODY.clear();
 		REGROWN.clear();
 		faintFrom = NEVER;

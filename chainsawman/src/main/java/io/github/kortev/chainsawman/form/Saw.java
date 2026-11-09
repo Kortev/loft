@@ -43,8 +43,8 @@ public final class Saw {
 	public static final double SLASH_REACH = 3.5;
 	private static final double SLASH_WIDTH = 0.45;
 	private static final double FINISHER_WIDTH = 0.7;
-	public static final float SLASH_DAMAGE = 10.0F;
-	public static final float FINISHER_DAMAGE = 14.0F;
+	public static final float SLASH_DAMAGE = 13.0F;
+	public static final float FINISHER_DAMAGE = 18.0F;
 	/** Ticks between slashes at the fastest, and how long the combo waits for the next before starting over. */
 	public static final int SLASH_EVERY = 12;
 	public static final int COMBO_GAP = 24;
@@ -68,7 +68,7 @@ public final class Saw {
 	public static final int GRIND_EVERY = 4;
 	public static final float GRIND_DAMAGE = 2.5F;
 	/** Healing: a slash that hits, every third bite of grinding that hits, a kill (health points; 2 to a heart). */
-	public static final float HIT_HEAL = 1.0F;
+	public static final float HIT_HEAL = 2.0F;
 	private static final int GRIND_HEAL_BITES = 3;
 	public static final float KILL_HEAL = 6.0F;
 	/**
@@ -183,7 +183,7 @@ public final class Saw {
 		}
 		SLASHED.put(player.getUuid(), new Slash(now, step));
 		boolean finisher = step == 2;
-		float damage = (finisher ? FINISHER_DAMAGE : SLASH_DAMAGE) * (held ? WIELDED : Frenzy.damage(player) * Limbs.damage(player));
+		float damage = ((finisher ? FINISHER_DAMAGE : SLASH_DAMAGE) + HeartLevel.damage(player)) * (held ? WIELDED : Frenzy.damage(player) * Limbs.damage(player));
 		List<LivingEntity> hit = inFront(player, SLASH_REACH, finisher ? FINISHER_WIDTH : SLASH_WIDTH);
 		LivingEntity aim = aimed(player, aimed);
 		if (aim != null && !hit.contains(aim)) {
@@ -428,7 +428,7 @@ public final class Saw {
 							breakGuard(target);
 							impact(player, target);
 							target.timeUntilRegen = 0;
-							target.damage(player.getDamageSources().playerAttack(player), LUNGE_DAMAGE * Frenzy.damage(player));
+							target.damage(player.getDamageSources().playerAttack(player), (LUNGE_DAMAGE + HeartLevel.damage(player)) * Frenzy.damage(player));
 							Vec3d push = player.getRotationVec(1.0F);
 							target.takeKnockback(1.2, -push.x, -push.z);
 							bleed(player.getServerWorld(), target, 30);

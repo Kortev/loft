@@ -252,9 +252,12 @@ public final class Hearts {
 		THEFTS.remove(victim.getUuid());
 		STRUGGLED.remove(victim.getUuid());
 		int blood = Blood.get(victim);
+		int heartXp = HeartLevel.xp(victim);
 		Downed.release(victim);
 		strip(victim);
 		Heart.give(by);
+		// The heart's levels go with it.
+		HeartLevel.set(by, heartXp);
 		Blood.set(by, Math.max(blood, Blood.WELL));
 		state.seen.remove(victim.getUuid());
 		state.seen.put(by.getUuid(), now);

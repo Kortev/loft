@@ -64,6 +64,12 @@ public record FormEventPayload(UUID player, byte kind, int value, double x, doub
 	public static final byte BUDDY_DOWN = 20;
 	/** The legend ({@code player}, Chainsaw Man) pulled the cord at {@code x y z}: a marker for {@code value} ticks. */
 	public static final byte LEGEND = 21;
+	/** The heart's level of {@code player} ({@code value} 0 for no heart, else 1 to 3): everyone, the saws' teeth and the engine follow it. */
+	public static final byte HEART_LEVEL = 22;
+	/** Your heart's XP, to you alone. */
+	public static final byte HEART_XP = 23;
+	/** {@code player}'s heart just reached level {@code value} at {@code x y z}: the roar, the blood, the line on their screen. */
+	public static final byte HEART_LEVEL_UP = 24;
 
 	public static final CustomPayload.Id<FormEventPayload> ID = new CustomPayload.Id<>(ChainsawMan.id("form_event"));
 	public static final PacketCodec<RegistryByteBuf, FormEventPayload> CODEC = PacketCodec.tuple(Uuids.PACKET_CODEC, FormEventPayload::player,

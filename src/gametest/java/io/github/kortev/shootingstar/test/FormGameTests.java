@@ -574,6 +574,8 @@ public class FormGameTests implements FabricGameTest {
 			Saw.slash(player);
 			context.assertTrue(!front.isAlive() || front.getHealth() < front.getMaxHealth() - 18.0F, "the frenzied slash was not doubled: " + front.getHealth());
 			Frenzy.end(player);
+			// (The buffed saws drink more from that slash and its kill, so the bar is put back to what the first call left.)
+			Blood.set(player, Blood.FRENZY - 20);
 			context.assertTrue(!Frenzy.start(player), "the frenzy came again at once");
 		} finally {
 			Frenzy.ready(player);

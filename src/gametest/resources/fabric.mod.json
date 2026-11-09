@@ -26,7 +26,8 @@
 			"io.github.kortev.shootingstar.test.ForeverGameTests",
 			"io.github.kortev.shootingstar.test.HotelGameTests",
 			"io.github.kortev.shootingstar.test.TeamGameTests",
-			"io.github.kortev.shootingstar.test.BondGameTests"
+			"io.github.kortev.shootingstar.test.BondGameTests",
+			"io.github.kortev.shootingstar.test.BuffGameTests"
 		],
 		"client": [
 			"io.github.kortev.shootingstar.test.ClientSelfTest",

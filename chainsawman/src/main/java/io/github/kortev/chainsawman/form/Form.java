@@ -30,7 +30,7 @@ public final class Form {
 	/** Who has pulled the cord and is on the way into the form, and how many ticks ago. */
 	private static final Map<UUID, Integer> PULLING = new ConcurrentHashMap<>();
 	/** How tough the form makes you: armour and toughness while it's on. */
-	public static final double ARMOR = 10.0;
+	public static final double ARMOR = 14.0;
 	public static final double TOUGHNESS = 6.0;
 	private static final net.minecraft.util.Identifier TOUGH = io.github.kortev.chainsawman.ChainsawMan.id("form_tough");
 	/** Who is turning back, and how many ticks in. */
@@ -85,6 +85,7 @@ public final class Form {
 		Limbs.init();
 		Merge.init();
 		Heart.init();
+		HeartLevel.init();
 		Beam.init();
 		ServerTickEvents.END_SERVER_TICK.register(server -> {
 			Blood.tick(server);

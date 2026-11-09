@@ -42,6 +42,10 @@ public class EternityBloodItem extends Item {
 	public ItemStack finishUsing(ItemStack stack, World world, LivingEntity user) {
 		if (user instanceof ServerPlayerEntity player) {
 			Blood.set(player, Blood.MAX);
+			if (io.github.kortev.chainsawman.form.Heart.has(player)) {
+				// Devils' blood feeds the heart.
+				io.github.kortev.chainsawman.form.HeartLevel.add(player, io.github.kortev.chainsawman.form.HeartLevel.BLOOD_XP);
+			}
 			player.sendMessage(Text.translatable("message.chainsawman.blood_full").formatted(Formatting.DARK_RED), true);
 		}
 		world.playSound(null, user.getX(), user.getY(), user.getZ(), SoundEvents.ENTITY_GENERIC_DRINK, SoundCategory.PLAYERS, 0.8F, 0.8F);

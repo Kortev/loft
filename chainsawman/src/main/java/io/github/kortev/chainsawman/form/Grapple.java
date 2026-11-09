@@ -112,7 +112,8 @@ public final class Grapple {
 	private static void yank(ServerPlayerEntity player, LivingEntity target) {
 		Vec3d to = player.getPos().subtract(target.getPos());
 		double distance = to.length();
-		Vec3d flung = to.normalize().multiply(Math.min(2.2, 0.45 + distance * 0.11)).add(0.0, 0.35 + distance * 0.015, 0.0);
+		// (At the heart's third level the chain pulls twice as fast.)
+		Vec3d flung = to.normalize().multiply(Math.min(2.2, 0.45 + distance * 0.11) * HeartLevel.chainSpeed(player)).add(0.0, 0.35 + distance * 0.015, 0.0);
 		target.damage(player.getDamageSources().playerAttack(player), DAMAGE);
 		target.setVelocity(flung);
 		target.velocityModified = true;
@@ -126,7 +127,7 @@ public final class Grapple {
 	private static void pull(ServerPlayerEntity player, Vec3d at) {
 		Vec3d to = at.subtract(player.getPos());
 		double distance = to.length();
-		Vec3d pulled = to.normalize().multiply(Math.min(1.2, 0.55 + distance * 0.04)).add(0.0, 0.3, 0.0);
+		Vec3d pulled = to.normalize().multiply(Math.min(1.2, 0.55 + distance * 0.04) * HeartLevel.chainSpeed(player)).add(0.0, 0.3, 0.0);
 		player.setVelocity(pulled);
 		player.velocityModified = true;
 		player.fallDistance = 0.0F;

@@ -189,6 +189,10 @@ public final class FormFeature extends FeatureRenderer<AbstractClientPlayerEntit
 				}
 				saw(matrices, part.growRoot, part.growAxis, 0.0F, length, thick);
 				part.draw(matrices.peek(), out, light, overlay);
+				if (part.name.endsWith("_bar")) {
+					// The heart's levels: more teeth on the bar.
+					SawTeeth.draw(mesh, part, ClientCombat.heartLevel(player), matrices.peek(), out, light, overlay);
+				}
 				matrices.pop();
 				continue;
 			}

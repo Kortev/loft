@@ -1090,7 +1090,7 @@ public final class Beam {
 		for (LivingEntity target : victims) {
 			Saw.breakGuard(target);
 			target.timeUntilRegen = 0;
-			target.damage(rider.getDamageSources().playerAttack(rider), damage);
+			target.damage(rider.getDamageSources().playerAttack(rider), damage * HeartLevel.beamBite(rider));
 			Saw.bleed(world, target, 24);
 		}
 	}
@@ -1464,7 +1464,7 @@ public final class Beam {
 			}
 			cut.add((LivingEntity) e);
 		}
-		float damage = Saw.FINISHER_DAMAGE * Frenzy.damage(owner) * Limbs.damage(owner);
+		float damage = (Saw.FINISHER_DAMAGE + HeartLevel.damage(owner)) * Frenzy.damage(owner) * Limbs.damage(owner);
 		for (LivingEntity target : cut) {
 			ride.sliced.add(target.getUuid());
 			Saw.breakGuard(target);

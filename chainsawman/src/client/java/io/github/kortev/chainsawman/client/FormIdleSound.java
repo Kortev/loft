@@ -17,6 +17,7 @@ final class FormIdleSound extends MovingSoundInstance {
 		this.repeat = true;
 		this.repeatDelay = 0;
 		this.volume = 0.7F;
+		this.pitch = pitchFor(player);
 		this.attenuationType = SoundInstance.AttenuationType.LINEAR;
 		follow();
 	}
@@ -27,7 +28,14 @@ final class FormIdleSound extends MovingSoundInstance {
 			setDone();
 			return;
 		}
+		// The heart's level deepens the engine as it grows.
+		this.pitch = pitchFor(player);
 		follow();
+	}
+
+	private static float pitchFor(AbstractClientPlayerEntity player) {
+		int level = ClientCombat.heartLevel(player);
+		return level >= 3 ? 0.66F : level == 2 ? 0.82F : 1.0F;
 	}
 
 	private void follow() {

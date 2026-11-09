@@ -32,6 +32,7 @@ public final class Heart {
 			for (ServerPlayerEntity other : server.getPlayerManager().getPlayerList()) {
 				if (other != joined && merged(other) && ServerPlayNetworking.canSend(joined, FormEventPayload.ID)) {
 					ServerPlayNetworking.send(joined, new FormEventPayload(other.getUuid(), FormEventPayload.HEART, 1));
+					ServerPlayNetworking.send(joined, new FormEventPayload(other.getUuid(), FormEventPayload.HEART_LEVEL, HeartLevel.level(other)));
 				}
 			}
 		});
@@ -47,12 +48,15 @@ public final class Heart {
 	/** Pochita's heart taken back from {@code player} (to see the merge again). */
 	public static void take(ServerPlayerEntity player) {
 		player.removeAttached(MERGED);
+		player.removeAttached(HeartLevel.XP);
 		Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.HEART, 0));
+		Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.HEART_LEVEL, 0));
 	}
 
 	/** Everyone told that {@code player} has the heart now. */
 	static void told(ServerPlayerEntity player) {
 		Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.HEART, 1));
+		HeartLevel.told(player);
 	}
 
 	public static boolean has(PlayerEntity player) {
