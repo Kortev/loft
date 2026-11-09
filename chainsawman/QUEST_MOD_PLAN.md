@@ -246,16 +246,33 @@ keeps you, and it feeds on the fear of being stuck forever. The quest is getting
 - **A party:** players who take a mission together share its marker, progress and pay.
 - The hybrid hearts and the feared devils are what make a server's story: who has Chainsaw Man, who took which contract, which devil the server fears.
 
-## 8. Order to build (each piece its own reel)
+## 8. Order to build (each piece its own reel; updated 2026-11-08 after kortev liked the plan)
 
-1. **The plan, agreed with kortev** (this file).
-2. **Contracts done right:** the beaten-devil bargain, the lasting prices and Eternity's new price. Up to 3 contracts. Reel: "Would you take this deal?"
-3. **The heart goes back to the world:** giving it up, the new den, the `heartTheft` option for PvP servers.
-4. **Public Safety:** the outpost, the officer, the notice board, yen and ranks, the katana and suit. Reel: "I added Public Safety to Minecraft."
-5. **Common devils:** Zombie and Bat first, then the fear-strength rule. Each devil is a reel.
-6. **The Eternity Devil's look:** storyboard, renders, kortev's yes, then the model.
-7. **The hotel quest line rebuilt:** textures, the squad's notes and survivors, finding the devil in the walls, the group fight, the beg. The biggest reel.
-8. Then the Fox, the Ghost and the Curse, each with a quest line; Bomb and Katana as hybrid quest lines; Power as a companion.
+1. **The plan** (this file): kortev likes it (2026-11-08).
+2. **Contracts done right.**
+   - 3 slots, with the hybrid heart filling all 3.
+   - The beaten-devil bargain.
+   - Lasting prices: Eternity's no-sleep, and its per-use price, time catching up with you.
+   - Contract bonds (3 steps that change the power you see).
+   - Reel: "Would you take this deal?"
+3. **Teams.** Everyone goes down instead of dying, picking up a teammate, and buddies. Then the heart going back to the world and the `heartTheft` option. Reel: "Your friend can save you in my Chainsaw Man mod".
+4. **Public Safety.**
+   - The outpost, the captain, the board and missions.
+   - Yen and ranks, with the rank-up moment.
+   - Power resistance and rank scaling.
+   - The katana, knives and suit tiers; devils bleed.
+   - Reel: "I added Public Safety to Minecraft".
+5. **Chainsaw Man buffed** to be the strongest single player, with the heart levelling up from devil blood.
+6. **Common devils:** Zombie and Bat first, then the feared-devil rule. Each devil is a reel.
+7. **The Eternity Devil's look:** storyboard, renders, kortev's yes, then the model.
+8. **The hotel rebuilt as the "missing squad" quest:**
+   - textures;
+   - the sealed loop;
+   - the squad's notes and survivors;
+   - the hunt in the walls;
+   - the group fight and the beg.
+   The biggest reel.
+9. Then the Fox, the Ghost and the Curse, each with a quest line; Bomb and Katana as hybrid quest lines; Power as a companion.
 
 ## Decided (kortev, 2026-11-08)
 
