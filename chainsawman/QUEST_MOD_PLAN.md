@@ -78,8 +78,18 @@ Everyone starts as a plain human. What you become is decided by what you find an
 - **Why power mods make glass cannons:** damage grows much faster than defence. In vanilla, big single hits mostly go
   through armour, so netherite helps against mobs and normal swords but not against a 40-damage hit. Netherite alone
   won't fix it. What will:
-  - **Big hits are telegraphed** (a wind-up you can see and dodge or interrupt), and **power damage against players is
-    scaled down** (a game rule, e.g. half), so fights between players last more than one hit.
+  - **No dodging game** (kortev, 2026-11-08: not a Souls-like or an MMO; hits stay instant). Instead, **power and
+    protection scale together**, so fights between equals last, and a veteran still clearly beats a new player:
+    - **Power resistance**, one stat that cuts damage from powers (contracts, hybrid attacks, devils). It comes from:
+      - your Public Safety rank (each rank adds some);
+      - each contract you hold (the devil in you hardens you);
+      - the hunter suit's tier (upgraded with yen);
+      - a hybrid's heart.
+    - **Power damage grows with your rank too**, at about the same rate. Two 1st Class hunters trade many hits; a 1st
+      Class against a newcomer wins fast.
+    - It's shown on your rank card, so you can see how far along you are. This is the "something like a skill tree"
+      kortev asked for, without a tree to manage.
+    - A game rule still scales all power damage against players (for servers that want longer PvP).
   - **Every path has defence, not only damage:** each contract gives something protective as well (Eternity: you can
     hold an arrow or a blow in the moment and step out of it), the hunter suit is real armour, and hybrids heal.
   - **Everyone goes down instead of dying** (the hybrid's downed state for every player, a game rule, on by default):
@@ -87,8 +97,8 @@ Everyone starts as a plain human. What you become is decided by what you find an
     usual after a short time. That makes teams strong and one burst much less final.
   - **Buddies (from the show: Public Safety hunters work in pairs):** pair with one player at the office. Near your buddy
     you take a little less damage and pick each other up faster.
-  - **No big skill tree to start:** Public Safety ranks give small perks (toughness, a faster pick-up, more food from
-    rations). A tree can come later if the ranks aren't enough.
+  - **No skill tree:** ranks, contracts and the suit are the scaling (above). Ranks also give small perks (a faster
+    pick-up, more food from rations).
 - **Is stealing a downed hybrid's heart fair?** Only if downing him is earned and his team can protect him. So:
   - the thief must have downed him themselves (not a mob);
   - he can struggle, slowing the hold;
