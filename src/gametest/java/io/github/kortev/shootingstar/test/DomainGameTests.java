@@ -178,6 +178,8 @@ public class DomainGameTests implements FabricGameTest {
 		ServerPlayerEntity creative = player(context, "builder", center.add(-5.0, 0.0, 0.0));
 		creative.changeGameMode(GameMode.CREATIVE);
 		CowEntity cow = context.spawnEntity(EntityType.COW, relative(context, center.add(0.0, 0.0, -6.0)));
+		// (Standing still until just before it closes: a cow that strolls off before then may leave the Domain's reach, and is not caught.)
+		cow.setAiDisabled(true);
 		List<String> problems = new ArrayList<>();
 
 		DomainManager.Domain[] domain = new DomainManager.Domain[1];
@@ -189,6 +191,7 @@ public class DomainGameTests implements FabricGameTest {
 			if (DomainManager.isHeld(cow) || DomainManager.isHeld(inside)) {
 				problems.add("something was held before the barrier closed");
 			}
+			cow.setAiDisabled(false);
 			// Dropped from on high just before it closes: caught in the air.
 			villager[0] = context.spawnEntity(EntityType.VILLAGER, relative(context, center.add(-3.0, 6.0, 3.0)));
 		});

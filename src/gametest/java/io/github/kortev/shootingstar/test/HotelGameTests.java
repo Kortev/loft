@@ -48,6 +48,10 @@ public class HotelGameTests implements FabricGameTest {
 		for (int cx = (origin.getX() - 60) >> 4; cx <= (origin.getX() + 60) >> 4; cx++) {
 			for (int cz = (origin.getZ() - 60) >> 4; cz <= (origin.getZ() + 60) >> 4; cz++) {
 				context.getWorld().setChunkForced(cx, cz, on);
+				if (on) {
+					// (Loaded now: a hotel that waits for its chunks to load and tick can wait longer than its test.)
+					context.getWorld().getChunk(cx, cz, net.minecraft.world.chunk.ChunkStatus.FULL, true);
+				}
 			}
 		}
 	}
@@ -771,16 +775,32 @@ public class HotelGameTests implements FabricGameTest {
 		return HotelBuilder.world(h.origin, h.rot, u.sx, u.sy, u.sz);
 	}
 
-	/** A wall block of the loop floor (not a door, not air) {@code along} blocks along the same wall from the spot, on whichever side has one. */
+	/**
+	 * A wall block of the loop floor (not a door, not air) in the same wall as the devil's spot, about {@code along} blocks from it: for 2 or
+	 * less, one it bleeds at (within {@link io.github.kortev.chainsawman.hotel.Hunt#BLEED_RANGE}); for more, one it does not (past that, and
+	 * near {@code along}). The spot is random, and a door may stand just where a block at exactly that many along would be, so this looks up
+	 * and down the wall as well and takes the one nearest {@code along} that has the right effect.
+	 */
 	private static BlockPos wallAlong(HomeBlockEntity h, int along) {
 		io.github.kortev.chainsawman.hotel.Hunt u = h.run.hunt;
-		for (int sign : new int[] {-1, 1}) {
-			int x = u.sx + sign * along;
-			if (x >= 1 && x <= HotelPlan.CORR_X1 && HotelPlan.get().at(x, u.sy, u.sz).isOpaque() && !(HotelPlan.get().at(x, u.sy, u.sz).getBlock() instanceof DoorBlock)) {
-				return HotelBuilder.world(h.origin, h.rot, x, u.sy, u.sz);
+		BlockPos best = null;
+		double bestOff = Double.MAX_VALUE;
+		double range = io.github.kortev.chainsawman.hotel.Hunt.BLEED_RANGE;
+		for (int x = 1; x <= HotelPlan.CORR_X1; x++) {
+			for (int y = u.sy - 1; y <= u.sy + 1; y++) {
+				double d = Math.hypot(x - u.sx, y - u.sy);
+				boolean right = along <= 2 ? d > 0.0 && d <= range : d > range + 0.5 && d <= along + 1.5;
+				if (right && HotelPlan.get().at(x, y, u.sz).isOpaque() && !(HotelPlan.get().at(x, y, u.sz).getBlock() instanceof DoorBlock)
+						&& Math.abs(d - along) < bestOff) {
+					bestOff = Math.abs(d - along);
+					best = HotelBuilder.world(h.origin, h.rot, x, y, u.sz);
+				}
 			}
 		}
-		throw new IllegalStateException("no wall block " + along + " along from the spot " + u.sx + "," + u.sy + "," + u.sz);
+		if (best == null) {
+			throw new IllegalStateException("no wall block " + along + " along from the spot " + u.sx + "," + u.sy + "," + u.sz);
+		}
+		return best;
 	}
 
 	/** Stands {@code p} in the corridor at the wall of the spot, facing it. */

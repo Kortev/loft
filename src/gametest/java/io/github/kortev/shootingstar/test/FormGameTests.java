@@ -132,6 +132,8 @@ public class FormGameTests implements FabricGameTest {
 	public void aimedHitsLand(TestContext context) {
 		ServerPlayerEntity player = fighter(context, "aimer", 0.0);
 		HuskEntity side = husk(context, 3.2, 1.4);
+		// (Its middle level with the slasher's eyes, however tall the form stands that tick: the angle the aim wants is then the one it was written for.)
+		side.setPosition(side.getX(), player.getEyeY() - side.getHeight() / 2.0, side.getZ());
 		try {
 			context.assertTrue(Saw.slash(player), "the first slash did not come");
 			context.assertTrue(side.getHealth() >= side.getMaxHealth(), "the slash alone reached the husk off to the side");
@@ -142,10 +144,12 @@ public class FormGameTests implements FabricGameTest {
 		}
 		context.waitAndRun(Saw.SLASH_EVERY + 1, () -> {
 			try {
+				side.setPosition(side.getX(), player.getEyeY() - side.getHeight() / 2.0, side.getZ());
 				context.assertTrue(Saw.slash(player, side.getId()), "the aimed slash did not come");
-				context.assertTrue(side.getHealth() < side.getMaxHealth(), "aimed at, the husk off to the side was not cut (it at "
-						+ side.getPos().subtract(player.getPos()) + ", seen " + player.canSee(side) + ", health " + side.getHealth() + ", the slasher fighting "
-						+ io.github.kortev.chainsawman.form.Form.fighting(player) + ")");
+				if (!(side.getHealth() < side.getMaxHealth())) {
+					context.assertTrue(false, "aimed at, the husk off to the side was not cut (it at " + side.getPos().subtract(player.getPos()) + ", seen " + player.canSee(side)
+							+ ", health " + side.getHealth() + ", the slasher fighting " + io.github.kortev.chainsawman.form.Form.fighting(player) + "; " + probe(context, player, side) + ")");
+				}
 			} finally {
 				done(context, player);
 				side.discard();
@@ -1592,14 +1596,22 @@ public class FormGameTests implements FabricGameTest {
 		context.runAtTick(Beam.POP_TICKS + 1, () -> sprintAhead(player));
 		int go = Beam.POP_TICKS + 14;
 		float[] before = new float[1];
+		String[] where = {""};
 		context.runAtTick(go, () -> {
 			before[0] = player.getHealth();
+			where[0] = "launched from " + (player.getZ() - spot(context).z) + " (beam " + (beam.getZ() - spot(context).z) + ", age " + beam.age + "), the husk at "
+					+ (inWay.getZ() - spot(context).z) + ", chunk loaded " + context.getWorld().isChunkLoaded(inWay.getBlockPos()) + ", ticking "
+					+ context.getWorld().shouldTickEntity(inWay.getBlockPos());
 			context.assertTrue(Beam.launch(player), "the chain key did not throw the rider");
 			context.assertTrue(!player.hasVehicle() && beam.ride().loose(), "the rider is still on his back");
 			context.assertTrue(player.getVelocity().z > Beam.LAUNCH_SPEED * 0.9, "they were not thrown the way they look: " + player.getVelocity());
 			context.assertTrue(!Beam.launch(player), "a second throw came at once");
 			context.assertTrue(beam.sinceLaunch(0.0F) < 3.0F, "the clients were not told of the throw");
 		});
+		for (int k = 2; k <= Beam.LAUNCH_TICKS + 1; k++) {
+			int at = k;
+			context.runAtTick(go + k, () -> where[0] += "; +" + at + ": flying " + beam.ride().flying() + " at z " + (player.getZ() - spot(context).z) + " y " + (player.getY() - spot(context).y) + ", husk health " + inWay.getHealth());
+		}
 		context.runAtTick(go + 1, () -> {
 			// Where they come down: well ahead of him, as the throw takes them (the test player is not moved by a client).
 			Vec3d landed = player.getPos().add(0.0, 0.0, 18.0);
@@ -1609,7 +1621,7 @@ public class FormGameTests implements FabricGameTest {
 		context.runAtTick(go + Beam.LAUNCH_TICKS + 1, () -> {
 			context.assertTrue(beam.ride().flying() == -1, "the flight did not end");
 			float lost = inWay.getMaxHealth() - inWay.getHealth();
-			context.assertTrue(lost > Saw.FINISHER_DAMAGE - 1.0F, "the missile cut only " + lost);
+			context.assertTrue(lost > Saw.FINISHER_DAMAGE - 1.0F, "the missile cut only " + lost + ": " + where[0] + "; the husk is at " + (inWay.getZ() - spot(context).z) + ", alive " + inWay.isAlive() + ", hits told " + beam.ride().hits());
 			context.assertTrue(beam.ride().hardest() >= 3, "the slash was not felt as a hard hit: " + beam.ride().hardest());
 			context.assertTrue(player.getHealth() >= before[0], "the rider was hurt");
 			context.assertTrue(beam.ride().loose() && beam.isAlive(), "Beam was not swimming to them");
@@ -1719,6 +1731,10 @@ public class FormGameTests implements FabricGameTest {
 		for (int cx = (at.getX() - 3) >> 4; cx <= (at.getX() + 3) >> 4; cx++) {
 			for (int cz = (at.getZ() - 3) >> 4; cz <= (at.getZ() + length + 8) >> 4; cz++) {
 				context.getWorld().setChunkForced(cx, cz, on);
+				if (on) {
+					// (Loaded now, not a few ticks from now: a beam walking into a chunk that is still loading stops there.)
+					context.getWorld().getChunk(cx, cz, net.minecraft.world.chunk.ChunkStatus.FULL, true);
+				}
 			}
 		}
 		for (int x = -3; x <= 3; x++) {
@@ -1780,6 +1796,18 @@ public class FormGameTests implements FabricGameTest {
 	 */
 	private static Vec3d spot(TestContext context) {
 		return context.getAbsolute(new Vec3d(0.5, 40.0, 0.5));
+	}
+
+	/** What stood in the way of a slash at {@code target}, for a failure message: where the slasher looks, the angle, and whether a plain hit lands at all. */
+	private static String probe(TestContext context, ServerPlayerEntity player, net.minecraft.entity.LivingEntity target) {
+		Vec3d eye = player.getEyePos();
+		double dot = target.getBoundingBox().getCenter().subtract(eye).normalize().dotProduct(player.getRotationVec(1.0F));
+		float before = target.getHealth();
+		target.timeUntilRegen = 0;
+		boolean hurt = target.damage(player.getDamageSources().playerAttack(player), 5.0F);
+		return "yaw " + player.getYaw() + ", pitch " + player.getPitch() + ", dot " + dot + ", loaded " + context.getWorld().isChunkLoaded(target.getBlockPos()) + ", ticking "
+				+ context.getWorld().shouldTickEntity(target.getBlockPos()) + ", by id " + (context.getWorld().getEntityById(target.getId()) == target) + ", a plain hit "
+				+ (hurt ? "landed" : "did not land") + " (" + before + " to " + target.getHealth() + "), regen " + target.timeUntilRegen + ", age " + target.age;
 	}
 
 	/** Out of the form, up, gone. */

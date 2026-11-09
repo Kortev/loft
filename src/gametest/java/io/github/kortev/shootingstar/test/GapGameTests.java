@@ -162,7 +162,9 @@ public class GapGameTests implements FabricGameTest {
 				problems.append("everyone's floor is at ").append(floor).append(", not level with the roots at ").append(center.getY() + 2.0)
 						.append("; ");
 			}
-			if (shooter.getPos().distanceTo(far.getPos()) > 12.0) {
+			// (Places in the gathering are 3 blocks apart with a free one either side of the shooter, so the third is 12 along the ring: 11.9 as the
+			// chord, up to about 13.4 once each is put on a block. Anyone outside the group is 20 or more off.)
+			if (shooter.getPos().distanceTo(far.getPos()) > 14.0) {
 				problems.append("the shooter and the far player are ").append(String.format("%.1f", shooter.getPos().distanceTo(far.getPos())))
 						.append(" apart; ");
 			}
