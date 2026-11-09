@@ -90,6 +90,17 @@ Everyone starts as a plain human. What you become is decided by what you find an
     - It's shown on your rank card, so you can see how far along you are. This is the "something like a skill tree"
       kortev asked for, without a tree to manage.
     - A game rule still scales all power damage against players (for servers that want longer PvP).
+  - **Scaling has to be fun, not just numbers** (kortev, 2026-11-08). Every step up is something you see and use:
+    - **Big steps you notice, not small ones you don't:** each rank is a jump you feel, never +2%.
+    - **A rank-up is a moment:** the captain hands you a new badge at the office, your rank shows next to your name, and
+      a new suit look and the next tier of missions unlock.
+    - **Contracts grow with you:** the more you use a contract, the deeper the bond (3 steps). Each step changes the
+      power you can see. Forever's cube grows and its lines run longer; at the last step you can also freeze yourself
+      out of a hit. The Fox's head gets bigger. A second move opens at the top step.
+    - **The suit shows your rank:** plain at 4th Class, then a long coat, then a Special Division look.
+    - **Hybrids grow too:** feeding on devils' blood levels the heart, and the form shows it (more saws, a louder
+      engine, Beam stronger).
+    - Every one of these is a reel moment ("I hit Special Division in my Chainsaw Man mod").
   - **Every path has defence, not only damage:** each contract gives something protective as well (Eternity: you can
     hold an arrow or a blow in the moment and step out of it), the hunter suit is real armour, and hybrids heal.
   - **Everyone goes down instead of dying** (the hybrid's downed state for every player, a game rule, on by default):
