@@ -82,7 +82,7 @@ public final class Arena {
 
 	/** Flesh grows on the floor of the rooms (a few blocks), and on the top of most stumps: the devil's own, torn through the hotel. */
 	static boolean fleshFloor(int x, int y, int z) {
-		return y == Y0 && !wallColumn(x, z) && (z < 5 || z > 7) && x >= X0 + 5 && hash(x, y, z) < 34;
+		return y == Y0 && !wallColumn(x, z) && (z < 5 || z > 7) && x >= X0 + 5 && hash(x, y, z) < 85;
 	}
 
 	static boolean fleshStump(int x, int y, int z) {
@@ -121,10 +121,11 @@ public final class Arena {
 					cells.add(new Cell(x, y, z, state, be == null ? null : be.createNbtWithIdentifyingData(world.getRegistryManager())));
 				}
 			}
-			// The lamps in the floor (the ceiling lamps of the floor below) go out: the arena is dark, and moonlit.
+			// The lamps in the floor (the ceiling lamps of the floor below) near the stairs go out: the arena is dark, and moonlit.
 			BlockPos lamp = HotelBuilder.world(h.origin, h.rot, x, Y0 - 1, 6);
 			BlockState lit = world.getBlockState(lamp);
-			if (lit.getBlock() instanceof net.minecraft.block.RedstoneLampBlock && lit.get(net.minecraft.block.RedstoneLampBlock.LIT)) {
+			// (The two nearest the devil stay lit: its warm light from below, as painted.)
+			if (x < X1 - 8 && lit.getBlock() instanceof net.minecraft.block.RedstoneLampBlock && lit.get(net.minecraft.block.RedstoneLampBlock.LIT)) {
 				cells.add(new Cell(x, Y0 - 1, 6, lit, null));
 			}
 		}

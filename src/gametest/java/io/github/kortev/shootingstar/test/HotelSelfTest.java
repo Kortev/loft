@@ -1142,6 +1142,7 @@ public class HotelSelfTest implements ClientModInitializer {
 	}
 
 	private static double devilClipStart = -1.0;
+	private static boolean clipHeart;
 
 	/** An 8 s clip of it alive: the fight starts, and the camera (you) drifts in and across, its eyes following, blinking, the maw breathing, a bite. */
 	private static void devilClip(MinecraftClient client, IntegratedServer server, int f) {
@@ -1172,6 +1173,11 @@ public class HotelSelfTest implements ClientModInitializer {
 				double fz = 11.5 - 3.2 * e;
 				return dcam(fx, 1.62, fz, 0.0, 1.9 + 0.3 * e, 0.0).apply(t);
 			};
+			if (devilClipStart >= 0.0 && !clipHeart && (Capture.time() - devilClipStart) / 20.0 >= 3.5) {
+				// Cut away enough of it halfway through: the heart shows and the teeth over it part.
+				clipHeart = true;
+				health(120.0F).accept(server);
+			}
 			if (f % 4 == 0) {
 				double sec = devilClipStart < 0.0 ? 0.0 : (Capture.time() - devilClipStart) / 20.0;
 				double k = Math.min(1.0, sec / 8.0);
