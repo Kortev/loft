@@ -56,9 +56,6 @@ public final class Hunt {
 	public static final int SPOT_X1 = 23;
 	public static final int WALL_Y0 = 29;
 	public static final int WALL_Y1 = 31;
-	/** Where the devil's mass stands once it has torn out (local x, clamped so it does not plug the stairs). */
-	public static final double OUT_X0 = 20.5;
-	public static final double OUT_X1 = 23.8;
 
 	/** The spot: a wall block, local (x, y, z with z 4 or 8). */
 	public int sx;
@@ -320,7 +317,8 @@ public final class Hunt {
 	/** It tears out of the wall at its spot: the fight starts there. */
 	private static void tearOut(ServerWorld world, HomeBlockEntity h, Hunt u, long now) {
 		Vec3d at = u.inside(h);
-		double x = Math.max(OUT_X0, Math.min(OUT_X1, u.sx + 0.5));
+		// It tears out of the wall at its spot, but the devil's own place is the corridor's end, where the arena opens (see Arena).
+		double x = EternityDevilEntity.LOCAL_X;
 		float health = u.health;
 		for (BlockPos p : u.reds.keySet()) {
 			restore(world, h, p);

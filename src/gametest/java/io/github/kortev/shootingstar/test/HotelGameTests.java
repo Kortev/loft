@@ -743,7 +743,7 @@ public class HotelGameTests implements FabricGameTest {
 			later(context, 120, () -> {
 				// The wallpaper at the corridor's end has bled.
 				int changed = 0;
-				for (int x = 24; x <= 36; x++) {
+				for (int x = 14; x <= 22; x++) {
 					for (int y = 29; y <= 31; y++) {
 						for (int z : new int[] {4, 8}) {
 							if (!HotelPlan.get().at(x, y, z).isAir() && !(HotelPlan.get().at(x, y, z).getBlock() instanceof DoorBlock) && at(context, h, x, y, z) != HotelPlan.get().at(x, y, z)) {
@@ -756,8 +756,11 @@ public class HotelGameTests implements FabricGameTest {
 				net.minecraft.entity.Entity d = devilOf(context, h);
 				context.assertTrue(d instanceof io.github.kortev.chainsawman.hotel.EternityDevilEntity, "no devil grew");
 				Vec3d lp = HotelBuilder.local(h.origin, h.rot, d.getPos());
-				context.assertTrue(Math.abs(lp.x - 34.4) < 0.05 && Math.abs(lp.y - 29.0) < 0.05 && Math.abs(lp.z - 6.5) < 0.05, "the devil is at " + lp + ", not the corridor's end");
-				context.assertTrue(Math.abs(d.getWidth() - 4.6F) < 0.01 && Math.abs(d.getHeight() - 4.0F) < 0.01, "its size is " + d.getWidth() + " x " + d.getHeight());
+				context.assertTrue(Math.abs(lp.x - 37.0) < 0.05 && Math.abs(lp.y - 29.0) < 0.05 && Math.abs(lp.z - 6.5) < 0.05, "the devil is at " + lp + ", not the corridor's end");
+				// Its hitbox is its whole front: 9.4 across the great mouth's axis, 7 high, 3.9 out from its back plane.
+				net.minecraft.util.math.Box box = d.getBoundingBox();
+				context.assertTrue(Math.abs(box.getLengthY() - 7.0) < 0.01 && Math.abs(Math.max(box.getLengthX(), box.getLengthZ()) - 9.4) < 0.01 && Math.abs(Math.min(box.getLengthX(), box.getLengthZ()) - 3.9) < 0.01,
+						"its hitbox is " + box.getLengthX() + " x " + box.getLengthY() + " x " + box.getLengthZ());
 				tidy(context, h, p);
 				context.complete();
 			});
@@ -933,7 +936,8 @@ public class HotelGameTests implements FabricGameTest {
 				io.github.kortev.chainsawman.hotel.EternityDevilEntity d = (io.github.kortev.chainsawman.hotel.EternityDevilEntity) devilOf(context, h);
 				context.assertTrue(d != null, "no devil");
 				Vec3d lp = HotelBuilder.local(h.origin, h.rot, d.getPos());
-				context.assertTrue(Math.abs(lp.x - Math.max(20.5, Math.min(23.8, was[2] + 0.5))) < 0.2, "it tore out at " + lp.x + ", not where it was cut (" + was[2] + ")");
+				// (Cut anywhere in the walls, it comes out at the corridor's end, where the arena opens.)
+				context.assertTrue(Math.abs(lp.x - 37.0) < 0.2 && io.github.kortev.chainsawman.hotel.Arena.torn(h), "it tore out at " + lp.x + " and the arena is " + (io.github.kortev.chainsawman.hotel.Arena.torn(h) ? "open" : "shut") + " (cut at " + was[2] + ")");
 				context.assertTrue(Math.abs(d.getHealth() - (300.0F - 4 * io.github.kortev.chainsawman.hotel.Hunt.BLEED_DAMAGE)) < 0.01F, "it came out with " + d.getHealth() + " health, not what four cuts left");
 				tidy(context, h, p);
 				context.complete();
@@ -1666,7 +1670,7 @@ public class HotelGameTests implements FabricGameTest {
 			later(context, 130, () -> {
 				context.assertTrue(h.run.fight, "no fight to win");
 				int bled = 0;
-				for (int x = 24; x <= 36; x++) {
+				for (int x = 14; x <= 22; x++) {
 					for (int y = 29; y <= 31; y++) {
 						bled += !HotelPlan.get().at(x, y, 8).isAir() && !(HotelPlan.get().at(x, y, 8).getBlock() instanceof DoorBlock) && at(context, h, x, y, 8) != HotelPlan.get().at(x, y, 8) ? 1 : 0;
 					}
@@ -1714,6 +1718,177 @@ public class HotelGameTests implements FabricGameTest {
 			later(context, 330, () -> {
 				context.assertTrue(!h.run.night, "the hotel never went dark after the kill");
 				context.assertTrue(at(context, h, 21, 4, 6).get(net.minecraft.block.RedstoneLampBlock.LIT) == false, "a lamp is still lit");
+				tidy(context, h, p);
+				context.complete();
+			});
+		});
+	}
+
+	// ---- The arena the devil tears open.
+
+	/** Every block of floor 8's shell and the roof over it (the redstone lamps without their lit state: the lights die after a kill), by place. */
+	private static java.util.Map<BlockPos, BlockState> shell(TestContext context, HomeBlockEntity h) {
+		java.util.Map<BlockPos, BlockState> m = new java.util.HashMap<>();
+		for (int x = 0; x < HotelPlan.SX; x++) {
+			for (int z = 0; z < HotelPlan.SZ; z++) {
+				for (int y = 28; y <= 36; y++) {
+					BlockPos at = HotelBuilder.world(h.origin, h.rot, x, y, z);
+					BlockState state = context.getWorld().getBlockState(at);
+					if (state.getBlock() instanceof net.minecraft.block.RedstoneLampBlock) {
+						state = state.with(net.minecraft.block.RedstoneLampBlock.LIT, false);
+					}
+					m.put(at, state);
+				}
+			}
+		}
+		return m;
+	}
+
+	/** The block entities of the shell (signs and lecterns, with their words and books), as data, by place. */
+	private static java.util.Map<BlockPos, String> shellEntities(TestContext context, HomeBlockEntity h) {
+		java.util.Map<BlockPos, String> m = new java.util.HashMap<>();
+		for (int x = 0; x < HotelPlan.SX; x++) {
+			for (int z = 0; z < HotelPlan.SZ; z++) {
+				for (int y = 28; y <= 36; y++) {
+					BlockPos at = HotelBuilder.world(h.origin, h.rot, x, y, z);
+					net.minecraft.block.entity.BlockEntity be = context.getWorld().getBlockEntity(at);
+					if (be != null) {
+						m.put(at, be.createNbtWithIdentifyingData(context.getWorld().getRegistryManager()).toString());
+					}
+				}
+			}
+		}
+		return m;
+	}
+
+	private static int differences(TestContext context, HomeBlockEntity h, java.util.Map<BlockPos, BlockState> before) {
+		int n = 0;
+		for (java.util.Map.Entry<BlockPos, BlockState> e : shell(context, h).entrySet()) {
+			if (e.getValue() != before.get(e.getKey())) {
+				n++;
+			}
+		}
+		return n;
+	}
+
+	private static String firstDifference(TestContext context, HomeBlockEntity h, java.util.Map<BlockPos, BlockState> before) {
+		for (java.util.Map.Entry<BlockPos, BlockState> e : shell(context, h).entrySet()) {
+			if (e.getValue() != before.get(e.getKey())) {
+				Vec3d lp = HotelBuilder.local(h.origin, h.rot, Vec3d.ofCenter(e.getKey()));
+				return "local (" + (int) lp.x + ", " + (int) lp.y + ", " + (int) lp.z + ") is " + e.getValue() + ", was " + before.get(e.getKey());
+			}
+		}
+		return "none";
+	}
+
+	/** The arena is open: the walls above their stumps, the ceiling slab and the roof over it gone; the outer walls, the parapet and the floor stay. */
+	private static void assertTorn(TestContext context, HomeBlockEntity h, java.util.Map<BlockPos, BlockState> before, String when) {
+		context.assertTrue(io.github.kortev.chainsawman.hotel.Arena.torn(h), when + ": the home does not know the arena is open");
+		int gone = differences(context, h, before);
+		context.assertTrue(gone >= 400, when + ": only " + gone + " blocks were torn");
+		for (int x : new int[] {24, 30, 36}) {
+			for (int z : new int[] {1, 6, 12}) {
+				context.assertTrue(at(context, h, x, 32, z).isAir() && at(context, h, x, 33, z).isAir(), when + ": the ceiling or the roof is still over (" + x + ", " + z + ")");
+			}
+		}
+		context.assertTrue(at(context, h, 37, 30, 6) == before.get(HotelBuilder.world(h.origin, h.rot, 37, 30, 6)) && !at(context, h, 37, 30, 6).isAir(), when + ": the outer wall behind it went");
+		context.assertTrue(at(context, h, 30, 34, 13) == before.get(HotelBuilder.world(h.origin, h.rot, 30, 34, 13)) && !at(context, h, 30, 34, 13).isAir(), when + ": the parapet went");
+		context.assertTrue(!at(context, h, 30, 28, 6).isAir() && !at(context, h, 24, 28, 2).isAir(), when + ": the floor went");
+		context.assertTrue(at(context, h, 20, 32, 6) == before.get(HotelBuilder.world(h.origin, h.rot, 20, 32, 6)), when + ": the ceiling toward the stairs went");
+	}
+
+	private static void assertMended(TestContext context, HomeBlockEntity h, java.util.Map<BlockPos, BlockState> before, java.util.Map<BlockPos, String> entities, String when) {
+		context.assertTrue(!io.github.kortev.chainsawman.hotel.Arena.torn(h), when + ": the home still has the arena torn");
+		context.assertTrue(differences(context, h, before) == 0, when + ": the hotel is not as it was: " + firstDifference(context, h, before));
+		java.util.Map<BlockPos, String> now = shellEntities(context, h);
+		context.assertTrue(now.equals(entities), when + ": a block entity (a sign's words, a book) is not as it was (" + now.size() + " now, " + entities.size() + " before)");
+	}
+
+	/** Killing the devil: the arena stays open while it collapses, then every block is back as it was (states, lamps, the signs' words). */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_arena_kill", tickLimit = 700)
+	public void theArenaIsPutBackExactlyAfterAKill(TestContext context) {
+		HomeBlockEntity h = hotel(context, 0, 43);
+		ServerPlayerEntity p = walker(context, h, "arena_kill", 26.0);
+		io.github.kortev.chainsawman.hotel.EternityDevilEntity[] d = new io.github.kortev.chainsawman.hotel.EternityDevilEntity[1];
+		java.util.Map<BlockPos, BlockState>[] before = new java.util.Map[1];
+		java.util.Map<BlockPos, String>[] entities = new java.util.Map[1];
+		ready(context, h, () -> {
+			later(context, 20, () -> {
+				before[0] = shell(context, h);
+				entities[0] = shellEntities(context, h);
+				context.assertTrue(!entities[0].isEmpty(), "no sign in the shell to keep the words of");
+				d[0] = fightAt(context, h);
+			});
+			later(context, 80, () -> assertTorn(context, h, before[0], "in the fight"));
+			later(context, 100, () -> slay(context, h, d[0], p));
+			later(context, 125, () -> assertTorn(context, h, before[0], "while it collapses"));
+			later(context, 160, () -> {
+				assertMended(context, h, before[0], entities[0], "after the kill");
+				tidy(context, h, p);
+				context.complete();
+			});
+		});
+	}
+
+	/** Sparing the devil (someone took its deal): the same, every block back. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_arena_spare", tickLimit = 700)
+	public void theArenaIsPutBackExactlyAfterASpare(TestContext context) {
+		HomeBlockEntity h = hotel(context, 0, 44);
+		ServerPlayerEntity a = walker(context, h, "arena_spare", 26.0);
+		io.github.kortev.chainsawman.hotel.EternityDevilEntity[] d = new io.github.kortev.chainsawman.hotel.EternityDevilEntity[1];
+		java.util.Map<BlockPos, BlockState>[] before = new java.util.Map[1];
+		java.util.Map<BlockPos, String>[] entities = new java.util.Map[1];
+		ready(context, h, () -> {
+			later(context, 15, () -> {
+				noSquad(context, h);
+				before[0] = shell(context, h);
+				entities[0] = shellEntities(context, h);
+				d[0] = fightAt(context, h);
+			});
+			later(context, 80, () -> assertTorn(context, h, before[0], "in the fight"));
+			later(context, 110, () -> toTheLine(a, d[0]));
+			later(context, 116, () -> {
+				context.assertTrue(h.run.beg != null, "it did not beg");
+				Hotel.answer(a, true);
+			});
+			later(context, 122, () -> {
+				context.assertTrue(d[0].spared && d[0].isDead(), "it was not spared");
+				assertTorn(context, h, before[0], "while it sinks away");
+			});
+			later(context, 172, () -> {
+				assertMended(context, h, before[0], entities[0], "after the spare");
+				tidy(context, h, a);
+				context.complete();
+			});
+		});
+	}
+
+	/** The world left in the middle of the fight (the server restarted: the devil is not kept): the hotel finds its arena torn and puts it back. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_arena_restart", tickLimit = 700)
+	public void theArenaIsPutBackWhenTheWorldIsLoadedMidFight(TestContext context) {
+		HomeBlockEntity h = hotel(context, 0, 45);
+		ServerPlayerEntity p = walker(context, h, "arena_restart", 26.0);
+		io.github.kortev.chainsawman.hotel.EternityDevilEntity[] d = new io.github.kortev.chainsawman.hotel.EternityDevilEntity[1];
+		java.util.Map<BlockPos, BlockState>[] before = new java.util.Map[1];
+		java.util.Map<BlockPos, String>[] entities = new java.util.Map[1];
+		ready(context, h, () -> {
+			later(context, 20, () -> {
+				before[0] = shell(context, h);
+				entities[0] = shellEntities(context, h);
+				d[0] = fightAt(context, h);
+			});
+			later(context, 80, () -> {
+				assertTorn(context, h, before[0], "in the fight");
+				// The server goes down: all that is kept is the home's own data (the arena) and the world's blocks; it comes up with a fresh run.
+				d[0].discard();
+				h.run.fight = false;
+				h.run.devil = null;
+				h.run.started = false;
+				h.run.arenaCells = null;
+				h.run.tearAt = -1;
+			});
+			later(context, 100, () -> {
+				assertMended(context, h, before[0], entities[0], "after the restart");
 				tidy(context, h, p);
 				context.complete();
 			});

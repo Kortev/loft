@@ -804,10 +804,10 @@ public class HotelSelfTest implements ClientModInitializer {
 		}
 		Vec3d p = HotelBuilder.local(origin, ROT, c.player.getPos());
 		Vec3d eye = c.player.getEyePos();
-		Vec3d heart = world(EternityDevilEntity.HEART_X, EternityDevilEntity.HEART_Y, EternityDevilEntity.LOCAL_Z);
+		Vec3d heart = world(EternityDevilEntity.HEART_X, EternityDevilEntity.HEART_Y, EternityDevilEntity.HEART_Z);
 		wantYaw = yawTo(eye, heart);
 		wantPitch = MathHelper.clamp(pitchTo(eye, heart), -20.0F, 20.0F);
-		boolean near = p.x > 28.7;
+		boolean near = p.x > 30.0;
 		keys(!near, !near);
 		if (t % 10 == 0) {
 			ShootingStar.LOGGER.info("[selftest] hotel fight t={} you at local {} form {} near {}", t, p, formOn, near);
@@ -1070,19 +1070,31 @@ public class HotelSelfTest implements ClientModInitializer {
 	/** You, put at a point of the devil's frame, facing it. */
 	private static Consumer<IntegratedServer> dat(double fx, double fy, double fz) {
 		double[] f = frame(fx, fy, fz);
-		return s -> put(s, f[0], f[1], f[2], 90.0F);
+		return s -> {
+			stand = f;
+			put(s, f[0], f[1], f[2], 90.0F);
+		};
 	}
 
-	/** A new devil growing, and you put at a point of its frame. */
+	/** Where you are kept (the devil's tendrils and mouths push you about): put back every few ticks. */
+	private static double[] stand;
+
+	/** The fight begins as it does in the game (the arena tears open, the devil grows out of its back plane), and you are put at a point of its frame. */
 	private static Consumer<IntegratedServer> grow(double fx, double fy, double fz) {
 		double[] f = frame(fx, fy, fz);
 		return s -> {
+			stand = f;
 			put(s, f[0], f[1], f[2], 90.0F);
 			onServer(s, w -> {
 				for (EternityDevilEntity d : w.getEntitiesByType(io.github.kortev.chainsawman.ChainsawMan.ETERNITY_DEVIL, e -> true)) {
 					d.discard();
 				}
-				EternityDevilEntity.spawn(w, home(s));
+				HomeBlockEntity h = home(s);
+				if (h.run.fight) {
+					h.run.fight = false;
+					io.github.kortev.chainsawman.hotel.Arena.mend(w, h);
+				}
+				Hotel.startFight(w, h, w.getTime());
 			});
 		};
 	}
@@ -1095,44 +1107,55 @@ public class HotelSelfTest implements ClientModInitializer {
 		});
 	}
 
-	/** The stills of the Eternity Devil's look: it tearing out, the key image, three quarters with you for scale, eyes, mouths, the heart. */
+	/** The concept's game frame: from the corridor's axis, eye height 1.62, 8 blocks from the devil's bulk (11.5 from its back plane), 7 degrees up. */
+	private static final double[] GAME = {0.0, 1.62, 11.5};
+
+	/**
+	 * The stills of the v4 Eternity Devil: the arena tearing open, the concept's game frame (heart hidden, then exposed), the maw and the heart
+	 * close, a three-quarter view from the arena's side, and the fight with you in it. You stand where the camera is (so its eyes find the lens),
+	 * except in the fight still.
+	 */
 	private static void devilLooks() {
+		double[] g = GAME;
+		DoubleFunction<Capture.Pose> game = dcam(g[0], g[1], g[2], 0.0, g[1] + g[2] * Math.tan(Math.toRadians(7.0)), 0.0);
 		// (The world needs a while to catch up after you are put in the corridor, so the first still is a throwaway.)
-		LOOKS.add(new Look("00_warm", 160, grow(0.0, 0.0, 12.0), dcam(0.0, 1.6, 7.0, 0.0, 1.8, 0.5), 60.0F));
-		LOOKS.add(new Look("01_tearing_a", 4, s -> onServer(s, w -> {
-			for (EternityDevilEntity d : w.getEntitiesByType(io.github.kortev.chainsawman.ChainsawMan.ETERNITY_DEVIL, e -> true)) {
-				d.discard();
-			}
-			EternityDevilEntity.spawn(w, home(s));
-		}), dcam(0.0, 1.6, 7.0, 0.0, 1.8, 0.5), 60.0F));
-		LOOKS.add(new Look("02_tearing_b", 28, NOTHING, dcam(0.0, 1.6, 7.0, 0.0, 1.8, 0.5), 60.0F));
-		LOOKS.add(new Look("03_key", 110, NOTHING, dcam(0.0, 1.6, 7.6, 0.0, 1.6, 1.0), 48.0F));
-		LOOKS.add(new Look("04_three_quarter", 6, dat(0.5, 0.0, 3.9), dcam(-0.6, 1.7, 7.0, 0.2, 1.5, 2.3), 50.0F));
-		LOOKS.add(new Look("05_eyes", 6, dat(0.0, 0.0, 12.0), dcam(0.2, 1.7, 4.2, 0.45, 2.5, 1.9), 40.0F));
-		LOOKS.add(new Look("06_mouth", 6, NOTHING, dcam(-0.2, 1.7, 4.2, -0.7, 2.35, 1.95), 40.0F));
-		LOOKS.add(new Look("07_mouth_b", 22, NOTHING, dcam(0.4, 1.0, 4.0, 1.15, 0.55, 1.95), 44.0F));
-		LOOKS.add(new Look("08_wall_ceiling", 6, NOTHING, dcam(0.5, 1.6, 6.5, -1.2, 1.9, 3.2), 50.0F));
-		LOOKS.add(new Look("09_heart_a", 8, health(120.0F), dcam(0.0, 1.5, 7.0, 0.0, 1.5, 1.4), 48.0F));
-		LOOKS.add(new Look("10_heart_open", 90, NOTHING, dcam(0.0, 1.5, 7.0, 0.0, 1.5, 1.4), 48.0F));
-		LOOKS.add(new Look("11_heart_close", 6, NOTHING, dcam(0.1, 1.5, 5.4, 0.0, 1.3, 1.7), 44.0F));
+		// (You stand a block behind the camera, so your own head is not what it sees; the devil's eyes find you there.)
+		double back = 1.2;
+		LOOKS.add(new Look("00_warm", 160, dat(g[0], 0.0, g[2] + back), game, 70.0F));
+		LOOKS.add(new Look("d1_tear_a", 4, grow(g[0], 0.0, g[2] + back), game, 70.0F));
+		LOOKS.add(new Look("d2_tear_b", 6, NOTHING, game, 70.0F));
+		LOOKS.add(new Look("d3_tear_c", 10, NOTHING, game, 70.0F));
+		LOOKS.add(new Look("a0_game_frame_hidden", 150, dat(g[0], 0.0, g[2] + back), game, 70.0F));
+		LOOKS.add(new Look("a_game_frame", 90, s -> {
+			health(120.0F).accept(s);
+			dat(g[0], 0.0, g[2] + back).accept(s);
+		}, game, 70.0F));
+		LOOKS.add(new Look("b_maw_heart", 8, dat(0.15, 0.0, 6.6 + back), dcam(0.15, 1.7, 6.6, 0.1, 1.6, 3.0), 62.0F));
+		LOOKS.add(new Look("c_three_quarter", 8, dat(-3.6, 0.0, 9.0 + back), dcam(-3.6, 1.9, 9.0, 0.6, 2.4, 1.5), 62.0F));
+		LOOKS.add(new Look("e_fight", 70, s -> {
+			stand = null;
+			dat(0.8, 0.0, 8.6).accept(s);
+			stand = null;
+		}, dcam(2.6, 2.7, 13.0, -0.3, 2.3, 3.0), 62.0F));
+		LOOKS.add(new Look("e2_fight_side", 40, NOTHING, dcam(-4.8, 1.8, 12.0, 0.4, 2.0, 3.0), 62.0F));
 	}
 
 	private static double devilClipStart = -1.0;
 
-	/** A short low-resolution clip of it alive: grown, then a slow drift in, with breathing, eyes tracking and mouths working. */
+	/** An 8 s clip of it alive: the fight starts, and the camera (you) drifts in and across, its eyes following, blinking, the maw breathing, a bite. */
 	private static void devilClip(MinecraftClient client, IntegratedServer server, int f) {
 		if (client.player == null || client.world == null) {
 			return;
 		}
 		client.options.hudHidden = true;
 		if (f == 1) {
-			grow(0.0, 0.0, 12.0).accept(server);
-			lens = 62.0F;
+			grow(0.0, 0.0, 11.5).accept(server);
+			lens = 70.0F;
 		}
 		if (!Capture.active()) {
-			Capture.camera = dcam(0.0, 1.6, 7.8, 0.0, 1.95, 0.8);
+			Capture.camera = dcam(0.0, 1.62, 11.5, 0.0, 3.0, 0.0);
 		}
-		if (f == 150 && capturing()) {
+		if (f == 170 && capturing()) {
 			Capture.start(client, client.runDirectory.toPath().resolve("capture"));
 			devilClipStart = -1.0;
 		}
@@ -1144,13 +1167,22 @@ public class HotelSelfTest implements ClientModInitializer {
 				double sec = (Capture.time() - devilClipStart) / 20.0;
 				double k = Math.min(1.0, sec / 8.0);
 				double e = k * k * (3.0 - 2.0 * k);
-				return dcam(0.3 * Math.sin(sec * 0.6) - 0.2 * e, 1.6 + 0.3 * e, 7.8 - 3.0 * e, -0.2 * e, 1.95 + 0.1 * e, 0.8).apply(t);
+				double fx = 2.2 * Math.sin(sec * 0.45) - 0.6 * e;
+				double fz = 11.5 - 3.2 * e;
+				return dcam(fx, 1.62, fz, 0.0, 1.9 + 0.3 * e, 0.0).apply(t);
 			};
+			if (f % 4 == 0) {
+				double sec = devilClipStart < 0.0 ? 0.0 : (Capture.time() - devilClipStart) / 20.0;
+				double k = Math.min(1.0, sec / 8.0);
+				double e = k * k * (3.0 - 2.0 * k);
+				double[] at = frame(2.2 * Math.sin(sec * 0.45) - 0.6 * e, 0.0, 12.7 - 3.2 * e);
+				put(server, at[0], at[1], at[2], 90.0F);
+			}
 			if (devilClipStart >= 0.0 && (Capture.time() - devilClipStart) / 20.0 >= 8.0) {
 				stage = Stage.DONE;
 			}
 		}
-		if (!capturing() && f > 200) {
+		if (!capturing() && f > 220) {
 			still(client, "devilclip_still");
 			stage = Stage.DONE;
 		}
@@ -1262,10 +1294,17 @@ public class HotelSelfTest implements ClientModInitializer {
 						h.run.beg != null, d == null ? "none" : d.getPos(), d instanceof EternityDevilEntity dd ? dd.getHealth() + (dd.isDead() ? " dead" : "") : "", you(server).getPos());
 			});
 		}
+		if ("devil".equals(target()) && stand != null && f % 4 == 0) {
+			put(server, stand[0], stand[1], stand[2], 90.0F);
+		}
 		if ("devil".equals(target()) && f - lookAt == current.waitTicks() - 1) {
 			for (net.minecraft.entity.Entity e : client.world.getEntities()) {
 				if (e instanceof EternityDevilEntity d) {
 					ShootingStar.LOGGER.info("[selftest] devil at {}: health {} heartOut {} age {} dead {}", current.name(), d.getHealth(), d.heartOut(), d.age, d.isDead());
+					Capture.Pose cp = Capture.camera.apply(0.0);
+					BlockPos cb = BlockPos.ofFloored(cp.x(), cp.y(), cp.z());
+					ShootingStar.LOGGER.info("[selftest] devil look {}: you at local {}, camera {} block {} sky {} block-light {} fog {}", current.name(), HotelBuilder.local(origin, ROT, client.player.getPos()), cp, client.world.getBlockState(cb),
+							client.world.getLightLevel(net.minecraft.world.LightType.SKY, cb), client.world.getLightLevel(net.minecraft.world.LightType.BLOCK, cb), io.github.kortev.chainsawman.client.ClientHotel.fogAmount(0.0F));
 				}
 			}
 		}

@@ -89,6 +89,11 @@ public final class Hotel {
 		public float bleedShown;
 		public long emptySince;
 		public UUID devil;
+		/** The arena's tear: the tick it began (-1 when not sweeping), the columns torn, and the cells (see {@link Arena}); and when to put it back if the devil was killed (it stays open while it collapses). */
+		public long tearAt = -1;
+		public int torn;
+		public java.util.List<Arena.Cell> arenaCells;
+		public long mendAt = -1;
 		/** The tick the devil died, while the lights die after it; -1 when not. */
 		public long dyingAt = -1;
 
@@ -162,8 +167,17 @@ public final class Hotel {
 			}
 		}
 		if (!r.started) {
-			// Loaded afresh: if the world was left in a fight the walls are still bled (the devil and the flesh are not kept): put them right.
+			// Loaded afresh: if the world was left in a fight the walls are still bled and the arena still torn open (the devil and the flesh
+			// are not kept): put them right.
+			Arena.mend(world, h);
 			HotelBuilder.bleed(world, h.origin, h.rot, 0.0F);
+		}
+		if (r.tearAt >= 0) {
+			Arena.tick(world, h, now);
+		}
+		if (h.arena != null && !r.fight && now >= r.mendAt) {
+			// The fight is over (the devil's collapse puts it right as it ends; this is for any other way the devil went).
+			Arena.mend(world, h);
 		}
 		if (now % 10 == 0 || !r.started) {
 			r.started = true;
@@ -779,6 +793,14 @@ public final class Hotel {
 		startFight(world, h, at, EternityDevilEntity.LOCAL_X, EternityDevilEntity.MAX_HEALTH);
 	}
 
+	/** The devil's collapse is over: the arena it tore open is put back, now, and the walls that bled with it. */
+	public static void mendArena(ServerWorld world, EternityDevilEntity devil) {
+		if (world.getBlockEntity(devil.homePos) instanceof HomeBlockEntity h) {
+			Arena.mend(world, h);
+			HotelBuilder.bleed(world, h.origin, h.rot, 0.0F);
+		}
+	}
+
 	/** The devil tears out of the wall with the middle of it at local {@code x} along the corridor and {@code health} (what the cuts left it). */
 	public static void startFight(ServerWorld world, HomeBlockEntity h, long at, double x, float health) {
 		Run r = h.run;
@@ -796,14 +818,16 @@ public final class Hotel {
 		}
 		r.fogged.clear();
 		play(world, h, x, 30.0, 6.5, ChainsawSounds.HOTEL_BLEED, 2.5F, 1.0F);
+		r.mendAt = -1;
+		Arena.tear(world, h, at);
 		EternityDevilEntity devil = EternityDevilEntity.spawn(world, h, x, health);
 		r.devil = devil.getUuid();
 		// Anyone standing where it grows, or behind it, is put in front of it.
-		double frontX = x - EternityDevilEntity.WIDTH / 2.0 - 1.1;
-		Vec3d front = HotelBuilder.world(h.origin, h.rot, frontX, 29.0, 6.5);
+		double bulk = x - EternityDevilEntity.BULK;
+		Vec3d front = HotelBuilder.world(h.origin, h.rot, bulk - 5.0, 29.0, 6.5);
 		for (ServerPlayerEntity p : world.getPlayers()) {
 			Vec3d lp = HotelBuilder.local(h.origin, h.rot, p.getPos());
-			if (lp.x > x - EternityDevilEntity.WIDTH / 2.0 - 0.3 && lp.x < HotelPlan.SX && lp.y > 28.0 && lp.y < 33.0 && lp.z > 4.0 && lp.z < 9.0) {
+			if (lp.x > bulk - 0.5 && lp.x < HotelPlan.SX && lp.y > 28.0 && lp.y < 36.0 && lp.z > 0.0 && lp.z < 13.0) {
 				p.stopRiding();
 				p.networkHandler.requestTeleport(front.x, front.y, front.z, p.getYaw(), p.getPitch());
 			}
@@ -815,7 +839,8 @@ public final class Hotel {
 		float amount = Math.min(1.0F, Math.max(0.0F, (now - r.bleedFrom) / 70.0F));
 		if (Math.abs(amount - r.bleedShown) >= 0.04F || amount >= 1.0F && r.bleedShown < 1.0F) {
 			r.bleedShown = amount;
-			HotelBuilder.bleed(world, h.origin, h.rot, amount, (int) Math.max(1.0, Math.min(24.0, r.fightX - 8.0)), (int) Math.min(HotelPlan.CORR_X1, r.fightX + 6.0));
+			// (The walls toward the arena bleed; the arena's own are gone.)
+			HotelBuilder.bleed(world, h.origin, h.rot, amount, Arena.X0 - 8, Arena.X0 - 1, true);
 		}
 		net.minecraft.entity.Entity e = r.devil == null ? null : world.getEntity(r.devil);
 		if (!(e instanceof EternityDevilEntity devil) || devil.isRemoved()) {
@@ -851,6 +876,7 @@ public final class Hotel {
 		r.beg = null;
 		r.bleedShown = 0.0F;
 		r.laps.clear();
+		Arena.mend(world, h);
 		HotelBuilder.bleed(world, h.origin, h.rot, 0.0F);
 		if (r.flesh != 0) {
 			r.flesh = 0;
@@ -881,7 +907,9 @@ public final class Hotel {
 		sendAway(world, h);
 		Squad.leave(world, h);
 		open(world, h);
-		HotelBuilder.bleed(world, h.origin, h.rot, 0.0F);
+		// (The arena stays open while the devil collapses: it is put back when the collapse ends, or at the latest soon after.)
+		r.mendAt = now + EternityDevilEntity.DEATH_TICKS + 10;
+		HotelBuilder.bleed(world, h.origin, h.rot, 0.0F, 1, HotelPlan.CORR_X1, Arena.torn(h));
 		r.bleedShown = 0.0F;
 		if (r.flesh != 0) {
 			r.flesh = 0;
@@ -905,7 +933,7 @@ public final class Hotel {
 
 	/** Its loot, on the floor where it stood, when it has collapsed. */
 	public static void dropLoot(ServerWorld world, EternityDevilEntity devil) {
-		Vec3d at = devil.getPos().add(HotelBuilder.world(BlockPos.ORIGIN, devil.rot, -2.8, 0.2, 0.0));
+		Vec3d at = devil.getPos().add(HotelBuilder.world(BlockPos.ORIGIN, devil.rot, -(EternityDevilEntity.BULK + 1.2), 0.2, 0.0));
 		drop(world, at, new ItemStack(ChainsawMan.ETERNITY_FLESH, FLESH_DROP));
 		drop(world, at, new ItemStack(ChainsawMan.ETERNITY_BLOOD, BLOOD_DROP));
 	}

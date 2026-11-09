@@ -26,6 +26,8 @@ public class HomeBlockEntity extends BlockEntity {
 	/** The same, in game ticks (which only go forward: a changed clock does not move it); 0 if it was saved before this was kept (then the day above is used). */
 	public long awayUntilTick;
 	public UUID holder;
+	/** The arena torn open for the fight (what was there, to put back), or null: kept with the hotel so a restart in the middle of a fight still mends it ({@link Arena}). */
+	public NbtCompound arena;
 	public final Hotel.Run run = new Hotel.Run();
 
 	public HomeBlockEntity(BlockPos pos, BlockState state) {
@@ -74,6 +76,9 @@ public class HomeBlockEntity extends BlockEntity {
 		if (holder != null) {
 			nbt.putUuid("Holder", holder);
 		}
+		if (arena != null) {
+			nbt.put("Arena", arena);
+		}
 	}
 
 	@Override
@@ -85,5 +90,6 @@ public class HomeBlockEntity extends BlockEntity {
 		awayUntilDay = nbt.getLong("AwayUntil");
 		awayUntilTick = nbt.getLong("AwayUntilTick");
 		holder = nbt.containsUuid("Holder") ? nbt.getUuid("Holder") : null;
+		arena = nbt.contains("Arena") ? nbt.getCompound("Arena") : null;
 	}
 }

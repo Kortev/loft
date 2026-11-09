@@ -248,6 +248,11 @@ public final class HotelBuilder {
 
 	/** The same, over the walls from local x {@code x0} to {@code x1} (the nearer {@code x1}, the sooner), and 0 puts back every wall of the loop floor. */
 	public static void bleed(net.minecraft.server.world.ServerWorld world, BlockPos origin, int rot, float amount, int x0, int x1) {
+		bleed(world, origin, rot, amount, x0, x1, false);
+	}
+
+	/** The same; with {@code arenaOpen} the walls of the arena the devil tore open ({@link Arena}) are left alone (they are gone, and put back with it). */
+	public static void bleed(net.minecraft.server.world.ServerWorld world, BlockPos origin, int rot, float amount, int x0, int x1, boolean arenaOpen) {
 		HotelPlan plan = HotelPlan.get();
 		if (amount <= 0.0F) {
 			x0 = 1;
@@ -256,6 +261,9 @@ public final class HotelBuilder {
 		BlockRotation turn = turn(rot);
 		int y8 = HotelPlan.floorY(HotelPlan.FLOORS - 1);
 		for (int x = x0; x <= x1; x++) {
+			if (arenaOpen && x >= Arena.X0) {
+				continue;
+			}
 			for (int z : new int[] {4, 8}) {
 				for (int y = y8 + 1; y <= y8 + 3; y++) {
 					if (plan.at(x, y, z).getBlock() instanceof DoorBlock || plan.at(x, y, z).isAir()) {
