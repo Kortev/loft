@@ -1794,8 +1794,9 @@ def small_sheet(img, mouth, side, frame):
 #   Then the sprites, shelf-packed below the layers: side tiles, the heart, each eye's white, iris and lid, each tooth.
 
 ATLAS_W, ATLAS_H = 704, 512
-BAND = 16          # lobe box rows, texels
-SEG = 32           # lobe box columns, texels
+BAND = 8           # lobe box rows, texels (pass 2 of the build: half a block, so the steps are small)
+SEG = 24           # lobe box columns, texels
+EDGE_SHADE = {'top': 0.9, 'bottom': 0.45, 'left': 0.62, 'right': 0.62}
 
 
 def export(out_dir):
@@ -1993,10 +1994,25 @@ def export(out_dir):
                                   v1=v0 + int(ys2.max()) + 1, z_back=float(comp['lobes'][k]['base']) - 4,
                                   z_front=round(float(np.percentile(zf, 75)), 1),
                                   side='dead_side' if nm == 'wallR' else 'flesh_side'))
+    # Each box's other faces: the strip of its own front along that edge, shaded for the face's direction, with
+    # the front's alpha. A top face then exists only where the front's top row is flesh: no shelf sticks out past
+    # the painted silhouette, and the colour runs on round the corner instead of switching to a tile.
+    for bx in boxes:
+        lx, ly = layers[bx['lobe']]
+        lay = atlas[ly:ly + H, lx:lx + W]
+        u0, u1, v0, v1 = bx['u0'], bx['u1'], bx['v0'], bx['v1']
+        strips = {'top': lay[v0:v0 + 1, u0:u1], 'bottom': lay[v1 - 1:v1, u0:u1],
+                  'left': lay[v0:v1, u0:u0 + 1], 'right': lay[v0:v1, u1 - 1:u1]}
+        for face, st in strips.items():
+            st = st.copy()
+            st[..., :3] = (st[..., :3].astype(float) * EDGE_SHADE[face]).astype(np.uint8)
+            bx['uv_' + face] = place(st)
     data = dict(
         note='Made by tools/eternity_devil_concept.py export. Texels, 16 a block. u right (world +z), v down from the '
              'top of the 7-block front (world y = floor + 7 - v/16), z out from the back plane (world x = back - z/16).',
         size=[W, H], maw_u=maw['cx'], atlas=[ATLAS_W, ATLAS_H], layers=layers, tiles=tiles,
+        edge_note='uv_top/uv_bottom are 1-texel rows (u across, stretch along depth); uv_left/uv_right are 1-texel '
+                  'columns (v down, stretch along depth). Alpha is the front\'s: cut out where the front is.',
         boxes=boxes, eyes=eyes,
         maw=dict(rect=maw_rect, surface_z=round(maw_z, 1), cavity_depth=16, teeth=teeth,
                  heart=dict(rect=[heart_x, heart_y, hw_, hh], z=round(maw_z - 16 + 4, 1), uv=tiles['heart'])),
