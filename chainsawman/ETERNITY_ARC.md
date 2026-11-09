@@ -1,8 +1,46 @@
 # The Eternity Devil arc, and what it means for the mod (2026-11-10)
 
-From episode recaps (anime season 1, episodes 5-7; manga about chapters 14-21), cross-checked where possible. The
-wikis were blocked, so the visual details are thin; kortev's memory of the show is the check. Spoiler-safe: nothing
-past this arc.
+Sources: the Chainsaw Man wiki (https://chainsaw-man.fandom.com/wiki/Eternity_Devil, read 2026-11-10; kortev: base
+everything on the wiki) and episode recaps (anime season 1, episodes 5-7; manga chapters 14-19). Spoiler-safe: the
+wiki page also covers far later chapters; nothing from them is used or written here.
+
+## From the wiki (the source of truth)
+
+- **Its core (what it offers up when it begs):** a lump of flesh in the shape of the number 8, which reads as the
+  infinity sign. It has an eye and a mouth on either side and two mouths in the centre (manga chapter 19, page 18).
+  When it breaks, it offers up this core, begs for death, and Denji cuts it in two.
+- **Its avatar (what fights):**
+  - inside its own stomach, an **endless wave of flesh made of many arms and heads fused together**;
+  - it starts very small and weak (first a disembodied head, which Power slices in two) and grows exponentially,
+    until it blocks off a room and a section of corridor;
+  - its many arms and heads tear Denji apart even transformed, and once snap his neck.
+- **Fear feeds it:** "I expand with fear, and ensnare in fear" (its own words, paraphrased). Kobeni's and Arai's panic
+  makes it grow.
+- **The pocket reality:**
+  - it turns a whole floor into a looped piece of 3D space, its stomach, with all the rooms linked to each other;
+  - time is stopped: every clock shows **8:18**, and the second hand keeps snapping back;
+  - the looped rooms repeat with identical contents.
+- **In the arc:**
+  - it offers a contract: it frees them if they feed it Denji;
+  - Aki can't summon the Fox over it, and Himeno's ghost only enrages it;
+  - it says its heart isn't on the 8th floor and they're in its stomach, so it can't be killed;
+  - it tilts the hotel floor and demands Denji's heart;
+  - Denji notices it's afraid of his chainsaws and jumps into its mouth, pulling his cord;
+  - about three days of nonstop fighting, Denji drinking its blood, Himeno pulling his cord once to bring him back;
+  - then it breaks.
+- **Trivia:**
+  - it draws its power from apeirophobia, the fear of infinity;
+  - the 8s (the 8th floor, 8:18) and the figure-8 core are the infinity sign.
+
+**What this changes for the design:** our devil (lobes with eyes and teeth pouring into one maw with an anatomical
+heart) is not the wiki's.
+- The fighting body should be **a wave of fused human arms and heads**.
+- The heart should be **the figure-8 core** with its two eyes and four mouths.
+- It should **start as one small head and grow** with fear.
+
+---
+
+The arc as the recaps tell it:
 
 ## What happens
 
@@ -47,8 +85,8 @@ past this arc.
 | 8th floor loop: stairs, lift, windows | 8th floor corridor loop, stairs loop | Add: the lift loops, and windows look into the next room |
 | Every clock stopped at 8:18 | nothing | **Add**: clocks on every floor of the loop stuck at 8:18 (a strong, cheap sign) |
 | The floor is its stomach; time frozen; no help | sealed hotel, no help | Matches |
-| A small dead devil re-forms and balloons | it hides in the walls and you cut it out | **Consider**: the hunt ends by finding the small devil, killing it, and it re-forming into the giant |
-| The body is a figure 8 / infinity knot, an eye and a mouth per loop, mouths between, fused arms and heads inside | a mass of lobes pouring into one great maw, eyes everywhere | **The big gap**: build the figure-8 core into the design (kortev to confirm from memory) |
+| A disembodied head (Power slices it) re-forms and balloons, growing with fear | it hides in the walls and you cut it out | **Consider**: the hunt ends by finding the small devil, killing it, and it re-forming into the giant |
+| Avatar: an endless wave of fused arms and heads. Core (its heart): a figure-8 lump, an eye and a mouth per loop, two mouths in the centre | a mass of lobes pouring into one great maw, eyes everywhere, an anatomical heart | **The big gap** (wiki): redesign the body as fused arms and heads, and the heart as the figure-8 core |
 | It tilts the floor when fear spikes; you fall toward its mouths | nothing | **Add**: a tilt set-piece (the camera rolls, players are pushed down the corridor toward the mouths; a wow visual) |
 | It fills the corridor (its stomach) | it rips the floor open to the night sky | **Change**: open into a stomach (walls turn to flesh, the ceiling rises into a flesh dome), not the sky; the sky breaks "nothing gets out" |
 | Powers are suppressed inside | contracts work normally | Consider: contracts weakened inside (not off; plain hunters need them) |
