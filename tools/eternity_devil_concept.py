@@ -9,6 +9,7 @@ code only shades them with a limited palette (light from the moon above, a warm 
     python tools/eternity_devil_concept.py            # everything: the three compositions, the passes, the final sheets
     python tools/eternity_devil_concept.py comps      # only the three compositions (comp_A/B/C.png, comps.png)
     python tools/eternity_devil_concept.py pass 3     # only refining pass 3 (pass3.png, _phone_pass3.png)
+    python tools/eternity_devil_concept.py export DIR # the final cut up for the game: atlas + layout json
     python tools/eternity_devil_concept.py present    # the final: final_front_6x, final_mouth_heart, final_side,
                                                       # final_cuboid_plan, final_game_frame (1080 x 1920), _concept_small
 
@@ -450,6 +451,7 @@ class Painter:
 
     # -- feature helpers
     clip = None
+    rec = None
 
     def put(self, x, y, col):
         if self.clip is not None and 0 <= x < self.w and 0 <= y < self.h and not self.clip[y, x]:
@@ -601,6 +603,11 @@ class Painter:
                     px += 1 if left else -1
                     if rng.random() < 0.4:
                         py += rng.choice((-1, 1))
+        if self.rec is not None:
+            drawn = {(x, y): tuple(int(v) for v in self.over[y, x, :3]) for (x, y) in sclera
+                     if 0 <= x < self.w and 0 <= y < self.h and (self.clip is None or self.clip[y, x])}
+            self.rec['eyes'].append(dict(cx=cx, cy=cy, w=w, opn=opn, gaze=gaze, iris=iris, sclera=drawn,
+                                         ri=max(0.75, w * 0.21), h=h))
         # Iris and pupil.
         ri = max(0.75, w * 0.21)
         icx = cx + gaze[0] * max(0.0, hw - ri - 0.7)
@@ -748,6 +755,7 @@ class Painter:
                 P(x, yt, GUM[0] if k == 0 else (GUM[1] if k < g - 1 else GUM[2]))
                 P(x, yb, GUM[3] if k == g - 1 else (GUM[2] if k > 0 else GUM[1]))
         # Teeth: uneven widths, uneven lengths, some crooked, some missing, yellowed at the roots.
+        teeth_px = []
         widths = [3, 4, 4, 5, 3, 4] if w >= 36 else ([2, 3, 3, 4, 3] if w >= 16 else [2, 2, 3])
         for upper in (True, False):
             if not teeth[0 if upper else 1]:
@@ -776,7 +784,9 @@ class Painter:
                 lean = rng.choice((0, 0, 0, -1, 1))
                 base_c = rng.choice((3, 3, 2, 3, 2))
                 stain = rng.random() < 0.3
+                cur = []
                 if not missing:
+                    teeth_px.append((upper, cur))
                     for i in range(tw):
                         xx = x + i
                         if xx not in top:
@@ -799,6 +809,8 @@ class Painter:
                             if tip and stain:
                                 c = TOOTH[0]
                             P(xx + shift, yy, c)
+                            if 0 <= xx + shift < LW and 0 <= yy < LH and m[yy, xx + shift]:
+                                cur.append((xx + shift, yy, c))
                 x += tw + 1
         if orient == 'v':
             out = np.rot90(out, 1)
@@ -822,6 +834,10 @@ class Painter:
                     self.put(ox + xx, oy + yy, tuple(out[yy, xx, :3]))
         self.mouth_masks = getattr(self, 'mouth_masks', [])
         self.mouth_masks.append((ox, oy, m))
+        if self.rec is not None:
+            self.rec['mouths'].append(dict(cx=cx, cy=cy, w=w, h=h, ox=ox, oy=oy, mask=m.copy(), heart=heart,
+                                           orient=orient,
+                                           teeth=[(up, [(ox + a, oy + b, c) for (a, b, c) in px]) for up, px in teeth_px]))
 
     # -- the finished image
     def render(self, bg=True):
@@ -900,8 +916,9 @@ def focal(p):
     p.idx = np.where(ok, np.maximum(p.idx - drop, 1), p.idx).astype(np.int16)
 
 
-def paint(comp, level=0):
+def paint(comp, level=0, rec=None):
     p = Painter(comp, level)
+    p.rec = rec
     p.lobes()
     p.dead_skin()
     if level >= 6:
@@ -1763,6 +1780,243 @@ def small_sheet(img, mouth, side, frame):
     sheet.save(os.path.join(OUT, '_concept_small.png'))
 
 
+# ---- Export for the game build: the final concept cut into what the cuboid renderer needs.
+#
+# Frame of the data (all in texels, 16 to the block):
+#   u  right across the front (world +z),  v  down from the top of the 7-block front (world y = floor + 7 - v/16),
+#   z  out from the devil's back plane toward the players (world x = back plane - z/16).
+# The maw's centre column is MAW_U; the build puts it on the corridor's axis.
+#
+# The atlas (ATLAS_W x ATLAS_H):
+#   one 176 x 112 front layer per lobe in rows of four from (0, 0): only that lobe's pixels are opaque, so each lobe's
+#   boxes can map their front faces straight onto their layer by (u, v). The eyes' whites and the great mouth's throat
+#   are cut out (alpha 0): the eyeball boxes and the maw's cavity sit behind those holes.
+#   Then the sprites, shelf-packed below the layers: side tiles, the heart, each eye's white, iris and lid, each tooth.
+
+ATLAS_W, ATLAS_H = 704, 512
+BAND = 16          # lobe box rows, texels
+SEG = 32           # lobe box columns, texels
+
+
+def export(out_dir):
+    import json
+    os.makedirs(out_dir, exist_ok=True)
+    n = len(PASSES)
+    rec = {'eyes': [], 'mouths': []}
+    comp = comp_pass(n)
+    p = paint(comp, level=n, rec=rec)
+    img = p.render(bg=False)
+    flesh_m = p.idx >= 0
+    over_m = p.over[..., 3] > 0
+    alpha = (flesh_m | over_m)
+    # every pixel belongs to a lobe: feature pixels past a silhouette go to the nearest flesh
+    _, (iy, ix) = ndimage.distance_transform_edt(~flesh_m, return_indices=True)
+    lobe_of = np.where(flesh_m, p.lobe, p.lobe[iy, ix])
+    depth = np.where(flesh_m, p.zf, p.zf[iy, ix] - 1.0)
+    cut = np.zeros_like(alpha)
+    for e in rec['eyes']:
+        for (x, y) in e['sclera']:
+            cut[y, x] = True
+    maw = next(m for m in rec['mouths'] if m['heart'])
+    mm = maw['mask']
+    for yy in range(mm.shape[0]):
+        for xx in range(mm.shape[1]):
+            X, Y = maw['ox'] + xx, maw['oy'] + yy
+            if mm[yy, xx] and 0 <= X < W and 0 <= Y < H and tuple(int(v) for v in img[Y, X]) not in GUM:
+                cut[Y, X] = True
+    alpha = alpha & ~cut
+    atlas = np.zeros((ATLAS_H, ATLAS_W, 4), np.uint8)
+    names = [L['name'] for L in comp['lobes']]
+    layers = {}
+    for k, nm in enumerate(names):
+        lx, ly = (k % 4) * W, (k // 4) * H
+        a = alpha & (lobe_of == k)
+        atlas[ly:ly + H, lx:lx + W, :3] = np.where(a[..., None], img, 0)
+        atlas[ly:ly + H, lx:lx + W, 3] = np.where(a, 255, 0)
+        layers[nm] = [lx, ly]
+    # sprite shelf
+    shelf = {'x': 0, 'y': 2 * H, 'h': 0}
+
+    def place(spr):
+        hh, ww = spr.shape[:2]
+        if shelf['x'] + ww > ATLAS_W:
+            shelf['x'], shelf['y'], shelf['h'] = 0, shelf['y'] + shelf['h'] + 1, 0
+        x, y = shelf['x'], shelf['y']
+        assert y + hh <= ATLAS_H, 'atlas full'
+        atlas[y:y + hh, x:x + ww] = spr
+        shelf['x'] += ww + 1
+        shelf['h'] = max(shelf['h'], hh)
+        return [x, y, ww, hh]
+
+    def solid(col):
+        a = np.zeros((16, 16, 4), np.uint8)
+        a[..., :3] = col
+        a[..., 3] = 255
+        return a
+
+    tiles = {}
+    ft = flesh_tile()
+    tiles['flesh_side'] = place(ft)
+    dark = ft.copy()
+    dark[..., :3] = (dark[..., :3].astype(float) * 0.6).astype(np.uint8)
+    tiles['flesh_side_dark'] = place(dark)
+    dead = ft.copy()
+    dd = np.array(DEAD5, np.uint8)
+    for y in range(16):
+        for x in range(16):
+            i = FLESH.index(tuple(int(v) for v in ft[y, x, :3])) if tuple(int(v) for v in ft[y, x, :3]) in FLESH else 4
+            dead[y, x, :3] = dd[i]
+    tiles['dead_side'] = place(dead)
+    tiles['throat'] = place(solid(THROAT[0]))
+    th = solid(THROAT[1])
+    th[12:, :, :3] = THROAT[2]
+    tiles['throat_floor'] = place(th)
+    gum = solid(GUM[1])
+    gum[:2, :, :3] = GUM[0]
+    gum[-3:, :, :3] = GUM[2]
+    tiles['gum'] = place(gum)
+    hs_ = solid(HEART_PAL[2])
+    hs_[::4, :, :3] = HEART_PAL[1]
+    tiles['heart_side'] = place(hs_)
+    tiles['tooth_side'] = place(solid(TOOTH[1]))
+    tiles['sclera_side'] = place(solid(SCLERA[1]))
+    heart = heart_v3(1.15, v5=True, v6=True)
+    tiles['heart'] = place(heart)
+    # eyes
+    eyes = []
+    for e in rec['eyes']:
+        px = e['sclera']
+        if not px:
+            continue
+        xs_ = [q[0] for q in px]
+        ys_ = [q[1] for q in px]
+        x0, x1, y0, y1 = min(xs_), max(xs_), min(ys_), max(ys_)
+        sw, sh = x1 - x0 + 1, y1 - y0 + 1
+        scl = np.zeros((sh, sw, 4), np.uint8)
+        for (x, y), c in px.items():
+            scl[y - y0, x - x0, :3] = c
+            scl[y - y0, x - x0, 3] = 255
+        # fill the box's rectangle round the almond with the shaded white, so a moving iris never shows a gap
+        holes = scl[..., 3] == 0
+        scl[holes, :3] = SCLERA[2]
+        scl[holes, 3] = 255
+        ri = e['ri']
+        d = max(1, int(math.ceil(ri * 2)))
+        iris = np.zeros((d, d, 4), np.uint8)
+        pal = IRIS[e['iris']]
+        for y in range(d):
+            for x in range(d):
+                dx, dy = x + 0.5 - d / 2, y + 0.5 - d / 2
+                dist = math.hypot(dx, dy)
+                if dist < ri or d <= 2:
+                    c = pal[1]
+                    if ri >= 2.5 and dist > ri - 1:
+                        c = pal[0]
+                    elif ri >= 2 and dy > 0.3 and dx > -0.5:
+                        c = pal[2]
+                    if dist < (ri * 0.45 if ri >= 1.6 else 0.6):
+                        c = PUPIL
+                    iris[y, x, :3] = c
+                    iris[y, x, 3] = 255
+        if d >= 3:
+            g = int(d / 2 - ri * 0.45)
+            iris[max(0, g), max(0, g), :3] = GLINT
+        lid = np.zeros((sh + 1, sw, 4), np.uint8)
+        loc = int(np.clip(np.median([p.idx[min(H - 1, y0 - 2), min(W - 1, max(0, x))] for x in range(x0, x1 + 1)]), 2, 7))
+        lid[..., :3] = FLESH[min(loc + 1, 7)]
+        lid[0, :, :3] = FLESH[min(loc + 2, 8)]
+        lid[-1, :, :3] = LASH
+        lid[..., 3] = 255
+        k = int(lobe_of[int(e['cy']), int(e['cx'])])
+        eyes.append(dict(rect=[x0, y0, sw, sh], center=[e['cx'], e['cy']], width=e['w'], lobe=names[k],
+                         surface_z=round(float(depth[int(e['cy']), int(e['cx'])]), 1),
+                         rest_gaze=list(e['gaze']), iris=e['iris'], iris_d=d,
+                         uv_sclera=place(scl), uv_iris=place(iris), uv_lid=place(lid)))
+    # the great mouth: its opening, its teeth (each its own box), its heart
+    teeth = []
+    for upper, px in maw['teeth']:
+        if not px:
+            continue
+        xs_ = [q[0] for q in px]
+        ys_ = [q[1] for q in px]
+        x0, x1, y0, y1 = min(xs_), max(xs_), min(ys_), max(ys_)
+        spr = np.zeros((y1 - y0 + 1, x1 - x0 + 1, 4), np.uint8)
+        for (x, y, c) in px:
+            spr[y - y0, x - x0, :3] = c
+            spr[y - y0, x - x0, 3] = 255
+        cx_ = (x0 + x1 + 1) / 2
+        fx = (cx_ - maw['ox']) / mm.shape[1]
+        teeth.append(dict(rect=[x0, y0, x1 - x0 + 1, y1 - y0 + 1], upper=upper, uv=place(spr),
+                          over_heart=bool(0.30 < fx < 0.68)))
+    hh, hw_ = heart.shape[:2]
+    LW, LH = mm.shape[1], mm.shape[0]
+    heart_x = maw['ox'] + LW // 2 - hw_ // 2 + 1
+    heart_y = maw['oy'] + int(LH / 2 - hh * 0.42)
+    open_rows = np.where(mm.any(axis=1))[0]
+    open_cols = np.where(mm.any(axis=0))[0]
+    maw_rect = [maw['ox'] + int(open_cols.min()), maw['oy'] + int(open_rows.min()),
+                int(open_cols.max() - open_cols.min() + 1), int(open_rows.max() - open_rows.min() + 1)]
+    maw_z = float(np.percentile(depth[maw_rect[1]:maw_rect[1] + maw_rect[3], maw_rect[0]:maw_rect[0] + maw_rect[2]], 70))
+    small = []
+    for m in rec['mouths']:
+        if m['heart']:
+            continue
+        rows, cols = np.where(m['mask'].any(axis=1))[0], np.where(m['mask'].any(axis=0))[0]
+        r = [m['ox'] + int(cols.min()) - 1, m['oy'] + int(rows.min()) - 1, int(cols.max() - cols.min() + 3),
+             int(rows.max() - rows.min() + 3)]
+        k = int(lobe_of[int(m['cy']), int(m['cx'])])
+        small.append(dict(rect=r, lobe=names[k], surface_z=round(float(depth[int(m['cy']), int(m['cx'])]), 1),
+                          vertical=m['orient'] == 'v'))
+    # lobe boxes: rows of BAND texels, cut into columns of about SEG, each pushed out to its flesh
+    boxes = []
+    for k, nm in enumerate(names):
+        mask = alpha & (lobe_of == k) | (cut & (lobe_of == k))
+        rows = np.where(mask.any(axis=1))[0]
+        if not len(rows):
+            continue
+        for v0 in range(int(rows.min()), int(rows.max()) + 1, BAND):
+            band = mask[v0:v0 + BAND]
+            cols = np.where(band.any(axis=0))[0]
+            if not len(cols):
+                continue
+            u0, u1 = int(cols.min()), int(cols.max()) + 1
+            nseg = max(1, int(round((u1 - u0) / SEG)))
+            for sgi in range(nseg):
+                a = u0 + (u1 - u0) * sgi // nseg
+                b = u0 + (u1 - u0) * (sgi + 1) // nseg
+                cell = band[:, a:b]
+                if not cell.any():
+                    continue
+                ys2, xs2 = np.where(cell)
+                zf = depth[v0:v0 + BAND, a:b][cell]
+                boxes.append(dict(lobe=nm, u0=a + int(xs2.min()), u1=a + int(xs2.max()) + 1, v0=v0 + int(ys2.min()),
+                                  v1=v0 + int(ys2.max()) + 1, z_back=float(comp['lobes'][k]['base']) - 4,
+                                  z_front=round(float(np.percentile(zf, 75)), 1),
+                                  side='dead_side' if nm == 'wallR' else 'flesh_side'))
+    data = dict(
+        note='Made by tools/eternity_devil_concept.py export. Texels, 16 a block. u right (world +z), v down from the '
+             'top of the 7-block front (world y = floor + 7 - v/16), z out from the back plane (world x = back - z/16).',
+        size=[W, H], maw_u=maw['cx'], atlas=[ATLAS_W, ATLAS_H], layers=layers, tiles=tiles,
+        boxes=boxes, eyes=eyes,
+        maw=dict(rect=maw_rect, surface_z=round(maw_z, 1), cavity_depth=16, teeth=teeth,
+                 heart=dict(rect=[heart_x, heart_y, hw_, hh], z=round(maw_z - 16 + 4, 1), uv=tiles['heart'])),
+        small_mouths=small,
+        sinews=[dict(path=[list(q) for q in path], thickness=t) for path, t in comp['strands']],
+    )
+    Image.fromarray(atlas).save(os.path.join(out_dir, 'eternity_devil.png'))
+    with open(os.path.join(out_dir, 'eternity_devil_layout.json'), 'w') as f:
+        json.dump(data, f, indent=1, default=lambda o: o.item() if hasattr(o, 'item') else str(o))
+    # a preview: the layers put back together, to check nothing was lost
+    prev = np.zeros((H, W, 4), np.uint8)
+    for k, nm in enumerate(names):
+        lx, ly = layers[nm]
+        lay = atlas[ly:ly + H, lx:lx + W]
+        prev = np.where(lay[..., 3:] > 0, lay, prev)
+    Image.fromarray(prev).resize((W * 4, H * 4), Image.NEAREST).save(os.path.join(out_dir, '_export_check.png'))
+    print('export: %d lobe boxes, %d eyes, %d teeth, %d small mouths; atlas used to y %d of %d' % (
+        len(boxes), len(eyes), len(teeth), len(small), shelf['y'] + shelf['h'], ATLAS_H))
+
+
 def phone_check(img, name):
     """What kortev sees on a phone: the front about 390 px wide."""
     im = Image.fromarray(img).resize((W * 2, H * 2), Image.NEAREST).resize((390, int(390 * H / W)), Image.LANCZOS)
@@ -1788,6 +2042,8 @@ def main():
             do_pass(n)
     if not args or args[0] == 'present':
         present()
+    if args and args[0] == 'export':
+        export(args[1] if len(args) > 1 else os.path.join(OUT, 'export'))
 
 
 if __name__ == '__main__':
