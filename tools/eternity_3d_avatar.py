@@ -21,6 +21,7 @@ ZG = 1.5            # half the grin's width
 TOOTH_W = 0.1875
 TOOTH_PITCH = 0.25
 JAW_HINGE = np.array([0.9, 1.0, 0.0])
+JAW_OPEN = -22.0     # the grin's lower jaw is baked closed; base + amp*(0.5+0.5 sin) about +Z, so a NEGATIVE angle opens it
 
 
 def grin_yc(z):
@@ -41,7 +42,23 @@ def body_lobes():
     ]
 
 
-def body_raw(noise, ropes):
+def smoothstep(a, b, x):
+    t = np.clip((x - a) / (b - a), 0.0, 1.0)
+    return t * t * (3 - 2 * t)
+
+
+def col_window(py, pz):
+    """1 on the column of flesh between the two slits (|z| < ~0.5, y 1.9..3.8), fading to 0 beyond."""
+    return smoothstep(0.62, 0.42, np.abs(pz)) * smoothstep(1.8, 2.05, py) * smoothstep(3.95, 3.7, py)
+
+
+def col_ridge(py, pz, noise_val):
+    """Sagging festoons of skin: horizontal folds that droop toward the middle, 0..1 (1 on a ridge's crest)."""
+    ph = (py + 0.22 * (pz / 0.5) ** 2 + 0.18 * noise_val) * 3.4 * 2 * math.pi
+    return 0.5 + 0.5 * np.sin(ph)
+
+
+def body_raw(noise, ropes, col_lumps=()):
     lobes = body_lobes()
 
     def fn(px, py, pz):
@@ -50,6 +67,13 @@ def body_raw(noise, ropes):
             e = ell(px, py, pz, c, r)
             d = e if d is None else smin(d, e, 0.55)
         d = d + (noise.fbm(px, py, pz, 1.7) - 0.5) * 0.55 + (noise.fbm(px, py, pz, 5.0, 2) - 0.5) * 0.14
+        # the column between the slits: folds, creases and sagging lumps (a plain smooth column before)
+        w = col_window(py, pz)
+        nv = noise.fbm(px * 0 + 3.1, py, pz, 2.3)
+        rid = col_ridge(py, pz, nv)
+        d = d - w * 0.085 * rid ** 1.5 + w * 0.05 * np.clip(1 - np.abs(noise.fbm(px * 0, py + 1.7, pz, 4.5, 2) - 0.5) / 0.05, 0, 1)
+        for c, r in col_lumps:
+            d = smin(d, ell(px, py, pz, c, r), 0.12)
         d = np.maximum(d, -px - 0.2)            # runs into the end wall
         for pts, r0, r1 in ropes:
             d = smin(d, polyline(px, py, pz, pts, r0, r1), 0.12)
@@ -133,9 +157,31 @@ def tooth_layers(px, py, pz, surf_fn, upper, rng):
     return out
 
 
+def _spot(raw, y, z, s):
+    xs = surface_at(raw, y, z)
+    if xs is None:
+        return None
+    e = 0.06
+    nx = raw(np.array([xs + e]), np.array([y]), np.array([z])) - raw(np.array([xs - e]), np.array([y]), np.array([z]))
+    ny = raw(np.array([xs]), np.array([y + e]), np.array([z])) - raw(np.array([xs]), np.array([y - e]), np.array([z]))
+    nz = raw(np.array([xs]), np.array([y]), np.array([z + e])) - raw(np.array([xs]), np.array([y]), np.array([z - e]))
+    nrm = np.array([nx[0], ny[0], nz[0]])
+    nrm /= np.linalg.norm(nrm)
+    return dict(x=xs, y=y, z=z, s=s, n=nrm)
+
+
+# the column between the slits gets two screaming skulls of its own (small enough to sit between the slits)
+COLUMN_SKULLS = [(3.4, 0.0, 0.72), (2.35, 0.02, 0.7)]
+
+
 def build_skull_spots(raw, rng, n_target=44):
-    """Head positions on the body's surface: rejection-sampled over the face's sides, top and bottom."""
+    """Head positions on the body's surface: the column's skulls first, then rejection-sampled over the face's sides, top and bottom."""
     spots = []
+    for (y, z, s) in COLUMN_SKULLS:
+        sp = _spot(raw, y, z, s)
+        if sp is not None:
+            sp['column'] = True
+            spots.append(sp)
     tries = 0
     while len(spots) < n_target and tries < 9000:
         tries += 1
@@ -146,20 +192,15 @@ def build_skull_spots(raw, rng, n_target=44):
         if abs(z) < 2.1 and y < 0.75:
             continue                       # the chin shelf stays clear so the lower row of teeth shows
         if abs(z) < 1.15 and 1.8 < y < 3.9:
-            continue                       # the slits
+            continue                       # the slits and the column between them
         xs = surface_at(raw, y, z)
         if xs is None or xs < 0.5:
             continue
         s = rng.uniform(0.85, 1.25)
         if any(math.hypot(y - sp['y'], z - sp['z']) < 0.5 * (s + sp['s']) * 0.82 for sp in spots):
             continue
-        e = 0.06
-        nx = raw(np.array([xs + e]), np.array([y]), np.array([z])) - raw(np.array([xs - e]), np.array([y]), np.array([z]))
-        ny = raw(np.array([xs]), np.array([y + e]), np.array([z])) - raw(np.array([xs]), np.array([y - e]), np.array([z]))
-        nz = raw(np.array([xs]), np.array([y]), np.array([z + e])) - raw(np.array([xs]), np.array([y]), np.array([z - e]))
-        nrm = np.array([nx[0], ny[0], nz[0]])
-        nrm /= np.linalg.norm(nrm)
-        spots.append(dict(x=xs, y=y, z=z, s=s, n=nrm))
+        sp = _spot(raw, y, z, s)
+        spots.append(sp)
     return spots
 
 
@@ -173,18 +214,29 @@ def build(seed=21):
         z0 = rng.uniform(-3.0, 3.0)
         pts = [(1.9 - 0.3 * abs(z0) / 3, 5.2 - 0.2 * k, z0 + 0.3 * math.sin(k * 1.3 + i)) for k in range(8)]
         ropes.append((pts, 0.1, 0.07))
-    raw = body_raw(noise, ropes)
+    base_raw = body_raw(noise, ropes)
+    col_lumps = []
+    for (yy, zz, rx, ry, rz) in [(3.55, -0.2, 0.2, 0.12, 0.22), (2.9, 0.22, 0.22, 0.14, 0.2), (2.3, -0.18, 0.2, 0.1, 0.2),
+                                 (3.15, -0.3, 0.16, 0.1, 0.14), (2.65, 0.0, 0.18, 0.12, 0.17)]:
+        xs0 = surface_at(base_raw, yy, zz) or 2.9
+        col_lumps.append(((xs0 - 0.06, yy, zz), (rx, ry, rz)))
+    raw = body_raw(noise, ropes, col_lumps)
     surf = lambda y, z: surface_at(raw, y, z)
     body_fn = make_body_fn(noise, ropes, False)
     jaw_fn = make_body_fn(noise, ropes, True)
 
-    paint = lambda c: K.standard_paint(c, ramp=FLESH, base=0.58, noise_f=2.6)
+    def paint(c):
+        col, em = K.standard_paint(c, ramp=FLESH, base=0.58, noise_f=2.6)
+        w = col_window(c.py, c.pz)
+        rid = col_ridge(c.py, c.pz, c.noise.fbm(c.px * 0 + 3.1, c.py, c.pz, 2.3))
+        mult = 1.0 + w * (0.55 * rid - 0.2)               # lit crests, dark creases
+        return col * mult[..., None], em
     lo, hi = (-0.2, -0.3, -4.0), (3.4, 5.8, 4.0)
     body = K.voxelize('body', lo, hi, S8, body_fn, paint, noise, min_nb=3)
     m.add(body, pivot=(0, 0, 0), kind='static')
     jaw = K.voxelize('jaw', (1.3, 0.2, -2.1), (3.3, 2.0, 2.1), S8, jaw_fn, paint, noise, min_nb=3)
-    m.add(jaw, pivot=JAW_HINGE, anim=dict(kind='hinge', axis=[0, 0, 1], amp=7.0, base=0.0, period=90, phase=0.1), kind='jaw',
-          note='the grin lower jaw (flesh): baked open a little; a positive angle about Z closes it. Move teeth_lower with it')
+    m.add(jaw, pivot=JAW_HINGE, anim=dict(kind='hinge', axis=[0, 0, 1], amp=JAW_OPEN, base=0.0, period=90, phase=0.1), kind='jaw',
+          note='the grin lower jaw (flesh): baked CLOSED; a NEGATIVE angle about Z opens it (peak -22). Move teeth_lower with it')
     for upper in (True, False):
         trng = np.random.default_rng(seed + (1 if upper else 2))
 
@@ -195,7 +247,7 @@ def build(seed=21):
         if upper:
             m.add(tg, pivot=(0, 0, 0), kind='static', note='the grin upper row: 12 big square cream teeth, 3 texels wide, 1 apart')
         else:
-            m.add(tg, pivot=JAW_HINGE, anim=dict(kind='hinge', axis=[0, 0, 1], amp=7.0, base=0.0, period=90, phase=0.1), kind='jaw_teeth',
+            m.add(tg, pivot=JAW_HINGE, anim=dict(kind='hinge', axis=[0, 0, 1], amp=JAW_OPEN, base=0.0, period=90, phase=0.1), kind='jaw_teeth',
                   note='moves with the jaw part (same pivot, axis and angle)')
     # the lit swollen rims of the slits
     for k, zs in enumerate((-0.66, 0.66)):
@@ -235,8 +287,8 @@ def build(seed=21):
         lo2, hi2 = A.head_bounds(F)
         ramp = COOL if rng.random() < 0.6 else FLESH
         sp_ = {'sclera': lambda c_, mm: (K.pick(K.SCLERA, 0.8, None), 0.0)}
-        hg = K.voxelize('head_%02d' % i, lo2, hi2, S16, hf, lambda cx: K.standard_paint(cx, ramp=ramp, base=0.62, special=sp_), noise)
-        jg = K.voxelize('head_%02d_jaw' % i, lo2, hi2, S16, jf, lambda cx: K.standard_paint(cx, ramp=ramp, base=0.62), noise)
+        hg = K.voxelize('head_%02d' % i, lo2, hi2, S16, hf, A.head_paint(F, ramp, base=0.56, special=sp_), noise)
+        jg = K.voxelize('head_%02d_jaw' % i, lo2, hi2, S16, jf, A.head_paint(F, ramp, base=0.56), noise)
         ax = A.jaw_axis(F)
         m.add(hg, pivot=c, anim=dict(kind='sway', axis=[0, 0, 1], axis2=[0, 1, 0], amp=4.0, period=int(rng.integers(70, 120)),
                                       phase=round(float(rng.random()), 2)), kind='head')
