@@ -18,7 +18,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class ReelHudMixin {
 	@Inject(method = "render", at = @At("HEAD"), cancellable = true)
 	private void shootingstarTest$reelHud(DrawContext context, RenderTickCounter counter, CallbackInfo ci) {
-		if (ReelSelfTest.active() || io.github.kortev.shootingstar.test.ShowcaseSelfTest.active() || io.github.kortev.shootingstar.test.ForeverSelfTest.active() || io.github.kortev.shootingstar.test.ReviveSelfTest.active() || io.github.kortev.shootingstar.test.HotelSelfTest.active()) {
+		if (ReelSelfTest.active() || io.github.kortev.shootingstar.test.ShowcaseSelfTest.active() || io.github.kortev.shootingstar.test.ForeverSelfTest.active() || io.github.kortev.shootingstar.test.ReviveSelfTest.active() || io.github.kortev.shootingstar.test.HotelSelfTest.active() || io.github.kortev.shootingstar.test.TeamsSelfTest.active()) {
 			HudRenderCallback.EVENT.invoker().onHudRender(context, counter);
 			ci.cancel();
 		}

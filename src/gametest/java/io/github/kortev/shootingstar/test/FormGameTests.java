@@ -288,9 +288,12 @@ public class FormGameTests implements FabricGameTest {
 				context.assertTrue(carrier.isAlive() && carrier.getHealth() >= 1.0F, "with Pochita, they died");
 				context.assertTrue(Downed.is(carrier), "with Pochita, they were not down");
 				context.assertTrue(!carrier.damage(carrier.getDamageSources().generic(), 5.0F), "down, they were hurt");
+				// (Without Pochita a human goes down too now, by the everyoneGoesDown rule: it is off here, to see them die.)
+				context.getWorld().getServer().getGameRules().get(io.github.kortev.chainsawman.form.TeamRules.EVERYONE_GOES_DOWN).set(false, context.getWorld().getServer());
 				unarmed.damage(unarmed.getDamageSources().generic(), 1000.0F);
 				context.assertTrue(unarmed.isDead(), "without Pochita, they lived");
 			} finally {
+				context.getWorld().getServer().getGameRules().get(io.github.kortev.chainsawman.form.TeamRules.EVERYONE_GOES_DOWN).set(true, context.getWorld().getServer());
 				done(context, carrier);
 				done(context, unarmed);
 			}

@@ -24,7 +24,8 @@
 			"io.github.kortev.shootingstar.test.PurpleGameTests",
 			"io.github.kortev.shootingstar.test.FormGameTests",
 			"io.github.kortev.shootingstar.test.ForeverGameTests",
-			"io.github.kortev.shootingstar.test.HotelGameTests"
+			"io.github.kortev.shootingstar.test.HotelGameTests",
+			"io.github.kortev.shootingstar.test.TeamGameTests"
 		],
 		"client": [
 			"io.github.kortev.shootingstar.test.ClientSelfTest",
@@ -44,7 +45,8 @@
 			"io.github.kortev.shootingstar.test.ShowcaseSelfTest",
 			"io.github.kortev.shootingstar.test.ForeverSelfTest",
 			"io.github.kortev.shootingstar.test.ReviveSelfTest",
-			"io.github.kortev.shootingstar.test.HotelSelfTest"
+			"io.github.kortev.shootingstar.test.HotelSelfTest",
+			"io.github.kortev.shootingstar.test.TeamsSelfTest"
 		]
 	},
 	"depends": {
