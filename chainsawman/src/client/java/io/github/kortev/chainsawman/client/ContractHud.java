@@ -28,6 +28,8 @@ public final class ContractHud {
 			panel(ctx, client, held);
 		}
 		banner(ctx, client, tickDelta);
+		// (The heart's level-up line is drawn here too: it is not part of the blood bar, which is only shown while there is blood to show.)
+		BloodHud.banner(ctx, client, tickDelta);
 	}
 
 	private static void panel(DrawContext ctx, MinecraftClient client, Contract held) {

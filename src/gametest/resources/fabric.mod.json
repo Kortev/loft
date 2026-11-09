@@ -48,7 +48,8 @@
 			"io.github.kortev.shootingstar.test.ForeverSelfTest",
 			"io.github.kortev.shootingstar.test.ReviveSelfTest",
 			"io.github.kortev.shootingstar.test.HotelSelfTest",
-			"io.github.kortev.shootingstar.test.TeamsSelfTest"
+			"io.github.kortev.shootingstar.test.TeamsSelfTest",
+			"io.github.kortev.shootingstar.test.BondsSelfTest"
 		]
 	},
 	"depends": {

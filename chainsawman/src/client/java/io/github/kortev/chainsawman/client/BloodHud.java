@@ -27,9 +27,6 @@ public final class BloodHud {
 	public static void render(DrawContext ctx, RenderTickCounter counter) {
 		MinecraftClient client = MinecraftClient.getInstance();
 		ClientPlayerEntity self = client.player;
-		if (self != null && !client.options.hudHidden) {
-			banner(ctx, client, counter.getTickDelta(true));
-		}
 		int blood = ClientCombat.blood();
 		if (self == null || blood < 0 || client.options.hudHidden || self.isSpectator() || self.isCreative()
 				|| !(ClientForms.on(self) || blood < Blood.MAX || PochitaItem.carried(self))) {
@@ -56,7 +53,7 @@ public final class BloodHud {
 	}
 
 	/** A level-up of the heart: the number big, the line under it, shaking, a blood-red wash fading. */
-	private static void banner(DrawContext ctx, MinecraftClient client, float tickDelta) {
+	static void banner(DrawContext ctx, MinecraftClient client, float tickDelta) {
 		float since = ClientCombat.heartUpSince(tickDelta);
 		if (since < 0.0F || since > 80.0F) {
 			return;

@@ -14,7 +14,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class ReelBloodHudMixin {
 	@Inject(method = "render", at = @At("HEAD"), cancellable = true)
 	private static void shootingstarTest$noBar(DrawContext ctx, RenderTickCounter counter, CallbackInfo ci) {
-		if (ReelSelfTest.active() || io.github.kortev.shootingstar.test.ShowcaseSelfTest.active() || io.github.kortev.shootingstar.test.ForeverSelfTest.active() || io.github.kortev.shootingstar.test.ReviveSelfTest.active() || io.github.kortev.shootingstar.test.HotelSelfTest.active() || io.github.kortev.shootingstar.test.TeamsSelfTest.active()) {
+		if (ReelSelfTest.active() || io.github.kortev.shootingstar.test.ShowcaseSelfTest.active() || io.github.kortev.shootingstar.test.ForeverSelfTest.active() || io.github.kortev.shootingstar.test.ReviveSelfTest.active() || io.github.kortev.shootingstar.test.HotelSelfTest.active() || io.github.kortev.shootingstar.test.TeamsSelfTest.active() || io.github.kortev.shootingstar.test.BondsSelfTest.active()) {
 			ci.cancel();
 		}
 	}

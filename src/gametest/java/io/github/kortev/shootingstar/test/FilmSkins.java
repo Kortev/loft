@@ -32,7 +32,7 @@ public final class FilmSkins {
 
 	@Nullable
 	public static SkinTextures get(String name) {
-		if (!FilmSelfTest.active() && !FilmDomain.active() && !FilmDomainKortev.active() && !FilmPurple.active() && !FormSelfTest.active() && !ReelSelfTest.active() && !ShowcaseSelfTest.active() && !ForeverSelfTest.active() && !ReviveSelfTest.active() && !HotelSelfTest.active() && !TeamsSelfTest.active()) {
+		if (!FilmSelfTest.active() && !FilmDomain.active() && !FilmDomainKortev.active() && !FilmPurple.active() && !FormSelfTest.active() && !ReelSelfTest.active() && !ShowcaseSelfTest.active() && !ForeverSelfTest.active() && !ReviveSelfTest.active() && !HotelSelfTest.active() && !TeamsSelfTest.active() && !BondsSelfTest.active()) {
 			return null;
 		}
 		SkinTextures known = LOADED.get(name);
