@@ -160,6 +160,9 @@ public final class ChainsawManClient implements ClientModInitializer {
 				program -> FormHud.impact = program));
 		CoreShaderRegistrationCallback.EVENT.register(context -> context.register(ChainsawMan.id("csm_drain"), VertexFormats.BLIT_SCREEN,
 				program -> ForeverHud.drain = program));
+		CoreShaderRegistrationCallback.EVENT.register(context -> context.register(ChainsawMan.id("csm_flesh"), VertexFormats.POSITION_TEXTURE_COLOR_NORMAL,
+				program -> FleshMesh.program = program));
+		net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents.AFTER_ENTITIES.register(context -> FleshMesh.flush());
 		HudRenderCallback.EVENT.register(FormHud::render);
 		HudRenderCallback.EVENT.register(ForeverHud::render);
 		HudRenderCallback.EVENT.register(ContractHud::render);
