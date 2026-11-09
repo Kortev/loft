@@ -30,16 +30,22 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 
 /**
- * The Eternity Devil grown out of the walls at the end of the 8th-floor corridor: one huge mass of flesh (about {@link #WIDTH} blocks
- * wide and {@link #HEIGHT} high, pushing into the walls, floor and ceiling of the corridor) that cannot move, with about 300 health and a
+ * The Eternity Devil grown out of the walls at the end of the 8th-floor corridor: one huge mass of flesh (about 11 blocks
+ * wide and {@link #HEIGHT} high, filling the corridor's end and the rooms either side, in the arena it tears open) that cannot move, with about 300 health and a
  * boss bar. It fights by mouths that rise from the floor and the walls and bite where you stand, tendrils that slam down the corridor, and
  * flesh that creeps across the floor ({@link FleshPatchEntity}); it regenerates while it is not hit, and the heart inside it shows once
  * enough of it is cut away, where a hit does {@link #HEART_MULT} times as much. It begs when it is low (it does not offer the deal again).
  * Killing it breaks the loop ({@link Hotel#killed}).
  */
 public class EternityDevilEntity extends MobEntity {
-	public static final float WIDTH = 4.6F;
-	public static final float HEIGHT = 4.0F;
+	/** The entity type's own box (not used: the hitbox is the devil's whole front, see {@link #calculateBoundingBox}). */
+	public static final float WIDTH = 4.0F;
+	public static final float HEIGHT = 7.0F;
+	/** How far its bulk comes out from its back plane (blocks): the great mouth's teeth are the nearest. */
+	public static final double BULK = 3.9;
+	/** The front, in the devil's own frame (blocks): right (toward the hotel's +z) from the great mouth's axis, and the hitbox's extent. */
+	public static final double BOX_LEFT = -5.5;
+	public static final double BOX_RIGHT = 3.9;
 	public static final float MAX_HEALTH = 300.0F;
 	/** Ticks it takes to grow out of the walls, during which it cannot be hurt or hurt anyone. */
 	public static final int GROW_TICKS = 80;
@@ -52,19 +58,23 @@ public class EternityDevilEntity extends MobEntity {
 	public static final float HEART_SHOW = 0.55F;
 	public static final float HEART_HIDE = 0.7F;
 	public static final float HEART_MULT = 3.0F;
-	public static final float HEART_RADIUS = 0.9F;
+	public static final float HEART_RADIUS = 1.1F;
 	/** What the attacks do, and how long each shows before it lands (ticks). */
 	public static final float BITE_DAMAGE = 7.0F;
 	public static final float TENDRIL_DAMAGE = 9.0F;
 	public static final int BITE_WARN = 24;
 	public static final int TENDRIL_WARN = 30;
-	/** Where it stands, in the hotel's own coordinates: the middle of its footprint at the corridor's east end, on the floor. */
-	public static final double LOCAL_X = 34.4;
+	/**
+	 * Where it stands, in the hotel's own coordinates: its back plane is the inner face of the east outer wall (x 37), the great mouth is on the
+	 * corridor's axis (z 6.5), on the floor of floor 8. It comes out of its back plane toward the west, {@link #BULK} blocks at the most.
+	 */
+	public static final double LOCAL_X = 37.0;
 	public static final double LOCAL_Y = 29.0;
 	public static final double LOCAL_Z = 6.5;
-	/** Where its heart is: in the big mouth, just inside the teeth, when the flesh has been cut away enough to show it. */
-	public static final double HEART_X = 32.8;
-	public static final double HEART_Y = 30.3;
+	/** Where its heart is (from the concept's layout): in the great mouth, a block inside the teeth, when the flesh has been cut away enough to show it. */
+	public static final double HEART_X = 33.9;
+	public static final double HEART_Y = 30.5;
+	public static final double HEART_Z = 6.6;
 
 	private static final TrackedData<Boolean> HEART = DataTracker.registerData(EternityDevilEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
 	private static final TrackedData<Float> FACING = DataTracker.registerData(EternityDevilEntity.class, TrackedDataHandlerRegistry.FLOAT);
@@ -124,6 +134,7 @@ public class EternityDevilEntity extends MobEntity {
 		devil.origin = home.origin;
 		devil.rot = home.rot;
 		devil.dataTracker.set(FACING, HotelBuilder.alongYaw(home.rot) + 180.0F);
+		devil.setBoundingBox(devil.calculateBoundingBox());
 		devil.dataTracker.set(BORN, (int) world.getTime());
 		devil.setHealth(Math.min(MAX_HEALTH, Math.max(1.0F, health)));
 		world.spawnEntity(devil);
@@ -163,7 +174,51 @@ public class EternityDevilEntity extends MobEntity {
 
 	/** The heart's place in the world. */
 	public Vec3d heartAt() {
-		return HotelBuilder.world(origin, rot, baseX + (HEART_X - LOCAL_X), HEART_Y, LOCAL_Z);
+		return HotelBuilder.world(origin, rot, baseX + (HEART_X - LOCAL_X), HEART_Y, HEART_Z);
+	}
+
+	/** The hotel-local x of the nearest of its bulk (the teeth). */
+	public double frontX() {
+		return baseX - BULK;
+	}
+
+	/**
+	 * Its hitbox is its whole front, not a footprint round its middle: {@link #BOX_LEFT} to {@link #BOX_RIGHT} blocks across the great mouth's
+	 * axis, {@link #HEIGHT} high, and from its back plane out {@link #BULK} blocks, turned the way it faces.
+	 */
+	@Override
+	protected net.minecraft.util.math.Box calculateBoundingBox() {
+		if (this.dataTracker == null) {
+			return super.calculateBoundingBox();
+		}
+		double yaw = Math.toRadians(this.dataTracker.get(FACING));
+		double c = Math.cos(yaw);
+		double s = Math.sin(yaw);
+		double minX = Double.MAX_VALUE;
+		double maxX = -Double.MAX_VALUE;
+		double minZ = Double.MAX_VALUE;
+		double maxZ = -Double.MAX_VALUE;
+		for (double fx : new double[] {BOX_LEFT, BOX_RIGHT}) {
+			for (double fz : new double[] {0.0, BULK}) {
+				// (the same turn the renderer gives its frame: x across, z toward the players)
+				double wx = fx * c - fz * s;
+				double wz = fx * s + fz * c;
+				minX = Math.min(minX, wx);
+				maxX = Math.max(maxX, wx);
+				minZ = Math.min(minZ, wz);
+				maxZ = Math.max(maxZ, wz);
+			}
+		}
+		Vec3d p = this.getPos();
+		return new net.minecraft.util.math.Box(p.x + minX, p.y, p.z + minZ, p.x + maxX, p.y + HEIGHT, p.z + maxZ);
+	}
+
+	@Override
+	public void onTrackedDataSet(TrackedData<?> data) {
+		super.onTrackedDataSet(data);
+		if (FACING.equals(data)) {
+			this.setBoundingBox(this.calculateBoundingBox());
+		}
 	}
 
 	@Override
@@ -360,10 +415,10 @@ public class EternityDevilEntity extends MobEntity {
 		}
 		ServerPlayerEntity target = targets.get(this.random.nextInt(targets.size()));
 		Vec3d lp = HotelBuilder.local(origin, rot, target.getPos());
-		double z = Math.max(5.3, Math.min(7.7, lp.z));
+		double z = Math.max(1.6, Math.min(11.4, lp.z));
 		// A bite, a tendril, a bite, flesh across the floor, a tendril, a bite, and round again (a tendril needs room to be slammed down).
 		byte kind = ORDER[attackNo++ % ORDER.length];
-		if (kind == HotelPayloads.Devil.TENDRIL && lp.x >= baseX - 4.0) {
+		if (kind == HotelPayloads.Devil.TENDRIL && lp.x >= frontX() - 3.0) {
 			kind = HotelPayloads.Devil.BITE;
 		}
 		if (kind == HotelPayloads.Devil.BITE) {
@@ -400,7 +455,7 @@ public class EternityDevilEntity extends MobEntity {
 			for (ServerPlayerEntity p : players(world, 64.0)) {
 				Vec3d lp = HotelBuilder.local(origin, rot, p.getPos());
 				// Anyone in the lane between the devil and the point where it slams.
-				if (Math.abs(lp.z - a.z()) <= 1.05 && lp.x >= a.x() - 1.6 && lp.x <= baseX - 2.0 && Math.abs(lp.y - LOCAL_Y) <= 2.6) {
+				if (Math.abs(lp.z - a.z()) <= 1.05 && lp.x >= a.x() - 1.6 && lp.x <= frontX() && Math.abs(lp.y - LOCAL_Y) <= 2.6) {
 					p.damage(source, TENDRIL_DAMAGE);
 					Vec3d push = HotelBuilder.world(BlockPos.ORIGIN, rot, -1.1, 0.0, 0.0);
 					p.addVelocity(push.x, 0.35, push.z);
@@ -412,10 +467,10 @@ public class EternityDevilEntity extends MobEntity {
 
 	/** Flesh creeping toward the point: three patches along the floor between the mass and it. */
 	private void creep(ServerWorld world, double x, double z) {
-		double front = baseX - WIDTH / 2.0 - 0.6;
+		double front = frontX() - 0.6;
 		for (int k = 0; k < 3; k++) {
 			double px = Math.max(x - 0.5, front - 1.8 - 2.6 * k) + (this.random.nextDouble() - 0.5);
-			double pz = Math.max(5.4, Math.min(7.6, z + (this.random.nextDouble() - 0.5) * 1.6));
+			double pz = Math.max(1.6, Math.min(11.4, z + (this.random.nextDouble() - 0.5) * 1.6));
 			Vec3d at = HotelBuilder.world(origin, rot, px, LOCAL_Y, pz);
 			FleshPatchEntity patch = new FleshPatchEntity(ChainsawMan.FLESH_PATCH, world);
 			patch.refreshPositionAndAngles(at.x, at.y, at.z, this.random.nextFloat() * 360.0F, 0.0F);
@@ -430,7 +485,7 @@ public class EternityDevilEntity extends MobEntity {
 		List<ServerPlayerEntity> out = new ArrayList<>();
 		for (ServerPlayerEntity p : players(world, 48.0)) {
 			Vec3d lp = HotelBuilder.local(origin, rot, p.getPos());
-			if (lp.y >= 28.0 && lp.y < 33.0 && lp.x > 1.0 && lp.x < baseX - 2.0 && lp.z > 4.0 && lp.z < 9.0 && !p.isCreative() && !p.isSpectator()) {
+			if (lp.y >= 28.0 && lp.y < 33.0 && lp.x > 1.0 && lp.x < frontX() && lp.z > 0.5 && lp.z < 12.5 && !p.isCreative() && !p.isSpectator()) {
 				out.add(p);
 			}
 		}
@@ -488,6 +543,7 @@ public class EternityDevilEntity extends MobEntity {
 		if (this.deathTime >= DEATH_TICKS && !this.getWorld().isClient() && !this.isRemoved()) {
 			if (this.getWorld() instanceof ServerWorld world) {
 				Hotel.dropLoot(world, this);
+				Hotel.mendArena(world, this);
 			}
 			this.getWorld().sendEntityStatus(this, (byte) 60);
 			this.remove(RemovalReason.KILLED);
