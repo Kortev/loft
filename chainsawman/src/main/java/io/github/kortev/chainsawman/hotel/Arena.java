@@ -76,6 +76,24 @@ public final class Arena {
 		return y > Y0 || !(state.getBlock() instanceof net.minecraft.block.CarpetBlock);
 	}
 
+	private static int hash(int x, int y, int z) {
+		return ((x * 73856093) ^ (y * 19349663) ^ (z * 83492791)) & 255;
+	}
+
+	/** Flesh grows on the floor of the rooms (a few blocks), and on the top of most stumps: the devil's own, torn through the hotel. */
+	static boolean fleshFloor(int x, int y, int z) {
+		return y == Y0 && !wallColumn(x, z) && (z < 5 || z > 7) && x >= X0 + 5 && hash(x, y, z) < 34;
+	}
+
+	static boolean fleshStump(int x, int y, int z) {
+		return wallColumn(x, z) && x >= X0 + 5 && stump(x, z) > 0 && y - Y0 == stump(x, z) - 1 && hash(x, y, z) < 170;
+	}
+
+	static BlockState flesh(int x, int y, int z) {
+		int h = hash(x, y, z) % 3;
+		return (h == 0 ? Blocks.RED_TERRACOTTA : h == 1 ? Blocks.NETHER_WART_BLOCK : Blocks.PINK_TERRACOTTA).getDefaultState();
+	}
+
 	/** One torn block: its local place, its state and its block entity data (or null). */
 	record Cell(int x, int y, int z, BlockState state, NbtCompound entity) {
 	}
@@ -96,7 +114,7 @@ public final class Arena {
 				for (int y = Y0; y <= Y1; y++) {
 					BlockPos at = HotelBuilder.world(h.origin, h.rot, x, y, z);
 					BlockState state = world.getBlockState(at);
-					if (state.isAir() || !goes(x, y, z, state)) {
+					if (state.isAir() ? !fleshFloor(x, y, z) : !goes(x, y, z, state) && !fleshStump(x, y, z)) {
 						continue;
 					}
 					BlockEntity be = world.getBlockEntity(at);
@@ -153,6 +171,11 @@ public final class Arena {
 					world.setBlockState(at, c.state().with(net.minecraft.block.RedstoneLampBlock.LIT, false), FLAGS);
 					continue;
 				}
+				if (c.state().isAir() || !goes(c.x(), c.y(), c.z(), c.state())) {
+					// (Not torn: flesh is grown here.)
+					world.setBlockState(at, flesh(c.x(), c.y(), c.z()), FLAGS);
+					continue;
+				}
 				if (world.getBlockEntity(at) != null) {
 					world.removeBlockEntity(at);
 				}
@@ -160,8 +183,12 @@ public final class Arena {
 					world.setBlockState(at, Blocks.AIR.getDefaultState(), FLAGS);
 				}
 				// A burst of the block's own pieces, thickest at the walls and the roof.
+				if (world.random.nextInt(4) == 0) {
+					world.spawnParticles(new BlockStateParticleEffect(ParticleTypes.BLOCK, c.state()), at.getX() + 0.5, at.getY() + 0.5, at.getZ() + 0.5, 3, 0.4, 0.4, 0.4, 0.08);
+				}
 				if (world.random.nextInt(3) == 0) {
-					world.spawnParticles(new BlockStateParticleEffect(ParticleTypes.BLOCK, c.state()), at.getX() + 0.5, at.getY() + 0.5, at.getZ() + 0.5, 4, 0.4, 0.4, 0.4, 0.08);
+					// Plaster dust, thrown off the wall.
+					world.spawnParticles(new net.minecraft.particle.DustParticleEffect(new org.joml.Vector3f(0.78F, 0.72F, 0.58F), 1.6F), at.getX() + 0.5, at.getY() + 0.5, at.getZ() + 0.5, 3, 0.5, 0.5, 0.5, 0.0);
 				}
 			}
 			Vec3d col = HotelBuilder.world(h.origin, h.rot, x + 0.5, Y0 + 2.0, 6.5);

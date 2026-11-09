@@ -413,7 +413,8 @@ public class EternityDevilRenderer extends EntityRenderer<EternityDevilEntity> {
 
 	private static void drawCavity(Ctx c) {
 		int[] m = EternityDevilLayout.MAW;
-		double z1 = fz(EternityDevilLayout.MAW_Z);
+		// (Its walls stop behind the lips' own faces, the shallowest of which is about 52: past that they would stand out in front as a square tube.)
+		double z1 = fz(52.0);
 		double z0 = fz(EternityDevilLayout.MAW_Z - EternityDevilLayout.CAVITY);
 		double x0 = fx(m[0]);
 		double x1 = fx(m[0] + m[2]);
@@ -422,13 +423,12 @@ public class EternityDevilRenderer extends EntityRenderer<EternityDevilEntity> {
 		ForeverGeo.Pen p = c.pen();
 		int[] throat = tile(EternityDevilLayout.T_THROAT);
 		int[] floor = tile(EternityDevilLayout.T_THROAT_FLOOR);
-		int[] gum = tile(EternityDevilLayout.T_GUM);
 		double dz = z1 - z0;
 		// The roof, the floor, the cheeks and the back wall, facing in.
 		face(p, x0, top, z1, x1 - x0, 0, 0, 0, 0, -dz, 0, -1, 0, throat, true);
 		face(p, x0, floorY, z0, x1 - x0, 0, 0, 0, 0, dz, 0, 1, 0, floor, true);
-		face(p, x0, floorY, z0, 0, 0, dz, 0, top - floorY, 0, 1, 0, 0, gum, true);
-		face(p, x1, floorY, z1, 0, 0, -dz, 0, top - floorY, 0, -1, 0, 0, gum, true);
+		face(p, x0, floorY, z0, 0, 0, dz, 0, top - floorY, 0, 1, 0, 0, throat, true);
+		face(p, x1, floorY, z1, 0, 0, -dz, 0, top - floorY, 0, -1, 0, 0, throat, true);
 		face(p, x0, floorY, z0, x1 - x0, 0, 0, 0, top - floorY, 0, 0, 0, 1, throat, true);
 	}
 
