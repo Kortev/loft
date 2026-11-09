@@ -41,10 +41,10 @@ def build_head(seed=9):
     lo, hi = A.head_bounds(F, neck=True)
     lo[1], hi[1] = 0.0, hi[1]
     sp = eye_special()
-    paint = lambda c: K.standard_paint(c, ramp=COOL, base=0.58, vein=0.02, noise_f=2.6, special=sp)
+    paint = A.head_paint(F, COOL, base=0.52, special=sp, vein=0.02)
     head = K.voxelize('head', lo, hi, S16, hf, paint, noise)
     m.add(head, pivot=F.c, kind='static')
-    jaw = K.voxelize('jaw', lo, hi, S16, jf, lambda c: K.standard_paint(c, ramp=COOL, base=0.58, vein=0.02), noise)
+    jaw = K.voxelize('jaw', lo, hi, S16, jf, A.head_paint(F, COOL, base=0.52, vein=0.02), noise)
     m.add(jaw, pivot=A.jaw_pivot(F), anim=dict(kind='hinge', axis=[round(float(v), 3) for v in A.jaw_axis(F)], amp=14.0, base=0.0,
                                                period=100, phase=0.0), kind='jaw',
           note='the hanging jaw, baked wide open (52 degrees); a positive angle closes it. Let it swing a little as the head moves')
@@ -107,8 +107,8 @@ def build_growing(seed=13):
         F = K.Frame(np.array(c), K.facing(tilt, up=(0, 1, 0)), size)
         hf, jf = A.head_parts(F, rng, open_deg=58.0 - 6 * i, gaunt=1.2, eyes='rolled', stretch=st, teeth_n=7)
         lo, hi = A.head_bounds(F, extra=0.35)
-        hg = K.voxelize('face_%d' % i, lo, hi, S16, hf, lambda cx: K.standard_paint(cx, ramp=COOL, base=0.6, vein=0.02, special=sp), noise)
-        jg = K.voxelize('face_%d_jaw' % i, lo, hi, S16, jf, lambda cx: K.standard_paint(cx, ramp=COOL, base=0.6), noise)
+        hg = K.voxelize('face_%d' % i, lo, hi, S16, hf, A.head_paint(F, COOL, base=0.54, special=sp, stretch=st, vein=0.02), noise)
+        jg = K.voxelize('face_%d_jaw' % i, lo, hi, S16, jf, A.head_paint(F, COOL, base=0.54, stretch=st), noise)
         m.add(hg, pivot=F.c, anim=dict(kind='sway', axis=[0, 0, 1], axis2=[0, 1, 0], amp=3.0, period=120, phase=0.3 * i), kind='face')
         m.add(jg, pivot=A.jaw_pivot(F), anim=dict(kind='hinge', axis=[round(float(v), 3) for v in A.jaw_axis(F)], amp=12.0, base=0.0,
                                                    period=90 + 20 * i, phase=0.2 * i), kind='jaw', head=i,

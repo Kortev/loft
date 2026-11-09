@@ -80,6 +80,33 @@ def arm_bounds(pts, margin):
 # Local coordinates: x forward (the face), y up, z across; the head is about 1 tall: crown +0.5, chin -0.5.
 
 HINGE = np.array([-0.06, -0.2, 0.0])
+SOCK_R = 0.105                                              # the eye sockets: deep, round hollows
+SOCK_C = {-1: (0.285, 0.07, -0.125), 1: (0.285, 0.07, 0.125)}
+
+
+def head_paint(F, ramp, base=0.56, special=None, stretch=1.0, vein=0.012):
+    """Paint for a skull head or its jaw (voxelize paint fn). Lit brows and cheekbones, and a dark ring of shadow around each hollow
+    socket (so the eyes are dark and deep, never pale patches round the eyes), a dark nose hollow and temples."""
+    def f(ctx):
+        col, em = K.standard_paint(ctx, ramp=ramp, base=base, vein=vein, special=special)
+        lx, ly, lz = F.to_local(ctx.px, ctx.py, ctx.pz)
+        if stretch != 1.0:
+            ly = ly / stretch
+        az = np.abs(lz)
+        ds = np.sqrt((lx - 0.285) ** 2 + (ly - 0.07) ** 2 + (az - 0.125) ** 2)
+        ring = np.clip((ds - SOCK_R) / 0.085, 0.0, 1.0)             # 0 at the socket rim, 1 well away
+        mult = 0.28 + 0.72 * ring ** 0.8
+        # lit brow ridge and cheekbones
+        brow = (lx > 0.2) & (ly > 0.1) & (ly < 0.2) & (ds > SOCK_R + 0.05)
+        cheek = (np.sqrt((lx - 0.25) ** 2 + (ly + 0.03) ** 2 + (az - 0.19) ** 2) < 0.075) & (ds > SOCK_R + 0.04)
+        lit = np.where(brow | cheek, 1.28, 1.0)
+        # temples and the nose hollow stay in shadow
+        temple = (az > 0.25) & (ly > 0.1) & (lx < 0.2)
+        mult = mult * np.where(temple, 0.8, 1.0) * lit
+        solid_flesh = ctx.is_('flesh') if 'flesh' in ctx.names else np.ones(ctx.px.shape, bool)
+        mult = np.where(solid_flesh, mult, 1.0)
+        return col * mult[..., None], em
+    return f
 
 
 def _arc_teeth(lx, ly, lz, y, n, half_h, w, depth, rng, upper, gap=1.0, breaks=0.25, sx=1.0):
@@ -123,8 +150,8 @@ def head_parts(F, rng, open_deg=34.0, gaunt=1.0, eyes='hollow', neck=False, stre
         d = smin(d, ell(lx, ly, lz, (0.37, -0.06, 0), (0.09, 0.13, 0.04)), 0.04)                   # nose
         sock = []
         for sz in (-1, 1):
-            c = (0.31, 0.07, sz * 0.125)
-            sk = sphere(lx, ly, lz, c, 0.098)
+            c = SOCK_C[sz]
+            sk = sphere(lx, ly, lz, c, SOCK_R)
             sock.append(sk)
             d = smax(d, -sk, 0.015)
         for sz in (-1, 1):
@@ -142,7 +169,7 @@ def head_parts(F, rng, open_deg=34.0, gaunt=1.0, eyes='hollow', neck=False, stre
         inner_m = np.maximum(d, cav - 0.045)
         layers.append(('inner', inner_m * F.s))
         for sk in sock:
-            layers.append(('inner', np.maximum(d, sk - 0.035) * F.s))
+            layers.append(('inner', np.maximum(d, sk - 0.05) * F.s))
         # upper teeth
         ut = _arc_teeth(lx, ly, lz, -0.265, teeth_n, 0.045, 0.021, 0.02, r, True)
         layers.append(('tooth', ut * F.s))
