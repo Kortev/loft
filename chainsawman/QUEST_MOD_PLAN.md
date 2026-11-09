@@ -19,7 +19,7 @@ time, each its own reel.
 - Good: everything fits the show, and a story is easy to tell.
 - Bad: it needs a whole city generator and a new progression. It throws away what Minecraft players come for (building, mining, their own base) and doesn't sit in modpacks. Every reel so far was shot in normal Minecraft biomes.
 
-**Survival with the Chainsaw Man world in it (recommended):** normal Minecraft stays (mine, build, survive the night). The show's world lives inside it:
+**Survival with the Chainsaw Man world in it (decided, kortev and Opus, 2026-11-08):** normal Minecraft stays (mine, build, survive the night). The show's world lives inside it:
 - devils are born from people's fears and roam like mobs;
 - Public Safety has outposts;
 - devils have lairs (the hotel);
@@ -43,7 +43,14 @@ Everyone starts as a plain human. What you become is decided by what you find an
 | **Plain human** | anyone | Hunter weapons, missions, teamwork | None; weakest alone |
 
 - **Chainsaw Man:** Pochita's den is placed once per world (already built). Once someone merges, there is no other Chainsaw Man.
-- **The heart can change hands (new, a game rule, on by default).** In the show everyone wants Chainsaw Man's heart (Reze is sent for it). A downed Chainsaw Man can have his heart **torn out by another player**: hold use on him for 5 s while he's down, like the revive in reverse. The heart passes to them, and they become Chainsaw Man; the old one is human again. Mobs never do this. It's a big SMP hook: hunt Chainsaw Man, defend him, betray him.
+- **Hybrids are one kind of power in the world, not "the character"** (kortev, 2026-11-08). Chainsaw Man is the rarest
+  thing you can find; most players will be contract hunters.
+- **The heart can't be stolen by default** (Opus's suggestion after kortev asked what it would mean for the hybrid
+  player: losing hours of progress to one bad fight would feel awful). Instead the heart goes back into the world, and
+  a new Pochita den appears somewhere far off, when:
+  - the hybrid chooses to give it up (to take contracts instead); or
+  - on a server, the hybrid hasn't logged in for a set number of days (a game rule, off by default).
+  For PvP servers that want the drama, a game rule `heartTheft` (off by default) lets a downed hybrid's heart be torn out by another player (hold use for 5 s, the revive in reverse); then the old hybrid is human and can take contracts straight away.
 - **Bomb and Katana, later:** each comes from its own quest line's end, one per world. The heart rule applies to them too.
 - **Hybrid or contracts, never both** (kept). Taking a hybrid heart ends your contracts; a hybrid is refused by every devil.
 
@@ -59,13 +66,16 @@ Everyone starts as a plain human. What you become is decided by what you find an
 - **Sometimes a small fee per use**, on top.
 
 Examples (each devil picks one; all to be tuned with kortev):
-- **Eternity:** *it takes your rest.* You can never sleep through the night again: beds don't work for you, and you don't count toward the server's sleep. Phantoms find you. You can see the nights getting longer for you (darker evenings). The fee per use stays small: 1 XP level, not 3.
+- **Eternity:** *it takes your rest.* You can never sleep through the night again: beds don't work for you, and you don't count toward the server's sleep. Phantoms find you. You can see the nights getting longer for you (darker evenings). kortev likes it (2026-11-08).
+  **Each use: time catches up with you.** The moment you froze is taken from you: after the release your hunger drops by
+  3 (a drumstick and a half) and the world stays grey round you for a second. That replaces the 3 XP levels. It stops
+  you from spamming it (with the cooldown), and it's the devil's idea, not a number.
 - **Ghost (an eye):** one side of your screen is dark for good, even after the contract ends.
 - **Fox (it bites back):** each use costs a bite of hunger and a heart for a minute; it refuses to come out in the dark.
 - **Curse (years of your life):** a lifespan clock. Each use takes a day off it, and at zero you die and the contract ends. It's shown on the contract screen. The heaviest price for the biggest hit.
 - **Rules:** no max-heart prices (kortev). The price is always shown plainly on the contract screen before you accept.
 
-**How many contracts?** In the show hunters hold several (Aki has three). Proposal: up to **3**, and every price stacks, so the stacked prices are the real limit. Any number of players can hold the same devil's contract (`oneContractPerDevil` stays as a server option).
+**How many contracts? Up to 3, and every price stacks** (kortev agreed, 2026-11-08). In the show hunters hold several (Aki has three). The stacked prices are the real limit. Any number of players can hold the same devil's contract (`oneContractPerDevil` stays as a server option).
 
 ## 4. Public Safety: the quest hub
 
@@ -107,20 +117,33 @@ Examples (each devil picks one; all to be tuned with kortev):
 - Floors 1-7 rot step by step. The wallpaper peels and stains, and the wrongness gets stronger: the same room twice, a painting that follows, a door breathing, the phone ringing.
 - **The missing squad's bodies and notes** tell the story as you climb: day 1 "we can't find the way down", day 3 "Yamada stopped talking". These are our own characters.
 
-**Floor 8: the loop, and the devil's demand.**
-- The corridor loops (built, seamless).
-- In the loop, **hunger drains faster and food goes bad** (rotten flesh). Being trapped forever is the threat: the show's squad starved and turned on each other.
-- After a few laps the devil speaks, and it *demands*: **"Give me one of you and the rest can leave."** If a Chainsaw Man is in the group: **"Give me Chainsaw Man."** Alone: "Stay. Stay forever."
-- **The group decides:**
-  - **Hand someone over:** walk them into the flesh, or everyone agrees on the screen. The one given is swallowed and the rest are freed. The swallowed player is **inside the devil** (its stomach: the show's scene, fine for the boss fight). They fight their way out from inside while the others can come back in from outside. Nobody is left to die for free.
-  - **Refuse and fight together:** the walls bleed and it comes through them.
+**Floor 8: the loop. The devil doesn't bargain: it wants to keep you forever.**
+kortev (2026-11-08): nobody would ever hand over a friend, and with respawning it would only be annoying (drop
+your items, die, walk back). So there is no demand. A devil that has you trapped has no reason to deal: it just
+keeps you, and it feeds on the fear of being stuck forever. The quest is getting out.
+- **The trap:** the corridor loops (built, seamless). In the loop, **hunger drains faster and food goes bad**
+  (rotten flesh). Nothing kills you quickly; forever does it slowly.
+- **The squad (the mission's goal):** two or three of the missing hunters are still alive in the loop. They're our
+  own characters, NPCs, starving, sitting against the walls. Feed one and they get up and follow you, and they fight
+  with you later (katanas). One of them has gone mad with fear and attacks you: knock him down, or feed him to calm
+  him. Getting them out is what Public Safety pays for.
+- **Finding the devil:** it hides inside the walls. Each lap the flesh grows thicker toward where it is: an eye opens
+  in the wallpaper, a wall breathes. Read the signs, then cut into that wall (any weapon), and it tears out
+  through the wall: the fight. There's no timer; your hunger and the squad's are the clock.
+- **Dying in there:** you respawn at your bed as usual. The hotel keeps the others looped, and walking back in takes
+  you back into the loop with them.
 - **The fight:** a real boss. Each player has a job:
   - contract hunters use their powers;
   - Chainsaw Man saws and drinks its blood;
-  - plain hunters cut its eyes and mouths with katanas.
+  - plain hunters and the rescued squad cut its eyes and mouths with katanas.
   Its heart shows when enough flesh is cut away. It regenerates if you stop; it's eternity.
-- **When it's beaten it begs** (that's the leverage): "Let me live, and I'll give you forever." Each player who wants it can take the contract and pay its price (they "spare" it; it goes away for `devilRespawnDays`). Or anyone can finish it: loot, the loop breaks, and Public Safety pays the mission. My suggestion when the group disagrees: whoever takes the deal gets it first (a few seconds to answer), then anyone can still finish the devil for loot, so nobody's choice is taken away. **Open question for kortev.**
-- **The mission reward:** yen, rank, and the squad's last note.
+- **When it's beaten, it begs** (now you have the leverage): "Let me live, and I'll give you forever." Each player
+  has a few seconds to take the contract (each pays their own price).
+  - **If anyone takes it,** the devil is spared and pays for its life by tearing off part of itself: everyone still
+    gets its flesh and blood, then it sinks into the walls and is gone for `devilRespawnDays`.
+  - **If nobody takes it,** it dies: loot.
+  Either way the loop breaks and nobody's choice costs anyone else anything (Opus's answer to question 5).
+- **The mission reward:** yen and rank for each rescued hunter, and the squad's last note.
 
 **The devil itself (what looked worst): a real model, not a pile of lumps.**
 - Build it the way Chitty was built: a Blender model made by a Python script, baked into a game mesh and texture.
@@ -139,17 +162,17 @@ Examples (each devil picks one; all to be tuned with kortev):
 
 1. **The plan, agreed with kortev** (this file).
 2. **Contracts done right:** the beaten-devil bargain, the lasting prices and Eternity's new price. Up to 3 contracts. Reel: "Would you take this deal?"
-3. **The heart rule:** tearing out Chainsaw Man's heart. Reel: "Your friend can steal your Chainsaw Man heart."
+3. **The heart goes back to the world:** giving it up, the new den, the `heartTheft` option for PvP servers.
 4. **Public Safety:** the outpost, the officer, the notice board, yen and ranks, the katana and suit. Reel: "I added Public Safety to Minecraft."
 5. **Common devils:** Zombie and Bat first, then the fear-strength rule. Each devil is a reel.
 6. **The Eternity Devil's look:** storyboard, renders, kortev's yes, then the model.
-7. **The hotel quest line rebuilt:** textures, the squad's story, the demand, swallowed and inside, the group fight, the beg. The biggest reel.
+7. **The hotel quest line rebuilt:** textures, the squad's notes and survivors, finding the devil in the walls, the group fight, the beg. The biggest reel.
 8. Then the Fox, the Ghost and the Curse, each with a quest line; Bomb and Katana as hybrid quest lines; Power as a companion.
 
-## Questions for kortev
+## Decided (kortev, 2026-11-08)
 
-1. Survival with the Chainsaw Man world in it (recommended), or a pure Chainsaw Man world?
-2. Can Chainsaw Man's heart be torn out by another player (a server option, on by default)?
-3. Up to 3 contracts with stacking prices, or one at a time?
-4. Eternity's price: "you can never sleep through the night again". Good, or something else?
-5. When a group disagrees at the end (deal or kill), which wins?
+1. Survival with the Chainsaw Man world in it.
+2. Hybrids are one rare kind of power, one per world each. Proposed, needs kortev's OK: the heart can't be stolen by default; it goes back to the world when given up or after long absence; `heartTheft` is a PvP server option.
+3. Up to 3 contracts, prices stack.
+4. Eternity: never sleep through the night again. Proposed, needs kortev's OK: each use, time catches up with you (hunger down 3, the grey lingers a second) instead of 3 XP levels.
+5. The hotel has no demand. Proposed, needs kortev's OK: rescue the squad, find the devil in the walls, fight; when it begs, anyone can take the deal and everyone still gets the loot.
