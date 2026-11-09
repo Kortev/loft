@@ -291,7 +291,8 @@ public class HotelSelfTest implements ClientModInitializer {
 		server.getGameRules().get(GameRules.DO_MOB_GRIEFING).set(false, server);
 		server.getGameRules().get(GameRules.DO_TILE_DROPS).set(false, server);
 		server.setDifficulty(Difficulty.NORMAL, true);
-		world.setTimeOfDay(14500);
+		// (A full-moon night: day 0, the moon rising in the east, in the frame.)
+		world.setTimeOfDay("devil".equals(target()) || "devilclip".equals(target()) ? 14500 : 14500);
 		world.setWeather(12000, 0, false, false);
 		BlockPos near = SITE;
 		if (near == null) {
@@ -1277,6 +1278,9 @@ public class HotelSelfTest implements ClientModInitializer {
 		}
 		if ("devil".equals(target())) {
 			client.options.hudHidden = true;
+			client.options.getCloudRenderMode().setValue(net.minecraft.client.option.CloudRenderMode.OFF);
+			// (No attack drawn across the stills, but in the fight ones.)
+			io.github.kortev.chainsawman.client.EternityDevilRenderer.calm = lookIndex < 0 || !LOOKS.get(lookIndex).name().startsWith("e");
 		}
 		if (lookIndex < 0) {
 			lookIndex = 0;
@@ -1302,6 +1306,7 @@ public class HotelSelfTest implements ClientModInitializer {
 				if (e instanceof EternityDevilEntity d) {
 					ShootingStar.LOGGER.info("[selftest] devil at {}: health {} heartOut {} age {} dead {}", current.name(), d.getHealth(), d.heartOut(), d.age, d.isDead());
 					Capture.Pose cp = Capture.camera.apply(0.0);
+					ShootingStar.LOGGER.info("[selftest] sky: time of day {} moon phase {} rain {}", client.world.getTimeOfDay(), client.world.getMoonPhase(), client.world.getRainGradient(1.0F));
 					BlockPos cb = BlockPos.ofFloored(cp.x(), cp.y(), cp.z());
 					ShootingStar.LOGGER.info("[selftest] devil look {}: you at local {}, camera {} block {} sky {} block-light {} fog {}", current.name(), HotelBuilder.local(origin, ROT, client.player.getPos()), cp, client.world.getBlockState(cb),
 							client.world.getLightLevel(net.minecraft.world.LightType.SKY, cb), client.world.getLightLevel(net.minecraft.world.LightType.BLOCK, cb), io.github.kortev.chainsawman.client.ClientHotel.fogAmount(0.0F));

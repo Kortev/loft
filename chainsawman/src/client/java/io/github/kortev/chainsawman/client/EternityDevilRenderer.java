@@ -42,6 +42,10 @@ public class EternityDevilRenderer extends EntityRenderer<EternityDevilEntity> {
 	/** Always this bright (the texture is already lit). */
 	private static final int BRIGHT = LightmapTextureManager.pack(15, 15);
 	private static final double TEXEL = 1.0 / 16.0;
+	/** How much of full the painted texture is shown at (the concept's own picture was drawn at 0.85). */
+	private static final float GAIN = 0.85F;
+	/** For the stills: no attacks drawn (a tendril at rest across the frame). */
+	public static boolean calm;
 
 	private static final Map<Integer, float[]> STATE = new HashMap<>();
 
@@ -140,6 +144,30 @@ public class EternityDevilRenderer extends EntityRenderer<EternityDevilEntity> {
 		}
 	}
 
+	private static int[] strip(float[] b, int at) {
+		return new int[] {(int) b[at], (int) b[at + 1], (int) b[at + 2], (int) b[at + 3]};
+	}
+
+	/** A lobe box: its front, and sides cut from its own front's edges (shaded, with its alpha), stretched back along the depth. */
+	private static void lobeBox(ForeverGeo.Pen p, double x0, double x1, double y0, double y1, double zb, double zf, int[] front, float[] b, int mask) {
+		front(p, x0, x1, y0, y1, zf, front);
+		double dz = zf - zb;
+		double dy = y1 - y0;
+		double dx = x1 - x0;
+		if ((mask & 1) != 0) {
+			face(p, x0, y0, zb, 0, 0, dz, 0, dy, 0, -1, 0, 0, strip(b, 17), false);
+		}
+		if ((mask & 2) != 0) {
+			face(p, x1, y0, zf, 0, 0, -dz, 0, dy, 0, 1, 0, 0, strip(b, 21), false);
+		}
+		if ((mask & 4) != 0) {
+			face(p, x0, y1, zf, dx, 0, 0, 0, 0, -dz, 0, 1, 0, strip(b, 9), false);
+		}
+		if ((mask & 8) != 0) {
+			face(p, x0, y0, zb, dx, 0, 0, 0, 0, dz, 0, -1, 0, strip(b, 13), false);
+		}
+	}
+
 	private static int[] tile(int i) {
 		return EternityDevilLayout.TILE[i];
 	}
@@ -162,7 +190,7 @@ public class EternityDevilRenderer extends EntityRenderer<EternityDevilEntity> {
 		Vec3d nearest;
 
 		ForeverGeo.Pen pen() {
-			return new ForeverGeo.Pen(vc, matrices.peek(), BRIGHT);
+			return new ForeverGeo.Pen(vc, matrices.peek(), BRIGHT).tint(GAIN, GAIN, GAIN, 1.0F);
 		}
 	}
 
@@ -222,7 +250,9 @@ public class EternityDevilRenderer extends EntityRenderer<EternityDevilEntity> {
 			drawSinew(c, s);
 		}
 		for (ClientHotel.Event e : events) {
-			attack(devil, e, c);
+			if (!calm) {
+				attack(devil, e, c);
+			}
 		}
 		matrices.pop();
 	}
@@ -271,7 +301,7 @@ public class EternityDevilRenderer extends EntityRenderer<EternityDevilEntity> {
 				int[] o = EternityDevilLayout.MAW;
 				mask = (b[1] <= o[0] ? 1 : 0) | (b[2] >= o[0] + o[2] ? 2 : 0) | (b[3] <= o[1] ? 4 : 0) | (b[4] >= o[1] + o[3] ? 8 : 0);
 			}
-			box(pen, fx(b[1]), fx(b[2]), fy(b[4]) - drop, fy(b[3]) - drop, fz(b[5]), fz(b[6]), uv, side, mask);
+			lobeBox(pen, fx(b[1]), fx(b[2]), fy(b[4]) - drop, fy(b[3]) - drop, fz(b[5]), fz(b[6]), uv, b, mask);
 		}
 		for (float[] s : EternityDevilLayout.SMALL_MOUTHS) {
 			if ((int) s[0] == lobe) {
@@ -404,7 +434,7 @@ public class EternityDevilRenderer extends EntityRenderer<EternityDevilEntity> {
 
 	private static void drawTeeth(Ctx c) {
 		ForeverGeo.Pen p = c.pen();
-		int[] side = tile(EternityDevilLayout.T_TOOTH_SIDE);
+		int[] throat = {EternityDevilLayout.TILE[EternityDevilLayout.T_THROAT][0] + 4, EternityDevilLayout.TILE[EternityDevilLayout.T_THROAT][1] + 4, 2, 2};
 		int n = 0;
 		for (float[] t : EternityDevilLayout.TEETH) {
 			boolean upper = t[0] > 0.5F;
@@ -414,8 +444,8 @@ public class EternityDevilRenderer extends EntityRenderer<EternityDevilEntity> {
 			int rw = (int) t[4];
 			int rh = (int) t[5];
 			int[] uv = {(int) t[6], (int) t[7], (int) t[8], (int) t[9]};
-			// Each stands 2 to 4 texels proud of the lip, set into the cavity behind.
-			double proud = 2.0 + (n * 7 % 3);
+			// Each stands 1 or 2 texels proud of the lip, set into the cavity behind.
+			double proud = 1.0 + (n * 7 % 2);
 			double zf = EternityDevilLayout.MAW_Z + proud;
 			double dy = 0.0;
 			double dz = 0.0;
@@ -425,7 +455,21 @@ public class EternityDevilRenderer extends EntityRenderer<EternityDevilEntity> {
 				dz = c.open * (proud + 16.0);
 			}
 			double drop = upper ? 0.0 : c.jaw;
-			box(p, fx(rx), fx(rx + rw), fy(ry + rh) - drop * TEXEL + dy * TEXEL, fy(ry) - drop * TEXEL + dy * TEXEL, fz(zf - 8.0 - dz), fz(zf - dz), uv, side);
+			double x0 = fx(rx);
+			double x1 = fx(rx + rw);
+			double y0 = fy(ry + rh) - drop * TEXEL + dy * TEXEL;
+			double y1 = fy(ry) - drop * TEXEL + dy * TEXEL;
+			double zb = fz(zf - 8.0 - dz);
+			double zt = fz(zf - dz);
+			front(p, x0, x1, y0, y1, zt, uv);
+			// The sides are the tooth's own right edge (its cream shade); the faces toward the gum are dark; a lower tooth's crown is lit.
+			int[] edge = {uv[0] + uv[2] - 1, uv[1], 1, uv[3]};
+			int[] crown = {uv[0], uv[1], uv[2], 1};
+			double dzz = zt - zb;
+			face(p, x0, y0, zb, 0, 0, dzz, 0, y1 - y0, 0, -1, 0, 0, edge, false);
+			face(p, x1, y0, zt, 0, 0, -dzz, 0, y1 - y0, 0, 1, 0, 0, edge, false);
+			face(p, x0, y1, zt, x1 - x0, 0, 0, 0, 0, -dzz, 0, 1, 0, upper ? throat : crown, false);
+			face(p, x0, y0, zb, x1 - x0, 0, 0, 0, 0, dzz, 0, -1, 0, throat, false);
 			n++;
 		}
 	}

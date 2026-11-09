@@ -64,7 +64,7 @@ def main():
     boxes = []
     for b in d["boxes"]:
         jaw = 1 if b["lobe"] == "maw" and b["v0"] >= jaw_v else 0
-        boxes.append([LOBES.index(b["lobe"]), b["u0"], b["u1"], b["v0"], b["v1"], b["z_back"], b["z_front"], SIDES.index(b["side"]), jaw])
+        boxes.append([LOBES.index(b["lobe"]), b["u0"], b["u1"], b["v0"], b["v1"], b["z_back"], b["z_front"], SIDES.index(b["side"]), jaw] + b["uv_top"] + b["uv_bottom"] + b["uv_left"] + b["uv_right"])
 
     eyes = []
     for e in d["eyes"]:
@@ -142,7 +142,7 @@ def main():
     out.append("\tstatic final int T_TOOTH_SIDE = 7;")
     out.append("\tstatic final int T_SCLERA_SIDE = 8;")
     out.append("")
-    out.append("\t/** The lobe boxes: {lobe, u0, u1, v0, v1, zBack, zFront, side tile, jaw (1: the lower lip, which drops)}. */")
+    out.append("\t/** The lobe boxes: {lobe, u0, u1, v0, v1, zBack, zFront, side tile, jaw (1: the lower lip, which drops), then the top, bottom, left and right edge strips {x, y, w, h} each}. */")
     out.append(rows("BOXES", boxes))
     out.append("")
     out.append("\t/** The eyes: {lobe, rx, ry, rw, rh, surfaceZ, restGazeX, restGazeY, irisD, sclera x y w h, iris x y w h, lid x y w h}. */")
