@@ -2,8 +2,8 @@
  "note": "The core, a figure 8. Made by tools/eternity_devil_3d.py (eternity_3d_core.py).",
  "frame": "X toward the players (front), Y up, Z across; origin at the centre of the figure 8",
  "mesh": "eternity_core_mesh.bin",
- "quads": 10531,
- "voxels": 35342,
+ "quads": 12170,
+ "voxels": 45901,
  "parts": [
   {
    "name": "body",
@@ -15,9 +15,9 @@
    ],
    "anim": null,
    "voxel": 0.03125,
-   "voxels": 24444,
+   "voxels": 22976,
    "kind": "static",
-   "quads": 6595
+   "quads": 6524
   },
   {
    "name": "eye_L",
@@ -44,7 +44,7 @@
     "phase": 0.3
    },
    "voxel": 0.01562,
-   "voxels": 4940,
+   "voxels": 10921,
    "kind": "eye",
    "note": "the eyeball: the iris looks along gaze at rest (a little down, +X mostly); roll it by rotating about the pivot",
    "gaze": [
@@ -52,7 +52,7 @@
     -0.2,
     0.0
    ],
-   "quads": 1383
+   "quads": 2188
   },
   {
    "name": "eye_R",
@@ -79,7 +79,7 @@
     "phase": 0.0
    },
    "voxel": 0.01562,
-   "voxels": 4928,
+   "voxels": 10899,
    "kind": "eye",
    "note": "the eyeball: the iris looks along gaze at rest (a little down, +X mostly); roll it by rotating about the pivot",
    "gaze": [
@@ -87,7 +87,7 @@
     -0.2,
     0.0
    ],
-   "quads": 1376
+   "quads": 2192
   },
   {
    "name": "lid_L",
@@ -110,10 +110,10 @@
     "phase": 0.4
    },
    "voxel": 0.03125,
-   "voxels": 197,
+   "voxels": 260,
    "kind": "lid",
    "note": "the heavy upper lid: rotate about +Z by a NEGATIVE angle to close it (about -62 degrees shuts it)",
-   "quads": 310
+   "quads": 370
   },
   {
    "name": "lid_R",
@@ -136,10 +136,10 @@
     "phase": 0.0
    },
    "voxel": 0.03125,
-   "voxels": 177,
+   "voxels": 237,
    "kind": "lid",
    "note": "the heavy upper lid: rotate about +Z by a NEGATIVE angle to close it (about -62 degrees shuts it)",
-   "quads": 302
+   "quads": 375
   },
   {
    "name": "tear_L",
@@ -196,7 +196,7 @@
    "index": 7,
    "pivot": [
     0.251,
-    -0.31,
+    -0.33,
     -0.36
    ],
    "anim": {
@@ -212,17 +212,17 @@
     "phase": 0.0
    },
    "voxel": 0.03125,
-   "voxels": 154,
+   "voxels": 135,
    "kind": "mouth",
    "note": "slack lower lip with its teeth: rotate about +Z by a NEGATIVE angle to open (sobbing)",
-   "quads": 154
+   "quads": 135
   },
   {
    "name": "mouth_1",
    "index": 8,
    "pivot": [
     0.235,
-    -0.31,
+    -0.33,
     0.36
    ],
    "anim": {
@@ -238,17 +238,17 @@
     "phase": 0.2
    },
    "voxel": 0.03125,
-   "voxels": 155,
+   "voxels": 145,
    "kind": "mouth",
    "note": "slack lower lip with its teeth: rotate about +Z by a NEGATIVE angle to open (sobbing)",
-   "quads": 153
+   "quads": 146
   },
   {
    "name": "mouth_2",
    "index": 9,
    "pivot": [
     0.115,
-    0.118,
+    0.11,
     0.0
    ],
    "anim": {
@@ -264,17 +264,17 @@
     "phase": 0.4
    },
    "voxel": 0.03125,
-   "voxels": 164,
+   "voxels": 152,
    "kind": "mouth",
    "note": "slack lower lip with its teeth: rotate about +Z by a NEGATIVE angle to open (sobbing)",
-   "quads": 99
+   "quads": 73
   },
   {
    "name": "mouth_3",
    "index": 10,
    "pivot": [
     0.179,
-    -0.132,
+    -0.14,
     0.0
    ],
    "anim": {
@@ -290,10 +290,10 @@
     "phase": 0.6000000000000001
    },
    "voxel": 0.03125,
-   "voxels": 141,
+   "voxels": 134,
    "kind": "mouth",
    "note": "slack lower lip with its teeth: rotate about +Z by a NEGATIVE angle to open (sobbing)",
-   "quads": 107
+   "quads": 115
   }
  ],
  "posUnit": 64

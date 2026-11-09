@@ -18,16 +18,16 @@ from eternity_3d_kit import ell, sphere, box, caps, polyline, smin, smax, S32, S
 
 COOL = K.FLESH_COOL
 LOBE_Z = 0.36
-EYE_R = 0.165
+EYE_R = 0.215
 GAZE = np.array([0.98, -0.2, 0.0])      # the iris looks a little down: pitiful, not startled
 GAZE = GAZE / np.linalg.norm(GAZE)
 EYES = {'L': np.array([0.27, 0.17, -LOBE_Z]), 'R': np.array([0.27, 0.17, LOBE_Z])}
 # mouths: centre (the x is snapped to the surface in build), half width, half height at the middle, corner droop
 MOUTHS = [
-    dict(c=np.array([0.0, -0.21, -LOBE_Z]), hw=0.235, hh=0.13, sag=0.2),
-    dict(c=np.array([0.0, -0.21, LOBE_Z]), hw=0.235, hh=0.13, sag=0.2),
-    dict(c=np.array([0.0, 0.15, 0.0]), hw=0.115, hh=0.062, sag=0.1),       # the two at the waist
-    dict(c=np.array([0.0, -0.1, 0.0]), hw=0.115, hh=0.062, sag=0.1),
+    dict(c=np.array([0.0, -0.21, -LOBE_Z]), hw=0.3, hh=0.15, sag=0.22),
+    dict(c=np.array([0.0, -0.21, LOBE_Z]), hw=0.3, hh=0.15, sag=0.22),
+    dict(c=np.array([0.0, 0.15, 0.0]), hw=0.14, hh=0.07, sag=0.1),       # the two at the waist
+    dict(c=np.array([0.0, -0.1, 0.0]), hw=0.14, hh=0.07, sag=0.1),
 ]
 
 
@@ -98,9 +98,9 @@ def upper_teeth(M, top, rr):
     for i in range(n):
         z = M['c'][2] - M['hw'] * 0.84 + (i + 0.5) * (M['hw'] * 1.68 / n) + rr.uniform(-0.008, 0.008)
         u = rr.random()
-        if u < 0.2:
+        if u < 0.1:
             continue                                  # a missing tooth
-        L = rr.uniform(0.05, 0.12) if u > 0.4 else rr.uniform(0.018, 0.04)      # the short ones are snapped
+        L = rr.uniform(0.06, 0.13) if u > 0.35 else rr.uniform(0.02, 0.045)      # the short ones are snapped
         out.append((z, rr.uniform(0.014, 0.03), L, rr.uniform(0.018, 0.026)))
     return out
 
@@ -111,7 +111,7 @@ def lower_teeth(M, bot, rr):
     for i in range(n):
         z = M['c'][2] - M['hw'] * 0.78 + (i + 0.5) * (M['hw'] * 1.56 / n) + rr.uniform(-0.012, 0.012)
         u = rr.random()
-        if u < 0.32:
+        if u < 0.22:
             continue
         L = rr.uniform(0.035, 0.09) if u > 0.5 else rr.uniform(0.015, 0.03)
         out.append((z, rr.uniform(0.014, 0.028), L, rr.uniform(0.018, 0.026)))
@@ -137,16 +137,25 @@ def body_fn(noise, small_eyes, mouths):
             layers.append(('inner', np.maximum(d, cav - 0.03)))
             for (z, hw, L, th) in ut:
                 ty = float(top(np.array(z)))
-                layers.append(('tooth_old', box(px, py, pz, (M['c'][0] - 0.01, ty + 0.02 - (L + 0.02) * 0.5, z), (th, (L + 0.02) * 0.5, hw))))
+                layers.append(('tooth_bone', box(px, py, pz, (M['c'][0] - 0.01, ty + 0.02 - (L + 0.02) * 0.5, z), (th, (L + 0.02) * 0.5, hw))))
         for c in small_eyes:
             layers.append(('redeye', sphere(px, py, pz, (c[0] - 0.02, c[1], c[2]), 0.035)))
         return layers
     return fn
 
 
+BONE = [K.hx(c) for c in ('#6e6244', '#9c8e62', '#c2b484', '#d9cc9c', '#e8dfb4')]       # dull bone-yellow, never brown
+
+
+def _bone(ctx, mask):
+    n = ctx.noise(ctx.px * 2, ctx.py * 2, ctx.pz * 2, 5.0)
+    t = 0.72 - ctx.ao * 0.6 + (n - 0.5) * 0.5
+    return K.pick(BONE, t, n), 0.0
+
+
 def body_paint(streaks):
     def f(ctx):
-        col, em = K.standard_paint(ctx, ramp=COOL, base=0.46, vein=0.018, noise_f=3.5)
+        col, em = K.standard_paint(ctx, ramp=COOL, base=0.46, vein=0.018, noise_f=3.5, special={'tooth_bone': _bone})
         # the swollen bags under the eyes and the heavy brows: darker, bruised grey
         for k, E in EYES.items():
             dz = ctx.pz - E[2]
@@ -183,10 +192,10 @@ def eye_fn(E):
         phi = np.arctan2(lx * side[0] + ly * side[1] + lz * side[2], lx * up[0] + ly * up[1] + lz * up[2])
         n = ctx.noise(ctx.px * 3, ctx.py * 3, ctx.pz * 3, 6.0)
         # sclera: a cream-grey white, yellowed and pinkish toward the corners, darker where the lids shade it
-        t = 0.74 - 0.18 * (n - 0.5) - 0.22 * np.clip((ang - 0.9) / 0.9, 0, 1) - 0.25 * ctx.ao
+        t = 0.92 - 0.14 * (n - 0.5) - 0.16 * np.clip((ang - 1.1) / 0.9, 0, 1) - 0.18 * ctx.ao
         col = K.pick(K.SCLERA, t, n, 0.25)
         haze = np.clip((ang - 1.0) / 0.6, 0, 1)
-        col = col + haze[..., None] * np.array([28.0, -10.0, -10.0])
+        col = col + haze[..., None] * np.array([14.0, -6.0, -6.0])
         # thin red veins creeping in from the rim, radial
         s = 2.4
         rid = np.abs(ctx.noise(np.cos(phi) * s + 5, np.sin(phi) * s, ang * 1.2, 1.0) - 0.5)
@@ -204,8 +213,9 @@ def eye_fn(E):
         gs = (lx * side[0] + ly * side[1] + lz * side[2])
         g1 = (ang > 0.15) & (ang < 0.27) & (gu > 0.0) & (gs * np.sign(E[2]) > 0.0)
         g1 &= gu > 0.9 * np.abs(gs)
-        col = np.where(g1[..., None], np.array([255.0, 252.0, 246.0]), col)
-        return col, np.where(g1, 0.55, 0.0)
+        col = np.where(g1[..., None], np.array([255.0, 253.0, 250.0]), col)
+        em = np.where(ir, 0.0, 0.3)
+        return col, np.where(g1, 0.9, em)
     return fn, paint
 
 
@@ -213,7 +223,7 @@ def lid_edge(lz, o):
     """Height (above the eye centre) of the upper lid's lower edge: low in the middle (the top third of the eyeball is covered), the
     outer corner drooping more than the inner one (a sad eye)."""
     t = lz / EYE_R
-    return np.clip(0.028 + 0.04 * t * t - 0.06 * (o / EYE_R), 0.0, 0.2)
+    return np.clip(0.075 + 0.04 * t * t - 0.07 * (o / EYE_R), 0.0, 0.3)
 
 
 def lid_fn(E, sgn):
@@ -252,7 +262,7 @@ def mouth_jaw_fn(M, top, bot, lt, raw):
         layers = [('flesh', d)]
         for (z, hw, L, th) in lt:
             yb = float(bot(np.array(z)))
-            layers.append(('tooth_old', box(px, py, pz, (M['c'][0] - 0.01, yb + 0.012 + L * 0.5, z), (th, L * 0.5, hw))))
+            layers.append(('tooth_bone', box(px, py, pz, (M['c'][0] - 0.01, yb + 0.012 + L * 0.5, z), (th, L * 0.5, hw))))
         return layers
     return fn
 
@@ -294,14 +304,14 @@ def build(seed=5):
     m.add(body, pivot=(0, 0, 0), kind='static')
     for k, E in EYES.items():
         fn, paint = eye_fn(E)
-        g = K.voxelize('eye_' + k, E - 0.2, E + 0.2, S64, fn, paint, noise, keep_specks=True)
+        g = K.voxelize('eye_' + k, E - 0.27, E + 0.27, S64, fn, paint, noise, keep_specks=True)
         m.add(g, pivot=E, anim=dict(kind='roll', axis=[0, 1, 0], axis2=[0, 0, 1], amp=12.0, period=140, phase=0.3 if k == 'L' else 0.0),
               kind='eye', note='the eyeball: the iris looks along gaze at rest (a little down, +X mostly); roll it by rotating about the pivot',
               gaze=[round(float(v), 4) for v in GAZE])
     for k, E in EYES.items():
         sgn = -1 if k == 'L' else 1
         fn, paint = lid_fn(E, sgn)
-        g = K.voxelize('lid_' + k, E - 0.28, E + 0.28, S32, fn, paint, noise, keep_specks=True)
+        g = K.voxelize('lid_' + k, E - 0.34, E + 0.34, S32, fn, paint, noise, keep_specks=True)
         m.add(g, pivot=E, anim=dict(kind='blink', axis=[0, 0, 1], base=0.0, amp=-62.0, period=110, phase=0.4 if k == 'L' else 0.0),
               kind='lid', note='the heavy upper lid: rotate about +Z by a NEGATIVE angle to close it (about -62 degrees shuts it)')
     for k, E in EYES.items():
@@ -324,7 +334,7 @@ def build(seed=5):
         lo = np.array([c[0] - 0.22, ybot - 0.22, zmid - M['hw'] - 0.06])
         hi = np.array([c[0] + 0.14, ybot + 0.22, zmid + M['hw'] + 0.06])
         g = K.voxelize('mouth_%d' % i, lo, hi, S32, mouth_jaw_fn(M, top, bot, lt, raw),
-                       lambda c_: K.standard_paint(c_, ramp=COOL, base=0.42), noise, keep_specks=True)
+                       lambda c_: K.standard_paint(c_, ramp=COOL, base=0.42, special={'tooth_bone': _bone}), noise, keep_specks=True)
         m.add(g, pivot=hinge, anim=dict(kind='hinge', axis=[0, 0, 1], base=0.0, amp=-26.0, period=int(70 + 15 * i), phase=0.2 * i), kind='mouth',
               note='slack lower lip with its teeth: rotate about +Z by a NEGATIVE angle to open (sobbing)')
     return m
