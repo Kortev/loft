@@ -50,6 +50,20 @@ public record FormEventPayload(UUID player, byte kind, int value, double x, doub
 	 * they let go (the cord slides back in), -1 when they yank it (the cord snaps back, the limbs grow, the form comes).
 	 */
 	public static final byte REVIVE = 16;
+	/** A human gone down ({@code Fallen}): {@code value} ticks they have left (0: up, or dead), {@code x y z} where they lie. */
+	public static final byte FALLEN = 17;
+	/**
+	 * A friend lifting a fallen human, or tearing a hybrid's heart out ({@code Hearts}): {@code player} the one on the ground, {@code value}
+	 * the helper's entity id as they take hold, 0 when they let go, -1 when it is done; {@code x} how many ticks it takes, {@code y} 0 for a
+	 * pick-up, 1 for the heart.
+	 */
+	public static final byte LIFT = 18;
+	/** Your buddy ({@code player} their id, {@code value} 1), or none (0): to you alone. */
+	public static final byte BUDDY = 19;
+	/** Your buddy is down, to you alone: {@code x y z} where they lie, {@code value} the ticks they have left (-1 if they are a hybrid). Resent while they are. */
+	public static final byte BUDDY_DOWN = 20;
+	/** The legend ({@code player}, Chainsaw Man) pulled the cord at {@code x y z}: a marker for {@code value} ticks. */
+	public static final byte LEGEND = 21;
 
 	public static final CustomPayload.Id<FormEventPayload> ID = new CustomPayload.Id<>(ChainsawMan.id("form_event"));
 	public static final PacketCodec<RegistryByteBuf, FormEventPayload> CODEC = PacketCodec.tuple(Uuids.PACKET_CODEC, FormEventPayload::player,

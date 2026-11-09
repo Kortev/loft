@@ -104,6 +104,7 @@ public final class ChainsawMan implements ModInitializer {
 		Registry.register(Registries.STRUCTURE_TYPE, id("eternity_hotel"), io.github.kortev.chainsawman.hotel.HotelStructure.TYPE);
 		Registry.register(Registries.STRUCTURE_PIECE, id("eternity_hotel"), io.github.kortev.chainsawman.hotel.HotelStructure.PIECE);
 		io.github.kortev.chainsawman.hotel.HotelRules.init();
+		io.github.kortev.chainsawman.form.TeamRules.init();
 		io.github.kortev.chainsawman.hotel.Hotel.init();
 		ItemGroupEvents.modifyEntriesEvent(ItemGroups.COMBAT).register(entries -> entries.add(POCHITA));
 		ItemGroupEvents.modifyEntriesEvent(ItemGroups.SPAWN_EGGS).register(entries -> entries.add(POCHITA_SPAWN_EGG));
@@ -142,6 +143,15 @@ public final class ChainsawMan implements ModInitializer {
 		ServerPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.HotelPayloads.Answer.ID,
 				(payload, context) -> io.github.kortev.chainsawman.hotel.Hotel.answer(context.player(), payload.accept()));
 		PayloadTypeRegistry.playC2S().register(PullCordPayload.ID, PullCordPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(io.github.kortev.chainsawman.network.TeamActionPayload.ID, io.github.kortev.chainsawman.network.TeamActionPayload.CODEC);
+		ServerPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.TeamActionPayload.ID, (payload, context) -> {
+			switch (payload.action()) {
+				case io.github.kortev.chainsawman.network.TeamActionPayload.GIVE_UP -> io.github.kortev.chainsawman.form.Fallen.giveUp(context.player());
+				case io.github.kortev.chainsawman.network.TeamActionPayload.STRUGGLE -> io.github.kortev.chainsawman.form.Hearts.struggle(context.player());
+				default -> {
+				}
+			}
+		});
 		PayloadTypeRegistry.playC2S().register(FormActionPayload.ID, FormActionPayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(PullCordPayload.ID, (payload, context) -> Form.pullCord(context.player()));
 		ServerPlayNetworking.registerGlobalReceiver(FormActionPayload.ID, (payload, context) -> {

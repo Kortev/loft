@@ -63,6 +63,10 @@ public final class Form {
 			TURNING.clear();
 			Saw.clear();
 			Downed.clear();
+			Fallen.clear();
+			Buddies.clear();
+			Hearts.clear();
+			Legend.clear();
 			Grapple.clear();
 			Frenzy.clear();
 			Limbs.clear();
@@ -74,6 +78,10 @@ public final class Form {
 		// What the form does once it is on: the saws, the blood, never dying, the chain, the frenzy.
 		Saw.init();
 		Downed.init();
+		Fallen.init();
+		Buddies.init();
+		Hearts.init();
+		Legend.init();
 		Limbs.init();
 		Merge.init();
 		Heart.init();
@@ -83,6 +91,7 @@ public final class Form {
 			Merge.tick(server);
 			Saw.tick(server);
 			Downed.tick(server);
+			Fallen.tick(server);
 			Grapple.tick(server);
 			Frenzy.tick(server);
 		});
@@ -172,6 +181,8 @@ public final class Form {
 			play(player, ChainsawSounds.CORD, 1.0F);
 			play(player, ChainsawSounds.START, 1.4F);
 			broadcast(player.server, new FormPullPayload(id));
+			// The legend: everyone else in the dimension hears it and is shown where.
+			Legend.roar(player);
 		}
 	}
 

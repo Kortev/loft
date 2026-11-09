@@ -9,6 +9,7 @@
 		"CutInTwoMixin",
 		"DownedBodyMixin",
 		"DreamHearingMixin",
+		"FallenPoseMixin",
 		"DreamEntitiesMixin",
 		"DreamFogMixin",
 		"DreamSkyMixin",

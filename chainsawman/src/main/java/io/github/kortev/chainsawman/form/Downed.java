@@ -68,6 +68,8 @@ public final class Downed {
 	private static final Identifier STILL = ChainsawMan.id("downed_still");
 
 	private static final Set<UUID> DOWN = ConcurrentHashMap.newKeySet();
+	/** Who dealt the blow that put each of them down (when it was a player): the one who may tear the heart out ({@link Hearts}). */
+	private static final Map<UUID, UUID> BY = new ConcurrentHashMap<>();
 
 	/** Someone giving you blood: who, how far they have got (ticks), and when they last held use on you. */
 	private record Feed(UUID by, int done, long last) {
@@ -95,7 +97,7 @@ public final class Downed {
 				return false;
 			}
 			if (entity instanceof ServerPlayerEntity player && !lethal(source) && (Heart.has(player) || is(player))) {
-				down(player);
+				down(player, source);
 				return false;
 			}
 			return true;
@@ -111,7 +113,10 @@ public final class Downed {
 				return ActionResult.FAIL;
 			}
 			if (!world.isClient && entity instanceof ServerPlayerEntity down && is(down) && player.isSneaking() && hand == Hand.MAIN_HAND) {
-				feeding((ServerPlayerEntity) player, down);
+				// (Whoever downed a hybrid, with the heartTheft rule on, is tearing the heart out, not pulling the cord.)
+				if (!Hearts.theftHold((ServerPlayerEntity) player, down)) {
+					feeding((ServerPlayerEntity) player, down);
+				}
 				return ActionResult.SUCCESS;
 			}
 			return ActionResult.PASS;
@@ -144,8 +149,9 @@ public final class Downed {
 	}
 
 	/** Clears every trace of being down from {@code player}: after dying, and on respawning. */
-	private static void reset(ServerPlayerEntity player) {
+	static void reset(ServerPlayerEntity player) {
 		boolean was = DOWN.remove(player.getUuid());
+		BY.remove(player.getUuid());
 		if (FED.remove(player.getUuid()) != null) {
 			slack(player);
 		}
@@ -162,11 +168,33 @@ public final class Downed {
 		return source.isOf(DamageTypes.OUT_OF_WORLD) || source.isOf(DamageTypes.GENERIC_KILL);
 	}
 
+	/** Who dealt the blow that put {@code down} down, if a player did (and they are still down). */
+	@org.jetbrains.annotations.Nullable
+	public static UUID downedBy(ServerPlayerEntity down) {
+		return BY.get(down.getUuid());
+	}
+
+	/** Out of being down without getting up: the heart is gone from them ({@link Hearts}), the limbs whole. */
+	static void release(ServerPlayerEntity player) {
+		reset(player);
+		Limbs.whole(player);
+	}
+
 	/** Down: what would have killed {@code player} has not. */
 	public static void down(ServerPlayerEntity player) {
+		down(player, null);
+	}
+
+	/** Down, from the blow of {@code source}. */
+	public static void down(ServerPlayerEntity player, @org.jetbrains.annotations.Nullable DamageSource source) {
 		player.setHealth(1.0F);
 		if (!DOWN.add(player.getUuid())) {
 			return;
+		}
+		if (source != null && source.getAttacker() instanceof ServerPlayerEntity by && by != player) {
+			BY.put(player.getUuid(), by.getUuid());
+		} else {
+			BY.remove(player.getUuid());
 		}
 		player.setAttached(LEFT, ALONE);
 		Form.end(player);
@@ -190,6 +218,7 @@ public final class Downed {
 		if (!DOWN.remove(player.getUuid())) {
 			return;
 		}
+		BY.remove(player.getUuid());
 		if (FED.remove(player.getUuid()) != null) {
 			slack(player);
 		}
@@ -383,6 +412,7 @@ public final class Downed {
 
 	static void clear() {
 		DOWN.clear();
+		BY.clear();
 		FED.clear();
 		RISING.clear();
 	}

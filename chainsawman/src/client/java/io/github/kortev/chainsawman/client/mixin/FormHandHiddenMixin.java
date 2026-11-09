@@ -20,7 +20,7 @@ public abstract class FormHandHiddenMixin {
 	@Inject(method = "renderHand", at = @At("HEAD"), cancellable = true)
 	private void chainsawman$noHand(Camera camera, float tickDelta, Matrix4f matrix, CallbackInfo ci) {
 		MinecraftClient client = MinecraftClient.getInstance();
-		if (FormCinematic.filming(tickDelta) || client.player != null && Downed.is(client.player)) {
+		if (FormCinematic.filming(tickDelta) || client.player != null && (Downed.is(client.player) || io.github.kortev.chainsawman.form.Fallen.is(client.player))) {
 			ci.cancel();
 		}
 	}

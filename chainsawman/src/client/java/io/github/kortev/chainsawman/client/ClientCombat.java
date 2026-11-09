@@ -347,6 +347,8 @@ public final class ClientCombat {
 				}
 			}
 			case FormEventPayload.REVIVE -> ReviveCord.event(world, id, event.value(), now);
+			case FormEventPayload.FALLEN, FormEventPayload.LIFT, FormEventPayload.BUDDY, FormEventPayload.BUDDY_DOWN, FormEventPayload.LEGEND ->
+					ClientTeams.event(world, event, now);
 			case FormEventPayload.FRENZY -> {
 				if (event.value() > 0) {
 					FRENZY.put(id, now + event.value());
@@ -507,6 +509,11 @@ public final class ClientCombat {
 		if (Downed.is(self)) {
 			return 0.85F;
 		}
+		if (io.github.kortev.chainsawman.form.Fallen.is(self)) {
+			// A human on the ground: the edges red, closing in as the time runs out.
+			float left = ClientTeams.left(self, tickDelta);
+			return left < 0.0F ? 0.0F : 0.4F + 0.35F * (1.0F - Math.min(1.0F, left / io.github.kortev.chainsawman.form.Fallen.TIMER));
+		}
 		Long from = FRENZY_FROM.get(self.getUuid());
 		if (!frenzy(self) || from == null) {
 			return 0.0F;
@@ -545,7 +552,7 @@ public final class ClientCombat {
 			return client.crosshairTarget != null && client.crosshairTarget.getType() == HitResult.Type.BLOCK;
 		}
 		if (self == null || !fighting(self)) {
-			return self == null || !Downed.is(self);
+			return self == null || !(Downed.is(self) || io.github.kortev.chainsawman.form.Fallen.is(self));
 		}
 		long now = self.getWorld().getTime();
 		if (self.getVehicle() instanceof io.github.kortev.chainsawman.BeamEntity) {
@@ -707,6 +714,15 @@ public final class ClientCombat {
 		}
 		if (Downed.is(self) || MergeCinematic.merging(self)) {
 			holdStill(client.options);
+		} else if (io.github.kortev.chainsawman.form.Fallen.is(self)) {
+			// A human on the ground can crawl, but not fight, use anything or get up.
+			for (KeyBinding key : new KeyBinding[] {client.options.attackKey, client.options.useKey, client.options.pickItemKey, client.options.swapHandsKey,
+					client.options.jumpKey}) {
+				key.setPressed(false);
+				while (key.wasPressed()) {
+					// Swallowed.
+				}
+			}
 		}
 		MergeCinematic.tick(world);
 		CutDown.tick(world);

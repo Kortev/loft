@@ -45,6 +45,8 @@ public final class ChainsawManClient implements ClientModInitializer {
 	public static KeyBinding USE_CONTRACT;
 	/** Switch to the next contract you hold (up to three). */
 	public static KeyBinding SWITCH_CONTRACT;
+	/** Hold, when you are down, to give up and die at once. */
+	public static KeyBinding GIVE_UP;
 
 	@Override
 	public void onInitializeClient() {
@@ -60,7 +62,10 @@ public final class ChainsawManClient implements ClientModInitializer {
 				"key.categories.chainsawman"));
 		SWITCH_CONTRACT = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.chainsawman.switch_contract", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_O,
 				"key.categories.chainsawman"));
+		GIVE_UP = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.chainsawman.give_up", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_X,
+				"key.categories.chainsawman"));
 		ClientCombat.init();
+		ClientTeams.init();
 		// /chainsawhead boxes|mesh: the two heads to choose between, here on this client.
 		net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(
 				net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal("chainsawhead")
@@ -139,6 +144,7 @@ public final class ChainsawManClient implements ClientModInitializer {
 			ClientForever.clear();
 			BeamClient.clear();
 			ClientHotel.clear();
+			ClientTeams.clear();
 		});
 		CoreShaderRegistrationCallback.EVENT.register(context -> context.register(ChainsawMan.id("csm_impact"), VertexFormats.BLIT_SCREEN,
 				program -> FormHud.impact = program));
@@ -150,6 +156,7 @@ public final class ChainsawManClient implements ClientModInitializer {
 		HudRenderCallback.EVENT.register(LensBlood::render);
 		HudRenderCallback.EVENT.register(Sfx::render);
 		HudRenderCallback.EVENT.register(DreamHud::render);
+		HudRenderCallback.EVENT.register(TeamsHud::render);
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
 			while (PULL_CORD.wasPressed()) {
 				pullCord(client);
@@ -173,6 +180,7 @@ public final class ChainsawManClient implements ClientModInitializer {
 			ClientForever.tick(client);
 			ClientHotel.tick();
 			ForeverHud.tick(client);
+			ClientTeams.tick(client);
 		});
 	}
 
