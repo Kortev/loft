@@ -1,29 +1,33 @@
 package io.github.kortev.chainsawman.client;
 
 import io.github.kortev.chainsawman.hotel.ShaftHeadEntity;
-import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.EntityRenderer;
 import net.minecraft.client.render.entity.EntityRendererFactory;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.client.world.ClientWorld;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.RotationAxis;
-import net.minecraft.util.math.Vec3d;
+import org.joml.Matrix4f;
+import org.joml.Vector3f;
 
 /**
- * A head lunging out of the Eternity Devil's mass ({@link ShaftHeadEntity}), a placeholder: a neck of two lumps, a head lump with a mouth
- * that opens as it comes up and snaps shut at the bite, and back down. Its own class, to be replaced by the devil's final look.
+ * A head lunging out of the Eternity Devil's mass ({@link ShaftHeadEntity}): the lone severed head of the stages mesh ({@code eternity_head_*},
+ * a gaunt head with its jaw baked wide open and ragged neck cords) rising out of the floor turned toward the nearest player, jaw hanging open
+ * as it comes up and snapping shut at the bite, then sinking back.
  */
 public class ShaftHeadRenderer extends EntityRenderer<ShaftHeadEntity> {
+	/** The head mesh's jaw is baked open this many degrees; a positive angle closes it. */
+	static final float JAW_OPEN = 52.0F;
+
 	public ShaftHeadRenderer(EntityRendererFactory.Context context) {
 		super(context);
 	}
 
 	@Override
 	public Identifier getTexture(ShaftHeadEntity entity) {
-		return ForeverHubRenderer.FLESH;
+		return Identifier.of("chainsawman", "textures/entity/eternity_devil.png");
 	}
 
 	@Override
@@ -48,26 +52,34 @@ public class ShaftHeadRenderer extends EntityRenderer<ShaftHeadEntity> {
 		if (h <= 0.03F) {
 			return;
 		}
-		int lit = ForeverGeo.lit(light, 11, 8);
-		int seed = head.getId() * 17;
-		matrices.push();
-		matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(head.getYaw()));
-		ForeverGeo.Pen pen = new ForeverGeo.Pen(provider.getBuffer(RenderLayer.getEntityCutoutNoCull(ForeverHubRenderer.FLESH)), matrices.peek(), lit);
-		ForeverGeo.blob(pen, 0.0, -0.3, 0.0, 0.6, 0.9 * h + 0.3, 0.6, 6, 10, 1.2, seed, 0.2, 2.0F, 1.0F);
-		ForeverGeo.blob(pen, 0.0, 0.5 * h, 0.1 * h, 0.5, 0.7 * h, 0.5, 6, 10, 1.2, seed + 3, 0.2, 2.0F, 1.0F);
-		// The head: leaning out, a lump with the mouth on its front.
-		double hy = 1.1 * h;
-		ForeverGeo.blob(pen, 0.0, hy, 0.35 * h, 0.7, 0.62, 0.72, 7, 12, 1.3, seed + 9, 0.25, 2.0F, 1.0F);
+		// Turned toward the nearest player.
+		PlayerEntity near = world.getClosestPlayer(head, 16.0);
+		float theta = 0.0F;
+		if (near != null) {
+			theta = (float) Math.atan2(-(near.getZ() - head.getZ()), near.getX() - head.getX());
+		}
 		float gape = t < ShaftHeadEntity.BITE_AT - 3 ? 0.9F * ease(t / (ShaftHeadEntity.BITE_AT - 3.0F))
 				: t < ShaftHeadEntity.BITE_AT ? 0.9F : 0.9F * (1.0F - ease((t - ShaftHeadEntity.BITE_AT) / 3.0F));
-		ForeverLayout.Mouth m = new ForeverLayout.Mouth();
-		m.width = 0.9;
-		m.seed = seed;
-		matrices.push();
-		matrices.translate(0.0, hy + 0.05, 0.35 * h + 0.55);
-		matrices.multiply(ForeverHubRenderer.frame(new Vec3d(0.0, 0.15, 1.0)));
-		ForeverHubRenderer.mouth(new ForeverGeo.Pen(provider.getBuffer(RenderLayer.getEntityCutoutNoCull(ForeverHubRenderer.MOUTH)), matrices.peek(), lit), m, gape * h, 1.0F);
-		matrices.pop();
-		matrices.pop();
+		float closed = JAW_OPEN * (1.0F - gape / 0.9F);
+		Matrix4f model = new Matrix4f(matrices.peek().getPositionMatrix()).translate(0.0F, -2.1F * (1.0F - h), 0.0F).rotateY(theta).scale(0.95F);
+		FleshMesh.Look look = new FleshMesh.Look().light(light, 0.7F, 1.15F);
+		look.rim = 0.45F;
+		look.hurt = head.struck() ? 0.5F : 0.0F;
+		look.glowAt = new Vector3f(0.0F, -1.5F, 0.0F);
+		look.glowRange = 3.0F;
+		look.glowR = 0.35F;
+		look.glowG = 0.05F;
+		look.glowB = 0.02F;
+		FleshMesh.get("head").draw(model, world.getTime() + delta, look, jawHook(closed));
+	}
+
+	/** A hook that sets the head mesh's jaw to {@code closed} degrees (0 wide open, 52 shut). */
+	static FleshMesh.Hook jawHook(float closed) {
+		return (p, m, base) -> {
+			if (p.kind.equals("jaw")) {
+				m.set(base).translate(p.pivot).rotate((float) Math.toRadians(closed), p.anim.axis).translate(-p.pivot.x, -p.pivot.y, -p.pivot.z);
+			}
+			return true;
+		};
 	}
 }

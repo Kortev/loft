@@ -20,6 +20,7 @@ import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.RotationAxis;
 import net.minecraft.util.math.Vec3d;
+import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
@@ -179,6 +180,7 @@ public class EternityDevilRenderer extends EntityRenderer<EternityDevilEntity> {
 		VertexConsumer vc;
 		float now;
 		float grown;
+		float gape;
 		float death;
 		boolean dead;
 		float cut;
@@ -230,6 +232,7 @@ public class EternityDevilRenderer extends EntityRenderer<EternityDevilEntity> {
 				}
 			}
 		}
+		c.gape = gape;
 		c.open = state[0];
 		c.hit = MathHelper.clamp(1.0F - (c.now - state[1]) / 8.0F, 0.0F, 1.0F);
 		c.cut = 1.0F - frac;
@@ -239,24 +242,9 @@ public class EternityDevilRenderer extends EntityRenderer<EternityDevilEntity> {
 
 		matrices.push();
 		matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-devil.facing()));
-		// (Collapsing: it sags toward the floor.)
-		matrices.scale(1.0F, 1.0F - 0.55F * c.death, 1.0F);
-		// The ones watching, in this frame.
-		Vec3d at = devil.getLerpedPos(delta);
-		for (PlayerEntity p : world.getPlayers()) {
-			if (p.isSpectator() || !p.isAlive()) {
-				continue;
-			}
-			Vec3d rel = p.getCameraPosVec(delta).subtract(at);
-			Vector3f v = new Vector3f((float) rel.x, (float) rel.y, (float) rel.z).rotateY((float) Math.toRadians(devil.facing()));
-			c.watchers.add(new Vec3d(v.x, v.y, v.z));
-		}
-		for (int lobe = 0; lobe < EternityDevilLayout.LOBE.length; lobe++) {
-			drawLobe(c, lobe);
-		}
-		for (float[] s : EternityDevilLayout.SINEWS) {
-			drawSinew(c, s);
-		}
+		// The ones watching, in this frame (the attacks' tendrils are drawn in it).
+		Matrix4f frame = new Matrix4f(matrices.peek().getPositionMatrix());
+		drawBody(devil, c, frame, light);
 		for (ClientHotel.Event e : events) {
 			if (!calm) {
 				attack(devil, e, c);
@@ -265,321 +253,70 @@ public class EternityDevilRenderer extends EntityRenderer<EternityDevilEntity> {
 		matrices.pop();
 	}
 
-	// ---- A lobe: its boxes, and what is on it.
+	// ---- The body: the baked meshes.
 
-	/** How far a lobe has come out (0 to 1): they grow out of the wall one after another. */
-	private static float grow(Ctx c, int lobe) {
-		return ease(c.grown * 1.6F - 0.12F * lobe);
+	/** The mesh frame (X out from the wall, Y up, Z across) to the devil's (z out, x across): a quarter turn about Y. */
+	private static Matrix4f meshFrame(Matrix4f devilFrame) {
+		return new Matrix4f(devilFrame).rotateY(-(float) Math.PI / 2.0F);
 	}
 
-	private static void drawLobe(Ctx c, int lobe) {
-		float g = grow(c, lobe);
-		if (g <= 0.01F) {
-			return;
-		}
-		float phase = lobe * 1.9F + 0.7F;
-		double sx = (c.dead ? 0.0 : 0.05) * MathHelper.sin(c.now * 0.031F + phase);
-		double sy = (c.dead ? 0.0 : 0.035) * MathHelper.sin(c.now * 0.023F + phase * 1.7F);
-		MatrixStack m = c.matrices;
-		m.push();
-		m.translate(sx, sy, 0.0);
-		m.scale(1.0F, 1.0F, g);
-		boolean maw = lobe == EternityDevilLayout.MAW_LOBE;
-		if (maw) {
-			// It breathes: the whole great mouth swells a little about its middle.
-			double cx = fx(EternityDevilLayout.MAW[0] + EternityDevilLayout.MAW[2] / 2.0);
-			double cy = fy(EternityDevilLayout.MAW[1] + EternityDevilLayout.MAW[3] / 2.0);
-			m.translate(cx, cy, 2.0);
-			m.scale(c.breath, c.breath, 1.0F);
-			m.translate(-cx, -cy, -2.0);
-		}
-		ForeverGeo.Pen pen = c.pen();
-		int[] layer = {EternityDevilLayout.LAYER_X[lobe], EternityDevilLayout.LAYER_Y[lobe]};
-		int[] side;
-		for (float[] b : EternityDevilLayout.BOXES) {
-			if ((int) b[0] != lobe) {
-				continue;
-			}
-			side = tile((int) b[7]);
-			double drop = b[8] > 0.5F ? c.jaw * TEXEL : 0.0;
-			int[] uv = {layer[0] + (int) b[1], layer[1] + (int) b[3], (int) (b[2] - b[1]), (int) (b[4] - b[3])};
-			// (In the great mouth's opening the boxes' sides would be walls across the throat: only the outer ones are drawn.)
-			int mask = 15;
-			if (maw) {
-				int[] o = EternityDevilLayout.MAW;
-				mask = (b[1] <= o[0] ? 1 : 0) | (b[2] >= o[0] + o[2] ? 2 : 0) | (b[3] <= o[1] ? 4 : 0) | (b[4] >= o[1] + o[3] ? 8 : 0);
-			}
-			// Each front is a quarter texel larger every way, so neighbours at different depths overlap and no crack shows the dark behind.
-			double e = TEXEL * 0.25;
-			// The lower lobes take the warm light of the lamps below.
-			float warm = MathHelper.clamp((float) ((2.6 - fy(b[4])) / 2.6), 0.0F, 1.0F);
-			pen.tint(GAIN * (1.0F + 0.13F * warm), GAIN * (1.0F - 0.03F * warm), GAIN * (1.0F - 0.3F * warm), 1.0F);
-			lobeBox(pen, fx(b[1]) - e, fx(b[2]) + e, fy(b[4]) - drop - e, fy(b[3]) - drop + e, fz(b[5]), fz(b[6]), uv, b, mask);
-		}
-		for (float[] s : EternityDevilLayout.SMALL_MOUTHS) {
-			if ((int) s[0] == lobe) {
-				drawSmallMouth(c, s, layer, lobe);
-			}
-		}
-		int n = 0;
-		for (float[] e : EternityDevilLayout.EYES) {
-			if ((int) e[0] == lobe) {
-				drawEye(c, e, n);
-			}
-			n++;
-		}
-		if (maw) {
-			drawCavity(c);
-			if (c.open > 0.02F && !c.dead) {
-				drawHeart(c);
-			}
-			drawTeeth(c);
-		}
-		m.pop();
+	private static FleshMesh.Look look(int light, float hurt) {
+		FleshMesh.Look l = new FleshMesh.Look().light(light, 0.7F, 1.15F);
+		l.rim = 0.45F;
+		l.hurt = hurt;
+		return l;
 	}
 
-	// ---- Eyes.
-
-	private static void drawEye(Ctx c, float[] e, int index) {
-		int rx = (int) e[1];
-		int ry = (int) e[2];
-		int rw = (int) e[3];
-		int rh = (int) e[4];
-		double zs = e[5];
-		int irisD = (int) e[8];
-		int[] sclera = {(int) e[9], (int) e[10], (int) e[11], (int) e[12]};
-		int[] iris = {(int) e[13], (int) e[14], (int) e[15], (int) e[16]};
-		int[] lid = {(int) e[17], (int) e[18], (int) e[19], (int) e[20]};
-		// Where it looks: at the nearest of those watching, as far as the almond lets the iris go.
-		double gx = e[6];
-		double gy = e[7];
-		double cx = rx + rw / 2.0;
-		double cy = ry + rh / 2.0;
-		Vec3d eye = new Vec3d(fx(cx), fy(cy), fz(zs));
-		Vec3d best = null;
-		double bestD = 60.0 * 60.0;
-		for (Vec3d w : c.watchers) {
-			double d = w.squaredDistanceTo(eye);
-			if (d < bestD) {
-				bestD = d;
-				best = w;
-			}
+	/**
+	 * What shows of it as it tears out of the wall: the lone head first (it comes out of the wall and hangs open-mouthed), then the growing mass
+	 * swelling round it with its melted faces and long-fingered hands, then the great avatar of fused arms, skulls, grin and slits pushing out
+	 * of the wall, the mass sinking into it. Then the avatar alone, breathing, its jaw working and its skulls swaying.
+	 */
+	private void drawBody(EternityDevilEntity devil, Ctx c, Matrix4f frame, int light) {
+		float g = c.grown;
+		float tt = c.now;
+		// The lone head: out of the wall in the first quarter, gone as the mass swells.
+		float headIn = ease(g / 0.12F);
+		float headOut = 1.0F - ease((g - 0.22F) / 0.12F);
+		if (headIn > 0.01F && headOut > 0.01F && !c.dead) {
+			Matrix4f m = new Matrix4f(frame).translate(0.0F, -2.0F * (1.0F - headIn), 1.2F).rotateY(-(float) Math.PI / 2.0F).scale(headOut);
+			FleshMesh.get("head").draw(m, tt, look(light, 0.0F), ShaftHeadRenderer.jawHook(0.0F));
 		}
-		if (best != null) {
-			Vec3d dir = best.subtract(eye);
-			double len = Math.max(0.5, dir.length());
-			gx = MathHelper.clamp(dir.x / len * 3.2, -1.0, 1.0);
-			gy = MathHelper.clamp(dir.y / len * 3.2, -1.0, 1.0);
+		// The growing mass: swells from about 0.2 to 0.6, sinks into the avatar by 0.9.
+		float mass = ease((g - 0.2F) / 0.3F) * (1.0F - ease((g - 0.6F) / 0.3F));
+		if (mass > 0.01F && !c.dead) {
+			Matrix4f m = new Matrix4f(frame).translate(0.0F, 0.0F, 1.0F + 0.6F * mass).rotateY(-(float) Math.PI / 2.0F).scale(mass);
+			FleshMesh.get("growing").draw(m, tt, look(light, 0.0F), null);
 		}
-		double maxX = Math.max(0.0, rw / 2.0 - irisD / 2.0);
-		double maxY = Math.max(0.0, rh / 2.0 - iris[3] / 2.0);
-		// (Whole texels: a pixel iris moves by pixels.)
-		double ox = Math.round(gx * maxX);
-		double oy = Math.round(-gy * maxY);
-		// Each blinks at its own time, now and then: closing, shut, opening.
-		float period = 110.0F + (index * 37) % 90;
-		float t = (c.now + index * 53.0F) % period;
-		float blink = t < 3.0F ? t / 3.0F : (t < 5.0F ? 1.0F : (t < 9.0F ? 1.0F - (t - 5.0F) / 4.0F : 0.0F));
-		if (c.dead) {
-			blink = 1.0F;
-		}
-		ForeverGeo.Pen pen = c.pen();
-		double x0 = fx(rx);
-		double x1 = fx(rx + rw);
-		double y1 = fy(ry);
-		double y0 = fy(ry + rh);
-		if (rw < 6) {
-			// A small eye is drawn bigger and a hair proud of the flesh (its white a rim round the hole), so it reads at 8 blocks.
-			double k = 6.0 / rw;
-			double hw = rw * k / 2.0;
-			double hh = Math.max(2.0, rh * k / 2.0);
-			double zz = fz(zs + 0.3);
-			front(pen, fx(cx - hw), fx(cx + hw), fy(cy + hh), fy(cy - hh), zz, sclera);
-			double iw = iris[2] * k / 2.0;
-			double ih = iris[3] * k / 2.0;
-			front(pen, fx(cx + ox * k - iw), fx(cx + ox * k + iw), fy(cy + oy * k + ih), fy(cy + oy * k - ih), zz + TEXEL * 0.1, iris);
-			if (blink > 0.02F) {
-				int[] part = {lid[0], lid[1], lid[2], Math.max(1, Math.min(lid[3], (int) Math.ceil(lid[3] * blink)))};
-				front(pen, fx(cx - hw), fx(cx + hw), fy(cy + hh - 2.0 * hh * blink), fy(cy - hh), zz + TEXEL * 0.2, part);
-			}
-			return;
-		}
-		// The white sits a texel behind the face, so the hole in the lobe's layer frames it.
-		box(pen, x0, x1, y0, y1, fz(zs - 3.0), fz(zs - 1.0), sclera, tile(EternityDevilLayout.T_SCLERA_SIDE));
-		double ix0 = fx(cx + ox - iris[2] / 2.0);
-		double ix1 = fx(cx + ox + iris[2] / 2.0);
-		double iy1 = fy(cy + oy - iris[3] / 2.0);
-		double iy0 = fy(cy + oy + iris[3] / 2.0);
-		front(pen, ix0, ix1, iy0, iy1, fz(zs - 0.9), iris);
-		if (blink > 0.02F) {
-			// The lid comes down from the top of the white: the top part of its sprite, as far as the blink has gone.
-			int shown = Math.max(1, Math.min(lid[3], (int) Math.ceil(lid[3] * blink)));
-			int[] part = {lid[0], lid[1], lid[2], shown};
-			double lh = Math.min(rh + 1.0, Math.round(lid[3] * blink));
-			front(pen, x0, x1, fy(ry + lh), y1, fz(zs - 0.5), part);
-		}
-	}
-
-	// ---- Small mouths, twitching.
-
-	private static void drawSmallMouth(Ctx c, float[] s, int[] layer, int lobe) {
-		int rx = (int) s[1];
-		int ry = (int) s[2];
-		int rw = (int) s[3];
-		int rh = (int) s[4];
-		double zs = s[5];
-		float k = lobe * 3.1F + rx * 0.37F;
-		float tw = MathHelper.sin(c.now * 0.19F + k);
-		tw = tw > 0.82F ? (tw - 0.82F) / 0.18F : 0.0F;
-		float tx = MathHelper.sin(c.now * 0.11F + k * 2.0F);
-		double ox = Math.round(tx * 0.6) * TEXEL * (tw > 0 ? 1 : 0);
-		double oy = -tw * TEXEL;
-		int[] uv = {layer[0] + rx, layer[1] + ry, rw, rh};
-		front(c.pen(), fx(rx) + ox, fx(rx + rw) + ox, fy(ry + rh) + oy, fy(ry) + oy, fz(zs + 0.1), uv);
-	}
-
-	// ---- The great mouth.
-
-	private static void drawCavity(Ctx c) {
-		int[] m = EternityDevilLayout.MAW;
-		// (Its walls stop behind the lips' own faces, the shallowest of which is about 52: past that they would stand out in front as a square tube.)
-		double z1 = fz(52.0);
-		double z0 = fz(EternityDevilLayout.MAW_Z - EternityDevilLayout.CAVITY);
-		double x0 = fx(m[0]);
-		double x1 = fx(m[0] + m[2]);
-		double top = fy(m[1]);
-		double floorY = fy(m[1] + m[3]) - c.jaw * TEXEL;
-		ForeverGeo.Pen p = c.pen();
-		int[] throat = tile(EternityDevilLayout.T_THROAT);
-		int[] floor = tile(EternityDevilLayout.T_THROAT_FLOOR);
-		double dz = z1 - z0;
-		// The roof, the floor, the cheeks and the back wall, facing in.
-		face(p, x0, top, z1, x1 - x0, 0, 0, 0, 0, -dz, 0, -1, 0, throat, true);
-		face(p, x0, floorY, z0, x1 - x0, 0, 0, 0, 0, dz, 0, 1, 0, floor, true);
-		face(p, x0, floorY, z0, 0, 0, dz, 0, top - floorY, 0, 1, 0, 0, throat, true);
-		face(p, x1, floorY, z1, 0, 0, -dz, 0, top - floorY, 0, -1, 0, 0, throat, true);
-		face(p, x0, floorY, z0, x1 - x0, 0, 0, 0, top - floorY, 0, 0, 0, 1, throat, true);
-	}
-
-	private static void drawTeeth(Ctx c) {
-		ForeverGeo.Pen p = c.pen();
-		int[] throat = {EternityDevilLayout.TILE[EternityDevilLayout.T_THROAT][0] + 4, EternityDevilLayout.TILE[EternityDevilLayout.T_THROAT][1] + 4, 2, 2};
-		int n = 0;
-		for (float[] t : EternityDevilLayout.TEETH) {
-			boolean upper = t[0] > 0.5F;
-			boolean over = t[1] > 0.5F;
-			int rx = (int) t[2];
-			int ry = (int) t[3];
-			int rw = (int) t[4];
-			int rh = (int) t[5];
-			int[] uv = {(int) t[6], (int) t[7], (int) t[8], (int) t[9]};
-			// Each stands 1 or 2 texels proud of the lip, set into the cavity behind.
-			double proud = 1.0 + (n * 7 % 2);
-			double zf = EternityDevilLayout.MAW_Z + proud;
-			double dy = 0.0;
-			double dz = 0.0;
-			if (over && upper) {
-				// The ones over the heart part: they slide up into the gum and back.
-				dy = c.open * (rh + 4.0);
-				dz = c.open * (proud + 16.0);
-			}
-			double drop = upper ? 0.0 : c.jaw;
-			// Two boxes: a wider root and a narrower tip, a hair crooked, root yellow and tip whiter, a dark gap to the next.
-			double zb = fz(zf - 8.0 - dz);
-			double zt = fz(zf - dz);
-			double gap = TEXEL * 0.3;
-			int rootH = rh >= 4 ? (int) Math.round(rh * 0.55) : rh;
-			int tipH = rh - rootH;
-			double lean = ((n * 5) % 3 - 1) * 0.4 * TEXEL;
-			for (int part = 0; part < 2; part++) {
-				int h = part == 0 ? rootH : tipH;
-				if (h <= 0) {
-					continue;
+		// The avatar: pushes out of the wall from 0.45.
+		float push = ease((g - 0.45F) / 0.55F);
+		if (push > 0.01F) {
+			float sag = 1.0F - 0.55F * c.death;
+			Matrix4f m = new Matrix4f(frame).scale(1.0F, sag, 0.15F + 0.85F * push).rotateY(-(float) Math.PI / 2.0F);
+			float gape = c.gape;
+			FleshMesh.Look lk = look(light, c.hit * 0.6F);
+			lk.glowAt = new Vector3f(0.0F, 0.3F, 0.0F);
+			lk.glowRange = 2.5F;
+			lk.glowR = 0.25F;
+			lk.glowG = 0.04F;
+			lk.glowB = 0.02F;
+			FleshMesh.get("avatar").draw(m, tt, lk, (p, mm, base) -> {
+				// The grin's jaw opens wide on a bite (the baked jaw is closed; a negative angle opens it).
+				if (gape > 0.0F && (p.name.equals("jaw") || p.name.equals("teeth_lower"))) {
+					mm.set(base).translate(p.pivot).rotate((float) Math.toRadians(-30.0F * gape), p.anim.axis).translate(-p.pivot.x, -p.pivot.y, -p.pivot.z);
 				}
-				// (An upper tooth hangs: its root is the top rows; a lower one stands: its root is the bottom rows.)
-				int top = (upper == (part == 0)) ? 0 : rh - h;
-				int cut = part == 1 && rw >= 4 ? 1 : 0;
-				int[] puv = {uv[0] + cut, uv[1] + top, uv[2] - 2 * cut, h};
-				double x0 = fx(rx + cut) + gap + (part == 1 ? lean : 0.0);
-				double x1 = fx(rx + rw - cut) - gap + (part == 1 ? lean : 0.0);
-				double y1 = fy(ry + top) - drop * TEXEL + dy * TEXEL;
-				double y0 = y1 - h * TEXEL;
-				double zf2 = zt + (part == 1 ? TEXEL * 0.5 : 0.0);
-				if (part == 0) {
-					p.tint(GAIN, GAIN * 0.9F, GAIN * 0.68F, 1.0F);
-				} else {
-					p.tint(GAIN * 1.08F, GAIN * 1.06F, GAIN * 0.98F, 1.0F);
-				}
-				front(p, x0, x1, y0, y1, zf2, puv);
-				int[] edge = {puv[0] + puv[2] - 1, puv[1], 1, h};
-				double dzz = zf2 - zb;
-				face(p, x0, y0, zb, 0, 0, dzz, 0, y1 - y0, 0, -1, 0, 0, edge, false);
-				face(p, x1, y0, zf2, 0, 0, -dzz, 0, y1 - y0, 0, 1, 0, 0, edge, false);
-				int[] topUv = upper ? throat : new int[] {puv[0], puv[1], puv[2], 1};
-				face(p, x0, y1, zf2, x1 - x0, 0, 0, 0, 0, -dzz, 0, 1, 0, topUv, false);
-				face(p, x0, y0, zb, x1 - x0, 0, 0, 0, 0, dzz, 0, -1, 0, throat, false);
-			}
-			p.tint(GAIN, GAIN, GAIN, 1.0F);
-			n++;
+				return true;
+			});
 		}
-	}
-
-	private static void drawHeart(Ctx c) {
-		int[] h = EternityDevilLayout.HEART;
-		int[] uv = EternityDevilLayout.HEART_UV;
-		float rate = 0.32F + 0.4F * c.cut;
-		float beat = 1.0F + 0.05F * MathHelper.sin(c.now * rate) + 0.06F * Math.max(0.0F, MathHelper.sin(c.now * rate * 2.0F + 1.0F)) + 0.15F * c.hit;
-		double s = c.open * beat;
-		double cx = fx(h[0] + h[2] / 2.0);
-		double cy = fy(h[1] + h[3] / 2.0);
-		double z = fz(EternityDevilLayout.HEART_Z);
-		MatrixStack m = c.matrices;
-		m.push();
-		m.translate(cx, cy, z);
-		m.scale((float) s, (float) s, (float) s);
-		m.translate(-cx, -cy, -z);
-		ForeverGeo.Pen p = c.pen();
-		// The body, and a thinner slab in front of it that is the same picture a little proud, so the heart has a rim.
-		box(p, fx(h[0]), fx(h[0] + h[2]), fy(h[1] + h[3]), fy(h[1]), z - 4 * TEXEL, z, uv, tile(EternityDevilLayout.T_HEART_SIDE));
-		m.pop();
-	}
-
-	// ---- Sinews.
-
-	private static void drawSinew(Ctx c, float[] s) {
-		int lobe = (int) s[1];
-		float g = grow(c, lobe);
-		if (g <= 0.01F) {
-			return;
+		// The weak point it shows when it is low: the core, small, beating, at the heart's place.
+		if (c.open > 0.02F && !c.dead) {
+			Vec3d rel = devil.heartAt().subtract(devil.getPos());
+			Vector3f v = new Vector3f((float) rel.x, (float) rel.y, (float) rel.z).rotateY((float) Math.toRadians(devil.facing()));
+			float rate = 0.32F + 0.4F * c.cut;
+			float beat = 1.0F + 0.05F * MathHelper.sin(c.now * rate) + 0.07F * Math.max(0.0F, MathHelper.sin(c.now * rate * 2.0F + 1.0F)) + 0.15F * c.hit;
+			Matrix4f m = new Matrix4f(frame).translate(v.x, v.y, v.z).rotateY(-(float) Math.PI / 2.0F).scale(1.1F * c.open * beat);
+			FleshMesh.get("core").draw(m, tt, look(light, c.hit * 0.8F), null);
 		}
-		float phase = lobe * 1.9F + 0.7F;
-		double sx = (c.dead ? 0.0 : 0.05) * MathHelper.sin(c.now * 0.031F + phase);
-		double sy = (c.dead ? 0.0 : 0.035) * MathHelper.sin(c.now * 0.023F + phase * 1.7F);
-		MatrixStack m = c.matrices;
-		m.push();
-		m.translate(sx, sy, 0.0);
-		m.scale(1.0F, 1.0F, g);
-		ForeverGeo.Pen p = c.pen();
-		double t = s[0];
-		int[] tile = tile(EternityDevilLayout.T_FLESH_DARK);
-		for (int i = 2; i + 5 < s.length; i += 3) {
-			// Three steps from one point of the path to the next, each a box.
-			for (int k = 0; k < 3; k++) {
-				double a0 = k / 3.0;
-				double a1 = (k + 1) / 3.0;
-				double u0 = MathHelper.lerp(a0, s[i], s[i + 3]);
-				double u1 = MathHelper.lerp(a1, s[i], s[i + 3]);
-				double v0 = MathHelper.lerp(a0, s[i + 1], s[i + 4]);
-				double v1 = MathHelper.lerp(a1, s[i + 1], s[i + 4]);
-				double z = MathHelper.lerp(a1, s[i + 2], s[i + 5]);
-				double xa = Math.min(u0, u1) - t / 2.0;
-				double xb = Math.max(u0, u1) + t / 2.0;
-				double ya = Math.min(v0, v1) - t / 2.0;
-				double yb = Math.max(v0, v1) + t / 2.0;
-				box(p, fx(xa), fx(xb), fy(yb), fy(ya), fz(z), fz(z + 1.5), tile, tile);
-			}
-		}
-		m.pop();
 	}
 
 	// ---- Attacks.
@@ -610,7 +347,7 @@ public class EternityDevilRenderer extends EntityRenderer<EternityDevilEntity> {
 		box(p, -hx, hx, -hy, hy, -hz, hz, tile, tile);
 	}
 
-	/** A mouth rising from the floor, hanging open, and snapping shut at the end of the warning. */
+	/** The lone head rising from the floor with its jaw hanging open and snapping shut at the end of the warning (the head mesh). */
 	private static void bite(Ctx c, double x, double z, float p, long seed) {
 		float rise = ease(p / 0.55F);
 		float shut = MathHelper.clamp((p - 0.82F) / 0.12F, 0.0F, 1.0F);
@@ -619,42 +356,10 @@ public class EternityDevilRenderer extends EntityRenderer<EternityDevilEntity> {
 		if (up <= 0.02F) {
 			return;
 		}
-		int[] flesh = tile(EternityDevilLayout.T_FLESH);
-		int[] dark = tile(EternityDevilLayout.T_FLESH_DARK);
-		c.matrices.push();
-		c.matrices.translate(x, 0.0, z);
-		Random rnd = new Random(seed);
-		// The heap it rises from.
-		for (int i = 0; i < 6; i++) {
-			c.matrices.push();
-			c.matrices.translate((rnd.nextDouble() - 0.5) * 1.6 * up, (rnd.nextDouble() * 0.5) * up, (rnd.nextDouble() - 0.5) * 1.4 * up);
-			c.matrices.multiply(new Quaternionf().rotationZYX((rnd.nextFloat() - 0.5F) * 0.7F, (rnd.nextFloat() - 0.5F) * 0.7F, (rnd.nextFloat() - 0.5F) * 0.7F));
-			lump(c.pen(), (0.3 + rnd.nextDouble() * 0.3) * up, (0.3 + rnd.nextDouble() * 0.3) * up, (0.25 + rnd.nextDouble() * 0.25) * up, i % 2 == 0 ? flesh : dark);
-			c.matrices.pop();
-		}
-		float opening = up * (1.0F - shut);
-		// The lower jaw, and the upper hinged at the back of it.
-		c.matrices.translate(0.0, 0.35 * up, 0.0);
-		c.matrices.push();
-		lump(c.pen(), 0.8 * up, 0.14 * up, 0.55 * up, dark);
-		c.matrices.pop();
-		c.matrices.push();
-		c.matrices.translate(0.0, 0.1 * up, -0.5 * up);
-		c.matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(-70.0F * opening));
-		c.matrices.translate(0.0, 0.14 * up, 0.5 * up);
-		lump(c.pen(), 0.8 * up, 0.14 * up, 0.55 * up, flesh);
-		c.matrices.pop();
-		// Teeth, from the great mouth's own.
-		ForeverGeo.Pen pen = c.pen();
-		int[] side = tile(EternityDevilLayout.T_TOOTH_SIDE);
-		for (int i = 0; i < 6; i++) {
-			float[] t = EternityDevilLayout.TEETH[(i * 3 + (int) (seed % 5)) % EternityDevilLayout.TEETH.length];
-			double w = t[8] * TEXEL * 1.5 * up;
-			double h = t[9] * TEXEL * 1.5 * up;
-			double tx = -0.65 * up + i * 0.26 * up;
-			box(pen, tx, tx + w, 0.12 * up, 0.12 * up + h, -0.5 * up, -0.5 * up + 0.12 * up, new int[] {(int) t[6], (int) t[7], (int) t[8], (int) t[9]}, side);
-		}
-		c.matrices.pop();
+		Matrix4f m = new Matrix4f(c.matrices.peek().getPositionMatrix()).translate((float) x, -2.1F * (1.0F - up), (float) z).rotateY(-(float) Math.PI / 2.0F).scale(1.1F);
+		FleshMesh.Look look = new FleshMesh.Look().light(BRIGHT, 0.7F, 1.15F);
+		look.rim = 0.9F;
+		FleshMesh.get("head").draw(m, c.now, look, ShaftHeadRenderer.jawHook(ShaftHeadRenderer.JAW_OPEN * shut));
 	}
 
 	/** A tendril: it rears up out of the great mouth, hangs, and comes down on the point (x, z), then draws back. */

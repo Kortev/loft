@@ -1,27 +1,32 @@
 package io.github.kortev.chainsawman.client;
 
 import io.github.kortev.chainsawman.hotel.ShaftArmEntity;
-import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.EntityRenderer;
 import net.minecraft.client.render.entity.EntityRendererFactory;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.util.Identifier;
-import net.minecraft.util.math.RotationAxis;
+import org.joml.Matrix4f;
+import org.joml.Vector3f;
 
 /**
- * One of the Eternity Devil's arms ({@link ShaftArmEntity}), a placeholder: a column of flesh lumps from the mass up to a hand (a palm and
- * four fingers, open while it reaches and closed on whoever it holds). Its own class, to be replaced by the devil's final look.
+ * One of the Eternity Devil's grab arms ({@link ShaftArmEntity}), from the shaft mesh's grab parts: a root rising out of the mass, copies of
+ * the tiling segment stacked up the column (stretched to fit exactly), and the long-fingered hand slid up to the tip. The arm's column is
+ * the entity's own x and z. While the tip is still low the root sinks into the mass instead of standing short.
  */
 public class ShaftArmRenderer extends EntityRenderer<ShaftArmEntity> {
+	/** The grab parts' rest geometry (shaft mesh): the root's base and the height of its top. */
+	private static final float ROOT_BASE = 0.7F;
+	private static final float ROOT_TOP = 2.9F;
+
 	public ShaftArmRenderer(EntityRendererFactory.Context context) {
 		super(context);
 	}
 
 	@Override
 	public Identifier getTexture(ShaftArmEntity entity) {
-		return ForeverHubRenderer.FLESH;
+		return Identifier.of("chainsawman", "textures/entity/eternity_devil.png");
 	}
 
 	@Override
@@ -35,35 +40,45 @@ public class ShaftArmRenderer extends EntityRenderer<ShaftArmEntity> {
 			return;
 		}
 		float now = world.getTime() + delta;
-		double height = Math.max(0.3, arm.tip() - arm.getY());
-		int lit = ForeverGeo.lit(light, 11, 8);
-		int seed = arm.getId() * 31;
-		ForeverGeo.Pen pen = new ForeverGeo.Pen(provider.getBuffer(RenderLayer.getEntityCutoutNoCull(ForeverHubRenderer.FLESH)), matrices.peek(), lit);
-		// The column: lumps up it, thinner toward the hand, swaying as they climb.
-		int n = (int) Math.ceil(height / 0.8);
-		for (int i = 0; i < n; i++) {
-			double y = i * 0.8;
-			double u = Math.min(1.0, y / Math.max(1.0, height));
-			double r = 0.55 - 0.18 * u;
-			double sx = Math.sin(i * 1.7 + seed + now * 0.15) * 0.1;
-			double sz = Math.cos(i * 1.3 + seed + now * 0.13) * 0.1;
-			ForeverGeo.blob(pen, sx, y, sz, r, 0.5, r, 6, 10, 1.2, seed + i * 13, 0.2, 2.0F, 1.0F);
+		FleshMesh mesh = FleshMesh.get("shaft");
+		int k = Math.floorMod(arm.getId(), 4);
+		FleshMesh.Part root = mesh.byName.get("grab_" + k + "_root");
+		FleshMesh.Part hand = mesh.byName.get("grab_" + k + "_hand");
+		FleshMesh.Part seg = mesh.byName.get("grab_segment");
+		if (root == null || hand == null || seg == null) {
+			return;
 		}
-		// The hand at the tip: a palm and four fingers, curled when it holds someone.
-		matrices.push();
-		matrices.translate(0.0, height - 0.1, 0.0);
-		ForeverGeo.Pen hand = new ForeverGeo.Pen(provider.getBuffer(RenderLayer.getEntityCutoutNoCull(ForeverHubRenderer.FLESH)), matrices.peek(), lit);
-		ForeverGeo.blob(hand, 0.0, 0.0, 0.0, 0.5, 0.3, 0.5, 6, 10, 1.2, seed + 7, 0.15, 2.0F, 1.0F);
-		float curl = arm.holding() ? 1.0F : 0.25F + 0.1F * (float) Math.sin(now * 0.4);
-		for (int f = 0; f < 4; f++) {
-			matrices.push();
-			matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(f * 90.0F + 20.0F));
-			matrices.translate(0.34, 0.1, 0.0);
-			matrices.multiply(RotationAxis.POSITIVE_Z.rotation(-0.35F - 1.1F * curl));
-			ForeverGeo.Pen finger = new ForeverGeo.Pen(provider.getBuffer(RenderLayer.getEntityCutoutNoCull(ForeverHubRenderer.FLESH)), matrices.peek(), lit);
-			ForeverGeo.blob(finger, 0.0, 0.0, 0.0, 0.14, 0.62, 0.14, 5, 8, 1.2, seed + f * 5, 0.1, 1.0F, 1.0F);
-			matrices.pop();
+		var top = hand.json.getAsJsonArray("root_top");
+		Vector3f rt = new Vector3f(top.get(0).getAsFloat(), 0.0F, top.get(2).getAsFloat());
+		float height = Math.max(0.3F, arm.tip() - (float) arm.getY());
+		float rootH = ROOT_TOP - ROOT_BASE;
+		float baseY = height >= rootH ? 0.0F : height - rootH;
+		float reach = Math.max(0.0F, height - rootH);
+		// The mesh's frame with the root's top at the column and its foot at baseY.
+		Matrix4f model = new Matrix4f(matrices.peek().getPositionMatrix()).translate(-rt.x, baseY - ROOT_BASE, -rt.z);
+		FleshMesh.Look look = new FleshMesh.Look().light(light, 0.7F, 1.15F);
+		look.rim = 0.45F;
+		look.glowAt = new Vector3f(rt.x, ROOT_BASE - 1.5F, rt.z);
+		look.glowRange = 3.0F;
+		look.glowR = 0.4F;
+		look.glowG = 0.06F;
+		look.glowB = 0.03F;
+		Matrix4f m = new Matrix4f(model);
+		FleshMesh.pose(root.anim, root.pivot, now, m);
+		mesh.drawPart(root, m, look, model);
+		int n = (int) Math.ceil(reach / 0.5F);
+		if (n > 0) {
+			float step = reach / n;
+			for (int i = 0; i < n; i++) {
+				Matrix4f s = new Matrix4f(model).translate(rt.x, ROOT_TOP + i * step, rt.z).scale(1.0F, step / 0.5F, 1.0F);
+				mesh.drawPart(seg, s, look, model);
+			}
 		}
-		matrices.pop();
+		Matrix4f h = new Matrix4f(model).translate(0.0F, reach, 0.0F);
+		if (arm.holding()) {
+			// It closes on whoever it holds: the hand tips over its wrist.
+			h.translate(rt.x, ROOT_TOP, rt.z).rotateX(0.35F).translate(-rt.x, -ROOT_TOP, -rt.z);
+		}
+		mesh.drawPart(hand, h, look, model);
 	}
 }
