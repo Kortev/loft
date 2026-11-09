@@ -2,8 +2,8 @@
  "note": "The shaft floor: the mass at the bottom of the tilted corridor. Made by tools/eternity_devil_3d.py (eternity_3d_shaft.py).",
  "frame": "Y up the shaft toward the players; X, Z across; origin at the mouth, base of the mass at Y=0",
  "mesh": "eternity_shaft_mesh.bin",
- "quads": 31364,
- "voxels": 35127,
+ "quads": 29254,
+ "voxels": 32926,
  "parts": [
   {
    "name": "mass",
@@ -15,9 +15,9 @@
    ],
    "anim": null,
    "voxel": 0.125,
-   "voxels": 5603,
+   "voxels": 5631,
    "kind": "static",
-   "quads": 1997
+   "quads": 2076
   },
   {
    "name": "fused_arms",
@@ -29,9 +29,9 @@
    ],
    "anim": null,
    "voxel": 0.0625,
-   "voxels": 4262,
+   "voxels": 2840,
    "kind": "static",
-   "quads": 6758
+   "quads": 5000
   },
   {
    "name": "lip",
@@ -53,7 +53,7 @@
     "phase": 0.0
    },
    "voxel": 0.0625,
-   "voxels": 2650,
+   "voxels": 2659,
    "kind": "lip",
    "note": "the fleshy lip ring with its broken teeth: scale on the XZ plane about the pivot to flex open and shut",
    "quads": 1996
@@ -62,132 +62,161 @@
    "name": "arm_00",
    "index": 3,
    "pivot": [
-    1.5986,
+    1.62,
     0.8,
-    0.27
+    0.4904
    ],
    "anim": {
     "kind": "sway",
     "axis": [
-     0.167,
+     0.287,
      0.0,
-     -0.986
+     -0.958
     ],
     "axis2": [
      0,
      1,
      0
     ],
-    "amp": 7.4,
-    "period": 95,
-    "phase": 0.63
+    "amp": 7.7,
+    "period": 72,
+    "phase": 0.4
    },
    "voxel": 0.0625,
-   "voxels": 420,
+   "voxels": 416,
    "kind": "arm",
-   "quads": 703
+   "quads": 727
   },
   {
    "name": "arm_01",
    "index": 4,
    "pivot": [
-    0.908,
+    1.0461,
     0.8,
-    0.8232
+    1.1276
    ],
    "anim": {
     "kind": "sway",
     "axis": [
-     0.672,
+     0.733,
      0.0,
-     -0.741
+     -0.68
     ],
     "axis2": [
      0,
      1,
      0
     ],
-    "amp": 5.8,
-    "period": 69,
-    "phase": 0.73
+    "amp": 5.5,
+    "period": 93,
+    "phase": 0.52
    },
    "voxel": 0.0625,
-   "voxels": 374,
+   "voxels": 326,
    "kind": "arm",
-   "quads": 571
+   "quads": 501
   },
   {
    "name": "arm_02",
    "index": 5,
    "pivot": [
-    0.2565,
+    0.107,
     0.8,
-    1.3336
+    1.62
    ],
    "anim": {
     "kind": "sway",
     "axis": [
-     0.982,
+     0.998,
      0.0,
-     -0.189
+     -0.064
     ],
     "axis2": [
      0,
      1,
      0
     ],
-    "amp": 8.0,
-    "period": 95,
-    "phase": 0.27
+    "amp": 7.5,
+    "period": 64,
+    "phase": 0.38
    },
    "voxel": 0.0625,
-   "voxels": 384,
+   "voxels": 378,
    "kind": "arm",
-   "quads": 591
+   "quads": 614
   },
   {
    "name": "arm_03",
    "index": 6,
    "pivot": [
-    -0.7404,
+    -1.4289,
     0.8,
-    1.2218
+    1.3543
    ],
    "anim": {
     "kind": "sway",
     "axis": [
-     0.855,
+     0.688,
      -0.0,
-     0.518
+     0.726
     ],
     "axis2": [
      0,
      1,
      0
     ],
-    "amp": 6.5,
-    "period": 96,
-    "phase": 0.76
+    "amp": 6.2,
+    "period": 88,
+    "phase": 0.08
    },
    "voxel": 0.0625,
-   "voxels": 329,
+   "voxels": 384,
    "kind": "arm",
-   "quads": 550
+   "quads": 590
   },
   {
    "name": "arm_04",
    "index": 7,
    "pivot": [
-    -1.409,
+    -1.5219,
     0.8,
-    0.6324
+    0.1823
    ],
    "anim": {
     "kind": "sway",
     "axis": [
-     0.409,
+     0.119,
      -0.0,
-     0.912
+     0.993
+    ],
+    "axis2": [
+     0,
+     1,
+     0
+    ],
+    "amp": 8.5,
+    "period": 92,
+    "phase": 0.8
+   },
+   "voxel": 0.0625,
+   "voxels": 299,
+   "kind": "arm",
+   "quads": 466
+  },
+  {
+   "name": "arm_05",
+   "index": 8,
+   "pivot": [
+    -1.4149,
+    0.8,
+    -0.9557
+   ],
+   "anim": {
+    "kind": "sway",
+    "axis": [
+     -0.56,
+     0.0,
+     0.829
     ],
     "axis2": [
      0,
@@ -195,162 +224,104 @@
      0
     ],
     "amp": 7.3,
-    "period": 78,
-    "phase": 0.32
+    "period": 76,
+    "phase": 0.95
    },
    "voxel": 0.0625,
-   "voxels": 355,
+   "voxels": 387,
    "kind": "arm",
-   "quads": 594
-  },
-  {
-   "name": "arm_05",
-   "index": 8,
-   "pivot": [
-    -1.3014,
-    0.8,
-    -0.2356
-   ],
-   "anim": {
-    "kind": "sway",
-    "axis": [
-     -0.178,
-     0.0,
-     0.984
-    ],
-    "axis2": [
-     0,
-     1,
-     0
-    ],
-    "amp": 7.9,
-    "period": 84,
-    "phase": 0.4
-   },
-   "voxel": 0.0625,
-   "voxels": 408,
-   "kind": "arm",
-   "quads": 606
+   "quads": 597
   },
   {
    "name": "arm_06",
    "index": 9,
    "pivot": [
-    -1.3272,
+    -0.3513,
     0.8,
-    -0.9456
+    -1.5569
    ],
    "anim": {
     "kind": "sway",
     "axis": [
-     -0.58,
+     -0.975,
      0.0,
-     0.814
+     0.22
     ],
     "axis2": [
      0,
      1,
      0
     ],
-    "amp": 5.2,
-    "period": 79,
-    "phase": 0.19
+    "amp": 8.3,
+    "period": 81,
+    "phase": 0.54
    },
    "voxel": 0.0625,
-   "voxels": 350,
+   "voxels": 357,
    "kind": "arm",
-   "quads": 609
+   "quads": 519
   },
   {
    "name": "arm_07",
    "index": 10,
    "pivot": [
-    -0.3799,
+    0.5267,
     0.8,
-    -1.2578
+    -1.4219
    ],
    "anim": {
     "kind": "sway",
     "axis": [
-     -0.957,
+     -0.938,
      0.0,
-     0.289
+     -0.347
     ],
     "axis2": [
      0,
      1,
      0
     ],
-    "amp": 8.2,
-    "period": 69,
-    "phase": 0.31
+    "amp": 8.4,
+    "period": 61,
+    "phase": 0.91
    },
    "voxel": 0.0625,
-   "voxels": 369,
+   "voxels": 345,
    "kind": "arm",
-   "quads": 505
+   "quads": 559
   },
   {
    "name": "arm_08",
    "index": 11,
    "pivot": [
-    0.6423,
+    1.3215,
     0.8,
-    -1.4096
+    -0.8648
    ],
    "anim": {
     "kind": "sway",
     "axis": [
-     -0.91,
+     -0.548,
      0.0,
-     -0.415
+     -0.837
     ],
     "axis2": [
      0,
      1,
      0
     ],
-    "amp": 6.9,
-    "period": 65,
-    "phase": 0.59
+    "amp": 8.9,
+    "period": 89,
+    "phase": 0.12
    },
    "voxel": 0.0625,
-   "voxels": 401,
+   "voxels": 291,
    "kind": "arm",
-   "quads": 569
+   "quads": 525
   },
   {
    "name": "arm_09",
    "index": 12,
-   "pivot": [
-    0.966,
-    0.8,
-    -0.7354
-   ],
-   "anim": {
-    "kind": "sway",
-    "axis": [
-     -0.606,
-     0.0,
-     -0.796
-    ],
-    "axis2": [
-     0,
-     1,
-     0
-    ],
-    "amp": 5.6,
-    "period": 71,
-    "phase": 0.44
-   },
-   "voxel": 0.0625,
-   "voxels": 318,
-   "kind": "arm",
-   "quads": 496
-  },
-  {
-   "name": "arm_10",
-   "index": 13,
    "pivot": [
     1.4849,
     0.8,
@@ -368,18 +339,18 @@
      1,
      0
     ],
-    "amp": 8.8,
-    "period": 96,
-    "phase": 0.92
+    "amp": 5.9,
+    "period": 88,
+    "phase": 0.13
    },
    "voxel": 0.0625,
-   "voxels": 394,
+   "voxels": 440,
    "kind": "arm",
-   "quads": 602
+   "quads": 704
   },
   {
-   "name": "arm_11",
-   "index": 14,
+   "name": "arm_10",
+   "index": 13,
    "pivot": [
     -1.4849,
     0.8,
@@ -397,18 +368,18 @@
      1,
      0
     ],
-    "amp": 9.0,
-    "period": 56,
-    "phase": 0.27
+    "amp": 6.2,
+    "period": 57,
+    "phase": 0.25
    },
    "voxel": 0.0625,
-   "voxels": 368,
+   "voxels": 390,
    "kind": "arm",
-   "quads": 587
+   "quads": 633
   },
   {
-   "name": "arm_12",
-   "index": 15,
+   "name": "arm_11",
+   "index": 14,
    "pivot": [
     -1.4849,
     0.8,
@@ -426,18 +397,18 @@
      1,
      0
     ],
-    "amp": 5.2,
-    "period": 92,
-    "phase": 0.56
+    "amp": 5.4,
+    "period": 88,
+    "phase": 0.33
    },
    "voxel": 0.0625,
-   "voxels": 478,
+   "voxels": 373,
    "kind": "arm",
    "quads": 615
   },
   {
-   "name": "arm_13",
-   "index": 16,
+   "name": "arm_12",
+   "index": 15,
    "pivot": [
     1.4849,
     0.8,
@@ -455,22 +426,22 @@
      1,
      0
     ],
-    "amp": 8.0,
-    "period": 88,
-    "phase": 0.3
+    "amp": 6.6,
+    "period": 84,
+    "phase": 0.89
    },
    "voxel": 0.0625,
-   "voxels": 390,
+   "voxels": 428,
    "kind": "arm",
-   "quads": 617
+   "quads": 732
   },
   {
    "name": "grab_0_root",
-   "index": 17,
+   "index": 16,
    "pivot": [
-    0.9406,
+    0.3611,
     0.7,
-    0.9684
+    1.3008
    ],
    "anim": {
     "kind": "sway",
@@ -489,17 +460,17 @@
     "phase": 0.0
    },
    "voxel": 0.0625,
-   "voxels": 354,
+   "voxels": 377,
    "kind": "grab_root",
-   "quads": 200
+   "quads": 230
   },
   {
    "name": "grab_0_hand",
-   "index": 18,
+   "index": 17,
    "pivot": [
-    0.9595,
+    0.3874,
     2.9,
-    0.9879
+    1.3956
    ],
    "anim": {
     "kind": "reach",
@@ -513,23 +484,23 @@
     "phase": 0
    },
    "voxel": 0.0625,
-   "voxels": 78,
+   "voxels": 83,
    "kind": "grab_hand",
    "note": "rest: wrist at the top of its root. Slide it up the shaft by L and stack ceil(L/0.5) grab_segment copies between the root top and the wrist (segment origin = (x of root top, y, z of root top))",
    "root_top": [
-    0.9595,
+    0.3874,
     2.9,
-    0.9879
+    1.3956
    ],
-   "quads": 183
+   "quads": 185
   },
   {
    "name": "grab_1_root",
-   "index": 19,
+   "index": 18,
    "pivot": [
-    -0.9586,
+    -1.2622,
     0.7,
-    0.8781
+    0.311
    ],
    "anim": {
     "kind": "sway",
@@ -548,17 +519,17 @@
     "phase": 0.25
    },
    "voxel": 0.0625,
-   "voxels": 365,
+   "voxels": 361,
    "kind": "grab_root",
-   "quads": 246
+   "quads": 265
   },
   {
    "name": "grab_1_hand",
-   "index": 20,
+   "index": 19,
    "pivot": [
-    -0.9445,
+    -1.2531,
     2.9,
-    0.8652
+    0.3088
    ],
    "anim": {
     "kind": "reach",
@@ -572,23 +543,23 @@
     "phase": 0
    },
    "voxel": 0.0625,
-   "voxels": 76,
+   "voxels": 72,
    "kind": "grab_hand",
    "note": "rest: wrist at the top of its root. Slide it up the shaft by L and stack ceil(L/0.5) grab_segment copies between the root top and the wrist (segment origin = (x of root top, y, z of root top))",
    "root_top": [
-    -0.9445,
+    -1.2531,
     2.9,
-    0.8652
+    0.3088
    ],
-   "quads": 179
+   "quads": 147
   },
   {
    "name": "grab_2_root",
-   "index": 21,
+   "index": 20,
    "pivot": [
-    -0.9669,
+    -1.3339,
     0.7,
-    -1.0125
+    -0.425
    ],
    "anim": {
     "kind": "sway",
@@ -607,17 +578,17 @@
     "phase": 0.5
    },
    "voxel": 0.0625,
-   "voxels": 364,
+   "voxels": 360,
    "kind": "grab_root",
-   "quads": 269
+   "quads": 270
   },
   {
    "name": "grab_2_hand",
-   "index": 22,
+   "index": 21,
    "pivot": [
-    -0.9329,
+    -1.4189,
     2.9,
-    -0.9768
+    -0.452
    ],
    "anim": {
     "kind": "reach",
@@ -631,23 +602,23 @@
     "phase": 0
    },
    "voxel": 0.0625,
-   "voxels": 88,
+   "voxels": 90,
    "kind": "grab_hand",
    "note": "rest: wrist at the top of its root. Slide it up the shaft by L and stack ceil(L/0.5) grab_segment copies between the root top and the wrist (segment origin = (x of root top, y, z of root top))",
    "root_top": [
-    -0.9329,
+    -1.4189,
     2.9,
-    -0.9768
+    -0.452
    ],
-   "quads": 183
+   "quads": 196
   },
   {
    "name": "grab_3_root",
-   "index": 23,
+   "index": 22,
    "pivot": [
-    0.8568,
+    0.8036,
     0.7,
-    -1.0432
+    -1.0848
    ],
    "anim": {
     "kind": "sway",
@@ -666,17 +637,17 @@
     "phase": 0.75
    },
    "voxel": 0.0625,
-   "voxels": 369,
+   "voxels": 366,
    "kind": "grab_root",
-   "quads": 251
+   "quads": 279
   },
   {
    "name": "grab_3_hand",
-   "index": 24,
+   "index": 23,
    "pivot": [
-    0.8707,
+    0.856,
     2.9,
-    -1.0602
+    -1.1555
    ],
    "anim": {
     "kind": "reach",
@@ -690,19 +661,19 @@
     "phase": 0
    },
    "voxel": 0.0625,
-   "voxels": 75,
+   "voxels": 80,
    "kind": "grab_hand",
    "note": "rest: wrist at the top of its root. Slide it up the shaft by L and stack ceil(L/0.5) grab_segment copies between the root top and the wrist (segment origin = (x of root top, y, z of root top))",
    "root_top": [
-    0.8707,
+    0.856,
     2.9,
-    -1.0602
+    -1.1555
    ],
-   "quads": 165
+   "quads": 195
   },
   {
    "name": "grab_segment",
-   "index": 25,
+   "index": 24,
    "pivot": [
     0.0,
     0.0,
@@ -717,11 +688,11 @@
   },
   {
    "name": "head_0",
-   "index": 26,
+   "index": 25,
    "pivot": [
-    1.3,
+    1.45,
     1.475,
-    0.1709
+    0.6344
    ],
    "anim": {
     "kind": "sway",
@@ -736,48 +707,48 @@
      0
     ],
     "amp": 5.0,
-    "period": 108,
-    "phase": 0.25
+    "period": 97,
+    "phase": 0.76
    },
    "voxel": 0.0625,
-   "voxels": 1898,
+   "voxels": 1869,
    "kind": "head",
-   "quads": 938
+   "quads": 962
   },
   {
    "name": "head_0_jaw",
-   "index": 27,
+   "index": 26,
    "pivot": [
-    1.0402,
-    1.4777,
-    0.1455
+    1.2204,
+    1.3585,
+    0.5917
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     0.097,
-     0.244,
-     -0.965
+     0.098,
+     0.165,
+     -0.981
     ],
-    "amp": 23.60240437048576,
+    "amp": 25.769694639528158,
     "base": 0.0,
-    "period": 57,
-    "phase": 0.29
+    "period": 64,
+    "phase": 0.45
    },
    "voxel": 0.0625,
-   "voxels": 172,
+   "voxels": 162,
    "kind": "jaw",
    "head": 0,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 286
+   "quads": 271
   },
   {
    "name": "head_1",
-   "index": 28,
+   "index": 27,
    "pivot": [
-    0.5866,
+    1.3225,
     1.399,
-    1.1524
+    1.45
    ],
    "anim": {
     "kind": "sway",
@@ -792,48 +763,48 @@
      0
     ],
     "amp": 5.0,
-    "period": 100,
-    "phase": 0.6
+    "period": 79,
+    "phase": 0.43
    },
    "voxel": 0.0625,
-   "voxels": 1120,
+   "voxels": 1102,
    "kind": "head",
-   "quads": 601
+   "quads": 630
   },
   {
    "name": "head_1_jaw",
-   "index": 29,
+   "index": 28,
    "pivot": [
-    0.5011,
-    1.4467,
-    0.9562
+    1.2328,
+    1.3019,
+    1.2751
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     0.86,
-     -0.261,
-     -0.438
+     0.891,
+     -0.007,
+     -0.454
     ],
-    "amp": 27.619160492492846,
+    "amp": 23.11854117128369,
     "base": 0.0,
-    "period": 70,
-    "phase": 0.34
+    "period": 56,
+    "phase": 0.75
    },
    "voxel": 0.0625,
-   "voxels": 100,
+   "voxels": 89,
    "kind": "jaw",
    "head": 1,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 201
+   "quads": 168
   },
   {
    "name": "head_2",
-   "index": 30,
+   "index": 29,
    "pivot": [
-    -0.3584,
+    -1.2342,
     1.456,
-    1.2502
+    1.45
    ],
    "anim": {
     "kind": "sway",
@@ -848,48 +819,48 @@
      0
     ],
     "amp": 5.0,
-    "period": 87,
-    "phase": 0.2
+    "period": 62,
+    "phase": 0.67
    },
    "voxel": 0.0625,
-   "voxels": 1673,
+   "voxels": 1654,
    "kind": "head",
-   "quads": 866
+   "quads": 876
   },
   {
    "name": "head_2_jaw",
-   "index": 31,
+   "index": 30,
    "pivot": [
-    -0.2647,
-    1.3171,
-    1.0639
+    -1.1576,
+    1.5084,
+    1.2173
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     0.926,
-     0.269,
-     0.265
+     0.946,
+     -0.18,
+     0.271
     ],
-    "amp": 24.666175329763572,
+    "amp": 28.418683617141276,
     "base": 0.0,
-    "period": 71,
-    "phase": 0.03
+    "period": 72,
+    "phase": 0.23
    },
    "voxel": 0.0625,
-   "voxels": 142,
+   "voxels": 143,
    "kind": "jaw",
    "head": 2,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 248
+   "quads": 246
   },
   {
    "name": "head_3",
-   "index": 32,
+   "index": 31,
    "pivot": [
-    -1.0295,
+    -1.45,
     1.399,
-    0.2537
+    1.213
    ],
    "anim": {
     "kind": "sway",
@@ -904,48 +875,48 @@
      0
     ],
     "amp": 5.0,
-    "period": 104,
-    "phase": 0.25
+    "period": 71,
+    "phase": 0.28
    },
    "voxel": 0.0625,
-   "voxels": 1121,
+   "voxels": 1102,
    "kind": "head",
-   "quads": 670
+   "quads": 663
   },
   {
    "name": "head_3_jaw",
-   "index": 33,
+   "index": 32,
    "pivot": [
-    -0.8201,
-    1.35,
-    0.211
+    -1.2613,
+    1.3113,
+    1.144
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     0.236,
-     0.174,
-     0.956
+     0.232,
+     -0.242,
+     0.942
     ],
-    "amp": 29.68599711244352,
+    "amp": 24.431399929212926,
     "base": 0.0,
-    "period": 50,
-    "phase": 0.9
+    "period": 70,
+    "phase": 0.37
    },
    "voxel": 0.0625,
-   "voxels": 100,
+   "voxels": 96,
    "kind": "jaw",
    "head": 3,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 215
+   "quads": 208
   },
   {
    "name": "head_4",
-   "index": 34,
+   "index": 33,
    "pivot": [
-    -1.156,
+    -1.45,
     1.475,
-    -0.433
+    -1.45
    ],
    "anim": {
     "kind": "sway",
@@ -960,48 +931,48 @@
      0
     ],
     "amp": 5.0,
-    "period": 61,
-    "phase": 0.03
+    "period": 84,
+    "phase": 0.64
    },
    "voxel": 0.0625,
-   "voxels": 1889,
+   "voxels": 1870,
    "kind": "head",
-   "quads": 901
+   "quads": 984
   },
   {
    "name": "head_4_jaw",
-   "index": 35,
+   "index": 34,
    "pivot": [
-    -0.9522,
-    1.3403,
-    -0.341
+    -1.2259,
+    1.3794,
+    -1.3563
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
      -0.349,
-     0.109,
-     0.931
+     0.095,
+     0.932
     ],
-    "amp": 23.00930943174183,
+    "amp": 23.49256401096079,
     "base": 0.0,
-    "period": 77,
-    "phase": 0.1
+    "period": 62,
+    "phase": 0.11
    },
    "voxel": 0.0625,
-   "voxels": 174,
+   "voxels": 161,
    "kind": "jaw",
    "head": 4,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 277
+   "quads": 273
   },
   {
    "name": "head_5",
-   "index": 36,
+   "index": 35,
    "pivot": [
-    -0.4834,
+    -1.3597,
     1.418,
-    -1.275
+    -1.45
    ],
    "anim": {
     "kind": "sway",
@@ -1016,48 +987,48 @@
      0
     ],
     "amp": 5.0,
-    "period": 69,
-    "phase": 0.8
+    "period": 94,
+    "phase": 0.76
    },
    "voxel": 0.0625,
-   "voxels": 1273,
+   "voxels": 1267,
    "kind": "head",
-   "quads": 699
+   "quads": 706
   },
   {
    "name": "head_5_jaw",
-   "index": 37,
+   "index": 36,
    "pivot": [
-    -0.3995,
-    1.4581,
-    -1.0649
+    -1.3033,
+    1.3413,
+    -1.241
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     -0.931,
-     0.098,
-     0.353
+     -0.901,
+     0.268,
+     0.342
     ],
-    "amp": 27.411017923652913,
+    "amp": 24.37091682349507,
     "base": 0.0,
-    "period": 53,
-    "phase": 0.55
+    "period": 69,
+    "phase": 0.03
    },
    "voxel": 0.0625,
-   "voxels": 114,
+   "voxels": 109,
    "kind": "jaw",
    "head": 5,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 227
+   "quads": 209
   },
   {
    "name": "head_6",
-   "index": 38,
+   "index": 37,
    "pivot": [
-    0.4742,
+    0.912,
     1.456,
-    -1.1615
+    -1.45
    ],
    "anim": {
     "kind": "sway",
@@ -1072,48 +1043,48 @@
      0
     ],
     "amp": 5.0,
-    "period": 89,
-    "phase": 0.82
+    "period": 97,
+    "phase": 0.58
    },
    "voxel": 0.0625,
-   "voxels": 1665,
+   "voxels": 1651,
    "kind": "head",
-   "quads": 816
+   "quads": 874
   },
   {
    "name": "head_6_jaw",
-   "index": 39,
+   "index": 38,
    "pivot": [
-    0.376,
-    1.3288,
-    -0.9693
+    0.8188,
+    1.4733,
+    -1.2181
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     -0.916,
-     0.142,
-     -0.374
+     -0.923,
+     0.079,
+     -0.377
     ],
-    "amp": 27.125810868883796,
+    "amp": 24.027348216504073,
     "base": 0.0,
-    "period": 74,
-    "phase": 0.02
+    "period": 66,
+    "phase": 0.35
    },
    "voxel": 0.0625,
-   "voxels": 140,
+   "voxels": 149,
    "kind": "jaw",
    "head": 6,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 237
+   "quads": 247
   },
   {
    "name": "head_7",
-   "index": 40,
+   "index": 39,
    "pivot": [
-    1.2041,
+    1.45,
     1.38,
-    -0.4854
+    -0.9542
    ],
    "anim": {
     "kind": "sway",
@@ -1128,48 +1099,48 @@
      0
     ],
     "amp": 5.0,
-    "period": 100,
-    "phase": 0.79
+    "period": 90,
+    "phase": 0.59
    },
    "voxel": 0.0625,
-   "voxels": 960,
+   "voxels": 953,
    "kind": "head",
-   "quads": 597
+   "quads": 611
   },
   {
    "name": "head_7_jaw",
-   "index": 41,
+   "index": 40,
    "pivot": [
-    1.0314,
-    1.271,
-    -0.4419
+    1.2732,
+    1.3116,
+    -0.8666
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
      -0.365,
-     0.217,
-     -0.905
+     -0.216,
+     -0.906
     ],
-    "amp": 25.619232962399938,
+    "amp": 23.233525899729944,
     "base": 0.0,
-    "period": 82,
-    "phase": 0.18
+    "period": 59,
+    "phase": 0.08
    },
    "voxel": 0.0625,
-   "voxels": 85,
+   "voxels": 88,
    "kind": "jaw",
    "head": 7,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 179
+   "quads": 199
   },
   {
    "name": "head_8",
-   "index": 42,
+   "index": 41,
    "pivot": [
-    -0.9334,
+    -1.45,
     1.38,
-    1.2823
+    1.45
    ],
    "anim": {
     "kind": "sway",
@@ -1184,48 +1155,48 @@
      0
     ],
     "amp": 5.0,
-    "period": 72,
-    "phase": 0.4
+    "period": 87,
+    "phase": 0.2
    },
    "voxel": 0.0625,
-   "voxels": 965,
+   "voxels": 956,
    "kind": "head",
-   "quads": 618
+   "quads": 633
   },
   {
    "name": "head_8_jaw",
-   "index": 43,
+   "index": 42,
    "pivot": [
-    -0.8057,
-    1.4048,
-    1.119
+    -1.3365,
+    1.3442,
+    1.2784
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     0.777,
-     -0.276,
-     0.566
+     0.783,
+     -0.25,
+     0.57
     ],
-    "amp": 24.49075007980206,
+    "amp": 24.02838514135275,
     "base": 0.0,
-    "period": 64,
-    "phase": 0.01
+    "period": 88,
+    "phase": 0.2
    },
    "voxel": 0.0625,
-   "voxels": 81,
+   "voxels": 83,
    "kind": "jaw",
    "head": 8,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 172
+   "quads": 170
   },
   {
    "name": "head_9",
-   "index": 44,
+   "index": 43,
    "pivot": [
-    0.1424,
+    0.4925,
     1.38,
-    -1.3
+    -1.45
    ],
    "anim": {
     "kind": "sway",
@@ -1240,48 +1211,77 @@
      0
     ],
     "amp": 5.0,
-    "period": 90,
-    "phase": 0.9
+    "period": 109,
+    "phase": 0.29
    },
    "voxel": 0.0625,
-   "voxels": 971,
+   "voxels": 959,
    "kind": "head",
-   "quads": 578
+   "quads": 618
   },
   {
    "name": "head_9_jaw",
-   "index": 45,
+   "index": 44,
    "pivot": [
-    0.1374,
-    1.29,
-    -1.1116
+    0.4653,
+    1.2596,
+    -1.2816
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     -0.988,
-     -0.126,
+     -0.991,
+     0.102,
      -0.087
     ],
-    "amp": 24.53407143800068,
+    "amp": 26.842338195910536,
     "base": 0.0,
-    "period": 84,
-    "phase": 0.28
+    "period": 51,
+    "phase": 0.95
    },
    "voxel": 0.0625,
-   "voxels": 84,
+   "voxels": 86,
    "kind": "jaw",
    "head": 9,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 180
+   "quads": 191
   },
   {
    "name": "rope_0",
+   "index": 45,
+   "pivot": [
+    1.55,
+    1.0,
+    0.4996
+   ],
+   "anim": {
+    "kind": "sway",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axis2": [
+     0,
+     0,
+     1
+    ],
+    "amp": 9.0,
+    "period": 119,
+    "phase": 0.68
+   },
+   "voxel": 0.0625,
+   "voxels": 132,
+   "kind": "rope",
+   "quads": 195
+  },
+  {
+   "name": "rope_1",
    "index": 46,
    "pivot": [
-    1.3471,
+    -1.55,
     1.0,
-    -0.5419
+    -0.4987
    ],
    "anim": {
     "kind": "sway",
@@ -1297,49 +1297,20 @@
     ],
     "amp": 9.0,
     "period": 102,
-    "phase": 0.5
+    "phase": 0.04
    },
    "voxel": 0.0625,
-   "voxels": 123,
+   "voxels": 146,
    "kind": "rope",
-   "quads": 203
-  },
-  {
-   "name": "rope_1",
-   "index": 47,
-   "pivot": [
-    -1.5,
-    1.0,
-    0.6617
-   ],
-   "anim": {
-    "kind": "sway",
-    "axis": [
-     1,
-     0,
-     0
-    ],
-    "axis2": [
-     0,
-     0,
-     1
-    ],
-    "amp": 9.0,
-    "period": 95,
-    "phase": 0.62
-   },
-   "voxel": 0.0625,
-   "voxels": 129,
-   "kind": "rope",
-   "quads": 208
+   "quads": 193
   },
   {
    "name": "rope_2",
-   "index": 48,
+   "index": 47,
    "pivot": [
-    -0.1881,
+    1.0045,
     1.0,
-    -1.4761
+    -1.3577
    ],
    "anim": {
     "kind": "sway",
@@ -1354,21 +1325,21 @@
      1
     ],
     "amp": 9.0,
-    "period": 85,
-    "phase": 0.98
+    "period": 78,
+    "phase": 0.01
    },
    "voxel": 0.0625,
-   "voxels": 160,
+   "voxels": 157,
    "kind": "rope",
-   "quads": 246
+   "quads": 191
   },
   {
    "name": "rope_3",
-   "index": 49,
+   "index": 48,
    "pivot": [
-    -1.1917,
+    -1.55,
     1.0,
-    -0.2983
+    0.6692
    ],
    "anim": {
     "kind": "sway",
@@ -1383,42 +1354,13 @@
      1
     ],
     "amp": 9.0,
-    "period": 93,
-    "phase": 0.54
+    "period": 89,
+    "phase": 0.58
    },
    "voxel": 0.0625,
-   "voxels": 160,
+   "voxels": 157,
    "kind": "rope",
    "quads": 220
-  },
-  {
-   "name": "rope_4",
-   "index": 50,
-   "pivot": [
-    -1.0675,
-    1.0,
-    0.984
-   ],
-   "anim": {
-    "kind": "sway",
-    "axis": [
-     1,
-     0,
-     0
-    ],
-    "axis2": [
-     0,
-     0,
-     1
-    ],
-    "amp": 9.0,
-    "period": 118,
-    "phase": 0.47
-   },
-   "voxel": 0.0625,
-   "voxels": 154,
-   "kind": "rope",
-   "quads": 244
   }
  ]
 }

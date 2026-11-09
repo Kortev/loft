@@ -2,8 +2,8 @@
  "note": "The corridor-wall avatar. Made by tools/eternity_devil_3d.py (eternity_3d_avatar.py).",
  "frame": "X out from the corridor end wall toward the players, Y up from the corridor floor, Z across (centred)",
  "mesh": "eternity_avatar_mesh.bin",
- "quads": 42374,
- "voxels": 96004,
+ "quads": 44825,
+ "voxels": 96477,
  "parts": [
   {
    "name": "body",
@@ -15,9 +15,9 @@
    ],
    "anim": null,
    "voxel": 0.125,
-   "voxels": 49486,
+   "voxels": 49553,
    "kind": "static",
-   "quads": 8495
+   "quads": 8802
   },
   {
    "name": "jaw",
@@ -34,7 +34,7 @@
      0,
      1
     ],
-    "amp": 7.0,
+    "amp": -22.0,
     "base": 0.0,
     "period": 90,
     "phase": 0.1
@@ -42,7 +42,7 @@
    "voxel": 0.125,
    "voxels": 1755,
    "kind": "jaw",
-   "note": "the grin lower jaw (flesh): baked open a little; a positive angle about Z closes it. Move teeth_lower with it",
+   "note": "the grin lower jaw (flesh): baked CLOSED; a NEGATIVE angle about Z opens it (peak -22). Move teeth_lower with it",
    "quads": 648
   },
   {
@@ -75,7 +75,7 @@
      0,
      1
     ],
-    "amp": 7.0,
+    "amp": -22.0,
     "base": 0.0,
     "period": 90,
     "phase": 0.1
@@ -106,10 +106,10 @@
     "phase": 0.0
    },
    "voxel": 0.0625,
-   "voxels": 601,
+   "voxels": 618,
    "kind": "slit_rim",
    "note": "lit swollen rim, drawn glowing (emit ~0.45); pulse or swell it",
-   "quads": 529
+   "quads": 562
   },
   {
    "name": "slit_rim_R",
@@ -131,18 +131,18 @@
     "phase": 0.3
    },
    "voxel": 0.0625,
-   "voxels": 641,
+   "voxels": 649,
    "kind": "slit_rim",
    "note": "lit swollen rim, drawn glowing (emit ~0.45); pulse or swell it",
-   "quads": 548
+   "quads": 563
   },
   {
    "name": "head_00",
    "index": 6,
    "pivot": [
-    2.4684,
-    2.4554,
-    -2.7992
+    2.8685,
+    3.4023,
+    0.0038
    ],
    "anim": {
     "kind": "sway",
@@ -161,24 +161,24 @@
     "phase": 0.81
    },
    "voxel": 0.0625,
-   "voxels": 1818,
+   "voxels": 354,
    "kind": "head",
-   "quads": 902
+   "quads": 293
   },
   {
    "name": "head_00_jaw",
    "index": 7,
    "pivot": [
-    2.3762,
-    2.2155,
-    -2.783
+    2.8371,
+    3.2553,
+    -0.0004
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     0.173,
+     -0.134,
      0.0,
-     0.985
+     0.991
     ],
     "amp": 26.962458738383155,
     "base": 0.0,
@@ -186,19 +186,19 @@
     "phase": 0.69
    },
    "voxel": 0.0625,
-   "voxels": 153,
+   "voxels": 33,
    "kind": "jaw",
    "head": 0,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 255
+   "quads": 99
   },
   {
    "name": "head_01",
    "index": 8,
    "pivot": [
-    2.2026,
-    3.7492,
-    -2.1938
+    3.2471,
+    2.3534,
+    0.0263
    ],
    "anim": {
     "kind": "sway",
@@ -217,24 +217,24 @@
     "phase": 0.99
    },
    "voxel": 0.0625,
-   "voxels": 1342,
+   "voxels": 326,
    "kind": "head",
-   "quads": 713
+   "quads": 275
   },
   {
    "name": "head_01_jaw",
    "index": 9,
    "pivot": [
-    2.1467,
-    3.5231,
-    -2.176
+    3.2228,
+    2.2093,
+    0.0207
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     0.305,
+     -0.226,
      0.0,
-     0.952
+     0.974
     ],
     "amp": 22.131732341842458,
     "base": 0.0,
@@ -242,19 +242,19 @@
     "phase": 0.52
    },
    "voxel": 0.0625,
-   "voxels": 115,
+   "voxels": 30,
    "kind": "jaw",
    "head": 1,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 189
+   "quads": 84
   },
   {
    "name": "head_02",
    "index": 10,
    "pivot": [
-    1.9256,
-    5.3762,
-    -2.0963
+    2.4688,
+    2.4558,
+    -2.7972
    ],
    "anim": {
     "kind": "sway",
@@ -273,24 +273,24 @@
     "phase": 0.95
    },
    "voxel": 0.0625,
-   "voxels": 1642,
+   "voxels": 1801,
    "kind": "head",
-   "quads": 866
+   "quads": 956
   },
   {
    "name": "head_02_jaw",
    "index": 11,
    "pivot": [
-    1.9232,
-    5.1275,
-    -2.096
+    2.378,
+    2.2151,
+    -2.7851
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     0.1,
+     0.132,
      0.0,
-     0.995
+     0.991
     ],
     "amp": 27.933383350828073,
     "base": 0.0,
@@ -298,19 +298,19 @@
     "phase": 0.32
    },
    "voxel": 0.0625,
-   "voxels": 139,
+   "voxels": 154,
    "kind": "jaw",
    "head": 2,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 237
+   "quads": 276
   },
   {
    "name": "head_03",
    "index": 12,
    "pivot": [
-    2.16,
-    5.175,
-    -1.1463
+    2.2038,
+    3.7478,
+    -2.1892
    ],
    "anim": {
     "kind": "sway",
@@ -329,24 +329,24 @@
     "phase": 0.46
    },
    "voxel": 0.0625,
-   "voxels": 1047,
+   "voxels": 1329,
    "kind": "head",
-   "quads": 578
+   "quads": 782
   },
   {
    "name": "head_03_jaw",
    "index": 13,
    "pivot": [
-    2.1438,
-    4.9612,
-    -1.1473
+    2.1394,
+    3.5236,
+    -2.176
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     -0.064,
+     0.2,
      0.0,
-     0.998
+     0.98
     ],
     "amp": 26.901684337028822,
     "base": 0.0,
@@ -354,19 +354,19 @@
     "phase": 0.92
    },
    "voxel": 0.0625,
-   "voxels": 91,
+   "voxels": 113,
    "kind": "jaw",
    "head": 3,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 187
+   "quads": 233
   },
   {
    "name": "head_04",
    "index": 14,
    "pivot": [
-    2.4809,
-    2.7029,
-    1.8956
+    1.9246,
+    5.3789,
+    -2.0967
    ],
    "anim": {
     "kind": "sway",
@@ -385,24 +385,24 @@
     "phase": 0.31
    },
    "voxel": 0.0625,
-   "voxels": 1255,
+   "voxels": 1620,
    "kind": "head",
-   "quads": 719
+   "quads": 842
   },
   {
    "name": "head_04_jaw",
    "index": 15,
    "pivot": [
-    2.3939,
-    2.4943,
-    1.8648
+    1.9369,
+    5.1304,
+    -2.098
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     -0.334,
+     0.111,
      0.0,
-     0.943
+     0.994
     ],
     "amp": 26.020582393835024,
     "base": 0.0,
@@ -410,19 +410,19 @@
     "phase": 0.21
    },
    "voxel": 0.0625,
-   "voxels": 112,
+   "voxels": 142,
    "kind": "jaw",
    "head": 4,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 240
+   "quads": 210
   },
   {
    "name": "head_05",
    "index": 16,
    "pivot": [
-    2.2846,
-    1.2906,
-    3.0299
+    2.1576,
+    5.1808,
+    -1.1567
    ],
    "anim": {
     "kind": "sway",
@@ -441,24 +441,24 @@
     "phase": 0.58
    },
    "voxel": 0.0625,
-   "voxels": 1401,
+   "voxels": 1037,
    "kind": "head",
-   "quads": 719
+   "quads": 642
   },
   {
    "name": "head_05_jaw",
    "index": 17,
    "pivot": [
-    2.2585,
-    1.0551,
-    3.0315
+    2.1725,
+    4.967,
+    -1.1599
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     0.061,
+     0.205,
      0.0,
-     0.998
+     0.979
     ],
     "amp": 18.052256897545828,
     "base": 0.0,
@@ -466,19 +466,19 @@
     "phase": 0.8
    },
    "voxel": 0.0625,
-   "voxels": 127,
+   "voxels": 88,
    "kind": "jaw",
    "head": 5,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 222
+   "quads": 171
   },
   {
    "name": "head_06",
    "index": 18,
    "pivot": [
-    2.254,
-    5.2604,
-    1.5097
+    2.4813,
+    2.7005,
+    1.8932
    ],
    "anim": {
     "kind": "sway",
@@ -497,24 +497,24 @@
     "phase": 0.92
    },
    "voxel": 0.0625,
-   "voxels": 660,
+   "voxels": 1251,
    "kind": "head",
-   "quads": 447
+   "quads": 749
   },
   {
    "name": "head_06_jaw",
    "index": 19,
    "pivot": [
-    2.2047,
-    5.0837,
-    1.4961
+    2.3816,
+    2.4974,
+    1.8641
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     -0.266,
+     -0.28,
      0.0,
-     0.964
+     0.96
     ],
     "amp": 21.878624600209427,
     "base": 0.0,
@@ -522,19 +522,19 @@
     "phase": 0.48
    },
    "voxel": 0.0625,
-   "voxels": 55,
+   "voxels": 104,
    "kind": "jaw",
    "head": 6,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 129
+   "quads": 204
   },
   {
    "name": "head_07",
    "index": 20,
    "pivot": [
-    2.7068,
-    3.3079,
-    -1.3294
+    2.2854,
+    1.2808,
+    3.033
    ],
    "anim": {
     "kind": "sway",
@@ -553,24 +553,24 @@
     "phase": 0.91
    },
    "voxel": 0.0625,
-   "voxels": 1743,
+   "voxels": 1394,
    "kind": "head",
-   "quads": 849
+   "quads": 762
   },
   {
    "name": "head_07_jaw",
    "index": 21,
    "pivot": [
-    2.5938,
-    3.0815,
-    -1.3044
+    2.2092,
+    1.0565,
+    3.0324
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     0.216,
+     -0.008,
      0.0,
-     0.976
+     1.0
     ],
     "amp": 18.03834003062444,
     "base": 0.0,
@@ -578,19 +578,19 @@
     "phase": 0.16
    },
    "voxel": 0.0625,
-   "voxels": 153,
+   "voxels": 132,
    "kind": "jaw",
    "head": 7,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 256
+   "quads": 246
   },
   {
    "name": "head_08",
    "index": 22,
    "pivot": [
-    1.528,
-    0.382,
-    -3.5337
+    2.2539,
+    5.2654,
+    1.5083
    ],
    "anim": {
     "kind": "sway",
@@ -609,24 +609,24 @@
     "phase": 0.72
    },
    "voxel": 0.0625,
-   "voxels": 668,
+   "voxels": 650,
    "kind": "head",
-   "quads": 463
+   "quads": 462
   },
   {
    "name": "head_08_jaw",
    "index": 23,
    "pivot": [
-    1.4431,
-    0.2277,
-    -3.4755
+    2.2291,
+    5.0833,
+    1.5025
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     0.565,
+     -0.227,
      0.0,
-     0.825
+     0.974
     ],
     "amp": 24.633916475587462,
     "base": 0.0,
@@ -644,9 +644,9 @@
    "name": "head_09",
    "index": 24,
    "pivot": [
-    2.2144,
-    3.6887,
-    -3.2885
+    2.7081,
+    3.3092,
+    -1.3209
    ],
    "anim": {
     "kind": "sway",
@@ -665,24 +665,24 @@
     "phase": 0.24
    },
    "voxel": 0.0625,
-   "voxels": 753,
+   "voxels": 1732,
    "kind": "head",
-   "quads": 460
+   "quads": 941
   },
   {
    "name": "head_09_jaw",
    "index": 25,
    "pivot": [
-    2.2145,
-    3.4966,
-    -3.2885
+    2.5985,
+    3.0798,
+    -1.3167
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     0.22,
+     0.038,
      0.0,
-     0.975
+     0.999
     ],
     "amp": 25.55118722267018,
     "base": 0.0,
@@ -690,19 +690,19 @@
     "phase": 0.08
    },
    "voxel": 0.0625,
-   "voxels": 65,
+   "voxels": 153,
    "kind": "jaw",
    "head": 9,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 169
+   "quads": 283
   },
   {
    "name": "head_10",
    "index": 26,
    "pivot": [
-    2.5952,
-    4.1462,
-    0.5454
+    1.5306,
+    0.3843,
+    -3.5307
    ],
    "anim": {
     "kind": "sway",
@@ -721,24 +721,24 @@
     "phase": 0.4
    },
    "voxel": 0.0625,
-   "voxels": 863,
+   "voxels": 670,
    "kind": "head",
-   "quads": 490
+   "quads": 466
   },
   {
    "name": "head_10_jaw",
    "index": 27,
    "pivot": [
-    2.6087,
-    3.9459,
-    0.5483
+    1.4489,
+    0.2234,
+    -3.4875
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     -0.21,
+     0.468,
      0.0,
-     0.978
+     0.884
     ],
     "amp": 23.92084023321506,
     "base": 0.0,
@@ -746,19 +746,19 @@
     "phase": 0.61
    },
    "voxel": 0.0625,
-   "voxels": 71,
+   "voxels": 60,
    "kind": "jaw",
    "head": 10,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 151
+   "quads": 155
   },
   {
    "name": "head_11",
    "index": 28,
    "pivot": [
-    2.3739,
-    4.8642,
-    2.197
+    2.2146,
+    3.6896,
+    -3.2858
    ],
    "anim": {
     "kind": "sway",
@@ -777,24 +777,24 @@
     "phase": 0.6
    },
    "voxel": 0.0625,
-   "voxels": 693,
+   "voxels": 746,
    "kind": "head",
-   "quads": 446
+   "quads": 522
   },
   {
    "name": "head_11_jaw",
    "index": 29,
    "pivot": [
-    2.3699,
-    4.6767,
-    2.1961
+    2.2197,
+    3.4976,
+    -3.2865
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     -0.205,
+     0.144,
      0.0,
-     0.979
+     0.99
     ],
     "amp": 24.91165263449394,
     "base": 0.0,
@@ -802,19 +802,19 @@
     "phase": 0.01
    },
    "voxel": 0.0625,
-   "voxels": 64,
+   "voxels": 63,
    "kind": "jaw",
    "head": 11,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 123
+   "quads": 156
   },
   {
    "name": "head_12",
    "index": 30,
    "pivot": [
-    2.207,
-    3.3642,
-    2.969
+    2.5978,
+    4.14,
+    0.5389
    ],
    "anim": {
     "kind": "sway",
@@ -833,24 +833,24 @@
     "phase": 0.27
    },
    "voxel": 0.0625,
-   "voxels": 1605,
+   "voxels": 852,
    "kind": "head",
-   "quads": 860
+   "quads": 562
   },
   {
    "name": "head_12_jaw",
    "index": 31,
    "pivot": [
-    2.1419,
-    3.126,
-    2.976
+    2.5778,
+    3.9402,
+    0.5383
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     0.107,
+     -0.027,
      0.0,
-     0.994
+     1.0
     ],
     "amp": 23.171592514156693,
     "base": 0.0,
@@ -858,19 +858,19 @@
     "phase": 0.45
    },
    "voxel": 0.0625,
-   "voxels": 144,
+   "voxels": 75,
    "kind": "jaw",
    "head": 12,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 240
+   "quads": 145
   },
   {
    "name": "head_13",
    "index": 32,
    "pivot": [
-    1.7501,
-    0.4399,
-    3.5158
+    2.372,
+    4.8701,
+    2.1953
    ],
    "anim": {
     "kind": "sway",
@@ -889,24 +889,24 @@
     "phase": 0.1
    },
    "voxel": 0.0625,
-   "voxels": 1038,
+   "voxels": 693,
    "kind": "head",
-   "quads": 598
+   "quads": 479
   },
   {
    "name": "head_13_jaw",
    "index": 33,
    "pivot": [
-    1.6667,
-    0.2568,
-    3.4446
+    2.4003,
+    4.6847,
+    2.2002
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     -0.649,
+     -0.169,
      0.0,
-     0.76
+     0.986
     ],
     "amp": 27.159616714939016,
     "base": 0.0,
@@ -914,19 +914,19 @@
     "phase": 0.24
    },
    "voxel": 0.0625,
-   "voxels": 84,
+   "voxels": 60,
    "kind": "jaw",
    "head": 13,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 186
+   "quads": 135
   },
   {
    "name": "head_14",
    "index": 34,
    "pivot": [
-    2.4728,
-    4.2318,
-    1.5826
+    2.2072,
+    3.3627,
+    2.977
    ],
    "anim": {
     "kind": "sway",
@@ -945,24 +945,24 @@
     "phase": 0.74
    },
    "voxel": 0.0625,
-   "voxels": 601,
+   "voxels": 1598,
    "kind": "head",
-   "quads": 413
+   "quads": 874
   },
   {
    "name": "head_14_jaw",
    "index": 35,
    "pivot": [
-    2.3764,
-    4.0818,
-    1.5834
+    2.1342,
+    3.1268,
+    2.9724
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     0.008,
+     -0.063,
      0.0,
-     1.0
+     0.998
     ],
     "amp": 26.466596078379613,
     "base": 0.0,
@@ -970,19 +970,19 @@
     "phase": 0.45
    },
    "voxel": 0.0625,
-   "voxels": 55,
+   "voxels": 144,
    "kind": "jaw",
    "head": 14,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 144
+   "quads": 257
   },
   {
    "name": "head_15",
    "index": 36,
    "pivot": [
-    2.7621,
-    4.0994,
-    -0.3273
+    1.7527,
+    0.4307,
+    3.5054
    ],
    "anim": {
     "kind": "sway",
@@ -1001,24 +1001,24 @@
     "phase": 0.43
    },
    "voxel": 0.0625,
-   "voxels": 1161,
+   "voxels": 1016,
    "kind": "head",
-   "quads": 660
+   "quads": 632
   },
   {
    "name": "head_15_jaw",
    "index": 37,
    "pivot": [
-    2.7269,
-    3.8801,
-    -0.3288
+    1.6165,
+    0.2792,
+    3.4415
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     -0.042,
+     -0.425,
      0.0,
-     0.999
+     0.905
     ],
     "amp": 24.868367359983765,
     "base": 0.0,
@@ -1026,19 +1026,19 @@
     "phase": 0.53
    },
    "voxel": 0.0625,
-   "voxels": 100,
+   "voxels": 91,
    "kind": "jaw",
    "head": 15,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 163
+   "quads": 221
   },
   {
    "name": "head_16",
    "index": 38,
    "pivot": [
-    3.1406,
-    0.4618,
-    2.191
+    2.4732,
+    4.2382,
+    1.5753
    ],
    "anim": {
     "kind": "sway",
@@ -1057,24 +1057,24 @@
     "phase": 0.14
    },
    "voxel": 0.0625,
-   "voxels": 1094,
+   "voxels": 600,
    "kind": "head",
-   "quads": 613
+   "quads": 435
   },
   {
    "name": "head_16_jaw",
    "index": 39,
    "pivot": [
-    3.1228,
-    0.2443,
-    2.193
+    2.4086,
+    4.0727,
+    1.59
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     0.114,
+     0.221,
      0.0,
-     0.993
+     0.975
     ],
     "amp": 26.69628282867722,
     "base": 0.0,
@@ -1082,19 +1082,19 @@
     "phase": 0.94
    },
    "voxel": 0.0625,
-   "voxels": 97,
+   "voxels": 54,
    "kind": "jaw",
    "head": 16,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 199
+   "quads": 150
   },
   {
    "name": "head_17",
    "index": 40,
    "pivot": [
-    2.3123,
-    3.689,
-    2.0238
+    2.7611,
+    4.0956,
+    -0.318
    ],
    "anim": {
     "kind": "sway",
@@ -1113,24 +1113,24 @@
     "phase": 0.58
    },
    "voxel": 0.0625,
-   "voxels": 615,
+   "voxels": 1156,
    "kind": "head",
-   "quads": 429
+   "quads": 680
   },
   {
    "name": "head_17_jaw",
    "index": 41,
    "pivot": [
-    2.2862,
-    3.512,
-    2.0154
+    2.708,
+    3.8803,
+    -0.3323
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     -0.308,
+     -0.259,
      0.0,
-     0.951
+     0.966
     ],
     "amp": 27.931824886517234,
     "base": 0.0,
@@ -1138,19 +1138,19 @@
     "phase": 0.58
    },
    "voxel": 0.0625,
-   "voxels": 50,
+   "voxels": 102,
    "kind": "jaw",
    "head": 17,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 123
+   "quads": 214
   },
   {
    "name": "head_18",
    "index": 42,
    "pivot": [
-    2.14,
-    1.7187,
-    -3.4267
+    3.1408,
+    0.4578,
+    2.2037
    ],
    "anim": {
     "kind": "sway",
@@ -1169,24 +1169,24 @@
     "phase": 0.52
    },
    "voxel": 0.0625,
-   "voxels": 1038,
+   "voxels": 1087,
    "kind": "head",
-   "quads": 588
+   "quads": 627
   },
   {
    "name": "head_18_jaw",
    "index": 43,
    "pivot": [
-    2.0796,
-    1.5147,
-    -3.4142
+    3.1024,
+    0.2431,
+    2.1961
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     0.202,
+     -0.194,
      0.0,
-     0.979
+     0.981
     ],
     "amp": 26.411168027281064,
     "base": 0.0,
@@ -1194,19 +1194,19 @@
     "phase": 0.71
    },
    "voxel": 0.0625,
-   "voxels": 87,
+   "voxels": 99,
    "kind": "jaw",
    "head": 18,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 183
+   "quads": 177
   },
   {
    "name": "head_19",
    "index": 44,
    "pivot": [
-    1.6208,
-    5.1057,
-    -3.3911
+    2.3118,
+    3.6966,
+    2.0175
    ],
    "anim": {
     "kind": "sway",
@@ -1225,24 +1225,24 @@
     "phase": 0.27
    },
    "voxel": 0.0625,
-   "voxels": 1252,
+   "voxels": 612,
    "kind": "head",
-   "quads": 653
+   "quads": 469
   },
   {
    "name": "head_19_jaw",
    "index": 45,
    "pivot": [
-    1.627,
-    4.8781,
-    -3.3922
+    2.3251,
+    3.518,
+    2.0193
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     0.169,
+     -0.13,
      0.0,
-     0.986
+     0.992
     ],
     "amp": 19.186270915628864,
     "base": 0.0,
@@ -1250,19 +1250,19 @@
     "phase": 0.32
    },
    "voxel": 0.0625,
-   "voxels": 103,
+   "voxels": 51,
    "kind": "jaw",
    "head": 19,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 206
+   "quads": 121
   },
   {
    "name": "head_20",
    "index": 46,
    "pivot": [
-    2.3811,
-    4.979,
-    -0.1341
+    2.1397,
+    1.7206,
+    -3.4278
    ],
    "anim": {
     "kind": "sway",
@@ -1281,24 +1281,24 @@
     "phase": 0.5
    },
    "voxel": 0.0625,
-   "voxels": 1197,
+   "voxels": 1024,
    "kind": "head",
-   "quads": 706
+   "quads": 635
   },
   {
    "name": "head_20_jaw",
    "index": 47,
    "pivot": [
-    2.3428,
-    4.7584,
-    -0.1448
+    2.0887,
+    1.5139,
+    -3.4158
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     -0.271,
+     0.229,
      0.0,
-     0.963
+     0.973
     ],
     "amp": 27.170591562302207,
     "base": 0.0,
@@ -1306,19 +1306,19 @@
     "phase": 0.69
    },
    "voxel": 0.0625,
-   "voxels": 100,
+   "voxels": 88,
    "kind": "jaw",
    "head": 20,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 199
+   "quads": 179
   },
   {
    "name": "head_21",
    "index": 48,
    "pivot": [
-    2.2821,
-    2.4445,
-    3.1188
+    1.6209,
+    5.1066,
+    -3.3882
    ],
    "anim": {
     "kind": "sway",
@@ -1337,24 +1337,24 @@
     "phase": 0.1
    },
    "voxel": 0.0625,
-   "voxels": 1154,
+   "voxels": 1234,
    "kind": "head",
-   "quads": 637
+   "quads": 707
   },
   {
    "name": "head_21_jaw",
    "index": 49,
    "pivot": [
-    2.2366,
-    2.2283,
-    3.1171
+    1.6326,
+    4.8794,
+    -3.3893
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     -0.037,
+     0.099,
      0.0,
-     0.999
+     0.995
     ],
     "amp": 19.25216555675675,
     "base": 0.0,
@@ -1362,19 +1362,19 @@
     "phase": 0.78
    },
    "voxel": 0.0625,
-   "voxels": 103,
+   "voxels": 107,
    "kind": "jaw",
    "head": 21,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 179
+   "quads": 188
   },
   {
    "name": "head_22",
    "index": 50,
    "pivot": [
-    2.4182,
-    1.5012,
-    -2.3113
+    2.3818,
+    4.9832,
+    -0.1418
    ],
    "anim": {
     "kind": "sway",
@@ -1393,24 +1393,24 @@
     "phase": 0.64
    },
    "voxel": 0.0625,
-   "voxels": 1244,
+   "voxels": 1180,
    "kind": "head",
-   "quads": 629
+   "quads": 652
   },
   {
    "name": "head_22_jaw",
    "index": 51,
    "pivot": [
-    2.4398,
-    1.2751,
-    -2.3184
+    2.3641,
+    4.7597,
+    -0.1435
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     0.312,
+     -0.091,
      0.0,
-     0.95
+     0.996
     ],
     "amp": 21.258152922803546,
     "base": 0.0,
@@ -1418,19 +1418,19 @@
     "phase": 0.01
    },
    "voxel": 0.0625,
-   "voxels": 100,
+   "voxels": 106,
    "kind": "jaw",
    "head": 22,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 187
+   "quads": 199
   },
   {
    "name": "head_23",
    "index": 52,
    "pivot": [
-    1.9676,
-    4.3713,
-    3.2405
+    2.2817,
+    2.4351,
+    3.113
    ],
    "anim": {
     "kind": "sway",
@@ -1449,24 +1449,24 @@
     "phase": 0.27
    },
    "voxel": 0.0625,
-   "voxels": 1684,
+   "voxels": 1132,
    "kind": "head",
-   "quads": 816
+   "quads": 686
   },
   {
    "name": "head_23_jaw",
    "index": 53,
    "pivot": [
-    1.9342,
-    4.1217,
-    3.2415
+    2.1901,
+    2.2343,
+    3.1222
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     0.03,
+     0.1,
      0.0,
-     1.0
+     0.995
     ],
     "amp": 22.06010882279802,
     "base": 0.0,
@@ -1474,19 +1474,19 @@
     "phase": 0.88
    },
    "voxel": 0.0625,
-   "voxels": 153,
+   "voxels": 97,
    "kind": "jaw",
    "head": 23,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 256
+   "quads": 200
   },
   {
    "name": "head_24",
    "index": 54,
    "pivot": [
-    2.3316,
-    1.5214,
-    2.1269
+    2.4204,
+    1.498,
+    -2.3078
    ],
    "anim": {
     "kind": "sway",
@@ -1505,24 +1505,24 @@
     "phase": 0.23
    },
    "voxel": 0.0625,
-   "voxels": 733,
+   "voxels": 1233,
    "kind": "head",
-   "quads": 463
+   "quads": 689
   },
   {
    "name": "head_24_jaw",
    "index": 55,
    "pivot": [
-    2.2386,
-    1.3609,
-    2.0818
+    2.4252,
+    1.2709,
+    -2.3089
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     -0.436,
+     0.218,
      0.0,
-     0.9
+     0.976
     ],
     "amp": 22.973470349591206,
     "base": 0.0,
@@ -1530,19 +1530,19 @@
     "phase": 0.12
    },
    "voxel": 0.0625,
-   "voxels": 62,
+   "voxels": 104,
    "kind": "jaw",
    "head": 24,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 152
+   "quads": 212
   },
   {
    "name": "head_25",
    "index": 56,
    "pivot": [
-    1.514,
-    5.3608,
-    3.0618
+    1.9645,
+    4.3783,
+    3.2536
    ],
    "anim": {
     "kind": "sway",
@@ -1561,24 +1561,24 @@
     "phase": 0.52
    },
    "voxel": 0.0625,
-   "voxels": 779,
+   "voxels": 1671,
    "kind": "head",
-   "quads": 453
+   "quads": 862
   },
   {
    "name": "head_25_jaw",
    "index": 57,
    "pivot": [
-    1.5237,
-    5.166,
-    3.0644
+    1.9684,
+    4.1265,
+    3.2546
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     -0.258,
+     -0.254,
      0.0,
-     0.966
+     0.967
     ],
     "amp": 21.34994397339812,
     "base": 0.0,
@@ -1586,19 +1586,19 @@
     "phase": 0.01
    },
    "voxel": 0.0625,
-   "voxels": 62,
+   "voxels": 149,
    "kind": "jaw",
    "head": 25,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 123
+   "quads": 245
   },
   {
    "name": "head_26",
    "index": 58,
    "pivot": [
-    2.7535,
-    3.3201,
-    1.3458
+    2.3312,
+    1.5175,
+    2.1244
    ],
    "anim": {
     "kind": "sway",
@@ -1617,24 +1617,24 @@
     "phase": 0.43
    },
    "voxel": 0.0625,
-   "voxels": 610,
+   "voxels": 733,
    "kind": "head",
-   "quads": 417
+   "quads": 489
   },
   {
    "name": "head_26_jaw",
    "index": 59,
    "pivot": [
-    2.7134,
-    3.1459,
-    1.3377
+    2.2196,
+    1.3696,
+    2.0786
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     -0.199,
+     -0.38,
      0.0,
-     0.98
+     0.925
     ],
     "amp": 24.424065474217436,
     "base": 0.0,
@@ -1642,19 +1642,19 @@
     "phase": 1.0
    },
    "voxel": 0.0625,
-   "voxels": 53,
+   "voxels": 64,
    "kind": "jaw",
    "head": 26,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 122
+   "quads": 157
   },
   {
    "name": "head_27",
    "index": 60,
    "pivot": [
-    3.2372,
-    0.5887,
-    -2.4251
+    1.5151,
+    5.3609,
+    3.0548
    ],
    "anim": {
     "kind": "sway",
@@ -1673,24 +1673,24 @@
     "phase": 0.1
    },
    "voxel": 0.0625,
-   "voxels": 995,
+   "voxels": 776,
    "kind": "head",
-   "quads": 558
+   "quads": 510
   },
   {
    "name": "head_27_jaw",
    "index": 61,
    "pivot": [
-    3.1893,
-    0.3848,
-    -2.4054
+    1.5257,
+    5.1661,
+    3.0554
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     0.38,
+     -0.059,
      0.0,
-     0.925
+     0.998
     ],
     "amp": 22.220210498712422,
     "base": 0.0,
@@ -1698,19 +1698,19 @@
     "phase": 0.43
    },
    "voxel": 0.0625,
-   "voxels": 82,
+   "voxels": 68,
    "kind": "jaw",
    "head": 27,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 177
+   "quads": 144
   },
   {
    "name": "head_28",
    "index": 62,
    "pivot": [
-    2.0337,
-    4.4241,
-    -2.8306
+    2.7518,
+    3.3274,
+    1.3478
    ],
    "anim": {
     "kind": "sway",
@@ -1729,24 +1729,24 @@
     "phase": 0.57
    },
    "voxel": 0.0625,
-   "voxels": 731,
+   "voxels": 613,
    "kind": "head",
-   "quads": 455
+   "quads": 442
   },
   {
    "name": "head_28_jaw",
    "index": 63,
    "pivot": [
-    2.0324,
-    4.2339,
-    -2.8302
+    2.7493,
+    3.1484,
+    1.3471
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     0.269,
+     -0.265,
      0.0,
-     0.963
+     0.964
     ],
     "amp": 23.966375688582417,
     "base": 0.0,
@@ -1754,19 +1754,19 @@
     "phase": 0.84
    },
    "voxel": 0.0625,
-   "voxels": 61,
+   "voxels": 51,
    "kind": "jaw",
    "head": 28,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 130
+   "quads": 119
   },
   {
    "name": "head_29",
    "index": 64,
    "pivot": [
-    2.4727,
-    4.5479,
-    -1.655
+    3.2392,
+    0.5844,
+    -2.4186
    ],
    "anim": {
     "kind": "sway",
@@ -1785,24 +1785,24 @@
     "phase": 0.63
    },
    "voxel": 0.0625,
-   "voxels": 624,
+   "voxels": 978,
    "kind": "head",
-   "quads": 413
+   "quads": 605
   },
   {
    "name": "head_29_jaw",
    "index": 65,
    "pivot": [
-    2.3891,
-    4.3896,
-    -1.6764
+    3.1678,
+    0.3872,
+    -2.4026
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     -0.248,
+     0.219,
      0.0,
-     0.969
+     0.976
     ],
     "amp": 25.470608415796033,
     "base": 0.0,
@@ -1810,19 +1810,19 @@
     "phase": 0.39
    },
    "voxel": 0.0625,
-   "voxels": 56,
+   "voxels": 79,
    "kind": "jaw",
    "head": 29,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 137
+   "quads": 179
   },
   {
    "name": "head_30",
    "index": 66,
    "pivot": [
-    2.2683,
-    5.3712,
-    0.6147
+    2.033,
+    4.4227,
+    -2.834
    ],
    "anim": {
     "kind": "sway",
@@ -1841,24 +1841,24 @@
     "phase": 0.16
    },
    "voxel": 0.0625,
-   "voxels": 755,
+   "voxels": 728,
    "kind": "head",
-   "quads": 509
+   "quads": 527
   },
   {
    "name": "head_30_jaw",
    "index": 67,
    "pivot": [
-    2.3331,
-    5.1911,
-    0.5965
+    2.0244,
+    4.2326,
+    -2.8306
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     0.27,
+     0.362,
      0.0,
-     0.963
+     0.932
     ],
     "amp": 18.554662076587338,
     "base": 0.0,
@@ -1866,19 +1866,19 @@
     "phase": 0.32
    },
    "voxel": 0.0625,
-   "voxels": 66,
+   "voxels": 63,
    "kind": "jaw",
    "head": 30,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 130
+   "quads": 138
   },
   {
    "name": "head_31",
    "index": 68,
    "pivot": [
-    2.6556,
-    2.503,
-    -1.8346
+    2.4735,
+    4.5468,
+    -1.6614
    ],
    "anim": {
     "kind": "sway",
@@ -1897,24 +1897,24 @@
     "phase": 0.19
    },
    "voxel": 0.0625,
-   "voxels": 931,
+   "voxels": 615,
    "kind": "head",
-   "quads": 552
+   "quads": 421
   },
   {
    "name": "head_31_jaw",
    "index": 69,
    "pivot": [
-    2.6085,
-    2.3041,
-    -1.8123
+    2.3817,
+    4.3916,
+    -1.6666
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     0.427,
+     -0.057,
      0.0,
-     0.904
+     0.998
     ],
     "amp": 22.298217847818364,
     "base": 0.0,
@@ -1922,19 +1922,19 @@
     "phase": 0.43
    },
    "voxel": 0.0625,
-   "voxels": 71,
+   "voxels": 54,
    "kind": "jaw",
    "head": 31,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 150
+   "quads": 143
   },
   {
    "name": "head_32",
    "index": 70,
    "pivot": [
-    2.1538,
-    3.0181,
-    -3.5793
+    2.2679,
+    5.3729,
+    0.6239
    ],
    "anim": {
     "kind": "sway",
@@ -1953,24 +1953,24 @@
     "phase": 0.5
    },
    "voxel": 0.0625,
-   "voxels": 609,
+   "voxels": 756,
    "kind": "head",
-   "quads": 426
+   "quads": 527
   },
   {
    "name": "head_32_jaw",
    "index": 71,
    "pivot": [
-    2.1277,
-    2.8413,
-    -3.5812
+    2.3458,
+    5.1971,
+    0.6273
    ],
    "anim": {
     "kind": "hinge",
     "axis": [
-     -0.074,
+     -0.045,
      0.0,
-     0.997
+     0.999
     ],
     "amp": 23.761395779437606,
     "base": 0.0,
@@ -1978,19 +1978,131 @@
     "phase": 0.04
    },
    "voxel": 0.0625,
-   "voxels": 47,
+   "voxels": 61,
    "kind": "jaw",
    "head": 32,
    "note": "baked open; a positive angle about the axis closes it",
-   "quads": 120
+   "quads": 143
+  },
+  {
+   "name": "head_33",
+   "index": 72,
+   "pivot": [
+    2.655,
+    2.5099,
+    -1.8338
+   ],
+   "anim": {
+    "kind": "sway",
+    "axis": [
+     0,
+     0,
+     1
+    ],
+    "axis2": [
+     0,
+     1,
+     0
+    ],
+    "amp": 4.0,
+    "period": 90,
+    "phase": 0.28
+   },
+   "voxel": 0.0625,
+   "voxels": 903,
+   "kind": "head",
+   "quads": 620
+  },
+  {
+   "name": "head_33_jaw",
+   "index": 73,
+   "pivot": [
+    2.6404,
+    2.305,
+    -1.8271
+   ],
+   "anim": {
+    "kind": "hinge",
+    "axis": [
+     0.417,
+     0.0,
+     0.909
+    ],
+    "amp": 26.64369409509243,
+    "base": 0.0,
+    "period": 77,
+    "phase": 0.4
+   },
+   "voxel": 0.0625,
+   "voxels": 80,
+   "kind": "jaw",
+   "head": 33,
+   "note": "baked open; a positive angle about the axis closes it",
+   "quads": 181
+  },
+  {
+   "name": "head_34",
+   "index": 74,
+   "pivot": [
+    2.1532,
+    3.0104,
+    -3.5896
+   ],
+   "anim": {
+    "kind": "sway",
+    "axis": [
+     0,
+     0,
+     1
+    ],
+    "axis2": [
+     0,
+     1,
+     0
+    ],
+    "amp": 4.0,
+    "period": 112,
+    "phase": 0.39
+   },
+   "voxel": 0.0625,
+   "voxels": 597,
+   "kind": "head",
+   "quads": 424
+  },
+  {
+   "name": "head_34_jaw",
+   "index": 75,
+   "pivot": [
+    2.0901,
+    2.8439,
+    -3.5747
+   ],
+   "anim": {
+    "kind": "hinge",
+    "axis": [
+     0.231,
+     0.0,
+     0.973
+    ],
+    "amp": 18.727658444612203,
+    "base": 0.0,
+    "period": 88,
+    "phase": 0.27
+   },
+   "voxel": 0.0625,
+   "voxels": 50,
+   "kind": "jaw",
+   "head": 34,
+   "note": "baked open; a positive angle about the axis closes it",
+   "quads": 153
   },
   {
    "name": "tendril_0",
-   "index": 72,
+   "index": 76,
    "pivot": [
-    2.34,
-    4.3498,
-    1.8213
+    1.62,
+    5.0172,
+    3.1158
    ],
    "anim": {
     "kind": "sway",
@@ -2005,21 +2117,50 @@
      0
     ],
     "amp": 8.0,
-    "period": 81,
-    "phase": 0.86
+    "period": 82,
+    "phase": 0.35
    },
    "voxel": 0.0625,
-   "voxels": 255,
+   "voxels": 268,
    "kind": "tendril",
-   "quads": 356
+   "quads": 277
   },
   {
    "name": "tendril_1",
-   "index": 73,
+   "index": 77,
    "pivot": [
-    2.5,
-    4.3158,
-    -0.7074
+    2.22,
+    4.93,
+    0.0852
+   ],
+   "anim": {
+    "kind": "sway",
+    "axis": [
+     0,
+     0,
+     1
+    ],
+    "axis2": [
+     0,
+     1,
+     0
+    ],
+    "amp": 8.0,
+    "period": 95,
+    "phase": 0.04
+   },
+   "voxel": 0.0625,
+   "voxels": 247,
+   "kind": "tendril",
+   "quads": 342
+  },
+  {
+   "name": "tendril_2",
+   "index": 78,
+   "pivot": [
+    1.92,
+    4.6193,
+    -2.7836
    ],
    "anim": {
     "kind": "sway",
@@ -2035,49 +2176,20 @@
     ],
     "amp": 8.0,
     "period": 118,
-    "phase": 0.07
+    "phase": 0.62
    },
    "voxel": 0.0625,
-   "voxels": 259,
+   "voxels": 280,
    "kind": "tendril",
-   "quads": 349
-  },
-  {
-   "name": "tendril_2",
-   "index": 74,
-   "pivot": [
-    2.22,
-    4.3835,
-    -2.0127
-   ],
-   "anim": {
-    "kind": "sway",
-    "axis": [
-     0,
-     0,
-     1
-    ],
-    "axis2": [
-     0,
-     1,
-     0
-    ],
-    "amp": 8.0,
-    "period": 93,
-    "phase": 0.1
-   },
-   "voxel": 0.0625,
-   "voxels": 311,
-   "kind": "tendril",
-   "quads": 408
+   "quads": 397
   },
   {
    "name": "tendril_3",
-   "index": 75,
+   "index": 79,
    "pivot": [
-    2.32,
-    4.4911,
-    0.8953
+    2.34,
+    4.3006,
+    -1.3104
    ],
    "anim": {
     "kind": "sway",
@@ -2092,21 +2204,21 @@
      0
     ],
     "amp": 8.0,
-    "period": 87,
-    "phase": 0.19
+    "period": 85,
+    "phase": 0.5
    },
    "voxel": 0.0625,
-   "voxels": 291,
+   "voxels": 250,
    "kind": "tendril",
-   "quads": 375
+   "quads": 350
   },
   {
    "name": "tendril_4",
-   "index": 76,
+   "index": 80,
    "pivot": [
-    2.06,
-    4.0546,
-    2.1379
+    2.26,
+    5.22,
+    0.3582
    ],
    "anim": {
     "kind": "sway",
@@ -2121,21 +2233,21 @@
      0
     ],
     "amp": 8.0,
-    "period": 92,
-    "phase": 0.43
+    "period": 89,
+    "phase": 0.6
    },
    "voxel": 0.0625,
-   "voxels": 261,
+   "voxels": 321,
    "kind": "tendril",
-   "quads": 371
+   "quads": 407
   },
   {
    "name": "tendril_5",
-   "index": 77,
+   "index": 81,
    "pivot": [
-    2.32,
-    4.8652,
-    -0.3001
+    2.22,
+    5.3264,
+    0.9197
    ],
    "anim": {
     "kind": "sway",
@@ -2150,21 +2262,21 @@
      0
     ],
     "amp": 8.0,
-    "period": 113,
-    "phase": 0.51
+    "period": 100,
+    "phase": 0.1
    },
    "voxel": 0.0625,
-   "voxels": 229,
+   "voxels": 338,
    "kind": "tendril",
-   "quads": 328
+   "quads": 439
   },
   {
    "name": "tendril_6",
-   "index": 78,
+   "index": 82,
    "pivot": [
-    2.4,
-    4.6994,
-    -1.1669
+    2.32,
+    4.1784,
+    1.7654
    ],
    "anim": {
     "kind": "sway",
@@ -2179,21 +2291,21 @@
      0
     ],
     "amp": 8.0,
-    "period": 112,
-    "phase": 0.9
+    "period": 118,
+    "phase": 0.11
    },
    "voxel": 0.0625,
-   "voxels": 339,
+   "voxels": 318,
    "kind": "tendril",
-   "quads": 431
+   "quads": 361
   },
   {
    "name": "tendril_7",
-   "index": 79,
+   "index": 83,
    "pivot": [
-    1.68,
-    4.8432,
-    3.1262
+    1.88,
+    4.1785,
+    -3.1012
    ],
    "anim": {
     "kind": "sway",
@@ -2208,21 +2320,21 @@
      0
     ],
     "amp": 8.0,
-    "period": 128,
-    "phase": 0.28
+    "period": 122,
+    "phase": 0.52
    },
    "voxel": 0.0625,
-   "voxels": 347,
+   "voxels": 308,
    "kind": "tendril",
-   "quads": 432
+   "quads": 399
   },
   {
    "name": "tendril_8",
-   "index": 80,
+   "index": 84,
    "pivot": [
-    2.08,
-    4.1441,
-    2.0496
+    2.22,
+    4.6566,
+    1.8437
    ],
    "anim": {
     "kind": "sway",
@@ -2237,21 +2349,79 @@
      0
     ],
     "amp": 8.0,
-    "period": 108,
-    "phase": 0.51
+    "period": 114,
+    "phase": 0.96
    },
    "voxel": 0.0625,
-   "voxels": 230,
+   "voxels": 221,
    "kind": "tendril",
-   "quads": 354
+   "quads": 264
   },
   {
    "name": "tendril_9",
-   "index": 81,
+   "index": 85,
    "pivot": [
-    1.92,
-    4.1555,
-    2.8161
+    1.94,
+    5.029,
+    -2.2662
+   ],
+   "anim": {
+    "kind": "sway",
+    "axis": [
+     0,
+     0,
+     1
+    ],
+    "axis2": [
+     0,
+     1,
+     0
+    ],
+    "amp": 8.0,
+    "period": 98,
+    "phase": 0.71
+   },
+   "voxel": 0.0625,
+   "voxels": 222,
+   "kind": "tendril",
+   "quads": 306
+  },
+  {
+   "name": "tendril_10",
+   "index": 86,
+   "pivot": [
+    1.8,
+    4.8943,
+    -2.8321
+   ],
+   "anim": {
+    "kind": "sway",
+    "axis": [
+     0,
+     0,
+     1
+    ],
+    "axis2": [
+     0,
+     1,
+     0
+    ],
+    "amp": 8.0,
+    "period": 109,
+    "phase": 0.98
+   },
+   "voxel": 0.0625,
+   "voxels": 309,
+   "kind": "tendril",
+   "quads": 412
+  },
+  {
+   "name": "tendril_11",
+   "index": 87,
+   "pivot": [
+    2.32,
+    4.6524,
+    -1.6077
    ],
    "anim": {
     "kind": "sway",
@@ -2267,78 +2437,20 @@
     ],
     "amp": 8.0,
     "period": 113,
-    "phase": 0.33
+    "phase": 0.79
    },
    "voxel": 0.0625,
-   "voxels": 233,
+   "voxels": 349,
    "kind": "tendril",
-   "quads": 287
-  },
-  {
-   "name": "tendril_10",
-   "index": 82,
-   "pivot": [
-    2.28,
-    4.7296,
-    1.6275
-   ],
-   "anim": {
-    "kind": "sway",
-    "axis": [
-     0,
-     0,
-     1
-    ],
-    "axis2": [
-     0,
-     1,
-     0
-    ],
-    "amp": 8.0,
-    "period": 93,
-    "phase": 0.86
-   },
-   "voxel": 0.0625,
-   "voxels": 271,
-   "kind": "tendril",
-   "quads": 376
-  },
-  {
-   "name": "tendril_11",
-   "index": 83,
-   "pivot": [
-    1.72,
-    5.3413,
-    -2.341
-   ],
-   "anim": {
-    "kind": "sway",
-    "axis": [
-     0,
-     0,
-     1
-    ],
-    "axis2": [
-     0,
-     1,
-     0
-    ],
-    "amp": 8.0,
-    "period": 83,
-    "phase": 0.9
-   },
-   "voxel": 0.0625,
-   "voxels": 304,
-   "kind": "tendril",
-   "quads": 310
+   "quads": 449
   },
   {
    "name": "tendril_12",
-   "index": 84,
+   "index": 88,
    "pivot": [
-    2.32,
-    4.9904,
-    1.1003
+    1.6,
+    5.2577,
+    2.7129
    ],
    "anim": {
     "kind": "sway",
@@ -2353,21 +2465,21 @@
      0
     ],
     "amp": 8.0,
-    "period": 114,
-    "phase": 0.63
+    "period": 96,
+    "phase": 0.88
    },
    "voxel": 0.0625,
-   "voxels": 289,
+   "voxels": 245,
    "kind": "tendril",
-   "quads": 349
+   "quads": 336
   },
   {
    "name": "tendril_13",
-   "index": 85,
+   "index": 89,
    "pivot": [
-    1.54,
-    5.3652,
-    2.5587
+    2.34,
+    4.4939,
+    1.388
    ],
    "anim": {
     "kind": "sway",
@@ -2382,21 +2494,21 @@
      0
     ],
     "amp": 8.0,
-    "period": 112,
-    "phase": 0.39
+    "period": 76,
+    "phase": 0.01
    },
    "voxel": 0.0625,
-   "voxels": 267,
+   "voxels": 265,
    "kind": "tendril",
-   "quads": 357
+   "quads": 377
   },
   {
    "name": "tendril_14",
-   "index": 86,
+   "index": 90,
    "pivot": [
-    2.26,
-    5.1064,
-    -0.3812
+    2.18,
+    4.8388,
+    -2.1533
    ],
    "anim": {
     "kind": "sway",
@@ -2411,21 +2523,21 @@
      0
     ],
     "amp": 8.0,
-    "period": 114,
-    "phase": 0.27
+    "period": 111,
+    "phase": 0.79
    },
    "voxel": 0.0625,
-   "voxels": 326,
+   "voxels": 242,
    "kind": "tendril",
-   "quads": 428
+   "quads": 336
   },
   {
    "name": "tendril_15",
-   "index": 87,
+   "index": 91,
    "pivot": [
-    2.06,
-    5.232,
-    1.9869
+    2.22,
+    4.8667,
+    0.7978
    ],
    "anim": {
     "kind": "sway",
@@ -2440,13 +2552,13 @@
      0
     ],
     "amp": 8.0,
-    "period": 103,
-    "phase": 0.34
+    "period": 77,
+    "phase": 0.98
    },
    "voxel": 0.0625,
-   "voxels": 264,
+   "voxels": 224,
    "kind": "tendril",
-   "quads": 332
+   "quads": 288
   }
  ]
 }

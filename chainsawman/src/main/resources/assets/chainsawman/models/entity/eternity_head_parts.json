@@ -2,8 +2,8 @@
  "note": "The lone head, stage 1. Made by tools/eternity_devil_3d.py (eternity_3d_stages.py).",
  "frame": "X toward the players (the face), Y up, Z across; origin below the head on the floor; neck cords hang to the floor",
  "mesh": "eternity_head_mesh.bin",
- "quads": 3534,
- "voxels": 8947,
+ "quads": 3691,
+ "voxels": 8881,
  "parts": [
   {
    "name": "head",
@@ -15,9 +15,9 @@
    ],
    "anim": null,
    "voxel": 0.0625,
-   "voxels": 8074,
+   "voxels": 8008,
    "kind": "static",
-   "quads": 2400
+   "quads": 2565
   },
   {
    "name": "jaw",
@@ -43,7 +43,7 @@
    "voxels": 581,
    "kind": "jaw",
    "note": "the hanging jaw, baked wide open (52 degrees); a positive angle closes it. Let it swing a little as the head moves",
-   "quads": 602
+   "quads": 594
   },
   {
    "name": "cord_0",

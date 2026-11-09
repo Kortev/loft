@@ -2,8 +2,8 @@
  "note": "The growing mass, stage 2. Made by tools/eternity_devil_3d.py (eternity_3d_stages.py).",
  "frame": "X toward the players, Y up, Z across; origin on the floor under the middle",
  "mesh": "eternity_growing_mesh.bin",
- "quads": 9655,
- "voxels": 18462,
+ "quads": 9887,
+ "voxels": 18377,
  "parts": [
   {
    "name": "mass",
@@ -44,9 +44,9 @@
     "phase": 0.0
    },
    "voxel": 0.0625,
-   "voxels": 6411,
+   "voxels": 6346,
    "kind": "face",
-   "quads": 2156
+   "quads": 2321
   },
   {
    "name": "face_0_jaw",
@@ -73,7 +73,7 @@
    "kind": "jaw",
    "head": 0,
    "note": "melted jaw, baked wide open; positive angle closes it",
-   "quads": 645
+   "quads": 625
   },
   {
    "name": "face_1",
@@ -100,9 +100,9 @@
     "phase": 0.3
    },
    "voxel": 0.0625,
-   "voxels": 2418,
+   "voxels": 2398,
    "kind": "face",
-   "quads": 1126
+   "quads": 1204
   },
   {
    "name": "face_1_jaw",
@@ -129,7 +129,7 @@
    "kind": "jaw",
    "head": 1,
    "note": "melted jaw, baked wide open; positive angle closes it",
-   "quads": 301
+   "quads": 310
   },
   {
    "name": "hand_0",
