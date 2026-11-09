@@ -213,6 +213,22 @@ public final class HotelBuilder {
 		}
 	}
 
+	/** The entrance doors shut (and left shut: a sealed hotel). */
+	public static void shutEntrance(net.minecraft.server.world.ServerWorld world, BlockPos origin, int rot) {
+		for (HotelPlan.Door d : HotelPlan.get().doors) {
+			if (d.kind() != HotelPlan.DoorKind.ENTRANCE) {
+				continue;
+			}
+			for (int h = 0; h < 2; h++) {
+				BlockPos at = world(origin, rot, d.x(), d.y() + h, d.z());
+				BlockState s = world.getBlockState(at);
+				if (s.getBlock() instanceof DoorBlock && s.get(DoorBlock.OPEN)) {
+					world.setBlockState(at, s.with(DoorBlock.OPEN, false), Block.NOTIFY_LISTENERS);
+				}
+			}
+		}
+	}
+
 	public static void lamp(net.minecraft.server.world.ServerWorld world, BlockPos at, boolean lit) {
 		BlockState s = world.getBlockState(at);
 		if (s.getBlock() instanceof RedstoneLampBlock && s.get(RedstoneLampBlock.LIT) != lit) {

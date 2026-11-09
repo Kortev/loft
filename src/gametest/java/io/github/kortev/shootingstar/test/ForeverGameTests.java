@@ -948,8 +948,12 @@ public class ForeverGameTests implements FabricGameTest {
 	}
 
 	static ServerPlayerEntity player(TestContext context, String name) {
+		return player(context, name, UUID.randomUUID());
+	}
+
+	static ServerPlayerEntity player(TestContext context, String name, UUID id) {
 		ServerWorld world = context.getWorld();
-		ConnectedClientData data = ConnectedClientData.createDefault(new GameProfile(UUID.randomUUID(), name), false);
+		ConnectedClientData data = ConnectedClientData.createDefault(new GameProfile(id, name), false);
 		ServerPlayerEntity player = new ServerPlayerEntity(world.getServer(), world, data.gameProfile(), data.syncedOptions());
 		ClientConnection connection = new ClientConnection(NetworkSide.SERVERBOUND);
 		new EmbeddedChannel(connection);

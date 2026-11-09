@@ -41,8 +41,6 @@ public final class Hotel {
 	public static final double NEAR = 96.0;
 	/** How far the loop's fog lets you see (blocks). */
 	public static final float FOG_END = 11.0F;
-	public static final int LAPS_FOR_DEAL = 3;
-	public static final int FLOOR_TICKS_FOR_DEAL = 1200;
 
 	private Hotel() {
 	}
@@ -52,11 +50,15 @@ public final class Hotel {
 		/** The night state is on: lit, open, the loop running. */
 		public boolean night;
 		public boolean started;
-		/** How many times each player has been put back, and when each first came onto the loop floor. */
+		/** How many times each player has been put back. */
 		public final Map<UUID, Integer> laps = new HashMap<>();
-		public final Map<UUID, Long> since = new HashMap<>();
-		/** Players who took the deal: the loop lets them go. */
-		public final Set<UUID> freed = new HashSet<>();
+		/** The hotel is sealed (from the first player reaching the loop until the devil is killed or spared, or nobody is left inside), and who is inside it. */
+		public boolean sealed;
+		/** The beg (placeholder until it is built). */
+		public Object beg;
+		public long sealedAt;
+		public final Set<UUID> inside = new HashSet<>();
+		public long sealMsgAt = -100000;
 		/** Players who have reached the loop floor (and so are looped if they go down the stairs). */
 		public final Set<UUID> top = new HashSet<>();
 		/** Players the fog has been switched on for. */
@@ -78,11 +80,6 @@ public final class Hotel {
 		public float bleedShown;
 		public long emptySince;
 		public UUID devil;
-		/** An offer is out or was made (so not made again) while this hotel's devil waits. */
-		public Deal deal;
-		public boolean dealt;
-		/** Ticks this hotel gives to answer, if not the default (the tests give a short time). */
-		public int answerTicks = -1;
 		/** The tick the devil died, while the lights die after it; -1 when not. */
 		public long dyingAt = -1;
 
@@ -167,12 +164,10 @@ public final class Hotel {
 			return;
 		}
 		floors(world, h, inside, now);
+		sealing(world, h, inside, now);
 		loop(world, h, inside, now);
 		if (r.dyingAt >= 0) {
 			dying(world, h, now);
-		}
-		if (r.deal != null) {
-			dealTick(world, h, inside, now);
 		}
 		if (r.fight) {
 			fight(world, h, inside, now);
@@ -183,13 +178,11 @@ public final class Hotel {
 	private static void updateNight(ServerWorld world, HomeBlockEntity h, boolean near, List<In> inside) {
 		Run r = h.run;
 		boolean onTop = false;
-		boolean freedInside = false;
 		for (In in : inside) {
 			onTop |= in.local().y >= 28.5;
-			freedInside |= r.freed.contains(in.player().getUuid());
 		}
 		boolean want = isNightTime(world) && !h.away && near;
-		if (r.night && (r.fighting() || r.dyingAt >= 0 || r.deal != null || onTop && !h.away || h.away && freedInside)) {
+		if (r.night && (r.fighting() || r.sealed || r.dyingAt >= 0 || onTop && !h.away)) {
 			want = true;
 		}
 		if (want != r.night) {
@@ -205,11 +198,10 @@ public final class Hotel {
 	public static void reset(ServerWorld world, HomeBlockEntity h) {
 		Run r = h.run;
 		r.laps.clear();
-		r.since.clear();
 		r.top.clear();
-		r.freed.clear();
-		r.dealt = false;
-		r.deal = null;
+		if (r.sealed) {
+			open(world, h);
+		}
 		if (r.flesh != 0) {
 			r.flesh = 0;
 			growths(world, h, 0);
@@ -264,6 +256,117 @@ public final class Hotel {
 		}
 	}
 
+	// ---- The seal.
+
+	/** Where an outsider who gets into a sealed hotel is put: out on the plaza in front of the doors (local). */
+	private static final double[] OUT = {27.5, 1.0, -3.5};
+
+	/**
+	 * The first player to reach the loop floor closes the loop on everyone on that floor at that moment: they are inside, and the hotel is
+	 * sealed until it is over. Anyone else who is in the hotel is put out, the entrance stays shut, and nobody gets in. Someone inside who
+	 * dies, or leaves, is no longer inside; when nobody is, it opens.
+	 */
+	private static void sealing(ServerWorld world, HomeBlockEntity h, List<In> inside, long now) {
+		Run r = h.run;
+		if (!r.sealed) {
+			if (h.away || r.dyingAt >= 0 || r.fighting()) {
+				return;
+			}
+			boolean reached = false;
+			for (In in : inside) {
+				reached |= in.local().y >= 28.8 && !in.player().isSpectator();
+			}
+			if (!reached) {
+				return;
+			}
+			r.sealed = true;
+			r.sealedAt = now;
+			r.inside.clear();
+			for (In in : inside) {
+				if (in.local().y >= 28.5) {
+					r.inside.add(in.player().getUuid());
+				}
+			}
+			HotelBuilder.shutEntrance(world, h.origin, h.rot);
+			play(world, h, 27.0, 2.0, 0.0, ChainsawSounds.HOTEL_SEAL, 2.0F, 0.7F);
+			speak(world, r.inside, "message.chainsawman.hotel.sealed", 70, 0);
+			// (The hunt and the squad start here.)
+			return;
+		}
+		// Those who are no longer in the hotel (dead, gone, out) are no longer inside.
+		Set<UUID> here = new HashSet<>();
+		for (In in : inside) {
+			here.add(in.player().getUuid());
+		}
+		r.inside.retainAll(here);
+		if (r.inside.isEmpty() && now - r.sealedAt > 20) {
+			open(world, h);
+			if (r.fight || r.devil != null) {
+				endFight(world, h, r.devil == null ? null : world.getEntity(r.devil) instanceof EternityDevilEntity d ? d : null);
+			}
+			return;
+		}
+		if (now % 10 == 0) {
+			HotelBuilder.shutEntrance(world, h.origin, h.rot);
+		}
+		for (In in : inside) {
+			ServerPlayerEntity p = in.player();
+			if (!r.inside.contains(p.getUuid()) && !p.isCreative()) {
+				Vec3d to = HotelBuilder.world(h.origin, h.rot, OUT[0], OUT[1], OUT[2]);
+				p.stopRiding();
+				p.teleport(world, to.x, to.y, to.z, p.getYaw(), 0.0F);
+				p.setVelocity(Vec3d.ZERO);
+				p.sendMessage(net.minecraft.text.Text.translatable("message.chainsawman.hotel.shut"), true);
+			}
+		}
+		// Players at the doors are told they do not open.
+		if (now - r.sealMsgAt >= 40) {
+			r.sealMsgAt = now;
+			Vec3d door = HotelBuilder.world(h.origin, h.rot, 27.5, 1.0, -0.5);
+			for (ServerPlayerEntity p : world.getPlayers()) {
+				if (!r.inside.contains(p.getUuid()) && p.squaredDistanceTo(door) < 36.0) {
+					p.sendMessage(net.minecraft.text.Text.translatable("message.chainsawman.hotel.shut"), true);
+				}
+			}
+		}
+	}
+
+	/** Whether {@code pos} is part of a hotel that is sealed now (the home that holds it, or null). */
+	public static HomeBlockEntity sealedAt(ServerWorld world, BlockPos pos) {
+		for (HomeBlockEntity h : HomeBlockEntity.LOADED) {
+			if (h.getWorld() == world && h.run.sealed && HotelBuilder.box(h.origin, h.rot).contains(pos)) {
+				return h;
+			}
+		}
+		return null;
+	}
+
+	/** The hotel opens: not sealed any more, the entrance as the night has it. */
+	static void open(ServerWorld world, HomeBlockEntity h) {
+		Run r = h.run;
+		if (!r.sealed) {
+			return;
+		}
+		r.sealed = false;
+		r.inside.clear();
+		if (r.night) {
+			HotelBuilder.setNight(world, h.origin, h.rot, true);
+		}
+	}
+
+	/** Left-clicking a block of a sealed hotel: it does not break, and a wall of the loop floor is cut (see {@link Hunt#cut}). */
+	public static void init() {
+		net.fabricmc.fabric.api.event.player.AttackBlockCallback.EVENT.register((player, world, hand, pos, direction) -> {
+			if (world instanceof ServerWorld sw && player instanceof ServerPlayerEntity sp) {
+				HomeBlockEntity h = sealedAt(sw, pos);
+				if (h != null) {
+					return net.minecraft.util.ActionResult.FAIL;
+				}
+			}
+			return net.minecraft.util.ActionResult.PASS;
+		});
+	}
+
 	// ---- The loop.
 
 	private static void loop(ServerWorld world, HomeBlockEntity h, List<In> inside, long now) {
@@ -279,17 +382,15 @@ public final class Hotel {
 				r.top.add(id);
 			} else if (lp.y < 24.0) {
 				r.top.remove(id);
-				r.since.remove(id);
 				r.laps.remove(id);
 			}
-			boolean free = r.freed.contains(id) || r.fighting() || h.away;
+			boolean free = !r.inside.contains(id) || r.fighting() || h.away;
 			boolean corridor = lp.y >= 28.5 && lp.y < 32.0 && lp.x >= 1.0 && lp.x <= HotelPlan.SX - 1.0 && lp.z >= HotelPlan.CORR_Z0 && lp.z <= HotelPlan.CORR_Z1 + 1.0;
 			boolean shaft = lp.x >= HotelPlan.SHAFT_X0 - 1.0 && lp.x <= HotelPlan.SHAFT_X1 + 1.0 && lp.z >= 0.0 && lp.z <= 4.2;
 			if (!r.top.contains(id) || free) {
 				continue;
 			}
 			here.add(id);
-			r.since.putIfAbsent(id, now);
 			if (corridor) {
 				looped.add(id);
 				if (lp.x >= HotelPlan.WINDOW_HI) {
@@ -310,7 +411,6 @@ public final class Hotel {
 			}
 			maxLaps = Math.max(maxLaps, r.laps.getOrDefault(id, 0));
 		}
-		maybeDeal(world, h, here, now);
 		// The signs build up with the laps.
 		int level = Math.min(3, maxLaps);
 		if (level != r.flesh && !r.fighting()) {
@@ -434,49 +534,10 @@ public final class Hotel {
 		world.playSound(null, at.x, at.y, at.z, sound, SoundCategory.AMBIENT, volume, pitch);
 	}
 
-	// ---- The deal.
+	// ---- Words and contracts.
 
-	/** One offer of the devil's contract to the players in the loop. */
-	public static final class Deal {
-		public final Set<UUID> players = new HashSet<>();
-		public final Set<UUID> answered = new HashSet<>();
-		public final Set<UUID> accepted = new HashSet<>();
-		public final Map<UUID, Long> deadline = new HashMap<>();
-		public long started;
-		public boolean open;
-		public int said;
-	}
-
-	/** Ticks a player has to answer the offer (20 seconds), and when its words and its screen come (ticks after it starts). */
-	public static int answerTicks = 400;
-	public static final int[] SPEECH_AT = {0, 26, 54};
-	public static final int OPENS_AT = 84;
-	private static final String[] SPEECH = {"message.chainsawman.devil.deal.1", "message.chainsawman.devil.deal.2", "message.chainsawman.devil.deal.3"};
-
-	/** The Eternity Devil speaks to those in the loop once someone has walked three laps or been on the floor for a minute. */
-	private static void maybeDeal(ServerWorld world, HomeBlockEntity h, Set<UUID> here, long now) {
-		Run r = h.run;
-		if (r.deal != null || r.dealt || r.fighting() || h.away || here.isEmpty()) {
-			return;
-		}
-		boolean ready = false;
-		for (UUID id : here) {
-			ready |= r.laps.getOrDefault(id, 0) >= LAPS_FOR_DEAL || now - r.since.getOrDefault(id, now) >= FLOOR_TICKS_FOR_DEAL;
-		}
-		if (!ready) {
-			return;
-		}
-		r.dealt = true;
-		if (world.getGameRules().getBoolean(HotelRules.ONE_CONTRACT_PER_DEVIL) && holderStillHolds(world, h)) {
-			// Someone already holds this devil's contract: it is not offered again. It does not let anyone out.
-			speak(world, here, "message.chainsawman.devil.held", 90, 0);
-			startFight(world, h, now + 60);
-			return;
-		}
-		Deal d = new Deal();
-		d.started = now;
-		d.players.addAll(here);
-		r.deal = d;
+	/** Called when a player answers the contract screen (nothing is on offer yet). */
+	public static void answer(ServerPlayerEntity player, boolean accept) {
 	}
 
 	/** Whether the player who holds this hotel's contract still holds it (one who is away is taken to). */
@@ -494,143 +555,6 @@ public final class Hotel {
 		h.holder = null;
 		h.markDirty();
 		return false;
-	}
-
-	private static void dealTick(ServerWorld world, HomeBlockEntity h, List<In> inside, long now) {
-		Run r = h.run;
-		Deal d = r.deal;
-		long t = now - d.started;
-		// Anyone who has left the loop floor (or the game) is out of it.
-		Set<UUID> there = new HashSet<>();
-		for (In in : inside) {
-			if (r.top.contains(in.player().getUuid()) && in.local().y >= 28.0) {
-				there.add(in.player().getUuid());
-			}
-		}
-		for (UUID gone : new ArrayList<>(d.players)) {
-			if (!there.contains(gone)) {
-				ServerPlayerEntity left = world.getServer().getPlayerManager().getPlayer(gone);
-				if (left != null) {
-					close(left);
-				}
-			}
-		}
-		d.players.retainAll(there);
-		if (d.players.isEmpty()) {
-			if (!d.accepted.isEmpty()) {
-				// Someone took it and everyone has since gone: the devil has gone with its contract all the same.
-				resolve(world, h, now);
-			} else {
-				r.deal = null;
-			}
-			r.dealt = false;
-			return;
-		}
-		while (d.said < SPEECH.length && t >= SPEECH_AT[d.said]) {
-			speak(world, d.players, SPEECH[d.said], d.said == SPEECH.length - 1 ? 90 : 60, d.said == SPEECH.length - 1 ? 2 : 0);
-			voice(world, d.players);
-			d.said++;
-		}
-		if (!d.open && t >= OPENS_AT) {
-			d.open = true;
-			for (UUID id : d.players) {
-				int give = r.answerTicks > 0 ? r.answerTicks : answerTicks;
-				d.deadline.put(id, now + give);
-				ServerPlayerEntity p = world.getServer().getPlayerManager().getPlayer(id);
-				if (p != null && ServerPlayNetworking.canSend(p, HotelPayloads.Offer.ID)) {
-					ServerPlayNetworking.send(p, new HotelPayloads.Offer(give));
-				}
-			}
-		}
-		if (!d.open) {
-			return;
-		}
-		boolean done = true;
-		for (UUID id : d.players) {
-			if (d.answered.contains(id)) {
-				continue;
-			}
-			if (now >= d.deadline.getOrDefault(id, now)) {
-				d.answered.add(id);
-				ServerPlayerEntity p = world.getServer().getPlayerManager().getPlayer(id);
-				if (p != null) {
-					close(p);
-					speak(world, Set.of(id), "message.chainsawman.devil.silence", 60, 0);
-				}
-			} else {
-				done = false;
-			}
-		}
-		if (done) {
-			resolve(world, h, now);
-		}
-	}
-
-	/** Everyone has answered or run out of time: those who took it are out, and whoever is left in the loop meets the devil. */
-	private static void resolve(ServerWorld world, HomeBlockEntity h, long now) {
-		Run r = h.run;
-		Deal d = r.deal;
-		r.deal = null;
-		boolean anyAccepted = !d.accepted.isEmpty();
-		if (anyAccepted) {
-			// The devil goes with its contract: it is away for a few days.
-			sendAway(world, h);
-		}
-		r.dealt = false;
-		Set<UUID> left = new HashSet<>();
-		for (UUID id : d.players) {
-			if (!d.accepted.contains(id)) {
-				left.add(id);
-			}
-		}
-		if (!left.isEmpty()) {
-			startFight(world, h, now);
-		}
-	}
-
-	/** Called when a player answers the contract screen. */
-	public static void answer(ServerPlayerEntity player, boolean accept) {
-		ServerWorld world = player.getServerWorld();
-		UUID id = player.getUuid();
-		for (HomeBlockEntity h : HomeBlockEntity.LOADED) {
-			if (h.getWorld() != world) {
-				continue;
-			}
-			Deal d = h.run.deal;
-			if (d == null || !d.open || !d.players.contains(id) || d.answered.contains(id)) {
-				continue;
-			}
-			d.answered.add(id);
-			close(player);
-			if (!accept) {
-				speak(world, Set.of(id), "message.chainsawman.devil.refused", 22, 0);
-				return;
-			}
-			if (world.getGameRules().getBoolean(HotelRules.ONE_CONTRACT_PER_DEVIL) && h.holder != null && !h.holder.equals(id) && holderStillHolds(world, h)) {
-				// Another player holds it already (they answered first): it is not given twice.
-				speak(world, Set.of(id), "message.chainsawman.devil.held", 90, 0);
-				return;
-			}
-			if (Contracts.grant(player, Contract.ETERNITY) == Contracts.Result.HYBRID) {
-				speak(world, Set.of(id), "message.chainsawman.devil.hybrid", 90, 0);
-				return;
-			}
-			d.accepted.add(id);
-			h.run.freed.add(id);
-			h.holder = id;
-			h.markDirty();
-			world.playSound(null, player.getX(), player.getY(), player.getZ(), ChainsawSounds.HOTEL_SEAL, SoundCategory.HOSTILE, 1.5F, 1.0F);
-			speak(world, Set.of(id), "message.chainsawman.devil.deal.done", 40, 0);
-			h.run.fogged.remove(id);
-			fog(world, id, 0.0F);
-			return;
-		}
-	}
-
-	private static void close(ServerPlayerEntity p) {
-		if (ServerPlayNetworking.canSend(p, HotelPayloads.Offer.ID)) {
-			ServerPlayNetworking.send(p, new HotelPayloads.Offer(0));
-		}
 	}
 
 	/** Words on the screen of {@code to}, in the devil's crowd voice. */
@@ -722,10 +646,7 @@ public final class Hotel {
 		r.fight = false;
 		r.devil = null;
 		r.bleedShown = 0.0F;
-		r.deal = null;
-		r.dealt = false;
 		r.laps.clear();
-		r.since.clear();
 		HotelBuilder.bleed(world, h.origin, h.rot, 0.0F);
 		if (r.flesh != 0) {
 			r.flesh = 0;
@@ -742,12 +663,10 @@ public final class Hotel {
 		long now = world.getTime();
 		r.fight = false;
 		r.devil = null;
-		r.deal = null;
 		r.laps.clear();
-		r.since.clear();
 		r.dyingAt = now;
 		sendAway(world, h);
-		r.dealt = false;
+		open(world, h);
 		HotelBuilder.bleed(world, h.origin, h.rot, 0.0F);
 		r.bleedShown = 0.0F;
 		if (r.flesh != 0) {

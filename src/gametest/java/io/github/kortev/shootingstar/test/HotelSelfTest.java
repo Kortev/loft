@@ -980,7 +980,6 @@ public class HotelSelfTest implements ClientModInitializer {
 		LOOKS.add(new Look("f8_lap3_flesh", 50, s -> onServer(s, w -> {
 			HomeBlockEntity h = home(s);
 			h.run.laps.put(you(s).getUuid(), 2);
-			h.run.since.put(you(s).getUuid(), w.getTime());
 		}), cam(13.5, eye(7), 6.5, 30.0, eye(7), 6.5)));
 		// The devil's words, and the offer.
 		LOOKS.add(new Look("offer_words", 50, s -> onServer(s, w -> {
