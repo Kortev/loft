@@ -55,6 +55,8 @@ import net.minecraft.world.biome.BiomeKeys;
  * growing out of the walls, the fight as Chainsaw Man, the kill and the loot (about 36 s).</li>
  * <li>-Ptarget=accept: the other choice: accept, the loop opens, walk out.</li>
  * <li>-Ptarget=look: stills of everything, for checking it (not a clip).</li>
+ * <li>-Ptarget=shaft: the shaft fight, from your eyes: the floor turning, the look down the shaft, an arm taking you down onto the mass, the mouth
+ * swallowing you and the saws cutting you out, the core offered and cut. Stills, and the clip with -Pcapture=true (portrait: -Pwidth=1080 -Pheight=1920).</li>
  * <li>-Ptarget=hunt: stills of the second version's mechanics: the sealed door, an eye in the wallpaper, a cut wall bleeding, a survivor sitting
  * and following, the mad one, the devil tearing out, the beg screen and the loot after a spare (the old look: the new one comes later).</li>
  * </ul>
@@ -122,6 +124,7 @@ public class HotelSelfTest implements ClientModInitializer {
 			ServerTickEvents.END_SERVER_TICK.register(server -> Capture.serverTickEnd());
 		}
 		ServerTickEvents.END_SERVER_TICK.register(HotelSelfTest::keepUp);
+		ServerTickEvents.END_SERVER_TICK.register(HotelSelfTest::shaftSnap);
 		ClientTickEvents.END_CLIENT_TICK.register(HotelSelfTest::tick);
 	}
 
@@ -164,6 +167,8 @@ public class HotelSelfTest implements ClientModInitializer {
 				client.options.hudHidden = false;
 				if ("devilclip".equals(target())) {
 					devilClip(client, server, ticks);
+				} else if ("shaft".equals(target())) {
+					shaftClip(client, server, ticks);
 				} else if ("look".equals(target()) || "hunt".equals(target()) || "devil".equals(target())) {
 					look(client, server, ticks);
 				} else if (target().isEmpty() || "accept".equals(target()) || "fight".equals(target())) {
@@ -1332,4 +1337,341 @@ public class HotelSelfTest implements ClientModInitializer {
 			lens = LOOKS.get(lookIndex).fov();
 		}
 	}
+
+	// ------------------------------------------------------------------ the shaft fight (-Ptarget=shaft)
+
+	/** What the server says about the shaft fight, read every server tick (the script below waits on it: the server runs behind the client while it loads). */
+	private static volatile boolean sGrown;
+	private static volatile boolean sInside;
+	private static volatile boolean sBuilt;
+	private static volatile long sTiltAge = -1;
+	private static volatile boolean sSwallowed;
+	private static volatile boolean sBegging;
+	private static volatile boolean sCore;
+	private static volatile boolean sCuttable;
+	private static volatile boolean sMended;
+	private static volatile boolean sArm;
+	private static volatile boolean sHeld;
+	private static volatile double sTipHeight;
+	private static volatile double sLocalY;
+
+	private static void shaftSnap(net.minecraft.server.MinecraftServer server) {
+		if (!"shaft".equals(target()) || origin == null || !(server instanceof IntegratedServer is) || is.getPlayerManager().getPlayerList().isEmpty()) {
+			return;
+		}
+		HomeBlockEntity h = home(is);
+		ServerWorld w = is.getOverworld();
+		if (h == null) {
+			return;
+		}
+		EternityDevilEntity d = h.run.devil == null || !(w.getEntity(h.run.devil) instanceof EternityDevilEntity e) ? null : e;
+		sGrown = d != null && !d.growing();
+		sInside = h.run.sealed && h.run.inside.contains(is.getPlayerManager().getPlayerList().get(0).getUuid());
+		sBuilt = h.run.shaft.built;
+		sTiltAge = h.run.shaft.tiltAt >= 0 ? w.getTime() - h.run.shaft.tiltAt : -1;
+		ServerPlayerEntity you = you(is);
+		sSwallowed = io.github.kortev.chainsawman.hotel.Shaft.swallowed(h, you);
+		sBegging = d != null && d.begging;
+		sCore = d != null && d.core() != null;
+		sCuttable = d != null && d.core() != null && d.core().cuttable();
+		sMended = h.shaft == null && !h.run.shaft.built;
+		sLocalY = HotelBuilder.local(origin, ROT, you.getPos()).y;
+		sArm = false;
+		sHeld = false;
+		for (io.github.kortev.chainsawman.hotel.ShaftArmEntity a : w.getEntitiesByType(io.github.kortev.chainsawman.ChainsawMan.SHAFT_ARM, e -> true)) {
+			sArm = true;
+			sHeld |= a.holding();
+			sTipHeight = a.tip() - origin.getY();
+		}
+	}
+
+	/** You, put at a local point without turning your head. */
+	private static void keep(IntegratedServer server, double lx, double ly, double lz) {
+		server.execute(() -> {
+			ServerPlayerEntity p = you(server);
+			Vec3d w = world(lx, ly, lz);
+			p.teleport(server.getOverworld(), w.x, w.y, w.z, p.getYaw(), p.getPitch());
+		});
+	}
+
+	/** You look at a local point from where you stand. */
+	private static void facing(MinecraftClient client, double ax, double ay, double az) {
+		Vec3d eye = client.player.getEyePos();
+		Vec3d to = world(ax, ay, az);
+		wantYaw = yawTo(eye, to);
+		wantPitch = pitchTo(eye, to);
+	}
+
+	private static int shaftStep;
+	private static int shaftSub;
+	private static boolean shaftCaptured;
+	private static boolean shaftFought;
+
+	private static void shaftNext() {
+		shaftStep++;
+		shaftSub = 0;
+	}
+
+	private static void shaftDevil(IntegratedServer server, java.util.function.Consumer<EternityDevilEntity> r) {
+		onServer(server, w -> {
+			for (EternityDevilEntity d : w.getEntitiesByType(io.github.kortev.chainsawman.ChainsawMan.ETERNITY_DEVIL, e -> true)) {
+				r.accept(d);
+			}
+		});
+	}
+
+	/**
+	 * The whole shaft fight in one take from your own eyes (the HUD on: the pain bar), each step waiting on what the server says: the corridor and
+	 * the devil in it; fear full, and the floor turning (the camera rolls); the shaft, and the look down it; an arm taking you off the ledge and
+	 * down onto the mass; the pit swallowing you; the saws' three blows cutting you out; full pain, the core held out, refused, cut. Stills at each,
+	 * and the clip with -Pcapture=true.
+	 */
+	private static void shaftClip(MinecraftClient client, IntegratedServer server, int f) {
+		if (client.player == null || client.world == null) {
+			return;
+		}
+		int base = io.github.kortev.chainsawman.hotel.Shaft.BASE;
+		double corridorY = HotelPlan.floorY(7) + 1.0;
+		client.options.hudHidden = false;
+		client.options.setPerspective(Perspective.FIRST_PERSON);
+		client.options.getCloudRenderMode().setValue(net.minecraft.client.option.CloudRenderMode.OFF);
+		Capture.camera = null;
+		shaftSub++;
+		if (f > 6000) {
+			ShootingStar.LOGGER.error("[selftest] shaft: stuck in step {} (grown {} built {} swallowed {} begging {} core {} cuttable {} mended {})", shaftStep, sGrown, sBuilt, sSwallowed, sBegging, sCore, sCuttable, sMended);
+			stage = Stage.DONE;
+			return;
+		}
+		switch (shaftStep) {
+			case 0 -> {
+				if (shaftSub == 1) {
+					put(server, 20.0, corridorY, 6.5, 90.0F);
+				} else if (shaftSub % 8 == 0 && !shaftFought) {
+					put(server, 20.0, corridorY, 6.5, 90.0F);
+				}
+				if (!shaftFought && sInside && shaftSub > 20) {
+					// (The loop has closed on you, as it does in the game: you are inside, and the fight can begin.)
+					shaftFought = true;
+					onServer(server, w -> {
+						for (EternityDevilEntity d : w.getEntitiesByType(io.github.kortev.chainsawman.ChainsawMan.ETERNITY_DEVIL, e -> true)) {
+							d.discard();
+						}
+						HomeBlockEntity h = home(server);
+						if (h.run.fight) {
+							h.run.fight = false;
+							io.github.kortev.chainsawman.hotel.Arena.mend(w, h);
+						}
+						h.run.shaftOn = true;
+						Hotel.startFight(w, h, w.getTime());
+						// (A plain fight: nobody else in it.)
+						for (io.github.kortev.chainsawman.hotel.SquadMemberEntity m : io.github.kortev.chainsawman.hotel.Squad.members(w, h)) {
+							m.discard();
+						}
+						h.run.squad.clear();
+					});
+				} else if (shaftFought && sGrown && shaftSub > 100) {
+					shaftNext();
+				}
+			}
+			case 1 -> {
+				// The devil in the corridor, grown: the clip starts here.
+				if (!shaftCaptured && capturing()) {
+					shaftCaptured = true;
+					Capture.start(client, client.runDirectory.toPath().resolve("capture"));
+				}
+				if (shaftSub % 8 == 0) {
+					put(server, 20.0, corridorY, 6.5, 90.0F);
+				}
+				if (shaftSub == 40) {
+					still(client, "a_corridor_devil");
+				}
+				if (shaftSub == 46) {
+					onServer(server, w -> {
+						HomeBlockEntity h = home(server);
+						h.run.shaft.fear = 1.0F;
+						h.run.fightAt -= io.github.kortev.chainsawman.hotel.Shaft.TILT_MIN;
+					});
+					shaftNext();
+				}
+			}
+			case 2 -> {
+				// The floor turns (kept looking down the corridor).
+				if (sTiltAge >= 0) {
+					if (sTiltAge >= 10 && sTiltAge < 12 && shaftSub % 2 == 0) {
+						still(client, "b_tilt_a");
+					} else if (sTiltAge >= 24 && sTiltAge < 26 && shaftSub % 2 == 0) {
+						still(client, "b_tilt_b");
+					} else if (sTiltAge >= 38 && sTiltAge < 40 && shaftSub % 2 == 0) {
+						still(client, "b_tilt_c");
+					}
+				}
+				if (sBuilt) {
+					wantYaw = Float.NaN;
+					shaftNext();
+				}
+			}
+			case 3 -> {
+				// The shaft: the flash, the ledge, the look straight down it.
+				switch (shaftSub) {
+					case 5 -> still(client, "c_shaft_arrives");
+					case 30 -> still(client, "d_ledge_view");
+					case 34 -> {
+						wantYaw = client.player.getYaw();
+						wantPitch = 80.0F;
+					}
+					case 48 -> still(client, "e_look_down");
+					case 52 -> wantPitch = 35.0F;
+					case 56 -> {
+						// (The arm that takes you down: sent now, up the shaft to your ledge.)
+						onServer(server, w -> {
+							HomeBlockEntity h = home(server);
+							h.run.shaft.nextHead = Long.MAX_VALUE;
+							h.run.shaft.nextPatch = Long.MAX_VALUE;
+							h.run.shaft.nextArm = Long.MAX_VALUE;
+							io.github.kortev.chainsawman.hotel.ShaftArmEntity arm = new io.github.kortev.chainsawman.hotel.ShaftArmEntity(io.github.kortev.chainsawman.ChainsawMan.SHAFT_ARM, w);
+							arm.start(h.origin, h.rot, HotelBuilder.world(h.origin, h.rot, 19.5, base, 6.5), h.origin.getY() + base + io.github.kortev.chainsawman.hotel.Shaft.DEPTH - 1.5);
+							w.spawnEntity(arm);
+						});
+						wantYaw = Float.NaN;
+						shaftNext();
+					}
+					default -> {
+					}
+				}
+			}
+			case 4 -> {
+				// The arm rises; it takes you; it pulls you down.
+				boolean rising = sArm && !sHeld && sTipHeight > sLocalY - 14.0 && sTipHeight < sLocalY - 4.0;
+				if (rising && shaftSub % 3 == 0 && !armStill[0]) {
+					armStill[0] = true;
+					still(client, "f_arm_rising");
+				}
+				if (sHeld && !armStill[1]) {
+					armStill[1] = true;
+					shaftSub = 0;
+				}
+				if (armStill[1] && shaftSub == 4) {
+					still(client, "g_in_the_hand");
+				}
+				if (armStill[1] && sLocalY < base + 3.0 || shaftSub > 500) {
+					shaftNext();
+				}
+			}
+			case 5 -> {
+				// Down on the mass, looking at the pit; then into it.
+				if (shaftSub == 2) {
+					onServer(server, w -> {
+						HomeBlockEntity h = home(server);
+						h.run.shaft.nextHead = w.getTime() + 25;
+					});
+				}
+				if (shaftSub < 30) {
+					facing(client, 24.5, base + 0.4, 6.5);
+				}
+				if (shaftSub == 14) {
+					still(client, "h_on_the_mass");
+				}
+				if (shaftSub == 40) {
+					onServer(server, w -> {
+						HomeBlockEntity h = home(server);
+						h.run.shaft.nextHead = Long.MAX_VALUE;
+						h.run.shaft.nextPatch = Long.MAX_VALUE;
+						h.run.shaft.nextArm = Long.MAX_VALUE;
+					});
+					put(server, 24.5, base - 3.0, 6.5, 90.0F);
+					wantYaw = Float.NaN;
+					shaftNext();
+				}
+			}
+			case 6 -> {
+				// Swallowed: the dark red; then the saws' three blows.
+				if (sSwallowed) {
+					shaftSub = Math.max(shaftSub, 100);
+				}
+				if (shaftSub == 112) {
+					still(client, "i_swallowed");
+				}
+				if (shaftSub == 124) {
+					still(client, "i2_swallowed_cutting");
+				}
+				if (shaftSub == 128) {
+					shaftDevil(server, d -> {
+						ServerPlayerEntity you = you(server);
+						for (int k = 0; k < 3; k++) {
+							d.damage(you.getDamageSources().playerAttack(you), 13.0F);
+						}
+					});
+					shaftNext();
+				}
+			}
+			case 7 -> {
+				// Out of the mouth.
+				if (shaftSub == 4) {
+					still(client, "j_burst_out");
+				}
+				if (shaftSub == 12) {
+					still(client, "j2_burst_out");
+				}
+				if (shaftSub == 40) {
+					put(server, 19.5, base, 6.5, 90.0F);
+					shaftDevil(server, d -> d.addPain(1000.0F));
+					shaftNext();
+				}
+			}
+			case 8 -> {
+				// Full pain: the beg and the core.
+				if (shaftSub % 8 == 0) {
+					keep(server, 19.5, base, 6.5);
+				}
+				if (sBegging && sCore) {
+					if (!armStill[2]) {
+						armStill[2] = true;
+						shaftSub = 0;
+					}
+				}
+				if (armStill[2] && shaftSub == 12) {
+					still(client, "k_offer_screen");
+				}
+				if (armStill[2] && shaftSub == 16) {
+					onServer(server, w -> Hotel.answer(you(server), false));
+				}
+				if (armStill[2] && sCuttable && shaftSub > 70) {
+					shaftNext();
+				}
+			}
+			case 9 -> {
+				if (shaftSub % 8 == 0) {
+					keep(server, 19.5, base, 6.5);
+				}
+				facing(client, 24.5, base + 0.8, 6.5);
+				if (shaftSub == 6) {
+					still(client, "l_core_offered");
+				}
+				if (shaftSub == 10) {
+					shaftDevil(server, d -> {
+						ServerPlayerEntity you = you(server);
+						if (d.core() != null) {
+							d.core().damage(you.getDamageSources().playerAttack(you), 1000.0F);
+						}
+					});
+				}
+				if (shaftSub == 18) {
+					still(client, "m_core_cut");
+				}
+				if (shaftSub == 50) {
+					still(client, "n_collapse");
+				}
+				if (shaftSub > 70 && sMended) {
+					shaftNext();
+				}
+			}
+			default -> {
+				if (shaftSub > 30) {
+					stage = Stage.DONE;
+				}
+			}
+		}
+	}
+
+	private static final boolean[] armStill = new boolean[3];
 }
