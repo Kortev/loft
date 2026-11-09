@@ -24,7 +24,9 @@ wiki page also covers far later chapters; nothing from them is used or written h
   - it offers a contract: it frees them if they feed it Denji;
   - Aki can't summon the Fox over it, and Himeno's ghost only enrages it;
   - it says its heart isn't on the 8th floor and they're in its stomach, so it can't be killed;
-  - it tilts the hotel floor and demands Denji's heart;
+  - it tilts the hotel floor and demands Denji's heart (episode 6: "The floor then turns 90 degrees"; the corridor
+    becomes a vertical shaft with the devil filling its bottom, and its mouth is a pit in a floor of fused arms and
+    heads that Denji drops into from a room's doorway; the manga panel shows this from above);
   - Denji notices it's afraid of his chainsaws and jumps into its mouth, pulling his cord;
   - about three days of nonstop fighting, Denji drinking its blood, Himeno pulling his cord once to bring him back;
   - then it breaks.

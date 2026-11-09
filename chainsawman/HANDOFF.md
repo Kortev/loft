@@ -474,6 +474,17 @@ gets a mod of their own; this one is kortev's.
    yourself. Keep messages short and plain. Refer to kortev as "they".
 4. **Show renders/screenshots before baking or shipping a look**, and match the anime. kortev reacts strongly to
    things that look invented instead of matched; when they send references, follow them exactly.
+   **Check every fact first, so kortev never has to correct it** (kortev, 2026-11-09). Before designing, briefing
+   or building anything from the show, check it on the wiki (https://chainsaw-man.fandom.com, its episode and chapter
+   pages and its image galleries; read it in the built-in browser, since plain fetches get blocked) and with a Google
+   search. Check more than looks:
+   - where things are and which way they face;
+   - how the scene is staged (the Eternity Devil's mouth is a pit below a corridor turned 90 degrees, not a face on a
+     wall: kortev caught that one);
+   - how it moves;
+   - its rules.
+   Put the checked facts and their source in every agent brief; mark anything unconfirmed as a guess. Spoiler rule 1
+   still applies.
 5. **End a round of work with a numbered list of what to test in game.**
 6. **The show's world, not its story** (kortev, 2026-11-06). Take the world building from the show: the devils and
    what they are (a devil is the fear of its name), how contracts and devil hunters work, the looks. The quests,
