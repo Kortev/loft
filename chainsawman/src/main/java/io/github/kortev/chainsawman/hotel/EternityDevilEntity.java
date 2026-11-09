@@ -75,6 +75,8 @@ public class EternityDevilEntity extends MobEntity {
 	public BlockPos homePos = BlockPos.ORIGIN;
 	public BlockPos origin = BlockPos.ORIGIN;
 	public int rot;
+	/** Where it stands along the corridor (local x of its middle): the end, or wherever it tore out of the wall. */
+	public double baseX = LOCAL_X;
 	private int lastHurtAge = -1000;
 	private int nextAttack = GROW_TICKS + 30;
 	private int begged;
@@ -104,15 +106,21 @@ public class EternityDevilEntity extends MobEntity {
 
 	/** Grows a devil at the end of {@code home}'s corridor; the walls are bleeding already. */
 	public static EternityDevilEntity spawn(ServerWorld world, HomeBlockEntity home) {
+		return spawn(world, home, LOCAL_X, MAX_HEALTH);
+	}
+
+	/** Grows a devil with {@code x} as the middle of its footprint along the corridor and {@code health} (what cutting it in the walls left). */
+	public static EternityDevilEntity spawn(ServerWorld world, HomeBlockEntity home, double x, float health) {
 		EternityDevilEntity devil = new EternityDevilEntity(ChainsawMan.ETERNITY_DEVIL, world);
-		Vec3d at = HotelBuilder.world(home.origin, home.rot, LOCAL_X, LOCAL_Y, LOCAL_Z);
+		devil.baseX = x;
+		Vec3d at = HotelBuilder.world(home.origin, home.rot, x, LOCAL_Y, LOCAL_Z);
 		devil.refreshPositionAndAngles(at.x, at.y, at.z, HotelBuilder.alongYaw(home.rot) + 180.0F, 0.0F);
 		devil.homePos = home.getPos();
 		devil.origin = home.origin;
 		devil.rot = home.rot;
 		devil.dataTracker.set(FACING, HotelBuilder.alongYaw(home.rot) + 180.0F);
 		devil.dataTracker.set(BORN, (int) world.getTime());
-		devil.setHealth(MAX_HEALTH);
+		devil.setHealth(Math.min(MAX_HEALTH, Math.max(1.0F, health)));
 		world.spawnEntity(devil);
 		return devil;
 	}
@@ -145,7 +153,7 @@ public class EternityDevilEntity extends MobEntity {
 
 	/** The heart's place in the world. */
 	public Vec3d heartAt() {
-		return HotelBuilder.world(origin, rot, HEART_X, HEART_Y, LOCAL_Z);
+		return HotelBuilder.world(origin, rot, baseX + (HEART_X - LOCAL_X), HEART_Y, LOCAL_Z);
 	}
 
 	@Override
@@ -312,7 +320,7 @@ public class EternityDevilEntity extends MobEntity {
 		double z = Math.max(5.3, Math.min(7.7, lp.z));
 		// A bite, a tendril, a bite, flesh across the floor, a tendril, a bite, and round again (a tendril needs room to be slammed down).
 		byte kind = ORDER[attackNo++ % ORDER.length];
-		if (kind == HotelPayloads.Devil.TENDRIL && lp.x >= LOCAL_X - 4.0) {
+		if (kind == HotelPayloads.Devil.TENDRIL && lp.x >= baseX - 4.0) {
 			kind = HotelPayloads.Devil.BITE;
 		}
 		if (kind == HotelPayloads.Devil.BITE) {
@@ -349,7 +357,7 @@ public class EternityDevilEntity extends MobEntity {
 			for (ServerPlayerEntity p : players(world, 64.0)) {
 				Vec3d lp = HotelBuilder.local(origin, rot, p.getPos());
 				// Anyone in the lane between the devil and the point where it slams.
-				if (Math.abs(lp.z - a.z()) <= 1.05 && lp.x >= a.x() - 1.6 && lp.x <= LOCAL_X - 2.0 && Math.abs(lp.y - LOCAL_Y) <= 2.6) {
+				if (Math.abs(lp.z - a.z()) <= 1.05 && lp.x >= a.x() - 1.6 && lp.x <= baseX - 2.0 && Math.abs(lp.y - LOCAL_Y) <= 2.6) {
 					p.damage(source, TENDRIL_DAMAGE);
 					Vec3d push = HotelBuilder.world(BlockPos.ORIGIN, rot, -1.1, 0.0, 0.0);
 					p.addVelocity(push.x, 0.35, push.z);
@@ -361,7 +369,7 @@ public class EternityDevilEntity extends MobEntity {
 
 	/** Flesh creeping toward the point: three patches along the floor between the mass and it. */
 	private void creep(ServerWorld world, double x, double z) {
-		double front = LOCAL_X - WIDTH / 2.0 - 0.6;
+		double front = baseX - WIDTH / 2.0 - 0.6;
 		for (int k = 0; k < 3; k++) {
 			double px = Math.max(x - 0.5, front - 1.8 - 2.6 * k) + (this.random.nextDouble() - 0.5);
 			double pz = Math.max(5.4, Math.min(7.6, z + (this.random.nextDouble() - 0.5) * 1.6));
@@ -379,7 +387,7 @@ public class EternityDevilEntity extends MobEntity {
 		List<ServerPlayerEntity> out = new ArrayList<>();
 		for (ServerPlayerEntity p : players(world, 48.0)) {
 			Vec3d lp = HotelBuilder.local(origin, rot, p.getPos());
-			if (lp.y >= 28.0 && lp.y < 33.0 && lp.x > 1.0 && lp.x < LOCAL_X - 2.0 && lp.z > 4.0 && lp.z < 9.0 && !p.isCreative() && !p.isSpectator()) {
+			if (lp.y >= 28.0 && lp.y < 33.0 && lp.x > 1.0 && lp.x < baseX - 2.0 && lp.z > 4.0 && lp.z < 9.0 && !p.isCreative() && !p.isSpectator()) {
 				out.add(p);
 			}
 		}

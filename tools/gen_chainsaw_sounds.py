@@ -1278,6 +1278,46 @@ def hotel_seal():
     return taper(x, 0.2)
 
 
+def hotel_heartbeat():
+    """The devil's heart in the wall: a slow double beat, lub-dub, a heavy thump through plaster with a wet knock in it."""
+    seconds = 1.1
+    n = ns(seconds)
+    t = np.arange(n) / SR
+    x = np.zeros(n)
+    for at, level in ((0.0, 1.0), (0.3, 0.7)):
+        x += sub(n, [(0.0, 78.0), (at + 0.02, 78.0), (at + 0.16, 42.0), (seconds, 36.0)], 0.11, drive=2.2, at=at) * level * 1.2
+        k = np.maximum(t - at, 0.0)
+        x += lp(white(n), 260.0) * np.exp(-k / 0.04) * (t >= at) * 1.1 * level
+        x += bp(white(n), 900.0, 2600.0) * np.exp(-k / 0.012) * (t >= at) * 0.35 * level
+    return taper(x, 0.1)
+
+
+def hotel_cut():
+    """A cut wall bleeding: a wet slice, a thick spurt and a few heavy drops."""
+    seconds = 0.9
+    n = ns(seconds)
+    t = np.arange(n) / SR
+    x = flesh(n, 0.45, 1.6) * 1.2
+    x += bp(white(n), 1800.0, 6000.0) * np.exp(-t / 0.03) * 0.5
+    x += lp(white(n), 500.0) * np.exp(-t / 0.2) * 1.2
+    for at in (0.35, 0.52, 0.71):
+        m = ns(0.08)
+        f0 = g.rng.uniform(260.0, 520.0)
+        drop = np.sin(2 * np.pi * np.cumsum(curve(m, [(0.0, f0), (0.08, f0 * 0.4)])) / SR) * np.exp(-np.arange(m) / SR / 0.022)
+        x = place(x, at, drop * 0.45)
+    return taper(x, 0.2)
+
+
+def hotel_knock():
+    """A knock on a wall that is only a wall: a dull thud and a dry crack of plaster, nothing behind it."""
+    n = ns(0.45)
+    t = np.arange(n) / SR
+    x = sub(n, [(0.0, 120.0), (0.05, 85.0), (0.45, 70.0)], 0.07, drive=1.8) * 1.2
+    x += lp(white(n), 900.0) * np.exp(-t / 0.02) * 1.5
+    x += bp(white(n), 2500.0, 7000.0) * np.exp(-t / 0.006) * 0.4
+    return taper(x, 0.1)
+
+
 SOUNDS = {
     'pochita_tame': pochita_tame,
     'forever_lock': forever_lock,
@@ -1291,6 +1331,9 @@ SOUNDS = {
     'hotel_breath': hotel_breath,
     'hotel_loop_break': hotel_loop_break,
     'hotel_seal': hotel_seal,
+    'hotel_heartbeat': hotel_heartbeat,
+    'hotel_cut': hotel_cut,
+    'hotel_knock': hotel_knock,
     'devil_grow': devil_grow,
     'devil_bite': devil_bite,
     'devil_slam': devil_slam,
@@ -1325,7 +1368,7 @@ SOUNDS = {
 }
 LOOPS = ('form_idle', 'form_grind', 'form_frenzy_loop', 'hotel_hum')
 # Loudness (loudest 400 ms, dB).
-LEVELS = {'hotel_hum': -27, 'hotel_whisper': -19, 'hotel_voice': -12, 'hotel_bleed': -14, 'hotel_phone': -16, 'hotel_breath': -22, 'hotel_loop_break': -9, 'hotel_seal': -14,
+LEVELS = {'hotel_hum': -27, 'hotel_whisper': -19, 'hotel_voice': -12, 'hotel_bleed': -14, 'hotel_phone': -16, 'hotel_breath': -22, 'hotel_loop_break': -9, 'hotel_seal': -14, 'hotel_heartbeat': -10, 'hotel_cut': -12, 'hotel_knock': -15,
           'devil_grow': -9, 'devil_bite': -10, 'devil_slam': -8, 'devil_regen': -16, 'devil_hurt': -13, 'devil_death': -8, 'forever_lock': -13, 'forever_hit': -12, 'forever_release': -7, 'form_crunch': -10, 'pochita_tame': -14, 'form_merge': -12, 'form_cord': -14, 'form_start': -10, 'form_revive_pull': -14, 'form_revive_start': -10, 'form_idle': -20, 'form_stop': -16, 'form_slash': -13, 'form_hit': -12,
           'form_grind': -15, 'form_chain': -14, 'form_frenzy': -10, 'form_frenzy_loop': -17, 'form_down': -13,
           'form_revive': -14, 'beam_burst': -9, 'beam_step': -12, 'beam_swim': -13, 'beam_bite': -10, 'beam_dive': -13, 'beam_screech': -9, 'beam_chatter': -16, 'beam_slam': -6, 'beam_launch': -10}

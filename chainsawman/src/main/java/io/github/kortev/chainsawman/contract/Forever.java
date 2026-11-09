@@ -258,6 +258,11 @@ public final class Forever {
 				return;
 			}
 			centre = Vec3d.ofCenter(block.getBlockPos());
+			// A power turned on a wall of a sealed hotel cuts it, as anything else would.
+			io.github.kortev.chainsawman.hotel.HomeBlockEntity sealed = io.github.kortev.chainsawman.hotel.Hotel.sealedAt(world, block.getBlockPos());
+			if (sealed != null) {
+				io.github.kortev.chainsawman.hotel.Hunt.cut(world, sealed, block.getBlockPos(), player);
+			}
 		}
 		// Everything living in the cube round it, but you and your own pets; the nearest eight.
 		Box box = new Box(centre.x - CUBE_HALF, centre.y - CUBE_HALF, centre.z - CUBE_HALF, centre.x + CUBE_HALF, centre.y + CUBE_HALF, centre.z + CUBE_HALF);

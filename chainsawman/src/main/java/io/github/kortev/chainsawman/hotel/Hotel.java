@@ -56,6 +56,10 @@ public final class Hotel {
 		public boolean sealed;
 		/** The beg (placeholder until it is built). */
 		public Object beg;
+		/** Finding the devil in the walls, while the hotel is sealed and the fight has not begun. */
+		public Hunt hunt;
+		/** Where along the corridor the devil stands in the fight (local x). */
+		public double fightX = EternityDevilEntity.LOCAL_X;
 		public long sealedAt;
 		public final Set<UUID> inside = new HashSet<>();
 		public long sealMsgAt = -100000;
@@ -165,6 +169,15 @@ public final class Hotel {
 		}
 		floors(world, h, inside, now);
 		sealing(world, h, inside, now);
+		if (r.hunt != null) {
+			List<ServerPlayerEntity> here = new ArrayList<>();
+			for (In in : inside) {
+				if (r.inside.contains(in.player().getUuid())) {
+					here.add(in.player());
+				}
+			}
+			Hunt.tick(world, h, here, now);
+		}
 		loop(world, h, inside, now);
 		if (r.dyingAt >= 0) {
 			dying(world, h, now);
@@ -290,7 +303,7 @@ public final class Hotel {
 			HotelBuilder.shutEntrance(world, h.origin, h.rot);
 			play(world, h, 27.0, 2.0, 0.0, ChainsawSounds.HOTEL_SEAL, 2.0F, 0.7F);
 			speak(world, r.inside, "message.chainsawman.hotel.sealed", 70, 0);
-			// (The hunt and the squad start here.)
+			Hunt.start(world, h, now);
 			return;
 		}
 		// Those who are no longer in the hotel (dead, gone, out) are no longer inside.
@@ -301,7 +314,7 @@ public final class Hotel {
 		r.inside.retainAll(here);
 		if (r.inside.isEmpty() && now - r.sealedAt > 20) {
 			open(world, h);
-			if (r.fight || r.devil != null) {
+			if (r.fight || r.hunt != null || r.devil != null) {
 				endFight(world, h, r.devil == null ? null : world.getEntity(r.devil) instanceof EternityDevilEntity d ? d : null);
 			}
 			return;
@@ -349,6 +362,7 @@ public final class Hotel {
 		}
 		r.sealed = false;
 		r.inside.clear();
+		Hunt.end(world, h);
 		if (r.night) {
 			HotelBuilder.setNight(world, h.origin, h.rot, true);
 		}
@@ -360,6 +374,7 @@ public final class Hotel {
 			if (world instanceof ServerWorld sw && player instanceof ServerPlayerEntity sp) {
 				HomeBlockEntity h = sealedAt(sw, pos);
 				if (h != null) {
+					Hunt.cut(sw, h, pos, sp);
 					return net.minecraft.util.ActionResult.FAIL;
 				}
 			}
@@ -580,12 +595,18 @@ public final class Hotel {
 
 	/** The walls bleed and the devil grows out of them at the corridor's end ({@code at}: the tick it starts). */
 	public static void startFight(ServerWorld world, HomeBlockEntity h, long at) {
+		startFight(world, h, at, EternityDevilEntity.LOCAL_X, EternityDevilEntity.MAX_HEALTH);
+	}
+
+	/** The devil tears out of the wall with the middle of it at local {@code x} along the corridor and {@code health} (what the cuts left it). */
+	public static void startFight(ServerWorld world, HomeBlockEntity h, long at, double x, float health) {
 		Run r = h.run;
 		if (r.fight) {
 			return;
 		}
 		r.fight = true;
 		r.fightAt = at;
+		r.fightX = x;
 		r.bleedFrom = at;
 		r.bleedShown = 0.0F;
 		r.emptySince = at;
@@ -593,14 +614,15 @@ public final class Hotel {
 			fog(world, id, 0.0F);
 		}
 		r.fogged.clear();
-		play(world, h, 30.0, 30.0, 6.5, ChainsawSounds.HOTEL_BLEED, 2.5F, 1.0F);
-		EternityDevilEntity devil = EternityDevilEntity.spawn(world, h);
+		play(world, h, x, 30.0, 6.5, ChainsawSounds.HOTEL_BLEED, 2.5F, 1.0F);
+		EternityDevilEntity devil = EternityDevilEntity.spawn(world, h, x, health);
 		r.devil = devil.getUuid();
-		// Anyone standing where it grows is put in front of it.
-		Vec3d front = HotelBuilder.world(h.origin, h.rot, 31.0, 29.0, 6.5);
+		// Anyone standing where it grows, or behind it, is put in front of it.
+		double frontX = x - EternityDevilEntity.WIDTH / 2.0 - 1.1;
+		Vec3d front = HotelBuilder.world(h.origin, h.rot, frontX, 29.0, 6.5);
 		for (ServerPlayerEntity p : world.getPlayers()) {
 			Vec3d lp = HotelBuilder.local(h.origin, h.rot, p.getPos());
-			if (lp.x > EternityDevilEntity.LOCAL_X - EternityDevilEntity.WIDTH / 2.0 - 0.3 && lp.x < HotelPlan.SX && lp.y > 28.0 && lp.y < 33.0 && lp.z > 4.0 && lp.z < 9.0) {
+			if (lp.x > x - EternityDevilEntity.WIDTH / 2.0 - 0.3 && lp.x < HotelPlan.SX && lp.y > 28.0 && lp.y < 33.0 && lp.z > 4.0 && lp.z < 9.0) {
 				p.stopRiding();
 				p.networkHandler.requestTeleport(front.x, front.y, front.z, p.getYaw(), p.getPitch());
 			}
@@ -612,7 +634,7 @@ public final class Hotel {
 		float amount = Math.min(1.0F, Math.max(0.0F, (now - r.bleedFrom) / 70.0F));
 		if (Math.abs(amount - r.bleedShown) >= 0.04F || amount >= 1.0F && r.bleedShown < 1.0F) {
 			r.bleedShown = amount;
-			HotelBuilder.bleed(world, h.origin, h.rot, amount);
+			HotelBuilder.bleed(world, h.origin, h.rot, amount, (int) Math.max(1.0, Math.min(24.0, r.fightX - 8.0)), (int) Math.min(HotelPlan.CORR_X1, r.fightX + 6.0));
 		}
 		net.minecraft.entity.Entity e = r.devil == null ? null : world.getEntity(r.devil);
 		if (!(e instanceof EternityDevilEntity devil) || devil.isRemoved()) {

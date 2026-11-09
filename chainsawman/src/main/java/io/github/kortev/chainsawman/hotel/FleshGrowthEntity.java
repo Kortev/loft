@@ -19,10 +19,14 @@ public class FleshGrowthEntity extends Entity {
 	public static final int CEILING = 1;
 	public static final int WALL = 2;
 	public static final int HANGING = 3;
+	/** An eye in the wallpaper (open or shut: {@link #isOpen}), and a patch of wall that breathes: the signs of the devil hiding in the walls ({@link Hunt}). */
+	public static final int EYE = 4;
+	public static final int BREATH = 5;
 
 	private static final TrackedData<Integer> KIND = DataTracker.registerData(FleshGrowthEntity.class, TrackedDataHandlerRegistry.INTEGER);
 	private static final TrackedData<Integer> SEED = DataTracker.registerData(FleshGrowthEntity.class, TrackedDataHandlerRegistry.INTEGER);
 	private static final TrackedData<Integer> BORN = DataTracker.registerData(FleshGrowthEntity.class, TrackedDataHandlerRegistry.INTEGER);
+	private static final TrackedData<Boolean> OPEN = DataTracker.registerData(FleshGrowthEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
 
 	public FleshGrowthEntity(EntityType<?> type, World world) {
 		super(type, world);
@@ -54,6 +58,16 @@ public class FleshGrowthEntity extends Entity {
 		builder.add(KIND, FLOOR);
 		builder.add(SEED, 0);
 		builder.add(BORN, 0);
+		builder.add(OPEN, false);
+	}
+
+	/** Whether an eye is open. */
+	public boolean isOpen() {
+		return this.dataTracker.get(OPEN);
+	}
+
+	public void setOpen(boolean open) {
+		this.dataTracker.set(OPEN, open);
 	}
 
 	@Override

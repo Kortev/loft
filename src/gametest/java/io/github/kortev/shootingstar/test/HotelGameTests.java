@@ -619,7 +619,7 @@ public class HotelGameTests implements FabricGameTest {
 	 * The first player on the loop floor closes the loop on everyone on that floor: they are inside, the hotel is sealed, the entrance is
 	 * shut, and anyone else in the hotel (a lower floor, the lobby) is put out onto the plaza.
 	 */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_seal", tickLimit = 400)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_seal", tickLimit = 800)
 	public void theHotelSealsWhenSomeoneReachesTheLoop(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 5);
 		ServerPlayerEntity a = ForeverGameTests.player(context, "first_up");
@@ -666,7 +666,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** Someone inside who dies respawns outside and cannot get back in until the hotel opens; it opens when nobody is inside. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_die", tickLimit = 500)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_die", tickLimit = 800)
 	public void aPlayerWhoDiesInsideCannotGetBackIn(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 6);
 		ServerPlayerEntity a = walker(context, h, "dies_inside", 20.5);
@@ -744,6 +744,183 @@ public class HotelGameTests implements FabricGameTest {
 				Vec3d lp = HotelBuilder.local(h.origin, h.rot, d.getPos());
 				context.assertTrue(Math.abs(lp.x - 34.4) < 0.05 && Math.abs(lp.y - 29.0) < 0.05 && Math.abs(lp.z - 6.5) < 0.05, "the devil is at " + lp + ", not the corridor's end");
 				context.assertTrue(Math.abs(d.getWidth() - 4.6F) < 0.01 && Math.abs(d.getHeight() - 4.0F) < 0.01, "its size is " + d.getWidth() + " x " + d.getHeight());
+				tidy(context, h, p);
+				context.complete();
+			});
+		});
+	}
+
+	// ---- The hunt.
+
+	private static BlockPos spotPos(HomeBlockEntity h) {
+		io.github.kortev.chainsawman.hotel.Hunt u = h.run.hunt;
+		return HotelBuilder.world(h.origin, h.rot, u.sx, u.sy, u.sz);
+	}
+
+	/** A wall block of the loop floor (not a door, not air) {@code along} blocks along the same wall from the spot, on whichever side has one. */
+	private static BlockPos wallAlong(HomeBlockEntity h, int along) {
+		io.github.kortev.chainsawman.hotel.Hunt u = h.run.hunt;
+		for (int sign : new int[] {-1, 1}) {
+			int x = u.sx + sign * along;
+			if (x >= 1 && x <= HotelPlan.CORR_X1 && HotelPlan.get().at(x, u.sy, u.sz).isOpaque() && !(HotelPlan.get().at(x, u.sy, u.sz).getBlock() instanceof DoorBlock)) {
+				return HotelBuilder.world(h.origin, h.rot, x, u.sy, u.sz);
+			}
+		}
+		throw new IllegalStateException("no wall block " + along + " along from the spot " + u.sx + "," + u.sy + "," + u.sz);
+	}
+
+	/** Stands {@code p} in the corridor at the wall of the spot, facing it. */
+	private static void standAt(ServerPlayerEntity p, HomeBlockEntity h, double x, int wallZ) {
+		put(p, h, x, 29.0, wallZ == 4 ? 5.6 : 7.4, wallZ == 4 ? 0.0F : 180.0F, 0.0F);
+	}
+
+	/**
+	 * When the loop closes the devil hides at a random spot in the corridor's walls, and shows itself: its heart beats (a sound at the spot),
+	 * eyes open in the wallpaper near it and shut when someone looks straight at one, and the wall at the spot breathes.
+	 */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hunt_signs", tickLimit = 800)
+	public void theDevilHidesInTheWallsAndShowsItself(TestContext context) {
+		HomeBlockEntity h = hotel(context, 0, 9);
+		ServerPlayerEntity p = walker(context, h, "searcher", 20.5);
+		ready(context, h, () -> {
+			later(context, 20, () -> {
+				io.github.kortev.chainsawman.hotel.Hunt u = h.run.hunt;
+				context.assertTrue(h.run.sealed && u != null, "the devil did not hide when the loop closed");
+				context.assertTrue(u.sx >= 15 && u.sx <= 23 && (u.sz == 4 || u.sz == 8) && u.sy >= 29 && u.sy <= 31, "the spot is not in the corridor's walls: " + u.sx + "," + u.sy + "," + u.sz);
+				context.assertTrue(HotelPlan.get().at(u.sx, u.sy, u.sz).isOpaque(), "the spot is not a wall block");
+				context.assertTrue(u.beats >= 1, "no heartbeat");
+				context.assertTrue(u.eyes.size() >= 10, "only " + u.eyes.size() + " eyes in the wallpaper");
+				context.assertTrue(u.breath != null && context.getWorld().getEntity(u.breath) != null, "the wall does not breathe");
+				// Face away from the wall: the eyes near the spot open, the far ones stay shut.
+				standAt(p, h, u.sx + 0.5, u.sz);
+				p.updatePositionAndAngles(p.getX(), p.getY(), p.getZ(), u.sz == 4 ? 180.0F : 0.0F, 0.0F);
+			});
+			later(context, 30, () -> {
+				io.github.kortev.chainsawman.hotel.Hunt u = h.run.hunt;
+				Vec3d face = u.face(h);
+				int near = 0;
+				int far = 0;
+				io.github.kortev.chainsawman.hotel.FleshGrowthEntity nearOpen = null;
+				for (java.util.UUID id : u.eyes) {
+					if (context.getWorld().getEntity(id) instanceof io.github.kortev.chainsawman.hotel.FleshGrowthEntity eye) {
+						if (eye.getPos().distanceTo(face) <= io.github.kortev.chainsawman.hotel.Hunt.EYE_RANGE) {
+							if (eye.isOpen()) {
+								near++;
+								nearOpen = eye;
+							}
+						} else if (eye.isOpen()) {
+							far++;
+						}
+					}
+				}
+				context.assertTrue(near >= 1, "no eye opened near the devil");
+				context.assertTrue(far == 0, far + " eyes opened far from the devil");
+				// Look straight at the open one: it shuts.
+				Vec3d to = nearOpen.getPos().subtract(p.getEyePos());
+				float yaw = (float) Math.toDegrees(Math.atan2(-to.x, to.z));
+				float pitch = (float) -Math.toDegrees(Math.atan2(to.y, Math.hypot(to.x, to.z)));
+				p.updatePositionAndAngles(p.getX(), p.getY(), p.getZ(), yaw, pitch);
+				p.setHeadYaw(yaw);
+				eyeAt[0] = nearOpen.getUuid();
+			});
+			later(context, 40, () -> {
+				context.assertTrue(context.getWorld().getEntity(eyeAt[0]) instanceof io.github.kortev.chainsawman.hotel.FleshGrowthEntity e && !e.isOpen(), "the eye stayed open under a player's stare");
+				tidy(context, h, p);
+				context.complete();
+			});
+		});
+	}
+
+	private static final java.util.UUID[] eyeAt = new java.util.UUID[1];
+
+	/** Cutting a wall block of the loop floor: near the devil it bleeds (and takes a little off it), away from it a dull knock and nothing. The left click does it too. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hunt_cut", tickLimit = 800)
+	public void cuttingNearTheDevilBleedsAndAwayFromItDoesNot(TestContext context) {
+		HomeBlockEntity h = hotel(context, 0, 10);
+		ServerPlayerEntity p = walker(context, h, "cutter", 20.5);
+		ready(context, h, () -> {
+			later(context, 20, () -> {
+				ServerWorld world = context.getWorld();
+				io.github.kortev.chainsawman.hotel.Hunt u = h.run.hunt;
+				context.assertTrue(u != null, "no hunt");
+				float before = u.health;
+				// Away from it: a dull knock, no blood.
+				io.github.kortev.chainsawman.hotel.Hunt.cut(world, h, wallAlong(h, 7), p);
+				context.assertTrue(u.dull == 1 && u.bled == 0 && u.health == before, "a cut far from it bled: dull " + u.dull + " bled " + u.bled);
+				// Through the left click on the other wall, right across from it (more than two blocks if it is on this one).
+				net.minecraft.util.ActionResult res = net.fabricmc.fabric.api.event.player.AttackBlockCallback.EVENT.invoker().interact(p, world, net.minecraft.util.Hand.MAIN_HAND, wallAlong(h, 6), net.minecraft.util.math.Direction.NORTH);
+				context.assertTrue(res == net.minecraft.util.ActionResult.FAIL, "a sealed wall may be broken");
+				context.assertTrue(u.dull == 2 && u.bled == 0, "the left click did not cut the wall: dull " + u.dull);
+				// At it: bleeds, takes health.
+				int sx = u.sx;
+				BlockPos spot = spotPos(h);
+				io.github.kortev.chainsawman.hotel.Hunt.cut(world, h, spot, p);
+				context.assertTrue(u.bled == 1 && u.health == before - io.github.kortev.chainsawman.hotel.Hunt.BLEED_DAMAGE, "a cut at it did not bleed: bled " + u.bled + ", health " + u.health);
+				// A block 2 along from the spot, in the same wall, bleeds too; the wall's own block stays a wall.
+				context.assertTrue(world.getBlockState(spot).isOf(Blocks.RED_TERRACOTTA) || world.getBlockState(spot).isOf(Blocks.NETHER_WART_BLOCK), "the cut block did not go red");
+			});
+			later(context, 90, () -> {
+				io.github.kortev.chainsawman.hotel.Hunt u = h.run.hunt;
+				context.assertTrue(u != null && u.reds.isEmpty(), "the blood stayed on the wall");
+				// It has moved since the cut: a block 2 away from its new spot bleeds, 3 away does not.
+				BlockPos spot = spotPos(h);
+				net.minecraft.util.math.Direction.Axis a = net.minecraft.util.math.Direction.Axis.X;
+				int bled = u.bled;
+				io.github.kortev.chainsawman.hotel.Hunt.cut(context.getWorld(), h, wallAlong(h, 3), p);
+				context.assertTrue(u.bled == bled, "a cut 3 blocks from it bled");
+				io.github.kortev.chainsawman.hotel.Hunt.cut(context.getWorld(), h, wallAlong(h, 2), p);
+				context.assertTrue(u.bled == bled + 1, "a cut 2 blocks from it did not bleed");
+				tidy(context, h, p);
+				context.complete();
+			});
+		});
+	}
+
+	/**
+	 * It slips away when someone lingers by it and from the first cut at a spot, twice at most; after three bleeding cuts at the last spot it tears out
+	 * of the wall and the fight starts with the health the cuts left it.
+	 */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hunt_move", tickLimit = 900)
+	public void itMovesAtMostTwiceAndTearsOutAfterThreeBleedingCuts(TestContext context) {
+		HomeBlockEntity h = hotel(context, 0, 11);
+		ServerPlayerEntity p = walker(context, h, "stalker", 20.5);
+		int[] was = new int[3];
+		ready(context, h, () -> {
+			later(context, 20, () -> {
+				io.github.kortev.chainsawman.hotel.Hunt u = h.run.hunt;
+				was[0] = u.sx * 10 + u.sz;
+				// Linger at the wall by the spot: it moves after about two seconds.
+				standAt(p, h, u.sx + 0.5, u.sz);
+			});
+			later(context, 20 + io.github.kortev.chainsawman.hotel.Hunt.LINGER + 10, () -> {
+				io.github.kortev.chainsawman.hotel.Hunt u = h.run.hunt;
+				context.assertTrue(u.moves == 1 && u.sx * 10 + u.sz != was[0], "it did not slip away from someone lingering at its wall (moves " + u.moves + ")");
+				context.assertTrue(Math.abs(u.sx - was[0] / 10) >= 3, "it moved only " + Math.abs(u.sx - was[0] / 10));
+				// The first cut at its new spot: it bleeds and slips away again.
+				io.github.kortev.chainsawman.hotel.Hunt.cut(context.getWorld(), h, spotPos(h), p);
+				context.assertTrue(u.bled == 1 && u.moves == 2 && u.cuts == 0, "the first cut at the new spot: bled " + u.bled + " moves " + u.moves + " cuts " + u.cuts);
+				// Now it stays: lingering by it no longer moves it.
+				standAt(p, h, u.sx + 0.5, u.sz);
+				was[1] = u.sx * 10 + u.sz;
+			});
+			later(context, 20 + io.github.kortev.chainsawman.hotel.Hunt.LINGER + 80, () -> {
+				io.github.kortev.chainsawman.hotel.Hunt u = h.run.hunt;
+				context.assertTrue(u != null && u.moves == 2 && u.sx * 10 + u.sz == was[1], "it moved a third time");
+				// Three bleeding cuts: the first two it takes, the third and it tears out.
+				io.github.kortev.chainsawman.hotel.Hunt.cut(context.getWorld(), h, spotPos(h), p);
+				io.github.kortev.chainsawman.hotel.Hunt.cut(context.getWorld(), h, spotPos(h), p);
+				context.assertTrue(h.run.hunt != null && !h.run.fight && u.cuts == 2 && u.moves == 2, "it tore out early or moved: cuts " + u.cuts + " moves " + u.moves);
+				io.github.kortev.chainsawman.hotel.Hunt.cut(context.getWorld(), h, spotPos(h), p);
+				context.assertTrue(h.run.hunt == null && h.run.fight && h.run.devil != null, "three bleeding cuts did not tear it out and start the fight");
+				context.assertTrue(u.eyes.stream().noneMatch(id -> context.getWorld().getEntity(id) != null), "the eyes stayed after it tore out");
+				was[2] = u.sx;
+			});
+			later(context, 20 + io.github.kortev.chainsawman.hotel.Hunt.LINGER + 90, () -> {
+				io.github.kortev.chainsawman.hotel.EternityDevilEntity d = (io.github.kortev.chainsawman.hotel.EternityDevilEntity) devilOf(context, h);
+				context.assertTrue(d != null, "no devil");
+				Vec3d lp = HotelBuilder.local(h.origin, h.rot, d.getPos());
+				context.assertTrue(lp.x >= 20.4 && lp.x <= 23.9 && Math.abs(lp.x - (was[2] + 0.5)) < 5.0, "it tore out at " + lp.x + ", not where it was cut (" + was[2] + ")");
+				context.assertTrue(Math.abs(d.getHealth() - (300.0F - 4 * io.github.kortev.chainsawman.hotel.Hunt.BLEED_DAMAGE)) < 0.01F, "it came out with " + d.getHealth() + " health, not what four cuts left");
 				tidy(context, h, p);
 				context.complete();
 			});

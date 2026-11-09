@@ -241,16 +241,25 @@ public final class HotelBuilder {
 	 * the end the sooner; 0 puts the walls back.
 	 */
 	public static void bleed(net.minecraft.server.world.ServerWorld world, BlockPos origin, int rot, float amount) {
+		bleed(world, origin, rot, amount, 24, HotelPlan.CORR_X1);
+	}
+
+	/** The same, over the walls from local x {@code x0} to {@code x1} (the nearer {@code x1}, the sooner), and 0 puts back every wall of the loop floor. */
+	public static void bleed(net.minecraft.server.world.ServerWorld world, BlockPos origin, int rot, float amount, int x0, int x1) {
 		HotelPlan plan = HotelPlan.get();
+		if (amount <= 0.0F) {
+			x0 = 1;
+			x1 = HotelPlan.CORR_X1;
+		}
 		BlockRotation turn = turn(rot);
 		int y8 = HotelPlan.floorY(HotelPlan.FLOORS - 1);
-		for (int x = 24; x <= HotelPlan.CORR_X1; x++) {
+		for (int x = x0; x <= x1; x++) {
 			for (int z : new int[] {4, 8}) {
 				for (int y = y8 + 1; y <= y8 + 3; y++) {
 					if (plan.at(x, y, z).getBlock() instanceof DoorBlock || plan.at(x, y, z).isAir()) {
 						continue;
 					}
-					double near = (x - 24) / 12.0;
+					double near = (x - x0) / (double) Math.max(1, x1 - x0);
 					double h = ((x * 73856093) ^ (y * 19349663) ^ (z * 83492791)) & 255;
 					boolean red = amount > 0.0F && h / 255.0 < amount * (0.12 + 0.5 * near);
 					BlockPos at = world(origin, rot, x, y, z);

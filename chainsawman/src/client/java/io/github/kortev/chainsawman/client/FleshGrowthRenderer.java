@@ -47,6 +47,22 @@ public class FleshGrowthRenderer extends EntityRenderer<FleshGrowthEntity> {
 		matrices.push();
 		matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-growth.getYaw()));
 		int kind = growth.kind();
+		if (kind == FleshGrowthEntity.EYE) {
+			eye(growth, world, delta, matrices, provider);
+			matrices.pop();
+			return;
+		}
+		if (kind == FleshGrowthEntity.BREATH) {
+			// The wall breathing: a low swelling of flesh in the wallpaper, in and out slowly.
+			float breath = 0.5F + 0.5F * MathHelper.sin((world.getTime() + delta) * 0.11F);
+			matrices.push();
+			matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(90.0F));
+			ForeverGeo.blob(new ForeverGeo.Pen(provider.getBuffer(RenderLayer.getEntityCutoutNoCull(ForeverHubRenderer.FLESH)), matrices.peek(), lit), 0.0, 0.0, 0.0,
+					0.55 * grow, 0.45 * grow, (0.1 + 0.16 * breath) * grow, 8, 12, 0.5, seed, 0.3, 2.0F, 1.0F);
+			matrices.pop();
+			matrices.pop();
+			return;
+		}
 		// (Those up in the ceiling's corner are drawn as bulges of the wall, facing out, so they are lit like the rest.)
 		boolean bulge = kind != FleshGrowthEntity.FLOOR;
 		if (kind == FleshGrowthEntity.CEILING || kind == FleshGrowthEntity.HANGING) {
@@ -104,4 +120,38 @@ public class FleshGrowthRenderer extends EntityRenderer<FleshGrowthEntity> {
 		}
 		matrices.pop();
 	}
+
+	/** The eye at its tracked state: it comes open (and shuts) over a few ticks, looking at whoever is looking; shut it is only a seam, not drawn. */
+	private void eye(FleshGrowthEntity growth, ClientWorld world, float delta, MatrixStack matrices, VertexConsumerProvider provider) {
+		float target = growth.isOpen() ? 1.0F : 0.0F;
+		float open = OPEN.merge(growth.getId(), target, (old, t) -> old + MathHelper.clamp(t - old, -0.18F, 0.12F));
+		OPEN.put(growth.getId(), open);
+		if (open <= 0.04F) {
+			return;
+		}
+		net.minecraft.client.MinecraftClient client = net.minecraft.client.MinecraftClient.getInstance();
+		Vec3d look = new Vec3d(0.0, 0.0, 1.0);
+		if (client.player != null) {
+			Vec3d eye = client.player.getCameraPosVec(delta).subtract(growth.getPos());
+			org.joml.Vector3f v = new org.joml.Vector3f((float) eye.x, (float) eye.y, (float) eye.z).rotateY((float) Math.toRadians(growth.getYaw()));
+			Vec3d to = new Vec3d(v.x, v.y, v.z);
+			if (to.lengthSquared() > 1.0E-6) {
+				look = to.normalize();
+			}
+		}
+		if (look.z < 0.3) {
+			look = new Vec3d(look.x * 0.5, look.y * 0.5, 0.3 + Math.abs(look.z)).normalize();
+		}
+		matrices.push();
+		matrices.translate(0.0, 0.0, 0.02);
+		matrices.multiply(new org.joml.Quaternionf().rotationTo(0.0F, 0.0F, 1.0F, (float) look.x, (float) look.y, (float) look.z));
+		// The lids: the eye is squashed to a slit and widens as it opens.
+		matrices.scale(1.0F, 0.15F + 0.85F * open, 0.6F);
+		ForeverGeo.ball(new ForeverGeo.Pen(provider.getBuffer(RenderLayer.getEntityCutoutNoCull(ForeverHubRenderer.EYE)), matrices.peek(),
+				net.minecraft.client.render.LightmapTextureManager.MAX_LIGHT_COORDINATE), 0.2, 8, 14);
+		matrices.pop();
+	}
+
+	/** How far open each eye is on this client (entity id to 0 to 1). */
+	private static final java.util.Map<Integer, Float> OPEN = new java.util.HashMap<>();
 }

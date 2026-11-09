@@ -92,6 +92,12 @@ public final class ChainsawSounds {
 	public static final SoundEvent HOTEL_LOOP_BREAK = register("hotel.loop_break");
 	/** A contract sealed: paper, a stamp, a faint ring. */
 	public static final SoundEvent HOTEL_SEAL = register("hotel.seal");
+	/** The devil's heart beating in the wall: a slow double thump. */
+	public static final SoundEvent HOTEL_HEARTBEAT = register("hotel.heartbeat");
+	/** A wall cut where the devil is behind it: a wet slice and heavy drops. */
+	public static final SoundEvent HOTEL_CUT = register("hotel.cut");
+	/** A wall cut where it is not: a dull knock. */
+	public static final SoundEvent HOTEL_KNOCK = register("hotel.knock");
 	/** The devil growing out of the walls: plaster giving way, wet flesh, a groan of many voices, a thud. */
 	public static final SoundEvent DEVIL_GROW = register("devil.grow");
 	/** A mouth biting: a wet lunge, uneven teeth clacking shut. */

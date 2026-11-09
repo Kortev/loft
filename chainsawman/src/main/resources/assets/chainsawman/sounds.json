@@ -382,5 +382,29 @@
         "name": "chainsawman:devil_death"
       }
     ]
+  },
+  "hotel.heartbeat": {
+    "subtitle": "subtitles.chainsawman.hotel.heartbeat",
+    "sounds": [
+      {
+        "name": "chainsawman:hotel_heartbeat"
+      }
+    ]
+  },
+  "hotel.cut": {
+    "subtitle": "subtitles.chainsawman.hotel.cut",
+    "sounds": [
+      {
+        "name": "chainsawman:hotel_cut"
+      }
+    ]
+  },
+  "hotel.knock": {
+    "subtitle": "subtitles.chainsawman.hotel.knock",
+    "sounds": [
+      {
+        "name": "chainsawman:hotel_knock"
+      }
+    ]
   }
 }
