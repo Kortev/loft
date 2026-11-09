@@ -76,6 +76,8 @@ final class ForeverLayout {
 	final List<Crack> cracks = new ArrayList<>();
 	/** The render-only copies that carry the line on, far past the near ones: {@code [x, y, z, how far along (0 to 1), which end (-1 past, 1 future), index]} relative to the hub. */
 	final List<double[]> far = new ArrayList<>();
+	/** How many far copies each way the line carries on with (11, or 14 from bond 2): the line's whole length that the ranks are spread along. */
+	int farTotal = FAR;
 	/** How high the ground under the hub is, relative to the hub (negative: the target hangs in the air). */
 	double centreGround;
 
@@ -185,16 +187,17 @@ final class ForeverLayout {
 	}
 
 	/** How many render-only copies each way, and how far (blocks) the farthest is from the line's last real copy. */
-	static final int FAR = 11;
+	static final int FAR = io.github.kortev.chainsawman.contract.Forever.FAR_COPIES;
 
 	/**
 	 * Carries the line on past its last real copy at each end: straight on along the way the last two copies run, farther apart the farther
-	 * out (about 24 blocks in all), at the same height over the ground, skipping any that would stand in a block.
+	 * out (about 24 blocks in all; about 32 from bond 2), at the same height over the ground, skipping any that would stand in a block.
 	 */
 	private void carryOn(ClientWorld world, ForeverHubEntity hub, List<io.github.kortev.chainsawman.contract.ForeverCopyEntity> copies, float width, float height) {
 		if (copies.size() < 2) {
 			return;
 		}
+		farTotal = io.github.kortev.chainsawman.contract.Forever.farCopies(hub.bond());
 		List<io.github.kortev.chainsawman.contract.ForeverCopyEntity> sorted = new ArrayList<>(copies);
 		sorted.sort((a, b) -> Integer.compare(a.slot(), b.slot()));
 		for (int end = -1; end <= 1; end += 2) {
@@ -207,7 +210,7 @@ final class ForeverLayout {
 			dir = dir.normalize();
 			double hover = Math.max(0.0, last.getY() - groundBelow(world, last.getX(), last.getY() + 0.5, last.getZ()));
 			double along = 0.0;
-			for (int k = 1; k <= FAR; k++) {
+			for (int k = 1; k <= farTotal; k++) {
 				along += 1.4 + 0.12 * k;
 				double x = last.getX() + dir.x * along;
 				double z = last.getZ() + dir.z * along;
@@ -221,7 +224,7 @@ final class ForeverLayout {
 				if (world.getBlockCollisions(null, box).iterator().hasNext()) {
 					continue;
 				}
-				far.add(new double[] {x - hub.getX(), y - hub.getY(), z - hub.getZ(), k / (double) FAR, end, k});
+				far.add(new double[] {x - hub.getX(), y - hub.getY(), z - hub.getZ(), k / (double) farTotal, end, k});
 			}
 		}
 	}

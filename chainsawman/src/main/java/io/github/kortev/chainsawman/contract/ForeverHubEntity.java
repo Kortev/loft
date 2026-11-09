@@ -26,6 +26,8 @@ public class ForeverHubEntity extends Entity {
 	private static final TrackedData<Integer> PHASE_AT = DataTracker.registerData(ForeverHubEntity.class, TrackedDataHandlerRegistry.INTEGER);
 	private static final TrackedData<Integer> SEED = DataTracker.registerData(ForeverHubEntity.class, TrackedDataHandlerRegistry.INTEGER);
 	private static final TrackedData<Integer> OWNER = DataTracker.registerData(ForeverHubEntity.class, TrackedDataHandlerRegistry.INTEGER);
+	/** The caller's bond step (1 to 3) when it was called: how far the line runs, how big the burst is. */
+	private static final TrackedData<Byte> BOND = DataTracker.registerData(ForeverHubEntity.class, TrackedDataHandlerRegistry.BYTE);
 	/** One character for each stored hit: 32 plus its height as a share of the target's height (0 to 90). */
 	private static final TrackedData<String> MARKS = DataTracker.registerData(ForeverHubEntity.class, TrackedDataHandlerRegistry.STRING);
 
@@ -55,10 +57,12 @@ public class ForeverHubEntity extends Entity {
 		builder.add(PHASE_AT, 0);
 		builder.add(SEED, 0);
 		builder.add(OWNER, -1);
+		builder.add(BOND, (byte) 1);
 		builder.add(MARKS, "");
 	}
 
-	void begin(int target, int owner, int start, int lasts, int seed) {
+	void begin(int target, int owner, int start, int lasts, int seed, int bond) {
+		dataTracker.set(BOND, (byte) bond);
 		dataTracker.set(OWNER, owner);
 		dataTracker.set(TARGET, target);
 		dataTracker.set(START, start);
@@ -102,6 +106,10 @@ public class ForeverHubEntity extends Entity {
 
 	public int phaseAt() {
 		return dataTracker.get(PHASE_AT);
+	}
+
+	public int bond() {
+		return dataTracker.get(BOND);
 	}
 
 	public int seed() {

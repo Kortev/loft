@@ -98,6 +98,7 @@ public final class ChainsawManClient implements ClientModInitializer {
 		EntityRendererRegistry.register(ChainsawMan.BEAM_ENTITY, BeamRenderer::new);
 		WorldRenderEvents.AFTER_ENTITIES.register(MergeCinematic::render);
 		WorldRenderEvents.AFTER_ENTITIES.register(SawTrails::render);
+		WorldRenderEvents.AFTER_ENTITIES.register(ClientNotYet::render);
 		WorldRenderEvents.AFTER_ENTITIES.register(CutDown::render);
 		WorldRenderEvents.AFTER_ENTITIES.register(Severed::render);
 		LivingEntityFeatureRendererRegistrationCallback.EVENT.register((type, renderer, helper, context) -> {
@@ -137,11 +138,17 @@ public final class ChainsawManClient implements ClientModInitializer {
 		ClientPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.ContractPayload.ID,
 				(payload, context) -> ClientContracts.set(payload.player(), io.github.kortev.chainsawman.contract.Contract.byOrdinal(payload.contract())));
 		ClientPlayNetworking.registerGlobalReceiver(FormEventPayload.ID, (payload, context) -> ClientCombat.event(payload));
+		ClientPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.BondPayload.ID,
+				(payload, context) -> ClientBonds.set(io.github.kortev.chainsawman.contract.Contract.byOrdinal(payload.contract()), payload.uses(), payload.up()));
+		ClientPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.NotYetPayload.ID,
+				(payload, context) -> ClientNotYet.set(payload.player(), payload.ticks()));
 		WorldRenderEvents.AFTER_ENTITIES.register(ChainRender::render);
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
 			ClientForms.clear();
 			ClientContracts.clear();
 			ClientForever.clear();
+			ClientBonds.clear();
+			ClientNotYet.clear();
 			BeamClient.clear();
 			ClientHotel.clear();
 			ClientTeams.clear();
@@ -152,6 +159,7 @@ public final class ChainsawManClient implements ClientModInitializer {
 				program -> ForeverHud.drain = program));
 		HudRenderCallback.EVENT.register(FormHud::render);
 		HudRenderCallback.EVENT.register(ForeverHud::render);
+		HudRenderCallback.EVENT.register(ContractHud::render);
 		HudRenderCallback.EVENT.register(BloodHud::render);
 		HudRenderCallback.EVENT.register(LensBlood::render);
 		HudRenderCallback.EVENT.register(Sfx::render);
@@ -166,11 +174,8 @@ public final class ChainsawManClient implements ClientModInitializer {
 					ClientPlayNetworking.send(new io.github.kortev.chainsawman.network.UseContractPayload());
 				}
 			}
-			while (SWITCH_CONTRACT.wasPressed()) {
-				if (client.player != null && ClientPlayNetworking.canSend(io.github.kortev.chainsawman.network.SwitchContractPayload.ID)) {
-					ClientPlayNetworking.send(new io.github.kortev.chainsawman.network.SwitchContractPayload());
-				}
-			}
+			switchKey(client);
+			ClientNotYet.tick(client);
 			ClientForms.tick(client);
 			ClientCombat.tick(client);
 			DreamHud.tick(client);
@@ -182,6 +187,48 @@ public final class ChainsawManClient implements ClientModInitializer {
 			ForeverHud.tick(client);
 			ClientTeams.tick(client);
 		});
+	}
+
+	/** How many ticks the switch key held makes it "Not yet" (a tap is a switch). */
+	private static final int HOLD = 8;
+	/** How long the switch key has been held (-1 up; HOLD + 1 once "Not yet" has been asked). */
+	private static int switchHeld = -1;
+
+	/**
+	 * The switch-contract key: a tap switches contract. With Forever selected at bond 3 a tap is only known on release, and holding it past
+	 * {@link #HOLD} ticks asks for "Not yet" instead; at any other time the key acts the moment it is pressed, as it always did.
+	 */
+	private static void switchKey(MinecraftClient client) {
+		if (client.player == null) {
+			return;
+		}
+		boolean canSend = ClientPlayNetworking.canSend(io.github.kortev.chainsawman.network.SwitchContractPayload.ID);
+		if (!ClientBonds.canNotYet()) {
+			switchHeld = -1;
+			while (SWITCH_CONTRACT.wasPressed()) {
+				if (canSend) {
+					ClientPlayNetworking.send(new io.github.kortev.chainsawman.network.SwitchContractPayload());
+				}
+			}
+			return;
+		}
+		while (SWITCH_CONTRACT.wasPressed()) {
+			if (switchHeld < 0) {
+				switchHeld = 0;
+			}
+		}
+		if (SWITCH_CONTRACT.isPressed() && switchHeld >= 0) {
+			switchHeld++;
+			if (switchHeld == HOLD && ClientPlayNetworking.canSend(io.github.kortev.chainsawman.network.NotYetKeyPayload.ID)) {
+				ClientPlayNetworking.send(new io.github.kortev.chainsawman.network.NotYetKeyPayload());
+				switchHeld = HOLD + 1;
+			}
+		} else if (switchHeld >= 0) {
+			if (switchHeld < HOLD && canSend) {
+				ClientPlayNetworking.send(new io.github.kortev.chainsawman.network.SwitchContractPayload());
+			}
+			switchHeld = -1;
+		}
 	}
 
 	/**

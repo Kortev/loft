@@ -69,6 +69,10 @@ public final class ForeverHud {
 				locked = true;
 			}
 		}
+		if (ClientNotYet.mine(client) >= 0.0F) {
+			// Out of time: your own screen is grey.
+			want = Math.max(want, 0.7F);
+		}
 		if (now < catchUntil) {
 			// Time has caught up with you: the grey stays, a second, and lets go.
 			want = Math.max(want, 0.6F * MathHelper.clamp((catchUntil - now) / 8.0F, 0.0F, 1.0F));
@@ -98,7 +102,7 @@ public final class ForeverHud {
 			float d = (float) hub.getPos().distanceTo(client.player.getPos());
 			boolean mine = hub.targetId() == client.player.getId() || hub.ownerId() == client.player.getId();
 			float near = mine ? 1.0F : MathHelper.clamp(1.0F - d / 22.0F, 0.0F, 1.0F);
-			best = Math.max(best, near * 0.62F * (float) Math.exp(-since / 2.0F));
+			best = Math.max(best, near * (hub.bond() >= 3 ? 0.85F : 0.62F) * (float) Math.exp(-since / 2.0F));
 		}
 		return best;
 	}
@@ -152,7 +156,7 @@ public final class ForeverHud {
 			Shaders.set(drain, "CubeOn", cubeOn);
 			if (cube != null) {
 				Shaders.set(drain, "CubeCentre", (float) (cube.getX() - cam.x), (float) (cube.getY() - cam.y), (float) (cube.getZ() - cam.z));
-				double half = io.github.kortev.chainsawman.contract.Forever.CUBE_HALF;
+				double half = cube.half();
 				boolean inside = Math.abs(cam.x - cube.getX()) <= half && Math.abs(cam.y - cube.getY()) <= half && Math.abs(cam.z - cube.getZ()) <= half;
 				Shaders.set(drain, "CubeHalf", (float) half);
 				Shaders.set(drain, "CamInside", inside ? 1.0F : 0.0F);

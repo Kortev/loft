@@ -190,5 +190,22 @@
   "message.chainsawman.theft.took": "You tore out the heart. It beats in your chest now.",
   "message.chainsawman.legend.marker": "CHAINSAW MAN",
   "message.chainsawman.legend.heard": "A far-off engine roars.",
-  "commands.chainsaw.giveup": "Gave up"
+  "commands.chainsaw.giveup": "Gave up",
+  "subtitles.chainsawman.forever.bond_up": "The devils' voices speak",
+  "subtitles.chainsawman.forever.not_yet": "Time stops round someone",
+  "subtitles.chainsawman.forever.step_out": "Someone steps back into time",
+  "subtitles.chainsawman.form.heart_level": "A heart roars",
+  "commands.chainsaw.bond": "%s's bond with Eternity is step %s (%s uses).",
+  "chainsawman.bond.eternity.2": "We know you now.",
+  "chainsawman.bond.eternity.3": "Not yet. Nothing has to end.",
+  "chainsawman.bond.step": "Bond %s",
+  "chainsawman.bond.up": "BOND %s",
+  "chainsawman.bond.max": "Bond %s (deepest)",
+  "chainsawman.bond.next": "%s / %s",
+  "chainsawman.bond.not_yet": "Hold [%s]: Not yet",
+  "commands.chainsaw.heartxp": "%s's heart is level %s (%s XP).",
+  "chainsawman.heart.level.2": "The heart drinks. It wants more.",
+  "chainsawman.heart.level.3": "The heart is hungry no more. It is the devil now.",
+  "chainsawman.heart.up": "HEART LEVEL %s",
+  "chainsawman.heart.level": "Heart %s"
 }

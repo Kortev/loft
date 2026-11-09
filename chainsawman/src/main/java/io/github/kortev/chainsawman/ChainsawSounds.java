@@ -56,6 +56,13 @@ public final class ChainsawSounds {
 	public static final SoundEvent FOREVER_LOCK = register("forever.lock");
 	public static final SoundEvent FOREVER_HIT = register("forever.hit");
 	public static final SoundEvent FOREVER_RELEASE = register("forever.release");
+	/** A bond deepening: the devil's crowd of voices speaking one line, swelling over a clock that stops. */
+	public static final SoundEvent BOND_UP = register("forever.bond_up");
+	/** "Not yet": time sucked in round you, one clock tick, then quiet; and stepping out again, a soft boom and the world's sound rushing back. */
+	public static final SoundEvent NOT_YET = register("forever.not_yet");
+	public static final SoundEvent STEP_OUT = register("forever.step_out");
+	/** The heart levelling up: a roar through the throat, a wet burst of blood and a deep thud. */
+	public static final SoundEvent HEART_LEVEL = register("form.heart_level");
 
 	/** Beam bursting up out of the ground (and leaping, and crashing down when pitched low): stone and deepslate cracking, a deep boom, a heavy throw of earth, rubble raining back. */
 	public static final SoundEvent BEAM_BURST = register("beam.burst");

@@ -50,6 +50,7 @@ public final class Contracts {
 				told(handler.player);
 			}
 		});
+		Bond.init();
 		Forever.init();
 	}
 

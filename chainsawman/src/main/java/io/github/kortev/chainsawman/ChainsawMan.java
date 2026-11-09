@@ -131,6 +131,10 @@ public final class ChainsawMan implements ModInitializer {
 		PayloadTypeRegistry.playS2C().register(io.github.kortev.chainsawman.network.ForeverCatchUpPayload.ID, io.github.kortev.chainsawman.network.ForeverCatchUpPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(io.github.kortev.chainsawman.network.SwitchContractPayload.ID, io.github.kortev.chainsawman.network.SwitchContractPayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.SwitchContractPayload.ID, (payload, context) -> io.github.kortev.chainsawman.contract.Contracts.cycle(context.player()));
+		PayloadTypeRegistry.playS2C().register(io.github.kortev.chainsawman.network.BondPayload.ID, io.github.kortev.chainsawman.network.BondPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(io.github.kortev.chainsawman.network.NotYetPayload.ID, io.github.kortev.chainsawman.network.NotYetPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(io.github.kortev.chainsawman.network.NotYetKeyPayload.ID, io.github.kortev.chainsawman.network.NotYetKeyPayload.CODEC);
+		ServerPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.NotYetKeyPayload.ID, (payload, context) -> io.github.kortev.chainsawman.contract.Forever.stepOut(context.player()));
 		PayloadTypeRegistry.playS2C().register(io.github.kortev.chainsawman.network.HotelPayloads.Drop.ID, io.github.kortev.chainsawman.network.HotelPayloads.Drop.CODEC);
 		PayloadTypeRegistry.playC2S().register(io.github.kortev.chainsawman.network.HotelPayloads.DropAnswer.ID, io.github.kortev.chainsawman.network.HotelPayloads.DropAnswer.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.HotelPayloads.DropAnswer.ID,

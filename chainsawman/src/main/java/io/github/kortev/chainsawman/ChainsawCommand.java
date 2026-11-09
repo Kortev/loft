@@ -101,6 +101,38 @@ public final class ChainsawCommand {
 								.then(CommandManager.argument("player", net.minecraft.command.argument.EntityArgumentType.player())
 										.then(CommandManager.literal("eternity").executes(context -> contract(context, io.github.kortev.chainsawman.contract.Contract.ETERNITY)))
 										.then(CommandManager.literal("clear").executes(context -> contract(context, io.github.kortev.chainsawman.contract.Contract.NONE)))))
+						.then(CommandManager.literal("bond").requires(OP)
+								.then(CommandManager.argument("player", net.minecraft.command.argument.EntityArgumentType.player())
+										.then(CommandManager.argument("uses", com.mojang.brigadier.arguments.IntegerArgumentType.integer(0, 1000)).executes(context -> {
+											ServerPlayerEntity target = net.minecraft.command.argument.EntityArgumentType.getPlayer(context, "player");
+											int uses = com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(context, "uses");
+											io.github.kortev.chainsawman.contract.Bond.set(target, io.github.kortev.chainsawman.contract.Contract.ETERNITY, uses);
+											context.getSource().sendFeedback(() -> Text.translatable("commands.chainsaw.bond", target.getDisplayName(),
+													io.github.kortev.chainsawman.contract.Bond.step(uses), uses), true);
+											return 1;
+										}))))
+						.then(CommandManager.literal("eternity").executes(context -> contract(context, io.github.kortev.chainsawman.contract.Contract.ETERNITY)))
+										.then(CommandManager.literal("clear").executes(context -> contract(context, io.github.kortev.chainsawman.contract.Contract.NONE)))))
+						.then(CommandManager.literal("bond").requires(OP)
+								.then(CommandManager.argument("player", net.minecraft.command.argument.EntityArgumentType.player())
+										.then(CommandManager.argument("uses", com.mojang.brigadier.arguments.IntegerArgumentType.integer(0, 1000)).executes(context -> {
+											ServerPlayerEntity target = net.minecraft.command.argument.EntityArgumentType.getPlayer(context, "player");
+											int uses = com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(context, "uses");
+											io.github.kortev.chainsawman.contract.Bond.set(target, io.github.kortev.chainsawman.contract.Contract.ETERNITY, uses);
+											context.getSource().sendFeedback(() -> Text.translatable("commands.chainsaw.bond", target.getDisplayName(),
+													io.github.kortev.chainsawman.contract.Bond.step(uses), uses), true);
+											return 1;
+										}))))
+						.then(CommandManager.literal("heartxp").requires(OP)
+								.then(CommandManager.argument("player", net.minecraft.command.argument.EntityArgumentType.player())
+										.then(CommandManager.argument("xp", com.mojang.brigadier.arguments.IntegerArgumentType.integer(0, 10000)).executes(context -> {
+											ServerPlayerEntity target = net.minecraft.command.argument.EntityArgumentType.getPlayer(context, "player");
+											int xp = com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(context, "xp");
+											io.github.kortev.chainsawman.form.HeartLevel.set(target, xp);
+											context.getSource().sendFeedback(() -> Text.translatable("commands.chainsaw.heartxp", target.getDisplayName(),
+													io.github.kortev.chainsawman.form.HeartLevel.levelOf(xp), xp), true);
+											return 1;
+										}))))
 						.then(CommandManager.literal("eternity").requires(OP).executes(context -> eternity(context)))
 						.then(CommandManager.literal("scene").requires(OP).executes(context -> scene(context)))
 						.then(CommandManager.literal("mobs").requires(OP).executes(context -> {

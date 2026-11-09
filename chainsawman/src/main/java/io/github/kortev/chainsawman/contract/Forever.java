@@ -105,6 +105,34 @@ public final class Forever {
 	/** How far up and down a copy may look for ground (blocks). */
 	public static final int VERTICAL = 4;
 
+	// ---- The bond (see Bond): what each step changes. Bond 1 is everything above.
+	/** Bond 2: the cube is 13 blocks across, the moment lasts 4 s (a boss's 2 s), and the lines run 14 render-only copies each way (about 32 blocks). */
+	public static final double CUBE_HALF_BOND2 = 6.5;
+	public static final int LASTS_BOND2 = 80;
+	public static final int BOSS_LASTS_BOND2 = 40;
+	public static final int FAR_COPIES = 11;
+	public static final int FAR_COPIES_BOND2 = 14;
+	/** Bond 3: the release burst is bigger (the stored hits go off at this multiple, up to the cap, knocked further). */
+	public static final float MULT_BOND3 = 2.0F;
+	public static final float CAP_BOND3 = 60.0F;
+	/** "Not yet" (bond 3): how long you are out of time (1.5 s). */
+	public static final int NOT_YET_LASTS = 30;
+
+	/** Half the side of the cube at bond {@code bond}. */
+	public static double cubeHalf(int bond) {
+		return bond >= 2 ? CUBE_HALF_BOND2 : CUBE_HALF;
+	}
+
+	/** How long (ticks) a moment lasts at bond {@code bond}, for a boss or not. */
+	public static int lasts(int bond, boolean boss) {
+		return bond >= 2 ? (boss ? BOSS_LASTS_BOND2 : LASTS_BOND2) : (boss ? BOSS_LASTS : LASTS);
+	}
+
+	/** How many render-only copies each way a line carries on with at bond {@code bond}. */
+	public static int farCopies(int bond) {
+		return bond >= 2 ? FAR_COPIES_BOND2 : FAR_COPIES;
+	}
+
 	private record Hit(UUID attacker, float amount) {
 	}
 
@@ -117,6 +145,8 @@ public final class Forever {
 		final ServerWorld world;
 		final Vec3d centre;
 		final long start;
+		/** The owner's bond with the contract when it was called: what this cube is (size, length, burst). */
+		final int bond;
 		int lasts;
 		final ForeverCubeEntity entity;
 		final List<Lock> locks = new ArrayList<>();
@@ -126,7 +156,8 @@ public final class Forever {
 		long phaseAt;
 		Long forced;
 
-		Cube(ServerPlayerEntity owner, Vec3d centre, int lasts, ForeverCubeEntity entity) {
+		Cube(ServerPlayerEntity owner, Vec3d centre, int lasts, ForeverCubeEntity entity, int bond) {
+			this.bond = bond;
 			this.owner = owner.getUuid();
 			this.world = owner.getServerWorld();
 			this.centre = centre;
@@ -182,6 +213,8 @@ public final class Forever {
 	/** When (server ticks) each owner may use it again, and each target may be locked again. */
 	private static final Map<UUID, Long> COOL = new HashMap<>();
 	private static final Map<UUID, Long> IMMUNE = new HashMap<>();
+	/** Who has stepped out of time ("Not yet", bond 3), until what server tick. */
+	private static final Map<UUID, Long> NOT_YET = new HashMap<>();
 	/** Where each living thing near a contract holder has been, newest first, for the past copies. */
 	private static final Map<UUID, ArrayDeque<Snap>> HISTORY_OF = new HashMap<>();
 
@@ -204,10 +237,12 @@ public final class Forever {
 				cleanLock(l);
 			}
 			HISTORY_OF.remove(handler.player.getUuid());
+			NOT_YET.remove(handler.player.getUuid());
 		});
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
 			LOCKS.clear();
 			CUBES.clear();
+			NOT_YET.clear();
 			COOL.clear();
 			IMMUNE.clear();
 			HISTORY_OF.clear();
@@ -216,10 +251,10 @@ public final class Forever {
 			ForeverFlags.SERVER.clear();
 		});
 		// A locked player does nothing: no use of items, blocks or things, no digging (their attacks are stopped in ForeverAttackMixin).
-		UseItemCallback.EVENT.register((player, world, hand) -> locked(player) ? TypedActionResult.fail(player.getStackInHand(hand)) : TypedActionResult.pass(player.getStackInHand(hand)));
-		UseBlockCallback.EVENT.register((player, world, hand, hit) -> locked(player) ? ActionResult.FAIL : ActionResult.PASS);
-		UseEntityCallback.EVENT.register((player, world, hand, entity, hit) -> locked(player) ? ActionResult.FAIL : ActionResult.PASS);
-		AttackBlockCallback.EVENT.register((player, world, hand, pos, direction) -> locked(player) ? ActionResult.FAIL : ActionResult.PASS);
+		UseItemCallback.EVENT.register((player, world, hand) -> locked(player) || notYet(player) ? TypedActionResult.fail(player.getStackInHand(hand)) : TypedActionResult.pass(player.getStackInHand(hand)));
+		UseBlockCallback.EVENT.register((player, world, hand, hit) -> locked(player) || notYet(player) ? ActionResult.FAIL : ActionResult.PASS);
+		UseEntityCallback.EVENT.register((player, world, hand, entity, hit) -> locked(player) || notYet(player) ? ActionResult.FAIL : ActionResult.PASS);
+		AttackBlockCallback.EVENT.register((player, world, hand, pos, direction) -> locked(player) || notYet(player) ? ActionResult.FAIL : ActionResult.PASS);
 	}
 
 	// ---- Asking for it.
@@ -238,7 +273,7 @@ public final class Forever {
 			player.sendMessage(Text.translatable("chainsawman.forever.human_only"), true);
 			return;
 		}
-		if (!player.isAlive() || Downed.is(player) || CUBES.containsKey(player.getUuid()) || locked(player)) {
+		if (!player.isAlive() || Downed.is(player) || CUBES.containsKey(player.getUuid()) || locked(player) || notYet(player)) {
 			return;
 		}
 		if (!player.isCreative() && player.getHungerManager().getFoodLevel() <= 0) {
@@ -272,8 +307,10 @@ public final class Forever {
 				io.github.kortev.chainsawman.hotel.Hunt.cut(world, sealed, block.getBlockPos(), player);
 			}
 		}
-		// Everything living in the cube round it, but you and your own pets; the nearest eight.
-		Box box = new Box(centre.x - CUBE_HALF, centre.y - CUBE_HALF, centre.z - CUBE_HALF, centre.x + CUBE_HALF, centre.y + CUBE_HALF, centre.z + CUBE_HALF);
+		// Everything living in the cube round it (bigger with the bond), but you and your own pets; the nearest eight.
+		int bond = Bond.step(player, Contract.ETERNITY);
+		double half = cubeHalf(bond);
+		Box box = new Box(centre.x - half, centre.y - half, centre.z - half, centre.x + half, centre.y + half, centre.z + half);
 		List<LivingEntity> found = world.getEntitiesByClass(LivingEntity.class, box,
 				e -> e.isAlive() && !e.isSpectator() && e != player && !(e instanceof Tameable pet && player.getUuid().equals(pet.getOwnerUuid())));
 		boolean busy = false;
@@ -299,7 +336,87 @@ public final class Forever {
 			player.sendMessage(Text.translatable("chainsawman.forever." + key), true);
 			return;
 		}
-		begin(player, centre, targets);
+		begin(player, centre, targets, bond);
+	}
+
+	// ---- Not yet (bond 3): out of time for a moment.
+
+	/** Whether {@code entity} has stepped out of time: untouchable, and doing nothing but moving. */
+	public static boolean notYet(Entity entity) {
+		return entity != null && NOT_YET.containsKey(entity.getUuid());
+	}
+
+	/**
+	 * "Not yet": the switch-contract key held, not tapped, with Forever selected, at bond 3. You step out of time for {@link #NOT_YET_LASTS}
+	 * ticks (1.5 s): nothing can touch you (every hit is turned aside), you cannot attack or use things, you can still move, and the clients
+	 * show you grey with copies of you trailing behind. When it ends you step back in where you are. It shares Forever's cooldown (set from
+	 * the end) and costs the same price (taken at the end). Whether it began.
+	 */
+	public static boolean stepOut(ServerPlayerEntity player) {
+		if (Contracts.get(player) != Contract.ETERNITY || Bond.step(player, Contract.ETERNITY) < 3) {
+			return false;
+		}
+		if (Form.in(player)) {
+			player.sendMessage(Text.translatable("chainsawman.forever.human_only"), true);
+			return false;
+		}
+		if (!player.isAlive() || Downed.is(player) || CUBES.containsKey(player.getUuid()) || locked(player) || notYet(player)) {
+			return false;
+		}
+		if (!player.isCreative() && player.getHungerManager().getFoodLevel() <= 0) {
+			player.sendMessage(Text.translatable("chainsawman.forever.hungry"), true);
+			return false;
+		}
+		long now = player.server.getTicks();
+		Long until = COOL.get(player.getUuid());
+		if (until != null && now < until) {
+			player.sendMessage(Text.translatable("chainsawman.forever.cooldown", (until - now + 19) / 20), true);
+			return false;
+		}
+		NOT_YET.put(player.getUuid(), now + NOT_YET_LASTS);
+		tell(player.server, new io.github.kortev.chainsawman.network.NotYetPayload(player.getUuid(), NOT_YET_LASTS));
+		player.getServerWorld().playSound(null, player.getX(), player.getY() + 1.0, player.getZ(), ChainsawSounds.NOT_YET, SoundCategory.PLAYERS, 1.8F, 1.0F);
+		player.getServerWorld().spawnParticles(ParticleTypes.SMOKE, player.getX(), player.getY() + 0.1, player.getZ(), 10, 0.5, 0.05, 0.5, 0.01);
+		return true;
+	}
+
+	/** Ticks of "Not yet" left for {@code player} (0 when they are not out of time). */
+	public static long notYetLeft(ServerPlayerEntity player) {
+		Long until = NOT_YET.get(player.getUuid());
+		return until == null ? 0 : Math.max(0, until - player.server.getTicks());
+	}
+
+	/** Ends {@code player}'s "Not yet" now (for the tests): they step back in, and the price is taken. */
+	public static void endNotYet(ServerPlayerEntity player) {
+		if (NOT_YET.remove(player.getUuid()) != null) {
+			stepBack(player);
+		}
+	}
+
+	private static void stepBack(ServerPlayerEntity player) {
+		tell(player.server, new io.github.kortev.chainsawman.network.NotYetPayload(player.getUuid(), 0));
+		ServerWorld world = player.getServerWorld();
+		world.playSound(null, player.getX(), player.getY() + 1.0, player.getZ(), ChainsawSounds.STEP_OUT, SoundCategory.PLAYERS, 1.8F, 1.0F);
+		world.spawnParticles(new DustParticleEffect(new Vector3f(0.75F, 0.05F, 0.08F), 1.0F), player.getX(), player.getY() + 1.0, player.getZ(), 24, 0.6, 0.8, 0.6, 0.08);
+		world.spawnParticles(ParticleTypes.CRIT, player.getX(), player.getY() + 1.0, player.getZ(), 18, 0.6, 0.8, 0.6, 0.4);
+		catchUp(player);
+		COOL.put(player.getUuid(), (long) player.server.getTicks() + COOLDOWN);
+	}
+
+	private static void tickNotYet(MinecraftServer server) {
+		long now = server.getTicks();
+		for (Map.Entry<UUID, Long> e : List.copyOf(NOT_YET.entrySet())) {
+			ServerPlayerEntity player = server.getPlayerManager().getPlayer(e.getKey());
+			if (player == null || !player.isAlive()) {
+				NOT_YET.remove(e.getKey());
+				if (player != null) {
+					tell(server, new io.github.kortev.chainsawman.network.NotYetPayload(e.getKey(), 0));
+				}
+			} else if (now >= e.getValue()) {
+				NOT_YET.remove(e.getKey());
+				stepBack(player);
+			}
+		}
 	}
 
 	public static boolean active(ServerPlayerEntity owner) {
@@ -383,6 +500,7 @@ public final class Forever {
 	/** Skips the owner's cooldown and every target's immunity (for the tests and for trying it out). */
 	public static void ready(ServerPlayerEntity player) {
 		COOL.remove(player.getUuid());
+		NOT_YET.remove(player.getUuid());
 		IMMUNE.clear();
 	}
 
@@ -428,25 +546,26 @@ public final class Forever {
 
 	// ---- The cube.
 
-	private static boolean begin(ServerPlayerEntity owner, Vec3d centre, List<LivingEntity> targets) {
+	private static boolean begin(ServerPlayerEntity owner, Vec3d centre, List<LivingEntity> targets, int bond) {
 		ServerWorld world = owner.getServerWorld();
-		int lasts = LASTS;
+		boolean anyBoss = false;
 		for (LivingEntity t : targets) {
 			if (boss(t)) {
-				lasts = BOSS_LASTS;
+				anyBoss = true;
 			}
 		}
+		int lasts = lasts(bond, anyBoss);
 		Cube cube = null;
 		try {
 			ForeverCubeEntity ce = ChainsawMan.FOREVER_CUBE.create(world);
 			ce.refreshPositionAndAngles(centre.x, centre.y, centre.z, 0.0F, 0.0F);
-			ce.begin(owner.getId(), (int) world.getTime(), lasts);
+			ce.begin(owner.getId(), (int) world.getTime(), lasts, bond);
 			world.spawnEntity(ce);
-			cube = new Cube(owner, centre, lasts, ce);
+			cube = new Cube(owner, centre, lasts, ce, bond);
 			for (LivingEntity target : targets) {
 				ForeverHubEntity hub = ChainsawMan.FOREVER_HUB.create(world);
 				hub.refreshPositionAndAngles(target.getX(), target.getY(), target.getZ(), target.getYaw(), 0.0F);
-				hub.begin(target.getId(), owner.getId(), (int) world.getTime(), lasts, world.getRandom().nextInt());
+				hub.begin(target.getId(), owner.getId(), (int) world.getTime(), lasts, world.getRandom().nextInt(), bond);
 				world.spawnEntity(hub);
 				cube.hubs.add(hub);
 				Lock lock = new Lock(cube, target, hub);
@@ -475,13 +594,21 @@ public final class Forever {
 			}
 			broadcast(world.getServer(), lock.on());
 		}
-		world.playSound(null, centre.x, centre.y, centre.z, ChainsawSounds.FOREVER_LOCK, SoundCategory.PLAYERS, 2.2F, 1.0F);
+		world.playSound(null, centre.x, centre.y, centre.z, ChainsawSounds.FOREVER_LOCK, SoundCategory.PLAYERS, 2.2F, bond >= 2 ? 0.9F : 1.0F);
 		world.spawnParticles(ParticleTypes.SMOKE, centre.x, centre.y - 1.5, centre.z, 14, 1.8, 0.05, 1.8, 0.01);
 		return true;
 	}
 
 	private static void play(ServerWorld world, Entity at, SoundEvent sound, float volume) {
 		world.playSound(null, at.getX(), at.getY() + at.getHeight() * 0.5, at.getZ(), sound, SoundCategory.PLAYERS, volume, 1.0F);
+	}
+
+	private static void tell(MinecraftServer server, net.minecraft.network.packet.CustomPayload payload) {
+		for (ServerPlayerEntity p : server.getPlayerManager().getPlayerList()) {
+			if (ServerPlayNetworking.canSend(p, payload.getId())) {
+				ServerPlayNetworking.send(p, payload);
+			}
+		}
 	}
 
 	static void broadcast(MinecraftServer server, ForeverLockPayload payload) {
@@ -692,6 +819,10 @@ public final class Forever {
 	// ---- Storing hits.
 
 	private static boolean allowDamage(LivingEntity entity, DamageSource source, float amount) {
+		if (!NOT_YET.isEmpty() && NOT_YET.containsKey(entity.getUuid()) && !source.isOf(DamageTypes.GENERIC_KILL) && !source.isOf(DamageTypes.OUT_OF_WORLD)) {
+			// Out of time: nothing lands.
+			return false;
+		}
 		Lock l = LOCKS.get(entity.getUuid());
 		if (l == null || l.cube.phase == ForeverHubEntity.SINKING || source.isOf(DamageTypes.GENERIC_KILL) || source.isOf(DamageTypes.OUT_OF_WORLD)) {
 			return true;
@@ -749,6 +880,9 @@ public final class Forever {
 		if (ticks % 100 == 0) {
 			IMMUNE.values().removeIf(until -> until <= ticks);
 			COOL.values().removeIf(until -> until <= ticks);
+		}
+		if (!NOT_YET.isEmpty()) {
+			tickNotYet(server);
 		}
 		if (CUBES.isEmpty() && SINKING.isEmpty() && LOOSE.isEmpty()) {
 			return;
@@ -834,7 +968,7 @@ public final class Forever {
 			}
 		}
 		stopSounds(c);
-		c.world.playSound(null, c.centre.x, c.centre.y, c.centre.z, ChainsawSounds.FOREVER_RELEASE, SoundCategory.PLAYERS, 2.6F, 1.0F);
+		c.world.playSound(null, c.centre.x, c.centre.y, c.centre.z, ChainsawSounds.FOREVER_RELEASE, SoundCategory.PLAYERS, c.bond >= 3 ? 3.6F : 2.6F, c.bond >= 3 ? 0.82F : 1.0F);
 	}
 
 	/** Stops the lock's whispers for the players near this cube (not for another one's far off). */
@@ -860,7 +994,11 @@ public final class Forever {
 		ServerPlayerEntity owner = server.getPlayerManager().getPlayer(c.owner);
 		if (owner != null) {
 			catchUp(owner);
+			// A use that locked something counts toward the bond (the moment, if it deepens, comes with the grey of the catch-up).
+			Bond.record(owner, Contract.ETERNITY);
 		}
+		float mult = c.bond >= 3 ? MULT_BOND3 : MULT;
+		float cap = c.bond >= 3 ? CAP_BOND3 : CAP;
 		for (Lock l : List.copyOf(c.locks)) {
 			LivingEntity t = l.target;
 			unfreeze(l);
@@ -878,7 +1016,7 @@ public final class Forever {
 				by.merge(h.attacker, h.amount, Float::sum);
 			}
 			Vec3d heart = t.getPos().add(0.0, t.getHeight() * 0.5, 0.0);
-			burst(world, heart, l.hits.size());
+			burst(world, heart, l.hits.size(), c.bond);
 			if (!l.hits.isEmpty() && t.isAlive()) {
 				UUID top = null;
 				float most = -1.0F;
@@ -890,12 +1028,12 @@ public final class Forever {
 				}
 				PlayerEntity credit = top == null ? null : world.getPlayerByUuid(top);
 				DamageSource source = credit != null ? world.getDamageSources().playerAttack(credit) : world.getDamageSources().generic();
-				float amount = Math.min(CAP, total * MULT);
+				float amount = Math.min(cap, total * mult);
 				t.timeUntilRegen = 0;
 				t.damage(source, amount);
 				// Flung away from whoever called it, harder the more hits there were.
 				Vec3d from = owner != null ? owner.getPos() : c.centre.add(0.0, 0.0, 1.0);
-				double strength = Math.min(2.6, 0.7 + 0.2 * l.hits.size());
+				double strength = Math.min(c.bond >= 3 ? 3.6 : 2.6, (0.7 + 0.2 * l.hits.size()) * (c.bond >= 3 ? 1.35 : 1.0));
 				t.takeKnockback(strength, from.x - t.getX(), from.z - t.getZ());
 				t.velocityModified = true;
 			}
@@ -914,9 +1052,15 @@ public final class Forever {
 		}
 	}
 
-	private static void burst(ServerWorld world, Vec3d at, int hits) {
-		world.spawnParticles(new DustParticleEffect(new Vector3f(0.75F, 0.05F, 0.08F), 1.0F), at.x, at.y, at.z, 22 + hits * 2, 0.8, 0.6, 0.8, 0.12);
-		world.spawnParticles(ParticleTypes.CRIT, at.x, at.y, at.z, 30, 0.8, 0.7, 0.8, 0.6);
+	private static void burst(ServerWorld world, Vec3d at, int hits, int bond) {
+		// Bond 3: twice the burst, spreading wider.
+		int more = bond >= 3 ? 2 : 1;
+		double wide = bond >= 3 ? 1.5 : 1.0;
+		world.spawnParticles(new DustParticleEffect(new Vector3f(0.75F, 0.05F, 0.08F), bond >= 3 ? 1.5F : 1.0F), at.x, at.y, at.z, (22 + hits * 2) * more, 0.8 * wide, 0.6 * wide, 0.8 * wide, 0.12);
+		world.spawnParticles(ParticleTypes.CRIT, at.x, at.y, at.z, 30 * more, 0.8 * wide, 0.7 * wide, 0.8 * wide, 0.6);
+		if (bond >= 3) {
+			world.spawnParticles(ParticleTypes.EXPLOSION, at.x, at.y, at.z, 2, 0.4, 0.4, 0.4, 0.0);
+		}
 	}
 
 	/** Gives back what the freeze took: the velocity it had (nothing else was set on it). */

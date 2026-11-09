@@ -1318,11 +1318,72 @@ def hotel_knock():
     return taper(x, 0.1)
 
 
+# ---- Contract bonds, "Not yet" and the heart's levels (all synthesised).
+
+def forever_bond_up():
+    """A bond deepening: the Eternity Devil's crowd speaking one line together (no words), rising out of silence over a deep clock that
+    ticks slower and slower and stops, and a low swell under the last syllable; 2.4 s."""
+    seconds = 2.4
+    n = ns(seconds)
+    t = np.arange(n) / SR
+    x = crowd_voice(seconds, voices=18, f0=(85.0, 210.0), level=0.9, bend=(1.0, 0.92)) * (np.minimum(t / 0.5, 1.0) ** 1.4) * np.clip((seconds - t) / 0.4, 0.0, 1.0) * 1.6
+    at = 0.1
+    gap = 0.4
+    while at < 1.9:
+        x += clock_tick(n, at, 0.8 * (1.0 - at / 3.2))
+        at += gap
+        gap *= 1.35
+    x += sub(n, [(0.0, 60.0), (1.4, 58.0), (seconds, 40.0)], 1.2, drive=1.4) * np.minimum(t / 1.2, 1.0) * np.clip((seconds - t) / 0.5, 0.0, 1.0) * 0.8
+    return taper(x, 0.3)
+
+
+def forever_not_yet():
+    """Not yet: the world's sound sucked in round you (a reversed swell), a single deep clock tick, then the hush of time held; 1.1 s."""
+    n = ns(1.1)
+    t = np.arange(n) / SR
+    x = reversed_swell(n, 0.0, 0.42, 150.0, 5200.0, 1.8)
+    x += reversed_swell(n, 0.0, 0.4, 60.0, 900.0, 1.4)
+    x = place(x, 0.4, clock_tick(ns(0.6) , 0.0, 1.6, 0.9))
+    hush = lp(white(n), 500.0) * np.exp(-np.maximum(t - 0.4, 0.0) / 0.35) * (t >= 0.4) * 0.5
+    return taper(x + hush, 0.2)
+
+
+def forever_step_out():
+    """Stepping back into time: a soft boom from the middle, a brief rush of air and ticks resuming; 1.0 s."""
+    n = ns(1.0)
+    t = np.arange(n) / SR
+    x = sub(n, [(0.0, 120.0), (0.08, 55.0), (0.9, 36.0)], 0.5, drive=2.0) * 1.1
+    x += lp(g.brown(n), 220.0) * np.exp(-t / 0.2) * 2.0
+    x += lp(white(n), 2400.0) * np.exp(-t / 0.06) * 1.0
+    x += reversed_swell(n, 0.0, 0.1, 400.0, 6000.0, 0.8)
+    for k, at in enumerate((0.3, 0.5, 0.66)):
+        x += clock_tick(n, at, 0.4 + 0.1 * k, 1.1 + 0.06 * k)
+    return taper(x, 0.3)
+
+
+def form_heart_level():
+    """The heart levelling up: a long roar through the throat, a wet burst of blood, a deep thud that shakes, the engine screaming over it; 2.6 s."""
+    n = ns(2.6)
+    t = np.arange(n) / SR
+    x = np.zeros(n)
+    x += roar(n, 0.05, 2.0, 82.0) * 1.0
+    x += roar(n, 0.15, 1.6, 120.0) * 0.5
+    x += sub(n, [(0.0, 110.0), (0.12, 48.0), (1.8, 32.0)], 0.8, drive=2.4) * 1.5
+    x += lp(g.brown(n), 160.0) * np.exp(-t / 0.5) * 3.0
+    x += flesh(n, 0.7, 1.4) * 0.9
+    x += engine(n, curve(n, [(0.0, 20.0), (0.4, 70.0), (1.8, 70.0), (2.6, 30.0)]), curve(n, [(0.0, 0.0), (0.3, 0.8), (1.8, 0.8), (2.6, 0.0)]), skip=0.05) * 0.8
+    return taper(x, 0.3)
+
+
 SOUNDS = {
     'pochita_tame': pochita_tame,
     'forever_lock': forever_lock,
     'forever_hit': forever_hit,
     'forever_release': forever_release,
+    'forever_bond_up': forever_bond_up,
+    'forever_not_yet': forever_not_yet,
+    'forever_step_out': forever_step_out,
+    'form_heart_level': form_heart_level,
     'hotel_hum': hotel_hum,
     'hotel_whisper': hotel_whisper,
     'hotel_voice': hotel_voice,
@@ -1369,7 +1430,7 @@ SOUNDS = {
 LOOPS = ('form_idle', 'form_grind', 'form_frenzy_loop', 'hotel_hum')
 # Loudness (loudest 400 ms, dB).
 LEVELS = {'hotel_hum': -27, 'hotel_whisper': -19, 'hotel_voice': -12, 'hotel_bleed': -14, 'hotel_phone': -16, 'hotel_breath': -22, 'hotel_loop_break': -9, 'hotel_seal': -14, 'hotel_heartbeat': -10, 'hotel_cut': -12, 'hotel_knock': -15,
-          'devil_grow': -9, 'devil_bite': -10, 'devil_slam': -8, 'devil_regen': -16, 'devil_hurt': -13, 'devil_death': -8, 'forever_lock': -13, 'forever_hit': -12, 'forever_release': -7, 'form_crunch': -10, 'pochita_tame': -14, 'form_merge': -12, 'form_cord': -14, 'form_start': -10, 'form_revive_pull': -14, 'form_revive_start': -10, 'form_idle': -20, 'form_stop': -16, 'form_slash': -13, 'form_hit': -12,
+          'devil_grow': -9, 'devil_bite': -10, 'devil_slam': -8, 'devil_regen': -16, 'devil_hurt': -13, 'devil_death': -8, 'forever_lock': -13, 'forever_hit': -12, 'forever_release': -7, 'forever_bond_up': -11, 'forever_not_yet': -11, 'forever_step_out': -12, 'form_heart_level': -8, 'form_crunch': -10, 'pochita_tame': -14, 'form_merge': -12, 'form_cord': -14, 'form_start': -10, 'form_revive_pull': -14, 'form_revive_start': -10, 'form_idle': -20, 'form_stop': -16, 'form_slash': -13, 'form_hit': -12,
           'form_grind': -15, 'form_chain': -14, 'form_frenzy': -10, 'form_frenzy_loop': -17, 'form_down': -13,
           'form_revive': -14, 'beam_burst': -9, 'beam_step': -12, 'beam_swim': -13, 'beam_bite': -10, 'beam_dive': -13, 'beam_screech': -9, 'beam_chatter': -16, 'beam_slam': -6, 'beam_launch': -10}
 

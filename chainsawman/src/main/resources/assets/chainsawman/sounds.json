@@ -414,5 +414,37 @@
         "name": "chainsawman:hotel_knock"
       }
     ]
+  },
+  "forever.bond_up": {
+    "subtitle": "subtitles.chainsawman.forever.bond_up",
+    "sounds": [
+      {
+        "name": "chainsawman:forever_bond_up"
+      }
+    ]
+  },
+  "forever.not_yet": {
+    "subtitle": "subtitles.chainsawman.forever.not_yet",
+    "sounds": [
+      {
+        "name": "chainsawman:forever_not_yet"
+      }
+    ]
+  },
+  "forever.step_out": {
+    "subtitle": "subtitles.chainsawman.forever.step_out",
+    "sounds": [
+      {
+        "name": "chainsawman:forever_step_out"
+      }
+    ]
+  },
+  "form.heart_level": {
+    "subtitle": "subtitles.chainsawman.form.heart_level",
+    "sounds": [
+      {
+        "name": "chainsawman:form_heart_level"
+      }
+    ]
   }
 }

@@ -84,8 +84,9 @@ public final class ClientForever {
 	/** Whether the point is inside a cube of frozen time (particles there hang still). */
 	public static boolean frozenAt(double x, double y, double z) {
 		for (ForeverCubeEntity c : CUBES) {
-			if (c.phase() != io.github.kortev.chainsawman.contract.ForeverHubEntity.SINKING && Math.abs(x - c.getX()) <= io.github.kortev.chainsawman.contract.Forever.CUBE_HALF
-					&& Math.abs(y - c.getY()) <= io.github.kortev.chainsawman.contract.Forever.CUBE_HALF && Math.abs(z - c.getZ()) <= io.github.kortev.chainsawman.contract.Forever.CUBE_HALF) {
+			double half = c.half();
+			if (c.phase() != io.github.kortev.chainsawman.contract.ForeverHubEntity.SINKING && Math.abs(x - c.getX()) <= half
+					&& Math.abs(y - c.getY()) <= half && Math.abs(z - c.getZ()) <= half) {
 				return true;
 			}
 		}

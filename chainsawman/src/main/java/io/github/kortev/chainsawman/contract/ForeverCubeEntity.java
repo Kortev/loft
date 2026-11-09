@@ -9,13 +9,15 @@ import net.minecraft.nbt.NbtCompound;
 import net.minecraft.world.World;
 
 /**
- * A cube of frozen time ({@link Forever}): nine blocks each way round where it was called. It does nothing itself; the clients use it to
+ * A cube of frozen time ({@link Forever}): nine blocks across (thirteen once the bond is deeper) round where it was called. It does nothing itself; the clients use it to
  * drain the world inside it to grey, hold the particles still and show its faint shimmering edge from outside.
  */
 public class ForeverCubeEntity extends Entity {
 	private static final TrackedData<Integer> OWNER = DataTracker.registerData(ForeverCubeEntity.class, TrackedDataHandlerRegistry.INTEGER);
 	private static final TrackedData<Integer> START = DataTracker.registerData(ForeverCubeEntity.class, TrackedDataHandlerRegistry.INTEGER);
 	private static final TrackedData<Integer> LASTS = DataTracker.registerData(ForeverCubeEntity.class, TrackedDataHandlerRegistry.INTEGER);
+	/** The caller's bond step: the cube is 9 blocks across at 1, 13 from 2. */
+	private static final TrackedData<Byte> BOND = DataTracker.registerData(ForeverCubeEntity.class, TrackedDataHandlerRegistry.BYTE);
 	private static final TrackedData<Byte> PHASE = DataTracker.registerData(ForeverCubeEntity.class, TrackedDataHandlerRegistry.BYTE);
 	private static final TrackedData<Integer> PHASE_AT = DataTracker.registerData(ForeverCubeEntity.class, TrackedDataHandlerRegistry.INTEGER);
 	private int alive;
@@ -31,11 +33,13 @@ public class ForeverCubeEntity extends Entity {
 		builder.add(OWNER, -1);
 		builder.add(START, 0);
 		builder.add(LASTS, 60);
+		builder.add(BOND, (byte) 1);
 		builder.add(PHASE, (byte) ForeverHubEntity.HELD);
 		builder.add(PHASE_AT, 0);
 	}
 
-	void begin(int owner, int start, int lasts) {
+	void begin(int owner, int start, int lasts, int bond) {
+		dataTracker.set(BOND, (byte) bond);
 		dataTracker.set(OWNER, owner);
 		dataTracker.set(START, start);
 		dataTracker.set(LASTS, lasts);
@@ -56,6 +60,15 @@ public class ForeverCubeEntity extends Entity {
 
 	public int lasts() {
 		return dataTracker.get(LASTS);
+	}
+
+	public int bond() {
+		return dataTracker.get(BOND);
+	}
+
+	/** Half the side of the cube. */
+	public double half() {
+		return Forever.cubeHalf(bond());
 	}
 
 	public int phase() {

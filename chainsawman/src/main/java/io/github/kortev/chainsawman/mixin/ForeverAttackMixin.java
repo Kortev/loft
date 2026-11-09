@@ -14,7 +14,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class ForeverAttackMixin {
 	@Inject(method = "attack", at = @At("HEAD"), cancellable = true)
 	private void chainsawman$noAttack(Entity target, CallbackInfo ci) {
-		if ((Object) this instanceof ServerPlayerEntity player && ForeverFlags.SERVER.contains(player.getId())) {
+		if ((Object) this instanceof ServerPlayerEntity player && (ForeverFlags.SERVER.contains(player.getId()) || io.github.kortev.chainsawman.contract.Forever.notYet(player))) {
 			ci.cancel();
 		}
 	}

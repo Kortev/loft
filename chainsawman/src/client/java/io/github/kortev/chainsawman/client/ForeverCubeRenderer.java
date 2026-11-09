@@ -49,7 +49,7 @@ public class ForeverCubeRenderer extends EntityRenderer<ForeverCubeEntity> {
 			return;
 		}
 		VertexConsumer vc = provider.getBuffer(RenderLayer.getEntityTranslucentEmissive(ForeverHubRenderer.MOUTH));
-		double h = Forever.CUBE_HALF;
+		double h = cube.half();
 		net.minecraft.util.math.Vec3d cam = dispatcher.camera.getPos();
 		net.minecraft.util.math.Vec3d at = cube.getLerpedPos(delta);
 		double[] cc = {cam.x - at.x, cam.y - at.y, cam.z - at.z};
