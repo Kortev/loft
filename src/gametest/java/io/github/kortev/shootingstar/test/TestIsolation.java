@@ -56,6 +56,11 @@ public final class TestIsolation {
 		io.github.kortev.chainsawman.form.TeamState hearts = io.github.kortev.chainsawman.form.TeamState.of(server);
 		hearts.seen.clear();
 		hearts.markDirty();
+		// (Pay owed to an earlier test's players, and the contract an earlier test's player took, which oneContractPerDevil keeps for the world.)
+		io.github.kortev.chainsawman.hotel.HotelLedger ledger = io.github.kortev.chainsawman.hotel.HotelLedger.of(server);
+		ledger.owed.clear();
+		ledger.holders.clear();
+		ledger.markDirty();
 		for (ServerWorld world : server.getWorlds()) {
 			List<Entity> all = new ArrayList<>();
 			for (Entity entity : world.iterateEntities()) {

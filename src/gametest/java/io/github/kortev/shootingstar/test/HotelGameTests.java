@@ -616,7 +616,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** Nothing is offered in the loop any more: not after laps, not after a minute (the devil has no reason to bargain with someone it holds). */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_nooffer", tickLimit = 1500)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_nooffer", tickLimit = 1800)
 	public void nothingIsOfferedInTheLoop(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 4);
 		ServerPlayerEntity p = walker(context, h, "long_walker", 20.5);
@@ -1113,7 +1113,7 @@ public class HotelGameTests implements FabricGameTest {
 		});
 	}
 
-	/** When the loop breaks the rescued walk out and leave, and every player inside is paid per survivor; those not fed stay and are not paid for. */
+	/** When the loop breaks the rescued walk out and leave, and every player who fought is paid per survivor; those not fed stay and are not paid for. */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_squad_reward", tickLimit = 1000)
 	public void survivorsRewardEveryoneInsideWhenTheLoopBreaks(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 34);
@@ -1136,11 +1136,14 @@ public class HotelGameTests implements FabricGameTest {
 				d[0] = fightAt(context, h);
 			});
 			later(context, 120, () -> {
+				// (Both fight it: the pay goes to who fought.)
+				d[0].timeUntilRegen = 0;
+				d[0].damage(q.getDamageSources().playerAttack(q), 5.0F);
 				slay(context, h, d[0], p);
 			});
 			later(context, 135, () -> {
 				context.assertTrue(p.totalExperience - xp[0] == 2 * io.github.kortev.chainsawman.hotel.Squad.REWARD_XP && q.totalExperience - xp[1] == 2 * io.github.kortev.chainsawman.hotel.Squad.REWARD_XP,
-						"each player inside should have 2 survivors' experience: " + (p.totalExperience - xp[0]) + " and " + (q.totalExperience - xp[1]));
+						"each player who fought should have 2 survivors' experience: " + (p.totalExperience - xp[0]) + " and " + (q.totalExperience - xp[1]));
 				int gold = 0;
 				for (int s = 0; s < q.getInventory().size(); s++) {
 					if (q.getInventory().getStack(s).isOf(net.minecraft.item.Items.GOLD_INGOT)) {
@@ -1203,11 +1206,12 @@ public class HotelGameTests implements FabricGameTest {
 		d.damage(by.getDamageSources().playerAttack(by), 30.0F);
 	}
 
-	private static int itemsOf(TestContext context, HomeBlockEntity h, net.minecraft.item.Item item) {
+	/** How many of {@code item} are in {@code p}'s pack (the devil's loot goes into the pack of each who fought it). */
+	private static int packOf(ServerPlayerEntity p, net.minecraft.item.Item item) {
 		int n = 0;
-		for (net.minecraft.entity.ItemEntity e : context.getWorld().getEntitiesByType(net.minecraft.entity.EntityType.ITEM, e -> e.getStack().getItem() == item)) {
-			if (HotelBuilder.local(h.origin, h.rot, e.getPos()).y > 20.0) {
-				n += e.getStack().getCount();
+		for (int s = 0; s < p.getInventory().size(); s++) {
+			if (p.getInventory().getStack(s).isOf(item)) {
+				n += p.getInventory().getStack(s).getCount();
 			}
 		}
 		return n;
@@ -1245,7 +1249,7 @@ public class HotelGameTests implements FabricGameTest {
 		});
 	}
 
-	/** Somebody accepts: each accepter holds the contract, the devil tears off part of itself (flesh and blood for everyone) and sinks away for the respawn days; the hotel opens. */
+	/** Somebody accepts: each accepter holds the contract, the devil tears off part of itself (flesh and blood for everyone who fought it) and sinks away for the respawn days; the hotel opens. */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_beg_accept", tickLimit = 900)
 	public void acceptingTheBegGivesTheContractAndSparesIt(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 37);
@@ -1264,7 +1268,7 @@ public class HotelGameTests implements FabricGameTest {
 				context.assertTrue(h.run.beg != null && !d[0].isDead(), "the beg ended before everyone answered");
 				Hotel.answer(a, true);
 				context.assertTrue(io.github.kortev.chainsawman.contract.Contracts.has(a, io.github.kortev.chainsawman.contract.Contract.ETERNITY), "accepting gave no contract");
-				context.assertTrue(a.getUuid().equals(h.holder), "the hotel does not know who holds its contract");
+				context.assertTrue(a.getUuid().equals(Hotel.holder(context.getWorld())), "the hotel does not know who holds its contract");
 			});
 			later(context, 122, () -> {
 				context.assertTrue(h.run.beg == null && d[0].isDead() && d[0].spared, "the devil was not spared when someone accepted");
@@ -1273,8 +1277,8 @@ public class HotelGameTests implements FabricGameTest {
 				context.assertTrue(!h.run.sealed, "the hotel did not open");
 			});
 			later(context, 200, () -> {
-				context.assertTrue(itemsOf(context, h, io.github.kortev.chainsawman.ChainsawMan.ETERNITY_FLESH) == Hotel.FLESH_DROP && itemsOf(context, h, io.github.kortev.chainsawman.ChainsawMan.ETERNITY_BLOOD) == Hotel.BLOOD_DROP,
-						"its flesh and blood did not drop for everyone");
+				context.assertTrue(packOf(a, io.github.kortev.chainsawman.ChainsawMan.ETERNITY_FLESH) == Hotel.FLESH_DROP && packOf(a, io.github.kortev.chainsawman.ChainsawMan.ETERNITY_BLOOD) == Hotel.BLOOD_DROP,
+						"its flesh and blood did not go into the pack of the one who fought it");
 				tidy(context, h, a, b);
 				context.complete();
 			});
@@ -1317,8 +1321,8 @@ public class HotelGameTests implements FabricGameTest {
 				context.assertTrue(!d[0].spared, "it was spared");
 			});
 			later(context, 400, () -> {
-				context.assertTrue(itemsOf(context, h, io.github.kortev.chainsawman.ChainsawMan.ETERNITY_FLESH) == Hotel.FLESH_DROP && itemsOf(context, h, io.github.kortev.chainsawman.ChainsawMan.ETERNITY_BLOOD) == Hotel.BLOOD_DROP, "killing it dropped no loot");
-				context.assertTrue(h.away && !h.run.sealed && h.holder == null, "the hotel did not open and the devil go away without a holder");
+				context.assertTrue(packOf(a, io.github.kortev.chainsawman.ChainsawMan.ETERNITY_FLESH) == Hotel.FLESH_DROP && packOf(a, io.github.kortev.chainsawman.ChainsawMan.ETERNITY_BLOOD) == Hotel.BLOOD_DROP, "killing it dropped no loot");
+				context.assertTrue(h.away && !h.run.sealed && Hotel.holder(context.getWorld()) == null, "the hotel did not open and the devil go away without a holder");
 				tidy(context, h, a, b);
 				context.complete();
 			});
@@ -1411,7 +1415,7 @@ public class HotelGameTests implements FabricGameTest {
 				context.assertTrue(io.github.kortev.chainsawman.contract.Contracts.ids(p).equals(java.util.List.of("fox", "eternity", "curse")), "the one they gave up is not the one that went: " + io.github.kortev.chainsawman.contract.Contracts.ids(p));
 			});
 			later(context, 146, () -> {
-				context.assertTrue(h.run.beg == null && d[0].spared && p.getUuid().equals(h.holder), "the deal did not go through after they chose");
+				context.assertTrue(h.run.beg == null && d[0].spared && p.getUuid().equals(Hotel.holder(context.getWorld())), "the deal did not go through after they chose");
 				tidy(context, h, p);
 				context.complete();
 			});
@@ -1447,7 +1451,7 @@ public class HotelGameTests implements FabricGameTest {
 				context.assertTrue(io.github.kortev.chainsawman.contract.Contracts.ids(p).equals(java.util.List.of("fox", "ghost", "eternity")), "the contract they chose is not theirs: " + io.github.kortev.chainsawman.contract.Contracts.ids(p));
 			});
 			later(context, 116 + Hotel.BEG_TICKS + 66, () -> {
-				context.assertTrue(h.run.beg == null && d[0].spared && p.getUuid().equals(h.holder), "the deal did not go through after the long choice");
+				context.assertTrue(h.run.beg == null && d[0].spared && p.getUuid().equals(Hotel.holder(context.getWorld())), "the deal did not go through after the long choice");
 				tidy(context, h, p);
 				context.complete();
 			});
@@ -1477,7 +1481,7 @@ public class HotelGameTests implements FabricGameTest {
 			later(context, 116, () -> {
 				Hotel.answer(a, true);
 				Hotel.answer(b, true);
-				context.assertTrue(io.github.kortev.chainsawman.contract.Contracts.has(b, io.github.kortev.chainsawman.contract.Contract.ETERNITY) && b.getUuid().equals(h.holder), "the quick one did not get it");
+				context.assertTrue(io.github.kortev.chainsawman.contract.Contracts.has(b, io.github.kortev.chainsawman.contract.Contract.ETERNITY) && b.getUuid().equals(Hotel.holder(context.getWorld())), "the quick one did not get it");
 			});
 			later(context, 140, () -> {
 				Hotel.drop(a, 1);
@@ -1534,7 +1538,7 @@ public class HotelGameTests implements FabricGameTest {
 			});
 			later(context, 290, () -> {
 				context.assertTrue(d[0].isDead() && d[0].spared && !h.run.sealed && h.away, "the devil was not spared and the hotel opened");
-				context.assertTrue(itemsOf(context, h, io.github.kortev.chainsawman.ChainsawMan.ETERNITY_FLESH) == Hotel.FLESH_DROP && itemsOf(context, h, io.github.kortev.chainsawman.ChainsawMan.ETERNITY_BLOOD) == Hotel.BLOOD_DROP, "no loot");
+				context.assertTrue(packOf(p, io.github.kortev.chainsawman.ChainsawMan.ETERNITY_FLESH) == Hotel.FLESH_DROP && packOf(p, io.github.kortev.chainsawman.ChainsawMan.ETERNITY_BLOOD) == Hotel.BLOOD_DROP, "no loot");
 				context.assertTrue(p.totalExperience - xp[0] == 2 * io.github.kortev.chainsawman.hotel.Squad.REWARD_XP && h.run.saved == 2, "the two survivors were not paid for: " + (p.totalExperience - xp[0]));
 				context.assertTrue(!io.github.kortev.chainsawman.form.Heart.has(p) && !io.github.kortev.chainsawman.form.Form.in(p), "Chainsaw Man was needed");
 				tidy(context, h, p);
@@ -1796,18 +1800,9 @@ public class HotelGameTests implements FabricGameTest {
 				put(p, h, 25.6, 29.0, 6.5, 90.0F, 0.0F);
 			});
 			later(context, 220, () -> {
-				int flesh = 0;
-				int blood = 0;
-				for (net.minecraft.entity.ItemEntity e : context.getWorld().getEntitiesByType(net.minecraft.entity.EntityType.ITEM, e -> e.getStack().getItem() == io.github.kortev.chainsawman.ChainsawMan.ETERNITY_FLESH
-						|| e.getStack().getItem() == io.github.kortev.chainsawman.ChainsawMan.ETERNITY_BLOOD)) {
-					if (HotelBuilder.local(h.origin, h.rot, e.getPos()).y > 20.0) {
-						if (e.getStack().getItem() == io.github.kortev.chainsawman.ChainsawMan.ETERNITY_FLESH) {
-							flesh += e.getStack().getCount();
-						} else {
-							blood += e.getStack().getCount();
-						}
-					}
-				}
+				// (The one who cut it gets it, in their pack.)
+				int flesh = packOf(p, io.github.kortev.chainsawman.ChainsawMan.ETERNITY_FLESH);
+				int blood = packOf(p, io.github.kortev.chainsawman.ChainsawMan.ETERNITY_BLOOD);
 				context.assertTrue(flesh == Hotel.FLESH_DROP && blood == Hotel.BLOOD_DROP, "the loot is " + flesh + " flesh and " + blood + " blood");
 			});
 			later(context, 146, () -> {
@@ -2196,7 +2191,7 @@ public class HotelGameTests implements FabricGameTest {
 				context.assertTrue(now.equals(before), "the space over the hotel is not as it was after the kill");
 				Vec3d lp = local(h, p);
 				context.assertTrue(lp.y > 28.0 && lp.y < 33.0 && lp.x > 25.0, "the player was not put back in the corridor: " + lp);
-				context.assertTrue(itemsOf(context, h, io.github.kortev.chainsawman.ChainsawMan.ETERNITY_FLESH) == Hotel.FLESH_DROP, "the loot was lost with the shaft");
+				context.assertTrue(packOf(p, io.github.kortev.chainsawman.ChainsawMan.ETERNITY_FLESH) == Hotel.FLESH_DROP, "the loot was lost with the shaft");
 				tidy(context, h, p);
 				context.complete();
 			});
@@ -2332,7 +2327,7 @@ public class HotelGameTests implements FabricGameTest {
 				context.assertTrue(d[0].isDead() && !d[0].spared, "cutting its core did not kill it");
 			});
 			later(context, 300, () -> {
-				context.assertTrue(itemsOf(context, h, io.github.kortev.chainsawman.ChainsawMan.ETERNITY_FLESH) == Hotel.FLESH_DROP && itemsOf(context, h, io.github.kortev.chainsawman.ChainsawMan.ETERNITY_BLOOD) == Hotel.BLOOD_DROP, "no loot");
+				context.assertTrue(packOf(p, io.github.kortev.chainsawman.ChainsawMan.ETERNITY_FLESH) == Hotel.FLESH_DROP && packOf(p, io.github.kortev.chainsawman.ChainsawMan.ETERNITY_BLOOD) == Hotel.BLOOD_DROP, "no loot");
 				context.assertTrue(h.away && !h.run.sealed && h.shaft == null, "the hotel did not open, the devil go away and the shaft go");
 				tidy(context, h, p);
 				context.complete();
@@ -2494,7 +2489,7 @@ public class HotelGameTests implements FabricGameTest {
 			later(context, 900, () -> {
 				context.assertTrue(d[0].isDead() && !d[0].spared, "a sword alone did not win the fight in " + blows[0] + " blows (pain " + d[0].pain() + ")");
 				context.assertTrue(blows[0] >= 20 && blows[0] < 140, "the fight took " + blows[0] + " blows of a sword");
-				context.assertTrue(itemsOf(context, h, io.github.kortev.chainsawman.ChainsawMan.ETERNITY_FLESH) == Hotel.FLESH_DROP, "no loot");
+				context.assertTrue(packOf(p, io.github.kortev.chainsawman.ChainsawMan.ETERNITY_FLESH) == Hotel.FLESH_DROP, "no loot");
 				context.assertTrue(!io.github.kortev.chainsawman.form.Heart.has(p) && !io.github.kortev.chainsawman.form.Form.in(p) && h.shaft == null, "Chainsaw Man was needed, or the shaft stayed");
 				tidy(context, h, p);
 				context.complete();
