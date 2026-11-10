@@ -44,28 +44,28 @@ public final class FleshMesh {
 	static ShaderProgram program;
 
 	/** How a part is posed when something other than the clock decides (a jaw open by a bite): return false to hide it. */
-	interface Hook {
+	public interface Hook {
 		boolean pose(Part p, Matrix4f m, Matrix4f base);
 	}
 
 	/** What the shader is told for one drawing. */
-	static final class Look {
-		float r = 1.0F;
-		float g = 1.0F;
-		float b = 1.0F;
-		float hurt;
-		float rim = 0.8F;
+	public static final class Look {
+		public float r = 1.0F;
+		public float g = 1.0F;
+		public float b = 1.0F;
+		public float hurt;
+		public float rim = 0.8F;
 		/** The pit's glow, in the model's own frame: the point, how far it reaches, and its colour. */
-		Vector3f glowAt;
-		float glowRange = 2.0F;
-		float glowR;
-		float glowG;
-		float glowB;
+		public Vector3f glowAt;
+		public float glowRange = 2.0F;
+		public float glowR;
+		public float glowG;
+		public float glowB;
 		/** Keep only the side of the plane through the model's origin that this (model-space) direction points to. */
-		Vector3f clip;
+		public Vector3f clip;
 
 		/** The world's light at the model (a packed light coordinate) lifts a floor of grey-brown: never darker than this. */
-		Look light(int packed, float floor, float gain) {
+		public Look light(int packed, float floor, float gain) {
 			float lit = Math.max(LightmapTextureManager.getBlockLightCoordinates(packed), LightmapTextureManager.getSkyLightCoordinates(packed)) / 15.0F;
 			float k = gain * (floor + (1.0F - floor) * lit);
 			r = k;
@@ -85,15 +85,15 @@ public final class FleshMesh {
 		float base;
 	}
 
-	static final class Part {
+	public static final class Part {
 		int index;
-		String name;
-		String kind;
-		Vector3f pivot = new Vector3f();
+		public String name;
+		public String kind;
+		public Vector3f pivot = new Vector3f();
 		Anim anim;
 		VertexBuffer buffer;
 		int quads;
-		JsonObject json;
+		public JsonObject json;
 	}
 
 	// ---- Cost.
@@ -183,7 +183,12 @@ public final class FleshMesh {
 	private static final Map<String, FleshMesh> CACHE = new HashMap<>();
 
 	static FleshMesh get(String name) {
-		return CACHE.computeIfAbsent(name, FleshMesh::new);
+		return CACHE.computeIfAbsent("eternity_" + name, FleshMesh::new);
+	}
+
+	/** A mesh of the same format under any name ({@code <file>_mesh.bin} and {@code <file>_parts.json}): the devils' ({@code tomato_body}...). */
+	public static FleshMesh file(String file) {
+		return CACHE.computeIfAbsent(file, FleshMesh::new);
 	}
 
 	/** Frees the GPU buffers (a resource reload). */
@@ -202,7 +207,9 @@ public final class FleshMesh {
 	}
 
 	final List<Part> parts = new ArrayList<>();
-	final Map<String, Part> byName = new HashMap<>();
+	public final Map<String, Part> byName = new HashMap<>();
+	/** The parts file as read (what else it says: the Tomato's eyes). */
+	public JsonObject info;
 	private VertexBuffer staticBuffer;
 	private int staticQuads;
 
@@ -219,8 +226,9 @@ public final class FleshMesh {
 	}
 
 	private FleshMesh(String name) {
-		try (InputStream pin = open("eternity_" + name + "_parts.json"); InputStream min = open("eternity_" + name + "_mesh.bin")) {
+		try (InputStream pin = open(name + "_parts.json"); InputStream min = open(name + "_mesh.bin")) {
 			JsonObject root = JsonParser.parseReader(new InputStreamReader(pin, StandardCharsets.UTF_8)).getAsJsonObject();
+			info = root;
 			float unit = root.has("posUnit") ? root.get("posUnit").getAsFloat() : 16.0F;
 			for (JsonElement e : root.getAsJsonArray("parts")) {
 				JsonObject o = e.getAsJsonObject();
@@ -443,7 +451,7 @@ public final class FleshMesh {
 	 * Queues the whole model: {@code model} takes the model's frame to view space (the entity's matrix as it is now), {@code t} is in ticks.
 	 * Parts of kind {@code grab_*} are left out (the arms draw those); {@code hook} (may be null) can pose or hide the animated parts.
 	 */
-	void draw(Matrix4f model, float t, Look look, Hook hook) {
+	public void draw(Matrix4f model, float t, Look look, Hook hook) {
 		Matrix4f full = new Matrix4f(RenderSystem.getModelViewMatrix()).mul(model);
 		queue(() -> {
 			Matrix4f proj = RenderSystem.getProjectionMatrix();
@@ -466,7 +474,7 @@ public final class FleshMesh {
 	}
 
 	/** Queues one part (or the merged static body when {@code part} is null) with a transform the caller worked out. */
-	void drawPart(Part part, Matrix4f view, Look look, Matrix4f lookBase) {
+	public void drawPart(Part part, Matrix4f view, Look look, Matrix4f lookBase) {
 		Matrix4f full = new Matrix4f(RenderSystem.getModelViewMatrix()).mul(view);
 		Matrix4f lb = new Matrix4f(RenderSystem.getModelViewMatrix()).mul(lookBase);
 		queue(() -> {

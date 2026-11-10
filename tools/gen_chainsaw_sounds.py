@@ -1375,7 +1375,207 @@ def form_heart_level():
     return taper(x, 0.3)
 
 
+
+# ---------------------------------------------------------------- the Tomato Devil (devil/), all synthesised
+
+def slap_hit(n, at, level=1.0, pitch=1.0):
+    """A palm slapping down: a sharp crack of skin, a wet smack, a soft thump under it."""
+    m = ns(0.25)
+    t = np.arange(m) / SR
+    crack = bp(white(m), 1200.0 * pitch, 6500.0) * np.exp(-t / 0.006) * 1.6
+    smack = bp(white(m), 300.0 * pitch, 2200.0) * np.exp(-t / 0.035) * 1.2
+    thump = np.sin(2 * np.pi * 85.0 * pitch * t) * np.exp(-t / 0.05) * 1.3
+    x = np.zeros(n)
+    return place(x, at, (crack + smack + thump) * level)
+
+
+def gulp(n, at, length, f0, f1, level=1.0):
+    """A bubble rising through thick juice: a short sine bending up, its own little pop at the end."""
+    m = ns(length)
+    t = np.arange(m) / SR
+    f = np.linspace(f0, f1, m)
+    b = np.sin(2 * np.pi * np.cumsum(f) / SR) * np.sin(np.pi * t / length) ** 0.7
+    return place(np.zeros(n), at, b * level)
+
+
+def tomato_step():
+    """One hand coming down: a wet slap of a palm on the ground, short."""
+    n = ns(0.3)
+    x = slap_hit(n, 0.005, 0.8, 1.0 + g.rng.uniform(-0.1, 0.1))
+    x += flesh(n, 0.12, 1.0) * 0.25
+    return taper(x, 0.08)
+
+
+def tomato_gurgle():
+    """A gurgle deep in it: bubbles of juice in a big wet throat over a low groan."""
+    seconds = 1.4
+    n = ns(seconds)
+    t = np.arange(n) / SR
+    x = np.zeros(n)
+    for j in range(22):
+        at = g.rng.uniform(0.0, seconds - 0.2)
+        x += gulp(n, at, g.rng.uniform(0.04, 0.12), g.rng.uniform(90, 200), g.rng.uniform(220, 520), g.rng.uniform(0.3, 0.8))
+    groan = np.sin(2 * np.pi * np.cumsum(curve(n, [(0.0, 70.0), (0.7, 62.0), (seconds, 50.0)])) / SR)
+    groan = lp(sat(groan * 2.0 + lp(white(n), 300.0) * 0.6, 1.5), 500.0) * np.sin(np.pi * t / seconds) * 0.8
+    x += groan + lp(white(n), 700.0) * np.sin(np.pi * t / seconds) * 0.3
+    return taper(x, 0.3)
+
+
+def tomato_slap():
+    """The slap landing: four palms slamming down almost at once, a wet crack, a thud through the ground."""
+    n = ns(0.9)
+    t = np.arange(n) / SR
+    x = np.zeros(n)
+    m = ns(0.12)
+    sw = g.sweep_filter(white(m), 'bandpass', 500.0 * 6.0 ** np.linspace(0.0, 1.0, m), order=2, width=0.8)
+    x = place(x, 0.0, sw * np.hanning(m) * 0.8)
+    for k, at in enumerate((0.11, 0.125, 0.135, 0.15)):
+        x += slap_hit(n, at, 1.0, 0.85 + 0.08 * k)
+    x += sub(n, [(0.0, 90.0), (0.12, 80.0), (0.2, 40.0), (0.9, 30.0)], 0.18, drive=2.2, at=0.12) * 1.3
+    x = place(x, 0.12, flesh(ns(0.4), 0.25, 1.5)[:ns(0.4)] * 0.6)
+    return taper(x, 0.3)
+
+
+def tomato_tuck():
+    """Tucking in and rocking back: skin creaking under strain, a long wet breath in, the joints popping."""
+    seconds = 0.95
+    n = ns(seconds)
+    t = np.arange(n) / SR
+    x = reversed_swell(n, 0.0, 0.85, 200.0, 2600.0, 0.6)
+    creak = np.sin(2 * np.pi * np.cumsum(curve(n, [(0.0, 140.0), (seconds, 260.0)])) / SR)
+    creak = bp(sat(creak * 3.0, 2.0) * (0.5 + 0.5 * np.sign(np.sin(2 * np.pi * 30.0 * t))), 200.0, 2500.0) * 0.4 * np.minimum(t / 0.2, 1.0)
+    x += creak
+    for at in (0.2, 0.45, 0.62, 0.8):
+        x = place(x, at, bp(white(ns(0.02)), 1500.0, 6000.0) * np.exp(-np.arange(ns(0.02)) / SR / 0.003) * 1.2)
+    x += flesh(n, 0.8, 1.2) * 0.3
+    return taper(x, 0.12)
+
+
+def tomato_roll():
+    """Rolling: a heavy wet rumble going over the ground, squelching each time round."""
+    seconds = 1.3
+    n = ns(seconds)
+    t = np.arange(n) / SR
+    rumble = lp(g.brown(n), 180.0) * 3.0 * (0.7 + 0.3 * np.sin(2 * np.pi * 3.0 * t))
+    grit = bp(white(n), 800.0, 3000.0) * 0.25 * (0.5 + 0.5 * np.sin(2 * np.pi * 6.0 * t) ** 2)
+    x = rumble + grit
+    for at in (0.05, 0.4, 0.75, 1.1):
+        x = place(x, at, flesh(ns(0.3), 0.2, 1.3)[:ns(0.3)] * 0.6)
+        x += slap_hit(n, at, 0.4, 0.6)
+    env = np.minimum(t / 0.06, 1.0)
+    return taper(x * env, 0.35)
+
+
+def tomato_thud():
+    """Into a wall: a big soft thud, the body squashing, a squelch and juice spattering."""
+    n = ns(1.2)
+    t = np.arange(n) / SR
+    x = sub(n, [(0.0, 110.0), (0.05, 70.0), (0.3, 38.0), (1.2, 28.0)], 0.3, drive=2.6) * 1.6
+    x += lp(white(n), 900.0) * np.exp(-t / 0.04) * 2.0
+    x += flesh(n, 0.5, 1.8) * 0.9
+    for j in range(14):
+        at = g.rng.uniform(0.05, 0.6)
+        x += gulp(n, at, 0.03, 300, 900, 0.25)
+    return taper(x, 0.4)
+
+
+def tomato_spit():
+    """The seeds spat: a wet hawk up the throat and five quick pops."""
+    n = ns(0.8)
+    t = np.arange(n) / SR
+    x = reversed_swell(n, 0.0, 0.18, 300.0, 3000.0, 0.7)
+    x += lp(white(n), 1400.0) * np.exp(-np.maximum(t - 0.18, 0) / 0.08) * (t >= 0.18) * 1.2
+    for k in range(5):
+        at = 0.19 + k * 0.012
+        x += gulp(n, at, 0.025, 500 + 60 * k, 1600, 0.9)
+        x = place(x, at, bp(white(ns(0.015)), 1000.0, 5000.0) * np.exp(-np.arange(ns(0.015)) / SR / 0.003))
+    x += flesh(n, 0.3, 1.6) * 0.4
+    return taper(x, 0.25)
+
+
+def tomato_hurt():
+    """Cut: a wet squelch, juice spraying, a short gurgle of pain."""
+    n = ns(0.55)
+    t = np.arange(n) / SR
+    x = flesh(n, 0.35, 1.8) * 1.0
+    x += bp(white(n), 2500.0, 8000.0) * np.exp(-t / 0.12) * 0.5
+    for j in range(8):
+        x += gulp(n, g.rng.uniform(0.08, 0.35), 0.05, 120, 360, 0.5)
+    return taper(x * np.minimum(t / 0.004, 1.0), 0.15)
+
+
+def tomato_burst():
+    """Bursting: a deep pop, the skin tearing open, juice and pulp splattering everywhere, the seeds thrown."""
+    seconds = 2.0
+    n = ns(seconds)
+    t = np.arange(n) / SR
+    x = sub(n, [(0.0, 140.0), (0.04, 60.0), (0.4, 30.0), (seconds, 24.0)], 0.45, drive=3.0) * 1.8
+    x += lp(white(n), 2500.0) * np.exp(-t / 0.05) * 2.4
+    x += flesh(n, 0.7, 2.0) * 1.2
+    for j in range(40):
+        at = g.rng.uniform(0.05, 1.4)
+        x = place(x, at, bp(white(ns(0.04)), 600.0, 4000.0) * np.exp(-np.arange(ns(0.04)) / SR / 0.01) * g.rng.uniform(0.2, 0.7) * np.exp(-at / 0.8))
+    return taper(x, 0.6)
+
+
+def tomato_hiss():
+    """A seed burning: a sharp hiss and crackle as the juice boils off."""
+    seconds = 1.1
+    n = ns(seconds)
+    t = np.arange(n) / SR
+    hiss = hp(white(n), 3000.0) * np.minimum(t / 0.02, 1.0) * np.exp(-t / 0.5) * 1.2
+    x = hiss
+    for j in range(40):
+        at = g.rng.uniform(0.0, 0.9)
+        x = place(x, at, bp(white(ns(0.006)), 2000.0, 9000.0) * np.exp(-np.arange(ns(0.006)) / SR / 0.0012) * g.rng.uniform(0.4, 1.2))
+    for j in range(6):
+        x += gulp(n, g.rng.uniform(0.0, 0.5), 0.04, 200, 700, 0.4)
+    return taper(x, 0.4)
+
+
+def tomato_swell():
+    """A seed swelling: a slow wet creak of something growing, bubbling, a heartbeat thump in it."""
+    seconds = 2.0
+    n = ns(seconds)
+    t = np.arange(n) / SR
+    x = np.zeros(n)
+    for j in range(26):
+        x += gulp(n, g.rng.uniform(0.0, seconds - 0.2), g.rng.uniform(0.05, 0.14), g.rng.uniform(70, 150), g.rng.uniform(160, 380), g.rng.uniform(0.3, 0.7))
+    x += flesh(n, 1.8, 1.4) * 0.3
+    for at in (0.3, 0.55, 1.3, 1.55):
+        x += sub(n, [(0.0, 70.0), (seconds, 50.0)], 0.08, drive=2.0, at=at) * 0.9
+    return taper(x * np.minimum(t / 0.3, 1.0), 0.4)
+
+
+def pochita_bark():
+    """Pochita smelling a devil: two short barks, a small dog's, with an engine's rasp under them."""
+    n = ns(0.75)
+    x = np.zeros(n)
+    for at, pitch in ((0.02, 620.0), (0.27, 680.0)):
+        m = ns(0.14)
+        t = np.arange(m) / SR
+        f = pitch * (1.15 - 0.45 * np.minimum(t / 0.14, 1.0))
+        ph = 2 * np.pi * np.cumsum(f) / SR
+        tone = np.sin(ph) + 0.6 * np.sin(2 * ph) + 0.35 * np.sin(3 * ph) + 0.25 * white(m)
+        env = np.minimum(t / 0.008, 1.0) * np.exp(-t / 0.05)
+        x = place(x, at, sat(bp(tone, 350.0, 3500.0) * env * 2.0, 1.5))
+    rate = curve(n, [(0.0, 26.0), (0.75, 22.0)])
+    x += engine(n, rate, curve(n, [(0.0, 0.0), (0.05, 0.4), (0.6, 0.25), (0.75, 0.0)]), body=(140.0, 2200.0)) * 0.25
+    return taper(x, 0.1)
+
 SOUNDS = {
+    'tomato_step': tomato_step,
+    'tomato_gurgle': tomato_gurgle,
+    'tomato_slap': tomato_slap,
+    'tomato_tuck': tomato_tuck,
+    'tomato_roll': tomato_roll,
+    'tomato_thud': tomato_thud,
+    'tomato_spit': tomato_spit,
+    'tomato_hurt': tomato_hurt,
+    'tomato_burst': tomato_burst,
+    'tomato_hiss': tomato_hiss,
+    'tomato_swell': tomato_swell,
+    'pochita_bark': pochita_bark,
     'pochita_tame': pochita_tame,
     'forever_lock': forever_lock,
     'forever_hit': forever_hit,
@@ -1429,7 +1629,8 @@ SOUNDS = {
 }
 LOOPS = ('form_idle', 'form_grind', 'form_frenzy_loop', 'hotel_hum')
 # Loudness (loudest 400 ms, dB).
-LEVELS = {'hotel_hum': -27, 'hotel_whisper': -19, 'hotel_voice': -12, 'hotel_bleed': -14, 'hotel_phone': -16, 'hotel_breath': -22, 'hotel_loop_break': -9, 'hotel_seal': -14, 'hotel_heartbeat': -10, 'hotel_cut': -12, 'hotel_knock': -15,
+LEVELS = {'tomato_step': -16, 'tomato_gurgle': -15, 'tomato_slap': -9, 'tomato_tuck': -13, 'tomato_roll': -12, 'tomato_thud': -9, 'tomato_spit': -11, 'tomato_hurt': -12, 'tomato_burst': -8, 'tomato_hiss': -13, 'tomato_swell': -13, 'pochita_bark': -12,
+          'hotel_hum': -27, 'hotel_whisper': -19, 'hotel_voice': -12, 'hotel_bleed': -14, 'hotel_phone': -16, 'hotel_breath': -22, 'hotel_loop_break': -9, 'hotel_seal': -14, 'hotel_heartbeat': -10, 'hotel_cut': -12, 'hotel_knock': -15,
           'devil_grow': -9, 'devil_bite': -10, 'devil_slam': -8, 'devil_regen': -16, 'devil_hurt': -13, 'devil_death': -8, 'forever_lock': -13, 'forever_hit': -12, 'forever_release': -7, 'forever_bond_up': -11, 'forever_not_yet': -11, 'forever_step_out': -12, 'form_heart_level': -8, 'form_crunch': -10, 'pochita_tame': -14, 'form_merge': -12, 'form_cord': -14, 'form_start': -10, 'form_revive_pull': -14, 'form_revive_start': -10, 'form_idle': -20, 'form_stop': -16, 'form_slash': -13, 'form_hit': -12,
           'form_grind': -15, 'form_chain': -14, 'form_frenzy': -10, 'form_frenzy_loop': -17, 'form_down': -13,
           'form_revive': -14, 'beam_burst': -9, 'beam_step': -12, 'beam_swim': -13, 'beam_bite': -10, 'beam_dive': -13, 'beam_screech': -9, 'beam_chatter': -16, 'beam_slam': -6, 'beam_launch': -10}

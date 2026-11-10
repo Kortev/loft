@@ -346,6 +346,10 @@ public final class Saw {
 
 	/** A kill by the saws: torn apart, in a burst of blood, flesh and bone, the body gone with it. */
 	private static void tearApart(ServerPlayerEntity killer, LivingEntity dead) {
+		if (dead instanceof io.github.kortev.chainsawman.devil.TomatoDevilEntity) {
+			// (The Tomato Devil curls up and bursts into its seeds by itself: it is not torn away.)
+			return;
+		}
 		ServerWorld world = killer.getServerWorld();
 		Vec3d at = dead.getBoundingBox().getCenter();
 		double w = dead.getWidth() * 0.5;

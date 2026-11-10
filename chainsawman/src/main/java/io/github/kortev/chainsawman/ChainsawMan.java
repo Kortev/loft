@@ -195,5 +195,6 @@ public final class ChainsawMan implements ModInitializer {
 		Form.init();
 		io.github.kortev.chainsawman.contract.Contracts.init();
 		Felling.init();
+		io.github.kortev.chainsawman.devil.Devils.init();
 	}
 }
