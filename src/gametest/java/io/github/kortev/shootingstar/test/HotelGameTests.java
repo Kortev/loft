@@ -765,9 +765,9 @@ public class HotelGameTests implements FabricGameTest {
 				context.assertTrue(d instanceof io.github.kortev.chainsawman.hotel.EternityDevilEntity, "no devil grew");
 				Vec3d lp = HotelBuilder.local(h.origin, h.rot, d.getPos());
 				context.assertTrue(Math.abs(lp.x - 37.0) < 0.05 && Math.abs(lp.y - 29.0) < 0.05 && Math.abs(lp.z - 6.5) < 0.05, "the devil is at " + lp + ", not the corridor's end");
-				// Its hitbox is its whole front: 9.4 across the great mouth's axis, 7 high, 3.9 out from its back plane.
+				// Its hitbox is its whole front: 12 across (the torn arena wall to wall), 7 high, 3.9 out from its back plane.
 				net.minecraft.util.math.Box box = d.getBoundingBox();
-				context.assertTrue(Math.abs(box.getLengthY() - 7.0) < 0.01 && Math.abs(Math.max(box.getLengthX(), box.getLengthZ()) - 9.4) < 0.01 && Math.abs(Math.min(box.getLengthX(), box.getLengthZ()) - 3.9) < 0.01,
+				context.assertTrue(Math.abs(box.getLengthY() - 7.0) < 0.01 && Math.abs(Math.max(box.getLengthX(), box.getLengthZ()) - 12.0) < 0.01 && Math.abs(Math.min(box.getLengthX(), box.getLengthZ()) - 3.9) < 0.01,
 						"its hitbox is " + box.getLengthX() + " x " + box.getLengthY() + " x " + box.getLengthZ());
 				tidy(context, h, p);
 				context.complete();
@@ -1830,7 +1830,7 @@ public class HotelGameTests implements FabricGameTest {
 		java.util.Map<BlockPos, BlockState> m = new java.util.HashMap<>();
 		for (int x = 0; x < HotelPlan.SX; x++) {
 			for (int z = 0; z < HotelPlan.SZ; z++) {
-				for (int y = 28; y <= 36; y++) {
+				for (int y = 28; y <= io.github.kortev.chainsawman.hotel.Arena.DOME_TOP + 1; y++) {
 					BlockPos at = HotelBuilder.world(h.origin, h.rot, x, y, z);
 					BlockState state = context.getWorld().getBlockState(at);
 					if (state.getBlock() instanceof net.minecraft.block.RedstoneLampBlock) {
@@ -1880,7 +1880,7 @@ public class HotelGameTests implements FabricGameTest {
 		return "none";
 	}
 
-	/** The arena is open: the walls above their stumps, the ceiling slab and the roof over it gone; the outer walls, the parapet and the floor stay. */
+	/** The arena is open: the walls above their stumps, the ceiling slab and the roof over it gone; the outer walls and the parapet are the stomach's flesh; the floor stays. */
 	private static void assertTorn(TestContext context, HomeBlockEntity h, java.util.Map<BlockPos, BlockState> before, String when) {
 		context.assertTrue(io.github.kortev.chainsawman.hotel.Arena.torn(h), when + ": the home does not know the arena is open");
 		int gone = differences(context, h, before);
@@ -1890,8 +1890,8 @@ public class HotelGameTests implements FabricGameTest {
 				context.assertTrue(at(context, h, x, 32, z).isAir() && at(context, h, x, 33, z).isAir(), when + ": the ceiling or the roof is still over (" + x + ", " + z + ")");
 			}
 		}
-		context.assertTrue(at(context, h, 37, 30, 6) == before.get(HotelBuilder.world(h.origin, h.rot, 37, 30, 6)) && !at(context, h, 37, 30, 6).isAir(), when + ": the outer wall behind it went");
-		context.assertTrue(at(context, h, 30, 34, 13) == before.get(HotelBuilder.world(h.origin, h.rot, 30, 34, 13)) && !at(context, h, 30, 34, 13).isAir(), when + ": the parapet went");
+		context.assertTrue(at(context, h, 37, 30, 6) == io.github.kortev.chainsawman.hotel.Arena.shellBlock(37, 30, 6), when + ": the outer wall behind it is not the devil's flesh: " + at(context, h, 37, 30, 6));
+		context.assertTrue(at(context, h, 30, 34, 13) == io.github.kortev.chainsawman.hotel.Arena.shellBlock(30, 34, 13), when + ": the parapet is not the devil's flesh: " + at(context, h, 30, 34, 13));
 		context.assertTrue(!at(context, h, 30, 28, 6).isAir() && !at(context, h, 24, 28, 2).isAir(), when + ": the floor went");
 		context.assertTrue(at(context, h, 20, 32, 6) == before.get(HotelBuilder.world(h.origin, h.rot, 20, 32, 6)), when + ": the ceiling toward the stairs went");
 	}
@@ -2146,6 +2146,82 @@ public class HotelGameTests implements FabricGameTest {
 				float want = HotelBuilder.alongYaw(h.rot) + 180.0F;
 				context.assertTrue(Math.abs(net.minecraft.util.math.MathHelper.wrapDegrees(d[0].facing() - want)) < 1.0F, "the devil does not face back along the corridor: " + d[0].facing());
 				context.assertTrue(at(context, h, 30, 33, 6).isAir() && h.run.torn >= io.github.kortev.chainsawman.hotel.Arena.X1 - io.github.kortev.chainsawman.hotel.Arena.X0 + 1, "the arena round the devil is not torn open");
+				context.complete();
+			});
+		});
+	}
+
+	/**
+	 * The devil is the end of the torn arena: its box (what it is drawn to fill, and what can be hit) runs wall to wall across the opening and from
+	 * the floor up to the dome, and round it the walls are flesh.
+	 */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_devil_fills", tickLimit = 400)
+	public void theDevilFillsTheCorridorsEnd(TestContext context) {
+		HomeBlockEntity h = hotel(context, 0, 83);
+		ServerPlayerEntity p = walker(context, h, "filler", 26.0);
+		io.github.kortev.chainsawman.hotel.EternityDevilEntity[] d = new io.github.kortev.chainsawman.hotel.EternityDevilEntity[1];
+		ready(context, h, () -> {
+			later(context, 15, () -> {
+				noSquad(context, h);
+				d[0] = fightAt(context, h);
+			});
+			later(context, 150, () -> {
+				net.minecraft.util.math.Box b = d[0].getBoundingBox();
+				Vec3d a = HotelBuilder.local(h.origin, h.rot, new Vec3d(b.minX, b.minY, b.minZ));
+				Vec3d c = HotelBuilder.local(h.origin, h.rot, new Vec3d(b.maxX, b.maxY, b.maxZ));
+				double z0 = Math.min(a.z, c.z);
+				double z1 = Math.max(a.z, c.z);
+				double x0 = Math.min(a.x, c.x);
+				double x1 = Math.max(a.x, c.x);
+				// The opening at the east wall: z from the south wall's inner face to the north wall's, up to the dome's underside.
+				int top = 0;
+				for (int z = io.github.kortev.chainsawman.hotel.Arena.Z0; z <= io.github.kortev.chainsawman.hotel.Arena.Z1; z++) {
+					top = Math.max(top, io.github.kortev.chainsawman.hotel.Arena.domeY(io.github.kortev.chainsawman.hotel.Arena.X1, z));
+				}
+				context.assertTrue(z0 <= io.github.kortev.chainsawman.hotel.Arena.Z0 + 0.01 && z1 >= io.github.kortev.chainsawman.hotel.Arena.Z1 + 0.99,
+						"the devil does not span the opening wall to wall: z " + z0 + " to " + z1);
+				context.assertTrue(a.y <= io.github.kortev.chainsawman.hotel.Arena.Y0 + 0.01 && c.y >= top - 0.01, "the devil does not fill the opening floor to dome: y " + a.y + " to " + c.y + " (dome at " + top + ")");
+				context.assertTrue(x1 >= 36.99 && x0 <= 37.0 - io.github.kortev.chainsawman.hotel.EternityDevilEntity.BULK + 0.01, "the devil's box is not against the east wall: x " + x0 + " to " + x1);
+				for (int z = io.github.kortev.chainsawman.hotel.Arena.Z0; z <= io.github.kortev.chainsawman.hotel.Arena.Z1; z++) {
+					for (int y = io.github.kortev.chainsawman.hotel.Arena.Y0; y < io.github.kortev.chainsawman.hotel.Arena.domeY(37, z); y++) {
+						context.assertTrue(at(context, h, 37, y, z) == io.github.kortev.chainsawman.hotel.Arena.shellBlock(37, y, z), "the wall behind the devil is not flesh at (37, " + y + ", " + z + ")");
+					}
+				}
+				for (int x = 30; x <= 36; x++) {
+					context.assertTrue(at(context, h, x, 30, 0) == io.github.kortev.chainsawman.hotel.Arena.shellBlock(x, 30, 0) && at(context, h, x, 30, 13) == io.github.kortev.chainsawman.hotel.Arena.shellBlock(x, 30, 13),
+							"the side walls beside the devil are not flesh at x " + x);
+				}
+				tidy(context, h, p);
+				context.complete();
+			});
+		});
+	}
+
+	/** While the arena is torn there is no sky over any of it: the dome of flesh closes it (every column has something solid above it). */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_arena_no_sky", tickLimit = 400)
+	public void theTornArenaShowsNoSky(TestContext context) {
+		HomeBlockEntity h = hotel(context, 0, 84);
+		ServerPlayerEntity p = walker(context, h, "nosky", 26.0);
+		ready(context, h, () -> {
+			later(context, 15, () -> {
+				noSquad(context, h);
+				fightAt(context, h);
+			});
+			later(context, 150, () -> {
+				context.assertTrue(io.github.kortev.chainsawman.hotel.Arena.torn(h), "the arena did not tear");
+				int top = context.getWorld().getTopY();
+				for (int x = io.github.kortev.chainsawman.hotel.Arena.X0; x <= io.github.kortev.chainsawman.hotel.Arena.X1; x++) {
+					for (int z = io.github.kortev.chainsawman.hotel.Arena.Z0; z <= io.github.kortev.chainsawman.hotel.Arena.Z1; z++) {
+						BlockPos from = HotelBuilder.world(h.origin, h.rot, x, io.github.kortev.chainsawman.hotel.Arena.Y0, z);
+						boolean covered = false;
+						for (int y = from.getY(); y < top && !covered; y++) {
+							BlockState s = context.getWorld().getBlockState(new BlockPos(from.getX(), y, from.getZ()));
+							covered = s.isOpaqueFullCube(context.getWorld(), new BlockPos(from.getX(), y, from.getZ()));
+						}
+						context.assertTrue(covered, "open sky over the torn arena at local (" + x + ", " + z + ")");
+					}
+				}
+				tidy(context, h, p);
 				context.complete();
 			});
 		});

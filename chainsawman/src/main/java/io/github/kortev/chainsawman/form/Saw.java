@@ -211,17 +211,19 @@ public final class Saw {
 				impact(player, target);
 			}
 		}
+		// The Eternity Devil's arms, heads and core are not living things: cut them too (the slash looked only for living ones).
+		int parts = io.github.kortev.chainsawman.hotel.Shaft.cutParts(player, SLASH_REACH, finisher ? FINISHER_WIDTH : SLASH_WIDTH, damage, aimed);
 		// Everyone else hears it; the slasher's own game played it already, as they clicked (ClientCombat).
 		player.getServerWorld().playSound(player, player.getX(), player.getY() + 1.0, player.getZ(), ChainsawSounds.SLASH, SoundCategory.PLAYERS, 1.0F,
 				1.0F);
 		Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.SWING, step));
 		if (held) {
-			if (!hit.isEmpty()) {
+			if (!hit.isEmpty() || parts > 0) {
 				Form.play(player, ChainsawSounds.HIT, 0.8F);
-				Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.HIT, hit.size()));
+				Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.HIT, hit.size() + parts));
 			}
 		} else {
-			landed(player, hit.size());
+			landed(player, hit.size() + parts);
 		}
 		return true;
 	}

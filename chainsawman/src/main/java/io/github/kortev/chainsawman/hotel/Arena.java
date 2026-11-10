@@ -26,8 +26,9 @@ import net.minecraft.util.math.Vec3d;
 /**
  * The arena the devil rips open when it tears out. The east end of floor 8, from {@link #X0} to {@link #X1} along the corridor and the
  * hotel's whole depth (z 1 to 12): the walls into the rooms on both sides, the ceiling slab and the roof above them, and what stands on the
- * roof (the water tank), all go, from the devil's end back toward the stairs, in a burst of block particles and dust. The outer walls, the
- * parapet and the floor stay, and frame it against the night sky. Every block torn is kept (state and block entity: the signs' words, the
+ * roof (the water tank), all go, from the devil's end back toward the stairs, in a burst of block particles and dust. What is left is the
+ * inside of the devil: the outer walls round it turn to flesh, a dome of flesh closes over it where the roof was (no sky: the hotel is its
+ * body, and this is its stomach), and the floor in front of it is flesh ({@link #shell}). Every block torn is kept (state and block entity: the signs' words, the
  * lecterns' books) in the home's own data ({@link HomeBlockEntity#arena}), so it is put back exactly when the fight is over (the devil
  * killed, spared, or nobody left) and after a server restart in the middle of it.
  */
@@ -73,7 +74,8 @@ public final class Arena {
 		if (wallColumn(x, z)) {
 			return y - Y0 >= stump(x, z);
 		}
-		return y > Y0 || !(state.getBlock() instanceof net.minecraft.block.CarpetBlock);
+		// (The carpet goes too where the floor under it is the devil's flesh.)
+		return y > Y0 || !(state.getBlock() instanceof net.minecraft.block.CarpetBlock) || shell(x, Y0 - 1, z);
 	}
 
 	private static int hash(int x, int y, int z) {
@@ -94,6 +96,56 @@ public final class Arena {
 		return (h == 0 ? Blocks.RED_TERRACOTTA : h == 1 ? Blocks.NETHER_WART_BLOCK : Blocks.PINK_TERRACOTTA).getDefaultState();
 	}
 
+	// ---- The stomach: what closes round the torn arena (outer walls, the dome, the floor before the devil), all of it flesh.
+
+	/** The east outer wall (the devil's back plane) and the two side outer walls: the shell's own columns outside the torn box. */
+	public static final int EAST = HotelPlan.SX - 1;
+	public static final int SOUTH = Z0 - 1;
+	public static final int NORTH = Z1 + 1;
+	/** How far in from the dome's edge it is at its full height, and the heights: the edge just over the roof slab west of the arena, the top. */
+	static final int DOME_RISE = 3;
+	public static final int DOME_EDGE = Y0 + 4;
+	public static final int DOME_TOP = DOME_EDGE + DOME_RISE;
+	/** The floor before the devil is flesh this far back from the east wall (jagged at its edge). */
+	static final int FLOOR_FLESH = 5;
+
+	/** The dome's underside over the column (x, z): low at the walls and the west edge, rising to {@link #DOME_TOP} three blocks in. */
+	public static int domeY(int x, int z) {
+		int e = Math.min(Math.min(z - SOUTH, NORTH - z), x - X0);
+		return DOME_EDGE + Math.max(0, Math.min(DOME_RISE, e));
+	}
+
+	/**
+	 * Whether the local place is part of the stomach's shell: the dome (two thick, so its steps leave no gap), the side and east outer walls from
+	 * the floor up to the dome, and the floor slab before the devil.
+	 */
+	public static boolean shell(int x, int y, int z) {
+		if (x < X0 || x > EAST || z < SOUTH || z > NORTH) {
+			return false;
+		}
+		int d = domeY(x, z);
+		if (y == d || y == d + 1) {
+			return true;
+		}
+		boolean wall = z == SOUTH || z == NORTH || x == EAST;
+		if (wall && y >= Y0 - 1 && y < d) {
+			return true;
+		}
+		// The floor before it: the slab under the carpet, from the east wall back, the last row ragged.
+		int back = EAST - x;
+		return y == Y0 - 1 && !wall && (back < FLOOR_FLESH - 1 || back == FLOOR_FLESH - 1 && hash(x, y, z) < 140);
+	}
+
+	/** The shell's block: grey-brown and dark red flesh, with a glowing nodule here and there in the dome (the only light in it). */
+	public static BlockState shellBlock(int x, int y, int z) {
+		int h = hash(x, y, z);
+		if (y >= DOME_EDGE && y == domeY(x, z) && h < 14) {
+			return Blocks.SHROOMLIGHT.getDefaultState();
+		}
+		Block b = h < 60 ? Blocks.NETHER_WART_BLOCK : h < 120 ? Blocks.RED_TERRACOTTA : h < 175 ? Blocks.BROWN_TERRACOTTA : h < 225 ? Blocks.PACKED_MUD : Blocks.PINK_TERRACOTTA;
+		return b.getDefaultState();
+	}
+
 	/** One torn block: its local place, its state and its block entity data (or null). */
 	record Cell(int x, int y, int z, BlockState state, NbtCompound entity) {
 	}
@@ -109,6 +161,7 @@ public final class Arena {
 			mend(world, h);
 		}
 		List<Cell> cells = new ArrayList<>();
+		java.util.Set<Long> kept = new java.util.HashSet<>();
 		for (int x = X0; x <= X1; x++) {
 			for (int z = Z0; z <= Z1; z++) {
 				for (int y = Y0; y <= Y1; y++) {
@@ -119,6 +172,7 @@ public final class Arena {
 					}
 					BlockEntity be = world.getBlockEntity(at);
 					cells.add(new Cell(x, y, z, state, be == null ? null : be.createNbtWithIdentifyingData(world.getRegistryManager())));
+					kept.add(BlockPos.asLong(x, y, z));
 				}
 			}
 			// The lamps in the floor (the ceiling lamps of the floor below) go out: the arena is dark, and moonlit.
@@ -126,6 +180,23 @@ public final class Arena {
 			BlockState lit = world.getBlockState(lamp);
 			if (lit.getBlock() instanceof net.minecraft.block.RedstoneLampBlock && lit.get(net.minecraft.block.RedstoneLampBlock.LIT)) {
 				cells.add(new Cell(x, Y0 - 1, 6, lit, null));
+				kept.add(BlockPos.asLong(x, Y0 - 1, 6));
+			}
+		}
+		// The stomach's shell, kept like the rest (the dome above the torn box, the outer walls, the floor slab); not where a cell is kept already.
+		for (int x = X0; x <= EAST; x++) {
+			for (int z = SOUTH; z <= NORTH; z++) {
+				for (int y = Y0 - 1; y <= DOME_TOP + 1; y++) {
+					if (!shell(x, y, z) || kept.contains(BlockPos.asLong(x, y, z))) {
+						continue;
+					}
+					BlockPos at = HotelBuilder.world(h.origin, h.rot, x, y, z);
+					if (world.getBlockState(at).isOf(Blocks.REDSTONE_LAMP)) {
+						continue;
+					}
+					BlockEntity be = world.getBlockEntity(at);
+					cells.add(new Cell(x, y, z, world.getBlockState(at), be == null ? null : be.createNbtWithIdentifyingData(world.getRegistryManager())));
+				}
 			}
 		}
 		// The flesh growing at the corridor's corners (the loop's signs) is on walls that are gone now.
@@ -163,10 +234,19 @@ public final class Arena {
 			int x = X1 - r.torn;
 			r.torn++;
 			for (Cell c : r.arenaCells) {
-				if (c.x() != x) {
+				// (The east wall's column goes with the first: the devil's own end.)
+				if (c.x() != x && !(x == X1 && c.x() > X1)) {
 					continue;
 				}
 				BlockPos at = HotelBuilder.world(h.origin, h.rot, c.x(), c.y(), c.z());
+				if (shell(c.x(), c.y(), c.z()) && !c.state().isOf(Blocks.REDSTONE_LAMP)) {
+					// The stomach closes round it: flesh.
+					if (world.getBlockEntity(at) != null) {
+						world.removeBlockEntity(at);
+					}
+					world.setBlockState(at, shellBlock(c.x(), c.y(), c.z()), FLAGS);
+					continue;
+				}
 				if (c.y() < Y0) {
 					world.setBlockState(at, c.state().with(net.minecraft.block.RedstoneLampBlock.LIT, false), FLAGS);
 					continue;

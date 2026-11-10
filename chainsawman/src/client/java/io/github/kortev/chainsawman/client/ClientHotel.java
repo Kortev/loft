@@ -123,6 +123,28 @@ public final class ClientHotel {
 		return swallowed;
 	}
 
+	/** Swallowed: the tick it happened, how far cut out (0 to 1), how many cuts, and the tick of the last. */
+	private static long swallowedAt;
+	private static float cutOut;
+	private static int cuts;
+	private static long cutAt = -1000;
+
+	public static float swallowedFor(float delta) {
+		return now() + delta - swallowedAt;
+	}
+
+	public static float cutOut() {
+		return cutOut;
+	}
+
+	public static int cuts() {
+		return cuts;
+	}
+
+	public static float sinceCut(float delta) {
+		return now() + delta - cutAt;
+	}
+
 	public static void devil(HotelPayloads.Devil payload) {
 		long now = now();
 		if (payload.kind() == HotelPayloads.Devil.TILT) {
@@ -138,7 +160,22 @@ public final class ClientHotel {
 			return;
 		}
 		if (payload.kind() == HotelPayloads.Devil.SWALLOW) {
+			// (1 when swallowed; afterwards 1 + how far cut out in hundredths + 100 a cut: see Shaft.swallowTicks.)
+			boolean was = swallowed;
 			swallowed = payload.ticks() > 0;
+			if (swallowed && !was) {
+				swallowedAt = now;
+				cuts = 0;
+				cutOut = 0.0F;
+			}
+			if (swallowed) {
+				int n = (payload.ticks() - 1) / 100;
+				if (n > cuts) {
+					cutAt = now;
+				}
+				cuts = n;
+				cutOut = ((payload.ticks() - 1) % 100) / 100.0F;
+			}
 			return;
 		}
 		List<Event> list = EVENTS.computeIfAbsent(payload.devil(), k -> new ArrayList<>());
