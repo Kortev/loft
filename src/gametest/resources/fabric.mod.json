@@ -29,7 +29,8 @@
 			"io.github.kortev.shootingstar.test.BondGameTests",
 			"io.github.kortev.shootingstar.test.BuffGameTests",
 			"io.github.kortev.shootingstar.test.ServerProofGameTests",
-			"io.github.kortev.shootingstar.test.HotelShareGameTests"
+			"io.github.kortev.shootingstar.test.HotelShareGameTests",
+			"io.github.kortev.shootingstar.test.TomatoGameTests"
 		],
 		"client": [
 			"io.github.kortev.shootingstar.test.ClientSelfTest",
@@ -51,7 +52,8 @@
 			"io.github.kortev.shootingstar.test.ReviveSelfTest",
 			"io.github.kortev.shootingstar.test.HotelSelfTest",
 			"io.github.kortev.shootingstar.test.TeamsSelfTest",
-			"io.github.kortev.shootingstar.test.BondsSelfTest"
+			"io.github.kortev.shootingstar.test.BondsSelfTest",
+			"io.github.kortev.shootingstar.test.TomatoSelfTest"
 		]
 	},
 	"depends": {

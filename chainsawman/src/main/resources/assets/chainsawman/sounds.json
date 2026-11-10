@@ -446,5 +446,101 @@
         "name": "chainsawman:form_heart_level"
       }
     ]
+  },
+  "tomato.step": {
+    "subtitle": "subtitles.chainsawman.tomato.step",
+    "sounds": [
+      {
+        "name": "chainsawman:tomato_step"
+      }
+    ]
+  },
+  "tomato.gurgle": {
+    "subtitle": "subtitles.chainsawman.tomato.gurgle",
+    "sounds": [
+      {
+        "name": "chainsawman:tomato_gurgle"
+      }
+    ]
+  },
+  "tomato.slap": {
+    "subtitle": "subtitles.chainsawman.tomato.slap",
+    "sounds": [
+      {
+        "name": "chainsawman:tomato_slap"
+      }
+    ]
+  },
+  "tomato.tuck": {
+    "subtitle": "subtitles.chainsawman.tomato.tuck",
+    "sounds": [
+      {
+        "name": "chainsawman:tomato_tuck"
+      }
+    ]
+  },
+  "tomato.roll": {
+    "subtitle": "subtitles.chainsawman.tomato.roll",
+    "sounds": [
+      {
+        "name": "chainsawman:tomato_roll"
+      }
+    ]
+  },
+  "tomato.thud": {
+    "subtitle": "subtitles.chainsawman.tomato.thud",
+    "sounds": [
+      {
+        "name": "chainsawman:tomato_thud"
+      }
+    ]
+  },
+  "tomato.spit": {
+    "subtitle": "subtitles.chainsawman.tomato.spit",
+    "sounds": [
+      {
+        "name": "chainsawman:tomato_spit"
+      }
+    ]
+  },
+  "tomato.hurt": {
+    "subtitle": "subtitles.chainsawman.tomato.hurt",
+    "sounds": [
+      {
+        "name": "chainsawman:tomato_hurt"
+      }
+    ]
+  },
+  "tomato.burst": {
+    "subtitle": "subtitles.chainsawman.tomato.burst",
+    "sounds": [
+      {
+        "name": "chainsawman:tomato_burst"
+      }
+    ]
+  },
+  "tomato.hiss": {
+    "subtitle": "subtitles.chainsawman.tomato.hiss",
+    "sounds": [
+      {
+        "name": "chainsawman:tomato_hiss"
+      }
+    ]
+  },
+  "tomato.swell": {
+    "subtitle": "subtitles.chainsawman.tomato.swell",
+    "sounds": [
+      {
+        "name": "chainsawman:tomato_swell"
+      }
+    ]
+  },
+  "pochita.bark": {
+    "subtitle": "subtitles.chainsawman.pochita.bark",
+    "sounds": [
+      {
+        "name": "chainsawman:pochita_bark"
+      }
+    ]
   }
 }

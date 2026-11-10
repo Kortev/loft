@@ -234,9 +234,20 @@ public class PochitaEntity extends TameableEntity {
 	@Nullable
 	public net.minecraft.util.math.BlockPos den;
 
+	/** A devil he has smelled ({@code devil/Sniff}): he faces it till {@link #alertUntil}. */
+	@Nullable
+	public net.minecraft.util.math.Vec3d alertAt;
+	public long alertUntil;
+
 	@Override
 	public void tick() {
 		super.tick();
+		if (!getWorld().isClient && alertAt != null && getWorld().getTime() < alertUntil && !fainted()) {
+			float yaw = (float) Math.toDegrees(Math.atan2(-(alertAt.x - getX()), alertAt.z - getZ()));
+			setYaw(yaw);
+			setBodyYaw(yaw);
+			setHeadYaw(yaw);
+		}
 		if (getWorld() instanceof ServerWorld world && isTamed() && age % 20 == 0 && io.github.kortev.chainsawman.form.Hearts.full(world.getServer())) {
 			// Every heart the world has is taken: he's nobody's now.
 			setTamed(false, true);

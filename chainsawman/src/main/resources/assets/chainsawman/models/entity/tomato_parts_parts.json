@@ -1,0 +1,125 @@
+{
+ "note": "The Tomato Devil's pieces (tools/tomato_devil_3d.py)",
+ "frame": "blocks; each piece in its own frame (see the tool)",
+ "mesh": "tomato_parts_mesh.bin",
+ "quads": 2283,
+ "voxels": 6501,
+ "parts": [
+  {
+   "name": "upper",
+   "index": 0,
+   "pivot": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "anim": null,
+   "voxel": 0.03125,
+   "voxels": 2890,
+   "kind": "grab_upper",
+   "length": 1.3,
+   "quads": 590
+  },
+  {
+   "name": "fore",
+   "index": 1,
+   "pivot": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "anim": null,
+   "voxel": 0.03125,
+   "voxels": 1505,
+   "kind": "grab_fore",
+   "length": 1.2,
+   "quads": 435
+  },
+  {
+   "name": "hand_l",
+   "index": 2,
+   "pivot": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "anim": null,
+   "voxel": 0.03125,
+   "voxels": 293,
+   "kind": "grab_hand",
+   "quads": 181
+  },
+  {
+   "name": "hand_r",
+   "index": 3,
+   "pivot": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "anim": null,
+   "voxel": 0.03125,
+   "voxels": 293,
+   "kind": "grab_hand",
+   "quads": 188
+  },
+  {
+   "name": "fingers_l",
+   "index": 4,
+   "pivot": [
+    0.0,
+    -0.035,
+    0.345
+   ],
+   "anim": null,
+   "voxel": 0.03125,
+   "voxels": 140,
+   "kind": "grab_fingers",
+   "quads": 161
+  },
+  {
+   "name": "fingers_r",
+   "index": 5,
+   "pivot": [
+    0.0,
+    -0.035,
+    0.345
+   ],
+   "anim": null,
+   "voxel": 0.03125,
+   "voxels": 140,
+   "kind": "grab_fingers",
+   "quads": 155
+  },
+  {
+   "name": "eye",
+   "index": 6,
+   "pivot": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "anim": null,
+   "voxel": 0.03125,
+   "voxels": 1088,
+   "kind": "grab_eye",
+   "radius": 0.2,
+   "quads": 461
+  },
+  {
+   "name": "seed",
+   "index": 7,
+   "pivot": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "anim": null,
+   "voxel": 0.03125,
+   "voxels": 152,
+   "kind": "grab_seed",
+   "quads": 112
+  }
+ ],
+ "posUnit": 32
+}
