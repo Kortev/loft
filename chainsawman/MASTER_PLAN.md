@@ -57,7 +57,10 @@ tests, what done looks like) goes in **one brief per package** in `plan/packages
 
 ## Reading rules, to keep usage down
 
+- `STATUS.md` is the one page loaded after a context reset: what's running, what waits on kortev, the rules that
+  must survive. Keep it under 3 KB and current.
 - Never read `HANDOFF.md` whole (153 KB). Search it for the thing you need.
+- When you find something big being loaded that isn't needed, cut it and tell kortev.
 - `QUEST_MOD_PLAN.md` and `SOLO_MOD_PLAN.md` are older. Where they disagree with `plan/`, `plan/` wins once kortev
   has said yes.
 - No part file grows past about 8 KB. If one does, split it.

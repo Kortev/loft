@@ -26,8 +26,8 @@ more, not only harder.
 - Everyone goes down instead of dying, and a partner or friend can pick you up [decided].
 - **A totem of undying is used first.** Today going down happens before Minecraft looks for a totem, so it never
   pops and you bleed out holding it (checked in the code; the exact order is still to confirm in a test).
-- **Logging out while down doesn't save you.** Today your body just goes, and you come back when it's safe. Your
-  body stays for the rest of the timer.
+- **Logging out while down doesn't save you.** Today your body just goes, and you come back when it's safe. The
+  bleed-out clock keeps running while you're gone: come back after it and you're dead where you fell.
 - **Dying in a lair throws you out of it [decided: kortev, 2026-11-09].** Lairs are dungeons, and a dungeon kicks
   you out. ("The devil keeps you" was offered and turned down: cool, but not how a dungeon works.) Fable's picks for
   the details: you land outside the front door with your things, because today they lie on the floor inside for five
