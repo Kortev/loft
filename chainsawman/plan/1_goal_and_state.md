@@ -30,7 +30,7 @@ Everything after that (more devils, more hybrids) is an update, each one a reel.
 | Contracts (3 slots, bonds, "Not yet", lasting prices), Forever | Built, not judged. |
 | Teams (everyone goes down, pick-ups, buddies, the heart's rules) | Built, not judged. |
 | The hotel, version 2 (the hunt in the walls, the squad, the beg) | Built, not judged. Its look is old. |
-| The shaft fight (the floor turns 90 degrees) | Built on branch `shaft-fight`, 48 hotel tests pass. Not merged. |
+| The shaft fight (the floor turns 90 degrees) | Merged 2026-11-09 with the 3D devil. kortev's notes on the film are round 3 (`packages/0.1_devil_round3.md`). |
 | The Eternity Devil in 3D | Meshes made. An agent is putting them in the game now (branch `devil-look`). |
 | Hotel textures, Public Safety look, Zombie and Bat concepts | Concepts made, waiting for kortev's yes. |
 | Public Safety (outposts, missions, yen, ranks, weapons, suit) | Not started. |

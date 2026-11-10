@@ -12,13 +12,14 @@ Updated 2026-11-09. Keep this page under 3 KB. Change it whenever something star
 
 ## Running
 
-- **The Eternity Devil's 3D look**, fix round 2 (round 1 landed the black mouth and grey flesh): branch `devil-look` (worktree `.claude/worktrees/devil-look`),
-  brief `work/briefs/eternity_devil_3d_fix2.md`. Not merged, not pushed. Fable reviews
-  `work/devil_look/compare_small.jpg` against `work/eternity_look_v9/shaft_pass3.png`. If it matches: send the film
-  to kortev, merge into `claude/chainsaw-man`, push, list what to test.
-- **0.7a Server-proof what's built** (no hotel code): branch `server-proof`, brief
-  `chainsawman/plan/packages/0.7a_server_proof.md`.
-- **Nothing else may edit `chainsawman/src/main/java/.../hotel/` until `devil-look` is merged.**
+- **The Eternity Devil, round 3** (branch `devil-round3`, brief `chainsawman/plan/packages/0.1_devil_round3.md`).
+  The 3D look is merged. kortev's notes on the film: the devil must fill the corridor's end (the hotel is its body),
+  the grab and the swallow look weak, and the film showed no fight. Done = a played-fight film at
+  `work/devil_look/round3/fight.mp4`; Fable reviews it, then sends it to kortev **before** merging.
+- **0.7b the hotel's share** (branch `hotel-share`, brief `chainsawman/plan/packages/0.7b_hotel_share.md`): loot per
+  fighter, pay for who fought, one contract per world. Review the diff, run all tests, merge, push.
+- Both work in `hotel/`: round 3 owns the look, the arena, the grab and the film; 0.7b owns loot, pay, the holder.
+- 0.7a Server-proof is merged (241 tests pass). Its two-client checks are listed in its brief, for 0.4.
 
 ## Waiting on kortev
 
