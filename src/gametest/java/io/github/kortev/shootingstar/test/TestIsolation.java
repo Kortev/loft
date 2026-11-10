@@ -52,6 +52,10 @@ public final class TestIsolation {
 		for (ServerPlayerEntity player : new ArrayList<>(server.getPlayerManager().getPlayerList())) {
 			server.getPlayerManager().remove(player);
 		}
+		// (The hybrids the world remembers, gone or not, take its hearts: an earlier test's stand-in would leave none for the next to merge.)
+		io.github.kortev.chainsawman.form.TeamState hearts = io.github.kortev.chainsawman.form.TeamState.of(server);
+		hearts.seen.clear();
+		hearts.markDirty();
 		for (ServerWorld world : server.getWorlds()) {
 			List<Entity> all = new ArrayList<>();
 			for (Entity entity : world.iterateEntities()) {

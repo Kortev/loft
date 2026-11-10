@@ -120,6 +120,7 @@ public final class ChainsawMan implements ModInitializer {
 		// One in a world, waiting where he was put.
 		Owner.init();
 		PochitaPlace.init();
+		PochitaItem.init();
 		ChainsawCommand.init();
 		PayloadTypeRegistry.playS2C().register(FormPayload.ID, FormPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(FormPullPayload.ID, FormPullPayload.CODEC);

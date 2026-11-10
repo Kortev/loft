@@ -174,7 +174,7 @@ public class PochitaEntity extends TameableEntity {
 		}
 		if (player.isSneaking()) {
 			// Picked up: in your hands he's the chainsaw.
-			ItemStack item = new ItemStack(ChainsawMan.POCHITA);
+			ItemStack item = PochitaItem.of(this, player);
 			if (!player.getInventory().insertStack(item)) {
 				player.dropItem(item, false);
 			}
@@ -237,6 +237,12 @@ public class PochitaEntity extends TameableEntity {
 	@Override
 	public void tick() {
 		super.tick();
+		if (getWorld() instanceof ServerWorld world && isTamed() && age % 20 == 0 && io.github.kortev.chainsawman.form.Hearts.full(world.getServer())) {
+			// Every heart the world has is taken: he's nobody's now.
+			setTamed(false, true);
+			setOwnerUuid(null);
+			setSitting(false);
+		}
 		if (!getWorld().isClient && fainted()) {
 			navigation.stop();
 			setVelocity(getVelocity().multiply(0.0, 1.0, 0.0));

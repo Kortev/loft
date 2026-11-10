@@ -66,6 +66,8 @@ public final class PochitaPlace extends PersistentState {
 	private final List<Extra> extras = new ArrayList<>();
 	/** Whose Pochita is on this world ({@link Owner}), or null. */
 	private String owner;
+	/** Their player id, once known (null for a name kept from before, until that player next joins). */
+	private java.util.UUID ownerId;
 
 	private static PochitaPlace of(MinecraftServer server) {
 		return server.getOverworld().getPersistentStateManager().getOrCreate(TYPE, "chainsawman_pochita");
@@ -75,9 +77,15 @@ public final class PochitaPlace extends PersistentState {
 		return of(server).owner;
 	}
 
-	static void setOwner(MinecraftServer server, String name) {
+	@org.jetbrains.annotations.Nullable
+	static java.util.UUID ownerId(MinecraftServer server) {
+		return of(server).ownerId;
+	}
+
+	static void setOwner(MinecraftServer server, String name, @org.jetbrains.annotations.Nullable java.util.UUID id) {
 		PochitaPlace place = of(server);
 		place.owner = name;
+		place.ownerId = name == null ? null : id;
 		place.markDirty();
 	}
 
@@ -514,6 +522,17 @@ public final class PochitaPlace extends PersistentState {
 		return i == 0 ? lost : extras.get(i - 1).lost;
 	}
 
+	/** When the Pochita of the den at {@code den} (null: the first den) was lost (world time), or -1 if he isn't: for the tests. */
+	public static long lostAt(MinecraftServer server, @org.jetbrains.annotations.Nullable BlockPos den) {
+		PochitaPlace place = of(server);
+		for (int i = 0; den != null && i < place.slots(); i++) {
+			if (place.slotAt(i).equals(den)) {
+				return place.lostAt(i);
+			}
+		}
+		return place.lost;
+	}
+
 	private void setLost(int i, long time) {
 		if (i == 0) {
 			lost = time;
@@ -756,6 +775,9 @@ public final class PochitaPlace extends PersistentState {
 		if (owner != null) {
 			nbt.putString("Owner", owner);
 		}
+		if (ownerId != null) {
+			nbt.putUuid("OwnerId", ownerId);
+		}
 		return nbt;
 	}
 
@@ -776,6 +798,7 @@ public final class PochitaPlace extends PersistentState {
 			place.extras.add(extra);
 		}
 		place.owner = nbt.contains("Owner") ? nbt.getString("Owner") : null;
+		place.ownerId = nbt.containsUuid("OwnerId") ? nbt.getUuid("OwnerId") : null;
 		return place;
 	}
 }

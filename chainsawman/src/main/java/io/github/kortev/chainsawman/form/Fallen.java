@@ -62,10 +62,20 @@ public final class Fallen {
 	/** The ticks they have left, saved with the player while they are down (so leaving does not get you out of it). */
 	public static final AttachmentType<Integer> LEFT = AttachmentRegistry.<Integer>builder().persistent(Codec.INT)
 			.buildAndRegister(ChainsawMan.id("fallen"));
+	/**
+	 * When {@link #LEFT} was last counted (the overworld's time), saved with it: whoever logs out while down finds the time they were away
+	 * gone from it when they come back (and dies on arrival if it ran out). In a single-player world the clock stops with the game.
+	 */
+	public static final AttachmentType<Long> AT = AttachmentRegistry.<Long>builder().persistent(Codec.LONG)
+			.buildAndRegister(ChainsawMan.id("fallen_at"));
 	private static final Identifier CRAWL = ChainsawMan.id("fallen_crawl");
 
 	private static final Set<UUID> FALLEN = ConcurrentHashMap.newKeySet();
 	private static final Map<UUID, Long> LAST_HIT = new ConcurrentHashMap<>();
+	/** What put each of them down: bleeding out is that blow's death (its message, its kill credit). Not kept over a log-out. */
+	private static final Map<UUID, DamageSource> BY = new ConcurrentHashMap<>();
+	/** Who is bleeding out right now (their death is let through). */
+	private static final Set<UUID> BLEEDING = ConcurrentHashMap.newKeySet();
 
 	/** Someone lifting them: who, how far they have got (ticks), and when they last held use on them. */
 	private record Lift(UUID by, int done, long last) {
@@ -97,8 +107,8 @@ public final class Fallen {
 	static void init() {
 		ServerLivingEntityEvents.ALLOW_DEATH.register((entity, source, amount) -> {
 			if (entity instanceof ServerPlayerEntity player && !lethal(source) && TeamRules.goesDown(player) && !is(player) && !Heart.has(player)
-					&& !Downed.is(player) && !Merge.is(player)) {
-				fall(player);
+					&& !Downed.is(player) && !Merge.is(player) && !totem(player) && !BLEEDING.contains(player.getUuid())) {
+				fall(player, source);
 				return false;
 			}
 			return true;
@@ -141,6 +151,15 @@ public final class Fallen {
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
 			ServerPlayerEntity player = handler.player;
 			Integer left = player.getAttached(LEFT);
+			Long at = player.getAttached(AT);
+			if (left != null && left > 0 && at != null) {
+				// The world's clock went on while they were away: that time is gone from what they had (one tick left at the least, so
+				// the next tick of the world is what kills them, where they lie, as a hit taking the last of it does).
+				long now = server.getOverworld().getTime();
+				left = (int) Math.max(1L, left - Math.max(0L, now - at));
+				player.setAttached(LEFT, left);
+				player.setAttached(AT, now);
+			}
 			if (left != null && left > 0) {
 				FALLEN.add(player.getUuid());
 				crawl(player, true);
@@ -159,6 +178,7 @@ public final class Fallen {
 			boolean was = FALLEN.remove(id);
 			LIFTING.remove(id);
 			LAST_HIT.remove(id);
+			BY.remove(id);
 			// Everyone else's screens forget them: no one is lying there any more, and anyone who was lifting them has let go.
 			if (was) {
 				Form.broadcast(server, new FormEventPayload(id, FormEventPayload.FALLEN, 0));
@@ -185,20 +205,44 @@ public final class Fallen {
 		boolean was = FALLEN.remove(player.getUuid());
 		LIFTING.remove(player.getUuid());
 		LAST_HIT.remove(player.getUuid());
+		BY.remove(player.getUuid());
 		player.removeAttached(LEFT);
+		player.removeAttached(AT);
 		crawl(player, false);
 		if (was && player.server != null) {
 			Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.FALLEN, 0));
 		}
 	}
 
+	/**
+	 * Whether a totem of undying in either hand will save {@code player}: then Minecraft uses it, and they do not go down. (The going-down
+	 * event comes before Minecraft's own totem check, so without this a held totem never popped.)
+	 */
+	public static boolean totem(ServerPlayerEntity player) {
+		for (Hand hand : Hand.values()) {
+			if (player.getStackInHand(hand).isOf(net.minecraft.item.Items.TOTEM_OF_UNDYING)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	/** {@code player}, who would have died, is down. */
 	public static void fall(ServerPlayerEntity player) {
+		fall(player, null);
+	}
+
+	/** {@code player}, who would have died of {@code source}, is down. */
+	public static void fall(ServerPlayerEntity player, @org.jetbrains.annotations.Nullable DamageSource source) {
 		player.setHealth(1.0F);
 		if (!FALLEN.add(player.getUuid())) {
 			return;
 		}
+		if (source != null) {
+			BY.put(player.getUuid(), source);
+		}
 		player.setAttached(LEFT, TIMER);
+		player.setAttached(AT, player.server.getOverworld().getTime());
 		player.stopRiding();
 		player.stopUsingItem();
 		player.setSprinting(false);
@@ -232,10 +276,24 @@ public final class Fallen {
 		player.getServerWorld().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.ENTITY_PLAYER_HURT, SoundCategory.PLAYERS, 0.8F, 0.8F);
 	}
 
-	/** Their time ran out: they die as usual (drops, respawn). */
+	/** Their time ran out: they die as usual (drops, respawn), of the blow that put them down (its death message, its kill credit). */
 	private static void bleedOut(ServerPlayerEntity player) {
+		DamageSource source = BY.get(player.getUuid());
 		reset(player);
-		player.damage(player.getDamageSources().genericKill(), Float.MAX_VALUE);
+		boolean hurt = false;
+		if (source != null) {
+			BLEEDING.add(player.getUuid());
+			try {
+				hurt = player.damage(source, Float.MAX_VALUE);
+			} finally {
+				BLEEDING.remove(player.getUuid());
+			}
+		}
+		// (Nothing known of the blow, as after a log-out, or a blow that can't land now: they simply die, as before. Not if Pochita came
+		// to them at the last, carried as they died: that is the merge, not a death.)
+		if (!hurt && player.isAlive() && !Merge.is(player)) {
+			player.damage(player.getDamageSources().genericKill(), Float.MAX_VALUE);
+		}
 	}
 
 	/** They give up: dead at once. */
@@ -254,7 +312,9 @@ public final class Fallen {
 		}
 		LIFTING.remove(down.getUuid());
 		LAST_HIT.remove(down.getUuid());
+		BY.remove(down.getUuid());
 		down.removeAttached(LEFT);
+		down.removeAttached(AT);
 		crawl(down, false);
 		down.setHealth(UP_HEALTH);
 		Form.broadcast(down.server, new FormEventPayload(down.getUuid(), FormEventPayload.FALLEN, 0));
@@ -366,6 +426,7 @@ public final class Fallen {
 				continue;
 			}
 			player.setAttached(LEFT, left);
+			player.setAttached(AT, now);
 			Lift lift = LIFTING.get(id);
 			ServerPlayerEntity by = lift != null ? server.getPlayerManager().getPlayer(lift.by()) : null;
 			if (lift != null && !valid(lift, player, now)) {
@@ -398,5 +459,7 @@ public final class Fallen {
 		FALLEN.clear();
 		LIFTING.clear();
 		LAST_HIT.clear();
+		BY.clear();
+		BLEEDING.clear();
 	}
 }

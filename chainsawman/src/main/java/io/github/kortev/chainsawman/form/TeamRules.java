@@ -19,9 +19,9 @@ public final class TeamRules {
 	/** How many Chainsaw Man hearts a world has (a den for each). */
 	public static final GameRules.Key<GameRules.IntRule> CHAINSAW_HEARTS = GameRuleRegistry.register("chainsawHearts",
 			GameRules.Category.MISC, GameRuleFactory.createIntRule(1, 1));
-	/** Chainsaw Man pulling the cord is heard, and shown on everyone's screen for a minute. */
+	/** Chainsaw Man pulling the cord is heard, and shown on everyone's screen for a minute (off by default: a server that wants it turns it on). */
 	public static final GameRules.Key<GameRules.BooleanRule> LEGEND_ROAR = GameRuleRegistry.register("legendRoar",
-			GameRules.Category.MISC, GameRuleFactory.createBooleanRule(true));
+			GameRules.Category.MISC, GameRuleFactory.createBooleanRule(false));
 
 	private TeamRules() {
 	}

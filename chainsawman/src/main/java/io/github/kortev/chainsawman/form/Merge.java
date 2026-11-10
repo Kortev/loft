@@ -54,14 +54,19 @@ public final class Merge {
 				// Gone mid-way: the heart is theirs all the same.
 				io.github.kortev.chainsawman.contract.Contracts.wipe(handler.player);
 				handler.player.setAttached(Heart.MERGED, true);
+				// (Counted at once, away or not: nobody else takes the heart while they are gone.)
+				Hearts.note(server, TeamState.of(server), handler.player);
 			}
 		});
 	}
 
-	/** Whether {@code player}, dying now, becomes Chainsaw Man: the owner (anyone while there is none), not yet merged, Pochita carried or near. */
+	/**
+	 * Whether {@code player}, dying now, becomes Chainsaw Man: the owner (anyone while there is none), not yet merged, their own Pochita
+	 * carried or near, and a heart still free ({@code chainsawHearts}; once they are all taken, the death goes on as any other).
+	 */
 	public static boolean comes(ServerPlayerEntity player) {
 		return !Heart.merged(player) && Owner.is(player)
-				&& (PochitaItem.carried(player) || near(player) != null);
+				&& (PochitaItem.carried(player) || near(player) != null) && Hearts.free(player);
 	}
 
 	/** {@code player}'s own tamed Pochita near them, if there is one. */
@@ -89,12 +94,14 @@ public final class Merge {
 			}
 			pochita.discard();
 		} else {
-			// Out of your pack, from beside you.
-			for (int i = 0; i < player.getInventory().size(); i++) {
-				if (player.getInventory().getStack(i).isOf(ChainsawMan.POCHITA)) {
-					player.getInventory().removeStack(i, 1);
-					break;
+			// Out of your pack (your own, not one someone else tamed), from beside you.
+			int slot = PochitaItem.slot(player);
+			if (slot >= 0) {
+				Long den = player.getInventory().getStack(slot).get(PochitaItem.DEN);
+				if (den != null) {
+					player.setAttached(Heart.DEN, den);
 				}
+				player.getInventory().removeStack(slot, 1);
 			}
 			from = body.add(Vec3d.fromPolar(0.0F, player.getBodyYaw() + 90.0F).multiply(2.0));
 		}
@@ -143,6 +150,7 @@ public final class Merge {
 	private static void finish(ServerPlayerEntity player) {
 		io.github.kortev.chainsawman.contract.Contracts.clear(player);
 		player.setAttached(Heart.MERGED, true);
+		Hearts.note(player.server, TeamState.of(player.server), player);
 		Heart.told(player);
 		player.setHealth(player.getMaxHealth());
 		Blood.set(player, Blood.MAX);

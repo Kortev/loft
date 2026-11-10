@@ -65,6 +65,9 @@ public final class Downed {
 	/** How many ticks you have left to lie there, saved with you while you are down. */
 	public static final AttachmentType<Integer> LEFT = AttachmentRegistry.<Integer>builder().persistent(Codec.INT)
 			.buildAndRegister(ChainsawMan.id("downed"));
+	/** When {@link #LEFT} was last counted (the overworld's time): the time spent logged out counts too. */
+	public static final AttachmentType<Long> AT = AttachmentRegistry.<Long>builder().persistent(Codec.LONG)
+			.buildAndRegister(ChainsawMan.id("downed_at"));
 	private static final Identifier STILL = ChainsawMan.id("downed_still");
 
 	private static final Set<UUID> DOWN = ConcurrentHashMap.newKeySet();
@@ -91,12 +94,13 @@ public final class Downed {
 
 	static void init() {
 		ServerLivingEntityEvents.ALLOW_DEATH.register((entity, source, amount) -> {
-			if (entity instanceof ServerPlayerEntity player && !lethal(source) && (Merge.is(player) || Merge.comes(player))) {
+			// (A totem of undying held, Minecraft uses it first: no merge and no going down, that time.)
+			if (entity instanceof ServerPlayerEntity player && !lethal(source) && (Merge.is(player) || Merge.comes(player) && !Fallen.totem(player))) {
 				// The first time, with him carried or near: Pochita becomes your heart, and you come back as Chainsaw Man.
 				Merge.start(player);
 				return false;
 			}
-			if (entity instanceof ServerPlayerEntity player && !lethal(source) && (Heart.has(player) || is(player))) {
+			if (entity instanceof ServerPlayerEntity player && !lethal(source) && (is(player) || Heart.has(player) && !Fallen.totem(player))) {
 				down(player, source);
 				return false;
 			}
@@ -135,10 +139,21 @@ public final class Downed {
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
 			ServerPlayerEntity player = handler.player;
 			Integer left = player.getAttached(LEFT);
+			Long at = player.getAttached(AT);
+			if (left != null && left > 0 && at != null) {
+				// The world's clock went on while they were away; if their time ran out, they come back up now, as they would have.
+				long now = server.getOverworld().getTime();
+				left = (int) Math.max(0L, left - Math.max(0L, now - at));
+				player.setAttached(LEFT, Math.max(1, left));
+				player.setAttached(AT, now);
+			}
 			if (left != null && left > 0) {
 				DOWN.add(player.getUuid());
 				hold(player, true);
 				Form.broadcast(server, new FormEventPayload(player.getUuid(), FormEventPayload.DOWNED, 1));
+			} else if (left != null) {
+				DOWN.add(player.getUuid());
+				up(player);
 			}
 			for (UUID id : DOWN) {
 				if (!id.equals(player.getUuid()) && ServerPlayNetworking.canSend(player, FormEventPayload.ID)) {
@@ -161,6 +176,7 @@ public final class Downed {
 		}
 		RISING.remove(player.getUuid());
 		player.removeAttached(LEFT);
+		player.removeAttached(AT);
 		hold(player, false);
 		if (was && player.server != null) {
 			Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.DOWNED, 0));
@@ -201,6 +217,7 @@ public final class Downed {
 			BY.remove(player.getUuid());
 		}
 		player.setAttached(LEFT, ALONE);
+		player.setAttached(AT, player.server.getOverworld().getTime());
 		Form.end(player);
 		Frenzy.end(player);
 		Saw.forget(player.getUuid());
@@ -227,6 +244,7 @@ public final class Downed {
 			slack(player);
 		}
 		player.removeAttached(LEFT);
+		player.removeAttached(AT);
 		// Held a moment more, getting up.
 		RISING.put(player.getUuid(), player.getServerWorld().getTime() + RISE);
 		Limbs.whole(player);
@@ -361,6 +379,7 @@ public final class Downed {
 				continue;
 			}
 			player.setAttached(LEFT, left);
+			player.setAttached(AT, now);
 			Feed feed = FED.get(id);
 			ServerPlayerEntity by = feed != null ? server.getPlayerManager().getPlayer(feed.by()) : null;
 			if (feed != null && !valid(feed, player, now)) {
