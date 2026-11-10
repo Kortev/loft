@@ -12,14 +12,14 @@ Updated 2026-11-09. Keep this page under 3 KB. Change it whenever something star
 
 ## Running
 
-- Nothing is building. **0.1b the devil's arena merged 2026-11-09** (261 tests pass): fall through the mouth into
-  a lit flesh arena 17 x 12; slam, head lunge, squeeze and grab each have a tell; cuts show; about 4 min with saws.
-  kortev has the film (`work/devil_look/arena/fight.mp4`); their notes are the next round. Known weak: the walls
-  are a red block checkerboard, close cuts fill the view, the squeeze is lumpy (brief, "What was built").
-- Flaky in full runs, pass alone: `each_fighter_gets_the_whole_drop` (blood at the full pack's feet), two form
-  tests. `liveEvent` now lays its own ground.
-- Merged earlier: round 3 (kortev: its film "looks bad and boring"), 0.7a, 0.7b; two-client checks are in their
-  briefs, for 0.4. Next: 0.4 the server check, 0.2 review clips, 2.1 the licence screen.
+- **3.4 the Tomato Devil** (branch `tomato-devil`, brief `chainsawman/plan/packages/3.4_tomato_devil.md`): the
+  first devil with a body, walks on eight jointed arms, burn its seeds or it comes back; also opens the `devil/`
+  lane (0.6). Done = a played film at `work/tomato/fight.mp4`; Fable reviews, merges, sends it to kortev.
+- **The Eternity Devil is parked** (kortev, 2026-11-10: "do the other stuff too and do a big pass"). The arena
+  (0.1b) is merged, 261 tests; not very fun yet. kortev named the arm animations. The pass:
+  `chainsawman/plan/packages/0.1c_devil_big_pass.md`.
+- Flaky in full runs, pass alone: `each_fighter_gets_the_whole_drop`, two form tests.
+- Merged earlier: round 3, 0.7a, 0.7b (two-client checks in their briefs, for 0.4). Later: 0.4, 0.2, 2.1.
 
 ## Waiting on kortev
 
@@ -30,7 +30,7 @@ Updated 2026-11-09. Keep this page under 3 KB. Change it whenever something star
 
 - Never edit, stage or commit `src/gametest/java/io/github/kortev/shootingstar/test/ShowcaseSelfTest.java`.
 - `git add` files by name only. Pull with `git pull --rebase --autostash`. Commit trailer:
-  `Co-Authored-By: Claude <noreply@anthropic.com>`.
+  `Co-Authored-By: Claude Fable 5.2 <noreply@anthropic.com>`.
 - No spoilers past the Reze arc. Synthesised sounds only. Call kortev "they".
 - kortev (2026-11-09): decide design questions yourself, build, merge after your own review, then send the
   film; they say how it is afterwards. A subagent's report is never kortev's word.
