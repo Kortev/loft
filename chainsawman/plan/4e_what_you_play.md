@@ -9,12 +9,13 @@ contracts, which are playable, which both? Below is Fable's answer. All of it is
 
 ---
 
-## Four ways a devil ends up on your side
+## Five ways a devil ends up on your side
 
 | Way | What it is | How you get it | How it plays | How many |
 |---|---|---|---|---|
 | **Hybrid** | You are it. A devil is your heart. | A long quest line, one heart per world | A trigger, a transformation, blood is fuel, you get back up from blood | Few: Chainsaw now; Katana and Bomb as updates |
 | **Contract** | You stay human and borrow one move | A lair, the office, or a beaten devil's deal | One move with a big look, and a price that hurts | Many: this is the bulk of the mod |
+| **Fiend** | You are a devil in a human body | Let a beaten devil take your body | Always on, a small kit, blood hunger; see below | Anyone: Blood and Shark first |
 | **Partner** | A fiend or devil that fights beside you | Earned at the office or on a mission | It acts by itself; you look after it (blood) | A few: Power; Beam is here already |
 | **Hunted** | It's only an enemy | Meet it | A fight; a small deal when it begs | Every common devil |
 
@@ -30,14 +31,29 @@ contracts, which are playable, which both? Below is Fable's answer. All of it is
 - **Contracts by size.** Big ones from lairs or the office: Eternity (ours, built), Fox, Ghost, Curse [check each],
   maybe the Future Devil. Small deals from beaten common devils: Tomato, Bat, Leech, Zombie.
 
-## Fiends: not played like hybrids
+## Fiends: playable, but not like hybrids
 
-- In the show a fiend is a devil living in a human corpse: weaker than the devil was, always on, no transformation,
-  an odd head, lives on blood [check]. That's the opposite of a hybrid (a human who turns it on and off).
-- So a playable fiend would be its own kind of character, not a second hybrid: no trigger, steady passive powers,
-  a lower ceiling, and the world treats you as a devil.
-- **1.0: fiends are partners, not playable.** Power as a partner you earn (update 9), Beam as he is.
-- **Later, one idea worth a test: you become a fiend by dying.** Die to a devil with no one to pick you up and it
-  takes your body: you play on as its fiend (its small powers, its hunger, villagers afraid of you) until you
-  earn your way back or accept it. It uses the show's own rule, it's a Minecraft-sized twist on dying, and it
-  needs no "choose your class" screen. Size L; after the release.
+- kortev (2026-11-10): "some people love Power and Beam and will want to play as them." **So fiends are playable
+  [decided].** How is Fable's pick, below. (Fable's first answer had them as partners only.)
+- In the show a fiend is a devil living in a human corpse: weaker than the devil was, always on, an odd head,
+  lives on blood [check]. That's the opposite of a hybrid (a human who turns it on and off). So a fiend is a
+  third kind of character, not a second hybrid:
+
+| | Hybrid | Fiend | Human hunter |
+|---|---|---|---|
+| How many | One heart per world | Anyone | Anyone |
+| Power | A transformation, the biggest | Always on: a kit of two or three moves, a lower ceiling | Gear, rank |
+| Fuel | Blood | Blood (you're hungry for it) | Food |
+| Contracts | One | None (you are the devil) | Up to three |
+| The world | A legend | Villagers fear you until you hold a licence (the office employs fiends [check]) | Normal |
+
+- **This is the answer for servers:** only one player can be Chainsaw Man, but everyone else can be something.
+- **The first two: the Blood Fiend and the Shark Fiend,** with the looks and powers of Power and Beam [check
+  each: weapons made of blood; swimming through the ground, the shark form]. You play *a* Blood Fiend, not Power
+  herself (the show's world, not its story), and you keep your own mind.
+- **Becoming one [pick]:** the show's own rule, by choice. Beat that devil down, and when it begs, let it take your
+  body. You wake as its fiend. No "choose your class" screen.
+- **Going back [pick]:** the office can undo it at a cost, so trying a fiend is never a trap. Not both a fiend and
+  a hybrid.
+- **Partners stay:** playing alone, Power or Beam is still a partner you can earn, unless you're that fiend.
+- **When:** the first update after the release ("Play as a fiend"), Blood first, then Shark. Size L each.

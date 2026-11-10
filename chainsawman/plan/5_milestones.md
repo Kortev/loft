@@ -83,6 +83,7 @@ what's next. The older plan had the release last.
 
 | Update | What | Notes |
 |---|---|---|
+| 4.5 | Play as a fiend: the Blood Fiend, then the Shark Fiend | kortev (2026-11-10): people will want to play as Power and Beam. `4e_what_you_play.md`. L each [check] |
 | 5 | The Ghost Devil: a lair and a contract | Price: an eye [decided in outline] [check] |
 | 6 | The Curse Devil: a lair and a contract | Price: years of life [decided in outline] [check: how the nail works] |
 | 7 | The Katana hybrid quest line | One per world [check] |
