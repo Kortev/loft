@@ -7,6 +7,7 @@ Updated 2026-11-09. Keep this page under 3 KB. Change it whenever something star
 - The plan: `chainsawman/MASTER_PLAN.md` is a short index. Read it, then only the part of `chainsawman/plan/` you
   need. Deep briefs are in `chainsawman/plan/packages/`.
 - **Never read `chainsawman/HANDOFF.md` whole (153 KB).** Search it for the thing you need.
+- Show facts: `chainsawman/bible/` (the Fox, the Leech, the Tomato, hunters' gear; merged 2026-11-09).
 - kortev follows on their phone: send files with SendUserFile. Fable plans and reviews; Opus agents build.
 
 ## Running
@@ -17,7 +18,6 @@ Updated 2026-11-09. Keep this page under 3 KB. Change it whenever something star
   to kortev, merge into `claude/chainsaw-man`, push, list what to test.
 - **0.7a Server-proof what's built** (no hotel code): branch `server-proof`, brief
   `chainsawman/plan/packages/0.7a_server_proof.md`.
-- **0.3 The show bible**: branch `show-bible`, brief `chainsawman/plan/packages/0.3_show_bible.md`.
 - **Nothing else may edit `chainsawman/src/main/java/.../hotel/` until `devil-look` is merged.**
 
 ## Waiting on kortev

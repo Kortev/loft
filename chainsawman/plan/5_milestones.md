@@ -17,7 +17,7 @@ Sizes are in agent runs: S is one run, M is two or three, L is four or more.
 |---|---|---|---|
 | 0.1 | Land the 3D devil and the shaft fight | running | Fable reviews the film against the concept, sends it, merges if kortev likes it. |
 | 0.2 | **Review clips for everything not judged** | M | One 60-90 s phone clip each for: contracts and bonds, teams, the hotel v2, Forever, the buff. Each with at most three yes/no questions. See section 6. |
-| 0.3 | **The show bible** | M | A fact sheet for every devil and thing in this plan: what the wiki and Google say (looks, staging, movement, rules), each with its source, spoiler-filtered, guesses marked. `chainsawman/facts/<name>.md`. No brief is written without one. |
+| 0.3 | **The show bible** | M | A fact sheet for every devil and thing in this plan: what the wiki and Google say (looks, staging, movement, rules), each with its source, spoiler-filtered, guesses marked. `chainsawman/bible/<name>.md`. No brief is written without one. First four done 2026-11-09: the Fox, the Leech, the Tomato, hunters' gear. |
 | 0.4 | The server check | S | A script that starts a real server and two clients with two names, runs a short scene (party up, go down, pick up, a boss hit, **log out and back in, one client leaving mid-fight, a server restart**), and films both screens. Reused at every milestone. |
 | 0.5 | Cut what's loaded after a context reset | done | The hook loaded 104 KB of `HANDOFF.md` after every reset. It now loads `STATUS.md`, one page. `HANDOFF.md` stays as a record to search, never to read whole. |
 | 0.6 | Lanes ready in the code | S | New packages `safety/` and `devil/`, each registering its own items, entities and sounds, so two agents don't edit the same lines. |
@@ -70,7 +70,7 @@ Each devil is its own reel.
 
 | # | Package | Size | Gate |
 |---|---|---|---|
-| 4.1 | The Fox Devil's contract, lent by the office at 2nd Class | M | Fact sheet [check: the hand sign, the head, what it costs, whether it really refuses the dark], visual first. It needs a price that lasts, and it can't be useless in caves, where devils are. |
+| 4.1 | The Fox Devil's contract, lent by the office at 2nd Class (the ranks are ours; the show names none) | M | Facts checked in `chainsawman/bible/fox_devil.md`: the hand sign and "Kon", the giant head bites and swallows, you pay in bits of your own body, it can't reach a sealed-off place, and it drops a contractor it sours on. The show has no rule about the dark, so it works in caves. To design: a price that lasts; it doesn't come inside a sealed lair [pick, as in the show]. Visual first. |
 | 4.2 | A clean-install test: only Fabric API, a new world, the first hour played by script | S | |
 | 4.3 | The saved-world test (4.7) | S | |
 | 4.4 | The page: Modrinth and CurseForge, description, pictures, the link in every reel | S | kortev posts it |

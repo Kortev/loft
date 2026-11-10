@@ -73,7 +73,7 @@ tested yet, to be confirmed by the package that builds it.
 | Dying in the hotel locks you out for half an hour | kortev: it's a dungeon, you're thrown out. Your things come with you, and you're paid if your friends win (4.6) |
 | A contract is a life sentence | End it at the office for a cost [pick] (4.6) |
 | The office is a long walk every time | The phone [pick] (4.2) |
-| The Fox is useless in the dark, where devils are | Its fact sheet decides; it can't be useless in caves (M4) |
+| The Fox is useless in the dark, where devils are | Checked 2026-11-09: the show has no rule about the dark, so it works in caves (M4) |
 | With a partner you can't die | One pick-up per fight (3) |
 | The first hour has no big moment | The first devil's arrival is staged big (4.1) |
 | Missions repeat by hour 10 | Mission kinds, one trick per devil (4.2, 3.6) |
