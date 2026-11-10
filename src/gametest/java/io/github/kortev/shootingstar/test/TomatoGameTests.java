@@ -6,6 +6,7 @@ import io.github.kortev.chainsawman.devil.TomatoSeedEntity;
 import io.github.kortev.chainsawman.devil.TomatoSpitEntity;
 import io.github.kortev.chainsawman.form.Form;
 import io.github.kortev.chainsawman.form.Heart;
+import io.github.kortev.chainsawman.form.HeartLevel;
 import io.github.kortev.chainsawman.form.Saw;
 import java.util.List;
 import java.util.UUID;
@@ -377,6 +378,39 @@ public class TomatoGameTests implements FabricGameTest {
 			var db = net.minecraft.entity.EntityType.getEntityFromNbt(dn, w);
 			context.assertTrue(db.isPresent() && db.get() instanceof TomatoDevilEntity e && e.seeds == 2 && e.isPersistent(), "the devil lost what it was");
 			context.assertTrue(TomatoSeedEntity.class.getSuperclass() == net.minecraft.entity.Entity.class, "a seed is a mob that could despawn");
+			clear(context);
+			context.complete();
+		});
+	}
+
+	/** A Tomato kill feeds a hybrid's heart only a little: 8 XP (a comeback the same), and one kill leaves the heart at level 1. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "tomato_heart", tickLimit = 80)
+	public void a_tomato_feeds_the_heart_a_little(TestContext context) {
+		floor(context);
+		clear(context);
+		ServerPlayerEntity p = ForeverGameTests.player(context, "feeder");
+		try {
+			p.setAttached(Heart.MERGED, true);
+			HeartLevel.set(p, 0);
+			TomatoDevilEntity d = devil(context, 0, 0);
+			context.assertTrue(d.getType().isIn(HeartLevel.DEVILS), "the Tomato is not in the devils tag");
+			context.assertTrue(HeartLevel.WEAK_KILL_XP == 8 && HeartLevel.xpFor(d) == HeartLevel.WEAK_KILL_XP, "a Tomato is worth " + HeartLevel.xpFor(d));
+			d.damage(p.getDamageSources().playerAttack(p), 1000.0F);
+			context.assertTrue(d.isDead(), "the Tomato did not die");
+			context.assertTrue(HeartLevel.xp(p) == 8, "the kill gave " + HeartLevel.xp(p) + " heart XP, not 8");
+			context.assertTrue(HeartLevel.level(p) == 1, "one Tomato raised the heart's level");
+		} catch (RuntimeException e) {
+			ForeverGameTests.leave(context, p);
+			clear(context);
+			throw e;
+		}
+		TomatoSeedEntity s = seed(context, 4, 0, UUID.randomUUID());
+		s.next = 3;
+		context.runAtTick(10, () -> s.swellTo(TomatoSeedEntity.SWELL - 2));
+		context.runAtTick(16, () -> {
+			TomatoDevilEntity back = devils(context).isEmpty() ? null : devils(context).get(0);
+			context.assertTrue(back != null && HeartLevel.xpFor(back) == HeartLevel.WEAK_KILL_XP, "a comeback is not worth 8: " + (back == null ? "none" : HeartLevel.xpFor(back)));
+			ForeverGameTests.leave(context, p);
 			clear(context);
 			context.complete();
 		});

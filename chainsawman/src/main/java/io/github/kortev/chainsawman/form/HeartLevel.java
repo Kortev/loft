@@ -36,6 +36,8 @@ public final class HeartLevel {
 	public static final int LEVEL_3 = 80;
 	/** XP for killing something of the devils tag, of the parts tag, and for drinking a bottle of Eternity blood. */
 	public static final int KILL_XP = 40;
+	/** XP for killing a weak devil ({@link #WEAK_DEVILS}, also in the devils tag): the Tomato is the weakest, and feeds the heart only a little. */
+	public static final int WEAK_KILL_XP = 8;
 	public static final int PART_XP = 6;
 	public static final int BLOOD_XP = 10;
 	/** The damage each level adds to a slash, a finisher and a lunge. */
@@ -45,6 +47,7 @@ public final class HeartLevel {
 	public static final double CHAIN_PULL = 2.0;
 
 	public static final TagKey<EntityType<?>> DEVILS = TagKey.of(RegistryKeys.ENTITY_TYPE, Identifier.of(ChainsawMan.MOD_ID, "devils"));
+	public static final TagKey<EntityType<?>> WEAK_DEVILS = TagKey.of(RegistryKeys.ENTITY_TYPE, Identifier.of(ChainsawMan.MOD_ID, "weak_devils"));
 	public static final TagKey<EntityType<?>> PARTS = TagKey.of(RegistryKeys.ENTITY_TYPE, Identifier.of(ChainsawMan.MOD_ID, "devil_parts"));
 
 	public static final AttachmentType<Integer> XP = AttachmentRegistry.<Integer>builder().persistent(Codec.INT).copyOnDeath()
@@ -67,7 +70,7 @@ public final class HeartLevel {
 	/** What killing {@code entity} is worth to a heart. */
 	public static int xpFor(Entity entity) {
 		if (entity.getType().isIn(DEVILS)) {
-			return KILL_XP;
+			return entity.getType().isIn(WEAK_DEVILS) ? WEAK_KILL_XP : KILL_XP;
 		}
 		return entity.getType().isIn(PARTS) ? PART_XP : 0;
 	}
