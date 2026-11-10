@@ -80,8 +80,8 @@ public class TomatoDevilEntity extends HostileEntity {
 	public static final int SLAP_HIT = SLAP_TELL + 3;
 	public static final int SLAP_END = SLAP_HIT + 14;
 	public static final float SLAP_DAMAGE = 4.0F;
-	/** How far in front of its middle the slap reaches (about two blocks past its body), and how wide it is either side. */
-	public static final double SLAP_REACH = 3.4;
+	/** How far in front of its middle the slap reaches (3 blocks past its body: further than a sword reaches it), and how wide either side. */
+	public static final double SLAP_REACH = 4.2;
 	public static final double SLAP_HALF_WIDTH = 1.7;
 	/** The roll: tucking and rocking back (the tell; it turns to face you only in the first part), rolling, and how far and fast. */
 	public static final int ROLL_TELL_TICKS = 18;
@@ -336,7 +336,7 @@ public class TomatoDevilEntity extends HostileEntity {
 			return;
 		}
 		boolean sees = canSee(target);
-		if (dist <= SLAP_REACH + 0.4 && off < 55.0F && (slapStreak < 2 || now - lastSpitAt <= 90)) {
+		if (dist <= SLAP_REACH + 0.3 && off < 55.0F && (slapStreak < 2 || now - lastSpitAt <= 90)) {
 			slapStreak++;
 			dataTracker.set(AIM, to);
 			navigation.stop();
@@ -383,7 +383,7 @@ public class TomatoDevilEntity extends HostileEntity {
 			}
 		}
 		if (t >= SLAP_END) {
-			end(world.getTime(), 22);
+			end(world.getTime(), 12);
 		}
 	}
 

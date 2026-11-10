@@ -298,7 +298,7 @@ final class TomatoFight {
 			return step == 99 + 1;
 		}
 		// (In the first part, keep it alive for its moves: cut it only while it has more than half its health.)
-		allowHit = step >= 4 || d == null || d.getHealth() > TomatoDevilEntity.MAX_HEALTH * 0.5F;
+		allowHit = duel || step >= 4 || d == null || d.getHealth() > TomatoDevilEntity.MAX_HEALTH * 0.5F;
 		switch (step) {
 			case 0 -> {
 				if (sub == 1) {

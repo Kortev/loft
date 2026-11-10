@@ -64,7 +64,7 @@ public class TomatoSelfTest implements ClientModInitializer {
 
 	/** The played take is drawn as a phone's portrait frame (1080x1920) whatever the window. */
 	public static boolean portrait() {
-		return active() && "played".equals(target());
+		return active() && target().startsWith("played");
 	}
 
 	static String target() {
@@ -134,7 +134,7 @@ public class TomatoSelfTest implements ClientModInitializer {
 			case RUN -> {
 				client.getToastManager().clear();
 				boolean over;
-				if ("played".equals(target())) {
+				if (target().startsWith("played")) {
 					over = TomatoFight.tick(client, server, ticks);
 				} else {
 					over = look(client, server, ticks);
@@ -223,7 +223,7 @@ public class TomatoSelfTest implements ClientModInitializer {
 			Form.end(you);
 		}
 		Downed.up(you);
-		you.changeGameMode("played".equals(target()) ? GameMode.SURVIVAL : GameMode.SPECTATOR);
+		you.changeGameMode(target().startsWith("played") ? GameMode.SURVIVAL : GameMode.SPECTATOR);
 		you.getInventory().clear();
 		you.getInventory().setStack(0, new ItemStack(Items.IRON_SWORD));
 		you.getInventory().setStack(1, new ItemStack(Items.TORCH, 16));

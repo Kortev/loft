@@ -146,7 +146,7 @@ public class TomatoDevilRenderer extends EntityRenderer<TomatoDevilEntity> {
 				// Up on its back four, the front tipped up; then thrown forward onto its slapping hands.
 				p.pitch = -0.45F * rear * (1.0F - down) + 0.22F * down * (1.0F - settle);
 				p.height = STAND + 0.35F * rear * (1.0F - down) - 0.25F * down * (1.0F - settle);
-				p.forward = -0.25F * rear * (1.0F - down) + 0.55F * down * (1.0F - settle);
+				p.forward = -0.25F * rear * (1.0F - down) + 0.8F * down * (1.0F - settle);
 				p.mouth = 0.06F + 0.3F * rear * (1.0F - down);
 				for (int i = 0; i < TomatoBody.ARMS; i++) {
 					if (!front(i)) {
@@ -166,7 +166,7 @@ public class TomatoDevilRenderer extends EntityRenderer<TomatoDevilEntity> {
 						p.inWorld[i] = true;
 						float side = i == 0 || i == 7 ? 0.45F : 1.25F;
 						float sx = MathHelper.sign(o.x) * side;
-						Vector3f landed = new Vector3f(sx, 0.0F, 2.75F + (i == 0 || i == 7 ? 0.3F : 0.0F));
+						Vector3f landed = new Vector3f(sx, 0.0F, 3.5F + (i == 0 || i == 7 ? 0.5F : 0.0F));
 						// (the raised hand as it stood over the ground, then thrown down onto it in front)
 						Vector3f highW = new Vector3f(o.x * 1.25F, 4.15F + (i == 0 || i == 7 ? 0.25F : 0.0F), o.z * 0.55F + 0.1F);
 						Vector3f at = new Vector3f(highW).lerp(landed, down);
