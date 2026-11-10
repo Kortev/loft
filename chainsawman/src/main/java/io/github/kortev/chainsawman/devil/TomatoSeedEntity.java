@@ -173,9 +173,9 @@ public class TomatoSeedEntity extends Entity {
 	public void burn() {
 		if (getWorld() instanceof ServerWorld world && !isRemoved()) {
 			world.playSound(null, getX(), getY(), getZ(), Devils.Sounds.HISS, SoundCategory.HOSTILE, 1.2F, 0.9F + random.nextFloat() * 0.2F);
-			world.spawnParticles(ParticleTypes.FLAME, getX(), getY() + 0.15, getZ(), 14, 0.15, 0.1, 0.15, 0.03);
-			world.spawnParticles(ParticleTypes.LARGE_SMOKE, getX(), getY() + 0.2, getZ(), 8, 0.12, 0.1, 0.12, 0.02);
-			world.spawnParticles(ParticleTypes.LAVA, getX(), getY() + 0.1, getZ(), 3, 0.1, 0.05, 0.1, 0.0);
+			world.spawnParticles(ParticleTypes.FLAME, getX(), getY() + 0.15, getZ(), 10, 0.15, 0.1, 0.15, 0.03);
+			world.spawnParticles(ParticleTypes.LARGE_SMOKE, getX(), getY() + 0.2, getZ(), 3, 0.12, 0.1, 0.12, 0.02);
+			world.spawnParticles(ParticleTypes.LAVA, getX(), getY() + 0.1, getZ(), 1, 0.1, 0.05, 0.1, 0.0);
 			discard();
 		}
 	}

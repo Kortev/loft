@@ -68,7 +68,29 @@ final class TomatoFight {
 			p.setHealth(p.getMaxHealth());
 		}
 		p.getHungerManager().setFoodLevel(20);
+		// The server's side of it, for the log: each state the devil goes into, and every hurt on either side.
+		for (TomatoDevilEntity d : is.getOverworld().getEntitiesByType(Devils.TOMATO_DEVIL, e -> true)) {
+			if (d.state() != sState || d.getId() != sDevil) {
+				sState = d.state();
+				sDevil = d.getId();
+				ShootingStar.LOGGER.info("[played] server: devil {} state {} at {} ({} from you), its health {}, yours {}", d.getId(), d.state(),
+						String.format("%.1f %.1f %.1f", d.getX(), d.getY(), d.getZ()), String.format("%.1f", d.distanceTo(p)), d.getHealth(), p.getHealth());
+			}
+			if (d.getHealth() != sDevilHealth) {
+				sDevilHealth = d.getHealth();
+				ShootingStar.LOGGER.info("[played] server: devil health {}", d.getHealth());
+			}
+		}
+		if (p.getHealth() < sYou - 0.4F) {
+			ShootingStar.LOGGER.info("[played] server: you hurt to {} by {}", p.getHealth(), p.getRecentDamageSource());
+		}
+		sYou = p.getHealth();
 	}
+
+	private static int sState = -1;
+	private static int sDevil = -1;
+	private static float sDevilHealth = -1;
+	private static float sYou = 20;
 
 	private static String target() {
 		return System.getProperty("shootingstar.selftest.target", "");
@@ -137,6 +159,7 @@ final class TomatoFight {
 			lastDevil = d.getId();
 			dodgeTo = null;
 			if (st == TomatoDevilEntity.SLAP) {
+				slaps++;
 				mark(c, "slap tell");
 			} else if (st == TomatoDevilEntity.ROLL_TELL) {
 				rolls++;
@@ -167,7 +190,9 @@ final class TomatoFight {
 					YOU.stop();
 				}
 				if (reach) {
-					YOU.swing(c, 0.9F);
+					if (allowHit) {
+						YOU.swing(c, 0.9F);
+					}
 				}
 				return false;
 			}
@@ -197,7 +222,7 @@ final class TomatoFight {
 					// Out of the fan, sideways.
 					if (dodgeTo == null) {
 						double s = Math.abs(across) > 0.4 ? Math.signum(across) : dodgeSide;
-						dodgeTo = me.add(side.multiply(s * 3.8));
+						dodgeTo = me.add(side.multiply(s * 5.5));
 						dodgeSide = -dodgeSide;
 					}
 					YOU.strafeTo(c, dodgeTo, 0.3, true);
@@ -207,7 +232,9 @@ final class TomatoFight {
 					YOU.strafeTo(c, d.getPos(), 3.0, true);
 				}
 				if (reach) {
-					YOU.swing(c, 0.9F);
+					if (allowHit) {
+						YOU.swing(c, 0.9F);
+					}
 				}
 				return false;
 			}
@@ -218,7 +245,9 @@ final class TomatoFight {
 					YOU.stop();
 				}
 				if (reach) {
-					YOU.swing(c, 0.9F);
+					if (allowHit) {
+						YOU.swing(c, 0.9F);
+					}
 				}
 				return false;
 			}
@@ -249,12 +278,27 @@ final class TomatoFight {
 		float hp = c.player.getHealth();
 		if (lastHealth >= 0.0F && hp < lastHealth - 0.5F) {
 			hits++;
+			TomatoDevilEntity rd = devil(c);
+			if (rd != null && (rd.state() == TomatoDevilEntity.ROLL || rd.state() == TomatoDevilEntity.ON_BACK || rd.state() == TomatoDevilEntity.UNFURL)) {
+				rollHit = true;
+			}
 			mark(c, "you are hit (" + lastHealth + " to " + hp + ")");
 		}
 		lastHealth = hp;
 		String t = target();
 		boolean duel = !t.equals("played");
 		TomatoDevilEntity d = devil(c);
+		if (step >= 1 && step <= 4 && d == null && startAt >= 0 && sub > 5) {
+			YOU.stop();
+			if (killed(c, null)) {
+				step = duel ? 99 : 4;
+				next(c, "it bursts");
+			}
+			YOU.apply(c);
+			return step == 99 + 1;
+		}
+		// (In the first part, keep it alive for its moves: cut it only while it has more than half its health.)
+		allowHit = step >= 4 || d == null || d.getHealth() > TomatoDevilEntity.MAX_HEALTH * 0.5F;
 		switch (step) {
 			case 0 -> {
 				if (sub == 1) {
@@ -301,10 +345,12 @@ final class TomatoFight {
 						YOU.stop();
 					}
 					if (c.crosshairTarget instanceof EntityHitResult eh && eh.getEntity() == d) {
+						if (allowHit) {
 						YOU.swing(c, 0.95F);
 					}
+					}
 				}
-				if (duel ? false : lastState == TomatoDevilEntity.WALK && sub > 40 && slapsSeen() >= 1) {
+				if (duel ? false : lastState == TomatoDevilEntity.WALK && sub > 40 && slaps >= 1) {
 					next(c, "back off for a roll");
 				}
 				if (duel && killed(c, d)) {
@@ -316,7 +362,7 @@ final class TomatoFight {
 				if (d == null) {
 					break;
 				}
-				boolean busy = fight(c, d, hits == 0, false);
+				boolean busy = fight(c, d, !rollHit, false);
 				if (!busy && d.state() == TomatoDevilEntity.WALK) {
 					Vec3d away = c.player.getPos().subtract(d.getPos()).multiply(1.0, 0.0, 1.0).normalize();
 					if (d.distanceTo(c.player) < 7.5) {
@@ -325,7 +371,7 @@ final class TomatoFight {
 						YOU.stop();
 					}
 				}
-				if (hits >= 1 && d.state() != TomatoDevilEntity.ROLL) {
+				if (rollHit && d.state() != TomatoDevilEntity.ROLL) {
 					next(c, "bait a roll into a tree");
 				}
 				if (sub > 900) {
@@ -337,19 +383,25 @@ final class TomatoFight {
 				if (d == null) {
 					break;
 				}
-				if (d.state() == TomatoDevilEntity.WALK && d.distanceTo(c.player) < 5.0 && sub > 20) {
-					// Too close for it to roll: over to the other oak.
-					otherOak = !otherOak;
-					sub = 0;
+				if (sub == 1 || d.state() == TomatoDevilEntity.WALK && d.distanceTo(c.player) < 5.0 && sub > 30) {
+					// Too close for it to roll: off to the oak furthest from it, running.
+					Vec3d o0 = TomatoSelfTest.site(TomatoSelfTest.OAKS[0][0], 0.0, TomatoSelfTest.OAKS[0][1]);
+					Vec3d o1 = TomatoSelfTest.site(TomatoSelfTest.OAKS[1][0], 0.0, TomatoSelfTest.OAKS[1][1]);
+					otherOak = o1.squaredDistanceTo(d.getPos()) > o0.squaredDistanceTo(d.getPos());
+					sub = 2;
 				}
 				Vec3d tree = oak(c);
 				Vec3d fromTree = d.getPos().subtract(tree).multiply(1.0, 0.0, 1.0).normalize();
 				Vec3d spot = tree.add(fromTree.multiply(2.6));
-				boolean busy = fight(c, d, false, true);
-				if (!busy && d.state() == TomatoDevilEntity.WALK) {
-					if (c.player.getPos().squaredDistanceTo(spot.x, c.player.getY(), spot.z) > 0.5) {
-						YOU.strafeTo(c, spot, 0.5, true);
+				boolean busy = d.state() != TomatoDevilEntity.WALK && fight(c, d, false, true);
+				if (!busy && (d.state() == TomatoDevilEntity.WALK || d.state() == TomatoDevilEntity.SLAP)) {
+					double toSpot = Math.hypot(spot.x - c.player.getX(), spot.z - c.player.getZ());
+					if (toSpot > 0.5) {
+						// (Backing to it, facing the devil, so it stays in sight.)
+						YOU.aim(c, chest(d));
+						YOU.strafeTo(c, spot, 0.4, false);
 					} else {
+						YOU.aim(c, chest(d));
 						YOU.stop();
 					}
 				}
@@ -379,7 +431,9 @@ final class TomatoFight {
 						YOU.stop();
 					}
 					if (c.crosshairTarget instanceof EntityHitResult eh && eh.getEntity() == d) {
+						if (allowHit) {
 						YOU.swing(c, 0.95F);
+					}
 					}
 				}
 			}
@@ -392,7 +446,10 @@ final class TomatoFight {
 				hold(c, 0);
 				YOU.stop();
 				if (left != null) {
-					YOU.aim(c, left.getPos().add(0.0, 0.6, 0.0));
+					Vec3d lp = left.getPos();
+					YOU.aim(c, lp.add(0.0, 0.6, 0.0));
+					Vec3d away = c.player.getPos().subtract(lp).multiply(1.0, 0.0, 1.0).normalize();
+					YOU.strafeTo(c, lp.add(away.multiply(7.0)), 0.5, false);
 				}
 				if (sub == 20) {
 					s.execute(() -> {
@@ -435,7 +492,9 @@ final class TomatoFight {
 						YOU.stop();
 					}
 					if (c.crosshairTarget instanceof EntityHitResult eh && eh.getEntity() == d) {
+						if (allowHit) {
 						YOU.swing(c, 0.95F);
+					}
 					}
 				}
 			}
@@ -460,13 +519,8 @@ final class TomatoFight {
 	}
 
 	private static int slaps;
+	private static boolean rollHit;
 
-	private static int slapsSeen() {
-		if (lastState == TomatoDevilEntity.SLAP) {
-			slaps = Math.max(slaps, 1);
-		}
-		return slaps;
-	}
 
 	private static boolean killed(MinecraftClient c, TomatoDevilEntity d) {
 		if (d != null && d.isAlive()) {
@@ -488,6 +542,7 @@ final class TomatoFight {
 	}
 
 	private static long burnStart = -1;
+	private static Vec3d dyingAt;
 
 	/** Walks to each seed and burns it with the torch, leaving {@code leave} of them; true when the take ends. */
 	private static boolean burnSeeds(MinecraftClient c, IntegratedServer s, int leave) {
@@ -495,10 +550,25 @@ final class TomatoFight {
 			return true;
 		}
 		List<TomatoSeedEntity> ss = seeds(c);
-		if (sub < 50) {
-			// The burst, the seeds flying; the line comes up.
-			YOU.stop();
-			YOU.aim(c, ss.isEmpty() ? c.player.getEyePos().add(forward(c.player.getYaw()).multiply(5.0)).add(0, -1.5, 0) : ss.get(0).getPos());
+		if (sub < TomatoDevilEntity.BURST_AT + 40) {
+			// It curls up and bursts, the seeds fly; back off to watch it, then the line comes up.
+			TomatoDevilEntity dying = null;
+			for (Entity e : c.world.getEntities()) {
+				if (e instanceof TomatoDevilEntity td && td.isDead()) {
+					dying = td;
+				}
+			}
+			if (dying != null) {
+				dyingAt = dying.getPos();
+			}
+			if (dyingAt != null && sub < TomatoDevilEntity.BURST_AT + 6) {
+				YOU.aim(c, dyingAt.add(0.0, 1.4, 0.0));
+				Vec3d away = c.player.getPos().subtract(dyingAt).multiply(1.0, 0.0, 1.0).normalize();
+				YOU.strafeTo(c, dyingAt.add(away.multiply(6.0)), 0.4, false);
+			} else {
+				YOU.stop();
+				YOU.aim(c, ss.isEmpty() ? c.player.getEyePos().add(forward(c.player.getYaw()).multiply(5.0)).add(0, -1.5, 0) : ss.get(0).getPos());
+			}
 			YOU.apply(c);
 			if (sub == 22) {
 				mark(c, "the seeds are in the ground");
@@ -540,6 +610,7 @@ final class TomatoFight {
 	}
 
 	private static boolean otherOak;
+	private static boolean allowHit = true;
 
 	private static Vec3d oak(MinecraftClient c) {
 		int[] o = TomatoSelfTest.OAKS[otherOak ? 1 : 0];

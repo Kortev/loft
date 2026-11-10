@@ -103,8 +103,8 @@ public class TomatoDevilEntity extends HostileEntity {
 	public static final float SPIT_DAMAGE = 2.0F;
 	public static final double SPIT_RANGE = 8.0;
 	public static final int EMERGE_TICKS = 30;
-	/** Dying: it curls up and swells for this long (of the game's 20 ticks of dying), then bursts. */
-	public static final int BURST_AT = 16;
+	/** Dying: it curls up and swells for this long (a tell of its own: step back), then bursts. */
+	public static final int BURST_AT = 30;
 	/** How many seeds a devil from nothing scatters. */
 	public static final int SEEDS = 5;
 	/** How far the seeds fly at most (blocks across the ground). */
@@ -128,6 +128,7 @@ public class TomatoDevilEntity extends HostileEntity {
 	private Vec3d wanderTo;
 	private long wanderAt;
 	private float spitPitch;
+	private int slapStreak;
 
 	/** The client's burst (the splat on the ground), set by the client. */
 	public static Consumer<TomatoDevilEntity> clientBurst = e -> {
@@ -227,6 +228,11 @@ public class TomatoDevilEntity extends HostileEntity {
 		int st = state();
 		float t = stateTime(0.0F);
 		PlayerEntity target = target();
+		if (age < 3) {
+			// Just come: it looks about a moment before its first move.
+			nextMoveAt = Math.max(nextMoveAt, now + 40);
+			lastRollAt = now - 50;
+		}
 		switch (st) {
 			case WALK -> walk(world, now, target);
 			case SLAP -> slap(world, t, target);
@@ -330,18 +336,22 @@ public class TomatoDevilEntity extends HostileEntity {
 			return;
 		}
 		boolean sees = canSee(target);
-		if (dist <= SLAP_REACH + 0.4 && off < 55.0F) {
+		if (dist <= SLAP_REACH + 0.4 && off < 55.0F && (slapStreak < 2 || now - lastSpitAt <= 90)) {
+			slapStreak++;
 			dataTracker.set(AIM, to);
 			navigation.stop();
 			begin(SLAP);
 			playSound(Devils.Sounds.GURGLE, 1.0F, 0.8F);
-		} else if (sees && dist >= 5.5 && dist <= 12.0 && now - lastRollAt > 110 && random.nextFloat() < 0.35F) {
+		} else if (sees && dist >= 5.5 && dist <= ROLL_DISTANCE - 1.5 && now - lastRollAt > 110 && random.nextFloat() < 0.35F) {
 			dataTracker.set(AIM, to);
 			navigation.stop();
 			lastRollAt = now;
+			slapStreak = 0;
 			begin(ROLL_TELL);
 			playSound(Devils.Sounds.TUCK, 1.2F, 1.0F);
-		} else if (sees && dist >= 3.5 && dist <= SPIT_RANGE + 0.5 && now - lastSpitAt > 90 && random.nextFloat() < 0.3F) {
+		} else if (sees && dist <= SPIT_RANGE + 0.5 && now - lastSpitAt > 90 && (slapStreak >= 2 && off < 55.0F || dist >= 3.5 && random.nextFloat() < 0.3F)) {
+			// (Slapped at twice running, it spits in your face instead.)
+			slapStreak = 0;
 			dataTracker.set(AIM, to);
 			navigation.stop();
 			lastSpitAt = now;
@@ -473,7 +483,7 @@ public class TomatoDevilEntity extends HostileEntity {
 
 	// ---- Being hurt.
 
-	static final DustParticleEffect JUICE = new DustParticleEffect(new Vector3f(0.82F, 0.08F, 0.04F), 1.6F);
+	static final DustParticleEffect JUICE = new DustParticleEffect(new Vector3f(0.82F, 0.08F, 0.04F), 1.1F);
 	static final DustParticleEffect PULP = new DustParticleEffect(new Vector3f(0.93F, 0.75F, 0.42F), 0.9F);
 
 	@Override
@@ -500,7 +510,23 @@ public class TomatoDevilEntity extends HostileEntity {
 
 	@Override
 	public boolean isPushable() {
-		return false;
+		// (So that what walks into it is pushed out of it; it is not moved itself: see pushAwayFrom.)
+		return isAlive();
+	}
+
+	@Override
+	public void pushAwayFrom(Entity other) {
+		// Whatever is inside its body is shoved out sideways; the devil does not budge.
+		if (other.noClip || other instanceof TomatoDevilEntity || other.isConnectedThroughVehicle(this)) {
+			return;
+		}
+		double dx = other.getX() - getX();
+		double dz = other.getZ() - getZ();
+		double d = Math.max(0.05, Math.hypot(dx, dz));
+		double k = 0.12 * Math.min(1.0, (WIDTH * 0.5 + other.getWidth() * 0.5 - d + 0.3));
+		if (k > 0.0) {
+			other.addVelocity(dx / d * k, 0.0, dz / d * k);
+		}
 	}
 
 	@Override
@@ -552,7 +578,7 @@ public class TomatoDevilEntity extends HostileEntity {
 				clientBurst.accept(this);
 			}
 		}
-		if (deathTime >= 20 && !getWorld().isClient() && !isRemoved()) {
+		if (deathTime >= BURST_AT + 4 && !getWorld().isClient() && !isRemoved()) {
 			remove(RemovalReason.KILLED);
 		}
 	}
@@ -565,10 +591,10 @@ public class TomatoDevilEntity extends HostileEntity {
 		burst = true;
 		Vec3d c = getPos().add(0.0, 2.2, 0.0);
 		world.playSound(null, c.x, c.y, c.z, Devils.Sounds.BURST, SoundCategory.HOSTILE, 2.0F, 1.0F);
-		world.spawnParticles(new DustParticleEffect(new Vector3f(0.82F, 0.06F, 0.03F), 3.0F), c.x, c.y, c.z, 60, 1.0, 0.8, 1.0, 0.4);
-		world.spawnParticles(JUICE, c.x, c.y, c.z, 90, 1.4, 1.0, 1.4, 0.35);
+		world.spawnParticles(new DustParticleEffect(new Vector3f(0.82F, 0.06F, 0.03F), 1.6F), c.x, c.y, c.z, 30, 1.0, 0.8, 1.0, 0.4);
+		world.spawnParticles(JUICE, c.x, c.y, c.z, 45, 1.4, 1.0, 1.4, 0.35);
 		world.spawnParticles(PULP, c.x, c.y, c.z, 40, 1.2, 0.8, 1.2, 0.3);
-		world.spawnParticles(new BlockStateParticleEffect(ParticleTypes.BLOCK, Blocks.RED_CONCRETE.getDefaultState()), c.x, c.y, c.z, 80, 1.0, 0.8, 1.0, 0.4);
+		world.spawnParticles(new BlockStateParticleEffect(ParticleTypes.BLOCK, Blocks.RED_CONCRETE.getDefaultState()), c.x, c.y, c.z, 50, 1.0, 0.8, 1.0, 0.4);
 		world.spawnParticles(new ItemStackParticleEffect(ParticleTypes.ITEM, new ItemStack(Devils.TOMATO_CARCASS)), c.x, c.y, c.z, 30, 0.8, 0.6, 0.8, 0.35);
 		dropStack(new ItemStack(Devils.TOMATO_CARCASS), 1.0F);
 		scatter(world, c, seeds, getUuid());
