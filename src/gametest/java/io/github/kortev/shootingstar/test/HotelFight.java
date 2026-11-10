@@ -50,7 +50,7 @@ final class HotelFight {
 
 	/** The film's bar: where it starts in the arena, and how much faster it fills. */
 	static final float FILM_FROM = 0.5F;
-	static final float FILM_PACE = 2.2F;
+	static final float FILM_PACE = 4.9F;
 
 	private static final Fighter YOU = new Fighter();
 	private static BlockPos origin;
@@ -372,7 +372,8 @@ final class HotelFight {
 						? a.handAt(a.age(0.0F)) : soonest.source().getPos().add(((ShaftArmEntity) soonest.source()).dir().multiply(3.0)).add(0.0, 0.6, 0.0);
 				YOU.aim(c, look);
 			} else {
-				YOU.aim(c, world(soonest.safe().x + (soonest.safe().x < Shaft.MID_X ? -6.0 : 6.0), Shaft.FLOOR + 1.6, Shaft.MID_Z));
+				// (The squeeze: watching the half that bulges, its line lit on the floor.)
+				YOU.aim(c, world(soonest.safe().x < Shaft.MID_X ? Shaft.AX1 - 1.0 : Shaft.AX0 + 2.0, Shaft.FLOOR + 1.0, Shaft.MID_Z));
 			}
 			if (soonest.source() instanceof ShaftArmEntity a && a.mode() == ShaftArmEntity.GRAB && a.age(0.0F) >= ShaftArmEntity.GRAB_TELL - 1) {
 				// The hand sweeping in low: jump it as it comes.
@@ -397,9 +398,9 @@ final class HotelFight {
 		if (stunned != null) {
 			Vec3d at = nearest(c, stunned.getBoundingBox());
 			Vec3d l = local(at);
-			if (stunnedD > 2.6) {
+			if (stunnedD > 3.1) {
 				YOU.aim(c, at);
-				YOU.strafeTo(c, world(l.x, me.y, l.z), 1.8, true);
+				YOU.strafeTo(c, world(l.x, me.y, l.z), 2.6, true);
 			} else {
 				YOU.stop();
 				YOU.aim(c, at.add(0.0, -0.1, 0.0));
@@ -666,8 +667,8 @@ final class HotelFight {
 				Entity core = coreOf(c);
 				if (core != null) {
 					YOU.aim(c, core.getBoundingBox().getCenter());
-					if (reachTo(c, core.getBoundingBox()) > 2.8) {
-						YOU.strafeTo(c, core.getPos(), 2.2, false);
+					if (reachTo(c, core.getBoundingBox()) > 3.4) {
+						YOU.strafeTo(c, core.getPos(), 4.6, false);
 					} else {
 						YOU.stop();
 						YOU.swing(c, 0.9F);

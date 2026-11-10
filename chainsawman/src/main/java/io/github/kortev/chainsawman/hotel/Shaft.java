@@ -115,7 +115,7 @@ public final class Shaft {
 	 * How much more the arena's share of the bar takes than the corridor's (the same cut moves the bar this many times less once you are inside
 	 * it): what the arena's 60% of the bar needs, raised so that the saws take minutes, not seconds. Blows are not weakened, the bar is longer.
 	 */
-	public static final float ARENA_SCALE = 15.0F;
+	public static final float ARENA_SCALE = 33.0F;
 	/** The shortest tell any attack has (ticks): nothing lands sooner than this after it shows. */
 	public static final int MIN_TELL = 12;
 	/** A part that has just missed, and the walls a squeeze leaves soft: cuts there are worth this much more. */
@@ -760,8 +760,8 @@ public final class Shaft {
 			if (p.isCreative() || p.isSpectator()) {
 				continue;
 			}
-			if (lp.y < BASE && lp.y > FLOOR + 0.3 && p.getVelocity().y < -0.9) {
-				// Through the throat: the fall is slowed so the landing is soft.
+			if (lp.y > FLOOR + 0.3 && p.getVelocity().y < -0.9) {
+				// Down the shaft and through the throat the fall is held to a steady speed (a soft landing, and time to see the mouth coming).
 				p.setVelocity(p.getVelocity().x * 0.6, -0.9, p.getVelocity().z * 0.6);
 				p.velocityModified = true;
 			}

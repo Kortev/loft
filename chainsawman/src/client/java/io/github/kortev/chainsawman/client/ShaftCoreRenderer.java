@@ -57,8 +57,8 @@ public class ShaftCoreRenderer extends EntityRenderer<ShaftCoreEntity> {
 		boolean shaft = inShaft(core, world);
 		Matrix4f base = new Matrix4f(matrices.peek().getPositionMatrix());
 		if (shaft) {
-			// It turns its face to the nearest player, at their eye height if they stand on the mass (else a little over the pit), and
-			// tips up toward whoever looks down from a ledge.
+			// It turns its face to the nearest player, held up about chest high in the middle of the arena (seen whole, not filling the view), and
+			// tips up toward whoever is above it.
 			net.minecraft.entity.player.PlayerEntity near = world.getClosestPlayer(core, 24.0);
 			float lift = 1.0F;
 			float yawTo = 0.0F;
@@ -67,7 +67,7 @@ public class ShaftCoreRenderer extends EntityRenderer<ShaftCoreEntity> {
 				net.minecraft.util.math.Vec3d eye = near.getEyePos();
 				double hd = Math.hypot(eye.x - core.getX(), eye.z - core.getZ());
 				if (hd < 7.0 && eye.y - core.getY() < 4.0) {
-					lift = (float) MathHelper.clamp(eye.y - core.getY(), 0.8, 2.5);
+					lift = (float) MathHelper.clamp(eye.y - core.getY() - 0.4, 0.8, 1.4);
 				}
 				double dx = eye.x - core.getX();
 				double dy = eye.y - (core.getY() + lift);
@@ -79,7 +79,7 @@ public class ShaftCoreRenderer extends EntityRenderer<ShaftCoreEntity> {
 		} else {
 			base.rotateY(-(float) Math.toRadians(core.getYaw())).rotateY(-(float) Math.PI / 2.0F);
 		}
-		base.scale((shaft ? 1.1F : 1.5F) * beat);
+		base.scale((shaft ? 0.85F : 1.5F) * beat);
 		FleshMesh mesh = FleshMesh.get("core");
 		FleshMesh.Look look = new FleshMesh.Look().light(light, 0.85F, 1.3F);
 		look.rim = 0.4F;

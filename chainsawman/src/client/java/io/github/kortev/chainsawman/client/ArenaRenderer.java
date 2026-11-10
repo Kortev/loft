@@ -46,9 +46,10 @@ final class ArenaRenderer {
 			{16.5, Shaft.FLOOR + 4.4, Shaft.AZ0 + 0.1, 0, 1}, {22.5, Shaft.FLOOR + 4.2, Shaft.AZ1 + 0.9, 0, -1}, {Shaft.AX0 + 0.1, Shaft.FLOOR + 4.0, 9.6, 1, 0},
 			{Shaft.AX1 + 0.9, Shaft.FLOOR + 4.3, 3.4, -1, 0}, {13.6, Shaft.FLOOR + 4.2, Shaft.AZ1 + 0.9, 0, -1}, {25.4, Shaft.FLOOR + 4.1, Shaft.AZ0 + 0.1, 0, 1},
 			{19.5, Shaft.FLOOR + 4.5, Shaft.AZ0 + 0.1, 0, 1}, {19.5, Shaft.FLOOR + 4.5, Shaft.AZ1 + 0.9, 0, -1}};
-	/** The growths heaving on the walls (local foot, inward normal x and z). */
-	private static final double[][] HEAVERS = {{Shaft.AX0, Shaft.FLOOR, 6.5, 1, 0}, {Shaft.AX1 + 1, Shaft.FLOOR, 6.5, -1, 0}, {14.0, Shaft.FLOOR, Shaft.AZ0, 0, 1},
-			{25.0, Shaft.FLOOR, Shaft.AZ1 + 1, 0, -1}, {24.0, Shaft.FLOOR, Shaft.AZ0, 0, 1}, {15.0, Shaft.FLOOR, Shaft.AZ1 + 1, 0, -1}};
+	/** The growths heaving on the walls, high up (over anyone's head): local foot, inward normal x and z. */
+	private static final double[][] HEAVERS = {{Shaft.AX0, Shaft.FLOOR + 3.6, 6.5, 1, 0}, {Shaft.AX1 + 1, Shaft.FLOOR + 3.6, 6.5, -1, 0},
+			{14.0, Shaft.FLOOR + 3.8, Shaft.AZ0, 0, 1}, {25.0, Shaft.FLOOR + 3.8, Shaft.AZ1 + 1, 0, -1}, {24.0, Shaft.FLOOR + 3.7, Shaft.AZ0, 0, 1},
+			{15.0, Shaft.FLOOR + 3.7, Shaft.AZ1 + 1, 0, -1}};
 
 	/** The hotel's turn from the way the devil faces. */
 	static int rotOf(float facing) {
@@ -297,6 +298,12 @@ final class ArenaRenderer {
 			Vec3d b1 = at(rot, k == 0 ? hx1 + 1.0 : Shaft.MID_X, Shaft.FLOOR + 0.02, k == 0 ? Shaft.MID_Z : hz1 + 1.0);
 			g.fade(a0, a1, b1, b0, 1.0F, 0.75F, 0.5F, fall, fall * 0.25F);
 		}
+		// Seen from above, the mouth's throat is full of the arena's light (never a black hole).
+		Vec3d h0 = at(rot, hx0 + 0.05, Shaft.BASE + 0.05, hz0 + 0.05);
+		Vec3d h1 = at(rot, hx1 - 0.05, Shaft.BASE + 0.05, hz0 + 0.05);
+		Vec3d h2 = at(rot, hx1 - 0.05, Shaft.BASE + 0.05, hz1 - 0.05);
+		Vec3d h3 = at(rot, hx0 + 0.05, Shaft.BASE + 0.05, hz1 - 0.05);
+		g.quad(h0, h1, h2, h3, 1.0F, 0.5F, 0.2F, 0.5F * lip);
 		// A pool of the mouth's light on the floor under it.
 		Vec3d pool = at(rot, Shaft.MID_X, Shaft.FLOOR + 0.03, Shaft.MID_Z);
 		g.arc(pool, 1.2, 2.4, 0.0, Math.PI * 2.0, dir(rot, 1, 0, 0), dir(rot, 0, 0, 1), 1.0F, 0.6F, 0.35F, 0.10F + 0.2F * convulse);
@@ -402,7 +409,7 @@ final class ArenaRenderer {
 			}
 			float breathe = 1.0F + 0.12F * MathHelper.sin(now * heave + i * 2.1F) + 0.15F * flinch + 0.25F * convulse * MathHelper.sin(now * 1.9F + i);
 			Matrix4f m = new Matrix4f(base).translate((float) foot.x, (float) foot.y, (float) foot.z).rotateY((float) Math.atan2(-in.z, in.x))
-					.scale(0.7F * breathe, 1.25F, 1.3F);
+					.scale(0.55F * breathe, 0.9F, 1.1F);
 			FleshMesh.Look look = new FleshMesh.Look().light(LightmapPacked.FULL, 0.7F, 1.0F);
 			look.rim = 0.5F;
 			look.r = 1.05F;
@@ -419,22 +426,24 @@ final class ArenaRenderer {
 			double endX = squeezeHalf == 0 ? Shaft.AX0 : Shaft.AX1 + 1;
 			double s = squeezeHalf == 0 ? 1.0 : -1.0;
 			double reach = Shaft.SQUEEZE_REACH;
-			double[][] spots = {{endX, 3.0, s, 0}, {endX, 6.5, s, 0}, {endX, 10.0, s, 0}, {endX + s * 1.8, Shaft.AZ0, 0, 1}, {endX + s * 4.6, Shaft.AZ0, 0, 1},
-					{endX + s * 1.8, Shaft.AZ1 + 1, 0, -1}, {endX + s * 4.6, Shaft.AZ1 + 1, 0, -1}};
+			double[][] spots = {{endX, 3.0, s, 0}, {endX, 6.5, s, 0}, {endX, 10.0, s, 0}, {endX + s * 1.6, Shaft.AZ0, 0, 1}, {endX + s * 3.8, Shaft.AZ0, 0, 1},
+					{endX + s * 1.6, Shaft.AZ1 + 1, 0, -1}, {endX + s * 3.8, Shaft.AZ1 + 1, 0, -1}};
 			for (int i = 0; i < spots.length; i++) {
 				double[] sp = spots[i];
 				Vec3d in = dir(rot, sp[2], 0.0, sp[3]);
 				// (They close the caught half and no further: the line on the floor is where they stop.)
-				double travel = sp[3] == 0 ? reach - 1.6 : (Shaft.AZ1 + 1 - Shaft.AZ0) * 0.3;
+				double travel = sp[3] == 0 ? reach - 3.2 : 3.4;
 				double pulse = 0.08 * Math.sin(now * (0.4 + 0.6 * t / Shaft.SQUEEZE_TELL) + i);
 				double out = (0.25 + pulse) * bulge + travel * shut;
 				Vec3d foot = at(rot, sp[0], Shaft.FLOOR - 0.1, sp[1]).add(in.multiply(out));
 				float grow = (float) ((0.6 + 0.5 * bulge + 0.9 * shut) * back);
-				if (Math.hypot(cam.x - foot.x - in.x * grow, cam.z - foot.z - in.z * grow) < 1.2 * grow + 0.4) {
+				if (Math.hypot(cam.x - foot.x - in.x * grow, cam.z - foot.z - in.z * grow) < 1.6 * grow + 1.0) {
 					continue;
 				}
+				// (Narrow across, so each stays on its own side of the line: the end wall's three fill the half's width, the sides' two its length.)
+				float across = sp[3] == 0 ? 0.75F : 0.5F;
 				Matrix4f m = new Matrix4f(base).translate((float) foot.x, (float) foot.y, (float) foot.z).rotateY((float) Math.atan2(-in.z, in.x))
-						.scale(1.25F * grow, 1.45F * (0.8F + 0.4F * grow), 1.45F * grow);
+						.scale(1.1F * grow, 1.4F * (0.8F + 0.3F * grow), across * (1.0F + 0.35F * grow));
 				FleshMesh.Look look = new FleshMesh.Look().light(LightmapPacked.FULL, 0.7F, 1.05F);
 				look.rim = 0.9F;
 				look.r = 1.15F;

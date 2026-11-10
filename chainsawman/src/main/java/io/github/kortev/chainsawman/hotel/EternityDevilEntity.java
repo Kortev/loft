@@ -334,7 +334,8 @@ public class EternityDevilEntity extends MobEntity {
 			return false;
 		}
 		boolean kill = source.isOf(DamageTypes.GENERIC_KILL) || source.isOf(DamageTypes.OUT_OF_WORLD) || this.cutting;
-		if (this.growing() && !kill) {
+		// (Nor while the floor turns: the corridor's share of the bar ends where the turn began.)
+		if ((this.growing() || this.tilting) && !kill) {
 			return false;
 		}
 		// In the arena a blow on it is a cut in its flesh: pain on the arena's longer bar ({@link #arenaPain}).
