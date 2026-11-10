@@ -65,6 +65,8 @@ final class HotelFight {
 	private static volatile String sPainBy = "";
 	private static volatile long sNow;
 	private static volatile double sLocalY;
+	private static volatile String sCore = "";
+	private static volatile java.util.UUID devilId;
 
 	// The numbers.
 	private static long grownAt = -1;
@@ -107,18 +109,25 @@ final class HotelFight {
 		sTilting = h.run.shaft.tiltAt >= 0;
 		sBuilt = h.run.shaft.built;
 		sSwallowed = Shaft.swallowed(h, you);
-		sBegging = d != null && d.begStarted;
+		sBegging = sBegging || d != null && d.begStarted;
 		sCuttable = d != null && d.core() != null && d.core().cuttable();
 		if (d != null) {
 			sPain = d.pain();
 			float[] p = d.painBy;
 			sPainBy = String.format("corridor %.0f, mass %.0f, heads %.0f, arms %.0f, mouth %.0f", p[0], p[1], p[2], p[3], p[4]);
 		}
-		if (d != null && d.isDead()) {
+		if (d != null) {
+			devilId = d.getUuid();
+		}
+		// (Once it dies the home forgets it: it is followed by its own id.)
+		if (devilId != null && sBegging && !(w.getEntity(devilId) instanceof EternityDevilEntity e2 && e2.isAlive())) {
 			sDead = true;
 		}
 		sMended = sDead && h.shaft == null && h.arena == null;
 		sLocalY = HotelBuilder.local(origin, 0, you.getPos()).y;
+		ShaftCoreEntity core = d == null ? null : d.core();
+		sCore = core == null ? "none" : "at " + HotelBuilder.local(origin, 0, core.getPos()) + " cuttable " + core.cuttable() + " canHit " + core.canHit()
+				+ " form " + Form.fighting(you) + " downed " + io.github.kortev.chainsawman.form.Downed.is(you) + " you at " + HotelBuilder.local(origin, 0, you.getPos());
 	}
 
 	private static Vec3d world(double x, double y, double z) {
@@ -294,7 +303,7 @@ final class HotelFight {
 		c.options.getFov().setValue(70);
 		c.options.getCloudRenderMode().setValue(net.minecraft.client.option.CloudRenderMode.OFF);
 		Capture.camera = null;
-		if (f > 5000) {
+		if (f > 2400) {
 			ShootingStar.LOGGER.error("[played] stuck in step {}", step);
 			report();
 			return true;
@@ -373,7 +382,11 @@ final class HotelFight {
 				if (sub == 60) {
 					still(c, "cutting");
 				}
-				if (sub == 70) {
+				if (sub == 40) {
+					// (From here: the first frames loaded the growths' meshes.)
+					FleshMesh.costReport();
+				}
+				if (sub == 100) {
 					ShootingStar.LOGGER.info("[played] frame cost, in the fight at its face: {}", FleshMesh.costReport());
 				}
 				if (sTilting) {
@@ -437,15 +450,15 @@ final class HotelFight {
 					still(c, "swallowed_cut");
 				}
 				YOU.stop();
-				if (!cutWhatIsNear(c)) {
+				Vec3d me5 = local(c.player.getPos());
+				boolean overPit = me5.x < 21.3 && me5.x > 17.5 && me5.z > 4.5 && me5.z < 8.5;
+				if (!sSwallowed && burstAt >= 0 && overPit) {
+					// Out of the mouth: off the pit first (onto the mass east of it), cutting on the way.
+					YOU.moveTo(c, world(22.4, Shaft.BASE, me5.z), 0.3, true);
+					YOU.swing(c, 0.9F);
+				} else if (!cutWhatIsNear(c)) {
 					// Nothing near: go to the mass beside the pit.
 					YOU.moveTo(c, world(21.6, Shaft.BASE, 6.5), 0.5, false);
-				} else if (!sSwallowed && burstAt >= 0) {
-					// (Keep off the pit: stand on the mass west of it.)
-					Vec3d me = local(c.player.getPos());
-					if (me.x < 21.2 && me.x > 17.6 && me.z > 4.6 && me.z < 8.4) {
-						YOU.moveTo(c, world(22.0, Shaft.BASE, me.z), 0.4, false);
-					}
 				}
 				if (burstAt >= 0 && sNow - burstAt == 30) {
 					still(c, "on_the_mass");
@@ -493,6 +506,9 @@ final class HotelFight {
 				}
 				if (sub == 4) {
 					still(c, "core");
+				}
+				if (sub % 20 == 0) {
+					ShootingStar.LOGGER.info("[played] core: {} (client: core {} reach {} screen {})", sCore, core == null ? "none" : local(core.getPos()), core == null ? -1 : reachTo(c, core.getBoundingBox()), c.currentScreen);
 				}
 				if (sDead) {
 					coreCutAt = sNow;
