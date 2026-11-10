@@ -24,7 +24,7 @@ void main() {
     vec3 n = normalize(vN);
     vec3 v = normalize(-vP);
     float nv = clamp(abs(dot(n, v)), 0.0, 1.0);
-    float rim = pow(1.0 - nv, 4.0) * RimAmt;
+    float rim = smoothstep(0.35, 0.0, nv) * RimAmt;
     vec3 base = vColor.rgb * Tint.rgb;
     vec3 toG = GlowPos.xyz - vP;
     float d = max(length(toG), 0.001);

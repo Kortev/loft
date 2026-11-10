@@ -57,17 +57,20 @@ public class ShaftCoreRenderer extends EntityRenderer<ShaftCoreEntity> {
 		boolean shaft = inShaft(core, world);
 		Matrix4f base = new Matrix4f(matrices.peek().getPositionMatrix());
 		if (shaft) {
-			base.translate(0.0F, -2.2F * (1.0F - rise) + 0.9F, 0.0F).rotateY(-(float) Math.toRadians(core.getYaw())).rotateZ((float) Math.PI / 2.0F);
+			// Face up, tipped toward the nearest player so the face reads from where they stand (the loops stay across).
+			net.minecraft.entity.player.PlayerEntity near = world.getClosestPlayer(core, 24.0);
+			float toward = near == null ? 0.0F : (float) Math.atan2(-(near.getZ() - core.getZ()), near.getX() - core.getX());
+			base.translate(0.0F, -2.2F * (1.0F - rise) + 1.0F, 0.0F).rotateY(toward).rotateZ(1.0F);
 		} else {
 			base.rotateY(-(float) Math.toRadians(core.getYaw())).rotateY(-(float) Math.PI / 2.0F);
 		}
-		base.scale(1.5F * beat);
+		base.scale((shaft ? 2.0F : 1.5F) * beat);
 		FleshMesh mesh = FleshMesh.get("core");
-		FleshMesh.Look look = new FleshMesh.Look().light(light, 0.7F, 1.2F);
+		FleshMesh.Look look = new FleshMesh.Look().light(light, 0.85F, 1.3F);
 		look.rim = 0.4F;
 		look.glowAt = shaft ? new Vector3f(1.0F, 0.0F, 0.0F) : null;
 		look.glowRange = 3.0F;
-		look.glowR = 0.45F;
+		look.glowR = 0.1F;
 		look.glowG = 0.06F;
 		look.glowB = 0.03F;
 		if (cut <= 0.0F) {
@@ -77,7 +80,7 @@ public class ShaftCoreRenderer extends EntityRenderer<ShaftCoreEntity> {
 		// Cut: two halves along the waist (the loops are at +Z and -Z in the mesh), sliding out and tipping away.
 		for (int side = -1; side <= 1; side += 2) {
 			Matrix4f m = new Matrix4f(base).translate(0.0F, 0.0F, side * 0.45F * cut).rotateX(side * 0.6F * cut).translate(-0.5F * cut, 0.0F, 0.0F);
-			FleshMesh.Look half = new FleshMesh.Look().light(light, 0.7F, 1.2F);
+			FleshMesh.Look half = new FleshMesh.Look().light(light, 0.85F, 1.3F);
 			half.rim = look.rim;
 			half.glowAt = look.glowAt;
 			half.glowRange = look.glowRange;

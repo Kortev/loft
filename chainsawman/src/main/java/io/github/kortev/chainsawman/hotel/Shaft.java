@@ -71,8 +71,8 @@ public final class Shaft {
 	public static final int PIT_Z = 6;
 	public static final int PIT_DEPTH = 4;
 	/** How far above the mass players start (blocks): near enough that looking down the devil is big. */
-	public static final int NEAR_MIN = 10;
-	public static final int NEAR_MAX = 16;
+	public static final int NEAR_MIN = 8;
+	public static final int NEAR_MAX = 14;
 	/** Where the devil stands: the east end of the chamber's floor, at the pit's bottom (its box is the floor and the pit). */
 	public static final double MASS_X = 24.0;
 	public static final double MASS_Z = 6.5;
@@ -145,7 +145,7 @@ public final class Shaft {
 	/** The mass: dark grey-brown (mud, packed mud, brown and grey terracotta), a few veins of dark red. Never bright red. */
 	static BlockState flesh(int x, int y, int z) {
 		int h = ((x * 73856093) ^ (y * 19349663) ^ (z * 83492791)) & 255;
-		Block b = h < 40 ? Blocks.MUD : h < 100 ? Blocks.PACKED_MUD : h < 150 ? Blocks.BROWN_TERRACOTTA : h < 238 ? Blocks.GRAY_TERRACOTTA : Blocks.NETHER_WART_BLOCK;
+		Block b = h < 40 ? Blocks.MUD : h < 100 ? Blocks.PACKED_MUD : h < 150 ? Blocks.BROWN_TERRACOTTA : h < 238 ? Blocks.GRAY_TERRACOTTA : Blocks.BLACKSTONE;
 		return b.getDefaultState();
 	}
 
@@ -179,7 +179,7 @@ public final class Shaft {
 	}
 
 	/**
-	 * The ledges players start on: {@link #NEAR_MIN} to {@link #NEAR_MAX} blocks above the mass, so looking down it is big (the lowest ledges
+	 * The ledges players start on: {@link #NEAR_MIN} to {@link #NEAR_MAX} blocks above the mass (the film's look down is from the lowest), so looking down it is big (the lowest ledges
 	 * when there are none as low as that).
 	 */
 	public static List<Ledge> lowLedges() {
@@ -227,9 +227,9 @@ public final class Shaft {
 				boolean rim = x == PIT_X - 2 || x == PIT_X + 2 || z == PIT_Z - 2 || z == PIT_Z + 2;
 				for (int y = BASE - PIT_DEPTH - 1; y <= BASE - 1; y++) {
 					if (rim) {
-						put(m, x, y, z, (x + z + y) % 3 == 0 ? Blocks.NETHER_WART_BLOCK.getDefaultState() : Blocks.RED_TERRACOTTA.getDefaultState());
+						put(m, x, y, z, Blocks.BLACKSTONE.getDefaultState());
 					} else if (y == BASE - PIT_DEPTH - 1) {
-						put(m, x, y, z, Blocks.NETHER_WART_BLOCK.getDefaultState());
+						put(m, x, y, z, Blocks.BLACKSTONE.getDefaultState());
 					} else {
 						put(m, x, y, z, air);
 					}
@@ -265,6 +265,11 @@ public final class Shaft {
 					put(m, IX0 - 1 + c, y, z, s);
 				}
 			}
+		}
+		// Lamps' light down the lower shaft so the mass is lit warm from the sides (invisible light blocks in the shaft's air).
+		for (int dy = 6; dy <= 15; dy += 3) {
+			put(m, IX0, BASE + dy, IZ0, light.with(net.minecraft.block.LightBlock.LEVEL_15, 12));
+			put(m, IX1, BASE + dy, IZ1, light.with(net.minecraft.block.LightBlock.LEVEL_15, 12));
 		}
 		// The top.
 		for (int x = IX0 - 1; x <= IX1 + 1; x++) {

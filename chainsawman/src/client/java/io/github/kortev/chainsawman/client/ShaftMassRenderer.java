@@ -33,10 +33,10 @@ final class ShaftMassRenderer {
 		FleshMesh mesh = FleshMesh.get("shaft");
 		Matrix4f model = new Matrix4f(matrices.peek().getPositionMatrix()).translate(0.0F, (float) PIT_UP - SINK, (float) PIT_OUT);
 		FleshMesh.Look look = new FleshMesh.Look().light(light, 0.7F, 1.15F);
-		look.rim = 0.4F;
-		look.glowAt = new Vector3f(0.0F, 0.2F, 0.0F);
-		look.glowRange = 2.6F;
-		look.glowR = 0.4F + 0.3F * pain;
+		look.rim = 0.5F;
+		look.glowAt = new Vector3f(0.0F, -0.8F, 0.0F);
+		look.glowRange = 1.3F;
+		look.glowR = 0.25F + 0.2F * pain;
 		look.glowG = 0.07F;
 		look.glowB = 0.03F;
 		// It moves faster the more it hurts.

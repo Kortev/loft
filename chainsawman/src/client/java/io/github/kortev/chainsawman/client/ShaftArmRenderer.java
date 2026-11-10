@@ -60,7 +60,7 @@ public class ShaftArmRenderer extends EntityRenderer<ShaftArmEntity> {
 		look.rim = 0.45F;
 		look.glowAt = new Vector3f(rt.x, ROOT_BASE - 1.5F, rt.z);
 		look.glowRange = 3.0F;
-		look.glowR = 0.4F;
+		look.glowR = 0.12F;
 		look.glowG = 0.06F;
 		look.glowB = 0.03F;
 		Matrix4f m = new Matrix4f(model);

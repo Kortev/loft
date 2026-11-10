@@ -70,7 +70,7 @@ public final class FleshMesh {
 			float k = gain * (floor + (1.0F - floor) * lit);
 			r = k;
 			g = k;
-			b = k * 0.97F;
+			b = k;
 			return this;
 		}
 	}

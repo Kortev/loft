@@ -67,7 +67,7 @@ public class ShaftHeadRenderer extends EntityRenderer<ShaftHeadEntity> {
 		look.hurt = head.struck() ? 0.5F : 0.0F;
 		look.glowAt = new Vector3f(0.0F, -1.5F, 0.0F);
 		look.glowRange = 3.0F;
-		look.glowR = 0.35F;
+		look.glowR = 0.12F;
 		look.glowG = 0.05F;
 		look.glowB = 0.02F;
 		FleshMesh.get("head").draw(model, world.getTime() + delta, look, jawHook(closed));

@@ -1512,12 +1512,19 @@ public class HotelSelfTest implements ClientModInitializer {
 				}
 			}
 			case 3 -> {
+				forward = false;
+				if (shaftTopDone && shaftSub % 6 == 0 && shaftSub < 60 && shaftSub != 30 && shaftSub != 48) {
+					// (The doorway's lip is half over the shaft: kept on the ledge, or a nudge drops you down it.)
+					onServer(server, w -> io.github.kortev.chainsawman.hotel.Shaft.place(you(server), home(server), io.github.kortev.chainsawman.hotel.Shaft.lowLedges().get(0)));
+				}
 				// The shaft: first the top of it (the establishing shot), then the flash, the ledge, the look straight down it.
 				if (!shaftTopDone) {
-					if (shaftSub == 2) {
+					if (shaftSub == 2 || shaftSub % 2 == 0 && shaftSub < 30) {
+						// (Held there every other tick: it is 36 blocks up, and you would fall.)
 						put(server, 19.5, io.github.kortev.chainsawman.hotel.Shaft.BASE + io.github.kortev.chainsawman.hotel.Shaft.DEPTH - 1.2, 6.5, 90.0F);
 						wantPitch = 85.0F;
-					} else if (shaftSub == 12) {
+					}
+					if (shaftSub == 12) {
 						still(client, "c0_top_of_shaft");
 						ShootingStar.LOGGER.info("[selftest] shaft cost (top of the shaft): {}", io.github.kortev.chainsawman.client.FleshMesh.costReport());
 					} else if (shaftSub == 30) {
@@ -1560,6 +1567,9 @@ public class HotelSelfTest implements ClientModInitializer {
 			}
 			case 4 -> {
 				// The arm rises; it takes you; it pulls you down.
+				if (!sHeld && shaftSub % 6 == 0 && sLocalY > base + 4.0) {
+					onServer(server, w -> io.github.kortev.chainsawman.hotel.Shaft.place(you(server), home(server), io.github.kortev.chainsawman.hotel.Shaft.lowLedges().get(0)));
+				}
 				boolean rising = sArm && !sHeld && sTipHeight > sLocalY - 8.0 && sTipHeight < sLocalY - 1.0;
 				if (rising && !armStill[0]) {
 					armStill[0] = true;
