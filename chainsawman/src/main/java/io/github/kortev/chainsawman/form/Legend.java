@@ -16,7 +16,7 @@ import net.minecraft.util.math.Vec3d;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * The legend on the map (game rule {@code legendRoar}, on by default): every time Chainsaw Man pulls the cord to transform, every other
+ * The legend on the map (game rule {@code legendRoar}, off by default): every time Chainsaw Man pulls the cord to transform, every other
  * player in that dimension hears a distant engine roar (the engine's start, pitched down and quiet, from his direction) and is shown
  * where he transformed, a marker on their screen for {@link #LASTS} ticks (a minute). As a human he is not shown: only the cord
  * starts it.

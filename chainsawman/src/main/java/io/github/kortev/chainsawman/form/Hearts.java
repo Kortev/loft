@@ -32,7 +32,8 @@ import org.jetbrains.annotations.Nullable;
  * hold), a hit on the thief cancels it, and the heart cannot change hands again for a day ({@link #SETTLE}). The thief becomes the
  * hybrid; the old one is human at once, with their contract slots free (and, down, goes down as a human: {@link Fallen}). Mobs never
  * steal: only a player can hold use.</li>
- * <li><b>{@code chainsawHearts}</b>: how many hearts (dens) the world has.</li>
+ * <li><b>{@code chainsawHearts}</b>: how many hearts (dens) the world has, and so how many players may merge ({@link #taken}, counted at the
+ * merge); once they are all taken every other Pochita is wild.</li>
  * </ul>
  * Who holds a heart, and when they were last in the game, is kept in {@link TeamState}.
  */
@@ -114,8 +115,38 @@ public final class Hearts {
 		return days > 0 && seen != null && server.getOverworld().getTime() - seen >= (long) days * DAY;
 	}
 
+	/**
+	 * How many of the world's hearts are taken: every hybrid it knows of (in the game or away), and anyone merging now. {@code but}, if
+	 * given, is left out.
+	 */
+	public static int taken(MinecraftServer server, @Nullable ServerPlayerEntity but) {
+		java.util.Set<UUID> holders = new java.util.HashSet<>(TeamState.of(server).seen.keySet());
+		for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+			if (Heart.merged(player) || Merge.is(player)) {
+				holders.add(player.getUuid());
+			} else {
+				// (Given up, or taken back by a command, since the world last looked.)
+				holders.remove(player.getUuid());
+			}
+		}
+		if (but != null) {
+			holders.remove(but.getUuid());
+		}
+		return holders.size();
+	}
+
+	/** Whether every heart the world has ({@code chainsawHearts}) is taken: nobody else merges, and every other Pochita is wild. */
+	public static boolean full(MinecraftServer server) {
+		return taken(server, null) >= server.getOverworld().getGameRules().getInt(TeamRules.CHAINSAW_HEARTS);
+	}
+
+	/** Whether a heart is free for {@code player} to take. */
+	static boolean free(ServerPlayerEntity player) {
+		return taken(player.server, player) < player.server.getOverworld().getGameRules().getInt(TeamRules.CHAINSAW_HEARTS);
+	}
+
 	/** {@code player} is a hybrid the world knows of: their den taken, their time kept. */
-	private static void note(MinecraftServer server, TeamState state, ServerPlayerEntity player) {
+	static void note(MinecraftServer server, TeamState state, ServerPlayerEntity player) {
 		if (state.seen.put(player.getUuid(), server.getOverworld().getTime()) == null) {
 			Long den = player.getAttached(Heart.DEN);
 			PochitaPlace.taken(server, player.getPos(), den == null ? null : net.minecraft.util.math.BlockPos.fromLong(den));

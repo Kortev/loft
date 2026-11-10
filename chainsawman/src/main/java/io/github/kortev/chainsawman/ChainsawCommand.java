@@ -93,8 +93,10 @@ public final class ChainsawCommand {
 								}))
 								.then(CommandManager.argument("player", com.mojang.brigadier.arguments.StringArgumentType.word()).executes(context -> {
 									String name = com.mojang.brigadier.arguments.StringArgumentType.getString(context, "player");
+									// (Kept by their player id if they are in the game; by name until they next join if not.)
 									Owner.set(context.getSource().getServer(), name);
-									context.getSource().sendFeedback(() -> Text.translatable("commands.chainsaw.owner.set", name), true);
+									String shown = Owner.get();
+									context.getSource().sendFeedback(() -> Text.translatable("commands.chainsaw.owner.set", shown), true);
 									return 1;
 								})))
 						.then(CommandManager.literal("contract").requires(OP)
