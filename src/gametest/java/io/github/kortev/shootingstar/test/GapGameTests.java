@@ -75,6 +75,13 @@ public class GapGameTests implements FabricGameTest {
 			world.setBlockState(pos, Blocks.AIR.getDefaultState());
 		}
 		world.setBlockState(voidGround, Blocks.STONE.getDefaultState());
+		// Ground of its own round the emptied column, a little lower: what is near this home must not depend on what the
+		// tests standing next to this one have left there (their place in the grid moves whenever a test is added).
+		for (BlockPos pos : BlockPos.iterate(voidGround.add(-7, -3, -7), voidGround.add(7, 6, 7))) {
+			if (Math.max(Math.abs(pos.getX() - voidGround.getX()), Math.abs(pos.getZ() - voidGround.getZ())) > 4) {
+				world.setBlockState(pos, pos.getY() == voidGround.getY() - 3 ? Blocks.STONE.getDefaultState() : Blocks.AIR.getDefaultState());
+			}
+		}
 		BlockPos netherGround = new BlockPos(center.getX() / 8, 100, center.getZ() / 8);
 		for (BlockPos pos : BlockPos.iterate(netherGround.add(-2, 0, -2), netherGround.add(2, 3, 2))) {
 			nether.setBlockState(pos, pos.getY() == netherGround.getY() ? Blocks.STONE.getDefaultState() : Blocks.AIR.getDefaultState());

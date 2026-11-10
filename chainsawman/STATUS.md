@@ -12,14 +12,14 @@ Updated 2026-11-09. Keep this page under 3 KB. Change it whenever something star
 
 ## Running
 
-- **0.1b the devil's arena** (branch `devil-arena`, brief `chainsawman/plan/packages/0.1b_devil_arena.md`): you
-  fall into the mouth and fight inside it; attack and dodge, no damage without a tell (kortev). Fable's picks
-  stand. Done = a played film at `work/devil_look/arena/fight.mp4`; Fable reviews, merges, sends it to kortev.
-- Round 3 merged 2026-11-09 (252 tests pass): the devil fills the corridor's end, the torn arena is a stomach,
-  saws cut its parts, a played film (`-Ptarget=played`). kortev on its film: "looks bad and boring"; the answer is the look rules in the 0.1b brief.
-  Today's fight lasts 16 s with saws; the arena fixes that.
-- Merged 2026-11-09: 0.7a Server-proof and 0.7b the hotel's share (loot into each fighter's pack, pay for who
-  fought, one contract per world). Their two-client checks are in their briefs, for 0.4.
+- Nothing is building. **0.1b the devil's arena merged 2026-11-09** (261 tests pass): fall through the mouth into
+  a lit flesh arena 17 x 12; slam, head lunge, squeeze and grab each have a tell; cuts show; about 4 min with saws.
+  kortev has the film (`work/devil_look/arena/fight.mp4`); their notes are the next round. Known weak: the walls
+  are a red block checkerboard, close cuts fill the view, the squeeze is lumpy (brief, "What was built").
+- Flaky in full runs, pass alone: `each_fighter_gets_the_whole_drop` (blood at the full pack's feet), two form
+  tests. `liveEvent` now lays its own ground.
+- Merged earlier: round 3 (kortev: its film "looks bad and boring"), 0.7a, 0.7b; two-client checks are in their
+  briefs, for 0.4. Next: 0.4 the server check, 0.2 review clips, 2.1 the licence screen.
 
 ## Waiting on kortev
 
