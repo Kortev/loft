@@ -16,13 +16,12 @@ Updated 2026-11-09. Keep this page under 3 KB. Change it whenever something star
   The 3D look is merged. kortev's notes on the film: the devil must fill the corridor's end (the hotel is its body),
   and the film showed no fight. Done = a played-fight film at
   `work/devil_look/round3/fight.mp4`; Fable reviews it, merges, sends it to kortev, starts 0.1b.
-- **0.7b the hotel's share** (branch `hotel-share`, brief `chainsawman/plan/packages/0.7b_hotel_share.md`): loot per
-  fighter, pay for who fought, one contract per world. Review the diff, run all tests, merge, push.
 - **Next, after round 3 merges: 0.1b the arena** (`chainsawman/plan/packages/0.1b_devil_arena.md`): you fall into
   the mouth and fight inside it; attack and dodge, no damage without a tell (kortev). Fable's picks stand.
   Round 3 is narrowed to the corridor end and the stomach.
-- Both work in `hotel/`: round 3 owns the look, the arena, the grab and the film; 0.7b owns loot, pay, the holder.
-- 0.7a Server-proof is merged (241 tests pass). Its two-client checks are listed in its brief, for 0.4.
+- Merged 2026-11-09 (250 tests pass): 0.7a Server-proof and 0.7b the hotel's share (loot into each fighter's
+  pack, pay for who fought, one contract per world; store `hotel/HotelLedger.java`). Their two-client checks are
+  in their briefs, for 0.4. Round 3's film must not wait for loot on the floor (builder told).
 
 ## Waiting on kortev
 

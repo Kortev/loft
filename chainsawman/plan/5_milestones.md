@@ -21,7 +21,7 @@ Sizes are in agent runs: S is one run, M is two or three, L is four or more.
 | 0.4 | The server check | S | A script that starts a real server and two clients with two names, runs a short scene (party up, go down, pick up, a boss hit, **log out and back in, one client leaving mid-fight, a server restart**), and films both screens. Reused at every milestone. |
 | 0.5 | Cut what's loaded after a context reset | done | The hook loaded 104 KB of `HANDOFF.md` after every reset. It now loads `STATUS.md`, one page. `HANDOFF.md` stays as a record to search, never to read whole. |
 | 0.6 | Lanes ready in the code | S | New packages `safety/` and `devil/`, each registering its own items, entities and sounds, so two agents don't edit the same lines. |
-| 0.7 | **Server-proof what's built** (0.7a: everything outside the hotel, merged 2026-11-09; 0.7b: the hotel's share, running, `packages/0.7b_hotel_share.md`) | M | Round 2's finds in the code, each with a game test: Pochita tied to his tamer, hearts counted at the merge, a lost Pochita goes back to a den; logging out while down; totems; boss loot per fighter; `oneContractPerDevil` per world; the owner kept by player id, not name; `legendRoar` off by default. |
+| 0.7 | **Server-proof what's built** (0.7a: everything outside the hotel, merged 2026-11-09; 0.7b: the hotel's share, merged 2026-11-09 (250 tests), `packages/0.7b_hotel_share.md`) | M | Round 2's finds in the code, each with a game test: Pochita tied to his tamer, hearts counted at the merge, a lost Pochita goes back to a den; logging out while down; totems; boss loot per fighter; `oneContractPerDevil` per world; the owner kept by player id, not name; `legendRoar` off by default. |
 
 ### M1. The hotel, finished (the first lair)
 
