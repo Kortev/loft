@@ -14,13 +14,13 @@ Updated 2026-11-09. Keep this page under 3 KB. Change it whenever something star
 
 - **The Eternity Devil, round 3** (branch `devil-round3`, brief `chainsawman/plan/packages/0.1_devil_round3.md`).
   The 3D look is merged. kortev's notes on the film: the devil must fill the corridor's end (the hotel is its body),
-  the grab and the swallow look weak, and the film showed no fight. Done = a played-fight film at
+  and the film showed no fight. Done = a played-fight film at
   `work/devil_look/round3/fight.mp4`; Fable reviews it, then sends it to kortev **before** merging.
 - **0.7b the hotel's share** (branch `hotel-share`, brief `chainsawman/plan/packages/0.7b_hotel_share.md`): loot per
   fighter, pay for who fought, one contract per world. Review the diff, run all tests, merge, push.
-- **Next, after round 3 merges: 0.1b the arena** (`chainsawman/plan/packages/0.1b_devil_arena.md`): the shaft's
-  bottom becomes a boss arena, attack and dodge, no damage without a tell. kortev asked for it; the attack list is
-  Fable's pick, not yet seen by kortev. Round 3 was narrowed to the corridor end, the stomach and the swallow.
+- **Next, after round 3 merges: 0.1b the arena** (`chainsawman/plan/packages/0.1b_devil_arena.md`): you fall into
+  the mouth and fight inside it; attack and dodge, no damage without a tell (kortev). The attacks are Fable's
+  pick, not yet approved. Round 3 is narrowed to the corridor end and the stomach.
 - Both work in `hotel/`: round 3 owns the look, the arena, the grab and the film; 0.7b owns loot, pay, the holder.
 - 0.7a Server-proof is merged (241 tests pass). Its two-client checks are listed in its brief, for 0.4.
 
