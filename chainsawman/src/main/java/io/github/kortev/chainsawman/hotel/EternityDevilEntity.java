@@ -316,6 +316,7 @@ public class EternityDevilEntity extends MobEntity {
 		// Swallowed, hitting the inside of its mouth: that cuts you out ({@link Shaft#cutHit}), and is not pain.
 		if (!kill && this.shaft() && source.getAttacker() instanceof ServerPlayerEntity cutter && this.getWorld() instanceof ServerWorld sw
 				&& Shaft.cutHit(sw, this, cutter, amount)) {
+			Hotel.fought(sw, this, source);
 			return true;
 		}
 		// While it begs it cannot be hurt, and once it has begged damage does not kill it: the core is cut (see cutCore).
@@ -337,6 +338,10 @@ public class EternityDevilEntity extends MobEntity {
 		// A blow that would take it past the line stops there: it begs before it dies.
 		if (!this.begStarted && !kill && this.getHealth() - dealt < line) {
 			dealt = Math.max(0.01F, this.getHealth() - line);
+		}
+		// (Before the blow: a killing one ends the fight, and who fought is counted then.)
+		if (this.getWorld() instanceof ServerWorld fightWorld) {
+			Hotel.fought(fightWorld, this, source);
 		}
 		boolean hurt = super.damage(source, dealt);
 		if (hurt) {

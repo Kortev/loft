@@ -27,7 +27,7 @@ import net.minecraft.world.StructureWorldAccess;
 /**
  * The missing squad: our own hunters (not the show's), who went into the hotel and did not come out. Two or three of them are alive in the
  * loop when it closes ({@link SquadMemberEntity}: Yamada, Mori and Sato, one of them mad with fear), and their notes lie on lecterns on the bedside tables of the rooms below and one is in Yamada's pocket, one short line each (what happened, and what the devil is: hints, not answers). The ones who were fed and still stand when the loop
- * breaks walk to the exit and leave, and pay each player inside ({@link #reward}).
+ * breaks walk to the exit and leave, and pay each player who fought the devil ({@link #reward}).
  */
 public final class Squad {
 	public static final String[] NAMES = {"Yamada", "Mori", "Sato"};
@@ -132,7 +132,7 @@ public final class Squad {
 		h.run.squad.clear();
 	}
 
-	/** The loop has broken: each rescued survivor walks to the exit and leaves, and pays everyone inside. */
+	/** The loop has broken: each rescued survivor walks to the exit and leaves, and pays everyone who fought the devil. */
 	static void leave(ServerWorld world, HomeBlockEntity h) {
 		int saved = 0;
 		Vec3d exit = HotelBuilder.world(h.origin, h.rot, HotelPlan.SHAFT_X0 + 2.5, 29.0, 2.0);
@@ -151,22 +151,19 @@ public final class Squad {
 		h.run.squad.clear();
 		h.run.saved = saved;
 		if (saved > 0) {
-			for (UUID id : h.run.inside) {
-				ServerPlayerEntity p = world.getServer().getPlayerManager().getPlayer(id);
-				if (p != null && p.isAlive()) {
-					reward(p, saved);
-				}
+			// Everyone who fought the devil, alive or not, here or not (paid when they can take it), and nobody else.
+			for (UUID id : h.run.fought) {
+				reward(world.getServer(), id, saved);
 			}
 		}
 	}
 
 	/**
-	 * What {@code survivors} rescued hunters are worth to one player inside when the loop breaks. HOOK: Public Safety's yen and rank are paid
-	 * here once they exist; for now experience and gold.
+	 * What {@code survivors} rescued hunters are worth to one player who fought when the loop breaks, paid when they are in the game, alive
+	 * and up ({@link HotelLedger}). HOOK: Public Safety's yen and rank are paid here once they exist; for now experience and gold.
 	 */
-	public static void reward(ServerPlayerEntity player, int survivors) {
-		player.addExperience(REWARD_XP * survivors);
-		player.getInventory().offerOrDrop(new ItemStack(Items.GOLD_INGOT, REWARD_GOLD * survivors));
-		player.sendMessage(Text.translatable("message.chainsawman.squad.thanks", survivors), true);
+	public static void reward(net.minecraft.server.MinecraftServer server, UUID player, int survivors) {
+		HotelLedger.owe(server, player, List.of(new ItemStack(Items.GOLD_INGOT, REWARD_GOLD * survivors)), REWARD_XP * survivors,
+				"message.chainsawman.squad.thanks", survivors);
 	}
 }
