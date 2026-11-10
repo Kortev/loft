@@ -14,7 +14,8 @@ Updated 2026-11-09. Keep this page under 3 KB. Change it whenever something star
 
 - **0.1b the devil's arena** (branch `devil-arena`, brief `chainsawman/plan/packages/0.1b_devil_arena.md`): you
   fall into the mouth and fight inside it; attack and dodge, no damage without a tell (kortev). Fable's picks
-  stand. Done = a played film at `work/devil_look/arena/fight.mp4`; Fable reviews, merges, sends it to kortev.
+  stand. **Not building: stopped 2026-11-09 at the usage limit just after starting; start a new Opus agent
+  from the brief.** Done = a played film at `work/devil_look/arena/fight.mp4`; Fable reviews, merges, sends it to kortev.
 - Round 3 merged 2026-11-09 (252 tests pass): the devil fills the corridor's end, the torn arena is a stomach,
   saws cut its parts, a played film (`-Ptarget=played`). kortev has the film; their notes are the next round.
   Today's fight lasts 16 s with saws; the arena fixes that.
