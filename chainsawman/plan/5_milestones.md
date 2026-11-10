@@ -59,7 +59,7 @@ Reel: "I added Public Safety to Minecraft."
 | 3.1 | The Zombie Devil and its zombies | M | kortev's yes on the concept (waiting) |
 | 3.2 | The Bat Devil | M | kortev's yes on the concept (waiting) |
 | 3.3 | The Leech Devil | M | Fact sheet, concept, kortev's yes |
-| 3.4 | The Tomato Devil (the weak first-night devil) [pick] | merged 2026-11-10 (274 tests) | Brief `packages/3.4_tomato_devil.md`; the `devil/` lane exists (0.6 done). kortev has the film. |
+| 3.4 | The Tomato Devil (the weak first-night devil) [pick] | merged 2026-11-10 (274 tests) | Brief `packages/3.4_tomato_devil.md`; the `devil/` lane exists (0.6 done). Round 2 building from kortev's notes: `packages/3.4b_tomato_round2.md`. |
 | 3.5 | Nests, spawn rules, parts | M | |
 | 3.6 | Mission kinds, and one trick per devil | S | Fear and the bounty moved to the server legend update |
 | 3.7 | Summoning: the circle, the offering, a weak devil's deal | M | [check: how summoning is shown] |
