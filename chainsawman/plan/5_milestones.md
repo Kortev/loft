@@ -48,6 +48,7 @@ Sizes are in agent runs: S is one run, M is two or three, L is four or more.
 | 2.7 | Weapons: katana, knives, pistol. Devils bleed. | M | Looks to kortev first [check: what hunters carry] |
 | 2.8 | The suit and its three looks; power and power resistance | M | |
 | 2.9 | The partner, saved on the player (solo); parties (friends) | M | |
+| 2.10 | Power: devil tiers, one power number for hunters, hearts and fiends; the heart retuned to eat by tier | M | `4f_scaling.md` |
 
 Reel: "I added Public Safety to Minecraft."
 

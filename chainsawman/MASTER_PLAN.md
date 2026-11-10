@@ -34,6 +34,7 @@ that cost you something real, and one player per world can find Pochita.
 | `4c_world.md` | Villages, offices, hotels, Pochita's dens | Anything placed in the world |
 | `4d_dying_and_options.md` | Going down, dying, game rules, saving | Death, servers, settings |
 | `4e_what_you_play.md` | Hybrid, contract, partner, hunted; fiends | A new devil, contract or playable thing |
+| `4f_scaling.md` | Power 1-5: how hunters, hybrids and fiends each get stronger; devil tiers | Levels, damage numbers, a new devil's tier |
 | `5_milestones.md` | M0-M5 and every package, one line each | Picking what's next |
 | `6_how_we_work.md` | Lanes, briefs, the four checks | Before writing a brief |
 | `8_waiting_on_kortev.md` | Open questions for kortev | Before asking kortev anything |
