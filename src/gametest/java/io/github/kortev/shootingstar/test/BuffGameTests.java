@@ -90,7 +90,7 @@ public class BuffGameTests implements FabricGameTest {
 			devil.forgo();
 			// (Past its growing, when it can be hurt.)
 			devil.age = 1000;
-			devil.damage(player.getDamageSources().playerAttack(player), 10000.0F);
+			devil.cutCore(player);
 			context.assertTrue(HeartLevel.xp(player) == HeartLevel.KILL_XP, "killing the devil gave " + HeartLevel.xp(player) + " XP");
 			context.assertTrue(HeartLevel.level(player) == 2 && HeartLevel.damage(player) == 2.0F, "40 XP is not level 2 with +2 damage");
 			// Eternity's blood feeds it too.

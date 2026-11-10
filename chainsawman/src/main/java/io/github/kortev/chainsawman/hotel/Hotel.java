@@ -94,6 +94,10 @@ public final class Hotel {
 		public int torn;
 		public java.util.List<Arena.Cell> arenaCells;
 		public long mendAt = -1;
+		/** The floor may turn (the shaft fight, see {@link Shaft}); off, the whole fight is in the corridor (the tests that came before it). */
+		public boolean shaftOn = true;
+		/** The shaft's own state: fear, the turn, who is swallowed. */
+		public final Shaft.State shaft = new Shaft.State();
 		/** Who has been told the fog is lifted for the fight. */
 		public final Set<UUID> fogLifted = new HashSet<>();
 		/** The tick the devil died, while the lights die after it; -1 when not. */
@@ -164,7 +168,7 @@ public final class Hotel {
 				near = true;
 			}
 			Vec3d lp = HotelBuilder.local(h.origin, h.rot, p.getPos());
-			if (lp.x > -1.5 && lp.x < HotelPlan.SX + 1.5 && lp.z > -1.5 && lp.z < HotelPlan.SZ + 1.5 && lp.y > -1.0 && lp.y < HotelPlan.SY) {
+			if (lp.x > -1.5 && lp.x < HotelPlan.SX + 1.5 && lp.z > -1.5 && lp.z < HotelPlan.SZ + 1.5 && lp.y > -1.0 && lp.y < (r.shaft.built ? Shaft.TOP : HotelPlan.SY)) {
 				inside.add(new In(p, lp));
 			}
 		}
@@ -172,6 +176,7 @@ public final class Hotel {
 			// Loaded afresh: if the world was left in a fight the walls are still bled and the arena still torn open (the devil and the flesh
 			// are not kept): put them right.
 			Arena.mend(world, h);
+			Shaft.mend(world, h);
 			HotelBuilder.bleed(world, h.origin, h.rot, 0.0F);
 		}
 		if (r.tearAt >= 0) {
@@ -180,6 +185,9 @@ public final class Hotel {
 		if (h.arena != null && !r.fight && now >= r.mendAt) {
 			// The fight is over (the devil's collapse puts it right as it ends; this is for any other way the devil went).
 			Arena.mend(world, h);
+		}
+		if (h.shaft != null && !r.fight && now >= r.mendAt) {
+			Shaft.mend(world, h);
 		}
 		if (now % 10 == 0 || !r.started) {
 			r.started = true;
@@ -371,7 +379,7 @@ public final class Hotel {
 	/** Whether {@code pos} is part of a hotel that is sealed now (the home that holds it, or null). */
 	public static HomeBlockEntity sealedAt(ServerWorld world, BlockPos pos) {
 		for (HomeBlockEntity h : HomeBlockEntity.LOADED) {
-			if (h.getWorld() == world && h.run.sealed && HotelBuilder.box(h.origin, h.rot).contains(pos)) {
+			if (h.getWorld() == world && h.run.sealed && (HotelBuilder.box(h.origin, h.rot).contains(pos) || Shaft.contains(h, pos))) {
 				return h;
 			}
 		}
@@ -824,6 +832,7 @@ public final class Hotel {
 	public static void mendArena(ServerWorld world, EternityDevilEntity devil) {
 		if (world.getBlockEntity(devil.homePos) instanceof HomeBlockEntity h) {
 			Arena.mend(world, h);
+			Shaft.mend(world, h);
 			HotelBuilder.bleed(world, h.origin, h.rot, 0.0F);
 		}
 	}
@@ -840,6 +849,7 @@ public final class Hotel {
 		r.bleedFrom = at;
 		r.bleedShown = 0.0F;
 		r.emptySince = at;
+		r.shaft.reset();
 		for (UUID id : new ArrayList<>(r.fogged)) {
 			fog(world, id, 0.0F);
 		}
@@ -881,9 +891,15 @@ public final class Hotel {
 			return;
 		}
 		boolean anyone = false;
+		List<ServerPlayerEntity> fighters = new ArrayList<>();
 		for (In in : inside) {
-			anyone |= in.local().y >= 28.5 && !in.player().isSpectator();
+			boolean on = in.local().y >= 28.5 && !in.player().isSpectator();
+			anyone |= on;
+			if (on && in.player().isAlive() && r.inside.contains(in.player().getUuid())) {
+				fighters.add(in.player());
+			}
 		}
+		Shaft.tick(world, h, devil, fighters, now);
 		if (anyone) {
 			r.emptySince = now;
 		} else if (now - r.emptySince > 400) {
@@ -904,6 +920,7 @@ public final class Hotel {
 		r.bleedShown = 0.0F;
 		r.laps.clear();
 		Arena.mend(world, h);
+		Shaft.mend(world, h);
 		HotelBuilder.bleed(world, h.origin, h.rot, 0.0F);
 		if (r.flesh != 0) {
 			r.flesh = 0;
@@ -951,6 +968,12 @@ public final class Hotel {
 		for (FleshPatchEntity patch : world.getEntitiesByType(ChainsawMan.FLESH_PATCH, e -> e.squaredDistanceTo(devil) < 40.0 * 40.0)) {
 			patch.discard();
 		}
+		for (ShaftArmEntity arm : world.getEntitiesByType(ChainsawMan.SHAFT_ARM, e -> e.squaredDistanceTo(devil) < 60.0 * 60.0)) {
+			arm.discard();
+		}
+		for (ShaftHeadEntity head : world.getEntitiesByType(ChainsawMan.SHAFT_HEAD, e -> e.squaredDistanceTo(devil) < 60.0 * 60.0)) {
+			head.discard();
+		}
 		for (ServerPlayerEntity p : world.getPlayers()) {
 			if (p.squaredDistanceTo(devil) < 40.0 * 40.0) {
 				speak(world, Set.of(p.getUuid()), "message.chainsawman.devil.last", 30, 1);
@@ -960,7 +983,8 @@ public final class Hotel {
 
 	/** Its loot, on the floor where it stood, when it has collapsed. */
 	public static void dropLoot(ServerWorld world, EternityDevilEntity devil) {
-		Vec3d at = devil.getPos().add(HotelBuilder.world(BlockPos.ORIGIN, devil.rot, -(EternityDevilEntity.BULK + 1.2), 0.2, 0.0));
+		Vec3d at = devil.shaft() ? HotelBuilder.world(devil.origin, devil.rot, 22.0, Shaft.BASE + 0.5, 6.5)
+				: devil.getPos().add(HotelBuilder.world(BlockPos.ORIGIN, devil.rot, -(EternityDevilEntity.BULK + 1.2), 0.2, 0.0));
 		drop(world, at, new ItemStack(ChainsawMan.ETERNITY_FLESH, FLESH_DROP));
 		drop(world, at, new ItemStack(ChainsawMan.ETERNITY_BLOOD, BLOOD_DROP));
 	}

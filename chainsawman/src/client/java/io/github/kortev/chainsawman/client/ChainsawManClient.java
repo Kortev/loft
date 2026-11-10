@@ -85,6 +85,9 @@ public final class ChainsawManClient implements ClientModInitializer {
 		EntityRendererRegistry.register(ChainsawMan.FOREVER_COPY, ForeverCopyRenderer::new);
 		EntityRendererRegistry.register(ChainsawMan.ETERNITY_DEVIL, EternityDevilRenderer::new);
 		EntityRendererRegistry.register(ChainsawMan.FLESH_PATCH, FleshPatchRenderer::new);
+		EntityRendererRegistry.register(ChainsawMan.SHAFT_ARM, ShaftArmRenderer::new);
+		EntityRendererRegistry.register(ChainsawMan.SHAFT_HEAD, ShaftHeadRenderer::new);
+		EntityRendererRegistry.register(ChainsawMan.SHAFT_CORE, ShaftCoreRenderer::new);
 		EntityRendererRegistry.register(ChainsawMan.FLESH_GROWTH, FleshGrowthRenderer::new);
 		EntityRendererRegistry.register(ChainsawMan.SQUAD_MEMBER, SquadRenderer::new);
 		EntityRendererRegistry.register(ChainsawMan.FOREVER_CUBE, ForeverCubeRenderer::new);
@@ -157,6 +160,9 @@ public final class ChainsawManClient implements ClientModInitializer {
 				program -> FormHud.impact = program));
 		CoreShaderRegistrationCallback.EVENT.register(context -> context.register(ChainsawMan.id("csm_drain"), VertexFormats.BLIT_SCREEN,
 				program -> ForeverHud.drain = program));
+		CoreShaderRegistrationCallback.EVENT.register(context -> context.register(ChainsawMan.id("csm_flesh"), VertexFormats.POSITION_TEXTURE_COLOR_NORMAL,
+				program -> FleshMesh.program = program));
+		net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents.AFTER_ENTITIES.register(context -> FleshMesh.flush());
 		HudRenderCallback.EVENT.register(FormHud::render);
 		HudRenderCallback.EVENT.register(ForeverHud::render);
 		HudRenderCallback.EVENT.register(ContractHud::render);

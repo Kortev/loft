@@ -26,6 +26,12 @@ public final class ClientHotel {
 	public record Event(byte kind, double x, double y, double z, long start, int ticks) {
 	}
 
+	/** The floor turning: the world tick the roll began and how long it takes (-1 when not); the shaft arriving (a flash); swallowed. */
+	private static long tiltAt = -1;
+	private static int tiltTicks = 44;
+	private static long flashAt = -1000;
+	private static boolean swallowed;
+
 	private static Line line;
 	private static final Map<Integer, List<Event>> EVENTS = new HashMap<>();
 
@@ -81,8 +87,60 @@ public final class ClientHotel {
 		}
 	}
 
+	/** How far the view is rolled now (radians): a quarter turn over the tilt's two seconds, none otherwise. */
+	public static float roll(float delta) {
+		if (tiltAt < 0) {
+			return 0.0F;
+		}
+		float t = (now() + delta - tiltAt) / tiltTicks;
+		if (t > 1.0F + 60.0F / tiltTicks) {
+			// (The shaft never came: the world is as it was.)
+			return 0.0F;
+		}
+		t = MathHelper.clamp(t, 0.0F, 1.0F);
+		return (float) (Math.PI / 2.0) * t * t * (3.0F - 2.0F * t);
+	}
+
+	/** How hard the screen shakes, 0 to 1: building through the turn, and a last shudder as the shaft arrives. */
+	public static float shake(float delta) {
+		float now = now() + delta;
+		if (tiltAt >= 0) {
+			float t = MathHelper.clamp((now - tiltAt) / tiltTicks, 0.0F, 1.0F);
+			return 0.25F + 0.75F * t;
+		}
+		float since = now - flashAt;
+		return since >= 0.0F && since < 24.0F ? 1.0F - since / 24.0F : 0.0F;
+	}
+
+	/** The red-black flash as the shaft arrives, 1 down to 0 over about a second and a half. */
+	public static float flash(float delta) {
+		float since = now() + delta - flashAt;
+		return since >= 0.0F && since < 30.0F ? 1.0F - since / 30.0F : 0.0F;
+	}
+
+	/** Whether the mouth has swallowed this player. */
+	public static boolean swallowed() {
+		return swallowed;
+	}
+
 	public static void devil(HotelPayloads.Devil payload) {
 		long now = now();
+		if (payload.kind() == HotelPayloads.Devil.TILT) {
+			tiltAt = now;
+			tiltTicks = Math.max(1, payload.ticks());
+			return;
+		}
+		if (payload.kind() == HotelPayloads.Devil.SHAFT) {
+			tiltAt = -1;
+			if (payload.ticks() > 0) {
+				flashAt = now;
+			}
+			return;
+		}
+		if (payload.kind() == HotelPayloads.Devil.SWALLOW) {
+			swallowed = payload.ticks() > 0;
+			return;
+		}
 		List<Event> list = EVENTS.computeIfAbsent(payload.devil(), k -> new ArrayList<>());
 		list.removeIf(e -> now - e.start() > e.ticks() + 40);
 		list.add(new Event(payload.kind(), payload.x(), payload.y(), payload.z(), now, payload.ticks()));
@@ -104,6 +162,9 @@ public final class ClientHotel {
 		fogNow = 0.0F;
 		fogPrev = 0.0F;
 		line = null;
+		tiltAt = -1;
+		flashAt = -1000;
+		swallowed = false;
 		EVENTS.clear();
 	}
 }

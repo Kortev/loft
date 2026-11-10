@@ -322,7 +322,10 @@ public class HotelGameTests implements FabricGameTest {
 		BlockPos origin = origin(context, slot);
 		forced(context, origin, true);
 		ground(context, origin);
-		return Hotel.place(context.getWorld(), origin, rot);
+		HomeBlockEntity h = Hotel.place(context.getWorld(), origin, rot);
+		// (The floor turning into the shaft is tested by the shaft tests, which turn it on; the others fight in the corridor.)
+		h.run.shaftOn = false;
+		return h;
 	}
 
 	/** {@code p} at the local point of the hotel, looking as given. */
@@ -606,10 +609,10 @@ public class HotelGameTests implements FabricGameTest {
 		context.getWorld().getGameRules().get(HotelRules.ONE_CONTRACT_PER_DEVIL).set(false, context.getWorld().getServer());
 	}
 
-	/** The devil is beaten (with nobody taking its deal) and dies: what the fight comes to. */
+	/** The devil is beaten (with nobody taking its deal) and dies: what the fight comes to (damage cannot kill it: its core is cut in two). */
 	private static void slay(TestContext context, HomeBlockEntity h, io.github.kortev.chainsawman.hotel.EternityDevilEntity d, ServerPlayerEntity by) {
 		d.forgo();
-		d.damage(by.getDamageSources().playerAttack(by), 10000.0F);
+		d.core().damage(by.getDamageSources().playerAttack(by), 1000.0F);
 	}
 
 	/** Nothing is offered in the loop any more: not after laps, not after a minute (the devil has no reason to bargain with someone it holds). */
@@ -1307,7 +1310,10 @@ public class HotelGameTests implements FabricGameTest {
 			later(context, 260, () -> {
 				context.assertTrue(a.getHealth() >= hp[0] && b.getHealth() >= hp[0] - 1.0F, "it fought back after it was beaten");
 				context.assertTrue(d[0].getHealth() <= 45.01F, "it healed after it was beaten: " + d[0].getHealth());
-				context.assertTrue(d[0].damage(a.getDamageSources().playerAttack(a), 100.0F) && d[0].isDead(), "it could not be killed");
+				context.assertTrue(!d[0].damage(a.getDamageSources().playerAttack(a), 10000.0F) && !d[0].isDead(), "damage killed it: only its core can be cut");
+				io.github.kortev.chainsawman.hotel.ShaftCoreEntity core = d[0].core();
+				context.assertTrue(core != null && core.cuttable(), "its core was not out to be cut after nobody took the deal");
+				context.assertTrue(core.damage(a.getDamageSources().playerAttack(a), 100.0F) && d[0].isDead(), "it could not be killed by cutting its core");
 				context.assertTrue(!d[0].spared, "it was spared");
 			});
 			later(context, 400, () -> {
@@ -1740,9 +1746,8 @@ public class HotelGameTests implements FabricGameTest {
 			});
 			later(context, 140, () -> {
 				d[0].forgo();
-				d[0].setHealth(1.0F);
-				io.github.kortev.chainsawman.form.Saw.slash(p, d[0].getId());
-				context.assertTrue(d[0].isDead() && !d[0].isRemoved(), "the saws' kill removed the devil at once");
+				d[0].cutCore();
+				context.assertTrue(d[0].isDead() && !d[0].isRemoved(), "the kill removed the devil at once");
 			});
 			later(context, 170, () -> {
 				context.assertTrue(!d[0].isRemoved(), "the dead devil was gone within 30 ticks");
@@ -2051,6 +2056,447 @@ public class HotelGameTests implements FabricGameTest {
 				tidy(context, h, p);
 				forced(context, other.origin, false);
 				ForeverGameTests.leave(context, q);
+				context.complete();
+			});
+		});
+	}
+
+	// ---- The shaft fight: the floor turns 90 degrees, the devil is at the bottom, the mouth swallows, pain ends it.
+
+	/** Every block of the shaft's design, as the world has it now (to know it was put back exactly). */
+	private static java.util.Map<HotelPlan.P, BlockState> designNow(TestContext context, HomeBlockEntity h) {
+		java.util.Map<HotelPlan.P, BlockState> out = new java.util.HashMap<>();
+		for (HotelPlan.P p : io.github.kortev.chainsawman.hotel.Shaft.design().keySet()) {
+			out.put(p, at(context, h, p.x(), p.y(), p.z()));
+		}
+		return out;
+	}
+
+	/**
+	 * The fight, turned into the shaft: starts it, runs it to full fear and through the turn, and runs {@code then} once the players are in the
+	 * shaft (called from inside {@link #ready}; what it schedules is counted from the moment it is called).
+	 */
+	private static void inTheShaft(TestContext context, HomeBlockEntity h, io.github.kortev.chainsawman.hotel.EternityDevilEntity[] d, Runnable then) {
+		h.run.shaftOn = true;
+		later(context, 15, () -> {
+			noSquad(context, h);
+			d[0] = fightAt(context, h);
+		});
+		later(context, 100, () -> {
+			h.run.shaft.fear = 1.0F;
+			h.run.fightAt -= io.github.kortev.chainsawman.hotel.Shaft.TILT_MIN;
+		});
+		later(context, 100 + io.github.kortev.chainsawman.hotel.Shaft.TILT_TICKS + 8, () -> {
+			context.assertTrue(h.run.shaft.built && h.shaft != null && d[0].shaft(), "the floor did not turn into the shaft");
+			then.run();
+		});
+	}
+
+	/** Fear fills with time and with every player hurt; the floor does not turn before 40 s however afraid they are; at full fear it turns. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_shaft_fear", tickLimit = 700)
+	public void fearFillsWithTimeAndHurtAndTheFloorTurnsOnlyWhenItIsFullAndTimeHasPassed(TestContext context) {
+		HomeBlockEntity h = hotel(context, 0, 46);
+		h.run.shaftOn = true;
+		ServerPlayerEntity p = walker(context, h, "afraid", 26.0);
+		io.github.kortev.chainsawman.hotel.EternityDevilEntity[] dd = new io.github.kortev.chainsawman.hotel.EternityDevilEntity[1];
+		float[] f = new float[2];
+		ready(context, h, () -> {
+			later(context, 15, () -> {
+				noSquad(context, h);
+				dd[0] = fightAt(context, h);
+			});
+			later(context, 105, () -> {
+				f[0] = h.run.shaft.fear;
+				context.assertTrue(f[0] > 0.0F && f[0] < 0.05F, "fear did not start filling with time once it was grown: " + f[0]);
+				p.damage(p.getDamageSources().generic(), 3.0F);
+			});
+			later(context, 108, () -> {
+				f[1] = h.run.shaft.fear;
+				context.assertTrue(f[1] - f[0] >= io.github.kortev.chainsawman.hotel.Shaft.FEAR_HURT - 0.001F, "a hurt player did not add to the fear: " + f[0] + " to " + f[1]);
+				h.run.shaft.fear = 1.0F;
+			});
+			later(context, 140, () -> {
+				context.assertTrue(h.run.shaft.tiltAt < 0 && !dd[0].tilting, "the floor turned at full fear before " + io.github.kortev.chainsawman.hotel.Shaft.TILT_MIN + " ticks of fighting");
+				h.run.fightAt -= io.github.kortev.chainsawman.hotel.Shaft.TILT_MIN;
+			});
+			later(context, 146, () -> {
+				context.assertTrue(h.run.shaft.tiltAt >= 0 && dd[0].tilting, "the floor did not begin to turn at full fear");
+				tidy(context, h, p);
+				context.complete();
+			});
+		});
+	}
+
+	/** Once the fight starts the devil is there (its avatar is what the renderer draws), at the corridor's end facing back along it, and the arena round it is torn open. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_devil_exists", tickLimit = 400)
+	public void theDevilExistsFacingTheCorridorAndTheArenaIsTornOnceTheFightStarts(TestContext context) {
+		HomeBlockEntity h = hotel(context, 0, 55);
+		ServerPlayerEntity p = walker(context, h, "watcher", 26.0);
+		io.github.kortev.chainsawman.hotel.EternityDevilEntity[] d = new io.github.kortev.chainsawman.hotel.EternityDevilEntity[1];
+		ready(context, h, () -> {
+			later(context, 15, () -> {
+				noSquad(context, h);
+				d[0] = fightAt(context, h);
+				context.assertTrue(d[0] != null && d[0].isAlive() && !d[0].shaft(), "no devil once the fight started");
+			});
+			later(context, 150, () -> {
+				context.assertTrue(d[0].isAlive() && !d[0].growing(), "the devil has not grown");
+				Vec3d lp = HotelBuilder.local(h.origin, h.rot, d[0].getPos());
+				context.assertTrue(lp.x > 33.0 && lp.x < 40.0, "the devil is not at the corridor's end: " + lp);
+				float want = HotelBuilder.alongYaw(h.rot) + 180.0F;
+				context.assertTrue(Math.abs(net.minecraft.util.math.MathHelper.wrapDegrees(d[0].facing() - want)) < 1.0F, "the devil does not face back along the corridor: " + d[0].facing());
+				context.assertTrue(at(context, h, 30, 33, 6).isAir() && h.run.torn >= io.github.kortev.chainsawman.hotel.Arena.X1 - io.github.kortev.chainsawman.hotel.Arena.X0 + 1, "the arena round the devil is not torn open");
+				context.complete();
+			});
+		});
+	}
+
+	/** The turn builds the shaft (as real blocks), puts everyone in a doorway looking down it, puts the devil at its foot, shuts the sky arena, and a kill puts every block back. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_shaft_turn", tickLimit = 900)
+	public void theFloorTurnsIntoAShaftAndEverythingIsPutBackExactly(TestContext context) {
+		HomeBlockEntity h = hotel(context, 0, 47);
+		ServerPlayerEntity p = walker(context, h, "tilted", 26.0);
+		io.github.kortev.chainsawman.hotel.EternityDevilEntity[] d = new io.github.kortev.chainsawman.hotel.EternityDevilEntity[1];
+		java.util.Map<HotelPlan.P, BlockState> before = designNow(context, h);
+		int B = io.github.kortev.chainsawman.hotel.Shaft.BASE;
+		ready(context, h, () -> {
+			inTheShaft(context, h, d, () -> {
+				java.util.Map<HotelPlan.P, BlockState> design = io.github.kortev.chainsawman.hotel.Shaft.design();
+				int wrong = 0;
+				for (java.util.Map.Entry<HotelPlan.P, BlockState> e : design.entrySet()) {
+					if (at(context, h, e.getKey().x(), e.getKey().y(), e.getKey().z()) != e.getValue()) {
+						wrong++;
+					}
+				}
+				context.assertTrue(wrong == 0 && design.size() > 2500, wrong + " of the shaft's " + design.size() + " blocks are not in the world");
+				context.assertTrue(h.arena == null, "the sky arena is still open in the shaft");
+				// The corridor stood on its end: the carpet a wall (red wool down the middle), the lamps' ceiling the one opposite.
+				context.assertTrue(at(context, h, 17, B + 20, 6).isOf(Blocks.RED_WOOL), "the carpet is not a wall of the shaft");
+				context.assertTrue(at(context, h, 21, B + 31, 6).isOf(Blocks.REDSTONE_LAMP) && at(context, h, 21, B + 31, 6).get(net.minecraft.block.RedstoneLampBlock.LIT), "the ceiling's lamps are not on the other wall");
+				context.assertTrue(at(context, h, 19, B + 20, 6).isAir() && at(context, h, 19, B + 5, 6).isAir() && at(context, h, 19, B + 2, 6).isAir(), "the shaft is not open from its top to the mass");
+				context.assertTrue(at(context, h, 19, B - 1, 6).isAir() && at(context, h, 19, B - 3, 6).isAir() && !at(context, h, 16, B - 1, 6).isAir(), "the mouth's pit is not in the floor of the mass");
+				// A player is in a doorway, looking across and down.
+				Vec3d lp = local(h, p);
+				boolean ledge = false;
+				for (io.github.kortev.chainsawman.hotel.Shaft.Ledge l : io.github.kortev.chainsawman.hotel.Shaft.ledges()) {
+					ledge |= Math.abs(lp.y - l.y()) < 0.01 && Math.abs(lp.x - 19.5) < 0.01 && Math.abs(lp.z - io.github.kortev.chainsawman.hotel.Shaft.edgeZ(l)) < 0.01;
+				}
+				context.assertTrue(ledge, "the player is not in a doorway of the shaft: " + lp);
+				context.assertTrue(p.getPitch() > 20.0F, "the player is not looking down: " + p.getPitch());
+				// The devil is at the bottom: its box is the mass and the pit.
+				net.minecraft.util.math.Box box = d[0].getBoundingBox();
+				context.assertTrue(box.contains(HotelBuilder.world(h.origin, h.rot, 19.5, B - 2.0, 6.5)) && box.contains(HotelBuilder.world(h.origin, h.rot, 15.5, B + 0.5, 3.0))
+						&& !box.contains(HotelBuilder.world(h.origin, h.rot, 19.5, B + 10.0, 6.5)) && !at(context, h, 19, B + 7, 6).isOf(Blocks.RED_WOOL), "the devil's box is not the mass and the pit: " + box);
+				context.assertTrue(!d[0].isCollidable(), "the players cannot stand inside the devil's box");
+			});
+			later(context, 190, () -> slay(context, h, d[0], p));
+			later(context, 275, () -> {
+				context.assertTrue(h.shaft == null && !h.run.shaft.built, "the home still has the shaft built");
+				java.util.Map<HotelPlan.P, BlockState> now = designNow(context, h);
+				context.assertTrue(now.equals(before), "the space over the hotel is not as it was after the kill");
+				Vec3d lp = local(h, p);
+				context.assertTrue(lp.y > 28.0 && lp.y < 33.0 && lp.x > 25.0, "the player was not put back in the corridor: " + lp);
+				context.assertTrue(itemsOf(context, h, io.github.kortev.chainsawman.ChainsawMan.ETERNITY_FLESH) == Hotel.FLESH_DROP, "the loot was lost with the shaft");
+				tidy(context, h, p);
+				context.complete();
+			});
+		});
+	}
+
+	/** A world loaded in the middle of the shaft fight puts the space back as it was. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_shaft_restart", tickLimit = 900)
+	public void theShaftIsPutBackWhenTheWorldIsLoadedMidFight(TestContext context) {
+		HomeBlockEntity h = hotel(context, 0, 48);
+		ServerPlayerEntity p = walker(context, h, "restarted", 26.0);
+		io.github.kortev.chainsawman.hotel.EternityDevilEntity[] d = new io.github.kortev.chainsawman.hotel.EternityDevilEntity[1];
+		java.util.Map<HotelPlan.P, BlockState> before = designNow(context, h);
+		java.util.Map<BlockPos, BlockState>[] shellBefore = new java.util.Map[1];
+		ready(context, h, () -> {
+			// (The hotel at night, as the fight finds it.)
+			later(context, 14, () -> shellBefore[0] = shell(context, h));
+			inTheShaft(context, h, d, () -> {
+				// The server goes down: all that is kept is the home's own data and the world's blocks; it comes up with a fresh run.
+				d[0].discard();
+				h.run.fight = false;
+				h.run.devil = null;
+				h.run.started = false;
+				h.run.arenaCells = null;
+				h.run.tearAt = -1;
+				h.run.shaft.reset();
+			});
+			later(context, 190, () -> {
+				context.assertTrue(h.shaft == null, "the home still has the shaft built after the restart");
+				context.assertTrue(designNow(context, h).equals(before), "the space over the hotel is not as it was after the restart");
+				context.assertTrue(differences(context, h, shellBefore[0]) == 0, "the hotel is not as it was after the restart: " + firstDifference(context, h, shellBefore[0]));
+				tidy(context, h, p);
+				context.complete();
+			});
+		});
+	}
+
+	/** Falling into the pit swallows you; the damage you deal inside cuts you out (the saws in three blows, a sword in six), and the devil takes a big dose of pain. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_shaft_mouth", tickLimit = 900)
+	public void theMouthSwallowsAndBlowsCutYouOutWithAPainBurst(TestContext context) {
+		HomeBlockEntity h = hotel(context, 0, 49);
+		ServerPlayerEntity p = walker(context, h, "swallowed", 26.0);
+		io.github.kortev.chainsawman.hotel.EternityDevilEntity[] d = new io.github.kortev.chainsawman.hotel.EternityDevilEntity[1];
+		float[] hp = new float[2];
+		int B = io.github.kortev.chainsawman.hotel.Shaft.BASE;
+		ready(context, h, () -> {
+			inTheShaft(context, h, d, () -> {
+				h.run.shaft.nextHead = Long.MAX_VALUE;
+				h.run.shaft.nextArm = Long.MAX_VALUE;
+				h.run.shaft.nextPatch = Long.MAX_VALUE;
+				put(p, h, 19.5, B - 3.0, 6.5, 0.0F, 30.0F);
+				hp[0] = p.getHealth();
+			});
+			later(context, 164, () -> {
+				context.assertTrue(io.github.kortev.chainsawman.hotel.Shaft.swallowed(h, p), "falling into the pit did not swallow the player");
+				hp[1] = d[0].getHealth();
+			});
+			later(context, 200, () -> {
+				context.assertTrue(p.getHealth() < hp[0] - 2.0F, "being swallowed did no steady damage: " + hp[0] + " to " + p.getHealth());
+				// The saws: three blows of 13 cut you out; the first two are not pain.
+				float before = d[0].getHealth();
+				d[0].damage(p.getDamageSources().playerAttack(p), 13.0F);
+				d[0].damage(p.getDamageSources().playerAttack(p), 13.0F);
+				context.assertTrue(io.github.kortev.chainsawman.hotel.Shaft.swallowed(h, p) && d[0].getHealth() == before, "two blows cut you out, or hurt the devil from inside");
+				d[0].damage(p.getDamageSources().playerAttack(p), 13.0F);
+				context.assertTrue(!io.github.kortev.chainsawman.hotel.Shaft.swallowed(h, p), "three blows of the saws did not cut you out");
+				context.assertTrue(p.getVelocity().y > 0.5, "you were not launched out of the mouth: " + p.getVelocity());
+				context.assertTrue(d[0].getHealth() <= before - io.github.kortev.chainsawman.hotel.Shaft.PAIN_BURST + 0.5F, "bursting out was not a big dose of pain: " + before + " to " + d[0].getHealth());
+			});
+			// (Out of the mouth you cannot be swallowed again for a moment: you have to be able to leave it.)
+			later(context, 205, () -> context.assertTrue(!io.github.kortev.chainsawman.hotel.Shaft.swallowed(h, p), "swallowed again at once on bursting out"));
+			later(context, 240, () -> put(p, h, 19.5, B - 3.0, 6.5, 0.0F, 30.0F));
+			later(context, 246, () -> context.assertTrue(io.github.kortev.chainsawman.hotel.Shaft.swallowed(h, p), "the second fall did not swallow the player"));
+			later(context, 248, () -> {
+				// A sword (7 a blow): six.
+				for (int k = 0; k < 5; k++) {
+					d[0].damage(p.getDamageSources().playerAttack(p), 7.0F);
+				}
+				context.assertTrue(io.github.kortev.chainsawman.hotel.Shaft.swallowed(h, p), "five sword blows cut you out");
+				d[0].damage(p.getDamageSources().playerAttack(p), 7.0F);
+				context.assertTrue(!io.github.kortev.chainsawman.hotel.Shaft.swallowed(h, p), "six sword blows did not cut you out");
+				tidy(context, h, p);
+				context.complete();
+			});
+		});
+	}
+
+	/** Damage is pain, not health: it cannot kill the devil, and at full pain it stops, holds out its core and begs; refused, the core can be cut in two. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_shaft_pain", tickLimit = 900)
+	public void painFillsAndTheCoreIsOfferedAndCuttingItKills(TestContext context) {
+		HomeBlockEntity h = hotel(context, 0, 50);
+		h.run.begTicks = 60;
+		ServerPlayerEntity p = walker(context, h, "enduring", 26.0);
+		io.github.kortev.chainsawman.hotel.EternityDevilEntity[] d = new io.github.kortev.chainsawman.hotel.EternityDevilEntity[1];
+		float[] pain = new float[6];
+		int B = io.github.kortev.chainsawman.hotel.Shaft.BASE;
+		ready(context, h, () -> {
+			inTheShaft(context, h, d, () -> {
+				h.run.shaft.nextHead = Long.MAX_VALUE;
+				h.run.shaft.nextArm = Long.MAX_VALUE;
+				h.run.shaft.nextPatch = Long.MAX_VALUE;
+				// Down on the mass: blows from there are worth half as much again (30 -> 45).
+				put(p, h, 22.5, B, 6.5, 0.0F, 30.0F);
+				for (int k = 0; k < 5; k++) {
+					d[0].timeUntilRegen = 0;
+					d[0].damage(p.getDamageSources().playerAttack(p), 30.0F);
+					pain[k] = d[0].pain();
+				}
+				context.assertTrue(pain[0] > 0.17F && pain[0] < 0.19F, "a blow of 30 from the mass was not 45 pain of 255: " + pain[0]);
+				for (int k = 1; k < 5; k++) {
+					context.assertTrue(pain[k] > pain[k - 1], "pain did not keep filling");
+				}
+				context.assertTrue(!d[0].begStarted && d[0].core() == null, "it begged before its pain was full");
+				d[0].timeUntilRegen = 0;
+				d[0].damage(p.getDamageSources().playerAttack(p), 10000.0F);
+				context.assertTrue(d[0].isAlive() && d[0].pain() > 0.999F, "damage killed it, or did not fill its pain: " + d[0].pain());
+			});
+			later(context, 170, () -> {
+				io.github.kortev.chainsawman.hotel.ShaftCoreEntity core = d[0].core();
+				context.assertTrue(d[0].begStarted && d[0].begging && core != null && !core.cuttable() && h.run.beg != null, "at full pain it did not hold out its core and beg");
+				context.assertTrue(!core.damage(p.getDamageSources().playerAttack(p), 100.0F) && d[0].isAlive(), "its core was cut while the deal was on offer");
+				Hotel.answer(p, false);
+			});
+			later(context, 185, () -> {
+				io.github.kortev.chainsawman.hotel.ShaftCoreEntity core = d[0].core();
+				context.assertTrue(d[0].broken && core != null && core.cuttable(), "refused, its core could not be cut");
+				context.assertTrue(!d[0].damage(p.getDamageSources().playerAttack(p), 10000.0F) && d[0].isAlive(), "damage killed it after the beg");
+				for (int k = 0; k < 5; k++) {
+					core.damage(p.getDamageSources().playerAttack(p), 7.0F);
+				}
+				context.assertTrue(d[0].isAlive(), "five sword blows cut its core in two (40 health)");
+				core.damage(p.getDamageSources().playerAttack(p), 7.0F);
+				context.assertTrue(d[0].isDead() && !d[0].spared, "cutting its core did not kill it");
+			});
+			later(context, 300, () -> {
+				context.assertTrue(itemsOf(context, h, io.github.kortev.chainsawman.ChainsawMan.ETERNITY_FLESH) == Hotel.FLESH_DROP && itemsOf(context, h, io.github.kortev.chainsawman.ChainsawMan.ETERNITY_BLOOD) == Hotel.BLOOD_DROP, "no loot");
+				context.assertTrue(h.away && !h.run.sealed && h.shaft == null, "the hotel did not open, the devil go away and the shaft go");
+				tidy(context, h, p);
+				context.complete();
+			});
+		});
+	}
+
+	/** Accepting the deal at full pain spares it, with the core sinking back: the shaft goes the same way. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_shaft_spare", tickLimit = 900)
+	public void takingTheDealAtFullPainSparesItAndTheShaftGoes(TestContext context) {
+		HomeBlockEntity h = hotel(context, 0, 51);
+		ServerPlayerEntity p = walker(context, h, "merciful", 26.0);
+		io.github.kortev.chainsawman.hotel.EternityDevilEntity[] d = new io.github.kortev.chainsawman.hotel.EternityDevilEntity[1];
+		java.util.Map<HotelPlan.P, BlockState> before = designNow(context, h);
+		ready(context, h, () -> {
+			inTheShaft(context, h, d, () -> {
+				h.run.shaft.nextHead = Long.MAX_VALUE;
+				h.run.shaft.nextArm = Long.MAX_VALUE;
+				d[0].addPain(1000.0F);
+			});
+			later(context, 164, () -> {
+				context.assertTrue(h.run.beg != null && d[0].core() != null, "no beg and core at full pain");
+				Hotel.answer(p, true);
+			});
+			later(context, 180, () -> context.assertTrue(d[0].spared && d[0].isDead() && d[0].core() == null, "it was not spared, or its core stayed out"));
+			later(context, 280, () -> {
+				context.assertTrue(h.shaft == null && designNow(context, h).equals(before), "the shaft was not put back after the spare");
+				context.assertTrue(io.github.kortev.chainsawman.contract.Contracts.has(p, io.github.kortev.chainsawman.contract.Contract.ETERNITY), "no contract");
+				tidy(context, h, p);
+				context.complete();
+			});
+		});
+	}
+
+	/** An arm rises up the shaft, takes the player off the ledge (and hurts), and lets go on the mass; hitting it breaks you free. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_shaft_arm", tickLimit = 900)
+	public void anArmTakesAPlayerOffALedgeAndHittingItBreaksTheHold(TestContext context) {
+		HomeBlockEntity h = hotel(context, 0, 52);
+		ServerPlayerEntity p = walker(context, h, "grabbed", 26.0);
+		io.github.kortev.chainsawman.hotel.EternityDevilEntity[] d = new io.github.kortev.chainsawman.hotel.EternityDevilEntity[1];
+		io.github.kortev.chainsawman.hotel.ShaftArmEntity[] arm = new io.github.kortev.chainsawman.hotel.ShaftArmEntity[2];
+		boolean[] held = new boolean[2];
+		float[] hp = new float[1];
+		int B = io.github.kortev.chainsawman.hotel.Shaft.BASE;
+		ready(context, h, () -> {
+			inTheShaft(context, h, d, () -> {
+				h.run.shaft.nextHead = Long.MAX_VALUE;
+				h.run.shaft.nextArm = Long.MAX_VALUE;
+				h.run.shaft.nextPatch = Long.MAX_VALUE;
+				java.util.List<io.github.kortev.chainsawman.hotel.Shaft.Ledge> ledges = io.github.kortev.chainsawman.hotel.Shaft.ledges();
+				io.github.kortev.chainsawman.hotel.Shaft.place(p, h, ledges.get(ledges.size() - 3));
+				hp[0] = p.getHealth();
+				arm[0] = new io.github.kortev.chainsawman.hotel.ShaftArmEntity(io.github.kortev.chainsawman.ChainsawMan.SHAFT_ARM, context.getWorld());
+				arm[0].start(h.origin, h.rot, HotelBuilder.world(h.origin, h.rot, 19.5, B, 6.5), h.origin.getY() + B + io.github.kortev.chainsawman.hotel.Shaft.DEPTH - 1.5);
+				context.getWorld().spawnEntity(arm[0]);
+				for (int t = 1; t < 90; t++) {
+					later(context, t, () -> held[0] |= arm[0].holding());
+				}
+			});
+			later(context, 250, () -> {
+				context.assertTrue(held[0], "the arm never took the player off the ledge");
+				context.assertTrue(p.getHealth() <= hp[0] - io.github.kortev.chainsawman.hotel.ShaftArmEntity.GRAB_DAMAGE + 0.01F, "the grab did not hurt: " + hp[0] + " to " + p.getHealth());
+			});
+			later(context, 340, () -> {
+				context.assertTrue(arm[0].isRemoved() && !arm[0].holding(), "the arm did not let go on the mass and sink");
+				// Again, and this time they hit it.
+				java.util.List<io.github.kortev.chainsawman.hotel.Shaft.Ledge> ledges = io.github.kortev.chainsawman.hotel.Shaft.ledges();
+				io.github.kortev.chainsawman.hotel.Shaft.place(p, h, ledges.get(ledges.size() - 3));
+				arm[1] = new io.github.kortev.chainsawman.hotel.ShaftArmEntity(io.github.kortev.chainsawman.ChainsawMan.SHAFT_ARM, context.getWorld());
+				arm[1].start(h.origin, h.rot, HotelBuilder.world(h.origin, h.rot, 19.5, B, 6.5), h.origin.getY() + B + io.github.kortev.chainsawman.hotel.Shaft.DEPTH - 1.5);
+				context.getWorld().spawnEntity(arm[1]);
+				for (int t = 1; t < 60; t++) {
+					later(context, t, () -> {
+						if (arm[1].holding() && !held[1]) {
+							held[1] = true;
+							context.assertTrue(arm[1].damage(p.getDamageSources().playerAttack(p), 6.0F) && arm[1].holding(), "one hit let go of the player (14 health)");
+							arm[1].damage(p.getDamageSources().playerAttack(p), 6.0F);
+							arm[1].damage(p.getDamageSources().playerAttack(p), 6.0F);
+						}
+					});
+				}
+			});
+			later(context, 430, () -> {
+				context.assertTrue(held[1] && !arm[1].holding(), "hitting the arm did not break its hold");
+				tidy(context, h, p);
+				context.complete();
+			});
+		});
+	}
+
+	/** Heads come out of the mass under a player standing on it and bite. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_shaft_head", tickLimit = 700)
+	public void headsBiteWhoeverStandsOnTheMass(TestContext context) {
+		HomeBlockEntity h = hotel(context, 0, 53);
+		ServerPlayerEntity p = walker(context, h, "bitten", 26.0);
+		io.github.kortev.chainsawman.hotel.EternityDevilEntity[] d = new io.github.kortev.chainsawman.hotel.EternityDevilEntity[1];
+		float[] hp = new float[1];
+		int[] heads = new int[1];
+		int B = io.github.kortev.chainsawman.hotel.Shaft.BASE;
+		ready(context, h, () -> {
+			inTheShaft(context, h, d, () -> {
+				h.run.shaft.nextArm = Long.MAX_VALUE;
+				h.run.shaft.nextPatch = Long.MAX_VALUE;
+				put(p, h, 22.5, B, 6.5, 0.0F, 30.0F);
+				hp[0] = p.getHealth();
+				for (int t = 1; t < 120; t++) {
+					later(context, t, () -> {
+						heads[0] = Math.max(heads[0], context.getWorld().getEntitiesByType(io.github.kortev.chainsawman.ChainsawMan.SHAFT_HEAD, e -> true).size());
+					});
+				}
+			});
+			later(context, 290, () -> {
+				context.assertTrue(heads[0] > 0, "no head came out of the mass");
+				context.assertTrue(p.getHealth() <= hp[0] - io.github.kortev.chainsawman.hotel.ShaftHeadEntity.BITE_DAMAGE + 0.01F, "the heads did not bite: " + hp[0] + " to " + p.getHealth());
+				tidy(context, h, p);
+				context.complete();
+			});
+		});
+	}
+
+	/** Nobody needs Chainsaw Man: a plain player with a sword alone fills its pain, is offered the deal and refuses, and cuts the core in two (slower than the saws would). */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_shaft_sword", tickLimit = 1300)
+	public void aSwordAloneWinsTheShaftFightWithoutChainsawMan(TestContext context) {
+		HomeBlockEntity h = hotel(context, 0, 54);
+		h.run.begTicks = 60;
+		ServerPlayerEntity p = walker(context, h, "sword_alone", 26.0);
+		context.assertTrue(!io.github.kortev.chainsawman.form.Heart.has(p) && !io.github.kortev.chainsawman.form.Form.in(p), "the test player is not plain");
+		io.github.kortev.chainsawman.hotel.EternityDevilEntity[] d = new io.github.kortev.chainsawman.hotel.EternityDevilEntity[1];
+		int[] blows = new int[1];
+		int B = io.github.kortev.chainsawman.hotel.Shaft.BASE;
+		ready(context, h, () -> {
+			inTheShaft(context, h, d, () -> {
+				put(p, h, 22.5, B, 6.5, 0.0F, 30.0F);
+				// A sword (7 a blow), one blow every 11 ticks, at the devil, and at its core once it is held out: the whole fight.
+				for (int k = 0; k < 160; k++) {
+					later(context, 11 * k, () -> {
+						p.setHealth(Math.max(p.getHealth(), 1000.0F));
+						put(p, h, 22.5, B, 6.5, 0.0F, 30.0F);
+						if (d[0].isDead()) {
+							return;
+						}
+						if (d[0].begging && h.run.beg != null && !h.run.beg.answered.contains(p.getUuid())) {
+							Hotel.answer(p, false);
+						}
+						io.github.kortev.chainsawman.hotel.ShaftCoreEntity core = d[0].core();
+						if (d[0].begStarted) {
+							if (core != null && core.cuttable()) {
+								blows[0]++;
+								core.damage(p.getDamageSources().playerAttack(p), 7.0F);
+							}
+						} else {
+							blows[0]++;
+							d[0].timeUntilRegen = 0;
+							d[0].damage(p.getDamageSources().playerAttack(p), 7.0F);
+						}
+					});
+				}
+			});
+			later(context, 900, () -> {
+				context.assertTrue(d[0].isDead() && !d[0].spared, "a sword alone did not win the fight in " + blows[0] + " blows (pain " + d[0].pain() + ")");
+				context.assertTrue(blows[0] >= 20 && blows[0] < 140, "the fight took " + blows[0] + " blows of a sword");
+				context.assertTrue(itemsOf(context, h, io.github.kortev.chainsawman.ChainsawMan.ETERNITY_FLESH) == Hotel.FLESH_DROP, "no loot");
+				context.assertTrue(!io.github.kortev.chainsawman.form.Heart.has(p) && !io.github.kortev.chainsawman.form.Form.in(p) && h.shaft == null, "Chainsaw Man was needed, or the shaft stayed");
+				tidy(context, h, p);
 				context.complete();
 			});
 		});

@@ -1,0 +1,114 @@
+{
+  "vertex": "chainsawman:csm_flesh",
+  "fragment": "chainsawman:csm_flesh",
+  "samplers": [],
+  "uniforms": [
+    {
+      "name": "ModelViewMat",
+      "type": "matrix4x4",
+      "count": 16,
+      "values": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "name": "ProjMat",
+      "type": "matrix4x4",
+      "count": 16,
+      "values": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "name": "Tint",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "GlowPos",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "GlowCol",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "RimCol",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        0.36,
+        0.14
+      ]
+    },
+    {
+      "name": "RimAmt",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0.8
+      ]
+    },
+    {
+      "name": "Clip",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        1
+      ]
+    }
+  ]
+}
