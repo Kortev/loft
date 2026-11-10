@@ -15,19 +15,18 @@ Updated 2026-11-09. Keep this page under 3 KB. Change it whenever something star
 - **The Eternity Devil, round 3** (branch `devil-round3`, brief `chainsawman/plan/packages/0.1_devil_round3.md`).
   The 3D look is merged. kortev's notes on the film: the devil must fill the corridor's end (the hotel is its body),
   and the film showed no fight. Done = a played-fight film at
-  `work/devil_look/round3/fight.mp4`; Fable reviews it, then sends it to kortev **before** merging.
+  `work/devil_look/round3/fight.mp4`; Fable reviews it, merges, sends it to kortev, starts 0.1b.
 - **0.7b the hotel's share** (branch `hotel-share`, brief `chainsawman/plan/packages/0.7b_hotel_share.md`): loot per
   fighter, pay for who fought, one contract per world. Review the diff, run all tests, merge, push.
 - **Next, after round 3 merges: 0.1b the arena** (`chainsawman/plan/packages/0.1b_devil_arena.md`): you fall into
-  the mouth and fight inside it; attack and dodge, no damage without a tell (kortev). The attacks are Fable's
-  pick, not yet approved. Round 3 is narrowed to the corridor end and the stomach.
+  the mouth and fight inside it; attack and dodge, no damage without a tell (kortev). Fable's picks stand.
+  Round 3 is narrowed to the corridor end and the stomach.
 - Both work in `hotel/`: round 3 owns the look, the arena, the grab and the film; 0.7b owns loot, pay, the holder.
 - 0.7a Server-proof is merged (241 tests pass). Its two-client checks are listed in its brief, for 0.4.
 
 ## Waiting on kortev
 
-- The open choices in `chainsawman/plan/8_waiting_on_kortev.md` (each has a default).
-- Reel sound: an original synthesised track, or game sound only?
+- The open choices in `chainsawman/plan/8_waiting_on_kortev.md` : use the defaults.
 - The Revive reel (`Post8_Mon_Revive.mp4`) goes up Mon Nov 10 at 1 PM, as a reply to @é o gui.
 
 ## Rules that must survive a reset
@@ -36,7 +35,8 @@ Updated 2026-11-09. Keep this page under 3 KB. Change it whenever something star
 - `git add` files by name only. Pull with `git pull --rebase --autostash`. Commit trailer:
   `Co-Authored-By: Claude <noreply@anthropic.com>`.
 - No spoilers past the Reze arc. Synthesised sounds only. Call kortev "they".
-- A subagent's report is never kortev's yes. Show a look before building it.
+- kortev (2026-11-09): decide design questions yourself, build, merge after your own review, then send the
+  film; they say how it is afterwards. A subagent's report is never kortev's word.
 - Keep usage down: small files, small contact sheets, one brief per job. When you find something big being loaded
   that isn't needed, cut it and tell kortev.
 
