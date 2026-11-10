@@ -12,14 +12,16 @@ Updated 2026-11-09. Keep this page under 3 KB. Change it whenever something star
 
 ## Running
 
-- **3.4 the Tomato Devil** (branch `tomato-devil`, brief `chainsawman/plan/packages/3.4_tomato_devil.md`): the
-  first devil with a body, walks on eight jointed arms, burn its seeds or it comes back; also opens the `devil/`
-  lane (0.6). Done = a played film at `work/tomato/fight.mp4`; Fable reviews, merges, sends it to kortev.
-- **The Eternity Devil is parked** (kortev, 2026-11-10: "do the other stuff too and do a big pass"). The arena
-  (0.1b) is merged, 261 tests; not very fun yet. kortev named the arm animations. The pass:
-  `chainsawman/plan/packages/0.1c_devil_big_pass.md`.
-- Flaky in full runs, pass alone: `each_fighter_gets_the_whole_drop`, two form tests.
-- Merged earlier: round 3, 0.7a, 0.7b (two-client checks in their briefs, for 0.4). Later: 0.4, 0.2, 2.1.
+- Nothing is building. **3.4 the Tomato Devil merged 2026-11-10** (274 tests pass): walks on eight jointed arms,
+  slap, roll and seed spit with tells, bursts into seeds, burn them or it comes back; the `devil/` lane exists
+  (0.6 done). kortev has the film (`work/tomato/fight.mp4`); their notes are the next round. Known weak: too easy
+  at melee (about 15 s with a sword), flat red body, cluttered burst (brief, "What was built").
+- **The Eternity Devil is parked** for a big pass, arm animations first
+  (`chainsawman/plan/packages/0.1c_devil_big_pass.md`).
+- New plan pages (kortev, 2026-11-10): `plan/4e_what_you_play.md` (fiends are playable) and `plan/4f_scaling.md`
+  (devil tiers, power 1-5). Fable's picks until kortev says otherwise.
+- Flaky in full runs, pass alone: `each_fighter_gets_the_whole_drop`, two form tests, a Beam missile test.
+- Later: 2.10 power and tiers, 0.4 the server check, 0.2 review clips, 2.1 the licence screen.
 
 ## Waiting on kortev
 
