@@ -666,17 +666,23 @@ public class HotelSelfTest implements ClientModInitializer {
 		s.slow = 0.8;
 		s.start = () -> keys(false, false);
 		s.each = t -> {
-			for (Entity e : mc().world.getEntities()) {
-				if (e instanceof net.minecraft.entity.ItemEntity item && t > 6
-						&& (item.getStack().getItem() == io.github.kortev.chainsawman.ChainsawMan.ETERNITY_FLESH || item.getStack().getItem() == io.github.kortev.chainsawman.ChainsawMan.ETERNITY_BLOOD)) {
-					endShot = true;
-				}
+			// (Its loot goes into the pack of whoever fought it, once it has collapsed: the shot ends when it is there.)
+			if (t > 6 && mc().player.getInventory().count(io.github.kortev.chainsawman.ChainsawMan.ETERNITY_FLESH) > 0) {
+				endShot = true;
 			}
 		};
 		s.cam = cam(26.2, floorY(7) + 1.25, 7.7, 33.4, floorY(7) + 1.6, 6.2);
-		// The loot, low and close.
+		// The loot, in the pack: the inventory open on it.
 		s = shot("loot", 44);
-		s.start = () -> keys(false, false);
+		s.start = () -> {
+			keys(false, false);
+			mc().setScreen(new net.minecraft.client.gui.screen.ingame.InventoryScreen(mc().player));
+		};
+		s.each = t -> {
+			if (t >= 42 && mc().currentScreen instanceof net.minecraft.client.gui.screen.ingame.InventoryScreen) {
+				mc().setScreen(null);
+			}
+		};
 		s.cam = cam(30.5, floorY(7) + 0.95, 7.4, 31.7, floorY(7) + 0.25, 6.4);
 		// The lights dying, along the corridor.
 		s = shot("lights", 56);
@@ -1380,7 +1386,7 @@ public class HotelSelfTest implements ClientModInitializer {
 		sBuilt = h.run.shaft.built;
 		sTiltAge = h.run.shaft.tiltAt >= 0 ? w.getTime() - h.run.shaft.tiltAt : -1;
 		ServerPlayerEntity you = you(is);
-		sSwallowed = io.github.kortev.chainsawman.hotel.Shaft.swallowed(h, you);
+		sSwallowed = false;
 		sBegging = d != null && d.begging;
 		sCore = d != null && d.core() != null;
 		sCuttable = d != null && d.core() != null && d.core().cuttable();
@@ -1534,7 +1540,7 @@ public class HotelSelfTest implements ClientModInitializer {
 				forward = false;
 				if (shaftTopDone && shaftSub % 6 == 0 && shaftSub < 60 && (shaftSub < 30 || shaftSub > 52)) {
 					// (The doorway's lip is half over the shaft: kept on the ledge, or a nudge drops you down it.)
-					onServer(server, w -> io.github.kortev.chainsawman.hotel.Shaft.place(you(server), home(server), io.github.kortev.chainsawman.hotel.Shaft.lowLedges().get(0)));
+					onServer(server, w -> io.github.kortev.chainsawman.hotel.Shaft.place(you(server), home(server), io.github.kortev.chainsawman.hotel.Shaft.ledges().get(0)));
 				}
 				// The shaft: first the top of it (the establishing shot), then the flash, the ledge, the look straight down it.
 				if (!shaftTopDone) {
@@ -1547,7 +1553,7 @@ public class HotelSelfTest implements ClientModInitializer {
 						still(client, "c0_top_of_shaft");
 						ShootingStar.LOGGER.info("[selftest] shaft cost (top of the shaft): {}", io.github.kortev.chainsawman.client.FleshMesh.costReport());
 					} else if (shaftSub == 30) {
-						onServer(server, w -> io.github.kortev.chainsawman.hotel.Shaft.place(you(server), home(server), io.github.kortev.chainsawman.hotel.Shaft.lowLedges().get(0)));
+						onServer(server, w -> io.github.kortev.chainsawman.hotel.Shaft.place(you(server), home(server), io.github.kortev.chainsawman.hotel.Shaft.ledges().get(0)));
 						wantYaw = Float.NaN;
 						shaftTopDone = true;
 						shaftSub = 0;
@@ -1580,9 +1586,9 @@ public class HotelSelfTest implements ClientModInitializer {
 						// (The arm that takes you down: sent now, up the shaft to your ledge.)
 						onServer(server, w -> {
 							HomeBlockEntity h = home(server);
-							h.run.shaft.nextHead = Long.MAX_VALUE;
+							h.run.shaft.nextAttack = Long.MAX_VALUE;
 							h.run.shaft.nextPatch = Long.MAX_VALUE;
-							h.run.shaft.nextArm = Long.MAX_VALUE;
+							h.run.shaft.nextAttack = Long.MAX_VALUE;
 							io.github.kortev.chainsawman.hotel.ShaftArmEntity arm = new io.github.kortev.chainsawman.hotel.ShaftArmEntity(io.github.kortev.chainsawman.ChainsawMan.SHAFT_ARM, w);
 							arm.start(h.origin, h.rot, HotelBuilder.world(h.origin, h.rot, 19.5, base, 6.5), h.origin.getY() + base + io.github.kortev.chainsawman.hotel.Shaft.DEPTH - 1.5);
 							w.spawnEntity(arm);
@@ -1597,7 +1603,7 @@ public class HotelSelfTest implements ClientModInitializer {
 			case 4 -> {
 				// The arm rises; it takes you; it pulls you down.
 				if (!sHeld && shaftSub % 6 == 0 && sLocalY > base + 4.0) {
-					onServer(server, w -> io.github.kortev.chainsawman.hotel.Shaft.place(you(server), home(server), io.github.kortev.chainsawman.hotel.Shaft.lowLedges().get(0)));
+					onServer(server, w -> io.github.kortev.chainsawman.hotel.Shaft.place(you(server), home(server), io.github.kortev.chainsawman.hotel.Shaft.ledges().get(0)));
 				}
 				boolean rising = sArm && !sHeld && sTipHeight > sLocalY - 8.0 && sTipHeight < sLocalY - 1.0;
 				if (rising && !armStill[0]) {
@@ -1620,7 +1626,7 @@ public class HotelSelfTest implements ClientModInitializer {
 				if (shaftSub == 2) {
 					onServer(server, w -> {
 						HomeBlockEntity h = home(server);
-						h.run.shaft.nextHead = w.getTime() + 25;
+						h.run.shaft.nextAttack = w.getTime() + 25;
 					});
 				}
 				if (shaftSub < 30) {
@@ -1633,9 +1639,9 @@ public class HotelSelfTest implements ClientModInitializer {
 				if (shaftSub == 40) {
 					onServer(server, w -> {
 						HomeBlockEntity h = home(server);
-						h.run.shaft.nextHead = Long.MAX_VALUE;
+						h.run.shaft.nextAttack = Long.MAX_VALUE;
 						h.run.shaft.nextPatch = Long.MAX_VALUE;
-						h.run.shaft.nextArm = Long.MAX_VALUE;
+						h.run.shaft.nextAttack = Long.MAX_VALUE;
 					});
 					put(server, 19.5, base - 3.0, 6.5, 90.0F);
 					wantYaw = Float.NaN;

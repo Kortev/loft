@@ -213,6 +213,10 @@ public final class Saw {
 		}
 		// The Eternity Devil's arms, heads and core are not living things: cut them too (the slash looked only for living ones).
 		int parts = io.github.kortev.chainsawman.hotel.Shaft.cutParts(player, SLASH_REACH, finisher ? FINISHER_WIDTH : SLASH_WIDTH, damage, aimed);
+		if (hit.isEmpty() && parts == 0) {
+			// Inside the Eternity Devil the walls are its flesh: a slash into them cuts it.
+			parts = io.github.kortev.chainsawman.hotel.Shaft.cutAhead(player, SLASH_REACH + 0.5, damage);
+		}
 		// Everyone else hears it; the slasher's own game played it already, as they clicked (ClientCombat).
 		player.getServerWorld().playSound(player, player.getX(), player.getY() + 1.0, player.getZ(), ChainsawSounds.SLASH, SoundCategory.PLAYERS, 1.0F,
 				1.0F);
@@ -451,7 +455,9 @@ public final class Saw {
 					target.velocityModified = true;
 					bleed(player.getServerWorld(), target, 8);
 				}
-				if (!hit.isEmpty()) {
+				// (Ground into the Eternity Devil's walls from inside it: its flesh.)
+				boolean wall = hit.isEmpty() && io.github.kortev.chainsawman.hotel.Shaft.cutAhead(player, GRIND_REACH, GRIND_DAMAGE * Frenzy.damage(player) * Limbs.damage(player)) > 0;
+				if (!hit.isEmpty() || wall) {
 					Blood.add(player, Blood.BITE);
 					Limbs.drank(player, Blood.BITE);
 					bites++;
@@ -465,11 +471,6 @@ public final class Saw {
 		}
 	}
 
-	/**
-	 * The living things in front of {@code player}, within {@code reach} of their eyes and inside the cone whose half
-	 * angle's cosine is {@code width}, that they can see: not themselves, nobody downed, no spectator, no armour stand
-	 * (there is no blood in one to drink).
-	 */
 	/** Nothing solid between the eye and the point (stopping just short of it, where it meets the thing's own surface). */
 	private static boolean clear(ServerPlayerEntity player, Vec3d eye, Vec3d point) {
 		Vec3d to = point.subtract(eye);
@@ -482,6 +483,11 @@ public final class Saw {
 				net.minecraft.world.RaycastContext.FluidHandling.NONE, player)).getType() == net.minecraft.util.hit.HitResult.Type.MISS;
 	}
 
+	/**
+	 * The living things in front of {@code player}, within {@code reach} of their eyes and inside the cone whose half
+	 * angle's cosine is {@code width}, that they can see: not themselves, nobody downed, no spectator, no armour stand
+	 * (there is no blood in one to drink).
+	 */
 	public static List<LivingEntity> inFront(ServerPlayerEntity player, double reach, double width) {
 		Vec3d eye = player.getEyePos();
 		Vec3d look = player.getRotationVec(1.0F);

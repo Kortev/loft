@@ -76,6 +76,32 @@ public final class Fighter {
 		return false;
 	}
 
+	/**
+	 * Move toward a world point without turning the head (the keys that take you there from where the head faces: forward, back, sideways, or
+	 * two at once), running if it is ahead; true once within {@code within} blocks (across the ground). The head can watch something else.
+	 */
+	public boolean strafeTo(MinecraftClient c, Vec3d at, double within, boolean sprint) {
+		Vec3d p = c.player.getPos();
+		double dx = at.x - p.x;
+		double dz = at.z - p.z;
+		fwd = false;
+		back = false;
+		left = false;
+		right = false;
+		run = false;
+		if (Math.hypot(dx, dz) <= within) {
+			return true;
+		}
+		float face = Float.isNaN(yaw) ? c.player.getYaw() : yaw;
+		float rel = MathHelper.wrapDegrees((float) Math.toDegrees(Math.atan2(-dx, dz)) - face);
+		fwd = Math.abs(rel) < 67.5F;
+		back = Math.abs(rel) > 112.5F;
+		left = rel < -22.5F && rel > -157.5F;
+		right = rel > 22.5F && rel < 157.5F;
+		run = sprint && Math.abs(rel) < 35.0F;
+		return false;
+	}
+
 	/** Keep walking forward the way the head faces (or stop). */
 	public void walk(boolean on, boolean sprint) {
 		fwd = on;
