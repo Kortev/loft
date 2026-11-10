@@ -102,6 +102,7 @@ public class ShaftHeadEntity extends Entity {
 			this.discard();
 			return true;
 		}
+		Hotel.fought(Hotel.at(world, origin), source);
 		health -= amount;
 		world.playSound(null, this.getX(), this.getY() + 1.0, this.getZ(), ChainsawSounds.DEVIL_HURT, SoundCategory.HOSTILE, 0.8F, 1.4F);
 		world.spawnParticles(ParticleTypes.DAMAGE_INDICATOR, this.getX(), this.getY() + 1.2, this.getZ(), 3, 0.3, 0.3, 0.3, 0.1);

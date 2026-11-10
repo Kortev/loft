@@ -107,6 +107,9 @@ public class ShaftCoreEntity extends Entity {
 			world.spawnParticles(ParticleTypes.POOF, this.getX(), this.getY() + 0.8, this.getZ(), 4, 0.5, 0.3, 0.5, 0.01);
 			return false;
 		}
+		if (devil != null && world.getEntity(devil) instanceof EternityDevilEntity d) {
+			Hotel.fought(world, d, source);
+		}
 		health -= amount;
 		world.playSound(null, this.getX(), this.getY() + 0.8, this.getZ(), ChainsawSounds.DEVIL_HURT, SoundCategory.HOSTILE, 1.0F, 1.3F);
 		world.spawnParticles(ParticleTypes.DAMAGE_INDICATOR, this.getX(), this.getY() + 0.8, this.getZ(), 3, 0.4, 0.3, 0.4, 0.1);

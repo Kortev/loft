@@ -25,6 +25,7 @@ public class HomeBlockEntity extends BlockEntity {
 	public long awayUntilDay;
 	/** The same, in game ticks (which only go forward: a changed clock does not move it); 0 if it was saved before this was kept (then the day above is used). */
 	public long awayUntilTick;
+	/** Who held its contract, from a hotel saved before the holder was kept for the whole world ({@link HotelLedger}): moved there at its first tick. */
 	public UUID holder;
 	/** The arena torn open for the fight (what was there, to put back), or null: kept with the hotel so a restart in the middle of a fight still mends it ({@link Arena}). */
 	public NbtCompound arena;

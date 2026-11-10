@@ -102,6 +102,10 @@ public final class Hotel {
 		public final Set<UUID> fogLifted = new HashSet<>();
 		/** The tick the devil died, while the lights die after it; -1 when not. */
 		public long dyingAt = -1;
+		/** Who fought this fight: the players whose damage landed on the devil, its core, a shaft head or a shaft arm (or whose tamed animal's did). */
+		public final Set<UUID> fought = new HashSet<>();
+		/** Who fought when the devil died, owed its loot when it has collapsed (null when there is none to give). */
+		public Set<UUID> lootFor;
 
 		public boolean fighting() {
 			return fight;
@@ -147,6 +151,14 @@ public final class Hotel {
 	public static void tick(ServerWorld world, HomeBlockEntity h) {
 		Run r = h.run;
 		long now = world.getTime();
+		if (h.holder != null) {
+			// (Saved before the holder was kept for the whole world: it goes there, if nobody holds it there yet.)
+			if (holder(world) == null) {
+				HotelLedger.setHolder(world.getServer(), Contract.ETERNITY.id, h.holder);
+			}
+			h.holder = null;
+			h.markDirty();
+		}
 		if (!loaded(world, h)) {
 			return;
 		}
@@ -244,6 +256,7 @@ public final class Hotel {
 		Run r = h.run;
 		r.laps.clear();
 		r.top.clear();
+		r.fought.clear();
 		if (r.sealed) {
 			open(world, h);
 		}
@@ -413,6 +426,42 @@ public final class Hotel {
 			}
 			return net.minecraft.util.ActionResult.PASS;
 		});
+		// A shaft arm hit in melee: the one who hit it fought.
+		net.fabricmc.fabric.api.event.player.AttackEntityCallback.EVENT.register((player, world, hand, entity, hit) -> {
+			if (world instanceof ServerWorld sw && entity instanceof ShaftArmEntity arm) {
+				fought(at(sw, arm.origin), sw.getDamageSources().playerAttack(player));
+			}
+			return net.minecraft.util.ActionResult.PASS;
+		});
+		net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents.END_SERVER_TICK.register(HotelLedger::tick);
+	}
+
+	/** The hotel whose origin is {@code origin}, if it is loaded. */
+	static HomeBlockEntity at(ServerWorld world, BlockPos origin) {
+		for (HomeBlockEntity h : HomeBlockEntity.LOADED) {
+			if (h.getWorld() == world && h.origin.equals(origin)) {
+				return h;
+			}
+		}
+		return null;
+	}
+
+	/** A blow landed on the devil, its core, a shaft head or a shaft arm: the player who struck it (or whose tamed animal did) fought. */
+	public static void fought(HomeBlockEntity h, net.minecraft.entity.damage.DamageSource source) {
+		net.minecraft.entity.Entity by = source.getAttacker();
+		if (by instanceof net.minecraft.entity.Tameable pet && pet.getOwner() != null) {
+			by = pet.getOwner();
+		}
+		if (h != null && by instanceof ServerPlayerEntity p) {
+			h.run.fought.add(p.getUuid());
+		}
+	}
+
+	/** The same, for the devil itself. */
+	public static void fought(ServerWorld world, EternityDevilEntity devil, net.minecraft.entity.damage.DamageSource source) {
+		if (world.getBlockEntity(devil.homePos) instanceof HomeBlockEntity h) {
+			fought(h, source);
+		}
 	}
 
 	// ---- The loop.
@@ -724,7 +773,7 @@ public final class Hotel {
 				speak(world, Set.of(id), "message.chainsawman.devil.refused", 40, 0);
 				return;
 			}
-			if (world.getGameRules().getBoolean(HotelRules.ONE_CONTRACT_PER_DEVIL) && h.holder != null && !h.holder.equals(id) && holderStillHolds(world, h)) {
+			if (world.getGameRules().getBoolean(HotelRules.ONE_CONTRACT_PER_DEVIL) && heldByAnother(world, h, id)) {
 				// Another player holds it already (they answered first): it is not given twice.
 				speak(world, Set.of(id), "message.chainsawman.devil.held", 90, 0);
 				return;
@@ -750,8 +799,7 @@ public final class Hotel {
 	/** The contract is theirs: the hotel knows who holds it. */
 	private static void sealed(ServerWorld world, HomeBlockEntity h, Beg b, ServerPlayerEntity player) {
 		b.accepted.add(player.getUuid());
-		h.holder = player.getUuid();
-		h.markDirty();
+		HotelLedger.setHolder(world.getServer(), Contract.ETERNITY.id, player.getUuid());
 		world.playSound(null, player.getX(), player.getY(), player.getZ(), ChainsawSounds.HOTEL_SEAL, SoundCategory.HOSTILE, 1.5F, 1.0F);
 	}
 
@@ -767,7 +815,7 @@ public final class Hotel {
 				return;
 			}
 			// (While they chose, another may have taken the one contract this devil gives: it is not given twice.)
-			if (world.getGameRules().getBoolean(HotelRules.ONE_CONTRACT_PER_DEVIL) && h.holder != null && !h.holder.equals(player.getUuid()) && holderStillHolds(world, h)) {
+			if (world.getGameRules().getBoolean(HotelRules.ONE_CONTRACT_PER_DEVIL) && heldByAnother(world, h, player.getUuid())) {
 				speak(world, Set.of(player.getUuid()), "message.chainsawman.devil.held", 90, 0);
 				return;
 			}
@@ -785,20 +833,31 @@ public final class Hotel {
 		}
 	}
 
-	/** Whether the player who holds this hotel's contract still holds it (one who is away is taken to). */
+	/** Who holds the Eternity Devil's contract in this world (whichever hotel gave it), or null. */
+	public static UUID holder(ServerWorld world) {
+		return HotelLedger.holder(world.getServer(), Contract.ETERNITY.id);
+	}
+
+	/** Whether someone other than {@code id} holds this devil's contract (and still does). */
+	private static boolean heldByAnother(ServerWorld world, HomeBlockEntity h, UUID id) {
+		UUID held = holder(world);
+		return held != null && !held.equals(id) && holderStillHolds(world, h);
+	}
+
+	/** Whether the player who holds this devil's contract still holds it (one who is away is taken to). The holder is the world's, not the hotel's. */
 	public static boolean holderStillHolds(ServerWorld world, HomeBlockEntity h) {
-		if (h.holder == null) {
+		UUID held = holder(world);
+		if (held == null) {
 			return false;
 		}
-		ServerPlayerEntity p = world.getServer().getPlayerManager().getPlayer(h.holder);
+		ServerPlayerEntity p = world.getServer().getPlayerManager().getPlayer(held);
 		if (p == null) {
 			return true;
 		}
 		if (Contracts.has(p, Contract.ETERNITY)) {
 			return true;
 		}
-		h.holder = null;
-		h.markDirty();
+		HotelLedger.setHolder(world.getServer(), Contract.ETERNITY.id, null);
 		return false;
 	}
 
@@ -849,6 +908,8 @@ public final class Hotel {
 		r.bleedFrom = at;
 		r.bleedShown = 0.0F;
 		r.emptySince = at;
+		r.fought.clear();
+		r.lootFor = null;
 		r.shaft.reset();
 		for (UUID id : new ArrayList<>(r.fogged)) {
 			fog(world, id, 0.0F);
@@ -948,6 +1009,8 @@ public final class Hotel {
 		}
 		r.laps.clear();
 		r.dyingAt = now;
+		// (Who fought is who is owed its loot when it has collapsed.)
+		r.lootFor = new HashSet<>(r.fought);
 		sendAway(world, h);
 		Squad.leave(world, h);
 		open(world, h);
@@ -981,8 +1044,23 @@ public final class Hotel {
 		}
 	}
 
-	/** Its loot, on the floor where it stood, when it has collapsed. */
+	/**
+	 * Its loot, when it has collapsed: the whole drop for each who fought it, into their pack (when they are in the game, alive and up to
+	 * take it: {@link HotelLedger}); if nobody did (a /kill), on the floor where it stood.
+	 */
 	public static void dropLoot(ServerWorld world, EternityDevilEntity devil) {
+		Set<UUID> to = null;
+		if (world.getBlockEntity(devil.homePos) instanceof HomeBlockEntity h) {
+			to = h.run.lootFor;
+			h.run.lootFor = null;
+		}
+		if (to != null && !to.isEmpty()) {
+			for (UUID id : to) {
+				HotelLedger.owe(world.getServer(), id, List.of(new ItemStack(ChainsawMan.ETERNITY_FLESH, FLESH_DROP), new ItemStack(ChainsawMan.ETERNITY_BLOOD, BLOOD_DROP)), 0,
+						"message.chainsawman.hotel.loot", -1);
+			}
+			return;
+		}
 		Vec3d at = devil.shaft() ? HotelBuilder.world(devil.origin, devil.rot, 22.0, Shaft.BASE + 0.5, 6.5)
 				: devil.getPos().add(HotelBuilder.world(BlockPos.ORIGIN, devil.rot, -(EternityDevilEntity.BULK + 1.2), 0.2, 0.0));
 		drop(world, at, new ItemStack(ChainsawMan.ETERNITY_FLESH, FLESH_DROP));

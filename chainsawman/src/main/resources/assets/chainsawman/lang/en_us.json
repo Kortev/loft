@@ -134,6 +134,7 @@
   "message.chainsawman.squad.up": "%s is on his feet again.",
   "message.chainsawman.squad.calm": "%s stops. He is shaking. He follows you.",
   "message.chainsawman.squad.thanks": "The squad is out. Public Safety will remember it (%s saved).",
+  "message.chainsawman.hotel.loot": "The devil's flesh and blood are in your pack.",
   "entity.chainsawman.flesh_patch": "Eternity flesh",
   "message.chainsawman.blood_full": "Your blood is full.",
   "message.chainsawman.hotel.sealed": "The doors close behind you. Nobody comes in. Nobody leaves.",
