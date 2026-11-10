@@ -11,8 +11,8 @@ Updated 2026-11-09. Keep this page under 3 KB. Change it whenever something star
 
 ## Running
 
-- **The Eternity Devil's 3D look**, fix round 1: branch `devil-look` (worktree `.claude/worktrees/devil-look`),
-  brief `work/briefs/eternity_devil_3d_fix1.md`. Not merged, not pushed. Fable reviews
+- **The Eternity Devil's 3D look**, fix round 2 (round 1 landed the black mouth and grey flesh): branch `devil-look` (worktree `.claude/worktrees/devil-look`),
+  brief `work/briefs/eternity_devil_3d_fix2.md`. Not merged, not pushed. Fable reviews
   `work/devil_look/compare_small.jpg` against `work/eternity_look_v9/shaft_pass3.png`. If it matches: send the film
   to kortev, merge into `claude/chainsaw-man`, push, list what to test.
 - **0.7a Server-proof what's built** (no hotel code): branch `server-proof`, brief
