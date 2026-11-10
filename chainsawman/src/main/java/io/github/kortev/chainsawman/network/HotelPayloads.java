@@ -94,10 +94,13 @@ public final class HotelPayloads {
 		public static final byte REGEN = 4;
 		public static final byte DYING = 5;
 		public static final byte BEG = 6;
-		/** To one player: the floor turns (ticks: how long), the shaft is there (ticks 1; 0: it did not come), swallowed by the mouth (ticks 1) or let out (0). */
+		/** To one player: the floor turns (ticks: how long), the shaft is there (ticks 1; 0: it did not come). */
 		public static final byte TILT = 7;
 		public static final byte SHAFT = 8;
-		public static final byte SWALLOW = 9;
+		/** In the arena: a cut's lit wound at the point (ticks: the face it is on, the {@code Direction} id, plus 8 when the flesh was soft). */
+		public static final byte WOUND = 10;
+		/** In the arena: half the room squeezes (ticks: which half, 0 the low-x end, 1 the high-x end); it bulges for {@code Shaft.SQUEEZE_TELL} first. */
+		public static final byte SQUEEZE = 11;
 		public static final CustomPayload.Id<Devil> ID = new CustomPayload.Id<>(ChainsawMan.id("devil_event"));
 		public static final PacketCodec<RegistryByteBuf, Devil> CODEC = PacketCodec.tuple(PacketCodecs.VAR_INT, Devil::devil, PacketCodecs.BYTE, Devil::kind,
 				PacketCodecs.FLOAT, Devil::x, PacketCodecs.FLOAT, Devil::y, PacketCodecs.FLOAT, Devil::z, PacketCodecs.VAR_INT, Devil::ticks, Devil::new);

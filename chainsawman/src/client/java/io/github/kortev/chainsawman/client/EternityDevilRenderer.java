@@ -202,11 +202,8 @@ public class EternityDevilRenderer extends EntityRenderer<EternityDevilEntity> {
 			return;
 		}
 		if (devil.shaft()) {
-			// At the bottom of the shaft the floor is blocks; only its mouth is drawn.
-			matrices.push();
-			matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-devil.facing()));
-			ShaftMassRenderer.render(devil, delta, matrices, provider, light);
-			matrices.pop();
+			// At the bottom of the shaft it is the arena: its flesh is blocks, lit and moved by the arena's own drawing (and its mouth above).
+			ArenaRenderer.render(devil, delta, matrices, provider, light);
 			return;
 		}
 		Ctx c = new Ctx();

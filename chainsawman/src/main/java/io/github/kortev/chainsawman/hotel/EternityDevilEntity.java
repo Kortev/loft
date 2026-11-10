@@ -82,13 +82,13 @@ public class EternityDevilEntity extends MobEntity {
 	private static final TrackedData<Boolean> HEART = DataTracker.registerData(EternityDevilEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
 	private static final TrackedData<Float> FACING = DataTracker.registerData(EternityDevilEntity.class, TrackedDataHandlerRegistry.FLOAT);
 	private static final TrackedData<Integer> BORN = DataTracker.registerData(EternityDevilEntity.class, TrackedDataHandlerRegistry.INTEGER);
-	/** In the shaft: it fills the bottom of it (see {@link Shaft}), its hitbox the floor of the mass and the pit in it. */
+	/**
+	 * In the shaft: it is the arena everyone falls into (see {@link Shaft}). Its own box is a small one sunk in the arena's floor, out of reach:
+	 * what is cut is its flesh (the walls, the growths: {@link Shaft#cutBlock}) and its parts, and all of it is pain ({@link #arenaPain}).
+	 */
 	private static final TrackedData<Boolean> SHAFT = DataTracker.registerData(EternityDevilEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
-	/** Its hitbox in the shaft, in the devil's own frame: across from its middle, how far out from its back plane, and how high from the pit's bottom. */
-	public static final double SHAFT_LEFT = -4.5;
-	public static final double SHAFT_RIGHT = 4.5;
-	public static final double SHAFT_DEPTH = 9.0;
-	public static final float SHAFT_HEIGHT = 5.0F;
+	/** It has said its heart is not here (once a fight, at the first cut that lands). */
+	private boolean saidNoHeart;
 
 	/** The boss bar shows its pain filling (it cannot be killed by damage, only made to give up). */
 	private final ServerBossBar bossBar = new ServerBossBar(Text.translatable("bar.chainsawman.eternity_devil"), BossBar.Color.PURPLE, BossBar.Style.NOTCHED_10);
@@ -258,8 +258,12 @@ public class EternityDevilEntity extends MobEntity {
 		double minZ = Double.MAX_VALUE;
 		double maxZ = -Double.MAX_VALUE;
 		boolean shaft = this.dataTracker.get(SHAFT);
-		for (double fx : shaft ? new double[] {SHAFT_LEFT, SHAFT_RIGHT} : new double[] {BOX_LEFT, BOX_RIGHT}) {
-			for (double fz : new double[] {0.0, shaft ? SHAFT_DEPTH : BULK}) {
+		if (shaft) {
+			Vec3d at = this.getPos();
+			return new net.minecraft.util.math.Box(at.x - 0.5, at.y, at.z - 0.5, at.x + 0.5, at.y + 1.0, at.z + 0.5);
+		}
+		for (double fx : new double[] {BOX_LEFT, BOX_RIGHT}) {
+			for (double fz : new double[] {0.0, BULK}) {
 				// (the same turn the renderer gives its frame: x across, z toward the players)
 				double wx = fx * c - fz * s;
 				double wz = fx * s + fz * c;
@@ -270,7 +274,7 @@ public class EternityDevilEntity extends MobEntity {
 			}
 		}
 		Vec3d p = this.getPos();
-		return new net.minecraft.util.math.Box(p.x + minX, p.y, p.z + minZ, p.x + maxX, p.y + (shaft ? SHAFT_HEIGHT : HEIGHT), p.z + maxZ);
+		return new net.minecraft.util.math.Box(p.x + minX, p.y, p.z + minZ, p.x + maxX, p.y + HEIGHT, p.z + maxZ);
 	}
 
 	@Override
@@ -288,7 +292,7 @@ public class EternityDevilEntity extends MobEntity {
 
 	@Override
 	public boolean isCollidable() {
-		// (In the shaft the players stand and fight inside its box.)
+		// (In the shaft its box is sunk in the floor.)
 		return !shaft();
 	}
 
@@ -333,10 +337,12 @@ public class EternityDevilEntity extends MobEntity {
 		if (this.growing() && !kill) {
 			return false;
 		}
-		// Swallowed, hitting the inside of its mouth: that cuts you out ({@link Shaft#cutHit}), and is not pain.
-		if (!kill && this.shaft() && source.getAttacker() instanceof ServerPlayerEntity cutter && this.getWorld() instanceof ServerWorld sw
-				&& Shaft.cutHit(sw, this, cutter, amount)) {
-			Hotel.fought(sw, this, source);
+		// In the arena a blow on it is a cut in its flesh: pain on the arena's longer bar ({@link #arenaPain}).
+		if (!kill && this.shaft()) {
+			if (this.begStarted) {
+				return false;
+			}
+			arenaPain(amount, P_MASS, source.getAttacker());
 			return true;
 		}
 		// While it begs it cannot be hurt, and once it has begged damage does not kill it: the core is cut (see cutCore).
@@ -348,8 +354,7 @@ public class EternityDevilEntity extends MobEntity {
 			startBeg(world);
 			return false;
 		}
-		// Dropping down to fight on the mass is the strong play: blows from there are worth more.
-		float dealt = amount * (this.shaft() && source.getAttacker() instanceof ServerPlayerEntity onTheMass && Shaft.onMass(this, onTheMass) ? Shaft.MASS_BONUS : 1.0F);
+		float dealt = amount;
 		boolean heart = false;
 		if (heartOut() && source.getAttacker() instanceof LivingEntity attacker && aimsAtHeart(attacker)) {
 			dealt *= HEART_MULT;
@@ -366,7 +371,10 @@ public class EternityDevilEntity extends MobEntity {
 		float before = this.getHealth();
 		boolean hurt = super.damage(source, dealt);
 		if (hurt && !kill) {
-			this.painBy[this.shaft() ? P_MASS : P_CORRIDOR] += Math.max(0.0F, before - this.getHealth());
+			this.painBy[P_CORRIDOR] += Math.max(0.0F, before - this.getHealth());
+			if (this.getWorld() instanceof ServerWorld sw) {
+				noHeart(sw);
+			}
 		}
 		if (hurt) {
 			this.lastHurtAge = this.age;
@@ -433,8 +441,8 @@ public class EternityDevilEntity extends MobEntity {
 			pending.clear();
 			return;
 		}
-		// Regeneration while it has not been hit for a few seconds.
-		if (this.age - this.lastHurtAge >= REGEN_DELAY && this.getHealth() < this.getMaxHealth() && this.age % 10 == 0) {
+		// Regeneration while it has not been hit for a few seconds (not in the arena: what it has borne there it keeps).
+		if (!this.shaft() && this.age - this.lastHurtAge >= REGEN_DELAY && this.getHealth() < this.getMaxHealth() && this.age % 10 == 0) {
 			this.heal(REGEN);
 			if (this.regenSound++ % 2 == 0) {
 				world.playSound(null, this.getX(), this.getY() + 2.0, this.getZ(), ChainsawSounds.DEVIL_REGEN, SoundCategory.HOSTILE, 1.4F, 0.9F + 0.2F * frac);
@@ -457,7 +465,7 @@ public class EternityDevilEntity extends MobEntity {
 		this.setTarget(null);
 		announce(world, HotelPayloads.Devil.BEG, this.getPos(), 0);
 		offerCore(world);
-		Shaft.freeAll(world, this);
+		Shaft.calm(world, this);
 		Hotel.beg(world, this);
 	}
 
@@ -496,10 +504,10 @@ public class EternityDevilEntity extends MobEntity {
 
 	// ---- The core.
 
-	/** Where the core is held out: over the mouth's pit in the shaft; in the wall form, where the heart shows. */
+	/** Where the core is held out: up out of the arena's floor in its middle, under the mouth's light; in the wall form, where the heart shows. */
 	public Vec3d coreAt() {
 		if (this.shaft()) {
-			return HotelBuilder.world(origin, rot, Shaft.PIT_X + 0.5, Shaft.BASE + 0.05, Shaft.PIT_Z + 0.5);
+			return Shaft.at(origin, rot, Shaft.MID_X, Shaft.FLOOR + 0.05, Shaft.MID_Z);
 		}
 		return HotelBuilder.world(origin, rot, baseX + (HEART_X - LOCAL_X), HEART_Y - 0.8, HEART_Z);
 	}
@@ -548,7 +556,7 @@ public class EternityDevilEntity extends MobEntity {
 		cutCore(null);
 	}
 
-	/** It goes to the bottom of the shaft ({@code at}: the world point it stands at, the middle of the mass's east end). */
+	/** It becomes the arena at the bottom of the shaft ({@code at}: the world point it is at, sunk under the arena's middle). */
 	public void enterShaft(Vec3d at) {
 		this.tilting = false;
 		this.pending.clear();
@@ -668,6 +676,36 @@ public class EternityDevilEntity extends MobEntity {
 			}
 		}
 		return out;
+	}
+
+	/** Pain from a cut in the arena ({@code raw}: the blow; {@code source}: {@link #P_MASS}...; {@code by}: who struck, who fought): the arena's share of the bar is {@link Shaft#ARENA_SCALE} times longer. */
+	public void arenaPain(float raw, int source, @org.jetbrains.annotations.Nullable net.minecraft.entity.Entity by) {
+		if (this.begStarted || !this.isAlive() || this.growing() || !(this.getWorld() instanceof ServerWorld world)) {
+			return;
+		}
+		if (by != null) {
+			Hotel.fought(world, this, by);
+		}
+		addPain(raw / Shaft.ARENA_SCALE * painPace, source);
+		noHeart(world);
+	}
+
+	/** For the film only: how much faster the bar fills than it does in play (1 in play). */
+	public static float painPace = 1.0F;
+
+	/** At the first cut that lands it says, once, that its heart is not here: the bar is its pain, not its health. */
+	private void noHeart(ServerWorld world) {
+		if (!this.saidNoHeart && world.getBlockEntity(this.homePos) instanceof HomeBlockEntity h) {
+			this.saidNoHeart = true;
+			Hotel.speak(world, h.run.inside, "message.chainsawman.devil.noheart", 80, 1);
+		}
+	}
+
+	/** Shows {@code kind} at {@code at} to everyone near (ticks: how long, or what the kind uses it for). */
+	public void announceAt(byte kind, Vec3d at, int ticks) {
+		if (this.getWorld() instanceof ServerWorld world) {
+			announce(world, kind, at, ticks);
+		}
 	}
 
 	private void announce(ServerWorld world, byte kind, Vec3d at, int ticks) {

@@ -96,7 +96,7 @@ public final class Hotel {
 		public long mendAt = -1;
 		/** The floor may turn (the shaft fight, see {@link Shaft}); off, the whole fight is in the corridor (the tests that came before it). */
 		public boolean shaftOn = true;
-		/** The shaft's own state: fear, the turn, who is swallowed. */
+		/** The shaft's own state: fear, the turn, the arena's attacks. */
 		public final Shaft.State shaft = new Shaft.State();
 		/** Who has been told the fog is lifted for the fight. */
 		public final Set<UUID> fogLifted = new HashSet<>();
@@ -418,6 +418,18 @@ public final class Hotel {
 	public static void init() {
 		net.fabricmc.fabric.api.event.player.AttackBlockCallback.EVENT.register((player, world, hand, pos, direction) -> {
 			if (world instanceof ServerWorld sw && player instanceof ServerPlayerEntity sp) {
+				// The arena's walls and growths: a blow there is a cut in the devil's flesh (as hard as the weapon, as charged as it is).
+				if (!sp.isSpectator()) {
+					float charge = sp.getAttackCooldownProgress(0.5F);
+					float amount = (float) sp.getAttributeValue(net.minecraft.entity.attribute.EntityAttributes.GENERIC_ATTACK_DAMAGE) * (0.2F + 0.8F * charge * charge);
+					net.minecraft.util.hit.HitResult aim = sp.raycast(sp.getBlockInteractionRange() + 1.0, 1.0F, false);
+					Vec3d hitAt = aim instanceof net.minecraft.util.hit.BlockHitResult bh && bh.getBlockPos().equals(pos) ? bh.getPos() : Vec3d.ofCenter(pos);
+					if (Shaft.cutBlock(sw, sp, pos, direction, hitAt, amount)) {
+						sp.resetLastAttackedTicks();
+						sp.swingHand(hand, true);
+						return net.minecraft.util.ActionResult.FAIL;
+					}
+				}
 				HomeBlockEntity h = sealedAt(sw, pos);
 				if (h != null) {
 					Hunt.cut(sw, h, pos, sp);
@@ -461,6 +473,16 @@ public final class Hotel {
 	public static void fought(ServerWorld world, EternityDevilEntity devil, net.minecraft.entity.damage.DamageSource source) {
 		if (world.getBlockEntity(devil.homePos) instanceof HomeBlockEntity h) {
 			fought(h, source);
+		}
+	}
+
+	/** The same, for whoever ({@code by}) cut the devil's flesh in its arena (or whose tamed animal did). */
+	public static void fought(ServerWorld world, EternityDevilEntity devil, net.minecraft.entity.Entity by) {
+		if (by instanceof net.minecraft.entity.Tameable pet && pet.getOwner() != null) {
+			by = pet.getOwner();
+		}
+		if (by instanceof ServerPlayerEntity p && world.getBlockEntity(devil.homePos) instanceof HomeBlockEntity h) {
+			h.run.fought.add(p.getUuid());
 		}
 	}
 

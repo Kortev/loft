@@ -26,11 +26,20 @@ public final class ClientHotel {
 	public record Event(byte kind, double x, double y, double z, long start, int ticks) {
 	}
 
-	/** The floor turning: the world tick the roll began and how long it takes (-1 when not); the shaft arriving (a flash); swallowed. */
+	/** The floor turning: the world tick the roll began and how long it takes (-1 when not); the shaft arriving (a flash). */
 	private static long tiltAt = -1;
 	private static int tiltTicks = 44;
 	private static long flashAt = -1000;
-	private static boolean swallowed;
+
+	/** A cut's lit wound in the arena: where (world), the face it is on ({@code Direction} id), soft flesh, and the world tick it opened. */
+	public record Wound(double x, double y, double z, int face, boolean soft, long start) {
+	}
+
+	/** How long a wound stays lit (ticks). */
+	public static final int WOUND_TICKS = 70;
+	private static final List<Wound> WOUNDS = new ArrayList<>();
+	/** The world tick of the last cut that landed near this player (the pain bar flashes). */
+	private static long cutAt = -1000;
 
 	private static Line line;
 	private static final Map<Integer, List<Event>> EVENTS = new HashMap<>();
@@ -112,37 +121,30 @@ public final class ClientHotel {
 		return since >= 0.0F && since < 24.0F ? 1.0F - since / 24.0F : 0.0F;
 	}
 
-	/** The red-black flash as the shaft arrives, 1 down to 0 over about a second and a half. */
+	/** The red flash as the shaft arrives, 1 down to 0 over about a second. */
 	public static float flash(float delta) {
 		float since = now() + delta - flashAt;
-		return since >= 0.0F && since < 30.0F ? 1.0F - since / 30.0F : 0.0F;
+		return since >= 0.0F && since < 20.0F ? 1.0F - since / 20.0F : 0.0F;
 	}
 
-	/** Whether the mouth has swallowed this player. */
-	public static boolean swallowed() {
-		return swallowed;
+	/** The world tick it began to beg (its pain full): the arena convulses and its light flares. */
+	private static long begAt = -1000;
+
+	/** Ticks since it began to beg. */
+	public static float sinceBeg(float delta) {
+		return now() + delta - begAt;
 	}
 
-	/** Swallowed: the tick it happened, how far cut out (0 to 1), how many cuts, and the tick of the last. */
-	private static long swallowedAt;
-	private static float cutOut;
-	private static int cuts;
-	private static long cutAt = -1000;
-
-	public static float swallowedFor(float delta) {
-		return now() + delta - swallowedAt;
-	}
-
-	public static float cutOut() {
-		return cutOut;
-	}
-
-	public static int cuts() {
-		return cuts;
-	}
-
+	/** Ticks since the last cut that landed near this player. */
 	public static float sinceCut(float delta) {
 		return now() + delta - cutAt;
+	}
+
+	/** The wounds still lit. */
+	public static List<Wound> wounds() {
+		long now = now();
+		WOUNDS.removeIf(w -> now - w.start() > WOUND_TICKS);
+		return WOUNDS;
 	}
 
 	public static void devil(HotelPayloads.Devil payload) {
@@ -159,28 +161,34 @@ public final class ClientHotel {
 			}
 			return;
 		}
-		if (payload.kind() == HotelPayloads.Devil.SWALLOW) {
-			// (1 when swallowed; afterwards 1 + how far cut out in hundredths + 100 a cut: see Shaft.swallowTicks.)
-			boolean was = swallowed;
-			swallowed = payload.ticks() > 0;
-			if (swallowed && !was) {
-				swallowedAt = now;
-				cuts = 0;
-				cutOut = 0.0F;
+		if (payload.kind() == HotelPayloads.Devil.WOUND) {
+			WOUNDS.removeIf(w -> now - w.start() > WOUND_TICKS);
+			if (WOUNDS.size() > 48) {
+				WOUNDS.remove(0);
 			}
-			if (swallowed) {
-				int n = (payload.ticks() - 1) / 100;
-				if (n > cuts) {
-					cutAt = now;
-				}
-				cuts = n;
-				cutOut = ((payload.ticks() - 1) % 100) / 100.0F;
+			WOUNDS.add(new Wound(payload.x(), payload.y(), payload.z(), payload.ticks() & 7, (payload.ticks() & 8) != 0, now));
+			MinecraftClient client = MinecraftClient.getInstance();
+			if (client.player != null && client.player.squaredDistanceTo(payload.x(), payload.y(), payload.z()) < 8.0 * 8.0) {
+				cutAt = now;
 			}
 			return;
 		}
+		if (payload.kind() == HotelPayloads.Devil.BEG) {
+			begAt = now;
+		}
 		List<Event> list = EVENTS.computeIfAbsent(payload.devil(), k -> new ArrayList<>());
 		list.removeIf(e -> now - e.start() > e.ticks() + 40);
-		list.add(new Event(payload.kind(), payload.x(), payload.y(), payload.z(), now, payload.ticks()));
+		// (A squeeze's ticks say which half: it is kept as SQUEEZE_KEEP + the half, so it lasts as long as the squeeze does: see squeezeHalf.)
+		int ticks = payload.kind() == HotelPayloads.Devil.SQUEEZE ? SQUEEZE_KEEP + payload.ticks() : payload.ticks();
+		list.add(new Event(payload.kind(), payload.x(), payload.y(), payload.z(), now, ticks));
+	}
+
+	/** How long a squeeze's event is kept (ticks, past its own 40): as long as the squeeze, its clench and its soft walls. */
+	private static final int SQUEEZE_KEEP = 100;
+
+	/** Which half a squeeze's event is for (0 the low-x end, 1 the high-x end). */
+	public static int squeezeHalf(Event e) {
+		return e.ticks() - SQUEEZE_KEEP;
 	}
 
 	/** What the devil with this entity id is doing now (those that have not finished). */
@@ -201,7 +209,9 @@ public final class ClientHotel {
 		line = null;
 		tiltAt = -1;
 		flashAt = -1000;
-		swallowed = false;
+		cutAt = -1000;
+		begAt = -1000;
+		WOUNDS.clear();
 		EVENTS.clear();
 	}
 }

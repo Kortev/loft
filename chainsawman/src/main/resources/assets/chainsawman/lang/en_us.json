@@ -128,7 +128,7 @@
   "entity.chainsawman.shaft_core": "Eternity Devil's core",
   "bar.chainsawman.eternity_devil": "Eternity Devil: its pain",
   "message.chainsawman.devil.tilt": "Down. Down. Down.",
-  "message.chainsawman.devil.swallowed": "Swallowed. Cut your way out!",
+  "message.chainsawman.devil.noheart": "My heart is not here. You cannot kill me.",
   "entity.chainsawman.squad_member": "Hunter",
   "message.chainsawman.squad.fed": "%s eats like a starving man. He gets up.",
   "message.chainsawman.squad.up": "%s is on his feet again.",
