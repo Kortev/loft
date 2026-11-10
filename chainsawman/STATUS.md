@@ -12,16 +12,14 @@ Updated 2026-11-09. Keep this page under 3 KB. Change it whenever something star
 
 ## Running
 
-- **The Eternity Devil, round 3** (branch `devil-round3`, brief `chainsawman/plan/packages/0.1_devil_round3.md`).
-  The 3D look is merged. kortev's notes on the film: the devil must fill the corridor's end (the hotel is its body),
-  and the film showed no fight. Done = a played-fight film at
-  `work/devil_look/round3/fight.mp4`; Fable reviews it, merges, sends it to kortev, starts 0.1b.
-- **Next, after round 3 merges: 0.1b the arena** (`chainsawman/plan/packages/0.1b_devil_arena.md`): you fall into
-  the mouth and fight inside it; attack and dodge, no damage without a tell (kortev). Fable's picks stand.
-  Round 3 is narrowed to the corridor end and the stomach.
-- Merged 2026-11-09 (250 tests pass): 0.7a Server-proof and 0.7b the hotel's share (loot into each fighter's
-  pack, pay for who fought, one contract per world; store `hotel/HotelLedger.java`). Their two-client checks are
-  in their briefs, for 0.4. Round 3's film must not wait for loot on the floor (builder told).
+- **0.1b the devil's arena** (branch `devil-arena`, brief `chainsawman/plan/packages/0.1b_devil_arena.md`): you
+  fall into the mouth and fight inside it; attack and dodge, no damage without a tell (kortev). Fable's picks
+  stand. Done = a played film at `work/devil_look/arena/fight.mp4`; Fable reviews, merges, sends it to kortev.
+- Round 3 merged 2026-11-09 (252 tests pass): the devil fills the corridor's end, the torn arena is a stomach,
+  saws cut its parts, a played film (`-Ptarget=played`). kortev has the film; their notes are the next round.
+  Today's fight lasts 16 s with saws; the arena fixes that.
+- Merged 2026-11-09: 0.7a Server-proof and 0.7b the hotel's share (loot into each fighter's pack, pay for who
+  fought, one contract per world). Their two-client checks are in their briefs, for 0.4.
 
 ## Waiting on kortev
 
