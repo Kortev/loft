@@ -15,7 +15,7 @@ Sizes are in agent runs: S is one run, M is two or three, L is four or more.
 
 | # | Package | Size | Notes |
 |---|---|---|---|
-| 0.1 | Land the 3D devil and the shaft fight | round 3 running | The 3D look and the shaft fight are merged (2026-11-09). kortev's notes on the film: the devil must fill the corridor's end (the hotel is its body), the grab and the swallow look weak, and the film must show a played fight. Brief: `packages/0.1_devil_round3.md`. |
+| 0.1 | Land the 3D devil and the shaft fight | round 3 running | The 3D look and the shaft fight are merged (2026-11-09). kortev's notes on the film: the devil must fill the corridor's end (the hotel is its body), the grab and the swallow look weak, and the film must show a played fight. Brief: `packages/0.1_devil_round3.md`. Then `packages/0.1b_devil_arena.md`: the shaft's bottom as a boss arena (attack and dodge). |
 | 0.2 | **Review clips for everything not judged** | M | One 60-90 s phone clip each for: contracts and bonds, teams, the hotel v2, Forever, the buff. Each with at most three yes/no questions. See section 6. |
 | 0.3 | **The show bible** | M | A fact sheet for every devil and thing in this plan: what the wiki and Google say (looks, staging, movement, rules), each with its source, spoiler-filtered, guesses marked. `chainsawman/bible/<name>.md`. No brief is written without one. First four done 2026-11-09: the Fox, the Leech, the Tomato, hunters' gear. |
 | 0.4 | The server check | S | A script that starts a real server and two clients with two names, runs a short scene (party up, go down, pick up, a boss hit, **log out and back in, one client leaving mid-fight, a server restart**), and films both screens. Reused at every milestone. |
