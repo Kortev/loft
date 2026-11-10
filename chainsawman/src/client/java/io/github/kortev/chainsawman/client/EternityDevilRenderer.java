@@ -288,11 +288,12 @@ public class EternityDevilRenderer extends EntityRenderer<EternityDevilEntity> {
 			Matrix4f m = new Matrix4f(frame).translate(0.0F, 0.0F, 1.0F + 0.6F * mass).rotateY(-(float) Math.PI / 2.0F).scale(mass);
 			FleshMesh.get("growing").draw(m, tt, look(light, 0.0F), null);
 		}
-		// The avatar: pushes out of the wall from 0.45.
+		// The avatar: pushes out of the wall from 0.45, a little bigger than it was made, so it reaches the dome.
 		float push = ease((g - 0.45F) / 0.55F);
 		if (push > 0.01F) {
 			float sag = 1.0F - 0.55F * c.death;
-			Matrix4f m = new Matrix4f(frame).scale(1.0F, sag, 0.15F + 0.85F * push).rotateY(-(float) Math.PI / 2.0F);
+			fill(c, frame, light, push, sag, tt);
+			Matrix4f m = new Matrix4f(frame).scale(AVATAR_SCALE, sag * AVATAR_SCALE, 0.15F + 0.85F * push).rotateY(-(float) Math.PI / 2.0F);
 			float gape = c.gape;
 			FleshMesh.Look lk = look(light, c.hit * 0.6F);
 			lk.glowAt = new Vector3f(0.0F, 0.3F, 0.0F);
@@ -316,6 +317,34 @@ public class EternityDevilRenderer extends EntityRenderer<EternityDevilEntity> {
 			float beat = 1.0F + 0.05F * MathHelper.sin(c.now * rate) + 0.07F * Math.max(0.0F, MathHelper.sin(c.now * rate * 2.0F + 1.0F)) + 0.15F * c.hit;
 			Matrix4f m = new Matrix4f(frame).translate(v.x, v.y, v.z).rotateY(-(float) Math.PI / 2.0F).scale(1.1F * c.open * beat);
 			FleshMesh.get("core").draw(m, tt, look(light, c.hit * 0.8F), null);
+		}
+	}
+
+	/** How much bigger than it was made the avatar is drawn (across and up; not out from the wall, which is what its hitbox's depth says). */
+	static final float AVATAR_SCALE = 1.15F;
+	/**
+	 * The growths either side of the avatar and over its shoulders, so the mass is the end of the arena wall to wall (its hitbox's
+	 * {@link EternityDevilEntity#BOX_LEFT} to {@link EternityDevilEntity#BOX_RIGHT}): {across, up, out, scale, turn}, in the devil's frame.
+	 */
+	private static final float[][] FILL = {
+		{-5.0F, 0.0F, 0.1F, 1.15F, 0.3F},
+		{-5.3F, 3.1F, -0.2F, 1.0F, -0.4F},
+		{5.6F, 0.0F, 0.1F, 1.2F, -0.3F},
+		{5.9F, 3.2F, -0.2F, 1.05F, 0.5F},
+		{-3.2F, 5.2F, -0.6F, 0.85F, 2.6F},
+		{3.6F, 5.3F, -0.6F, 0.85F, -2.4F},
+	};
+
+	/** The growths that fill the rest of the arena's end, swelling out of the walls as the avatar pushes out. */
+	private static void fill(Ctx c, Matrix4f frame, int light, float push, float sag, float tt) {
+		if (c.dead && c.death > 0.6F) {
+			return;
+		}
+		FleshMesh.Look lk = look(light, c.hit * 0.4F);
+		for (float[] f : FILL) {
+			float k = f[3] * (0.3F + 0.7F * push);
+			Matrix4f m = new Matrix4f(frame).translate(f[0], f[1] * sag, f[2]).rotateY(f[4] * 0.25F - (float) Math.PI / 2.0F).scale(k, k * sag, k);
+			FleshMesh.get("growing").draw(m, tt + f[0] * 13.0F, lk, null);
 		}
 	}
 

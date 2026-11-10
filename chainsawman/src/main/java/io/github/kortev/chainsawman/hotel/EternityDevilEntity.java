@@ -43,9 +43,12 @@ public class EternityDevilEntity extends MobEntity {
 	public static final float HEIGHT = 7.0F;
 	/** How far its bulk comes out from its back plane (blocks): the great mouth's teeth are the nearest. */
 	public static final double BULK = 3.9;
-	/** The front, in the devil's own frame (blocks): right (toward the hotel's +z) from the great mouth's axis, and the hitbox's extent. */
+	/**
+	 * The front, in the devil's own frame (blocks): right (toward the hotel's +z) from the great mouth's axis, and the hitbox's extent. It is the
+	 * torn arena's whole width (local z 1 to 13: the outer walls' inner faces), because the mass fills it wall to wall: what you see is what you hit.
+	 */
 	public static final double BOX_LEFT = -5.5;
-	public static final double BOX_RIGHT = 3.9;
+	public static final double BOX_RIGHT = 6.5;
 	public static final float MAX_HEALTH = 300.0F;
 	/** Ticks it takes to grow out of the walls, during which it cannot be hurt or hurt anyone. */
 	public static final int GROW_TICKS = 80;
@@ -111,6 +114,13 @@ public class EternityDevilEntity extends MobEntity {
 	public boolean spared;
 	private int regenSound;
 	private int attackNo;
+	/** Where its pain came from (for the tests and the film's numbers): cuts on it in the corridor, on the mass, heads, arms, cutting out of the mouth. */
+	public static final int P_CORRIDOR = 0;
+	public static final int P_MASS = 1;
+	public static final int P_HEAD = 2;
+	public static final int P_ARM = 3;
+	public static final int P_MOUTH = 4;
+	public final float[] painBy = new float[5];
 	private static final byte[] ORDER = {HotelPayloads.Devil.BITE, HotelPayloads.Devil.TENDRIL, HotelPayloads.Devil.BITE, HotelPayloads.Devil.CREEP,
 			HotelPayloads.Devil.TENDRIL, HotelPayloads.Devil.BITE};
 	private final List<Pending> pending = new ArrayList<>();
@@ -180,8 +190,18 @@ public class EternityDevilEntity extends MobEntity {
 
 	/** Pain it is given (health taken, never past the line: there it begs). */
 	public void addPain(float amount) {
+		addPain(amount, P_MOUTH);
+	}
+
+	/** Pain from {@code source} ({@link #P_CORRIDOR}...): cutting its heads and arms, or out of its mouth. Nothing while it grows, begs or is beaten. */
+	public void addPain(float amount, int source) {
+		if (this.begStarted || !this.isAlive()) {
+			return;
+		}
 		float line = BEG_AT * this.getMaxHealth();
+		float before = this.getHealth();
 		this.setHealth(Math.max(line, this.getHealth() - amount));
+		this.painBy[source] += before - this.getHealth();
 		this.lastHurtAge = this.age;
 		if (!this.begStarted && this.getHealth() <= line + 0.001F && this.getWorld() instanceof ServerWorld world) {
 			startBeg(world);
@@ -343,7 +363,11 @@ public class EternityDevilEntity extends MobEntity {
 		if (this.getWorld() instanceof ServerWorld fightWorld) {
 			Hotel.fought(fightWorld, this, source);
 		}
+		float before = this.getHealth();
 		boolean hurt = super.damage(source, dealt);
+		if (hurt && !kill) {
+			this.painBy[this.shaft() ? P_MASS : P_CORRIDOR] += Math.max(0.0F, before - this.getHealth());
+		}
 		if (hurt) {
 			this.lastHurtAge = this.age;
 			if (this.getWorld() instanceof ServerWorld world) {

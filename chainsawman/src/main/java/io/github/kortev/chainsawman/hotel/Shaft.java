@@ -84,6 +84,13 @@ public final class Shaft {
 	public static final float FEAR_HURT = 0.06F;
 	public static final float FEAR_DOWN = 0.2F;
 	public static final int TILT_MIN = 800;
+	/**
+	 * Pain turns the floor too: cut it this far ({@link EternityDevilEntity#pain}) in the corridor, no sooner than {@link #PAIN_TILT_MIN} ticks
+	 * into the fight, and it turns the floor (without this, saws that keep cutting bring it to its knees in the corridor long before 40 s, and the
+	 * shaft is never seen).
+	 */
+	public static final float PAIN_TILT = 0.4F;
+	public static final int PAIN_TILT_MIN = 160;
 	/** The turn takes this long (ticks) from the camera starting to roll to the players being in the shaft. */
 	public static final int TILT_TICKS = 44;
 	/** Ticks between attacks (plus a random part), and how many of each may be out. */
@@ -137,6 +144,7 @@ public final class Shaft {
 	/** Someone in the mouth: the damage they have dealt toward cutting out. */
 	public static final class Held {
 		public float cut;
+		public int hits;
 		public long since;
 	}
 
@@ -488,7 +496,8 @@ public final class Shaft {
 			}
 		}
 		st.fear = Math.min(1.0F, fear);
-		if (st.fear >= 1.0F && now - r.fightAt >= TILT_MIN && !players.isEmpty()) {
+		boolean hurtEnough = devil.pain() >= PAIN_TILT && now - r.fightAt >= PAIN_TILT_MIN;
+		if ((st.fear >= 1.0F && now - r.fightAt >= TILT_MIN || hurtEnough) && !players.isEmpty()) {
 			startTilt(world, h, devil, players, now);
 		}
 	}
@@ -734,10 +743,47 @@ public final class Shaft {
 		Vec3d at = HotelBuilder.world(h.origin, h.rot, PIT_X + 0.5, BASE - 2.0, PIT_Z + 0.5);
 		world.playSound(null, at.x, at.y, at.z, ChainsawSounds.HOTEL_CUT, SoundCategory.HOSTILE, 1.5F, 0.8F + held.cut / CUT_NEED * 0.6F);
 		world.spawnParticles(new net.minecraft.particle.BlockStateParticleEffect(ParticleTypes.BLOCK, Blocks.RED_TERRACOTTA.getDefaultState()), at.x, at.y, at.z, 10, 0.6, 0.6, 0.6, 0.1);
+		held.hits++;
 		if (held.cut >= CUT_NEED) {
 			burst(world, h, devil, by, true);
+		} else {
+			// (Each cut opens a wound in the dark, wider the nearer you are to out: told to the one inside.)
+			send(by, devil.getId(), HotelPayloads.Devil.SWALLOW, swallowTicks(held));
 		}
 		return true;
+	}
+
+	/** The swallow message's number: 1 (in the mouth), plus how far cut out (0 to 99) and 100 for each cut. */
+	static int swallowTicks(Held held) {
+		return 1 + Math.min(99, (int) (held.cut / CUT_NEED * 100.0F)) + 100 * Math.min(20, held.hits);
+	}
+
+	// ---- The devil's parts (its arms, heads and core): the saws cut them too (they are not living things, which is all a slash looked for).
+
+	/**
+	 * A slash's cut through the devil's parts in front of {@code player} ({@code aimed}: what was under the crosshair, or -1): each one
+	 * within {@code reach} and ahead of the look is dealt {@code damage}. Returns how many were cut.
+	 */
+	public static int cutParts(ServerPlayerEntity player, double reach, double width, float damage, int aimed) {
+		Vec3d eye = player.getEyePos();
+		Vec3d look = player.getRotationVec(1.0F);
+		int n = 0;
+		for (net.minecraft.entity.Entity e : player.getWorld().getOtherEntities(player, player.getBoundingBox().expand(reach + 2.0),
+				x -> (x instanceof ShaftArmEntity || x instanceof ShaftHeadEntity || x instanceof ShaftCoreEntity) && x.canHit())) {
+			Box b = e.getBoundingBox();
+			Vec3d near = new Vec3d(net.minecraft.util.math.MathHelper.clamp(eye.x, b.minX, b.maxX), net.minecraft.util.math.MathHelper.clamp(eye.y, b.minY, b.maxY),
+					net.minecraft.util.math.MathHelper.clamp(eye.z, b.minZ, b.maxZ));
+			Vec3d to = near.subtract(eye);
+			double d = to.length();
+			boolean aimedAt = e.getId() == aimed && d <= reach + 1.0;
+			if (!aimedAt && (d > reach || d >= 0.6 && to.normalize().dotProduct(look) < width && b.getCenter().subtract(eye).normalize().dotProduct(look) < width)) {
+				continue;
+			}
+			if (e.damage(player.getDamageSources().playerAttack(player), damage)) {
+				n++;
+			}
+		}
+		return n;
 	}
 
 	/** Out of the mouth: popped up onto the mass, and (if you cut your way out) the devil takes a big dose of pain. */
@@ -757,7 +803,7 @@ public final class Shaft {
 		world.playSound(null, at.x, at.y, at.z, ChainsawSounds.DEVIL_HURT, SoundCategory.HOSTILE, 3.0F, 0.7F);
 		world.playSound(null, at.x, at.y, at.z, ChainsawSounds.DEVIL_SLAM, SoundCategory.HOSTILE, 2.0F, 1.2F);
 		if (pain) {
-			devil.addPain(PAIN_BURST);
+			devil.addPain(PAIN_BURST, EternityDevilEntity.P_MOUTH);
 		}
 	}
 

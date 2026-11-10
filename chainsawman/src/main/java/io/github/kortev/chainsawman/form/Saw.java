@@ -211,17 +211,19 @@ public final class Saw {
 				impact(player, target);
 			}
 		}
+		// The Eternity Devil's arms, heads and core are not living things: cut them too (the slash looked only for living ones).
+		int parts = io.github.kortev.chainsawman.hotel.Shaft.cutParts(player, SLASH_REACH, finisher ? FINISHER_WIDTH : SLASH_WIDTH, damage, aimed);
 		// Everyone else hears it; the slasher's own game played it already, as they clicked (ClientCombat).
 		player.getServerWorld().playSound(player, player.getX(), player.getY() + 1.0, player.getZ(), ChainsawSounds.SLASH, SoundCategory.PLAYERS, 1.0F,
 				1.0F);
 		Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.SWING, step));
 		if (held) {
-			if (!hit.isEmpty()) {
+			if (!hit.isEmpty() || parts > 0) {
 				Form.play(player, ChainsawSounds.HIT, 0.8F);
-				Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.HIT, hit.size()));
+				Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.HIT, hit.size() + parts));
 			}
 		} else {
-			landed(player, hit.size());
+			landed(player, hit.size() + parts);
 		}
 		return true;
 	}
@@ -468,6 +470,18 @@ public final class Saw {
 	 * angle's cosine is {@code width}, that they can see: not themselves, nobody downed, no spectator, no armour stand
 	 * (there is no blood in one to drink).
 	 */
+	/** Nothing solid between the eye and the point (stopping just short of it, where it meets the thing's own surface). */
+	private static boolean clear(ServerPlayerEntity player, Vec3d eye, Vec3d point) {
+		Vec3d to = point.subtract(eye);
+		double len = to.length();
+		if (len < 0.1) {
+			return true;
+		}
+		Vec3d end = eye.add(to.multiply((len - 0.05) / len));
+		return player.getWorld().raycast(new net.minecraft.world.RaycastContext(eye, end, net.minecraft.world.RaycastContext.ShapeType.COLLIDER,
+				net.minecraft.world.RaycastContext.FluidHandling.NONE, player)).getType() == net.minecraft.util.hit.HitResult.Type.MISS;
+	}
+
 	public static List<LivingEntity> inFront(ServerPlayerEntity player, double reach, double width) {
 		Vec3d eye = player.getEyePos();
 		Vec3d look = player.getRotationVec(1.0F);
@@ -490,7 +504,9 @@ public final class Saw {
 			}
 			Vec3d middle = b.getCenter().subtract(eye);
 			boolean ahead = distance < 0.6 || middle.normalize().dotProduct(look) >= width || to.normalize().dotProduct(look) >= width;
-			if (ahead && player.canSee(living)) {
+			// (Inside its box, as in the Eternity Devil's mouth, it is there whatever its eyes are behind; and a thing as big as a room, whose
+			// eyes are in the walls, is seen if the nearest of it is.)
+			if (ahead && (distance < 0.6 || player.canSee(living) || clear(player, eye, near))) {
 				out.add(living);
 			}
 		}

@@ -55,6 +55,8 @@ import net.minecraft.world.biome.BiomeKeys;
  * growing out of the walls, the fight as Chainsaw Man, the kill and the loot (about 36 s).</li>
  * <li>-Ptarget=accept: the other choice: accept, the loop opens, walk out.</li>
  * <li>-Ptarget=look: stills of everything, for checking it (not a clip).</li>
+ * <li>-Ptarget=played: the fight played for real from your eyes, start to finish ({@link HotelFight}): the clip with -Pcapture=true, and the
+ * fight's numbers in the log ("[played] REPORT").</li>
  * <li>-Ptarget=shaft: the shaft fight, from your eyes: the floor turning, the look down the shaft, an arm taking you down onto the mass, the mouth
  * swallowing you and the saws cutting you out, the core offered and cut. Stills, and the clip with -Pcapture=true (portrait: -Pwidth=1080 -Pheight=1920).</li>
  * <li>-Ptarget=hunt: stills of the second version's mechanics: the sealed door, an eye in the wallpaper, a cut wall bleeding, a survivor sitting
@@ -125,6 +127,7 @@ public class HotelSelfTest implements ClientModInitializer {
 		}
 		ServerTickEvents.END_SERVER_TICK.register(HotelSelfTest::keepUp);
 		ServerTickEvents.END_SERVER_TICK.register(HotelSelfTest::shaftSnap);
+		ServerTickEvents.END_SERVER_TICK.register(HotelFight::snap);
 		ClientTickEvents.END_CLIENT_TICK.register(HotelSelfTest::tick);
 	}
 
@@ -165,6 +168,13 @@ public class HotelSelfTest implements ClientModInitializer {
 			case RUN -> {
 				client.getToastManager().clear();
 				client.options.hudHidden = false;
+				if ("played".equals(target())) {
+					// (The played fight drives its own head and keys: see HotelFight and Fighter.)
+					if (HotelFight.tick(client, server, ticks, origin)) {
+						stage = Stage.DONE;
+					}
+					break;
+				}
 				if ("devilclip".equals(target())) {
 					devilClip(client, server, ticks);
 				} else if ("shaft".equals(target())) {
