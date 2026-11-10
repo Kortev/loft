@@ -57,14 +57,29 @@ public class ShaftCoreRenderer extends EntityRenderer<ShaftCoreEntity> {
 		boolean shaft = inShaft(core, world);
 		Matrix4f base = new Matrix4f(matrices.peek().getPositionMatrix());
 		if (shaft) {
-			// Face up, tipped toward the nearest player so the face reads from where they stand (the loops stay across).
+			// It turns its face to the nearest player, at their eye height if they stand on the mass (else a little over the pit), and
+			// tips up toward whoever looks down from a ledge.
 			net.minecraft.entity.player.PlayerEntity near = world.getClosestPlayer(core, 24.0);
-			float toward = near == null ? 0.0F : (float) Math.atan2(-(near.getZ() - core.getZ()), near.getX() - core.getX());
-			base.translate(0.0F, -2.2F * (1.0F - rise) + 1.0F, 0.0F).rotateY(toward).rotateZ(1.0F);
+			float lift = 1.0F;
+			float yawTo = 0.0F;
+			float pitchTo = 1.0F;
+			if (near != null) {
+				net.minecraft.util.math.Vec3d eye = near.getEyePos();
+				double hd = Math.hypot(eye.x - core.getX(), eye.z - core.getZ());
+				if (hd < 7.0 && eye.y - core.getY() < 4.0) {
+					lift = (float) MathHelper.clamp(eye.y - core.getY(), 0.8, 2.5);
+				}
+				double dx = eye.x - core.getX();
+				double dy = eye.y - (core.getY() + lift);
+				double dz = eye.z - core.getZ();
+				yawTo = (float) Math.atan2(-dz, dx);
+				pitchTo = (float) Math.atan2(dy, Math.hypot(dx, dz));
+			}
+			base.translate(0.0F, -2.2F * (1.0F - rise) + lift, 0.0F).rotateY(yawTo).rotateZ(pitchTo);
 		} else {
 			base.rotateY(-(float) Math.toRadians(core.getYaw())).rotateY(-(float) Math.PI / 2.0F);
 		}
-		base.scale((shaft ? 2.0F : 1.5F) * beat);
+		base.scale((shaft ? 1.1F : 1.5F) * beat);
 		FleshMesh mesh = FleshMesh.get("core");
 		FleshMesh.Look look = new FleshMesh.Look().light(light, 0.85F, 1.3F);
 		look.rim = 0.4F;

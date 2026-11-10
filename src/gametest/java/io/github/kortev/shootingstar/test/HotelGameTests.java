@@ -2127,6 +2127,30 @@ public class HotelGameTests implements FabricGameTest {
 		});
 	}
 
+	/** Once the fight starts the devil is there (its avatar is what the renderer draws), at the corridor's end facing back along it, and the arena round it is torn open. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_devil_exists", tickLimit = 400)
+	public void theDevilExistsFacingTheCorridorAndTheArenaIsTornOnceTheFightStarts(TestContext context) {
+		HomeBlockEntity h = hotel(context, 0, 55);
+		ServerPlayerEntity p = walker(context, h, "watcher", 26.0);
+		io.github.kortev.chainsawman.hotel.EternityDevilEntity[] d = new io.github.kortev.chainsawman.hotel.EternityDevilEntity[1];
+		ready(context, h, () -> {
+			later(context, 15, () -> {
+				noSquad(context, h);
+				d[0] = fightAt(context, h);
+				context.assertTrue(d[0] != null && d[0].isAlive() && !d[0].shaft(), "no devil once the fight started");
+			});
+			later(context, 150, () -> {
+				context.assertTrue(d[0].isAlive() && !d[0].growing(), "the devil has not grown");
+				Vec3d lp = HotelBuilder.local(h.origin, h.rot, d[0].getPos());
+				context.assertTrue(lp.x > 33.0 && lp.x < 40.0, "the devil is not at the corridor's end: " + lp);
+				float want = HotelBuilder.alongYaw(h.rot) + 180.0F;
+				context.assertTrue(Math.abs(net.minecraft.util.math.MathHelper.wrapDegrees(d[0].facing() - want)) < 1.0F, "the devil does not face back along the corridor: " + d[0].facing());
+				context.assertTrue(at(context, h, 30, 33, 6).isAir() && h.run.torn >= io.github.kortev.chainsawman.hotel.Arena.X1 - io.github.kortev.chainsawman.hotel.Arena.X0 + 1, "the arena round the devil is not torn open");
+				context.complete();
+			});
+		});
+	}
+
 	/** The turn builds the shaft (as real blocks), puts everyone in a doorway looking down it, puts the devil at its foot, shuts the sky arena, and a kill puts every block back. */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_shaft_turn", tickLimit = 900)
 	public void theFloorTurnsIntoAShaftAndEverythingIsPutBackExactly(TestContext context) {

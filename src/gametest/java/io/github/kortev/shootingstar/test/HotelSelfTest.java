@@ -1406,6 +1406,7 @@ public class HotelSelfTest implements ClientModInitializer {
 	private static int shaftSub;
 	private static boolean shaftCaptured;
 	private static boolean shaftTopDone;
+	private static double lookY;
 	private static boolean shaftFought;
 
 	private static void shaftNext() {
@@ -1446,9 +1447,9 @@ public class HotelSelfTest implements ClientModInitializer {
 		switch (shaftStep) {
 			case 0 -> {
 				if (shaftSub == 1) {
-					put(server, 20.0, corridorY, 6.5, 90.0F);
+					put(server, 20.0, corridorY, 6.5, HotelBuilder.alongYaw(ROT));
 				} else if (shaftSub % 8 == 0 && !shaftFought) {
-					put(server, 20.0, corridorY, 6.5, 90.0F);
+					put(server, 20.0, corridorY, 6.5, HotelBuilder.alongYaw(ROT));
 				}
 				if (!shaftFought && sInside && shaftSub > 20) {
 					// (The loop has closed on you, as it does in the game: you are inside, and the fight can begin.)
@@ -1481,9 +1482,17 @@ public class HotelSelfTest implements ClientModInitializer {
 					Capture.start(client, client.runDirectory.toPath().resolve("capture"));
 				}
 				if (shaftSub % 8 == 0) {
-					put(server, 20.0, corridorY, 6.5, 90.0F);
+					put(server, 20.0, corridorY, 6.5, HotelBuilder.alongYaw(ROT));
 				}
 				if (shaftSub == 40) {
+					// (The corridor shot must look along the corridor at the devil; this once looked the other way, at the empty west end.)
+					for (EternityDevilEntity d : client.world.getEntitiesByClass(EternityDevilEntity.class, client.player.getBoundingBox().expand(80.0), e -> true)) {
+						Vec3d to = d.getPos().subtract(client.player.getEyePos()).normalize();
+						double dot = to.dotProduct(client.player.getRotationVec(1.0F));
+						if (dot < 0.7) {
+							ShootingStar.LOGGER.error("[selftest] shaft: the corridor shot is not looking at the devil (dot {})", dot);
+						}
+					}
 					still(client, "a_corridor_devil");
 				}
 				if (shaftSub == 46) {
@@ -1513,7 +1522,7 @@ public class HotelSelfTest implements ClientModInitializer {
 			}
 			case 3 -> {
 				forward = false;
-				if (shaftTopDone && shaftSub % 6 == 0 && shaftSub < 60 && shaftSub != 30 && shaftSub != 48) {
+				if (shaftTopDone && shaftSub % 6 == 0 && shaftSub < 60 && (shaftSub < 30 || shaftSub > 52)) {
 					// (The doorway's lip is half over the shaft: kept on the ledge, or a nudge drops you down it.)
 					onServer(server, w -> io.github.kortev.chainsawman.hotel.Shaft.place(you(server), home(server), io.github.kortev.chainsawman.hotel.Shaft.lowLedges().get(0)));
 				}
@@ -1540,13 +1549,23 @@ public class HotelSelfTest implements ClientModInitializer {
 					case 30 -> still(client, "d_ledge_view");
 					case 34 -> {
 						wantYaw = client.player.getYaw();
-						wantPitch = 88.0F;
+						wantPitch = 90.0F;
+						lookY = sLocalY;
+						client.options.getFov().setValue(38);
+					}
+					case 36, 38, 40, 42, 44, 46 -> {
+						// (Over the middle of the shaft, held there, looking straight down with a long lens: the mass fills the frame.)
+						put(server, 19.5, lookY, 6.5, wantYaw);
+						wantPitch = 90.0F;
 					}
 					case 48 -> {
 						still(client, "e_look_down");
 						ShootingStar.LOGGER.info("[selftest] shaft cost (looking down): {}", io.github.kortev.chainsawman.client.FleshMesh.costReport());
 					}
-					case 52 -> wantPitch = 35.0F;
+					case 52 -> {
+						wantPitch = 35.0F;
+						client.options.getFov().setValue(70);
+					}
 					case 56 -> {
 						// (The arm that takes you down: sent now, up the shaft to your ledge.)
 						onServer(server, w -> {
