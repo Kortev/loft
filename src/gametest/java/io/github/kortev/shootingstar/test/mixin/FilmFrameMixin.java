@@ -23,7 +23,8 @@ public abstract class FilmFrameMixin {
 	private void shootingstar$filmFrame(CallbackInfo ci) {
 		if (FilmSelfTest.filming() || io.github.kortev.shootingstar.test.ReelSelfTest.active() || io.github.kortev.shootingstar.test.ShowcaseSelfTest.active() || io.github.kortev.shootingstar.test.ForeverSelfTest.active() || io.github.kortev.shootingstar.test.ReviveSelfTest.active() || io.github.kortev.shootingstar.test.HotelSelfTest.active() || io.github.kortev.shootingstar.test.TeamsSelfTest.active() || io.github.kortev.shootingstar.test.BondsSelfTest.active() || io.github.kortev.shootingstar.test.TomatoSelfTest.portrait()
 				|| io.github.kortev.shootingstar.test.SawSwingsFilm.active()
-				|| io.github.kortev.shootingstar.test.SafetySelfTest.active()) {
+				|| io.github.kortev.shootingstar.test.SafetySelfTest.active()
+				|| io.github.kortev.shootingstar.test.LeechSelfTest.portrait()) {
 			framebufferWidth = FilmSelfTest.WIDTH;
 			framebufferHeight = FilmSelfTest.HEIGHT;
 		}
@@ -33,7 +34,8 @@ public abstract class FilmFrameMixin {
 	private void shootingstar$keepFilmFrame(long window, int width, int height, CallbackInfo ci) {
 		if (FilmSelfTest.filming() || io.github.kortev.shootingstar.test.ReelSelfTest.active() || io.github.kortev.shootingstar.test.ShowcaseSelfTest.active() || io.github.kortev.shootingstar.test.ForeverSelfTest.active() || io.github.kortev.shootingstar.test.ReviveSelfTest.active() || io.github.kortev.shootingstar.test.HotelSelfTest.active() || io.github.kortev.shootingstar.test.TeamsSelfTest.active() || io.github.kortev.shootingstar.test.BondsSelfTest.active() || io.github.kortev.shootingstar.test.TomatoSelfTest.portrait()
 				|| io.github.kortev.shootingstar.test.SawSwingsFilm.active()
-				|| io.github.kortev.shootingstar.test.SafetySelfTest.active()) {
+				|| io.github.kortev.shootingstar.test.SafetySelfTest.active()
+				|| io.github.kortev.shootingstar.test.LeechSelfTest.portrait()) {
 			ci.cancel();
 		}
 	}

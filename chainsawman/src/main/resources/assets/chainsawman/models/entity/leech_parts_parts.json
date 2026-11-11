@@ -1,0 +1,98 @@
+{
+ "note": "The Leech Devil's pieces (tools/leech_devil_3d.py)",
+ "frame": "blocks; each piece in its own frame (see the tool)",
+ "mesh": "leech_parts_mesh.bin",
+ "quads": 7947,
+ "voxels": 21040,
+ "parts": [
+  {
+   "name": "thigh",
+   "index": 0,
+   "pivot": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "anim": null,
+   "voxel": 0.03125,
+   "voxels": 11712,
+   "kind": "grab_thigh",
+   "length": 1.2,
+   "quads": 3507
+  },
+  {
+   "name": "shin",
+   "index": 1,
+   "pivot": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "anim": null,
+   "voxel": 0.03125,
+   "voxels": 6116,
+   "kind": "grab_shin",
+   "length": 1.15,
+   "quads": 2325
+  },
+  {
+   "name": "tseg",
+   "index": 2,
+   "pivot": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "anim": null,
+   "voxel": 0.03125,
+   "voxels": 1560,
+   "kind": "grab_tseg",
+   "length": 0.4,
+   "quads": 752
+  },
+  {
+   "name": "sucker",
+   "index": 3,
+   "pivot": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "anim": null,
+   "voxel": 0.03125,
+   "voxels": 952,
+   "kind": "grab_sucker",
+   "quads": 848
+  },
+  {
+   "name": "tongue",
+   "index": 4,
+   "pivot": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "anim": null,
+   "voxel": 0.03125,
+   "voxels": 496,
+   "kind": "grab_tongue",
+   "length": 0.5,
+   "quads": 311
+  },
+  {
+   "name": "tongue_tip",
+   "index": 5,
+   "pivot": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "anim": null,
+   "voxel": 0.03125,
+   "voxels": 204,
+   "kind": "grab_tongue_tip",
+   "quads": 204
+  }
+ ],
+ "posUnit": 32
+}

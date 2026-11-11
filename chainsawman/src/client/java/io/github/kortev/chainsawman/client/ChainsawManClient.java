@@ -94,6 +94,7 @@ public final class ChainsawManClient implements ClientModInitializer {
 		io.github.kortev.chainsawman.client.devil.DevilsClient.init();
 		// Public Safety: the licence key and card, the payday.
 		io.github.kortev.chainsawman.client.safety.SafetyClient.init();
+		io.github.kortev.chainsawman.client.devil.LeechClient.init();
 		WorldRenderEvents.LAST.register(context -> {
 			ClientForever.projection = new org.joml.Matrix4f(context.projectionMatrix());
 			ClientForever.view = new org.joml.Matrix4f(context.positionMatrix());

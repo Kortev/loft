@@ -40,6 +40,19 @@ public final class Devils {
 	public static final Item TOMATO_DEVIL_SPAWN_EGG = Registry.register(Registries.ITEM, ChainsawMan.id("tomato_devil_spawn_egg"),
 			new SpawnEggItem(TOMATO_DEVIL, 0xC2231A, 0xC9A690, new Item.Settings()));
 
+	// ---- The Leech Devil (LeechDevilEntity): the devil, the arm or tongue a blade can catch, the sucker it leaves, its spawn egg.
+	public static final EntityType<LeechDevilEntity> LEECH_DEVIL = Registry.register(Registries.ENTITY_TYPE, ChainsawMan.id("leech_devil"),
+			EntityType.Builder.create(LeechDevilEntity::new, SpawnGroup.MONSTER).dimensions(LeechDevilEntity.WIDTH, LeechDevilEntity.HEIGHT)
+					.eyeHeight(1.6F).maxTrackingRange(10).trackingTickInterval(2).build("leech_devil"));
+	public static final EntityType<LeechPartEntity> LEECH_PART = Registry.register(Registries.ENTITY_TYPE, ChainsawMan.id("leech_part"),
+			EntityType.Builder.<LeechPartEntity>create(LeechPartEntity::new, SpawnGroup.MISC).dimensions(1.3F, 1.3F).maxTrackingRange(8)
+					.trackingTickInterval(1).disableSaving().disableSummon().build("leech_part"));
+	/** A Leech Devil's sucker mouth: a devil's part, worth something to someone. */
+	public static final Item LEECH_SUCKER = Registry.register(Registries.ITEM, ChainsawMan.id("leech_sucker"),
+			new Item(new Item.Settings().rarity(Rarity.UNCOMMON).maxCount(16)));
+	public static final Item LEECH_DEVIL_SPAWN_EGG = Registry.register(Registries.ITEM, ChainsawMan.id("leech_devil_spawn_egg"),
+			new SpawnEggItem(LEECH_DEVIL, 0x1D2115, 0x9A846E, new Item.Settings()));
+
 	/** The Tomato's sounds, synthesised by {@code tools/gen_chainsaw_sounds.py}. */
 	public static final class Sounds {
 		/** One hand coming down: a wet slap of a palm on the ground. */
@@ -103,5 +116,10 @@ public final class Devils {
 		ItemGroupEvents.modifyEntriesEvent(ItemGroups.SPAWN_EGGS).register(entries -> entries.add(TOMATO_DEVIL_SPAWN_EGG));
 		ItemGroupEvents.modifyEntriesEvent(ItemGroups.INGREDIENTS).register(entries -> entries.add(TOMATO_CARCASS));
 		Sniff.init();
+		// The Leech Devil: no spawning in the world yet (only /summon, its egg and the film).
+		LeechSounds.init();
+		FabricDefaultAttributeRegistry.register(LEECH_DEVIL, LeechDevilEntity.createAttributes());
+		ItemGroupEvents.modifyEntriesEvent(ItemGroups.SPAWN_EGGS).register(entries -> entries.add(LEECH_DEVIL_SPAWN_EGG));
+		ItemGroupEvents.modifyEntriesEvent(ItemGroups.INGREDIENTS).register(entries -> entries.add(LEECH_SUCKER));
 	}
 }
