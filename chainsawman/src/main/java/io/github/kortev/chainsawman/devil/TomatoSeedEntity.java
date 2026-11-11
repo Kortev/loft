@@ -71,6 +71,9 @@ public class TomatoSeedEntity extends Entity {
 	public int index;
 	/** Ticks it has lain in the ground. */
 	public int ground;
+	/** The growth of the devil it came from ({@link Growth#save}), or null: the devil that comes out of it is one step worse. */
+	@org.jetbrains.annotations.Nullable
+	public NbtCompound growth;
 
 	public TomatoSeedEntity(EntityType<? extends TomatoSeedEntity> type, World world) {
 		super(type, world);
@@ -354,6 +357,11 @@ public class TomatoSeedEntity extends Entity {
 			devil.refreshPositionAndAngles(getX(), getY(), getZ(), random.nextFloat() * 360.0F, 0.0F);
 			devil.initialize(world, world.getLocalDifficulty(getBlockPos()), SpawnReason.REINFORCEMENT, null);
 			devil.seeds = next;
+			// One step worse for having come back (the player failed to finish it).
+			if (growth != null) {
+				devil.growth().read(growth);
+			}
+			devil.growth().cameBack(world.getTimeOfDay());
 			devil.setHealth(devil.getMaxHealth() * TomatoDevilEntity.COMEBACK_HEALTH);
 			devil.setPersistent();
 			world.spawnEntity(devil);
@@ -447,6 +455,7 @@ public class TomatoSeedEntity extends Entity {
 		dataTracker.set(WITHERING, nbt.contains("Withering") ? nbt.getInt("Withering") : -1);
 		dataTracker.set(BURNING, nbt.contains("Burning") ? nbt.getInt("Burning") : -1);
 		dataTracker.set(CUT, nbt.getInt("Cuts"));
+		growth = nbt.contains("Growth", net.minecraft.nbt.NbtElement.COMPOUND_TYPE) ? nbt.getCompound("Growth") : null;
 		// (Half eaten when the world was saved: Pochita finishes it from the start.)
 	}
 
@@ -461,6 +470,9 @@ public class TomatoSeedEntity extends Entity {
 		nbt.putInt("Withering", withering());
 		nbt.putInt("Burning", burning());
 		nbt.putInt("Cuts", cuts());
+		if (growth != null) {
+			nbt.put("Growth", growth.copy());
+		}
 	}
 
 	@Override

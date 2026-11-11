@@ -543,6 +543,14 @@
       }
     ]
   },
+  "tomato.grow": {
+    "subtitle": "subtitles.chainsawman.tomato.grow",
+    "sounds": [
+      {
+        "name": "chainsawman:tomato_grow"
+      }
+    ]
+  },
   "tomato.hush": {
     "subtitle": "subtitles.chainsawman.tomato.hush",
     "sounds": [

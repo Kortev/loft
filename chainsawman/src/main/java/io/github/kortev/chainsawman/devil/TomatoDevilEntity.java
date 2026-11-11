@@ -141,6 +141,11 @@ public class TomatoDevilEntity extends HostileEntity {
 	private static final TrackedData<Float> AIM = DataTracker.registerData(TomatoDevilEntity.class, TrackedDataHandlerRegistry.FLOAT);
 	/** When it noticed someone (the world's time), or -1 while it has noticed nobody: its eyes wander till then. */
 	private static final TrackedData<Long> NOTICED = DataTracker.registerData(TomatoDevilEntity.class, TrackedDataHandlerRegistry.LONG);
+	/** Its growth (0 to 5, {@link Growth}), and when it last grew with someone near enough to see it shudder (the world's time). */
+	private static final TrackedData<Integer> GROWTH = DataTracker.registerData(TomatoDevilEntity.class, TrackedDataHandlerRegistry.INTEGER);
+	private static final TrackedData<Long> GREW_AT = DataTracker.registerData(TomatoDevilEntity.class, TrackedDataHandlerRegistry.LONG);
+
+	private final Growth growth = new Growth(this, level -> dataTracker.set(GROWTH, level));
 
 	/** How many seeds it bursts into when killed. */
 	public int seeds = SEEDS;
@@ -188,6 +193,47 @@ public class TomatoDevilEntity extends HostileEntity {
 		builder.add(STATE_AT, 0L);
 		builder.add(AIM, 0.0F);
 		builder.add(NOTICED, -1L);
+		builder.add(GROWTH, 0);
+		builder.add(GREW_AT, -1000L);
+	}
+
+	// ---- Its growth (both sides: the level and the shudder are sent to everyone).
+
+	/** Its growth's rule and counts (the server's). */
+	public Growth growth() {
+		return growth;
+	}
+
+	/** Its growth, 0 to 5 (both sides). */
+	public int growthLevel() {
+		return dataTracker.get(GROWTH);
+	}
+
+	/** When it last grew in front of someone (the world's time). */
+	public long grewAt() {
+		return dataTracker.get(GREW_AT);
+	}
+
+	/** It has just grown: if a player is near, a shudder and a low swell of sound so they know something changed. */
+	private void grew() {
+		if (getWorld().getClosestPlayer(this, Growth.FELT) != null) {
+			dataTracker.set(GREW_AT, getWorld().getTime());
+			playSound(Devils.Sounds.GROW, 2.2F, 1.0F);
+		}
+	}
+
+	@Override
+	public void playSound(SoundEvent sound, float volume, float pitch) {
+		// (Its voice drops a little each step.)
+		super.playSound(sound, volume, pitch * Growth.voice(growthLevel()));
+	}
+
+	@Override
+	public boolean onKilledOther(ServerWorld world, LivingEntity other) {
+		if (other instanceof PlayerEntity && growth.killedPlayer(world.getTimeOfDay())) {
+			grew();
+		}
+		return super.onKilledOther(world, other);
 	}
 
 	// ---- What it is doing (both sides).
@@ -271,7 +317,7 @@ public class TomatoDevilEntity extends HostileEntity {
 
 	@Override
 	public boolean canImmediatelyDespawn(double distance) {
-		return !isPersistent() && super.canImmediatelyDespawn(distance);
+		return !isPersistent() && growthLevel() < 1 && super.canImmediatelyDespawn(distance);
 	}
 
 	// ---- The fight (the server).
@@ -325,8 +371,11 @@ public class TomatoDevilEntity extends HostileEntity {
 		if (now % 40 == 0) {
 			Sniff.near(world, getPos());
 		}
+		if (growth.tick()) {
+			grew();
+		}
 		// Who hugs it: anyone near its skin for long brings on the hop.
-		if (target != null && Math.hypot(target.getX() - getX(), target.getZ() - getZ()) <= WIDTH * 0.5 + HUG) {
+		if (target != null && Math.hypot(target.getX() - getX(), target.getZ() - getZ()) <= getWidth() * 0.5 + HUG) {
 			hugged++;
 		} else {
 			hugged = Math.max(0, hugged - 1);
@@ -477,9 +526,9 @@ public class TomatoDevilEntity extends HostileEntity {
 			for (LivingEntity e : world.getEntitiesByClass(LivingEntity.class, getBoundingBox().expand(HOP_REACH + 1.0, 1.5, HOP_REACH + 1.0), this::canHurt)) {
 				Vec3d rel = e.getPos().subtract(getPos()).multiply(1.0, 0.0, 1.0);
 				double d = rel.length();
-				if (d <= WIDTH * 0.5 + HOP_REACH + e.getWidth() * 0.5 && Math.abs(e.getY() - getY()) < 2.5) {
+				if (d <= getWidth() * 0.5 + HOP_REACH + e.getWidth() * 0.5 && Math.abs(e.getY() - getY()) < 2.5) {
 					Vec3d away = d < 0.05 ? forward(aim()) : rel.multiply(1.0 / d);
-					if (e.damage(getDamageSources().mobAttack(this), HOP_DAMAGE)) {
+					if (e.damage(getDamageSources().mobAttack(this), HOP_DAMAGE * growth.damage())) {
 						e.setVelocity(away.x * HOP_THROW, 0.48, away.z * HOP_THROW);
 						e.velocityModified = true;
 					}
@@ -508,7 +557,7 @@ public class TomatoDevilEntity extends HostileEntity {
 				double along = rel.dotProduct(f);
 				double across = Math.abs(rel.dotProduct(side));
 				if (along > -0.3 && along < SLAP_REACH + e.getWidth() * 0.5 && across < SLAP_HALF_WIDTH + e.getWidth() * 0.5 && rel.y < 2.5 && rel.y > -1.5) {
-					if (e.damage(getDamageSources().mobAttack(this), SLAP_DAMAGE)) {
+					if (e.damage(getDamageSources().mobAttack(this), SLAP_DAMAGE * growth.damage())) {
 						push(e, f.multiply(0.7).add(0.0, 0.35, 0.0));
 					}
 				}
@@ -559,7 +608,7 @@ public class TomatoDevilEntity extends HostileEntity {
 		}
 		Vec3d side = new Vec3d(-f.z, 0.0, f.x);
 		for (LivingEntity e : world.getEntitiesByClass(LivingEntity.class, getBoundingBox().expand(0.3, 0.0, 0.3), this::canHurt)) {
-			if (rolledOver.add(e.getUuid()) && e.damage(getDamageSources().mobAttack(this), ROLL_DAMAGE)) {
+			if (rolledOver.add(e.getUuid()) && e.damage(getDamageSources().mobAttack(this), ROLL_DAMAGE * growth.damage())) {
 				// Knocked aside, off its line.
 				double s = Math.signum(e.getPos().subtract(getPos()).dotProduct(side));
 				push(e, side.multiply((s == 0 ? 1 : s) * 1.1).add(f.multiply(0.35)).add(0.0, 0.42, 0.0));
@@ -597,7 +646,7 @@ public class TomatoDevilEntity extends HostileEntity {
 	/** Where its mouth is (the world), facing its aim. */
 	public Vec3d mouth() {
 		Vec3d f = forward(aim());
-		return getPos().add(f.multiply(1.25)).add(0.0, 2.4, 0.0);
+		return getPos().add(f.multiply(1.25 * getScale())).add(0.0, 2.4 * getScale(), 0.0);
 	}
 
 	private static float approach(float from, float to, float step) {
@@ -660,7 +709,7 @@ public class TomatoDevilEntity extends HostileEntity {
 		double dx = other.getX() - getX();
 		double dz = other.getZ() - getZ();
 		double d = Math.max(0.05, Math.hypot(dx, dz));
-		double k = 0.12 * Math.min(1.0, (WIDTH * 0.5 + other.getWidth() * 0.5 - d + 0.3));
+		double k = 0.12 * Math.min(1.0, (getWidth() * 0.5 + other.getWidth() * 0.5 - d + 0.3));
 		if (k > 0.0) {
 			other.addVelocity(dx / d * k, 0.0, dz / d * k);
 		}
@@ -727,18 +776,26 @@ public class TomatoDevilEntity extends HostileEntity {
 			return;
 		}
 		burst = true;
-		Vec3d c = getPos().add(0.0, 2.2, 0.0);
-		world.playSound(null, c.x, c.y, c.z, Devils.Sounds.BURST, SoundCategory.HOSTILE, 2.0F, 1.0F);
+		Vec3d c = getPos().add(0.0, 2.2 * getScale(), 0.0);
+		world.playSound(null, c.x, c.y, c.z, Devils.Sounds.BURST, SoundCategory.HOSTILE, 2.0F, growth.voice());
 		// (The skin's big chunks flying, landing and fading are the client's: here only a third of round 1's spray, and no red squares.)
 		world.spawnParticles(new DustParticleEffect(new Vector3f(0.62F, 0.04F, 0.03F), 1.8F), c.x, c.y, c.z, 14, 0.8, 0.6, 0.8, 0.3);
 		world.spawnParticles(JUICE, c.x, c.y, c.z, 30, 1.2, 0.8, 1.2, 0.3);
 		world.spawnParticles(PULP, c.x, c.y, c.z, 20, 1.0, 0.6, 1.0, 0.25);
-		dropStack(new ItemStack(Devils.TOMATO_CARCASS), 1.0F);
-		scatter(world, c, seeds, getUuid());
+		// (A grown one is worth more: one more carcass at steps 2 and 4.)
+		for (int i = 0; i < Growth.carcasses(growthLevel()); i++) {
+			dropStack(new ItemStack(Devils.TOMATO_CARCASS), 1.0F);
+		}
+		scatter(world, c, seeds, getUuid(), growth.save());
 	}
 
 	/** {@code count} seeds of one brood flying out from {@code from}, each to come back with one seed fewer. */
 	public static List<TomatoSeedEntity> scatter(ServerWorld world, Vec3d from, int count, UUID brood) {
+		return scatter(world, from, count, brood, null);
+	}
+
+	/** The same, the seeds carrying the growth of the devil they came from ({@link Growth#save}; null: none), to come back one step worse. */
+	public static List<TomatoSeedEntity> scatter(ServerWorld world, Vec3d from, int count, UUID brood, @Nullable NbtCompound growth) {
 		List<TomatoSeedEntity> out = new java.util.ArrayList<>();
 		Random r = world.getRandom();
 		double start = r.nextDouble() * Math.PI * 2.0;
@@ -752,6 +809,7 @@ public class TomatoDevilEntity extends HostileEntity {
 			s.brood = brood;
 			s.next = Math.max(0, count - 1);
 			s.index = i;
+			s.growth = growth;
 			world.spawnEntity(s);
 			out.add(s);
 		}
@@ -774,6 +832,7 @@ public class TomatoDevilEntity extends HostileEntity {
 	public void writeCustomDataToNbt(NbtCompound nbt) {
 		super.writeCustomDataToNbt(nbt);
 		nbt.putInt("Seeds", seeds);
+		growth.write(nbt);
 	}
 
 	@Override
@@ -781,6 +840,10 @@ public class TomatoDevilEntity extends HostileEntity {
 		super.readCustomDataFromNbt(nbt);
 		if (nbt.contains("Seeds")) {
 			seeds = nbt.getInt("Seeds");
+		}
+		// (Set by a command on one already about, e.g. /data merge entity @e[type=chainsawman:tomato_devil,limit=1] {Growth:3}: it shudders.)
+		if (growth.read(nbt) && age > 0 && getWorld() instanceof ServerWorld) {
+			grew();
 		}
 	}
 

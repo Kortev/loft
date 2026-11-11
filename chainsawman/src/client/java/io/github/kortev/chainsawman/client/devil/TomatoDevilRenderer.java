@@ -3,6 +3,7 @@ package io.github.kortev.chainsawman.client.devil;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import io.github.kortev.chainsawman.client.FleshMesh;
+import io.github.kortev.chainsawman.devil.Growth;
 import io.github.kortev.chainsawman.devil.TomatoDevilEntity;
 import java.util.ArrayList;
 import java.util.List;
@@ -330,6 +331,12 @@ public class TomatoDevilRenderer extends EntityRenderer<TomatoDevilEntity> {
 		}
 		TomatoBody b = (TomatoBody) e.clientState;
 		float now = world.getTime() + delta;
+		// Grown: everything drawn bigger about its feet (the hands still planted where they stand in the world, see drawArm).
+		int g = e.growthLevel();
+		float gs = e.getScale();
+		matrices.push();
+		matrices.scale(gs, gs, gs);
+		this.shadowRadius = 1.3F * gs;
 		Vec3d pos = e.getLerpedPos(delta);
 		int state = e.state();
 		float t = e.stateTime(delta);
@@ -352,6 +359,15 @@ public class TomatoDevilRenderer extends EntityRenderer<TomatoDevilEntity> {
 		}
 		b.step(world, e, pos, b.yaw, now, walking);
 		Pose p = pose(e, state, t, now);
+		// Just grown a step in front of someone: it shudders, swells and settles, every eye wide.
+		float sinceGrew = (float) (world.getTime() - e.grewAt()) + delta;
+		boolean shudder = sinceGrew >= 0.0F && sinceGrew < Growth.SHUDDER && !e.isDead();
+		if (shudder) {
+			float u = sinceGrew / Growth.SHUDDER;
+			p.shake += 0.075F * (1.0F - u);
+			p.scale *= 1.0F + 0.09F * MathHelper.sin(MathHelper.PI * Math.min(1.0F, u * 1.5F));
+			p.mouth = Math.max(p.mouth, 0.3F * MathHelper.sin(MathHelper.PI * u));
+		}
 		wounds(e, b, world, pos, now);
 
 		// ---- The body's frame (relative to the entity's place), as the meshes see it.
@@ -375,24 +391,31 @@ public class TomatoDevilRenderer extends EntityRenderer<TomatoDevilEntity> {
 		Matrix4f bodyView = new Matrix4f(base).mul(bodyM);
 
 		FleshMesh.Look look = look(world, light, e.hurtTime > 0 ? 0.55F * e.hurtTime / 10.0F : 0.0F);
+		FleshMesh.Look skin = TomatoGrowthLook.skin(look, g, now);
+		FleshMesh.Look arms = TomatoGrowthLook.arms(look, g);
 		FleshMesh body = FleshMesh.file("tomato_body");
 		FleshMesh parts = FleshMesh.file("tomato_parts");
-		body.draw(bodyView, now, look, null);
+		body.draw(bodyView, now, skin, null);
 		// The mouth breathes: parted a little, opening and shutting slowly (one breath in 64 ticks, the breathing sound's length).
 		float breath = 0.5F + 0.5F * MathHelper.sin(now * MathHelper.TAU / 64.0F + e.getId());
 		float mouth = p.mouth <= 0.0601F ? 0.03F + 0.11F * breath * breath : p.mouth;
-		lips(body, bodyView, base, look, mouth, provider, light, now);
+		lips(body, bodyView, base, skin, mouth, provider, light, now);
 		if (!e.isDead() && world.random.nextFloat() < 0.004F) {
-			world.playSound(pos.x, pos.y + STAND, pos.z, io.github.kortev.chainsawman.devil.Devils.Sounds.CLICK, net.minecraft.sound.SoundCategory.HOSTILE, 0.5F,
-					0.8F + world.random.nextFloat() * 0.3F, false);
+			world.playSound(pos.x, pos.y + STAND * gs, pos.z, io.github.kortev.chainsawman.devil.Devils.Sounds.CLICK, net.minecraft.sound.SoundCategory.HOSTILE, 0.5F,
+					(0.8F + world.random.nextFloat() * 0.3F) * Growth.voice(g), false);
 		}
-		drawEyes(e, b, world, parts, base, bodyM, bodyView, look, p, now, pos, delta);
+		drawEyes(e, b, world, parts, base, bodyM, bodyView, look, skin, p, now, pos, delta, g, gs, shudder);
 		drawWounds(b, matrices, provider, bodyM, light);
+		TomatoGrowthLook.seams(g, now, matrices, provider, bodyM, light);
+		if (!e.isDead() && !e.isInvisible()) {
+			TomatoGrowthLook.drip(e, world, g, bodyM, pos, gs);
+		}
 
 		// ---- The arms.
 		for (int i = 0; i < TomatoBody.ARMS; i++) {
-			drawArm(e, b, world, parts, base, bodyM, look, p, i, now, pos);
+			drawArm(e, b, world, parts, base, bodyM, arms, p, i, now, pos, gs);
 		}
+		matrices.pop();
 	}
 
 	private static FleshMesh.Look look(ClientWorld world, int light, float hurt) {
@@ -477,7 +500,7 @@ public class TomatoDevilRenderer extends EntityRenderer<TomatoDevilEntity> {
 	}
 
 	private static void drawEyes(TomatoDevilEntity e, TomatoBody b, ClientWorld world, FleshMesh parts, Matrix4f base, Matrix4f bodyM, Matrix4f bodyView,
-			FleshMesh.Look look, Pose p, float now, Vec3d pos, float delta) {
+			FleshMesh.Look look, FleshMesh.Look skin, Pose p, float now, Vec3d pos, float delta, int grown, float gs, boolean shudder) {
 		FleshMesh.Part eye = parts.byName.get("eye");
 		if (eye == null) {
 			return;
@@ -488,7 +511,7 @@ public class TomatoDevilRenderer extends EntityRenderer<TomatoDevilEntity> {
 		PlayerEntity near = world.getClosestPlayer(e, 32.0);
 		Vector3f target = null;
 		if (near != null) {
-			Vec3d ep = near.getLerpedPos(delta).add(0.0, near.getStandingEyeHeight(), 0.0).subtract(pos);
+			Vec3d ep = near.getLerpedPos(delta).add(0.0, near.getStandingEyeHeight(), 0.0).subtract(pos).multiply(1.0 / gs);
 			target = new Matrix4f(bodyM).invert().transformPosition(new Vector3f((float) ep.x, (float) ep.y, (float) ep.z));
 		}
 		float health = e.getHealth() / e.getMaxHealth();
@@ -504,6 +527,9 @@ public class TomatoDevilRenderer extends EntityRenderer<TomatoDevilEntity> {
 		shine.b = Math.max(look.b, 0.56F);
 		shine.rim = look.rim;
 		shine.hurt = look.hurt;
+		// Grown: the whites go bloodshot, and each step a red rim swells round every eye.
+		TomatoGrowthLook.bloodshot(shine, grown);
+		FleshMesh.Look rimLook = TomatoGrowthLook.rim(look, grown, now);
 		List<Eye> list = eyes();
 		int n = list.size();
 		if (b.gaze.length != n) {
@@ -523,7 +549,7 @@ public class TomatoDevilRenderer extends EntityRenderer<TomatoDevilEntity> {
 		boolean aware = noticed >= 0 && near != null && !p.dazed;
 		float sinceNotice = noticed >= 0 ? (float) (world.getTime() - noticed) + delta : 1000.0F;
 		// The pupils: wide while it wanders, shrinking to points the moment it has you.
-		float wantPupil = aware ? (sinceNotice < 30.0F ? 0.42F : 0.55F) : 1.0F;
+		float wantPupil = shudder ? 0.35F : aware ? (sinceNotice < 30.0F ? 0.42F : 0.55F) : 1.0F;
 		b.pupil += (wantPupil - b.pupil) * Math.min(1.0F, dtE * (aware ? 0.6F : 0.08F));
 		for (int k = 0; k < n; k++) {
 			Eye ey = list.get(k);
@@ -589,11 +615,16 @@ public class TomatoDevilRenderer extends EntityRenderer<TomatoDevilEntity> {
 			xc.normalize();
 			Vector3f yc = new Vector3f(zc).cross(xc);
 			float bl = popped ? 0.35F : b.blink(k, now, e.getId());
-			if (aware && sinceNotice < 26.0F) {
-				// Noticing: wide open, no blinking.
+			if (aware && sinceNotice < 26.0F || shudder) {
+				// Noticing (or growing): wide open, no blinking.
 				bl = 1.0F;
 			}
-			float s = ey.r / EYE_R;
+			// Young, some of its eyes are still shut (a twitch under the lid now and then); each step opens more of them.
+			boolean shut = !shudder && !popped && !TomatoGrowthLook.open(k, grown);
+			if (shut) {
+				bl = 0.05F * Math.max(0.0F, MathHelper.sin(now * 0.9F + k * 3.7F) * MathHelper.sin(now * 0.13F + k));
+			}
+			float s = ey.r / EYE_R * TomatoGrowthLook.eyeSize(grown);
 			Matrix4f m = new Matrix4f(bodyView).translate(ey.c)
 					.mul(new Matrix4f(xc.x, xc.y, xc.z, 0, yc.x, yc.y, yc.z, 0, zc.x, zc.y, zc.z, 0, 0, 0, 0, 1)).scale(s, s, s * (popped ? 0.6F : 1.0F));
 			if (popped) {
@@ -602,7 +633,7 @@ public class TomatoDevilRenderer extends EntityRenderer<TomatoDevilEntity> {
 				continue;
 			}
 			parts.drawPart(eye, m, shine, base);
-			if (pupilPart != null) {
+			if (pupilPart != null && !shut) {
 				float ps = b.pupil * (0.9F + 0.06F * MathHelper.sin(now * 0.2F + k));
 				parts.drawPart(pupilPart, new Matrix4f(m).scale(ps, ps, 1.0F), look, base);
 			}
@@ -616,10 +647,15 @@ public class TomatoDevilRenderer extends EntityRenderer<TomatoDevilEntity> {
 				nx.normalize();
 				Vector3f ny = new Vector3f(nz).cross(nx).normalize();
 				Matrix4f sock = new Matrix4f(bodyView).translate(ey.c).mul(new Matrix4f(nx.x, nx.y, nx.z, 0, ny.x, ny.y, ny.z, 0, nz.x, nz.y, nz.z, 0, 0, 0, 0, 1)).scale(s);
-				float shut = 1.0F - bl;
-				float a = LID_OPEN * (1.0F - shut);
-				parts.drawPart(lid, new Matrix4f(sock).rotateX(a), look, base);
-				parts.drawPart(lid, new Matrix4f(sock).rotateZ(MathHelper.PI).rotateX(a), look, base);
+				if (rimLook != null && !shut) {
+					// The rim: a raw red ring of swollen flesh round the ball (a flattened ball, bigger, sunk back into the skin).
+					float rs = TomatoGrowthLook.rimSize(grown);
+					parts.drawPart(eye, new Matrix4f(sock).translate(0.0F, 0.0F, -0.3F * EYE_R).scale(rs, rs, 0.6F), rimLook, base);
+				}
+				float closed = 1.0F - bl;
+				float a = LID_OPEN * (1.0F - closed);
+				parts.drawPart(lid, new Matrix4f(sock).rotateX(a), skin, base);
+				parts.drawPart(lid, new Matrix4f(sock).rotateZ(MathHelper.PI).rotateX(a), skin, base);
 			}
 		}
 	}
@@ -688,12 +724,13 @@ public class TomatoDevilRenderer extends EntityRenderer<TomatoDevilEntity> {
 
 	/** Arm {@code i}: shoulder, elbow, wrist, hand. */
 	private static void drawArm(TomatoDevilEntity e, TomatoBody b, ClientWorld world, FleshMesh parts, Matrix4f base, Matrix4f bodyM, FleshMesh.Look look,
-			Pose p, int i, float now, Vec3d pos) {
+			Pose p, int i, float now, Vec3d pos, float gs) {
 		Vector3f o = out(i);
 		Vector3f shoulder = bodyM.transformPosition(new Vector3f(o.x * SHOULDER_R, SHOULDER_Y, o.z * SHOULDER_R));
 		// The walk's hand (the world, relative to the entity's place).
 		double[] h = b.walkHand(i, now);
-		Vector3f wrist = new Vector3f((float) (h[0] - pos.x), (float) (h[1] - pos.y + WRIST_UP), (float) (h[2] - pos.z));
+		// (In the scaled frame: a grown devil's hand is drawn exactly where it is planted in the world.)
+		Vector3f wrist = new Vector3f((float) ((h[0] - pos.x) / gs), (float) ((h[1] - pos.y) / gs + WRIST_UP), (float) ((h[2] - pos.z) / gs));
 		double handYaw = h[3];
 		// A standing hand feeling about: up off the ground a little and across.
 		float[] feel = b.feel(i, now, e.getId(), e.state() == TomatoDevilEntity.WALK && !e.isDead() && b.vel.length() < 0.02);
@@ -721,7 +758,7 @@ public class TomatoDevilRenderer extends EntityRenderer<TomatoDevilEntity> {
 				float yawR = -b.yaw * MathHelper.RADIANS_PER_DEGREE;
 				Vector3f lw = new Vector3f(p.wrist[i]);
 				posed = new Matrix4f().rotateY(yawR).transformPosition(new Vector3f(lw.x, 0.0F, lw.z));
-				posed.y = (float) (TomatoBody.ground(world, pos.add(posed.x, 0, posed.z), pos.y) - pos.y + WRIST_UP) + lw.y;
+				posed.y = (float) ((TomatoBody.ground(world, pos.add(posed.x * gs, 0, posed.z * gs), pos.y) - pos.y) / gs + WRIST_UP) + lw.y;
 			} else {
 				posed = bodyM.transformPosition(new Vector3f(p.wrist[i]));
 			}
@@ -740,7 +777,7 @@ public class TomatoDevilRenderer extends EntityRenderer<TomatoDevilEntity> {
 		}
 		// Keep the drawn hand for the walk to take back.
 		TomatoBody.Foot f = b.feet[i];
-		f.drawn = new Vec3d(pos.x + wrist.x, pos.y + wrist.y - WRIST_UP, pos.z + wrist.z);
+		f.drawn = new Vec3d(pos.x + wrist.x * gs, pos.y + (wrist.y - WRIST_UP) * gs, pos.z + wrist.z * gs);
 		f.drawnYaw = Math.atan2(fingers.x, fingers.z);
 
 		// Two bones.
