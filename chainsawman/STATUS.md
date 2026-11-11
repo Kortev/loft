@@ -13,10 +13,11 @@ Updated 2026-11-09. Keep this page under 3 KB. Change it whenever something star
 ## Running
 
 - **Building: 3.4b the Tomato Devil, round 2** (branch `tomato-round2`, an Opus agent in a worktree; brief
-  `plan/packages/3.4b_tomato_round2.md`). kortev on round 1: "not horrible", fix what's weak, check the model,
-  and torches shouldn't be the only way with the seeds. Round 2: body redone to the show's look, a hop against
-  hugging, a readable burst, Pochita eats seeds and a chainsaw shreds them. When it hands back: review stills,
-  merge with `--no-ff`, run all tests, push, send kortev the film. Round 1 merged 2026-11-10 (274 tests).
+  `plan/packages/3.4b_tomato_round2.md`): body redone to the show's look and made creepy, a hop against
+  hugging, a readable burst, Pochita eats seeds, a chainsaw shreds them. When it hands back: review stills,
+  merge with `--no-ff`, run all tests, push, send kortev the film.
+- **Next: 3.4c a creepy horror short of the Tomato** (kortev asked; `plan/packages/3.4c_tomato_cinematic.md`),
+  only if round 2's close-up holds up.
 - **The Eternity Devil is parked** for a big pass, arm animations first
   (`chainsawman/plan/packages/0.1c_devil_big_pass.md`).
 - New plan pages (kortev, 2026-11-10): `plan/4e_what_you_play.md` (fiends are playable) and `plan/4f_scaling.md`
