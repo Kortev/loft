@@ -16,7 +16,7 @@ check on the wiki and Google first.
    explored. Reading the poster gives you a **hunter's licence** and marks the nearest office on it.
 3. **The first devil. Not scripted [decided: kortev, 2026-11-11: "I don't even know if scripting it like that's
    a good idea"].** Tomato Devils turn up at night by chance, from the world's second night on, near a player
-   under open sky (about 40% a night [pick]). The arrival is staged big (eyes in the dark, the ground bulges, it
+   under open sky (about 40% a night, then at least three quiet nights after one comes [pick]). The arrival is staged big (eyes in the dark, the ground bulges, it
    bursts out) though it's weak, so the first minute is worth filming. Near a village, villagers shout and
    run, iron golems leave it to you, and it doesn't kill villagers. A stone or iron sword can kill it, though it
    heals a little. It drops a part. Now you know: devils are real, and they heal.
