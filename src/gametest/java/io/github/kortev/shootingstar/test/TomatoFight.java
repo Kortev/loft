@@ -40,7 +40,7 @@ final class TomatoFight {
 	private TomatoFight() {
 	}
 
-	private static final Fighter YOU = new Fighter();
+	static final Fighter YOU = new Fighter();
 	private static int step;
 	private static int sub;
 	private static boolean film;
@@ -60,7 +60,7 @@ final class TomatoFight {
 	private static TomatoSeedEntity left;
 
 	static void snap(MinecraftServer server) {
-		if (!TomatoSelfTest.active() || !(server instanceof IntegratedServer is) || is.getPlayerManager().getPlayerList().isEmpty() || !target().startsWith("played")) {
+		if (!TomatoSelfTest.active() || !(server instanceof IntegratedServer is) || is.getPlayerManager().getPlayerList().isEmpty() || !target().startsWith("played") && !target().equals("firstnight")) {
 			return;
 		}
 		ServerPlayerEntity p = TomatoSelfTest.you(is);
@@ -150,7 +150,7 @@ final class TomatoFight {
 	private static boolean hopped;
 
 	/** Out of the way of what is coming and hitting it when it can be hit; true while something is being dodged. */
-	private static boolean fight(MinecraftClient c, TomatoDevilEntity d, boolean takeRoll, boolean baiting) {
+	static boolean fight(MinecraftClient c, TomatoDevilEntity d, boolean takeRoll, boolean baiting) {
 		Vec3d me = c.player.getPos();
 		Vec3d f = forward(d.aim());
 		Vec3d side = new Vec3d(-f.z, 0.0, f.x);
@@ -294,7 +294,7 @@ final class TomatoFight {
 	}
 
 	/** Close in and cut it between its moves (backing off a step if right up against it). */
-	private static void press(MinecraftClient c, TomatoDevilEntity d) {
+	static void press(MinecraftClient c, TomatoDevilEntity d) {
 		double dist = d.distanceTo(c.player);
 		if (dist > 3.4) {
 			YOU.strafeTo(c, d.getPos(), 3.2, false);

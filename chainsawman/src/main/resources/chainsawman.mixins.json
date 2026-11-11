@@ -14,7 +14,9 @@
 		"ForeverFreezeMixin",
 		"ForeverMoveMixin",
 		"FrenzySlowMixin",
-		"LivingEntityAccessor"
+		"GolemIgnoresTomatoMixin",
+		"LivingEntityAccessor",
+		"TomatoFleeMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

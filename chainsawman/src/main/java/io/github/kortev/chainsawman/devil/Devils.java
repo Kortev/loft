@@ -1,14 +1,10 @@
 package io.github.kortev.chainsawman.devil;
 
 import io.github.kortev.chainsawman.ChainsawMan;
-import net.fabricmc.fabric.api.biome.v1.BiomeModifications;
-import net.fabricmc.fabric.api.biome.v1.BiomeSelectors;
 import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.SpawnGroup;
-import net.minecraft.entity.SpawnLocationTypes;
-import net.minecraft.entity.SpawnRestriction;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemGroups;
 import net.minecraft.item.SpawnEggItem;
@@ -17,7 +13,6 @@ import net.minecraft.registry.Registry;
 import net.minecraft.sound.SoundEvent;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.Rarity;
-import net.minecraft.world.Heightmap;
 
 /**
  * The wild devils of the world (the {@code devil/} lane): what they are, what they drop and how they sound. For now the Tomato Devil, the
@@ -34,6 +29,10 @@ public final class Devils {
 	public static final EntityType<TomatoSpitEntity> TOMATO_SPIT = Registry.register(Registries.ENTITY_TYPE, ChainsawMan.id("tomato_spit"),
 			EntityType.Builder.<TomatoSpitEntity>create(TomatoSpitEntity::new, SpawnGroup.MISC).dimensions(0.3F, 0.3F).maxTrackingRange(8)
 					.trackingTickInterval(1).disableSaving().disableSummon().build("tomato_spit"));
+	/** A Tomato Devil on its way up out of the ground (its eyes, then the bulge): it can't be hit, and becomes the devil when it bursts. */
+	public static final EntityType<TomatoArrivalEntity> TOMATO_ARRIVAL = Registry.register(Registries.ENTITY_TYPE, ChainsawMan.id("tomato_arrival"),
+			EntityType.Builder.<TomatoArrivalEntity>create(TomatoArrivalEntity::new, SpawnGroup.MISC).dimensions(0.5F, 0.5F).maxTrackingRange(10)
+					.trackingTickInterval(20).disableSummon().makeFireImmune().build("tomato_arrival"));
 
 	/** What is left of a Tomato Devil after it bursts: its body, worth something to someone. */
 	public static final Item TOMATO_CARCASS = Registry.register(Registries.ITEM, ChainsawMan.id("tomato_carcass"),
@@ -73,6 +72,8 @@ public final class Devils {
 		public static final SoundEvent SHRIEK = register("tomato.shriek");
 		/** A blade or a fist into a seed: a squelch, no more. */
 		public static final SoundEvent SQUELCH = register("tomato.squelch");
+		/** Its arrival beginning: the air drops out (the night's sounds sucked away, a low pressure in the ears). */
+		public static final SoundEvent HUSH = register("tomato.hush");
 		/** Pochita chewing up a seed: teeth whirring, a wet crunch. */
 		public static final SoundEvent CHEW = register("pochita.chew");
 		/** Pochita smelling a devil: two short barks with an engine's rasp in them. */
@@ -97,9 +98,8 @@ public final class Devils {
 	public static void init() {
 		Sounds.init();
 		FabricDefaultAttributeRegistry.register(TOMATO_DEVIL, TomatoDevilEntity.createAttributes());
-		SpawnRestriction.register(TOMATO_DEVIL, SpawnLocationTypes.ON_GROUND, Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, TomatoDevilEntity::canSpawn);
-		// Rare: a monster's chance out of a whole night's (zombies are 95 of about 515), then the night, the sky and the distance rule.
-		BiomeModifications.addSpawn(BiomeSelectors.foundInOverworld(), SpawnGroup.MONSTER, TOMATO_DEVIL, 2, 1, 1);
+		// (Not in the monsters' spawn list: it turns up only by its arrival, out of the ground in front of someone at night.)
+		TomatoArrivals.init();
 		ItemGroupEvents.modifyEntriesEvent(ItemGroups.SPAWN_EGGS).register(entries -> entries.add(TOMATO_DEVIL_SPAWN_EGG));
 		ItemGroupEvents.modifyEntriesEvent(ItemGroups.INGREDIENTS).register(entries -> entries.add(TOMATO_CARCASS));
 		Sniff.init();
