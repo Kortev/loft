@@ -11,9 +11,12 @@ shot that goes in. Everything after the game is done here, on the frames, with n
               the devil and its juice kept strong (it is the only colour in the frame); a gentle S-curve, the whole a little darker.
   effects     a soft glow on what is bright (the eyeshine, the lanterns, the moon); a dark vignette; a slight colour fringe toward the edges;
               film grain; a slow focus breath on the close-ups; a few frames of flicker on the lunge and a white flash on the hit.
-  sound       synthesised only (no recordings, no music): a low drone, the night's crickets (they stop when it comes), Pochita's growl, a heartbeat
-              that stops dead when the eye finds you, the hands' patter (placed where the game played its steps), the wet breath, one hard
-              hit on the cut to black, a ringing after it.
+  sound       synthesised only (no recordings, no music), stereo, as stems (generator functions snd_*): night air and far crickets, a
+              drone that creeps in, drops out twice and comes back lower and closer, a dissonant cluster rising to the eye's snap and cut
+              dead, the hands (thud, fingers, drag) panned with the picture where the game played its steps, wet foley at your ear, the
+              breath with a moan in it coming closer every shot, the sleeping villager, Pochita's growl and whimper, the lunge and the hit.
+    py -3.12 tools/tomato_creepy.py teaser     # the teaser (teaser.mp4, teaser_sheet.jpg) from the kept frames
+    py -3.12 tools/tomato_creepy.py resound    # only the sound again, and creepy.mp4 encoded with it (same picture)
 """
 import json
 import math
@@ -248,7 +251,7 @@ def grade_all(only=None):
 _FONT = {}
 
 
-def title_frame(k):
+def title_frame(k, length=None):
     if 'img' not in _FONT:
         img = Image.new('RGB', (W, H), (0, 0, 0))
         d = ImageDraw.Draw(img)
@@ -261,7 +264,8 @@ def title_frame(k):
         bb = d.textbbox((0, 0), TITLE_TEXT, font=font)
         d.text(((W - (bb[2] - bb[0])) / 2 - bb[0], (H - (bb[3] - bb[1])) / 2 - bb[1]), TITLE_TEXT, font=font, fill=(236, 232, 226))
         _FONT['img'] = np.asarray(img)
-    a = min(1.0, k / 10.0) * (1.0 if k < TITLE * FPS - 14 else max(0.0, (TITLE * FPS - k) / 14.0))
+    L = (length or TITLE) * FPS
+    a = min(1.0, k / 10.0) * (1.0 if k < L - 14 else max(0.0, (L - k) / 14.0))
     # (the text breathes a touch, and once it jumps)
     jit = 0.88 if k in (23, 24) else 1.0
     return (_FONT['img'] * a * jit).astype(np.uint8)
@@ -325,144 +329,6 @@ def sheet_sources(frames):
 SHEET_AT = {1: 0.8, 2: 0.6, 3: 0.12, 4: 0.6, 5: 0.75, 6: 0.55, 7: 0.85, 8: 0.85}
 
 
-# ---------------------------------------------------------------- the sound
-
-def sound(frames):
-    sys.path.insert(0, HERE)
-    import gen_chainsaw_sounds as cs  # noqa: E402
-    import gen_sounds as g  # noqa: E402
-    from gen_sounds import SR, bp, hp, lp, sat, white, curve  # noqa: E402
-    g.rng = np.random.default_rng(3401)
-    total = len(frames) / FPS
-    n = int(total * SR) + SR
-    t = np.arange(n) / SR
-    stems = {k: np.zeros(n) for k in ('drone', 'night', 'pochita', 'heart', 'hands', 'breath', 'eye', 'hit')}
-    stem = ['night']
-
-    def place(x, at, gain=1.0):
-        i = int(at * SR)
-        k = min(len(x), n - i)
-        if k > 0 and i >= 0:
-            stems[stem[0]][i:i + k] += x[:k] * gain
-
-    # When each shot starts and ends in the film.
-    starts, ends = {}, {}
-    for j, (src, kind, info) in enumerate(frames):
-        s = info.get('shot')
-        starts.setdefault(s, j / FPS)
-        ends[s] = (j + 1) / FPS
-    snap = starts[6] + SNAP_IN_SHOT6
-    hit = ends[8] - 1.0 / FPS
-    # The drone: two low tones beating, a tritone over them, rumble; rising toward the eye, gone at its snap, back under the mouth, gone in the black.
-    drone = (np.sin(2 * np.pi * 41.2 * t) + 0.8 * np.sin(2 * np.pi * 43.1 * t + 1.0) + 0.25 * np.sin(2 * np.pi * 58.3 * t)
-             + 0.12 * np.sin(2 * np.pi * 116.5 * t + 0.4 * np.sin(2 * np.pi * 0.07 * t)))
-    drone = sat(drone * 0.5, 1.4) + lp(g.brown(n), 110.0) * 2.5
-    whine = np.sin(2 * np.pi * (2960.0 + 25.0 * np.sin(2 * np.pi * 0.23 * t)) * t) * 0.025 + bp(white(n), 2500, 3600) * 0.01
-    env = np.interp(t, [0, 1.5, starts[3], starts[5], snap - 0.05, snap, starts[7] - 0.4, starts[7] + 1.0, ends[7], ends[7] + 0.05, starts[8], hit, hit + 0.01, total],
-                    [0, 0.35, 0.45, 0.6, 0.95, 0.0, 0.0, 0.4, 0.5, 0.0, 0.0, 1.0, 0.0, 0.0])
-    wenv = np.interp(t, [0, starts[4], snap - 0.05, snap, starts[8], hit, hit + 0.01], [0, 0.2, 1.0, 0.0, 0.0, 1.2, 0.0])
-    stems['drone'] += drone * env * 0.22 + whine * wenv
-    # The night: wind, and crickets that stop as it comes near (in shot 3).
-    wind = lp(g.pink(n), 500.0) * (0.6 + 0.4 * np.sin(2 * np.pi * 0.11 * t)) * 0.05
-    stems['night'] += wind * np.interp(t, [0, 1.0, snap - 0.1, snap, ends[7], ends[7] + 0.1], [0, 1, 1, 0.0, 0.0, 0.0])
-    cr_stop = starts[3] + 1.2
-    for c, (f0, period, pan) in enumerate(((4400.0, 0.71, 1.0), (4780.0, 0.93, 0.7))):
-        at = 0.3 + c * 0.2
-        while at < cr_stop:
-            m = int(0.09 * SR)
-            tt = np.arange(m) / SR
-            pulses = (np.sin(2 * np.pi * 55.0 * tt) > 0.2) * np.sin(np.pi * tt / 0.09)
-            chirp = np.sin(2 * np.pi * f0 * tt) * pulses * 0.035 * pan
-            place(chirp, at, 1.0 if at < cr_stop - 0.8 else 0.4)
-            at += period * (1.0 + 0.08 * np.sin(at * 3.1))
-    stem[0] = 'pochita'
-    # Pochita: he stops and growls at the dark, a small engine idling low and rough.
-    gn = int(2.6 * SR)
-    gt = np.arange(gn) / SR
-    growl = cs.engine(gn, curve(gn, [(0.0, 14.0), (0.6, 19.0), (2.0, 17.0), (2.6, 12.0)]), curve(gn, [(0.0, 0.0), (0.3, 0.6), (2.1, 0.5), (2.6, 0.0)]),
-                      body=(70.0, 900.0), buzz=0.5)
-    growl += sat(np.sin(2 * np.pi * np.cumsum(curve(gn, [(0, 95.0), (1.0, 88.0), (2.6, 80.0)])) / SR) * 1.5, 2.0) * bp(white(gn), 80, 900) * 0.4 \
-        * np.interp(gt, [0, 0.3, 2.2, 2.6], [0, 1, 0.8, 0])
-    place(lp(growl, 1400.0), starts[1] + GROWL_IN_SHOT1, 0.55)
-    stem[0] = 'heart'
-    # The heartbeat: from the glints on, slow, quicker as it comes; it stops dead at the eye's snap.
-    at = starts[2] + 0.4
-    while at < snap - 0.25:
-        k = (at - starts[2]) / max(0.1, snap - starts[2])
-        bpm = 52 + 46 * k * k
-        for dt, lv in ((0.0, 1.0), (0.26, 0.6)):
-            m = int(0.25 * SR)
-            tt = np.arange(m) / SR
-            thump = np.sin(2 * np.pi * (52.0 - 18.0 * tt / 0.25) * tt) * np.exp(-tt / 0.07) + lp(white(m), 200.0) * np.exp(-tt / 0.02) * 0.5
-            place(thump, at + dt, 0.42 * lv * (0.6 + 0.6 * k))
-        at += 60.0 / bpm
-    stem[0] = 'hands'
-    # The hands: where the game played a step, a palm coming down and its fingers after it, one by one.
-    steps = game_sounds('tomato_step')
-    for shot in (3, 4, 5, 8):
-        for (vt, gain) in steps:
-            ft = film_time(frames, vt)
-            if ft is None or frames_shot(frames, ft) != shot:
-                continue
-            lv = {3: 1.0, 4: 0.35, 5: 0.25, 8: 1.0}[shot] * max(0.3, gain)
-            place(cs.tomato_step(), ft, 0.32 * lv)
-            for q in range(4):
-                m = int(0.03 * SR)
-                tt = np.arange(m) / SR
-                tap = bp(white(m), 700.0, 3200.0) * np.exp(-tt / 0.006) + cs.flesh(m, 0.03, 1.0) * 0.3
-                place(tap, ft + 0.05 + q * (0.045 if shot == 3 else 0.02), 0.12 * lv * (1.0 - 0.15 * q))
-    stem[0] = 'breath'
-    # Its breath: through the glass at the window (muffled), close and wet at the mouth (slowed with the picture).
-    br = cs.tomato_breath()
-    place(lp(br, 900.0), starts[5] + 1.6, 0.22)
-    # (cut off before the snap: after it, nothing)
-    place(br[:int(1.6 * SR)] * np.linspace(1.0, 0.0, int(1.6 * SR)) ** 0.5, starts[6] + 0.2, 0.18)
-    place(br[:int(1.6 * SR)], starts[7] - 0.1, 0.45)
-    slow = np.interp(np.arange(0, len(br) * 1.0, 0.55), np.arange(len(br)), br)
-    slow = lp(slow, 2500.0)
-    place(slow, starts[7] + MOUTH_OPENS_IN_SHOT7, 0.6)
-    for k in range(10):
-        place(cs.gulp(int(0.2 * SR), 0.0, 0.08, 80, 260, 0.6), starts[7] + MOUTH_OPENS_IN_SHOT7 + 0.3 + k * 0.28, 0.25)
-    stem[0] = 'eye'
-    # The eye: wet little sounds as it rolls; then, as it finds you, one soft click of teeth and nothing.
-    for k, dt in enumerate((0.4, 1.1, 1.5, 2.2)):
-        place(cs.gulp(int(0.15 * SR), 0.0, 0.05, 300 + 40 * k, 700, 0.5), starts[6] + dt, 0.12)
-    place(cs.tomato_click(), snap + 0.02, 0.5)
-    stem[0] = 'breath'
-    # The black: one breath in, held.
-    place(hp(cs.reversed_swell(int(0.9 * SR), 0.0, 0.85, 300.0, 3000.0, 0.6), 200.0), starts[8] - BLACK + 0.0, 0.25)
-    stem[0] = 'hit'
-    # The rush: hands slapping faster and louder, a swell into the hit.
-    place(cs.reversed_swell(int(1.6 * SR), 0.0, 1.55, 120.0, 4200.0, 1.0), hit - 1.55, 0.55)
-    # The hit: a deep boom, a crack, the slap of its hands; a ring after it under the title.
-    m = int(3.0 * SR)
-    tt = np.arange(m) / SR
-    boom = cs.sub(m, [(0.0, 120.0), (0.05, 60.0), (0.5, 32.0), (3.0, 24.0)], 0.6, drive=3.0) * 1.6
-    boom += lp(white(m), 3500.0) * np.exp(-tt / 0.03) * 2.0
-    sl = cs.tomato_slap()[:m]
-    boom[:len(sl)] += sl * 1.2
-    place(sat(boom * 0.8, 1.6), hit, 0.9)
-    ring = np.sin(2 * np.pi * 2650.0 * tt) * np.exp(-tt / 1.4) * 0.03
-    place(ring, hit + 0.05, 1.0)
-    mix = sum(stems.values())
-    scale = 0.89 / max(1e-6, np.abs(mix).max())
-    import wave
-
-    def save(x, path):
-        with wave.open(path, 'wb') as wv:
-            wv.setnchannels(1)
-            wv.setsampwidth(2)
-            wv.setframerate(SR)
-            wv.writeframes((np.clip(x[:int(total * SR)] * scale, -1, 1) * 32767).astype('<i2').tobytes())
-    # the stems at the mix's own scale (they add up to it), for later cuts
-    os.makedirs(os.path.join(FRAMES, 'stems'), exist_ok=True)
-    for k, x in stems.items():
-        save(x, os.path.join(FRAMES, 'stems', k + '.wav'))
-    path = os.path.join(TMP, 'score.wav')
-    save(mix, path)
-    save(mix, os.path.join(FRAMES, 'stems', 'mix.wav'))
-    return path
-
 
 # Where, in the cut, things happen (seconds into the shot's part of the film): set from the take.
 SNAP_IN_SHOT6 = 2.0
@@ -491,6 +357,586 @@ def film_time(frames, video_seconds):
 def frames_shot(frames, ft):
     j = int(ft * FPS)
     return frames[j][2].get('shot') if 0 <= j < len(frames) else None
+
+
+# ---------------------------------------------------------------- the sound (second pass: stereo, dynamics, foley)
+#
+# Each element is made by a generator function below (mono, or stereo where it is wide by nature), so the good ones can become game sounds
+# later; score() places them in the film, panned and given more or less room, as stereo stems.
+
+def _snd():
+    sys.path.insert(0, HERE)
+    import gen_chainsaw_sounds as cs  # noqa: E402
+    import gen_sounds as g  # noqa: E402
+    return cs, g
+
+
+def _env(m, attack, release):
+    t = np.arange(m) / 44100.0
+    e = np.minimum(1.0, t / max(attack, 1e-4))
+    return e * np.clip((m / 44100.0 - t) / max(release, 1e-4), 0.0, 1.0)
+
+
+def snd_night_air(seconds, rng):
+    """Night air, wide: two slow, independent gusts of soft noise (stereo)."""
+    cs, g = _snd()
+    from gen_sounds import lp, bp
+    n = int(seconds * 44100)
+    t = np.arange(n) / 44100.0
+    out = []
+    for side in range(2):
+        x = lp(g.pink(n), 900.0) * 0.6 + bp(g.white(n), 300.0, 2500.0) * 0.05
+        x *= 0.55 + 0.45 * np.sin(2 * np.pi * (0.07 + 0.02 * side) * t + side * 1.7) ** 2
+        out.append(x)
+    return np.array(out) * 0.08
+
+
+def snd_cricket(seconds, f0, period, rng):
+    """One cricket far off: trills of three pulses."""
+    n = int(seconds * 44100)
+    x = np.zeros(n)
+    at = rng.uniform(0.0, period)
+    while at < seconds - 0.1:
+        m = int(0.075 * 44100)
+        tt = np.arange(m) / 44100.0
+        pulses = (np.sin(2 * np.pi * 52.0 * tt) > 0.25) * np.sin(np.pi * tt / 0.075)
+        c = np.sin(2 * np.pi * f0 * tt) * pulses
+        i = int(at * 44100)
+        x[i:i + m] += c[:max(0, n - i)]
+        at += period * rng.uniform(0.85, 1.15)
+    return x
+
+
+def snd_drone(seconds, base=41.2):
+    """The drone: two low tones beating, a tritone, and upper harmonics (saturated) so a phone's speaker still carries it."""
+    cs, g = _snd()
+    from gen_sounds import lp, bp, sat
+    n = int(seconds * 44100)
+    t = np.arange(n) / 44100.0
+    low = np.sin(2 * np.pi * base * t) + 0.8 * np.sin(2 * np.pi * base * 1.046 * t + 1.0) + 0.3 * np.sin(2 * np.pi * base * 1.414 * t)
+    grit = sat(low * 0.9, 2.5)   # its own harmonics at 120-400 Hz
+    body = bp(grit, 110.0, 520.0) * 0.9 + lp(low, 120.0) * 0.6
+    rumble = bp(g.brown(n), 90.0, 380.0) * 3.0 * (0.7 + 0.3 * np.sin(2 * np.pi * 0.13 * t))
+    return body + rumble
+
+
+def snd_cluster(seconds, rise=1.0):
+    """A thin dissonant cluster of high tones, rising slowly (the tension), each tone with its own slow wobble."""
+    n = int(seconds * 44100)
+    t = np.arange(n) / 44100.0
+    x = np.zeros(n)
+    k = 1.0 + (rise - 1.0) * (t / seconds) ** 1.5
+    for j, f in enumerate((1840.0, 1953.0, 2069.0, 2611.0, 2770.0)):
+        ph = 2 * np.pi * np.cumsum(f * k * (1.0 + 0.004 * np.sin(2 * np.pi * (0.3 + 0.17 * j) * t))) / 44100.0
+        x += np.sin(ph) * (0.6 + 0.4 * np.sin(2 * np.pi * (0.11 + 0.07 * j) * t + j)) ** 2
+    return x / 5.0
+
+
+def snd_hand(rng, big=False):
+    """A hand coming down: a soft thud of a palm, the fingers after it one by one, a faint drag of skin on the ground."""
+    cs, g = _snd()
+    from gen_sounds import lp, bp, hp
+    n = int(0.6 * 44100)
+    x = np.zeros(n)
+    m = int(0.12 * 44100)
+    tt = np.arange(m) / 44100.0
+    f = (95.0 if not big else 70.0) * rng.uniform(0.9, 1.1)
+    thud = np.sin(2 * np.pi * f * tt) * np.exp(-tt / 0.03) + 0.5 * np.sin(2 * np.pi * f * 2.7 * tt) * np.exp(-tt / 0.015)
+    thud += lp(g.white(m), 1200.0) * np.exp(-tt / 0.012) * 1.2
+    x[:m] += thud
+    at = 0.04 + rng.uniform(0.0, 0.02)
+    for q in range(4):
+        k = int(0.02 * 44100)
+        tk = np.arange(k) / 44100.0
+        tap = bp(g.white(k), 900.0, 4200.0) * np.exp(-tk / 0.004) + np.sin(2 * np.pi * rng.uniform(380, 520) * tk) * np.exp(-tk / 0.006) * 0.5
+        i = int(at * 44100)
+        x[i:i + k] += tap * (0.55 - 0.08 * q)
+        at += rng.uniform(0.035, 0.07)
+    k = int(0.22 * 44100)
+    tk = np.arange(k) / 44100.0
+    drag = bp(g.white(k), 1500.0, 6000.0) * np.sin(np.pi * tk / 0.22) ** 2 * (0.6 + 0.4 * np.sin(2 * np.pi * 31 * tk)) * 0.18
+    i = int((at + 0.02) * 44100)
+    x[i:i + k] += drag[:max(0, n - i)]
+    x += cs.flesh(n, 0.08, 1.0) * 0.12
+    return x
+
+
+def snd_squelch(rng, level=1.0):
+    """A tiny wet squelch: an eye rolling in its socket."""
+    cs, g = _snd()
+    from gen_sounds import bp
+    n = int(0.18 * 44100)
+    x = cs.gulp(n, 0.0, rng.uniform(0.04, 0.07), rng.uniform(250, 420), rng.uniform(600, 1100), 0.7)
+    k = int(0.05 * 44100)
+    tk = np.arange(k) / 44100.0
+    x[:k] += bp(g.white(k), 1200.0, 5000.0) * np.exp(-tk / 0.01) * 0.3
+    return x * level
+
+
+def snd_click(rng):
+    """Teeth: a blunt click."""
+    cs, g = _snd()
+    return cs.tomato_click()
+
+
+def snd_lip_smack(rng):
+    """The lips coming unstuck: a wet smack and a peel."""
+    cs, g = _snd()
+    from gen_sounds import bp, lp
+    n = int(0.35 * 44100)
+    t = np.arange(n) / 44100.0
+    x = bp(g.white(n), 600.0, 3500.0) * np.exp(-t / 0.012) * 1.2
+    x += lp(g.white(n), 500.0) * np.exp(-t / 0.03) * 0.6
+    x += cs.flesh(n, 0.25, 1.8) * 0.5
+    return x
+
+
+def snd_strand(rng):
+    """A strand of spit stretching and snapping: a thin wet tick, falling."""
+    cs, g = _snd()
+    from gen_sounds import bp
+    n = int(0.08 * 44100)
+    t = np.arange(n) / 44100.0
+    f = rng.uniform(2200, 3600) * np.exp(-t / 0.02)
+    x = np.sin(2 * np.pi * np.cumsum(f) / 44100.0) * np.exp(-t / 0.012)
+    x += bp(g.white(n), 3000.0, 9000.0) * np.exp(-t / 0.004) * 0.6
+    return x
+
+
+def snd_breath(rng, seconds=3.4, moan=0.25, rasp=1.0):
+    """Its breath, its voice: a slow ragged wet breath in and out, a faint almost-human moan on the out-breath (formants, no words)."""
+    cs, g = _snd()
+    from gen_sounds import bp, lp, sat
+    n = int(seconds * 44100)
+    t = np.arange(n) / 44100.0
+    tin = seconds * 0.38
+    inhale = np.clip(np.sin(np.pi * np.clip(t / tin, 0, 1)), 0, 1) ** 1.4
+    exhale = np.clip(np.sin(np.pi * np.clip((t - tin - 0.25) / (seconds - tin - 0.3), 0, 1)), 0, 1) ** 1.1
+    # ragged: the air catches, a few times
+    catch = 1.0 - 0.6 * (np.sin(2 * np.pi * 7.3 * t) > 0.82) * (np.sin(2 * np.pi * 0.9 * t) > 0.2)
+    air = (bp(g.white(n), 400.0, 2600.0) * inhale * 0.9 + bp(g.white(n), 200.0, 1500.0) * exhale * 0.8) * catch
+    x = air * rasp
+    # the moan: a low buzz through two formants (an "oh" sliding toward "uh"), riding the out-breath
+    f0 = 92.0 * (1.0 + 0.06 * np.sin(2 * np.pi * 0.4 * t)) * (1.0 + 0.01 * np.sin(2 * np.pi * 5.3 * t))
+    ph = 2 * np.pi * np.cumsum(f0) / 44100.0
+    buzz = sat(np.sin(ph) + 0.6 * np.sin(2 * ph) + 0.4 * np.sin(3 * ph) + 0.3 * np.sin(4 * ph), 1.5)
+    voice = bp(buzz, 380.0, 650.0) * 1.0 + bp(buzz, 780.0, 1100.0) * 0.6 + bp(buzz, 2300.0, 2800.0) * 0.15
+    x += voice * exhale ** 1.5 * moan
+    # the wet: spit crackling, thicker as it goes out; gulps of juice
+    for j in range(60):
+        at = rng.uniform(0.05, seconds - 0.1)
+        k = int(0.008 * 44100)
+        i = int(at * 44100)
+        w = 0.35 + 0.65 * float(np.interp(at, t, exhale + inhale))
+        x[i:i + k] += bp(g.white(k), 1500.0, 7000.0) * np.exp(-np.arange(k) / 44100.0 / 0.0015) * rng.uniform(0.1, 0.5) * w
+    for j in range(4):
+        x += cs.gulp(n, rng.uniform(tin + 0.3, seconds - 0.3), 0.06, 80, 220, 0.3)
+    x += lp(g.brown(n), 200.0) * exhale * 0.8
+    return x
+
+
+def snd_sleeper(seconds, rng):
+    """The villager asleep: slow soft breaths through the nose, a little snore on each."""
+    cs, g = _snd()
+    from gen_sounds import bp
+    n = int(seconds * 44100)
+    t = np.arange(n) / 44100.0
+    cyc = (t % 3.6) / 3.6
+    env = np.sin(np.pi * np.clip(cyc / 0.45, 0, 1)) ** 2 * 0.8 + np.sin(np.pi * np.clip((cyc - 0.5) / 0.4, 0, 1)) ** 2
+    snore = bp(np.sign(np.sin(2 * np.pi * 38.0 * t)) * 0.3 + g.white(n) * 0.2, 200.0, 900.0) * np.sin(np.pi * np.clip((cyc - 0.5) / 0.4, 0, 1)) ** 4
+    return (bp(g.white(n), 300.0, 2000.0) * env * 0.5 + snore * 0.5)
+
+
+def snd_growl(rng):
+    """Pochita growling at the dark: a small engine idling low and rough, a growl in it."""
+    cs, g = _snd()
+    from gen_sounds import SR, bp, lp, sat, curve
+    gn = int(2.0 * SR)
+    gt = np.arange(gn) / SR
+    x = cs.engine(gn, curve(gn, [(0.0, 14.0), (0.6, 20.0), (1.6, 17.0), (2.0, 12.0)]), curve(gn, [(0.0, 0.0), (0.25, 0.6), (1.6, 0.5), (2.0, 0.0)]),
+                  body=(110.0, 1400.0), buzz=0.5)
+    x += sat(np.sin(2 * np.pi * np.cumsum(curve(gn, [(0, 150.0), (1.0, 140.0), (2.0, 120.0)])) / SR) * 1.5, 2.0) * bp(g.white(gn), 120, 1400) * 0.5 \
+        * np.interp(gt, [0, 0.3, 1.7, 2.0], [0, 1, 0.8, 0])
+    return lp(x, 2500.0)
+
+
+def snd_whimper(rng):
+    """Pochita backing a step: a small frightened whimper."""
+    cs, g = _snd()
+    n = int(0.7 * 44100)
+    return cs.whimper(n, 0.0, 0.32, 1050.0) + cs.whimper(n, 0.36, 0.28, 980.0) * 0.6
+
+
+def snd_shriek_inhale(seconds=0.9):
+    """The lunge: a harsh wet shriek drawn in, rising (formants and noise, run backwards)."""
+    cs, g = _snd()
+    from gen_sounds import bp, sat
+    n = int(seconds * 44100)
+    t = np.arange(n) / 44100.0
+    f = 300.0 + 900.0 * (t / seconds) ** 2
+    ph = 2 * np.pi * np.cumsum(f * (1.0 + 0.03 * g.white(n))) / 44100.0
+    tone = sat(np.sin(ph) + 0.5 * np.sin(2.01 * ph) + 0.3 * np.sin(3.03 * ph), 2.5)
+    x = bp(tone, 700.0, 4000.0) * 0.7 + bp(g.white(n), 1500.0, 7000.0) * 0.6
+    x += cs.flesh(n, seconds * 0.9, 2.0) * 0.4
+    return x * (t / seconds) ** 1.6
+
+
+def snd_hit():
+    """The hit: a deep boom with its harmonics up where a phone hears them, a crack, the slap of its hands."""
+    cs, g = _snd()
+    from gen_sounds import lp, bp, sat
+    m = int(2.6 * 44100)
+    tt = np.arange(m) / 44100.0
+    boom = cs.sub(m, [(0.0, 130.0), (0.05, 70.0), (0.5, 40.0), (2.6, 30.0)], 0.5, drive=3.0) * 1.4
+    boom += bp(sat(boom * 2.0, 3.0), 120.0, 600.0) * 0.8
+    boom += lp(g.white(m), 5000.0) * np.exp(-tt / 0.025) * 2.2
+    sl = cs.tomato_slap()[:m]
+    boom[:len(sl)] += sl * 1.3
+    return sat(boom * 0.7, 1.4)
+
+
+def snd_ring(seconds=2.6):
+    """A soft ring under the name: two high sines, a slow beat, fading."""
+    n = int(seconds * 44100)
+    t = np.arange(n) / 44100.0
+    return (np.sin(2 * np.pi * 2650.0 * t) + 0.6 * np.sin(2 * np.pi * 2657.0 * t)) * np.exp(-t / 1.3) * np.minimum(1.0, t / 0.05)
+
+
+# ---- placing them
+
+def _pan(x, pan):
+    """Mono to stereo, equal power; pan -1 left .. 1 right (a number or a curve over x)."""
+    p = (np.asarray(pan, float) + 1.0) * np.pi / 4.0
+    return np.array([x * np.cos(p), x * np.sin(p)])
+
+
+def _room(st, amount, length=1.4, seed=7):
+    """A room / the night's space round a sound: a decaying noise tail, different left and right. amount 0 is dry (at your ear)."""
+    if amount <= 0:
+        return st
+    from scipy.signal import fftconvolve
+    rng = np.random.default_rng(seed)
+    m = int(length * 44100)
+    tt = np.arange(m) / 44100.0
+    out = np.zeros((2, st.shape[1] + m - 1))
+    for c in range(2):
+        ir = rng.standard_normal(m) * np.exp(-tt / (length / 5.0))
+        ir[0] = 0
+        ir = ir / np.sqrt((ir ** 2).sum())
+        wet = fftconvolve(st[c], ir)
+        out[c, :st.shape[1]] += st[c] * (1.0 - 0.5 * amount)
+        out[c] += wet * amount * 0.7
+    return out
+
+
+def score(frames, total=None, key=None):
+    """The short's soundtrack, as stereo stems (in FRAMES/stems) and their mix. key: where things happen (film seconds)."""
+    from gen_sounds import lp, hp, bp, limit
+    rng = np.random.default_rng(3402)
+    total = total or len(frames) / FPS
+    n = int(total * 44100) + 44100
+    t = np.arange(n) / 44100.0
+    names = ('air', 'crickets', 'drone', 'cluster', 'hands', 'foley', 'breath', 'pochita', 'villager', 'lunge')
+    stems = {k: np.zeros((2, n)) for k in names}
+
+    def put(name, x, at, gain=1.0, pan=0.0, room=0.0):
+        st = x if np.ndim(x) == 2 else _pan(x, pan)
+        st = _room(st, room, seed=int(at * 100) % 97)
+        i = int(at * 44100)
+        k = min(st.shape[1], n - i)
+        if k > 0 and i >= 0:
+            stems[name][:, i:i + k] += st[:, :k] * gain
+
+    def curve_at(points):
+        return np.interp(t, [p[0] for p in points], [p[1] for p in points])
+
+    # When each shot starts and ends in the film.
+    starts, ends = {}, {}
+    for j, (src, kind, info) in enumerate(frames):
+        s = info.get('shot')
+        starts.setdefault(s, j / FPS)
+        ends[s] = (j + 1) / FPS
+    k = key or {}
+    snap = starts[6] + SNAP_IN_SHOT6
+    rise = starts[5] + 1.0
+    wide = starts[6] + 3.8
+    mouth = starts[7] + MOUTH_OPENS_IN_SHOT7
+    slap = starts[8] + 1.9
+    hit = ends[8] - 1.0 / FPS
+    cut1 = starts[3] + 1.6     # the crickets stop dead, the drone with them: it is near
+    # Night air: wide, quiet; gone at the snap, back faintly under the mouth, gone in the black.
+    air = snd_night_air(total + 2.0, rng)[:, :n]
+    stems['air'] += air * curve_at([(0, 0.0), (1.2, 1.0), (snap - 0.05, 1.0), (snap, 0.0), (starts[7] + 0.5, 0.0), (starts[7] + 1.5, 0.5),
+                                    (ends[7], 0.5), (ends[7] + 0.05, 0.0), (total, 0.0)])
+    # Crickets: far off, three of them, left, right, behind; they stop all at once.
+    for f0, per, pan in ((4400.0, 0.71, -0.7), (4780.0, 0.93, 0.6), (5200.0, 1.21, 0.1)):
+        c = np.zeros(n)
+        cc = snd_cricket(total + 1.0, f0, per, rng)[:n]
+        c[:len(cc)] = cc
+        c = c * (t < cut1)
+        put('crickets', c * 0.02, 0.0, pan=pan, room=0.5)
+    # The drone: creeps in during shot 2, cut dead with the crickets; back lower and closer in shot 4, out again as shot 5 opens, back under
+    # the rise, gone at the snap; low and close under the mouth; gone in the black; a surge in the lunge.
+    dr = snd_drone(total + 2.0)[:n]
+    dr2 = snd_drone(total + 2.0, base=36.7)[:n]
+    env1 = curve_at([(0, 0), (starts[2], 0.0), (ends[2], 0.35), (cut1 - 0.01, 0.45), (cut1, 0.0), (total, 0.0)])
+    env2 = curve_at([(0, 0), (starts[4] - 0.01, 0.0), (starts[4] + 0.6, 0.55), (ends[4], 0.7), (ends[4] + 0.02, 0.0), (rise, 0.0), (rise + 1.5, 0.8),
+                     (snap - 0.03, 1.0), (snap, 0.0), (starts[7] + 0.6, 0.0), (starts[7] + 1.8, 0.6), (ends[7] - 0.01, 0.75), (ends[7], 0.0),
+                     (starts[8], 0.0), (starts[8] + 0.3, 0.6), (hit, 1.3), (hit + 0.01, 0.0), (total, 0.0)])
+    put('drone', dr * env1 * 0.10, 0.0, pan=0.0)
+    put('drone', dr2 * env2 * 0.10, 0.0, pan=0.0)
+    # The cluster: rises through shots 4 and 5, cut dead at the snap.
+    cl = snd_cluster(snap - starts[4] + 0.5, rise=1.12)
+    clenv = np.interp(np.arange(len(cl)) / 44100.0, [0, 1.0, ends[4] - starts[4], snap - starts[4] - 0.02, snap - starts[4]], [0, 0.15, 0.4, 1.0, 0.0])
+    st = np.array([cl * clenv, np.roll(cl, 441) * clenv])
+    put('cluster', st * 0.035, starts[4])
+    # Pochita: the growl as he stops, then a small whimper as he backs a step.
+    put('pochita', snd_growl(rng), starts[1] + GROWL_IN_SHOT1 - 0.4, 0.36, pan=0.15, room=0.3)
+    put('pochita', snd_whimper(rng), starts[1] + GROWL_IN_SHOT1 + 1.7, 0.22, pan=0.15, room=0.3)
+    # The hands: where the game played a step: thud, fingers, drag; panned with the picture; dry and loud close, roomy far.
+    steps = game_sounds('tomato_step')
+    for (vt, gain) in steps:
+        ft = film_time(frames, vt)
+        if ft is None:
+            continue
+        shot = frames_shot(frames, ft)
+        if shot == 3:
+            u = (ft - starts[3]) / (ends[3] - starts[3])
+            put('hands', snd_hand(rng, big=u > 0.7), ft, 0.9 * max(0.4, gain), pan=-0.3 - 0.6 * u, room=0.08)
+        elif shot == 4:
+            u = (ft - starts[4]) / (ends[4] - starts[4])
+            put('hands', snd_hand(rng), ft, 0.35, pan=-0.8 + 1.6 * u, room=0.5)
+        elif shot == 8:
+            u = (ft - starts[8]) / (ends[8] - starts[8])
+            put('hands', snd_hand(rng, big=True), ft, 0.4 + 0.8 * u, pan=rng.uniform(-0.5, 0.5) * (0.4 + u), room=0.4 - 0.35 * u)
+    # The lunge: hands slapping in faster and louder over what the game played, a harsh wet shriek drawn in, the hit.
+    at = starts[8] + 0.3
+    gap = 0.32
+    while at < slap:
+        u = (at - starts[8]) / (slap - starts[8])
+        put('lunge', snd_hand(rng, big=True), at, 0.3 + 0.7 * u, pan=rng.uniform(-0.6, 0.6), room=0.3 - 0.25 * u)
+        at += gap
+        gap = max(0.11, gap * 0.88)
+    put('lunge', snd_shriek_inhale(hit - slap), slap, 0.9, pan=0.0, room=0.1)
+    put('lunge', snd_hit(), hit, 2.2, pan=0.0)
+    put('lunge', np.array([snd_ring(), np.roll(snd_ring(), 300)]) * 0.04, hit + 0.15)
+    # The breath, its voice: a little closer every time. Far and roomy in the trees (shot 2), nearer in shot 4, muffled through the
+    # glass at the window over the sleeping villager, close under the eye, at your ear at the mouth.
+    put('breath', lp(snd_breath(rng, 3.4, 0.15), 1800.0), starts[2] + 0.6, 0.10, pan=0.0, room=0.9)
+    put('breath', snd_breath(rng, 3.6, 0.2), starts[4] + 1.0, 0.16, pan=-0.2, room=0.6)
+    put('villager', snd_sleeper(ends[5] - starts[5], rng), starts[5], 0.06, pan=-0.35, room=0.15)
+    put('breath', lp(snd_breath(rng, 3.4, 0.3), 700.0), rise + 0.4, 0.5, pan=0.25, room=0.35)
+    br = snd_breath(rng, 1.8, 0.3)
+    put('breath', br * np.linspace(1.0, 0.0, len(br)) ** 0.6, starts[6] + 0.1, 0.35, pan=0.1, room=0.1)
+    put('breath', snd_breath(rng, 4.0, 0.45, rasp=1.3), mouth - 0.6, 0.42, pan=0.0)
+    # The black: one breath drawn in, close.
+    inh = snd_breath(rng, 1.6, 0.1)[:int(0.62 * 1.6 * 44100)]
+    put('breath', inh, starts[8] - BLACK + 0.05, 0.6, pan=0.0)
+    # Foley at your ear: the eye rolling wet, the click as it finds you; the lips peeling, strands snapping, teeth.
+    for dt in (0.25, 0.7, 1.05, 1.5, 1.8):
+        put('foley', snd_squelch(rng), starts[6] + dt, 0.5, pan=rng.uniform(-0.25, 0.25))
+    put('foley', snd_click(rng), snap + 0.01, 0.9, pan=0.0)
+    put('foley', snd_click(rng), mouth - 0.9, 0.5, pan=-0.15)
+    put('foley', snd_lip_smack(rng), mouth, 0.55, pan=0.0)
+    for j in range(7):
+        put('foley', snd_strand(rng), mouth + 0.25 + j * rng.uniform(0.15, 0.35), 0.25, pan=rng.uniform(-0.4, 0.4))
+    put('foley', snd_click(rng), mouth + 2.6, 0.4, pan=0.2)
+    # The mix: summed, a little high-passed (nothing below 30 Hz), limited to -1 dB.
+    mix = sum(stems.values())
+    mix = np.array([hp(mix[0], 30.0), hp(mix[1], 30.0)])
+    gain = 0.89 / max(1e-6, np.abs(mix).max())
+    gain = min(gain * 1.6, 4.0)   # bring it up, then let the limiter take the peaks (the hit)
+    out = limit(mix[:, :int(total * 44100)] * gain, ceiling=0.83)  # (-1.6 dB: the AAC encode overshoots a little)
+    return stems, out, gain, dict(starts=starts, ends=ends, snap=snap, hit=hit)
+
+
+def write_wav(path, x):
+    import wave
+    x = np.atleast_2d(x)
+    with wave.open(path, 'wb') as wv:
+        wv.setnchannels(x.shape[0])
+        wv.setsampwidth(2)
+        wv.setframerate(44100)
+        wv.writeframes((np.clip(x.T, -1, 1) * 32767).astype('<i2').tobytes())
+
+
+def read_wav(path):
+    import wave
+    with wave.open(path) as wv:
+        x = np.frombuffer(wv.readframes(wv.getnframes()), '<i2').astype(np.float64) / 32768.0
+        return x.reshape(-1, wv.getnchannels()).T
+
+
+def sound2(frames):
+    stems, out, gain, marks_ = score(frames)
+    d = os.path.join(FRAMES, 'stems')
+    os.makedirs(d, exist_ok=True)
+    for f in os.listdir(d):
+        if f.endswith('.wav'):
+            os.remove(os.path.join(d, f))
+    total = out.shape[1]
+    for k, x in stems.items():
+        write_wav(os.path.join(d, k + '.wav'), np.clip(x[:, :total] * gain, -1, 1))
+    write_wav(os.path.join(d, 'mix.wav'), out)
+    path = os.path.join(TMP, 'score.wav')
+    os.makedirs(TMP, exist_ok=True)
+    write_wav(path, out)
+    plot_sound(out, marks_, os.path.join(OUT, 'creepy_sound.png'))
+    return path
+
+
+def plot_sound(x, mk, path, title='creepy.mp4: the sound'):
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    m = x.mean(axis=0)
+    sr = 44100
+    w = int(0.1 * sr)
+    tt = np.arange(0, len(m) - w, w) / sr
+    def db(c):
+        return np.array([20 * np.log10(np.sqrt(np.mean(c[i:i + w] ** 2)) + 1e-6) for i in range(0, len(c) - w, w)])
+    peak = np.array([20 * np.log10(np.abs(m[i:i + w]).max() + 1e-6) for i in range(0, len(m) - w, w)])
+    fig, ax = plt.subplots(2, 1, figsize=(10, 5.6), dpi=100, sharex=True, gridspec_kw={'height_ratios': [1.1, 1]})
+    ax[0].plot(tt, db(x[0]), lw=0.9, color='#c0392b', label='left (RMS, 0.1 s)')
+    ax[0].plot(tt, db(x[1]), lw=0.9, color='#2471a3', alpha=0.8, label='right (RMS, 0.1 s)')
+    ax[0].plot(tt, peak, lw=0.6, color='#888', label='peak')
+    ax[0].set_ylim(-70, 2)
+    ax[0].axhline(-1, color='k', lw=0.5, ls=':')
+    ax[0].set_ylabel('dBFS')
+    ax[0].legend(loc='lower left', fontsize=7, ncol=3)
+    ax[0].set_title(title, fontsize=10)
+    ax[1].specgram(m + 1e-9, NFFT=2048, Fs=sr, noverlap=1024, cmap='magma', vmin=-130, vmax=-30)
+    ax[1].set_yscale('symlog', linthresh=200)
+    ax[1].set_ylim(30, 16000)
+    ax[1].set_ylabel('Hz')
+    ax[1].set_xlabel('seconds')
+    ax[1].axhline(120, color='w', lw=0.4, ls=':')
+    for a in ax:
+        for s, t0 in mk['starts'].items():
+            if s in range(1, 9):
+                a.axvline(t0, color='g', lw=0.6)
+        a.axvline(mk['snap'], color='orange', lw=0.8, ls='--')
+        a.axvline(mk['hit'], color='orange', lw=0.8, ls='--')
+    for s, t0 in mk['starts'].items():
+        if s in range(1, 9):
+            ax[0].text(t0 + 0.1, -8, 'shot %d' % s, fontsize=7)
+    ax[0].text(mk['snap'] + 0.1, -16, 'snap', fontsize=7, color='darkorange')
+    ax[0].text(mk['hit'] - 1.0, -16, 'hit', fontsize=7, color='darkorange')
+    fig.tight_layout()
+    fig.savefig(path)
+    plt.close(fig)
+
+
+# ---------------------------------------------------------------- the teaser
+#
+# From the kept frames (no new filming): just looking at it. (capture frames, seconds, a slow push-in from zoom a to b)
+TEASER = [
+    ('the distance: its eyes far off in the trees (shot 2)', 380, 3.0, (1.0, 1.16)),
+    ('eyes in the window (shot 5)', 1580, 1.5, None),
+    ('every eye on you (shot 6, wide)', 1890, 1.5, None),
+]
+TEASER_BLACK = 0.4
+TEASER_TITLE = 1.3
+
+
+def teaser_frames():
+    out = []
+    for (label, f0, secs, push) in TEASER:
+        n = int(round(secs * FPS))
+        for k in range(n):
+            out.append(('film', f0 + k, label, None if push is None else push[0] + (push[1] - push[0]) * (k / (n - 1)) ** 1.2))
+    out += [('black', None, 'black', None)] * int(round(TEASER_BLACK * FPS))
+    out += [('title', k, 'the name', None) for k in range(int(round(TEASER_TITLE * FPS)))]
+    return out
+
+
+def teaser_sound(total, t1, t2, t3, tb):
+    """Its own mix, from the same generators: quiet night air, the drone low, the breath far then muffled at the window over the sleeper;
+    nothing at all on every eye; a soft ring under the name."""
+    from gen_sounds import lp, hp, limit
+    rng = np.random.default_rng(3403)
+    n = int(total * 44100)
+    t = np.arange(n) / 44100.0
+    out = np.zeros((2, n))
+
+    def put(x, at, gain=1.0, pan=0.0, room=0.0):
+        st = x if np.ndim(x) == 2 else _pan(x, pan)
+        st = _room(st, room, seed=int(at * 100) % 97)
+        i = int(at * 44100)
+        k = min(st.shape[1], n - i)
+        if k > 0:
+            out[:, i:i + k] += st[:, :k] * gain
+    air = snd_night_air(total + 1.0, rng)[:, :n]
+    out += air * np.interp(t, [0, 0.6, t3 - 0.03, t3, total], [0.0, 1.0, 1.0, 0.0, 0.0])
+    for f0, per, pan in ((4400.0, 0.71, -0.7), (4780.0, 0.93, 0.6)):
+        c = snd_cricket(total + 1.0, f0, per, rng)[:n] * (t < t1 + 1.6)
+        put(c * 0.02, 0.0, pan=pan, room=0.5)
+    dr = snd_drone(total + 1.0, base=36.7)[:n]
+    put(dr * np.interp(t, [0, 0.8, t2, t3 - 0.03, t3, total], [0.0, 0.25, 0.5, 0.8, 0.0, 0.0]) * 0.10, 0.0)
+    cl = snd_cluster(t3 - t2 + 0.2, 1.08)
+    ce = np.interp(np.arange(len(cl)) / 44100.0, [0, t3 - t2 - 0.03, t3 - t2], [0.1, 1.0, 0.0])
+    put(np.array([cl * ce, np.roll(cl, 441) * ce]) * 0.03, t2)
+    put(lp(snd_breath(rng, 3.0, 0.15), 1800.0), t1 + 0.3, 0.12, room=0.9)
+    put(snd_sleeper(t3 - t2, rng), t2, 0.06, pan=-0.35, room=0.15)
+    br = lp(snd_breath(rng, 2.6, 0.3), 700.0)
+    put(br * np.interp(np.arange(len(br)) / 44100.0, [0, t3 - t2 - 0.2, t3 - t2], [1.0, 1.0, 0.0]), t2 + 0.05, 0.5, pan=0.25, room=0.35)
+    put(np.array([snd_ring(total - tb), np.roll(snd_ring(total - tb), 300)]) * 0.012, tb + 0.15)
+    mix = np.array([hp(out[0], 30.0), hp(out[1], 30.0)])
+    g = 0.83 / max(1e-6, np.abs(mix).max()) * 1.3
+    return limit(mix * g, ceiling=0.83)
+
+
+def teaser():
+    tf = teaser_frames()
+    total = len(tf) / FPS
+    raw = os.path.join(TMP, 'teaser_graded.mp4')
+    enc = subprocess.Popen(['ffmpeg', '-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', '%dx%d' % (W, H), '-r', str(FPS), '-i', '-',
+                            '-c:v', 'libx264', '-preset', 'medium', '-crf', '12', '-pix_fmt', 'yuv420p', raw], stdin=subprocess.PIPE)
+    begin, end = marks()
+    shot_of = lambda f: [sh for sh in begin if begin[sh] <= f < end[sh]][0]
+    picks = {}
+    for j, (kind, src, label, zoom) in enumerate(tf):
+        if kind == 'film' and zoom is not None:
+            # the push-in, graded from the game's frame (so the grain stays fine)
+            fr = np.asarray(Image.open(frame_path('ungraded', src)).convert('RGB'))
+            out = grade(fr, src, dict(base_info(shot_of(src), src), zoom=zoom))
+        elif kind == 'film':
+            out = np.asarray(Image.open(frame_path('graded', src)).convert('RGB'))
+        elif kind == 'black':
+            out = grade(np.zeros((H, W, 3), np.uint8), 0, {'seed': 7000 + j, 'exposure': 1.0})
+        else:
+            out = grade(title_frame(src, TEASER_TITLE), 0, {'seed': 8000 + j, 'exposure': 1.0})
+        if label not in picks or (kind != 'black' and j - picks[label][0] == int(FPS * (0.7 if kind == 'title' else 1.0))):
+            picks[label] = (j, out)
+        enc.stdin.write(out.tobytes())
+    enc.stdin.close()
+    enc.wait()
+    t1 = 0.0
+    t2 = TEASER[0][2]
+    t3 = t2 + TEASER[1][2]
+    tb = t3 + TEASER[2][2] + TEASER_BLACK
+    snd = teaser_sound(total, t1, t2, t3, tb)
+    os.makedirs(os.path.join(FRAMES, 'stems'), exist_ok=True)
+    wav = os.path.join(TMP, 'teaser.wav')
+    write_wav(wav, snd)
+    write_wav(os.path.join(FRAMES, 'stems', 'teaser_mix.wav'), snd)
+    dst = os.path.join(OUT, 'teaser.mp4')
+    subprocess.check_call(['ffmpeg', '-v', 'error', '-y', '-i', raw, '-i', wav, '-c:v', 'libx264', '-preset', 'slow', '-tune', 'grain', '-crf', '24',
+                           '-maxrate', '4000k', '-bufsize', '8000k', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '160k', '-shortest',
+                           '-movflags', '+faststart', dst])
+    print('%s: %.1f s, %.2f MB' % (dst, total, os.path.getsize(dst) / 1e6))
+    # the sheet: one frame per cut, labelled
+    cells = [(lab, picks[lab][0], picks[lab][1]) for lab in [c[0] for c in TEASER] + ['the name']]
+    tw, th = 220, 391
+    sheet = Image.new('RGB', (tw * len(cells), th), (0, 0, 0))
+    for i, (lab, j, img) in enumerate(cells):
+        im = Image.fromarray(img).resize((tw, th), Image.LANCZOS)
+        d = ImageDraw.Draw(im)
+        d.rectangle((0, 0, tw, 30), fill=(0, 0, 0))
+        d.text((5, 3), '%d  %.1f s' % (i + 1, j / FPS), fill=(255, 255, 255))
+        d.text((5, 16), lab[:34], fill=(200, 200, 200))
+        sheet.paste(im, (i * tw, 0))
+    sheet.save(os.path.join(OUT, 'teaser_sheet.jpg'), quality=88)
 
 
 # ---------------------------------------------------------------- the sheets and the file
@@ -543,14 +989,16 @@ if __name__ == '__main__':
     what = sys.argv[1] if len(sys.argv) > 1 else 'all'
     os.makedirs(OUT, exist_ok=True)
     fr = plan()
+    if what == 'teaser':
+        teaser()
     if what in ('all', 'frames'):
         # (frames 2 6: only those shots' frames graded again)
         grade_all([int(a) for a in sys.argv[2:]] or None)
     if what in ('all', 'cut'):
         render(fr)
-    if what in ('all', 'cut', 'sound'):
-        sc = sound(fr)
+    if what in ('all', 'cut', 'sound', 'resound'):
+        sc = sound2(fr)
     if what in ('all', 'cut', 'sheet'):
         sheets(fr)
-    if what in ('all', 'cut'):
+    if what in ('all', 'cut', 'resound'):
         finish(sc, fr)
