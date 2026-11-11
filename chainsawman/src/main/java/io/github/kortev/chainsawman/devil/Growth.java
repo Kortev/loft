@@ -35,7 +35,7 @@ public final class Growth {
 	public static final int MOST_A_NIGHT = 2;
 	public static final double HEALTH_STEP = 0.10;
 	public static final float DAMAGE_STEP = 0.06F;
-	public static final double SIZE_STEP = 0.04;
+	public static final double SIZE_STEP = 0.08;
 	/** How much lower its sounds are pitched a step (a fraction of the pitch). */
 	public static final float VOICE_STEP = 0.05F;
 	/** A step gained with a player this near shows: a shudder and a low swell of sound (blocks). */

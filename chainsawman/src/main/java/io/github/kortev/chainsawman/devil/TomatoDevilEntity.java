@@ -117,6 +117,10 @@ public class TomatoDevilEntity extends HostileEntity {
 	public static final int HOP_LAND = HOP_TELL + HOP_AIR;
 	public static final int HOP_END = HOP_LAND + 14;
 	public static final double HOP_REACH = 3.5;
+	/** From growth 3 the spit throws two more seeds (the same gaps); at growth 5 the hop comes again, after its own full tell. */
+	public static final int SPIT_MORE_AT = 3;
+	public static final int SPIT_MORE = 2;
+	public static final int HOP_AGAIN_AT = 5;
 	public static final float HOP_DAMAGE = 3.0F;
 	public static final double HOP_THROW = 1.05;
 	/** On first noticing a player: every eye on them, and it stands dead still this long before it moves. */
@@ -271,6 +275,32 @@ public class TomatoDevilEntity extends HostileEntity {
 	public void notice(boolean on) {
 		dataTracker.set(NOTICED, on ? getWorld().getTime() : -1L);
 	}
+
+	/** How far the slap reaches in front of its middle, and how wide: its hands land further out as it grows (they are drawn there). */
+	public double slapReach() {
+		return SLAP_REACH * getScale();
+	}
+
+	public double slapHalfWidth() {
+		return SLAP_HALF_WIDTH * getScale();
+	}
+
+	/** How far past its skin the hop's landing reaches (its arms are longer as it grows). */
+	public double hopReach() {
+		return HOP_REACH * getScale();
+	}
+
+	/** How many seeds the spit throws: two more from growth {@link #SPIT_MORE_AT}, at the same gaps. */
+	public int spitCount() {
+		return SPIT_COUNT + (growthLevel() >= SPIT_MORE_AT ? SPIT_MORE : 0);
+	}
+
+	/** Whether this hop is the second of a fully grown one's pair. */
+	public boolean hopAgain() {
+		return hopAgain;
+	}
+
+	private boolean hopAgain;
 
 	/** Whether {@code move} may come now: no move three times running. */
 	public boolean allowed(int move) {
@@ -483,7 +513,7 @@ public class TomatoDevilEntity extends HostileEntity {
 			dataTracker.set(AIM, to);
 			begin(HOP);
 			playSound(Devils.Sounds.TUCK, 1.1F, 0.7F);
-		} else if (dist <= SLAP_REACH + 0.3 && off < 55.0F && allowed(SLAP)) {
+		} else if (dist <= slapReach() + 0.3 && off < 55.0F && allowed(SLAP)) {
 			made(SLAP);
 			dataTracker.set(AIM, to);
 			navigation.stop();
@@ -492,7 +522,7 @@ public class TomatoDevilEntity extends HostileEntity {
 		} else if (sees && dist >= 5.5 && dist <= ROLL_DISTANCE - 1.5 && now - lastRollAt > 110 && random.nextFloat() < 0.35F && allowed(ROLL_TELL)) {
 			startRoll(now, to);
 		} else if (sees && dist <= SPIT_RANGE + 0.5 && now - lastSpitAt > 90 && allowed(SPIT)
-				&& (!allowed(SLAP) && dist <= SLAP_REACH + 0.3 && off < 55.0F || dist >= 3.5 && random.nextFloat() < 0.4F)) {
+				&& (!allowed(SLAP) && dist <= slapReach() + 0.3 && off < 55.0F || dist >= 3.5 && random.nextFloat() < 0.4F)) {
 			// (Slapped at twice running, it spits in your face instead.)
 			made(SPIT);
 			dataTracker.set(AIM, to);
@@ -523,10 +553,10 @@ public class TomatoDevilEntity extends HostileEntity {
 			playSound(Devils.Sounds.SLAP, 1.4F, 0.7F);
 			world.spawnParticles(new BlockStateParticleEffect(ParticleTypes.BLOCK, world.getBlockState(getBlockPos().down())), getX(), getY() + 0.1, getZ(), 60,
 					2.2, 0.05, 2.2, 0.25);
-			for (LivingEntity e : world.getEntitiesByClass(LivingEntity.class, getBoundingBox().expand(HOP_REACH + 1.0, 1.5, HOP_REACH + 1.0), this::canHurt)) {
+			for (LivingEntity e : world.getEntitiesByClass(LivingEntity.class, getBoundingBox().expand(hopReach() + 1.0, 1.5, hopReach() + 1.0), this::canHurt)) {
 				Vec3d rel = e.getPos().subtract(getPos()).multiply(1.0, 0.0, 1.0);
 				double d = rel.length();
-				if (d <= getWidth() * 0.5 + HOP_REACH + e.getWidth() * 0.5 && Math.abs(e.getY() - getY()) < 2.5) {
+				if (d <= getWidth() * 0.5 + hopReach() + e.getWidth() * 0.5 && Math.abs(e.getY() - getY()) < 2.5) {
 					Vec3d away = d < 0.05 ? forward(aim()) : rel.multiply(1.0 / d);
 					if (e.damage(getDamageSources().mobAttack(this), HOP_DAMAGE * growth.damage())) {
 						e.setVelocity(away.x * HOP_THROW, 0.48, away.z * HOP_THROW);
@@ -537,6 +567,16 @@ public class TomatoDevilEntity extends HostileEntity {
 			rollMayFollowUntil = world.getTime() + HOP_END - HOP_LAND + 30;
 		}
 		if (t >= HOP_END) {
+			PlayerEntity target = target();
+			if (growthLevel() >= HOP_AGAIN_AT && !hopAgain && target != null) {
+				// Fully grown: once more, from the top, its whole squat a tell again.
+				hopAgain = true;
+				dataTracker.set(AIM, yawTo(target.getPos()));
+				begin(HOP);
+				playSound(Devils.Sounds.TUCK, 1.1F, 0.7F);
+				return;
+			}
+			hopAgain = false;
 			end(world.getTime(), 4);
 		}
 	}
@@ -550,13 +590,13 @@ public class TomatoDevilEntity extends HostileEntity {
 			playSound(Devils.Sounds.SLAP, 1.4F, 0.9F + random.nextFloat() * 0.2F);
 			Vec3d f = forward(aim());
 			Vec3d side = new Vec3d(-f.z, 0.0, f.x);
-			Vec3d c = getPos().add(f.multiply(SLAP_REACH * 0.7));
+			Vec3d c = getPos().add(f.multiply(slapReach() * 0.7));
 			world.spawnParticles(new BlockStateParticleEffect(ParticleTypes.BLOCK, world.getBlockState(BlockPos.ofFloored(c).down())), c.x, c.y + 0.1, c.z, 40, 1.2, 0.05, 1.2, 0.2);
-			for (LivingEntity e : world.getEntitiesByClass(LivingEntity.class, getBoundingBox().expand(SLAP_REACH + 1.0, 1.0, SLAP_REACH + 1.0), this::canHurt)) {
+			for (LivingEntity e : world.getEntitiesByClass(LivingEntity.class, getBoundingBox().expand(slapReach() + 1.0, 1.0, slapReach() + 1.0), this::canHurt)) {
 				Vec3d rel = e.getPos().subtract(getPos());
 				double along = rel.dotProduct(f);
 				double across = Math.abs(rel.dotProduct(side));
-				if (along > -0.3 && along < SLAP_REACH + e.getWidth() * 0.5 && across < SLAP_HALF_WIDTH + e.getWidth() * 0.5 && rel.y < 2.5 && rel.y > -1.5) {
+				if (along > -0.3 && along < slapReach() + e.getWidth() * 0.5 && across < slapHalfWidth() + e.getWidth() * 0.5 && rel.y < 2.5 && rel.y > -1.5) {
 					if (e.damage(getDamageSources().mobAttack(this), SLAP_DAMAGE * growth.damage())) {
 						push(e, f.multiply(0.7).add(0.0, 0.35, 0.0));
 					}
@@ -628,8 +668,9 @@ public class TomatoDevilEntity extends HostileEntity {
 		if ((int) t == SPIT_TELL) {
 			playSound(Devils.Sounds.SPIT, 1.3F, 1.0F);
 			Vec3d mouth = mouth();
-			for (int i = 0; i < SPIT_COUNT; i++) {
-				float yaw = aim() + (i - (SPIT_COUNT - 1) / 2.0F) * SPIT_FAN;
+			int count = spitCount();
+			for (int i = 0; i < count; i++) {
+				float yaw = aim() + (i - (count - 1) / 2.0F) * SPIT_FAN;
 				float p = spitPitch * MathHelper.RADIANS_PER_DEGREE;
 				Vec3d d = forward(yaw).multiply(MathHelper.cos(p)).add(0.0, MathHelper.sin(p) + 0.05, 0.0);
 				TomatoSpitEntity s = new TomatoSpitEntity(Devils.TOMATO_SPIT, world);

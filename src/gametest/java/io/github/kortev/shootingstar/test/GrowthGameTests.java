@@ -213,9 +213,9 @@ public class GrowthGameTests implements FabricGameTest {
 			context.assertTrue(Math.abs(d.getMaxHealth() - max) < 0.01F, "growth " + level + ": max health " + d.getMaxHealth() + ", not " + max);
 			context.assertTrue(Math.abs(d.getHealth() - max) < 0.01F, "growth " + level + ": not healed by the gain: " + d.getHealth());
 			context.assertTrue(Math.abs(d.growth().damage() - (1.0F + 0.06F * level)) < 1.0E-4F, "growth " + level + ": damage x" + d.growth().damage());
-			float w = TomatoDevilEntity.WIDTH * (1.0F + 0.04F * level);
-			float h = TomatoDevilEntity.HEIGHT * (1.0F + 0.04F * level);
-			context.assertTrue(Math.abs(d.getWidth() - w) < 0.01F && Math.abs(d.getHeight() - h) < 0.01F && Math.abs(d.getScale() - (1.0F + 0.04F * level)) < 1.0E-4F,
+			float w = TomatoDevilEntity.WIDTH * (1.0F + 0.08F * level);
+			float h = TomatoDevilEntity.HEIGHT * (1.0F + 0.08F * level);
+			context.assertTrue(Math.abs(d.getWidth() - w) < 0.01F && Math.abs(d.getHeight() - h) < 0.01F && Math.abs(d.getScale() - (1.0F + 0.08F * level)) < 1.0E-4F,
 					"growth " + level + ": size " + d.getWidth() + " x " + d.getHeight());
 			context.assertTrue(Math.abs(Growth.voice(level) - (1.0F - 0.05F * level)) < 1.0E-4F, "growth " + level + ": voice " + Growth.voice(level));
 		}
@@ -281,7 +281,7 @@ public class GrowthGameTests implements FabricGameTest {
 		TomatoDevilEntity b = (TomatoDevilEntity) back.get();
 		context.assertTrue(b.growthLevel() == 4 && b.growth().stepsTonight() == 1, "it lost its growth: " + b.growthLevel() + " (" + b.growth().stepsTonight() + " tonight)");
 		context.assertTrue(Math.abs(b.getMaxHealth() - 126.0F) < 0.01F && Math.abs(b.getHealth() - 70.0F) < 0.01F, "its health came back as " + b.getHealth() + " of " + b.getMaxHealth());
-		context.assertTrue(Math.abs(b.getWidth() - TomatoDevilEntity.WIDTH * 1.16F) < 0.01F, "its size came back as " + b.getWidth());
+		context.assertTrue(Math.abs(b.getWidth() - TomatoDevilEntity.WIDTH * 1.32F) < 0.01F, "its size came back as " + b.getWidth());
 		context.assertTrue(!b.growth().killedPlayer(MIDNIGHT + 5), "the night's death was forgotten");
 		// as /summon chainsawman:tomato_devil ~ ~ ~ {Growth:5} does it
 		NbtCompound summon = new NbtCompound();
@@ -323,6 +323,119 @@ public class GrowthGameTests implements FabricGameTest {
 		context.assertTrue(!grown.canImmediatelyDespawn(200.0) && grown.isPersistent(), "a grown devil could despawn");
 		grown.checkDespawn();
 		context.assertTrue(!grown.isRemoved(), "a grown devil despawned");
+		clear(context);
+		context.complete();
+	}
+
+	/** From growth 3 the spit throws seven seeds, not five, at the same gaps (still a sidestep between two); below, five. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "growth_spit", tickLimit = 80)
+	public void a_grown_spit_throws_a_wider_fan(TestContext context) {
+		floor(context);
+		clear(context);
+		ServerWorld w = context.getWorld();
+		TomatoDevilEntity young = devil(context, -5, 0);
+		young.growth().set(2, true);
+		TomatoDevilEntity grown = devil(context, 5, 0);
+		grown.growth().set(TomatoDevilEntity.SPIT_MORE_AT, true);
+		context.assertTrue(young.spitCount() == TomatoDevilEntity.SPIT_COUNT && grown.spitCount() == TomatoDevilEntity.SPIT_COUNT + 2, "the spit counts are off");
+		for (TomatoDevilEntity d : new TomatoDevilEntity[] {young, grown}) {
+			context.runAtTick(3, () -> {
+				d.setAiDisabled(false);
+				d.aimAt(0.0F);
+				d.begin(TomatoDevilEntity.SPIT);
+			});
+		}
+		context.runAtTick(3 + TomatoDevilEntity.SPIT_TELL - 2, () -> context.assertTrue(w.getEntitiesByClass(io.github.kortev.chainsawman.devil.TomatoSpitEntity.class, area(context), e -> true).isEmpty(),
+				"a seed flew during the tell"));
+		context.runAtTick(3 + TomatoDevilEntity.SPIT_TELL + 2, () -> {
+			for (TomatoDevilEntity d : new TomatoDevilEntity[] {young, grown}) {
+				List<io.github.kortev.chainsawman.devil.TomatoSpitEntity> spat = w.getEntitiesByClass(io.github.kortev.chainsawman.devil.TomatoSpitEntity.class,
+						new Box(d.getPos(), d.getPos()).expand(4.5, 5.0, 4.5), e -> true);
+				int want = d == grown ? 7 : 5;
+				context.assertTrue(spat.size() == want, "growth " + d.growthLevel() + " spat " + spat.size() + ", not " + want);
+				List<Double> yaws = new java.util.ArrayList<>();
+				for (var e : spat) {
+					yaws.add(Math.toDegrees(Math.atan2(-e.getVelocity().x, e.getVelocity().z)));
+				}
+				java.util.Collections.sort(yaws);
+				for (int k = 1; k < yaws.size(); k++) {
+					double gap = yaws.get(k) - yaws.get(k - 1);
+					context.assertTrue(Math.abs(gap - TomatoDevilEntity.SPIT_FAN) < 1.0, "growth " + d.growthLevel() + ": a gap of " + gap + " degrees, not " + TomatoDevilEntity.SPIT_FAN);
+				}
+			}
+			for (var e : w.getEntitiesByClass(io.github.kortev.chainsawman.devil.TomatoSpitEntity.class, area(context), e -> true)) {
+				e.discard();
+			}
+			clear(context);
+			context.complete();
+		});
+	}
+
+	/** At growth 5 the hop comes twice: the second after its own whole squat (nothing lands in it); at 4, once. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "growth_hop", tickLimit = 160)
+	public void a_full_grown_hop_comes_again_after_its_tell(TestContext context) {
+		floor(context);
+		clear(context);
+		ServerWorld w = context.getWorld();
+		TomatoDevilEntity d = devil(context, 0, 0);
+		d.growth().set(Growth.MAX, true);
+		TomatoDevilEntity four = devil(context, 0, -9);
+		four.growth().set(4, true);
+		var near = EntityType.SHEEP.create(w);
+		Vec3d a = at(context, 3.0, 0);
+		near.refreshPositionAndAngles(a.x, a.y, a.z, 0.0F, 0.0F);
+		near.setAiDisabled(true);
+		w.spawnEntity(near);
+		ServerPlayerEntity p = ForeverGameTests.player(context, "hopped");
+		Vec3d pp = at(context, 0, 13);
+		p.teleport(w, pp.x, pp.y, pp.z, 0.0F, 0.0F);
+		int s = 3;
+		float[] hp = new float[1];
+		context.runAtTick(s, () -> {
+			for (TomatoDevilEntity e : new TomatoDevilEntity[] {d, four}) {
+				e.setAiDisabled(false);
+				e.begin(TomatoDevilEntity.HOP);
+			}
+		});
+		context.runAtTick(s + TomatoDevilEntity.HOP_LAND + 2, () -> {
+			context.assertTrue(near.getHealth() < near.getMaxHealth(), "the first hop did not land");
+			near.refreshPositionAndAngles(a.x, a.y, a.z, 0.0F, 0.0F);
+			near.setVelocity(Vec3d.ZERO);
+			hp[0] = near.getHealth();
+		});
+		context.runAtTick(s + TomatoDevilEntity.HOP_END + 2, () -> {
+			context.assertTrue(d.state() == TomatoDevilEntity.HOP && d.hopAgain() && d.stateTime(0.0F) <= 3.0F, "growth 5 did not hop again from the top: state " + d.state());
+			context.assertTrue(four.state() != TomatoDevilEntity.HOP, "growth 4 hopped again");
+		});
+		context.runAtTick(s + TomatoDevilEntity.HOP_END + TomatoDevilEntity.HOP_TELL, () -> {
+			context.assertTrue(near.getHealth() == hp[0], "the second hop landed during its squat");
+			near.refreshPositionAndAngles(a.x, a.y, a.z, 0.0F, 0.0F);
+			near.setVelocity(Vec3d.ZERO);
+		});
+		context.runAtTick(s + TomatoDevilEntity.HOP_END + TomatoDevilEntity.HOP_LAND + 2, () -> context.assertTrue(near.getHealth() < hp[0], "the second hop did not land"));
+		context.runAtTick(s + 2 * TomatoDevilEntity.HOP_END + 3, () -> {
+			try {
+				context.assertTrue(d.state() != TomatoDevilEntity.HOP && !d.hopAgain(), "it hopped a third time");
+			} finally {
+				near.discard();
+				ForeverGameTests.leave(context, p);
+				clear(context);
+			}
+			context.complete();
+		});
+	}
+
+	/** The slap and the hop reach as far as its hands are drawn: further as it grows. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "growth_reach")
+	public void reach_follows_its_size(TestContext context) {
+		floor(context);
+		clear(context);
+		TomatoDevilEntity d = devil(context, 0, 0);
+		context.assertTrue(Math.abs(d.slapReach() - TomatoDevilEntity.SLAP_REACH) < 1.0E-4, "growth 0's slap reach changed");
+		d.growth().set(Growth.MAX, true);
+		double k = 1.0 + Growth.SIZE_STEP * Growth.MAX;
+		context.assertTrue(Math.abs(d.slapReach() - TomatoDevilEntity.SLAP_REACH * k) < 1.0E-3 && Math.abs(d.hopReach() - TomatoDevilEntity.HOP_REACH * k) < 1.0E-3
+				&& Math.abs(d.slapHalfWidth() - TomatoDevilEntity.SLAP_HALF_WIDTH * k) < 1.0E-3, "growth 5's reach does not follow its size: " + d.slapReach());
 		clear(context);
 		context.complete();
 	}
