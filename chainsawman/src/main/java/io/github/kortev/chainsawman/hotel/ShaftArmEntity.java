@@ -50,7 +50,8 @@ public class ShaftArmEntity extends Entity {
 	public static final double LANE = 3.0;
 	public static final int SLAM_TELL = 22;
 	public static final int SLAM_FALL = 3;
-	public static final int LIE = 30;
+	/** After a miss it lies stuck this long: the time to tear it off. */
+	public static final int LIE = Shaft.STUCK;
 	public static final int BACK = 10;
 	public static final float SLAM_DAMAGE = 6.0F;
 	public static final float SLAM_HEALTH = 30.0F;
@@ -62,8 +63,8 @@ public class ShaftArmEntity extends Entity {
 	public static final double HAND = 1.35;
 	public static final float CRUSH = 2.0F;
 	public static final float GRAB_HEALTH = 22.0F;
-	/** The longest a hand holds anyone (ticks), if nobody cuts it. */
-	public static final int HOLD_MAX = 200;
+	/** The longest a hand holds anyone (ticks): it crushes and throws them down (a limb that hit you pulls back), sooner if it is cut. */
+	public static final int HOLD_MAX = 30;
 
 	private static final TrackedData<Float> TIP = DataTracker.registerData(ShaftArmEntity.class, TrackedDataHandlerRegistry.FLOAT);
 	private static final TrackedData<Boolean> HOLDING = DataTracker.registerData(ShaftArmEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
@@ -96,6 +97,9 @@ public class ShaftArmEntity extends Entity {
 	private int state;
 	private UUID held;
 	private float health = HEALTH;
+	/** Cuts taken while it lies stuck (it is torn off at {@link Shaft#TEAR}), and on its grip while it holds someone. */
+	private float tearing;
+	private float grip;
 
 	public ShaftArmEntity(EntityType<?> type, World world) {
 		super(type, world);
@@ -149,6 +153,19 @@ public class ShaftArmEntity extends Entity {
 		double cross = in.x * toward.z - in.z * toward.x;
 		this.dataTracker.set(SWEEP_DIR, cross >= 0.0 ? -1.0F : 1.0F);
 		this.dataTracker.set(START, (int) this.getWorld().getTime());
+		this.setBoundingBox(this.calculateBoundingBox());
+	}
+
+	/**
+	 * An arm already lying stuck on the floor from {@code at} (world, at the wall) along {@code dir} for {@code len}: what a squeeze that caught
+	 * nobody leaves behind (its clench thrust out of the end wall, and stuck there).
+	 */
+	public void lying(BlockPos origin, int rot, Vec3d at, Vec3d dir, double len) {
+		slam(origin, rot, at, dir, len, null);
+		long now = this.getWorld().getTime();
+		this.dataTracker.set(START, (int) now - SLAM_TELL - SLAM_FALL);
+		this.dataTracker.set(OUTCOME, MISSED);
+		this.dataTracker.set(OUT_AT, (int) now);
 		this.setBoundingBox(this.calculateBoundingBox());
 	}
 
@@ -218,13 +235,23 @@ public class ShaftArmEntity extends Entity {
 		return (float) (this.getWorld().getTime() - start()) + delta;
 	}
 
-	/** It missed and lies stunned now: cuts are worth half as much again. */
-	public boolean stunned() {
+	/** It missed and lies stuck now: it can be torn off. */
+	public boolean stuck() {
 		if (outcome() != MISSED) {
 			return false;
 		}
 		long since = this.getWorld().getTime() - outAt();
 		return since >= 0 && since < LIE;
+	}
+
+	/** The old name for {@link #stuck}. */
+	public boolean stunned() {
+		return stuck();
+	}
+
+	/** How far it is to being torn off (0 to 1), for the tests. */
+	public float torn() {
+		return outcome() == CUT && mode() != RISE ? 1.0F : tearing / Shaft.TEAR;
 	}
 
 	/** Still a threat (its strike not yet resolved, or holding someone): the next attack waits for it. */
@@ -324,20 +351,53 @@ public class ShaftArmEntity extends Entity {
 			this.discard();
 			return true;
 		}
-		// The one who cut it fought (saws or a blade), and the devil feels it.
 		Vec3d at = mode() == GRAB ? handAt(age(0.0F)) : mode() == SLAM ? nearestOnArm(source) : new Vec3d(this.getX(), tip() - 0.3, this.getZ());
-		Shaft.partCut(world, origin, at, source, amount, stunned(), EternityDevilEntity.P_ARM);
-		health -= amount;
-		world.spawnParticles(ParticleTypes.DAMAGE_INDICATOR, at.x, at.y, at.z, 3, 0.3, 0.3, 0.3, 0.1);
-		if (health <= 0.0F) {
-			if (mode() == RISE) {
+		if (mode() == RISE) {
+			// Up the shaft (taking someone off a ledge): enough blows and it lets go.
+			Shaft.limbCut(world, origin, at, source, false);
+			health -= amount;
+			if (health <= 0.0F) {
 				release();
 				state = 2;
-			} else {
-				cutDown(world);
 			}
+			return true;
+		}
+		if (holding()) {
+			// Its grip: cut hard enough and it lets go of whoever it holds (it is not torn off: it hit, and pulls back).
+			Shaft.limbCut(world, origin, at, source, false);
+			grip += amount;
+			if (grip >= Shaft.TEAR) {
+				release();
+				this.dataTracker.set(OUT_AT, (int) world.getTime());
+			}
+			return true;
+		}
+		if (!stuck()) {
+			// Not stuck: a flinch, nothing more.
+			Shaft.flinch(world, origin, at, source);
+			return true;
+		}
+		// Stuck after its miss: torn at, and at enough, torn off for good.
+		tearing += amount;
+		Shaft.limbCut(world, origin, at, source, true);
+		if (tearing >= Shaft.TEAR) {
+			tearOff(world, source);
 		}
 		return true;
+	}
+
+	/** Where it grows out of the room (world): at the wall's foot (a slam, a grab). */
+	public Vec3d root() {
+		return this.getPos();
+	}
+
+	/** Torn off: it falls and sinks, a stump stays in the wall it came out of. */
+	private void tearOff(ServerWorld world, DamageSource source) {
+		if (mode() == GRAB && this.dataTracker.get(STOP_ANGLE) == 0.0F) {
+			this.dataTracker.set(STOP_ANGLE, angleAt(age(0.0F)) + 0.001F);
+		}
+		cutDown(world);
+		Shaft.torn(world, origin, root(), dir(), Shaft.LIMB_ARM, source.getAttacker());
 	}
 
 	/** The point on a slammed arm nearest whoever struck it. */
@@ -417,6 +477,7 @@ public class ShaftArmEntity extends Entity {
 					push = push.lengthSquared() > 0.01 ? push.normalize().multiply(0.9) : new Vec3d(d.z, 0.0, -d.x).multiply(0.9);
 					p.setVelocity(push.x, 0.35, push.z);
 					p.velocityModified = true;
+					Shaft.hurt(world, origin, p);
 					hit = true;
 				}
 			}
@@ -426,7 +487,8 @@ public class ShaftArmEntity extends Entity {
 			world.spawnParticles(new net.minecraft.particle.BlockStateParticleEffect(ParticleTypes.BLOCK, net.minecraft.block.Blocks.NETHER_WART_BLOCK.getDefaultState()), c.x, c.y + 0.3,
 					c.z, 50, Math.abs(d.x) * len() * 0.4 + 0.5, 0.2, Math.abs(d.z) * len() * 0.4 + 0.5, 0.15);
 		}
-		if (out != PENDING && world.getTime() - outAt() >= (out == CUT ? BACK : LIE + BACK)) {
+		// (A limb that hit pulls back at once; one that missed lies stuck first.)
+		if (out != PENDING && world.getTime() - outAt() >= (out == MISSED ? LIE + BACK : BACK)) {
 			this.discard();
 		}
 	}
@@ -458,6 +520,7 @@ public class ShaftArmEntity extends Entity {
 					this.dataTracker.set(HOLDING, true);
 					resolve(world, HIT);
 					p.damage(this.getDamageSources().generic(), CRUSH);
+					Shaft.hurt(world, origin, p);
 					world.playSound(null, p.getX(), p.getY(), p.getZ(), ChainsawSounds.DEVIL_BITE, SoundCategory.HOSTILE, 2.0F, 0.6F);
 					break;
 				}
@@ -475,7 +538,12 @@ public class ShaftArmEntity extends Entity {
 			ServerPlayerEntity p = heldPlayer(world);
 			if (p == null || !fair(p) || io.github.kortev.chainsawman.form.Downed.is(p) || world.getTime() - outAt() > HOLD_MAX) {
 				release();
-				this.dataTracker.set(OUT_AT, (int) world.getTime() - LIE + 6);
+				this.dataTracker.set(OUT_AT, (int) world.getTime());
+				if (p != null) {
+					// Thrown down beside it.
+					p.setVelocity(-dir().x * 0.5, 0.2, -dir().z * 0.5);
+					p.velocityModified = true;
+				}
 			} else {
 				// Held up in the hand and squeezed: carried by velocity, so the game does not think you moved too fast.
 				Vec3d hand = handAt(t);

@@ -173,7 +173,7 @@ public class HotelSelfTest implements ClientModInitializer {
 			case RUN -> {
 				client.getToastManager().clear();
 				client.options.hudHidden = false;
-				if ("played".equals(target())) {
+				if (target().startsWith("played")) {
 					// (The played fight drives its own head and keys: see HotelFight and Fighter.)
 					if (HotelFight.tick(client, server, ticks, origin)) {
 						stage = Stage.DONE;
@@ -253,7 +253,7 @@ public class HotelSelfTest implements ClientModInitializer {
 	// ------------------------------------------------------------------ helpers
 
 	private static Vec3d world(double lx, double ly, double lz) {
-		return HotelBuilder.world(origin, ROT, lx, ly, lz);
+		return HotelBuilder.at(origin, ROT, lx, ly, lz);
 	}
 
 	/** The yaw of a look along the local x (east, at turn 0) and z. */
@@ -616,7 +616,7 @@ public class HotelSelfTest implements ClientModInitializer {
 			double x = world(0, 0, 0).x;
 			Vec3d here = you(0.0);
 			Vec3d sign = world(16.0, floorY(7) + 2.3, 7.0);
-			Vec3d p = HotelBuilder.local(origin, ROT, here);
+			Vec3d p = HotelBuilder.localOf(origin, ROT, here);
 			glance = Math.abs(p.x - 16.0) < 5.0 && p.x < 17.5 ? sign : null;
 		};
 		s.cam = EYES;
@@ -668,7 +668,7 @@ public class HotelSelfTest implements ClientModInitializer {
 				}
 			});
 			// He runs at it along the north side, so the camera on the south one is never near him.
-			Vec3d here = HotelBuilder.local(origin, ROT, mc().player.getPos());
+			Vec3d here = HotelBuilder.localOf(origin, ROT, mc().player.getPos());
 			tp(here.x, floorY(7), 5.7, EAST);
 			keys(true, true);
 		};
@@ -750,7 +750,7 @@ public class HotelSelfTest implements ClientModInitializer {
 		s = shot("a_laps", 70);
 		s.firstPerson = true;
 		s.each = t -> {
-			Vec3d p = HotelBuilder.local(origin, ROT, you(0.0));
+			Vec3d p = HotelBuilder.localOf(origin, ROT, you(0.0));
 			Vec3d sign = world(16.0, floorY(7) + 2.3, 7.0);
 			glance = Math.abs(p.x - 16.0) < 5.0 && p.x < 17.5 ? sign : null;
 		};
@@ -789,7 +789,7 @@ public class HotelSelfTest implements ClientModInitializer {
 			keys(true, false);
 		};
 		s.each = t -> {
-			Vec3d p = HotelBuilder.local(origin, ROT, you(0.0));
+			Vec3d p = HotelBuilder.localOf(origin, ROT, you(0.0));
 			if (t < 34) {
 				// Along to the stairwell door, and stop at it.
 				wantYaw = yawTo(you(0.0), world(13.5, floorY(7) + 0.9, 5.2));
@@ -850,7 +850,7 @@ public class HotelSelfTest implements ClientModInitializer {
 		if (c.player == null) {
 			return;
 		}
-		Vec3d p = HotelBuilder.local(origin, ROT, c.player.getPos());
+		Vec3d p = HotelBuilder.localOf(origin, ROT, c.player.getPos());
 		Vec3d eye = c.player.getEyePos();
 		Vec3d heart = world(EternityDevilEntity.HEART_X, EternityDevilEntity.HEART_Y, EternityDevilEntity.HEART_Z);
 		wantYaw = yawTo(eye, heart);
@@ -1361,7 +1361,7 @@ public class HotelSelfTest implements ClientModInitializer {
 					Capture.Pose cp = Capture.camera.apply(0.0);
 					ShootingStar.LOGGER.info("[selftest] sky: time of day {} moon phase {} rain {}", client.world.getTimeOfDay(), client.world.getMoonPhase(), client.world.getRainGradient(1.0F));
 					BlockPos cb = BlockPos.ofFloored(cp.x(), cp.y(), cp.z());
-					ShootingStar.LOGGER.info("[selftest] devil look {}: you at local {}, camera {} block {} sky {} block-light {} fog {}", current.name(), HotelBuilder.local(origin, ROT, client.player.getPos()), cp, client.world.getBlockState(cb),
+					ShootingStar.LOGGER.info("[selftest] devil look {}: you at local {}, camera {} block {} sky {} block-light {} fog {}", current.name(), HotelBuilder.localOf(origin, ROT, client.player.getPos()), cp, client.world.getBlockState(cb),
 							client.world.getLightLevel(net.minecraft.world.LightType.SKY, cb), client.world.getLightLevel(net.minecraft.world.LightType.BLOCK, cb), io.github.kortev.chainsawman.client.ClientHotel.fogAmount(0.0F));
 				}
 			}
@@ -1417,7 +1417,7 @@ public class HotelSelfTest implements ClientModInitializer {
 		sCore = d != null && d.core() != null;
 		sCuttable = d != null && d.core() != null && d.core().cuttable();
 		sMended = h.shaft == null && !h.run.shaft.built;
-		sLocalY = HotelBuilder.local(origin, ROT, you.getPos()).y;
+		sLocalY = HotelBuilder.localOf(origin, ROT, you.getPos()).y;
 		sArm = false;
 		sHeld = false;
 		for (io.github.kortev.chainsawman.hotel.ShaftArmEntity a : w.getEntitiesByType(io.github.kortev.chainsawman.ChainsawMan.SHAFT_ARM, e -> true)) {
@@ -1616,7 +1616,7 @@ public class HotelSelfTest implements ClientModInitializer {
 							h.run.shaft.nextPatch = Long.MAX_VALUE;
 							h.run.shaft.nextAttack = Long.MAX_VALUE;
 							io.github.kortev.chainsawman.hotel.ShaftArmEntity arm = new io.github.kortev.chainsawman.hotel.ShaftArmEntity(io.github.kortev.chainsawman.ChainsawMan.SHAFT_ARM, w);
-							arm.start(h.origin, h.rot, HotelBuilder.world(h.origin, h.rot, 19.5, base, 6.5), h.origin.getY() + base + io.github.kortev.chainsawman.hotel.Shaft.DEPTH - 1.5);
+							arm.start(h.origin, h.rot, HotelBuilder.at(h.origin, h.rot, 19.5, base, 6.5), h.origin.getY() + base + io.github.kortev.chainsawman.hotel.Shaft.DEPTH - 1.5);
 							w.spawnEntity(arm);
 						});
 						wantYaw = Float.NaN;

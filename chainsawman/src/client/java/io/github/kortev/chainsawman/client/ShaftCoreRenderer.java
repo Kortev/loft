@@ -51,6 +51,10 @@ public class ShaftCoreRenderer extends EntityRenderer<ShaftCoreEntity> {
 			return;
 		}
 		float now = world.getTime() + delta;
+		if (core.window()) {
+			window(core, world, now, matrices);
+			return;
+		}
 		float rise = ease((now - core.born()) / ShaftCoreEntity.RISE);
 		float cut = core.cutAt() < 0 ? 0.0F : ease((now - core.cutAt()) / ShaftCoreEntity.FALL);
 		float beat = 1.0F + 0.05F * MathHelper.sin(now * 0.35F) * (core.cutAt() < 0 ? 1.0F : 0.0F);
@@ -79,9 +83,13 @@ public class ShaftCoreRenderer extends EntityRenderer<ShaftCoreEntity> {
 		} else {
 			base.rotateY(-(float) Math.toRadians(core.getYaw())).rotateY(-(float) Math.PI / 2.0F);
 		}
-		base.scale((shaft ? 0.85F : 1.5F) * beat);
+		// (In the shaft at the room pixel size, 1/16 block, never scaled; in the corridor, the size of the heart.)
+		base.translate(0.0F, 0.04F * (beat - 1.0F) * 20.0F, 0.0F);
+		if (!shaft) {
+			base.scale(1.5F);
+		}
 		FleshMesh mesh = FleshMesh.get("core");
-		FleshMesh.Look look = new FleshMesh.Look().light(light, 0.85F, 1.3F);
+		FleshMesh.Look look = shaft ? ArenaRenderer.lookNear(world, core, now) : new FleshMesh.Look().light(light, 0.85F, 1.3F);
 		look.rim = 0.4F;
 		look.glowAt = shaft ? new Vector3f(1.0F, 0.0F, 0.0F) : null;
 		look.glowRange = 3.0F;
@@ -105,5 +113,44 @@ public class ShaftCoreRenderer extends EntityRenderer<ShaftCoreEntity> {
 			half.clip = new Vector3f(0.0F, 0.0F, side);
 			mesh.draw(m, now, half, null);
 		}
+	}
+
+	/**
+	 * A window's core: forced out of its end wall on a stalk (a collar of flesh round where it splits the wall), chest high, its face turned on
+	 * whoever cut it last (or the nearest player), its mouths working; flushed as it is cut; drawn back into the wall when its time is up.
+	 */
+	private void window(ShaftCoreEntity core, ClientWorld world, float now, MatrixStack matrices) {
+		// Which way is out of its wall: the way it faces (its yaw), level.
+		double yaw = Math.toRadians(core.getYaw());
+		net.minecraft.util.math.Vec3d out = new net.minecraft.util.math.Vec3d(-Math.sin(yaw), 0.0, Math.cos(yaw));
+		float k = ease((now - core.born()) / ShaftCoreEntity.RISE);
+		if (core.backAt() >= 0) {
+			k *= 1.0F - ease((now - core.backAt()) / ShaftCoreEntity.RISE);
+		}
+		// The wall is 1.7 behind it: it slides out of the wall along its stalk.
+		net.minecraft.util.math.Vec3d wall = out.multiply(-1.7).add(0.0, 0.85, 0.0);
+		net.minecraft.util.math.Vec3d body = wall.add(out.multiply(1.75 * k));
+		Matrix4f base = new Matrix4f(matrices.peek().getPositionMatrix());
+		FleshMesh.Look look = ArenaRenderer.lookNear(world, core, now);
+		ShaftArmRenderer.collar(base, wall.add(0.0, -0.1, 0.0), out, "big_collar", look);
+		ShaftArmRenderer.chain(base, wall.subtract(out.multiply(0.3)), body.subtract(out.multiply(0.55)), "neck_segment", false, out, 0.0F, look);
+		// Its face on whoever is cutting it.
+		net.minecraft.entity.Entity cutter = core.cutter() >= 0 ? world.getEntityById(core.cutter()) : null;
+		net.minecraft.entity.Entity target = cutter != null ? cutter : world.getClosestPlayer(core, 24.0);
+		float yawTo = (float) Math.atan2(-out.z, out.x);
+		float pitchTo = 0.0F;
+		if (target != null) {
+			net.minecraft.util.math.Vec3d eye = target.getEyePos().subtract(core.getPos().add(body));
+			yawTo = (float) Math.atan2(-eye.z, eye.x);
+			pitchTo = (float) MathHelper.clamp(Math.atan2(eye.y, Math.hypot(eye.x, eye.z)), -0.6, 0.6);
+		}
+		float writhe = 0.08F * MathHelper.sin(now * 0.7F);
+		Matrix4f m = new Matrix4f(base).translate((float) body.x, (float) body.y + 0.03F * MathHelper.sin(now * 0.35F), (float) body.z).rotateY(yawTo + writhe).rotateZ(pitchTo);
+		FleshMesh.Look cl = ArenaRenderer.lookNear(world, core, now);
+		cl.rim = 0.4F;
+		long hurtAgo = core.hurtTime();
+		cl.hurt = hurtAgo >= 0 && hurtAgo < 8 ? 0.5F * (1.0F - hurtAgo / 8.0F) : 0.0F;
+		// (Its mouths gasp faster than they would at rest.)
+		FleshMesh.get("core").draw(m, now * 2.2F, cl, null);
 	}
 }

@@ -67,6 +67,9 @@ public final class ChainsawMan implements ModInitializer {
 	public static final net.minecraft.block.entity.BlockEntityType<io.github.kortev.chainsawman.hotel.HomeBlockEntity> HOME_ENTITY = Registry.register(
 			Registries.BLOCK_ENTITY_TYPE, id("eternity_home"),
 			net.minecraft.block.entity.BlockEntityType.Builder.create(io.github.kortev.chainsawman.hotel.HomeBlockEntity::new, HOME_BLOCK).build(null));
+	/** The inside of the Eternity Devil's arena: walls you collide with and nothing draws (its flesh model is drawn over them). */
+	public static final net.minecraft.block.Block ARENA_FLESH = Registry.register(Registries.BLOCK, id("arena_flesh"),
+			new io.github.kortev.chainsawman.hotel.ArenaFleshBlock(io.github.kortev.chainsawman.hotel.ArenaFleshBlock.settings()));
 	/** The Eternity Devil grown out of its hotel's walls (the boss), and flesh creeping across the floor from it. */
 	public static final EntityType<io.github.kortev.chainsawman.hotel.EternityDevilEntity> ETERNITY_DEVIL = Registry.register(Registries.ENTITY_TYPE, id("eternity_devil"),
 			EntityType.Builder.<io.github.kortev.chainsawman.hotel.EternityDevilEntity>create(io.github.kortev.chainsawman.hotel.EternityDevilEntity::new, SpawnGroup.MONSTER)

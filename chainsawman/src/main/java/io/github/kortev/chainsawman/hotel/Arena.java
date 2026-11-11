@@ -200,8 +200,8 @@ public final class Arena {
 			}
 		}
 		// The flesh growing at the corridor's corners (the loop's signs) is on walls that are gone now.
-		Vec3d lo = HotelBuilder.world(h.origin, h.rot, X0 - 0.5, Y0 - 1.0, Z0 - 0.5);
-		Vec3d hi = HotelBuilder.world(h.origin, h.rot, X1 + 1.5, Y1 + 1.0, Z1 + 1.5);
+		Vec3d lo = HotelBuilder.at(h.origin, h.rot, X0 - 0.5, Y0 - 1.0, Z0 - 0.5);
+		Vec3d hi = HotelBuilder.at(h.origin, h.rot, X1 + 1.5, Y1 + 1.0, Z1 + 1.5);
 		Box area = new Box(lo, hi);
 		for (io.github.kortev.chainsawman.hotel.FleshGrowthEntity e : world.getEntitiesByType(io.github.kortev.chainsawman.ChainsawMan.FLESH_GROWTH, area, x -> true)) {
 			e.discard();
@@ -211,7 +211,7 @@ public final class Arena {
 		h.run.tearAt = now;
 		h.run.torn = 0;
 		h.run.arenaCells = cells;
-		Vec3d mid = HotelBuilder.world(h.origin, h.rot, X1 - 3.0, Y0 + 1.0, 6.5);
+		Vec3d mid = HotelBuilder.at(h.origin, h.rot, X1 - 3.0, Y0 + 1.0, 6.5);
 		world.playSound(null, mid.x, mid.y, mid.z, ChainsawSounds.HOTEL_LOOP_BREAK, SoundCategory.HOSTILE, 4.0F, 0.5F);
 		world.playSound(null, mid.x, mid.y, mid.z, SoundEvents.ENTITY_GENERIC_EXPLODE.value(), SoundCategory.HOSTILE, 4.0F, 0.6F);
 		world.playSound(null, mid.x, mid.y, mid.z, SoundEvents.ENTITY_WARDEN_ROAR, SoundCategory.HOSTILE, 4.0F, 0.6F);
@@ -281,7 +281,7 @@ public final class Arena {
 					f.velocityModified = true;
 				}
 			}
-			Vec3d col = HotelBuilder.world(h.origin, h.rot, x + 0.5, Y0 + 2.0, 6.5);
+			Vec3d col = HotelBuilder.at(h.origin, h.rot, x + 0.5, Y0 + 2.0, 6.5);
 			world.spawnParticles(ParticleTypes.LARGE_SMOKE, col.x, col.y + 1.0, col.z, 10, 2.5, 1.2, 2.5, 0.03);
 			world.spawnParticles(new BlockStateParticleEffect(ParticleTypes.BLOCK, Blocks.RED_TERRACOTTA.getDefaultState()), col.x, col.y, col.z, 14, 2.0, 1.0, 2.0, 0.12);
 			if (r.torn % 3 == 0) {
@@ -320,19 +320,19 @@ public final class Arena {
 		h.markDirty();
 		// Anyone standing in a block that came back (a room's wall, the slab over their head) is put in the corridor under it.
 		for (ServerPlayerEntity p : world.getPlayers()) {
-			Vec3d lp = HotelBuilder.local(h.origin, h.rot, p.getPos());
+			Vec3d lp = HotelBuilder.localOf(h.origin, h.rot, p.getPos());
 			if (lp.x < X0 - 2.0 || lp.x > X1 + 2.0 || lp.z < -1.0 || lp.z > 14.0 || lp.y < Y0 - 2.0 || lp.y > Y1 + 4.0) {
 				continue;
 			}
 			Box box = p.getBoundingBox();
 			boolean stuck = lp.y >= Y0 + 3.2 || !world.isSpaceEmpty(p, box);
 			if (stuck) {
-				Vec3d to = HotelBuilder.world(h.origin, h.rot, Math.max(X0 + 0.5, Math.min(X1 - 0.5, lp.x)), Y0, 6.5);
+				Vec3d to = HotelBuilder.at(h.origin, h.rot, Math.max(X0 + 0.5, Math.min(X1 - 0.5, lp.x)), Y0, 6.5);
 				p.stopRiding();
 				p.networkHandler.requestTeleport(to.x, to.y, to.z, p.getYaw(), p.getPitch());
 			}
 		}
-		Vec3d mid = HotelBuilder.world(h.origin, h.rot, (X0 + X1) / 2.0, Y0 + 2.0, 6.5);
+		Vec3d mid = HotelBuilder.at(h.origin, h.rot, (X0 + X1) / 2.0, Y0 + 2.0, 6.5);
 		world.spawnParticles(ParticleTypes.POOF, mid.x, mid.y, mid.z, 30, 5.0, 1.5, 3.0, 0.02);
 		world.playSound(null, mid.x, mid.y, mid.z, SoundEvents.BLOCK_STONE_PLACE, SoundCategory.BLOCKS, 3.0F, 0.6F);
 	}

@@ -16,7 +16,7 @@ FLESH = K.FLESH
 COOL = K.FLESH_COOL
 # a grey that is a hair warmer than blue (R/B 1.0-1.1 at every level): dead grey skin, never tan
 GREY = [K.hx(c) for c in ('#171618', '#242223', '#353233', '#4b4745', '#605b58', '#77716c', '#8e8883', '#a49e98')]
-PIT = [K.hx(c) for c in ('#040406', '#07070a', '#0c0c10')]          # the mouth's inside: near black, no red
+PIT = [K.hx(c) for c in ('#2a0a0b', '#3c1012', '#521718')]          # the mouth's inside: the throat's wet dark red, going down
 
 
 def hole_r(th):
@@ -60,7 +60,7 @@ def mass_height(noise, x, z):
     return 1.02 + 0.22 * (noise.fbm(x, 0 * x, z, 0.9) - 0.5) * 2
 
 
-BOX = 2.1            # the mass is 4.2 wide: wider than the 3 x 3 shaft, so a rim of flesh shows round the mouth even at the corners
+BOX = 3.6            # the mass fills the mouth's hollow (7 wide) wall to wall, round the 3 x 3 shaft
 GC = (-0.25, 0.12)   # the dim red core far down in the pit (x, z)
 
 
@@ -78,7 +78,7 @@ def mass_fn(noise, lumps, ropes, eyes):
         for pts, r0, r1 in ropes:
             d = smin(d, polyline(px, py, pz, pts, r0, r1), 0.1)
         rh = hole_r(th)
-        carve = np.maximum(rho - rh, 0.2 - py)
+        carve = rho - rh
         d = smax(d, -carve, 0.1)
         layers = []
         sock = []
@@ -88,15 +88,11 @@ def mass_fn(noise, lumps, ropes, eyes):
             d = smax(d, -sk, 0.04)
         layers.append(('flesh', d))
         wall = np.maximum(d, np.maximum(carve - 0.14, py - 0.85))       # the pit's walls: black
-        floor = np.maximum(d, np.maximum(py - 0.45, rho - rh))          # its floor: black
         layers.append(('inner', wall))
-        layers.append(('inner', floor))
         # the lit lip: the flesh within about 0.15 block of the outline, orange-red, glowing
         layers.append(('lip_rim', np.maximum(d, np.maximum(carve - 0.16, 0.85 - py))))
         # far below: one small nested core of dim dark red, off centre (not a floor)
         dc = np.sqrt((px - GC[0]) ** 2 + (pz - GC[1]) ** 2)
-        for lv, r in enumerate((0.34, 0.26, 0.18, 0.1)):
-            layers.append(('glow%d' % (lv + 1), np.maximum(floor, dc - r)))
         for c, sk in zip(eyes, sock):
             layers.append(('inner', np.maximum(d, sk - 0.05)))
             layers.append(('redeye', sphere(px, py, pz, (c[0], c[1] - 0.035, c[2]), 0.075)))
@@ -130,11 +126,11 @@ def paint(ramp=GREY, base=0.52, noise_f=3.0, special=None):
 
 def build_mass(rng, noise):
     lumps = []
-    for i in range(18):
+    for i in range(40):
         a = rng.uniform(0, 2 * math.pi)
-        rr = rng.uniform(0.8, 1.9)
+        rr = rng.uniform(0.8, 3.3)
         rr = max(rr, float(hole_r(np.array(a))) + 0.3)
-        x, z = np.clip(rr * math.cos(a), -1.9, 1.9), np.clip(rr * math.sin(a), -1.9, 1.9)
+        x, z = np.clip(rr * math.cos(a), -3.3, 3.3), np.clip(rr * math.sin(a), -3.3, 3.3)
         lumps.append(((x, rng.uniform(0.85, 1.2), z), (rng.uniform(0.3, 0.55), rng.uniform(0.2, 0.34), rng.uniform(0.3, 0.55))))
     ropes = []
     for i in range(7):                      # draped ropes of flesh over the mass
@@ -165,7 +161,7 @@ def build_mass(rng, noise):
             continue
         eyes.append((x, mass_height(noise, x, z) - 0.02, z))
     fn = mass_fn(noise, lumps, ropes, eyes)
-    g = K.voxelize('mass', (-BOX - 0.1, 0, -BOX - 0.1), (BOX + 0.1, 2.0, BOX + 0.1), S8, fn, paint(base=0.4), noise, min_nb=3)
+    g = K.voxelize('mass', (-BOX - 0.1, 0, -BOX - 0.1), (BOX + 0.1, 2.0, BOX + 0.1), S16, fn, paint(base=0.4), noise, min_nb=3)
     return g, eyes
 
 

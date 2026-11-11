@@ -1313,6 +1313,61 @@ def devil_death():
     return taper(x, 1.2)
 
 
+def laugh_voices(seconds, voices, f0, beats, level=1.0):
+    """Many voices laughing as one: "ha" on every beat (an open vowel struck from breath, the pitch falling through each), each voice its
+    own pitch and a hair late, the beats {beats} (time, strength)."""
+    n = ns(seconds)
+    out = np.zeros(n)
+    f1, f2, f3 = VOWELS[0]
+    for v in range(voices):
+        base = g.rng.uniform(*f0)
+        shift = g.rng.uniform(0.85, 1.2)
+        late = g.rng.uniform(0.0, 0.04)
+        for at, strength in beats:
+            m = ns(g.rng.uniform(0.13, 0.19))
+            k = np.arange(m) / m
+            f = base * (1.12 - 0.3 * k) * (1.0 + 0.03 * np.sin(2 * np.pi * np.arange(m) / SR * 7.0))
+            src = (np.cumsum(f) / SR) % 1.0 * 2.0 - 1.0
+            src = src * np.clip((k - 0.12) * 6.0, 0.0, 1.0) + white(m) * (0.9 * np.exp(-k * 9.0) + 0.2)
+            y = bp(src, f1 * shift * 0.85, f1 * shift * 1.15) + bp(src, f2 * shift * 0.9, f2 * shift * 1.1) * 0.7 + bp(src, f3 * shift * 0.9, f3 * shift * 1.1) * 0.3
+            y *= np.sin(np.pi * k) ** 0.8
+            if at + late + m / SR < seconds:
+                out = place(out, at + late, y * level * strength * g.rng.uniform(0.6, 1.0))
+    return out
+
+
+def devil_laugh():
+    """It laughs as it grows a limb back: a crowd of voices laughing as one, low under high, the beats quickening and then slowing, with
+    flesh knitting under it."""
+    seconds = 2.4
+    n = ns(seconds)
+    t = np.arange(n) / SR
+    beats = []
+    at = 0.05
+    gap = 0.24
+    for i in range(9):
+        beats.append((at, 1.0 - 0.06 * i))
+        at += gap
+        gap *= 0.93 if i < 5 else 1.12
+    x = laugh_voices(seconds, 14, (110.0, 260.0), beats, 1.0)
+    x += laugh_voices(seconds, 8, (60.0, 110.0), beats, 0.8)
+    x += flesh(n, 0.8, 1.2) * 0.35 * np.minimum(t / 0.6, 1.0)
+    return taper(x, 0.5)
+
+
+def devil_scream():
+    """Its core forced out: everyone it holds screaming at once, rising and cracking, the flesh tearing open under it and a sub thump."""
+    seconds = 2.2
+    n = ns(seconds)
+    t = np.arange(n) / SR
+    x = crowd_voice(seconds, voices=22, f0=(180.0, 420.0), level=1.0, bend=(0.8, 1.45), breath=0.5)
+    x += crowd_voice(seconds, voices=10, f0=(80.0, 150.0), level=0.8, bend=(1.0, 1.3), breath=0.4)
+    x = sat(x * 1.4, 1.6)
+    x += flesh(n, 0.9, 1.8) * 0.8
+    x += sub(n, [(0.0, 90.0), (0.3, 50.0), (seconds, 30.0)], 0.5, drive=2.0) * 0.9
+    return taper(x * np.minimum(t / 0.05, 1.0), 0.6)
+
+
 def hotel_seal():
     """A contract sealed: paper rustling, a hard thud of a stamp and a faint long ring after it."""
     n = ns(1.2)
@@ -1774,6 +1829,8 @@ SOUNDS = {
     'devil_regen': devil_regen,
     'devil_hurt': devil_hurt,
     'devil_death': devil_death,
+    'devil_laugh': devil_laugh,
+    'devil_scream': devil_scream,
     'beam_burst': beam_burst,
     'beam_step': beam_step,
     'beam_swim': beam_swim,
@@ -1808,7 +1865,7 @@ LOOPS = ('form_idle', 'form_grind', 'form_frenzy_loop', 'hotel_hum')
 LEVELS = {'tomato_step': -16, 'tomato_gurgle': -15, 'tomato_slap': -9, 'tomato_tuck': -13, 'tomato_roll': -12, 'tomato_thud': -9, 'tomato_spit': -11, 'tomato_hurt': -12, 'tomato_burst': -8, 'tomato_hiss': -13, 'tomato_swell': -13, 'pochita_bark': -12,
           'tomato_breath': -24, 'tomato_click': -20, 'tomato_shriek': -12, 'tomato_squelch': -15, 'tomato_hush': -17, 'tomato_grow': -11, 'pochita_chew': -13,
           'hotel_hum': -27, 'hotel_whisper': -19, 'hotel_voice': -12, 'hotel_bleed': -14, 'hotel_phone': -16, 'hotel_breath': -22, 'hotel_loop_break': -9, 'hotel_seal': -14, 'hotel_heartbeat': -10, 'hotel_cut': -12, 'hotel_knock': -15,
-          'devil_grow': -9, 'devil_bite': -10, 'devil_slam': -8, 'devil_regen': -16, 'devil_hurt': -13, 'devil_death': -8, 'forever_lock': -13, 'forever_hit': -12, 'forever_release': -7, 'forever_bond_up': -11, 'forever_not_yet': -11, 'forever_step_out': -12, 'form_heart_level': -8, 'form_crunch': -10, 'pochita_tame': -14, 'form_merge': -12, 'form_cord': -14, 'form_start': -10, 'form_revive_pull': -14, 'form_revive_start': -10, 'form_idle': -20, 'form_stop': -16, 'form_slash': -13, 'form_slash_air': -15, 'form_slash_heavy': -11, 'form_rev_down': -16, 'form_hit': -12,
+          'devil_grow': -9, 'devil_bite': -10, 'devil_slam': -8, 'devil_regen': -16, 'devil_hurt': -13, 'devil_death': -8, 'devil_laugh': -11, 'devil_scream': -8, 'forever_lock': -13, 'forever_hit': -12, 'forever_release': -7, 'forever_bond_up': -11, 'forever_not_yet': -11, 'forever_step_out': -12, 'form_heart_level': -8, 'form_crunch': -10, 'pochita_tame': -14, 'form_merge': -12, 'form_cord': -14, 'form_start': -10, 'form_revive_pull': -14, 'form_revive_start': -10, 'form_idle': -20, 'form_stop': -16, 'form_slash': -13, 'form_slash_air': -15, 'form_slash_heavy': -11, 'form_rev_down': -16, 'form_hit': -12,
           'form_grind': -15, 'form_chain': -14, 'form_frenzy': -10, 'form_frenzy_loop': -17, 'form_down': -13,
           'form_revive': -14, 'beam_burst': -9, 'beam_step': -12, 'beam_swim': -13, 'beam_bite': -10, 'beam_dive': -13, 'beam_screech': -9, 'beam_chatter': -16, 'beam_slam': -6, 'beam_launch': -10}
 

@@ -123,6 +123,10 @@ public final class ChainsawSounds {
 	public static final SoundEvent DEVIL_HURT = register("devil.hurt");
 	/** The devil dying: a collapsing groan of many voices, flesh deflating. */
 	public static final SoundEvent DEVIL_DEATH = register("devil.death");
+	/** The devil laughing as it grows a torn limb back: a crowd of voices laughing as one. */
+	public static final SoundEvent DEVIL_LAUGH = register("devil.laugh");
+	/** Its core forced out of the wall: everyone it holds screaming at once. */
+	public static final SoundEvent DEVIL_SCREAM = register("devil.scream");
 
 	/** The legend heard from far off: the engine's start (the same sound), played quiet and low from his direction by {@code Legend}. */
 	public static final SoundEvent LEGEND_ROAR = register("legend.roar");

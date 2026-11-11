@@ -40,7 +40,7 @@ public class ShaftHeadEntity extends Entity {
 	public static final int UP = 10;
 	public static final int REAR = 14;
 	public static final int LUNGE = 4;
-	public static final int HANG = 25;
+	public static final int HANG = Shaft.STUCK;
 	public static final int BACK = 8;
 	/** When it strikes: the tell is all of this. */
 	public static final int STRIKE = UP + REAR;
@@ -63,7 +63,8 @@ public class ShaftHeadEntity extends Entity {
 	public BlockPos origin = BlockPos.ORIGIN;
 	public int rot;
 	public UUID target;
-	private float health = HEALTH;
+	/** Cuts taken while it hangs stuck after a miss: at {@link Shaft#TEAR} it is torn off. */
+	private float tearing;
 
 	public ShaftHeadEntity(EntityType<?> type, World world) {
 		super(type, world);
@@ -119,13 +120,18 @@ public class ShaftHeadEntity extends Entity {
 		return outcome() == CUT;
 	}
 
-	/** Missed, and hanging out stunned now. */
-	public boolean stunned() {
+	/** Missed, and hanging out stuck now: it can be torn off. */
+	public boolean stuck() {
 		if (outcome() != MISSED) {
 			return false;
 		}
 		long since = this.getWorld().getTime() - outAt();
 		return since >= 0 && since < HANG;
+	}
+
+	/** The old name for {@link #stuck}. */
+	public boolean stunned() {
+		return stuck();
 	}
 
 	/** Still a threat: it has not yet struck. */
@@ -227,15 +233,25 @@ public class ShaftHeadEntity extends Entity {
 			return true;
 		}
 		Vec3d at = headAt(age(0.0F));
-		Shaft.partCut(world, origin, at, source, amount, stunned(), EternityDevilEntity.P_HEAD);
-		health -= amount;
-		world.spawnParticles(ParticleTypes.DAMAGE_INDICATOR, at.x, at.y, at.z, 3, 0.3, 0.3, 0.3, 0.1);
-		if (health <= 0.0F) {
+		if (!stuck()) {
+			// Still coming, or drawing back after it bit: a flinch, nothing more.
+			Shaft.flinch(world, origin, at, source);
+			return true;
+		}
+		tearing += amount;
+		Shaft.limbCut(world, origin, at, source, true);
+		if (tearing >= Shaft.TEAR) {
 			this.dataTracker.set(OUTCOME, CUT);
 			this.dataTracker.set(OUT_AT, (int) world.getTime());
 			world.playSound(null, at.x, at.y, at.z, ChainsawSounds.DEVIL_HURT, SoundCategory.HOSTILE, 1.6F, 1.3F);
+			Shaft.torn(world, origin, this.getPos(), dir(), Shaft.LIMB_HEAD, source.getAttacker());
 		}
 		return true;
+	}
+
+	/** How far it is to being torn off (0 to 1), for the tests. */
+	public float torn() {
+		return outcome() == CUT ? 1.0F : tearing / Shaft.TEAR;
 	}
 
 	@Override
@@ -276,6 +292,7 @@ public class ShaftHeadEntity extends Entity {
 				double across = Math.abs(rel.x * d.z - rel.z * d.x);
 				if (along >= 0.0 && along <= reached + 0.6 && across <= BITE_RADIUS + 0.3 && rel.y > -0.6 && rel.y < 2.0) {
 					p.damage(this.getDamageSources().generic(), DAMAGE);
+					Shaft.hurt(world, origin, p);
 					Vec3d push = d.multiply(0.7);
 					p.setVelocity(push.x, 0.35, push.z);
 					p.velocityModified = true;

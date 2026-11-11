@@ -55,19 +55,7 @@ public class ShaftHeadRenderer extends EntityRenderer<ShaftHeadEntity> {
 		Vec3d d = head.dir();
 		Vec3d up = new Vec3d(0.0, 1.0, 0.0);
 		Glow g = new Glow(provider, matrices);
-		// The line it will lunge along, lit on the floor from the moment it is fixed: brighter, and beating faster, to the strike.
-		if (head.locked() && out == ShaftHeadEntity.PENDING) {
-			float k = MathHelper.clamp((t - ShaftHeadEntity.UP) / ShaftHeadEntity.REAR, 0.0F, 1.0F);
-			float beat = 0.5F + 0.5F * MathHelper.sin(t * (0.6F + 1.4F * k));
-			float a = Math.min(1.0F, 0.45F + 0.55F * k) * (0.7F + 0.3F * beat);
-			Vec3d y = new Vec3d(0.0, 0.05, 0.0);
-			Vec3d end = y.add(d.multiply(ShaftHeadEntity.REACH + 0.7));
-			Vec3d side = new Vec3d(d.z, 0.0, -d.x).multiply(ShaftHeadEntity.BITE_RADIUS);
-			g.line(y, end, up, 0.14 + 0.16 * k, 1.0F, 0.7F, 0.25F, a);
-			g.line(y.add(side), end.add(side), up, 0.1, 1.0F, 0.5F, 0.1F, a * 0.8F);
-			g.line(y.subtract(side), end.subtract(side), up, 0.1, 1.0F, 0.5F, 0.1F, a * 0.8F);
-			g.fade(y.add(side), y.subtract(side), end.subtract(side), end.add(side), 1.0F, 0.4F, 0.08F, 0.2F * k, 0.05F * k);
-		}
+		// (Its tell on the floor is in the room's veins: ArenaRenderer.)
 		if (h.y < -0.95) {
 			return;
 		}
@@ -79,46 +67,17 @@ public class ShaftHeadRenderer extends EntityRenderer<ShaftHeadEntity> {
 			PlayerEntity near = world.getClosestPlayer(head, 16.0);
 			theta = near == null ? 0.0 : Math.atan2(-(near.getZ() - head.getZ()), near.getX() - head.getX());
 		}
-		// The neck: out of the floor at the foot, up and along to the head.
-		FleshMesh mesh = FleshMesh.get("shaft");
-		FleshMesh.Part seg = mesh.byName.get("grab_segment");
+		// The neck: out of the floor through a collar of flesh, up and along to the head, the room's own limb pieces (never stretched).
 		Matrix4f base = new Matrix4f(matrices.peek().getPositionMatrix());
-		boolean stunned = head.stunned();
-		FleshMesh.Look look = new FleshMesh.Look().light(net.minecraft.client.render.LightmapTextureManager.pack(15, 15), 0.7F, 1.3F);
-		look.rim = 0.6F;
-		look.hurt = out == ShaftHeadEntity.CUT ? 0.6F : stunned ? 0.18F + 0.18F * MathHelper.sin(t * 0.5F) : 0.0F;
-		if (seg != null) {
-			Vec3d foot = new Vec3d(0.0, -0.6, 0.0);
-			Vec3d knee = new Vec3d(0.0, Math.max(-0.6, h.y - 0.4), 0.0).add(d.multiply(Math.min(0.0, h.dotProduct(d)) * 0.5));
-			Vec3d neckEnd = h.subtract(d.multiply(0.45)).add(0.0, -0.35, 0.0);
-			Vec3d[] pts = {foot, knee, neckEnd};
-			for (int i = 0; i < pts.length - 1; i++) {
-				Vec3d a = pts[i];
-				Vec3d b = pts[i + 1];
-				Vec3d ab = b.subtract(a);
-				double len = ab.length();
-				if (len < 0.05) {
-					continue;
-				}
-				Vec3d u = ab.multiply(1.0 / len);
-				Quaternionf q = new Quaternionf().rotationTo(0.0F, 1.0F, 0.0F, (float) u.x, (float) u.y, (float) u.z);
-				int n = Math.max(1, (int) Math.ceil(len / 0.5));
-				float step = (float) (len / n);
-				for (int k = 0; k < n; k++) {
-					Vec3d p = a.add(u.multiply(k * step));
-					mesh.drawPart(seg, new Matrix4f(base).translate((float) p.x, (float) p.y, (float) p.z).rotate(q).scale(1.35F, step / 0.5F, 1.35F), look, base);
-				}
-			}
-			if (stunned) {
-				// Stunned at the end of its neck: glowing rings where to cut.
-				float a = 0.55F + 0.45F * MathHelper.sin(t * 0.6F);
-				Vec3d nd = neckEnd.subtract(knee);
-				for (int i = 1; i <= 3; i++) {
-					Vec3d c = knee.add(nd.multiply(i / 4.0));
-					g.arc(c, 0.55, 0.13, 0.0, Math.PI * 2.0, nd.crossProduct(up).normalize(), up, 1.0F, 0.75F, 0.3F, a);
-				}
-			}
-		}
+		boolean stunned = head.stuck();
+		FleshMesh.Look look = ArenaRenderer.lookNear(world, head, world.getTime() + delta);
+		look.hurt = out == ShaftHeadEntity.CUT ? 0.6F : stunned ? 0.1F + 0.08F * MathHelper.sin(t * 0.5F) : 0.0F;
+		ShaftArmRenderer.collar(base, new Vec3d(0.0, 0.02, 0.0), up, "collar", look);
+		Vec3d foot = new Vec3d(0.0, -0.4, 0.0);
+		Vec3d knee = new Vec3d(0.0, Math.max(-0.4, h.y - 0.4), 0.0).add(d.multiply(Math.min(0.0, h.dotProduct(d)) * 0.5));
+		Vec3d neckEnd = h.subtract(d.multiply(0.45)).add(0.0, -0.35, 0.0);
+		ShaftArmRenderer.chain(base, foot, knee, "neck_segment", false, up, 0.0F, look);
+		ShaftArmRenderer.chain(base, knee, neckEnd, "neck_segment", false, up, 0.0F, look);
 		// The head: its jaw open as it rears, snapping shut as it strikes.
 		float strike = ShaftHeadEntity.STRIKE;
 		float closed;
@@ -129,7 +88,7 @@ public class ShaftHeadRenderer extends EntityRenderer<ShaftHeadEntity> {
 		} else {
 			closed = JAW_OPEN * 0.5F;
 		}
-		Matrix4f model = new Matrix4f(base).translate((float) h.x, (float) (h.y - 1.45 * 0.95), (float) h.z).rotateY((float) theta).scale(0.95F);
+		Matrix4f model = new Matrix4f(base).translate((float) h.x, (float) (h.y - 1.45), (float) h.z).rotateY((float) theta);
 		// Its eyes lit on you while it comes and rears (the tell), the face glowing.
 		boolean telling = out == ShaftHeadEntity.PENDING && t < strike;
 		look.glowAt = new Vector3f(0.45F, 1.55F, 0.0F);

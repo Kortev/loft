@@ -33,6 +33,16 @@ public class ShaftCoreEntity extends Entity {
 	private static final TrackedData<Boolean> CUTTABLE = DataTracker.registerData(ShaftCoreEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
 	private static final TrackedData<Integer> CUT_AT = DataTracker.registerData(ShaftCoreEntity.class, TrackedDataHandlerRegistry.INTEGER);
 	private static final TrackedData<Integer> BORN = DataTracker.registerData(ShaftCoreEntity.class, TrackedDataHandlerRegistry.INTEGER);
+	/** Forced out of an end wall for a short window of the fight ({@link Shaft}): hurt then, it gives a third of the fight. */
+	private static final TrackedData<Boolean> WINDOW = DataTracker.registerData(ShaftCoreEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
+	/** Window: the tick it is drawn back in (its stalk sinks back into the wall). */
+	private static final TrackedData<Integer> BACK_AT = DataTracker.registerData(ShaftCoreEntity.class, TrackedDataHandlerRegistry.INTEGER);
+	/** Window: the one who cut it last (its eyes look at them). */
+	private static final TrackedData<Integer> CUTTER = DataTracker.registerData(ShaftCoreEntity.class, TrackedDataHandlerRegistry.INTEGER);
+	/** Window: the tick it was last cut (it flushes). */
+	private static final TrackedData<Integer> HIT_AT = DataTracker.registerData(ShaftCoreEntity.class, TrackedDataHandlerRegistry.INTEGER);
+	/** Window: the hotel it is in. */
+	public net.minecraft.util.math.BlockPos origin = net.minecraft.util.math.BlockPos.ORIGIN;
 
 	public UUID devil;
 	private float health = HEALTH;
@@ -50,6 +60,10 @@ public class ShaftCoreEntity extends Entity {
 		builder.add(CUTTABLE, false);
 		builder.add(CUT_AT, -1);
 		builder.add(BORN, 0);
+		builder.add(WINDOW, false);
+		builder.add(BACK_AT, -1);
+		builder.add(CUTTER, -1);
+		builder.add(HIT_AT, -1000);
 	}
 
 	/** Whether the deal is off and it can be cut. */
@@ -74,9 +88,41 @@ public class ShaftCoreEntity extends Entity {
 		this.dataTracker.set(BORN, (int) this.getWorld().getTime());
 	}
 
+	/** Whether this is a window's core (out of the wall for a moment), not the one held out as it begs. */
+	public boolean window() {
+		return this.dataTracker.get(WINDOW);
+	}
+
+	/** Makes this a window's core in the hotel at {@code origin}. */
+	public void setWindow(net.minecraft.util.math.BlockPos origin) {
+		this.origin = origin;
+		this.dataTracker.set(WINDOW, true);
+	}
+
+	public int backAt() {
+		return this.dataTracker.get(BACK_AT);
+	}
+
+	/** Window: drawn back into the wall (it is gone a moment later). */
+	public void drawBack() {
+		if (backAt() < 0) {
+			this.dataTracker.set(BACK_AT, (int) this.getWorld().getTime());
+		}
+	}
+
+	/** Ticks since it was last cut (window). */
+	public long hurtTime() {
+		return this.getWorld().getTime() - this.dataTracker.get(HIT_AT);
+	}
+
+	/** Window: the entity id of whoever cut it last (-1 nobody). */
+	public int cutter() {
+		return this.dataTracker.get(CUTTER);
+	}
+
 	@Override
 	public boolean canHit() {
-		return cutAt() < 0;
+		return cutAt() < 0 && (!window() || backAt() < 0);
 	}
 
 	@Override
@@ -101,6 +147,16 @@ public class ShaftCoreEntity extends Entity {
 		}
 		if (source.isOf(DamageTypes.GENERIC_KILL) || source.isOf(DamageTypes.OUT_OF_WORLD)) {
 			return false;
+		}
+		if (window()) {
+			if (backAt() >= 0 || this.getWorld().getTime() - born() < RISE / 3) {
+				return false;
+			}
+			if (source.getAttacker() != null) {
+				this.dataTracker.set(CUTTER, source.getAttacker().getId());
+			}
+			this.dataTracker.set(HIT_AT, (int) world.getTime());
+			return Shaft.coreHit(world, this, source, amount);
 		}
 		if (!cuttable()) {
 			// (Begging: it is held out, not cut.)
@@ -134,6 +190,9 @@ public class ShaftCoreEntity extends Entity {
 	public void tick() {
 		super.tick();
 		if (this.getWorld() instanceof ServerWorld && cutTick >= 0 && this.age - cutTick > FALL + 10) {
+			this.discard();
+		}
+		if (this.getWorld() instanceof ServerWorld && window() && (backAt() >= 0 && this.getWorld().getTime() - backAt() > RISE || this.age > 600)) {
 			this.discard();
 		}
 	}
