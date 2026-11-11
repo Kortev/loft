@@ -92,6 +92,7 @@ public final class ChainsawManClient implements ClientModInitializer {
 		EntityRendererRegistry.register(ChainsawMan.SQUAD_MEMBER, SquadRenderer::new);
 		EntityRendererRegistry.register(ChainsawMan.FOREVER_CUBE, ForeverCubeRenderer::new);
 		io.github.kortev.chainsawman.client.devil.DevilsClient.init();
+		io.github.kortev.chainsawman.client.devil.LeechClient.init();
 		WorldRenderEvents.LAST.register(context -> {
 			ClientForever.projection = new org.joml.Matrix4f(context.projectionMatrix());
 			ClientForever.view = new org.joml.Matrix4f(context.positionMatrix());

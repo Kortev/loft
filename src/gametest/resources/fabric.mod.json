@@ -14,6 +14,7 @@
 			"io.github.kortev.shootingstar.test.CrashTestServer"
 		],
 		"fabric-gametest": [
+			"io.github.kortev.shootingstar.test.LeechGameTests",
 			"io.github.kortev.shootingstar.test.DataGameTests",
 			"io.github.kortev.shootingstar.test.StrikeGameTests",
 			"io.github.kortev.shootingstar.test.GapGameTests",
@@ -33,6 +34,7 @@
 			"io.github.kortev.shootingstar.test.TomatoGameTests"
 		],
 		"client": [
+			"io.github.kortev.shootingstar.test.LeechSelfTest",
 			"io.github.kortev.shootingstar.test.ClientSelfTest",
 			"io.github.kortev.shootingstar.test.GapSelfTest",
 			"io.github.kortev.shootingstar.test.ChittySelfTest",
