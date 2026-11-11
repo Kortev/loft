@@ -154,7 +154,7 @@ public class EternityDevilEntity extends MobEntity {
 	public static EternityDevilEntity spawn(ServerWorld world, HomeBlockEntity home, double x, float health) {
 		EternityDevilEntity devil = new EternityDevilEntity(ChainsawMan.ETERNITY_DEVIL, world);
 		devil.baseX = x;
-		Vec3d at = HotelBuilder.world(home.origin, home.rot, x, LOCAL_Y, LOCAL_Z);
+		Vec3d at = HotelBuilder.at(home.origin, home.rot, x, LOCAL_Y, LOCAL_Z);
 		devil.refreshPositionAndAngles(at.x, at.y, at.z, HotelBuilder.alongYaw(home.rot) + 180.0F, 0.0F);
 		devil.homePos = home.getPos();
 		devil.origin = home.origin;
@@ -245,7 +245,7 @@ public class EternityDevilEntity extends MobEntity {
 
 	/** The heart's place in the world. */
 	public Vec3d heartAt() {
-		return HotelBuilder.world(origin, rot, baseX + (HEART_X - LOCAL_X), HEART_Y, HEART_Z);
+		return HotelBuilder.at(origin, rot, baseX + (HEART_X - LOCAL_X), HEART_Y, HEART_Z);
 	}
 
 	/** The hotel-local x of the nearest of its bulk (the teeth). */
@@ -518,7 +518,7 @@ public class EternityDevilEntity extends MobEntity {
 		if (this.shaft()) {
 			return Shaft.at(origin, rot, Shaft.MID_X, Shaft.FLOOR + 0.05, Shaft.MID_Z);
 		}
-		return HotelBuilder.world(origin, rot, baseX + (HEART_X - LOCAL_X), HEART_Y - 0.8, HEART_Z);
+		return HotelBuilder.at(origin, rot, baseX + (HEART_X - LOCAL_X), HEART_Y - 0.8, HEART_Z);
 	}
 
 	/** The core, if it is out. */
@@ -599,7 +599,7 @@ public class EternityDevilEntity extends MobEntity {
 			return;
 		}
 		ServerPlayerEntity target = targets.get(this.random.nextInt(targets.size()));
-		Vec3d lp = HotelBuilder.local(origin, rot, target.getPos());
+		Vec3d lp = HotelBuilder.localOf(origin, rot, target.getPos());
 		double z = Math.max(1.6, Math.min(11.4, lp.z));
 		// A bite, a tendril, a bite, flesh across the floor, a tendril, a bite, and round again (a tendril needs room to be slammed down).
 		byte kind = ORDER[attackNo++ % ORDER.length];
@@ -618,16 +618,16 @@ public class EternityDevilEntity extends MobEntity {
 	/** An attack that lands in {@code warn} ticks at the local point, shown to everyone near. */
 	private void queue(ServerWorld world, byte kind, double x, double z, int warn) {
 		pending.add(new Pending(kind, x, z, this.age + warn));
-		announce(world, kind, HotelBuilder.world(origin, rot, x, LOCAL_Y, z), warn);
+		announce(world, kind, HotelBuilder.at(origin, rot, x, LOCAL_Y, z), warn);
 	}
 
 	private void land(ServerWorld world, Pending a) {
 		DamageSource source = this.getDamageSources().mobAttack(this);
 		if (a.kind() == HotelPayloads.Devil.BITE) {
-			Vec3d at = HotelBuilder.world(origin, rot, a.x(), LOCAL_Y, a.z());
+			Vec3d at = HotelBuilder.at(origin, rot, a.x(), LOCAL_Y, a.z());
 			world.playSound(null, at.x, at.y + 0.5, at.z, ChainsawSounds.DEVIL_BITE, SoundCategory.HOSTILE, 1.6F, 0.9F + this.random.nextFloat() * 0.2F);
 			for (ServerPlayerEntity p : players(world, 64.0)) {
-				Vec3d lp = HotelBuilder.local(origin, rot, p.getPos());
+				Vec3d lp = HotelBuilder.localOf(origin, rot, p.getPos());
 				if (Math.hypot(lp.x - a.x(), lp.z - a.z()) <= 1.7 && Math.abs(lp.y - LOCAL_Y) <= 2.4) {
 					p.damage(source, BITE_DAMAGE);
 					p.addVelocity(0.0, 0.45, 0.0);
@@ -635,14 +635,14 @@ public class EternityDevilEntity extends MobEntity {
 				}
 			}
 		} else if (a.kind() == HotelPayloads.Devil.TENDRIL) {
-			Vec3d at = HotelBuilder.world(origin, rot, a.x(), LOCAL_Y, a.z());
+			Vec3d at = HotelBuilder.at(origin, rot, a.x(), LOCAL_Y, a.z());
 			world.playSound(null, at.x, at.y + 0.5, at.z, ChainsawSounds.DEVIL_SLAM, SoundCategory.HOSTILE, 2.0F, 0.9F);
 			for (ServerPlayerEntity p : players(world, 64.0)) {
-				Vec3d lp = HotelBuilder.local(origin, rot, p.getPos());
+				Vec3d lp = HotelBuilder.localOf(origin, rot, p.getPos());
 				// Anyone in the lane between the devil and the point where it slams.
 				if (Math.abs(lp.z - a.z()) <= 1.05 && lp.x >= a.x() - 1.6 && lp.x <= frontX() && Math.abs(lp.y - LOCAL_Y) <= 2.6) {
 					p.damage(source, TENDRIL_DAMAGE);
-					Vec3d push = HotelBuilder.world(BlockPos.ORIGIN, rot, -1.1, 0.0, 0.0);
+					Vec3d push = HotelBuilder.dir(rot, -1.1, 0.0, 0.0);
 					p.addVelocity(push.x, 0.35, push.z);
 					p.velocityModified = true;
 				}
@@ -656,20 +656,20 @@ public class EternityDevilEntity extends MobEntity {
 		for (int k = 0; k < 3; k++) {
 			double px = Math.max(x - 0.5, front - 1.8 - 2.6 * k) + (this.random.nextDouble() - 0.5);
 			double pz = Math.max(1.6, Math.min(11.4, z + (this.random.nextDouble() - 0.5) * 1.6));
-			Vec3d at = HotelBuilder.world(origin, rot, px, LOCAL_Y, pz);
+			Vec3d at = HotelBuilder.at(origin, rot, px, LOCAL_Y, pz);
 			FleshPatchEntity patch = new FleshPatchEntity(ChainsawMan.FLESH_PATCH, world);
 			patch.refreshPositionAndAngles(at.x, at.y, at.z, this.random.nextFloat() * 360.0F, 0.0F);
 			patch.setLife(FleshPatchEntity.LIFE, 12 * k);
 			world.spawnEntity(patch);
 		}
-		announce(world, HotelPayloads.Devil.CREEP, HotelBuilder.world(origin, rot, x, LOCAL_Y, z), 20);
+		announce(world, HotelPayloads.Devil.CREEP, HotelBuilder.at(origin, rot, x, LOCAL_Y, z), 20);
 	}
 
 	/** Players in the corridor and the stairwell end, alive, within the devil's reach. */
 	private List<ServerPlayerEntity> targets(ServerWorld world) {
 		List<ServerPlayerEntity> out = new ArrayList<>();
 		for (ServerPlayerEntity p : players(world, 48.0)) {
-			Vec3d lp = HotelBuilder.local(origin, rot, p.getPos());
+			Vec3d lp = HotelBuilder.localOf(origin, rot, p.getPos());
 			if (lp.y >= 28.0 && lp.y < 33.0 && lp.x > 1.0 && lp.x < frontX() && lp.z > 0.5 && lp.z < 12.5 && !p.isCreative() && !p.isSpectator()) {
 				out.add(p);
 			}

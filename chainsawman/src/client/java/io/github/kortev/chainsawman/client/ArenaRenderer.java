@@ -63,7 +63,7 @@ final class ArenaRenderer {
 
 	/** A local direction (or difference) in the world. */
 	static Vec3d dir(int rot, double x, double y, double z) {
-		return HotelBuilder.world(BlockPos.ORIGIN, rot, x, y, z);
+		return HotelBuilder.dir(rot, x, y, z);
 	}
 
 	/** A local point, from the devil (which is at the arena's {@link Shaft#MID_X}, {@link Shaft#DEVIL_Y}, {@link Shaft#MID_Z}). */

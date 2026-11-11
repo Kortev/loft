@@ -433,8 +433,8 @@ public final class Shaft {
 
 	/** The shaft's block box, local: what it holds and what is moved out of it when it goes. */
 	private static Box worldBox(HomeBlockEntity h) {
-		Vec3d a = HotelBuilder.world(h.origin, h.rot, AX0 - 3.0, FLOOR - 4.0, AZ0 - 3.0);
-		Vec3d b = HotelBuilder.world(h.origin, h.rot, AX1 + 4.0, TOP + 3.0, AZ1 + 4.0);
+		Vec3d a = HotelBuilder.at(h.origin, h.rot, AX0 - 3.0, FLOOR - 4.0, AZ0 - 3.0);
+		Vec3d b = HotelBuilder.at(h.origin, h.rot, AX1 + 4.0, TOP + 3.0, AZ1 + 4.0);
 		return new Box(a, b);
 	}
 
@@ -500,7 +500,7 @@ public final class Shaft {
 
 	/** Where whoever is in the shaft when it goes is put: the corridor's east end, looking back along it. */
 	private static Vec3d out(HomeBlockEntity h) {
-		return HotelBuilder.world(h.origin, h.rot, 30.5, Arena.Y0, 6.5);
+		return HotelBuilder.at(h.origin, h.rot, 30.5, Arena.Y0, 6.5);
 	}
 
 	/** The shaft put back, block for block (anyone in it is put in the corridor, and what lies in it too). */
@@ -566,7 +566,7 @@ public final class Shaft {
 		}
 		h.shaft = null;
 		h.markDirty();
-		Vec3d mid = HotelBuilder.world(h.origin, h.rot, MID_X, FLOOR + 3.0, MID_Z);
+		Vec3d mid = HotelBuilder.at(h.origin, h.rot, MID_X, FLOOR + 3.0, MID_Z);
 		world.spawnParticles(ParticleTypes.POOF, mid.x, mid.y, mid.z, 30, 4.0, 2.0, 3.0, 0.02);
 		world.playSound(null, to.x, to.y, to.z, SoundEvents.BLOCK_STONE_PLACE, SoundCategory.BLOCKS, 3.0F, 0.6F);
 	}
@@ -696,7 +696,7 @@ public final class Shaft {
 		st.tiltAt = now;
 		st.fear = 1.0F;
 		devil.tilting = true;
-		Vec3d mid = HotelBuilder.world(h.origin, h.rot, 24.0, Arena.Y0 + 1.0, 6.5);
+		Vec3d mid = HotelBuilder.at(h.origin, h.rot, 24.0, Arena.Y0 + 1.0, 6.5);
 		world.playSound(null, mid.x, mid.y, mid.z, ChainsawSounds.DEVIL_GROW, SoundCategory.HOSTILE, 5.0F, 0.45F);
 		world.playSound(null, mid.x, mid.y, mid.z, ChainsawSounds.HOTEL_LOOP_BREAK, SoundCategory.HOSTILE, 5.0F, 0.4F);
 		world.playSound(null, mid.x, mid.y, mid.z, SoundEvents.ENTITY_WARDEN_ROAR, SoundCategory.HOSTILE, 5.0F, 0.5F);
@@ -710,7 +710,7 @@ public final class Shaft {
 	private static void tilting(ServerWorld world, HomeBlockEntity h, EternityDevilEntity devil, List<ServerPlayerEntity> players, long now) {
 		State st = h.run.shaft;
 		long t = now - st.tiltAt;
-		Vec3d slide = HotelBuilder.world(BlockPos.ORIGIN, h.rot, 1.0, 0.0, 0.0);
+		Vec3d slide = HotelBuilder.dir(h.rot, 1.0, 0.0, 0.0);
 		for (ServerPlayerEntity p : players) {
 			float k = 0.012F + 0.05F * t / TILT_TICKS;
 			p.addVelocity(slide.x * k, 0.0, slide.z * k);
@@ -721,7 +721,7 @@ public final class Shaft {
 			placeSome(world, h, st.queue.size() / Math.max(1, TILT_TICKS - 6 - (int) t) + 1);
 		}
 		if (t % 6 == 0) {
-			Vec3d at = HotelBuilder.world(h.origin, h.rot, 20.0, Arena.Y0 + 1.5, 6.5);
+			Vec3d at = HotelBuilder.at(h.origin, h.rot, 20.0, Arena.Y0 + 1.5, 6.5);
 			world.spawnParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, at.x, at.y, at.z, 4, 6.0, 0.8, 1.2, 0.01);
 		}
 		if (t >= TILT_TICKS) {
@@ -866,7 +866,7 @@ public final class Shaft {
 			}
 			if (inMouth(lp) && !overMouth(lp)) {
 				// On the fused arms round the mouth: they pass you in.
-				Vec3d to = HotelBuilder.world(BlockPos.ORIGIN, h.rot, MID_X - lp.x, 0.0, MID_Z - lp.z);
+				Vec3d to = HotelBuilder.dir(h.rot, MID_X - lp.x, 0.0, MID_Z - lp.z);
 				double len = Math.max(0.3, to.length());
 				p.setVelocity(to.x / len * 0.32, Math.min(p.getVelocity().y, 0.05), to.z / len * 0.32);
 				p.velocityModified = true;
@@ -941,7 +941,7 @@ public final class Shaft {
 			Vec3d lp = local(h, p);
 			double push = lp.z < AZ0 + in + 0.45 ? 1.0 : lp.z > AZ1 + 1 - in - 0.45 ? -1.0 : 0.0;
 			if (push != 0.0) {
-				Vec3d v = HotelBuilder.world(BlockPos.ORIGIN, h.rot, 0.0, 0.0, push * 0.25);
+				Vec3d v = HotelBuilder.dir(h.rot, 0.0, 0.0, push * 0.25);
 				p.setVelocity(p.getVelocity().x + v.x, p.getVelocity().y, p.getVelocity().z + v.z);
 				p.velocityModified = true;
 			}
@@ -1354,7 +1354,7 @@ public final class Shaft {
 			len = MathHelper.clamp(Math.abs(lp.z - sz) + 3.0, Math.min(7.0, z1 - z0), z1 - z0);
 		}
 		Vec3d at = at(h.origin, h.rot, sx, FLOOR, sz);
-		Vec3d dir = HotelBuilder.world(BlockPos.ORIGIN, h.rot, dirX, 0.0, dirZ);
+		Vec3d dir = HotelBuilder.dir(h.rot, dirX, 0.0, dirZ);
 		ShaftArmEntity arm = new ShaftArmEntity(ChainsawMan.SHAFT_ARM, world);
 		arm.slam(h.origin, h.rot, at, dir, len, target.getUuid());
 		world.spawnEntity(arm);
@@ -1398,9 +1398,9 @@ public final class Shaft {
 		double side = lp.x + 4.0 <= AX1 - 0.5 && (lp.x - 4.0 < AX0 + 1.5 || world.random.nextBoolean()) ? 4.0 : -4.0;
 		double px = MathHelper.clamp(lp.x + side, AX0 + 1.5, AX1 - 0.5);
 		Vec3d at = at(h.origin, h.rot, px, FLOOR, wz);
-		Vec3d in = HotelBuilder.world(BlockPos.ORIGIN, h.rot, 0.0, 0.0, low ? 1.0 : -1.0);
+		Vec3d in = HotelBuilder.dir(h.rot, 0.0, 0.0, low ? 1.0 : -1.0);
 		// It sweeps from the side away from them, across, toward them and on.
-		Vec3d toward = HotelBuilder.world(BlockPos.ORIGIN, h.rot, -Math.signum(side), 0.0, 0.0);
+		Vec3d toward = HotelBuilder.dir(h.rot, -Math.signum(side), 0.0, 0.0);
 		ShaftArmEntity arm = new ShaftArmEntity(ChainsawMan.SHAFT_ARM, world);
 		arm.grab(h.origin, h.rot, at, in, toward, target.getUuid());
 		world.spawnEntity(arm);
@@ -1444,7 +1444,7 @@ public final class Shaft {
 					continue;
 				}
 				p.damage(devil.getDamageSources().mobAttack(devil), SQUEEZE_DAMAGE);
-				Vec3d push = HotelBuilder.world(BlockPos.ORIGIN, h.rot, st.squeezeHalf == 0 ? 1.1 : -1.1, 0.0, 0.0);
+				Vec3d push = HotelBuilder.dir(h.rot, st.squeezeHalf == 0 ? 1.1 : -1.1, 0.0, 0.0);
 				p.setVelocity(push.x, 0.35, push.z);
 				p.velocityModified = true;
 				hurt(world, h.origin, p);
@@ -1453,7 +1453,7 @@ public final class Shaft {
 			if (!caught) {
 				// It caught nobody: the arm it thrust out of the end wall is left stuck on the floor, to be torn off.
 				Vec3d from = at(h.origin, h.rot, st.squeezeHalf == 0 ? AX0 : AX1 + 1, FLOOR, MID_Z);
-				Vec3d dir = HotelBuilder.world(BlockPos.ORIGIN, h.rot, st.squeezeHalf == 0 ? 1.0 : -1.0, 0.0, 0.0);
+				Vec3d dir = HotelBuilder.dir(h.rot, st.squeezeHalf == 0 ? 1.0 : -1.0, 0.0, 0.0);
 				ShaftArmEntity arm = new ShaftArmEntity(ChainsawMan.SHAFT_ARM, world);
 				arm.lying(h.origin, h.rot, from, dir, SQUEEZE_REACH - 0.6);
 				world.spawnEntity(arm);

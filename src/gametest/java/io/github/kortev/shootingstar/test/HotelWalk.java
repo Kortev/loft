@@ -89,11 +89,11 @@ final class HotelWalk {
 	}
 
 	private static Vec3d world(double x, double y, double z) {
-		return HotelBuilder.world(origin, 0, x, y, z);
+		return HotelBuilder.at(origin, 0, x, y, z);
 	}
 
 	private static Vec3d local(Vec3d w) {
-		return HotelBuilder.local(origin, 0, w);
+		return HotelBuilder.localOf(origin, 0, w);
 	}
 
 	private static float yawTo(Vec3d from, Vec3d to) {

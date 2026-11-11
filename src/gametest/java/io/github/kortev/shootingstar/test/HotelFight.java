@@ -142,11 +142,11 @@ final class HotelFight {
 	}
 
 	private static Vec3d world(double x, double y, double z) {
-		return HotelBuilder.world(origin, 0, x, y, z);
+		return HotelBuilder.at(origin, 0, x, y, z);
 	}
 
 	private static Vec3d local(Vec3d w) {
-		return HotelBuilder.local(origin, 0, w);
+		return HotelBuilder.localOf(origin, 0, w);
 	}
 
 	private static ServerPlayerEntity you(IntegratedServer s) {
@@ -224,12 +224,7 @@ final class HotelFight {
 		if (!Shaft.inArena(me)) {
 			return false;
 		}
-		for (int[] g : Shaft.GROWTHS) {
-			if (Math.hypot(g[0] + 0.5 - me.x, g[1] + 0.5 - me.z) <= reach - 0.3) {
-				return true;
-			}
-		}
-		return nearestWall(me)[0] <= reach - 0.6;
+		return false;
 	}
 
 	/** A threat to you: where to stand to be clear of it (local), and how soon it lands (ticks). */

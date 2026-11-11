@@ -71,48 +71,11 @@ public final class HotelBuilder {
 
 	/** A local direction (a speed, a push, a step) turned into the world's: no place, so no frame to be off by. */
 	public static Vec3d dir(int rot, double x, double y, double z) {
-		return world(BlockPos.ORIGIN, rot, x, y, z);
-	}
-
-	/**
-	 * The old point frame, turned about the origin block's corner: at turns 1 to 3 it is a block off the blocks along each turned axis (a
-	 * point in the middle of a local block lands in the middle of its neighbour). Right for directions (an origin of {@link BlockPos#ORIGIN});
-	 * for places use {@link #at}. Kept for the arena's code (the boss fight, rebuilt on its own branch), which was written against it.
-	 */
-	public static Vec3d world(BlockPos origin, int rot, double x, double y, double z) {
-		double dx;
-		double dz;
-		switch (rot & 3) {
-			case 0 -> {
-				dx = x;
-				dz = z;
-			}
-			case 1 -> {
-				dx = -z;
-				dz = x;
-			}
-			case 2 -> {
-				dx = -x;
-				dz = -z;
-			}
-			default -> {
-				dx = z;
-				dz = -x;
-			}
-		}
-		return new Vec3d(origin.getX() + dx, origin.getY() + y, origin.getZ() + dz);
-	}
-
-	/** The local point of a world point in the old frame: the inverse of {@link #world(BlockPos, int, double, double, double)} (for places, {@link #localOf}). */
-	public static Vec3d local(BlockPos origin, int rot, Vec3d p) {
-		double dx = p.x - origin.getX();
-		double dz = p.z - origin.getZ();
-		double y = p.y - origin.getY();
 		return switch (rot & 3) {
-			case 0 -> new Vec3d(dx, y, dz);
-			case 1 -> new Vec3d(dz, y, -dx);
-			case 2 -> new Vec3d(-dx, y, -dz);
-			default -> new Vec3d(-dz, y, dx);
+			case 0 -> new Vec3d(x, y, z);
+			case 1 -> new Vec3d(-z, y, x);
+			case 2 -> new Vec3d(-x, y, -z);
+			default -> new Vec3d(z, y, -x);
 		};
 	}
 
