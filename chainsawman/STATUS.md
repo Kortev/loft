@@ -15,9 +15,9 @@ Updated 2026-11-10. Keep this page under 3 KB. Change it whenever something star
 - 3.4b the Tomato Devil, round 2, merged 2026-11-10 (282 tests). kortev hasn't played it; they have a guide.
 - **3.4c the Tomato's horror short and teaser merged 2026-11-10**: kortev has `work/tomato/creepy.mp4` (new
   sound) and `teaser.mp4`. kortev: people won't watch the full short; the teaser "looks awesome", they may
-  post it. No more rounds on the short. **Building:** a teaser re-cut (12 s
-  escalating, plus the 8 s fixed; same agent, `tomato-creepy`). On hand-back:
-  review, merge, send. 3.4d merged (283 tests): three hits from a player end a seed. Footage and stems: `work/tomato/creepy_frames/`; re-cut with `tools/tomato_creepy.py` (brief 3.4c).
+  post it. No more rounds on the short. The teaser was re-cut (kortev: too short, fix the rough
+  spots): `teaser.mp4` 12.6 s escalating, `teaser_8s.mp4` the fixed short one; kortev has both and picks.
+  3.4d merged (283 tests): three hits from a player end a seed. Footage and stems: `work/tomato/creepy_frames/`; re-cut with `tools/tomato_creepy.py` (brief 3.4c).
 - **The Eternity Devil is parked** for a big pass, arm animations first
   (`chainsawman/plan/packages/0.1c_devil_big_pass.md`).
 - Plan pages `4e` (what you play; how many Chainsaw Men, reopened by kortev) and `4f` (scaling): Fable's picks.
