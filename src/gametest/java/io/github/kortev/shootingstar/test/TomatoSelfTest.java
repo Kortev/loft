@@ -78,7 +78,7 @@ public class TomatoSelfTest implements ClientModInitializer {
 	/** The played take is drawn as a phone's portrait frame (1080x1920) whatever the window. */
 	public static boolean portrait() {
 		return active() && (target().startsWith("played") || target().equals("cinematic") || target().equals("firstnight") || target().equals("arrivals")
-				|| target().equals("grown") || target().equals("growreel"));
+				|| target().startsWith("grown") || target().equals("growreel"));
 	}
 
 	static String target() {
@@ -148,7 +148,7 @@ public class TomatoSelfTest implements ClientModInitializer {
 			case RUN -> {
 				client.getToastManager().clear();
 				boolean over;
-				if (target().startsWith("played") || target().equals("grown")) {
+				if (target().startsWith("played") || target().startsWith("grown")) {
 					over = TomatoFight.tick(client, server, ticks);
 				} else if (target().equals("growths")) {
 					over = TomatoGrownTakes.stills(client, server, ticks);
@@ -260,9 +260,9 @@ public class TomatoSelfTest implements ClientModInitializer {
 			Form.end(you);
 		}
 		Downed.up(you);
-		you.changeGameMode(target().startsWith("played") || target().equals("grown") || target().equals("firstnight") || target().equals("arrivals") ? GameMode.SURVIVAL
+		you.changeGameMode(target().startsWith("played") || target().startsWith("grown") || target().equals("firstnight") || target().equals("arrivals") ? GameMode.SURVIVAL
 				: target().equals("model") || target().equals("cinematic") || target().startsWith("grow") ? GameMode.CREATIVE : GameMode.SPECTATOR);
-		if (target().equals("grown")) {
+		if (target().startsWith("grown")) {
 			// (The grown fight is at night: a clear one, the moon up.)
 			world.setTimeOfDay(GROWN_NIGHT);
 		}

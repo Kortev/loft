@@ -41,7 +41,7 @@ public class HotelStructure extends Structure {
 		int rot = context.random().nextInt(4);
 		BlockPos centre = new BlockPos(chunk.getStartX() + 8, 0, chunk.getStartZ() + 8);
 		// The origin is the local (0, 0) corner: the middle of the plan lands on the middle of the chunk.
-		Vec3d off = HotelBuilder.world(BlockPos.ORIGIN, rot, HotelPlan.SX / 2.0, 0.0, HotelPlan.SZ / 2.0);
+		Vec3d off = HotelBuilder.dir(rot, HotelPlan.SX / 2.0, 0.0, HotelPlan.SZ / 2.0);
 		int ox = centre.getX() - (int) Math.round(off.x);
 		int oz = centre.getZ() - (int) Math.round(off.z);
 		int min = Integer.MAX_VALUE;

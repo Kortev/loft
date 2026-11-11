@@ -36,7 +36,7 @@ public class HotelShareGameTests implements FabricGameTest {
 	private static final int AFTER_COLLAPSE = EternityDevilEntity.DEATH_TICKS + 20;
 
 	/** Two fighters each get the whole drop in their pack (one with a full pack gets it at their feet); none is left on the floor. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_share_each", tickLimit = 900)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_share_each", tickLimit = 900 + HotelGameTests.READY_WAIT)
 	public void each_fighter_gets_the_whole_drop(TestContext context) {
 		HomeBlockEntity h = HotelGameTests.hotel(context, 0, 60);
 		ServerPlayerEntity a = walker(context, h, "share_a", 26.0);
@@ -71,7 +71,7 @@ public class HotelShareGameTests implements FabricGameTest {
 	}
 
 	/** A second player inside who never hit it gets no loot; the one who fought gets it; nothing lies on the floor. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_share_idle", tickLimit = 900)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_share_idle", tickLimit = 900 + HotelGameTests.READY_WAIT)
 	public void an_idle_player_inside_gets_nothing(TestContext context) {
 		HomeBlockEntity h = HotelGameTests.hotel(context, 0, 61);
 		ServerPlayerEntity a = walker(context, h, "idle_fighter", 26.0);
@@ -101,7 +101,7 @@ public class HotelShareGameTests implements FabricGameTest {
 	 * A fighter who died is paid when they are back, whatever keepInventory says: one respawns with it off, one with it on, and each gets
 	 * the whole drop once.
 	 */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_share_dead", tickLimit = 900)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_share_dead", tickLimit = 900 + HotelGameTests.READY_WAIT)
 	public void a_dead_fighter_is_paid_on_respawn(TestContext context) {
 		HomeBlockEntity h = HotelGameTests.hotel(context, 0, 62);
 		MinecraftServer server = context.getWorld().getServer();
@@ -151,7 +151,7 @@ public class HotelShareGameTests implements FabricGameTest {
 	}
 
 	/** A fighter who logged out before it died gets the whole drop when they join again. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_share_left", tickLimit = 900)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_share_left", tickLimit = 900 + HotelGameTests.READY_WAIT)
 	public void a_fighter_who_left_is_paid_on_joining(TestContext context) {
 		HomeBlockEntity h = HotelGameTests.hotel(context, 0, 63);
 		GameProfile profile = new GameProfile(UUID.randomUUID(), "left_fighter");
@@ -194,7 +194,7 @@ public class HotelShareGameTests implements FabricGameTest {
 	 * The squad's pay (its numbers and its line kept) goes to everyone who fought and nobody else: a fighter who is down is paid once they
 	 * are up, an idle player inside is not.
 	 */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_share_rescue", tickLimit = 900)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_share_rescue", tickLimit = 900 + HotelGameTests.READY_WAIT)
 	public void rescue_pay_goes_to_who_fought(TestContext context) {
 		HomeBlockEntity h = HotelGameTests.hotel(context, 0, 64);
 		ServerPlayerEntity a = walker(context, h, "rescue_fighter", 20.5);
@@ -245,7 +245,7 @@ public class HotelShareGameTests implements FabricGameTest {
 	}
 
 	/** Killed with nobody having fought it (a /kill): the old glowing pile on the floor, and nothing in anyone's pack. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_share_pile", tickLimit = 900)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_share_pile", tickLimit = 900 + HotelGameTests.READY_WAIT)
 	public void no_fighters_leaves_the_pile(TestContext context) {
 		HomeBlockEntity h = HotelGameTests.hotel(context, 0, 65);
 		ServerPlayerEntity a = walker(context, h, "pile_watcher", 26.0);
@@ -270,7 +270,7 @@ public class HotelShareGameTests implements FabricGameTest {
 	}
 
 	/** With oneContractPerDevil on, a player who took the deal in one hotel means a second hotel's devil gives no second contract. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_share_two_hotels", tickLimit = 900)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_share_two_hotels", tickLimit = 900 + HotelGameTests.READY_WAIT)
 	public void second_hotel_gives_no_second_contract(TestContext context) {
 		HomeBlockEntity first = HotelGameTests.hotel(context, 0, 66);
 		HomeBlockEntity second = HotelGameTests.hotel(context, 0, 67);

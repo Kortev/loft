@@ -400,12 +400,13 @@ public class TomatoDevilRenderer extends EntityRenderer<TomatoDevilEntity> {
 		float breath = 0.5F + 0.5F * MathHelper.sin(now * MathHelper.TAU / 64.0F + e.getId());
 		// (Grown, it hangs open wider, drooling, each step.)
 		float mouth = p.mouth <= 0.0601F ? 0.03F + 0.045F * g + 0.11F * breath * breath : p.mouth;
-		lips(body, bodyView, base, skin, mouth, provider, light, now);
+		lips(body, bodyView, base, skin, mouth, provider, light, now, g);
 		if (!e.isDead() && world.random.nextFloat() < 0.004F) {
 			world.playSound(pos.x, pos.y + STAND * gs, pos.z, io.github.kortev.chainsawman.devil.Devils.Sounds.CLICK, net.minecraft.sound.SoundCategory.HOSTILE, 0.5F,
 					(0.8F + world.random.nextFloat() * 0.3F) * Growth.voice(g), false);
 		}
 		drawEyes(e, b, world, parts, base, bodyM, bodyView, look, skin, p, now, pos, delta, g, gs, shudder);
+		TomatoGrowthShape.draw(e, b, world, body, parts, base, bodyM, bodyView, look, skin, arms, g, gs, now, pos, delta, p.dazed);
 		drawWounds(b, matrices, provider, bodyM, light);
 		TomatoGrowthLook.seams(g, now, matrices, provider, bodyM, light);
 		if (!e.isDead() && !e.isInvisible()) {
@@ -440,7 +441,7 @@ public class TomatoDevilRenderer extends EntityRenderer<TomatoDevilEntity> {
 	private static final float SLIT = 0.21F;
 
 	private static void lips(FleshMesh body, Matrix4f bodyView, Matrix4f base, FleshMesh.Look look, float open, VertexConsumerProvider provider, int light,
-			float now) {
+			float now, int g) {
 		float a = 1.25F * MathHelper.clamp(open, 0.0F, 1.0F);
 		Matrix4f[] ms = new Matrix4f[2];
 		int k = 0;
@@ -453,6 +454,17 @@ public class TomatoDevilRenderer extends EntityRenderer<TomatoDevilEntity> {
 			Matrix4f m = new Matrix4f(bodyView).translate(part.pivot).rotateY(s * a).translate(-part.pivot.x, -part.pivot.y, -part.pivot.z);
 			body.drawPart(part, m, look, base);
 			ms[k++] = m;
+		}
+		if (g >= 2) {
+			// Grown: the mouth wider and taller, a second row of lips and teeth round the first, gaping a little more.
+			float wide = 1.16F + 0.04F * (g - 2);
+			float tall = 1.3F + 0.06F * (g - 2);
+			Matrix4f outer = new Matrix4f(bodyView).translate(0.0F, MOUTH_Y, 0.9F).scale(wide, tall, 1.06F).translate(0.0F, -MOUTH_Y, -0.9F);
+			for (String name : new String[] {"lip_l", "lip_r"}) {
+				FleshMesh.Part part = body.byName.get(name);
+				float s = name.equals("lip_l") ? -1.0F : 1.0F;
+				body.drawPart(part, new Matrix4f(outer).translate(part.pivot).rotateY(s * (a + 0.62F)).translate(-part.pivot.x, -part.pivot.y, -part.pivot.z), look, base);
+			}
 		}
 		if (open > 0.5F) {
 			return;

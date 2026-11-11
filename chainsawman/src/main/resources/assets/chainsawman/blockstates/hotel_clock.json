@@ -1,0 +1,34 @@
+{
+  "variants": {
+    "facing=north,stopped=false": {
+      "model": "chainsawman:block/hotel_clock"
+    },
+    "facing=north,stopped=true": {
+      "model": "chainsawman:block/hotel_clock"
+    },
+    "facing=east,stopped=false": {
+      "model": "chainsawman:block/hotel_clock",
+      "y": 90
+    },
+    "facing=east,stopped=true": {
+      "model": "chainsawman:block/hotel_clock",
+      "y": 90
+    },
+    "facing=south,stopped=false": {
+      "model": "chainsawman:block/hotel_clock",
+      "y": 180
+    },
+    "facing=south,stopped=true": {
+      "model": "chainsawman:block/hotel_clock",
+      "y": 180
+    },
+    "facing=west,stopped=false": {
+      "model": "chainsawman:block/hotel_clock",
+      "y": 270
+    },
+    "facing=west,stopped=true": {
+      "model": "chainsawman:block/hotel_clock",
+      "y": 270
+    }
+  }
+}

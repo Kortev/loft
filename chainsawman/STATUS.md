@@ -15,11 +15,10 @@ Updated 2026-11-10. Keep this page under 3 KB. Change it whenever something star
 Builders each work on a branch with a brief in `plan/packages/`. Review, merge one at a time, run all
 tests (`scratchpad/merge_test.sh` pattern: rerun once on a flake), then send the film. At most two builders
 at once: five made tests time out. Every film adds a line to `test/mixin/FilmFrameMixin.java`: keep both.
-- Merged 2026-11-11 (320 tests): 2.2a Tomato night arrival; 0.1d arm swings; 2.1a notice board, licence,
-  yen; 3.3 Leech round 1 (summon only); 0.1e hotel stairs and loop; 3.9 devils grow. kortev has the films.
-- Leech round 2 merged (reach fighter; summon only). Hotel tests time out under load: fix asked in 0.1g.
-- Running: growth look round 2 (`devils-grow-2`); `hotel-corridor` (0.1g). Next, when a slot frees:
-  `eternity-arena` (0.1f, the new fight and one look; brief written).
+- Merged 2026-11-11 (326 tests): 2.2a Tomato night arrival; 0.1d arm swings; 2.1a notice board, licence,
+  yen; 3.3 Leech round 1 (summon only); 0.1e hotel stairs and loop; 3.9 devils grow (2 rounds); 0.1g hotel corridor look. kortev has the films.
+- Leech round 2 merged (reach fighter; summon only). Hotel test timeouts fixed in 0.1g (`READY_WAIT`).
+- Running: `eternity-arena` (0.1f, the new fight and one look). It must move to `HotelBuilder.at/localOf/dir`.
 - kortev (2026-11-11): as many reels as possible from every thing built: keep raw footage, list reel ideas.
 - After those: the office and shop. Scope: one player, friends ok.
 - Merged earlier: Tomato round 2, seeds in 3 hits, the teaser (kortev posts `work/tomato/teaser.mp4`).
