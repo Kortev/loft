@@ -17,6 +17,12 @@ public final class ChainsawSounds {
 	public static final SoundEvent STOP = register("form.stop");
 	/** A slash: the engine revving up hard as the saw whips through the air. */
 	public static final SoundEvent SLASH = register("form.slash");
+	/** Over each slash: the blade through the air, the chain whining on the bar (SwingFx). */
+	public static final SoundEvent SLASH_AIR = register("form.slash_air");
+	/** Under the big cut: the engine bellowing up, a deep rush of air, the weight landing. */
+	public static final SoundEvent SLASH_HEAVY = register("form.slash_heavy");
+	/** A flurry of slashes over: the engine falling back from its scream to the idle. */
+	public static final SoundEvent REV_DOWN = register("form.rev_down");
 	/** The saw biting into something: a wet rip under the engine bogging down. */
 	public static final SoundEvent HIT = register("form.hit");
 	/** The saw biting hard into someone (a player, a finisher): a thump, bone cracking, the engine bogging down. */

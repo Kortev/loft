@@ -47,6 +47,30 @@
       }
     ]
   },
+  "form.slash_air": {
+    "subtitle": "subtitles.chainsawman.form.slash_air",
+    "sounds": [
+      {
+        "name": "chainsawman:form_slash_air"
+      }
+    ]
+  },
+  "form.slash_heavy": {
+    "subtitle": "subtitles.chainsawman.form.slash_heavy",
+    "sounds": [
+      {
+        "name": "chainsawman:form_slash_heavy"
+      }
+    ]
+  },
+  "form.rev_down": {
+    "subtitle": "subtitles.chainsawman.form.rev_down",
+    "sounds": [
+      {
+        "name": "chainsawman:form_rev_down"
+      }
+    ]
+  },
   "form.hit": {
     "subtitle": "subtitles.chainsawman.form.hit",
     "sounds": [

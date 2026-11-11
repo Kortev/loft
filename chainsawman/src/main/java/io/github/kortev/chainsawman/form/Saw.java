@@ -109,11 +109,23 @@ public final class Saw {
 	private static final DustParticleEffect DARK_BLOOD = new DustParticleEffect(new Vector3f(0.35F, 0.0F, 0.02F), 1.3F);
 	private static final BlockStateParticleEffect GORE = new BlockStateParticleEffect(ParticleTypes.BLOCK, Blocks.REDSTONE_BLOCK.getDefaultState());
 
-	/** Each fighter's last slash: when, and its step in the combo. */
-	private record Slash(long at, int step) {
+	/** Each fighter's last slash: when, its step in the combo, and how many in a row it made ({@link SwingRhythm}). */
+	private record Slash(long at, int step, int flurry) {
 	}
 
 	private static final Map<UUID, Slash> SLASHED = new ConcurrentHashMap<>();
+
+	/** The step of {@code player}'s last slash (what everyone was told: {@link FormEventPayload#SWING}), or -1. */
+	public static int lastStep(PlayerEntity player) {
+		Slash last = SLASHED.get(player.getUuid());
+		return last == null ? -1 : last.step();
+	}
+
+	/** How many slashes in a row {@code player}'s last made, or 0. */
+	public static int flurry(PlayerEntity player) {
+		Slash last = SLASHED.get(player.getUuid());
+		return last == null ? 0 : last.flurry();
+	}
 	/** Who is grinding, and how many bites that hit since the last heal. */
 	private static final Map<UUID, Integer> GRINDING = new ConcurrentHashMap<>();
 	/** Since when each one grinding has been (server ticks): Pochita held needs revving up first. */
@@ -167,21 +179,11 @@ public final class Saw {
 		if (last != null && now - last.at() < SLASH_EVERY - LAG_SLACK) {
 			return false;
 		}
-		int step = last == null || now - last.at() > COMBO_GAP ? 0 : (last.step() + 1) % 3;
-		// An arm gone: its sweep comes from the other; with none, the head's saw nods down.
-		boolean right = Limbs.has(player, Limbs.RIGHT);
-		boolean left = Limbs.has(player, Limbs.LEFT);
-		if (!right && !left) {
-			step = 2;
-		} else if (step == 0 && !right) {
-			step = 1;
-		} else if (step == 1 && !left) {
-			step = 0;
-		}
-		if (held && step == 1) {
-			step = 0;
-		}
-		SLASHED.put(player.getUuid(), new Slash(now, step));
+		// The combo's next step (an arm gone: its sweep comes from the other; with none, the head's saw nods down), and how many in a row.
+		boolean fresh = last == null || SwingRhythm.fresh(last.at(), now);
+		int step = SwingRhythm.step(fresh, last == null ? -1 : last.step(), Limbs.has(player, Limbs.RIGHT), Limbs.has(player, Limbs.LEFT), held);
+		int flurry = SwingRhythm.flurry(fresh, last == null ? 0 : last.flurry());
+		SLASHED.put(player.getUuid(), new Slash(now, step, flurry));
 		boolean finisher = step == 2;
 		float damage = ((finisher ? FINISHER_DAMAGE : SLASH_DAMAGE) + HeartLevel.damage(player)) * (held ? WIELDED : Frenzy.damage(player) * Limbs.damage(player));
 		List<LivingEntity> hit = inFront(player, SLASH_REACH, finisher ? FINISHER_WIDTH : SLASH_WIDTH);
@@ -220,8 +222,9 @@ public final class Saw {
 			parts = io.github.kortev.chainsawman.hotel.Shaft.cutAhead(player, SLASH_REACH + 0.5, damage);
 		}
 		// Everyone else hears it; the slasher's own game played it already, as they clicked (ClientCombat).
+		// (The engine climbing with each slash in a row.)
 		player.getServerWorld().playSound(player, player.getX(), player.getY() + 1.0, player.getZ(), ChainsawSounds.SLASH, SoundCategory.PLAYERS, 1.0F,
-				1.0F);
+				SwingRhythm.pitch(flurry));
 		Form.broadcast(player.server, new FormEventPayload(player.getUuid(), FormEventPayload.SWING, step));
 		if (held) {
 			if (!hit.isEmpty() || parts > 0) {
