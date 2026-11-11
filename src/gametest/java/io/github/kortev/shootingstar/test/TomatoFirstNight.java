@@ -50,7 +50,7 @@ final class TomatoFirstNight {
 
 	/** Your hut: dirt, 5 by 5, a doorway toward the plain, a torch by the door (to your left and behind you). */
 	static void hut(ServerWorld world) {
-		BlockPos o = BlockPos.ofFloored(TomatoSelfTest.site(-7.0, 0.0, -17.0));
+		BlockPos o = BlockPos.ofFloored(TomatoSelfTest.site(-9.0, 0.0, -21.0));
 		for (int x = 0; x < 5; x++) {
 			for (int z = 0; z < 5; z++) {
 				for (int y = 0; y < 4; y++) {
@@ -100,6 +100,31 @@ final class TomatoFirstNight {
 	private static Vec3d chest(TomatoDevilEntity d) {
 		return d.getPos().add(0.0, d.state() == TomatoDevilEntity.ON_BACK || d.state() == TomatoDevilEntity.ROLL ? 1.0 : 2.2, 0.0);
 	}
+
+	/**
+	 * Close in and cut it between its moves, at the edge of the sword's reach (its middle about 3.6-4.1 blocks off: its skin under 3), so the
+	 * whole of it stays in the frame rather than filling it.
+	 */
+	private static void press(MinecraftClient c, TomatoDevilEntity d) {
+		Fighter you = TomatoFight.YOU;
+		double dist = Math.hypot(d.getX() - c.player.getX(), d.getZ() - c.player.getZ());
+		if (dist > 4.1) {
+			you.strafeTo(c, d.getPos(), 3.8, false);
+		} else if (dist < 3.4) {
+			you.strafeTo(c, c.player.getPos().add(c.player.getPos().subtract(d.getPos()).multiply(1.0, 0.0, 1.0).normalize().multiply(1.0)), 0.2, false);
+		} else {
+			you.stop();
+		}
+		you.aim(c, d.getPos().add(0.0, 1.8, 0.0));
+		if (c.crosshairTarget instanceof EntityHitResult eh && eh.getEntity() == d) {
+			you.swing(c, 0.95F);
+		}
+	}
+
+	/** Seeds given up on (out of reach behind something): their ids. */
+	private static final java.util.Set<Integer> SKIPPED = new java.util.HashSet<>();
+	private static int targetId = -1;
+	private static int targetSince;
 
 	/** One client tick of the take; true when it is over. */
 	static boolean tick(MinecraftClient c, IntegratedServer s, int f) {
@@ -204,7 +229,7 @@ final class TomatoFirstNight {
 				}
 				boolean busy = TomatoFight.fight(c, d, false, false);
 				if (!busy && (d.state() == TomatoDevilEntity.WALK || d.state() == TomatoDevilEntity.SLAP && d.stateTime(0) > TomatoDevilEntity.SLAP_HIT)) {
-					TomatoFight.press(c, d);
+					press(c, d);
 				}
 			}
 			case 4 -> {
@@ -226,12 +251,21 @@ final class TomatoFirstNight {
 					break;
 				}
 				List<TomatoSeedEntity> ss = seeds(c);
+				ss.removeIf(x -> SKIPPED.contains(x.getId()));
 				if (ss.isEmpty()) {
 					next(c, "the seeds are done for");
 					break;
 				}
 				ss.sort(Comparator.comparingDouble(x -> x.squaredDistanceTo(c.player)));
 				TomatoSeedEntity target = ss.get(0);
+				if (target.getId() != targetId) {
+					targetId = target.getId();
+					targetSince = sub;
+				} else if (sub - targetSince > 100) {
+					mark(c, "a seed out of reach is given up on");
+					SKIPPED.add(targetId);
+					break;
+				}
 				Vec3d at = target.getPos().add(0.0, 0.15, 0.0);
 				you.aim(c, at);
 				double dist = Math.hypot(at.x - c.player.getX(), at.z - c.player.getZ());
