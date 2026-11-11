@@ -614,5 +614,45 @@
         "name": "chainsawman:pochita_chew"
       }
     ]
+  },
+  "safety.paper": {
+    "subtitle": "subtitles.chainsawman.safety.paper",
+    "sounds": [
+      {
+        "name": "chainsawman:safety_paper"
+      }
+    ]
+  },
+  "safety.ring": {
+    "subtitle": "subtitles.chainsawman.safety.ring",
+    "sounds": [
+      {
+        "name": "chainsawman:safety_ring"
+      }
+    ]
+  },
+  "safety.cash": {
+    "subtitle": "subtitles.chainsawman.safety.cash",
+    "sounds": [
+      {
+        "name": "chainsawman:safety_cash"
+      }
+    ]
+  },
+  "safety.tick": {
+    "subtitle": "subtitles.chainsawman.safety.tick",
+    "sounds": [
+      {
+        "name": "chainsawman:safety_tick"
+      }
+    ]
+  },
+  "safety.dial": {
+    "subtitle": "subtitles.chainsawman.safety.dial",
+    "sounds": [
+      {
+        "name": "chainsawman:safety_dial"
+      }
+    ]
   }
 }

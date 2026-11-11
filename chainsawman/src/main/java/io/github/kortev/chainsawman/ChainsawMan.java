@@ -196,5 +196,7 @@ public final class ChainsawMan implements ModInitializer {
 		io.github.kortev.chainsawman.contract.Contracts.init();
 		Felling.init();
 		io.github.kortev.chainsawman.devil.Devils.init();
+		// Public Safety: the village notice board, the licence, selling devil parts.
+		io.github.kortev.chainsawman.safety.Safety.init();
 	}
 }
