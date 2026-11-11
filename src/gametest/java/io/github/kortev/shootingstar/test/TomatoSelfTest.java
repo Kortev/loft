@@ -38,6 +38,7 @@ import net.minecraft.world.Heightmap;
  * and blow from the side and from the front, on its back, dying.</li>
  * <li>-Ptarget=played: the fight played from your eyes ({@link TomatoFight}); with -Pcapture=true, the film.</li>
  * <li>-Ptarget=cinematic: the horror short's eight shots ({@link TomatoCinematic}); with -Pcapture=true, its frames.</li>
+ * <li>-Ptarget=seeds: one still of three seeds, whole, cut once, cut twice.</li>
  * </ul>
  * <pre>./gradlew runSelftest -Pselftest=tomato -Ptarget=played -Pusername=Kortev -Pcapture=true -Pwidth=1080 -Pheight=1920 "-Pjvmargs=-Xmx2600m -XX:TieredStopAtLevel=1"</pre>
  */
@@ -141,6 +142,8 @@ public class TomatoSelfTest implements ClientModInitializer {
 					over = TomatoCinematic.tick(client, server, ticks);
 				} else if (target().equals("model")) {
 					over = model(client, server, ticks);
+				} else if (target().equals("seeds")) {
+					over = seeds(client, server, ticks);
 				} else {
 					over = look(client, server, ticks);
 				}
@@ -422,6 +425,41 @@ public class TomatoSelfTest implements ClientModInitializer {
 			still(c, "model_seeds_night");
 		}
 		return f > at + 160;
+	}
+
+	/** -Ptarget=seeds: three seeds side by side, left to right whole, cut once, cut twice; one still, close, at dusk. */
+	private static boolean seeds(MinecraftClient c, IntegratedServer s, int f) {
+		c.options.hudHidden = true;
+		c.options.setPerspective(Perspective.FIRST_PERSON);
+		c.options.getFov().setValue(50);
+		Vec3d p = site(0.0, 0.0, 0.0);
+		if (f == 1) {
+			s.execute(() -> {
+				for (int i = 0; i < 3; i++) {
+					var seed = new io.github.kortev.chainsawman.devil.TomatoSeedEntity(Devils.TOMATO_SEED, s.getOverworld());
+					seed.refreshPositionAndAngles(p.x + 0.75 * (1 - i), p.y + 0.2, p.z, 0.0F, 0.0F);
+					seed.index = 1;
+					s.getOverworld().spawnEntity(seed);
+				}
+				you(s).teleport(s.getOverworld(), p.x, p.y + 1.1 - 1.62, p.z - 1.6, 0.0F, 34.0F);
+			});
+			Capture.camera = t -> new Capture.Pose(p.x, p.y + 1.1, p.z - 1.6, 0.0F, 34.0F);
+		}
+		if (f == 30) {
+			s.execute(() -> {
+				var list = s.getOverworld().getEntitiesByClass(io.github.kortev.chainsawman.devil.TomatoSeedEntity.class, new Box(p, p).expand(3.0), e -> true);
+				for (var seed : list) {
+					int cuts = (int) Math.round((p.x + 0.75 - seed.getX()) / 0.75);
+					for (int k = 0; k < cuts; k++) {
+						seed.cut();
+					}
+				}
+			});
+		}
+		if (f == 60) {
+			still(c, "seed_cuts");
+		}
+		return f > 70;
 	}
 
 	/** The stills: the walk from the side, then each pose. */
