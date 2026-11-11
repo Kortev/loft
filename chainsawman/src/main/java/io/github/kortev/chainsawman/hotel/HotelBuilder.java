@@ -215,6 +215,40 @@ public final class HotelBuilder {
 		}
 	}
 
+	/** The stairwell's version: 1 is the walkable one (0, before it, could not be climbed without breaking the slab over the second step). */
+	public static final int STAIRS = 1;
+
+	/** The stairwell's space (local, both ends included): the well, its slabs and its walls, every floor. */
+	public static final int WELL_X0 = HotelPlan.SHAFT_X0;
+	public static final int WELL_X1 = HotelPlan.SHAFT_X1;
+
+	/**
+	 * Puts the plan's stairwell back over an older one, in a hotel already standing (a world from before {@link #STAIRS}): every block of the
+	 * well (x 13-17, z 1-3) from the ground to the roof, in the night state if {@code night}. Nothing else of the hotel is touched.
+	 */
+	public static void rebuildStairs(net.minecraft.server.world.ServerWorld world, BlockPos origin, int rot, boolean night) {
+		HotelPlan plan = HotelPlan.get();
+		BlockRotation turn = turn(rot);
+		for (int y = 0; y < HotelPlan.SY; y++) {
+			for (int z = 1; z <= 3; z++) {
+				for (int x = WELL_X0; x <= WELL_X1; x++) {
+					BlockPos at = world(origin, rot, x, y, z);
+					BlockState want = plan.at(x, y, z).rotate(turn);
+					if (world.getBlockState(at) != want) {
+						world.setBlockState(at, want, Block.NOTIFY_LISTENERS);
+					}
+				}
+			}
+		}
+		if (night) {
+			for (HotelPlan.Glass l : plan.lights) {
+				if (l.group() >= 1000) {
+					world.setBlockState(world(origin, rot, l.x(), l.y(), l.z()), Blocks.LIGHT.getDefaultState(), Block.NOTIFY_LISTENERS);
+				}
+			}
+		}
+	}
+
 	/** The entrance doors shut (and left shut: a sealed hotel). */
 	public static void shutEntrance(net.minecraft.server.world.ServerWorld world, BlockPos origin, int rot) {
 		for (HotelPlan.Door d : HotelPlan.get().doors) {

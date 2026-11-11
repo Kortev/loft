@@ -123,7 +123,11 @@ public final class ChainsawManClient implements ClientModInitializer {
 				FormMesh.reset();
 			}
 		});
-		ClientPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.HotelPayloads.Fog.ID, (payload, context) -> ClientHotel.fog(payload.end()));
+		ClientPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.HotelPayloads.Fog.ID, (payload, context) -> {
+			ClientHotel.fog(payload.end());
+			ClientLoop.set(payload.end(), payload.origin(), payload.rot());
+		});
+		WorldRenderEvents.AFTER_ENTITIES.register(ClientLoop::render);
 		ClientPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.HotelPayloads.Speech.ID, (payload, context) -> ClientHotel.speech(payload));
 		ClientPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.HotelPayloads.Offer.ID, (payload, context) -> ClientHotel.offer(payload.ticks(), payload.hybrid()));
 		ClientPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.ForeverCatchUpPayload.ID, (payload, context) -> ForeverHud.catchUp(payload.ticks()));

@@ -284,7 +284,9 @@ public final class Hunt {
 			dull(world, at, state);
 			return true;
 		}
+		// (Along the loop's corridor, a period on is the same wall: the devil is behind every copy of its spot.)
 		double dx = c[0] - u.sx;
+		dx -= HotelPlan.PERIOD * Math.round(dx / HotelPlan.PERIOD);
 		double dy = c[1] - u.sy;
 		boolean near = c[2] == u.sz && Math.sqrt(dx * dx + dy * dy) <= BLEED_RANGE;
 		if (!near) {
@@ -302,6 +304,19 @@ public final class Hunt {
 		BlockState red = (c[0] + c[1]) % 2 == 0 ? Blocks.RED_TERRACOTTA.getDefaultState() : Blocks.NETHER_WART_BLOCK.getDefaultState();
 		world.setBlockState(pos, red, net.minecraft.block.Block.NOTIFY_LISTENERS);
 		u.reds.put(pos.toImmutable(), now + 50);
+		// ... and its copies a period along, so the loop's corridor still repeats exactly when someone is put back beside it.
+		for (int k = -2; k <= 2; k++) {
+			int x = c[0] + k * HotelPlan.PERIOD;
+			if (k == 0 || x < HotelPlan.CORR_X0 || x > HotelPlan.CORR_X1) {
+				continue;
+			}
+			BlockPos q = HotelBuilder.world(h.origin, h.rot, x, c[1], c[2]);
+			BlockState there = world.getBlockState(q);
+			if (!there.isAir() && !(there.getBlock() instanceof DoorBlock) && there.getBlock() == state.getBlock()) {
+				world.setBlockState(q, red, net.minecraft.block.Block.NOTIFY_LISTENERS);
+				u.reds.put(q, now + 50);
+			}
+		}
 		if (by != null) {
 			by.sendMessage(Text.translatable("message.chainsawman.hotel.bleeds"), true);
 		}
