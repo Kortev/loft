@@ -6,9 +6,23 @@ check on the wiki and Google first.
 
 ---
 
+## Scope [decided: kortev, 2026-11-11]
+
+kortev: "maybe we should plan it for be a single player thing, and maybe like it'll work with like few friends
+in a small server." Fable agrees. **The mod is planned for one player, and it works with a few friends (2-4) on a
+small server. Big public servers are not planned for.** What that changes:
+
+- The "server legend" layer below is dropped, not postponed: no map marker for Chainsaw Man, no bounty on the
+  heart, no fear per office area (update 10 is gone).
+- No rules against strangers: no 14-day heart return, no delay on paying yen, no guarding missions from other
+  parties, no anti-griefing for lairs beyond "it rebuilds when the devil returns".
+- Still true: everything runs on the server side and is tested with two players, because friends break things the
+  same way strangers do (logging out mid-fight, one sleeping, one far away).
+- Where a design choice is hard, pick what's best alone, then check it isn't broken with three friends.
+
 ## 3. Solo or multiplayer? Both, from one design [pick]
 
-**Complete alone, better with friends, and server drama as an extra after release.**
+**Complete alone, better with friends.** (The third layer in the table is dropped; see Scope above.)
 
 Why not multiplayer only: most people who install a mod play alone or with one friend. If the mod
 needs a server to be fun, most of them leave in ten minutes.

@@ -44,7 +44,8 @@ it super rare. I really don't know how we should do it." So "one heart per world
   `chainsawHearts` rule already sets how many dens a world has; today it is 1). The first is near spawn; the
   others are thousands of blocks away. A lead to one comes from the office later (a rumour, as a mission), so
   finding your own Pochita is an adventure, not luck.
-- **A server that wants the one and only** sets the rule to 1. A big server sets it higher.
+- **A group that wants the one and only** sets the rule to 1. (Three covers a few friends, which is the scope
+  now: section 3.)
 - Stealing a heart stays [built], so a heart can still change hands.
 - Why not everyone: if all are Chainsaw Man, nobody is, and contracts and fiends get ignored. Why not one: on a
   server of friends, one person gets the mod's namesake and the rest get nothing like it until fiends exist.

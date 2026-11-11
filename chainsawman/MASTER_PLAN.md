@@ -14,7 +14,8 @@ that cost you something real, and one player per world can find Pochita.
 ## Rules that hold everywhere
 
 1. **Design for someone who installs the mod and just plays.** No video, no wiki, and they didn't come from a reel.
-2. Complete alone, better with friends. Everything is tested on a real server too.
+2. A single-player mod that works with a few friends on a small server [decided 2026-11-11]. Not planned for big
+   public servers. Still tested with two players.
 3. The show's world, not its story. No spoilers past the Reze arc.
 4. One Chainsaw Man per world; many dens; empty once he's found.
 5. Lairs are dungeons: die and you're thrown out.

@@ -90,7 +90,7 @@ what's next. The older plan had the release last.
 | 7 | The Katana hybrid quest line | One per world [check] |
 | 8 | The Reze arc: the Bomb hybrid quest line, and a storm-sized world boss | The biggest update [check] |
 | 9 | Power as a partner you earn | [check] |
-| 10 | The server legend pack: the map marker, the bounty on the heart, fear per office area | Section 3's third layer |
+| 10 | ~~The server legend pack~~ | Dropped 2026-11-11: the mod is for one player and a few friends (section 3, Scope) |
 
 Candidates kortev can add or drop: a Future Devil contract, the Snake as a lair boss instead of a common mob
 [check], a "Public Safety start" world.
