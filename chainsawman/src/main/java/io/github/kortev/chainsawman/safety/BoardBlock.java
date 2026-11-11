@@ -53,8 +53,8 @@ public class BoardBlock extends HorizontalFacingBlock {
 	private VoxelShape box(Direction facing) {
 		double x0 = poster ? 0 : 3;
 		double x1 = poster ? 16 : 13;
-		double y0 = poster ? 0 : 1;
-		double y1 = poster ? 16 : 15;
+		double y0 = 0;
+		double y1 = poster ? 16 : 14;
 		double depth = poster ? 1 : 6;
 		return switch (facing) {
 			case SOUTH -> Block.createCuboidShape(16 - x1, y0, 0, 16 - x0, y1, depth);

@@ -6,13 +6,11 @@ import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.block.SlabBlock;
 import net.minecraft.block.enums.SlabType;
-import net.minecraft.entity.passive.VillagerEntity;
 import net.minecraft.registry.tag.BlockTags;
 import net.minecraft.registry.tag.StructureTags;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Direction;
 import net.minecraft.world.Heightmap;
 import net.minecraft.world.chunk.ChunkSection;
@@ -25,7 +23,8 @@ import net.minecraft.world.chunk.WorldChunk;
  * plants; never under a roof, and on a path only if nothing else will do. One per village, remembered in {@link SafetyLedger}, and never
  * put up again (breaking it is the player's business).
  *
- * <p>A bell is a village's if it is in a village (the structure) or has a villager within {@link #VILLAGER} blocks.
+ * <p>A bell counts only inside a vanilla village (the structure): never one in a player's own build, and never one in or by one of the
+ * mod's hotels. A bell judged and turned down is not judged again for {@link #RETRY} ticks.
  */
 public final class NoticeBoards {
 	/** How near a player a bell must come. */
@@ -34,7 +33,12 @@ public final class NoticeBoards {
 	public static final int NEAR = 6;
 	/** Bells within this of a bell done are the same village. */
 	public static final int SAME_VILLAGE = 48;
-	public static final int VILLAGER = 32;
+	/** How long a bell turned down is left alone before it is looked at again (ticks). */
+	public static final long RETRY = 1200L;
+	/** Bells turned down: dimension and position, and when they may be looked at again (not saved: a restart looks again). */
+	private static final java.util.Map<String, Long> REJECTED = new java.util.HashMap<>();
+	/** Test-only: bells the tests have put down that count as a village's (game tests have no village structures). */
+	public static final java.util.Set<BlockPos> TEST_VILLAGE_BELLS = java.util.concurrent.ConcurrentHashMap.newKeySet();
 	/** The board's width (blocks): poster centred on the second, the phone on the fourth. */
 	public static final int WIDTH = 4;
 	public static final int POSTER_AT = 1;
@@ -47,6 +51,9 @@ public final class NoticeBoards {
 
 	static void tick(ServerWorld world) {
 		long t = world.getTime();
+		if (t % RETRY == 0 && !REJECTED.isEmpty()) {
+			REJECTED.values().removeIf(until -> until <= t);
+		}
 		for (ServerPlayerEntity p : world.getPlayers()) {
 			if (!p.isSpectator() && (t + p.getId()) % EVERY == 0) {
 				lookRound(world, p.getBlockPos());
@@ -62,13 +69,39 @@ public final class NoticeBoards {
 		}
 		SafetyLedger ledger = SafetyLedger.of(world.getServer());
 		String dim = world.getRegistryKey().getValue().toString();
+		long now = world.getTime();
 		for (BlockPos bell : bells) {
-			if (ledger.doneNear(dim, bell, SAME_VILLAGE) || !loaded(world, bell) || !village(world, bell)) {
+			String key = dim + "|" + bell.asLong();
+			Long until = REJECTED.get(key);
+			if (until != null && now < until || ledger.doneNear(dim, bell, SAME_VILLAGE) || !loaded(world, bell)) {
 				continue;
 			}
+			if (inHotel(world, bell) || !village(world, bell)) {
+				REJECTED.put(key, now + RETRY);
+				continue;
+			}
+			REJECTED.remove(key);
 			raise(world, bell);
 			ledger.done(dim, bell);
 		}
+	}
+
+	/** Whether {@code bell} was turned down and is being left alone for now. */
+	public static boolean resting(ServerWorld world, BlockPos bell) {
+		Long until = REJECTED.get(world.getRegistryKey().getValue() + "|" + bell.asLong());
+		return until != null && world.getTime() < until;
+	}
+
+	/** Whether {@code bell} is in or by one of the mod's hotels (a loaded home's whole box, a board's reach round it; or the hotel structure). */
+	public static boolean inHotel(ServerWorld world, BlockPos bell) {
+		for (io.github.kortev.chainsawman.hotel.HomeBlockEntity h : io.github.kortev.chainsawman.hotel.HomeBlockEntity.LOADED) {
+			if (h.getWorld() == world && io.github.kortev.chainsawman.hotel.HotelBuilder.box(h.origin, h.rot).expand(NEAR + WIDTH).contains(bell)) {
+				return true;
+			}
+		}
+		var hotel = world.getRegistryManager().get(net.minecraft.registry.RegistryKeys.STRUCTURE)
+				.get(io.github.kortev.chainsawman.ChainsawMan.id("eternity_hotel"));
+		return hotel != null && world.getStructureAccessor().getStructureAt(bell, hotel).hasChildren();
 	}
 
 	/**
@@ -124,12 +157,9 @@ public final class NoticeBoards {
 		return true;
 	}
 
-	/** Whether {@code bell} is a village's. */
+	/** Whether {@code bell} is a village's: inside a vanilla village structure (or put down by a test as one). */
 	public static boolean village(ServerWorld world, BlockPos bell) {
-		if (world.getStructureAccessor().getStructureContaining(bell, StructureTags.VILLAGE).hasChildren()) {
-			return true;
-		}
-		return !world.getEntitiesByClass(VillagerEntity.class, new Box(bell).expand(VILLAGER), v -> v.isAlive()).isEmpty();
+		return TEST_VILLAGE_BELLS.contains(bell) || world.getStructureAccessor().getStructureContaining(bell, StructureTags.VILLAGE).hasChildren();
 	}
 
 	/** A spot found for a board: its back row's left end (seen from the front) at ground height, and which way it faces. */

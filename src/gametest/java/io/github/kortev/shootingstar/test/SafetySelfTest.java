@@ -402,7 +402,7 @@ public class SafetySelfTest implements ClientModInitializer {
 		c.options.getAutoJump().setValue(true);
 		c.inGameHud.getChatHud().clear(false);
 		Vec3d posterAt = Vec3d.ofCenter(poster).add(0.0, 0.35, 0.0).subtract(Vec3d.of(facing.getVector()).multiply(0.45));
-		Vec3d phoneAt = Vec3d.ofCenter(phone).subtract(Vec3d.of(facing.getVector()).multiply(0.3));
+		Vec3d phoneAt = Vec3d.ofCenter(phone).add(0.0, -0.12, 0.0).subtract(Vec3d.of(facing.getVector()).multiply(0.3));
 		Vec3d stand = Vec3d.ofBottomCenter(poster.down()).add(Vec3d.of(facing.getVector()).multiply(2.6));
 		YOU.turn = 6.0F;
 		switch (step) {
@@ -487,7 +487,7 @@ public class SafetySelfTest implements ClientModInitializer {
 			}
 			case 5 -> {
 				YOU.stop();
-				YOU.aim(c, phoneAt.add(0.0, -0.4, 0.0));
+				YOU.aim(c, phoneAt.add(0.0, -0.2, 0.0));
 				if (sub == 54 + 30) {
 					still(c, "4_payday");
 				}
@@ -504,10 +504,10 @@ public class SafetySelfTest implements ClientModInitializer {
 					KeyBinding.onKeyPressed(InputUtil.Type.KEYSYM.createFromCode(GLFW.GLFW_KEY_J));
 					mark(c, "J pressed");
 				}
-				if (sub == 50) {
+				if (sub == 36) {
 					still(c, "6_licence_paid");
 				}
-				if (sub > 90) {
+				if (sub > 46) {
 					if (c.currentScreen != null) {
 						c.currentScreen.close();
 					}
@@ -516,7 +516,7 @@ public class SafetySelfTest implements ClientModInitializer {
 			}
 			case 7 -> {
 				YOU.aim(c, posterAt);
-				if (sub > 20) {
+				if (sub > 6) {
 					return true;
 				}
 			}

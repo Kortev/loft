@@ -78,7 +78,7 @@ public class SafetyGameTests implements FabricGameTest {
 		}
 	}
 
-	/** A bell with a villager by it gets one board when a player comes near, never a second, and the world remembers it through a reload. */
+	/** A village's bell gets one board when a player comes near, never a second, and the world remembers it through a reload. */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "safety_board", tickLimit = 160)
 	public void a_village_gets_one_board(TestContext context) {
 		floor(context);
@@ -87,15 +87,10 @@ public class SafetyGameTests implements FabricGameTest {
 		MinecraftServer server = w.getServer();
 		BlockPos bell = context.getAbsolutePos(new BlockPos(0, 1, 0));
 		String dim = w.getRegistryKey().getValue().toString();
-		// (A world kept from an earlier run may remember this spot.)
-		SafetyLedger ledger = SafetyLedger.of(server);
-		ledger.bells.getOrDefault(dim, new java.util.HashSet<>()).removeIf(l -> BlockPos.fromLong(l).getSquaredDistance(bell) < 64 * 64);
+		forget(server, dim, bell);
 		w.setBlockState(bell, Blocks.BELL.getDefaultState());
-		VillagerEntity v = new VillagerEntity(EntityType.VILLAGER, w);
-		Vec3d va = Vec3d.ofBottomCenter(bell.add(-8, 0, -8));
-		v.refreshPositionAndAngles(va.x, va.y, va.z, 0.0F, 0.0F);
-		v.setAiDisabled(true);
-		w.spawnEntity(v);
+		// (Game tests have no village structures: this bell is told it is a village's.)
+		NoticeBoards.TEST_VILLAGE_BELLS.add(bell);
 		ServerPlayerEntity p = ForeverGameTests.player(context, "walker");
 		context.runAtTick(NoticeBoards.EVERY * 2 + 5, () -> {
 			try {
@@ -117,11 +112,87 @@ public class SafetyGameTests implements FabricGameTest {
 				NoticeBoards.lookRound(w, bell);
 				context.assertTrue(count(context, Safety.POSTER) == 0, "a broken board was put up again");
 			} finally {
+				NoticeBoards.TEST_VILLAGE_BELLS.remove(bell);
 				ForeverGameTests.leave(context, p);
 				clear(context);
 			}
 			context.complete();
 		});
+	}
+
+	/** A world kept from an earlier run may remember this spot. */
+	private static void forget(MinecraftServer server, String dim, BlockPos bell) {
+		SafetyLedger.of(server).bells.getOrDefault(dim, new java.util.HashSet<>()).removeIf(l -> BlockPos.fromLong(l).getSquaredDistance(bell) < 64 * 64);
+	}
+
+	/** A bell and villagers in a player's own build (no village structure): no board, and the bell is left alone a while after it is judged. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "safety_own_bell", tickLimit = 160)
+	public void a_players_own_bell_gets_no_board(TestContext context) {
+		floor(context);
+		clear(context);
+		ServerWorld w = context.getWorld();
+		BlockPos bell = context.getAbsolutePos(new BlockPos(0, 1, 0));
+		forget(w.getServer(), w.getRegistryKey().getValue().toString(), bell);
+		w.setBlockState(bell, Blocks.BELL.getDefaultState());
+		for (int i = 0; i < 3; i++) {
+			VillagerEntity v = new VillagerEntity(EntityType.VILLAGER, w);
+			Vec3d va = Vec3d.ofBottomCenter(bell.add(-6 + 3 * i, 0, -7));
+			v.refreshPositionAndAngles(va.x, va.y, va.z, 0.0F, 0.0F);
+			v.setAiDisabled(true);
+			w.spawnEntity(v);
+		}
+		ServerPlayerEntity p = ForeverGameTests.player(context, "builder");
+		context.runAtTick(NoticeBoards.EVERY * 2 + 5, () -> {
+			try {
+				NoticeBoards.lookRound(w, bell);
+				context.assertTrue(count(context, Safety.POSTER) == 0 && count(context, Safety.PHONE) == 0, "a board went up by a player's own bell");
+				context.assertTrue(NoticeBoards.resting(w, bell), "a bell turned down is judged again at once");
+			} finally {
+				ForeverGameTests.leave(context, p);
+				clear(context);
+				w.setBlockState(bell, Blocks.AIR.getDefaultState());
+			}
+			context.complete();
+		});
+	}
+
+	/** The hotel's own bell gets no board, even told it is a village's. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "safety_hotel_bell", tickLimit = 100)
+	public void a_hotel_bell_gets_no_board(TestContext context) {
+		ServerWorld w = context.getWorld();
+		// (Far along from the hotel tests' own slots.)
+		BlockPos origin = HotelGameTests.origin(context, 11);
+		HotelGameTests.forced(context, origin, true);
+		HotelGameTests.ground(context, origin);
+		io.github.kortev.chainsawman.hotel.HomeBlockEntity h = io.github.kortev.chainsawman.hotel.Hotel.place(w, origin, 0);
+		context.assertTrue(h != null, "the hotel was not placed");
+		BlockPos found = null;
+		net.minecraft.util.math.BlockBox box = io.github.kortev.chainsawman.hotel.HotelBuilder.box(origin, 0);
+		for (BlockPos q : BlockPos.iterate(box.getMinX(), box.getMinY(), box.getMinZ(), box.getMaxX(), box.getMaxY(), box.getMaxZ())) {
+			if (w.getBlockState(q).isOf(Blocks.BELL)) {
+				found = q.toImmutable();
+				break;
+			}
+		}
+		context.assertTrue(found != null, "the hotel has no bell");
+		BlockPos bell = found;
+		forget(w.getServer(), w.getRegistryKey().getValue().toString(), bell);
+		NoticeBoards.TEST_VILLAGE_BELLS.add(bell);
+		try {
+			context.assertTrue(NoticeBoards.inHotel(w, bell), "the hotel's bell is not known to be the hotel's");
+			NoticeBoards.lookRound(w, bell);
+			int boards = 0;
+			for (BlockPos q : BlockPos.iterate(bell.add(-12, -6, -12), bell.add(12, 6, 12))) {
+				if (w.getBlockState(q).isOf(Safety.POSTER) || w.getBlockState(q).isOf(Safety.PHONE)) {
+					boards++;
+				}
+			}
+			context.assertTrue(boards == 0, "a board went up at the hotel");
+		} finally {
+			NoticeBoards.TEST_VILLAGE_BELLS.remove(bell);
+			HotelGameTests.forced(context, origin, false);
+		}
+		context.complete();
 	}
 
 	/** The poster gives a licence to one who has none, never a second, and a new one when it is lost. */
