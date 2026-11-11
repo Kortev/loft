@@ -194,7 +194,11 @@ public class FormSelfTest implements ClientModInitializer {
 				ticks = 0;
 			}
 			case SETTLE -> {
-				if (ticks > 80 && CAMERA_IDS.size() == CAMERAS.length && "merge".equals(System.getProperty("shootingstar.selftest.target"))) {
+				if (ticks > 80 && CAMERA_IDS.size() == CAMERAS.length && SawSwingsFilm.active()) {
+					// Only the saw swings' film (-Ptarget=swings).
+					stage = Stage.FIGHT;
+					ticks = 0;
+				} else if (ticks > 80 && CAMERA_IDS.size() == CAMERAS.length && "merge".equals(System.getProperty("shootingstar.selftest.target"))) {
 					// Only the merge (-Ptarget=merge), for working on it.
 					stage = Stage.FIGHT;
 					ticks = 249;
@@ -330,6 +334,12 @@ public class FormSelfTest implements ClientModInitializer {
 				}
 			}
 			case FIGHT -> {
+				if (SawSwingsFilm.active()) {
+					if (SawSwingsFilm.tick(client, server, ticks)) {
+						stage = Stage.DONE;
+					}
+					return;
+				}
 				if (capturing() && !Capture.active() && !captured) {
 					captured = true;
 					Capture.start(client, client.runDirectory.toPath().resolve("capture"));

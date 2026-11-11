@@ -1745,6 +1745,78 @@ public class FormGameTests implements FabricGameTest {
 	}
 
 	/** A player in the form, with Pochita's heart, at {@code x} across the test's spot, facing along +z. */
+	/**
+	 * The saws' slashes in a row alternate, right arm then left, and every third is the big cut; the step is the server's, worked out the
+	 * way the slasher's own game predicts it (SwingRhythm), and it is each fighter's own: another slashing between doesn't change it. The
+	 * engine climbs with each in a row.
+	 */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_swing_rhythm", tickLimit = 100)
+	public void swingsAlternateAndAreEachFightersOwn(TestContext context) {
+		ServerPlayerEntity a = fighter(context, "swinger", 0.0);
+		ServerPlayerEntity b = fighter(context, "other", 4.0);
+		int[] want = {0, 1, 2, 0, 1, 2};
+		int[] sides = {1, -1, 0, 1, -1, 0};
+		// The slasher's own game: what it predicts each slash will be, from what it last swung.
+		long[] lastAt = {-1000L};
+		int[] lastStep = {-1};
+		float[] lastPitch = {0.0F};
+		for (int i = 0; i < want.length; i++) {
+			int n = i;
+			context.runAtTick(1 + n * Saw.SLASH_EVERY, () -> {
+				long now = context.getWorld().getTime();
+				int predicted = io.github.kortev.chainsawman.form.SwingRhythm.step(io.github.kortev.chainsawman.form.SwingRhythm.fresh(lastAt[0], now), lastStep[0],
+						true, true, false);
+				context.assertTrue(Saw.slash(a), "slash " + n + " did not come");
+				int step = Saw.lastStep(a);
+				context.assertTrue(step == want[n], "slash " + n + " was step " + step + ", not " + want[n]);
+				context.assertTrue(predicted == step, "the slasher's game predicted step " + predicted + " for slash " + n + ", the server made it " + step);
+				context.assertTrue(io.github.kortev.chainsawman.form.SwingRhythm.side(step) == sides[n], "slash " + n + " swung the wrong arm");
+				context.assertTrue(Saw.flurry(a) == n + 1, "slash " + n + " was not " + (n + 1) + " in a row: " + Saw.flurry(a));
+				float pitch = io.github.kortev.chainsawman.form.SwingRhythm.pitch(Saw.flurry(a));
+				context.assertTrue(pitch > lastPitch[0], "the engine did not climb with slash " + n);
+				lastPitch[0] = pitch;
+				lastAt[0] = now;
+				lastStep[0] = step;
+			});
+		}
+		// The other fighter slashing between: their own combo, from its start.
+		context.runAtTick(1 + Saw.SLASH_EVERY / 2, () -> {
+			context.assertTrue(Saw.slash(b), "the other's slash did not come");
+			context.assertTrue(Saw.lastStep(b) == 0, "the other's first slash was not the right arm's");
+		});
+		context.runAtTick(1 + Saw.SLASH_EVERY + Saw.SLASH_EVERY / 2, () -> {
+			context.assertTrue(Saw.slash(b), "the other's second slash did not come");
+			context.assertTrue(Saw.lastStep(b) == 1, "the other's second slash was not the left arm's");
+		});
+		context.runAtTick(2 + want.length * Saw.SLASH_EVERY, () -> {
+			done(context, a);
+			done(context, b);
+			context.complete();
+		});
+	}
+
+	/** The big cut comes every third slash in a row; a pause longer than the combo's gap starts it over (and the engine back down). */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_form_swing_reset", tickLimit = 120)
+	public void bigCutComesEveryThirdAndResetsAfterAPause(TestContext context) {
+		ServerPlayerEntity a = fighter(context, "pauser", 0.0);
+		int after = 1 + Saw.SLASH_EVERY + Saw.COMBO_GAP + 2;
+		int[][] slashes = {{1, 0, 1}, {1 + Saw.SLASH_EVERY, 1, 2}, {after, 0, 1}, {after + Saw.SLASH_EVERY, 1, 2}, {after + 2 * Saw.SLASH_EVERY, 2, 3}};
+		for (int[] s : slashes) {
+			context.runAtTick(s[0], () -> {
+				context.assertTrue(Saw.slash(a), "the slash at " + s[0] + " did not come");
+				context.assertTrue(Saw.lastStep(a) == s[1], "the slash at " + s[0] + " was step " + Saw.lastStep(a) + ", not " + s[1]);
+				context.assertTrue(Saw.flurry(a) == s[2], "the slash at " + s[0] + " was " + Saw.flurry(a) + " in a row, not " + s[2]);
+				context.assertTrue(io.github.kortev.chainsawman.form.SwingRhythm.big(Saw.lastStep(a)) == (s[1] == 2), "the big cut came at the wrong slash");
+				context.assertTrue(s[0] != after || io.github.kortev.chainsawman.form.SwingRhythm.pitch(Saw.flurry(a)) == io.github.kortev.chainsawman.form.SwingRhythm.PITCH_FROM,
+						"after the pause the engine did not start low again");
+			});
+		}
+		context.runAtTick(after + 2 * Saw.SLASH_EVERY + 1, () -> {
+			done(context, a);
+			context.complete();
+		});
+	}
+
 	private static ServerPlayerEntity fighter(TestContext context, String name, double x) {
 		ServerPlayerEntity player = player(context, name, x);
 		player.setAttached(Heart.MERGED, true);

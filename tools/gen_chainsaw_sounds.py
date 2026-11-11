@@ -290,6 +290,53 @@ def form_slash():
     return x
 
 
+def form_slash_air():
+    """The layer over each slash's engine snarl (SwingFx): the blade itself through the air, the chain screaming round it. A fast
+    swell of torn air sweeping up as the saw comes across, a thin metal whine of the chain on the bar riding it, and the teeth's
+    rattle flicking past at the top of the arc."""
+    n = ns(0.42)
+    t = np.arange(n) / SR
+    x = whoosh(n, 0.0, 0.26, lo=700.0, hi=4200.0) * 1.5
+    # The chain on the bar: a whine that rises with the swing and falls away behind it.
+    f = 1900.0 + 1400.0 * np.clip(t / 0.14, 0.0, 1.0) - 900.0 * np.clip((t - 0.14) / 0.25, 0.0, 1.0)
+    whine = np.sin(2 * np.pi * np.cumsum(f / SR)) + 0.4 * np.sin(2 * np.pi * np.cumsum(2.02 * f / SR))
+    x += whine * curve(n, [(0.0, 0.0), (0.05, 0.22), (0.16, 0.3), (0.42, 0.0)]) * 0.5
+    # The teeth flicking past: a burst of fine ticks at the top of the arc.
+    ticks = (g.rng.random(n) < 2200.0 / SR) * g.rng.uniform(0.4, 1.0, n)
+    ticks = hp(np.convolve(ticks, np.exp(-np.arange(ns(0.002)) / ns(0.0004)))[:n], 3000.0)
+    x += ticks * curve(n, [(0.0, 0.0), (0.06, 0.0), (0.12, 1.0), (0.22, 0.4), (0.42, 0.0)]) * 1.6
+    return x * np.minimum(1.0, (n - np.arange(n)) / ns(0.03))
+
+
+def form_slash_heavy():
+    """Under the big cut (both saws brought down from overhead): the engine bellowing up from low as they rise, a deep rush of
+    air as they come down, and a heavy thud of the arms' weight at the bottom of it."""
+    n = ns(0.75)
+    t = np.arange(n) / SR
+    rate = curve(n, [(0.0, 70.0), (0.12, 150.0), (0.2, 240.0), (0.4, 230.0), (0.75, 120.0)])
+    level = curve(n, [(0.0, 0.4), (0.15, 1.0), (0.24, 1.35), (0.45, 1.0), (0.75, 0.0)])
+    x = engine(n, rate, level, body=(70.0, 1100.0), buzz=0.5) * 0.9
+    # The rush of the saws coming down: a wide, low sweep.
+    x += whoosh(n, 0.1, 0.3, lo=240.0, hi=1800.0) * 1.8
+    # The weight landing at the bottom of the cut.
+    at = 0.24
+    k = np.clip(t - at, 0.0, None)
+    thud = np.sin(2 * np.pi * (48.0 + 50.0 * np.exp(-k / 0.025)) * k) * np.exp(-k / 0.08) * (t >= at)
+    x += thud * 1.5
+    return x * np.minimum(1.0, (n - np.arange(n)) / ns(0.04))
+
+
+def form_rev_down():
+    """A flurry over (SwingFx): the engine, screaming from slash after slash, falling back down to its idle, a cough in it as
+    it settles, the chain slowing on the bars."""
+    n = ns(1.1)
+    rate = curve(n, [(0.0, 205.0), (0.08, 200.0), (0.45, 95.0), (0.8, 55.0), (1.1, 46.0)])
+    level = curve(n, [(0.0, 0.0), (0.03, 1.1), (0.3, 0.95), (0.8, 0.6), (1.1, 0.0)])
+    x = engine(n, rate, level, skip=0.03, buzz=0.4)
+    x += hp(white(n), 3500.0) * curve(n, [(0.0, 0.0), (0.03, 0.4), (0.5, 0.1), (1.1, 0.0)]) * 0.5
+    return x
+
+
 def form_hit():
     n = ns(0.45)
     rate = curve(n, [(0.0, 200.0), (0.05, 90.0), (0.25, 130.0), (0.45, 150.0)])
@@ -1719,6 +1766,9 @@ SOUNDS = {
     'form_idle': form_idle,
     'form_stop': form_stop,
     'form_slash': form_slash,
+    'form_slash_air': form_slash_air,
+    'form_slash_heavy': form_slash_heavy,
+    'form_rev_down': form_rev_down,
     'form_hit': form_hit,
     'form_crunch': form_crunch,
     'form_grind': form_grind,
@@ -1733,7 +1783,7 @@ LOOPS = ('form_idle', 'form_grind', 'form_frenzy_loop', 'hotel_hum')
 LEVELS = {'tomato_step': -16, 'tomato_gurgle': -15, 'tomato_slap': -9, 'tomato_tuck': -13, 'tomato_roll': -12, 'tomato_thud': -9, 'tomato_spit': -11, 'tomato_hurt': -12, 'tomato_burst': -8, 'tomato_hiss': -13, 'tomato_swell': -13, 'pochita_bark': -12,
           'tomato_breath': -24, 'tomato_click': -20, 'tomato_shriek': -12, 'tomato_squelch': -15, 'tomato_hush': -17, 'pochita_chew': -13,
           'hotel_hum': -27, 'hotel_whisper': -19, 'hotel_voice': -12, 'hotel_bleed': -14, 'hotel_phone': -16, 'hotel_breath': -22, 'hotel_loop_break': -9, 'hotel_seal': -14, 'hotel_heartbeat': -10, 'hotel_cut': -12, 'hotel_knock': -15,
-          'devil_grow': -9, 'devil_bite': -10, 'devil_slam': -8, 'devil_regen': -16, 'devil_hurt': -13, 'devil_death': -8, 'forever_lock': -13, 'forever_hit': -12, 'forever_release': -7, 'forever_bond_up': -11, 'forever_not_yet': -11, 'forever_step_out': -12, 'form_heart_level': -8, 'form_crunch': -10, 'pochita_tame': -14, 'form_merge': -12, 'form_cord': -14, 'form_start': -10, 'form_revive_pull': -14, 'form_revive_start': -10, 'form_idle': -20, 'form_stop': -16, 'form_slash': -13, 'form_hit': -12,
+          'devil_grow': -9, 'devil_bite': -10, 'devil_slam': -8, 'devil_regen': -16, 'devil_hurt': -13, 'devil_death': -8, 'forever_lock': -13, 'forever_hit': -12, 'forever_release': -7, 'forever_bond_up': -11, 'forever_not_yet': -11, 'forever_step_out': -12, 'form_heart_level': -8, 'form_crunch': -10, 'pochita_tame': -14, 'form_merge': -12, 'form_cord': -14, 'form_start': -10, 'form_revive_pull': -14, 'form_revive_start': -10, 'form_idle': -20, 'form_stop': -16, 'form_slash': -13, 'form_slash_air': -15, 'form_slash_heavy': -11, 'form_rev_down': -16, 'form_hit': -12,
           'form_grind': -15, 'form_chain': -14, 'form_frenzy': -10, 'form_frenzy_loop': -17, 'form_down': -13,
           'form_revive': -14, 'beam_burst': -9, 'beam_step': -12, 'beam_swim': -13, 'beam_bite': -10, 'beam_dive': -13, 'beam_screech': -9, 'beam_chatter': -16, 'beam_slam': -6, 'beam_launch': -10}
 
