@@ -83,12 +83,12 @@ public final class Hunt {
 
 	/** The spot's centre in the world, on the corridor side of the wall. */
 	public Vec3d face(HomeBlockEntity h) {
-		return HotelBuilder.world(h.origin, h.rot, sx + 0.5, sy + 0.5, sz == 4 ? 5.0 : 8.0);
+		return HotelBuilder.at(h.origin, h.rot, sx + 0.5, sy + 0.5, sz == 4 ? 5.0 : 8.0);
 	}
 
 	/** Where the heart beats: inside the wall, behind the spot. */
 	public Vec3d inside(HomeBlockEntity h) {
-		return HotelBuilder.world(h.origin, h.rot, sx + 0.5, sy + 0.5, sz == 4 ? 3.9 : 9.1);
+		return HotelBuilder.at(h.origin, h.rot, sx + 0.5, sy + 0.5, sz == 4 ? 3.9 : 9.1);
 	}
 
 	/** The hunt begins: it hides, and the signs start. */
@@ -105,8 +105,9 @@ public final class Hunt {
 		// The eyes (shut until the devil is near): a row of them along each wall.
 		for (int side = 0; side < 2; side++) {
 			for (int k = 0; k < 7; k++) {
-				double x = 14.6 + 1.5 * k + world.random.nextDouble() * 0.5;
-				double y = 30.0 + world.random.nextInt(2) * 0.9;
+				// (On the blocks' own pixel grid, in the wallpaper over the skirting: the eye is pixel art set into it.)
+				double x = Math.round((14.6 + 1.5 * k + world.random.nextDouble() * 0.5) * 16.0) / 16.0;
+				double y = 30.5 + world.random.nextInt(2) * 0.75;
 				u.eyes.add(grow(world, h, FleshGrowthEntity.EYE, x, y, side == 0, world.random.nextInt()).getUuid());
 			}
 		}
@@ -115,7 +116,7 @@ public final class Hunt {
 
 	private static FleshGrowthEntity grow(ServerWorld world, HomeBlockEntity h, int kind, double x, double y, boolean north, int seed) {
 		FleshGrowthEntity e = new FleshGrowthEntity(ChainsawMan.FLESH_GROWTH, world);
-		Vec3d at = HotelBuilder.world(h.origin, h.rot, x, y, north ? 5.0 : 8.0);
+		Vec3d at = HotelBuilder.at(h.origin, h.rot, x, y, north ? 5.0 : 8.0);
 		e.refreshPositionAndAngles(at.x, at.y, at.z, HotelBuilder.alongYaw(h.rot) + (north ? 90.0F : -90.0F), 0.0F);
 		e.set(kind, seed);
 		world.spawnEntity(e);
@@ -158,7 +159,7 @@ public final class Hunt {
 	}
 
 	private static void restore(ServerWorld world, HomeBlockEntity h, BlockPos at) {
-		Vec3d lp = HotelBuilder.local(h.origin, h.rot, Vec3d.ofCenter(at));
+		Vec3d lp = HotelBuilder.localOf(h.origin, h.rot, Vec3d.ofCenter(at));
 		BlockState want = HotelPlan.get().at((int) Math.floor(lp.x), (int) Math.floor(lp.y), (int) Math.floor(lp.z)).rotate(HotelBuilder.turn(h.rot));
 		if (world.getBlockState(at) != want) {
 			world.setBlockState(at, want, net.minecraft.block.Block.NOTIFY_LISTENERS);
@@ -192,14 +193,28 @@ public final class Hunt {
 		}
 		// The eyes.
 		if (now % 4 == 0) {
+			// One more eye opens each lap: the nearest the devil first (within reach of it), then the next.
+			int laps = 0;
+			for (int l : r.laps.values()) {
+				laps = Math.max(laps, l);
+			}
+			List<Double> near = new ArrayList<>();
 			for (UUID id : u.eyes) {
 				if (world.getEntity(id) instanceof FleshGrowthEntity eye) {
-					boolean open = eye.getPos().distanceTo(face) <= EYE_RANGE;
+					near.add(eye.getPos().distanceTo(face));
+				}
+			}
+			near.sort(Double::compare);
+			double reach = near.isEmpty() ? 0.0 : near.get(Math.min(near.size() - 1, laps));
+			for (UUID id : u.eyes) {
+				if (world.getEntity(id) instanceof FleshGrowthEntity eye) {
+					double d0 = eye.getPos().distanceTo(face);
+					boolean open = d0 <= EYE_RANGE && d0 <= reach + 1.0E-6;
 					Vec3d at = eye.getPos();
 					for (ServerPlayerEntity p : players) {
 						// (The eye a period along that is nearest the player: the loop's corridor shows each eye at every period.)
-						Vec3d ax = HotelBuilder.world(BlockPos.ORIGIN, h.rot, (double) HotelPlan.PERIOD, 0.0, 0.0);
-						double along = HotelBuilder.local(h.origin, h.rot, p.getEyePos()).x - HotelBuilder.local(h.origin, h.rot, eye.getPos()).x;
+						Vec3d ax = HotelBuilder.dir(h.rot, (double) HotelPlan.PERIOD, 0.0, 0.0);
+						double along = HotelBuilder.localOf(h.origin, h.rot, p.getEyePos()).x - HotelBuilder.localOf(h.origin, h.rot, eye.getPos()).x;
 						Vec3d to = at.add(ax.multiply(Math.round(along / HotelPlan.PERIOD))).subtract(p.getEyePos());
 						double d = to.length();
 						if (d > 0.1 && d < 28.0 && p.getRotationVec(1.0F).dotProduct(to.multiply(1.0 / d)) > LOOK_COS) {
@@ -250,14 +265,14 @@ public final class Hunt {
 		this.sy = y;
 		this.sz = z;
 		if (breath != null && world.getEntity(breath) instanceof FleshGrowthEntity b) {
-			Vec3d at = HotelBuilder.world(h.origin, h.rot, x + 0.5, y + 0.5, z == 4 ? 5.0 : 8.0);
+			Vec3d at = HotelBuilder.at(h.origin, h.rot, x + 0.5, y + 0.5, z == 4 ? 5.0 : 8.0);
 			b.refreshPositionAndAngles(at.x, at.y, at.z, HotelBuilder.alongYaw(h.rot) + (z == 4 ? 90.0F : -90.0F), 0.0F);
 		}
 	}
 
 	/** The local block a world block of the hotel is, as (x, y, z). */
 	private static int[] local(HomeBlockEntity h, BlockPos pos) {
-		Vec3d lp = HotelBuilder.local(h.origin, h.rot, Vec3d.ofCenter(pos));
+		Vec3d lp = HotelBuilder.localOf(h.origin, h.rot, Vec3d.ofCenter(pos));
 		return new int[] {(int) Math.floor(lp.x), (int) Math.floor(lp.y), (int) Math.floor(lp.z)};
 	}
 
@@ -281,7 +296,7 @@ public final class Hunt {
 			return false;
 		}
 		Hunt u = r.hunt;
-		Vec3d at = HotelBuilder.world(h.origin, h.rot, c[0] + 0.5, c[1] + 0.5, c[2] == 4 ? 5.0 : 8.0);
+		Vec3d at = HotelBuilder.at(h.origin, h.rot, c[0] + 0.5, c[1] + 0.5, c[2] == 4 ? 5.0 : 8.0);
 		long now = world.getTime();
 		if (u == null || r.fight) {
 			dull(world, at, state);
@@ -303,8 +318,8 @@ public final class Hunt {
 		world.playSound(null, at.x, at.y, at.z, ChainsawSounds.HOTEL_CUT, SoundCategory.HOSTILE, 1.6F, 0.9F + world.random.nextFloat() * 0.2F);
 		world.spawnParticles(new DustParticleEffect(new Vector3f(0.55F, 0.02F, 0.04F), 1.5F), at.x, at.y, at.z, 24, 0.3, 0.3, 0.3, 0.02);
 		world.spawnParticles(ParticleTypes.FALLING_LAVA, at.x, at.y + 0.3, at.z, 6, 0.3, 0.1, 0.3, 0.0);
-		// The block goes red for a few seconds.
-		BlockState red = (c[0] + c[1]) % 2 == 0 ? Blocks.RED_TERRACOTTA.getDefaultState() : Blocks.NETHER_WART_BLOCK.getDefaultState();
+		// The wallpaper splits open on the flesh behind it for a few seconds.
+		BlockState red = HotelBlocks.WALL_FLESH.getDefaultState();
 		world.setBlockState(pos, red, net.minecraft.block.Block.NOTIFY_LISTENERS);
 		u.reds.put(pos.toImmutable(), now + 50);
 		// ... and its copies a period along, so the loop's corridor still repeats exactly when someone is put back beside it.

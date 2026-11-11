@@ -116,6 +116,7 @@ public final class ChainsawMan implements ModInitializer {
 		Registry.register(Registries.STRUCTURE_TYPE, id("eternity_hotel"), io.github.kortev.chainsawman.hotel.HotelStructure.TYPE);
 		Registry.register(Registries.STRUCTURE_PIECE, id("eternity_hotel"), io.github.kortev.chainsawman.hotel.HotelStructure.PIECE);
 		io.github.kortev.chainsawman.hotel.HotelRules.init();
+		io.github.kortev.chainsawman.hotel.HotelBlocks.init();
 		io.github.kortev.chainsawman.form.TeamRules.init();
 		io.github.kortev.chainsawman.hotel.Hotel.init();
 		ItemGroupEvents.modifyEntriesEvent(ItemGroups.COMBAT).register(entries -> entries.add(POCHITA));

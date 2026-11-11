@@ -331,7 +331,7 @@ public class HotelGameTests implements FabricGameTest {
 	/** {@code p} at the local point of the hotel, looking as given. */
 	static void put(ServerPlayerEntity p, HomeBlockEntity h, double lx, double ly, double lz, float yaw, float pitch) {
 		confirm(p);
-		Vec3d w = HotelBuilder.world(h.origin, h.rot, lx, ly, lz);
+		Vec3d w = HotelBuilder.at(h.origin, h.rot, lx, ly, lz);
 		p.updatePositionAndAngles(w.x, w.y, w.z, yaw, pitch);
 		p.setOnGround(true);
 	}
@@ -356,7 +356,7 @@ public class HotelGameTests implements FabricGameTest {
 
 	static Vec3d local(HomeBlockEntity h, ServerPlayerEntity p) {
 		confirm(p);
-		return HotelBuilder.local(h.origin, h.rot, p.getPos());
+		return HotelBuilder.localOf(h.origin, h.rot, p.getPos());
 	}
 
 	static BlockState at(TestContext context, HomeBlockEntity h, int x, int y, int z) {
@@ -402,7 +402,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** By day it is dead (shut, chained, dark); at night with a player near it wakes (open, lit, the chains gone); with nobody near it stays dead; by day again it sleeps. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_night", tickLimit = 700)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_night", tickLimit = 700 + READY_WAIT)
 	public void hotelWakesAtNightAndSleepsByDay(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 1);
 		ServerWorld world = context.getWorld();
@@ -433,7 +433,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** The wrong things heard: the lobby hums, floor 6's door breathes (it opens and shuts by itself), floor 7's phone rings. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_floors", tickLimit = 800)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_floors", tickLimit = 800 + READY_WAIT)
 	public void eachFloorIsStranger(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 2);
 		ServerWorld world = context.getWorld();
@@ -478,9 +478,9 @@ public class HotelGameTests implements FabricGameTest {
 	/**
 	 * The loop: past the corridor's window one way or the other a player is put back, at every turn of the hotel; their place across the
 	 * corridor and height, their look and their speed are kept; each time is a lap. A player who has taken the deal is not put back; nor is
-	 * one on another floor; and down the stairs from the loop floor is back at the corridor's start.
+	 * one on another floor; and down the stairs from the loop floor comes out a storey up, on the loop floor's own flight, look kept.
 	 */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_loop", tickLimit = 900)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_loop", tickLimit = 900 + READY_WAIT)
 	public void theLoopPutsYouBackSeamlesslyAtEveryTurn(TestContext context) {
 		ServerWorld world = context.getWorld();
 		ServerPlayerEntity p = ForeverGameTests.player(context, "walker");
@@ -500,7 +500,7 @@ public class HotelGameTests implements FabricGameTest {
 					context.assertTrue(h.run.night, "turn " + turn + ": the hotel is asleep");
 					// Out of the east end of the window.
 					put(p, h, 25.3, 29.0, 6.1, 33.0F, 12.0F);
-					Vec3d v = HotelBuilder.world(BlockPos.ORIGIN, turn, 0.21, 0.0, 0.05);
+					Vec3d v = HotelBuilder.dir(turn, 0.21, 0.0, 0.05);
 					p.setVelocity(v);
 				});
 				later(context, base + 33, () -> {
@@ -508,7 +508,7 @@ public class HotelGameTests implements FabricGameTest {
 					Vec3d lp = local(h, p);
 					context.assertTrue(Math.abs(lp.x - 13.3) < 0.02 && Math.abs(lp.z - 6.1) < 0.02 && Math.abs(lp.y - 29.0) < 0.02, "turn " + turn + ": put back at " + lp + ", not (13.3, 29, 6.1); player at " + p.getPos() + " origin " + h.origin + " night " + h.run.night + " top " + h.run.top.size());
 					context.assertTrue(p.getYaw() == 33.0F && p.getPitch() == 12.0F, "turn " + turn + ": the look changed: " + p.getYaw() + ", " + p.getPitch());
-					Vec3d want = HotelBuilder.world(BlockPos.ORIGIN, turn, 0.21, 0.0, 0.05);
+					Vec3d want = HotelBuilder.dir(turn, 0.21, 0.0, 0.05);
 					context.assertTrue(p.getVelocity().squaredDistanceTo(want) < 1.0E-8, "turn " + turn + ": the speed changed: " + p.getVelocity());
 					context.assertTrue(h.run.laps.getOrDefault(p.getUuid(), 0) == 1, "turn " + turn + ": that was not a lap");
 					// And out of the west end.
@@ -539,13 +539,14 @@ public class HotelGameTests implements FabricGameTest {
 				});
 				later(context, base + 48, () -> {
 					HomeBlockEntity h = hh[0];
-					put(p, h, 16.5, 27.4, 3.5, 33.0F, 12.0F);
+					// (Past the stairs' window's foot, a storey down: package 0.1g.)
+					put(p, h, 16.5, 25.2, 3.5, 33.0F, 12.0F);
 				});
 				later(context, base + 52, () -> {
 					HomeBlockEntity h = hh[0];
 					Vec3d lp = local(h, p);
-					context.assertTrue(Math.abs(lp.x - 14.0) < 0.05 && Math.abs(lp.y - 29.0) < 0.05 && Math.abs(lp.z - 6.5) < 0.05, "turn " + turn + ": down the stairs ended at " + lp + ", not the corridor's start");
-					context.assertTrue(p.getYaw() == HotelBuilder.alongYaw(turn), "turn " + turn + ": the stairs left you looking " + p.getYaw());
+					context.assertTrue(Math.abs(lp.x - 16.5) < 0.02 && Math.abs(lp.y - 29.2) < 0.02 && Math.abs(lp.z - 3.5) < 0.02, "turn " + turn + ": down the stairs ended at " + lp + ", not a storey up on the loop floor's flight");
+					context.assertTrue(p.getYaw() == 33.0F && p.getPitch() == 12.0F, "turn " + turn + ": the stairs changed the look: " + p.getYaw());
 					context.assertTrue(h.run.laps.getOrDefault(p.getUuid(), 0) == 3, "turn " + turn + ": the stairs were not a lap");
 				});
 				later(context, base + 55, () -> {
@@ -616,7 +617,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** Nothing is offered in the loop any more: not after laps, not after a minute (the devil has no reason to bargain with someone it holds). */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_nooffer", tickLimit = 1800)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_nooffer", tickLimit = 1800 + READY_WAIT)
 	public void nothingIsOfferedInTheLoop(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 4);
 		ServerPlayerEntity p = walker(context, h, "long_walker", 20.5);
@@ -638,7 +639,7 @@ public class HotelGameTests implements FabricGameTest {
 	 * and join the loop when they arrive, the hunt, the squad and the beg include them), the entrance is shut, and anyone who is outside, or comes
 	 * in after, is kept out.
 	 */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_seal", tickLimit = 900)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_seal", tickLimit = 900 + READY_WAIT)
 	public void theHotelSealsButFriendsStillClimbingJoin(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 5);
 		ServerPlayerEntity a = ForeverGameTests.player(context, "first_up");
@@ -687,7 +688,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** Someone inside who dies respawns outside and cannot get back in until the hotel opens; it opens when nobody is inside. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_die", tickLimit = 800)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_die", tickLimit = 800 + READY_WAIT)
 	public void aPlayerWhoDiesInsideCannotGetBackIn(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 6);
 		ServerPlayerEntity a = walker(context, h, "dies_inside", 20.5);
@@ -707,7 +708,7 @@ public class HotelGameTests implements FabricGameTest {
 				context.assertTrue(h.run.sealed && h.run.inside.contains(b.getUuid()), "the hotel opened with someone still inside");
 				int diamonds = 0;
 				for (net.minecraft.entity.ItemEntity e : context.getWorld().getEntitiesByType(net.minecraft.entity.EntityType.ITEM, e -> e.getStack().getItem() == net.minecraft.item.Items.DIAMOND)) {
-					if (HotelBuilder.local(h.origin, h.rot, e.getPos()).y > 20.0) {
+					if (HotelBuilder.localOf(h.origin, h.rot, e.getPos()).y > 20.0) {
 						diamonds += e.getStack().getCount();
 					}
 				}
@@ -736,7 +737,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** Wherever the fight starts the walls bleed and the devil grows out of them, 300 health and the size it was. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_refuse", tickLimit = 900)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_refuse", tickLimit = 900 + READY_WAIT)
 	public void theFightMakesTheWallsBleedAndTheDevilGrows(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 8);
 		ServerPlayerEntity p = walker(context, h, "refuser", 20.5);
@@ -763,7 +764,7 @@ public class HotelGameTests implements FabricGameTest {
 				context.assertTrue(h.run.fogged.isEmpty(), "the loop fog was not lifted when the fight started");
 				net.minecraft.entity.Entity d = devilOf(context, h);
 				context.assertTrue(d instanceof io.github.kortev.chainsawman.hotel.EternityDevilEntity, "no devil grew");
-				Vec3d lp = HotelBuilder.local(h.origin, h.rot, d.getPos());
+				Vec3d lp = HotelBuilder.localOf(h.origin, h.rot, d.getPos());
 				context.assertTrue(Math.abs(lp.x - 37.0) < 0.05 && Math.abs(lp.y - 29.0) < 0.05 && Math.abs(lp.z - 6.5) < 0.05, "the devil is at " + lp + ", not the corridor's end");
 				// Its hitbox is its whole front: 12 across (the torn arena wall to wall), 7 high, 3.9 out from its back plane.
 				net.minecraft.util.math.Box box = d.getBoundingBox();
@@ -819,7 +820,7 @@ public class HotelGameTests implements FabricGameTest {
 	 * When the loop closes the devil hides at a random spot in the corridor's walls, and shows itself: its heart beats (a sound at the spot),
 	 * eyes open in the wallpaper near it and shut when someone looks straight at one, and the wall at the spot breathes.
 	 */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hunt_signs", tickLimit = 800)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hunt_signs", tickLimit = 800 + READY_WAIT)
 	public void theDevilHidesInTheWallsAndShowsItself(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 9);
 		ServerPlayerEntity p = walker(context, h, "searcher", 20.5);
@@ -875,7 +876,7 @@ public class HotelGameTests implements FabricGameTest {
 	private static final java.util.UUID[] eyeAt = new java.util.UUID[1];
 
 	/** Cutting a wall block of the loop floor: near the devil it bleeds (and takes a little off it), away from it a dull knock and nothing. The left click does it too. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hunt_cut", tickLimit = 800)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hunt_cut", tickLimit = 800 + READY_WAIT)
 	public void cuttingNearTheDevilBleedsAndAwayFromItDoesNot(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 10);
 		ServerPlayerEntity p = walker(context, h, "cutter", 20.5);
@@ -898,7 +899,7 @@ public class HotelGameTests implements FabricGameTest {
 				io.github.kortev.chainsawman.hotel.Hunt.cut(world, h, spot, p);
 				context.assertTrue(u.bled == 1 && u.health == before - io.github.kortev.chainsawman.hotel.Hunt.BLEED_DAMAGE, "a cut at it did not bleed: bled " + u.bled + ", health " + u.health);
 				// A block 2 along from the spot, in the same wall, bleeds too; the wall's own block stays a wall.
-				context.assertTrue(world.getBlockState(spot).isOf(Blocks.RED_TERRACOTTA) || world.getBlockState(spot).isOf(Blocks.NETHER_WART_BLOCK), "the cut block did not go red");
+				context.assertTrue(world.getBlockState(spot).isOf(io.github.kortev.chainsawman.hotel.HotelBlocks.WALL_FLESH), "the cut block did not split open on the flesh");
 			});
 			later(context, 90, () -> {
 				io.github.kortev.chainsawman.hotel.Hunt u = h.run.hunt;
@@ -921,7 +922,7 @@ public class HotelGameTests implements FabricGameTest {
 	 * It slips away when someone lingers by it and from the first cut at a spot, twice at most; after three bleeding cuts at the last spot it tears out
 	 * of the wall and the fight starts with the health the cuts left it.
 	 */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hunt_move", tickLimit = 900)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hunt_move", tickLimit = 900 + READY_WAIT)
 	public void itMovesAtMostTwiceAndTearsOutAfterThreeBleedingCuts(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 11);
 		ServerPlayerEntity p = walker(context, h, "stalker", 20.5);
@@ -959,7 +960,7 @@ public class HotelGameTests implements FabricGameTest {
 			later(context, 20 + io.github.kortev.chainsawman.hotel.Hunt.LINGER + 90, () -> {
 				io.github.kortev.chainsawman.hotel.EternityDevilEntity d = (io.github.kortev.chainsawman.hotel.EternityDevilEntity) devilOf(context, h);
 				context.assertTrue(d != null, "no devil");
-				Vec3d lp = HotelBuilder.local(h.origin, h.rot, d.getPos());
+				Vec3d lp = HotelBuilder.localOf(h.origin, h.rot, d.getPos());
 				// (Cut anywhere in the walls, it comes out at the corridor's end, where the arena opens.)
 				context.assertTrue(Math.abs(lp.x - 37.0) < 0.2 && io.github.kortev.chainsawman.hotel.Arena.torn(h), "it tore out at " + lp.x + " and the arena is " + (io.github.kortev.chainsawman.hotel.Arena.torn(h) ? "open" : "shut") + " (cut at " + was[2] + ")");
 				context.assertTrue(Math.abs(d.getHealth() - (300.0F - 4 * io.github.kortev.chainsawman.hotel.Hunt.BLEED_DAMAGE)) < 0.01F, "it came out with " + d.getHealth() + " health, not what four cuts left");
@@ -990,7 +991,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** When the loop closes three hunters sit starving against the walls, one of them mad; fed, one gets up and follows the one who fed it. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_squad_follow", tickLimit = 900)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_squad_follow", tickLimit = 900 + READY_WAIT)
 	public void feedingASurvivorMakesThemFollow(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 30);
 		ServerPlayerEntity p = walker(context, h, "feeder", 20.5);
@@ -1017,7 +1018,7 @@ public class HotelGameTests implements FabricGameTest {
 				context.assertTrue(m[0].state() == io.github.kortev.chainsawman.hotel.SquadMemberEntity.FOLLOWING && p.getUuid().equals(m[0].owner), "feeding did not make them follow");
 				context.assertTrue(p.getMainHandStack().getCount() == 3, "the bread was not eaten");
 				// The player walks off down the corridor; they come after.
-				Vec3d mp = HotelBuilder.local(h.origin, h.rot, m[0].getPos());
+				Vec3d mp = HotelBuilder.localOf(h.origin, h.rot, m[0].getPos());
 				put(p, h, mp.x < 19.5 ? 24.6 : 13.6, 29.0, 6.5, 90.0F, 0.0F);
 				was[0] = m[0].getPos().distanceTo(p.getPos());
 			});
@@ -1032,7 +1033,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** The mad one attacks players on sight until he is fed, or knocked low; then he calms and follows. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_squad_mad", tickLimit = 900)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_squad_mad", tickLimit = 900 + READY_WAIT)
 	public void theMadOneAttacksUntilFedOrKnockedLow(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 31);
 		ServerPlayerEntity p = walker(context, h, "target", 20.5);
@@ -1071,7 +1072,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** They are downed, not killed, and fed again they get up. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_squad_down", tickLimit = 900)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_squad_down", tickLimit = 900 + READY_WAIT)
 	public void aDownedSurvivorCanBeFedAgain(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 32);
 		ServerPlayerEntity p = walker(context, h, "medic", 20.5);
@@ -1092,7 +1093,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** In the fight the ones who were fed cut the devil with katanas. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_squad_fight", tickLimit = 900)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_squad_fight", tickLimit = 900 + READY_WAIT)
 	public void theRescuedCutTheDevilInTheFight(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 33);
 		ServerPlayerEntity p = walker(context, h, "leader", 20.5);
@@ -1114,7 +1115,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** When the loop breaks the rescued walk out and leave, and every player who fought is paid per survivor; those not fed stay and are not paid for. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_squad_reward", tickLimit = 1000)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_squad_reward", tickLimit = 1000 + READY_WAIT)
 	public void survivorsRewardEveryoneInsideWhenTheLoopBreaks(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 34);
 		ServerPlayerEntity p = walker(context, h, "paid_one", 20.5);
@@ -1218,7 +1219,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** At 15% it stops attacking, cowers and begs; a blow that would take it past the line stops there; and it cannot be hurt while it begs. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_beg_line", tickLimit = 900)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_beg_line", tickLimit = 900 + READY_WAIT)
 	public void theDevilBegsAtFifteenPercentAndCannotBeHurtWhileItDoes(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 36);
 		ServerPlayerEntity p = walker(context, h, "closer", 26.0);
@@ -1250,7 +1251,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** Somebody accepts: each accepter holds the contract, the devil tears off part of itself (flesh and blood for everyone who fought it) and sinks away for the respawn days; the hotel opens. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_beg_accept", tickLimit = 900)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_beg_accept", tickLimit = 900 + READY_WAIT)
 	public void acceptingTheBegGivesTheContractAndSparesIt(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 37);
 		ServerPlayerEntity a = walker(context, h, "takes_it", 26.0);
@@ -1286,7 +1287,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** Nobody accepts (a refusal and silence): it is beaten, does not fight back, and can be killed for the same loot. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_beg_refuse", tickLimit = 900)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_beg_refuse", tickLimit = 900 + READY_WAIT)
 	public void ifNobodyAcceptsItCanBeKilledForTheLoot(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 38);
 		h.run.begTicks = 60;
@@ -1330,7 +1331,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** A hybrid gets the screen (Accept greyed out) but cannot accept: an accept gets a line from the devil and no contract. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_beg_hybrid", tickLimit = 900)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_beg_hybrid", tickLimit = 900 + READY_WAIT)
 	public void aHybridCannotAcceptTheBeg(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 39);
 		ServerPlayerEntity hybrid = walker(context, h, "has_pochita", 26.0);
@@ -1359,7 +1360,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** oneContractPerDevil is still checked at the answer: with another player holding it, an accept is turned down. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_beg_one", tickLimit = 900)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_beg_one", tickLimit = 900 + READY_WAIT)
 	public void oneContractPerDevilIsCheckedAtTheAnswer(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 40);
 		ServerPlayerEntity holder = ForeverGameTests.player(context, "first_holder");
@@ -1390,7 +1391,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** Accepting with every slot full asks which contract to give up; the one chosen goes, and the new one is theirs. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_beg_full", tickLimit = 900)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_beg_full", tickLimit = 900 + READY_WAIT)
 	public void acceptingWithEverySlotFullAsksWhichToDrop(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 41);
 		ServerPlayerEntity p = walker(context, h, "has_three", 26.0);
@@ -1426,7 +1427,7 @@ public class HotelGameTests implements FabricGameTest {
 	 * Someone on the Drop screen (every slot full) has pressed Accept in time: the beg does not time out under them, so choosing a contract to
 	 * give up still gets them the new one.
 	 */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_beg_wait", tickLimit = 900)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_beg_wait", tickLimit = 900 + READY_WAIT)
 	public void theBegWaitsForSomeoneChoosingWhichToDrop(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 43);
 		ServerPlayerEntity p = walker(context, h, "slow_chooser", 26.0);
@@ -1459,7 +1460,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** With one contract per devil, someone choosing what to drop cannot get the contract another player took meanwhile. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_beg_wait_one", tickLimit = 900)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_beg_wait_one", tickLimit = 900 + READY_WAIT)
 	public void aDropChosenAfterAnotherTookItIsTurnedDown(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 44);
 		ServerPlayerEntity a = walker(context, h, "choosing", 26.0);
@@ -1502,7 +1503,7 @@ public class HotelGameTests implements FabricGameTest {
 	 * hunters get through the hunt (the cuts that make it flee and then tear it out of the wall), the fight (the hunters cut it too) and the beg
 	 * (the player takes the deal): the contract, its loot, the reward for the two survivors, and the hotel open.
 	 */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_full_run", tickLimit = 1200)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_full_run", tickLimit = 1200 + READY_WAIT)
 	public void aPlainPlayerAndSurvivorsFinishTheWholeHotelWithoutChainsawMan(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 42);
 		ServerPlayerEntity p = walker(context, h, "plain_hunter", 20.5);
@@ -1550,12 +1551,20 @@ public class HotelGameTests implements FabricGameTest {
 	// ---- The devil.
 
 	/**
+	 * How long (ticks) a test may wait for its hotel's chunks to tick before its own time starts. A test's tick limit counts from its start,
+	 * and the chunks' tickets are worked through between ticks, as fast as the machine allows: on a busy machine the wait alone took most of a
+	 * 900-tick limit, and the test ran out of ticks with nothing wrong. Every test that waits here has this much added to its limit, so what
+	 * it is given after the wait is what it always had.
+	 */
+	public static final int READY_WAIT = 1200;
+
+	/**
 	 * Waits until the hotel's chunks are really ticking (a test started with a score of others loads its chunks late: an entity put in
 	 * one before is not found and does not age), then runs {@code go}; what it schedules is counted from then ({@link #later}).
 	 */
 	static void ready(TestContext context, HomeBlockEntity h, Runnable go) {
 		boolean[] started = {false};
-		for (int t = 1; t < 400; t++) {
+		for (int t = 1; t < READY_WAIT; t++) {
 			context.runAtTick(t, () -> {
 				if (started[0]) {
 					return;
@@ -1615,7 +1624,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** It cannot be hurt while it grows; then it fights: mouths and tendrils hurt, flesh creeps; the heart is hidden. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_devil", tickLimit = 700)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_devil", tickLimit = 700 + READY_WAIT)
 	public void theDevilGrowsOutOfTheWallsAndFightsBack(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 12);
 		ServerPlayerEntity p = walker(context, h, "fighter", 24.0);
@@ -1645,7 +1654,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** It regenerates while it is not hit, and is held back while it is. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_regen", tickLimit = 700)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_regen", tickLimit = 700 + READY_WAIT)
 	public void theDevilRegeneratesWhenNotHit(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 13);
 		ServerPlayerEntity p = walker(context, h, "slasher", 14.0);
@@ -1671,7 +1680,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** Cut enough away and the heart shows; a hit looking at it does three times as much, a hit looking elsewhere the usual. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_heart", tickLimit = 500)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_heart", tickLimit = 500 + READY_WAIT)
 	public void theHeartShowsWhenCutAwayAndTakesMore(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 14);
 		ServerPlayerEntity p = walker(context, h, "heart_hunter", 26.0);
@@ -1713,7 +1722,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** Chainsaw Man's saws cut it (the slash the attack key makes), a slash looking at its heart most of all. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_saws", tickLimit = 500)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_saws", tickLimit = 500 + READY_WAIT)
 	public void theSawsCutTheDevil(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 18);
 		ServerPlayerEntity p = walker(context, h, "saw_hand", 29.0);
@@ -1762,7 +1771,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** Killing it: it drops its flesh and blood, the loop breaks (and nobody gets a contract), the flesh and bleeding go, the lights die, and the devil is away for the respawn days. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_kill", tickLimit = 700)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_kill", tickLimit = 700 + READY_WAIT)
 	public void killingTheDevilBreaksTheLoopAndDropsLoot(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 15);
 		ServerPlayerEntity p = walker(context, h, "slayer", 20.5);
@@ -1855,10 +1864,27 @@ public class HotelGameTests implements FabricGameTest {
 		return m;
 	}
 
+	/** The same block as it was (a clock stopped by the loop and running again, a floor sign reading 8 or its floor, count as the same). */
+	private static boolean same(BlockState a, BlockState b) {
+		if (a == b) {
+			return true;
+		}
+		if (a == null || b == null || a.getBlock() != b.getBlock()) {
+			return false;
+		}
+		if (a.getBlock() instanceof io.github.kortev.chainsawman.hotel.HotelBlocks.Clock) {
+			return a.with(io.github.kortev.chainsawman.hotel.HotelBlocks.Clock.STOPPED, false) == b.with(io.github.kortev.chainsawman.hotel.HotelBlocks.Clock.STOPPED, false);
+		}
+		if (a.getBlock() instanceof io.github.kortev.chainsawman.hotel.HotelBlocks.FloorSign) {
+			return a.with(io.github.kortev.chainsawman.hotel.HotelBlocks.FloorSign.FLOOR, 1) == b.with(io.github.kortev.chainsawman.hotel.HotelBlocks.FloorSign.FLOOR, 1);
+		}
+		return false;
+	}
+
 	private static int differences(TestContext context, HomeBlockEntity h, java.util.Map<BlockPos, BlockState> before) {
 		int n = 0;
 		for (java.util.Map.Entry<BlockPos, BlockState> e : shell(context, h).entrySet()) {
-			if (e.getValue() != before.get(e.getKey())) {
+			if (!same(e.getValue(), before.get(e.getKey()))) {
 				n++;
 			}
 		}
@@ -1867,8 +1893,8 @@ public class HotelGameTests implements FabricGameTest {
 
 	private static String firstDifference(TestContext context, HomeBlockEntity h, java.util.Map<BlockPos, BlockState> before) {
 		for (java.util.Map.Entry<BlockPos, BlockState> e : shell(context, h).entrySet()) {
-			if (e.getValue() != before.get(e.getKey())) {
-				Vec3d lp = HotelBuilder.local(h.origin, h.rot, Vec3d.ofCenter(e.getKey()));
+			if (!same(e.getValue(), before.get(e.getKey()))) {
+				Vec3d lp = HotelBuilder.localOf(h.origin, h.rot, Vec3d.ofCenter(e.getKey()));
 				return "local (" + (int) lp.x + ", " + (int) lp.y + ", " + (int) lp.z + ") is " + e.getValue() + ", was " + before.get(e.getKey());
 			}
 		}
@@ -1899,7 +1925,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** Killing the devil: the arena stays open while it collapses, then every block is back as it was (states, lamps, the signs' words). */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_arena_kill", tickLimit = 700)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_arena_kill", tickLimit = 700 + READY_WAIT)
 	public void theArenaIsPutBackExactlyAfterAKill(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 43);
 		ServerPlayerEntity p = walker(context, h, "arena_kill", 26.0);
@@ -1925,7 +1951,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** Sparing the devil (someone took its deal): the same, every block back. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_arena_spare", tickLimit = 700)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_arena_spare", tickLimit = 700 + READY_WAIT)
 	public void theArenaIsPutBackExactlyAfterASpare(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 44);
 		ServerPlayerEntity a = walker(context, h, "arena_spare", 26.0);
@@ -1958,7 +1984,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** The world left in the middle of the fight (the server restarted: the devil is not kept): the hotel finds its arena torn and puts it back. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_arena_restart", tickLimit = 700)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_arena_restart", tickLimit = 700 + READY_WAIT)
 	public void theArenaIsPutBackWhenTheWorldIsLoadedMidFight(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 45);
 		ServerPlayerEntity p = walker(context, h, "arena_restart", 26.0);
@@ -2015,7 +2041,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** The devil is back after devilRespawnDays: the hotel stays dark while it is away, wakes when it is back, and each hotel's devil is its own. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_back", tickLimit = 700)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_hotel_back", tickLimit = 700 + READY_WAIT)
 	public void theDevilComesBackAfterTheRespawnDays(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 16);
 		HomeBlockEntity other = hotel(context, 2, 17);
@@ -2088,7 +2114,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** Fear fills with time and with every player hurt; the floor does not turn before 40 s however afraid they are; at full fear it turns. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_shaft_fear", tickLimit = 700)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_shaft_fear", tickLimit = 700 + READY_WAIT)
 	public void fearFillsWithTimeAndHurtAndTheFloorTurnsOnlyWhenItIsFullAndTimeHasPassed(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 46);
 		h.run.shaftOn = true;
@@ -2123,7 +2149,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** Once the fight starts the devil is there (its avatar is what the renderer draws), at the corridor's end facing back along it, and the arena round it is torn open. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_devil_exists", tickLimit = 400)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_devil_exists", tickLimit = 400 + READY_WAIT)
 	public void theDevilExistsFacingTheCorridorAndTheArenaIsTornOnceTheFightStarts(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 55);
 		ServerPlayerEntity p = walker(context, h, "watcher", 26.0);
@@ -2136,7 +2162,7 @@ public class HotelGameTests implements FabricGameTest {
 			});
 			later(context, 150, () -> {
 				context.assertTrue(d[0].isAlive() && !d[0].growing(), "the devil has not grown");
-				Vec3d lp = HotelBuilder.local(h.origin, h.rot, d[0].getPos());
+				Vec3d lp = HotelBuilder.localOf(h.origin, h.rot, d[0].getPos());
 				context.assertTrue(lp.x > 33.0 && lp.x < 40.0, "the devil is not at the corridor's end: " + lp);
 				float want = HotelBuilder.alongYaw(h.rot) + 180.0F;
 				context.assertTrue(Math.abs(net.minecraft.util.math.MathHelper.wrapDegrees(d[0].facing() - want)) < 1.0F, "the devil does not face back along the corridor: " + d[0].facing());
@@ -2150,7 +2176,7 @@ public class HotelGameTests implements FabricGameTest {
 	 * The devil is the end of the torn arena: its box (what it is drawn to fill, and what can be hit) runs wall to wall across the opening and from
 	 * the floor up to the dome, and round it the walls are flesh.
 	 */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_devil_fills", tickLimit = 400)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_devil_fills", tickLimit = 400 + READY_WAIT)
 	public void theDevilFillsTheCorridorsEnd(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 83);
 		ServerPlayerEntity p = walker(context, h, "filler", 26.0);
@@ -2162,8 +2188,8 @@ public class HotelGameTests implements FabricGameTest {
 			});
 			later(context, 150, () -> {
 				net.minecraft.util.math.Box b = d[0].getBoundingBox();
-				Vec3d a = HotelBuilder.local(h.origin, h.rot, new Vec3d(b.minX, b.minY, b.minZ));
-				Vec3d c = HotelBuilder.local(h.origin, h.rot, new Vec3d(b.maxX, b.maxY, b.maxZ));
+				Vec3d a = HotelBuilder.localOf(h.origin, h.rot, new Vec3d(b.minX, b.minY, b.minZ));
+				Vec3d c = HotelBuilder.localOf(h.origin, h.rot, new Vec3d(b.maxX, b.maxY, b.maxZ));
 				double z0 = Math.min(a.z, c.z);
 				double z1 = Math.max(a.z, c.z);
 				double x0 = Math.min(a.x, c.x);
@@ -2193,7 +2219,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** While the arena is torn there is no sky over any of it: the dome of flesh closes it (every column has something solid above it). */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_arena_no_sky", tickLimit = 400)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_arena_no_sky", tickLimit = 400 + READY_WAIT)
 	public void theTornArenaShowsNoSky(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 84);
 		ServerPlayerEntity p = walker(context, h, "nosky", 26.0);
@@ -2261,7 +2287,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** The turn builds the arena, the mouth and the shaft (as real blocks), puts everyone falling down the shaft, makes the devil the arena; a kill puts every block back. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_shaft_turn", tickLimit = 900)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_shaft_turn", tickLimit = 900 + READY_WAIT)
 	public void theArenaGoesBackExactly(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 47);
 		ServerPlayerEntity p = walker(context, h, "tilted", 26.0);
@@ -2303,7 +2329,7 @@ public class HotelGameTests implements FabricGameTest {
 				Vec3d lp = local(h, p);
 				context.assertTrue(lp.y > B + 8 && Math.abs(lp.x - 19.5) < 1.5 && Math.abs(lp.z - 6.5) < 1.5, "the player is not falling down the shaft over the mouth: " + lp);
 				// The devil is the arena: its own box sunk in the floor, out of reach.
-				Vec3d dl = HotelBuilder.local(h.origin, h.rot, d[0].getPos());
+				Vec3d dl = HotelBuilder.localOf(h.origin, h.rot, d[0].getPos());
 				context.assertTrue(d[0].shaft() && dl.y < SF - 1.5 && d[0].getBoundingBox().maxY <= h.origin.getY() + SF - 1.0, "the devil is not sunk under the arena: " + dl);
 			});
 			later(context, 190, () -> slay(context, h, d[0], p));
@@ -2321,7 +2347,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** A world loaded in the middle of the shaft fight puts the space back as it was. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_shaft_restart", tickLimit = 900)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_shaft_restart", tickLimit = 900 + READY_WAIT)
 	public void theShaftIsPutBackWhenTheWorldIsLoadedMidFight(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 48);
 		ServerPlayerEntity p = walker(context, h, "restarted", 26.0);
@@ -2352,7 +2378,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** Falling down the shaft, through the mouth and the throat: you land on the arena's floor, unhurt (the fall played out tick by tick). */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_arena_fall", tickLimit = 900)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_arena_fall", tickLimit = 900 + READY_WAIT)
 	public void theMouthDropsYouInTheArenaUnhurt(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 49);
 		ServerPlayerEntity p = walker(context, h, "faller", 26.0);
@@ -2385,15 +2411,45 @@ public class HotelGameTests implements FabricGameTest {
 		});
 	}
 
+	/** How many floor blocks of the arena are lit below 10. */
+	private static int arenaDark(TestContext context, HomeBlockEntity h) {
+		int dark = 0;
+		for (int x = io.github.kortev.chainsawman.hotel.Shaft.AX0; x <= io.github.kortev.chainsawman.hotel.Shaft.AX1; x++) {
+			for (int z = io.github.kortev.chainsawman.hotel.Shaft.AZ0; z <= io.github.kortev.chainsawman.hotel.Shaft.AZ1; z++) {
+				BlockPos at = HotelBuilder.world(h.origin, h.rot, x, SF, z);
+				BlockState s = context.getWorld().getBlockState(at);
+				if ((s.isAir() || s.isOf(Blocks.LIGHT)) && context.getWorld().getLightLevel(net.minecraft.world.LightType.BLOCK, at) < 10) {
+					dark++;
+				}
+			}
+		}
+		return dark;
+	}
+
+	/**
+	 * Runs {@code then} {@code delta} ticks on, or as soon after as {@code ok} holds, at most {@code extra} ticks later (for what settles off the
+	 * tick, as light does: the check itself is still made, at the last).
+	 */
+	static void until(TestContext context, int delta, int extra, java.util.function.BooleanSupplier ok, Runnable then) {
+		later(context, delta, () -> {
+			if (ok.getAsBoolean() || extra <= 0) {
+				then.run();
+			} else {
+				until(context, 5, extra - 5, ok, then);
+			}
+		});
+	}
+
 	/** Every floor block of the arena has block light 10 or more (lit from inside its flesh), and so does the way down the shaft. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_arena_lit", tickLimit = 900)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_arena_lit", tickLimit = 1500 + READY_WAIT)
 	public void theArenaIsLit(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 70);
 		ServerPlayerEntity p = walker(context, h, "lit", 26.0);
 		io.github.kortev.chainsawman.hotel.EternityDevilEntity[] d = new io.github.kortev.chainsawman.hotel.EternityDevilEntity[1];
 		ready(context, h, () -> {
 			inTheShaft(context, h, d, () -> quiet(h));
-			later(context, 200, () -> {
+			// (The light is worked out off the tick, behind on a busy machine: it is looked at once it has settled, or at the last.)
+			until(context, 200, 600, () -> arenaDark(context, h) == 0, () -> {
 				int dark = 0;
 				int least = 15;
 				String where = "";
@@ -2426,7 +2482,7 @@ public class HotelGameTests implements FabricGameTest {
 	 * Every attack shows itself before it can hurt: started at a player standing still, none lands sooner than the shortest tell (and each one's own
 	 * tell), and each starts 4 or more blocks from them.
 	 */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_arena_tells", tickLimit = 1200)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_arena_tells", tickLimit = 1200 + READY_WAIT)
 	public void everyAttackHasATell(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 71);
 		ServerPlayerEntity p = walker(context, h, "told", 26.0);
@@ -2457,9 +2513,9 @@ public class HotelGameTests implements FabricGameTest {
 					var arm = only(context, io.github.kortev.chainsawman.ChainsawMan.SHAFT_ARM);
 					var head = only(context, io.github.kortev.chainsawman.ChainsawMan.SHAFT_HEAD);
 					if (kinds[k] == io.github.kortev.chainsawman.hotel.Shaft.LUNGE && head != null) {
-						from = HotelBuilder.local(h.origin, h.rot, head.getPos());
+						from = HotelBuilder.localOf(h.origin, h.rot, head.getPos());
 					} else if (kinds[k] != io.github.kortev.chainsawman.hotel.Shaft.SQUEEZE && arm != null) {
-						from = HotelBuilder.local(h.origin, h.rot, arm.getPos());
+						from = HotelBuilder.localOf(h.origin, h.rot, arm.getPos());
 					}
 					if (from != null) {
 						context.assertTrue(Math.hypot(from.x - me.x, from.z - me.z) >= 3.95, "attack " + k + " starts within 4 blocks of the player: " + from + " / " + me);
@@ -2487,7 +2543,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** Standing still, each attack hits: the slam, the head, the squeeze, the grab (which holds you). */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_arena_still", tickLimit = 1200)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_arena_still", tickLimit = 1200 + READY_WAIT)
 	public void standingStillGetsHit(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 72);
 		ServerPlayerEntity p = walker(context, h, "still", 26.0);
@@ -2547,7 +2603,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** A slam's lane is 3 wide: a step and a half aside during its tell, and it misses; then it lies stunned, worth more to cut. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_arena_dodge", tickLimit = 700)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_arena_dodge", tickLimit = 700 + READY_WAIT)
 	public void steppingAsideDodgesTheSlam(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 73);
 		ServerPlayerEntity p = walker(context, h, "dodger", 26.0);
@@ -2580,7 +2636,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** A head that has missed is worth half as much again to cut as one still coming. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_arena_head", tickLimit = 700)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_arena_head", tickLimit = 700 + READY_WAIT)
 	public void aMissedHeadIsWorthMore(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 74);
 		ServerPlayerEntity p = walker(context, h, "header", 26.0);
@@ -2603,7 +2659,7 @@ public class HotelGameTests implements FabricGameTest {
 			later(context, IN + 40 + io.github.kortev.chainsawman.hotel.ShaftHeadEntity.STRIKE - 4, () -> {
 				var head = only(context, io.github.kortev.chainsawman.ChainsawMan.SHAFT_HEAD);
 				Vec3d dir = head.dir();
-				Vec3d side = HotelBuilder.local(h.origin, h.rot, p.getPos().add(dir.z * 2.5, 0.0, -dir.x * 2.5));
+				Vec3d side = HotelBuilder.localOf(h.origin, h.rot, p.getPos().add(dir.z * 2.5, 0.0, -dir.x * 2.5));
 				inArena(p, h, net.minecraft.util.math.MathHelper.clamp(side.x, 12.0, 26.5), net.minecraft.util.math.MathHelper.clamp(side.z, 1.5, 12.5));
 			});
 			later(context, IN + 40 + io.github.kortev.chainsawman.hotel.ShaftHeadEntity.STRIKE + io.github.kortev.chainsawman.hotel.ShaftHeadEntity.LUNGE + 2, () -> {
@@ -2621,7 +2677,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** No head comes up under anyone: each rises 4 or more blocks away, and nobody is bitten before its tell is over. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_arena_below", tickLimit = 900)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_arena_below", tickLimit = 900 + READY_WAIT)
 	public void noHeadBitesFromBelow(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 75);
 		ServerPlayerEntity p = walker(context, h, "below", 26.0);
@@ -2648,7 +2704,7 @@ public class HotelGameTests implements FabricGameTest {
 					Vec3d me = local(h, p);
 					for (io.github.kortev.chainsawman.hotel.ShaftHeadEntity e : context.getWorld().getEntitiesByType(io.github.kortev.chainsawman.ChainsawMan.SHAFT_HEAD, x -> true)) {
 						if (seen.putIfAbsent(e.getUuid(), now) == null) {
-							Vec3d at = HotelBuilder.local(h.origin, h.rot, e.getPos());
+							Vec3d at = HotelBuilder.localOf(h.origin, h.rot, e.getPos());
 							if (Math.hypot(at.x - me.x, at.z - me.z) < 3.95) {
 								bad[0] = "a head rose " + Math.hypot(at.x - me.x, at.z - me.z) + " from the player";
 							}
@@ -2669,7 +2725,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** The squeeze closes half the room: someone in the other half is not touched; someone in its half is. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_arena_squeeze", tickLimit = 700)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_arena_squeeze", tickLimit = 700 + READY_WAIT)
 	public void theSqueezeMissesTheOtherHalf(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 76);
 		ServerPlayerEntity p = walker(context, h, "safe_half", 26.0);
@@ -2701,7 +2757,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** Caught by the hand, you are held and crushed until the arm is cut: a friend's two saw cuts free you, and count as their fighting. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_arena_grab", tickLimit = 700)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_arena_grab", tickLimit = 700 + READY_WAIT)
 	public void cuttingTheArmFreesTheGrabbed(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 77);
 		ServerPlayerEntity p = walker(context, h, "grabbed", 26.0);
@@ -2735,7 +2791,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** One attack at a time at first; past a third of the arena's share of the bar, two at once. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_arena_overlap", tickLimit = 1300)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_arena_overlap", tickLimit = 1300 + READY_WAIT)
 	public void attacksOverlapAsPainGrows(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 78);
 		ServerPlayerEntity p = walker(context, h, "overlapped", 26.0);
@@ -2775,7 +2831,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** Damage is pain, not health: it cannot kill the devil, and at full pain it stops, holds out its core and begs; refused, the core can be cut in two. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_shaft_pain", tickLimit = 900)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_shaft_pain", tickLimit = 900 + READY_WAIT)
 	public void painFillsAndTheCoreIsOfferedAndCuttingItKills(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 50);
 		h.run.begTicks = 60;
@@ -2805,7 +2861,7 @@ public class HotelGameTests implements FabricGameTest {
 			later(context, 170, () -> {
 				io.github.kortev.chainsawman.hotel.ShaftCoreEntity core = d[0].core();
 				context.assertTrue(d[0].begStarted && d[0].begging && core != null && !core.cuttable() && h.run.beg != null, "at full pain it did not hold out its core and beg");
-				Vec3d cl = HotelBuilder.local(h.origin, h.rot, core.getPos());
+				Vec3d cl = HotelBuilder.localOf(h.origin, h.rot, core.getPos());
 				context.assertTrue(Math.abs(cl.x - io.github.kortev.chainsawman.hotel.Shaft.MID_X) < 1.1 && Math.abs(cl.y - SF) < 0.2, "the core is not pushed up in the arena's middle: " + cl);
 				context.assertTrue(!core.damage(p.getDamageSources().playerAttack(p), 100.0F) && d[0].isAlive(), "its core was cut while the deal was on offer");
 				Hotel.answer(p, false);
@@ -2831,7 +2887,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** Accepting the deal at full pain spares it, with the core sinking back: the shaft goes the same way. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_shaft_spare", tickLimit = 900)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_shaft_spare", tickLimit = 900 + READY_WAIT)
 	public void takingTheDealAtFullPainSparesItAndTheShaftGoes(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 51);
 		ServerPlayerEntity p = walker(context, h, "merciful", 26.0);
@@ -2857,7 +2913,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** Anyone who catches a ledge is taken in: an arm rises up the shaft, takes them off it (and hurts), and lets go over the mouth; hitting it breaks you free. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_shaft_arm", tickLimit = 900)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_shaft_arm", tickLimit = 900 + READY_WAIT)
 	public void anArmTakesAPlayerOffALedgeAndHittingItBreaksTheHold(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 52);
 		ServerPlayerEntity p = walker(context, h, "ledged", 26.0);
@@ -2873,7 +2929,7 @@ public class HotelGameTests implements FabricGameTest {
 				io.github.kortev.chainsawman.hotel.Shaft.place(p, h, ledges.get(ledges.size() - 3));
 				hp[0] = p.getHealth();
 				arm[0] = new io.github.kortev.chainsawman.hotel.ShaftArmEntity(io.github.kortev.chainsawman.ChainsawMan.SHAFT_ARM, context.getWorld());
-				arm[0].start(h.origin, h.rot, HotelBuilder.world(h.origin, h.rot, 19.5, B, 6.5), h.origin.getY() + B + io.github.kortev.chainsawman.hotel.Shaft.DEPTH - 1.5);
+				arm[0].start(h.origin, h.rot, HotelBuilder.at(h.origin, h.rot, 19.5, B, 6.5), h.origin.getY() + B + io.github.kortev.chainsawman.hotel.Shaft.DEPTH - 1.5);
 				context.getWorld().spawnEntity(arm[0]);
 				for (int t = 1; t < 90; t++) {
 					later(context, t, () -> held[0] |= arm[0].holding());
@@ -2889,7 +2945,7 @@ public class HotelGameTests implements FabricGameTest {
 				java.util.List<io.github.kortev.chainsawman.hotel.Shaft.Ledge> ledges = io.github.kortev.chainsawman.hotel.Shaft.ledges();
 				io.github.kortev.chainsawman.hotel.Shaft.place(p, h, ledges.get(ledges.size() - 3));
 				arm[1] = new io.github.kortev.chainsawman.hotel.ShaftArmEntity(io.github.kortev.chainsawman.ChainsawMan.SHAFT_ARM, context.getWorld());
-				arm[1].start(h.origin, h.rot, HotelBuilder.world(h.origin, h.rot, 19.5, B, 6.5), h.origin.getY() + B + io.github.kortev.chainsawman.hotel.Shaft.DEPTH - 1.5);
+				arm[1].start(h.origin, h.rot, HotelBuilder.at(h.origin, h.rot, 19.5, B, 6.5), h.origin.getY() + B + io.github.kortev.chainsawman.hotel.Shaft.DEPTH - 1.5);
 				context.getWorld().spawnEntity(arm[1]);
 				for (int t = 1; t < 60; t++) {
 					later(context, t, () -> {
@@ -2912,7 +2968,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** The walls and the growths are its flesh: a blow on them is pain (and fighting), at any time; the floor is not. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_arena_walls", tickLimit = 700)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_arena_walls", tickLimit = 700 + READY_WAIT)
 	public void cuttingTheWallsIsPain(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 79);
 		ServerPlayerEntity p = walker(context, h, "waller", 26.0);
@@ -2940,7 +2996,7 @@ public class HotelGameTests implements FabricGameTest {
 	}
 
 	/** Nobody needs Chainsaw Man: a plain player with a sword alone finishes its pain (the last of the bar), is offered the deal and refuses, and cuts the core in two. */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_shaft_sword", tickLimit = 1300)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_shaft_sword", tickLimit = 1300 + READY_WAIT)
 	public void aSwordAloneWinsTheShaftFightWithoutChainsawMan(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 54);
 		h.run.begTicks = 60;

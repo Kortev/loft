@@ -89,6 +89,7 @@ public final class ChainsawManClient implements ClientModInitializer {
 		EntityRendererRegistry.register(ChainsawMan.SHAFT_HEAD, ShaftHeadRenderer::new);
 		EntityRendererRegistry.register(ChainsawMan.SHAFT_CORE, ShaftCoreRenderer::new);
 		EntityRendererRegistry.register(ChainsawMan.FLESH_GROWTH, FleshGrowthRenderer::new);
+		HotelCorridorClient.init();
 		EntityRendererRegistry.register(ChainsawMan.SQUAD_MEMBER, SquadRenderer::new);
 		EntityRendererRegistry.register(ChainsawMan.FOREVER_CUBE, ForeverCubeRenderer::new);
 		io.github.kortev.chainsawman.client.devil.DevilsClient.init();

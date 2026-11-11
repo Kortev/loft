@@ -30,7 +30,8 @@ import net.minecraft.util.math.Direction;
  */
 public final class HotelPlan {
 	public static final int SX = 38;
-	public static final int SY = 36;
+	/** Up to the roof of the stair house over the stairwell (the roof itself is at 32 to 35). */
+	public static final int SY = 39;
 	public static final int SZ = 14;
 	public static final int PITCH = 4;
 	public static final int FLOORS = 8;
@@ -148,6 +149,32 @@ public final class HotelPlan {
 		lobby();
 		stairs();
 		wrongThings();
+		clocks();
+	}
+
+	/** The wall clocks: at both ends of the loop's corridor and once a period along its back wall (high, over the wallpaper), and in the lobby. */
+	public final List<P> clocks = new ArrayList<>();
+
+	private void clocks() {
+		int y = floorY(FLOORS - 1) + 3;
+		clock(CORR_X0, y, 6, Direction.EAST);
+		clock(CORR_X1, y, 6, Direction.WEST);
+		for (int x = CORR_X0; x <= CORR_X1; x++) {
+			if (x % PERIOD == 7) {
+				clock(x, y, CORR_Z1, Direction.NORTH);
+			}
+		}
+		clock(30, 3, CORR_Z1, Direction.NORTH);
+	}
+
+	private void clock(int x, int y, int z, Direction facing) {
+		set(x, y, z, HotelBlocks.CLOCK.getDefaultState().with(HotelBlocks.Clock.FACING, facing));
+		clocks.add(new P(x, y, z));
+	}
+
+	/** Whether a clock is on the loop's floor (it stops at 8:18 while the loop holds; the lobby's keeps the time). */
+	public static boolean inLoop(P clock) {
+		return clock.y() > floorY(FLOORS - 1);
 	}
 
 	// ---- The shell, floor by floor.
@@ -249,7 +276,7 @@ public final class HotelPlan {
 		if (top && side == 0 && j % 2 == 0) {
 			// On the loop's floor every other front door is the stair door: exit sign over it, "8F" beside it (the loop repeats them).
 			door(doorX, y0 + 1, doorZ, facing, DoorKind.ROOM, Blocks.BIRCH_DOOR);
-			set(doorX, y0 + 3, doorZ, b(Blocks.LIME_CONCRETE));
+			set(doorX, y0 + 3, doorZ, HotelBlocks.EXIT_SIGN.getDefaultState());
 			signs.add(new Sign(doorX + 1, y0 + 2, 5, Direction.SOUTH, new String[] {"", "8F", "", ""}));
 		} else {
 			door(doorX, y0 + 1, doorZ, facing, DoorKind.ROOM, Blocks.DARK_OAK_DOOR);
@@ -460,78 +487,93 @@ public final class HotelPlan {
 		BlockState up = b(Blocks.STONE_BRICK_STAIRS).with(StairsBlock.FACING, Direction.EAST);
 		BlockState back = b(Blocks.STONE_BRICK_STAIRS).with(StairsBlock.FACING, Direction.WEST);
 		BlockState landing = b(Blocks.STONE_BRICKS);
-		BlockState rail = b(Blocks.IRON_BARS);
-		for (int i = 0; i < FLOORS; i++) {
+		BlockState spine = HotelBlocks.SPINE.getDefaultState().with(HotelBlocks.Spine.FACING, Direction.EAST);
+		BlockState lantern = b(Blocks.LANTERN).with(net.minecraft.block.LanternBlock.HANGING, true);
+		// Every storey of the well, and one more over the loop's floor (the roof's stair house), the same.
+		for (int i = 0; i <= FLOORS; i++) {
 			int y0 = floorY(i);
-			// The well's own floor is bare.
+			boolean house = i == FLOORS;
+			// The well's own floor is bare (over the roof the slab is the roof's, and the roof's dressing is taken out).
 			for (int x = x0; x <= SHAFT_X1; x++) {
 				for (int z = 1; z <= 3; z++) {
 					set(x, y0 + 1, z, null);
 				}
 			}
-			// The door in the corridor wall at the west end.
-			door(x0, y0 + 1, 4, Direction.NORTH, DoorKind.STAIR, Blocks.BIRCH_DOOR);
-			if (i < FLOORS - 1) {
-				int ny = y0 + 4;
-				// Open the slab above over the flights and the half landing (the landing strip x 13 and the top step stay).
-				for (int x = x0 + 1; x <= SHAFT_X1; x++) {
-					for (int z = 1; z <= 3; z++) {
-						set(x, ny, z, null);
-					}
-				}
-				// Up east by the corridor wall, the half landing, back west by the front wall; the last step is in the slab, level with the floor above.
-				set(x0 + 1, y0 + 1, 3, up);
-				set(x0 + 2, y0 + 2, 3, up);
-				for (int x = x0 + 3; x <= SHAFT_X1; x++) {
-					for (int z = 1; z <= 3; z++) {
-						set(x, y0 + 2, z, landing);
-					}
-				}
-				set(x0 + 2, y0 + 3, 1, back);
-				set(x0 + 1, ny, 1, back);
-			}
-			// The rail between the lanes, all the way up (on the loop's floor round the top of the well).
-			for (int y = y0 + 1; y <= y0 + (i < FLOORS - 1 ? 4 : 3); y++) {
-				set(x0 + 1, y, 2, rail);
-				set(x0 + 2, y, 2, rail);
-			}
-			// The floor sign beside the door, the exit over it (the loop's floor reads 8, as its copies do).
-			signs.add(new Sign(x0 + 1, y0 + 2, 5, Direction.SOUTH, new String[] {"", (i + 1) + "F", "", ""}));
-			set(x0, y0 + 3, 4, b(Blocks.LIME_CONCRETE));
-			// A lamp's worth of light in the well by night, over the landing strip.
-			lights.add(new Glass(x0, y0 + 3, 2, 1000 + i));
-		}
-		// The rails join each other and the half landings, as the game would join them.
-		for (int y = 0; y < SY; y++) {
-			for (int x = x0 + 1; x <= x0 + 2; x++) {
-				BlockState s = at(x, y, 2);
-				if (s.isOf(Blocks.IRON_BARS)) {
-					for (Direction d : Direction.Type.HORIZONTAL) {
-						BlockState n = at(x + d.getOffsetX(), y, 2 + d.getOffsetZ());
-						boolean joins = ((net.minecraft.block.PaneBlock) Blocks.IRON_BARS).connectsTo(n,
-								n.isSideSolidFullSquare(net.minecraft.world.EmptyBlockView.INSTANCE, net.minecraft.util.math.BlockPos.ORIGIN, d.getOpposite()));
-						s = s.with(switch (d) {
-							case NORTH -> net.minecraft.block.HorizontalConnectingBlock.NORTH;
-							case SOUTH -> net.minecraft.block.HorizontalConnectingBlock.SOUTH;
-							case EAST -> net.minecraft.block.HorizontalConnectingBlock.EAST;
-							default -> net.minecraft.block.HorizontalConnectingBlock.WEST;
-						}, joins);
-					}
-					set(x, y, 2, s);
-				}
-			}
-		}
-		// The shaft is dark and bare: concrete on its inside walls.
-		for (int i = 0; i < FLOORS; i++) {
-			int y0 = floorY(i);
-			for (int y = y0 + 1; y <= y0 + 3; y++) {
+			// The walls round it: plastered as the corridor is (the front wall is the hotel's own), a skirting along every floor it has.
+			for (int y = y0 + 1; y <= y0 + 4; y++) {
 				for (int z = 1; z <= 3; z++) {
-					set(SHAFT_X0 - 1, y, z, b(Blocks.STONE_BRICKS));
-					set(SHAFT_X1 + 1, y, z, b(Blocks.STONE_BRICKS));
+					set(SHAFT_X0 - 1, y, z, y == y0 + 1 ? SKIRT : CREAM);
+					set(SHAFT_X1 + 1, y, z, y == y0 + 3 ? SKIRT : CREAM);
 				}
+				if (house) {
+					for (int x = SHAFT_X0 - 1; x <= SHAFT_X1 + 1; x++) {
+						set(x, y, 0, CONCRETE);
+						set(x, y, 4, x == SHAFT_X0 - 1 || x == SHAFT_X1 + 1 ? CONCRETE : (y == y0 + 1 ? SKIRT : (x % 3 == 0 ? CREAM2 : CREAM)));
+					}
+				}
+			}
+			// The door in the corridor wall at the west end (over the roof, the stair house's door, never reached while the loop holds).
+			door(x0, y0 + 1, 4, Direction.NORTH, DoorKind.STAIR, Blocks.BIRCH_DOOR);
+			int ny = y0 + 4;
+			// Open the slab above over the flights and the half landing (the landing strip x 13 and the top step stay).
+			for (int x = x0 + 1; x <= SHAFT_X1; x++) {
+				for (int z = 1; z <= 3; z++) {
+					set(x, ny, z, null);
+				}
+			}
+			// Up east by the corridor wall, the half landing, back west by the front wall; the last step is in the slab, level with the floor above.
+			set(x0 + 1, y0 + 1, 3, up);
+			set(x0 + 2, y0 + 2, 3, up);
+			for (int x = x0 + 3; x <= SHAFT_X1; x++) {
+				for (int z = 1; z <= 3; z++) {
+					set(x, y0 + 2, z, landing);
+				}
+			}
+			set(x0 + 2, y0 + 3, 1, back);
+			set(x0 + 1, ny, 1, back);
+			// The spine wall between the lanes, the whole storey: it closes the well between the flights, so no storey sees further than the
+			// next (the loop's move up and down the well must find the same around you; see Hotel's loop). The lower flight's rail is carried
+			// on the block by its first step, the upper flight's on the block by its first step a storey up.
+			for (int y = y0 + 1; y <= y0 + 4; y++) {
+				for (int x = x0 + 1; x <= x0 + 2; x++) {
+					HotelBlocks.Rail rail = x == x0 + 1 && y == y0 + 2 ? HotelBlocks.Rail.LOW : x == x0 + 2 && y == y0 + 4 ? HotelBlocks.Rail.HIGH : HotelBlocks.Rail.NONE;
+					set(x, y, 2, spine.with(HotelBlocks.Spine.RAIL, rail));
+				}
+			}
+			// The floor sign on the landing's wall, a lantern hanging over the half landing, the exit sign over the door.
+			set(x0, y0 + 2, 2, HotelBlocks.FLOOR_SIGN.getDefaultState().with(HotelBlocks.FloorSign.FACING, Direction.EAST)
+					.with(HotelBlocks.FloorSign.FLOOR, Math.min(FLOORS, i + 1)));
+			floorSigns.add(new P(x0, y0 + 2, 2));
+			set(x0, y0 + 3, 4, HotelBlocks.EXIT_SIGN.getDefaultState());
+			if (i < FLOORS) {
+				// The floor's own sign in the corridor beside the door.
+				signs.add(new Sign(x0 + 1, y0 + 2, 5, Direction.SOUTH, new String[] {"", (i + 1) + "F", "", ""}));
+			}
+		}
+		// The lanterns, hung from each half landing over the one below (over the floor's own landing a lantern hung in your face).
+		for (int i = 0; i < FLOORS; i++) {
+			set(SHAFT_X1, floorY(i) + 5, 2, lantern);
+		}
+		// The stair house's ceiling under its roof: over the well, the next storey's landing strip and a plain ceiling.
+		int top = floorY(FLOORS + 1);
+		for (int x = SHAFT_X0 - 1; x <= SHAFT_X1 + 1; x++) {
+			for (int z = 0; z <= 4; z++) {
+				boolean inside = x >= SHAFT_X0 && x <= SHAFT_X1 && z >= 1 && z <= 3;
+				if (!inside) {
+					set(x, top, z, CONCRETE);
+				} else if (at(x, top, z).isAir()) {
+					set(x, top, z, QUARTZ);
+				}
+				set(x, top + 1, z, DARK);
 			}
 		}
 	}
+
+	/** The floor signs on the stairwell's landings, from the ground up (the stair house's last). */
+	public final List<P> floorSigns = new ArrayList<>();
+
+	/** The highest storey of the stairwell (the roof's stair house over the loop's floor): its door, its landing. */
+	public static final int HOUSE = FLOORS;
 
 	// ---- What is wrong, floor by floor.
 

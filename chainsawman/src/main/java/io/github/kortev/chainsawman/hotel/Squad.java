@@ -95,7 +95,7 @@ public final class Squad {
 		for (int i = 0; i < NAMES.length; i++) {
 			SquadMemberEntity m = new SquadMemberEntity(ChainsawMan.SQUAD_MEMBER, world);
 			boolean north = SIT_NORTH[i];
-			Vec3d at = HotelBuilder.world(h.origin, h.rot, SIT_X[i], 29.0, north ? 5.45 : 7.55);
+			Vec3d at = HotelBuilder.at(h.origin, h.rot, SIT_X[i], 29.0, north ? 5.45 : 7.55);
 			m.refreshPositionAndAngles(at.x, at.y, at.z, HotelBuilder.alongYaw(h.rot) + (north ? 90.0F : -90.0F), 0.0F);
 			m.setCustomName(Text.literal(NAMES[i]));
 			m.setCustomNameVisible(true);
@@ -136,7 +136,7 @@ public final class Squad {
 	static void leave(ServerWorld world, HomeBlockEntity h) {
 		int saved = 0;
 		// (The landing strip of the stairwell, by its door: the rest of the well is open down to the floor below.)
-		Vec3d exit = HotelBuilder.world(h.origin, h.rot, HotelPlan.SHAFT_X0 + 0.5, 29.0, 2.0);
+		Vec3d exit = HotelBuilder.at(h.origin, h.rot, HotelPlan.SHAFT_X0 + 0.5, 29.0, 2.0);
 		for (SquadMemberEntity m : members(world, h)) {
 			if (m.rescued) {
 				saved++;
