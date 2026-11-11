@@ -12,11 +12,12 @@ Updated 2026-11-10. Keep this page under 3 KB. Change it whenever something star
 
 ## Running
 
-Builders started 2026-11-11, each on its own branch with a brief in `plan/packages/`. Review, run all
-tests, merge one at a time (shared files: `Devils.java`, `en_us.json`, `sounds.json`), then send the film.
-- Merged (291 tests): 2.2a the Tomato's staged arrival as its chance night spawn, 3 quiet nights after.
-- `notice-board` (2.1a): village board, licence, yen. `leech-devil` (3.3): model and fight.
-- `saw-swings` (0.1d): Chainsaw Man's arm swings. `hotel-walk` (0.1e): stairs bug, seamless loop.
+**Usage limit hit 2026-11-11: all five builders were stopped mid-work.** Their work is in their worktrees
+(`.claude/worktrees/agent-*`), maybe uncommitted. Resume each with SendMessage, or check its branch first.
+- Merged (291 tests): 2.2a the Tomato's staged arrival, real dark only, 3 quiet nights after.
+- `notice-board` (2.1a): built, NOT merged; fixes asked (no board at a hotel bell or a player's bell).
+- `leech-devil` (3.3), `saw-swings` (0.1d), `hotel-walk` (0.1e), `devils-grow` (3.9): unfinished.
+- Full test runs flaked under load (hotel timeouts): rerun on a quiet machine before merging.
 - kortev (2026-11-11): as many reels as possible from every thing built: keep raw footage, list reel ideas.
 - Next: 3.9 devils grow (`bible/devil_strength.md`), then the office and shop. Scope: one player, friends ok.
 - Merged earlier: Tomato round 2, seeds in 3 hits, the teaser (kortev posts `work/tomato/teaser.mp4`).
