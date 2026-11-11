@@ -12,13 +12,12 @@ Updated 2026-11-10. Keep this page under 3 KB. Change it whenever something star
 
 ## Running
 
-- **3.4b the Tomato Devil, round 2, merged 2026-11-10** (282 tests): the show's body (15 big eyes, a huge
-  toothed mouth), creepy touches, the hop, a readable burst, Pochita eats seeds, a chainsaw shreds them. kortev
-  has the film. Weak: close frames fill the view, the saws kill it in 7 s ("What was built" in the brief).
+- **3.4b the Tomato Devil, round 2, merged 2026-11-10** (282 tests): the show's body, creepy touches, the hop,
+  Pochita eats seeds. kortev has the film. Weak: close frames fill the view, the saws kill it in 7 s.
 - **3.4c the Tomato's horror short merged 2026-11-10** (282 tests): kortev has `work/tomato/creepy.mp4`; their
   notes are the next round. Weak: the extreme close-ups (eye, mouth, hand) show big blocks. **The teaser
-  (6-8 s, same grade, leaning on the distance shots) waits for kortev's word on the short**; footage, stems and
-  `shots.json` are in `work/tomato/creepy_frames/`, the grade is `tools/tomato_creepy.py` (brief 3.4c).
+  (6-8 s, same grade, distance shots) is being cut** by the same agent, from `work/tomato/creepy_frames/` with
+  `tools/tomato_creepy.py`; on hand-back merge `tomato-creepy` again and send `work/tomato/teaser.mp4`.
 - **The Eternity Devil is parked** for a big pass, arm animations first
   (`chainsawman/plan/packages/0.1c_devil_big_pass.md`).
 - New plan pages (kortev, 2026-11-10): `plan/4e_what_you_play.md` (fiends are playable) and `plan/4f_scaling.md`
