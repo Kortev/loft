@@ -1,0 +1,189 @@
+{
+  "ambientocclusion": false,
+  "textures": {
+    "particle": "chainsawman:block/phone_side",
+    "front": "chainsawman:block/phone_front",
+    "side": "chainsawman:block/phone_side",
+    "handset": "chainsawman:block/phone_handset",
+    "plate": "chainsawman:block/phone_plate"
+  },
+  "elements": [
+    {
+      "from": [
+        2,
+        0,
+        15
+      ],
+      "to": [
+        14,
+        16,
+        16
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            2,
+            0,
+            14,
+            16
+          ],
+          "texture": "#plate"
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            1,
+            16
+          ],
+          "texture": "#plate"
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            1,
+            16
+          ],
+          "texture": "#plate"
+        },
+        "up": {
+          "uv": [
+            2,
+            0,
+            14,
+            1
+          ],
+          "texture": "#plate"
+        },
+        "down": {
+          "uv": [
+            2,
+            0,
+            14,
+            1
+          ],
+          "texture": "#plate"
+        }
+      }
+    },
+    {
+      "from": [
+        3,
+        1,
+        10
+      ],
+      "to": [
+        13,
+        15,
+        15
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#front"
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            8,
+            16
+          ],
+          "texture": "#side"
+        },
+        "west": {
+          "uv": [
+            8,
+            0,
+            16,
+            16
+          ],
+          "texture": "#side"
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            8
+          ],
+          "texture": "#side"
+        },
+        "down": {
+          "uv": [
+            0,
+            8,
+            16,
+            16
+          ],
+          "texture": "#side"
+        }
+      }
+    },
+    {
+      "from": [
+        10,
+        3,
+        8.5
+      ],
+      "to": [
+        12.5,
+        14,
+        10
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            6,
+            16
+          ],
+          "texture": "#handset"
+        },
+        "east": {
+          "uv": [
+            6,
+            0,
+            9,
+            16
+          ],
+          "texture": "#handset"
+        },
+        "west": {
+          "uv": [
+            6,
+            0,
+            9,
+            16
+          ],
+          "texture": "#handset"
+        },
+        "up": {
+          "uv": [
+            10,
+            0,
+            16,
+            3
+          ],
+          "texture": "#handset"
+        },
+        "down": {
+          "uv": [
+            10,
+            13,
+            16,
+            16
+          ],
+          "texture": "#handset"
+        }
+      }
+    }
+  ]
+}

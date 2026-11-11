@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "chainsawman:block/poster"
+    },
+    "facing=east": {
+      "model": "chainsawman:block/poster",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "chainsawman:block/poster",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "chainsawman:block/poster",
+      "y": 270
+    }
+  }
+}
