@@ -132,7 +132,7 @@ public final class Shaft {
 	/** The clenching half reaches this far from its end wall: x below 17.5 (or above 21.5) is caught; the middle band and the other half are safe. */
 	public static final double SQUEEZE_REACH = 6.5;
 	/** Rest after an attack resolves (ticks) in each round; from the second round attacks come in pairs (the second this soon after the first resolves). */
-	public static final int[] REST = {26, 22, 14};
+	public static final int[] REST = {40, 34, 26};
 	public static final int PAIR_GAP = 6;
 	/** While a limb lies stuck and nothing else is coming, nothing new starts for this long: the time to tear it off. */
 	public static final int STUCK_REST = 26;
@@ -145,7 +145,7 @@ public final class Shaft {
 	public static final int STUCK = 50;
 	public static final float TEAR = 12.0F;
 	/** Limbs to tear off in each round (one player; one more for each other player). */
-	public static final int[] NEED = {4, 5, 6};
+	public static final int[] NEED = {6, 7, 8};
 	/** The core's window: the far wall bulging and splitting (its tell), then the core out on its stalk, chest high. */
 	public static final int WINDOW_TELL = 20;
 	public static final int WINDOW = 140;

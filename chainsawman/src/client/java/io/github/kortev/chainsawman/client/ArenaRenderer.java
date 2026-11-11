@@ -339,6 +339,14 @@ final class ArenaRenderer {
 			hl.glowG = 0.2F;
 			hl.glowB = 0.04F;
 			float jaw = ShaftHeadRenderer.JAW_OPEN * (0.5F + 0.5F * MathHelper.sin(now * 0.09F + i * 1.7F)) * (begging ? 0.2F : 1.0F);
+			// Set in the wall in a ring of flesh (it grows out of it: nothing floats).
+			FleshMesh.Part ring = mesh.byName.get("big_collar");
+			if (ring != null) {
+				Vec3d rc = spot.add(0.0, -0.1, 0.0).subtract(inward.multiply(0.05));
+				Quaternionf rq = new Quaternionf().rotationTo(0.0F, 1.0F, 0.0F, (float) inward.x, 0.0F, (float) inward.z);
+				Matrix4f rm = new Matrix4f(room).translate((float) rc.x, (float) rc.y, (float) rc.z).rotate(rq);
+				mesh.drawPart(ring, rm, look, rm);
+			}
 			FleshMesh.Hook jawHook = ShaftHeadRenderer.jawHook(jaw);
 			// (No cords hanging under a head sunk in a wall: nothing floats.)
 			headMesh.draw(m, now + i * 13.0F, hl, (part, pm, pb) -> !part.kind.equals("cord") && jawHook.pose(part, pm, pb));

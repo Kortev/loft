@@ -3185,7 +3185,7 @@ public class HotelGameTests implements FabricGameTest {
 	 * Nobody needs Chainsaw Man: a plain player with a sword plays the whole arena: each slam dodged and its stuck arm torn off with two blows,
 	 * each window's third of the core cut with the sword, three rounds; then it begs, is refused, and the core is cut in two.
 	 */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_shaft_sword", tickLimit = 2000 + READY_WAIT)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_shaft_sword", tickLimit = 2900 + READY_WAIT)
 	public void aSwordAloneWinsTheArenaInThreeWindows(TestContext context) {
 		HomeBlockEntity h = hotel(context, 0, 54);
 		h.run.begTicks = 60;
@@ -3198,7 +3198,7 @@ public class HotelGameTests implements FabricGameTest {
 		ready(context, h, () -> {
 			inTheShaft(context, h, d, () -> {
 				quiet(h);
-				for (int k = 0; k < 160; k++) {
+				for (int k = 0; k < 230; k++) {
 					later(context, IN + 11 * k, () -> {
 						p.setHealth(Math.max(p.getHealth(), 1000.0F));
 						if (d[0].isDead()) {
@@ -3244,7 +3244,7 @@ public class HotelGameTests implements FabricGameTest {
 					});
 				}
 			});
-			later(context, IN + 11 * 160 + 10, () -> {
+			later(context, IN + 11 * 230 + 10, () -> {
 				context.assertTrue(d[0].isDead() && !d[0].spared, "a sword alone did not win (pain " + d[0].pain() + ", round " + h.run.shaft.round + ", torn " + h.run.shaft.torn + ")");
 				context.assertTrue(windows[0] == 3, "the fight did not take three windows: " + windows[0]);
 				int limbs = io.github.kortev.chainsawman.hotel.Shaft.NEED[0] + io.github.kortev.chainsawman.hotel.Shaft.NEED[1] + io.github.kortev.chainsawman.hotel.Shaft.NEED[2];
