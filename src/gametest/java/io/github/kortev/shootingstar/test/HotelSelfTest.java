@@ -61,6 +61,7 @@ import net.minecraft.world.biome.BiomeKeys;
  * swallowing you and the saws cutting you out, the core offered and cut. Stills, and the clip with -Pcapture=true (portrait: -Pwidth=1080 -Pheight=1920).</li>
  * <li>-Ptarget=walk: the hotel walked on the real keys, first person, in one take: in at the front door, up the stairs, round the loop three
  * times and back down ({@link HotelWalk}); it fails if the walker is stopped, ends up in the wrong place or broke a block.</li>
+ * <li>-Ptarget=corridor: the corridor and the stairwell inside the loop, walked on the real keys ({@link HotelCorridorWalk}).</li>
  * <li>-Ptarget=hunt: stills of the second version's mechanics: the sealed door, an eye in the wallpaper, a cut wall bleeding, a survivor sitting
  * and following, the mad one, the devil tearing out, the beg screen and the loot after a spare (the old look: the new one comes later).</li>
  * </ul>
@@ -131,6 +132,7 @@ public class HotelSelfTest implements ClientModInitializer {
 		ServerTickEvents.END_SERVER_TICK.register(HotelSelfTest::shaftSnap);
 		ServerTickEvents.END_SERVER_TICK.register(HotelFight::snap);
 		ServerTickEvents.END_SERVER_TICK.register(HotelWalk::snap);
+		ServerTickEvents.END_SERVER_TICK.register(HotelCorridorWalk::snap);
 		ClientTickEvents.END_CLIENT_TICK.register(HotelSelfTest::tick);
 	}
 
@@ -181,6 +183,20 @@ public class HotelSelfTest implements ClientModInitializer {
 				if ("walk".equals(target())) {
 					// (The hotel walked, door to loop and back, on the real keys: see HotelWalk.)
 					if (HotelWalk.tick(client, server, ticks, origin)) {
+						stage = Stage.DONE;
+					}
+					break;
+				}
+				if ("corridorlook".equals(target())) {
+					// (Close stills of the corridor's and the stairwell's look: see HotelCorridorWalk.)
+					if (HotelCorridorWalk.look(client, server, ticks, origin)) {
+						stage = Stage.DONE;
+					}
+					break;
+				}
+				if ("corridor".equals(target())) {
+					// (The corridor and the stairs inside the loop, door to the devil's tear-out: see HotelCorridorWalk.)
+					if (HotelCorridorWalk.tick(client, server, ticks, origin)) {
 						stage = Stage.DONE;
 					}
 					break;

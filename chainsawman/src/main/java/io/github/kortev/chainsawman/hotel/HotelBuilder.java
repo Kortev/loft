@@ -42,7 +42,43 @@ public final class HotelBuilder {
 		};
 	}
 
-	/** The world point of a local point (the same turn, for entities and players). */
+	/**
+	 * The world point of a local point, in the same frame as the blocks: the local block {@code (x, y, z)} fills {@code [x, x + 1)} on each
+	 * axis, at every turn (its world block, from {@link #world(BlockPos, int, int, int, int)}, fills the same space). The turn is about the
+	 * middle of the origin's block, not its corner. Use this for every place an entity, a player or a sound is put.
+	 */
+	public static Vec3d at(BlockPos origin, int rot, double x, double y, double z) {
+		return switch (rot & 3) {
+			case 0 -> new Vec3d(origin.getX() + x, origin.getY() + y, origin.getZ() + z);
+			case 1 -> new Vec3d(origin.getX() - z + 1.0, origin.getY() + y, origin.getZ() + x);
+			case 2 -> new Vec3d(origin.getX() - x + 1.0, origin.getY() + y, origin.getZ() - z + 1.0);
+			default -> new Vec3d(origin.getX() + z, origin.getY() + y, origin.getZ() - x + 1.0);
+		};
+	}
+
+	/** The local point of a world point: the inverse of {@link #at}. */
+	public static Vec3d localOf(BlockPos origin, int rot, Vec3d p) {
+		double dx = p.x - origin.getX();
+		double dz = p.z - origin.getZ();
+		double y = p.y - origin.getY();
+		return switch (rot & 3) {
+			case 0 -> new Vec3d(dx, y, dz);
+			case 1 -> new Vec3d(dz, y, 1.0 - dx);
+			case 2 -> new Vec3d(1.0 - dx, y, 1.0 - dz);
+			default -> new Vec3d(1.0 - dz, y, dx);
+		};
+	}
+
+	/** A local direction (a speed, a push, a step) turned into the world's: no place, so no frame to be off by. */
+	public static Vec3d dir(int rot, double x, double y, double z) {
+		return world(BlockPos.ORIGIN, rot, x, y, z);
+	}
+
+	/**
+	 * The old point frame, turned about the origin block's corner: at turns 1 to 3 it is a block off the blocks along each turned axis (a
+	 * point in the middle of a local block lands in the middle of its neighbour). Right for directions (an origin of {@link BlockPos#ORIGIN});
+	 * for places use {@link #at}. Kept for the arena's code (the boss fight, rebuilt on its own branch), which was written against it.
+	 */
 	public static Vec3d world(BlockPos origin, int rot, double x, double y, double z) {
 		double dx;
 		double dz;
@@ -67,7 +103,7 @@ public final class HotelBuilder {
 		return new Vec3d(origin.getX() + dx, origin.getY() + y, origin.getZ() + dz);
 	}
 
-	/** The local point of a world point: the inverse of {@link #world(BlockPos, int, double, double, double)}. */
+	/** The local point of a world point in the old frame: the inverse of {@link #world(BlockPos, int, double, double, double)} (for places, {@link #localOf}). */
 	public static Vec3d local(BlockPos origin, int rot, Vec3d p) {
 		double dx = p.x - origin.getX();
 		double dz = p.z - origin.getZ();
@@ -215,8 +251,11 @@ public final class HotelBuilder {
 		}
 	}
 
-	/** The stairwell's version: 1 is the walkable one (0, before it, could not be climbed without breaking the slab over the second step). */
-	public static final int STAIRS = 1;
+	/**
+	 * The stairwell's version: 2 is the dressed one with its spine wall and the stair house on the roof (package 0.1g); 1 was the first
+	 * walkable one (iron bars between the lanes, bare stone); 0, before it, could not be climbed without breaking the slab over the second step.
+	 */
+	public static final int STAIRS = 2;
 
 	/** The stairwell's space (local, both ends included): the well, its slabs and its walls, every floor. */
 	public static final int WELL_X0 = HotelPlan.SHAFT_X0;
@@ -229,21 +268,66 @@ public final class HotelBuilder {
 	public static void rebuildStairs(net.minecraft.server.world.ServerWorld world, BlockPos origin, int rot, boolean night) {
 		HotelPlan plan = HotelPlan.get();
 		BlockRotation turn = turn(rot);
+		// The well and its walls (the corridor's wall with the doors, the front wall, the side walls), ground to the stair house's roof.
 		for (int y = 0; y < HotelPlan.SY; y++) {
-			for (int z = 1; z <= 3; z++) {
-				for (int x = WELL_X0; x <= WELL_X1; x++) {
+			for (int z = 0; z <= 4; z++) {
+				for (int x = WELL_X0 - 1; x <= WELL_X1 + 1; x++) {
 					BlockPos at = world(origin, rot, x, y, z);
 					BlockState want = plan.at(x, y, z).rotate(turn);
+					if (z == 4 && want.getBlock() instanceof DoorBlock && world.getBlockState(at).getBlock() instanceof DoorBlock) {
+						// (A door already there is left as the night has it.)
+						continue;
+					}
 					if (world.getBlockState(at) != want) {
-						world.setBlockState(at, want, Block.NOTIFY_LISTENERS);
+						world.setBlockState(at, want, Block.NOTIFY_LISTENERS | Block.FORCE_STATE);
 					}
 				}
 			}
 		}
-		if (night) {
-			for (HotelPlan.Glass l : plan.lights) {
-				if (l.group() >= 1000) {
-					world.setBlockState(world(origin, rot, l.x(), l.y(), l.z()), Blocks.LIGHT.getDefaultState(), Block.NOTIFY_LISTENERS);
+		// (The older wells had invisible lights by night where the lanterns hang now.)
+	}
+
+	/**
+	 * The loop holds, or lets go: while it holds every floor sign in the stairwell reads 8 and the loop floor's clocks stop at 8:18 (their
+	 * second hand twitching back); let go, the signs read their floors and the clocks the time of day.
+	 */
+	public static void loopLook(net.minecraft.server.world.ServerWorld world, BlockPos origin, int rot, boolean looped) {
+		HotelPlan plan = HotelPlan.get();
+		for (HotelPlan.P s : plan.floorSigns) {
+			BlockPos at = world(origin, rot, s.x(), s.y(), s.z());
+			BlockState now = world.getBlockState(at);
+			if (now.getBlock() instanceof HotelBlocks.FloorSign) {
+				int want = looped ? HotelPlan.FLOORS : plan.at(s.x(), s.y(), s.z()).get(HotelBlocks.FloorSign.FLOOR);
+				if (now.get(HotelBlocks.FloorSign.FLOOR) != want) {
+					world.setBlockState(at, now.with(HotelBlocks.FloorSign.FLOOR, want), Block.NOTIFY_LISTENERS);
+				}
+			}
+		}
+		for (HotelPlan.P c : plan.clocks) {
+			BlockPos at = world(origin, rot, c.x(), c.y(), c.z());
+			BlockState now = world.getBlockState(at);
+			boolean want = looped && HotelPlan.inLoop(c);
+			if (now.getBlock() instanceof HotelBlocks.Clock && now.get(HotelBlocks.Clock.STOPPED) != want) {
+				world.setBlockState(at, now.with(HotelBlocks.Clock.STOPPED, want), Block.NOTIFY_LISTENERS);
+			}
+		}
+	}
+
+	/** The stairwell's doors (every floor's, and the stair house's): shut, where nobody alive is within reach of one (while the loop holds). */
+	public static void shutWellDoors(net.minecraft.server.world.ServerWorld world, BlockPos origin, int rot, java.util.function.Predicate<BlockPos> busy) {
+		for (HotelPlan.Door d : HotelPlan.get().doors) {
+			if (d.kind() != HotelPlan.DoorKind.STAIR || d.x() != HotelPlan.SHAFT_X0 || d.z() != 4) {
+				continue;
+			}
+			BlockPos at = world(origin, rot, d.x(), d.y(), d.z());
+			BlockState s = world.getBlockState(at);
+			if (s.getBlock() instanceof DoorBlock && s.get(DoorBlock.OPEN) && !busy.test(at)) {
+				// (Quietly: a door heard shutting a storey off would give the stairs away.)
+				for (int k = 0; k < 2; k++) {
+					BlockState half = world.getBlockState(at.up(k));
+					if (half.getBlock() instanceof DoorBlock) {
+						world.setBlockState(at.up(k), half.with(DoorBlock.OPEN, false), Block.NOTIFY_LISTENERS);
+					}
 				}
 			}
 		}
@@ -305,10 +389,21 @@ public final class HotelBuilder {
 					}
 					double near = (x - x0) / (double) Math.max(1, x1 - x0);
 					double h = ((x * 73856093) ^ (y * 19349663) ^ (z * 83492791)) & 255;
-					boolean red = amount > 0.0F && h / 255.0 < amount * (0.12 + 0.5 * near);
+					// How torn this block is: the wallpaper ripped first, then the lath under it showing, then the flesh pushing through,
+					// deepest by the devil's end (the wall that meets it is all flesh).
+					double reach = amount * (0.12 + 0.5 * near);
+					double k = h / 255.0;
 					BlockPos at = world(origin, rot, x, y, z);
-					BlockState want = red ? ((h % 3 == 0) ? Blocks.RED_TERRACOTTA.getDefaultState()
-							: (h % 3 == 1 ? Blocks.NETHER_WART_BLOCK.getDefaultState() : Blocks.PINK_TERRACOTTA.getDefaultState())) : plan.at(x, y, z).rotate(turn);
+					BlockState want;
+					if (amount <= 0.0F || k >= reach * 1.6) {
+						want = plan.at(x, y, z).rotate(turn);
+					} else if (k >= reach) {
+						want = HotelBlocks.TORN_PAPER.getDefaultState();
+					} else if (k >= reach * 0.5 && !(arenaOpen && x == x1)) {
+						want = HotelBlocks.TORN_LATH.getDefaultState();
+					} else {
+						want = HotelBlocks.WALL_FLESH.getDefaultState();
+					}
 					if (world.getBlockState(at) != want) {
 						world.setBlockState(at, want, Block.NOTIFY_LISTENERS);
 					}

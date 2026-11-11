@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "chainsawman:block/hotel_torn_paper"
+  }
+}

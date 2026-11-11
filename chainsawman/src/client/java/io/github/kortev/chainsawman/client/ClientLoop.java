@@ -72,7 +72,7 @@ public final class ClientLoop {
 				continue;
 			}
 			Vec3d at = e.getLerpedPos(delta);
-			Vec3d lp = HotelBuilder.local(origin, rot, at);
+			Vec3d lp = HotelBuilder.localOf(origin, rot, at);
 			if (!Hotel.inLoopCorridor(lp)) {
 				continue;
 			}
@@ -81,7 +81,7 @@ public final class ClientLoop {
 				if (k == 0 || x < HotelPlan.CORR_X0 || x >= HotelPlan.CORR_X1 + 1.0) {
 					continue;
 				}
-				Vec3d g = HotelBuilder.world(origin, rot, x, lp.y, lp.z);
+				Vec3d g = HotelBuilder.at(origin, rot, x, lp.y, lp.z);
 				if (g.squaredDistanceTo(cam) > far * far) {
 					continue;
 				}
@@ -106,8 +106,16 @@ public final class ClientLoop {
 		if (!on() || e == client.player) {
 			return;
 		}
-		Vec3d from = HotelBuilder.local(origin, rot, e.getPos());
-		Vec3d to = HotelBuilder.local(origin, rot, new Vec3d(x, y, z));
+		Vec3d from = HotelBuilder.localOf(origin, rot, e.getPos());
+		Vec3d to = HotelBuilder.localOf(origin, rot, new Vec3d(x, y, z));
+		if (Hotel.inWell(from) && Hotel.inWell(to) && Math.abs(Math.abs(to.y - from.y) - HotelPlan.PITCH) < 1.0 && Math.hypot(to.x - from.x, to.z - from.z) < 1.0) {
+			// Carried a storey up or down the stairwell with you.
+			double dy = Math.signum(to.y - from.y) * HotelPlan.PITCH;
+			e.setPosition(e.getX(), e.getY() + dy, e.getZ());
+			e.prevY += dy;
+			e.lastRenderY += dy;
+			return;
+		}
 		if (!Hotel.inLoopCorridor(from) || !Hotel.inLoopCorridor(to)) {
 			return;
 		}
@@ -116,7 +124,7 @@ public final class ClientLoop {
 		if (k == 0 || Math.abs(dx - k * HotelPlan.PERIOD) > 2.5) {
 			return;
 		}
-		Vec3d d = HotelBuilder.world(BlockPos.ORIGIN, rot, (double) (k * HotelPlan.PERIOD), 0.0, 0.0);
+		Vec3d d = HotelBuilder.dir(rot, (double) (k * HotelPlan.PERIOD), 0.0, 0.0);
 		e.setPosition(e.getX() + d.x, e.getY(), e.getZ() + d.z);
 		e.prevX += d.x;
 		e.prevZ += d.z;

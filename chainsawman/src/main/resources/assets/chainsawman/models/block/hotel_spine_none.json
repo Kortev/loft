@@ -1,0 +1,85 @@
+{
+  "parent": "block/block",
+  "textures": {
+    "particle": "minecraft:block/sandstone_top",
+    "wall": "minecraft:block/sandstone_top",
+    "rail": "minecraft:block/dark_oak_planks",
+    "iron": "minecraft:block/iron_block"
+  },
+  "elements": [
+    {
+      "from": [
+        0,
+        0,
+        0
+      ],
+      "to": [
+        16,
+        16,
+        16
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#wall",
+          "cullface": "north"
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#wall",
+          "cullface": "south"
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#wall",
+          "cullface": "east"
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#wall",
+          "cullface": "west"
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#wall",
+          "cullface": "up"
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#wall",
+          "cullface": "down"
+        }
+      }
+    }
+  ]
+}

@@ -145,8 +145,8 @@ public final class Hotel {
 
 	/** Whether anything alive is in the stairwell (it is not rebuilt round them). */
 	private static boolean anyoneInTheWell(ServerWorld world, HomeBlockEntity h) {
-		Vec3d a = HotelBuilder.world(h.origin, h.rot, HotelBuilder.WELL_X0 - 1.0, -1.0, 0.0);
-		Vec3d b = HotelBuilder.world(h.origin, h.rot, HotelBuilder.WELL_X1 + 2.0, HotelPlan.SY + 1.0, 4.5);
+		Vec3d a = HotelBuilder.at(h.origin, h.rot, HotelBuilder.WELL_X0 - 1.0, -1.0, 0.0);
+		Vec3d b = HotelBuilder.at(h.origin, h.rot, HotelBuilder.WELL_X1 + 2.0, HotelPlan.SY + 1.0, 4.5);
 		return !world.getEntitiesByClass(net.minecraft.entity.LivingEntity.class, new net.minecraft.util.math.Box(a, b), e -> e.isAlive()).isEmpty();
 	}
 
@@ -180,7 +180,7 @@ public final class Hotel {
 			h.awayUntilTick = 0;
 			h.markDirty();
 		}
-		Vec3d centre = HotelBuilder.world(h.origin, h.rot, HotelPlan.SX / 2.0, 0.0, HotelPlan.SZ / 2.0);
+		Vec3d centre = HotelBuilder.at(h.origin, h.rot, HotelPlan.SX / 2.0, 0.0, HotelPlan.SZ / 2.0);
 		boolean near = false;
 		List<In> inside = new ArrayList<>();
 		for (ServerPlayerEntity p : world.getPlayers()) {
@@ -192,7 +192,7 @@ public final class Hotel {
 			if (dx * dx + dz * dz < NEAR * NEAR) {
 				near = true;
 			}
-			Vec3d lp = HotelBuilder.local(h.origin, h.rot, p.getPos());
+			Vec3d lp = HotelBuilder.localOf(h.origin, h.rot, p.getPos());
 			if (lp.x > -1.5 && lp.x < HotelPlan.SX + 1.5 && lp.z > -1.5 && lp.z < HotelPlan.SZ + 1.5 && lp.y > -1.0 && lp.y < (r.shaft.built ? Shaft.TOP : HotelPlan.SY)) {
 				inside.add(new In(p, lp));
 			}
@@ -203,6 +203,7 @@ public final class Hotel {
 			Arena.mend(world, h);
 			Shaft.mend(world, h);
 			HotelBuilder.bleed(world, h.origin, h.rot, 0.0F);
+			HotelBuilder.loopLook(world, h.origin, h.rot, false);
 		}
 		if (r.tearAt >= 0) {
 			Arena.tick(world, h, now);
@@ -358,6 +359,7 @@ public final class Hotel {
 				r.inside.add(in.player().getUuid());
 			}
 			HotelBuilder.shutEntrance(world, h.origin, h.rot);
+			HotelBuilder.loopLook(world, h.origin, h.rot, true);
 			play(world, h, 27.0, 2.0, 0.0, ChainsawSounds.HOTEL_SEAL, 2.0F, 0.7F);
 			speak(world, r.inside, "message.chainsawman.hotel.sealed", 70, 0);
 			Hunt.start(world, h, now);
@@ -383,7 +385,7 @@ public final class Hotel {
 		for (In in : inside) {
 			ServerPlayerEntity p = in.player();
 			if (!r.inside.contains(p.getUuid()) && !p.isCreative()) {
-				Vec3d to = HotelBuilder.world(h.origin, h.rot, OUT[0], OUT[1], OUT[2]);
+				Vec3d to = HotelBuilder.at(h.origin, h.rot, OUT[0], OUT[1], OUT[2]);
 				p.stopRiding();
 				p.teleport(world, to.x, to.y, to.z, p.getYaw(), 0.0F);
 				p.setVelocity(Vec3d.ZERO);
@@ -393,7 +395,7 @@ public final class Hotel {
 		// Players at the doors are told they do not open.
 		if (now - r.sealMsgAt >= 40) {
 			r.sealMsgAt = now;
-			Vec3d door = HotelBuilder.world(h.origin, h.rot, 27.5, 1.0, -0.5);
+			Vec3d door = HotelBuilder.at(h.origin, h.rot, 27.5, 1.0, -0.5);
 			for (ServerPlayerEntity p : world.getPlayers()) {
 				if (!r.inside.contains(p.getUuid()) && p.squaredDistanceTo(door) < 36.0) {
 					p.sendMessage(net.minecraft.text.Text.translatable("message.chainsawman.hotel.shut"), true);
@@ -420,6 +422,7 @@ public final class Hotel {
 		}
 		r.sealed = false;
 		r.inside.clear();
+		HotelBuilder.loopLook(world, h.origin, h.rot, false);
 		Hunt.end(world, h);
 		Squad.end(world, h);
 		if (r.night) {
@@ -511,15 +514,15 @@ public final class Hotel {
 			ServerPlayerEntity p = in.player();
 			UUID id = p.getUuid();
 			Vec3d lp = in.local();
+			boolean free = !r.inside.contains(id) || r.fighting() || h.away;
+			boolean well = inWell(lp);
 			if (lp.y >= 28.8) {
 				r.top.add(id);
-			} else if (lp.y < 24.0) {
+			} else if (lp.y < 24.0 && !(well && !free && r.top.contains(id))) {
 				r.top.remove(id);
 				r.laps.remove(id);
 			}
-			boolean free = !r.inside.contains(id) || r.fighting() || h.away;
 			boolean corridor = lp.y >= 28.5 && lp.y < 32.0 && lp.x >= 1.0 && lp.x <= HotelPlan.SX - 1.0 && lp.z >= HotelPlan.CORR_Z0 && lp.z <= HotelPlan.CORR_Z1 + 1.0;
-			boolean shaft = lp.x >= HotelPlan.SHAFT_X0 - 1.0 && lp.x <= HotelPlan.SHAFT_X1 + 1.0 && lp.z >= 0.0 && lp.z <= 4.2;
 			if (!r.top.contains(id) || free) {
 				continue;
 			}
@@ -535,20 +538,34 @@ public final class Hotel {
 					shift(h, p, dx);
 					lap(r, id);
 				}
-			} else if (shaft && lp.y < 28.0 && lp.y > 24.0) {
-				// Down the stairs: back at the start of the corridor.
-				Vec3d to = HotelBuilder.world(h.origin, h.rot, HotelPlan.WINDOW_LO + 1.0, 29.0, 6.5);
-				p.stopRiding();
-				p.networkHandler.requestTeleport(to.x, to.y, to.z, HotelBuilder.alongYaw(h.rot), 0.0F);
-				p.setVelocity(Vec3d.ZERO);
-				lap(r, id);
+			} else if (well) {
+				// The stairs: every storey of the well is the same, and the spine wall between the flights keeps any storey from seeing past
+				// the next, so a walk down past the floor below (or up past the loop's floor) is put back a storey with nothing to see, as the
+				// corridor's walk is put back a period: down the stairs, and you come out on 8 again.
 				looped.add(id);
+				double dy = lp.y < WELL_LO ? HotelPlan.PITCH : lp.y >= WELL_HI ? -HotelPlan.PITCH : 0.0;
+				if (dy != 0.0) {
+					carryWell(world, h, p, lp, dy, carried);
+					shiftUp(p, dy);
+					lap(r, id);
+				}
 			}
 			maxLaps = Math.max(maxLaps, r.laps.getOrDefault(id, 0));
 		}
 		if (!here.isEmpty() && !r.fighting()) {
 			keepInLoop(world, h);
 			shutTopDoors(world, h, inside);
+			// The stairwell's doors too, every floor's: one left open below would not be there when you come out on 8.
+			HotelBuilder.shutWellDoors(world, h.origin, h.rot, at -> {
+				for (In in : inside) {
+					Vec3d c = Vec3d.ofBottomCenter(at);
+					Vec3d q = in.player().getPos();
+					if (Math.abs(q.x - c.x) < 2.6 && Math.abs(q.z - c.z) < 2.6 && Math.abs(q.y - c.y) < 2.5) {
+						return true;
+					}
+				}
+				return false;
+			});
 		}
 		// The signs build up with the laps.
 		int level = Math.min(3, maxLaps);
@@ -649,7 +666,7 @@ public final class Hotel {
 	 */
 	private static void grow(ServerWorld world, HomeBlockEntity h, G g) {
 		FleshGrowthEntity e = new FleshGrowthEntity(ChainsawMan.FLESH_GROWTH, world);
-		Vec3d at = HotelBuilder.world(h.origin, h.rot, g.x(), g.y(), g.z());
+		Vec3d at = HotelBuilder.at(h.origin, h.rot, g.x(), g.y(), g.z());
 		float yaw = HotelBuilder.alongYaw(h.rot) + (g.north() ? 90.0F : -90.0F);
 		e.refreshPositionAndAngles(at.x, at.y, at.z, yaw, 0.0F);
 		int phase = Math.floorMod((int) Math.floor(g.x()), HotelPlan.PERIOD);
@@ -688,11 +705,47 @@ public final class Hotel {
 	 * where it is when the packet arrives, so its speed and its look carry across, and lag does not matter.
 	 */
 	public static void shift(HomeBlockEntity h, ServerPlayerEntity p, double dx) {
-		Vec3d d = HotelBuilder.world(BlockPos.ORIGIN, h.rot, dx, 0.0, 0.0);
+		Vec3d d = HotelBuilder.dir(h.rot, dx, 0.0, 0.0);
 		// (A rider is put off: the mount would stay behind.)
 		p.stopRiding();
 		// (The call takes the place to end up at; with every axis marked relative it tells the client the difference.)
 		p.networkHandler.requestTeleport(p.getX() + d.x, p.getY(), p.getZ() + d.z, p.getYaw(), p.getPitch(), Set.of(PositionFlag.X, PositionFlag.Y, PositionFlag.Z, PositionFlag.Y_ROT, PositionFlag.X_ROT));
+	}
+
+	/**
+	 * The stairwell's window while the loop holds (feet, local): from just above the floor below's landing to just above the loop floor's
+	 * (the first step up). A walk down past its foot is put up a storey, a walk up past its head down one: you are always between the two.
+	 */
+	public static final double WELL_LO = HotelPlan.floorY(HotelPlan.FLOORS - 2) + 1.25;
+	public static final double WELL_HI = HotelPlan.floorY(HotelPlan.FLOORS - 1) + 1.25;
+
+	/** Whether a local point is in the stairwell (its landings and flights, not the doorways) about the loop's window. */
+	public static boolean inWell(Vec3d lp) {
+		return lp.x >= HotelPlan.SHAFT_X0 && lp.x < HotelPlan.SHAFT_X1 + 1.0 && lp.z >= 1.0 && lp.z < 4.0 && lp.y >= WELL_LO - HotelPlan.PITCH
+				&& lp.y < WELL_HI + HotelPlan.PITCH;
+	}
+
+	/** Puts {@code p} {@code dy} blocks up (or down) with nothing else changed, as {@link #shift} does along the corridor. */
+	public static void shiftUp(ServerPlayerEntity p, double dy) {
+		p.stopRiding();
+		p.networkHandler.requestTeleport(p.getX(), p.getY() + dy, p.getZ(), p.getYaw(), p.getPitch(), Set.of(PositionFlag.X, PositionFlag.Y, PositionFlag.Z, PositionFlag.Y_ROT, PositionFlag.X_ROT));
+	}
+
+	/** What walks with a player in the stairwell (within a few blocks of them, in the well) is put up or down with them. */
+	private static void carryWell(ServerWorld world, HomeBlockEntity h, ServerPlayerEntity p, Vec3d lp, double dy, Set<net.minecraft.entity.Entity> carried) {
+		net.minecraft.util.math.Box near = p.getBoundingBox().expand(3.5, 2.5, 3.5);
+		for (net.minecraft.entity.Entity e : world.getOtherEntities(p, near, e -> !(e instanceof net.minecraft.entity.player.PlayerEntity) && e.isAlive() && walksWith(e))) {
+			if (carried.contains(e) || e.hasVehicle() || e.hasPassengers() || !inWell(HotelBuilder.localOf(h.origin, h.rot, e.getPos()))) {
+				continue;
+			}
+			Vec3d v = e.getVelocity();
+			e.refreshPositionAndAngles(e.getX(), e.getY() + dy, e.getZ(), e.getYaw(), e.getPitch());
+			e.setVelocity(v);
+			if (e instanceof net.minecraft.entity.mob.MobEntity mob) {
+				mob.getNavigation().stop();
+			}
+			carried.add(e);
+		}
 	}
 
 	// ---- What is in the loop with you.
@@ -705,10 +758,10 @@ public final class Hotel {
 
 	/** The things in the loop floor's corridor (not players). */
 	private static List<net.minecraft.entity.Entity> corridorThings(ServerWorld world, HomeBlockEntity h) {
-		Vec3d a = HotelBuilder.world(h.origin, h.rot, HotelPlan.CORR_X0, 28.0, HotelPlan.CORR_Z0 - 0.5);
-		Vec3d b = HotelBuilder.world(h.origin, h.rot, HotelPlan.CORR_X1 + 1.0, 32.5, HotelPlan.CORR_Z1 + 1.5);
+		Vec3d a = HotelBuilder.at(h.origin, h.rot, HotelPlan.CORR_X0, 28.0, HotelPlan.CORR_Z0 - 0.5);
+		Vec3d b = HotelBuilder.at(h.origin, h.rot, HotelPlan.CORR_X1 + 1.0, 32.5, HotelPlan.CORR_Z1 + 1.5);
 		return world.getOtherEntities(null, new net.minecraft.util.math.Box(a, b), e -> !(e instanceof net.minecraft.entity.player.PlayerEntity) && e.isAlive()
-				&& !e.hasVehicle() && !e.hasPassengers() && inLoopCorridor(HotelBuilder.local(h.origin, h.rot, e.getPos())));
+				&& !e.hasVehicle() && !e.hasPassengers() && inLoopCorridor(HotelBuilder.localOf(h.origin, h.rot, e.getPos())));
 	}
 
 	/**
@@ -729,7 +782,7 @@ public final class Hotel {
 
 	/** {@code e} moved {@code dx} along the corridor (local x), as it was in every other way. */
 	public static void move(HomeBlockEntity h, net.minecraft.entity.Entity e, double dx) {
-		Vec3d d = HotelBuilder.world(BlockPos.ORIGIN, h.rot, dx, 0.0, 0.0);
+		Vec3d d = HotelBuilder.dir(h.rot, dx, 0.0, 0.0);
 		Vec3d v = e.getVelocity();
 		e.refreshPositionAndAngles(e.getX() + d.x, e.getY(), e.getZ() + d.z, e.getYaw(), e.getPitch());
 		e.setVelocity(v);
@@ -751,14 +804,14 @@ public final class Hotel {
 				// (Carried with another player this tick already: once is all.)
 				continue;
 			}
-			Vec3d le = HotelBuilder.local(h.origin, h.rot, e.getPos());
+			Vec3d le = HotelBuilder.localOf(h.origin, h.rot, e.getPos());
 			double ex = le.x + dx;
 			if (ex < HotelPlan.CORR_X0 + 0.4 || ex > HotelPlan.CORR_X1 + 0.6 || Math.abs(le.x - lp.x) >= Math.abs(le.x - to)) {
 				continue;
 			}
 			boolean mine = true;
 			for (In o : inside) {
-				Vec3d ol = HotelBuilder.local(h.origin, h.rot, o.player().getPos());
+				Vec3d ol = HotelBuilder.localOf(h.origin, h.rot, o.player().getPos());
 				if (o.player() != p && r.top.contains(o.player().getUuid()) && inLoopCorridor(ol) && ol.squaredDistanceTo(le) < lp.squaredDistanceTo(le)) {
 					mine = false;
 				}
@@ -776,7 +829,7 @@ public final class Hotel {
 	 */
 	private static void keepInLoop(ServerWorld world, HomeBlockEntity h) {
 		for (net.minecraft.entity.Entity e : corridorThings(world, h)) {
-			double x = HotelBuilder.local(h.origin, h.rot, e.getPos()).x;
+			double x = HotelBuilder.localOf(h.origin, h.rot, e.getPos()).x;
 			if (e instanceof ItemEntity) {
 				if (x >= HotelPlan.WINDOW_HI) {
 					move(h, e, -HotelPlan.PERIOD);
@@ -876,7 +929,7 @@ public final class Hotel {
 
 	/** A sound at a local point of the hotel, for everyone near. */
 	static void play(ServerWorld world, HomeBlockEntity h, double x, double y, double z, SoundEvent sound, float volume, float pitch) {
-		Vec3d at = HotelBuilder.world(h.origin, h.rot, x, y, z);
+		Vec3d at = HotelBuilder.at(h.origin, h.rot, x, y, z);
 		world.playSound(null, at.x, at.y, at.z, sound, SoundCategory.AMBIENT, volume, pitch);
 	}
 
@@ -1160,9 +1213,9 @@ public final class Hotel {
 		r.devil = devil.getUuid();
 		// Anyone standing where it grows, or behind it, is put in front of it.
 		double bulk = x - EternityDevilEntity.BULK;
-		Vec3d front = HotelBuilder.world(h.origin, h.rot, bulk - 5.0, 29.0, 6.5);
+		Vec3d front = HotelBuilder.at(h.origin, h.rot, bulk - 5.0, 29.0, 6.5);
 		for (ServerPlayerEntity p : world.getPlayers()) {
-			Vec3d lp = HotelBuilder.local(h.origin, h.rot, p.getPos());
+			Vec3d lp = HotelBuilder.localOf(h.origin, h.rot, p.getPos());
 			if (lp.x > bulk - 0.5 && lp.x < HotelPlan.SX && lp.y > 28.0 && lp.y < 36.0 && lp.z > 0.0 && lp.z < 13.0) {
 				p.stopRiding();
 				p.networkHandler.requestTeleport(front.x, front.y, front.z, p.getYaw(), p.getPitch());
@@ -1299,8 +1352,8 @@ public final class Hotel {
 			}
 			return;
 		}
-		Vec3d at = devil.shaft() ? HotelBuilder.world(devil.origin, devil.rot, 22.0, Shaft.BASE + 0.5, 6.5)
-				: devil.getPos().add(HotelBuilder.world(BlockPos.ORIGIN, devil.rot, -(EternityDevilEntity.BULK + 1.2), 0.2, 0.0));
+		Vec3d at = devil.shaft() ? HotelBuilder.at(devil.origin, devil.rot, 22.0, Shaft.BASE + 0.5, 6.5)
+				: devil.getPos().add(HotelBuilder.dir(devil.rot, -(EternityDevilEntity.BULK + 1.2), 0.2, 0.0));
 		drop(world, at, new ItemStack(ChainsawMan.ETERNITY_FLESH, FLESH_DROP));
 		drop(world, at, new ItemStack(ChainsawMan.ETERNITY_BLOOD, BLOOD_DROP));
 	}
@@ -1360,7 +1413,7 @@ public final class Hotel {
 			default -> 1;
 		};
 		BlockPos ahead = player.getBlockPos().offset(facing, 3);
-		Vec3d off = HotelBuilder.world(BlockPos.ORIGIN, rot, HotelPlan.SX / 2.0, 0.0, -HotelBuilder.PLAZA);
+		Vec3d off = HotelBuilder.dir(rot, HotelPlan.SX / 2.0, 0.0, -HotelBuilder.PLAZA);
 		BlockPos origin = new BlockPos(ahead.getX() - (int) Math.round(off.x), player.getBlockPos().getY() - 1, ahead.getZ() - (int) Math.round(off.z));
 		return place(player.getServerWorld(), origin, rot);
 	}

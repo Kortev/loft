@@ -82,10 +82,9 @@ public class HotelWalkGameTests implements FabricGameTest {
 	static Vec3d walk(TestContext context, HomeBlockEntity h, ServerPlayerEntity p, List<double[]> route, double stride, String what) {
 		ServerWorld world = context.getWorld();
 		int stuck = 0;
-		// (Local points as the blocks lie: HotelBuilder's point frame is a block off the block frame at turns 1 to 3; Shaft's is not.)
-		for (double[] to : route) {
+				for (double[] to : route) {
 			for (int n = 0; n < 4000; n++) {
-				Vec3d lp = io.github.kortev.chainsawman.hotel.Shaft.localOf(h.origin, h.rot, p.getPos());
+				Vec3d lp = HotelBuilder.localOf(h.origin, h.rot, p.getPos());
 				double dx = to[0] - lp.x;
 				double dz = to[1] - lp.z;
 				double d = Math.hypot(dx, dz);
@@ -93,7 +92,7 @@ public class HotelWalkGameTests implements FabricGameTest {
 					break;
 				}
 				double s = Math.min(stride, d);
-				Vec3d step = HotelBuilder.world(BlockPos.ORIGIN, h.rot, dx / d * s, 0.0, dz / d * s);
+				Vec3d step = HotelBuilder.dir(h.rot, dx / d * s, 0.0, dz / d * s);
 				Vec3d before = p.getPos();
 				p.setOnGround(true);
 				p.move(MovementType.SELF, new Vec3d(step.x, -0.05, step.z));
@@ -102,7 +101,7 @@ public class HotelWalkGameTests implements FabricGameTest {
 				}
 				double moved = Math.hypot(p.getX() - before.x, p.getZ() - before.z);
 				stuck = moved < s * 0.3 ? stuck + 1 : 0;
-				Vec3d now = io.github.kortev.chainsawman.hotel.Shaft.localOf(h.origin, h.rot, p.getPos());
+				Vec3d now = HotelBuilder.localOf(h.origin, h.rot, p.getPos());
 				if (stuck > 6) {
 					context.throwGameTestException(what + ": stopped at local " + fmt(now) + " on the way to (" + to[0] + ", " + to[1] + ") at turn " + h.rot
 							+ " (in front: " + world.getBlockState(BlockPos.ofFloored(p.getPos().add(step.normalize().multiply(0.5)))) + ", over the head: "
@@ -116,7 +115,7 @@ public class HotelWalkGameTests implements FabricGameTest {
 					StringBuilder hit = new StringBuilder();
 					for (net.minecraft.util.shape.VoxelShape v : world.getBlockCollisions(p, two)) {
 						Box vb = v.getBoundingBox();
-						hit.append(" ").append(fmt(io.github.kortev.chainsawman.hotel.Shaft.localOf(h.origin, h.rot, vb.getCenter()))).append(" ")
+						hit.append(" ").append(fmt(HotelBuilder.localOf(h.origin, h.rot, vb.getCenter()))).append(" ")
 								.append(world.getBlockState(BlockPos.ofFloored(vb.getCenter())).getBlock());
 					}
 					context.throwGameTestException(what + ": not two free blocks over the feet at local " + fmt(now) + " at turn " + h.rot + ", in the way:" + hit);
@@ -126,7 +125,7 @@ public class HotelWalkGameTests implements FabricGameTest {
 				}
 			}
 		}
-		return io.github.kortev.chainsawman.hotel.Shaft.localOf(h.origin, h.rot, p.getPos());
+		return HotelBuilder.localOf(h.origin, h.rot, p.getPos());
 	}
 
 	static String fmt(Vec3d v) {
@@ -182,7 +181,7 @@ public class HotelWalkGameTests implements FabricGameTest {
 					BlockState[] before = snapshot(world, h);
 					for (double stride : new double[] {0.2159, 0.2806}) {
 						String how = (stride < 0.25 ? "walking" : "sprinting") + " at turn " + rot;
-						Vec3d start = io.github.kortev.chainsawman.hotel.Shaft.at(h.origin, h.rot, 27.45, 1.0, -2.5);
+						Vec3d start = HotelBuilder.at(h.origin, h.rot, 27.45, 1.0, -2.5);
 						p.refreshPositionAndAngles(start.x, start.y, start.z, 0.0F, 0.0F);
 						p.setVelocity(Vec3d.ZERO);
 						Vec3d up = walk(context, h, p, upRoute(), stride, how + ", going up");
@@ -218,8 +217,8 @@ public class HotelWalkGameTests implements FabricGameTest {
 							BlockPos at = HotelBuilder.world(h.origin, h.rot, c[0], c[1], c[2]);
 							BlockState s = world.getBlockState(at);
 							double feet = c[1] + (s.getCollisionShape(world, at).isEmpty() ? 0.0 : s.getCollisionShape(world, at).getMax(net.minecraft.util.math.Direction.Axis.Y));
-							Vec3d a = io.github.kortev.chainsawman.hotel.Shaft.at(h.origin, h.rot, c[0] + 0.35, feet + 0.001, c[2] + 0.35);
-							Vec3d b = io.github.kortev.chainsawman.hotel.Shaft.at(h.origin, h.rot, c[0] + 0.65, feet + 1.999, c[2] + 0.65);
+							Vec3d a = HotelBuilder.at(h.origin, h.rot, c[0] + 0.35, feet + 0.001, c[2] + 0.35);
+							Vec3d b = HotelBuilder.at(h.origin, h.rot, c[0] + 0.65, feet + 1.999, c[2] + 0.65);
 							context.assertTrue(world.isSpaceEmpty(new Box(a, b)), "turn " + rot + ": not two free blocks over (" + c[0] + ", " + c[1] + ", " + c[2] + ")");
 						}
 					}
@@ -236,7 +235,7 @@ public class HotelWalkGameTests implements FabricGameTest {
 	 * A hotel from an older world (its home saved before the stairwell was kept, with the old stairs in it: one flight a storey under a slab
 	 * opened over two steps) gets the new stairwell at its first tick, and nothing else changes.
 	 */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_walk_old", tickLimit = 200)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_walk_old", tickLimit = 200 + HotelGameTests.READY_WAIT)
 	public void anOldHotelGetsTheNewStairs(TestContext context) {
 		ServerWorld world = context.getWorld();
 		world.setTimeOfDay(3000);
@@ -315,7 +314,7 @@ public class HotelWalkGameTests implements FabricGameTest {
 	 * and its last frame's place, and nothing jumps). A pig at one's heels comes with them; one at the other's heels with the other; an item
 	 * dropped past the window is put back in it; a survivor sitting against the wall stays.
 	 */
-	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_walk_loop", tickLimit = 700)
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "h_walk_loop", tickLimit = 700 + HotelGameTests.READY_WAIT)
 	public void theLoopMoveKeepsPlaceLookAndSpeedForTwoPlayers(TestContext context) {
 		ServerWorld world = context.getWorld();
 		ServerPlayerEntity a = ForeverGameTests.player(context, "looper_a");
@@ -343,24 +342,24 @@ public class HotelWalkGameTests implements FabricGameTest {
 					context.assertTrue(h.run.sealed && h.run.inside.contains(a.getUuid()) && h.run.inside.contains(b.getUuid()), "turn " + turn + ": the loop did not close on both");
 					squad[0] = null;
 					for (io.github.kortev.chainsawman.hotel.SquadMemberEntity m : world.getEntitiesByClass(io.github.kortev.chainsawman.hotel.SquadMemberEntity.class,
-							new Box(HotelBuilder.world(h.origin, h.rot, 0.0, 27.0, 0.0), HotelBuilder.world(h.origin, h.rot, 38.0, 33.0, 14.0)), m -> m.sitting())) {
+							new Box(HotelBuilder.at(h.origin, h.rot, 0.0, 27.0, 0.0), HotelBuilder.at(h.origin, h.rot, 38.0, 33.0, 14.0)), m -> m.sitting())) {
 						squad[0] = m.getPos();
 					}
 					// A sprinting jump out of the east end, and a fall walking out of the west end.
 					HotelGameTests.put(a, h, 25.31, 29.37, 6.13, 33.7F, -12.5F);
 					HotelGameTests.put(b, h, 12.77, 29.81, 7.21, -121.3F, 40.2F);
-					a.setVelocity(HotelBuilder.world(BlockPos.ORIGIN, turn, 0.2806, 0.3, 0.04));
-					b.setVelocity(HotelBuilder.world(BlockPos.ORIGIN, turn, -0.2159, -0.15, 0.01));
+					a.setVelocity(HotelBuilder.dir(turn, 0.2806, 0.3, 0.04));
+					b.setVelocity(HotelBuilder.dir(turn, -0.2159, -0.15, 0.01));
 					// A pig at each one's heels, an item dropped just past the window.
 					for (int k = 0; k < 2; k++) {
 						PigEntity pig = EntityType.PIG.create(world);
-						Vec3d at = k == 0 ? HotelBuilder.world(h.origin, h.rot, 24.4, 29.0, 5.6) : HotelBuilder.world(h.origin, h.rot, 13.6, 29.0, 7.6);
+						Vec3d at = k == 0 ? HotelBuilder.at(h.origin, h.rot, 24.4, 29.0, 5.6) : HotelBuilder.at(h.origin, h.rot, 13.6, 29.0, 7.6);
 						pig.refreshPositionAndAngles(at.x, at.y, at.z, 0.0F, 0.0F);
 						pig.setAiDisabled(true);
 						world.spawnEntity(pig);
 						pigs[k] = pig;
 					}
-					Vec3d drop = HotelBuilder.world(h.origin, h.rot, 27.0, 29.0, 6.5);
+					Vec3d drop = HotelBuilder.at(h.origin, h.rot, 27.0, 29.0, 6.5);
 					item[0] = new ItemEntity(world, drop.x, drop.y, drop.z, new ItemStack(Items.BREAD));
 					item[0].setVelocity(Vec3d.ZERO);
 					item[0].setPickupDelay(200);
@@ -379,8 +378,8 @@ public class HotelWalkGameTests implements FabricGameTest {
 					context.assertTrue(Math.abs(lb.x - 24.77) < 1.0E-6 && Math.abs(lb.y - 29.81) < 1.0E-6 && Math.abs(lb.z - 7.21) < 1.0E-6, t + "the second was put at " + lb);
 					context.assertTrue(a.getYaw() == 33.7F && a.getPitch() == -12.5F && b.getYaw() == -121.3F && b.getPitch() == 40.2F,
 							t + "a look changed: " + a.getYaw() + "/" + a.getPitch() + ", " + b.getYaw() + "/" + b.getPitch());
-					context.assertTrue(a.getVelocity().squaredDistanceTo(HotelBuilder.world(BlockPos.ORIGIN, turn, 0.2806, 0.3, 0.04)) < 1.0E-12
-							&& b.getVelocity().squaredDistanceTo(HotelBuilder.world(BlockPos.ORIGIN, turn, -0.2159, -0.15, 0.01)) < 1.0E-12, t + "a speed changed");
+					context.assertTrue(a.getVelocity().squaredDistanceTo(HotelBuilder.dir(turn, 0.2806, 0.3, 0.04)) < 1.0E-12
+							&& b.getVelocity().squaredDistanceTo(HotelBuilder.dir(turn, -0.2159, -0.15, 0.01)) < 1.0E-12, t + "a speed changed");
 					context.assertTrue(h.run.laps.getOrDefault(a.getUuid(), 0) == 1 && h.run.laps.getOrDefault(b.getUuid(), 0) == 1,
 							t + "laps " + h.run.laps.get(a.getUuid()) + ", " + h.run.laps.get(b.getUuid()));
 					// What the clients were told: only the difference, everything relative.
@@ -388,17 +387,17 @@ public class HotelWalkGameTests implements FabricGameTest {
 					for (Object[] c : new Object[][] {{ma, -12.0, "first"}, {mb, 12.0, "second"}}) {
 						PlayerPositionLookS2CPacket m = (PlayerPositionLookS2CPacket) c[0];
 						context.assertTrue(m != null, t + "the " + c[2] + " was sent no move");
-						Vec3d want = HotelBuilder.world(BlockPos.ORIGIN, turn, (double) c[1], 0.0, 0.0);
+						Vec3d want = HotelBuilder.dir(turn, (double) c[1], 0.0, 0.0);
 						context.assertTrue(m.getFlags().containsAll(all), t + "the " + c[2] + "'s move is not all relative: " + m.getFlags());
 						context.assertTrue(Math.abs(m.getX() - want.x) < 1.0E-9 && Math.abs(m.getY()) < 1.0E-9 && Math.abs(m.getZ() - want.z) < 1.0E-9
 								&& m.getYaw() == 0.0F && m.getPitch() == 0.0F, t + "the " + c[2] + "'s move is not just a period: " + m.getX() + ", " + m.getY() + ", " + m.getZ() + ", " + m.getYaw() + ", " + m.getPitch());
 					}
 					// What was about them.
-					Vec3d p0 = HotelBuilder.local(h.origin, h.rot, pigs[0].getPos());
-					Vec3d p1 = HotelBuilder.local(h.origin, h.rot, pigs[1].getPos());
+					Vec3d p0 = HotelBuilder.localOf(h.origin, h.rot, pigs[0].getPos());
+					Vec3d p1 = HotelBuilder.localOf(h.origin, h.rot, pigs[1].getPos());
 					context.assertTrue(Math.abs(p0.x - 12.4) < 0.05 && Math.abs(p0.z - 5.6) < 0.05, t + "the pig at the first's heels was left at " + p0);
 					context.assertTrue(Math.abs(p1.x - 25.6) < 0.05 && Math.abs(p1.z - 7.6) < 0.05, t + "the pig at the second's heels was left at " + p1);
-					Vec3d li = HotelBuilder.local(h.origin, h.rot, item[0].getPos());
+					Vec3d li = HotelBuilder.localOf(h.origin, h.rot, item[0].getPos());
 					context.assertTrue(Math.abs(li.x - 15.0) < 0.4, t + "the item past the window is at " + li);
 					if (squad[0] != null) {
 						boolean stayed = false;
