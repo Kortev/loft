@@ -12,15 +12,15 @@ Updated 2026-11-10. Keep this page under 3 KB. Change it whenever something star
 
 ## Running
 
-- **3.4b the Tomato Devil, round 2, merged 2026-11-10** (282 tests): the show's body, creepy touches, the hop,
-  Pochita eats seeds. kortev has the film. Weak: close frames fill the view, the saws kill it in 7 s.
+- 3.4b the Tomato Devil, round 2, merged 2026-11-10 (282 tests). kortev hasn't played it; they have a guide.
 - **3.4c the Tomato's horror short and teaser merged 2026-11-10**: kortev has `work/tomato/creepy.mp4` (new
   sound) and `teaser.mp4`. kortev: people won't watch the full short; the teaser "looks awesome", they may
-  post it. So no more rounds on the short. Footage and stems: `work/tomato/creepy_frames/`; re-cut with `tools/tomato_creepy.py` (brief 3.4c).
+  post it. No more rounds on the short. **Building:** a teaser re-cut (12 s
+  escalating, plus the 8 s fixed; same agent, `tomato-creepy`) and 3.4d seeds end in three hits
+  (`tomato-seed-hits`). On hand-back: review, merge, send. Footage and stems: `work/tomato/creepy_frames/`; re-cut with `tools/tomato_creepy.py` (brief 3.4c).
 - **The Eternity Devil is parked** for a big pass, arm animations first
   (`chainsawman/plan/packages/0.1c_devil_big_pass.md`).
-- New plan pages (kortev, 2026-11-10): `plan/4e_what_you_play.md` (fiends are playable) and `plan/4f_scaling.md`
-  (devil tiers, power 1-5). Fable's picks until kortev says otherwise.
+- Plan pages `4e` (what you play; how many Chainsaw Men, reopened by kortev) and `4f` (scaling): Fable's picks.
 - Flaky in full runs, pass alone: `each_fighter_gets_the_whole_drop`, two form tests, a Beam missile test.
 - Later: 2.10 power and tiers, 0.4 the server check, 0.2 review clips, 2.1 the licence screen.
 
