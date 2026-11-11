@@ -64,6 +64,7 @@ Reel: "I added Public Safety to Minecraft."
 | 3.6 | Mission kinds, and one trick per devil | S | Fear and the bounty moved to the server legend update |
 | 3.7 | Summoning: the circle, the offering, a weak devil's deal | M | [check: how summoning is shown] |
 | 3.8 | Small deals: a beaten devil begs | M | kortev said yes (2026-11-09); each deal's visual shown first |
+| 3.9 | Devils grow: a devil left alive gets stronger each night, faster when feared | M | kortev asked for it 2026-11-11 (`4d_dying_and_options.md` 4.5). Next after 2.2a; the Tomato first. Check the show's rule on the wiki before the brief. |
 
 Each devil is its own reel.
 

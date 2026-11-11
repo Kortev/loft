@@ -8,9 +8,21 @@ check on the wiki and Google first.
 
 ### 4.5 Fear: the world remembers [decided in outline, numbers to tune]
 
-**Moved out of 1.0 (round 2).** Alone you'd hardly notice it, it needs careful tuning, and missions get their
-variety from mission kinds (4.2). It comes with the server legend update, and it's counted per office area, not per
-world, so one group's deaths don't make devils stronger for a newcomer far away.
+**Back in, in a single-player shape (2026-11-11).** kortev: "the more the devil's feared, and the longer they're
+alive in general, the stronger they get. Is that going to be a thing?" Yes. The server legend update that held
+this is dropped, so it moves to package 3.9, built after 2.2a. **Fable's pick: each devil grows by itself**, so
+you can see it, instead of a hidden score per type:
+
+- **A devil left alive gets stronger.** Each night it lives it grows a step: more health, hits a little harder, a
+  little bigger, and it looks worse (for the Tomato: more eyes open, darker). Five steps, about +50% at the top.
+- **Fear speeds it up.** Villagers running from it, a player who ran from it or died to it: each counts as a
+  step, at most one extra step a night. It frightens villagers; it still doesn't kill them (villages stay).
+- **It's worth more, not only harder:** a grown devil drops more. And it never grows while nobody is near (no
+  loaded chunks, no growth), so a devil you never met isn't waiting at full size.
+- Show facts [check before the brief]: fear of its name makes a devil strong (the show says so). "Longer alive" as
+  a rule is not confirmed; what the show shows is devils growing stronger by feeding on blood.
+
+The older outline, kept for reference (the per-type score is not built unless the above feels thin):
 
 A devil is the fear of its name. Each devil type has a fear score per world: it goes up when that type kills players
 or villagers, and down when it's hunted. High fear means more health, bigger groups, and its name in chat when it
