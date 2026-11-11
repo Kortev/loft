@@ -43,6 +43,11 @@ import net.minecraft.world.Heightmap;
  * the fight to its death and its seeds ({@link TomatoFirstNight}); with -Pcapture=true, the film.</li>
  * <li>-Ptarget=arrivals: three takes of the arrival alone at midnight before a tree line ({@link TomatoArrivalTakes}): from 15 blocks,
  * walking up to it, and turning round to it; with -Pcapture=true, one capture folder each.</li>
+ * <li>-Ptarget=grown: a played fight against a growth 5 Tomato at night with an iron sword, first sight to the last seed burned
+ * ({@link TomatoFight}); with -Pcapture=true, the film.</li>
+ * <li>-Ptarget=growths: one still at each growth 0 to 5, same place, pose and camera ({@link TomatoGrownTakes}).</li>
+ * <li>-Ptarget=growreel: the reel take: growth 0 to 5 in front of you, a step every two seconds, each with its shudder
+ * ({@link TomatoGrownTakes}); with -Pcapture=true, the film.</li>
  * </ul>
  * <pre>./gradlew runSelftest -Pselftest=tomato -Ptarget=played -Pusername=Kortev -Pcapture=true -Pwidth=1080 -Pheight=1920 "-Pjvmargs=-Xmx2600m -XX:TieredStopAtLevel=1"</pre>
  */
@@ -52,6 +57,8 @@ public class TomatoSelfTest implements ClientModInitializer {
 	static final int GROUND = 62;
 	/** Dusk: the sun low, every frame still lit. */
 	static final long DUSK = 11900L;
+	/** The grown fight's night: an hour before midnight, a full moon. */
+	static final long GROWN_NIGHT = 17000L;
 	/** The two oaks the roll can be baited into (offsets from the site). */
 	static final int[][] OAKS = {{6, 9}, {-9, -4}};
 
@@ -70,7 +77,8 @@ public class TomatoSelfTest implements ClientModInitializer {
 
 	/** The played take is drawn as a phone's portrait frame (1080x1920) whatever the window. */
 	public static boolean portrait() {
-		return active() && (target().startsWith("played") || target().equals("cinematic") || target().equals("firstnight") || target().equals("arrivals"));
+		return active() && (target().startsWith("played") || target().equals("cinematic") || target().equals("firstnight") || target().equals("arrivals")
+				|| target().equals("grown") || target().equals("growreel"));
 	}
 
 	static String target() {
@@ -140,8 +148,12 @@ public class TomatoSelfTest implements ClientModInitializer {
 			case RUN -> {
 				client.getToastManager().clear();
 				boolean over;
-				if (target().startsWith("played")) {
+				if (target().startsWith("played") || target().equals("grown")) {
 					over = TomatoFight.tick(client, server, ticks);
+				} else if (target().equals("growths")) {
+					over = TomatoGrownTakes.stills(client, server, ticks);
+				} else if (target().equals("growreel")) {
+					over = TomatoGrownTakes.reel(client, server, ticks);
 				} else if (target().equals("cinematic")) {
 					over = TomatoCinematic.tick(client, server, ticks);
 				} else if (target().equals("firstnight")) {
@@ -248,7 +260,12 @@ public class TomatoSelfTest implements ClientModInitializer {
 			Form.end(you);
 		}
 		Downed.up(you);
-		you.changeGameMode(target().startsWith("played") || target().equals("firstnight") || target().equals("arrivals") ? GameMode.SURVIVAL : target().equals("model") || target().equals("cinematic") ? GameMode.CREATIVE : GameMode.SPECTATOR);
+		you.changeGameMode(target().startsWith("played") || target().equals("grown") || target().equals("firstnight") || target().equals("arrivals") ? GameMode.SURVIVAL
+				: target().equals("model") || target().equals("cinematic") || target().startsWith("grow") ? GameMode.CREATIVE : GameMode.SPECTATOR);
+		if (target().equals("grown")) {
+			// (The grown fight is at night: a clear one, the moon up.)
+			world.setTimeOfDay(GROWN_NIGHT);
+		}
 		you.getInventory().clear();
 		you.getInventory().setStack(0, new ItemStack(target().equals("firstnight") || target().equals("arrivals") ? Items.STONE_SWORD : Items.IRON_SWORD));
 		you.getInventory().setStack(1, new ItemStack(Items.TORCH, 16));

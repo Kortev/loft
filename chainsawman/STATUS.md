@@ -15,14 +15,14 @@ Updated 2026-11-10. Keep this page under 3 KB. Change it whenever something star
 Builders each work on a branch with a brief in `plan/packages/`. Review, merge one at a time, run all
 tests (`scratchpad/merge_test.sh` pattern: rerun once on a flake), then send the film. At most two builders
 at once: five made tests time out. Every film adds a line to `test/mixin/FilmFrameMixin.java`: keep both.
-- Merged 2026-11-11 (308 tests): 2.2a Tomato night arrival; 0.1d arm swings; 2.1a village notice board,
-  licence, yen; 3.3 Leech Devil round 1 (summon only). kortev has the films.
-- Leech round 2 asked (body reads as a lump, face fills the view): branch `leech-round2`.
-- Running: `hotel-walk` (0.1e stairs bug, seamless loop), `devils-grow` (3.9).
+- Merged 2026-11-11 (320 tests): 2.2a Tomato night arrival; 0.1d arm swings; 2.1a notice board, licence,
+  yen; 3.3 Leech round 1 (summon only); 0.1e hotel stairs and loop; 3.9 devils grow. kortev has the films.
+- Leech round 2 is building (`leech-round2`): the body, the fight's framing.
+- Running: growth look round 2 (`devils-grow-2`); `hotel-corridor` (0.1g). Next, when a slot frees:
+  `eternity-arena` (0.1f, the new fight and one look; brief written).
 - kortev (2026-11-11): as many reels as possible from every thing built: keep raw footage, list reel ideas.
-- Next: 3.9 devils grow (`bible/devil_strength.md`), then the office and shop. Scope: one player, friends ok.
+- After those: the office and shop. Scope: one player, friends ok.
 - Merged earlier: Tomato round 2, seeds in 3 hits, the teaser (kortev posts `work/tomato/teaser.mp4`).
-- Eternity: kortev finds the fight boring and the hotel ugly; new direction in `packages/0.1c_devil_big_pass.md`.
 - Flaky, pass on a rerun: `each_fighter_gets_the_whole_drop`, two form tests, a Beam missile test.
 
 ## Waiting on kortev

@@ -52,7 +52,8 @@ public class TomatoSpitEntity extends Entity {
 			for (LivingEntity e : world.getEntitiesByClass(LivingEntity.class, getBoundingBox().stretch(v).expand(0.5), this::canHit)) {
 				if (e.getBoundingBox().expand(0.1).raycast(p, end).isPresent() || e.getBoundingBox().expand(0.1).contains(p)) {
 					Entity by = owner == null ? null : world.getEntity(owner);
-					e.damage(by instanceof LivingEntity l ? getDamageSources().mobProjectile(this, l) : getDamageSources().generic(), TomatoDevilEntity.SPIT_DAMAGE);
+					e.damage(by instanceof LivingEntity l ? getDamageSources().mobProjectile(this, l) : getDamageSources().generic(),
+							TomatoDevilEntity.SPIT_DAMAGE * (by instanceof TomatoDevilEntity td ? td.growth().damage() : 1.0F));
 					splat(world, e.getPos().add(0.0, e.getHeight() * 0.6, 0.0));
 					return;
 				}

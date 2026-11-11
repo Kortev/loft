@@ -31,8 +31,10 @@
 			"io.github.kortev.shootingstar.test.BuffGameTests",
 			"io.github.kortev.shootingstar.test.ServerProofGameTests",
 			"io.github.kortev.shootingstar.test.HotelShareGameTests",
+			"io.github.kortev.shootingstar.test.HotelWalkGameTests",
 			"io.github.kortev.shootingstar.test.TomatoGameTests",
-			"io.github.kortev.shootingstar.test.SafetyGameTests"
+			"io.github.kortev.shootingstar.test.SafetyGameTests",
+			"io.github.kortev.shootingstar.test.GrowthGameTests"
 		],
 		"client": [
 			"io.github.kortev.shootingstar.test.LeechSelfTest",

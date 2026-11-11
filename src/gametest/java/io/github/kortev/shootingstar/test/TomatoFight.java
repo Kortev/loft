@@ -60,7 +60,7 @@ final class TomatoFight {
 	private static TomatoSeedEntity left;
 
 	static void snap(MinecraftServer server) {
-		if (!TomatoSelfTest.active() || !(server instanceof IntegratedServer is) || is.getPlayerManager().getPlayerList().isEmpty() || !target().startsWith("played") && !target().equals("firstnight")) {
+		if (!TomatoSelfTest.active() || !(server instanceof IntegratedServer is) || is.getPlayerManager().getPlayerList().isEmpty() || !target().startsWith("played") && !target().equals("firstnight") && !grown()) {
 			return;
 		}
 		ServerPlayerEntity p = TomatoSelfTest.you(is);
@@ -96,6 +96,11 @@ final class TomatoFight {
 
 	private static String target() {
 		return System.getProperty("shootingstar.selftest.target", "");
+	}
+
+	/** -Ptarget=grown: the duel against a growth 5 at night, filmed, and its seeds burned to the last. */
+	private static boolean grown() {
+		return target().equals("grown");
 	}
 
 	private static double now(MinecraftClient c) {
@@ -194,8 +199,8 @@ final class TomatoFight {
 					return in;
 				}
 				// It settles on its hands: in and cut it.
-				if (dist > 3.2) {
-					YOU.strafeTo(c, d.getPos(), 3.0, false);
+				if (dist > 3.2 + room(d)) {
+					YOU.strafeTo(c, d.getPos(), 3.0 + room(d), false);
 				} else {
 					YOU.stop();
 				}
@@ -268,8 +273,8 @@ final class TomatoFight {
 					YOU.strafeTo(c, dodgeTo, 0.12, near);
 					return true;
 				}
-				if (dist > 3.2) {
-					YOU.strafeTo(c, d.getPos(), 3.0, false);
+				if (dist > 3.2 + room(d)) {
+					YOU.strafeTo(c, d.getPos(), 3.0 + room(d), false);
 				}
 				if (reach && allowHit) {
 					YOU.swing(c, 0.9F);
@@ -277,8 +282,8 @@ final class TomatoFight {
 				return false;
 			}
 			case TomatoDevilEntity.ON_BACK, TomatoDevilEntity.GET_UP, TomatoDevilEntity.UNFURL, TomatoDevilEntity.EMERGE -> {
-				if (dist > 3.7) {
-					YOU.strafeTo(c, d.getPos(), 3.4, true);
+				if (dist > 3.7 + room(d)) {
+					YOU.strafeTo(c, d.getPos(), 3.4 + room(d), true);
 				} else {
 					YOU.stop();
 				}
@@ -293,12 +298,17 @@ final class TomatoFight {
 		}
 	}
 
+	/** How much further off to stand from a grown one (its skin is further out; the sword still reaches it). */
+	private static double room(TomatoDevilEntity d) {
+		return (d.getWidth() - TomatoDevilEntity.WIDTH) * 0.5 + (d.growthLevel() > 0 ? 0.5 : 0.0);
+	}
+
 	/** Close in and cut it between its moves (backing off a step if right up against it). */
 	static void press(MinecraftClient c, TomatoDevilEntity d) {
 		double dist = d.distanceTo(c.player);
-		if (dist > 3.4) {
-			YOU.strafeTo(c, d.getPos(), 3.2, false);
-		} else if (dist < 2.6) {
+		if (dist > 3.4 + room(d)) {
+			YOU.strafeTo(c, d.getPos(), 3.2 + room(d), false);
+		} else if (dist < 2.6 + room(d)) {
 			YOU.strafeTo(c, c.player.getPos().add(c.player.getPos().subtract(d.getPos()).normalize().multiply(1.0)), 0.2, false);
 		} else {
 			YOU.stop();
@@ -360,7 +370,7 @@ final class TomatoFight {
 		if (fightStep && d == null && startAt >= 0 && sub > 5) {
 			YOU.stop();
 			if (killed(c, null)) {
-				step = duel ? 99 : step == 9 ? 9 : 6;
+				step = duel && !grown() ? 99 : step == 9 ? 9 : 6;
 				next(c, "it bursts");
 			}
 			YOU.apply(c);
@@ -387,7 +397,12 @@ final class TomatoFight {
 							Blood.set(you, Blood.MAX);
 							Form.start(you);
 						}
-						if (duel) {
+						if (grown()) {
+							// Fully grown, left alone too long: it waits out in the dark.
+							TomatoDevilEntity e = TomatoSelfTest.devil(w, TomatoSelfTest.site(0.0, 0.0, 4.0), 180.0F);
+							e.growth().set(io.github.kortev.chainsawman.devil.Growth.MAX, true);
+							ShootingStar.LOGGER.info("[played] the devil is at growth {}, {} health", e.growthLevel(), e.getHealth());
+						} else if (duel) {
 							TomatoSelfTest.devil(w, TomatoSelfTest.site(0.0, 0.0, 2.0), 0.0F);
 						} else {
 							// The film: it comes from far off, walking your way, not having seen you yet; Pochita sits off to one side. (You are
@@ -469,8 +484,8 @@ final class TomatoFight {
 				if (!busy && d.state() == TomatoDevilEntity.WALK) {
 					double dist = d.distanceTo(c.player);
 					// (Right up to its arms, but not so close the lens goes inside it when it squats.)
-					if (dist > 3.4) {
-						YOU.strafeTo(c, d.getPos(), 3.1, false);
+					if (dist > 3.4 + room(d)) {
+						YOU.strafeTo(c, d.getPos(), 3.1 + room(d), false);
 					} else {
 						YOU.stop();
 					}
@@ -550,6 +565,15 @@ final class TomatoFight {
 				}
 			}
 			case 7 -> {
+				if (grown()) {
+					// The grown one's seeds: all burned with the torch, to the last.
+					seeds(c, s, TomatoDevilEntity.SEEDS, false);
+					if (step >= 8) {
+						step = 11;
+						sub = 0;
+					}
+					return false;
+				}
 				// The seeds: two burned with a torch, two eaten by Pochita, one missed on purpose.
 				return seeds(c, s, 2, true);
 			}
@@ -633,7 +657,7 @@ final class TomatoFight {
 		mark(c, "killed after " + String.format("%.1f s", (c.world.getTime() - startAt) / 20.0));
 		ShootingStar.LOGGER.info("[played] KILL ({}) {} s from first sight, hits taken {}, rolls {}, hops {}, spits {}, slaps {}", target(),
 				String.format("%.1f", (c.world.getTime() - startAt) / 20.0), hits, rolls, hops, spits, slaps);
-		if (!target().equals("played")) {
+		if (!target().equals("played") && !grown()) {
 			report(c);
 			YOU.release(c);
 			c.player.getInventory().selectedSlot = 0;
@@ -710,6 +734,23 @@ final class TomatoFight {
 				}
 			}
 			YOU.apply(c);
+			return false;
+		}
+		if (pochitaId < 0) {
+			// (No Pochita in this take: over once every seed is burned.)
+			hold(c, ss.isEmpty() ? 0 : 1);
+			YOU.stop();
+			YOU.apply(c);
+			if (ss.isEmpty()) {
+				if (pochitaDoneAt < 0) {
+					pochitaDoneAt = sub;
+					mark(c, "the last seed is burned");
+				}
+				if (sub - pochitaDoneAt > 30) {
+					pochitaDoneAt = -1;
+					next(c, "all ended");
+				}
+			}
 			return false;
 		}
 		// Pochita's turn: up he gets, and goes for them. (Staged: told to stand and to sit by the server, as your use key on him would.)
