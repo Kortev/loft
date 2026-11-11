@@ -14,9 +14,10 @@ check on the wiki and Google first.
 2. **The first village.** A Public Safety notice board stands by the bell: a poster ("Devil hunters wanted") and a
    phone. The mod puts it up the first time a player walks into a village, so it's there in worlds that are already
    explored. Reading the poster gives you a **hunter's licence** and marks the nearest office on it.
-3. **The first attack.** At your second dusk, **wherever you are**, a weak devil comes for you. It follows the
-   player, so it can't be missed by sleeping, or by living far from a village. Its arrival is staged big (it bursts
-   out of the ground) though it's weak, so the first minute is worth filming. Near a village, villagers shout and
+3. **The first devil. Not scripted [decided: kortev, 2026-11-11: "I don't even know if scripting it like that's
+   a good idea"].** Tomato Devils turn up at night by chance, from the world's second night on, near a player
+   under open sky (about 40% a night [pick]). The arrival is staged big (eyes in the dark, the ground bulges, it
+   bursts out) though it's weak, so the first minute is worth filming. Near a village, villagers shout and
    run, iron golems leave it to you, and it doesn't kill villagers. A stone or iron sword can kill it, though it
    heals a little. It drops a part. Now you know: devils are real, and they heal.
 4. **The office.** The captain (our own character) buys the part for yen, signs you on as 4th Class, pairs you with a
