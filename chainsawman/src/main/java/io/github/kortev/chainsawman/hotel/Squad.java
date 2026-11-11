@@ -135,7 +135,8 @@ public final class Squad {
 	/** The loop has broken: each rescued survivor walks to the exit and leaves, and pays everyone who fought the devil. */
 	static void leave(ServerWorld world, HomeBlockEntity h) {
 		int saved = 0;
-		Vec3d exit = HotelBuilder.world(h.origin, h.rot, HotelPlan.SHAFT_X0 + 2.5, 29.0, 2.0);
+		// (The landing strip of the stairwell, by its door: the rest of the well is open down to the floor below.)
+		Vec3d exit = HotelBuilder.world(h.origin, h.rot, HotelPlan.SHAFT_X0 + 0.5, 29.0, 2.0);
 		for (SquadMemberEntity m : members(world, h)) {
 			if (m.rescued) {
 				saved++;

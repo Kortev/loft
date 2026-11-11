@@ -59,6 +59,8 @@ import net.minecraft.world.biome.BiomeKeys;
  * fight's numbers in the log ("[played] REPORT").</li>
  * <li>-Ptarget=shaft: the shaft fight, from your eyes: the floor turning, the look down the shaft, an arm taking you down onto the mass, the mouth
  * swallowing you and the saws cutting you out, the core offered and cut. Stills, and the clip with -Pcapture=true (portrait: -Pwidth=1080 -Pheight=1920).</li>
+ * <li>-Ptarget=walk: the hotel walked on the real keys, first person, in one take: in at the front door, up the stairs, round the loop three
+ * times and back down ({@link HotelWalk}); it fails if the walker is stopped, ends up in the wrong place or broke a block.</li>
  * <li>-Ptarget=hunt: stills of the second version's mechanics: the sealed door, an eye in the wallpaper, a cut wall bleeding, a survivor sitting
  * and following, the mad one, the devil tearing out, the beg screen and the loot after a spare (the old look: the new one comes later).</li>
  * </ul>
@@ -128,6 +130,7 @@ public class HotelSelfTest implements ClientModInitializer {
 		ServerTickEvents.END_SERVER_TICK.register(HotelSelfTest::keepUp);
 		ServerTickEvents.END_SERVER_TICK.register(HotelSelfTest::shaftSnap);
 		ServerTickEvents.END_SERVER_TICK.register(HotelFight::snap);
+		ServerTickEvents.END_SERVER_TICK.register(HotelWalk::snap);
 		ClientTickEvents.END_CLIENT_TICK.register(HotelSelfTest::tick);
 	}
 
@@ -171,6 +174,13 @@ public class HotelSelfTest implements ClientModInitializer {
 				if ("played".equals(target())) {
 					// (The played fight drives its own head and keys: see HotelFight and Fighter.)
 					if (HotelFight.tick(client, server, ticks, origin)) {
+						stage = Stage.DONE;
+					}
+					break;
+				}
+				if ("walk".equals(target())) {
+					// (The hotel walked, door to loop and back, on the real keys: see HotelWalk.)
+					if (HotelWalk.tick(client, server, ticks, origin)) {
 						stage = Stage.DONE;
 					}
 					break;
