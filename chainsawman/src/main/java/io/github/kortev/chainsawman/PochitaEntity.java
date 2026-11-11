@@ -139,6 +139,8 @@ public class PochitaEntity extends TameableEntity {
 	protected void initGoals() {
 		goalSelector.add(1, new SwimGoal(this));
 		goalSelector.add(2, new SitGoal(this));
+		// Devils' seeds near: he runs to them and eats them (devil/EatSeedGoal).
+		goalSelector.add(4, new io.github.kortev.chainsawman.devil.EatSeedGoal(this));
 		goalSelector.add(5, new FollowOwnerGoal(this, 1.1, 6.0F, 2.0F));
 		goalSelector.add(7, new WanderAroundFarGoal(this, 0.8));
 		goalSelector.add(8, new LookAtEntityGoal(this, PlayerEntity.class, 8.0F));

@@ -213,6 +213,8 @@ public final class Saw {
 		}
 		// The Eternity Devil's arms, heads and core are not living things: cut them too (the slash looked only for living ones).
 		int parts = io.github.kortev.chainsawman.hotel.Shaft.cutParts(player, SLASH_REACH, finisher ? FINISHER_WIDTH : SLASH_WIDTH, damage, aimed);
+		// A Tomato Devil's seeds in front are torn up by the teeth.
+		parts += io.github.kortev.chainsawman.devil.TomatoSeedEntity.shredInFront(player, SLASH_REACH, finisher ? FINISHER_WIDTH : SLASH_WIDTH);
 		if (hit.isEmpty() && parts == 0) {
 			// Inside the Eternity Devil the walls are its flesh: a slash into them cuts it.
 			parts = io.github.kortev.chainsawman.hotel.Shaft.cutAhead(player, SLASH_REACH + 0.5, damage);

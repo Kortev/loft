@@ -198,14 +198,14 @@ public class TomatoGameTests implements FabricGameTest {
 		try {
 			p.setStackInHand(Hand.MAIN_HAND, new ItemStack(Items.TORCH, 4));
 			a.interact(p, Hand.MAIN_HAND);
-			context.assertTrue(a.isRemoved(), "the torch did not burn the seed");
+			context.assertTrue(a.burning() >= 0 && a.ended(), "the torch did not set the seed burning");
 			context.assertTrue(p.getMainHandStack().getCount() == 3, "the torch was not used up");
 			p.setStackInHand(Hand.MAIN_HAND, new ItemStack(Items.FLINT_AND_STEEL));
 			b.interact(p, Hand.MAIN_HAND);
-			context.assertTrue(b.isRemoved() && p.getMainHandStack().getDamage() == 1, "flint and steel did not burn it");
+			context.assertTrue(b.burning() >= 0 && p.getMainHandStack().getDamage() == 1, "flint and steel did not burn it");
 			p.setStackInHand(Hand.MAIN_HAND, new ItemStack(Items.FIRE_CHARGE, 2));
 			c.interact(p, Hand.MAIN_HAND);
-			context.assertTrue(c.isRemoved() && p.getMainHandStack().getCount() == 1, "a fire charge did not burn it");
+			context.assertTrue(c.burning() >= 0 && p.getMainHandStack().getCount() == 1, "a fire charge did not burn it");
 			p.setStackInHand(Hand.MAIN_HAND, new ItemStack(Items.STICK));
 			TomatoSeedEntity d = seed(context, 4, 0, brood);
 			d.interact(p, Hand.MAIN_HAND);
@@ -236,10 +236,10 @@ public class TomatoGameTests implements FabricGameTest {
 			w.setBlockState(context.getAbsolutePos(new BlockPos(0, 1, 3)), Blocks.CAMPFIRE.getDefaultState().with(CampfireBlock.LIT, false));
 		});
 		context.runAtTick(14, () -> {
-			context.assertTrue(a.isRemoved(), "fire did not burn it");
-			context.assertTrue(b.isRemoved(), "a lit campfire did not burn it");
-			context.assertTrue(c.isRemoved(), "lava did not burn it");
-			context.assertTrue(!d.isRemoved(), "an unlit campfire burned it");
+			context.assertTrue(a.ended(), "fire did not burn it");
+			context.assertTrue(b.ended(), "a lit campfire did not burn it");
+			context.assertTrue(c.ended(), "lava did not burn it");
+			context.assertTrue(!d.ended(), "an unlit campfire burned it");
 			for (BlockPos p : new BlockPos[] {new BlockPos(0, 1, 0), new BlockPos(3, 1, 0), new BlockPos(-3, 1, 0), new BlockPos(0, 1, 3)}) {
 				w.setBlockState(context.getAbsolutePos(p), Blocks.AIR.getDefaultState());
 			}
@@ -453,6 +453,239 @@ public class TomatoGameTests implements FabricGameTest {
 			clear(context);
 		}
 		context.complete();
+	}
+
+	private static ServerPlayerEntity standing(TestContext context, String name, double x, double z) {
+		ServerPlayerEntity p = ForeverGameTests.player(context, name);
+		Vec3d a = at(context, x, z);
+		p.teleport(context.getWorld(), a.x, a.y, a.z, 180.0F, 0.0F);
+		p.setNoGravity(false);
+		return p;
+	}
+
+	/** The hop: nothing during its squat (14 ticks or more); landing, it hurts and throws everyone near it back about 5 blocks; further off, nobody. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "tomato_hop", tickLimit = 120)
+	public void the_hop_has_a_tell_and_throws(TestContext context) {
+		context.assertTrue(TomatoDevilEntity.HOP_TELL >= 14, "the hop's squat is shorter than 14 ticks");
+		floor(context);
+		clear(context);
+		ServerWorld w = context.getWorld();
+		TomatoDevilEntity d = devil(context, 0, 0);
+		d.setAiDisabled(true);
+		var near = EntityType.SHEEP.create(w);
+		Vec3d a = at(context, 2.6, 0);
+		near.refreshPositionAndAngles(a.x, a.y, a.z, 0.0F, 0.0F);
+		w.spawnEntity(near);
+		var far = EntityType.SHEEP.create(w);
+		Vec3d b = at(context, 0, -7.0);
+		far.refreshPositionAndAngles(b.x, b.y, b.z, 0.0F, 0.0F);
+		w.spawnEntity(far);
+		near.setAiDisabled(false);
+		// A hurt sheep panics and runs: with no walking speed it goes only where the hop throws it.
+		near.getAttributeInstance(net.minecraft.entity.attribute.EntityAttributes.GENERIC_MOVEMENT_SPEED).setBaseValue(0.0);
+		far.setAiDisabled(true);
+		Vec3d[] from = new Vec3d[1];
+		context.runAtTick(5, () -> {
+			d.setAiDisabled(false);
+			d.begin(TomatoDevilEntity.HOP);
+		});
+		context.runAtTick(5 + TomatoDevilEntity.HOP_TELL, () -> context.assertTrue(near.getHealth() == near.getMaxHealth(), "the hop landed during its squat"));
+		context.runAtTick(5 + TomatoDevilEntity.HOP_LAND + 2, () -> {
+			context.assertTrue(near.getHealth() <= near.getMaxHealth() - TomatoDevilEntity.HOP_DAMAGE + 0.01F, "the hop did not hurt what was near: " + near.getHealth());
+			context.assertTrue(far.getHealth() == far.getMaxHealth(), "the hop hurt something 7 blocks off");
+			from[0] = d.getPos();
+		});
+		context.runAtTick(5 + TomatoDevilEntity.HOP_LAND + 30, () -> {
+			double thrown = Math.hypot(near.getX() - from[0].x, near.getZ() - from[0].z) - 2.6;
+			context.assertTrue(thrown >= 3.5 && thrown <= 8.0, "the hop threw it " + thrown + " blocks, not about 5");
+			near.discard();
+			far.discard();
+			clear(context);
+			context.complete();
+		});
+	}
+
+	/** Fought standing still in front of it for half a minute: never one move three times running, and more than one kind of move. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "tomato_three", tickLimit = 700)
+	public void no_move_three_times_running(TestContext context) {
+		floor(context);
+		clear(context);
+		TomatoDevilEntity d = devil(context, 0, 0);
+		ServerPlayerEntity p = standing(context, "hugger", 0, -3.2);
+		List<Integer> moves = new java.util.ArrayList<>();
+		d.moveListener = moves::add;
+		for (int t = 1; t < 640; t++) {
+			context.runAtTick(t, () -> {
+				p.setHealth(p.getMaxHealth());
+				Vec3d a = at(context, 0, -3.2);
+				p.requestTeleport(a.x, a.y, a.z);
+			});
+		}
+		context.runAtTick(650, () -> {
+			ForeverGameTests.leave(context, p);
+			clear(context);
+			context.assertTrue(moves.size() >= 5, "too few moves to judge: " + moves);
+			for (int i = 2; i < moves.size(); i++) {
+				context.assertTrue(!(moves.get(i).equals(moves.get(i - 1)) && moves.get(i).equals(moves.get(i - 2))), "a move three times running: " + moves);
+			}
+			context.assertTrue(moves.contains(TomatoDevilEntity.HOP), "hugging it never brought the hop: " + moves);
+			context.complete();
+		});
+	}
+
+	/** From 5 blocks, a sidestep at a walk once its aim is set slips between the seeds; standing still, they hit. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "tomato_sidestep", tickLimit = 160)
+	public void a_sidestep_clears_the_spit(TestContext context) {
+		floor(context);
+		clear(context);
+		TomatoDevilEntity d = devil(context, 0, 0);
+		ServerPlayerEntity p = standing(context, "dodger", 0, 5.0);
+		// (Facing +Z: the player 5 blocks in front.) A walk is 0.216 blocks a tick: five ticks of it once the aim is set, then stand.
+		double walk = 0.216;
+		int steps = 5;
+		context.runAtTick(3, () -> {
+			d.aimAt(0.0F);
+			d.begin(TomatoDevilEntity.SPIT);
+		});
+		float[] hp = new float[1];
+		for (int t = 3; t < 3 + TomatoDevilEntity.SPIT_END + 12; t++) {
+			int tt = t;
+			context.runAtTick(t, () -> {
+				int into = tt - 3;
+				if (into == 1) {
+					hp[0] = p.getHealth();
+				}
+				if (into > TomatoDevilEntity.SPIT_AIM + 2 && into <= TomatoDevilEntity.SPIT_AIM + 2 + steps) {
+					p.requestTeleport(p.getX() + walk, p.getY(), p.getZ());
+				}
+			});
+		}
+		context.runAtTick(3 + TomatoDevilEntity.SPIT_END + 14, () -> {
+			context.assertTrue(p.getHealth() == hp[0], "a sidestep of " + (walk * steps) + " blocks was hit: " + p.getHealth() + " of " + hp[0]);
+			ForeverGameTests.leave(context, p);
+			clear(context);
+			context.complete();
+		});
+	}
+
+	/** A set-down Pochita near a seed runs to it and eats it (about 30 ticks of chewing). */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "tomato_pochita", tickLimit = 260)
+	public void pochita_eats_a_seed(TestContext context) {
+		floor(context);
+		clear(context);
+		ServerWorld w = context.getWorld();
+		TomatoSeedEntity s = seed(context, 0, 0, UUID.randomUUID());
+		var pochita = io.github.kortev.chainsawman.ChainsawMan.POCHITA_ENTITY.create(w);
+		Vec3d a = at(context, 7, 3);
+		pochita.refreshPositionAndAngles(a.x, a.y, a.z, 0.0F, 0.0F);
+		pochita.setTamed(true, true);
+		// (Someone's: a tamed one whose owner is not about sits where he is, as a wolf does.)
+		ServerPlayerEntity owner = standing(context, "owner", -6, -6);
+		pochita.setOwner(owner);
+		w.spawnEntity(pochita);
+		boolean[] chewing = new boolean[1];
+		for (int t = 10; t < 240; t += 2) {
+			context.runAtTick(t, () -> chewing[0] |= !s.isRemoved() && s.chewed() > 0);
+		}
+		context.runAtTick(240, () -> {
+			context.assertTrue(chewing[0], "Pochita never chewed it");
+			context.assertTrue(s.isRemoved(), "the seed is still there");
+			context.assertTrue(devils(context).isEmpty(), "something came back");
+			ForeverGameTests.leave(context, owner);
+			pochita.discard();
+			clear(context);
+			context.complete();
+		});
+	}
+
+	/** A seed too far off for him to smell: he follows you over to it, and eats it. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "tomato_pochita2", tickLimit = 500)
+	public void pochita_follows_you_to_a_seed(TestContext context) {
+		floor(context);
+		clear(context);
+		ServerWorld w = context.getWorld();
+		TomatoSeedEntity s = seed(context, 10, 10, UUID.randomUUID());
+		var pochita = io.github.kortev.chainsawman.ChainsawMan.POCHITA_ENTITY.create(w);
+		Vec3d a = at(context, -10, -10);
+		pochita.refreshPositionAndAngles(a.x, a.y, a.z, 0.0F, 0.0F);
+		pochita.setTamed(true, true);
+		ServerPlayerEntity owner = standing(context, "owner2", 8, 8);
+		pochita.setOwner(owner);
+		pochita.setSitting(true);
+		w.spawnEntity(pochita);
+		context.runAtTick(20, () -> pochita.setSitting(false));
+		context.runAtTick(480, () -> {
+			String where = String.format("%.1f %.1f", pochita.getX() - a.x, pochita.getZ() - a.z);
+			ForeverGameTests.leave(context, owner);
+			pochita.discard();
+			clear(context);
+			context.assertTrue(s.isRemoved(), "the seed is still there; Pochita moved " + where);
+			context.complete();
+		});
+	}
+
+	/** Pochita held as a chainsaw shreds a seed with a hit or a slash; so do Chainsaw Man's saws. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "tomato_shred", tickLimit = 60)
+	public void a_chainsaw_shreds_a_seed(TestContext context) {
+		floor(context);
+		clear(context);
+		UUID brood = UUID.randomUUID();
+		TomatoSeedEntity a = seed(context, 0, 0, brood);
+		TomatoSeedEntity b = seed(context, 0, -2.0, brood);
+		ServerPlayerEntity p = standing(context, "shredder", 0, -4.0);
+		try {
+			p.setStackInHand(Hand.MAIN_HAND, new ItemStack(io.github.kortev.chainsawman.ChainsawMan.POCHITA));
+			a.damage(p.getDamageSources().playerAttack(p), 5.0F);
+			context.assertTrue(a.isRemoved(), "a hit with Pochita held did not shred the seed");
+			p.setPitch(40.0F);
+			p.setYaw(0.0F);
+			context.assertTrue(Saw.slash(p), "the held chainsaw's slash did not come");
+			context.assertTrue(b.isRemoved(), "the held chainsaw's slash did not shred the seed in front");
+		} finally {
+			ForeverGameTests.leave(context, p);
+			clear(context);
+		}
+		context.complete();
+	}
+
+	/** A sword or a fist only squelches into a seed: it shudders and stays. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "tomato_sword", tickLimit = 40)
+	public void a_sword_does_not_end_a_seed(TestContext context) {
+		floor(context);
+		clear(context);
+		TomatoSeedEntity s = seed(context, 0, 0, UUID.randomUUID());
+		ServerPlayerEntity p = standing(context, "swordsman", 0, -2.0);
+		try {
+			p.setStackInHand(Hand.MAIN_HAND, new ItemStack(Items.IRON_SWORD));
+			s.damage(p.getDamageSources().playerAttack(p), 6.0F);
+			context.assertTrue(!s.isRemoved() && !s.ended(), "a sword ended the seed");
+			context.assertTrue(context.getWorld().getTime() - s.shudderAt() < 2, "the seed did not shudder");
+			p.setStackInHand(Hand.MAIN_HAND, ItemStack.EMPTY);
+			s.damage(p.getDamageSources().playerAttack(p), 1.0F);
+			context.assertTrue(!s.isRemoved() && !s.ended(), "a fist ended the seed");
+		} finally {
+			ForeverGameTests.leave(context, p);
+			clear(context);
+		}
+		context.complete();
+	}
+
+	/** The devil that climbs out of a seed has 60% of its health: a real fight, not a full one. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "tomato_comeback", tickLimit = 40)
+	public void a_comeback_has_less_health(TestContext context) {
+		floor(context);
+		clear(context);
+		TomatoSeedEntity s = seed(context, 0, 0, UUID.randomUUID());
+		context.runAtTick(6, () -> s.swellTo(TomatoSeedEntity.SWELL - 2));
+		context.runAtTick(12, () -> {
+			List<TomatoDevilEntity> d = devils(context);
+			context.assertTrue(d.size() == 1, "no comeback");
+			float want = d.get(0).getMaxHealth() * TomatoDevilEntity.COMEBACK_HEALTH;
+			context.assertTrue(Math.abs(d.get(0).getHealth() - want) < 0.01F && TomatoDevilEntity.COMEBACK_HEALTH == 0.6F,
+					"the comeback has " + d.get(0).getHealth() + " health, not " + want);
+			clear(context);
+			context.complete();
+		});
 	}
 
 	/** The Chainsaw Man form's saws cut it like any mob, and a kill by them bursts it into its seeds (it is not torn away). */

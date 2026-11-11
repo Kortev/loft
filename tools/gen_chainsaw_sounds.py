@@ -1547,6 +1547,80 @@ def tomato_swell():
     return taper(x * np.minimum(t / 0.3, 1.0), 0.4)
 
 
+def tomato_breath():
+    """Its breathing, quiet: a slow wet breath in through the parted lips, a pause, out again, spit crackling between the teeth."""
+    seconds = 3.2
+    n = ns(seconds)
+    t = np.arange(n) / SR
+    inhale = np.clip(np.sin(np.pi * np.clip(t / 1.2, 0, 1)), 0, 1) ** 1.5
+    exhale = np.clip(np.sin(np.pi * np.clip((t - 1.55) / 1.45, 0, 1)), 0, 1) ** 1.2
+    air = bp(white(n), 300.0, 1800.0) * inhale * 0.9 + bp(white(n), 180.0, 1200.0) * exhale * 0.8
+    x = air
+    # the wet of it: tiny crackles of spit, thicker as the breath goes out
+    for j in range(50):
+        at = g.rng.uniform(0.05, seconds - 0.1)
+        k = 0.4 + 0.6 * float(np.interp(at, t, exhale + inhale))
+        x = place(x, at, bp(white(ns(0.008)), 1500.0, 7000.0) * np.exp(-np.arange(ns(0.008)) / SR / 0.0015) * g.rng.uniform(0.1, 0.5) * k)
+    for j in range(5):
+        x += gulp(n, g.rng.uniform(1.5, 2.8), 0.05, 90, 220, 0.25)
+    # a low throat under the out-breath, felt more than heard
+    x += lp(g.brown(n), 160.0) * exhale * 1.2
+    return taper(x, 0.3)
+
+
+def tomato_click():
+    """A soft click of teeth: two blunt teeth tapping together, wet."""
+    n = ns(0.35)
+    x = np.zeros(n)
+    for at, lvl in ((0.01, 1.0), (0.09, 0.6), (0.13, 0.35)):
+        m = ns(0.03)
+        tt = np.arange(m) / SR
+        tap = bp(white(m), 1200.0, 5000.0) * np.exp(-tt / 0.004) + np.sin(2 * np.pi * 2300.0 * tt) * np.exp(-tt / 0.006) * 0.6
+        x = place(x, at, tap * lvl)
+    x += flesh(n, 0.15, 1.6) * 0.12
+    return taper(x, 0.1)
+
+
+def tomato_shriek():
+    """A seed catching fire: a thin high shriek of something alive in it, cracking as it chars, over the hiss."""
+    seconds = 1.1
+    n = ns(seconds)
+    t = np.arange(n) / SR
+    f = curve(n, [(0.0, 1500.0), (0.15, 2600.0), (0.6, 2200.0), (seconds, 900.0)])
+    f = f * (1.0 + 0.04 * np.sin(2 * np.pi * 23.0 * t) + 0.02 * white(n))
+    ph = 2 * np.pi * np.cumsum(f) / SR
+    tone = np.sin(ph) + 0.5 * np.sin(2 * ph + 0.3) + 0.3 * np.sin(3.01 * ph)
+    env = np.minimum(t / 0.04, 1.0) * np.exp(-np.maximum(t - 0.3, 0) / 0.35)
+    x = sat(bp(tone, 800.0, 7000.0) * env * 1.4, 1.3) * 0.8
+    x += hp(white(n), 3000.0) * np.minimum(t / 0.02, 1.0) * np.exp(-t / 0.6) * 0.6
+    for j in range(30):
+        at = g.rng.uniform(0.0, 0.95)
+        x = place(x, at, bp(white(ns(0.006)), 2000.0, 9000.0) * np.exp(-np.arange(ns(0.006)) / SR / 0.0012) * g.rng.uniform(0.3, 1.0))
+    return taper(x, 0.3)
+
+
+def tomato_squelch():
+    """A blade or a fist into a seed: a short wet squelch, and nothing more."""
+    n = ns(0.4)
+    t = np.arange(n) / SR
+    x = flesh(n, 0.22, 2.0) * 0.9
+    x += gulp(n, 0.02, 0.06, 180, 420, 0.6)
+    return taper(x * np.minimum(t / 0.003, 1.0), 0.12)
+
+
+def pochita_chew():
+    """Pochita chewing a seed: his saw's teeth whirring into it, a wet grinding crunch, pulp spattering."""
+    seconds = 1.5
+    n = ns(seconds)
+    t = np.arange(n) / SR
+    rate = curve(n, [(0.0, 34.0), (0.2, 48.0), (1.2, 44.0), (seconds, 30.0)])
+    x = engine(n, rate, curve(n, [(0.0, 0.0), (0.08, 0.7), (1.3, 0.6), (seconds, 0.0)]), body=(160.0, 3200.0)) * 0.6
+    x += flesh(n, 1.2, 2.0) * 0.6
+    for j in range(16):
+        x += gulp(n, g.rng.uniform(0.1, 1.3), 0.03, 250, 800, 0.35)
+    return taper(x, 0.2)
+
+
 def pochita_bark():
     """Pochita smelling a devil: two short barks, a small dog's, with an engine's rasp under them."""
     n = ns(0.75)
@@ -1575,6 +1649,11 @@ SOUNDS = {
     'tomato_burst': tomato_burst,
     'tomato_hiss': tomato_hiss,
     'tomato_swell': tomato_swell,
+    'tomato_breath': tomato_breath,
+    'tomato_click': tomato_click,
+    'tomato_shriek': tomato_shriek,
+    'tomato_squelch': tomato_squelch,
+    'pochita_chew': pochita_chew,
     'pochita_bark': pochita_bark,
     'pochita_tame': pochita_tame,
     'forever_lock': forever_lock,
@@ -1630,6 +1709,7 @@ SOUNDS = {
 LOOPS = ('form_idle', 'form_grind', 'form_frenzy_loop', 'hotel_hum')
 # Loudness (loudest 400 ms, dB).
 LEVELS = {'tomato_step': -16, 'tomato_gurgle': -15, 'tomato_slap': -9, 'tomato_tuck': -13, 'tomato_roll': -12, 'tomato_thud': -9, 'tomato_spit': -11, 'tomato_hurt': -12, 'tomato_burst': -8, 'tomato_hiss': -13, 'tomato_swell': -13, 'pochita_bark': -12,
+          'tomato_breath': -24, 'tomato_click': -20, 'tomato_shriek': -12, 'tomato_squelch': -15, 'pochita_chew': -13,
           'hotel_hum': -27, 'hotel_whisper': -19, 'hotel_voice': -12, 'hotel_bleed': -14, 'hotel_phone': -16, 'hotel_breath': -22, 'hotel_loop_break': -9, 'hotel_seal': -14, 'hotel_heartbeat': -10, 'hotel_cut': -12, 'hotel_knock': -15,
           'devil_grow': -9, 'devil_bite': -10, 'devil_slam': -8, 'devil_regen': -16, 'devil_hurt': -13, 'devil_death': -8, 'forever_lock': -13, 'forever_hit': -12, 'forever_release': -7, 'forever_bond_up': -11, 'forever_not_yet': -11, 'forever_step_out': -12, 'form_heart_level': -8, 'form_crunch': -10, 'pochita_tame': -14, 'form_merge': -12, 'form_cord': -14, 'form_start': -10, 'form_revive_pull': -14, 'form_revive_start': -10, 'form_idle': -20, 'form_stop': -16, 'form_slash': -13, 'form_hit': -12,
           'form_grind': -15, 'form_chain': -14, 'form_frenzy': -10, 'form_frenzy_loop': -17, 'form_down': -13,

@@ -542,5 +542,45 @@
         "name": "chainsawman:pochita_bark"
       }
     ]
+  },
+  "tomato.breath": {
+    "subtitle": "subtitles.chainsawman.tomato.breath",
+    "sounds": [
+      {
+        "name": "chainsawman:tomato_breath"
+      }
+    ]
+  },
+  "tomato.click": {
+    "subtitle": "subtitles.chainsawman.tomato.click",
+    "sounds": [
+      {
+        "name": "chainsawman:tomato_click"
+      }
+    ]
+  },
+  "tomato.shriek": {
+    "subtitle": "subtitles.chainsawman.tomato.shriek",
+    "sounds": [
+      {
+        "name": "chainsawman:tomato_shriek"
+      }
+    ]
+  },
+  "tomato.squelch": {
+    "subtitle": "subtitles.chainsawman.tomato.squelch",
+    "sounds": [
+      {
+        "name": "chainsawman:tomato_squelch"
+      }
+    ]
+  },
+  "pochita.chew": {
+    "subtitle": "subtitles.chainsawman.pochita.chew",
+    "sounds": [
+      {
+        "name": "chainsawman:pochita_chew"
+      }
+    ]
   }
 }

@@ -2,8 +2,8 @@
  "note": "The Tomato Devil's pieces (tools/tomato_devil_3d.py)",
  "frame": "blocks; each piece in its own frame (see the tool)",
  "mesh": "tomato_parts_mesh.bin",
- "quads": 2283,
- "voxels": 6501,
+ "quads": 3358,
+ "voxels": 7122,
  "parts": [
   {
    "name": "upper",
@@ -104,7 +104,7 @@
    "voxels": 1088,
    "kind": "grab_eye",
    "radius": 0.2,
-   "quads": 461
+   "quads": 462
   },
   {
    "name": "seed",
@@ -119,6 +119,161 @@
    "voxels": 152,
    "kind": "grab_seed",
    "quads": 112
+  },
+  {
+   "name": "lid",
+   "index": 8,
+   "pivot": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "anim": null,
+   "voxel": 0.03125,
+   "voxels": 102,
+   "kind": "grab_lid",
+   "radius": 0.2,
+   "quads": 334
+  },
+  {
+   "name": "pupil",
+   "index": 9,
+   "pivot": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "anim": null,
+   "voxel": 0.03125,
+   "voxels": 12,
+   "kind": "grab_pupil",
+   "quads": 18
+  },
+  {
+   "name": "chunk",
+   "index": 10,
+   "pivot": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "anim": null,
+   "voxel": 0.0625,
+   "voxels": 227,
+   "kind": "grab_chunk",
+   "quads": 254
+  },
+  {
+   "name": "finger_l0",
+   "index": 11,
+   "pivot": [
+    -0.098,
+    -0.035,
+    0.345
+   ],
+   "anim": null,
+   "voxel": 0.03125,
+   "voxels": 34,
+   "kind": "grab_finger",
+   "quads": 59
+  },
+  {
+   "name": "finger_l1",
+   "index": 12,
+   "pivot": [
+    -0.033,
+    -0.035,
+    0.345
+   ],
+   "anim": null,
+   "voxel": 0.03125,
+   "voxels": 39,
+   "kind": "grab_finger",
+   "quads": 62
+  },
+  {
+   "name": "finger_l2",
+   "index": 13,
+   "pivot": [
+    0.033,
+    -0.035,
+    0.345
+   ],
+   "anim": null,
+   "voxel": 0.03125,
+   "voxels": 38,
+   "kind": "grab_finger",
+   "quads": 54
+  },
+  {
+   "name": "finger_l3",
+   "index": 14,
+   "pivot": [
+    0.098,
+    -0.035,
+    0.345
+   ],
+   "anim": null,
+   "voxel": 0.03125,
+   "voxels": 29,
+   "kind": "grab_finger",
+   "quads": 57
+  },
+  {
+   "name": "finger_r0",
+   "index": 15,
+   "pivot": [
+    0.098,
+    -0.035,
+    0.345
+   ],
+   "anim": null,
+   "voxel": 0.03125,
+   "voxels": 34,
+   "kind": "grab_finger",
+   "quads": 61
+  },
+  {
+   "name": "finger_r1",
+   "index": 16,
+   "pivot": [
+    0.033,
+    -0.035,
+    0.345
+   ],
+   "anim": null,
+   "voxel": 0.03125,
+   "voxels": 39,
+   "kind": "grab_finger",
+   "quads": 56
+  },
+  {
+   "name": "finger_r2",
+   "index": 17,
+   "pivot": [
+    -0.033,
+    -0.035,
+    0.345
+   ],
+   "anim": null,
+   "voxel": 0.03125,
+   "voxels": 38,
+   "kind": "grab_finger",
+   "quads": 58
+  },
+  {
+   "name": "finger_r3",
+   "index": 18,
+   "pivot": [
+    -0.098,
+    -0.035,
+    0.345
+   ],
+   "anim": null,
+   "voxel": 0.03125,
+   "voxels": 29,
+   "kind": "grab_finger",
+   "quads": 61
   }
  ],
  "posUnit": 32

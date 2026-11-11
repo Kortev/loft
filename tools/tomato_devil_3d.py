@@ -32,104 +32,112 @@ OUT = os.path.join(MAIN, 'work', 'tomato')
 OUT_ASSETS = os.path.join(ROOT, 'chainsawman', 'src', 'main', 'resources', 'assets', 'chainsawman', 'models', 'entity')
 
 hx = K.hx
-# A ripe tomato, glossy: dark in the creases, a hot red, a pale shine where the light lies on it.
-RED = [hx(c) for c in ('#3a0604', '#5e0a07', '#82110b', '#a5180f', '#c2231a', '#d8352a', '#e85040', '#f3765f')]
-LID = [hx(c) for c in ('#2e0504', '#4a0806', '#6a0d09', '#8a140d', '#a51d14')]
+# The show's tomato (the anime): a deep dark red, black-red in the creases, lighter only on the bulges, darker toward the underside;
+# thin stringy streaks of a paler orange-red run down it like the fibres of a split tomato.
+RED = [hx(c) for c in ('#1e0204', '#2e0406', '#430709', '#5a0b0c', '#721210', '#8a1a14', '#a2271c', '#b83a26')]
+STREAK = [hx(c) for c in ('#9a3220', '#bb4a2c', '#d2683e')]
+LID = [hx(c) for c in ('#260306', '#3a060a', '#520a0e', '#6c1214', '#86201a')]
+LIP = [hx(c) for c in ('#2a0408', '#40080c', '#5a0e12', '#761a18', '#922a20', '#ac3e2a')]
 GREEN = [hx(c) for c in ('#13260b', '#1f3d11', '#2e5719', '#3f7422', '#56912e')]
-INNER = [hx(c) for c in ('#120203', '#260405', '#3e0807', '#5e0e0b')]
-GUM = [hx(c) for c in ('#4e0a10', '#701420', '#8e2230')]
-TOOTH = [hx(c) for c in ('#8a7a50', '#bfae80', '#ddd0a8', '#f0e8cc')]
+INNER = [hx(c) for c in ('#0a0103', '#160204', '#240406', '#36080a')]
+GUM = [hx(c) for c in ('#3a060c', '#561018', '#701c22')]
+# The teeth: big, flat and blunt, a pale yellow-green like old bone.
+TOOTH = [hx(c) for c in ('#6c7048', '#98a068', '#bcc48a', '#d8dcac', '#ecedcc')]
 # Human arms: pale, a little grey and blotchy, red at the knuckles and elbows.
 SKIN = [hx(c) for c in ('#4c362e', '#6a4c40', '#876354', '#a07a68', '#b8917c', '#c9a690', '#d8baa4')]
 NAIL = hx('#d9c2b4')
-SCLERA = [hx(c) for c in ('#a89a84', '#cfc4ae', '#e6dcc8', '#f4ecdc')]
-VEIN = hx('#b0302a')
-IRIS = [hx(c) for c in ('#3a2208', '#6e4410', '#a0701c', '#c89a30')]
-PUPIL = hx('#050203')
+# The eyeballs: a warm off-white, greying to the back; a red-brown iris ringed darker; a black pupil; a wet highlight.
+SCLERA = [hx(c) for c in ('#8a7c72', '#b4a89c', '#d6ccc0', '#ece4d8', '#f8f2e8')]
+VEIN = hx('#a8302a')
+IRIS = [hx(c) for c in ('#3c1606', '#6a2c0c', '#98461a', '#b8622a', '#cc7a38')]
+PUPIL = hx('#080304')
+SHINE = hx('#fffaf2')
 SEED = [hx(c) for c in ('#9c8a58', '#cbb886', '#e6d8aa', '#f6eecb')]
 PULP = [hx(c) for c in ('#8a1a0e', '#b8301a', '#e05a2c')]
 
 RX = 1.30            # the body's half width
-RY = 1.06            # its half height
+RY = 1.02            # its half height (wider than tall, like a beefsteak tomato)
 UPPER = 1.30
 FORE = 1.20
 EYE_R = 0.20
+LOBES = 7            # the lobes running top to bottom
 
 
 # ---------------------------------------------------------------- the body
 
+_LUMP = K.Noise(21)
+
+
 def body_sdf(px, py, pz):
-    """The tomato: a squat ball with soft lobes round it, a dimple on top where the calyx sits, a little flat underneath."""
+    """The tomato: squat and lumpy, seven lobes running top to bottom with deep creases between, a dimple on top where the calyx sits,
+    a little flat underneath."""
     az = np.arctan2(px, pz)
     yy = np.clip(py / RY, -1, 1)
-    lobe = 1.0 + 0.045 * np.cos(5 * az + 0.4) * (1 - yy ** 2) + 0.015 * np.cos(11 * az) * (1 - yy ** 2)
+    band = np.clip(1 - yy ** 2, 0, 1)
+    # |sin| is 0 in a crease and 1 on a lobe's crown: creases sharp, crowns round
+    s = np.abs(np.sin(LOBES * 0.5 * az + 0.9))
+    lobe = 1.0 + band * (0.085 * np.sqrt(s) - 0.06)
     rx = RX * lobe
-    ry = np.where(py < 0, RY * 0.96, RY)
+    ry = np.where(py < 0, RY * 0.93, RY)
     k = np.sqrt((px / rx) ** 2 + (py / ry) ** 2 + (pz / rx) ** 2)
-    d = (k - 1.0) * 1.08
+    d = (k - 1.0) * 1.1
+    # lumps: soft swellings all over
+    d = d - 0.07 * (_LUMP.fbm(px, py, pz, 1.3, 2) - 0.5)
     rr = px ** 2 + pz ** 2
-    d = d + 0.20 * np.exp(-rr / 0.10) * (py > 0)
+    d = d + 0.22 * np.exp(-rr / 0.09) * (py > 0)
     return d
 
 
-MOUTH_Y = -0.03
-MOUTH_HY = 0.66      # half its height
-MOUTH_HX = 0.30      # half its width at the lips
+MOUTH_Y = -0.02
+MOUTH_HY = 0.80      # half its height: the mouth runs most of the body's height
+MOUTH_HX = 0.47      # half its width out to where the lips join the body
+SLIT = 0.21          # half the gap between the lips' inner edges at the middle, shut
+
+
+def mouth_w(y):
+    """Half the mouth's width at height y (to the lips' roots)."""
+    t = np.clip((y - MOUTH_Y) / MOUTH_HY, -1, 1)
+    return MOUTH_HX * np.sqrt(np.clip(1 - t ** 2, 0, 1)) ** 0.8
+
+
+def slit_w(y):
+    """Half the gap between the lips' inner edges at height y, shut."""
+    t = np.clip((y - MOUTH_Y) / MOUTH_HY, -1, 1)
+    return SLIT * np.sqrt(np.clip(1 - t ** 2, 0, 1)) + 0.01
 
 
 def in_mouth(px, py, pz):
-    """The lips' ellipse on the front, seen face on."""
-    return ((px / MOUTH_HX) ** 2 + ((py - MOUTH_Y) / MOUTH_HY) ** 2 < 1.0) & (pz > 0.5)
+    """The mouth's ellipse on the front, seen face on."""
+    return ((px / MOUTH_HX) ** 2 + ((py - MOUTH_Y) / MOUTH_HY) ** 2 < 1.0) & (pz > 0.3)
 
 
 def cavity_sdf(px, py, pz):
     """The inside of the mouth: a deep throat behind the lips."""
-    return K.ell(px, py, pz, (0.0, MOUTH_Y, 0.95), (0.27, 0.60, 0.50))
+    return K.ell(px, py, pz, (0.0, MOUTH_Y, 0.78), (0.40, 0.76, 0.58))
+
+
+# Where the eyes are: (azimuth, elevation in degrees; radius). About a dozen, each big; two biggest either side of the mouth, as the show's.
+EYES = [(33, 22, 0.31), (-33, 22, 0.31),
+        (17, 60, 0.19), (-19, 58, 0.20),
+        (57, -16, 0.23), (-56, -14, 0.24),
+        (27, -44, 0.15), (-29, -43, 0.16),
+        (96, 30, 0.27), (-97, 28, 0.27),
+        (118, -22, 0.20), (-116, -24, 0.19),
+        (178, 22, 0.30), (146, -16, 0.21), (-148, -14, 0.22)]
 
 
 def eye_list():
-    """Where the eyes are: all round, bigger at the front and round the middle, none on the calyx, the mouth's strip or the underside."""
-    rng = np.random.default_rng(7)
-    eyes = []
-    # hand placed: the big ones at the front either side of the mouth and over it
-    fixed = [(-0.62, 0.30, 0.215), (0.60, 0.36, 0.21), (-0.32, 0.72, 0.17), (0.34, 0.68, 0.16), (0.0, 0.86, 0.13),
-             (-0.80, -0.22, 0.17), (0.82, -0.18, 0.18), (-0.45, -0.62, 0.13), (0.47, -0.58, 0.12),
-             (-1.05, 0.30, 0.15), (1.05, 0.26, 0.15)]
-    tries = 0
-    pts = []
-    for (u, v, r) in fixed:
-        pts.append((u, v, r))
-    while len(pts) < 160 and tries < 4000:
-        tries += 1
-        az = rng.uniform(-math.pi, math.pi)
-        el = rng.uniform(-0.55, 0.95)
-        pts.append(('a', az, el, rng.uniform(0.09, 0.17)))
+    """Every eyeball: centre (bulging well out of its mound), outward normal, radius."""
     out = []
-    for p in pts:
-        if p[0] == 'a':
-            _, az, el, r = p
-            d = np.array([math.sin(az) * math.cos(el), math.sin(el), math.cos(az) * math.cos(el)])
-        else:
-            u, v, r = p
-            # u, v: where on the front (seen face on), on a unit sphere
-            w = math.sqrt(max(0.0, 1.0 - u * u * 0.6 - v * v * 0.6))
-            d = np.array([u, v, w])
-            d /= np.linalg.norm(d)
-        # walk the ray out to the surface
+    for az, el, r in EYES:
+        a, e = math.radians(az), math.radians(el)
+        d = np.array([math.sin(a) * math.cos(e), math.sin(e), math.cos(a) * math.cos(e)])
         c = surface_point(d)
-        n = surface_normal(c)
-        if n[1] > 0.88 or n[1] < -0.62:
-            continue
-        if abs(c[0]) < MOUTH_HX + r + 0.08 and c[2] > 0.4 and abs(c[1] - MOUTH_Y) < MOUTH_HY + 0.05:
-            continue
-        ok = True
-        for e in out:
-            if np.linalg.norm(np.array(e[:3]) - c) < (e[6] + r) * 1.4 + 0.05:
-                ok = False
-                break
-        if ok and len(out) < 26:
-            centre = c + n * r * 0.42
-            out.append([float(x) for x in centre] + [float(x) for x in n] + [float(r)])
+        n = surface_normal(c, 0.06)
+        n = (n + d * 0.6)
+        n /= np.linalg.norm(n)
+        centre = c + n * r * 0.30
+        out.append([float(x) for x in centre] + [float(x) for x in n] + [float(r)])
     return out
 
 
@@ -152,21 +160,41 @@ def surface_normal(p, e=0.02):
     return n / np.linalg.norm(n)
 
 
+def tangent_up(n):
+    """The way up along the skin at a point whose normal is n."""
+    u = np.array([0.0, 1.0, 0.0]) - n * n[1]
+    if np.linalg.norm(u) < 1e-3:
+        u = np.array([0.0, 0.0, 1.0])
+    return u / np.linalg.norm(u)
+
+
 def sepal_sdf(px, py, pz):
-    """The calyx: six green leaves lying out over the top from the stem, and the stem."""
-    d = K.caps(px, py, pz, (0, RY - 0.24, 0), (0, RY + 0.08, 0.02), 0.07, 0.05)
+    """The calyx: six green leaves lying out over the top from the stem, and the stem; and little green sprigs sprouting by some eyes."""
+    d = K.caps(px, py, pz, (0, RY - 0.24, 0), (0, RY + 0.10, 0.02), 0.07, 0.05)
     for k in range(6):
         a = k * math.pi / 3 + 0.25
         pts = []
         for i in range(6):
             t = i / 5
-            rad = 0.06 + 0.62 * t
-            y = surface_point(np.array([math.sin(a) * rad, RY, math.cos(a) * rad]) / np.linalg.norm([math.sin(a) * rad, RY, math.cos(a) * rad]))[1]
+            rad = 0.06 + 0.58 * t
+            v = np.array([math.sin(a) * rad, RY, math.cos(a) * rad])
+            y = surface_point(v / np.linalg.norm(v))[1]
             twist = 0.12 * math.sin(t * 3 + k)
             pts.append((math.sin(a + twist) * rad, y + 0.035, math.cos(a + twist) * rad))
         leaf = K.polyline(px, py, pz, pts, 0.085, 0.02)
-        # flattened: thin across the body's surface
         d = np.minimum(d, np.maximum(leaf, np.abs(py - interp_y(px, pz, pts)) - 0.035))
+    # sprigs: two or three thin curled leaves standing out of the skin just above an eye, as the show's has
+    for (az, el, r), e in zip(EYES, eye_list()):
+        if r < 0.2:
+            continue
+        c, n = np.array(e[:3]), np.array(e[3:6])
+        up = tangent_up(n)
+        side = np.cross(n, up)
+        root = c - n * r * 0.30 + up * r * 1.30
+        for j, sd in enumerate((-1.0, 0.0, 1.0) if r > 0.25 else (-1.0, 1.0)):
+            tip = root + n * 0.20 + up * 0.10 + side * sd * 0.13
+            mid = root + n * 0.13 + up * 0.02 + side * sd * 0.05
+            d = np.minimum(d, K.polyline(px, py, pz, [tuple(root - n * 0.05), tuple(mid), tuple(tip)], 0.032, 0.012))
     return d
 
 
@@ -177,63 +205,88 @@ def interp_y(px, pz, pts):
     return np.interp(rr, rs, ys)
 
 
+def red_paint(ctx, ramp=RED, base=0.52):
+    """The skin: dark, lighter on the bulges and on top, black-red in the creases and underneath, with pale stringy streaks running down."""
+    n = ctx.noise.fbm(ctx.px, ctx.py, ctx.pz, 2.2)
+    n2 = ctx.noise(ctx.px + 5.1, ctx.py, ctx.pz, 6.0)
+    L = np.array([-0.35, 0.85, 0.4])
+    L /= np.linalg.norm(L)
+    lit = (ctx.normal * L).sum(-1)
+    t = base + 0.26 * lit + (n - 0.5) * 0.16 - ctx.ao * 0.75
+    # the underside darker (a maroon), the bulges' crowns catching the light
+    t = t - 0.18 * np.clip(-ctx.py / RY, 0, 1)
+    t = t + 0.18 * np.clip((lit - 0.75) * 4.0, 0, 1)
+    col = K.pick(ramp, t, n2, 0.08)
+    # the fibres: thin streaks running down the lobes, paler, most on the upper half
+    fib = ctx.noise(ctx.px * 9.0, ctx.py * 0.9, ctx.pz * 9.0, 1.0)
+    streak = (np.abs(fib - 0.5) < 0.016) & (ctx.py > -0.4 * RY) & (ctx.ao < 0.35)
+    col = np.where(streak[..., None], K.pick(STREAK, 0.4 + 0.5 * lit, n2), col)
+    # darker veins branching over it
+    vein = np.abs(ctx.noise.fbm(ctx.px * 1.7 + 4.0, ctx.py * 1.7, ctx.pz * 1.7, 2.0) - 0.5) < 0.012
+    col = np.where((vein & ~streak)[..., None], col * 0.55, col)
+    # the wet: a pale glossy sheen on the bulges where the light lies, broken up
+    wet = (lit > 0.84) & (ctx.ao < 0.12) & (ctx.noise(ctx.px * 4.0, ctx.py * 4.0, ctx.pz * 4.0, 1.0) > 0.62)
+    col = np.where(wet[..., None], col * 0.45 + hx('#e8a090') * 0.55, col)
+    return col
+
+
 def body_model():
     eyes = eye_list()
     noise = K.Noise(3)
     s = K.S16
-    lo, hi = (-1.5, -1.25, -1.5), (1.5, 1.45, 1.5)
+    lo, hi = (-1.55, -1.25, -1.55), (1.55, 1.45, 1.6)
 
-    def lids(px, py, pz):
+    def mounds(px, py, pz):
+        """The flesh each eye sits in: a swelling round it, wrapping the ball up to a lid line (the upper lid heavier)."""
         d = None
         for e in eyes:
             c, n, r = np.array(e[:3]), np.array(e[3:6]), e[6]
-            base = c - n * r * 0.42
-            ring = K.sphere(px, py, pz, base + n * r * 0.18, r * 1.32)
-            hole = K.sphere(px, py, pz, c + n * r * 0.55, r * 1.02)
-            di = np.maximum(ring, -hole)
-            d = di if d is None else np.minimum(d, di)
+            up = tangent_up(n)
+            m = K.sphere(px, py, pz, c - n * r * 0.20, r * 1.30)
+            ncut = n - 0.38 * up
+            ncut /= np.linalg.norm(ncut)
+            cut = (px - c[0]) * ncut[0] + (py - c[1]) * ncut[1] + (pz - c[2]) * ncut[2] - r * 0.22
+            m = np.maximum(m, cut)
+            d = m if d is None else np.minimum(d, m)
         return d
 
     def sockets(px, py, pz):
         d = None
         for e in eyes:
             c, r = np.array(e[:3]), e[6]
-            di = K.sphere(px, py, pz, c, r * 1.02)
+            di = K.sphere(px, py, pz, c, r * 1.03)
             d = di if d is None else np.minimum(d, di)
         return d
 
     def layers_body(px, py, pz):
         b = body_sdf(px, py, pz)
+        mo = mounds(px, py, pz)
+        bm = K.smin(b, mo, 0.10)
         cav = cavity_sdf(px, py, pz)
         mouth = in_mouth(px, py, pz)
-        shell = np.where(mouth, 1.0, b)                       # the lips are parts of their own
-        throat =np.maximum(np.maximum(b, cav - 0.1), -cav)    # a lining 0.1 thick round the cavity
-        flesh = np.maximum(shell, -cav)
-        flesh = np.maximum(flesh, -sockets(px, py, pz))
-        ld = np.maximum(lids(px, py, pz), -sockets(px, py, pz))
-        ld = np.maximum(ld, -cav)
-        out = [('flesh', flesh), ('gum', np.maximum(throat, -(b + 0.06))), ('inner', np.maximum(throat, b + 0.06)), ('lid', ld),
-               ('green', sepal_sdf(px, py, pz))]
-        return out
+        shell = np.where(mouth, 1.0, bm)                       # the lips are parts of their own
+        throat = np.maximum(np.maximum(b, cav - 0.1), -cav)    # a lining 0.1 thick round the cavity
+        sk = sockets(px, py, pz)
+        flesh = np.maximum(np.maximum(shell, -cav), -sk)
+        ld = np.maximum(np.maximum(np.where(mouth, 1.0, mo), -sk), -cav)
+        ld = np.maximum(ld, -(b - 0.03))                       # only what stands out of the skin is the lid's
+        return [('flesh', flesh), ('gum', np.maximum(throat, -(b + 0.06))), ('inner', np.maximum(throat, b + 0.06)), ('lid', ld),
+                ('green', sepal_sdf(px, py, pz))]
 
     def paint(ctx):
         n = ctx.noise.fbm(ctx.px, ctx.py, ctx.pz, 2.2)
         n2 = ctx.noise(ctx.px + 5.1, ctx.py, ctx.pz, 6.0)
-        L = np.array([-0.45, 0.8, 0.4])
+        L = np.array([-0.35, 0.85, 0.4])
         L /= np.linalg.norm(L)
         lit = (ctx.normal * L).sum(-1)
-        t = 0.55 + 0.32 * lit + (n - 0.5) * 0.25 - ctx.ao * 0.5
-        # the shine: a soft highlight where the light lies, and a narrow hot one at its middle
-        t = t + 0.25 * np.clip((lit - 0.72) * 5.0, 0, 1)
-        col = K.pick(RED, t, n2, 0.35)
+        col = red_paint(ctx)
         em = np.zeros(ctx.px.shape, np.float32)
         top = ctx.py > RY - 0.55
         rr = np.sqrt(ctx.px ** 2 + ctx.pz ** 2)
-        # a greenish-orange blush round the calyx, as a tomato has
-        blush = top & (rr < 0.55) & ctx.is_('flesh')
-        col = np.where(blush[..., None], col * 0.75 + hx('#7a4a14') * 0.25, col)
+        blush = top & (rr < 0.45) & ctx.is_('flesh')
+        col = np.where(blush[..., None], col * 0.8 + hx('#4a3410') * 0.2, col)
         m = ctx.is_('lid')
-        col = np.where(m[..., None], K.pick(LID, 0.5 + 0.35 * lit + (n - 0.5) * 0.4 - ctx.ao * 0.6, n2), col)
+        col = np.where(m[..., None], K.pick(LID, 0.55 + 0.35 * lit + (n - 0.5) * 0.4 - ctx.ao * 0.9, n2), col)
         m = ctx.is_('green')
         col = np.where(m[..., None], K.pick(GREEN, 0.45 + 0.4 * lit + (n - 0.5) * 0.5, n2), col)
         m = ctx.is_('inner')
@@ -247,40 +300,71 @@ def body_model():
     def lip_layers(side):
         def f(px, py, pz):
             b = body_sdf(px, py, pz)
-            cav = cavity_sdf(px, py, pz)
             mouth = in_mouth(px, py, pz)
-            lip = np.where(mouth & (side * px > 0.0), b, 1.0)
-            # a lip is the skin over the mouth, 0.16 thick, with a rolled edge where the halves meet
-            lip = np.maximum(lip, -(b + 0.16))
-            edge = K.caps(px, py, pz, (side * 0.03, MOUTH_Y - MOUTH_HY * 0.92, 1.02), (side * 0.03, MOUTH_Y + MOUTH_HY * 0.92, 1.02), 0.05)
-            edge = np.maximum(edge, b - 0.02)
-            lipd = np.minimum(lip, np.where(side * px > 0.0, edge, 1.0))
+            inner = slit_w(py)
+            half = mouth & (side * px > inner)
+            # the lip's flesh: the skin over its half of the mouth, 0.18 thick, swelling out toward the slit
+            t = np.clip((side * px - inner) / np.maximum(mouth_w(py) - inner, 1e-3), 0, 1)
+            swell = 0.10 * np.sin(np.clip(t, 0, 1) * math.pi * 0.75 + 0.35)
+            skin = b - swell
+            lip = np.where(half, np.maximum(skin, -(b + 0.18)), 1.0)
+            # the rolled edge along the slit: thick in the middle, thin at the corners
+            pts = []
+            for i in range(17):
+                tt = -0.97 + i * (1.94 / 16)
+                y = MOUTH_Y + tt * MOUTH_HY
+                x = side * (float(slit_w(np.array(y))) + 0.11)
+                v = np.array([x, y, 1.0])
+                z = surface_point(v / np.linalg.norm(v))[2] + 0.02
+                pts.append((x, y, z))
+            rope = None
+            for i in range(16):
+                tt = -0.97 + (i + 0.5) * (1.94 / 16)
+                rad = 0.045 + 0.085 * math.sqrt(max(0.0, 1 - tt * tt))
+                seg = K.caps(px, py, pz, pts[i], pts[i + 1], rad)
+                rope = seg if rope is None else np.minimum(rope, seg)
+            lipd = K.smin(lip, rope, 0.05)
             lipd = np.maximum(lipd, -(side * px - 0.004))
-            # teeth along the inner edge, behind the lip: uneven pegs
+            # the teeth: two long rows along the inside of the lip, big flat blunt pegs pointing across the slit (they show when shut)
             teeth = None
-            for i in range(9):
-                y = MOUTH_Y - MOUTH_HY * 0.78 + i * (MOUTH_HY * 1.56 / 8)
-                wid = MOUTH_HX * math.sqrt(max(0.05, 1 - ((y - MOUTH_Y) / MOUTH_HY) ** 2))
-                zc = surface_point(np.array([0.0, y, 1.0]) / np.linalg.norm([0.0, y, 1.0]))[2] - 0.13
-                ln = 0.07 + 0.03 * ((i * 7) % 3)
-                t = K.caps(px, py, pz, (side * 0.09, y, zc), (side * (0.09 - ln), y + 0.01 * ((i % 2) * 2 - 1), zc - 0.01), 0.035, 0.016)
-                teeth = t if teeth is None else np.minimum(teeth, t)
+            for row, (back, n_t, off) in enumerate(((0.035, 13, 0.0), (0.12, 12, 0.5))):
+                for i in range(n_t):
+                    tt = -0.86 + (i + off) * (1.72 / (n_t - 1 + off))
+                    if abs(tt) > 0.9:
+                        continue
+                    y = MOUTH_Y + tt * MOUTH_HY
+                    sw = float(slit_w(np.array(y)))
+                    v = np.array([side * sw, y, 1.0])
+                    zc = surface_point(v / np.linalg.norm(v))[2] - back
+                    root_x = side * (sw + 0.09)
+                    tip_x = side * max(0.03, sw - 0.09 - 0.03 * ((i * 7 + row) % 3) + (0.0 if row == 0 else 0.03))
+                    hy = 0.033 * (0.7 + 0.3 * math.sqrt(max(0.0, 1 - tt * tt)))
+                    tth = K.box(px, py, pz, ((root_x + tip_x) / 2, y, zc), (abs(root_x - tip_x) / 2, hy, 0.035), 0.022)
+                    teeth = tth if teeth is None else np.minimum(teeth, tth)
             teeth = np.maximum(teeth, -(side * px - 0.004))
             return [('flesh', lipd), ('tooth', teeth)]
         return f
 
     def lip_paint(ctx):
-        col, em = paint(ctx)
-        n = ctx.noise(ctx.px * 2, ctx.py * 2, ctx.pz * 2, 5.0)
+        n = ctx.noise.fbm(ctx.px, ctx.py, ctx.pz, 2.2)
+        n2 = ctx.noise(ctx.px + 5.1, ctx.py, ctx.pz, 6.0)
+        L = np.array([-0.35, 0.85, 0.4])
+        L /= np.linalg.norm(L)
+        lit = (ctx.normal * L).sum(-1)
+        col = K.pick(LIP, 0.68 + 0.3 * lit + (n - 0.5) * 0.3 - ctx.ao * 0.7, n2, 0.35)
+        # wrinkles running along the lip, and pale stringy streaks
+        rid = np.abs(np.sin((np.abs(ctx.px) * 46.0 + (n - 0.5) * 3.0)))
+        col = np.where((rid < 0.22)[..., None], col * 0.62, col)
+        fib = ctx.noise(ctx.px * 10.0, ctx.py * 0.8, ctx.pz * 10.0, 1.0)
+        col = np.where(((np.abs(fib - 0.5) < 0.04) & (ctx.ao < 0.4))[..., None], K.pick(STREAK, 0.3 + 0.5 * lit, n2), col)
+        nn = ctx.noise(ctx.px * 2, ctx.py * 2, ctx.pz * 2, 5.0)
         m = ctx.is_('tooth')
-        col = np.where(m[..., None], K.pick(TOOTH, 0.75 - ctx.ao * 0.6 + (n - 0.5) * 0.4, n), col)
-        # the lips' edge darker, where they meet
-        edge = (np.abs(ctx.px) < 0.07) & ctx.is_('flesh')
-        col = np.where(edge[..., None], col * 0.62, col)
+        col = np.where(m[..., None], K.pick(TOOTH, 0.85 - ctx.ao * 1.4 + (nn - 0.5) * 0.35 + 0.15 * lit, nn), col)
+        em = np.zeros(ctx.px.shape, np.float32)
         return col, em
 
-    lip_l = K.voxelize('lip_l', (-0.45, -0.8, 0.4), (0.06, 0.75, 1.45), s, lip_layers(-1.0), lip_paint, noise, min_nb=2)
-    lip_r = K.voxelize('lip_r', (-0.06, -0.8, 0.4), (0.45, 0.75, 1.45), s, lip_layers(1.0), lip_paint, noise, min_nb=2)
+    lip_l = K.voxelize('lip_l', (-0.62, -0.86, 0.3), (0.06, 0.84, 1.5), s, lip_layers(-1.0), lip_paint, noise, min_nb=2)
+    lip_r = K.voxelize('lip_r', (-0.06, -0.86, 0.3), (0.62, 0.84, 1.5), s, lip_layers(1.0), lip_paint, noise, min_nb=2)
     m = K.Model('tomato_body', 'blocks, the body centre at the origin, its mouth toward +Z, up +Y')
     m.add(body, pivot=(0, 0, 0), anim=None, kind='body')
     piv_l = surface_point(np.array([-MOUTH_HX, MOUTH_Y, 1.2]) / np.linalg.norm([-MOUTH_HX, MOUTH_Y, 1.2]))
@@ -288,6 +372,32 @@ def body_model():
     m.add(lip_l, pivot=[float(x) for x in piv_l], anim=None, kind='grab_lip')
     m.add(lip_r, pivot=[float(x) for x in piv_r], anim=None, kind='grab_lip')
     return m, eyes
+
+
+def chunk_grid(noise):
+    """A chunk of its skin thrown off when it bursts: a ragged curved shard of the body's shell, about 0.8 across, red outside and pulp and
+    seeds inside, its outside toward +Z, its middle at the origin."""
+    def f(px, py, pz):
+        c = np.array([0.0, 0.0, -1.25])
+        d = K.sphere(px, py, pz, c, 1.3)
+        shell = np.maximum(d, -(d + 0.13))
+        rr = np.sqrt(px ** 2 + py ** 2)
+        ang = np.arctan2(py, px)
+        edge = 0.36 + 0.07 * np.sin(ang * 5 + 1.0) + 0.05 * np.sin(ang * 9 + 2.0)
+        shell = np.maximum(shell, rr - edge)
+        inner = np.maximum(shell, -(d + 0.07))
+        return [('flesh', shell), ('pulp', inner)]
+
+    def paint(ctx):
+        col = red_paint(ctx)
+        n = ctx.noise(ctx.px * 3, ctx.py * 3, ctx.pz * 3, 7.0)
+        m = ctx.is_('pulp')
+        col = np.where(m[..., None], K.pick(PULP, 0.5 + (n - 0.5) * 0.8, n), col)
+        seed = m & (n > 0.82)
+        col = np.where(seed[..., None], SEED[2], col)
+        return col, np.zeros(ctx.px.shape, np.float32)
+
+    return K.voxelize('chunk', (-0.48, -0.48, -0.3), (0.48, 0.48, 0.12), K.S16, f, paint, noise, min_nb=2)
 
 
 # ---------------------------------------------------------------- the pieces
@@ -359,14 +469,17 @@ def parts_model():
 
     KNUCKLE_Z = 0.345
 
-    def fingers(side):
+    FXS = [0.098, 0.033, -0.033, -0.098]
+    FLS = [0.27, 0.31, 0.29, 0.22]
+
+    def fingers(side, only=None):
         def f(px, py, pz):
             d = None
             nails = None
             # index (next to the thumb) to little finger
-            xs = [0.098, 0.033, -0.033, -0.098]
-            ls = [0.27, 0.31, 0.29, 0.22]
-            for x, ln in zip(xs, ls):
+            for j, (x, ln) in enumerate(zip(FXS, FLS)):
+                if only is not None and j != only:
+                    continue
                 x = side * x
                 a = (x, -0.035, KNUCKLE_Z - 0.02)
                 b = (x * 1.04, -0.045, KNUCKLE_Z + ln * 0.55)
@@ -383,7 +496,22 @@ def parts_model():
     fr = K.voxelize('fingers_r', (-0.2, -0.12, 0.28), (0.2, 0.03, 0.72), s, fingers(1.0),
                     lambda c: skin_paint(c, lambda cc: cc.pz < KNUCKLE_Z + 0.04), noise)
 
-    # an eyeball: bloodshot, a yellow-brown iris and a black pupil looking along +Z
+    # each finger on its own, hinged at its knuckle, so they can land and press one after another, tap and feel about
+    single = []
+    for side, sn in ((-1.0, 'l'), (1.0, 'r')):
+        for j in range(4):
+            g = K.voxelize('finger_%s%d' % (sn, j), (-0.2, -0.12, 0.28), (0.2, 0.03, 0.72), s, fingers(side, j),
+                           lambda c: skin_paint(c, lambda cc: cc.pz < KNUCKLE_Z + 0.04), noise)
+            single.append((g, (side * FXS[j], -0.035, KNUCKLE_Z)))
+
+    # a pupil: a black lens laid on the front of the eye, drawn at whatever size the eye's mood says (wide wandering, a pinprick on you)
+    def pupil(px, py, pz):
+        return [('pupil', np.maximum(K.ell(px, py, pz, (0, 0, EYE_R * 0.93), (0.07, 0.07, 0.05)), -K.sphere(px, py, pz, (0, 0, 0), EYE_R * 0.995)))]
+
+    pu = K.voxelize('pupil', (-0.1, -0.1, 0.12), (0.1, 0.1, 0.26), s, pupil, lambda c: (np.tile(PUPIL, c.px.shape + (1,)), np.zeros(c.px.shape, np.float32)),
+                    noise, keep_specks=True)
+
+    # an eyeball: a big white ball, a red-brown iris ringed darker, a black pupil looking along +Z, a wet highlight up on its left
     def eye(px, py, pz):
         return [('sclera', K.sphere(px, py, pz, (0, 0, 0), EYE_R))]
 
@@ -391,16 +519,39 @@ def parts_model():
         n = ctx.noise(ctx.px * 3, ctx.py * 3, ctx.pz * 3, 6.0)
         r = np.sqrt(ctx.px ** 2 + ctx.py ** 2 + ctx.pz ** 2) + 1e-6
         fz = ctx.pz / r
-        col = K.pick(SCLERA, 0.75 + (n - 0.5) * 0.4 - (1 - fz) * 0.3, n)
-        veins = (np.abs(ctx.noise.fbm(ctx.px * 4, ctx.py * 4, ctx.pz * 4, 2.0) - 0.5) < 0.025) & (fz < 0.7)
+        col = K.pick(SCLERA, 0.92 + (n - 0.5) * 0.25 - (1 - fz) * 0.45, n, 0.3)
+        veins = (np.abs(ctx.noise.fbm(ctx.px * 4, ctx.py * 4, ctx.pz * 4, 2.0) - 0.5) < 0.02) & (fz < 0.45)
         col = np.where(veins[..., None], VEIN, col)
-        iris = fz > 0.80
-        col = np.where(iris[..., None], K.pick(IRIS, (fz - 0.8) * 4.0 + (n - 0.5) * 0.4, n), col)
-        col = np.where((fz > 0.935)[..., None], PUPIL, col)
-        em = np.where(fz > 0.80, 0.0, 0.08).astype(np.float32)
+        iris = fz > 0.86
+        # the iris: darker at its rim, warm toward the pupil
+        col = np.where(iris[..., None], K.pick(IRIS, (fz - 0.86) * 9.0 + 0.25 + (n - 0.5) * 0.3, n, 0.3), col)
+        col = np.where(((fz > 0.86) & (fz < 0.885))[..., None], IRIS[0], col)
+        col = np.where((fz > 0.985)[..., None], PUPIL, col)
+        shine = ((ctx.px / r + 0.26) ** 2 + (ctx.py / r - 0.28) ** 2 < 0.012) & (fz > 0.8)
+        col = np.where(shine[..., None], SHINE, col)
+        em = np.where(fz > 0.86, 0.3, 0.75).astype(np.float32)
+        em = np.where(shine, 0.5, em)
         return col, em
 
     ey = K.voxelize('eye', (-0.24, -0.24, -0.24), (0.24, 0.24, 0.24), s, eye, eye_paint, noise)
+
+    # a lid: a quarter shell of flesh over the eye's front and top (the eye's frame); turned back it hides in the mound, turned
+    # forward (with its twin turned up from below) it shuts the eye
+    def lid(px, py, pz):
+        sh = np.maximum(K.sphere(px, py, pz, (0, 0, 0), EYE_R * 1.13), -K.sphere(px, py, pz, (0, 0, 0), EYE_R * 1.035))
+        sh = np.maximum(sh, np.maximum(-py + 0.004, -pz - 0.02))
+        rim = K.caps(px, py, pz, (-EYE_R, 0.012, 0.0), (EYE_R, 0.012, 0.0), 0.022)
+        rim = np.maximum(rim, -K.sphere(px, py, pz, (0, 0, 0), EYE_R * 1.03))
+        rim = np.maximum(rim, K.sphere(px, py, pz, (0, 0, 0), EYE_R * 1.16))
+        return [('flesh', np.minimum(sh, np.maximum(rim, -pz - 0.02)))]
+
+    def lid_paint(ctx):
+        n = ctx.noise.fbm(ctx.px, ctx.py, ctx.pz, 6.0)
+        n2 = ctx.noise(ctx.px + 5.1, ctx.py, ctx.pz, 12.0)
+        col = K.pick(LID, 0.6 + 0.3 * ctx.normal[..., 1] + (n - 0.5) * 0.4 - 0.5 * (ctx.py < 0.03), n2)
+        return col, np.zeros(ctx.px.shape, np.float32)
+
+    li = K.voxelize('lid', (-0.25, -0.05, -0.05), (0.25, 0.25, 0.25), s, lid, lid_paint, noise, min_nb=1)
 
     # a seed: a pale flat teardrop in a red jelly, pointing +Z
     def seed(px, py, pz):
@@ -429,6 +580,11 @@ def parts_model():
     m.add(fr, pivot=(0, -0.035, KNUCKLE_Z), kind='grab_fingers')
     m.add(ey, pivot=(0, 0, 0), kind='grab_eye', radius=EYE_R)
     m.add(se, pivot=(0, 0, 0), kind='grab_seed')
+    m.add(li, pivot=(0, 0, 0), kind='grab_lid', radius=EYE_R)
+    m.add(pu, pivot=(0, 0, 0), kind='grab_pupil')
+    m.add(chunk_grid(noise), pivot=(0, 0, 0), kind='grab_chunk')
+    for g, piv in single:
+        m.add(g, pivot=piv, kind='grab_finger')
     return m
 
 
@@ -438,6 +594,9 @@ SHOULDER_R = 0.72
 SHOULDER_Y = -0.86
 CENTRE_Y = 2.45
 HAND_R = 1.95
+# How the game draws the pieces (TomatoDevilRenderer): the arms' thickness across, the hands' size.
+ARM_THICK = (1.34, 1.0, 1.34)
+HAND_SCALE = 1.56
 
 
 def ik(s, w, pole):
@@ -472,9 +631,9 @@ def preview():
         items.append(fc)
     byname = {md['name']: g for g, md in zip(pm.grids, pm.meta)}
 
-    def place(name, R, t, scale=1.0):
+    def place(name, R, t, scale=1.0, axes=(1.0, 1.0, 1.0)):
         fc = K.Faces(byname[name])
-        fc.p = (fc.p * scale) @ R.T + t
+        fc.p = (fc.p * scale * np.array(axes)) @ R.T + t
         fc.n = fc.n @ R.T
         fc.ns = fc.ns @ R.T
         fc.scale = fc.scale * scale
@@ -497,30 +656,32 @@ def preview():
         s = np.array([out[0] * SHOULDER_R, CENTRE_Y + SHOULDER_Y, out[2] * SHOULDER_R])
         w = np.array([out[0] * HAND_R, 0.085, out[2] * HAND_R])
         e = ik(s, w, out + np.array([0, 1.2, 0]))
-        place('upper', frame_y(e - s, -out), s)
-        place('fore', frame_y(w - e, -out), e)
+        # (as the game draws them: arms 1.4 thick, hands 1.56 big)
+        place('upper', frame_y(e - s, -out), s, 1.0, ARM_THICK)
+        place('fore', frame_y(w - e, -out), e, 1.0, ARM_THICK)
         side = 1.0 if math.sin(az) < 0 else -1.0
         hz = out
         hxv = np.cross([0, 1, 0], hz)
         hxv /= np.linalg.norm(hxv)
         R = np.stack([hxv, np.array([0, 1.0, 0]), hz], axis=1)
-        place('hand_r' if side > 0 else 'hand_l', R, w)
-        place('fingers_r' if side > 0 else 'fingers_l', R, w)
+        place('hand_r' if side > 0 else 'hand_l', R, w, HAND_SCALE)
+        place('fingers_r' if side > 0 else 'fingers_l', R, w, HAND_SCALE)
     lights = [((-0.4, 0.9, 0.5), (1.0, 0.95, 0.85), 0.75), ((0.6, 0.3, -0.6), (0.7, 0.75, 0.9), 0.25)]
     rims = [((0.8, 0.4, -0.3), (255, 150, 90), 0.5)]
     tiles = []
-    for yaw, pitch, dist in [(90, 8, 8.5), (30, 15, 8.0), (0, 10, 7.5), (200, 20, 8.0), (60, 45, 9.0), (90, 2, 6.5)]:
+    for yaw, pitch, dist, cy in [(0, 6, 4.2, CENTRE_Y), (35, 10, 4.6, CENTRE_Y), (90, 6, 4.6, CENTRE_Y), (0, 10, 7.5, 1.6), (40, 15, 8.0, 1.6), (180, 15, 5.0, CENTRE_Y)]:
         a, p = math.radians(yaw), math.radians(pitch)
-        centre = np.array([0, 1.6, 0])
+        centre = np.array([0, cy, 0])
         pos = centre + dist * np.array([math.sin(a) * math.cos(p), math.sin(p), math.cos(a) * math.cos(p)])
         cam = K.Camera(pos, centre, fov=50, size=(360, 360))
         im = K.render(items, cam, lights, rims, ambient=0.55, bg=(120, 150, 190))
         tiles.append(ED.label(im, 'yaw %d pitch %d' % (yaw, pitch), 12))
-    os.makedirs(OUT, exist_ok=True)
+    out = os.environ.get('TOMATO_PREVIEW', os.path.join(OUT, 'look_rest.png'))
+    os.makedirs(os.path.dirname(out), exist_ok=True)
     sheet = ED.sheet(tiles, 3)
     from PIL import Image
-    Image.fromarray(sheet).save(os.path.join(OUT, 'look_rest.png'))
-    print('wrote', os.path.join(OUT, 'look_rest.png'))
+    Image.fromarray(sheet).save(out)
+    print('wrote', out)
 
 
 def build():
@@ -558,31 +719,33 @@ def textures():
                     c = (60, 6, 6) if rng.random() > 0.18 else (236, 214, 150)
                 im[y, x] = (*c, 255)
     Image.fromarray(im, 'RGBA').save(os.path.join(TEX, 'entity', 'tomato_gash.png'))
-    # the splat: 64x64, a blot of red juice with droplets thrown out and seeds in it
+    # the splat: 64x64, one ring of red juice thrown out round where it burst (thick at its rim, thin inside), a few seeds in it
     n = 64
     im = np.zeros((n, n, 4), np.uint8)
     yy, xx = np.mgrid[0:n, 0:n]
     cx = cy = n / 2
     ang = np.arctan2(yy - cy, xx - cx)
     r = np.hypot(xx - cx, yy - cy) / (n / 2)
-    edge = 0.55 + 0.12 * np.sin(ang * 7 + 1) + 0.08 * np.sin(ang * 13 + 2) + 0.05 * np.sin(ang * 23)
+    edge = 0.86 + 0.05 * np.sin(ang * 7 + 1) + 0.03 * np.sin(ang * 13 + 2) + 0.02 * np.sin(ang * 23)
     blot = r < edge
-    for _ in range(26):
-        a = rng.uniform(0, 2 * np.pi)
-        d = rng.uniform(0.6, 0.95)
-        s = rng.uniform(0.03, 0.08)
-        blot |= np.hypot(xx - (cx + np.cos(a) * d * n / 2), yy - (cy + np.sin(a) * d * n / 2)) / (n / 2) < s
-    shade = np.clip(1.0 - r * 0.5 + rng.uniform(-0.08, 0.08, (n, n)), 0.4, 1.0)
-    im[..., 0] = (170 * shade).astype(np.uint8)
-    im[..., 1] = (22 * shade).astype(np.uint8)
+    rim = (r > edge - 0.2) & blot
+    shade = np.clip(0.85 + rng.uniform(-0.08, 0.08, (n, n)), 0.4, 1.0)
+    shade = np.where(rim, shade * 0.75, shade)
+    im[..., 0] = (165 * shade).astype(np.uint8)
+    im[..., 1] = (18 * shade).astype(np.uint8)
     im[..., 2] = (14 * shade).astype(np.uint8)
-    im[..., 3] = np.where(blot, np.clip(235 - r * 60, 120, 235), 0).astype(np.uint8)
+    im[..., 3] = np.where(rim, 235, np.where(blot, np.clip(60 + r * 90, 60, 150), 0)).astype(np.uint8)
     for _ in range(14):
         x, y = rng.integers(14, 50, 2)
         if blot[y, x]:
             im[y, x] = (236, 216, 150, 255)
             im[y, min(n - 1, x + 1)] = (220, 196, 128, 255)
     Image.fromarray(im, 'RGBA').save(os.path.join(TEX, 'entity', 'tomato_splat.png'))
+    # a strand of spit and juice: 4x4, pinkish red, a pale wet line down its middle, see-through at its edges
+    st = np.zeros((4, 4, 4), np.uint8)
+    for v in range(4):
+        st[v, :] = (150, 30, 30, 120) if v in (0, 3) else (215, 120, 110, 220)
+    Image.fromarray(st, 'RGBA').save(os.path.join(TEX, 'entity', 'tomato_strand.png'))
     # the carcass: 16x16, a burst red husk with an eye and a limp hand
     pal = {'.': (0, 0, 0, 0), 'r': (194, 35, 26, 255), 'R': (232, 80, 64, 255), 'd': (110, 14, 10, 255), 'k': (60, 6, 6, 255),
            'g': (63, 116, 34, 255), 'G': (40, 80, 22, 255), 'w': (238, 230, 214, 255), 'p': (20, 10, 6, 255), 's': (201, 166, 144, 255),
