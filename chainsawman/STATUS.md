@@ -12,15 +12,15 @@ Updated 2026-11-10. Keep this page under 3 KB. Change it whenever something star
 
 ## Running
 
-Four builders started 2026-11-11, each on its own branch with a brief in `plan/packages/`. Review, run all
+Builders started 2026-11-11, each on its own branch with a brief in `plan/packages/`. Review, run all
 tests, merge one at a time (shared files: `Devils.java`, `en_us.json`, `sounds.json`), then send the film.
-- `first-night` (2.2a): the Tomato's staged arrival as its chance night spawn, 3 quiet nights after.
+- Merged (291 tests): 2.2a the Tomato's staged arrival as its chance night spawn, 3 quiet nights after.
 - `notice-board` (2.1a): village board, licence, yen. `leech-devil` (3.3): model and fight.
-- `saw-swings` (0.1d): Chainsaw Man's arm swings. Also: fact sheets for the Bat and Zombie Devils.
+- `saw-swings` (0.1d): Chainsaw Man's arm swings. `hotel-walk` (0.1e): stairs bug, seamless loop.
 - kortev (2026-11-11): as many reels as possible from every thing built: keep raw footage, list reel ideas.
 - Next: 3.9 devils grow (`bible/devil_strength.md`), then the office and shop. Scope: one player, friends ok.
-- Merged: Tomato round 2, seeds in 3 hits (283 tests), the teaser (`work/tomato/teaser.mp4`, kortev posts it).
-- The Eternity Devil is parked (`packages/0.1c_devil_big_pass.md`). Plan pages `4e`, `4f`: Fable's picks.
+- Merged earlier: Tomato round 2, seeds in 3 hits, the teaser (kortev posts `work/tomato/teaser.mp4`).
+- Eternity: kortev finds the fight boring and the hotel ugly; new direction in `packages/0.1c_devil_big_pass.md`.
 - Flaky in full runs, pass alone: `each_fighter_gets_the_whole_drop`, two form tests, a Beam missile test.
 
 ## Waiting on kortev
