@@ -27,7 +27,8 @@
 		"ReelDreamMixin",
 		"ReelLensMixin",
 		"ReelLabelMixin",
-		"ReelBloodHudMixin"
+		"ReelBloodHudMixin",
+		"CinematicFogMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

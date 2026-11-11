@@ -13,6 +13,8 @@ import net.minecraft.util.math.RotationAxis;
 public class PochitaRenderer extends MobEntityRenderer<PochitaEntity, PochitaModel> {
 	public static final EntityModelLayer LAYER = new EntityModelLayer(ChainsawMan.id("pochita"), "main");
 	private static final Identifier TEXTURE = ChainsawMan.id("textures/entity/pochita.png");
+	/** How far he is let down when he sits (blocks), so he sits on the ground and not over it. */
+	static final float SIT_DROP = 0.1F;
 
 	public PochitaRenderer(EntityRendererFactory.Context context) {
 		super(context, new PochitaModel(context.getPart(LAYER)), 0.35F);
@@ -22,7 +24,9 @@ public class PochitaRenderer extends MobEntityRenderer<PochitaEntity, PochitaMod
 	protected void setupTransforms(PochitaEntity pochita, MatrixStack matrices, float animationProgress, float bodyYaw, float tickDelta, float scale) {
 		super.setupTransforms(pochita, matrices, animationProgress, bodyYaw, tickDelta, scale);
 		if (pochita.isInSittingPose() && !pochita.fainted()) {
-			// Sitting: tipped up from his rump, his front end raised.
+			// Sitting: tipped up from his rump, his front end raised; let down onto the ground (tipped up, his lowest point, the
+			// small handle under his rear, stood 0.09 above it, and the rump and folded back legs 0.17).
+			matrices.translate(0.0F, -SIT_DROP, 0.0F);
 			matrices.translate(0.0F, 0.0F, 0.45F);
 			matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(28.0F));
 			matrices.translate(0.0F, 0.0F, -0.45F);

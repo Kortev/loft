@@ -2,7 +2,7 @@
  "note": "The Tomato Devil's pieces (tools/tomato_devil_3d.py)",
  "frame": "blocks; each piece in its own frame (see the tool)",
  "mesh": "tomato_parts_mesh.bin",
- "quads": 3358,
+ "quads": 3362,
  "voxels": 7122,
  "parts": [
   {
@@ -161,7 +161,7 @@
    "voxel": 0.0625,
    "voxels": 227,
    "kind": "grab_chunk",
-   "quads": 254
+   "quads": 258
   },
   {
    "name": "finger_l0",

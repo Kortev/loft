@@ -37,6 +37,7 @@ import net.minecraft.world.Heightmap;
  * <li>-Ptarget=look (the default): stills to judge it by: its walk seen from the side (one cycle, every two ticks), and each move's tell
  * and blow from the side and from the front, on its back, dying.</li>
  * <li>-Ptarget=played: the fight played from your eyes ({@link TomatoFight}); with -Pcapture=true, the film.</li>
+ * <li>-Ptarget=cinematic: the horror short's eight shots ({@link TomatoCinematic}); with -Pcapture=true, its frames.</li>
  * </ul>
  * <pre>./gradlew runSelftest -Pselftest=tomato -Ptarget=played -Pusername=Kortev -Pcapture=true -Pwidth=1080 -Pheight=1920 "-Pjvmargs=-Xmx2600m -XX:TieredStopAtLevel=1"</pre>
  */
@@ -64,7 +65,7 @@ public class TomatoSelfTest implements ClientModInitializer {
 
 	/** The played take is drawn as a phone's portrait frame (1080x1920) whatever the window. */
 	public static boolean portrait() {
-		return active() && target().startsWith("played");
+		return active() && (target().startsWith("played") || target().equals("cinematic"));
 	}
 
 	static String target() {
@@ -136,6 +137,8 @@ public class TomatoSelfTest implements ClientModInitializer {
 				boolean over;
 				if (target().startsWith("played")) {
 					over = TomatoFight.tick(client, server, ticks);
+				} else if (target().equals("cinematic")) {
+					over = TomatoCinematic.tick(client, server, ticks);
 				} else if (target().equals("model")) {
 					over = model(client, server, ticks);
 				} else {
@@ -218,14 +221,19 @@ public class TomatoSelfTest implements ClientModInitializer {
 				}
 			}
 		}
-		for (int[] o : OAKS) {
-			oak(world, new BlockPos(x0 + o[0], GROUND + 1, z0 + o[1]));
+		if (target().equals("cinematic")) {
+			TomatoCinematic.build(world);
+			TomatoCinematic.sleeper(world);
+		} else {
+			for (int[] o : OAKS) {
+				oak(world, new BlockPos(x0 + o[0], GROUND + 1, z0 + o[1]));
+			}
 		}
 		if (Form.on(you)) {
 			Form.end(you);
 		}
 		Downed.up(you);
-		you.changeGameMode(target().startsWith("played") ? GameMode.SURVIVAL : target().equals("model") ? GameMode.CREATIVE : GameMode.SPECTATOR);
+		you.changeGameMode(target().startsWith("played") ? GameMode.SURVIVAL : target().equals("model") || target().equals("cinematic") ? GameMode.CREATIVE : GameMode.SPECTATOR);
 		you.getInventory().clear();
 		you.getInventory().setStack(0, new ItemStack(Items.IRON_SWORD));
 		you.getInventory().setStack(1, new ItemStack(Items.TORCH, 16));
