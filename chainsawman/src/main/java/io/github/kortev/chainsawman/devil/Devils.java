@@ -91,6 +91,8 @@ public final class Devils {
 		public static final SoundEvent CHEW = register("pochita.chew");
 		/** Pochita smelling a devil: two short barks with an engine's rasp in them. */
 		public static final SoundEvent BARK = register("pochita.bark");
+		/** A devil growing a step ({@link Growth}) with someone near: a low swell, wet flesh stretching, a slow heartbeat under it. */
+		public static final SoundEvent GROW = register("tomato.grow");
 
 		private Sounds() {
 		}
