@@ -12,12 +12,13 @@ Updated 2026-11-10. Keep this page under 3 KB. Change it whenever something star
 
 ## Running
 
-**Usage limit hit 2026-11-11: all five builders were stopped mid-work.** Their work is in their worktrees
-(`.claude/worktrees/agent-*`), maybe uncommitted. Resume each with SendMessage, or check its branch first.
-- Merged (291 tests): 2.2a the Tomato's staged arrival, real dark only, 3 quiet nights after.
-- `notice-board` (2.1a): built, NOT merged; fixes asked (no board at a hotel bell or a player's bell).
-- `leech-devil` (3.3), `saw-swings` (0.1d), `hotel-walk` (0.1e), `devils-grow` (3.9): unfinished.
-- Full test runs flaked under load (hotel timeouts): rerun on a quiet machine before merging.
+Builders each work on a branch with a brief in `plan/packages/`. Review, merge one at a time, run all
+tests (`scratchpad/merge_test.sh` pattern: rerun once on a flake), then send the film. At most two builders
+at once: five made tests time out. Every film adds a line to `test/mixin/FilmFrameMixin.java`: keep both.
+- Merged 2026-11-11 (308 tests): 2.2a Tomato night arrival; 0.1d arm swings; 2.1a village notice board,
+  licence, yen; 3.3 the Leech Devil round 1 (summon only). kortev has all four films.
+- Leech round 2 asked (body reads as a lump, face fills the view): branch `leech-round2`.
+- Running: `hotel-walk` (0.1e stairs bug, seamless loop), `devils-grow` (3.9).
 - kortev (2026-11-11): as many reels as possible from every thing built: keep raw footage, list reel ideas.
 - Next: 3.9 devils grow (`bible/devil_strength.md`), then the office and shop. Scope: one player, friends ok.
 - Merged earlier: Tomato round 2, seeds in 3 hits, the teaser (kortev posts `work/tomato/teaser.mp4`).
