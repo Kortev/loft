@@ -1,4 +1,18 @@
 {
+  "leech.grunt": {
+    "subtitle": "subtitles.chainsawman.leech.grunt",
+    "sounds": [
+      {
+        "name": "chainsawman:leech_grunt1"
+      },
+      {
+        "name": "chainsawman:leech_grunt2"
+      },
+      {
+        "name": "chainsawman:leech_grunt3"
+      }
+    ]
+  },
   "leech.hum": {
     "subtitle": "subtitles.chainsawman.leech.hum",
     "sounds": [

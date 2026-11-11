@@ -62,7 +62,7 @@ public class LeechDevilEntity extends HostileEntity {
 	/** The body's shape on the ground (half its width, half its length nose to tail, without the hair): nobody stands inside it. */
 	/** Its thick wrinkled hide (armour points): an iron sword's cut lands about 3.4, a stone one's about 2.7 (a fight of a minute or so). */
 	public static final double HIDE = 14.0;
-	public static final double BODY_HALF_WIDTH = 1.35;
+	public static final double BODY_HALF_WIDTH = 1.6;
 	public static final double BODY_HALF_LENGTH = 2.9;
 	/** About 5 blocks a second: faster than a player's walk (4.3), slower than a sprint (5.6). */
 	public static final double SPEED = 0.42;
@@ -130,7 +130,7 @@ public class LeechDevilEntity extends HostileEntity {
 	public static final float TRAMPLE_DAMAGE = 6.0F;
 	public static final double TRAMPLE_THROW = 1.1;
 	/** How wide the trample runs you down: half its width across the legs. */
-	public static final double TRAMPLE_HALF_WIDTH = 1.6;
+	public static final double TRAMPLE_HALF_WIDTH = 1.7;
 	public static final int SKID_TICKS = 30;
 
 	/** After a move: it stands still, open to hits, this long, then may circle; and no move comes for the gap. */
@@ -140,8 +140,18 @@ public class LeechDevilEntity extends HostileEntity {
 	public static final int NOTICE_STILL = 24;
 	/** Dying: it sags and folds, the suckers slowing, for this long. */
 	public static final int DEATH_TICKS = 90;
-	/** Where it circles you, and how often it hums there. */
-	public static final double CIRCLE = 5.5;
+	/**
+	 * It fights at reach: it keeps you about this far off (blocks between your middle and its), circling, and backs off to it after each
+	 * move; nearer than {@link #TOO_NEAR} it backs away fast. How often it hums.
+	 */
+	public static final double CIRCLE = 7.0;
+	public static final double TOO_NEAR = 5.0;
+	/** A cut on the stunned arm lying on the ground counts this much (as on the tongue). */
+	public static final float LIMP_TAKES = 1.5F;
+	/** The stunned arm lies near you this long of its stun, then is drawn back out of reach. */
+	public static final int LIMP_TICKS = 70;
+	/** Its hurt grunt comes no oftener than this (ticks). */
+	public static final int GRUNT_EVERY = 15;
 	public static final int HUM_EVERY = 34;
 
 	private static final TrackedData<Integer> STATE = DataTracker.registerData(LeechDevilEntity.class, TrackedDataHandlerRegistry.INTEGER);
@@ -159,6 +169,8 @@ public class LeechDevilEntity extends HostileEntity {
 	private static final TrackedData<Long> ARM_STUN_UNTIL = DataTracker.registerData(LeechDevilEntity.class, TrackedDataHandlerRegistry.LONG);
 	/** When it noticed someone (the world's time), or -1. */
 	private static final TrackedData<Long> NOTICED = DataTracker.registerData(LeechDevilEntity.class, TrackedDataHandlerRegistry.LONG);
+	/** Where the stunned arm's end lies on the ground (the world), while it lies there. */
+	private static final TrackedData<Vector3f> LIMP = DataTracker.registerData(LeechDevilEntity.class, TrackedDataHandlerRegistry.VECTOR3F);
 
 	private long nextMoveAt;
 	private long restUntil;
@@ -185,6 +197,14 @@ public class LeechDevilEntity extends HostileEntity {
 	private LeechPartEntity armPart;
 	@Nullable
 	private LeechPartEntity tonguePart;
+	/** The held-out tongue's second box (its last 3 blocks are the hit area: two boxes). */
+	@Nullable
+	private LeechPartEntity tonguePart2;
+	/** The stunned arm lying on the ground near whoever cut it, while it lies there. */
+	@Nullable
+	private LeechPartEntity limpPart;
+	private boolean tongueCut;
+	private long lastGruntAt = -1000;
 
 	/** Somewhere it is told to walk to before anything else (the film's first seconds); null for its own mind. */
 	@Nullable
@@ -218,6 +238,7 @@ public class LeechDevilEntity extends HostileEntity {
 		builder.add(ARM, 0);
 		builder.add(ARM_STUN_UNTIL, -1L);
 		builder.add(NOTICED, -1L);
+		builder.add(LIMP, new Vector3f());
 	}
 
 	// ---- What it is doing (both sides).
@@ -263,6 +284,21 @@ public class LeechDevilEntity extends HostileEntity {
 
 	public long armStunUntil() {
 		return dataTracker.get(ARM_STUN_UNTIL);
+	}
+
+	/** Where the stunned arm's end lies (the world), or null when it is not lying out. */
+	@Nullable
+	public Vec3d limpAt() {
+		if (!armStunned() || getWorld().getTime() > dataTracker.get(ARM_STUN_UNTIL) - ARM_STUN + LIMP_TICKS) {
+			return null;
+		}
+		Vector3f v = dataTracker.get(LIMP);
+		return new Vec3d(v.x, v.y, v.z);
+	}
+
+	@Nullable
+	public LeechPartEntity limpPart() {
+		return limpPart;
 	}
 
 	public long noticedAt() {
@@ -351,7 +387,7 @@ public class LeechDevilEntity extends HostileEntity {
 
 	/** Where the latching arm comes out of it (the world), facing its aim. */
 	public Vec3d shoulder() {
-		return bodyPoint(aim(), arm() == 0 ? 0.66 : -0.66, 1.5, 1.62);
+		return bodyPoint(aim(), arm() == 0 ? 0.85 : -0.85, 1.55, 1.55);
 	}
 
 	// ---- The fight (the server).
@@ -393,6 +429,7 @@ public class LeechDevilEntity extends HostileEntity {
 			Sniff.near(world, getPos());
 		}
 		shoveOut(world);
+		tickLimp();
 		// Noticing: the first sight of someone; forgetting them once nobody has been about a while.
 		if (target != null && walkTo == null) {
 			lostSince = -1;
@@ -466,6 +503,11 @@ public class LeechDevilEntity extends HostileEntity {
 			if (now % 10 == 0 || navigation.isIdle()) {
 				navigation.startMovingTo(walkTo.x, walkTo.y, walkTo.z, 0.7);
 			}
+			// (humming to itself as it comes, before it has noticed anyone)
+			if (target != null && now - lastHumAt > HUM_EVERY && target.squaredDistanceTo(this) < 30.0 * 30.0 && getPos().squaredDistanceTo(walkTo) > 2.0) {
+				lastHumAt = now;
+				playSound(LeechSounds.HUM, 1.0F, 0.95F + random.nextFloat() * 0.1F);
+			}
 			return;
 		}
 		if (target == null) {
@@ -479,28 +521,30 @@ public class LeechDevilEntity extends HostileEntity {
 		wanderTo = null;
 		long noticed = noticedAt();
 		float to = yawTo(target.getPos());
-		if (noticed >= 0 && now - noticed < NOTICE_STILL || now < restUntil) {
-			// Just seen you, or just after a move: stands, its face on you.
-			navigation.stop();
-			setVelocity(0.0, getVelocity().y, 0.0);
-			getLookControl().lookAt(target, 20.0F, 20.0F);
-			return;
-		}
 		double dist = Math.hypot(target.getX() - getX(), target.getZ() - getZ());
 		getLookControl().lookAt(target, 20.0F, 20.0F);
-		if (dist > CIRCLE + 2.5) {
+		if (noticed >= 0 && now - noticed < NOTICE_STILL) {
+			// Just seen you: stands, and slowly turns its whole body to face you.
+			navigation.stop();
+			setVelocity(0.0, getVelocity().y, 0.0);
+			face(approach(getYaw(), to, 5.0F));
+			return;
+		}
+		if (dist > CIRCLE + 3.5) {
 			if (now % 6 == 0 || navigation.isIdle()) {
 				navigation.startMovingTo(target, 1.0);
 			}
 		} else {
-			// Round you, sideways like a crab, its face always on you: now one way, now the other; in or out to keep a few blocks off.
+			// At reach: round you sideways like a crab, its face always on you, in or out to keep its distance; after a move (and
+			// whenever you come close) it backs off to it first.
 			navigation.stop();
 			if (random.nextFloat() < 0.012F) {
 				circleDir = -circleDir;
 			}
 			face(approach(getYaw(), to, 14.0F));
-			float in = dist > CIRCLE + 0.8 ? 0.5F : dist < CIRCLE - 1.2 ? -0.5F : 0.0F;
-			getMoveControl().strafeTo(in, circleDir * 0.8F);
+			boolean resting = now < restUntil;
+			float in = dist < TOO_NEAR ? -1.0F : dist < CIRCLE - 1.0 ? -0.6F : dist > CIRCLE + 1.2 ? 0.5F : 0.0F;
+			getMoveControl().strafeTo(in, resting && in < 0.0F ? 0.0F : resting ? circleDir * 0.3F : circleDir * 0.8F);
 		}
 		if (now - lastHumAt > HUM_EVERY && dist < 16.0) {
 			lastHumAt = now;
@@ -511,8 +555,8 @@ public class LeechDevilEntity extends HostileEntity {
 		}
 		boolean sees = canSee(target);
 		boolean trample = sees && trampleFrom(dist) && dist <= TRAMPLE_DISTANCE + 4.0 && now - lastTrampleAt > 160 && allowed(TRAMPLE_TELL);
-		boolean latch = sees && dist >= 1.5 && dist <= LATCH_REACH - 0.6 && now >= latchReadyAt && !armStunned() && allowed(LATCH);
-		boolean tongue = sees && dist >= 2.0 && dist <= TONGUE_REACH - 1.0 && now - lastTongueAt > 50 && allowed(TONGUE);
+		boolean latch = sees && dist >= 1.5 && dist <= LATCH_REACH + 1.4 && now >= latchReadyAt && !armStunned() && allowed(LATCH);
+		boolean tongue = sees && dist >= 2.0 && dist <= TONGUE_REACH + 1.5 && now - lastTongueAt > 50 && allowed(TONGUE);
 		float wTrample = trample ? 3.0F : 0.0F;
 		float wLatch = latch ? 2.2F : 0.0F;
 		float wTongue = tongue ? 2.0F : 0.0F;
@@ -624,13 +668,19 @@ public class LeechDevilEntity extends HostileEntity {
 		}
 		// Held out: the tongue can be cut where it is nearest whoever would cut it.
 		if (t >= TONGUE_HIT && t < TONGUE_HIT + TONGUE_HOLD) {
+			// Held out, the 3 blocks of it nearest you can be cut: two boxes along them, following you as you move.
 			if (tonguePart == null || tonguePart.isRemoved()) {
+				tongueCut = false;
 				tonguePart = new LeechPartEntity(world, this, LeechPartEntity.TONGUE);
-				placePart(tonguePart, from, from.add(dir.multiply(reach())), target, 1.0);
+				tonguePart2 = new LeechPartEntity(world, this, LeechPartEntity.TONGUE);
 				world.spawnEntity(tonguePart);
-			} else {
-				placePart(tonguePart, from, from.add(dir.multiply(reach())), target, 1.0);
+				world.spawnEntity(tonguePart2);
 			}
+			double len = reach();
+			double k = target == null ? len - 1.5 : target.getPos().add(0.0, 1.0, 0.0).subtract(from).dotProduct(dir);
+			k = MathHelper.clamp(k, Math.min(len, 2.25), Math.max(Math.min(len, 2.25), len - 0.75));
+			placeOn(tonguePart, from.add(dir.multiply(Math.min(len, k + 0.75))));
+			placeOn(tonguePart2, from.add(dir.multiply(Math.max(1.0, k - 0.75))));
 		} else if (tonguePart != null) {
 			dropPart(false);
 		}
@@ -642,19 +692,23 @@ public class LeechDevilEntity extends HostileEntity {
 		}
 	}
 
+	private static void placeOn(LeechPartEntity part, Vec3d p) {
+		part.refreshPositionAndAngles(p.x, p.y - part.getHeight() * 0.5, p.z, 0.0F, 0.0F);
+	}
+
 	/** Puts a part where the line {@code a}-{@code b} is nearest {@code near} (no nearer {@code a} than {@code skip}). */
 	private void placePart(LeechPartEntity part, Vec3d a, Vec3d b, @Nullable Entity near, double skip) {
 		Vec3d ab = b.subtract(a);
 		double len = ab.length();
 		if (len < 1.0E-3) {
-			part.refreshPositionAndAngles(a.x, a.y - 0.65, a.z, 0.0F, 0.0F);
+			part.refreshPositionAndAngles(a.x, a.y - 0.8, a.z, 0.0F, 0.0F);
 			return;
 		}
 		Vec3d u = ab.multiply(1.0 / len);
 		double k = near == null ? len * 0.5 : near.getPos().add(0.0, 1.0, 0.0).subtract(a).dotProduct(u);
 		k = MathHelper.clamp(k, Math.min(skip, len), len);
 		Vec3d p = a.add(u.multiply(k));
-		part.refreshPositionAndAngles(p.x, p.y - 0.65, p.z, 0.0F, 0.0F);
+		part.refreshPositionAndAngles(p.x, p.y - 0.8, p.z, 0.0F, 0.0F);
 	}
 
 	private void latch(ServerWorld world, float t, @Nullable PlayerEntity target) {
@@ -708,8 +762,45 @@ public class LeechDevilEntity extends HostileEntity {
 	/** The stuck arm's cuttable box: up the arm from whoever it holds, where they can reach it with a blade. */
 	private void placeArm(Vec3d sh, Vec3d at) {
 		double d = sh.distanceTo(at);
-		Vec3d p = d < 1.0E-3 ? at : at.add(sh.subtract(at).multiply(Math.min(1.8, d * 0.6) / d));
-		armPart.refreshPositionAndAngles(p.x, p.y - 0.65, p.z, 0.0F, 0.0F);
+		Vec3d p = d < 1.0E-3 ? at : at.add(sh.subtract(at).multiply(Math.min(2.4, d * 0.6) / d));
+		armPart.refreshPositionAndAngles(p.x, p.y - 0.8, p.z, 0.0F, 0.0F);
+	}
+
+	/** The lying arm's box: along it from its end toward the body, where whoever is nearest can reach it. */
+	private void placeLimp() {
+		Vec3d tip = limpAt();
+		if (limpPart == null || tip == null) {
+			return;
+		}
+		Vec3d sh = shoulder();
+		Vec3d groundSh = new Vec3d(sh.x, tip.y, sh.z);
+		PlayerEntity p = target();
+		double len = groundSh.distanceTo(tip);
+		double k = 0.0;
+		if (p != null && len > 0.01) {
+			k = MathHelper.clamp(p.getPos().subtract(tip).dotProduct(groundSh.subtract(tip).multiply(1.0 / len)) + 1.0, 0.0, Math.max(0.0, len - 1.0));
+		}
+		Vec3d at = len > 0.01 ? tip.add(groundSh.subtract(tip).multiply(k / len)) : tip;
+		limpPart.refreshPositionAndAngles(at.x, at.y, at.z, 0.0F, 0.0F);
+	}
+
+	/** Each tick: the lying arm drags after the body if it moves off, and is drawn back once its time is up. */
+	private void tickLimp() {
+		Vec3d tip = limpAt();
+		if (tip == null) {
+			if (limpPart != null) {
+				limpPart.discard();
+				limpPart = null;
+			}
+			return;
+		}
+		Vec3d sh = shoulder();
+		double d = Math.hypot(tip.x - sh.x, tip.z - sh.z);
+		if (d > LATCH_REACH + 1.0) {
+			double k = (LATCH_REACH + 1.0) / d;
+			dataTracker.set(LIMP, new Vector3f((float) (sh.x + (tip.x - sh.x) * k), (float) tip.y, (float) (sh.z + (tip.z - sh.z) * k)));
+		}
+		placeLimp();
 	}
 
 	@Nullable
@@ -785,6 +876,10 @@ public class LeechDevilEntity extends HostileEntity {
 			tonguePart.discard();
 			tonguePart = null;
 		}
+		if (tonguePart2 != null) {
+			tonguePart2.discard();
+			tonguePart2 = null;
+		}
 	}
 
 	/** A blade on one of its parts (the server): the arm counts toward tearing it loose; the tongue counts more on it. */
@@ -797,8 +892,17 @@ public class LeechDevilEntity extends HostileEntity {
 				return false;
 			}
 			boolean hurt = damage(source, amount * TONGUE_CUT_TAKES);
+			if (hurt && !tongueCut) {
+				tongueCut = true;
+				playSound(LeechSounds.SHRIEK, 1.8F, 1.05F);
+			}
 			world.spawnParticles(BLOOD, part.getX(), part.getY() + 0.5, part.getZ(), 10, 0.15, 0.15, 0.15, 0.08);
 			return hurt;
+		}
+		if (part == limpPart) {
+			// the stunned arm lying near you: a cut there counts more
+			world.spawnParticles(BLOOD, part.getX(), part.getY() + 0.5, part.getZ(), 6, 0.15, 0.15, 0.15, 0.1);
+			return damage(source, amount * LIMP_TAKES);
 		}
 		if (state() != LATCHED) {
 			return false;
@@ -822,6 +926,15 @@ public class LeechDevilEntity extends HostileEntity {
 		LivingEntity e = stuck();
 		Vec3d at = e != null ? e.getPos().add(0.0, e.getHeight() * 0.55, 0.0) : shoulder();
 		dataTracker.set(ARM_STUN_UNTIL, now + ARM_STUN);
+		// the arm drops where it held them, lying on the ground: cut it there
+		Vec3d g = at.add(shoulder().subtract(at).multiply(1.0, 0.0, 1.0).normalize().multiply(0.6));
+		dataTracker.set(LIMP, new Vector3f((float) g.x, (float) (e != null ? e.getY() : getY()), (float) g.z));
+		if (limpPart != null) {
+			limpPart.discard();
+		}
+		limpPart = new LeechPartEntity(world, this, LeechPartEntity.ARM);
+		world.spawnEntity(limpPart);
+		placeLimp();
 		latchReadyAt = now + Math.max(ARM_STUN, LATCH_COOLDOWN);
 		playSound(LeechSounds.TEAR, 1.6F, 1.0F);
 		playSound(LeechSounds.SHRIEK, 2.0F, 0.85F);
@@ -924,10 +1037,18 @@ public class LeechDevilEntity extends HostileEntity {
 		return hurt;
 	}
 
+	private void dropLimp() {
+		if (limpPart != null) {
+			limpPart.discard();
+			limpPart = null;
+		}
+	}
+
 	@Override
 	public void onDeath(DamageSource source) {
 		unstick();
 		dropPart(false);
+		dropLimp();
 		super.onDeath(source);
 	}
 
@@ -935,6 +1056,7 @@ public class LeechDevilEntity extends HostileEntity {
 	public void remove(RemovalReason reason) {
 		unstick();
 		dropPart(false);
+		dropLimp();
 		super.remove(reason);
 	}
 
@@ -997,7 +1119,17 @@ public class LeechDevilEntity extends HostileEntity {
 
 	@Override
 	protected SoundEvent getHurtSound(DamageSource source) {
-		return LeechSounds.SHRIEK;
+		return LeechSounds.GRUNT;
+	}
+
+	@Override
+	protected void playHurtSound(DamageSource source) {
+		// A short wet grunt, and not on every hit: the shriek is kept for an arm torn loose and the tongue cut.
+		long now = getWorld().getTime();
+		if (now - lastGruntAt >= GRUNT_EVERY) {
+			lastGruntAt = now;
+			super.playHurtSound(source);
+		}
 	}
 
 	@Override

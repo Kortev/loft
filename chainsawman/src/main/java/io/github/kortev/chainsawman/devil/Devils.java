@@ -45,7 +45,7 @@ public final class Devils {
 			EntityType.Builder.create(LeechDevilEntity::new, SpawnGroup.MONSTER).dimensions(LeechDevilEntity.WIDTH, LeechDevilEntity.HEIGHT)
 					.eyeHeight(1.6F).maxTrackingRange(10).trackingTickInterval(2).build("leech_devil"));
 	public static final EntityType<LeechPartEntity> LEECH_PART = Registry.register(Registries.ENTITY_TYPE, ChainsawMan.id("leech_part"),
-			EntityType.Builder.<LeechPartEntity>create(LeechPartEntity::new, SpawnGroup.MISC).dimensions(1.3F, 1.3F).maxTrackingRange(8)
+			EntityType.Builder.<LeechPartEntity>create(LeechPartEntity::new, SpawnGroup.MISC).dimensions(1.6F, 1.6F).maxTrackingRange(8)
 					.trackingTickInterval(1).disableSaving().disableSummon().build("leech_part"));
 	/** A Leech Devil's sucker mouth: a devil's part, worth something to someone. */
 	public static final Item LEECH_SUCKER = Registry.register(Registries.ITEM, ChainsawMan.id("leech_sucker"),

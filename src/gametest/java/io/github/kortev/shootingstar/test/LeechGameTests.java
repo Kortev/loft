@@ -23,7 +23,7 @@ import net.minecraft.util.math.Vec3d;
 /**
  * The Leech Devil (devil/): each move has its tell (nothing lands before it ends); the tongue misses whoever moved off its line during the
  * tell, and a cut on it while it is out counts more; the latch drains whoever it sticks to and heals the devil; three hits on the arm tear
- * it loose and stun the arm; it lets go by itself after 6 s; the trample only starts from 8 blocks or more; killed, it leaves its sucker.
+ * it loose and stun the arm, which lies near you where a cut counts more; it lets go by itself after 6 s; the trample only starts from 8 blocks or more; killed, it leaves its sucker.
  */
 public class LeechGameTests implements FabricGameTest {
 	/** Players are untouchable for their first 60 ticks in a world: the tests that hurt one wait this long first. */
@@ -257,6 +257,16 @@ public class LeechGameTests implements FabricGameTest {
 			context.assertTrue(d.state() == LeechDevilEntity.RECOIL, "it did not reel back: state " + d.state());
 			context.assertTrue(d.armStunned(), "the cut arm is not stunned");
 			context.assertTrue(d.armPart() == null, "the arm's part was left behind");
+			// it lies stunned on the ground near you, and a cut there counts half again
+			LeechPartEntity limp = d.limpPart();
+			context.assertTrue(limp != null && limp.isAlive() && d.limpAt() != null, "the stunned arm is not lying out to be cut");
+			context.assertTrue(limp.squaredDistanceTo(p) < 4.0 * 4.0, "the stunned arm lies out of reach: " + Math.sqrt(limp.squaredDistanceTo(p)));
+			d.setHealth(100.0F);
+			d.timeUntilRegen = 0;
+			var src = p.getDamageSources().playerAttack(p);
+			limp.damage(src, 4.0F);
+			float want = net.minecraft.entity.DamageUtil.getDamageLeft(d, 4.0F * LeechDevilEntity.LIMP_TAKES, src, (float) d.getArmor(), 0.0F);
+			context.assertTrue(Math.abs(100.0F - d.getHealth() - want) < 0.01F, "a cut on the stunned arm took " + (100.0F - d.getHealth()) + ", not " + want);
 			ForeverGameTests.leave(context, p);
 			clear(context);
 			context.complete();

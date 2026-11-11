@@ -2,8 +2,8 @@
  "note": "The Leech Devil's pieces (tools/leech_devil_3d.py)",
  "frame": "blocks; each piece in its own frame (see the tool)",
  "mesh": "leech_parts_mesh.bin",
- "quads": 7947,
- "voxels": 21040,
+ "quads": 14549,
+ "voxels": 46838,
  "parts": [
   {
    "name": "thigh",
@@ -15,10 +15,10 @@
    ],
    "anim": null,
    "voxel": 0.03125,
-   "voxels": 11712,
+   "voxels": 25986,
    "kind": "grab_thigh",
-   "length": 1.2,
-   "quads": 3507
+   "length": 1.25,
+   "quads": 6382
   },
   {
    "name": "shin",
@@ -30,10 +30,10 @@
    ],
    "anim": null,
    "voxel": 0.03125,
-   "voxels": 6116,
+   "voxels": 12772,
    "kind": "grab_shin",
-   "length": 1.15,
-   "quads": 2325
+   "length": 1.2,
+   "quads": 4080
   },
   {
    "name": "tseg",
@@ -60,9 +60,9 @@
    ],
    "anim": null,
    "voxel": 0.03125,
-   "voxels": 952,
+   "voxels": 5820,
    "kind": "grab_sucker",
-   "quads": 848
+   "quads": 2820
   },
   {
    "name": "tongue",

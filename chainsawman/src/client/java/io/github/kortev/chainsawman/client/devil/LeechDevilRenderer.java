@@ -30,14 +30,19 @@ import org.joml.Vector3f;
 public class LeechDevilRenderer extends EntityRenderer<LeechDevilEntity> {
 	static final Identifier TEXTURE = Identifier.of("chainsawman", "textures/item/leech_sucker.png");
 	/** The measures of tools/leech_devil_3d.py. */
-	static final float THIGH = 1.20F;
-	static final float SHIN = 1.15F;
+	static final float THIGH = 1.25F;
+	static final float SHIN = 1.20F;
 	static final float TSEG = 0.40F;
 	static final float TONGUE_SEG = 0.50F;
-	static final float ANKLE_UP = 0.17F;
-	static final Vector3f[] HIPS = {new Vector3f(0.72F, 1.20F, 1.00F), new Vector3f(-0.72F, 1.20F, 1.00F), new Vector3f(0.82F, 1.38F, -1.50F),
-			new Vector3f(-0.82F, 1.38F, -1.50F)};
-	static final Vector3f[] SHOULDERS = {new Vector3f(0.66F, 1.50F, 1.62F), new Vector3f(-0.66F, 1.50F, 1.62F)};
+	static final float ANKLE_UP = 0.17F * 1.9F;
+	static final Vector3f[] HIPS = {new Vector3f(0.95F, 1.15F, 1.00F), new Vector3f(-0.95F, 1.15F, 1.00F), new Vector3f(1.05F, 1.30F, -1.50F),
+			new Vector3f(-1.05F, 1.30F, -1.50F)};
+	static final Vector3f[] SHOULDERS = {new Vector3f(0.85F, 1.55F, 1.55F), new Vector3f(-0.85F, 1.55F, 1.55F)};
+	/** The tentacles' thickness at the shoulder and at the tip (times the segment piece's). */
+	static final float ARM_ROOT = 2.0F;
+	static final float ARM_TIP = 0.85F;
+	/** The arms' suckers (the mesh's sucker is already the size of a foot's). */
+	static final float ARM_SUCKER = 0.8F;
 	static final Vector3f NECK = new Vector3f(0.0F, 1.70F, 1.40F);
 	static final Vector3f JAW_PIVOT = new Vector3f(0.0F, 1.42F, 1.48F);
 	static final Vector3f CROWN = new Vector3f(0.0F, 2.36F, 1.90F);
@@ -477,8 +482,8 @@ public class LeechDevilRenderer extends EntityRenderer<LeechDevilEntity> {
 		// At rest: hanging forward and down, the tips curling near the ground, swaying.
 		float sw = MathHelper.sin(now * 0.05F + a * 2.0F);
 		// (arched up and out from the shoulder, the tips hanging forward at chest height, curling and swaying)
-		Vector3f tip = bodyM.transformPosition(new Vector3f(side * (1.05F + 0.25F * sw), 0.55F + 0.25F * MathHelper.sin(now * 0.07F + a), 3.2F + 0.25F * MathHelper.sin(now * 0.04F + a)));
-		Vector3f ctrl = bodyM.transformPosition(new Vector3f(side * (1.45F + 0.15F * sw), 1.85F, 2.6F));
+		Vector3f tip = bodyM.transformPosition(new Vector3f(side * (1.2F + 0.25F * sw), 0.6F + 0.25F * MathHelper.sin(now * 0.07F + a), 3.3F + 0.25F * MathHelper.sin(now * 0.04F + a)));
+		Vector3f ctrl = bodyM.transformPosition(new Vector3f(side * (1.6F + 0.15F * sw), 1.95F, 2.6F));
 		Vector3f tipDir = null;
 		float open = open(4 + a, clock);
 		float suckerSize = 1.0F;
@@ -535,10 +540,34 @@ public class LeechDevilRenderer extends EntityRenderer<LeechDevilEntity> {
 			ctrl = bodyM.transformPosition(new Vector3f(side * 1.2F, 1.8F * k + 0.9F * (1 - k), 2.2F));
 			suckerSize = 0.0F;
 		}
-		if (active && e.armStunned() && state != LeechDevilEntity.RECOIL && state != LeechDevilEntity.LATCH && state != LeechDevilEntity.LATCHED) {
-			// hanging limp, its sucker growing back only at the end
-			tip = bodyM.transformPosition(new Vector3f(side * 0.75F, 0.05F, 2.4F + 0.05F * MathHelper.sin(now * 0.2F)));
-			ctrl = bodyM.transformPosition(new Vector3f(side * 1.0F, 0.85F, 2.2F));
+		if (active && e.armStunned() && state != LeechDevilEntity.LATCH && state != LeechDevilEntity.LATCHED) {
+			// stunned: it lies on the ground out to where it dropped (thrashing first, as it is torn loose), then is drawn back and hangs
+			// limp; its sucker grows back only at the end
+			Vec3d lying = e.limpAt();
+			float since = LeechDevilEntity.ARM_STUN - (e.armStunUntil() - (world.getTime() + delta));
+			Vector3f hang = bodyM.transformPosition(new Vector3f(side * 0.95F, 0.1F, 2.6F + 0.05F * MathHelper.sin(now * 0.2F)));
+			Vector3f hangC = bodyM.transformPosition(new Vector3f(side * 1.3F, 1.0F, 2.3F));
+			Vector3f lieTip = hang;
+			Vector3f lieC = hangC;
+			if (lying != null) {
+				lieTip = new Vector3f((float) (lying.x - pos.x), (float) (lying.y - pos.y) + 0.12F, (float) (lying.z - pos.z));
+				// the curve sags onto the ground between the shoulder and its end
+				lieC = new Vector3f(sh).lerp(lieTip, 0.45F);
+				lieC.y = lieTip.y - 0.35F;
+			}
+			float down = ramp(since, 6.0F, 12.0F);
+			float back = lying == null ? ramp(since, LeechDevilEntity.LIMP_TICKS, LeechDevilEntity.LIMP_TICKS + 12.0F) : 0.0F;
+			Vector3f restTip = new Vector3f(lieTip).lerp(hang, back);
+			Vector3f restC = new Vector3f(lieC).lerp(hangC, back);
+			if (state == LeechDevilEntity.RECOIL && down < 1.0F) {
+				tip.lerp(restTip, down);
+				ctrl.lerp(restC, down);
+			} else {
+				tip = restTip;
+				ctrl = restC;
+				// a twitch now and then, lying there
+				tip.add(0.0F, 0.04F * Math.max(0.0F, MathHelper.sin(now * 0.9F)), 0.0F);
+			}
 			float left = e.armStunUntil() - (world.getTime() + delta);
 			suckerSize = 1.0F - MathHelper.clamp(left / 20.0F, 0.0F, 1.0F);
 			open = 0.2F;
@@ -566,7 +595,7 @@ public class LeechDevilRenderer extends EntityRenderer<LeechDevilEntity> {
 		blood.hurt = look.hurt;
 		for (int k = 0; k < ARM_SEGS; k++) {
 			float u = (k + 0.5F) / ARM_SEGS;
-			float th = (1.1F - 0.38F * u) * stretch;
+			float th = MathHelper.lerp(u, ARM_ROOT, ARM_TIP) * stretch;
 			boolean swell = bulge >= 0.0F && Math.abs(u - bulge) < 0.12F;
 			if (swell) {
 				th *= 1.4F;
@@ -574,7 +603,7 @@ public class LeechDevilRenderer extends EntityRenderer<LeechDevilEntity> {
 			seg(parts, "tseg", base, pts[k], pts[k + 1], new Vector3f(0, 1, 0), th, TSEG, swell ? blood : look);
 		}
 		Vector3f dir = tipDir != null ? tipDir : new Vector3f(pts[ARM_SEGS]).sub(pts[ARM_SEGS - 1]).normalize();
-		sucker(parts, base, pts[ARM_SEGS], dir, open, 0.95F * suckerSize, look);
+		sucker(parts, base, pts[ARM_SEGS], dir, open, ARM_SUCKER * suckerSize, look);
 	}
 
 	private static void drawDropped(LeechBody b, ClientWorld world, FleshMesh parts, Matrix4f base, FleshMesh.Look look, float now, Vec3d pos) {
@@ -593,6 +622,6 @@ public class LeechDevilRenderer extends EntityRenderer<LeechDevilEntity> {
 		Vector3f at = new Vector3f((float) (b.dropFrom.x - pos.x), (float) (y - pos.y) - 0.15F * sink, (float) (b.dropFrom.z - pos.z));
 		float o = 0.5F + 0.5F * MathHelper.sin(age * 0.25F * (1.0F - age / 120.0F));
 		Vector3f dir = new Vector3f(0.3F, 1.0F, 0.2F).normalize();
-		sucker(parts, base, at, dir, o, 0.95F * (1.0F - 0.5F * sink), look);
+		sucker(parts, base, at, dir, o, ARM_SUCKER * (1.0F - 0.5F * sink), look);
 	}
 }
