@@ -205,18 +205,39 @@ def interp_y(px, pz, pts):
     return np.interp(rr, rs, ys)
 
 
+def soft(ctx, field, sigma=1.1):
+    """A field smoothed over the solid cells only (so a texel never stands out from its neighbours: no speckle up close)."""
+    from scipy import ndimage
+    w = ctx.solid.astype(np.float32)
+    num = ndimage.gaussian_filter(field * w, sigma, mode='constant')
+    den = ndimage.gaussian_filter(w, sigma, mode='constant')
+    return np.where(den > 1e-4, num / np.maximum(den, 1e-4), field)
+
+
+def blend(ramp, t, steps=4):
+    """A colour from the ramp by t, blended between its stops (not dithered): `steps` shades between each two, so the skin
+    reads smooth up close and the mesher still merges faces of one shade."""
+    r = np.array(ramp, np.float32)
+    x = np.clip(t, 0, 1) * (len(r) - 1)
+    x = np.round(x * steps) / steps
+    i = np.clip(np.floor(x).astype(int), 0, len(r) - 2)
+    f = (x - i)[..., None]
+    return r[i] * (1 - f) + r[i + 1] * f
+
+
 def red_paint(ctx, ramp=RED, base=0.52):
     """The skin: dark, lighter on the bulges and on top, black-red in the creases and underneath, with pale stringy streaks running down."""
     n = ctx.noise.fbm(ctx.px, ctx.py, ctx.pz, 2.2)
     n2 = ctx.noise(ctx.px + 5.1, ctx.py, ctx.pz, 6.0)
     L = np.array([-0.35, 0.85, 0.4])
     L /= np.linalg.norm(L)
-    lit = (ctx.normal * L).sum(-1)
+    lit = soft(ctx, (ctx.normal * L).sum(-1))
     t = base + 0.26 * lit + (n - 0.5) * 0.16 - ctx.ao * 0.75
     # the underside darker (a maroon), the bulges' crowns catching the light
     t = t - 0.18 * np.clip(-ctx.py / RY, 0, 1)
     t = t + 0.18 * np.clip((lit - 0.75) * 4.0, 0, 1)
-    col = K.pick(ramp, t, n2, 0.08)
+    # (smoothed and blended, not dithered: round 2's skin was speckled up close)
+    col = blend(ramp, soft(ctx, t))
     # the fibres: thin streaks running down the lobes, paler, most on the upper half
     fib = ctx.noise(ctx.px * 9.0, ctx.py * 0.9, ctx.pz * 9.0, 1.0)
     streak = (np.abs(fib - 0.5) < 0.016) & (ctx.py > -0.4 * RY) & (ctx.ao < 0.35)
@@ -286,7 +307,7 @@ def body_model():
         blush = top & (rr < 0.45) & ctx.is_('flesh')
         col = np.where(blush[..., None], col * 0.8 + hx('#4a3410') * 0.2, col)
         m = ctx.is_('lid')
-        col = np.where(m[..., None], K.pick(LID, 0.55 + 0.35 * lit + (n - 0.5) * 0.4 - ctx.ao * 0.9, n2), col)
+        col = np.where(m[..., None], blend(LID, soft(ctx, 0.55 + 0.35 * lit + (n - 0.5) * 0.4 - ctx.ao * 0.9)), col)
         m = ctx.is_('green')
         col = np.where(m[..., None], K.pick(GREEN, 0.45 + 0.4 * lit + (n - 0.5) * 0.5, n2), col)
         m = ctx.is_('inner')
@@ -351,7 +372,7 @@ def body_model():
         L = np.array([-0.35, 0.85, 0.4])
         L /= np.linalg.norm(L)
         lit = (ctx.normal * L).sum(-1)
-        col = K.pick(LIP, 0.68 + 0.3 * lit + (n - 0.5) * 0.3 - ctx.ao * 0.7, n2, 0.35)
+        col = blend(LIP, soft(ctx, 0.68 + 0.3 * lit + (n - 0.5) * 0.3 - ctx.ao * 0.7))
         # wrinkles running along the lip, and pale stringy streaks
         rid = np.abs(np.sin((np.abs(ctx.px) * 46.0 + (n - 0.5) * 3.0)))
         col = np.where((rid < 0.22)[..., None], col * 0.62, col)

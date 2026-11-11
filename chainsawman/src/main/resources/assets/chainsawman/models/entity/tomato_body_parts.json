@@ -2,7 +2,7 @@
  "note": "The Tomato Devil's body (tools/tomato_devil_3d.py)",
  "frame": "blocks, the body centre at the origin, its mouth toward +Z, up +Y",
  "mesh": "tomato_body_mesh.bin",
- "quads": 8567,
+ "quads": 9166,
  "voxels": 26903,
  "parts": [
   {
@@ -17,7 +17,7 @@
    "voxel": 0.0625,
    "voxels": 25759,
    "kind": "body",
-   "quads": 7402
+   "quads": 7879
   },
   {
    "name": "lip_l",
@@ -31,7 +31,7 @@
    "voxel": 0.0625,
    "voxels": 556,
    "kind": "grab_lip",
-   "quads": 547
+   "quads": 604
   },
   {
    "name": "lip_r",
@@ -45,7 +45,7 @@
    "voxel": 0.0625,
    "voxels": 588,
    "kind": "grab_lip",
-   "quads": 618
+   "quads": 683
   }
  ],
  "eyes": [
