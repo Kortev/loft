@@ -67,7 +67,8 @@ public class TomatoArrivalRenderer extends EntityRenderer<TomatoArrivalEntity> {
 		float now = world.getTime() + delta;
 		// The swell: slow at first, faster toward the burst.
 		float s = MathHelper.clamp((t - TomatoArrivalEntity.BULGE) / (TomatoArrivalEntity.BURST - TomatoArrivalEntity.BULGE), 0.0F, 1.0F);
-		float grow = s * s * (0.4F + 0.6F * s) + 0.25F * s;
+		// (Up at once a little, so the first two seconds of the swell show, then faster toward the burst.)
+		float grow = 0.45F * s + 0.55F * s * s * s;
 		grow = Math.min(1.0F, grow);
 		float r = MathHelper.lerp(grow, R0, R1) * (1.0F + 0.05F * s * MathHelper.sin(now * (1.0F + 2.5F * s)));
 		float cy = MathHelper.lerp(grow, Y0, Y1);
@@ -86,8 +87,22 @@ public class TomatoArrivalRenderer extends EntityRenderer<TomatoArrivalEntity> {
 		look.r = k;
 		look.g = k;
 		look.b = k;
-		look.rim = 0.35F;
-		look.hurt = 0.3F * s * (0.5F + 0.5F * MathHelper.sin(now * (0.4F + 1.2F * s)));
+		// Swelling, its skin goes wet and shiny: a pale sheen round its edge, pulsing, so the bulge reads against the dark ground (the
+		// scene itself is not lit).
+		float pulse = 0.5F + 0.5F * MathHelper.sin(now * (0.35F + 0.9F * s));
+		float wet = s > 0.0F ? Math.min(1.0F, 0.6F + 2.0F * s) : 0.0F;
+		look.rim = 0.35F + wet * (0.9F + 0.4F * pulse);
+		look.r = k + wet * (0.10F + 0.08F * pulse);
+		look.g = k + wet * 0.04F;
+		look.b = k + wet * 0.04F;
+		look.hurt = 0.3F * s * pulse;
+		if (wet > 0.0F) {
+			look.glowAt = new Vector3f(0.0F, 0.9F, 0.0F);
+			look.glowRange = 1.1F;
+			look.glowR = 0.22F * wet * (0.6F + 0.4F * pulse);
+			look.glowG = 0.05F * wet;
+			look.glowB = 0.04F * wet;
+		}
 		FleshMesh.file("tomato_body").draw(bodyView, now, look, null);
 
 		// The eyes, all on the nearest player.
