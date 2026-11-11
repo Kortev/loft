@@ -23,7 +23,7 @@ Updated 2026-11-10. Keep this page under 3 KB. Change it whenever something star
   (`chainsawman/plan/packages/0.1c_devil_big_pass.md`).
 - Plan pages `4e` (what you play; how many Chainsaw Men, reopened by kortev) and `4f` (scaling): Fable's picks.
 - Flaky in full runs, pass alone: `each_fighter_gets_the_whole_drop`, two form tests, a Beam missile test.
-- Later: 2.10 power and tiers, 0.4 the server check, 0.2 review clips, 2.1 the licence screen.
+- Later: 2.10 power and tiers, 0.4 the server check, 0.2 review clips.
 
 ## Waiting on kortev
 
