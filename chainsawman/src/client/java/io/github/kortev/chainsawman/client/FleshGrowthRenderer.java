@@ -98,7 +98,7 @@ public class FleshGrowthRenderer extends EntityRenderer<FleshGrowthEntity> {
 			net.minecraft.client.MinecraftClient client = net.minecraft.client.MinecraftClient.getInstance();
 			Vec3d look = pos.normalize();
 			if (client.player != null) {
-				Vec3d eye = client.player.getCameraPosVec(delta).subtract(growth.getPos());
+				Vec3d eye = client.player.getCameraPosVec(delta).subtract(growth.getPos().add(ClientLoop.drawnAt()));
 				org.joml.Vector3f v = new org.joml.Vector3f((float) eye.x, (float) eye.y, (float) eye.z).rotateY((float) Math.toRadians(growth.getYaw()));
 				if (kind == FleshGrowthEntity.CEILING || kind == FleshGrowthEntity.HANGING) {
 					v.rotateY((float) Math.PI).rotateX((float) Math.PI);
@@ -132,7 +132,7 @@ public class FleshGrowthRenderer extends EntityRenderer<FleshGrowthEntity> {
 		net.minecraft.client.MinecraftClient client = net.minecraft.client.MinecraftClient.getInstance();
 		Vec3d look = new Vec3d(0.0, 0.0, 1.0);
 		if (client.player != null) {
-			Vec3d eye = client.player.getCameraPosVec(delta).subtract(growth.getPos());
+			Vec3d eye = client.player.getCameraPosVec(delta).subtract(growth.getPos().add(ClientLoop.drawnAt()));
 			org.joml.Vector3f v = new org.joml.Vector3f((float) eye.x, (float) eye.y, (float) eye.z).rotateY((float) Math.toRadians(growth.getYaw()));
 			Vec3d to = new Vec3d(v.x, v.y, v.z);
 			if (to.lengthSquared() > 1.0E-6) {

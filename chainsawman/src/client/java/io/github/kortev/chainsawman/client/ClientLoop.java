@@ -26,6 +26,8 @@ public final class ClientLoop {
 	private static boolean on;
 	private static BlockPos origin = BlockPos.ORIGIN;
 	private static int rot;
+	/** While a repeat is drawn: how far (world) it is drawn from where the thing is (renderers that look at the camera use it). */
+	private static Vec3d drawing = Vec3d.ZERO;
 
 	private ClientLoop() {
 	}
@@ -37,6 +39,11 @@ public final class ClientLoop {
 			origin = at;
 			rot = turn & 3;
 		}
+	}
+
+	/** How far from itself the thing being drawn now is drawn (zero but while a repeat is drawn). */
+	public static Vec3d drawnAt() {
+		return drawing;
 	}
 
 	public static boolean on() {
@@ -78,10 +85,13 @@ public final class ClientLoop {
 				if (g.squaredDistanceTo(cam) > far * far) {
 					continue;
 				}
+				drawing = g.subtract(at);
 				try {
 					dispatcher.render(e, g.x - cam.x, g.y - cam.y, g.z - cam.z, e.getYaw(delta), delta, matrices, consumers, dispatcher.getLight(e, delta));
 				} catch (RuntimeException ignored) {
 					// (Something that will not draw away from itself is just not repeated.)
+				} finally {
+					drawing = Vec3d.ZERO;
 				}
 			}
 		}

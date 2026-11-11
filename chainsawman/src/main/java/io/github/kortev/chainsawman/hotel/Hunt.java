@@ -197,7 +197,10 @@ public final class Hunt {
 					boolean open = eye.getPos().distanceTo(face) <= EYE_RANGE;
 					Vec3d at = eye.getPos();
 					for (ServerPlayerEntity p : players) {
-						Vec3d to = at.subtract(p.getEyePos());
+						// (The eye a period along that is nearest the player: the loop's corridor shows each eye at every period.)
+						Vec3d ax = HotelBuilder.world(BlockPos.ORIGIN, h.rot, (double) HotelPlan.PERIOD, 0.0, 0.0);
+						double along = HotelBuilder.local(h.origin, h.rot, p.getEyePos()).x - HotelBuilder.local(h.origin, h.rot, eye.getPos()).x;
+						Vec3d to = at.add(ax.multiply(Math.round(along / HotelPlan.PERIOD))).subtract(p.getEyePos());
 						double d = to.length();
 						if (d > 0.1 && d < 28.0 && p.getRotationVec(1.0F).dotProduct(to.multiply(1.0 / d)) > LOOK_COS) {
 							u.shutUntil.put(id, now + EYE_SHUT);
