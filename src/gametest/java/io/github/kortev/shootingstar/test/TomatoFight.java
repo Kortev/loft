@@ -100,7 +100,60 @@ final class TomatoFight {
 
 	/** -Ptarget=grown: the duel against a growth 5 at night, filmed, and its seeds burned to the last. */
 	private static boolean grown() {
-		return target().equals("grown");
+		return target().startsWith("grown");
+	}
+
+	/** -Ptarget=grown0: the same take against a growth 0 (the fight's length to set beside a growth 5's, at the same hour). */
+	private static int grownLevel() {
+		return target().equals("grown0") ? 0 : io.github.kortev.chainsawman.devil.Growth.MAX;
+	}
+
+	/** After each cut at a grown one: back off out of its reach for a moment (it is big: in close the lens is inside it). */
+	private static long backOffUntil = -1;
+
+	private static int cutsIn;
+
+	private static void cut(MinecraftClient c, float charged) {
+		if (YOU.swing(c, charged) && grown() && ++cutsIn >= 4) {
+			cutsIn = 0;
+			backOffUntil = c.world.getTime() + 24;
+		}
+	}
+
+	/** How far off the grown takes stand between openings (from its middle): all of it in the frame, past its slap. */
+	private static double standOffAt(TomatoDevilEntity d) {
+		return Math.max(7.0, d.slapReach() + 1.2);
+	}
+
+	/** A spot kept on the levelled site (backing off, it slides round the site's edge instead of off it into the water). */
+	private static Vec3d onSite(Vec3d at) {
+		Vec3d mid = TomatoSelfTest.site(0.0, 0.0, 0.0);
+		Vec3d off = at.subtract(mid).multiply(1.0, 0.0, 1.0);
+		return off.length() <= 15.0 ? at : mid.add(off.normalize().multiply(15.0)).add(0.0, at.y - mid.y, 0.0);
+	}
+
+	private static void standOff(MinecraftClient c, TomatoDevilEntity d) {
+		Vec3d away = c.player.getPos().subtract(d.getPos()).multiply(1.0, 0.0, 1.0).normalize();
+		double dist = d.distanceTo(c.player);
+		double want = standOffAt(d);
+		if (dist < want - 0.6) {
+			YOU.strafeTo(c, onSite(d.getPos().add(away.multiply(want + 0.4))), 0.4, dist < want - 2.0);
+		} else if (dist > want + 2.5) {
+			YOU.strafeTo(c, onSite(d.getPos().add(away.multiply(want))), 0.6, false);
+		} else {
+			YOU.stop();
+		}
+		// (its middle, a little above: the whole of it in the frame)
+		YOU.aim(c, d.getPos().add(0.0, d.getHeight() * 0.6, 0.0));
+	}
+
+	/** Backing off after a cut (the grown takes): true while it does. */
+	private static boolean backingOff(MinecraftClient c, TomatoDevilEntity d) {
+		if (!grown() || c.world.getTime() > backOffUntil) {
+			return false;
+		}
+		standOff(c, d);
+		return true;
 	}
 
 	private static double now(MinecraftClient c) {
@@ -190,22 +243,26 @@ final class TomatoFight {
 		switch (st) {
 			case TomatoDevilEntity.SLAP -> {
 				if (t < TomatoDevilEntity.SLAP_HIT + 1) {
-					boolean in = along > -0.5 && along < TomatoDevilEntity.SLAP_REACH + 1.2 && Math.abs(across) < TomatoDevilEntity.SLAP_HALF_WIDTH + 1.0;
+					boolean in = along > -0.5 && along < d.slapReach() + 1.2 && Math.abs(across) < d.slapHalfWidth() + 1.0;
 					if (in) {
-						YOU.strafeTo(c, d.getPos().add(f.multiply(TomatoDevilEntity.SLAP_REACH + 2.4)).add(side.multiply(across)), 0.2, false);
+						YOU.strafeTo(c, d.getPos().add(f.multiply(d.slapReach() + 2.4)).add(side.multiply(across)), 0.2, false);
 					} else {
 						YOU.stop();
 					}
 					return in;
 				}
-				// It settles on its hands: in and cut it.
+				// It settles on its hands: in and cut it. (A grown one's settle is over before you are there: stand off.)
+				if (grown()) {
+					standOff(c, d);
+					return false;
+				}
 				if (dist > 3.2 + room(d)) {
 					YOU.strafeTo(c, d.getPos(), 3.0 + room(d), false);
 				} else {
 					YOU.stop();
 				}
 				if (reach && allowHit) {
-					YOU.swing(c, 0.9F);
+					cut(c, 0.9F);
 				}
 				return false;
 			}
@@ -214,7 +271,7 @@ final class TomatoFight {
 					// Stood in: keep cutting, and take it.
 					YOU.stop();
 					if (reach && allowHit) {
-						YOU.swing(c, 0.9F);
+						cut(c, 0.9F);
 					}
 					if (t >= TomatoDevilEntity.HOP_LAND) {
 						hopped = true;
@@ -223,7 +280,7 @@ final class TomatoFight {
 				}
 				if (t < TomatoDevilEntity.HOP_LAND + 1) {
 					// Out of reach while it squats: well clear of its landing, running.
-					double clear = TomatoDevilEntity.WIDTH * 0.5 + TomatoDevilEntity.HOP_REACH + 1.4;
+					double clear = d.getWidth() * 0.5 + d.hopReach() + 1.4;
 					Vec3d away = dist < 0.1 ? f.multiply(-1.0) : rel.multiply(1.0 / dist);
 					if (dist < clear) {
 						YOU.strafeTo(c, d.getPos().add(away.multiply(clear + 0.6)), 0.3, true);
@@ -277,7 +334,7 @@ final class TomatoFight {
 					YOU.strafeTo(c, d.getPos(), 3.0 + room(d), false);
 				}
 				if (reach && allowHit) {
-					YOU.swing(c, 0.9F);
+					cut(c, 0.9F);
 				}
 				return false;
 			}
@@ -288,7 +345,7 @@ final class TomatoFight {
 					YOU.stop();
 				}
 				if (reach && allowHit) {
-					YOU.swing(c, 0.9F);
+					cut(c, 0.9F);
 				}
 				return false;
 			}
@@ -300,11 +357,16 @@ final class TomatoFight {
 
 	/** How much further off to stand from a grown one (its skin is further out; the sword still reaches it). */
 	private static double room(TomatoDevilEntity d) {
-		return (d.getWidth() - TomatoDevilEntity.WIDTH) * 0.5 + (d.growthLevel() > 0 ? 0.5 : 0.0);
+		return (d.getWidth() - TomatoDevilEntity.WIDTH) * 0.5 + (d.growthLevel() > 0 ? 0.9 : 0.0);
 	}
 
 	/** Close in and cut it between its moves (backing off a step if right up against it). */
 	static void press(MinecraftClient c, TomatoDevilEntity d) {
+		if (grown()) {
+			// The grown takes: out of its reach, all of it in view, waiting for it to give an opening (a spit, a roll, its back).
+			standOff(c, d);
+			return;
+		}
 		double dist = d.distanceTo(c.player);
 		if (dist > 3.4 + room(d)) {
 			YOU.strafeTo(c, d.getPos(), 3.2 + room(d), false);
@@ -314,7 +376,7 @@ final class TomatoFight {
 			YOU.stop();
 		}
 		if (c.crosshairTarget instanceof EntityHitResult eh && eh.getEntity() == d && allowHit) {
-			YOU.swing(c, 0.95F);
+			cut(c, 0.95F);
 		}
 	}
 
@@ -400,7 +462,7 @@ final class TomatoFight {
 						if (grown()) {
 							// Fully grown, left alone too long: it waits out in the dark.
 							TomatoDevilEntity e = TomatoSelfTest.devil(w, TomatoSelfTest.site(0.0, 0.0, 4.0), 180.0F);
-							e.growth().set(io.github.kortev.chainsawman.devil.Growth.MAX, true);
+							e.growth().set(grownLevel(), true);
 							ShootingStar.LOGGER.info("[played] the devil is at growth {}, {} health", e.growthLevel(), e.getHealth());
 						} else if (duel) {
 							TomatoSelfTest.devil(w, TomatoSelfTest.site(0.0, 0.0, 2.0), 0.0F);
@@ -464,7 +526,9 @@ final class TomatoFight {
 				}
 				takeHop = false;
 				boolean busy = fight(c, d, false, false);
-				if (!busy && d.state() == TomatoDevilEntity.WALK) {
+				if (!busy && backingOff(c, d)) {
+					// (stood off after a cut)
+				} else if (!busy && d.state() == TomatoDevilEntity.WALK) {
 					press(c, d);
 				}
 				if (!duel && lastState == TomatoDevilEntity.WALK && sub > 40 && slaps >= 1) {

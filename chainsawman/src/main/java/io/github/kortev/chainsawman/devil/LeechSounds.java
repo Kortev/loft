@@ -22,7 +22,9 @@ public final class LeechSounds {
 	public static final SoundEvent SUCK = register("leech.suck");
 	/** The arm cut loose: a wet rip and the sucker popping off. */
 	public static final SoundEvent TEAR = register("leech.tear");
-	/** Hurt: a shrill, broken shriek. */
+	/** An ordinary hit: a short wet grunt (three of them). */
+	public static final SoundEvent GRUNT = register("leech.grunt");
+	/** An arm torn loose or the tongue cut: a shrill, broken shriek. */
 	public static final SoundEvent SHRIEK = register("leech.shriek");
 	/** A front sucker pawing the ground before the trample. */
 	public static final SoundEvent PAW = register("leech.paw");

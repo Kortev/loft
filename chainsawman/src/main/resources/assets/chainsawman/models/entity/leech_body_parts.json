@@ -2,8 +2,8 @@
  "note": "The Leech Devil's body (tools/leech_devil_3d.py)",
  "frame": "blocks, the ground under the body's middle at the origin, its mouth toward +Z, up +Y, its left +X",
  "mesh": "leech_body_mesh.bin",
- "quads": 45036,
- "voxels": 147981,
+ "quads": 48433,
+ "voxels": 161648,
  "parts": [
   {
    "name": "body",
@@ -15,9 +15,9 @@
    ],
    "anim": null,
    "voxel": 0.0625,
-   "voxels": 55348,
+   "voxels": 69015,
    "kind": "body",
-   "quads": 9825
+   "quads": 13222
   },
   {
    "name": "head",

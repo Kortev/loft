@@ -58,13 +58,13 @@ Reel: "I added Public Safety to Minecraft."
 |---|---|---|---|
 | 3.1 | The Zombie Devil and its zombies | M | kortev's yes on the concept (waiting) |
 | 3.2 | The Bat Devil | M | kortev's yes on the concept (waiting) |
-| 3.3 | The Leech Devil | round 1 merged 2026-11-11 (308 tests) | `packages/3.3_leech_devil.md`: model, tongue, latch, trample; summon only. Round 2 asked: the body and the fight's framing. |
+| 3.3 | The Leech Devil | round 1 merged 2026-11-11 (308 tests) | `packages/3.3_leech_devil.md`: model, tongue, latch, trample; summon only. Round 2 merged 2026-11-11 (`packages/3.3b_leech_round2.md`): wrinkled body, a reach fighter whose limbs you cut. |
 | 3.4 | The Tomato Devil (the weak first-night devil) [pick] | merged 2026-11-10 (274 tests) | Brief `packages/3.4_tomato_devil.md`; the `devil/` lane exists (0.6 done). Round 2 merged 2026-11-10 (282 tests): `packages/3.4b_tomato_round2.md`. The horror short merged 2026-11-10 (`packages/3.4c_tomato_cinematic.md`); a sound pass and a 7.7 s teaser followed the same day. kortev has all three videos. 3.4d merged (283 tests): seeds can be cut up in three hits. |
 | 3.5 | Nests, spawn rules, parts | M | |
 | 3.6 | Mission kinds, and one trick per devil | S | Fear and the bounty moved to the server legend update |
 | 3.7 | Summoning: the circle, the offering, a weak devil's deal | M | [check: how summoning is shown] |
 | 3.8 | Small deals: a beaten devil begs | M | kortev said yes (2026-11-09); each deal's visual shown first |
-| 3.9 | Devils grow: a devil left alive gets stronger each night, faster when feared | merged 2026-11-11 (320 tests); look round 2 asked | kortev asked for it 2026-11-11 (`4d_dying_and_options.md` 4.5). Next after 2.2a; the Tomato first. Check the show's rule on the wiki before the brief. |
+| 3.9 | Devils grow: a devil left alive gets stronger each night, faster when feared | merged 2026-11-11, two rounds (323 tests) | kortev asked for it 2026-11-11 (`4d_dying_and_options.md` 4.5). Next after 2.2a; the Tomato first. Check the show's rule on the wiki before the brief. |
 
 Each devil is its own reel.
 

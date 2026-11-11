@@ -44,7 +44,7 @@ final class TomatoGrowthLook {
 	 * growth they split open at. Mostly up and down, as a tomato's skin cracks; none across the mouth.
 	 */
 	private static final float[][] SEAMS = {
-			{0.95F, 0.05F, 0.3F, 1.35F, 0.62F, 1}, {-0.95F, 0.1F, 0.25F, -1.4F, 0.6F, 1},
+			{0.0F, 1.0F, 0.05F, 0.0F, 1.1F, 1}, {0.95F, 0.05F, 0.3F, 1.35F, 0.62F, 1}, {-0.95F, 0.1F, 0.25F, -1.4F, 0.6F, 1},
 			{0.55F, -0.2F, 0.82F, 1.45F, 0.58F, 2}, {-0.55F, -0.2F, 0.82F, -1.5F, 0.58F, 2},
 			{0.32F, 0.62F, 0.72F, 1.0F, 0.5F, 3}, {-0.32F, 0.62F, 0.72F, -1.1F, 0.5F, 3}, {0.0F, 0.98F, -0.2F, 0.15F, 0.6F, 3},
 			{0.9F, 0.1F, -0.45F, -1.3F, 0.62F, 4}, {-0.9F, 0.05F, -0.45F, 1.25F, 0.62F, 4}, {0.0F, -0.35F, -0.95F, 1.5F, 0.66F, 4},
@@ -189,7 +189,7 @@ final class TomatoGrowthLook {
 	}
 
 	/** Where a direction on the body lands on its skin (its own frame), lifted {@code lift} times off it. */
-	private static Vector3f onSkin(Vector3f d, float lift) {
+	static Vector3f onSkin(Vector3f d, float lift) {
 		float k = (float) Math.sqrt((d.x / RX) * (d.x / RX) + (d.y / RY) * (d.y / RY) + (d.z / RX) * (d.z / RX));
 		return new Vector3f(d).div(k).mul(lift);
 	}
