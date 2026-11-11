@@ -547,6 +547,22 @@
       }
     ]
   },
+  "devil.laugh": {
+    "subtitle": "subtitles.chainsawman.devil.laugh",
+    "sounds": [
+      {
+        "name": "chainsawman:devil_laugh"
+      }
+    ]
+  },
+  "devil.scream": {
+    "subtitle": "subtitles.chainsawman.devil.scream",
+    "sounds": [
+      {
+        "name": "chainsawman:devil_scream"
+      }
+    ]
+  },
   "hotel.heartbeat": {
     "subtitle": "subtitles.chainsawman.hotel.heartbeat",
     "sounds": [

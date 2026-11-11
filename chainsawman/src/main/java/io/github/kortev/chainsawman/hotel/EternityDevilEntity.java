@@ -87,6 +87,8 @@ public class EternityDevilEntity extends MobEntity {
 	 * what is cut is its flesh (the walls, the growths: {@link Shaft#cutBlock}) and its parts, and all of it is pain ({@link #arenaPain}).
 	 */
 	private static final TrackedData<Boolean> SHAFT = DataTracker.registerData(EternityDevilEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
+	/** The arena fight as the clients draw it ({@link Shaft#sync}): the round, the core's window, the walls moved in, the stumps of torn limbs. */
+	private static final TrackedData<net.minecraft.nbt.NbtCompound> ARENA = DataTracker.registerData(EternityDevilEntity.class, TrackedDataHandlerRegistry.NBT_COMPOUND);
 	/** It has said its heart is not here (once a fight, at the first cut that lands). */
 	private boolean saidNoHeart;
 
@@ -172,6 +174,16 @@ public class EternityDevilEntity extends MobEntity {
 		builder.add(FACING, 0.0F);
 		builder.add(BORN, 0);
 		builder.add(SHAFT, false);
+		builder.add(ARENA, new net.minecraft.nbt.NbtCompound());
+	}
+
+	/** The arena fight as the server last sent it (see {@link Shaft#sync}). */
+	public net.minecraft.nbt.NbtCompound arena() {
+		return this.dataTracker.get(ARENA);
+	}
+
+	public void setArena(net.minecraft.nbt.NbtCompound tag) {
+		this.dataTracker.set(ARENA, tag, true);
 	}
 
 	/** Whether it is the shaft's devil (at the bottom of it) and not the wall's. */
@@ -338,13 +350,9 @@ public class EternityDevilEntity extends MobEntity {
 		if ((this.growing() || this.tilting) && !kill) {
 			return false;
 		}
-		// In the arena a blow on it is a cut in its flesh: pain on the arena's longer bar ({@link #arenaPain}).
+		// In the arena nothing but its limbs and its core can be hurt (see Shaft): a blow on its sunk body is nothing.
 		if (!kill && this.shaft()) {
-			if (this.begStarted) {
-				return false;
-			}
-			arenaPain(amount, P_MASS, source.getAttacker());
-			return true;
+			return false;
 		}
 		// While it begs it cannot be hurt, and once it has begged damage does not kill it: the core is cut (see cutCore).
 		if (this.begStarted && !kill) {
@@ -689,6 +697,25 @@ public class EternityDevilEntity extends MobEntity {
 		}
 		addPain(raw / Shaft.ARENA_SCALE * painPace, source);
 		noHeart(world);
+	}
+
+	/**
+	 * The arena's fight sets the bar ({@link Shaft#progress}): to {@code target} (0 to 1) of its pain, from {@code source}. Back down when a limb
+	 * grows back; at 1 it begs.
+	 */
+	public void arenaTo(float target, int source) {
+		if (this.begStarted || !this.isAlive()) {
+			return;
+		}
+		float line = BEG_AT * this.getMaxHealth();
+		float want = this.getMaxHealth() - net.minecraft.util.math.MathHelper.clamp(target, 0.0F, 1.0F) * (this.getMaxHealth() - line);
+		if (target >= 1.0F) {
+			addPain(this.getMaxHealth(), source);
+		} else if (want < this.getHealth()) {
+			addPain(this.getHealth() - want, source);
+		} else {
+			this.setHealth(want);
+		}
 	}
 
 	/** For the film only: how much faster the bar fills than it does in play (1 in play). */

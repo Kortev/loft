@@ -49,13 +49,17 @@ import org.joml.Vector3f;
  * {@link #HIGH} high, lit from inside the flesh and by the mouth overhead). Every block it takes is kept (in the home's own data,
  * {@link HomeBlockEntity#shaft}) and put back exactly when the fight is over, like {@link Arena}.
  *
- * <p>The rule of the arena: <b>no damage without a tell</b>. Every attack shows itself at least {@link #MIN_TELL} ticks before it lands, starts
- * at least 4 blocks from whoever it is aimed at, and can be stepped out of; a miss leaves the part that missed lying stunned and worth half as
- * much again to cut. The attacks: an arm slammed down a lane ({@link ShaftArmEntity#slam}), a head lunging ({@link ShaftHeadEntity}), half the
- * room clenching shut ({@link #squeeze}), a hand sweeping the floor that holds whoever it catches until the arm is cut
- * ({@link ShaftArmEntity#grab}), and flesh creeping on the floor ({@link FleshPatchEntity}). The walls and the growths can be cut at any time
- * ({@link #cutBlock}): there is always something to hit. It can't be killed here (its heart is not on this floor): the pain bar fills until it
- * gives up ({@link EternityDevilEntity#arenaPain}).
+ * <p>The rule of the arena: <b>no damage without a tell, and no pain but from what attacks you</b>. Every attack shows itself at least
+ * {@link #MIN_TELL} ticks before it lands, starts at least 4 blocks from whoever it is aimed at, and can be stepped out of. Every attack is a
+ * limb: an arm slammed down a lane ({@link ShaftArmEntity#slam}), a head lunging ({@link ShaftHeadEntity}), half the room clenching shut
+ * ({@link #squeeze}, whose thrust arm is left behind), a hand sweeping the floor ({@link ShaftArmEntity#grab}). One that misses is left stuck
+ * {@link #STUCK} ticks, and then it can be torn off for good ({@link #TEAR}: two full sword blows, one saw slash); a stump stays. Cutting the
+ * walls does nothing ({@link #cutBlock}). Enough limbs torn ({@link #NEED}) and it screams and its core is forced out of an end wall for a
+ * short window ({@link #WINDOW}); a third of the core each window, three rounds, the long walls moving in each round. It grows with fear: a
+ * torn limb grows back when nobody has torn one for a while, or someone is hit twice in a row ({@link #REGROW_IDLE}). After the third window
+ * it breaks: it begs and holds its core out (the ending as it was, {@link EternityDevilEntity#arenaTo}).
+ *
+ * <p>Nothing inside it is drawn as a block: the walls are {@link ArenaFleshBlock}s nothing draws, and its flesh model is drawn over them.
  *
  * <p>Local coordinates are the hotel's own (x along the corridor, z across, y up); the shaft is a column over the corridor's middle, so
  * a corridor's x is a height: x 36 (its far end, the devil's) the bottom.
@@ -127,11 +131,47 @@ public final class Shaft {
 	public static final float SQUEEZE_DAMAGE = 6.0F;
 	/** The clenching half reaches this far from its end wall: x below 17.5 (or above 21.5) is caught; the middle band and the other half are safe. */
 	public static final double SQUEEZE_REACH = 6.5;
-	/** Rest after an attack resolves (ticks) at each stage of the bar, and the least gap between two attacks starting. */
-	private static final int[] REST = {22, 16, 9};
-	private static final int[] START_GAP = {10, 18, 12};
-	/** Creeping flesh: ticks between patches (plus a random part). */
+	/** Rest after an attack resolves (ticks) in each round; from the second round attacks come in pairs (the second this soon after the first resolves). */
+	public static final int[] REST = {26, 22, 14};
+	public static final int PAIR_GAP = 6;
+	private static final int START_GAP = 10;
+	/** Creeping flesh: ticks between patches (plus a random part). Not in the arena any more (every attack there is a limb). */
 	public static final int PATCH_GAP = 170;
+
+	// ---- The limbs, the core, the rounds.
+	/** A limb that missed is stuck this long (ticks), and this much cutting tears it off: two full iron sword blows, one saw slash. */
+	public static final int STUCK = 50;
+	public static final float TEAR = 12.0F;
+	/** Limbs to tear off in each round (one player; one more for each other player). */
+	public static final int[] NEED = {4, 5, 6};
+	/** The core's window: the far wall bulging and splitting (its tell), then the core out on its stalk, chest high. */
+	public static final int WINDOW_TELL = 20;
+	public static final int WINDOW = 140;
+	/** A third of the core: what each window takes to empty (one player: about five sword blows, two seconds of saws), scaled up for more. */
+	public static final float WINDOW_HP = 30.0F;
+	public static final float WINDOW_MORE = 0.6F;
+	/** A window let go by: this many more limbs bring it back. */
+	public static final int AGAIN = 2;
+	/** It grows with fear: a torn limb grows back when nobody has torn one this long, or someone is hit twice within {@link #FEAR_HITS}; at most one each {@link #REGROW_GAP}. */
+	public static final int REGROW_IDLE = 200;
+	public static final int FEAR_HITS = 120;
+	public static final int REGROW_GAP = 200;
+	/** After a hit nothing new starts on that player this long. */
+	public static final int SAFE_AFTER_HIT = 20;
+	/** The long walls move in a block each from the second round, and again in the third, over this long (ticks). */
+	public static final int WALL_MOVE = 30;
+	/** Each round is a third of the arena's share of the bar: the limbs this much of it, the core the rest. */
+	public static final float ROUND_SHARE = (1.0F - PAIN_TILT) / 3.0F;
+	public static final float LIMB_PART = 0.35F;
+	/** What a stump is of: an arm (a slam, a grab, a squeeze's thrust) or a head. */
+	public static final byte LIMB_ARM = 0;
+	public static final byte LIMB_HEAD = 1;
+	/** The walls a stump can be in: the low-x end, the high-x end, the low-z long wall, the high-z long wall, the floor. */
+	public static final int W_X0 = 0;
+	public static final int W_X1 = 1;
+	public static final int W_Z0 = 2;
+	public static final int W_Z1 = 3;
+	public static final int W_FLOOR = 4;
 	/** A player standing on a ledge this long is taken in by an arm. */
 	public static final int LEDGE_TICKS = 16;
 
@@ -175,6 +215,34 @@ public final class Shaft {
 		public final Set<UUID> landed = new HashSet<>();
 		/** The last tick the devil cried out at a cut. */
 		public long criedAt;
+		/** The round (0 to 2), limbs torn in it, how many it needs now (more after a window let go by), and how many it needed at first. */
+		public int round;
+		public int torn;
+		public int need;
+		public int baseNeed;
+		/** The core's window: the tick its tell began (-1 none), what is left of this round's third, what it was, and which end wall (0 low x). */
+		public long windowAt = -1;
+		public float windowHp;
+		public float windowMax;
+		public int coreSide;
+		public UUID windowCore;
+		/** The last limb torn, the last one grown back, the last laugh; someone was hit twice in a row (it grows a limb back). */
+		public long lastTear;
+		public long lastRegrow = -100000;
+		public long laughAt = -1;
+		public boolean fearHit;
+		/** How far the long walls have moved in (blocks each), from where, and when it began (-1 not moving). */
+		public int inset;
+		public int wallFrom;
+		public long wallAt = -1;
+		/** Second rounds on: the second of a pair still to come. */
+		public int pairLeft;
+		/** When each player was last hit. */
+		public final Map<UUID, Long> hitAt = new HashMap<>();
+		/** The stumps of torn limbs, in the walls and floor. */
+		public final List<Stump> stumps = new ArrayList<>();
+		/** The rounds have started (the first limb fight is set up as the arena is entered). */
+		public boolean rounds;
 
 		public void reset() {
 			fear = 0.0F;
@@ -190,34 +258,37 @@ public final class Shaft {
 			landed.clear();
 			lastActive = 0;
 			order = 0;
+			round = 0;
+			torn = 0;
+			need = 0;
+			baseNeed = 0;
+			windowAt = -1;
+			windowCore = null;
+			lastRegrow = -100000;
+			laughAt = -1;
+			fearHit = false;
+			inset = 0;
+			wallFrom = 0;
+			wallAt = -1;
+			pairLeft = 0;
+			hitAt.clear();
+			stumps.clear();
+			rounds = false;
 		}
+	}
+
+	/**
+	 * A torn limb's stump: in wall {@code wall} ({@link #W_X0}...), at {@code u} along it (local z for the end walls, x for the long ones; for
+	 * the floor its local x) and {@code v} (its height over the floor; for the floor its local z); what it was, in which round, when.
+	 */
+	public record Stump(int wall, double u, double v, byte kind, int round, long at) {
 	}
 
 	// ---- The design.
 
-	/** The mouth's floor: dark grey-brown (mud, packed mud, brown and grey terracotta), a few veins of black. */
-	static BlockState flesh(int x, int y, int z) {
-		int h = hash(x, y, z);
-		Block b = h < 40 ? Blocks.MUD : h < 100 ? Blocks.PACKED_MUD : h < 150 ? Blocks.BROWN_TERRACOTTA : h < 238 ? Blocks.GRAY_TERRACOTTA : Blocks.BLACKSTONE;
-		return b.getDefaultState();
-	}
-
-	/** The arena's walls and ceiling: dark red flesh (so the pale heads and arms read against it), with darker streaks. */
-	static BlockState wallFlesh(int x, int y, int z) {
-		int h = hash(x, y, z);
-		Block b = h < 170 ? Blocks.NETHER_WART_BLOCK : h < 238 ? Blocks.RED_TERRACOTTA : Blocks.BROWN_TERRACOTTA;
-		return b.getDefaultState();
-	}
-
-	/** The arena's floor: browner than the walls, so you can tell where the floor ends. */
-	static BlockState floorFlesh(int x, int y, int z) {
-		int h = hash(x, y, z);
-		Block b = h < 150 ? Blocks.RED_TERRACOTTA : h < 215 ? Blocks.BROWN_TERRACOTTA : Blocks.NETHER_WART_BLOCK;
-		return b.getDefaultState();
-	}
-
-	private static int hash(int x, int y, int z) {
-		return ((x * 73856093) ^ (y * 19349663) ^ (z * 83492791)) & 255;
+	/** The devil's inside: walls nothing draws (its flesh model is drawn over them). */
+	static BlockState flesh() {
+		return ChainsawMan.ARENA_FLESH.getDefaultState();
 	}
 
 	private static void put(Map<HotelPlan.P, BlockState> m, int x, int y, int z, BlockState s) {
@@ -249,12 +320,6 @@ public final class Shaft {
 		return out;
 	}
 
-	/** The growths on the arena's floor (against its walls), each two blocks high: lumps of flesh with a glowing boil on top, cut at any time. */
-	public static final int[][] GROWTHS = {{AX0, AZ0}, {AX1, AZ0}, {AX0, AZ1}, {AX1, AZ1}, {15, AZ1}, {23, AZ0}, {AX0, 6}, {AX1, 7}};
-	/** The boils in the walls (local x, y, z of the block): glowing lumps that light the flesh round them. */
-	private static final int[][] BOILS = {{AX0 - 1, FLOOR + 3, 3}, {AX0 - 1, FLOOR + 4, 10}, {AX1 + 1, FLOOR + 3, 4}, {AX1 + 1, FLOOR + 4, 9}, {14, FLOOR + 3, AZ0 - 1},
-			{20, FLOOR + 4, AZ0 - 1}, {25, FLOOR + 3, AZ0 - 1}, {13, FLOOR + 4, AZ1 + 1}, {18, FLOOR + 3, AZ1 + 1}, {24, FLOOR + 4, AZ1 + 1}};
-
 	/** Every block of the shaft, by local place: the arena, the mouth, the shaft's four walls with the corridor's own blocks, the alcoves. */
 	public static Map<HotelPlan.P, BlockState> design() {
 		HotelPlan plan = HotelPlan.get();
@@ -263,11 +328,12 @@ public final class Shaft {
 		BlockState cream = plan.at(1, Arena.Y0 + 1, 4);
 		BlockState light = Blocks.LIGHT.getDefaultState();
 		Map<HotelPlan.P, BlockState> m = new LinkedHashMap<>();
-		// The arena: a shell of flesh two thick (the floor three), and its inside.
+		// The arena: a shell two thick (the floor three) that nothing draws, its flesh model over it, and its inside.
+		BlockState shell = flesh();
 		for (int x = AX0 - 2; x <= AX1 + 2; x++) {
 			for (int z = AZ0 - 2; z <= AZ1 + 2; z++) {
 				for (int y = FLOOR - 3; y <= FLOOR + HIGH + 1; y++) {
-					put(m, x, y, z, y < FLOOR ? floorFlesh(x, y, z) : wallFlesh(x, y, z));
+					put(m, x, y, z, shell);
 				}
 			}
 		}
@@ -284,13 +350,6 @@ public final class Shaft {
 				put(m, x, FLOOR + 1, z, light.with(net.minecraft.block.LightBlock.LEVEL_15, 15));
 			}
 		}
-		for (int[] b : BOILS) {
-			put(m, b[0], b[1], b[2], Blocks.SHROOMLIGHT.getDefaultState());
-		}
-		for (int[] g : GROWTHS) {
-			put(m, g[0], FLOOR, g[1], Blocks.NETHER_WART_BLOCK.getDefaultState());
-			put(m, g[0], FLOOR + 1, g[1], Blocks.SHROOMLIGHT.getDefaultState());
-		}
 		// The throat: the mouth's 3 x 3 straight down through the arena's ceiling, lit.
 		for (int x = IX0; x <= IX1; x++) {
 			for (int z = IZ0; z <= IZ1; z++) {
@@ -300,13 +359,13 @@ public final class Shaft {
 			}
 		}
 		put(m, 19, FLOOR + HIGH + 1, 6, light.with(net.minecraft.block.LightBlock.LEVEL_15, 15));
-		// The mouth's hollow: a shell of the dark grey-brown flesh, its floor the fused arms (drawn over it), the mouth the shaft's 3 x 3 in it.
+		// The mouth's hollow: a shell nothing draws (its flesh, the mass of fused arms, drawn over it), the mouth the shaft's 3 x 3 in it.
 		for (int x = CX0 - 1; x <= CX1 + 1; x++) {
 			for (int z = CZ0 - 1; z <= CZ1 + 1; z++) {
 				for (int y = BASE - 1; y <= BASE + 5; y++) {
 					boolean inside = x >= CX0 && x <= CX1 && z >= CZ0 && z <= CZ1 && y >= BASE && y <= BASE + 4;
 					boolean mouth = x >= IX0 && x <= IX1 && z >= IZ0 && z <= IZ1 && (y == BASE - 1 || y == BASE + 5);
-					put(m, x, y, z, inside || mouth ? air : flesh(x, y, z));
+					put(m, x, y, z, inside || mouth ? air : shell);
 				}
 			}
 		}
@@ -476,6 +535,21 @@ public final class Shaft {
 		for (FleshPatchEntity e : world.getEntitiesByType(ChainsawMan.FLESH_PATCH, box, x -> true)) {
 			e.discard();
 		}
+		for (ShaftCoreEntity e : world.getEntitiesByType(ChainsawMan.SHAFT_CORE, box, ShaftCoreEntity::window)) {
+			e.discard();
+		}
+		// The long walls moved in stood where the arena was empty: empty again (what was there before is put back next).
+		for (int x = AX0; x <= AX1; x++) {
+			for (int z = AZ0; z <= AZ1; z++) {
+				for (int y = FLOOR; y < FLOOR + HIGH; y++) {
+					BlockPos at = HotelBuilder.world(h.origin, h.rot, x, y, z);
+					if (world.getBlockState(at).isOf(ChainsawMan.ARENA_FLESH)) {
+						world.setBlockState(at, Blocks.AIR.getDefaultState(), FLAGS);
+					}
+				}
+			}
+		}
+		st.inset = 0;
 		List<Arena.Cell> cells = Arena.read(h.shaft, world);
 		for (Arena.Cell c : cells) {
 			BlockPos at = HotelBuilder.world(h.origin, h.rot, c.x(), c.y(), c.z());
@@ -514,10 +588,15 @@ public final class Shaft {
 			return;
 		}
 		h.run.shaft.squeezeHalf = -1;
+		h.run.shaft.windowAt = -1;
 		calm(world, worldBox(h));
 		for (FleshPatchEntity e : world.getEntitiesByType(ChainsawMan.FLESH_PATCH, worldBox(h), x -> true)) {
 			e.discard();
 		}
+		for (ShaftCoreEntity e : world.getEntitiesByType(ChainsawMan.SHAFT_CORE, worldBox(h), ShaftCoreEntity::window)) {
+			e.drawBack();
+		}
+		sync(h, devil);
 	}
 
 	// ---- Messages to the clients.
@@ -673,6 +752,11 @@ public final class Shaft {
 		st.lastActive = 0;
 		st.squeezeHalf = -1;
 		st.landed.clear();
+		st.rounds = false;
+		st.stumps.clear();
+		st.inset = 0;
+		st.wallAt = -1;
+		st.windowAt = -1;
 		// The flesh creeping in the corridor goes with it, and the sky arena is shut.
 		Box corridor = new Box(at(h.origin, h.rot, 0.0, Arena.Y0 - 2.0, 0.0), at(h.origin, h.rot, HotelPlan.SX, Arena.Y1 + 3.0, HotelPlan.SZ));
 		for (FleshPatchEntity patch : world.getEntitiesByType(ChainsawMan.FLESH_PATCH, corridor, e -> true)) {
@@ -744,10 +828,25 @@ public final class Shaft {
 		return MathHelper.clamp((devil.pain() - PAIN_TILT) / (1.0F - PAIN_TILT), 0.0F, 1.0F);
 	}
 
-	/** How wild it is: 0 at first, 1 past a third of the arena's share of the bar (two attacks overlap), 2 past two thirds (shorter gaps, worse cries). */
+	/** Which round of the arena's fight it is (0, 1, 2), as the server last told (on either side). */
 	public static int stage(EternityDevilEntity devil) {
-		float s = share(devil);
-		return s < 1.0F / 3.0F ? 0 : s < 2.0F / 3.0F ? 1 : 2;
+		return MathHelper.clamp(devil.arena().getInt("round"), 0, 2);
+	}
+
+	/** The low long wall's inner face (local z), where it is now moved to; and the high one's. */
+	public static double z0(State st) {
+		return AZ0 + st.inset;
+	}
+
+	public static double z1(State st) {
+		return AZ1 + 1 - st.inset;
+	}
+
+	/** Where the bar stands for the fight so far: a third of the arena's share a round, the limbs part of it, the core the rest. */
+	public static float progress(State st) {
+		float limbs = st.baseNeed <= 0 ? 0.0F : Math.min(1.0F, st.torn / (float) st.baseNeed);
+		float core = st.windowMax <= 0.0F ? 0.0F : 1.0F - Math.max(0.0F, st.windowHp) / st.windowMax;
+		return PAIN_TILT + ROUND_SHARE * (Math.min(st.round, 3) + LIMB_PART * limbs + (1.0F - LIMB_PART) * core);
 	}
 
 	private static void arenaTick(ServerWorld world, HomeBlockEntity h, EternityDevilEntity devil, List<ServerPlayerEntity> players, long now) {
@@ -789,12 +888,317 @@ public final class Shaft {
 		if (!devil.fightable() || devil.broken || devil.begStarted) {
 			return;
 		}
-		director(world, h, devil, arena, now);
-		squeezeTick(world, h, devil, now);
-		if (now >= st.nextPatch && !arena.isEmpty()) {
-			st.nextPatch = now + PATCH_GAP + world.random.nextInt(60);
-			creep(world, h, arena.get(world.random.nextInt(arena.size())));
+		if (!st.rounds) {
+			st.rounds = true;
+			startRound(world, h, devil, 0, Math.max(1, arena.size()), now);
 		}
+		wallsTick(world, h, arena, now);
+		if (st.windowAt >= 0) {
+			windowTick(world, h, devil, arena, now);
+		} else {
+			regrowTick(world, h, devil, now);
+			director(world, h, devil, arena, now);
+		}
+		squeezeTick(world, h, devil, now);
+	}
+
+	// ---- The rounds: limbs torn, the core's window, the walls moving in, limbs growing back.
+
+	/** Round {@code round} begins ({@code players}: how many are fighting): limbs to tear, a third of the core, the long walls in a block more. */
+	public static void startRound(ServerWorld world, HomeBlockEntity h, EternityDevilEntity devil, int round, int players, long now) {
+		State st = h.run.shaft;
+		st.round = round;
+		st.torn = 0;
+		st.baseNeed = NEED[Math.min(round, NEED.length - 1)] + Math.max(0, players - 1);
+		st.need = st.baseNeed;
+		st.windowMax = WINDOW_HP * (1.0F + WINDOW_MORE * Math.max(0, players - 1));
+		st.windowHp = st.windowMax;
+		st.windowAt = -1;
+		st.lastTear = now;
+		st.pairLeft = round >= 1 ? 1 : 0;
+		if (round > 0) {
+			st.wallFrom = st.inset;
+			st.inset = Math.min(2, round);
+			st.wallAt = now;
+			Vec3d mid = at(h.origin, h.rot, MID_X, FLOOR + 3.0, MID_Z);
+			world.playSound(null, mid.x, mid.y, mid.z, ChainsawSounds.DEVIL_GROW, SoundCategory.HOSTILE, 4.0F, 0.45F);
+			world.playSound(null, mid.x, mid.y, mid.z, SoundEvents.ENTITY_WARDEN_HEARTBEAT, SoundCategory.HOSTILE, 4.0F, 0.6F);
+		}
+		devil.arenaTo(progress(st), EternityDevilEntity.P_ARM);
+		sync(h, devil);
+	}
+
+	/** The long walls closing in (their model and the blocks behind it): anyone in their way is pushed toward the middle, and they stand. */
+	private static void wallsTick(ServerWorld world, HomeBlockEntity h, List<ServerPlayerEntity> arena, long now) {
+		State st = h.run.shaft;
+		if (st.wallAt < 0) {
+			return;
+		}
+		long t = now - st.wallAt;
+		double k = MathHelper.clamp(t / (double) WALL_MOVE, 0.0, 1.0);
+		double in = st.wallFrom + (st.inset - st.wallFrom) * k;
+		for (ServerPlayerEntity p : arena) {
+			Vec3d lp = local(h, p);
+			double push = lp.z < AZ0 + in + 0.45 ? 1.0 : lp.z > AZ1 + 1 - in - 0.45 ? -1.0 : 0.0;
+			if (push != 0.0) {
+				Vec3d v = HotelBuilder.world(BlockPos.ORIGIN, h.rot, 0.0, 0.0, push * 0.25);
+				p.setVelocity(p.getVelocity().x + v.x, p.getVelocity().y, p.getVelocity().z + v.z);
+				p.velocityModified = true;
+			}
+		}
+		if (t >= WALL_MOVE) {
+			st.wallAt = -1;
+			placeWalls(world, h);
+		}
+	}
+
+	/** The blocks behind the long walls where they now stand (nothing draws them: the walls' model does), and nobody left inside them. */
+	static void placeWalls(ServerWorld world, HomeBlockEntity h) {
+		State st = h.run.shaft;
+		for (int k = 0; k < st.inset; k++) {
+			for (int z : new int[] {AZ0 + k, AZ1 - k}) {
+				for (int x = AX0; x <= AX1; x++) {
+					for (int y = FLOOR; y < FLOOR + HIGH; y++) {
+						world.setBlockState(HotelBuilder.world(h.origin, h.rot, x, y, z), flesh(), FLAGS);
+					}
+				}
+			}
+		}
+		for (ServerPlayerEntity p : world.getPlayers()) {
+			Vec3d lp = local(h, p);
+			if (inArena(lp) && (lp.z < z0(st) + 0.3 || lp.z > z1(st) - 0.3)) {
+				Vec3d to = at(h.origin, h.rot, lp.x, Math.max(lp.y, FLOOR), MathHelper.clamp(lp.z, z0(st) + 0.6, z1(st) - 0.6));
+				p.requestTeleport(to.x, to.y, to.z);
+			}
+		}
+	}
+
+	/** Which wall (or the floor) a local point is at. */
+	static int wallOf(State st, Vec3d lp) {
+		double[] d = {Math.abs(lp.x - AX0), Math.abs(lp.x - (AX1 + 1)), Math.abs(lp.z - z0(st)), Math.abs(lp.z - z1(st))};
+		int best = W_FLOOR;
+		double least = 0.8;
+		for (int i = 0; i < 4; i++) {
+			if (d[i] < least) {
+				least = d[i];
+				best = i;
+			}
+		}
+		return best;
+	}
+
+	/** A limb was torn off for good at {@code root} (world): a stump stays, it screams, the bar moves; enough of them and its core is forced out. */
+	public static void torn(ServerWorld world, BlockPos origin, Vec3d root, Vec3d dir, byte kind, @org.jetbrains.annotations.Nullable net.minecraft.entity.Entity by) {
+		HomeBlockEntity h = Hotel.at(world, origin);
+		if (h == null || !h.run.shaft.built || !(h.run.devil != null && world.getEntity(h.run.devil) instanceof EternityDevilEntity devil) || devil.begStarted) {
+			return;
+		}
+		State st = h.run.shaft;
+		long now = world.getTime();
+		Vec3d lp = localOf(origin, h.rot, root);
+		int wall = wallOf(st, lp);
+		double u = wall == W_X0 || wall == W_X1 ? lp.z : lp.x;
+		double v = wall == W_FLOOR ? lp.z : Math.max(0.0, lp.y - FLOOR);
+		st.stumps.add(new Stump(wall, u, v, kind, st.round, now));
+		st.torn++;
+		st.lastTear = now;
+		if (by != null) {
+			Hotel.fought(world, devil, by);
+		}
+		world.playSound(null, root.x, root.y + 1.0, root.z, ChainsawSounds.DEVIL_HURT, SoundCategory.HOSTILE, 3.0F, 0.55F);
+		world.playSound(null, root.x, root.y + 1.0, root.z, ChainsawSounds.HOTEL_CUT, SoundCategory.HOSTILE, 2.0F, 0.6F);
+		world.spawnParticles(BLOOD, root.x, root.y + 0.6, root.z, 40, 0.4, 0.4, 0.4, 0.2);
+		world.spawnParticles(GORE, root.x, root.y + 0.6, root.z, 16, 0.3, 0.3, 0.3, 0.3);
+		devil.arenaTo(progress(st), kind == LIMB_HEAD ? EternityDevilEntity.P_HEAD : EternityDevilEntity.P_ARM);
+		if (st.windowAt < 0 && st.torn >= st.need) {
+			openWindow(world, h, devil, now);
+		}
+		sync(h, devil);
+	}
+
+	/** Enough limbs torn: it screams, the room convulses, the far end wall bulges and splits, and its core is forced out on a stalk. */
+	public static void openWindow(ServerWorld world, HomeBlockEntity h, EternityDevilEntity devil, long now) {
+		State st = h.run.shaft;
+		st.windowAt = now;
+		// (Out of the end wall farther from the players: they have to cross to it.)
+		double mean = 0.0;
+		int n = 0;
+		for (ServerPlayerEntity p : world.getPlayers()) {
+			Vec3d lp = local(h, p);
+			if (inArena(lp)) {
+				mean += lp.x;
+				n++;
+			}
+		}
+		st.coreSide = n == 0 ? 1 : mean / n < MID_X ? 1 : 0;
+		Vec3d wall = at(h.origin, h.rot, st.coreSide == 0 ? AX0 + 0.5 : AX1 + 0.5, FLOOR + 2.0, MID_Z);
+		Vec3d mid = at(h.origin, h.rot, MID_X, FLOOR + 3.0, MID_Z);
+		world.playSound(null, mid.x, mid.y, mid.z, ChainsawSounds.DEVIL_SCREAM, SoundCategory.HOSTILE, 5.0F, 0.9F);
+		world.playSound(null, wall.x, wall.y, wall.z, ChainsawSounds.DEVIL_GROW, SoundCategory.HOSTILE, 4.0F, 0.6F);
+		world.playSound(null, wall.x, wall.y, wall.z, ChainsawSounds.HOTEL_HEARTBEAT, SoundCategory.HOSTILE, 4.0F, 0.8F);
+		sync(h, devil);
+	}
+
+	/** Where a window's core is (local): out of its end wall on the stalk, chest high, in the middle of the wall. */
+	public static Vec3d corePlace(int side) {
+		return new Vec3d(side == 0 ? AX0 + 1.7 : AX1 + 1 - 1.7, FLOOR + 0.55, MID_Z);
+	}
+
+	/** The window: the core out after its tell, drawn back when its time is up (two more limbs bring it back). */
+	private static void windowTick(ServerWorld world, HomeBlockEntity h, EternityDevilEntity devil, List<ServerPlayerEntity> arena, long now) {
+		State st = h.run.shaft;
+		long t = now - st.windowAt;
+		if (t == WINDOW_TELL) {
+			ShaftCoreEntity core = new ShaftCoreEntity(ChainsawMan.SHAFT_CORE, world);
+			Vec3d at = at(h.origin, h.rot, corePlace(st.coreSide).x, corePlace(st.coreSide).y, corePlace(st.coreSide).z);
+			// (It faces out of its wall, into the room.)
+			float yaw = HotelBuilder.alongYaw(h.rot) + (st.coreSide == 0 ? 0.0F : 180.0F);
+			core.refreshPositionAndAngles(at.x, at.y, at.z, yaw, 0.0F);
+			core.devil = devil.getUuid();
+			core.setWindow(h.origin);
+			world.spawnEntity(core);
+			core.markBorn();
+			st.windowCore = core.getUuid();
+			world.playSound(null, at.x, at.y + 1.0, at.z, ChainsawSounds.DEVIL_BITE, SoundCategory.HOSTILE, 3.0F, 0.5F);
+			world.spawnParticles(BLOOD, at.x, at.y + 1.0, at.z, 50, 0.6, 0.6, 0.6, 0.25);
+		}
+		if (t >= WINDOW_TELL + WINDOW) {
+			closeWindow(world, h, devil, now);
+		}
+	}
+
+	/** The window let go by: the core drawn back in; two more limbs bring it out again. */
+	private static void closeWindow(ServerWorld world, HomeBlockEntity h, EternityDevilEntity devil, long now) {
+		State st = h.run.shaft;
+		backCore(world, st);
+		st.windowAt = -1;
+		st.need = st.torn + AGAIN;
+		st.lastTear = now;
+		st.nextAttack = Math.max(st.nextAttack, now + 20);
+		Vec3d mid = at(h.origin, h.rot, MID_X, FLOOR + 3.0, MID_Z);
+		world.playSound(null, mid.x, mid.y, mid.z, ChainsawSounds.DEVIL_LAUGH, SoundCategory.HOSTILE, 3.0F, 1.0F);
+		st.laughAt = now;
+		sync(h, devil);
+	}
+
+	private static void backCore(ServerWorld world, State st) {
+		if (st.windowCore != null && world.getEntity(st.windowCore) instanceof ShaftCoreEntity c) {
+			c.drawBack();
+		}
+		st.windowCore = null;
+	}
+
+	/** A blow on a window's core: a third of the core a window; emptied, the round is won (the third one breaks it: it begs). */
+	static boolean coreHit(ServerWorld world, ShaftCoreEntity core, net.minecraft.entity.damage.DamageSource source, float amount) {
+		HomeBlockEntity h = Hotel.at(world, core.origin);
+		if (h == null || !(h.run.devil != null && world.getEntity(h.run.devil) instanceof EternityDevilEntity devil) || devil.begStarted) {
+			return false;
+		}
+		State st = h.run.shaft;
+		if (st.windowAt < 0 || st.windowHp <= 0.0F) {
+			return false;
+		}
+		long now = world.getTime();
+		Hotel.fought(h, source);
+		st.windowHp -= amount;
+		ServerPlayerEntity by = source.getAttacker() instanceof ServerPlayerEntity p ? p : null;
+		Vec3d hit = core.getPos().add(0.0, 0.8, 0.0);
+		wound(world, devil, hit, Direction.UP, by, true);
+		if (st.windowHp > 0.0F) {
+			devil.arenaTo(progress(st), EternityDevilEntity.P_MOUTH);
+			sync(h, devil);
+			return true;
+		}
+		// Emptied: the core drawn back, the round won.
+		st.windowHp = 0.0F;
+		backCore(world, st);
+		st.windowAt = -1;
+		if (st.round >= 2) {
+			// The third: it breaks. It begs, and holds its core out (the ending).
+			st.round = 3;
+			sync(h, devil);
+			devil.arenaTo(1.0F, EternityDevilEntity.P_MOUTH);
+			return true;
+		}
+		int players = 0;
+		for (ServerPlayerEntity p : world.getPlayers()) {
+			players += inArena(local(h, p)) ? 1 : 0;
+		}
+		Vec3d mid = at(h.origin, h.rot, MID_X, FLOOR + 3.0, MID_Z);
+		world.playSound(null, mid.x, mid.y, mid.z, ChainsawSounds.DEVIL_SCREAM, SoundCategory.HOSTILE, 5.0F, 0.7F);
+		startRound(world, h, devil, st.round + 1, Math.max(1, players), now);
+		st.nextAttack = Math.max(st.nextAttack, now + WALL_MOVE + 20);
+		return true;
+	}
+
+	/** It grows with fear: nobody has torn a limb for a while, or someone was hit twice in a row: it laughs, and a torn limb grows back. */
+	private static void regrowTick(ServerWorld world, HomeBlockEntity h, EternityDevilEntity devil, long now) {
+		State st = h.run.shaft;
+		if (st.torn <= 0) {
+			st.fearHit = false;
+			return;
+		}
+		if (now - st.lastRegrow < REGROW_GAP || now - st.lastTear < REGROW_IDLE && !st.fearHit) {
+			return;
+		}
+		st.fearHit = false;
+		st.lastRegrow = now;
+		st.torn--;
+		for (int i = st.stumps.size() - 1; i >= 0; i--) {
+			if (st.stumps.get(i).round() == st.round) {
+				st.stumps.remove(i);
+				break;
+			}
+		}
+		st.laughAt = now;
+		Vec3d mid = at(h.origin, h.rot, MID_X, FLOOR + 3.0, MID_Z);
+		world.playSound(null, mid.x, mid.y, mid.z, ChainsawSounds.DEVIL_LAUGH, SoundCategory.HOSTILE, 4.0F, 1.0F);
+		world.playSound(null, mid.x, mid.y, mid.z, ChainsawSounds.DEVIL_REGEN, SoundCategory.HOSTILE, 3.0F, 0.7F);
+		Hotel.speak(world, h.run.inside, "message.chainsawman.devil.laugh", 50, 1);
+		devil.arenaTo(progress(st), EternityDevilEntity.P_ARM);
+		sync(h, devil);
+	}
+
+	/** A player hit by an attack: nothing new starts on them for a moment; hit twice in a row, its fear grows (a limb grows back). */
+	public static void hurt(ServerWorld world, BlockPos origin, ServerPlayerEntity p) {
+		HomeBlockEntity h = Hotel.at(world, origin);
+		if (h == null) {
+			return;
+		}
+		State st = h.run.shaft;
+		long now = world.getTime();
+		Long last = st.hitAt.put(p.getUuid(), now);
+		if (last != null && now - last <= FEAR_HITS && now - last > 2) {
+			st.fearHit = true;
+		}
+	}
+
+	/** Tells the clients what they draw of the fight: the round, the window, the walls, the stumps, the laugh. */
+	static void sync(HomeBlockEntity h, EternityDevilEntity devil) {
+		State st = h.run.shaft;
+		net.minecraft.nbt.NbtCompound tag = new net.minecraft.nbt.NbtCompound();
+		tag.putInt("round", st.round);
+		tag.putInt("torn", st.torn);
+		tag.putInt("need", st.need);
+		tag.putLong("windowAt", st.windowAt);
+		tag.putFloat("window", st.windowMax <= 0.0F ? 0.0F : st.windowHp / st.windowMax);
+		tag.putInt("coreSide", st.coreSide);
+		tag.putInt("inset", st.inset);
+		tag.putInt("wallFrom", st.wallFrom);
+		tag.putLong("wallAt", st.wallAt);
+		tag.putLong("laughAt", st.laughAt);
+		net.minecraft.nbt.NbtList list = new net.minecraft.nbt.NbtList();
+		for (Stump s : st.stumps) {
+			net.minecraft.nbt.NbtCompound c = new net.minecraft.nbt.NbtCompound();
+			c.putInt("w", s.wall());
+			c.putDouble("u", s.u());
+			c.putDouble("v", s.v());
+			c.putByte("k", s.kind());
+			c.putLong("at", s.at());
+			list.add(c);
+		}
+		tag.put("stumps", list);
+		devil.setArena(tag);
 	}
 
 	/** An arm up the shaft for whoever is on a ledge: it takes them down to the mouth. */
@@ -813,11 +1217,14 @@ public final class Shaft {
 		return st.squeezeHalf >= 0 && now - st.squeezeAt < SQUEEZE_TELL + SQUEEZE_SHUT;
 	}
 
-	/** The attacks: as many out at once as the stage and the number of players allow, each at a different player, a rest after each resolves. */
+	/**
+	 * The attacks: one tell at a time on each player (never a second before the first has landed or missed, nothing new on anyone just hit),
+	 * as many out as there are players; a rest after each resolves, and from the second round the next of a pair comes at once.
+	 */
 	private static void director(ServerWorld world, HomeBlockEntity h, EternityDevilEntity devil, List<ServerPlayerEntity> arena, long now) {
 		State st = h.run.shaft;
 		Box box = worldBox(h);
-		int stage = stage(devil);
+		int round = Math.min(st.round, REST.length - 1);
 		Set<UUID> aimed = new HashSet<>();
 		int active = 0;
 		boolean slamOut = false;
@@ -850,25 +1257,24 @@ public final class Shaft {
 			}
 		}
 		if (active < st.lastActive) {
-			st.nextAttack = Math.max(st.nextAttack, now + REST[stage]);
+			if (st.round >= 1 && st.pairLeft > 0) {
+				st.pairLeft--;
+				st.nextAttack = Math.max(st.nextAttack, now + PAIR_GAP);
+			} else {
+				st.nextAttack = Math.max(st.nextAttack, now + REST[round]);
+				st.pairLeft = st.round >= 1 ? 1 : 0;
+			}
 		}
 		st.lastActive = active;
-		int max = Math.min(4, (stage == 0 ? 1 : 2) + Math.max(0, arena.size() - 1));
-		if (arena.isEmpty() || now < st.nextAttack || active >= max) {
+		int max = Math.min(4, arena.size());
+		if (arena.isEmpty() || now < st.nextAttack || active >= max || st.wallAt >= 0) {
 			return;
 		}
 		List<ServerPlayerEntity> free = new ArrayList<>();
 		for (ServerPlayerEntity p : arena) {
-			if (!aimed.contains(p.getUuid()) && !io.github.kortev.chainsawman.form.Downed.is(p) && !heldByArm(world, box, p)) {
+			Long hit = st.hitAt.get(p.getUuid());
+			if (!aimed.contains(p.getUuid()) && !io.github.kortev.chainsawman.form.Downed.is(p) && !heldByArm(world, box, p) && (hit == null || now - hit >= SAFE_AFTER_HIT)) {
 				free.add(p);
-			}
-		}
-		if (free.isEmpty() && stage > 0) {
-			// (Fewer players than attacks it may have out: past the first stage they come at the same one.)
-			for (ServerPlayerEntity p : arena) {
-				if (!io.github.kortev.chainsawman.form.Downed.is(p) && !heldByArm(world, box, p)) {
-					free.add(p);
-				}
 			}
 		}
 		if (free.isEmpty()) {
@@ -879,13 +1285,14 @@ public final class Shaft {
 			byte kind = ORDER[st.order % ORDER.length];
 			st.order++;
 			boolean ok = switch (kind) {
-				case SLAM -> !slamOut || stage > 0 && arena.size() > 1;
+				case SLAM -> !slamOut || arena.size() > 1;
 				case LUNGE -> heads < 2;
-				case SQUEEZE -> !squeeze && !grabOut;
+				// (The squeeze takes in half the room: only when nothing else is coming at anyone.)
+				case SQUEEZE -> active == 0 && !squeeze && st.squeezeHalf < 0;
 				default -> !grabOut && !squeeze;
 			};
 			if (ok && launch(world, h, devil, kind, target, now)) {
-				st.nextAttack = now + START_GAP[stage];
+				st.nextAttack = now + START_GAP;
 				st.lastActive = active + 1;
 				return;
 			}
@@ -924,6 +1331,8 @@ public final class Shaft {
 
 	/** A slam down a lane through {@code lp}, from the wall farther from it ({@code alongX}: the lane runs along the room's length). */
 	public static boolean slam(ServerWorld world, HomeBlockEntity h, ServerPlayerEntity target, Vec3d lp, boolean alongX) {
+		double z0 = z0(h.run.shaft);
+		double z1 = z1(h.run.shaft);
 		double sx;
 		double sz;
 		double dirX;
@@ -934,15 +1343,15 @@ public final class Shaft {
 			sx = fromLow ? AX0 : AX1 + 1;
 			dirX = fromLow ? 1.0 : -1.0;
 			dirZ = 0.0;
-			sz = MathHelper.clamp(lp.z, AZ0 + 1.5, AZ1 + 1 - 1.5);
+			sz = MathHelper.clamp(lp.z, z0 + 1.5, z1 - 1.5);
 			len = MathHelper.clamp(Math.abs(lp.x - sx) + 3.0, 7.0, AX1 + 1 - AX0);
 		} else {
-			boolean fromLow = lp.z - AZ0 > AZ1 + 1 - lp.z;
-			sz = fromLow ? AZ0 : AZ1 + 1;
+			boolean fromLow = lp.z - z0 > z1 - lp.z;
+			sz = fromLow ? z0 : z1;
 			dirZ = fromLow ? 1.0 : -1.0;
 			dirX = 0.0;
 			sx = MathHelper.clamp(lp.x, AX0 + 1.5, AX1 + 1 - 1.5);
-			len = MathHelper.clamp(Math.abs(lp.z - sz) + 3.0, 7.0, AZ1 + 1 - AZ0);
+			len = MathHelper.clamp(Math.abs(lp.z - sz) + 3.0, Math.min(7.0, z1 - z0), z1 - z0);
 		}
 		Vec3d at = at(h.origin, h.rot, sx, FLOOR, sz);
 		Vec3d dir = HotelBuilder.world(BlockPos.ORIGIN, h.rot, dirX, 0.0, dirZ);
@@ -962,7 +1371,7 @@ public final class Shaft {
 			double r = ShaftHeadEntity.FROM;
 			double hx = lp.x + Math.cos(a) * r;
 			double hz = lp.z + Math.sin(a) * r;
-			if (hx < AX0 + 1.0 || hx > AX1 || hz < AZ0 + 1.0 || hz > AZ1) {
+			if (hx < AX0 + 1.0 || hx > AX1 || hz < z0(h.run.shaft) + 1.0 || hz > z1(h.run.shaft) - 1.0) {
 				continue;
 			}
 			boolean clear = true;
@@ -984,8 +1393,8 @@ public final class Shaft {
 
 	/** A hand at the long wall nearer {@code target}, 4 blocks along from them, to sweep the floor on that side. */
 	public static boolean grab(ServerWorld world, HomeBlockEntity h, ServerPlayerEntity target, Vec3d lp) {
-		boolean low = lp.z - AZ0 < AZ1 + 1 - lp.z;
-		double wz = low ? AZ0 : AZ1 + 1;
+		boolean low = lp.z - z0(h.run.shaft) < z1(h.run.shaft) - lp.z;
+		double wz = low ? z0(h.run.shaft) : z1(h.run.shaft);
 		double side = lp.x + 4.0 <= AX1 - 0.5 && (lp.x - 4.0 < AX0 + 1.5 || world.random.nextBoolean()) ? 4.0 : -4.0;
 		double px = MathHelper.clamp(lp.x + side, AX0 + 1.5, AX1 - 0.5);
 		Vec3d at = at(h.origin, h.rot, px, FLOOR, wz);
@@ -1028,6 +1437,7 @@ public final class Shaft {
 			Vec3d at = at(h.origin, h.rot, st.squeezeHalf == 0 ? AX0 + 2.0 : AX1 - 1.0, FLOOR + 2.0, MID_Z);
 			world.playSound(null, at.x, at.y, at.z, ChainsawSounds.DEVIL_SLAM, SoundCategory.HOSTILE, 3.0F, 0.5F);
 			world.playSound(null, at.x, at.y, at.z, ChainsawSounds.DEVIL_BITE, SoundCategory.HOSTILE, 2.5F, 0.5F);
+			boolean caught = false;
 			for (ServerPlayerEntity p : world.getPlayers()) {
 				Vec3d lp = local(h, p);
 				if (!p.isAlive() || p.isSpectator() || p.isCreative() || !inArena(lp) || !inSqueeze(st.squeezeHalf, lp)) {
@@ -1037,31 +1447,20 @@ public final class Shaft {
 				Vec3d push = HotelBuilder.world(BlockPos.ORIGIN, h.rot, st.squeezeHalf == 0 ? 1.1 : -1.1, 0.0, 0.0);
 				p.setVelocity(push.x, 0.35, push.z);
 				p.velocityModified = true;
+				hurt(world, h.origin, p);
+				caught = true;
+			}
+			if (!caught) {
+				// It caught nobody: the arm it thrust out of the end wall is left stuck on the floor, to be torn off.
+				Vec3d from = at(h.origin, h.rot, st.squeezeHalf == 0 ? AX0 : AX1 + 1, FLOOR, MID_Z);
+				Vec3d dir = HotelBuilder.world(BlockPos.ORIGIN, h.rot, st.squeezeHalf == 0 ? 1.0 : -1.0, 0.0, 0.0);
+				ShaftArmEntity arm = new ShaftArmEntity(ChainsawMan.SHAFT_ARM, world);
+				arm.lying(h.origin, h.rot, from, dir, SQUEEZE_REACH - 0.6);
+				world.spawnEntity(arm);
 			}
 		}
 		if (t > SQUEEZE_TELL + SQUEEZE_SHUT + SQUEEZE_SOFT) {
 			st.squeezeHalf = -1;
-		}
-	}
-
-	/** Whether the walls at the local point are soft (the half a squeeze has just clenched). */
-	private static boolean soft(State st, long now, Vec3d lp) {
-		return st.squeezeHalf >= 0 && now - st.squeezeAt >= SQUEEZE_TELL && (st.squeezeHalf == 0 ? lp.x < MID_X : lp.x > MID_X);
-	}
-
-	/** Flesh creeping toward a player: three patches round them, a few blocks off (they come up slowly, and bite only who stands on them). */
-	private static void creep(ServerWorld world, HomeBlockEntity h, ServerPlayerEntity target) {
-		Vec3d lp = local(h, target);
-		for (int k = 0; k < 3; k++) {
-			double a = world.random.nextDouble() * Math.PI * 2.0;
-			double r = 2.5 + world.random.nextDouble() * 2.0;
-			double px = MathHelper.clamp(lp.x + Math.cos(a) * r, AX0 + 1.0, AX1);
-			double pz = MathHelper.clamp(lp.z + Math.sin(a) * r, AZ0 + 1.0, AZ1);
-			Vec3d at = at(h.origin, h.rot, px, FLOOR, pz);
-			FleshPatchEntity patch = new FleshPatchEntity(ChainsawMan.FLESH_PATCH, world);
-			patch.refreshPositionAndAngles(at.x, at.y, at.z, world.random.nextFloat() * 360.0F, 0.0F);
-			patch.setLife(FleshPatchEntity.LIFE, 10 * k);
-			world.spawnEntity(patch);
 		}
 	}
 
@@ -1077,14 +1476,14 @@ public final class Shaft {
 		return null;
 	}
 
-	/** Whether the block at the local cell is the arena's flesh that can be cut: its walls, its ceiling, its growths (not its floor). */
+	/** Whether the block at the local cell is the arena's flesh: its walls, its ceiling (not its floor). */
 	public static boolean cuttable(int x, int y, int z) {
 		return y >= FLOOR && y <= FLOOR + HIGH && x >= AX0 - 1 && x <= AX1 + 1 && z >= AZ0 - 1 && z <= AZ1 + 1;
 	}
 
 	/**
-	 * A blow on a block of the arena ({@code pos}, struck on its {@code face} at {@code hit}) by {@code by} for {@code amount}: if it is the
-	 * devil's flesh, it is pain (half as much again where a squeeze left it soft), and it shows. True if it was the arena's (the blow is used).
+	 * A blow on a block of the arena ({@code pos}) by {@code by}: cutting its walls does nothing (pain comes only from tearing off what attacks
+	 * you, and from its core). True if it was the arena's (the blow is used up on it).
 	 */
 	public static boolean cutBlock(ServerWorld world, ServerPlayerEntity by, BlockPos pos, Direction face, Vec3d hit, float amount) {
 		HomeBlockEntity h = arenaAt(world, pos);
@@ -1092,28 +1491,12 @@ public final class Shaft {
 			return false;
 		}
 		BlockPos lb = BlockPos.ofFloored(localOf(h.origin, h.rot, Vec3d.ofCenter(pos)));
-		if (!cuttable(lb.getX(), lb.getY(), lb.getZ()) || world.getBlockState(pos).isAir()) {
-			return false;
-		}
-		if (!(h.run.devil != null && world.getEntity(h.run.devil) instanceof EternityDevilEntity devil) || !devil.fightable() || devil.begStarted) {
-			return true;
-		}
-		Vec3d lp = localOf(h.origin, h.rot, hit);
-		boolean soft = soft(h.run.shaft, world.getTime(), lp);
-		devil.arenaPain(amount * (soft ? MISS_BONUS : 1.0F), EternityDevilEntity.P_MASS, by);
-		wound(world, devil, hit, face, by, soft);
-		return true;
+		return cuttable(lb.getX(), lb.getY(), lb.getZ()) && !world.getBlockState(pos).isAir();
 	}
 
-	/** A slash's cut into the arena's walls or growths straight ahead of {@code player}, within {@code reach}: 1 if it cut, 0 if not. */
+	/** A slash into the arena's walls straight ahead of {@code player}: it does nothing (0: nothing was cut). */
 	public static int cutAhead(ServerPlayerEntity player, double reach, float damage) {
-		Vec3d eye = player.getEyePos();
-		Vec3d end = eye.add(player.getRotationVec(1.0F).multiply(reach));
-		BlockHitResult hit = player.getWorld().raycast(new RaycastContext(eye, end, RaycastContext.ShapeType.COLLIDER, RaycastContext.FluidHandling.NONE, player));
-		if (hit.getType() != HitResult.Type.BLOCK || !(player.getWorld() instanceof ServerWorld world)) {
-			return 0;
-		}
-		return cutBlock(world, player, hit.getBlockPos(), hit.getSide(), hit.getPos(), damage) ? 1 : 0;
+		return 0;
 	}
 
 	private static final DustParticleEffect BLOOD = new DustParticleEffect(new Vector3f(0.7F, 0.03F, 0.05F), 1.4F);
@@ -1173,16 +1556,23 @@ public final class Shaft {
 		return n;
 	}
 
-	/** A part of the devil cut ({@code part}: where; {@code missed}: it lies stunned after a miss, worth half as much again): pain, and the wound shows. */
-	static void partCut(ServerWorld world, BlockPos origin, Vec3d at, net.minecraft.entity.damage.DamageSource source, float amount, boolean missed, int kind) {
+	/** A limb cut ({@code at}: where; {@code tearing}: it is stuck, and being torn at): whoever cut it fought, and the wound shows. No pain: tearing it off is. */
+	static void limbCut(ServerWorld world, BlockPos origin, Vec3d at, net.minecraft.entity.damage.DamageSource source, boolean tearing) {
 		HomeBlockEntity h = Hotel.at(world, origin);
 		Hotel.fought(h, source);
 		if (h == null || !(h.run.devil != null && world.getEntity(h.run.devil) instanceof EternityDevilEntity devil)) {
 			return;
 		}
 		ServerPlayerEntity by = source.getAttacker() instanceof ServerPlayerEntity p ? p : null;
-		devil.arenaPain(amount * (missed ? MISS_BONUS : 1.0F), kind, source.getAttacker());
 		Direction face = by == null ? Direction.UP : Direction.getFacing(by.getEyePos().subtract(at).x, by.getEyePos().subtract(at).y, by.getEyePos().subtract(at).z);
-		wound(world, devil, at, face, by, missed);
+		wound(world, devil, at, face, by, tearing);
+	}
+
+	/** A blow on a limb that is not stuck: it flinches, and that is all. */
+	static void flinch(ServerWorld world, BlockPos origin, Vec3d at, net.minecraft.entity.damage.DamageSource source) {
+		HomeBlockEntity h = Hotel.at(world, origin);
+		Hotel.fought(h, source);
+		world.spawnParticles(ParticleTypes.CRIT, at.x, at.y, at.z, 4, 0.2, 0.2, 0.2, 0.05);
+		world.playSound(null, at.x, at.y, at.z, SoundEvents.BLOCK_MUD_HIT, SoundCategory.HOSTILE, 1.2F, 0.7F + world.random.nextFloat() * 0.2F);
 	}
 }
