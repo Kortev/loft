@@ -39,6 +39,8 @@ import net.minecraft.world.Heightmap;
  * <li>-Ptarget=played: the fight played from your eyes ({@link TomatoFight}); with -Pcapture=true, the film.</li>
  * <li>-Ptarget=cinematic: the horror short's eight shots ({@link TomatoCinematic}); with -Pcapture=true, its frames.</li>
  * <li>-Ptarget=seeds: one still of three seeds, whole, cut once, cut twice.</li>
+ * <li>-Ptarget=firstnight: a Tomato Devil's arrival played from your eyes by a dirt hut as night falls, with a stone sword and torches, and
+ * the fight to its death and its seeds ({@link TomatoFirstNight}); with -Pcapture=true, the film.</li>
  * </ul>
  * <pre>./gradlew runSelftest -Pselftest=tomato -Ptarget=played -Pusername=Kortev -Pcapture=true -Pwidth=1080 -Pheight=1920 "-Pjvmargs=-Xmx2600m -XX:TieredStopAtLevel=1"</pre>
  */
@@ -66,7 +68,7 @@ public class TomatoSelfTest implements ClientModInitializer {
 
 	/** The played take is drawn as a phone's portrait frame (1080x1920) whatever the window. */
 	public static boolean portrait() {
-		return active() && (target().startsWith("played") || target().equals("cinematic"));
+		return active() && (target().startsWith("played") || target().equals("cinematic") || target().equals("firstnight"));
 	}
 
 	static String target() {
@@ -140,6 +142,8 @@ public class TomatoSelfTest implements ClientModInitializer {
 					over = TomatoFight.tick(client, server, ticks);
 				} else if (target().equals("cinematic")) {
 					over = TomatoCinematic.tick(client, server, ticks);
+				} else if (target().equals("firstnight")) {
+					over = TomatoFirstNight.tick(client, server, ticks);
 				} else if (target().equals("model")) {
 					over = model(client, server, ticks);
 				} else if (target().equals("seeds")) {
@@ -227,6 +231,8 @@ public class TomatoSelfTest implements ClientModInitializer {
 		if (target().equals("cinematic")) {
 			TomatoCinematic.build(world);
 			TomatoCinematic.sleeper(world);
+		} else if (target().equals("firstnight")) {
+			TomatoFirstNight.hut(world);
 		} else {
 			for (int[] o : OAKS) {
 				oak(world, new BlockPos(x0 + o[0], GROUND + 1, z0 + o[1]));
@@ -236,9 +242,9 @@ public class TomatoSelfTest implements ClientModInitializer {
 			Form.end(you);
 		}
 		Downed.up(you);
-		you.changeGameMode(target().startsWith("played") ? GameMode.SURVIVAL : target().equals("model") || target().equals("cinematic") ? GameMode.CREATIVE : GameMode.SPECTATOR);
+		you.changeGameMode(target().startsWith("played") || target().equals("firstnight") ? GameMode.SURVIVAL : target().equals("model") || target().equals("cinematic") ? GameMode.CREATIVE : GameMode.SPECTATOR);
 		you.getInventory().clear();
-		you.getInventory().setStack(0, new ItemStack(Items.IRON_SWORD));
+		you.getInventory().setStack(0, new ItemStack(target().equals("firstnight") ? Items.STONE_SWORD : Items.IRON_SWORD));
 		you.getInventory().setStack(1, new ItemStack(Items.TORCH, 16));
 		you.getInventory().setStack(2, new ItemStack(Items.BREAD, 8));
 		you.getInventory().selectedSlot = 0;
