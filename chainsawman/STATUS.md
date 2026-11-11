@@ -1,23 +1,23 @@
 # Status: the one page loaded after a context reset
 
-Updated 2026-11-09. Keep this page under 3 KB. Change it whenever something starts, lands or gets answered.
+Updated 2026-11-10. Keep this page under 3 KB. Change it whenever something starts, lands or gets answered.
 
 ## Where things are
 
 - The plan: `chainsawman/MASTER_PLAN.md` is a short index. Read it, then only the part of `chainsawman/plan/` you
   need. Deep briefs are in `chainsawman/plan/packages/`.
 - **Never read `chainsawman/HANDOFF.md` whole (153 KB).** Search it for the thing you need.
-- Show facts: `chainsawman/bible/` (the Fox, the Leech, the Tomato, hunters' gear; merged 2026-11-09).
+- Show facts: `chainsawman/bible/` (the Fox, the Leech, the Tomato, hunters' gear).
 - kortev follows on their phone: send files with SendUserFile. Fable plans and reviews; Opus agents build.
 
 ## Running
 
-- **Building: 3.4b the Tomato Devil, round 2** (branch `tomato-round2`, an Opus agent in a worktree; brief
-  `plan/packages/3.4b_tomato_round2.md`): body redone to the show's look and made creepy, a hop against
-  hugging, a readable burst, Pochita eats seeds, a chainsaw shreds them. When it hands back: review stills,
-  merge with `--no-ff`, run all tests, push, send kortev the film.
-- **Next: 3.4c a creepy horror short of the Tomato** (kortev asked; `plan/packages/3.4c_tomato_cinematic.md`),
-  only if round 2's close-up holds up.
+- **3.4b the Tomato Devil, round 2, merged 2026-11-10** (282 tests): the show's body (15 big eyes, a huge
+  toothed mouth), creepy touches, the hop, a readable burst, Pochita eats seeds, a chainsaw shreds them. kortev
+  has the film and `model.jpg`; their notes are the next round. Weak: close frames fill the view, the saws kill
+  it in 7 s, speckled skin up close ("What was built" in the brief).
+- **Building: 3.4c a creepy horror short of the Tomato** (kortev asked; branch `tomato-creepy`, an Opus agent;
+  `plan/packages/3.4c_tomato_cinematic.md`). On hand-back: review the sheet, merge, send `work/tomato/creepy.mp4`.
 - **The Eternity Devil is parked** for a big pass, arm animations first
   (`chainsawman/plan/packages/0.1c_devil_big_pass.md`).
 - New plan pages (kortev, 2026-11-10): `plan/4e_what_you_play.md` (fiends are playable) and `plan/4f_scaling.md`
