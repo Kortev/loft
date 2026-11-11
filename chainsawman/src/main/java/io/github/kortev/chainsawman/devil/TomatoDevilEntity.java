@@ -130,6 +130,8 @@ public class TomatoDevilEntity extends HostileEntity {
 	public static final int BURST_AT = 30;
 	/** How many seeds a devil from nothing scatters. */
 	public static final int SEEDS = 5;
+	/** How near a villager sees it as danger and runs (blocks; a zombie is 8). */
+	public static final double VILLAGER_FLEE = 12.0;
 	/** How far the seeds fly at most (blocks across the ground). */
 	public static final double SEED_FLY = 6.0;
 
@@ -258,24 +260,8 @@ public class TomatoDevilEntity extends HostileEntity {
 
 	// ---- Spawning.
 
-	/**
-	 * Where the world may put one by itself: at night, on the overworld's surface (open sky above), on solid ground, never in peace,
-	 * never within 128 blocks of another one.
-	 */
-	public static boolean canSpawn(EntityType<TomatoDevilEntity> type, ServerWorldAccess world, SpawnReason reason, BlockPos pos, Random random) {
-		if (reason != SpawnReason.NATURAL && reason != SpawnReason.CHUNK_GENERATION) {
-			return true;
-		}
-		ServerWorld w = world.toServerWorld();
-		if (world.getDifficulty() == Difficulty.PEACEFUL || w.getRegistryKey() != World.OVERWORLD || !night(w)
-				|| world.getTopY(net.minecraft.world.Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, pos.getX(), pos.getZ()) > pos.getY()) {
-			return false;
-		}
-		if (!world.getBlockState(pos.down()).isSolidBlock(world, pos.down()) || world.getBlockState(pos.down()).isOf(Blocks.BEDROCK)) {
-			return false;
-		}
-		return w.getEntitiesByType(Devils.TOMATO_DEVIL, new Box(pos).expand(128.0, 192.0, 128.0), e -> true).isEmpty();
-	}
+	// (The world never just puts one down: it comes out of the ground in front of someone, see TomatoArrivals. A spawn egg or /summon puts
+	// one down at once.)
 
 	/** Night by the clock (dusk to dawn). */
 	public static boolean night(World world) {
@@ -619,7 +605,12 @@ public class TomatoDevilEntity extends HostileEntity {
 	}
 
 	private boolean canHurt(LivingEntity e) {
-		return e != this && e.isAlive() && !(e instanceof TomatoDevilEntity) && !e.isSpectator() && !(e instanceof PlayerEntity p && p.isCreative());
+		return e != this && e.isAlive() && !(e instanceof TomatoDevilEntity) && !spares(e) && !e.isSpectator() && !(e instanceof PlayerEntity p && p.isCreative());
+	}
+
+	/** Who its blows and seeds pass over: villagers (they run from it instead) and iron golems (who leave it alone in turn). */
+	public static boolean spares(Entity e) {
+		return e instanceof net.minecraft.entity.passive.MerchantEntity || e instanceof net.minecraft.entity.passive.IronGolemEntity;
 	}
 
 	private static void push(LivingEntity e, Vec3d v) {

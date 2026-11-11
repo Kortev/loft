@@ -1608,6 +1608,27 @@ def tomato_squelch():
     return taper(x * np.minimum(t / 0.003, 1.0), 0.12)
 
 
+def tomato_hush():
+    """A Tomato's arrival beginning: the air drops out. The night's hiss is sucked away down to nothing, a low pressure swells in the ears,
+    a faint thin ring is left in the quiet, and far under it something wet shifts once."""
+    seconds = 3.0
+    n = ns(seconds)
+    t = np.arange(n) / SR
+    # the air: a wide hiss whose top closes down, fading to nothing
+    air = g.sweep_filter(white(n), 'lowpass', 6000.0 * (60.0 / 6000.0) ** np.minimum(t / 1.6, 1.0), order=2)
+    air *= np.minimum(t / 0.05, 1.0) * np.exp(-t / 0.9) * 0.9
+    # the pressure: a sub swelling and falling slowly
+    press = np.sin(2 * np.pi * np.cumsum(curve(n, [(0.0, 48.0), (1.2, 34.0), (seconds, 28.0)])) / SR)
+    press = sat(press * 1.6, 1.4) * np.sin(np.pi * np.clip(t / 2.8, 0, 1)) ** 1.5 * 1.1
+    # the ring left in the quiet
+    ring = np.sin(2 * np.pi * 5200.0 * t) * np.clip((t - 0.6) / 0.8, 0, 1) * np.exp(-np.maximum(t - 1.4, 0) / 0.9) * 0.05
+    x = air + press + ring
+    # far off, one wet shift in the ground
+    x += place(np.zeros(n), 1.9, flesh(ns(0.5), 0.35, 1.2)[:ns(0.5)] * 0.25)
+    x = x + lp(gulp(n, 2.0, 0.12, 60, 110, 0.4), 400.0)
+    return taper(x, 0.5)
+
+
 def pochita_chew():
     """Pochita chewing a seed: his saw's teeth whirring into it, a wet grinding crunch, pulp spattering."""
     seconds = 1.5
@@ -1653,6 +1674,7 @@ SOUNDS = {
     'tomato_click': tomato_click,
     'tomato_shriek': tomato_shriek,
     'tomato_squelch': tomato_squelch,
+    'tomato_hush': tomato_hush,
     'pochita_chew': pochita_chew,
     'pochita_bark': pochita_bark,
     'pochita_tame': pochita_tame,
@@ -1709,7 +1731,7 @@ SOUNDS = {
 LOOPS = ('form_idle', 'form_grind', 'form_frenzy_loop', 'hotel_hum')
 # Loudness (loudest 400 ms, dB).
 LEVELS = {'tomato_step': -16, 'tomato_gurgle': -15, 'tomato_slap': -9, 'tomato_tuck': -13, 'tomato_roll': -12, 'tomato_thud': -9, 'tomato_spit': -11, 'tomato_hurt': -12, 'tomato_burst': -8, 'tomato_hiss': -13, 'tomato_swell': -13, 'pochita_bark': -12,
-          'tomato_breath': -24, 'tomato_click': -20, 'tomato_shriek': -12, 'tomato_squelch': -15, 'pochita_chew': -13,
+          'tomato_breath': -24, 'tomato_click': -20, 'tomato_shriek': -12, 'tomato_squelch': -15, 'tomato_hush': -17, 'pochita_chew': -13,
           'hotel_hum': -27, 'hotel_whisper': -19, 'hotel_voice': -12, 'hotel_bleed': -14, 'hotel_phone': -16, 'hotel_breath': -22, 'hotel_loop_break': -9, 'hotel_seal': -14, 'hotel_heartbeat': -10, 'hotel_cut': -12, 'hotel_knock': -15,
           'devil_grow': -9, 'devil_bite': -10, 'devil_slam': -8, 'devil_regen': -16, 'devil_hurt': -13, 'devil_death': -8, 'forever_lock': -13, 'forever_hit': -12, 'forever_release': -7, 'forever_bond_up': -11, 'forever_not_yet': -11, 'forever_step_out': -12, 'form_heart_level': -8, 'form_crunch': -10, 'pochita_tame': -14, 'form_merge': -12, 'form_cord': -14, 'form_start': -10, 'form_revive_pull': -14, 'form_revive_start': -10, 'form_idle': -20, 'form_stop': -16, 'form_slash': -13, 'form_hit': -12,
           'form_grind': -15, 'form_chain': -14, 'form_frenzy': -10, 'form_frenzy_loop': -17, 'form_down': -13,

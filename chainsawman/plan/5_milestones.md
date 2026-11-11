@@ -40,7 +40,7 @@ Sizes are in agent runs: S is one run, M is two or three, L is four or more.
 | # | Package | Size | Gate |
 |---|---|---|---|
 | 2.1 | The licence: item, screen, saved data (rank, yen, missions) | M | A mock screen to kortev first |
-| 2.2 | The notice board (poster and phone), the first attack, the two ways in | M | Uses the weak devil from 3.4. **2.2a the first attack is building** (2026-11-11, `packages/2.2a_first_night.md`); the board waits for the licence. |
+| 2.2 | The notice board (poster and phone), the first attack, the two ways in | M | Uses the weak devil from 3.4. **2.2a merged 2026-11-11 (291 tests)**: not a scripted first attack but the Tomato's staged arrival as its chance night spawn (`packages/2.2a_first_night.md`). 2.1a the board and licence is building. |
 | 2.3 | The office as a village building (added to the village's own building lists; [to confirm in a test: never two in one village]), the captain, and the office built at the edge of villages that already exist | M | kortev's yes on the Public Safety look (waiting) |
 | 2.4 | The board and missions: hunt, clear a nest, find the missing | L | |
 | 2.5 | Yen, the shop, selling parts | S | |

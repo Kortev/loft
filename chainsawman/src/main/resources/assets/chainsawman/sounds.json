@@ -661,6 +661,14 @@
       }
     ]
   },
+  "tomato.hush": {
+    "subtitle": "subtitles.chainsawman.tomato.hush",
+    "sounds": [
+      {
+        "name": "chainsawman:tomato_hush"
+      }
+    ]
+  },
   "tomato.breath": {
     "subtitle": "subtitles.chainsawman.tomato.breath",
     "sounds": [
