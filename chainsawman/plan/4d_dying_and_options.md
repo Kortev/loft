@@ -19,8 +19,9 @@ you can see it, instead of a hidden score per type:
   step, at most one extra step a night. It frightens villagers; it still doesn't kill them (villages stay).
 - **It's worth more, not only harder:** a grown devil drops more. And it never grows while nobody is near (no
   loaded chunks, no growth), so a devil you never met isn't waiting at full size.
-- Show facts [check before the brief]: fear of its name makes a devil strong (the show says so). "Longer alive" as
-  a rule is not confirmed; what the show shows is devils growing stronger by feeding on blood.
+- Show facts (`bible/devil_strength.md`, from search excerpts: the wiki refused the fetch): fear of its name
+  makes a devil strong (stated). Blood heals a devil (shown). "Longer alive means stronger" is not in the show,
+  so growing by the night is ours; tie each step to fear or blood where we can.
 
 The older outline, kept for reference (the per-type score is not built unless the above feels thin):
 

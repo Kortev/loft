@@ -15,10 +15,10 @@ Updated 2026-11-10. Keep this page under 3 KB. Change it whenever something star
 - 3.4b the Tomato Devil, round 2, merged 2026-11-10 (282 tests). kortev hasn't played it; they have a guide.
 - **2.2a is building** (2026-11-11, branch `first-night`, brief `packages/2.2a_first_night.md`): the Tomato's
   staged arrival as its night spawn, by chance. kortev: no scripted second-dusk event (the builder was told).
-- Scope (kortev): one player, works with a few friends.
-- 3.4c the Tomato's horror short and teaser, merged: kortev picked `work/tomato/teaser.mp4` (12.6 s, "looks
-  great") to post. No more rounds on the short. Footage: `work/tomato/creepy_frames/`; re-cut with
-  `tools/tomato_creepy.py` (brief 3.4c). 3.4d merged (283 tests): three hits from a player end a seed.
+- **2.1a is building** (branch `notice-board`, `packages/2.1a_notice_board.md`): village board, licence, yen.
+- Next: 3.9 devils grow (facts: `bible/devil_strength.md`). Scope: one player, works with friends.
+- 3.4c merged: kortev posts `work/tomato/teaser.mp4` (12.6 s). No more rounds on the short. Footage:
+  `work/tomato/creepy_frames/`; re-cut with `tools/tomato_creepy.py`. 3.4d merged (283 tests).
 - **The Eternity Devil is parked** for a big pass, arm animations first
   (`chainsawman/plan/packages/0.1c_devil_big_pass.md`).
 - Plan pages `4e` (what you play; how many Chainsaw Men, reopened by kortev) and `4f` (scaling): Fable's picks.
