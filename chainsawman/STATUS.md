@@ -15,7 +15,7 @@ Updated 2026-11-10. Keep this page under 3 KB. Change it whenever something star
 - 3.4b the Tomato Devil, round 2, merged 2026-11-10 (282 tests). kortev hasn't played it; they have a guide.
 - **2.2a is building** (2026-11-11, branch `first-night`, brief `packages/2.2a_first_night.md`): the Tomato's
   staged arrival as its night spawn, by chance. kortev: no scripted second-dusk event (the builder was told).
-- Scope (kortev, 2026-11-11): one player, works with a few friends; no big-server systems (`plan/3`).
+- Scope (kortev): one player, works with a few friends (`plan/3`).
 - 3.4c the Tomato's horror short and teaser, merged: kortev picked `work/tomato/teaser.mp4` (12.6 s, "looks
   great") to post. No more rounds on the short. Footage: `work/tomato/creepy_frames/`; re-cut with
   `tools/tomato_creepy.py` (brief 3.4c). 3.4d merged (283 tests): three hits from a player end a seed.
