@@ -15,7 +15,8 @@ shot that goes in. Everything after the game is done here, on the frames, with n
               drone that creeps in, drops out twice and comes back lower and closer, a dissonant cluster rising to the eye's snap and cut
               dead, the hands (thud, fingers, drag) panned with the picture where the game played its steps, wet foley at your ear, the
               breath with a moan in it coming closer every shot, the sleeping villager, Pochita's growl and whimper, the lunge and the hit.
-    py -3.12 tools/tomato_creepy.py teaser     # the teaser (teaser.mp4, teaser_sheet.jpg) from the kept frames
+    py -3.12 tools/tomato_creepy.py teaser     # the 12 s teaser (teaser.mp4, teaser_sheet.jpg) from the kept frames
+    py -3.12 tools/tomato_creepy.py teaser8    # the 8 s one (teaser_8s.mp4)
     py -3.12 tools/tomato_creepy.py resound    # only the sound again, and creepy.mp4 encoded with it (same picture)
 """
 import json
@@ -102,6 +103,12 @@ def grade(frame, index, info):
     img = Image.fromarray(frame)
     if info.get('blur', 0.0) > 0.05:
         img = img.filter(ImageFilter.GaussianBlur(info['blur']))
+    if info.get('crop'):
+        cx, cy, z = info['crop']
+        w2, h2 = W / z, H / z
+        l = min(max(cx - w2 / 2, 0), W - w2)
+        t0 = min(max(cy - h2 / 2, 0), H - h2)
+        img = img.crop((int(l), int(t0), int(l + w2), int(t0 + h2))).resize((W, H), Image.BICUBIC)
     if info.get('zoom', 1.0) != 1.0:
         k = info['zoom']
         w2, h2 = int(W * k), int(H * k)
@@ -827,26 +834,40 @@ def plot_sound(x, mk, path, title='creepy.mp4: the sound'):
     plt.close(fig)
 
 
-# ---------------------------------------------------------------- the teaser
+# ---------------------------------------------------------------- the teasers
 #
-# From the kept frames (no new filming): just looking at it. (capture frames, seconds, a slow push-in from zoom a to b)
+# From the kept frames (no new filming): just looking at it. Each cut: (label, first capture frame, seconds, push-in (zoom from, to) or
+# None, crop (centre x, centre y, zoom) or None). The window cut is the rise itself (eyes coming up into an empty window), cropped in on
+# the window's right two thirds and ended before frame 1484: from there one upper arm lies across the left pane (its own anatomy, from the
+# inside angle), which read as a stray stick; before it only the lower arms show, and the crop leaves them out.
+WINDOW_CROP = (805, 720, 1.75)
 TEASER = [
-    ('the distance: its eyes far off in the trees (shot 2)', 380, 3.0, (1.0, 1.16)),
-    ('eyes in the window (shot 5)', 1580, 1.5, None),
-    ('every eye on you (shot 6, wide)', 1890, 1.5, None),
+    ('the distance: eyes far off in the trees (shot 2)', 380, 3.0, (1.0, 1.04), None),
+    ('its shape crossing the moon (shot 4)', 1080, 2.5, None, None),
+    ('eyes rising into the window (shot 5)', 1424, 2.0, None, WINDOW_CROP),
+    ('every eye on you (shot 6, wide)', 1880, 2.0, None, None),
+    ('it comes at you, cut as it rears (shot 8)', 2300, 1.5, None, None),
 ]
-TEASER_BLACK = 0.4
+TEASER_BLACK = 0.3
 TEASER_TITLE = 1.3
+# The first, shorter one, with its two fixes (the distance held, the window cropped).
+TEASER8 = [
+    ('the distance: eyes far off in the trees (shot 2)', 380, 3.0, (1.0, 1.04), None),
+    ('eyes rising into the window (shot 5)', 1438, 1.5, None, WINDOW_CROP),
+    ('every eye on you (shot 6, wide)', 1890, 1.5, None, None),
+]
+TEASER8_BLACK = 0.4
 
 
-def teaser_frames():
+def teaser_frames(cuts, black, title):
     out = []
-    for (label, f0, secs, push) in TEASER:
+    for (label, f0, secs, push, crop) in cuts:
         n = int(round(secs * FPS))
         for k in range(n):
-            out.append(('film', f0 + k, label, None if push is None else push[0] + (push[1] - push[0]) * (k / (n - 1)) ** 1.2))
-    out += [('black', None, 'black', None)] * int(round(TEASER_BLACK * FPS))
-    out += [('title', k, 'the name', None) for k in range(int(round(TEASER_TITLE * FPS)))]
+            z = None if push is None else push[0] + (push[1] - push[0]) * (k / (n - 1)) ** 1.2
+            out.append(('film', f0 + k, label, z, crop))
+    out += [('black', None, 'black', None, None)] * int(round(black * FPS))
+    out += [('title', k, 'the name', None, None) for k in range(int(round(title * FPS)))]
     return out
 
 
@@ -886,57 +907,128 @@ def teaser_sound(total, t1, t2, t3, tb):
     return limit(mix * g, ceiling=0.83)
 
 
-def teaser():
-    tf = teaser_frames()
+def teaser12_sound(total, c):
+    """The long teaser's mix, escalating with the picture (c: each cut's start, then the black, then the name): near silence and night
+    air, the crickets stop, the breath closer every cut, the cluster rising through cuts 2 and 3, silence on every eye, hands rushing in,
+    the hit on the black, a soft ring under the name."""
+    from gen_sounds import lp, hp, limit
+    rng = np.random.default_rng(3404)
+    n = int(total * 44100)
+    t = np.arange(n) / 44100.0
+    out = np.zeros((2, n))
+    c1, c2, c3, c4, c5, cb, ct = c
+
+    def put(x, at, gain=1.0, pan=0.0, room=0.0):
+        st = x if np.ndim(x) == 2 else _pan(x, pan)
+        st = _room(st, room, seed=int(at * 100) % 97)
+        i = int(at * 44100)
+        k = min(st.shape[1], n - i)
+        if k > 0:
+            out[:, i:i + k] += st[:, :k] * gain
+    air = snd_night_air(total + 1.0, rng)[:, :n]
+    out += air * np.interp(t, [0, 0.8, c4 - 0.03, c4, total], [0.0, 1.0, 1.0, 0.0, 0.0])
+    for f0, per, pan in ((4400.0, 0.71, -0.7), (4780.0, 0.93, 0.6), (5200.0, 1.21, 0.1)):
+        cr = snd_cricket(total + 1.0, f0, per, rng)[:n] * (t < c2 - 0.4)
+        put(cr * 0.02, 0.0, pan=pan, room=0.5)
+    dr = snd_drone(total + 1.0, base=36.7)[:n]
+    put(dr * np.interp(t, [0, 1.0, c2, c4 - 0.03, c4, c5, c5 + 0.2, cb - 0.01, cb, total], [0, 0.15, 0.35, 0.8, 0, 0, 0.5, 1.2, 0, 0]) * 0.10, 0.0)
+    cl = snd_cluster(c4 - c2 + 0.2, 1.12)
+    ce = np.interp(np.arange(len(cl)) / 44100.0, [0, c4 - c2 - 0.03, c4 - c2], [0.1, 1.0, 0.0])
+    put(np.array([cl * ce, np.roll(cl, 441) * ce]) * 0.035, c2)
+    # the breath, closer each cut
+    put(lp(snd_breath(rng, 3.0, 0.15), 1800.0), c1 + 0.3, 0.10, room=0.9)
+    br = snd_breath(rng, 2.6, 0.2)
+    put(br * np.interp(np.arange(len(br)) / 44100.0, [0, c3 - c2 - 0.2, c3 - c2], [1, 1, 0]), c2 + 0.1, 0.18, pan=-0.2, room=0.6)
+    for k in range(5):
+        put(snd_hand(rng), c2 + 0.2 + k * 0.48, 0.3, pan=-0.7 + 0.35 * k, room=0.5)
+    put(snd_sleeper(c4 - c3, rng), c3, 0.06, pan=-0.35, room=0.15)
+    br = lp(snd_breath(rng, 2.4, 0.3), 700.0)
+    put(br * np.interp(np.arange(len(br)) / 44100.0, [0, c4 - c3 - 0.2, c4 - c3], [1, 1, 0]), c3 + 0.05, 0.5, pan=0.15, room=0.35)
+    # cut 4: nothing. Cut 5: its hands rushing in, a wet shriek drawn in, the hit on the black.
+    at, gap = c5 + 0.05, 0.22
+    while at < cb - 0.05:
+        u = (at - c5) / (cb - c5)
+        put(snd_hand(rng, big=True), at, 0.5 + 0.8 * u, pan=rng.uniform(-0.5, 0.5), room=0.25 - 0.2 * u)
+        at += gap
+        gap = max(0.09, gap * 0.85)
+    put(snd_shriek_inhale(0.7), cb - 0.7, 0.8, room=0.1)
+    put(snd_hit(), cb, 2.2)
+    put(np.array([snd_ring(total - ct), np.roll(snd_ring(total - ct), 300)]) * 0.012, ct + 0.1)
+    mix = np.array([hp(out[0], 30.0), hp(out[1], 30.0)])
+    g = min(4.0, 0.80 / max(1e-6, np.abs(mix).max()) * 1.6)
+    return limit(mix * g, ceiling=0.80)
+
+
+def build_teaser(cuts, black, name, sheet=None, twelve=False):
+    tf = teaser_frames(cuts, black, TEASER_TITLE)
     total = len(tf) / FPS
-    raw = os.path.join(TMP, 'teaser_graded.mp4')
+    raw = os.path.join(TMP, name + '_graded.mp4')
+    os.makedirs(TMP, exist_ok=True)
     enc = subprocess.Popen(['ffmpeg', '-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', '%dx%d' % (W, H), '-r', str(FPS), '-i', '-',
                             '-c:v', 'libx264', '-preset', 'medium', '-crf', '12', '-pix_fmt', 'yuv420p', raw], stdin=subprocess.PIPE)
     begin, end = marks()
     shot_of = lambda f: [sh for sh in begin if begin[sh] <= f < end[sh]][0]
     picks = {}
-    for j, (kind, src, label, zoom) in enumerate(tf):
-        if kind == 'film' and zoom is not None:
-            # the push-in, graded from the game's frame (so the grain stays fine)
+    first = {}
+    for j, (kind, src, label, zoom, crop) in enumerate(tf):
+        first.setdefault(label, j)
+        if kind == 'film' and (zoom is not None or crop is not None):
+            # pushed in or cropped: graded from the game's frame, so the grain stays fine
             fr = np.asarray(Image.open(frame_path('ungraded', src)).convert('RGB'))
-            out = grade(fr, src, dict(base_info(shot_of(src), src), zoom=zoom))
+            info = base_info(shot_of(src), src)
+            if zoom is not None:
+                info['zoom'] = zoom
+            if crop is not None:
+                info['crop'] = crop
+            out = grade(fr, src, info)
         elif kind == 'film':
             out = np.asarray(Image.open(frame_path('graded', src)).convert('RGB'))
         elif kind == 'black':
             out = grade(np.zeros((H, W, 3), np.uint8), 0, {'seed': 7000 + j, 'exposure': 1.0})
         else:
             out = grade(title_frame(src, TEASER_TITLE), 0, {'seed': 8000 + j, 'exposure': 1.0})
-        if label not in picks or (kind != 'black' and j - picks[label][0] == int(FPS * (0.7 if kind == 'title' else 1.0))):
+        if j - first[label] == int(FPS * (0.7 if kind == 'title' else 0.9)) or label not in picks:
             picks[label] = (j, out)
         enc.stdin.write(out.tobytes())
     enc.stdin.close()
     enc.wait()
-    t1 = 0.0
-    t2 = TEASER[0][2]
-    t3 = t2 + TEASER[1][2]
-    tb = t3 + TEASER[2][2] + TEASER_BLACK
-    snd = teaser_sound(total, t1, t2, t3, tb)
-    os.makedirs(os.path.join(FRAMES, 'stems'), exist_ok=True)
-    wav = os.path.join(TMP, 'teaser.wav')
+    starts = [0.0]
+    for c in cuts:
+        starts.append(starts[-1] + c[2])
+    if twelve:
+        snd = teaser12_sound(total, starts[:5] + [starts[5], starts[5] + black])
+    else:
+        snd = teaser_sound(total, 0.0, starts[1], starts[2], starts[3] + black)
+    wav = os.path.join(TMP, name + '.wav')
     write_wav(wav, snd)
-    write_wav(os.path.join(FRAMES, 'stems', 'teaser_mix.wav'), snd)
-    dst = os.path.join(OUT, 'teaser.mp4')
+    os.makedirs(os.path.join(FRAMES, 'stems'), exist_ok=True)
+    write_wav(os.path.join(FRAMES, 'stems', name + '_mix.wav'), snd)
+    dst = os.path.join(OUT, name + '.mp4')
     subprocess.check_call(['ffmpeg', '-v', 'error', '-y', '-i', raw, '-i', wav, '-c:v', 'libx264', '-preset', 'slow', '-tune', 'grain', '-crf', '24',
                            '-maxrate', '4000k', '-bufsize', '8000k', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '160k', '-shortest',
                            '-movflags', '+faststart', dst])
     print('%s: %.1f s, %.2f MB' % (dst, total, os.path.getsize(dst) / 1e6))
-    # the sheet: one frame per cut, labelled
-    cells = [(lab, picks[lab][0], picks[lab][1]) for lab in [c[0] for c in TEASER] + ['the name']]
-    tw, th = 220, 391
-    sheet = Image.new('RGB', (tw * len(cells), th), (0, 0, 0))
-    for i, (lab, j, img) in enumerate(cells):
-        im = Image.fromarray(img).resize((tw, th), Image.LANCZOS)
-        d = ImageDraw.Draw(im)
-        d.rectangle((0, 0, tw, 30), fill=(0, 0, 0))
-        d.text((5, 3), '%d  %.1f s' % (i + 1, j / FPS), fill=(255, 255, 255))
-        d.text((5, 16), lab[:34], fill=(200, 200, 200))
-        sheet.paste(im, (i * tw, 0))
-    sheet.save(os.path.join(OUT, 'teaser_sheet.jpg'), quality=88)
+    if sheet:
+        cells = [(lab, picks[lab][0], picks[lab][1]) for lab in [c[0] for c in cuts] + ['the name']]
+        tw = 900 // len(cells)
+        th = int(tw * 16 / 9)
+        im_all = Image.new('RGB', (tw * len(cells), th), (0, 0, 0))
+        for i, (lab, j, img) in enumerate(cells):
+            im = Image.fromarray(img).resize((tw, th), Image.LANCZOS)
+            d = ImageDraw.Draw(im)
+            d.rectangle((0, 0, tw, 30), fill=(0, 0, 0))
+            d.text((4, 3), '%d  %.1f s' % (i + 1, j / FPS), fill=(255, 255, 255))
+            d.text((4, 16), lab[:24], fill=(200, 200, 200))
+            im_all.paste(im, (i * tw, 0))
+        im_all.save(os.path.join(OUT, sheet), quality=88)
+
+
+def teaser():
+    build_teaser(TEASER, TEASER_BLACK, 'teaser', sheet='teaser_sheet.jpg', twelve=True)
+
+
+def teaser8():
+    build_teaser(TEASER8, TEASER8_BLACK, 'teaser_8s')
 
 
 # ---------------------------------------------------------------- the sheets and the file
@@ -991,6 +1083,8 @@ if __name__ == '__main__':
     fr = plan()
     if what == 'teaser':
         teaser()
+    if what == 'teaser8':
+        teaser8()
     if what in ('all', 'frames'):
         # (frames 2 6: only those shots' frames graded again)
         grade_all([int(a) for a in sys.argv[2:]] or None)
