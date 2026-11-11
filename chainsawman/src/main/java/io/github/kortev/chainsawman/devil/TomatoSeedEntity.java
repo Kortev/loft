@@ -29,7 +29,7 @@ import net.minecraft.world.World;
 
 /**
  * One of a Tomato Devil's seeds, stuck in the ground where it landed after the burst, glowing faintly. Fire, lava or a lit campfire burns
- * it, and so does a player using a torch (used up), flint and steel or a fire charge on it. If any seed of a burst is left after
+ * it, and so does a player using a torch (used up), flint and steel or a fire charge on it; three hits from a player cut it up. If any seed of a burst is left after
  * {@link #COMEBACK} ticks, one swells for {@link #SWELL} ticks (the tell) and the devil climbs out of it; the others wither. The devil that
  * comes back bursts into one seed fewer ({@link #next}), so a line dies out by itself. Seeds never despawn, and are saved with the world.
  */
@@ -53,6 +53,10 @@ public class TomatoSeedEntity extends Entity {
 	private static final TrackedData<Integer> CHEWED = DataTracker.registerData(TomatoSeedEntity.class, TrackedDataHandlerRegistry.INTEGER);
 	/** The world's time it last shuddered (a sword or a fist), for its drawing. */
 	private static final TrackedData<Long> SHUDDER = DataTracker.registerData(TomatoSeedEntity.class, TrackedDataHandlerRegistry.LONG);
+	/** How many times a player has hit it (a fist, a sword, an arrow): at {@link #CUTS} it pops. Cuts don't heal. */
+	private static final TrackedData<Integer> CUT = DataTracker.registerData(TomatoSeedEntity.class, TrackedDataHandlerRegistry.INTEGER);
+	/** How many hits end a seed. */
+	public static final int CUTS = 3;
 	/** How long a burning seed flares before it is ash, and how long Pochita chews one. */
 	public static final int BURN = 22;
 	public static final int CHEW = 30;
@@ -80,6 +84,38 @@ public class TomatoSeedEntity extends Entity {
 		builder.add(BURNING, -1);
 		builder.add(CHEWED, -1);
 		builder.add(SHUDDER, -100L);
+		builder.add(CUT, 0);
+	}
+
+	/** How many times a player has hit it. */
+	public int cuts() {
+		return dataTracker.get(CUT);
+	}
+
+	/**
+	 * A player's hit: it squelches and shudders, and each one cuts it smaller (the second splits it open); the {@link #CUTS}th pops it with a
+	 * small shriek, and a swelling one never comes back.
+	 */
+	public void cut() {
+		if (!(getWorld() instanceof ServerWorld world) || ended()) {
+			return;
+		}
+		int c = cuts() + 1;
+		dataTracker.set(CUT, c);
+		dataTracker.set(SHUDDER, world.getTime());
+		if (c >= CUTS) {
+			world.playSound(null, getX(), getY(), getZ(), Devils.Sounds.SHRIEK, SoundCategory.HOSTILE, 0.7F, 1.3F + random.nextFloat() * 0.2F);
+			world.playSound(null, getX(), getY(), getZ(), Devils.Sounds.SQUELCH, SoundCategory.HOSTILE, 1.1F, 0.8F);
+			world.spawnParticles(TomatoDevilEntity.JUICE, getX(), getY() + 0.2, getZ(), 18, 0.2, 0.12, 0.2, 0.18);
+			world.spawnParticles(TomatoDevilEntity.PULP, getX(), getY() + 0.2, getZ(), 10, 0.18, 0.12, 0.18, 0.14);
+			discard();
+			return;
+		}
+		world.playSound(null, getX(), getY(), getZ(), Devils.Sounds.SQUELCH, SoundCategory.HOSTILE, 1.0F, (c == 1 ? 1.1F : 0.9F) + random.nextFloat() * 0.1F);
+		world.spawnParticles(TomatoDevilEntity.JUICE, getX(), getY() + 0.2, getZ(), 6 + 4 * c, 0.12, 0.06, 0.12, 0.08);
+		if (c >= 2) {
+			world.spawnParticles(TomatoDevilEntity.PULP, getX(), getY() + 0.2, getZ(), 4, 0.1, 0.06, 0.1, 0.08);
+		}
 	}
 
 	/** Ticks it has been burning, or -1. */
@@ -366,8 +402,9 @@ public class TomatoSeedEntity extends Entity {
 
 	@Override
 	public boolean damage(net.minecraft.entity.damage.DamageSource source, float amount) {
-		// Fire ends it, and a chainsaw's teeth do (Pochita held, or Chainsaw Man's saws). A sword or a fist only squelches into it and it
-		// shudders. (A burning arrow or a fire-aspect sword sets it alight, and it burns.)
+		// Fire ends it, and a chainsaw's teeth do (Pochita held, or Chainsaw Man's saws). Any other hit from a player (a fist, a sword, their
+		// arrow) cuts it, and the third pops it. Anything else only squelches into it and it shudders. (A burning arrow or a fire-aspect sword
+		// sets it alight, and it burns.)
 		if (!(getWorld() instanceof ServerWorld world) || ended()) {
 			return false;
 		}
@@ -378,6 +415,10 @@ public class TomatoSeedEntity extends Entity {
 		if (source.getAttacker() instanceof net.minecraft.server.network.ServerPlayerEntity p
 				&& (io.github.kortev.chainsawman.form.Saw.wielding(p) || io.github.kortev.chainsawman.form.Form.fighting(p))) {
 			shred();
+			return true;
+		}
+		if (source.getAttacker() instanceof PlayerEntity) {
+			cut();
 			return true;
 		}
 		if (source.getAttacker() != null && world.getTime() - shudderAt() > 6) {
@@ -405,6 +446,7 @@ public class TomatoSeedEntity extends Entity {
 		dataTracker.set(SWELLING, nbt.contains("Swelling") ? nbt.getInt("Swelling") : -1);
 		dataTracker.set(WITHERING, nbt.contains("Withering") ? nbt.getInt("Withering") : -1);
 		dataTracker.set(BURNING, nbt.contains("Burning") ? nbt.getInt("Burning") : -1);
+		dataTracker.set(CUT, nbt.getInt("Cuts"));
 		// (Half eaten when the world was saved: Pochita finishes it from the start.)
 	}
 
@@ -418,6 +460,7 @@ public class TomatoSeedEntity extends Entity {
 		nbt.putInt("Swelling", swelling());
 		nbt.putInt("Withering", withering());
 		nbt.putInt("Burning", burning());
+		nbt.putInt("Cuts", cuts());
 	}
 
 	@Override

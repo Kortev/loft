@@ -648,9 +648,9 @@ public class TomatoGameTests implements FabricGameTest {
 		context.complete();
 	}
 
-	/** A sword or a fist only squelches into a seed: it shudders and stays. */
+	/** Three hits from a player end a seed: a sword cuts it smaller, a fist splits it open, an arrow pops it. Cuts survive a save. */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "tomato_sword", tickLimit = 40)
-	public void a_sword_does_not_end_a_seed(TestContext context) {
+	public void three_hits_end_a_seed(TestContext context) {
 		floor(context);
 		clear(context);
 		TomatoSeedEntity s = seed(context, 0, 0, UUID.randomUUID());
@@ -658,16 +658,49 @@ public class TomatoGameTests implements FabricGameTest {
 		try {
 			p.setStackInHand(Hand.MAIN_HAND, new ItemStack(Items.IRON_SWORD));
 			s.damage(p.getDamageSources().playerAttack(p), 6.0F);
-			context.assertTrue(!s.isRemoved() && !s.ended(), "a sword ended the seed");
+			context.assertTrue(!s.isRemoved() && !s.ended() && s.cuts() == 1, "one hit: the seed is gone or not cut (" + s.cuts() + ")");
 			context.assertTrue(context.getWorld().getTime() - s.shudderAt() < 2, "the seed did not shudder");
 			p.setStackInHand(Hand.MAIN_HAND, ItemStack.EMPTY);
 			s.damage(p.getDamageSources().playerAttack(p), 1.0F);
-			context.assertTrue(!s.isRemoved() && !s.ended(), "a fist ended the seed");
+			context.assertTrue(!s.isRemoved() && !s.ended() && s.cuts() == 2, "two hits: the seed is gone or not cut (" + s.cuts() + ")");
+			net.minecraft.nbt.NbtCompound saved = new net.minecraft.nbt.NbtCompound();
+			s.writeNbt(saved);
+			TomatoSeedEntity again = io.github.kortev.chainsawman.devil.Devils.TOMATO_SEED.create(context.getWorld());
+			again.readNbt(saved);
+			context.assertTrue(again.cuts() == 2, "the cuts did not survive a save: " + again.cuts());
+			var arrow = new net.minecraft.entity.projectile.ArrowEntity(EntityType.ARROW, context.getWorld());
+			arrow.setOwner(p);
+			s.damage(p.getDamageSources().arrow(arrow, p), 4.0F);
+			context.assertTrue(s.isRemoved(), "the third hit (an arrow) did not pop the seed");
+			context.assertTrue(devils(context).isEmpty(), "something came back");
 		} finally {
 			ForeverGameTests.leave(context, p);
 			clear(context);
 		}
 		context.complete();
+	}
+
+	/** Cutting up the seed that is swelling stops the comeback. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "tomato_sword2", tickLimit = 80)
+	public void cutting_the_swelling_seed_stops_the_comeback(TestContext context) {
+		floor(context);
+		clear(context);
+		TomatoSeedEntity s = seed(context, 0, 0, UUID.randomUUID());
+		ServerPlayerEntity p = standing(context, "cutter", 0, -2.0);
+		context.runAtTick(4, () -> s.swellTo(TomatoSeedEntity.SWELL - 20));
+		for (int i = 0; i < TomatoSeedEntity.CUTS; i++) {
+			context.runAtTick(8 + 3 * i, () -> {
+				context.assertTrue(s.swelling() >= 0 || s.isRemoved(), "the seed stopped swelling by itself");
+				s.damage(p.getDamageSources().playerAttack(p), 1.0F);
+			});
+		}
+		context.runAtTick(60, () -> {
+			context.assertTrue(s.isRemoved(), "the swelling seed is still there after " + TomatoSeedEntity.CUTS + " hits");
+			context.assertTrue(devils(context).isEmpty(), "the devil came back");
+			ForeverGameTests.leave(context, p);
+			clear(context);
+			context.complete();
+		});
 	}
 
 	/** The devil that climbs out of a seed has 60% of its health: a real fight, not a full one. */

@@ -76,7 +76,7 @@ public class TomatoSeedRenderer extends EntityRenderer<TomatoSeedEntity> {
 		float jz = 0.0F;
 		float shudder = world.getTime() - e.shudderAt() + delta;
 		if (shudder < 10.0F) {
-			// A sword or a fist: it quivers, unharmed.
+			// A hit: it quivers.
 			float k2 = 1.0F - shudder / 10.0F;
 			jx = 0.06F * k2 * MathHelper.sin(now * 5.3F);
 			jz = 0.06F * k2 * MathHelper.cos(now * 6.1F);
@@ -96,12 +96,28 @@ public class TomatoSeedRenderer extends EntityRenderer<TomatoSeedEntity> {
 			look.b *= 1.0F - 0.9F * bt;
 			jx = 0.03F * MathHelper.sin(now * 9.0F) * (1.0F - bt);
 		}
-		Matrix4f m = new Matrix4f(base).translate(jx, sunk + 0.08F, jz).rotateY(spin).rotateX(e.landed() ? -0.35F : now * 0.4F).scale(scale);
-		parts.drawPart(seed, m, look, base);
+		// Cut by a player: smaller with each hit, and split open in two halves after the second (cuts don't heal).
+		int cuts = e.cuts();
+		float cutScale = cuts <= 0 ? 1.0F : cuts == 1 ? 0.8F : 0.6F;
+		scale *= cutScale;
+		if (cuts >= 2) {
+			look.r *= 1.1F;
+			look.g *= 0.8F;
+			look.b *= 0.75F;
+			for (int side = -1; side <= 1; side += 2) {
+				float ox = 0.12F * side * MathHelper.cos(spin);
+				float oz = -0.12F * side * MathHelper.sin(spin);
+				Matrix4f half = new Matrix4f(base).translate(jx + ox, sunk + 0.1F, jz + oz).rotateY(spin + 0.6F * side).rotateX(-0.35F).scale(scale);
+				parts.drawPart(seed, half, look, base);
+			}
+		} else {
+			Matrix4f m = new Matrix4f(base).translate(jx, sunk + 0.08F, jz).rotateY(spin).rotateX(e.landed() ? -0.35F : now * 0.4F).scale(scale);
+			parts.drawPart(seed, m, look, base);
+		}
 		if (swell >= 0) {
 			// The tell: it swells into a little tomato coming up out of the earth, quivering.
 			float s = MathHelper.clamp((swell + delta) / TomatoSeedEntity.SWELL, 0.0F, 1.0F);
-			float r = 0.12F + 0.5F * s + 0.04F * MathHelper.sin(now * (0.6F + 1.2F * s));
+			float r = (0.12F + 0.5F * s + 0.04F * MathHelper.sin(now * (0.6F + 1.2F * s))) * cutScale;
 			FleshMesh body = FleshMesh.file("tomato_body");
 			Matrix4f bm = new Matrix4f(base).translate(0.03F * MathHelper.sin(now * 3.1F) * s, r * 1.06F * 0.7F, 0.0F).rotateY(spin).scale(r);
 			FleshMesh.Look bl = new FleshMesh.Look();
