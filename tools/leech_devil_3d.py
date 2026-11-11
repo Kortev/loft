@@ -52,15 +52,16 @@ HAIR = [hx(c) for c in ('#030304', '#08080a', '#0e0f12', '#16171c', '#22242b', '
 GLAND = [hx(c) for c in ('#3a3028', '#4c3e34', '#5e4c42', '#725c50', '#866c5e')]
 
 # ---- the measures the game uses too (LeechDevilRenderer)
-THIGH = 1.20
-SHIN = 1.15
+THIGH = 1.25
+SHIN = 1.20
 TSEG = 0.40
 TONGUE_SEG = 0.50
-ANKLE_UP = 0.17          # the ankle above the ground with the sucker flat on it
+SUCKER = 1.9             # how much bigger than round 1 the sucker mouths are
+ANKLE_UP = 0.17 * SUCKER  # the ankle above the ground with the sucker flat on it
 # the hips (+X left), the feet's rest on the ground, the tentacles' shoulders, the neck's pivot and the jaw's
-HIPS = [(0.72, 1.20, 1.00), (-0.72, 1.20, 1.00), (0.82, 1.38, -1.50), (-0.82, 1.38, -1.50)]
-FEET = [(1.25, 0.0, 1.40), (-1.25, 0.0, 1.40), (1.35, 0.0, -1.85), (-1.35, 0.0, -1.85)]
-SHOULDERS = [(0.66, 1.50, 1.62), (-0.66, 1.50, 1.62)]
+HIPS = [(0.95, 1.15, 1.00), (-0.95, 1.15, 1.00), (1.05, 1.30, -1.50), (-1.05, 1.30, -1.50)]
+FEET = [(1.80, 0.0, 1.55), (-1.80, 0.0, 1.55), (1.90, 0.0, -2.00), (-1.90, 0.0, -2.00)]
+SHOULDERS = [(0.85, 1.55, 1.55), (-0.85, 1.55, 1.55)]
 NECK = (0.0, 1.70, 1.40)
 MOUTH_Y = 1.40           # the gape's line
 JAW_PIVOT = (0.0, MOUTH_Y + 0.02, 1.48)
@@ -125,34 +126,53 @@ def rings(p, freq, depth, noise=None, warp=0.0):
 _N = K.Noise(41)
 
 
+# The body's profile front to back (z): the top of each roll, the bottom (the belly sagging lowest in the middle), the half width.
+PROFILE_Z = [-2.5, -1.6, -0.6, 0.3, 1.2]
+PROFILE_TOP = [2.55, 3.0, 2.85, 2.6, 2.4]
+PROFILE_BOTTOM = [1.5, 0.72, 0.36, 0.55, 1.15]
+PROFILE_W = [0.95, 1.32, 1.38, 1.22, 1.0]
+ROLLS = [-2.45 + 0.52 * i for i in range(8)]
+
+
+def profile(z):
+    return (float(np.interp(z, PROFILE_Z, PROFILE_TOP)), float(np.interp(z, PROFILE_Z, PROFILE_BOTTOM)), float(np.interp(z, PROFILE_Z, PROFILE_W)))
+
+
 def torso_sdf(px, py, pz):
-    d = K.ell(px, py, pz, (0, 2.00, -1.35), (1.22, 0.98, 1.30))                       # the hump at the back, 3 blocks up
-    d = K.smin(d, K.ell(px, py, pz, (0, 1.85, -0.10), (1.15, 0.86, 1.25)), 0.40)
-    d = K.smin(d, K.ell(px, py, pz, (0, 1.72, 1.05), (1.00, 0.78, 0.90)), 0.35)        # the shoulders
-    d = K.smin(d, K.ell(px, py, pz, (0, 1.30, -0.55), (0.98, 0.58, 1.45)), 0.35)       # the belly sagging under it
-    d = K.smin(d, K.ell(px, py, pz, (0, 1.70, 1.45), (0.70, 0.62, 0.60)), 0.25)        # the neck
+    """A leech's body: a chain of fat rolls, front to back, barely smoothed together so the creases between them are deep
+    (shapes you see from across a field, not paint); the middle rolls sag low between the legs; loose folds of skin hang off
+    each roll's lower sides."""
+    d = None
+    for z in ROLLS:
+        top, bot, w = profile(z)
+        cy, ry = (top + bot) / 2, (top - bot) / 2
+        roll = K.ell(px, py, pz, (0, cy, z), (w, ry, 0.44))
+        # loose skin hanging off its lower sides, a fold under each roll
+        for sx in (1, -1):
+            roll = K.smin(roll, K.ell(px, py, pz, (sx * w * 0.72, bot + ry * 0.38, z + 0.04), (0.42, 0.34, 0.36)), 0.08)
+        d = roll if d is None else K.smin(d, roll, 0.07)
+    d = K.smin(d, K.ell(px, py, pz, (0, 1.70, 1.45), (0.70, 0.62, 0.60)), 0.2)        # the neck
     for h in HIPS:
-        d = K.smin(d, K.ell(px, py, pz, (h[0] * 0.95, h[1] - 0.05, h[2]), (0.34, 0.30, 0.34)), 0.18)
-    for s in SHOULDERS:
-        d = K.smin(d, K.ell(px, py, pz, (s[0] * 0.95, s[1], s[2] - 0.05), (0.26, 0.24, 0.26)), 0.15)
+        d = K.smin(d, K.ell(px, py, pz, (h[0] * 0.92, h[1], h[2]), (0.44, 0.40, 0.44)), 0.15)
+    for sh in SHOULDERS:
+        d = K.smin(d, K.ell(px, py, pz, (sh[0] * 0.92, sh[1], sh[2] - 0.05), (0.40, 0.38, 0.40)), 0.14)
     n = _N.fbm(px, py, pz, 1.4, 2)
-    d = d + rings(pz, 2.3, 0.05, n, 0.6)                                                 # rings round it, front to back
-    # sagging folds hanging down its sides
-    d = d + 0.035 * np.clip(np.sin(px * 9.0 + pz * 2.0 + n * 3.0), 0, 1) * (py < 1.7)
-    d = d - 0.06 * (n - 0.5)
+    # finer wrinkles across each roll, and lumps
+    d = d + rings(pz, 5.0, 0.025, n, 0.8)
+    d = d - 0.07 * (n - 0.5)
     return d
 
 
-GLANDS = [(sx * 0.42, z) for z in (-1.15, -0.45, 0.25) for sx in (1, -1)]
+GLANDS = [(sx * 0.45, z) for z in (-1.25, -0.5, 0.25) for sx in (1, -1)]
 
 
 def gland_sdf(px, py, pz):
     d = None
     for x, z in GLANDS:
-        top = 0.95 if z < 0 else 1.0
-        g = K.ell(px, py, pz, (x, 0.72, z), (0.19, 0.27, 0.19))
-        g = K.smin(g, K.caps(px, py, pz, (x, top, z), (x, 0.70, z), 0.15, 0.17), 0.08)
-        g = K.smin(g, K.caps(px, py, pz, (x, 0.55, z), (x * 1.05, 0.40, z + 0.02), 0.07, 0.04), 0.05)   # the teat
+        bot = max(profile(z)[1] + 0.1, 0.42)
+        g = K.ell(px, py, pz, (x, bot - 0.08, z), (0.2, 0.28, 0.2))
+        g = K.smin(g, K.caps(px, py, pz, (x, bot + 0.25, z), (x, bot - 0.1, z), 0.16, 0.18), 0.08)
+        g = K.smin(g, K.caps(px, py, pz, (x, bot - 0.25, z), (x * 1.05, bot - 0.42, z + 0.02), 0.07, 0.04), 0.05)   # the teat
         d = g if d is None else np.minimum(d, g)
     return d
 
@@ -171,12 +191,12 @@ def body_model():
         m = ctx.is_('gland')
         lit = soft(ctx, (ctx.normal * LIGHT).sum(-1))
         gcol = blend(GLAND, soft(ctx, 0.55 + 0.25 * lit + (n - 0.5) * 0.3 - ctx.ao * 0.7))
-        tip = ctx.py < 0.55
+        tip = ctx.py < 0.25
         gcol = np.where(tip[..., None], gcol * 0.75 + INNER[3] * 0.25, gcol)
         col = np.where(m[..., None], gcol, col)
         return col, np.zeros(ctx.px.shape, np.float32)
 
-    return K.voxelize('body', (-1.45, 0.3, -2.8), (1.45, 3.15, 2.0), K.S16, layers, paint, noise, min_nb=3)
+    return K.voxelize('body', (-1.95, -0.05, -3.0), (1.95, 3.2, 2.0), K.S16, layers, paint, noise, min_nb=3)
 
 
 # ---------------------------------------------------------------- the head: one big mouth, no eyes, hair over it
@@ -391,19 +411,20 @@ def parts_model():
         return col, np.zeros(ctx.px.shape, np.float32)
 
     def thigh(px, py, pz):
-        d = K.caps(px, py, pz, (0, -0.05, 0), (0, THIGH, 0), 0.30, 0.22)
-        d = K.smin(d, K.ell(px, py, pz, (0, 0.42, -0.04), (0.30, 0.42, 0.29)), 0.1)
-        d = d + rings(py, 3.4, 0.035)
+        d = K.caps(px, py, pz, (0, -0.05, 0), (0, THIGH, 0), 0.43, 0.30)
+        d = K.smin(d, K.ell(px, py, pz, (0, 0.45, -0.05), (0.44, 0.5, 0.42)), 0.1)
+        d = d + rings(py, 2.8, 0.06)
         return [('flesh', d)]
 
     def shin(px, py, pz):
-        d = K.caps(px, py, pz, (0, -0.03, 0), (0, SHIN + 0.04, 0), 0.23, 0.165)
-        d = K.smin(d, K.sphere(px, py, pz, (0, 0.0, -0.03), 0.24), 0.08)
-        d = d + rings(py, 3.8, 0.03)
+        # the knee: a big knob at the top, then a thick shin tapering to the ankle
+        d = K.caps(px, py, pz, (0, -0.03, 0), (0, SHIN + 0.04, 0), 0.31, 0.22)
+        d = K.smin(d, K.sphere(px, py, pz, (0, 0.0, -0.06), 0.36), 0.06)
+        d = d + rings(py, 3.2, 0.05)
         return [('flesh', d)]
 
-    th = K.voxelize('thigh', (-0.36, -0.36, -0.36), (0.36, THIGH + 0.25, 0.36), s, thigh, limb_paint, noise)
-    sh = K.voxelize('shin', (-0.3, -0.3, -0.3), (0.3, SHIN + 0.22, 0.3), s, shin, limb_paint, noise)
+    th = K.voxelize('thigh', (-0.5, -0.5, -0.5), (0.5, THIGH + 0.3, 0.5), s, thigh, limb_paint, noise)
+    sh = K.voxelize('shin', (-0.45, -0.45, -0.45), (0.45, SHIN + 0.25, 0.45), s, shin, limb_paint, noise)
 
     def tseg(px, py, pz):
         d = K.caps(px, py, pz, (0, -0.04, 0), (0, TSEG + 0.04, 0), 0.17, 0.155)
@@ -413,6 +434,7 @@ def parts_model():
     ts = K.voxelize('tseg', (-0.22, -0.1, -0.22), (0.22, TSEG + 0.1, 0.22), s, tseg, limb_paint, noise)
 
     def sucker(px, py, pz):
+        px, py, pz = px / SUCKER, py / SUCKER, pz / SUCKER
         r = np.sqrt(px ** 2 + pz ** 2)
         # the cup flaring from the limb's end to the lip
         cup = np.maximum(r - (0.165 + 0.55 * np.clip(py, 0, 0.16)), np.maximum(-py - 0.02, py - 0.15))
@@ -433,18 +455,18 @@ def parts_model():
 
     def sucker_paint(ctx):
         col = skin(ctx, belly_dir=(0.0, 1.0, 0.0), base=0.5)
-        r = np.sqrt(ctx.px ** 2 + ctx.pz ** 2)
+        r = np.sqrt(ctx.px ** 2 + ctx.pz ** 2) / SUCKER
         lit = soft(ctx, (ctx.normal * LIGHT).sum(-1))
         n = ctx.noise(ctx.px * 4, ctx.py * 4, ctx.pz * 4, 6.0)
-        lip = ctx.is_('flesh') & (ctx.py > 0.09) & (r > 0.13)
+        lip = ctx.is_('flesh') & (ctx.py / SUCKER > 0.09) & (r > 0.13)
         col = np.where(lip[..., None], blend(LIP, 0.6 + 0.3 * lit + (n - 0.5) * 0.3 - ctx.ao * 0.5), col)
-        m = ctx.is_('inner') | (ctx.is_('flesh') & (r < 0.175) & (ctx.py > 0.04))
+        m = ctx.is_('inner') | (ctx.is_('flesh') & (r < 0.175) & (ctx.py / SUCKER > 0.04))
         col = np.where(m[..., None], blend(INNER, 0.45 + (n - 0.5) * 0.5 + 0.6 * (r / 0.19 - 0.5)), col)
         m = ctx.is_('tooth')
         col = np.where(m[..., None], K.pick(TOOTH, 0.8 + (n - 0.5) * 0.3, n), col)
         return col, np.zeros(ctx.px.shape, np.float32)
 
-    su = K.voxelize('sucker', (-0.3, -0.05, -0.3), (0.3, 0.24, 0.3), s, sucker, sucker_paint, noise, min_nb=1)
+    su = K.voxelize('sucker', (-0.3 * SUCKER, -0.05 * SUCKER, -0.3 * SUCKER), (0.3 * SUCKER, 0.24 * SUCKER, 0.3 * SUCKER), s, sucker, sucker_paint, noise, min_nb=1)
 
     def tongue(px, py, pz, tip=False):
         ln = 0.45 if tip else TONGUE_SEG
@@ -517,6 +539,9 @@ def frame_y(axis, z_hint):
     return np.stack([x, y, z], axis=1)
 
 
+ARM_THICK = (2.0, 0.85)    # the tentacles drawn thick at the shoulder, thin at the tip (LeechDevilRenderer)
+
+
 def preview(path=None):
     import eternity_devil_3d as ED  # noqa (its sheet helpers)
     bm = body_mesh_model()
@@ -544,11 +569,12 @@ def preview(path=None):
     for sp in SHOULDERS:
         sh = np.array(sp)
         side = np.sign(sp[0])
-        pts = K.curve(sh, sh + np.array([side * 0.5, -0.4, 1.3]), sh + np.array([side * 0.35, -1.25, 2.2]), 10)
-        for a, b in zip(pts[:-1], pts[1:]):
+        pts = K.curve(sh, sh + np.array([side * 0.6, 0.3, 1.0]), sh + np.array([side * 0.2, -1.0, 1.65]), 10)
+        for k, (a, b) in enumerate(zip(pts[:-1], pts[1:])):
             ln = np.linalg.norm(b - a)
-            place('tseg', frame_y(b - a, np.array([0, 1.0, 0])), a, (1.0, ln / TSEG, 1.0))
-        place('sucker', frame_y(pts[-1] - pts[-2], np.array([0, 1.0, 0])), pts[-1])
+            th = ARM_THICK[0] + (ARM_THICK[1] - ARM_THICK[0]) * (k + 0.5) / (len(pts) - 1)
+            place('tseg', frame_y(b - a, np.array([0, 1.0, 0])), a, (th, ln / TSEG, th))
+        place('sucker', frame_y(pts[-1] - pts[-2], np.array([0, 1.0, 0])), pts[-1], (0.8, 0.8, 0.8))
     lights = [((-0.4, 0.9, 0.5), (1.0, 0.95, 0.85), 0.8), ((0.6, 0.3, -0.6), (0.7, 0.75, 0.9), 0.3)]
     rims = [((0.8, 0.4, -0.3), (150, 170, 140), 0.5)]
     tiles = []

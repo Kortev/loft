@@ -21,7 +21,7 @@ import net.minecraft.util.math.Vec3d;
 final class LeechBody {
 	static final int LEGS = 4;
 	/** Where each foot rests (the body's frame: +X its left, +Z its front), from tools/leech_devil_3d.py FEET. */
-	static final double[][] FEET = {{1.25, 1.40}, {-1.25, 1.40}, {1.35, -1.85}, {-1.35, -1.85}};
+	static final double[][] FEET = {{1.80, 1.55}, {-1.80, 1.55}, {1.90, -2.00}, {-1.90, -2.00}};
 	static final float SWING = 5.0F;
 	static final float SWING_SLOW = 8.0F;
 	static final double LIFT = 0.5;

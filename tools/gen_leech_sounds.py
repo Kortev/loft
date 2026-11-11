@@ -9,7 +9,8 @@ No words, no recordings. All mono.
 - whip: the tentacle whipping out.
 - suck: one pulse of it drinking: a wet suck and a gulp.
 - tear: the arm cut loose: a wet rip and a pop as the sucker comes off.
-- shriek: hurt: a shrill, broken shriek, a woman's voice gone wrong.
+- shriek: an arm torn loose or the tongue cut: a shrill, broken shriek, a woman's voice gone wrong.
+- grunt1..grunt3: an ordinary hit: a short wet grunt through the shut teeth.
 - paw: a front sucker pawing the ground before the trample: a heavy wet thump.
 - trample: the run: heavy wet slaps coming fast.
 - skid: skidding to a stop through the dirt.
@@ -181,6 +182,29 @@ def leech_shriek():
     return taper(x, 0.1)
 
 
+def grunt(f0, f1, seconds):
+    """Hurt: a short wet grunt through the shut teeth: a low voice pushed out and cut off, a squelch under it."""
+    n = ns(seconds)
+    t = np.arange(n) / SR
+    v = voice(n, curve(n, [(0.0, f0), (seconds, f1)]), formants=((380, 1.0), (900, 0.5), (2200, 0.15)), breath=0.5, vib=9.0, vib_depth=0.03, shimmer=0.6)
+    env = np.minimum(t / 0.015, 1.0) * np.exp(-t / (seconds * 0.4))
+    x = sat(v * env * 2.0, 1.4) * 0.8 + flesh(n, seconds * 0.8, 1.8) * 0.5
+    x += gulp(n, seconds * 0.4, 0.05, 220, 110, 0.4)
+    return taper(x, 0.06)
+
+
+def leech_grunt1():
+    return grunt(230.0, 170.0, 0.32)
+
+
+def leech_grunt2():
+    return grunt(270.0, 190.0, 0.28)
+
+
+def leech_grunt3():
+    return grunt(200.0, 150.0, 0.36)
+
+
 def leech_paw():
     """A front sucker pawing the ground: a heavy wet thump and a scrape."""
     n = ns(0.45)
@@ -256,7 +280,7 @@ def leech_taste():
 SOUNDS = {k: v for k, v in globals().items() if k.startswith('leech_') and callable(v)}
 LEVELS = {'leech_hum1': -19, 'leech_hum2': -19, 'leech_hum3': -19, 'leech_tell': -12, 'leech_tongue': -10, 'leech_smack': -12,
           'leech_whip': -13, 'leech_suck': -12, 'leech_tear': -10, 'leech_shriek': -10, 'leech_paw': -11, 'leech_trample': -11,
-          'leech_skid': -12, 'leech_step': -16, 'leech_death': -11, 'leech_taste': -20}
+          'leech_skid': -12, 'leech_step': -16, 'leech_death': -11, 'leech_taste': -20, 'leech_grunt1': -14, 'leech_grunt2': -14, 'leech_grunt3': -14}
 
 
 def make(name):

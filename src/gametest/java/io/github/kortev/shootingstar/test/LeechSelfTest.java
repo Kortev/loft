@@ -45,6 +45,8 @@ public class LeechSelfTest implements ClientModInitializer {
 	static final BlockPos SITE = new BlockPos(288, 62, -256);
 	static final int GROUND = 62;
 	static final long DUSK = 11900L;
+	/** The film starts here and runs on into the night (the sun down at about 12800, dark by about 13700). */
+	static final long NIGHTFALL = 12300L;
 
 	private enum Stage {
 		WAIT_WORLD, SETUP, SETTLE, RUN, DONE
@@ -61,7 +63,7 @@ public class LeechSelfTest implements ClientModInitializer {
 
 	/** The played take is drawn as a phone's portrait frame (1080x1920) whatever the window. */
 	public static boolean portrait() {
-		return active() && target().startsWith("played");
+		return active() && (target().startsWith("played") || target().startsWith("reel"));
 	}
 
 	static String target() {
@@ -130,7 +132,7 @@ public class LeechSelfTest implements ClientModInitializer {
 			}
 			case RUN -> {
 				client.getToastManager().clear();
-				boolean over = target().startsWith("played") ? LeechFight.tick(client, server, ticks) : model(client, server, ticks);
+				boolean over = target().startsWith("played") || target().startsWith("reel") ? LeechFight.tick(client, server, ticks) : model(client, server, ticks);
 				if (over) {
 					stage = Stage.DONE;
 				}
@@ -212,7 +214,7 @@ public class LeechSelfTest implements ClientModInitializer {
 			Form.end(you);
 		}
 		Downed.up(you);
-		you.changeGameMode(target().startsWith("played") ? GameMode.SURVIVAL : GameMode.CREATIVE);
+		you.changeGameMode(portrait() ? GameMode.SURVIVAL : GameMode.CREATIVE);
 		you.getInventory().clear();
 		you.getInventory().setStack(0, new ItemStack(target().equals("played-stone") ? Items.STONE_SWORD : Items.IRON_SWORD));
 		you.getInventory().setStack(1, new ItemStack(Items.BREAD, 8));
