@@ -65,6 +65,16 @@ public final class Devils {
 		public static final SoundEvent HISS = register("tomato.hiss");
 		/** A seed swelling: a slow wet creaking and bubbling. */
 		public static final SoundEvent SWELL = register("tomato.swell");
+		/** Its breathing, quiet and wet, through parted lips (what it sounds like about). */
+		public static final SoundEvent BREATH = register("tomato.breath");
+		/** A soft click of its teeth. */
+		public static final SoundEvent CLICK = register("tomato.click");
+		/** A seed catching fire: a thin shriek as it chars. */
+		public static final SoundEvent SHRIEK = register("tomato.shriek");
+		/** A blade or a fist into a seed: a squelch, no more. */
+		public static final SoundEvent SQUELCH = register("tomato.squelch");
+		/** Pochita chewing up a seed: teeth whirring, a wet crunch. */
+		public static final SoundEvent CHEW = register("pochita.chew");
 		/** Pochita smelling a devil: two short barks with an engine's rasp in them. */
 		public static final SoundEvent BARK = register("pochita.bark");
 

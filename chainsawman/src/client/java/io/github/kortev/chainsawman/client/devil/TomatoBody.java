@@ -58,6 +58,8 @@ final class TomatoBody {
 		double drawnYaw;
 		Vec3d groundAt;
 		double groundY;
+		/** When it last came down (its fingers press into the ground one after another from then). */
+		float landAt = -100.0F;
 	}
 
 	/** A cut: where on the body (its own frame), the surface's normal, its turn and length, when it was made. */
@@ -179,6 +181,7 @@ final class TomatoBody {
 				f.swinging = false;
 				f.plant = f.to;
 				f.yaw = f.toYaw;
+				f.landAt = now;
 				land(world, e, f.plant, speed);
 			} else {
 				anySwinging = true;
@@ -253,6 +256,99 @@ final class TomatoBody {
 		double curl = 0.1 + 0.9 * Math.sin(Math.PI * Math.min(1.0, s * 1.1));
 		return new double[] {x, y, z, yaw, pitch, curl};
 	}
+
+	// ---- The hands' fingers: they land and press one after another; standing, a few hands feel about, tap and flex.
+
+	/** Whether arm {@code i} is one that fidgets when it stands still. */
+	static boolean fidgets(int i, int id) {
+		return Math.floorMod(i * 5 + id, 3) == 0;
+	}
+
+	/** How far through a fidget arm {@code i} is at {@code now}: its kind (0 tap, 1 flex, 2 feel about) and the phase 0..1, or null. */
+	static float[] fidget(int i, int id, float now) {
+		int period = 70 + Math.floorMod(i * 37 + id * 11, 50);
+		float c = (now + Math.floorMod(i * 131 + id * 7, period)) % period;
+		float len = 26.0F;
+		if (c > len) {
+			return null;
+		}
+		int cycle = (int) Math.floor((now + Math.floorMod(i * 131 + id * 7, period)) / period);
+		return new float[] {Math.floorMod(cycle * 7 + i, 3), c / len};
+	}
+
+	private static float bump(float x) {
+		return x <= 0.0F || x >= 1.0F ? 0.0F : MathHelper.sin(x * MathHelper.PI);
+	}
+
+	/**
+	 * Finger {@code j} (0 the index, by the thumb, to 3 the little one) of arm {@code i} at {@code now}: its curl (radians: up is
+	 * negative, pressed into the ground) and how far the fingers spread (0..1). {@code still} when it stands about.
+	 */
+	float[] finger(int i, int j, float now, int id, boolean still) {
+		Foot f = feet[i];
+		if (f.swinging) {
+			float s = MathHelper.clamp((now - f.start) / f.dur, 0.0F, 1.0F);
+			float c = 0.1F + 0.9F * MathHelper.sin(MathHelper.PI * Math.min(1.0F, s * 1.1F));
+			// Coming down, the fingers stay up and a little curled, waiting to touch.
+			if (s > 0.55F) {
+				c = Math.max(c, 0.45F - 0.1F * j);
+			}
+			return new float[] {c, 0.4F};
+		}
+		float dt = now - f.landAt - j * 1.4F;
+		if (dt < 0.0F && now - f.landAt < 8.0F) {
+			return new float[] {0.45F - 0.1F * j, 0.55F};
+		}
+		if (dt >= 0.0F && dt < 2.0F) {
+			float k = dt / 2.0F;
+			return new float[] {MathHelper.lerp(k * k, 0.45F - 0.1F * j, -0.2F), MathHelper.lerp(k, 0.55F, 1.0F)};
+		}
+		if (dt >= 2.0F && dt < 10.0F) {
+			float k = (dt - 2.0F) / 8.0F;
+			return new float[] {MathHelper.lerp(k, -0.2F, 0.04F), MathHelper.lerp(k, 1.0F, 0.6F)};
+		}
+		float curl = 0.04F;
+		float spread = 0.6F;
+		if (still && fidgets(i, id)) {
+			float[] fg = fidget(i, id, now);
+			if (fg != null) {
+				float ph = fg[1];
+				switch ((int) fg[0]) {
+					case 0 -> curl -= 0.55F * bump((ph - j * 0.12F) * 3.0F) - 0.25F * bump((ph - 0.5F - j * 0.08F) * 3.0F);
+					case 1 -> {
+						curl += 1.1F * bump(ph * 1.2F) * (1.0F - j * 0.08F);
+						spread -= 0.5F * bump(ph * 1.2F);
+					}
+					default -> curl += 0.35F * bump(ph) + 0.15F * MathHelper.sin(ph * 18.0F + j);
+				}
+			}
+		}
+		return new float[] {curl, spread};
+	}
+
+	/** A standing hand lifting off the ground as it feels about (blocks up, and to the side). */
+	float[] feel(int i, float now, int id, boolean still) {
+		if (!still || feet[i].swinging || !fidgets(i, id)) {
+			return new float[] {0.0F, 0.0F};
+		}
+		float[] fg = fidget(i, id, now);
+		if (fg == null) {
+			return new float[] {0.0F, 0.0F};
+		}
+		float ph = fg[1];
+		if ((int) fg[0] == 2) {
+			return new float[] {0.22F * bump(ph), 0.25F * MathHelper.sin(ph * MathHelper.TAU)};
+		}
+		return new float[] {(int) fg[0] == 0 ? 0.06F * bump(ph) : 0.0F, 0.0F};
+	}
+
+	// ---- The eyes: each wanders on its own till it notices someone; then every one snaps to them.
+
+	float[][] gaze = new float[0][];
+	float[] nextLook = new float[0];
+	float[][] lookTo = new float[0][];
+	float lastEyes = Float.NaN;
+	float pupil = 1.0F;
 
 	/** Each eye's blink at {@code now}: 1 open, toward 0 shut. */
 	float blink(int eye, float now, long seed) {

@@ -50,7 +50,7 @@ public class TomatoSpitEntity extends Entity {
 			BlockHitResult block = world.raycast(new RaycastContext(p, to, RaycastContext.ShapeType.COLLIDER, RaycastContext.FluidHandling.NONE, this));
 			Vec3d end = block.getType() == HitResult.Type.MISS ? to : block.getPos();
 			for (LivingEntity e : world.getEntitiesByClass(LivingEntity.class, getBoundingBox().stretch(v).expand(0.5), this::canHit)) {
-				if (e.getBoundingBox().expand(0.2).raycast(p, end).isPresent() || e.getBoundingBox().expand(0.2).contains(p)) {
+				if (e.getBoundingBox().expand(0.1).raycast(p, end).isPresent() || e.getBoundingBox().expand(0.1).contains(p)) {
 					Entity by = owner == null ? null : world.getEntity(owner);
 					e.damage(by instanceof LivingEntity l ? getDamageSources().mobProjectile(this, l) : getDamageSources().generic(), TomatoDevilEntity.SPIT_DAMAGE);
 					splat(world, e.getPos().add(0.0, e.getHeight() * 0.6, 0.0));

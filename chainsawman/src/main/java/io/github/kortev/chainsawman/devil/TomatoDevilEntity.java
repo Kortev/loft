@@ -74,6 +74,8 @@ public class TomatoDevilEntity extends HostileEntity {
 	public static final int SPIT = 7;
 	/** Climbing out of a swollen seed. */
 	public static final int EMERGE = 8;
+	/** The hop: squatting low on all eight arms (the tell), springing up, landing on whoever hugs it. */
+	public static final int HOP = 9;
 
 	/** The slap: rearing (the tell), the arms whipping down, the hit, and settling. */
 	public static final int SLAP_TELL = 16;
@@ -95,11 +97,32 @@ public class TomatoDevilEntity extends HostileEntity {
 	public static final int GET_UP_TICKS = 14;
 	public static final int UNFURL_TICKS = 12;
 	/** The spit: the mouth opening (the tell; it turns to aim only in the first part), the five seeds in a fan, the mouth closing. */
-	public static final int SPIT_TELL = 14;
+	public static final int SPIT_TELL = 18;
 	public static final int SPIT_AIM = 6;
 	public static final int SPIT_END = SPIT_TELL + 14;
 	public static final int SPIT_COUNT = 5;
-	public static final float SPIT_FAN = 13.0F;
+	/**
+	 * Wide gaps between the seeds: from 5 blocks a sidestep of about a block at a walk slips between two. (Round 1's 13 degrees left gaps
+	 * narrower than a player: the only way out was past the whole fan, nearly 3 blocks in 0.7 s.)
+	 */
+	public static final float SPIT_FAN = 26.0F;
+	/**
+	 * The hop: who it answers (anyone within {@link #HUG} blocks of its skin for {@link #HUG_TICKS}), the squat (the tell), the leap, the
+	 * landing's reach from its skin, its damage and how hard it throws (about 5 blocks back).
+	 */
+	public static final double HUG = 3.0;
+	public static final int HUG_TICKS = 40;
+	public static final int HOP_TELL = 18;
+	public static final int HOP_AIR = 10;
+	public static final int HOP_LAND = HOP_TELL + HOP_AIR;
+	public static final int HOP_END = HOP_LAND + 14;
+	public static final double HOP_REACH = 3.5;
+	public static final float HOP_DAMAGE = 3.0F;
+	public static final double HOP_THROW = 1.05;
+	/** On first noticing a player: every eye on them, and it stands dead still this long before it moves. */
+	public static final int NOTICE_STILL = 24;
+	/** A comeback climbs out with this much of its health. */
+	public static final float COMEBACK_HEALTH = 0.6F;
 	public static final float SPIT_DAMAGE = 2.0F;
 	public static final double SPIT_RANGE = 8.0;
 	public static final int EMERGE_TICKS = 30;
@@ -114,6 +137,8 @@ public class TomatoDevilEntity extends HostileEntity {
 	private static final TrackedData<Long> STATE_AT = DataTracker.registerData(TomatoDevilEntity.class, TrackedDataHandlerRegistry.LONG);
 	/** The way a move is aimed (degrees, as a yaw): where the roll goes, where the fan of seeds is centred. */
 	private static final TrackedData<Float> AIM = DataTracker.registerData(TomatoDevilEntity.class, TrackedDataHandlerRegistry.FLOAT);
+	/** When it noticed someone (the world's time), or -1 while it has noticed nobody: its eyes wander till then. */
+	private static final TrackedData<Long> NOTICED = DataTracker.registerData(TomatoDevilEntity.class, TrackedDataHandlerRegistry.LONG);
 
 	/** How many seeds it bursts into when killed. */
 	public int seeds = SEEDS;
@@ -128,7 +153,14 @@ public class TomatoDevilEntity extends HostileEntity {
 	private Vec3d wanderTo;
 	private long wanderAt;
 	private float spitPitch;
-	private int slapStreak;
+	/** The last move and how many times running (no move three times running). */
+	private int lastMove = -1;
+	private int moveStreak;
+	/** How long someone has hugged it (ticks, falling off when nobody does). */
+	private int hugged;
+	/** After a hop: the roll may follow straight away, cooldown or not. */
+	private long rollMayFollowUntil = -1;
+	private long lostSince = -1;
 
 	/** The client's burst (the splat on the ground), set by the client. */
 	public static Consumer<TomatoDevilEntity> clientBurst = e -> {
@@ -153,6 +185,7 @@ public class TomatoDevilEntity extends HostileEntity {
 		builder.add(STATE, WALK);
 		builder.add(STATE_AT, 0L);
 		builder.add(AIM, 0.0F);
+		builder.add(NOTICED, -1L);
 	}
 
 	// ---- What it is doing (both sides).
@@ -179,6 +212,43 @@ public class TomatoDevilEntity extends HostileEntity {
 	public void begin(int state) {
 		dataTracker.set(STATE, state);
 		dataTracker.set(STATE_AT, getWorld().getTime());
+	}
+
+	/** When it noticed someone (the world's time), or -1. */
+	public long noticedAt() {
+		return dataTracker.get(NOTICED);
+	}
+
+	/** Has it notice someone now (or forget them): for the self tests' stills. */
+	public void notice(boolean on) {
+		dataTracker.set(NOTICED, on ? getWorld().getTime() : -1L);
+	}
+
+	/** Whether {@code move} may come now: no move three times running. */
+	public boolean allowed(int move) {
+		return !(move == lastMove && moveStreak >= 2);
+	}
+
+	/** The last move it made (for the tests). */
+	public int lastMove() {
+		return lastMove;
+	}
+
+	private void made(int move) {
+		moveStreak = move == lastMove ? moveStreak + 1 : 1;
+		lastMove = move;
+		if (moveListener != null) {
+			moveListener.accept(move);
+		}
+	}
+
+	/** Told of every move it makes (the tests). */
+	@Nullable
+	public java.util.function.IntConsumer moveListener;
+
+	/** How long someone has been hugging it (for the tests and the film). */
+	public int hugged() {
+		return hugged;
 	}
 
 	/** Every hit on it counts half again: it lies on its back. */
@@ -257,6 +327,7 @@ public class TomatoDevilEntity extends HostileEntity {
 				}
 			}
 			case SPIT -> spit(world, t, target);
+			case HOP -> hop(world, t);
 			case EMERGE -> {
 				still();
 				if (t >= EMERGE_TICKS) {
@@ -267,6 +338,27 @@ public class TomatoDevilEntity extends HostileEntity {
 		}
 		if (now % 40 == 0) {
 			Sniff.near(world, getPos());
+		}
+		// Who hugs it: anyone near its skin for long brings on the hop.
+		if (target != null && Math.hypot(target.getX() - getX(), target.getZ() - getZ()) <= WIDTH * 0.5 + HUG) {
+			hugged++;
+		} else {
+			hugged = Math.max(0, hugged - 2);
+		}
+		// Noticing: the first sight of someone; forgetting them once nobody has been about a while.
+		if (target != null && walkTo == null) {
+			lostSince = -1;
+			if (noticedAt() < 0) {
+				dataTracker.set(NOTICED, now);
+				nextMoveAt = Math.max(nextMoveAt, now + 40);
+				playSound(Devils.Sounds.CLICK, 0.8F, 0.8F);
+			}
+		} else if (noticedAt() >= 0) {
+			if (lostSince < 0) {
+				lostSince = now;
+			} else if (now - lostSince > 200) {
+				dataTracker.set(NOTICED, -1L);
+			}
 		}
 	}
 
@@ -325,6 +417,13 @@ public class TomatoDevilEntity extends HostileEntity {
 			return;
 		}
 		wanderTo = null;
+		long noticed = noticedAt();
+		if (noticed >= 0 && now - noticed < NOTICE_STILL) {
+			// It has just seen you: every eye on you, and not a twitch more.
+			navigation.stop();
+			setVelocity(0.0, getVelocity().y, 0.0);
+			return;
+		}
 		double dist = Math.hypot(target.getX() - getX(), target.getZ() - getZ());
 		float to = yawTo(target.getPos());
 		float off = Math.abs(MathHelper.wrapDegrees(to - getBodyYaw()));
@@ -332,31 +431,78 @@ public class TomatoDevilEntity extends HostileEntity {
 			navigation.startMovingTo(target, 1.0);
 		}
 		getLookControl().lookAt(target, 30.0F, 30.0F);
+		boolean sees = canSee(target);
+		if (now <= rollMayFollowUntil && sees && dist >= 4.5 && dist <= ROLL_DISTANCE - 0.5 && allowed(ROLL_TELL)) {
+			// Thrown off it by the hop, you are where the roll goes: it comes at once.
+			rollMayFollowUntil = -1;
+			startRoll(now, to);
+			return;
+		}
 		if (now < nextMoveAt || now % 4 != 0) {
 			return;
 		}
-		boolean sees = canSee(target);
-		if (dist <= SLAP_REACH + 0.3 && off < 55.0F && (slapStreak < 2 || now - lastSpitAt <= 90)) {
-			slapStreak++;
+		if (hugged >= HUG_TICKS && allowed(HOP)) {
+			hugged = 0;
+			navigation.stop();
+			made(HOP);
+			dataTracker.set(AIM, to);
+			begin(HOP);
+			playSound(Devils.Sounds.TUCK, 1.1F, 0.7F);
+		} else if (dist <= SLAP_REACH + 0.3 && off < 55.0F && allowed(SLAP)) {
+			made(SLAP);
 			dataTracker.set(AIM, to);
 			navigation.stop();
 			begin(SLAP);
 			playSound(Devils.Sounds.GURGLE, 1.0F, 0.8F);
-		} else if (sees && dist >= 5.5 && dist <= ROLL_DISTANCE - 1.5 && now - lastRollAt > 110 && random.nextFloat() < 0.35F) {
-			dataTracker.set(AIM, to);
-			navigation.stop();
-			lastRollAt = now;
-			slapStreak = 0;
-			begin(ROLL_TELL);
-			playSound(Devils.Sounds.TUCK, 1.2F, 1.0F);
-		} else if (sees && dist <= SPIT_RANGE + 0.5 && now - lastSpitAt > 90 && (slapStreak >= 2 && off < 55.0F || dist >= 3.5 && random.nextFloat() < 0.3F)) {
+		} else if (sees && dist >= 5.5 && dist <= ROLL_DISTANCE - 1.5 && now - lastRollAt > 110 && random.nextFloat() < 0.35F && allowed(ROLL_TELL)) {
+			startRoll(now, to);
+		} else if (sees && dist <= SPIT_RANGE + 0.5 && now - lastSpitAt > 90 && allowed(SPIT)
+				&& (!allowed(SLAP) && dist <= SLAP_REACH + 0.3 && off < 55.0F || dist >= 3.5 && random.nextFloat() < 0.3F)) {
 			// (Slapped at twice running, it spits in your face instead.)
-			slapStreak = 0;
+			made(SPIT);
 			dataTracker.set(AIM, to);
 			navigation.stop();
 			lastSpitAt = now;
 			begin(SPIT);
 			playSound(Devils.Sounds.GURGLE, 1.3F, 1.15F);
+		}
+	}
+
+	private void startRoll(long now, float to) {
+		made(ROLL_TELL);
+		dataTracker.set(AIM, to);
+		navigation.stop();
+		lastRollAt = now;
+		begin(ROLL_TELL);
+		playSound(Devils.Sounds.TUCK, 1.2F, 1.0F);
+	}
+
+	/** The hop: down low on all eight arms, up, and down on whoever is near; thrown off it, they are where the roll goes. */
+	private void hop(ServerWorld world, float t) {
+		still();
+		if ((int) t == HOP_TELL) {
+			playSound(Devils.Sounds.ROLL, 1.0F, 1.4F);
+		}
+		if ((int) t == HOP_LAND) {
+			playSound(Devils.Sounds.THUD, 1.8F, 0.75F);
+			playSound(Devils.Sounds.SLAP, 1.4F, 0.7F);
+			world.spawnParticles(new BlockStateParticleEffect(ParticleTypes.BLOCK, world.getBlockState(getBlockPos().down())), getX(), getY() + 0.1, getZ(), 60,
+					2.2, 0.05, 2.2, 0.25);
+			for (LivingEntity e : world.getEntitiesByClass(LivingEntity.class, getBoundingBox().expand(HOP_REACH + 1.0, 1.5, HOP_REACH + 1.0), this::canHurt)) {
+				Vec3d rel = e.getPos().subtract(getPos()).multiply(1.0, 0.0, 1.0);
+				double d = rel.length();
+				if (d <= WIDTH * 0.5 + HOP_REACH + e.getWidth() * 0.5 && Math.abs(e.getY() - getY()) < 2.5) {
+					Vec3d away = d < 0.05 ? forward(aim()) : rel.multiply(1.0 / d);
+					if (e.damage(getDamageSources().mobAttack(this), HOP_DAMAGE)) {
+						e.setVelocity(away.x * HOP_THROW, 0.48, away.z * HOP_THROW);
+						e.velocityModified = true;
+					}
+				}
+			}
+			rollMayFollowUntil = world.getTime() + HOP_END - HOP_LAND + 30;
+		}
+		if (t >= HOP_END) {
+			end(world.getTime(), 4);
 		}
 	}
 
@@ -540,7 +686,8 @@ public class TomatoDevilEntity extends HostileEntity {
 
 	@Override
 	protected SoundEvent getAmbientSound() {
-		return Devils.Sounds.GURGLE;
+		// (Quiet is scarier: a slow wet breath, not a roar.)
+		return Devils.Sounds.BREATH;
 	}
 
 	@Override
@@ -591,11 +738,10 @@ public class TomatoDevilEntity extends HostileEntity {
 		burst = true;
 		Vec3d c = getPos().add(0.0, 2.2, 0.0);
 		world.playSound(null, c.x, c.y, c.z, Devils.Sounds.BURST, SoundCategory.HOSTILE, 2.0F, 1.0F);
-		world.spawnParticles(new DustParticleEffect(new Vector3f(0.82F, 0.06F, 0.03F), 1.6F), c.x, c.y, c.z, 30, 1.0, 0.8, 1.0, 0.4);
-		world.spawnParticles(JUICE, c.x, c.y, c.z, 45, 1.4, 1.0, 1.4, 0.35);
-		world.spawnParticles(PULP, c.x, c.y, c.z, 40, 1.2, 0.8, 1.2, 0.3);
-		world.spawnParticles(new BlockStateParticleEffect(ParticleTypes.BLOCK, Blocks.RED_CONCRETE.getDefaultState()), c.x, c.y, c.z, 50, 1.0, 0.8, 1.0, 0.4);
-		world.spawnParticles(new ItemStackParticleEffect(ParticleTypes.ITEM, new ItemStack(Devils.TOMATO_CARCASS)), c.x, c.y, c.z, 30, 0.8, 0.6, 0.8, 0.35);
+		// (The skin's big chunks flying, landing and fading are the client's: here only a third of round 1's spray, and no red squares.)
+		world.spawnParticles(new DustParticleEffect(new Vector3f(0.62F, 0.04F, 0.03F), 1.8F), c.x, c.y, c.z, 14, 0.8, 0.6, 0.8, 0.3);
+		world.spawnParticles(JUICE, c.x, c.y, c.z, 30, 1.2, 0.8, 1.2, 0.3);
+		world.spawnParticles(PULP, c.x, c.y, c.z, 20, 1.0, 0.6, 1.0, 0.25);
 		dropStack(new ItemStack(Devils.TOMATO_CARCASS), 1.0F);
 		scatter(world, c, seeds, getUuid());
 	}

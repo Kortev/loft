@@ -136,6 +136,8 @@ public class TomatoSelfTest implements ClientModInitializer {
 				boolean over;
 				if (target().startsWith("played")) {
 					over = TomatoFight.tick(client, server, ticks);
+				} else if (target().equals("model")) {
+					over = model(client, server, ticks);
 				} else {
 					over = look(client, server, ticks);
 				}
@@ -223,7 +225,7 @@ public class TomatoSelfTest implements ClientModInitializer {
 			Form.end(you);
 		}
 		Downed.up(you);
-		you.changeGameMode(target().startsWith("played") ? GameMode.SURVIVAL : GameMode.SPECTATOR);
+		you.changeGameMode(target().startsWith("played") ? GameMode.SURVIVAL : target().equals("model") ? GameMode.CREATIVE : GameMode.SPECTATOR);
 		you.getInventory().clear();
 		you.getInventory().setStack(0, new ItemStack(Items.IRON_SWORD));
 		you.getInventory().setStack(1, new ItemStack(Items.TORCH, 16));
@@ -276,6 +278,142 @@ public class TomatoSelfTest implements ClientModInitializer {
 
 	private static TomatoDevilEntity clientDevil(MinecraftClient c) {
 		return devilId >= 0 && c.world.getEntityById(devilId) instanceof TomatoDevilEntity d ? d : null;
+	}
+
+	/**
+	 * -Ptarget=model: the body judged on its own (it stands still, every eye on you): front, side and three-quarter from 4 and from 10 blocks
+	 * (at your eyes' height); its eyes at night from 10 blocks (eyeshine); its face from 2 blocks; its eyes wandering before it notices you;
+	 * the hop's squat and leap; dying on its back; the burst's chunks and the seeds glowing at night.
+	 */
+	private static boolean model(MinecraftClient c, IntegratedServer s, int f) {
+		c.options.hudHidden = true;
+		c.options.setPerspective(Perspective.FIRST_PERSON);
+		c.options.getFov().setValue(70);
+		Vec3d p = site(0.0, 0.0, 0.0);
+		double eyeY = 2.45;
+		if (f == 1) {
+			s.execute(() -> {
+				TomatoDevilEntity d = devil(s.getOverworld(), p, 180.0F);
+				d.setAiDisabled(true);
+				d.notice(true);
+				devilId = d.getId();
+			});
+		}
+		// name, camera offset from its feet (x, y, z), yaw, pitch
+		Object[][] shots = {
+				{"front_4", 0.0, eyeY, -4.0, 0.0F, 0.0F}, {"side_4", 4.0, eyeY, 0.0, 90.0F, 0.0F}, {"threequarter_4", 2.83, eyeY + 0.3, -2.83, 45.0F, 5.0F},
+				{"front_10", 0.0, 1.62, -10.0, 0.0F, -4.0F}, {"side_10", 10.0, 1.62, 0.0, 90.0F, -4.0F}, {"threequarter_10", 7.07, 1.62, -7.07, 45.0F, -4.0F},
+				{"face_2", 0.0, eyeY, -3.3, 0.0F, 0.0F}};
+		int at = 60;
+		for (Object[] sh : shots) {
+			if (f >= at - 25 && f <= at) {
+				double x = (double) sh[1];
+				double y = (double) sh[2];
+				double z = (double) sh[3];
+				float yaw = (float) sh[4];
+				float pitch = (float) sh[5];
+				Capture.camera = t -> new Capture.Pose(p.x + x, p.y + y, p.z + z, yaw, pitch);
+				if (f == at - 25) {
+					s.execute(() -> you(s).teleport(s.getOverworld(), p.x + x, p.y + y - 1.62, p.z + z, yaw, pitch));
+				}
+			}
+			if (f == at) {
+				still(c, "model_" + sh[0]);
+			}
+			at += 30;
+		}
+		// eyes wandering: it has noticed nobody
+		if (f == at - 25) {
+			s.execute(() -> {
+				if (s.getOverworld().getEntityById(devilId) instanceof TomatoDevilEntity d) {
+					d.notice(false);
+				}
+				you(s).teleport(s.getOverworld(), p.x + 3.0, p.y, p.z - 5.5, 30.0F, 10.0F);
+			});
+			Capture.camera = t -> new Capture.Pose(p.x + 3.0, p.y + 2.6, p.z - 5.5, 30.0F, 6.0F);
+		}
+		if (f == at - 8 || f == at) {
+			still(c, "model_wander_" + (f == at ? "b" : "a"));
+		}
+		if (f == at + 4) {
+			s.execute(() -> {
+				if (s.getOverworld().getEntityById(devilId) instanceof TomatoDevilEntity d) {
+					d.notice(true);
+				}
+			});
+		}
+		if (f == at + 9) {
+			still(c, "model_snap");
+		}
+		at += 40;
+		// night: the eyes from 10 blocks
+		if (f == at - 25) {
+			s.execute(() -> {
+				s.getOverworld().setTimeOfDay(18000L);
+				you(s).teleport(s.getOverworld(), p.x, p.y, p.z - 10.0, 0.0F, -4.0F);
+			});
+			Capture.camera = t -> new Capture.Pose(p.x, p.y + 1.62, p.z - 10.0, 0.0F, -4.0F);
+		}
+		if (f == at) {
+			still(c, "model_night_10");
+		}
+		at += 30;
+		// back to dusk; the hop, from the side
+		if (f == at - 25) {
+			s.execute(() -> {
+				s.getOverworld().setTimeOfDay(DUSK);
+				you(s).teleport(s.getOverworld(), p.x + 8.0, p.y, p.z, 90.0F, 0.0F);
+			});
+			Capture.camera = t -> new Capture.Pose(p.x + 8.0, p.y + 2.0, p.z, 90.0F, 3.0F);
+		}
+		if (f == at) {
+			s.execute(() -> {
+				if (s.getOverworld().getEntityById(devilId) instanceof TomatoDevilEntity d) {
+					d.setAiDisabled(false);
+					d.begin(TomatoDevilEntity.HOP);
+				}
+			});
+		}
+		for (int k : new int[] {14, 21, 24, 30, 36}) {
+			if (f == at + k) {
+				still(c, "model_hop_" + k);
+			}
+		}
+		at += 70;
+		// on its back, killed there
+		if (f == at) {
+			s.execute(() -> {
+				if (s.getOverworld().getEntityById(devilId) instanceof TomatoDevilEntity d) {
+					d.begin(TomatoDevilEntity.ON_BACK);
+				}
+			});
+		}
+		if (f == at + 12) {
+			s.execute(() -> {
+				if (s.getOverworld().getEntityById(devilId) instanceof TomatoDevilEntity d) {
+					d.damage(d.getDamageSources().generic(), 1000.0F);
+				}
+			});
+		}
+		for (int k : new int[] {10, 22, 30, 38, 46}) {
+			if (f == at + k) {
+				still(c, "model_backdeath_" + k);
+			}
+		}
+		// the burst's chunks, and (at night) the seeds glowing
+		for (int k : new int[] {50, 56, 70}) {
+			if (f == at + k) {
+				still(c, "model_burst_" + k);
+			}
+		}
+		if (f == at + 130) {
+			s.execute(() -> s.getOverworld().setTimeOfDay(18000L));
+			Capture.camera = t -> new Capture.Pose(p.x + 8.0, p.y + 2.5, p.z, 90.0F, 15.0F);
+		}
+		if (f == at + 150) {
+			still(c, "model_seeds_night");
+		}
+		return f > at + 160;
 	}
 
 	/** The stills: the walk from the side, then each pose. */

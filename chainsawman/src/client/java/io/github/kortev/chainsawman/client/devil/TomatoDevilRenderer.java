@@ -44,8 +44,14 @@ public class TomatoDevilRenderer extends EntityRenderer<TomatoDevilEntity> {
 	/** Lying on the ground (tucked, rolling, on its back). */
 	static final float LOW = 1.12F;
 	/** The wrist above the ground when the hand is flat (the palm's thickness under it). */
-	static final double WRIST_UP = 0.09;
+	static final double WRIST_UP = 0.12;
 	static final float EYE_R = 0.2F;
+	/** How big the hands are drawn (round 1's 1.2, then 1.3 times that), and the arms' thickness across. */
+	static final float HAND_SCALE = 1.56F;
+	static final float ARM_THICK = 1.34F;
+	/** The lids: turned back out of sight open (radians), and the lower one's way. */
+	static final float LID_OPEN = -1.15F;
+	static final Identifier STRAND = Identifier.of("chainsawman", "textures/entity/tomato_strand.png");
 
 	private record Eye(Vector3f c, Vector3f n, float r) {
 	}
@@ -229,6 +235,33 @@ public class TomatoDevilRenderer extends EntityRenderer<TomatoDevilEntity> {
 				p.height = STAND - 0.15F * open * (1.0F - close);
 				p.shake = 0.02F * open * (1.0F - fire);
 			}
+			case TomatoDevilEntity.HOP -> {
+				// Down low on all eight (the hands stay planted, the elbows bend out), a tremble; up; down hard.
+				float squat = ramp(t, 0.0F, 12.0F);
+				float u = MathHelper.clamp((t - TomatoDevilEntity.HOP_TELL) / TomatoDevilEntity.HOP_AIR, 0.0F, 1.0F);
+				float rise = ramp(t, TomatoDevilEntity.HOP_LAND, TomatoDevilEntity.HOP_END);
+				if (t < TomatoDevilEntity.HOP_TELL) {
+					p.height = STAND - 1.05F * squat;
+					p.shake = 0.025F * squat;
+					p.mouth = 0.06F + 0.12F * squat;
+				} else if (t < TomatoDevilEntity.HOP_LAND) {
+					float base = MathHelper.lerp(u, STAND - 1.05F, STAND - 0.55F);
+					// fast up out of the squat, a hang at the top, fast down
+					p.height = base + 2.6F * MathHelper.sin(MathHelper.PI * u);
+					p.mouth = 0.35F;
+				} else {
+					p.height = MathHelper.lerp(rise, STAND - 0.55F, STAND);
+				}
+				float air = ramp(t, TomatoDevilEntity.HOP_TELL, TomatoDevilEntity.HOP_TELL + 2.0F) * (1.0F - ramp(t, TomatoDevilEntity.HOP_LAND - 3.0F, TomatoDevilEntity.HOP_LAND));
+				if (air > 0.0F) {
+					for (int i = 0; i < TomatoBody.ARMS; i++) {
+						Vector3f o = out(i);
+						// hanging under it in the air, fingers down and curled
+						Vector3f at = new Vector3f(o).mul(1.45F).add(0.0F, -1.95F, 0.0F);
+						p.arm(i, air, at, new Vector3f(o.x, 0.6F, o.z), new Vector3f(o.x, -1.0F, o.z).normalize(), new Vector3f(o), 0.9F);
+					}
+				}
+			}
 			case TomatoDevilEntity.EMERGE -> {
 				float rise = ramp(t, 8.0F, TomatoDevilEntity.EMERGE_TICKS);
 				p.height = MathHelper.lerp(rise, 0.35F, STAND);
@@ -256,11 +289,21 @@ public class TomatoDevilRenderer extends EntityRenderer<TomatoDevilEntity> {
 			p.shake = 0.05F * d;
 			p.mouth = 0.5F * d;
 			p.dazed = true;
+			boolean onBack = state == TomatoDevilEntity.ON_BACK || state == TomatoDevilEntity.GET_UP;
 			for (int i = 0; i < TomatoBody.ARMS; i++) {
 				Vector3f o = out(i);
-				Vector3f at = new Vector3f(o).mul(0.55F).add(0, -1.25F, 0);
-				p.arm(i, ease(d * 1.6F), at, new Vector3f(o.x, -0.2F, o.z), new Vector3f(-o.x, -0.5F, -o.z).normalize(), new Vector3f(o.x, -0.3F, o.z).normalize(),
-						0.4F + 1.2F * d);
+				if (onBack) {
+					// On its back: the arms fold in tight over its belly like a dead spider's, elbows up, hands clenched.
+					// (Its frame is upside down: -Y is up. The elbows stick out and up, crooked; the hands come back in over the belly.)
+					Vector3f at = new Vector3f(o).mul(0.32F).add(0, -1.5F, 0);
+					p.arm(i, ease(d * 2.2F), at, new Vector3f(o.x, -0.25F, o.z), new Vector3f(-o.x, 0.6F, -o.z).normalize(), new Vector3f(o.x, -1.0F, o.z).normalize(),
+							0.8F + 0.9F * d);
+				} else {
+					// Upright: it sinks and the arms curl in under it.
+					Vector3f at = new Vector3f(o).mul(0.55F).add(0, -1.25F, 0);
+					p.arm(i, ease(d * 1.6F), at, new Vector3f(o.x, -0.2F, o.z), new Vector3f(-o.x, -0.5F, -o.z).normalize(), new Vector3f(o.x, -0.3F, o.z).normalize(),
+							0.4F + 1.2F * d);
+				}
 				p.inWorld[i] = false;
 			}
 		}
@@ -335,7 +378,14 @@ public class TomatoDevilRenderer extends EntityRenderer<TomatoDevilEntity> {
 		FleshMesh body = FleshMesh.file("tomato_body");
 		FleshMesh parts = FleshMesh.file("tomato_parts");
 		body.draw(bodyView, now, look, null);
-		lips(body, bodyView, base, look, p.mouth + 0.04F * MathHelper.sin(now * 0.31F) * (p.mouth < 0.2F ? 1 : 0));
+		// The mouth breathes: parted a little, opening and shutting slowly (one breath in 64 ticks, the breathing sound's length).
+		float breath = 0.5F + 0.5F * MathHelper.sin(now * MathHelper.TAU / 64.0F + e.getId());
+		float mouth = p.mouth <= 0.0601F ? 0.03F + 0.11F * breath * breath : p.mouth;
+		lips(body, bodyView, base, look, mouth, provider, light, now);
+		if (!e.isDead() && world.random.nextFloat() < 0.004F) {
+			world.playSound(pos.x, pos.y + STAND, pos.z, io.github.kortev.chainsawman.devil.Devils.Sounds.CLICK, net.minecraft.sound.SoundCategory.HOSTILE, 0.5F,
+					0.8F + world.random.nextFloat() * 0.3F, false);
+		}
 		drawEyes(e, b, world, parts, base, bodyM, bodyView, look, p, now, pos, delta);
 		drawWounds(b, matrices, provider, bodyM, light);
 
@@ -360,17 +410,70 @@ public class TomatoDevilRenderer extends EntityRenderer<TomatoDevilEntity> {
 		return l;
 	}
 
-	private static void lips(FleshMesh body, Matrix4f bodyView, Matrix4f base, FleshMesh.Look look, float open) {
+	/** The mouth's shape (as the tool bakes it): its middle's height, half its height, half the gap between the lips' edges, the body's radii. */
+	private static final float MOUTH_Y = -0.02F;
+	private static final float MOUTH_HY = 0.80F;
+	private static final float SLIT = 0.21F;
+
+	private static void lips(FleshMesh body, Matrix4f bodyView, Matrix4f base, FleshMesh.Look look, float open, VertexConsumerProvider provider, int light,
+			float now) {
 		float a = 1.25F * MathHelper.clamp(open, 0.0F, 1.0F);
+		Matrix4f[] ms = new Matrix4f[2];
+		int k = 0;
 		for (String name : new String[] {"lip_l", "lip_r"}) {
 			FleshMesh.Part part = body.byName.get(name);
 			if (part == null) {
-				continue;
+				return;
 			}
 			float s = name.equals("lip_l") ? -1.0F : 1.0F;
 			Matrix4f m = new Matrix4f(bodyView).translate(part.pivot).rotateY(s * a).translate(-part.pivot.x, -part.pivot.y, -part.pivot.z);
 			body.drawPart(part, m, look, base);
+			ms[k++] = m;
 		}
+		if (open > 0.5F) {
+			return;
+		}
+		// Strands of spit and juice between the lips, stretching as they part, swaying as it breathes.
+		VertexConsumer vc = provider.getBuffer(RenderLayer.getEntityTranslucent(STRAND));
+		Matrix4f inv = new Matrix4f(base).invert();
+		float[] ys = {-0.42F, -0.1F, 0.18F, 0.46F};
+		for (int i = 0; i < ys.length; i++) {
+			float y = MOUTH_Y + ys[i] * MOUTH_HY / 0.8F * 0.8F;
+			float tt = (y - MOUTH_Y) / MOUTH_HY;
+			float sw = SLIT * (float) Math.sqrt(Math.max(0.0F, 1.0F - tt * tt)) + 0.01F;
+			float z = 1.3F * (float) Math.sqrt(Math.max(0.0F, 1.0F - (y / 1.02F) * (y / 1.02F) - 0.02F)) - 0.06F;
+			// in the view (from the lips' own frames), back into the entity's frame for the buffer
+			Vector3f l = inv.transformPosition(ms[0].transformPosition(new Vector3f(-sw - 0.03F, y, z)));
+			Vector3f r = inv.transformPosition(ms[1].transformPosition(new Vector3f(sw + 0.03F, y + 0.02F * (i % 2), z)));
+			float span = l.distance(r);
+			float sag = 0.05F + 0.25F * span * span + 0.02F * MathHelper.sin(now * 0.21F + i * 1.7F);
+			float wid = 0.016F / (1.0F + 3.0F * span);
+			int segs = 6;
+			Vector3f prev = null;
+			for (int q = 0; q <= segs; q++) {
+				float u = q / (float) segs;
+				Vector3f pt = new Vector3f(l).lerp(r, u).add(0.0F, -sag * 4.0F * u * (1.0F - u), 0.0F);
+				if (prev != null) {
+					strand(vc, new Matrix4f(base), prev, pt, wid, light);
+				}
+				prev = pt;
+			}
+		}
+	}
+
+	/** One piece of a strand: a thin ribbon facing up and toward the camera well enough (two crossed quads). */
+	private static void strand(VertexConsumer vc, Matrix4f m, Vector3f a, Vector3f b, float w, int light) {
+		for (int pass = 0; pass < 2; pass++) {
+			Vector3f off = pass == 0 ? new Vector3f(0, w, 0) : new Vector3f(new Vector3f(b).sub(a)).cross(0, 1, 0).normalize(w);
+			quadS(vc, m, new Vector3f(a).sub(off), 0, 0, light);
+			quadS(vc, m, new Vector3f(b).sub(off), 1, 0, light);
+			quadS(vc, m, new Vector3f(b).add(off), 1, 1, light);
+			quadS(vc, m, new Vector3f(a).add(off), 0, 1, light);
+		}
+	}
+
+	private static void quadS(VertexConsumer vc, Matrix4f m, Vector3f p, float u, float v, int light) {
+		vc.vertex(m, p.x, p.y, p.z).color(255, 255, 255, 200).texture(u, v).overlay(OverlayTexture.DEFAULT_UV).light(light).normal(0, 1, 0);
 	}
 
 	private static void drawEyes(TomatoDevilEntity e, TomatoBody b, ClientWorld world, FleshMesh parts, Matrix4f base, Matrix4f bodyM, Matrix4f bodyView,
@@ -379,6 +482,8 @@ public class TomatoDevilRenderer extends EntityRenderer<TomatoDevilEntity> {
 		if (eye == null) {
 			return;
 		}
+		FleshMesh.Part lid = parts.byName.get("lid");
+		FleshMesh.Part pupilPart = parts.byName.get("pupil");
 		// What they look at: the nearest player's eyes, in the body's own frame.
 		PlayerEntity near = world.getClosestPlayer(e, 32.0);
 		Vector3f target = null;
@@ -392,18 +497,79 @@ public class TomatoDevilRenderer extends EntityRenderer<TomatoDevilEntity> {
 		burst.g = look.g * 0.06F;
 		burst.b = look.b * 0.05F;
 		burst.rim = 0.2F;
+		// Eyeshine: the eyeballs keep a pale light of their own in the dark, so at night the cluster of eyes shows before the body.
+		FleshMesh.Look shine = new FleshMesh.Look();
+		shine.r = Math.max(look.r, 0.62F);
+		shine.g = Math.max(look.g, 0.6F);
+		shine.b = Math.max(look.b, 0.56F);
+		shine.rim = look.rim;
+		shine.hurt = look.hurt;
 		List<Eye> list = eyes();
-		for (int k = 0; k < list.size(); k++) {
+		int n = list.size();
+		if (b.gaze.length != n) {
+			b.gaze = new float[n][];
+			b.lookTo = new float[n][];
+			b.nextLook = new float[n];
+			for (int k = 0; k < n; k++) {
+				Eye ey = list.get(k);
+				b.gaze[k] = new float[] {ey.n.x, ey.n.y, ey.n.z};
+				b.lookTo[k] = new float[] {ey.n.x, ey.n.y, ey.n.z};
+				b.nextLook[k] = now + Math.floorMod(k * 53 + e.getId(), 40);
+			}
+		}
+		float dtE = Float.isNaN(b.lastEyes) ? 0.0F : MathHelper.clamp(now - b.lastEyes, 0.0F, 4.0F);
+		b.lastEyes = now;
+		long noticed = e.noticedAt();
+		boolean aware = noticed >= 0 && near != null && !p.dazed;
+		float sinceNotice = noticed >= 0 ? (float) (world.getTime() - noticed) + delta : 1000.0F;
+		// The pupils: wide while it wanders, shrinking to points the moment it has you.
+		float wantPupil = aware ? (sinceNotice < 30.0F ? 0.42F : 0.55F) : 1.0F;
+		b.pupil += (wantPupil - b.pupil) * Math.min(1.0F, dtE * (aware ? 0.6F : 0.08F));
+		for (int k = 0; k < n; k++) {
 			Eye ey = list.get(k);
 			boolean popped = health < 0.4F && k % 3 == 0 || health < 0.22F && k % 3 == 1;
 			Vector3f dir;
 			if (p.dazed) {
 				dir = new Vector3f(MathHelper.sin(now * 0.5F + k), MathHelper.cos(now * 0.37F + k * 2.0F), 0.4F).normalize();
 				dir = new Vector3f(ey.n).add(dir.mul(0.9F)).normalize();
-			} else if (target != null) {
+			} else if (aware && target != null) {
+				// Every eye on you, at once.
 				dir = new Vector3f(target).sub(ey.c).normalize();
+				float k2 = Math.min(1.0F, dtE * 0.85F);
+				float[] g = b.gaze[k];
+				g[0] += (dir.x - g[0]) * k2;
+				g[1] += (dir.y - g[1]) * k2;
+				g[2] += (dir.z - g[2]) * k2;
+				dir = new Vector3f(g[0], g[1], g[2]).normalize();
 			} else {
-				dir = new Vector3f(ey.n).add(0.25F * MathHelper.sin(now * 0.05F + k), 0.15F * MathHelper.cos(now * 0.04F + k), 0.0F).normalize();
+				// Its own: each eye wanders where it likes, out of step with the rest, darting from one place to the next with wet twitches.
+				if (now >= b.nextLook[k]) {
+					long h = (long) (now * 7.0F) * 31L + k * 977L + e.getId() * 131L;
+					float ax = ((Math.floorMod(h, 1000)) / 1000.0F - 0.5F) * 1.6F;
+					float ay = ((Math.floorMod(h / 1000, 1000)) / 1000.0F - 0.5F) * 1.2F;
+					Vector3f up = new Vector3f(0, 1, 0).sub(new Vector3f(ey.n).mul(ey.n.y));
+					if (up.lengthSquared() < 1.0E-4F) {
+						up.set(0, 0, 1);
+					}
+					up.normalize();
+					Vector3f sideV = new Vector3f(ey.n).cross(up).normalize();
+					Vector3f t2 = new Vector3f(ey.n).add(sideV.mul(ax)).add(up.mul(ay)).normalize();
+					b.lookTo[k] = new float[] {t2.x, t2.y, t2.z};
+					b.nextLook[k] = now + 12.0F + Math.floorMod(h / 7, 50);
+				}
+				float[] g = b.gaze[k];
+				float[] to = b.lookTo[k];
+				float k2 = Math.min(1.0F, dtE * 0.55F);
+				g[0] += (to[0] - g[0]) * k2;
+				g[1] += (to[1] - g[1]) * k2;
+				g[2] += (to[2] - g[2]) * k2;
+				dir = new Vector3f(g[0], g[1], g[2]);
+				// a tremor now and then
+				float tw = MathHelper.sin(now * 2.7F + k * 5.1F) * MathHelper.sin(now * 0.31F + k);
+				if (tw > 0.85F) {
+					dir.add(0.05F * MathHelper.sin(now * 9.0F + k), 0.04F * MathHelper.cos(now * 11.0F + k), 0.0F);
+				}
+				dir.normalize();
 			}
 			// No further round than its socket lets it.
 			float cos = dir.dot(ey.n);
@@ -423,10 +589,38 @@ public class TomatoDevilRenderer extends EntityRenderer<TomatoDevilEntity> {
 			xc.normalize();
 			Vector3f yc = new Vector3f(zc).cross(xc);
 			float bl = popped ? 0.35F : b.blink(k, now, e.getId());
+			if (aware && sinceNotice < 26.0F) {
+				// Noticing: wide open, no blinking.
+				bl = 1.0F;
+			}
 			float s = ey.r / EYE_R;
 			Matrix4f m = new Matrix4f(bodyView).translate(ey.c)
-					.mul(new Matrix4f(xc.x, xc.y, xc.z, 0, yc.x, yc.y, yc.z, 0, zc.x, zc.y, zc.z, 0, 0, 0, 0, 1)).scale(s, s * bl, s * (popped ? 0.6F : 1.0F));
-			parts.drawPart(eye, m, popped ? burst : look, base);
+					.mul(new Matrix4f(xc.x, xc.y, xc.z, 0, yc.x, yc.y, yc.z, 0, zc.x, zc.y, zc.z, 0, 0, 0, 0, 1)).scale(s, s, s * (popped ? 0.6F : 1.0F));
+			if (popped) {
+				Matrix4f pm = new Matrix4f(m).scale(1.0F, 0.35F, 1.0F);
+				parts.drawPart(eye, pm, burst, base);
+				continue;
+			}
+			parts.drawPart(eye, m, shine, base);
+			if (pupilPart != null) {
+				float ps = b.pupil * (0.9F + 0.06F * MathHelper.sin(now * 0.2F + k));
+				parts.drawPart(pupilPart, new Matrix4f(m).scale(ps, ps, 1.0F), look, base);
+			}
+			if (lid != null) {
+				// The lids, in the socket's frame (not the gaze's): turned back out of sight, they close over the ball to blink.
+				Vector3f nz = new Vector3f(ey.n);
+				Vector3f nx = new Vector3f(0, 1, 0).cross(nz);
+				if (nx.lengthSquared() < 1.0E-4F) {
+					nx.set(1, 0, 0);
+				}
+				nx.normalize();
+				Vector3f ny = new Vector3f(nz).cross(nx).normalize();
+				Matrix4f sock = new Matrix4f(bodyView).translate(ey.c).mul(new Matrix4f(nx.x, nx.y, nx.z, 0, ny.x, ny.y, ny.z, 0, nz.x, nz.y, nz.z, 0, 0, 0, 0, 1)).scale(s);
+				float shut = 1.0F - bl;
+				float a = LID_OPEN * (1.0F - shut);
+				parts.drawPart(lid, new Matrix4f(sock).rotateX(a), look, base);
+				parts.drawPart(lid, new Matrix4f(sock).rotateZ(MathHelper.PI).rotateX(a), look, base);
+			}
 		}
 	}
 
@@ -501,6 +695,11 @@ public class TomatoDevilRenderer extends EntityRenderer<TomatoDevilEntity> {
 		double[] h = b.walkHand(i, now);
 		Vector3f wrist = new Vector3f((float) (h[0] - pos.x), (float) (h[1] - pos.y + WRIST_UP), (float) (h[2] - pos.z));
 		double handYaw = h[3];
+		// A standing hand feeling about: up off the ground a little and across.
+		float[] feel = b.feel(i, now, e.getId(), e.state() == TomatoDevilEntity.WALK && !e.isDead() && b.vel.length() < 0.02);
+		if (feel[0] != 0.0F || feel[1] != 0.0F) {
+			wrist.add((float) Math.cos(handYaw) * feel[1], feel[0], (float) -Math.sin(handYaw) * feel[1]);
+		}
 		Vector3f fingers = new Vector3f((float) Math.sin(handYaw), 0.0F, (float) Math.cos(handYaw));
 		Vector3f backV = new Vector3f(0, 1, 0);
 		float pitch = (float) h[4];
@@ -578,12 +777,25 @@ public class TomatoDevilRenderer extends EntityRenderer<TomatoDevilEntity> {
 		y = new Vector3f(z).cross(x).normalize();
 		Vector3f fwdBody = bodyM.transformDirection(new Vector3f(0, 0, 1)).normalize();
 		boolean right = x.dot(fwdBody) >= 0.0F;
-		Matrix4f hand = new Matrix4f(base).translate(wrist).mul(new Matrix4f(x.x, x.y, x.z, 0, y.x, y.y, y.z, 0, z.x, z.y, z.z, 0, 0, 0, 0, 1)).rotateX(pitch).scale(1.2F);
+		Matrix4f hand = new Matrix4f(base).translate(wrist).mul(new Matrix4f(x.x, x.y, x.z, 0, y.x, y.y, y.z, 0, z.x, z.y, z.z, 0, 0, 0, 0, 1)).rotateX(pitch).scale(HAND_SCALE);
 		FleshMesh.Part hp = parts.byName.get(right ? "hand_r" : "hand_l");
-		FleshMesh.Part fp = parts.byName.get(right ? "fingers_r" : "fingers_l");
-		if (hp != null && fp != null) {
-			parts.drawPart(hp, hand, look, base);
-			Matrix4f fm = new Matrix4f(hand).translate(fp.pivot).rotateX(curl).translate(-fp.pivot.x, -fp.pivot.y, -fp.pivot.z);
+		if (hp == null) {
+			return;
+		}
+		parts.drawPart(hp, hand, look, base);
+		// Each finger on its own: they land and press in one after another; a standing hand taps and flexes; posed, they curl as the pose says.
+		boolean still = e.state() == TomatoDevilEntity.WALK && !e.isDead() && b.vel.length() < 0.02;
+		float side = right ? 1.0F : -1.0F;
+		for (int j = 0; j < 4; j++) {
+			FleshMesh.Part fp = parts.byName.get((right ? "finger_r" : "finger_l") + j);
+			if (fp == null) {
+				continue;
+			}
+			float[] fc = b.finger(i, j, now, e.getId(), still);
+			float c = MathHelper.lerp(w, fc[0], curl + 0.08F * j);
+			float spread = MathHelper.lerp(w, fc[1], 0.5F);
+			float splay = side * spread * (1.5F - j) * 0.13F;
+			Matrix4f fm = new Matrix4f(hand).translate(fp.pivot).rotateY(splay).rotateX(c).translate(-fp.pivot.x, -fp.pivot.y, -fp.pivot.z);
 			parts.drawPart(fp, fm, look, base);
 		}
 	}
@@ -605,7 +817,7 @@ public class TomatoDevilRenderer extends EntityRenderer<TomatoDevilEntity> {
 		}
 		z.normalize();
 		Vector3f x = new Vector3f(y).cross(z).normalize();
-		Matrix4f m = new Matrix4f(base).translate(a).mul(new Matrix4f(x.x, x.y, x.z, 0, y.x, y.y, y.z, 0, z.x, z.y, z.z, 0, 0, 0, 0, 1)).scale(1.25F, 1.0F, 1.25F);
+		Matrix4f m = new Matrix4f(base).translate(a).mul(new Matrix4f(x.x, x.y, x.z, 0, y.x, y.y, y.z, 0, z.x, z.y, z.z, 0, 0, 0, 0, 1)).scale(ARM_THICK, 1.0F, ARM_THICK);
 		parts.drawPart(part, m, look, base);
 	}
 }

@@ -14,6 +14,7 @@ import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import org.joml.Matrix4f;
@@ -30,6 +31,17 @@ public final class DevilsClient {
 
 	private static final List<Splat> SPLATS = new ArrayList<>();
 
+	/** A chunk of skin thrown off by the burst: where from, its throw, its spin, where it lands (the ground's height), when. */
+	private record Chunk(Vec3d from, Vec3d v, org.joml.Vector3f axis, float spin, float turn, double groundY, long when, float size) {
+	}
+
+	private static final List<Chunk> CHUNKS = new ArrayList<>();
+	/** The chunks: how many, their fall, how long they lie, how long they take to sink away. */
+	static final int CHUNK_COUNT = 7;
+	static final double CHUNK_G = 0.06;
+	static final int CHUNK_LIE = 70;
+	static final int CHUNK_FADE = 30;
+
 	private DevilsClient() {
 	}
 
@@ -41,8 +53,81 @@ public final class DevilsClient {
 		TomatoDevilEntity.clientBurst = e -> {
 			double y = TomatoBody.ground(MinecraftClient.getInstance().world, e.getPos(), e.getY());
 			SPLATS.add(new Splat(new Vec3d(e.getX(), y, e.getZ()), e.getWorld().getTime(), e.getWorld().random.nextFloat() * MathHelper.TAU));
+			// The skin splits into big chunks that fly out, land and fade.
+			var r = e.getWorld().random;
+			double start = r.nextDouble() * MathHelper.TAU;
+			for (int i = 0; i < CHUNK_COUNT; i++) {
+				double a = start + i * MathHelper.TAU / CHUNK_COUNT + (r.nextDouble() - 0.5) * 0.6;
+				double sp = 0.16 + r.nextDouble() * 0.14;
+				Vec3d v = new Vec3d(Math.cos(a) * sp, 0.28 + r.nextDouble() * 0.22, Math.sin(a) * sp);
+				Vec3d from = e.getPos().add(Math.cos(a) * 0.9, 2.2 + (r.nextDouble() - 0.5) * 1.2, Math.sin(a) * 0.9);
+				org.joml.Vector3f axis = new org.joml.Vector3f(r.nextFloat() - 0.5F, r.nextFloat() - 0.5F, r.nextFloat() - 0.5F).normalize();
+				// where it will come down
+				double t = flight(from.y, v.y, y);
+				Vec3d land = from.add(v.x * t, 0, v.z * t);
+				double gy = TomatoBody.ground(MinecraftClient.getInstance().world, land, y);
+				CHUNKS.add(new Chunk(from, v, axis, 0.25F + r.nextFloat() * 0.35F, (float) a, gy, e.getWorld().getTime(), 0.9F + r.nextFloat() * 0.5F));
+			}
 		};
 		WorldRenderEvents.AFTER_ENTITIES.register(DevilsClient::splats);
+		WorldRenderEvents.AFTER_ENTITIES.register(DevilsClient::chunks);
+	}
+
+	/** Ticks till something thrown up at {@code vy} from {@code y0} comes down to {@code ground}. */
+	private static double flight(double y0, double vy, double ground) {
+		double a = 0.5 * CHUNK_G;
+		double c = ground + 0.1 - y0;
+		double disc = vy * vy - 4 * a * c;
+		return disc < 0 ? 20.0 : (vy + Math.sqrt(disc)) / (2 * a);
+	}
+
+	private static void chunks(WorldRenderContext context) {
+		MinecraftClient c = MinecraftClient.getInstance();
+		if (c.world == null || CHUNKS.isEmpty() || context.matrixStack() == null) {
+			CHUNKS.clear();
+			return;
+		}
+		float now = c.world.getTime() + c.getRenderTickCounter().getTickDelta(true);
+		CHUNKS.removeIf(k -> now - k.when() > 100 + CHUNK_LIE + CHUNK_FADE || k.when() > now + 20);
+		io.github.kortev.chainsawman.client.FleshMesh parts = io.github.kortev.chainsawman.client.FleshMesh.file("tomato_parts");
+		io.github.kortev.chainsawman.client.FleshMesh.Part part = parts.byName.get("chunk");
+		if (part == null) {
+			return;
+		}
+		Vec3d cam = context.camera().getPos();
+		Matrix4f view = new Matrix4f(context.matrixStack().peek().getPositionMatrix());
+		for (Chunk k : CHUNKS) {
+			float age = now - k.when();
+			double tl = flight(k.from().y, k.v().y, k.groundY());
+			double t = Math.min(age, tl);
+			Vec3d p = k.from().add(k.v().x * t, k.v().y * t - 0.5 * CHUNK_G * t * t, k.v().z * t);
+			boolean down = age >= tl;
+			float lie = (float) (age - tl);
+			float sink = down ? MathHelper.clamp((lie - CHUNK_LIE) / CHUNK_FADE, 0.0F, 1.0F) : 0.0F;
+			if (sink >= 1.0F) {
+				continue;
+			}
+			BlockPos bp = BlockPos.ofFloored(p.x, p.y + 0.2, p.z);
+			int light = Math.max(c.world.getLightLevel(net.minecraft.world.LightType.BLOCK, bp),
+					c.world.getLightLevel(net.minecraft.world.LightType.SKY, bp) - c.world.getAmbientDarkness());
+			io.github.kortev.chainsawman.client.FleshMesh.Look look = new io.github.kortev.chainsawman.client.FleshMesh.Look();
+			float kk = 0.9F * (0.36F + 0.64F * MathHelper.clamp(light / 15.0F, 0.0F, 1.0F));
+			look.r = kk;
+			look.g = kk;
+			look.b = kk;
+			look.rim = 0.3F;
+			// tumbling in the air; landed, it lies skin up, settling, then sinks into the ground and is gone
+			float tumble = (float) t * k.spin();
+			Matrix4f m = new Matrix4f(view).translate((float) (p.x - cam.x), (float) (p.y - cam.y) + (down ? 0.06F - 0.25F * sink : 0.0F), (float) (p.z - cam.z));
+			m.rotateY(k.turn());
+			if (down) {
+				m.rotateX(-MathHelper.HALF_PI + 0.25F * MathHelper.sin(k.turn() * 3.0F));
+			} else {
+				m.rotate(tumble, k.axis());
+			}
+			m.scale(k.size() * (1.0F - 0.4F * sink));
+			parts.drawPart(part, m, look, view);
+		}
 	}
 
 	private static void splats(WorldRenderContext context) {
