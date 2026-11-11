@@ -31,6 +31,25 @@ contracts, which are playable, which both? Below is Fable's answer. All of it is
 - **Contracts by size.** Big ones from lairs or the office: Eternity (ours, built), Fox, Ghost, Curse [check each],
   maybe the Future Devil. Small deals from beaten common devils: Tomato, Bat, Leech, Zombie.
 
+## How many Chainsaw Men (reopened by kortev, 2026-11-10)
+
+kortev: "I want to reconsider having only one person in a server being able to be Chainsaw Man. Maybe just make
+it super rare. I really don't know how we should do it." So "one heart per world" is no longer [decided].
+
+**Fable's pick: rare, not unique.**
+
+- **Playing alone: nothing changes.** One Pochita waits near spawn, as built. Whoever installs this gets to be
+  Chainsaw Man.
+- **With other people: more Pochitas exist, but far out and hard to find.** Default three per world (the
+  `chainsawHearts` rule already sets how many dens a world has; today it is 1). The first is near spawn; the
+  others are thousands of blocks away. A lead to one comes from the office later (a rumour, as a mission), so
+  finding your own Pochita is an adventure, not luck.
+- **A server that wants the one and only** sets the rule to 1. A big server sets it higher.
+- Stealing a heart stays [built], so a heart can still change hands.
+- Why not everyone: if all are Chainsaw Man, nobody is, and contracts and fiends get ignored. Why not one: on a
+  server of friends, one person gets the mod's namesake and the rest get nothing like it until fiends exist.
+- Not built yet. Small when it is: the rule's default, where the far dens go, and the office's rumour.
+
 ## Fiends: playable, but not like hybrids
 
 - kortev (2026-11-10): "some people love Power and Beam and will want to play as them." **So fiends are playable
