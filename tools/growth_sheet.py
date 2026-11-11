@@ -61,7 +61,7 @@ def film(video, out, every=3.0, cols=6):
     for i, im in enumerate(ims):
         x, y = (i % cols) * tw, (i // cols) * th
         sheet.paste(im.resize((tw - 2, th - 2), Image.LANCZOS), (x + 1, y + 1))
-        label = '%.0f s' % (i * every + every / 2)
+        label = '%.1f s' % (i * every + every / 2)
         d.rectangle([x + 2, y + 2, x + 52, y + 20], fill=(0, 0, 0))
         d.text((x + 5, y + 3), label, fill=(255, 255, 255), font=f)
     sheet.save(out, quality=85)

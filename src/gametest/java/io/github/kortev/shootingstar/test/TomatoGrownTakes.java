@@ -51,8 +51,8 @@ final class TomatoGrownTakes {
 			s.execute(() -> s.getOverworld().setTimeOfDay(AFTERNOON));
 		}
 		// three-quarter front from 9 blocks at a man's eye height, looking a little up: the same for all six
-		double cx = 5.2;
-		double cz = -7.4;
+		double cx = 4.4;
+		double cz = -7.6;
 		float yaw = (float) Math.toDegrees(Math.atan2(-(0.0 - cx), 0.0 - cz));
 		for (int g = 0; g <= 5; g++) {
 			int at = 20 + g * 50;
@@ -65,7 +65,7 @@ final class TomatoGrownTakes {
 				});
 			}
 			if (f >= at && f <= at + 50) {
-				Capture.camera = t -> new Capture.Pose(p.x + cx, p.y + 1.62, p.z + cz, yaw, -6.0F);
+				Capture.camera = t -> new Capture.Pose(p.x + cx, p.y + 1.62, p.z + cz, yaw, -5.0F);
 			}
 			if (f == at + 45) {
 				TomatoSelfTest.still(c, "growth_" + g);

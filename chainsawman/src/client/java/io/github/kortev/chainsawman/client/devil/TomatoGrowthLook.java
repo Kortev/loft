@@ -77,12 +77,12 @@ final class TomatoGrowthLook {
 
 	/** How much bigger its eyes are drawn. */
 	static float eyeSize(int g) {
-		return 1.0F + 0.065F * g;
+		return 1.0F + 0.045F * g;
 	}
 
 	/** The red rim round each eye: how much bigger than the ball. */
 	static float rimSize(int g) {
-		return 1.1F + 0.07F * g;
+		return 1.12F + 0.06F * g;
 	}
 
 	/** A slow heartbeat (one double thump in 30 ticks): 0 to about 1. */
@@ -107,9 +107,9 @@ final class TomatoGrowthLook {
 	static FleshMesh.Look skin(FleshMesh.Look look, int g, float now) {
 		FleshMesh.Look s = copy(look);
 		float pulse = g >= 4 ? 0.14F * (g - 3) * 0.5F * beat(now) : 0.0F;
-		s.r *= (1.0F - 0.075F * g) * (1.0F + pulse);
-		s.g *= 1.0F - 0.13F * g;
-		s.b *= 1.0F - 0.1F * g;
+		s.r *= (1.0F - 0.1F * g) * (1.0F + pulse);
+		s.g *= 1.0F - 0.16F * g;
+		s.b *= 1.0F - 0.12F * g;
 		s.rim = look.rim + 0.07F * g;
 		return s;
 	}
@@ -127,6 +127,15 @@ final class TomatoGrowthLook {
 	static void bloodshot(FleshMesh.Look shine, int g) {
 		shine.g *= 1.0F - 0.08F * g;
 		shine.b *= 1.0F - 0.09F * g;
+	}
+
+	/** The irises (the pupil part's paint): from orange-brown to blood red. */
+	static FleshMesh.Look iris(FleshMesh.Look look, int g) {
+		FleshMesh.Look r = copy(look);
+		r.r = look.r * (1.0F + 0.06F * g);
+		r.g = look.g * (1.0F - 0.17F * g);
+		r.b = look.b * (1.0F - 0.17F * g);
+		return r;
 	}
 
 	/** The rims' raw red (none at growth 0), throbbing at 4 and 5. */
@@ -155,7 +164,8 @@ final class TomatoGrowthLook {
 		Matrix3f nm = new Matrix3f(entry.getNormalMatrix()).mul(new Matrix3f(bodyM));
 		float bt = beat(now);
 		if (g >= 3) {
-			VertexConsumer vc = provider.getBuffer(RenderLayer.getEntityTranslucent(VEINS));
+			// (Cut out, not blended: the body is drawn after the entities, so a blended vein would show the sky through it.)
+			VertexConsumer vc = provider.getBuffer(RenderLayer.getEntityCutoutNoCull(VEINS));
 			for (float[] s : SEAMS) {
 				int age = g - (int) s[5];
 				if (age < 2) {
@@ -163,7 +173,7 @@ final class TomatoGrowthLook {
 				}
 				float alpha = MathHelper.clamp(0.45F + 0.18F * (g - 3) + (g >= 4 ? 0.3F * bt : 0.0F), 0.0F, 1.0F);
 				float size = (0.95F + 0.18F * (age - 2)) * (g >= 4 ? 1.0F + 0.05F * bt : 1.0F);
-				decal(vc, m, nm, s, s[3] + 0.6F, size, size, 1.018F, alpha, light);
+				decal(vc, m, nm, s, s[3] + 0.6F, size, size, 1.07F, alpha, light, true);
 			}
 		}
 		VertexConsumer vc = provider.getBuffer(RenderLayer.getEntityCutoutNoCull(TomatoDevilRenderer.GASH));
@@ -172,9 +182,9 @@ final class TomatoGrowthLook {
 			if (age < 0) {
 				continue;
 			}
-			float len = s[4] * (1.0F + 0.16F * age);
-			float wid = 0.17F + 0.03F * age;
-			decal(vc, m, nm, s, s[3], len, wid, 1.026F, 1.0F, light);
+			float len = s[4] * (1.15F + 0.18F * age);
+			float wid = 0.22F + 0.04F * age;
+			decal(vc, m, nm, s, s[3], len, wid, 1.09F, 1.0F, light, false);
 		}
 	}
 
@@ -185,7 +195,7 @@ final class TomatoGrowthLook {
 	}
 
 	/** One decal of the texture laid over the skin round {@code s}'s direction: {@code len} along {@code angle}, {@code wid} across; a 4x4 grid bent to the body. */
-	private static void decal(VertexConsumer vc, Matrix4f m, Matrix3f nm, float[] s, float angle, float len, float wid, float lift, float alpha, int light) {
+	private static void decal(VertexConsumer vc, Matrix4f m, Matrix3f nm, float[] s, float angle, float len, float wid, float lift, float alpha, int light, boolean shade) {
 		Vector3f c = new Vector3f(s[0], s[1], s[2]).normalize();
 		Vector3f t = new Vector3f(0, 1, 0).cross(c);
 		if (t.lengthSquared() < 1.0E-4F) {
@@ -211,19 +221,21 @@ final class TomatoGrowthLook {
 				nn[i][j] = nm.transform(new Vector3f(q.x / (RX * RX), q.y / (RY * RY), q.z / (RX * RX))).normalize();
 			}
 		}
-		int a = (int) (alpha * 255.0F);
+		// (Cut out, the veins pulse in brightness: dull between beats, a raw purple-red on them.)
+		int a = shade ? 255 : (int) (alpha * 255.0F);
+		int k = shade ? (int) (110 + 145 * MathHelper.clamp(alpha, 0.0F, 1.0F)) : 255;
 		for (int i = 0; i < n; i++) {
 			for (int j = 0; j < n; j++) {
-				vert(vc, m, p[i][j], nn[i][j], i / (float) n, 1.0F - j / (float) n, a, light);
-				vert(vc, m, p[i + 1][j], nn[i + 1][j], (i + 1) / (float) n, 1.0F - j / (float) n, a, light);
-				vert(vc, m, p[i + 1][j + 1], nn[i + 1][j + 1], (i + 1) / (float) n, 1.0F - (j + 1) / (float) n, a, light);
-				vert(vc, m, p[i][j + 1], nn[i][j + 1], i / (float) n, 1.0F - (j + 1) / (float) n, a, light);
+				vert(vc, m, p[i][j], nn[i][j], i / (float) n, 1.0F - j / (float) n, k, a, light);
+				vert(vc, m, p[i + 1][j], nn[i + 1][j], (i + 1) / (float) n, 1.0F - j / (float) n, k, a, light);
+				vert(vc, m, p[i + 1][j + 1], nn[i + 1][j + 1], (i + 1) / (float) n, 1.0F - (j + 1) / (float) n, k, a, light);
+				vert(vc, m, p[i][j + 1], nn[i][j + 1], i / (float) n, 1.0F - (j + 1) / (float) n, k, a, light);
 			}
 		}
 	}
 
-	private static void vert(VertexConsumer vc, Matrix4f m, Vector3f p, Vector3f n, float u, float v, int a, int light) {
-		vc.vertex(m, p.x, p.y, p.z).color(255, 255, 255, a).texture(u, v).overlay(OverlayTexture.DEFAULT_UV).light(light).normal(n.x, n.y, n.z);
+	private static void vert(VertexConsumer vc, Matrix4f m, Vector3f p, Vector3f n, float u, float v, int k, int a, int light) {
+		vc.vertex(m, p.x, p.y, p.z).color(k, k, k, a).texture(u, v).overlay(OverlayTexture.DEFAULT_UV).light(light).normal(n.x, n.y, n.z);
 	}
 
 	// ---- The drips.

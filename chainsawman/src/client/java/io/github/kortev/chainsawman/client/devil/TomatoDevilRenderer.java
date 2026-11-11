@@ -398,7 +398,8 @@ public class TomatoDevilRenderer extends EntityRenderer<TomatoDevilEntity> {
 		body.draw(bodyView, now, skin, null);
 		// The mouth breathes: parted a little, opening and shutting slowly (one breath in 64 ticks, the breathing sound's length).
 		float breath = 0.5F + 0.5F * MathHelper.sin(now * MathHelper.TAU / 64.0F + e.getId());
-		float mouth = p.mouth <= 0.0601F ? 0.03F + 0.11F * breath * breath : p.mouth;
+		// (Grown, it hangs open wider, drooling, each step.)
+		float mouth = p.mouth <= 0.0601F ? 0.03F + 0.045F * g + 0.11F * breath * breath : p.mouth;
 		lips(body, bodyView, base, skin, mouth, provider, light, now);
 		if (!e.isDead() && world.random.nextFloat() < 0.004F) {
 			world.playSound(pos.x, pos.y + STAND * gs, pos.z, io.github.kortev.chainsawman.devil.Devils.Sounds.CLICK, net.minecraft.sound.SoundCategory.HOSTILE, 0.5F,
@@ -530,6 +531,7 @@ public class TomatoDevilRenderer extends EntityRenderer<TomatoDevilEntity> {
 		// Grown: the whites go bloodshot, and each step a red rim swells round every eye.
 		TomatoGrowthLook.bloodshot(shine, grown);
 		FleshMesh.Look rimLook = TomatoGrowthLook.rim(look, grown, now);
+		FleshMesh.Look iris = TomatoGrowthLook.iris(look, grown);
 		List<Eye> list = eyes();
 		int n = list.size();
 		if (b.gaze.length != n) {
@@ -635,7 +637,7 @@ public class TomatoDevilRenderer extends EntityRenderer<TomatoDevilEntity> {
 			parts.drawPart(eye, m, shine, base);
 			if (pupilPart != null && !shut) {
 				float ps = b.pupil * (0.9F + 0.06F * MathHelper.sin(now * 0.2F + k));
-				parts.drawPart(pupilPart, new Matrix4f(m).scale(ps, ps, 1.0F), look, base);
+				parts.drawPart(pupilPart, new Matrix4f(m).scale(ps, ps, 1.0F), iris, base);
 			}
 			if (lid != null) {
 				// The lids, in the socket's frame (not the gaze's): turned back out of sight, they close over the ball to blink.
@@ -648,9 +650,12 @@ public class TomatoDevilRenderer extends EntityRenderer<TomatoDevilEntity> {
 				Vector3f ny = new Vector3f(nz).cross(nx).normalize();
 				Matrix4f sock = new Matrix4f(bodyView).translate(ey.c).mul(new Matrix4f(nx.x, nx.y, nx.z, 0, ny.x, ny.y, ny.z, 0, nz.x, nz.y, nz.z, 0, 0, 0, 0, 1)).scale(s);
 				if (rimLook != null && !shut) {
-					// The rim: a raw red ring of swollen flesh round the ball (a flattened ball, bigger, sunk back into the skin).
+					// The rim: a raw red ring of swollen flesh round the ball (its two lids shut, bigger, sunk back behind it: the ball's own
+					// paint glows, so a copy of it can't be tinted; the lids are flesh).
 					float rs = TomatoGrowthLook.rimSize(grown);
-					parts.drawPart(eye, new Matrix4f(sock).translate(0.0F, 0.0F, -0.3F * EYE_R).scale(rs, rs, 0.6F), rimLook, base);
+					Matrix4f rm = new Matrix4f(sock).translate(0.0F, 0.0F, -0.45F * EYE_R).scale(rs, rs, 0.8F);
+					parts.drawPart(lid, rm, rimLook, base);
+					parts.drawPart(lid, new Matrix4f(rm).rotateZ(MathHelper.PI), rimLook, base);
 				}
 				float closed = 1.0F - bl;
 				float a = LID_OPEN * (1.0F - closed);

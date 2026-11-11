@@ -199,8 +199,8 @@ final class TomatoFight {
 					return in;
 				}
 				// It settles on its hands: in and cut it.
-				if (dist > 3.2) {
-					YOU.strafeTo(c, d.getPos(), 3.0, false);
+				if (dist > 3.2 + room(d)) {
+					YOU.strafeTo(c, d.getPos(), 3.0 + room(d), false);
 				} else {
 					YOU.stop();
 				}
@@ -273,8 +273,8 @@ final class TomatoFight {
 					YOU.strafeTo(c, dodgeTo, 0.12, near);
 					return true;
 				}
-				if (dist > 3.2) {
-					YOU.strafeTo(c, d.getPos(), 3.0, false);
+				if (dist > 3.2 + room(d)) {
+					YOU.strafeTo(c, d.getPos(), 3.0 + room(d), false);
 				}
 				if (reach && allowHit) {
 					YOU.swing(c, 0.9F);
@@ -282,8 +282,8 @@ final class TomatoFight {
 				return false;
 			}
 			case TomatoDevilEntity.ON_BACK, TomatoDevilEntity.GET_UP, TomatoDevilEntity.UNFURL, TomatoDevilEntity.EMERGE -> {
-				if (dist > 3.7) {
-					YOU.strafeTo(c, d.getPos(), 3.4, true);
+				if (dist > 3.7 + room(d)) {
+					YOU.strafeTo(c, d.getPos(), 3.4 + room(d), true);
 				} else {
 					YOU.stop();
 				}
@@ -298,12 +298,17 @@ final class TomatoFight {
 		}
 	}
 
+	/** How much further off to stand from a grown one (its skin is further out; the sword still reaches it). */
+	private static double room(TomatoDevilEntity d) {
+		return (d.getWidth() - TomatoDevilEntity.WIDTH) * 0.5 + (d.growthLevel() > 0 ? 0.5 : 0.0);
+	}
+
 	/** Close in and cut it between its moves (backing off a step if right up against it). */
 	static void press(MinecraftClient c, TomatoDevilEntity d) {
 		double dist = d.distanceTo(c.player);
-		if (dist > 3.4) {
-			YOU.strafeTo(c, d.getPos(), 3.2, false);
-		} else if (dist < 2.6) {
+		if (dist > 3.4 + room(d)) {
+			YOU.strafeTo(c, d.getPos(), 3.2 + room(d), false);
+		} else if (dist < 2.6 + room(d)) {
 			YOU.strafeTo(c, c.player.getPos().add(c.player.getPos().subtract(d.getPos()).normalize().multiply(1.0)), 0.2, false);
 		} else {
 			YOU.stop();
@@ -479,8 +484,8 @@ final class TomatoFight {
 				if (!busy && d.state() == TomatoDevilEntity.WALK) {
 					double dist = d.distanceTo(c.player);
 					// (Right up to its arms, but not so close the lens goes inside it when it squats.)
-					if (dist > 3.4) {
-						YOU.strafeTo(c, d.getPos(), 3.1, false);
+					if (dist > 3.4 + room(d)) {
+						YOU.strafeTo(c, d.getPos(), 3.1 + room(d), false);
 					} else {
 						YOU.stop();
 					}
