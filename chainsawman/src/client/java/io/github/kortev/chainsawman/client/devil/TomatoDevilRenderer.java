@@ -195,8 +195,8 @@ public class TomatoDevilRenderer extends EntityRenderer<TomatoDevilEntity> {
 				tucked(p, 1.0F);
 			}
 			case TomatoDevilEntity.ON_BACK -> {
-				float bounce = t < 10.0F ? 0.35F * Math.abs(MathHelper.sin(t / 10.0F * MathHelper.PI * 1.5F)) * (1.0F - t / 10.0F) : 0.0F;
-				p.height = LOW - 0.05F + bounce;
+				// (No bounce: it drops and lies there, heavy.)
+				p.height = LOW - 0.05F;
 				p.dazed = true;
 				p.mouth = 0.25F + 0.15F * MathHelper.sin(now * 0.7F);
 				for (int i = 0; i < TomatoBody.ARMS; i++) {
@@ -295,8 +295,8 @@ public class TomatoDevilRenderer extends EntityRenderer<TomatoDevilEntity> {
 				if (onBack) {
 					// On its back: the arms fold in tight over its belly like a dead spider's, elbows up, hands clenched.
 					// (Its frame is upside down: -Y is up. The elbows stick out and up, crooked; the hands come back in over the belly.)
-					Vector3f at = new Vector3f(o).mul(0.32F).add(0, -1.5F, 0);
-					p.arm(i, ease(d * 2.2F), at, new Vector3f(o.x, -0.25F, o.z), new Vector3f(-o.x, 0.6F, -o.z).normalize(), new Vector3f(o.x, -1.0F, o.z).normalize(),
+					Vector3f at = new Vector3f(o).mul(0.5F).add(0, -1.35F, 0);
+					p.arm(i, ease(d * 2.2F), at, new Vector3f(o.x, 0.2F, o.z), new Vector3f(-o.x, 0.6F, -o.z).normalize(), new Vector3f(o.x, -1.0F, o.z).normalize(),
 							0.8F + 0.9F * d);
 				} else {
 					// Upright: it sinks and the arms curl in under it.

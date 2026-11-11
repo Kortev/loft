@@ -60,7 +60,7 @@ import org.joml.Vector3f;
 public class TomatoDevilEntity extends HostileEntity {
 	public static final float WIDTH = 2.4F;
 	public static final float HEIGHT = 3.5F;
-	public static final float MAX_HEALTH = 60.0F;
+	public static final float MAX_HEALTH = 90.0F;
 	/** Its walk: about 3.2 blocks a second, slower than a player's walk (4.3). */
 	public static final double SPEED = 0.27;
 
@@ -111,7 +111,7 @@ public class TomatoDevilEntity extends HostileEntity {
 	 * landing's reach from its skin, its damage and how hard it throws (about 5 blocks back).
 	 */
 	public static final double HUG = 3.0;
-	public static final int HUG_TICKS = 40;
+	public static final int HUG_TICKS = 26;
 	public static final int HOP_TELL = 18;
 	public static final int HOP_AIR = 10;
 	public static final int HOP_LAND = HOP_TELL + HOP_AIR;
@@ -317,13 +317,13 @@ public class TomatoDevilEntity extends HostileEntity {
 			case GET_UP -> {
 				still();
 				if (t >= GET_UP_TICKS) {
-					end(now, 20);
+					end(now, 14);
 				}
 			}
 			case UNFURL -> {
 				still();
 				if (t >= UNFURL_TICKS) {
-					end(now, 16);
+					end(now, 10);
 				}
 			}
 			case SPIT -> spit(world, t, target);
@@ -343,7 +343,7 @@ public class TomatoDevilEntity extends HostileEntity {
 		if (target != null && Math.hypot(target.getX() - getX(), target.getZ() - getZ()) <= WIDTH * 0.5 + HUG) {
 			hugged++;
 		} else {
-			hugged = Math.max(0, hugged - 2);
+			hugged = Math.max(0, hugged - 1);
 		}
 		// Noticing: the first sight of someone; forgetting them once nobody has been about a while.
 		if (target != null && walkTo == null) {
@@ -457,7 +457,7 @@ public class TomatoDevilEntity extends HostileEntity {
 		} else if (sees && dist >= 5.5 && dist <= ROLL_DISTANCE - 1.5 && now - lastRollAt > 110 && random.nextFloat() < 0.35F && allowed(ROLL_TELL)) {
 			startRoll(now, to);
 		} else if (sees && dist <= SPIT_RANGE + 0.5 && now - lastSpitAt > 90 && allowed(SPIT)
-				&& (!allowed(SLAP) && dist <= SLAP_REACH + 0.3 && off < 55.0F || dist >= 3.5 && random.nextFloat() < 0.3F)) {
+				&& (!allowed(SLAP) && dist <= SLAP_REACH + 0.3 && off < 55.0F || dist >= 3.5 && random.nextFloat() < 0.4F)) {
 			// (Slapped at twice running, it spits in your face instead.)
 			made(SPIT);
 			dataTracker.set(AIM, to);
@@ -529,7 +529,7 @@ public class TomatoDevilEntity extends HostileEntity {
 			}
 		}
 		if (t >= SLAP_END) {
-			end(world.getTime(), 12);
+			end(world.getTime(), 6);
 		}
 	}
 
@@ -604,7 +604,7 @@ public class TomatoDevilEntity extends HostileEntity {
 			world.spawnParticles(JUICE, mouth.x, mouth.y, mouth.z, 16, 0.2, 0.2, 0.2, 0.15);
 		}
 		if (t >= SPIT_END) {
-			end(world.getTime(), 20);
+			end(world.getTime(), 12);
 		}
 	}
 

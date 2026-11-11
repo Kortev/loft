@@ -257,13 +257,15 @@ final class TomatoFight {
 					return true;
 				}
 				if (t <= TomatoDevilEntity.SPIT_TELL + 8) {
-					// ...then one step sideways at a walk, between two seeds.
+					// ...then from 5 blocks or more one step sideways at a walk, between two seeds; closer in, the gaps are too narrow: out
+					// of the fan altogether, running.
+					boolean near = along < 4.6;
 					if (dodgeTo == null) {
-						double s = Math.abs(across) > 0.4 ? -Math.signum(across) : dodgeSide;
-						dodgeTo = me.add(side.multiply(s * 1.15));
+						double s = Math.abs(across) > 0.4 ? (near ? Math.signum(across) : -Math.signum(across)) : dodgeSide;
+						dodgeTo = me.add(side.multiply(s * (near ? 3.6 : 1.15)));
 						dodgeSide = -dodgeSide;
 					}
-					YOU.strafeTo(c, dodgeTo, 0.12, false);
+					YOU.strafeTo(c, dodgeTo, 0.12, near);
 					return true;
 				}
 				if (dist > 3.2) {
@@ -275,8 +277,8 @@ final class TomatoFight {
 				return false;
 			}
 			case TomatoDevilEntity.ON_BACK, TomatoDevilEntity.GET_UP, TomatoDevilEntity.UNFURL, TomatoDevilEntity.EMERGE -> {
-				if (dist > 3.0) {
-					YOU.strafeTo(c, d.getPos(), 2.8, true);
+				if (dist > 3.7) {
+					YOU.strafeTo(c, d.getPos(), 3.4, true);
 				} else {
 					YOU.stop();
 				}
@@ -312,6 +314,7 @@ final class TomatoFight {
 	/** The server's side: sit Pochita down again once every seed but the one left on purpose is gone. */
 	private static volatile boolean sitWhenDone;
 	private static volatile int leftId = -1;
+	private static volatile int keepSeeds;
 
 	private static TomatoDevilEntity serverDevil(IntegratedServer s) {
 		for (TomatoDevilEntity e : s.getOverworld().getEntitiesByType(Devils.TOMATO_DEVIL, e -> e.isAlive())) {
@@ -332,6 +335,8 @@ final class TomatoFight {
 		c.options.getFov().setValue(70);
 		c.options.getCloudRenderMode().setValue(net.minecraft.client.option.CloudRenderMode.OFF);
 		Capture.camera = null;
+		// (No chat in the film: taming messages and the like.)
+		c.inGameHud.getChatHud().clear(false);
 		if (f > 9000) {
 			ShootingStar.LOGGER.error("[played] stuck in step {}", step);
 			report(c);
@@ -385,7 +390,10 @@ final class TomatoFight {
 						if (duel) {
 							TomatoSelfTest.devil(w, TomatoSelfTest.site(0.0, 0.0, 2.0), 0.0F);
 						} else {
-							// The film: it comes from far off, walking your way, not having seen you yet; Pochita sits off to one side.
+							// The film: it comes from far off, walking your way, not having seen you yet; Pochita sits off to one side. (You are
+							// no hybrid here, and the world has hearts to spare: else he would turn wild, every heart being taken.)
+							you.removeAttached(Heart.MERGED);
+							s.getGameRules().get(io.github.kortev.chainsawman.form.TeamRules.CHAINSAW_HEARTS).set(8, s);
 							TomatoDevilEntity e = TomatoSelfTest.devil(w, TomatoSelfTest.site(1.0, 0.0, 10.0), 180.0F);
 							e.walkTo = TomatoSelfTest.site(0.0, 0.0, -14.0);
 							io.github.kortev.chainsawman.PochitaEntity pochita = io.github.kortev.chainsawman.ChainsawMan.POCHITA_ENTITY.create(w);
@@ -460,8 +468,9 @@ final class TomatoFight {
 				boolean busy = fight(c, d, true, false);
 				if (!busy && d.state() == TomatoDevilEntity.WALK) {
 					double dist = d.distanceTo(c.player);
-					if (dist > 2.6) {
-						YOU.strafeTo(c, d.getPos(), 2.3, false);
+					// (Right up to its arms, but not so close the lens goes inside it when it squats.)
+					if (dist > 3.4) {
+						YOU.strafeTo(c, d.getPos(), 3.1, false);
 					} else {
 						YOU.stop();
 					}
@@ -558,8 +567,12 @@ final class TomatoFight {
 				if (sub == 20) {
 					mark(c, "the missed seed's minute is skipped");
 					s.execute(() -> {
-						for (TomatoSeedEntity e : s.getOverworld().getEntitiesByType(Devils.TOMATO_SEED, e -> e.isAlive() && !e.ended())) {
-							e.lain(TomatoSeedEntity.COMEBACK - 1);
+						for (TomatoSeedEntity e : s.getOverworld().getEntitiesByType(Devils.TOMATO_SEED, e -> true)) {
+							ShootingStar.LOGGER.info("[played] server: seed {} (left {}) alive {} landed {} burning {} chewed {} withering {} swelling {} lain {}", e.getId(),
+									leftId, e.isAlive(), e.landed(), e.burning(), e.chewed(), e.withering(), e.swelling(), e.ground);
+							if (e.isAlive() && !e.ended()) {
+								e.lain(TomatoSeedEntity.COMEBACK - 1);
+							}
 						}
 					});
 				}
@@ -675,13 +688,8 @@ final class TomatoFight {
 			return false;
 		}
 		Entity pochita = pochitaId >= 0 ? c.world.getEntityById(pochitaId) : null;
-		if (leaveOne && left == null && !ss.isEmpty()) {
-			Vec3d from = pochita != null ? pochita.getPos() : c.player.getPos();
-			left = ss.stream().max(Comparator.comparingDouble(x -> x.squaredDistanceTo(from))).orElse(null);
-			leftId = left.getId();
-			mark(c, "this one is missed on purpose");
-		}
-		ss.removeIf(x -> x == left);
+		// (The one missed on purpose is whichever is left when Pochita has had his two: he goes for the nearest, his own way.)
+		keepSeeds = leaveOne ? 1 : 0;
 		if (torched < torch && !ss.isEmpty()) {
 			hold(c, 1);
 			ss.sort(Comparator.comparingDouble(x -> x.squaredDistanceTo(c.player)));
@@ -717,12 +725,13 @@ final class TomatoFight {
 				}
 			});
 		}
-		Vec3d look = !ss.isEmpty() ? ss.get(0).getPos() : pochita != null ? pochita.getPos() : null;
-		if (pochita != null) {
-			look = pochita.getPos();
-			double dist = pochita.distanceTo(c.player);
-			if (dist > 6.0) {
-				YOU.strafeTo(c, pochita.getPos(), 4.5, false);
+		// You stand by the seeds (he follows you there) and watch him at them.
+		Vec3d look = pochita != null ? pochita.getPos() : !ss.isEmpty() ? ss.get(0).getPos() : null;
+		if (!ss.isEmpty()) {
+			Vec3d sp = ss.get(0).getPos();
+			double dist = Math.hypot(sp.x - c.player.getX(), sp.z - c.player.getZ());
+			if (dist > 4.5) {
+				YOU.strafeTo(c, sp, 3.5, false);
 			} else {
 				YOU.stop();
 			}
@@ -733,7 +742,11 @@ final class TomatoFight {
 			YOU.aim(c, look.add(0.0, 0.3, 0.0));
 		}
 		YOU.apply(c);
-		if (ss.isEmpty()) {
+		if (ss.size() <= keepSeeds && !sitWhenDone) {
+			if (leaveOne && left == null && !ss.isEmpty()) {
+				left = ss.get(0);
+				mark(c, "this one is missed on purpose");
+			}
 			if (sub % 20 == 0) {
 				mark(c, "the seeds are done for");
 			}
@@ -756,8 +769,9 @@ final class TomatoFight {
 			return;
 		}
 		ServerWorld w = is.getOverworld();
-		boolean any = !w.getEntitiesByType(Devils.TOMATO_SEED, e -> e.isAlive() && !e.ended() && e.getId() != leftId).isEmpty();
-		if (!any && w.getEntityById(pochitaId) instanceof io.github.kortev.chainsawman.PochitaEntity p) {
+		// (Seeds he has bitten count till they are gone, so the last is never left half eaten.)
+		int alive = w.getEntitiesByType(Devils.TOMATO_SEED, e -> e.isAlive() && e.burning() < 0 && e.withering() < 0).size();
+		if (alive <= keepSeeds && w.getEntityById(pochitaId) instanceof io.github.kortev.chainsawman.PochitaEntity p) {
 			p.setSitting(true);
 			p.setInSittingPose(true);
 			p.getNavigation().stop();

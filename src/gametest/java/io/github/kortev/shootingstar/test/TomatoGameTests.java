@@ -596,6 +596,32 @@ public class TomatoGameTests implements FabricGameTest {
 		});
 	}
 
+	/** A seed too far off for him to smell: he follows you over to it, and eats it. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "tomato_pochita2", tickLimit = 500)
+	public void pochita_follows_you_to_a_seed(TestContext context) {
+		floor(context);
+		clear(context);
+		ServerWorld w = context.getWorld();
+		TomatoSeedEntity s = seed(context, 10, 10, UUID.randomUUID());
+		var pochita = io.github.kortev.chainsawman.ChainsawMan.POCHITA_ENTITY.create(w);
+		Vec3d a = at(context, -10, -10);
+		pochita.refreshPositionAndAngles(a.x, a.y, a.z, 0.0F, 0.0F);
+		pochita.setTamed(true, true);
+		ServerPlayerEntity owner = standing(context, "owner2", 8, 8);
+		pochita.setOwner(owner);
+		pochita.setSitting(true);
+		w.spawnEntity(pochita);
+		context.runAtTick(20, () -> pochita.setSitting(false));
+		context.runAtTick(480, () -> {
+			String where = String.format("%.1f %.1f", pochita.getX() - a.x, pochita.getZ() - a.z);
+			ForeverGameTests.leave(context, owner);
+			pochita.discard();
+			clear(context);
+			context.assertTrue(s.isRemoved(), "the seed is still there; Pochita moved " + where);
+			context.complete();
+		});
+	}
+
 	/** Pochita held as a chainsaw shreds a seed with a hit or a slash; so do Chainsaw Man's saws. */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "tomato_shred", tickLimit = 60)
 	public void a_chainsaw_shreds_a_seed(TestContext context) {

@@ -95,15 +95,20 @@ public class EatSeedGoal extends Goal {
 
 	@Override
 	public void tick() {
-		if (seed == null) {
+		if (seed == null || !able()) {
+			// (Told to sit: not another bite, even before the goal is let go.)
 			return;
 		}
 		Vec3d at = seed.getPos();
 		pochita.getLookControl().lookAt(at.x, at.y + 0.2, at.z, 30.0F, 30.0F);
 		double d = Math.hypot(at.x - pochita.getX(), at.z - pochita.getZ());
-		if (d > 0.9 || Math.abs(at.y - pochita.getY()) > 1.2) {
+		if (d > 1.6 || Math.abs(at.y - pochita.getY()) > 1.2) {
 			if (pochita.age % 5 == 0 || pochita.getNavigation().isIdle()) {
 				pochita.getNavigation().startMovingTo(at.x, at.y, at.z, 1.5);
+			}
+			if (pochita.getNavigation().isIdle() && d < 3.0) {
+				// (The path ends a block short of a seed off a block's middle: the last step by hand.)
+				pochita.getMoveControl().moveTo(at.x, at.y, at.z, 1.2);
 			}
 			stuck++;
 			return;
