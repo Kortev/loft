@@ -53,7 +53,7 @@ public class TomatoDevilRenderer extends EntityRenderer<TomatoDevilEntity> {
 	static final float LID_OPEN = -1.15F;
 	static final Identifier STRAND = Identifier.of("chainsawman", "textures/entity/tomato_strand.png");
 
-	private record Eye(Vector3f c, Vector3f n, float r) {
+	record Eye(Vector3f c, Vector3f n, float r) {
 	}
 
 	private static List<Eye> eyes;

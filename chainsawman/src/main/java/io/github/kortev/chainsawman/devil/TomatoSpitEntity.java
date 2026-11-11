@@ -67,7 +67,7 @@ public class TomatoSpitEntity extends Entity {
 	}
 
 	private boolean canHit(LivingEntity e) {
-		return e.isAlive() && !(e instanceof TomatoDevilEntity) && !e.isSpectator() && !(e instanceof PlayerEntity p && p.isCreative());
+		return e.isAlive() && !(e instanceof TomatoDevilEntity) && !TomatoDevilEntity.spares(e) && !e.isSpectator() && !(e instanceof PlayerEntity p && p.isCreative());
 	}
 
 	private void splat(ServerWorld world, Vec3d at) {
