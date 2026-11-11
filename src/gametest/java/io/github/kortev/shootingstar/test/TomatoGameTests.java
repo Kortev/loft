@@ -1,6 +1,8 @@
 package io.github.kortev.shootingstar.test;
 
 import io.github.kortev.chainsawman.devil.Devils;
+import io.github.kortev.chainsawman.devil.TomatoArrivalEntity;
+import io.github.kortev.chainsawman.devil.TomatoArrivals;
 import io.github.kortev.chainsawman.devil.TomatoDevilEntity;
 import io.github.kortev.chainsawman.devil.TomatoSeedEntity;
 import io.github.kortev.chainsawman.devil.TomatoSpitEntity;
@@ -416,41 +418,326 @@ public class TomatoGameTests implements FabricGameTest {
 		});
 	}
 
-	/** By itself it comes only at night, under the open sky, and never within 128 blocks of another. */
+	/** The world never just puts one down: it is in no biome's monster list; a spawn egg (or /summon) still puts one down at once, with no quiet spell. */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "tomato_spawn", tickLimit = 30)
-	public void it_spawns_only_at_night_on_the_surface(TestContext context) {
+	public void it_comes_only_by_its_arrival(TestContext context) {
 		floor(context);
 		clear(context);
 		ServerWorld w = context.getWorld();
-		for (TomatoDevilEntity e : w.getEntitiesByType(Devils.TOMATO_DEVIL, e -> true)) {
+		var biomes = w.getRegistryManager().get(net.minecraft.registry.RegistryKeys.BIOME);
+		for (var key : List.of(net.minecraft.world.biome.BiomeKeys.PLAINS, net.minecraft.world.biome.BiomeKeys.FOREST, net.minecraft.world.biome.BiomeKeys.DESERT)) {
+			var biome = biomes.get(key);
+			boolean listed = biome != null && biome.getSpawnSettings().getSpawnEntries(net.minecraft.entity.SpawnGroup.MONSTER).getEntries().stream()
+					.anyMatch(entry -> entry.type == Devils.TOMATO_DEVIL);
+			context.assertTrue(!listed, "the Tomato is in " + key.getValue() + "'s monster list");
+		}
+		ServerPlayerEntity p = standing(context, "egged", 0, -6);
+		try {
+			p.removeAttached(TomatoArrivals.QUIET_UNTIL);
+			TomatoDevilEntity d = devil(context, 0, 0);
+			context.assertTrue(d.isAlive() && !d.isRemoved(), "a devil could not be put down at once");
+			context.assertTrue(p.getAttached(TomatoArrivals.QUIET_UNTIL) == null, "a devil put down by hand started a quiet spell");
+		} finally {
+			ForeverGameTests.leave(context, p);
+			clear(context);
+		}
+		context.complete();
+	}
+
+	// ---- The arrival (TomatoArrivals, TomatoArrivalEntity).
+
+	/** A stone plain 45 blocks across at the test's height with the sky clear over it, every Tomato thing within 140 blocks gone. */
+	private static void plain(TestContext context) {
+		ServerWorld w = context.getWorld();
+		for (int x = -22; x <= 22; x++) {
+			for (int z = -22; z <= 22; z++) {
+				w.setBlockState(context.getAbsolutePos(new BlockPos(x, 0, z)), Blocks.STONE.getDefaultState(), net.minecraft.block.Block.NOTIFY_LISTENERS);
+				// (Up to whatever is highest over the column: something another test left high up would roof it.)
+				BlockPos col = context.getAbsolutePos(new BlockPos(x, 0, z));
+				int top = Math.max(col.getY() + 26, w.getTopY(net.minecraft.world.Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, col.getX(), col.getZ()));
+				for (int y = 1; y <= top - col.getY(); y++) {
+					BlockPos b = col.up(y);
+					if (!w.getBlockState(b).isAir()) {
+						w.setBlockState(b, Blocks.AIR.getDefaultState(), net.minecraft.block.Block.NOTIFY_LISTENERS);
+					}
+				}
+			}
+		}
+		clearTomatoes(context);
+	}
+
+	private static void clearTomatoes(TestContext context) {
+		Box all = new Box(at(context, 0, 0), at(context, 0, 0)).expand(140.0, 60.0, 140.0);
+		for (var e : context.getWorld().getEntitiesByClass(net.minecraft.entity.Entity.class, all,
+				e -> e instanceof TomatoDevilEntity || e instanceof TomatoSeedEntity || e instanceof TomatoSpitEntity || e instanceof TomatoArrivalEntity)) {
 			e.discard();
 		}
+	}
+
+	/** The world at {@code timeOfDay} on Normal (what it was put back by the returned call). */
+	private static Runnable world(TestContext context, long timeOfDay) {
+		ServerWorld w = context.getWorld();
 		long was = w.getTimeOfDay();
-		BlockPos pos = context.getAbsolutePos(new BlockPos(0, 1, 0));
-		var random = w.getRandom();
 		var difficulty = w.getDifficulty();
-		try {
-			w.getServer().setDifficulty(net.minecraft.world.Difficulty.NORMAL, true);
-			for (int y = 2; y < 40; y++) {
-				w.setBlockState(pos.up(y), Blocks.AIR.getDefaultState());
-			}
-			boolean open = w.getTopY(net.minecraft.world.Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, pos.getX(), pos.getZ()) <= pos.getY();
-			w.setTimeOfDay(18000L);
-			context.assertTrue(!open || TomatoDevilEntity.canSpawn(Devils.TOMATO_DEVIL, w, SpawnReason.NATURAL, pos, random), "it may not come at night under the sky");
-			w.setTimeOfDay(6000L);
-			context.assertTrue(!TomatoDevilEntity.canSpawn(Devils.TOMATO_DEVIL, w, SpawnReason.NATURAL, pos, random), "it came by day");
-			w.setTimeOfDay(18000L);
-			w.setBlockState(pos.up(4), Blocks.STONE.getDefaultState());
-			context.assertTrue(!TomatoDevilEntity.canSpawn(Devils.TOMATO_DEVIL, w, SpawnReason.NATURAL, pos, random), "it came under a roof");
-			w.setBlockState(pos.up(4), Blocks.AIR.getDefaultState());
-			TomatoDevilEntity near = devil(context, 0, 10);
-			context.assertTrue(!TomatoDevilEntity.canSpawn(Devils.TOMATO_DEVIL, w, SpawnReason.NATURAL, pos, random), "it came within 128 blocks of another");
-			near.discard();
-			context.assertTrue(TomatoDevilEntity.canSpawn(Devils.TOMATO_DEVIL, w, SpawnReason.SPAWN_EGG, pos, random), "a spawn egg could not put one down");
-		} finally {
+		w.getServer().setDifficulty(net.minecraft.world.Difficulty.NORMAL, true);
+		w.setTimeOfDay(timeOfDay);
+		return () -> {
 			w.setTimeOfDay(was);
 			w.getServer().setDifficulty(difficulty, true);
-			clear(context);
+		};
+	}
+
+	/** The second night (night 1), at midnight. */
+	private static final long SECOND_NIGHT = 24000L + 18000L;
+
+	/** Why the last forced roll brought nothing. */
+	private static String lastWhy = "";
+
+	/** A roll won for {@code p} (mob spawning on only for the call, so nothing else spawns in the tests). */
+	private static TomatoArrivalEntity force(TestContext context, ServerPlayerEntity p) {
+		var rule = context.getWorld().getGameRules().get(net.minecraft.world.GameRules.DO_MOB_SPAWNING);
+		boolean was = rule.get();
+		rule.set(true, context.getWorld().getServer());
+		try {
+			TomatoArrivalEntity a = TomatoArrivals.arrive(p);
+			if (a == null) {
+				String why = TomatoArrivals.whyNot(p);
+				lastWhy = why != null ? why : TomatoArrivals.whyNoSpot(p);
+			}
+			return a;
+		} finally {
+			rule.set(was, context.getWorld().getServer());
+		}
+	}
+
+	private static ServerPlayerEntity arrivalPlayer(TestContext context, String name, double x, double z) {
+		ServerPlayerEntity p = standing(context, name, x, z);
+		p.removeAttached(TomatoArrivals.QUIET_UNTIL);
+		return p;
+	}
+
+	/** On the world's first night nothing comes; on its second, one may. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "tomato_arrive_first", tickLimit = 20)
+	public void no_arrival_before_the_second_night(TestContext context) {
+		plain(context);
+		ServerPlayerEntity p = arrivalPlayer(context, "newcomer", 0, 0);
+		Runnable back = world(context, 18000L);
+		try {
+			context.assertTrue(force(context, p) == null, "an arrival came on the world's first night");
+			context.getWorld().setTimeOfDay(SECOND_NIGHT);
+			context.assertTrue(force(context, p) != null, "no arrival could come on the second night" + ": " + lastWhy);
+		} finally {
+			back.run();
+			ForeverGameTests.leave(context, p);
+			clearTomatoes(context);
+		}
+		context.complete();
+	}
+
+	/** Under the open sky at night: it comes up 14-18 blocks off, on the ground, in front of the player, and they get a quiet spell. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "tomato_arrive_sky", tickLimit = 20)
+	public void an_arrival_comes_at_night_under_open_sky(TestContext context) {
+		plain(context);
+		ServerPlayerEntity p = arrivalPlayer(context, "walker", 0, 0);
+		Runnable back = world(context, SECOND_NIGHT);
+		try {
+			TomatoArrivalEntity a = force(context, p);
+			context.assertTrue(a != null, "no arrival under the open sky at night" + ": " + lastWhy);
+			double d = Math.hypot(a.getX() - p.getX(), a.getZ() - p.getZ());
+			context.assertTrue(d >= TomatoArrivals.NEAR_MIN - 0.8 && d <= TomatoArrivals.NEAR_MAX + 0.8, "it came " + d + " blocks off, not 14-18");
+			context.assertTrue(Math.abs(a.getY() - p.getY()) < 0.01, "it is not on the ground: " + a.getY() + " vs " + p.getY());
+			Vec3d look = p.getRotationVector().multiply(1.0, 0.0, 1.0).normalize();
+			Vec3d to = new Vec3d(a.getX() - p.getX(), 0.0, a.getZ() - p.getZ()).normalize();
+			context.assertTrue(look.dotProduct(to) > Math.cos(Math.toRadians(56.0)), "it did not come in front of the player");
+			Long quiet = p.getAttached(TomatoArrivals.QUIET_UNTIL);
+			context.assertTrue(quiet != null && quiet == TomatoArrivals.night(context.getWorld()) + TomatoArrivals.QUIET_NIGHTS, "no quiet spell: " + quiet);
+		} finally {
+			back.run();
+			ForeverGameTests.leave(context, p);
+			clearTomatoes(context);
+		}
+		context.complete();
+	}
+
+	/** Under a roof, by day, in the dusk or toward dawn, nothing comes; at the start of the real dark it may. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "tomato_arrive_roof", tickLimit = 20)
+	public void no_arrival_underground_or_by_day(TestContext context) {
+		plain(context);
+		ServerPlayerEntity p = arrivalPlayer(context, "miner", 0, 0);
+		BlockPos roof = context.getAbsolutePos(new BlockPos(0, 4, 0));
+		Runnable back = world(context, SECOND_NIGHT);
+		try {
+			context.getWorld().setBlockState(roof, Blocks.STONE.getDefaultState());
+			context.assertTrue(force(context, p) == null, "an arrival came at someone under a roof");
+			context.getWorld().setBlockState(roof, Blocks.AIR.getDefaultState());
+			context.getWorld().setTimeOfDay(24000L + 6000L);
+			context.assertTrue(force(context, p) == null, "an arrival came by day");
+			context.getWorld().setTimeOfDay(24000L + TomatoArrivals.ARRIVE_FROM - 500L);
+			context.assertTrue(force(context, p) == null, "an arrival came in the dusk, before the real dark");
+			context.getWorld().setTimeOfDay(24000L + TomatoArrivals.ARRIVE_TO + 500L);
+			context.assertTrue(force(context, p) == null, "an arrival came toward dawn, after the real dark");
+			context.getWorld().setTimeOfDay(24000L + TomatoArrivals.ARRIVE_FROM + 50L);
+			context.assertTrue(force(context, p) != null, "no arrival at the start of the real dark: " + lastWhy);
+		} finally {
+			context.getWorld().setBlockState(roof, Blocks.AIR.getDefaultState());
+			back.run();
+			ForeverGameTests.leave(context, p);
+			clearTomatoes(context);
+		}
+		context.complete();
+	}
+
+	/** Never within 128 blocks of a Tomato Devil or one of its seeds. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "tomato_arrive_clear", tickLimit = 20)
+	public void none_within_128_blocks_of_another_or_its_seeds(TestContext context) {
+		plain(context);
+		ServerPlayerEntity p = arrivalPlayer(context, "neighbour", 0, 0);
+		Runnable back = world(context, SECOND_NIGHT);
+		try {
+			TomatoSeedEntity s = seed(context, 10, 10, UUID.randomUUID());
+			context.assertTrue(force(context, p) == null, "an arrival came near a seed");
+			s.discard();
+			TomatoDevilEntity d = devil(context, -12, 12);
+			d.setAiDisabled(true);
+			context.assertTrue(force(context, p) == null, "an arrival came near a Tomato Devil");
+			d.discard();
+			context.assertTrue(force(context, p) != null, "with the seed and the devil gone, still no arrival" + ": " + lastWhy);
+		} finally {
+			back.run();
+			ForeverGameTests.leave(context, p);
+			clearTomatoes(context);
+		}
+		context.complete();
+	}
+
+	/** Two players together: one arrival, and both get the quiet spell. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "tomato_arrive_share", tickLimit = 20)
+	public void players_together_share_one(TestContext context) {
+		plain(context);
+		ServerPlayerEntity a = arrivalPlayer(context, "first", 0, 0);
+		ServerPlayerEntity b = arrivalPlayer(context, "second", 3, 0);
+		Runnable back = world(context, SECOND_NIGHT);
+		try {
+			context.assertTrue(force(context, a) != null, "no arrival for the first" + ": " + lastWhy);
+			context.assertTrue(force(context, b) == null, "a second arrival came for the one beside them");
+			context.assertTrue(TomatoArrivals.quiet(b), "the one beside them got no quiet spell");
+			context.assertTrue(context.getWorld().getEntitiesByClass(TomatoArrivalEntity.class, area(context).expand(10.0), e -> true).size() == 1, "not one arrival");
+		} finally {
+			back.run();
+			ForeverGameTests.leave(context, a);
+			ForeverGameTests.leave(context, b);
+			clearTomatoes(context);
+		}
+		context.complete();
+	}
+
+	/** In peace, or with mob spawning off, nothing comes. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "tomato_arrive_peace", tickLimit = 20)
+	public void peaceful_and_mob_spawning_off_mean_none(TestContext context) {
+		plain(context);
+		ServerPlayerEntity p = arrivalPlayer(context, "peaceful", 0, 0);
+		Runnable back = world(context, SECOND_NIGHT);
+		var rule = context.getWorld().getGameRules().get(net.minecraft.world.GameRules.DO_MOB_SPAWNING);
+		boolean was = rule.get();
+		try {
+			context.getWorld().getServer().setDifficulty(net.minecraft.world.Difficulty.PEACEFUL, true);
+			context.assertTrue(force(context, p) == null, "an arrival came in peace");
+			context.getWorld().getServer().setDifficulty(net.minecraft.world.Difficulty.NORMAL, true);
+			rule.set(false, context.getWorld().getServer());
+			context.assertTrue(TomatoArrivals.arrive(p) == null, "an arrival came with mob spawning off");
+		} finally {
+			rule.set(was, context.getWorld().getServer());
+			back.run();
+			ForeverGameTests.leave(context, p);
+			clearTomatoes(context);
+		}
+		context.complete();
+	}
+
+	/**
+	 * The arrival: nothing to hit and nothing hurt till the burst (7 s), then the devil stands where it was, every eye on the player; no
+	 * block changed.
+	 */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "tomato_arrive_eight", tickLimit = 200)
+	public void the_arrival_has_its_eight_seconds(TestContext context) {
+		context.assertTrue(TomatoArrivalEntity.EYES == 40 && TomatoArrivalEntity.BULGE == 80 && TomatoArrivalEntity.BURST == 140, "the arrival's times are not 2, 4 and 7 s");
+		plain(context);
+		ServerWorld w = context.getWorld();
+		ServerPlayerEntity p = arrivalPlayer(context, "watcher", 0, 0);
+		Runnable back = world(context, SECOND_NIGHT);
+		TomatoArrivalEntity a = force(context, p);
+		if (a == null) {
+			back.run();
+			ForeverGameTests.leave(context, p);
+			throw new net.minecraft.test.GameTestException("no arrival: " + lastWhy);
+		}
+		Vec3d spot = a.getPos();
+		BlockPos c = a.getBlockPos();
+		java.util.Map<BlockPos, net.minecraft.block.BlockState> blocks = new java.util.HashMap<>();
+		for (BlockPos b : BlockPos.iterate(c.add(-3, -2, -3), c.add(3, 4, 3))) {
+			blocks.put(b.toImmutable(), w.getBlockState(b));
+		}
+		Box near = new Box(spot, spot).expand(4.0);
+		Runnable end = () -> {
+			back.run();
+			ForeverGameTests.leave(context, p);
+			clearTomatoes(context);
+		};
+		for (int tick = 2; tick < TomatoArrivalEntity.BURST - 2; tick += 10) {
+			context.runAtTick(tick, () -> {
+				try {
+					context.assertTrue(!a.canHit() && !a.damage(w.getDamageSources().playerAttack(p), 100.0F) && !a.isRemoved(), "the arrival could be hit, or ended early");
+					context.assertTrue(w.getEntitiesByClass(TomatoDevilEntity.class, near, e -> true).isEmpty(), "the devil was there before the burst");
+					context.assertTrue(p.getHealth() == p.getMaxHealth(), "the player was hurt before the burst");
+				} catch (RuntimeException e) {
+					end.run();
+					throw e;
+				}
+			});
+		}
+		context.runAtTick(TomatoArrivalEntity.BURST + 6, () -> {
+			try {
+				List<TomatoDevilEntity> ds = w.getEntitiesByClass(TomatoDevilEntity.class, near, e -> true);
+				context.assertTrue(a.isRemoved(), "the arrival is still there after the burst");
+				context.assertTrue(ds.size() == 1 && ds.get(0).getPos().distanceTo(spot) < 1.0, "the devil does not stand where it came up: " + ds.size());
+				context.assertTrue(ds.get(0).noticedAt() >= 0, "its eyes did not snap to the player");
+				for (var e : blocks.entrySet()) {
+					context.assertTrue(w.getBlockState(e.getKey()) == e.getValue(), "the arrival changed a block at " + e.getKey());
+				}
+			} finally {
+				end.run();
+			}
+			context.complete();
+		});
+	}
+
+	/** After an arrival, everyone near it gets none that night or the next three; the fourth night it may come again. The spell is saved on the player. */
+	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "tomato_arrive_quiet", tickLimit = 20)
+	public void after_an_arrival_the_next_nights_are_quiet(TestContext context) {
+		plain(context);
+		ServerPlayerEntity p = arrivalPlayer(context, "survivor", 0, 0);
+		Runnable back = world(context, SECOND_NIGHT);
+		try {
+			context.assertTrue(TomatoArrivals.QUIET_NIGHTS == 3, "the quiet spell is not three nights");
+			context.assertTrue(force(context, p) != null, "no first arrival" + ": " + lastWhy);
+			clearTomatoes(context);
+			// Saved on the player: written out and read back in, it is still there.
+			NbtCompound nbt = new NbtCompound();
+			p.writeNbt(nbt);
+			p.removeAttached(TomatoArrivals.QUIET_UNTIL);
+			p.readNbt(nbt);
+			context.assertTrue(TomatoArrivals.quiet(p), "the quiet spell did not survive a save");
+			context.assertTrue(force(context, p) == null, "a second arrival came the same night");
+			for (int n = 1; n <= TomatoArrivals.QUIET_NIGHTS; n++) {
+				context.getWorld().setTimeOfDay(SECOND_NIGHT + n * 24000L);
+				context.assertTrue(force(context, p) == null, "an arrival came " + n + " nights later, in the quiet spell");
+			}
+			context.getWorld().setTimeOfDay(SECOND_NIGHT + (TomatoArrivals.QUIET_NIGHTS + 1) * 24000L);
+			context.assertTrue(force(context, p) != null, "no arrival after the quiet spell" + ": " + lastWhy);
+		} finally {
+			back.run();
+			ForeverGameTests.leave(context, p);
+			clearTomatoes(context);
 		}
 		context.complete();
 	}

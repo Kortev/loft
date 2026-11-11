@@ -50,6 +50,7 @@ public final class DevilsClient {
 		EntityRendererRegistry.register(Devils.TOMATO_DEVIL, TomatoDevilRenderer::new);
 		EntityRendererRegistry.register(Devils.TOMATO_SEED, TomatoSeedRenderer::new);
 		EntityRendererRegistry.register(Devils.TOMATO_SPIT, TomatoSpitRenderer::new);
+		EntityRendererRegistry.register(Devils.TOMATO_ARRIVAL, TomatoArrivalRenderer::new);
 		TomatoDevilEntity.clientBurst = e -> {
 			double y = TomatoBody.ground(MinecraftClient.getInstance().world, e.getPos(), e.getY());
 			SPLATS.add(new Splat(new Vec3d(e.getX(), y, e.getZ()), e.getWorld().getTime(), e.getWorld().random.nextFloat() * MathHelper.TAU));

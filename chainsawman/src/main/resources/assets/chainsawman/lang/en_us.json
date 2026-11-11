@@ -219,6 +219,8 @@
   "entity.chainsawman.tomato_devil": "Tomato Devil",
   "entity.chainsawman.tomato_seed": "Tomato Devil seed",
   "entity.chainsawman.tomato_spit": "Spat seed",
+  "entity.chainsawman.tomato_arrival": "Something in the ground",
+  "subtitles.chainsawman.tomato.hush": "The air goes quiet",
   "item.chainsawman.tomato_carcass": "Tomato Devil Carcass",
   "item.chainsawman.tomato_devil_spawn_egg": "Tomato Devil Spawn Egg",
   "message.chainsawman.tomato_seeds": "Its seeds are in the ground. Burn them or cut them up.",
