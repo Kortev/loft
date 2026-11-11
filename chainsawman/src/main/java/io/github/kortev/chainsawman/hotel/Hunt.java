@@ -197,7 +197,10 @@ public final class Hunt {
 					boolean open = eye.getPos().distanceTo(face) <= EYE_RANGE;
 					Vec3d at = eye.getPos();
 					for (ServerPlayerEntity p : players) {
-						Vec3d to = at.subtract(p.getEyePos());
+						// (The eye a period along that is nearest the player: the loop's corridor shows each eye at every period.)
+						Vec3d ax = HotelBuilder.world(BlockPos.ORIGIN, h.rot, (double) HotelPlan.PERIOD, 0.0, 0.0);
+						double along = HotelBuilder.local(h.origin, h.rot, p.getEyePos()).x - HotelBuilder.local(h.origin, h.rot, eye.getPos()).x;
+						Vec3d to = at.add(ax.multiply(Math.round(along / HotelPlan.PERIOD))).subtract(p.getEyePos());
 						double d = to.length();
 						if (d > 0.1 && d < 28.0 && p.getRotationVec(1.0F).dotProduct(to.multiply(1.0 / d)) > LOOK_COS) {
 							u.shutUntil.put(id, now + EYE_SHUT);
@@ -284,7 +287,9 @@ public final class Hunt {
 			dull(world, at, state);
 			return true;
 		}
+		// (Along the loop's corridor, a period on is the same wall: the devil is behind every copy of its spot.)
 		double dx = c[0] - u.sx;
+		dx -= HotelPlan.PERIOD * Math.round(dx / HotelPlan.PERIOD);
 		double dy = c[1] - u.sy;
 		boolean near = c[2] == u.sz && Math.sqrt(dx * dx + dy * dy) <= BLEED_RANGE;
 		if (!near) {
@@ -302,6 +307,19 @@ public final class Hunt {
 		BlockState red = (c[0] + c[1]) % 2 == 0 ? Blocks.RED_TERRACOTTA.getDefaultState() : Blocks.NETHER_WART_BLOCK.getDefaultState();
 		world.setBlockState(pos, red, net.minecraft.block.Block.NOTIFY_LISTENERS);
 		u.reds.put(pos.toImmutable(), now + 50);
+		// ... and its copies a period along, so the loop's corridor still repeats exactly when someone is put back beside it.
+		for (int k = -2; k <= 2; k++) {
+			int x = c[0] + k * HotelPlan.PERIOD;
+			if (k == 0 || x < HotelPlan.CORR_X0 || x > HotelPlan.CORR_X1) {
+				continue;
+			}
+			BlockPos q = HotelBuilder.world(h.origin, h.rot, x, c[1], c[2]);
+			BlockState there = world.getBlockState(q);
+			if (!there.isAir() && !(there.getBlock() instanceof DoorBlock) && there.getBlock() == state.getBlock()) {
+				world.setBlockState(q, red, net.minecraft.block.Block.NOTIFY_LISTENERS);
+				u.reds.put(q, now + 50);
+			}
+		}
 		if (by != null) {
 			by.sendMessage(Text.translatable("message.chainsawman.hotel.bleeds"), true);
 		}

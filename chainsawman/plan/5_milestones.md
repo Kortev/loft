@@ -40,7 +40,7 @@ Sizes are in agent runs: S is one run, M is two or three, L is four or more.
 | # | Package | Size | Gate |
 |---|---|---|---|
 | 2.1 | The licence: item, screen, saved data (rank, yen, missions) | M | A mock screen to kortev first |
-| 2.2 | The notice board (poster and phone), the first attack, the two ways in | M | Uses the weak devil from 3.4. **2.2a merged 2026-11-11 (291 tests)**: not a scripted first attack but the Tomato's staged arrival as its chance night spawn (`packages/2.2a_first_night.md`). 2.1a the board and licence is building. |
+| 2.2 | The notice board (poster and phone), the first attack, the two ways in | M | Uses the weak devil from 3.4. **2.2a merged 2026-11-11 (291 tests)**: not a scripted first attack but the Tomato's staged arrival as its chance night spawn (`packages/2.2a_first_night.md`). 2.1a the board, licence and yen merged 2026-11-11 (`packages/2.1a_notice_board.md`). |
 | 2.3 | The office as a village building (added to the village's own building lists; [to confirm in a test: never two in one village]), the captain, and the office built at the edge of villages that already exist | M | kortev's yes on the Public Safety look (waiting) |
 | 2.4 | The board and missions: hunt, clear a nest, find the missing | L | |
 | 2.5 | Yen, the shop, selling parts | S | |
@@ -58,7 +58,7 @@ Reel: "I added Public Safety to Minecraft."
 |---|---|---|---|
 | 3.1 | The Zombie Devil and its zombies | M | kortev's yes on the concept (waiting) |
 | 3.2 | The Bat Devil | M | kortev's yes on the concept (waiting) |
-| 3.3 | The Leech Devil | M | Fact sheet, concept, kortev's yes |
+| 3.3 | The Leech Devil | round 1 merged 2026-11-11 (308 tests) | `packages/3.3_leech_devil.md`: model, tongue, latch, trample; summon only. Round 2 asked: the body and the fight's framing. |
 | 3.4 | The Tomato Devil (the weak first-night devil) [pick] | merged 2026-11-10 (274 tests) | Brief `packages/3.4_tomato_devil.md`; the `devil/` lane exists (0.6 done). Round 2 merged 2026-11-10 (282 tests): `packages/3.4b_tomato_round2.md`. The horror short merged 2026-11-10 (`packages/3.4c_tomato_cinematic.md`); a sound pass and a 7.7 s teaser followed the same day. kortev has all three videos. 3.4d merged (283 tests): seeds can be cut up in three hits. |
 | 3.5 | Nests, spawn rules, parts | M | |
 | 3.6 | Mission kinds, and one trick per devil | S | Fear and the bounty moved to the server legend update |

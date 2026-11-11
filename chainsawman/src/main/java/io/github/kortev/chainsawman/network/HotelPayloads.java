@@ -11,10 +11,14 @@ public final class HotelPayloads {
 	private HotelPayloads() {
 	}
 
-	/** To a player in the loop: the fog the corridor hides its ends in, as a distance in blocks (0 off). */
-	public record Fog(float end) implements CustomPayload {
+	/**
+	 * To a player in the loop: the fog the corridor hides its ends in, as a distance in blocks (0 off), and the hotel's place and turn (so the
+	 * client can draw what is in the corridor where the corridor repeats it, and keep what the loop moves from sliding across).
+	 */
+	public record Fog(float end, net.minecraft.util.math.BlockPos origin, int rot) implements CustomPayload {
 		public static final CustomPayload.Id<Fog> ID = new CustomPayload.Id<>(ChainsawMan.id("hotel_fog"));
-		public static final PacketCodec<RegistryByteBuf, Fog> CODEC = PacketCodec.tuple(PacketCodecs.FLOAT, Fog::end, Fog::new);
+		public static final PacketCodec<RegistryByteBuf, Fog> CODEC = PacketCodec.tuple(PacketCodecs.FLOAT, Fog::end,
+				net.minecraft.util.math.BlockPos.PACKET_CODEC, Fog::origin, PacketCodecs.VAR_INT, Fog::rot, Fog::new);
 
 		@Override
 		public CustomPayload.Id<? extends CustomPayload> getId() {

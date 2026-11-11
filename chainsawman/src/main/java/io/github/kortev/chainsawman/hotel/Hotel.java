@@ -143,6 +143,13 @@ public final class Hotel {
 		return true;
 	}
 
+	/** Whether anything alive is in the stairwell (it is not rebuilt round them). */
+	private static boolean anyoneInTheWell(ServerWorld world, HomeBlockEntity h) {
+		Vec3d a = HotelBuilder.world(h.origin, h.rot, HotelBuilder.WELL_X0 - 1.0, -1.0, 0.0);
+		Vec3d b = HotelBuilder.world(h.origin, h.rot, HotelBuilder.WELL_X1 + 2.0, HotelPlan.SY + 1.0, 4.5);
+		return !world.getEntitiesByClass(net.minecraft.entity.LivingEntity.class, new net.minecraft.util.math.Box(a, b), e -> e.isAlive()).isEmpty();
+	}
+
 	public static boolean isNightTime(ServerWorld world) {
 		long t = world.getTimeOfDay() % 24000L;
 		return t >= 12500L && t < 23500L;
@@ -161,6 +168,12 @@ public final class Hotel {
 		}
 		if (!loaded(world, h)) {
 			return;
+		}
+		if (h.stairs < HotelBuilder.STAIRS && !anyoneInTheWell(world, h)) {
+			// A hotel from an older world: its stairwell is the one that could not be climbed; the new one is put in its place.
+			HotelBuilder.rebuildStairs(world, h.origin, h.rot, r.night);
+			h.stairs = HotelBuilder.STAIRS;
+			h.markDirty();
 		}
 		if (h.away && !r.fighting() && (h.awayUntilTick > 0 ? now >= h.awayUntilTick : day(world) >= h.awayUntilDay)) {
 			h.away = false;
@@ -492,6 +505,7 @@ public final class Hotel {
 		Run r = h.run;
 		Set<UUID> looped = new HashSet<>();
 		Set<UUID> here = new HashSet<>();
+		Set<net.minecraft.entity.Entity> carried = new HashSet<>();
 		int maxLaps = 0;
 		for (In in : inside) {
 			ServerPlayerEntity p = in.player();
@@ -512,11 +526,13 @@ public final class Hotel {
 			here.add(id);
 			if (corridor) {
 				looped.add(id);
-				if (lp.x >= HotelPlan.WINDOW_HI) {
-					shift(h, p, -HotelPlan.PERIOD);
-					lap(r, id);
-				} else if (lp.x < HotelPlan.WINDOW_LO) {
-					shift(h, p, HotelPlan.PERIOD);
+				double dx = lp.x >= HotelPlan.WINDOW_HI ? -HotelPlan.PERIOD : lp.x < HotelPlan.WINDOW_LO ? HotelPlan.PERIOD : 0.0;
+				if (dx != 0.0) {
+					// What is about you comes with you (it is seen where the corridor repeats it all along, see ClientLoop), and the doors
+					// round where you come out are as they were round where you were.
+					carry(world, h, p, lp, dx, inside, r, carried);
+					doorsAlong(world, h, lp, dx, inside, p);
+					shift(h, p, dx);
 					lap(r, id);
 				}
 			} else if (shaft && lp.y < 28.0 && lp.y > 24.0) {
@@ -530,11 +546,21 @@ public final class Hotel {
 			}
 			maxLaps = Math.max(maxLaps, r.laps.getOrDefault(id, 0));
 		}
+		if (!here.isEmpty() && !r.fighting()) {
+			keepInLoop(world, h);
+			shutTopDoors(world, h, inside);
+		}
 		// The signs build up with the laps.
 		int level = Math.min(3, maxLaps);
 		if (level != r.flesh && !r.fighting()) {
+			int from = r.flesh;
 			r.flesh = level;
-			growths(world, h, level);
+			if (level > from && from > 0) {
+				// (More flesh: the lumps already there stay, the new ones grow in. Made again, every lump would change at the lap's move.)
+				more(world, h, from, level);
+			} else {
+				growths(world, h, level);
+			}
 		}
 		if (!here.isEmpty() && !r.fighting()) {
 			flicker(world, h, maxLaps, now);
@@ -558,7 +584,7 @@ public final class Hotel {
 		// The fog that hides the corridor's ends, for those who are looped.
 		for (UUID id : looped) {
 			if (r.fogged.add(id)) {
-				fog(world, id, FOG_END);
+				fog(world, h, id, FOG_END);
 			}
 		}
 		for (UUID id : new ArrayList<>(r.fogged)) {
@@ -602,16 +628,34 @@ public final class Hotel {
 			}
 		}
 		r.growths.clear();
-		int n = 0;
 		for (G g : growthPlaces(level)) {
-			FleshGrowthEntity e = new FleshGrowthEntity(ChainsawMan.FLESH_GROWTH, world);
-			Vec3d at = HotelBuilder.world(h.origin, h.rot, g.x(), g.y(), g.z());
-			float yaw = HotelBuilder.alongYaw(h.rot) + (g.north() ? 90.0F : -90.0F);
-			e.refreshPositionAndAngles(at.x, at.y, at.z, yaw, 0.0F);
-			e.set(g.kind(), (n++ * 7919 + g.kind() * 31) ^ (int) (g.x() * 13));
-			world.spawnEntity(e);
-			r.growths.add(e.getUuid());
+			grow(world, h, g);
 		}
+	}
+
+	/** The flesh from level {@code from} up to {@code level}: only the lumps that are new. */
+	private static void more(ServerWorld world, HomeBlockEntity h, int from, int level) {
+		List<G> had = growthPlaces(from);
+		for (G g : growthPlaces(level)) {
+			if (!had.contains(g)) {
+				grow(world, h, g);
+			}
+		}
+	}
+
+	/**
+	 * One lump. Its shape comes from where it is a period along the corridor (and its kind and wall), so each period's lumps are the same
+	 * lumps: the loop's corridor must repeat exactly.
+	 */
+	private static void grow(ServerWorld world, HomeBlockEntity h, G g) {
+		FleshGrowthEntity e = new FleshGrowthEntity(ChainsawMan.FLESH_GROWTH, world);
+		Vec3d at = HotelBuilder.world(h.origin, h.rot, g.x(), g.y(), g.z());
+		float yaw = HotelBuilder.alongYaw(h.rot) + (g.north() ? 90.0F : -90.0F);
+		e.refreshPositionAndAngles(at.x, at.y, at.z, yaw, 0.0F);
+		int phase = Math.floorMod((int) Math.floor(g.x()), HotelPlan.PERIOD);
+		e.set(g.kind(), (phase * 7919 + g.kind() * 31 + (g.north() ? 104729 : 0) + (int) (g.y() * 10.0)) ^ 0x2545F491);
+		world.spawnEntity(e);
+		h.run.growths.add(e.getUuid());
 	}
 
 	private static void lap(Run r, UUID id) {
@@ -651,10 +695,182 @@ public final class Hotel {
 		p.networkHandler.requestTeleport(p.getX() + d.x, p.getY(), p.getZ() + d.z, p.getYaw(), p.getPitch(), Set.of(PositionFlag.X, PositionFlag.Y, PositionFlag.Z, PositionFlag.Y_ROT, PositionFlag.X_ROT));
 	}
 
+	// ---- What is in the loop with you.
+
+	/** Whether a local point is in the loop floor's corridor (where the loop repeats everything every {@link HotelPlan#PERIOD} blocks). */
+	public static boolean inLoopCorridor(Vec3d lp) {
+		return lp.y >= 28.0 && lp.y < 32.5 && lp.x >= HotelPlan.CORR_X0 && lp.x < HotelPlan.CORR_X1 + 1.0 && lp.z >= HotelPlan.CORR_Z0 - 0.5
+				&& lp.z <= HotelPlan.CORR_Z1 + 1.5;
+	}
+
+	/** The things in the loop floor's corridor (not players). */
+	private static List<net.minecraft.entity.Entity> corridorThings(ServerWorld world, HomeBlockEntity h) {
+		Vec3d a = HotelBuilder.world(h.origin, h.rot, HotelPlan.CORR_X0, 28.0, HotelPlan.CORR_Z0 - 0.5);
+		Vec3d b = HotelBuilder.world(h.origin, h.rot, HotelPlan.CORR_X1 + 1.0, 32.5, HotelPlan.CORR_Z1 + 1.5);
+		return world.getOtherEntities(null, new net.minecraft.util.math.Box(a, b), e -> !(e instanceof net.minecraft.entity.player.PlayerEntity) && e.isAlive()
+				&& !e.hasVehicle() && !e.hasPassengers() && inLoopCorridor(HotelBuilder.local(h.origin, h.rot, e.getPos())));
+	}
+
+	/**
+	 * What walks with a player: a mob, a pet (Pochita), a survivor who follows, an orb of experience. Not the hotel's own flesh, eyes, devil
+	 * or a survivor sitting against the wall (those stay where they are: the client shows them at every period). Dropped items are not
+	 * carried either: they are kept in the window ({@link #keepInLoop}), where a player walking always comes to them.
+	 */
+	private static boolean walksWith(net.minecraft.entity.Entity e) {
+		if (e instanceof SquadMemberEntity m) {
+			return !m.sitting();
+		}
+		if (e instanceof FleshGrowthEntity || e instanceof FleshPatchEntity || e instanceof EternityDevilEntity || e instanceof ShaftArmEntity
+				|| e instanceof ShaftHeadEntity || e instanceof ShaftCoreEntity) {
+			return false;
+		}
+		return e instanceof net.minecraft.entity.mob.MobEntity || e instanceof net.minecraft.entity.ExperienceOrbEntity;
+	}
+
+	/** {@code e} moved {@code dx} along the corridor (local x), as it was in every other way. */
+	public static void move(HomeBlockEntity h, net.minecraft.entity.Entity e, double dx) {
+		Vec3d d = HotelBuilder.world(BlockPos.ORIGIN, h.rot, dx, 0.0, 0.0);
+		Vec3d v = e.getVelocity();
+		e.refreshPositionAndAngles(e.getX() + d.x, e.getY(), e.getZ() + d.z, e.getYaw(), e.getPitch());
+		e.setVelocity(v);
+		if (e instanceof net.minecraft.entity.mob.MobEntity mob) {
+			// (Its path was through where it was: it finds the way again from where it is.)
+			mob.getNavigation().stop();
+		}
+	}
+
+	/**
+	 * A player is put back {@code dx}: what is about them (nearer where they were than where they come out, and nearer them than any other
+	 * player looping) is put back with them, so a mob or a pet that follows is still behind them and still coming the same way.
+	 */
+	private static void carry(ServerWorld world, HomeBlockEntity h, ServerPlayerEntity p, Vec3d lp, double dx, List<In> inside, Run r,
+			Set<net.minecraft.entity.Entity> carried) {
+		double to = lp.x + dx;
+		for (net.minecraft.entity.Entity e : corridorThings(world, h)) {
+			if (!walksWith(e) || carried.contains(e)) {
+				// (Carried with another player this tick already: once is all.)
+				continue;
+			}
+			Vec3d le = HotelBuilder.local(h.origin, h.rot, e.getPos());
+			double ex = le.x + dx;
+			if (ex < HotelPlan.CORR_X0 + 0.4 || ex > HotelPlan.CORR_X1 + 0.6 || Math.abs(le.x - lp.x) >= Math.abs(le.x - to)) {
+				continue;
+			}
+			boolean mine = true;
+			for (In o : inside) {
+				Vec3d ol = HotelBuilder.local(h.origin, h.rot, o.player().getPos());
+				if (o.player() != p && r.top.contains(o.player().getUuid()) && inLoopCorridor(ol) && ol.squaredDistanceTo(le) < lp.squaredDistanceTo(le)) {
+					mine = false;
+				}
+			}
+			if (mine) {
+				move(h, e, dx);
+				carried.add(e);
+			}
+		}
+	}
+
+	/**
+	 * Every tick of the loop: a dropped item that has left the window is put back into it (the client shows it where it was, a period on), so
+	 * walking to it always reaches it; a mob or a pet that has wandered near the corridor's real ends is put a period back, never to meet them.
+	 */
+	private static void keepInLoop(ServerWorld world, HomeBlockEntity h) {
+		for (net.minecraft.entity.Entity e : corridorThings(world, h)) {
+			double x = HotelBuilder.local(h.origin, h.rot, e.getPos()).x;
+			if (e instanceof ItemEntity) {
+				if (x >= HotelPlan.WINDOW_HI) {
+					move(h, e, -HotelPlan.PERIOD);
+				} else if (x < HotelPlan.WINDOW_LO) {
+					move(h, e, HotelPlan.PERIOD);
+				}
+			} else if (walksWith(e)) {
+				if (x > HotelPlan.CORR_X1 - 0.5) {
+					move(h, e, -HotelPlan.PERIOD);
+				} else if (x < HotelPlan.CORR_X0 + 1.5) {
+					move(h, e, HotelPlan.PERIOD);
+				}
+			}
+		}
+	}
+
+	/** The doors of the loop floor's corridor (its rooms and its stair door). */
+	private static List<HotelPlan.Door> topDoors() {
+		List<HotelPlan.Door> out = new ArrayList<>();
+		int y = HotelPlan.floorY(HotelPlan.FLOORS - 1) + 1;
+		for (HotelPlan.Door d : HotelPlan.get().doors) {
+			if (d.y() == y && (d.kind() == HotelPlan.DoorKind.ROOM || d.kind() == HotelPlan.DoorKind.STAIR)) {
+				out.add(d);
+			}
+		}
+		return out;
+	}
+
+	private static boolean playerNear(List<In> inside, double x, double z, double within) {
+		for (In in : inside) {
+			Vec3d lp = in.local();
+			if (lp.y > 27.0 && lp.y < 33.0 && Math.abs(lp.x - x) < within && Math.abs(lp.z - z) < within) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * The loop floor's doors shut themselves when nobody is at them (the stair door behind you as you walk on): a door left open would be the
+	 * one thing in the corridor that does not repeat.
+	 */
+	private static void shutTopDoors(ServerWorld world, HomeBlockEntity h, List<In> inside) {
+		for (HotelPlan.Door d : topDoors()) {
+			BlockPos at = HotelBuilder.world(h.origin, h.rot, d.x(), d.y(), d.z());
+			BlockState s = world.getBlockState(at);
+			if (s.getBlock() instanceof DoorBlock door && s.get(DoorBlock.OPEN) && !playerNear(inside, d.x() + 0.5, d.z() + 0.5, 2.6)) {
+				door.setOpen(null, world, s, at, false);
+			}
+		}
+	}
+
+	/** A player put back {@code dx}: each door round where they come out is opened or shut as its copy round where they were is. */
+	private static void doorsAlong(ServerWorld world, HomeBlockEntity h, Vec3d lp, double dx, List<In> inside, ServerPlayerEntity p) {
+		for (HotelPlan.Door d : topDoors()) {
+			if (Math.abs(d.x() + 0.5 - lp.x) > FOG_END + 1.0) {
+				continue;
+			}
+			int tx = (int) Math.round(d.x() + dx);
+			BlockPos from = HotelBuilder.world(h.origin, h.rot, d.x(), d.y(), d.z());
+			BlockPos to = HotelBuilder.world(h.origin, h.rot, tx, d.y(), d.z());
+			BlockState a = world.getBlockState(from);
+			BlockState b = world.getBlockState(to);
+			if (!(a.getBlock() instanceof DoorBlock) || !(b.getBlock() instanceof DoorBlock) || a.get(DoorBlock.OPEN) == b.get(DoorBlock.OPEN)) {
+				continue;
+			}
+			boolean busy = false;
+			for (In in : inside) {
+				busy |= in.player() != p && Math.abs(in.local().x - (tx + 0.5)) < 3.0 && Math.abs(in.local().y - d.y()) < 3.0;
+			}
+			if (!busy) {
+				for (int k = 0; k < 2; k++) {
+					BlockPos at = to.up(k);
+					BlockState s = world.getBlockState(at);
+					if (s.getBlock() instanceof DoorBlock) {
+						world.setBlockState(at, s.with(DoorBlock.OPEN, a.get(DoorBlock.OPEN)), Block.NOTIFY_LISTENERS);
+					}
+				}
+			}
+		}
+	}
+
 	static void fog(ServerWorld world, UUID id, float end) {
 		ServerPlayerEntity p = world.getServer().getPlayerManager().getPlayer(id);
 		if (p != null && ServerPlayNetworking.canSend(p, HotelPayloads.Fog.ID)) {
-			ServerPlayNetworking.send(p, new HotelPayloads.Fog(end));
+			ServerPlayNetworking.send(p, new HotelPayloads.Fog(end, BlockPos.ORIGIN, 0));
+		}
+	}
+
+	/** The loop's fog on, with where the hotel stands (the client draws the corridor's things where it repeats them). */
+	static void fog(ServerWorld world, HomeBlockEntity h, UUID id, float end) {
+		ServerPlayerEntity p = world.getServer().getPlayerManager().getPlayer(id);
+		if (p != null && ServerPlayNetworking.canSend(p, HotelPayloads.Fog.ID)) {
+			ServerPlayNetworking.send(p, new HotelPayloads.Fog(end, h.origin, h.rot));
 		}
 	}
 

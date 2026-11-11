@@ -1,4 +1,122 @@
 {
+  "leech.hum": {
+    "subtitle": "subtitles.chainsawman.leech.hum",
+    "sounds": [
+      {
+        "name": "chainsawman:leech_hum1"
+      },
+      {
+        "name": "chainsawman:leech_hum2"
+      },
+      {
+        "name": "chainsawman:leech_hum3"
+      }
+    ]
+  },
+  "leech.tell": {
+    "subtitle": "subtitles.chainsawman.leech.tell",
+    "sounds": [
+      {
+        "name": "chainsawman:leech_tell"
+      }
+    ]
+  },
+  "leech.tongue": {
+    "subtitle": "subtitles.chainsawman.leech.tongue",
+    "sounds": [
+      {
+        "name": "chainsawman:leech_tongue"
+      }
+    ]
+  },
+  "leech.smack": {
+    "subtitle": "subtitles.chainsawman.leech.smack",
+    "sounds": [
+      {
+        "name": "chainsawman:leech_smack"
+      }
+    ]
+  },
+  "leech.whip": {
+    "subtitle": "subtitles.chainsawman.leech.whip",
+    "sounds": [
+      {
+        "name": "chainsawman:leech_whip"
+      }
+    ]
+  },
+  "leech.suck": {
+    "subtitle": "subtitles.chainsawman.leech.suck",
+    "sounds": [
+      {
+        "name": "chainsawman:leech_suck"
+      }
+    ]
+  },
+  "leech.tear": {
+    "subtitle": "subtitles.chainsawman.leech.tear",
+    "sounds": [
+      {
+        "name": "chainsawman:leech_tear"
+      }
+    ]
+  },
+  "leech.shriek": {
+    "subtitle": "subtitles.chainsawman.leech.shriek",
+    "sounds": [
+      {
+        "name": "chainsawman:leech_shriek"
+      }
+    ]
+  },
+  "leech.paw": {
+    "subtitle": "subtitles.chainsawman.leech.paw",
+    "sounds": [
+      {
+        "name": "chainsawman:leech_paw"
+      }
+    ]
+  },
+  "leech.trample": {
+    "subtitle": "subtitles.chainsawman.leech.trample",
+    "sounds": [
+      {
+        "name": "chainsawman:leech_trample"
+      }
+    ]
+  },
+  "leech.skid": {
+    "subtitle": "subtitles.chainsawman.leech.skid",
+    "sounds": [
+      {
+        "name": "chainsawman:leech_skid"
+      }
+    ]
+  },
+  "leech.step": {
+    "subtitle": "subtitles.chainsawman.leech.step",
+    "sounds": [
+      {
+        "name": "chainsawman:leech_step"
+      }
+    ]
+  },
+  "leech.death": {
+    "subtitle": "subtitles.chainsawman.leech.death",
+    "sounds": [
+      {
+        "name": "chainsawman:leech_death"
+      }
+    ]
+  },
+  "leech.taste": {
+    "subtitle": "subtitles.chainsawman.leech.taste",
+    "sounds": [
+      {
+        "name": "chainsawman:leech_taste"
+      }
+    ]
+  },
   "form.cord": {
     "subtitle": "subtitles.chainsawman.form.cord",
     "sounds": [
@@ -620,6 +738,46 @@
     "sounds": [
       {
         "name": "chainsawman:pochita_chew"
+      }
+    ]
+  },
+  "safety.paper": {
+    "subtitle": "subtitles.chainsawman.safety.paper",
+    "sounds": [
+      {
+        "name": "chainsawman:safety_paper"
+      }
+    ]
+  },
+  "safety.ring": {
+    "subtitle": "subtitles.chainsawman.safety.ring",
+    "sounds": [
+      {
+        "name": "chainsawman:safety_ring"
+      }
+    ]
+  },
+  "safety.cash": {
+    "subtitle": "subtitles.chainsawman.safety.cash",
+    "sounds": [
+      {
+        "name": "chainsawman:safety_cash"
+      }
+    ]
+  },
+  "safety.tick": {
+    "subtitle": "subtitles.chainsawman.safety.tick",
+    "sounds": [
+      {
+        "name": "chainsawman:safety_tick"
+      }
+    ]
+  },
+  "safety.dial": {
+    "subtitle": "subtitles.chainsawman.safety.dial",
+    "sounds": [
+      {
+        "name": "chainsawman:safety_dial"
       }
     ]
   }

@@ -446,48 +446,80 @@ public final class HotelPlan {
 
 	// ---- The stairs.
 
+	/**
+	 * The stairwell, front room 2 (x 13-17, z 1-3), the same on every floor: a U of two half flights a storey. From the landing at x 13 (the
+	 * door's side) two steps go up east in the lane by the corridor wall (z 3) to a half landing across the far end (x 16-17, two blocks up),
+	 * and two steps come back west in the lane by the front wall (z 1) to the next floor's landing. The slab above is open over all of it but
+	 * the landing strip, so there are two free blocks over every step and over the step after it (a player's head comes up over the step it
+	 * is leaving), and a rail of iron bars between the two lanes (z 2, x 14-15) from the bottom to the top keeps a walker in a lane and closes
+	 * the gap between them (else a hole down the whole stairwell). It was a single flight of four a storey in one-wide lanes under a slab
+	 * opened over only two of its steps: the head hit the slab at the second step, and the stairs could not be climbed without breaking it.
+	 */
 	private void stairs() {
 		int x0 = SHAFT_X0;
-		int x1 = SHAFT_X1;
+		BlockState up = b(Blocks.STONE_BRICK_STAIRS).with(StairsBlock.FACING, Direction.EAST);
+		BlockState back = b(Blocks.STONE_BRICK_STAIRS).with(StairsBlock.FACING, Direction.WEST);
+		BlockState landing = b(Blocks.STONE_BRICKS);
+		BlockState rail = b(Blocks.IRON_BARS);
 		for (int i = 0; i < FLOORS; i++) {
 			int y0 = floorY(i);
-			// The shaft's own floor is a plain concrete, and its walls the same as the rest.
-			for (int x = x0; x <= x1; x++) {
+			// The well's own floor is bare.
+			for (int x = x0; x <= SHAFT_X1; x++) {
 				for (int z = 1; z <= 3; z++) {
 					set(x, y0 + 1, z, null);
 				}
 			}
 			// The door in the corridor wall at the west end.
 			door(x0, y0 + 1, 4, Direction.NORTH, DoorKind.STAIR, Blocks.BIRCH_DOOR);
-			// The way up (even floors east in the lane at the door's side, odd floors west in the far lane).
 			if (i < FLOORS - 1) {
-				boolean east = i % 2 == 0;
-				int lane = east ? 3 : 1;
-				for (int k = 0; k < 4; k++) {
-					int x = east ? x0 + 1 + k : x1 - 1 - k;
-					int y = y0 + 1 + k;
-					set(x, y, lane, b(Blocks.STONE_BRICK_STAIRS).with(StairsBlock.FACING, east ? Direction.EAST : Direction.WEST));
-				}
-				// The hole in the slab above, over the three upper steps.
 				int ny = y0 + 4;
-				for (int k = 1; k <= 3; k++) {
-					int x = east ? x0 + 1 + k : x1 - 1 - k;
-					if (k < 3) {
-						set(x, ny, lane, null);
+				// Open the slab above over the flights and the half landing (the landing strip x 13 and the top step stay).
+				for (int x = x0 + 1; x <= SHAFT_X1; x++) {
+					for (int z = 1; z <= 3; z++) {
+						set(x, ny, z, null);
 					}
 				}
-				// (the top step stands where the slab was)
-				if (east) {
-					set(x0 + 4, ny, lane, b(Blocks.STONE_BRICK_STAIRS).with(StairsBlock.FACING, Direction.EAST));
-				} else {
-					set(x1 - 4, ny, lane, b(Blocks.STONE_BRICK_STAIRS).with(StairsBlock.FACING, Direction.WEST));
+				// Up east by the corridor wall, the half landing, back west by the front wall; the last step is in the slab, level with the floor above.
+				set(x0 + 1, y0 + 1, 3, up);
+				set(x0 + 2, y0 + 2, 3, up);
+				for (int x = x0 + 3; x <= SHAFT_X1; x++) {
+					for (int z = 1; z <= 3; z++) {
+						set(x, y0 + 2, z, landing);
+					}
 				}
+				set(x0 + 2, y0 + 3, 1, back);
+				set(x0 + 1, ny, 1, back);
+			}
+			// The rail between the lanes, all the way up (on the loop's floor round the top of the well).
+			for (int y = y0 + 1; y <= y0 + (i < FLOORS - 1 ? 4 : 3); y++) {
+				set(x0 + 1, y, 2, rail);
+				set(x0 + 2, y, 2, rail);
 			}
 			// The floor sign beside the door, the exit over it (the loop's floor reads 8, as its copies do).
 			signs.add(new Sign(x0 + 1, y0 + 2, 5, Direction.SOUTH, new String[] {"", (i + 1) + "F", "", ""}));
 			set(x0, y0 + 3, 4, b(Blocks.LIME_CONCRETE));
-			// A lamp's worth of light in the shaft by night.
-			lights.add(new Glass(15, y0 + 3, 2, 1000 + i));
+			// A lamp's worth of light in the well by night, over the landing strip.
+			lights.add(new Glass(x0, y0 + 3, 2, 1000 + i));
+		}
+		// The rails join each other and the half landings, as the game would join them.
+		for (int y = 0; y < SY; y++) {
+			for (int x = x0 + 1; x <= x0 + 2; x++) {
+				BlockState s = at(x, y, 2);
+				if (s.isOf(Blocks.IRON_BARS)) {
+					for (Direction d : Direction.Type.HORIZONTAL) {
+						BlockState n = at(x + d.getOffsetX(), y, 2 + d.getOffsetZ());
+						boolean joins = ((net.minecraft.block.PaneBlock) Blocks.IRON_BARS).connectsTo(n,
+								n.isSideSolidFullSquare(net.minecraft.world.EmptyBlockView.INSTANCE, net.minecraft.util.math.BlockPos.ORIGIN, d.getOpposite()));
+						s = s.with(switch (d) {
+							case NORTH -> net.minecraft.block.HorizontalConnectingBlock.NORTH;
+							case SOUTH -> net.minecraft.block.HorizontalConnectingBlock.SOUTH;
+							case EAST -> net.minecraft.block.HorizontalConnectingBlock.EAST;
+							default -> net.minecraft.block.HorizontalConnectingBlock.WEST;
+						}, joins);
+					}
+					set(x, y, 2, s);
+				}
+			}
 		}
 		// The shaft is dark and bare: concrete on its inside walls.
 		for (int i = 0; i < FLOORS; i++) {

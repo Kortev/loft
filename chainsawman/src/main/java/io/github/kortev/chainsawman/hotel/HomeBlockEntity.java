@@ -32,6 +32,8 @@ public class HomeBlockEntity extends BlockEntity {
 	/** The shaft built for the fight (what was in its space, to put back), or null: kept the same way ({@link Shaft}). */
 	public NbtCompound shaft;
 	public final Hotel.Run run = new Hotel.Run();
+	/** Which stairwell the hotel was built with ({@link HotelBuilder#STAIRS}); an older one is rebuilt at its first tick with nobody in it (0: saved before this was kept). */
+	public int stairs = HotelBuilder.STAIRS;
 
 	public HomeBlockEntity(BlockPos pos, BlockState state) {
 		super(ChainsawMan.HOME_ENTITY, pos, state);
@@ -85,6 +87,7 @@ public class HomeBlockEntity extends BlockEntity {
 		if (shaft != null) {
 			nbt.put("Shaft", shaft);
 		}
+		nbt.putInt("Stairs", stairs);
 	}
 
 	@Override
@@ -98,5 +101,6 @@ public class HomeBlockEntity extends BlockEntity {
 		holder = nbt.containsUuid("Holder") ? nbt.getUuid("Holder") : null;
 		arena = nbt.contains("Arena") ? nbt.getCompound("Arena") : null;
 		shaft = nbt.contains("Shaft") ? nbt.getCompound("Shaft") : null;
+		stairs = nbt.contains("Stairs") ? nbt.getInt("Stairs") : 0;
 	}
 }

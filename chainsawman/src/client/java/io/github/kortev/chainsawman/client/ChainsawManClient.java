@@ -92,6 +92,9 @@ public final class ChainsawManClient implements ClientModInitializer {
 		EntityRendererRegistry.register(ChainsawMan.SQUAD_MEMBER, SquadRenderer::new);
 		EntityRendererRegistry.register(ChainsawMan.FOREVER_CUBE, ForeverCubeRenderer::new);
 		io.github.kortev.chainsawman.client.devil.DevilsClient.init();
+		// Public Safety: the licence key and card, the payday.
+		io.github.kortev.chainsawman.client.safety.SafetyClient.init();
+		io.github.kortev.chainsawman.client.devil.LeechClient.init();
 		WorldRenderEvents.LAST.register(context -> {
 			ClientForever.projection = new org.joml.Matrix4f(context.projectionMatrix());
 			ClientForever.view = new org.joml.Matrix4f(context.positionMatrix());
@@ -123,7 +126,11 @@ public final class ChainsawManClient implements ClientModInitializer {
 				FormMesh.reset();
 			}
 		});
-		ClientPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.HotelPayloads.Fog.ID, (payload, context) -> ClientHotel.fog(payload.end()));
+		ClientPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.HotelPayloads.Fog.ID, (payload, context) -> {
+			ClientHotel.fog(payload.end());
+			ClientLoop.set(payload.end(), payload.origin(), payload.rot());
+		});
+		WorldRenderEvents.AFTER_ENTITIES.register(ClientLoop::render);
 		ClientPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.HotelPayloads.Speech.ID, (payload, context) -> ClientHotel.speech(payload));
 		ClientPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.HotelPayloads.Offer.ID, (payload, context) -> ClientHotel.offer(payload.ticks(), payload.hybrid()));
 		ClientPlayNetworking.registerGlobalReceiver(io.github.kortev.chainsawman.network.ForeverCatchUpPayload.ID, (payload, context) -> ForeverHud.catchUp(payload.ticks()));
