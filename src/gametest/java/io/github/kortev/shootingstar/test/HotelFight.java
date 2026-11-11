@@ -76,6 +76,10 @@ final class HotelFight {
 	private static volatile String sCore = "";
 	private static volatile int sStage;
 	private static volatile java.util.UUID devilId;
+	private static volatile int sRound;
+	private static volatile int sTorn;
+	private static volatile long sWindowAt = -1;
+	private static volatile long sLaughAt = -1;
 
 	// The numbers.
 	private static long grownAt = -1;
@@ -101,9 +105,13 @@ final class HotelFight {
 	private static final Map<Integer, String> PLANS = new HashMap<>();
 	private static final Map<String, Integer> SEEN = new HashMap<>();
 	private static long lastSqueeze = -1;
+	private static long lastWindow = -1;
+	private static long lastLaugh = -1;
+	private static int windows;
+	private static int laughs;
 
 	static void snap(MinecraftServer server) {
-		if (!"played".equals(System.getProperty("shootingstar.selftest.target", "")) || origin == null || !(server instanceof IntegratedServer is)
+		if (!System.getProperty("shootingstar.selftest.target", "").startsWith("played") || origin == null || !(server instanceof IntegratedServer is)
 				|| is.getPlayerManager().getPlayerList().isEmpty()) {
 			return;
 		}
@@ -139,6 +147,10 @@ final class HotelFight {
 		sMended = sDead && h.shaft == null && h.arena == null;
 		ShaftCoreEntity core = d == null ? null : d.core();
 		sCore = core == null ? "none" : "at " + local(core.getPos()) + " cuttable " + core.cuttable();
+		sRound = h.run.shaft.round;
+		sTorn = h.run.shaft.torn;
+		sWindowAt = h.run.shaft.windowAt;
+		sLaughAt = h.run.shaft.laughAt;
 	}
 
 	private static Vec3d world(double x, double y, double z) {
@@ -220,10 +232,6 @@ final class HotelFight {
 				return true;
 			}
 		}
-		Vec3d me = local(c.player.getPos());
-		if (!Shaft.inArena(me)) {
-			return false;
-		}
 		return false;
 	}
 
@@ -282,59 +290,67 @@ final class HotelFight {
 		return new Threat(a, "grab", clampIn(safe), ShaftArmEntity.GRAB_TELL - a.age(0.0F), in);
 	}
 
-	/** One tick in the arena: dodge what is coming (or take it, as planned), punish what missed, and cut. */
+	/** Whether this take is the plain player with an iron sword (-Ptarget=played_sword), not Chainsaw Man. */
+	static boolean sword() {
+		return System.getProperty("shootingstar.selftest.target", "").equals("played_sword");
+	}
+
+	/** One tick in the arena: dodge what is coming (or take it, as planned), tear off what is stuck, cut the core in its window, and wait. */
 	private static void arena(MinecraftClient c, EternityDevilEntity d) {
 		Vec3d me = local(c.player.getPos());
 		long now = c.world.getTime();
-		// Held by a hand: cut the arm (its grip) until free.
+		double reach = sword() ? 2.9 : 3.2;
+		// Held by a hand: cut its grip until free.
 		for (Entity e : c.world.getEntities()) {
 			if (e instanceof ShaftArmEntity a && a.mode() == ShaftArmEntity.GRAB && a.holding() && a.getBoundingBox().expand(1.5).contains(c.player.getPos())) {
 				YOU.stop();
-				YOU.aim(c, a.getBoundingBox().getCenter().add(0.0, -0.3, 0.0));
+				YOU.aim(c, a.getBoundingBox().getCenter());
 				YOU.swing(c, 0.9F);
 				return;
 			}
 		}
-		// What is coming, and what to do about each (decided once, as it shows).
 		Threat soonest = null;
-		Entity stunned = null;
-		double stunnedD = Double.MAX_VALUE;
+		Entity stuck = null;
+		double stuckD = Double.MAX_VALUE;
+		Entity core = null;
 		for (Entity e : c.world.getEntities()) {
 			Threat th = null;
-			if (e instanceof ShaftArmEntity a && a.mode() == ShaftArmEntity.SLAM) {
+			if (e instanceof ShaftCoreEntity k && k.window() && k.canHit()) {
+				core = k;
+			} else if (e instanceof ShaftArmEntity a && a.mode() == ShaftArmEntity.SLAM) {
 				if (a.outcome() == ShaftArmEntity.PENDING) {
 					th = slamThreat(c, a, me);
-				} else if (a.stunned()) {
+				} else if (a.stuck()) {
 					double dd = reachTo(c, a.getBoundingBox());
-					if (dd < stunnedD) {
-						stunnedD = dd;
-						stunned = a;
+					if (dd < stuckD) {
+						stuckD = dd;
+						stuck = a;
 					}
 				}
 			} else if (e instanceof ShaftArmEntity a && a.mode() == ShaftArmEntity.GRAB) {
 				if (a.outcome() == ShaftArmEntity.PENDING) {
 					th = grabThreat(c, a, me);
-				} else if (a.stunned()) {
+				} else if (a.stuck()) {
 					double dd = reachTo(c, a.getBoundingBox());
-					if (dd < stunnedD) {
-						stunnedD = dd;
-						stunned = a;
+					if (dd < stuckD) {
+						stuckD = dd;
+						stuck = a;
 					}
 				}
 			} else if (e instanceof ShaftHeadEntity hd) {
 				if (hd.outcome() == ShaftHeadEntity.PENDING) {
 					th = headThreat(c, hd, me);
-				} else if (hd.stunned()) {
+				} else if (hd.stuck()) {
 					double dd = reachTo(c, hd.getBoundingBox());
-					if (dd < stunnedD) {
-						stunnedD = dd;
-						stunned = hd;
+					if (dd < stuckD) {
+						stuckD = dd;
+						stuck = hd;
 					}
 				}
 			}
 			if (th != null) {
 				String kind = th.kind();
-				String plan = PLANS.computeIfAbsent(e.getId(), k -> plan(kind));
+				String plan = PLANS.computeIfAbsent(e.getId(), k2 -> plan(kind));
 				if ("take".equals(plan)) {
 					continue;
 				}
@@ -343,16 +359,15 @@ final class HotelFight {
 				}
 			}
 		}
-		// The squeeze (told by its event): out of its half.
 		for (ClientHotel.Event e : ClientHotel.events(d.getId())) {
 			if (e.kind() == HotelPayloads.Devil.SQUEEZE && now - e.start() < Shaft.SQUEEZE_TELL + 2) {
 				if (e.start() != lastSqueeze) {
 					lastSqueeze = e.start();
-					String plan = plan("squeeze");
-					ShootingStar.LOGGER.info("[played] squeeze ({}) at {}", plan, t(sNow));
+					ShootingStar.LOGGER.info("[played] squeeze ({}) at {}", plan("squeeze"), t(sNow));
 				}
-				boolean in = Shaft.inSqueeze(ClientHotel.squeezeHalf(e), me) || Math.abs(me.x - (ClientHotel.squeezeHalf(e) == 0 ? Shaft.AX0 + Shaft.SQUEEZE_REACH : Shaft.AX1 + 1 - Shaft.SQUEEZE_REACH)) < 1.2;
-				double sx = ClientHotel.squeezeHalf(e) == 0 ? Shaft.AX0 + Shaft.SQUEEZE_REACH + 2.4 : Shaft.AX1 + 1 - Shaft.SQUEEZE_REACH - 2.4;
+				int half = ClientHotel.squeezeHalf(e);
+				boolean in = Shaft.inSqueeze(half, me) || Math.abs(me.x - (half == 0 ? Shaft.AX0 + Shaft.SQUEEZE_REACH : Shaft.AX1 + 1 - Shaft.SQUEEZE_REACH)) < 1.2;
+				double sx = half == 0 ? Shaft.AX0 + Shaft.SQUEEZE_REACH + 2.4 : Shaft.AX1 + 1 - Shaft.SQUEEZE_REACH - 2.4;
 				Threat th = new Threat(null, "squeeze", new Vec3d(sx, me.y, me.z), Shaft.SQUEEZE_TELL - (now - e.start()), in);
 				if (in && (soonest == null || !soonest.danger() || th.soon() < soonest.soon())) {
 					soonest = th;
@@ -360,18 +375,15 @@ final class HotelFight {
 			}
 		}
 		if (soonest != null && soonest.danger()) {
-			// Out of it: moving there, watching what comes (and cutting what is in reach on the way).
 			boolean safe = YOU.strafeTo(c, world(soonest.safe().x, me.y, soonest.safe().z), 0.25, true);
 			if (soonest.source() != null) {
 				Vec3d look = soonest.source() instanceof ShaftHeadEntity hd ? hd.headAt(hd.age(0.0F)) : soonest.source() instanceof ShaftArmEntity a && a.mode() == ShaftArmEntity.GRAB
 						? a.handAt(a.age(0.0F)) : soonest.source().getPos().add(((ShaftArmEntity) soonest.source()).dir().multiply(3.0)).add(0.0, 0.6, 0.0);
 				YOU.aim(c, look);
 			} else {
-				// (The squeeze: watching the half that bulges, its line lit on the floor.)
 				YOU.aim(c, world(soonest.safe().x < Shaft.MID_X ? Shaft.AX1 - 1.0 : Shaft.AX0 + 2.0, Shaft.FLOOR + 1.0, Shaft.MID_Z));
 			}
 			if (soonest.source() instanceof ShaftArmEntity a && a.mode() == ShaftArmEntity.GRAB && a.age(0.0F) >= ShaftArmEntity.GRAB_TELL - 1) {
-				// The hand sweeping in low: jump it as it comes.
 				Vec3d in = a.dir();
 				Vec3d left = new Vec3d(in.z, 0.0, -in.x);
 				Vec3d rel = c.player.getPos().subtract(a.getPos());
@@ -384,48 +396,36 @@ final class HotelFight {
 			if (!safe && sub % 20 == 0) {
 				ShootingStar.LOGGER.info("[played] dodging a {} at {}", soonest.kind(), t(sNow));
 			}
-			if (somethingInReach(c)) {
-				YOU.swing(c, 0.9F);
-			}
 			return;
 		}
-		// Something lies stunned after a miss: in on it and cut it.
-		if (stunned != null) {
-			Vec3d at = nearest(c, stunned.getBoundingBox());
+		// The core out of its wall: in on it and cut.
+		Entity target = core != null ? core : stuck;
+		if (target != null) {
+			Vec3d at = target == core ? target.getBoundingBox().getCenter() : nearest(c, target.getBoundingBox());
+			double dd = reachTo(c, target.getBoundingBox());
 			Vec3d l = local(at);
-			if (stunnedD > 3.1) {
-				YOU.aim(c, at);
-				YOU.strafeTo(c, world(l.x, me.y, l.z), 2.6, true);
+			YOU.aim(c, at.add(0.0, -0.05, 0.0));
+			if (dd > reach - 0.4) {
+				YOU.strafeTo(c, world(l.x, me.y, l.z), reach - 0.6, true);
 			} else {
 				YOU.stop();
-				YOU.aim(c, at.add(0.0, -0.1, 0.0));
 			}
-			if (stunnedD < 3.6) {
+			if (dd < reach) {
 				YOU.swing(c, 0.9F);
-				if (PLANS.putIfAbsent(-stunned.getId(), "punished") == null) {
+				if (PLANS.putIfAbsent(-target.getId(), "punished") == null) {
 					punishes++;
-					ShootingStar.LOGGER.info("[played] punishing a miss at {}", t(sNow));
+					ShootingStar.LOGGER.info("[played] cutting {} at {}", target == core ? "the core" : "a stuck limb", t(sNow));
 				}
 			}
 			return;
 		}
-		// Nothing coming: cut its flesh. Close to the nearest wall, at a slant along it (so the room is in sight), the saws in it.
-		double[] w = nearestWall(me);
-		Vec3d n = new Vec3d(w[1], 0.0, w[2]);
-		Vec3d along = new Vec3d(-n.z, 0.0, n.x);
-		double sweep = Math.sin(now * 0.045) >= 0 ? 1.0 : -1.0;
-		Vec3d onWall = me.subtract(n.multiply(w[0])).add(along.multiply(2.6 * sweep));
-		Vec3d target = world(onWall.x, Shaft.FLOOR + 1.0 + 0.5 * Math.sin(now * 0.11), onWall.z);
-		YOU.aim(c, target);
-		if (w[0] > 2.4) {
-			YOU.strafeTo(c, world(me.x - n.x * (w[0] - 2.0), me.y, me.z - n.z * (w[0] - 2.0)), 0.3, false);
-		} else if (w[0] < 1.4) {
-			YOU.strafeTo(c, world(me.x + n.x * (2.0 - w[0]), me.y, me.z + n.z * (2.0 - w[0])), 0.3, false);
+		// Nothing coming: back toward the middle, a little off it, watching the room (far enough back that nothing fills the view).
+		Vec3d wait = new Vec3d(Shaft.MID_X + 3.0 * Math.sin(now * 0.01), me.y, Shaft.MID_Z + 0.8);
+		YOU.aim(c, world(Shaft.MID_X - 6.0 * Math.cos(now * 0.012), Shaft.FLOOR + 1.6, Shaft.MID_Z + 3.0 * Math.sin(now * 0.017)));
+		if (Math.hypot(me.x - wait.x, me.z - wait.z) > 1.5) {
+			YOU.strafeTo(c, world(wait.x, me.y, wait.z), 1.0, false);
 		} else {
 			YOU.stop();
-		}
-		if (somethingInReach(c)) {
-			YOU.swing(c, 0.9F);
 		}
 	}
 
@@ -445,6 +445,16 @@ final class HotelFight {
 
 	/** One tick of the numbers in the arena. */
 	private static void count(MinecraftClient c) {
+		if (sWindowAt >= 0 && sWindowAt != lastWindow) {
+			lastWindow = sWindowAt;
+			windows++;
+			ShootingStar.LOGGER.info("[played] the core's window {} opens at {} (round {}, torn {})", windows, t(sNow), sRound, sTorn);
+		}
+		if (sLaughAt >= 0 && sLaughAt != lastLaugh) {
+			lastLaugh = sLaughAt;
+			laughs++;
+			ShootingStar.LOGGER.info("[played] it laughs (a limb grows back, or a window let go by) at {} (round {}, torn {})", t(sNow), sRound, sTorn);
+		}
 		boolean reach = somethingInReach(c);
 		arenaTicks++;
 		if (reach) {
@@ -490,7 +500,7 @@ final class HotelFight {
 		c.options.getFov().setValue(70);
 		c.options.getCloudRenderMode().setValue(net.minecraft.client.option.CloudRenderMode.OFF);
 		Capture.camera = null;
-		if (f > (film ? 4000 : 12000)) {
+		if (f > 16000) {
 			ShootingStar.LOGGER.error("[played] stuck in step {} (core {})", step, sCore);
 			report();
 			return true;
@@ -520,10 +530,16 @@ final class HotelFight {
 						}
 						h.run.shaftOn = true;
 						ServerPlayerEntity you = you(s);
-						Heart.give(you);
-						Blood.set(you, Blood.MAX);
-						if (!Form.on(you)) {
-							Form.start(you);
+						if (sword()) {
+							Heart.take(you);
+							you.getInventory().setStack(you.getInventory().selectedSlot, new net.minecraft.item.ItemStack(net.minecraft.item.Items.IRON_SWORD));
+							you.setHealth(you.getMaxHealth());
+						} else {
+							Heart.give(you);
+							Blood.set(you, Blood.MAX);
+							if (!Form.on(you)) {
+								Form.start(you);
+							}
 						}
 						for (io.github.kortev.chainsawman.hotel.SquadMemberEntity m : io.github.kortev.chainsawman.hotel.Squad.members(w, h)) {
 							m.discard();
@@ -547,9 +563,12 @@ final class HotelFight {
 			}
 			case 2 -> {
 				// Run up to it and cut: in the film, the take starts a moment before the floor turns.
-				if (!capturing && film && (sPain >= 0.33F || sub > 400)) {
-					capturing = true;
-					Capture.start(c, c.runDirectory.toPath().resolve("capture"));
+				if (sword() && sub == 40) {
+					s.execute(() -> {
+						HomeBlockEntity h = home(s);
+						h.run.shaft.fear = 1.0F;
+						h.run.fightAt -= Shaft.TILT_MIN;
+					});
 				}
 				Vec3d me = local(c.player.getPos());
 				if (!cutCorridor(c, d)) {
@@ -572,6 +591,10 @@ final class HotelFight {
 				}
 				if (sBuilt) {
 					shaftAt = sNow;
+					if (!capturing && film) {
+						capturing = true;
+						Capture.start(c, c.runDirectory.toPath().resolve("capture"));
+					}
 					next();
 				}
 			}
@@ -592,16 +615,6 @@ final class HotelFight {
 				}
 				if (Shaft.inArena(me) && c.player.isOnGround()) {
 					landAt = sNow;
-					if (film) {
-						s.execute(() -> {
-							EternityDevilEntity dv = h(s);
-							if (dv != null) {
-								float line = dv.getMaxHealth() * (1.0F - EternityDevilEntity.BEG_AT);
-								dv.addPain(line * FILM_FROM - (dv.getMaxHealth() - dv.getHealth()), EternityDevilEntity.P_CORRIDOR);
-							}
-							EternityDevilEntity.painPace = FILM_PACE;
-						});
-					}
 					FleshMesh.costReport();
 					next();
 				}
@@ -721,7 +734,8 @@ final class HotelFight {
 				t(stage2At), t(begAt), t(coreCutAt));
 		ShootingStar.LOGGER.info("[played] REPORT in the arena from landing to the beg: {} ticks ({} s); something to cut within reach {}%; longest stretch with nothing to cut {} ticks ({} s) ending at {}",
 				arenaTicks, arenaTicks / 20.0, arenaTicks == 0 ? 0 : 100 * arenaReach / arenaTicks, longestIdle, longestIdle / 20.0, t(longestIdleEnd));
-		ShootingStar.LOGGER.info("[played] REPORT attacks seen {}; dodges planned {}; hits taken {}; misses punished {}; pain by source: {}; swings sent {}", SEEN, dodges,
-				hitsTaken, punishes, sPainBy, YOU.swings);
+		ShootingStar.LOGGER.info("[played] REPORT ({}) attacks seen {}; dodges planned {}; hits taken {}; limbs and cores cut at {}; windows {}; laughs {}; swings sent {}; arena landing to beg {} s; fall to core cut {} s",
+				sword() ? "iron sword" : "saws", SEEN, dodges, hitsTaken, punishes, windows, laughs, YOU.swings, landAt < 0 || begAt < 0 ? -1 : (begAt - landAt) / 20.0,
+				shaftAt < 0 || coreCutAt < 0 ? -1 : (coreCutAt - shaftAt) / 20.0);
 	}
 }

@@ -39,6 +39,8 @@ public class ShaftCoreEntity extends Entity {
 	private static final TrackedData<Integer> BACK_AT = DataTracker.registerData(ShaftCoreEntity.class, TrackedDataHandlerRegistry.INTEGER);
 	/** Window: the one who cut it last (its eyes look at them). */
 	private static final TrackedData<Integer> CUTTER = DataTracker.registerData(ShaftCoreEntity.class, TrackedDataHandlerRegistry.INTEGER);
+	/** Window: the tick it was last cut (it flushes). */
+	private static final TrackedData<Integer> HIT_AT = DataTracker.registerData(ShaftCoreEntity.class, TrackedDataHandlerRegistry.INTEGER);
 	/** Window: the hotel it is in. */
 	public net.minecraft.util.math.BlockPos origin = net.minecraft.util.math.BlockPos.ORIGIN;
 
@@ -61,6 +63,7 @@ public class ShaftCoreEntity extends Entity {
 		builder.add(WINDOW, false);
 		builder.add(BACK_AT, -1);
 		builder.add(CUTTER, -1);
+		builder.add(HIT_AT, -1000);
 	}
 
 	/** Whether the deal is off and it can be cut. */
@@ -107,6 +110,11 @@ public class ShaftCoreEntity extends Entity {
 		}
 	}
 
+	/** Ticks since it was last cut (window). */
+	public long hurtTime() {
+		return this.getWorld().getTime() - this.dataTracker.get(HIT_AT);
+	}
+
 	/** Window: the entity id of whoever cut it last (-1 nobody). */
 	public int cutter() {
 		return this.dataTracker.get(CUTTER);
@@ -147,6 +155,7 @@ public class ShaftCoreEntity extends Entity {
 			if (source.getAttacker() != null) {
 				this.dataTracker.set(CUTTER, source.getAttacker().getId());
 			}
+			this.dataTracker.set(HIT_AT, (int) world.getTime());
 			return Shaft.coreHit(world, this, source, amount);
 		}
 		if (!cuttable()) {

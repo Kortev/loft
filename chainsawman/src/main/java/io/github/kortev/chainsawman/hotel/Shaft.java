@@ -134,6 +134,8 @@ public final class Shaft {
 	/** Rest after an attack resolves (ticks) in each round; from the second round attacks come in pairs (the second this soon after the first resolves). */
 	public static final int[] REST = {26, 22, 14};
 	public static final int PAIR_GAP = 6;
+	/** While a limb lies stuck and nothing else is coming, nothing new starts for this long: the time to tear it off. */
+	public static final int STUCK_REST = 26;
 	private static final int START_GAP = 10;
 	/** Creeping flesh: ticks between patches (plus a random part). Not in the arena any more (every attack there is a limb). */
 	public static final int PATCH_GAP = 170;
@@ -237,6 +239,8 @@ public final class Shaft {
 		public long wallAt = -1;
 		/** Second rounds on: the second of a pair still to come. */
 		public int pairLeft;
+		/** Since when a limb has lain stuck with nothing else coming. */
+		public long stuckSince;
 		/** When each player was last hit. */
 		public final Map<UUID, Long> hitAt = new HashMap<>();
 		/** The stumps of torn limbs, in the walls and floor. */
@@ -1266,6 +1270,15 @@ public final class Shaft {
 			}
 		}
 		st.lastActive = active;
+		if (active == 0 && stuckOut(world, box)) {
+			// A limb lies stuck: time to tear it off before anything new starts (a pair waits too).
+			st.nextAttack = Math.max(st.nextAttack, now + 1);
+			if (now - st.stuckSince < STUCK_REST) {
+				return;
+			}
+		} else {
+			st.stuckSince = now;
+		}
 		int max = Math.min(4, arena.size());
 		if (arena.isEmpty() || now < st.nextAttack || active >= max || st.wallAt >= 0) {
 			return;
@@ -1297,6 +1310,12 @@ public final class Shaft {
 				return;
 			}
 		}
+	}
+
+	/** Whether any limb lies stuck now (it can be torn off). */
+	private static boolean stuckOut(ServerWorld world, Box box) {
+		return !world.getEntitiesByType(ChainsawMan.SHAFT_ARM, box, ShaftArmEntity::stuck).isEmpty()
+				|| !world.getEntitiesByType(ChainsawMan.SHAFT_HEAD, box, ShaftHeadEntity::stuck).isEmpty();
 	}
 
 	/** Whether {@code p} is held by a hand now. */

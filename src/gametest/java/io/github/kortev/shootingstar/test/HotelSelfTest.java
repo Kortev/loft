@@ -173,7 +173,7 @@ public class HotelSelfTest implements ClientModInitializer {
 			case RUN -> {
 				client.getToastManager().clear();
 				client.options.hudHidden = false;
-				if ("played".equals(target())) {
+				if (target().startsWith("played")) {
 					// (The played fight drives its own head and keys: see HotelFight and Fighter.)
 					if (HotelFight.tick(client, server, ticks, origin)) {
 						stage = Stage.DONE;
