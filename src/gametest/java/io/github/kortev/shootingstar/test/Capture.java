@@ -98,6 +98,11 @@ public final class Capture {
 		slowFrames = frames;
 	}
 
+	/** How many frames have been recorded so far (the cinematic's marks). */
+	public static long frames() {
+		return frames;
+	}
+
 	/** Capture time of the frame being drawn, in ticks. */
 	public static double time() {
 		return clock;
