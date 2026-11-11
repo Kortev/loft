@@ -47,6 +47,13 @@ public abstract class FormCameraMixin {
 				setRotation(camera.getYaw(), camera.getPitch() + io.github.kortev.chainsawman.client.BeamClient.eyeDown);
 			}
 		}
+		if (shot == null && !this.thirdPerson) {
+			// Your own cut: the view nudged the way it went (a degree or so), and back.
+			float[] kick = io.github.kortev.chainsawman.client.SwingFx.kick(tickDelta);
+			if (kick[0] != 0.0F || kick[1] != 0.0F) {
+				setRotation(camera.getYaw() + kick[0], camera.getPitch() + kick[1]);
+			}
+		}
 		double shake = FormCinematic.shake(tickDelta);
 		if (shake > 0.001) {
 			double t = (focusedEntity != null ? focusedEntity.age : 0) + tickDelta;

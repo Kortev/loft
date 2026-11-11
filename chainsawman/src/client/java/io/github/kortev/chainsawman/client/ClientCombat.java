@@ -178,11 +178,16 @@ public final class ClientCombat {
 					// The server's word on a slash already swinging here: only its step, if it says another.
 					if (event.value() != predicted.step()) {
 						SWINGS.put(id, new Swing(event.value(), predicted.at()));
+						SwingFx.corrected(client.player, event.value());
 					}
 					lastStep = event.value();
 					predicted = null;
 				} else {
 					SWINGS.put(id, new Swing(event.value(), now));
+					PlayerEntity swinger = world.getPlayerByUuid(id);
+					if (swinger != null && event.value() <= 2) {
+						SwingFx.swung(world, swinger, event.value(), now, client.player != null && id.equals(client.player.getUuid()));
+					}
 				}
 			}
 			case FormEventPayload.IMPACT -> {
@@ -422,6 +427,25 @@ public final class ClientCombat {
 		return age >= 0.0F && age < SWING ? age : -1.0F;
 	}
 
+	/**
+	 * How many ticks into its last slash {@code player} is (as {@link #swingAge}, held on a hit), on past its end for as long as the arms take
+	 * to come back after it ({@link SawPose#RECOVER}); otherwise -1.
+	 */
+	public static float sinceSwing(PlayerEntity player, float tickDelta) {
+		Swing swing = SWINGS.get(player.getUuid());
+		if (swing == null) {
+			return -1.0F;
+		}
+		long now = player.getWorld().getTime();
+		Pause pause = PAUSED.get(player.getUuid());
+		if (pause != null && now < pause.until()) {
+			return pause.age();
+		}
+		float paused = pause != null && pause.until() > swing.at() ? pause.length() : 0.0F;
+		float age = now - swing.at() + tickDelta - paused;
+		return age >= 0.0F && age < SWING + SawPose.RECOVER ? age : -1.0F;
+	}
+
 	public static boolean grinding(PlayerEntity player) {
 		return GRINDING.contains(player.getUuid());
 	}
@@ -638,24 +662,14 @@ public final class ClientCombat {
 			ClientPlayNetworking.send(new FormActionPayload(FormActionPayload.SLASH, true, aim != null ? aim.getId() : -1));
 		}
 		// The step the server will make it (Saw.slash).
-		int step = lastStep < 0 || now - lastStepAt > Saw.COMBO_GAP ? 0 : (lastStep + 1) % 3;
-		boolean right = Limbs.has(self, Limbs.RIGHT);
-		boolean left = Limbs.has(self, Limbs.LEFT);
-		if (!right && !left) {
-			step = 2;
-		} else if (step == 0 && !right) {
-			step = 1;
-		} else if (step == 1 && !left) {
-			step = 0;
-		}
-		if (wielding && step == 1) {
-			step = 0;
-		}
+		int step = io.github.kortev.chainsawman.form.SwingRhythm.step(lastStep < 0 || io.github.kortev.chainsawman.form.SwingRhythm.fresh(lastStepAt, now),
+				lastStep, Limbs.has(self, Limbs.RIGHT), Limbs.has(self, Limbs.LEFT), wielding);
 		lastStep = step;
 		lastStepAt = now;
 		predicted = new Swing(step, now);
 		SWINGS.put(self.getUuid(), predicted);
-		self.getWorld().playSound(self, self.getX(), self.getY() + 1.0, self.getZ(), ChainsawSounds.SLASH, SoundCategory.PLAYERS, 1.0F, 1.0F);
+		// The engine's snarl (climbing through a flurry), the blade through the air, the view's kick.
+		SwingFx.swung((ClientWorld) self.getWorld(), self, step, now, true);
 		if (wielding) {
 			self.swingHand(Hand.MAIN_HAND);
 		}
@@ -778,6 +792,7 @@ public final class ClientCombat {
 			}
 		}
 		MergeCinematic.tick(world);
+		SwingFx.tick(world, now);
 		CutDown.tick(world);
 		Severed.tick(world);
 		swing(client, self);
@@ -963,6 +978,7 @@ public final class ClientCombat {
 		CutDown.clear();
 		LensBlood.clear();
 		Sfx.clear();
+		SwingFx.clear();
 		Severed.clear();
 		SawTrails.clear();
 		LOST.clear();

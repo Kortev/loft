@@ -89,7 +89,8 @@ public final class LensBlood {
 				continue;
 			}
 			float alpha = 0.95F * Math.min(1.0F, t / 1.5F) * (1.0F - MathHelper.clamp((t - LASTS * 0.5F) / (LASTS * 0.5F), 0.0F, 1.0F));
-			int size = (int) (h * s.size());
+			// (A share of the screen's shorter side: on a tall screen, still out at the edges, not over the middle.)
+			int size = (int) (Math.min(w, h) * s.size());
 			// Sliding a little way down, slower and slower, as it runs.
 			int x = (int) (w * s.x()) - size / 2;
 			int y = (int) (h * s.y() + h * 0.05F * (1.0F - (float) Math.exp(-t / 15.0F))) - size / 2;
