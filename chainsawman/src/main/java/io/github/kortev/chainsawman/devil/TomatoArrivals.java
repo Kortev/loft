@@ -38,10 +38,11 @@ public final class TomatoArrivals {
 	public static final double NIGHT_CHANCE = 0.4;
 	/** How often a player is rolled for (ticks). */
 	public static final int ROLL_EVERY = 200;
-	/** The night by the clock ({@link TomatoDevilEntity#night}): 13000 to 23000. */
-	static final int NIGHT_TICKS = 10000;
-	/** One roll's chance: {@code 1 - (1 - NIGHT_CHANCE)^(1 / rolls a night)}. */
-	public static final double ROLL_CHANCE = 1.0 - Math.pow(1.0 - NIGHT_CHANCE, 1.0 / (NIGHT_TICKS / (double) ROLL_EVERY));
+	/** When in the night arrivals come (time of day): only in the real dark, after the dusk sky has gone and before dawn's shows. */
+	public static final long ARRIVE_FROM = 13800L;
+	public static final long ARRIVE_TO = 22000L;
+	/** One roll's chance: {@code 1 - (1 - NIGHT_CHANCE)^(1 / rolls in the window)}. */
+	public static final double ROLL_CHANCE = 1.0 - Math.pow(1.0 - NIGHT_CHANCE, 1.0 / ((ARRIVE_TO - ARRIVE_FROM) / (double) ROLL_EVERY));
 	public static final double NEAR_MIN = 14.0;
 	public static final double NEAR_MAX = 18.0;
 	public static final double CLEAR = 128.0;
@@ -63,6 +64,12 @@ public final class TomatoArrivals {
 	/** The night number of the world's clock now (night N runs from dusk of day N to dawn of day N + 1). */
 	public static long night(World world) {
 		return Math.floorDiv(world.getTimeOfDay() - 13000L, 24000L);
+	}
+
+	/** Whether the clock is in the arrivals' window ({@link #ARRIVE_FROM} to {@link #ARRIVE_TO}). */
+	public static boolean dark(World world) {
+		long t = Math.floorMod(world.getTimeOfDay(), 24000L);
+		return t >= ARRIVE_FROM && t <= ARRIVE_TO;
 	}
 
 	/** Whether {@code player} is in a quiet spell tonight. */
@@ -89,19 +96,25 @@ public final class TomatoArrivals {
 
 	/** Whether the world brings arrivals now: the overworld, a night by the clock from the second on, mob spawning on, not in peace. */
 	public static boolean nightFor(ServerWorld world) {
-		return world.getRegistryKey() == World.OVERWORLD && world.getTimeOfDay() >= 24000L && TomatoDevilEntity.night(world)
+		return world.getRegistryKey() == World.OVERWORLD && world.getTimeOfDay() >= 24000L && dark(world)
 				&& world.getDifficulty() != Difficulty.PEACEFUL && world.getGameRules().getBoolean(GameRules.DO_MOB_SPAWNING);
 	}
 
 	/** An arrival at {@code player}, if everything allows one now (the roll already won: the tests and the film call it to force one). The arrival begun, or null. */
 	@Nullable
 	public static TomatoArrivalEntity arrive(ServerPlayerEntity player) {
+		return arrive(player, player.getYaw());
+	}
+
+	/** {@link #arrive(ServerPlayerEntity)}, the spot looked for around {@code look} (a yaw) rather than the player's look (the film's takes). */
+	@Nullable
+	public static TomatoArrivalEntity arrive(ServerPlayerEntity player, float look) {
 		ServerWorld world = player.getServerWorld();
 		if (whyNot(player) != null) {
 			return null;
 		}
 		long night = night(world);
-		Vec3d spot = spot(world, player);
+		Vec3d spot = spot(world, player, look);
 		if (spot == null || crowded(world, spot)) {
 			return null;
 		}
@@ -195,8 +208,12 @@ public final class TomatoArrivals {
 	 */
 	@Nullable
 	public static Vec3d spot(ServerWorld world, ServerPlayerEntity player) {
+		return spot(world, player, player.getYaw());
+	}
+
+	@Nullable
+	static Vec3d spot(ServerWorld world, ServerPlayerEntity player, float look) {
 		Random r = world.getRandom();
-		float look = player.getYaw();
 		for (int i = 0; i < 48; i++) {
 			float yaw = i < 24 ? look + (r.nextFloat() - 0.5F) * 100.0F : r.nextFloat() * 360.0F;
 			double d = NEAR_MIN + r.nextDouble() * (NEAR_MAX - NEAR_MIN);

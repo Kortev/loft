@@ -37,8 +37,8 @@ final class TomatoFirstNight {
 	private TomatoFirstNight() {
 	}
 
-	/** The world's second night, a moment before the clock calls it night (13000). */
-	static final long START = 24000L + 12900L;
+	/** The world's second night, a moment before arrivals may come ({@link TomatoArrivals#ARRIVE_FROM}). */
+	static final long START = 24000L + TomatoArrivals.ARRIVE_FROM - 100L;
 
 	private static int step;
 	private static int sub;

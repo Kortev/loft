@@ -559,7 +559,7 @@ public class TomatoGameTests implements FabricGameTest {
 		context.complete();
 	}
 
-	/** Under a roof, or by day, nothing comes. */
+	/** Under a roof, by day, in the dusk or toward dawn, nothing comes; at the start of the real dark it may. */
 	@GameTest(templateName = EMPTY_STRUCTURE, batchId = "tomato_arrive_roof", tickLimit = 20)
 	public void no_arrival_underground_or_by_day(TestContext context) {
 		plain(context);
@@ -572,6 +572,12 @@ public class TomatoGameTests implements FabricGameTest {
 			context.getWorld().setBlockState(roof, Blocks.AIR.getDefaultState());
 			context.getWorld().setTimeOfDay(24000L + 6000L);
 			context.assertTrue(force(context, p) == null, "an arrival came by day");
+			context.getWorld().setTimeOfDay(24000L + TomatoArrivals.ARRIVE_FROM - 500L);
+			context.assertTrue(force(context, p) == null, "an arrival came in the dusk, before the real dark");
+			context.getWorld().setTimeOfDay(24000L + TomatoArrivals.ARRIVE_TO + 500L);
+			context.assertTrue(force(context, p) == null, "an arrival came toward dawn, after the real dark");
+			context.getWorld().setTimeOfDay(24000L + TomatoArrivals.ARRIVE_FROM + 50L);
+			context.assertTrue(force(context, p) != null, "no arrival at the start of the real dark: " + lastWhy);
 		} finally {
 			context.getWorld().setBlockState(roof, Blocks.AIR.getDefaultState());
 			back.run();
