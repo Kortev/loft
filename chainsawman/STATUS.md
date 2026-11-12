@@ -18,9 +18,10 @@ at once: five made tests time out. Every film adds a line to `test/mixin/FilmFra
 - Merged 2026-11-11 (332 tests): 2.2a Tomato night arrival; 0.1d arm swings; 2.1a notice board, licence,
   yen; 3.3 Leech round 1 (summon only); 0.1e hotel stairs and loop; 3.9 devils grow (2 rounds); 0.1g hotel corridor look; 0.1f Eternity arena (new fight, one look). kortev has the films.
 - Leech round 2 merged (reach fighter; summon only). Hotel test timeouts fixed in 0.1g (`READY_WAIT`).
-- Nothing running. Arena weak spots: grey mouth mass, pale slab arm, all one red, frame cost unmeasured.
+- **Improvement round** (kortev: fix the weak spots, make the strong stronger): `packages/improve_round_2.md`.
+  Running: `eternity-arena-2`, `hotel-corridor-2`. Queued: Leech r3, Tomato r3, board and swings. Then reels.
 - kortev (2026-11-11): as many reels as possible from every thing built: keep raw footage, list reel ideas.
-- After those: the office and shop. Scope: one player, friends ok.
+- After the round: reels, then the office and shop. Scope: one player, friends ok.
 - Merged earlier: Tomato round 2, seeds in 3 hits, the teaser (kortev posts `work/tomato/teaser.mp4`).
 - Flaky, pass on a rerun: `each_fighter_gets_the_whole_drop`, two form tests, a Beam missile test.
 
