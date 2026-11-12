@@ -18,8 +18,8 @@ tests (rerun once on a flake), then send the film (over 30 MB: a `_phone.mp4` co
   yen; 3.3 Leech round 1 (summon only); 0.1e hotel stairs and loop; 3.9 devils grow (2 rounds); 0.1g hotel corridor look; 0.1f Eternity arena (new fight, one look). kortev has the films.
 - kortev: the Leech is tiny, not the anime's epic fight. Devils but the Tomato are giant set-pieces.
 - **Improvement round** (kortev: fix the weak spots, make the strong stronger): `packages/improve_round_2.md`.
-  Running: `eternity-arena-2`, `hotel-corridor-2`, `leech-giant` (from `leech-round3`), `office-shop`.
-  Queued: Tomato r3 (after the Leech), the swings' polish. Then reels.
+  Running (two at a time: four at once hit the 5-hour limit): `leech-giant`, `office-shop` (2.3a).
+  Paused mid-work, resume by SendMessage: `eternity-arena-2`, `hotel-corridor-2`. Then Tomato r3, swings.
 - kortev (2026-11-11): as many reels as possible from every thing built: keep raw footage, list reel ideas.
 - Scope: one player, friends ok.
 - Merged earlier: Tomato round 2, seeds in 3 hits, the teaser (kortev posts `work/tomato/teaser.mp4`).
