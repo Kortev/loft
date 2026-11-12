@@ -54,11 +54,15 @@ Reel: "I added Public Safety to Minecraft."
 
 ### M3. Devils in the world
 
+kortev (2026-11-11): the Tomato is fine small (it died before it had powers), "but the other devils are like
+stronger": the Leech "feels nothing like the anime... an epic fight". So every devil below except the Tomato is a
+giant set-piece fight at the anime's scale, with a staged arrival, not a roaming mob.
+
 | # | Package | Size | Gate |
 |---|---|---|---|
 | 3.1 | The Zombie Devil and its zombies | M | kortev's yes on the concept (waiting) |
 | 3.2 | The Bat Devil | M | kortev's yes on the concept (waiting) |
-| 3.3 | The Leech Devil | round 1 merged 2026-11-11 (308 tests) | `packages/3.3_leech_devil.md`: model, tongue, latch, trample; summon only. Round 2 merged 2026-11-11 (`packages/3.3b_leech_round2.md`): wrinkled body, a reach fighter whose limbs you cut. |
+| 3.3 | The Leech Devil | round 1 merged 2026-11-11 (308 tests) | `packages/3.3_leech_devil.md`: model, tongue, latch, trample; summon only. Round 2 merged 2026-11-11 (`packages/3.3b_leech_round2.md`). **kortev: tiny and nothing like the anime.** Round 3 (`3.3c`) rebuilds it as a giant. |
 | 3.4 | The Tomato Devil (the weak first-night devil) [pick] | merged 2026-11-10 (274 tests) | Brief `packages/3.4_tomato_devil.md`; the `devil/` lane exists (0.6 done). Round 2 merged 2026-11-10 (282 tests): `packages/3.4b_tomato_round2.md`. The horror short merged 2026-11-10 (`packages/3.4c_tomato_cinematic.md`); a sound pass and a 7.7 s teaser followed the same day. kortev has all three videos. 3.4d merged (283 tests): seeds can be cut up in three hits. |
 | 3.5 | Nests, spawn rules, parts | M | |
 | 3.6 | Mission kinds, and one trick per devil | S | Fear and the bounty moved to the server legend update |

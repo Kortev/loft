@@ -10,6 +10,10 @@ Reels are cut after this round, from the improved footage, not before.
 
 ## Queue 1: the Leech Devil, round 3 (branch `leech-round3`)
 
+**Replaced 2026-11-11.** kortev: the Leech is tiny and nothing like the anime's epic fight. Round 3 is now the
+Leech as a giant (9 tall, 16 long, fought by its parts, an arrival seen from far): `3.3c_leech_round3.md`.
+The notes below are kept only as a record; the water arrival and growth are dropped.
+
 Weak: the view tilts down and fills while cutting an arm; at night the olive body is lost against grass; the
 slow body turn isn't on film; no sound has been heard.
 - Readable at night: a wet rim of highlight along its back and limbs, the paler belly, the pale suckers and the

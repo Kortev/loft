@@ -8,6 +8,8 @@ Checked on 2026-11-09. Covers up to chapter 52 only.
 - Long black hair, and three pairs of udder-like glands on the body. (one source: wiki)
 - Colour: yellowish in the coloured manga; dark, real-leech colours in the anime. (one source: wiki)
 - Size: much bigger than Denji; the Fox's head takes her whole head in one bite. (wiki + search)
+- **Scale, from kortev who has seen it (2026-11-11): in the anime this is an epic fight against a giant, not a
+  crawling thing a few blocks tall.** The wiki gives no measurement. Ours: about 9 blocks tall, 16 long [pick].
 
 ## Does
 - Ch 9 / ep 4: just after Denji kills the Bat Devil and frees Power and Meowy, she arrives and blasts a hole through his forearm, taking his hand off. (wiki + search)
