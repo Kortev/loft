@@ -45,7 +45,7 @@ told from the other eight; the grown fight film is long and shows no danger; saw
   that gets there and say what it was).
 - Film: the arrival, the growth still, a grown fight a careful person would actually have.
 
-## Queue 3: the notice board and the arm swings, a small polish (branch `polish-board-swings`)
+## Queue 3: the arm swings, a small polish (the board's polish moved into `2.3a_office_and_shop.md`)
 
 The board (weak: a plain plank wall; one village filmed; a comeback counts as a second kill; the film's dead
 ending): a proper notice board (posts, a small roof, a lantern, a few pinned papers beside the poster, the

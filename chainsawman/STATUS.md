@@ -18,9 +18,10 @@ tests (rerun once on a flake), then send the film (over 30 MB: a `_phone.mp4` co
   yen; 3.3 Leech round 1 (summon only); 0.1e hotel stairs and loop; 3.9 devils grow (2 rounds); 0.1g hotel corridor look; 0.1f Eternity arena (new fight, one look). kortev has the films.
 - The Leech is summon only (its arrival is queued). Hotel tests keep `+ READY_WAIT`.
 - **Improvement round** (kortev: fix the weak spots, make the strong stronger): `packages/improve_round_2.md`.
-  Running: `eternity-arena-2`, `hotel-corridor-2`. Queued: Leech r3, Tomato r3, board and swings. Then reels.
+  Running: `eternity-arena-2`, `hotel-corridor-2`, `leech-round3`, `office-shop` (2.3a, with the board's
+  polish). Queued: Tomato r3 (after the Leech: same files), the swings' polish. Then reels.
 - kortev (2026-11-11): as many reels as possible from every thing built: keep raw footage, list reel ideas.
-- After the round: reels, then the office and shop. Scope: one player, friends ok.
+- Scope: one player, friends ok.
 - Merged earlier: Tomato round 2, seeds in 3 hits, the teaser (kortev posts `work/tomato/teaser.mp4`).
 - Flaky, pass on a rerun: `each_fighter_gets_the_whole_drop`, two form tests, a Beam missile test.
 
