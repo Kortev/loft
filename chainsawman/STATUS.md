@@ -16,9 +16,9 @@ Builders each work on a branch with a brief in `plan/packages/`. Review, merge o
 tests (rerun once on a flake), then send the film (over 30 MB: a `_phone.mp4` copy). Two builders at once.
 - Merged 2026-11-11 (332 tests): 2.2a Tomato night arrival; 0.1d arm swings; 2.1a notice board, licence,
   yen; 3.3 Leech round 1 (summon only); 0.1e hotel stairs and loop; 3.9 devils grow (2 rounds); 0.1g hotel corridor look; 0.1f Eternity arena (new fight, one look). kortev has the films.
-- kortev: the Leech is tiny, not the anime's epic fight. Every devil but the Tomato is a giant set-piece.
+- kortev: the Leech is tiny, not the anime's epic fight. Devils but the Tomato are giant set-pieces.
 - **Improvement round** (kortev: fix the weak spots, make the strong stronger): `packages/improve_round_2.md`.
-  Running: `eternity-arena-2`, `hotel-corridor-2`, `leech-round3` (the giant), `office-shop` (2.3a).
+  Running: `eternity-arena-2`, `hotel-corridor-2`, `leech-giant` (from `leech-round3`), `office-shop`.
   Queued: Tomato r3 (after the Leech), the swings' polish. Then reels.
 - kortev (2026-11-11): as many reels as possible from every thing built: keep raw footage, list reel ideas.
 - Scope: one player, friends ok.
